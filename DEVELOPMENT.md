@@ -524,3 +524,9 @@
 - `scripts/sera_rig.gd` のRUN 4クリップ合成後に限り、既存のv107ルートYaw補正の後で腰（Waist）ルートへ局所Z軸のQuaternionを左乗算する。ワールド位置、衝突、移動入力・カメラ、非RUNアニメには適用しない。状態遷移時は従来ポーズブレンドの中で自然に傾きを解消する。
 - 変更：`scripts/sera_rig.gd`、`project.godot`、`DEVELOPMENT.md`。追加：`README_v109_ja.md`、`tools/v109_run_turn_bank_self_check.py`。
 - GitHubコネクタ経由でコードと変更範囲を静的点検。Godot/Android実機での動作確認は未実施。
+
+## v110（2026-11-07） — RUN方向転換の最大傾斜角を15度へ
+- 基準：GitHub main `fbf714088a3edf1e788ec0b1d71103d9b76ad8ee`（v109）。ユーザー指定によりRUN方向転換の最大バンク角 `RUN_TURN_MAX_LEAN_DEGREES` のみ5.0→15.0度へ変更。
+- 旋回角速度からの換算・立ち上がり0.06秒・復元0.20秒、v108の連続4方向RUNブレンド、v107の腰ルート向き補正、戦闘/入力/カメラ/移動/当たり判定/アセットは変更しない。
+- 変更：`scripts/sera_rig.gd`、`tools/v109_run_turn_bank_self_check.py`（現行角度への追従）、`project.godot`、`DEVELOPMENT.md`。追加：`README_v110_ja.md`、`tools/v110_run_max_lean_self_check.py`。
+- GitHub上の差分・計算式の静的点検を実施。Godot/Android実機動作は未検証。
