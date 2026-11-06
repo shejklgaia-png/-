@@ -543,3 +543,9 @@
 - `scripts/main.gd` の上部HUDに `HAND: RIGHT/LEFT` ボタンを追加し、`ConfigFile` で `user://sera_settings.cfg` へ保存。次回起動時に復元、走行中でも変更可能。HUD内タッチは従来どおりプレイヤー操作として扱わない。
 - 変更：`scripts/sera_rig.gd`、`scripts/main.gd`、`project.godot`、`DEVELOPMENT.md`、`docs/SERA_INPUT_MOVEMENT_CAMERA.md`、`tools/v111_two_mode_run_self_check.py`。追加：`README_v112_ja.md`、`tools/v112_handed_run_mode_self_check.py`。
 - コード構造・数値遷移を静的点検。Godot/Android実機での操作は未検証。
+
+## 2026-11-07 — GitSync同期トリガーをGitHub Actionsへ追加（ゲームバージョン変更なし）
+- `main` pushでntfyへ固定本文 `SERA_SYNC_MAIN` を送る `.github/workflows/sera-gitsync-notify.yml` を追加。 `workflow_dispatch` による手動試験も可能。リポジトリのコードは取得せず、Secretsの `SERA_NTFY_TOPIC` を利用。
+- Secret未設定では送信せず通知ログだけ。トピックは24～64文字・英数字/ハイフン/下線に制限。通知本文にコミット・プライベートファイル名を含めず、サーバーへの送信成功のみを報告。
+- `docs/GITSYNC_AUTO_SYNC_SETUP_JA.md` にntfy購読、Taskerの `MESSAGE_RECEIVED` → GitSync `INTENT_SYNC`、Godot稼働中の同期待機・旧アプリ起動同期OFF・E2E検証の手順を記載。
+- Godot `project.godot` とコード・アセットは無変更。ゲームv112維持（Godot表示名「スキャンテスト」も維持）。Android側Tasker設定・GitHub Secret登録はユーザー操作が必要で、実機E2Eは未確認。
