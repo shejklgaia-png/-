@@ -510,3 +510,10 @@
 - `scripts/sera_rig.gd` 内のRUN 4クリップだけを対象に `Waist` の回転と相対位置をワールドY軸基準-90度のQuaternionで補正。ブレンド前に適用し、180度オイラー姿勢を含む左右クリップも正しく補正。入力方向選択・プレイヤーの向き・通常の移動位置・カメラ・格闘・ブースト・ステップ・その他のモーションとモデルデータは変更しない。
 - 変更：`scripts/sera_rig.gd`、`project.godot`、`DEVELOPMENT.md`。追加：`README_v107_ja.md`、`tools/v107_run_facing_self_check.py`。
 - JSONアニメーションの数値・補正後の4方向の軸向き・変更範囲をGitHubコネクタ経由で確認。Godot/Android実機の動作テストは未実施。
+
+## v108（2026-11-07） — 4方向RUNの連続ポーズブレンド
+- 基準：GitHub main v107（`65d8e874bf49f8d7c2192416d578564830956047`）。4方向走行の切替を滑らかにするため、前/後/右/左の離散的クリップ選択を廃止。
+- ターゲット基準の移動入力から前後左右4方向の重みを計算し、1秒の同期した各RUNクリップを毎フレームQuaternion slerp＋位置/スケールlerpで合成。45度は2方向各50%、方向転換では重みを時定数0.12秒で指数平滑化。RUN中のクリップ切替による位相リセット/都度0.16秒スナップショットを廃止。
+- v107腰ルートの-90度Quaternion補正は各RUNクリップへ合成前に適用。WAIT/BOOST/STEP/攻撃/Guardなどへの遷移は従来のポーズスナップショットを用いる。
+- 変更：`scripts/sera_rig.gd`、`scripts/main.gd`（デバッグHUD表示のみ）、`project.godot`、`tools/v107_run_facing_self_check.py`、`DEVELOPMENT.md`。追加：`README_v108_ja.md`、`tools/v108_run_blend_self_check.py`。音声/カメラ/移動/当たり判定/アセットと元キーフレームは不変。
+- Python/モデル参照/ブレンド重みの静的検査、差分の確認を実施。Godotランタイム/Android実機のモーション確認は未実施。

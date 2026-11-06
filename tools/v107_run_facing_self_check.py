@@ -14,9 +14,10 @@ assert len(model["animations"]) == 17
 assert uid == "67435cb7-b6af-23e4-10f1-3cd13d8429fa"
 assert f'RUN_ROOT_BONE_UUID: String = "{uid}"' in rig
 assert "RUN_ROOT_YAW_OFFSET_RADIANS: float = -PI * 0.5" in rig
-assert "if uid == RUN_ROOT_BONE_UUID and current_clip in RUN_CLIPS:" in rig
-assert "q = run_yaw_correction * q" in rig
-assert "translation = run_yaw_correction * translation" in rig
+assert "if uid == RUN_ROOT_BONE_UUID:" in rig
+assert "sample_rotation = run_yaw_correction * sample_rotation" in rig
+assert "sample_translation = run_yaw_correction * sample_translation" in rig
+assert "var pose: Dictionary = _blended_run_pose(str(uid), t)" in rig
 
 def corrected_facing(clip_name):
     # Blockbench ZYX rotation; Godot applies a world-space -90-degree yaw first.
