@@ -112,6 +112,8 @@ const HIT_STOP_SECONDS: float = 0.060
 const HIT_FLASH_SECONDS: float = 0.145
 const TARGET_RESPAWN_SECONDS: float = 1.35
 enum CombatState { IDLE, MELEE_APPROACH, DASH, STRIKE }
+# v112: Persistent handedness changes RUN animation selection only.
+const HANDEDNESS_SETTINGS_FILE: String = "user://sera_settings.cfg"
 const DEADZONE: float = 0.095
 const DRAG_RADIUS: float = 168.0  # v73: retain v72 outer diameter for the single RUN disc.
 const CAMERA_FOLLOW_RATE: float = 1.65
@@ -175,7 +177,9 @@ var damage_knockback_elapsed: float = 0.0
 var damage_knockback_direction: Vector3 = Vector3.ZERO
 var touch_ui: Control
 var state_label: Label
-var hud_panel: Panel  # v55: inert compact header, used to filter touch input over the HUD.
+var hud_panel: Panel  # v55: compact header; a single v112 preference button receives touch.
+var handedness_button: Button
+var left_handed: bool = false
 var step_status_label: Label
 var step_detail_label: Label
 var step_hud_touch: int = -1
@@ -268,6 +272,7 @@ var strike_prev_time: float = 0.0
 var strike_prev_blade: PackedVector3Array = PackedVector3Array()
 
 func _ready() -> void:
+    _load_handedness_preference()
     _build_world()
     _build_character()
     _build_target()
@@ -277,6 +282,27 @@ func _ready() -> void:
     _build_hit_effects()
     _build_motion_blur()
     _update_target_marker_projection()  # Initial position before the first rendered frame.
+
+func _load_handedness_preference() -> void:
+    var settings := ConfigFile.new()
+    if settings.load(HANDEDNESS_SETTINGS_FILE) == OK:
+        left_handed = bool(settings.get_value("controls", "left_handed", false))
+
+func _toggle_handedness() -> void:
+    left_handed = not left_handed
+    if rig != null:
+        rig.call("set_run_left_handed", left_handed)
+    _refresh_handedness_button()
+    var settings := ConfigFile.new()
+    settings.load(HANDEDNESS_SETTINGS_FILE)
+    settings.set_value("controls", "left_handed", left_handed)
+    var save_result: Error = settings.save(HANDEDNESS_SETTINGS_FILE)
+    if save_result != OK:
+        push_warning("Could not save SERA handedness setting: %d" % save_result)
+
+func _refresh_handedness_button() -> void:
+    if handedness_button != null:
+        handedness_button.text = "HAND: LEFT" if left_handed else "HAND: RIGHT"
 
 func _build_world() -> void:
     var world := WorldEnvironment.new()
@@ -588,6 +614,21 @@ func _build_overlay() -> void:
     heading.add_theme_color_override("font_color", Color("dceef2"))
     heading.mouse_filter = Control.MOUSE_FILTER_IGNORE
     hud_panel.add_child(heading)
+
+    # A compact in-game setting, separate from the drag area and combat UI.
+    # Button sits between the combat title and the right-side STEP telemetry.
+    handedness_button = Button.new()
+    handedness_button.name = "HandednessToggle"
+    handedness_button.position = Vector2(226.0, 11.0)
+    handedness_button.size = Vector2(176.0, 35.0)
+    handedness_button.focus_mode = Control.FOCUS_NONE
+    handedness_button.mouse_filter = Control.MOUSE_FILTER_STOP
+    handedness_button.add_theme_font_size_override("font_size", 14)
+    handedness_button.pressed.connect(_toggle_handedness)
+    hud_panel.add_child(handedness_button)
+    _refresh_handedness_button()
+    if rig != null:
+        rig.call("set_run_left_handed", left_handed)
 
     state_label = Label.new()
     state_label.name = "ActionState"

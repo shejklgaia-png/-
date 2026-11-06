@@ -43,9 +43,12 @@ const GUARD_CLIP: String = "Guard"
 const RUN_ANIMATION_SPEED: float = 1.5  # Motion playback only; does not change movement speed
 # v108: Continuous four-way pose blending; 0.12s response for direction changes.
 const RUN_DIRECTION_BLEND_SECONDS: float = 0.12
-# v111: two motion modes, biased front hemisphere, root heading + segmented gaze.
-const RUN_FORWARD_TO_RETREAT_ANGLE_DEGREES: float = 105.0
-const RUN_RETREAT_TO_FORWARD_ANGLE_DEGREES: float = 95.0
+# v112: Give the dominant-thumb side a larger forward RUN sector.
+# Right-hand preset widens LEFT; left-hand preset mirrors it to RIGHT.
+# The other side retains v111's center 100° and ±5° hysteresis.
+const RUN_MODE_BASE_CENTER_DEGREES: float = 100.0
+const RUN_PREFERRED_SIDE_EXTRA_DEGREES: float = 20.0
+const RUN_MODE_HYSTERESIS_DEGREES: float = 5.0
 const RUN_MODE_BLEND_SECONDS: float = 0.18
 const RUN_UPPER_TRACKING_SECONDS: float = 0.10
 const RUN_ROOT_TURN_SPEED_DEGREES: float = 450.0
@@ -73,6 +76,7 @@ var clip_time: float = 0.0
 # RUN has only two authored base poses; direction changes rotate the rendered
 # root without touching CharacterBody3D's target-facing transform or collider.
 var run_motion_initialized: bool = false
+var run_left_handed: bool = false  # Right-handed by default.
 var run_direction_target: Vector2 = Vector2(0.0, 1.0)
 var run_direction_smoothed: Vector2 = Vector2(0.0, 1.0)
 var run_retreat_mode: bool = false
@@ -478,18 +482,39 @@ func finish_guard() -> void:
     guard_playback = false
     _switch_clip(WAIT_CLIP, 0.11)
 
-# Input is in target-relative coordinates (X right, Y toward target).
-# Favor running: the nominal forward sector spans 200 degrees, but mode
-# hysteresis prevents jitter when the input moves around the 100-degree edge.
+# Input is target-relative (X right, Y toward target); never rotate the
+# actual movement vector, touch input, step direction or player collision.
+func _run_forward_sector_center(direction: Vector2) -> float:
+    var favored_side: bool = (
+        (direction.x < 0.0 and not run_left_handed)
+        or (direction.x > 0.0 and run_left_handed))
+    return RUN_MODE_BASE_CENTER_DEGREES + (
+        RUN_PREFERRED_SIDE_EXTRA_DEGREES if favored_side else 0.0)
+
+func _run_input_angle_degrees(direction: Vector2) -> float:
+    return absf(rad_to_deg(atan2(direction.x, direction.y)))
+
+func set_run_left_handed(enabled: bool) -> void:
+    if run_left_handed == enabled:
+        return
+    run_left_handed = enabled
+    if run_motion_initialized:
+        # Explicit preset changes should update the active gait immediately,
+        # but existing crossfade / root yaw limits still smooth the visual pose.
+        run_retreat_mode = (_run_input_angle_degrees(run_direction_target)
+            > _run_forward_sector_center(run_direction_target))
+
 func _set_run_motion_direction(local_direction: Vector2) -> void:
     if local_direction.length_squared() < 0.000001:
         return
     var direction: Vector2 = local_direction.normalized()
+    var angle: float = _run_input_angle_degrees(direction)
+    var edge_center: float = _run_forward_sector_center(direction)
     if not run_motion_initialized or current_clip not in RUN_CLIPS:
         run_motion_initialized = true
         run_direction_target = direction
         run_direction_smoothed = direction
-        run_retreat_mode = (direction.y < cos(deg_to_rad(100.0)))
+        run_retreat_mode = angle > edge_center
         run_retreat_blend = 1.0 if run_retreat_mode else 0.0
         run_facing_yaw = _run_yaw_for_direction(direction, run_retreat_mode)
         run_upper_yaw_offsets = _run_joint_yaw_targets()
@@ -497,10 +522,12 @@ func _set_run_motion_direction(local_direction: Vector2) -> void:
         run_turn_lean_degrees = 0.0
         return
     run_direction_target = direction
+    # Keep the existing ±5° hysteresis on BOTH sides of each center;
+    # widening the favored side affects only RUN/retreat selection.
     if run_retreat_mode:
-        if direction.y > cos(deg_to_rad(RUN_RETREAT_TO_FORWARD_ANGLE_DEGREES)):
+        if angle < edge_center - RUN_MODE_HYSTERESIS_DEGREES:
             run_retreat_mode = false
-    elif direction.y < cos(deg_to_rad(RUN_FORWARD_TO_RETREAT_ANGLE_DEGREES)):
+    elif angle > edge_center + RUN_MODE_HYSTERESIS_DEGREES:
         run_retreat_mode = true
 
 func _run_yaw_for_direction(direction: Vector2, retreat: bool) -> float:
