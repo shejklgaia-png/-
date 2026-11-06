@@ -1,0 +1,144 @@
+{
+  "version": 34,
+  "passed": 34,
+  "total": 34,
+  "checks": [
+    {
+      "check": "sprite samples target only with ray-box",
+      "pass": true
+    },
+    {
+      "check": "sprite renders above target without depth test",
+      "pass": true
+    },
+    {
+      "check": "sprite fades only target silhouette",
+      "pass": true
+    },
+    {
+      "check": "sprite shader appears structurally balanced",
+      "pass": true
+    },
+    {
+      "check": "volume samples target only with ray-box",
+      "pass": true
+    },
+    {
+      "check": "volume renders above target without depth test",
+      "pass": true
+    },
+    {
+      "check": "volume fades only target silhouette",
+      "pass": true
+    },
+    {
+      "check": "volume shader appears structurally balanced",
+      "pass": true
+    },
+    {
+      "check": "particle samples target only with ray-box",
+      "pass": true
+    },
+    {
+      "check": "particle renders above target without depth test",
+      "pass": true
+    },
+    {
+      "check": "particle fades only target silhouette",
+      "pass": true
+    },
+    {
+      "check": "particle shader appears structurally balanced",
+      "pass": true
+    },
+    {
+      "check": "volume near-transparent texels never force opaque alpha",
+      "pass": true
+    },
+    {
+      "check": "volume still back-face culled",
+      "pass": true
+    },
+    {
+      "check": "player overlay material installed",
+      "pass": true
+    },
+    {
+      "check": "player overlay enabled only when slash visible",
+      "pass": true
+    },
+    {
+      "check": "render priority order volume<flat<particle<player",
+      "pass": true
+    },
+    {
+      "check": "player overlay depth-test disabled",
+      "pass": true
+    },
+    {
+      "check": "player overlay original palette",
+      "pass": true
+    },
+    {
+      "check": "no extra z offset on slash",
+      "pass": true
+    },
+    {
+      "check": "both volume and texture share rig bone/mesh",
+      "pass": true
+    },
+    {
+      "check": "all original geometry files preserved",
+      "pass": true
+    },
+    {
+      "check": "all original 8 frame texture data preserved",
+      "pass": true
+    },
+    {
+      "check": "Blockbench data preserved",
+      "pass": true
+    },
+    {
+      "check": "main combat, input and camera unchanged",
+      "pass": true
+    },
+    {
+      "check": "no shader alpha floor on volume",
+      "pass": true
+    },
+    {
+      "check": "target bounds match game cube",
+      "pass": true
+    },
+    {
+      "check": "target moved dynamically",
+      "pass": true
+    },
+    {
+      "check": "raybox center silhouette visible from camera (-4, 2, 4)",
+      "pass": true
+    },
+    {
+      "check": "raybox outside target from camera (-4, 2, 4)",
+      "pass": true
+    },
+    {
+      "check": "raybox center silhouette visible from camera (4, 2, 4)",
+      "pass": true
+    },
+    {
+      "check": "raybox outside target from camera (4, 2, 4)",
+      "pass": true
+    },
+    {
+      "check": "raybox center silhouette visible from camera (0, 3, 4)",
+      "pass": true
+    },
+    {
+      "check": "raybox outside target from camera (0, 3, 4)",
+      "pass": true
+    }
+  ],
+  "runtime_test": "not available (Godot binary not installed)"
+}

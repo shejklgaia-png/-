@@ -1,0 +1,82 @@
+[
+  {
+    "frame": 0,
+    "base_alpha_max": 187,
+    "components_kept": 1,
+    "components_rejected": 8,
+    "volume_points": 30,
+    "volume_triangles": 30,
+    "volume_max_height": 0.02046,
+    "emitters": 110
+  },
+  {
+    "frame": 1,
+    "base_alpha_max": 210,
+    "components_kept": 2,
+    "components_rejected": 15,
+    "volume_points": 252,
+    "volume_triangles": 296,
+    "volume_max_height": 0.064,
+    "emitters": 110
+  },
+  {
+    "frame": 2,
+    "base_alpha_max": 245,
+    "components_kept": 1,
+    "components_rejected": 16,
+    "volume_points": 667,
+    "volume_triangles": 745,
+    "volume_max_height": 0.064,
+    "emitters": 110
+  },
+  {
+    "frame": 3,
+    "base_alpha_max": 245,
+    "components_kept": 1,
+    "components_rejected": 20,
+    "volume_points": 1065,
+    "volume_triangles": 1214,
+    "volume_max_height": 0.064,
+    "emitters": 110
+  },
+  {
+    "frame": 4,
+    "base_alpha_max": 245,
+    "components_kept": 2,
+    "components_rejected": 24,
+    "volume_points": 1446,
+    "volume_triangles": 1673,
+    "volume_max_height": 0.064,
+    "emitters": 110
+  },
+  {
+    "frame": 5,
+    "base_alpha_max": 189,
+    "components_kept": 1,
+    "components_rejected": 25,
+    "volume_points": 1440,
+    "volume_triangles": 1653,
+    "volume_max_height": 0.064,
+    "emitters": 110
+  },
+  {
+    "frame": 6,
+    "base_alpha_max": 96,
+    "components_kept": 1,
+    "components_rejected": 20,
+    "volume_points": 1344,
+    "volume_triangles": 1519,
+    "volume_max_height": 0.064,
+    "emitters": 110
+  },
+  {
+    "frame": 7,
+    "base_alpha_max": 25,
+    "components_kept": 3,
+    "components_rejected": 14,
+    "volume_points": 312,
+    "volume_triangles": 343,
+    "volume_max_height": 0.064,
+    "emitters": 110
+  }
+]

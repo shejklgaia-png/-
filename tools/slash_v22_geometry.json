@@ -1,0 +1,17 @@
+{
+  "sweep_start": 0.08333333,
+  "sweep_end": 0.215,
+  "reveal_png_size": [
+    1024,
+    1536
+  ],
+  "constants": {
+    "START_TIP_LOCAL": "Vector3(-0.68624800, 2.15602311, -0.86768963)",
+    "PLANE_CENTER_LOCAL": "Vector3(-0.11531478, 1.37694545, -1.68405490)",
+    "PLANE_RIGHT_LOCAL": "Vector3(-0.79326109, -0.11211247, 0.59847109)",
+    "PLANE_UP_LOCAL": "Vector3(0.11430955, 0.93800432, 0.32723267)",
+    "PLANE_WIDTH": "3.03241767",
+    "PLANE_HEIGHT": "4.54862650"
+  },
+  "maximum_plane_deviation_m": 1.1826508878046702
+}

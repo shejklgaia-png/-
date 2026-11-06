@@ -1,0 +1,37 @@
+{
+  "version": "v41",
+  "base": "v40",
+  "checks": {
+    "0.30s animation time": true,
+    "2 revolutions": true,
+    "sign clockwise on enter": true,
+    "arc rotation": true,
+    "radius interpolation": true,
+    "normal radius": true,
+    "melee radius": true,
+    "normal stroke": true,
+    "melee stroke": true,
+    "ring width switches instantaneously": true,
+    "crosshair unaffected": true,
+    "target threshold remains 0.75m": true,
+    "uses pre-existing distance function": true,
+    "mouse filter unchanged": true,
+    "physics updates marker": true,
+    "start from visible angle": true,
+    "start from visible radius": true,
+    "disable process at completion": true,
+    "ring update per frame": true,
+    "enter exactly 720deg": true,
+    "enter correct endpoint": true,
+    "enter monotone radius": true,
+    "leave exactly 720deg": true,
+    "leave correct endpoint": true,
+    "leave monotone radius": true,
+    "only requested existing files changed": true
+  },
+  "changed_files": [
+    "project.godot",
+    "README_ja.md",
+    "scripts/touch_overlay.gd"
+  ]
+}

@@ -1,0 +1,31 @@
+PASS single flat textured QuadMesh
+PASS no runtime ribbon geometry
+PASS retains v22 full arc artwork and reveal
+PASS target bearing instead of sword rotation
+PASS bearing is level on horizontal plane
+PASS side axis perpendicular to attack
+PASS arc remains upright
+PASS quad normal toward attacker
+PASS target front-surface positioning with diagonal support
+PASS locks target-facing quad transform
+PASS orientation only once at sweep start
+PASS full v22 stroke reveal timing preserved
+PASS hit sparks do not redirect the slash
+PASS shader retains image alpha and progressive reveal
+PASS existing caller interface preserved
+PASS frontal, upright, front of target at bearing (1,0)
+PASS frontal, upright, front of target at bearing (-1,0)
+PASS frontal, upright, front of target at bearing (0,-1)
+PASS frontal, upright, front of target at bearing (0,1)
+PASS frontal, upright, front of target at bearing (1,1)
+PASS frontal, upright, front of target at bearing (-1,1)
+PASS frontal, upright, front of target at bearing (0.3,-2)
+PASS frontal, upright, front of target at bearing (2,0.1)
+PASS v22 unchanged: scripts/main.gd
+PASS v22 unchanged: scripts/sera_rig.gd
+PASS v22 unchanged: scripts/hit_burst.gd
+PASS v22 unchanged: shaders/slash_foil.gdshader
+PASS v22 unchanged: assets/slash_arc_swing_v22.png
+PASS v22 unchanged: assets/slash_arc_swing_reveal_v22.png
+PASS v22 unchanged: scenes/main.tscn
+v23 target-facing static regression checks PASSED

@@ -1,0 +1,23 @@
+{
+  "base": "sera_portrait_godot_melee_v35_cutout_slash",
+  "release": "sera_portrait_godot_melee_v36_flat_shadows",
+  "checks": {
+    "v35 combat script preserved outside ground shadow and target material": true,
+    "no realtime global shadows": true,
+    "no cast shadows from target": true,
+    "no cast shadows from player": true,
+    "player marker exists": true,
+    "target marker exists": true,
+    "shared round shadow shape": true,
+    "target flat shading": true,
+    "v35 source effect hidden": true,
+    "v35 offset preserved": true,
+    "unchanged scripts/sword_trail.gd": true,
+    "unchanged scripts/hit_burst.gd": true,
+    "unchanged scenes/main.tscn": true,
+    "unchanged shaders/sera_foreground.gdshader": true,
+    "unchanged assets/sera_source.json": true
+  },
+  "summary": "15/15 checks passed",
+  "godot_runtime_test": "not performed: Godot executable not available"
+}

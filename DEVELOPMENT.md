@@ -1,0 +1,462 @@
+# v102（2026-11-06）Guardポーズ修正版への差し替え
+
+- 基準：v101 `sera_portrait_godot_melee_v101_hold_guard.zip`。
+- 提供 `SERA_Guardfix.bbmodel` の `Guard` クリップだけ抽出し、`assets/sera_source.json` の旧Guardを置換。ほかのアニメーション・モデル・全操作／被弾ロジックは不変。
+- 22ボーンUUID一致、13ボーンのキーフレーム変更、0秒固定ポーズ形式維持。`tools/rebuild_model_data.py` で `assets/sera_data.gd` を更新。
+- 追加：ユーザー修正版原本、統合モデル、README_v102_ja.md、tools/v102_guardfix_self_check.py。元のv101統合モデルや原本も履歴として保持。
+- `project.godot`：表示名をv102へ更新。Godot本体・Android実機の実行確認なし。
+
+---
+
+# v101（2026-11-06）静止ホールドガード／Guardキー追加
+
+- 基準：ユーザー提供 `sera_portrait_godot_melee_v100_jump_debug_only.zip`（v100）。
+- ユーザー提供 `SERA_Guard.bbmodel` から `Guard` のゼロ秒ポーズを既存モデルに追加。22ボーンUUID完全一致。元モデル・全既存アニメ・テクスチャを保持。
+- `main.gd`：静止ホールド0.32秒（最大軌跡18px）でガード開始、指を離すと終了。ガード中は移動・ブースト・回避・格闘・ジャンプを抑制。ガード中の敵弾・範囲攻撃は被弾リアクション／ノックバック／被弾フラッシュを行わず既存命中音のみ再生。PCのGキーでもガードテスト可。
+- `sera_rig.gd`：ガード姿勢の開始・終了・補間、移動／攻撃系クリップへの遷移制限。
+- 既存のシールド数値・消費量・ガード崩れ・バッシュ機能はv100に未実装。今回新規設計しない。
+- 変更：`scripts/main.gd`、`scripts/sera_rig.gd`、`assets/sera_source.json`、`assets/sera_data.gd`、`project.godot`、`DEVELOPMENT.md`。
+- 追加：`blockbench/SERA_Guard_user_input.bbmodel`、`blockbench/SERA_v101_guard_integrated.bbmodel`、`README_v101_ja.md`、`tools/v101_guard_self_check.py`。
+- 検証：モデルの構造・既存機能との差分・ZIP-CRC・静的動作条件のセルフチェック。Godot実行／Android実機テストは実施した場合のみ別途記録。
+
+---
+
+# セラ v100 — ジャンプを通常操作から除外（2026-11-06）
+
+**基準版**：v99 `sera_portrait_godot_melee_v99_landing_hold_06s.zip`。
+
+## 変更点
+
+- 上フリックのジャンプ発動を**既定で無効化**。短い上フリック／走行・ブースト中の末尾上フリックとも、ジャンプにはなりません。
+- 左右フリックのステップ、下フリックの4mバックステップ、通常移動・ブースト、ガード相当の既存処理、格闘3段、敵4攻撃、被弾音、カメラ等を維持。
+- ジャンプと空中制御・空中ステップ・空中格闘・0.6秒着地硬直の**コード、Blockbench原本、統合モデル・キーフレームは削除せず保管**。
+- スマートフォンで必要時に動作確認できるよう、既存のデバッグパネルに **JUMP TEST** ボタンを追加しました。タップすると地上からジャンプします（離地時の水平速度80％継承などv99仕様を使用）。パネル内操作は通常のタップ攻撃・フリックと区別します。
+- PC版デバッグでは引き続き **Jキー** でジャンプテストできます。
+- 上フリックを復活させる場合、`scripts/main.gd` の `JUMP_TOUCH_INPUT_ENABLED` を `true` にすることでv99の入力経路を復旧できます（今後の正式採用は未決定）。
+
+## 変更範囲
+
+- `scripts/main.gd`：上フリック経路を既定OFFにし、明示的なデバッグジャンプ入口を追加。
+- `scripts/enemy_debug_ui.gd`：既存の敵攻撃デバッグUIに小型のJUMP TESTボタンを追加。敵攻撃用ボタンは維持。
+- `project.godot`：v100表記。
+- `DEVELOPMENT.md`、`README_v100_ja.md`、`tools/v100_jump_debug_self_check.py`：開発履歴・検査。
+
+**検証**：静的コード・モデル／音源のバイト一致、既存機能差分、ZIP CRC検査を実施。Godot本体／Android実機での操作・描画確認は未実施。
+
+---
+
+## v98（2026-11-06） ジャンプ80%慣性・上フリック50px・空中ステップ/格闘・30%空中姿勢制御
+
+# セラ v98 — ジャンプ中の姿勢制御・空中ステップ・空中格闘（2026-11-06）
+
+**基準**：`sera_portrait_godot_melee_v97_jump_inertia.zip`（v97）。
+
+## 変更仕様
+
+- ジャンプ初速の**水平方向への継承率65％→80％**。固定高度1.5m、通常飛行0.80秒は据え置き。
+- 上フリックの必要距離**78px→50px**（720px仮想画面、速度500px/s以上、左右の混入制限42％は維持）。左右・下フリックの必要距離78pxは変更しません。
+- 空中でも**左右ステップと4mバックステップ**が使用可能。既存のStep_L/Step_R/Backstepモーション・移動量・速度をそのまま使用します。
+- 空中でも**既存の3連打格闘**が使用可能。従来の接近・斬撃・キャンセル・命中判定・音・ダメージ12/12/26はそのままです。
+- 空中アクション中はそのアクションのモーションを優先し、高さを一時保持します。アクションが終了／中断すると、**ジャンプモーションの落下キーフレーム（0.20833～0.375秒）へ移り、現在の高度から重力で着地**します。上昇動作の再再生やY座標の瞬間移動を防止します。
+- ジャンプ中の新しいドラッグでは、**通常RUN速度の30％（3.25×0.30＝0.975m/s）まで**の水平操作ベクトルを、離地時の慣性速度へ加算します。空中ではブースト倍率は適用せず、方向操作だけでポーズ／モーションは切り替えません。
+- 空中ステップ・格闘中は慣性移動と空中姿勢制御を一時停止してアクションの固有移動を使用します。アクション後の落下では、過去の慣性を復活させず、30％の姿勢制御のみを受付けます。
+- 2段ジャンプは不可。被弾中も落下継続し、被弾が終了した場合は落下ポーズに復帰します。試作環境はY=0地面、段差・足場にはまだ対応しません。
+
+## 変更ファイル
+
+- `scripts/main.gd`：ジャンプ判定距離、空中移動、空中のステップ／格闘解禁、動作終了後の落下遷移、被弾時の復帰を変更。
+- `scripts/sera_rig.gd`：空中アクションの後、Jumpの下降区間へ切替。**モデル・アニメーションのキーフレーム・メッシュは変更なし。**
+- `project.godot`：v98表記。
+- `README_v98_ja.md`／`DEVELOPMENT.md`／`tools/v98_air_action_self_check.py`：仕様・検証を追加。
+
+**維持**：敵4攻撃・デバッグUI、格闘3段のダメージ/音、敵弾被弾音、ブースト閾値、ステップ距離、カメラ追従・残像、既存モデル全データ。
+
+**検証**：静的検査、モデル／音源同一性、差分／ZIP-CRC検査を実施。Godotのプロジェクト起動／Android実機確認は未実施。
+
+---
+
+# SERA v97 — 上フリック固定ジャンプ（2026-11-06）
+
+- 基準ZIP：`sera_portrait_godot_melee_v96_player_bullet_hit_sound.zip`。
+- 提供 `SERA_jumpmotion.bbmodel` の無名アニメーションを `Jump` として統合。0.375秒の全トラックを0.80秒の滞空に同期して再生。
+- 上フリック（短時間、または長いドラッグの終端0.20秒）でジャンプ開始。通常ステップ判定やブースト125/110%閾値を変更しない。
+- 固定高度1.50m、滞空0.80秒、離地時の水平速度65％継承、空中操作による方向変更なし。空中攻撃と重複ジャンプ抑制。
+- 被弾しても飛行時間経過・落下を継続。ジャンプ用地面マークは床Y=0に維持。
+- 修正：`scripts/main.gd`, `scripts/sera_rig.gd`, `assets/sera_source.json`, `assets/sera_data.gd`, `project.godot`, `DEVELOPMENT.md`。
+- 追加：統合bbmodel、ユーザー原本bbmodel、README_v97_ja.md、検証スクリプト。その他v96ファイルのバイト列は維持。
+- Pythonによる静的・算術・アセット一致・ZIP整合性チェック実施。Godot／Android実機未検証。
+
+---
+
+# SERA v96 — 自機の弾被弾音の変更（2026-11-06）
+
+- 基準版：v95 `sera_portrait_godot_melee_v95_unified_melee_hit_sfx.zip`。
+- 自機のAIM／LEAD弾被弾時の音のみユーザー提供「ロボットを殴る3.mp3」に差し替え。
+- `assets/sera_player_bullet_hit_v96.wav` は48kHz／16bit／ステレオ。原本MP3も同梱。
+- `scripts/main.gd` の弾被弾AudioStream参照を1行変更、音量-5dB・最大多重再生3を維持。
+- SHOCK／ARC被弾音、3段格闘命中音、戦闘・移動・カメラ・UI・アニメーションに変更なし。
+- 修正：`scripts/main.gd`, `project.godot`, `DEVELOPMENT.md`。追加：音源2点、`README_v96_ja.md`, `tools/v96_player_bullet_sfx_self_check.py`。
+- 静的・音声・ZIP整合性検査を実施。Godot／Android実機未検証。
+
+---
+
+# SERA v95 — 格闘ヒット音統一（2026-11-06）
+
+- 基準版：v94 `sera_portrait_godot_melee_v94_hit_sounds_by_attack.zip`。
+- 1・2・3段目の命中音をユーザー提供「ロボットを強く殴る2.mp3」に統一。Godot向け48kHz/16bit/stereoの `assets/sera_melee_hit_all.wav` に変換、元MP3も保管。
+- `_register_strike_hit` の命中判定・`strike_did_hit`・段別ダメージ12/12/26・段別ノード選択・最大同時再生数・音量-5dBは変更なし。
+- 弾被弾音・敵の範囲攻撃被弾音、ブースト、ステップ、カメラ、敵AI、モーション等の変更なし。
+- 変更：`scripts/main.gd`, `project.godot`, `DEVELOPMENT.md`。追加：音声2点、`README_v95_ja.md`, `tools/v95_melee_sfx_self_check.py`。
+- 静的検査・ZIP整合性検査実施。Godot/Android実行は未実施。
+
+---
+
+# SERA v86 — 格闘3段コンボの段別ダメージ
+
+- ベース：v85 `sera_portrait_godot_melee_v85_volume_particles.zip`。
+- 1段目 `melee1`：12、2段目 `Melee2`：12、3段目 `Melee3`：26。全段命中で合計50。
+- ダメージ処理とポップアップ表示に同じ `strike_damage` を使用。HPは0で下限固定、1段1命中・既存のリスポーン処理を維持。
+- キャンセルポイント、先行入力、自動接近、命中判定、ヒットストップ、3D剣閃・粒子、カメラ、移動、敵AIなどの既存処理は変更しない。
+- 機能変更対象：`scripts/main.gd`。表示版名：`project.godot`。検証用スクリプト：`tools/v86_combo_damage_self_check.py`。
+- 旧 `tools/hit_self_check.py` はv14時代の固定20ダメージおよび旧カメラの検査を含むため、履歴資産としてそのまま維持。今回の仕様は新規v86検証で確認。
+- GodotエディターおよびAndroid実機での実行・描画確認は未実施。
+
+---
+
+# SERA v85 — 剣閃立体化 + 周囲粒子（制作メソッド完全版）
+
+## ベース／原則
+- `sera_portrait_godot_melee_v84_authored_sword_fx.zip` から更新。
+- ユーザー配置の `Swordeffect` 板の親ボーン、平行移動、角度、拡縮を**そのまま維持**。0.55m補正、カメラ正対、追尾位置補正は追加しない。
+- v84で更新した `melee1` / `Melee2` / `Melee3` の板アニメーション、24fps基準のキャンセルポイントとコンボ入力は変更しない。
+
+## 表示工程
+1. 元のBlockbench板は非表示、トランスフォーム参照として使用。
+2. 透過剣閃テクスチャ8フレームを、描画領域のみ残したカットアウトメッシュへ貼付。透明な四角形を描かない。
+3. v35から残っていた各フレーム専用の立体形状データ（`slash_C_volume_geometry.json`）で、表裏に膨らむ薄い凸レンズ状メッシュを構成。主剣閃の白い輪郭と薄い立体層を重ねる。
+4. 同じデータの発生候補点から、白（Cで赤へ切替）の微粒子をランダム生成。速度、方向、サイズ、寿命を独立に変え、徐々にフェード。最大32個。命中時の `hit_burst.gd` 火花とは別。
+5. 各段の開始時にフレームと粒子をリセット。第3段は既存の0.210秒の描画遅延を維持。ヒットストップ中は粒子時間を進めない。
+6. 自キャラクター前景描画と敵への重なり減光機能を以前のv35方式から復元。立体層と粒子に影は付けない。
+
+## ファイル変更
+- 変更: `scripts/sword_trail.gd`（v35の立体カットアウト＋粒子を復活してv84座標に統合）、`project.godot`（版名）、`DEVELOPMENT.md`（履歴）
+- 追加: `README_v85_ja.md`, `tools/v85_sword_fx_self_check.py`, `blockbench/SERA_melee_combo_3_v85.bbmodel`（v84内容をそのまま複製、ボーン／アニメは不変）
+- 既存の `assets/v35_cutout_frames`、`v35_cutout_tiles.json`、`slash_C_volume_geometry.json` を再使用。新規3D素材は生成せず、既にある各フレームのジオメトリを再適用するため表示内容はv35の表現に近い。
+- v84の`assets/sword_fx_*_4x2_mobile.png`も削除せず維持するが、v85立体描画では透明領域の板状表示を防ぐためカットアウト用の個別PNGフレームを描画する。
+
+## 確認範囲
+- 静的検査は必要事項・参照先・元ファイル保持を対象とする。Godot 4.7.2エディター／Android実機の起動および描画品質は未確認。
+
+---
+
+# SERA v83 — 格闘3段コンボ（24fps基準キャンセル点）
+
+- 基準：添付v82 `sera_portrait_godot_melee_v82_target_angle_camera_final.zip`。Godot 4.7.2安定版の公開状況とGDScript標準を確認。
+- ユーザーの `セラ･格闘連打.bbmodel` から `melee1`、`Melee2`、`Melee3` の3アニメーションのみ取り込み。ほかのv82アニメーション（通常移動・ステップ左右・0.22s被弾等）とモデル形状は保持。
+- 各段の「振り抜き終了+2フレーム（24fps）」をゲートに設定：1段目0.291667s、2段目0.291667s、3段目0.625s。3段目には次段なし。
+- タップは1回分バッファし、ゲート到達で次段に遷移。未入力時はその段の末尾まで再生。剣命中・ヒットストップ・トレイルを段ごとにリセット。3段目の剣軌跡だけ原本の長いモーションに合わせて遅延。
+- 既存の敵AI、移動、ブースト、ステップ、接近、カメラ、当たり判定方式（各段のアクティブ時間以外）は変更なし。
+- 変更：`project.godot`、`scripts/main.gd`、`scripts/sera_rig.gd`、`scripts/sword_trail.gd`、`assets/sera_source.json`、`assets/sera_data.gd`、`DEVELOPMENT.md`。追加：`blockbench/SERA_melee_combo_3_v83.bbmodel`、`README_v83_ja.md`、`tools/v83_combo_self_check.py`。
+- 検証：静的55件PASS、v82カメラテストは版名1件除き29/30 PASS、変更対象外差分検査。Godot・Android実機での実行・表示・入力検証は未実施。
+
+---
+
+# SERA v74 — ステップ最低速度8m/s
+
+- 基準：v73 `sera_portrait_godot_melee_v73_outside_circle_boost.zip`。
+- ステップ最低速度のみ変更：`STEP_CLOSE_SPEED` 6.0→8.0m/s。ステップ最高速度10.0m/sを維持。
+- 敵キューブ表面との水平距離が2m以下で8m/s、5m以上で10m/s、その間は従来どおりsmoothstep補間（中心距離ではなく箱表面基準）。ステップ開始時の速度固定も維持。
+- ステップ軌道・移動距離（2.0〜4.0m）・最大所要時間（0.4s）・HUD・走行/ブースト・既存戦闘/カメラ/敵AI等は変更なし。
+- 変更：`scripts/main.gd`, `project.godot`, `DEVELOPMENT.md`。追加：`README_v74_ja.md`, `tools/v74_step_min_speed_self_check.py`。
+- 検査：v73との差分、速度境界/滑らかな補間、移動距離/時間を静的・数値確認。Godot/Android実機は未検証。
+
+---
+
+# SERA v73 — 単一半透明円 / 円外ブースト / 外側二重矢印
+
+- 基準：v72 `sera_portrait_godot_melee_v72_run_boost_ring.zip`。
+- v72の外周直径はそのまま。円内全域でRUN（半径168pxでアナログ入力上限）、円の外側に出るとBOOST（x1.5）。境界点はRUN。
+- v70の中心-指先の線＋先端円を復活。二重矢印は円の外側4方向に移動。中央円と分離帯は撤去。
+- UIのシアン系RGBAを保ちつつ、モード切替で外縁・矢印が明るくなりRUN/BOOSTラベルも連動。
+- 変更：`scripts/main.gd`, `scripts/touch_overlay.gd`, `project.godot`, `DEVELOPMENT.md`。v73説明文と静的検査を追加。
+- 他のコード／モデル／戦闘／敵AI／被弾・ノックバック／画面グラデーションは保持。
+- 検証：差分ハッシュ・入力境界条件・描画と既存処理の静的検査。Godot/Android実機は未検証。
+
+---
+
+# SERA v72 — 大型リングコントローラ / RUN と BOOST の2段階走行
+
+- 基準版：v71 `sera_portrait_godot_melee_v71_vector_touch_controller.zip`。
+- リング半径112→168px、透明帯との境界（半径62%）から走行ブースト、MOVE_SPEEDの1.5倍（MAX 4.875m/s）、中心へ戻すと即時RUN。走行のアナログ強度は内側62%で最大になるよう調整。
+- UI：外周リングのアクティブ色、上部モードピル、および画面上のステータス行でモード可視化。v71の透明ギャップ/シアン系RGBA保持。
+- 維持：タップ、フリック、ステップ、ダメージ/ノックバック、敵AI、カメラ、モデル・アニメーション、画面下グラデーション。
+- 変更対象：scripts/main.gd, scripts/touch_overlay.gd, project.godot, DEVELOPMENT.md。README_v72_ja.md と検査スクリプトを追加。
+- 検査：静的・差分検査。Godot/Android実行未検証。
+
+---
+
+# SERA v71 — コントローラのベクター描画
+
+- 基準：v70 `sera_portrait_godot_melee_v70_damage_knockback_1_2m.zip`。
+- 変更：`scripts/touch_overlay.gd` のドラッグ時ガイドだけを直接描画でリデザイン。幅広円環と四方向二重矢印、空白帯、中心円＋四方向矢印。既存の色・アルファ値を使用。
+- 操作：元のタップ・ドラッグ・フリック・ステップ・攻撃を維持。ロックオン表示と下部操作エリアのグラデーションも維持。
+- 検証：v71専用静的検査。GodotおよびAndroid実機での動作は未検証。
+- 変更ファイル：`scripts/touch_overlay.gd`、`project.godot`、`README_v71_ja.md`、`DEVELOPMENT.md`、`tools/v71_controller_self_check.py`。
+
+---
+
+# SERA v70 — ノックバック距離・被弾モーション再生時間の調整
+
+## 基準
+- v69 `sera_portrait_godot_melee_v69_damage_knockback.zip` を直接の基準にしています。
+
+## 調整内容
+- 被弾ノックバック距離：0.80m → **1.20m**（最大値。衝突時は短縮）。
+- 被弾モーション `Damageknock`：0.16667秒 → **0.22秒**。各キーフレーム時刻を同じ比率（約1.32倍）で伸ばし、ポーズ・補間の順番・骨の回転値は変更していません。
+- ノックバック移動時間：**0.24秒のまま**。移動には二次ease-outと `CharacterBody3D.move_and_collide` を引き続き利用します。
+- 入力ロックはモーションとノックバックの双方が完了するまで。今回も0.24秒で復帰する想定です（実際のフレーム刻みで前後）。
+- 予兆0.65秒、射撃間隔2秒、弾速12m/s、カメラ・近接攻撃・移動・操作UIは維持します。
+- プレイヤーHP・ガード崩れ・ダウンは未実装のままです。
+
+## 修正対象
+- `scripts/main.gd`：ノックバック距離の定数のみ（機能面）。
+- `assets/sera_source.json`：`Damageknock` の時刻のみ。
+- `assets/sera_data.gd`：APK用の組み込みデータを更新。
+- `blockbench/*.bbmodel`：8モーション収録済み3ファイルの `Damageknock` を同様に更新。5モーションだけの旧モデルはそのまま保持。
+- `project.godot`：表示版名v70に変更。
+- `README_v70_ja.md`, `DEVELOPMENT.md`, `tools/v70_damage_knockback_self_check.py` を追加・更新。従来の `tools/v68_damage_self_check.py` の許容モーション時間に0.22秒を追加（検査内容は同等）。
+
+## 検証
+- v69との差分、骨・メッシュ・既存7モーションの完全一致、被弾モーションキーフレームの姿勢データ、組み込み用JSONの一致、移動・射撃コードの不変を静的に検査します。
+- Godotエディターでの起動とAndroid実機検証は未実施です。
+
+---
+
+# SERA v69 — ダメージモーション短縮・ノックバック
+
+## ベース
+- v68 `sera_portrait_godot_melee_v68_damage_reaction.zip` を基準とし、v67までの射撃間隔2秒・弾速12m/sや操作・カメラ・攻撃等を維持します。
+- ユーザー提供 `セラ･カラーエフェクト付き (4).bbmodel` 内の `Damageknock`（0.16667秒、once）を採用し、以前の `Damage_motion`（0.5秒）を置き換えます。
+- v68の他の7モーション・モデル要素・階層・骨をそのまま保持します。
+
+## 新しい被弾・ノックバック
+- プレイヤーのカプセルに敵弾が命中したとき `Damageknock` を再生します。入射した弾の進行方向を信号で引き継ぎ、XZ水平面上で同じ方向へ押し出します（弾が飛んできた側とは反対方向）。
+- ノックバック移動：最大0.80m／0.24秒、二次ease-outで徐々に減速。実際の移動量は対象の障害物との衝突状況で短くなることがあります。
+- `CharacterBody3D.move_and_collide` による連続衝突判定を使います。壁／敵キューブのすり抜けや速度のフレームレート依存を防ぎます。
+- 入力ロックは短いモーションとノックバックの両方が終了するまで継続。途中の攻撃・ステップを中断し、被弾中のフリック／タップ予約は破棄します。ドラッグを継続している場合は終了後に移動へ復帰。
+- 被弾中の追加命中ではフラッシュのみ更新し、ノックバック距離や方向、モーションを再設定しません。
+- HP、シールド、ガード崩れ、ダウンは今回追加しません。
+
+## 変更ファイル
+- `assets/sera_source.json`, `assets/sera_data.gd`（再埋め込み）、`scripts/sera_rig.gd`, `scripts/main.gd`, `scripts/enemy_shooter.gd`, `scripts/enemy_projectile.gd`, `project.godot`。
+- v68の統合済み `.bbmodel` 2ファイルを更新。`blockbench/セラ_ダメージノックバック統合.bbmodel` も同梱。
+- `README_v69_ja.md`, `DEVELOPMENT.md`, `tools/v69_damage_knockback_self_check.py`。
+- 旧版テスト `tools/v68_damage_self_check.py` はv69で通るよう後方互換チェックに修正します。
+
+## 検査
+- 変更前後でオリジナル7モーション、骨・メッシュ・アウトライナーを厳密比較。
+- Android向けデータの埋め込み一致、攻撃・移動の衝突処理、射撃パラメータ、変更差分、弾方向シグナルを静的検査。
+- Godot本体実行／Android実機テストは未実施。実機でノックバックの体感値を確認してください。
+
+---
+
+# SERA v68 — 被弾モーション統合
+
+## 基準
+- v67 `sera_portrait_godot_melee_v67_enemy_shooter_2s_12ms.zip`。
+- 提供されたBlockbench `セラ･カラーエフェクト付き (2).bbmodel` の追加クリップ `animation` （0.5秒、once）を `Damage_motion` として追加。
+
+## 挙動
+- 敵弾がプレイヤーのカプセルに命中した時だけ、提供された0.5秒のダメージアニメーションを再生。
+- 再生中は移動・ステップ・攻撃開始を禁止。被弾中に始めた・中断されたフリックやタップは、終了後に予約発動しない。実行中の攻撃/ステップを中断し、ヒットストップや剣軌跡も終了。
+- アニメーション終了で待機に復帰。ドラッグが継続中なら走行に復帰（指を離していたら待機）。
+- 被弾中の追加命中では再生を最初からやり直さず、従来の赤いフラッシュのみ更新。
+- プレイヤーHP、シールド値、ガード崩れ、ノックバック、ダウンは未実装。既存の敵HP・攻撃処理は維持。
+
+## リソース
+- `assets/sera_source.json` はv67のモデル・既存7モーションを維持し、今回の1モーションだけを追加。
+- `assets/sera_data.gd` に統合モデルデータを再埋め込み。Android APKでJSONが利用不能でもモーションを利用可能。
+- Blockbench編集用統合モデル：`blockbench/セラ_被弾モーション統合.bbmodel`（既存のステップモーションも含む）。
+
+## 変更ファイル
+- `scripts/main.gd`, `scripts/sera_rig.gd`, `assets/sera_source.json`, `assets/sera_data.gd`, `project.godot`。
+- 既存のBlockbenchモデル（7クリップ）を更新、統合モデルの日本語名コピーを追加。
+- `README_v68_ja.md`, `DEVELOPMENT.md`, `tools/v68_damage_self_check.py`。
+
+## 確認
+- 元モデルと今回のモデルで骨UUID22件・要素25件・アウトライナーが一致することを確認。
+- 元のモデルの既存7モーションはそのまま維持。
+- JSON/埋め込み一致、遷移と入力ガード、既存ファイル差分を静的に検査。
+- Godot/Android実行は未実施。モーションの見え方は実機で確認が必要。
+
+---
+
+# SERA 開発履歴（基準版と追加機能）
+
+## v67 — 敵射撃間隔2秒・弾速12m/s
+- 基準: `sera_portrait_godot_melee_v66_enemy_shooter.zip`。
+- 変更: 実際の弾発射から次の弾発射までを約2.0秒に固定。予兆0.65秒はこの2秒に含める（射撃後の待機1.35秒）。
+- 変更: 初弾は開始約2.0秒後（最初の予兆開始は約1.35秒後）。
+- 変更: 弾速を7.5m/s → 12.0m/sに変更。
+- 変更ファイル: `scripts/enemy_shooter.gd`, `scripts/enemy_projectile.gd`, `project.godot`, `DEVELOPMENT.md`。
+- 追加ファイル: `README_v67_ja.md`, `tools/v67_enemy_ai_self_check.py`。
+- 維持: 照準固定、予兆0.65秒、直進弾、被弾時の赤点滅、敵HP0で射撃停止、カメラ、プレイヤー操作、攻撃、エフェクト等。
+- 検証: 数値設定、インターバル算式、同一ファイル保持、ZIP差分、リソース参照の静的検査。Godot実行・Android実機検証は未実施。
+
+## v66 — Enemy Ranged AI
+- 基準: ユーザー提供 `sera_portrait_godot_melee_v65_recommended_gray_operation_gradient.zip`。
+- 追加: 固定ターゲットからの低頻度単発弾（初回2.2秒、予兆0.65秒、待機4.5〜6.5秒、弾速7.5m/s）。
+- 追加: 固定方向への射撃、射撃予兆の発光球、プレイヤー衝突検知、命中フラッシュ。
+- 追加: 敵HPが0の場合は新規射撃停止。
+- 変更: `scripts/main.gd`, `project.godot`。
+- 新規: `scripts/enemy_shooter.gd`, `scripts/enemy_projectile.gd`, `README_v66_ja.md`, `tools/v66_enemy_ai_self_check.py`。
+- 維持: v65までの操作、ロックオン、カメラ、近接攻撃、HP、剣エフェクト、操作領域。
+- 未実装: プレイヤーHP・シールド・ガード・被弾モーション・吹き飛び等。命中時は表示のみ。
+- 検証: ZIP差分、リソース参照、関数定義重複・インデントの静的点検、発射位置算定。Godot実行/Android実機未検証。
+
+## v65（提供された基準版）
+- 推奨グレーの操作領域と下端8%の均一色、上部へのグラデーション（原本README参照）。
+
+
+## v75 — Selective low-cost motion blur (2026-11-06)
+- Baseline: v74 step min 8m/s.
+- Changes: `scripts/main.gd`, `scripts/sera_rig.gd`, `project.godot`; new `shaders/sera_motion_ghost.gdshader`, `shaders/selective_far_blur.gdshader`, `README_v75_ja.md`, `tools/v75_motion_blur_self_check.py`.
+- Only step and outward-ring movement boost get blur: one animated mesh overlay for Sera, 3-tap ground pass masked by player distance (7-11m); scene objects in `motion_blur_far_environment` opt in.
+- Preserved: input, movement and step speeds and paths, animation data, camera, targeting, attacks, enemy AI, damage and knockback, HUD.
+- Performance approach: no history framebuffer, no extra Viewport, off-state extra passes disabled; static validation only, Godot/Android execution not available in this environment.
+
+
+## v76
+- Removed far/background motion blur after it felt excessive during movement.
+- Replaced the single player ghost pass with three lightweight afterimage layers.
+- Each afterimage uses a different alpha and offset, enabled only during step and boost movement.
+
+
+## v77 — 時間差残像・スナップショット化
+- 基準：v76 `sera_portrait_godot_melee_v76_player_triple_afterimage.zip`。
+- v76の現在姿勢に追従する3重メッシュを撤去し、発生時刻の全身ポーズ・座標をワールド固定のMultiMeshに記録する方式へ変更。
+- 0.055秒ごとに発生、0.22秒の寿命、二次の透明度減衰、最大3層。新規発生はステップ／ブースト中だけ、停止後は自然消滅。
+- 各パーツの元メッシュを共有するGPU instancing、24パーツ×3インスタンスで処理。
+- 背景ブラーなし。射撃、カメラ、入力、ステップ速度、被弾、ノックバック、モデルとモーションは変更なし。
+- 変更：scripts/main.gd、scripts/sera_rig.gd、shaders/sera_motion_ghost.gdshader、project.godot、DEVELOPMENT.md。追加：README_v77_ja.md、tools/v77_temporal_afterimage_self_check.py。
+- Godot本体とAndroid実機での動作・描画性能は未検証。
+
+
+## v78 — ブースト残像フェード短縮（2026-11-06）
+- 基準：v77 `sera_portrait_godot_melee_v77_temporal_afterimage.zip`。
+- ステップの残像寿命0.22秒、初期不透明度34%、発生間隔0.055秒、二次減衰は維持。
+- ブースト残像寿命を0.22秒から0.14秒へ短縮。初期不透明度28%、発生間隔0.055秒を維持。
+- 発生時の残像種別ごとに寿命をスロットへ格納し、モード移行後も元の消滅時間でフェード。
+- 変更：scripts/sera_rig.gd、project.godot、DEVELOPMENT.md。追加：README_v78_ja.md、tools/v78_boost_afterimage_self_check.py。
+- 既存移動、カメラ、攻撃、敵AI、被弾、モデル、ブラー除外対象、3枚MultiMesh処理は維持。
+- 静的・差分検査実施。Godot/Android実機実行は未検証。
+
+
+## v79 — 格闘ブーストキャンセル時のカメラ追従修正
+- 基準: v78
+- 変更: scripts/main.gd, project.godot, README_v79_ja.md, tools/v79_camera_follow_self_check.py, DEVELOPMENT.md
+- カメラの移動判定で格闘のBOOST/STRIKE状態が停止判定となりリセンタリングを開始していた点を修正。
+- DASHだけでなく全ての格闘フェーズで移動追従を継続。ブースト移動では高速なヨー・ズーム補間を適用。
+- 走行/ステップの従来レート、カメラの構図・視野制約・当たり判定・戦闘挙動、残像、敵AIは維持。
+- 静的・数値検証のみ。Godot/Android動作確認は未実施。
+
+
+## v80 - point-blank side-step camera correction
+- Base: v79. Reverted v79's accelerated melee/boost camera-follow changes to the exact v78 camera behavior.
+- Camera-specific changes in scripts/main.gd: snapshot near-step flag and starting yaw, cap yaw travel at +/-18 degrees for steps beginning <=1.0m from target cube surface, bypass forced screen-edge yaw during those steps. Standard full-frame zoom protection stays.
+- Existing gameplay/motion/AI/assets unchanged. Runtime not verified.
+
+
+## v81 - scope error repair for close-step camera flag
+- Base: v80; only `scripts/main.gd` changes gameplay code.
+- Root cause: `_physics_process` declared `close_step_camera_this_frame` locally, while `_process` referenced it.
+- Fix: promote flag to a typed class member; assign it at the same physics-tick snapshot point; preserve camera yaw logic and all v80 behavior.
+- Updated project title and added README_v81_ja.md and v81 scope regression test.
+- No runtime validation claimed; source and archive static checks performed.
+
+
+## v82: target-relative close step camera
+- Baseline: v81 close-step camera scope fix.
+- Removed v80 start-yaw +/-18 degree clamp; constrain target-centered camera/player bearing separation instead (+/-65 degrees), with 300 degrees/sec slew.
+- Added 0.18s transition after point-blank step ends; new touch cancels transition.
+- Left normal movement/boost, distant step, damage, AI, rendering, and movement untouched.
+- Changes: scripts/main.gd, project.godot, README_v82_ja.md, DEVELOPMENT.md, tools/v82_close_step_camera_self_check.py.
+- Runtime/Android device verification pending.
+
+## v84 (2026-11-06) — Blockbench板基準の8フレーム剣閃
+- 基準版: v83。ユーザー添付SERA_melee_combo_3.bbmodelのSwordeffectキーのみ反映。Damageknock、Melee2の体モーション、モデル形状を保持。
+- 変更: sword_trail.gdを単一板＋4x2 UVアニメへ置換、sera_rig.gd旧0.55m前方補正撤去。白/赤モバイルシート新設。元のヒットエフェクトとカメラ等は維持。
+- 変更ファイル/検査方法はREADME_v84_ja.md、tools/v84_sword_fx_self_check.pyを参照。Godot実行およびAndroid実機確認は未実施。
+
+## v87（2026-11-06） — 下フリックのバックステップ／ブーストとステップの区別
+- 基準：ユーザー添付 `sera_portrait_godot_melee_v86_combo_damage_12_12_26.zip`。
+- ユーザー提供 `SERA_backstep.bbmodel` の `Backstep`（1ポーズ・18キーフレーム・時刻0）を、v86モデルの既存10クリップを保持して追加。編集可能な統合 `bbmodel` と原本コピーを同梱。
+- 下方向のリリース・フリックでロックオン対象から2.0m後退、8〜10m/s、専用姿勢を再生。既存の側方ステップと同じ衝突判定、残像、ブレンドを利用。
+- 分類を明確化：BOOST＝円外への長距離ドラッグ時の加速移動、STEP＝フリック高速回避、MELEE APPROACH＝タップ格闘時の自動接近（従来の `meleeboost` モーション）。内部の格闘接近状態・アニメーション呼び出しも`MELEE_APPROACH`系へ改称し、加速移動BOOSTとの混同を解消。
+- 変更：`scripts/main.gd`, `scripts/sera_rig.gd`, `assets/sera_source.json`, `assets/sera_data.gd`, `project.godot`, `DEVELOPMENT.md`。追加：`blockbench/SERA_backstep_user_input.bbmodel`, `blockbench/SERA_v87_backstep_integrated.bbmodel`, `README_v87_ja.md`, `tools/v87_backstep_self_check.py`。
+- 維持：v86の12/12/26コンボ、左右ステップ軌道、ブースト速度、視点制御、残像／エフェクト、敵AI／被弾／HP表示。
+- 検証：JSON・埋め込み・キーフレーム、入力分岐、計算式／既存要素を静的検査。GodotおよびAndroidの実行テストは未実施。
+
+
+## v88（2026-11-06） — バックステップ距離4m
+- 基準版：v87。変更：`BACK_STEP_DISTANCE` を2.0mから4.0mへ。
+- 既存8〜10m/sの速度を保持するため所要時間は0.40〜0.50秒。側方ステップの最大0.40秒制約は維持。
+- HUD待機時の表示は左右ステップとバックステップの違いを明示。
+- その他の入力・格闘・カメラ・モーション・アセット・AIは変更なし。検証範囲と制限は`README_v88_ja.md`に記載。
+
+
+## v89 — Boost_front モーション実装（2026-11-06）
+- 基準：v88。
+- ユーザー提出 `SERA_backstep.bbmodel (1)` を正しい .bbmodel 拡張子に直して `SERA_boost_front_user_input.bbmodel` に保管。
+- 新規 `Boost_front`（時刻0の21キーフレームの静止ポーズ）だけをv88の既存モデルに統合。従来の11クリップ・25要素・22グループは保持。
+- 通常ドラッグ `run_front_original`、外周超ロングドラッグ `Boost_front`、フリックステップは従来どおり各専用モーション。
+- ブースト倍率1.5、4mバックステップ、既存攻撃・残像・カメラ処理は保持。
+- 修正：scripts/sera_rig.gd, scripts/main.gd, assets/sera_source.json, assets/sera_data.gd, blockbench/SERA_boost_front_user_input.bbmodel, blockbench/SERA_v89_boost_integrated.bbmodel, project.godot, README_v89_ja.md, tools/v87_backstep_self_check.py, tools/v89_boost_self_check.py, DEVELOPMENT.md。
+- 静的検査で統合・旧機能を点検。Godot実行およびAndroid実機は未検証。
+
+
+## v90（2026-11-06） — RUN/BOOST入力しきい値・スナップ・ヒステリシス
+- 基準v89。通常走行の最大入力半径100%と、実指125%連続0.10秒のBOOST開始、110%未満のBOOST解除を分離。
+- BOOST倍率1.0→1.5を0.15秒で加速・減速。リグの0.16秒ポーズブレンドとフリックステップは独立。
+- RUN/BOOST UIに、外周超過時のみ125%地点の薄いガイド弧を表示。外周スナップは従来のノブの丸い位置制限を維持。
+- v89モデル・AI・戦闘・カメラ・4mバックステップは変更なし。差分：scripts/main.gd、scripts/touch_overlay.gd、project.godot、README_v90_ja.md、tools/v90_boost_threshold_self_check.py、DEVELOPMENT.md。
+- 静的検査実施。Godot/Android実機実行未検証。
+
+## v91（2026-11-06） — 敵攻撃4種と選択用デバッグUI
+- 基準：v90。初期選択AIM、AUTO ON（約2秒周期）を保持。
+- 追加：AIM（固定自機狙い）、LEAD（警告開始時の速度から偏差位置を計算し固定）、SHOCK（全周・前進リング）、ARC（前方145°・地上円弧状範囲）。すべて予告後に攻撃。被弾は既存Damageknockへ接続。
+- HUDの直下に「AIM / LEAD / SHOCK / ARC / FIRE / AUTO」バー。攻撃切替時は旧弾と旧範囲を消去。バー上のタッチをプレイヤー操作から隔離。
+- 新しいエリア攻撃は軽量ImmediateMeshと水平距離・角度判定、パーティクルなし。衝撃波は前フレームからのリング拡大区間を判定し高速すり抜けを抑制。
+- 変更：scripts/main.gd, scripts/enemy_shooter.gd, scripts/enemy_projectile.gd, project.godot, DEVELOPMENT.md。追加：scripts/enemy_area_attack.gd, scripts/enemy_debug_ui.gd, README_v91_ja.md, tools/v91_enemy_attacks_self_check.py。
+- 維持：RUN/BOOST、左右/後方STEP、4mバックステップ、3段格闘(12/12/26)、モデル/モーション、カメラ、残像、従来の被弾処理。詳細はREADME_v91_ja.md。
+- 静的・数値チェックのみ。Godot/Android実機検証未実施。
+
+## v92（2026-11-06） — 被弾後のブースト入力復帰
+- 基準：v91 `sera_portrait_godot_melee_v91_enemy_attack_debug.zip`。
+- 不具合：被弾時にONとなるジェスチャー抑制フラグが、ダメージリアクション終了後も指を離すまで残るため、同じドラッグでブースト再発動できない。
+- 対応：`_update_boost_gesture` のブースト禁止条件を `damage_reaction_active` に限定。被弾中は停止し、被弾終了後は同じ指のまま125%以上/0.10秒でブーストへ復帰。
+- 維持：`gesture_suppressed_from_damage` は指離し時のステップ／タップ誤発動防止にのみ使用。v91の戦闘、敵4種、カメラ、モーション、ブースト／ステップ、ダメージ演出を維持。
+- 変更：scripts/main.gd、project.godot、DEVELOPMENT.md。追加：README_v92_ja.md、tools/v92_boost_damage_regression.py。
+- 検証：静的・数値検査、差分比較、ZIP整合性。Godot・Android実動作は未検証。
+
+
+## v93（2026-11-06） — 敵・自機の金属ダメージ効果音
+- v92を基準に、ユーザー提供 `金属叩き.mp3` を効果音の共通ソースに採用。
+- WAV化した `assets/metal_damage_hit.wav` を敵への格闘ヒット音と自機への敵攻撃ヒット音へ設定。元MP3も同梱。
+- 2つのAudioStreamPlayerで同時／連続ヒットを再生、原音を変えるピッチランダム化は撤廃。音量-5dB。
+- 戦闘処理・被弾処理・操作・カメラ・モデル・既存アセットは維持。変更点と検証はREADME_v93_ja.md、tools/v93_audio_self_check.pyを参照。
+- Godot/Android実機再生は未検証。
+
+
+## v94（2026-11-06） — 直線弾／格闘段別のユーザー提供ダメージ音
+- v93基準。敵の狙い弾・偏差弾が自機に命中した際、`sera_bullet_hit_short.wav` を再生。
+- 自機の格闘1・2段目が敵へ命中した際、`sera_melee1_short.wav` を再生。3段目のみ `sera_melee2_long.wav` を再生。空振り時の音はなし。
+- 衝撃波・円弧面攻撃はv93の `metal_damage_hit.wav` を維持。敵シューターの命中シグナルに攻撃インスタンス確定の `is_bullet` を伝搬。
+- WAVはユーザー提供の48kHz/16bit/ステレオを無加工同梱し、-5dBで再生。既存機能・ダメージ数値・モーション・カメラ変更なし。
+- 追加・変更ファイルと検証は `README_v94_ja.md`、`tools/v94_sfx_self_check.py` 参照。Godot・Android実機は未検証。
+
+
+## v99 (2026-11-06)
+- v98基準。Jumpのみに0.5s最終着地キーフレームを統合、空中0..0.375sと着地0.375..0.500sを分割。
+- 接地後0.125sの着地移行、最終姿勢で0.60s硬直後に立ち上がり。入力ロック/被弾割り込み、空中ステップ格闘後の落下も対応。
+- 変更ファイル・検証はREADME_v99_ja.md参照。

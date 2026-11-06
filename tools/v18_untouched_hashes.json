@@ -1,0 +1,10 @@
+{
+  "scripts/main.gd": "9d26d33d97abc124abedec3c3a020cb51a644dd677d8bbb3011be9d02f405156",
+  "scripts/sera_rig.gd": "e8aa00537bebda00cdcf9fb18b7a6a69304bddcf6ab33dafba51dbebfe5df773",
+  "scripts/touch_overlay.gd": "e7cd1938904934d2a4d202c1922cb6cdcd22dbf442f1902fb7aee3065814e058",
+  "scenes/main.tscn": "02dec40ee5623642b7bba9fd870adbb5a2bcfbe629814b73212b9029f7d557e8",
+  "assets/sera_data.gd": "2812862a5cbeffc0bae9cd0765f8352d5b2454056c639681c0da777c163a03aa",
+  "assets/sera_source.json": "d3932feabfc8a6348c42986881609073e6ddacaced4ef06fa51ac6ecc4107937",
+  "assets/sword_impact.wav": "ae1aa46f3154b4cbe3881825a1ed6fa4199b3ff25c2ada19a52bad509fdbb53f",
+  "blockbench/セラ･カラー.bbmodel": "d3932feabfc8a6348c42986881609073e6ddacaced4ef06fa51ac6ecc4107937"
+}

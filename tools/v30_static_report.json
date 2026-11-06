@@ -1,0 +1,183 @@
+{
+  "summary": {
+    "passed": 33,
+    "failed": 1,
+    "checks": 34,
+    "volume_triangles_total": 7473,
+    "max_corner_error_m": 0.0,
+    "pixels_removed": 8108,
+    "godot_runtime_test": "NOT EXECUTED — Godot binary unavailable here"
+  },
+  "checks": [
+    {
+      "name": "v29 preserved (except intentional v31 hit-burst render flags): scripts/sera_rig.gd",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "v29 preserved (except intentional v31 hit-burst render flags): scripts/main.gd",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "v29 preserved (except intentional v31 hit-burst render flags): scripts/touch_overlay.gd",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "v29 preserved (except intentional v31 hit-burst render flags): scenes/main.tscn",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "v29 preserved (except intentional v31 hit-burst render flags): assets/sera_source.json",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "v29 preserved (except intentional v31 hit-burst render flags): assets/sera_data.gd",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "v29 preserved (except intentional v31 hit-burst render flags): blockbench/セラ･カラーエフェクト付き.bbmodel",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "exact forward offset still 0.55m",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "effect attached as child of ORIGINAL mesh",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "child transforms identity",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "no second world offset",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "flat texture remains rendered as trace",
+      "pass": false,
+      "detail": null
+    },
+    {
+      "name": "far skin only",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "UV frames stay 4 x 2",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "8 sprite frames exactly same timing as v29",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "independent seeded particle logic",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "mobile renderer unchanged",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "geometry has all 8 frames",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "frame 0 3D triangles and emission samples",
+      "pass": true,
+      "detail": "(30, 30)"
+    },
+    {
+      "name": "frame 1 3D triangles and emission samples",
+      "pass": true,
+      "detail": "(252, 296)"
+    },
+    {
+      "name": "frame 2 3D triangles and emission samples",
+      "pass": true,
+      "detail": "(667, 745)"
+    },
+    {
+      "name": "frame 3 3D triangles and emission samples",
+      "pass": true,
+      "detail": "(1065, 1214)"
+    },
+    {
+      "name": "frame 4 3D triangles and emission samples",
+      "pass": true,
+      "detail": "(1446, 1673)"
+    },
+    {
+      "name": "frame 5 3D triangles and emission samples",
+      "pass": true,
+      "detail": "(1440, 1653)"
+    },
+    {
+      "name": "frame 6 3D triangles and emission samples",
+      "pass": true,
+      "detail": "(1344, 1519)"
+    },
+    {
+      "name": "frame 7 3D triangles and emission samples",
+      "pass": true,
+      "detail": "(312, 343)"
+    },
+    {
+      "name": "all mesh UV / height values in valid ranges",
+      "pass": true,
+      "detail": "0"
+    },
+    {
+      "name": "all mesh triangle indices valid",
+      "pass": true,
+      "detail": "0"
+    },
+    {
+      "name": "convex height exists but has sharp zero-height edges",
+      "pass": true,
+      "detail": "(0.0, 0.064)"
+    },
+    {
+      "name": "source UV corner / 3D volume corner error (m)",
+      "pass": true,
+      "detail": "0.0"
+    },
+    {
+      "name": "clean atlas size & format preserved",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "original baked-in particles actually removed",
+      "pass": true,
+      "detail": "8108"
+    },
+    {
+      "name": "white color remains white",
+      "pass": true,
+      "detail": "[[255, 255, 255]]"
+    },
+    {
+      "name": "all referenced scripts/assets exist",
+      "pass": true,
+      "detail": "[]"
+    }
+  ]
+}

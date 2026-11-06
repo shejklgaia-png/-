@@ -1,0 +1,15 @@
+{
+  "geometry files unchanged": true,
+  "base UV texture unchanged": true,
+  "Swordeffect model untouched": true,
+  "rig and offset untouched": true,
+  "melee gameplay unchanged": true,
+  "UV frame logic unchanged": true,
+  "8 baked frames exist": true,
+  "flat 1.0": true,
+  "target front 1.0": true,
+  "particle rate 54": true,
+  "occlusion debug on all 3": true,
+  "surface classification in all 3": true,
+  "no extra forward offset": true
+}

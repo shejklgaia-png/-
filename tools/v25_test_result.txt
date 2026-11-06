@@ -1,0 +1,27 @@
+PASS rigid single QuadMesh
+PASS no ribbon or vertex deformation
+PASS not a camera-facing billboard
+PASS target-relative attack bearing
+PASS positioned outside target face
+PASS orientation is target facing, in-plane swing angle separately
+PASS caller interfaces retained
+PASS texture and reveal have identical dimensions
+PASS transparent padding and visible crescent present
+PASS usable transparent alpha
+PASS texture and quad aspect ratio preserved (<0.6%)
+PASS short arc instead of tall lower-screen effect
+PASS visible pixels above floor (Y=1.16..2.44m)
+PASS normal and target-front position for bearing (0,-1)
+PASS normal and target-front position for bearing (0,1)
+PASS normal and target-front position for bearing (1,0)
+PASS normal and target-front position for bearing (-1,0)
+PASS normal and target-front position for bearing (1,1)
+PASS normal and target-front position for bearing (-1,1)
+PASS normal and target-front position for bearing (1,-1)
+PASS normal and target-front position for bearing (-1,-1)
+PASS unmodified v23 core: scripts/main.gd
+PASS unmodified v23 core: scripts/sera_rig.gd
+PASS unmodified v23 core: scripts/hit_burst.gd
+PASS unmodified v23 core: shaders/slash_foil.gdshader
+PASS unmodified v23 core: scenes/main.tscn
+STATIC CHECKS PASSED (Godot runtime and mobile rendering NOT tested)

@@ -1,0 +1,31 @@
+{
+  "checks": {
+    "initial_hp_unchanged": true,
+    "reach_unchanged": true,
+    "damage_unchanged": true,
+    "0hp_hit_not_blocked": true,
+    "0hp_swing_not_blocked": true,
+    "0hp_collision_not_blocked": true,
+    "melee_reticle_ignores_hp": true,
+    "damage_floor_0": true,
+    "damage_text_no_minus": true,
+    "hit_effects_always_run": true,
+    "timer_once_at_zero_transition": true,
+    "timer_ticks_always": true,
+    "reticle_width_normal_2": true,
+    "crosshair_width_unchanged": true,
+    "red_reticle_same_color": true,
+    "draw_arc_uses_width": true,
+    "same_reticle_radius": true,
+    "same_number_arcs": true,
+    "0hp_hit_tests_py": true,
+    "timer_transition_py": true,
+    "unchanged_scripts/sera_rig.gd": true,
+    "unchanged_scripts/sword_trail.gd": true,
+    "unchanged_scripts/hit_burst.gd": true,
+    "unchanged_assets/sera_data.gd": true,
+    "unchanged_scenes/main.tscn": true
+  },
+  "passed": 25,
+  "failed": 0
+}

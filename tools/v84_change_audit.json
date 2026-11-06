@@ -1,0 +1,26 @@
+{
+  "baseline": "v83",
+  "output": "v84",
+  "changed": [
+    "DEVELOPMENT.md",
+    "assets/sera_data.gd",
+    "assets/sera_source.json",
+    "project.godot",
+    "scripts/main.gd",
+    "scripts/sera_rig.gd",
+    "scripts/sword_trail.gd"
+  ],
+  "added": [
+    "README_v84_ja.md",
+    "tools/v84_sword_fx_self_check.py",
+    "blockbench/SERA_melee_combo_3_user_input.bbmodel",
+    "blockbench/SERA_melee_combo_3_v84.bbmodel",
+    "assets/sword_fx_red_4x2_mobile.png",
+    "assets/sword_fx_white_4x2_mobile.png"
+  ],
+  "deleted": [],
+  "unchanged_count": 181,
+  "static_verified_count": 72,
+  "godot_runtime_verified": false,
+  "android_runtime_verified": false
+}

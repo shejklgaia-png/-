@@ -1,0 +1,28 @@
+{
+  "base": "sera_portrait_godot_melee_v36_flat_shadows",
+  "release": "sera_portrait_godot_melee_v37_damage_shadow_grid",
+  "checks": {
+    "positive initial damage label": true,
+    "positive hit damage label": true,
+    "damage unchanged 20": true,
+    "player shadow half xy footprint": true,
+    "target radius unchanged": true,
+    "target shadow not scaled": true,
+    "shared shadow dark gray": true,
+    "grid dark line": true,
+    "grid increased width in x": true,
+    "grid increased width in z": true,
+    "grid interval preserved": true,
+    "forward offset remains 0.55": true,
+    "v36 source unaffected except intended substitutions": true,
+    "untouched scripts/sword_trail.gd": true,
+    "untouched scripts/hit_burst.gd": true,
+    "untouched scripts/sera_rig.gd": true,
+    "untouched scenes/main.tscn": true,
+    "untouched assets/sera_source.json": true,
+    "untouched assets/slash_C_volume_geometry.json": true,
+    "untouched shaders/sera_foreground.gdshader": true
+  },
+  "result": "20/20",
+  "runtime_test": "not performed (Godot executable unavailable in container)"
+}

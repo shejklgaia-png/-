@@ -1,0 +1,13 @@
+{
+  "scripts/main.gd": "9d26d33d97abc124abedec3c3a020cb51a644dd677d8bbb3011be9d02f405156",
+  "scripts/sera_rig.gd": "e8aa00537bebda00cdcf9fb18b7a6a69304bddcf6ab33dafba51dbebfe5df773",
+  "scripts/hit_burst.gd": "4ab9853d1baaa6e4a35251028209054cd61b395452741cfbb200ddf986c2ec26",
+  "scripts/touch_overlay.gd": "e7cd1938904934d2a4d202c1922cb6cdcd22dbf442f1902fb7aee3065814e058",
+  "scenes/main.tscn": "02dec40ee5623642b7bba9fd870adbb5a2bcfbe629814b73212b9029f7d557e8",
+  "assets/sera_source.json": "d3932feabfc8a6348c42986881609073e6ddacaced4ef06fa51ac6ecc4107937",
+  "assets/sera_data.gd": "2812862a5cbeffc0bae9cd0765f8352d5b2454056c639681c0da777c163a03aa",
+  "assets/impact_red_rim.png": "aa34cb6234bf0e3e9219f9f5d4fa4dc0d054a1c15d2ff34e5b233cb07857ced9",
+  "assets/spark_dark_red_outline.png": "a128209c2ed20e1c04d1d6ebbb1fa3f6807b43bec229ad84375cf66ecd9aa250",
+  "assets/sword_impact.wav": "ae1aa46f3154b4cbe3881825a1ed6fa4199b3ff25c2ada19a52bad509fdbb53f",
+  "assets/sera_godot_shading_texture.png": "59413613db198219b323c33cdf493a5c8cdac8ee9e62727ffde7b21fa803b1f1"
+}

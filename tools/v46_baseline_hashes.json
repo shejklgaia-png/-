@@ -1,0 +1,26 @@
+{
+  "reference": "v45 SHA-256 baselines for retained behavior (standalone verification)",
+  "functions": {
+    "_begin_drag": "7c27c09a4cf4e6fd0a70d71b76385ad3ea3a7f89b5f96f866868e5434a1c211a",
+    "_change_drag": "0c20593b0594272500c10797056e1086052636a814d96da091ad9a61c8328207",
+    "_end_drag": "2f27227334604b2a16215b05095ee0b423c57460c50233fdfbe356aec59feb0a",
+    "_classify_side_flick": "e40cd176b4f728b7ca0265d1daac5b7ae539afed1382ad7e3f25391652ed1dcd",
+    "_screen_drag_to_ground": "e42df77aec78c062591d6f8a9c48310312dd926a904f0b327b35e057e9f1e722",
+    "_physics_process": "c7645d3f2ab3ff2ce718b82ca1ba787bd9b671917b269717ffe830e152889469",
+    "_process": "3d697d96c95a82888e6d425ed6d2ffd1e77b54848863358266efc699b40f1b9e",
+    "_nearest_clear_yaw": "a3cfcaee2c06827c9b1e53487b878cc09f148542cffd4295b1a42bb9503968fa",
+    "_fit_full_frame": "784ad73bbac56d609a34ffb0837888a82503a341b07fe848f3152ccf02cbabf9",
+    "_place_camera": "138b5d0551423b0e78080fc5ffa5fff6e28daa220da9ce7514b2003c647c0755",
+    "_start_attack": "800c1c856cec9e8cec909c163d023a58ece1068f0de2b4c9024bd75d5089e184",
+    "_cancel_attack": "fb7a9991ac13bf252d369b905b956845bbb9fab9f8486324b3af278fb7cfa383"
+  },
+  "files": {
+    "scripts/touch_overlay.gd": "1f009d52dd1a63dab2e9438e867723ead4f418c4caab652455d6c1af50aab8c0",
+    "scripts/sera_rig.gd": "fb6fbd33ea2dbdb77a09ea0cf5e554ae87e6a1d9d1c7eaabf597bc52aa7cac91",
+    "scripts/sword_trail.gd": "6f8dab68fd6f256910c0cf44f11f1f196084ede337c884d0d363e8ad58b4efbe",
+    "scripts/hit_burst.gd": "cece5df431daa0304dcac32b3f74c83a6c5f3583cf93a84bea57b9902bd30224",
+    "assets/sera_data.gd": "7545295efdef21a02550f7a1af286f2048c93004e444c335bc5da9e35c11d1fd",
+    "assets/sera_source.json": "bc7117647981a37daae82c13f67441e529479e064784ef7c8ec62f5d9a9e3e5b",
+    "scenes/main.tscn": "02dec40ee5623642b7bba9fd870adbb5a2bcfbe629814b73212b9029f7d557e8"
+  }
+}

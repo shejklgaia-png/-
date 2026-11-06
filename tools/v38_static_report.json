@@ -1,0 +1,24 @@
+{
+  "base": "sera_portrait_godot_melee_v37_damage_shadow_grid",
+  "release": "sera_portrait_godot_melee_v38_melee_lock_target_shading",
+  "checks": {
+    "same melee range constant and attack threshold": true,
+    "reticle has stateful color": true,
+    "reticle switches only on state change": true,
+    "drag circle retains cyan low": true,
+    "target has lit material": true,
+    "no real-time ground shadow enabled": true,
+    "ground circles unchanged": true,
+    "floor mesh/grid unchanged": true,
+    "attack logic untouched": true,
+    "scene unchanged": true,
+    "sword trail unchanged": true,
+    "rig unchanged": true,
+    "hit effects unchanged": true,
+    "original BB asset unchanged": true,
+    "project renderer unchanged": true,
+    "lock update called after movement": true
+  },
+  "result": "16/16",
+  "runtime_test": "not attempted yet"
+}

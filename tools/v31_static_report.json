@@ -1,0 +1,390 @@
+{
+  "summary": {
+    "checked": 76,
+    "passed": 71,
+    "failed": 5,
+    "engine_runtime": "NOT RUN — Godot executable unavailable"
+  },
+  "tests": [
+    {
+      "test": "unchanged file: tools/pose_audit.py",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "test": "unchanged file: tools/hit_self_check.py",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "test": "unchanged file: scenes/main.tscn",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "test": "canonical Blockbench source preserved: blockbench/πé╗πâ⌐∩╜Ñπé½πâ⌐πâ╝πé¿πâòπéºπé»πâêΣ╗ÿπüì.bbmodel",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "test": "unchanged file: assets/slash_C_motion_preview.gif",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "test": "unchanged file: scripts/sera_rig.gd",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "test": "unchanged file: tools/target_frame_audit_v9.py",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "test": "unchanged file: tools/v26_alignment_check.py",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "test": "unchanged file: assets/v30_clean_slash_2d_preview.gif",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "test": "unchanged file: assets/slash_arc_target_v25.png",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "test": "unchanged file: tools/self_check.py",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "test": "unchanged file: shaders/slash_foil.gdshader",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "test": "unchanged file: tools/v30_geometry_audit.json",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "test": "unchanged file: tools/v23_test_result.txt",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "test": "unchanged file: scripts/touch_overlay.gd",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "test": "unchanged file: tools/build_swing_arc_v22.py",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "test": "unchanged file: tools/melee_self_check.py",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "test": "unchanged file: assets/slash_arc_1024.png",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "test": "unchanged file: assets/slash_arc_aim_v26.png",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "test": "unchanged file: assets/sera_data.gd",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "test": "unchanged file: README_v29_ja.md",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "test": "unchanged file: tools/v25_test_result.txt",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "test": "unchanged file: tools/v25_self_check.py",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "test": "unchanged file: README_v30_ja.md",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "test": "unchanged file: assets/sera_slash_sheet_4x4_mobile.png",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "test": "unchanged file: tools/v27_validate.py",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "test": "unchanged file: assets/slash_C_ice_4x2.png",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "test": "unchanged file: tools/v20_core_sha256.json",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "test": "unchanged file: tools/v20_self_check.py",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "test": "unchanged file: assets/slash_C_white_clean_4x2.png",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "test": "unchanged file: tools/v27_static_report.json",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "test": "unchanged file: scripts/main.gd",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "test": "unchanged file: assets/slash_C_red_clean_4x2.png",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "test": "canonical Blockbench source preserved: blockbench/πé╗πâ⌐∩╜Ñπé½πâ⌐πâ╝.bbmodel",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "test": "unchanged file: README_v27_ja.md",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "test": "unchanged file: tools/rebuild_model_data.py",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "test": "unchanged file: assets/impact_red_rim.png",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "test": "unchanged file: assets/slash_C_white_preview.gif",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "test": "unchanged file: assets/sera_source.json",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "test": "unchanged file: assets/slash_arc_swing_v22.png",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "test": "unchanged file: tools/slash_v22_geometry.json",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "test": "unchanged file: assets/slash_arc_target_v25_reveal.png",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "test": "unchanged file: assets/sera_slash_sheet_4x4_HQ_optional.png",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "test": "unchanged file: assets/slash_C_volume_geometry.json",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "test": "unchanged file: assets/slash_arc_aim_v26_reveal.png",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "test": "unchanged file: assets/slash_C_scarlet_4x2.png",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "test": "unchanged file: tools/v18_untouched_hashes.json",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "test": "unchanged file: assets/slash_arc_swing_reveal_v22.png",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "test": "unchanged file: tools/v23_self_check.py",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "test": "unchanged file: assets/sword_impact.wav",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "test": "unchanged file: assets/sera_godot_shading_texture.png",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "test": "unchanged file: assets/slash_sweep_strip_1024.png",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "test": "unchanged file: assets/spark_dark_red_outline.png",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "test": "unchanged file: README_v28_ja.md",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "test": "unchanged file: assets/v30_clean_arc_contact.png",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "test": "unchanged file: assets/slash_C_preview.jpg",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "test": "unchanged file: assets/slash_C_white_4x2.png",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "test": "unchanged file: tools/v10_signatures.json",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "test": "unchanged file: tools/v28_validate.py",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "test": "slash_C_volume.gdshader has no depth test",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "test": "slash_C_volume.gdshader only adds depth_test_disabled",
+      "pass": false,
+      "detail": ""
+    },
+    {
+      "test": "slash_C_sprite.gdshader has no depth test",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "test": "slash_C_sprite.gdshader only adds depth_test_disabled",
+      "pass": false,
+      "detail": ""
+    },
+    {
+      "test": "slash_C_particle.gdshader has no depth test",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "test": "slash_C_particle.gdshader only adds depth_test_disabled",
+      "pass": false,
+      "detail": ""
+    },
+    {
+      "test": "material priority flat_material.render_priority = 105",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "test": "material priority volume_material.render_priority = 100",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "test": "material priority particle_material.render_priority = 110",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "test": "other trail logic unchanged",
+      "pass": false,
+      "detail": ""
+    },
+    {
+      "test": "impact only changes rendering flags",
+      "pass": false,
+      "detail": ""
+    },
+    {
+      "test": "forward 0.55m unchanged",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "test": "shared authored rig unchanged",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "test": "8 frame UV and timing retained",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "test": "3D rear-facing culling kept",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "test": "all 8 meshes available",
+      "pass": true,
+      "detail": ""
+    },
+    {
+      "test": "priority order volume < flat < particles < hit",
+      "pass": true,
+      "detail": ""
+    }
+  ]
+}

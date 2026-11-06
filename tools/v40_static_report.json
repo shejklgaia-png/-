@@ -1,0 +1,28 @@
+{
+  "version": "v40",
+  "tests": {
+    "red width 5px": true,
+    "cyan width 2px": true,
+    "reticle draw applies dynamic width": true,
+    "marker red in melee range": true,
+    "reticle state setter redraw": true,
+    "marker updated after movement in physics tick": true,
+    "same melee distance threshold": true,
+    "distance controls marker": true,
+    "call updates marker": true,
+    "crosshair unchanged 2px": true,
+    "same arc radius": true,
+    "4 arcs unchanged": true,
+    "scene intact": true,
+    "project exists": true,
+    "only expected existing files changed": true,
+    "zip integrity": true,
+    "zip file count matches": true,
+    "zip contains updated code": true
+  },
+  "changed_files": [
+    "project.godot",
+    "README_ja.md",
+    "scripts/touch_overlay.gd"
+  ]
+}
