@@ -14,8 +14,11 @@ for bone, token in [
     ("Head", "RUN_HEAD_BONE_UUID")
 ]:
     assert f'const {token}: String = "{names[bone]}"' in rig
-assert "const RUN_FORWARD_TO_RETREAT_ANGLE_DEGREES: float = 105.0" in rig
-assert "const RUN_RETREAT_TO_FORWARD_ANGLE_DEGREES: float = 95.0" in rig
+assert "const RUN_MODE_BASE_CENTER_DEGREES: float = 100.0" in rig
+assert "const RUN_PREFERRED_SIDE_EXTRA_DEGREES: float = 20.0" in rig
+assert "const RUN_MODE_HYSTERESIS_DEGREES: float = 5.0" in rig
+assert "func _run_forward_sector_center(direction: Vector2)" in rig
+assert "func set_run_left_handed(enabled: bool)" in rig
 assert "const RUN_MODE_BLEND_SECONDS: float = 0.18" in rig
 assert "const RUN_UPPER_TRACKING_SECONDS: float = 0.10" in rig
 assert "var run_upper_yaw_offsets: PackedFloat32Array" in rig
@@ -42,14 +45,14 @@ assert len(model["animations"]) == 17
 def wrap(a):
     return (a + math.pi) % (2*math.pi) - math.pi
 
-def mode_after(mode, degrees):
-    y=math.cos(math.radians(degrees))
-    if mode and y>math.cos(math.radians(95)):
+def mode_after(mode, degrees, center=100):
+    if mode and degrees < center - 5:
         return False
-    if not mode and y<math.cos(math.radians(105)):
+    if not mode and degrees > center + 5:
         return True
     return mode
 
+# v111's original 95/105 thresholds survive on the unfavored side.
 assert mode_after(False, 100) is False
 assert mode_after(False, 106) is True
 assert mode_after(True, 100) is True

@@ -536,3 +536,10 @@
 - ルートWaistを前進では進行方向、後退では逆方向へ向け、最大450°/sで短い角度経路を追従し、腰位置の揺れも同角度で回転。前後歩行は同期位相・0.18秒ブレンド。Torso20%、Chest累積50%、Neck累積75%、Head累積100%までターゲット追従を増やし、関節ごとの回転上限で過度なねじれを抑制。関節補正角の境界反転は時定数0.10秒で平滑化。
 - v107の前後ソース90°補正と、v109/v110の最大15°旋回バンクを維持。バンク軸は新たなルートの向きに追従。プレイヤー本体・移動速度・カメラ・衝突・攻撃・ガード・ブースト・ステップ・ジャンプ・モデル・BGM・SEは変更しない。
 - 変更：`scripts/sera_rig.gd`、`project.godot`、`DEVELOPMENT.md`、`tools/v108_run_blend_self_check.py`、`tools/v109_run_turn_bank_self_check.py`、`tools/v110_run_max_lean_self_check.py`。追加：`README_v111_ja.md`、`tools/v111_two_mode_run_self_check.py`。静的・数値検査はコネクタ経由、Godot/Android実機未検証。
+
+## v112（2026-11-07） — 左後方のRUN範囲拡大と左右利き手切替
+- 基準：GitHub `main` v111（`9f5e6e846b56c7c65a2a5a96e15dcbef5fdc55de`）。右利き設定の左側のみ前方RUN判定を20°拡張（中心100→120°、切替105→125°／復帰95→115°）。反対側は従来95/105°を維持。左利き設定時は右側だけ同じ20°拡張。
+- `scripts/sera_rig.gd` に利き手別前方セクタ中心計算と既存±5°ヒステリシスを組み合わせ、前後2モーションの自然な切替を維持。プレイヤー実移動・STEP・BOOST・カメラ・ガード・格闘・アセットは変更しない。
+- `scripts/main.gd` の上部HUDに `HAND: RIGHT/LEFT` ボタンを追加し、`ConfigFile` で `user://sera_settings.cfg` へ保存。次回起動時に復元、走行中でも変更可能。HUD内タッチは従来どおりプレイヤー操作として扱わない。
+- 変更：`scripts/sera_rig.gd`、`scripts/main.gd`、`project.godot`、`DEVELOPMENT.md`、`docs/SERA_INPUT_MOVEMENT_CAMERA.md`、`tools/v111_two_mode_run_self_check.py`。追加：`README_v112_ja.md`、`tools/v112_handed_run_mode_self_check.py`。
+- コード構造・数値遷移を静的点検。Godot/Android実機での操作は未検証。
