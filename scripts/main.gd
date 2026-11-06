@@ -253,6 +253,7 @@ var hit_audio: AudioStreamPlayer  # Combo stages 1+2, on confirmed target hit on
 var melee_finisher_audio: AudioStreamPlayer  # Combo stage 3, confirmed hit only.
 var player_hit_audio: AudioStreamPlayer  # v93 metal sound retained for area attacks.
 var player_bullet_hit_audio: AudioStreamPlayer  # AIM/LEAD projectile hit only.
+var guard_bullet_hit_audio: AudioStreamPlayer  # Guarded AIM/LEAD projectile hit only.
 var sword_trail: Node3D
 var target_hp: int = TARGET_MAX_HP
 var hit_stop_remaining: float = 0.0
@@ -429,9 +430,9 @@ func _build_enemy_shooter() -> void:
 func _on_enemy_projectile_hit(_world_position: Vector3, incoming_direction: Vector3,
         is_bullet: bool) -> void:
     if guard_active:
-        # A guarded hit still produces the existing impact sound, but never
+        # Guarded bullets use their own impact sound, but never
         # triggers the unguarded red damage flash, Damageknock or knockback.
-        var block_sound: AudioStreamPlayer = player_bullet_hit_audio if is_bullet else player_hit_audio
+        var block_sound: AudioStreamPlayer = guard_bullet_hit_audio if is_bullet else player_hit_audio
         if is_instance_valid(block_sound) and block_sound.stream != null:
             block_sound.play()
         return
@@ -781,6 +782,13 @@ func _build_hit_effects() -> void:
     player_bullet_hit_audio.volume_db = -5.0
     player_bullet_hit_audio.max_polyphony = 3
     add_child(player_bullet_hit_audio)
+
+    guard_bullet_hit_audio = AudioStreamPlayer.new()
+    guard_bullet_hit_audio.name = "GuardBulletHitSound"
+    guard_bullet_hit_audio.stream = load("res://assets/sera_bullet_hit_short.wav")
+    guard_bullet_hit_audio.volume_db = -5.0
+    guard_bullet_hit_audio.max_polyphony = 3
+    add_child(guard_bullet_hit_audio)
 
     # Areas are not bullets: preserve v93's metal contact sound for them.
     player_hit_audio = AudioStreamPlayer.new()
