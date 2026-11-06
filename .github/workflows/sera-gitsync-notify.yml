@@ -1,0 +1,49 @@
+name: SERA GitSync notification
+
+# Only integrated changes should notify the phone. Manual dispatch is for
+# verifying the bridge after the Android configuration is complete.
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+# No checkout, write access, or repository source contents required.
+permissions: {}
+
+concurrency:
+  group: sera-gitsync-notify-main
+  cancel-in-progress: true
+
+jobs:
+  notify:
+    name: Notify Android GitSync via ntfy
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Publish sync request
+        shell: bash
+        env:
+          NTFY_TOPIC: ${{ secrets.SERA_NTFY_TOPIC }}
+        run: |
+          set -euo pipefail
+          if [[ -z "$NTFY_TOPIC" ]]; then
+            echo "::notice title=GitSync not configured::Set the SERA_NTFY_TOPIC repository Actions secret to enable notifications."
+            exit 0
+          fi
+          # Public ntfy topics are effectively bearer secrets. Never log them.
+          # ntfy allows 64 characters max and [-_A-Za-z0-9] only.
+          if [[ ! "$NTFY_TOPIC" =~ ^[A-Za-z0-9_-]{24,64}$ ]]; then
+            echo "::error title=Invalid ntfy topic::SERA_NTFY_TOPIC must be 24-64 letters/digits/underscores/dashes."
+            exit 1
+          fi
+          # Constant payload: no source paths, commit messages, or private
+          # repository metadata are sent to the third-party notification host.
+          # The Tasker profile matches BOTH the topic and this exact message.
+          curl --fail --show-error --silent --retry 3 --retry-delay 2 \
+            --max-time 20 \
+            --header "Title: SERA main updated" \
+            --header "Priority: low" \
+            --data-binary "SERA_SYNC_MAIN" \
+            "https://ntfy.sh/${NTFY_TOPIC}" >/dev/null
+          echo "ntfy accepted the sync trigger (Android execution not verified)."
