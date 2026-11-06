@@ -1,0 +1,7 @@
+SERA GitSync Android delivery probe
+Token: SERA_SYNC_PROBE_20261107_0800_JST
+Source: GitHub main after this test PR is merged
+Purpose: verify that GitSync automatically pulls a newly added file after an ntfy/Automate notification.
+Expected Android path: GAME/Git/SYNC_PROBE_20261107.txt (relative to the GitSync repository root)
+This is a documentation-only marker; SERA stays at game version v112.
+Do not use GitSync manual sync before checking if the file appeared automatically.
