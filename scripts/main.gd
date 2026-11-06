@@ -1775,11 +1775,22 @@ func _physics_process(delta: float) -> void:
         # ends. Never run RUN/BOOST movement during landing recovery.
         player.velocity = Vector3.ZERO
     elif combat_state == CombatState.IDLE and not stepping_this_frame:
+        # Keep v9 camera-relative input and choose animation relative to the
+        # target-facing character, not to the camera or the screen.
+        var world_move: Vector3 = _screen_drag_to_ground(direction_input) if running else Vector3.ZERO
         if rig != null:
-            rig.call("set_moving", running, movement_boost_active)
+            var target_forward: Vector3 = Vector3(
+                target.position.x - player.position.x, 0.0,
+                target.position.z - player.position.z)
+            if target_forward.length_squared() < 0.000001:
+                target_forward = -player.global_transform.basis.z
+            target_forward = target_forward.normalized()
+            var local_run_direction: Vector2 = Vector2(
+                world_move.dot(target_forward.cross(Vector3.UP)),
+                world_move.dot(target_forward))
+            rig.call("set_moving", running, movement_boost_active, local_run_direction)
         if running:
-            # v9 behavior: convert drag to the CURRENT camera's ground axes.
-            var world_move: Vector3 = _screen_drag_to_ground(direction_input)
+            # v9 behavior: world_move already uses the current camera's ground axes.
             # Analog strength saturates at the visual rim; BOOST changes speed
             # smoothly only after the sustained 125% threshold is confirmed.
             player.velocity = world_move * MOVE_SPEED * boost_speed_multiplier
@@ -1849,7 +1860,7 @@ func _physics_process(delta: float) -> void:
                 if running and movement_boost_active:
                     state_label.text = "BOOST  x1.5  |  Boost_front"
                 elif running:
-                    state_label.text = "RUN  x1.0  |  run_front_original"
+                    state_label.text = "RUN  x1.0  |  %s" % str(rig.get("current_clip"))
                 else:
                     state_label.text = "WAIT  |  Wait_motion"
 
