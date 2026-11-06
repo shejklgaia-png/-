@@ -1,6 +1,6 @@
 extends Node
-## v104 training-stage music: play the drum intro once, then loop the main track.
-## Deliberately independent of gameplay, combat SFX and camera scripts.
+## v105: Decode Ogg directly from the project files so Android GitSync imports
+## are not a prerequisite for starting the stage music.
 
 const INTRO_PATH: String = "res://BGM/sera_training_v08_intro.ogg"
 const LOOP_PATH: String = "res://BGM/sera_training_v08_loop.ogg"
@@ -10,14 +10,16 @@ var intro_player: AudioStreamPlayer
 var loop_player: AudioStreamPlayer
 
 func _ready() -> void:
-    if not ResourceLoader.exists(INTRO_PATH) or not ResourceLoader.exists(LOOP_PATH):
-        push_warning("SERA stage BGM missing: both .ogg files must be under res://BGM/")
-        return
+    # Start after the scene is fully attached to the tree/audio system.
+    call_deferred("_start_bgm")
 
-    var intro_stream: AudioStreamOggVorbis = load(INTRO_PATH) as AudioStreamOggVorbis
-    var loop_stream: AudioStreamOggVorbis = load(LOOP_PATH) as AudioStreamOggVorbis
+func _start_bgm() -> void:
+    # Do not use ResourceLoader.exists/load here: it can depend on the import
+    # cache, which may be stale immediately after an Android GitSync pull.
+    var intro_stream: AudioStreamOggVorbis = AudioStreamOggVorbis.load_from_file(INTRO_PATH)
+    var loop_stream: AudioStreamOggVorbis = AudioStreamOggVorbis.load_from_file(LOOP_PATH)
     if intro_stream == null or loop_stream == null:
-        push_warning("SERA stage BGM files must be valid Ogg Vorbis resources")
+        push_error("SERA BGM: failed to load Ogg. intro file=" + str(FileAccess.file_exists(INTRO_PATH)) + ", loop file=" + str(FileAccess.file_exists(LOOP_PATH)) + ". Check BGM/ in the Godot project folder.")
         return
 
     intro_stream.loop = false
@@ -38,7 +40,9 @@ func _ready() -> void:
 
     intro_player.finished.connect(_on_intro_finished)
     intro_player.play()
+    print("SERA BGM: intro playing (" + str(intro_stream.get_length()) + " s)")
 
 func _on_intro_finished() -> void:
     if is_instance_valid(loop_player) and loop_player.stream != null:
         loop_player.play()
+        print("SERA BGM: loop playing")
