@@ -1860,7 +1860,7 @@ func _physics_process(delta: float) -> void:
                 if running and movement_boost_active:
                     state_label.text = "BOOST  x1.5  |  Boost_front"
                 elif running:
-                    state_label.text = "RUN  x1.0  |  %s" % str(rig.get("current_clip"))
+                    state_label.text = "RUN  x1.0  |  %s" % str(rig.call("get_run_dominant_clip"))
                 else:
                     state_label.text = "WAIT  |  Wait_motion"
 

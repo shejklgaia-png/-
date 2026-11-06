@@ -41,6 +41,13 @@ const JUMP_FALL_CLIP_START: float = 0.20833 / JUMP_AIR_CLIP_END
 const DAMAGE_CLIP: String = "Damageknock"
 const GUARD_CLIP: String = "Guard"
 const RUN_ANIMATION_SPEED: float = 1.5  # Motion playback only; does not change movement speed
+# v108: Continuous four-way pose blending; 0.12s response for direction changes.
+const RUN_DIRECTION_BLEND_SECONDS: float = 0.12
+# v109: Subtle procedural bank only while the RUN direction is changing.
+const RUN_TURN_MAX_LEAN_DEGREES: float = 5.0
+const RUN_TURN_RATE_AT_MAX_LEAN: float = 7.0  # rad/s, after v108 smoothing
+const RUN_TURN_LEAN_ATTACK_SECONDS: float = 0.06
+const RUN_TURN_LEAN_RETURN_SECONDS: float = 0.20
 
 var bones: Dictionary = {}                  # uuid -> Node3D
 var bind_positions: Dictionary = {}         # uuid -> Vector3
@@ -49,6 +56,12 @@ var bind_scales: Dictionary = {}         # uuid -> Quaternion
 var animations: Dictionary = {}             # name -> {length, tracks}
 var current_clip: String = WAIT_CLIP
 var clip_time: float = 0.0
+# Weights: front, back, right, left. These always add up to 1 during RUN.
+var run_blend_weights: PackedFloat32Array = PackedFloat32Array([1.0, 0.0, 0.0, 0.0])
+var run_blend_targets: PackedFloat32Array = PackedFloat32Array([1.0, 0.0, 0.0, 0.0])
+# A positive bank leans toward character-right (+X), negative toward left.
+var run_turn_lean_degrees: float = 0.0
+var run_turn_previous_direction: Vector2 = Vector2.ZERO
 var blending_for: float = BLEND_SECONDS
 var blend_duration: float = BLEND_SECONDS
 var combat_playback: bool = false
@@ -445,36 +458,43 @@ func finish_guard() -> void:
     guard_playback = false
     _switch_clip(WAIT_CLIP, 0.11)
 
-# Four authored RUN animations use movement relative to the locked-on target.
-# Use the dominant local axis rather than mixing unaligned footstep cycles.
-func _run_clip_for_direction(local_direction: Vector2) -> String:
-    if local_direction.length_squared() < 0.000001:
-        return RUN_CLIP
-    var side_strength: float = absf(local_direction.x)
-    var forward_strength: float = absf(local_direction.y)
-    # Stabilize the switch on near-diagonal touch input.
-    if absf(side_strength - forward_strength) < 0.08 and current_clip in RUN_CLIPS:
-        return current_clip
-    if side_strength > forward_strength:
-        return RUN_RIGHT_CLIP if local_direction.x > 0.0 else RUN_LEFT_CLIP
-    return RUN_CLIP if local_direction.y >= 0.0 else RUN_BACK_CLIP
+# Use signed target-relative axes to mix two neighboring authored RUN cycles.
+# For example forward-right at 45 degrees has 50% front and 50% right.
+func _set_run_blend_targets(local_direction: Vector2) -> void:
+    var total: float = absf(local_direction.x) + absf(local_direction.y)
+    if total < 0.000001:
+        run_blend_targets = PackedFloat32Array([1.0, 0.0, 0.0, 0.0])
+        return
+    run_blend_targets[0] = maxf(local_direction.y, 0.0) / total  # front
+    run_blend_targets[1] = maxf(-local_direction.y, 0.0) / total # back
+    run_blend_targets[2] = maxf(local_direction.x, 0.0) / total  # right
+    run_blend_targets[3] = maxf(-local_direction.x, 0.0) / total # left
+
+func get_run_dominant_clip() -> String:
+    var best: int = 0
+    for i in range(1, RUN_CLIPS.size()):
+        if run_blend_weights[i] > run_blend_weights[best]:
+            best = i
+    return str(RUN_CLIPS[best])
 
 func set_moving(moving: bool, boosting: bool = false, local_direction: Vector2 = Vector2(0.0, 1.0)) -> void:
     if not loading_ok or combat_playback or step_playback or jump_playback or damage_playback or guard_playback:
         return
-    # Movement speed and collisions remain in main.gd; BOOST keeps its own pose.
+    # Direction changes only update blending weights. The RUN clock stays
+    # continuous instead of resetting every time the dominant axis changes.
+    if moving and not boosting:
+        _set_run_blend_targets(local_direction)
+        if current_clip not in RUN_CLIPS:
+            # Enter from WAIT/BOOST/STEP with the correct initial direction.
+            # The existing _switch_clip still blends from the displayed pose.
+            run_blend_weights = run_blend_targets.duplicate()
+            # Entering RUN must not simulate a turn from a stale direction.
+            run_turn_previous_direction = _run_heading_from_weights()
+            run_turn_lean_degrees = 0.0
     var wanted: String = WAIT_CLIP
     if moving:
-        wanted = BOOST_CLIP if boosting else _run_clip_for_direction(local_direction)
-    if wanted != current_clip and wanted in RUN_CLIPS and current_clip in RUN_CLIPS:
-        # Preserve normalized loop time so lateral direction changes don't
-        # restart a footstep at frame zero.
-        var old_duration: float = maxf(float(animations[current_clip]["length"]), 0.001)
-        var loop_phase: float = fposmod(clip_time, old_duration) / old_duration
-        _switch_clip(wanted, BLEND_SECONDS)
-        clip_time = loop_phase * maxf(float(animations[wanted]["length"]), 0.001)
-    else:
-        _switch_clip(wanted, BLEND_SECONDS)
+        wanted = BOOST_CLIP if boosting else RUN_CLIP
+    _switch_clip(wanted, BLEND_SECONDS)
 
 func start_side_step(side: int) -> void:
     if not loading_ok or damage_playback or guard_playback or (side != 1 and side != -1):
@@ -629,7 +649,93 @@ func _process(delta: float) -> void:
         clip_time += delta * (RUN_ANIMATION_SPEED if current_clip in RUN_CLIPS else 1.0)
     if not combat_paused:
         blending_for += delta
+        if current_clip in RUN_CLIPS:
+            # Exponential smoothing is stable across changing frame rates.
+            var direction_alpha: float = 1.0 - exp(-maxf(delta, 0.0) / RUN_DIRECTION_BLEND_SECONDS)
+            for i in range(RUN_CLIPS.size()):
+                run_blend_weights[i] = lerpf(run_blend_weights[i], run_blend_targets[i], direction_alpha)
+            _update_run_turn_lean(delta)
+        else:
+            # On leaving RUN, the captured pose blends into the next action.
+            # Never carry the bank into idle, boost, guard, step or attack.
+            run_turn_previous_direction = Vector2.ZERO
+            run_turn_lean_degrees = 0.0
     _apply_animation(delta)
+
+func _run_heading_from_weights() -> Vector2:
+    # X: right / left. Y: forward / back, relative to the target.
+    var heading := Vector2(
+        run_blend_weights[2] - run_blend_weights[3],
+        run_blend_weights[0] - run_blend_weights[1])
+    if heading.length_squared() < 0.0001:
+        return Vector2.ZERO
+    return heading.normalized()
+
+func _update_run_turn_lean(delta: float) -> void:
+    if delta <= 0.0:
+        return
+    var heading: Vector2 = _run_heading_from_weights()
+    var desired_lean: float = 0.0
+    if not heading.is_zero_approx() and not run_turn_previous_direction.is_zero_approx():
+        # Positive cross = clockwise turn toward the character's right.
+        # Sampling the v108 SMOOTHED heading makes even quick flicks create
+        # a brief bank rather than a one-frame impulse.
+        var signed_turn: float = (
+            run_turn_previous_direction.y * heading.x
+            - run_turn_previous_direction.x * heading.y)
+        var turn_rate: float = signed_turn / delta
+        desired_lean = RUN_TURN_MAX_LEAN_DEGREES * clampf(
+            turn_rate / RUN_TURN_RATE_AT_MAX_LEAN, -1.0, 1.0)
+    run_turn_previous_direction = heading
+    # Quick lean into the turn; softer return once the direction settles.
+    var moving_toward_turn: bool = (absf(desired_lean) > absf(run_turn_lean_degrees)
+        or desired_lean * run_turn_lean_degrees < 0.0)
+    var response: float = (RUN_TURN_LEAN_ATTACK_SECONDS if moving_toward_turn
+        else RUN_TURN_LEAN_RETURN_SECONDS)
+    var alpha: float = 1.0 - exp(-delta / response)
+    run_turn_lean_degrees = lerpf(run_turn_lean_degrees, desired_lean, alpha)
+
+# Sample all four compatible 1-second RUN clips at the same phase. Blend
+# rotations with shortest-arc quaternions, and positions/scales linearly.
+# v107's root yaw compensation is applied to EACH clip before mixing.
+func _blended_run_pose(uid: String, t: float) -> Dictionary:
+    var total_weight: float = 0.0
+    var blended_rotation: Quaternion = Quaternion.IDENTITY
+    var blended_translation: Vector3 = Vector3.ZERO
+    var blended_scale: Vector3 = Vector3.ONE
+    for i in range(RUN_CLIPS.size()):
+        var weight: float = run_blend_weights[i]
+        if weight <= 0.000001:
+            continue
+        var source_tracks: Dictionary = animations[str(RUN_CLIPS[i])]["tracks"]
+        var bone_tracks: Dictionary = source_tracks.get(uid, {})
+        var rotation_values: Array = bone_tracks.get("rotation", [])
+        var position_values: Array = bone_tracks.get("position", [])
+        var scale_values: Array = bone_tracks.get("scale", [])
+        var sample_rotation: Quaternion = _rotation_at(rotation_values, t) if not rotation_values.is_empty() else bind_rotations[uid]
+        var sample_translation: Vector3 = _value_at(position_values, t) * UNIT
+        var sample_scale: Vector3 = _value_at(scale_values, t) if not scale_values.is_empty() else Vector3.ONE
+        if uid == RUN_ROOT_BONE_UUID:
+            var run_yaw_correction := Quaternion(Vector3.UP, RUN_ROOT_YAW_OFFSET_RADIANS)
+            sample_rotation = run_yaw_correction * sample_rotation
+            sample_translation = run_yaw_correction * sample_translation
+        if total_weight <= 0.000001:
+            blended_rotation = sample_rotation
+            blended_translation = sample_translation
+            blended_scale = sample_scale
+        else:
+            var fraction: float = weight / (total_weight + weight)
+            blended_rotation = blended_rotation.slerp(sample_rotation, fraction).normalized()
+            blended_translation = blended_translation.lerp(sample_translation, fraction)
+            blended_scale = blended_scale.lerp(sample_scale, fraction)
+        total_weight += weight
+    if uid == RUN_ROOT_BONE_UUID and not is_zero_approx(run_turn_lean_degrees):
+        # Negative rotation around character-local +Z tilts its UP axis
+        # toward +X (right). Pre-multiply after the v107 yaw correction.
+        # Only the visual root is banked; player collider/camera stay level.
+        var bank := Quaternion(Vector3.BACK, -deg_to_rad(run_turn_lean_degrees))
+        blended_rotation = (bank * blended_rotation).normalized()
+    return {"rotation": blended_rotation, "position": blended_translation, "scale": blended_scale}
 
 func _apply_animation(_delta: float) -> void:
     var clip: Dictionary = animations[current_clip]
@@ -639,22 +745,25 @@ func _apply_animation(_delta: float) -> void:
     var t: float = fposmod(clip_time, clip_length) if bool(clip["looped"]) else minf(clip_time, clip_length)
     var tracks: Dictionary = clip["tracks"]
     var blend_weight: float = clampf(blending_for / maxf(blend_duration, 0.00001), 0.0, 1.0)
+    var running_pose: bool = current_clip in RUN_CLIPS
     for uid in bones.keys():
         var bone: Node3D = bones[uid]
-        var tracks_for_bone: Dictionary = tracks.get(uid, {})
-        var rotation_values: Array = tracks_for_bone.get("rotation", [])
-        var position_values: Array = tracks_for_bone.get("position", [])
-        var scale_values: Array = tracks_for_bone.get("scale", [])
-        var scale_value: Vector3 = _value_at(scale_values, t) if not scale_values.is_empty() else Vector3.ONE
-        var translation: Vector3 = _value_at(position_values, t) * UNIT
-        var q: Quaternion = _rotation_at(rotation_values, t) if not rotation_values.is_empty() else bind_rotations[uid]
-        if uid == RUN_ROOT_BONE_UUID and current_clip in RUN_CLIPS:
-            # Rotate the entire authored root motion 90 degrees around world Y.
-            # Pre-multiplication corrects yaw even for the left RUN's 180-degree
-            # X/Z Euler representation; subtracting from Euler Y alone would not.
-            var run_yaw_correction := Quaternion(Vector3.UP, RUN_ROOT_YAW_OFFSET_RADIANS)
-            q = run_yaw_correction * q
-            translation = run_yaw_correction * translation
+        var q: Quaternion = Quaternion.IDENTITY
+        var translation: Vector3 = Vector3.ZERO
+        var scale_value: Vector3 = Vector3.ONE
+        if running_pose:
+            var pose: Dictionary = _blended_run_pose(str(uid), t)
+            q = pose["rotation"]
+            translation = pose["position"]
+            scale_value = pose["scale"]
+        else:
+            var tracks_for_bone: Dictionary = tracks.get(uid, {})
+            var rotation_values: Array = tracks_for_bone.get("rotation", [])
+            var position_values: Array = tracks_for_bone.get("position", [])
+            var scale_values: Array = tracks_for_bone.get("scale", [])
+            scale_value = _value_at(scale_values, t) if not scale_values.is_empty() else Vector3.ONE
+            translation = _value_at(position_values, t) * UNIT
+            q = _rotation_at(rotation_values, t) if not rotation_values.is_empty() else bind_rotations[uid]
         if blend_weight < 1.0 and prior_rotations.has(uid):
             q = (prior_rotations[uid] as Quaternion).slerp(q, blend_weight)
             translation = (prior_offsets[uid] as Vector3).lerp(translation, blend_weight)
