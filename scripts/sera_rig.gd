@@ -20,6 +20,11 @@ const RUN_BACK_CLIP: String = "run_back"
 const RUN_RIGHT_CLIP: String = "run_right"
 const RUN_LEFT_CLIP: String = "run_Left"
 const RUN_CLIPS = [RUN_CLIP, RUN_BACK_CLIP, RUN_RIGHT_CLIP, RUN_LEFT_CLIP]
+# v107: The four RUN clips in SERA_back.bbmodel were authored with their
+# locomotion forward axis pointing left relative to Godot's target-facing -Z.
+# Correct their Waist root transform, never the Player / target / camera.
+const RUN_ROOT_BONE_UUID: String = "67435cb7-b6af-23e4-10f1-3cd13d8429fa"  # Waist
+const RUN_ROOT_YAW_OFFSET_RADIANS: float = -PI * 0.5
 # Long-drag movement uses an authored single-pose clip, separate from flick steps.
 const BOOST_CLIP: String = "Boost_front"
 const MELEE_APPROACH_CLIP: String = "meleeboost"
@@ -643,6 +648,13 @@ func _apply_animation(_delta: float) -> void:
         var scale_value: Vector3 = _value_at(scale_values, t) if not scale_values.is_empty() else Vector3.ONE
         var translation: Vector3 = _value_at(position_values, t) * UNIT
         var q: Quaternion = _rotation_at(rotation_values, t) if not rotation_values.is_empty() else bind_rotations[uid]
+        if uid == RUN_ROOT_BONE_UUID and current_clip in RUN_CLIPS:
+            # Rotate the entire authored root motion 90 degrees around world Y.
+            # Pre-multiplication corrects yaw even for the left RUN's 180-degree
+            # X/Z Euler representation; subtracting from Euler Y alone would not.
+            var run_yaw_correction := Quaternion(Vector3.UP, RUN_ROOT_YAW_OFFSET_RADIANS)
+            q = run_yaw_correction * q
+            translation = run_yaw_correction * translation
         if blend_weight < 1.0 and prior_rotations.has(uid):
             q = (prior_rotations[uid] as Quaternion).slerp(q, blend_weight)
             translation = (prior_offsets[uid] as Vector3).lerp(translation, blend_weight)
