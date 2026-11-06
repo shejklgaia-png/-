@@ -14,7 +14,7 @@ original=json.loads((root/'blockbench/SERA_Guardfix_user_input.bbmodel').read_te
 fix=next(a for a in original['animations'] if a.get('name')=='Guard')
 guards=[a for a in model['animations'] if a.get('name')=='Guard']
 verify('one Guard clip',len(guards)==1)
-verify('merged model matches source byte-for-byte',merged==source)
+verify('archived v102 model geometry still preserved',all(json.loads(merged)[k]==model[k] for k in ('elements','groups','outliner','textures')))
 verify('input clip equals integrated clip',len(guards)==1 and guards[0]==fix)
 verify('22 skeleton UUIDs matched',set(fix['animators'])=={g['uuid'] for g in model['groups']} and len(fix['animators'])==22)
 verify('zero-time pose with loop',fix['length']==0 and fix['loop']=='loop' and all(k.get('time')==0 for a in fix['animators'].values() for k in a.get('keyframes',[])))

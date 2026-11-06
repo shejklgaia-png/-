@@ -16,6 +16,10 @@ const EMBEDDED = preload("res://assets/sera_data.gd")
 const SERA_TEXTURE = preload("res://assets/sera_godot_shading_texture.png")
 const WAIT_CLIP: String = "Wait_motion"
 const RUN_CLIP: String = "run_front_original"
+const RUN_BACK_CLIP: String = "run_back"
+const RUN_RIGHT_CLIP: String = "run_right"
+const RUN_LEFT_CLIP: String = "run_Left"
+const RUN_CLIPS = [RUN_CLIP, RUN_BACK_CLIP, RUN_RIGHT_CLIP, RUN_LEFT_CLIP]
 # Long-drag movement uses an authored single-pose clip, separate from flick steps.
 const BOOST_CLIP: String = "Boost_front"
 const MELEE_APPROACH_CLIP: String = "meleeboost"
@@ -74,7 +78,9 @@ func _ready() -> void:
     _build_model(data)
     _build_animations(data)
     loading_ok = (bones.size() > 0 and animations.has(WAIT_CLIP)
-        and animations.has(RUN_CLIP) and animations.has(BOOST_CLIP) and animations.has(MELEE_APPROACH_CLIP)
+        and animations.has(RUN_CLIP) and animations.has(RUN_BACK_CLIP)
+        and animations.has(RUN_RIGHT_CLIP) and animations.has(RUN_LEFT_CLIP)
+        and animations.has(BOOST_CLIP) and animations.has(MELEE_APPROACH_CLIP)
         and animations.has(STRIKE_CLIP) and animations.has(STRIKE_2_CLIP)
         and animations.has(STRIKE_3_CLIP) and animations.has(STEP_RIGHT_CLIP)
         and animations.has(STEP_LEFT_CLIP) and animations.has(STEP_BACK_CLIP)
@@ -434,15 +440,36 @@ func finish_guard() -> void:
     guard_playback = false
     _switch_clip(WAIT_CLIP, 0.11)
 
-func set_moving(moving: bool, boosting: bool = false) -> void:
+# Four authored RUN animations use movement relative to the locked-on target.
+# Use the dominant local axis rather than mixing unaligned footstep cycles.
+func _run_clip_for_direction(local_direction: Vector2) -> String:
+    if local_direction.length_squared() < 0.000001:
+        return RUN_CLIP
+    var side_strength: float = absf(local_direction.x)
+    var forward_strength: float = absf(local_direction.y)
+    # Stabilize the switch on near-diagonal touch input.
+    if absf(side_strength - forward_strength) < 0.08 and current_clip in RUN_CLIPS:
+        return current_clip
+    if side_strength > forward_strength:
+        return RUN_RIGHT_CLIP if local_direction.x > 0.0 else RUN_LEFT_CLIP
+    return RUN_CLIP if local_direction.y >= 0.0 else RUN_BACK_CLIP
+
+func set_moving(moving: bool, boosting: bool = false, local_direction: Vector2 = Vector2(0.0, 1.0)) -> void:
     if not loading_ok or combat_playback or step_playback or jump_playback or damage_playback or guard_playback:
         return
-    # RUN and BOOST share collision/movement logic; only their poses differ.
-    # Boost_front is authored as one key at t=0 and is held while boosting.
+    # Movement speed and collisions remain in main.gd; BOOST keeps its own pose.
     var wanted: String = WAIT_CLIP
     if moving:
-        wanted = BOOST_CLIP if boosting else RUN_CLIP
-    _switch_clip(wanted, BLEND_SECONDS)
+        wanted = BOOST_CLIP if boosting else _run_clip_for_direction(local_direction)
+    if wanted != current_clip and wanted in RUN_CLIPS and current_clip in RUN_CLIPS:
+        # Preserve normalized loop time so lateral direction changes don't
+        # restart a footstep at frame zero.
+        var old_duration: float = maxf(float(animations[current_clip]["length"]), 0.001)
+        var loop_phase: float = fposmod(clip_time, old_duration) / old_duration
+        _switch_clip(wanted, BLEND_SECONDS)
+        clip_time = loop_phase * maxf(float(animations[wanted]["length"]), 0.001)
+    else:
+        _switch_clip(wanted, BLEND_SECONDS)
 
 func start_side_step(side: int) -> void:
     if not loading_ok or damage_playback or guard_playback or (side != 1 and side != -1):
@@ -594,7 +621,7 @@ func _process(delta: float) -> void:
     if not loading_ok:
         return
     if not freeze_attack_pose and not combat_paused and not (jump_playback and current_clip == JUMP_CLIP):
-        clip_time += delta * (RUN_ANIMATION_SPEED if current_clip == RUN_CLIP else 1.0)
+        clip_time += delta * (RUN_ANIMATION_SPEED if current_clip in RUN_CLIPS else 1.0)
     if not combat_paused:
         blending_for += delta
     _apply_animation(delta)

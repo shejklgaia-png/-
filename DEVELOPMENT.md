@@ -496,3 +496,10 @@
 - v102を基準に、ガード中のAIM／LEAD弾命中だけを既存の `assets/sera_bullet_hit_short.wav` に切替。音源はユーザーが指定ファイルと同じと確認済み。
 - `scripts/main.gd` に専用プレイヤーを追加（-5dB／多重再生3）。通常被弾、範囲攻撃、ガード反応抑止、その他のゲーム機能は維持。
 - 検証：既存Pythonチェック3本、Godot headless import・短時間起動・命中音分岐テスト。Android実機の音声確認は未実施。
+
+## v106（2026-11-07） — RUN 4方向アニメーション適用
+- 基準：GitHub main v105。ユーザーが追加した `bbmodel/SERA_back.bbmodel` の前後左右4クリップを採用（前進は更新版）。
+- 既存22グループ・25要素・他13クリップ・Jump英語名・Swordeffectモデル・音源・BGMは維持。モデルを丸ごと置き換えず、アニメーションだけを `assets/sera_source.json` へマージし、埋め込みと編集用モデルを同期。
+- 画面基準移動ベクトルをターゲット基準のローカル方向へ投影し、RUN時だけ優勢な前後左右へ切替。近接する斜め方向の入力にはヒステリシスを適用し、RUN間で位相保持。全RUNに従来倍率1.5を適用。
+- 変更：`scripts/sera_rig.gd`、`scripts/main.gd`、`assets/sera_source.json`、`assets/sera_data.gd`、`project.godot`、`tools/v102_guardfix_self_check.py`、`DEVELOPMENT.md`。追加：`blockbench/SERA_v106_four_way_run_integrated.bbmodel`、`README_v106_ja.md`、`tools/v106_four_way_run_self_check.py`。
+- 可能な静的構造チェックのみ実行。Godotヘッドレス、Python実行、Android実機は未検証。詳細は `README_v106_ja.md`。
