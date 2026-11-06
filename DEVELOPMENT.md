@@ -503,3 +503,10 @@
 - 画面基準移動ベクトルをターゲット基準のローカル方向へ投影し、RUN時だけ優勢な前後左右へ切替。近接する斜め方向の入力にはヒステリシスを適用し、RUN間で位相保持。全RUNに従来倍率1.5を適用。
 - 変更：`scripts/sera_rig.gd`、`scripts/main.gd`、`assets/sera_source.json`、`assets/sera_data.gd`、`project.godot`、`tools/v102_guardfix_self_check.py`、`DEVELOPMENT.md`。追加：`blockbench/SERA_v106_four_way_run_integrated.bbmodel`、`README_v106_ja.md`、`tools/v106_four_way_run_self_check.py`。
 - 可能な静的構造チェックのみ実行。Godotヘッドレス、Python実行、Android実機は未検証。詳細は `README_v106_ja.md`。
+
+## v107（2026-11-07） — RUNモーション90度方向ずれ修正
+- v106（GitHub main `d34f2a6ef3c6549b522f3f0a15797997dda8dc01`）を基準。実機で「左を正面として4方向モーションが再生される」と報告。
+- 原因：提供RUN 4クリップの最上位 `Waist` の回転は、`Wait_motion` の約-20度に対し、前／後約+75度、右約0度、左約+177度で、全方向の軸が90度ずれていた。
+- `scripts/sera_rig.gd` 内のRUN 4クリップだけを対象に `Waist` の回転と相対位置をワールドY軸基準-90度のQuaternionで補正。ブレンド前に適用し、180度オイラー姿勢を含む左右クリップも正しく補正。入力方向選択・プレイヤーの向き・通常の移動位置・カメラ・格闘・ブースト・ステップ・その他のモーションとモデルデータは変更しない。
+- 変更：`scripts/sera_rig.gd`、`project.godot`、`DEVELOPMENT.md`。追加：`README_v107_ja.md`、`tools/v107_run_facing_self_check.py`。
+- JSONアニメーションの数値・補正後の4方向の軸向き・変更範囲をGitHubコネクタ経由で確認。Godot/Android実機の動作テストは未実施。
