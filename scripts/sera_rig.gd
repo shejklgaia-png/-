@@ -47,6 +47,7 @@ const RUN_DIRECTION_BLEND_SECONDS: float = 0.12
 const RUN_FORWARD_TO_RETREAT_ANGLE_DEGREES: float = 105.0
 const RUN_RETREAT_TO_FORWARD_ANGLE_DEGREES: float = 95.0
 const RUN_MODE_BLEND_SECONDS: float = 0.18
+const RUN_UPPER_TRACKING_SECONDS: float = 0.10
 const RUN_ROOT_TURN_SPEED_DEGREES: float = 450.0
 const RUN_TORSO_BONE_UUID: String = "29fad052-d2b7-1a2a-eefa-30dd75fa7d0a"
 const RUN_CHEST_BONE_UUID: String = "1b13d772-8cee-ef23-dc57-4da6bba6ce39"
@@ -77,6 +78,7 @@ var run_direction_smoothed: Vector2 = Vector2(0.0, 1.0)
 var run_retreat_mode: bool = false
 var run_retreat_blend: float = 0.0
 var run_facing_yaw: float = 0.0
+var run_upper_yaw_offsets: PackedFloat32Array = PackedFloat32Array([0.0, 0.0, 0.0, 0.0])
 # A positive bank leans toward the right side of the current travel heading.
 var run_turn_lean_degrees: float = 0.0
 var run_turn_previous_direction: Vector2 = Vector2.ZERO
@@ -490,6 +492,7 @@ func _set_run_motion_direction(local_direction: Vector2) -> void:
         run_retreat_mode = (direction.y < cos(deg_to_rad(100.0)))
         run_retreat_blend = 1.0 if run_retreat_mode else 0.0
         run_facing_yaw = _run_yaw_for_direction(direction, run_retreat_mode)
+        run_upper_yaw_offsets = _run_joint_yaw_targets()
         run_turn_previous_direction = _run_heading_from_weights()
         run_turn_lean_degrees = 0.0
         return
@@ -684,6 +687,11 @@ func _process(delta: float) -> void:
                 var yaw_step: float = deg_to_rad(RUN_ROOT_TURN_SPEED_DEGREES) * maxf(delta, 0.0)
                 run_facing_yaw = wrapf(
                     run_facing_yaw + clampf(yaw_error, -yaw_step, yaw_step), -PI, PI)
+            var upper_targets: PackedFloat32Array = _run_joint_yaw_targets()
+            var upper_alpha: float = 1.0 - exp(-maxf(delta, 0.0) / RUN_UPPER_TRACKING_SECONDS)
+            for i in range(4):
+                run_upper_yaw_offsets[i] = lerpf(
+                    run_upper_yaw_offsets[i], upper_targets[i], upper_alpha)
             _update_run_turn_lean(delta)
         else:
             # Non-RUN actions preserve their authored poses and previous fade.
@@ -697,6 +705,17 @@ func _run_heading_from_weights() -> Vector2:
     if run_direction_smoothed.length_squared() < 0.0001:
         return Vector2.ZERO
     return run_direction_smoothed.normalized()
+
+# Desired joint angles are calculated as differences of cumulative gaze targets,
+# not 20% + 50% + 75% + 100% independently applied to each joint.
+func _run_joint_yaw_targets() -> PackedFloat32Array:
+    var look_error: float = wrapf(-run_facing_yaw, -PI, PI)
+    var targets := PackedFloat32Array([0.0, 0.0, 0.0, 0.0])
+    for i in range(4):
+        var requested: float = look_error * float(RUN_UPPER_YAW_PARTS[i])
+        var limit: float = deg_to_rad(float(RUN_UPPER_YAW_LIMITS_DEGREES[i]))
+        targets[i] = clampf(requested, -limit, limit)
+    return targets
 
 func _update_run_turn_lean(delta: float) -> void:
     if delta <= 0.0:
@@ -779,10 +798,7 @@ func _blended_run_pose(uid: String, t: float) -> Dictionary:
         if part_index >= 0:
             # Joint contributions sum to 100% gaze compensation when possible.
             # Each is clamped individually, including at large side angles.
-            var relative_yaw: float = -run_facing_yaw * float(RUN_UPPER_YAW_PARTS[part_index])
-            var yaw_limit: float = deg_to_rad(float(RUN_UPPER_YAW_LIMITS_DEGREES[part_index]))
-            var yaw_offset: float = clampf(relative_yaw, -yaw_limit, yaw_limit)
-            var gaze := Quaternion(Vector3.UP, yaw_offset)
+            var gaze := Quaternion(Vector3.UP, run_upper_yaw_offsets[part_index])
             blended_rotation = (gaze * blended_rotation).normalized()
     return {"rotation": blended_rotation, "position": blended_translation, "scale": blended_scale}
 

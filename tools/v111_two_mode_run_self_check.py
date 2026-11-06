@@ -17,6 +17,11 @@ for bone, token in [
 assert "const RUN_FORWARD_TO_RETREAT_ANGLE_DEGREES: float = 105.0" in rig
 assert "const RUN_RETREAT_TO_FORWARD_ANGLE_DEGREES: float = 95.0" in rig
 assert "const RUN_MODE_BLEND_SECONDS: float = 0.18" in rig
+assert "const RUN_UPPER_TRACKING_SECONDS: float = 0.10" in rig
+assert "var run_upper_yaw_offsets: PackedFloat32Array" in rig
+assert "run_upper_yaw_offsets = _run_joint_yaw_targets()" in rig
+assert "run_upper_yaw_offsets[i] = lerpf(" in rig
+assert "var gaze := Quaternion(Vector3.UP, run_upper_yaw_offsets[part_index])" in rig
 assert "const RUN_ROOT_TURN_SPEED_DEGREES: float = 450.0" in rig
 assert "const RUN_UPPER_YAW_PARTS = [0.20, 0.30, 0.25, 0.25]" in rig
 assert "const RUN_UPPER_YAW_LIMITS_DEGREES = [25.0, 30.0, 25.0, 35.0]" in rig
