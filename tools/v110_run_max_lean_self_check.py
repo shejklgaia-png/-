@@ -12,7 +12,8 @@ assert "const RUN_TURN_LEAN_ATTACK_SECONDS: float = 0.06" in rig
 assert "const RUN_TURN_LEAN_RETURN_SECONDS: float = 0.20" in rig
 assert "const RUN_DIRECTION_BLEND_SECONDS: float = 0.12" in rig
 assert "desired_lean = RUN_TURN_MAX_LEAN_DEGREES * clampf(" in rig
-assert "var bank := Quaternion(Vector3.BACK, -deg_to_rad(run_turn_lean_degrees))" in rig
+assert "var bank_axis: Vector3 = facing * Vector3.BACK" in rig
+assert "var bank := Quaternion(bank_axis, -deg_to_rad(run_turn_lean_degrees))" in rig
 assert 'rig.call("set_moving", running, movement_boost_active, local_run_direction)' in main
 assert "const STRIKE_DAMAGE = [12, 12, 26]" in main
 assert 'config/name="SERA v110 | RUN Turn Bank 15deg"' in project

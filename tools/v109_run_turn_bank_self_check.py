@@ -21,7 +21,8 @@ for line in (
     "desired_lean = RUN_TURN_MAX_LEAN_DEGREES * clampf(",
     "run_turn_lean_degrees = lerpf(run_turn_lean_degrees, desired_lean, alpha)",
     "if uid == RUN_ROOT_BONE_UUID and not is_zero_approx(run_turn_lean_degrees):",
-    "var bank := Quaternion(Vector3.BACK, -deg_to_rad(run_turn_lean_degrees))",
+    "var bank_axis: Vector3 = facing * Vector3.BACK",
+    "var bank := Quaternion(bank_axis, -deg_to_rad(run_turn_lean_degrees))",
     "blended_rotation = (bank * blended_rotation).normalized()",
 ):
     assert line in rig, line
