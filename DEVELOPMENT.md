@@ -1,3 +1,13 @@
+# v103（2026-11-06）ターゲット本体の赤色化
+
+- 基準：GitHub `main` のv102。変更は訓練ターゲットの色のみ。
+- `scripts/main.gd`：`FloatingBox` の基本色を `#E53935`、発光色を `#A92724` に変更。命中フラッシュ復帰時も同じ赤系へ戻す。
+- 命中時の暗赤色と既存の陰影・ヒット演出、ターゲットの形状・当たり判定・HP、カメラ・入力・ガード・敵AI・音声・モデルは変更しない。
+- `project.godot`：v103の表示名だけを変更。`README_v103_ja.md` と `tools/v103_target_red_self_check.py` を追加。
+- GitHub上の差分と色コードの静的確認を実施。Godot本体・Xperia 1 Vでの実機描画テストは未実施。`main` への統合は実機確認後。
+
+---
+
 # v102（2026-11-06）Guardポーズ修正版への差し替え
 
 - 基準：v101 `sera_portrait_godot_melee_v101_hold_guard.zip`。

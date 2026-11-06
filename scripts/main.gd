@@ -381,12 +381,12 @@ func _build_target() -> void:
     var cube := BoxMesh.new()
     cube.size = Vector3.ONE * TARGET_HALF_SIZE * 2.0
     var cube_mat := StandardMaterial3D.new()
-    cube_mat.albedo_color = Color("39bdd1")
+    cube_mat.albedo_color = Color("e53935")
     cube_mat.shading_mode = BaseMaterial3D.SHADING_MODE_PER_PIXEL  # v38: directional lighting restores face shading
     cube_mat.metallic = 0.05
     cube_mat.roughness = 0.74
     cube_mat.emission_enabled = true
-    cube_mat.emission = Color("23879a")
+    cube_mat.emission = Color("a92724")
     cube_mat.emission_energy_multiplier = 0.08  # v38: subtle glow, preserve directional contrast
     var marker := MeshInstance3D.new()
     marker.name = "FloatingBox"
@@ -954,9 +954,9 @@ func _advance_hit_fx(delta: float) -> void:
     if target_material != null:
         var ratio: float = hit_flash_remaining / HIT_FLASH_SECONDS
         # Darken enemy on contact instead of duplicating the sparks' yellow.
-        target_material.albedo_color = Color("39bdd1").lerp(Color("632535"), ratio * 0.78)
+        target_material.albedo_color = Color("e53935").lerp(Color("632535"), ratio * 0.78)
         target_material.emission_energy_multiplier = lerpf(0.08, 0.03, ratio)
-        target_material.emission = Color("23879a").lerp(Color("6b1727"), ratio)
+        target_material.emission = Color("a92724").lerp(Color("6b1727"), ratio)
     if target_mesh != null:
         var bounce: float = hit_flash_remaining / HIT_FLASH_SECONDS
         target_mesh.position.x = sin((1.0 - bounce) * 44.0) * 0.09 * bounce
