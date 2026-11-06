@@ -1,10 +1,10 @@
-# v104（2026-11-06）トレーニングステージBGM（音源登録待ち）
+# v104（2026-11-06）トレーニングステージBGM
 
 - 基準：GitHub `main` v103。訓練ステージにユーザー提供OGGのイントロ（7.74秒）→ループ本編（61.94秒）を再生する独立ノードを追加。
 - `scenes/main.tscn`、`scripts/stage_bgm.gd`、`project.godot` を変更。新規 `README_v104_ja.md`、`tools/v104_stage_bgm_self_check.py`。
 - 元の `scripts/main.gd`、戦闘音／被弾音、AI、操作、カメラ、Blockbenchモデルを保持。
-- 注意：GitHub連携では添付バイナリ音源2件を登録できていない。テストには音源実体が必須なのでPRはドラフト・未マージとし、音源の追加・再検査後に統合する。
-- 別途、音源実体を含む差分ZIPを用意し、音源ハッシュおよび構造テストを通過。Godot本体・Android実機音声再生の検証は未実施。
+- ユーザーがOGG音源2件を `BGM/` にGitHub登録。原本添付とGit blob SHAが双方一致。スクリプト・検査ファイルは `res://BGM/` を参照する。
+- ローカルのBGM込み差分で `v104_stage_bgm_self_check.py` を実行し、OGG先頭識別子・SHA256・シーン接続・ループ設定チェック合格。Python構文検査合格。GitHub上で変更ファイル一覧、パス、音源Git blob SHA確認。Godot本体・Android実機音声再生の検証は未実施。
 
 ---
 

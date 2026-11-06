@@ -2,8 +2,8 @@ extends Node
 ## v104 training-stage music: play the drum intro once, then loop the main track.
 ## Deliberately independent of gameplay, combat SFX and camera scripts.
 
-const INTRO_PATH: String = "res://assets/sera_training_v08_intro.ogg"
-const LOOP_PATH: String = "res://assets/sera_training_v08_loop.ogg"
+const INTRO_PATH: String = "res://BGM/sera_training_v08_intro.ogg"
+const LOOP_PATH: String = "res://BGM/sera_training_v08_loop.ogg"
 const MUSIC_VOLUME_DB: float = -9.0
 
 var intro_player: AudioStreamPlayer
@@ -11,7 +11,7 @@ var loop_player: AudioStreamPlayer
 
 func _ready() -> void:
     if not ResourceLoader.exists(INTRO_PATH) or not ResourceLoader.exists(LOOP_PATH):
-        push_warning("SERA stage BGM missing: both .ogg files must be under res://assets/")
+        push_warning("SERA stage BGM missing: both .ogg files must be under res://BGM/")
         return
 
     var intro_stream: AudioStreamOggVorbis = load(INTRO_PATH) as AudioStreamOggVorbis

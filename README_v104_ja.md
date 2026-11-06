@@ -7,4 +7,4 @@
 - 音源はOgg Vorbis（44.1 kHz、2ch）。BGM音量-9 dB。音源が見つからない場合は警告を出し、ゲーム処理は続行します。
 - Godot 4.7系の `AudioStreamOggVorbis.loop` および `AudioStreamPlayer.finished` に準拠。
 - Android実機での音量、イントロ→ループ境界の聴感、ループ継ぎ目は未検証です。
-- GitHubのPRに音源2件が揃うまでは静的テストが失敗するため、マージ禁止とします。
+- 音源2件は `BGM/` に登録済み。Git blob SHAとユーザー添付のハッシュ照合で同一であることを確認。イントロとループの静的検査済み。Godot/Android実機の再生テストは未実施です。
