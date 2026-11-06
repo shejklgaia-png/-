@@ -517,3 +517,10 @@
 - v107腰ルートの-90度Quaternion補正は各RUNクリップへ合成前に適用。WAIT/BOOST/STEP/攻撃/Guardなどへの遷移は従来のポーズスナップショットを用いる。
 - 変更：`scripts/sera_rig.gd`、`scripts/main.gd`（デバッグHUD表示のみ）、`project.godot`、`tools/v107_run_facing_self_check.py`、`DEVELOPMENT.md`。追加：`README_v108_ja.md`、`tools/v108_run_blend_self_check.py`。音声/カメラ/移動/当たり判定/アセットと元キーフレームは不変。
 - Python/モデル参照/ブレンド重みの静的検査、差分の確認を実施。Godotランタイム/Android実機のモーション確認は未実施。
+
+## v109（2026-11-07） — 方向転換時の軽い左右バンク
+- 基準：GitHub `main` v108（`83eb19cec5dbc1e5b79e9bd04df1ea67927a86b0`）。4方向RUNの連続ブレンドを保ちながら、転換方向へ最大5度だけ視覚上の腰ルートを傾ける。
+- v108で指数平滑化した移動方向の前フレームとの差から左右符号付き旋回速度を求める。7rad/sで最大傾斜とし、立ち上がり時定数0.06秒、方向確定後の復元時定数0.20秒で連続追従。直接180度反転して左右の旋回方向が定義できない場合は新規バンクを掛けず、移動方向ベクトルのゼロ付近も安全に処理する。
+- `scripts/sera_rig.gd` のRUN 4クリップ合成後に限り、既存のv107ルートYaw補正の後で腰（Waist）ルートへ局所Z軸のQuaternionを左乗算する。ワールド位置、衝突、移動入力・カメラ、非RUNアニメには適用しない。状態遷移時は従来ポーズブレンドの中で自然に傾きを解消する。
+- 変更：`scripts/sera_rig.gd`、`project.godot`、`DEVELOPMENT.md`。追加：`README_v109_ja.md`、`tools/v109_run_turn_bank_self_check.py`。
+- GitHubコネクタ経由でコードと変更範囲を静的点検。Godot/Android実機での動作確認は未実施。

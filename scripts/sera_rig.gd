@@ -43,6 +43,11 @@ const GUARD_CLIP: String = "Guard"
 const RUN_ANIMATION_SPEED: float = 1.5  # Motion playback only; does not change movement speed
 # v108: Continuous four-way pose blending; 0.12s response for direction changes.
 const RUN_DIRECTION_BLEND_SECONDS: float = 0.12
+# v109: Subtle procedural bank only while the RUN direction is changing.
+const RUN_TURN_MAX_LEAN_DEGREES: float = 5.0
+const RUN_TURN_RATE_AT_MAX_LEAN: float = 7.0  # rad/s, after v108 smoothing
+const RUN_TURN_LEAN_ATTACK_SECONDS: float = 0.06
+const RUN_TURN_LEAN_RETURN_SECONDS: float = 0.20
 
 var bones: Dictionary = {}                  # uuid -> Node3D
 var bind_positions: Dictionary = {}         # uuid -> Vector3
@@ -54,6 +59,9 @@ var clip_time: float = 0.0
 # Weights: front, back, right, left. These always add up to 1 during RUN.
 var run_blend_weights: PackedFloat32Array = PackedFloat32Array([1.0, 0.0, 0.0, 0.0])
 var run_blend_targets: PackedFloat32Array = PackedFloat32Array([1.0, 0.0, 0.0, 0.0])
+# A positive bank leans toward character-right (+X), negative toward left.
+var run_turn_lean_degrees: float = 0.0
+var run_turn_previous_direction: Vector2 = Vector2.ZERO
 var blending_for: float = BLEND_SECONDS
 var blend_duration: float = BLEND_SECONDS
 var combat_playback: bool = false
@@ -480,6 +488,9 @@ func set_moving(moving: bool, boosting: bool = false, local_direction: Vector2 =
             # Enter from WAIT/BOOST/STEP with the correct initial direction.
             # The existing _switch_clip still blends from the displayed pose.
             run_blend_weights = run_blend_targets.duplicate()
+            # Entering RUN must not simulate a turn from a stale direction.
+            run_turn_previous_direction = _run_heading_from_weights()
+            run_turn_lean_degrees = 0.0
     var wanted: String = WAIT_CLIP
     if moving:
         wanted = BOOST_CLIP if boosting else RUN_CLIP
@@ -643,7 +654,46 @@ func _process(delta: float) -> void:
             var direction_alpha: float = 1.0 - exp(-maxf(delta, 0.0) / RUN_DIRECTION_BLEND_SECONDS)
             for i in range(RUN_CLIPS.size()):
                 run_blend_weights[i] = lerpf(run_blend_weights[i], run_blend_targets[i], direction_alpha)
+            _update_run_turn_lean(delta)
+        else:
+            # On leaving RUN, the captured pose blends into the next action.
+            # Never carry the bank into idle, boost, guard, step or attack.
+            run_turn_previous_direction = Vector2.ZERO
+            run_turn_lean_degrees = 0.0
     _apply_animation(delta)
+
+func _run_heading_from_weights() -> Vector2:
+    # X: right / left. Y: forward / back, relative to the target.
+    var heading := Vector2(
+        run_blend_weights[2] - run_blend_weights[3],
+        run_blend_weights[0] - run_blend_weights[1])
+    if heading.length_squared() < 0.0001:
+        return Vector2.ZERO
+    return heading.normalized()
+
+func _update_run_turn_lean(delta: float) -> void:
+    if delta <= 0.0:
+        return
+    var heading: Vector2 = _run_heading_from_weights()
+    var desired_lean: float = 0.0
+    if not heading.is_zero_approx() and not run_turn_previous_direction.is_zero_approx():
+        # Positive cross = clockwise turn toward the character's right.
+        # Sampling the v108 SMOOTHED heading makes even quick flicks create
+        # a brief bank rather than a one-frame impulse.
+        var signed_turn: float = (
+            run_turn_previous_direction.y * heading.x
+            - run_turn_previous_direction.x * heading.y)
+        var turn_rate: float = signed_turn / delta
+        desired_lean = RUN_TURN_MAX_LEAN_DEGREES * clampf(
+            turn_rate / RUN_TURN_RATE_AT_MAX_LEAN, -1.0, 1.0)
+    run_turn_previous_direction = heading
+    # Quick lean into the turn; softer return once the direction settles.
+    var moving_toward_turn: bool = (absf(desired_lean) > absf(run_turn_lean_degrees)
+        or desired_lean * run_turn_lean_degrees < 0.0)
+    var response: float = (RUN_TURN_LEAN_ATTACK_SECONDS if moving_toward_turn
+        else RUN_TURN_LEAN_RETURN_SECONDS)
+    var alpha: float = 1.0 - exp(-delta / response)
+    run_turn_lean_degrees = lerpf(run_turn_lean_degrees, desired_lean, alpha)
 
 # Sample all four compatible 1-second RUN clips at the same phase. Blend
 # rotations with shortest-arc quaternions, and positions/scales linearly.
@@ -679,6 +729,12 @@ func _blended_run_pose(uid: String, t: float) -> Dictionary:
             blended_translation = blended_translation.lerp(sample_translation, fraction)
             blended_scale = blended_scale.lerp(sample_scale, fraction)
         total_weight += weight
+    if uid == RUN_ROOT_BONE_UUID and not is_zero_approx(run_turn_lean_degrees):
+        # Negative rotation around character-local +Z tilts its UP axis
+        # toward +X (right). Pre-multiply after the v107 yaw correction.
+        # Only the visual root is banked; player collider/camera stay level.
+        var bank := Quaternion(Vector3.BACK, -deg_to_rad(run_turn_lean_degrees))
+        blended_rotation = (bank * blended_rotation).normalized()
     return {"rotation": blended_rotation, "position": blended_translation, "scale": blended_scale}
 
 func _apply_animation(_delta: float) -> void:
