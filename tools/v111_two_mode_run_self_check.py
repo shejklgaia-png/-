@@ -23,6 +23,7 @@ assert "const RUN_UPPER_YAW_LIMITS_DEGREES = [25.0, 30.0, 25.0, 35.0]" in rig
 assert "source_name: String = RUN_CLIP if i == 0 else RUN_BACK_CLIP" in rig
 assert "sample_rotation = run_yaw_correction * sample_rotation" in rig
 assert "var facing := Quaternion(Vector3.UP, run_facing_yaw)" in rig
+assert "blended_translation = facing * blended_translation" in rig
 assert "var bank_axis: Vector3 = facing * Vector3.BACK" in rig
 assert "run_turn_lean_degrees = lerpf(run_turn_lean_degrees, desired_lean, alpha)" in rig
 assert "run_direction_smoothed = run_direction_smoothed.lerp(run_direction_target, direction_alpha)" in rig

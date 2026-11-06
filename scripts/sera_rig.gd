@@ -757,6 +757,9 @@ func _blended_run_pose(uid: String, t: float) -> Dictionary:
     if uid == RUN_ROOT_BONE_UUID:
         var facing := Quaternion(Vector3.UP, run_facing_yaw)
         blended_rotation = (facing * blended_rotation).normalized()
+        # Source waist sway/position must follow the same travel-facing axis;
+        # rotating only the quaternion leaves lateral motion in target space.
+        blended_translation = facing * blended_translation
         if not is_zero_approx(run_turn_lean_degrees):
             # Bank axis rotates WITH locomotion facing, not with the target.
             # The collider and camera remain unbanked.
