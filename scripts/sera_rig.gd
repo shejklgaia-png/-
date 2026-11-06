@@ -44,7 +44,7 @@ const RUN_ANIMATION_SPEED: float = 1.5  # Motion playback only; does not change 
 # v108: Continuous four-way pose blending; 0.12s response for direction changes.
 const RUN_DIRECTION_BLEND_SECONDS: float = 0.12
 # v109: Subtle procedural bank only while the RUN direction is changing.
-const RUN_TURN_MAX_LEAN_DEGREES: float = 5.0
+const RUN_TURN_MAX_LEAN_DEGREES: float = 15.0
 const RUN_TURN_RATE_AT_MAX_LEAN: float = 7.0  # rad/s, after v108 smoothing
 const RUN_TURN_LEAN_ATTACK_SECONDS: float = 0.06
 const RUN_TURN_LEAN_RETURN_SECONDS: float = 0.20
