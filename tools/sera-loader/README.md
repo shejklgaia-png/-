@@ -69,3 +69,25 @@ particle/glint animation stops, leaving only the static blue gradient
 and dark square training grid (#111821). Full opacity, the central SERA
 helmet/logo, other UI, 120s timeout, accessibility service and Automate
 show/hide commands are unchanged.
+
+
+## v0.6 – truly transparent, blue particles only
+
+The visible SERA overlay root uses Color.TRANSPARENT; PixelRiseView no longer
+draws a full-screen color or gradient. The overlay window still uses
+PixelFormat.TRANSLUCENT and a pass-through Accessibility overlay type.
+
+The materialization is made from *separate semi-transparent blue/cyan pixel
+rectangles*, with three ragged white/cyan leading bands during their rise.
+Small individual sparks rise near the wave. The stage-two dark training-room
+grid is drawn as lines alone and then becomes completely static, with the
+blue pixel field still visible behind it. Empty space between all pixels and
+grid lines remains genuinely transparent.
+
+Important tradeoff: Android apps, Godot editor and other UI UNDER this overlay
+are VISIBLE through the transparent gaps. This version intentionally removes
+the previous visual concealment; Automate's Godot automation may still run.
+
+The helmet icon, status text, loading bar, Automate overlay show/hide,
+Activity detection, pass-through gestures, 120-second failsafe and phase
+durations are unchanged.
