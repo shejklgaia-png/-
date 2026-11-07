@@ -10,7 +10,7 @@ model = json.loads((root / "assets/sera_source.json").read_text(encoding="utf-8"
 clips = {clip["name"]: clip for clip in model["animations"]}
 waist = next(bone for bone in model["groups"] if bone["name"] == "Waist")
 uid = waist["uuid"]
-assert len(model["animations"]) == 17
+assert len(model["animations"]) == 20
 assert uid == "67435cb7-b6af-23e4-10f1-3cd13d8429fa"
 assert f'RUN_ROOT_BONE_UUID: String = "{uid}"' in rig
 assert "RUN_ROOT_YAW_OFFSET_RADIANS: float = -PI * 0.5" in rig
