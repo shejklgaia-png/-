@@ -5,6 +5,8 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Path;
+import android.graphics.LinearGradient;
+import android.graphics.Shader;
 import android.os.SystemClock;
 import android.view.View;
 
@@ -30,8 +32,9 @@ public final class PixelRiseView extends View {
 
     // Match the existing training room's grid line color (#111821).
     // The background itself is intentionally ONE uniform electronic blue.
-    private static final int START_BACKGROUND = 0xff0c121a;
-    private static final int SOLID_BLUE = 0xff195aa2;
+    private static final int[] BASE_BLUE = {0xff103b74,0xff12549a,0xff0b427f};
+    private static final int[] FINISHED_BLUE = {0xff3286c8,0xff216db4,0xff14529b};
+    private static final int SPARK_COUNT = 96;
     private static final int GRID_LINE = 0xff111821;
 
     private static final int TIP_WHITE = 0xfff6fcff;
@@ -39,6 +42,10 @@ public final class PixelRiseView extends View {
     private static final int TIP_CYAN = 0xff63c4f4;
 
     private final Paint solidPaint = new Paint();
+    private final Paint basePaint = new Paint();
+    private final Paint finalPaint = new Paint();
+    private final Paint sparkle = new Paint();
+    private final Paint shine = new Paint();
     private final Paint linePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint tipPaint = new Paint();
     private final Path gridRevealPath = new Path();
@@ -89,6 +96,12 @@ public final class PixelRiseView extends View {
         // The SERA training floor uses square cells (4m per cell in-world)
         // and narrow, very dark lines. 2D equivalent keeps square proportions.
         gridSpacing = dp(64f);
+        // Fully blue gradients cover the screen from the first frame.
+        basePaint.setShader(new LinearGradient(0f,0f,0f,h,BASE_BLUE,
+                new float[]{0f,.55f,1f},Shader.TileMode.CLAMP));
+        finalPaint.setShader(new LinearGradient(0f,0f,0f,h,FINISHED_BLUE,
+                new float[]{0f,.52f,1f},Shader.TileMode.CLAMP));
+        solidPaint.setShader(finalPaint.getShader());
     }
 
     private static float clamp01(float x) {
@@ -121,7 +134,7 @@ public final class PixelRiseView extends View {
             drawBlueFormation(canvas, w, h, elapsed);
         } else {
             // Deliberately opaque flat color. No residual tips or gradients.
-            canvas.drawColor(SOLID_BLUE);
+            canvas.drawRect(0,0,w,h,finalPaint);
             if (elapsed >= BLUE_FILL_MS + BLUE_HOLD_MS) {
                 final long gridElapsed =
                     elapsed - BLUE_FILL_MS - BLUE_HOLD_MS;
@@ -140,12 +153,12 @@ public final class PixelRiseView extends View {
     }
 
     private void drawBlueFormation(Canvas canvas, int w, int h, long elapsed) {
-        canvas.drawColor(START_BACKGROUND);
+        canvas.drawRect(0,0,w,h,basePaint);
         final float t = elapsed / (float) BLUE_FILL_MS;
         final int tick = (int) (elapsed / 95L);
         final float leadHeight = dp(12f);
 
-        solidPaint.setColor(SOLID_BLUE);
+        // Blue strips are painted with the finished blue gradient.
         for (int c = 0; c < revealColumns; c++) {
             final float x = c * columnWidth;
             final float right = Math.min(w, x + columnWidth);
@@ -184,7 +197,16 @@ public final class PixelRiseView extends View {
                         alphaBase + (int)(n * (band == 0 ? 70 : 55))));
                 canvas.drawRect(x, top, right, bottom, tipPaint);
             }
+            // Sparse fine edge gleams, invisible in the completed background.
+            float blink = hash(c * 239 + tick * 19);
+            if (head > 0f && blink > .80f) {
+                shine.setColor(TIP_ICE);
+                shine.setAlpha(55 + (int)(blink * 100f));
+                canvas.drawRect(x,Math.max(0f,head-dp(2f)),right,
+                    Math.min(h,head+dp(1.6f)),shine);
+            }
         }
+        drawFineSparks(canvas,w,h,elapsed,false);
     }
 
     private void drawGridFormation(Canvas canvas, int w, int h,
@@ -217,6 +239,56 @@ public final class PixelRiseView extends View {
         canvas.clipPath(gridRevealPath);
         drawTrainingGrid(canvas, w, h);
         canvas.restore();
+
+        // Randomized cyan/white glints at the moving grid construction edge.
+        for(int i=0;i<cols;i++) {
+            float glint=hash(i*613+tick*61);
+            if(glint<.45f)continue;
+            float delay=hash(i*197+11)*.12f;
+            float local=clamp01((t-delay)/(1f-delay));
+            float jitter=(hash(i*443+tick*37)-.5f)*dp(20f)*(1f-local);
+            float y=Math.max(0f,Math.min(h,
+                h-(h+dp(42f))*smooth(local)+jitter));
+            if(y<=0f||y>=h)continue;
+            shine.setColor(glint>.83f?TIP_WHITE:TIP_CYAN);
+            shine.setAlpha(50+(int)(glint*106f));
+            float x=i*span;
+            canvas.drawRect(x,Math.max(0f,y-dp(1f)),
+                Math.min(w,x+span),Math.min(h,y+dp(2.7f)),shine);
+        }
+        drawFineSparks(canvas,w,h,gridElapsed,true);
+    }
+
+    // 2–7dp square particles rise only at each active leading edge.
+    private void drawFineSparks(Canvas canvas,int w,int h,long ms,boolean grid){
+        float t=ms/(float)(grid?GRID_FILL_MS:BLUE_FILL_MS);
+        float seconds=ms*.001f;
+        int tick=(int)(ms/(grid?105L:95L));
+        float span=Math.max(dp(10f),columnWidth);
+        for(int i=0;i<SPARK_COUNT;i++){
+            float x=hash(i*947+31)*w;
+            int col=(int)(x/(grid?span:columnWidth));
+            float delay=grid?hash(col*197+11)*.12f:hash(col*457+23)*.12f;
+            float local=clamp01((t-delay)/(1f-delay));
+            float head;
+            if(grid){
+                float jitter=(hash(col*443+tick*37)-.5f)*dp(20f)*(1f-local);
+                head=h-(h+dp(42f))*smooth(local)+jitter;
+            } else {
+                float jitter=(hash(col*113+tick*79+17)-.5f)*dp(16f);
+                head=h-(h+dp(65f))*smooth(local)+(1f-local)*jitter;
+            }
+            if(head < -dp(40f)||head>h+dp(30f))continue;
+            float life=(seconds*(1.1f+hash(i*211+5)*1.7f)
+                +hash(i*331+9)*4.5f)%1f;
+            float y=head+dp(41f)-life*dp(126f);
+            if(y<0f||y>h)continue;
+            float size=dp(2f+hash(i*727+13)*4.6f);
+            float x2=x+(hash(i*149+tick*17)-.5f)*dp(12f);
+            sparkle.setColor(i%6==0?TIP_WHITE:(i%3==0?TIP_ICE:TIP_CYAN));
+            sparkle.setAlpha((int)((60f+155f*hash(i*337+23))*(1f-life)));
+            canvas.drawRect(x2,y,x2+size,y+size,sparkle);
+        }
     }
 
     private void drawTrainingGrid(Canvas canvas, int w, int h) {

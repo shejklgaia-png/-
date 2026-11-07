@@ -81,7 +81,12 @@ public final class SeraAccessibilityOverlayService extends AccessibilityService 
         if(overlay!=null){handler.postDelayed(timeout,120000L);return;}
         wm=(WindowManager)getSystemService(WINDOW_SERVICE);
         FrameLayout root=new FrameLayout(this);
-        root.setBackgroundColor(Color.rgb(12,18,26));
+        // Blue-only gradient underlay prevents any charcoal flash at startup.
+        android.graphics.drawable.GradientDrawable blueBackdrop =
+            new android.graphics.drawable.GradientDrawable(
+                android.graphics.drawable.GradientDrawable.Orientation.TOP_BOTTOM,
+                new int[]{0xff103b74,0xff12549a,0xff0b427f});
+        root.setBackground(blueBackdrop);
         // Animated square-particle layer stays BEHIND the existing SERA helmet,
         // headings, and progress bar. It does not handle any touch events.
         root.addView(new PixelRiseView(this),

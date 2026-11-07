@@ -55,3 +55,17 @@ Replaces the continuous confetti particle waterfall from v0.3 with exactly two f
 The existing centered helmet graphic, captions and loading progress bar are not changed. The accessibility overlay and Automate integration continue to use the previous API and package/activity. The animation auto-stops drawing after 3.75s.
 
 Development: source is PixelRiseView.java. Durations and palette are constants at the top.
+
+
+## v0.5 – Blue-only background, gradient, micro-particles
+
+The solid charcoal fullscreen backing has been replaced by a blue gradient.
+The original digital columns form a brighter three-stop blue gradient,
+retaining three uneven white-to-cyan leading stripes. Small 2–7dp square
+particles and faint edge highlights make both formation phases more detailed.
+The training-room square grid has brief cyan/white illuminated edges as it
+builds upward. After the original 3.75-second timeline completes, ALL
+particle/glint animation stops, leaving only the static blue gradient
+and dark square training grid (#111821). Full opacity, the central SERA
+helmet/logo, other UI, 120s timeout, accessibility service and Automate
+show/hide commands are unchanged.
