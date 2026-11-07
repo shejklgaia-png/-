@@ -91,3 +91,25 @@ the previous visual concealment; Automate's Godot automation may still run.
 The helmet icon, status text, loading bar, Automate overlay show/hide,
 Activity detection, pass-through gestures, 120-second failsafe and phase
 durations are unchanged.
+
+
+## v0.7 – Transparency is the START state, NOT the final state
+
+v0.6 accidentally left transparent gaps through the completed background.
+Correct intended behavior:
+- Initial frame: root/view have genuinely transparent backgrounds. The home
+  or Godot screen is temporarily visible before the materialization passes.
+- First 1.9s: the lower portion is covered by **adjacent 100%-opaque blue
+  vertical columns** (no 40%-empty cells or semi-transparent scattered mosaic).
+  Columns progress bottom-up with a ragged three-band white/cyan leading tip,
+  plus a few small temporary square sparks around the moving edge. An opaque
+  blue vertical gradient is used only INSIDE completed blue strips.
+- 0.3s: the entire display is fully opaque blue, the front effects gone.
+- Next 1.55s: the square training grid grows up with a ragged illuminated
+  edge. The blue background stays fully opaque during this phase.
+- Final: **every pixel is covered by the blue gradient**, with only dark grid
+  lines over it. The frame is completely static. No permanent noise/particles,
+  screen-wide opaque underlay, or transparent holes.
+
+The original SERA helmet, UI, Automate wiring, 120s auto-close, pass-through
+accessibility overlay and Godot project files are unchanged.
