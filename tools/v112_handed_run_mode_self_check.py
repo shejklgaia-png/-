@@ -37,7 +37,7 @@ for required in (
 ):
     assert required in main, required
 
-assert "SERA v112" in project
+assert 'config/name="SERA v' in project  # Preserve a versioned name across later versions.
 assert "const STRIKE_DAMAGE = [12, 12, 26]" in main
 assert "const JUMP_TOUCH_INPUT_ENABLED: bool = false" in main
 assert "const RUN_TURN_MAX_LEAN_DEGREES: float = 15.0" in rig

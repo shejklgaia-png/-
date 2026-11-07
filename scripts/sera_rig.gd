@@ -56,6 +56,12 @@ const RUN_TORSO_BONE_UUID: String = "29fad052-d2b7-1a2a-eefa-30dd75fa7d0a"
 const RUN_CHEST_BONE_UUID: String = "1b13d772-8cee-ef23-dc57-4da6bba6ce39"
 const RUN_NECK_BONE_UUID: String = "6c0141f8-17fe-6484-21e1-938ae81a620c"
 const RUN_HEAD_BONE_UUID: String = "a4a11a19-29e6-e88c-b28d-3c9f2d4345ad"
+# v113: Retain 35% of cyclic head angular sway relative to the Waist.
+# Keep the existing target-facing joint yaw and intentional root turning bank.
+const RUN_HEAD_SWAY_RETENTION: float = 0.35
+const RUN_HEAD_REFERENCE_PHASES = [0.0, 0.25, 0.5, 0.75]
+const RUN_HEAD_PARENT_BONES = [RUN_TORSO_BONE_UUID, RUN_CHEST_BONE_UUID, RUN_NECK_BONE_UUID]
+const RUN_HEAD_UPPER_BONES = [RUN_TORSO_BONE_UUID, RUN_CHEST_BONE_UUID, RUN_NECK_BONE_UUID, RUN_HEAD_BONE_UUID]
 # Cumulative target-facing weights: torso 20%, chest 50%, neck 75%, head 100%.
 # Joint-level contributions have conservative anatomical clamping.
 const RUN_UPPER_YAW_PARTS = [0.20, 0.30, 0.25, 0.25]
@@ -768,7 +774,43 @@ func _update_run_turn_lean(delta: float) -> void:
 # Each source is first corrected by v107's 90-degree authored-root offset.
 # Procedural root yaw, upper target tracking and 15-degree turning bank are
 # applied only after the poses have been mixed.
-func _blended_run_pose(uid: String, t: float) -> Dictionary:
+# Stabilize the *combined* upper-body/head orientation. Damping only the
+# Head's authored keys would remove their compensation for torso/chest motion.
+# Average four phases of the current front/back blend, with gaze offsets
+# included; this preserves target tracking and avoids locking to world space.
+func _run_head_reference_orientation() -> Quaternion:
+    var reference: Quaternion = Quaternion.IDENTITY
+    var sample_count: int = 0
+    for phase in RUN_HEAD_REFERENCE_PHASES:
+        var upper_orientation: Quaternion = Quaternion.IDENTITY
+        for bone_uuid in RUN_HEAD_UPPER_BONES:
+            # Disable stabilization during reference sampling to avoid recursion.
+            var sampled: Dictionary = _blended_run_pose(str(bone_uuid), float(phase), false)
+            var joint_rotation: Quaternion = sampled["rotation"]
+            upper_orientation = (upper_orientation * joint_rotation).normalized()
+        sample_count += 1
+        if sample_count == 1:
+            reference = upper_orientation
+        else:
+            reference = reference.slerp(
+                upper_orientation, 1.0 / float(sample_count)).normalized()
+    return reference
+
+func _stabilize_run_head_rotation(t: float, authored_head: Quaternion) -> Quaternion:
+    var parent_orientation: Quaternion = Quaternion.IDENTITY
+    for bone_uuid in RUN_HEAD_PARENT_BONES:
+        var sampled: Dictionary = _blended_run_pose(str(bone_uuid), t, false)
+        var joint_rotation: Quaternion = sampled["rotation"]
+        parent_orientation = (parent_orientation * joint_rotation).normalized()
+    var current_orientation: Quaternion = (parent_orientation * authored_head).normalized()
+    var target_orientation: Quaternion = _run_head_reference_orientation()
+    var stabilized: Quaternion = target_orientation.slerp(
+        current_orientation, RUN_HEAD_SWAY_RETENTION).normalized()
+    # Head local space cancels only periodic motion inherited from its parents.
+    # The Waist's current facing/bank and all non-RUN animations remain intact.
+    return (parent_orientation.inverse() * stabilized).normalized()
+
+func _blended_run_pose(uid: String, t: float, stabilize_head: bool = true) -> Dictionary:
     var total_weight: float = 0.0
     var blended_rotation: Quaternion = Quaternion.IDENTITY
     var blended_translation: Vector3 = Vector3.ZERO
@@ -827,6 +869,8 @@ func _blended_run_pose(uid: String, t: float) -> Dictionary:
             # Each is clamped individually, including at large side angles.
             var gaze := Quaternion(Vector3.UP, run_upper_yaw_offsets[part_index])
             blended_rotation = (gaze * blended_rotation).normalized()
+    if uid == RUN_HEAD_BONE_UUID and stabilize_head:
+        blended_rotation = _stabilize_run_head_rotation(t, blended_rotation)
     return {"rotation": blended_rotation, "position": blended_translation, "scale": blended_scale}
 
 func _apply_animation(_delta: float) -> void:
