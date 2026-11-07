@@ -559,3 +559,10 @@
 - Secret未設定では送信せず通知ログだけ。トピックは24～64文字・英数字/ハイフン/下線に制限。通知本文にコミット・プライベートファイル名を含めず、サーバーへの送信成功のみを報告。
 - `docs/GITSYNC_AUTO_SYNC_SETUP_JA.md` にntfy購読、Taskerの `MESSAGE_RECEIVED` → GitSync `INTENT_SYNC`、Godot稼働中の同期待機・旧アプリ起動同期OFF・E2E検証の手順を記載。
 - Godot `project.godot` とコード・アセットは無変更。ゲームv112維持（Godot表示名「スキャンテスト」も維持）。Android側Tasker設定・GitHub Secret登録はユーザー操作が必要で、実機E2Eは未確認。
+ 
+## v114（2026-11-07） — BOOSTERALLの4方向ブースト姿勢と連続補間
+- 基準：GitHub main `f205c9f49cd1470ec1a2e931d8a456063a7d5f72`（v113）。`models/SERA_BOOSTER_all.bbmodel` から前／後／左／右の単一ポーズ計4クリップを原本キーそのままで取り込み、旧 `Boost_front` をユーザー版に更新。旧17→20クリップ。
+- `scripts/sera_rig.gd` のBOOST描画だけ、進行方向に隣接する前後・左右の2姿勢を角度重みとQuaternion SLERP／位置・スケールLERPで合成。方向変化は最短角・時定数0.12秒で追従し、既存の状態遷移0.16秒を維持。
+- `scripts/main.gd` の既存のターゲット相対入力は無変更で利用し、BOOSTのHUD表示を優勢クリップ名に更新。新統合モデル、埋め込みモデル、v114検査、v114 READMEを追加。過去の一部回帰テストの17クリップ／固定バージョン名前提だけ追従。
+- 既存のRUN 2モード、頭部安定化、利き手判定、格闘、ガード、ステップ、ダメージ、ジャンプデバッグ、カメラ、当たり判定、速度、残像、BGM/SEと非BOOSTクリップ／元モデルを維持。
+- GitHub上の原本一致、アニメーション数・キー時刻、旧データ保全、Base64バイト一致等を静的検証。Pythonテストコマンド、Godotエディター、Android実機の実行検証は未実施。
