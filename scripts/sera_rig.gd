@@ -573,7 +573,8 @@ func get_boost_dominant_clip() -> String:
     return BOOST_CLIP if boost_direction_smoothed.y >= 0.0 else BOOST_BACK_CLIP
 
 func _sample_boost_pose(clip_name: String, uid: String) -> Dictionary:
-    var bone_tracks: Dictionary = animations[clip_name]["tracks"].get(uid, {})
+    var source_tracks: Dictionary = animations[clip_name]["tracks"]
+    var bone_tracks: Dictionary = source_tracks.get(uid, {})
     var rotations: Array = bone_tracks.get("rotation", [])
     var positions: Array = bone_tracks.get("position", [])
     var scales: Array = bone_tracks.get("scale", [])
