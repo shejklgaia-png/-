@@ -30,7 +30,7 @@ for line in (
 assert rig.index("sample_rotation = run_yaw_correction * sample_rotation") < rig.index("var bank := Quaternion")
 assert rig.index("blended_rotation = (bank * blended_rotation).normalized()") < rig.index('return {"rotation": blended_rotation')
 assert rig.count("var bank := Quaternion(") == 1
-assert len(model["animations"]) == 17
+assert len(model["animations"]) == 20
 assert all(any(a["name"] == n for a in model["animations"]) for n in
            ("run_front_original", "run_back", "run_right", "run_Left"))
 assert 'rig.call("set_moving", running, movement_boost_active, local_run_direction)' in main
