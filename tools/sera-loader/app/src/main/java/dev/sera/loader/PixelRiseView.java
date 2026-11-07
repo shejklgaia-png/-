@@ -10,7 +10,7 @@ import android.os.SystemClock;
 import android.view.View;
 
 /**
- * SERA Loader v0.7.
+ * SERA Loader v0.8.
  *
  * Initial surface: transparent.
  * Phase 1: ADJACENT OPAQUE blue columns rise from the bottom and cover all
@@ -19,7 +19,9 @@ import android.view.View;
  * Phase 2: all screen pixels are blue (fully opaque), with a subtle blue
  *          vertical gradient; no white bands or lingering particle holes.
  * Phase 3: the training-room's dark square grid materializes from the bottom.
- * Final:   fully opaque blue background + square grid, entirely static.
+ * Final:   fully opaque blue background + square grid, drifting continuously
+ *          diagonally toward the upper-right. The tile pattern wraps without
+ *          a visible seam; only the grid moves, not the blue background.
  *
  * This view is behind the original centered SERA helmet and UI.
  * The accessibility overlay remains touch-through.
@@ -31,6 +33,10 @@ public final class PixelRiseView extends View {
     private static final long TOTAL_MS = RISE_MS + HOLD_MS + GRID_MS;
     private static final long FRAME_MS = 33L;
     private static final int SPARK_COUNT = 100;
+    // Slow, continual diagonal scroll of the training-room grid only.
+    // One cell is 64dp; modulo wrap makes movement seamless.
+    private static final float GRID_RIGHT_DP_PER_SEC = 18f;
+    private static final float GRID_UP_DP_PER_SEC = 18f;
 
     private static final int[] FULL_BLUE = {
         0xff237abb, 0xff1e6baa, 0xff12518d
@@ -144,11 +150,13 @@ public final class PixelRiseView extends View {
                     drawRisingGrid(canvas,w,h,gridMs);
                     drawMicroSparks(canvas,w,h,gridMs,true);
                 } else {
-                    drawTrainingGrid(canvas,w,h);
+                    drawTrainingGrid(canvas,w,h,gridMs);
                 }
             }
         }
-        if(attached&&ms<TOTAL_MS)postInvalidateDelayed(FRAME_MS);
+        // Keep the grid moving while the overlay is visible. The accessibility
+        // service removes this view on GodotGame detection or its 120s timeout.
+        if(attached)postInvalidateDelayed(FRAME_MS);
     }
 
     private void drawRisingBlue(Canvas canvas,int w,int h,long ms) {
@@ -208,7 +216,7 @@ public final class PixelRiseView extends View {
         gridClip.close();
         canvas.save();
         canvas.clipPath(gridClip);
-        drawTrainingGrid(canvas,w,h);
+        drawTrainingGrid(canvas,w,h,ms);
         canvas.restore();
 
         for(int c=0;c<count;c++) {
@@ -224,13 +232,26 @@ public final class PixelRiseView extends View {
         }
     }
 
-    private void drawTrainingGrid(Canvas canvas,int w,int h) {
+    private static float wrap(float pos,float cell) {
+        float result=pos%cell;
+        return result<0f ? result+cell : result;
+    }
+
+    private void drawTrainingGrid(Canvas canvas,int w,int h,long gridMs) {
         // 64dp square cells, dark lines matched to SERA's training floor.
-        float ox=(w*.5f)%gridSpacing;
-        float oy=(h*.5f)%gridSpacing;
-        for(float x=ox;x<=w;x+=gridSpacing)
+        // X moves right and Y moves up continuously, including AFTER the
+        // irregular bottom-up reveal is finished. Only screen-space offsets
+        // change, never the absolute grid spacing or its square proportions.
+        float seconds=gridMs*.001f;
+        float ox=wrap((w*.5f)%gridSpacing
+                +dp(GRID_RIGHT_DP_PER_SEC)*seconds,gridSpacing);
+        float oy=wrap((h*.5f)%gridSpacing
+                -dp(GRID_UP_DP_PER_SEC)*seconds,gridSpacing);
+
+        // Extra line off each edge prevents holes during modulo wrapping.
+        for(float x=ox-gridSpacing;x<=w+gridSpacing;x+=gridSpacing)
             canvas.drawLine(x,0f,x,h,gridPaint);
-        for(float y=oy;y<=h;y+=gridSpacing)
+        for(float y=oy-gridSpacing;y<=h+gridSpacing;y+=gridSpacing)
             canvas.drawLine(0f,y,w,y,gridPaint);
     }
 

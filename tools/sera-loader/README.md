@@ -113,3 +113,22 @@ Correct intended behavior:
 
 The original SERA helmet, UI, Automate wiring, 120s auto-close, pass-through
 accessibility overlay and Godot project files are unchanged.
+
+
+## v0.8 – Continuous diagonal drift on the training grid
+
+After the blue opaque columns have fully risen, the dark square training-room
+grid grows from the bottom as before. From the **start of the grid reveal**, its
+two axes move continuously at a fixed speed: +18dp/s horizontally toward the
+right and -18dp/s vertically upward. After reveal completion, the grid keeps
+moving **upper-right** underneath the unchanged fixed SERA helmet/text; only
+the grid moves, not the blue opaque gradient. Each direction wraps modulo the
+unchanged 64dp square grid-cell spacing, so the movement is seamless and has
+no visible snapping even during a long wait. The animation updates at about
+30fps only while the loader view remains attached.
+
+Unchanged: initial transparent frame; 1.9s opaque blue bar materialization
+with three white/cyan tips and micro-sparks; 0.3s blue hold; 1.55s grid reveal
+with ragged leading edge; original colors, central face logo, progress bar,
+Accessibility trusted touch-through window and timeout, Git/Termux/Automate
+integration and Godot game code.

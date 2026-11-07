@@ -8,8 +8,8 @@ android {
         applicationId 'dev.sera.loader'
         minSdk 26
         targetSdk 35
-        versionCode 7
-        versionName '0.7-opaque-blue-rise'
+        versionCode 8
+        versionName '0.8-diagonal-grid-scroll'
     }
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
