@@ -41,3 +41,17 @@ If accessibility is disabled, OverlayLaunchActivity opens the app setup screen i
 3. Confirm the face icon stays fixed at center and text/progress are visible.
 4. Confirm the overlay is still opaque but taps pass through to apps behind it.
 5. Run the existing Automate SERA_Launch_Loader after confirming a manual test, then verify the usual GodotGame-triggered dismissal.
+
+
+## v0.4: staged blue fill then training grid
+
+Replaces the continuous confetti particle waterfall from v0.3 with exactly two finite animation phases:
+
+1. About 1.9 seconds: closely spaced vertical stripes climb from the bottom. Only their ragged, moving tips have three short layers of white, pale blue and cyan; all completed pixels below are **uniform solid blue** (#195AA2).
+2. 0.3 seconds: the entire background holds **solid blue** with no white, particles, grid or shading.
+3. About 1.55 seconds: a square dark grid grows from the bottom with a slightly irregular leading edge. The grid color (#111821) and square proportions are based on the actual SERA training ground's unshaded 4-meter grid in scripts/main.gd. On the loader, screen-space cell spacing is 64dp.
+4. Final: solid #195AA2 blue with #111821 square lines. There is **no movement, noise, glow, gradient, flicker, or animation** after the full grid is revealed.
+
+The existing centered helmet graphic, captions and loading progress bar are not changed. The accessibility overlay and Automate integration continue to use the previous API and package/activity. The animation auto-stops drawing after 3.75s.
+
+Development: source is PixelRiseView.java. Durations and palette are constants at the top.

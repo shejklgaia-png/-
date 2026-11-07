@@ -8,8 +8,8 @@ android {
         applicationId 'dev.sera.loader'
         minSdk 26
         targetSdk 35
-        versionCode 3
-        versionName '0.3-pixel-rise'
+        versionCode 4
+        versionName '0.4-two-stage-grid'
     }
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17

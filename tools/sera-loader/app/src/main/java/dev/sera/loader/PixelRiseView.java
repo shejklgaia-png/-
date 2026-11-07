@@ -4,186 +4,232 @@ import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
-import android.graphics.RadialGradient;
-import android.graphics.Shader;
+import android.graphics.Path;
 import android.os.SystemClock;
 import android.view.View;
 
 /**
- * Lightweight electronic waterfall for the SERA loading overlay.
+ * SERA Loader: two-stage electronic background materialization.
  *
- * The background grows upward as a coarse blue pixel field and bright square
- * fragments float upward at varied speeds. Drawn under the fixed helmet UI.
- * Only Canvas rectangles are used; no bitmap/video decoder or GPU particle
- * system is needed. Rendering stops automatically when detached.
+ * Stage 1: bottom-up blue strips with three ragged white/cyan leading bands.
+ * Pause:   a completely uniform blue field.
+ * Stage 2: the training-floor square grid grows bottom-up with a rough edge.
+ * Final:   an absolutely static solid-blue background with dark square grid.
+ *
+ * Never reads touches, UI contents or accessibility data.
+ * The separate SERA helmet, headings and progress bar sit above this view.
  */
 public final class PixelRiseView extends View {
-    private static final long FILL_DURATION_MS = 3600L;
+    // Tunable animation timings. Do not change Automate's Godot detection.
+    private static final long BLUE_FILL_MS = 1900L;
+    private static final long BLUE_HOLD_MS = 300L;
+    private static final long GRID_FILL_MS = 1550L;
+    private static final long TOTAL_MS =
+            BLUE_FILL_MS + BLUE_HOLD_MS + GRID_FILL_MS;
     private static final long FRAME_MS = 33L;
-    private static final int FRAGMENT_COUNT = 88;
-    private static final int BACKGROUND_COLOR = 0xff0c121a;
 
-    private static final int[] TILES = {
-        0xff10263b, 0xff16344c, 0xff1a4264,
-        0xff20567c, 0xff2578ac, 0xff3898c6,
-        0xff73bbdf, 0xffc4edff
-    };
-    private static final int[] FRAGMENTS = {
-        0xff1681ba, 0xff35adf0, 0xff7edbff,
-        0xffd4f2ff, 0xfff3fbff
-    };
+    // Match the existing training room's grid line color (#111821).
+    // The background itself is intentionally ONE uniform electronic blue.
+    private static final int START_BACKGROUND = 0xff0c121a;
+    private static final int SOLID_BLUE = 0xff195aa2;
+    private static final int GRID_LINE = 0xff111821;
 
-    private final Paint square = new Paint();
-    private final Paint centerShade = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private static final int TIP_WHITE = 0xfff6fcff;
+    private static final int TIP_ICE = 0xffbdeaff;
+    private static final int TIP_CYAN = 0xff63c4f4;
+
+    private final Paint solidPaint = new Paint();
+    private final Paint linePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint tipPaint = new Paint();
+    private final Path gridRevealPath = new Path();
+
     private final float density;
-    private final long startMs;
-    private int pixelSize;
-    private int columns;
-    private int rows;
-    private boolean running;
+    private long animationStart = -1L;
+    private int columnWidth;
+    private int revealColumns;
+    private float gridSpacing;
+    private boolean attached;
 
     public PixelRiseView(Context context) {
         super(context);
         density = getResources().getDisplayMetrics().density;
-        startMs = SystemClock.uptimeMillis();
-        square.setAntiAlias(false); // Keep pixels deliberately sharp and square.
-        setLayerType(View.LAYER_TYPE_HARDWARE, null);
-    }
-
-    @Override protected void onAttachedToWindow() {
-        super.onAttachedToWindow();
-        running = true;
-        postInvalidateOnAnimation();
-    }
-
-    @Override protected void onDetachedFromWindow() {
-        running = false;
-        super.onDetachedFromWindow();
+        solidPaint.setStyle(Paint.Style.FILL);
+        tipPaint.setStyle(Paint.Style.FILL);
+        tipPaint.setAntiAlias(false); // Square, sharply defined electronic tips.
+        linePaint.setColor(GRID_LINE);
+        linePaint.setStyle(Paint.Style.STROKE);
+        linePaint.setStrokeWidth(dp(1.6f));
+        linePaint.setAntiAlias(false);
     }
 
     private float dp(float value) {
         return value * density;
     }
 
-    @Override protected void onSizeChanged(int width, int height, int oldWidth, int oldHeight) {
-        super.onSizeChanged(width, height, oldWidth, oldHeight);
-        if (width <= 0 || height <= 0) return;
-
-        // Chunky squares; the count adapts to portrait, landscape and density.
-        pixelSize = Math.max(1, Math.round(dp(19f)));
-        columns = (width + pixelSize - 1) / pixelSize;
-        rows = (height + pixelSize - 1) / pixelSize;
-
-        // A soft dark center keeps the original white face/text legible.
-        float radius = Math.max(dp(170f), Math.min(width * 0.85f, height * 0.42f));
-        centerShade.setShader(new RadialGradient(
-                width * 0.5f, height * 0.5f, radius,
-                new int[] {0xd909111c, 0x9c101c2b, 0x00101c2b},
-                new float[] {0f, .43f, 1f}, Shader.TileMode.CLAMP));
+    @Override protected void onAttachedToWindow() {
+        super.onAttachedToWindow();
+        attached = true;
+        // A fresh loading-screen instance always begins at the first wave.
+        animationStart = SystemClock.uptimeMillis();
+        postInvalidateOnAnimation();
     }
 
-    /** Cheap deterministic hash; avoids allocation and random state in onDraw. */
-    private static float noise(int input) {
-        int n = input * 0x45d9f3b;
+    @Override protected void onDetachedFromWindow() {
+        attached = false;
+        super.onDetachedFromWindow();
+    }
+
+    @Override protected void onSizeChanged(int w, int h, int oldW, int oldH) {
+        super.onSizeChanged(w, h, oldW, oldH);
+        if (w <= 0 || h <= 0) return;
+        // Close-set vertical digital bars instead of randomly colored blocks.
+        columnWidth = Math.max(3, Math.round(dp(12f)));
+        revealColumns = (w + columnWidth - 1) / columnWidth;
+
+        // The SERA training floor uses square cells (4m per cell in-world)
+        // and narrow, very dark lines. 2D equivalent keeps square proportions.
+        gridSpacing = dp(64f);
+    }
+
+    private static float clamp01(float x) {
+        return x < 0f ? 0f : (x > 1f ? 1f : x);
+    }
+
+    private static float smooth(float progress) {
+        float t = clamp01(progress);
+        return t * t * (3f - 2f * t);
+    }
+
+    /** Deterministic, fast, allocation-free noise with output in [0,1). */
+    private static float hash(int value) {
+        int n = value * 0x45d9f3b;
         n = (n ^ (n >>> 16)) * 0x45d9f3b;
         n = n ^ (n >>> 16);
-        return (n & 0x00ffffff) * (1f / 16777216f);
+        return (n & 0x00ffffff) / 16777216f;
     }
 
     @Override protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
-        int width = getWidth();
-        int height = getHeight();
-        canvas.drawColor(BACKGROUND_COLOR);
-        if (width == 0 || height == 0 || pixelSize == 0) return;
+        final int w = getWidth();
+        final int h = getHeight();
+        if (w <= 0 || h <= 0 || columnWidth <= 0) return;
 
-        long elapsed = Math.max(0L, SystemClock.uptimeMillis() - startMs);
-        float seconds = elapsed * .001f;
-        float progress = Math.min(1f, elapsed / (float) FILL_DURATION_MS);
-        // A tiny ease-in makes the wave emerge organically rather than in one band.
-        float front = height * (1f - progress * progress * (3f - 2f * progress));
-        int epoch = (int)(elapsed / 280L);
-        float gap = Math.max(1f, dp(1.1f));
+        final long elapsed = Math.max(0L,
+                SystemClock.uptimeMillis() - animationStart);
 
-        // Blue square "data" field rises from the bottom, column by column.
-        for (int column = 0; column < columns; column++) {
-            float x = column * pixelSize;
-            float colOffset = (noise(column * 731 + 19) - .5f) * dp(55f)
-                + (float)Math.sin(seconds * 2.2f + column * .79f) * dp(9f);
-            float localFront = front + colOffset;
-
-            for (int row = 0; row < rows; row++) {
-                float y = row * pixelSize;
-                float cellVariation = (noise(column * 997 + row * 59) - .5f) * dp(20f);
-                if (y + pixelSize < localFront + cellVariation) continue;
-
-                int id = column * 1637 + row * 313;
-                float variant = noise(id + 417);
-                if (variant < .07f) continue; // Intentional dark data gaps.
-
-                int choice;
-                if (variant < .15f) choice = 0;
-                else if (variant < .35f) choice = 1;
-                else if (variant < .56f) choice = 2;
-                else if (variant < .76f) choice = 3;
-                else if (variant < .91f) choice = 4;
-                else if (variant < .965f) choice = 5;
-                else if (variant < .991f) choice = 6;
-                else choice = 7;
-
-                // Sparse soft flicker, like digital data flowing upward.
-                if (noise(id + epoch * 31) > .967f) choice = 7;
-                else if (noise(id + epoch * 13) > .948f) choice = 5;
-
-                // Light around the rising edge of the pixel wave.
-                if (progress < 1f && Math.abs(y - localFront) < dp(26f)
-                        && noise(id + 55) > .47f) {
-                    choice = 5 + (int)(noise(id + 17) * 3f);
-                    if (choice > 7) choice = 7;
+        if (elapsed < BLUE_FILL_MS) {
+            drawBlueFormation(canvas, w, h, elapsed);
+        } else {
+            // Deliberately opaque flat color. No residual tips or gradients.
+            canvas.drawColor(SOLID_BLUE);
+            if (elapsed >= BLUE_FILL_MS + BLUE_HOLD_MS) {
+                final long gridElapsed =
+                    elapsed - BLUE_FILL_MS - BLUE_HOLD_MS;
+                if (gridElapsed >= GRID_FILL_MS) {
+                    drawTrainingGrid(canvas, w, h);
+                } else {
+                    drawGridFormation(canvas, w, h, gridElapsed);
                 }
-
-                square.setColor(TILES[choice]);
-                float inset = gap * (.7f + noise(id + 223) * .85f);
-                canvas.drawRect(x + inset, y + inset,
-                    Math.min(width, x + pixelSize - inset),
-                    Math.min(height, y + pixelSize - inset), square);
             }
         }
 
-        // Larger drifting white and cyan squares. Each path wraps to the bottom.
-        float cycleHeight = height + dp(220f);
-        for (int i = 0; i < FRAGMENT_COUNT; i++) {
-            float size = dp(10f + noise(i * 1069 + 11) * 27f);
-            float x = noise(i * 947 + 31) * (width + size) - size * .3f;
-            float speed = dp(85f + noise(i * 211 + 77) * 265f);
-            float startingDepth = dp(15f + noise(i * 139 + 9) * 190f);
-            float displacement = (seconds * speed
-                    - (i % 3) * dp(4f)) % cycleHeight;
-            float y = height + startingDepth - displacement;
-            // Wrap any fragments that have already traveled offscreen.
-            while (y < -size) y += cycleHeight;
-            while (y > height + dp(215f)) y -= cycleHeight;
-            if (y > height + size || y < -size) continue;
+        // Stop all drawing after the second wave: the last image is static.
+        if (attached && elapsed < TOTAL_MS) {
+            postInvalidateDelayed(FRAME_MS);
+        }
+    }
 
-            // Ahead of the wave, just a few sparks announce the approaching rise.
-            if (progress < 1f && y < front - dp(56f)) continue;
+    private void drawBlueFormation(Canvas canvas, int w, int h, long elapsed) {
+        canvas.drawColor(START_BACKGROUND);
+        final float t = elapsed / (float) BLUE_FILL_MS;
+        final int tick = (int) (elapsed / 95L);
+        final float leadHeight = dp(12f);
 
-            int color = FRAGMENTS[(int)(noise(i * 173 + 5) * FRAGMENTS.length)];
-            square.setColor(color);
-            square.setAlpha(95 + (int)(noise(i * 397 + 19) * 156));
-            canvas.drawRect(x, y, x + size, y + size, square);
+        solidPaint.setColor(SOLID_BLUE);
+        for (int c = 0; c < revealColumns; c++) {
+            final float x = c * columnWidth;
+            final float right = Math.min(w, x + columnWidth);
+            // Stagger individual vertical strips and keep their leading edge
+            // organically uneven. All strips nevertheless finish by 1.9s.
+            final float startDelay = hash(c * 457 + 23) * 0.12f;
+            final float local = clamp01((t - startDelay) / (1f - startDelay));
+            if (local <= 0f) continue;
 
-            // Some pixels leave a sharp, shorter digital echo below themselves.
-            if (i % 6 == 0) {
-                square.setAlpha(65);
-                float echoY = y + size + dp(8f);
-                canvas.drawRect(x, echoY, x + size * .65f,
-                    echoY + size * .7f, square);
+            final float edgeNoise =
+                    (hash(c * 113 + tick * 79 + 17) - .5f) * dp(16f);
+            final float columnHeight = (h + dp(65f)) * smooth(local);
+            final float head = h - columnHeight
+                    + (1f - local) * edgeNoise;
+            final float blueTop = Math.max(0f, head);
+
+            canvas.drawRect(x, blueTop, right, h, solidPaint);
+
+            // Three bright layers at the FRONT only. The already-generated
+            // lower portion remains exactly the same uniform SOLID_BLUE.
+            // Flicker/uneven whites affect only these three short segments.
+            if (head >= h || head < -dp(52f)) continue;
+            for (int band = 0; band < 3; band++) {
+                final float n = hash(c * 829 + tick * 41 + band * 353);
+                if (n < (band == 0 ? .12f : .23f)) continue;
+                final float top = Math.max(0f,
+                        head + band * leadHeight + (n - .5f) * dp(5f));
+                final float bottom = Math.min(h,
+                        head + (band + 1) * leadHeight + (n - .5f) * dp(5f));
+                if (bottom <= top) continue;
+                tipPaint.setColor(band == 0 ? TIP_WHITE
+                        : (band == 1 ? TIP_ICE : TIP_CYAN));
+                final int alphaBase = band == 0 ? 185 :
+                        (band == 1 ? 126 : 70);
+                tipPaint.setAlpha(Math.min(255,
+                        alphaBase + (int)(n * (band == 0 ? 70 : 55))));
+                canvas.drawRect(x, top, right, bottom, tipPaint);
             }
         }
+    }
 
-        // Center darkening belongs to the animated layer, below the logo UI.
-        canvas.drawRect(0, 0, width, height, centerShade);
-        if (running) postInvalidateDelayed(FRAME_MS);
+    private void drawGridFormation(Canvas canvas, int w, int h,
+            long gridElapsed) {
+        final float t = gridElapsed / (float) GRID_FILL_MS;
+        final int tick = (int) (gridElapsed / 105L);
+        final float span = Math.max(dp(10f), columnWidth);
+        final int cols = (int)Math.ceil(w / span);
+
+        // The front is a slightly ragged, pixel-stepped contour.
+        // The grid behind it is always regular and perfectly square.
+        gridRevealPath.reset();
+        gridRevealPath.moveTo(0f, h);
+        for (int i = 0; i < cols; i++) {
+            float x = i * span;
+            float right = Math.min(w, x + span);
+            float delay = hash(i * 197 + 11) * .12f;
+            float local = clamp01((t - delay) / (1f - delay));
+            float jitter = (hash(i * 443 + tick * 37) - .5f)
+                    * dp(20f) * (1f - local);
+            float tip = h - (h + dp(42f)) * smooth(local) + jitter;
+            tip = Math.max(0f, Math.min(h, tip));
+            gridRevealPath.lineTo(x, tip);
+            gridRevealPath.lineTo(right, tip);
+        }
+        gridRevealPath.lineTo(w, h);
+        gridRevealPath.close();
+
+        canvas.save();
+        canvas.clipPath(gridRevealPath);
+        drawTrainingGrid(canvas, w, h);
+        canvas.restore();
+    }
+
+    private void drawTrainingGrid(Canvas canvas, int w, int h) {
+        linePaint.setColor(GRID_LINE);
+        // Matching a 4m-by-4m square floor cell: both axes use the exact
+        // same spacing and the scene's original dark line color (#111821).
+        final float originX = (w * .5f) % gridSpacing;
+        final float originY = (h * .5f) % gridSpacing;
+        for (float x = originX; x <= w; x += gridSpacing) {
+            canvas.drawLine(x, 0, x, h, linePaint);
+        }
+        for (float y = originY; y <= h; y += gridSpacing) {
+            canvas.drawLine(0, y, w, y, linePaint);
+        }
     }
 }
