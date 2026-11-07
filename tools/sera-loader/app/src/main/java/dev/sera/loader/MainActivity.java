@@ -42,16 +42,33 @@ public final class MainActivity extends Activity {
             moveTaskToBack(true);
         });
         root.addView(start,new LinearLayout.LayoutParams(-1,dp(60)));
+        Button accessibilitySettings=new Button(this);
+        accessibilitySettings.setText("3  ユーザー補助サービスを設定");
+        accessibilitySettings.setOnClickListener(v ->
+            startActivity(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)));
+        root.addView(accessibilitySettings,new LinearLayout.LayoutParams(-1,dp(60)));
+        Button opaqueTest=new Button(this);
+        opaqueTest.setText("4  完全不透明ロード画面をテスト");
+        opaqueTest.setOnClickListener(v -> {
+            if(SeraAccessibilityOverlayService.requestShow()) {
+                stopService(new Intent(this,OverlayService.class));
+                moveTaskToBack(true);
+            } else {
+                state.setText("ユーザー補助サービスが未接続です。設定で有効にしてください。");
+            }
+        });
+        root.addView(opaqueTest,new LinearLayout.LayoutParams(-1,dp(60)));
+
         Button stop=new Button(this);stop.setText("ロード画面を終了");
-        stop.setOnClickListener(v -> stopService(new Intent(this,OverlayService.class)));
+        stop.setOnClickListener(v -> { stopService(new Intent(this,OverlayService.class)); SeraAccessibilityOverlayService.requestHide(); });
         root.addView(stop,new LinearLayout.LayoutParams(-1,dp(60)));
         TextView note=new TextView(this);
-        note.setText("表示中は通知からも終了できます。最大120秒で自動終了します。\n表示は約78%の半透明で、背後の操作を通す設計です。");
+        note.setText("2：従来の78％表示。4：ユーザー補助による完全不透明表示。\n画面の内容は取得せず、120秒で自動解除します。");
         note.setTextColor(Color.LTGRAY); note.setTextSize(12); note.setPadding(0,dp(25),0,0);
         root.addView(note);
         setContentView(root);
     }
     @Override public void onResume(){super.onResume(); refresh();}
-    private void refresh(){if(state!=null) state.setText(Settings.canDrawOverlays(this)?"重ねて表示：許可済み":"重ねて表示：未許可（最初に許可してください）");}
+    private void refresh(){if(state!=null) state.setText("通常オーバーレイ：" + (Settings.canDrawOverlays(this)?"許可済み":"未許可") + "\nユーザー補助：" + (SeraAccessibilityOverlayService.isReady()?"接続済み":"未接続"));}
     private int dp(float d){return (int)(d*getResources().getDisplayMetrics().density+0.5f);}
 }

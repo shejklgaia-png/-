@@ -1,48 +1,25 @@
-# SERA Loader — Android 15 test app
+# SERA Loader 0.2: opaque Accessibility Overlay test
 
-This is an **experimental build**, not yet verified on an Xperia 1 V.
+An experimental Android 15 build, isolated from existing SERA game, Godot, Termux, GitHub sync, and Automate files. The old 78% app overlay is retained.
 
-## What it does
-- Displays a temporary, non-interactive SERA loading overlay.
-- Allows accessibility interactions to reach the Godot editor beneath the overlay, using `FLAG_NOT_TOUCHABLE` and window alpha `0.78` (below Android 12+ maximum obscuring opacity `0.8`).
-- Automatically times out after 120 seconds. A notification has an emergency **Close** action.
-- Does not change any existing Termux or Godot files. The Automate flow remains responsible for sync, Godot launching, and hiding the overlay.
+## Why Accessibility?
+Android 12+ normally restricts touches through an opaque standard overlay, but TYPE_ACCESSIBILITY_OVERLAY is a trusted window type. This version shows an opaque overlay with FLAG_NOT_TOUCHABLE and FLAG_NOT_FOCUSABLE. It does not inspect or record accessibility events, retrieve the screen, or inject gestures. Use it only if you approve enabling its sensitive Android Accessibility setting.
 
-## Build
-- JDK 17, Android SDK 35, Gradle 8.13, Android Gradle Plugin 8.13.2.
-- `gradle :app:assembleDebug` from this folder.
-- Output: `app/build/outputs/apk/debug/app-debug.apk`.
-- To build using your existing SERA GitHub repo: unzip this project into `tools/sera-loader` and copy `.github/workflows/sera-loader-build.yml` to the repository root `.github/workflows/sera-loader-build.yml`. Push the commit; Actions builds the APK. The `install_into_sera_repo.sh` script automates those operations with clean-tree checks.
+## Install & test
+1. Download SERA-Loader-debug-apk from the Build SERA Loader APK workflow, unzip and install.
+2. Debug signatures may change between GitHub Actions builds: if upgrading fails, uninstall the older SERA Loader app only (no game data is stored in it), then install the new APK.
+3. Open SERA Loader, press 3 to open Accessibility Settings. Enable SERA Loader 全画面表示. Sideloaded apps may require app info > menu > allow restricted settings.
+4. Return to the loader app and confirm the status says connected. Press 4 to start the fully opaque test.
+5. Check that taps can reach apps on the home screen underneath, and that Automate's existing Godot editor steps still work. Full-screen overlays may interfere with screenshot-driven automation even when normal touch passes through.
+6. To dismiss, use the notification Close action if available, the Loader app stop button, turn off the Accessibility service, or let the 120-second timeout expire.
+7. Do not modify the Automate launch workflow until the above passes.
 
-## Install and first run
-1. Install APK, open **SERA Loader** from the app drawer.
-2. Tap **重ねて表示を許可** and enable the SERA Loader app in Android Settings.
-3. Return and tap **ロード画面をテスト表示**. It should overlay your home screen but allow taps through it. Use the notification **閉じる**, reopen the app to stop, or allow it to timeout.
-4. If the screen blocks interactions, stop the service immediately and report the result; do not continue to integrate with Automate.
+## Automate wiring after the manual test
+- App start: Package dev.sera.loader; Activity class dev.sera.loader.OverlayLaunchActivity; other fields blank.
+- Delay: Exact; 0.5 seconds; Wake up No.
+- Existing Termux Service start runs the existing SERA_start script with RUN_COMMAND_BACKGROUND=true.
+- App foreground: check Package org.godotengine.editor.v4; Activity class org.godotengine.editor.GodotGame; first Immediately, then When changed until YES.
+- Broadcast send on YES: Package dev.sera.loader; Receiver class dev.sera.loader.HideReceiver; Action dev.sera.loader.HIDE; others blank/default.
+- GodotGame signals an Activity switch, not rendered-frame readiness.
 
-## Automate integration (after test)
-Wire a new flow or extend `SERA_Launch`:
-
-1. **App start**
-   - Package: `dev.sera.loader`
-   - Activity class: `dev.sera.loader.OverlayLaunchActivity`
-   - Action: `android.intent.action.MAIN` (optional / leave blank preferred)
-   - Data URI, MIME type, Category, Extras: empty
-2. **Delay** Exact `0.5` seconds, Wake up No.
-3. Existing **Service start** calls the original Termux `SERA_start` in background mode, unchanged.
-4. **App foreground** Immediately, Package `org.godotengine.editor.v4`, Activity class `org.godotengine.editor.GodotGame`. YES -> step 6, NO -> step 5.
-5. **App foreground** When changed, same package/class, YES -> step 6, NO -> step 5 (only wait for it to become foreground).
-6. **Broadcast send**
-   - Package `dev.sera.loader`
-   - Receiver class `dev.sera.loader.HideReceiver` (if available; otherwise leave blank and use Package)
-   - Action `dev.sera.loader.HIDE` (plain text; if fx enabled quote it)
-   - Data URI/MIME type/Category/Extras/Flags: empty/default
-
-Do not use `App start` to open `MainActivity` in the everyday flow. That is the setup/test screen. Use `OverlayLaunchActivity`.
-
-## Limitations
-- Android's `TYPE_APPLICATION_OVERLAY` is below system UI and may be hidden by the system or other apps.
-- Activity `GodotGame` indicates screen transition, NOT actual rendered frame completion.
-- The mask is semitransparent, not fully opaque. Attempts at full opacity can block touch-through on Android 12+.
-- Because the app is unsigned-release/debug-signed, the APK should be treated as a test APK, not a production distribution.
-- Workflows are not modified automatically by this ZIP; nothing is installed on the phone until you install the APK.
+If accessibility is disabled, OverlayLaunchActivity opens the app setup screen instead of attempting an untrusted overlay.

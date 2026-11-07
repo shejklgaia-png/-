@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="a11y_name">SERA Loader 全画面表示</string>
+  <string name="a11y_summary">セラの起動中に完全不透明なロード画面を表示します</string>
+  <string name="a11y_description">ゲーム起動中に読み込み画面を表示するための試験用サービスです。画面内容の取得、記録、ジェスチャー実行は行いません。表示は最大120秒で解除されます。</string>
+</resources>

@@ -18,5 +18,12 @@
     <receiver android:name=".HideReceiver" android:exported="true">
       <intent-filter><action android:name="dev.sera.loader.HIDE"/></intent-filter>
     </receiver>
+      <service android:name=".SeraAccessibilityOverlayService" android:exported="true"
+      android:label="@string/a11y_name" android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+      <intent-filter>
+        <action android:name="android.accessibilityservice.AccessibilityService"/>
+      </intent-filter>
+      <meta-data android:name="android.accessibilityservice" android:resource="@xml/sera_a11y_config"/>
+    </service>
   </application>
 </manifest>
