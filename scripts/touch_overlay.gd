@@ -4,7 +4,8 @@ extends Control
 ## v73: Single translucent disc and center-to-finger line, v70 style;
 ## double outward chevrons live entirely OUTSIDE the disc.
 ## Preserve v70 joystick color/alpha palette. Input stays in main.gd.
-## v90: 100% rim snap and subtle 125% entry guide on rim overtravel.
+## v90: 100% RUN rim and 125% BOOST entry threshold guide.
+## v115: While boosting, move the drawn knob fully beyond the 125% line.
 ## v62: Screen bottom 15% deep gray, preceding 10% transparent-to-gray gradient.
 ## v63: Brighten the neutral gray slightly; retain 90% opacity and region.
 ## Screen-space joystick + camera-projected 3D target reticle; no input interception.
@@ -42,12 +43,13 @@ const LOCK_RING_WIDTH_MELEE: float = 5.0
 const LOCK_ARC_SWEEP: float = 0.70
 
 # Two chevrons in each cardinal direction, placed beyond the outer rim.
-# Restored v70-style directional line ends at the finger position, clamped to
-# this 168px disc for readability even when BOOST is active.
+# The RUN knob stays inside the 168px disc; the BOOST knob moves outside
+# the 125% threshold line (even when hysteresis allows a shorter touch drag).
 const CONTROLLER_CHEVRON_NEAR_RATIO: float = 1.13
 const CONTROLLER_CHEVRON_FAR_RATIO: float = 1.27
 const CONTROLLER_FINGER_DOT_RADIUS: float = 29.0
 const CONTROLLER_BOOST_START_RADIUS_RATIO: float = 1.25
+const CONTROLLER_BOOST_KNOB_RADIUS_RATIO: float = 1.48
 
 const OPERATION_ZONE_TOP_RATIO: float = 0.75  # top of fade: 100% transparent
 const OPERATION_ZONE_SOLID_RATIO: float = 0.92  # bottom 8% is a uniform medium gray
@@ -168,20 +170,23 @@ func _draw_radial_controller(accent: Color, low: Color) -> void:
     var rim_color: Color = accent if movement_boost_active else low
     draw_arc(anchor_point, radius, 0.0, TAU, 96, rim_color, 3.0, true)
 
-    # Only while over-running the RUN rim, show a short, faint threshold
-    # arc in the drag direction. The ordinary controller remains uncluttered.
-    # The guide is drawn from the actual finger position, NOT the snapped knob.
+    # Keep the 125% entry line visible while BOOST is active. Prior to
+    # activation the same arc remains faint, showing where BOOST begins.
+    # Draw it in the real finger direction; the BOOST knob moves beyond it.
     var finger_vector: Vector2 = finger_point - anchor_point
-    if finger_vector.length_squared() > radius * radius and not movement_boost_active:
+    if finger_vector.length_squared() > radius * radius or movement_boost_active:
         var heading: float = finger_vector.angle()
-        var guide_color: Color = Color(0.21, 0.85, 0.93, 0.26)
+        var guide_color: Color = accent if movement_boost_active else Color(0.21, 0.85, 0.93, 0.26)
+        var guide_width: float = 3.0 if movement_boost_active else 2.0
         draw_arc(anchor_point, radius * CONTROLLER_BOOST_START_RADIUS_RATIO,
-            heading - 0.38, heading + 0.38, 18, guide_color, 2.0, true)
+            heading - 0.38, heading + 0.38, 18, guide_color, guide_width, true)
 
-    # v70 joystick direction line. The finger dot travels over the whole disc,
-    # stopping visually at the rim if the real finger extends beyond it.
-    # The BOOST state and outside arrows indicate that extra travel.
-    var knob_center: Vector2 = anchor_point + (finger_point - anchor_point).limit_length(radius)
+    # RUN stays capped at the disc rim. During BOOST the *displayed* knob
+    # snaps to 148%, so even its full 29px circle clears the 125% guide.
+    # This is visual only: real touch distance / boost hysteresis are unchanged.
+    var knob_center: Vector2 = anchor_point + finger_vector.limit_length(radius)
+    if movement_boost_active and finger_vector.length_squared() > 0.000001:
+        knob_center = anchor_point + finger_vector.normalized() * (radius * CONTROLLER_BOOST_KNOB_RADIUS_RATIO)
     draw_line(anchor_point, knob_center, low, 5.0, true)
     draw_circle(knob_center, CONTROLLER_FINGER_DOT_RADIUS, Color(0.13, 0.54, 0.61, 0.45))
     draw_arc(knob_center, CONTROLLER_FINGER_DOT_RADIUS, 0.0, TAU, 42, accent, 2.0, true)
