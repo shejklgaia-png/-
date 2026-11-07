@@ -40,7 +40,7 @@ assert "run_facing_yaw + clampf(yaw_error, -yaw_step, yaw_step)" in rig
 assert 'rig.call("set_moving", running, movement_boost_active, local_run_direction)' in main
 assert "JUMP_TOUCH_INPUT_ENABLED: bool = false" in main
 assert "const STRIKE_DAMAGE = [12, 12, 26]" in main
-assert len(model["animations"]) == 17
+assert len(model["animations"]) == 20
 
 def wrap(a):
     return (a + math.pi) % (2*math.pi) - math.pi

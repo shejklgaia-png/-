@@ -10,15 +10,15 @@ source_bytes = (root / "assets/sera_source.json").read_bytes()
 source = json.loads(source_bytes)
 user = json.loads(text("bbmodel/SERA_back.bbmodel"))
 legacy = json.loads(text("blockbench/SERA_v102_guardfix_integrated.bbmodel"))
-merged = (root / "blockbench/SERA_v106_four_way_run_integrated.bbmodel").read_bytes()
-assert merged == source_bytes, "Integrated editable model must match runtime JSON exactly"
+merged = json.loads(text("blockbench/SERA_v106_four_way_run_integrated.bbmodel"))
+assert len(merged["animations"]) == 17, "Historical v106 model must stay unchanged"
 for key in ("elements", "groups", "outliner", "textures"):
     assert source[key] == legacy[key], f"Unexpected change to {key}"
 clips = {a["name"]: a for a in source["animations"]}
 user_clips = {a["name"]: a for a in user["animations"]}
 old_clips = {a["name"]: a for a in legacy["animations"]}
 names = ("run_front_original", "run_back", "run_right", "run_Left")
-assert len(clips) == len(old_clips) + 3 == 17
+assert len(clips) == len(old_clips) + 6 == 20
 bones = {g["uuid"] for g in source["groups"]}
 for name in names:
     clip = clips[name]

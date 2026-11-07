@@ -1899,7 +1899,7 @@ func _physics_process(delta: float) -> void:
                 state_label.text = "STRIKE %d/3  |  %s" % [strike_index + 1, str(STRIKE_CLIPS[strike_index])]
             _:
                 if running and movement_boost_active:
-                    state_label.text = "BOOST  x1.5  |  Boost_front"
+                    state_label.text = "BOOST  x1.5  |  %s" % str(rig.call("get_boost_dominant_clip"))
                 elif running:
                     state_label.text = "RUN  x1.0  |  %s" % str(rig.call("get_run_dominant_clip"))
                 else:

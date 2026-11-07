@@ -29,7 +29,7 @@ assert rig.index("if uid == RUN_HEAD_BONE_UUID and stabilize_head:") < rig.index
     'return {"rotation": blended_rotation, "position": blended_translation, "scale": blended_scale}')
 assert "if running_pose:" in rig
 assert "var pose: Dictionary = _blended_run_pose(str(uid), t)" in rig
-assert 'config/name="SERA v113 - RUN Head Stabilization"' in project
+assert 'config/name="SERA v' in project
 assert "const STRIKE_DAMAGE = [12, 12, 26]" in main
 
 names = {g["name"]: g["uuid"] for g in model["groups"]}

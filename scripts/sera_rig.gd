@@ -27,6 +27,11 @@ const RUN_ROOT_BONE_UUID: String = "67435cb7-b6af-23e4-10f1-3cd13d8429fa"  # Wai
 const RUN_ROOT_YAW_OFFSET_RADIANS: float = -PI * 0.5
 # Long-drag movement uses an authored single-pose clip, separate from flick steps.
 const BOOST_CLIP: String = "Boost_front"
+const BOOST_BACK_CLIP: String = "Boost_back"
+const BOOST_RIGHT_CLIP: String = "Boost_right"
+const BOOST_LEFT_CLIP: String = "Boost_Left"
+const BOOST_CLIPS = [BOOST_CLIP, BOOST_BACK_CLIP, BOOST_RIGHT_CLIP, BOOST_LEFT_CLIP]
+const BOOST_DIRECTION_BLEND_SECONDS: float = 0.12
 const MELEE_APPROACH_CLIP: String = "meleeboost"
 const STRIKE_CLIP: String = "melee1"
 const STRIKE_2_CLIP: String = "Melee2"
@@ -82,6 +87,9 @@ var clip_time: float = 0.0
 # RUN has only two authored base poses; direction changes rotate the rendered
 # root without touching CharacterBody3D's target-facing transform or collider.
 var run_motion_initialized: bool = false
+var boost_direction_initialized: bool = false
+var boost_direction_target: Vector2 = Vector2(0.0, 1.0)
+var boost_direction_smoothed: Vector2 = Vector2(0.0, 1.0)
 var run_left_handed: bool = false  # Right-handed by default.
 var run_direction_target: Vector2 = Vector2(0.0, 1.0)
 var run_direction_smoothed: Vector2 = Vector2(0.0, 1.0)
@@ -128,7 +136,9 @@ func _ready() -> void:
     loading_ok = (bones.size() > 0 and animations.has(WAIT_CLIP)
         and animations.has(RUN_CLIP) and animations.has(RUN_BACK_CLIP)
         and animations.has(RUN_RIGHT_CLIP) and animations.has(RUN_LEFT_CLIP)
-        and animations.has(BOOST_CLIP) and animations.has(MELEE_APPROACH_CLIP)
+        and animations.has(BOOST_CLIP) and animations.has(BOOST_BACK_CLIP)
+        and animations.has(BOOST_RIGHT_CLIP) and animations.has(BOOST_LEFT_CLIP)
+        and animations.has(MELEE_APPROACH_CLIP)
         and animations.has(STRIKE_CLIP) and animations.has(STRIKE_2_CLIP)
         and animations.has(STRIKE_3_CLIP) and animations.has(STEP_RIGHT_CLIP)
         and animations.has(STEP_LEFT_CLIP) and animations.has(STEP_BACK_CLIP)
@@ -545,10 +555,63 @@ func _run_yaw_for_direction(direction: Vector2, retreat: bool) -> float:
 func get_run_dominant_clip() -> String:
     return RUN_BACK_CLIP if run_retreat_mode else RUN_CLIP
 
+# Four authored BOOST poses are static Blockbench keyframes. Blend the two
+# neighboring cardinal poses in target-relative travel space; leave RUN's
+# forward/retreat gait and body tracking completely separate.
+func _set_boost_motion_direction(local_direction: Vector2) -> void:
+    if local_direction.length_squared() < 0.000001:
+        return
+    var direction: Vector2 = local_direction.normalized()
+    if not boost_direction_initialized or current_clip != BOOST_CLIP:
+        boost_direction_initialized = true
+        boost_direction_smoothed = direction
+    boost_direction_target = direction
+
+func get_boost_dominant_clip() -> String:
+    if absf(boost_direction_smoothed.x) > absf(boost_direction_smoothed.y):
+        return BOOST_RIGHT_CLIP if boost_direction_smoothed.x >= 0.0 else BOOST_LEFT_CLIP
+    return BOOST_CLIP if boost_direction_smoothed.y >= 0.0 else BOOST_BACK_CLIP
+
+func _sample_boost_pose(clip_name: String, uid: String) -> Dictionary:
+    var source_tracks: Dictionary = animations[clip_name]["tracks"]
+    var bone_tracks: Dictionary = source_tracks.get(uid, {})
+    var rotations: Array = bone_tracks.get("rotation", [])
+    var positions: Array = bone_tracks.get("position", [])
+    var scales: Array = bone_tracks.get("scale", [])
+    return {
+        "rotation": _rotation_at(rotations, 0.0) if not rotations.is_empty() else bind_rotations[uid],
+        "position": _value_at(positions, 0.0) * UNIT,
+        "scale": _value_at(scales, 0.0) if not scales.is_empty() else Vector3.ONE
+    }
+
+func _blended_boost_pose(uid: String) -> Dictionary:
+    var direction: Vector2 = boost_direction_smoothed
+    if direction.length_squared() < 0.000001:
+        direction = Vector2(0.0, 1.0)
+    var fore_aft: String = BOOST_CLIP if direction.y >= 0.0 else BOOST_BACK_CLIP
+    var lateral: String = BOOST_RIGHT_CLIP if direction.x >= 0.0 else BOOST_LEFT_CLIP
+    # 0=forward/back, 1=right/left; exact authored cardinal poses at endpoints.
+    var lateral_weight: float = atan2(absf(direction.x), absf(direction.y)) / (PI * 0.5)
+    var fore_aft_pose: Dictionary = _sample_boost_pose(fore_aft, uid)
+    var lateral_pose: Dictionary = _sample_boost_pose(lateral, uid)
+    var fore_aft_rotation: Quaternion = fore_aft_pose["rotation"]
+    var lateral_rotation: Quaternion = lateral_pose["rotation"]
+    var fore_aft_position: Vector3 = fore_aft_pose["position"]
+    var lateral_position: Vector3 = lateral_pose["position"]
+    var fore_aft_scale: Vector3 = fore_aft_pose["scale"]
+    var lateral_scale: Vector3 = lateral_pose["scale"]
+    return {
+        "rotation": fore_aft_rotation.slerp(lateral_rotation, lateral_weight).normalized(),
+        "position": fore_aft_position.lerp(lateral_position, lateral_weight),
+        "scale": fore_aft_scale.lerp(lateral_scale, lateral_weight)
+    }
+
 func set_moving(moving: bool, boosting: bool = false, local_direction: Vector2 = Vector2(0.0, 1.0)) -> void:
     if not loading_ok or combat_playback or step_playback or jump_playback or damage_playback or guard_playback:
         return
-    if moving and not boosting:
+    if moving and boosting:
+        _set_boost_motion_direction(local_direction)
+    elif moving:
         _set_run_motion_direction(local_direction)
     var wanted: String = WAIT_CLIP
     if moving:
@@ -731,6 +794,16 @@ func _process(delta: float) -> void:
             run_motion_initialized = false
             run_turn_previous_direction = Vector2.ZERO
             run_turn_lean_degrees = 0.0
+        if current_clip == BOOST_CLIP and boost_direction_initialized:
+            # Exponential angular smoothing remains stable even for a 180-degree reversal.
+            var boost_alpha: float = 1.0 - exp(-maxf(delta, 0.0) / BOOST_DIRECTION_BLEND_SECONDS)
+            var current_angle: float = atan2(boost_direction_smoothed.x, boost_direction_smoothed.y)
+            var target_angle: float = atan2(boost_direction_target.x, boost_direction_target.y)
+            var angle_delta: float = wrapf(target_angle - current_angle, -PI, PI)
+            var smoothed_angle: float = current_angle + angle_delta * boost_alpha
+            boost_direction_smoothed = Vector2(sin(smoothed_angle), cos(smoothed_angle))
+        else:
+            boost_direction_initialized = false
     _apply_animation(delta)
 
 func _run_heading_from_weights() -> Vector2:
@@ -892,6 +965,11 @@ func _apply_animation(_delta: float) -> void:
             q = pose["rotation"]
             translation = pose["position"]
             scale_value = pose["scale"]
+        elif current_clip == BOOST_CLIP:
+            var boost_pose: Dictionary = _blended_boost_pose(str(uid))
+            q = boost_pose["rotation"]
+            translation = boost_pose["position"]
+            scale_value = boost_pose["scale"]
         else:
             var tracks_for_bone: Dictionary = tracks.get(uid, {})
             var rotation_values: Array = tracks_for_bone.get("rotation", [])
