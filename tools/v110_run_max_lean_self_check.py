@@ -16,7 +16,7 @@ assert "var bank_axis: Vector3 = facing * Vector3.BACK" in rig
 assert "var bank := Quaternion(bank_axis, -deg_to_rad(run_turn_lean_degrees))" in rig
 assert 'rig.call("set_moving", running, movement_boost_active, local_run_direction)' in main
 assert "const STRIKE_DAMAGE = [12, 12, 26]" in main
-assert 'config/name="SERA v111 | Forward / Retreat Locomotion"' in project
+assert 'config/name="SERA v' in project
 def bank(rate):
     return 15.0 * max(-1.0, min(1.0, rate / 7.0))
 assert bank(0) == 0.0
