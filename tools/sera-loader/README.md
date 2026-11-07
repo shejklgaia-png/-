@@ -1,4 +1,4 @@
-# SERA Loader 0.2: opaque Accessibility Overlay test
+# SERA Loader 0.3: electronic pixel-rise overlay
 
 An experimental Android 15 build, isolated from existing SERA game, Godot, Termux, GitHub sync, and Automate files. The old 78% app overlay is retained.
 
@@ -23,3 +23,21 @@ Android 12+ normally restricts touches through an opaque standard overlay, but T
 - GodotGame signals an Activity switch, not rendered-frame readiness.
 
 If accessibility is disabled, OverlayLaunchActivity opens the app setup screen instead of attempting an untrusted overlay.
+
+
+## v0.3: digital waterfall background
+
+- A procedurally rendered background fills from the **bottom to the top** with large square digital pixels over about 3.6 seconds.
+- Light-blue, deep-blue, cyan, and white square particles stream upward continuously, even once the screen has filled.
+- The central SERA helmet icon, typography, indicator, opacity and placement are **unchanged**.
+- Uses the Android Canvas API (no video decoder, network dependency, or third-party libraries).
+- The view schedules approximately 30 frames per second and stops drawing when removed.
+- Existing accessibility touch-through, manual dismiss, 120-second timeout, Automate show/hide broadcast and Git sync are unchanged.
+- If the build uses a new debug signing key, uninstall only the previous SERA Loader test app and then install the updated APK; user-enabled accessibility permission may need re-enabling.
+
+### Manual verification
+1. Tap the existing "4 完全不透明ロード画面をテスト" button.
+2. Verify the first frames are dark and square particles rise from the bottom, progressively covering the background.
+3. Confirm the face icon stays fixed at center and text/progress are visible.
+4. Confirm the overlay is still opaque but taps pass through to apps behind it.
+5. Run the existing Automate SERA_Launch_Loader after confirming a manual test, then verify the usual GodotGame-triggered dismissal.

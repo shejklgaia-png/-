@@ -82,6 +82,10 @@ public final class SeraAccessibilityOverlayService extends AccessibilityService 
         wm=(WindowManager)getSystemService(WINDOW_SERVICE);
         FrameLayout root=new FrameLayout(this);
         root.setBackgroundColor(Color.rgb(12,18,26));
+        // Animated square-particle layer stays BEHIND the existing SERA helmet,
+        // headings, and progress bar. It does not handle any touch events.
+        root.addView(new PixelRiseView(this),
+            new FrameLayout.LayoutParams(-1,-1));
         LinearLayout column=new LinearLayout(this);
         column.setOrientation(LinearLayout.VERTICAL);
         column.setGravity(Gravity.CENTER);
