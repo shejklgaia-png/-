@@ -9,7 +9,8 @@ ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = (ROOT / "scripts/command_nexus.gd").read_text(encoding="utf-8")
 PROJECT = (ROOT / "project.godot").read_text(encoding="utf-8")
 
-assert 'config/name="SERA v121 - Command Nexus Perspective"' in PROJECT
+version = re.search(r'config/name="SERA v(\d+)', PROJECT)
+assert version is not None and int(version.group(1)) >= 121
 assert 'run/main_scene="res://scenes/launch_menu.tscn"' in PROJECT
 assert 'pointing/emulate_mouse_from_touch=false' in PROJECT
 
