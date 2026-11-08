@@ -1,5 +1,5 @@
 extends Node3D
-# v132: fit the front-facing SERA to the menu width and put DEPLOYMENT camera inside the hangar.
+# v133: immediate selected-outline feedback on target press and Back.
 # Preserve v127 kiosk/occlusion, v125 touch navigation and v124 Blockbench geometry.
 const Modules = preload("res://assets/base_command_modules.gd")
 const SeraRig = preload("res://scripts/sera_rig.gd")
@@ -928,7 +928,10 @@ func _select_target(target_name: String) -> void:
     if in_transition or not focus_views.has(target_name):
         return
     focused_target = target_name
+    # Show the bright contour in the initial press event, before camera tween.
     outline.set("active_target", target_name)
+    _update_projected_silhouettes()
+    outline.queue_redraw()
     in_transition = true
     var view: Dictionary = focus_views[target_name]
     var eye: Vector3 = view["eye"]
@@ -954,6 +957,9 @@ func _focus_arrived(target_name: String) -> void:
 func _return_to_overview() -> void:
     if in_transition or focused_target.is_empty():
         return
+    # Back immediately ends the bright selection, before camera return.
+    outline.set("active_target", "")
+    outline.queue_redraw()
     in_transition = true
     focus_panel.visible = false
     back_panel.visible = false
@@ -963,8 +969,8 @@ func _return_to_overview() -> void:
 func _overview_arrived() -> void:
     in_transition = false
     focused_target = ""
-    outline.set("active_target", "")
     _update_projected_silhouettes()
+    outline.queue_redraw()
 
 func _move_camera(destination: Transform3D, next_fov: float, arrived: Callable) -> void:
     if focus_tween != null and focus_tween.is_running():

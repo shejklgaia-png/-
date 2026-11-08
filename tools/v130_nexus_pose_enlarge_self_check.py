@@ -13,7 +13,7 @@ display = json.loads((ROOT / "models/SERA_BOOSTER_allテスト.bbmodel").read_te
 canonical = json.loads((ROOT / "assets/sera_source.json").read_text(encoding="utf-8"))
 rig = (ROOT / "scripts/sera_rig.gd").read_text(encoding="utf-8")
 
-assert 'config/name="SERA v132 - Nexus preview and gate visibility"' in project
+assert 'config/name="SERA v133 - Immediate selection feedback"' in project
 assert 'run/main_scene="res://scenes/launch_menu.tscn"' in project
 
 # The previous two-pass 1.55x/1.05x cap suppressed enlargement.
