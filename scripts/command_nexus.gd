@@ -1,5 +1,5 @@
 extends Node3D
-# v120: base equipment is authored in blockbench/base/SERA_*.bbmodel.
+# v121: spatial composition and read-only signs; modules remain Blockbench-authored.
 # This read-only display renders their embedded geometry in material batches.
 const Modules = preload("res://assets/base_command_modules.gd")
 const SeraRig = preload("res://scripts/sera_rig.gd")
@@ -12,12 +12,12 @@ var tags: Array[Dictionary] = []
 func _ready() -> void:
     _environment()
     _module("hangar_shell", Vector3.ZERO)
-    _module("maintenance_pad", Vector3(0.0, 0.0, -4.05))
+    _module("maintenance_pad", Vector3(0.0, 0.0, -4.60))
     _module("maintenance_canopy", Vector3(0.0, 8.0, -8.95))
-    _module("deployment_gate", Vector3(2.40, 0.02, -7.58), 0.0, 0.74)
-    _module("data_bank", Vector3(-2.60, 0.0, -7.25))
-    _module("kiosk", Vector3(-1.90, 0.0, -1.55), deg_to_rad(12.0))
-    _module("kiosk", Vector3(1.90, 0.0, -1.55), deg_to_rad(-12.0))
+    _module("deployment_gate", Vector3(2.94, 0.02, -8.28), 0.0, 0.70)
+    _module("data_bank", Vector3(-3.12, 0.0, -8.05))
+    _module("kiosk", Vector3(-1.70, 0.0, -0.65), deg_to_rad(10.3))
+    _module("kiosk", Vector3(1.70, 0.0, -0.65), deg_to_rad(-10.3))
     _render_batches()
     _pad_center()
     _sera_display()
@@ -98,7 +98,7 @@ func _pad_center() -> void:
     cylinder.height = 0.16
     cylinder.radial_segments = 12
     surface.mesh = cylinder
-    surface.position = Vector3(0.0, 0.33, -4.05)
+    surface.position = Vector3(0.0, 0.33, -4.60)
     surface.material_override = _mat(2)
     add_child(surface)
 
@@ -107,7 +107,7 @@ func _sera_display() -> void:
     # exhibition pose rather than Wait_motion's crouched combat stance.
     var stand := Node3D.new()
     stand.name = "DisplayStand"
-    stand.position = Vector3(0.0, 0.40, -4.05)
+    stand.position = Vector3(0.0, 0.40, -4.60)
     add_child(stand)
     var rig: Node3D = SeraRig.new()
     rig.name = "SeraDisplay"
@@ -136,11 +136,11 @@ func _sera_display() -> void:
 func _camera() -> void:
     var cam := Camera3D.new()
     cam.name = "NexusPortraitCamera"
-    cam.position = Vector3(0.0, 4.0, 8.40)
+    cam.position = Vector3(0.0, 3.8, 7.40)
     cam.near = 0.05
-    cam.fov = 51.0
+    cam.fov = 56.0
     add_child(cam)
-    cam.look_at(Vector3(0.0, 2.88, -4.72), Vector3.UP)
+    cam.look_at(Vector3(0.0, 2.50, -4.70), Vector3.UP)
     cam.current = true
 
 func _wall_mark() -> void:
@@ -199,23 +199,11 @@ func _hud() -> void:
     hud.mouse_filter = Control.MOUSE_FILTER_IGNORE
     canvas.add_child(hud)
     hud.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-    var title := Label.new()
-    title.text = "SERA SYSTEM   /   COMMAND NEXUS"
-    title.position = Vector2(18.0, 18.0)
-    title.add_theme_font_size_override("font_size", 23)
-    title.add_theme_color_override("font_color", Color("#e0edf9"))
-    title.mouse_filter = Control.MOUSE_FILTER_IGNORE
-    hud.add_child(title)
-    var rule := ColorRect.new()
-    rule.name = "HeaderDivider"
-    rule.color = Color("#4cd2f6")
-    rule.position = Vector2(0, 67)
-    rule.mouse_filter = Control.MOUSE_FILTER_IGNORE
-    hud.add_child(rule)
-    _tag("DATA ARCHIVE", "RECORDS / LOGS", 0.018, 0.272, 0.315)
-    _tag("DEPLOYMENT", "MISSION GATE", 0.666, 0.272, 0.315)
-    _tag("TRAINING", "SIMULATION", 0.018, 0.542, 0.315)
-    _tag("SYSTEM", "SETTINGS", 0.666, 0.542, 0.315)
+    # No HUD title or top separator: leave the upper hangar composition unobstructed.
+    _tag("DATA ARCHIVE", "RECORDS / LOGS", 0.018, 0.205, 0.315)
+    _tag("DEPLOYMENT", "MISSION GATE", 0.666, 0.205, 0.315)
+    _tag("TRAINING", "SIMULATION", 0.018, 0.505, 0.315)
+    _tag("SYSTEM", "SETTINGS", 0.666, 0.505, 0.315)
     _tag("CUSTOMIZE", "UNIT CONFIGURATION", 0.305, 0.805, 0.39)
     hud.resized.connect(_layout_hud)
     _layout_hud()
@@ -224,8 +212,6 @@ func _layout_hud() -> void:
     if hud == null:
         return
     var viewport_size := hud.size
-    var rule: ColorRect = hud.get_node("HeaderDivider")
-    rule.size = Vector2(viewport_size.x, 2.0)
     for entry in tags:
         var panel: Panel = entry["panel"]
         panel.size = Vector2(viewport_size.x * float(entry["w"]), 67.0)
