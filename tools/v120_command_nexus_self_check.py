@@ -20,7 +20,7 @@ assert 'renderer/rendering_method="gl_compatibility"' in project
 assert 'pointing/emulate_mouse_from_touch=false' in project
 
 names = ("hangar_shell", "maintenance_pad", "maintenance_canopy",
-         "deployment_gate", "kiosk", "data_bank")
+         "deployment_gate", "kiosk", "data_bank", "archive_mezzanine")
 modules = json.loads(embedded.split("const MODULES = ", 1)[1].strip())
 palette = json.loads(embedded.split("const PALETTE = ", 1)[1].split("\n", 1)[0])
 assert len(palette) <= 9
@@ -54,7 +54,7 @@ assert 'rig.get("bind_positions")' in src
 assert 'rig.get("bind_rotations")' in src
 assert "rig.rotation.y = PI" in src
 assert "Quaternion(Vector3.BACK, deg_to_rad" in src
-assert 'cam.look_at(Vector3(0.0, 2.50, -4.70)' in src
+assert 'cam.look_at(Vector3(0.0, 3.00, -5.50)' in src
 assert 'Environment.AMBIENT_SOURCE_COLOR' in src
 assert 'Environment.AMBIENT_COLOR' not in src
 assert 'func _tag(' in src
