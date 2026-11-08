@@ -11,7 +11,7 @@ s = (ROOT / "scripts/command_nexus.gd").read_text(encoding="utf-8")
 project = (ROOT / "project.godot").read_text(encoding="utf-8")
 model = json.loads((ROOT / "models/SERA_BOOSTER_allテスト.bbmodel").read_text(encoding="utf-8"))
 
-assert 'config/name="SERA v129 - Floating Customize Preview"' in project
+assert 'config/name="SERA v130 - Larger NEXUS Pose Preview"' in project
 assert 'run/main_scene="res://scenes/launch_menu.tscn"' in project
 assert 'pointing/emulate_mouse_from_touch=false' in project
 assert 'renderer/rendering_method="gl_compatibility"' in project
@@ -33,7 +33,7 @@ assert "    _restore_customization_preview()\n    _move_camera(overview_pose" in
 # Front facing in the camera's own coordinate system, with model-only rotation.
 assert "customize_preview_yaw = PI" in s
 assert "Basis(Vector3.UP, customize_preview_yaw)" in s
-assert "CUSTOMIZE_PREVIEW_DISTANCE: float = 4.60" in s
+assert "CUSTOMIZE_PREVIEW_DISTANCE: float = 3.25" in s
 assert "CUSTOMIZE_PREVIEW_ROTATION_SAMPLES: int = 16" in s
 assert "func _customization_all_yaw_bounds()" in s
 assert "for i in range(CUSTOMIZE_PREVIEW_ROTATION_SAMPLES)" in s

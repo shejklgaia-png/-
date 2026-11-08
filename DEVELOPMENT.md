@@ -681,3 +681,10 @@
 - CUSTOMIZE右側領域のAndroidタッチドラッグ／PC左ボタンドラッグでモデルのY軸回転のみ変更。カメラ固定、パネル・右下戻るUIのドラッグ誤作動なし。指離しで回転停止、再選択時は正面向きへ復帰。元の選択輪郭も追従。
 - 変更：scripts/command_nexus.gd、project.godot、既存の静的検査v125〜v128、DEVELOPMENT.md。追加：README_v129_ja.md、tools/v129_customize_floating_preview_self_check.py。Bash／Guard_REACTION、Blockbench原本、戦闘シーンとBGM/SEは不変更。
 - 静的ソース確認のみ。Godotのパーサー検証・Android端末実機のドラッグ判定やプレビュー見え方の確認は未実施。
+
+## v130（2026-11-08） — カスタマイズ拡大の上限緩和とNEXUSpose読込
+- 基準：GitHub main v129（d9572ec82c90f6d82a55f8101f6436d47fca683b）。背景・5機能のカメラ・半透明パネル・タッチ回転・右下戻るを維持し、CUSTOMIZEでセラのサイズのみ調整。
+- v129のプレビュースケール倍率上限1.55/1.05が実サイズを抑制していたため撤去。プレビュー距離4.60→3.25、初期スケール0.80→1.40、縦フィット範囲画面15%〜86%に拡大。モデルの剣・盾を含む16方向で計算した全周外形を、左パネル右端+18px〜画面右97%の安全領域内にフィットするよう更新。
+- NEXUSposeがユーザーのモデルに存在する場合、同期済みBlockbenchモデルJSONを探して展示用SeraRigの既存ZYX回転・アニメーションサンプラーで最初のポーズを適用。戦闘モーションへの変更なし。GitHub mainのモデルには現時点でNEXUSposeが見つからないため、未同期の場合は従来の中立展示姿勢を維持し、同期された後の次回起動時に自動検出。
+- 変更：scripts/command_nexus.gd、project.godot、DEVELOPMENT.md、v125-v129の静的検査。新規：tools/v130_nexus_pose_enlarge_self_check.py、README_v130_ja.md。Bash／Guard_REACTION、Blockbench元モデル、既存背景・入力・BGM/SEなど変更なし。
+- 静的なコード/資産整合性検査のみ。Godotでの構文解析・Android実機の拡大／姿勢適用確認は未実施。APKでのbbmodel同梱にも別途確認が必要。

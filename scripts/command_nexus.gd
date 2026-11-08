@@ -1,5 +1,5 @@
 extends Node3D
-# v129: lightweight camera-facing SERA preview, drag rotation and automatic panel-safe fitting.
+# v130: enlarged safe-area SERA preview and user-authored NEXUSpose playback.
 # Preserve v127 kiosk/occlusion, v125 touch navigation and v124 Blockbench geometry.
 const Modules = preload("res://assets/base_command_modules.gd")
 const SeraRig = preload("res://scripts/sera_rig.gd")
@@ -39,8 +39,16 @@ var customize_touch_last_x: float = 0.0
 var customize_mouse_drag: bool = false
 var customize_mouse_last_x: float = 0.0
 
-const CUSTOMIZE_PREVIEW_DISTANCE: float = 4.60
+const CUSTOMIZE_PREVIEW_DISTANCE: float = 3.25
 const CUSTOMIZE_PREVIEW_ROTATION_SAMPLES: int = 16
+const NEXUS_POSE_NAME: String = "NEXUSpose"
+# Authoritative synchronized Blockbench file first; canonical source fallback.
+# Both are JSON text readable by the Android Godot editor after GitSync.
+const NEXUS_POSE_SOURCES: Array[String] = [
+    "res://models/SERA_BOOSTER_allテスト.bbmodel",
+    "res://models/SERA_BOOSTER_all.bbmodel",
+    "res://assets/sera_source.json"
+]
 const CUSTOMIZE_DRAG_FULL_TURN: float = TAU
 
 const CAMERA_TRANSITION_SECONDS: float = 0.18
@@ -280,17 +288,52 @@ func _sera_display() -> void:
     var bones: Dictionary = rig.get("bones")
     var bind_positions: Dictionary = rig.get("bind_positions")
     var bind_rotations: Dictionary = rig.get("bind_rotations")
-    var arm_angles := {"UpperArm_R": -38.0, "UpperArm_L": 38.0,
-        "Forearm_R": -8.0, "Forearm_L": 8.0,
-        "Shoulder_R": -5.0, "Shoulder_L": 5.0}
-    for uid in bones.keys():
-        var bone: Node3D = bones[uid]
-        bone.position = bind_positions[uid]
-        bone.quaternion = bind_rotations[uid]
-        bone.scale = Vector3.ONE
-        if arm_angles.has(bone.name):
-            bone.quaternion = bone.quaternion * Quaternion(Vector3.BACK, deg_to_rad(float(arm_angles[bone.name])))
+    if not _apply_nexus_pose(rig):
+        # A user-authored NEXUSpose has not reached the repo yet. Preserve the
+        # existing neutral display until that named pose is available.
+        var arm_angles := {"UpperArm_R": -38.0, "UpperArm_L": 38.0,
+            "Forearm_R": -8.0, "Forearm_L": 8.0,
+            "Shoulder_R": -5.0, "Shoulder_L": 5.0}
+        for uid in bones.keys():
+            var bone: Node3D = bones[uid]
+            bone.position = bind_positions[uid]
+            bone.quaternion = bind_rotations[uid]
+            bone.scale = Vector3.ONE
+            if arm_angles.has(bone.name):
+                bone.quaternion = bone.quaternion * Quaternion(
+                    Vector3.BACK, deg_to_rad(float(arm_angles[bone.name])))
     _capture_sera_silhouette(rig)
+
+func _apply_nexus_pose(rig: Node3D) -> bool:
+    # Blockbench animation tracks are decoded by SeraRig's own production
+    # ZYX quaternion converter; combat animation data is never overwritten.
+    # Only the independent exhibition rig receives this one named pose.
+    for source_path in NEXUS_POSE_SOURCES:
+        if not FileAccess.file_exists(source_path):
+            continue
+        var json_data: Variant = JSON.parse_string(
+            FileAccess.get_file_as_string(source_path))
+        if not json_data is Dictionary:
+            continue
+        var clips: Array = json_data.get("animations", [])
+        for raw_clip in clips:
+            if not raw_clip is Dictionary:
+                continue
+            if str(raw_clip.get("name", "")) != NEXUS_POSE_NAME:
+                continue
+            if raw_clip.get("animators", {}).is_empty():
+                continue
+            rig.call("_build_animations", {"animations": [raw_clip]})
+            var available: Dictionary = rig.get("animations")
+            if not available.has(NEXUS_POSE_NAME):
+                continue
+            rig.set("current_clip", NEXUS_POSE_NAME)
+            rig.set("clip_time", 0.0)
+            rig.set("blending_for", 1.0)
+            rig.set("blend_duration", 0.0)
+            rig.call("_apply_animation", 0.0)
+            return true
+    return false
 
 func _capture_sera_silhouette(rig: Node3D) -> void:
     # Group per original Blockbench bone, not per small mesh face. The result
@@ -495,8 +538,8 @@ func _show_customization_preview() -> void:
         return
     if not bool(sera_display_rig.get("loading_ok")):
         return
-    customize_preview_position = Vector3(0.75, -0.75, -CUSTOMIZE_PREVIEW_DISTANCE)
-    customize_preview_scale = 0.80
+    customize_preview_position = Vector3(0.75, -0.20, -CUSTOMIZE_PREVIEW_DISTANCE)
+    customize_preview_scale = 1.40
     customize_preview_yaw = PI
     customize_preview_active = true
     _apply_customization_preview_transform()
@@ -566,8 +609,8 @@ func _fit_customization_preview() -> void:
     var placement: Vector2 = PANEL_LAYOUTS["CUSTOMIZE"]
     var left_limit: float = size.x * (placement.x + placement.y) + 18.0
     var right_limit: float = size.x * 0.970
-    var top_limit: float = size.y * 0.280
-    var bottom_limit: float = size.y * 0.765
+    var top_limit: float = size.y * 0.150
+    var bottom_limit: float = size.y * 0.860
     var allowed_width: float = maxf(1.0, right_limit - left_limit)
     var allowed_height: float = maxf(1.0, bottom_limit - top_limit)
     var center_target := Vector2((left_limit + right_limit) * 0.5,
@@ -580,10 +623,11 @@ func _fit_customization_preview() -> void:
             return
         var fit: float = minf(allowed_width / rect.size.x,
             allowed_height / rect.size.y)
-        if pass_index == 0:
-            fit = minf(fit, 1.55)
-        else:
-            fit = minf(fit, 1.05)
+        # v129 clamped enlargement at 1.55x/1.05x, leaving the preview much
+        # smaller than its available area. Fit to the actual right-side safe
+        # rectangle instead. The full 16-angle silhouette envelope still
+        # prevents the sword/shield from crossing into the left menu.
+        fit = clampf(fit, 0.15, 3.25)
         customize_preview_scale *= fit
         _apply_customization_preview_transform()
         rect = _customization_all_yaw_bounds()
