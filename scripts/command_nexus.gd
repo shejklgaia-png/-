@@ -1,5 +1,5 @@
 extends Node3D
-# v134: CUSTOMIZE portrait adds radial cyan backdrop behind enlarged SERA; hides preview contour.
+# v136: continuous broad radial backdrop centered on SERA torso.
 # Preserve v127 kiosk/occlusion, v125 touch navigation and v124 Blockbench geometry.
 const Modules = preload("res://assets/base_command_modules.gd")
 const SeraRig = preload("res://scripts/sera_rig.gd")
@@ -44,8 +44,8 @@ var customize_mouse_last_x: float = 0.0
 
 const CUSTOMIZE_PREVIEW_DISTANCE: float = 3.25
 const CUSTOMIZE_GLOW_DEPTH_OFFSET: float = 1.80
-const CUSTOMIZE_GLOW_SCREEN_WIDTH: float = 0.60
-const CUSTOMIZE_GLOW_SCREEN_HEIGHT: float = 0.56
+const CUSTOMIZE_GLOW_SCREEN_WIDTH: float = 0.70
+const CUSTOMIZE_GLOW_SCREEN_HEIGHT: float = 0.46
 const CUSTOMIZE_PREVIEW_TARGET_WIDTH_RATIO: float = 0.390
 const CUSTOMIZE_PREVIEW_ROTATION_SAMPLES: int = 16
 const NEXUS_POSE_NAMES: Array[String] = ["NEXUS_pose", "NEXUSpose"]
@@ -567,6 +567,19 @@ func _update_customization_glow() -> void:
     var safe_left: float = viewport_size.x * (placement.x + placement.y) + 18.0
     var safe_right: float = viewport_size.x * 0.970
     var center: Vector2 = rect.position + rect.size * 0.5
+    # Center on the actual torso joints, not the sword-inclusive silhouette.
+    # The sword can extend far to the side in authored poses.
+    var body_bones: Dictionary = sera_display_rig.get("bones")
+    var body_pixels := Vector2.ZERO
+    var body_count := 0
+    for bone_value in body_bones.values():
+        var bone: Node3D = bone_value
+        if bone.name in ["Chest", "Torso", "Waist"]:
+            if not cam.is_position_behind(bone.global_position):
+                body_pixels += cam.unproject_position(bone.global_position)
+                body_count += 1
+    if body_count > 0:
+        center = body_pixels / float(body_count)
     center.x = clampf(center.x, safe_left + 20.0, safe_right - 20.0)
     var depth: float = -customize_preview_position.z + CUSTOMIZE_GLOW_DEPTH_OFFSET
     var half_height: float = depth * tan(deg_to_rad(cam.fov) * 0.5)
