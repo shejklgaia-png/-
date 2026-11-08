@@ -1,9 +1,12 @@
 extends Node3D
-# v123: near foreground consoles, raised archive mezzanine and enlarged distant deployment gate.
+# v124: gate aimed toward SERA with lightweight light spill; foreground consoles closer.
 # This read-only display renders their embedded geometry in material batches.
 const Modules = preload("res://assets/base_command_modules.gd")
 const SeraRig = preload("res://scripts/sera_rig.gd")
 const TagIcon = preload("res://scripts/nexus_tag_icon.gd")
+
+const GATE_ORIGIN := Vector3(4.00, 0.02, -10.48)
+const SERA_STAGE_ORIGIN := Vector3(0.0, 0.0, -4.75)
 
 var batch_data: Dictionary = {}
 var hud: Control
@@ -14,12 +17,13 @@ func _ready() -> void:
     _module("hangar_shell", Vector3.ZERO)
     _module("maintenance_pad", Vector3(0.0, 0.0, -4.75))
     _module("maintenance_canopy", Vector3(0.0, 8.0, -8.95))
-    _module("deployment_gate", Vector3(4.05, 0.02, -10.48), 0.0, 1.20, 1.25)
+    _module("deployment_gate", GATE_ORIGIN, _gate_facing_yaw(), 1.20, 1.25)
     _module("archive_mezzanine", Vector3(-4.00, 0.0, -6.55))
     _module("data_bank", Vector3(-4.00, 2.19, -8.95))
-    _module("kiosk", Vector3(-1.82, 0.0, 0.75), deg_to_rad(34.0))
-    _module("kiosk", Vector3(1.82, 0.0, 0.75), deg_to_rad(-34.0))
+    _module("kiosk", Vector3(-1.95, 0.0, 1.30), deg_to_rad(36.0))
+    _module("kiosk", Vector3(1.95, 0.0, 1.30), deg_to_rad(-36.0))
     _render_batches()
+    _deployment_gate_lightspill()
     _pad_center()
     _sera_display()
     _camera()
@@ -60,6 +64,72 @@ func _module(name: String, at: Vector3, yaw: float = 0.0, scale_factor: float = 
         var instances: Array = batch_data.get(index, [])
         instances.append(transform)
         batch_data[index] = instances
+
+
+func _gate_facing_yaw() -> float:
+    # The Blockbench gate faces along local +Z. Point that normal at SERA's stage,
+    # not away from the camera (positive yaw would point to the right).
+    var toward_sera: Vector3 = SERA_STAGE_ORIGIN - GATE_ORIGIN
+    return atan2(toward_sera.x, toward_sera.z)
+
+func _gate_light_quad(parent: Node3D, label: String, local_pos: Vector3,
+        dimensions: Vector2, tint: Color, emission_strength: float,
+        horizontal: bool = false) -> void:
+    var surface := MeshInstance3D.new()
+    surface.name = label
+    var shape := QuadMesh.new()
+    shape.size = dimensions
+    surface.mesh = shape
+    surface.position = local_pos
+    if horizontal:
+        surface.rotation.x = -PI * 0.5
+    surface.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+    var light_material := StandardMaterial3D.new()
+    light_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+    light_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+    light_material.cull_mode = BaseMaterial3D.CULL_DISABLED
+    light_material.albedo_color = tint
+    light_material.emission_enabled = true
+    light_material.emission = Color(tint.r, tint.g, tint.b)
+    light_material.emission_energy_multiplier = emission_strength
+    surface.material_override = light_material
+    parent.add_child(surface)
+
+func _deployment_gate_lightspill() -> void:
+    # Reuse exactly the same position and rotation as the authored gate.
+    # The visible opening faces the central maintenance stage.
+    var portal := Node3D.new()
+    portal.name = "DeploymentGateLightspill"
+    portal.position = GATE_ORIGIN
+    portal.rotation.y = _gate_facing_yaw()
+    add_child(portal)
+
+    # Two static emissive planes simulate depth behind the open gate.
+    # Deliberately no bloom, fog, volumetrics, particles or extra shadows.
+    _gate_light_quad(portal, "DeepBlueBacklight",
+        Vector3(0.0, 3.00, -2.25), Vector2(2.25, 3.95),
+        Color(0.30, 0.75, 1.00, 0.66), 2.10)
+    _gate_light_quad(portal, "DiffusedAperture",
+        Vector3(0.0, 3.00, -0.70), Vector2(2.65, 4.45),
+        Color(0.20, 0.65, 1.00, 0.18), 1.25)
+
+    # Narrow light pools extend from the doorway into the hangar floor.
+    _gate_light_quad(portal, "ThresholdGlow",
+        Vector3(0.0, 0.20, 0.72), Vector2(1.70, 1.70),
+        Color(0.36, 0.83, 1.00, 0.31), 1.35, true)
+    _gate_light_quad(portal, "SpillOnFloor",
+        Vector3(0.0, 0.055, 2.04), Vector2(1.18, 1.95),
+        Color(0.24, 0.68, 1.00, 0.15), 0.90, true)
+
+    # One unshadowed light adds a little spill onto the surrounding frame.
+    var lamp := OmniLight3D.new()
+    lamp.name = "GateInteriorFill"
+    lamp.position = Vector3(0.0, 3.0, -0.75)
+    lamp.light_color = Color(0.40, 0.81, 1.00)
+    lamp.light_energy = 1.25
+    lamp.omni_range = 5.5
+    lamp.shadow_enabled = false
+    portal.add_child(lamp)
 
 func _mat(index: int) -> StandardMaterial3D:
     var mat := StandardMaterial3D.new()
