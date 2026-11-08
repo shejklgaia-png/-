@@ -20,7 +20,7 @@ collect = fn("_capture_customize_body_markers() -> void:",
              "_show_customization_preview() -> void:")
 show = fn("_show_customization_preview() -> void:",
           "_prepare_customization_motion(")
-center = fn("_customize_body_center_ndc(camera_local: Transform3D,",
+center = fn("_customize_body_bounds_ndc(camera_local: Transform3D,",
             "_apply_customization_entrance(")
 move = fn("_apply_customization_entrance(progress: float,",
           "_customization_entrance_arrived(")
