@@ -667,7 +667,7 @@
 - Bash/Guard_REACTIONを含むセラ本体、Blockbench元モデル、戦闘処理、効果音/BGM等には変更なし。静的ソース検査のみ。Godot/Android実機でのクリップ外周、選択判定、見え方は未検証。
 
 ## v128（2026-11-08） — 片側構図の専用カメラと半透明メニューパネル
-- 基準：GitHub main v127（c5e1f5f1a4da7154bfbb392760675bf699c10326）。SYSTEMとDATA ARCHIVEはモデルを画面左、TRAININGは右、DEPLOYMENTは右斜めから小さめに見せる。CUSTOMIZEはセラの全身・剣・台座が画面右に入るFOV65°のアングルへ変更。モデルの位置やサイズは不変更。
+- 基準：GitHub main v127（c5e1f5f1a4da7154bfbb392760675bf699c10326）。SYSTEMとDATA ARCHIVEはモデルを画面左、TRAININGは右、DEPLOYMENTは右斜めから小さめに見せる。CUSTOMIZEはセラの左前方から斜めに映し、全身・剣・台座が画面右に入るFOV67°のアングルへ変更。モデルの位置やサイズは不変更。
 - 各接近画面の空間側に、ボーダー・角丸なし単色半透明サイバー青（α=0.52）で大きな四角い仮メニューパネルを追加。上部帯のみ不透明青（α=1.0）にして英語のメニュー名を表示。空欄が基本、TRAININGのみ既存シーンに入るボタンを維持。
 - SYSTEM／DATA ARCHIVE右パネル、TRAINING／DEPLOYMENT／CUSTOMIZE左パネル。設備とパネルは画面投影上2～6%程度重ねるが、CUSTOMIZEのセラだけは実モデル由来輪郭（剣を含む）の最左端から16pxの隙間を確保し、パネル幅を動的制限。
 - 全景からの0.18秒Cubic Ease Out、右下戻る、ゲート枠のセラ遮蔽、既存明滅輪郭、ブロックベンチ設備原本、Bash／Guard_REACTION、戦闘、BGM/SEに変更なし。
