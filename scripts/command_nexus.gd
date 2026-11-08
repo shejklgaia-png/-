@@ -37,10 +37,10 @@ var target_parts: Dictionary = {}
 # reserved for a menu panel. Camera transforms/FOV only: no moving 3D assets.
 # TRAINING/GATE/CUSTOMIZE on the right; SYSTEM/ARCHIVE on the left.
 var focus_views: Dictionary = {
-    "TRAINING": {"eye": Vector3(1.95, 3.30, 9.00),
-        "look": Vector3(0.45, 1.30, 1.25), "fov": 62.0},
-    "SYSTEM": {"eye": Vector3(-1.95, 3.30, 9.00),
-        "look": Vector3(-0.45, 1.30, 1.25), "fov": 62.0},
+    "TRAINING": {"eye": Vector3(1.95, 3.15, 7.70),
+        "look": Vector3(0.45, 1.35, 1.25), "fov": 68.0},
+    "SYSTEM": {"eye": Vector3(-1.95, 3.15, 7.70),
+        "look": Vector3(-0.45, 1.35, 1.25), "fov": 68.0},
     "CUSTOMIZE": {"eye": Vector3(2.30, 3.80, 7.00),
         "look": Vector3(-2.00, 2.00, -4.75), "fov": 65.0},
     "DATA ARCHIVE": {"eye": Vector3(-3.90, 4.50, 2.50),
