@@ -13,10 +13,10 @@ project = (root / "project.godot").read_text(encoding="utf-8")
 modules = json.loads((root / "assets/base_command_modules.gd").read_text(
     encoding="utf-8").split("const MODULES = ", 1)[1].strip())
 
-assert 'config/name="SERA v138 - Three-zone customization"' in project
+assert 'config/name="SERA v139 - Animated enlarged SERA"' in project
 assert '"DEPLOYMENT": {"eye": Vector3(6.20, 5.30, 5.00)' in script
 assert '"look": Vector3(1.80, 3.40, -10.48), "fov": 76.0' in script
-assert "const CUSTOMIZE_PREVIEW_TARGET_WIDTH_RATIO: float = 0.390" in script
+assert "const CUSTOMIZE_PREVIEW_TARGET_WIDTH_RATIO: float = 0.435" in script
 assert "target_width / rect.size.x" in script
 assert "func _constrain_customization_preview_to_safe_area() -> void:" in script
 assert "customize_preview_scale = customize_preview_fitted_scale" in script
