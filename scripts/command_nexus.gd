@@ -1,5 +1,5 @@
 extends Node3D
-# v143: screen-straight exhibit/preview path; hide cyan grid on Back press.
+# v144: keep the VISIBLE torso center on a straight line through moving camera frames.
 # Preserve v127 kiosk/occlusion, v125 touch navigation and v124 Blockbench geometry.
 const Modules = preload("res://assets/base_command_modules.gd")
 const SeraRig = preload("res://scripts/sera_rig.gd")
@@ -37,6 +37,13 @@ var customize_glow_quad: MeshInstance3D
 var customize_entrance_tween: Tween # Shared by forward and reverse exhibit motions.
 var customize_transition_start_camera_pose: Transform3D = Transform3D.IDENTITY
 var customize_transition_start_camera_fov: float = 63.0
+var customize_motion_torso_local: Vector3 = Vector3.ZERO
+var customize_motion_start_local: Transform3D = Transform3D.IDENTITY
+var customize_motion_end_local: Transform3D = Transform3D.IDENTITY
+var customize_motion_start_fov: float = 63.0
+var customize_motion_end_fov: float = 63.0
+var customize_motion_progress: float = 0.0
+var customize_motion_active: bool = false
 # Normalized backdrop anchor and head-relative grid spacing are captured once
 # before preview rotation, never recomputed on yaw input.
 var customize_glow_center_ratio: Vector2 = Vector2(0.73, 0.50)
@@ -690,6 +697,23 @@ func _apply_customization_preview_transform() -> void:
     sera_display_rig.global_transform = cam.global_transform * Transform3D(
         basis, customize_preview_position)
 
+# The root is at the feet; the visible torso must serve as the path anchor.
+# Cache its local offset before any preview transform is applied.
+func _customize_torso_anchor_local() -> Vector3:
+    if sera_display_rig == null:
+        return Vector3.ZERO
+    var bones: Dictionary = sera_display_rig.get("bones")
+    var summed := Vector3.ZERO
+    var count := 0
+    for raw_bone in bones.values():
+        var bone: Node3D = raw_bone
+        if bone.name in ["Chest", "Torso", "Waist"]:
+            summed += sera_display_rig.to_local(bone.global_position)
+            count += 1
+    if count > 0:
+        return summed / float(count)
+    return Vector3.ZERO
+
 func _show_customization_preview() -> void:
     if customize_preview_active or cam == null or sera_display_rig == null:
         return
@@ -698,6 +722,7 @@ func _show_customization_preview() -> void:
     # The same rig starts on its original exhibit stand. Calculate the fitted
     # destination on this frame, then restore its start transform before draw.
     var initial_world: Transform3D = sera_display_rig.global_transform
+    customize_motion_torso_local = _customize_torso_anchor_local()
     customize_preview_position = Vector3(0.75, -0.20, -CUSTOMIZE_PREVIEW_DISTANCE)
     customize_preview_scale = 1.40
     customize_preview_fitted_scale = 1.40
@@ -729,6 +754,8 @@ func _show_customization_preview() -> void:
     # the target camera pose was temporarily applied for final-pose fitting.
     if customize_entrance_tween != null and customize_entrance_tween.is_running():
         customize_entrance_tween.kill()
+    _prepare_customization_motion(start_camera_local, end_camera_local,
+        customize_transition_start_camera_fov, cam.fov)
     in_transition = true
     customize_entrance_tween = create_tween()
     customize_entrance_tween.set_trans(Tween.TRANS_CUBIC)
@@ -740,11 +767,19 @@ func _show_customization_preview() -> void:
     customize_entrance_tween.finished.connect(
         _customization_entrance_arrived.bind(final_world))
 
-# In a perspective camera, lerping camera-local x/y/z is still curved
-# on screen. Project each endpoint into normalized view coordinates first,
-# move the projected center along their straight segment, then reconstruct
-# camera-space x/y at the interpolated depth and CURRENT camera FOV.
-# This works in both directions and tracks the concurrently moving camera.
+# Model and camera Tweens can advance in either frame order. Cache model
+# progress and both endpoints so camera updates can correct the model pose.
+func _prepare_customization_motion(start_local: Transform3D,
+        end_local: Transform3D, from_fov: float, to_fov: float) -> void:
+    customize_motion_start_local = start_local
+    customize_motion_end_local = end_local
+    customize_motion_start_fov = from_fov
+    customize_motion_end_fov = to_fov
+    customize_motion_progress = 0.0
+    customize_motion_active = true
+
+# Project the TORSO center, not the feet/root, then recover the root origin
+# from the interpolated model basis so the visible torso follows one line.
 func _customize_projected_ndc(point: Vector3, view_fov: float) -> Vector2:
     var depth: float = maxf(0.01, -point.z)
     var half_tan: float = tan(deg_to_rad(view_fov) * 0.5)
@@ -758,27 +793,28 @@ func _apply_customization_entrance(progress: float,
         start_fov: float, end_fov: float) -> void:
     if not customize_preview_active or sera_display_rig == null or cam == null:
         return
-    var start_ndc: Vector2 = _customize_projected_ndc(
-        start_camera_local.origin, start_fov)
-    var end_ndc: Vector2 = _customize_projected_ndc(
-        end_camera_local.origin, end_fov)
-    # The NDC motion is mathematically a straight segment, irrespective of
-    # the simultaneous camera translation, rotation or FOV interpolation.
+    customize_motion_progress = progress
+    var start_torso: Vector3 = start_camera_local * customize_motion_torso_local
+    var end_torso: Vector3 = end_camera_local * customize_motion_torso_local
+    var start_ndc: Vector2 = _customize_projected_ndc(start_torso, start_fov)
+    var end_ndc: Vector2 = _customize_projected_ndc(end_torso, end_fov)
     var on_screen: Vector2 = start_ndc.lerp(end_ndc, progress)
-    var depth: float = lerpf(-start_camera_local.origin.z,
-        -end_camera_local.origin.z, progress)
+    var depth: float = lerpf(-start_torso.z, -end_torso.z, progress)
     var half_tan: float = tan(deg_to_rad(cam.fov) * 0.5)
     var aspect: float = maxf(hud.size.x, 1.0) / maxf(hud.size.y, 1.0)
     var camera_relative: Transform3D = start_camera_local.interpolate_with(
         end_camera_local, progress)
-    camera_relative.origin = Vector3(
+    var torso_camera_position := Vector3(
         on_screen.x * depth * half_tan * aspect,
         on_screen.y * depth * half_tan, -depth)
+    camera_relative.origin = torso_camera_position - (
+        camera_relative.basis * customize_motion_torso_local)
     sera_display_rig.global_transform = cam.global_transform * camera_relative
 
 func _customization_entrance_arrived(final_world: Transform3D) -> void:
     if not customize_preview_active or focused_target != "CUSTOMIZE":
         return
+    customize_motion_active = false
     sera_display_rig.global_transform = final_world
     _capture_sera_silhouette(sera_display_rig)
     _update_projected_silhouettes()
@@ -804,6 +840,8 @@ func _begin_customization_retraction() -> void:
         overview_camera_world.affine_inverse() * stowed_world)
     customize_touch_id = -1
     customize_mouse_drag = false
+    _prepare_customization_motion(start_camera_local, stowed_camera_local,
+        cam.fov, overview_fov)
     customize_entrance_tween = create_tween()
     customize_entrance_tween.set_trans(Tween.TRANS_CUBIC)
     customize_entrance_tween.set_ease(Tween.EASE_IN_OUT)
@@ -823,6 +861,7 @@ func _customization_retraction_arrived() -> void:
         _overview_arrived()
 
 func _restore_customization_preview() -> void:
+    customize_motion_active = false
     customize_touch_id = -1
     customize_mouse_drag = false
     if customize_entrance_tween != null and customize_entrance_tween.is_running():
@@ -1301,6 +1340,12 @@ func _apply_camera_transition(progress: float, from_pose: Transform3D,
         to_pose: Transform3D, from_fov: float, to_fov: float) -> void:
     cam.transform = from_pose.interpolate_with(to_pose, progress)
     cam.fov = lerpf(from_fov, to_fov, progress)
+    # Model Tween typically executes first. Reproject after camera movement
+    # so the torso cannot lag one camera frame and bend the perceived path.
+    if customize_motion_active and customize_preview_active:
+        _apply_customization_entrance(customize_motion_progress,
+            customize_motion_start_local, customize_motion_end_local,
+            customize_motion_start_fov, customize_motion_end_fov)
     _update_projected_silhouettes()
 
 func _start_training() -> void:
