@@ -7,7 +7,7 @@ from pathlib import Path
 root = Path(__file__).resolve().parents[1]
 s = (root/"scripts/command_nexus.gd").read_text(encoding="utf-8")
 p = (root/"project.godot").read_text(encoding="utf-8")
-assert 'config/name="SERA v143 - Straight transfer and instant glow off"' in p
+assert 'config/name="SERA v144 - Torso-anchored straight transfer"' in p
 assert "CUSTOMIZE_ENTRANCE_SECONDS: float = 0.28" in s
 assert "CUSTOMIZE_RETRACTION_SECONDS: float = 0.28" in s
 assert "CAMERA_TRANSITION_SECONDS: float = 0.18" in s
