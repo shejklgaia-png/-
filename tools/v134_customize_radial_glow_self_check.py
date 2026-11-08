@@ -16,7 +16,7 @@ assert "var material := ShaderMaterial.new()" in n
 assert 'backdrop.name = "CustomizePortraitRadialBackdrop"' in n
 assert "cam.add_child(backdrop)" in n
 assert "backdrop.visible = false" in n
-assert "CUSTOMIZE_GLOW_DEPTH_OFFSET: float = 0.70" in n
+assert "CUSTOMIZE_GLOW_DEPTH_OFFSET: float = 1.80" in n
 assert "-customize_preview_position.z + CUSTOMIZE_GLOW_DEPTH_OFFSET" in n
 assert "material.set_shader_parameter(\"glow_color\", Color(0.35, 0.85, 0.98, 1.0))" in n
 assert "func _update_customization_glow() -> void:" in n

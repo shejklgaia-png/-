@@ -729,7 +729,7 @@
 
 ## v134（2026-11-08） — 拡大セラの輪郭線を放射状シアングラデーションに置換
 - 基準：GitHub main `019ec1ebc54162437a921f29f1767d544d4a9a9c`（v133＋端末自動同期）。CUSTOMIZEの拡大プレビュー中だけ、2Dの強調輪郭を非表示にする。通常のガレージ一覧にあるセラ選択枠と、他4設備の輪郭は維持する。
-- カメラ子ノードの単一QuadMeshに、既存輪郭線のRGB(0.35, 0.85, 0.98)を用いたunshaded・alpha透明Spatial Shaderを適用し、セラの背後0.70mに放射状の淡い発光グラデーションを表示。画面幅60%、高さ56%程度を中心へフェードさせ、3D背景を隠さない。GPUパーティクルや外部画像は使用しない。
+- カメラ子ノードの単一QuadMeshに、既存輪郭線のRGB(0.35, 0.85, 0.98)を用いたunshaded・alpha透明Spatial Shaderを適用し、セラの背後1.80mに放射状の淡い発光グラデーションを表示。画面幅60%、高さ56%程度を中心へフェードさせ、3D背景を隠さない。GPUパーティクルや外部画像は使用しない。
 - セラ拡大が完了したタイミングでグラデーションの表示・輪郭非表示に切り替える。ドラッグ回転と画面サイズ変更でセラ実投影の中心を再計算して追随。戻る入力ではグラデーションを即非表示、全景到着後に通常輪郭描画を復元。v133の選択／戻る即時反応と0.18秒Tweenを保持。
 - 変更：scripts/command_nexus.gd、scripts/nexus_selection_outline.gd、project.godot、DEVELOPMENT.md、旧静的検査v125〜v133。追加：shaders/nexus_customize_radial_glow.gdshader、tools/v134_customize_radial_glow_self_check.py、README_v134_ja.md。
 - Godot 4.7.2安定版のQuadMesh・Spatial Shader文法を参照。コード・ファイル・状態遷移の静的確認のみで、Godotパーサ／Android描画・透過ソート・負荷測定は未実施。

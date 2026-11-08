@@ -43,7 +43,7 @@ var customize_mouse_drag: bool = false
 var customize_mouse_last_x: float = 0.0
 
 const CUSTOMIZE_PREVIEW_DISTANCE: float = 3.25
-const CUSTOMIZE_GLOW_DEPTH_OFFSET: float = 0.70
+const CUSTOMIZE_GLOW_DEPTH_OFFSET: float = 1.80
 const CUSTOMIZE_GLOW_SCREEN_WIDTH: float = 0.60
 const CUSTOMIZE_GLOW_SCREEN_HEIGHT: float = 0.56
 const CUSTOMIZE_PREVIEW_TARGET_WIDTH_RATIO: float = 0.390
