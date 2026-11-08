@@ -31,7 +31,10 @@ const BOOST_BACK_CLIP: String = "Boost_back"
 const BOOST_RIGHT_CLIP: String = "Boost_right"
 const BOOST_LEFT_CLIP: String = "Boost_Left"
 const BOOST_CLIPS = [BOOST_CLIP, BOOST_BACK_CLIP, BOOST_RIGHT_CLIP, BOOST_LEFT_CLIP]
-const BOOST_DIRECTION_BLEND_SECONDS: float = 0.12
+# v116: Faster angular response for four-way authored BOOST pose changes.
+const BOOST_DIRECTION_BLEND_SECONDS: float = 0.06
+# Fast pose crossfade only when entering or leaving locomotion BOOST.
+const BOOST_STATE_BLEND_SECONDS: float = 0.08
 const MELEE_APPROACH_CLIP: String = "meleeboost"
 const STRIKE_CLIP: String = "melee1"
 const STRIKE_2_CLIP: String = "Melee2"
@@ -45,7 +48,8 @@ const JUMP_LANDING_CLIP_END: float = 0.500  # new final landing key
 const JUMP_FALL_CLIP_START: float = 0.20833 / JUMP_AIR_CLIP_END
 const DAMAGE_CLIP: String = "Damageknock"
 const GUARD_CLIP: String = "Guard"
-const RUN_ANIMATION_SPEED: float = 1.5  # Motion playback only; does not change movement speed
+# v116: The existing 1.5x RUN animation is accelerated by 1.25x (1.5 * 1.25).
+const RUN_ANIMATION_SPEED: float = 1.875  # Motion playback only; does not change movement speed
 # v108: Continuous four-way pose blending; 0.12s response for direction changes.
 const RUN_DIRECTION_BLEND_SECONDS: float = 0.12
 # v112: Give the dominant-thumb side a larger forward RUN sector.
@@ -616,7 +620,12 @@ func set_moving(moving: bool, boosting: bool = false, local_direction: Vector2 =
     var wanted: String = WAIT_CLIP
     if moving:
         wanted = BOOST_CLIP if boosting else RUN_CLIP
-    _switch_clip(wanted, BLEND_SECONDS)
+    # Only transitions INTO/OUT OF locomotion BOOST use the shorter fade.
+    # Keep the existing 0.16s transition for RUN <-> WAIT.
+    var fade_seconds: float = BLEND_SECONDS
+    if wanted == BOOST_CLIP or current_clip == BOOST_CLIP:
+        fade_seconds = BOOST_STATE_BLEND_SECONDS
+    _switch_clip(wanted, fade_seconds)
 
 func start_side_step(side: int) -> void:
     if not loading_ok or damage_playback or guard_playback or (side != 1 and side != -1):

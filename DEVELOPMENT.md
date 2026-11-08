@@ -574,3 +574,11 @@
 - BOOSTの入力判定125%・保持0.10秒・解除110%未満・加減速0.15秒・移動1.5倍は不変更。v114の4方向モーション補間、カメラ、残像、格闘、ガード、ステップ、音声、モデル・リソースに変更なし。
 - 変更：`scripts/touch_overlay.gd`、`project.godot`、`DEVELOPMENT.md`、`docs/SERA_INPUT_MOVEMENT_CAMERA.md`。追加：`README_v115_ja.md`、`tools/v115_boost_controller_visual_self_check.py`。
 - GitHub差分と描画用半径の静的計算を点検。GodotエディターとAndroid実機の描画・入力体感は未検証。
+
+## v116（2026-11-08） — BOOST姿勢の応答高速化・RUN再生速度1.25倍
+- 基準：GitHub main `126cc74e5b3fe823d929199a24d5f73e2727d6bb`（v115＋Android側モデル同期コミット）。同期済みの`models/`ファイルは変更せず継承。
+- RUNモーションの`RUN_ANIMATION_SPEED`は既存1.5に1.25を乗じて**1.875**に更新。全RUN方向は共通の時刻`clip_time`を使用し、方向・前後走行切替・頭部スタビライズの構造は維持。移動速度は不変更。
+- BOOSTの4方向姿勢追従の時定数を0.12→0.06秒に短縮。RUN/WAIT⇄BOOSTの遷移だけ`BOOST_STATE_BLEND_SECONDS=0.08`を採用（従来0.16秒）。その他の状態遷移は既定0.16秒、戦闘・ステップ等の既存専用遷移時間を維持。
+- BOOSTを確定させる入力距離125%、0.10秒ホールド、解除110%未満、速度加減速0.15秒、移動倍率1.5を維持。モーションアセット、モデル、ガード・格闘・カメラ・残像・コントローラUIには変更なし。
+- 変更：`scripts/sera_rig.gd`、`project.godot`、`DEVELOPMENT.md`、`docs/SERA_INPUT_MOVEMENT_CAMERA.md`、既存テスト`v108`/`v114`/`v115`。新規：`README_v116_ja.md`、`tools/v116_animation_timing_self_check.py`。
+- ソース構造・遷移対象・数値モデルの静的検証を実施。Pythonスクリプトの実行、Godot実行、Android実機での操作確認は未実施。

@@ -44,7 +44,7 @@ for token in (
     'const BOOST_BACK_CLIP: String = "Boost_back"',
     'const BOOST_RIGHT_CLIP: String = "Boost_right"',
     'const BOOST_LEFT_CLIP: String = "Boost_Left"',
-    'const BOOST_DIRECTION_BLEND_SECONDS: float = 0.12',
+    'const BOOST_DIRECTION_BLEND_SECONDS: float = 0.06',
     'func _set_boost_motion_direction(local_direction: Vector2) -> void:',
     'func _blended_boost_pose(uid: String) -> Dictionary:',
     'func _sample_boost_pose(clip_name: String, uid: String) -> Dictionary:',
@@ -61,7 +61,7 @@ assert 'rig.call("set_moving", running, movement_boost_active, local_run_directi
 assert 'state_label.text = "BOOST  x1.5  |  %s" % str(rig.call("get_boost_dominant_clip"))' in main
 assert 'const MOVEMENT_BOOST_MULTIPLIER: float = 1.5' in main
 assert 'const STRIKE_DAMAGE = [12, 12, 26]' in main
-assert 'config/name="SERA v114 - BOOST Four-Way Blend"' in project
+assert 'config/name="SERA v' in project
 for x,y in ((0,1),(1,0),(-1,0),(0,-1),(1,1),(-1,1),(-1,-1),(1,-1)):
     weight=math.atan2(abs(x),abs(y))/(math.pi/2)
     assert 0 <= weight <= 1
