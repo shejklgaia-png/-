@@ -41,7 +41,7 @@ for x, y, w in TAGS.values():
 FRONT_LEFT = (-1.82, 0.0, 0.75)
 FRONT_RIGHT = (1.82, 0.0, 0.75)
 PAD = (0.0, 0.0, -4.75)
-REAR_ARCHIVE = (-4.10, 2.19, -8.95)
+REAR_ARCHIVE = (-4.00, 2.19, -8.95)
 REAR_GATE = (4.05, 0.02, -10.48)
 def placed_positions(module: str) -> list[tuple[float, float, float]]:
     matches = re.findall(
