@@ -19,13 +19,25 @@
 ## 端末へのインストール（1回だけ）
 GitHub上のスクリプトを追加しただけでは、実行中のTermuxは変更されない。Termuxで以下を実行：
 
+リポジトリはPrivateのため、未認証のraw.githubusercontent.comから取得すると404になる。過去に正常接続できたGit認証を使用し、最新版を別の一時フォルダへクローンして、**その中にあるインストーラー**を実行する：
+
 ```bash
-pkg install python git curl inotify-tools util-linux
-curl --fail --location --show-error --silent \
-  "https://raw.githubusercontent.com/shejklgaia-png/-/main/tools/termux/install_safe_sync.sh" \
-  -o "$HOME/install_sera_safe_sync.sh"
-bash "$HOME/install_sera_safe_sync.sh"
+pkg install -y python git inotify-tools util-linux
+cd "$HOME"
+git clone --depth 1 --branch main \
+  'https://github.com/shejklgaia-png/-.git' \
+  "$HOME/sera-safe-sync-install"
+bash "$HOME/sera-safe-sync-install/tools/termux/install_safe_sync.sh"
 ```
+
+再実行する場合、インストール用クローンを削除せず次で更新する：
+
+```bash
+git -C "$HOME/sera-safe-sync-install" pull --ff-only origin main
+bash "$HOME/sera-safe-sync-install/tools/termux/install_safe_sync.sh"
+```
+
+これらのGit操作はインストール専用のフォルダにしか作用せず、GAME/Git、既存のTermux作業用リポジトリ、モデルデータは削除・リセットしない。
 
 インストーラは元の~/sera_push.shと~/sera_watch.shを時刻付きファイルとしてバックアップし、Python・Bash構文確認後に新しい実装を配置する。最初の基準点を記録し、旧監視プロセスを停止して新しい監視を起動する。
 
