@@ -733,3 +733,10 @@
 - セラ拡大が完了したタイミングでグラデーションの表示・輪郭非表示に切り替える。ドラッグ回転と画面サイズ変更でセラ実投影の中心を再計算して追随。戻る入力ではグラデーションを即非表示、全景到着後に通常輪郭描画を復元。v133の選択／戻る即時反応と0.18秒Tweenを保持。
 - 変更：scripts/command_nexus.gd、scripts/nexus_selection_outline.gd、project.godot、DEVELOPMENT.md、旧静的検査v125〜v133。追加：shaders/nexus_customize_radial_glow.gdshader、tools/v134_customize_radial_glow_self_check.py、README_v134_ja.md。
 - Godot 4.7.2安定版のQuadMesh・Spatial Shader文法を参照。コード・ファイル・状態遷移の静的確認のみで、Godotパーサ／Android描画・透過ソート・負荷測定は未実施。
+
+## v135（2026-11-08） — CUSTOMIZE背景グラデーションの胴体中心を高濃度単色化
+- 基準：GitHub main `b35780a31358d507e4c23079f247e0668e18d6fa`（v134）。ユーザー実機画像でセラ背後の放射グラデーションが薄く見えるため、中心を約胴体幅の均一なシアン色に強化し、外周の滑らかなフェードを維持する。
+- 既存`shaders/nexus_customize_radial_glow.gdshader`の1枚のQuadMesh／GL Compatibility用Spatial Shaderのみを変更。中心`core_radius=0.24`、不透明度`core_opacity=0.72`、境界±0.03にし、`outer_radius=0.95`へ`outer_opacity=0.30`を滑らかに減衰させる。色RGB(0.35,0.85,0.98)とセラ背後表示位置、発光板のサイズはそのまま。
+- CUSTOMIZE拡大中の輪郭非表示・回転追従、戻る時の切り替え、他の端末・戦闘・NEXUS_pose・カメラ・モデル・入力・BGM／SEには変更なし。
+- 変更：シェーダー、版名、v125〜v134検査の版名とv134のシェーダー検査、DEVELOPMENT.md。追加：tools/v135_customize_glow_core_self_check.py、README_v135_ja.md。
+- シェーダーの不透明度プロファイルと変更範囲を静的検証。Godotパーサ／Android端末の実描画は未検証。

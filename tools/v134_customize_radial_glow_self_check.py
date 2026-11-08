@@ -8,7 +8,7 @@ o = (root/"scripts/nexus_selection_outline.gd").read_text(encoding="utf-8")
 p = (root/"project.godot").read_text(encoding="utf-8")
 sh = (root/"shaders/nexus_customize_radial_glow.gdshader").read_text(encoding="utf-8")
 
-assert 'config/name="SERA v134 - Customize radial backdrop"' in p
+assert 'config/name="SERA v135 - Solid core radial backdrop"' in p
 assert 'CUSTOMIZE_GLOW_SHADER = preload("res://shaders/nexus_customize_radial_glow.gdshader")' in n
 assert "func _create_customization_glow() -> void:" in n
 assert "var quad := QuadMesh.new()" in n
@@ -43,7 +43,9 @@ assert "_update_customization_glow()" in rotation
 assert "shader_type spatial;" in sh
 assert "unshaded" in sh and "depth_draw_never" in sh
 assert "uniform vec4 glow_color : source_color" in sh
-assert "ALPHA =" in sh and "smoothstep(0.0, 1.0, radius)" in sh
+assert "ALPHA =" in sh and "smoothstep(core_radius, outer_radius, radius)" in sh
+assert "uniform float core_radius" in sh and "uniform float core_opacity" in sh
+assert "uniform float outer_radius" in sh and "uniform float outer_opacity" in sh
 assert "0.35, 0.85, 0.98" in sh
 assert "CAMERA_TRANSITION_SECONDS: float = 0.18" in n
 assert '"DEPLOYMENT": {"eye": Vector3(6.20, 5.30, 5.00)' in n

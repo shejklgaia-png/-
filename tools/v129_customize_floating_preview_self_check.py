@@ -11,7 +11,7 @@ s = (ROOT / "scripts/command_nexus.gd").read_text(encoding="utf-8")
 project = (ROOT / "project.godot").read_text(encoding="utf-8")
 model = json.loads((ROOT / "models/SERA_BOOSTER_allテスト.bbmodel").read_text(encoding="utf-8"))
 
-assert 'config/name="SERA v134 - Customize radial backdrop"' in project
+assert 'config/name="SERA v135 - Solid core radial backdrop"' in project
 assert 'run/main_scene="res://scenes/launch_menu.tscn"' in project
 assert 'pointing/emulate_mouse_from_touch=false' in project
 assert 'renderer/rendering_method="gl_compatibility"' in project
