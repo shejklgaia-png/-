@@ -202,7 +202,7 @@ func _hud() -> void:
     canvas.add_child(hud)
     hud.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
     # No HUD title or top separator: leave the upper hangar composition unobstructed.
-    _tag("DATA ARCHIVE", "RECORDS / LOGS", 0.018, 0.310, 0.315)
+    _tag("DATA ARCHIVE", "RECORDS / LOGS", 0.018, 0.31, 0.315)
     _tag("DEPLOYMENT", "MISSION GATE", 0.735, 0.125, 0.250)
     _tag("TRAINING", "SIMULATION", 0.015, 0.875, 0.300)
     _tag("SYSTEM", "SETTINGS", 0.685, 0.875, 0.300)
