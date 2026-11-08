@@ -11,7 +11,7 @@ root = Path(__file__).resolve().parents[1]
 s = (root/"scripts/command_nexus.gd").read_text(encoding="utf-8")
 p = (root/"project.godot").read_text(encoding="utf-8")
 shader = (root/"shaders/nexus_customize_radial_glow.gdshader").read_text(encoding="utf-8")
-assert 'config/name="SERA v145 - Linear visual-center transfer and delayed glow"' in p
+assert 'config/name="SERA v146 - Bounded visual transfer"' in p
 
 def fn(a,b):
     return s.split("func "+a,1)[1].split("func "+b,1)[0]
@@ -46,14 +46,15 @@ assert "_capture_customize_body_markers()" in show
 assert "var minimum := Vector2(INF, INF)" in center
 assert "var maximum := Vector2(-INF, -INF)" in center
 assert "camera_local * marker" in center
-assert "(minimum + maximum) * 0.5" in center
+assert "return Rect2(minimum, maximum - minimum)" in center
+assert "return _customize_body_bounds_ndc(camera_local, view_fov).get_center()" in center
 assert '"Sword"' not in collect and '"Shield"' not in collect
-assert "start_ndc.lerp(end_ndc, progress)" in move
-assert "target_ndc - actual_ndc" in move
-assert "for pass_index in range(4):" in move
-assert "_customize_body_center_ndc(camera_relative, cam.fov)" in move
-assert "camera_relative.origin.x += delta_ndc.x" in move
-assert "camera_relative.origin.y += delta_ndc.y" in move
+assert "start_bounds.get_center().lerp(" in move
+assert "target_ndc - bounds.get_center()" in move
+assert "for fit_pass in range(2):" in move
+assert "_customize_body_bounds_ndc(camera_relative, cam.fov)" in move
+assert "camera_relative.origin.x += offset_ndc.x" in move
+assert "camera_relative.origin.y += offset_ndc.y" in move
 assert "cam.global_transform * camera_relative" in move
 assert "customize_entrance_tween.set_trans(Tween.TRANS_LINEAR)" in show
 assert "customize_entrance_tween.set_trans(Tween.TRANS_LINEAR)" in retract
@@ -80,7 +81,9 @@ assert "CAMERA_TRANSITION_SECONDS: float = 0.18" in s
 
 # The visual-center algorithm should remain on a straight screen segment
 # even while scale and yaw evolve. The numerical model includes 3D landmarks
-# with different depths, a varying camera FOV and 4 correction passes.
+# with different depths and a varying camera FOV. The historical v145
+# numerical center correction is retained only as a baseline; v146 size
+# constraints are tested separately in its dedicated script.
 MARKERS = [(-.28,1.65,-.1),(.25,1.66,.2),(-.35,1.18,.15),
            (.4,1.23,-.15),(-.15,.62,.08),(.16,.62,-.09),
            (-.38,.3,.21),(.35,.23,-.17),(-.35,1.05,.25),

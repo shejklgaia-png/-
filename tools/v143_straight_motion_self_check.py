@@ -9,7 +9,7 @@ root = Path(__file__).resolve().parents[1]
 script = (root/"scripts/command_nexus.gd").read_text(encoding="utf-8")
 project = (root/"project.godot").read_text(encoding="utf-8")
 shader = (root/"shaders/nexus_customize_radial_glow.gdshader").read_text(encoding="utf-8")
-assert 'config/name="SERA v145 - Linear visual-center transfer and delayed glow"' in project
+assert 'config/name="SERA v146 - Bounded visual transfer"' in project
 
 def fn(a,b):
     return script.split("func "+a, 1)[1].split("func "+b, 1)[0]
@@ -46,13 +46,13 @@ assert "cam.fov, overview_fov" in retract
 # Distinguish between the straight projected center and the 3D pose:
 # transform interpolation is retained for orientation and scale only.
 assert 'func _customize_projected_ndc(point: Vector3, view_fov: float) -> Vector2:' in script
-assert "start_ndc.lerp(end_ndc, progress)" in interp
+assert "start_bounds.get_center().lerp(" in interp
 assert "start_camera_local.interpolate_with(" in interp
 assert "camera_relative.origin = Vector3(" in interp
 assert "camera_relative.basis * customize_motion_torso_local" in interp
 assert "target_ndc.x * depth * half_tan * aspect" in interp
 assert "target_ndc.y * depth * half_tan" in interp
-assert "for pass_index in range(4):" in interp
+assert "for fit_pass in range(2):" in interp
 assert "cam.global_transform * camera_relative" in interp
 assert "tan(deg_to_rad(cam.fov) * 0.5)" in interp
 assert 'CUSTOMIZE_ENTRANCE_SECONDS: float = 0.28' in script
