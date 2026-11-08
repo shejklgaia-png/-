@@ -611,3 +611,11 @@
 - カメラ位置/視野角、ゲートサイズ/配置、端末位置を縦画面で見える位置に調整。5つの読み取り専用メニューパネルと軽量ベクターアイコンを追加。基地内メニューのタップ機能は未実装。
 - `scripts/main.gd`、`scripts/sera_rig.gd`、既存モデル・音声・訓練シーン・起動2択・プロジェクト表示解像度・GL Compatibilityは変更なし。
 - 新規 `tools/v120_command_nexus_self_check.py`、`README_v120_ja.md`。v119の検査は後継版対応に更新。Godot実行/Android実機テストは未実施。
+
+## v121（2026-11-08） — Command Nexus のレイアウトと遠近調整
+- 基準：main `5e0482ad6431eaed884ee8ad9e01fd7e93e6b5b0`（v120）。ユーザーの参考画像と実機スクリーンショットを再確認。
+- 基地の左上にある `SERA SYSTEM / COMMAND NEXUS` 文字と横罫線を削除。表示領域を遮る不要なHUDを撤去。
+- DATA ARCHIVEとDEPLOYMENTの見出しは画面高さの27.2%→20.5%へ上げる。TRAININGとSYSTEMは54.2%→50.5%へ調整。CUSTOMIZEは維持。
+- 設備は前景（TRAINING・SYSTEM）、中景（セラ・整備台）、遠景（DATA ARCHIVE・DEPLOYMENT）の3段構成へ配置変更。前景をカメラへ近付け、中景を約0.55m、遠景を約0.7〜0.8m後方へ移動。出撃ゲートのスケールを0.70に調整。
+- カメラを(0,3.8,7.4)、注視点を(0,2.5,-4.7)、FOVを56°へ変更。前景・中景・遠景のサイズ差を強調。モデルを変更せずGodot上の配置のみ変更。
+- v120の静的検査を新バージョンに対応させ、`tools/v121_nexus_layout_self_check.py` と `README_v121_ja.md` を追加。既存の戦闘・起動2択・Blockbenchモデル・音声等には変更なし。Godot実行/Android実機の確認は未実施。
