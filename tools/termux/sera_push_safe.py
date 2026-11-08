@@ -21,9 +21,15 @@ import time
 SOURCE = Path(os.environ.get(
     "SERA_SYNC_SOURCE", "/storage/emulated/0/GAME/Git"
 ))
-BASE_REPO = Path.home() / "sera_repo"
-STATE = Path.home() / ".sera_safe_upload_state.json"
-REMOTE = "https://github.com/shejklgaia-png/-.git"
+BASE_REPO = Path(os.environ.get(
+    "SERA_SYNC_BASE_REPO", str(Path.home() / "sera_repo")
+))
+STATE = Path(os.environ.get(
+    "SERA_SYNC_STATE", str(Path.home() / ".sera_safe_upload_state.json")
+))
+REMOTE = os.environ.get(
+    "SERA_SYNC_REMOTE_URL", "https://github.com/shejklgaia-png/-.git"
+)
 MAX_ATTEMPTS = 3
 
 
