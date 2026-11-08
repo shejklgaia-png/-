@@ -5,7 +5,7 @@ root = Path(__file__).resolve().parents[1]
 script = (root/"scripts/command_nexus.gd").read_text(encoding="utf-8")
 project = (root/"project.godot").read_text(encoding="utf-8")
 outline = (root/"scripts/nexus_selection_outline.gd").read_text(encoding="utf-8")
-assert 'config/name="SERA v141 - Concurrent SERA and camera motion"' in project
+assert 'config/name="SERA v142 - Camera-framed SERA transfer"' in project
 def section(a, b):
     return script.split("func "+a, 1)[1].split("func "+b, 1)[0]
 choose = section("_select_target(target_name: String) -> void:", "_focus_arrived(")
