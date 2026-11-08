@@ -695,3 +695,12 @@
 - モデルの同期は別件。ユーザー端末の GAME/Git/models/SERA_BOOSTER_allテスト.bbmodel は2026-11-08 15:32更新・約334KB、GitHubのmain上の同ファイルは13:22最終更新・約328KB。端末側でポーズを確認できてもmain上のモデルには未反映。以前のgrep NEXUSposeは検索文字列が誤っていたため「なし」と判定されていた。
 - 既存のカスタマイズ拡大、左右スワイプ回転、背景、パネル、戻る操作およびBash・Guard_REACTION等の戦闘資産は維持。
 - 変更：scripts/command_nexus.gd、project.godot、DEVELOPMENT.md、v125〜v130ソース検査。新規：tools/v131_nexus_pose_name_self_check.py。ソース検査のみ。Godot構文/Android実機の検証は未実施。
+
+## Termux auto-upload safe v2（2026-11-08） — GitHub先行時に安全な自動push
+- ユーザー環境で従来の ~/sera_push.sh が「CONFLICT: upload cancelled」となり、NEXUS_pose入りの端末上のmodelがGitHubへ送信されなかったことへの再発防止。スクリプトは端末上に存在しGitHubへは保存されていなかったため、tools/termux/ に安全なv2の正式ソースとインストーラを追加。
+- 共有ディレクトリGAME/Gitの前回成功時のファイルSHA256＋メタデータをTermuxに保存し、それ以降に実際に追加・更新したファイルのみを列挙。GitHubの最新mainをクローンして該当ファイルだけを反映し、他の変更を上書きしない。削除自動化は引き続き対象外。
+- 同一ファイルが端末とGitHubの両方で編集され内容が異なる場合は安全停止。それ以外のGitHub先行は最新main上に変更を適用。push中の他者更新は3回まで再取得し、force pushは使用しない。
+- 新しいTermuxコミットは固定の安全なauthor識別子を使用し、以前起きたAuthor identity unknownを回避。inotify監視がAndroidで保存イベントを取り逃しても最大120秒ごとに内容変化を確認（無変更時は通信しない）。
+- fl​​ockによる多重起動防止・端末への上書きインストール前の時刻付きバックアップ・アップロード失敗状態表示を追加。初回は安全のため既存ファイルを送らずハッシュ基準点のみ作成する。
+- 追加：tools/termux/sera_push_safe.py、sera_push_launcher.sh、sera_watch_safe.sh、install_safe_sync.sh、test_safe_sync.py、docs/TERMUX_SAFE_AUTO_UPLOAD_JA.md。既存のGodotコード・Blockbench素材・プロジェクト名・戦闘モーションは変更しない。
+- 本環境からAndroid端末の ~/sera_push.sh / ~/sera_watch.sh を直接編集できない。Termuxにインストールコマンドを手動で実行する必要があり、それまでは従来の監視設定のまま。Python構文やAndroid/Termux実機の動作は未検証。オフライン疑似Gitリポジトリ検査を同梱。
