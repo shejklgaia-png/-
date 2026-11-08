@@ -52,8 +52,8 @@ assert "MOVEMENT_BOOST_MULTIPLIER if movement_boost_active else 1.0" in physics
 assert "boost_speed_multiplier" not in main
 assert "BOOST_START_RADIUS_RATIO" not in main
 assert "direction_input = delta.limit_length(1.0)" not in main
-assert "const RUN_DIRECTION_BLEND_SECONDS: float = 0.035" in rig
-assert "const BOOST_DIRECTION_BLEND_SECONDS: float = 0.025" in rig
+assert "const RUN_DIRECTION_BLEND_SECONDS: float = 0.055" in rig
+assert "const BOOST_DIRECTION_BLEND_SECONDS: float = 0.045" in rig
 assert "const RUN_ROOT_TURN_SPEED_DEGREES: float = 1440.0" in rig
 
 assert "func set_swipe_motion(pos: Vector2, heading: Vector2," in ui

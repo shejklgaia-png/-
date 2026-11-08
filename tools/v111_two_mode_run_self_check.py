@@ -19,13 +19,13 @@ assert "const RUN_PREFERRED_SIDE_EXTRA_DEGREES: float = 20.0" in rig
 assert "const RUN_MODE_HYSTERESIS_DEGREES: float = 5.0" in rig
 assert "func _run_forward_sector_center(direction: Vector2)" in rig
 assert "func set_run_left_handed(enabled: bool)" in rig
-assert "const RUN_MODE_BLEND_SECONDS: float = 0.18" in rig
-assert "const RUN_UPPER_TRACKING_SECONDS: float = 0.10" in rig
+assert "const RUN_MODE_BLEND_SECONDS: float = 0.085" in rig
+assert "const RUN_UPPER_TRACKING_SECONDS: float = 0.05" in rig
 assert "var run_upper_yaw_offsets: PackedFloat32Array" in rig
 assert "run_upper_yaw_offsets = _run_joint_yaw_targets()" in rig
 assert "run_upper_yaw_offsets[i] = lerpf(" in rig
 assert "var gaze := Quaternion(Vector3.UP, run_upper_yaw_offsets[part_index])" in rig
-assert "const RUN_ROOT_TURN_SPEED_DEGREES: float = 450.0" in rig
+assert "const RUN_ROOT_TURN_SPEED_DEGREES: float = 1440.0" in rig
 assert "const RUN_UPPER_YAW_PARTS = [0.20, 0.30, 0.25, 0.25]" in rig
 assert "const RUN_UPPER_YAW_LIMITS_DEGREES = [25.0, 30.0, 25.0, 35.0]" in rig
 assert "source_name: String = RUN_CLIP if i == 0 else RUN_BACK_CLIP" in rig
@@ -34,7 +34,9 @@ assert "var facing := Quaternion(Vector3.UP, run_facing_yaw)" in rig
 assert "blended_translation = facing * blended_translation" in rig
 assert "var bank_axis: Vector3 = facing * Vector3.BACK" in rig
 assert "run_turn_lean_degrees = lerpf(run_turn_lean_degrees, desired_lean, alpha)" in rig
-assert "run_direction_smoothed = run_direction_smoothed.lerp(run_direction_target, direction_alpha)" in rig
+assert "run_direction_smoothed = run_update[\"heading\"]" in rig
+assert "_update_run_retreat_mode(heading)" in rig
+assert "_run_yaw_for_direction(heading, run_retreat_blend)" in rig
 assert "run_retreat_blend = lerpf(run_retreat_blend, 1.0 if run_retreat_mode else 0.0, retreat_alpha)" in rig
 assert "run_facing_yaw + clampf(yaw_error, -yaw_step, yaw_step)" in rig
 assert 'rig.call("set_moving", running, movement_boost_active, local_run_direction)' in main
@@ -70,7 +72,7 @@ pieces=(.2,.3,.25,.25)
 assert abs(sum(pieces)-1)<1e-9
 limits=(25,30,25,35)
 assert sum(limits)==115
-step_limit=math.radians(450)/60
+step_limit=math.radians(1440)/60
 assert step_limit>0 and step_limit < math.pi
 
 print("v111 two-mode front bias, backpedal facing, torso->head tracking & bank PASS")

@@ -53,7 +53,7 @@ assert "const SWIPE_HEADING_SAMPLE_PIXELS: float = 6.0" in main
 assert "const SWIPE_BOOST_TRAVEL_PIXELS: float = 140.0" in main
 assert "direction_input = next_heading" in main
 assert "MOVEMENT_BOOST_MULTIPLIER if movement_boost_active else 1.0" in main
-assert "const RUN_DIRECTION_BLEND_SECONDS: float = 0.035" in rig
+assert "const RUN_DIRECTION_BLEND_SECONDS: float = 0.055" in rig
 
 # Exponential smoothing reaches the same result at 30, 60, 120 FPS.
 for time_constant in (0.040,0.052,0.070):
