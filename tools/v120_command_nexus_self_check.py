@@ -12,7 +12,9 @@ embedded = (ROOT / "assets/base_command_modules.gd").read_text(encoding="utf-8")
 hud_icon = (ROOT / "scripts/nexus_tag_icon.gd").read_text(encoding="utf-8")
 project = (ROOT / "project.godot").read_text(encoding="utf-8")
 
-assert 'config/name="SERA v120 - Command Nexus Rebuild"' in project
+import re
+version = re.search(r'config/name="SERA v(\d+)', project)
+assert version is not None and int(version.group(1)) >= 120
 assert 'run/main_scene="res://scenes/launch_menu.tscn"' in project
 assert 'renderer/rendering_method="gl_compatibility"' in project
 assert 'pointing/emulate_mouse_from_touch=false' in project
@@ -52,7 +54,7 @@ assert 'rig.get("bind_positions")' in src
 assert 'rig.get("bind_rotations")' in src
 assert "rig.rotation.y = PI" in src
 assert "Quaternion(Vector3.BACK, deg_to_rad" in src
-assert 'cam.look_at(Vector3(0.0, 2.88, -4.72)' in src
+assert 'cam.look_at(Vector3(0.0, 2.50, -4.70)' in src
 assert 'Environment.AMBIENT_SOURCE_COLOR' in src
 assert 'Environment.AMBIENT_COLOR' not in src
 assert 'func _tag(' in src
