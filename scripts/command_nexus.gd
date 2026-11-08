@@ -131,7 +131,7 @@ func _sera_display() -> void:
         bone.quaternion = bind_rotations[uid]
         bone.scale = Vector3.ONE
         if arm_angles.has(bone.name):
-            bone.quaternion = bone.quaternion * Quaternion(Vector3.FORWARD, deg_to_rad(float(arm_angles[bone.name])))
+            bone.quaternion = bone.quaternion * Quaternion(Vector3.BACK, deg_to_rad(float(arm_angles[bone.name])))
 
 func _camera() -> void:
     var cam := Camera3D.new()
