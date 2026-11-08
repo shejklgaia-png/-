@@ -1,0 +1,3171 @@
+{
+  "meta": {
+    "format_version": "4.10",
+    "model_format": "free",
+    "box_uv": false
+  },
+  "name": "SERA_maintenance_pad",
+  "resolution": {
+    "width": 16,
+    "height": 16
+  },
+  "elements": [
+    {
+      "name": "Pad low plinth",
+      "type": "cube",
+      "from": [
+        -13.25,
+        0,
+        -13.25
+      ],
+      "to": [
+        13.25,
+        2.2,
+        13.25
+      ],
+      "color": 2,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        0,
+        1.1,
+        0
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000001",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Raised pad",
+      "type": "cube",
+      "from": [
+        -11.35,
+        2.1,
+        -11.35
+      ],
+      "to": [
+        11.35,
+        3.3,
+        11.35
+      ],
+      "color": 3,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        0,
+        2.7,
+        0
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000002",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Plinth armor 0",
+      "type": "cube",
+      "from": [
+        -2.488,
+        -0.1,
+        12.75
+      ],
+      "to": [
+        2.488,
+        2.7,
+        16.05
+      ],
+      "color": 3,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        0,
+        1.3,
+        14.4
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000003",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Plinth armor 1",
+      "type": "cube",
+      "from": [
+        3.023,
+        -0.1,
+        11.654
+      ],
+      "to": [
+        7.999,
+        2.7,
+        14.954
+      ],
+      "color": 3,
+      "rotation": [
+        0,
+        22.5,
+        0
+      ],
+      "origin": [
+        5.511,
+        1.3,
+        13.304
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000004",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Plinth armor 2",
+      "type": "cube",
+      "from": [
+        7.694,
+        -0.1,
+        8.532
+      ],
+      "to": [
+        12.67,
+        2.7,
+        11.832
+      ],
+      "color": 3,
+      "rotation": [
+        0,
+        45,
+        0
+      ],
+      "origin": [
+        10.182,
+        1.3,
+        10.182
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000005",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Plinth armor 3",
+      "type": "cube",
+      "from": [
+        10.816,
+        -0.1,
+        3.861
+      ],
+      "to": [
+        15.792,
+        2.7,
+        7.161
+      ],
+      "color": 3,
+      "rotation": [
+        0,
+        67.5,
+        0
+      ],
+      "origin": [
+        13.304,
+        1.3,
+        5.511
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000006",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Plinth armor 4",
+      "type": "cube",
+      "from": [
+        11.912,
+        -0.1,
+        -1.65
+      ],
+      "to": [
+        16.888,
+        2.7,
+        1.65
+      ],
+      "color": 3,
+      "rotation": [
+        0,
+        90,
+        0
+      ],
+      "origin": [
+        14.4,
+        1.3,
+        0
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000007",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Plinth armor 5",
+      "type": "cube",
+      "from": [
+        10.816,
+        -0.1,
+        -7.161
+      ],
+      "to": [
+        15.792,
+        2.7,
+        -3.861
+      ],
+      "color": 3,
+      "rotation": [
+        0,
+        112.5,
+        0
+      ],
+      "origin": [
+        13.304,
+        1.3,
+        -5.511
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000008",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Plinth armor 6",
+      "type": "cube",
+      "from": [
+        7.694,
+        -0.1,
+        -11.832
+      ],
+      "to": [
+        12.67,
+        2.7,
+        -8.532
+      ],
+      "color": 3,
+      "rotation": [
+        0,
+        135,
+        0
+      ],
+      "origin": [
+        10.182,
+        1.3,
+        -10.182
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000009",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Plinth armor 7",
+      "type": "cube",
+      "from": [
+        3.023,
+        -0.1,
+        -14.954
+      ],
+      "to": [
+        7.999,
+        2.7,
+        -11.654
+      ],
+      "color": 3,
+      "rotation": [
+        0,
+        157.5,
+        0
+      ],
+      "origin": [
+        5.511,
+        1.3,
+        -13.304
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000010",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Plinth armor 8",
+      "type": "cube",
+      "from": [
+        -2.488,
+        -0.1,
+        -16.05
+      ],
+      "to": [
+        2.488,
+        2.7,
+        -12.75
+      ],
+      "color": 3,
+      "rotation": [
+        0,
+        180,
+        0
+      ],
+      "origin": [
+        0,
+        1.3,
+        -14.4
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000011",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Plinth armor 9",
+      "type": "cube",
+      "from": [
+        -7.999,
+        -0.1,
+        -14.954
+      ],
+      "to": [
+        -3.023,
+        2.7,
+        -11.654
+      ],
+      "color": 3,
+      "rotation": [
+        0,
+        202.49999999999997,
+        0
+      ],
+      "origin": [
+        -5.511,
+        1.3,
+        -13.304
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000012",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Plinth armor 10",
+      "type": "cube",
+      "from": [
+        -12.67,
+        -0.1,
+        -11.832
+      ],
+      "to": [
+        -7.694,
+        2.7,
+        -8.532
+      ],
+      "color": 3,
+      "rotation": [
+        0,
+        225,
+        0
+      ],
+      "origin": [
+        -10.182,
+        1.3,
+        -10.182
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000013",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Plinth armor 11",
+      "type": "cube",
+      "from": [
+        -15.792,
+        -0.1,
+        -7.161
+      ],
+      "to": [
+        -10.816,
+        2.7,
+        -3.861
+      ],
+      "color": 3,
+      "rotation": [
+        0,
+        247.49999999999997,
+        0
+      ],
+      "origin": [
+        -13.304,
+        1.3,
+        -5.511
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000014",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Plinth armor 12",
+      "type": "cube",
+      "from": [
+        -16.888,
+        -0.1,
+        -1.65
+      ],
+      "to": [
+        -11.912,
+        2.7,
+        1.65
+      ],
+      "color": 3,
+      "rotation": [
+        0,
+        270,
+        0
+      ],
+      "origin": [
+        -14.4,
+        1.3,
+        0
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000015",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Plinth armor 13",
+      "type": "cube",
+      "from": [
+        -15.792,
+        -0.1,
+        3.861
+      ],
+      "to": [
+        -10.816,
+        2.7,
+        7.161
+      ],
+      "color": 3,
+      "rotation": [
+        0,
+        292.50000000000006,
+        0
+      ],
+      "origin": [
+        -13.304,
+        1.3,
+        5.511
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000016",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Plinth armor 14",
+      "type": "cube",
+      "from": [
+        -12.67,
+        -0.1,
+        8.532
+      ],
+      "to": [
+        -7.694,
+        2.7,
+        11.832
+      ],
+      "color": 3,
+      "rotation": [
+        0,
+        315,
+        0
+      ],
+      "origin": [
+        -10.182,
+        1.3,
+        10.182
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000017",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Plinth armor 15",
+      "type": "cube",
+      "from": [
+        -7.999,
+        -0.1,
+        11.654
+      ],
+      "to": [
+        -3.023,
+        2.7,
+        14.954
+      ],
+      "color": 3,
+      "rotation": [
+        0,
+        337.49999999999994,
+        0
+      ],
+      "origin": [
+        -5.511,
+        1.3,
+        13.304
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000018",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Segmented cyan status lights 0",
+      "type": "cube",
+      "from": [
+        -2.644,
+        2.45,
+        13.65
+      ],
+      "to": [
+        2.644,
+        3.15,
+        16.95
+      ],
+      "color": 5,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        0,
+        2.8,
+        15.3
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000019",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Segmented cyan status lights 1",
+      "type": "cube",
+      "from": [
+        3.211,
+        2.45,
+        12.485
+      ],
+      "to": [
+        8.499,
+        3.15,
+        15.785
+      ],
+      "color": 5,
+      "rotation": [
+        0,
+        22.5,
+        0
+      ],
+      "origin": [
+        5.855,
+        2.8,
+        14.135
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000020",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Segmented cyan status lights 2",
+      "type": "cube",
+      "from": [
+        8.175,
+        2.45,
+        9.169
+      ],
+      "to": [
+        13.462,
+        3.15,
+        12.469
+      ],
+      "color": 5,
+      "rotation": [
+        0,
+        45,
+        0
+      ],
+      "origin": [
+        10.819,
+        2.8,
+        10.819
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000021",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Segmented cyan status lights 3",
+      "type": "cube",
+      "from": [
+        11.492,
+        2.45,
+        4.205
+      ],
+      "to": [
+        16.779,
+        3.15,
+        7.505
+      ],
+      "color": 5,
+      "rotation": [
+        0,
+        67.5,
+        0
+      ],
+      "origin": [
+        14.136,
+        2.8,
+        5.855
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000022",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Segmented cyan status lights 4",
+      "type": "cube",
+      "from": [
+        12.656,
+        2.45,
+        -1.65
+      ],
+      "to": [
+        17.944,
+        3.15,
+        1.65
+      ],
+      "color": 5,
+      "rotation": [
+        0,
+        90,
+        0
+      ],
+      "origin": [
+        15.3,
+        2.8,
+        0
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000023",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Segmented cyan status lights 5",
+      "type": "cube",
+      "from": [
+        11.492,
+        2.45,
+        -7.505
+      ],
+      "to": [
+        16.779,
+        3.15,
+        -4.205
+      ],
+      "color": 5,
+      "rotation": [
+        0,
+        112.5,
+        0
+      ],
+      "origin": [
+        14.136,
+        2.8,
+        -5.855
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000024",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Segmented cyan status lights 6",
+      "type": "cube",
+      "from": [
+        8.175,
+        2.45,
+        -12.469
+      ],
+      "to": [
+        13.462,
+        3.15,
+        -9.169
+      ],
+      "color": 5,
+      "rotation": [
+        0,
+        135,
+        0
+      ],
+      "origin": [
+        10.819,
+        2.8,
+        -10.819
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000025",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Segmented cyan status lights 7",
+      "type": "cube",
+      "from": [
+        3.211,
+        2.45,
+        -15.785
+      ],
+      "to": [
+        8.499,
+        3.15,
+        -12.485
+      ],
+      "color": 5,
+      "rotation": [
+        0,
+        157.5,
+        0
+      ],
+      "origin": [
+        5.855,
+        2.8,
+        -14.135
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000026",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Segmented cyan status lights 8",
+      "type": "cube",
+      "from": [
+        -2.644,
+        2.45,
+        -16.95
+      ],
+      "to": [
+        2.644,
+        3.15,
+        -13.65
+      ],
+      "color": 5,
+      "rotation": [
+        0,
+        180,
+        0
+      ],
+      "origin": [
+        0,
+        2.8,
+        -15.3
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000027",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Segmented cyan status lights 9",
+      "type": "cube",
+      "from": [
+        -8.499,
+        2.45,
+        -15.785
+      ],
+      "to": [
+        -3.211,
+        3.15,
+        -12.485
+      ],
+      "color": 5,
+      "rotation": [
+        0,
+        202.49999999999997,
+        0
+      ],
+      "origin": [
+        -5.855,
+        2.8,
+        -14.135
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000028",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Segmented cyan status lights 10",
+      "type": "cube",
+      "from": [
+        -13.462,
+        2.45,
+        -12.469
+      ],
+      "to": [
+        -8.175,
+        3.15,
+        -9.169
+      ],
+      "color": 5,
+      "rotation": [
+        0,
+        225,
+        0
+      ],
+      "origin": [
+        -10.819,
+        2.8,
+        -10.819
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000029",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Segmented cyan status lights 11",
+      "type": "cube",
+      "from": [
+        -16.779,
+        2.45,
+        -7.505
+      ],
+      "to": [
+        -11.492,
+        3.15,
+        -4.205
+      ],
+      "color": 5,
+      "rotation": [
+        0,
+        247.49999999999997,
+        0
+      ],
+      "origin": [
+        -14.136,
+        2.8,
+        -5.855
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000030",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Segmented cyan status lights 12",
+      "type": "cube",
+      "from": [
+        -17.944,
+        2.45,
+        -1.65
+      ],
+      "to": [
+        -12.656,
+        3.15,
+        1.65
+      ],
+      "color": 5,
+      "rotation": [
+        0,
+        270,
+        0
+      ],
+      "origin": [
+        -15.3,
+        2.8,
+        0
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000031",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Segmented cyan status lights 13",
+      "type": "cube",
+      "from": [
+        -16.779,
+        2.45,
+        4.205
+      ],
+      "to": [
+        -11.492,
+        3.15,
+        7.505
+      ],
+      "color": 5,
+      "rotation": [
+        0,
+        292.50000000000006,
+        0
+      ],
+      "origin": [
+        -14.136,
+        2.8,
+        5.855
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000032",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Segmented cyan status lights 14",
+      "type": "cube",
+      "from": [
+        -13.462,
+        2.45,
+        9.169
+      ],
+      "to": [
+        -8.175,
+        3.15,
+        12.469
+      ],
+      "color": 5,
+      "rotation": [
+        0,
+        315,
+        0
+      ],
+      "origin": [
+        -10.819,
+        2.8,
+        10.819
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000033",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Segmented cyan status lights 15",
+      "type": "cube",
+      "from": [
+        -8.499,
+        2.45,
+        12.485
+      ],
+      "to": [
+        -3.211,
+        3.15,
+        15.785
+      ],
+      "color": 5,
+      "rotation": [
+        0,
+        337.49999999999994,
+        0
+      ],
+      "origin": [
+        -5.855,
+        2.8,
+        14.135
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000034",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Service lock",
+      "type": "cube",
+      "from": [
+        -2,
+        2.55,
+        11
+      ],
+      "to": [
+        2,
+        3.65,
+        13.6
+      ],
+      "color": 4,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        0,
+        3.1,
+        12.3
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000035",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Service lock",
+      "type": "cube",
+      "from": [
+        10.3,
+        2.55,
+        -1.3
+      ],
+      "to": [
+        14.3,
+        3.65,
+        1.3
+      ],
+      "color": 4,
+      "rotation": [
+        0,
+        90,
+        0
+      ],
+      "origin": [
+        12.3,
+        3.1,
+        0
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000036",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Service lock",
+      "type": "cube",
+      "from": [
+        -2,
+        2.55,
+        -13.6
+      ],
+      "to": [
+        2,
+        3.65,
+        -11
+      ],
+      "color": 4,
+      "rotation": [
+        0,
+        180,
+        0
+      ],
+      "origin": [
+        0,
+        3.1,
+        -12.3
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000037",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Service lock",
+      "type": "cube",
+      "from": [
+        -14.3,
+        2.55,
+        -1.3
+      ],
+      "to": [
+        -10.3,
+        3.65,
+        1.3
+      ],
+      "color": 4,
+      "rotation": [
+        0,
+        270,
+        0
+      ],
+      "origin": [
+        -12.3,
+        3.1,
+        0
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000038",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    }
+  ],
+  "outliner": [
+    "8c340520-b00f-4000-8000-000000000001",
+    "8c340520-b00f-4000-8000-000000000002",
+    "8c340520-b00f-4000-8000-000000000003",
+    "8c340520-b00f-4000-8000-000000000004",
+    "8c340520-b00f-4000-8000-000000000005",
+    "8c340520-b00f-4000-8000-000000000006",
+    "8c340520-b00f-4000-8000-000000000007",
+    "8c340520-b00f-4000-8000-000000000008",
+    "8c340520-b00f-4000-8000-000000000009",
+    "8c340520-b00f-4000-8000-000000000010",
+    "8c340520-b00f-4000-8000-000000000011",
+    "8c340520-b00f-4000-8000-000000000012",
+    "8c340520-b00f-4000-8000-000000000013",
+    "8c340520-b00f-4000-8000-000000000014",
+    "8c340520-b00f-4000-8000-000000000015",
+    "8c340520-b00f-4000-8000-000000000016",
+    "8c340520-b00f-4000-8000-000000000017",
+    "8c340520-b00f-4000-8000-000000000018",
+    "8c340520-b00f-4000-8000-000000000019",
+    "8c340520-b00f-4000-8000-000000000020",
+    "8c340520-b00f-4000-8000-000000000021",
+    "8c340520-b00f-4000-8000-000000000022",
+    "8c340520-b00f-4000-8000-000000000023",
+    "8c340520-b00f-4000-8000-000000000024",
+    "8c340520-b00f-4000-8000-000000000025",
+    "8c340520-b00f-4000-8000-000000000026",
+    "8c340520-b00f-4000-8000-000000000027",
+    "8c340520-b00f-4000-8000-000000000028",
+    "8c340520-b00f-4000-8000-000000000029",
+    "8c340520-b00f-4000-8000-000000000030",
+    "8c340520-b00f-4000-8000-000000000031",
+    "8c340520-b00f-4000-8000-000000000032",
+    "8c340520-b00f-4000-8000-000000000033",
+    "8c340520-b00f-4000-8000-000000000034",
+    "8c340520-b00f-4000-8000-000000000035",
+    "8c340520-b00f-4000-8000-000000000036",
+    "8c340520-b00f-4000-8000-000000000037",
+    "8c340520-b00f-4000-8000-000000000038"
+  ],
+  "textures": []
+}

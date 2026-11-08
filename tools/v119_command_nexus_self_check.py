@@ -11,7 +11,8 @@ base_scene = (ROOT / "scenes/command_nexus.tscn").read_text(encoding="utf-8")
 base_script = (ROOT / "scripts/command_nexus.gd").read_text(encoding="utf-8")
 training_scene = (ROOT / "scenes/main.tscn").read_text(encoding="utf-8")
 
-assert 'config/name="SERA v119 - Command Nexus Startup Fix"' in project
+version = re.search(r'config/name="SERA v(\d+)', project)
+assert version is not None and int(version.group(1)) >= 119
 assert 'run/main_scene="res://scenes/launch_menu.tscn"' in project
 assert 'pointing/emulate_mouse_from_touch=false' in project, "Keep raw combat touch settings"
 assert 'path="res://scripts/launch_menu.gd"' in menu_scene
@@ -40,15 +41,15 @@ assert 'error_label.visible = true' in menu_script
 # Command Nexus must compile against Godot 4's Environment enum.
 assert 'Environment.AMBIENT_SOURCE_COLOR' in base_script
 assert 'Environment.AMBIENT_COLOR' not in base_script
-assert 'env.ambient_light_sky_contribution = 0.0' in base_script
-assert 'func _gate() -> void:' in base_script
-assert 'func _terminal(' in base_script
+assert 'env.ambient_light_color' in base_script
+assert '_module("deployment_gate"' in base_script
+assert '_module("kiosk"' in base_script
 assert 'res://scripts/sera_rig.gd' in base_script
 
 # Original training scene and model stay selectable/available.
 assert 'path="res://scripts/main.gd"' in training_scene
 assert 'TRAINING_SCENE: String = "res://scenes/main.tscn"' in menu_script
 assert 'NEXUS_SCENE: String = "res://scenes/command_nexus.tscn"' in menu_script
-assert (ROOT / "blockbench/SERA_Command_Nexus_LowPoly.bbmodel").is_file()
+assert (ROOT / "blockbench/base/SERA_deployment_gate.bbmodel").is_file()
 print("v119 startup layout, navigation, touch and base enum static checks: PASS")
 print("Godot editor and Android runtime not tested by this script.")

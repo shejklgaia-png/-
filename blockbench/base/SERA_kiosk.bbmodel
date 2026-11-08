@@ -1,0 +1,1594 @@
+{
+  "meta": {
+    "format_version": "4.10",
+    "model_format": "free",
+    "box_uv": false
+  },
+  "name": "SERA_kiosk",
+  "resolution": {
+    "width": 16,
+    "height": 16
+  },
+  "elements": [
+    {
+      "name": "Terminal base",
+      "type": "cube",
+      "from": [
+        -5.25,
+        0,
+        -3.85
+      ],
+      "to": [
+        5.25,
+        6.4,
+        3.85
+      ],
+      "color": 2,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        0,
+        3.2,
+        0
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000001",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Terminal neck",
+      "type": "cube",
+      "from": [
+        -3.3,
+        6.1,
+        -3
+      ],
+      "to": [
+        3.3,
+        11.3,
+        3
+      ],
+      "color": 3,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        0,
+        8.7,
+        0
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000002",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Console back shell",
+      "type": "cube",
+      "from": [
+        -7,
+        10.2,
+        -2.25
+      ],
+      "to": [
+        7,
+        19.2,
+        1.25
+      ],
+      "color": 3,
+      "rotation": [
+        -12,
+        0,
+        0
+      ],
+      "origin": [
+        0,
+        14.7,
+        -0.5
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000003",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Console screen frame",
+      "type": "cube",
+      "from": [
+        -5.9,
+        11.25,
+        0.9
+      ],
+      "to": [
+        5.9,
+        18.55,
+        2.1
+      ],
+      "color": 4,
+      "rotation": [
+        -12,
+        0,
+        0
+      ],
+      "origin": [
+        0,
+        14.9,
+        1.5
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000004",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Console blue screen",
+      "type": "cube",
+      "from": [
+        -5.2,
+        12.25,
+        2.07
+      ],
+      "to": [
+        5.2,
+        17.95,
+        2.37
+      ],
+      "color": 7,
+      "rotation": [
+        -12,
+        0,
+        0
+      ],
+      "origin": [
+        0,
+        15.1,
+        2.22
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000005",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Console status indicator",
+      "type": "cube",
+      "from": [
+        -2.5,
+        19.2,
+        -0.8
+      ],
+      "to": [
+        2.5,
+        20,
+        1.3
+      ],
+      "color": 5,
+      "rotation": [
+        -12,
+        0,
+        0
+      ],
+      "origin": [
+        0,
+        19.6,
+        0.25
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000006",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Console lower lip",
+      "type": "cube",
+      "from": [
+        -6.5,
+        10.1,
+        1.55
+      ],
+      "to": [
+        6.5,
+        12.1,
+        5.85
+      ],
+      "color": 3,
+      "rotation": [
+        24,
+        0,
+        0
+      ],
+      "origin": [
+        0,
+        11.1,
+        3.7
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000007",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Control keyboard inset",
+      "type": "cube",
+      "from": [
+        -5.5,
+        11.5,
+        4.2
+      ],
+      "to": [
+        5.5,
+        12.1,
+        6
+      ],
+      "color": 2,
+      "rotation": [
+        24,
+        0,
+        0
+      ],
+      "origin": [
+        0,
+        11.8,
+        5.1
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000008",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Screen telemetry -0.35",
+      "type": "cube",
+      "from": [
+        -4,
+        15.2,
+        2.27
+      ],
+      "to": [
+        -3,
+        15.6,
+        2.67
+      ],
+      "color": 5,
+      "rotation": [
+        -12,
+        0,
+        0
+      ],
+      "origin": [
+        -3.5,
+        15.4,
+        2.47
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000009",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Screen telemetry -0.12",
+      "type": "cube",
+      "from": [
+        -1.7,
+        15.2,
+        2.27
+      ],
+      "to": [
+        -0.7,
+        15.6,
+        2.67
+      ],
+      "color": 5,
+      "rotation": [
+        -12,
+        0,
+        0
+      ],
+      "origin": [
+        -1.2,
+        15.4,
+        2.47
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000010",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Screen telemetry 0.11",
+      "type": "cube",
+      "from": [
+        0.6,
+        15.2,
+        2.27
+      ],
+      "to": [
+        1.6,
+        15.6,
+        2.67
+      ],
+      "color": 5,
+      "rotation": [
+        -12,
+        0,
+        0
+      ],
+      "origin": [
+        1.1,
+        15.4,
+        2.47
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000011",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Screen telemetry 0.34",
+      "type": "cube",
+      "from": [
+        2.9,
+        15.2,
+        2.27
+      ],
+      "to": [
+        3.9,
+        15.6,
+        2.67
+      ],
+      "color": 5,
+      "rotation": [
+        -12,
+        0,
+        0
+      ],
+      "origin": [
+        3.4,
+        15.4,
+        2.47
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000012",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Console key -0.32",
+      "type": "cube",
+      "from": [
+        -3.8,
+        11.95,
+        5.55
+      ],
+      "to": [
+        -2.6,
+        12.45,
+        6.45
+      ],
+      "color": 5,
+      "rotation": [
+        24,
+        0,
+        0
+      ],
+      "origin": [
+        -3.2,
+        12.2,
+        6
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000013",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Console key -0.08",
+      "type": "cube",
+      "from": [
+        -1.4,
+        11.95,
+        5.55
+      ],
+      "to": [
+        -0.2,
+        12.45,
+        6.45
+      ],
+      "color": 5,
+      "rotation": [
+        24,
+        0,
+        0
+      ],
+      "origin": [
+        -0.8,
+        12.2,
+        6
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000014",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Console key 0.17",
+      "type": "cube",
+      "from": [
+        1.1,
+        11.95,
+        5.55
+      ],
+      "to": [
+        2.3,
+        12.45,
+        6.45
+      ],
+      "color": 5,
+      "rotation": [
+        24,
+        0,
+        0
+      ],
+      "origin": [
+        1.7,
+        12.2,
+        6
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000015",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Console key 0.4",
+      "type": "cube",
+      "from": [
+        3.4,
+        11.95,
+        5.55
+      ],
+      "to": [
+        4.6,
+        12.45,
+        6.45
+      ],
+      "color": 5,
+      "rotation": [
+        24,
+        0,
+        0
+      ],
+      "origin": [
+        4,
+        12.2,
+        6
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000016",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Base vertical locator",
+      "type": "cube",
+      "from": [
+        -0.5,
+        2.4,
+        3.95
+      ],
+      "to": [
+        0.5,
+        5.6,
+        4.25
+      ],
+      "color": 5,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        0,
+        4,
+        4.1
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000017",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Beveled frame ridge",
+      "type": "cube",
+      "from": [
+        -6.5,
+        10.4,
+        -2.2
+      ],
+      "to": [
+        -5.3,
+        19,
+        1.8
+      ],
+      "color": 2,
+      "rotation": [
+        -12,
+        0,
+        0
+      ],
+      "origin": [
+        -5.9,
+        14.7,
+        -0.2
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000018",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Beveled frame ridge",
+      "type": "cube",
+      "from": [
+        5.3,
+        10.4,
+        -2.2
+      ],
+      "to": [
+        6.5,
+        19,
+        1.8
+      ],
+      "color": 2,
+      "rotation": [
+        -12,
+        0,
+        0
+      ],
+      "origin": [
+        5.9,
+        14.7,
+        -0.2
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000019",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    }
+  ],
+  "outliner": [
+    "8c340520-b00f-4000-8000-000000000001",
+    "8c340520-b00f-4000-8000-000000000002",
+    "8c340520-b00f-4000-8000-000000000003",
+    "8c340520-b00f-4000-8000-000000000004",
+    "8c340520-b00f-4000-8000-000000000005",
+    "8c340520-b00f-4000-8000-000000000006",
+    "8c340520-b00f-4000-8000-000000000007",
+    "8c340520-b00f-4000-8000-000000000008",
+    "8c340520-b00f-4000-8000-000000000009",
+    "8c340520-b00f-4000-8000-000000000010",
+    "8c340520-b00f-4000-8000-000000000011",
+    "8c340520-b00f-4000-8000-000000000012",
+    "8c340520-b00f-4000-8000-000000000013",
+    "8c340520-b00f-4000-8000-000000000014",
+    "8c340520-b00f-4000-8000-000000000015",
+    "8c340520-b00f-4000-8000-000000000016",
+    "8c340520-b00f-4000-8000-000000000017",
+    "8c340520-b00f-4000-8000-000000000018",
+    "8c340520-b00f-4000-8000-000000000019"
+  ],
+  "textures": []
+}

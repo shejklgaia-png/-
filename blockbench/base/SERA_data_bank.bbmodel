@@ -1,0 +1,1428 @@
+{
+  "meta": {
+    "format_version": "4.10",
+    "model_format": "free",
+    "box_uv": false
+  },
+  "name": "SERA_data_bank",
+  "resolution": {
+    "width": 16,
+    "height": 16
+  },
+  "elements": [
+    {
+      "name": "Data station base",
+      "type": "cube",
+      "from": [
+        -13.35,
+        -0.05,
+        -4.2
+      ],
+      "to": [
+        13.35,
+        10.85,
+        4.2
+      ],
+      "color": 2,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        0,
+        5.4,
+        0
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000001",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Station back support",
+      "type": "cube",
+      "from": [
+        -13.7,
+        8.2,
+        -4.05
+      ],
+      "to": [
+        13.7,
+        20.2,
+        0.45
+      ],
+      "color": 2,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        0,
+        14.2,
+        -1.8
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000002",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Data screen casing -0.7",
+      "type": "cube",
+      "from": [
+        -13.25,
+        11.55,
+        -0.9
+      ],
+      "to": [
+        -0.75,
+        22.85,
+        1.5
+      ],
+      "color": 4,
+      "rotation": [
+        -8,
+        0,
+        0
+      ],
+      "origin": [
+        -7,
+        17.2,
+        0.3
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000003",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Data screen -0.7",
+      "type": "cube",
+      "from": [
+        -12.3,
+        13.2,
+        1.5
+      ],
+      "to": [
+        -1.7,
+        21.8,
+        1.9
+      ],
+      "color": 7,
+      "rotation": [
+        -8,
+        0,
+        0
+      ],
+      "origin": [
+        -7,
+        17.5,
+        1.7
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000004",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Data chart bar 0",
+      "type": "cube",
+      "from": [
+        -11.4,
+        16.95,
+        1.825
+      ],
+      "to": [
+        -9.2,
+        17.45,
+        2.175
+      ],
+      "color": 5,
+      "rotation": [
+        -8,
+        0,
+        0
+      ],
+      "origin": [
+        -10.3,
+        17.2,
+        2
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000005",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Data chart bar 1",
+      "type": "cube",
+      "from": [
+        -8.3,
+        18.25,
+        1.825
+      ],
+      "to": [
+        -6.1,
+        18.75,
+        2.175
+      ],
+      "color": 5,
+      "rotation": [
+        -8,
+        0,
+        0
+      ],
+      "origin": [
+        -7.2,
+        18.5,
+        2
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000006",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Data chart bar 2",
+      "type": "cube",
+      "from": [
+        -5.2,
+        19.55,
+        1.825
+      ],
+      "to": [
+        -3,
+        20.05,
+        2.175
+      ],
+      "color": 5,
+      "rotation": [
+        -8,
+        0,
+        0
+      ],
+      "origin": [
+        -4.1,
+        19.8,
+        2
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000007",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Data keyboard -0.7",
+      "type": "cube",
+      "from": [
+        -12,
+        9.5,
+        2.25
+      ],
+      "to": [
+        -2,
+        10.9,
+        6.95
+      ],
+      "color": 3,
+      "rotation": [
+        15,
+        0,
+        0
+      ],
+      "origin": [
+        -7,
+        10.2,
+        4.6
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000008",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Data pad -0.7",
+      "type": "cube",
+      "from": [
+        -10,
+        10.875,
+        5.8
+      ],
+      "to": [
+        -4,
+        11.325,
+        7.2
+      ],
+      "color": 5,
+      "rotation": [
+        15,
+        0,
+        0
+      ],
+      "origin": [
+        -7,
+        11.1,
+        6.5
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000009",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Data screen casing 0.7",
+      "type": "cube",
+      "from": [
+        0.75,
+        11.55,
+        -0.9
+      ],
+      "to": [
+        13.25,
+        22.85,
+        1.5
+      ],
+      "color": 4,
+      "rotation": [
+        -8,
+        0,
+        0
+      ],
+      "origin": [
+        7,
+        17.2,
+        0.3
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000010",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Data screen 0.7",
+      "type": "cube",
+      "from": [
+        1.7,
+        13.2,
+        1.5
+      ],
+      "to": [
+        12.3,
+        21.8,
+        1.9
+      ],
+      "color": 7,
+      "rotation": [
+        -8,
+        0,
+        0
+      ],
+      "origin": [
+        7,
+        17.5,
+        1.7
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000011",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Data chart bar 0",
+      "type": "cube",
+      "from": [
+        2.6,
+        16.95,
+        1.825
+      ],
+      "to": [
+        4.8,
+        17.45,
+        2.175
+      ],
+      "color": 5,
+      "rotation": [
+        -8,
+        0,
+        0
+      ],
+      "origin": [
+        3.7,
+        17.2,
+        2
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000012",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Data chart bar 1",
+      "type": "cube",
+      "from": [
+        5.7,
+        18.25,
+        1.825
+      ],
+      "to": [
+        7.9,
+        18.75,
+        2.175
+      ],
+      "color": 5,
+      "rotation": [
+        -8,
+        0,
+        0
+      ],
+      "origin": [
+        6.8,
+        18.5,
+        2
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000013",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Data chart bar 2",
+      "type": "cube",
+      "from": [
+        8.8,
+        19.55,
+        1.825
+      ],
+      "to": [
+        11,
+        20.05,
+        2.175
+      ],
+      "color": 5,
+      "rotation": [
+        -8,
+        0,
+        0
+      ],
+      "origin": [
+        9.9,
+        19.8,
+        2
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000014",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Data keyboard 0.7",
+      "type": "cube",
+      "from": [
+        2,
+        9.5,
+        2.25
+      ],
+      "to": [
+        12,
+        10.9,
+        6.95
+      ],
+      "color": 3,
+      "rotation": [
+        15,
+        0,
+        0
+      ],
+      "origin": [
+        7,
+        10.2,
+        4.6
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000015",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Data pad 0.7",
+      "type": "cube",
+      "from": [
+        4,
+        10.875,
+        5.8
+      ],
+      "to": [
+        10,
+        11.325,
+        7.2
+      ],
+      "color": 5,
+      "rotation": [
+        15,
+        0,
+        0
+      ],
+      "origin": [
+        7,
+        11.1,
+        6.5
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000016",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Station power indicator",
+      "type": "cube",
+      "from": [
+        -0.7,
+        0.8,
+        4.35
+      ],
+      "to": [
+        0.7,
+        4.4,
+        4.65
+      ],
+      "color": 5,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        0,
+        2.6,
+        4.5
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000017",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    }
+  ],
+  "outliner": [
+    "8c340520-b00f-4000-8000-000000000001",
+    "8c340520-b00f-4000-8000-000000000002",
+    "8c340520-b00f-4000-8000-000000000003",
+    "8c340520-b00f-4000-8000-000000000004",
+    "8c340520-b00f-4000-8000-000000000005",
+    "8c340520-b00f-4000-8000-000000000006",
+    "8c340520-b00f-4000-8000-000000000007",
+    "8c340520-b00f-4000-8000-000000000008",
+    "8c340520-b00f-4000-8000-000000000009",
+    "8c340520-b00f-4000-8000-000000000010",
+    "8c340520-b00f-4000-8000-000000000011",
+    "8c340520-b00f-4000-8000-000000000012",
+    "8c340520-b00f-4000-8000-000000000013",
+    "8c340520-b00f-4000-8000-000000000014",
+    "8c340520-b00f-4000-8000-000000000015",
+    "8c340520-b00f-4000-8000-000000000016",
+    "8c340520-b00f-4000-8000-000000000017"
+  ],
+  "textures": []
+}

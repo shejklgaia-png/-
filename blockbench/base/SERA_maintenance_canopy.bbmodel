@@ -1,0 +1,2839 @@
+{
+  "meta": {
+    "format_version": "4.10",
+    "model_format": "free",
+    "box_uv": false
+  },
+  "name": "SERA_maintenance_canopy",
+  "resolution": {
+    "width": 16,
+    "height": 16
+  },
+  "elements": [
+    {
+      "name": "Heavy canopy housing 0",
+      "type": "cube",
+      "from": [
+        -4.492,
+        -2.35,
+        17.85
+      ],
+      "to": [
+        4.492,
+        2.35,
+        21.15
+      ],
+      "color": 3,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        0,
+        0,
+        19.5
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000001",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Heavy canopy housing 1",
+      "type": "cube",
+      "from": [
+        5.258,
+        -2.35,
+        15.237
+      ],
+      "to": [
+        14.242,
+        2.35,
+        18.537
+      ],
+      "color": 3,
+      "rotation": [
+        0,
+        29.999999999999996,
+        0
+      ],
+      "origin": [
+        9.75,
+        0,
+        16.887
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000002",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Heavy canopy housing 2",
+      "type": "cube",
+      "from": [
+        12.395,
+        -2.35,
+        8.1
+      ],
+      "to": [
+        21.38,
+        2.35,
+        11.4
+      ],
+      "color": 3,
+      "rotation": [
+        0,
+        59.99999999999999,
+        0
+      ],
+      "origin": [
+        16.887,
+        0,
+        9.75
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000003",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Heavy canopy housing 3",
+      "type": "cube",
+      "from": [
+        15.008,
+        -2.35,
+        -1.65
+      ],
+      "to": [
+        23.992,
+        2.35,
+        1.65
+      ],
+      "color": 3,
+      "rotation": [
+        0,
+        90,
+        0
+      ],
+      "origin": [
+        19.5,
+        0,
+        0
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000004",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Heavy canopy housing 4",
+      "type": "cube",
+      "from": [
+        12.395,
+        -2.35,
+        -11.4
+      ],
+      "to": [
+        21.38,
+        2.35,
+        -8.1
+      ],
+      "color": 3,
+      "rotation": [
+        0,
+        119.99999999999999,
+        0
+      ],
+      "origin": [
+        16.887,
+        0,
+        -9.75
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000005",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Heavy canopy housing 5",
+      "type": "cube",
+      "from": [
+        5.258,
+        -2.35,
+        -18.537
+      ],
+      "to": [
+        14.242,
+        2.35,
+        -15.237
+      ],
+      "color": 3,
+      "rotation": [
+        0,
+        150.00000000000003,
+        0
+      ],
+      "origin": [
+        9.75,
+        0,
+        -16.887
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000006",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Heavy canopy housing 6",
+      "type": "cube",
+      "from": [
+        -4.492,
+        -2.35,
+        -21.15
+      ],
+      "to": [
+        4.492,
+        2.35,
+        -17.85
+      ],
+      "color": 3,
+      "rotation": [
+        0,
+        180,
+        0
+      ],
+      "origin": [
+        0,
+        0,
+        -19.5
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000007",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Heavy canopy housing 7",
+      "type": "cube",
+      "from": [
+        -14.242,
+        -2.35,
+        -18.537
+      ],
+      "to": [
+        -5.258,
+        2.35,
+        -15.237
+      ],
+      "color": 3,
+      "rotation": [
+        0,
+        209.99999999999997,
+        0
+      ],
+      "origin": [
+        -9.75,
+        0,
+        -16.887
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000008",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Heavy canopy housing 8",
+      "type": "cube",
+      "from": [
+        -21.38,
+        -2.35,
+        -11.4
+      ],
+      "to": [
+        -12.395,
+        2.35,
+        -8.1
+      ],
+      "color": 3,
+      "rotation": [
+        0,
+        239.99999999999997,
+        0
+      ],
+      "origin": [
+        -16.887,
+        0,
+        -9.75
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000009",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Heavy canopy housing 9",
+      "type": "cube",
+      "from": [
+        -23.992,
+        -2.35,
+        -1.65
+      ],
+      "to": [
+        -15.008,
+        2.35,
+        1.65
+      ],
+      "color": 3,
+      "rotation": [
+        0,
+        270,
+        0
+      ],
+      "origin": [
+        -19.5,
+        0,
+        0
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000010",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Heavy canopy housing 10",
+      "type": "cube",
+      "from": [
+        -21.38,
+        -2.35,
+        8.1
+      ],
+      "to": [
+        -12.395,
+        2.35,
+        11.4
+      ],
+      "color": 3,
+      "rotation": [
+        0,
+        300.00000000000006,
+        0
+      ],
+      "origin": [
+        -16.887,
+        0,
+        9.75
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000011",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Heavy canopy housing 11",
+      "type": "cube",
+      "from": [
+        -14.242,
+        -2.35,
+        15.237
+      ],
+      "to": [
+        -5.258,
+        2.35,
+        18.537
+      ],
+      "color": 3,
+      "rotation": [
+        0,
+        329.99999999999994,
+        0
+      ],
+      "origin": [
+        -9.75,
+        0,
+        16.887
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000012",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Inner canopy blue lamps 0",
+      "type": "cube",
+      "from": [
+        -3.732,
+        -2.9,
+        14.55
+      ],
+      "to": [
+        3.732,
+        -2.1,
+        17.85
+      ],
+      "color": 5,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        0,
+        -2.5,
+        16.2
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000013",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Inner canopy blue lamps 1",
+      "type": "cube",
+      "from": [
+        4.368,
+        -2.9,
+        12.38
+      ],
+      "to": [
+        11.832,
+        -2.1,
+        15.68
+      ],
+      "color": 5,
+      "rotation": [
+        0,
+        29.999999999999996,
+        0
+      ],
+      "origin": [
+        8.1,
+        -2.5,
+        14.03
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000014",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Inner canopy blue lamps 2",
+      "type": "cube",
+      "from": [
+        10.297,
+        -2.9,
+        6.45
+      ],
+      "to": [
+        17.762,
+        -2.1,
+        9.75
+      ],
+      "color": 5,
+      "rotation": [
+        0,
+        59.99999999999999,
+        0
+      ],
+      "origin": [
+        14.03,
+        -2.5,
+        8.1
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000015",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Inner canopy blue lamps 3",
+      "type": "cube",
+      "from": [
+        12.468,
+        -2.9,
+        -1.65
+      ],
+      "to": [
+        19.932,
+        -2.1,
+        1.65
+      ],
+      "color": 5,
+      "rotation": [
+        0,
+        90,
+        0
+      ],
+      "origin": [
+        16.2,
+        -2.5,
+        0
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000016",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Inner canopy blue lamps 4",
+      "type": "cube",
+      "from": [
+        10.297,
+        -2.9,
+        -9.75
+      ],
+      "to": [
+        17.762,
+        -2.1,
+        -6.45
+      ],
+      "color": 5,
+      "rotation": [
+        0,
+        119.99999999999999,
+        0
+      ],
+      "origin": [
+        14.03,
+        -2.5,
+        -8.1
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000017",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Inner canopy blue lamps 5",
+      "type": "cube",
+      "from": [
+        4.368,
+        -2.9,
+        -15.68
+      ],
+      "to": [
+        11.832,
+        -2.1,
+        -12.38
+      ],
+      "color": 5,
+      "rotation": [
+        0,
+        150.00000000000003,
+        0
+      ],
+      "origin": [
+        8.1,
+        -2.5,
+        -14.03
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000018",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Inner canopy blue lamps 6",
+      "type": "cube",
+      "from": [
+        -3.732,
+        -2.9,
+        -17.85
+      ],
+      "to": [
+        3.732,
+        -2.1,
+        -14.55
+      ],
+      "color": 5,
+      "rotation": [
+        0,
+        180,
+        0
+      ],
+      "origin": [
+        0,
+        -2.5,
+        -16.2
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000019",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Inner canopy blue lamps 7",
+      "type": "cube",
+      "from": [
+        -11.832,
+        -2.9,
+        -15.68
+      ],
+      "to": [
+        -4.368,
+        -2.1,
+        -12.38
+      ],
+      "color": 5,
+      "rotation": [
+        0,
+        209.99999999999997,
+        0
+      ],
+      "origin": [
+        -8.1,
+        -2.5,
+        -14.03
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000020",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Inner canopy blue lamps 8",
+      "type": "cube",
+      "from": [
+        -17.762,
+        -2.9,
+        -9.75
+      ],
+      "to": [
+        -10.297,
+        -2.1,
+        -6.45
+      ],
+      "color": 5,
+      "rotation": [
+        0,
+        239.99999999999997,
+        0
+      ],
+      "origin": [
+        -14.03,
+        -2.5,
+        -8.1
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000021",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Inner canopy blue lamps 9",
+      "type": "cube",
+      "from": [
+        -19.932,
+        -2.9,
+        -1.65
+      ],
+      "to": [
+        -12.468,
+        -2.1,
+        1.65
+      ],
+      "color": 5,
+      "rotation": [
+        0,
+        270,
+        0
+      ],
+      "origin": [
+        -16.2,
+        -2.5,
+        0
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000022",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Inner canopy blue lamps 10",
+      "type": "cube",
+      "from": [
+        -17.762,
+        -2.9,
+        6.45
+      ],
+      "to": [
+        -10.297,
+        -2.1,
+        9.75
+      ],
+      "color": 5,
+      "rotation": [
+        0,
+        300.00000000000006,
+        0
+      ],
+      "origin": [
+        -14.03,
+        -2.5,
+        8.1
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000023",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Inner canopy blue lamps 11",
+      "type": "cube",
+      "from": [
+        -11.832,
+        -2.9,
+        12.38
+      ],
+      "to": [
+        -4.368,
+        -2.1,
+        15.68
+      ],
+      "color": 5,
+      "rotation": [
+        0,
+        329.99999999999994,
+        0
+      ],
+      "origin": [
+        -8.1,
+        -2.5,
+        14.03
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000024",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Canopy amber service lamp",
+      "type": "cube",
+      "from": [
+        -0.95,
+        -3.3,
+        17.3
+      ],
+      "to": [
+        0.95,
+        -2.3,
+        18.7
+      ],
+      "color": 6,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        0,
+        -2.8,
+        18
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000025",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Canopy amber service lamp",
+      "type": "cube",
+      "from": [
+        14.638,
+        -3.3,
+        8.3
+      ],
+      "to": [
+        16.538,
+        -2.3,
+        9.7
+      ],
+      "color": 6,
+      "rotation": [
+        0,
+        60,
+        0
+      ],
+      "origin": [
+        15.588,
+        -2.8,
+        9
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000026",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Canopy amber service lamp",
+      "type": "cube",
+      "from": [
+        14.638,
+        -3.3,
+        -9.7
+      ],
+      "to": [
+        16.538,
+        -2.3,
+        -8.3
+      ],
+      "color": 6,
+      "rotation": [
+        0,
+        120,
+        0
+      ],
+      "origin": [
+        15.588,
+        -2.8,
+        -9
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000027",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Canopy amber service lamp",
+      "type": "cube",
+      "from": [
+        -0.95,
+        -3.3,
+        -18.7
+      ],
+      "to": [
+        0.95,
+        -2.3,
+        -17.3
+      ],
+      "color": 6,
+      "rotation": [
+        0,
+        180,
+        0
+      ],
+      "origin": [
+        0,
+        -2.8,
+        -18
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000028",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Canopy amber service lamp",
+      "type": "cube",
+      "from": [
+        -16.538,
+        -3.3,
+        -9.7
+      ],
+      "to": [
+        -14.638,
+        -2.3,
+        -8.3
+      ],
+      "color": 6,
+      "rotation": [
+        0,
+        240,
+        0
+      ],
+      "origin": [
+        -15.588,
+        -2.8,
+        -9
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000029",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Canopy amber service lamp",
+      "type": "cube",
+      "from": [
+        -16.538,
+        -3.3,
+        8.3
+      ],
+      "to": [
+        -14.638,
+        -2.3,
+        9.7
+      ],
+      "color": 6,
+      "rotation": [
+        0,
+        300,
+        0
+      ],
+      "origin": [
+        -15.588,
+        -2.8,
+        9
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000030",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Ceiling anchor",
+      "type": "cube",
+      "from": [
+        -1.1,
+        1.65,
+        15.1
+      ],
+      "to": [
+        1.1,
+        11.15,
+        17.9
+      ],
+      "color": 2,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        0,
+        6.4,
+        16.5
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000031",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Ceiling anchor",
+      "type": "cube",
+      "from": [
+        15.4,
+        1.65,
+        -1.4
+      ],
+      "to": [
+        17.6,
+        11.15,
+        1.4
+      ],
+      "color": 2,
+      "rotation": [
+        0,
+        90,
+        0
+      ],
+      "origin": [
+        16.5,
+        6.4,
+        0
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000032",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Ceiling anchor",
+      "type": "cube",
+      "from": [
+        -1.1,
+        1.65,
+        -17.9
+      ],
+      "to": [
+        1.1,
+        11.15,
+        -15.1
+      ],
+      "color": 2,
+      "rotation": [
+        0,
+        180,
+        0
+      ],
+      "origin": [
+        0,
+        6.4,
+        -16.5
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000033",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Ceiling anchor",
+      "type": "cube",
+      "from": [
+        -17.6,
+        1.65,
+        -1.4
+      ],
+      "to": [
+        -15.4,
+        11.15,
+        1.4
+      ],
+      "color": 2,
+      "rotation": [
+        0,
+        270,
+        0
+      ],
+      "origin": [
+        -16.5,
+        6.4,
+        0
+      ],
+      "uuid": "8c340520-b00f-4000-8000-000000000034",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    }
+  ],
+  "outliner": [
+    "8c340520-b00f-4000-8000-000000000001",
+    "8c340520-b00f-4000-8000-000000000002",
+    "8c340520-b00f-4000-8000-000000000003",
+    "8c340520-b00f-4000-8000-000000000004",
+    "8c340520-b00f-4000-8000-000000000005",
+    "8c340520-b00f-4000-8000-000000000006",
+    "8c340520-b00f-4000-8000-000000000007",
+    "8c340520-b00f-4000-8000-000000000008",
+    "8c340520-b00f-4000-8000-000000000009",
+    "8c340520-b00f-4000-8000-000000000010",
+    "8c340520-b00f-4000-8000-000000000011",
+    "8c340520-b00f-4000-8000-000000000012",
+    "8c340520-b00f-4000-8000-000000000013",
+    "8c340520-b00f-4000-8000-000000000014",
+    "8c340520-b00f-4000-8000-000000000015",
+    "8c340520-b00f-4000-8000-000000000016",
+    "8c340520-b00f-4000-8000-000000000017",
+    "8c340520-b00f-4000-8000-000000000018",
+    "8c340520-b00f-4000-8000-000000000019",
+    "8c340520-b00f-4000-8000-000000000020",
+    "8c340520-b00f-4000-8000-000000000021",
+    "8c340520-b00f-4000-8000-000000000022",
+    "8c340520-b00f-4000-8000-000000000023",
+    "8c340520-b00f-4000-8000-000000000024",
+    "8c340520-b00f-4000-8000-000000000025",
+    "8c340520-b00f-4000-8000-000000000026",
+    "8c340520-b00f-4000-8000-000000000027",
+    "8c340520-b00f-4000-8000-000000000028",
+    "8c340520-b00f-4000-8000-000000000029",
+    "8c340520-b00f-4000-8000-000000000030",
+    "8c340520-b00f-4000-8000-000000000031",
+    "8c340520-b00f-4000-8000-000000000032",
+    "8c340520-b00f-4000-8000-000000000033",
+    "8c340520-b00f-4000-8000-000000000034"
+  ],
+  "textures": []
+}
