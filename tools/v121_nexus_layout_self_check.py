@@ -42,14 +42,23 @@ FRONT_RIGHT = (1.70, 0.0, -0.65)
 PAD = (0.0, 0.0, -4.60)
 REAR_ARCHIVE = (-3.12, 0.0, -8.05)
 REAR_GATE = (2.94, 0.02, -8.28)
-for name, position in [
-    ("maintenance_pad", PAD),
-    ("data_bank", REAR_ARCHIVE),
-    ("deployment_gate", REAR_GATE),
-    ("kiosk", FRONT_LEFT),
-    ("kiosk", FRONT_RIGHT),
+def placed_positions(module: str) -> list[tuple[float, float, float]]:
+    matches = re.findall(
+        rf'_module\("{re.escape(module)}", Vector3\(([^)]+)\)', SCRIPT
+    )
+    return [tuple(float(n.strip()) for n in match.split(",")) for match in matches]
+
+for name, expected in [
+    ("maintenance_pad", [PAD]),
+    ("data_bank", [REAR_ARCHIVE]),
+    ("deployment_gate", [REAR_GATE]),
+    ("kiosk", [FRONT_LEFT, FRONT_RIGHT]),
 ]:
-    assert f'_module("{name}", Vector3{position}' in SCRIPT, f"Placement changed: {name}"
+    actual = placed_positions(name)
+    assert len(actual) == len(expected), f"Wrong placement count: {name}"
+    for value in expected:
+        assert any(all(math.isclose(a, b, abs_tol=0.001) for a, b in zip(pos, value))
+                   for pos in actual), f"Wrong position for {name}: {value}"
 assert REAR_ARCHIVE[2] < PAD[2] < FRONT_LEFT[2]
 assert REAR_GATE[2] < PAD[2] < FRONT_RIGHT[2]
 assert 'surface.position = Vector3(0.0, 0.33, -4.60)' in SCRIPT
