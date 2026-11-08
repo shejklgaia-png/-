@@ -29,7 +29,8 @@ TAGS = {
     "CUSTOMIZE": (0.305, 0.935, 0.39),
 }
 if int(version.group(1)) >= 125:
-    assert "target_hulls: Dictionary" in SCRIPT
+    assert ('target_parts: Dictionary' in SCRIPT if int(version.group(1)) >= 126
+            else 'target_hulls: Dictionary' in SCRIPT)
     assert 'func _tag(' not in SCRIPT
 else:
     for title, (x, y, width) in TAGS.items():
