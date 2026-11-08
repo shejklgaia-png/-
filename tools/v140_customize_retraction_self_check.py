@@ -9,7 +9,7 @@ from pathlib import Path
 root = Path(__file__).resolve().parents[1]
 s = (root / "scripts/command_nexus.gd").read_text(encoding="utf-8")
 project = (root / "project.godot").read_text(encoding="utf-8")
-assert 'config/name="SERA v146 - Bounded visual transfer"' in project
+assert 'config/name="SERA v146"' in project
 assert "const CUSTOMIZE_ENTRANCE_SECONDS: float = 0.28" in s
 assert "const CUSTOMIZE_RETRACTION_SECONDS: float = 0.28" in s
 assert "const CAMERA_TRANSITION_SECONDS: float = 0.18" in s
