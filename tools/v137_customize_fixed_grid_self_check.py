@@ -9,7 +9,7 @@ root = Path(__file__).resolve().parents[1]
 script = (root/"scripts/command_nexus.gd").read_text(encoding="utf-8")
 shader = (root/"shaders/nexus_customize_radial_glow.gdshader").read_text(encoding="utf-8")
 project = (root/"project.godot").read_text(encoding="utf-8")
-assert 'config/name="SERA v146"' in project
+assert 'config/name="SERA v147"' in project
 
 def section(start, end):
     return script.split("func " + start, 1)[1].split("func " + end, 1)[0]
