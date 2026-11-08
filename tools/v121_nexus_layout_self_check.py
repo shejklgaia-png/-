@@ -22,11 +22,11 @@ assert 'var rule: ColorRect' not in SCRIPT
 assert 'Button.new()' not in SCRIPT
 
 TAGS = {
-    "DATA ARCHIVE": (0.018, 0.205, 0.315),
-    "DEPLOYMENT": (0.666, 0.205, 0.315),
-    "TRAINING": (0.018, 0.505, 0.315),
-    "SYSTEM": (0.666, 0.505, 0.315),
-    "CUSTOMIZE": (0.305, 0.805, 0.39),
+    "DATA ARCHIVE": (0.018, 0.325, 0.315),
+    "DEPLOYMENT": (0.666, 0.275, 0.315),
+    "TRAINING": (0.018, 0.850, 0.315),
+    "SYSTEM": (0.666, 0.850, 0.315),
+    "CUSTOMIZE": (0.305, 0.935, 0.39),
 }
 for title, (x, y, width) in TAGS.items():
     assert re.search(
@@ -38,11 +38,11 @@ for x, y, w in TAGS.values():
     assert 0.0 <= x <= 1.0 and 0.0 <= y <= 1.0 and 0.0 < w and x + w <= 1.0
 
 # Front kiosks, intermediate SERA/pad, and rear archive/gate form three depth planes.
-FRONT_LEFT = (-1.70, 0.0, -0.65)
-FRONT_RIGHT = (1.70, 0.0, -0.65)
-PAD = (0.0, 0.0, -4.60)
-REAR_ARCHIVE = (-3.12, 0.0, -8.05)
-REAR_GATE = (2.94, 0.02, -8.28)
+FRONT_LEFT = (-1.82, 0.0, 0.75)
+FRONT_RIGHT = (1.82, 0.0, 0.75)
+PAD = (0.0, 0.0, -4.75)
+REAR_ARCHIVE = (-4.00, 2.19, -8.95)
+REAR_GATE = (4.05, 0.02, -10.48)
 def placed_positions(module: str) -> list[tuple[float, float, float]]:
     matches = re.findall(
         rf'_module\("{re.escape(module)}", Vector3\(([^)]+)\)', SCRIPT
@@ -62,16 +62,16 @@ for name, expected in [
                    for pos in actual), f"Wrong position for {name}: {value}"
 assert REAR_ARCHIVE[2] < PAD[2] < FRONT_LEFT[2]
 assert REAR_GATE[2] < PAD[2] < FRONT_RIGHT[2]
-assert 'surface.position = Vector3(0.0, 0.33, -4.60)' in SCRIPT
-assert 'stand.position = Vector3(0.0, 0.40, -4.60)' in SCRIPT
+assert 'surface.position = Vector3(0.0, 0.33, -4.75)' in SCRIPT
+assert 'stand.position = Vector3(0.0, 0.40, -4.75)' in SCRIPT
 
 # Camera keeps a frontal composition, while front terminals project larger than rear units.
-CAMERA = (0.0, 3.8, 7.4)
-LOOK = (0.0, 2.50, -4.70)
-FOV = 56.0
-assert 'cam.position = Vector3(0.0, 3.8, 7.40)' in SCRIPT
-assert 'cam.look_at(Vector3(0.0, 2.50, -4.70), Vector3.UP)' in SCRIPT
-assert 'cam.fov = 56.0' in SCRIPT
+CAMERA = (0.0, 4.1, 10.2)
+LOOK = (0.0, 3.00, -5.50)
+FOV = 63.0
+assert 'cam.position = Vector3(0.0, 4.10, 10.20)' in SCRIPT
+assert 'cam.look_at(Vector3(0.0, 3.00, -5.50), Vector3.UP)' in SCRIPT
+assert 'cam.fov = 63.0' in SCRIPT
 
 near = CAMERA[2] - FRONT_LEFT[2]
 mid = CAMERA[2] - PAD[2]

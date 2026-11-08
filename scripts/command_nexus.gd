@@ -1,5 +1,5 @@
 extends Node3D
-# v121: spatial composition and read-only signs; modules remain Blockbench-authored.
+# v123: near foreground consoles, raised archive mezzanine and enlarged distant deployment gate.
 # This read-only display renders their embedded geometry in material batches.
 const Modules = preload("res://assets/base_command_modules.gd")
 const SeraRig = preload("res://scripts/sera_rig.gd")
@@ -12,12 +12,13 @@ var tags: Array[Dictionary] = []
 func _ready() -> void:
     _environment()
     _module("hangar_shell", Vector3.ZERO)
-    _module("maintenance_pad", Vector3(0.0, 0.0, -4.60))
+    _module("maintenance_pad", Vector3(0.0, 0.0, -4.75))
     _module("maintenance_canopy", Vector3(0.0, 8.0, -8.95))
-    _module("deployment_gate", Vector3(2.94, 0.02, -8.28), 0.0, 0.70)
-    _module("data_bank", Vector3(-3.12, 0.0, -8.05))
-    _module("kiosk", Vector3(-1.70, 0.0, -0.65), deg_to_rad(18.0))
-    _module("kiosk", Vector3(1.70, 0.0, -0.65), deg_to_rad(-18.0))
+    _module("deployment_gate", Vector3(4.05, 0.02, -10.48), 0.0, 1.20, 1.25)
+    _module("archive_mezzanine", Vector3(-4.00, 0.0, -6.55))
+    _module("data_bank", Vector3(-4.00, 2.19, -8.95))
+    _module("kiosk", Vector3(-1.82, 0.0, 0.75), deg_to_rad(34.0))
+    _module("kiosk", Vector3(1.82, 0.0, 0.75), deg_to_rad(-34.0))
     _render_batches()
     _pad_center()
     _sera_display()
@@ -43,14 +44,15 @@ func _environment() -> void:
 func _vec(a: Array) -> Vector3:
     return Vector3(float(a[0]), float(a[1]), float(a[2]))
 
-func _module(name: String, at: Vector3, yaw: float = 0.0, scale_factor: float = 1.0) -> void:
+func _module(name: String, at: Vector3, yaw: float = 0.0, scale_factor: float = 1.0, height_factor: float = 1.0) -> void:
     if not Modules.MODULES.has(name):
         push_error("Missing Blockbench module: " + name)
         return
     var parent_basis := Basis(Vector3.UP, yaw)
     for part in Modules.MODULES[name]:
-        var lo: Vector3 = _vec(part[1]) * Modules.UNIT * scale_factor
-        var hi: Vector3 = _vec(part[2]) * Modules.UNIT * scale_factor
+        var stretch := Vector3(1.0, height_factor, 1.0)
+        var lo: Vector3 = _vec(part[1]) * Modules.UNIT * scale_factor * stretch
+        var hi: Vector3 = _vec(part[2]) * Modules.UNIT * scale_factor * stretch
         var rot: Vector3 = _vec(part[4]) * (PI / 180.0)
         var basis: Basis = (parent_basis * Basis.from_euler(rot)).scaled_local(hi - lo)
         var transform := Transform3D(basis, at + parent_basis * ((lo + hi) * 0.5))
@@ -98,7 +100,7 @@ func _pad_center() -> void:
     cylinder.height = 0.16
     cylinder.radial_segments = 12
     surface.mesh = cylinder
-    surface.position = Vector3(0.0, 0.33, -4.60)
+    surface.position = Vector3(0.0, 0.33, -4.75)
     surface.material_override = _mat(2)
     add_child(surface)
 
@@ -107,7 +109,7 @@ func _sera_display() -> void:
     # exhibition pose rather than Wait_motion's crouched combat stance.
     var stand := Node3D.new()
     stand.name = "DisplayStand"
-    stand.position = Vector3(0.0, 0.40, -4.60)
+    stand.position = Vector3(0.0, 0.40, -4.75)
     add_child(stand)
     var rig: Node3D = SeraRig.new()
     rig.name = "SeraDisplay"
@@ -136,11 +138,11 @@ func _sera_display() -> void:
 func _camera() -> void:
     var cam := Camera3D.new()
     cam.name = "NexusPortraitCamera"
-    cam.position = Vector3(0.0, 3.8, 7.40)
+    cam.position = Vector3(0.0, 4.10, 10.20)
     cam.near = 0.05
-    cam.fov = 56.0
+    cam.fov = 63.0
     add_child(cam)
-    cam.look_at(Vector3(0.0, 2.50, -4.70), Vector3.UP)
+    cam.look_at(Vector3(0.0, 3.00, -5.50), Vector3.UP)
     cam.current = true
 
 func _wall_mark() -> void:
@@ -200,11 +202,11 @@ func _hud() -> void:
     canvas.add_child(hud)
     hud.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
     # No HUD title or top separator: leave the upper hangar composition unobstructed.
-    _tag("DATA ARCHIVE", "RECORDS / LOGS", 0.018, 0.205, 0.315)
-    _tag("DEPLOYMENT", "MISSION GATE", 0.666, 0.205, 0.315)
-    _tag("TRAINING", "SIMULATION", 0.018, 0.505, 0.315)
-    _tag("SYSTEM", "SETTINGS", 0.666, 0.505, 0.315)
-    _tag("CUSTOMIZE", "UNIT CONFIGURATION", 0.305, 0.805, 0.39)
+    _tag("DATA ARCHIVE", "RECORDS / LOGS", 0.018, 0.325, 0.315)
+    _tag("DEPLOYMENT", "MISSION GATE", 0.666, 0.275, 0.315)
+    _tag("TRAINING", "SIMULATION", 0.018, 0.850, 0.315)
+    _tag("SYSTEM", "SETTINGS", 0.666, 0.850, 0.315)
+    _tag("CUSTOMIZE", "UNIT CONFIGURATION", 0.305, 0.935, 0.39)
     hud.resized.connect(_layout_hud)
     _layout_hud()
 

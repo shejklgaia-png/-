@@ -625,3 +625,12 @@
 - 中景／遠景の配置、カメラ、HUD、Blockbench原本、メインゲーム・訓練ステージ、各種操作は変更なし。
 - `tools/v122_nexus_console_angle_self_check.py` と `README_v122_ja.md`を追加し、v121検査のバージョン条件を後継版対応に更新。
 - Android/Godot実行確認は未実施。実機表示の被りや角度は再確認が必要。
+
+## v123（2026-11-08） — 段差のある基地と大型出撃ゲート
+- 基準：GitHub main v122。ユーザー指示で、データアーカイブ/デプロイメントの3Dモデルと手前のメニュー表示の重なりを解消し、前景・高台・最奥ゲートの遠近構成を作成。
+- 手前の共通端末2台をz=-0.65からz=+0.75へ、角度±18°から±34°へ変更。2台以外の端末モデル原本は変更なし。
+- Blockbenchで`SERA_archive_mezzanine.bbmodel`を新規作成し、昇段する6段の階段・高台・支柱・手すりを追加。データアーカイブを(-4.00, 2.19, -8.95)に配置。
+- DEPLOYMENTを(4.05,0.02,-10.48)へ移動、1.20倍かつ高さ1.25倍の追加伸長（全高約6.6m）。既存後壁がゲートを遮るため`SERA_hangar_shell.bbmodel`の奥壁を開口部つきに変更。埋め込み`assets/base_command_modules.gd`を原本から再生成。
+- カメラを(0,4.10,10.20)、注視点(0,3.0,-5.5)、縦FOV63°に変更。DATA ARCHIVE/DEPLOYMENTのラベルを上側に、TRAINING/SYSTEMをさらに下側に置き、投影した3Dモデルを遮る領域から避ける。CUSTOMIZEも画面下部へ移動。
+- 既存の戦闘・操作・セラモデル、起動2択、モーション、音源、マテリアル別MultiMeshと基地内UIの非操作仕様は維持。`README_v123_ja.md`と`tools/v123_nexus_terraced_depth_self_check.py`を追加し、v120〜v122の既存検査期待値も更新。
+- 静的幾何/投影検査はGodot実行やXperia 1 Vでの描画実測を代替しません。Android実機は未確認。
