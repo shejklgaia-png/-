@@ -78,7 +78,8 @@ tags = {
     "CUSTOMIZE": (0.305, 0.935, 0.39),
 }
 if int(version.group(1)) >= 125:
-    assert "target_hulls: Dictionary" in SRC
+    assert ('target_parts: Dictionary' in SRC if int(version.group(1)) >= 126
+            else 'target_hulls: Dictionary' in SRC)
     assert 'func _tag(' not in SRC
 else:
     for title, (x, y, width) in tags.items():
