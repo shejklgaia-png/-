@@ -9,7 +9,7 @@ from pathlib import Path
 root = Path(__file__).resolve().parents[1]
 s = (root / "scripts/command_nexus.gd").read_text(encoding="utf-8")
 project = (root / "project.godot").read_text(encoding="utf-8")
-assert 'config/name="SERA v141 - Concurrent SERA and camera motion"' in project
+assert 'config/name="SERA v142 - Camera-framed SERA transfer"' in project
 assert "const CUSTOMIZE_ENTRANCE_SECONDS: float = 0.28" in s
 assert "const CUSTOMIZE_RETRACTION_SECONDS: float = 0.28" in s
 assert "const CAMERA_TRANSITION_SECONDS: float = 0.18" in s
@@ -33,8 +33,8 @@ focus = section("_focus_arrived(target_name: String) -> void:",
 
 # Enter and retract use the same interpolator, easing, and 0.28s times.
 # Camera and rig now start in the same user-input callback.
-assert "initial_world.interpolate_with(" in blend
-assert "final_world, progress)" in blend
+assert "start_camera_local.interpolate_with(" in blend
+assert "end_camera_local, progress)" in blend
 assert "CUSTOMIZE_ENTRANCE_SECONDS)" in show
 assert "CUSTOMIZE_RETRACTION_SECONDS)" in retract
 assert "customize_entrance_tween.set_trans(Tween.TRANS_CUBIC)" in show

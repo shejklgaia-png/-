@@ -9,7 +9,7 @@ root = Path(__file__).resolve().parents[1]
 s = (root/"scripts/command_nexus.gd").read_text(encoding="utf-8")
 p = (root/"project.godot").read_text(encoding="utf-8")
 
-assert 'config/name="SERA v141 - Concurrent SERA and camera motion"' in p
+assert 'config/name="SERA v142 - Camera-framed SERA transfer"' in p
 assert 'const CUSTOMIZE_ENTRANCE_SECONDS: float = 0.28' in s
 assert 'const CUSTOMIZE_BOTTOM_GAP_PIXELS: float = 10.0' in s
 assert 'const CAMERA_TRANSITION_SECONDS: float = 0.18' in s
@@ -48,8 +48,8 @@ assert 'customize_entrance_tween.set_ease(Tween.EASE_IN_OUT)' in show
 assert 'customize_entrance_tween.tween_method(_apply_customization_entrance.bind(' in show
 assert '0.0, 1.0, CUSTOMIZE_ENTRANCE_SECONDS)' in show
 assert 'in_transition = true' in show
-assert 'initial_world.interpolate_with(' in animate
-assert 'final_world, progress)' in animate
+assert 'start_camera_local.interpolate_with(' in animate
+assert 'end_camera_local, progress)' in animate
 assert 'sera_display_rig.global_transform = final_world' in arrived
 assert '_capture_sera_silhouette(sera_display_rig)' in arrived
 assert 'in_transition = false' in arrived
