@@ -430,6 +430,8 @@ func _layout_hud() -> void:
         Vector2(0.045, 0.390))
     focus_panel.position = Vector2(view.x * panel_placement.x, view.y * 0.225)
     focus_panel.size = Vector2(view.x * panel_placement.y, view.y * 0.535)
+    if focused_target == "CUSTOMIZE":
+        _keep_customization_clear()
     # The opaque top stripe belongs to the focus panel; rest stays blue/clear.
     focus_header.position = Vector2.ZERO
     focus_header.size = Vector2(focus_panel.size.x, minf(60.0, view.y * 0.068))
@@ -440,6 +442,21 @@ func _layout_hud() -> void:
     action_label.position = Vector2.ZERO
     action_label.size = action_panel.size
     _update_projected_silhouettes()
+
+func _keep_customization_clear() -> void:
+    # Guarantee real model silhouette (including held sword and limbs) is never
+    # covered by the left menu. This runs only at the end of the camera focus
+    # or when the viewport resizes, NOT every rendered frame.
+    if cam == null or not target_parts.has("CUSTOMIZE"):
+        return
+    var leftmost := INF
+    for contour in _project_model_contour("CUSTOMIZE"):
+        for point in contour:
+            leftmost = minf(leftmost, point.x)
+    if leftmost < INF:
+        # Leave 16 logical pixels between the entire mesh and the menu body.
+        focus_panel.size.x = minf(focus_panel.size.x,
+            maxf(0.0, leftmost - focus_panel.position.x - 16.0))
 
 func _update_projected_silhouettes() -> void:
     if cam == null or outline == null:
