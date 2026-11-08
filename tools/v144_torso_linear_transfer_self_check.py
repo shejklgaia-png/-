@@ -9,7 +9,7 @@ from pathlib import Path
 root = Path(__file__).resolve().parents[1]
 s = (root / "scripts/command_nexus.gd").read_text(encoding="utf-8")
 p = (root / "project.godot").read_text(encoding="utf-8")
-assert 'config/name="SERA v146"' in p
+assert 'config/name="SERA v147"' in p
 
 def between(a, b):
     return s.split("func " + a, 1)[1].split("func " + b, 1)[0]
@@ -69,8 +69,8 @@ assert "customize_motion_active = false" in restore
 
 # UI behavior is unchanged by this motion correction.
 assert back.index("customize_glow_quad.visible = false") < back.index("_begin_customization_retraction()")
-assert "CUSTOMIZE_ENTRANCE_SECONDS: float = 0.28" in s
-assert "CUSTOMIZE_RETRACTION_SECONDS: float = 0.28" in s
+assert "CUSTOMIZE_ENTRANCE_SECONDS: float = 0.14" in s
+assert "CUSTOMIZE_RETRACTION_SECONDS: float = 0.14" in s
 assert "CAMERA_TRANSITION_SECONDS: float = 0.18" in s
 assert "CUSTOMIZE_PREVIEW_TARGET_WIDTH_RATIO: float = 0.435" in s
 
@@ -122,7 +122,7 @@ def simulate(reverse=False):
         offset = rotate_scale(P, yaw, scale)
         desired = tuple(x+(y-x)*t for x,y in zip(n0, n1))
         depth = -torso_a[2] + (torso_a[2]-torso_b[2])*t
-        camera_t = min(1.0, t*0.28/0.18)
+        camera_t = min(1.0, t*0.14/0.18)
         fov = fa + (fb-fa)*camera_t
         torso = from_ndc(desired, depth, fov)
         root = sub(torso, offset)

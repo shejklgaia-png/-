@@ -9,7 +9,7 @@ root = Path(__file__).resolve().parents[1]
 script = (root/"scripts/command_nexus.gd").read_text(encoding="utf-8")
 project = (root/"project.godot").read_text(encoding="utf-8")
 shader = (root/"shaders/nexus_customize_radial_glow.gdshader").read_text(encoding="utf-8")
-assert 'config/name="SERA v146"' in project
+assert 'config/name="SERA v147"' in project
 
 def fn(a,b):
     return script.split("func "+a, 1)[1].split("func "+b, 1)[0]
@@ -55,8 +55,8 @@ assert "target_ndc.y * depth * half_tan" in interp
 assert "for fit_pass in range(2):" in interp
 assert "cam.global_transform * camera_relative" in interp
 assert "tan(deg_to_rad(cam.fov) * 0.5)" in interp
-assert 'CUSTOMIZE_ENTRANCE_SECONDS: float = 0.28' in script
-assert 'CUSTOMIZE_RETRACTION_SECONDS: float = 0.28' in script
+assert 'CUSTOMIZE_ENTRANCE_SECONDS: float = 0.14' in script
+assert 'CUSTOMIZE_RETRACTION_SECONDS: float = 0.14' in script
 assert 'CAMERA_TRANSITION_SECONDS: float = 0.18' in script
 assert 'uniform vec3 cyber_blue : source_color' in shader
 assert 'uniform vec2 grid_cells' in shader
@@ -82,8 +82,8 @@ def evaluate(a, b, f0, f1):
         ndc_target = (p0[0] + (p1[0]-p0[0])*t,
                       p0[1] + (p1[1]-p0[1])*t)
         depth = (-a[2]) + ((-b[2])-(-a[2]))*t
-        # Camera finishes earlier than model (0.18s vs 0.28s).
-        cam_t = min(1.0, t*0.28/0.18)
+        # Camera finishes earlier than model (0.18s vs 0.14s).
+        cam_t = min(1.0, t*0.14/0.18)
         current_fov = f0 + (f1-f0)*cam_t
         factor = tan(radians(current_fov*0.5))
         camera_point = (ndc_target[0]*depth*factor*aspect,

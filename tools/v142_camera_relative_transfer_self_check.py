@@ -9,7 +9,7 @@ from pathlib import Path
 root = Path(__file__).resolve().parents[1]
 s = (root/"scripts/command_nexus.gd").read_text(encoding="utf-8")
 p = (root/"project.godot").read_text(encoding="utf-8")
-assert 'config/name="SERA v146"' in p
+assert 'config/name="SERA v147"' in p
 
 def fn(start, stop):
     return s.split("func "+start, 1)[1].split("func "+stop, 1)[0]
@@ -48,8 +48,8 @@ assert "start_camera_local, stowed_camera_local" in ret
 assert back.index("_begin_customization_retraction()") < back.index("_move_camera(")
 assert 'if focused_target == "CUSTOMIZE" and customize_preview_active:' in overview
 assert "_restore_customization_preview()" in stowed
-assert "CUSTOMIZE_ENTRANCE_SECONDS: float = 0.28" in s
-assert "CUSTOMIZE_RETRACTION_SECONDS: float = 0.28" in s
+assert "CUSTOMIZE_ENTRANCE_SECONDS: float = 0.14" in s
+assert "CUSTOMIZE_RETRACTION_SECONDS: float = 0.14" in s
 assert "CAMERA_TRANSITION_SECONDS: float = 0.18" in s
 
 # Representative 720x1280 viewport points, using the two stable camera frames.
@@ -75,7 +75,7 @@ for start, end, from_fov, to_fov in (
     for i in range(101):
         progress = i/100.0
         point = tuple(a+(b-a)*progress for a,b in zip(start, end))
-        camera_progress = min(1.0, progress*0.28/0.18)
+        camera_progress = min(1.0, progress*0.14/0.18)
         fov = from_fov + (to_fov-from_fov)*camera_progress
         px, py = project(point, fov)
         assert 0.05 < px < 0.95 and 0.05 < py < 0.95, (progress,px,py)
