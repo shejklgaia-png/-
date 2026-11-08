@@ -10,7 +10,7 @@ from pathlib import Path
 root = Path(__file__).resolve().parents[1]
 s = (root/"scripts/command_nexus.gd").read_text(encoding="utf-8")
 p = (root/"project.godot").read_text(encoding="utf-8")
-assert 'config/name="SERA v146"' in p
+assert 'config/name="SERA v147"' in p
 
 def fn(a, b):
     return s.split("func "+a, 1)[1].split("func "+b, 1)[0]
@@ -57,8 +57,8 @@ assert arrived.index("sera_display_rig.global_transform = final_world") < arrive
     "customize_glow_quad.visible = true")
 assert back.index("customize_glow_quad.visible = false") < back.index(
     "_begin_customization_retraction()")
-assert "CUSTOMIZE_ENTRANCE_SECONDS: float = 0.28" in s
-assert "CUSTOMIZE_RETRACTION_SECONDS: float = 0.28" in s
+assert "CUSTOMIZE_ENTRANCE_SECONDS: float = 0.14" in s
+assert "CUSTOMIZE_RETRACTION_SECONDS: float = 0.14" in s
 assert "CAMERA_TRANSITION_SECONDS: float = 0.18" in s
 
 # Representative NEXUS body landmarks including different depths; sword and
@@ -96,7 +96,7 @@ def run(reverse):
         smooth=t*t*(3.-2.*t)
         yaw=yaw0+(yaw1-yaw0)*smooth
         scale=sc0+(sc1-sc0)*smooth
-        fov=f0+(f1-f0)*min(1.,t*.28/.18)
+        fov=f0+(f1-f0)*min(1.,t*.14/.18)
         depth=-start[2]+(start[2]-end[2])*t
         half_tan=tan(radians(fov/2))
         target=[b0[j]+(b1[j]-b0[j])*t for j in range(4)]
