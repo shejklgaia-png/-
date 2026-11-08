@@ -15,7 +15,7 @@ def constant(src: str, key: str) -> float:
     assert match is not None, key
     return float(match.group(1))
 
-version = re.search(r'config/name="SERA v(\\d+)', project)
+version = re.search(r'config/name="SERA v(\d+)', project)
 assert version is not None and int(version.group(1)) >= 116
 assert constant(rig, "RUN_ANIMATION_SPEED") == 1.875
 assert math.isclose(constant(rig, "RUN_ANIMATION_SPEED") / 1.5, 1.25)
