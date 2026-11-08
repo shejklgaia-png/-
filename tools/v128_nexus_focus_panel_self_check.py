@@ -17,7 +17,7 @@ MODULES = json.loads(
     (ROOT / "assets/base_command_modules.gd").read_text(encoding="utf-8").split("const MODULES = ", 1)[1].strip()
 )
 
-assert 'config/name="SERA v131 - Authored NEXUS_pose"' in P
+assert 'config/name="SERA v132 - Nexus preview and gate visibility"' in P
 assert 'run/main_scene="res://scenes/launch_menu.tscn"' in P
 assert 'pointing/emulate_mouse_from_touch=false' in P
 assert 'renderer/rendering_method="gl_compatibility"' in P
@@ -28,7 +28,7 @@ shots = {
     "SYSTEM": ((-1.95,3.15,7.70), (-0.45,1.35,1.25), 68.0),
     "CUSTOMIZE": ((-4.50,3.80,5.00), (-1.70,2.00,-4.75), 67.0),
     "DATA ARCHIVE": ((-3.90,4.50,2.50), (-1.70,3.55,-8.80), 64.0),
-    "DEPLOYMENT": ((8.00,5.30,5.00), (2.50,3.40,-10.48), 70.0),
+    "DEPLOYMENT": ((6.20,5.30,5.00), (1.80,3.40,-10.48), 76.0),
 }
 panels = {
     "TRAINING": (.045, .585),
