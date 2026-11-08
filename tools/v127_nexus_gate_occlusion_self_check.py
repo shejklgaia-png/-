@@ -12,7 +12,7 @@ outline = (ROOT / "scripts/nexus_selection_outline.gd").read_text(encoding="utf-
 project = (ROOT / "project.godot").read_text(encoding="utf-8")
 model = json.loads((ROOT / "models/SERA_BOOSTER_allテスト.bbmodel").read_text(encoding="utf-8"))
 
-assert 'config/name="SERA v147"' in project
+assert 'config/name="SERA v148"' in project
 assert 'run/main_scene="res://scenes/launch_menu.tscn"' in project
 assert 'pointing/emulate_mouse_from_touch=false' in project
 
