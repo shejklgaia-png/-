@@ -9,7 +9,7 @@ from pathlib import Path
 root = Path(__file__).resolve().parents[1]
 s = (root / "scripts/command_nexus.gd").read_text(encoding="utf-8")
 project = (root / "project.godot").read_text(encoding="utf-8")
-assert 'config/name="SERA v140 - Fast reversible SERA motion"' in project
+assert 'config/name="SERA v141 - Concurrent SERA and camera motion"' in project
 assert "const CUSTOMIZE_ENTRANCE_SECONDS: float = 0.28" in s
 assert "const CUSTOMIZE_RETRACTION_SECONDS: float = 0.28" in s
 assert "const CAMERA_TRANSITION_SECONDS: float = 0.18" in s
@@ -31,8 +31,8 @@ back = section("_return_to_overview() -> void:", "_overview_arrived()")
 focus = section("_focus_arrived(target_name: String) -> void:",
                 "_return_to_overview()")
 
-# Enter and retract use the same interpolator, smooth easing and distinct
-# 0.28s timing parameters. The camera remains on the scene until stow ends.
+# Enter and retract use the same interpolator, easing, and 0.28s times.
+# Camera and rig now start in the same user-input callback.
 assert "initial_world.interpolate_with(" in blend
 assert "final_world, progress)" in blend
 assert "CUSTOMIZE_ENTRANCE_SECONDS)" in show
@@ -47,8 +47,9 @@ assert "customize_entrance_tween.tween_method(_apply_customization_entrance.bind
 assert "customize_entrance_tween.finished.connect(_customization_retraction_arrived)" in retract
 assert "customize_entrance_tween.kill()" in retract
 assert "_restore_customization_preview()" in stowed
-assert "_move_camera(overview_pose, overview_fov, _overview_arrived)" in stowed
-assert stowed.index("_restore_customization_preview()") < stowed.index("_move_camera(")
+assert "_move_camera(overview_pose, overview_fov, _overview_arrived)" not in stowed
+assert "if focus_tween == null or not focus_tween.is_running():" in stowed
+assert "_overview_arrived()" in stowed
 
 # A Back tap immediately disables selection and menus. It first retracts SERA;
 # non-CUSTOMIZE devices retain the existing camera-only return route.
@@ -58,7 +59,10 @@ assert back.index("_begin_customization_retraction()") < back.index("_restore_cu
 assert back.index("_begin_customization_retraction()") < back.index("_move_camera(")
 assert "customize_right_panel.visible = false" in back
 assert "back_panel.visible = false" in back
-assert 'if target_name == "CUSTOMIZE":\n        _show_customization_preview()' in focus
+selected = section("_select_target(target_name: String) -> void:", "_focus_arrived(")
+assert "_show_customization_preview()" in selected
+assert selected.index("_show_customization_preview()") < selected.index("_move_camera(")
+assert "_show_customization_preview()" not in focus
 
 assert "customize_entrance_tween.kill()" in restore
 assert "customize_glow_quad.visible = false" in restore
@@ -69,8 +73,9 @@ assert 'CUSTOMIZE_PREVIEW_TARGET_WIDTH_RATIO: float = 0.435' in s
 assert 'CUSTOMIZE_BOTTOM_GAP_PIXELS: float = 10.0' in s
 assert 'NEXUS_POSE_NAMES' in s
 
-# A single reverse 0.28s leg is followed by 0.18s camera travel; there is
-# no extra wait, model instance, or additional transition in this branch.
-assert (0.28 + 0.18) < (0.46 + 0.18)
-print("v140 fast 0.28s in/out SERA with post-stow camera return: STATIC PASS")
+# Both Tweens start simultaneously; the overall CUSTOMIZE return duration is
+# bounded by the slower SERA motion, not the sum of two moves.
+assert "CAMERA_TRANSITION_SECONDS: float = 0.18" in s
+assert max(0.28, 0.18) < 0.28 + 0.18
+print("v140 fast 0.28s in/out SERA with parallel camera return: STATIC PASS")
 print("Godot engine and Android real-time animation: NOT TESTED")
