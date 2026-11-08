@@ -1,5 +1,5 @@
 extends Node3D
-# v140: faster SERA travel and animated return to exhibit on Back.
+# v141: start SERA and camera transitions simultaneously on target tap and Back.
 # Preserve v127 kiosk/occlusion, v125 touch navigation and v124 Blockbench geometry.
 const Modules = preload("res://assets/base_command_modules.gd")
 const SeraRig = preload("res://scripts/sera_rig.gd")
@@ -716,8 +716,8 @@ func _show_customization_preview() -> void:
     _capture_sera_silhouette(sera_display_rig)
     _update_projected_silhouettes()
     outline.queue_redraw()
-    # The camera focus finishes first (existing 0.18 s); now move and scale
-    # the actual exhibition rig smoothly toward the upper-left presentation.
+    # Start this SERA Tween in the same tap callback as the camera Tween:
+    # the target camera pose was temporarily applied for final-pose fitting.
     if customize_entrance_tween != null and customize_entrance_tween.is_running():
         customize_entrance_tween.kill()
     in_transition = true
@@ -746,13 +746,12 @@ func _customization_entrance_arrived(final_world: Transform3D) -> void:
     _update_projected_silhouettes()
     in_transition = false
 
-# On Back, retract the *currently rotated* model to its original stand before
-# the camera travels back to the room overview. The grid remains stationary
-# during this motion and disappears only once the rig has been stowed.
+# On Back, retract the *currently rotated* model while the camera is also
+# returning to the overview. The grid does not follow the model and is hidden
+# as soon as the rig is stowed.
 func _begin_customization_retraction() -> void:
     if sera_display_rig == null or sera_display_stand == null:
         _restore_customization_preview()
-        _move_camera(overview_pose, overview_fov, _overview_arrived)
         return
     if customize_entrance_tween != null and customize_entrance_tween.is_running():
         customize_entrance_tween.kill()
@@ -770,9 +769,11 @@ func _begin_customization_retraction() -> void:
 func _customization_retraction_arrived() -> void:
     if not customize_preview_active or focused_target != "CUSTOMIZE":
         return
-    # _restore also clears the fixed backdrop and resets all input flags.
+    # The return camera Tween was already started on the Back press. When
+    # both finish, restore the stand/grid state and unlock the overview UI.
     _restore_customization_preview()
-    _move_camera(overview_pose, overview_fov, _overview_arrived)
+    if focus_tween == null or not focus_tween.is_running():
+        _overview_arrived()
 
 func _restore_customization_preview() -> void:
     customize_touch_id = -1
@@ -1170,14 +1171,28 @@ func _select_target(target_name: String) -> void:
     var eye: Vector3 = view["eye"]
     var look: Vector3 = view["look"]
     var aim_pose := Transform3D(Basis.looking_at(look - eye, Vector3.UP), eye)
+    if target_name == "CUSTOMIZE":
+        # The model needs its fitted target in the *destination* camera frame.
+        # Temporarily use that frame only for geometry calculations, then
+        # restore the real camera before either Tween starts this same tap.
+        var previous_camera_pose: Transform3D = cam.transform
+        var previous_camera_fov: float = cam.fov
+        cam.transform = aim_pose
+        cam.fov = float(view["fov"])
+        _show_customization_preview()
+        cam.transform = previous_camera_pose
+        cam.fov = previous_camera_fov
+        _update_projected_silhouettes()
     _move_camera(aim_pose, float(view["fov"]), _focus_arrived.bind(target_name))
 
 func _focus_arrived(target_name: String) -> void:
-    in_transition = false
     if focused_target != target_name:
         return
-    if target_name == "CUSTOMIZE":
-        _show_customization_preview()
+    # CUSTOMIZE model tween was started on tap and can still be in flight
+    # when the 0.18s camera focus finishes. Do not unlock rotation early.
+    if target_name != "CUSTOMIZE" or not customize_preview_active or (
+            customize_entrance_tween == null or not customize_entrance_tween.is_running()):
+        in_transition = false
     back_panel.visible = true
     focus_title.text = target_name
     # A blank placeholder menu except for the existing functional training
@@ -1199,12 +1214,18 @@ func _return_to_overview() -> void:
     customize_right_panel.visible = false
     back_panel.visible = false
     if focused_target == "CUSTOMIZE" and customize_preview_active:
+        # Both movements begin on the same Back-button press.
         _begin_customization_retraction()
+        _move_camera(overview_pose, overview_fov, _overview_arrived)
     else:
         _restore_customization_preview()
         _move_camera(overview_pose, overview_fov, _overview_arrived)
 
 func _overview_arrived() -> void:
+    # The camera can finish before the 0.28s SERA retraction. Wait for the
+    # rig so Back cannot enable input or the overview outline prematurely.
+    if focused_target == "CUSTOMIZE" and customize_preview_active:
+        return
     in_transition = false
     focused_target = ""
     outline.set("hide_customize_preview_outline", false)

@@ -9,7 +9,7 @@ root = Path(__file__).resolve().parents[1]
 s = (root/"scripts/command_nexus.gd").read_text(encoding="utf-8")
 p = (root/"project.godot").read_text(encoding="utf-8")
 
-assert 'config/name="SERA v140 - Fast reversible SERA motion"' in p
+assert 'config/name="SERA v141 - Concurrent SERA and camera motion"' in p
 assert 'const CUSTOMIZE_ENTRANCE_SECONDS: float = 0.28' in s
 assert 'const CUSTOMIZE_BOTTOM_GAP_PIXELS: float = 10.0' in s
 assert 'const CAMERA_TRANSITION_SECONDS: float = 0.18' in s
@@ -54,7 +54,11 @@ assert 'sera_display_rig.global_transform = final_world' in arrived
 assert '_capture_sera_silhouette(sera_display_rig)' in arrived
 assert 'in_transition = false' in arrived
 assert 'customize_entrance_tween.kill()' in restore
-assert 'if target_name == "CUSTOMIZE":\n        _show_customization_preview()' in focus
+assert '_show_customization_preview()' not in focus
+assert 'if target_name == "CUSTOMIZE":' in back or 'if focused_target == "CUSTOMIZE" and customize_preview_active:' in back
+selected = section("_select_target(target_name: String) -> void:", "_focus_arrived(")
+assert '_show_customization_preview()' in selected
+assert selected.index("_show_customization_preview()") < selected.index("_move_camera(")
 assert '_restore_customization_preview()' in back
 
 assert fit.count('bottom_limit - CUSTOMIZE_BOTTOM_GAP_PIXELS - rect.end.y') == 1

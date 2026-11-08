@@ -778,3 +778,10 @@
 - 他4設備は従来どおりカメラ帰還のみ。v139の左上レイアウト、メニュー、回転、NEXUS_pose、Blockbenchデータ、戦闘・BGM/SEは変更なし。
 - 変更：scripts/command_nexus.gd、project.godot、DEVELOPMENT.md、既存v125〜v139静的検査のバージョンおよび所要時間期待値。追加：README_v140_ja.md、tools/v140_customize_retraction_self_check.py。
 - ソース順序・関数連結・移動時間の静的確認のみ。Godot起動／Android実機でのアニメーション品質・操作・描画は未検証。
+
+## v141（2026-11-08） — CUSTOMIZE選択直後と戻る時のセラ／カメラ同時移動
+- 基準：GitHub main `a119aa7339c9125823d1b084f28e4f8838f6281d`（v140）。CUSTOMIZEをタップした瞬間、カメラの最終姿勢を一時適用してセラの拡大位置と固定背景の初期位置を計算。実カメラ姿勢とセラ展示姿勢を元に戻してから、元のSeraRigの0.28秒Tweenとカメラ0.18秒Tweenを同じタップ入力処理内で開始。旧仕様の「0.18秒のカメラ移動完了後にセラの移動を開始する」遅延を撤廃。
+- `_focus_arrived`ではCUSTOMIZE用セラTweenを重複開始せず、カメラが先に着いた場合はメニューを表示するが回転や戻るの入力ロックを保持し、モデルの0.28秒Tweenが終わってから解除する。ほか4設備は従来の動作。
+- CUSTOMIZEのUI戻る・Android戻る・Escでは、元展示台への格納Tween0.28秒とカメラ帰還Tween0.18秒を同一イベントで開始。カメラが先に着いた時は復帰確定を待ち、モデル格納が終わったら背景を消して全景状態を確定する。選択枠と両メニューの即時解除は維持。
+- レイアウト（左上セラ・左下四角メニュー・右縦メニュー）、表示倍率、固定サイバー青グリッド・放射グラデーション、初期NEXUS_pose、ドラッグ回転、戦闘・BGM・SEは変更なし。
+- 変更：scripts/command_nexus.gd、project.godot、DEVELOPMENT.md、旧テストv125〜v140の版名と旧シーケンス期待値。追加：README_v141_ja.md、tools/v141_concurrent_nexus_motion_self_check.py。ソース構造・Tweenとカメラの開始順序など静的検証のみで、Godot/Android実行テストは未実施。
