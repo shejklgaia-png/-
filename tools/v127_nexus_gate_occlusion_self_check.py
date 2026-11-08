@@ -20,10 +20,10 @@ assert 'pointing/emulate_mouse_from_touch=false' in project
 assert '_module("kiosk", Vector3(-1.95, 0.0, 1.30), deg_to_rad(36.0))' in script
 assert '_module("kiosk", Vector3(1.95, 0.0, 1.30), deg_to_rad(-36.0))' in script
 assert 'selected_shape = "SYSTEM" if at.x < 0.0 else "TRAINING"' in script
-assert '"TRAINING": {"eye": Vector3(1.95, 3.30, 9.00)' in script
-assert '"look": Vector3(0.45, 1.30, 1.25), "fov": 62.0}' in script
-assert '"SYSTEM": {"eye": Vector3(-1.95, 3.30, 9.00)' in script
-assert '"look": Vector3(-0.45, 1.30, 1.25), "fov": 62.0}' in script
+assert '"TRAINING": {"eye": Vector3(1.95, 3.15, 7.70)' in script
+assert '"look": Vector3(0.45, 1.35, 1.25), "fov": 68.0' in script
+assert '"SYSTEM": {"eye": Vector3(-1.95, 3.15, 7.70)' in script
+assert '"look": Vector3(-0.45, 1.35, 1.25), "fov": 68.0' in script
 assert 'if focused_target == "TRAINING" and focus_panel.visible:' in script
 assert 'get_tree().change_scene_to_file(TRAINING_SCENE)' in script
 
