@@ -9,9 +9,9 @@ from pathlib import Path
 root = Path(__file__).resolve().parents[1]
 s = (root / "scripts/command_nexus.gd").read_text(encoding="utf-8")
 project = (root / "project.godot").read_text(encoding="utf-8")
-assert 'config/name="SERA v146"' in project
-assert "const CUSTOMIZE_ENTRANCE_SECONDS: float = 0.28" in s
-assert "const CUSTOMIZE_RETRACTION_SECONDS: float = 0.28" in s
+assert 'config/name="SERA v147"' in project
+assert "const CUSTOMIZE_ENTRANCE_SECONDS: float = 0.14" in s
+assert "const CUSTOMIZE_RETRACTION_SECONDS: float = 0.14" in s
 assert "const CAMERA_TRANSITION_SECONDS: float = 0.18" in s
 
 def section(start, end):
@@ -31,7 +31,7 @@ back = section("_return_to_overview() -> void:", "_overview_arrived()")
 focus = section("_focus_arrived(target_name: String) -> void:",
                 "_return_to_overview()")
 
-# Enter and retract use the same interpolator, easing, and 0.28s times.
+# Enter and retract use the same interpolator, easing, and 0.14s times.
 # Camera and rig now start in the same user-input callback.
 assert "start_camera_local.interpolate_with(" in blend
 assert "end_camera_local, progress)" in blend
@@ -75,6 +75,6 @@ assert 'NEXUS_POSE_NAMES' in s
 # Both Tweens start simultaneously; the overall CUSTOMIZE return duration is
 # bounded by the slower SERA motion, not the sum of two moves.
 assert "CAMERA_TRANSITION_SECONDS: float = 0.18" in s
-assert max(0.28, 0.18) < 0.28 + 0.18
-print("v140 fast 0.28s in/out SERA with parallel camera return: STATIC PASS")
+assert max(0.14, 0.18) < 0.14 + 0.18
+print("v140 fast 0.14s in/out SERA with parallel camera return: STATIC PASS")
 print("Godot engine and Android real-time animation: NOT TESTED")

@@ -7,9 +7,9 @@ from pathlib import Path
 root = Path(__file__).resolve().parents[1]
 s = (root/"scripts/command_nexus.gd").read_text(encoding="utf-8")
 p = (root/"project.godot").read_text(encoding="utf-8")
-assert 'config/name="SERA v146"' in p
-assert "CUSTOMIZE_ENTRANCE_SECONDS: float = 0.28" in s
-assert "CUSTOMIZE_RETRACTION_SECONDS: float = 0.28" in s
+assert 'config/name="SERA v147"' in p
+assert "CUSTOMIZE_ENTRANCE_SECONDS: float = 0.14" in s
+assert "CUSTOMIZE_RETRACTION_SECONDS: float = 0.14" in s
 assert "CAMERA_TRANSITION_SECONDS: float = 0.18" in s
 
 def part(a,b):
@@ -70,7 +70,7 @@ assert "NEXUS_POSE_NAMES" in s
 assert 'CUSTOMIZE_PREVIEW_TARGET_WIDTH_RATIO: float = 0.435' in s
 
 # Parallel tween wall time is the maximum individual duration, not their sum.
-assert max(0.28, 0.18) == 0.28
-assert max(0.28, 0.18) < 0.28 + 0.18
+assert max(0.14, 0.18) == 0.18
+assert max(0.14, 0.18) < 0.14 + 0.18
 print("v141 concurrent tap and Back motion, completion gate: STATIC PASS")
 print("Godot engine and Android input/visual runtime: NOT TESTED")

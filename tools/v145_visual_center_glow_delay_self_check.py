@@ -11,7 +11,7 @@ root = Path(__file__).resolve().parents[1]
 s = (root/"scripts/command_nexus.gd").read_text(encoding="utf-8")
 p = (root/"project.godot").read_text(encoding="utf-8")
 shader = (root/"shaders/nexus_customize_radial_glow.gdshader").read_text(encoding="utf-8")
-assert 'config/name="SERA v146"' in p
+assert 'config/name="SERA v147"' in p
 
 def fn(a,b):
     return s.split("func "+a,1)[1].split("func "+b,1)[0]
@@ -75,8 +75,8 @@ assert back.index("customize_glow_quad.visible = false") < back.index(
     "_begin_customization_retraction()")
 assert "uniform vec3 cyber_blue : source_color" in shader
 assert "uniform vec2 grid_cells" in shader
-assert "CUSTOMIZE_ENTRANCE_SECONDS: float = 0.28" in s
-assert "CUSTOMIZE_RETRACTION_SECONDS: float = 0.28" in s
+assert "CUSTOMIZE_ENTRANCE_SECONDS: float = 0.14" in s
+assert "CUSTOMIZE_RETRACTION_SECONDS: float = 0.14" in s
 assert "CAMERA_TRANSITION_SECONDS: float = 0.18" in s
 
 # The visual-center algorithm should remain on a straight screen segment
@@ -124,7 +124,7 @@ def simulate(reverse=False):
         pose=t*t*(3.-2.*t)
         yaw=start_yaw+(end_yaw-start_yaw)*pose
         scale=start_scale+(end_scale-start_scale)*pose
-        camprogress=min(1.,t*.28/.18)
+        camprogress=min(1.,t*.14/.18)
         fov=f0+(f1-f0)*camprogress
         depth=-a[2]+(a[2]-b[2])*t
         half=tan(radians(fov)*.5)
