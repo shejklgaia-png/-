@@ -13,7 +13,7 @@ display = json.loads((ROOT / "models/SERA_BOOSTER_allテスト.bbmodel").read_te
 canonical = json.loads((ROOT / "assets/sera_source.json").read_text(encoding="utf-8"))
 rig = (ROOT / "scripts/sera_rig.gd").read_text(encoding="utf-8")
 
-assert 'config/name="SERA v130 - Larger NEXUS Pose Preview"' in project
+assert 'config/name="SERA v131 - Authored NEXUS_pose"' in project
 assert 'run/main_scene="res://scenes/launch_menu.tscn"' in project
 
 # The previous two-pass 1.55x/1.05x cap suppressed enlargement.
@@ -32,16 +32,16 @@ assert "sera_display_rig.global_transform = cam.global_transform * Transform3D("
 
 # Only a display instance gets this user-created pose. Do not modify the
 # combat SeraRig source or substitute a guessed animation for a missing one.
-assert 'const NEXUS_POSE_NAME: String = "NEXUSpose"' in s
+assert 'const NEXUS_POSE_NAMES: Array[String] = ["NEXUS_pose", "NEXUSpose"]' in s
 assert '"res://models/SERA_BOOSTER_allテスト.bbmodel"' in s
 assert '"res://models/SERA_BOOSTER_all.bbmodel"' in s
 assert '"res://assets/sera_source.json"' in s
 assert "func _apply_nexus_pose(rig: Node3D) -> bool:" in s
 assert "FileAccess.file_exists(source_path)" in s
 assert "FileAccess.get_file_as_string(source_path)" in s
-assert 'str(raw_clip.get("name", "")) != NEXUS_POSE_NAME' in s
+assert 'if not NEXUS_POSE_NAMES.has(pose_name):' in s
 assert 'rig.call("_build_animations", {"animations": [raw_clip]})' in s
-assert 'rig.set("current_clip", NEXUS_POSE_NAME)' in s
+assert 'rig.set("current_clip", pose_name)' in s
 assert 'rig.call("_apply_animation", 0.0)' in s
 assert "if not _apply_nexus_pose(rig):" in s
 assert 'arm_angles := {"UpperArm_R": -38.0' in s

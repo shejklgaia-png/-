@@ -688,3 +688,10 @@
 - NEXUSposeがユーザーのモデルに存在する場合、同期済みBlockbenchモデルJSONを探して展示用SeraRigの既存ZYX回転・アニメーションサンプラーで最初のポーズを適用。戦闘モーションへの変更なし。GitHub mainのモデルには現時点でNEXUSposeが見つからないため、未同期の場合は従来の中立展示姿勢を維持し、同期された後の次回起動時に自動検出。
 - 変更：scripts/command_nexus.gd、project.godot、DEVELOPMENT.md、v125-v129の静的検査。新規：tools/v130_nexus_pose_enlarge_self_check.py、README_v130_ja.md。Bash／Guard_REACTION、Blockbench元モデル、既存背景・入力・BGM/SEなど変更なし。
 - 静的なコード/資産整合性検査のみ。Godotでの構文解析・Android実機の拡大／姿勢適用確認は未実施。APKでのbbmodel同梱にも別途確認が必要。
+
+## v131（2026-11-08） — Blockbenchのポーズ実名NEXUS_poseに対応
+- ユーザー提供のBlockbench画面に表示されているポーズ名は「NEXUS_pose」（アンダースコアあり）。従来v130では「NEXUSpose」（アンダースコアなし）を完全一致検索していたため、この命名差が原因でポーズ適用できなかった。
+- scripts/command_nexus.gd の検索対象を「NEXUS_pose、NEXUSpose」に変更し、検出した実名のままSeraRigのアニメーション登録・0秒サンプル・展示用適用を行う。後方互換のため旧名も受理。戦闘用SeraRigやBlockbenchモデルは変更しない。
+- モデルの同期は別件。ユーザー端末の GAME/Git/models/SERA_BOOSTER_allテスト.bbmodel は2026-11-08 15:32更新・約334KB、GitHubのmain上の同ファイルは13:22最終更新・約328KB。端末側でポーズを確認できてもmain上のモデルには未反映。以前のgrep NEXUSposeは検索文字列が誤っていたため「なし」と判定されていた。
+- 既存のカスタマイズ拡大、左右スワイプ回転、背景、パネル、戻る操作およびBash・Guard_REACTION等の戦闘資産は維持。
+- 変更：scripts/command_nexus.gd、project.godot、DEVELOPMENT.md、v125〜v130ソース検査。新規：tools/v131_nexus_pose_name_self_check.py。ソース検査のみ。Godot構文/Android実機の検証は未実施。
