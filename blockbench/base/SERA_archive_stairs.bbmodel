@@ -1,0 +1,2424 @@
+{
+  "meta": {
+    "format_version": "4.10",
+    "model_format": "free",
+    "box_uv": false
+  },
+  "name": "SERA_archive_stairs",
+  "resolution": {
+    "width": 16,
+    "height": 16
+  },
+  "elements": [
+    {
+      "name": "Elevated archive deck",
+      "type": "cube",
+      "from": [
+        -15.7,
+        19.7,
+        -11.5
+      ],
+      "to": [
+        15.7,
+        22.2,
+        11.5
+      ],
+      "color": 2,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        0,
+        20.95,
+        0
+      ],
+      "uuid": "7d5f9011-c0de-4000-8000-000000000001",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Left side lower fascia",
+      "type": "cube",
+      "from": [
+        -15.7,
+        10,
+        -11.5
+      ],
+      "to": [
+        -13.9,
+        20,
+        11.5
+      ],
+      "color": 3,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        -14.8,
+        15,
+        0
+      ],
+      "uuid": "7d5f9011-c0de-4000-8000-000000000002",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Right side lower fascia",
+      "type": "cube",
+      "from": [
+        13.9,
+        10,
+        -11.5
+      ],
+      "to": [
+        15.7,
+        20,
+        11.5
+      ],
+      "color": 3,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        14.8,
+        15,
+        0
+      ],
+      "uuid": "7d5f9011-c0de-4000-8000-000000000003",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Step riser 1",
+      "type": "cube",
+      "from": [
+        -2.75,
+        0,
+        27.2
+      ],
+      "to": [
+        11.75,
+        3.5,
+        32.4
+      ],
+      "color": 2,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        4.5,
+        1.75,
+        29.799999999999997
+      ],
+      "uuid": "7d5f9011-c0de-4000-8000-000000000004",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Step luminous nosing 1",
+      "type": "cube",
+      "from": [
+        -1.65,
+        3.58,
+        31.5
+      ],
+      "to": [
+        10.65,
+        3.98,
+        32.1
+      ],
+      "color": 5,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        4.5,
+        3.7800000000000002,
+        31.8
+      ],
+      "uuid": "7d5f9011-c0de-4000-8000-000000000005",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Step riser 2",
+      "type": "cube",
+      "from": [
+        -2.75,
+        0,
+        23.6
+      ],
+      "to": [
+        11.75,
+        7,
+        28.8
+      ],
+      "color": 2,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        4.5,
+        3.5,
+        26.200000000000003
+      ],
+      "uuid": "7d5f9011-c0de-4000-8000-000000000006",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Step luminous nosing 2",
+      "type": "cube",
+      "from": [
+        -1.65,
+        7.08,
+        27.9
+      ],
+      "to": [
+        10.65,
+        7.48,
+        28.5
+      ],
+      "color": 5,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        4.5,
+        7.28,
+        28.2
+      ],
+      "uuid": "7d5f9011-c0de-4000-8000-000000000007",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Step riser 3",
+      "type": "cube",
+      "from": [
+        -2.75,
+        0,
+        20
+      ],
+      "to": [
+        11.75,
+        10.5,
+        25.2
+      ],
+      "color": 2,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        4.5,
+        5.25,
+        22.6
+      ],
+      "uuid": "7d5f9011-c0de-4000-8000-000000000008",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Step luminous nosing 3",
+      "type": "cube",
+      "from": [
+        -1.65,
+        10.58,
+        24.3
+      ],
+      "to": [
+        10.65,
+        10.98,
+        24.9
+      ],
+      "color": 5,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        4.5,
+        10.780000000000001,
+        24.6
+      ],
+      "uuid": "7d5f9011-c0de-4000-8000-000000000009",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Step riser 4",
+      "type": "cube",
+      "from": [
+        -2.75,
+        0,
+        16.4
+      ],
+      "to": [
+        11.75,
+        14,
+        21.6
+      ],
+      "color": 2,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        4.5,
+        7,
+        19
+      ],
+      "uuid": "7d5f9011-c0de-4000-8000-000000000010",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Step luminous nosing 4",
+      "type": "cube",
+      "from": [
+        -1.65,
+        14.08,
+        20.7
+      ],
+      "to": [
+        10.65,
+        14.48,
+        21.3
+      ],
+      "color": 5,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        4.5,
+        14.280000000000001,
+        21
+      ],
+      "uuid": "7d5f9011-c0de-4000-8000-000000000011",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Step riser 5",
+      "type": "cube",
+      "from": [
+        -2.75,
+        0,
+        12.8
+      ],
+      "to": [
+        11.75,
+        17.5,
+        18
+      ],
+      "color": 2,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        4.5,
+        8.75,
+        15.4
+      ],
+      "uuid": "7d5f9011-c0de-4000-8000-000000000012",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Step luminous nosing 5",
+      "type": "cube",
+      "from": [
+        -1.65,
+        17.58,
+        17.1
+      ],
+      "to": [
+        10.65,
+        17.98,
+        17.7
+      ],
+      "color": 5,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        4.5,
+        17.78,
+        17.4
+      ],
+      "uuid": "7d5f9011-c0de-4000-8000-000000000013",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Step riser 6",
+      "type": "cube",
+      "from": [
+        -2.75,
+        0,
+        9.2
+      ],
+      "to": [
+        11.75,
+        21,
+        14.4
+      ],
+      "color": 2,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        4.5,
+        10.5,
+        11.8
+      ],
+      "uuid": "7d5f9011-c0de-4000-8000-000000000014",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Step luminous nosing 6",
+      "type": "cube",
+      "from": [
+        -1.65,
+        21.08,
+        13.5
+      ],
+      "to": [
+        10.65,
+        21.48,
+        14.1
+      ],
+      "color": 5,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        4.5,
+        21.28,
+        13.8
+      ],
+      "uuid": "7d5f9011-c0de-4000-8000-000000000015",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Stair railing upright -0.43 0",
+      "type": "cube",
+      "from": [
+        -4.75,
+        3.5,
+        29.35
+      ],
+      "to": [
+        -3.85,
+        11.5,
+        30.25
+      ],
+      "color": 3,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        -4.3,
+        7.5,
+        29.8
+      ],
+      "uuid": "7d5f9011-c0de-4000-8000-000000000016",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Stair railing upright -0.43 3",
+      "type": "cube",
+      "from": [
+        -4.75,
+        14,
+        18.55
+      ],
+      "to": [
+        -3.85,
+        22,
+        19.45
+      ],
+      "color": 3,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        -4.3,
+        18,
+        19
+      ],
+      "uuid": "7d5f9011-c0de-4000-8000-000000000017",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Stair railing upright -0.43 5",
+      "type": "cube",
+      "from": [
+        -4.75,
+        21,
+        11.35
+      ],
+      "to": [
+        -3.85,
+        29,
+        12.25
+      ],
+      "color": 3,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        -4.3,
+        25,
+        11.8
+      ],
+      "uuid": "7d5f9011-c0de-4000-8000-000000000018",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Sloping rail upper -0.43",
+      "type": "cube",
+      "from": [
+        -4.75,
+        15.9,
+        8.25
+      ],
+      "to": [
+        -3.85,
+        16.9,
+        31.75
+      ],
+      "color": 4,
+      "rotation": [
+        22,
+        0,
+        0
+      ],
+      "origin": [
+        -4.3,
+        16.4,
+        20
+      ],
+      "uuid": "7d5f9011-c0de-4000-8000-000000000019",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Stair railing upright 1.29 0",
+      "type": "cube",
+      "from": [
+        12.45,
+        3.5,
+        29.35
+      ],
+      "to": [
+        13.35,
+        11.5,
+        30.25
+      ],
+      "color": 3,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        12.899999999999999,
+        7.5,
+        29.8
+      ],
+      "uuid": "7d5f9011-c0de-4000-8000-000000000020",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Stair railing upright 1.29 3",
+      "type": "cube",
+      "from": [
+        12.45,
+        14,
+        18.55
+      ],
+      "to": [
+        13.35,
+        22,
+        19.45
+      ],
+      "color": 3,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        12.899999999999999,
+        18,
+        19
+      ],
+      "uuid": "7d5f9011-c0de-4000-8000-000000000021",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Stair railing upright 1.29 5",
+      "type": "cube",
+      "from": [
+        12.45,
+        21,
+        11.35
+      ],
+      "to": [
+        13.35,
+        29,
+        12.25
+      ],
+      "color": 3,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        12.899999999999999,
+        25,
+        11.8
+      ],
+      "uuid": "7d5f9011-c0de-4000-8000-000000000022",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Sloping rail upper 1.29",
+      "type": "cube",
+      "from": [
+        12.45,
+        15.9,
+        8.25
+      ],
+      "to": [
+        13.35,
+        16.9,
+        31.75
+      ],
+      "color": 4,
+      "rotation": [
+        22,
+        0,
+        0
+      ],
+      "origin": [
+        12.899999999999999,
+        16.4,
+        20
+      ],
+      "uuid": "7d5f9011-c0de-4000-8000-000000000023",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Archive deck rail post -1.42 -0.9",
+      "type": "cube",
+      "from": [
+        -14.7,
+        22.3,
+        -9.5
+      ],
+      "to": [
+        -13.7,
+        30.3,
+        -8.5
+      ],
+      "color": 3,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        -14.2,
+        26.3,
+        -9
+      ],
+      "uuid": "7d5f9011-c0de-4000-8000-000000000024",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Archive deck rail post -1.42 0.65",
+      "type": "cube",
+      "from": [
+        -14.7,
+        22.3,
+        6
+      ],
+      "to": [
+        -13.7,
+        30.3,
+        7
+      ],
+      "color": 3,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        -14.2,
+        26.3,
+        6.5
+      ],
+      "uuid": "7d5f9011-c0de-4000-8000-000000000025",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Archive deck rail post 1.42 -0.9",
+      "type": "cube",
+      "from": [
+        13.7,
+        22.3,
+        -9.5
+      ],
+      "to": [
+        14.7,
+        30.3,
+        -8.5
+      ],
+      "color": 3,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        14.2,
+        26.3,
+        -9
+      ],
+      "uuid": "7d5f9011-c0de-4000-8000-000000000026",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Archive deck rail post 1.42 0.65",
+      "type": "cube",
+      "from": [
+        13.7,
+        22.3,
+        6
+      ],
+      "to": [
+        14.7,
+        30.3,
+        7
+      ],
+      "color": 3,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        14.2,
+        26.3,
+        6.5
+      ],
+      "uuid": "7d5f9011-c0de-4000-8000-000000000027",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Archive deck rear parapet",
+      "type": "cube",
+      "from": [
+        -13.5,
+        26.1,
+        -11.2
+      ],
+      "to": [
+        13.5,
+        27.1,
+        -10.2
+      ],
+      "color": 4,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        0,
+        26.6,
+        -10.7
+      ],
+      "uuid": "7d5f9011-c0de-4000-8000-000000000028",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Archive floor edge illumination",
+      "type": "cube",
+      "from": [
+        -14,
+        22.2,
+        9.7
+      ],
+      "to": [
+        14,
+        22.8,
+        10.7
+      ],
+      "color": 5,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        0,
+        22.5,
+        10.2
+      ],
+      "uuid": "7d5f9011-c0de-4000-8000-000000000029",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    }
+  ],
+  "outliner": [
+    "7d5f9011-c0de-4000-8000-000000000001",
+    "7d5f9011-c0de-4000-8000-000000000002",
+    "7d5f9011-c0de-4000-8000-000000000003",
+    "7d5f9011-c0de-4000-8000-000000000004",
+    "7d5f9011-c0de-4000-8000-000000000005",
+    "7d5f9011-c0de-4000-8000-000000000006",
+    "7d5f9011-c0de-4000-8000-000000000007",
+    "7d5f9011-c0de-4000-8000-000000000008",
+    "7d5f9011-c0de-4000-8000-000000000009",
+    "7d5f9011-c0de-4000-8000-000000000010",
+    "7d5f9011-c0de-4000-8000-000000000011",
+    "7d5f9011-c0de-4000-8000-000000000012",
+    "7d5f9011-c0de-4000-8000-000000000013",
+    "7d5f9011-c0de-4000-8000-000000000014",
+    "7d5f9011-c0de-4000-8000-000000000015",
+    "7d5f9011-c0de-4000-8000-000000000016",
+    "7d5f9011-c0de-4000-8000-000000000017",
+    "7d5f9011-c0de-4000-8000-000000000018",
+    "7d5f9011-c0de-4000-8000-000000000019",
+    "7d5f9011-c0de-4000-8000-000000000020",
+    "7d5f9011-c0de-4000-8000-000000000021",
+    "7d5f9011-c0de-4000-8000-000000000022",
+    "7d5f9011-c0de-4000-8000-000000000023",
+    "7d5f9011-c0de-4000-8000-000000000024",
+    "7d5f9011-c0de-4000-8000-000000000025",
+    "7d5f9011-c0de-4000-8000-000000000026",
+    "7d5f9011-c0de-4000-8000-000000000027",
+    "7d5f9011-c0de-4000-8000-000000000028",
+    "7d5f9011-c0de-4000-8000-000000000029"
+  ],
+  "textures": []
+}
