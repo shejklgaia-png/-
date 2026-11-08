@@ -1,5 +1,5 @@
 extends Node3D
-# v130: enlarged safe-area SERA preview and user-authored NEXUSpose playback.
+# v131: also recognize the authored NEXUS_pose spelling (underscore).
 # Preserve v127 kiosk/occlusion, v125 touch navigation and v124 Blockbench geometry.
 const Modules = preload("res://assets/base_command_modules.gd")
 const SeraRig = preload("res://scripts/sera_rig.gd")
@@ -41,7 +41,7 @@ var customize_mouse_last_x: float = 0.0
 
 const CUSTOMIZE_PREVIEW_DISTANCE: float = 3.25
 const CUSTOMIZE_PREVIEW_ROTATION_SAMPLES: int = 16
-const NEXUS_POSE_NAME: String = "NEXUSpose"
+const NEXUS_POSE_NAMES: Array[String] = ["NEXUS_pose", "NEXUSpose"]
 # Authoritative synchronized Blockbench file first; canonical source fallback.
 # Both are JSON text readable by the Android Godot editor after GitSync.
 const NEXUS_POSE_SOURCES: Array[String] = [
@@ -289,7 +289,7 @@ func _sera_display() -> void:
     var bind_positions: Dictionary = rig.get("bind_positions")
     var bind_rotations: Dictionary = rig.get("bind_rotations")
     if not _apply_nexus_pose(rig):
-        # A user-authored NEXUSpose has not reached the repo yet. Preserve the
+        # The user-authored NEXUS_pose has not reached the repo yet. Preserve the
         # existing neutral display until that named pose is available.
         var arm_angles := {"UpperArm_R": -38.0, "UpperArm_L": 38.0,
             "Forearm_R": -8.0, "Forearm_L": 8.0,
@@ -319,15 +319,16 @@ func _apply_nexus_pose(rig: Node3D) -> bool:
         for raw_clip in clips:
             if not raw_clip is Dictionary:
                 continue
-            if str(raw_clip.get("name", "")) != NEXUS_POSE_NAME:
+            var pose_name: String = str(raw_clip.get("name", ""))
+            if not NEXUS_POSE_NAMES.has(pose_name):
                 continue
             if raw_clip.get("animators", {}).is_empty():
                 continue
             rig.call("_build_animations", {"animations": [raw_clip]})
             var available: Dictionary = rig.get("animations")
-            if not available.has(NEXUS_POSE_NAME):
+            if not available.has(pose_name):
                 continue
-            rig.set("current_clip", NEXUS_POSE_NAME)
+            rig.set("current_clip", pose_name)
             rig.set("clip_time", 0.0)
             rig.set("blending_for", 1.0)
             rig.set("blend_duration", 0.0)
