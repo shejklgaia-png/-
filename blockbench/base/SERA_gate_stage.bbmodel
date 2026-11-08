@@ -1,0 +1,930 @@
+{
+  "meta": {
+    "format_version": "4.10",
+    "model_format": "free",
+    "box_uv": false
+  },
+  "name": "SERA_gate_stage",
+  "resolution": {
+    "width": 16,
+    "height": 16
+  },
+  "elements": [
+    {
+      "name": "High gate deck",
+      "type": "cube",
+      "from": [
+        -31,
+        21.7,
+        -6.25
+      ],
+      "to": [
+        31,
+        24.5,
+        9.25
+      ],
+      "color": 2,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        0,
+        23.1,
+        1.5
+      ],
+      "uuid": "7d5f9011-c0de-4000-8000-000000000001",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Recessed arch void",
+      "type": "cube",
+      "from": [
+        -26.8,
+        25.6,
+        -5.4
+      ],
+      "to": [
+        26.8,
+        79.4,
+        -4.2
+      ],
+      "color": 0,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        0,
+        52.5,
+        -4.800000000000001
+      ],
+      "uuid": "7d5f9011-c0de-4000-8000-000000000002",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Gate raised apron fascia",
+      "type": "cube",
+      "from": [
+        -29,
+        16.95,
+        9.55
+      ],
+      "to": [
+        29,
+        21.85,
+        10.85
+      ],
+      "color": 3,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        0,
+        19.4,
+        10.2
+      ],
+      "uuid": "7d5f9011-c0de-4000-8000-000000000003",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Gate understructure",
+      "type": "cube",
+      "from": [
+        -25.5,
+        12.25,
+        -3.25
+      ],
+      "to": [
+        25.5,
+        21.75,
+        4.25
+      ],
+      "color": 0,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        0,
+        17,
+        0.5
+      ],
+      "uuid": "7d5f9011-c0de-4000-8000-000000000004",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Gate foundation pilaster -2.7",
+      "type": "cube",
+      "from": [
+        -28.75,
+        0,
+        -8.2
+      ],
+      "to": [
+        -25.25,
+        17.4,
+        -4.2
+      ],
+      "color": 2,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        -27,
+        8.7,
+        -6.199999999999999
+      ],
+      "uuid": "7d5f9011-c0de-4000-8000-000000000005",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Gate column edge luminaire -2.7",
+      "type": "cube",
+      "from": [
+        -27.6,
+        23.15,
+        8.5
+      ],
+      "to": [
+        -26.4,
+        24.05,
+        9.7
+      ],
+      "color": 5,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        -27,
+        23.6,
+        9.1
+      ],
+      "uuid": "7d5f9011-c0de-4000-8000-000000000006",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Gate foundation pilaster 2.7",
+      "type": "cube",
+      "from": [
+        25.25,
+        0,
+        -8.2
+      ],
+      "to": [
+        28.75,
+        17.4,
+        -4.2
+      ],
+      "color": 2,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        27,
+        8.7,
+        -6.199999999999999
+      ],
+      "uuid": "7d5f9011-c0de-4000-8000-000000000007",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Gate column edge luminaire 2.7",
+      "type": "cube",
+      "from": [
+        26.4,
+        23.15,
+        8.5
+      ],
+      "to": [
+        27.6,
+        24.05,
+        9.7
+      ],
+      "color": 5,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        27,
+        23.6,
+        9.1
+      ],
+      "uuid": "7d5f9011-c0de-4000-8000-000000000008",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Gate apron warning -1.7",
+      "type": "cube",
+      "from": [
+        -20,
+        24.6,
+        7.85
+      ],
+      "to": [
+        -14,
+        25.2,
+        9.15
+      ],
+      "color": 6,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        -17,
+        24.9,
+        8.5
+      ],
+      "uuid": "7d5f9011-c0de-4000-8000-000000000009",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Gate apron warning 1.7",
+      "type": "cube",
+      "from": [
+        14,
+        24.6,
+        7.85
+      ],
+      "to": [
+        20,
+        25.2,
+        9.15
+      ],
+      "color": 6,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        17,
+        24.9,
+        8.5
+      ],
+      "uuid": "7d5f9011-c0de-4000-8000-000000000010",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Gate apron center path",
+      "type": "cube",
+      "from": [
+        -0.9,
+        24.45,
+        6.5
+      ],
+      "to": [
+        0.9,
+        24.95,
+        10.5
+      ],
+      "color": 5,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        0,
+        24.7,
+        8.5
+      ],
+      "uuid": "7d5f9011-c0de-4000-8000-000000000011",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    }
+  ],
+  "outliner": [
+    "7d5f9011-c0de-4000-8000-000000000001",
+    "7d5f9011-c0de-4000-8000-000000000002",
+    "7d5f9011-c0de-4000-8000-000000000003",
+    "7d5f9011-c0de-4000-8000-000000000004",
+    "7d5f9011-c0de-4000-8000-000000000005",
+    "7d5f9011-c0de-4000-8000-000000000006",
+    "7d5f9011-c0de-4000-8000-000000000007",
+    "7d5f9011-c0de-4000-8000-000000000008",
+    "7d5f9011-c0de-4000-8000-000000000009",
+    "7d5f9011-c0de-4000-8000-000000000010",
+    "7d5f9011-c0de-4000-8000-000000000011"
+  ],
+  "textures": []
+}
