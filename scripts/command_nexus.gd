@@ -1,5 +1,5 @@
 extends Node3D
-# v145: move the projected BODY silhouette center at constant speed on a strict line; delay glow until arrival.
+# v146: clamp the projected SERA body envelope to stop mid-flight ballooning; retain a straight center path and delayed backdrop.
 # Preserve v127 kiosk/occlusion, v125 touch navigation and v124 Blockbench geometry.
 const Modules = preload("res://assets/base_command_modules.gd")
 const SeraRig = preload("res://scripts/sera_rig.gd")
@@ -817,10 +817,11 @@ func _customize_projected_ndc(point: Vector3, view_fov: float) -> Vector2:
         point.x / (depth * half_tan * aspect),
         point.y / (depth * half_tan))
 
-# Body landmark bounding center in normalized screen coordinates. Exclude
-# the sword/shield so their wide reach does not pull the visible robot sideways.
-func _customize_body_center_ndc(camera_local: Transform3D,
-        view_fov: float) -> Vector2:
+# Measure the projected body envelope, not just its center. The model's
+# world scale and perspective depth may otherwise make it grow much larger
+# mid-flight despite the center following a straight line.
+func _customize_body_bounds_ndc(camera_local: Transform3D,
+        view_fov: float) -> Rect2:
     var minimum := Vector2(INF, INF)
     var maximum := Vector2(-INF, -INF)
     var found := false
@@ -834,9 +835,14 @@ func _customize_body_center_ndc(camera_local: Transform3D,
         maximum = maximum.max(screen)
         found = true
     if not found:
-        return _customize_projected_ndc(
+        var center := _customize_projected_ndc(
             camera_local * customize_motion_torso_local, view_fov)
-    return (minimum + maximum) * 0.5
+        return Rect2(center - Vector2(0.005, 0.005), Vector2(0.01, 0.01))
+    return Rect2(minimum, maximum - minimum)
+
+func _customize_body_center_ndc(camera_local: Transform3D,
+        view_fov: float) -> Vector2:
+    return _customize_body_bounds_ndc(camera_local, view_fov).get_center()
 
 func _apply_customization_entrance(progress: float,
         start_camera_local: Transform3D, end_camera_local: Transform3D,
@@ -844,19 +850,22 @@ func _apply_customization_entrance(progress: float,
     if not customize_preview_active or sera_display_rig == null or cam == null:
         return
     customize_motion_progress = progress
-    # The apparent center of the body (not the rig's feet or one joint) is
-    # the landmark that moves on a straight screen-space segment.
-    var start_ndc: Vector2 = _customize_body_center_ndc(
+    # Linear screen-space center AND linear apparent width/height. A straight
+    # center alone (v145) still let perspective/scaling balloon the body.
+    var start_bounds: Rect2 = _customize_body_bounds_ndc(
         start_camera_local, start_fov)
-    var end_ndc: Vector2 = _customize_body_center_ndc(
+    var end_bounds: Rect2 = _customize_body_bounds_ndc(
         end_camera_local, end_fov)
-    var target_ndc: Vector2 = start_ndc.lerp(end_ndc, progress)
+    var target_ndc: Vector2 = start_bounds.get_center().lerp(
+        end_bounds.get_center(), progress)
+    var target_size: Vector2 = start_bounds.size.lerp(
+        end_bounds.size, progress)
     var start_torso: Vector3 = start_camera_local * customize_motion_torso_local
     var end_torso: Vector3 = end_camera_local * customize_motion_torso_local
     var depth: float = lerpf(-start_torso.z, -end_torso.z, progress)
     var half_tan: float = tan(deg_to_rad(cam.fov) * 0.5)
     var aspect: float = maxf(hud.size.x, 1.0) / maxf(hud.size.y, 1.0)
-    # Keep rotation and scale smooth, without easing the screen POSITION.
+    # The pose still eases, but projected size follows a predictable envelope.
     var pose_progress: float = progress * progress * (3.0 - 2.0 * progress)
     var camera_relative: Transform3D = start_camera_local.interpolate_with(
         end_camera_local, pose_progress)
@@ -864,15 +873,22 @@ func _apply_customization_entrance(progress: float,
         target_ndc.x * depth * half_tan * aspect,
         target_ndc.y * depth * half_tan, -depth) - (
             camera_relative.basis * customize_motion_torso_local)
-    # Correct the *whole body* bounding center as it changes shape during
-    # yaw/scale interpolation. Four inexpensive passes converge under
-    # perspective even when near/far body bones have different depth.
-    for pass_index in range(4):
-        var actual_ndc: Vector2 = _customize_body_center_ndc(
+    # Bound the BODY's displayed width and height independently. The smaller
+    # ratio prevents either projected dimension from exceeding the straight
+    # interpolation of its start/end size. Two passes replace the former four
+    # position-only passes, without an unbounded mid-flight scale surge.
+    for fit_pass in range(2):
+        var bounds: Rect2 = _customize_body_bounds_ndc(
             camera_relative, cam.fov)
-        var delta_ndc: Vector2 = target_ndc - actual_ndc
-        camera_relative.origin.x += delta_ndc.x * depth * half_tan * aspect
-        camera_relative.origin.y += delta_ndc.y * depth * half_tan
+        var fit_width: float = target_size.x / maxf(bounds.size.x, 0.001)
+        var fit_height: float = target_size.y / maxf(bounds.size.y, 0.001)
+        var uniform_fit: float = clampf(minf(fit_width, fit_height), 0.10, 3.0)
+        camera_relative.basis = camera_relative.basis.scaled(
+            Vector3.ONE * uniform_fit)
+        bounds = _customize_body_bounds_ndc(camera_relative, cam.fov)
+        var offset_ndc: Vector2 = target_ndc - bounds.get_center()
+        camera_relative.origin.x += offset_ndc.x * depth * half_tan * aspect
+        camera_relative.origin.y += offset_ndc.y * depth * half_tan
     sera_display_rig.global_transform = cam.global_transform * camera_relative
 
 func _customization_entrance_arrived(final_world: Transform3D) -> void:
