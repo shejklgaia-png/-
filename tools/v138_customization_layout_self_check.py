@@ -9,7 +9,7 @@ root = Path(__file__).resolve().parents[1]
 s = (root/"scripts/command_nexus.gd").read_text(encoding="utf-8")
 p = (root/"project.godot").read_text(encoding="utf-8")
 shader = (root/"shaders/nexus_customize_radial_glow.gdshader").read_text(encoding="utf-8")
-assert 'config/name="SERA v138 - Three-zone customization"' in p
+assert 'config/name="SERA v139 - Animated enlarged SERA"' in p
 assert '"CUSTOMIZE": Vector2(0.035, 0.435)' in s
 assert 'func _customize_square_menu_rect(view: Vector2) -> Rect2:' in s
 assert 'var square_side: float = minf(view.x * placement.y, view.y * 0.28)' in s
@@ -19,7 +19,7 @@ assert 'Vector2(view.x * 0.525, view.y * 0.135)' in s
 assert 'Vector2(view.x * 0.440, view.y * 0.730)' in s
 assert 'func _customize_model_area(view: Vector2) -> Rect2:' in s
 assert 'Vector2(square.position.x, top)' in s
-assert 'var bottom: float = minf(view.y * 0.54,' in s
+assert 'var bottom: float = minf(view.y * 0.615,' in s
 assert 'focus_panel.position = square.position' in s
 assert 'focus_panel.size = square.size' in s
 assert 'customize_right_panel.position = tall.position' in s
@@ -60,7 +60,7 @@ def rects(width, height):
     square = (left_x, .865*height-side, side, side)
     tall = (.525*width, .135*height, .44*width, .73*height)
     top = .10*height
-    bottom = min(.54*height, square[1]-max(12., .02*height))
+    bottom = min(.615*height, square[1]-max(12., .012*height))
     preview = (left_x, top, side, bottom-top)
     margin = max(16., width*.04)
     back = (width-margin-62, height-margin-62, 62, 62)
