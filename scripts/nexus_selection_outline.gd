@@ -1,10 +1,11 @@
 extends Control
 # v127: thicker camera-projected contours with occlusion-safe gate line fragments.
-# No cloned mesh instances, render passes, particles, glow or screen flashes.
+# Selection lines only; CUSTOMIZE portrait's separate 3D radial backdrop is in CommandNexus.
 var polygons: Dictionary = {}
 # Optional open polylines after gate/SERA occlusion (only for DEPLOYMENT).
 var clipped_strokes: Dictionary = {}
 var active_target: String = ""
+var hide_customize_preview_outline: bool = false
 var pulse_time: float = 0.0
 
 func _ready() -> void:
@@ -20,6 +21,8 @@ func _draw() -> void:
     var blink := 0.5 + 0.5 * sin(pulse_time * 3.6)
     for name in polygons.keys():
         if not active_target.is_empty() and name != active_target:
+            continue
+        if hide_customize_preview_outline and name == "CUSTOMIZE":
             continue
         var selected: bool = name == active_target
         var alpha := 0.98 if selected else 0.15 + 0.47 * blink

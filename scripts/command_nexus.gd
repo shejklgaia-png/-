@@ -1,9 +1,10 @@
 extends Node3D
-# v133: immediate selected-outline feedback on target press and Back.
+# v134: CUSTOMIZE portrait adds radial cyan backdrop behind enlarged SERA; hides preview contour.
 # Preserve v127 kiosk/occlusion, v125 touch navigation and v124 Blockbench geometry.
 const Modules = preload("res://assets/base_command_modules.gd")
 const SeraRig = preload("res://scripts/sera_rig.gd")
 const NexusSelectionOutline = preload("res://scripts/nexus_selection_outline.gd")
+const CUSTOMIZE_GLOW_SHADER = preload("res://shaders/nexus_customize_radial_glow.gdshader")
 
 const GATE_ORIGIN: Vector3 = Vector3(4.00, 0.02, -10.48)
 const SERA_STAGE_ORIGIN: Vector3 = Vector3(0.0, 0.0, -4.75)
@@ -30,6 +31,7 @@ var action_label: Label
 var sera_display_stand: Node3D
 var sera_display_rig: Node3D
 var sera_original_transform: Transform3D
+var customize_glow_quad: MeshInstance3D
 var customize_preview_active: bool = false
 var customize_preview_position: Vector3 = Vector3.ZERO
 var customize_preview_scale: float = 0.80
@@ -41,6 +43,9 @@ var customize_mouse_drag: bool = false
 var customize_mouse_last_x: float = 0.0
 
 const CUSTOMIZE_PREVIEW_DISTANCE: float = 3.25
+const CUSTOMIZE_GLOW_DEPTH_OFFSET: float = 0.70
+const CUSTOMIZE_GLOW_SCREEN_WIDTH: float = 0.60
+const CUSTOMIZE_GLOW_SCREEN_HEIGHT: float = 0.56
 const CUSTOMIZE_PREVIEW_TARGET_WIDTH_RATIO: float = 0.390
 const CUSTOMIZE_PREVIEW_ROTATION_SAMPLES: int = 16
 const NEXUS_POSE_NAMES: Array[String] = ["NEXUS_pose", "NEXUSpose"]
@@ -102,6 +107,7 @@ func _ready() -> void:
     _pad_center()
     _sera_display()
     _camera()
+    _create_customization_glow()
     _wall_mark()
     _hud()
 
@@ -509,6 +515,8 @@ func _layout_hud() -> void:
     action_label.position = Vector2.ZERO
     action_label.size = action_panel.size
     _update_projected_silhouettes()
+    if customize_preview_active:
+        _update_customization_glow()
 
 func _keep_customization_clear() -> void:
     # Guarantee real model silhouette (including held sword and limbs) is never
@@ -524,6 +532,53 @@ func _keep_customization_clear() -> void:
         # Leave 16 logical pixels between the entire mesh and the menu body.
         focus_panel.size.x = minf(focus_panel.size.x,
             maxf(0.0, leftmost - focus_panel.position.x - 16.0))
+
+# A single camera-facing translucent 3D quad sits behind the floating SERA.
+# It is not a screen overlay: depth testing keeps the character in front and
+# preserves the existing 3D hangar visible through the radial falloff.
+func _create_customization_glow() -> void:
+    var quad := QuadMesh.new()
+    quad.size = Vector2.ONE
+    var material := ShaderMaterial.new()
+    material.shader = CUSTOMIZE_GLOW_SHADER
+    # Same cyan RGB as nexus_selection_outline.gd's active stroke.
+    material.set_shader_parameter("glow_color", Color(0.35, 0.85, 0.98, 1.0))
+    var backdrop := MeshInstance3D.new()
+    backdrop.name = "CustomizePortraitRadialBackdrop"
+    backdrop.mesh = quad
+    backdrop.material_override = material
+    backdrop.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+    backdrop.visible = false
+    cam.add_child(backdrop)
+    customize_glow_quad = backdrop
+
+func _update_customization_glow() -> void:
+    if not customize_preview_active or customize_glow_quad == null or cam == null or hud == null:
+        return
+    var viewport_size := hud.size
+    if viewport_size.x <= 1.0 or viewport_size.y <= 1.0:
+        return
+    # Measure the fitted character instead of a fixed world-space target: the
+    # halo remains behind SERA when yaw rotates or the phone aspect changes.
+    var rect := _customization_screen_bounds()
+    if rect.size.x <= 1.0 or rect.size.y <= 1.0:
+        return
+    var placement: Vector2 = PANEL_LAYOUTS["CUSTOMIZE"]
+    var safe_left: float = viewport_size.x * (placement.x + placement.y) + 18.0
+    var safe_right: float = viewport_size.x * 0.970
+    var center: Vector2 = rect.position + rect.size * 0.5
+    center.x = clampf(center.x, safe_left + 20.0, safe_right - 20.0)
+    var depth: float = -customize_preview_position.z + CUSTOMIZE_GLOW_DEPTH_OFFSET
+    var half_height: float = depth * tan(deg_to_rad(cam.fov) * 0.5)
+    var half_width: float = half_height * viewport_size.x / viewport_size.y
+    customize_glow_quad.position = Vector3(
+        (center.x / viewport_size.x - 0.5) * 2.0 * half_width,
+        (0.5 - center.y / viewport_size.y) * 2.0 * half_height,
+        -depth)
+    var quad := customize_glow_quad.mesh as QuadMesh
+    quad.size = Vector2(
+        2.0 * half_width * CUSTOMIZE_GLOW_SCREEN_WIDTH,
+        2.0 * half_height * CUSTOMIZE_GLOW_SCREEN_HEIGHT)
 
 # The SAME exhibition rig stays parented to its original display stand.
 # A camera-relative transform presents it as a flat-to-screen foreground
@@ -550,13 +605,22 @@ func _show_customization_preview() -> void:
     _capture_sera_silhouette(sera_display_rig)
     _fit_customization_preview()
     _capture_sera_silhouette(sera_display_rig)
+    _update_customization_glow()
+    customize_glow_quad.visible = true
+    # Hide only the selected CUSTOMIZE contour in portrait mode. The normal
+    # overview's selectable outline and all other terminals are unchanged.
+    outline.set("hide_customize_preview_outline", true)
     _update_projected_silhouettes()
+    outline.queue_redraw()
 
 func _restore_customization_preview() -> void:
     customize_touch_id = -1
     customize_mouse_drag = false
     if not customize_preview_active or sera_display_rig == null:
         return
+    if customize_glow_quad != null:
+        customize_glow_quad.visible = false
+    # Keep the portrait outline hidden until the return camera finishes.
     sera_display_rig.transform = sera_original_transform
     customize_preview_active = false
     _capture_sera_silhouette(sera_display_rig)
@@ -718,6 +782,7 @@ func _rotate_customization_preview(delta_x: float) -> void:
     customize_preview_yaw = wrapf(customize_preview_yaw - yaw_delta, -PI, PI)
     _apply_customization_preview_transform()
     _constrain_customization_preview_to_safe_area()
+    _update_customization_glow()
     _update_projected_silhouettes()
 
 func _update_projected_silhouettes() -> void:
@@ -969,6 +1034,7 @@ func _return_to_overview() -> void:
 func _overview_arrived() -> void:
     in_transition = false
     focused_target = ""
+    outline.set("hide_customize_preview_outline", false)
     _update_projected_silhouettes()
     outline.queue_redraw()
 
