@@ -1,5 +1,5 @@
 extends Node3D
-# v121: spatial composition and read-only signs; modules remain Blockbench-authored.
+# v123: three-depth base with elevated archive stairs and a distant oversized gate.
 # This read-only display renders their embedded geometry in material batches.
 const Modules = preload("res://assets/base_command_modules.gd")
 const SeraRig = preload("res://scripts/sera_rig.gd")
@@ -12,12 +12,14 @@ var tags: Array[Dictionary] = []
 func _ready() -> void:
     _environment()
     _module("hangar_shell", Vector3.ZERO)
-    _module("maintenance_pad", Vector3(0.0, 0.0, -4.60))
-    _module("maintenance_canopy", Vector3(0.0, 8.0, -8.95))
-    _module("deployment_gate", Vector3(2.94, 0.02, -8.28), 0.0, 0.70)
-    _module("data_bank", Vector3(-3.12, 0.0, -8.05))
-    _module("kiosk", Vector3(-1.70, 0.0, -0.65), deg_to_rad(18.0))
-    _module("kiosk", Vector3(1.70, 0.0, -0.65), deg_to_rad(-18.0))
+    _module("maintenance_pad", Vector3(0.0, 0.0, -4.80))
+    _module("maintenance_canopy", Vector3(0.0, 8.50, -5.20), 0.0, 0.96)
+    _module("gate_stage", Vector3(2.45, 0.0, -9.75))
+    _module("deployment_gate", Vector3(2.45, 2.45, -9.75), 0.0, 1.40)
+    _module("archive_stairs", Vector3(-3.55, 0.0, -8.25))
+    _module("data_bank", Vector3(-3.55, 2.25, -8.25))
+    _module("kiosk", Vector3(-1.85, 0.0, 0.25), deg_to_rad(28.0))
+    _module("kiosk", Vector3(1.85, 0.0, 0.25), deg_to_rad(-28.0))
     _render_batches()
     _pad_center()
     _sera_display()
@@ -98,7 +100,7 @@ func _pad_center() -> void:
     cylinder.height = 0.16
     cylinder.radial_segments = 12
     surface.mesh = cylinder
-    surface.position = Vector3(0.0, 0.33, -4.60)
+    surface.position = Vector3(0.0, 0.33, -4.80)
     surface.material_override = _mat(2)
     add_child(surface)
 
@@ -107,7 +109,7 @@ func _sera_display() -> void:
     # exhibition pose rather than Wait_motion's crouched combat stance.
     var stand := Node3D.new()
     stand.name = "DisplayStand"
-    stand.position = Vector3(0.0, 0.40, -4.60)
+    stand.position = Vector3(0.0, 0.40, -4.80)
     add_child(stand)
     var rig: Node3D = SeraRig.new()
     rig.name = "SeraDisplay"
@@ -136,11 +138,11 @@ func _sera_display() -> void:
 func _camera() -> void:
     var cam := Camera3D.new()
     cam.name = "NexusPortraitCamera"
-    cam.position = Vector3(0.0, 3.8, 7.40)
+    cam.position = Vector3(0.0, 4.00, 8.65)
     cam.near = 0.05
-    cam.fov = 56.0
+    cam.fov = 62.0
     add_child(cam)
-    cam.look_at(Vector3(0.0, 2.50, -4.70), Vector3.UP)
+    cam.look_at(Vector3(0.0, 2.70, -5.15), Vector3.UP)
     cam.current = true
 
 func _wall_mark() -> void:
@@ -200,10 +202,10 @@ func _hud() -> void:
     canvas.add_child(hud)
     hud.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
     # No HUD title or top separator: leave the upper hangar composition unobstructed.
-    _tag("DATA ARCHIVE", "RECORDS / LOGS", 0.018, 0.205, 0.315)
-    _tag("DEPLOYMENT", "MISSION GATE", 0.666, 0.205, 0.315)
-    _tag("TRAINING", "SIMULATION", 0.018, 0.505, 0.315)
-    _tag("SYSTEM", "SETTINGS", 0.666, 0.505, 0.315)
+    _tag("DATA ARCHIVE", "RECORDS / LOGS", 0.018, 0.310, 0.315)
+    _tag("DEPLOYMENT", "MISSION GATE", 0.735, 0.125, 0.250)
+    _tag("TRAINING", "SIMULATION", 0.018, 0.535, 0.315)
+    _tag("SYSTEM", "SETTINGS", 0.666, 0.535, 0.315)
     _tag("CUSTOMIZE", "UNIT CONFIGURATION", 0.305, 0.805, 0.39)
     hud.resized.connect(_layout_hud)
     _layout_hud()
