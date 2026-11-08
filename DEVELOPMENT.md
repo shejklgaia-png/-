@@ -650,3 +650,11 @@
 - Androidの画面タップをraw InputEventScreenTouchで処理し、戦闘操作の設定Input.emulate_mouse_from_touch=falseは変更しない。PCクリックにも対応。
 - 変更：scripts/command_nexus.gd、project.godot、既存静的テストv120/v121/v123/v124。追加：scripts/nexus_selection_outline.gd、tools/v125_nexus_focus_self_check.py、README_v125_ja.md。モデル・演出光源・戦闘シーン・既存アニメーション・ブロックベンチ資産・音声等は変更なし。
 - Godot CLI、Android実機での動作確認は行えていないため、拠点の投影タッチ領域・各寄り構図・戻る操作は実機で追加検証が必要。
+
+## v126（2026-11-08） — モデル形状に沿った選択枠・明滅・右下戻るUI
+- 基準：GitHub main v125。手動で指定していた5つの6点ハルを廃止。Blockbench端末・ゲートの実モデル部品とセラ展示用Rigの表示メッシュを投影し、2D形状の結合によって選択用外周を生成する。3D複製モデルは描画せず、CanvasItem輪郭線のみ追加（余分なドローコールなし）。
+- 各輪郭は通常画面でキャッシュし、カメラの0.18秒Tween中と画面サイズ変更時にだけ再計算。ベースの簡易ポリゴンオフセット2pxと境界結合で部品の隙間・内側線を軽減。凸包近似のため厳密なピクセルシルエットではない。
+- 暗い枠の点滅を透明度15〜62%、角速度3.6rad/秒に強化。選択対象のみ透明度98%・線幅3px固定表示。
+- 接近画面の「戻る」UIを左上から画面右下に移し、接近メニューパネルを必要に応じて上方へ配置して重なりを防ぐ。通常の戻る操作とトレーニングへの遷移も継続。
+- 変更：scripts/command_nexus.gd、scripts/nexus_selection_outline.gd、project.godot、v121/123/125静的検査、DEVELOPMENT.md。追加：README_v126_ja.md、tools/v126_nexus_model_outline_self_check.py。v125からの既存機能・v124ゲート演出、セラのモデルとBash/Guard_REACTIONモーション、他ブロックベンチ資産には変更なし。
+- 静的な形状・コード検証のみ。GodotパーサーとAndroid実機での枠表示・タップ判定・パフォーマンスは未検証。
