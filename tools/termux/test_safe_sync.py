@@ -109,7 +109,9 @@ def main():
         )
         assert "local_new" in model.read_text()
 
-        # Deletions are not automatically mirrored.
+        # Deletions are not automatically mirrored. Restore the local
+        # unpushed model edit first so the previous conflict is not retried.
+        model.write_text('{"animations":[{"name":"NEXUS_pose","length":0}]}')
         (src / "README.txt").unlink()
         no_delete = run(sys.executable, str(SCRIPT), env=env)
         assert "NO CHANGES" in no_delete.stdout, no_delete.stdout
