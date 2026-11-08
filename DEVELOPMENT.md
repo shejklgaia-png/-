@@ -673,3 +673,11 @@
 - 全景からの0.18秒Cubic Ease Out、右下戻る、ゲート枠のセラ遮蔽、既存明滅輪郭、ブロックベンチ設備原本、Bash／Guard_REACTION、戦闘、BGM/SEに変更なし。
 - 変更：scripts/command_nexus.gd、project.godot、既存v125/v126/v127静的検査、DEVELOPMENT.md。追加：README_v128_ja.md、tools/v128_nexus_focus_panel_self_check.py。
 - 720×1280の静的投影計算とソース確認を実施。Godotでの実行・Android実機表示は未実施。
+
+## v129（2026-11-08） — カメラ平行のセラ浮遊プレビュー・左右ドラッグ回転
+- 基準：GitHub main v128（0651db6a79f770689e0cb912dea3705dd1c39dee）。既存のCUSTOMIZE背景、台座、建造物、カメラ構図、左半透明メニューをそのまま使用。接近後は展示用SeraRig本体だけをカメラに対して正面・平行な手前の位置へ移動して少し拡大表示する。モデルは複製せず、保存した元のローカル変換を戻る時に復元。
+- SeraRigの残像ノード解放を誘発するreparentを避け、常に元のスタンドの子として維持したままcamera.global_transformを基準にワールド変換を再設定する。カメラ・背景・ステージには変更なし。
+- モデルの全身・剣・盾の投影を360°/16サンプルで一度確認し、パネル右端+18pxから画面右97%、縦28〜76.5%の範囲内へ自動フィット。左右ドラッグ中もメニューと重なりにくい全周エンベロープを確保。
+- CUSTOMIZE右側領域のAndroidタッチドラッグ／PC左ボタンドラッグでモデルのY軸回転のみ変更。カメラ固定、パネル・右下戻るUIのドラッグ誤作動なし。指離しで回転停止、再選択時は正面向きへ復帰。元の選択輪郭も追従。
+- 変更：scripts/command_nexus.gd、project.godot、既存の静的検査v125〜v128、DEVELOPMENT.md。追加：README_v129_ja.md、tools/v129_customize_floating_preview_self_check.py。Bash／Guard_REACTION、Blockbench原本、戦闘シーンとBGM/SEは不変更。
+- 静的ソース確認のみ。Godotのパーサー検証・Android端末実機のドラッグ判定やプレビュー見え方の確認は未実施。
