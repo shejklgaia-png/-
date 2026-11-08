@@ -1,5 +1,5 @@
 extends Node3D
-# v144: keep the VISIBLE torso center on a straight line through moving camera frames.
+# v145: move the projected BODY silhouette center at constant speed on a strict line; delay glow until arrival.
 # Preserve v127 kiosk/occlusion, v125 touch navigation and v124 Blockbench geometry.
 const Modules = preload("res://assets/base_command_modules.gd")
 const SeraRig = preload("res://scripts/sera_rig.gd")
@@ -38,6 +38,9 @@ var customize_entrance_tween: Tween # Shared by forward and reverse exhibit moti
 var customize_transition_start_camera_pose: Transform3D = Transform3D.IDENTITY
 var customize_transition_start_camera_fov: float = 63.0
 var customize_motion_torso_local: Vector3 = Vector3.ZERO
+# Body-only bone pivots (no sword or shield) approximate the visible model
+# bounds; using only the torso pivot made the *silhouette* appear to arc.
+var customize_motion_body_markers: PackedVector3Array = PackedVector3Array()
 var customize_motion_start_local: Transform3D = Transform3D.IDENTITY
 var customize_motion_end_local: Transform3D = Transform3D.IDENTITY
 var customize_motion_start_fov: float = 63.0
@@ -714,6 +717,28 @@ func _customize_torso_anchor_local() -> Vector3:
         return summed / float(count)
     return Vector3.ZERO
 
+# Record a small, fixed set of body landmarks. This is cheap enough for an
+# Android device: ~19 pivots, not every Blockbench polygon or effect mesh.
+func _capture_customize_body_markers() -> void:
+    customize_motion_body_markers.clear()
+    if sera_display_rig == null:
+        return
+    var bones: Dictionary = sera_display_rig.get("bones")
+    var body_names: Array[String] = [
+        "Head", "Neck", "Chest", "Torso", "Waist",
+        "Shoulder_L", "Shoulder_R", "UpperArm_L", "UpperArm_R",
+        "Forearm_L", "Forearm_R", "Hand_L", "Hand_R",
+        "Thigh_L", "Thigh_R", "LowerLeg_L", "LowerLeg_R",
+        "Foot_L", "Foot_R"
+    ]
+    for raw_bone in bones.values():
+        var bone: Node3D = raw_bone
+        if body_names.has(bone.name):
+            customize_motion_body_markers.append(
+                sera_display_rig.to_local(bone.global_position))
+    if customize_motion_body_markers.is_empty():
+        customize_motion_body_markers.append(customize_motion_torso_local)
+
 func _show_customization_preview() -> void:
     if customize_preview_active or cam == null or sera_display_rig == null:
         return
@@ -723,6 +748,7 @@ func _show_customization_preview() -> void:
     # destination on this frame, then restore its start transform before draw.
     var initial_world: Transform3D = sera_display_rig.global_transform
     customize_motion_torso_local = _customize_torso_anchor_local()
+    _capture_customize_body_markers()
     customize_preview_position = Vector3(0.75, -0.20, -CUSTOMIZE_PREVIEW_DISTANCE)
     customize_preview_scale = 1.40
     customize_preview_fitted_scale = 1.40
@@ -744,7 +770,9 @@ func _show_customization_preview() -> void:
     # not from the moving/rotating character during the tween.
     _capture_customization_glow_layout()
     _update_customization_glow()
-    customize_glow_quad.visible = true
+    # The backdrop must NOT appear until the model actually reaches the
+    # designated enlarged position. It is revealed in the Tween completion.
+    customize_glow_quad.visible = false
     outline.set("hide_customize_preview_outline", true)
     sera_display_rig.global_transform = initial_world
     _capture_sera_silhouette(sera_display_rig)
@@ -758,8 +786,9 @@ func _show_customization_preview() -> void:
         customize_transition_start_camera_fov, cam.fov)
     in_transition = true
     customize_entrance_tween = create_tween()
-    customize_entrance_tween.set_trans(Tween.TRANS_CUBIC)
-    customize_entrance_tween.set_ease(Tween.EASE_IN_OUT)
+    # A linear time parameter makes the 2D position travel with constant
+    # velocity on its straight line. Scale/yaw ease separately below.
+    customize_entrance_tween.set_trans(Tween.TRANS_LINEAR)
     customize_entrance_tween.tween_method(_apply_customization_entrance.bind(
         start_camera_local, end_camera_local,
         customize_transition_start_camera_fov, cam.fov), 0.0, 1.0,
@@ -788,27 +817,62 @@ func _customize_projected_ndc(point: Vector3, view_fov: float) -> Vector2:
         point.x / (depth * half_tan * aspect),
         point.y / (depth * half_tan))
 
+# Body landmark bounding center in normalized screen coordinates. Exclude
+# the sword/shield so their wide reach does not pull the visible robot sideways.
+func _customize_body_center_ndc(camera_local: Transform3D,
+        view_fov: float) -> Vector2:
+    var minimum := Vector2(INF, INF)
+    var maximum := Vector2(-INF, -INF)
+    var found := false
+    for marker in customize_motion_body_markers:
+        var camera_point: Vector3 = camera_local * marker
+        if camera_point.z >= -0.05:
+            continue
+        var screen: Vector2 = _customize_projected_ndc(
+            camera_point, view_fov)
+        minimum = minimum.min(screen)
+        maximum = maximum.max(screen)
+        found = true
+    if not found:
+        return _customize_projected_ndc(
+            camera_local * customize_motion_torso_local, view_fov)
+    return (minimum + maximum) * 0.5
+
 func _apply_customization_entrance(progress: float,
         start_camera_local: Transform3D, end_camera_local: Transform3D,
         start_fov: float, end_fov: float) -> void:
     if not customize_preview_active or sera_display_rig == null or cam == null:
         return
     customize_motion_progress = progress
+    # The apparent center of the body (not the rig's feet or one joint) is
+    # the landmark that moves on a straight screen-space segment.
+    var start_ndc: Vector2 = _customize_body_center_ndc(
+        start_camera_local, start_fov)
+    var end_ndc: Vector2 = _customize_body_center_ndc(
+        end_camera_local, end_fov)
+    var target_ndc: Vector2 = start_ndc.lerp(end_ndc, progress)
     var start_torso: Vector3 = start_camera_local * customize_motion_torso_local
     var end_torso: Vector3 = end_camera_local * customize_motion_torso_local
-    var start_ndc: Vector2 = _customize_projected_ndc(start_torso, start_fov)
-    var end_ndc: Vector2 = _customize_projected_ndc(end_torso, end_fov)
-    var on_screen: Vector2 = start_ndc.lerp(end_ndc, progress)
     var depth: float = lerpf(-start_torso.z, -end_torso.z, progress)
     var half_tan: float = tan(deg_to_rad(cam.fov) * 0.5)
     var aspect: float = maxf(hud.size.x, 1.0) / maxf(hud.size.y, 1.0)
+    # Keep rotation and scale smooth, without easing the screen POSITION.
+    var pose_progress: float = progress * progress * (3.0 - 2.0 * progress)
     var camera_relative: Transform3D = start_camera_local.interpolate_with(
-        end_camera_local, progress)
-    var torso_camera_position := Vector3(
-        on_screen.x * depth * half_tan * aspect,
-        on_screen.y * depth * half_tan, -depth)
-    camera_relative.origin = torso_camera_position - (
-        camera_relative.basis * customize_motion_torso_local)
+        end_camera_local, pose_progress)
+    camera_relative.origin = Vector3(
+        target_ndc.x * depth * half_tan * aspect,
+        target_ndc.y * depth * half_tan, -depth) - (
+            camera_relative.basis * customize_motion_torso_local)
+    # Correct the *whole body* bounding center as it changes shape during
+    # yaw/scale interpolation. Four inexpensive passes converge under
+    # perspective even when near/far body bones have different depth.
+    for pass_index in range(4):
+        var actual_ndc: Vector2 = _customize_body_center_ndc(
+            camera_relative, cam.fov)
+        var delta_ndc: Vector2 = target_ndc - actual_ndc
+        camera_relative.origin.x += delta_ndc.x * depth * half_tan * aspect
+        camera_relative.origin.y += delta_ndc.y * depth * half_tan
     sera_display_rig.global_transform = cam.global_transform * camera_relative
 
 func _customization_entrance_arrived(final_world: Transform3D) -> void:
@@ -818,6 +882,11 @@ func _customization_entrance_arrived(final_world: Transform3D) -> void:
     sera_display_rig.global_transform = final_world
     _capture_sera_silhouette(sera_display_rig)
     _update_projected_silhouettes()
+    # The model has reached the specified preview position: NOW reveal the
+    # stationary cyber-blue grid and cyan radial halo, not during travel.
+    if customize_glow_quad != null:
+        _update_customization_glow()
+        customize_glow_quad.visible = true
     in_transition = false
 
 # On Back, retract the *currently rotated* model while the camera is also
@@ -843,8 +912,7 @@ func _begin_customization_retraction() -> void:
     _prepare_customization_motion(start_camera_local, stowed_camera_local,
         cam.fov, overview_fov)
     customize_entrance_tween = create_tween()
-    customize_entrance_tween.set_trans(Tween.TRANS_CUBIC)
-    customize_entrance_tween.set_ease(Tween.EASE_IN_OUT)
+    customize_entrance_tween.set_trans(Tween.TRANS_LINEAR)
     customize_entrance_tween.tween_method(_apply_customization_entrance.bind(
         start_camera_local, stowed_camera_local,
         cam.fov, overview_fov), 0.0, 1.0,

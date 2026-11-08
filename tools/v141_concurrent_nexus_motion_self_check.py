@@ -7,7 +7,7 @@ from pathlib import Path
 root = Path(__file__).resolve().parents[1]
 s = (root/"scripts/command_nexus.gd").read_text(encoding="utf-8")
 p = (root/"project.godot").read_text(encoding="utf-8")
-assert 'config/name="SERA v144 - Torso-anchored straight transfer"' in p
+assert 'config/name="SERA v145 - Linear visual-center transfer and delayed glow"' in p
 assert "CUSTOMIZE_ENTRANCE_SECONDS: float = 0.28" in s
 assert "CUSTOMIZE_RETRACTION_SECONDS: float = 0.28" in s
 assert "CAMERA_TRANSITION_SECONDS: float = 0.18" in s
@@ -42,7 +42,7 @@ assert "_show_customization_preview()" not in focus
 assert "customize_entrance_tween.is_running()" in focus
 assert 'in_transition = false' in focus
 assert 'in_transition = false' in arrive
-assert "customize_entrance_tween.set_ease(Tween.EASE_IN_OUT)" in show
+assert "customize_entrance_tween.set_trans(Tween.TRANS_LINEAR)" in show
 assert "start_camera_local.interpolate_with(" in blend
 
 # The Back input launches both Tweens; camera must never await stow completion.

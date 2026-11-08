@@ -9,7 +9,7 @@ root = Path(__file__).resolve().parents[1]
 script = (root/"scripts/command_nexus.gd").read_text(encoding="utf-8")
 shader = (root/"shaders/nexus_customize_radial_glow.gdshader").read_text(encoding="utf-8")
 project = (root/"project.godot").read_text(encoding="utf-8")
-assert 'config/name="SERA v144 - Torso-anchored straight transfer"' in project
+assert 'config/name="SERA v145 - Linear visual-center transfer and delayed glow"' in project
 
 def section(start, end):
     return script.split("func " + start, 1)[1].split("func " + end, 1)[0]
@@ -24,7 +24,8 @@ input_handler = section("_input(event: InputEvent) -> void:", "_tap_at(")
 # The size and position of SERA are established once, before the user turns it.
 assert show.index("_fit_customization_preview()") < show.index("_capture_customization_glow_layout()")
 assert show.index("_capture_customization_glow_layout()") < show.index("_update_customization_glow()")
-assert show.index("_update_customization_glow()") < show.index("customize_glow_quad.visible = true")
+assert show.index("_update_customization_glow()") < show.index("customize_glow_quad.visible = false")
+assert 'customize_glow_quad.visible = true' in script
 assert "customize_preview_yaw = wrapf(customize_preview_yaw - yaw_delta, -PI, PI)" in rotate
 assert "_apply_customization_preview_transform()" in rotate
 assert "_capture_sera_silhouette(sera_display_rig)" in rotate
