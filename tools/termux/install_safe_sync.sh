@@ -1,8 +1,10 @@
 #!/data/data/com.termux/files/usr/bin/bash
-# One-time install from the approved GitHub main. Always back up scripts.
+# Install from an authenticated Git checkout of the PRIVATE SERA repository.
+# Public raw.githubusercontent.com URLs return HTTP 404 for private repos.
+# Always back up the running Termux scripts before replacing them.
 set -euo pipefail
 
-BASE="https://raw.githubusercontent.com/shejklgaia-png/-/main/tools/termux"
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 TMP="$(mktemp -d "$HOME/sera_install.XXXXXX")"
 trap 'rm -rf "$TMP"' EXIT
 
@@ -11,12 +13,17 @@ command -v git >/dev/null || { echo "Run: pkg install git"; exit 1; }
 command -v flock >/dev/null || { echo "Run: pkg install util-linux"; exit 1; }
 command -v inotifywait >/dev/null || { echo "Run: pkg install inotify-tools"; exit 1; }
 
-curl --fail --location --silent --show-error \
-  "$BASE/sera_push_safe.py" -o "$TMP/sera_push_safe.py"
-curl --fail --location --silent --show-error \
-  "$BASE/sera_push_launcher.sh" -o "$TMP/sera_push.sh"
-curl --fail --location --silent --show-error \
-  "$BASE/sera_watch_safe.sh" -o "$TMP/sera_watch.sh"
+# Use the files already downloaded by authenticated git clone, not
+# unauthenticated raw.githubusercontent.com.
+for file in sera_push_safe.py sera_push_launcher.sh sera_watch_safe.sh; do
+  if [ ! -s "$SCRIPT_DIR/$file" ]; then
+    echo "INSTALL ERROR: missing $SCRIPT_DIR/$file" >&2
+    exit 1
+  fi
+done
+cp "$SCRIPT_DIR/sera_push_safe.py" "$TMP/sera_push_safe.py"
+cp "$SCRIPT_DIR/sera_push_launcher.sh" "$TMP/sera_push.sh"
+cp "$SCRIPT_DIR/sera_watch_safe.sh" "$TMP/sera_watch.sh"
 
 python -m py_compile "$TMP/sera_push_safe.py"
 bash -n "$TMP/sera_push.sh" "$TMP/sera_watch.sh"

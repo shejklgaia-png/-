@@ -35,7 +35,19 @@ def pushed_text(bare, name):
                "show", f"main:{name}").stdout
 
 
+def test_private_repo_installer():
+    # The SERA repository is private. Unauthenticated raw.githubusercontent.com
+    # URLs return 404, even though the installer exists on GitHub.
+    installer = (SCRIPT.parent / "install_safe_sync.sh").read_text()
+    assert 'SCRIPT_DIR=' in installer
+    assert 'cp "$SCRIPT_DIR/sera_push_safe.py"' in installer
+    assert 'cp "$SCRIPT_DIR/sera_push_launcher.sh"' in installer
+    assert 'cp "$SCRIPT_DIR/sera_watch_safe.sh"' in installer
+    assert "curl --fail" not in installer
+
+
 def main():
+    test_private_repo_installer()
     with tempfile.TemporaryDirectory(prefix="sera_uploader_test_") as temp:
         root = Path(temp)
         bare = root / "remote.git"
