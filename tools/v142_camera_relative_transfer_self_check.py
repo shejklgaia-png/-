@@ -9,7 +9,7 @@ from pathlib import Path
 root = Path(__file__).resolve().parents[1]
 s = (root/"scripts/command_nexus.gd").read_text(encoding="utf-8")
 p = (root/"project.godot").read_text(encoding="utf-8")
-assert 'config/name="SERA v147"' in p
+assert 'config/name="SERA v148"' in p
 
 def fn(start, stop):
     return s.split("func "+start, 1)[1].split("func "+stop, 1)[0]
