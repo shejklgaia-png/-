@@ -15,28 +15,29 @@ def number(name):
     assert match, name
     return float(match.group(1))
 
-assert re.findall(r'^config/name="([^"]+)"$', project, re.M) == ["SERA v148"]
+assert re.findall(r'^config/name="([^"]+)"$', project, re.M) == ["SERA v149"]
 assert number("MOVE_SPEED") == 3.25
 assert number("GROUND_MOVE_SPEED_SCALE") == 1.25
 assert number("MOVEMENT_BOOST_MULTIPLIER") == 1.5
-assert number("BOOST_START_RADIUS_RATIO") == 1.25
-assert number("BOOST_EXIT_RADIUS_RATIO") == 1.10
-assert number("BOOST_CONFIRM_SECONDS") == 0.10
-assert number("BOOST_ACCELERATION_SECONDS") == 0.15
+assert number("SWIPE_HEADING_SAMPLE_PIXELS") == 6.0
+assert number("SWIPE_BOOST_TRAVEL_PIXELS") == 140.0
+assert number("SWIPE_BOOST_RESET_DOT") == 0.65
 assert number("STEP_SPEED") == 10.0
 assert number("STEP_CLOSE_SPEED") == 8.0
 assert number("MELEE_DASH_SPEED") == 11.5
 assert number("BACK_STEP_DISTANCE") == 4.0
 assert number("JUMP_AIR_STEER_SPEED_FACTOR") == 0.30
 
-ground = "player.velocity = world_move * MOVE_SPEED * GROUND_MOVE_SPEED_SCALE * boost_speed_multiplier"
+ground = "player.velocity = world_move * MOVE_SPEED * GROUND_MOVE_SPEED_SCALE * ("
 air = "steering_velocity = _screen_drag_to_ground(direction_input) * (MOVE_SPEED * JUMP_AIR_STEER_SPEED_FACTOR)"
 assert ground in main
 assert main.count("GROUND_MOVE_SPEED_SCALE") == 2  # declared and used only on ground
 assert air in main
 assert "player.move_and_slide()" in main
-assert "direction_input = delta.limit_length(1.0)" in main
-assert "boost_speed_multiplier = move_toward(boost_speed_multiplier, boost_speed_target," in main
+assert "direction_input = next_heading" in main
+assert "swipe_boost_travel += distance" in main
+assert "boost_speed_multiplier" not in main
+assert "MOVEMENT_BOOST_MULTIPLIER if movement_boost_active else 1.0" in main
 assert "rig.call(\"set_moving\", running, movement_boost_active, local_run_direction)" in main
 assert 'const RUN_ANIMATION_SPEED: float = 1.875' in rig
 assert "BOOST  x1.5" in main and "RUN  x1.0" in main
