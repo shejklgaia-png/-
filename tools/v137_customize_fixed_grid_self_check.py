@@ -9,7 +9,7 @@ root = Path(__file__).resolve().parents[1]
 script = (root/"scripts/command_nexus.gd").read_text(encoding="utf-8")
 shader = (root/"shaders/nexus_customize_radial_glow.gdshader").read_text(encoding="utf-8")
 project = (root/"project.godot").read_text(encoding="utf-8")
-assert 'config/name="SERA v137 - Fixed preview and cyber grid"' in project
+assert 'config/name="SERA v138 - Three-zone customization"' in project
 
 def section(start, end):
     return script.split("func " + start, 1)[1].split("func " + end, 1)[0]
@@ -48,6 +48,7 @@ assert "_capture_customization_glow_layout()" not in update
 # Every pixel in the Godot viewport is eligible except menu and Back.
 assert "Rect2(Vector2.ZERO, hud.size).has_point(pixel)" in zone
 assert "Rect2(focus_panel.position, focus_panel.size).has_point(pixel)" in zone
+assert "customize_right_panel.position, customize_right_panel.size).has_point(pixel)" in zone
 assert "Rect2(back_panel.position, back_panel.size).has_point(pixel)" in zone
 assert "pixel.y >=" not in zone and "pixel.y <=" not in zone
 assert "pixel.x >" not in zone and "pixel.x <" not in zone
@@ -64,8 +65,8 @@ assert "fwidth(phase)" in shader
 assert "grid_strength * grid_mask" in shader
 assert 'ALPHA = glow_color.a * core_opacity * pow(max(soft_falloff, 0.0), falloff_power);' in shader
 assert "1.0 - smoothstep(core_radius, 1.0, radius)" in shader
-assert 'CUSTOMIZE_GLOW_SCREEN_WIDTH: float = 0.70' in script
-assert 'CUSTOMIZE_GLOW_SCREEN_HEIGHT: float = 0.46' in script
+assert 'CUSTOMIZE_GLOW_SCREEN_WIDTH: float = 0.46' in script
+assert 'CUSTOMIZE_GLOW_SCREEN_HEIGHT: float = 0.42' in script
 assert "CUSTOMIZE_GLOW_DEPTH_OFFSET: float = 1.80" in script
 assert 'outline.set("hide_customize_preview_outline", true)' in script
 assert 'outline.set("hide_customize_preview_outline", false)' in script

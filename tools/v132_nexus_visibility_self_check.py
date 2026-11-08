@@ -13,7 +13,7 @@ project = (root / "project.godot").read_text(encoding="utf-8")
 modules = json.loads((root / "assets/base_command_modules.gd").read_text(
     encoding="utf-8").split("const MODULES = ", 1)[1].strip())
 
-assert 'config/name="SERA v137 - Fixed preview and cyber grid"' in project
+assert 'config/name="SERA v138 - Three-zone customization"' in project
 assert '"DEPLOYMENT": {"eye": Vector3(6.20, 5.30, 5.00)' in script
 assert '"look": Vector3(1.80, 3.40, -10.48), "fov": 76.0' in script
 assert "const CUSTOMIZE_PREVIEW_TARGET_WIDTH_RATIO: float = 0.390" in script
@@ -28,7 +28,8 @@ assert "NEXUS_POSE_NAMES" in script
 assert "sera_display_rig.transform = sera_original_transform" in script
 assert "get_tree().change_scene_to_file(TRAINING_SCENE)" in script
 assert 'PANEL_LAYOUTS["CUSTOMIZE"]' in script
-assert "size.x * (placement.x + placement.y) + 18.0" in script
+assert 'func _customize_model_area(view: Vector2) -> Rect2:' in script
+assert 'var frame: Rect2 = _customize_model_area(size)' in script
 
 # The selected camera must be inside the authored right-side wall.
 wall = next(p for p in modules["hangar_shell"] if p[0] == "Right wall")
