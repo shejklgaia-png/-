@@ -14,7 +14,7 @@ compatibility/default_parent_skeleton_in_mesh_instance_3d=true
 
 [application]
 
-config/name="SERA v127 - Nexus Occluded Contours"
+config/name="SERA v128 - Nexus Focus Panels"
 run/main_scene="res://scenes/launch_menu.tscn"
 config/features=PackedStringArray("4.7", "GL Compatibility")
 

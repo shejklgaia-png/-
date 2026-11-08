@@ -1,6 +1,6 @@
 extends Node3D
-# v127: swapped kiosk destinations; depth-aware projected gate contour behind SERA.
-# Keep the v125 camera/touch logic and v124 Blockbench geometry and gate light spill.
+# v128: asymmetric device camera compositions and unobtrusive placeholder menu panels.
+# Preserve v127 kiosk/occlusion, v125 touch navigation and v124 Blockbench geometry.
 const Modules = preload("res://assets/base_command_modules.gd")
 const SeraRig = preload("res://scripts/sera_rig.gd")
 const NexusSelectionOutline = preload("res://scripts/nexus_selection_outline.gd")
@@ -20,6 +20,7 @@ var in_transition: bool = false
 var back_panel: Panel
 var back_arrow: Label
 var focus_panel: Panel
+var focus_header: Panel
 var focus_title: Label
 var action_panel: Panel
 var action_label: Label
@@ -32,18 +33,30 @@ const TRAINING_SCENE: String = "res://scenes/main.tscn"
 # Each entry holds world-space 3D vertex clusters, grouped by model component.
 var target_parts: Dictionary = {}
 
-# Authored close-up compositions; no camera shake, flash, zoom blur or particles.
+# The object occupies one side of the portrait frame. The other side is
+# reserved for a menu panel. Camera transforms/FOV only: no moving 3D assets.
+# TRAINING/GATE/CUSTOMIZE on the right; SYSTEM/ARCHIVE on the left.
 var focus_views: Dictionary = {
-    "TRAINING": {"eye": Vector3(1.90, 2.35, 5.10),
-        "look": Vector3(1.95, 1.36, 1.25), "fov": 48.0},
-    "SYSTEM": {"eye": Vector3(-1.90, 2.35, 5.10),
-        "look": Vector3(-1.95, 1.36, 1.25), "fov": 48.0},
-    "CUSTOMIZE": {"eye": Vector3(0.0, 2.90, 2.00),
-        "look": Vector3(0.0, 2.00, -4.75), "fov": 43.0},
-    "DATA ARCHIVE": {"eye": Vector3(-3.90, 4.20, -2.20),
-        "look": Vector3(-4.00, 3.85, -8.80), "fov": 49.0},
-    "DEPLOYMENT": {"eye": Vector3(2.60, 3.85, -1.50),
-        "look": Vector3(4.00, 3.35, -10.48), "fov": 49.0}
+    "TRAINING": {"eye": Vector3(1.95, 3.15, 7.70),
+        "look": Vector3(0.45, 1.35, 1.25), "fov": 68.0},
+    "SYSTEM": {"eye": Vector3(-1.95, 3.15, 7.70),
+        "look": Vector3(-0.45, 1.35, 1.25), "fov": 68.0},
+    "CUSTOMIZE": {"eye": Vector3(-4.50, 3.80, 5.00),
+        "look": Vector3(-1.70, 2.00, -4.75), "fov": 67.0},
+    "DATA ARCHIVE": {"eye": Vector3(-3.90, 4.50, 2.50),
+        "look": Vector3(-1.70, 3.55, -8.80), "fov": 64.0},
+    "DEPLOYMENT": {"eye": Vector3(8.00, 5.30, 5.00),
+        "look": Vector3(2.50, 3.40, -10.48), "fov": 70.0}
+}
+
+# (left fraction, width fraction) of focus menu. Opposite each 3D object;
+# overlap 2-5% of the device width for context, never overlap SERA/weapon.
+const PANEL_LAYOUTS: Dictionary = {
+    "TRAINING": Vector2(0.045, 0.585),
+    "SYSTEM": Vector2(0.365, 0.590),
+    "DATA ARCHIVE": Vector2(0.365, 0.590),
+    "DEPLOYMENT": Vector2(0.045, 0.465),
+    "CUSTOMIZE": Vector2(0.045, 0.390)
 }
 
 func _ready() -> void:
@@ -345,15 +358,21 @@ func _hud() -> void:
     focus_panel = Panel.new()
     focus_panel.name = "FocusedMenu"
     focus_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-    focus_panel.add_theme_stylebox_override("panel", _menu_style())
+    focus_panel.add_theme_stylebox_override("panel", _menu_body_style())
     focus_panel.visible = false
     hud.add_child(focus_panel)
+    focus_header = Panel.new()
+    focus_header.name = "OpaqueMenuHeader"
+    focus_header.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    focus_header.add_theme_stylebox_override("panel", _menu_header_style())
+    focus_panel.add_child(focus_header)
     focus_title = Label.new()
     focus_title.name = "DestinationTitle"
     focus_title.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    focus_title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
     focus_title.add_theme_font_size_override("font_size", 21)
     focus_title.add_theme_color_override("font_color", Color("#e1f3fd"))
-    focus_panel.add_child(focus_title)
+    focus_header.add_child(focus_title)
     action_panel = Panel.new()
     action_panel.name = "DestinationAction"
     action_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -378,12 +397,23 @@ func _menu_style() -> StyleBoxFlat:
     style.set_corner_radius_all(6)
     return style
 
-func _action_style() -> StyleBoxFlat:
+func _menu_body_style() -> StyleBoxFlat:
+    # Cyber-blue translucent rectangle. No border or decoration.
     var style := StyleBoxFlat.new()
-    style.bg_color = Color(0.035, 0.115, 0.16, 0.90)
-    style.border_color = Color(0.29, 0.80, 0.94, 0.88)
-    style.set_border_width_all(1)
-    style.set_corner_radius_all(4)
+    style.bg_color = Color(0.025, 0.155, 0.260, 0.52)
+    return style
+
+func _menu_header_style() -> StyleBoxFlat:
+    # Only the menu-name header is fully opaque.
+    var style := StyleBoxFlat.new()
+    style.bg_color = Color(0.035, 0.190, 0.315, 1.00)
+    return style
+
+func _action_style() -> StyleBoxFlat:
+    # Retain the existing TRAINING navigation within its empty placeholder;
+    # no border or false actions on the other four panels.
+    var style := StyleBoxFlat.new()
+    style.bg_color = Color(0.045, 0.220, 0.340, 0.84)
     return style
 
 func _layout_hud() -> void:
@@ -396,16 +426,37 @@ func _layout_hud() -> void:
     back_panel.size = Vector2(62.0, 62.0)
     back_arrow.position = Vector2.ZERO
     back_arrow.size = back_panel.size
-    focus_panel.size = Vector2(view.x * 0.84, minf(142.0, view.y * 0.15))
-    focus_panel.position = Vector2(view.x * 0.08,
-        minf(view.y * 0.74, back_panel.position.y - focus_panel.size.y - 12.0))
-    focus_title.position = Vector2(20.0, 11.0)
-    focus_title.size = Vector2(focus_panel.size.x - 40.0, 31.0)
-    action_panel.position = Vector2(16.0, 50.0)
+    var panel_placement: Vector2 = PANEL_LAYOUTS.get(focused_target,
+        Vector2(0.045, 0.390))
+    focus_panel.position = Vector2(view.x * panel_placement.x, view.y * 0.225)
+    focus_panel.size = Vector2(view.x * panel_placement.y, view.y * 0.535)
+    if focused_target == "CUSTOMIZE":
+        _keep_customization_clear()
+    # The opaque top stripe belongs to the focus panel; rest stays blue/clear.
+    focus_header.position = Vector2.ZERO
+    focus_header.size = Vector2(focus_panel.size.x, minf(60.0, view.y * 0.068))
+    focus_title.position = Vector2(16.0, 0.0)
+    focus_title.size = Vector2(focus_header.size.x - 32.0, focus_header.size.y)
+    action_panel.position = Vector2(16.0, focus_panel.size.y - 84.0)
     action_panel.size = Vector2(focus_panel.size.x - 32.0, 60.0)
     action_label.position = Vector2.ZERO
     action_label.size = action_panel.size
     _update_projected_silhouettes()
+
+func _keep_customization_clear() -> void:
+    # Guarantee real model silhouette (including held sword and limbs) is never
+    # covered by the left menu. This runs only at the end of the camera focus
+    # or when the viewport resizes, NOT every rendered frame.
+    if cam == null or not target_parts.has("CUSTOMIZE"):
+        return
+    var leftmost := INF
+    for contour in _project_model_contour("CUSTOMIZE"):
+        for point in contour:
+            leftmost = minf(leftmost, point.x)
+    if leftmost < INF:
+        # Leave 16 logical pixels between the entire mesh and the menu body.
+        focus_panel.size.x = minf(focus_panel.size.x,
+            maxf(0.0, leftmost - focus_panel.position.x - 16.0))
 
 func _update_projected_silhouettes() -> void:
     if cam == null or outline == null:
@@ -605,8 +656,11 @@ func _focus_arrived(target_name: String) -> void:
         return
     back_panel.visible = true
     focus_title.text = target_name
-    action_label.text = "ENTER TRAINING" if target_name == "TRAINING" else "NOT AVAILABLE YET"
-    action_panel.visible = true
+    # A blank placeholder menu except for the existing functional training
+    # entrance; no 'NOT AVAILABLE YET' text in the other four menus.
+    action_label.text = "ENTER TRAINING" if target_name == "TRAINING" else ""
+    action_panel.visible = target_name == "TRAINING"
+    _layout_hud()
     focus_panel.visible = true
 
 func _return_to_overview() -> void:
