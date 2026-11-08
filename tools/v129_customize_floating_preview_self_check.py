@@ -11,7 +11,7 @@ s = (ROOT / "scripts/command_nexus.gd").read_text(encoding="utf-8")
 project = (ROOT / "project.godot").read_text(encoding="utf-8")
 model = json.loads((ROOT / "models/SERA_BOOSTER_allテスト.bbmodel").read_text(encoding="utf-8"))
 
-assert 'config/name="SERA v139 - Animated enlarged SERA"' in project
+assert 'config/name="SERA v140 - Fast reversible SERA motion"' in project
 assert 'run/main_scene="res://scenes/launch_menu.tscn"' in project
 assert 'pointing/emulate_mouse_from_touch=false' in project
 assert 'renderer/rendering_method="gl_compatibility"' in project
@@ -28,7 +28,12 @@ assert "sera_display_rig.transform = sera_original_transform" in s
 assert "func _show_customization_preview()" in s
 assert "func _restore_customization_preview()" in s
 assert 'if target_name == "CUSTOMIZE":\n        _show_customization_preview()' in s
-assert "    _restore_customization_preview()\n    _move_camera(overview_pose" in s
+# v140 Back retracts the rig before the original 0.18s camera return.
+assert 'if focused_target == "CUSTOMIZE" and customize_preview_active:' in s
+assert '_begin_customization_retraction()' in s
+assert 'customize_entrance_tween.finished.connect(_customization_retraction_arrived)' in s
+assert 'func _customization_retraction_arrived() -> void:' in s
+assert '_restore_customization_preview()\n    _move_camera(overview_pose' in s
 
 # Front facing in the camera's own coordinate system, with model-only rotation.
 assert "customize_preview_yaw = PI" in s

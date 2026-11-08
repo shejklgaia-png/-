@@ -17,7 +17,7 @@ MODULES = json.loads(
     (ROOT / "assets/base_command_modules.gd").read_text(encoding="utf-8").split("const MODULES = ", 1)[1].strip()
 )
 
-assert 'config/name="SERA v139 - Animated enlarged SERA"' in P
+assert 'config/name="SERA v140 - Fast reversible SERA motion"' in P
 assert 'run/main_scene="res://scenes/launch_menu.tscn"' in P
 assert 'pointing/emulate_mouse_from_touch=false' in P
 assert 'renderer/rendering_method="gl_compatibility"' in P
