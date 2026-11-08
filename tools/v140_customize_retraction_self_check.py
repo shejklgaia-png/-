@@ -9,7 +9,7 @@ from pathlib import Path
 root = Path(__file__).resolve().parents[1]
 s = (root / "scripts/command_nexus.gd").read_text(encoding="utf-8")
 project = (root / "project.godot").read_text(encoding="utf-8")
-assert 'config/name="SERA v144 - Torso-anchored straight transfer"' in project
+assert 'config/name="SERA v145 - Linear visual-center transfer and delayed glow"' in project
 assert "const CUSTOMIZE_ENTRANCE_SECONDS: float = 0.28" in s
 assert "const CUSTOMIZE_RETRACTION_SECONDS: float = 0.28" in s
 assert "const CAMERA_TRANSITION_SECONDS: float = 0.18" in s
@@ -37,10 +37,9 @@ assert "start_camera_local.interpolate_with(" in blend
 assert "end_camera_local, progress)" in blend
 assert "CUSTOMIZE_ENTRANCE_SECONDS)" in show
 assert "CUSTOMIZE_RETRACTION_SECONDS)" in retract
-assert "customize_entrance_tween.set_trans(Tween.TRANS_CUBIC)" in show
-assert "customize_entrance_tween.set_ease(Tween.EASE_IN_OUT)" in show
-assert "customize_entrance_tween.set_trans(Tween.TRANS_CUBIC)" in retract
-assert "customize_entrance_tween.set_ease(Tween.EASE_IN_OUT)" in retract
+assert "customize_entrance_tween.set_trans(Tween.TRANS_LINEAR)" in show
+assert "customize_entrance_tween.set_trans(Tween.TRANS_LINEAR)" in retract
+assert "pose_progress: float = progress * progress * (3.0 - 2.0 * progress)" in s
 assert "sera_display_rig.global_transform" in retract
 assert "sera_display_stand.global_transform * sera_original_transform" in retract
 assert "customize_entrance_tween.tween_method(_apply_customization_entrance.bind(" in retract

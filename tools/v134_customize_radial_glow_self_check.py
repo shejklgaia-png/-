@@ -8,7 +8,7 @@ o = (root/"scripts/nexus_selection_outline.gd").read_text(encoding="utf-8")
 p = (root/"project.godot").read_text(encoding="utf-8")
 sh = (root/"shaders/nexus_customize_radial_glow.gdshader").read_text(encoding="utf-8")
 
-assert 'config/name="SERA v144 - Torso-anchored straight transfer"' in p
+assert 'config/name="SERA v145 - Linear visual-center transfer and delayed glow"' in p
 assert 'CUSTOMIZE_GLOW_SHADER = preload("res://shaders/nexus_customize_radial_glow.gdshader")' in n
 assert "func _create_customization_glow() -> void:" in n
 assert "var quad := QuadMesh.new()" in n
@@ -28,8 +28,10 @@ assert 'outline.set("hide_customize_preview_outline", false)' in n
 
 show = n.split("func _show_customization_preview() -> void:",1)[1].split("func _restore_customization_preview()",1)[0]
 assert show.index("_fit_customization_preview()") < show.index("_update_customization_glow()")
-assert show.index("_update_customization_glow()") < show.index("customize_glow_quad.visible = true")
-assert show.index("customize_glow_quad.visible = true") < show.index('outline.set("hide_customize_preview_outline", true)')
+assert show.index("_update_customization_glow()") < show.index("customize_glow_quad.visible = false")
+assert show.index("customize_glow_quad.visible = false") < show.index('outline.set("hide_customize_preview_outline", true)')
+assert 'func _customization_entrance_arrived(final_world: Transform3D) -> void:' in n
+assert 'customize_glow_quad.visible = true' in n
 hide = n.split("func _restore_customization_preview() -> void:",1)[1].split("func _customization_screen_bounds()",1)[0]
 assert "customize_glow_quad.visible = false" in hide
 back = n.split("func _return_to_overview() -> void:",1)[1].split("func _overview_arrived()",1)[0]

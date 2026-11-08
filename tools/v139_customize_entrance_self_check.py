@@ -9,7 +9,7 @@ root = Path(__file__).resolve().parents[1]
 s = (root/"scripts/command_nexus.gd").read_text(encoding="utf-8")
 p = (root/"project.godot").read_text(encoding="utf-8")
 
-assert 'config/name="SERA v144 - Torso-anchored straight transfer"' in p
+assert 'config/name="SERA v145 - Linear visual-center transfer and delayed glow"' in p
 assert 'const CUSTOMIZE_ENTRANCE_SECONDS: float = 0.28' in s
 assert 'const CUSTOMIZE_BOTTOM_GAP_PIXELS: float = 10.0' in s
 assert 'const CAMERA_TRANSITION_SECONDS: float = 0.18' in s
@@ -43,8 +43,8 @@ assert show.index('_fit_customization_preview()') < show.index('var final_world:
 assert show.index('var final_world: Transform3D = sera_display_rig.global_transform') < show.index('_capture_customization_glow_layout()')
 assert show.index('_capture_customization_glow_layout()') < show.index('sera_display_rig.global_transform = initial_world')
 assert show.index('sera_display_rig.global_transform = initial_world') < show.index('customize_entrance_tween = create_tween()')
-assert 'customize_entrance_tween.set_trans(Tween.TRANS_CUBIC)' in show
-assert 'customize_entrance_tween.set_ease(Tween.EASE_IN_OUT)' in show
+assert 'customize_entrance_tween.set_trans(Tween.TRANS_LINEAR)' in show
+assert 'pose_progress: float = progress * progress * (3.0 - 2.0 * progress)' in s
 assert 'customize_entrance_tween.tween_method(_apply_customization_entrance.bind(' in show
 assert '0.0, 1.0, CUSTOMIZE_ENTRANCE_SECONDS)' in show
 assert 'in_transition = true' in show
