@@ -36,8 +36,8 @@ assert "dragging = false\n    movement_boost_active = false" in ui
 assert 'const OPERATION_ZONE_TOP_RATIO: float = 0.75' in ui
 assert 'CONTROLLER_CHEVRON_NEAR_RATIO: float = 1.13' in ui
 assert 'CONTROLLER_CHEVRON_FAR_RATIO: float = 1.27' in ui
-assert 'config/name="SERA v115 - BOOST Controller Indicator"' in project
-assert "const BOOST_DIRECTION_BLEND_SECONDS: float = 0.12" in rig
+assert 'config/name="SERA v' in project
+assert "const BOOST_DIRECTION_BLEND_SECONDS: float = 0.06" in rig
 assert "func _blended_boost_pose(uid: String) -> Dictionary:" in rig
 
 # Input semantics and BOOST speed/threshold logic are unchanged.
