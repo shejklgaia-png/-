@@ -704,3 +704,9 @@
 - fl​​ockによる多重起動防止・端末への上書きインストール前の時刻付きバックアップ・アップロード失敗状態表示を追加。初回は安全のため既存ファイルを送らずハッシュ基準点のみ作成する。
 - 追加：tools/termux/sera_push_safe.py、sera_push_launcher.sh、sera_watch_safe.sh、install_safe_sync.sh、test_safe_sync.py、docs/TERMUX_SAFE_AUTO_UPLOAD_JA.md。既存のGodotコード・Blockbench素材・プロジェクト名・戦闘モーションは変更しない。
 - 本環境からAndroid端末の ~/sera_push.sh / ~/sera_watch.sh を直接編集できない。Termuxにインストールコマンドを手動で実行する必要があり、それまでは従来の監視設定のまま。Python構文やAndroid/Termux実機の動作は未検証。オフライン疑似Gitリポジトリ検査を同梱。
+
+## Termux private repo installer fix（2026-11-08） — raw URL 404対応
+- 16:35ごろ端末の導入時にcurl HTTP 404と「install_sera_safe_sync.sh: No such file or directory」が発生。GitHub shejklgaia-png/- はPrivateであり、未認証のraw.githubusercontent.comへ直接アクセスするとファイルが存在しても404となる。以前の導入コマンドが誤っていた。既存のTermux監視は旧版のままで、モデル・プロジェクトデータの破損は確認されていない。
+- tools/termux/install_safe_sync.shは公開raw URLを使わず、認証済みgit cloneで取得したtools/termuxディレクトリ内のスクリプトを直接インストールする方式に修正。対象ファイル不在では旧設定を触らず停止し、従来どおり時刻付きバックアップ・構文検査・監視再起動を行う。
+- docs/TERMUX_SAFE_AUTO_UPLOAD_JA.md をgit clone（Private認証対応）→ローカルインストールに修正。tools/termux/test_safe_sync.pyで未認証rawへの依存再混入を検出する検査を追加。
+- GitHub側の修正のみ。端末は修正後にユーザーのTermuxで実行する必要がある。Android実機でのインストール検証は未実施。
