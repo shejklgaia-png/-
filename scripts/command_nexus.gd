@@ -24,12 +24,16 @@ var focus_header: Panel
 var focus_title: Label
 var action_panel: Panel
 var action_label: Label
-# Reuse the SAME display rig in camera space for customization: no second
-# model, extra SubViewport, altered stage geometry, or additional draw batch.
+# Reuse the same display rig, without reparenting it: SeraRig has external
+# afterimage nodes whose lifetime is tied to _exit_tree. Set its world transform
+# from camera space instead; no duplicate model, SubViewport or draw batch.
 var sera_display_stand: Node3D
 var sera_display_rig: Node3D
 var sera_original_transform: Transform3D
 var customize_preview_active: bool = false
+var customize_preview_position: Vector3 = Vector3.ZERO
+var customize_preview_scale: float = 0.80
+var customize_preview_yaw: float = PI
 var customize_touch_id: int = -1
 var customize_touch_last_x: float = 0.0
 var customize_mouse_drag: bool = false
@@ -475,19 +479,27 @@ func _keep_customization_clear() -> void:
         focus_panel.size.x = minf(focus_panel.size.x,
             maxf(0.0, leftmost - focus_panel.position.x - 16.0))
 
-# The original exhibition rig is temporarily reparented to the camera for
-# CUSTOMIZE. It faces the camera plane while the hangar, stage and UI remain
-# fixed. Restoring its saved local transform returns the exact overview pose.
+# The SAME exhibition rig stays parented to its original display stand.
+# A camera-relative transform presents it as a flat-to-screen foreground
+# object while retaining the entire unchanged hangar and stage underneath.
+func _apply_customization_preview_transform() -> void:
+    if sera_display_rig == null or cam == null:
+        return
+    var basis := Basis(Vector3.UP, customize_preview_yaw)
+    basis = basis.scaled(Vector3.ONE * customize_preview_scale)
+    sera_display_rig.global_transform = cam.global_transform * Transform3D(
+        basis, customize_preview_position)
+
 func _show_customization_preview() -> void:
     if customize_preview_active or cam == null or sera_display_rig == null:
         return
     if not bool(sera_display_rig.get("loading_ok")):
         return
-    sera_display_rig.reparent(cam, false)
-    sera_display_rig.position = Vector3(0.75, -0.75, -CUSTOMIZE_PREVIEW_DISTANCE)
-    sera_display_rig.rotation = Vector3(0.0, PI, 0.0)
-    sera_display_rig.scale = Vector3.ONE * 0.80
+    customize_preview_position = Vector3(0.75, -0.75, -CUSTOMIZE_PREVIEW_DISTANCE)
+    customize_preview_scale = 0.80
+    customize_preview_yaw = PI
     customize_preview_active = true
+    _apply_customization_preview_transform()
     _fit_customization_preview()
     _capture_sera_silhouette(sera_display_rig)
     _update_projected_silhouettes()
@@ -497,7 +509,6 @@ func _restore_customization_preview() -> void:
     customize_mouse_drag = false
     if not customize_preview_active or sera_display_rig == null:
         return
-    sera_display_rig.reparent(sera_display_stand, false)
     sera_display_rig.transform = sera_original_transform
     customize_preview_active = false
     _capture_sera_silhouette(sera_display_rig)
@@ -530,7 +541,8 @@ func _customization_all_yaw_bounds() -> Rect2:
     var combined := Rect2()
     var found := false
     for i in range(CUSTOMIZE_PREVIEW_ROTATION_SAMPLES):
-        sera_display_rig.rotation.y = PI + TAU * float(i) / float(CUSTOMIZE_PREVIEW_ROTATION_SAMPLES)
+        customize_preview_yaw = PI + TAU * float(i) / float(CUSTOMIZE_PREVIEW_ROTATION_SAMPLES)
+        _apply_customization_preview_transform()
         _capture_sera_silhouette(sera_display_rig)
         var projected := _customization_screen_bounds()
         if projected.size.x <= 0.0 or projected.size.y <= 0.0:
@@ -540,7 +552,8 @@ func _customization_all_yaw_bounds() -> Rect2:
             found = true
         else:
             combined = combined.merge(projected)
-    sera_display_rig.rotation.y = PI
+    customize_preview_yaw = PI
+    _apply_customization_preview_transform()
     _capture_sera_silhouette(sera_display_rig)
     return combined
 
@@ -571,20 +584,23 @@ func _fit_customization_preview() -> void:
             fit = minf(fit, 1.55)
         else:
             fit = minf(fit, 1.05)
-        sera_display_rig.scale = sera_display_rig.scale * fit
+        customize_preview_scale *= fit
+        _apply_customization_preview_transform()
         rect = _customization_all_yaw_bounds()
         if rect.size.x <= 1.0 or rect.size.y <= 1.0:
             return
         # Shift the rig itself in camera-local space, never move the camera.
-        var depth: float = -sera_display_rig.position.z
+        var depth: float = -customize_preview_position.z
         var half_height := depth * tan(deg_to_rad(cam.fov) * 0.5)
         var px_per_world := size.y / maxf(0.001, 2.0 * half_height)
         var error: Vector2 = center_target - (rect.position + rect.size * 0.5)
-        sera_display_rig.position.x += error.x / px_per_world
-        sera_display_rig.position.y -= error.y / px_per_world
+        customize_preview_position.x += error.x / px_per_world
+        customize_preview_position.y -= error.y / px_per_world
+        _apply_customization_preview_transform()
 
     # Leave the preview in the authored front-facing pose.
-    sera_display_rig.rotation.y = PI
+    customize_preview_yaw = PI
+    _apply_customization_preview_transform()
     _capture_sera_silhouette(sera_display_rig)
 
 func _is_customization_drag_zone(pixel: Vector2) -> bool:
@@ -595,10 +611,12 @@ func _is_customization_drag_zone(pixel: Vector2) -> bool:
     if back_panel.visible and Rect2(back_panel.position, back_panel.size).has_point(pixel):
         return false
     # The complete right-side presentation region, not just opaque mesh pixels.
-    return pixel.x > focus_panel.position.x + focus_panel.size.x + 8.0 \
-        and pixel.x < hud.size.x \
-        and pixel.y >= hud.size.y * 0.20 \
+    return (
+        pixel.x > focus_panel.position.x + focus_panel.size.x + 8.0
+        and pixel.x < hud.size.x
+        and pixel.y >= hud.size.y * 0.20
         and pixel.y <= hud.size.y * 0.80
+    )
 
 func _rotate_customization_preview(delta_x: float) -> void:
     if not customize_preview_active or sera_display_rig == null:
@@ -606,7 +624,8 @@ func _rotate_customization_preview(delta_x: float) -> void:
     if absf(delta_x) < 0.001:
         return
     var yaw_delta := delta_x / maxf(hud.size.x, 1.0) * CUSTOMIZE_DRAG_FULL_TURN
-    sera_display_rig.rotation.y = wrapf(sera_display_rig.rotation.y - yaw_delta, -PI, PI)
+    customize_preview_yaw = wrapf(customize_preview_yaw - yaw_delta, -PI, PI)
+    _apply_customization_preview_transform()
     _capture_sera_silhouette(sera_display_rig)
     _update_projected_silhouettes()
 
