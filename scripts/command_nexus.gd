@@ -13,10 +13,10 @@ func _ready() -> void:
     _module("hangar_shell", Vector3.ZERO)
     _module("maintenance_pad", Vector3(0.0, 0.0, -4.05))
     _module("maintenance_canopy", Vector3(0.0, 8.0, -8.95))
-    _module("deployment_gate", Vector3(3.0, 0.02, -7.58))
-    _module("data_bank", Vector3(-3.05, 0.0, -7.25))
-    _module("kiosk", Vector3(-2.08, 0.0, -1.55), deg_to_rad(12.0))
-    _module("kiosk", Vector3(2.08, 0.0, -1.55), deg_to_rad(-12.0))
+    _module("deployment_gate", Vector3(2.65, 0.02, -7.58), 0.0, 0.80)
+    _module("data_bank", Vector3(-2.75, 0.0, -7.25))
+    _module("kiosk", Vector3(-1.90, 0.0, -1.55), deg_to_rad(12.0))
+    _module("kiosk", Vector3(1.90, 0.0, -1.55), deg_to_rad(-12.0))
     _render_batches()
     _pad_center()
     _sera_display()
@@ -42,14 +42,14 @@ func _environment() -> void:
 func _vec(a: Array) -> Vector3:
     return Vector3(float(a[0]), float(a[1]), float(a[2]))
 
-func _module(name: String, at: Vector3, yaw: float = 0.0) -> void:
+func _module(name: String, at: Vector3, yaw: float = 0.0, scale_factor: float = 1.0) -> void:
     if not Modules.MODULES.has(name):
         push_error("Missing Blockbench module: " + name)
         return
     var parent_basis := Basis(Vector3.UP, yaw)
     for part in Modules.MODULES[name]:
-        var lo: Vector3 = _vec(part[1]) * Modules.UNIT
-        var hi: Vector3 = _vec(part[2]) * Modules.UNIT
+        var lo: Vector3 = _vec(part[1]) * Modules.UNIT * scale_factor
+        var hi: Vector3 = _vec(part[2]) * Modules.UNIT * scale_factor
         var rot: Vector3 = _vec(part[4]) * (PI / 180.0)
         var basis: Basis = (parent_basis * Basis.from_euler(rot)).scaled(hi - lo)
         var transform := Transform3D(basis, at + parent_basis * ((lo + hi) * 0.5))
@@ -110,7 +110,7 @@ func _sera_display() -> void:
     add_child(stand)
     var rig: Node3D = SeraRig.new()
     rig.name = "SeraDisplay"
-    rig.scale = Vector3.ONE * 1.22
+    rig.scale = Vector3.ONE * 1.35
     rig.rotation.y = PI
     stand.add_child(rig)
     rig.set_process(false)
