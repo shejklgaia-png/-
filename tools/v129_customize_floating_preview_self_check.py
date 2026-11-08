@@ -11,7 +11,7 @@ s = (ROOT / "scripts/command_nexus.gd").read_text(encoding="utf-8")
 project = (ROOT / "project.godot").read_text(encoding="utf-8")
 model = json.loads((ROOT / "models/SERA_BOOSTER_allテスト.bbmodel").read_text(encoding="utf-8"))
 
-assert 'config/name="SERA v140 - Fast reversible SERA motion"' in project
+assert 'config/name="SERA v141 - Concurrent SERA and camera motion"' in project
 assert 'run/main_scene="res://scenes/launch_menu.tscn"' in project
 assert 'pointing/emulate_mouse_from_touch=false' in project
 assert 'renderer/rendering_method="gl_compatibility"' in project
@@ -27,8 +27,12 @@ assert "sera_display_rig.global_transform = cam.global_transform * Transform3D("
 assert "sera_display_rig.transform = sera_original_transform" in s
 assert "func _show_customization_preview()" in s
 assert "func _restore_customization_preview()" in s
-assert 'if target_name == "CUSTOMIZE":\n        _show_customization_preview()' in s
-# v140 Back retracts the rig before the original 0.18s camera return.
+# On tap, fit the SERA pose in the target camera frame and start both Tweens.
+assert 'if target_name == "CUSTOMIZE":' in s
+assert '_show_customization_preview()' in s
+assert 'cam.transform = previous_camera_pose' in s
+assert 'cam.fov = previous_camera_fov' in s
+# v141 Back starts rig retraction and overview camera at the same time.
 assert 'if focused_target == "CUSTOMIZE" and customize_preview_active:' in s
 assert '_begin_customization_retraction()' in s
 assert 'customize_entrance_tween.finished.connect(_customization_retraction_arrived)' in s
