@@ -793,3 +793,10 @@
 - セラ0.28秒、カメラ0.18秒の同時開始、格納完了時のみ全景への状態確定、既存の右下戻る操作・選択枠即時解除・3区画メニュー・固定サイバー青グリッド・NEXUS_pose・戦闘・音声は維持する。
 - 変更：scripts/command_nexus.gd、project.godot、DEVELOPMENT.md、関連テストv125〜v141の版名と旧世界座標補間期待値。追加：README_v142_ja.md、tools/v142_camera_relative_transfer_self_check.py。
 - Godot 4.7公式Transform3D.affine_inverseおよびinterpolate_withを参照。コード構造・カメラ空間での補間投影の幾何検証を実施。Godot/Android端末での実描画と壁遮蔽は未検証。
+
+## v143（2026-11-08） — 戻る操作時の背景即時消去と画面内直線移動
+- 基準：GitHub main `e7a1018005bc88508f5b36ef17599ff4fd849686`（v142）。CUSTOMIZEの戻るボタン・Android戻る・Escを受けた同じイベント処理内で、放射グラデーションとグリッドの共通MeshInstance3D `customize_glow_quad.visible=false` を設定する。従来のセラ格納Tween完了時まで背景が残る仕様を廃止。選択線解除と両メニュー非表示は維持する。
+- 入場と格納の経路を画面投影座標で直線化。ワールド／カメラローカル3D点の線形補間では遠近法によって表示上の経路が曲がるため、開始時と最終のカメラFOVで各モデル原点を正規化画面（NDC）へ投影し、その2点間をVector2.lerpで直線補間する。補間した奥行きと実際の移動中カメラFOVからカメラ空間のモデル位置を復元し、cam.global_transformでワールドへ変換する。回転とモデル倍率は従来のTransform3D.interpolate_withによる補間を維持する。
+- 入場は従来のカメラ開始FOVと到達FOVを使用。戻るは現在のFOVと全景FOVを使用。セラ0.28秒、カメラ0.18秒のタップ同時開始、両完了後に状態確定、通常の展示状態、左上セラと3区画メニュー、固定サイバー青背景、NEXUS_pose、戦闘・音声は維持。
+- 変更：scripts/command_nexus.gd、project.godot、DEVELOPMENT.md、旧テストの版名と相対補間式期待値。追加：README_v143_ja.md、tools/v143_straight_motion_self_check.py。
+- 静的な関数順序／投影算術検証は実施。Godot実行・Androidでの実描画・3D遮蔽の検証は未実施。直線性はモデル原点の画面上経路を指し、剣先や四肢が全区間で画面内に収まることまでは保証しない。

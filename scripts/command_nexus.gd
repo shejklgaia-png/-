@@ -1,5 +1,5 @@
 extends Node3D
-# v142: keep SERA in the moving camera's field of view while retracting/expanding.
+# v143: screen-straight exhibit/preview path; hide cyan grid on Back press.
 # Preserve v127 kiosk/occlusion, v125 touch navigation and v124 Blockbench geometry.
 const Modules = preload("res://assets/base_command_modules.gd")
 const SeraRig = preload("res://scripts/sera_rig.gd")
@@ -36,6 +36,7 @@ var sera_original_transform: Transform3D
 var customize_glow_quad: MeshInstance3D
 var customize_entrance_tween: Tween # Shared by forward and reverse exhibit motions.
 var customize_transition_start_camera_pose: Transform3D = Transform3D.IDENTITY
+var customize_transition_start_camera_fov: float = 63.0
 # Normalized backdrop anchor and head-relative grid spacing are captured once
 # before preview rotation, never recomputed on yaw input.
 var customize_glow_center_ratio: Vector2 = Vector2(0.73, 0.50)
@@ -733,21 +734,46 @@ func _show_customization_preview() -> void:
     customize_entrance_tween.set_trans(Tween.TRANS_CUBIC)
     customize_entrance_tween.set_ease(Tween.EASE_IN_OUT)
     customize_entrance_tween.tween_method(_apply_customization_entrance.bind(
-        start_camera_local, end_camera_local), 0.0, 1.0,
+        start_camera_local, end_camera_local,
+        customize_transition_start_camera_fov, cam.fov), 0.0, 1.0,
         CUSTOMIZE_ENTRANCE_SECONDS)
     customize_entrance_tween.finished.connect(
         _customization_entrance_arrived.bind(final_world))
 
-# Interpolate in the camera's coordinate system to keep SERA's projection
-# between the preview and exhibit positions even while the camera moves.
-# Convert the interpolated camera-local pose to world on EACH Tween frame.
-# This same function handles expanding and stowing the one existing SeraRig.
+# In a perspective camera, lerping camera-local x/y/z is still curved
+# on screen. Project each endpoint into normalized view coordinates first,
+# move the projected center along their straight segment, then reconstruct
+# camera-space x/y at the interpolated depth and CURRENT camera FOV.
+# This works in both directions and tracks the concurrently moving camera.
+func _customize_projected_ndc(point: Vector3, view_fov: float) -> Vector2:
+    var depth: float = maxf(0.01, -point.z)
+    var half_tan: float = tan(deg_to_rad(view_fov) * 0.5)
+    var aspect: float = maxf(hud.size.x, 1.0) / maxf(hud.size.y, 1.0)
+    return Vector2(
+        point.x / (depth * half_tan * aspect),
+        point.y / (depth * half_tan))
+
 func _apply_customization_entrance(progress: float,
-        start_camera_local: Transform3D, end_camera_local: Transform3D) -> void:
-    if not customize_preview_active or sera_display_rig == null:
+        start_camera_local: Transform3D, end_camera_local: Transform3D,
+        start_fov: float, end_fov: float) -> void:
+    if not customize_preview_active or sera_display_rig == null or cam == null:
         return
+    var start_ndc: Vector2 = _customize_projected_ndc(
+        start_camera_local.origin, start_fov)
+    var end_ndc: Vector2 = _customize_projected_ndc(
+        end_camera_local.origin, end_fov)
+    # The NDC motion is mathematically a straight segment, irrespective of
+    # the simultaneous camera translation, rotation or FOV interpolation.
+    var on_screen: Vector2 = start_ndc.lerp(end_ndc, progress)
+    var depth: float = lerpf(-start_camera_local.origin.z,
+        -end_camera_local.origin.z, progress)
+    var half_tan: float = tan(deg_to_rad(cam.fov) * 0.5)
+    var aspect: float = maxf(hud.size.x, 1.0) / maxf(hud.size.y, 1.0)
     var camera_relative: Transform3D = start_camera_local.interpolate_with(
         end_camera_local, progress)
+    camera_relative.origin = Vector3(
+        on_screen.x * depth * half_tan * aspect,
+        on_screen.y * depth * half_tan, -depth)
     sera_display_rig.global_transform = cam.global_transform * camera_relative
 
 func _customization_entrance_arrived(final_world: Transform3D) -> void:
@@ -782,7 +808,8 @@ func _begin_customization_retraction() -> void:
     customize_entrance_tween.set_trans(Tween.TRANS_CUBIC)
     customize_entrance_tween.set_ease(Tween.EASE_IN_OUT)
     customize_entrance_tween.tween_method(_apply_customization_entrance.bind(
-        start_camera_local, stowed_camera_local), 0.0, 1.0,
+        start_camera_local, stowed_camera_local,
+        cam.fov, overview_fov), 0.0, 1.0,
         CUSTOMIZE_RETRACTION_SECONDS)
     customize_entrance_tween.finished.connect(_customization_retraction_arrived)
 
@@ -1198,6 +1225,7 @@ func _select_target(target_name: String) -> void:
         var previous_camera_pose: Transform3D = cam.transform
         var previous_camera_fov: float = cam.fov
         customize_transition_start_camera_pose = cam.global_transform
+        customize_transition_start_camera_fov = previous_camera_fov
         cam.transform = aim_pose
         cam.fov = float(view["fov"])
         _show_customization_preview()
@@ -1230,6 +1258,10 @@ func _return_to_overview() -> void:
     # Back immediately ends the bright selection, before camera return.
     outline.set("active_target", "")
     outline.queue_redraw()
+    # Remove BOTH the cyan halo and its cyber grid on the Back press itself,
+    # before either the model or camera Tween gets its first frame.
+    if focused_target == "CUSTOMIZE" and customize_glow_quad != null:
+        customize_glow_quad.visible = false
     in_transition = true
     focus_panel.visible = false
     customize_right_panel.visible = false
