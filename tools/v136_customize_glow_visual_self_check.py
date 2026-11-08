@@ -7,7 +7,7 @@ script = (root/"scripts/command_nexus.gd").read_text(encoding="utf-8")
 project = (root/"project.godot").read_text(encoding="utf-8")
 outline = (root/"scripts/nexus_selection_outline.gd").read_text(encoding="utf-8")
 
-assert 'config/name="SERA v142 - Camera-framed SERA transfer"' in project
+assert 'config/name="SERA v143 - Straight transfer and instant glow off"' in project
 assert 'render_mode unshaded, blend_mix, cull_disabled, depth_draw_never;' in shader
 assert 'uniform vec4 glow_color : source_color = vec4(0.35, 0.85, 0.98, 1.0);' in shader
 assert 'core_radius : hint_range(0.0, 1.0) = 0.34' in shader
