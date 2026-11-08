@@ -14,7 +14,7 @@ compatibility/default_parent_skeleton_in_mesh_instance_3d=true
 
 [application]
 
-config/name="SERA v135 - Solid core radial backdrop"
+config/name="SERA v136 - Smooth broad SERA backdrop"
 run/main_scene="res://scenes/launch_menu.tscn"
 config/features=PackedStringArray("4.7", "GL Compatibility")
 

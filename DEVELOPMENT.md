@@ -740,3 +740,10 @@
 - CUSTOMIZE拡大中の輪郭非表示・回転追従、戻る時の切り替え、他の端末・戦闘・NEXUS_pose・カメラ・モデル・入力・BGM／SEには変更なし。
 - 変更：シェーダー、版名、v125〜v134検査の版名とv134のシェーダー検査、DEVELOPMENT.md。追加：tools/v135_customize_glow_core_self_check.py、README_v135_ja.md。
 - シェーダーの不透明度プロファイルと変更範囲を静的検証。Godotパーサ／Android端末の実描画は未検証。
+
+## v136（2026-11-08） — CUSTOMIZEグラデーションの広域化・段差解消・胴体基準化
+- 基準：GitHub main `f448aa980c8945b689cb53b76203aa36678d48b4`（v135）。端末スクリーンショットでは発光円が小さく、中心と外周の2系統の不透明度カーブをmaxで合成する設計が境界の段差を生んでいた。加えて剣を含むモデル外接矩形の中央を光の中心としていたため、胴体から左右へずれていた。
+- 新シェーダーは中心半径0.34まで不透明度0.91で均一、そこから外周半径1.0まで1-smoothstepにより連続減衰（指数1.15）。従来の2曲線maxを廃止。
+- QuadMeshの投影幅を画面の70%、高さ46%（720x1280では約504x589px）に設定。Chest/Torso/Waistのボーン投影平均を光の中心とし、剣・盾の向きによる偏心を解消する。背後1.80m、メニュー・カメラ・回転追従、CUSTOMIZE拡大中の輪郭非表示は維持。
+- 独立した画像シミュレーションで、セラを表示しない720x1280の光分布4案を比較した後、元のスクリーンショットにセラの概略マスクを残した参考合成3案を確認。選択案の滑らかさ・広がりを目視および数値で確認した。**Godotの実描画やAndroid実機確認ではない**。
+- 修正：scripts/command_nexus.gd、shaders/nexus_customize_radial_glow.gdshader、project.godot、DEVELOPMENT.md、旧検査v125〜v135。追加：README_v136_ja.md、tools/v136_customize_glow_visual_self_check.py。戦闘・モデル・音声・既存4施設は変更なし。
