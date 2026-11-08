@@ -1,5 +1,5 @@
 extends Node3D
-# v137: lock the enlarged SERA preview pivot and background; full-area drag and dark-blue fading grid.
+# v138: CUSTOMIZE three-zone layout: upper-left SERA, lower-left square menu, tall right menu.
 # Preserve v127 kiosk/occlusion, v125 touch navigation and v124 Blockbench geometry.
 const Modules = preload("res://assets/base_command_modules.gd")
 const SeraRig = preload("res://scripts/sera_rig.gd")
@@ -23,6 +23,8 @@ var back_arrow: Label
 var focus_panel: Panel
 var focus_header: Panel
 var focus_title: Label
+var customize_right_panel: Panel
+var customize_right_header: Panel
 var action_panel: Panel
 var action_label: Label
 # Reuse the same display rig, without reparenting it: SeraRig has external
@@ -48,8 +50,8 @@ var customize_mouse_last_x: float = 0.0
 
 const CUSTOMIZE_PREVIEW_DISTANCE: float = 3.25
 const CUSTOMIZE_GLOW_DEPTH_OFFSET: float = 1.80
-const CUSTOMIZE_GLOW_SCREEN_WIDTH: float = 0.70
-const CUSTOMIZE_GLOW_SCREEN_HEIGHT: float = 0.46
+const CUSTOMIZE_GLOW_SCREEN_WIDTH: float = 0.46
+const CUSTOMIZE_GLOW_SCREEN_HEIGHT: float = 0.42
 const CUSTOMIZE_PREVIEW_TARGET_WIDTH_RATIO: float = 0.390
 const CUSTOMIZE_PREVIEW_ROTATION_SAMPLES: int = 16
 const NEXUS_POSE_NAMES: Array[String] = ["NEXUS_pose", "NEXUSpose"]
@@ -93,7 +95,7 @@ const PANEL_LAYOUTS: Dictionary = {
     "SYSTEM": Vector2(0.365, 0.590),
     "DATA ARCHIVE": Vector2(0.365, 0.590),
     "DEPLOYMENT": Vector2(0.045, 0.465),
-    "CUSTOMIZE": Vector2(0.045, 0.390)
+    "CUSTOMIZE": Vector2(0.035, 0.435)
 }
 
 func _ready() -> void:
@@ -450,6 +452,19 @@ func _hud() -> void:
     focus_title.add_theme_font_size_override("font_size", 21)
     focus_title.add_theme_color_override("font_color", Color("#e1f3fd"))
     focus_header.add_child(focus_title)
+    # CUSTOMIZE's second, tall right-side menu scaffold. No fabricated
+    # actions: both menus remain placeholders until their contents are defined.
+    customize_right_panel = Panel.new()
+    customize_right_panel.name = "CustomizeTallRightMenu"
+    customize_right_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    customize_right_panel.add_theme_stylebox_override("panel", _menu_body_style())
+    customize_right_panel.visible = false
+    hud.add_child(customize_right_panel)
+    customize_right_header = Panel.new()
+    customize_right_header.name = "CustomizeTallRightHeader"
+    customize_right_header.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    customize_right_header.add_theme_stylebox_override("panel", _menu_header_style())
+    customize_right_panel.add_child(customize_right_header)
     action_panel = Panel.new()
     action_panel.name = "DestinationAction"
     action_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -493,6 +508,29 @@ func _action_style() -> StyleBoxFlat:
     style.bg_color = Color(0.045, 0.220, 0.340, 0.84)
     return style
 
+# Three-zone CUSTOMIZE portrait: upper-left model, lower-left square,
+# right-side tall menu. All rectangles are in HUD viewport coordinates.
+func _customize_square_menu_rect(view: Vector2) -> Rect2:
+    var placement: Vector2 = PANEL_LAYOUTS["CUSTOMIZE"]
+    var square_side: float = minf(view.x * placement.y, view.y * 0.28)
+    return Rect2(
+        Vector2(view.x * placement.x, view.y * 0.865 - square_side),
+        Vector2(square_side, square_side))
+
+func _customize_tall_menu_rect(view: Vector2) -> Rect2:
+    return Rect2(
+        Vector2(view.x * 0.525, view.y * 0.135),
+        Vector2(view.x * 0.440, view.y * 0.730))
+
+func _customize_model_area(view: Vector2) -> Rect2:
+    var square: Rect2 = _customize_square_menu_rect(view)
+    var top: float = view.y * 0.10
+    var bottom: float = minf(view.y * 0.54,
+        square.position.y - maxf(12.0, view.y * 0.02))
+    return Rect2(
+        Vector2(square.position.x, top),
+        Vector2(square.size.x, maxf(1.0, bottom - top)))
+
 func _layout_hud() -> void:
     if hud == null or back_panel == null or focus_panel == null:
         return
@@ -508,7 +546,15 @@ func _layout_hud() -> void:
     focus_panel.position = Vector2(view.x * panel_placement.x, view.y * 0.225)
     focus_panel.size = Vector2(view.x * panel_placement.y, view.y * 0.535)
     if focused_target == "CUSTOMIZE":
-        _keep_customization_clear()
+        var square: Rect2 = _customize_square_menu_rect(view)
+        var tall: Rect2 = _customize_tall_menu_rect(view)
+        focus_panel.position = square.position
+        focus_panel.size = square.size
+        customize_right_panel.position = tall.position
+        customize_right_panel.size = tall.size
+        customize_right_header.position = Vector2.ZERO
+        customize_right_header.size = Vector2(
+            tall.size.x, minf(60.0, view.y * 0.068))
     # The opaque top stripe belongs to the focus panel; rest stays blue/clear.
     focus_header.position = Vector2.ZERO
     focus_header.size = Vector2(focus_panel.size.x, minf(60.0, view.y * 0.068))
@@ -521,21 +567,6 @@ func _layout_hud() -> void:
     _update_projected_silhouettes()
     if customize_preview_active:
         _update_customization_glow()
-
-func _keep_customization_clear() -> void:
-    # Guarantee real model silhouette (including held sword and limbs) is never
-    # covered by the left menu. This runs only at the end of the camera focus
-    # or when the viewport resizes, NOT every rendered frame.
-    if cam == null or not target_parts.has("CUSTOMIZE"):
-        return
-    var leftmost := INF
-    for contour in _project_model_contour("CUSTOMIZE"):
-        for point in contour:
-            leftmost = minf(leftmost, point.x)
-    if leftmost < INF:
-        # Leave 16 logical pixels between the entire mesh and the menu body.
-        focus_panel.size.x = minf(focus_panel.size.x,
-            maxf(0.0, leftmost - focus_panel.position.x - 16.0))
 
 # A single camera-facing translucent 3D quad sits behind the floating SERA.
 # It is not a screen overlay: depth testing keeps the character in front and
@@ -579,10 +610,11 @@ func _capture_customization_glow_layout() -> void:
                 body_count += 1
     if body_count > 0:
         center = body_pixels / float(body_count)
-    var placement: Vector2 = PANEL_LAYOUTS["CUSTOMIZE"]
-    var safe_left: float = viewport_size.x * (placement.x + placement.y) + 18.0
-    var safe_right: float = viewport_size.x * 0.970
-    center.x = clampf(center.x, safe_left + 20.0, safe_right - 20.0)
+    var model_area: Rect2 = _customize_model_area(viewport_size)
+    center.x = clampf(center.x,
+        model_area.position.x + 20.0, model_area.end.x - 20.0)
+    center.y = clampf(center.y,
+        model_area.position.y + 20.0, model_area.end.y - 20.0)
     customize_glow_center_ratio = Vector2(
         center.x / viewport_size.x, center.y / viewport_size.y)
 
@@ -737,18 +769,17 @@ func _fit_customization_preview() -> void:
     var size := hud.size
     if size.x <= 1.0 or size.y <= 1.0:
         return
-    var placement: Vector2 = PANEL_LAYOUTS["CUSTOMIZE"]
-    var left_limit: float = size.x * (placement.x + placement.y) + 18.0
-    var right_limit: float = size.x * 0.970
-    var top_limit: float = size.y * 0.150
-    var bottom_limit: float = size.y * 0.860
+    var frame: Rect2 = _customize_model_area(size)
+    var left_limit: float = frame.position.x
+    var right_limit: float = frame.end.x
+    var top_limit: float = frame.position.y
+    var bottom_limit: float = frame.end.y
     var allowed_width: float = maxf(1.0, right_limit - left_limit)
     var allowed_height: float = maxf(1.0, bottom_limit - top_limit)
     var center_target := Vector2((left_limit + right_limit) * 0.5,
         (top_limit + bottom_limit) * 0.5)
-    # Enlarge the *visible front pose* to nearly the width of its left menu.
-    # The old 16-angle union contained sideways weapons and made the actual
-    # front-facing character substantially smaller than the available area.
+    # Fit the authored front-facing SERA into the upper-left viewing region.
+    # Keep the initial full-body scale/pivot fixed during subsequent drag yaw.
     var target_width: float = minf(size.x * CUSTOMIZE_PREVIEW_TARGET_WIDTH_RATIO,
         allowed_width * 0.94)
 
@@ -784,11 +815,11 @@ func _constrain_customization_preview_to_safe_area() -> void:
     var size := hud.size
     if size.x <= 1.0 or size.y <= 1.0:
         return
-    var placement: Vector2 = PANEL_LAYOUTS["CUSTOMIZE"]
-    var left_limit: float = size.x * (placement.x + placement.y) + 18.0
-    var right_limit: float = size.x * 0.970
-    var top_limit: float = size.y * 0.150
-    var bottom_limit: float = size.y * 0.860
+    var frame: Rect2 = _customize_model_area(size)
+    var left_limit: float = frame.position.x
+    var right_limit: float = frame.end.x
+    var top_limit: float = frame.position.y
+    var bottom_limit: float = frame.end.y
     var allowed_width: float = maxf(1.0, right_limit - left_limit)
     var allowed_height: float = maxf(1.0, bottom_limit - top_limit)
     var center_target := Vector2((left_limit + right_limit) * 0.5,
@@ -828,6 +859,9 @@ func _is_customization_drag_zone(pixel: Vector2) -> bool:
     # All of the gameplay viewport accepts rotation except the complete
     # left menu panel and the bottom-right Back button, at any vertical height.
     if focus_panel.visible and Rect2(focus_panel.position, focus_panel.size).has_point(pixel):
+        return false
+    if customize_right_panel.visible and Rect2(
+            customize_right_panel.position, customize_right_panel.size).has_point(pixel):
         return false
     if back_panel.visible and Rect2(back_panel.position, back_panel.size).has_point(pixel):
         return false
@@ -1081,6 +1115,7 @@ func _focus_arrived(target_name: String) -> void:
     action_panel.visible = target_name == "TRAINING"
     _layout_hud()
     focus_panel.visible = true
+    customize_right_panel.visible = target_name == "CUSTOMIZE"
 
 func _return_to_overview() -> void:
     if in_transition or focused_target.is_empty():
@@ -1090,6 +1125,7 @@ func _return_to_overview() -> void:
     outline.queue_redraw()
     in_transition = true
     focus_panel.visible = false
+    customize_right_panel.visible = false
     back_panel.visible = false
     _restore_customization_preview()
     _move_camera(overview_pose, overview_fov, _overview_arrived)

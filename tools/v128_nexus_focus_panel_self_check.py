@@ -17,7 +17,7 @@ MODULES = json.loads(
     (ROOT / "assets/base_command_modules.gd").read_text(encoding="utf-8").split("const MODULES = ", 1)[1].strip()
 )
 
-assert 'config/name="SERA v137 - Fixed preview and cyber grid"' in P
+assert 'config/name="SERA v138 - Three-zone customization"' in P
 assert 'run/main_scene="res://scenes/launch_menu.tscn"' in P
 assert 'pointing/emulate_mouse_from_touch=false' in P
 assert 'renderer/rendering_method="gl_compatibility"' in P
@@ -33,7 +33,7 @@ shots = {
 panels = {
     "TRAINING": (.045, .585),
     "SYSTEM": (.365, .590),
-    "CUSTOMIZE": (.045, .390),
+    "CUSTOMIZE": (.035, .435),
     "DATA ARCHIVE": (.365, .590),
     "DEPLOYMENT": (.045, .465),
 }
@@ -61,11 +61,15 @@ assert 'action_label.text = "ENTER TRAINING" if target_name == "TRAINING" else "
 assert 'get_tree().change_scene_to_file(TRAINING_SCENE)' in S
 assert 'back_panel.position = Vector2(view.x - margin - 62.0, view.y - margin - 62.0)' in S
 
-# For customization, the actual projected silhouette (including sword) keeps
-# the panel safely separate: never cover the model with a tinted rectangle.
-assert 'if focused_target == "CUSTOMIZE":\n        _keep_customization_clear()' in S
-assert 'for contour in _project_model_contour("CUSTOMIZE"):' in S
-assert 'leftmost - focus_panel.position.x - 16.0' in S
+# CUSTOMIZE no longer shrinks a left overlay around the projected model:
+# its square panel is below the upper-left preview, with a tall right panel.
+assert 'if focused_target == "CUSTOMIZE":\n        var square: Rect2 = _customize_square_menu_rect(view)' in S
+assert 'focus_panel.position = square.position' in S
+assert 'focus_panel.size = square.size' in S
+assert 'customize_right_panel.position = tall.position' in S
+assert 'customize_right_panel.size = tall.size' in S
+assert 'func _customize_model_area(view: Vector2) -> Rect2:' in S
+assert '_keep_customization_clear()' not in S
 assert 'target_parts["CUSTOMIZE"] = grouped.values()' in S
 assert 'piece.is_visible_in_tree()' in S
 
@@ -148,8 +152,9 @@ for name,(eye,look,fov) in shots.items():
         assert l >= -.015 and r <= panel_left+.09, (name,l,r,panel_left)
         assert r-panel_left >= .012, (name,l,r,panel_left)
     else:
-        assert l > panel_right, ("custom model/menu overlap",l,panel_right)
-        assert r <= 1.01 and t>=0 and b<=1.0, ("SERA full body/weapon/pad clipped",l,t,r,b)
+        # CAMERA overview view is preserved; CUSTOMIZE's menu is now below
+        # the floating preview rather than to its left.
+        assert l >= 0.0 and r <= 1.01 and t>=0 and b<=1.0, ("SERA full body/weapon/pad clipped",l,t,r,b)
     assert t>=.10 and b<=.90, (name,l,t,r,b)
 print("v128 five side-biased cameras and opposite menu panels: PASS")
 print("SERA full visible body/weapon/pedestal conservative proxy: PASS")

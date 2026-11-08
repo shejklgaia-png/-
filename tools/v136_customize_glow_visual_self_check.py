@@ -7,7 +7,7 @@ script = (root/"scripts/command_nexus.gd").read_text(encoding="utf-8")
 project = (root/"project.godot").read_text(encoding="utf-8")
 outline = (root/"scripts/nexus_selection_outline.gd").read_text(encoding="utf-8")
 
-assert 'config/name="SERA v137 - Fixed preview and cyber grid"' in project
+assert 'config/name="SERA v138 - Three-zone customization"' in project
 assert 'render_mode unshaded, blend_mix, cull_disabled, depth_draw_never;' in shader
 assert 'uniform vec4 glow_color : source_color = vec4(0.35, 0.85, 0.98, 1.0);' in shader
 assert 'core_radius : hint_range(0.0, 1.0) = 0.34' in shader
@@ -28,9 +28,9 @@ assert abs(alpha(0.999)-alpha(1.0)) < 0.001
 assert all(alpha(i / 1000.0) >= alpha((i+1) / 1000.0) - 1e-12
            for i in range(1000))
 assert alpha(1.0) == 0.0
-assert 'CUSTOMIZE_GLOW_SCREEN_WIDTH: float = 0.70' in script
-assert 'CUSTOMIZE_GLOW_SCREEN_HEIGHT: float = 0.46' in script
-assert 0.70 * 720 >= 500 and 0.46 * 1280 >= 580
+assert 'CUSTOMIZE_GLOW_SCREEN_WIDTH: float = 0.46' in script
+assert 'CUSTOMIZE_GLOW_SCREEN_HEIGHT: float = 0.42' in script
+assert 0.46 * 720 >= 330 and 0.42 * 1280 >= 535
 assert 'CUSTOMIZE_GLOW_DEPTH_OFFSET: float = 1.80' in script
 assert 'var body_bones: Dictionary = sera_display_rig.get("bones")' in script
 assert 'bone.name in ["Chest", "Torso", "Waist"]' in script

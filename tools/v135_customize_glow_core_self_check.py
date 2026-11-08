@@ -8,7 +8,7 @@ n = (root/"scripts/command_nexus.gd").read_text(encoding="utf-8")
 p = (root/"project.godot").read_text(encoding="utf-8")
 outline = (root/"scripts/nexus_selection_outline.gd").read_text(encoding="utf-8")
 
-assert 'config/name="SERA v137 - Fixed preview and cyber grid"' in p
+assert 'config/name="SERA v138 - Three-zone customization"' in p
 assert 'render_mode unshaded, blend_mix, cull_disabled, depth_draw_never;' in s
 assert 'uniform vec4 glow_color : source_color = vec4(0.35, 0.85, 0.98, 1.0);' in s
 for setting in (
@@ -35,8 +35,8 @@ assert alpha(1.0) == 0.0
 assert abs(alpha(0.341)-alpha(0.34)) < 0.001
 
 # The gradient quad remains behind SERA; all other facility outlines persist.
-assert 'CUSTOMIZE_GLOW_SCREEN_WIDTH: float = 0.70' in n
-assert 'CUSTOMIZE_GLOW_SCREEN_HEIGHT: float = 0.46' in n
+assert 'CUSTOMIZE_GLOW_SCREEN_WIDTH: float = 0.46' in n
+assert 'CUSTOMIZE_GLOW_SCREEN_HEIGHT: float = 0.42' in n
 assert 'CUSTOMIZE_GLOW_DEPTH_OFFSET: float = 1.80' in n
 assert 'outline.set("hide_customize_preview_outline", true)' in n
 assert 'outline.set("hide_customize_preview_outline", false)' in n

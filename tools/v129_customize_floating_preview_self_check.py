@@ -11,7 +11,7 @@ s = (ROOT / "scripts/command_nexus.gd").read_text(encoding="utf-8")
 project = (ROOT / "project.godot").read_text(encoding="utf-8")
 model = json.loads((ROOT / "models/SERA_BOOSTER_allテスト.bbmodel").read_text(encoding="utf-8"))
 
-assert 'config/name="SERA v137 - Fixed preview and cyber grid"' in project
+assert 'config/name="SERA v138 - Three-zone customization"' in project
 assert 'run/main_scene="res://scenes/launch_menu.tscn"' in project
 assert 'pointing/emulate_mouse_from_touch=false' in project
 assert 'renderer/rendering_method="gl_compatibility"' in project
@@ -40,9 +40,9 @@ assert "for i in range(CUSTOMIZE_PREVIEW_ROTATION_SAMPLES)" in s
 assert "customize_preview_scale *= fit" in s
 assert "func _fit_customization_preview()" in s
 assert 'PANEL_LAYOUTS["CUSTOMIZE"]' in s
-assert "size.x * (placement.x + placement.y) + 18.0" in s
-assert "size.x * 0.970" in s
-assert "size.y * 0.280" in s and "size.y * 0.765" in s
+assert 'func _customize_model_area(view: Vector2) -> Rect2:' in s
+assert 'var frame: Rect2 = _customize_model_area(size)' in s
+assert 'var target_width: float = minf(size.x * CUSTOMIZE_PREVIEW_TARGET_WIDTH_RATIO,' in s
 assert "func _customization_screen_bounds()" in s
 assert 'target_parts["CUSTOMIZE"] = grouped.values()' in s
 assert "piece.is_visible_in_tree()" in s
