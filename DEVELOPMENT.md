@@ -770,3 +770,11 @@
 - 左上のセラ初期表示幅の目標を画面幅39.0%→43.5%、左上区画の上限を左右のメニューに干渉しない範囲で横幅97%まで使う。表示領域の下端を画面高54%→61.5%（左下正方形メニュー上端から15px程度上）へ延ばし、描画外形の最下点が追加で約10px上になるようフィットと安全領域調整を下端揃えに変更。720×1280換算で左下メニューとの距離は約25px。
 - 回転中の展示モデルの固定位置・倍率、背景の非追従、グリッドの色と大きさ、左下正方形メニュー、右縦長メニュー、戻る、ほか4設備、NEXUS_pose、戦闘と音声は維持。
 - 変更：scripts/command_nexus.gd、project.godot、DEVELOPMENT.md、旧ソース検査の版名と領域期待値。追加：README_v139_ja.md、tools/v139_customize_entrance_self_check.py。ソース順序・座標計算・補間数学のみ静的検証。Godot／Android実機によるTweenの描画確認は未検証。
+
+## v140（2026-11-08） — 展示セラの高速移動と戻るボタンでの滑らかな格納
+- 基準：GitHub main `1de7c4a09ce807e4c62bc587b82393512257f8e2`（v139）。CUSTOMIZEへの移動・拡大Tweenを0.46秒から0.28秒へ高速化。Cubic Ease In Outを維持し、急なスケール変化・瞬間移動を防ぐ。カメラの0.18秒遷移は従来どおり。
+- 右下UI戻る（Android戻る／Escも同一経路）では、現在のセラの全世界Transformから展示台上の正規ローカルTransform（`sera_display_stand.global_transform * sera_original_transform`）まで0.28秒の逆補間Tweenで収納。セラが格納された後、既存の0.18秒カメラ帰還を開始する。これにより戻る入力時の即時座標リセットを廃止。
+- 同一SeraRig・既存Transform3D.interpolate_with・既存Tween変数を再利用。戻る入力直後に選択枠を解除、メニューパネル/戻るボタンを非表示、`in_transition`中は別操作を受け付けない。固定のグラデーション／グリッドは移動中も追従せず、格納完了後に非表示となる。Tween終了時に`_restore_customization_preview`で表示元へ正規復帰。
+- 他4設備は従来どおりカメラ帰還のみ。v139の左上レイアウト、メニュー、回転、NEXUS_pose、Blockbenchデータ、戦闘・BGM/SEは変更なし。
+- 変更：scripts/command_nexus.gd、project.godot、DEVELOPMENT.md、既存v125〜v139静的検査のバージョンおよび所要時間期待値。追加：README_v140_ja.md、tools/v140_customize_retraction_self_check.py。
+- ソース順序・関数連結・移動時間の静的確認のみ。Godot起動／Android実機でのアニメーション品質・操作・描画は未検証。
