@@ -5,7 +5,7 @@ from pathlib import Path
 
 root = Path(__file__).resolve().parents[1]
 source = (root / "project.godot").read_text(encoding="utf-8")
-matches = re.findall(r'^config/name="([^"\\r\\n]+)"$', source, flags=re.MULTILINE)
+matches = re.findall(r'^config/name="([^"]+)"$', source, flags=re.MULTILINE)
 assert len(matches) == 1, f"Expected one Godot project title, found {len(matches)}"
 title = matches[0]
 assert re.fullmatch(r"SERA v[1-9][0-9]*", title), (
