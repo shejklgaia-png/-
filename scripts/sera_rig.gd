@@ -32,7 +32,7 @@ const BOOST_RIGHT_CLIP: String = "Boost_right"
 const BOOST_LEFT_CLIP: String = "Boost_Left"
 const BOOST_CLIPS = [BOOST_CLIP, BOOST_BACK_CLIP, BOOST_RIGHT_CLIP, BOOST_LEFT_CLIP]
 # v116: Faster angular response for four-way authored BOOST pose changes.
-const BOOST_DIRECTION_BLEND_SECONDS: float = 0.06
+const BOOST_DIRECTION_BLEND_SECONDS: float = 0.025
 # Fast pose crossfade only when entering or leaving locomotion BOOST.
 const BOOST_STATE_BLEND_SECONDS: float = 0.08
 const MELEE_APPROACH_CLIP: String = "meleeboost"
@@ -51,16 +51,16 @@ const GUARD_CLIP: String = "Guard"
 # v116: The existing 1.5x RUN animation is accelerated by 1.25x (1.5 * 1.25).
 const RUN_ANIMATION_SPEED: float = 1.875  # Motion playback only; does not change movement speed
 # v108: Continuous four-way pose blending; 0.12s response for direction changes.
-const RUN_DIRECTION_BLEND_SECONDS: float = 0.12
+const RUN_DIRECTION_BLEND_SECONDS: float = 0.035
 # v112: Give the dominant-thumb side a larger forward RUN sector.
 # Right-hand preset widens LEFT; left-hand preset mirrors it to RIGHT.
 # The other side retains v111's center 100° and ±5° hysteresis.
 const RUN_MODE_BASE_CENTER_DEGREES: float = 100.0
 const RUN_PREFERRED_SIDE_EXTRA_DEGREES: float = 20.0
 const RUN_MODE_HYSTERESIS_DEGREES: float = 5.0
-const RUN_MODE_BLEND_SECONDS: float = 0.18
-const RUN_UPPER_TRACKING_SECONDS: float = 0.10
-const RUN_ROOT_TURN_SPEED_DEGREES: float = 450.0
+const RUN_MODE_BLEND_SECONDS: float = 0.075
+const RUN_UPPER_TRACKING_SECONDS: float = 0.05
+const RUN_ROOT_TURN_SPEED_DEGREES: float = 1440.0
 const RUN_TORSO_BONE_UUID: String = "29fad052-d2b7-1a2a-eefa-30dd75fa7d0a"
 const RUN_CHEST_BONE_UUID: String = "1b13d772-8cee-ef23-dc57-4da6bba6ce39"
 const RUN_NECK_BONE_UUID: String = "6c0141f8-17fe-6484-21e1-938ae81a620c"

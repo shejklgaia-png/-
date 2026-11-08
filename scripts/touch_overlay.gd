@@ -1,5 +1,5 @@
 extends Control
-## v71: In-project vector-rendered two-part radial controller (no image dependency).
+## v149: finger-following 360° swipe heading arrow + directional BOOST charge (no analog circle).
 ## v72: Enlarge guide and visualize run vs outer-ring boost from main.gd.
 ## v73: Single translucent disc and center-to-finger line, v70 style;
 ## double outward chevrons live entirely OUTSIDE the disc.
@@ -24,6 +24,8 @@ var movement_boost_active: bool = false
 var anchor_point: Vector2 = Vector2.ZERO
 var finger_point: Vector2 = Vector2.ZERO
 var radius: float = 168.0
+var swipe_heading: Vector2 = Vector2.ZERO
+var swipe_boost_progress: float = 0.0
 var melee_in_range: bool = false
 # Screen coordinates supplied by Camera3D.unproject_position(target.global_position).
 # A nonvisible/offscreen target does not leave a misleading marker at screen center.
@@ -115,6 +117,16 @@ func show_drag(origin: Vector2, pos: Vector2, max_radius: float) -> void:
 func hide_drag() -> void:
     dragging = false
     movement_boost_active = false
+    swipe_heading = Vector2.ZERO
+    swipe_boost_progress = 0.0
+    queue_redraw()
+
+func set_swipe_motion(pos: Vector2, heading: Vector2,
+        charge: float, boosted: bool) -> void:
+    finger_point = pos
+    swipe_heading = heading.normalized() if heading.length_squared() > 0.0001 else Vector2.ZERO
+    swipe_boost_progress = clampf(charge, 0.0, 1.0)
+    movement_boost_active = boosted
     queue_redraw()
 
 func set_movement_boost(value: bool) -> void:
@@ -160,73 +172,47 @@ func _draw() -> void:
         draw_line(mark + Vector2(0, 4), mark + Vector2(0, 13), reticle_color, 2.0)
 
     if dragging:
-        _draw_radial_controller(accent, low)
+        _draw_swipe_controller(accent, low)
 
 
-func _draw_radial_controller(accent: Color, low: Color) -> void:
-    # One uninterrupted translucent disc, covering v72's full outer radius.
-    # Reuse v70's exact base color/alpha instead of adding an image or a ring.
-    draw_circle(anchor_point, radius, Color(0.15, 0.60, 0.68, 0.08))
-    var rim_color: Color = accent if movement_boost_active else low
-    draw_arc(anchor_point, radius, 0.0, TAU, 96, rim_color, 3.0, true)
-
-    # Keep the 125% entry line visible while BOOST is active. Prior to
-    # activation the same arc remains faint, showing where BOOST begins.
-    # Draw it in the real finger direction; the BOOST knob moves beyond it.
-    var finger_vector: Vector2 = finger_point - anchor_point
-    if finger_vector.length_squared() > radius * radius or movement_boost_active:
-        var heading: float = finger_vector.angle()
-        var guide_color: Color = accent if movement_boost_active else Color(0.21, 0.85, 0.93, 0.26)
-        var guide_width: float = 3.0 if movement_boost_active else 2.0
-        draw_arc(anchor_point, radius * CONTROLLER_BOOST_START_RADIUS_RATIO,
-            heading - 0.38, heading + 0.38, 18, guide_color, guide_width, true)
-
-    # RUN stays capped at the disc rim. During BOOST the *displayed* knob
-    # snaps to 148%, so even its full 29px circle clears the 125% guide.
-    # This is visual only: real touch distance / boost hysteresis are unchanged.
-    var knob_center: Vector2 = anchor_point + finger_vector.limit_length(radius)
-    if movement_boost_active and finger_vector.length_squared() > 0.000001:
-        knob_center = anchor_point + finger_vector.normalized() * (radius * CONTROLLER_BOOST_KNOB_RADIUS_RATIO)
-    draw_line(anchor_point, knob_center, low, 5.0, true)
-    draw_circle(knob_center, CONTROLLER_FINGER_DOT_RADIUS, Color(0.13, 0.54, 0.61, 0.45))
-    draw_arc(knob_center, CONTROLLER_FINGER_DOT_RADIUS, 0.0, TAU, 42, accent, 2.0, true)
-
-    # All eight chevrons lie outside the circle. BOOST makes both the rim
-    # and direction guide brighter, preserving the existing cyan RGBA palette.
-    for direction in [Vector2.UP, Vector2.RIGHT, Vector2.DOWN, Vector2.LEFT]:
-        _draw_chevron(anchor_point, direction, radius * CONTROLLER_CHEVRON_NEAR_RATIO,
-            radius * 0.068, radius * 0.065, rim_color, 3.5)
-        _draw_chevron(anchor_point, direction, radius * CONTROLLER_CHEVRON_FAR_RATIO,
-            radius * 0.068, radius * 0.065, rim_color, 3.5)
-    _draw_move_mode_indicator(accent, rim_color)
-
-
-func _draw_move_mode_indicator(accent: Color, rim_color: Color) -> void:
-    # Place this pill beyond the uppermost outside arrow. It updates together
-    # with the rim and chevrons as the finger crosses the visible boundary.
-    var mode_label: String = "BOOST  1.5x" if movement_boost_active else "RUN  1.0x"
-    var label_width: float = 166.0
-    var label_height: float = 34.0
-    var rect := Rect2(anchor_point.x - label_width * 0.5,
-        anchor_point.y - radius - label_height - 74.0,
-        label_width, label_height)
-    draw_rect(rect, Color(0.13, 0.54, 0.61, 0.45), true)
-    draw_rect(rect, rim_color, false, 2.0, true)
+# Small, mobile finger-following HUD, NOT a fixed-origin joystick.
+# Arrow = immediate travel direction; short curved bar = long-drag BOOST
+# progress. No four-way chevrons, drag radius or analog velocity knob.
+func _draw_swipe_controller(accent: Color, low: Color) -> void:
+    var center := Vector2(clampf(finger_point.x, 70.0, size.x - 70.0),
+        clampf(finger_point.y - 63.0, 65.0, size.y - 65.0))
+    var boosting: bool = movement_boost_active
+    var bright := Color(0.27, 0.97, 1.0, 0.98) if boosting else accent
+    draw_circle(center, 36.0, Color(0.10, 0.23, 0.31, 0.48))
+    draw_arc(center, 35.0, 0.0, TAU, 48, low, 1.8, true)
+    if not boosting:
+        draw_arc(center, 35.0, -PI * 0.5,
+            -PI * 0.5 + TAU * swipe_boost_progress,
+            40, bright, 4.0, true)
+    else:
+        draw_arc(center, 35.0, 0.0, TAU, 48, bright, 4.0, true)
+    if swipe_heading.length_squared() > 0.0001:
+        # Long, crisp triangle follows a continuous 360° vector.
+        var side := Vector2(-swipe_heading.y, swipe_heading.x)
+        var tip: Vector2 = center + swipe_heading * 27.0
+        var base: Vector2 = center - swipe_heading * 12.0
+        var points := PackedVector2Array([
+            tip, base + side * 11.0, base - side * 11.0])
+        draw_colored_polygon(points, bright)
+        draw_line(center - swipe_heading * 21.0,
+            center - swipe_heading * 37.0, low, 4.0, true)
+        if boosting:
+            # Two forward speed chevrons make BOOST obvious at a glance.
+            for n in range(2):
+                var tail := center - swipe_heading * (35.0 + n * 12.0)
+                draw_polyline(PackedVector2Array([
+                    tail + side * 7.0,
+                    tail + swipe_heading * 8.0,
+                    tail - side * 7.0]), bright, 2.5, true)
+    else:
+        draw_circle(center, 7.0, bright)
     var font: Font = get_theme_default_font()
     if font != null:
-        draw_string(font, Vector2(rect.position.x, rect.position.y + 24.0),
-            mode_label, HORIZONTAL_ALIGNMENT_CENTER, label_width, 18, accent)
-
-
-func _draw_chevron(center: Vector2, direction: Vector2, offset: float,
-        half_width: float, half_length: float, tint: Color, stroke: float) -> void:
-    # Each arrow is two clean, anti-aliased straight strokes with rounded ends.
-    var outward_tip: Vector2 = center + direction * (offset + half_length * 0.5)
-    var tail_center: Vector2 = center + direction * (offset - half_length * 0.5)
-    var perpendicular: Vector2 = Vector2(-direction.y, direction.x)
-    var first: Vector2 = tail_center + perpendicular * half_width
-    var last: Vector2 = tail_center - perpendicular * half_width
-    draw_polyline(PackedVector2Array([first, outward_tip, last]), tint, stroke, true)
-    draw_circle(first, stroke * 0.5, tint)
-    draw_circle(outward_tip, stroke * 0.5, tint)
-    draw_circle(last, stroke * 0.5, tint)
+        var label: String = "BOOST  x1.5" if boosting else "RUN"
+        draw_string(font, center + Vector2(-60.0, -48.0),
+            label, HORIZONTAL_ALIGNMENT_CENTER, 120.0, 17, bright)
