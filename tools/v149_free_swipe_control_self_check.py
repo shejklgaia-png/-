@@ -13,7 +13,7 @@ main = (root/"scripts/main.gd").read_text(encoding="utf-8")
 ui = (root/"scripts/touch_overlay.gd").read_text(encoding="utf-8")
 rig = (root/"scripts/sera_rig.gd").read_text(encoding="utf-8")
 project = (root/"project.godot").read_text(encoding="utf-8")
-assert re.findall(r'^config/name="([^"]+)"$',project,re.M) == ["SERA v149"]
+assert re.findall(r'^config/name="([^"]+)"$',project,re.M) == ["SERA v150"]
 assert (root/"README_v149_ja.md").exists()
 
 def part(source, start, end):
@@ -57,7 +57,10 @@ assert "const BOOST_DIRECTION_BLEND_SECONDS: float = 0.025" in rig
 assert "const RUN_ROOT_TURN_SPEED_DEGREES: float = 1440.0" in rig
 
 assert "func set_swipe_motion(pos: Vector2, heading: Vector2," in ui
-assert "draw_colored_polygon(points, bright)" in boost_visual
+assert "draw_line(tail, tip, bright, 5.0, true)" in boost_visual
+assert "draw_polyline(PackedVector2Array([" in boost_visual
+assert "draw_circle(tip, 2.5, bright)" in boost_visual
+assert "visual_heading_angle = lerp_angle(" in ui
 assert "swipe_boost_progress" in boost_visual
 assert "draw_arc(center, 35.0" in boost_visual
 assert '"BOOST  x1.5"' in boost_visual

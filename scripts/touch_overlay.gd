@@ -1,12 +1,7 @@
 extends Control
 ## v150: smooth per-frame finger/heading/charge visualization with rounded anti-aliased arrows.
 ## v149: finger-following 360° swipe heading arrow + directional BOOST charge (no analog circle).
-## v72: Enlarge guide and visualize run vs outer-ring boost from main.gd.
-## v73: Single translucent disc and center-to-finger line, v70 style;
-## double outward chevrons live entirely OUTSIDE the disc.
-## Preserve v70 joystick color/alpha palette. Input stays in main.gd.
-## v90: 100% RUN rim and 125% BOOST entry threshold guide.
-## v115: While boosting, move the drawn knob fully beyond the 125% line.
+## v149 replaced the legacy analog disc and 125% threshold UI; input stays in main.gd.
 ## v62: Screen bottom 15% deep gray, preceding 10% transparent-to-gray gradient.
 ## v63: Brighten the neutral gray slightly; retain 90% opacity and region.
 ## Screen-space joystick + camera-projected 3D target reticle; no input interception.
@@ -52,15 +47,6 @@ const LOCK_RING_WIDTH_NORMAL: float = 2.0
 const LOCK_RING_WIDTH_MELEE: float = 5.0
 # 4 arcs are centered exactly on the horizontal/vertical axes at rest.
 const LOCK_ARC_SWEEP: float = 0.70
-
-# Two chevrons in each cardinal direction, placed beyond the outer rim.
-# The RUN knob stays inside the 168px disc; the BOOST knob moves outside
-# the 125% threshold line (even when hysteresis allows a shorter touch drag).
-const CONTROLLER_CHEVRON_NEAR_RATIO: float = 1.13
-const CONTROLLER_CHEVRON_FAR_RATIO: float = 1.27
-const CONTROLLER_FINGER_DOT_RADIUS: float = 29.0
-const CONTROLLER_BOOST_START_RADIUS_RATIO: float = 1.25
-const CONTROLLER_BOOST_KNOB_RADIUS_RATIO: float = 1.48
 
 const OPERATION_ZONE_TOP_RATIO: float = 0.75  # top of fade: 100% transparent
 const OPERATION_ZONE_SOLID_RATIO: float = 0.92  # bottom 8% is a uniform medium gray
