@@ -5,8 +5,8 @@ const Modules = preload("res://assets/base_command_modules.gd")
 const SeraRig = preload("res://scripts/sera_rig.gd")
 const TagIcon = preload("res://scripts/nexus_tag_icon.gd")
 
-const GATE_ORIGIN := Vector3(4.00, 0.02, -10.48)
-const SERA_STAGE_ORIGIN := Vector3(0.0, 0.0, -4.75)
+const GATE_ORIGIN: Vector3 = Vector3(4.00, 0.02, -10.48)
+const SERA_STAGE_ORIGIN: Vector3 = Vector3(0.0, 0.0, -4.75)
 
 var batch_data: Dictionary = {}
 var hud: Control
