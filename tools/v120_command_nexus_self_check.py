@@ -51,6 +51,7 @@ assert "rig.set_process(false)" in src
 assert 'rig.get("bind_positions")' in src
 assert 'rig.get("bind_rotations")' in src
 assert "rig.rotation.y = PI" in src
+assert "Quaternion(Vector3.BACK, deg_to_rad" in src
 assert 'cam.look_at(Vector3(0.0, 2.88, -4.72)' in src
 assert 'Environment.AMBIENT_SOURCE_COLOR' in src
 assert 'Environment.AMBIENT_COLOR' not in src
