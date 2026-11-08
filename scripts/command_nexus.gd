@@ -3,6 +3,7 @@ extends Node3D
 # This read-only display renders their embedded geometry in material batches.
 const Modules = preload("res://assets/base_command_modules.gd")
 const SeraRig = preload("res://scripts/sera_rig.gd")
+const TagIcon = preload("res://scripts/nexus_tag_icon.gd")
 
 var batch_data: Dictionary = {}
 var hud: Control
@@ -51,7 +52,7 @@ func _module(name: String, at: Vector3, yaw: float = 0.0, scale_factor: float = 
         var lo: Vector3 = _vec(part[1]) * Modules.UNIT * scale_factor
         var hi: Vector3 = _vec(part[2]) * Modules.UNIT * scale_factor
         var rot: Vector3 = _vec(part[4]) * (PI / 180.0)
-        var basis: Basis = (parent_basis * Basis.from_euler(rot)).scaled(hi - lo)
+        var basis: Basis = (parent_basis * Basis.from_euler(rot)).scaled_local(hi - lo)
         var transform := Transform3D(basis, at + parent_basis * ((lo + hi) * 0.5))
         var index: int = int(part[3])
         var instances: Array = batch_data.get(index, [])
@@ -171,18 +172,22 @@ func _tag(title: String, sub: String, x: float, y: float, w: float) -> void:
     hud.add_child(panel)
     var caption := Label.new()
     caption.text = title
-    caption.position = Vector2(12, 7)
-    caption.add_theme_font_size_override("font_size", 21)
+    caption.position = Vector2(54, 7)
+    caption.add_theme_font_size_override("font_size", 19)
     caption.add_theme_color_override("font_color", Color("#e0edf9"))
     caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
     panel.add_child(caption)
     var detail := Label.new()
     detail.text = sub
-    detail.position = Vector2(12, 38)
+    detail.position = Vector2(54, 38)
     detail.add_theme_font_size_override("font_size", 13)
     detail.add_theme_color_override("font_color", Color("#97b8ce"))
     detail.mouse_filter = Control.MOUSE_FILTER_IGNORE
     panel.add_child(detail)
+    var glyph := TagIcon.new()
+    glyph.kind = title
+    glyph.position = Vector2(11, 15)
+    panel.add_child(glyph)
     tags.append({"panel": panel, "x": x, "y": y, "w": w})
 
 func _hud() -> void:
