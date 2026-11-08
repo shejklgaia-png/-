@@ -8,7 +8,7 @@ o = (root/"scripts/nexus_selection_outline.gd").read_text(encoding="utf-8")
 p = (root/"project.godot").read_text(encoding="utf-8")
 sh = (root/"shaders/nexus_customize_radial_glow.gdshader").read_text(encoding="utf-8")
 
-assert 'config/name="SERA v136 - Smooth broad SERA backdrop"' in p
+assert 'config/name="SERA v137 - Fixed preview and cyber grid"' in p
 assert 'CUSTOMIZE_GLOW_SHADER = preload("res://shaders/nexus_customize_radial_glow.gdshader")' in n
 assert "func _create_customization_glow() -> void:" in n
 assert "var quad := QuadMesh.new()" in n
@@ -38,8 +38,9 @@ assert "_restore_customization_preview()" in back
 assert 'outline.set("hide_customize_preview_outline", false)' not in back
 assert 'outline.set("hide_customize_preview_outline", false)' in arrived
 rotation = n.split("func _rotate_customization_preview(delta_x: float) -> void:",1)[1].split("func _update_projected_silhouettes()",1)[0]
-assert "_constrain_customization_preview_to_safe_area()" in rotation
-assert "_update_customization_glow()" in rotation
+assert "_constrain_customization_preview_to_safe_area()" not in rotation
+assert "_update_customization_glow()" not in rotation
+assert "_capture_sera_silhouette(sera_display_rig)" in rotation
 assert "shader_type spatial;" in sh
 assert "unshaded" in sh and "depth_draw_never" in sh
 assert "uniform vec4 glow_color : source_color" in sh
