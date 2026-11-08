@@ -12,7 +12,7 @@ clips = {a["name"]: a for a in source["animations"]}
 assert len(source["animations"]) == 20
 assert all(clips[n]["length"] == 1 and clips[n]["loop"] == "loop" for n in names)
 assert "const RUN_DIRECTION_BLEND_SECONDS: float = 0.12" in rig
-assert "const RUN_ANIMATION_SPEED: float = 1.5" in rig
+assert "const RUN_ANIMATION_SPEED: float = 1.875" in rig
 assert "func _blended_run_pose(uid: String, t: float, stabilize_head: bool = true)" in rig
 assert "source_name: String = RUN_CLIP if i == 0 else RUN_BACK_CLIP" in rig
 assert "var fraction: float = weight / (total_weight + weight)" in rig
