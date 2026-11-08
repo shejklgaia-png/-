@@ -1,57 +1,44 @@
 extends Control
-# v118: responsive full-viewport startup selector.
-const BACKGROUND := Color("#0a101b")
-const ACCENT := Color("#49c9ec")
+# v119: scene-defined centered UI with temporary touch-to-mouse emulation.
+# Existing training scene keeps its own raw touch input behavior.
+const TRAINING_SCENE: String = "res://scenes/main.tscn"
+const NEXUS_SCENE: String = "res://scenes/command_nexus.tscn"
+
+@onready var choices: VBoxContainer = $ScreenMargin/Centered/Options
+@onready var training_button: Button = $ScreenMargin/Centered/Options/TrainingButton
+@onready var nexus_button: Button = $ScreenMargin/Centered/Options/NexusButton
+@onready var error_label: Label = $ScreenMargin/Centered/Options/ErrorMessage
+
+var _previous_mouse_emulation: bool = false
+var _changing_scene: bool = false
 
 func _ready() -> void:
-    set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-    var background := ColorRect.new()
-    background.color = BACKGROUND
-    background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-    background.mouse_filter = Control.MOUSE_FILTER_IGNORE
-    add_child(background)
+    _previous_mouse_emulation = Input.emulate_mouse_from_touch
+    # Regular GUI Buttons need mouse emulation on Android. Do not change project.godot:
+    # the existing training controls intentionally use raw InputEventScreenTouch.
+    Input.emulate_mouse_from_touch = true
+    training_button.pressed.connect(_open_scene.bind(TRAINING_SCENE))
+    nexus_button.pressed.connect(_open_scene.bind(NEXUS_SCENE))
+    resized.connect(_update_layout)
+    _update_layout()
 
-    var center := CenterContainer.new()
-    center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-    add_child(center)
-    var column := VBoxContainer.new()
-    column.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-    column.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-    column.add_theme_constant_override("separation", 24)
-    center.add_child(column)
+func _exit_tree() -> void:
+    Input.emulate_mouse_from_touch = _previous_mouse_emulation
 
-    var title := Label.new()
-    title.text = "SERA SYSTEM"
-    title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-    title.add_theme_font_size_override("font_size", 36)
-    title.add_theme_color_override("font_color", ACCENT)
-    column.add_child(title)
+func _update_layout() -> void:
+    # Anchors and CenterContainer own the position; only set a capped width.
+    choices.custom_minimum_size.x = maxf(0.0, minf(500.0, size.x - 72.0))
+    var button_font_size: int = 27 if size.x >= 560.0 else 19
+    training_button.add_theme_font_size_override("font_size", button_font_size)
+    nexus_button.add_theme_font_size_override("font_size", button_font_size)
 
-    var subtitle := Label.new()
-    subtitle.text = "SELECT DESTINATION"
-    subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-    subtitle.add_theme_font_size_override("font_size", 20)
-    column.add_child(subtitle)
-
-    for option in ["TRAINING ROOM", "SERA COMMAND NEXUS"]:
-        var button := Button.new()
-        button.text = option
-        button.custom_minimum_size = Vector2(0, 92)
-        button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-        button.add_theme_font_size_override("font_size", 23)
-        column.add_child(button)
-        button.pressed.connect(_enter.bind(option))
-
-    # Limit width to 85% of viewport; never use absolute screen coordinates.
-    var update_width := func() -> void:
-        column.custom_minimum_size.x = minf(540.0, size.x * 0.85)
-    resized.connect(update_width)
-    update_width.call()
-
-func _enter(choice: String) -> void:
-    var destination := "res://scenes/main.tscn"
-    if choice == "SERA COMMAND NEXUS":
-        destination = "res://scenes/command_nexus.tscn"
-    var err := get_tree().change_scene_to_file(destination)
-    if err != OK:
-        push_error("Cannot open scene: %s (error %d)" % [destination, err])
+func _open_scene(scene_path: String) -> void:
+    if _changing_scene:
+        return
+    _changing_scene = true
+    var result: Error = get_tree().change_scene_to_file(scene_path)
+    if result != OK:
+        _changing_scene = false
+        error_label.text = "FAILED TO LOAD: %s (ERROR %d)" % [scene_path.get_file(), result]
+        error_label.visible = true
+        push_error("Startup scene change failed: %s (error %d)" % [scene_path, result])
