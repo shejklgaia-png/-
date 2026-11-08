@@ -11,7 +11,7 @@ root=Path(__file__).resolve().parents[1]
 nexus=(root/"scripts/command_nexus.gd").read_text(encoding="utf-8")
 project=(root/"project.godot").read_text(encoding="utf-8")
 test_model=json.loads((root/"models/SERA_BOOSTER_allテスト.bbmodel").read_text(encoding="utf-8"))
-assert 'config/name="SERA v149"' in project
+assert 'config/name="SERA v150"' in project
 assert 'const NEXUS_POSE_NAMES: Array[String] = ["NEXUS_pose", "NEXUSpose"]' in nexus
 assert 'var pose_name: String = str(raw_clip.get("name", ""))' in nexus
 assert 'if not NEXUS_POSE_NAMES.has(pose_name):' in nexus
