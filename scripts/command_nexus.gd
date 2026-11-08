@@ -1,5 +1,5 @@
 extends Node3D
-# v136: continuous broad radial backdrop centered on SERA torso.
+# v137: lock the enlarged SERA preview pivot and background; full-area drag and dark-blue fading grid.
 # Preserve v127 kiosk/occlusion, v125 touch navigation and v124 Blockbench geometry.
 const Modules = preload("res://assets/base_command_modules.gd")
 const SeraRig = preload("res://scripts/sera_rig.gd")
@@ -32,6 +32,10 @@ var sera_display_stand: Node3D
 var sera_display_rig: Node3D
 var sera_original_transform: Transform3D
 var customize_glow_quad: MeshInstance3D
+# Normalized backdrop anchor and head-relative grid spacing are captured once
+# before preview rotation, never recomputed on yaw input.
+var customize_glow_center_ratio: Vector2 = Vector2(0.73, 0.50)
+var customize_glow_grid_spacing_ratio: float = 0.030
 var customize_preview_active: bool = false
 var customize_preview_position: Vector3 = Vector3.ZERO
 var customize_preview_scale: float = 0.80
@@ -552,23 +556,18 @@ func _create_customization_glow() -> void:
     cam.add_child(backdrop)
     customize_glow_quad = backdrop
 
-func _update_customization_glow() -> void:
-    if not customize_preview_active or customize_glow_quad == null or cam == null or hud == null:
+# Snapshot the default front pose only once, before the first preview frame.
+# Neither the backdrop anchor nor grid pitch changes when SERA turns.
+func _capture_customization_glow_layout() -> void:
+    if not customize_preview_active or sera_display_rig == null or cam == null or hud == null:
         return
     var viewport_size := hud.size
     if viewport_size.x <= 1.0 or viewport_size.y <= 1.0:
         return
-    # Measure the fitted character instead of a fixed world-space target: the
-    # halo remains behind SERA when yaw rotates or the phone aspect changes.
     var rect := _customization_screen_bounds()
     if rect.size.x <= 1.0 or rect.size.y <= 1.0:
         return
-    var placement: Vector2 = PANEL_LAYOUTS["CUSTOMIZE"]
-    var safe_left: float = viewport_size.x * (placement.x + placement.y) + 18.0
-    var safe_right: float = viewport_size.x * 0.970
     var center: Vector2 = rect.position + rect.size * 0.5
-    # Center on the actual torso joints, not the sword-inclusive silhouette.
-    # The sword can extend far to the side in authored poses.
     var body_bones: Dictionary = sera_display_rig.get("bones")
     var body_pixels := Vector2.ZERO
     var body_count := 0
@@ -580,7 +579,49 @@ func _update_customization_glow() -> void:
                 body_count += 1
     if body_count > 0:
         center = body_pixels / float(body_count)
+    var placement: Vector2 = PANEL_LAYOUTS["CUSTOMIZE"]
+    var safe_left: float = viewport_size.x * (placement.x + placement.y) + 18.0
+    var safe_right: float = viewport_size.x * 0.970
     center.x = clampf(center.x, safe_left + 20.0, safe_right - 20.0)
+    customize_glow_center_ratio = Vector2(
+        center.x / viewport_size.x, center.y / viewport_size.y)
+
+    # Half the projected head width is the width/height of one grid cell.
+    # This is measured on the original NEXUS pose at its fitted scale.
+    var head_half_pixels: float = viewport_size.y * 0.030
+    var head_node: Node = sera_display_rig.find_child("Head_Mesh", true, false)
+    if head_node is MeshInstance3D:
+        var head_mesh: MeshInstance3D = head_node as MeshInstance3D
+        if head_mesh.mesh != null:
+            var box: AABB = head_mesh.mesh.get_aabb()
+            var left: float = INF
+            var right: float = -INF
+            for ix in [0.0, 1.0]:
+                for iy in [0.0, 1.0]:
+                    for iz in [0.0, 1.0]:
+                        var local := box.position + box.size * Vector3(ix, iy, iz)
+                        var world: Vector3 = head_mesh.global_transform * local
+                        if cam.is_position_behind(world):
+                            continue
+                        var pixel: Vector2 = cam.unproject_position(world)
+                        left = minf(left, pixel.x)
+                        right = maxf(right, pixel.x)
+            if right > left:
+                head_half_pixels = (right - left) * 0.5
+    customize_glow_grid_spacing_ratio = clampf(
+        head_half_pixels / viewport_size.y, 0.014, 0.090)
+
+# Draw using only the frozen preview anchor. Viewport resize can rescale the
+# quad but cannot make it follow SERA's rotation or change its UV grid phase.
+func _update_customization_glow() -> void:
+    if not customize_preview_active or customize_glow_quad == null or cam == null or hud == null:
+        return
+    var viewport_size := hud.size
+    if viewport_size.x <= 1.0 or viewport_size.y <= 1.0:
+        return
+    var center := Vector2(
+        viewport_size.x * customize_glow_center_ratio.x,
+        viewport_size.y * customize_glow_center_ratio.y)
     var depth: float = -customize_preview_position.z + CUSTOMIZE_GLOW_DEPTH_OFFSET
     var half_height: float = depth * tan(deg_to_rad(cam.fov) * 0.5)
     var half_width: float = half_height * viewport_size.x / viewport_size.y
@@ -592,6 +633,13 @@ func _update_customization_glow() -> void:
     quad.size = Vector2(
         2.0 * half_width * CUSTOMIZE_GLOW_SCREEN_WIDTH,
         2.0 * half_height * CUSTOMIZE_GLOW_SCREEN_HEIGHT)
+    var spacing: float = maxf(12.0,
+        viewport_size.y * customize_glow_grid_spacing_ratio)
+    var material := customize_glow_quad.material_override as ShaderMaterial
+    if material != null:
+        material.set_shader_parameter("grid_cells", Vector2(
+            viewport_size.x * CUSTOMIZE_GLOW_SCREEN_WIDTH / spacing,
+            viewport_size.y * CUSTOMIZE_GLOW_SCREEN_HEIGHT / spacing))
 
 # The SAME exhibition rig stays parented to its original display stand.
 # A camera-relative transform presents it as a flat-to-screen foreground
@@ -618,6 +666,7 @@ func _show_customization_preview() -> void:
     _capture_sera_silhouette(sera_display_rig)
     _fit_customization_preview()
     _capture_sera_silhouette(sera_display_rig)
+    _capture_customization_glow_layout()
     _update_customization_glow()
     customize_glow_quad.visible = true
     # Hide only the selected CUSTOMIZE contour in portrait mode. The normal
@@ -772,19 +821,17 @@ func _constrain_customization_preview_to_safe_area() -> void:
     _capture_sera_silhouette(sera_display_rig)
 
 func _is_customization_drag_zone(pixel: Vector2) -> bool:
-    if focused_target != "CUSTOMIZE" or not customize_preview_active:
+    if focused_target != "CUSTOMIZE" or not customize_preview_active or hud == null:
         return false
+    if not Rect2(Vector2.ZERO, hud.size).has_point(pixel):
+        return false
+    # All of the gameplay viewport accepts rotation except the complete
+    # left menu panel and the bottom-right Back button, at any vertical height.
     if focus_panel.visible and Rect2(focus_panel.position, focus_panel.size).has_point(pixel):
         return false
     if back_panel.visible and Rect2(back_panel.position, back_panel.size).has_point(pixel):
         return false
-    # The complete right-side presentation region, not just opaque mesh pixels.
-    return (
-        pixel.x > focus_panel.position.x + focus_panel.size.x + 8.0
-        and pixel.x < hud.size.x
-        and pixel.y >= hud.size.y * 0.20
-        and pixel.y <= hud.size.y * 0.80
-    )
+    return true
 
 func _rotate_customization_preview(delta_x: float) -> void:
     if not customize_preview_active or sera_display_rig == null:
@@ -793,9 +840,10 @@ func _rotate_customization_preview(delta_x: float) -> void:
         return
     var yaw_delta := delta_x / maxf(hud.size.x, 1.0) * CUSTOMIZE_DRAG_FULL_TURN
     customize_preview_yaw = wrapf(customize_preview_yaw - yaw_delta, -PI, PI)
+    # Only rotate around the default fitted location, never scale/recenter.
+    # The frozen radial backdrop and its grid must not move with SERA.
     _apply_customization_preview_transform()
-    _constrain_customization_preview_to_safe_area()
-    _update_customization_glow()
+    _capture_sera_silhouette(sera_display_rig)
     _update_projected_silhouettes()
 
 func _update_projected_silhouettes() -> void:
@@ -945,7 +993,8 @@ func _input(event: InputEvent) -> void:
             get_viewport().set_input_as_handled()
     elif event is InputEventScreenDrag:
         if event.index == customize_touch_id:
-            _rotate_customization_preview(event.position.x - customize_touch_last_x)
+            if _is_customization_drag_zone(event.position):
+                _rotate_customization_preview(event.position.x - customize_touch_last_x)
             customize_touch_last_x = event.position.x
             get_viewport().set_input_as_handled()
     elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
@@ -959,7 +1008,8 @@ func _input(event: InputEvent) -> void:
             customize_mouse_drag = false
         get_viewport().set_input_as_handled()
     elif event is InputEventMouseMotion and customize_mouse_drag:
-        _rotate_customization_preview(event.position.x - customize_mouse_last_x)
+        if _is_customization_drag_zone(event.position):
+            _rotate_customization_preview(event.position.x - customize_mouse_last_x)
         customize_mouse_last_x = event.position.x
         get_viewport().set_input_as_handled()
 

@@ -747,3 +747,11 @@
 - QuadMeshの投影幅を画面の70%、高さ46%（720x1280では約504x589px）に設定。Chest/Torso/Waistのボーン投影平均を光の中心とし、剣・盾の向きによる偏心を解消する。背後1.80m、メニュー・カメラ・回転追従、CUSTOMIZE拡大中の輪郭非表示は維持。
 - 独立した画像シミュレーションで、セラを表示しない720x1280の光分布4案を比較した後、元のスクリーンショットにセラの概略マスクを残した参考合成3案を確認。選択案の滑らかさ・広がりを目視および数値で確認した。**Godotの実描画やAndroid実機確認ではない**。
 - 修正：scripts/command_nexus.gd、shaders/nexus_customize_radial_glow.gdshader、project.godot、DEVELOPMENT.md、旧検査v125〜v135。追加：README_v136_ja.md、tools/v136_customize_glow_visual_self_check.py。戦闘・モデル・音声・既存4施設は変更なし。
+
+## v137（2026-11-08） — CUSTOMIZE静止グリッド背景・定点回転・広域ドラッグ
+- 基準：GitHub main `1ddf7e99d3629479b6794474bf9c2ee280bfd585`（v136）。セラ拡大時に初期の拡大位置・倍率を確定し、ドラッグ中はY軸姿勢だけを変更。従来の回転方向ごとのスケール制限／位置補正、およびグラデーション再計算をドラッグ経路から外した。剣が横方向に広がると画面外へ一部出る可能性はあるが、定位置回転を優先。
+- グラデーションは拡大時の胸・胴・腰ボーン平均位置に1度だけ固定し、回転中は背景Quadの位置・サイズ・UVやグリッドピッチを再設定しない。端末画面のサイズ変更時は確定済み正規化位置を用いた再描画のみ。背景自体はカメラの子として固定。
+- shaderに暗いサイバー青（RGB 0.025,0.083,0.160）と細い青系グリッドを追加。中心へ柔らかいシアンの照りを混合し、線はfwidthでアンチエイリアス。背景と線に同一のsmoothstep放射アルファを適用し、縁ではどちらも透明。画像・Particle追加なし。
+- グリッド1マスはプレビュー確定時のHead_Meshの投影幅の1/2を目安として算出し、シェーダーのgrid_cellsパラメータに設定。head_mesh未検出時のみビューポート高さ3%にフォールバック。回転時はグリッド固定。
+- 操作開始／移動中の有効範囲は画面全体から左メニューパネルと右下戻るボタンだけを除外（従来の20〜80%縦制限や左側以外の余白制限を廃止）。戻るはクリック／タップ直後に従来どおり処理。
+- 変更：scripts/command_nexus.gd、shaders/nexus_customize_radial_glow.gdshader、project.godot、DEVELOPMENT.md、既存静的検査の版名および旧操作仕様チェック。追加：README_v137_ja.md、tools/v137_customize_fixed_grid_self_check.py。ほかの施設・モデル・NEXUS_pose・戦闘・SE/BGMは変更なし。Godot/Android描画・入力は未検証。
