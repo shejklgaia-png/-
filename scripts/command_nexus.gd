@@ -14,8 +14,8 @@ func _ready() -> void:
     _module("hangar_shell", Vector3.ZERO)
     _module("maintenance_pad", Vector3(0.0, 0.0, -4.80))
     _module("maintenance_canopy", Vector3(0.0, 8.50, -5.20), 0.0, 0.96)
-    _module("gate_stage", Vector3(2.45, 0.0, -9.75))
-    _module("deployment_gate", Vector3(2.45, 2.45, -9.75), 0.0, 1.40)
+    _module("gate_stage", Vector3(3.10, 0.0, -9.75), 0.0, 1.0, Vector3(0.70, 1.0, 1.0))
+    _module("deployment_gate", Vector3(3.10, 2.45, -9.75), 0.0, 1.40, Vector3(0.70, 1.0, 1.0))
     _module("archive_stairs", Vector3(-3.55, 0.0, -8.25))
     _module("data_bank", Vector3(-3.55, 2.25, -8.25))
     _module("kiosk", Vector3(-1.85, 0.0, 0.25), deg_to_rad(28.0))
@@ -45,14 +45,14 @@ func _environment() -> void:
 func _vec(a: Array) -> Vector3:
     return Vector3(float(a[0]), float(a[1]), float(a[2]))
 
-func _module(name: String, at: Vector3, yaw: float = 0.0, scale_factor: float = 1.0) -> void:
+func _module(name: String, at: Vector3, yaw: float = 0.0, scale_factor: float = 1.0, shape_scale: Vector3 = Vector3.ONE) -> void:
     if not Modules.MODULES.has(name):
         push_error("Missing Blockbench module: " + name)
         return
     var parent_basis := Basis(Vector3.UP, yaw)
     for part in Modules.MODULES[name]:
-        var lo: Vector3 = _vec(part[1]) * Modules.UNIT * scale_factor
-        var hi: Vector3 = _vec(part[2]) * Modules.UNIT * scale_factor
+        var lo: Vector3 = _vec(part[1]) * Modules.UNIT * scale_factor * shape_scale
+        var hi: Vector3 = _vec(part[2]) * Modules.UNIT * scale_factor * shape_scale
         var rot: Vector3 = _vec(part[4]) * (PI / 180.0)
         var basis: Basis = (parent_basis * Basis.from_euler(rot)).scaled_local(hi - lo)
         var transform := Transform3D(basis, at + parent_basis * ((lo + hi) * 0.5))
@@ -204,9 +204,9 @@ func _hud() -> void:
     # No HUD title or top separator: leave the upper hangar composition unobstructed.
     _tag("DATA ARCHIVE", "RECORDS / LOGS", 0.018, 0.310, 0.315)
     _tag("DEPLOYMENT", "MISSION GATE", 0.735, 0.125, 0.250)
-    _tag("TRAINING", "SIMULATION", 0.018, 0.535, 0.315)
-    _tag("SYSTEM", "SETTINGS", 0.666, 0.535, 0.315)
-    _tag("CUSTOMIZE", "UNIT CONFIGURATION", 0.305, 0.805, 0.39)
+    _tag("TRAINING", "SIMULATION", 0.015, 0.875, 0.300)
+    _tag("SYSTEM", "SETTINGS", 0.685, 0.875, 0.300)
+    _tag("CUSTOMIZE", "UNIT CONFIGURATION", 0.352, 0.875, 0.296)
     hud.resized.connect(_layout_hud)
     _layout_hud()
 
