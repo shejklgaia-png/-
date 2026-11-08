@@ -8,7 +8,7 @@ n = (root/"scripts/command_nexus.gd").read_text(encoding="utf-8")
 p = (root/"project.godot").read_text(encoding="utf-8")
 outline = (root/"scripts/nexus_selection_outline.gd").read_text(encoding="utf-8")
 
-assert 'config/name="SERA v145 - Linear visual-center transfer and delayed glow"' in p
+assert 'config/name="SERA v146 - Bounded visual transfer"' in p
 assert 'render_mode unshaded, blend_mix, cull_disabled, depth_draw_never;' in s
 assert 'uniform vec4 glow_color : source_color = vec4(0.35, 0.85, 0.98, 1.0);' in s
 for setting in (
