@@ -785,3 +785,11 @@
 - CUSTOMIZEのUI戻る・Android戻る・Escでは、元展示台への格納Tween0.28秒とカメラ帰還Tween0.18秒を同一イベントで開始。カメラが先に着いた時は復帰確定を待ち、モデル格納が終わったら背景を消して全景状態を確定する。選択枠と両メニューの即時解除は維持。
 - レイアウト（左上セラ・左下四角メニュー・右縦メニュー）、表示倍率、固定サイバー青グリッド・放射グラデーション、初期NEXUS_pose、ドラッグ回転、戦闘・BGM・SEは変更なし。
 - 変更：scripts/command_nexus.gd、project.godot、DEVELOPMENT.md、旧テストv125〜v140の版名と旧シーケンス期待値。追加：README_v141_ja.md、tools/v141_concurrent_nexus_motion_self_check.py。ソース構造・Tweenとカメラの開始順序など静的検証のみで、Godot/Android実行テストは未実施。
+
+## v142（2026-11-08） — カメラ後退時にセラが画面外から展示台へ出現する現象を修正
+- 基準：GitHub main `ba18f3c44c28d86c2990eabc782edad18e54e830`（v141）。カメラ帰還0.18秒、セラ格納0.28秒を同時開始した状態で、セラのワールド直線補間経路と移動カメラの視野が一致せず、セラが画面外から展示スペースへ再出現していた。
+- 既存`Transform3D.interpolate_with`を世界座標間の補間ではなく、遷移開始時のカメラ座標と到達先カメラ座標の間の補間に変更。開始時と終了時に`Camera3D.global_transform.affine_inverse() * rig.global_transform`からカメラ相対Transformを求め、Tween各フレームでそのカメラ相対姿勢を補間し、動いている`cam.global_transform`に掛け戻す。投影位置が開始画面と終了画面の間を推移するようにし、移動中のカメラがセラを置き去りにする経路を解消。
+- CUSTOMIZE選択時は全景カメラのglobal_transformを記録し、目的カメラでのフィット計算と併せて両端のカメラ相対Transformを確定。戻る時は現在のカメラ姿勢と元展示台の世界Transform、および全景カメラ姿勢から両端を計算。場面切替・モデル複製・新規素材なし。
+- セラ0.28秒、カメラ0.18秒の同時開始、格納完了時のみ全景への状態確定、既存の右下戻る操作・選択枠即時解除・3区画メニュー・固定サイバー青グリッド・NEXUS_pose・戦闘・音声は維持する。
+- 変更：scripts/command_nexus.gd、project.godot、DEVELOPMENT.md、関連テストv125〜v141の版名と旧世界座標補間期待値。追加：README_v142_ja.md、tools/v142_camera_relative_transfer_self_check.py。
+- Godot 4.7公式Transform3D.affine_inverseおよびinterpolate_withを参照。コード構造・カメラ空間での補間投影の幾何検証を実施。Godot/Android端末での実描画と壁遮蔽は未検証。

@@ -1,5 +1,5 @@
 extends Node3D
-# v141: start SERA and camera transitions simultaneously on target tap and Back.
+# v142: keep SERA in the moving camera's field of view while retracting/expanding.
 # Preserve v127 kiosk/occlusion, v125 touch navigation and v124 Blockbench geometry.
 const Modules = preload("res://assets/base_command_modules.gd")
 const SeraRig = preload("res://scripts/sera_rig.gd")
@@ -35,6 +35,7 @@ var sera_display_rig: Node3D
 var sera_original_transform: Transform3D
 var customize_glow_quad: MeshInstance3D
 var customize_entrance_tween: Tween # Shared by forward and reverse exhibit motions.
+var customize_transition_start_camera_pose: Transform3D = Transform3D.IDENTITY
 # Normalized backdrop anchor and head-relative grid spacing are captured once
 # before preview rotation, never recomputed on yaw input.
 var customize_glow_center_ratio: Vector2 = Vector2(0.73, 0.50)
@@ -706,6 +707,13 @@ func _show_customization_preview() -> void:
     _fit_customization_preview()
     _capture_sera_silhouette(sera_display_rig)
     var final_world: Transform3D = sera_display_rig.global_transform
+    # Both endpoints use their own camera frames. A simple WORLD-space
+    # straight line is not a visible screen-space path while the camera
+    # retreats; it made SERA exit the view and reappear near the stand.
+    var start_camera_local: Transform3D = (
+        customize_transition_start_camera_pose.affine_inverse() * initial_world)
+    var end_camera_local: Transform3D = (
+        cam.global_transform.affine_inverse() * final_world)
     # Capture the stationary grid/gradient from the final default pose once,
     # not from the moving/rotating character during the tween.
     _capture_customization_glow_layout()
@@ -725,18 +733,22 @@ func _show_customization_preview() -> void:
     customize_entrance_tween.set_trans(Tween.TRANS_CUBIC)
     customize_entrance_tween.set_ease(Tween.EASE_IN_OUT)
     customize_entrance_tween.tween_method(_apply_customization_entrance.bind(
-        initial_world, final_world), 0.0, 1.0, CUSTOMIZE_ENTRANCE_SECONDS)
+        start_camera_local, end_camera_local), 0.0, 1.0,
+        CUSTOMIZE_ENTRANCE_SECONDS)
     customize_entrance_tween.finished.connect(
         _customization_entrance_arrived.bind(final_world))
 
-# Shared transform interpolator works in both directions. Never create a
-# second SeraRig or swap its existing authored NEXUS_pose.
+# Interpolate in the camera's coordinate system to keep SERA's projection
+# between the preview and exhibit positions even while the camera moves.
+# Convert the interpolated camera-local pose to world on EACH Tween frame.
+# This same function handles expanding and stowing the one existing SeraRig.
 func _apply_customization_entrance(progress: float,
-        initial_world: Transform3D, final_world: Transform3D) -> void:
+        start_camera_local: Transform3D, end_camera_local: Transform3D) -> void:
     if not customize_preview_active or sera_display_rig == null:
         return
-    sera_display_rig.global_transform = initial_world.interpolate_with(
-        final_world, progress)
+    var camera_relative: Transform3D = start_camera_local.interpolate_with(
+        end_camera_local, progress)
+    sera_display_rig.global_transform = cam.global_transform * camera_relative
 
 func _customization_entrance_arrived(final_world: Transform3D) -> void:
     if not customize_preview_active or focused_target != "CUSTOMIZE":
@@ -757,13 +769,21 @@ func _begin_customization_retraction() -> void:
         customize_entrance_tween.kill()
     var initial_world: Transform3D = sera_display_rig.global_transform
     var stowed_world: Transform3D = sera_display_stand.global_transform * sera_original_transform
+    # The camera ends at the overview pose. Build both local endpoints
+    # before either Tween advances, then keep the model visible as it shrinks.
+    var start_camera_local: Transform3D = (
+        cam.global_transform.affine_inverse() * initial_world)
+    var overview_camera_world: Transform3D = global_transform * overview_pose
+    var stowed_camera_local: Transform3D = (
+        overview_camera_world.affine_inverse() * stowed_world)
     customize_touch_id = -1
     customize_mouse_drag = false
     customize_entrance_tween = create_tween()
     customize_entrance_tween.set_trans(Tween.TRANS_CUBIC)
     customize_entrance_tween.set_ease(Tween.EASE_IN_OUT)
     customize_entrance_tween.tween_method(_apply_customization_entrance.bind(
-        initial_world, stowed_world), 0.0, 1.0, CUSTOMIZE_RETRACTION_SECONDS)
+        start_camera_local, stowed_camera_local), 0.0, 1.0,
+        CUSTOMIZE_RETRACTION_SECONDS)
     customize_entrance_tween.finished.connect(_customization_retraction_arrived)
 
 func _customization_retraction_arrived() -> void:
@@ -1177,6 +1197,7 @@ func _select_target(target_name: String) -> void:
         # restore the real camera before either Tween starts this same tap.
         var previous_camera_pose: Transform3D = cam.transform
         var previous_camera_fov: float = cam.fov
+        customize_transition_start_camera_pose = cam.global_transform
         cam.transform = aim_pose
         cam.fov = float(view["fov"])
         _show_customization_preview()
