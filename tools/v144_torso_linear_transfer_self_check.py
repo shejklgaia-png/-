@@ -9,7 +9,7 @@ from pathlib import Path
 root = Path(__file__).resolve().parents[1]
 s = (root / "scripts/command_nexus.gd").read_text(encoding="utf-8")
 p = (root / "project.godot").read_text(encoding="utf-8")
-assert 'config/name="SERA v145 - Linear visual-center transfer and delayed glow"' in p
+assert 'config/name="SERA v146 - Bounded visual transfer"' in p
 
 def between(a, b):
     return s.split("func " + a, 1)[1].split("func " + b, 1)[0]
@@ -44,13 +44,13 @@ assert show.index("customize_motion_torso_local = _customize_torso_anchor_local(
 # interpolated basis's torso offset removed to recover the root transform.
 assert "start_camera_local * customize_motion_torso_local" in model
 assert "end_camera_local * customize_motion_torso_local" in model
-assert "start_ndc.lerp(end_ndc, progress)" in model
+assert "start_bounds.get_center().lerp(" in model
 assert "lerpf(-start_torso.z, -end_torso.z, progress)" in model
 assert "camera_relative.origin = Vector3(" in model
 assert "camera_relative.basis * customize_motion_torso_local" in model
 assert "cam.global_transform * camera_relative" in model
 assert "start_camera_local.interpolate_with(" in model
-assert "_customize_body_center_ndc(" in model
+assert "_customize_body_bounds_ndc(" in model
 
 # The second Tween corrects the model after camera/FOV changes in the same
 # frame, eliminating a one-frame screen-space arc from callback ordering.
