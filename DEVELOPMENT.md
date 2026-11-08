@@ -589,3 +589,8 @@
 - Added Blockbench editable simplified hangar blockout under blockbench/SERA_Command_Nexus_LowPoly.bbmodel.
 - Added lightweight procedural hangar and reused existing Sera rig; terminal signs are static and noninteractive.
 - Existing training combat scripts unchanged. Android/Godot runtime not tested; verify scene import, model appearance, and selector on device.
+
+## v118 — 2026-11-08 startup selector layout correction
+- Replaced hard-coded position and 600px width with CenterContainer and viewport-responsive width.
+- Both buttons use direct scene change with error logging. Base scene loading still requires Android runtime verification.
+- Training scene and combat untouched.
