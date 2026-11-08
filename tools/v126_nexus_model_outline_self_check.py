@@ -15,7 +15,7 @@ base = (ROOT / "assets/base_command_modules.gd").read_text(encoding="utf-8")
 original = json.loads(base.split("const MODULES = ", 1)[1].strip())
 model = json.loads((ROOT / "models/SERA_BOOSTER_allテスト.bbmodel").read_text(encoding="utf-8"))
 
-assert 'config/name="SERA v149"' in project
+assert 'config/name="SERA v150"' in project
 assert 'run/main_scene="res://scenes/launch_menu.tscn"' in project
 assert 'pointing/emulate_mouse_from_touch=false' in project
 assert 'renderer/rendering_method="gl_compatibility"' in project
