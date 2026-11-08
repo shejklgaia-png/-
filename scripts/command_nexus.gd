@@ -1,6 +1,6 @@
 extends Node3D
-# v124: gate aimed toward SERA with lightweight light spill; foreground consoles closer.
-# This read-only display renders their embedded geometry in material batches.
+# v125: interactive silhouette selection and fast 3D camera focus.
+# Preserve the v124 gate light spill and all authored Blockbench geometry batches.
 const Modules = preload("res://assets/base_command_modules.gd")
 const SeraRig = preload("res://scripts/sera_rig.gd")
 const NexusSelectionOutline = preload("res://scripts/nexus_selection_outline.gd")
@@ -405,7 +405,10 @@ func _update_projected_silhouettes() -> void:
 # Raw touch support intentionally does not change the training scene's global
 # Input.emulate_mouse_from_touch=false setting. PC mouse taps also work.
 func _input(event: InputEvent) -> void:
-    if not focused_target.is_empty() and event.is_action_pressed("ui_cancel"):
+    if not focused_target.is_empty() and (
+            event.is_action_pressed("ui_cancel")
+            or (event is InputEventKey and event.pressed
+                and event.keycode in [KEY_BACK, KEY_ESCAPE])):
         _return_to_overview()
         get_viewport().set_input_as_handled()
         return
