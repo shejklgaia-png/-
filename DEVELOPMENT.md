@@ -658,3 +658,10 @@
 - 接近画面の「戻る」UIを左上から画面右下に移し、接近メニューパネルを必要に応じて上方へ配置して重なりを防ぐ。通常の戻る操作とトレーニングへの遷移も継続。
 - 変更：scripts/command_nexus.gd、scripts/nexus_selection_outline.gd、project.godot、v121/123/125静的検査、DEVELOPMENT.md。追加：README_v126_ja.md、tools/v126_nexus_model_outline_self_check.py。v125からの既存機能・v124ゲート演出、セラのモデルとBash/Guard_REACTIONモーション、他ブロックベンチ資産には変更なし。
 - 静的な形状・コード検証のみ。GodotパーサーとAndroid実機での枠表示・タップ判定・パフォーマンスは未検証。
+
+## v127（2026-11-08） — 手前コンソール割当の左右反転・ゲート外周のセラ遮蔽・線幅増加
+- 基準：GitHub main v126（65a497bfff1219f4852af6c54148a58f9415151b）。手前の左端末をSYSTEM、右端末をTRAININGとし、選択領域の割当と接近カメラ位置を交換。端末の3D座標・Blockbench原本は変更なし。トレーニングの既存シーン遷移は右側端末から可能。
+- 2D選択枠で遠景ゲートのラインがセラの手前に出ていたため、ゲートの閉じた外周線をセラの実モデルに基づく投影輪郭で折れ線クリッピング（Geometry2D.clip_polyline_with_polygon）。セラ部分のゲート枠だけを不可視化し、セラ形状に沿った余計なクリップ端辺を描かない。元の閉じたポリゴンは選択判定用に維持。
+- 輪郭の線幅を通常時2.5→4.5px、選択時3→5px。点滅の透明度・周期、0.18秒カメラ移動、右下戻る、システム設定・デプロイメント・カスタマイズの仮メニューは維持。
+- 変更：scripts/command_nexus.gd、scripts/nexus_selection_outline.gd、project.godot、旧静的テストv125/v126、DEVELOPMENT.md。追加：tools/v127_nexus_gate_occlusion_self_check.py、README_v127_ja.md。
+- Bash/Guard_REACTIONを含むセラ本体、Blockbench元モデル、戦闘処理、効果音/BGM等には変更なし。静的ソース検査のみ。Godot/Android実機でのクリップ外周、選択判定、見え方は未検証。
