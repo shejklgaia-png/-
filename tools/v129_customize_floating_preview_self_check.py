@@ -37,7 +37,11 @@ assert 'if focused_target == "CUSTOMIZE" and customize_preview_active:' in s
 assert '_begin_customization_retraction()' in s
 assert 'customize_entrance_tween.finished.connect(_customization_retraction_arrived)' in s
 assert 'func _customization_retraction_arrived() -> void:' in s
-assert '_restore_customization_preview()\n    _move_camera(overview_pose' in s
+# On CUSTOMIZE Back the retract and camera calls are adjacent in the
+# same event callback. Their Tween completion is coordinated independently.
+assert 'if focused_target == "CUSTOMIZE" and customize_preview_active:' in s
+assert '_begin_customization_retraction()' in s
+assert '_move_camera(overview_pose, overview_fov, _overview_arrived)' in s
 
 # Front facing in the camera's own coordinate system, with model-only rotation.
 assert "customize_preview_yaw = PI" in s
