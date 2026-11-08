@@ -38,11 +38,11 @@ for x, y, w in TAGS.values():
     assert 0.0 <= x <= 1.0 and 0.0 <= y <= 1.0 and 0.0 < w and x + w <= 1.0
 
 # Front kiosks, intermediate SERA/pad, and rear archive/gate form three depth planes.
-FRONT_LEFT = (-1.82, 0.0, 0.75)
-FRONT_RIGHT = (1.82, 0.0, 0.75)
+FRONT_LEFT = (-1.95, 0.0, 1.30)
+FRONT_RIGHT = (1.95, 0.0, 1.30)
 PAD = (0.0, 0.0, -4.75)
 REAR_ARCHIVE = (-4.00, 2.19, -8.95)
-REAR_GATE = (4.05, 0.02, -10.48)
+REAR_GATE = (4.00, 0.02, -10.48)
 def placed_positions(module: str) -> list[tuple[float, float, float]]:
     matches = re.findall(
         rf'_module\("{re.escape(module)}", Vector3\(([^)]+)\)', SCRIPT
@@ -52,7 +52,6 @@ def placed_positions(module: str) -> list[tuple[float, float, float]]:
 for name, expected in [
     ("maintenance_pad", [PAD]),
     ("data_bank", [REAR_ARCHIVE]),
-    ("deployment_gate", [REAR_GATE]),
     ("kiosk", [FRONT_LEFT, FRONT_RIGHT]),
 ]:
     actual = placed_positions(name)
@@ -60,6 +59,8 @@ for name, expected in [
     for value in expected:
         assert any(all(math.isclose(a, b, abs_tol=0.001) for a, b in zip(pos, value))
                    for pos in actual), f"Wrong position for {name}: {value}"
+assert "const GATE_ORIGIN: Vector3 = Vector3(4.00, 0.02, -10.48)" in SCRIPT
+assert '_module("deployment_gate", GATE_ORIGIN, _gate_facing_yaw(), 1.20, 1.25)' in SCRIPT
 assert REAR_ARCHIVE[2] < PAD[2] < FRONT_LEFT[2]
 assert REAR_GATE[2] < PAD[2] < FRONT_RIGHT[2]
 assert 'surface.position = Vector3(0.0, 0.33, -4.75)' in SCRIPT
