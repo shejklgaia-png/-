@@ -1,5 +1,5 @@
 extends Node3D
-# v126: model-derived silhouettes, cached low-cost contour pulses and bottom-right back.
+# v127: swapped kiosk destinations; depth-aware projected gate contour behind SERA.
 # Keep the v125 camera/touch logic and v124 Blockbench geometry and gate light spill.
 const Modules = preload("res://assets/base_command_modules.gd")
 const SeraRig = preload("res://scripts/sera_rig.gd")
@@ -34,10 +34,10 @@ var target_parts: Dictionary = {}
 
 # Authored close-up compositions; no camera shake, flash, zoom blur or particles.
 var focus_views: Dictionary = {
-    "TRAINING": {"eye": Vector3(-1.90, 2.35, 5.10),
-        "look": Vector3(-1.95, 1.36, 1.25), "fov": 48.0},
-    "SYSTEM": {"eye": Vector3(1.90, 2.35, 5.10),
+    "TRAINING": {"eye": Vector3(1.90, 2.35, 5.10),
         "look": Vector3(1.95, 1.36, 1.25), "fov": 48.0},
+    "SYSTEM": {"eye": Vector3(-1.90, 2.35, 5.10),
+        "look": Vector3(-1.95, 1.36, 1.25), "fov": 48.0},
     "CUSTOMIZE": {"eye": Vector3(0.0, 2.90, 2.00),
         "look": Vector3(0.0, 2.00, -4.75), "fov": 43.0},
     "DATA ARCHIVE": {"eye": Vector3(-3.90, 4.20, -2.20),
@@ -90,7 +90,7 @@ func _module(name: String, at: Vector3, yaw: float = 0.0, scale_factor: float = 
     var selected_shape := ""
     match name:
         "kiosk":
-            selected_shape = "TRAINING" if at.x < 0.0 else "SYSTEM"
+            selected_shape = "SYSTEM" if at.x < 0.0 else "TRAINING"
         "data_bank":
             selected_shape = "DATA ARCHIVE"
         "deployment_gate":
@@ -419,6 +419,48 @@ func _update_projected_silhouettes() -> void:
     elif target_parts.has(focused_target):
         contours[focused_target] = _project_model_contour(focused_target)
     outline.set("polygons", contours)
+    # These outlines are drawn in 2D on top of the 3D view. Clip ONLY the
+    # distant gate's visible stroke against the nearer SERA body so its border
+    # cannot show through SERA. Clip POLYLINES rather than polygons: clipping
+    # polygons would create an unwanted border along SERA's silhouette.
+    var visible_strokes: Dictionary = {}
+    if contours.has("DEPLOYMENT"):
+        var sera_masks: Array = contours.get("CUSTOMIZE", [])
+        if sera_masks.is_empty():
+            sera_masks = _project_model_contour("CUSTOMIZE")
+        visible_strokes["DEPLOYMENT"] = _clip_gate_strokes(
+            contours["DEPLOYMENT"], sera_masks)
+    outline.set("clipped_strokes", visible_strokes)
+
+func _clip_gate_strokes(gate_shapes: Array, occluders: Array) -> Array[PackedVector2Array]:
+    var visible: Array[PackedVector2Array] = []
+    # Only run when the camera moved or the viewport changed; blinking merely
+    # changes stroke alpha/width and never recomputes the clipping geometry.
+    var masks: Array[PackedVector2Array] = []
+    for shape in occluders:
+        var expanded: Array[PackedVector2Array] = Geometry2D.offset_polygon(
+            shape, 4.0, Geometry2D.JOIN_MITER)
+        masks.append_array(expanded)
+    for shape in gate_shapes:
+        if shape.size() < 3:
+            continue
+        var closed := PackedVector2Array(shape)
+        closed.append(shape[0])
+        var remaining: Array[PackedVector2Array] = [closed]
+        for mask in masks:
+            if remaining.is_empty():
+                break
+            var next_segments: Array[PackedVector2Array] = []
+            var mask_bounds := _polygon_bounds(mask)
+            for segment in remaining:
+                if not _polygon_bounds(segment).intersects(mask_bounds):
+                    next_segments.append(segment)
+                else:
+                    next_segments.append_array(
+                        Geometry2D.clip_polyline_with_polygon(segment, mask))
+            remaining = next_segments
+        visible.append_array(remaining)
+    return visible
 
 func _project_model_contour(target_name: String) -> Array[PackedVector2Array]:
     var result: Array[PackedVector2Array] = []

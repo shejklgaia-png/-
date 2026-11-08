@@ -15,7 +15,7 @@ base = (ROOT / "assets/base_command_modules.gd").read_text(encoding="utf-8")
 original = json.loads(base.split("const MODULES = ", 1)[1].strip())
 model = json.loads((ROOT / "models/SERA_BOOSTER_allテスト.bbmodel").read_text(encoding="utf-8"))
 
-assert 'config/name="SERA v126 - Model Silhouette Focus"' in project
+assert 'config/name="SERA v127 - Nexus Occluded Contours"' in project
 assert 'run/main_scene="res://scenes/launch_menu.tscn"' in project
 assert 'pointing/emulate_mouse_from_touch=false' in project
 assert 'renderer/rendering_method="gl_compatibility"' in project
@@ -27,7 +27,7 @@ assert 'corners.append(transform * Vector3(ix, iy, iz))' in script
 assert 'var silhouette_parts: Array = target_parts.get(selected_shape, [])' in script
 for prop, target in (("data_bank", "DATA ARCHIVE"), ("deployment_gate", "DEPLOYMENT")):
     assert f'"{prop}":\n            selected_shape = "{target}"' in script
-assert 'selected_shape = "TRAINING" if at.x < 0.0 else "SYSTEM"' in script
+assert 'selected_shape = "SYSTEM" if at.x < 0.0 else "TRAINING"' in script
 assert 'target_parts["CUSTOMIZE"] = grouped.values()' in script
 assert 'piece.mesh.get_aabb()' in script
 assert 'piece.global_transform * local' in script
