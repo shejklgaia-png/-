@@ -710,3 +710,11 @@
 - tools/termux/install_safe_sync.shは公開raw URLを使わず、認証済みgit cloneで取得したtools/termuxディレクトリ内のスクリプトを直接インストールする方式に修正。対象ファイル不在では旧設定を触らず停止し、従来どおり時刻付きバックアップ・構文検査・監視再起動を行う。
 - docs/TERMUX_SAFE_AUTO_UPLOAD_JA.md をgit clone（Private認証対応）→ローカルインストールに修正。tools/termux/test_safe_sync.pyで未認証rawへの依存再混入を検出する検査を追加。
 - GitHub側の修正のみ。端末は修正後にユーザーのTermuxで実行する必要がある。Android実機でのインストール検証は未実施。
+
+## v132（2026-11-08） — CUSTOMIZE表示の正面拡大とDEPLOYMENTゲート遮蔽解消
+- 基準：GitHub main 8a3c0e55e1e8c0d17ca715fd8355b0ebae65e682（v131表示＋NEXUS_pose同期＋Termux安全同期）。ユーザー実機画像でCUSTOMIZEのセラが小さく、DEPLOYMENTは輪郭しか表示されない症状を確認。
+- DEPLOYMENT旧カメラx=8.00mは、格納庫の右壁（x=7.15〜7.75m）の外側にあり、壁がゲート本体を遮っていた。カメラを右壁・外周リブ内側のx=6.20mへ移動し、視線x=1.80m／FOV76°でゲートを左メニューの右側に映す。壁・ゲート本体・材質・ギミックは変更しない。
+- CUSTOMIZEの従来の360°最大シルエットでの初期フィットを、正面姿勢の外形基準に変更。画面幅の39%を目標にし、既存の左メニュー幅に近づける。左右ドラッグでは元の拡大倍率を維持しつつ、盾や剣が左右に広がり安全領域を超える角度だけ一時的に縮小・再センタリングする。左メニューパネルとの18pxの余白、右端97%以内、縦15〜86%以内を目標とする。
+- NEXUS_pose読込、同一展示Rigの再利用、元の背景／展示台、5機能選択、左右ドラッグ、右下戻る、訓練シーン遷移、戦闘シーン、Blockbench元データ、BGM／SEは維持。
+- 変更：scripts/command_nexus.gd、project.godot、旧検査v125〜v131、DEVELOPMENT.md。追加：README_v132_ja.md、tools/v132_nexus_visibility_self_check.py。
+- コード・ジオメトリの静的確認のみ。Godotの実行／パーサー、Xperia 1 Vでの表示・タッチ挙動は未検証。実機ではセラ正面サイズ、左右90°回転時の盾／剣クリップ、ゲートの3D表示およびメニュー重複を確認すること。

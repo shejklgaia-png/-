@@ -1,5 +1,5 @@
 extends Node3D
-# v131: also recognize the authored NEXUS_pose spelling (underscore).
+# v132: fit the front-facing SERA to the menu width and put DEPLOYMENT camera inside the hangar.
 # Preserve v127 kiosk/occlusion, v125 touch navigation and v124 Blockbench geometry.
 const Modules = preload("res://assets/base_command_modules.gd")
 const SeraRig = preload("res://scripts/sera_rig.gd")
@@ -33,6 +33,7 @@ var sera_original_transform: Transform3D
 var customize_preview_active: bool = false
 var customize_preview_position: Vector3 = Vector3.ZERO
 var customize_preview_scale: float = 0.80
+var customize_preview_fitted_scale: float = 1.40
 var customize_preview_yaw: float = PI
 var customize_touch_id: int = -1
 var customize_touch_last_x: float = 0.0
@@ -40,6 +41,7 @@ var customize_mouse_drag: bool = false
 var customize_mouse_last_x: float = 0.0
 
 const CUSTOMIZE_PREVIEW_DISTANCE: float = 3.25
+const CUSTOMIZE_PREVIEW_TARGET_WIDTH_RATIO: float = 0.390
 const CUSTOMIZE_PREVIEW_ROTATION_SAMPLES: int = 16
 const NEXUS_POSE_NAMES: Array[String] = ["NEXUS_pose", "NEXUSpose"]
 # Authoritative synchronized Blockbench file first; canonical source fallback.
@@ -71,8 +73,8 @@ var focus_views: Dictionary = {
         "look": Vector3(-1.70, 2.00, -4.75), "fov": 67.0},
     "DATA ARCHIVE": {"eye": Vector3(-3.90, 4.50, 2.50),
         "look": Vector3(-1.70, 3.55, -8.80), "fov": 64.0},
-    "DEPLOYMENT": {"eye": Vector3(8.00, 5.30, 5.00),
-        "look": Vector3(2.50, 3.40, -10.48), "fov": 70.0}
+    "DEPLOYMENT": {"eye": Vector3(6.20, 5.30, 5.00),
+        "look": Vector3(1.80, 3.40, -10.48), "fov": 76.0}
 }
 
 # (left fraction, width fraction) of focus menu. Opposite each 3D object;
@@ -541,9 +543,11 @@ func _show_customization_preview() -> void:
         return
     customize_preview_position = Vector3(0.75, -0.20, -CUSTOMIZE_PREVIEW_DISTANCE)
     customize_preview_scale = 1.40
+    customize_preview_fitted_scale = 1.40
     customize_preview_yaw = PI
     customize_preview_active = true
     _apply_customization_preview_transform()
+    _capture_sera_silhouette(sera_display_rig)
     _fit_customization_preview()
     _capture_sera_silhouette(sera_display_rig)
     _update_projected_silhouettes()
@@ -616,25 +620,25 @@ func _fit_customization_preview() -> void:
     var allowed_height: float = maxf(1.0, bottom_limit - top_limit)
     var center_target := Vector2((left_limit + right_limit) * 0.5,
         (top_limit + bottom_limit) * 0.5)
+    # Enlarge the *visible front pose* to nearly the width of its left menu.
+    # The old 16-angle union contained sideways weapons and made the actual
+    # front-facing character substantially smaller than the available area.
+    var target_width: float = minf(size.x * CUSTOMIZE_PREVIEW_TARGET_WIDTH_RATIO,
+        allowed_width * 0.94)
 
-    # Two passes account for perspective change after scaling/centering.
     for pass_index in range(2):
-        var rect := _customization_all_yaw_bounds()
+        var rect := _customization_screen_bounds()
         if rect.size.x <= 1.0 or rect.size.y <= 1.0:
             return
-        var fit: float = minf(allowed_width / rect.size.x,
+        var fit: float = minf(target_width / rect.size.x,
             allowed_height / rect.size.y)
-        # v129 clamped enlargement at 1.55x/1.05x, leaving the preview much
-        # smaller than its available area. Fit to the actual right-side safe
-        # rectangle instead. The full 16-angle silhouette envelope still
-        # prevents the sword/shield from crossing into the left menu.
         fit = clampf(fit, 0.15, 3.25)
         customize_preview_scale *= fit
         _apply_customization_preview_transform()
-        rect = _customization_all_yaw_bounds()
+        _capture_sera_silhouette(sera_display_rig)
+        rect = _customization_screen_bounds()
         if rect.size.x <= 1.0 or rect.size.y <= 1.0:
             return
-        # Shift the rig itself in camera-local space, never move the camera.
         var depth: float = -customize_preview_position.z
         var half_height := depth * tan(deg_to_rad(cam.fov) * 0.5)
         var px_per_world := size.y / maxf(0.001, 2.0 * half_height)
@@ -642,10 +646,52 @@ func _fit_customization_preview() -> void:
         customize_preview_position.x += error.x / px_per_world
         customize_preview_position.y -= error.y / px_per_world
         _apply_customization_preview_transform()
+        _capture_sera_silhouette(sera_display_rig)
 
-    # Leave the preview in the authored front-facing pose.
-    customize_preview_yaw = PI
+    # Keep the enlarged front scale as the reference for subsequent yaw input.
+    customize_preview_fitted_scale = customize_preview_scale
+    _constrain_customization_preview_to_safe_area()
+
+func _constrain_customization_preview_to_safe_area() -> void:
+    if not customize_preview_active or hud == null or cam == null:
+        return
+    var size := hud.size
+    if size.x <= 1.0 or size.y <= 1.0:
+        return
+    var placement: Vector2 = PANEL_LAYOUTS["CUSTOMIZE"]
+    var left_limit: float = size.x * (placement.x + placement.y) + 18.0
+    var right_limit: float = size.x * 0.970
+    var top_limit: float = size.y * 0.150
+    var bottom_limit: float = size.y * 0.860
+    var allowed_width: float = maxf(1.0, right_limit - left_limit)
+    var allowed_height: float = maxf(1.0, bottom_limit - top_limit)
+    var center_target := Vector2((left_limit + right_limit) * 0.5,
+        (top_limit + bottom_limit) * 0.5)
+
+    # Return to the original enlarged scale after every drag update.
+    # Only a sideways weapon/pose wider than the safe area is reduced,
+    # temporarily, rather than reducing the default front view forever.
+    customize_preview_scale = customize_preview_fitted_scale
     _apply_customization_preview_transform()
+    for pass_index in range(2):
+        _capture_sera_silhouette(sera_display_rig)
+        var rect := _customization_screen_bounds()
+        if rect.size.x <= 1.0 or rect.size.y <= 1.0:
+            return
+        var fit: float = minf(1.0, minf(
+            allowed_width / rect.size.x, allowed_height / rect.size.y))
+        if fit < 0.999:
+            customize_preview_scale *= maxf(0.1, fit * 0.99)
+            _apply_customization_preview_transform()
+            _capture_sera_silhouette(sera_display_rig)
+            rect = _customization_screen_bounds()
+        var depth: float = -customize_preview_position.z
+        var half_height := depth * tan(deg_to_rad(cam.fov) * 0.5)
+        var px_per_world := size.y / maxf(0.001, 2.0 * half_height)
+        var error: Vector2 = center_target - (rect.position + rect.size * 0.5)
+        customize_preview_position.x += error.x / px_per_world
+        customize_preview_position.y -= error.y / px_per_world
+        _apply_customization_preview_transform()
     _capture_sera_silhouette(sera_display_rig)
 
 func _is_customization_drag_zone(pixel: Vector2) -> bool:
@@ -671,7 +717,7 @@ func _rotate_customization_preview(delta_x: float) -> void:
     var yaw_delta := delta_x / maxf(hud.size.x, 1.0) * CUSTOMIZE_DRAG_FULL_TURN
     customize_preview_yaw = wrapf(customize_preview_yaw - yaw_delta, -PI, PI)
     _apply_customization_preview_transform()
-    _capture_sera_silhouette(sera_display_rig)
+    _constrain_customization_preview_to_safe_area()
     _update_projected_silhouettes()
 
 func _update_projected_silhouettes() -> void:
