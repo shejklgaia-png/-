@@ -594,3 +594,12 @@
 - Replaced hard-coded position and 600px width with CenterContainer and viewport-responsive width.
 - Both buttons use direct scene change with error logging. Base scene loading still requires Android runtime verification.
 - Training scene and combat untouched.
+
+## v119 — 2026-11-08 起動メニュー・拠点読込の再修正
+- 基準：main `9f15d273cebdcb197e2f2364aaf2704407fef731`（v118）。別ブランチ `fix/v119-nexus-startup-layout` で修正。
+- 原因1：拠点 `scripts/command_nexus.gd` の `Environment.AMBIENT_COLOR` はGodot 4に存在せず、拠点シーンのスクリプト読込に失敗する。 `Environment.AMBIENT_SOURCE_COLOR` へ変更し、環境光色を有効化。
+- 原因2：`project.godot` の `input_devices/pointing/emulate_mouse_from_touch=false` では通常のGodot GUI `Button` がAndroidタップに反応しない。起動メニュー表示中のみ変換をON、シーン終了で元に戻す。
+- レイアウト：プログラムによる固定座標配置を廃止し、`scenes/launch_menu.tscn` のFull Rect＋MarginContainer＋CenterContainer＋VBoxContainerで画面中央に配置。幅は上限500px、画面に応じて縮小。
+- 既存汎用検査の起動シーンパスを更新、v116の機能検査は後継版名でも有効に。新規 `tools/v119_command_nexus_self_check.py` と `README_v119_ja.md`。
+- 訓練シーン・戦闘処理・モデル・アニメーション・レンダラー・表示解像度は変更なし。基地内設備の操作は未実装。
+- 静的検査はGodot本体およびXperia 1 V実機でのタップ/描画確認を代替しない。
