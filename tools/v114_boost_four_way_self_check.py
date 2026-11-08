@@ -44,7 +44,7 @@ for token in (
     'const BOOST_BACK_CLIP: String = "Boost_back"',
     'const BOOST_RIGHT_CLIP: String = "Boost_right"',
     'const BOOST_LEFT_CLIP: String = "Boost_Left"',
-    'const BOOST_DIRECTION_BLEND_SECONDS: float = 0.06',
+    'const BOOST_DIRECTION_BLEND_SECONDS: float = 0.025',
     'func _set_boost_motion_direction(local_direction: Vector2) -> void:',
     'func _blended_boost_pose(uid: String) -> Dictionary:',
     'func _sample_boost_pose(clip_name: String, uid: String) -> Dictionary:',
