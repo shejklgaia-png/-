@@ -1,5 +1,5 @@
 extends Node3D
-# v146: clamp the projected SERA body envelope to stop mid-flight ballooning; retain a straight center path and delayed backdrop.
+# v147: move exhibition SERA twice as fast (0.14 s) and finalize only after concurrent camera arrival.
 # Preserve v127 kiosk/occlusion, v125 touch navigation and v124 Blockbench geometry.
 const Modules = preload("res://assets/base_command_modules.gd")
 const SeraRig = preload("res://scripts/sera_rig.gd")
@@ -47,6 +47,7 @@ var customize_motion_start_fov: float = 63.0
 var customize_motion_end_fov: float = 63.0
 var customize_motion_progress: float = 0.0
 var customize_motion_active: bool = false
+var customize_preview_final_world: Transform3D = Transform3D.IDENTITY
 # Normalized backdrop anchor and head-relative grid spacing are captured once
 # before preview rotation, never recomputed on yaw input.
 var customize_glow_center_ratio: Vector2 = Vector2(0.73, 0.50)
@@ -66,8 +67,8 @@ const CUSTOMIZE_GLOW_DEPTH_OFFSET: float = 1.80
 const CUSTOMIZE_GLOW_SCREEN_WIDTH: float = 0.46
 const CUSTOMIZE_GLOW_SCREEN_HEIGHT: float = 0.42
 const CUSTOMIZE_PREVIEW_TARGET_WIDTH_RATIO: float = 0.435
-const CUSTOMIZE_ENTRANCE_SECONDS: float = 0.28
-const CUSTOMIZE_RETRACTION_SECONDS: float = 0.28
+const CUSTOMIZE_ENTRANCE_SECONDS: float = 0.14
+const CUSTOMIZE_RETRACTION_SECONDS: float = 0.14
 const CUSTOMIZE_BOTTOM_GAP_PIXELS: float = 10.0
 const CUSTOMIZE_PREVIEW_ROTATION_SAMPLES: int = 16
 const NEXUS_POSE_NAMES: Array[String] = ["NEXUS_pose", "NEXUSpose"]
@@ -759,6 +760,7 @@ func _show_customization_preview() -> void:
     _fit_customization_preview()
     _capture_sera_silhouette(sera_display_rig)
     var final_world: Transform3D = sera_display_rig.global_transform
+    customize_preview_final_world = final_world
     # Both endpoints use their own camera frames. A simple WORLD-space
     # straight line is not a visible screen-space path while the camera
     # retreats; it made SERA exit the view and reappear near the stand.
@@ -894,12 +896,18 @@ func _apply_customization_entrance(progress: float,
 func _customization_entrance_arrived(final_world: Transform3D) -> void:
     if not customize_preview_active or focused_target != "CUSTOMIZE":
         return
+    # The model is done at 0.14s, before the camera's 0.18s tween.
+    # Keep its camera-relative endpoint tracking until the camera lands,
+    # otherwise snapping to final_world mid-camera-move causes a visible jump.
+    customize_motion_progress = 1.0
+    if focus_tween != null and focus_tween.is_running():
+        return
     customize_motion_active = false
     sera_display_rig.global_transform = final_world
     _capture_sera_silhouette(sera_display_rig)
     _update_projected_silhouettes()
-    # The model has reached the specified preview position: NOW reveal the
-    # stationary cyber-blue grid and cyan radial halo, not during travel.
+    # Show the stationary effect only after SERA and the camera have reached
+    # their final placement. Back still hides it in the press event.
     if customize_glow_quad != null:
         _update_customization_glow()
         customize_glow_quad.visible = true
@@ -938,10 +946,11 @@ func _begin_customization_retraction() -> void:
 func _customization_retraction_arrived() -> void:
     if not customize_preview_active or focused_target != "CUSTOMIZE":
         return
-    # The return camera Tween was already started on the Back press. When
-    # both finish, restore the stand/grid state and unlock the overview UI.
-    _restore_customization_preview()
+    # Let the 0.14s retraction reach its camera-relative endpoint and track
+    # the camera until 0.18s. Do not restore the world-space display rig early.
+    customize_motion_progress = 1.0
     if focus_tween == null or not focus_tween.is_running():
+        _restore_customization_preview()
         _overview_arrived()
 
 func _restore_customization_preview() -> void:
@@ -1360,10 +1369,12 @@ func _select_target(target_name: String) -> void:
 func _focus_arrived(target_name: String) -> void:
     if focused_target != target_name:
         return
-    # CUSTOMIZE model tween was started on tap and can still be in flight
-    # when the 0.18s camera focus finishes. Do not unlock rotation early.
-    if target_name != "CUSTOMIZE" or not customize_preview_active or (
-            customize_entrance_tween == null or not customize_entrance_tween.is_running()):
+    # Either tween may finish first. Finalize the CUSTOMIZE model and reveal
+    # the backdrop only after BOTH are finished, not at the early 0.14s mark.
+    if target_name == "CUSTOMIZE" and customize_preview_active:
+        if customize_entrance_tween == null or not customize_entrance_tween.is_running():
+            _customization_entrance_arrived(customize_preview_final_world)
+    else:
         in_transition = false
     back_panel.visible = true
     focus_title.text = target_name
@@ -1398,10 +1409,12 @@ func _return_to_overview() -> void:
         _move_camera(overview_pose, overview_fov, _overview_arrived)
 
 func _overview_arrived() -> void:
-    # The camera can finish before the 0.28s SERA retraction. Wait for the
-    # rig so Back cannot enable input or the overview outline prematurely.
+    # The SERA retraction now finishes at 0.14s; keep its model aligned to the
+    # moving camera until 0.18s. Only then restore the exact stand transform.
     if focused_target == "CUSTOMIZE" and customize_preview_active:
-        return
+        if customize_entrance_tween != null and customize_entrance_tween.is_running():
+            return
+        _restore_customization_preview()
     in_transition = false
     focused_target = ""
     outline.set("hide_customize_preview_outline", false)
