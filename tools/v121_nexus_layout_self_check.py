@@ -28,10 +28,14 @@ TAGS = {
     "SYSTEM": (0.666, 0.850, 0.315),
     "CUSTOMIZE": (0.305, 0.935, 0.39),
 }
-for title, (x, y, width) in TAGS.items():
-    assert re.search(
-        rf'_tag\("{title}", "[^"]+", {x}, {y}, {width}\)', SCRIPT
-    ), f"Signplate position changed: {title}"
+if int(version.group(1)) >= 125:
+    assert "target_hulls: Dictionary" in SCRIPT
+    assert 'func _tag(' not in SCRIPT
+else:
+    for title, (x, y, width) in TAGS.items():
+        assert re.search(
+            rf'_tag\("{title}", "[^"]+", {x}, {y}, {width}\)', SCRIPT
+        ), f"Signplate position changed: {title}"
 assert TAGS["DATA ARCHIVE"][1] < TAGS["TRAINING"][1] - 0.25
 assert TAGS["DEPLOYMENT"][1] < TAGS["SYSTEM"][1] - 0.25
 for x, y, w in TAGS.values():
