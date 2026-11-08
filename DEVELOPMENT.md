@@ -582,3 +582,10 @@
 - BOOSTを確定させる入力距離125%、0.10秒ホールド、解除110%未満、速度加減速0.15秒、移動倍率1.5を維持。モーションアセット、モデル、ガード・格闘・カメラ・残像・コントローラUIには変更なし。
 - 変更：`scripts/sera_rig.gd`、`project.godot`、`DEVELOPMENT.md`、`docs/SERA_INPUT_MOVEMENT_CAMERA.md`、既存テスト`v108`/`v114`/`v115`。新規：`README_v116_ja.md`、`tools/v116_animation_timing_self_check.py`。
 - ソース構造・遷移対象・数値モデルの静的検証を実施。Pythonスクリプトの実行、Godot実行、Android実機での操作確認は未実施。
+
+
+## v117 — 2026-11-08 Command Nexus blockout
+- Added a two-button startup selector: TRAINING ROOM (existing scenes/main.tscn) and SERA COMMAND NEXUS (new static hangar).
+- Added Blockbench editable simplified hangar blockout under blockbench/SERA_Command_Nexus_LowPoly.bbmodel.
+- Added lightweight procedural hangar and reused existing Sera rig; terminal signs are static and noninteractive.
+- Existing training combat scripts unchanged. Android/Godot runtime not tested; verify scene import, model appearance, and selector on device.
