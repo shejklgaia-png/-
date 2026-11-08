@@ -10,7 +10,8 @@ SRC = (ROOT / "scripts/command_nexus.gd").read_text(encoding="utf-8")
 PROJECT = (ROOT / "project.godot").read_text(encoding="utf-8")
 EMBEDDED = (ROOT / "assets/base_command_modules.gd").read_text(encoding="utf-8")
 MODULES = json.loads(EMBEDDED.split("const MODULES = ", 1)[1].strip())
-assert 'config/name="SERA v123 - Nexus Terraced Depth"' in PROJECT
+version = re.search(r'config/name="SERA v(\d+)', PROJECT)
+assert version is not None and int(version.group(1)) >= 123
 assert 'run/main_scene="res://scenes/launch_menu.tscn"' in PROJECT
 assert 'pointing/emulate_mouse_from_touch=false' in PROJECT
 assert "MultiMesh.TRANSFORM_3D" in SRC
@@ -55,17 +56,17 @@ assert landing[2][1] / 10 > tops[-1]
 assert sum("rail" in p[0].lower() for p in stairs) >= 12
 
 expected_modules = (
-    '_module("kiosk", Vector3(-1.82, 0.0, 0.75), deg_to_rad(34.0))',
-    '_module("kiosk", Vector3(1.82, 0.0, 0.75), deg_to_rad(-34.0))',
+    '_module("kiosk", Vector3(-1.95, 0.0, 1.30), deg_to_rad(36.0))',
+    '_module("kiosk", Vector3(1.95, 0.0, 1.30), deg_to_rad(-36.0))',
     '_module("maintenance_pad", Vector3(0.0, 0.0, -4.75))',
     '_module("archive_mezzanine", Vector3(-4.00, 0.0, -6.55))',
     '_module("data_bank", Vector3(-4.00, 2.19, -8.95))',
-    '_module("deployment_gate", Vector3(4.05, 0.02, -10.48), 0.0, 1.20, 1.25)',
+    '_module("deployment_gate", GATE_ORIGIN, _gate_facing_yaw(), 1.20, 1.25)',
 )
 for source in expected_modules:
     assert source in SRC, source
 assert SRC.count('_module("kiosk"') == 2
-assert -10.48 < -8.95 < -4.75 < 0.75  # gate most distant
+assert -10.48 < -8.95 < -4.75 < 1.30  # gate most distant
 assert 4.43 * 1.20 * 1.25 > 6.0  # gate much taller than SERA
 
 # Screen-space tags: front console labels are moved below far-off models.
@@ -142,10 +143,11 @@ def bounds(pts):
 objects = {
     "archive": bounds(vertices("data_bank", (-4.00, 2.19, -8.95))),
     "stairs": bounds(vertices("archive_mezzanine", (-4.00, 0.0, -6.55))),
-    "gate": bounds(vertices("deployment_gate", (4.05, .02, -10.48),
+    "gate": bounds(vertices("deployment_gate", (4.00, .02, -10.48),
+                            yaw=math.degrees(math.atan2(-4.00, 5.73)),
                             scale=1.20, height_scale=1.25)),
-    "left_console": bounds(vertices("kiosk", (-1.82, 0.0, .75), yaw=34)),
-    "right_console": bounds(vertices("kiosk", (1.82, 0.0, .75), yaw=-34)),
+    "left_console": bounds(vertices("kiosk", (-1.95, 0.0, 1.30), yaw=36)),
+    "right_console": bounds(vertices("kiosk", (1.95, 0.0, 1.30), yaw=-36)),
 }
 for name, (left, top, right_edge, bottom) in objects.items():
     assert left >= -8 and right_edge <= 720, f"{name} clipped horizontally: {left, right_edge}"
