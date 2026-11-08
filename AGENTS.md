@@ -13,6 +13,12 @@
 5. For each requested code change, append a concise dated section to `DEVELOPMENT.md`, add/update the relevant versioned README/test, and report changed files, preserved functions, test results, and known untested items. Bump the game version only on actual user-authorized game changes.
 6. Never add credentials, tokens, signing keystores or other private data to the repository. Avoid unnecessary dependencies/network access.
 
+## Godot project name (mandatory)
+- The `[application]` `config/name` in the root `project.godot` **must be exactly `SERA v<version>`**, e.g. `SERA v146`, with no suffix, subtitle, change summary, extra spaces, or other labels.
+- When implementing an approved game change and bumping the game version, update `config/name` to `SERA v147`, `SERA v148`, etc. Preserve this format for every subsequent version. A project-title-only correction does **not** increment the gameplay version.
+- Describe changes in `DEVELOPMENT.md`, the versioned `README_vXXX_ja.md`, Git commits, and PRs; **never** in the visible Godot project title. This keeps the project-switcher text compact and stops changes in subtitle length from shifting the Run button position.
+- Run `python3 tools/project_name_self_check.py` when updating the project title. Its regex check is future-version-agnostic.
+
 ## Current layout and important behavior
 - `project.godot` → `scenes/main.tscn` → `scripts/main.gd`.
 - `scripts/sera_rig.gd`: dynamic Blockbench mesh/animation reconstruction; animation state, skeleton, Guard pose.

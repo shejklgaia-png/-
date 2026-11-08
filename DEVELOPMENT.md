@@ -822,3 +822,10 @@
 - セラ移動0.28秒、カメラ0.18秒の同時開始、左上モデル・3区画メニュー・固定グリッド・NEXUS_pose・ほか4施設・音声と戦闘は変更なし。
 - 対象：scripts/command_nexus.gd、project.godot、DEVELOPMENT.md、旧テストの版名／補間期待値。追加：README_v146_ja.md、tools/v146_bounded_body_motion_self_check.py。
 - 静的確認と19点の代表的な骨位置による独立投影シミュレーションで、往復の中間時刻の表示幅・高さが始点／終点間の補間包絡を上回らないことを確認。**実際のGodot/Android映像・高負荷動作は未検証**。
+
+## 表示用プロジェクト名の統一（2026-11-08、v146維持）
+- 基準：GitHub `main` `9f32c84ee90679d323522f74e850155b614dd4c7`。Godotのプロジェクト名の長さが毎回変わり、Androidエディターの実行ボタンの表示位置が動く問題への対処。
+- `project.godot` の `[application]` `config/name` を `SERA v146 - Bounded visual transfer` から **`SERA v146`** に短縮。
+- 今後は **`SERA v<連番>` のみ**とし、英語の変更内容や任意の副題は付けない。変更内容は各バージョンREADME、DEVELOPMENT.md、PRに記録。ルールを`AGENTS.md`へ明文化。
+- 既存の名前文字列を検証するソース回帰テスト（v125〜v146）も新表示名へ更新し、将来の命名規則を検査する`tools/project_name_self_check.py`を追加。ゲーム画面・アセット・ゲームロジック・モデル・カメラ・アニメーションは無変更。**ゲームバージョンはv146のまま**。
+- ソース文字列・変更範囲の確認のみ。AndroidでのGodotエディター表示位置は未検証。
