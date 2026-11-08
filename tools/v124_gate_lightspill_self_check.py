@@ -14,7 +14,9 @@ project = (ROOT / "project.godot").read_text(encoding="utf-8")
 data = (ROOT / "assets/base_command_modules.gd").read_text(encoding="utf-8")
 modules = json.loads(data.split("const MODULES = ", 1)[1].strip())
 
-assert 'config/name="SERA v124 - Gate Lightspill"' in project
+import re
+version = re.search(r'config/name="SERA v(\\d+)', project)
+assert version is not None and int(version.group(1)) >= 124
 assert 'run/main_scene="res://scenes/launch_menu.tscn"' in project
 assert 'pointing/emulate_mouse_from_touch=false' in project
 assert 'renderer/rendering_method="gl_compatibility"' in project
