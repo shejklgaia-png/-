@@ -14,7 +14,15 @@ if ! flock -n 9; then
 fi
 
 echo "$(date '+%F %T') WATCHER STARTED" >> "$LOG"
-bash "$PUSH" >> "$LOG" 2>&1 || echo "$(date '+%F %T') UPLOAD FAILED; will retry" >> "$LOG"
+run_push() {
+  if bash "$PUSH" >> "$LOG" 2>&1; then
+    rm -f "$HOME/sera_upload_error.txt"
+  else
+    echo "$(date '+%F %T') UPLOAD FAILED; will retry" >> "$LOG"
+    echo "Automatic upload failed. See ~/sera_auto_push.log" > "$HOME/sera_upload_error.txt"
+  fi
+}
+run_push
 
 while true; do
   # 120-second timeout is also a fallback if a Blockbench/Android shared
@@ -31,7 +39,7 @@ while true; do
     echo "$(date '+%F %T') WATCHER EVENT ERROR; polling only" >> "$LOG"
     sleep 120
   fi
-  bash "$PUSH" >> "$LOG" 2>&1 || echo "$(date '+%F %T') UPLOAD FAILED; will retry" >> "$LOG"
+  run_push
   # Prevent unlimited logfile growth on an always-running phone.
   if [ -f "$LOG" ] && [ "$(wc -c < "$LOG")" -gt 1048576 ]; then
     tail -n 1200 "$LOG" > "$LOG.tmp" && mv "$LOG.tmp" "$LOG"
