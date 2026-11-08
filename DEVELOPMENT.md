@@ -836,3 +836,10 @@
 - 戻る側も同じく0.14秒で格納目標の画面座標へ到達させ、カメラ帰還0.18秒が終わるまでモデルのカメラ相対位置を保つ。最終的に元展示Transformへ戻して全景操作を解除する。戻る操作時のエフェクト即時消去は維持。
 - `config/name`は命名規則どおり**`SERA v147`のみ**とし副題なし。README_v147_ja.md追加、DEVELOPMENT.mdと静的回帰テスト・命名規則テストの整合性を更新。
 - 変更対象：scripts/command_nexus.gd、project.godot、DEVELOPMENT.md、関連テストの旧版名／旧秒数期待値。追加：README_v147_ja.md、tools/v147_customize_double_speed_self_check.py。Godot／Androidの実機タイミングと映像は未検証。
+
+## v148（2026-11-08） — RUN・BOOSTの地上移動速度を1.25倍
+- 基準：GitHub `main` `97a9cc63d232b215bcd88dad529af0b67b08b5cd`（v147）。ユーザー指示により通常歩行（RUN）とBOOSTの実際の地上移動速度をそれぞれ1.25倍へ増加。
+- `scripts/main.gd` の基準 `MOVE_SPEED=3.25m/s` とBOOST相対倍率`1.5`を維持し、地上RUN/BOOSTの物理速度式に `GROUND_MOVE_SPEED_SCALE=1.25` を追加。RUN最大速度は3.25→4.0625m/s、BOOST最大速度は4.875→6.09375m/s。入力アナログ強度に応じた増減も同倍率。
+- BOOST開始125%／解除110%・0.10秒保持・0.15秒加減速、STEP／BACKSTEP、格闘接近、カメラ、ガード、走行・BOOSTモーションの再生速度、デバッグジャンプの空中ステアリング速度は変更しない。状態表示のx1.0／x1.5は新しいRUN基準との相対倍率を示すため据え置き。
+- `config/name`は命名規則どおり`SERA v148`。`README_v148_ja.md`・`tools/v148_ground_movement_speed_self_check.py`を追加。従来のCUSTOMIZE系静的検査が最新プロジェクト名を認識できるよう期待タイトルのみ追従。
+- 変更は速度係数と地上移動式の限定的差分。ソース上の数値・操作条件・対象範囲の確認は可能ですが、Godot/Android端末での実走行速度・衝突時挙動は未検証。

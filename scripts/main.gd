@@ -28,6 +28,7 @@ extends Node3D
 ## v91: Enemy attack-mode debug controls and four telegraphed enemy attacks.
 
 const MOVE_SPEED: float = 3.25
+const GROUND_MOVE_SPEED_SCALE: float = 1.25  # v148: speed up ground RUN and BOOST; debug airborne control unchanged.
 const MOVEMENT_BOOST_MULTIPLIER: float = 1.5
 # RUN stays at full analog input once the thumb crosses the 100% rim.
 # The actual finger position (not the visually clamped knob) controls BOOST.
@@ -1834,7 +1835,7 @@ func _physics_process(delta: float) -> void:
             # v9 behavior: world_move already uses the current camera's ground axes.
             # Analog strength saturates at the visual rim; BOOST changes speed
             # smoothly only after the sustained 125% threshold is confirmed.
-            player.velocity = world_move * MOVE_SPEED * boost_speed_multiplier
+            player.velocity = world_move * MOVE_SPEED * GROUND_MOVE_SPEED_SCALE * boost_speed_multiplier
             # Drag keeps working along the cube's faces instead of becoming
             # blocked or falling through it. No world X/Z bounds are added.
         else:
