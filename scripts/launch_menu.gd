@@ -1,30 +1,57 @@
 extends Control
-# v117: Startup choice only. Base equipment remains noninteractive.
+# v118: responsive full-viewport startup selector.
+const BACKGROUND := Color("#0a101b")
+const ACCENT := Color("#49c9ec")
+
 func _ready() -> void:
-    var backdrop := ColorRect.new()
-    backdrop.color = Color("#0a101b")
-    backdrop.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-    add_child(backdrop)
-    var layout := VBoxContainer.new()
-    layout.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
-    layout.custom_minimum_size = Vector2(600, 310)
-    layout.position = Vector2(60, 440)
-    layout.add_theme_constant_override("separation", 28)
-    add_child(layout)
-    var heading := Label.new()
-    heading.text = "SERA SYSTEM  /  SELECT DESTINATION"
-    heading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-    heading.add_theme_font_size_override("font_size", 27)
-    layout.add_child(heading)
-    for choice in ["TRAINING ROOM", "SERA COMMAND NEXUS"]:
+    set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+    var background := ColorRect.new()
+    background.color = BACKGROUND
+    background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+    background.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    add_child(background)
+
+    var center := CenterContainer.new()
+    center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+    add_child(center)
+    var column := VBoxContainer.new()
+    column.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+    column.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+    column.add_theme_constant_override("separation", 24)
+    center.add_child(column)
+
+    var title := Label.new()
+    title.text = "SERA SYSTEM"
+    title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    title.add_theme_font_size_override("font_size", 36)
+    title.add_theme_color_override("font_color", ACCENT)
+    column.add_child(title)
+
+    var subtitle := Label.new()
+    subtitle.text = "SELECT DESTINATION"
+    subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    subtitle.add_theme_font_size_override("font_size", 20)
+    column.add_child(subtitle)
+
+    for option in ["TRAINING ROOM", "SERA COMMAND NEXUS"]:
         var button := Button.new()
-        button.text = choice
-        button.custom_minimum_size = Vector2(600, 95)
-        button.add_theme_font_size_override("font_size", 29)
-        layout.add_child(button)
-        button.pressed.connect(_enter.bind(choice))
+        button.text = option
+        button.custom_minimum_size = Vector2(0, 92)
+        button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+        button.add_theme_font_size_override("font_size", 23)
+        column.add_child(button)
+        button.pressed.connect(_enter.bind(option))
+
+    # Limit width to 85% of viewport; never use absolute screen coordinates.
+    var update_width := func() -> void:
+        column.custom_minimum_size.x = minf(540.0, size.x * 0.85)
+    resized.connect(update_width)
+    update_width.call()
+
 func _enter(choice: String) -> void:
-    if choice == "TRAINING ROOM":
-        get_tree().change_scene_to_file("res://scenes/main.tscn")
-    else:
-        get_tree().change_scene_to_file("res://scenes/command_nexus.tscn")
+    var destination := "res://scenes/main.tscn"
+    if choice == "SERA COMMAND NEXUS":
+        destination = "res://scenes/command_nexus.tscn"
+    var err := get_tree().change_scene_to_file(destination)
+    if err != OK:
+        push_error("Cannot open scene: %s (error %d)" % [destination, err])
