@@ -642,3 +642,11 @@
 - 手前TRAINING/SYSTEMコンソールをx=±1.95,z=1.30へ移動、角度を±34°→±36°に更新。
 - 720×1280前提の投影範囲、既存メニューとの非重複を静的に確認。`tools/v124_gate_lightspill_self_check.py`と`README_v124_ja.md`を追加し、v121〜123既存回帰テストも現在の値に更新。
 - 既存の戦闘/操作/起動2択/モデル・アニメーション原本/Blockbench原本/音声、他設備の配置、描画レンダラーは変更しない。Godot/Android実機の描画と性能は未検証。
+
+## v125（2026-11-08） — 拠点メニューの文字廃止と高速カメラフォーカス
+- 基準：GitHub main v124（47b140b164c98576e6c6ab9efae0f6df2d880daf）。拠点全景の5つの固定タグ／サブ説明を撤去し、施設やセラ本体の輪郭をカメラ投影に沿って暗く明滅するCanvasItemの選択枠へ変更。壁面の「S E R A」は3D環境装飾として維持。
+- TRAINING/SYSTEM/CUSTOMIZE/DATA ARCHIVE/DEPLOYMENTの各設備に独立した目標カメラ位置・角度・FOVを設定。ワンタップで選択時、0.18秒 Cubic Ease Out で高速に接近し、選択枠を明るく固定。他対象の選択枠は非表示。フラッシュ、残像、パーティクルなし。
+- 選択後は対象名＋機能を示す最小パネルと左上戻るUIを表示。戻る操作/Android戻る/Escでは0.18秒で全景に復帰。トレーニングは既存訓練シーンへのアクションを維持。他4項目は専用画面未実装を明示する仮パネル。
+- Androidの画面タップをraw InputEventScreenTouchで処理し、戦闘操作の設定Input.emulate_mouse_from_touch=falseは変更しない。PCクリックにも対応。
+- 変更：scripts/command_nexus.gd、project.godot、既存静的テストv120/v121/v123/v124。追加：scripts/nexus_selection_outline.gd、tools/v125_nexus_focus_self_check.py、README_v125_ja.md。モデル・演出光源・戦闘シーン・既存アニメーション・ブロックベンチ資産・音声等は変更なし。
+- Godot CLI、Android実機での動作確認は行えていないため、拠点の投影タッチ領域・各寄り構図・戻る操作は実機で追加検証が必要。

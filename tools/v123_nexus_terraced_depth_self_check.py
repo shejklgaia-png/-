@@ -77,9 +77,13 @@ tags = {
     "SYSTEM": (0.666, 0.850, 0.315),
     "CUSTOMIZE": (0.305, 0.935, 0.39),
 }
-for title, (x, y, width) in tags.items():
-    assert re.search(rf'_tag\("{title}", "[^"]+", {x}, {y}, {width}\)', SRC)
-    assert y * 1280 + 67 < 1280
+if int(version.group(1)) >= 125:
+    assert "target_hulls: Dictionary" in SRC
+    assert 'func _tag(' not in SRC
+else:
+    for title, (x, y, width) in tags.items():
+        assert re.search(rf'_tag\("{title}", "[^"]+", {x}, {y}, {width}\)', SRC)
+        assert y * 1280 + 67 < 1280
 assert 'cam.position = Vector3(0.0, 4.10, 10.20)' in SRC
 assert 'cam.look_at(Vector3(0.0, 3.00, -5.50), Vector3.UP)' in SRC
 assert 'cam.fov = 63.0' in SRC

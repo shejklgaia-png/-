@@ -1,16 +1,70 @@
 extends Node3D
-# v124: gate aimed toward SERA with lightweight light spill; foreground consoles closer.
-# This read-only display renders their embedded geometry in material batches.
+# v125: interactive silhouette selection and fast 3D camera focus.
+# Preserve the v124 gate light spill and all authored Blockbench geometry batches.
 const Modules = preload("res://assets/base_command_modules.gd")
 const SeraRig = preload("res://scripts/sera_rig.gd")
-const TagIcon = preload("res://scripts/nexus_tag_icon.gd")
+const NexusSelectionOutline = preload("res://scripts/nexus_selection_outline.gd")
 
 const GATE_ORIGIN: Vector3 = Vector3(4.00, 0.02, -10.48)
 const SERA_STAGE_ORIGIN: Vector3 = Vector3(0.0, 0.0, -4.75)
 
 var batch_data: Dictionary = {}
 var hud: Control
-var tags: Array[Dictionary] = []
+var cam: Camera3D
+var outline: Control
+var overview_pose: Transform3D
+var overview_fov: float = 63.0
+var focus_tween: Tween
+var focused_target: String = ""
+var in_transition: bool = false
+var back_panel: Panel
+var back_arrow: Label
+var focus_panel: Panel
+var focus_title: Label
+var action_panel: Panel
+var action_label: Label
+
+const CAMERA_TRANSITION_SECONDS: float = 0.18
+const TRAINING_SCENE: String = "res://scenes/main.tscn"
+
+# Screen-space silhouettes are projected from the actual 3D camera, rather than
+# placing signs at fixed percentages of the portrait viewport.
+var target_hulls: Dictionary = {
+    "TRAINING": [
+        Vector3(-3.02, 0.10, 1.55), Vector3(-3.02, 1.10, 1.55),
+        Vector3(-2.85, 2.13, 1.55), Vector3(-1.12, 2.13, 1.55),
+        Vector3(-0.98, 1.10, 1.55), Vector3(-0.98, 0.10, 1.55)],
+    "SYSTEM": [
+        Vector3(0.98, 0.10, 1.55), Vector3(0.98, 1.10, 1.55),
+        Vector3(1.12, 2.13, 1.55), Vector3(2.85, 2.13, 1.55),
+        Vector3(3.02, 1.10, 1.55), Vector3(3.02, 0.10, 1.55)],
+    "CUSTOMIZE": [
+        Vector3(-1.55, 0.38, -4.70), Vector3(-1.38, 2.30, -4.70),
+        Vector3(-0.85, 3.35, -4.70), Vector3(0.85, 3.35, -4.70),
+        Vector3(1.38, 2.30, -4.70), Vector3(1.55, 0.38, -4.70)],
+    "DATA ARCHIVE": [
+        Vector3(-5.58, 2.17, -8.55), Vector3(-5.58, 3.35, -8.55),
+        Vector3(-5.30, 4.58, -8.55), Vector3(-2.70, 4.58, -8.55),
+        Vector3(-2.43, 3.35, -8.55), Vector3(-2.43, 2.17, -8.55)],
+    "DEPLOYMENT": [
+        Vector3(1.62, 0.12, -10.38), Vector3(1.62, 4.85, -10.38),
+        Vector3(2.06, 6.38, -10.38), Vector3(5.98, 6.38, -10.38),
+        Vector3(6.42, 4.85, -10.38), Vector3(6.42, 0.12, -10.38)]
+}
+
+# Authored close-up compositions; no camera shake, flash, zoom blur or particles.
+var focus_views: Dictionary = {
+    "TRAINING": {"eye": Vector3(-1.90, 2.35, 5.10),
+        "look": Vector3(-1.95, 1.36, 1.25), "fov": 48.0},
+    "SYSTEM": {"eye": Vector3(1.90, 2.35, 5.10),
+        "look": Vector3(1.95, 1.36, 1.25), "fov": 48.0},
+    "CUSTOMIZE": {"eye": Vector3(0.0, 2.90, 2.00),
+        "look": Vector3(0.0, 2.00, -4.75), "fov": 43.0},
+    "DATA ARCHIVE": {"eye": Vector3(-3.90, 4.20, -2.20),
+        "look": Vector3(-4.00, 3.85, -8.80), "fov": 49.0},
+    "DEPLOYMENT": {"eye": Vector3(2.60, 3.85, -1.50),
+        "look": Vector3(4.00, 3.35, -10.48), "fov": 49.0}
+}
 
 func _ready() -> void:
     _environment()
@@ -206,7 +260,7 @@ func _sera_display() -> void:
             bone.quaternion = bone.quaternion * Quaternion(Vector3.BACK, deg_to_rad(float(arm_angles[bone.name])))
 
 func _camera() -> void:
-    var cam := Camera3D.new()
+    cam = Camera3D.new()
     cam.name = "NexusPortraitCamera"
     cam.position = Vector3(0.0, 4.10, 10.20)
     cam.near = 0.05
@@ -214,6 +268,8 @@ func _camera() -> void:
     add_child(cam)
     cam.look_at(Vector3(0.0, 3.00, -5.50), Vector3.UP)
     cam.current = true
+    overview_pose = cam.transform
+    overview_fov = cam.fov
 
 func _wall_mark() -> void:
     var logo := Label3D.new()
@@ -231,60 +287,231 @@ func _wall_mark() -> void:
     name.position = Vector3(0.0, 5.92, -9.03)
     add_child(name)
 
-func _tag(title: String, sub: String, x: float, y: float, w: float) -> void:
-    var panel := Panel.new()
-    panel.name = title.replace(" ", "") + "Tag"
-    panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-    var style := StyleBoxFlat.new()
-    style.bg_color = Color(0.02, 0.055, 0.10, 0.87)
-    style.border_color = Color(0.35, 0.78, 0.93, 0.85)
-    style.set_border_width_all(2)
-    style.set_corner_radius_all(5)
-    panel.add_theme_stylebox_override("panel", style)
-    hud.add_child(panel)
-    var caption := Label.new()
-    caption.text = title
-    caption.position = Vector2(54, 7)
-    caption.add_theme_font_size_override("font_size", 19)
-    caption.add_theme_color_override("font_color", Color("#e0edf9"))
-    caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
-    panel.add_child(caption)
-    var detail := Label.new()
-    detail.text = sub
-    detail.position = Vector2(54, 38)
-    detail.add_theme_font_size_override("font_size", 13)
-    detail.add_theme_color_override("font_color", Color("#97b8ce"))
-    detail.mouse_filter = Control.MOUSE_FILTER_IGNORE
-    panel.add_child(detail)
-    var glyph := TagIcon.new()
-    glyph.kind = title
-    glyph.position = Vector2(11, 15)
-    panel.add_child(glyph)
-    tags.append({"panel": panel, "x": x, "y": y, "w": w})
-
+# The five options are projected onto their 3D silhouettes. No labels are
+# visible in the default hangar overview.
 func _hud() -> void:
     var canvas := CanvasLayer.new()
-    canvas.name = "ReadOnlyBaseHUD"
+    canvas.name = "NexusInteractiveHUD"
     add_child(canvas)
     hud = Control.new()
-    hud.name = "BaseOverlay"
+    hud.name = "NexusOverlay"
     hud.mouse_filter = Control.MOUSE_FILTER_IGNORE
     canvas.add_child(hud)
     hud.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-    # No HUD title or top separator: leave the upper hangar composition unobstructed.
-    _tag("DATA ARCHIVE", "RECORDS / LOGS", 0.018, 0.325, 0.315)
-    _tag("DEPLOYMENT", "MISSION GATE", 0.666, 0.275, 0.315)
-    _tag("TRAINING", "SIMULATION", 0.018, 0.850, 0.315)
-    _tag("SYSTEM", "SETTINGS", 0.666, 0.850, 0.315)
-    _tag("CUSTOMIZE", "UNIT CONFIGURATION", 0.305, 0.935, 0.39)
+
+    outline = NexusSelectionOutline.new()
+    outline.name = "SelectableSilhouettes"
+    outline.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    hud.add_child(outline)
+    outline.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+
+    back_panel = Panel.new()
+    back_panel.name = "BackToOverview"
+    back_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    back_panel.add_theme_stylebox_override("panel", _menu_style())
+    back_panel.visible = false
+    hud.add_child(back_panel)
+    back_arrow = Label.new()
+    back_arrow.text = "<"
+    back_arrow.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    back_arrow.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+    back_arrow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    back_arrow.add_theme_font_size_override("font_size", 32)
+    back_arrow.add_theme_color_override("font_color", Color("#a6f0ff"))
+    back_panel.add_child(back_arrow)
+
+    focus_panel = Panel.new()
+    focus_panel.name = "FocusedMenu"
+    focus_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    focus_panel.add_theme_stylebox_override("panel", _menu_style())
+    focus_panel.visible = false
+    hud.add_child(focus_panel)
+    focus_title = Label.new()
+    focus_title.name = "DestinationTitle"
+    focus_title.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    focus_title.add_theme_font_size_override("font_size", 21)
+    focus_title.add_theme_color_override("font_color", Color("#e1f3fd"))
+    focus_panel.add_child(focus_title)
+    action_panel = Panel.new()
+    action_panel.name = "DestinationAction"
+    action_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    action_panel.add_theme_stylebox_override("panel", _action_style())
+    focus_panel.add_child(action_panel)
+    action_label = Label.new()
+    action_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    action_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    action_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+    action_label.add_theme_font_size_override("font_size", 17)
+    action_label.add_theme_color_override("font_color", Color("#bcecff"))
+    action_panel.add_child(action_label)
     hud.resized.connect(_layout_hud)
     _layout_hud()
+    _update_projected_silhouettes()
+
+func _menu_style() -> StyleBoxFlat:
+    var style := StyleBoxFlat.new()
+    style.bg_color = Color(0.018, 0.035, 0.060, 0.92)
+    style.border_color = Color(0.22, 0.72, 0.87, 0.85)
+    style.set_border_width_all(2)
+    style.set_corner_radius_all(6)
+    return style
+
+func _action_style() -> StyleBoxFlat:
+    var style := StyleBoxFlat.new()
+    style.bg_color = Color(0.035, 0.115, 0.16, 0.90)
+    style.border_color = Color(0.29, 0.80, 0.94, 0.88)
+    style.set_border_width_all(1)
+    style.set_corner_radius_all(4)
+    return style
 
 func _layout_hud() -> void:
-    if hud == null:
+    if hud == null or back_panel == null or focus_panel == null:
         return
-    var viewport_size := hud.size
-    for entry in tags:
-        var panel: Panel = entry["panel"]
-        panel.size = Vector2(viewport_size.x * float(entry["w"]), 67.0)
-        panel.position = Vector2(viewport_size.x * float(entry["x"]), viewport_size.y * float(entry["y"]))
+    var view := hud.size
+    var margin := maxf(16.0, view.x * 0.04)
+    back_panel.position = Vector2(margin, maxf(20.0, view.y * 0.045))
+    back_panel.size = Vector2(62.0, 62.0)
+    back_arrow.position = Vector2.ZERO
+    back_arrow.size = back_panel.size
+    focus_panel.position = Vector2(view.x * 0.08, view.y * 0.825)
+    focus_panel.size = Vector2(view.x * 0.84, minf(142.0, view.y * 0.15))
+    focus_title.position = Vector2(20.0, 11.0)
+    focus_title.size = Vector2(focus_panel.size.x - 40.0, 31.0)
+    action_panel.position = Vector2(16.0, 50.0)
+    action_panel.size = Vector2(focus_panel.size.x - 32.0, 60.0)
+    action_label.position = Vector2.ZERO
+    action_label.size = action_panel.size
+    _update_projected_silhouettes()
+
+func _process(_delta: float) -> void:
+    _update_projected_silhouettes()
+
+func _update_projected_silhouettes() -> void:
+    if cam == null or outline == null:
+        return
+    var projected: Dictionary = {}
+    for target_name in target_hulls:
+        var path := PackedVector2Array()
+        var behind := false
+        for point in target_hulls[target_name]:
+            if cam.is_position_behind(point):
+                behind = true
+                break
+            path.append(cam.unproject_position(point))
+        if not behind:
+            projected[target_name] = path
+    outline.set("polygons", projected)
+
+# Raw touch support intentionally does not change the training scene's global
+# Input.emulate_mouse_from_touch=false setting. PC mouse taps also work.
+func _input(event: InputEvent) -> void:
+    if not focused_target.is_empty() and (
+            event.is_action_pressed("ui_cancel")
+            or (event is InputEventKey and event.pressed
+                and event.keycode in [KEY_BACK, KEY_ESCAPE])):
+        _return_to_overview()
+        get_viewport().set_input_as_handled()
+        return
+    if in_transition:
+        return
+    if event is InputEventScreenTouch and event.pressed:
+        _tap_at(event.position)
+        get_viewport().set_input_as_handled()
+    elif event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+        _tap_at(event.position)
+        get_viewport().set_input_as_handled()
+
+func _tap_at(point: Vector2) -> void:
+    if not focused_target.is_empty():
+        if Rect2(back_panel.position, back_panel.size).has_point(point):
+            _return_to_overview()
+        elif focused_target == "TRAINING" and focus_panel.visible:
+            var action_rect := Rect2(focus_panel.position + action_panel.position,
+                action_panel.size)
+            if action_rect.has_point(point):
+                _start_training()
+        return
+    var polys: Dictionary = outline.get("polygons")
+    # Front terminals win if the projections overlap a distant module.
+    for candidate in ["TRAINING", "SYSTEM", "CUSTOMIZE", "DATA ARCHIVE", "DEPLOYMENT"]:
+        if not polys.has(candidate):
+            continue
+        var poly: PackedVector2Array = polys[candidate]
+        if Geometry2D.is_point_in_polygon(point, poly):
+            _select_target(candidate)
+            return
+        # Small reach tolerance for thumb input on a narrow portrait screen.
+        if _polygon_bounds(poly).grow(12.0).has_point(point):
+            _select_target(candidate)
+            return
+
+func _polygon_bounds(poly: PackedVector2Array) -> Rect2:
+    var left := poly[0].x
+    var right := poly[0].x
+    var top := poly[0].y
+    var bottom := poly[0].y
+    for p in poly:
+        left = minf(left, p.x)
+        right = maxf(right, p.x)
+        top = minf(top, p.y)
+        bottom = maxf(bottom, p.y)
+    return Rect2(Vector2(left, top), Vector2(right - left, bottom - top))
+
+func _select_target(target_name: String) -> void:
+    if in_transition or not focus_views.has(target_name):
+        return
+    focused_target = target_name
+    outline.set("active_target", target_name)
+    in_transition = true
+    var view: Dictionary = focus_views[target_name]
+    var eye: Vector3 = view["eye"]
+    var look: Vector3 = view["look"]
+    var aim_pose := Transform3D(Basis.looking_at(look - eye, Vector3.UP), eye)
+    _move_camera(aim_pose, float(view["fov"]), _focus_arrived.bind(target_name))
+
+func _focus_arrived(target_name: String) -> void:
+    in_transition = false
+    if focused_target != target_name:
+        return
+    back_panel.visible = true
+    focus_title.text = target_name
+    action_label.text = "ENTER TRAINING" if target_name == "TRAINING" else "NOT AVAILABLE YET"
+    action_panel.visible = true
+    focus_panel.visible = true
+
+func _return_to_overview() -> void:
+    if in_transition or focused_target.is_empty():
+        return
+    in_transition = true
+    focus_panel.visible = false
+    back_panel.visible = false
+    _move_camera(overview_pose, overview_fov, _overview_arrived)
+
+func _overview_arrived() -> void:
+    in_transition = false
+    focused_target = ""
+    outline.set("active_target", "")
+
+func _move_camera(destination: Transform3D, next_fov: float, arrived: Callable) -> void:
+    if focus_tween != null and focus_tween.is_running():
+        focus_tween.kill()
+    var start_pose := cam.transform
+    var start_fov := cam.fov
+    focus_tween = create_tween()
+    focus_tween.set_trans(Tween.TRANS_CUBIC)
+    focus_tween.set_ease(Tween.EASE_OUT)
+    focus_tween.tween_method(_apply_camera_transition.bind(start_pose, destination,
+        start_fov, next_fov), 0.0, 1.0, CAMERA_TRANSITION_SECONDS)
+    focus_tween.finished.connect(arrived)
+
+func _apply_camera_transition(progress: float, from_pose: Transform3D,
+        to_pose: Transform3D, from_fov: float, to_fov: float) -> void:
+    cam.transform = from_pose.interpolate_with(to_pose, progress)
+    cam.fov = lerpf(from_fov, to_fov, progress)
+
+func _start_training() -> void:
+    if focused_target != "TRAINING" or in_transition:
+        return
+    var err: Error = get_tree().change_scene_to_file(TRAINING_SCENE)
+    if err != OK:
+        push_error("Nexus training scene load failed (%d)" % err)

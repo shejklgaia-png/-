@@ -57,14 +57,21 @@ assert "Quaternion(Vector3.BACK, deg_to_rad" in src
 assert 'cam.look_at(Vector3(0.0, 3.00, -5.50)' in src
 assert 'Environment.AMBIENT_SOURCE_COLOR' in src
 assert 'Environment.AMBIENT_COLOR' not in src
-assert 'func _tag(' in src
+# v125 replaces passive signplates with touchable, projected silhouettes.
 assert "Control.MOUSE_FILTER_IGNORE" in src
-assert "TagIcon.new()" in src
-for caption in ("DATA ARCHIVE", "DEPLOYMENT", "TRAINING", "SYSTEM", "CUSTOMIZE"):
-    assert f'_tag("{caption}"' in src
-    assert f'"{caption}":' in hud_icon
+if int(version.group(1)) >= 125:
+    assert 'func _tag(' not in src
+    assert 'res://scripts/nexus_selection_outline.gd' in src
+    assert "InputEventScreenTouch" in src
+    assert 'func _select_target(' in src
+else:
+    assert 'func _tag(' in src
+    assert "TagIcon.new()" in src
+    for caption in ("DATA ARCHIVE", "DEPLOYMENT", "TRAINING", "SYSTEM", "CUSTOMIZE"):
+        assert f'_tag("{caption}"' in src
+        assert f'"{caption}":' in hud_icon
+    assert "InputEventScreenTouch" not in src
 assert "Button.new()" not in src
-assert "InputEventScreenTouch" not in src
 
 # Prior gameplay scene and assets are still accessible.
 assert (ROOT / "scenes/main.tscn").is_file()
