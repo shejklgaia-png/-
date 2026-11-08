@@ -718,3 +718,11 @@
 - NEXUS_pose読込、同一展示Rigの再利用、元の背景／展示台、5機能選択、左右ドラッグ、右下戻る、訓練シーン遷移、戦闘シーン、Blockbench元データ、BGM／SEは維持。
 - 変更：scripts/command_nexus.gd、project.godot、旧検査v125〜v131、DEVELOPMENT.md。追加：README_v132_ja.md、tools/v132_nexus_visibility_self_check.py。
 - コード・ジオメトリの静的確認のみ。Godotの実行／パーサー、Xperia 1 Vでの表示・タッチ挙動は未検証。実機ではセラ正面サイズ、左右90°回転時の盾／剣クリップ、ゲートの3D表示およびメニュー重複を確認すること。
+
+## v133（2026-11-08） — 施設選択枠のタップ即時点灯・戻る時の即時解除
+- 基準：GitHub main `29ab854b2ec8f28fd9ee49b2f4e8291de72edf0e`（端末側の最新自動同期を含む）。対象：Command Nexusの選択輪郭の表示タイミング。
+- 設備タップ／PCクリックを受けた `_select_target` の中で、カメラの0.18秒Tweenを開始する前に `active_target` を設定し、選択対象だけの輪郭再投影・`queue_redraw` を即時に行う。選択枠はカメラ到着を待たない。
+- 右下の戻るUI、Android戻る、Escの `_return_to_overview` では、全景への移動を開始する前に `active_target` を空にして `queue_redraw` する。0.18秒後の全景到着時に解除する旧処理を廃止。
+- 5種類の選択対象、v132の拡大／カメラ構図、NEXUS_pose、カメラ移動時間とイージング、通常の明滅枠、タッチ操作、Blockbenchモデル、戦闘や音声などは維持。
+- 変更：scripts/command_nexus.gd、project.godot、DEVELOPMENT.md、関連検査v125〜v132。追加：README_v133_ja.md、tools/v133_nexus_selection_timing_self_check.py。
+- 入力ハンドラ内の処理順序と既存参照の静的検証のみ。Godot／Android実機の描画タイミングは未検証。
