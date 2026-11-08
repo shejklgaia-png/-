@@ -1,5 +1,5 @@
 extends Node3D
-# v117: lightweight static hangar. No equipment interaction.
+# v119: restore Godot 4 environment constant; lightweight static hangar, noninteractive equipment.
 const DARK := Color("#222935")
 const MID := Color("#384050")
 const LIGHT := Color("#5c6577")
@@ -92,7 +92,8 @@ func _ready() -> void:
     var env := Environment.new()
     env.background_mode = Environment.BG_COLOR
     env.background_color = Color("#0b101a")
-    env.ambient_light_source = Environment.AMBIENT_COLOR
+    env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+    env.ambient_light_sky_contribution = 0.0
     env.ambient_light_color = Color("#a0b8d4")
     env.ambient_light_energy = 0.65
     ambient.environment = env

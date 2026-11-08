@@ -31,7 +31,11 @@ verify("Codex AGENTS instructions exist", (ROOT / "AGENTS.md").is_file())
 verify("Git cache exclusions exist", (ROOT / ".gitignore").is_file())
 
 project = (ROOT / "project.godot").read_text(encoding="utf-8")
-verify("main scene path configured", 'run/main_scene="res://scenes/main.tscn"' in project)
+verify("startup scene path configured", 'run/main_scene="res://scenes/launch_menu.tscn"' in project)
+verify("startup scene exists", (ROOT / "scenes/launch_menu.tscn").is_file())
+verify("startup script exists", (ROOT / "scripts/launch_menu.gd").is_file())
+verify("command nexus scene exists", (ROOT / "scenes/command_nexus.tscn").is_file())
+verify("command nexus script exists", (ROOT / "scripts/command_nexus.gd").is_file())
 
 src = (ROOT / "assets/sera_source.json").read_bytes()
 try:
