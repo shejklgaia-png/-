@@ -1,5 +1,5 @@
 extends Node3D
-# v128: asymmetric device camera compositions and unobtrusive placeholder menu panels.
+# v129: lightweight camera-facing SERA preview, drag rotation and automatic panel-safe fitting.
 # Preserve v127 kiosk/occlusion, v125 touch navigation and v124 Blockbench geometry.
 const Modules = preload("res://assets/base_command_modules.gd")
 const SeraRig = preload("res://scripts/sera_rig.gd")
@@ -24,6 +24,24 @@ var focus_header: Panel
 var focus_title: Label
 var action_panel: Panel
 var action_label: Label
+# Reuse the same display rig, without reparenting it: SeraRig has external
+# afterimage nodes whose lifetime is tied to _exit_tree. Set its world transform
+# from camera space instead; no duplicate model, SubViewport or draw batch.
+var sera_display_stand: Node3D
+var sera_display_rig: Node3D
+var sera_original_transform: Transform3D
+var customize_preview_active: bool = false
+var customize_preview_position: Vector3 = Vector3.ZERO
+var customize_preview_scale: float = 0.80
+var customize_preview_yaw: float = PI
+var customize_touch_id: int = -1
+var customize_touch_last_x: float = 0.0
+var customize_mouse_drag: bool = false
+var customize_mouse_last_x: float = 0.0
+
+const CUSTOMIZE_PREVIEW_DISTANCE: float = 4.60
+const CUSTOMIZE_PREVIEW_ROTATION_SAMPLES: int = 16
+const CUSTOMIZE_DRAG_FULL_TURN: float = TAU
 
 const CAMERA_TRANSITION_SECONDS: float = 0.18
 const TRAINING_SCENE: String = "res://scenes/main.tscn"
@@ -251,6 +269,9 @@ func _sera_display() -> void:
     rig.scale = Vector3.ONE * 1.35
     rig.rotation.y = PI
     stand.add_child(rig)
+    sera_display_stand = stand
+    sera_display_rig = rig
+    sera_original_transform = rig.transform
     rig.set_process(false)
     rig.set_physics_process(false)
     if not bool(rig.get("loading_ok")):
@@ -458,6 +479,156 @@ func _keep_customization_clear() -> void:
         focus_panel.size.x = minf(focus_panel.size.x,
             maxf(0.0, leftmost - focus_panel.position.x - 16.0))
 
+# The SAME exhibition rig stays parented to its original display stand.
+# A camera-relative transform presents it as a flat-to-screen foreground
+# object while retaining the entire unchanged hangar and stage underneath.
+func _apply_customization_preview_transform() -> void:
+    if sera_display_rig == null or cam == null:
+        return
+    var basis := Basis(Vector3.UP, customize_preview_yaw)
+    basis = basis.scaled(Vector3.ONE * customize_preview_scale)
+    sera_display_rig.global_transform = cam.global_transform * Transform3D(
+        basis, customize_preview_position)
+
+func _show_customization_preview() -> void:
+    if customize_preview_active or cam == null or sera_display_rig == null:
+        return
+    if not bool(sera_display_rig.get("loading_ok")):
+        return
+    customize_preview_position = Vector3(0.75, -0.75, -CUSTOMIZE_PREVIEW_DISTANCE)
+    customize_preview_scale = 0.80
+    customize_preview_yaw = PI
+    customize_preview_active = true
+    _apply_customization_preview_transform()
+    _fit_customization_preview()
+    _capture_sera_silhouette(sera_display_rig)
+    _update_projected_silhouettes()
+
+func _restore_customization_preview() -> void:
+    customize_touch_id = -1
+    customize_mouse_drag = false
+    if not customize_preview_active or sera_display_rig == null:
+        return
+    sera_display_rig.transform = sera_original_transform
+    customize_preview_active = false
+    _capture_sera_silhouette(sera_display_rig)
+    _update_projected_silhouettes()
+
+func _customization_screen_bounds() -> Rect2:
+    # Project the original visible mesh boxes, including the complete sword.
+    # No expensive polygon merges are needed to determine safe UI clearance.
+    if cam == null or not target_parts.has("CUSTOMIZE"):
+        return Rect2()
+    var found := false
+    var minimum := Vector2(INF, INF)
+    var maximum := Vector2(-INF, -INF)
+    var groups: Array = target_parts["CUSTOMIZE"]
+    for group in groups:
+        for point in group:
+            if cam.is_position_behind(point):
+                continue
+            var pixel := cam.unproject_position(point)
+            minimum = minimum.min(pixel)
+            maximum = maximum.max(pixel)
+            found = true
+    if not found:
+        return Rect2()
+    return Rect2(minimum, maximum - minimum)
+
+func _customization_all_yaw_bounds() -> Rect2:
+    # Fit the full 360-degree spin envelope once, before showing the menu.
+    # This prevents the shield or sword from sweeping through the blue panel.
+    var combined := Rect2()
+    var found := false
+    for i in range(CUSTOMIZE_PREVIEW_ROTATION_SAMPLES):
+        customize_preview_yaw = PI + TAU * float(i) / float(CUSTOMIZE_PREVIEW_ROTATION_SAMPLES)
+        _apply_customization_preview_transform()
+        _capture_sera_silhouette(sera_display_rig)
+        var projected := _customization_screen_bounds()
+        if projected.size.x <= 0.0 or projected.size.y <= 0.0:
+            continue
+        if not found:
+            combined = projected
+            found = true
+        else:
+            combined = combined.merge(projected)
+    customize_preview_yaw = PI
+    _apply_customization_preview_transform()
+    _capture_sera_silhouette(sera_display_rig)
+    return combined
+
+func _fit_customization_preview() -> void:
+    if not customize_preview_active or hud == null:
+        return
+    var size := hud.size
+    if size.x <= 1.0 or size.y <= 1.0:
+        return
+    var placement: Vector2 = PANEL_LAYOUTS["CUSTOMIZE"]
+    var left_limit: float = size.x * (placement.x + placement.y) + 18.0
+    var right_limit: float = size.x * 0.970
+    var top_limit: float = size.y * 0.280
+    var bottom_limit: float = size.y * 0.765
+    var allowed_width: float = maxf(1.0, right_limit - left_limit)
+    var allowed_height: float = maxf(1.0, bottom_limit - top_limit)
+    var center_target := Vector2((left_limit + right_limit) * 0.5,
+        (top_limit + bottom_limit) * 0.5)
+
+    # Two passes account for perspective change after scaling/centering.
+    for pass_index in range(2):
+        var rect := _customization_all_yaw_bounds()
+        if rect.size.x <= 1.0 or rect.size.y <= 1.0:
+            return
+        var fit: float = minf(allowed_width / rect.size.x,
+            allowed_height / rect.size.y)
+        if pass_index == 0:
+            fit = minf(fit, 1.55)
+        else:
+            fit = minf(fit, 1.05)
+        customize_preview_scale *= fit
+        _apply_customization_preview_transform()
+        rect = _customization_all_yaw_bounds()
+        if rect.size.x <= 1.0 or rect.size.y <= 1.0:
+            return
+        # Shift the rig itself in camera-local space, never move the camera.
+        var depth: float = -customize_preview_position.z
+        var half_height := depth * tan(deg_to_rad(cam.fov) * 0.5)
+        var px_per_world := size.y / maxf(0.001, 2.0 * half_height)
+        var error: Vector2 = center_target - (rect.position + rect.size * 0.5)
+        customize_preview_position.x += error.x / px_per_world
+        customize_preview_position.y -= error.y / px_per_world
+        _apply_customization_preview_transform()
+
+    # Leave the preview in the authored front-facing pose.
+    customize_preview_yaw = PI
+    _apply_customization_preview_transform()
+    _capture_sera_silhouette(sera_display_rig)
+
+func _is_customization_drag_zone(pixel: Vector2) -> bool:
+    if focused_target != "CUSTOMIZE" or not customize_preview_active:
+        return false
+    if focus_panel.visible and Rect2(focus_panel.position, focus_panel.size).has_point(pixel):
+        return false
+    if back_panel.visible and Rect2(back_panel.position, back_panel.size).has_point(pixel):
+        return false
+    # The complete right-side presentation region, not just opaque mesh pixels.
+    return (
+        pixel.x > focus_panel.position.x + focus_panel.size.x + 8.0
+        and pixel.x < hud.size.x
+        and pixel.y >= hud.size.y * 0.20
+        and pixel.y <= hud.size.y * 0.80
+    )
+
+func _rotate_customization_preview(delta_x: float) -> void:
+    if not customize_preview_active or sera_display_rig == null:
+        return
+    if absf(delta_x) < 0.001:
+        return
+    var yaw_delta := delta_x / maxf(hud.size.x, 1.0) * CUSTOMIZE_DRAG_FULL_TURN
+    customize_preview_yaw = wrapf(customize_preview_yaw - yaw_delta, -PI, PI)
+    _apply_customization_preview_transform()
+    _capture_sera_silhouette(sera_display_rig)
+    _update_projected_silhouettes()
+
 func _update_projected_silhouettes() -> void:
     if cam == null or outline == null:
         return
@@ -592,11 +763,35 @@ func _input(event: InputEvent) -> void:
         return
     if in_transition:
         return
-    if event is InputEventScreenTouch and event.pressed:
-        _tap_at(event.position)
+    if event is InputEventScreenTouch:
+        if event.pressed:
+            if customize_touch_id == -1 and _is_customization_drag_zone(event.position):
+                customize_touch_id = event.index
+                customize_touch_last_x = event.position.x
+            else:
+                _tap_at(event.position)
+            get_viewport().set_input_as_handled()
+        elif event.index == customize_touch_id:
+            customize_touch_id = -1
+            get_viewport().set_input_as_handled()
+    elif event is InputEventScreenDrag:
+        if event.index == customize_touch_id:
+            _rotate_customization_preview(event.position.x - customize_touch_last_x)
+            customize_touch_last_x = event.position.x
+            get_viewport().set_input_as_handled()
+    elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+        if event.pressed:
+            if _is_customization_drag_zone(event.position):
+                customize_mouse_drag = true
+                customize_mouse_last_x = event.position.x
+            else:
+                _tap_at(event.position)
+        else:
+            customize_mouse_drag = false
         get_viewport().set_input_as_handled()
-    elif event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
-        _tap_at(event.position)
+    elif event is InputEventMouseMotion and customize_mouse_drag:
+        _rotate_customization_preview(event.position.x - customize_mouse_last_x)
+        customize_mouse_last_x = event.position.x
         get_viewport().set_input_as_handled()
 
 func _tap_at(point: Vector2) -> void:
@@ -654,6 +849,8 @@ func _focus_arrived(target_name: String) -> void:
     in_transition = false
     if focused_target != target_name:
         return
+    if target_name == "CUSTOMIZE":
+        _show_customization_preview()
     back_panel.visible = true
     focus_title.text = target_name
     # A blank placeholder menu except for the existing functional training
@@ -669,6 +866,7 @@ func _return_to_overview() -> void:
     in_transition = true
     focus_panel.visible = false
     back_panel.visible = false
+    _restore_customization_preview()
     _move_camera(overview_pose, overview_fov, _overview_arrived)
 
 func _overview_arrived() -> void:
