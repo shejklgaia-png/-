@@ -1,5 +1,5 @@
 extends Node3D
-# v138: CUSTOMIZE three-zone layout: upper-left SERA, lower-left square menu, tall right menu.
+# v139: animate the original exhibition rig into a larger, lower CUSTOMIZE preview.
 # Preserve v127 kiosk/occlusion, v125 touch navigation and v124 Blockbench geometry.
 const Modules = preload("res://assets/base_command_modules.gd")
 const SeraRig = preload("res://scripts/sera_rig.gd")
@@ -34,6 +34,7 @@ var sera_display_stand: Node3D
 var sera_display_rig: Node3D
 var sera_original_transform: Transform3D
 var customize_glow_quad: MeshInstance3D
+var customize_entrance_tween: Tween
 # Normalized backdrop anchor and head-relative grid spacing are captured once
 # before preview rotation, never recomputed on yaw input.
 var customize_glow_center_ratio: Vector2 = Vector2(0.73, 0.50)
@@ -52,7 +53,9 @@ const CUSTOMIZE_PREVIEW_DISTANCE: float = 3.25
 const CUSTOMIZE_GLOW_DEPTH_OFFSET: float = 1.80
 const CUSTOMIZE_GLOW_SCREEN_WIDTH: float = 0.46
 const CUSTOMIZE_GLOW_SCREEN_HEIGHT: float = 0.42
-const CUSTOMIZE_PREVIEW_TARGET_WIDTH_RATIO: float = 0.390
+const CUSTOMIZE_PREVIEW_TARGET_WIDTH_RATIO: float = 0.435
+const CUSTOMIZE_ENTRANCE_SECONDS: float = 0.46
+const CUSTOMIZE_BOTTOM_GAP_PIXELS: float = 10.0
 const CUSTOMIZE_PREVIEW_ROTATION_SAMPLES: int = 16
 const NEXUS_POSE_NAMES: Array[String] = ["NEXUS_pose", "NEXUSpose"]
 # Authoritative synchronized Blockbench file first; canonical source fallback.
@@ -525,8 +528,8 @@ func _customize_tall_menu_rect(view: Vector2) -> Rect2:
 func _customize_model_area(view: Vector2) -> Rect2:
     var square: Rect2 = _customize_square_menu_rect(view)
     var top: float = view.y * 0.10
-    var bottom: float = minf(view.y * 0.54,
-        square.position.y - maxf(12.0, view.y * 0.02))
+    var bottom: float = minf(view.y * 0.615,
+        square.position.y - maxf(12.0, view.y * 0.012))
     return Rect2(
         Vector2(square.position.x, top),
         Vector2(square.size.x, maxf(1.0, bottom - top)))
@@ -689,6 +692,9 @@ func _show_customization_preview() -> void:
         return
     if not bool(sera_display_rig.get("loading_ok")):
         return
+    # The same rig starts on its original exhibit stand. Calculate the fitted
+    # destination on this frame, then restore its start transform before draw.
+    var initial_world: Transform3D = sera_display_rig.global_transform
     customize_preview_position = Vector3(0.75, -0.20, -CUSTOMIZE_PREVIEW_DISTANCE)
     customize_preview_scale = 1.40
     customize_preview_fitted_scale = 1.40
@@ -698,18 +704,50 @@ func _show_customization_preview() -> void:
     _capture_sera_silhouette(sera_display_rig)
     _fit_customization_preview()
     _capture_sera_silhouette(sera_display_rig)
+    var final_world: Transform3D = sera_display_rig.global_transform
+    # Capture the stationary grid/gradient from the final default pose once,
+    # not from the moving/rotating character during the tween.
     _capture_customization_glow_layout()
     _update_customization_glow()
     customize_glow_quad.visible = true
-    # Hide only the selected CUSTOMIZE contour in portrait mode. The normal
-    # overview's selectable outline and all other terminals are unchanged.
     outline.set("hide_customize_preview_outline", true)
+    sera_display_rig.global_transform = initial_world
+    _capture_sera_silhouette(sera_display_rig)
     _update_projected_silhouettes()
     outline.queue_redraw()
+    # The camera focus finishes first (existing 0.18 s); now move and scale
+    # the actual exhibition rig smoothly toward the upper-left presentation.
+    if customize_entrance_tween != null and customize_entrance_tween.is_running():
+        customize_entrance_tween.kill()
+    in_transition = true
+    customize_entrance_tween = create_tween()
+    customize_entrance_tween.set_trans(Tween.TRANS_CUBIC)
+    customize_entrance_tween.set_ease(Tween.EASE_IN_OUT)
+    customize_entrance_tween.tween_method(_apply_customization_entrance.bind(
+        initial_world, final_world), 0.0, 1.0, CUSTOMIZE_ENTRANCE_SECONDS)
+    customize_entrance_tween.finished.connect(
+        _customization_entrance_arrived.bind(final_world))
+
+func _apply_customization_entrance(progress: float,
+        initial_world: Transform3D, final_world: Transform3D) -> void:
+    if not customize_preview_active or sera_display_rig == null:
+        return
+    sera_display_rig.global_transform = initial_world.interpolate_with(
+        final_world, progress)
+
+func _customization_entrance_arrived(final_world: Transform3D) -> void:
+    if not customize_preview_active or focused_target != "CUSTOMIZE":
+        return
+    sera_display_rig.global_transform = final_world
+    _capture_sera_silhouette(sera_display_rig)
+    _update_projected_silhouettes()
+    in_transition = false
 
 func _restore_customization_preview() -> void:
     customize_touch_id = -1
     customize_mouse_drag = false
+    if customize_entrance_tween != null and customize_entrance_tween.is_running():
+        customize_entrance_tween.kill()
     if not customize_preview_active or sera_display_rig == null:
         return
     if customize_glow_quad != null:
@@ -776,12 +814,11 @@ func _fit_customization_preview() -> void:
     var bottom_limit: float = frame.end.y
     var allowed_width: float = maxf(1.0, right_limit - left_limit)
     var allowed_height: float = maxf(1.0, bottom_limit - top_limit)
-    var center_target := Vector2((left_limit + right_limit) * 0.5,
-        (top_limit + bottom_limit) * 0.5)
+    var center_target_x: float = (left_limit + right_limit) * 0.5
     # Fit the authored front-facing SERA into the upper-left viewing region.
     # Keep the initial full-body scale/pivot fixed during subsequent drag yaw.
     var target_width: float = minf(size.x * CUSTOMIZE_PREVIEW_TARGET_WIDTH_RATIO,
-        allowed_width * 0.94)
+        allowed_width * 0.97)
 
     for pass_index in range(2):
         var rect := _customization_screen_bounds()
@@ -799,7 +836,9 @@ func _fit_customization_preview() -> void:
         var depth: float = -customize_preview_position.z
         var half_height := depth * tan(deg_to_rad(cam.fov) * 0.5)
         var px_per_world := size.y / maxf(0.001, 2.0 * half_height)
-        var error: Vector2 = center_target - (rect.position + rect.size * 0.5)
+        var error := Vector2(
+            center_target_x - (rect.position.x + rect.size.x * 0.5),
+            bottom_limit - CUSTOMIZE_BOTTOM_GAP_PIXELS - rect.end.y)
         customize_preview_position.x += error.x / px_per_world
         customize_preview_position.y -= error.y / px_per_world
         _apply_customization_preview_transform()
@@ -822,8 +861,7 @@ func _constrain_customization_preview_to_safe_area() -> void:
     var bottom_limit: float = frame.end.y
     var allowed_width: float = maxf(1.0, right_limit - left_limit)
     var allowed_height: float = maxf(1.0, bottom_limit - top_limit)
-    var center_target := Vector2((left_limit + right_limit) * 0.5,
-        (top_limit + bottom_limit) * 0.5)
+    var center_target_x: float = (left_limit + right_limit) * 0.5
 
     # Return to the original enlarged scale after every drag update.
     # Only a sideways weapon/pose wider than the safe area is reduced,
@@ -845,7 +883,9 @@ func _constrain_customization_preview_to_safe_area() -> void:
         var depth: float = -customize_preview_position.z
         var half_height := depth * tan(deg_to_rad(cam.fov) * 0.5)
         var px_per_world := size.y / maxf(0.001, 2.0 * half_height)
-        var error: Vector2 = center_target - (rect.position + rect.size * 0.5)
+        var error := Vector2(
+            center_target_x - (rect.position.x + rect.size.x * 0.5),
+            bottom_limit - CUSTOMIZE_BOTTOM_GAP_PIXELS - rect.end.y)
         customize_preview_position.x += error.x / px_per_world
         customize_preview_position.y -= error.y / px_per_world
         _apply_customization_preview_transform()
