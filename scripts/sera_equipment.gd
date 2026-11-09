@@ -241,6 +241,14 @@ func _v3(value: Variant) -> Vector3:
     return Vector3.ZERO
 
 func _restore_saved() -> void:
+    # When a profile is active, its session working copy takes precedence over
+    # the legacy global cfg. Scene changes retain edits; only SAVE commits them.
+    var archive: Node = rig.get_node_or_null("/root/SeraSave")
+    if archive != null and int(archive.get("active_slot")) > 0:
+        var working: Dictionary = archive.call("get_working_equipment")
+        for slot in SLOTS:
+            select_part(slot, str(working.get(slot, "A")), false)
+        return
     var cfg := ConfigFile.new()
     if cfg.load(SAVE_PATH) != OK:
         return
@@ -248,6 +256,10 @@ func _restore_saved() -> void:
         select_part(slot, str(cfg.get_value("equipment", slot, "A")), false)
 
 func _save_selection() -> void:
+    var archive: Node = rig.get_node_or_null("/root/SeraSave")
+    if archive != null:
+        for slot in SLOTS:
+            archive.call("update_working_equipment", slot, str(selected.get(slot, "A")))
     var cfg := ConfigFile.new()
     for slot in SLOTS:
         cfg.set_value("equipment", slot, selected.get(slot, "A"))

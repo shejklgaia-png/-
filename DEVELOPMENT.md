@@ -999,3 +999,11 @@
 - `scripts/main.gd`の入力分類は維持。STEP開始メソッドは成否をboolで返し、未成立ではエフェクトを出さない。上フリックの通常ジャンプは引き続き無効（将来有効化された際の開始成功時に同じ波跡を利用可能）。
 - タップ攻撃の円形波紋、3段格闘・Bash動作、ガード、フリックの閾値、RUN/BOOST、ロックオン、背景と既存SEは変更しない。
 - `project.godot`は`SERA v170`、READMEと静的/幾何検査を追加。v169専用検査は履歴として新バージョンでSKIP。GodotとAndroid実機の描画/入力動作は未検証。
+
+
+## v171（2026-11-09） — DATA ARCHIVEの3スロットセーブ／ロード／新規作成
+- 基準：GitHub main `77c9954d88327b9f49a7db47e478c34d21a6b790`（v170）。既存DATA ARCHIVEの3D設置位置・カメラ・選択シルエットを保持し、フォーカスパネル内に3スロットとSAVE/LOAD/NEW DATA/DELETEを実装。
+- `scripts/sera_save.gd`をAutoloadし、`user://sera_archive/slot_01.json`～`slot_03.json`と`index.json`へ保存。バージョン付きJSON、スロット検証、一時ファイルからの置換、ローカル保存。既存スロットを上書き・再作成・削除する際は同じ操作を二度タップして確認。
+- 保存対象：頭・胴・下半身・腕・右武器・左武器の外装、トレーニング累積秒、最終利用エリア、タイムスタンプ、将来用のtutorial_completed初期フラグ。ロードでは装備をNEXUSモデルに即時適用し、次のTRAININGリグにも引継ぎ。装備変更の作業コピーと保存スロットの確定値を区別し、SAVEでのみスロットへ確定。従来の`sera_equipment.cfg`も維持。
+- まだ正式なステージ進行・チュートリアル進行処理がないため、ロードは戦闘途中の座標・敵HPの復元やチュートリアルへの自動遷移を行わない。旧モデルやアニメ、BGM、ブースト・格闘、訓練の移動速度・カメラは変更なし。
+- 変更：`project.godot`、`scripts/command_nexus.gd`、`scripts/main.gd`、`scripts/sera_equipment.gd`、`DEVELOPMENT.md`、v170履歴検査の版依存を緩和。追加：`scripts/sera_save.gd`、`README_v171_ja.md`、`tools/v171_data_archive_self_check.py`。Godot/Android実行・実ファイルIOは未検証。
