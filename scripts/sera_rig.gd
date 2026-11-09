@@ -294,6 +294,7 @@ func set_training_ko(active: bool) -> void:
         return
     training_ko_active = active
     if active:
+        _clear_motion_afterimages()
         # Force the last AUTHORED damage key, not the clip's nominal end
         # (which can include hold frames). Bypass transition blending.
         combat_playback = false
@@ -395,7 +396,24 @@ func _build_motion_afterimage_pool() -> void:
         _afterimage_root.add_child(ghosts)
         _afterimage_meshes.append(ghosts)
 
+func _clear_motion_afterimages() -> void:
+    _afterimage_was_moving = false
+    _afterimage_since_emit = 0.0
+    _afterimage_pool_visible = false
+    for slot in range(AFTERIMAGE_LAYERS):
+        _afterimage_ages[slot] = -1.0
+        _afterimage_base_alphas[slot] = 0.0
+    if _afterimage_material != null:
+        _afterimage_material.set_shader_parameter("trail_alphas", Vector3.ZERO)
+    if _afterimage_material_b != null:
+        _afterimage_material_b.set_shader_parameter("trail_alphas", Vector3.ZERO)
+    for ghosts in _afterimage_meshes:
+        if is_instance_valid(ghosts) and ghosts.multimesh != null:
+            ghosts.multimesh.visible_instance_count = 0
+
 func update_motion_afterimages(delta: float, fast_movement: bool, stepping: bool) -> void:
+    if training_ko_active:
+        return
     if _afterimage_root == null or _afterimage_material == null:
         return
     var dt: float = maxf(delta, 0.0)
