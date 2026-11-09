@@ -1,0 +1,35 @@
+name: SERA model workflow policy
+on:
+  pull_request:
+    types: [opened, synchronize, edited, reopened]
+    paths:
+      - 'AGENTS.md'
+      - 'models/**'
+      - 'blockbench/**'
+      - 'assets/AGENTS.md'
+      - 'assets/sera_source.json'
+      - 'assets/sera_data.gd'
+      - 'assets/sera_equipment_data.gd'
+      - 'scripts/AGENTS.md'
+      - 'scripts/sera_rig.gd'
+      - 'scripts/sera_equipment.gd'
+      - 'tools/rebuild_model_data.py'
+      - 'tools/rebuild_equipment_data.py'
+      - 'tools/model_policy_check.py'
+      - 'docs/MODEL_PART_WORKFLOW_ja.md'
+      - '.github/workflows/sera-model-policy.yml'
+jobs:
+  model-policy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify model guide and explicit review acknowledgement
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: python3 tools/model_policy_check.py --base "$BASE_SHA" --head "$HEAD_SHA"

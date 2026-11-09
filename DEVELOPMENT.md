@@ -1,3 +1,13 @@
+# 2026-11-09 — 3Dモデル制作・GitHub統合の運用文書と参照チェック（ドキュメントのみ）
+
+- 基準コミット: `036a1b689f0bbedf7ce2c3cd4a2a0038f9ff235c`（SERA v183）。ゲームのバージョン・コード・3Dモデル本体は変更しない。
+- `docs/MODEL_PART_WORKFLOW_ja.md`: ユーザーは単体Blockbenchパーツ・骨格・部位・希望サイズを指定。フォルダ構造/Pivotが適切ならメッシュ名/個数は自由。ChatGPT/Codexが名前変更、グループコピー、UUID/位置/倍率/骨格の接続、ゲーム内登録、GitHub反映を担当。見た目の最終整合はユーザーが確認。
+- 異骨格モーション共有などは**将来実装する対象**と明記。現行実装のA骨格と追加装備の読込元、独立スロットの制約を記録。
+- ルート `AGENTS.md` と `models/`、`blockbench/`、`assets/`、`scripts/` の `AGENTS.md` に参照義務を追加。
+- `tools/model_policy_check.py` と `.github/workflows/sera-model-policy.yml` を追加。モデル関連PRでは文書リンクと `MODEL_GUIDE_READ: YES` の確認を行う。これは**運用の検査であり、モデル自動取込やAndroid実機テストではない**。
+
+---
+
 # セラ v113 — RUN頭部の周期的な回転揺れを65%抑制（2026-11-07）
 
 - 基準：GitHub `main` コミット `1d41f42f2a002031ce52e7593e0b2ee416e47e79`。前進RUNの上半身から頭までの合成回転は4位相平均に対して最大約29.8°変動、後退RUNでは約3.4°（元キーフレームに基づくQuaternion計算）。
