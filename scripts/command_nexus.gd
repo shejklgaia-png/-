@@ -802,6 +802,7 @@ func _update_system_confirmation_blink(delta: float) -> void:
     if style != null:
         style.border_color = (Color("#e2f8ff") if bright
             else Color(0.0, 0.0, 0.0, 0.0))
+        panel.queue_redraw()
 
 func _cancel_system_confirmation() -> bool:
     if system_pending_action.is_empty():
