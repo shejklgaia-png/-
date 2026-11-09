@@ -407,6 +407,9 @@ func _update_foot_contacts(delta: float) -> void:
             foot_lifted[side] = false
             if foot_contact_elapsed >= FOOT_CONTACT_MIN_INTERVAL:
                 foot_contact_elapsed = 0.0
+                # Same exact frame as the audible footstep. All other RUN
+                # frames keep the original uncorrected animation height.
+                equipment_handler.call("snap_grounded_sole_to_floor")
                 foot_contact.emit(side)
     foot_contact_initialized = true
 
@@ -1257,9 +1260,16 @@ func _process(delta: float) -> void:
         else:
             boost_direction_initialized = false
     _apply_animation(delta)
-    # Post-pose foot placement: account for pelvis bob, stride, and new boots.
-    equipment_handler.call("snap_grounded_sole_to_floor")
-    _update_foot_contacts(delta)
+    # v200: combat (all strikes, bash, guard), steps, boosts and non-contact
+    # RUN frames use the original v198 bind-height behavior.
+    equipment_handler.call("restore_grounding_baseline")
+    if current_clip == WAIT_CLIP and not step_playback and not combat_playback             and not guard_playback and not jump_playback and not damage_playback:
+        equipment_handler.call("snap_grounded_sole_to_floor")
+    elif current_clip in RUN_CLIPS and not step_playback:
+        # The event calls the one-frame snap ONLY when a footstep sounds.
+        _update_foot_contacts(delta)
+    else:
+        reset_foot_contacts()
 
 func _run_heading_from_weights() -> Vector2:
     # Kept for v109 banking compatibility; now uses smoothed travel direction.
