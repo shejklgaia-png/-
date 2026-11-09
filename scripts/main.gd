@@ -2711,7 +2711,10 @@ func _physics_process(delta: float) -> void:
             CombatState.MELEE_APPROACH:
                 state_label.text = "MELEE APPROACH  |  meleeboost"
             CombatState.DASH:
-                state_label.text = "MELEE APPROACH  |  hold meleeboost last key"
+                state_label.text = "MELEE BOOST  %.1fm/s  %.2f/%.1fs" % [
+                    float(part_stats.get("melee_boost_speed", MELEE_BOOST_DEFAULT_SPEED)),
+                    melee_boost_elapsed,
+                    float(part_stats.get("melee_boost_duration", MELEE_BOOST_DEFAULT_DURATION))]
             CombatState.STRIKE:
                 state_label.text = "STRIKE %d/3  |  %s" % [strike_index + 1, str(STRIKE_CLIPS[strike_index])]
             CombatState.BASH_TRACK:
