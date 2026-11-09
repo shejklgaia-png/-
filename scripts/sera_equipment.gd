@@ -4,7 +4,7 @@ extends RefCounted
 const LIVE_SOURCE: String = "res://models/SERA_BOOSTER_allテスト.bbmodel"
 const EMBEDDED_SOURCE = preload("res://assets/sera_equipment_data.gd")
 const SAVE_PATH: String = "user://sera_equipment.cfg"
-const SLOTS = ["head", "torso", "legs", "arms", "weapon_r", "weapon_l"]
+const SLOTS = ["head", "torso", "legs", "arms", "booster", "weapon_r", "weapon_l"]
 const MODEL_UNIT: float = 0.065
 # B has a red palette tint; all other sets retain their authored colors.
 const B_SET_TINT: Color = Color(1.0, 0.18, 0.18, 1.0)
@@ -26,6 +26,10 @@ func options_for(slot: String) -> Array:
     var options: Array = []
     if not SLOTS.has(slot):
         return options
+    # Booster currently has no separate Blockbench mesh. A/B profiles are selectable
+    # independently while reusing the existing visual booster.
+    if slot == "booster":
+        return ["A", "B"]
     for set_id in available.keys():
         if (available[set_id] as Dictionary).get(slot, []).size() > 0:
             options.append(str(set_id))
