@@ -50,6 +50,12 @@ var system_pending_slot: int = 0
 var system_message: String = ""
 # Blink only the CONFIRM action button, never the selected save-slot border.
 const SYSTEM_CONFIRM_BLINK_HALF_SECONDS: float = 0.38
+# Both blinking states stay brighter than the normal dark _menu_style().
+# Returning to the normal style on cancellation is therefore unmistakable.
+const SYSTEM_CONFIRM_BG_BRIGHT: Color = Color(0.14, 0.39, 0.50, 0.98)
+const SYSTEM_CONFIRM_BG_DIM: Color = Color(0.075, 0.21, 0.30, 0.98)
+const SYSTEM_CONFIRM_BORDER_BRIGHT: Color = Color("#e5fbff")
+const SYSTEM_CONFIRM_BORDER_DIM: Color = Color("#7cd6f0")
 var system_confirm_blink_elapsed: float = 0.0
 var system_confirm_blink_bright: bool = true
 # Reuse the same display rig, without reparenting it: SeraRig has external
@@ -770,10 +776,10 @@ func _refresh_system_controls() -> void:
         if system_pending_action == action and system_pending_slot == system_selected_slot:
             label.text = "CONFIRM " + action
             button_style.set_border_width_all(3)
-            button_style.border_color = (Color("#d2faff") if system_confirm_blink_bright
-                else Color(0.15, 0.45, 0.55, 0.50))
-            button_style.bg_color = (Color(0.09, 0.30, 0.42, 0.98)
-                if system_confirm_blink_bright else Color(0.018, 0.035, 0.060, 0.92))
+            button_style.border_color = (SYSTEM_CONFIRM_BORDER_BRIGHT
+                if system_confirm_blink_bright else SYSTEM_CONFIRM_BORDER_DIM)
+            button_style.bg_color = (SYSTEM_CONFIRM_BG_BRIGHT
+                if system_confirm_blink_bright else SYSTEM_CONFIRM_BG_DIM)
         else:
             label.text = "NEW DATA" if action == "NEW" else action
         button.add_theme_stylebox_override("panel", button_style)
@@ -804,10 +810,10 @@ func _update_system_confirmation_blink(delta: float) -> void:
         # Reuse the existing StyleBoxFlat and redraw only on phase changes.
         var style: StyleBoxFlat = button.get_theme_stylebox("panel") as StyleBoxFlat
         if style != null:
-            style.border_color = (Color("#d2faff") if bright
-                else Color(0.15, 0.45, 0.55, 0.50))
-            style.bg_color = (Color(0.09, 0.30, 0.42, 0.98) if bright
-                else Color(0.018, 0.035, 0.060, 0.92))
+            style.border_color = (SYSTEM_CONFIRM_BORDER_BRIGHT
+                if bright else SYSTEM_CONFIRM_BORDER_DIM)
+            style.bg_color = (SYSTEM_CONFIRM_BG_BRIGHT if bright
+                else SYSTEM_CONFIRM_BG_DIM)
             button.queue_redraw()
         break
 
