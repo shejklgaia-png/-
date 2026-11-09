@@ -1105,6 +1105,10 @@ func _advance_hit_fx(delta: float) -> void:
 func _input(event: InputEvent) -> void:
     if event is InputEventScreenTouch:
         if event.pressed:
+            # Any new finger press cancels a prior tap ripple immediately,
+            # including taps on HUD buttons (which must keep their own input).
+            if touch_ui != null:
+                touch_ui.call("cancel_attack_ripple")
             if _pointer_on_nexus_button(event.position):
                 step_hud_touch = event.index
                 _request_return_to_nexus()
@@ -1132,6 +1136,8 @@ func _input(event: InputEvent) -> void:
         # Desktop editor test: drag with left mouse button; HUD tap is isolated.
         if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
             if event.pressed:
+                if touch_ui != null:
+                    touch_ui.call("cancel_attack_ripple")
                 if _pointer_on_nexus_button(event.position):
                     step_hud_mouse_press = true
                     _request_return_to_nexus()
@@ -1380,7 +1386,10 @@ func _end_drag(release_pos: Vector2) -> void:
     elif flick_direction != 0:
         _start_side_step(flick_direction)
     elif was_tap:
-        _start_attack()
+        # The finger has already been released; play feedback only if the
+        # combat state accepted this tap (including buffered combo inputs).
+        if _start_attack():
+            touch_ui.call("show_attack_ripple", release_pos)
 
 func _remember_jump_flick_sample(pos: Vector2) -> void:
     var now_ms: int = Time.get_ticks_msec()
@@ -1765,27 +1774,31 @@ func _unhandled_key_input(event: InputEvent) -> void:
             sword_trail.call("set_red_palette", not bool(sword_trail.get("use_red_palette")))
             get_viewport().set_input_as_handled()
 
-func _start_attack() -> void:
+func _start_attack() -> bool:
+    # True means this tap was accepted, not necessarily that a hit connected.
+    # Keyboard callers ignore the return value; only touch release uses it
+    # to prevent false ripple feedback during guard, damage or approach.
     if guard_active or damage_reaction_active or landing_active or step_active or rig == null or not rig.get("loading_ok"):
-        return
+        return false
     if combat_state == CombatState.BASH:
         # Only one tap is buffered for the next melee1 after Bash recovers.
         bash_combo_queued = true
-        return
+        return true
     if combat_state == CombatState.STRIKE:
         # Taps never restart the current attack. Buffer exactly one follow-up;
         # _advance_attack() consumes it at or after the authored cancel point.
         if strike_index < STRIKE_CLIPS.size() - 1:
             combo_queued = true
-        return
+            return true
+        return false
     # No extra strikes can be queued before the initial melee has landed in
     # STRIKE (during MELEE_APPROACH/DASH), or while a side-step is playing.
     if combat_state != CombatState.IDLE:
-        return
+        return false
     if bash_loop_window_remaining > 0.0 and _distance_to_cube_surface(player.position) <= MELEE_SURFACE_REACH:
         bash_loop_window_remaining = 0.0
         _start_strike(0)
-        return
+        return true
     bash_loop_window_remaining = 0.0
     bash_followup_window_remaining = 0.0
     strike_index = 0
@@ -1797,6 +1810,7 @@ func _start_attack() -> void:
         jump_horizontal_velocity = Vector3.ZERO
     combat_state = CombatState.MELEE_APPROACH
     rig.call("start_melee_approach")
+    return true
 
 func _cancel_attack() -> void:
     if combat_state == CombatState.IDLE:
