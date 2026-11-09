@@ -302,6 +302,10 @@ var step_target_center: Vector2 = Vector2.ZERO
 var step_signed_angle: float = 0.0
 var step_linear_fallback: bool = false  # only near target center: no circular loop
 var step_linear_offset: Vector2 = Vector2.ZERO
+# Additional radial displacement permits continuous forward/back/diagonal
+# trajectories while pure lateral movement retains the original orbit.
+var step_radial_delta: float = 0.0
+var step_flick_direction: Vector2 = Vector2.ZERO
 var step_side: int = 0  # -1 left / +1 right / STEP_BACK backward
 var step_close_camera: bool = false
 # Shared across _physics_process and _process. Avoid a cross-function local.
@@ -1816,7 +1820,7 @@ func _end_drag(release_pos: Vector2) -> void:
     # Only a deliberate UP flick may exit BOOST into JUMP; existing release
     # gestures may not become sideways or backwards steps after a boost.
     var suppress_flick: bool = boost_has_activated_this_gesture or jump_requested
-    var flick_direction: int = 0 if suppress_flick else _classify_step_flick(
+    var flick_direction: Vector2 = Vector2.ZERO if suppress_flick else _classify_step_flick(
         release_pos - pointer_origin, press_duration)
     var takeoff_momentum: Vector3 = gesture_start_ground_velocity if jump_from_initial_flick else Vector3(player.velocity.x, 0.0, player.velocity.z)
     gesture_active = false
@@ -1841,11 +1845,8 @@ func _end_drag(release_pos: Vector2) -> void:
         _start_jump(takeoff_momentum)
         if jump_active:
             touch_ui.call("show_flick_wake", pointer_origin, release_pos)
-    elif flick_direction == STEP_BACK:
-        if _start_back_step():
-            touch_ui.call("show_flick_wake", pointer_origin, release_pos)
-    elif flick_direction != 0:
-        if _start_side_step(flick_direction):
+    elif flick_direction.length_squared() > 0.000001:
+        if _start_omni_step(flick_direction):
             touch_ui.call("show_flick_wake", pointer_origin, release_pos)
     elif was_tap:
         # The finger has already been released; play feedback only if the
@@ -2018,24 +2019,97 @@ func _classify_side_flick(displacement: Vector2, seconds: float) -> int:
         return 0
     return 1 if displacement.x > 0.0 else -1
 
-func _classify_step_flick(displacement: Vector2, seconds: float) -> int:
-    # Side flick detection is unchanged. Back is DOWN on the screen, then
-    # physical travel is away from the locked target (not camera-relative).
-    var side: int = _classify_side_flick(displacement, seconds)
-    if side != 0:
-        return side
+func _classify_step_flick(displacement: Vector2, seconds: float) -> Vector2:
+    # Release-only, 360-degree directional flick. No horizontal/vertical
+    # aspect-ratio wedge: every diagonal and UP has an accepted heading.
+    # Existing hold, BOOST suppression, BASH priority and reversal filtering
+    # are unchanged. UP is a forward step while touch jumping is disabled.
     if seconds <= 0.0 or seconds > STEP_FLICK_MAX_SECONDS:
-        return 0
-    var vertical: float = displacement.y
-    if vertical < STEP_FLICK_MIN_VERTICAL:
-        return 0
-    if vertical / seconds < STEP_FLICK_MIN_PIXELS_PER_SEC:
-        return 0
-    if absf(displacement.x) > vertical * STEP_FLICK_MAX_HORIZONTAL_RATIO:
-        return 0
-    if gesture_max_travel > displacement.length() * 1.20:
-        return 0
-    return STEP_BACK
+        return Vector2.ZERO
+    var distance: float = displacement.length()
+    if distance < STEP_FLICK_MIN_HORIZONTAL:
+        return Vector2.ZERO
+    if distance / seconds < STEP_FLICK_MIN_PIXELS_PER_SEC:
+        return Vector2.ZERO
+    if gesture_max_travel > distance * 1.20:
+        return Vector2.ZERO
+    return displacement / distance
+
+func _start_omni_step(flick: Vector2) -> bool:
+    if (guard_active or damage_reaction_active or landing_active
+            or rig == null or not bool(rig.get("loading_ok"))
+            or flick.length_squared() < 0.000001):
+        return false
+    if not _spend_energy(15.0 * float(part_stats.get("energy_cost_mult", 1.0))):
+        return false
+    if combat_state != CombatState.IDLE:
+        _cancel_attack()
+    if step_active:
+        _finish_side_step(false)
+
+    # Target-relative polar motion: +Y is backwards, -Y is towards the
+    # target, X is the camera-visible tangent. This is continuous for all
+    # directions, including diagonal inputs and the four cardinal axes.
+    # Pure sideways retains the familiar target orbit; pure back remains 4m.
+    var direction: Vector2 = flick.normalized()
+    var radial: Vector2 = Vector2(
+        player.position.x - target.position.x,
+        player.position.z - target.position.z)
+    var radius: float = radial.length()
+    var camera_right: Vector3 = _screen_drag_to_ground(Vector2.RIGHT).normalized()
+    var orbit_tangent: Vector3 = camera_right
+    if radius >= STEP_MIN_ORBIT_RADIUS:
+        orbit_tangent = Vector3(-radial.y, 0.0, radial.x).normalized()
+    var tangent_sign: float = 1.0 if orbit_tangent.dot(camera_right) >= 0.0 else -1.0
+
+    step_speed_current = _step_speed_for_player_position(player.position)
+    var side_length: float = minf(
+        maxf(STEP_MIN_ARC_LENGTH, radius * deg_to_rad(STEP_ORBIT_ANGLE_DEGREES)),
+        minf(STEP_MAX_ARC_LENGTH, step_speed_current * STEP_MAX_DURATION))
+    var radial_distance: float = BACK_STEP_DISTANCE if direction.y >= 0.0 else STEP_MIN_ARC_LENGTH
+    step_radial_delta = direction.y * radial_distance
+    var tangent_distance: float = absf(direction.x) * side_length
+    step_arc_length = clampf(
+        sqrt(tangent_distance * tangent_distance + step_radial_delta * step_radial_delta),
+        STEP_MIN_ARC_LENGTH, STEP_MAX_ARC_LENGTH)
+    step_start_offset = radial
+    step_target_center = Vector2(target.position.x, target.position.z)
+    step_linear_fallback = radius < (STEP_MIN_ARC_LENGTH
+        / deg_to_rad(STEP_CLOSE_ORBIT_MAX_DEGREES))
+    step_signed_angle = 0.0
+    step_linear_offset = Vector2.ZERO
+    if step_linear_fallback:
+        # Avoid a rapid 360-degree spin if already overlapping the target.
+        var away: Vector3 = player.position - target.position
+        away.y = 0.0
+        if away.length_squared() < 0.000001:
+            away = -_screen_drag_to_ground(Vector2.UP)
+        away = away.normalized()
+        var wanted: Vector3 = camera_right * direction.x + away * direction.y
+        if wanted.length_squared() < 0.000001:
+            wanted = away
+        wanted = wanted.normalized() * step_arc_length
+        step_linear_offset = Vector2(wanted.x, wanted.z)
+    else:
+        step_signed_angle = minf(
+            tangent_distance / radius, deg_to_rad(STEP_CLOSE_ORBIT_MAX_DEGREES))
+        step_signed_angle *= signf(direction.x) * tangent_sign
+
+    step_duration_current = (step_arc_length / step_speed_current
+        * float(part_stats.get("step_time_mult", 1.0)))
+    step_close_camera = (absf(direction.x) > 0.001
+        and _distance_to_cube_surface(player.position) <= STEP_CLOSE_CAMERA_SURFACE_DISTANCE)
+    close_step_camera_recovery_remaining = 0.0
+    if jump_active:
+        jump_horizontal_velocity = Vector3.ZERO
+    step_active = true
+    step_flick_direction = direction
+    step_side = STEP_BACK if direction.y > 0.8 else (1 if direction.x > 0.0 else -1)
+    step_elapsed = 0.0
+    step_traveled_distance = 0.0
+    rig.call("start_omni_step", direction)
+    _refresh_step_status_ui()
+    return true
 
 func _start_back_step() -> bool:
     if guard_active or damage_reaction_active or landing_active or rig == null or not bool(rig.get("loading_ok")):
@@ -2162,6 +2236,8 @@ func _finish_side_step(resume_moving: bool) -> void:
         close_step_camera_recovery_remaining = STEP_CLOSE_CAMERA_RECOVERY_SECONDS
     step_close_camera = false
     step_side = 0
+    step_flick_direction = Vector2.ZERO
+    step_radial_delta = 0.0
     step_elapsed = 0.0
     var resume_fall: bool = jump_active and not damage_reaction_active
     if resume_fall:
@@ -2176,9 +2252,13 @@ func _advance_side_step(delta: float) -> void:
     # (smoothly selected from 8-10m/s), including close fallback.
     step_elapsed = minf(step_duration_current, step_elapsed + delta)
     var progress: float = step_elapsed / step_duration_current
-    var new_offset: Vector2 = step_start_offset.rotated(step_signed_angle * progress)
-    if step_linear_fallback:
-        new_offset = step_start_offset + step_linear_offset * progress
+    var new_offset: Vector2 = step_start_offset + step_linear_offset * progress
+    if not step_linear_fallback:
+        var initial_radius: float = step_start_offset.length()
+        var moved_radius: float = maxf(
+            STEP_MIN_ORBIT_RADIUS, initial_radius + step_radial_delta * progress)
+        new_offset = (step_start_offset / initial_radius).rotated(
+            step_signed_angle * progress) * moved_radius
     var requested: Vector3 = Vector3(
         step_target_center.x + new_offset.x - player.position.x,
         0.0,
@@ -2723,6 +2803,7 @@ func _physics_process(delta: float) -> void:
     # Snapshot before _advance_side_step() can finish the step on this frame.
     close_step_camera_this_frame = stepping_this_frame and step_close_camera
     var step_side_this_frame: int = step_side
+    var step_flick_this_frame: Vector2 = step_flick_direction
     if step_active:
         _advance_side_step(delta)
     if jump_active:
@@ -2828,8 +2909,12 @@ func _physics_process(delta: float) -> void:
     elif jumping_this_frame and combat_state == CombatState.IDLE and not stepping_this_frame:
         state_label.text = "AIR FALL  |  Jump" if jump_fall_after_action else "JUMP  |  Jump (1.5m)"
     elif stepping_this_frame:
-        if step_side_this_frame == STEP_BACK:
+        if step_flick_this_frame.y < -0.8:
+            state_label.text = "STEP FORWARD  |  Boost_front"
+        elif step_flick_this_frame.y > 0.8:
             state_label.text = "STEP BACK  |  Backstep"
+        elif absf(step_flick_this_frame.y) > 0.15:
+            state_label.text = "STEP DIAGONAL  |  BLENDED"
         else:
             state_label.text = "STEP RIGHT  |  Step_R" if step_side_this_frame > 0 else "STEP LEFT  |  Step_L"
     else:
