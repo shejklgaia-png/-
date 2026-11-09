@@ -1114,3 +1114,10 @@
 - 意図しない変更を避けるため、元は`MELEE_SURFACE_REACH + 0.20`だったバッシュ専用射程を定数0.95mに固定。距離命中補助も独立定数`MELEE_HIT_ASSIST_BASE_REACH=0.75`とし、旧A=0.83m/B≈0.82mを維持。剣3D判定・既存タイミングは変更しない。
 - A/B格闘1段目追尾時間0.4/0.6秒、2・3段目とバッシュの追尾時間各0.2秒、追尾速度・モーション・EN消費を維持。
 - 更新`scripts/main.gd`,`project.godot`,`DEVELOPMENT.md`,旧v183バージョン固有チェックSKIP。追加`README_v184_ja.md`,`tools/v184_melee_start_range_self_check.py`。Godot/Android実機未検証。
+
+
+## v185（2026-11-09） — 通常格闘の発動距離を敵表面から2.0mへ
+- `scripts/main.gd` の `MELEE_SURFACE_REACH` を1.0から2.0mへ変更。通常格闘1/2/3段目の追尾終了、攻撃モーション開始、攻撃中の追尾停止、近接射程UIのみに反映。
+- バッシュ射程0.95m、格闘の距離命中補助基準0.75m（A頭部0.83m、B約0.82m）、剣の3D当たり判定と攻撃判定時刻は維持。2.0mは命中確定距離ではない。
+- A/B追尾時間0.4/0.6秒、格闘2/3段・バッシュ追尾各0.2秒、EN、装備ステータス、モデルは維持。
+- `project.godot` をSERA v185へ更新、`README_v185_ja.md` と `tools/v185_melee_start_range_self_check.py` を追加。v184固有テストはv185でSKIP。Godot/Android実機テスト未実施。
