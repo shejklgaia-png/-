@@ -3,7 +3,7 @@ extends Node
 const SLOT_COUNT: int = 3
 const ARCHIVE_DIR: String = "user://sera_archive"
 const INDEX_PATH: String = ARCHIVE_DIR + "/index.json"
-const EQUIPMENT_SLOTS = ["head", "torso", "legs", "arms", "booster", "weapon_r", "weapon_l"]
+const EQUIPMENT_SLOTS = ["head", "torso", "legs", "feet", "arms", "booster", "weapon_r", "weapon_l"]
 const SCHEMA_VERSION: int = 1
 
 var active_slot: int = 0
@@ -69,6 +69,11 @@ func _sanitize_equipment(candidate: Variant) -> Dictionary:
         if set_id.is_empty() or set_id.length() > 4:
             set_id = "A"
         clean[part] = set_id
+    # Upgrade v191 profiles: Foot C was mistakenly stored as a complete
+    # LOWER BODY C. A standard lower body + independent FEET C is equivalent.
+    if clean["legs"] == "C":
+        clean["legs"] = "A"
+        clean["feet"] = "C"
     return clean
 
 func _default_stats() -> Dictionary:

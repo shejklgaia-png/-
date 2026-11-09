@@ -228,6 +228,12 @@ func set_equipment_selection(slot: String, set_id: String) -> bool:
         return false
     return bool(equipment_handler.call("select_part", slot, set_id))
 
+func set_exhibition_mode(enabled: bool) -> void:
+    # Display in NEXUS uses camera-relative screen fitting, not the XZ
+    # training floor. Equipment swaps must NEVER move its root transform.
+    if equipment_handler != null:
+        equipment_handler.call("set_grounding_enabled", not enabled)
+
 
 # v189: The distinct bird-leg skeleton lives alongside A's original hidden leg
 # rig. Only its 6 authored pivots and 10 meshes are imported. A animations remain
