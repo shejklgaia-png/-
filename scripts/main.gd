@@ -30,8 +30,8 @@ extends Node3D
 const MOVE_SPEED: float = 3.25
 const GROUND_MOVE_SPEED_SCALE: float = 1.25  # v148: speed up ground RUN and BOOST; debug airborne control unchanged.
 const MOVEMENT_BOOST_MULTIPLIER: float = 1.5
-# RUN stays at full analog input once the thumb crosses the 100% rim.
-# The actual finger position (not the visually clamped knob) controls BOOST.
+# RUN uses a fixed-speed eight-way digital direction beyond its engage radius.
+# BOOST remains based on distance from the initial touch point.
 const BOOST_START_RADIUS_RATIO: float = 1.25
 const BOOST_EXIT_RADIUS_RATIO: float = 1.10
 const BOOST_CONFIRM_SECONDS: float = 0.10
@@ -121,7 +121,6 @@ const TARGET_RESPAWN_SECONDS: float = 1.35
 enum CombatState { IDLE, MELEE_APPROACH, DASH, STRIKE }
 # v112: Persistent handedness changes RUN animation selection only.
 const HANDEDNESS_SETTINGS_FILE: String = "user://sera_settings.cfg"
-const DEADZONE: float = 0.095
 const DRAG_RADIUS: float = 168.0  # v73: retain v72 outer diameter for the single RUN disc.
 const CAMERA_FOLLOW_RATE: float = 1.65
 const CAMERA_IDLE_RECENTER_RATE: float = 1.05  # How quickly the player eases toward a clear centered resting position.
@@ -1867,7 +1866,7 @@ func _physics_process(delta: float) -> void:
             rig.call("set_moving", running, movement_boost_active, local_run_direction)
         if running:
             # v9 behavior: world_move already uses the current camera's ground axes.
-            # Analog strength saturates at the visual rim; BOOST changes speed
+            # Digital RUN uses a unit direction vector; BOOST changes speed
             # smoothly only after the sustained 125% threshold is confirmed.
             player.velocity = world_move * MOVE_SPEED * GROUND_MOVE_SPEED_SCALE * boost_speed_multiplier
             # Drag keeps working along the cube's faces instead of becoming
