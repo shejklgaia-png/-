@@ -335,6 +335,9 @@ var melee_finisher_audio: AudioStreamPlayer  # Combo stage 3, confirmed hit only
 var player_hit_audio: AudioStreamPlayer  # v93 metal sound retained for area attacks.
 var player_bullet_hit_audio: AudioStreamPlayer  # AIM/LEAD projectile hit only.
 var guard_bullet_hit_audio: AudioStreamPlayer  # Guarded AIM/LEAD projectile hit only.
+var footstep_audio: AudioStreamPlayer  # Visual sole contacts; no timer-based walking beat.
+var player_collision_shape: CollisionShape3D
+var collision_height_extension: float = 0.0
 var sword_trail: Node3D
 var target_hp: int = TARGET_MAX_HP
 var hit_stop_remaining: float = 0.0
@@ -365,6 +368,7 @@ func _ready() -> void:
     _load_handedness_preference()
     _build_world()
     _build_character()
+    _update_equipped_collision_height()
     _load_part_stats()
     _build_target()
     _build_enemy_shooter()
@@ -662,15 +666,17 @@ func _build_character() -> void:
     var player_capsule := CapsuleShape3D.new()
     player_capsule.radius = PLAYER_COLLISION_RADIUS
     player_capsule.height = PLAYER_COLLISION_HEIGHT
-    var player_shape := CollisionShape3D.new()
-    player_shape.name = "PlayerBodyCollision"
-    player_shape.shape = player_capsule
-    player_shape.position.y = PLAYER_COLLISION_HEIGHT * 0.5
-    player.add_child(player_shape)
+    player_collision_shape = CollisionShape3D.new()
+    player_collision_shape.name = "PlayerBodyCollision"
+    player_collision_shape.shape = player_capsule
+    player_collision_shape.position.y = PLAYER_COLLISION_HEIGHT * 0.5
+    player.add_child(player_collision_shape)
     rig = SERA_SCRIPT.new()
     rig.name = "SeraRig"
     rig.position.y = 0.195  # Compensates for -3 BB units in Wait_motion root track
     player.add_child(rig)
+    if rig.has_signal("foot_contact"):
+        rig.connect("foot_contact", Callable(self, "_on_foot_contact"))
     # v97: anchor the ground marker to the world, not the jumping player's Y.
     _add_round_ground_shadow("PlayerFloorMark", self, Vector3(0.0, -0.026, 0.0))
     player_floor_mark = get_node_or_null("PlayerFloorMark") as Node3D
@@ -1227,7 +1233,62 @@ func _pointer_on_step_hud(pos: Vector2) -> bool:
         or (enemy_debug_ui != null and enemy_debug_ui.visible
             and enemy_debug_ui.get_global_rect().has_point(pos)))
 
+# The body remains on the original XZ plane; lift the visual model to keep
+# enlarged soles on that plane, and extend only the capsule's upper envelope.
+# Do not touch velocity, the movement controller, or collision radius.
+func _update_equipped_collision_height() -> void:
+    if rig == null or player_collision_shape == null:
+        return
+    var lift: float = maxf(0.0, float(rig.call("get_grounding_height_offset")))
+    if absf(lift - collision_height_extension) < 0.001:
+        return
+    collision_height_extension = lift
+    var capsule: CapsuleShape3D = player_collision_shape.shape as CapsuleShape3D
+    if capsule == null:
+        return
+    capsule.height = PLAYER_COLLISION_HEIGHT + collision_height_extension
+    player_collision_shape.position.y = capsule.height * 0.5
+
+func _on_foot_contact(side: String) -> void:
+    if footstep_audio == null or footstep_audio.stream == null:
+        return
+    if player == null or player.position.y > 0.05:
+        return
+    # A small pitch alternation keeps repeated mechanical contacts readable.
+    footstep_audio.pitch_scale = 0.96 if side == "L" else 1.03
+    footstep_audio.play()
+
+func _make_mechanical_footstep() -> AudioStreamWAV:
+    # Original short metallic sole impact; 16-bit PCM generated once at startup.
+    # No copyrighted sound sample and no continuous CPU audio synthesizer.
+    var rate: int = 22050
+    var frame_count: int = 3087  # 0.14 s
+    var samples := PackedByteArray()
+    samples.resize(frame_count * 2)
+    var seed: int = 93157
+    for i in range(frame_count):
+        var t: float = float(i) / float(rate)
+        seed = (seed * 1664525 + 1013904223) & 0x7fffffff
+        var noise: float = (float(seed % 65536) / 32768.0) - 1.0
+        var low: float = sin(TAU * (78.0 * t + 36.0 * t * t)) * exp(-t * 36.0)
+        var shell: float = sin(TAU * (440.0 * t + 105.0 * t * t)) * exp(-t * 64.0)
+        var edge: float = noise * exp(-t * 110.0)
+        var signal_level: float = clampf(low * 0.62 + shell * 0.19 + edge * 0.10, -0.96, 0.96)
+        samples.encode_s16(i * 2, roundi(signal_level * 32767.0))
+    var sound := AudioStreamWAV.new()
+    sound.mix_rate = rate
+    sound.format = AudioStreamWAV.FORMAT_16_BITS
+    sound.stereo = false
+    sound.data = samples
+    return sound
+
 func _build_hit_effects() -> void:
+    footstep_audio = AudioStreamPlayer.new()
+    footstep_audio.name = "GroundFootContact"
+    footstep_audio.stream = _make_mechanical_footstep()
+    footstep_audio.volume_db = -11.0
+    footstep_audio.max_polyphony = 3
+    add_child(footstep_audio)
     # v95: All three confirmed combo hits use the same decoded user-provided sound.
     # Separate AudioStreamPlayers preserve overlapping impact tails.
     hit_audio = AudioStreamPlayer.new()
