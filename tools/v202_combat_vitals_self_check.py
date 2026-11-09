@@ -71,6 +71,11 @@ assert 'if not boost_energy_ok and not energy_exhausted:' in boost
 assert 'energy = 0.0\n                energy_exhausted = true' in boost
 assert 'boost_rearm_required = true' in boost
 assert "energy = TEST_EN_MAX\n    shield = TEST_SH_MAX\n    energy_exhausted = false" in main
+guard_entry = main.split("func _guard_can_start() -> bool:", 1)[1].split(
+    "func _set_guard(active: bool) -> void:", 1)[0]
+assert 'not (energy_exhausted and bool(part_stats.get("energy_shield", false)))' in guard_entry
+assert 'if energy_exhausted or not _spend_energy(6.0 * delta):' in main
+assert '_set_guard(false)\n    _tick_resources(delta)' in main
 
 # Numerical invariants: lock at EN=0; do not allow positive spend until 60%.
 class Energy:
