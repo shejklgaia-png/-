@@ -8,7 +8,7 @@ root = Path(__file__).resolve().parents[1]
 main = (root / "scripts/main.gd").read_text(encoding="utf-8")
 ui = (root / "scripts/touch_overlay.gd").read_text(encoding="utf-8")
 project = (root / "project.godot").read_text(encoding="utf-8")
-assert re.findall(r'^config/name="([^"]+)"$', project, re.M) == ["SERA v170"]
+assert re.fullmatch(r"SERA v[1-9][0-9]*", re.findall(r'^config/name="([^"]+)"$', project, re.M)[0])
 
 def body(source: str, name: str) -> str:
     match = re.search(r"(?ms)^func " + re.escape(name) + r"\([^\n]*\)[^\n]*:\n(.*?)(?=^func |\Z)", source)

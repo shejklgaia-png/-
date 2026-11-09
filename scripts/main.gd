@@ -2235,6 +2235,8 @@ func _physics_process(delta: float) -> void:
                     state_label.text = "WAIT  |  Wait_motion"
 
 func _process(delta: float) -> void:
+    # Elapsed training time stays in the active profile until an explicit SAVE.
+    SeraSave.record_training_time(delta)
     _advance_projectile_hit_overlay(delta)
     # Rig clip is updated first (process_priority=-1). Sample the actual
     # striking sword BEFORE evaluating a hit, so the visual arc reaches its
