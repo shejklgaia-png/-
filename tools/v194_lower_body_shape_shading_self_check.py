@@ -87,7 +87,12 @@ for name, uid in original_mapping.items():
 # Original A skeleton, animated tracks and source geometry are untouched.
 ids = {x["uuid"]: x for x in combined["elements"]}
 for a in base["elements"]:
-    assert ids[a["uuid"]] == a
+    imported = ids[a["uuid"]]
+    # Blockbench's combined artist file intentionally hides A base meshes in
+    # its editor. That display-only state differs from the runtime A source.
+    # The geometry, pivots, faces, UV and everything else must still match.
+    assert {k: v for k, v in imported.items() if k != "visibility"} == {
+        k: v for k, v in a.items() if k != "visibility"}
 assert len(base["groups"]) == 22 and len(base["elements"]) == 25
 assert len(base["animations"]) >= 20
 
