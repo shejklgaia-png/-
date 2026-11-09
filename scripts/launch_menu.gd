@@ -3,6 +3,7 @@ extends Control
 # Existing training scene keeps its own raw touch input behavior.
 const TRAINING_SCENE: String = "res://scenes/main.tscn"
 const NEXUS_SCENE: String = "res://scenes/command_nexus.tscn"
+const VersionIndicator = preload("res://scripts/version_indicator.gd")
 
 @onready var choices: VBoxContainer = $ScreenMargin/Centered/Options
 @onready var training_button: Button = $ScreenMargin/Centered/Options/TrainingButton
@@ -21,6 +22,7 @@ func _ready() -> void:
     nexus_button.pressed.connect(_open_scene.bind(NEXUS_SCENE))
     resized.connect(_update_layout)
     _update_layout()
+    VersionIndicator.attach(self)
 
 func _exit_tree() -> void:
     Input.emulate_mouse_from_touch = _previous_mouse_emulation

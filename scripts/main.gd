@@ -2,6 +2,7 @@
 ## v100: Jump removed from normal touch input; debug-only TEST button/keyboard J.
 ## v99: Authored jump landing pose, hold 0.60s after landing before standing.
 extends Node3D
+const VersionIndicator = preload("res://scripts/version_indicator.gd")
 ## v84: Authored 3-stage Swordeffect atlas, exact board placement.
 ## v83: Three-stage tap melee combo; cancel 2 authored frames after follow-through.
 ## v82: Close-range side-step camera bound by target-relative player/camera bearing.
@@ -1149,6 +1150,7 @@ func _build_overlay() -> void:
     enemy_debug_ui.connect("fire_requested", Callable(enemy_shooter, "trigger_attack"))
     enemy_debug_ui.connect("auto_fire_changed", Callable(enemy_shooter, "set_auto_fire"))
     enemy_debug_ui.connect("jump_test_requested", Callable(self, "_debug_jump"))
+    VersionIndicator.attach(layer)
 
 func _update_target_marker_projection() -> void:
     # Camera3D.unproject_position() gives screen coordinates in the viewport.
