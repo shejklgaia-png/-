@@ -12,7 +12,8 @@ def text(path: str) -> str:
 def read(path: str) -> dict:
     return json.loads(text(path))
 
-assert re.search(r'^config/name="SERA v195"$', text("project.godot"), re.M)
+match = re.search(r'^config/name="SERA v(\d+)"$', text("project.godot"), re.M)
+assert match and int(match.group(1)) >= 195
 source = read("models/storage/SERA_LEGS_C_AUTHOR_NORMALIZED.bbmodel")
 d = read("models/storage/SERA_LOWER_BODY_D_STANDARD_READY.bbmodel")
 combined = read("models/SERA_BOOSTER_allテスト.bbmodel")

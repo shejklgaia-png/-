@@ -1208,3 +1208,11 @@
 - Generate both runtime-ready D and combined authoring D geometry from the exact updated author source, using one uniform scale (0.36) and a single source sole offset (0.2), preserving each mesh's geometry, cross-segment proportions and UVs. Both snapshots are regenerated.
 - Render D using the authoring color indices: rose waist/leg armor (1/3), blue boots (5), rather than sampling the unrelated SERA base 96x32 atlas with 16x16 UVs. A/B/C meshes and colors are unchanged.
 - Add tools/rebuild_lower_body_d_from_author.py, v195 geometry/color test, README_v195_ja.md and CI verification. Keep the original user Blockbench files and all animation tracks. Android Godot visual and animated knee/ankle alignment are pending device verification.
+
+
+## 2026-11-10 — SERA v196: adaptive NEXUSpose arm clearance for current lower body
+- Only in the NEXUS display rig: capture the user's actual NEXUS_pose shoulder and upper-arm quaternions as immutable rest angles after sampling authored animation. The combat rig and the original animation files stay untouched.
+- On startup, after lower-body/arms customization changes, or after loading another system profile, first restore both arms to the precise NEXUSpose angles. Read the equipment handler's *currently visible* meshes for selected LOWER BODY and ARMS; compute their rig-space rotated AABBs from actual mesh bounds and exclude hidden variants.
+- Check collisions independently for L/R. If an arm is not intersecting, leave both its joints at exact original rotations. If intersecting, raise outward with ±Z rotation in 1.5-degree increments for upper arms (up to 90°) and 0.3-degree steps for shoulders (capped at 8°), and stop at the earliest collision-free geometry with 0.018 game-unit margin. No permanent or per-frame rotations.
+- Trigger silhouette refresh after arm fit; preview camera transforms and grounding remain untouched. Preserve all 7 equipment slots, bird C, standard D, base animation tracks, player controls, and saved selections.
+- Static v196 checker/CI. Conservative oriented-mesh AABB clearance can overestimate narrow concave contours and maximum lift may not clear every future model; warn rather than falsely asserting clearance. Xperia Android NEXUS pose and appearance unverified.
