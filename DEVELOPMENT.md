@@ -1007,3 +1007,11 @@
 - 保存対象：頭・胴・下半身・腕・右武器・左武器の外装、トレーニング累積秒、最終利用エリア、タイムスタンプ、将来用のtutorial_completed初期フラグ。ロードでは装備をNEXUSモデルに即時適用し、次のTRAININGリグにも引継ぎ。装備変更の作業コピーと保存スロットの確定値を区別し、SAVEでのみスロットへ確定。従来の`sera_equipment.cfg`も維持。
 - まだ正式なステージ進行・チュートリアル進行処理がないため、ロードは戦闘途中の座標・敵HPの復元やチュートリアルへの自動遷移を行わない。旧モデルやアニメ、BGM、ブースト・格闘、訓練の移動速度・カメラは変更なし。
 - 変更：`project.godot`、`scripts/command_nexus.gd`、`scripts/main.gd`、`scripts/sera_equipment.gd`、`DEVELOPMENT.md`、v170履歴検査の版依存を緩和。追加：`scripts/sera_save.gd`、`README_v171_ja.md`、`tools/v171_data_archive_self_check.py`。Godot/Android実行・実ファイルIOは未検証。
+
+
+## v172（2026-11-09） — SYSTEMとDATA ARCHIVEの役割分離、実測戦闘統計
+- 基準：main `53a17afc76e2e551ad579d0f5d22422832cd4ef0` (v171)。ユーザー指示により、3スロットSAVE/LOAD/NEW DATA/DELETEをSYSTEMの前方コンソールへ移動。アーカイブは操作を移さず閲覧専用のSUMMARY/COMBAT/PROGRESS/PROFILEの4タブとする。
+- `scripts/sera_save.gd`の既存JSON保存スキーマを維持したまま、新規`play_seconds`、`training_visited`と戦闘統計辞書を追加。v171の既存セーブを読み込む際は不足キーを初期化し、プレイ時間の初期値は既存トレーニング時間以上とする。
+- `scripts/main.gd`で剣の命中確定、バッシュ命中確定、HPが正から0へ遷移したダミー破壊、受けた攻撃のガード/非ガードをそれぞれ1度だけ計上。ダミー破壊を正式な敵撃破と誤称しない。ダメージ量はHP実減少値で計上。NEXUS/TRAININGの稼働時間を累積してSYSTEM SAVEで確定。
+- アーカイブ進捗タブのトレーニング訪問は実際の訪問データに基づき、未実装のストーリー/ミッション/チュートリアルはNOT IMPLEMENTED表記とする。ガレージの3Dカメラ/モジュール、装備選択、入力/移動/格闘ロジック、BGMは維持。
+- 変更：`scripts/command_nexus.gd`、`scripts/sera_save.gd`、`scripts/main.gd`、`project.godot`、`DEVELOPMENT.md`。追加：`README_v172_ja.md`、`tools/v172_system_archive_self_check.py`。既存v171検査は過去バージョン向けとして残す。Godot/Android実機未検証。

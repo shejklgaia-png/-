@@ -512,6 +512,7 @@ func _build_enemy_shooter() -> void:
 func _on_enemy_projectile_hit(_world_position: Vector3, incoming_direction: Vector3,
         is_bullet: bool) -> void:
     if guard_active:
+        SeraSave.record_defensive_impact(true)
         # Guarded bullets use their own impact sound, but never
         # triggers the unguarded red damage flash, Damageknock or knockback.
         var block_sound: AudioStreamPlayer = guard_bullet_hit_audio if is_bullet else player_hit_audio
@@ -520,6 +521,7 @@ func _on_enemy_projectile_hit(_world_position: Vector3, incoming_direction: Vect
         if rig != null and bool(rig.get("loading_ok")):
             rig.call("trigger_guard_reaction")
         return
+    SeraSave.record_defensive_impact(false)
     # Both straight bullets (AIM and LEAD) use the supplied projectile impact.
     # SHOCK and ARC keep v93's metal sound: they are not bullet contacts.
     # The flag is captured per spawned attack and cannot change with debug UI.
@@ -1024,6 +1026,8 @@ func _register_strike_hit(world_hit: Vector3) -> void:
     var hp_before_hit: int = target_hp
     var strike_damage: int = int(STRIKE_DAMAGE[strike_index])
     target_hp = maxi(0, target_hp - strike_damage)  # Hits at 0 HP still play VFX, never go negative.
+    SeraSave.record_target_hit("melee", hp_before_hit - target_hp,
+        hp_before_hit > 0 and target_hp == 0)
     hit_stop_remaining = HIT_STOP_SECONDS
     hit_flash_remaining = HIT_FLASH_SECONDS
     damage_popup_remaining = 0.58
@@ -1891,6 +1895,8 @@ func _register_bash_hit() -> void:
     bash_did_hit = true
     var hp_before_hit: int = target_hp
     target_hp = maxi(0, target_hp - BASH_DAMAGE)
+    SeraSave.record_target_hit("bash", hp_before_hit - target_hp,
+        hp_before_hit > 0 and target_hp == 0)
     hit_stop_remaining = HIT_STOP_SECONDS
     hit_flash_remaining = HIT_FLASH_SECONDS
     damage_popup_remaining = 0.58
@@ -2237,6 +2243,7 @@ func _physics_process(delta: float) -> void:
 func _process(delta: float) -> void:
     # Elapsed training time stays in the active profile until an explicit SAVE.
     SeraSave.record_training_time(delta)
+    SeraSave.record_game_time(delta)
     _advance_projectile_hit_overlay(delta)
     # Rig clip is updated first (process_priority=-1). Sample the actual
     # striking sword BEFORE evaluating a hit, so the visual arc reaches its

@@ -52,6 +52,12 @@ func _read_slot(slot: int) -> Dictionary:
         return {}
     data["training_seconds"] = maxf(0.0, float(data["training_seconds"]))
     data["equipment"] = _sanitize_equipment(data["equipment"])
+    # v171 profile compatibility: absent statistics are introduced as zeroes.
+    data["play_seconds"] = maxf(float(data["training_seconds"]),
+        float(data.get("play_seconds", 0.0)))
+    data["training_visited"] = bool(data.get("training_visited",
+        float(data["training_seconds"]) > 0.0))
+    data["stats"] = _sanitize_stats(data.get("stats", {}))
     return data
 
 func _sanitize_equipment(candidate: Variant) -> Dictionary:
@@ -64,6 +70,19 @@ func _sanitize_equipment(candidate: Variant) -> Dictionary:
             set_id = "A"
         clean[part] = set_id
     return clean
+
+func _default_stats() -> Dictionary:
+    return {
+        "target_destroys": 0, "melee_hits": 0, "bash_hits": 0,
+        "damage_dealt": 0, "guarded_hits": 0, "received_hits": 0
+    }
+
+func _sanitize_stats(raw: Variant) -> Dictionary:
+    var stats: Dictionary = _default_stats()
+    if raw is Dictionary:
+        for key in stats.keys():
+            stats[key] = maxi(0, int(raw.get(key, 0)))
+    return stats
 
 func _write_json(path: String, data: Dictionary) -> bool:
     var temp: String = path + ".tmp"
@@ -96,7 +115,8 @@ func _new_document(slot: int) -> Dictionary:
         "schema_version": SCHEMA_VERSION, "slot": slot,
         "created_at": now, "updated_at": now, "training_seconds": 0.0,
         "last_location": "NEXUS", "tutorial_completed": false,
-        "equipment": gear
+        "training_visited": false, "play_seconds": 0.0,
+        "stats": _default_stats(), "equipment": gear
     }
 
 func get_slot(slot: int) -> Dictionary:
@@ -108,6 +128,41 @@ func get_active_data() -> Dictionary:
 func get_working_equipment() -> Dictionary:
     return working_equipment.duplicate(true)
 
+func get_active_stats() -> Dictionary:
+    return _sanitize_stats(active_data.get("stats", {}))
+
+func record_game_time(delta: float) -> void:
+    if active_slot == 0 or delta <= 0.0:
+        return
+    active_data["play_seconds"] = float(active_data.get("play_seconds", 0.0)) + delta
+
+func mark_location(location: String) -> void:
+    if active_slot > 0 and (location == "NEXUS" or location == "TRAINING"):
+        active_data["last_location"] = location
+
+func record_target_hit(kind: String, damage: int, destroyed: bool) -> void:
+    if active_slot == 0 or not (kind == "melee" or kind == "bash"):
+        return
+    var stats: Dictionary = get_active_stats()
+    if kind == "melee":
+        stats["melee_hits"] += 1
+    else:
+        stats["bash_hits"] += 1
+    stats["damage_dealt"] += maxi(0, damage)
+    if destroyed:
+        stats["target_destroys"] += 1
+    active_data["stats"] = stats
+
+func record_defensive_impact(guarded: bool) -> void:
+    if active_slot == 0:
+        return
+    var stats: Dictionary = get_active_stats()
+    if guarded:
+        stats["guarded_hits"] += 1
+    else:
+        stats["received_hits"] += 1
+    active_data["stats"] = stats
+
 func update_working_equipment(part: String, set_id: String) -> void:
     if EQUIPMENT_SLOTS.has(part):
         working_equipment[part] = set_id
@@ -117,6 +172,7 @@ func record_training_time(delta: float) -> void:
         return
     active_data["training_seconds"] = float(active_data.get("training_seconds", 0.0)) + delta
     active_data["last_location"] = "TRAINING"
+    active_data["training_visited"] = true
 
 func create_data(slot: int) -> bool:
     if not _valid_slot(slot):

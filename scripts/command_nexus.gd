@@ -34,16 +34,20 @@ const CUSTOMIZE_SLOT_LABELS = {
 }
 var action_panel: Panel
 var action_label: Label
-# Three profile cards and four commands use the same raw-touch hit testing as
-# the existing NEXUS UI. No new mouse-emulation settings are needed.
-const ARCHIVE_ACTIONS = ["SAVE", "LOAD", "NEW", "DELETE"]
-var archive_slot_rows: Array[Dictionary] = []
-var archive_action_rows: Array[Dictionary] = []
-var archive_status: Label
-var archive_selected_slot: int = 1
-var archive_pending_action: String = ""
-var archive_pending_slot: int = 0
-var archive_message: String = ""
+# SYSTEM edits save files; the DATA ARCHIVE tabs never mutate profiles.
+const ARCHIVE_TABS = ["SUMMARY", "COMBAT", "PROGRESS", "PROFILE"]
+var archive_record_tabs: Array[Dictionary] = []
+var archive_record_body: Label
+var archive_record_tab: int = 0
+var archive_refresh_elapsed: float = 0.0
+const SYSTEM_ACTIONS = ["SAVE", "LOAD", "NEW", "DELETE"]
+var system_slot_rows: Array[Dictionary] = []
+var system_action_rows: Array[Dictionary] = []
+var system_status: Label
+var system_selected_slot: int = 1
+var system_pending_action: String = ""
+var system_pending_slot: int = 0
+var system_message: String = ""
 # Reuse the same display rig, without reparenting it: SeraRig has external
 # afterimage nodes whose lifetime is tied to _exit_tree. Set its world transform
 # from camera space instead; no duplicate model, SubViewport or draw batch.
@@ -140,7 +144,7 @@ func _ready() -> void:
     _module("maintenance_pad", Vector3(0.0, 0.0, -4.75))
     _module("maintenance_canopy", Vector3(0.0, 8.0, -8.95))
     _module("deployment_gate", GATE_ORIGIN, _gate_facing_yaw(), 1.20, 1.25)
-    _module("archive_mezzanine", Vector3(-4.00, 0.0, -6.55))
+    _module("system_mezzanine", Vector3(-4.00, 0.0, -6.55))
     _module("data_bank", Vector3(-4.00, 2.19, -8.95))
     _module("kiosk", Vector3(-1.95, 0.0, 1.30), deg_to_rad(36.0))
     _module("kiosk", Vector3(1.95, 0.0, 1.30), deg_to_rad(-36.0))
@@ -152,6 +156,15 @@ func _ready() -> void:
     _create_customization_glow()
     _wall_mark()
     _hud()
+    SeraSave.mark_location("NEXUS")
+
+func _process(delta: float) -> void:
+    SeraSave.record_game_time(delta)
+    if focused_target == "DATA ARCHIVE" and not in_transition:
+        archive_refresh_elapsed += delta
+        if archive_refresh_elapsed >= 1.0:
+            archive_refresh_elapsed = 0.0
+            _refresh_archive_records()
 
 func _environment() -> void:
     var world := WorldEnvironment.new()
@@ -544,7 +557,8 @@ func _hud() -> void:
     action_label.add_theme_font_size_override("font_size", 17)
     action_label.add_theme_color_override("font_color", Color("#bcecff"))
     action_panel.add_child(action_label)
-    _create_archive_controls()
+    _create_system_controls()
+    _create_archive_records()
     hud.resized.connect(_layout_hud)
     _layout_hud()
     _update_projected_silhouettes()
@@ -643,8 +657,8 @@ func _tap_equipment_control(point: Vector2) -> bool:
 
 ## v171 DATA ARCHIVE: reusable focus-panel elements. Text-only slot rows keep
 ## the 3D data bank visible and avoid a second full-screen UI layer.
-func _create_archive_controls() -> void:
-    archive_selected_slot = SeraSave.active_slot if SeraSave.active_slot > 0 else 1
+func _create_system_controls() -> void:
+    system_selected_slot = SeraSave.active_slot if SeraSave.active_slot > 0 else 1
     for index in range(SeraSave.SLOT_COUNT):
         var row := Panel.new()
         row.name = "ArchiveSlot%02d" % (index + 1)
@@ -657,8 +671,8 @@ func _create_archive_controls() -> void:
         title_label.add_theme_font_size_override("font_size", 15)
         title_label.add_theme_color_override("font_color", Color("#dcf4ff"))
         row.add_child(title_label)
-        archive_slot_rows.append({"panel": row, "label": title_label})
-    for action in ARCHIVE_ACTIONS:
+        system_slot_rows.append({"panel": row, "label": title_label})
+    for action in SYSTEM_ACTIONS:
         var button := Panel.new()
         button.name = "Archive" + action
         button.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -672,27 +686,27 @@ func _create_archive_controls() -> void:
         action_text.add_theme_font_size_override("font_size", 16)
         action_text.add_theme_color_override("font_color", Color("#c8f1ff"))
         button.add_child(action_text)
-        archive_action_rows.append({"panel": button, "label": action_text, "action": action})
-    archive_status = Label.new()
-    archive_status.name = "ArchiveStatus"
-    archive_status.mouse_filter = Control.MOUSE_FILTER_IGNORE
-    archive_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-    archive_status.vertical_alignment = VERTICAL_ALIGNMENT_TOP
-    archive_status.add_theme_font_size_override("font_size", 14)
-    archive_status.add_theme_color_override("font_color", Color("#a5e4ff"))
-    archive_status.visible = false
-    focus_panel.add_child(archive_status)
-    _refresh_archive_controls()
+        system_action_rows.append({"panel": button, "label": action_text, "action": action})
+    system_status = Label.new()
+    system_status.name = "ArchiveStatus"
+    system_status.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    system_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+    system_status.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+    system_status.add_theme_font_size_override("font_size", 14)
+    system_status.add_theme_color_override("font_color", Color("#a5e4ff"))
+    system_status.visible = false
+    focus_panel.add_child(system_status)
+    _refresh_system_controls()
 
-func _set_archive_visible(show: bool) -> void:
-    for entry in archive_slot_rows:
+func _set_system_visible(show: bool) -> void:
+    for entry in system_slot_rows:
         (entry["panel"] as Panel).visible = show
-    for entry in archive_action_rows:
+    for entry in system_action_rows:
         (entry["panel"] as Panel).visible = show
-    archive_status.visible = show
+    system_status.visible = show
 
-func _layout_archive_controls() -> void:
-    if archive_status == null:
+func _layout_system_controls() -> void:
+    if system_status == null:
         return
     var width: float = focus_panel.size.x
     var margin: float = 12.0
@@ -700,35 +714,35 @@ func _layout_archive_controls() -> void:
     var row_height: float = minf(84.0, maxf(62.0,
         (focus_panel.size.y - focus_header.size.y - 224.0) / 3.0))
     var top: float = focus_header.size.y + 12.0
-    for i in range(archive_slot_rows.size()):
-        var panel: Panel = archive_slot_rows[i]["panel"]
+    for i in range(system_slot_rows.size()):
+        var panel: Panel = system_slot_rows[i]["panel"]
         panel.position = Vector2(margin, top + i * (row_height + gap))
         panel.size = Vector2(width - margin * 2.0, row_height)
-        var label: Label = archive_slot_rows[i]["label"]
+        var label: Label = system_slot_rows[i]["label"]
         label.position = Vector2(12.0, 0.0)
         label.size = panel.size - Vector2(24.0, 0.0)
-    var actions_top: float = top + archive_slot_rows.size() * (row_height + gap) + 9.0
+    var actions_top: float = top + system_slot_rows.size() * (row_height + gap) + 9.0
     var action_width: float = (width - margin * 2.0 - gap) * 0.5
-    for i in range(archive_action_rows.size()):
-        var button: Panel = archive_action_rows[i]["panel"]
+    for i in range(system_action_rows.size()):
+        var button: Panel = system_action_rows[i]["panel"]
         button.position = Vector2(margin + (i % 2) * (action_width + gap),
             actions_top + (i / 2) * 58.0)
         button.size = Vector2(action_width, 50.0)
-        var label: Label = archive_action_rows[i]["label"]
+        var label: Label = system_action_rows[i]["label"]
         label.position = Vector2.ZERO
         label.size = button.size
-    archive_status.position = Vector2(margin, actions_top + 126.0)
-    archive_status.size = Vector2(width - margin * 2.0,
-        maxf(34.0, focus_panel.size.y - archive_status.position.y - 10.0))
+    system_status.position = Vector2(margin, actions_top + 126.0)
+    system_status.size = Vector2(width - margin * 2.0,
+        maxf(34.0, focus_panel.size.y - system_status.position.y - 10.0))
 
-func _refresh_archive_controls() -> void:
-    if archive_status == null:
+func _refresh_system_controls() -> void:
+    if system_status == null:
         return
-    for index in range(archive_slot_rows.size()):
+    for index in range(system_slot_rows.size()):
         var slot: int = index + 1
         var data: Dictionary = SeraSave.get_slot(slot)
         var active: String = "  [ACTIVE]" if SeraSave.active_slot == slot else ""
-        var label: Label = archive_slot_rows[index]["label"]
+        var label: Label = system_slot_rows[index]["label"]
         if data.is_empty():
             label.text = "SLOT %02d%s  /  EMPTY\nCREATE NEW DATA OR SAVE" % [slot, active]
         else:
@@ -737,90 +751,90 @@ func _refresh_archive_controls() -> void:
             label.text = "SLOT %02d%s  /  %s\nPLAY %s   ·   %s" % [
                 slot, active, str(data.get("last_location", "NEXUS")), clock,
                 str(data.get("updated_at", "-"))]
-        var panel: Panel = archive_slot_rows[index]["panel"]
+        var panel: Panel = system_slot_rows[index]["panel"]
         var style: StyleBoxFlat = _menu_style()
-        if archive_selected_slot == slot:
+        if system_selected_slot == slot:
             style.bg_color = Color(0.052, 0.190, 0.280, 0.95)
             style.border_color = Color("#b0edff")
         panel.add_theme_stylebox_override("panel", style)
-    for entry in archive_action_rows:
+    for entry in system_action_rows:
         var action: String = entry["action"]
         var label: Label = entry["label"]
-        if archive_pending_action == action and archive_pending_slot == archive_selected_slot:
+        if system_pending_action == action and system_pending_slot == system_selected_slot:
             label.text = "CONFIRM " + action
         else:
             label.text = "NEW DATA" if action == "NEW" else action
-    archive_status.text = archive_message if not archive_message.is_empty() else (
+    system_status.text = system_message if not system_message.is_empty() else (
         "SELECT A SLOT  /  SAVE, LOAD, NEW OR DELETE\n"
         + "Saves are stored locally on this device.")
 
-func _cancel_archive_confirmation() -> bool:
-    if archive_pending_action.is_empty():
+func _cancel_system_confirmation() -> bool:
+    if system_pending_action.is_empty():
         return false
-    archive_pending_action = ""
-    archive_pending_slot = 0
-    archive_message = "OPERATION CANCELLED"
-    _refresh_archive_controls()
+    system_pending_action = ""
+    system_pending_slot = 0
+    system_message = "OPERATION CANCELLED"
+    _refresh_system_controls()
     return true
 
-func _tap_archive_control(point: Vector2) -> void:
+func _tap_system_control(point: Vector2) -> void:
     var local: Vector2 = point - focus_panel.position
-    for i in range(archive_slot_rows.size()):
-        var panel: Panel = archive_slot_rows[i]["panel"]
+    for i in range(system_slot_rows.size()):
+        var panel: Panel = system_slot_rows[i]["panel"]
         if Rect2(panel.position, panel.size).has_point(local):
-            archive_selected_slot = i + 1
-            archive_pending_action = ""
-            archive_pending_slot = 0
-            archive_message = ""
-            _refresh_archive_controls()
+            system_selected_slot = i + 1
+            system_pending_action = ""
+            system_pending_slot = 0
+            system_message = ""
+            _refresh_system_controls()
             return
-    for entry in archive_action_rows:
+    for entry in system_action_rows:
         var panel: Panel = entry["panel"]
         if not Rect2(panel.position, panel.size).has_point(local):
             continue
         var action: String = entry["action"]
-        var slot: int = archive_selected_slot
+        var slot: int = system_selected_slot
         var exists: bool = not SeraSave.get_slot(slot).is_empty()
         if action == "LOAD" and not exists:
-            archive_message = "SLOT %02d IS EMPTY" % slot
-            _refresh_archive_controls()
+            system_message = "SLOT %02d IS EMPTY" % slot
+            _refresh_system_controls()
             return
         if action == "DELETE" and not exists:
-            archive_message = "NOTHING TO DELETE"
-            _refresh_archive_controls()
+            system_message = "NOTHING TO DELETE"
+            _refresh_system_controls()
             return
         var destructive: bool = (action == "DELETE" or
             (exists and (action == "SAVE" or action == "NEW")))
-        if destructive and (archive_pending_action != action or archive_pending_slot != slot):
-            archive_pending_action = action
-            archive_pending_slot = slot
-            archive_message = "PRESS CONFIRM %s TO MODIFY SLOT %02d" % [action, slot]
-            _refresh_archive_controls()
+        if destructive and (system_pending_action != action or system_pending_slot != slot):
+            system_pending_action = action
+            system_pending_slot = slot
+            system_message = "PRESS CONFIRM %s TO MODIFY SLOT %02d" % [action, slot]
+            _refresh_system_controls()
             return
-        archive_pending_action = ""
-        archive_pending_slot = 0
+        system_pending_action = ""
+        system_pending_slot = 0
         var success: bool = false
         match action:
             "SAVE":
-                success = SeraSave.save_data(slot, _current_archive_equipment())
+                success = SeraSave.save_data(slot, _current_system_equipment())
             "LOAD":
                 success = SeraSave.load_data(slot)
                 if success:
-                    _apply_archive_equipment()
+                    _apply_system_equipment()
             "NEW":
                 success = SeraSave.create_data(slot)
                 if success:
-                    _apply_archive_equipment()
+                    _apply_system_equipment()
             "DELETE":
                 success = SeraSave.delete_data(slot)
                 if success and SeraSave.active_slot == 0:
-                    _apply_archive_equipment()
-        archive_message = ("%s / SLOT %02d COMPLETE" if success else
+                    _apply_system_equipment()
+        system_message = ("%s / SLOT %02d COMPLETE" if success else
             "%s / SLOT %02d FAILED") % [action, slot]
-        _refresh_archive_controls()
+        _refresh_system_controls()
         return
 
-func _current_archive_equipment() -> Dictionary:
+func _current_system_equipment() -> Dictionary:
     var gear: Dictionary = {}
     for part in CUSTOMIZE_SLOTS:
         var selected: String = "A"
@@ -829,7 +843,7 @@ func _current_archive_equipment() -> Dictionary:
         gear[part] = selected
     return gear
 
-func _apply_archive_equipment() -> void:
+func _apply_system_equipment() -> void:
     if sera_display_rig == null:
         return
     var saved: Dictionary = SeraSave.get_working_equipment()
@@ -843,6 +857,142 @@ func _apply_archive_equipment() -> void:
     _capture_sera_silhouette(sera_display_rig)
     _update_projected_silhouettes()
     outline.queue_redraw()
+
+
+## DATA ARCHIVE is strictly read-only. The records use the currently loaded
+## session, not another slot or saved values that may be older than gameplay.
+func _create_archive_records() -> void:
+    for tab in ARCHIVE_TABS:
+        var panel := Panel.new()
+        panel.name = "ArchiveTab" + str(tab)
+        panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        panel.visible = false
+        focus_panel.add_child(panel)
+        var label := Label.new()
+        label.text = str(tab)
+        label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+        label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+        label.add_theme_font_size_override("font_size", 12)
+        label.add_theme_color_override("font_color", Color("#d1f2ff"))
+        panel.add_child(label)
+        archive_record_tabs.append({"panel": panel, "label": label})
+    archive_record_body = Label.new()
+    archive_record_body.name = "ArchiveRecordReadOnly"
+    archive_record_body.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    archive_record_body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+    archive_record_body.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+    archive_record_body.add_theme_font_size_override("font_size", 17)
+    archive_record_body.add_theme_color_override("font_color", Color("#e1f3fd"))
+    archive_record_body.visible = false
+    archive_record_body.clip_contents = true
+    focus_panel.add_child(archive_record_body)
+    _refresh_archive_records()
+
+func _set_archive_records_visible(show: bool) -> void:
+    for entry in archive_record_tabs:
+        (entry["panel"] as Panel).visible = show
+    archive_record_body.visible = show
+
+func _layout_archive_records() -> void:
+    if archive_record_body == null:
+        return
+    var width: float = focus_panel.size.x
+    var margin: float = 12.0
+    var gap: float = 5.0
+    var item_width: float = (width - margin * 2.0 -
+        gap * float(ARCHIVE_TABS.size() - 1)) / float(ARCHIVE_TABS.size())
+    var tab_top: float = focus_header.size.y + 14.0
+    for i in range(archive_record_tabs.size()):
+        var panel: Panel = archive_record_tabs[i]["panel"]
+        panel.position = Vector2(margin + i * (item_width + gap), tab_top)
+        panel.size = Vector2(item_width, 46.0)
+        var label: Label = archive_record_tabs[i]["label"]
+        label.position = Vector2.ZERO
+        label.size = panel.size
+    archive_record_body.position = Vector2(margin + 4.0, tab_top + 65.0)
+    archive_record_body.size = Vector2(width - margin * 2.0 - 8.0,
+        maxf(20.0, focus_panel.size.y - archive_record_body.position.y - 10.0))
+
+func _archive_duration(raw_seconds: float) -> String:
+    var seconds: int = maxi(0, int(raw_seconds))
+    return "%02d:%02d:%02d" % [
+        int(seconds / 3600.0), int(seconds / 60.0) % 60, seconds % 60]
+
+func _refresh_archive_records() -> void:
+    if archive_record_body == null:
+        return
+    for i in range(archive_record_tabs.size()):
+        var style: StyleBoxFlat = _menu_style()
+        if i == archive_record_tab:
+            style.bg_color = Color(0.055, 0.200, 0.300, 0.96)
+            style.border_color = Color("#b9f2ff")
+        (archive_record_tabs[i]["panel"] as Panel).add_theme_stylebox_override(
+            "panel", style)
+    if SeraSave.active_slot == 0:
+        archive_record_body.text = (
+            "NO ACTIVE DATA\n\nCreate or load a save in SYSTEM to record "
+            + "training and combat statistics.\n\n"
+            + "Story and mission progression is not available yet.")
+        return
+    var data: Dictionary = SeraSave.get_active_data()
+    var stats: Dictionary = SeraSave.get_active_stats()
+    var active: String = "SLOT %02d" % SeraSave.active_slot
+    match ARCHIVE_TABS[archive_record_tab]:
+        "SUMMARY":
+            archive_record_body.text = (
+                "SESSION OVERVIEW  /  " + active + "\n\n"
+                + "TOTAL PLAY TIME\n" + _archive_duration(
+                    float(data.get("play_seconds", 0.0))) + "\n\n"
+                + "TRAINING TIME\n" + _archive_duration(
+                    float(data.get("training_seconds", 0.0))) + "\n\n"
+                + "TRAINING TARGETS DEFEATED  /  %d\n" % int(
+                    stats.get("target_destroys", 0))
+                + "LAST AREA  /  " + str(data.get("last_location", "NEXUS"))
+                + "\n\nRecords are saved via SYSTEM > SAVE.")
+        "COMBAT":
+            archive_record_body.text = (
+                "TRAINING COMBAT  /  " + active + "\n\n"
+                + "TARGET DESTROYS  /  %d\n" % int(stats.get("target_destroys", 0))
+                + "MELEE HITS  /  %d\n" % int(stats.get("melee_hits", 0))
+                + "BASH HITS  /  %d\n" % int(stats.get("bash_hits", 0))
+                + "DAMAGE DEALT  /  %d\n" % int(stats.get("damage_dealt", 0))
+                + "GUARDED IMPACTS  /  %d\n" % int(stats.get("guarded_hits", 0))
+                + "UNGUARDED HITS  /  %d\n\n" % int(stats.get("received_hits", 0))
+                + "Target destroys are training dummies, not enemy kills.")
+        "PROGRESS":
+            var visited: String = "VISITED" if bool(
+                data.get("training_visited", false)) else "NOT VISITED"
+            archive_record_body.text = (
+                "GAME PROGRESS  /  " + active + "\n\n"
+                + "TRAINING ROOM  /  " + visited + "\n\n"
+                + "STORY CHAPTERS  /  NOT IMPLEMENTED\n\n"
+                + "MISSIONS CLEARED  /  NOT IMPLEMENTED\n\n"
+                + "TUTORIAL  /  NOT IMPLEMENTED\n\n"
+                + "Additional progress will appear when those systems exist.")
+        "PROFILE":
+            var gear: Dictionary = SeraSave.get_working_equipment()
+            archive_record_body.text = (
+                "PROFILE  /  " + active + "\n\n"
+                + "CREATED  /  " + str(data.get("created_at", "-")) + "\n"
+                + "LAST SAVED  /  " + str(data.get("updated_at", "-")) + "\n\n"
+                + "EQUIPMENT SETS (CURRENT)\n"
+                + "HEAD %s   TORSO %s   LEGS %s\n" % [
+                    str(gear.get("head", "A")), str(gear.get("torso", "A")),
+                    str(gear.get("legs", "A"))]
+                + "ARMS %s   R-WPN %s   L-WPN %s\n\n" % [
+                    str(gear.get("arms", "A")), str(gear.get("weapon_r", "A")),
+                    str(gear.get("weapon_l", "A"))]
+                + "Save changes through SYSTEM.")
+
+func _tap_archive_record(point: Vector2) -> void:
+    var local: Vector2 = point - focus_panel.position
+    for i in range(archive_record_tabs.size()):
+        var panel: Panel = archive_record_tabs[i]["panel"]
+        if Rect2(panel.position, panel.size).has_point(local):
+            archive_record_tab = i
+            _refresh_archive_records()
+            return
 
 func _menu_style() -> StyleBoxFlat:
     var style := StyleBoxFlat.new()
@@ -907,7 +1057,10 @@ func _layout_hud() -> void:
     var panel_placement: Vector2 = PANEL_LAYOUTS.get(focused_target,
         Vector2(0.045, 0.390))
     focus_panel.position = Vector2(view.x * panel_placement.x, view.y * 0.225)
-    focus_panel.size = Vector2(view.x * panel_placement.y, view.y * 0.535)
+    focus_panel.size = Vector2(view.x * panel_placement.y,
+        view.y * (0.61 if focused_target == "DATA ARCHIVE" else 0.535))
+    if focused_target == "DATA ARCHIVE":
+        focus_panel.position.y = view.y * 0.17
     if focused_target == "CUSTOMIZE":
         var square: Rect2 = _customize_square_menu_rect(view)
         var tall: Rect2 = _customize_tall_menu_rect(view)
@@ -928,7 +1081,8 @@ func _layout_hud() -> void:
     action_panel.size = Vector2(focus_panel.size.x - 32.0, 60.0)
     action_label.position = Vector2.ZERO
     action_label.size = action_panel.size
-    _layout_archive_controls()
+    _layout_system_controls()
+    _layout_archive_records()
     _update_projected_silhouettes()
     if customize_preview_active:
         _update_customization_glow()
@@ -1608,7 +1762,7 @@ func _input(event: InputEvent) -> void:
             event.is_action_pressed("ui_cancel")
             or (event is InputEventKey and event.pressed
                 and event.keycode in [KEY_BACK, KEY_ESCAPE])):
-        if focused_target != "DATA ARCHIVE" or not _cancel_archive_confirmation():
+        if focused_target != "SYSTEM" or not _cancel_system_confirmation():
             _return_to_overview()
         get_viewport().set_input_as_handled()
         return
@@ -1650,10 +1804,12 @@ func _input(event: InputEvent) -> void:
 func _tap_at(point: Vector2) -> void:
     if not focused_target.is_empty():
         if Rect2(back_panel.position, back_panel.size).has_point(point):
-            if focused_target != "DATA ARCHIVE" or not _cancel_archive_confirmation():
+            if focused_target != "SYSTEM" or not _cancel_system_confirmation():
                 _return_to_overview()
+        elif focused_target == "SYSTEM" and focus_panel.visible:
+            _tap_system_control(point)
         elif focused_target == "DATA ARCHIVE" and focus_panel.visible:
-            _tap_archive_control(point)
+            _tap_archive_record(point)
         elif focused_target == "CUSTOMIZE" and customize_right_panel.visible:
             _tap_equipment_control(point)
         elif focused_target == "TRAINING" and focus_panel.visible:
@@ -1732,13 +1888,17 @@ func _focus_arrived(target_name: String) -> void:
         in_transition = false
     back_panel.visible = true
     focus_title.text = target_name
-    # DATA ARCHIVE is a real save/load menu; other empty destinations stay blank.
-    _set_archive_visible(target_name == "DATA ARCHIVE")
+    # SYSTEM edits save files; DATA ARCHIVE displays read-only records.
+    _set_system_visible(target_name == "SYSTEM")
+    _set_archive_records_visible(target_name == "DATA ARCHIVE")
     if target_name == "DATA ARCHIVE":
-        archive_pending_action = ""
-        archive_pending_slot = 0
-        archive_message = ""
-        _refresh_archive_controls()
+        archive_record_tab = 0
+        _refresh_archive_records()
+    if target_name == "SYSTEM":
+        system_pending_action = ""
+        system_pending_slot = 0
+        system_message = ""
+        _refresh_system_controls()
     action_label.text = "ENTER TRAINING" if target_name == "TRAINING" else ""
     action_panel.visible = target_name == "TRAINING"
     _layout_hud()
@@ -1760,9 +1920,10 @@ func _return_to_overview() -> void:
     in_transition = true
     focus_panel.visible = false
     customize_right_panel.visible = false
-    _set_archive_visible(false)
-    archive_pending_action = ""
-    archive_pending_slot = 0
+    _set_system_visible(false)
+    _set_archive_records_visible(false)
+    system_pending_action = ""
+    system_pending_slot = 0
     back_panel.visible = false
     if focused_target == "CUSTOMIZE" and customize_preview_active:
         # Both movements begin on the same Back-button press.
