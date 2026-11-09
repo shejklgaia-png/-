@@ -25,6 +25,13 @@ var focus_header: Panel
 var focus_title: Label
 var customize_right_panel: Panel
 var customize_right_header: Panel
+var customize_equipment_header: Label
+var customize_equipment_rows: Dictionary = {}
+const CUSTOMIZE_SLOTS = ["head", "torso", "legs", "arms", "weapon_r", "weapon_l"]
+const CUSTOMIZE_SLOT_LABELS = {
+    "head": "HEAD", "torso": "TORSO", "legs": "LOWER BODY",
+    "arms": "ARMS", "weapon_r": "RIGHT WEAPON", "weapon_l": "LEFT WEAPON"
+}
 var action_panel: Panel
 var action_label: Label
 # Reuse the same display rig, without reparenting it: SeraRig has external
@@ -482,6 +489,7 @@ func _hud() -> void:
     customize_right_header.mouse_filter = Control.MOUSE_FILTER_IGNORE
     customize_right_header.add_theme_stylebox_override("panel", _menu_header_style())
     customize_right_panel.add_child(customize_right_header)
+    _create_equipment_controls()
     action_panel = Panel.new()
     action_panel.name = "DestinationAction"
     action_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -497,6 +505,97 @@ func _hud() -> void:
     hud.resized.connect(_layout_hud)
     _layout_hud()
     _update_projected_silhouettes()
+
+## Hit zones are handled by _input, matching the existing Android raw-touch UI.
+## These labels are not Control buttons and therefore never steal preview drags.
+func _create_equipment_controls() -> void:
+    customize_equipment_header = Label.new()
+    customize_equipment_header.text = "PARTS / SETS"
+    customize_equipment_header.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    customize_equipment_header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    customize_equipment_header.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+    customize_equipment_header.add_theme_font_size_override("font_size", 19)
+    customize_equipment_header.add_theme_color_override("font_color", Color("#d1efff"))
+    customize_right_header.add_child(customize_equipment_header)
+    for slot in CUSTOMIZE_SLOTS:
+        var row := Panel.new()
+        row.name = "Equipment_" + slot
+        row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        row.add_theme_stylebox_override("panel", _menu_style())
+        customize_right_panel.add_child(row)
+        var name_label := Label.new()
+        name_label.text = str(CUSTOMIZE_SLOT_LABELS[slot])
+        name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        name_label.add_theme_font_size_override("font_size", 17)
+        name_label.add_theme_color_override("font_color", Color("#a6cfdf"))
+        row.add_child(name_label)
+        var set_label := Label.new()
+        set_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        set_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+        set_label.add_theme_font_size_override("font_size", 23)
+        set_label.add_theme_color_override("font_color", Color("#dcfaff"))
+        row.add_child(set_label)
+        customize_equipment_rows[slot] = {
+            "panel": row, "name": name_label, "value": set_label
+        }
+    _refresh_equipment_controls()
+
+func _layout_equipment_controls() -> void:
+    if customize_equipment_header == null or customize_right_panel == null:
+        return
+    customize_equipment_header.position = Vector2.ZERO
+    customize_equipment_header.size = customize_right_header.size
+    var top: float = customize_right_header.size.y + 9.0
+    var height_per_row: float = maxf(36.0,
+        (customize_right_panel.size.y - top - 10.0) / float(CUSTOMIZE_SLOTS.size()))
+    for i in range(CUSTOMIZE_SLOTS.size()):
+        var row_data: Dictionary = customize_equipment_rows[CUSTOMIZE_SLOTS[i]]
+        var row: Panel = row_data["panel"]
+        row.position = Vector2(10.0, top + float(i) * height_per_row)
+        row.size = Vector2(maxf(50.0, customize_right_panel.size.x - 20.0),
+            maxf(30.0, height_per_row - 7.0))
+        var name_label: Label = row_data["name"]
+        name_label.position = Vector2(12.0, 4.0)
+        name_label.size = Vector2(row.size.x - 24.0, row.size.y * 0.40)
+        var value_label: Label = row_data["value"]
+        value_label.position = Vector2(8.0, row.size.y * 0.40)
+        value_label.size = Vector2(row.size.x - 16.0, row.size.y * 0.56)
+
+func _refresh_equipment_controls() -> void:
+    for slot in CUSTOMIZE_SLOTS:
+        if not customize_equipment_rows.has(slot):
+            continue
+        var options: Array = ["A"]
+        var current_set: String = "A"
+        if sera_display_rig != null and bool(sera_display_rig.get("loading_ok")):
+            options = sera_display_rig.call("get_equipment_options", slot)
+            current_set = str(sera_display_rig.call("get_equipment_selection", slot))
+        var label: Label = customize_equipment_rows[slot]["value"]
+        label.text = "<   %s   >" % current_set if options.size() > 1 else current_set
+
+func _tap_equipment_control(point: Vector2) -> bool:
+    if sera_display_rig == null or not Rect2(
+            customize_right_panel.position, customize_right_panel.size).has_point(point):
+        return false
+    var local: Vector2 = point - customize_right_panel.position
+    for slot in CUSTOMIZE_SLOTS:
+        var row: Panel = customize_equipment_rows[slot]["panel"]
+        if not Rect2(row.position, row.size).has_point(local):
+            continue
+        var choices: Array = sera_display_rig.call("get_equipment_options", slot)
+        if choices.size() < 2:
+            return true
+        var current_set: String = str(sera_display_rig.call("get_equipment_selection", slot))
+        var index: int = maxi(0, choices.find(current_set))
+        var direction: int = -1 if local.x < row.position.x + row.size.x * 0.45 else 1
+        var next_index: int = posmod(index + direction, choices.size())
+        if bool(sera_display_rig.call("set_equipment_selection", slot, choices[next_index])):
+            _refresh_equipment_controls()
+            _capture_sera_silhouette(sera_display_rig)
+            _update_projected_silhouettes()
+            outline.queue_redraw()
+        return true
+    return true
 
 func _menu_style() -> StyleBoxFlat:
     var style := StyleBoxFlat.new()
@@ -572,6 +671,7 @@ func _layout_hud() -> void:
         customize_right_header.position = Vector2.ZERO
         customize_right_header.size = Vector2(
             tall.size.x, minf(60.0, view.y * 0.068))
+        _layout_equipment_controls()
     # The opaque top stripe belongs to the focus panel; rest stays blue/clear.
     focus_header.position = Vector2.ZERO
     focus_header.size = Vector2(focus_panel.size.x, minf(60.0, view.y * 0.068))
@@ -1302,6 +1402,8 @@ func _tap_at(point: Vector2) -> void:
     if not focused_target.is_empty():
         if Rect2(back_panel.position, back_panel.size).has_point(point):
             _return_to_overview()
+        elif focused_target == "CUSTOMIZE" and customize_right_panel.visible:
+            _tap_equipment_control(point)
         elif focused_target == "TRAINING" and focus_panel.visible:
             var action_rect := Rect2(focus_panel.position + action_panel.position,
                 action_panel.size)
@@ -1385,6 +1487,8 @@ func _focus_arrived(target_name: String) -> void:
     _layout_hud()
     focus_panel.visible = true
     customize_right_panel.visible = target_name == "CUSTOMIZE"
+    if target_name == "CUSTOMIZE":
+        _refresh_equipment_controls()
 
 func _return_to_overview() -> void:
     if in_transition or focused_target.is_empty():

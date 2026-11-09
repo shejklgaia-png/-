@@ -949,3 +949,12 @@
 - タッチ終了・再開始・ガード・ジャンプ時は`_reset_boost_speed_transition()`で倍率・補間開始／目標／経過時間を1.0／1.0／1.0／完了にまとめて初期化し、次のタッチに古い補間状態を持ち越さない。
 - 実移動速度の式、RUN112px・BOOST開始184.8px／解除159.6px、360°方向入力、BOOST確定0.10秒、BOOST姿勢0.50秒保持＋0.20秒RUNクロスフェード、他のアクション・HUD・外装は変更なし。
 - v162専用テストを新バージョンではスキップ。v163静的・数値検査で補間端点、減速／加速の単調性、加速中の減速反転および減速中の再加速、入力終了時の初期化を確認。Godot/Android実機では未検証。
+
+## v164（2026-11-09） — A/B全身セットを6部位へ分解して交換する機能
+- 基準：main `be1db12a79d77ee45440c448664910343dfd92d8`（v163）。現行`models/SERA_BOOSTER_allテスト.bbmodel`に`Waist`（A）と`Waist2`（B）の2全身ルートが存在し、Bの`Head2`には`sphere`メッシュがあることを確認。
+- `scripts/sera_equipment.gd`を追加。現行Aリグのアニメーション／UUIDは保持し、同一`.bbmodel`内のB以降の各メッシュを対応する既存ボーンへ取り付ける。セットごとの6スロット（頭／胴／下半身／腕／右手武器／左手武器）を個別に切り替え。名前が多少変わっても階層とピボットを参照し、曖昧な候補はスキップ。
+- `scripts/sera_rig.gd`に元ピボットメタデータ、部位選択API、自動復元を追加。非選択メッシュの表示を抑え、残像側の表示も対応させる。剣閃専用メッシュは対象外。
+- `scripts/command_nexus.gd`の既存CUSTOMIZE右パネル内に6部位のセット切替行を実装。既存プレビュー回転／拡大／縮小／画面遷移のUI領域は維持。設定は`user://sera_equipment.cfg`へ保存し、TRAININGのリグにも適用。
+- Androidの`.bbmodel`直読みと単独配布時の埋め込みフォールバックを実装し、`tools/rebuild_equipment_data.py`と`assets/sera_equipment_data.gd`を追加。セットを編集した後は再埋め込みが必要。
+- `project.godot`の表示名を`SERA v164`に更新。新規`README_v164_ja.md`、`tools/v164_equipment_self_check.py`を追加し、v163専用バージョン検査は履歴用にSKIPへ変更。
+- 既存戦闘・ブースト・RUN・カメラ・攻撃・ガード・BGM等の動作コードは変更なし。Godot実行／Android実機での検証は未実施。
