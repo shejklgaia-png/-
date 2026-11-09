@@ -49,6 +49,14 @@ const LOCK_ARC_SWEEP: float = 0.70
 const CONTROLLER_RUN_RADIUS: float = 112.0
 const CONTROLLER_BOOST_START_RADIUS_RATIO: float = 1.25
 const CONTROLLER_HUB_RADIUS_RATIO: float = 0.24
+# v160: visual-only propulsion shell OUTSIDE the original BOOST boundary.
+const BOOST_SHELL_RADIUS_RATIO: float = 1.34
+const BOOST_SHELL_SEGMENT_HALF_ARC: float = 0.17
+const BOOST_SHELL_SEGMENT_WIDTH: float = 5.0
+const BOOST_CHEVRON_INNER_RATIO: float = 1.40
+const BOOST_CHEVRON_OUTER_RATIO: float = 1.50
+const BOOST_CHEVRON_HALF_WIDTH: float = 9.0
+const BOOST_SHELL_INACTIVE_ALPHA_SCALE: float = 0.55
 
 const OPERATION_ZONE_TOP_RATIO: float = 0.75  # top of fade: 100% transparent
 const OPERATION_ZONE_SOLID_RATIO: float = 0.92  # bottom 8% is a uniform medium gray
@@ -183,6 +191,8 @@ func _draw_analog_controller(accent: Color, low: Color) -> void:
     var boost_guide: Color = Color(0.21, 0.85, 0.93, 0.60) if movement_boost_active else Color(0.21, 0.85, 0.93, 0.15)
     draw_arc(anchor_point, boost_base_radius * CONTROLLER_BOOST_START_RADIUS_RATIO,
         0.0, TAU, 96, boost_guide, 2.0, true)
+    # Fixed propulsion shell is entirely visual; BOOST entry remains 210px.
+    _draw_boost_outer_shell(accent)
     draw_circle(anchor_point, radius * CONTROLLER_HUB_RADIUS_RATIO,
         Color(0.13, 0.54, 0.61, 0.22))
     draw_arc(anchor_point, radius * CONTROLLER_HUB_RADIUS_RATIO,
@@ -206,14 +216,40 @@ func _draw_analog_controller(accent: Color, low: Color) -> void:
     _draw_move_mode_indicator(accent, rim_color)
 
 
+func _draw_boost_outer_shell(accent: Color) -> void:
+    # Eight fixed armor arcs and outward thrust arrows; no finger tracking.
+    # All geometry scales from the original 168px BOOST reference, not RUN's
+    # reduced 112px radius. These shapes do NOT change input thresholds.
+    var alpha_scale: float = 1.0 if movement_boost_active else BOOST_SHELL_INACTIVE_ALPHA_SCALE
+    var shell_color: Color = Color(accent.r, accent.g, accent.b, 0.34 * alpha_scale)
+    var arrow_color: Color = Color(accent.r, accent.g, accent.b, 0.28 * alpha_scale)
+    var shell_radius: float = boost_base_radius * BOOST_SHELL_RADIUS_RATIO
+    for segment in range(8):
+        var angle: float = TAU * float(segment) / 8.0
+        # Segmented industrial outer housing, distinct from the 125% guide.
+        draw_arc(anchor_point, shell_radius,
+            angle - BOOST_SHELL_SEGMENT_HALF_ARC,
+            angle + BOOST_SHELL_SEGMENT_HALF_ARC,
+            14, shell_color, BOOST_SHELL_SEGMENT_WIDTH, true)
+        var outward: Vector2 = Vector2.RIGHT.rotated(angle)
+        var sideways: Vector2 = Vector2(-outward.y, outward.x)
+        var tip: Vector2 = anchor_point + outward * (boost_base_radius * BOOST_CHEVRON_OUTER_RATIO)
+        var base: Vector2 = anchor_point + outward * (boost_base_radius * BOOST_CHEVRON_INNER_RATIO)
+        draw_colored_polygon(PackedVector2Array([
+            tip,
+            base + sideways * BOOST_CHEVRON_HALF_WIDTH,
+            base - sideways * BOOST_CHEVRON_HALF_WIDTH
+        ]), arrow_color)
+
+
 func _draw_move_mode_indicator(accent: Color, rim_color: Color) -> void:
-    # Place the RUN/BOOST mode label above the original BOOST guide; the
-    # compact RUN circle and its direction indicator remain in place.
+    # Keep the RUN/BOOST label above the NEW outermost arrows; otherwise the
+    # original label at the 210px rim would overlap the 252px thrust tips.
     var mode_label: String = "BOOST  1.5x" if movement_boost_active else "RUN  1.0x"
     var label_width: float = 166.0
     var label_height: float = 34.0
     var rect := Rect2(anchor_point.x - label_width * 0.5,
-        anchor_point.y - boost_base_radius * CONTROLLER_BOOST_START_RADIUS_RATIO - label_height - 12.0,
+        anchor_point.y - boost_base_radius * BOOST_CHEVRON_OUTER_RATIO - label_height - 16.0,
         label_width, label_height)
     draw_rect(rect, Color(0.13, 0.54, 0.61, 0.45), true)
     draw_rect(rect, rim_color, false, 2.0, true)
