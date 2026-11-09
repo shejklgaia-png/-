@@ -464,8 +464,6 @@ func _take_test_damage(raw: float) -> void:
 func _begin_training_ko() -> void:
     # Training-only recovery. Hold the exact final Damageknock keyframe.
     training_ko_remaining = TRAINING_KO_RECOVERY
-    if rig != null:
-        rig.call("set_training_ko", true)
     _refresh_player_hp_bar()
     if guard_active:
         _set_guard(false)
@@ -473,6 +471,9 @@ func _begin_training_ko() -> void:
         _finish_side_step(false)
     if combat_state != CombatState.IDLE:
         _cancel_attack()
+    # Complete any ordinary action transitions before locking the KO pose.
+    if rig != null:
+        rig.call("set_training_ko", true)
     direction_input = Vector2.ZERO
     movement_boost_active = false
     boost_pose_grace_remaining = 0.0
