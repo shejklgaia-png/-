@@ -930,19 +930,12 @@ func start_attack_windup(clip_name: String, windup_end: float) -> void:
 func release_attack_windup() -> void:
     if not attack_windup_active or current_clip != attack_windup_clip:
         return
-    # Preserve the current displayed bone pose when jumping from the loop
-    # to the exact last windup key, so release does not cause a visible pop.
-    prior_rotations.clear()
-    prior_offsets.clear()
-    prior_scales.clear()
-    for uid in bones.keys():
-        var pivot: Node3D = bones[uid]
-        prior_rotations[uid] = pivot.quaternion
-        prior_offsets[uid] = pivot.position - bind_positions[uid]
-        prior_scales[uid] = pivot.scale
-    clip_time = attack_windup_end
-    blending_for = 0.0
-    blend_duration = 0.025
+    # On entering reach, stop ONLY the ping-pong loop. Never jump to the
+    # windup's final keyframe: that skipped the authored preparatory motion
+    # whenever the enemy was already close or approached mid-loop.
+    # Retain the exact currently rendered clip_time and advance the same
+    # animation normally through its remaining windup and contact frames.
+    # The combat state/target chase ends at the exact same time as v182.
     attack_windup_active = false
 
 func start_strike(clip_name: String = STRIKE_CLIP) -> void:
