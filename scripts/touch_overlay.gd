@@ -22,6 +22,8 @@ extends Control
 var dragging: bool = false
 var movement_boost_active: bool = false
 var anchor_point: Vector2 = Vector2.ZERO
+# Remains at first touch after the steering circle is reanchored.
+var boost_anchor_point: Vector2 = Vector2.ZERO
 var finger_point: Vector2 = Vector2.ZERO
 var radius: float = 168.0
 var melee_in_range: bool = false
@@ -106,6 +108,8 @@ func _process(delta: float) -> void:
     queue_redraw()
 
 func show_drag(origin: Vector2, pos: Vector2, max_radius: float) -> void:
+    if not dragging:
+        boost_anchor_point = origin
     dragging = true
     anchor_point = origin
     finger_point = pos
@@ -170,15 +174,15 @@ func _draw_radial_controller(accent: Color, low: Color) -> void:
     var rim_color: Color = accent if movement_boost_active else low
     draw_arc(anchor_point, radius, 0.0, TAU, 96, rim_color, 3.0, true)
 
-    # Keep the 125% entry line visible while BOOST is active. Prior to
-    # activation the same arc remains faint, showing where BOOST begins.
-    # Draw it in the real finger direction; the BOOST knob moves beyond it.
+    # The original BOOST entry arc stays at the pre-reversal origin, while
+    # the direction knob and analog disc track the new steering center.
     var finger_vector: Vector2 = finger_point - anchor_point
-    if finger_vector.length_squared() > radius * radius or movement_boost_active:
-        var heading: float = finger_vector.angle()
+    var boost_vector: Vector2 = finger_point - boost_anchor_point
+    if boost_vector.length_squared() > radius * radius or movement_boost_active:
+        var heading: float = boost_vector.angle()
         var guide_color: Color = accent if movement_boost_active else Color(0.21, 0.85, 0.93, 0.26)
         var guide_width: float = 3.0 if movement_boost_active else 2.0
-        draw_arc(anchor_point, radius * CONTROLLER_BOOST_START_RADIUS_RATIO,
+        draw_arc(boost_anchor_point, radius * CONTROLLER_BOOST_START_RADIUS_RATIO,
             heading - 0.38, heading + 0.38, 18, guide_color, guide_width, true)
 
     # RUN stays capped at the disc rim. During BOOST the *displayed* knob
