@@ -139,6 +139,10 @@ var equipment_guard_transition: float = 0.095
 var equipment_reaction_speed: float = 1.0
 var equipment_damage_scale: float = 1.0
 var equipment_guard_speed: float = 1.0
+var training_ko_active: bool = false
+var _ko_material: ShaderMaterial
+var _ko_material_b: ShaderMaterial
+const KO_DARK_SHADER = preload("res://shaders/sera_ko_dark.gdshader")
 var equipment_handler: RefCounted
 
 func _ready() -> void:
@@ -285,6 +289,47 @@ var _afterimage_since_emit: float = 0.0
 var _afterimage_was_moving: bool = false
 var _afterimage_pool_visible: bool = false
 
+func set_training_ko(active: bool) -> void:
+    if training_ko_active == active:
+        return
+    training_ko_active = active
+    if active:
+        # Force the last AUTHORED damage key, not the clip's nominal end
+        # (which can include hold frames). Bypass transition blending.
+        combat_playback = false
+        step_playback = false
+        jump_playback = false
+        guard_playback = false
+        damage_playback = true
+        combat_paused = false
+        freeze_attack_pose = true
+        if loading_ok and animations.has(DAMAGE_CLIP):
+            current_clip = DAMAGE_CLIP
+            clip_time = float(animations[DAMAGE_CLIP]["last_key_time"])
+            prior_rotations.clear()
+            prior_offsets.clear()
+            prior_scales.clear()
+            blending_for = BLEND_SECONDS
+            blend_duration = BLEND_SECONDS
+            boost_to_run_crossfade = false
+            _apply_animation(0.0)
+    else:
+        # Restore the normal wait pose and animation state from any KO.
+        freeze_attack_pose = false
+        combat_paused = false
+        damage_playback = false
+        guard_playback = false
+        combat_playback = false
+        step_playback = false
+        jump_playback = false
+        if loading_ok:
+            if current_clip == WAIT_CLIP:
+                clip_time = 0.0
+                _apply_animation(0.0)
+            else:
+                _switch_clip(WAIT_CLIP, 0.10)
+    _refresh_character_overlay()
+
 func set_slash_player_foreground(enabled: bool) -> void:
     if enabled == _foreground_enabled:
         return
@@ -292,12 +337,20 @@ func set_slash_player_foreground(enabled: bool) -> void:
     _refresh_character_overlay()
 
 func _refresh_character_overlay() -> void:
-    # The slash foreground pass also needs B's tint; otherwise B flashes gray.
+    # KO has visual priority over the slash foreground and preserves A/B tint.
+    if training_ko_active and _ko_material == null:
+        _ko_material = ShaderMaterial.new()
+        _ko_material.shader = KO_DARK_SHADER
+        _ko_material.set_shader_parameter("sera_palette", SERA_TEXTURE)
+        _ko_material_b = _ko_material.duplicate() as ShaderMaterial
+        _ko_material_b.set_shader_parameter("set_tint", B_SET_TINT_RGB)
     for part in _foreground_parts:
         if not is_instance_valid(part):
             continue
         var overlay: Material = null
-        if _foreground_enabled:
+        if training_ko_active:
+            overlay = _ko_material_b if str(part.get_meta("sera_equipment_set", "A")) == "B" else _ko_material
+        elif _foreground_enabled:
             if str(part.get_meta("sera_equipment_set", "A")) == "B":
                 if _foreground_mat_b == null:
                     _foreground_mat_b = _foreground_mat.duplicate() as ShaderMaterial
@@ -889,7 +942,7 @@ func clip_finished(name: String) -> bool:
     return clip_time >= float(animations[name]["length"])
 
 func _process(delta: float) -> void:
-    if not loading_ok:
+    if not loading_ok or training_ko_active:
         return
     if not freeze_attack_pose and not combat_paused and not (jump_playback and current_clip == JUMP_CLIP):
         clip_time += delta * (RUN_ANIMATION_SPEED if current_clip in RUN_CLIPS else (
