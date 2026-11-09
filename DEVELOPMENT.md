@@ -1073,3 +1073,11 @@
 - A/Bの5ボディパーツにある`hp`寄与値のみ0.2倍化：Aは頭/腕/脚/ブースター各20・胴体80（合計160）、Bは頭/腕/脚/ブースター各26・胴体104（合計208）。混合装備でも5部位のHP合算方式と胴体50%の設計を維持。
 - 防御率・武器/移動・EN/SH・敵HP/攻撃ダメージの各パラメータは不変。TRAININGのHPバー・HP0 KO・復帰HPは`part_stats.max_hp`から動的取得するためそのまま新しい数値へ追従。
 - 更新：`scripts/sera_part_stats.gd`, `project.godot`, `tools/v179_ko_visual_hp_bar_self_check.py`, `DEVELOPMENT.md`。追加：`README_v180_ja.md`, `tools/v180_player_hp_self_check.py`。Godot/Android実機動作未確認。
+
+
+## v181（2026-11-09） — 近接ブースト性能の装備参照とバッシュの0.6秒追尾
+- `scripts/sera_part_stats.gd` のbooster各セットに `melee_boost_speed` と `melee_boost_duration` を追加。A=11.5m/s（旧近接接近速度を維持）・1.0s、B=9.5m/s・1.2s。旧 `approach_speed` 項目を置換。
+- 通常攻撃：既存 `meleeboost` 準備クリップが最終キーフレームに達した後、`DASH` 追尾移動中の速度/最長持続時間をブースターの新規ステータスから取得。毎フレーム移動ターゲットの現在地を追い、射程内に到達した場合のみ`melee1`へ。時間切れ・EN消費失敗なら追尾終了、射程外ヒットは発生しない。
+- バッシュ：ガード前フリックと3段コンボ後の前フリック共通で`BASH_TRACK`へ移行。従来の`meleeboost`姿勢を使い、装備別近接ブースト速度でターゲットを0.6秒追尾。接敵しても0.6秒待ち、経過後に本来の`Bash`を発動。敵が射程外なら空振り。追尾移動のみ従来のEN消費補正を適用、EN不足でも固定時間後バッシュ自体は発動。
+- BASH_TRACK中のタップは従来と同様バッシュ後の格闘1段目へ一回だけバッファ。ガードやコンボ入力、カメラ、手持ちのモデル/SE等は維持。HUDで移動速度・残り時間/バッシュ追尾時間を表示。
+- 変更：`scripts/main.gd`, `scripts/sera_part_stats.gd`, `project.godot`。追加：`README_v181_ja.md`, `tools/v181_bash_homing_melee_boost_self_check.py`。v180のバージョン固有チェックはv181でSKIP。Godot/Android実機テスト未実施。
