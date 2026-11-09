@@ -1107,3 +1107,10 @@
 - 往復ループ解除時に`attack_windup_active=false`とするだけで、現在の`clip_time`から同じモーションを通常再生。途中のキーフレームを飛ばさず振りかぶりを最後まで表示。即射程内で追尾終了する場合も0秒から再生する。
 - 追尾時間（A初段0.4秒/B初段0.6秒、バッシュ/2段/3段各0.2秒）、追尾終了条件、攻撃中の命中まで追尾、EN消費、ヒット判定、モデル原本はv182のまま。
 - 変更`scripts/sera_rig.gd`、`project.godot`、`DEVELOPMENT.md`、旧版専用検査`tools/v182_homing_keyframe_self_check.py`をv183でSKIP。追加`README_v183_ja.md`と`tools/v183_windup_release_self_check.py`。Godot/Android実行は未検証。
+
+
+## v184（2026-11-09） — 通常攻撃の発動距離を敵表面から1.0mへ変更
+- `scripts/main.gd` の `MELEE_SURFACE_REACH` を0.75mから1.0mへ変更。通常格闘1～3段目の追尾終了・攻撃モーション開始・未命中の攻撃中追尾停止・近接UI射程に適用。
+- 意図しない変更を避けるため、元は`MELEE_SURFACE_REACH + 0.20`だったバッシュ専用射程を定数0.95mに固定。距離命中補助も独立定数`MELEE_HIT_ASSIST_BASE_REACH=0.75`とし、旧A=0.83m/B≈0.82mを維持。剣3D判定・既存タイミングは変更しない。
+- A/B格闘1段目追尾時間0.4/0.6秒、2・3段目とバッシュの追尾時間各0.2秒、追尾速度・モーション・EN消費を維持。
+- 更新`scripts/main.gd`,`project.godot`,`DEVELOPMENT.md`,旧v183バージョン固有チェックSKIP。追加`README_v184_ja.md`,`tools/v184_melee_start_range_self_check.py`。Godot/Android実機未検証。

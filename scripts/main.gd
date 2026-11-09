@@ -101,7 +101,11 @@ const STEP_CLOSE_CAMERA_RECOVERY_SECONDS: float = 0.18
 const TAP_MAX_TRAVEL: float = 18.0  # Pixels, measured over the full pointer gesture.
 const TAP_MAX_DURATION: float = 0.32  # Seconds; long holds are not attacks.
 const GUARD_HOLD_SECONDS: float = TAP_MAX_DURATION  # Hold still for 0.32s to raise shield.
-const MELEE_SURFACE_REACH: float = 0.75  # Distance from player center to 2m cube surface.
+# v184: The attack starts when the player's center is within 1m of the
+# target collision surface; this also terminates PRE-attack melee homing.
+const MELEE_SURFACE_REACH: float = 1.0
+# Preserve v183 melee contact assist and independent Bash activation distance.
+const MELEE_HIT_ASSIST_BASE_REACH: float = 0.75
 const MELEE_BOOST_DEFAULT_SPEED: float = 11.5  # v181: A speed; per-booster stat overrides.
 const MELEE_BOOST_DEFAULT_DURATION: float = 0.4  # v182 A pre-strike homing cap.
 # Preserve v13 hit timing (confirmed by user).
@@ -123,7 +127,7 @@ const FOLLOWUP_TRACK_SECONDS: float = 0.20  # Melee2/Melee3 pre-strike homing ca
 const BASH_WINDUP_KEY: float = 0.20833
 const FOLLOWUP_WINDUP_KEYS = [0.0, 0.08333, 0.20833]
 const BASH_DAMAGE: int = 12
-const BASH_REACH: float = MELEE_SURFACE_REACH + 0.20
+const BASH_REACH: float = 0.95  # Unchanged from v183 (0.75 + 0.20).
 const STRIKE_CANCEL_TIMES = [7.0 / 24.0, 7.0 / 24.0, 15.0 / 24.0]
 # Each strike has an independent active window and close-range assist.
 # melee1 preserves the original hit and impact timing exactly.
@@ -1362,7 +1366,7 @@ func _check_strike_contact() -> void:
             contact = _blade_contact(blade[0], blade[1])
         if contact != null:
             _register_strike_hit((contact as Vector3).clamp(_target_hit_aabb().position, _target_hit_aabb().end))
-        elif interval_end >= assist_at and _distance_to_cube_surface(player.position) <= MELEE_SURFACE_REACH + 0.08 * float(part_stats.get("tracking", 1.0)):
+        elif interval_end >= assist_at and _distance_to_cube_surface(player.position) <= MELEE_HIT_ASSIST_BASE_REACH + 0.08 * float(part_stats.get("tracking", 1.0)):
             # The preexisting close-range assist is ALSO delayed, so no hit is
             # possible during the backswing even if the target overlaps it.
             var hit_point: Vector3 = Vector3(
