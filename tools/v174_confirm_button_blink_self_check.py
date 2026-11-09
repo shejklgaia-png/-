@@ -4,7 +4,10 @@ from pathlib import Path
 p = Path(__file__).resolve().parents[1]
 nexus = (p / "scripts/command_nexus.gd").read_text(encoding="utf-8")
 project = (p / "project.godot").read_text(encoding="utf-8")
-assert 'config/name="SERA v174"' in project
+# v174 snapshot only; v175 has new cancellation and LOAD rules.
+if 'config/name="SERA v174"' not in project:
+    print("SKIP: historical v174 CONFIRM-button behavior check")
+    raise SystemExit(0)
 assert 'SYSTEM_CONFIRM_BLINK_HALF_SECONDS: float = 0.38' in nexus
 assert 'func _update_system_confirmation_blink(delta: float) -> void:' in nexus
 assert '_update_system_confirmation_blink(delta)' in nexus
