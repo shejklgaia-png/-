@@ -177,6 +177,15 @@ func _attach_group_meshes(entry: Dictionary, target_bone: Node3D, groups: Dictio
 func _apply_equipment_tint(piece: MeshInstance3D, set_id: String) -> void:
     # Keep A untouched and isolate B's material from other variants.
     piece.set_meta("sera_equipment_set", set_id)
+    # No texture is embedded in the Head C Blockbench source. Tint only C,
+    # which otherwise samples the nearly white corner of SERA's palette.
+    if set_id == "C":
+        var original_c: StandardMaterial3D = piece.material_override as StandardMaterial3D
+        if original_c != null:
+            var material_c: StandardMaterial3D = original_c.duplicate() as StandardMaterial3D
+            material_c.albedo_color = Color(0.60, 0.65, 0.72, 1.0)
+            piece.material_override = material_c
+        return
     if set_id != "B":
         return
     var original: StandardMaterial3D = piece.material_override as StandardMaterial3D
