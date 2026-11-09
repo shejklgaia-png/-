@@ -1243,3 +1243,10 @@
 - Release flick now returns a normalized vector for all screen angles, including UP and diagonals, with original short/fast/reversal/boost/guard precedence. Target-relative polar path retains original side orbit, four-meter backward step, adds a provisional two-meter forward step, and continuously blends diagonals. Gameplay collision sweep and 8–10m/s step velocity remain unchanged.
 - Four authored poses Step_L / Step_R / Backstep / Boost_front are directionally blended. Start fade is 0.12s; end fade is 0.16s; avoid looping the step timeline at long durations. No authored mesh, animation asset, save or input ring changes.
 - SERA v200, new CI regression and README. Android real-time behavior unverified.
+
+## 2026-11-10 — SERA v201: prevent BOOST/RUN flicker during a held EN-depleted gesture
+- When BOOST EN ran low, _spend_energy could refuse a frame while energy_exhausted was still false. After energy regenerated, the static finger outside the BOOST entry radius would automatically re-confirm BOOST, producing repeated BOOST/RUN state changes without a new gesture.
+- A new boost_rearm_required latch is set when BOOST is interrupted by insufficient EN or EN exhaustion (including a successful final expenditure to exactly zero). Keeping the same held finger outside the existing 159.6px exit boundary never restarts BOOST during EN regeneration.
+- The latch clears only when that finger moves inward below the existing exit radius, or on a new touch. Outward movement again requires the existing 184.8px entry radius and 0.10s confirmation. Normal 1.10/0.95 hysteresis is unchanged.
+- Leave RUN/BOOST 0.20s speed interpolation, 0.50s BOOST pose grace, EN drain and recovery, gameplay moves, camera, equipment, models and UI unchanged. The old v200 regression now accepts subsequent project versions.
+- Added README_v201_ja.md and tools/v201_boost_hold_rearm_self_check.py. Static/source checks and a numeric state model do not verify Godot runtime or Android touch behavior.

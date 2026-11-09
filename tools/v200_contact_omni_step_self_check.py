@@ -8,7 +8,8 @@ ROOT = Path(__file__).resolve().parents[1]
 def read(path):
     return (ROOT / path).read_text(encoding="utf-8")
 
-assert re.search(r'^config/name="SERA v200"$', read("project.godot"), re.M)
+version_match = re.search(r'^config/name="SERA v(\d+)"$', read("project.godot"), re.M)
+assert version_match and int(version_match.group(1)) >= 200
 rig = read("scripts/sera_rig.gd")
 eq = read("scripts/sera_equipment.gd")
 main = read("scripts/main.gd")
