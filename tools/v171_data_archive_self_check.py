@@ -7,7 +7,11 @@ nexus = (root / "scripts/command_nexus.gd").read_text(encoding="utf-8")
 save = (root / "scripts/sera_save.gd").read_text(encoding="utf-8")
 equipment = (root / "scripts/sera_equipment.gd").read_text(encoding="utf-8")
 training = (root / "scripts/main.gd").read_text(encoding="utf-8")
-assert 'config/name="SERA v171"' in project
+# Historical v171 checks describe the former DATA ARCHIVE placement.
+# They apply only to v171; v172 deliberately moves controls into SYSTEM.
+if 'config/name="SERA v171"' not in project:
+    print("SKIP: historical v171 archive layout (project is a newer version)")
+    raise SystemExit(0)
 assert 'SeraSave="*res://scripts/sera_save.gd"' in project
 for name in ("create_data", "save_data", "load_data", "delete_data",
              "get_slot", "record_training_time"):
