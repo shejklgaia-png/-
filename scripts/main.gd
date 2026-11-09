@@ -39,7 +39,7 @@ const BOOST_ACCELERATION_SECONDS: float = 0.15
 # v154: allow a fast, deliberate opposite finger stroke to pivot the analog disc.
 const FAST_REVERSE_MIN_RADIAL_RATIO: float = 0.25
 const FAST_REVERSE_MIN_TRAVEL_PIXELS: float = 32.0
-const FAST_REVERSE_MIN_SPEED_PIXELS_PER_SEC: float = 520.0
+const FAST_REVERSE_MIN_SPEED_PIXELS_PER_SEC: float = 800.0
 const FAST_REVERSE_MAX_STROKE_MSEC: int = 120
 const FAST_REVERSE_OPPOSITE_DOT: float = -0.80
 # A side step is classified only when the finger is RELEASED.  In particular,
