@@ -33,6 +33,7 @@ on:
       - 'tools/v197_nexus_pose_overlift_self_check.py'
       - 'tools/v198_version_indicator_self_check.py'
       - 'tools/v199_animated_sole_grounding_self_check.py'
+      - 'tools/v200_contact_omni_step_self_check.py'
       - 'scripts/sera_equipment.gd'
       - 'scripts/sera_rig.gd'
       - 'scripts/version_indicator.gd'
@@ -81,6 +82,8 @@ jobs:
         run: python3 tools/v198_version_indicator_self_check.py
       - name: Verify v199 dynamic shoe sole grounding
         run: python3 tools/v199_animated_sole_grounding_self_check.py
+      - name: Verify v200 foot-contact grounding and 360-degree step
+        run: python3 tools/v200_contact_omni_step_self_check.py
       - name: Verify base model and repository paths
         run: |
           python3 tools/self_check.py
