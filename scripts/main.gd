@@ -195,6 +195,8 @@ var guard_break_hits: int = 0
 var down_remaining: float = 0.0
 var resources_label: Label
 var core_label: Label
+var test_hit_button: Button
+var test_break_button: Button
 var core_hp: float = 75.0
 var stagger_value: float = 0.0
 var stagger_remaining: float = 0.0
@@ -626,7 +628,7 @@ func _on_enemy_projectile_hit(_world_position: Vector3, incoming_direction: Vect
         if shield <= 0.0:
             _set_guard(false)
             _begin_damage_reaction(incoming_direction)
-            guard_break_remaining = 1.25
+            guard_break_remaining = 2.25
             guard_break_hits = 0
             return
         SeraSave.record_defensive_impact(true)
@@ -885,6 +887,21 @@ func _build_overlay() -> void:
     core_label.add_theme_color_override("font_color", Color("b5e4f5"))
     core_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
     layer.add_child(core_label)
+    # Android-safe debug triggers: touches never reach movement/attack gestures.
+    test_hit_button = Button.new()
+    test_hit_button.name = "DebugIncomingHit"
+    test_hit_button.text = "TEST HIT"
+    test_hit_button.position = Vector2(22.0, 268.0)
+    test_hit_button.size = Vector2(122.0, 42.0)
+    test_hit_button.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    layer.add_child(test_hit_button)
+    test_break_button = Button.new()
+    test_break_button.name = "DebugGuardBreak"
+    test_break_button.text = "TEST BREAK"
+    test_break_button.position = Vector2(154.0, 268.0)
+    test_break_button.size = Vector2(150.0, 42.0)
+    test_break_button.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    layer.add_child(test_break_button)
     _tick_resources(0.0)
 
     step_status_label = Label.new()
@@ -1005,6 +1022,23 @@ func _refresh_step_status_ui() -> void:
         step_detail_label.text = "LAST %.2fm  /  %.2fs" % [step_traveled_distance, step_last_elapsed]
     else:
         step_detail_label.text = "SIDE <=0.4s / BACK 4.0m"
+
+func _pointer_on_training_test_button(pos: Vector2) -> bool:
+    if test_hit_button == null or test_break_button == null:
+        return false
+    return (test_hit_button.get_global_rect().has_point(pos)
+        or test_break_button.get_global_rect().has_point(pos))
+
+func _press_training_test_button(pos: Vector2) -> void:
+    if test_break_button != null and test_break_button.get_global_rect().has_point(pos):
+        if not guard_active:
+            _set_guard(true)
+        if guard_active:
+            shield = 1.0
+    var incoming: Vector3 = player.global_position - target.global_position
+    if incoming.length_squared() < 0.000001:
+        incoming = Vector3.FORWARD
+    _on_enemy_projectile_hit(player.global_position, incoming.normalized(), true)
 
 func _pointer_on_nexus_button(pos: Vector2) -> bool:
     return (nexus_button != null and nexus_button.visible
@@ -1254,6 +1288,11 @@ func _input(event: InputEvent) -> void:
             # including taps on HUD buttons (which must keep their own input).
             if touch_ui != null:
                 touch_ui.call("cancel_gesture_effects")
+            if _pointer_on_training_test_button(event.position):
+                step_hud_touch = event.index
+                _press_training_test_button(event.position)
+                get_viewport().set_input_as_handled()
+                return
             if _pointer_on_nexus_button(event.position):
                 step_hud_touch = event.index
                 _request_return_to_nexus()
@@ -1283,6 +1322,11 @@ func _input(event: InputEvent) -> void:
             if event.pressed:
                 if touch_ui != null:
                     touch_ui.call("cancel_gesture_effects")
+                if _pointer_on_training_test_button(event.position):
+                    step_hud_mouse_press = true
+                    _press_training_test_button(event.position)
+                    get_viewport().set_input_as_handled()
+                    return
                 if _pointer_on_nexus_button(event.position):
                     step_hud_mouse_press = true
                     _request_return_to_nexus()
