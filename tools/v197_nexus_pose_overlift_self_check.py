@@ -48,7 +48,8 @@ assert 'var best_contacts: int = original_contacts' in fitter
 assert 'var best_step: int = 0' in fitter
 assert 'for step in range(1, NEXUS_ARM_MAX_STEPS + 1):' in fitter
 assert 'if contacts < best_contacts:' in fitter
-assert 'if contacts == 0:\n                break' in fitter
+assert 'if contacts == 0:' in fitter
+assert 'break # Minimum fully clear angle.' in fitter
 assert 'if best_step == 0:' in fitter
 assert '_set_nexus_side_raise(side, 0.0, 0.0)' in fitter
 assert 'float(best_step) * NEXUS_ARM_STEP_DEGREES' in fitter
