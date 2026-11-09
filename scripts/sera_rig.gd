@@ -384,12 +384,11 @@ func _update_foot_contacts(delta: float) -> void:
     if not heights.has("L") or not heights.has("R"):
         reset_foot_contacts()
         return
-    # The sole ground level equals A's bind sole after applying the selected
-    # set's stable lift. If authored keys penetrate that level, use the lower
-    # visible sole as a local reference instead of repeatedly triggering.
-    var expected_ground: float = float(equipment_handler.call("get_standard_sole_y")) - get_grounding_height_offset()
-    var effective_ground: float = minf(expected_ground,
-        minf(float(heights["L"]), float(heights["R"])))
+    # The training stage has no floor collider. Treat the lower of the two
+    # rendered soles as the planted reference for each grounded RUN frame.
+    # This tracks authored stride motion even if its root bob floats above
+    # A's bind-pose floor; height correction itself still uses A's static sole.
+    var effective_ground: float = minf(float(heights["L"]), float(heights["R"]))
     for side in ["L", "R"]:
         var gap: float = float(heights[side]) - effective_ground
         if not foot_contact_initialized:
