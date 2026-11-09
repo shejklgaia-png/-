@@ -1090,3 +1090,10 @@
 - 全格闘段/バッシュ：**攻撃モーションが始まった後も、命中が確定するかモーションが終了するまでターゲットの最新位置を追う**。EN不足は移動停止、ヒット判定は従来の刃スイープ/距離補助やバッシュ接触判定を維持。バッシュ接触判定は攻撃キー0.25秒以降、打撃モーション終了まで複数フレームで再確認し、移動ターゲットに対応。
 - リグに`start_attack_windup`/`release_attack_windup`と折り返しループを追加。元モデル・キーフレームを変更せず、ループ解除時は0.025秒補間。既存コンボ、ヒットストップ、ガード入力、SE、HP、装備ステは維持。
 - 更新`scripts/main.gd`, `scripts/sera_rig.gd`, `scripts/sera_part_stats.gd`, `project.godot`、新規`README_v182_ja.md`、`tools/v182_homing_keyframe_self_check.py`。旧v181版固有検査はSKIP。**Godot実行/Android端末での体感確認は未実施**。
+
+
+## v183（2026-11-09） — 追尾解除時に振りかぶりモーションをスキップしない
+- v182の`release_attack_windup()`が`clip_time`を予備動作の最終キーへ飛ばしていたため、射程到達が早い場合に`Bash`/`Melee2`/`Melee3`の予備動作が省略されていた問題を修正。
+- 往復ループ解除時に`attack_windup_active=false`とするだけで、現在の`clip_time`から同じモーションを通常再生。途中のキーフレームを飛ばさず振りかぶりを最後まで表示。即射程内で追尾終了する場合も0秒から再生する。
+- 追尾時間（A初段0.4秒/B初段0.6秒、バッシュ/2段/3段各0.2秒）、追尾終了条件、攻撃中の命中まで追尾、EN消費、ヒット判定、モデル原本はv182のまま。
+- 変更`scripts/sera_rig.gd`、`project.godot`、`DEVELOPMENT.md`、旧版専用検査`tools/v182_homing_keyframe_self_check.py`をv183でSKIP。追加`README_v183_ja.md`と`tools/v183_windup_release_self_check.py`。Godot/Android実行は未検証。
