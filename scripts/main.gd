@@ -32,8 +32,9 @@ const GROUND_MOVE_SPEED_SCALE: float = 1.25  # v148: speed up ground RUN and BOO
 const MOVEMENT_BOOST_MULTIPLIER: float = 1.5
 # RUN uses a continuously varying analog vector within a compact 112px radius.
 # BOOST remains based on distance from the initial touch point.
-const BOOST_START_RADIUS_RATIO: float = 1.25
-const BOOST_EXIT_RADIUS_RATIO: float = 1.10
+# v161: bring BOOST entry 25.2px closer; retain 15% radial hysteresis.
+const BOOST_START_RADIUS_RATIO: float = 1.10
+const BOOST_EXIT_RADIUS_RATIO: float = 0.95
 const BOOST_CONFIRM_SECONDS: float = 0.10
 const BOOST_ACCELERATION_SECONDS: float = 0.15
 # v159: avoid RUN/WAIT clips interrupting quick BOOST direction changes.
@@ -1877,7 +1878,7 @@ func _physics_process(delta: float) -> void:
         if running:
             # v9 behavior: world_move already uses the current camera's ground axes.
             # Analog RUN strength reaches unity at the 112px rim; BOOST changes
-            # speed only after the original 210px threshold is confirmed.
+            # speed only after the new 184.8px threshold is confirmed.
             player.velocity = world_move * MOVE_SPEED * GROUND_MOVE_SPEED_SCALE * boost_speed_multiplier
             # Drag keeps working along the cube's faces instead of becoming
             # blocked or falling through it. No world X/Z bounds are added.
