@@ -7,7 +7,7 @@ main=(p/"scripts/main.gd").read_text(encoding="utf-8")
 ui=(p/"scripts/touch_overlay.gd").read_text(encoding="utf-8")
 rig=(p/"scripts/sera_rig.gd").read_text(encoding="utf-8")
 project=(p/"project.godot").read_text(encoding="utf-8")
-assert re.findall(r'^config/name="([^"]+)"$',project,re.M)==["SERA v154"]
+assert re.findall(r'^config/name="([^"]+)"$',project,re.M)==["SERA v155"]
 for token in ("const DRAG_RADIUS: float = 168.0",
  "const BOOST_START_RADIUS_RATIO: float = 1.25",
  "const BOOST_EXIT_RADIUS_RATIO: float = 1.10",
