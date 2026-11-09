@@ -983,7 +983,7 @@ func _step_speed_for_player_position(pos: Vector3) -> float:
         / (STEP_FALLOFF_START_SURFACE_DISTANCE - STEP_CLOSE_SURFACE_DISTANCE),
         0.0, 1.0)
     var eased: float = falloff * falloff * (3.0 - 2.0 * falloff)
-    return lerpf(STEP_SPEED, STEP_CLOSE_SPEED, eased)
+    return lerpf(STEP_SPEED, STEP_CLOSE_SPEED, eased) * float(part_stats.get("step_speed_mult", 1.0))
 
 func _refresh_step_status_ui() -> void:
     if step_status_label == null or step_detail_label == null:
@@ -1152,7 +1152,12 @@ func _register_strike_hit(world_hit: Vector3) -> void:
         return
     strike_did_hit = true
     var hp_before_hit: int = target_hp
-    var strike_damage: int = int(STRIKE_DAMAGE[strike_index])
+    var damages: Array = part_stats.get("attack_damage", STRIKE_DAMAGE)
+    var strike_damage: int = roundi(float(damages[strike_index]) * float(part_stats.get("attack_mult", 1.0)))
+    var breaks: Array = part_stats.get("break_damage", [14, 14, 32])
+    var staggers: Array = part_stats.get("stagger_gain", [10.0, 10.0, 24.0])
+    _register_test_hit(float(breaks[strike_index]), float(staggers[strike_index]),
+        float(part_stats.get("stagger_extend", 0.18)))
     target_hp = maxi(0, target_hp - strike_damage)  # Hits at 0 HP still play VFX, never go negative.
     SeraSave.record_target_hit("melee", hp_before_hit - target_hp,
         hp_before_hit > 0 and target_hp == 0)
@@ -1290,7 +1295,8 @@ func _input(event: InputEvent) -> void:
             _change_drag(event.position)
 
 func _guard_can_start() -> bool:
-    return (not guard_active and not damage_reaction_active and not landing_active
+    return (not guard_active and not damage_reaction_active and down_remaining <= 0.0
+        and guard_break_remaining <= 0.0 and not landing_active
         and not jump_active and not step_active and combat_state == CombatState.IDLE
         and rig != null and bool(rig.get("loading_ok")))
 
@@ -1414,7 +1420,7 @@ func _update_boost_gesture(delta: float) -> void:
     # prevent a damaged hold from triggering a phantom STEP or tap attack;
     # it must NOT block BOOST after the damage reaction finishes.
     if not gesture_active or guard_active or damage_reaction_active \
-            or bash_flick_candidate or jump_active or landing_active:
+            or energy_exhausted or bash_flick_candidate or jump_active or landing_active:
         boost_confirm_elapsed = 0.0
         if movement_boost_active:
             movement_boost_active = false
@@ -1721,6 +1727,8 @@ func _classify_step_flick(displacement: Vector2, seconds: float) -> int:
 func _start_back_step() -> bool:
     if guard_active or damage_reaction_active or landing_active or rig == null or not bool(rig.get("loading_ok")):
         return false
+    if not _spend_energy(15.0 * float(part_stats.get("energy_cost_mult", 1.0))):
+        return false
     if combat_state != CombatState.IDLE:
         _cancel_attack()  # Same attack-cancel behavior as left/right steps.
     if step_active:
@@ -1743,7 +1751,7 @@ func _start_back_step() -> bool:
     step_arc_length = BACK_STEP_DISTANCE
     step_speed_current = _step_speed_for_player_position(player.position)
     # 4m / 8-10m/s = 0.40-0.50s. Side-step 0.40s limit is intentionally unchanged.
-    step_duration_current = BACK_STEP_DISTANCE / step_speed_current
+    step_duration_current = BACK_STEP_DISTANCE / step_speed_current * float(part_stats.get("step_time_mult", 1.0))
     # Unlike side steps, back steps do not orbit the target. Do not engage
     # the point-blank side-step camera constraint for backward movement.
     step_close_camera = false
@@ -1760,6 +1768,8 @@ func _start_back_step() -> bool:
 
 func _start_side_step(side: int) -> bool:
     if guard_active or damage_reaction_active or landing_active or side == 0 or rig == null or not bool(rig.get("loading_ok")):
+        return false
+    if not _spend_energy(15.0 * float(part_stats.get("energy_cost_mult", 1.0))):
         return false
     if combat_state != CombatState.IDLE:
         # v45: a flick can cancel an in-progress attack.
@@ -1812,7 +1822,7 @@ func _start_side_step(side: int) -> bool:
     step_arc_length = path_length
     # Keep the selected speed for the entire step (do not change mid-orbit).
     # Minimum path length (2m) at 8m/s lasts 0.250s, within the 0.40s cap.
-    step_duration_current = path_length / step_speed_current
+    step_duration_current = path_length / step_speed_current * float(part_stats.get("step_time_mult", 1.0))
     # The orbit is measured around the target, not the old absolute camera
     # direction. At point-blank distance its bearing changes quickly.
     step_close_camera = _distance_to_cube_surface(player.position) <= STEP_CLOSE_CAMERA_SURFACE_DISTANCE
@@ -1940,6 +1950,8 @@ func _start_attack() -> bool:
     # STRIKE (during MELEE_APPROACH/DASH), or while a side-step is playing.
     if combat_state != CombatState.IDLE:
         return false
+    if _distance_to_cube_surface(player.position) > float(part_stats.get("lock_range", 24.0)):
+        return false
     if bash_loop_window_remaining > 0.0 and _distance_to_cube_surface(player.position) <= MELEE_SURFACE_REACH:
         bash_loop_window_remaining = 0.0
         _start_strike(0)
@@ -1953,6 +1965,9 @@ func _start_attack() -> bool:
         sword_trail.call("stop_swing")
     if jump_active:
         jump_horizontal_velocity = Vector3.ZERO
+    if energy_exhausted and _distance_to_cube_surface(player.position) > MELEE_SURFACE_REACH:
+        _start_strike(0)  # EN exhausted: stationary swing remains available.
+        return true
     combat_state = CombatState.MELEE_APPROACH
     rig.call("start_melee_approach")
     return true
@@ -2022,7 +2037,10 @@ func _check_bash_contact() -> void:
 func _register_bash_hit() -> void:
     bash_did_hit = true
     var hp_before_hit: int = target_hp
-    target_hp = maxi(0, target_hp - BASH_DAMAGE)
+    var bash_damage: int = roundi(float(part_stats.get("bash_damage", BASH_DAMAGE)) *
+        float(part_stats.get("attack_mult", 1.0)))
+    target_hp = maxi(0, target_hp - bash_damage)
+    _register_test_hit(float(part_stats.get("bash_break", 12)), 12.0, 0.08)
     SeraSave.record_target_hit("bash", hp_before_hit - target_hp,
         hp_before_hit > 0 and target_hp == 0)
     hit_stop_remaining = HIT_STOP_SECONDS
@@ -2037,7 +2055,7 @@ func _register_bash_hit() -> void:
     if hp_before_hit > 0 and target_hp == 0:
         target_respawn_remaining = TARGET_RESPAWN_SECONDS
     _refresh_hp_bar()
-    damage_label.text = "%d" % BASH_DAMAGE
+    damage_label.text = "%d" % bash_damage
     damage_label.visible = true
     if is_instance_valid(hit_audio) and hit_audio.stream != null:
         hit_audio.play()
@@ -2062,7 +2080,12 @@ func _distance_to_cube_surface(pos: Vector3) -> float:
     return Vector2(dx, dz).length()
 
 func _start_strike(stage: int = 0) -> void:
-    strike_index = clampi(stage, 0, STRIKE_CLIPS.size() - 1)
+    var next_stage: int = clampi(stage, 0, STRIKE_CLIPS.size() - 1)
+    var costs: Array = part_stats.get("attack_energy", [0.0, 0.0, 0.0])
+    if not _spend_energy(float(costs[next_stage])):
+        _cancel_attack()
+        return
+    strike_index = next_stage
     combo_queued = false
     _clear_strike_tracking()
     if sword_trail != null:
@@ -2088,7 +2111,11 @@ func _advance_attack(delta: float) -> void:
             if destination_delta.length_squared() < 0.000001:
                 _start_strike()
                 return
-            var travel: float = minf(MELEE_DASH_SPEED * delta, destination_delta.length())
+            if not _spend_energy(16.0 * delta * float(part_stats.get("energy_cost_mult", 1.0))):
+                _cancel_attack()
+                return
+            var travel: float = minf(float(part_stats.get("approach_speed", MELEE_DASH_SPEED)) *
+                delta, destination_delta.length())
             var next_position: Vector3 = player.position + destination_delta.normalized() * travel
             if _distance_to_cube_surface(next_position) <= MELEE_SURFACE_REACH:
                 # Find first contact with the attack threshold; don't slide
@@ -2187,7 +2214,9 @@ func _reset_boost_speed_transition() -> void:
 
 
 func _update_boost_speed(delta: float) -> void:
-    var wanted: float = MOVEMENT_BOOST_MULTIPLIER if movement_boost_active else 1.0
+    var wanted: float = (float(part_stats.get("boost_speed", 6.09375)) *
+        float(part_stats.get("boost_speed_mult", 1.0)) /
+        maxf(0.1, float(part_stats.get("run_speed", 4.0625)))) if movement_boost_active else 1.0
     if not is_equal_approx(wanted, boost_speed_transition_target):
         # A reversal during an incomplete blend resumes from the PRESENT
         # multiplier, never from RUN=1.0 or BOOST=1.5 prematurely.
@@ -2293,7 +2322,7 @@ func _physics_process(delta: float) -> void:
             # v9 behavior: world_move already uses the current camera's ground axes.
             # Analog RUN strength reaches unity at the 112px rim; BOOST changes
             # speed only after the new 184.8px threshold is confirmed.
-            player.velocity = world_move * MOVE_SPEED * GROUND_MOVE_SPEED_SCALE * boost_speed_multiplier
+            player.velocity = world_move * float(part_stats.get("run_speed", 4.0625)) * boost_speed_multiplier
             # Drag keeps working along the cube's faces instead of becoming
             # blocked or falling through it. No world X/Z bounds are added.
         else:
@@ -2337,7 +2366,12 @@ func _physics_process(delta: float) -> void:
             0.0,
             roundf(player.position.z / 4.0) * 4.0
         )
-    if damage_reaction_active:
+    if down_remaining > 0.0:
+        state_label.text = "DOWN / INVULNERABLE"
+    elif guard_break_remaining > 0.0:
+        state_label.text = "GUARD BREAK  %d/%d" % [
+            guard_break_hits, int(part_stats.get("down_hits", 3))]
+    elif damage_reaction_active:
         state_label.text = "DAMAGE  |  Damageknock"
     elif guard_active:
         state_label.text = "GUARD HIT  |  Guard_REACTION" if bool(rig.call("guard_reaction_playing")) else "GUARD  |  Guard"
