@@ -34,7 +34,7 @@ assert intro.index('_apply_nexus_pose(rig)') < intro.index('_remember_nexus_arm_
 assert intro.index('_remember_nexus_arm_rest_pose(rig)') < intro.index('_fit_nexus_arms_to_lower_body()')
 assert intro.index('_fit_nexus_arms_to_lower_body()') < intro.index('_capture_sera_silhouette(rig)')
 assert 'func _restore_nexus_arm_pose() -> void:' in nexus
-assert 'nexus_arm_rest_rotations[name] = bone.quaternion' in nexus
+assert 'nexus_arm_rest_rotations[str(bone.name)] = bone.quaternion' in nexus
 assert 'bone.quaternion = nexus_arm_rest_rotations[name]' in nexus
 assert '    _restore_nexus_arm_pose()' in nexus
 assert 'if not _nexus_side_intersects_legs(side, arms, leg_boxes):' in nexus
