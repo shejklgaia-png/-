@@ -194,6 +194,9 @@ var step_hud_mouse_press: bool = false
 var current_touch: int = -1
 var mouse_down: bool = false
 var pointer_origin: Vector2 = Vector2.ZERO
+# Fixed at initial touch: BOOST uses the same zone across steering reversals.
+var boost_pointer_origin: Vector2 = Vector2.ZERO
+var boost_rearm_after_reverse: bool = false
 var pointer_location: Vector2 = Vector2.ZERO
 # Keep original touch position for tap/guard/flick even if the stick reanchors.
 var gesture_touch_origin: Vector2 = Vector2.ZERO
@@ -1086,6 +1089,7 @@ func _set_guard(active: bool) -> void:
         guard_active = true
         direction_input = Vector2.ZERO
         reverse_stroke_active = false
+        boost_rearm_after_reverse = false
         player.velocity = Vector3.ZERO
         movement_boost_active = false
         boost_confirm_elapsed = 0.0
@@ -1130,6 +1134,8 @@ func _begin_drag(pos: Vector2) -> void:
     jump_flick_samples.clear()
     _remember_jump_flick_sample(pos)
     pointer_origin = pos
+    boost_pointer_origin = pos
+    boost_rearm_after_reverse = false
     gesture_touch_origin = pos
     pointer_location = pos
     reverse_stroke_origin = pos
@@ -1174,9 +1180,13 @@ func _change_drag(pos: Vector2) -> void:
                     reverse_travel.dot(heading)
                     <= FAST_REVERSE_OPPOSITE_DOT * reverse_length) and (
                     (pos - pointer_origin).dot(heading) > 0.0):
-                # Rebase ONLY while the finger is still on the original side.
-                # This keeps the displayed knob and real movement identical.
+                # Rebase steering, but preserve the original BOOST boundary.
                 pointer_origin = reverse_stroke_origin
+                boost_rearm_after_reverse = true
+                boost_confirm_elapsed = 0.0
+                if movement_boost_active:
+                    movement_boost_active = false
+                    touch_ui.call("set_movement_boost", false)
                 reverse_stroke_active = false
                 fast_reversed_during_gesture = true
         else:
@@ -1217,7 +1227,14 @@ func _update_boost_gesture(delta: float) -> void:
             movement_boost_active = false
             touch_ui.call("set_movement_boost", false)
         return
-    var finger_distance: float = pointer_location.distance_to(pointer_origin)
+    # Fast reversal changes the steering origin, never the BOOST origin.
+    var finger_distance: float = pointer_location.distance_to(boost_pointer_origin)
+    if boost_rearm_after_reverse:
+        # Re-enter the original 110% zone before a new BOOST can begin.
+        boost_confirm_elapsed = 0.0
+        if finger_distance >= DRAG_RADIUS * BOOST_EXIT_RADIUS_RATIO:
+            return
+        boost_rearm_after_reverse = false
     if movement_boost_active:
         # Hysteresis: do not flicker between RUN and BOOST at the entry rim.
         if finger_distance < DRAG_RADIUS * BOOST_EXIT_RADIUS_RATIO:
@@ -1240,6 +1257,7 @@ func _end_drag(release_pos: Vector2) -> void:
     if guard_active:
         reverse_stroke_active = false
         fast_reversed_during_gesture = false
+        boost_rearm_after_reverse = false
         # Consume the whole hold, including any movement made before release.
         # Keyboard G may continue Guard after the finger lifts.
         gesture_active = false
@@ -1282,6 +1300,7 @@ func _end_drag(release_pos: Vector2) -> void:
     gesture_active = false
     reverse_stroke_active = false
     fast_reversed_during_gesture = false
+    boost_rearm_after_reverse = false
     var suppress_release_action: bool = gesture_suppressed_from_damage or gesture_suppressed_from_landing
     gesture_suppressed_from_damage = false
     gesture_suppressed_from_landing = false

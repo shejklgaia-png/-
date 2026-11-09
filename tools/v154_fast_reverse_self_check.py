@@ -8,7 +8,7 @@ main=(p/"scripts/main.gd").read_text(encoding="utf-8")
 ui=(p/"scripts/touch_overlay.gd").read_text(encoding="utf-8")
 rig=(p/"scripts/sera_rig.gd").read_text(encoding="utf-8")
 cfg=(p/"project.godot").read_text(encoding="utf-8")
-assert re.findall(r'^config/name="([^"]+)"$',cfg,re.M)==["SERA v155"]
+assert re.findall(r'^config/name="([^"]+)"$',cfg,re.M)==["SERA v156"]
 for token in ("FAST_REVERSE_MIN_RADIAL_RATIO: float = 0.25",
               "FAST_REVERSE_MIN_TRAVEL_PIXELS: float = 32.0",
               "FAST_REVERSE_MIN_SPEED_PIXELS_PER_SEC: float = 800.0",
