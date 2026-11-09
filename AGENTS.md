@@ -95,3 +95,8 @@ Additional historical checks may refer to unavailable prior ZIPs; read their pre
 - NEXUS exhibition in `scripts/command_nexus.gd` records the exact sampled NEXUS_pose quaternions for Shoulder_L/R and UpperArm_L/R, then checks collisions against the *selected and visible* LOWER BODY. Only the display rig is modified, never user-authored Blockbench animation or training gameplay.
 - When lower body or arms change and when a save is loaded, restore original pose before solving. For each side, raise only if actual 3D mesh bounds intersect the lower body, with small shoulder increments (max 8°) and up to 90° upper-arm lift, stopping at the earliest non-intersecting angle. If clear, restore default angles without residual offsets.
 - Re-test with `python3 tools/v196_nexus_pose_arm_clearance_self_check.py`. Static checks and rig-space AABBs are conservative; actual Android display collision and shading remain device checks.
+
+## v197 NEXUSpose over-lift fix (2026-11-10)
+- Never change original NEXUSpose quaternions or authored source. Arm/leg contacts use rig-local oriented-box SAT (15 axes), with AABB as broadphase only.
+- Limit additional lift to 24° upper arm / 3.2° shoulder, minimizing overlap; if impossible to improve, keep original angles. Re-test on arm/leg equipment selection and saved-profile loads.
+- Verify with `tools/v196_nexus_pose_arm_clearance_self_check.py` and `tools/v197_nexus_pose_overlift_self_check.py`.

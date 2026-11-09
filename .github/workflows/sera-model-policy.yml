@@ -30,6 +30,7 @@ on:
       - 'tools/rebuild_lower_body_d_from_author.py'
       - 'tools/v195_lower_body_d_proportions_self_check.py'
       - 'tools/v196_nexus_pose_arm_clearance_self_check.py'
+      - 'tools/v197_nexus_pose_overlift_self_check.py'
       - 'scripts/command_nexus.gd'
       - 'tools/model_policy_check.py'
       - 'docs/MODEL_PART_WORKFLOW_ja.md'
@@ -67,6 +68,8 @@ jobs:
         run: python3 tools/v195_lower_body_d_proportions_self_check.py
       - name: Verify v196 Nexus pose and adaptive arm clearance
         run: python3 tools/v196_nexus_pose_arm_clearance_self_check.py
+      - name: Verify v197 NEXUS pose collision and lift cap
+        run: python3 tools/v197_nexus_pose_overlift_self_check.py
       - name: Verify base model and repository paths
         run: |
           python3 tools/self_check.py

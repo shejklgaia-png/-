@@ -10,7 +10,8 @@ def load(path):
     return (ROOT/path).read_text(encoding="utf-8")
 
 project = load("project.godot")
-assert re.search(r'^config/name="SERA v196"$', project, re.M)
+version = re.search(r'^config/name="SERA v(\d+)"$', project, re.M)
+assert version and int(version.group(1)) >= 196
 nexus = load("scripts/command_nexus.gd")
 rig = load("scripts/sera_rig.gd")
 equips = load("scripts/sera_equipment.gd")
@@ -20,8 +21,8 @@ assert "NEXUS_pose" in poses
 names = {v["name"] for v in poses["NEXUS_pose"]["animators"].values()}
 assert {"Shoulder_L", "Shoulder_R", "UpperArm_L", "UpperArm_R"}.issubset(names)
 assert 'const NEXUS_ARM_STEP_DEGREES: float = 1.5' in nexus
-assert 'const NEXUS_SHOULDER_MAX_DEGREES: float = 8.0' in nexus
-assert 'const NEXUS_ARM_MAX_STEPS: int = 60' in nexus
+assert 'const NEXUS_SHOULDER_MAX_DEGREES: float = 3.2' in nexus
+assert 'const NEXUS_ARM_MAX_STEPS: int = 16' in nexus
 assert 'const NEXUS_ARM_CLEARANCE: float = 0.018' in nexus
 assert 'var nexus_arm_rest_rotations: Dictionary = {}' in nexus
 
@@ -37,7 +38,8 @@ assert 'func _restore_nexus_arm_pose() -> void:' in nexus
 assert 'nexus_arm_rest_rotations[str(bone.name)] = bone.quaternion' in nexus
 assert 'bone.quaternion = nexus_arm_rest_rotations[name]' in nexus
 assert '    _restore_nexus_arm_pose()' in nexus
-assert 'if not _nexus_side_intersects_legs(side, arms, leg_boxes):' in nexus
+assert 'if original_contacts == 0:' in nexus
+assert 'func _nexus_side_overlap_count(side: String, arms: Array,' in nexus
 
 # This MUST be measured from the selected equipment meshes at the current
 # authored exhibition pose, not activated unconditionally for D.
@@ -47,7 +49,8 @@ assert 'get_equipment_selection", "arms"' in nexus
 assert 'piece.is_visible_in_tree()' in nexus
 assert 'piece.mesh.get_aabb()' in nexus
 assert 'sera_display_rig.to_local(piece.to_global(vertex))' in nexus
-assert 'arm_box.intersects(leg_box)' in nexus
+assert 'arm_box.intersects(leg_data["aabb"])' in nexus
+assert '_nexus_boxes_overlap(arm_obb, leg_data["obb"])' in nexus
 assert 'for side in ["L", "R"]:' in nexus
 assert 'for step in range(1, NEXUS_ARM_MAX_STEPS + 1):' in nexus
 assert 'var shoulder: float = minf(' in nexus
