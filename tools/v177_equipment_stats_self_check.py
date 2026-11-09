@@ -30,5 +30,8 @@ assert 'set_equipment_motion_scales' in rig
 assert 'equipment_damage_scale' in rig
 assert 'equipment_guard_transition' in rig
 assert 'energy = TEST_EN_MAX' in main and 'shield = TEST_SH_MAX' in main
+assert 'func _press_training_test_button(pos: Vector2)' in main
+assert 'if _pointer_on_training_test_button(event.position):' in main
+assert 'guard_break_remaining = 2.25' in main
 assert src("README_v177_ja.md").startswith("# SERA v177")
 print("PASS: SERA v177 equipment slots, A/B stat aggregation, HUD and runtime hooks (static only)")
