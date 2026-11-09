@@ -42,12 +42,12 @@ func options_for(slot: String) -> Array:
         return ["A", "B"]
     var options: Array = []
     for set_id in available.keys():
-        if slot == "legs" and str(set_id) == "D" and (
-                (available[set_id] as Dictionary).get("legs", []) as Array).size() != 12:
+        var part_list: Array = (available[set_id] as Dictionary).get(slot, [])
+        if slot == "legs" and str(set_id) == "D" and part_list.size() != 12:
             # Never display "D NEW" for an incomplete authoring import.
             push_error("SERA Lower Body D: expected 12 imported meshes")
             continue
-        if (available[set_id] as Dictionary).get(slot, []).size() > 0:
+        if part_list.size() > 0:
             options.append(str(set_id))
     options.sort()
     return options
