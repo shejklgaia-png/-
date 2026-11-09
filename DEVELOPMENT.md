@@ -1121,3 +1121,10 @@
 - バッシュ射程0.95m、格闘の距離命中補助基準0.75m（A頭部0.83m、B約0.82m）、剣の3D当たり判定と攻撃判定時刻は維持。2.0mは命中確定距離ではない。
 - A/B追尾時間0.4/0.6秒、格闘2/3段・バッシュ追尾各0.2秒、EN、装備ステータス、モデルは維持。
 - `project.godot` をSERA v185へ更新、`README_v185_ja.md` と `tools/v185_melee_start_range_self_check.py` を追加。v184固有テストはv185でSKIP。Godot/Android実機テスト未実施。
+
+
+## 2026-11-09 — SERA v186: standard-rig Head C (source: storage/頭C (2).bbmodel)
+- Integrated head-only set C under a new `Waist3/Torso3/Chest3/Neck3/Head3` group chain in `models/SERA_BOOSTER_allテスト.bbmodel`, preserving A/B and all 23 source animations. Original head source retained in `models/storage/`.
+- Retargeted original Japanese `首` / `頭` parent groups from common pivot Y=11.5 to base Neck Y=23 / Head Y=25. Retained relative mesh offsets and authored sizes. Baked source element X-rotations into the imported mesh vertices to compensate for the current mesh loader's position-only handling of element transforms.
+- Regenerated `assets/sera_equipment_data.gd`; new C candidate appears only in the `head` slot. Project title is `SERA v186`; dedicated static regression test `tools/v186_head_c_self_check.py` added.
+- Static JS checks: original A/B group/mesh/animation JSON unchanged; C mesh hierarchy, face/UV preservation, UUID uniqueness and embedded snapshot JSON round-trip passed. Godot runtime and Android editor/device rendering not executed. See `README_v186_ja.md`.
