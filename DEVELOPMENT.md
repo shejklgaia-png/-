@@ -1201,3 +1201,10 @@
 - Prevent the generic C head traversal from also registering duplicate D leg meshes. Require exactly 12 dedicated D meshes (pelvis 2, thighs 4, shins 2, feet 4) attached to A's existing animated joint pivots before exposing LOWER BODY D as an equipment option; fail closed on incomplete imports.
 - Retain C bird legs, C head, A/B meshes, seven customization slots, one-time v2 save migration, footstep/grounding, animations and all gameplay logic. No modification of the authored geometry or existing combined source. Godot project display name SERA v194.
 - Added tools/rebuild_lower_body_d_data.py and tools/v194_lower_body_d_customization_self_check.py, plus README_v194_ja.md and CI. Static checks do not verify Android display or movement.
+
+
+## 2026-11-10 — SERA v195: restore authored lower-body D silhouette
+- The v193/v194 D model retained 12 meshes and correct names but had independently compressed the waist, thighs, shins and boots to approximate A segment bounds, giving an A-like silhouette. Comparing Blockbench with Xperia customization exposed the visual mismatch.
+- Generate both runtime-ready D and combined authoring D geometry from the exact updated author source, using one uniform scale (0.36) and a single source sole offset (0.2), preserving each mesh's geometry, cross-segment proportions and UVs. Both snapshots are regenerated.
+- Render D using the authoring color indices: rose waist/leg armor (1/3), blue boots (5), rather than sampling the unrelated SERA base 96x32 atlas with 16x16 UVs. A/B/C meshes and colors are unchanged.
+- Add tools/rebuild_lower_body_d_from_author.py, v195 geometry/color test, README_v195_ja.md and CI verification. Keep the original user Blockbench files and all animation tracks. Android Godot visual and animated knee/ankle alignment are pending device verification.

@@ -346,7 +346,7 @@ func _attach_group_meshes(entry: Dictionary, target_bone: Node3D, groups: Dictio
             # Only lower-body geometry becomes set D; HEAD stays C.
             var equipment_set: String = "D" if set_id == "C" and slot == "legs" else set_id
             piece.name = "%s_%s" % [equipment_set, str(element.get("name", "Mesh"))]
-            _apply_equipment_tint(piece, equipment_set)
+            _apply_equipment_tint(piece, equipment_set, int(element.get("color", -1)))
             var base_origin: Vector3 = target_bone.get_meta("bb_origin", Vector3.ZERO)
             piece.position = (_v3(element.get("origin", [0, 0, 0])) - base_origin) * MODEL_UNIT
             # User-authored Head C meshes have nonzero local rotations.
@@ -355,9 +355,29 @@ func _attach_group_meshes(entry: Dictionary, target_bone: Node3D, groups: Dictio
             piece.visible = false
             _add_mesh(equipment_set, slot, piece)
 
-func _apply_equipment_tint(piece: MeshInstance3D, set_id: String) -> void:
+func _apply_equipment_tint(piece: MeshInstance3D, set_id: String, color_index: int = -1) -> void:
     # Keep A untouched and isolate B's material from other variants.
     piece.set_meta("sera_equipment_set", set_id)
+    # Blockbench free-model material color is an editor palette index. The
+    # author's D uses rose pelvis/leg armor and pale-blue boots; its 16x16
+    # UVs are not valid coordinates for the normal SERA 96x32 character atlas.
+    # Do not render it with A's palette, which made the D set appear like A.
+    if set_id == "D":
+        var authored: StandardMaterial3D = piece.material_override as StandardMaterial3D
+        if authored != null:
+            var material_d: StandardMaterial3D = authored.duplicate() as StandardMaterial3D
+            material_d.albedo_texture = null
+            match color_index:
+                1:
+                    material_d.albedo_color = Color("#c98d8d") # pelvis
+                3:
+                    material_d.albedo_color = Color("#ce8585") # thighs + shins
+                5:
+                    material_d.albedo_color = Color("#adc7df") # boots
+                _:
+                    material_d.albedo_color = Color("#afb8c2")
+            piece.material_override = material_d
+        return
     # No texture is embedded in the Head C Blockbench source. Tint only C,
     # which otherwise samples the nearly white corner of SERA's palette.
     if set_id == "C" and str(piece.name).contains("HeadC_"):

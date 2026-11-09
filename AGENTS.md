@@ -84,3 +84,8 @@ Additional historical checks may refer to unavailable prior ZIPs; read their pre
 - Runtime now explicitly loads `models/storage/SERA_LOWER_BODY_D_STANDARD_READY.bbmodel`, with generated fallback `assets/sera_lower_body_d_data.gd`, through `scripts/sera_equipment.gd`. The combined Waist3 root remains necessary for HEAD C, but its embedded leg meshes must not also register D. Keep the dedicated D geometry exactly 12 meshes under the standard A leg joints.
 - Rebuild the fallback with `python3 tools/rebuild_lower_body_d_data.py` when changing the runtime-ready D source, and run `python3 tools/v194_lower_body_d_customization_self_check.py`. The C bird skeleton, saved slot schema v2, and A animation tracks are unchanged.
 - An Android rendering bug was previously reported; a static pass verifies code and asset routing only, not visual acceptance on Xperia 1 V.
+
+
+## v195 LOWER BODY D visual proportions (2026-11-10)
+- The D model must preserve the full 12-mesh source silhouette from models/storage/SERA_LEGS_C_AUTHOR_NORMALIZED.bbmodel. Do not independently resize legs, knees, and boots to A's bounding boxes: it caused a visibly incorrect default-like model.
+- Rebuild by running python3 tools/rebuild_lower_body_d_from_author.py, then python3 tools/rebuild_lower_body_d_data.py and python3 tools/rebuild_equipment_data.py. Use scale 0.36 and original sole Y=0.2. Run tools/v195_lower_body_d_proportions_self_check.py. Preserve D color indices (1/3 rose, 5 pale blue) in the Godot loader.
