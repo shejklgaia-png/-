@@ -101,9 +101,9 @@ const STEP_CLOSE_CAMERA_RECOVERY_SECONDS: float = 0.18
 const TAP_MAX_TRAVEL: float = 18.0  # Pixels, measured over the full pointer gesture.
 const TAP_MAX_DURATION: float = 0.32  # Seconds; long holds are not attacks.
 const GUARD_HOLD_SECONDS: float = TAP_MAX_DURATION  # Hold still for 0.32s to raise shield.
-# v184: The attack starts when the player's center is within 1m of the
+# v185: The attack starts when the player's center is within 2m of the
 # target collision surface; this also terminates PRE-attack melee homing.
-const MELEE_SURFACE_REACH: float = 1.0
+const MELEE_SURFACE_REACH: float = 2.0
 # Preserve v183 melee contact assist and independent Bash activation distance.
 const MELEE_HIT_ASSIST_BASE_REACH: float = 0.75
 const MELEE_BOOST_DEFAULT_SPEED: float = 11.5  # v181: A speed; per-booster stat overrides.
