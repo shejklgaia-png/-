@@ -2,8 +2,9 @@ extends Control
 ## v71: In-project vector-rendered two-part radial controller (no image dependency).
 ## v72: Enlarge guide and visualize run vs outer-ring boost from main.gd.
 ## v73: Legacy floating analog disc (retired in v157).
-## v157: Fixed-in-gesture digital 8-way pad with eight static arrow glyphs;
-## only the selected direction lights up; no finger-following knob.
+## v157: Former fixed 8-way digital pad.
+## v158: Compact fixed-center continuous 360-degree RUN ring and directional
+## indicator; original 210px BOOST guide stays fixed independently.
 ## Preserve v70 joystick color/alpha palette. Input stays in main.gd.
 ## v90: 100% RUN rim and 125% BOOST entry threshold guide.
 ## v115: While boosting, move the drawn knob fully beyond the 125% line.
@@ -23,8 +24,9 @@ extends Control
 var dragging: bool = false
 var movement_boost_active: bool = false
 var anchor_point: Vector2 = Vector2.ZERO
-var radius: float = 168.0
-var digital_direction_sector: int = -1
+var radius: float = 112.0
+var boost_base_radius: float = 168.0
+var analog_direction: Vector2 = Vector2.ZERO
 var melee_in_range: bool = false
 # Screen coordinates supplied by Camera3D.unproject_position(target.global_position).
 # A nonvisible/offscreen target does not leave a misleading marker at screen center.
@@ -43,11 +45,10 @@ const LOCK_RING_WIDTH_MELEE: float = 5.0
 # 4 arcs are centered exactly on the horizontal/vertical axes at rest.
 const LOCK_ARC_SWEEP: float = 0.70
 
-# The pad and arrows stay fixed for the whole gesture; BOOST retains the
-# original 125%/110% distance thresholds, drawn as a stationary outer guide.
+# RUN disc shrinks from 168px to 112px. BOOST remains fixed at 168*1.25=210px.
+const CONTROLLER_RUN_RADIUS: float = 112.0
 const CONTROLLER_BOOST_START_RADIUS_RATIO: float = 1.25
-const CONTROLLER_ARROW_RADIUS_RATIO: float = 0.67
-const CONTROLLER_HUB_RADIUS_RATIO: float = 0.19
+const CONTROLLER_HUB_RADIUS_RATIO: float = 0.24
 
 const OPERATION_ZONE_TOP_RATIO: float = 0.75  # top of fade: 100% transparent
 const OPERATION_ZONE_SOLID_RATIO: float = 0.92  # bottom 8% is a uniform medium gray
@@ -104,26 +105,27 @@ func _process(delta: float) -> void:
     queue_redraw()
 
 func show_drag(origin: Vector2, _pos: Vector2, max_radius: float) -> void:
-    # Spawn at the initial touch once. Subsequent finger motion never moves it.
+    # Spawn only once per touch. The center is never dragged or reanchored.
     if dragging:
         return
     dragging = true
     anchor_point = origin
-    radius = max_radius
-    digital_direction_sector = -1
+    radius = CONTROLLER_RUN_RADIUS
+    boost_base_radius = max_radius
+    analog_direction = Vector2.ZERO
     queue_redraw()
 
-func set_digital_direction(sector: int) -> void:
-    var selected: int = sector if sector >= 0 and sector < 8 else -1
-    if digital_direction_sector == selected:
+func set_analog_direction(value: Vector2) -> void:
+    var next_direction: Vector2 = value.limit_length(1.0)
+    if analog_direction.is_equal_approx(next_direction):
         return
-    digital_direction_sector = selected
+    analog_direction = next_direction
     queue_redraw()
 
 func hide_drag() -> void:
     dragging = false
     movement_boost_active = false
-    digital_direction_sector = -1
+    analog_direction = Vector2.ZERO
     queue_redraw()
 
 func set_movement_boost(value: bool) -> void:
@@ -169,52 +171,49 @@ func _draw() -> void:
         draw_line(mark + Vector2(0, 4), mark + Vector2(0, 13), reticle_color, 2.0)
 
     if dragging:
-        _draw_digital_controller(accent, low)
+        _draw_analog_controller(accent, low)
 
 
-func _draw_digital_controller(accent: Color, low: Color) -> void:
-    # The pad never follows the finger. All direction arrows remain fixed
-    # inside the rim; only the selected sector is highlighted.
+func _draw_analog_controller(accent: Color, low: Color) -> void:
+    # The RUN disc stays fixed at the initial touch point; its radius is
+    # shorter, while the BOOST threshold remains at the original 210px.
     draw_circle(anchor_point, radius, Color(0.15, 0.60, 0.68, 0.08))
     var rim_color: Color = accent if movement_boost_active else low
     draw_arc(anchor_point, radius, 0.0, TAU, 96, rim_color, 3.0, true)
-    # The BOOST entry guide is a full static ring, not a finger-tracking arc.
     var boost_guide: Color = Color(0.21, 0.85, 0.93, 0.60) if movement_boost_active else Color(0.21, 0.85, 0.93, 0.15)
-    draw_arc(anchor_point, radius * CONTROLLER_BOOST_START_RADIUS_RATIO,
+    draw_arc(anchor_point, boost_base_radius * CONTROLLER_BOOST_START_RADIUS_RATIO,
         0.0, TAU, 96, boost_guide, 2.0, true)
     draw_circle(anchor_point, radius * CONTROLLER_HUB_RADIUS_RATIO,
         Color(0.13, 0.54, 0.61, 0.22))
     draw_arc(anchor_point, radius * CONTROLLER_HUB_RADIUS_RATIO,
         0.0, TAU, 48, low, 2.0, true)
-    for sector in range(8):
-        var angle: float = float(sector) * PI * 0.25
-        var pointing: Vector2 = Vector2.RIGHT.rotated(angle)
-        var selected: bool = sector == digital_direction_sector
-        var center: Vector2 = anchor_point + pointing * radius * CONTROLLER_ARROW_RADIUS_RATIO
-        var sideways: Vector2 = Vector2(-pointing.y, pointing.x)
-        var tip: Vector2 = center + pointing * 15.0
-        var tail: Vector2 = center - pointing * 10.0
-        var triangle := PackedVector2Array([
-            tip, tail + sideways * 11.0, tail - sideways * 11.0
-        ])
-        if selected:
-            # Fixed sector highlight: instant feedback without a moving knob.
-            draw_arc(anchor_point, radius * 0.89,
-                angle - PI * 0.115, angle + PI * 0.115,
-                16, accent, 8.0, true)
-        draw_colored_polygon(triangle,
-            accent if selected else Color(0.21, 0.85, 0.93, 0.28))
+    # A rotating angular marker (not a finger-tracking knob) communicates
+    # any of 360 degrees; brightness also reflects analog RUN strength.
+    var strength: float = analog_direction.length()
+    if strength > 0.00001:
+        var heading: Vector2 = analog_direction / strength
+        var angle: float = heading.angle()
+        var indicator_color: Color = Color(
+            0.21, 0.85, 0.93, lerpf(0.38, 0.98, strength))
+        draw_arc(anchor_point, radius * 0.88,
+            angle - 0.26, angle + 0.26, 20, indicator_color, 7.0, true)
+        var sideways: Vector2 = Vector2(-heading.y, heading.x)
+        var tip: Vector2 = anchor_point + heading * radius * 0.69
+        var base: Vector2 = anchor_point + heading * radius * 0.39
+        draw_colored_polygon(PackedVector2Array([
+            tip, base + sideways * 9.0, base - sideways * 9.0
+        ]), indicator_color)
     _draw_move_mode_indicator(accent, rim_color)
 
 
 func _draw_move_mode_indicator(accent: Color, rim_color: Color) -> void:
-    # Place this pill beyond the uppermost outside arrow. It updates together
-    # with the rim and chevrons as the finger crosses the visible boundary.
+    # Place the RUN/BOOST mode label above the original BOOST guide; the
+    # compact RUN circle and its direction indicator remain in place.
     var mode_label: String = "BOOST  1.5x" if movement_boost_active else "RUN  1.0x"
     var label_width: float = 166.0
     var label_height: float = 34.0
     var rect := Rect2(anchor_point.x - label_width * 0.5,
-        anchor_point.y - radius - label_height - 74.0,
+        anchor_point.y - boost_base_radius * CONTROLLER_BOOST_START_RADIUS_RATIO - label_height - 12.0,
         label_width, label_height)
     draw_rect(rect, Color(0.13, 0.54, 0.61, 0.45), true)
     draw_rect(rect, rim_color, false, 2.0, true)
