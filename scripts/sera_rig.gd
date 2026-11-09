@@ -13,6 +13,7 @@ const UNIT: float = 0.065
 const BLEND_SECONDS: float = 0.16
 const SOURCE_PATH: String = "res://assets/sera_source.json"
 const EMBEDDED = preload("res://assets/sera_data.gd")
+const EQUIPMENT_SCRIPT = preload("res://scripts/sera_equipment.gd")
 const SERA_TEXTURE = preload("res://assets/sera_godot_shading_texture.png")
 const WAIT_CLIP: String = "Wait_motion"
 const RUN_CLIP: String = "run_front_original"
@@ -132,6 +133,7 @@ var prior_rotations: Dictionary = {}
 var prior_scales: Dictionary = {}        # uuid -> Quaternion
 var prior_offsets: Dictionary = {}          # uuid -> Vector3
 var loading_ok: bool = false
+var equipment_handler: RefCounted
 
 func _ready() -> void:
     var source: String = ""
@@ -149,6 +151,9 @@ func _ready() -> void:
     var data: Dictionary = parsed
     _build_model(data)
     _build_animations(data)
+    # Mesh alternatives reuse the original animated pivots/UUIDs unchanged.
+    equipment_handler = EQUIPMENT_SCRIPT.new()
+    equipment_handler.call("setup", self)
     loading_ok = (bones.size() > 0 and animations.has(WAIT_CLIP)
         and animations.has(RUN_CLIP) and animations.has(RUN_BACK_CLIP)
         and animations.has(RUN_RIGHT_CLIP) and animations.has(RUN_LEFT_CLIP)
@@ -165,9 +170,22 @@ func _ready() -> void:
         return
     _apply_animation(0.0)
     _build_motion_afterimage_pool()
+    equipment_handler.call("sync_afterimages")
     # Must update the authored blade transforms before main.gd tests contact.
     process_priority = -1
     set_process(true)
+
+## Equipment categories are intentionally independent of animation clips.
+func get_equipment_options(slot: String) -> Array:
+    return equipment_handler.call("options_for", slot) if equipment_handler != null else ["A"]
+
+func get_equipment_selection(slot: String) -> String:
+    return str(equipment_handler.call("current_for", slot)) if equipment_handler != null else "A"
+
+func set_equipment_selection(slot: String, set_id: String) -> bool:
+    if equipment_handler == null:
+        return false
+    return bool(equipment_handler.call("select_part", slot, set_id))
 
 func _build_model(data: Dictionary) -> void:
     var groups_by_uuid: Dictionary = {}
@@ -189,6 +207,9 @@ func _add_entry(entry: Variant, parent: Node3D, parent_origin: Vector3, groups: 
         var pivot := Node3D.new()
         pivot.name = str(group.get("name", "Bone"))
         pivot.position = (origin - parent_origin) * UNIT
+        # Keep the authored absolute pivot for retargeting geometry if a new
+        # set's group/mesh names have changed but its hierarchy still matches.
+        pivot.set_meta("bb_origin", origin)
         parent.add_child(pivot)
         bones[uid] = pivot
         bind_positions[uid] = pivot.position
