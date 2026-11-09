@@ -44,7 +44,8 @@ func advance(delta: float, current: Vector3, player_pos: Vector3,
     if Vector2(dx, dz).length() < MIN_BOX_CLEARANCE:
         var current_dx: float = maxf(absf(player_pos.x - current.x) - 1.0, 0.0)
         var current_dz: float = maxf(absf(player_pos.z - current.z) - 1.0, 0.0)
-        if Vector2(current_dx, current_dz).length() >= MIN_BOX_CLEARANCE:
+        var current_clearance: float = Vector2(current_dx, current_dz).length()
+        if current_clearance >= MIN_BOX_CLEARANCE or Vector2(dx, dz).length() < current_clearance:
             return current
     wanted.y = current.y
     return wanted
