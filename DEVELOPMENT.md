@@ -1176,3 +1176,13 @@
 - Exposed `SeraRig.set_exhibition_mode(true)`; NEXUS invokes it immediately after instantiating display SERA and **before** recording the original transform or fitting the screen. It disables all sole-height-driven root offsets in NEXUS; training keeps the v190 height adjustment, collision and foot-contact audio.
 - Expanded NEXUS PARTS/SETS panel to 8 rows with FEET A STD / C BOOT and extended `SeraSave` profile persistence to FEET. Legacy v191 `legs=C` choices migrate automatically to `legs=A, feet=C` without deleting saves.
 - Project title `SERA v192`, dedicated static validation `tools/v192_foot_slot_preview_self_check.py`. No original .bbmodel/animation/audio/texture changed. Godot/Android display acceptance pending.
+
+
+## 2026-11-10 — SERA v193: lower-body D is the complete new human leg, remove FEET
+- The user clarified that `足C.bbmodel` was a **complete LOWER BODY** equipment set, not separate shoes. v192's FEET row was an incorrect design interpretation; remove it and restore the original seven equipment slots (HEAD, TORSO, LOWER BODY, ARMS, BOOSTER and two weapons).
+- LOWER BODY **D** now contains all ten meshes already imported from Foot C's normal-human compatible combined source: two A-based waist plates, mirrored A thigh/shin armor and four source shoe meshes (width +16%, height +14%, depth +12% at the boot). Preserves standard A skeleton and shared motions; C Head stays independent.
+- To prevent overwriting the bird-leg asset previously assigned D, reassign bird LOWER BODY to **C** (same six bird bones, same animation clips and mesh source). `scripts/sera_equipment.gd` routes the existing authoring Waist3 C head meshes to HEAD=C, and human lower-body geometry to LOWER BODY=D. Original .bbmodel and generated embedded snapshots are not modified.
+- Preserve Nexus screen-space preview height isolation introduced in v192. TRAINING keeps the v190 foot-grounding, foot sound and capsule adjustment, now selected exclusively via LOWER BODY A/B/C/D.
+- New save schema version 2 migrates version 1 saved preferences exactly once: old bird LOWER BODY D→C, old v191 human LOWER BODY C or v192 FEET C→D, and all other equipment (including HEAD C) unchanged. Global cfg has the same one-time migration with an explicit schema marker; repeated loading or saving v193 IDs cannot swap C/D again.
+- Update `scripts/command_nexus.gd` to remove FEET and distinguish C BIRD / D NEW; source geometry, Godot movement, combat, camera, audio and touch input unchanged. README_v193_ja.md and static migration/slot validation test added.
+- **GitHub static verification only; Godot Android runtime behavior to verify after GitSync.**
