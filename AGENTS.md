@@ -106,3 +106,9 @@ Additional historical checks may refer to unavailable prior ZIPs; read their pre
 - The launch selector, training room, and NEXUS all create the same `scripts/version_indicator.gd` label. It reads `ProjectSettings.get_setting("application/config/name")`. Do not hardcode a version separately in each scene or in the display helper.
 - When updating `project.godot` to `SERA vNNN`, all three labels follow automatically. Keep the small top-right stamp's `MOUSE_FILTER_IGNORE` so combat and menu input remain unchanged.
 - `python3 tools/v198_version_indicator_self_check.py` verifies all three entries and the single version source. On-screen appearance remains an Android acceptance check.
+
+
+## v199 training floor sole grounding (2026-11-10)
+- Training model grounding now runs **after every animated pose** via `equipment_handler.snap_grounded_sole_to_floor()` in `scripts/sera_rig.gd`. It uses actual transformed triangle vertices of the currently visible A/B/C/D foot meshes (not AABB corners), and places the lowest sole at the visual grid top Y=-0.0335.
+- Only visual `rig.position.y` changes on grounded frames. Player's XZ/velocity, the capsule's bind-pose extension, save slots, foot-contact signal and animation clips are unchanged. Skip while jump playback/airborne; disable completely in NEXUS exhibition mode.
+- Preserve exact authored mesh geometry, motion clips and cached triangle arrays; don't move the Player root or introduce a physics floor. Run `python3 tools/v199_animated_sole_grounding_self_check.py`.

@@ -9,6 +9,9 @@ const LOWER_BODY_D_EMBEDDED = preload("res://assets/sera_lower_body_d_data.gd")
 const SAVE_PATH: String = "user://sera_equipment.cfg"
 const SLOTS = ["head", "torso", "legs", "arms", "booster", "weapon_r", "weapon_l"]
 const MODEL_UNIT: float = 0.065
+# Training's visible grid is at -0.038 with 0.009 thickness: top = -0.0335.
+# This is visual only; the logical Player still moves on its Y=0 XZ plane.
+const TRAINING_VISIBLE_FLOOR_Y: float = -0.0335
 # B has a red palette tint; all other sets retain their authored colors.
 const B_SET_TINT: Color = Color(1.0, 0.18, 0.18, 1.0)
 
@@ -18,6 +21,8 @@ var selected: Dictionary = {}
 # Per-set bind-pose feet. The base reference is measured once with no motion
 # to avoid raising/lowering the body at each step (which would erase the gait).
 var foot_meshes: Dictionary = {}
+# Cached true mesh vertices avoid AABB-only false soles for rotated shoes.
+var foot_vertex_cache: Dictionary = {}
 var bind_sole_heights: Dictionary = {}
 var standard_sole_y: float = 0.0
 var rig_original_y: float = 0.0
@@ -102,18 +107,31 @@ func _foot_side(piece: MeshInstance3D) -> String:
 func _mesh_lowest_y(piece: MeshInstance3D) -> float:
     if piece.mesh == null:
         return INF
-    var bounds: AABB = piece.mesh.get_aabb()
-    var result: float = INF
-    for ix in [0.0, 1.0]:
-        for iy in [0.0, 1.0]:
-            for iz in [0.0, 1.0]:
-                var corner := bounds.position + Vector3(
-                    bounds.size.x * ix, bounds.size.y * iy, bounds.size.z * iz)
-                result = minf(result, rig.to_local(piece.to_global(corner)).y)
-    return result
+    # Actual triangles, not the transformed eight corners of their AABB.
+    # For a tilted boot the AABB extends below geometry and makes the actual
+    # sole appear to hover even if the bounding box is planted.
+    var cache_key: int = piece.get_instance_id()
+    if not foot_vertex_cache.has(cache_key):
+        var vertices := PackedVector3Array()
+        for surface in range(piece.mesh.get_surface_count()):
+            var arrays: Array = piece.mesh.surface_get_arrays(surface)
+            if arrays.size() > Mesh.ARRAY_VERTEX and arrays[Mesh.ARRAY_VERTEX] is PackedVector3Array:
+                vertices.append_array(arrays[Mesh.ARRAY_VERTEX])
+        foot_vertex_cache[cache_key] = vertices
+    var vertices: PackedVector3Array = foot_vertex_cache[cache_key]
+    if vertices.is_empty():
+        return INF
+    # All transforms are relative to the rig, so adjusting rig.position.y
+    # does not change this measurement and create a feedback loop.
+    var to_rig: Transform3D = rig.global_transform.affine_inverse() * piece.global_transform
+    var sole_y: float = INF
+    for vertex in vertices:
+        sole_y = minf(sole_y, (to_rig * vertex).y)
+    return sole_y
 
 func _cache_bind_foot_geometry() -> void:
     foot_meshes.clear()
+    foot_vertex_cache.clear()
     bind_sole_heights.clear()
     for set_key in available.keys():
         var set_id: String = str(set_key)
@@ -140,6 +158,30 @@ func _apply_legs_grounding(set_id: String) -> void:
     grounding_height_offset = standard_sole_y - float(
         bind_sole_heights.get(set_id, standard_sole_y))
     rig.position.y = rig_original_y + grounding_height_offset
+
+func snap_grounded_sole_to_floor() -> void:
+    # v199: evaluate the *current animated pose*, not only the bind pose.
+    # The logical Player still stays on its existing XZ plane at world Y=0.
+    # This translates only Sera's visual rig; it does not modify gameplay
+    # velocity, collision mask, capsule dimensions, or authoring keyframes.
+    if not grounding_enabled or rig == null:
+        return
+    var wearer: Node3D = rig.get_parent() as Node3D
+    if wearer == null:
+        return
+    # During an authored/debug jump, preserve actual air height. The next
+    # grounded frame resumes the exact sole-plane correction automatically.
+    if absf(wearer.global_position.y) > 0.05 or bool(rig.get("jump_playback")):
+        return
+    var heights: Dictionary = get_active_foot_heights()
+    if not heights.has("L") or not heights.has("R"):
+        return
+    var current_sole: float = minf(float(heights["L"]), float(heights["R"]))
+    if is_inf(current_sole) or is_nan(current_sole):
+        return
+    # Ground plane is the top of the visible training grid. Player logical
+    # height/velocity stay unchanged. The translation exactly plants one foot.
+    rig.position.y = TRAINING_VISIBLE_FLOOR_Y - current_sole - wearer.global_position.y
 
 func get_grounding_height_offset() -> float:
     return grounding_height_offset
