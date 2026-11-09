@@ -37,7 +37,7 @@ assert "const VISUAL_OPPOSITE_TURN_BAND_DEGREES: float = 12.0" in rig
 assert "run_direction_target = direction" in initial
 assert "run_retreat_mode = false" in sector
 assert "run_retreat_mode = true" in sector
-assert "run_retreat_mode =" not in initial.split("return",1)[-1]
+assert "run_retreat_mode =" not in initial.rsplit("run_direction_target = direction",1)[-1]
 assert "run_retreat_mode = (_run_input_angle_degrees(direction)" in initial
 assert "PI * retreat_weight" in yaw
 assert "angle_now: float = atan2(current.x, current.y)" in angle

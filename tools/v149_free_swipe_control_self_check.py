@@ -13,7 +13,7 @@ main = (root/"scripts/main.gd").read_text(encoding="utf-8")
 ui = (root/"scripts/touch_overlay.gd").read_text(encoding="utf-8")
 rig = (root/"scripts/sera_rig.gd").read_text(encoding="utf-8")
 project = (root/"project.godot").read_text(encoding="utf-8")
-assert re.findall(r'^config/name="([^"]+)"$',project,re.M) == ["SERA v150"]
+assert re.findall(r'^config/name="([^"]+)"$',project,re.M) == ["SERA v151"]
 assert (root/"README_v149_ja.md").exists()
 
 def part(source, start, end):
