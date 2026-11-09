@@ -48,6 +48,10 @@ var system_selected_slot: int = 1
 var system_pending_action: String = ""
 var system_pending_slot: int = 0
 var system_message: String = ""
+# Blink only the selected slot border while a destructive action awaits CONFIRM.
+const SYSTEM_CONFIRM_BLINK_HALF_SECONDS: float = 0.38
+var system_confirm_blink_elapsed: float = 0.0
+var system_confirm_blink_bright: bool = true
 # Reuse the same display rig, without reparenting it: SeraRig has external
 # afterimage nodes whose lifetime is tied to _exit_tree. Set its world transform
 # from camera space instead; no duplicate model, SubViewport or draw batch.
@@ -160,6 +164,7 @@ func _ready() -> void:
 
 func _process(delta: float) -> void:
     SeraSave.record_game_time(delta)
+    _update_system_confirmation_blink(delta)
     if focused_target == "DATA ARCHIVE" and not in_transition:
         archive_refresh_elapsed += delta
         if archive_refresh_elapsed >= 1.0:
@@ -755,7 +760,12 @@ func _refresh_system_controls() -> void:
         var style: StyleBoxFlat = _menu_style()
         if system_selected_slot == slot:
             style.bg_color = Color(0.052, 0.190, 0.280, 0.95)
-            style.border_color = Color("#b0edff")
+            if not system_pending_action.is_empty() and system_pending_slot == slot:
+                style.set_border_width_all(3)
+                style.border_color = (Color("#e2f8ff") if system_confirm_blink_bright
+                    else Color(0.0, 0.0, 0.0, 0.0))
+            else:
+                style.border_color = Color("#b0edff")
         panel.add_theme_stylebox_override("panel", style)
     for entry in system_action_rows:
         var action: String = entry["action"]
@@ -768,11 +778,37 @@ func _refresh_system_controls() -> void:
         "SELECT A SLOT  /  SAVE, LOAD, NEW OR DELETE\n"
         + "Saves are stored locally on this device.")
 
+func _reset_system_confirmation_blink() -> void:
+    system_confirm_blink_elapsed = 0.0
+    system_confirm_blink_bright = true
+
+func _update_system_confirmation_blink(delta: float) -> void:
+    if (focused_target != "SYSTEM" or in_transition
+            or system_pending_action.is_empty()
+            or system_pending_slot != system_selected_slot):
+        return
+    system_confirm_blink_elapsed += delta
+    var bright: bool = (int(system_confirm_blink_elapsed /
+        SYSTEM_CONFIRM_BLINK_HALF_SECONDS) % 2) == 0
+    if bright == system_confirm_blink_bright:
+        return
+    system_confirm_blink_bright = bright
+    if system_pending_slot < 1 or system_pending_slot > system_slot_rows.size():
+        return
+    var panel: Panel = system_slot_rows[system_pending_slot - 1]["panel"]
+    # Each row owns its own StyleBoxFlat. Change only that row's border;
+    # keep its text/background readable and avoid allocating styles each frame.
+    var style: StyleBoxFlat = panel.get_theme_stylebox("panel") as StyleBoxFlat
+    if style != null:
+        style.border_color = (Color("#e2f8ff") if bright
+            else Color(0.0, 0.0, 0.0, 0.0))
+
 func _cancel_system_confirmation() -> bool:
     if system_pending_action.is_empty():
         return false
     system_pending_action = ""
     system_pending_slot = 0
+    _reset_system_confirmation_blink()
     system_message = "OPERATION CANCELLED"
     _refresh_system_controls()
     return true
@@ -785,6 +821,7 @@ func _tap_system_control(point: Vector2) -> void:
             system_selected_slot = i + 1
             system_pending_action = ""
             system_pending_slot = 0
+            _reset_system_confirmation_blink()
             system_message = ""
             _refresh_system_controls()
             return
@@ -808,11 +845,13 @@ func _tap_system_control(point: Vector2) -> void:
         if destructive and (system_pending_action != action or system_pending_slot != slot):
             system_pending_action = action
             system_pending_slot = slot
+            _reset_system_confirmation_blink()
             system_message = "PRESS CONFIRM %s TO MODIFY SLOT %02d" % [action, slot]
             _refresh_system_controls()
             return
         system_pending_action = ""
         system_pending_slot = 0
+        _reset_system_confirmation_blink()
         var success: bool = false
         match action:
             "SAVE":
@@ -1897,6 +1936,7 @@ func _focus_arrived(target_name: String) -> void:
     if target_name == "SYSTEM":
         system_pending_action = ""
         system_pending_slot = 0
+        _reset_system_confirmation_blink()
         system_message = ""
         _refresh_system_controls()
     action_label.text = "ENTER TRAINING" if target_name == "TRAINING" else ""
@@ -1924,6 +1964,7 @@ func _return_to_overview() -> void:
     _set_archive_records_visible(false)
     system_pending_action = ""
     system_pending_slot = 0
+    _reset_system_confirmation_blink()
     back_panel.visible = false
     if focused_target == "CUSTOMIZE" and customize_preview_active:
         # Both movements begin on the same Back-button press.

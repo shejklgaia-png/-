@@ -1015,3 +1015,9 @@
 - `scripts/main.gd`で剣の命中確定、バッシュ命中確定、HPが正から0へ遷移したダミー破壊、受けた攻撃のガード/非ガードをそれぞれ1度だけ計上。ダミー破壊を正式な敵撃破と誤称しない。ダメージ量はHP実減少値で計上。NEXUS/TRAININGの稼働時間を累積してSYSTEM SAVEで確定。
 - アーカイブ進捗タブのトレーニング訪問は実際の訪問データに基づき、未実装のストーリー/ミッション/チュートリアルはNOT IMPLEMENTED表記とする。ガレージの3Dカメラ/モジュール、装備選択、入力/移動/格闘ロジック、BGMは維持。
 - 変更：`scripts/command_nexus.gd`、`scripts/sera_save.gd`、`scripts/main.gd`、`project.godot`、`DEVELOPMENT.md`。追加：`README_v172_ja.md`、`tools/v172_system_archive_self_check.py`。既存v171検査は過去バージョン向けとして残す。Godot/Android実機未検証。
+
+
+## v173（2026-11-09） — SYSTEMのCONFIRM待機時に選択スロット枠を点滅
+- 基準：main `7bb1fa3e391e87cb52b4767d1609b2856aaafc8a`（v172）。SYSTEMの既存スロット上書きSAVE・NEW DATA・DELETE確認時のみ選択中のカード枠線を明シアン／透明（0.38秒ごと）で点滅。文字と背景は固定表示し、視認性を維持。
+- クリック確定・キャンセル・戻る・別スロット選択・画面退出で点滅タイマーと枠を初期化。別スロットやDATA ARCHIVEには影響させない。既存StyleBoxFlatのみ更新、点滅位相が変わったフレーム以外は追加描画処理なし。
+- プロジェクト名は`SERA v173`、README/専用静的テストを追加、v172専用静的テストを履歴扱いでSKIP。既存のセーブ処理、外装、戦闘ロジック、表示カメラ/アニメ/音声は変更しない。Godot/Androidの実機検証は未実施。
