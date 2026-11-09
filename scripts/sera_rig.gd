@@ -34,8 +34,10 @@ const BOOST_CLIPS = [BOOST_CLIP, BOOST_BACK_CLIP, BOOST_RIGHT_CLIP, BOOST_LEFT_C
 # v151: Angular interpolation stays continuous through ±180° and shares
 # the visual turn response with RUN. Only rendered poses are filtered.
 const BOOST_DIRECTION_BLEND_SECONDS: float = 0.045
-# Fast pose crossfade only when entering or leaving locomotion BOOST.
+# Keep the fast 0.08s fade for entering BOOST or leaving it for WAIT.
 const BOOST_STATE_BLEND_SECONDS: float = 0.08
+# v162: after main's 0.50s BOOST pose hold, smoothly enter RUN over 0.20s.
+const BOOST_TO_RUN_BLEND_SECONDS: float = 0.20
 const MELEE_APPROACH_CLIP: String = "meleeboost"
 const STRIKE_CLIP: String = "melee1"
 const STRIKE_2_CLIP: String = "Melee2"
@@ -114,6 +116,8 @@ var run_turn_lean_degrees: float = 0.0
 var run_turn_previous_direction: Vector2 = Vector2.ZERO
 var blending_for: float = BLEND_SECONDS
 var blend_duration: float = BLEND_SECONDS
+# Apply ease-in/out only to the targeted BOOST -> RUN 0.20s transition.
+var boost_to_run_crossfade: bool = false
 var combat_playback: bool = false
 var step_playback: bool = false
 var jump_playback: bool = false
@@ -484,6 +488,9 @@ func _build_animations(data: Dictionary) -> void:
 func _switch_clip(wanted: String, fade_seconds: float) -> void:
     if wanted == current_clip or not animations.has(wanted):
         return
+    # Capture BOOST -> RUN intent BEFORE changing current_clip. If a new
+    # BOOST starts during the fade, _switch_clip resets this flag immediately.
+    boost_to_run_crossfade = (current_clip == BOOST_CLIP and wanted == RUN_CLIP)
     # Capture the actual displayed pose to avoid popping at state transitions.
     prior_rotations.clear()
     prior_offsets.clear()
@@ -653,10 +660,13 @@ func set_moving(moving: bool, boosting: bool = false, local_direction: Vector2 =
     var wanted: String = WAIT_CLIP
     if moving:
         wanted = BOOST_CLIP if boosting else RUN_CLIP
-    # Only transitions INTO/OUT OF locomotion BOOST use the shorter fade.
-    # Keep the existing 0.16s transition for RUN <-> WAIT.
+    # v162: BOOST pose stays for 0.50s (main.gd), then BOOST -> RUN uses
+    # a distinct 0.20s blend. BOOST entry and BOOST -> WAIT keep 0.08s;
+    # RUN <-> WAIT remains 0.16s.
     var fade_seconds: float = BLEND_SECONDS
-    if wanted == BOOST_CLIP or current_clip == BOOST_CLIP:
+    if current_clip == BOOST_CLIP and wanted == RUN_CLIP:
+        fade_seconds = BOOST_TO_RUN_BLEND_SECONDS
+    elif wanted == BOOST_CLIP or current_clip == BOOST_CLIP:
         fade_seconds = BOOST_STATE_BLEND_SECONDS
     _switch_clip(wanted, fade_seconds)
 
@@ -1000,6 +1010,9 @@ func _apply_animation(_delta: float) -> void:
     var t: float = fposmod(clip_time, clip_length) if bool(clip["looped"]) else minf(clip_time, clip_length)
     var tracks: Dictionary = clip["tracks"]
     var blend_weight: float = clampf(blending_for / maxf(blend_duration, 0.00001), 0.0, 1.0)
+    if boost_to_run_crossfade:
+        # Cubic easing avoids a hard acceleration change at either endpoint.
+        blend_weight = blend_weight * blend_weight * (3.0 - 2.0 * blend_weight)
     var running_pose: bool = current_clip in RUN_CLIPS
     for uid in bones.keys():
         var bone: Node3D = bones[uid]
