@@ -3,6 +3,7 @@
 ## v99: Authored jump landing pose, hold 0.60s after landing before standing.
 extends Node3D
 const VersionIndicator = preload("res://scripts/version_indicator.gd")
+const CombatVitals = preload("res://scripts/combat_vitals.gd")
 ## v84: Authored 3-stage Swordeffect atlas, exact board placement.
 ## v83: Three-stage tap melee combo; cancel 2 authored frames after follow-through.
 ## v82: Close-range side-step camera bound by target-relative player/camera bearing.
@@ -198,6 +199,7 @@ const DAMAGE_KNOCKBACK_DURATION: float = 0.24  # seconds
 
 # v177: trial A medium/B heavy equipment performance.
 const TEST_EN_MAX: float = 100.0
+const EN_RECOVERY_UNLOCK_RATIO: float = 0.60
 const TEST_SH_MAX: float = 100.0
 var part_stats: Dictionary = {}
 var player_hp: float = 800.0
@@ -210,10 +212,8 @@ var guard_break_remaining: float = 0.0
 var guard_break_hits: int = 0
 var down_remaining: float = 0.0
 var resources_label: Label
-var player_hp_label: Label
-var player_hp_fill: ColorRect
-var player_hp_background: ColorRect
-const PLAYER_HP_BAR_WIDTH: float = 286.0
+var vitals_hud: Control
+const TARGET_HP_BAR_WIDTH: float = 246.0
 var core_label: Label
 var test_hit_button: Button
 var test_break_button: Button
@@ -439,6 +439,10 @@ func _load_part_stats() -> void:
 func _spend_energy(amount: float) -> bool:
     if amount <= 0.0:
         return true
+    # Exhaustion is a global EN-spend lock, not merely a BOOST restriction.
+    # Free actions still work; positive EN costs cannot bypass recovery.
+    if energy_exhausted:
+        return false
     if energy + 0.0001 < amount:
         if energy <= 0.0001:
             energy_exhausted = true
@@ -456,13 +460,13 @@ func _tick_resources(delta: float) -> void:
         energy = minf(TEST_EN_MAX, energy + 24.0 * delta)
     if shield_recovery_pause <= 0.0 and guard_break_remaining <= 0.0 and down_remaining <= 0.0:
         shield = minf(TEST_SH_MAX, shield + 16.0 * delta)
-    if energy_exhausted and energy >= 16.0:
+    if energy_exhausted and energy >= TEST_EN_MAX * EN_RECOVERY_UNLOCK_RATIO:
         energy_exhausted = false
     _refresh_player_hp_bar()
     if resources_label != null:
-        resources_label.text = "DEF %d%%  EN %d  SH %d" % [
+        resources_label.text = "DEF %d%%  SH %d" % [
             roundi(float(part_stats.get("defense", 0.16)) * 100.0),
-            ceili(energy), ceili(shield)]
+            ceili(shield)]
     if core_label != null:
         core_label.text = "CORE %d/75  STAGGER %d/50  %s" % [
             ceili(core_hp), ceili(stagger_value),
@@ -982,7 +986,9 @@ func _build_overlay() -> void:
 
     hp_label = Label.new()
     hp_label.name = "TargetHpLabel"
-    hp_label.position = Vector2(27.0, 73.0)
+    # Enemy health remains on the right; the SERA HP/EN meters sit together
+    # on the top-left inside this existing header without covering the field.
+    hp_label.position = Vector2(414.0, 80.0)
     hp_label.add_theme_font_size_override("font_size", 14)
     hp_label.add_theme_color_override("font_color", Color("d3e9ed"))
     hp_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -990,8 +996,8 @@ func _build_overlay() -> void:
 
     var bar_background := ColorRect.new()
     bar_background.name = "TargetHpBackground"
-    bar_background.position = Vector2(27.0, 104.0)
-    bar_background.size = Vector2(300.0, 7.0)
+    bar_background.position = Vector2(414.0, 105.0)
+    bar_background.size = Vector2(TARGET_HP_BAR_WIDTH, 7.0)
     bar_background.color = Color("23404a")
     bar_background.mouse_filter = Control.MOUSE_FILTER_IGNORE
     hud_panel.add_child(bar_background)
@@ -1003,30 +1009,14 @@ func _build_overlay() -> void:
     hp_fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
     hud_panel.add_child(hp_fill)
 
-    # Matching HP bars for opponent and SERA within the same fixed header.
-    # Keeping them together allows direct damage comparison in A/B tests.
-    player_hp_label = Label.new()
-    player_hp_label.name = "PlayerHpLabel"
-    player_hp_label.position = Vector2(350.0, 80.0)
-    player_hp_label.size = Vector2(PLAYER_HP_BAR_WIDTH, 24.0)
-    player_hp_label.add_theme_font_size_override("font_size", 14)
-    player_hp_label.add_theme_color_override("font_color", Color("c7efff"))
-    player_hp_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-    hud_panel.add_child(player_hp_label)
-    player_hp_background = ColorRect.new()
-    player_hp_background.name = "PlayerHpBackground"
-    player_hp_background.position = Vector2(350.0, 104.0)
-    player_hp_background.size = Vector2(PLAYER_HP_BAR_WIDTH, 7.0)
-    player_hp_background.color = Color("233746")
-    player_hp_background.mouse_filter = Control.MOUSE_FILTER_IGNORE
-    hud_panel.add_child(player_hp_background)
-    player_hp_fill = ColorRect.new()
-    player_hp_fill.name = "PlayerHpFill"
-    player_hp_fill.position = player_hp_background.position
-    player_hp_fill.size = player_hp_background.size
-    player_hp_fill.color = Color("4bb5e7")
-    player_hp_fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
-    hud_panel.add_child(player_hp_fill)
+    # Two unobtrusive read-only meters in the top-left: HP above EN.
+    # They share the existing header rather than extending over the arena.
+    vitals_hud = CombatVitals.new()
+    vitals_hud.name = "CombatVitals"
+    vitals_hud.position = Vector2(27.0, 62.0)
+    vitals_hud.size = Vector2(190.0, 61.0)
+    vitals_hud.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    hud_panel.add_child(vitals_hud)
     _refresh_player_hp_bar()
 
     # Keep the floating hit number out of the fixed HUD, so it still follows
@@ -1041,8 +1031,8 @@ func _build_overlay() -> void:
     layer.add_child(damage_label)
     _refresh_hp_bar()
     resources_label = Label.new()
-    resources_label.position = Vector2(27.0, 118.0)
-    resources_label.add_theme_font_size_override("font_size", 14)
+    resources_label.position = Vector2(226.0, 103.0)
+    resources_label.add_theme_font_size_override("font_size", 12)
     resources_label.add_theme_color_override("font_color", Color("bbd9e5"))
     resources_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
     hud_panel.add_child(resources_label)
@@ -1353,27 +1343,16 @@ func _build_hit_effects() -> void:
     sword_trail.call("attach_to_rig", rig)
 
 func _refresh_player_hp_bar() -> void:
-    if player_hp_label == null or player_hp_fill == null:
+    if vitals_hud == null:
         return
-    var maximum: float = maxf(1.0, float(part_stats.get("max_hp", 800.0)))
-    var remaining: float = clampf(player_hp / maximum, 0.0, 1.0)
-    player_hp_label.text = ("SERA  DOWN  0 / %d HP" % roundi(maximum)
-        if player_hp <= 0.0 else "SERA  %d / %d HP" % [ceili(player_hp), roundi(maximum)])
-    player_hp_fill.size = Vector2(PLAYER_HP_BAR_WIDTH * remaining, 7.0)
-    if remaining <= 0.0:
-        player_hp_fill.color = Color("c74444")
-    elif remaining <= 0.25:
-        player_hp_fill.color = Color("e65b51")
-    elif remaining <= 0.50:
-        player_hp_fill.color = Color("ffb354")
-    else:
-        player_hp_fill.color = Color("4bb5e7")
+    vitals_hud.call("set_vitals", player_hp,
+        float(part_stats.get("max_hp", 800.0)), energy, TEST_EN_MAX, energy_exhausted)
 
 func _refresh_hp_bar() -> void:
     if hp_label == null:
         return
     hp_label.text = "TARGET   %d / %d HP" % [target_hp, TARGET_MAX_HP] if target_hp > 0 else "TARGET   DOWN / RESTARTING"
-    hp_fill.size = Vector2(300.0 * float(target_hp) / float(TARGET_MAX_HP), 7.0)
+    hp_fill.size = Vector2(TARGET_HP_BAR_WIDTH * float(target_hp) / float(TARGET_MAX_HP), 7.0)
     hp_fill.color = Color("5de4d1") if target_hp > 40 else Color("ffb85d")
 
 func _clear_strike_tracking() -> void:
