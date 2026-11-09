@@ -30,18 +30,16 @@ extends Node3D
 const MOVE_SPEED: float = 3.25
 const GROUND_MOVE_SPEED_SCALE: float = 1.25  # v148: speed up ground RUN and BOOST; debug airborne control unchanged.
 const MOVEMENT_BOOST_MULTIPLIER: float = 1.5
-# RUN uses a fixed-speed eight-way digital direction beyond its engage radius.
+# RUN uses a continuously varying analog vector within a compact 112px radius.
 # BOOST remains based on distance from the initial touch point.
 const BOOST_START_RADIUS_RATIO: float = 1.25
 const BOOST_EXIT_RADIUS_RATIO: float = 1.10
 const BOOST_CONFIRM_SECONDS: float = 0.10
 const BOOST_ACCELERATION_SECONDS: float = 0.15
-# v157: one-handed digital 8-way stick, fixed at the first touch point.
-# A 34px engage / 22px release hysteresis rejects thumb jitter.
-const DIGITAL_ENGAGE_DISTANCE: float = 34.0
-const DIGITAL_RELEASE_DISTANCE: float = 22.0
-# A sector must be exceeded by 6 extra degrees to change near a 45-degree boundary.
-const DIGITAL_SECTOR_HYSTERESIS_DEGREES: float = 6.0
+# v158: full 360-degree analog heading on a shorter fixed RUN disc.
+# Keep the BOOST thresholds tied to the ORIGINAL 168px touch radius.
+const RUN_CONTROL_RADIUS: float = 112.0
+const RUN_INPUT_DEADZONE_PIXELS: float = 18.0
 # A side step is classified only when the finger is RELEASED.  In particular,
 # a long horizontal hold/drag never becomes a step, even if it ends quickly.
 const STEP_FLICK_MAX_SECONDS: float = 0.24
@@ -194,8 +192,7 @@ var current_touch: int = -1
 var mouse_down: bool = false
 var pointer_origin: Vector2 = Vector2.ZERO
 var pointer_location: Vector2 = Vector2.ZERO
-# -1=neutral; 0=right, 1=down-right, ... 7=up-right.
-var digital_direction_sector: int = -1
+# Analog 360-degree input is continuous; no 45-degree quantization.
 var direction_input: Vector2 = Vector2.ZERO
 var movement_boost_active: bool = false
 var boost_confirm_elapsed: float = 0.0
@@ -1079,7 +1076,6 @@ func _set_guard(active: bool) -> void:
             return
         guard_active = true
         direction_input = Vector2.ZERO
-        digital_direction_sector = -1
         player.velocity = Vector3.ZERO
         movement_boost_active = false
         boost_confirm_elapsed = 0.0
@@ -1087,7 +1083,7 @@ func _set_guard(active: bool) -> void:
         boost_speed_multiplier = 1.0
         if touch_ui != null:
             touch_ui.call("set_movement_boost", false)
-            touch_ui.call("set_digital_direction", -1)
+            touch_ui.call("set_analog_direction", Vector2.ZERO)
             touch_ui.call("hide_drag")
         rig.call("start_guard")
     else:
@@ -1126,38 +1122,27 @@ func _begin_drag(pos: Vector2) -> void:
     _remember_jump_flick_sample(pos)
     pointer_origin = pos
     pointer_location = pos
-    digital_direction_sector = -1
     direction_input = Vector2.ZERO
     movement_boost_active = false
     boost_confirm_elapsed = 0.0
     boost_has_activated_this_gesture = false
     boost_speed_multiplier = 1.0
     touch_ui.call("set_movement_boost", false)
-    touch_ui.call("set_digital_direction", -1)
+    touch_ui.call("set_analog_direction", Vector2.ZERO)
     if not guard_active:
         touch_ui.call("show_drag", pointer_origin, pointer_location, DRAG_RADIUS)
 
-func _digital_stick_direction(pos: Vector2) -> Vector2:
+func _analog_stick_direction(pos: Vector2) -> Vector2:
     var displacement: Vector2 = pos - pointer_origin
     var distance: float = displacement.length()
-    if distance < DIGITAL_RELEASE_DISTANCE:
-        digital_direction_sector = -1
+    if distance <= RUN_INPUT_DEADZONE_PIXELS:
         return Vector2.ZERO
-    if digital_direction_sector < 0 and distance < DIGITAL_ENGAGE_DISTANCE:
-        return Vector2.ZERO
-    # A digital sector is always full-speed (no analog acceleration by radius).
-    # Hysteresis applies only near adjacent sector boundaries. A decisive
-    # direction change, including direct opposition, takes effect immediately.
-    var angle: float = displacement.angle()
-    var nearest: int = wrapi(int(round(angle / (PI * 0.25))), 0, 8)
-    if digital_direction_sector >= 0:
-        var current_angle: float = float(digital_direction_sector) * PI * 0.25
-        var separation: float = absf(wrapf(angle - current_angle, -PI, PI))
-        var limit: float = PI * 0.125 + deg_to_rad(DIGITAL_SECTOR_HYSTERESIS_DEGREES)
-        if separation <= limit:
-            nearest = digital_direction_sector
-    digital_direction_sector = nearest
-    return Vector2.RIGHT.rotated(float(digital_direction_sector) * PI * 0.25)
+    # No angular quantization: tiny heading changes remain continuous, and
+    # full RUN speed is reached at the shortened 112px rim.
+    var strength: float = clampf(
+        (distance - RUN_INPUT_DEADZONE_PIXELS) /
+        (RUN_CONTROL_RADIUS - RUN_INPUT_DEADZONE_PIXELS), 0.0, 1.0)
+    return displacement / distance * strength
 
 func _change_drag(pos: Vector2) -> void:
     if not gesture_active or guard_active:
@@ -1165,10 +1150,9 @@ func _change_drag(pos: Vector2) -> void:
     pointer_location = pos
     _remember_jump_flick_sample(pos)
     gesture_max_travel = maxf(gesture_max_travel, pos.distance_to(pointer_origin))
-    # The center is locked for the entire touch. Only one of eight fixed
-    # directions is selected; no pointer-following knob or reversal reanchor.
-    direction_input = _digital_stick_direction(pos)
-    touch_ui.call("set_digital_direction", digital_direction_sector)
+    # Fixed origin; continuous 360-degree heading and analog RUN strength.
+    direction_input = _analog_stick_direction(pos)
+    touch_ui.call("set_analog_direction", direction_input)
     # BOOST continues to use the original, fixed 125%/110% radial thresholds.
     _update_boost_gesture(0.0)
     if gesture_max_travel > TAP_MAX_TRAVEL:
@@ -1176,7 +1160,7 @@ func _change_drag(pos: Vector2) -> void:
             _finish_side_step(true)
         if combat_state != CombatState.IDLE:
             _cancel_attack()
-    # The digital pad draws only its fixed anchor and highlighted sector.
+    # The compact RUN ring rotates its indicator without moving its anchor.
     touch_ui.call("show_drag", pointer_origin, pointer_location, DRAG_RADIUS)
 
 func _update_boost_gesture(delta: float) -> void:
@@ -1190,7 +1174,7 @@ func _update_boost_gesture(delta: float) -> void:
             movement_boost_active = false
             touch_ui.call("set_movement_boost", false)
         return
-    # The fixed digital pad never reanchors: keep the original BOOST zone.
+    # RUN rim is 112px, but BOOST stays at the original 168px reference.
     var finger_distance: float = pointer_location.distance_to(pointer_origin)
     if movement_boost_active:
         # Hysteresis: do not flicker between RUN and BOOST at the entry rim.
@@ -1212,7 +1196,6 @@ func _end_drag(release_pos: Vector2) -> void:
     if not gesture_active:
         return
     if guard_active:
-        digital_direction_sector = -1
         # Consume the whole hold, including any movement made before release.
         # Keyboard G may continue Guard after the finger lifts.
         gesture_active = false
@@ -1252,7 +1235,6 @@ func _end_drag(release_pos: Vector2) -> void:
         release_pos - pointer_origin, press_duration)
     var takeoff_momentum: Vector3 = gesture_start_ground_velocity if jump_from_initial_flick else Vector3(player.velocity.x, 0.0, player.velocity.z)
     gesture_active = false
-    digital_direction_sector = -1
     var suppress_release_action: bool = gesture_suppressed_from_damage or gesture_suppressed_from_landing
     gesture_suppressed_from_damage = false
     gesture_suppressed_from_landing = false
@@ -1866,8 +1848,8 @@ func _physics_process(delta: float) -> void:
             rig.call("set_moving", running, movement_boost_active, local_run_direction)
         if running:
             # v9 behavior: world_move already uses the current camera's ground axes.
-            # Digital RUN uses a unit direction vector; BOOST changes speed
-            # smoothly only after the sustained 125% threshold is confirmed.
+            # Analog RUN strength reaches unity at the 112px rim; BOOST changes
+            # speed only after the original 210px threshold is confirmed.
             player.velocity = world_move * MOVE_SPEED * GROUND_MOVE_SPEED_SCALE * boost_speed_multiplier
             # Drag keeps working along the cube's faces instead of becoming
             # blocked or falling through it. No world X/Z bounds are added.
