@@ -36,6 +36,9 @@ const BOOST_START_RADIUS_RATIO: float = 1.25
 const BOOST_EXIT_RADIUS_RATIO: float = 1.10
 const BOOST_CONFIRM_SECONDS: float = 0.10
 const BOOST_ACCELERATION_SECONDS: float = 0.15
+# v159: avoid RUN/WAIT clips interrupting quick BOOST direction changes.
+# This is VISUAL ONLY: physics speed and BOOST input thresholds stay unchanged.
+const BOOST_POSE_GRACE_SECONDS: float = 0.30
 # v158: full 360-degree analog heading on a shorter fixed RUN disc.
 # Keep the BOOST thresholds tied to the ORIGINAL 168px touch radius.
 const RUN_CONTROL_RADIUS: float = 112.0
@@ -198,6 +201,7 @@ var movement_boost_active: bool = false
 var boost_confirm_elapsed: float = 0.0
 var boost_has_activated_this_gesture: bool = false
 var boost_speed_multiplier: float = 1.0
+var boost_pose_grace_remaining: float = 0.0
 var gesture_active: bool = false
 var gesture_suppressed_from_damage: bool = false
 var gesture_suppressed_from_landing: bool = false
@@ -1081,6 +1085,7 @@ func _set_guard(active: bool) -> void:
         boost_confirm_elapsed = 0.0
         boost_has_activated_this_gesture = false
         boost_speed_multiplier = 1.0
+        boost_pose_grace_remaining = 0.0
         if touch_ui != null:
             touch_ui.call("set_movement_boost", false)
             touch_ui.call("set_analog_direction", Vector2.ZERO)
@@ -1127,6 +1132,7 @@ func _begin_drag(pos: Vector2) -> void:
     boost_confirm_elapsed = 0.0
     boost_has_activated_this_gesture = false
     boost_speed_multiplier = 1.0
+    boost_pose_grace_remaining = 0.0
     touch_ui.call("set_movement_boost", false)
     touch_ui.call("set_analog_direction", Vector2.ZERO)
     if not guard_active:
@@ -1206,6 +1212,7 @@ func _end_drag(release_pos: Vector2) -> void:
         boost_confirm_elapsed = 0.0
         boost_has_activated_this_gesture = false
         boost_speed_multiplier = 1.0
+        boost_pose_grace_remaining = 0.0
         jump_flick_samples.clear()
         touch_ui.call("set_movement_boost", false)
         touch_ui.call("hide_drag")
@@ -1243,6 +1250,7 @@ func _end_drag(release_pos: Vector2) -> void:
     boost_confirm_elapsed = 0.0
     boost_has_activated_this_gesture = false
     boost_speed_multiplier = 1.0
+    boost_pose_grace_remaining = 0.0
     jump_flick_samples.clear()
     touch_ui.call("set_movement_boost", false)
     touch_ui.call("hide_drag")
@@ -1790,6 +1798,18 @@ func _physics_process(delta: float) -> void:
     var boost_speed_target: float = MOVEMENT_BOOST_MULTIPLIER if movement_boost_active else 1.0
     boost_speed_multiplier = move_toward(boost_speed_multiplier, boost_speed_target,
         (MOVEMENT_BOOST_MULTIPLIER - 1.0) * delta / BOOST_ACCELERATION_SECONDS)
+    # Only the rig pose retains BOOST briefly. This grace is refreshed during
+    # active BOOST, then counts down even while the thumb crosses the 18px
+    # RUN deadzone; speed, HUD mode and BOOST effects use the real BOOST state.
+    # Attacks, steps, guard, damage, jumps and touch release cancel the grace.
+    if not gesture_active or guard_active or damage_reaction_active \
+            or jump_active or landing_active or step_active \
+            or combat_state != CombatState.IDLE:
+        boost_pose_grace_remaining = 0.0
+    elif movement_boost_active:
+        boost_pose_grace_remaining = BOOST_POSE_GRACE_SECONDS
+    else:
+        boost_pose_grace_remaining = maxf(0.0, boost_pose_grace_remaining - delta)
     # When the training cube is at zero HP, suspend its firing cycle.
     if enemy_shooter != null:
         enemy_shooter.set("can_fire", target_hp > 0)
@@ -1845,7 +1865,15 @@ func _physics_process(delta: float) -> void:
             var local_run_direction: Vector2 = Vector2(
                 world_move.dot(target_forward.cross(Vector3.UP)),
                 world_move.dot(target_forward))
-            rig.call("set_moving", running, movement_boost_active, local_run_direction)
+            # A brief neutral thumb crossing MUST NOT flash WAIT or RUN
+            # between two BOOST directions. Rig still receives the latest
+            # local heading when RUN input is present; a zero heading keeps
+            # the previously displayed BOOST direction until touch resumes.
+            var show_boost_pose: bool = (
+                movement_boost_active or boost_pose_grace_remaining > 0.0)
+            var show_moving_pose: bool = running or (
+                show_boost_pose and gesture_active)
+            rig.call("set_moving", show_moving_pose, show_boost_pose, local_run_direction)
         if running:
             # v9 behavior: world_move already uses the current camera's ground axes.
             # Analog RUN strength reaches unity at the 112px rim; BOOST changes
@@ -1916,6 +1944,8 @@ func _physics_process(delta: float) -> void:
             _:
                 if running and movement_boost_active:
                     state_label.text = "BOOST  x1.5  |  %s" % str(rig.call("get_boost_dominant_clip"))
+                elif boost_pose_grace_remaining > 0.0 and gesture_active:
+                    state_label.text = "RUN  |  BOOST POSE HOLD  |  %s" % str(rig.call("get_boost_dominant_clip"))
                 elif running:
                     state_label.text = "RUN  x1.0  |  %s" % str(rig.call("get_run_dominant_clip"))
                 else:
