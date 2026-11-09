@@ -823,6 +823,20 @@ func _cancel_system_confirmation() -> bool:
 
 func _tap_system_control(point: Vector2) -> void:
     var local: Vector2 = point - focus_panel.position
+    # A pending CONFIRM accepts only a tap inside that exact action button.
+    # A tap on any other button, slot, label or empty space cancels and is
+    # consumed; it must not also select a slot or start another operation.
+    if not system_pending_action.is_empty():
+        var touched_confirm: bool = false
+        for entry in system_action_rows:
+            if str(entry["action"]) != system_pending_action:
+                continue
+            var confirm_panel: Panel = entry["panel"]
+            touched_confirm = Rect2(confirm_panel.position, confirm_panel.size).has_point(local)
+            break
+        if not touched_confirm:
+            _cancel_system_confirmation()
+            return
     for i in range(system_slot_rows.size()):
         var panel: Panel = system_slot_rows[i]["panel"]
         if Rect2(panel.position, panel.size).has_point(local):
@@ -848,13 +862,15 @@ func _tap_system_control(point: Vector2) -> void:
             system_message = "NOTHING TO DELETE"
             _refresh_system_controls()
             return
-        var destructive: bool = (action == "DELETE" or
-            (exists and (action == "SAVE" or action == "NEW")))
-        if destructive and (system_pending_action != action or system_pending_slot != slot):
+        # LOAD always needs confirmation when the selected slot exists.
+        # SAVE/NEW only need confirmation when overwriting an existing slot.
+        var needs_confirmation: bool = (action == "LOAD" or action == "DELETE"
+            or (exists and (action == "SAVE" or action == "NEW")))
+        if needs_confirmation and (system_pending_action != action or system_pending_slot != slot):
             system_pending_action = action
             system_pending_slot = slot
             _reset_system_confirmation_blink()
-            system_message = "PRESS CONFIRM %s TO MODIFY SLOT %02d" % [action, slot]
+            system_message = "PRESS CONFIRM %s FOR SLOT %02d" % [action, slot]
             _refresh_system_controls()
             return
         system_pending_action = ""
