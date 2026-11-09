@@ -67,7 +67,7 @@ for left, right in [(-0.25, -0.10), (-0.08, -0.31), (0.09, 0.12), (-0.44, -0.44)
     low = min(left, right)
     rig_y = floor_y - low
     assert math.isclose(rig_y + min(left, right), floor_y, abs_tol=1e-12)
-    assert (rig_y + max(left, right)) >= floor_y
+    assert (rig_y + max(left, right)) >= floor_y - 1e-12
 
 # Existing static equipment height still drives collider extension; no
 # changes to actor movement, jumps or authored animation keyframes.
