@@ -14,6 +14,8 @@ const BLEND_SECONDS: float = 0.16
 const SOURCE_PATH: String = "res://assets/sera_source.json"
 const EMBEDDED = preload("res://assets/sera_data.gd")
 const EQUIPMENT_SCRIPT = preload("res://scripts/sera_equipment.gd")
+const BIRD_EMBEDDED = preload("res://assets/sera_bird_data.gd")
+const BIRD_LIVE_SOURCE: String = "res://models/storage/SERA_BIRD_LEGS_MIRROR_EDIT.bbmodel"
 const SERA_TEXTURE = preload("res://assets/sera_godot_shading_texture.png")
 const WAIT_CLIP: String = "Wait_motion"
 const RUN_CLIP: String = "run_front_original"
@@ -150,6 +152,10 @@ var attack_windup_clip: String = ""
 var attack_windup_end: float = 0.0
 var attack_windup_phase: float = 0.0
 var equipment_handler: RefCounted
+var bird_authoring: Dictionary = {}
+var bird_bone_ids: Array[String] = []
+var head_c_proxy: Node3D
+var head_c_proxy_base_position: Vector3 = Vector3.ZERO
 
 func _ready() -> void:
     var source: String = ""
@@ -166,7 +172,9 @@ func _ready() -> void:
         return
     var data: Dictionary = parsed
     _build_model(data)
+    _install_bird_model()
     _build_animations(data)
+    _merge_bird_animation_tracks()
     # Mesh alternatives reuse the original animated pivots/UUIDs unchanged.
     equipment_handler = EQUIPMENT_SCRIPT.new()
     equipment_handler.call("setup", self)
@@ -211,6 +219,137 @@ func set_equipment_selection(slot: String, set_id: String) -> bool:
     if equipment_handler == null:
         return false
     return bool(equipment_handler.call("select_part", slot, set_id))
+
+
+# v189: The distinct bird-leg skeleton lives alongside A's original hidden leg
+# rig. Only its 6 authored pivots and 10 meshes are imported. A animations remain
+# unchanged, with bird UUID tracks sampled on the same timeline.
+func _read_bird_authoring() -> Dictionary:
+    if FileAccess.file_exists(BIRD_LIVE_SOURCE):
+        var live_value: Variant = JSON.parse_string(FileAccess.get_file_as_string(BIRD_LIVE_SOURCE))
+        if live_value is Dictionary and live_value.has("groups") and live_value.has("animations"):
+            return live_value
+    var embedded: Variant = JSON.parse_string(BIRD_EMBEDDED.get_json())
+    return embedded if embedded is Dictionary else {}
+
+func _tag_bird_meshes(node: Node) -> void:
+    if node is MeshInstance3D:
+        node.set_meta("sera_bird_leg", true)
+        node.visible = false
+    for child in node.get_children():
+        _tag_bird_meshes(child)
+
+func _install_bird_model() -> void:
+    var data: Dictionary = _read_bird_authoring()
+    if data.is_empty() or not bones.has(RUN_ROOT_BONE_UUID):
+        return
+    var groups: Dictionary = {}
+    var elements: Dictionary = {}
+    for raw_group in data.get("groups", []):
+        groups[str(raw_group.get("uuid", ""))] = raw_group
+    for raw_element in data.get("elements", []):
+        elements[str(raw_element.get("uuid", ""))] = raw_element
+    var entries: Array = data.get("outliner", [])
+    for candidate in entries:
+        if candidate is Dictionary:
+            var name: String = str(groups.get(str(candidate.get("uuid", "")), {}).get("name", ""))
+            if name == "Waist":
+                entries = candidate.get("children", [])
+                break
+    var base_root: Node3D = bones[RUN_ROOT_BONE_UUID]
+    var root_origin: Vector3 = base_root.get_meta("bb_origin", Vector3.ZERO)
+    var installed: int = 0
+    for entry in entries:
+        if entry is Dictionary:
+            var uid: String = str(entry.get("uuid", ""))
+            var group: Dictionary = groups.get(uid, {})
+            if str(group.get("name", "")) not in ["Bird_Thigh_L", "Bird_Thigh_R"]:
+                continue
+            _add_entry(entry, base_root, root_origin, groups, elements)
+            if bones.has(uid):
+                _tag_bird_meshes(bones[uid])
+                installed += 1
+        elif entry is String:
+            var element: Dictionary = elements.get(str(entry), {})
+            if not str(element.get("name", "")).begins_with("Bird_Waist_Armor"):
+                continue
+            var previous_count: int = base_root.get_child_count()
+            _add_entry(entry, base_root, root_origin, groups, elements)
+            if base_root.get_child_count() > previous_count:
+                _tag_bird_meshes(base_root.get_child(previous_count))
+    if installed != 2:
+        push_warning("SERA bird-leg skeleton incomplete: expected two thighs")
+        return
+    for side in ["L", "R"]:
+        for part in ["Thigh", "LowerLeg", "Foot"]:
+            var expected: String = "Bird_%s_%s" % [part, side]
+            for group in groups.values():
+                if str(group.get("name", "")) == expected and bones.has(str(group.get("uuid", ""))):
+                    bird_bone_ids.append(str(group.get("uuid", "")))
+    if bird_bone_ids.size() == 6:
+        bird_authoring = data
+    else:
+        push_warning("SERA bird-leg skeleton incomplete: missing joint")
+
+func _merge_bird_animation_tracks(only_clip: String = "") -> void:
+    if bird_authoring.is_empty():
+        return
+    for raw_clip in bird_authoring.get("animations", []):
+        var clip_name: String = str(raw_clip.get("name", ""))
+        # Historical authored Jump clip uses a Japanese name in this file.
+        if clip_name == "ジャンプ":
+            clip_name = "Jump"
+        if not animations.has(clip_name) or (not only_clip.is_empty() and clip_name != only_clip):
+            continue
+        var tracks: Dictionary = animations[clip_name]["tracks"]
+        var source_tracks: Dictionary = raw_clip.get("animators", {})
+        for uid in bird_bone_ids:
+            if not source_tracks.has(uid):
+                continue
+            var animator: Dictionary = source_tracks[uid]
+            var channels: Dictionary = {"rotation": [], "position": [], "scale": []}
+            for frame in animator.get("keyframes", []):
+                var channel: String = str(frame.get("channel", ""))
+                if not channels.has(channel):
+                    continue
+                var points: Array = frame.get("data_points", [])
+                if points.is_empty():
+                    continue
+                var point: Dictionary = points[0]
+                var value := Vector3(float(point.get("x", 0)), float(point.get("y", 0)),
+                    float(point.get("z", 0)))
+                (channels[channel] as Array).append({"time": float(frame.get("time", 0)), "value": value})
+            for channel in ["rotation", "position", "scale"]:
+                var frames: Array = channels[channel]
+                frames.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+                    return a["time"] < b["time"])
+                if channel == "rotation":
+                    for keyframe in frames:
+                        keyframe["quaternion"] = _blockbench_rotation(keyframe["value"])
+                channels[channel] = frames
+            tracks[uid] = channels
+    if not only_clip.is_empty():
+        return
+    # No newly authored keys for these clips yet. Preserve motion in every
+    # gameplay state by reusing the nearest compatible bird movement/pose.
+    _fallback_bird_animation("run_back", "run_front_original")
+    _fallback_bird_animation("run_right", "run_Left")
+    _fallback_bird_animation("Jump", "Wait_Pose")
+
+func _fallback_bird_animation(target: String, source: String) -> void:
+    if not animations.has(target) or not animations.has(source):
+        return
+    var target_tracks: Dictionary = animations[target]["tracks"]
+    var source_tracks: Dictionary = animations[source]["tracks"]
+    for uid in bird_bone_ids:
+        if not target_tracks.has(uid) and source_tracks.has(uid):
+            target_tracks[uid] = (source_tracks[uid] as Dictionary).duplicate(true)
+
+# C uses its own corrected head pivot; it inherits the authored A Head rotation
+# without shifting the shared A/B skeleton or their animation keyframes.
+func register_head_c_pivot(pivot: Node3D) -> void:
+    head_c_proxy = pivot
+    head_c_proxy_base_position = pivot.position
 
 func _build_model(data: Dictionary) -> void:
     var groups_by_uuid: Dictionary = {}
@@ -1238,6 +1377,12 @@ func _apply_animation(_delta: float) -> void:
         bone.quaternion = q
         bone.position = (bind_positions[uid] as Vector3) + translation
         bone.scale = scale_value
+    if is_instance_valid(head_c_proxy) and bones.has(RUN_HEAD_BONE_UUID):
+        var standard_head: Node3D = bones[RUN_HEAD_BONE_UUID]
+        head_c_proxy.quaternion = standard_head.quaternion
+        head_c_proxy.scale = standard_head.scale
+        head_c_proxy.position = head_c_proxy_base_position + (
+            standard_head.position - bind_positions[RUN_HEAD_BONE_UUID])
 
 ## Blockbench/Three.js default is ZYX: Rz * Ry * Rx.
 ## Normalize multi-turn authoring values so large angles don't amplify numerical error.
