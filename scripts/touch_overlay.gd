@@ -1,8 +1,9 @@
 extends Control
 ## v71: In-project vector-rendered two-part radial controller (no image dependency).
 ## v72: Enlarge guide and visualize run vs outer-ring boost from main.gd.
-## v73: Single translucent disc and center-to-finger line, v70 style;
-## double outward chevrons live entirely OUTSIDE the disc.
+## v73: Legacy floating analog disc (retired in v157).
+## v157: Fixed-in-gesture digital 8-way pad with eight static arrow glyphs;
+## only the selected direction lights up; no finger-following knob.
 ## Preserve v70 joystick color/alpha palette. Input stays in main.gd.
 ## v90: 100% RUN rim and 125% BOOST entry threshold guide.
 ## v115: While boosting, move the drawn knob fully beyond the 125% line.
@@ -22,10 +23,8 @@ extends Control
 var dragging: bool = false
 var movement_boost_active: bool = false
 var anchor_point: Vector2 = Vector2.ZERO
-# Remains at first touch after the steering circle is reanchored.
-var boost_anchor_point: Vector2 = Vector2.ZERO
-var finger_point: Vector2 = Vector2.ZERO
 var radius: float = 168.0
+var digital_direction_sector: int = -1
 var melee_in_range: bool = false
 # Screen coordinates supplied by Camera3D.unproject_position(target.global_position).
 # A nonvisible/offscreen target does not leave a misleading marker at screen center.
@@ -44,14 +43,11 @@ const LOCK_RING_WIDTH_MELEE: float = 5.0
 # 4 arcs are centered exactly on the horizontal/vertical axes at rest.
 const LOCK_ARC_SWEEP: float = 0.70
 
-# Two chevrons in each cardinal direction, placed beyond the outer rim.
-# The RUN knob stays inside the 168px disc; the BOOST knob moves outside
-# the 125% threshold line (even when hysteresis allows a shorter touch drag).
-const CONTROLLER_CHEVRON_NEAR_RATIO: float = 1.13
-const CONTROLLER_CHEVRON_FAR_RATIO: float = 1.27
-const CONTROLLER_FINGER_DOT_RADIUS: float = 29.0
+# The pad and arrows stay fixed for the whole gesture; BOOST retains the
+# original 125%/110% distance thresholds, drawn as a stationary outer guide.
 const CONTROLLER_BOOST_START_RADIUS_RATIO: float = 1.25
-const CONTROLLER_BOOST_KNOB_RADIUS_RATIO: float = 1.48
+const CONTROLLER_ARROW_RADIUS_RATIO: float = 0.67
+const CONTROLLER_HUB_RADIUS_RATIO: float = 0.19
 
 const OPERATION_ZONE_TOP_RATIO: float = 0.75  # top of fade: 100% transparent
 const OPERATION_ZONE_SOLID_RATIO: float = 0.92  # bottom 8% is a uniform medium gray
@@ -107,18 +103,27 @@ func _process(delta: float) -> void:
         set_process(false)
     queue_redraw()
 
-func show_drag(origin: Vector2, pos: Vector2, max_radius: float) -> void:
-    if not dragging:
-        boost_anchor_point = origin
+func show_drag(origin: Vector2, _pos: Vector2, max_radius: float) -> void:
+    # Spawn at the initial touch once. Subsequent finger motion never moves it.
+    if dragging:
+        return
     dragging = true
     anchor_point = origin
-    finger_point = pos
     radius = max_radius
+    digital_direction_sector = -1
+    queue_redraw()
+
+func set_digital_direction(sector: int) -> void:
+    var selected: int = sector if sector >= 0 and sector < 8 else -1
+    if digital_direction_sector == selected:
+        return
+    digital_direction_sector = selected
     queue_redraw()
 
 func hide_drag() -> void:
     dragging = false
     movement_boost_active = false
+    digital_direction_sector = -1
     queue_redraw()
 
 func set_movement_boost(value: bool) -> void:
@@ -164,44 +169,41 @@ func _draw() -> void:
         draw_line(mark + Vector2(0, 4), mark + Vector2(0, 13), reticle_color, 2.0)
 
     if dragging:
-        _draw_radial_controller(accent, low)
+        _draw_digital_controller(accent, low)
 
 
-func _draw_radial_controller(accent: Color, low: Color) -> void:
-    # One uninterrupted translucent disc, covering v72's full outer radius.
-    # Reuse v70's exact base color/alpha instead of adding an image or a ring.
+func _draw_digital_controller(accent: Color, low: Color) -> void:
+    # The pad never follows the finger. All direction arrows remain fixed
+    # inside the rim; only the selected sector is highlighted.
     draw_circle(anchor_point, radius, Color(0.15, 0.60, 0.68, 0.08))
     var rim_color: Color = accent if movement_boost_active else low
     draw_arc(anchor_point, radius, 0.0, TAU, 96, rim_color, 3.0, true)
-
-    # The original BOOST entry arc stays at the pre-reversal origin, while
-    # the direction knob and analog disc track the new steering center.
-    var finger_vector: Vector2 = finger_point - anchor_point
-    var boost_vector: Vector2 = finger_point - boost_anchor_point
-    if boost_vector.length_squared() > radius * radius or movement_boost_active:
-        var heading: float = boost_vector.angle()
-        var guide_color: Color = accent if movement_boost_active else Color(0.21, 0.85, 0.93, 0.26)
-        var guide_width: float = 3.0 if movement_boost_active else 2.0
-        draw_arc(boost_anchor_point, radius * CONTROLLER_BOOST_START_RADIUS_RATIO,
-            heading - 0.38, heading + 0.38, 18, guide_color, guide_width, true)
-
-    # RUN stays capped at the disc rim. During BOOST the *displayed* knob
-    # snaps to 148%, so even its full 29px circle clears the 125% guide.
-    # This is visual only: real touch distance / boost hysteresis are unchanged.
-    var knob_center: Vector2 = anchor_point + finger_vector.limit_length(radius)
-    if movement_boost_active and finger_vector.length_squared() > 0.000001:
-        knob_center = anchor_point + finger_vector.normalized() * (radius * CONTROLLER_BOOST_KNOB_RADIUS_RATIO)
-    draw_line(anchor_point, knob_center, low, 5.0, true)
-    draw_circle(knob_center, CONTROLLER_FINGER_DOT_RADIUS, Color(0.13, 0.54, 0.61, 0.45))
-    draw_arc(knob_center, CONTROLLER_FINGER_DOT_RADIUS, 0.0, TAU, 42, accent, 2.0, true)
-
-    # All eight chevrons lie outside the circle. BOOST makes both the rim
-    # and direction guide brighter, preserving the existing cyan RGBA palette.
-    for direction in [Vector2.UP, Vector2.RIGHT, Vector2.DOWN, Vector2.LEFT]:
-        _draw_chevron(anchor_point, direction, radius * CONTROLLER_CHEVRON_NEAR_RATIO,
-            radius * 0.068, radius * 0.065, rim_color, 3.5)
-        _draw_chevron(anchor_point, direction, radius * CONTROLLER_CHEVRON_FAR_RATIO,
-            radius * 0.068, radius * 0.065, rim_color, 3.5)
+    # The BOOST entry guide is a full static ring, not a finger-tracking arc.
+    var boost_guide: Color = Color(0.21, 0.85, 0.93, 0.60) if movement_boost_active else Color(0.21, 0.85, 0.93, 0.15)
+    draw_arc(anchor_point, radius * CONTROLLER_BOOST_START_RADIUS_RATIO,
+        0.0, TAU, 96, boost_guide, 2.0, true)
+    draw_circle(anchor_point, radius * CONTROLLER_HUB_RADIUS_RATIO,
+        Color(0.13, 0.54, 0.61, 0.22))
+    draw_arc(anchor_point, radius * CONTROLLER_HUB_RADIUS_RATIO,
+        0.0, TAU, 48, low, 2.0, true)
+    for sector in range(8):
+        var angle: float = float(sector) * PI * 0.25
+        var pointing: Vector2 = Vector2.RIGHT.rotated(angle)
+        var selected: bool = sector == digital_direction_sector
+        var center: Vector2 = anchor_point + pointing * radius * CONTROLLER_ARROW_RADIUS_RATIO
+        var sideways: Vector2 = Vector2(-pointing.y, pointing.x)
+        var tip: Vector2 = center + pointing * 15.0
+        var tail: Vector2 = center - pointing * 10.0
+        var triangle := PackedVector2Array([
+            tip, tail + sideways * 11.0, tail - sideways * 11.0
+        ])
+        if selected:
+            # Fixed sector highlight: instant feedback without a moving knob.
+            draw_arc(anchor_point, radius * 0.89,
+                angle - PI * 0.115, angle + PI * 0.115,
+                16, accent, 8.0, true)
+        draw_colored_polygon(triangle,
+            accent if selected else Color(0.21, 0.85, 0.93, 0.28))
     _draw_move_mode_indicator(accent, rim_color)
 
 
@@ -220,17 +222,3 @@ func _draw_move_mode_indicator(accent: Color, rim_color: Color) -> void:
     if font != null:
         draw_string(font, Vector2(rect.position.x, rect.position.y + 24.0),
             mode_label, HORIZONTAL_ALIGNMENT_CENTER, label_width, 18, accent)
-
-
-func _draw_chevron(center: Vector2, direction: Vector2, offset: float,
-        half_width: float, half_length: float, tint: Color, stroke: float) -> void:
-    # Each arrow is two clean, anti-aliased straight strokes with rounded ends.
-    var outward_tip: Vector2 = center + direction * (offset + half_length * 0.5)
-    var tail_center: Vector2 = center + direction * (offset - half_length * 0.5)
-    var perpendicular: Vector2 = Vector2(-direction.y, direction.x)
-    var first: Vector2 = tail_center + perpendicular * half_width
-    var last: Vector2 = tail_center - perpendicular * half_width
-    draw_polyline(PackedVector2Array([first, outward_tip, last]), tint, stroke, true)
-    draw_circle(first, stroke * 0.5, tint)
-    draw_circle(outward_tip, stroke * 0.5, tint)
-    draw_circle(last, stroke * 0.5, tint)
