@@ -39,6 +39,8 @@ for phrase in (
     "overlay = _ko_material_b if",
     "part.material_overlay = overlay",
     "_refresh_character_overlay()",
+    "func _clear_motion_afterimages() -> void:",
+    "if training_ko_active:\n        return",
 ):
     assert phrase in rig, phrase
 assert 'KO_DARK_SHADER = preload("res://shaders/sera_ko_dark.gdshader")' in rig
