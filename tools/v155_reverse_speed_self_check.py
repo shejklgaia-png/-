@@ -12,7 +12,7 @@ def fconst(n):
     m=re.search(r"^const "+re.escape(n)+r": float = (-?[0-9.]+)",source,re.M)
     assert m,n
     return float(m.group(1))
-assert 'config/name="SERA v155"' in project
+assert 'config/name="SERA v156"' in project
 assert fconst("FAST_REVERSE_MIN_SPEED_PIXELS_PER_SEC")==800.0
 assert fconst("FAST_REVERSE_OPPOSITE_DOT")==-0.80
 assert math.isclose(math.degrees(math.acos(-.80)),143.13010235415598,abs_tol=1e-9)
