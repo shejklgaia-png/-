@@ -30,20 +30,12 @@ extends Node3D
 const MOVE_SPEED: float = 3.25
 const GROUND_MOVE_SPEED_SCALE: float = 1.25  # v148: speed up ground RUN and BOOST; debug airborne control unchanged.
 const MOVEMENT_BOOST_MULTIPLIER: float = 1.5
-# v152: physical thumb-friendly 360-degree direction recognition.
-# Use a short recent-motion window, angular hysteresis and adaptive response;
-# a conscious reverse still responds rapidly without fixed-origin controls.
-const SWIPE_HEADING_SAMPLE_PIXELS: float = 12.0
-const SWIPE_HEADING_WINDOW_MSEC: int = 80
-const SWIPE_HEADING_TURN_CONFIRM_PIXELS: float = 20.0
-const SWIPE_HEADING_TURN_CONFIRM_DEGREES: float = 40.0
-const SWIPE_HEADING_DEADBAND_DEGREES: float = 12.0
-const SWIPE_STEERING_FOLLOW_SECONDS: float = 0.055
-const SWIPE_STEERING_FAST_FOLLOW_SECONDS: float = 0.020
-const SWIPE_STEERING_FAST_TURN_DEGREES: float = 65.0
-const SWIPE_STEERING_SNAP_TURN_DEGREES: float = 140.0
-const SWIPE_BOOST_TRAVEL_PIXELS: float = 140.0
-const SWIPE_BOOST_RESET_DOT: float = 0.65
+# RUN stays at full analog input once the thumb crosses the 100% rim.
+# The actual finger position (not the visually clamped knob) controls BOOST.
+const BOOST_START_RADIUS_RATIO: float = 1.25
+const BOOST_EXIT_RADIUS_RATIO: float = 1.10
+const BOOST_CONFIRM_SECONDS: float = 0.10
+const BOOST_ACCELERATION_SECONDS: float = 0.15
 # A side step is classified only when the finger is RELEASED.  In particular,
 # a long horizontal hold/drag never becomes a step, even if it ends quickly.
 const STEP_FLICK_MAX_SECONDS: float = 0.24
@@ -124,7 +116,7 @@ enum CombatState { IDLE, MELEE_APPROACH, DASH, STRIKE }
 # v112: Persistent handedness changes RUN animation selection only.
 const HANDEDNESS_SETTINGS_FILE: String = "user://sera_settings.cfg"
 const DEADZONE: float = 0.095
-const DRAG_RADIUS: float = 168.0  # Legacy drawing API only; no speed/radius stick in v149.
+const DRAG_RADIUS: float = 168.0  # v73: retain v72 outer diameter for the single RUN disc.
 const CAMERA_FOLLOW_RATE: float = 1.65
 const CAMERA_IDLE_RECENTER_RATE: float = 1.05  # How quickly the player eases toward a clear centered resting position.
 const CAMERA_MOVING_YAW_SCALE: float = 0.55  # Softer rotation during drag to preserve left/right movement.
@@ -199,11 +191,9 @@ var pointer_origin: Vector2 = Vector2.ZERO
 var pointer_location: Vector2 = Vector2.ZERO
 var direction_input: Vector2 = Vector2.ZERO
 var movement_boost_active: bool = false
+var boost_confirm_elapsed: float = 0.0
 var boost_has_activated_this_gesture: bool = false
-var swipe_heading_target: Vector2 = Vector2.ZERO
-var swipe_heading_samples: Array[Dictionary] = []
-var swipe_boost_origin: Vector2 = Vector2.ZERO
-var swipe_boost_travel: float = 0.0
+var boost_speed_multiplier: float = 1.0
 var gesture_active: bool = false
 var gesture_suppressed_from_damage: bool = false
 var gesture_suppressed_from_landing: bool = false
@@ -1082,12 +1072,11 @@ func _set_guard(active: bool) -> void:
             return
         guard_active = true
         direction_input = Vector2.ZERO
-        swipe_heading_target = Vector2.ZERO
-        swipe_heading_samples.clear()
-        swipe_boost_travel = 0.0
         player.velocity = Vector3.ZERO
         movement_boost_active = false
+        boost_confirm_elapsed = 0.0
         boost_has_activated_this_gesture = false
+        boost_speed_multiplier = 1.0
         if touch_ui != null:
             touch_ui.call("set_movement_boost", false)
             touch_ui.call("hide_drag")
@@ -1130,124 +1119,65 @@ func _begin_drag(pos: Vector2) -> void:
     pointer_location = pos
     direction_input = Vector2.ZERO
     movement_boost_active = false
+    boost_confirm_elapsed = 0.0
     boost_has_activated_this_gesture = false
-    swipe_heading_target = Vector2.ZERO
-    swipe_heading_samples.clear()
-    swipe_heading_samples.append({"ms": Time.get_ticks_msec(), "pos": pos})
-    swipe_boost_origin = pos
-    swipe_boost_travel = 0.0
+    boost_speed_multiplier = 1.0
     touch_ui.call("set_movement_boost", false)
     if not guard_active:
         touch_ui.call("show_drag", pointer_origin, pointer_location, DRAG_RADIUS)
-        touch_ui.call("set_swipe_motion", pointer_location, Vector2.ZERO, 0.0, false)
 
 func _change_drag(pos: Vector2) -> void:
     if not gesture_active or guard_active:
         return
-    var segment: Vector2 = pos - pointer_location
     pointer_location = pos
     _remember_jump_flick_sample(pos)
     gesture_max_travel = maxf(gesture_max_travel, pos.distance_to(pointer_origin))
-    # Human thumbs wobble by a few screen pixels even during a deliberate
-    # stroke. Resolve direction from the NET travel over the last 80ms,
-    # rather than normalizing one noisy 6px touch event at a time.
-    var now_ms: int = Time.get_ticks_msec()
-    swipe_heading_samples.append({"ms": now_ms, "pos": pos})
-    while swipe_heading_samples.size() > 1 and (
-            now_ms - int(swipe_heading_samples[0]["ms"]) > SWIPE_HEADING_WINDOW_MSEC
-            or swipe_heading_samples.size() > 20):
-        swipe_heading_samples.pop_front()
-    var recent_displacement: Vector2 = (
-        pos - (swipe_heading_samples[0]["pos"] as Vector2))
-    var travel: float = recent_displacement.length()
-    if travel >= SWIPE_HEADING_SAMPLE_PIXELS:
-        var next_heading: Vector2 = recent_displacement / travel
-        if swipe_heading_target.length_squared() < 0.001:
-            # First intentional stroke starts RUN immediately, not with a
-            # ramp. After that, physical steering is smoothed in physics.
-            swipe_heading_target = next_heading
-            direction_input = next_heading
-        else:
-            var difference: float = acos(clampf(
-                next_heading.dot(swipe_heading_target), -1.0, 1.0))
-            var minimum_travel: float = (
-                SWIPE_HEADING_TURN_CONFIRM_PIXELS
-                if difference > deg_to_rad(SWIPE_HEADING_TURN_CONFIRM_DEGREES)
-                else SWIPE_HEADING_SAMPLE_PIXELS)
-            if difference >= deg_to_rad(SWIPE_HEADING_DEADBAND_DEGREES) and (
-                    travel >= minimum_travel):
-                if next_heading.dot(swipe_heading_target) < SWIPE_BOOST_RESET_DOT:
-                    # Meaningful direction change: restart only the BOOST
-                    # stroke. Never restart on normal 2-10px thumb jitter.
-                    swipe_boost_travel = 0.0
-                    swipe_boost_origin = pos
-                    if movement_boost_active:
-                        movement_boost_active = false
-                        touch_ui.call("set_movement_boost", false)
-                swipe_heading_target = next_heading
-    # BOOST is based on net forward advancement from the last committed
-    # stroke origin, not an endless sum of positive noisy back/forth pieces.
-    # Tiny oscillations cannot charge BOOST while the thumb stays in place.
-    if swipe_heading_target.length_squared() > 0.001 and (
-            not damage_reaction_active and not jump_active and not landing_active):
-        var forward_travel: float = maxf(0.0, (
-            pos - swipe_boost_origin).dot(swipe_heading_target))
-        swipe_boost_travel = maxf(swipe_boost_travel, forward_travel)
-        if not movement_boost_active and swipe_boost_travel >= SWIPE_BOOST_TRAVEL_PIXELS:
-            movement_boost_active = true
-            boost_has_activated_this_gesture = true
-            touch_ui.call("set_movement_boost", true)
-    # Keep release-only STEP, tap attack and cancellation rules unchanged.
+    # Analog movement reaches full RUN speed at the visible circle's rim.
+    # Keep clamped full input beyond the rim, multiplying only BOOST speed.
+    var delta: Vector2 = (pos - pointer_origin) / DRAG_RADIUS
+    direction_input = delta.limit_length(1.0)
+    if direction_input.length() <= DEADZONE:
+        direction_input = Vector2.ZERO
+    # Update exits immediately when the thumb returns inside 110%.
+    # 125% entry must be maintained for 0.10s in physics frames, including
+    # when the finger stops moving and no more drag events arrive.
+    _update_boost_gesture(0.0)
+    # The first genuine drag cancels a previous step immediately so held
+    # movement can resume without waiting for the step animation to finish.
     if gesture_max_travel > TAP_MAX_TRAVEL:
         if step_active and not jump_active:
             _finish_side_step(true)
         if combat_state != CombatState.IDLE:
             _cancel_attack()
-    touch_ui.call("set_swipe_motion", pointer_location, direction_input,
-        minf(1.0, swipe_boost_travel / SWIPE_BOOST_TRAVEL_PIXELS),
-        movement_boost_active)
+    touch_ui.call("show_drag", pointer_origin, pointer_location, DRAG_RADIUS)
 
-func _update_swipe_steering(delta: float) -> void:
-    if not gesture_active or guard_active or (
-            swipe_heading_target.length_squared() < 0.001):
-        return
-    if direction_input.length_squared() < 0.001:
-        direction_input = swipe_heading_target
-        return
-    var current_angle: float = direction_input.angle()
-    var target_angle: float = swipe_heading_target.angle()
-    var error: float = absf(wrapf(target_angle - current_angle, -PI, PI))
-    # Large deliberate reversals must remain responsive. Smaller turns get
-    # a short visual/movement filter rather than snapping at every touch.
-    if error >= deg_to_rad(SWIPE_STEERING_SNAP_TURN_DEGREES):
-        direction_input = swipe_heading_target
-    else:
-        var follow_time: float = (
-            SWIPE_STEERING_FAST_FOLLOW_SECONDS
-            if error >= deg_to_rad(SWIPE_STEERING_FAST_TURN_DEGREES)
-            else SWIPE_STEERING_FOLLOW_SECONDS)
-        var alpha: float = 1.0 - exp(-maxf(delta, 0.0) / follow_time)
-        direction_input = Vector2.from_angle(
-            lerp_angle(current_angle, target_angle, alpha))
-    # Keep the controller arrow tied to the movement direction *actually*
-    # applied this frame. The v150 HUD still provides its own smooth display.
-    if touch_ui != null:
-        touch_ui.call("set_swipe_motion", pointer_location, direction_input,
-            minf(1.0, swipe_boost_travel / SWIPE_BOOST_TRAVEL_PIXELS),
-            movement_boost_active)
-
-func _update_boost_gesture(_delta: float) -> void:
-    # A new long stroke is needed after damage/guard/airborne cancellation.
+func _update_boost_gesture(delta: float) -> void:
+    # Gate BOOST only while the damage reaction is actually in progress.
+    # gesture_suppressed_from_damage is deliberately latched until release to
+    # prevent a damaged hold from triggering a phantom STEP or tap attack;
+    # it must NOT block BOOST after the damage reaction finishes.
     if not gesture_active or guard_active or damage_reaction_active or jump_active or landing_active:
-        swipe_boost_travel = 0.0
-        swipe_boost_origin = pointer_location
-        swipe_heading_samples.clear()
-        swipe_heading_samples.append({
-            "ms": Time.get_ticks_msec(), "pos": pointer_location})
+        boost_confirm_elapsed = 0.0
         if movement_boost_active:
             movement_boost_active = false
-            if touch_ui != null:
-                touch_ui.call("set_movement_boost", false)
+            touch_ui.call("set_movement_boost", false)
+        return
+    var finger_distance: float = pointer_location.distance_to(pointer_origin)
+    if movement_boost_active:
+        # Hysteresis: do not flicker between RUN and BOOST at the entry rim.
+        if finger_distance < DRAG_RADIUS * BOOST_EXIT_RADIUS_RATIO:
+            movement_boost_active = false
+            boost_confirm_elapsed = 0.0
+            touch_ui.call("set_movement_boost", false)
+    elif finger_distance >= DRAG_RADIUS * BOOST_START_RADIUS_RATIO:
+        boost_confirm_elapsed += maxf(delta, 0.0)
+        if boost_confirm_elapsed >= BOOST_CONFIRM_SECONDS:
+            movement_boost_active = true
+            boost_has_activated_this_gesture = true
+            touch_ui.call("set_movement_boost", true)
+    else:
+        # Even a very short dip below 125% restarts entry confirmation.
+        boost_confirm_elapsed = 0.0
 
 func _end_drag(release_pos: Vector2) -> void:
     if not gesture_active:
@@ -1259,10 +1189,10 @@ func _end_drag(release_pos: Vector2) -> void:
         gesture_suppressed_from_damage = false
         gesture_suppressed_from_landing = false
         direction_input = Vector2.ZERO
-        swipe_heading_target = Vector2.ZERO
-        swipe_heading_samples.clear()
         movement_boost_active = false
+        boost_confirm_elapsed = 0.0
         boost_has_activated_this_gesture = false
+        boost_speed_multiplier = 1.0
         jump_flick_samples.clear()
         touch_ui.call("set_movement_boost", false)
         touch_ui.call("hide_drag")
@@ -1295,10 +1225,9 @@ func _end_drag(release_pos: Vector2) -> void:
     gesture_suppressed_from_landing = false
     direction_input = Vector2.ZERO
     movement_boost_active = false
-    swipe_heading_target = Vector2.ZERO
-    swipe_heading_samples.clear()
-    swipe_boost_travel = 0.0
+    boost_confirm_elapsed = 0.0
     boost_has_activated_this_gesture = false
+    boost_speed_multiplier = 1.0
     jump_flick_samples.clear()
     touch_ui.call("set_movement_boost", false)
     touch_ui.call("hide_drag")
@@ -1354,6 +1283,8 @@ func _start_jump(inherited_velocity: Vector3) -> void:
     jump_horizontal_velocity = Vector3(inherited_velocity.x, 0.0, inherited_velocity.z) * JUMP_TAKEOFF_HORIZONTAL_FACTOR
     # BOOST never modifies airborne control or inherits a held boost gesture.
     movement_boost_active = false
+    boost_confirm_elapsed = 0.0
+    boost_speed_multiplier = 1.0
     if touch_ui != null:
         touch_ui.call("set_movement_boost", false)
     rig.call("start_jump")
@@ -1434,6 +1365,7 @@ func _begin_landing() -> void:
     landing_elapsed = 0.0
     player.velocity = Vector3.ZERO
     movement_boost_active = false
+    boost_confirm_elapsed = 0.0
     if gesture_active:
         gesture_suppressed_from_landing = true
     if touch_ui != null:
@@ -1837,11 +1769,12 @@ func _screen_drag_to_ground(screen_drag: Vector2) -> Vector3:
 
 func _physics_process(delta: float) -> void:
     _update_guard_hold()
-    # The touch events set a stable desired direction; physics applies a
-    # frame-rate-independent turn response to actual movement.
-    _update_swipe_steering(delta)
+    # Sample the outer-ring hold independently of touch event frequency.
     _update_boost_gesture(delta)
-    # RUN/BOOST speed is now a fixed two-state choice; no analog or ramp.
+    # Acceleration/deceleration affect BOOST speed only, not STEP or attack.
+    var boost_speed_target: float = MOVEMENT_BOOST_MULTIPLIER if movement_boost_active else 1.0
+    boost_speed_multiplier = move_toward(boost_speed_multiplier, boost_speed_target,
+        (MOVEMENT_BOOST_MULTIPLIER - 1.0) * delta / BOOST_ACCELERATION_SECONDS)
     # When the training cube is at zero HP, suspend its firing cycle.
     if enemy_shooter != null:
         enemy_shooter.set("can_fire", target_hp > 0)
@@ -1902,8 +1835,7 @@ func _physics_process(delta: float) -> void:
             # v9 behavior: world_move already uses the current camera's ground axes.
             # Analog strength saturates at the visual rim; BOOST changes speed
             # smoothly only after the sustained 125% threshold is confirmed.
-            player.velocity = world_move * MOVE_SPEED * GROUND_MOVE_SPEED_SCALE * (
-                MOVEMENT_BOOST_MULTIPLIER if movement_boost_active else 1.0)
+            player.velocity = world_move * MOVE_SPEED * GROUND_MOVE_SPEED_SCALE * boost_speed_multiplier
             # Drag keeps working along the cube's faces instead of becoming
             # blocked or falling through it. No world X/Z bounds are added.
         else:
