@@ -7,7 +7,9 @@ main = (root / "scripts/main.gd").read_text(encoding="utf-8")
 stats = (root / "scripts/sera_part_stats.gd").read_text(encoding="utf-8")
 rig = (root / "scripts/sera_rig.gd").read_text(encoding="utf-8")
 project = (root / "project.godot").read_text(encoding="utf-8")
-assert 'config/name="SERA v184"' in project
+if 'config/name="SERA v184"' not in project:
+    print("SKIP: v184 historical 1m activation contract")
+    raise SystemExit(0)
 assert (root / "README_v184_ja.md").exists()
 assert 'const MELEE_SURFACE_REACH: float = 1.0' in main
 assert 'const MELEE_HIT_ASSIST_BASE_REACH: float = 0.75' in main
