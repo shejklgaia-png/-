@@ -42,6 +42,11 @@ func options_for(slot: String) -> Array:
         return ["A", "B"]
     var options: Array = []
     for set_id in available.keys():
+        if slot == "legs" and str(set_id) == "D" and (
+                (available[set_id] as Dictionary).get("legs", []) as Array).size() != 12:
+            # Never display "D NEW" for an incomplete authoring import.
+            push_error("SERA Lower Body D: expected 12 imported meshes")
+            continue
         if (available[set_id] as Dictionary).get(slot, []).size() > 0:
             options.append(str(set_id))
     options.sort()
@@ -55,6 +60,8 @@ func select_part(slot: String, set_id: String, persist: bool = true) -> bool:
         return false
     selected[slot] = set_id
     _apply_part_visibility()
+    if slot == "legs" and set_id == "D":
+        _verify_d_lower_body_visibility()
     if slot == "legs":
         _apply_legs_grounding(set_id)
         rig.call("reset_foot_contacts")
@@ -62,6 +69,24 @@ func select_part(slot: String, set_id: String, persist: bool = true) -> bool:
     if persist:
         _save_selection()
     return true
+
+func _verify_d_lower_body_visibility() -> void:
+    var actual: int = 0
+    var other_visible: int = 0
+    for set_id in available.keys():
+        for raw_part in (available[set_id] as Dictionary).get("legs", []):
+            var piece: MeshInstance3D = raw_part
+            if not piece.visible:
+                continue
+            if str(set_id) == "D":
+                actual += 1
+            else:
+                other_visible += 1
+    if actual != 12 or other_visible != 0:
+        push_error("SERA Lower Body D failed: visible D=%d/12, other=%d" % [
+            actual, other_visible])
+    else:
+        print("SERA Lower Body D active: 12/12 authored meshes; A/B/bird hidden")
 
 func _apply_part_visibility() -> void:
     for set_key in available.keys():
