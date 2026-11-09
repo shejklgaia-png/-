@@ -390,7 +390,9 @@ func _load_part_stats() -> void:
     part_stats = PART_STATS.build(chosen)
     player_hp = float(part_stats.get("max_hp", 800.0))
     rig.call("set_equipment_motion_scales", float(part_stats.get("damage_time_mult", 1.0)),
-        float(part_stats.get("guard_speed_mult", 1.0)))
+        float(part_stats.get("guard_speed_mult", 1.0)),
+        float(part_stats.get("guard_transition", 0.095)),
+        str(part_stats.get("guard_reaction", "medium")))
 
 func _spend_energy(amount: float) -> bool:
     if amount <= 0.0:
@@ -415,8 +417,9 @@ func _tick_resources(delta: float) -> void:
     if energy_exhausted and energy >= 16.0:
         energy_exhausted = false
     if resources_label != null:
-        resources_label.text = "SERA HP %d/%d  EN %d  SH %d" % [
-            ceili(player_hp), int(part_stats.get("max_hp", 800.0)), ceili(energy), ceili(shield)]
+        resources_label.text = "HP %d/%d  DEF %d%%  EN %d  SH %d" % [
+            ceili(player_hp), int(part_stats.get("max_hp", 800.0)),
+            roundi(float(part_stats.get("defense", 0.16)) * 100.0), ceili(energy), ceili(shield)]
     if core_label != null:
         core_label.text = "TEST CORE %d/75  STAGGER %d/50  %s" % [
             ceili(core_hp), ceili(stagger_value),
@@ -1136,7 +1139,7 @@ func _check_strike_contact() -> void:
             contact = _blade_contact(blade[0], blade[1])
         if contact != null:
             _register_strike_hit((contact as Vector3).clamp(_target_hit_aabb().position, _target_hit_aabb().end))
-        elif interval_end >= assist_at and _distance_to_cube_surface(player.position) <= MELEE_SURFACE_REACH + 0.08:
+        elif interval_end >= assist_at and _distance_to_cube_surface(player.position) <= MELEE_SURFACE_REACH + 0.08 * float(part_stats.get("tracking", 1.0)):
             # The preexisting close-range assist is ALSO delayed, so no hit is
             # possible during the backswing even if the target overlaps it.
             var hit_point: Vector3 = Vector3(
