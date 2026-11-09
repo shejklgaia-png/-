@@ -1128,3 +1128,10 @@
 - Retargeted original Japanese `首` / `頭` parent groups from common pivot Y=11.5 to base Neck Y=23 / Head Y=25. Retained relative mesh offsets and authored sizes. Baked source element X-rotations into the imported mesh vertices to compensate for the current mesh loader's position-only handling of element transforms.
 - Regenerated `assets/sera_equipment_data.gd`; new C candidate appears only in the `head` slot. Project title is `SERA v186`; dedicated static regression test `tools/v186_head_c_self_check.py` added.
 - Static JS checks: original A/B group/mesh/animation JSON unchanged; C mesh hierarchy, face/UV preservation, UUID uniqueness and embedded snapshot JSON round-trip passed. Godot runtime and Android editor/device rendering not executed. See `README_v186_ja.md`.
+
+
+## 2026-11-09 — SERA v187: Head C model proportions and C-only tint
+- Screenshot showed C head oversized (width 20 vs A head 6) and pale. Rescaled only C head and neck to 0.32 about local mesh bounding centers, preserving their shape and using absolute target centers [0,27.4,0] for head and [0,24.4,0] for neck.
+- Kept all A/B geometry, 23 animations, standard skeleton, original user .bbmodel, group hierarchy, UUIDs and original C UV/face data. Applied only C's material override (neutral steel gray); B red untouched.
+- Rebuilt embedded equipment snapshot. Bumped project title to v187, updated dedicated test and made v186 historical snapshot test skip on newer releases.
+- JavaScript static checks passed for dimensions, head-neck overlap, A/B and animation preservation, UV/face preservation, and generated embedded JSON consistency. Python and Godot/Android runtime checks not executed.
