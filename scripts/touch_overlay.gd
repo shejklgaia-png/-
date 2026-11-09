@@ -4,7 +4,7 @@ extends Control
 ## v73: Legacy floating analog disc (retired in v157).
 ## v157: Former fixed 8-way digital pad.
 ## v158: Compact fixed-center continuous 360-degree RUN ring and directional
-## indicator; original 210px BOOST guide stays fixed independently.
+## indicator; the BOOST guide tracks the v161 184.8px entry boundary.
 ## Preserve v70 joystick color/alpha palette. Input stays in main.gd.
 ## v90: 100% RUN rim and 125% BOOST entry threshold guide.
 ## v115: While boosting, move the drawn knob fully beyond the 125% line.
@@ -45,16 +45,16 @@ const LOCK_RING_WIDTH_MELEE: float = 5.0
 # 4 arcs are centered exactly on the horizontal/vertical axes at rest.
 const LOCK_ARC_SWEEP: float = 0.70
 
-# RUN disc shrinks from 168px to 112px. BOOST remains fixed at 168*1.25=210px.
+# RUN stays at 112px; BOOST entry moves inward to 168*1.10=184.8px.
 const CONTROLLER_RUN_RADIUS: float = 112.0
-const CONTROLLER_BOOST_START_RADIUS_RATIO: float = 1.25
+const CONTROLLER_BOOST_START_RADIUS_RATIO: float = 1.10
 const CONTROLLER_HUB_RADIUS_RATIO: float = 0.24
 # v160: visual-only propulsion shell OUTSIDE the original BOOST boundary.
-const BOOST_SHELL_RADIUS_RATIO: float = 1.34
+const BOOST_SHELL_RADIUS_RATIO: float = 1.19
 const BOOST_SHELL_SEGMENT_HALF_ARC: float = 0.17
 const BOOST_SHELL_SEGMENT_WIDTH: float = 5.0
-const BOOST_CHEVRON_INNER_RATIO: float = 1.40
-const BOOST_CHEVRON_OUTER_RATIO: float = 1.50
+const BOOST_CHEVRON_INNER_RATIO: float = 1.25
+const BOOST_CHEVRON_OUTER_RATIO: float = 1.35
 const BOOST_CHEVRON_HALF_WIDTH: float = 9.0
 const BOOST_SHELL_INACTIVE_ALPHA_SCALE: float = 0.55
 
@@ -184,14 +184,14 @@ func _draw() -> void:
 
 func _draw_analog_controller(accent: Color, low: Color) -> void:
     # The RUN disc stays fixed at the initial touch point; its radius is
-    # shorter, while the BOOST threshold remains at the original 210px.
+    # shorter, while BOOST begins at the new 184.8px boundary.
     draw_circle(anchor_point, radius, Color(0.15, 0.60, 0.68, 0.08))
     var rim_color: Color = accent if movement_boost_active else low
     draw_arc(anchor_point, radius, 0.0, TAU, 96, rim_color, 3.0, true)
     var boost_guide: Color = Color(0.21, 0.85, 0.93, 0.60) if movement_boost_active else Color(0.21, 0.85, 0.93, 0.15)
     draw_arc(anchor_point, boost_base_radius * CONTROLLER_BOOST_START_RADIUS_RATIO,
         0.0, TAU, 96, boost_guide, 2.0, true)
-    # Fixed propulsion shell is entirely visual; BOOST entry remains 210px.
+    # Fixed propulsion shell moves inward alongside the 184.8px entry ring.
     _draw_boost_outer_shell(accent)
     draw_circle(anchor_point, radius * CONTROLLER_HUB_RADIUS_RATIO,
         Color(0.13, 0.54, 0.61, 0.22))
@@ -244,7 +244,7 @@ func _draw_boost_outer_shell(accent: Color) -> void:
 
 func _draw_move_mode_indicator(accent: Color, rim_color: Color) -> void:
     # Keep the RUN/BOOST label above the NEW outermost arrows; otherwise the
-    # original label at the 210px rim would overlap the 252px thrust tips.
+    # label at the 184.8px rim would overlap the 226.8px thrust tips.
     var mode_label: String = "BOOST  1.5x" if movement_boost_active else "RUN  1.0x"
     var label_width: float = 166.0
     var label_height: float = 34.0

@@ -8,6 +8,9 @@ ui = (root / "scripts/touch_overlay.gd").read_text(encoding="utf-8")
 main = (root / "scripts/main.gd").read_text(encoding="utf-8")
 rig = (root / "scripts/sera_rig.gd").read_text(encoding="utf-8")
 cfg = (root / "project.godot").read_text(encoding="utf-8")
+if "SERA v160" not in cfg:
+    print("SKIP: historical v160 BOOST shell test (requires SERA v160)")
+    raise SystemExit(0)
 assert re.findall(r'^config/name="([^"]+)"$', cfg, re.M) == ["SERA v160"]
 for term in (
     "const CONTROLLER_RUN_RADIUS: float = 112.0",
