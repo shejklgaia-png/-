@@ -143,6 +143,12 @@ var training_ko_active: bool = false
 var _ko_material: ShaderMaterial
 var _ko_material_b: ShaderMaterial
 const KO_DARK_SHADER = preload("res://shaders/sera_ko_dark.gdshader")
+# v182: ping-pong only the AUTHORED early windup keyframes while chasing.
+# Release jumps to the actual windup endpoint with a 0.025s pose blend.
+var attack_windup_active: bool = false
+var attack_windup_clip: String = ""
+var attack_windup_end: float = 0.0
+var attack_windup_phase: float = 0.0
 var equipment_handler: RefCounted
 
 func _ready() -> void:
@@ -294,6 +300,7 @@ func set_training_ko(active: bool) -> void:
         return
     training_ko_active = active
     if active:
+        attack_windup_active = false
         _clear_motion_afterimages()
         # Force the last AUTHORED damage key, not the clip's nominal end
         # (which can include hold frames). Bypass transition blending.
@@ -624,6 +631,7 @@ func _switch_clip(wanted: String, fade_seconds: float) -> void:
         prior_rotations[uid] = pivot.quaternion
         prior_offsets[uid] = pivot.position - bind_positions[uid]
         prior_scales[uid] = pivot.scale
+    attack_windup_active = false
     current_clip = wanted
     clip_time = 0.0
     blending_for = 0.0
@@ -902,6 +910,41 @@ func hold_melee_approach_last_pose() -> void:
     freeze_attack_pose = true
     _apply_animation(0.0)
 
+func start_attack_windup(clip_name: String, windup_end: float) -> void:
+    # Bash, Melee2 and Melee3 each use their own Blockbench windup key.
+    if not loading_ok or damage_playback or guard_playback:
+        return
+    if clip_name != BASH_CLIP and clip_name != STRIKE_2_CLIP and clip_name != STRIKE_3_CLIP:
+        return
+    combat_paused = false
+    freeze_attack_pose = false
+    combat_playback = true
+    _switch_clip(clip_name, 0.065)
+    attack_windup_clip = clip_name
+    attack_windup_end = minf(maxf(windup_end, 0.01),
+        float(animations[clip_name]["last_key_time"]))
+    attack_windup_phase = 0.0
+    attack_windup_active = true
+    clip_time = 0.0
+
+func release_attack_windup() -> void:
+    if not attack_windup_active or current_clip != attack_windup_clip:
+        return
+    # Preserve the current displayed bone pose when jumping from the loop
+    # to the exact last windup key, so release does not cause a visible pop.
+    prior_rotations.clear()
+    prior_offsets.clear()
+    prior_scales.clear()
+    for uid in bones.keys():
+        var pivot: Node3D = bones[uid]
+        prior_rotations[uid] = pivot.quaternion
+        prior_offsets[uid] = pivot.position - bind_positions[uid]
+        prior_scales[uid] = pivot.scale
+    clip_time = attack_windup_end
+    blending_for = 0.0
+    blend_duration = 0.025
+    attack_windup_active = false
+
 func start_strike(clip_name: String = STRIKE_CLIP) -> void:
     if not loading_ok or damage_playback or guard_playback:
         return
@@ -962,7 +1005,14 @@ func clip_finished(name: String) -> bool:
 func _process(delta: float) -> void:
     if not loading_ok or training_ko_active:
         return
-    if not freeze_attack_pose and not combat_paused and not (jump_playback and current_clip == JUMP_CLIP):
+    if attack_windup_active and not combat_paused and current_clip == attack_windup_clip:
+        # Reverse within 0..windup_end instead of restarting at frame zero.
+        # This continuously loops the real windup keys without a snap at wrap.
+        attack_windup_phase += maxf(delta, 0.0)
+        var cycle: float = attack_windup_end * 2.0
+        var phase: float = fposmod(attack_windup_phase, cycle)
+        clip_time = phase if phase <= attack_windup_end else cycle - phase
+    elif not freeze_attack_pose and not combat_paused and not (jump_playback and current_clip == JUMP_CLIP):
         clip_time += delta * (RUN_ANIMATION_SPEED if current_clip in RUN_CLIPS else (
             1.0 / equipment_damage_scale if current_clip == DAMAGE_CLIP else (
                 equipment_reaction_speed if current_clip == GUARD_REACTION_CLIP else 1.0)))
