@@ -1468,11 +1468,12 @@ func _apply_animation(_delta: float) -> void:
     # keyframe for the entire approach, until 'melee1' begins.
     # KO must use the last key even when Blockbench marks Damageknock looped:
     # fposmod(last_key_time, clip_length) would wrap at the final frame.
-    var t: float = clip_time if training_ko_active and current_clip == DAMAGE_CLIP else (
-        fposmod(clip_time, clip_length) if bool(clip["looped"]) else minf(clip_time, clip_length))
+    var t: float = clip_time if (step_playback and directional_step_active) else (
+        clip_time if training_ko_active and current_clip == DAMAGE_CLIP else (
+        fposmod(clip_time, clip_length) if bool(clip["looped"]) else minf(clip_time, clip_length)))
     var tracks: Dictionary = clip["tracks"]
     var blend_weight: float = clampf(blending_for / maxf(blend_duration, 0.00001), 0.0, 1.0)
-    if boost_to_run_crossfade:
+    if boost_to_run_crossfade or (step_playback and directional_step_active):
         # Cubic easing avoids a hard acceleration change at either endpoint.
         blend_weight = blend_weight * blend_weight * (3.0 - 2.0 * blend_weight)
     var running_pose: bool = current_clip in RUN_CLIPS
