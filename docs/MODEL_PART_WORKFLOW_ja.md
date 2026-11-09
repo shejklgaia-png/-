@@ -97,3 +97,10 @@
 - Godotのカスタマイズ `LOWER BODY D` では、A骨格互換へ変換済みの `models/storage/SERA_LOWER_BODY_D_STANDARD_READY.bbmodel` を専用読込します。出力用埋込は `tools/rebuild_lower_body_d_data.py` → `assets/sera_lower_body_d_data.gd`。
 - 旧統合モデルのWaist3からはHEAD Cのみ登録します。Dの下半身は腰2・腿4・膝下2・足4の12メッシュが揃った場合のみ選択可能にし、二重登録は避けます。鳥脚はLOWER BODY Cのまま、保存スキーマはv2を維持します。
 - `tools/v194_lower_body_d_customization_self_check.py` を実行。元モデルの面・UVと標準骨格対応の静的検査であり、Godot Androidの実機表示保証ではありません。
+
+
+## v195 — 原本の脚D形状・色の再現
+- v193/v194では標準A骨格のパーツごとに別倍率で縮小しており、新しい脚の幅・シルエットが失われていました。腰・腿・膝下・足の12メッシュを原本の相対配置・縦横奥行比を維持する**同一倍率0.36**で変換する方式に変更しました。
+- 変換元は SERA_LEGS_C_AUTHOR_NORMALIZED.bbmodel、ゲーム内Dは SERA_LOWER_BODY_D_STANDARD_READY.bbmodel。両方の埋め込みデータも再生成します。再生成は tools/rebuild_lower_body_d_from_author.py を先に実行します。
+- 元のBlockbenchで色番号1, 3, 5を持つメッシュは、D限定でローズ系の装甲と薄青の靴に対応させます。旧モデルの16x16UVを標準セラの96x32テクスチャとして扱わないこと。
+- 元デザインの外形を優先しているため、標準Aの膝・足首の位置との完全一致は保証しません。Godot Androidでのモーション時の追従・接地は確認が必要です。
