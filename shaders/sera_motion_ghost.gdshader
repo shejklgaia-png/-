@@ -4,6 +4,7 @@ shader_type spatial;
 // emitted by Godot; no live-bone offset or screen-space blur is used.
 render_mode unshaded, blend_mix, depth_draw_never, cull_disabled, fog_disabled;
 uniform sampler2D sera_palette : source_color, filter_nearest, repeat_disable;
+uniform vec3 set_tint = vec3(1.0, 1.0, 1.0);
 uniform vec3 trail_alphas = vec3(0.0);
 varying float afterimage_slot;
 void vertex() {
@@ -11,7 +12,7 @@ void vertex() {
 }
 void fragment() {
     vec4 authored_color = texture(sera_palette, UV);
-    ALBEDO = authored_color.rgb;
+    ALBEDO = authored_color.rgb * set_tint;
     float fade = trail_alphas.x;
     if (afterimage_slot > 1.5) {
         fade = trail_alphas.z;
