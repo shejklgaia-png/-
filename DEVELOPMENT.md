@@ -1135,3 +1135,9 @@
 - Kept all A/B geometry, 23 animations, standard skeleton, original user .bbmodel, group hierarchy, UUIDs and original C UV/face data. Applied only C's material override (neutral steel gray); B red untouched.
 - Rebuilt embedded equipment snapshot. Bumped project title to v187, updated dedicated test and made v186 historical snapshot test skip on newer releases.
 - JavaScript static checks passed for dimensions, head-neck overlap, A/B and animation preservation, UV/face preservation, and generated embedded JSON consistency. Python and Godot/Android runtime checks not executed.
+
+
+## 2026-11-09 — SERA v188: Head C enlarged 1.5x
+- Increased only C head (`HeadC_Head_torus`) and neck (`HeadC_Neck_tube`) vertex positions by 1.5 relative to v187; resulting widths 9.6 and 5.952 Blockbench units. Local mesh origins, group pivots, UUIDs, faces/UVs, material, A/B parts and 23 animations unchanged.
+- Updated `assets/sera_equipment_data.gd`, Godot project name to `SERA v188`, versioned README and static check. v187 fixed-proportion test is now historical and skips on newer versions.
+- JS data validation: each mesh axis scales exactly 1.5, original A/B and group/animation data identical, embedded JSON roundtrip. Godot/Android runtime NOT TESTED.
