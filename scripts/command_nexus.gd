@@ -64,6 +64,9 @@ var system_confirm_blink_bright: bool = true
 var sera_display_stand: Node3D
 var sera_display_rig: Node3D
 var sera_original_transform: Transform3D
+# Exhibition-only NEXUSpose correction, not a modification to authored clips.
+var nexus_arm_bones: Dictionary = {}
+var nexus_arm_rest_rotations: Dictionary = {}
 var customize_glow_quad: MeshInstance3D
 var customize_entrance_tween: Tween # Shared by forward and reverse exhibit motions.
 var customize_transition_start_camera_pose: Transform3D = Transform3D.IDENTITY
@@ -103,6 +106,13 @@ const CUSTOMIZE_RETRACTION_SECONDS: float = 0.14
 const CUSTOMIZE_BOTTOM_GAP_PIXELS: float = 10.0
 const CUSTOMIZE_PREVIEW_ROTATION_SAMPLES: int = 16
 const NEXUS_POSE_NAMES: Array[String] = ["NEXUS_pose", "NEXUSpose"]
+# Search outward/upward in small discrete increments, stopping at the first
+# actual visible-mesh clearance. Shoulder motion is deliberately much smaller.
+const NEXUS_ARM_STEP_DEGREES: float = 1.5
+const NEXUS_SHOULDER_STEP_DEGREES: float = 0.3
+const NEXUS_SHOULDER_MAX_DEGREES: float = 8.0
+const NEXUS_ARM_MAX_STEPS: int = 60
+const NEXUS_ARM_CLEARANCE: float = 0.018
 # Authoritative synchronized Blockbench file first; canonical source fallback.
 # Both are JSON text readable by the Android Godot editor after GitSync.
 const NEXUS_POSE_SOURCES: Array[String] = [
@@ -380,7 +390,134 @@ func _sera_display() -> void:
             if arm_angles.has(bone.name):
                 bone.quaternion = bone.quaternion * Quaternion(
                     Vector3.BACK, deg_to_rad(float(arm_angles[bone.name])))
+    _remember_nexus_arm_rest_pose(rig)
+    _fit_nexus_arms_to_lower_body()
     _capture_sera_silhouette(rig)
+
+func _remember_nexus_arm_rest_pose(rig: Node3D) -> void:
+    # Called only once, immediately AFTER applying the authored NEXUSpose.
+    # Its original rotations remain the reference for every equipment swap.
+    nexus_arm_bones.clear()
+    nexus_arm_rest_rotations.clear()
+    var arm_names := ["Shoulder_L", "Shoulder_R", "UpperArm_L", "UpperArm_R"]
+    var bones: Dictionary = rig.get("bones")
+    for raw_bone in bones.values():
+        var bone: Node3D = raw_bone
+        if arm_names.has(str(bone.name)):
+            nexus_arm_bones[str(bone.name)] = bone
+            nexus_arm_rest_rotations[str(bone.name)] = bone.quaternion
+
+func _restore_nexus_arm_pose() -> void:
+    for name in nexus_arm_rest_rotations.keys():
+        var bone: Node3D = nexus_arm_bones.get(name)
+        if is_instance_valid(bone):
+            bone.quaternion = nexus_arm_rest_rotations[name]
+
+func _set_nexus_side_raise(side: String, shoulder_degrees: float,
+        upperarm_degrees: float) -> void:
+    # Positive Z raises R; negative Z raises L. Keep NEXUSpose's authored
+    # torso, elbows, hands, weapons and every bind-position unchanged.
+    var sign: float = 1.0 if side == "R" else -1.0
+    for part in ["Shoulder", "UpperArm"]:
+        var name: String = part + "_" + side
+        var bone: Node3D = nexus_arm_bones.get(name)
+        if not is_instance_valid(bone):
+            continue
+        var degrees: float = shoulder_degrees if part == "Shoulder" else upperarm_degrees
+        var original: Quaternion = nexus_arm_rest_rotations[name]
+        bone.quaternion = (
+            Quaternion(Vector3.BACK, deg_to_rad(sign * degrees)) * original
+        ).normalized()
+
+func _nexus_mesh_bounds_in_rig(piece: MeshInstance3D) -> AABB:
+    # Compare mesh geometry in the same rig-local space, independent of
+    # exhibit yaw, zoom, and temporary camera-relative presentation scale.
+    var source: AABB = piece.mesh.get_aabb()
+    var result: AABB = AABB()
+    var first: bool = true
+    for ix in [0.0, 1.0]:
+        for iy in [0.0, 1.0]:
+            for iz in [0.0, 1.0]:
+                var vertex: Vector3 = source.position + source.size * Vector3(ix, iy, iz)
+                var point: Vector3 = sera_display_rig.to_local(piece.to_global(vertex))
+                if first:
+                    result = AABB(point, Vector3.ZERO)
+                    first = false
+                else:
+                    result = result.expand(point)
+    return result
+
+func _nexus_arm_piece_on_side(piece: MeshInstance3D, side: String) -> bool:
+    # The equipment provider registers the actual selected meshes under A's
+    # animated bones, including B arms. No hard-coded model/set is assumed.
+    var node: Node = piece.get_parent()
+    while node != null and node != sera_display_rig:
+        var name: String = str(node.name)
+        if name == "Shoulder_" + side or name == "UpperArm_" + side or (
+                name == "Forearm_" + side or name == "Hand_" + side):
+            return true
+        node = node.get_parent()
+    return false
+
+func _nexus_side_intersects_legs(side: String, arms: Array,
+        leg_boxes: Array[AABB]) -> bool:
+    for raw_piece in arms:
+        if not raw_piece is MeshInstance3D:
+            continue
+        var piece: MeshInstance3D = raw_piece
+        if piece.mesh == null or not piece.is_visible_in_tree():
+            continue
+        if not _nexus_arm_piece_on_side(piece, side):
+            continue
+        var arm_box: AABB = _nexus_mesh_bounds_in_rig(piece).grow(NEXUS_ARM_CLEARANCE)
+        for leg_box in leg_boxes:
+            if arm_box.intersects(leg_box):
+                return true
+    return false
+
+func _fit_nexus_arms_to_lower_body() -> void:
+    if sera_display_rig == null or nexus_arm_rest_rotations.size() != 4:
+        return
+    # Always start with the untouched authored pose. This guarantees that A,
+    # B, C or any later non-intersecting lower-body selection restores it.
+    _restore_nexus_arm_pose()
+    var handler: RefCounted = sera_display_rig.get("equipment_handler")
+    if handler == null:
+        return
+    var choices: Dictionary = handler.get("available")
+    var selected_legs: String = str(sera_display_rig.call("get_equipment_selection", "legs"))
+    var selected_arms: String = str(sera_display_rig.call("get_equipment_selection", "arms"))
+    var legs: Array = (choices.get(selected_legs, {}) as Dictionary).get("legs", [])
+    var arms: Array = (choices.get(selected_arms, {}) as Dictionary).get("arms", [])
+    var leg_boxes: Array[AABB] = []
+    for raw_piece in legs:
+        if not raw_piece is MeshInstance3D:
+            continue
+        var piece: MeshInstance3D = raw_piece
+        if piece.mesh != null and piece.is_visible_in_tree():
+            leg_boxes.append(_nexus_mesh_bounds_in_rig(piece))
+    if leg_boxes.is_empty():
+        return
+    for side in ["L", "R"]:
+        # In a clear pose we do not rotate that arm AT ALL.
+        if not _nexus_side_intersects_legs(side, arms, leg_boxes):
+            continue
+        var clear: bool = false
+        # Shoulder: at most 8 degrees; upper arm: progressively up to 90.
+        # The first non-intersecting candidate is the minimum sufficient lift
+        # at this angular resolution. No automatic adjustment in TRAINING.
+        for step in range(1, NEXUS_ARM_MAX_STEPS + 1):
+            var shoulder: float = minf(
+                NEXUS_SHOULDER_MAX_DEGREES,
+                float(step) * NEXUS_SHOULDER_STEP_DEGREES)
+            var upper: float = float(step) * NEXUS_ARM_STEP_DEGREES
+            _set_nexus_side_raise(side, shoulder, upper)
+            if not _nexus_side_intersects_legs(side, arms, leg_boxes):
+                clear = true
+                break
+        if not clear:
+            push_warning("NEXUSpose: unable to fully clear lower body with " + side
+                + " arm at 90-degree lift")
 
 func _apply_nexus_pose(rig: Node3D) -> bool:
     # Blockbench animation tracks are decoded by SeraRig's own production
@@ -669,6 +806,8 @@ func _tap_equipment_control(point: Vector2) -> bool:
         var next_index: int = posmod(index + direction, choices.size())
         if bool(sera_display_rig.call("set_equipment_selection", slot, choices[next_index])):
             _refresh_equipment_controls()
+            if slot == "legs" or slot == "arms":
+                _fit_nexus_arms_to_lower_body()
             _capture_sera_silhouette(sera_display_rig)
             _update_projected_silhouettes()
             outline.queue_redraw()
@@ -933,6 +1072,7 @@ func _apply_system_equipment() -> void:
             selected = "A"
         sera_display_rig.call("set_equipment_selection", part, selected)
     _refresh_equipment_controls()
+    _fit_nexus_arms_to_lower_body()
     _capture_sera_silhouette(sera_display_rig)
     _update_projected_silhouettes()
     outline.queue_redraw()
