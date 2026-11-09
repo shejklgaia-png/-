@@ -3,6 +3,7 @@ extends Control
 ## v72: Enlarge guide and visualize run vs outer-ring boost from main.gd.
 ## v73: Legacy floating analog disc (retired in v157).
 ## v157: Former fixed 8-way digital pad.
+## v170: Accepted flick gestures draw a curved V-shaped boat wake behind the released finger.
 ## v169: Tap-attack ripple while released; any new press cancels it before the normal RUN controller.
 ## v158: Compact fixed-center continuous 360-degree RUN ring and directional
 ## indicator; the BOOST guide tracks the v161 184.8px entry boundary.
@@ -38,6 +39,13 @@ var target_marker_visible: bool = false
 var attack_ripple_active: bool = false
 var attack_ripple_elapsed: float = 0.0
 var attack_ripple_position: Vector2 = Vector2.ZERO
+# A recognized directional flick leaves three pairs of spreading wave crests.
+var flick_wake_active: bool = false
+var flick_wake_elapsed: float = 0.0
+var flick_wake_tip: Vector2 = Vector2.ZERO
+var flick_wake_forward: Vector2 = Vector2.UP
+var flick_wake_length: float = 105.0
+var flick_wake_half_width: float = 50.0
 
 # v43: The four arcs spin once per transition; the target-following crosshair does not rotate.
 # Each state transition is exactly one full turn in 0.20 seconds.
@@ -69,6 +77,11 @@ const ATTACK_RIPPLE_RING_COUNT: int = 3
 const ATTACK_RIPPLE_RING_DELAY: float = 0.075
 const ATTACK_RIPPLE_START_RADIUS: float = 12.0
 const ATTACK_RIPPLE_END_RADIUS: float = 86.0
+# Three shallow curved V bands, separated in time: no textures or glow.
+const FLICK_WAKE_DURATION: float = 0.43
+const FLICK_WAKE_BANDS: int = 3
+const FLICK_WAKE_BAND_DELAY: float = 0.060
+const FLICK_WAKE_CURVE_STEPS: int = 12
 
 const OPERATION_ZONE_TOP_RATIO: float = 0.75  # top of fade: 100% transparent
 const OPERATION_ZONE_SOLID_RATIO: float = 0.92  # bottom 8% is a uniform medium gray
@@ -126,9 +139,14 @@ func _process(delta: float) -> void:
             attack_ripple_elapsed + maxf(delta, 0.0), ATTACK_RIPPLE_DURATION)
         if attack_ripple_elapsed >= ATTACK_RIPPLE_DURATION:
             attack_ripple_active = false
-    # Both animations share this Control: finishing the lock spin must not
-    # prematurely stop a ripple still in progress.
-    if progress >= 1.0 and not attack_ripple_active:
+    if flick_wake_active:
+        flick_wake_elapsed = minf(
+            flick_wake_elapsed + maxf(delta, 0.0), FLICK_WAKE_DURATION)
+        if flick_wake_elapsed >= FLICK_WAKE_DURATION:
+            flick_wake_active = false
+    # Lock spin, tap ripple and flick wake share one frame loop: finishing
+    # one effect must not prematurely stop either of the other two.
+    if progress >= 1.0 and not attack_ripple_active and not flick_wake_active:
         set_process(false)
     queue_redraw()
 
@@ -136,6 +154,7 @@ func show_attack_ripple(screen_point: Vector2) -> void:
     # Attack has been accepted on release; do not cover an active joystick.
     if dragging:
         return
+    cancel_flick_wake()
     attack_ripple_position = screen_point
     attack_ripple_elapsed = 0.0
     attack_ripple_active = true
@@ -147,13 +166,43 @@ func cancel_attack_ripple() -> void:
         return
     attack_ripple_active = false
     attack_ripple_elapsed = 0.0
-    if lock_anim_elapsed >= LOCK_SPIN_DURATION:
+    if lock_anim_elapsed >= LOCK_SPIN_DURATION and not flick_wake_active:
         set_process(false)
     queue_redraw()
 
-func show_drag(origin: Vector2, _pos: Vector2, max_radius: float) -> void:
-    # A new touch switches from the ripple to the ordinary controller instantly.
+func show_flick_wake(start_point: Vector2, end_point: Vector2) -> void:
+    # Called only after the released swipe actually starts or queues its action.
+    # The wake's forward axis follows the finger, independently of camera yaw.
+    var displacement: Vector2 = end_point - start_point
+    if dragging or displacement.length_squared() < 144.0:
+        return
     cancel_attack_ripple()
+    flick_wake_tip = end_point
+    flick_wake_forward = displacement.normalized()
+    flick_wake_length = clampf(displacement.length() * 0.95, 78.0, 145.0)
+    flick_wake_half_width = clampf(displacement.length() * 0.48, 33.0, 64.0)
+    flick_wake_elapsed = 0.0
+    flick_wake_active = true
+    set_process(true)
+    queue_redraw()
+
+func cancel_flick_wake() -> void:
+    if not flick_wake_active:
+        return
+    flick_wake_active = false
+    flick_wake_elapsed = 0.0
+    if lock_anim_elapsed >= LOCK_SPIN_DURATION and not attack_ripple_active:
+        set_process(false)
+    queue_redraw()
+
+func cancel_gesture_effects() -> void:
+    # New touch/joystick takes priority; eliminate both release feedback types.
+    cancel_attack_ripple()
+    cancel_flick_wake()
+
+func show_drag(origin: Vector2, _pos: Vector2, max_radius: float) -> void:
+    # New touch immediately restores the familiar RUN/BOOST ring.
+    cancel_gesture_effects()
     # Spawn only once per touch. The center is never dragged or reanchored.
     if dragging:
         return
@@ -221,6 +270,8 @@ func _draw() -> void:
 
     if attack_ripple_active:
         _draw_attack_ripple()
+    if flick_wake_active:
+        _draw_flick_wake()
     if dragging:
         _draw_analog_controller(accent, low)
 
@@ -243,6 +294,36 @@ func _draw_attack_ripple() -> void:
         var stroke_width: float = lerpf(3.2, 1.0, progress)
         draw_arc(attack_ripple_position, wave_radius, 0.0, TAU, 64,
             Color(0.21, 0.85, 0.93, opacity), stroke_width, true)
+
+
+func _draw_flick_wake() -> void:
+    # The release point is the boat's bow. Water-like V crests expand and
+    # fade behind it in screen space, following any recognized flick direction.
+    var sideways := Vector2(-flick_wake_forward.y, flick_wake_forward.x)
+    for band in range(FLICK_WAKE_BANDS):
+        var delay: float = float(band) * FLICK_WAKE_BAND_DELAY
+        var age: float = flick_wake_elapsed - delay
+        if age < 0.0:
+            continue
+        var progress: float = clampf(
+            age / maxf(0.01, FLICK_WAKE_DURATION - delay), 0.0, 1.0)
+        var fade: float = pow(1.0 - progress, 2.0)
+        var back_distance: float = lerpf(8.0, flick_wake_length, progress)
+        var spread: float = lerpf(13.0, flick_wake_half_width, progress)
+        var stroke: Color = Color(
+            0.21, 0.85, 0.93, fade * (0.84 - 0.14 * float(band)))
+        for side in [-1.0, 1.0]:
+            var points := PackedVector2Array()
+            for sample in range(FLICK_WAKE_CURVE_STEPS + 1):
+                var t: float = float(sample) / float(FLICK_WAKE_CURVE_STEPS)
+                # Each crest is curved, not a straight arrow or radial ring.
+                var back: float = back_distance + t * (
+                    20.0 + 30.0 * progress) + sin(t * PI) * 7.0 * progress
+                var lateral: float = side * (
+                    2.0 + spread * pow(t, 1.25))
+                points.append(flick_wake_tip
+                    - flick_wake_forward * back + sideways * lateral)
+            draw_polyline(points, stroke, lerpf(3.1, 1.0, progress), true)
 
 
 func _draw_analog_controller(accent: Color, low: Color) -> void:
