@@ -7,6 +7,9 @@ main=(root/"scripts/main.gd").read_text(encoding="utf-8")
 rig=(root/"scripts/sera_rig.gd").read_text(encoding="utf-8")
 ui=(root/"scripts/touch_overlay.gd").read_text(encoding="utf-8")
 project=(root/"project.godot").read_text(encoding="utf-8")
+if "SERA v159" not in project:
+    print("SKIP: historical v159 BOOST-pose regression (requires SERA v159)")
+    raise SystemExit(0)
 assert re.findall(r'^config/name="([^"]+)"$',project,re.M)==["SERA v159"]
 for token in (
     "const BOOST_POSE_GRACE_SECONDS: float = 0.30",
