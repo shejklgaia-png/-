@@ -109,9 +109,9 @@ const NEXUS_POSE_NAMES: Array[String] = ["NEXUS_pose", "NEXUSpose"]
 # Search outward/upward in small discrete increments, stopping at the first
 # actual visible-mesh clearance. Shoulder motion is deliberately much smaller.
 const NEXUS_ARM_STEP_DEGREES: float = 1.5
-const NEXUS_SHOULDER_STEP_DEGREES: float = 0.3
-const NEXUS_SHOULDER_MAX_DEGREES: float = 8.0
-const NEXUS_ARM_MAX_STEPS: int = 60
+const NEXUS_SHOULDER_STEP_DEGREES: float = 0.2
+const NEXUS_SHOULDER_MAX_DEGREES: float = 3.2
+const NEXUS_ARM_MAX_STEPS: int = 16 # max upper-arm lift is 24 degrees
 const NEXUS_ARM_CLEARANCE: float = 0.018
 # Authoritative synchronized Blockbench file first; canonical source fallback.
 # Both are JSON text readable by the Android Godot editor after GitSync.
@@ -459,8 +459,60 @@ func _nexus_arm_piece_on_side(piece: MeshInstance3D, side: String) -> bool:
         node = node.get_parent()
     return false
 
-func _nexus_side_intersects_legs(side: String, arms: Array,
-        leg_boxes: Array[AABB]) -> bool:
+func _nexus_mesh_obb_in_rig(piece: MeshInstance3D) -> Dictionary:
+    # A world/rig-axis AABB exaggerates the occupied space of tilted arms.
+    # Keep each mesh's own axes so sloped arms do not collide with empty
+    # corners of their enclosing world-aligned box.
+    var local_box: AABB = piece.mesh.get_aabb()
+    var pose: Transform3D = sera_display_rig.global_transform.affine_inverse() * piece.global_transform
+    var axes: Array[Vector3] = [
+        pose.basis.x.normalized(), pose.basis.y.normalized(), pose.basis.z.normalized()]
+    var extents: Vector3 = local_box.size * 0.5
+    var half: Vector3 = Vector3(
+        extents.x * pose.basis.x.length(),
+        extents.y * pose.basis.y.length(),
+        extents.z * pose.basis.z.length())
+    return {
+        "center": pose * local_box.get_center(),
+        "axes": axes,
+        "half": half
+    }
+
+func _nexus_boxes_overlap(a: Dictionary, b: Dictionary) -> bool:
+    # OBB/OBB separating-axis theorem: test 3 axes per mesh and all 9 cross
+    # products. A tilted shoulder's broadphase AABB alone is not a collision.
+    var aa: Array = a["axes"]
+    var ba: Array = b["axes"]
+    var axes: Array[Vector3] = []
+    for axis in aa:
+        axes.append(axis)
+    for axis in ba:
+        axes.append(axis)
+    for i in range(3):
+        for j in range(3):
+            var cross_axis: Vector3 = (aa[i] as Vector3).cross(ba[j])
+            if cross_axis.length_squared() > 0.000001:
+                axes.append(cross_axis.normalized())
+    var a_half: Vector3 = a["half"]
+    var b_half: Vector3 = b["half"]
+    var delta: Vector3 = (b["center"] as Vector3) - (a["center"] as Vector3)
+    for axis in axes:
+        var radius_a: float = (
+            absf(axis.dot(aa[0])) * a_half.x
+            + absf(axis.dot(aa[1])) * a_half.y
+            + absf(axis.dot(aa[2])) * a_half.z)
+        var radius_b: float = (
+            absf(axis.dot(ba[0])) * b_half.x
+            + absf(axis.dot(ba[1])) * b_half.y
+            + absf(axis.dot(ba[2])) * b_half.z)
+        if absf(delta.dot(axis)) > radius_a + radius_b + NEXUS_ARM_CLEARANCE:
+            return false
+    return true
+
+func _nexus_side_overlap_count(side: String, arms: Array,
+        leg_boxes: Array[Dictionary]) -> int:
+    # Use a fast axis-aligned broadphase and an oriented narrowphase.
+    var overlaps: int = 0
     for raw_piece in arms:
         if not raw_piece is MeshInstance3D:
             continue
@@ -470,16 +522,20 @@ func _nexus_side_intersects_legs(side: String, arms: Array,
         if not _nexus_arm_piece_on_side(piece, side):
             continue
         var arm_box: AABB = _nexus_mesh_bounds_in_rig(piece).grow(NEXUS_ARM_CLEARANCE)
-        for leg_box in leg_boxes:
-            if arm_box.intersects(leg_box):
-                return true
-    return false
+        var arm_obb: Dictionary = {}
+        for leg_data in leg_boxes:
+            if not arm_box.intersects(leg_data["aabb"]):
+                continue
+            if arm_obb.is_empty():
+                arm_obb = _nexus_mesh_obb_in_rig(piece)
+            if _nexus_boxes_overlap(arm_obb, leg_data["obb"]):
+                overlaps += 1
+    return overlaps
 
 func _fit_nexus_arms_to_lower_body() -> void:
     if sera_display_rig == null or nexus_arm_rest_rotations.size() != 4:
         return
-    # Always start with the untouched authored pose. This guarantees that A,
-    # B, C or any later non-intersecting lower-body selection restores it.
+    # Always begin from the untouched NEXUSpose; no accumulated offsets.
     _restore_nexus_arm_pose()
     var handler: RefCounted = sera_display_rig.get("equipment_handler")
     if handler == null:
@@ -489,35 +545,51 @@ func _fit_nexus_arms_to_lower_body() -> void:
     var selected_arms: String = str(sera_display_rig.call("get_equipment_selection", "arms"))
     var legs: Array = (choices.get(selected_legs, {}) as Dictionary).get("legs", [])
     var arms: Array = (choices.get(selected_arms, {}) as Dictionary).get("arms", [])
-    var leg_boxes: Array[AABB] = []
+    var leg_boxes: Array[Dictionary] = []
     for raw_piece in legs:
         if not raw_piece is MeshInstance3D:
             continue
         var piece: MeshInstance3D = raw_piece
         if piece.mesh != null and piece.is_visible_in_tree():
-            leg_boxes.append(_nexus_mesh_bounds_in_rig(piece))
+            leg_boxes.append({
+                "aabb": _nexus_mesh_bounds_in_rig(piece),
+                "obb": _nexus_mesh_obb_in_rig(piece)
+            })
     if leg_boxes.is_empty():
         return
     for side in ["L", "R"]:
-        # In a clear pose we do not rotate that arm AT ALL.
-        if not _nexus_side_intersects_legs(side, arms, leg_boxes):
-            continue
-        var clear: bool = false
-        # Shoulder: at most 8 degrees; upper arm: progressively up to 90.
-        # The first non-intersecting candidate is the minimum sufficient lift
-        # at this angular resolution. No automatic adjustment in TRAINING.
+        var original_contacts: int = _nexus_side_overlap_count(side, arms, leg_boxes)
+        if original_contacts == 0:
+            continue # Keep EXACT original NEXUSpose on clear side.
+        var best_contacts: int = original_contacts
+        var best_step: int = 0
+        # Hard cap at 24 degrees of upper-arm lift; shoulders move only 3.2.
+        # If geometry cannot clear, choose the *least interfering* modest
+        # angle instead of forcing the arms nearly horizontal.
         for step in range(1, NEXUS_ARM_MAX_STEPS + 1):
             var shoulder: float = minf(
                 NEXUS_SHOULDER_MAX_DEGREES,
                 float(step) * NEXUS_SHOULDER_STEP_DEGREES)
             var upper: float = float(step) * NEXUS_ARM_STEP_DEGREES
             _set_nexus_side_raise(side, shoulder, upper)
-            if not _nexus_side_intersects_legs(side, arms, leg_boxes):
-                clear = true
-                break
-        if not clear:
-            push_warning("NEXUSpose: unable to fully clear lower body with " + side
-                + " arm at 90-degree lift")
+            var contacts: int = _nexus_side_overlap_count(side, arms, leg_boxes)
+            if contacts < best_contacts:
+                best_contacts = contacts
+                best_step = step
+            if contacts == 0:
+                break # Minimum fully clear angle.
+        if best_step == 0:
+            # No improvement anywhere in the allowed range: leave the
+            # authored pose unchanged rather than making it point sideways.
+            _set_nexus_side_raise(side, 0.0, 0.0)
+        else:
+            _set_nexus_side_raise(side,
+                minf(NEXUS_SHOULDER_MAX_DEGREES,
+                    float(best_step) * NEXUS_SHOULDER_STEP_DEGREES),
+                float(best_step) * NEXUS_ARM_STEP_DEGREES)
+        if best_contacts > 0:
+            push_warning("NEXUSpose: " + side
+                + " arm has remaining contact, preserved minimal practical lift")
 
 func _apply_nexus_pose(rig: Node3D) -> bool:
     # Blockbench animation tracks are decoded by SeraRig's own production

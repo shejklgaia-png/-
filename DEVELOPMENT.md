@@ -1216,3 +1216,9 @@
 - Check collisions independently for L/R. If an arm is not intersecting, leave both its joints at exact original rotations. If intersecting, raise outward with ±Z rotation in 1.5-degree increments for upper arms (up to 90°) and 0.3-degree steps for shoulders (capped at 8°), and stop at the earliest collision-free geometry with 0.018 game-unit margin. No permanent or per-frame rotations.
 - Trigger silhouette refresh after arm fit; preview camera transforms and grounding remain untouched. Preserve all 7 equipment slots, bird C, standard D, base animation tracks, player controls, and saved selections.
 - Static v196 checker/CI. Conservative oriented-mesh AABB clearance can overestimate narrow concave contours and maximum lift may not clear every future model; warn rather than falsely asserting clearance. Xperia Android NEXUS pose and appearance unverified.
+
+## 2026-11-10 — SERA v197: stop over-lifting NEXUSpose arms
+- User screenshot shows v196 raised arms near horizontal; angled mesh AABBs included excessive empty space and kept reporting collisions.
+- AABB is now broadphase only, with a rig-local oriented-box (SAT, 3+3+9 separating axes) narrowphase for actual arm/leg meshes.
+- Maximum additional lift is 24° upper arm (16 × 1.5°) and 3.2° shoulder (16 × 0.2°). Begin at original NEXUSpose, choose first collision-free result, else earliest angle with fewest overlaps, or exact original if nothing improves.
+- NEXUS-only behavior; no change to authored clips, model geometry, save schema or combat motions. New v197 regression and CI; Android visual check remains outstanding.
