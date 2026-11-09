@@ -37,7 +37,7 @@ assert f"const CUSTOMIZE_SLOTS = {seven_slots}" in nexus
 assert '"feet": "FEET"' not in nexus
 assert 'slot == "feet"' not in eq
 
-# C = the preexisting bird subrig; D = ten meshes of the new
+# C = the preexisting bird subrig; D = twelve meshes of the new
 # normal-human lower-body. The Head C branch remains HEAD=C.
 has_all(eq,
     '_add_mesh("C", "legs", child)',
@@ -99,32 +99,65 @@ for previous, foot, expected in [
 for current in ("A", "B", "C", "D"):
     assert migrate_legacy(current, "A", False) == current
 
-# Preserve original combined geometry without renaming the authoring
-# source. The v191 leg material had 10 actual complete-set meshes.
+# Both variants are full lower-body sets. All TWELVE original source
+# meshes were imported, rescaled into A-compatible Waist/Thigh/Shin/Foot
+# pivots. No A clones should remain inside LOWER BODY D.
 g = {n["uuid"]: n["name"] for n in source_model["groups"]}
-e = {n["uuid"]: n["name"] for n in source_model["elements"]}
+e = {n["uuid"]: n for n in source_model["elements"]}
 roots = {g[r["uuid"]]: r for r in source_model["outliner"] if isinstance(r, dict)}
 assert "Waist3" in roots
-def collect(nodes, names, group_names):
+authored = {}
+parents = {}
+def collect(nodes, ancestors=()):
     for node in nodes:
         if isinstance(node, str):
-            names.append(e[node])
+            mesh = e[node]
+            if mesh["name"].startswith("LegD_"):
+                authored[mesh["name"]] = mesh
+                parents[mesh["name"]] = ancestors
         else:
-            group_names.append(g[node["uuid"]])
-            collect(node["children"], names, group_names)
-names, groups = [], []
-collect(roots["Waist3"]["children"], names, groups)
-assert len([x for x in names if x.startswith("FootC_Base_")]) == 6
-assert len([x for x in names if re.fullmatch(r"FootC_[LR]_[12]", x)]) == 4
+            collect(node["children"], (*ancestors, g[node["uuid"]]))
+collect(roots["Waist3"]["children"])
+expected_source = {
+    "LegD_Waist_Upper": "d1256714-d6f3-1a88-dd49-0c9079ff55ff",
+    "LegD_Waist_Lower": "447a8012-78cb-145e-da80-3fa881d6ec10",
+    "LegD_Thigh_L_1": "15574510-d4a8-2016-fcac-c25fa214152f",
+    "LegD_Thigh_L_2": "7ba20e07-47db-8d25-fc59-3d1b916af4a0",
+    "LegD_LowerLeg_L": "9202acbc-d599-c41d-a967-0f8c05ed7c57",
+    "LegD_Thigh_R_1": "caa89396-8e89-aa52-13aa-9cf6af0a67fb",
+    "LegD_Thigh_R_2": "1898853f-9976-6d8f-e826-c8c693f0fd94",
+    "LegD_LowerLeg_R": "3198d0f8-c2c4-62a8-3e9f-8f285b7a51b2",
+    "LegD_Foot_L_1": "c8d5f061-2246-4ca7-f0c0-8c7e06ce0440",
+    "LegD_Foot_L_2": "bb4f16a1-fb91-780a-3cbb-9fad7a42845d",
+    "LegD_Foot_R_1": "87dfdf77-ba76-8931-82aa-0a1053ad8580",
+    "LegD_Foot_R_2": "da9f1d1a-53f0-d58f-f3b6-e8c5d230ffbf",
+}
+assert set(authored) == set(expected_source), set(authored) ^ set(expected_source)
+orig = {q["uuid"]: q for q in original_foot["elements"]}
+assert len(orig) == 12
+for name, uid in expected_source.items():
+    dest, author = authored[name], orig[uid]
+    assert dest["faces"] == author["faces"], name
+    assert set(dest["vertices"]) == set(author["vertices"]), name
+    if "Thigh_" in name:
+        assert parents[name][-1] in ("Thigh_L3", "Thigh_R3")
+    elif "LowerLeg_" in name:
+        assert parents[name][-1] in ("LowerLeg_L3", "LowerLeg_R3")
+    elif "Foot_" in name:
+        assert parents[name][-1] in ("Foot_L3", "Foot_R3")
+    elif "Waist_" in name:
+        assert parents[name][-1] == "Waist3"
 assert {"Thigh_L3", "LowerLeg_L3", "Foot_L3",
-        "Thigh_R3", "LowerLeg_R3", "Foot_R3"}.issubset(groups)
-assert {"Head3", "Neck3"}.issubset(groups)
-assert len(original_foot["elements"]) == 12
+        "Thigh_R3", "LowerLeg_R3", "Foot_R3",
+        "Head3", "Neck3"}.issubset({q["name"] for q in source_model["groups"]})
+assert len(source_model["groups"]) == 54
+assert len(source_model["elements"]) == 63
 assert len([q for q in bird_source["groups"] if q["name"].startswith("Bird_")]) == 6
 assert len(base["groups"]) == 22 and len(base["elements"]) == 25
 assert len(source_model["animations"]) == 23
 
-# No model snapshot regeneration needed: only new *routing* changed.
+# Embedded runtime model is rebuilt to match authored D pelvis, thigh, shin
+# and boot geometry; no native A source or animation clip was changed.
 text = read("assets/sera_equipment_data.gd")
 chunks = [json.loads(line.strip().removesuffix(",")) for line in text.splitlines()
           if line.startswith('    "')]
@@ -134,5 +167,5 @@ for key in ("groups", "elements", "outliner"):
 assert (ROOT / "README_v193_ja.md").exists()
 print("PASS: LOWER BODY A/B/C bird/D new human full leg, independent HEAD C")
 print("PASS: FEET UI removed, one-time v1->v2 selection migration and preview isolation")
-print("PASS: 10 source meshes + 6 standard joints preserved; A clips/snapshot unchanged")
+print("PASS: 12 authored source meshes + 6 standard joints; A clips preserved, D snapshot rebuilt")
 print("Godot/Xperia Android runtime not exercised")
