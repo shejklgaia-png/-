@@ -36,6 +36,12 @@ const BOOST_START_RADIUS_RATIO: float = 1.25
 const BOOST_EXIT_RADIUS_RATIO: float = 1.10
 const BOOST_CONFIRM_SECONDS: float = 0.10
 const BOOST_ACCELERATION_SECONDS: float = 0.15
+# v154: allow a fast, deliberate opposite finger stroke to pivot the analog disc.
+const FAST_REVERSE_MIN_RADIAL_RATIO: float = 0.25
+const FAST_REVERSE_MIN_TRAVEL_PIXELS: float = 32.0
+const FAST_REVERSE_MIN_SPEED_PIXELS_PER_SEC: float = 520.0
+const FAST_REVERSE_MAX_STROKE_MSEC: int = 120
+const FAST_REVERSE_OPPOSITE_DOT: float = -0.80
 # A side step is classified only when the finger is RELEASED.  In particular,
 # a long horizontal hold/drag never becomes a step, even if it ends quickly.
 const STEP_FLICK_MAX_SECONDS: float = 0.24
@@ -189,6 +195,13 @@ var current_touch: int = -1
 var mouse_down: bool = false
 var pointer_origin: Vector2 = Vector2.ZERO
 var pointer_location: Vector2 = Vector2.ZERO
+# Keep original touch position for tap/guard/flick even if the stick reanchors.
+var gesture_touch_origin: Vector2 = Vector2.ZERO
+var reverse_stroke_origin: Vector2 = Vector2.ZERO
+var reverse_stroke_start_ms: int = 0
+var reverse_last_event_ms: int = 0
+var reverse_stroke_active: bool = false
+var fast_reversed_during_gesture: bool = false
 var direction_input: Vector2 = Vector2.ZERO
 var movement_boost_active: bool = false
 var boost_confirm_elapsed: float = 0.0
@@ -1072,6 +1085,7 @@ func _set_guard(active: bool) -> void:
             return
         guard_active = true
         direction_input = Vector2.ZERO
+        reverse_stroke_active = false
         player.velocity = Vector3.ZERO
         movement_boost_active = false
         boost_confirm_elapsed = 0.0
@@ -1116,7 +1130,13 @@ func _begin_drag(pos: Vector2) -> void:
     jump_flick_samples.clear()
     _remember_jump_flick_sample(pos)
     pointer_origin = pos
+    gesture_touch_origin = pos
     pointer_location = pos
+    reverse_stroke_origin = pos
+    reverse_stroke_start_ms = gesture_start_ms
+    reverse_last_event_ms = gesture_start_ms
+    reverse_stroke_active = false
+    fast_reversed_during_gesture = false
     direction_input = Vector2.ZERO
     movement_boost_active = false
     boost_confirm_elapsed = 0.0
@@ -1129,9 +1149,44 @@ func _begin_drag(pos: Vector2) -> void:
 func _change_drag(pos: Vector2) -> void:
     if not gesture_active or guard_active:
         return
+    var previous_pos: Vector2 = pointer_location
+    var now_ms: int = Time.get_ticks_msec()
+    var segment: Vector2 = pos - previous_pos
+    var radial: Vector2 = previous_pos - pointer_origin
+    # Preserve the analog origin on slow movements. Require a coherent and
+    # sufficiently fast reverse stroke before changing the origin.
+    if segment.length() >= 2.0 and (
+            radial.length() >= DRAG_RADIUS * FAST_REVERSE_MIN_RADIAL_RATIO):
+        var heading: Vector2 = radial.normalized()
+        if segment.dot(heading) <= FAST_REVERSE_OPPOSITE_DOT * segment.length():
+            if not reverse_stroke_active or (
+                    now_ms - reverse_stroke_start_ms > FAST_REVERSE_MAX_STROKE_MSEC):
+                reverse_stroke_origin = previous_pos
+                reverse_stroke_start_ms = reverse_last_event_ms
+                reverse_stroke_active = true
+            var reverse_travel: Vector2 = pos - reverse_stroke_origin
+            var reverse_elapsed_ms: int = maxi(1, now_ms - reverse_stroke_start_ms)
+            var reverse_length: float = reverse_travel.length()
+            if reverse_length >= FAST_REVERSE_MIN_TRAVEL_PIXELS and (
+                    reverse_elapsed_ms <= FAST_REVERSE_MAX_STROKE_MSEC) and (
+                    reverse_length * 1000.0 / float(reverse_elapsed_ms)
+                    >= FAST_REVERSE_MIN_SPEED_PIXELS_PER_SEC) and (
+                    reverse_travel.dot(heading)
+                    <= FAST_REVERSE_OPPOSITE_DOT * reverse_length) and (
+                    (pos - pointer_origin).dot(heading) > 0.0):
+                # Rebase ONLY while the finger is still on the original side.
+                # This keeps the displayed knob and real movement identical.
+                pointer_origin = reverse_stroke_origin
+                reverse_stroke_active = false
+                fast_reversed_during_gesture = true
+        else:
+            reverse_stroke_active = false
+    elif segment.length() >= 2.0:
+        reverse_stroke_active = false
+    reverse_last_event_ms = now_ms
     pointer_location = pos
     _remember_jump_flick_sample(pos)
-    gesture_max_travel = maxf(gesture_max_travel, pos.distance_to(pointer_origin))
+    gesture_max_travel = maxf(gesture_max_travel, pos.distance_to(gesture_touch_origin))
     # Analog movement reaches full RUN speed at the visible circle's rim.
     # Keep clamped full input beyond the rim, multiplying only BOOST speed.
     var delta: Vector2 = (pos - pointer_origin) / DRAG_RADIUS
@@ -1183,6 +1238,8 @@ func _end_drag(release_pos: Vector2) -> void:
     if not gesture_active:
         return
     if guard_active:
+        reverse_stroke_active = false
+        fast_reversed_during_gesture = false
         # Consume the whole hold, including any movement made before release.
         # Keyboard G may continue Guard after the finger lifts.
         gesture_active = false
@@ -1202,7 +1259,7 @@ func _end_drag(release_pos: Vector2) -> void:
     # Include release coordinates: some devices coalesce the final drag event.
     pointer_location = release_pos
     _remember_jump_flick_sample(release_pos)
-    gesture_max_travel = maxf(gesture_max_travel, release_pos.distance_to(pointer_origin))
+    gesture_max_travel = maxf(gesture_max_travel, release_pos.distance_to(gesture_touch_origin))
     var press_duration: float = float(Time.get_ticks_msec() - gesture_start_ms) / 1000.0
     var was_tap: bool = (gesture_max_travel <= TAP_MAX_TRAVEL
         and press_duration <= TAP_MAX_DURATION)
@@ -1211,15 +1268,19 @@ func _end_drag(release_pos: Vector2) -> void:
     # v100: no normal UP flick launches a jump. The v99 recognizers remain
     # available for a future design revision when the debug flag is enabled.
     var jump_from_initial_flick: bool = JUMP_TOUCH_INPUT_ENABLED \
-        and _is_upward_jump_flick(release_pos - pointer_origin, press_duration) \
-        and gesture_max_travel <= (release_pos - pointer_origin).length() * 1.20
+        and _is_upward_jump_flick(release_pos - gesture_touch_origin, press_duration) \
+        and gesture_max_travel <= (release_pos - gesture_touch_origin).length() * 1.20
     var jump_requested: bool = JUMP_TOUCH_INPUT_ENABLED \
         and (jump_from_initial_flick or _classify_recent_upward_flick())
     # Only a deliberate UP flick may exit BOOST into JUMP; existing release
     # gestures may not become sideways or backwards steps after a boost.
-    var flick_direction: int = 0 if boost_has_activated_this_gesture or jump_requested else _classify_step_flick(release_pos - pointer_origin, press_duration)
+    var flick_direction: int = 0 if (
+        boost_has_activated_this_gesture or jump_requested or fast_reversed_during_gesture
+    ) else _classify_step_flick(release_pos - gesture_touch_origin, press_duration)
     var takeoff_momentum: Vector3 = gesture_start_ground_velocity if jump_from_initial_flick else Vector3(player.velocity.x, 0.0, player.velocity.z)
     gesture_active = false
+    reverse_stroke_active = false
+    fast_reversed_during_gesture = false
     var suppress_release_action: bool = gesture_suppressed_from_damage or gesture_suppressed_from_landing
     gesture_suppressed_from_damage = false
     gesture_suppressed_from_landing = false
