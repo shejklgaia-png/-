@@ -1,35 +1,36 @@
 extends RefCounted
 ## v177 prototype equipment performance. A=medium, B=heavy.
-## Values are trial tuning, not final balance. No animation or mesh is replaced.
+## v180: each body part HP contribution is 1/5 of v179; A full 160, B full 208.
+## Other trial stats remain unchanged; no animation or mesh is replaced.
 const BODY_SLOTS = ["head", "torso", "arms", "legs", "booster"]
 const PROFILES = {
     "head": {
-        "A": {"hp": 100.0, "defense": 0.16, "lock_range": 24.0, "tracking": 1.0},
-        "B": {"hp": 130.0, "defense": 0.28, "lock_range": 20.0, "tracking": 0.88}
+        "A": {"hp": 20.0, "defense": 0.16, "lock_range": 24.0, "tracking": 1.0},
+        "B": {"hp": 26.0, "defense": 0.28, "lock_range": 20.0, "tracking": 0.88}
     },
     "torso": {
-        "A": {"hp": 400.0, "defense": 0.16},
-        "B": {"hp": 520.0, "defense": 0.34}
+        "A": {"hp": 80.0, "defense": 0.16},
+        "B": {"hp": 104.0, "defense": 0.34}
     },
     "arms": {
-        "A": {"hp": 100.0, "defense": 0.16, "attack_mult": 1.0,
+        "A": {"hp": 20.0, "defense": 0.16, "attack_mult": 1.0,
             "guard_defense_mult": 1.0, "guard_reaction": "medium", "guard_speed_mult": 1.0},
-        "B": {"hp": 130.0, "defense": 0.30, "attack_mult": 1.12,
+        "B": {"hp": 26.0, "defense": 0.30, "attack_mult": 1.12,
             "guard_defense_mult": 1.35, "guard_reaction": "small", "guard_speed_mult": 0.85}
     },
     "legs": {
-        "A": {"hp": 100.0, "defense": 0.16, "run_speed": 4.0625,
+        "A": {"hp": 20.0, "defense": 0.16, "run_speed": 4.0625,
             "boost_speed_mult": 1.0, "damage_time_mult": 1.0,
             "damage_push_mult": 1.0, "down_hits": 3},
-        "B": {"hp": 130.0, "defense": 0.30, "run_speed": 3.35,
+        "B": {"hp": 26.0, "defense": 0.30, "run_speed": 3.35,
             "boost_speed_mult": 0.82, "damage_time_mult": 1.1,
             "damage_push_mult": 0.60, "down_hits": 5}
     },
     "booster": {
-        "A": {"hp": 100.0, "defense": 0.16, "boost_speed": 6.09375,
+        "A": {"hp": 20.0, "defense": 0.16, "boost_speed": 6.09375,
             "energy_cost_mult": 1.0, "step_speed_mult": 1.0,
             "step_time_mult": 1.0, "approach_speed": 11.5},
-        "B": {"hp": 130.0, "defense": 0.25, "boost_speed": 6.45,
+        "B": {"hp": 26.0, "defense": 0.25, "boost_speed": 6.45,
             "energy_cost_mult": 1.40, "step_speed_mult": 0.88,
             "step_time_mult": 1.10, "approach_speed": 9.5}
     },
