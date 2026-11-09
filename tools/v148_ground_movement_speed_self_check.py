@@ -15,11 +15,13 @@ def number(name):
     assert match, name
     return float(match.group(1))
 
-assert re.findall(r'^config/name="([^"]+)"$', project, re.M) == ["SERA v151"]
+assert re.findall(r'^config/name="([^"]+)"$', project, re.M) == ["SERA v152"]
 assert number("MOVE_SPEED") == 3.25
 assert number("GROUND_MOVE_SPEED_SCALE") == 1.25
 assert number("MOVEMENT_BOOST_MULTIPLIER") == 1.5
-assert number("SWIPE_HEADING_SAMPLE_PIXELS") == 6.0
+assert number("SWIPE_HEADING_SAMPLE_PIXELS") == 12.0
+assert number("SWIPE_HEADING_TURN_CONFIRM_PIXELS") == 20.0
+assert "const SWIPE_HEADING_WINDOW_MSEC: int = 80" in main
 assert number("SWIPE_BOOST_TRAVEL_PIXELS") == 140.0
 assert number("SWIPE_BOOST_RESET_DOT") == 0.65
 assert number("STEP_SPEED") == 10.0
@@ -35,7 +37,8 @@ assert main.count("GROUND_MOVE_SPEED_SCALE") == 2  # declared and used only on g
 assert air in main
 assert "player.move_and_slide()" in main
 assert "direction_input = next_heading" in main
-assert "swipe_boost_travel += distance" in main
+assert "swipe_boost_travel = maxf(swipe_boost_travel, forward_travel)" in main
+assert "swipe_heading_target = next_heading" in main
 assert "boost_speed_multiplier" not in main
 assert "MOVEMENT_BOOST_MULTIPLIER if movement_boost_active else 1.0" in main
 assert "rig.call(\"set_moving\", running, movement_boost_active, local_run_direction)" in main

@@ -12,7 +12,7 @@ rig = (root / "scripts/sera_rig.gd").read_text(encoding="utf-8")
 main = (root / "scripts/main.gd").read_text(encoding="utf-8")
 overlay = (root / "scripts/touch_overlay.gd").read_text(encoding="utf-8")
 project = (root / "project.godot").read_text(encoding="utf-8")
-assert re.findall(r'^config/name="([^"]+)"$', project, re.MULTILINE) == ["SERA v151"]
+assert re.findall(r'^config/name="([^"]+)"$', project, re.MULTILINE) == ["SERA v152"]
 assert (root / "README_v151_ja.md").is_file()
 
 def region(name, next_name):
@@ -62,7 +62,7 @@ assert "RUN_HEAD_SWAY_RETENTION: float = 0.35" in rig
 # Gameplay steering and controller HUD must be completely unaffected.
 assert "var segment: Vector2 = pos - pointer_location" in main
 assert "direction_input = next_heading" in main
-assert "SWIPE_HEADING_SAMPLE_PIXELS: float = 6.0" in main
+assert "SWIPE_HEADING_SAMPLE_PIXELS: float = 12.0" in main
 assert "SWIPE_BOOST_TRAVEL_PIXELS: float = 140.0" in main
 assert "player.velocity = world_move * MOVE_SPEED * GROUND_MOVE_SPEED_SCALE * (" in main
 assert "MOVEMENT_BOOST_MULTIPLIER if movement_boost_active else 1.0" in main

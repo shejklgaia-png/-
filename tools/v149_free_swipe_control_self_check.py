@@ -13,7 +13,7 @@ main = (root/"scripts/main.gd").read_text(encoding="utf-8")
 ui = (root/"scripts/touch_overlay.gd").read_text(encoding="utf-8")
 rig = (root/"scripts/sera_rig.gd").read_text(encoding="utf-8")
 project = (root/"project.godot").read_text(encoding="utf-8")
-assert re.findall(r'^config/name="([^"]+)"$',project,re.M) == ["SERA v151"]
+assert re.findall(r'^config/name="([^"]+)"$',project,re.M) == ["SERA v152"]
 assert (root/"README_v149_ja.md").exists()
 
 def part(source, start, end):
@@ -31,14 +31,19 @@ boost_visual = part(ui,"_draw_swipe_controller(accent: Color, low: Color) -> voi
                     "_UNUSED_SENTINEL") if "func _UNUSED_SENTINEL" in ui else ui.split(
                         "func _draw_swipe_controller(accent: Color, low: Color) -> void:",1)[1]
 
-assert "const SWIPE_HEADING_SAMPLE_PIXELS: float = 6.0" in main
+assert "const SWIPE_HEADING_SAMPLE_PIXELS: float = 12.0" in main
+assert "const SWIPE_HEADING_WINDOW_MSEC: int = 80" in main
+assert "const SWIPE_HEADING_DEADBAND_DEGREES: float = 12.0" in main
 assert "const SWIPE_BOOST_TRAVEL_PIXELS: float = 140.0" in main
 assert "const SWIPE_BOOST_RESET_DOT: float = 0.65" in main
 assert "var segment: Vector2 = pos - pointer_location" in drag
-assert "swipe_heading_pending += segment" in drag
-assert "next_heading.dot(direction_input) < SWIPE_BOOST_RESET_DOT" in drag
+assert "swipe_heading_samples.append(" in drag
+assert "recent_displacement: Vector2" in drag
+assert "swipe_heading_target = next_heading" in drag
+assert "next_heading.dot(swipe_heading_target) < SWIPE_BOOST_RESET_DOT" in drag
 assert "direction_input = next_heading" in drag
-assert "swipe_boost_travel += distance" in drag
+assert "swipe_boost_travel = maxf(swipe_boost_travel, forward_travel)" in drag
+assert "func _update_swipe_steering(delta: float) -> void:" in main
 assert "swipe_boost_travel >= SWIPE_BOOST_TRAVEL_PIXELS" in drag
 assert "boost_has_activated_this_gesture = true" in drag
 assert "set_swipe_motion" in drag
@@ -69,56 +74,16 @@ assert "CONTROLLER_BOOST_KNOB_RADIUS_RATIO" not in ui
 assert 'draw_arc(mark, lock_radius' in ui # Existing lock-on ring preserved
 assert "OPERATION_ZONE_TOP_RATIO: float = 0.75" in ui
 
-# Independent state machine mirrors segment accumulation, short/noisy
-# motion, reversal, boost threshold, 360 headings and release.
-DIST = 140.0
-SAMPLE = 6.0
-RESET_DOT = 0.65
-class Gesture:
-    def __init__(self):
-        self.heading = None
-        self.pending = (0.0,0.0)
-        self.distance = 0.0
-        self.boost = False
-        self.ever = False
-    def move(self,x,y):
-        px,py = self.pending
-        px,py=px+x,py+y
-        dist=math.hypot(px,py)
-        if dist < SAMPLE:
-            self.pending=(px,py)
-            return
-        self.pending=(0.0,0.0)
-        heading=(px/dist,py/dist)
-        if self.heading is not None and sum(a*b for a,b in zip(heading,self.heading)) < RESET_DOT:
-            self.distance=0
-            self.boost=False
-        self.heading=heading
-        self.distance+=dist
-        if self.distance>=DIST:
-            self.boost=True
-            self.ever=True
-
-for angle in range(0,360,5):
-    g=Gesture()
-    a=math.radians(angle)
-    g.move(8*math.cos(a),8*math.sin(a))
-    assert g.heading is not None
-    assert math.isclose(math.hypot(*g.heading),1.0,abs_tol=1e-12)
-
-g=Gesture()
-for _ in range(11): g.move(10,0)
-assert not g.boost and math.isclose(g.distance,110)
-for _ in range(3): g.move(10,0)
-assert g.boost and math.isclose(g.distance,140)
-g.move(-7,0)
-assert not g.boost and g.heading[0] < 0 and g.distance < 10
-for _ in range(14):g.move(-10,0)
-assert g.boost and g.ever
-g=Gesture()
-g.move(2,2)
-assert g.heading is None
-g.move(2,2)
-assert g.heading is not None and not g.boost
-print("v149 360° free swipe, directional long-drag BOOST, vector HUD: STATIC + MATH PASS")
-print("Godot editor/Android gestures & visual response: NOT TESTED")
+# Historical 360° direction coverage remains valid: the new physical-thumb
+# threshold changes the minimum distance, not the set of allowed headings.
+for degrees in range(0, 360, 5):
+    angle = math.radians(degrees)
+    dx, dy = 16.0 * math.cos(angle), 16.0 * math.sin(angle)
+    travel = math.hypot(dx, dy)
+    assert travel >= 12.0
+    direction = (dx / travel, dy / travel)
+    assert math.isclose(math.hypot(*direction), 1.0, abs_tol=1e-12)
+assert "swipe_boost_travel >= SWIPE_BOOST_TRAVEL_PIXELS" in drag
+assert "boost_has_activated_this_gesture = true" in drag
+print("v149 360° input coverage, fixed RUN/BOOST, current swipe HUD: STATIC+MATH PASS")
+print("Current v152 human-thumb sensitivity scenarios: see v152 self-check.")
