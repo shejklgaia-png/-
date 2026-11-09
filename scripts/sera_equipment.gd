@@ -59,7 +59,9 @@ func _collect_original_meshes(root: Node) -> void:
     for child in root.get_children():
         if child is MeshInstance3D:
             var slot: String = _slot_for_bone(child.get_parent())
-            if not slot.is_empty() and child.name != "Swordeffect":
+            if bool(child.get_meta("sera_bird_leg", false)):
+                _add_mesh("D", "legs", child)
+            elif not slot.is_empty() and child.name != "Swordeffect":
                 _add_mesh("A", slot, child)
         else:
             _collect_original_meshes(child)
@@ -152,6 +154,19 @@ func _attach_group_meshes(entry: Dictionary, target_bone: Node3D, groups: Dictio
             var group: Dictionary = groups.get(str(child.get("uuid", "")), {})
             if group.is_empty():
                 continue
+            # Head C's authored pivot is not A Head's original pivot.
+            # Place a parallel controller below A Neck so A and B remain unchanged.
+            if set_id == "C" and _simple_name(str(group.get("name", ""))) == "head":
+                var pivot := Node3D.new()
+                pivot.name = "HeadC_AuthorPivot"
+                var source_origin: Vector3 = _v3(group.get("origin", [0, 0, 0]))
+                var target_origin: Vector3 = target_bone.get_meta("bb_origin", Vector3.ZERO)
+                pivot.position = (source_origin - target_origin) * MODEL_UNIT
+                pivot.set_meta("bb_origin", source_origin)
+                target_bone.add_child(pivot)
+                rig.call("register_head_c_pivot", pivot)
+                _attach_group_meshes(child, pivot, groups, elements, set_id)
+                continue
             var match_bone: Node3D = _match_child_bone(target_bone, group)
             if match_bone != null:
                 _attach_group_meshes(child, match_bone, groups, elements, set_id)
@@ -170,6 +185,8 @@ func _attach_group_meshes(entry: Dictionary, target_bone: Node3D, groups: Dictio
             _apply_equipment_tint(piece, set_id)
             var base_origin: Vector3 = target_bone.get_meta("bb_origin", Vector3.ZERO)
             piece.position = (_v3(element.get("origin", [0, 0, 0])) - base_origin) * MODEL_UNIT
+            # User-authored Head C meshes have nonzero local rotations.
+            piece.quaternion = rig.call("_blockbench_rotation", _v3(element.get("rotation", [0, 0, 0])))
             target_bone.add_child(piece)
             piece.visible = false
             _add_mesh(set_id, slot, piece)
