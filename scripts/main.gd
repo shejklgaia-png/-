@@ -199,6 +199,10 @@ var guard_break_remaining: float = 0.0
 var guard_break_hits: int = 0
 var down_remaining: float = 0.0
 var resources_label: Label
+var player_hp_label: Label
+var player_hp_fill: ColorRect
+var player_hp_background: ColorRect
+const PLAYER_HP_BAR_WIDTH: float = 286.0
 var core_label: Label
 var test_hit_button: Button
 var test_break_button: Button
@@ -430,10 +434,11 @@ func _tick_resources(delta: float) -> void:
         shield = minf(TEST_SH_MAX, shield + 16.0 * delta)
     if energy_exhausted and energy >= 16.0:
         energy_exhausted = false
+    _refresh_player_hp_bar()
     if resources_label != null:
-        resources_label.text = "HP %d/%d  DEF %d%%  EN %d  SH %d" % [
-            ceili(player_hp), int(part_stats.get("max_hp", 800.0)),
-            roundi(float(part_stats.get("defense", 0.16)) * 100.0), ceili(energy), ceili(shield)]
+        resources_label.text = "DEF %d%%  EN %d  SH %d" % [
+            roundi(float(part_stats.get("defense", 0.16)) * 100.0),
+            ceili(energy), ceili(shield)]
     if core_label != null:
         core_label.text = "CORE %d/75  STAGGER %d/50  %s" % [
             ceili(core_hp), ceili(stagger_value),
@@ -447,6 +452,7 @@ func _take_test_damage(raw: float) -> void:
     var final_damage: float = raw * (
         1.0 - clampf(float(part_stats.get("defense", 0.16)), 0.0, 0.90))
     player_hp = maxf(0.0, player_hp - final_damage)
+    _refresh_player_hp_bar()
     incoming_damage_remaining = 0.75
     if incoming_damage_label != null:
         incoming_damage_label.text = "-%d HP" % ceili(final_damage)
@@ -456,14 +462,18 @@ func _take_test_damage(raw: float) -> void:
         _begin_training_ko()
 
 func _begin_training_ko() -> void:
-    # Training-only recovery. Do not change saved data or invent a boss reward.
+    # Training-only recovery. Hold the exact final Damageknock keyframe.
     training_ko_remaining = TRAINING_KO_RECOVERY
+    _refresh_player_hp_bar()
     if guard_active:
         _set_guard(false)
     if step_active:
         _finish_side_step(false)
     if combat_state != CombatState.IDLE:
         _cancel_attack()
+    # Complete any ordinary action transitions before locking the KO pose.
+    if rig != null:
+        rig.call("set_training_ko", true)
     direction_input = Vector2.ZERO
     movement_boost_active = false
     boost_pose_grace_remaining = 0.0
@@ -497,7 +507,8 @@ func _tick_training_ko(delta: float) -> void:
     damage_knockback_elapsed = 0.0
     damage_knockback_direction = Vector3.ZERO
     if rig != null:
-        rig.call("finish_damage", false)
+        rig.call("set_training_ko", false)
+    _refresh_player_hp_bar()
     player.position = Vector3.ZERO
     player.velocity = Vector3.ZERO
     target.position = Vector3(0.0, TARGET_BASE_HEIGHT, -8.0)
@@ -966,6 +977,32 @@ func _build_overlay() -> void:
     hp_fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
     hud_panel.add_child(hp_fill)
 
+    # Matching HP bars for opponent and SERA within the same fixed header.
+    # Keeping them together allows direct damage comparison in A/B tests.
+    player_hp_label = Label.new()
+    player_hp_label.name = "PlayerHpLabel"
+    player_hp_label.position = Vector2(350.0, 80.0)
+    player_hp_label.size = Vector2(PLAYER_HP_BAR_WIDTH, 24.0)
+    player_hp_label.add_theme_font_size_override("font_size", 14)
+    player_hp_label.add_theme_color_override("font_color", Color("c7efff"))
+    player_hp_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    hud_panel.add_child(player_hp_label)
+    player_hp_background = ColorRect.new()
+    player_hp_background.name = "PlayerHpBackground"
+    player_hp_background.position = Vector2(350.0, 104.0)
+    player_hp_background.size = Vector2(PLAYER_HP_BAR_WIDTH, 7.0)
+    player_hp_background.color = Color("233746")
+    player_hp_background.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    hud_panel.add_child(player_hp_background)
+    player_hp_fill = ColorRect.new()
+    player_hp_fill.name = "PlayerHpFill"
+    player_hp_fill.position = player_hp_background.position
+    player_hp_fill.size = player_hp_background.size
+    player_hp_fill.color = Color("4bb5e7")
+    player_hp_fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    hud_panel.add_child(player_hp_fill)
+    _refresh_player_hp_bar()
+
     # Keep the floating hit number out of the fixed HUD, so it still follows
     # world-space impact positions as in v54.
     damage_label = Label.new()
@@ -1056,7 +1093,8 @@ func _build_overlay() -> void:
 
     var control_hint := Label.new()
     control_hint.name = "InputHint"
-    control_hint.text = "TAP   /   DRAG   /   FLICK"
+    # The second HP bar occupies this row; action hint remains in the README.
+    control_hint.text = ""
     hud_panel.add_child(control_hint)
     control_hint.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
     control_hint.offset_left = -250.0
@@ -1231,6 +1269,23 @@ func _build_hit_effects() -> void:
     sword_trail.set("player_node", player)
     sword_trail.set("rig_node", rig)
     sword_trail.call("attach_to_rig", rig)
+
+func _refresh_player_hp_bar() -> void:
+    if player_hp_label == null or player_hp_fill == null:
+        return
+    var maximum: float = maxf(1.0, float(part_stats.get("max_hp", 800.0)))
+    var remaining: float = clampf(player_hp / maximum, 0.0, 1.0)
+    player_hp_label.text = ("SERA  DOWN  0 / %d HP" % roundi(maximum)
+        if player_hp <= 0.0 else "SERA  %d / %d HP" % [ceili(player_hp), roundi(maximum)])
+    player_hp_fill.size = Vector2(PLAYER_HP_BAR_WIDTH * remaining, 7.0)
+    if remaining <= 0.0:
+        player_hp_fill.color = Color("c74444")
+    elif remaining <= 0.25:
+        player_hp_fill.color = Color("e65b51")
+    elif remaining <= 0.50:
+        player_hp_fill.color = Color("ffb354")
+    else:
+        player_hp_fill.color = Color("4bb5e7")
 
 func _refresh_hp_bar() -> void:
     if hp_label == null:

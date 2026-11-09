@@ -139,6 +139,10 @@ var equipment_guard_transition: float = 0.095
 var equipment_reaction_speed: float = 1.0
 var equipment_damage_scale: float = 1.0
 var equipment_guard_speed: float = 1.0
+var training_ko_active: bool = false
+var _ko_material: ShaderMaterial
+var _ko_material_b: ShaderMaterial
+const KO_DARK_SHADER = preload("res://shaders/sera_ko_dark.gdshader")
 var equipment_handler: RefCounted
 
 func _ready() -> void:
@@ -285,6 +289,48 @@ var _afterimage_since_emit: float = 0.0
 var _afterimage_was_moving: bool = false
 var _afterimage_pool_visible: bool = false
 
+func set_training_ko(active: bool) -> void:
+    if training_ko_active == active:
+        return
+    training_ko_active = active
+    if active:
+        _clear_motion_afterimages()
+        # Force the last AUTHORED damage key, not the clip's nominal end
+        # (which can include hold frames). Bypass transition blending.
+        combat_playback = false
+        step_playback = false
+        jump_playback = false
+        guard_playback = false
+        damage_playback = true
+        combat_paused = false
+        freeze_attack_pose = true
+        if loading_ok and animations.has(DAMAGE_CLIP):
+            current_clip = DAMAGE_CLIP
+            clip_time = float(animations[DAMAGE_CLIP]["last_key_time"])
+            prior_rotations.clear()
+            prior_offsets.clear()
+            prior_scales.clear()
+            blending_for = BLEND_SECONDS
+            blend_duration = BLEND_SECONDS
+            boost_to_run_crossfade = false
+            _apply_animation(0.0)
+    else:
+        # Restore the normal wait pose and animation state from any KO.
+        freeze_attack_pose = false
+        combat_paused = false
+        damage_playback = false
+        guard_playback = false
+        combat_playback = false
+        step_playback = false
+        jump_playback = false
+        if loading_ok:
+            if current_clip == WAIT_CLIP:
+                clip_time = 0.0
+                _apply_animation(0.0)
+            else:
+                _switch_clip(WAIT_CLIP, 0.10)
+    _refresh_character_overlay()
+
 func set_slash_player_foreground(enabled: bool) -> void:
     if enabled == _foreground_enabled:
         return
@@ -292,12 +338,20 @@ func set_slash_player_foreground(enabled: bool) -> void:
     _refresh_character_overlay()
 
 func _refresh_character_overlay() -> void:
-    # The slash foreground pass also needs B's tint; otherwise B flashes gray.
+    # KO has visual priority over the slash foreground and preserves A/B tint.
+    if training_ko_active and _ko_material == null:
+        _ko_material = ShaderMaterial.new()
+        _ko_material.shader = KO_DARK_SHADER
+        _ko_material.set_shader_parameter("sera_palette", SERA_TEXTURE)
+        _ko_material_b = _ko_material.duplicate() as ShaderMaterial
+        _ko_material_b.set_shader_parameter("set_tint", B_SET_TINT_RGB)
     for part in _foreground_parts:
         if not is_instance_valid(part):
             continue
         var overlay: Material = null
-        if _foreground_enabled:
+        if training_ko_active:
+            overlay = _ko_material_b if str(part.get_meta("sera_equipment_set", "A")) == "B" else _ko_material
+        elif _foreground_enabled:
             if str(part.get_meta("sera_equipment_set", "A")) == "B":
                 if _foreground_mat_b == null:
                     _foreground_mat_b = _foreground_mat.duplicate() as ShaderMaterial
@@ -342,7 +396,24 @@ func _build_motion_afterimage_pool() -> void:
         _afterimage_root.add_child(ghosts)
         _afterimage_meshes.append(ghosts)
 
+func _clear_motion_afterimages() -> void:
+    _afterimage_was_moving = false
+    _afterimage_since_emit = 0.0
+    _afterimage_pool_visible = false
+    for slot in range(AFTERIMAGE_LAYERS):
+        _afterimage_ages[slot] = -1.0
+        _afterimage_base_alphas[slot] = 0.0
+    if _afterimage_material != null:
+        _afterimage_material.set_shader_parameter("trail_alphas", Vector3.ZERO)
+    if _afterimage_material_b != null:
+        _afterimage_material_b.set_shader_parameter("trail_alphas", Vector3.ZERO)
+    for ghosts in _afterimage_meshes:
+        if is_instance_valid(ghosts) and ghosts.multimesh != null:
+            ghosts.multimesh.visible_instance_count = 0
+
 func update_motion_afterimages(delta: float, fast_movement: bool, stepping: bool) -> void:
+    if training_ko_active:
+        return
     if _afterimage_root == null or _afterimage_material == null:
         return
     var dt: float = maxf(delta, 0.0)
@@ -889,7 +960,7 @@ func clip_finished(name: String) -> bool:
     return clip_time >= float(animations[name]["length"])
 
 func _process(delta: float) -> void:
-    if not loading_ok:
+    if not loading_ok or training_ko_active:
         return
     if not freeze_attack_pose and not combat_paused and not (jump_playback and current_clip == JUMP_CLIP):
         clip_time += delta * (RUN_ANIMATION_SPEED if current_clip in RUN_CLIPS else (
@@ -1084,7 +1155,10 @@ func _apply_animation(_delta: float) -> void:
     var clip_length: float = maxf(float(clip.get("length", 1.0)), 0.001)
     # 'once' clips MUST NOT wrap. A boost is frozen on its final authored
     # keyframe for the entire approach, until 'melee1' begins.
-    var t: float = fposmod(clip_time, clip_length) if bool(clip["looped"]) else minf(clip_time, clip_length)
+    # KO must use the last key even when Blockbench marks Damageknock looped:
+    # fposmod(last_key_time, clip_length) would wrap at the final frame.
+    var t: float = clip_time if training_ko_active and current_clip == DAMAGE_CLIP else (
+        fposmod(clip_time, clip_length) if bool(clip["looped"]) else minf(clip_time, clip_length))
     var tracks: Dictionary = clip["tracks"]
     var blend_weight: float = clampf(blending_for / maxf(blend_duration, 0.00001), 0.0, 1.0)
     if boost_to_run_crossfade:

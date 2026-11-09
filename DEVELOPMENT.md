@@ -1059,3 +1059,11 @@
 - `scripts/enemy_shooter.gd` の命中通知に発射時点の攻撃種別を追加。AIM/LEAD/SHOCK/ARCの基礎HPダメージを18/22/28/34、ガード時SH消費を23/28/36/42へ分離。防御率は既定どおり全身5部位平均、ガードSHは左武器/両腕補正を適用。ガードブレイク後の追加被弾にも攻撃別HPダメージを適用。
 - HUDに被弾量の短い数字表示、ターゲット移動ON/OFFテストボタンを追加。HP0時は訓練専用に2.5秒でHP/EN/SH・配置を回復して再試験できるようにし、正式な敗北仕様にはしない。
 - 既存A/B装備データ、攻撃4種・予告、効果音、ロックオン、セーブ、ガード/バッシュ/ステップ操作は維持。追加 README_v178_ja.md、tools/v178_target_motion_damage_self_check.py。旧v177専用検査はv178でSKIP。Godot構文実行/Android実機は未検証。
+
+
+## v179（2026-11-09） — プレイヤーHPバー・HP0暗色化・最終ダメージポーズ固定
+- 基準v178 main。訓練HUDの既存敵HPバーを残したまま、SERAのHPバー（装備5部位の合計最大HPに追従）を並べて追加。被弾時にバー長・閾値色（50%で橙、25%で赤、0でDOWN表記）を更新。EN/SH/防御率表示は維持、文字列操作ヒントを省きHPバーと干渉しないようにした。
+- HP0の訓練KOでは `scripts/sera_rig.gd` に `set_training_ko(true)` を導入し、現在のクリップ/各種割り込み操作に関係なく `Damageknock` の `last_key_time` を使った姿勢を即時適用してプロセス停止。ループ指定のクリップでも最終キーフレームへ留める。通常ダウンは対象外。
+- 新規 `shaders/sera_ko_dark.gdshader` はオリジナルA/B材質やテクスチャを変更せず、材質オーバーレイ優先度で一時的に暗色化。復帰時は暗色を解除して元のカラー/剣閃オーバーレイを復元し、待機アニメーションへ戻る。
+- HP0から既存2.5秒の訓練復帰でKO解除、HP/EN/SHを全回復、HPバー満タン。対象変更: `scripts/main.gd`, `scripts/sera_rig.gd`, `shaders/sera_ko_dark.gdshader`, `project.godot`。追加: `README_v179_ja.md`, `tools/v179_ko_visual_hp_bar_self_check.py`。歴史的v178専用検査はv179でSKIP。**Godot実行およびAndroid実機確認は未実施**。
+- KO中の残像保持を防ぐため、`sera_rig.gd` に `_clear_motion_afterimages()` を追加。KO開始時に既存3枚を消去し、KO中は新しい残像を生成しない。
