@@ -685,17 +685,18 @@ func _begin_damage_reaction(incoming_direction: Vector3) -> void:
         gesture_suppressed_from_damage = true
 
 func _advance_damage_knockback(delta: float) -> void:
-    if not damage_reaction_active or damage_knockback_elapsed >= DAMAGE_KNOCKBACK_DURATION:
+    if not damage_reaction_active or damage_knockback_elapsed >= DAMAGE_KNOCKBACK_DURATION * float(part_stats.get("damage_time_mult", 1.0)):
         return
     # Quadratic ease-out: maximum displacement on impact, smoothly settles.
     # Step by the difference of cumulative progress so travel is FPS-independent.
-    var old_progress: float = clampf(damage_knockback_elapsed / DAMAGE_KNOCKBACK_DURATION, 0.0, 1.0)
-    damage_knockback_elapsed = minf(DAMAGE_KNOCKBACK_DURATION, damage_knockback_elapsed + delta)
-    var new_progress: float = damage_knockback_elapsed / DAMAGE_KNOCKBACK_DURATION
+    var duration: float = DAMAGE_KNOCKBACK_DURATION * float(part_stats.get("damage_time_mult", 1.0))
+    var old_progress: float = clampf(damage_knockback_elapsed / duration, 0.0, 1.0)
+    damage_knockback_elapsed = minf(duration, damage_knockback_elapsed + delta)
+    var new_progress: float = damage_knockback_elapsed / duration
     var old_eased: float = 1.0 - pow(1.0 - old_progress, 2.0)
     var new_eased: float = 1.0 - pow(1.0 - new_progress, 2.0)
     # The same swept collision routine used by steps slides along the cube.
-    _move_player_swept(damage_knockback_direction * (DAMAGE_KNOCKBACK_DISTANCE * (new_eased - old_eased)), true)
+    _move_player_swept(damage_knockback_direction * (DAMAGE_KNOCKBACK_DISTANCE * float(part_stats.get("damage_push_mult", 1.0)) * (new_eased - old_eased)), true)
 
 func _advance_projectile_hit_overlay(delta: float) -> void:
     if projectile_hit_overlay == null:
@@ -1237,6 +1238,10 @@ func _advance_hit_fx(delta: float) -> void:
         target_respawn_remaining = maxf(0.0, target_respawn_remaining - delta)
         if target_respawn_remaining == 0.0:
             target_hp = TARGET_MAX_HP
+            core_hp = 75.0
+            stagger_value = 0.0
+            stagger_remaining = 0.0
+            part_break_remaining = 0.0
             _refresh_hp_bar()
 
 func _input(event: InputEvent) -> void:
@@ -2238,6 +2243,18 @@ func _physics_process(delta: float) -> void:
     _update_guard_hold()
     # Sample the outer-ring hold independently of touch event frequency.
     _update_boost_gesture(delta)
+    if movement_boost_active and not _spend_energy(
+            20.0 * delta * float(part_stats.get("energy_cost_mult", 1.0))):
+        movement_boost_active = false
+        if touch_ui != null:
+            touch_ui.call("set_movement_boost", false)
+    if guard_active and bool(part_stats.get("energy_shield", false)) and energy > 0.0:
+        _spend_energy(6.0 * delta)
+    _tick_resources(delta)
+    stagger_remaining = maxf(0.0, stagger_remaining - delta)
+    part_break_remaining = maxf(0.0, part_break_remaining - delta)
+    if stagger_remaining <= 0.0:
+        stagger_value = maxf(0.0, stagger_value - 8.0 * delta)
     # v163: symmetric eased 0.20s RUN <-> BOOST speed transitions.
     # This is independent of the 0.50s BOOST pose hold and 0.20s pose fade.
     _update_boost_speed(delta)
@@ -2256,12 +2273,26 @@ func _physics_process(delta: float) -> void:
         boost_pose_grace_remaining = maxf(0.0, boost_pose_grace_remaining - delta)
     # When the training cube is at zero HP, suspend its firing cycle.
     if enemy_shooter != null:
-        enemy_shooter.set("can_fire", target_hp > 0)
+        enemy_shooter.set("can_fire", target_hp > 0 and stagger_remaining <= 0.0 and part_break_remaining <= 0.0)
     # The authored 0.16667s reaction runs while the body moves. Only regain
     # control when BOTH the animation and short physical knockback are done.
+    if down_remaining > 0.0:
+        down_remaining = maxf(0.0, down_remaining - delta)
+        if down_remaining <= 0.0:
+            energy = TEST_EN_MAX
+            shield = TEST_SH_MAX
+            energy_exhausted = false
+            energy_recovery_pause = 0.0
+            shield_recovery_pause = 0.0
+            damage_reaction_active = false
+            damage_knockback_direction = Vector3.ZERO
+            if rig != null:
+                rig.call("finish_damage", false)
+    if guard_break_remaining > 0.0:
+        guard_break_remaining = maxf(0.0, guard_break_remaining - delta)
     if damage_reaction_active:
         _advance_damage_knockback(delta)
-        if damage_knockback_elapsed >= DAMAGE_KNOCKBACK_DURATION and rig != null and bool(rig.call("damage_finished")):
+        if guard_break_remaining <= 0.0 and down_remaining <= 0.0 and damage_knockback_elapsed >= DAMAGE_KNOCKBACK_DURATION * float(part_stats.get("damage_time_mult", 1.0)) and rig != null and bool(rig.call("damage_finished")):
             damage_reaction_active = false
             damage_knockback_direction = Vector3.ZERO
             rig.call("finish_damage", gesture_active and direction_input.length_squared() > 0.000001)
