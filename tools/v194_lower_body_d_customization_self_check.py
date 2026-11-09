@@ -15,7 +15,8 @@ def load(path: str) -> dict:
     return json.loads(get(path))
 
 project = get("project.godot")
-version = re.search(r'^config/name="SERA v(\\d+)"
+version = re.search(r'^config/name="SERA v(\d+)"$', project, re.M)
+assert version and int(version.group(1)) >= 194
 code = get("scripts/sera_equipment.gd")
 model = load("models/storage/SERA_LOWER_BODY_D_STANDARD_READY.bbmodel")
 combined = load("models/SERA_BOOSTER_allテスト.bbmodel")
