@@ -2736,8 +2736,14 @@ func _physics_process(delta: float) -> void:
         var boost_energy_ok: bool = _spend_energy(
             20.0 * delta * float(part_stats.get("energy_cost_mult", 1.0)))
         if not boost_energy_ok or energy_exhausted:
-            # Insufficient EN can fail before energy_exhausted is set.
-            # Do not auto-confirm BOOST again while this finger stays outside.
+            # A final BOOST tick can cost more than the tiny remaining EN.
+            # Count that as depletion, then require 60% regeneration before
+            # ANY positive-cost EN action is available again.
+            if not boost_energy_ok and not energy_exhausted:
+                energy = 0.0
+                energy_exhausted = true
+                energy_recovery_pause = 0.25
+            # Retain v201's separate inward-thumb rearm requirement.
             boost_rearm_required = true
             boost_confirm_elapsed = 0.0
             movement_boost_active = false
