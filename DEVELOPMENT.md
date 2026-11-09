@@ -1157,3 +1157,12 @@
 - Preserve authored bird-foot mesh tilt (-22.5°), which the v189 model builder previously dropped; A/C and original data preserved.
 - `scripts/sera_rig.gd`, `scripts/sera_equipment.gd`, `scripts/main.gd`; static/geometry regression `tools/v190_foot_contact_grounding_self_check.py`; `README_v190_ja.md`. Project title `SERA v190`.
 - Limitations: The gameplay floor is still virtual XZ and feet use visual detection rather than physics contacts. Animated per-frame foot IK, sloped terrain and a guaranteed grounded pose are NOT implemented. Xperia 1 V sound timing/audio and graphical rendering remain unverified.
+
+
+## 2026-11-10 — SERA v191: normalized Foot C standard-skeleton boots
+- Integrated user-provided `models/storage/足C.bbmodel` into the established `models/SERA_BOOSTER_allテスト.bbmodel` as the **C lower-body option** (alongside independent C head; D bird legs kept). Source original retained verbatim.
+- Determined source mirrored left/right feet from ±14.1 Blockbench X pivots despite "右足2" group name. Used ONLY the four sole meshes inside "右足" and "右足2": other source waist/thigh/knee meshes are NOT imported. Each sole has two independent convex mesh sections.
+- Converted original source feet from 16-wide / 8-tall / 30.9-long to target dimensions 4.64 x 4.56 x 8.961 Blockbench units, compared with standard A sole 4 x 4 x 8 (width +16%, height +14%, length +12%). X/Z source scales 0.29, Y 0.57; resampled source pivot at ±14.1/13.7/0 into A Foot_L/Foot_R pivots at ±2/4/0. Bottom sole Y=0 unchanged.
+- Appended six C groups `Thigh_L3/LowerLeg_L3/Foot_L3` and mirrored right side to existing C Waist root; duplicated only six standard A hip/thigh/shin meshes with fresh UUIDs so C option has a **complete lower-body set** and selecting C does not hide those areas. The standard A/ B sets, C head meshes and all 23 animations were unchanged.
+- Rebuilt `assets/sera_equipment_data.gd`. Limited C's neutral gray tint specifically to `HeadC_*` meshes so new C feet and copied A legs preserve the original palette. No new animation tracks or bone type required: the existing A leg pivots and motion drive the new feet.
+- Gameplay title `SERA v191`; dedicated test `tools/v191_standard_foot_c_self_check.py` and documentation `README_v191_ja.md`. Android/Godot runtime appearance and gait/sole-grounding need phone verification.
