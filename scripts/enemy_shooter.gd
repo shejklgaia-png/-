@@ -4,7 +4,8 @@ extends Node3D
 ## shockwave, and telegraphed forward 145° arc area.
 ## The debug selector may suspend the automatic cadence or force one warning.
 
-signal projectile_hit(world_position: Vector3, travel_direction: Vector3, is_bullet: bool)
+signal projectile_hit(world_position: Vector3, travel_direction: Vector3,
+    is_bullet: bool, attack_type: int)
 
 const PROJECTILE_SCRIPT = preload("res://scripts/enemy_projectile.gd")
 const AREA_SCRIPT = preload("res://scripts/enemy_area_attack.gd")
@@ -47,6 +48,10 @@ var _has_player_sample: bool = false
 func _ready() -> void:
     _remaining = maxf(0.0, first_shot_delay - warning_duration)
     _build_warning_marker()
+
+func warning_in_progress() -> bool:
+    # Target movement pauses after a telegraph locks its origin and direction.
+    return can_fire and _phase == FirePhase.WARNING
 
 func set_attack_type(next_attack: int) -> void:
     if next_attack < AttackType.AIMED or next_attack > AttackType.ARC:
@@ -177,7 +182,7 @@ func _begin_warning() -> void:
         _pending_area.call("configure", area_kind, player_node, target_center, facing)
         projectile_parent.add_child(_pending_area)
         # Area attacks keep the existing impact, never the bullet sound.
-        _pending_area.connect("player_hit", Callable(self, "_on_projectile_hit").bind(false))
+        _pending_area.connect("player_hit", Callable(self, "_on_projectile_hit").bind(false, _locked_attack))
 
 func _calculate_lead_point(origin: Vector3, player_aim: Vector3,
         player_velocity: Vector3, warn_seconds: float) -> Vector3:
@@ -222,7 +227,7 @@ func _fire_projectile() -> void:
     projectile_parent.add_child(projectile)
     projectile.global_position = _warning_origin
     # Bind at spawn time: later debug selection cannot change this hit.
-    projectile.connect("player_hit", Callable(self, "_on_projectile_hit").bind(true))
+    projectile.connect("player_hit", Callable(self, "_on_projectile_hit").bind(true, _locked_attack))
 
 func _cancel_warning() -> void:
     _phase = FirePhase.COOLDOWN
@@ -233,5 +238,6 @@ func _cancel_warning() -> void:
     _pending_area = null
 
 func _on_projectile_hit(world_position: Vector3, travel_direction: Vector3,
-        is_bullet: bool) -> void:
-    projectile_hit.emit(world_position, travel_direction, is_bullet)
+        is_bullet: bool, attack_type: int) -> void:
+    # Attack type is captured at creation, never taken from the current debug UI.
+    projectile_hit.emit(world_position, travel_direction, is_bullet, attack_type)

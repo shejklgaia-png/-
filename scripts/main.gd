@@ -167,6 +167,11 @@ const TARGET_FRAME_MARGIN_Y: float = 0.145  # v55: do not frame the target behin
 const TARGET_FRAME_BOTTOM: float = 0.75  # v52: reserve the same lower control area for target corners.
 const SERA_SCRIPT = preload("res://scripts/sera_rig.gd")
 const PART_STATS = preload("res://scripts/sera_part_stats.gd")
+const TARGET_MOTION_SCRIPT = preload("res://scripts/training_target_motion.gd")
+# v178 prototype damage table: AIM, LEAD, SHOCK, ARC, respectively.
+const ENEMY_ATTACK_HP_DAMAGE = [18.0, 22.0, 28.0, 34.0]
+const ENEMY_ATTACK_SHIELD_COST = [23.0, 28.0, 36.0, 42.0]
+const TRAINING_KO_RECOVERY: float = 2.5
 const UI_SCRIPT = preload("res://scripts/touch_overlay.gd")
 const SWORD_TRAIL_SCRIPT = preload("res://scripts/sword_trail.gd")
 const HIT_BURST_SCRIPT = preload("res://scripts/hit_burst.gd")
@@ -197,6 +202,13 @@ var resources_label: Label
 var core_label: Label
 var test_hit_button: Button
 var test_break_button: Button
+var move_target_button: Button
+var incoming_damage_label: Label
+var incoming_damage_remaining: float = 0.0
+var training_ko_remaining: float = 0.0
+var target_motion: RefCounted
+var target_floor_mark: Node3D
+var target_move_enabled: bool = true
 var core_hp: float = 75.0
 var stagger_value: float = 0.0
 var stagger_remaining: float = 0.0
@@ -207,7 +219,7 @@ var player: CharacterBody3D
 var rig: Node3D
 var camera: Camera3D
 var target: Node3D
-var target_collider: StaticBody3D
+var target_collider: AnimatableBody3D
 var enemy_shooter: Node3D
 var enemy_attack_pool: Node3D
 var enemy_debug_ui: Control
@@ -423,13 +435,98 @@ func _tick_resources(delta: float) -> void:
             ceili(player_hp), int(part_stats.get("max_hp", 800.0)),
             roundi(float(part_stats.get("defense", 0.16)) * 100.0), ceili(energy), ceili(shield)]
     if core_label != null:
-        core_label.text = "TEST CORE %d/75  STAGGER %d/50  %s" % [
+        core_label.text = "CORE %d/75  STAGGER %d/50  %s" % [
             ceili(core_hp), ceili(stagger_value),
-            "BREAK" if part_break_remaining > 0.0 else ("STUN" if stagger_remaining > 0.0 else "")]
+            "BREAK" if part_break_remaining > 0.0 else (
+                "STUN" if stagger_remaining > 0.0 else (
+                    "MOVE" if target_move_enabled else "HOLD"))]
 
 func _take_test_damage(raw: float) -> void:
-    player_hp = maxf(0.0, player_hp - raw * (
-        1.0 - clampf(float(part_stats.get("defense", 0.16)), 0.0, 0.90)))
+    if training_ko_remaining > 0.0 or player_hp <= 0.0:
+        return
+    var final_damage: float = raw * (
+        1.0 - clampf(float(part_stats.get("defense", 0.16)), 0.0, 0.90))
+    player_hp = maxf(0.0, player_hp - final_damage)
+    incoming_damage_remaining = 0.75
+    if incoming_damage_label != null:
+        incoming_damage_label.text = "-%d HP" % ceili(final_damage)
+        incoming_damage_label.modulate.a = 1.0
+        incoming_damage_label.visible = true
+    if player_hp <= 0.0:
+        _begin_training_ko()
+
+func _begin_training_ko() -> void:
+    # Training-only recovery. Do not change saved data or invent a boss reward.
+    training_ko_remaining = TRAINING_KO_RECOVERY
+    if guard_active:
+        _set_guard(false)
+    if step_active:
+        _finish_side_step(false)
+    if combat_state != CombatState.IDLE:
+        _cancel_attack()
+    direction_input = Vector2.ZERO
+    movement_boost_active = false
+    boost_pose_grace_remaining = 0.0
+    gesture_active = false
+    player.velocity = Vector3.ZERO
+    if touch_ui != null:
+        touch_ui.call("hide_drag")
+        touch_ui.call("set_movement_boost", false)
+    if enemy_shooter != null:
+        enemy_shooter.set("can_fire", false)
+    if enemy_attack_pool != null:
+        for active_attack in enemy_attack_pool.get_children():
+            active_attack.queue_free()
+
+func _tick_training_ko(delta: float) -> void:
+    if training_ko_remaining <= 0.0:
+        return
+    training_ko_remaining = maxf(0.0, training_ko_remaining - delta)
+    if training_ko_remaining > 0.0:
+        return
+    player_hp = float(part_stats.get("max_hp", 800.0))
+    energy = TEST_EN_MAX
+    shield = TEST_SH_MAX
+    energy_exhausted = false
+    energy_recovery_pause = 0.0
+    shield_recovery_pause = 0.0
+    guard_break_remaining = 0.0
+    guard_break_hits = 0
+    down_remaining = 0.0
+    damage_reaction_active = false
+    damage_knockback_elapsed = 0.0
+    damage_knockback_direction = Vector3.ZERO
+    if rig != null:
+        rig.call("finish_damage", false)
+    player.position = Vector3.ZERO
+    player.velocity = Vector3.ZERO
+    target.position = Vector3(0.0, TARGET_BASE_HEIGHT, -8.0)
+    target_motion = TARGET_MOTION_SCRIPT.new()
+    if target_floor_mark != null:
+        target_floor_mark.position = Vector3(0.0, -0.026, -8.0)
+    target_hp = TARGET_MAX_HP
+    target_respawn_remaining = 0.0
+    core_hp = 75.0
+    stagger_value = 0.0
+    stagger_remaining = 0.0
+    part_break_remaining = 0.0
+    _refresh_hp_bar()
+
+func _advance_target_motion(delta: float) -> void:
+    if target == null or player == null or target_motion == null:
+        return
+    # The projectile/ARC telegraph snapshots its origin and facing at warning
+    # start. Freeze the moving target until launch to keep that cue truthful.
+    var warning: bool = enemy_shooter != null and bool(
+        enemy_shooter.call("warning_in_progress"))
+    var frozen: bool = (not target_move_enabled or warning or target_hp <= 0
+        or stagger_remaining > 0.0 or part_break_remaining > 0.0
+        or down_remaining > 0.0 or training_ko_remaining > 0.0)
+    target.position = target_motion.call("advance", delta, target.position,
+        player.position, frozen)
+    if target_floor_mark != null:
+        target_floor_mark.position = Vector3(
+            target.position.x, -0.026, target.position.z)
 
 func _begin_test_down() -> void:
     if down_remaining > 0.0:
@@ -559,6 +656,7 @@ func _build_target() -> void:
     target.name = "VirtualTarget"
     target.position = Vector3(0, TARGET_BASE_HEIGHT, -8.0)
     add_child(target)
+    target_motion = TARGET_MOTION_SCRIPT.new()
 
     var cube := BoxMesh.new()
     cube.size = Vector3.ONE * TARGET_HALF_SIZE * 2.0
@@ -578,8 +676,9 @@ func _build_target() -> void:
     target.add_child(marker)
     # A solid target body follows the same transform as the visible 2m cube.
     # Use a box rather than a circle so its faces/corners match the graphics.
-    target_collider = StaticBody3D.new()
+    target_collider = AnimatableBody3D.new()
     target_collider.name = "TargetSolidBody"
+    target_collider.sync_to_physics = false
     target_collider.collision_layer = TARGET_COLLISION_LAYER
     target_collider.collision_mask = 0  # The player's mask includes this layer.
     target.add_child(target_collider)
@@ -594,6 +693,7 @@ func _build_target() -> void:
 
     # Target marker stays on the ground even when its cube bobs vertically.
     _add_round_ground_shadow("TargetFloorMark", self, Vector3(target.position.x, -0.026, target.position.z))
+    target_floor_mark = get_node_or_null("TargetFloorMark") as Node3D
 
 func _build_enemy_shooter() -> void:
     # Keep all live enemy bullets/areas isolated so debug-mode switches can
@@ -610,49 +710,51 @@ func _build_enemy_shooter() -> void:
     add_child(enemy_shooter)
 
 func _on_enemy_projectile_hit(_world_position: Vector3, incoming_direction: Vector3,
-        is_bullet: bool) -> void:
-    if down_remaining > 0.0:
+        is_bullet: bool, attack_type: int) -> void:
+    if down_remaining > 0.0 or training_ko_remaining > 0.0:
         return
+    # The attack subtype is captured when the projectile or area is created.
+    # Changing the debug selection cannot change damage on an attack in flight.
+    var attack_index: int = clampi(attack_type, 0, ENEMY_ATTACK_HP_DAMAGE.size() - 1)
+    var incoming_damage: float = float(ENEMY_ATTACK_HP_DAMAGE[attack_index])
     if guard_break_remaining > 0.0:
-        _take_test_damage(18.0)
+        _take_test_damage(incoming_damage)
+        if training_ko_remaining > 0.0:
+            return
         guard_break_hits += 1
         if guard_break_hits >= int(part_stats.get("down_hits", 3)):
             _begin_test_down()
         return
     if guard_active:
-        var cost: float = (23.0 if is_bullet else 35.0) * (
+        var cost: float = float(ENEMY_ATTACK_SHIELD_COST[attack_index]) * (
             float(part_stats.get("guard_cost_mult", 1.0)) /
             maxf(0.2, float(part_stats.get("guard_defense_mult", 1.0))))
         shield = maxf(0.0, shield - cost)
         shield_recovery_pause = 0.45
+        SeraSave.record_defensive_impact(true)
         if shield <= 0.0:
             _set_guard(false)
             _begin_damage_reaction(incoming_direction)
             guard_break_remaining = 2.25
             guard_break_hits = 0
             return
-        SeraSave.record_defensive_impact(true)
-        # Guarded bullets use their own impact sound, but never
-        # triggers the unguarded red damage flash, Damageknock or knockback.
-        var block_sound: AudioStreamPlayer = guard_bullet_hit_audio if is_bullet else player_hit_audio
-        if is_instance_valid(block_sound) and block_sound.stream != null:
-            block_sound.play()
+        var guard_sound: AudioStreamPlayer = guard_bullet_hit_audio if is_bullet else player_hit_audio
+        if is_instance_valid(guard_sound) and guard_sound.stream != null:
+            guard_sound.play()
         if rig != null and bool(rig.get("loading_ok")):
             rig.call("trigger_guard_reaction")
         return
     SeraSave.record_defensive_impact(false)
-    _take_test_damage(18.0 if is_bullet else 26.0)
-    # Both straight bullets (AIM and LEAD) use the supplied projectile impact.
-    # SHOCK and ARC keep v93's metal sound: they are not bullet contacts.
-    # The flag is captured per spawned attack and cannot change with debug UI.
+    _take_test_damage(incoming_damage)
+    # Keep the preexisting projectile and area hit sound identities.
     projectile_hit_flash_remaining = PROJECTILE_HIT_FLASH_SECONDS
     if projectile_hit_overlay != null:
         projectile_hit_overlay.visible = true
     var damage_sound: AudioStreamPlayer = player_bullet_hit_audio if is_bullet else player_hit_audio
-    # Play even during an ongoing Damageknock; do not restart its animation.
     if is_instance_valid(damage_sound) and damage_sound.stream != null:
         damage_sound.play()
-    _begin_damage_reaction(incoming_direction)
+    if training_ko_remaining <= 0.0:
+        _begin_damage_reaction(incoming_direction)
 
 func _begin_damage_reaction(incoming_direction: Vector3) -> void:
     # A second projectile can flash the screen but cannot restart an in-progress
@@ -902,6 +1004,21 @@ func _build_overlay() -> void:
     test_break_button.size = Vector2(150.0, 42.0)
     test_break_button.mouse_filter = Control.MOUSE_FILTER_IGNORE
     layer.add_child(test_break_button)
+    move_target_button = Button.new()
+    move_target_button.name = "DebugTargetMotion"
+    move_target_button.text = "MOVE: ON"
+    move_target_button.position = Vector2(314.0, 268.0)
+    move_target_button.size = Vector2(148.0, 42.0)
+    move_target_button.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    layer.add_child(move_target_button)
+    incoming_damage_label = Label.new()
+    incoming_damage_label.name = "PlayerDamagePopup"
+    incoming_damage_label.position = Vector2(476.0, 275.0)
+    incoming_damage_label.add_theme_font_size_override("font_size", 22)
+    incoming_damage_label.add_theme_color_override("font_color", Color("ff9c88"))
+    incoming_damage_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    incoming_damage_label.visible = false
+    layer.add_child(incoming_damage_label)
     _tick_resources(0.0)
 
     step_status_label = Label.new()
@@ -1027,9 +1144,17 @@ func _pointer_on_training_test_button(pos: Vector2) -> bool:
     if test_hit_button == null or test_break_button == null:
         return false
     return (test_hit_button.get_global_rect().has_point(pos)
-        or test_break_button.get_global_rect().has_point(pos))
+        or test_break_button.get_global_rect().has_point(pos)
+        or (move_target_button != null
+            and move_target_button.get_global_rect().has_point(pos)))
 
 func _press_training_test_button(pos: Vector2) -> void:
+    if move_target_button != null and move_target_button.get_global_rect().has_point(pos):
+        target_move_enabled = not target_move_enabled
+        move_target_button.text = "MOVE: ON" if target_move_enabled else "MOVE: OFF"
+        return
+    if training_ko_remaining > 0.0:
+        return
     if test_break_button != null and test_break_button.get_global_rect().has_point(pos):
         if not guard_active:
             _set_guard(true)
@@ -1038,7 +1163,7 @@ func _press_training_test_button(pos: Vector2) -> void:
     var incoming: Vector3 = player.global_position - target.global_position
     if incoming.length_squared() < 0.000001:
         incoming = Vector3.FORWARD
-    _on_enemy_projectile_hit(player.global_position, incoming.normalized(), true)
+    _on_enemy_projectile_hit(player.global_position, incoming.normalized(), true, 0)
 
 func _pointer_on_nexus_button(pos: Vector2) -> bool:
     return (nexus_button != null and nexus_button.visible
@@ -1271,6 +1396,11 @@ func _advance_hit_fx(delta: float) -> void:
             damage_label.modulate.a = minf(1.0, damage_popup_remaining / 0.17)
     elif damage_label != null:
         damage_label.visible = false
+    incoming_damage_remaining = maxf(0.0, incoming_damage_remaining - delta)
+    if incoming_damage_label != null and incoming_damage_label.visible:
+        incoming_damage_label.modulate.a = minf(1.0, incoming_damage_remaining / 0.18)
+        if incoming_damage_remaining <= 0.0:
+            incoming_damage_label.visible = false
     if target_respawn_remaining > 0.0:
         target_respawn_remaining = maxf(0.0, target_respawn_remaining - delta)
         if target_respawn_remaining == 0.0:
@@ -2285,6 +2415,13 @@ func _update_boost_speed(delta: float) -> void:
 
 
 func _physics_process(delta: float) -> void:
+    _tick_training_ko(delta)
+    if training_ko_remaining > 0.0:
+        if state_label != null:
+            state_label.text = "SERA KO / RESTART %.1fs" % training_ko_remaining
+        _tick_resources(delta)
+        return
+    _advance_target_motion(delta)
     bash_followup_window_remaining = maxf(0.0, bash_followup_window_remaining - delta)
     bash_loop_window_remaining = maxf(0.0, bash_loop_window_remaining - delta)
     _update_guard_hold()
@@ -2320,7 +2457,8 @@ func _physics_process(delta: float) -> void:
         boost_pose_grace_remaining = maxf(0.0, boost_pose_grace_remaining - delta)
     # When the training cube is at zero HP, suspend its firing cycle.
     if enemy_shooter != null:
-        enemy_shooter.set("can_fire", target_hp > 0 and stagger_remaining <= 0.0 and part_break_remaining <= 0.0)
+        enemy_shooter.set("can_fire", target_hp > 0 and player_hp > 0.0
+            and stagger_remaining <= 0.0 and part_break_remaining <= 0.0)
     # The authored 0.16667s reaction runs while the body moves. Only regain
     # control when BOTH the animation and short physical knockback are done.
     if down_remaining > 0.0:
