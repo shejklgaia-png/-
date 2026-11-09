@@ -1,6 +1,7 @@
 ## v101: User-authored stationary Guard pose with guarded animation state.
 ## v99: Retimed airborne keys and separate 0.375->0.500 landing sequence.
 extends Node3D
+signal foot_contact(side: String)
 ## Rebuilds the original Blockbench meshes and its bone animation hierarchy.
 ## No Blender/glTF export is required: bone keyframes are read from the source JSON.
 ## IMPORTANT: Blockbench free-model bones use ZYX Euler order, not Godot's default YXZ.
@@ -74,6 +75,10 @@ const VISUAL_TURN_DEADBAND_DEGREES: float = 3.0
 # Near-opposite inputs can dither across +180/-180; remember turn side.
 const VISUAL_OPPOSITE_TURN_BAND_DEGREES: float = 12.0
 const RUN_ROOT_TURN_SPEED_DEGREES: float = 1440.0
+# Sole-height hysteresis avoids repeating hits while a planted foot vibrates.
+const FOOT_LIFTED_GAP: float = 0.055
+const FOOT_TOUCH_GAP: float = 0.020
+const FOOT_CONTACT_MIN_INTERVAL: float = 0.13
 const RUN_TORSO_BONE_UUID: String = "29fad052-d2b7-1a2a-eefa-30dd75fa7d0a"
 const RUN_CHEST_BONE_UUID: String = "1b13d772-8cee-ef23-dc57-4da6bba6ce39"
 const RUN_NECK_BONE_UUID: String = "6c0141f8-17fe-6484-21e1-938ae81a620c"
@@ -156,6 +161,9 @@ var bird_authoring: Dictionary = {}
 var bird_bone_ids: Array[String] = []
 var head_c_proxy: Node3D
 var head_c_proxy_base_position: Vector3 = Vector3.ZERO
+var foot_contact_initialized: bool = false
+var foot_lifted: Dictionary = {"L": false, "R": false}
+var foot_contact_elapsed: float = 1.0
 
 func _ready() -> void:
     var source: String = ""
@@ -351,6 +359,50 @@ func register_head_c_pivot(pivot: Node3D) -> void:
     head_c_proxy = pivot
     head_c_proxy_base_position = pivot.position
 
+# v190: A single bind-pose sole measurement drives both equipment height and
+# audible footfalls. Training has a visual XZ plane, not physics floor collisions.
+func get_grounding_height_offset() -> float:
+    return float(equipment_handler.call("get_grounding_height_offset")) if equipment_handler != null else 0.0
+
+func reset_foot_contacts() -> void:
+    foot_contact_initialized = false
+    foot_lifted["L"] = false
+    foot_lifted["R"] = false
+    foot_contact_elapsed = 1.0
+
+func _update_foot_contacts(delta: float) -> void:
+    foot_contact_elapsed += maxf(delta, 0.0)
+    if equipment_handler == null or current_clip not in RUN_CLIPS:
+        reset_foot_contacts()
+        return
+    var wearer: Node = get_parent()
+    # The existing gameplay floor is horizontal Y=0 (jump is debug-only).
+    if wearer is Node3D and absf((wearer as Node3D).position.y) > 0.05:
+        reset_foot_contacts()
+        return
+    var heights: Dictionary = equipment_handler.call("get_active_foot_heights")
+    if not heights.has("L") or not heights.has("R"):
+        reset_foot_contacts()
+        return
+    # The sole ground level equals A's bind sole after applying the selected
+    # set's stable lift. If authored keys penetrate that level, use the lower
+    # visible sole as a local reference instead of repeatedly triggering.
+    var expected_ground: float = float(equipment_handler.call("get_standard_sole_y")) - get_grounding_height_offset()
+    var effective_ground: float = minf(expected_ground,
+        minf(float(heights["L"]), float(heights["R"])))
+    for side in ["L", "R"]:
+        var gap: float = float(heights[side]) - effective_ground
+        if not foot_contact_initialized:
+            foot_lifted[side] = gap > FOOT_LIFTED_GAP
+        elif gap >= FOOT_LIFTED_GAP:
+            foot_lifted[side] = true
+        elif gap <= FOOT_TOUCH_GAP and bool(foot_lifted[side]):
+            foot_lifted[side] = false
+            if foot_contact_elapsed >= FOOT_CONTACT_MIN_INTERVAL:
+                foot_contact_elapsed = 0.0
+                foot_contact.emit(side)
+    foot_contact_initialized = true
+
 func _build_model(data: Dictionary) -> void:
     var groups_by_uuid: Dictionary = {}
     var elements_by_uuid: Dictionary = {}
@@ -398,6 +450,10 @@ func _add_entry(entry: Variant, parent: Node3D, parent_origin: Vector3, groups: 
             return
         piece.name = str(element.get("name", "Mesh"))
         piece.position = (_to_v3(element.get("origin", [0, 0, 0])) - parent_origin) * UNIT
+        if piece.name.begins_with("Bird_"):
+            # Keep bird-foot authored -22.5 degree mesh tilt, not only bone pose.
+            piece.quaternion = _blockbench_rotation(
+                _to_v3(element.get("rotation", [0, 0, 0])))
         parent.add_child(piece)
         if piece.name == "Swordeffect":
             sword_effect_mesh = piece
@@ -856,7 +912,10 @@ func _run_yaw_for_direction(direction: Vector2, retreat_weight: float) -> float:
     # As gait changes to backpedal, rotate the Waist continuously instead of
     # jumping 180° when the RUN/retreat mode first changes.
     var travel_angle: float = atan2(direction.x, direction.y)
-    return wrapf(-travel_angle - PI * retreat_weight, -PI, PI)
+    # Right-back rotates toward the right; left-back toward the left.
+    # One unconditional -PI sends right-back through the long rotation arc.
+    var retreat_sign: float = 1.0 if direction.x >= 0.0 else -1.0
+    return wrapf(-travel_angle + PI * retreat_weight * retreat_sign, -PI, PI)
 
 # A normalized angle blend never shrinks a 180° reversal through Vector2.ZERO.
 # The last turn sign resolves noisy input on opposite sides of ±180°.
@@ -1191,6 +1250,7 @@ func _process(delta: float) -> void:
         else:
             boost_direction_initialized = false
     _apply_animation(delta)
+    _update_foot_contacts(delta)
 
 func _run_heading_from_weights() -> Vector2:
     # Kept for v109 banking compatibility; now uses smoothed travel direction.
