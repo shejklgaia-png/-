@@ -1594,6 +1594,7 @@ func _input(event: InputEvent) -> void:
 
 func _guard_can_start() -> bool:
     return (not guard_active and not damage_reaction_active and down_remaining <= 0.0
+        and not (energy_exhausted and bool(part_stats.get("energy_shield", false)))
         and guard_break_remaining <= 0.0 and not landing_active
         and not jump_active and not step_active and combat_state == CombatState.IDLE
         and rig != null and bool(rig.get("loading_ok")))
@@ -2749,8 +2750,10 @@ func _physics_process(delta: float) -> void:
             movement_boost_active = false
             if touch_ui != null:
                 touch_ui.call("set_movement_boost", false)
-    if guard_active and bool(part_stats.get("energy_shield", false)) and energy > 0.0:
-        _spend_energy(6.0 * delta)
+    if guard_active and bool(part_stats.get("energy_shield", false)):
+        if energy_exhausted or not _spend_energy(6.0 * delta):
+            # Energy-backed guards must not become free while EN is locked.
+            _set_guard(false)
     _tick_resources(delta)
     stagger_remaining = maxf(0.0, stagger_remaining - delta)
     part_break_remaining = maxf(0.0, part_break_remaining - delta)
