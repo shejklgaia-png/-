@@ -9,7 +9,7 @@ ui=(root/"scripts/touch_overlay.gd").read_text(encoding="utf-8")
 main=(root/"scripts/main.gd").read_text(encoding="utf-8")
 rig=(root/"scripts/sera_rig.gd").read_text(encoding="utf-8")
 project=(root/"project.godot").read_text(encoding="utf-8")
-assert re.findall(r'^config/name="([^"]+)"$',project,re.M)==["SERA v150"]
+assert re.findall(r'^config/name="([^"]+)"$',project,re.M)==["SERA v151"]
 
 def region(start, end):
     return ui.split("func "+start,1)[1].split("func "+end,1)[0]
@@ -53,7 +53,7 @@ assert "const SWIPE_HEADING_SAMPLE_PIXELS: float = 6.0" in main
 assert "const SWIPE_BOOST_TRAVEL_PIXELS: float = 140.0" in main
 assert "direction_input = next_heading" in main
 assert "MOVEMENT_BOOST_MULTIPLIER if movement_boost_active else 1.0" in main
-assert "const RUN_DIRECTION_BLEND_SECONDS: float = 0.035" in rig
+assert "const RUN_DIRECTION_BLEND_SECONDS: float = 0.055" in rig
 
 # Exponential smoothing reaches the same result at 30, 60, 120 FPS.
 for time_constant in (0.040,0.052,0.070):

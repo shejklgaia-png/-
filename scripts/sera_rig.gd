@@ -31,8 +31,9 @@ const BOOST_BACK_CLIP: String = "Boost_back"
 const BOOST_RIGHT_CLIP: String = "Boost_right"
 const BOOST_LEFT_CLIP: String = "Boost_Left"
 const BOOST_CLIPS = [BOOST_CLIP, BOOST_BACK_CLIP, BOOST_RIGHT_CLIP, BOOST_LEFT_CLIP]
-# v116: Faster angular response for four-way authored BOOST pose changes.
-const BOOST_DIRECTION_BLEND_SECONDS: float = 0.025
+# v151: Angular interpolation stays continuous through ±180° and shares
+# the visual turn response with RUN. Only rendered poses are filtered.
+const BOOST_DIRECTION_BLEND_SECONDS: float = 0.045
 # Fast pose crossfade only when entering or leaving locomotion BOOST.
 const BOOST_STATE_BLEND_SECONDS: float = 0.08
 const MELEE_APPROACH_CLIP: String = "meleeboost"
@@ -50,16 +51,21 @@ const DAMAGE_CLIP: String = "Damageknock"
 const GUARD_CLIP: String = "Guard"
 # v116: The existing 1.5x RUN animation is accelerated by 1.25x (1.5 * 1.25).
 const RUN_ANIMATION_SPEED: float = 1.875  # Motion playback only; does not change movement speed
-# v108: Continuous four-way pose blending; 0.12s response for direction changes.
-const RUN_DIRECTION_BLEND_SECONDS: float = 0.035
+# v151: Filter only rendered RUN direction, leaving actual steering instant.
+# Angle-based smoothing avoids the zero-vector flip from Vector2.lerp at 180°.
+const RUN_DIRECTION_BLEND_SECONDS: float = 0.055
 # v112: Give the dominant-thumb side a larger forward RUN sector.
 # Right-hand preset widens LEFT; left-hand preset mirrors it to RIGHT.
 # The other side retains v111's center 100° and ±5° hysteresis.
 const RUN_MODE_BASE_CENTER_DEGREES: float = 100.0
 const RUN_PREFERRED_SIDE_EXTRA_DEGREES: float = 20.0
 const RUN_MODE_HYSTERESIS_DEGREES: float = 5.0
-const RUN_MODE_BLEND_SECONDS: float = 0.075
+const RUN_MODE_BLEND_SECONDS: float = 0.085
 const RUN_UPPER_TRACKING_SECONDS: float = 0.05
+# A few degrees of finger jitter must not continuously twitch the model.
+const VISUAL_TURN_DEADBAND_DEGREES: float = 3.0
+# Near-opposite inputs can dither across +180/-180; remember turn side.
+const VISUAL_OPPOSITE_TURN_BAND_DEGREES: float = 12.0
 const RUN_ROOT_TURN_SPEED_DEGREES: float = 1440.0
 const RUN_TORSO_BONE_UUID: String = "29fad052-d2b7-1a2a-eefa-30dd75fa7d0a"
 const RUN_CHEST_BONE_UUID: String = "1b13d772-8cee-ef23-dc57-4da6bba6ce39"
@@ -97,6 +103,8 @@ var boost_direction_smoothed: Vector2 = Vector2(0.0, 1.0)
 var run_left_handed: bool = false  # Right-handed by default.
 var run_direction_target: Vector2 = Vector2(0.0, 1.0)
 var run_direction_smoothed: Vector2 = Vector2(0.0, 1.0)
+var run_turn_sign: float = 1.0
+var boost_turn_sign: float = 1.0
 var run_retreat_mode: bool = false
 var run_retreat_blend: float = 0.0
 var run_facing_yaw: float = 0.0
@@ -521,40 +529,64 @@ func set_run_left_handed(enabled: bool) -> void:
     if run_motion_initialized:
         # Explicit preset changes should update the active gait immediately,
         # but existing crossfade / root yaw limits still smooth the visual pose.
-        run_retreat_mode = (_run_input_angle_degrees(run_direction_target)
-            > _run_forward_sector_center(run_direction_target))
+        run_retreat_mode = (_run_input_angle_degrees(run_direction_smoothed)
+            > _run_forward_sector_center(run_direction_smoothed))
 
 func _set_run_motion_direction(local_direction: Vector2) -> void:
     if local_direction.length_squared() < 0.000001:
         return
     var direction: Vector2 = local_direction.normalized()
-    var angle: float = _run_input_angle_degrees(direction)
-    var edge_center: float = _run_forward_sector_center(direction)
     if not run_motion_initialized or current_clip not in RUN_CLIPS:
         run_motion_initialized = true
         run_direction_target = direction
         run_direction_smoothed = direction
-        run_retreat_mode = angle > edge_center
+        run_turn_sign = 1.0
+        run_retreat_mode = (_run_input_angle_degrees(direction)
+            > _run_forward_sector_center(direction))
         run_retreat_blend = 1.0 if run_retreat_mode else 0.0
-        run_facing_yaw = _run_yaw_for_direction(direction, run_retreat_mode)
+        run_facing_yaw = _run_yaw_for_direction(direction, run_retreat_blend)
         run_upper_yaw_offsets = _run_joint_yaw_targets()
         run_turn_previous_direction = _run_heading_from_weights()
         run_turn_lean_degrees = 0.0
         return
+    # Never update the RUN/retreat clip from raw target direction: it must
+    # transition with the SAME smoothed heading as the model's Waist yaw.
     run_direction_target = direction
-    # Keep the existing ±5° hysteresis on BOTH sides of each center;
-    # widening the favored side affects only RUN/retreat selection.
+
+func _update_run_retreat_mode(direction: Vector2) -> void:
+    var angle: float = _run_input_angle_degrees(direction)
+    var edge_center: float = _run_forward_sector_center(direction)
+    # Preserve ±5° hysteresis and handedness bias, but use visual heading.
     if run_retreat_mode:
         if angle < edge_center - RUN_MODE_HYSTERESIS_DEGREES:
             run_retreat_mode = false
     elif angle > edge_center + RUN_MODE_HYSTERESIS_DEGREES:
         run_retreat_mode = true
 
-func _run_yaw_for_direction(direction: Vector2, retreat: bool) -> float:
-    # The front clip faces travel direction. The backpedal clip must face
-    # OPPOSITE travel direction so it still looks toward the target at 180°.
+func _run_yaw_for_direction(direction: Vector2, retreat_weight: float) -> float:
+    # As gait changes to backpedal, rotate the Waist continuously instead of
+    # jumping 180° when the RUN/retreat mode first changes.
     var travel_angle: float = atan2(direction.x, direction.y)
-    return wrapf(-travel_angle - (PI if retreat else 0.0), -PI, PI)
+    return wrapf(-travel_angle - PI * retreat_weight, -PI, PI)
+
+# A normalized angle blend never shrinks a 180° reversal through Vector2.ZERO.
+# The last turn sign resolves noisy input on opposite sides of ±180°.
+func _smooth_visual_direction(current: Vector2, target: Vector2,
+        delta: float, response_seconds: float, last_turn_sign: float) -> Dictionary:
+    var angle_now: float = atan2(current.x, current.y)
+    var angle_goal: float = atan2(target.x, target.y)
+    var angle_delta: float = wrapf(angle_goal - angle_now, -PI, PI)
+    var updated_sign: float = last_turn_sign
+    if absf(absf(angle_delta) - PI) < deg_to_rad(VISUAL_OPPOSITE_TURN_BAND_DEGREES):
+        angle_delta = absf(angle_delta) * updated_sign
+    elif absf(angle_delta) > 0.0001:
+        updated_sign = 1.0 if angle_delta > 0.0 else -1.0
+    var new_angle: float = angle_now
+    if absf(angle_delta) > deg_to_rad(VISUAL_TURN_DEADBAND_DEGREES):
+        var alpha: float = 1.0 - exp(-maxf(delta, 0.0) / response_seconds)
+        new_angle += angle_delta * alpha
+    return {"heading": Vector2(sin(new_angle), cos(new_angle)),
+        "turn_sign": updated_sign}
 
 func get_run_dominant_clip() -> String:
     return RUN_BACK_CLIP if run_retreat_mode else RUN_CLIP
@@ -569,6 +601,7 @@ func _set_boost_motion_direction(local_direction: Vector2) -> void:
     if not boost_direction_initialized or current_clip != BOOST_CLIP:
         boost_direction_initialized = true
         boost_direction_smoothed = direction
+        boost_turn_sign = 1.0
     boost_direction_target = direction
 
 func get_boost_dominant_clip() -> String:
@@ -781,13 +814,19 @@ func _process(delta: float) -> void:
     if not combat_paused:
         blending_for += delta
         if current_clip in RUN_CLIPS and run_motion_initialized:
-            var direction_alpha: float = 1.0 - exp(-maxf(delta, 0.0) / RUN_DIRECTION_BLEND_SECONDS)
-            run_direction_smoothed = run_direction_smoothed.lerp(run_direction_target, direction_alpha)
+            var run_update: Dictionary = _smooth_visual_direction(
+                run_direction_smoothed, run_direction_target, delta,
+                RUN_DIRECTION_BLEND_SECONDS, run_turn_sign)
+            run_direction_smoothed = run_update["heading"]
+            run_turn_sign = run_update["turn_sign"]
+            var heading: Vector2 = _run_heading_from_weights()
+            # The posture change, body yaw and authored RUN gait now share
+            # one filtered heading instead of racing three independent inputs.
+            _update_run_retreat_mode(heading)
             var retreat_alpha: float = 1.0 - exp(-maxf(delta, 0.0) / RUN_MODE_BLEND_SECONDS)
             run_retreat_blend = lerpf(run_retreat_blend, 1.0 if run_retreat_mode else 0.0, retreat_alpha)
-            var heading: Vector2 = _run_heading_from_weights()
             if not heading.is_zero_approx():
-                var wanted_yaw: float = _run_yaw_for_direction(heading, run_retreat_mode)
+                var wanted_yaw: float = _run_yaw_for_direction(heading, run_retreat_blend)
                 var yaw_error: float = wrapf(wanted_yaw - run_facing_yaw, -PI, PI)
                 var yaw_step: float = deg_to_rad(RUN_ROOT_TURN_SPEED_DEGREES) * maxf(delta, 0.0)
                 run_facing_yaw = wrapf(
@@ -804,13 +843,11 @@ func _process(delta: float) -> void:
             run_turn_previous_direction = Vector2.ZERO
             run_turn_lean_degrees = 0.0
         if current_clip == BOOST_CLIP and boost_direction_initialized:
-            # Exponential angular smoothing remains stable even for a 180-degree reversal.
-            var boost_alpha: float = 1.0 - exp(-maxf(delta, 0.0) / BOOST_DIRECTION_BLEND_SECONDS)
-            var current_angle: float = atan2(boost_direction_smoothed.x, boost_direction_smoothed.y)
-            var target_angle: float = atan2(boost_direction_target.x, boost_direction_target.y)
-            var angle_delta: float = wrapf(target_angle - current_angle, -PI, PI)
-            var smoothed_angle: float = current_angle + angle_delta * boost_alpha
-            boost_direction_smoothed = Vector2(sin(smoothed_angle), cos(smoothed_angle))
+            var boost_update: Dictionary = _smooth_visual_direction(
+                boost_direction_smoothed, boost_direction_target, delta,
+                BOOST_DIRECTION_BLEND_SECONDS, boost_turn_sign)
+            boost_direction_smoothed = boost_update["heading"]
+            boost_turn_sign = boost_update["turn_sign"]
         else:
             boost_direction_initialized = false
     _apply_animation(delta)

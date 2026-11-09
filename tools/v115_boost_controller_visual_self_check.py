@@ -28,7 +28,7 @@ assert 'mouse_filter = Control.MOUSE_FILTER_IGNORE' in main
 assert 'const SWIPE_BOOST_TRAVEL_PIXELS: float = 140.0' in main
 assert 'const SWIPE_HEADING_SAMPLE_PIXELS: float = 6.0' in main
 assert 'const MOVEMENT_BOOST_MULTIPLIER: float = 1.5' in main
-assert 'const BOOST_DIRECTION_BLEND_SECONDS: float = 0.025' in rig
+assert 'const BOOST_DIRECTION_BLEND_SECONDS: float = 0.045' in rig
 assert 'func _blended_boost_pose(uid: String) -> Dictionary:' in rig
 assert 'func set_target_marker_projection(' in ui
 assert 'func set_melee_in_range(' in ui

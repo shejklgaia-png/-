@@ -16,10 +16,10 @@ for required in (
     "func set_run_left_handed(enabled: bool) -> void:",
     "func _run_forward_sector_center(direction: Vector2) -> float:",
     "func _run_input_angle_degrees(direction: Vector2) -> float:",
-    "run_retreat_mode = angle > edge_center",
+    "run_retreat_mode = (_run_input_angle_degrees(direction)",
     "if angle < edge_center - RUN_MODE_HYSTERESIS_DEGREES:",
     "elif angle > edge_center + RUN_MODE_HYSTERESIS_DEGREES:",
-    "run_retreat_mode = (_run_input_angle_degrees(run_direction_target)",
+    "run_retreat_mode = (_run_input_angle_degrees(run_direction_smoothed)",
 ):
     assert required in rig, required
 
@@ -41,8 +41,8 @@ assert 'config/name="SERA v' in project  # Preserve a versioned name across late
 assert "const STRIKE_DAMAGE = [12, 12, 26]" in main
 assert "const JUMP_TOUCH_INPUT_ENABLED: bool = false" in main
 assert "const RUN_TURN_MAX_LEAN_DEGREES: float = 15.0" in rig
-assert "const RUN_MODE_BLEND_SECONDS: float = 0.18" in rig
-assert "const RUN_ROOT_TURN_SPEED_DEGREES: float = 450.0" in rig
+assert "const RUN_MODE_BLEND_SECONDS: float = 0.085" in rig
+assert "const RUN_ROOT_TURN_SPEED_DEGREES: float = 1440.0" in rig
 
 def favored_center(left_handed, side):
     return 100 + (20 if (side == "right" if left_handed else side == "left") else 0)

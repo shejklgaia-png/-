@@ -13,7 +13,7 @@ main = (root/"scripts/main.gd").read_text(encoding="utf-8")
 ui = (root/"scripts/touch_overlay.gd").read_text(encoding="utf-8")
 rig = (root/"scripts/sera_rig.gd").read_text(encoding="utf-8")
 project = (root/"project.godot").read_text(encoding="utf-8")
-assert re.findall(r'^config/name="([^"]+)"$',project,re.M) == ["SERA v150"]
+assert re.findall(r'^config/name="([^"]+)"$',project,re.M) == ["SERA v151"]
 assert (root/"README_v149_ja.md").exists()
 
 def part(source, start, end):
@@ -52,8 +52,8 @@ assert "MOVEMENT_BOOST_MULTIPLIER if movement_boost_active else 1.0" in physics
 assert "boost_speed_multiplier" not in main
 assert "BOOST_START_RADIUS_RATIO" not in main
 assert "direction_input = delta.limit_length(1.0)" not in main
-assert "const RUN_DIRECTION_BLEND_SECONDS: float = 0.035" in rig
-assert "const BOOST_DIRECTION_BLEND_SECONDS: float = 0.025" in rig
+assert "const RUN_DIRECTION_BLEND_SECONDS: float = 0.055" in rig
+assert "const BOOST_DIRECTION_BLEND_SECONDS: float = 0.045" in rig
 assert "const RUN_ROOT_TURN_SPEED_DEGREES: float = 1440.0" in rig
 
 assert "func set_swipe_motion(pos: Vector2, heading: Vector2," in ui

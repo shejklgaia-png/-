@@ -15,7 +15,7 @@ def number(name):
     assert match, name
     return float(match.group(1))
 
-assert re.findall(r'^config/name="([^"]+)"$', project, re.M) == ["SERA v150"]
+assert re.findall(r'^config/name="([^"]+)"$', project, re.M) == ["SERA v151"]
 assert number("MOVE_SPEED") == 3.25
 assert number("GROUND_MOVE_SPEED_SCALE") == 1.25
 assert number("MOVEMENT_BOOST_MULTIPLIER") == 1.5
