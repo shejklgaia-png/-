@@ -266,6 +266,8 @@ var direction_input: Vector2 = Vector2.ZERO
 var movement_boost_active: bool = false
 var boost_confirm_elapsed: float = 0.0
 var boost_has_activated_this_gesture: bool = false
+# EN-related BOOST cancellation remains latched until the finger returns inward.
+var boost_rearm_required: bool = false
 var boost_speed_multiplier: float = 1.0
 var boost_speed_transition_start: float = 1.0
 var boost_speed_transition_target: float = 1.0
@@ -1683,6 +1685,7 @@ func _begin_drag(pos: Vector2) -> void:
     movement_boost_active = false
     boost_confirm_elapsed = 0.0
     boost_has_activated_this_gesture = false
+    boost_rearm_required = false
     _reset_boost_speed_transition()
     boost_pose_grace_remaining = 0.0
     touch_ui.call("set_movement_boost", false)
@@ -1740,11 +1743,21 @@ func _update_boost_gesture(delta: float) -> void:
             or energy_exhausted or bash_flick_candidate or jump_active or landing_active:
         boost_confirm_elapsed = 0.0
         if movement_boost_active:
+            # Covers a successful spend that exhausted EN exactly to zero.
+            if energy_exhausted:
+                boost_rearm_required = true
             movement_boost_active = false
             touch_ui.call("set_movement_boost", false)
         return
     # RUN rim is 112px, but BOOST stays at the original 168px reference.
     var finger_distance: float = pointer_location.distance_to(pointer_origin)
+    # A stationary outside hold cannot restart BOOST after EN regeneration.
+    # Re-arm only after an intentional inward drag past the existing exit rim.
+    if boost_rearm_required:
+        if finger_distance >= DRAG_RADIUS * BOOST_EXIT_RADIUS_RATIO:
+            boost_confirm_elapsed = 0.0
+            return
+        boost_rearm_required = false
     if movement_boost_active:
         # Hysteresis: do not flicker between RUN and BOOST at the entry rim.
         if finger_distance < DRAG_RADIUS * BOOST_EXIT_RADIUS_RATIO:
@@ -2740,11 +2753,17 @@ func _physics_process(delta: float) -> void:
     _update_guard_hold()
     # Sample the outer-ring hold independently of touch event frequency.
     _update_boost_gesture(delta)
-    if movement_boost_active and not _spend_energy(
-            20.0 * delta * float(part_stats.get("energy_cost_mult", 1.0))):
-        movement_boost_active = false
-        if touch_ui != null:
-            touch_ui.call("set_movement_boost", false)
+    if movement_boost_active:
+        var boost_energy_ok: bool = _spend_energy(
+            20.0 * delta * float(part_stats.get("energy_cost_mult", 1.0)))
+        if not boost_energy_ok or energy_exhausted:
+            # Insufficient EN can fail before energy_exhausted is set.
+            # Do not auto-confirm BOOST again while this finger stays outside.
+            boost_rearm_required = true
+            boost_confirm_elapsed = 0.0
+            movement_boost_active = false
+            if touch_ui != null:
+                touch_ui.call("set_movement_boost", false)
     if guard_active and bool(part_stats.get("energy_shield", false)) and energy > 0.0:
         _spend_energy(6.0 * delta)
     _tick_resources(delta)
