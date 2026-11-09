@@ -1067,3 +1067,9 @@
 - 新規 `shaders/sera_ko_dark.gdshader` はオリジナルA/B材質やテクスチャを変更せず、材質オーバーレイ優先度で一時的に暗色化。復帰時は暗色を解除して元のカラー/剣閃オーバーレイを復元し、待機アニメーションへ戻る。
 - HP0から既存2.5秒の訓練復帰でKO解除、HP/EN/SHを全回復、HPバー満タン。対象変更: `scripts/main.gd`, `scripts/sera_rig.gd`, `shaders/sera_ko_dark.gdshader`, `project.godot`。追加: `README_v179_ja.md`, `tools/v179_ko_visual_hp_bar_self_check.py`。歴史的v178専用検査はv179でSKIP。**Godot実行およびAndroid実機確認は未実施**。
 - KO中の残像保持を防ぐため、`sera_rig.gd` に `_clear_motion_afterimages()` を追加。KO開始時に既存3枚を消去し、KO中は新しい残像を生成しない。
+
+
+## v180（2026-11-09） — プレイヤー最大HPを全パーツで1/5へ調整
+- A/Bの5ボディパーツにある`hp`寄与値のみ0.2倍化：Aは頭/腕/脚/ブースター各20・胴体80（合計160）、Bは頭/腕/脚/ブースター各26・胴体104（合計208）。混合装備でも5部位のHP合算方式と胴体50%の設計を維持。
+- 防御率・武器/移動・EN/SH・敵HP/攻撃ダメージの各パラメータは不変。TRAININGのHPバー・HP0 KO・復帰HPは`part_stats.max_hp`から動的取得するためそのまま新しい数値へ追従。
+- 更新：`scripts/sera_part_stats.gd`, `project.godot`, `tools/v179_ko_visual_hp_bar_self_check.py`, `DEVELOPMENT.md`。追加：`README_v180_ja.md`, `tools/v180_player_hp_self_check.py`。Godot/Android実機動作未確認。
