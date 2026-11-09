@@ -130,6 +130,10 @@ var blend_duration: float = BLEND_SECONDS
 var boost_to_run_crossfade: bool = false
 var combat_playback: bool = false
 var step_playback: bool = false
+# A complete 360-degree flick uses a continuous blend of authored cardinal
+# step poses; the provisional forward pose is Boost_front.
+var directional_step_active: bool = false
+var directional_step_vector: Vector2 = Vector2.UP
 var jump_playback: bool = false
 var damage_playback: bool = false
 var guard_playback: bool = false
@@ -407,6 +411,9 @@ func _update_foot_contacts(delta: float) -> void:
             foot_lifted[side] = false
             if foot_contact_elapsed >= FOOT_CONTACT_MIN_INTERVAL:
                 foot_contact_elapsed = 0.0
+                # Same exact frame as the audible footstep. All other RUN
+                # frames keep the original uncorrected animation height.
+                equipment_handler.call("snap_grounded_sole_to_floor")
                 foot_contact.emit(side)
     foot_contact_initialized = true
 
@@ -1018,11 +1025,54 @@ func set_moving(moving: bool, boosting: bool = false, local_direction: Vector2 =
         fade_seconds = BOOST_STATE_BLEND_SECONDS
     _switch_clip(wanted, fade_seconds)
 
+func _sample_step_clip_pose(clip_name: String, uid: String, elapsed: float) -> Dictionary:
+    var sample_t: float = minf(maxf(0.0, elapsed), float(animations[clip_name]["length"]))
+    var tracks: Dictionary = animations[clip_name]["tracks"]
+    var joint: Dictionary = tracks.get(uid, {})
+    var rotations: Array = joint.get("rotation", [])
+    var positions: Array = joint.get("position", [])
+    var scales: Array = joint.get("scale", [])
+    return {
+        "rotation": _rotation_at(rotations, sample_t) if not rotations.is_empty() else bind_rotations[uid],
+        "position": _value_at(positions, sample_t) * UNIT,
+        "scale": _value_at(scales, sample_t) if not scales.is_empty() else Vector3.ONE
+    }
+
+func _blended_directional_step_pose(uid: String, t: float) -> Dictionary:
+    # Cardinal keys are exact. Any diagonal smoothly interpolates between
+    # lateral STEP_L/R and forward Boost_front or backward Backstep.
+    var direction: Vector2 = directional_step_vector
+    var fore_aft: Dictionary = _sample_boost_pose(BOOST_CLIP, uid) if direction.y < 0.0 else (
+        _sample_step_clip_pose(STEP_BACK_CLIP, uid, 0.0))
+    var side_clip: String = STEP_RIGHT_CLIP if direction.x >= 0.0 else STEP_LEFT_CLIP
+    var lateral: Dictionary = _sample_step_clip_pose(side_clip, uid, t)
+    var alpha: float = atan2(absf(direction.x), absf(direction.y)) / (PI * 0.5)
+    return {
+        "rotation": (fore_aft["rotation"] as Quaternion).slerp(lateral["rotation"], alpha).normalized(),
+        "position": (fore_aft["position"] as Vector3).lerp(lateral["position"], alpha),
+        "scale": (fore_aft["scale"] as Vector3).lerp(lateral["scale"], alpha)
+    }
+
+func start_omni_step(direction: Vector2) -> void:
+    if not loading_ok or damage_playback or guard_playback or direction.length_squared() < 0.000001:
+        return
+    # Use the authored Step_R timeline as the interpolation clock; its
+    # animation is not imposed on left/back/forward at weight zero.
+    # Full-pose crossfade captures the exact displayed frame for entry.
+    directional_step_vector = direction.normalized()
+    directional_step_active = true
+    step_playback = true
+    if current_clip == STEP_RIGHT_CLIP:
+        # _switch_clip would otherwise ignore a repeated rightward step.
+        current_clip = WAIT_CLIP
+    _switch_clip(STEP_RIGHT_CLIP, 0.12)
+
 func start_side_step(side: int) -> void:
     if not loading_ok or damage_playback or guard_playback or (side != 1 and side != -1):
         return
     step_playback = true
-    _switch_clip(STEP_RIGHT_CLIP if side > 0 else STEP_LEFT_CLIP, 0.055)
+    directional_step_active = false
+    _switch_clip(STEP_RIGHT_CLIP if side > 0 else STEP_LEFT_CLIP, 0.12)
 
 func start_back_step() -> void:
     # The authored Backstep clip is a single-key pose (time 0).
@@ -1030,16 +1080,18 @@ func start_back_step() -> void:
     if not loading_ok or damage_playback or guard_playback:
         return
     step_playback = true
-    _switch_clip(STEP_BACK_CLIP, 0.055)
+    directional_step_active = false
+    _switch_clip(STEP_BACK_CLIP, 0.12)
 
 func finish_side_step(resume_moving: bool, airborne_fall: bool = false) -> void:
     if not step_playback:
         return
     step_playback = false
+    directional_step_active = false
     if airborne_fall:
         resume_jump_fall()
     else:
-        _switch_clip(RUN_CLIP if resume_moving else WAIT_CLIP, 0.11)
+        _switch_clip(RUN_CLIP if resume_moving else WAIT_CLIP, 0.16)
 
 func start_jump() -> void:
     if not loading_ok or damage_playback or guard_playback or jump_playback:
@@ -1257,9 +1309,17 @@ func _process(delta: float) -> void:
         else:
             boost_direction_initialized = false
     _apply_animation(delta)
-    # Post-pose foot placement: account for pelvis bob, stride, and new boots.
-    equipment_handler.call("snap_grounded_sole_to_floor")
-    _update_foot_contacts(delta)
+    # v200: combat (all strikes, bash, guard), steps, boosts and non-contact
+    # RUN frames use the original v198 bind-height behavior.
+    equipment_handler.call("restore_grounding_baseline")
+    if (current_clip == WAIT_CLIP and not step_playback and not combat_playback
+            and not guard_playback and not jump_playback and not damage_playback):
+        equipment_handler.call("snap_grounded_sole_to_floor")
+    elif current_clip in RUN_CLIPS and not step_playback:
+        # The event calls the one-frame snap ONLY when a footstep sounds.
+        _update_foot_contacts(delta)
+    else:
+        reset_foot_contacts()
 
 func _run_heading_from_weights() -> Vector2:
     # Kept for v109 banking compatibility; now uses smoothed travel direction.
@@ -1408,11 +1468,12 @@ func _apply_animation(_delta: float) -> void:
     # keyframe for the entire approach, until 'melee1' begins.
     # KO must use the last key even when Blockbench marks Damageknock looped:
     # fposmod(last_key_time, clip_length) would wrap at the final frame.
-    var t: float = clip_time if training_ko_active and current_clip == DAMAGE_CLIP else (
-        fposmod(clip_time, clip_length) if bool(clip["looped"]) else minf(clip_time, clip_length))
+    var t: float = clip_time if (step_playback and directional_step_active) else (
+        clip_time if training_ko_active and current_clip == DAMAGE_CLIP else (
+        fposmod(clip_time, clip_length) if bool(clip["looped"]) else minf(clip_time, clip_length)))
     var tracks: Dictionary = clip["tracks"]
     var blend_weight: float = clampf(blending_for / maxf(blend_duration, 0.00001), 0.0, 1.0)
-    if boost_to_run_crossfade:
+    if boost_to_run_crossfade or (step_playback and directional_step_active):
         # Cubic easing avoids a hard acceleration change at either endpoint.
         blend_weight = blend_weight * blend_weight * (3.0 - 2.0 * blend_weight)
     var running_pose: bool = current_clip in RUN_CLIPS
@@ -1421,7 +1482,12 @@ func _apply_animation(_delta: float) -> void:
         var q: Quaternion = Quaternion.IDENTITY
         var translation: Vector3 = Vector3.ZERO
         var scale_value: Vector3 = Vector3.ONE
-        if running_pose:
+        if step_playback and directional_step_active:
+            var step_pose: Dictionary = _blended_directional_step_pose(str(uid), t)
+            q = step_pose["rotation"]
+            translation = step_pose["position"]
+            scale_value = step_pose["scale"]
+        elif running_pose:
             var pose: Dictionary = _blended_run_pose(str(uid), t)
             q = pose["rotation"]
             translation = pose["position"]

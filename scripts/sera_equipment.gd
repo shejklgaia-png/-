@@ -159,6 +159,13 @@ func _apply_legs_grounding(set_id: String) -> void:
         bind_sole_heights.get(set_id, standard_sole_y))
     rig.position.y = rig_original_y + grounding_height_offset
 
+func restore_grounding_baseline() -> void:
+    # v200: all combat / step / airborne poses keep v198's fixed bind offset.
+    # This only changes the visible rig; NEXUS preview stays camera-fitted.
+    if not grounding_enabled or rig == null:
+        return
+    rig.position.y = rig_original_y + grounding_height_offset
+
 func snap_grounded_sole_to_floor() -> void:
     # v199: evaluate the *current animated pose*, not only the bind pose.
     # The logical Player still stays on its existing XZ plane at world Y=0.
