@@ -4,17 +4,21 @@ on:
     types: [opened, synchronize, edited, reopened]
     paths:
       - 'AGENTS.md'
+      - '.gitignore'
       - 'models/**'
       - 'blockbench/**'
       - 'assets/AGENTS.md'
       - 'assets/sera_source.json'
       - 'assets/sera_data.gd'
       - 'assets/sera_equipment_data.gd'
+      - 'assets/sera_bird_data.gd'
       - 'scripts/AGENTS.md'
       - 'scripts/sera_rig.gd'
       - 'scripts/sera_equipment.gd'
       - 'tools/rebuild_model_data.py'
       - 'tools/rebuild_equipment_data.py'
+      - 'tools/rebuild_bird_data.py'
+      - 'tools/v189_bird_headc_self_check.py'
       - 'tools/model_policy_check.py'
       - 'docs/MODEL_PART_WORKFLOW_ja.md'
       - '.github/workflows/sera-model-policy.yml'
@@ -33,3 +37,10 @@ jobs:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: python3 tools/model_policy_check.py --base "$BASE_SHA" --head "$HEAD_SHA"
+      - name: Verify v189 bird legs and Head C assets
+        run: python3 tools/v189_bird_headc_self_check.py
+      - name: Verify base model and repository paths
+        run: |
+          python3 tools/self_check.py
+          python3 tools/codex_project_check.py
+          python3 tools/project_name_self_check.py

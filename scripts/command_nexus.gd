@@ -106,6 +106,7 @@ const NEXUS_POSE_NAMES: Array[String] = ["NEXUS_pose", "NEXUSpose"]
 # Authoritative synchronized Blockbench file first; canonical source fallback.
 # Both are JSON text readable by the Android Godot editor after GitSync.
 const NEXUS_POSE_SOURCES: Array[String] = [
+    "res://models/storage/SERA_BIRD_LEGS_MIRROR_EDIT.bbmodel",
     "res://models/SERA_BOOSTER_allテスト.bbmodel",
     "res://models/SERA_BOOSTER_all.bbmodel",
     "res://assets/sera_source.json"
@@ -399,6 +400,7 @@ func _apply_nexus_pose(rig: Node3D) -> bool:
             if raw_clip.get("animators", {}).is_empty():
                 continue
             rig.call("_build_animations", {"animations": [raw_clip]})
+            rig.call("_merge_bird_animation_tracks", pose_name)
             var available: Dictionary = rig.get("animations")
             if not available.has(pose_name):
                 continue

@@ -1141,3 +1141,11 @@
 - Increased only C head (`HeadC_Head_torus`) and neck (`HeadC_Neck_tube`) vertex positions by 1.5 relative to v187; resulting widths 9.6 and 5.952 Blockbench units. Local mesh origins, group pivots, UUIDs, faces/UVs, material, A/B parts and 23 animations unchanged.
 - Updated `assets/sera_equipment_data.gd`, Godot project name to `SERA v188`, versioned README and static check. v187 fixed-proportion test is now historical and skips on newer versions.
 - JS data validation: each mesh axis scales exactly 1.5, original A/B and group/animation data identical, embedded JSON roundtrip. Godot/Android runtime NOT TESTED.
+
+
+## 2026-11-10 — SERA v189: bird-leg D lower body and corrected Head C pivots
+- Registered the user's latest `models/storage/SERA_BIRD_LEGS_MIRROR_EDIT.bbmodel` as the bird-leg source. The A rig and its source/animation data are preserved; six new bird bones are built below the existing Waist at runtime, and 10 bird meshes form LOWER BODY = D. A/B legs still exist, and selecting another set hides bird meshes. D initially inherits A mobility/combat stats.
+- In Godot, import the dedicated bird keyframe tracks onto the same clip timeline as A's upper body. The latest six-key bird `NEXUS_pose` is used in the exhibition preview. For un-authored `run_back`, `run_right` and `Jump`, use existing bird front/left/neutral keys as explicit temporary fallbacks; do not claim those are custom animations.
+- Updated C head from `models/storage/頭C (2) (1).bbmodel`: corrected source neck/head pivots ([0,1.3,-0.2], [0,7.5,2]) are mapped to the A Neck anchor using 0.48 uniform scaling, maintaining v188 widths 9.6 and 5.952. Preserve source-authored mesh local rotations (-15°/20°), and use C-only head pivot tracking so A/B heads remain unchanged.
+- Rebuilt `assets/sera_equipment_data.gd` and generated `assets/sera_bird_data.gd`; included reproducible `tools/rebuild_bird_data.py`. Changed `scripts/sera_rig.gd`, `scripts/sera_equipment.gd`, `scripts/command_nexus.gd`. Project title is `SERA v189`.
+- Static JSON verification and consistency checks only; no Godot editor/headless/Android runtime test performed. Check model attachment, pose, mirror legs/ground contact, custom head pivot and afterimages on Xperia 1 V.

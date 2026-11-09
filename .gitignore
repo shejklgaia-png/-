@@ -1,0 +1,9 @@
+# Godot generates this cache locally on Android/desktop.
+.godot/
+# Editor temporary and swap files
+*.swp
+*.tmp
+*.bak
+# Python execution artifacts
+__pycache__/
+*.pyc
