@@ -127,6 +127,7 @@ const TARGET_RESPAWN_SECONDS: float = 1.35
 enum CombatState { IDLE, MELEE_APPROACH, DASH, STRIKE }
 # v112: Persistent handedness changes RUN animation selection only.
 const HANDEDNESS_SETTINGS_FILE: String = "user://sera_settings.cfg"
+const NEXUS_SCENE: String = "res://scenes/command_nexus.tscn"
 const DRAG_RADIUS: float = 168.0  # v73: retain v72 outer diameter for the single RUN disc.
 const CAMERA_FOLLOW_RATE: float = 1.65
 const CAMERA_IDLE_RECENTER_RATE: float = 1.05  # How quickly the player eases toward a clear centered resting position.
@@ -191,6 +192,9 @@ var touch_ui: Control
 var state_label: Label
 var hud_panel: Panel  # v55: compact header; a single v112 preference button receives touch.
 var handedness_button: Button
+var nexus_button: Button
+var _returning_to_nexus: bool = false
+var _previous_quit_on_go_back: bool = true
 var left_handed: bool = false
 var step_status_label: Label
 var step_detail_label: Label
@@ -289,6 +293,9 @@ var strike_prev_time: float = 0.0
 var strike_prev_blade: PackedVector3Array = PackedVector3Array()
 
 func _ready() -> void:
+    # Android Back should return to the base here instead of closing the app.
+    _previous_quit_on_go_back = get_tree().quit_on_go_back
+    get_tree().quit_on_go_back = false
     _load_handedness_preference()
     _build_world()
     _build_character()
@@ -299,6 +306,25 @@ func _ready() -> void:
     _build_hit_effects()
     _build_motion_blur()
     _update_target_marker_projection()  # Initial position before the first rendered frame.
+
+func _exit_tree() -> void:
+    get_tree().quit_on_go_back = _previous_quit_on_go_back
+
+func _notification(what: int) -> void:
+    if what == NOTIFICATION_WM_GO_BACK_REQUEST:
+        _request_return_to_nexus()
+
+func _request_return_to_nexus() -> void:
+    if _returning_to_nexus:
+        return
+    _returning_to_nexus = true
+    call_deferred("_change_to_nexus")
+
+func _change_to_nexus() -> void:
+    var result: Error = get_tree().change_scene_to_file(NEXUS_SCENE)
+    if result != OK:
+        _returning_to_nexus = false
+        push_error("Training to Nexus scene load failed (%d)" % result)
 
 func _load_handedness_preference() -> void:
     var settings := ConfigFile.new()
@@ -647,6 +673,27 @@ func _build_overlay() -> void:
     if rig != null:
         rig.call("set_run_left_handed", left_handed)
 
+    # Place the return control between left-side status and right-side telemetry.
+    # Its raw touch hit-test below works even when mouse emulation is disabled.
+    nexus_button = Button.new()
+    nexus_button.name = "ReturnToNexus"
+    nexus_button.text = "BACK TO NEXUS"
+    nexus_button.position = Vector2(226.0, 59.0)
+    nexus_button.size = Vector2(176.0, 35.0)
+    nexus_button.focus_mode = Control.FOCUS_NONE
+    nexus_button.mouse_filter = Control.MOUSE_FILTER_STOP
+    nexus_button.add_theme_font_size_override("font_size", 15)
+    nexus_button.add_theme_color_override("font_color", Color("d5faff"))
+    var nexus_button_style := StyleBoxFlat.new()
+    nexus_button_style.bg_color = Color(0.08, 0.17, 0.22, 0.94)
+    nexus_button_style.border_color = Color("3fabb8")
+    nexus_button_style.set_border_width_all(1)
+    nexus_button_style.set_corner_radius_all(6)
+    nexus_button.add_theme_stylebox_override("normal", nexus_button_style)
+    nexus_button.add_theme_stylebox_override("hover", nexus_button_style)
+    nexus_button.pressed.connect(_request_return_to_nexus)
+    hud_panel.add_child(nexus_button)
+
     state_label = Label.new()
     state_label.name = "ActionState"
     state_label.text = "WAIT  |  Wait_motion"
@@ -809,6 +856,10 @@ func _refresh_step_status_ui() -> void:
         step_detail_label.text = "LAST %.2fm  /  %.2fs" % [step_traveled_distance, step_last_elapsed]
     else:
         step_detail_label.text = "SIDE <=0.4s / BACK 4.0m"
+
+func _pointer_on_nexus_button(pos: Vector2) -> bool:
+    return (nexus_button != null and nexus_button.visible
+        and nexus_button.get_global_rect().has_point(pos))
 
 func _pointer_on_step_hud(pos: Vector2) -> bool:
     # The compact header is informational only. Do not interpret taps or
@@ -1039,6 +1090,11 @@ func _advance_hit_fx(delta: float) -> void:
 func _input(event: InputEvent) -> void:
     if event is InputEventScreenTouch:
         if event.pressed:
+            if _pointer_on_nexus_button(event.position):
+                step_hud_touch = event.index
+                _request_return_to_nexus()
+                get_viewport().set_input_as_handled()
+                return
             if _pointer_on_step_hud(event.position):
                 # GUI handles the button event; gameplay owns no such touch.
                 step_hud_touch = event.index
@@ -1061,6 +1117,11 @@ func _input(event: InputEvent) -> void:
         # Desktop editor test: drag with left mouse button; HUD tap is isolated.
         if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
             if event.pressed:
+                if _pointer_on_nexus_button(event.position):
+                    step_hud_mouse_press = true
+                    _request_return_to_nexus()
+                    get_viewport().set_input_as_handled()
+                    return
                 if _pointer_on_step_hud(event.position):
                     step_hud_mouse_press = true
                     return
@@ -1632,6 +1693,11 @@ func _debug_jump() -> void:
         _start_jump(Vector3(player.velocity.x, 0.0, player.velocity.z))
 
 func _unhandled_key_input(event: InputEvent) -> void:
+    if event is InputEventKey and event.pressed and not event.echo:
+        if event.is_action_pressed("ui_cancel") or event.keycode == KEY_BACK:
+            _request_return_to_nexus()
+            get_viewport().set_input_as_handled()
+            return
     if event is InputEventKey and event.keycode == KEY_G and not event.echo:
         keyboard_guard_held = event.pressed
         if not keyboard_guard_held and not gesture_active:
