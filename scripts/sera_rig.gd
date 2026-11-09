@@ -450,7 +450,7 @@ func _add_entry(entry: Variant, parent: Node3D, parent_origin: Vector3, groups: 
             return
         piece.name = str(element.get("name", "Mesh"))
         piece.position = (_to_v3(element.get("origin", [0, 0, 0])) - parent_origin) * UNIT
-        if piece.name.begins_with("Bird_"):
+        if str(piece.name).begins_with("Bird_"):
             # Keep bird-foot authored -22.5 degree mesh tilt, not only bone pose.
             piece.quaternion = _blockbench_rotation(
                 _to_v3(element.get("rotation", [0, 0, 0])))
