@@ -135,6 +135,8 @@ var prior_rotations: Dictionary = {}
 var prior_scales: Dictionary = {}        # uuid -> Quaternion
 var prior_offsets: Dictionary = {}          # uuid -> Vector3
 var loading_ok: bool = false
+var equipment_damage_scale: float = 1.0
+var equipment_guard_speed: float = 1.0
 var equipment_handler: RefCounted
 
 func _ready() -> void:
@@ -177,6 +179,10 @@ func _ready() -> void:
     # Must update the authored blade transforms before main.gd tests contact.
     process_priority = -1
     set_process(true)
+
+func set_equipment_motion_scales(damage_scale: float, guard_speed: float) -> void:
+    equipment_damage_scale = clampf(damage_scale, 0.5, 2.0)
+    equipment_guard_speed = clampf(guard_speed, 0.5, 2.0)
 
 ## Equipment categories are intentionally independent of animation clips.
 func get_equipment_options(slot: String) -> Array:
@@ -550,7 +556,7 @@ func start_guard() -> void:
     if not loading_ok or guard_playback or combat_playback or step_playback or jump_playback or damage_playback:
         return
     guard_playback = true
-    _switch_clip(GUARD_CLIP, 0.095)
+    _switch_clip(GUARD_CLIP, 0.095 / equipment_guard_speed)
 
 func finish_guard() -> void:
     if not guard_playback:
@@ -880,7 +886,8 @@ func _process(delta: float) -> void:
     if not loading_ok:
         return
     if not freeze_attack_pose and not combat_paused and not (jump_playback and current_clip == JUMP_CLIP):
-        clip_time += delta * (RUN_ANIMATION_SPEED if current_clip in RUN_CLIPS else 1.0)
+        clip_time += delta * (RUN_ANIMATION_SPEED if current_clip in RUN_CLIPS else (
+            1.0 / equipment_damage_scale if current_clip == DAMAGE_CLIP else 1.0))
     if guard_reaction_playing() and clip_time >= float(animations[GUARD_REACTION_CLIP]["length"]):
         # The authored clip is tagged loop, but each guarded hit plays once.
         _switch_clip(GUARD_CLIP, 0.075)
