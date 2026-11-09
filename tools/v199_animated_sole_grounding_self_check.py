@@ -9,7 +9,8 @@ ROOT = Path(__file__).resolve().parents[1]
 def read(path):
     return (ROOT/path).read_text(encoding="utf-8")
 
-assert re.search(r'^config/name="SERA v199"$', read("project.godot"), re.M)
+version = re.search(r'^config/name="SERA v(\d+)"$', read("project.godot"), re.M)
+assert version and int(version.group(1)) >= 199
 eq = read("scripts/sera_equipment.gd")
 rig = read("scripts/sera_rig.gd")
 stage = read("scripts/main.gd")
@@ -45,8 +46,10 @@ assert "rig.position.y = TRAINING_VISIBLE_FLOOR_Y - current_sole - wearer.global
 assert "if is_inf(current_sole) or is_nan(current_sole):" in snap
 
 assert '    _apply_animation(0.0)\n    # First frame' in rig
-assert '    _apply_animation(delta)\n    # Post-pose foot placement:' in rig
-assert '    equipment_handler.call("snap_grounded_sole_to_floor")\n    _update_foot_contacts(delta)' in rig
+assert '    _apply_animation(delta)\n    # v200: combat' in rig
+assert '    equipment_handler.call("restore_grounding_baseline")' in rig
+assert '    equipment_handler.call("snap_grounded_sole_to_floor")' in rig
+assert '    _update_foot_contacts(delta)' in rig
 assert 'func set_exhibition_mode(enabled: bool) -> void:' in rig
 assert 'equipment_handler.call("set_grounding_enabled", not enabled)' in rig
 assert 'func get_active_foot_heights() -> Dictionary:' in eq
@@ -77,7 +80,7 @@ assert 'get_grounding_height_offset' in rig
 assert 'var lift: float = maxf(0.0, float(rig.call("get_grounding_height_offset")))' in stage
 assert 'player.position.y = 0.0' in stage
 assert 'foot_contact.emit(side)' in rig
-print("PASS v199: real transformed shoe vertices, per-pose grounding and both feet")
+print("PASS v199 geometry: true triangle vertices, current pose sole measurement")
 print("PASS v199: floor plane math, grounded/airborne/exhibition isolation")
 print("PASS v199: original velocity/collider and gait/footstep code preserved")
 print("Godot Android visual verification pending")
