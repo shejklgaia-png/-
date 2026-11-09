@@ -39,7 +39,9 @@ const BOOST_CONFIRM_SECONDS: float = 0.10
 const BOOST_ACCELERATION_SECONDS: float = 0.15
 # v159: avoid RUN/WAIT clips interrupting quick BOOST direction changes.
 # This is VISUAL ONLY: physics speed and BOOST input thresholds stay unchanged.
-const BOOST_POSE_GRACE_SECONDS: float = 0.30
+# v162: hold the authored BOOST pose for 0.50s after BOOST input ends.
+# The rig then crossfades to RUN over 0.20s independently of move speed.
+const BOOST_POSE_GRACE_SECONDS: float = 0.50
 # v158: full 360-degree analog heading on a shorter fixed RUN disc.
 # Keep the BOOST thresholds tied to the ORIGINAL 168px touch radius.
 const RUN_CONTROL_RADIUS: float = 112.0
@@ -1799,9 +1801,10 @@ func _physics_process(delta: float) -> void:
     var boost_speed_target: float = MOVEMENT_BOOST_MULTIPLIER if movement_boost_active else 1.0
     boost_speed_multiplier = move_toward(boost_speed_multiplier, boost_speed_target,
         (MOVEMENT_BOOST_MULTIPLIER - 1.0) * delta / BOOST_ACCELERATION_SECONDS)
-    # Only the rig pose retains BOOST briefly. This grace is refreshed during
-    # active BOOST, then counts down even while the thumb crosses the 18px
-    # RUN deadzone; speed, HUD mode and BOOST effects use the real BOOST state.
+    # Hold BOOST pose for 0.50s after release from BOOST. The rig separately
+    # blends BOOST -> RUN over 0.20s once the hold expires.
+    # The hold counts down while crossing the 18px RUN deadzone;
+    # speed, HUD mode and BOOST effects use the real BOOST state.
     # Attacks, steps, guard, damage, jumps and touch release cancel the grace.
     if not gesture_active or guard_active or damage_reaction_active \
             or jump_active or landing_active or step_active \

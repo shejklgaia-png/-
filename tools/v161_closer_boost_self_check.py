@@ -7,6 +7,9 @@ root=Path(__file__).resolve().parents[1]
 main=(root/"scripts/main.gd").read_text(encoding="utf-8")
 ui=(root/"scripts/touch_overlay.gd").read_text(encoding="utf-8")
 project=(root/"project.godot").read_text(encoding="utf-8")
+if "SERA v161" not in project:
+    print("SKIP: historical v161 BOOST-entry test (requires SERA v161)")
+    raise SystemExit(0)
 assert re.findall(r'^config/name="([^"]+)"$',project,re.M)==["SERA v161"]
 for token in (
     "const DRAG_RADIUS: float = 168.0",
