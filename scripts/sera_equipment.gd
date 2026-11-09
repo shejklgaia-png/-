@@ -273,8 +273,9 @@ func _install_standard_lower_body_d() -> void:
     var imported: Array = (available.get("D", {}) as Dictionary).get("legs", [])
     if imported.size() != 12:
         push_error("SERA lower body D: %d / 12 meshes imported" % imported.size())
-        for piece in imported:
-            (piece as MeshInstance3D).visible = false
+        for raw_piece in imported:
+            var piece: MeshInstance3D = raw_piece
+            piece.visible = false
         available.erase("D")
 
 func _find_character_root(entry: Dictionary, groups: Dictionary) -> Dictionary:

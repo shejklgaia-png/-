@@ -1193,3 +1193,11 @@
 - 右の関節階層に左側メッシュが混在し、左足のPivotも反対側へ移動していたため、SERA_LEGS_C_AUTHOR_NORMALIZED.bbmodel に腰・左右の腿/膝下/足の7関節を作成し、12メッシュを独立して命名。元のメッシュ形状・原点・UVを変えず正規化。
 - 現行v193の標準骨格下半身Dだけを SERA_LOWER_BODY_D_STANDARD_READY.bbmodel へ切り出し、元の統合ファイルとAのモーションを維持。
 - docs/LEG_C_STANDARD_SOURCE_ja.md と tools/legs_c_standard_source_self_check.py を追加。**素材の準備のみ**のためゲーム版・保存形式・ゲーム表示は変更なし。Androidでの従来の表示問題は引き続き要検証。
+
+
+## 2026-11-10 — SERA v194: LOWER BODY D is loaded explicitly from the dedicated standard-leg asset
+- Previous v193 used the combined Blockbench Waist3 root for both HEAD C and the new human LOWER BODY D; D was inferred indirectly from set C's root index. The user reported that the new lower-body appeared like the default foot despite the D selection.
+- Runtime now reads models/storage/SERA_LOWER_BODY_D_STANDARD_READY.bbmodel directly in scripts/sera_equipment.gd, with a separate export fallback embedded at assets/sera_lower_body_d_data.gd. The source is the canonical normalized A-rig geometry previously prepared from the updated 足C (1).bbmodel.
+- Prevent the generic C head traversal from also registering duplicate D leg meshes. Require exactly 12 dedicated D meshes (pelvis 2, thighs 4, shins 2, feet 4) attached to A's existing animated joint pivots before exposing LOWER BODY D as an equipment option; fail closed on incomplete imports.
+- Retain C bird legs, C head, A/B meshes, seven customization slots, one-time v2 save migration, footstep/grounding, animations and all gameplay logic. No modification of the authored geometry or existing combined source. Godot project display name SERA v194.
+- Added tools/rebuild_lower_body_d_data.py and tools/v194_lower_body_d_customization_self_check.py, plus README_v194_ja.md and CI. Static checks do not verify Android display or movement.

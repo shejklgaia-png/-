@@ -90,3 +90,10 @@
 - v191/v192時代の保存済み装備選択はスキーマv2で一度だけ変換。v192の独立FEETは現在使わず、訓練時の接地補正は選択したLOWER BODYに基づく。NEXUSでの展示用モデル位置補正は引き続き無効。
 
 - v193 Dは元の`足C.bbmodel`から **腰2・腿4・膝下2・足4の全12メッシュ**を取り込み、標準Aの関節Pivotに変換。Aのメッシュの単なる複製ではない。元モデルのfaces/UVとキー値は保持し、実行用スナップショットを再生成する。
+
+
+## v194 — 標準骨格の下半身Dを専用実装ファイルから登録
+- 更新原本 `models/storage/足C (1).bbmodel` の制作階層を整理した `models/storage/SERA_LEGS_C_AUTHOR_NORMALIZED.bbmodel` は制作用マスターです。
+- Godotのカスタマイズ `LOWER BODY D` では、A骨格互換へ変換済みの `models/storage/SERA_LOWER_BODY_D_STANDARD_READY.bbmodel` を専用読込します。出力用埋込は `tools/rebuild_lower_body_d_data.py` → `assets/sera_lower_body_d_data.gd`。
+- 旧統合モデルのWaist3からはHEAD Cのみ登録します。Dの下半身は腰2・腿4・膝下2・足4の12メッシュが揃った場合のみ選択可能にし、二重登録は避けます。鳥脚はLOWER BODY Cのまま、保存スキーマはv2を維持します。
+- `tools/v194_lower_body_d_customization_self_check.py` を実行。元モデルの面・UVと標準骨格対応の静的検査であり、Godot Androidの実機表示保証ではありません。
