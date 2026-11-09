@@ -75,18 +75,11 @@ def yaw(deg, weight):
     sign = 1 if direction_x >= 0 else -1
     return wrap(-math.radians(deg) + math.pi * weight * sign)
 
-for angle in (90, 110, 135, 155):
-    old = yaw(angle, 0)
-    new = yaw(angle, 1)
-    assert wrap(new-old) > 0.0, (angle, old, new)
-for angle in (-90, -110, -135, -155):
-    old = yaw(angle, 0)
-    new = yaw(angle, 1)
-    assert wrap(new-old) < 0.0, (angle, old, new)
-for angle in (135, -135):
+for angle in (90, 110, 135, 155, -90, -110, -135, -155):
     values = [yaw(angle, j/40) for j in range(41)]
-    assert all(abs(wrap(values[j+1]-values[j])) < math.radians(6)
-               for j in range(40))
+    increments = [wrap(values[j+1]-values[j]) for j in range(40)]
+    assert all(0.0 < step < math.radians(6) for step in increments) if angle > 0 else (
+        all(-math.radians(6) < step < 0.0 for step in increments))
 assert abs(wrap(yaw(179, 1)-yaw(-179, 1))) < math.radians(2.1)
 
 # Sole correction: a lower sole by 0.3m raises the body by 0.3m,
