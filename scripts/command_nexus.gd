@@ -3,6 +3,7 @@ extends Node3D
 # Preserve v127 kiosk/occlusion, v125 touch navigation and v124 Blockbench geometry.
 const Modules = preload("res://assets/base_command_modules.gd")
 const SeraRig = preload("res://scripts/sera_rig.gd")
+const VersionIndicator = preload("res://scripts/version_indicator.gd")
 const NexusSelectionOutline = preload("res://scripts/nexus_selection_outline.gd")
 const CUSTOMIZE_GLOW_SHADER = preload("res://shaders/nexus_customize_radial_glow.gdshader")
 
@@ -784,6 +785,7 @@ func _hud() -> void:
     action_panel.add_child(action_label)
     _create_system_controls()
     _create_archive_records()
+    VersionIndicator.attach(hud)
     hud.resized.connect(_layout_hud)
     _layout_hud()
     _update_projected_silhouettes()

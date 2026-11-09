@@ -1222,3 +1222,10 @@
 - AABB is now broadphase only, with a rig-local oriented-box (SAT, 3+3+9 separating axes) narrowphase for actual arm/leg meshes.
 - Maximum additional lift is 24° upper arm (16 × 1.5°) and 3.2° shoulder (16 × 0.2°). Begin at original NEXUSpose, choose first collision-free result, else earliest angle with fewest overlaps, or exact original if nothing improves.
 - NEXUS-only behavior; no change to authored clips, model geometry, save schema or combat motions. New v197 regression and CI; Android visual check remains outstanding.
+
+
+## 2026-11-10 — SERA v198: show version on selector, training and NEXUS
+- Added a single `scripts/version_indicator.gd` RefCounted helper. The label reads `ProjectSettings.get_setting("application/config/name")` and shows exactly the current Godot project version without a duplicated numeric constant.
+- `scripts/launch_menu.gd` adds it to the full-rect startup Control; `scripts/main.gd` adds it to the existing combat CanvasLayer; `scripts/command_nexus.gd` adds it to the full-rect NEXUS HUD.
+- The label is 14px, top-right (right margin 14, y=3..25) and ignores all touch/mouse events; training HUD begins below it at y26. No scene navigation or combat input changes.
+- Updated `project.godot` name from `SERA v197` to `SERA v198`. Older v197 regression version assertion is now forward-compatible. New `tools/v198_version_indicator_self_check.py`, README_v198_ja.md and CI step. Godot Android UI is not yet device-tested.

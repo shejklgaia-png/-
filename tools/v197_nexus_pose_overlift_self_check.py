@@ -11,7 +11,8 @@ def read(path):
 
 nexus = read("scripts/command_nexus.gd")
 project = read("project.godot")
-assert re.search(r'^config/name="SERA v197"$', project, re.M)
+version = re.search(r'^config/name="SERA v(\d+)"$', project, re.M)
+assert version and int(version.group(1)) >= 197
 
 # v196 allowed 90-degree additional arm lift, visibly excessive on Android.
 # 16 x 1.5 degrees = 24 additional degrees for the arm, 3.2 shoulder.

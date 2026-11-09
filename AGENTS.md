@@ -100,3 +100,9 @@ Additional historical checks may refer to unavailable prior ZIPs; read their pre
 - Never change original NEXUSpose quaternions or authored source. Arm/leg contacts use rig-local oriented-box SAT (15 axes), with AABB as broadphase only.
 - Limit additional lift to 24° upper arm / 3.2° shoulder, minimizing overlap; if impossible to improve, keep original angles. Re-test on arm/leg equipment selection and saved-profile loads.
 - Verify with `tools/v196_nexus_pose_arm_clearance_self_check.py` and `tools/v197_nexus_pose_overlift_self_check.py`.
+
+
+## v198 unified on-screen version indicator (2026-11-10)
+- The launch selector, training room, and NEXUS all create the same `scripts/version_indicator.gd` label. It reads `ProjectSettings.get_setting("application/config/name")`. Do not hardcode a version separately in each scene or in the display helper.
+- When updating `project.godot` to `SERA vNNN`, all three labels follow automatically. Keep the small top-right stamp's `MOUSE_FILTER_IGNORE` so combat and menu input remain unchanged.
+- `python3 tools/v198_version_indicator_self_check.py` verifies all three entries and the single version source. On-screen appearance remains an Android acceptance check.
