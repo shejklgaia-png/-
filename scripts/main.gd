@@ -1274,9 +1274,10 @@ func _end_drag(release_pos: Vector2) -> void:
         and (jump_from_initial_flick or _classify_recent_upward_flick())
     # Only a deliberate UP flick may exit BOOST into JUMP; existing release
     # gestures may not become sideways or backwards steps after a boost.
-    var flick_direction: int = 0 if (
-        boost_has_activated_this_gesture or jump_requested or fast_reversed_during_gesture
-    ) else _classify_step_flick(release_pos - gesture_touch_origin, press_duration)
+    var suppress_flick: bool = (
+        boost_has_activated_this_gesture or jump_requested or fast_reversed_during_gesture)
+    var flick_direction: int = 0 if suppress_flick else _classify_step_flick(
+        release_pos - gesture_touch_origin, press_duration)
     var takeoff_momentum: Vector3 = gesture_start_ground_velocity if jump_from_initial_flick else Vector3(player.velocity.x, 0.0, player.velocity.z)
     gesture_active = false
     reverse_stroke_active = false
