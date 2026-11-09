@@ -4,6 +4,7 @@ on:
     types: [opened, synchronize, edited, reopened]
     paths:
       - 'AGENTS.md'
+      - '.gitignore'
       - 'models/**'
       - 'blockbench/**'
       - 'assets/AGENTS.md'
