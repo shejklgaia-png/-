@@ -78,3 +78,9 @@ Additional historical checks may refer to unavailable prior ZIPs; read their pre
 - FEET is **not** an independent customization slot (the short-lived v192 slot was removed). The new complete standard-skeleton LOWER BODY sourced from `models/storage/足C.bbmodel` is **D**, using all 12 authored source meshes (two pelvis, four thighs, two shins, four feet) normalized to the standard A skeleton. The preexisting bird leg lower body was relocated from **D to C** without changing its source/animation/bones. HEAD C remains independently selectable.
 - The current runtime router in `scripts/sera_equipment.gd` intentionally maps Waist3 lower-body meshes to D, Waist3 Head C meshes to C, and bird-tagged mesh instances to C. Do not infer set ID solely from a Blockbench root name.
 - `scripts/sera_save.gd` version 2 one-time migrates historical legacy slots and does not remap new version 2 choices. NEXUS exhibition disables sole-height root shifts; training retains them.
+
+
+## v194 dedicated standard-rig LOWER BODY D registration (2026-11-10)
+- Runtime now explicitly loads `models/storage/SERA_LOWER_BODY_D_STANDARD_READY.bbmodel`, with generated fallback `assets/sera_lower_body_d_data.gd`, through `scripts/sera_equipment.gd`. The combined Waist3 root remains necessary for HEAD C, but its embedded leg meshes must not also register D. Keep the dedicated D geometry exactly 12 meshes under the standard A leg joints.
+- Rebuild the fallback with `python3 tools/rebuild_lower_body_d_data.py` when changing the runtime-ready D source, and run `python3 tools/v194_lower_body_d_customization_self_check.py`. The C bird skeleton, saved slot schema v2, and A animation tracks are unchanged.
+- An Android rendering bug was previously reported; a static pass verifies code and asset routing only, not visual acceptance on Xperia 1 V.

@@ -3,6 +3,9 @@ extends RefCounted
 ## The authored model stays in one .bbmodel: first character root=A, next=B/C/etc.
 const LIVE_SOURCE: String = "res://models/SERA_BOOSTER_allテスト.bbmodel"
 const EMBEDDED_SOURCE = preload("res://assets/sera_equipment_data.gd")
+# Author-normalized standard legs use a dedicated source, not the C head's root index.
+const LOWER_BODY_D_SOURCE: String = "res://models/storage/SERA_LOWER_BODY_D_STANDARD_READY.bbmodel"
+const LOWER_BODY_D_EMBEDDED = preload("res://assets/sera_lower_body_d_data.gd")
 const SAVE_PATH: String = "user://sera_equipment.cfg"
 const SLOTS = ["head", "torso", "legs", "arms", "booster", "weapon_r", "weapon_l"]
 const MODEL_UNIT: float = 0.065
@@ -28,6 +31,7 @@ func setup(target_rig: Node3D) -> void:
     _collect_original_meshes(rig)
     var data: Dictionary = _read_model()
     _install_alternative_sets(data)
+    _install_standard_lower_body_d()
     _cache_bind_foot_geometry()
     for slot in SLOTS:
         selected[slot] = "A"
@@ -225,6 +229,55 @@ func _install_alternative_sets(data: Dictionary) -> void:
         if not available.has(letter):
             push_warning("SERA equipment set %s has no matching meshes" % letter)
 
+# v194: LOWER BODY D comes only from the normalized 12-mesh standard-leg asset.
+# The combined Waist3 root is also used for HEAD C, so it must not install a
+# second copy of the legs. Export builds use the embedded equivalent.
+func _read_standard_lower_body_d() -> Dictionary:
+    if FileAccess.file_exists(LOWER_BODY_D_SOURCE):
+        var live: Variant = JSON.parse_string(FileAccess.get_file_as_string(LOWER_BODY_D_SOURCE))
+        if live is Dictionary and live.has("groups") and live.has("elements") and live.has("outliner"):
+            return live
+        push_warning("SERA lower body D: invalid live model, using embedded copy")
+    var fallback: Variant = JSON.parse_string(LOWER_BODY_D_EMBEDDED.get_json())
+    return fallback if fallback is Dictionary else {}
+
+func _install_standard_lower_body_d() -> void:
+    var data: Dictionary = _read_standard_lower_body_d()
+    var groups: Dictionary = {}
+    var elements: Dictionary = {}
+    for group in data.get("groups", []):
+        if group is Dictionary:
+            groups[str(group.get("uuid", ""))] = group
+    for mesh in data.get("elements", []):
+        if mesh is Dictionary:
+            elements[str(mesh.get("uuid", ""))] = mesh
+    var roots: Array = data.get("outliner", [])
+    if roots.size() != 1 or groups.size() != 7 or elements.size() != 12:
+        push_error("SERA lower body D requires one root, seven bones and twelve meshes")
+        return
+    var root_entry: Variant = roots[0]
+    if not root_entry is Dictionary or _simple_name(str(groups.get(
+            str(root_entry.get("uuid", "")), {}).get("name", ""))) != "waist":
+        push_error("SERA lower body D: Waist root not found")
+        return
+    var base_root: Node3D = null
+    for child in rig.get_children():
+        if child is Node3D and child.has_meta("bb_origin"):
+            base_root = child
+            break
+    if base_root == null:
+        push_error("SERA lower body D: original waist bone not found")
+        return
+    # All meshes inherit A's existing hip/knee/ankle animation pivots.
+    _attach_group_meshes(root_entry, base_root, groups, elements, "D")
+    var imported: Array = (available.get("D", {}) as Dictionary).get("legs", [])
+    if imported.size() != 12:
+        push_error("SERA lower body D: %d / 12 meshes imported" % imported.size())
+        for raw_piece in imported:
+            var piece: MeshInstance3D = raw_piece
+            piece.visible = false
+        available.erase("D")
+
 func _find_character_root(entry: Dictionary, groups: Dictionary) -> Dictionary:
     for child in entry.get("children", []):
         if child is Dictionary:
@@ -280,6 +333,10 @@ func _attach_group_meshes(entry: Dictionary, target_bone: Node3D, groups: Dictio
         elif child is String and elements.has(child):
             var element: Dictionary = elements[child]
             var slot: String = _slot_for_bone(target_bone)
+            # Waist3's legacy embedded D geometry is superseded by the
+            # dedicated D source. Retain Head C from this root unchanged.
+            if set_id == "C" and slot == "legs":
+                continue
             if slot.is_empty() or not element.has("vertices") or not element.has("faces"):
                 continue
             var piece: MeshInstance3D = rig.call("_make_mesh", element)
