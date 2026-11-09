@@ -8,10 +8,10 @@ main=(p/"scripts/main.gd").read_text(encoding="utf-8")
 ui=(p/"scripts/touch_overlay.gd").read_text(encoding="utf-8")
 rig=(p/"scripts/sera_rig.gd").read_text(encoding="utf-8")
 cfg=(p/"project.godot").read_text(encoding="utf-8")
-assert re.findall(r'^config/name="([^"]+)"$',cfg,re.M)==["SERA v154"]
+assert re.findall(r'^config/name="([^"]+)"$',cfg,re.M)==["SERA v155"]
 for token in ("FAST_REVERSE_MIN_RADIAL_RATIO: float = 0.25",
               "FAST_REVERSE_MIN_TRAVEL_PIXELS: float = 32.0",
-              "FAST_REVERSE_MIN_SPEED_PIXELS_PER_SEC: float = 520.0",
+              "FAST_REVERSE_MIN_SPEED_PIXELS_PER_SEC: float = 800.0",
               "FAST_REVERSE_MAX_STROKE_MSEC: int = 120",
               "FAST_REVERSE_OPPOSITE_DOT: float = -0.80",
               "reverse_stroke_start_ms = reverse_last_event_ms",
@@ -54,7 +54,7 @@ def recognize(previous_origin, samples):
                 net=(x-stroke[0],y-stroke[1])
                 n=math.hypot(*net)
                 duration=max(1,t-start_t)
-                if (n>=32 and duration<=120 and n*1000/duration>=520
+                if (n>=32 and duration<=120 and n*1000/duration>=800
                     and net[0]*hd[0]+net[1]*hd[1]<=-.8*n
                     and (x-pivot[0])*hd[0]+(y-pivot[1])*hd[1]>0):
                     pivot=stroke
