@@ -49,8 +49,11 @@ for base in canonical["elements"]:
 # Older authoring clips intentionally contain artist-authored changes relative
 # to canonical combat. They are not overwritten by this foot-only import.
 assert len(combined["animations"]) == 23
-assert {"Wait_motion", "run_front_original", "run_back", "run_right",
-        "run_Left", "NEXUS_pose"}.issubset({a["name"] for a in combined["animations"]})
+assert {"Wait_motion", "run_front_original", "run_right",
+        "run_Left", "NEXUS_pose", "ジャンプ"}.issubset(
+            {a["name"] for a in combined["animations"]})
+# The authoring asset intentionally lacks run_back; gameplay has that clip
+# in assets/sera_source.json. Foot C does not change either source.
 
 # C is a character root already hosting Head C; preserve head geometry/pivots.
 root = next(n for n in combined["outliner"] if by_uuid.get(n.get("uuid"), {}).get("name") == "Waist3")
