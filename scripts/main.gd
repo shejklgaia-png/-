@@ -36,7 +36,9 @@ const MOVEMENT_BOOST_MULTIPLIER: float = 1.5
 const BOOST_START_RADIUS_RATIO: float = 1.10
 const BOOST_EXIT_RADIUS_RATIO: float = 0.95
 const BOOST_CONFIRM_SECONDS: float = 0.10
-const BOOST_ACCELERATION_SECONDS: float = 0.15
+# v163: RUN <-> BOOST speed uses a 0.20s smoothstep transition.
+# Changes of direction of the transition start at the CURRENT multiplier.
+const BOOST_SPEED_BLEND_SECONDS: float = 0.20
 # v159: avoid RUN/WAIT clips interrupting quick BOOST direction changes.
 # This is VISUAL ONLY: physics speed and BOOST input thresholds stay unchanged.
 # v162: hold the authored BOOST pose for 0.50s after BOOST input ends.
@@ -204,6 +206,9 @@ var movement_boost_active: bool = false
 var boost_confirm_elapsed: float = 0.0
 var boost_has_activated_this_gesture: bool = false
 var boost_speed_multiplier: float = 1.0
+var boost_speed_transition_start: float = 1.0
+var boost_speed_transition_target: float = 1.0
+var boost_speed_transition_elapsed: float = BOOST_SPEED_BLEND_SECONDS
 var boost_pose_grace_remaining: float = 0.0
 var gesture_active: bool = false
 var gesture_suppressed_from_damage: bool = false
@@ -1087,7 +1092,7 @@ func _set_guard(active: bool) -> void:
         movement_boost_active = false
         boost_confirm_elapsed = 0.0
         boost_has_activated_this_gesture = false
-        boost_speed_multiplier = 1.0
+        _reset_boost_speed_transition()
         boost_pose_grace_remaining = 0.0
         if touch_ui != null:
             touch_ui.call("set_movement_boost", false)
@@ -1134,7 +1139,7 @@ func _begin_drag(pos: Vector2) -> void:
     movement_boost_active = false
     boost_confirm_elapsed = 0.0
     boost_has_activated_this_gesture = false
-    boost_speed_multiplier = 1.0
+    _reset_boost_speed_transition()
     boost_pose_grace_remaining = 0.0
     touch_ui.call("set_movement_boost", false)
     touch_ui.call("set_analog_direction", Vector2.ZERO)
@@ -1214,7 +1219,7 @@ func _end_drag(release_pos: Vector2) -> void:
         movement_boost_active = false
         boost_confirm_elapsed = 0.0
         boost_has_activated_this_gesture = false
-        boost_speed_multiplier = 1.0
+        _reset_boost_speed_transition()
         boost_pose_grace_remaining = 0.0
         jump_flick_samples.clear()
         touch_ui.call("set_movement_boost", false)
@@ -1252,7 +1257,7 @@ func _end_drag(release_pos: Vector2) -> void:
     movement_boost_active = false
     boost_confirm_elapsed = 0.0
     boost_has_activated_this_gesture = false
-    boost_speed_multiplier = 1.0
+    _reset_boost_speed_transition()
     boost_pose_grace_remaining = 0.0
     jump_flick_samples.clear()
     touch_ui.call("set_movement_boost", false)
@@ -1310,7 +1315,7 @@ func _start_jump(inherited_velocity: Vector3) -> void:
     # BOOST never modifies airborne control or inherits a held boost gesture.
     movement_boost_active = false
     boost_confirm_elapsed = 0.0
-    boost_speed_multiplier = 1.0
+    _reset_boost_speed_transition()
     if touch_ui != null:
         touch_ui.call("set_movement_boost", false)
     rig.call("start_jump")
@@ -1793,14 +1798,40 @@ func _screen_drag_to_ground(screen_drag: Vector2) -> Vector3:
     return (screen_right * screen_drag.x - screen_forward * screen_drag.y).limit_length(1.0)
 
 
+func _reset_boost_speed_transition() -> void:
+    # Hard reset only when the touch / locomotion is explicitly interrupted.
+    # Both ends of the interpolation reset together so a fresh gesture
+    # cannot inherit a stale BOOST ramp from the previous touch.
+    boost_speed_multiplier = 1.0
+    boost_speed_transition_start = 1.0
+    boost_speed_transition_target = 1.0
+    boost_speed_transition_elapsed = BOOST_SPEED_BLEND_SECONDS
+
+
+func _update_boost_speed(delta: float) -> void:
+    var wanted: float = MOVEMENT_BOOST_MULTIPLIER if movement_boost_active else 1.0
+    if not is_equal_approx(wanted, boost_speed_transition_target):
+        # A reversal during an incomplete blend resumes from the PRESENT
+        # multiplier, never from RUN=1.0 or BOOST=1.5 prematurely.
+        boost_speed_transition_start = boost_speed_multiplier
+        boost_speed_transition_target = wanted
+        boost_speed_transition_elapsed = 0.0
+    boost_speed_transition_elapsed = minf(
+        BOOST_SPEED_BLEND_SECONDS, boost_speed_transition_elapsed + maxf(delta, 0.0))
+    var t: float = clampf(boost_speed_transition_elapsed / BOOST_SPEED_BLEND_SECONDS, 0.0, 1.0)
+    # Zero slope at the beginning/end, unlike the old constant-speed ramp.
+    var eased: float = t * t * (3.0 - 2.0 * t)
+    boost_speed_multiplier = lerpf(
+        boost_speed_transition_start, boost_speed_transition_target, eased)
+
+
 func _physics_process(delta: float) -> void:
     _update_guard_hold()
     # Sample the outer-ring hold independently of touch event frequency.
     _update_boost_gesture(delta)
-    # Acceleration/deceleration affect BOOST speed only, not STEP or attack.
-    var boost_speed_target: float = MOVEMENT_BOOST_MULTIPLIER if movement_boost_active else 1.0
-    boost_speed_multiplier = move_toward(boost_speed_multiplier, boost_speed_target,
-        (MOVEMENT_BOOST_MULTIPLIER - 1.0) * delta / BOOST_ACCELERATION_SECONDS)
+    # v163: symmetric eased 0.20s RUN <-> BOOST speed transitions.
+    # This is independent of the 0.50s BOOST pose hold and 0.20s pose fade.
+    _update_boost_speed(delta)
     # Hold BOOST pose for 0.50s after release from BOOST. The rig separately
     # blends BOOST -> RUN over 0.20s once the hold expires.
     # The hold counts down while crossing the 18px RUN deadzone;
