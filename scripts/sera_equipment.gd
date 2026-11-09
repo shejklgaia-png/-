@@ -4,7 +4,7 @@ extends RefCounted
 const LIVE_SOURCE: String = "res://models/SERA_BOOSTER_allテスト.bbmodel"
 const EMBEDDED_SOURCE = preload("res://assets/sera_equipment_data.gd")
 const SAVE_PATH: String = "user://sera_equipment.cfg"
-const SLOTS = ["head", "torso", "legs", "arms", "booster", "weapon_r", "weapon_l"]
+const SLOTS = ["head", "torso", "legs", "feet", "arms", "booster", "weapon_r", "weapon_l"]
 const MODEL_UNIT: float = 0.065
 # B has a red palette tint; all other sets retain their authored colors.
 const B_SET_TINT: Color = Color(1.0, 0.18, 0.18, 1.0)
@@ -19,6 +19,8 @@ var bind_sole_heights: Dictionary = {}
 var standard_sole_y: float = 0.0
 var rig_original_y: float = 0.0
 var grounding_height_offset: float = 0.0
+# Nexus is a camera-fitted exhibition: changing rig.position breaks the preview.
+var grounding_enabled: bool = true
 
 func setup(target_rig: Node3D) -> void:
     rig = target_rig
@@ -30,18 +32,24 @@ func setup(target_rig: Node3D) -> void:
     for slot in SLOTS:
         selected[slot] = "A"
     _restore_saved()
-    # No saved selection means A: maintain the exact v189 default height.
-    _apply_legs_grounding(str(selected.get("legs", "A")))
+    _apply_part_visibility()
+    _apply_legs_grounding(_active_foot_variant())
 
 func options_for(slot: String) -> Array:
-    var options: Array = []
     if not SLOTS.has(slot):
-        return options
-    # Booster currently has no separate Blockbench mesh. A/B profiles are selectable
-    # independently while reusing the existing visual booster.
+        return []
     if slot == "booster":
         return ["A", "B"]
+    if slot == "feet":
+        var c_parts: Dictionary = available.get("C", {})
+        return ["A", "C"] if (c_parts.get("feet", []) as Array).size() == 4 else ["A"]
+    var options: Array = []
     for set_id in available.keys():
+        # C in v191 was a complete A-like leg clone with Foot C on top.
+        # v192 keeps this data for authoring compatibility but exposes C as
+        # a FEET-only choice, independent from LOWER BODY A/B/D.
+        if slot == "legs" and str(set_id) == "C":
+            continue
         if (available[set_id] as Dictionary).get(slot, []).size() > 0:
             options.append(str(set_id))
     options.sort()
@@ -53,21 +61,54 @@ func current_for(slot: String) -> String:
 func select_part(slot: String, set_id: String, persist: bool = true) -> bool:
     if not options_for(slot).has(set_id):
         return false
-    for variant in available.keys():
-        for piece_variant in (available[variant] as Dictionary).get(slot, []):
-            var piece: MeshInstance3D = piece_variant
-            piece.visible = str(variant) == set_id
     selected[slot] = set_id
-    if slot == "legs":
-        _apply_legs_grounding(set_id)
+    _apply_part_visibility()
+    if slot == "legs" or slot == "feet":
+        _apply_legs_grounding(_active_foot_variant())
         rig.call("reset_foot_contacts")
     _sync_afterimage_visibility()
     if persist:
         _save_selection()
     return true
 
-# The static sole points are measured on the actual MeshInstance geometry
-# (including mesh rotations), not inferred from file names or a fixed leg length.
+func _active_foot_variant() -> String:
+    var legs: String = str(selected.get("legs", "A"))
+    if legs == "D":
+        return "D"
+    if str(selected.get("feet", "A")) == "C":
+        return "C"
+    return legs
+
+func _apply_part_visibility() -> void:
+    var chosen_legs: String = str(selected.get("legs", "A"))
+    var chosen_feet: String = str(selected.get("feet", "A"))
+    for set_key in available.keys():
+        var set_id: String = str(set_key)
+        var parts: Dictionary = available[set_id]
+        for slot_key in parts.keys():
+            var slot: String = str(slot_key)
+            for raw_piece in parts[slot]:
+                var piece: MeshInstance3D = raw_piece
+                if slot == "feet":
+                    # Foot C follows the normal A/B foot pivots. D is a
+                    # distinct bird skeleton and keeps its own attached soles.
+                    piece.visible = set_id == chosen_feet and chosen_legs != "D"
+                elif slot == "legs":
+                    var is_shoe: bool = not _foot_side(piece).is_empty()
+                    piece.visible = set_id == chosen_legs and (
+                        not is_shoe or set_id == "D" or chosen_feet == "A")
+                else:
+                    piece.visible = set_id == str(selected.get(slot, "A"))
+
+func set_grounding_enabled(enabled: bool) -> void:
+    grounding_enabled = enabled
+    if not grounding_enabled:
+        # In the preview the camera fitter owns the entire rig transform.
+        grounding_height_offset = 0.0
+        rig.position.y = rig_original_y
+        return
+    _apply_legs_grounding(_active_foot_variant())
+
 func _foot_side(piece: MeshInstance3D) -> String:
     var node: Node = piece.get_parent()
     while node != null and node != rig:
@@ -101,7 +142,11 @@ func _cache_bind_foot_geometry() -> void:
         var set_id: String = str(set_key)
         var side_meshes: Dictionary = {"L": [], "R": []}
         var sole_y: float = INF
-        for part in (available[set_id] as Dictionary).get("legs", []):
+        var source_parts: Dictionary = available[set_id]
+        var candidates: Array = []
+        candidates.append_array(source_parts.get("legs", []))
+        candidates.append_array(source_parts.get("feet", []))
+        for part in candidates:
             var piece: MeshInstance3D = part
             var side: String = _foot_side(piece)
             if side.is_empty():
@@ -116,6 +161,9 @@ func _cache_bind_foot_geometry() -> void:
 func _apply_legs_grounding(set_id: String) -> void:
     # A baseline remains unchanged; the selected sole is aligned to A's
     # ground plane. A larger downward foot raises the model and its head.
+    if not grounding_enabled:
+        grounding_height_offset = 0.0
+        return
     grounding_height_offset = standard_sole_y - float(
         bind_sole_heights.get(set_id, standard_sole_y))
     rig.position.y = rig_original_y + grounding_height_offset
@@ -127,7 +175,7 @@ func get_standard_sole_y() -> float:
     return standard_sole_y
 
 func get_active_foot_heights() -> Dictionary:
-    var feet: Dictionary = foot_meshes.get(str(selected.get("legs", "A")), {})
+    var feet: Dictionary = foot_meshes.get(_active_foot_variant(), {})
     var result: Dictionary = {}
     for side in ["L", "R"]:
         var minimum: float = INF
@@ -274,7 +322,10 @@ func _attach_group_meshes(entry: Dictionary, target_bone: Node3D, groups: Dictio
             piece.quaternion = rig.call("_blockbench_rotation", _v3(element.get("rotation", [0, 0, 0])))
             target_bone.add_child(piece)
             piece.visible = false
-            _add_mesh(set_id, slot, piece)
+            if set_id == "C" and str(piece.name).begins_with("C_FootC_"):
+                _add_mesh(set_id, "feet", piece)
+            else:
+                _add_mesh(set_id, slot, piece)
 
 func _apply_equipment_tint(piece: MeshInstance3D, set_id: String) -> void:
     # Keep A untouched and isolate B's material from other variants.
@@ -361,14 +412,25 @@ func _restore_saved() -> void:
     var archive: Node = rig.get_node_or_null("/root/SeraSave")
     if archive != null and int(archive.get("active_slot")) > 0:
         var working: Dictionary = archive.call("get_working_equipment")
+        # v191 stored Foot C as LOWER BODY C; migrate to independent FEET C.
+        if str(working.get("legs", "A")) == "C":
+            working["legs"] = "A"
+            working["feet"] = "C"
         for slot in SLOTS:
             select_part(slot, str(working.get(slot, "A")), false)
         return
     var cfg := ConfigFile.new()
     if cfg.load(SAVE_PATH) != OK:
         return
+    var old_legs: String = str(cfg.get_value("equipment", "legs", "A"))
     for slot in SLOTS:
-        select_part(slot, str(cfg.get_value("equipment", slot, "A")), false)
+        var saved_set: String = str(cfg.get_value("equipment", slot, "A"))
+        if old_legs == "C":
+            if slot == "legs":
+                saved_set = "A"
+            elif slot == "feet":
+                saved_set = "C"
+        select_part(slot, saved_set, false)
 
 func _save_selection() -> void:
     var archive: Node = rig.get_node_or_null("/root/SeraSave")
