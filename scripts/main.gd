@@ -1275,7 +1275,8 @@ func _update_boost_gesture(delta: float) -> void:
     # gesture_suppressed_from_damage is deliberately latched until release to
     # prevent a damaged hold from triggering a phantom STEP or tap attack;
     # it must NOT block BOOST after the damage reaction finishes.
-    if not gesture_active or guard_active or bash_flick_candidate or damage_reaction_active or jump_active or landing_active:
+    if not gesture_active or guard_active or damage_reaction_active \
+            or bash_flick_candidate or jump_active or landing_active:
         boost_confirm_elapsed = 0.0
         if movement_boost_active:
             movement_boost_active = false
