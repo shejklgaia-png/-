@@ -9,6 +9,9 @@ const LOWER_BODY_D_EMBEDDED = preload("res://assets/sera_lower_body_d_data.gd")
 const SAVE_PATH: String = "user://sera_equipment.cfg"
 const SLOTS = ["head", "torso", "legs", "arms", "booster", "weapon_r", "weapon_l"]
 const MODEL_UNIT: float = 0.065
+# Training's visible grid is at -0.038 with 0.009 thickness: top = -0.0335.
+# This is visual only; the logical Player still moves on its Y=0 XZ plane.
+const TRAINING_VISIBLE_FLOOR_Y: float = -0.0335
 # B has a red palette tint; all other sets retain their authored colors.
 const B_SET_TINT: Color = Color(1.0, 0.18, 0.18, 1.0)
 
@@ -174,11 +177,11 @@ func snap_grounded_sole_to_floor() -> void:
     if not heights.has("L") or not heights.has("R"):
         return
     var current_sole: float = minf(float(heights["L"]), float(heights["R"]))
-    if not is_finite(current_sole):
+    if is_inf(current_sole) or is_nan(current_sole):
         return
-    # Training floor is Y=0. Parent moves along XZ/yaw only; exact visually
-    # planted shoes need this one translation after animated bones are posed.
-    rig.position.y = -current_sole - wearer.global_position.y
+    # Ground plane is the top of the visible training grid. Player logical
+    # height/velocity stay unchanged. The translation exactly plants one foot.
+    rig.position.y = TRAINING_VISIBLE_FLOOR_Y - current_sole - wearer.global_position.y
 
 func get_grounding_height_offset() -> float:
     return grounding_height_offset
