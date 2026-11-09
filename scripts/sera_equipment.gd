@@ -12,15 +12,26 @@ const B_SET_TINT: Color = Color(1.0, 0.18, 0.18, 1.0)
 var rig: Node3D
 var available: Dictionary = {}  # set letter -> slot -> Array[MeshInstance3D]
 var selected: Dictionary = {}
+# Per-set bind-pose feet. The base reference is measured once with no motion
+# to avoid raising/lowering the body at each step (which would erase the gait).
+var foot_meshes: Dictionary = {}
+var bind_sole_heights: Dictionary = {}
+var standard_sole_y: float = 0.0
+var rig_original_y: float = 0.0
+var grounding_height_offset: float = 0.0
 
 func setup(target_rig: Node3D) -> void:
     rig = target_rig
+    rig_original_y = rig.position.y
     _collect_original_meshes(rig)
     var data: Dictionary = _read_model()
     _install_alternative_sets(data)
+    _cache_bind_foot_geometry()
     for slot in SLOTS:
         selected[slot] = "A"
     _restore_saved()
+    # No saved selection means A: maintain the exact v189 default height.
+    _apply_legs_grounding(str(selected.get("legs", "A")))
 
 func options_for(slot: String) -> Array:
     var options: Array = []
@@ -47,10 +58,84 @@ func select_part(slot: String, set_id: String, persist: bool = true) -> bool:
             var piece: MeshInstance3D = piece_variant
             piece.visible = str(variant) == set_id
     selected[slot] = set_id
+    if slot == "legs":
+        _apply_legs_grounding(set_id)
+        rig.call("reset_foot_contacts")
     _sync_afterimage_visibility()
     if persist:
         _save_selection()
     return true
+
+# The static sole points are measured on the actual MeshInstance geometry
+# (including mesh rotations), not inferred from file names or a fixed leg length.
+func _foot_side(piece: MeshInstance3D) -> String:
+    var node: Node = piece.get_parent()
+    while node != null and node != rig:
+        var name: String = str(node.name).to_lower()
+        if name.contains("foot"):
+            if name.ends_with("_l"):
+                return "L"
+            if name.ends_with("_r"):
+                return "R"
+            return ""
+        node = node.get_parent()
+    return ""
+
+func _mesh_lowest_y(piece: MeshInstance3D) -> float:
+    if piece.mesh == null:
+        return INF
+    var bounds: AABB = piece.mesh.get_aabb()
+    var result: float = INF
+    for ix in [0.0, 1.0]:
+        for iy in [0.0, 1.0]:
+            for iz in [0.0, 1.0]:
+                var corner := bounds.position + Vector3(
+                    bounds.size.x * ix, bounds.size.y * iy, bounds.size.z * iz)
+                result = minf(result, rig.to_local(piece.to_global(corner)).y)
+    return result
+
+func _cache_bind_foot_geometry() -> void:
+    foot_meshes.clear()
+    bind_sole_heights.clear()
+    for set_key in available.keys():
+        var set_id: String = str(set_key)
+        var side_meshes: Dictionary = {"L": [], "R": []}
+        var sole_y: float = INF
+        for part in (available[set_id] as Dictionary).get("legs", []):
+            var piece: MeshInstance3D = part
+            var side: String = _foot_side(piece)
+            if side.is_empty():
+                continue
+            (side_meshes[side] as Array).append(piece)
+            sole_y = minf(sole_y, _mesh_lowest_y(piece))
+        if sole_y < INF and not (side_meshes["L"] as Array).is_empty() and not (side_meshes["R"] as Array).is_empty():
+            foot_meshes[set_id] = side_meshes
+            bind_sole_heights[set_id] = sole_y
+    standard_sole_y = float(bind_sole_heights.get("A", 0.0))
+
+func _apply_legs_grounding(set_id: String) -> void:
+    # A baseline remains unchanged; the selected sole is aligned to A's
+    # ground plane. A larger downward foot raises the model and its head.
+    grounding_height_offset = standard_sole_y - float(
+        bind_sole_heights.get(set_id, standard_sole_y))
+    rig.position.y = rig_original_y + grounding_height_offset
+
+func get_grounding_height_offset() -> float:
+    return grounding_height_offset
+
+func get_standard_sole_y() -> float:
+    return standard_sole_y
+
+func get_active_foot_heights() -> Dictionary:
+    var feet: Dictionary = foot_meshes.get(str(selected.get("legs", "A")), {})
+    var result: Dictionary = {}
+    for side in ["L", "R"]:
+        var minimum: float = INF
+        for piece in feet.get(side, []):
+            minimum = minf(minimum, _mesh_lowest_y(piece))
+        if minimum < INF:
+            result[side] = minimum
+    return result
 
 func sync_afterimages() -> void:
     _sync_afterimage_visibility()
