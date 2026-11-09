@@ -254,10 +254,13 @@ const AFTERIMAGE_BOOST_LIFETIME: float = 0.14
 const AFTERIMAGE_STEP_ALPHA: float = 0.34
 const AFTERIMAGE_BOOST_ALPHA: float = 0.28
 var _foreground_mat: ShaderMaterial
+var _foreground_mat_b: ShaderMaterial
+const B_SET_TINT_RGB: Vector3 = Vector3(1.0, 0.18, 0.18)
 var _foreground_parts: Array[MeshInstance3D] = []
 var _foreground_enabled: bool = false
 var _afterimage_root: Node3D
 var _afterimage_material: ShaderMaterial
+var _afterimage_material_b: ShaderMaterial
 var _afterimage_meshes: Array[MultiMeshInstance3D] = []
 var _afterimage_ages: Array[float] = [-1.0, -1.0, -1.0]
 var _afterimage_base_alphas: Array[float] = [0.0, 0.0, 0.0]
@@ -274,10 +277,20 @@ func set_slash_player_foreground(enabled: bool) -> void:
     _refresh_character_overlay()
 
 func _refresh_character_overlay() -> void:
-    var overlay: Material = _foreground_mat if _foreground_enabled else null
+    # The slash foreground pass also needs B's tint; otherwise B flashes gray.
     for part in _foreground_parts:
-        if is_instance_valid(part):
-            part.material_overlay = overlay
+        if not is_instance_valid(part):
+            continue
+        var overlay: Material = null
+        if _foreground_enabled:
+            if str(part.get_meta("sera_equipment_set", "A")) == "B":
+                if _foreground_mat_b == null:
+                    _foreground_mat_b = _foreground_mat.duplicate() as ShaderMaterial
+                    _foreground_mat_b.set_shader_parameter("set_tint", B_SET_TINT_RGB)
+                overlay = _foreground_mat_b
+            else:
+                overlay = _foreground_mat
+        part.material_overlay = overlay
 
 func _build_motion_afterimage_pool() -> void:
     # The afterimage root is a sibling of Player (world anchored), not under
@@ -294,6 +307,8 @@ func _build_motion_afterimage_pool() -> void:
     _afterimage_material.render_priority = -20
     _afterimage_material.set_shader_parameter("sera_palette", SERA_TEXTURE)
     _afterimage_material.set_shader_parameter("trail_alphas", Vector3.ZERO)
+    _afterimage_material_b = _afterimage_material.duplicate() as ShaderMaterial
+    _afterimage_material_b.set_shader_parameter("set_tint", B_SET_TINT_RGB)
     for source in _foreground_parts:
         var batch := MultiMesh.new()
         batch.transform_format = MultiMesh.TRANSFORM_3D
@@ -306,7 +321,8 @@ func _build_motion_afterimage_pool() -> void:
         var ghosts := MultiMeshInstance3D.new()
         ghosts.name = source.name + "_AfterimageBatch"
         ghosts.multimesh = batch
-        ghosts.material_override = _afterimage_material
+        ghosts.material_override = _afterimage_material_b if str(source.get_meta(
+            "sera_equipment_set", "A")) == "B" else _afterimage_material
         ghosts.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
         _afterimage_root.add_child(ghosts)
         _afterimage_meshes.append(ghosts)
@@ -353,6 +369,7 @@ func update_motion_afterimages(delta: float, fast_movement: bool, stepping: bool
         _afterimage_since_emit = 0.0
 
     _afterimage_material.set_shader_parameter("trail_alphas", layer_opacity)
+    _afterimage_material_b.set_shader_parameter("trail_alphas", layer_opacity)
     if any_visible != _afterimage_pool_visible:
         _afterimage_pool_visible = any_visible
         for ghosts in _afterimage_meshes:

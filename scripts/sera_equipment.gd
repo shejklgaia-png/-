@@ -6,6 +6,8 @@ const EMBEDDED_SOURCE = preload("res://assets/sera_equipment_data.gd")
 const SAVE_PATH: String = "user://sera_equipment.cfg"
 const SLOTS = ["head", "torso", "legs", "arms", "weapon_r", "weapon_l"]
 const MODEL_UNIT: float = 0.065
+# B has a red palette tint; all other sets retain their authored colors.
+const B_SET_TINT: Color = Color(1.0, 0.18, 0.18, 1.0)
 
 var rig: Node3D
 var available: Dictionary = {}  # set letter -> slot -> Array[MeshInstance3D]
@@ -161,11 +163,25 @@ func _attach_group_meshes(entry: Dictionary, target_bone: Node3D, groups: Dictio
             if piece == null:
                 continue
             piece.name = "%s_%s" % [set_id, str(element.get("name", "Mesh"))]
+            _apply_equipment_tint(piece, set_id)
             var base_origin: Vector3 = target_bone.get_meta("bb_origin", Vector3.ZERO)
             piece.position = (_v3(element.get("origin", [0, 0, 0])) - base_origin) * MODEL_UNIT
             target_bone.add_child(piece)
             piece.visible = false
             _add_mesh(set_id, slot, piece)
+
+func _apply_equipment_tint(piece: MeshInstance3D, set_id: String) -> void:
+    # Keep A untouched and isolate B's material from other variants.
+    piece.set_meta("sera_equipment_set", set_id)
+    if set_id != "B":
+        return
+    var original: StandardMaterial3D = piece.material_override as StandardMaterial3D
+    if original == null:
+        return
+    var tinted: StandardMaterial3D = original.duplicate() as StandardMaterial3D
+    tinted.albedo_color = B_SET_TINT
+    # Keep the original palette texture, UVs and authored light/dark shading.
+    piece.material_override = tinted
 
 func _match_child_bone(target_parent: Node3D, source_group: Dictionary) -> Node3D:
     var name: String = _simple_name(str(source_group.get("name", "")))

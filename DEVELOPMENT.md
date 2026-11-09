@@ -958,3 +958,10 @@
 - Androidの`.bbmodel`直読みと単独配布時の埋め込みフォールバックを実装し、`tools/rebuild_equipment_data.py`と`assets/sera_equipment_data.gd`を追加。セットを編集した後は再埋め込みが必要。
 - `project.godot`の表示名を`SERA v164`に更新。新規`README_v164_ja.md`、`tools/v164_equipment_self_check.py`を追加し、v163専用バージョン検査は履歴用にSKIPへ変更。
 - 既存戦闘・ブースト・RUN・カメラ・攻撃・ガード・BGM等の動作コードは変更なし。Godot実行／Android実機での検証は未実施。
+
+## v165（2026-11-09） — Bセットの全身を赤色に変更
+- 基準：main `6ca7782562979ca0b73ab38e3ba48a365dc5dabc`（v164）。カスタマイズBセットのみ赤色補正を適用。Aおよび将来のC以降は元のテクスチャ色を維持。
+- `scripts/sera_equipment.gd`ではB用マテリアルを複製して赤色`Color(1.0, 0.18, 0.18, 1.0)`を乗算し、既存テクスチャの陰影・UVを残す。頭・胴・下半身・腕・左右武器の6部位全てに適用。
+- `scripts/sera_rig.gd`でB専用の剣閃前面パスおよび残像用マテリアルを複製し、描画シェーダーの`set_tint`に同じ値を指定する。A側は既定値の白で従来表示を維持し、攻撃・モーション・移動・残像のタイミングやアルファ値を変更しない。
+- `shaders/sera_foreground.gdshader`と`shaders/sera_motion_ghost.gdshader`に既定白の色補正を追加。Blockbench原本・共通アニメーションJSON・カメラ・UI操作は編集しない。
+- `project.godot`を`SERA v165`へ更新し、READMEおよび静的チェックを追加。GodotおよびAndroid実機での表示確認は未実施。
