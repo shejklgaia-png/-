@@ -3,8 +3,8 @@ extends Node
 const SLOT_COUNT: int = 3
 const ARCHIVE_DIR: String = "user://sera_archive"
 const INDEX_PATH: String = ARCHIVE_DIR + "/index.json"
-const EQUIPMENT_SLOTS = ["head", "torso", "legs", "feet", "arms", "booster", "weapon_r", "weapon_l"]
-const SCHEMA_VERSION: int = 1
+const EQUIPMENT_SLOTS = ["head", "torso", "legs", "arms", "booster", "weapon_r", "weapon_l"]
+const SCHEMA_VERSION: int = 2
 
 var active_slot: int = 0
 var active_data: Dictionary = {}
@@ -44,14 +44,16 @@ func _read_slot(slot: int) -> Dictionary:
     if not _valid_slot(slot):
         return {}
     var data: Dictionary = _read_json(_slot_path(slot))
-    if data.is_empty() or int(data.get("schema_version", -1)) != SCHEMA_VERSION:
+    var stored_version: int = int(data.get("schema_version", -1))
+    if data.is_empty() or stored_version not in [1, SCHEMA_VERSION]:
         return {}
     if int(data.get("slot", -1)) != slot or not (data.get("equipment") is Dictionary):
         return {}
     if not (data.get("training_seconds") is float or data.get("training_seconds") is int):
         return {}
     data["training_seconds"] = maxf(0.0, float(data["training_seconds"]))
-    data["equipment"] = _sanitize_equipment(data["equipment"])
+    data["equipment"] = _sanitize_equipment(data["equipment"], stored_version == 1)
+    data["schema_version"] = SCHEMA_VERSION
     # v171 profile compatibility: absent statistics are introduced as zeroes.
     data["play_seconds"] = maxf(float(data["training_seconds"]),
         float(data.get("play_seconds", 0.0)))
@@ -60,7 +62,7 @@ func _read_slot(slot: int) -> Dictionary:
     data["stats"] = _sanitize_stats(data.get("stats", {}))
     return data
 
-func _sanitize_equipment(candidate: Variant) -> Dictionary:
+func _sanitize_equipment(candidate: Variant, legacy: bool = false) -> Dictionary:
     var clean: Dictionary = {}
     for part in EQUIPMENT_SLOTS:
         var set_id: String = "A"
@@ -69,11 +71,15 @@ func _sanitize_equipment(candidate: Variant) -> Dictionary:
         if set_id.is_empty() or set_id.length() > 4:
             set_id = "A"
         clean[part] = set_id
-    # Upgrade v191 profiles: Foot C was mistakenly stored as a complete
-    # LOWER BODY C. A standard lower body + independent FEET C is equivalent.
-    if clean["legs"] == "C":
-        clean["legs"] = "A"
-        clean["feet"] = "C"
+    # v1 (v191/v192): D=bird; C/FEET C=standard legs.
+    # v2 (v193+): C=bird, D=standard legs. Never remap v2 values.
+    if legacy and candidate is Dictionary:
+        var old_legs: String = str(candidate.get("legs", "A")).strip_edges().to_upper()
+        var old_feet: String = str(candidate.get("feet", "A")).strip_edges().to_upper()
+        if old_legs == "D":
+            clean["legs"] = "C"
+        elif old_legs == "C" or old_feet == "C":
+            clean["legs"] = "D"
     return clean
 
 func _default_stats() -> Dictionary:
