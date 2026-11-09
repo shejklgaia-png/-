@@ -102,7 +102,8 @@ const TAP_MAX_TRAVEL: float = 18.0  # Pixels, measured over the full pointer ges
 const TAP_MAX_DURATION: float = 0.32  # Seconds; long holds are not attacks.
 const GUARD_HOLD_SECONDS: float = TAP_MAX_DURATION  # Hold still for 0.32s to raise shield.
 const MELEE_SURFACE_REACH: float = 0.75  # Distance from player center to 2m cube surface.
-const MELEE_DASH_SPEED: float = 11.5  # World meters per second; no root-motion double movement.
+const MELEE_BOOST_DEFAULT_SPEED: float = 11.5  # v181: A speed; per-booster stat overrides.
+const MELEE_BOOST_DEFAULT_DURATION: float = 1.0  # Max DASH movement time for A.
 # Preserve v13 hit timing (confirmed by user).
 const TARGET_MAX_HP: int = 100
 const STRIKE_DAMAGE = [12, 12, 26]  # Per-stage damage for melee1, Melee2, Melee3.
@@ -116,6 +117,7 @@ const STRIKE_CLIPS = ["melee1", "Melee2", "Melee3"]
 # Allow a brief post-finisher window, then one tap after Bash to loop to stage 1.
 const BASH_LINK_SECONDS: float = 0.65
 const BASH_CONTACT_TIME: float = 0.25
+const BASH_TRACK_SECONDS: float = 0.60  # Chase moving target before authored Bash.
 const BASH_DAMAGE: int = 12
 const BASH_REACH: float = MELEE_SURFACE_REACH + 0.20
 const STRIKE_CANCEL_TIMES = [7.0 / 24.0, 7.0 / 24.0, 15.0 / 24.0]
@@ -130,7 +132,7 @@ const BLADE_THICKNESS: float = 0.14
 const HIT_STOP_SECONDS: float = 0.060
 const HIT_FLASH_SECONDS: float = 0.145
 const TARGET_RESPAWN_SECONDS: float = 1.35
-enum CombatState { IDLE, MELEE_APPROACH, DASH, STRIKE, BASH }
+enum CombatState { IDLE, MELEE_APPROACH, DASH, STRIKE, BASH, BASH_TRACK }
 # v112: Persistent handedness changes RUN animation selection only.
 const HANDEDNESS_SETTINGS_FILE: String = "user://sera_settings.cfg"
 const NEXUS_SCENE: String = "res://scenes/command_nexus.tscn"
@@ -341,6 +343,8 @@ var bash_followup_window_remaining: float = 0.0
 var bash_loop_window_remaining: float = 0.0
 var bash_did_hit: bool = false
 var bash_prev_time: float = 0.0
+var bash_track_elapsed: float = 0.0
+var melee_boost_elapsed: float = 0.0
 var strike_did_hit: bool = false
 var strike_prev_time: float = 0.0
 var strike_prev_blade: PackedVector3Array = PackedVector3Array()
@@ -1713,7 +1717,7 @@ func _end_drag(release_pos: Vector2) -> void:
             _set_guard(false)
             if guard_bash_requested:
                 _start_bash()
-                if combat_state == CombatState.BASH:
+                if combat_state == CombatState.BASH_TRACK:
                     touch_ui.call("show_flick_wake", guard_flick_origin, release_pos)
         return
     # Include release coordinates: some devices coalesce the final drag event.
@@ -2172,8 +2176,8 @@ func _start_attack() -> bool:
     # to prevent false ripple feedback during guard, damage or approach.
     if guard_active or damage_reaction_active or landing_active or step_active or rig == null or not rig.get("loading_ok"):
         return false
-    if combat_state == CombatState.BASH:
-        # Only one tap is buffered for the next melee1 after Bash recovers.
+    if combat_state == CombatState.BASH or combat_state == CombatState.BASH_TRACK:
+        # One follow-up melee tap can be buffered during tracking or Bash.
         bash_combo_queued = true
         return true
     if combat_state == CombatState.STRIKE:
@@ -2205,6 +2209,7 @@ func _start_attack() -> bool:
     if energy_exhausted and _distance_to_cube_surface(player.position) > MELEE_SURFACE_REACH:
         _start_strike(0)  # EN exhausted: stationary swing remains available.
         return true
+    melee_boost_elapsed = 0.0
     combat_state = CombatState.MELEE_APPROACH
     rig.call("start_melee_approach")
     return true
@@ -2213,6 +2218,8 @@ func _cancel_attack() -> void:
     if combat_state == CombatState.IDLE:
         return
     combat_state = CombatState.IDLE
+    melee_boost_elapsed = 0.0
+    bash_track_elapsed = 0.0
     combo_queued = false
     bash_queued = false
     bash_combo_queued = false
@@ -2246,7 +2253,8 @@ func _start_bash() -> void:
     if combat_state != CombatState.IDLE and not (combat_state == CombatState.STRIKE
             and strike_index == STRIKE_CLIPS.size() - 1):
         return
-    combat_state = CombatState.BASH
+    combat_state = CombatState.BASH_TRACK
+    bash_track_elapsed = 0.0
     bash_queued = false
     bash_combo_queued = false
     bash_flick_candidate = false
@@ -2259,7 +2267,47 @@ func _start_bash() -> void:
     _clear_strike_tracking()
     if sword_trail != null:
         sword_trail.call("stop_swing")
+    # Reuse the pre-existing melee booster pose during target tracking.
+    # The actual Bash animation is started only after BASH_TRACK_SECONDS.
+    rig.call("start_melee_approach")
+
+func _launch_bash_after_tracking() -> void:
+    if combat_state != CombatState.BASH_TRACK:
+        return
+    combat_state = CombatState.BASH
+    bash_prev_time = 0.0
     rig.call("start_bash")
+
+func _advance_homing_toward_target(delta: float, reach: float) -> bool:
+    # Uses live target coordinates on every physics tick. True means homing
+    # was allowed (or is already in range), not that an attack connected.
+    if _distance_to_cube_surface(player.position) <= reach:
+        return true
+    if delta <= 0.0:
+        return true
+    if not _spend_energy(16.0 * delta * float(part_stats.get("energy_cost_mult", 1.0))):
+        return false
+    var destination_delta: Vector3 = target.position - player.position
+    destination_delta.y = 0.0
+    if destination_delta.length_squared() < 0.000001:
+        return true
+    var speed: float = float(part_stats.get("melee_boost_speed", MELEE_BOOST_DEFAULT_SPEED))
+    var travel: float = minf(speed * delta, destination_delta.length())
+    var next_position: Vector3 = player.position + destination_delta.normalized() * travel
+    if _distance_to_cube_surface(next_position) <= reach:
+        # End at the first edge of the strike/bash range; never overshoot.
+        var low: float = 0.0
+        var high: float = 1.0
+        for _i in range(16):
+            var mid: float = (low + high) * 0.5
+            if _distance_to_cube_surface(player.position.lerp(next_position, mid)) <= reach:
+                high = mid
+            else:
+                low = mid
+        _move_player_swept(player.position.lerp(next_position, high) - player.position, false)
+    else:
+        _move_player_swept(next_position - player.position, false)
+    return true
 
 func _check_bash_contact() -> void:
     if combat_state != CombatState.BASH or bash_did_hit or hit_stop_remaining > 0.0:
@@ -2338,37 +2386,42 @@ func _advance_attack(delta: float) -> void:
                     _start_strike()
                 else:
                     rig.call("hold_melee_approach_last_pose")
+                    melee_boost_elapsed = 0.0
                     combat_state = CombatState.DASH
         CombatState.DASH:
+            # Booster duration caps the MOVING portion of normal melee boost;
+            # the preceding authored approach animation stays unchanged.
             if _distance_to_cube_surface(player.position) <= MELEE_SURFACE_REACH:
                 _start_strike()
                 return
-            var destination_delta: Vector3 = target.position - player.position
-            destination_delta.y = 0.0
-            if destination_delta.length_squared() < 0.000001:
-                _start_strike()
+            var maximum_duration: float = maxf(0.01,
+                float(part_stats.get("melee_boost_duration", MELEE_BOOST_DEFAULT_DURATION)))
+            var boost_dt: float = minf(maxf(0.0, delta),
+                maxf(0.0, maximum_duration - melee_boost_elapsed))
+            if boost_dt <= 0.0:
+                _cancel_attack()  # Beyond timed range: no phantom hit.
                 return
-            if not _spend_energy(16.0 * delta * float(part_stats.get("energy_cost_mult", 1.0))):
+            if not _advance_homing_toward_target(boost_dt, MELEE_SURFACE_REACH):
                 _cancel_attack()
                 return
-            var travel: float = minf(float(part_stats.get("approach_speed", MELEE_DASH_SPEED)) *
-                delta, destination_delta.length())
-            var next_position: Vector3 = player.position + destination_delta.normalized() * travel
-            if _distance_to_cube_surface(next_position) <= MELEE_SURFACE_REACH:
-                # Find first contact with the attack threshold; don't slide
-                # past the target if frame rate drops or device lags.
-                var low: float = 0.0
-                var high: float = 1.0
-                for _i in range(16):
-                    var mid: float = (low + high) * 0.5
-                    if _distance_to_cube_surface(player.position.lerp(next_position, mid)) <= MELEE_SURFACE_REACH:
-                        high = mid
-                    else:
-                        low = mid
-                _move_player_swept(player.position.lerp(next_position, high) - player.position, false)
+            melee_boost_elapsed += boost_dt
+            if _distance_to_cube_surface(player.position) <= MELEE_SURFACE_REACH:
                 _start_strike()
-            else:
-                _move_player_swept(next_position - player.position, false)
+            elif melee_boost_elapsed >= maximum_duration - 0.00001:
+                _cancel_attack()
+        CombatState.BASH_TRACK:
+            # Exactly 0.6s of live enemy tracking, then Bash begins even if
+            # the target escaped range; ordinary Bash contact still checks reach.
+            var track_dt: float = minf(maxf(0.0, delta),
+                maxf(0.0, BASH_TRACK_SECONDS - bash_track_elapsed))
+            if track_dt > 0.0:
+                # Low EN prevents homing but not the non-EN Bash strike itself.
+                _advance_homing_toward_target(track_dt, BASH_REACH)
+                bash_track_elapsed += track_dt
+            if rig.call("melee_approach_last_key_reached"):
+                rig.call("hold_melee_approach_last_pose")
+            if bash_track_elapsed >= BASH_TRACK_SECONDS - 0.00001:
+                _launch_bash_after_tracking()
         CombatState.STRIKE:
             # The second tap may arrive before or after the cancel frame.
             # In both cases the next strike starts only after that point.
@@ -2599,7 +2652,7 @@ func _physics_process(delta: float) -> void:
         else:
             player.velocity = Vector3.ZERO
         player.move_and_slide()
-    elif not stepping_this_frame and combat_state != CombatState.DASH:
+    elif not stepping_this_frame and combat_state != CombatState.DASH and combat_state != CombatState.BASH_TRACK:
         # Even with no input, resolve any pre-existing body penetration.
         player.velocity = Vector3.ZERO
         player.move_and_slide()
@@ -2658,9 +2711,15 @@ func _physics_process(delta: float) -> void:
             CombatState.MELEE_APPROACH:
                 state_label.text = "MELEE APPROACH  |  meleeboost"
             CombatState.DASH:
-                state_label.text = "MELEE APPROACH  |  hold meleeboost last key"
+                state_label.text = "MELEE BOOST  %.1fm/s  %.2f/%.1fs" % [
+                    float(part_stats.get("melee_boost_speed", MELEE_BOOST_DEFAULT_SPEED)),
+                    melee_boost_elapsed,
+                    float(part_stats.get("melee_boost_duration", MELEE_BOOST_DEFAULT_DURATION))]
             CombatState.STRIKE:
                 state_label.text = "STRIKE %d/3  |  %s" % [strike_index + 1, str(STRIKE_CLIPS[strike_index])]
+            CombatState.BASH_TRACK:
+                state_label.text = "BASH HOMING  %.2fs / %.2fs" % [
+                    bash_track_elapsed, BASH_TRACK_SECONDS]
             CombatState.BASH:
                 state_label.text = "SHIELD BASH  |  Bash"
             _:
