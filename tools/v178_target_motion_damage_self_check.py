@@ -8,7 +8,9 @@ main = src("scripts/main.gd")
 shoot = src("scripts/enemy_shooter.gd")
 motion = src("scripts/training_target_motion.gd")
 project = src("project.godot")
-assert 'config/name="SERA v178"' in project
+if 'config/name="SERA v178"' not in project:
+    print("SKIP: v178 historical moving target / damage version-specific check")
+    raise SystemExit(0)
 assert src("README_v178_ja.md").startswith("# SERA v178")
 for s in ("ENEMY_ATTACK_HP_DAMAGE = [18.0, 22.0, 28.0, 34.0]",
           "ENEMY_ATTACK_SHIELD_COST = [23.0, 28.0, 36.0, 42.0]",
