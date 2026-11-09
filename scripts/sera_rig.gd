@@ -52,6 +52,8 @@ const JUMP_LANDING_CLIP_END: float = 0.500  # new final landing key
 const JUMP_FALL_CLIP_START: float = 0.20833 / JUMP_AIR_CLIP_END
 const DAMAGE_CLIP: String = "Damageknock"
 const GUARD_CLIP: String = "Guard"
+const GUARD_REACTION_CLIP: String = "Guard_REACTION"
+const BASH_CLIP: String = "Bash"
 # v116: The existing 1.5x RUN animation is accelerated by 1.25x (1.5 * 1.25).
 const RUN_ANIMATION_SPEED: float = 1.875  # Motion playback only; does not change movement speed
 # v151: Filter only rendered RUN direction, leaving actual steering instant.
@@ -164,7 +166,8 @@ func _ready() -> void:
         and animations.has(STRIKE_3_CLIP) and animations.has(STEP_RIGHT_CLIP)
         and animations.has(STEP_LEFT_CLIP) and animations.has(STEP_BACK_CLIP)
         and animations.has(DAMAGE_CLIP) and animations.has(JUMP_CLIP)
-        and animations.has(GUARD_CLIP))
+        and animations.has(GUARD_CLIP)
+        and animations.has(GUARD_REACTION_CLIP) and animations.has(BASH_CLIP))
     if not loading_ok:
         push_error("Sera hierarchy or animation missing")
         return
@@ -555,6 +558,17 @@ func finish_guard() -> void:
     guard_playback = false
     _switch_clip(WAIT_CLIP, 0.11)
 
+func trigger_guard_reaction() -> void:
+    if not loading_ok or not guard_playback:
+        return
+    _switch_clip(GUARD_REACTION_CLIP, 0.045)
+    # If two impacts arrive during the same reaction, restart its authored
+    # sequence instead of ignoring the second contact.
+    clip_time = 0.0
+
+func guard_reaction_playing() -> bool:
+    return guard_playback and current_clip == GUARD_REACTION_CLIP
+
 # Input is target-relative (X right, Y toward target); never rotate the
 # actual movement vector, touch input, step direction or player collision.
 func _run_forward_sector_center(direction: Vector2) -> float:
@@ -816,6 +830,14 @@ func start_strike(clip_name: String = STRIKE_CLIP) -> void:
     # Follow-up swings interrupt recovery through the existing pose blend.
     _switch_clip(clip_name, 0.065)
 
+func start_bash() -> void:
+    if not loading_ok or damage_playback or guard_playback:
+        return
+    freeze_attack_pose = false
+    combat_paused = false
+    combat_playback = true
+    _switch_clip(BASH_CLIP, 0.055)
+
 func finish_attack(resume_moving: bool, airborne_fall: bool = false) -> void:
     if damage_playback:
         return
@@ -859,6 +881,9 @@ func _process(delta: float) -> void:
         return
     if not freeze_attack_pose and not combat_paused and not (jump_playback and current_clip == JUMP_CLIP):
         clip_time += delta * (RUN_ANIMATION_SPEED if current_clip in RUN_CLIPS else 1.0)
+    if guard_reaction_playing() and clip_time >= float(animations[GUARD_REACTION_CLIP]["length"]):
+        # The authored clip is tagged loop, but each guarded hit plays once.
+        _switch_clip(GUARD_CLIP, 0.075)
     if not combat_paused:
         blending_for += delta
         if current_clip in RUN_CLIPS and run_motion_initialized:
