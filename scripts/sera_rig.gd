@@ -1137,7 +1137,10 @@ func _apply_animation(_delta: float) -> void:
     var clip_length: float = maxf(float(clip.get("length", 1.0)), 0.001)
     # 'once' clips MUST NOT wrap. A boost is frozen on its final authored
     # keyframe for the entire approach, until 'melee1' begins.
-    var t: float = fposmod(clip_time, clip_length) if bool(clip["looped"]) else minf(clip_time, clip_length)
+    # KO must use the last key even when Blockbench marks Damageknock looped:
+    # fposmod(last_key_time, clip_length) would wrap at the final frame.
+    var t: float = minf(clip_time, clip_length) if training_ko_active and current_clip == DAMAGE_CLIP else (
+        fposmod(clip_time, clip_length) if bool(clip["looped"]) else minf(clip_time, clip_length))
     var tracks: Dictionary = clip["tracks"]
     var blend_weight: float = clampf(blending_for / maxf(blend_duration, 0.00001), 0.0, 1.0)
     if boost_to_run_crossfade:
