@@ -1229,3 +1229,11 @@
 - `scripts/launch_menu.gd` adds it to the full-rect startup Control; `scripts/main.gd` adds it to the existing combat CanvasLayer; `scripts/command_nexus.gd` adds it to the full-rect NEXUS HUD.
 - The label is 14px, top-right (right margin 14, y=3..25) and ignores all touch/mouse events; training HUD begins below it at y26. No scene navigation or combat input changes.
 - Updated `project.godot` name from `SERA v197` to `SERA v198`. Older v197 regression version assertion is now forward-compatible. New `tools/v198_version_indicator_self_check.py`, README_v198_ja.md and CI step. Godot Android UI is not yet device-tested.
+
+
+## 2026-11-10 — SERA v199: animated-foot grounding on the visual training floor
+- User screenshots showed LOWER BODY D feet floating above the training floor during Wait_motion and motion changes.
+- Prior `scripts/sera_equipment.gd` computed a bind-only Y offset when switching a leg set, with the sole measured from rotated AABB corners. It failed to follow animated hip/root motion and could select imaginary low corners for tilted feet.
+- New `_mesh_lowest_y()` caches actual triangle vertices from each visible foot mesh via Mesh.surface_get_arrays and transforms them to rig-local coordinates per frame. New `snap_grounded_sole_to_floor()` aligns the lower of left and right soles to the top of the visible training grid Y=-0.0335 after the current animation pose, including initial idle frame.
+- Applies only in grounded training (skips jump playback, player above plane, and NEXUS preview/exhibition). Only visual rig translation; no changes to Player physics, floor collision, movement speed, camera, equipment selection, saved preferences, A/B/C/D mesh geometry, animation tracks or footfall event logic.
+- Keep the old static bind correction for the collision-height extension (separate from per-frame render correction). New v199 static+numeric regression, CI, README. Android rendering/foot contact must be checked on Xperia.
