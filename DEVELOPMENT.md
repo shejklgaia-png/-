@@ -971,3 +971,10 @@
 - Androidのraw touchを座標で拾い、HUDタップが格闘・移動と重複しないよう抑止。PCのマウス／EscおよびAndroidのシステム戻る通知を補助導線にし、トレーニング中だけ自動終了設定を一時解除、離脱時に復旧。
 - 遷移は重複を防ぎ、deferredで処理。失敗時はエラー表示（ログ）して再試行可能。NEXUS→TRAININGの既存ルート、入力・攻撃・ブースト・BGM・カスタマイズA/B・描画は変更しない。
 - `scripts/main.gd`、`project.godot`、`DEVELOPMENT.md`、旧v165チェックの版スキップを更新。`README_v166_ja.md`と`tools/v166_return_to_nexus_self_check.py`を追加。Godot/Android実機は未検証。
+
+## v167（2026-11-09） — ガード成功リアクションと3段→バッシュ→3段ループ
+- 基準main `e7b14ff65cd00c9569e33e5368da4543c99ad1b8`（v166）。最新`models/SERA_BOOSTER_allテスト.bbmodel`の既存AボーンUUID互換アニメ`Guard_REACTION`（0.20833秒）、`Bash`（0.5秒）を抽出し、従来のソースJSONと埋込スナップショットへ追加。A/B外観、他アニメ、テクスチャ/ボーン構成は保持。
+- ガード中に被弾すると`Guard_REACTION`を1回再生し、保持中は`Guard`に復帰。既存ガード被弾音とDamageknock抑止を維持。ガード中の前方リリースフリックもBashへ遷移。
+- 3段目の前フリック（離指）でBashを予約し、3段目キャンセル可能時刻0.625秒以降で実行。3段目終了後0.65秒まで受付。Bash中のタップを1件バッファし、終了後は`melee1`を開始。Bash終了後0.65秒のタップでも再始動し、ループ可能。
+- Bash仮実装ダメージ12、接触時刻0.25秒、近接判定0.95m。単発ヒットと共通ヒットストップ/演出、敵HPと撃破再生を継承。盾値消費、攻撃突破/アーマーは未定のため実装しない。通常の左右・下フリック、RUN/BOOST、ジャンプデバッグ、画面遷移は維持。
+- `project.godot`を`SERA v167`に更新。検査`tools/v167_guard_bash_loop_self_check.py`、READMEを追加。Godot/Android実機は未検証。
