@@ -166,6 +166,7 @@ const TARGET_FRAME_MARGIN_X: float = 0.025  # Keep all target corners onscreen
 const TARGET_FRAME_MARGIN_Y: float = 0.145  # v55: do not frame the target behind the top HUD.
 const TARGET_FRAME_BOTTOM: float = 0.75  # v52: reserve the same lower control area for target corners.
 const SERA_SCRIPT = preload("res://scripts/sera_rig.gd")
+const PART_STATS = preload("res://scripts/sera_part_stats.gd")
 const UI_SCRIPT = preload("res://scripts/touch_overlay.gd")
 const SWORD_TRAIL_SCRIPT = preload("res://scripts/sword_trail.gd")
 const HIT_BURST_SCRIPT = preload("res://scripts/hit_burst.gd")
@@ -178,6 +179,27 @@ const DAMAGE_KNOCKBACK_DISTANCE: float = 1.20  # meters
 const DAMAGE_KNOCKBACK_DURATION: float = 0.24  # seconds
 # v77: temporal afterimages are world-space pose snapshots, not offset
 # overlays of the current rig pose. No background blur or post-process.
+
+# v177: trial A medium/B heavy equipment performance.
+const TEST_EN_MAX: float = 100.0
+const TEST_SH_MAX: float = 100.0
+var part_stats: Dictionary = {}
+var player_hp: float = 800.0
+var energy: float = TEST_EN_MAX
+var shield: float = TEST_SH_MAX
+var energy_exhausted: bool = false
+var energy_recovery_pause: float = 0.0
+var shield_recovery_pause: float = 0.0
+var guard_break_remaining: float = 0.0
+var guard_break_hits: int = 0
+var down_remaining: float = 0.0
+var resources_label: Label
+var core_label: Label
+var core_hp: float = 75.0
+var stagger_value: float = 0.0
+var stagger_remaining: float = 0.0
+var part_break_remaining: float = 0.0
+var last_hit_time: float = -100.0
 
 var player: CharacterBody3D
 var rig: Node3D
@@ -312,6 +334,7 @@ func _ready() -> void:
     _load_handedness_preference()
     _build_world()
     _build_character()
+    _load_part_stats()
     _build_target()
     _build_enemy_shooter()
     _build_camera()
@@ -359,6 +382,78 @@ func _toggle_handedness() -> void:
 func _refresh_handedness_button() -> void:
     if handedness_button != null:
         handedness_button.text = "HAND: LEFT" if left_handed else "HAND: RIGHT"
+
+func _load_part_stats() -> void:
+    var chosen: Dictionary = {}
+    for slot in ["head", "torso", "arms", "legs", "booster", "weapon_r", "weapon_l"]:
+        chosen[slot] = str(rig.call("get_equipment_selection", slot))
+    part_stats = PART_STATS.build(chosen)
+    player_hp = float(part_stats.get("max_hp", 800.0))
+    rig.call("set_equipment_motion_scales", float(part_stats.get("damage_time_mult", 1.0)),
+        float(part_stats.get("guard_speed_mult", 1.0)))
+
+func _spend_energy(amount: float) -> bool:
+    if amount <= 0.0:
+        return true
+    if energy + 0.0001 < amount:
+        if energy <= 0.0001:
+            energy_exhausted = true
+        return false
+    energy = maxf(0.0, energy - amount)
+    energy_recovery_pause = 0.25
+    if energy <= 0.0001:
+        energy_exhausted = true
+    return true
+
+func _tick_resources(delta: float) -> void:
+    energy_recovery_pause = maxf(0.0, energy_recovery_pause - delta)
+    shield_recovery_pause = maxf(0.0, shield_recovery_pause - delta)
+    if energy_recovery_pause <= 0.0:
+        energy = minf(TEST_EN_MAX, energy + 24.0 * delta)
+    if shield_recovery_pause <= 0.0 and guard_break_remaining <= 0.0 and down_remaining <= 0.0:
+        shield = minf(TEST_SH_MAX, shield + 16.0 * delta)
+    if energy_exhausted and energy >= 16.0:
+        energy_exhausted = false
+    if resources_label != null:
+        resources_label.text = "SERA HP %d/%d  EN %d  SH %d" % [
+            ceili(player_hp), int(part_stats.get("max_hp", 800.0)), ceili(energy), ceili(shield)]
+    if core_label != null:
+        core_label.text = "TEST CORE %d/75  STAGGER %d/50  %s" % [
+            ceili(core_hp), ceili(stagger_value),
+            "BREAK" if part_break_remaining > 0.0 else ("STUN" if stagger_remaining > 0.0 else "")]
+
+func _take_test_damage(raw: float) -> void:
+    player_hp = maxf(0.0, player_hp - raw * (
+        1.0 - clampf(float(part_stats.get("defense", 0.16)), 0.0, 0.90)))
+
+func _begin_test_down() -> void:
+    if down_remaining > 0.0:
+        return
+    guard_break_remaining = 0.0
+    down_remaining = 1.45
+    var away: Vector3 = player.global_position - target.global_position
+    away.y = 0.0
+    if away.length_squared() < 0.000001:
+        away = player.global_transform.basis.z
+    _move_player_swept(away.normalized() * 4.0, true)
+    if rig != null:
+        rig.call("set_combat_paused", false)
+
+func _register_test_hit(break_amount: float, stagger_amount: float, extension: float) -> void:
+    var now: float = float(Time.get_ticks_msec()) / 1000.0
+    if core_hp > 0.0:
+        core_hp = maxf(0.0, core_hp - break_amount)
+        if core_hp <= 0.0:
+            part_break_remaining = 1.0
+    if stagger_remaining > 0.0:
+        if now - last_hit_time <= 0.36:
+            stagger_remaining = minf(1.5, stagger_remaining + extension)
+    else:
+        stagger_value += stagger_amount
+        if stagger_value >= 50.0:
+            stagger_value = 0.0
+            stagger_remaining = 0.55
+    last_hit_time = now
 
 func _build_world() -> void:
     var world := WorldEnvironment.new()
@@ -511,7 +606,26 @@ func _build_enemy_shooter() -> void:
 
 func _on_enemy_projectile_hit(_world_position: Vector3, incoming_direction: Vector3,
         is_bullet: bool) -> void:
+    if down_remaining > 0.0:
+        return
+    if guard_break_remaining > 0.0:
+        _take_test_damage(18.0)
+        guard_break_hits += 1
+        if guard_break_hits >= int(part_stats.get("down_hits", 3)):
+            _begin_test_down()
+        return
     if guard_active:
+        var cost: float = (23.0 if is_bullet else 35.0) * (
+            float(part_stats.get("guard_cost_mult", 1.0)) /
+            maxf(0.2, float(part_stats.get("guard_defense_mult", 1.0))))
+        shield = maxf(0.0, shield - cost)
+        shield_recovery_pause = 0.45
+        if shield <= 0.0:
+            _set_guard(false)
+            _begin_damage_reaction(incoming_direction)
+            guard_break_remaining = 1.25
+            guard_break_hits = 0
+            return
         SeraSave.record_defensive_impact(true)
         # Guarded bullets use their own impact sound, but never
         # triggers the unguarded red damage flash, Damageknock or knockback.
@@ -522,6 +636,7 @@ func _on_enemy_projectile_hit(_world_position: Vector3, incoming_direction: Vect
             rig.call("trigger_guard_reaction")
         return
     SeraSave.record_defensive_impact(false)
+    _take_test_damage(18.0 if is_bullet else 26.0)
     # Both straight bullets (AIM and LEAD) use the supplied projectile impact.
     # SHOCK and ARC keep v93's metal sound: they are not bullet contacts.
     # The flag is captured per spawned attack and cannot change with debug UI.
@@ -754,6 +869,19 @@ func _build_overlay() -> void:
     damage_label.visible = false
     layer.add_child(damage_label)
     _refresh_hp_bar()
+    resources_label = Label.new()
+    resources_label.position = Vector2(27.0, 118.0)
+    resources_label.add_theme_font_size_override("font_size", 14)
+    resources_label.add_theme_color_override("font_color", Color("bbd9e5"))
+    resources_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    hud_panel.add_child(resources_label)
+    core_label = Label.new()
+    core_label.position = Vector2(22.0, 239.0)
+    core_label.add_theme_font_size_override("font_size", 16)
+    core_label.add_theme_color_override("font_color", Color("b5e4f5"))
+    core_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    layer.add_child(core_label)
+    _tick_resources(0.0)
 
     step_status_label = Label.new()
     step_status_label.name = "StepStatusLabel"
