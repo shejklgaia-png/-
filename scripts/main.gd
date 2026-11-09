@@ -1108,7 +1108,7 @@ func _input(event: InputEvent) -> void:
             # Any new finger press cancels a prior tap ripple immediately,
             # including taps on HUD buttons (which must keep their own input).
             if touch_ui != null:
-                touch_ui.call("cancel_attack_ripple")
+                touch_ui.call("cancel_gesture_effects")
             if _pointer_on_nexus_button(event.position):
                 step_hud_touch = event.index
                 _request_return_to_nexus()
@@ -1137,7 +1137,7 @@ func _input(event: InputEvent) -> void:
         if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
             if event.pressed:
                 if touch_ui != null:
-                    touch_ui.call("cancel_attack_ripple")
+                    touch_ui.call("cancel_gesture_effects")
                 if _pointer_on_nexus_button(event.position):
                     step_hud_mouse_press = true
                     _request_return_to_nexus()
@@ -1315,6 +1315,10 @@ func _end_drag(release_pos: Vector2) -> void:
         pointer_location = release_pos
         _remember_jump_flick_sample(release_pos)
         var guard_bash_requested: bool = _classify_recent_upward_flick() and not keyboard_guard_held
+        # A long-held guard's only motion is its final brief upward swipe.
+        var guard_flick_origin: Vector2 = pointer_origin
+        if not jump_flick_samples.is_empty():
+            guard_flick_origin = jump_flick_samples[0]["pos"]
         bash_flick_candidate = false
         # Consume the whole hold, including any movement made before release.
         # Keyboard G may continue Guard after the finger lifts.
@@ -1334,6 +1338,8 @@ func _end_drag(release_pos: Vector2) -> void:
             _set_guard(false)
             if guard_bash_requested:
                 _start_bash()
+                if combat_state == CombatState.BASH:
+                    touch_ui.call("show_flick_wake", guard_flick_origin, release_pos)
         return
     # Include release coordinates: some devices coalesce the final drag event.
     pointer_location = release_pos
@@ -1378,13 +1384,18 @@ func _end_drag(release_pos: Vector2) -> void:
     if damage_reaction_active or landing_active or suppress_release_action:
         return  # A gesture interrupted by damage never queues a step/attack.
     if bash_requested and _request_combo_bash():
+        touch_ui.call("show_flick_wake", pointer_origin, release_pos)
         return
     if jump_requested:
         _start_jump(takeoff_momentum)
+        if jump_active:
+            touch_ui.call("show_flick_wake", pointer_origin, release_pos)
     elif flick_direction == STEP_BACK:
-        _start_back_step()
+        if _start_back_step():
+            touch_ui.call("show_flick_wake", pointer_origin, release_pos)
     elif flick_direction != 0:
-        _start_side_step(flick_direction)
+        if _start_side_step(flick_direction):
+            touch_ui.call("show_flick_wake", pointer_origin, release_pos)
     elif was_tap:
         # The finger has already been released; play feedback only if the
         # combat state accepted this tap (including buffered combo inputs).
@@ -1575,9 +1586,9 @@ func _classify_step_flick(displacement: Vector2, seconds: float) -> int:
         return 0
     return STEP_BACK
 
-func _start_back_step() -> void:
+func _start_back_step() -> bool:
     if guard_active or damage_reaction_active or landing_active or rig == null or not bool(rig.get("loading_ok")):
-        return
+        return false
     if combat_state != CombatState.IDLE:
         _cancel_attack()  # Same attack-cancel behavior as left/right steps.
     if step_active:
@@ -1613,10 +1624,11 @@ func _start_back_step() -> void:
     step_traveled_distance = 0.0
     rig.call("start_back_step")
     _refresh_step_status_ui()
+    return true
 
-func _start_side_step(side: int) -> void:
+func _start_side_step(side: int) -> bool:
     if guard_active or damage_reaction_active or landing_active or side == 0 or rig == null or not bool(rig.get("loading_ok")):
-        return
+        return false
     if combat_state != CombatState.IDLE:
         # v45: a flick can cancel an in-progress attack.
         _cancel_attack()
@@ -1681,6 +1693,7 @@ func _start_side_step(side: int) -> void:
     step_traveled_distance = 0.0
     rig.call("start_side_step", side)
     _refresh_step_status_ui()
+    return true
 
 func _finish_side_step(resume_moving: bool) -> void:
     if not step_active:
