@@ -15,8 +15,11 @@ def color_constant(name):
 bright=color_constant("SYSTEM_CONFIRM_BG_BRIGHT")
 dim=color_constant("SYSTEM_CONFIRM_BG_DIM")
 default=[0.018,0.035,0.060,0.92]
-assert all(a>b for a,b in zip(dim,default)), (dim,default)
-assert all(a>b for a,b in zip(bright,dim)), (bright,dim)
+# Brightness comparisons use RGB only; alpha is intentionally constant
+# during the two blink phases to avoid a transparency flicker.
+assert all(a>b for a,b in zip(dim[:3],default[:3])), (dim,default)
+assert all(a>b for a,b in zip(bright[:3],dim[:3])), (bright,dim)
+assert bright[3] == dim[3] and dim[3] >= default[3]
 assert 'const SYSTEM_CONFIRM_BORDER_BRIGHT: Color = Color("#e5fbff")' in n
 assert 'const SYSTEM_CONFIRM_BORDER_DIM: Color = Color("#7cd6f0")' in n
 assert 'SYSTEM_CONFIRM_BLINK_HALF_SECONDS: float = 0.38' in n
