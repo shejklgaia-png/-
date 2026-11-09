@@ -66,7 +66,7 @@ assert "draw_line(tail, tip, bright, 5.0, true)" in boost_visual
 assert "draw_polyline(PackedVector2Array([" in boost_visual
 assert "draw_circle(tip, 2.5, bright)" in boost_visual
 assert "visual_heading_angle = lerp_angle(" in ui
-assert "swipe_boost_progress" in boost_visual
+assert "visual_boost_progress" in boost_visual
 assert "draw_arc(center, 35.0" in boost_visual
 assert '"BOOST  x1.5"' in boost_visual
 assert "_draw_radial_controller" not in ui
