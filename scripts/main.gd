@@ -2645,6 +2645,7 @@ func _update_boost_speed(delta: float) -> void:
 
 
 func _physics_process(delta: float) -> void:
+    _update_equipped_collision_height()
     _tick_training_ko(delta)
     if training_ko_remaining > 0.0:
         if state_label != null:
