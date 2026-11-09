@@ -146,7 +146,9 @@ for name, uid in expected_source.items():
     elif "Foot_" in name:
         assert parents[name][-1] in ("Foot_L3", "Foot_R3")
     elif "Waist_" in name:
-        assert parents[name][-1] == "Waist3"
+        # Traversal starts at Waist3.children, so its own mesh children
+        # have an empty ancestor tuple; other parts have child bones.
+        assert parents[name] == ()
 assert {"Thigh_L3", "LowerLeg_L3", "Foot_L3",
         "Thigh_R3", "LowerLeg_R3", "Foot_R3",
         "Head3", "Neck3"}.issubset({q["name"] for q in source_model["groups"]})
