@@ -1186,3 +1186,10 @@
 - New save schema version 2 migrates version 1 saved preferences exactly once: old bird LOWER BODY D→C, old v191 human LOWER BODY C or v192 FEET C→D, and all other equipment (including HEAD C) unchanged. Global cfg has the same one-time migration with an explicit schema marker; repeated loading or saving v193 IDs cannot swap C/D again.
 - Update `scripts/command_nexus.gd` to remove FEET and distinguish C BIRD / D NEW; *only the D replacement model's source geometry was normalized*, with source face/UV identity preserved. Movement, combat, camera, audio and touch input remain unchanged. README_v193_ja.md and static migration/slot validation test added.
 - **GitHub static verification only; Godot Android runtime behavior to verify after GitSync.**
+
+
+## 2026-11-10 — 標準骨格「脚C」更新単体ファイルの正規化（ゲーム版はv193のまま）
+- 更新された models/storage/足C (1).bbmodel を調査。従来原本と同じ12メッシュ/面/UVを持ち、右側のPivotと片側のメッシュ原点（ローカル頂点の相殺移動）が変更されたことを確認。
+- 右の関節階層に左側メッシュが混在し、左足のPivotも反対側へ移動していたため、SERA_LEGS_C_AUTHOR_NORMALIZED.bbmodel に腰・左右の腿/膝下/足の7関節を作成し、12メッシュを独立して命名。元のメッシュ形状・原点・UVを変えず正規化。
+- 現行v193の標準骨格下半身Dだけを SERA_LOWER_BODY_D_STANDARD_READY.bbmodel へ切り出し、元の統合ファイルとAのモーションを維持。
+- docs/LEG_C_STANDARD_SOURCE_ja.md と tools/legs_c_standard_source_self_check.py を追加。**素材の準備のみ**のためゲーム版・保存形式・ゲーム表示は変更なし。Androidでの従来の表示問題は引き続き要検証。
