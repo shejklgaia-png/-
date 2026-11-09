@@ -3,6 +3,7 @@ extends Control
 ## v72: Enlarge guide and visualize run vs outer-ring boost from main.gd.
 ## v73: Legacy floating analog disc (retired in v157).
 ## v157: Former fixed 8-way digital pad.
+## v169: Tap-attack ripple while released; any new press cancels it before the normal RUN controller.
 ## v158: Compact fixed-center continuous 360-degree RUN ring and directional
 ## indicator; the BOOST guide tracks the v161 184.8px entry boundary.
 ## Preserve v70 joystick color/alpha palette. Input stays in main.gd.
@@ -32,6 +33,11 @@ var melee_in_range: bool = false
 # A nonvisible/offscreen target does not leave a misleading marker at screen center.
 var target_marker_position: Vector2 = Vector2.ZERO
 var target_marker_visible: bool = false
+# A brief visual acknowledgment of an accepted melee tap. Independent of the
+# target lock ring; only the attack-release path starts this animation.
+var attack_ripple_active: bool = false
+var attack_ripple_elapsed: float = 0.0
+var attack_ripple_position: Vector2 = Vector2.ZERO
 
 # v43: The four arcs spin once per transition; the target-following crosshair does not rotate.
 # Each state transition is exactly one full turn in 0.20 seconds.
@@ -57,6 +63,12 @@ const BOOST_CHEVRON_INNER_RATIO: float = 1.25
 const BOOST_CHEVRON_OUTER_RATIO: float = 1.35
 const BOOST_CHEVRON_HALF_WIDTH: float = 9.0
 const BOOST_SHELL_INACTIVE_ALPHA_SCALE: float = 0.55
+# v169: 2D-only, non-glowing cyan waves, centered on the released tap.
+const ATTACK_RIPPLE_DURATION: float = 0.46
+const ATTACK_RIPPLE_RING_COUNT: int = 3
+const ATTACK_RIPPLE_RING_DELAY: float = 0.075
+const ATTACK_RIPPLE_START_RADIUS: float = 12.0
+const ATTACK_RIPPLE_END_RADIUS: float = 86.0
 
 const OPERATION_ZONE_TOP_RATIO: float = 0.75  # top of fade: 100% transparent
 const OPERATION_ZONE_SOLID_RATIO: float = 0.92  # bottom 8% is a uniform medium gray
@@ -109,10 +121,39 @@ func _process(delta: float) -> void:
     if progress >= 1.0:
         lock_radius = lock_anim_end_radius
         lock_rotation = fposmod(lock_rotation, TAU)
+    if attack_ripple_active:
+        attack_ripple_elapsed = minf(
+            attack_ripple_elapsed + maxf(delta, 0.0), ATTACK_RIPPLE_DURATION)
+        if attack_ripple_elapsed >= ATTACK_RIPPLE_DURATION:
+            attack_ripple_active = false
+    # Both animations share this Control: finishing the lock spin must not
+    # prematurely stop a ripple still in progress.
+    if progress >= 1.0 and not attack_ripple_active:
+        set_process(false)
+    queue_redraw()
+
+func show_attack_ripple(screen_point: Vector2) -> void:
+    # Attack has been accepted on release; do not cover an active joystick.
+    if dragging:
+        return
+    attack_ripple_position = screen_point
+    attack_ripple_elapsed = 0.0
+    attack_ripple_active = true
+    set_process(true)
+    queue_redraw()
+
+func cancel_attack_ripple() -> void:
+    if not attack_ripple_active:
+        return
+    attack_ripple_active = false
+    attack_ripple_elapsed = 0.0
+    if lock_anim_elapsed >= LOCK_SPIN_DURATION:
         set_process(false)
     queue_redraw()
 
 func show_drag(origin: Vector2, _pos: Vector2, max_radius: float) -> void:
+    # A new touch switches from the ripple to the ordinary controller instantly.
+    cancel_attack_ripple()
     # Spawn only once per touch. The center is never dragged or reanchored.
     if dragging:
         return
@@ -178,8 +219,30 @@ func _draw() -> void:
         draw_line(mark + Vector2(0, -13), mark + Vector2(0, -4), reticle_color, 2.0)
         draw_line(mark + Vector2(0, 4), mark + Vector2(0, 13), reticle_color, 2.0)
 
+    if attack_ripple_active:
+        _draw_attack_ripple()
     if dragging:
         _draw_analog_controller(accent, low)
+
+
+func _draw_attack_ripple() -> void:
+    # Three staggered, expanding circular outlines. No blur, glow or textures.
+    # Each wave becomes thinner and transparent, then the idle HUD resumes.
+    for ring_index in range(ATTACK_RIPPLE_RING_COUNT):
+        var delay: float = float(ring_index) * ATTACK_RIPPLE_RING_DELAY
+        var age: float = attack_ripple_elapsed - delay
+        if age < 0.0:
+            continue
+        var progress: float = clampf(
+            age / maxf(0.01, ATTACK_RIPPLE_DURATION - delay), 0.0, 1.0)
+        var ease_out: float = 1.0 - pow(1.0 - progress, 2.0)
+        var wave_radius: float = lerpf(
+            ATTACK_RIPPLE_START_RADIUS, ATTACK_RIPPLE_END_RADIUS, ease_out)
+        var opacity: float = pow(1.0 - progress, 2.0) * (
+            0.78 - 0.14 * float(ring_index))
+        var stroke_width: float = lerpf(3.2, 1.0, progress)
+        draw_arc(attack_ripple_position, wave_radius, 0.0, TAU, 64,
+            Color(0.21, 0.85, 0.93, opacity), stroke_width, true)
 
 
 func _draw_analog_controller(accent: Color, low: Color) -> void:
