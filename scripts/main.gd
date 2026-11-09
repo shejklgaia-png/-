@@ -112,6 +112,12 @@ const STRIKE_ASSIST_AT: float = 0.170
 # The Blockbench clips use 24 fps. Cancel roughly two frames (0.0833 s)
 # after each authored follow-through, without shortening standalone recovery.
 const STRIKE_CLIPS = ["melee1", "Melee2", "Melee3"]
+# v167: a forward flick after stage 3 triggers the authored shield bash.
+# Allow a brief post-finisher window, then one tap after Bash to loop to stage 1.
+const BASH_LINK_SECONDS: float = 0.65
+const BASH_CONTACT_TIME: float = 0.25
+const BASH_DAMAGE: int = 12
+const BASH_REACH: float = MELEE_SURFACE_REACH + 0.20
 const STRIKE_CANCEL_TIMES = [7.0 / 24.0, 7.0 / 24.0, 15.0 / 24.0]
 # Each strike has an independent active window and close-range assist.
 # melee1 preserves the original hit and impact timing exactly.
@@ -124,7 +130,7 @@ const BLADE_THICKNESS: float = 0.14
 const HIT_STOP_SECONDS: float = 0.060
 const HIT_FLASH_SECONDS: float = 0.145
 const TARGET_RESPAWN_SECONDS: float = 1.35
-enum CombatState { IDLE, MELEE_APPROACH, DASH, STRIKE }
+enum CombatState { IDLE, MELEE_APPROACH, DASH, STRIKE, BASH }
 # v112: Persistent handedness changes RUN animation selection only.
 const HANDEDNESS_SETTINGS_FILE: String = "user://sera_settings.cfg"
 const NEXUS_SCENE: String = "res://scenes/command_nexus.tscn"
@@ -288,6 +294,13 @@ var damage_popup_remaining: float = 0.0
 var impact_origin: Vector3 = Vector3.ZERO
 var strike_index: int = 0  # 0, 1 or 2; only meaningful in STRIKE.
 var combo_queued: bool = false  # One buffered tap for the next attack stage.
+var bash_queued: bool = false
+var bash_combo_queued: bool = false
+var bash_flick_candidate: bool = false
+var bash_followup_window_remaining: float = 0.0
+var bash_loop_window_remaining: float = 0.0
+var bash_did_hit: bool = false
+var bash_prev_time: float = 0.0
 var strike_did_hit: bool = false
 var strike_prev_time: float = 0.0
 var strike_prev_blade: PackedVector3Array = PackedVector3Array()
@@ -504,6 +517,8 @@ func _on_enemy_projectile_hit(_world_position: Vector3, incoming_direction: Vect
         var block_sound: AudioStreamPlayer = guard_bullet_hit_audio if is_bullet else player_hit_audio
         if is_instance_valid(block_sound) and block_sound.stream != null:
             block_sound.play()
+        if rig != null and bool(rig.get("loading_ok")):
+            rig.call("trigger_guard_reaction")
         return
     # Both straight bullets (AIM and LEAD) use the supplied projectile impact.
     # SHOCK and ARC keep v93's metal sound: they are not bullet contacts.
@@ -1148,6 +1163,8 @@ func _set_guard(active: bool) -> void:
         if not _guard_can_start():
             return
         guard_active = true
+        bash_followup_window_remaining = 0.0
+        bash_loop_window_remaining = 0.0
         direction_input = Vector2.ZERO
         player.velocity = Vector3.ZERO
         movement_boost_active = false
@@ -1184,6 +1201,11 @@ func _begin_drag(pos: Vector2) -> void:
     if gesture_active:
         return
     gesture_active = true
+    # Preserve the third strike while classifying an intentional forward Bash
+    # flick; unrelated directional drags still cancel attacks as before.
+    bash_flick_candidate = (combat_state == CombatState.STRIKE
+        and strike_index == STRIKE_CLIPS.size() - 1) or (
+        combat_state == CombatState.IDLE and bash_followup_window_remaining > 0.0)
     # New drag/tap takes over immediately: never retain close-step recovery
     # camera mode during a new move, boost, or attack.
     close_step_camera_recovery_remaining = 0.0
@@ -1220,20 +1242,30 @@ func _analog_stick_direction(pos: Vector2) -> Vector2:
     return displacement / distance * strength
 
 func _change_drag(pos: Vector2) -> void:
-    if not gesture_active or guard_active:
+    if not gesture_active:
+        return
+    if guard_active:
+        # Hold guard stays stationary; track only the final quick forward
+        # motion so a release can commit a guard-origin shield bash.
+        pointer_location = pos
+        _remember_jump_flick_sample(pos)
         return
     pointer_location = pos
     _remember_jump_flick_sample(pos)
     gesture_max_travel = maxf(gesture_max_travel, pos.distance_to(pointer_origin))
-    # Fixed origin; continuous 360-degree heading and analog RUN strength.
-    direction_input = _analog_stick_direction(pos)
+    var displacement: Vector2 = pos - pointer_origin
+    if bash_flick_candidate and gesture_max_travel > TAP_MAX_TRAVEL:
+        if displacement.y >= 0.0 or absf(displacement.x) > -displacement.y * STEP_FLICK_MAX_HORIZONTAL_RATIO:
+            bash_flick_candidate = false
+    # A forward Bash gesture does not create RUN motion or interrupt stage 3.
+    direction_input = Vector2.ZERO if bash_flick_candidate else _analog_stick_direction(pos)
     touch_ui.call("set_analog_direction", direction_input)
     # BOOST continues to use the original, fixed 125%/110% radial thresholds.
     _update_boost_gesture(0.0)
     if gesture_max_travel > TAP_MAX_TRAVEL:
         if step_active and not jump_active:
             _finish_side_step(true)
-        if combat_state != CombatState.IDLE:
+        if combat_state != CombatState.IDLE and not bash_flick_candidate:
             _cancel_attack()
     # The compact RUN ring rotates its indicator without moving its anchor.
     touch_ui.call("show_drag", pointer_origin, pointer_location, DRAG_RADIUS)
@@ -1243,7 +1275,7 @@ func _update_boost_gesture(delta: float) -> void:
     # gesture_suppressed_from_damage is deliberately latched until release to
     # prevent a damaged hold from triggering a phantom STEP or tap attack;
     # it must NOT block BOOST after the damage reaction finishes.
-    if not gesture_active or guard_active or damage_reaction_active or jump_active or landing_active:
+    if not gesture_active or guard_active or bash_flick_candidate or damage_reaction_active or jump_active or landing_active:
         boost_confirm_elapsed = 0.0
         if movement_boost_active:
             movement_boost_active = false
@@ -1271,6 +1303,12 @@ func _end_drag(release_pos: Vector2) -> void:
     if not gesture_active:
         return
     if guard_active:
+        # Guard takes priority; only a brisk forward flick ON RELEASE may
+        # change it into Bash, never ordinary movement or an attack tap.
+        pointer_location = release_pos
+        _remember_jump_flick_sample(release_pos)
+        var guard_bash_requested: bool = _classify_recent_upward_flick() and not keyboard_guard_held
+        bash_flick_candidate = false
         # Consume the whole hold, including any movement made before release.
         # Keyboard G may continue Guard after the finger lifts.
         gesture_active = false
@@ -1287,6 +1325,8 @@ func _end_drag(release_pos: Vector2) -> void:
         touch_ui.call("hide_drag")
         if not keyboard_guard_held:
             _set_guard(false)
+            if guard_bash_requested:
+                _start_bash()
         return
     # Include release coordinates: some devices coalesce the final drag event.
     pointer_location = release_pos
@@ -1295,6 +1335,11 @@ func _end_drag(release_pos: Vector2) -> void:
     var press_duration: float = float(Time.get_ticks_msec() - gesture_start_ms) / 1000.0
     var was_tap: bool = (gesture_max_travel <= TAP_MAX_TRAVEL
         and press_duration <= TAP_MAX_DURATION)
+    var bash_requested: bool = (bash_flick_candidate
+        and not boost_has_activated_this_gesture
+        and _is_upward_jump_flick(release_pos - pointer_origin, press_duration)
+        and gesture_max_travel <= (release_pos - pointer_origin).length() * 1.20)
+    bash_flick_candidate = false
     # A completed BOOST gesture is never reinterpreted as a release flick;
     # a quick flick BEFORE BOOST confirmation still causes a STEP as before.
     # v100: no normal UP flick launches a jump. The v99 recognizers remain
@@ -1325,6 +1370,8 @@ func _end_drag(release_pos: Vector2) -> void:
     touch_ui.call("hide_drag")
     if damage_reaction_active or landing_active or suppress_release_action:
         return  # A gesture interrupted by damage never queues a step/attack.
+    if bash_requested and _request_combo_bash():
+        return
     if jump_requested:
         _start_jump(takeoff_momentum)
     elif flick_direction == STEP_BACK:
@@ -1720,6 +1767,10 @@ func _unhandled_key_input(event: InputEvent) -> void:
 func _start_attack() -> void:
     if guard_active or damage_reaction_active or landing_active or step_active or rig == null or not rig.get("loading_ok"):
         return
+    if combat_state == CombatState.BASH:
+        # Only one tap is buffered for the next melee1 after Bash recovers.
+        bash_combo_queued = true
+        return
     if combat_state == CombatState.STRIKE:
         # Taps never restart the current attack. Buffer exactly one follow-up;
         # _advance_attack() consumes it at or after the authored cancel point.
@@ -1730,6 +1781,12 @@ func _start_attack() -> void:
     # STRIKE (during MELEE_APPROACH/DASH), or while a side-step is playing.
     if combat_state != CombatState.IDLE:
         return
+    if bash_loop_window_remaining > 0.0 and _distance_to_cube_surface(player.position) <= MELEE_SURFACE_REACH:
+        bash_loop_window_remaining = 0.0
+        _start_strike(0)
+        return
+    bash_loop_window_remaining = 0.0
+    bash_followup_window_remaining = 0.0
     strike_index = 0
     combo_queued = false
     _clear_strike_tracking()
@@ -1745,6 +1802,12 @@ func _cancel_attack() -> void:
         return
     combat_state = CombatState.IDLE
     combo_queued = false
+    bash_queued = false
+    bash_combo_queued = false
+    bash_flick_candidate = false
+    bash_followup_window_remaining = 0.0
+    bash_loop_window_remaining = 0.0
+    bash_did_hit = false
     strike_index = 0
     hit_stop_remaining = 0.0
     rig.call("set_combat_paused", false)
@@ -1754,6 +1817,72 @@ func _cancel_attack() -> void:
     if jump_active and not damage_reaction_active:
         _enter_jump_fall()
     rig.call("finish_attack", direction_input.length_squared() > 0.000001, jump_active and not damage_reaction_active)
+
+func _request_combo_bash() -> bool:
+    if combat_state == CombatState.STRIKE and strike_index == STRIKE_CLIPS.size() - 1:
+        bash_queued = true
+        return true
+    if combat_state == CombatState.IDLE and bash_followup_window_remaining > 0.0:
+        _start_bash()
+        return true
+    return false
+
+func _start_bash() -> void:
+    if guard_active or damage_reaction_active or landing_active or step_active \
+            or rig == null or not bool(rig.get("loading_ok")):
+        return
+    if combat_state != CombatState.IDLE and not (combat_state == CombatState.STRIKE
+            and strike_index == STRIKE_CLIPS.size() - 1):
+        return
+    combat_state = CombatState.BASH
+    bash_queued = false
+    bash_combo_queued = false
+    bash_flick_candidate = false
+    bash_followup_window_remaining = 0.0
+    bash_loop_window_remaining = 0.0
+    bash_did_hit = false
+    bash_prev_time = 0.0
+    combo_queued = false
+    direction_input = Vector2.ZERO
+    _clear_strike_tracking()
+    if sword_trail != null:
+        sword_trail.call("stop_swing")
+    rig.call("start_bash")
+
+func _check_bash_contact() -> void:
+    if combat_state != CombatState.BASH or bash_did_hit or hit_stop_remaining > 0.0:
+        return
+    var bash_t: float = float(rig.call("get_clip_time"))
+    # Cross the shield impact key once, even on a low-FPS frame.
+    if bash_prev_time <= BASH_CONTACT_TIME and bash_t >= BASH_CONTACT_TIME:
+        if _distance_to_cube_surface(player.position) <= BASH_REACH:
+            _register_bash_hit()
+    bash_prev_time = bash_t
+
+func _register_bash_hit() -> void:
+    bash_did_hit = true
+    var hp_before_hit: int = target_hp
+    target_hp = maxi(0, target_hp - BASH_DAMAGE)
+    hit_stop_remaining = HIT_STOP_SECONDS
+    hit_flash_remaining = HIT_FLASH_SECONDS
+    damage_popup_remaining = 0.58
+    var closest: Vector3 = Vector3(
+        clampf(player.position.x, target.position.x - TARGET_HALF_SIZE, target.position.x + TARGET_HALF_SIZE),
+        target.position.y,
+        clampf(player.position.z, target.position.z - TARGET_HALF_SIZE, target.position.z + TARGET_HALF_SIZE))
+    impact_origin = _visible_hit_surface(closest)
+    rig.call("set_combat_paused", true)
+    if hp_before_hit > 0 and target_hp == 0:
+        target_respawn_remaining = TARGET_RESPAWN_SECONDS
+    _refresh_hp_bar()
+    damage_label.text = "%d" % BASH_DAMAGE
+    damage_label.visible = true
+    if is_instance_valid(hit_audio) and hit_audio.stream != null:
+        hit_audio.play()
+    if hit_burst != null:
+        var shield_force: Vector3 = target.global_position - player.global_position
+        shield_force.y = 0.0
+        hit_burst.call("start_burst", impact_origin, shield_force.normalized())
 
 func _update_melee_lock_marker() -> void:
     # Match the *same* distance rule used to stop the melee approach.
@@ -1817,6 +1946,14 @@ func _advance_attack(delta: float) -> void:
         CombatState.STRIKE:
             # The second tap may arrive before or after the cancel frame.
             # In both cases the next strike starts only after that point.
+            if (bash_queued and strike_index == STRIKE_CLIPS.size() - 1
+                    and float(rig.call("get_clip_time")) >= float(STRIKE_CANCEL_TIMES[strike_index])):
+                if not strike_did_hit:
+                    _check_strike_contact()
+                    if hit_stop_remaining > 0.0:
+                        return
+                _start_bash()
+                return
             if (combo_queued and strike_index < STRIKE_CLIPS.size() - 1
                     and float(rig.call("get_clip_time")) >= float(STRIKE_CANCEL_TIMES[strike_index])):
                 # Catch a low-FPS hit before switching clips. Respect hit-stop.
@@ -1833,6 +1970,8 @@ func _advance_attack(delta: float) -> void:
                     _check_strike_contact()
                     if hit_stop_remaining > 0.0:
                         return
+                if strike_index == STRIKE_CLIPS.size() - 1:
+                    bash_followup_window_remaining = BASH_LINK_SECONDS
                 combat_state = CombatState.IDLE
                 combo_queued = false
                 strike_index = 0
@@ -1842,6 +1981,17 @@ func _advance_attack(delta: float) -> void:
                 if jump_active and not damage_reaction_active:
                     _enter_jump_fall()
                 rig.call("finish_attack", false, jump_active and not damage_reaction_active)
+        CombatState.BASH:
+            _check_bash_contact()
+            if hit_stop_remaining > 0.0:
+                return
+            if rig.call("clip_finished", "Bash"):
+                if bash_combo_queued:
+                    _start_strike(0)
+                    return
+                bash_loop_window_remaining = BASH_LINK_SECONDS
+                combat_state = CombatState.IDLE
+                rig.call("finish_attack", false)
 
 func _screen_drag_to_ground(screen_drag: Vector2) -> Vector3:
     # InputEvent positions use screen axes: +X right, +Y down.
@@ -1892,6 +2042,8 @@ func _update_boost_speed(delta: float) -> void:
 
 
 func _physics_process(delta: float) -> void:
+    bash_followup_window_remaining = maxf(0.0, bash_followup_window_remaining - delta)
+    bash_loop_window_remaining = maxf(0.0, bash_loop_window_remaining - delta)
     _update_guard_hold()
     # Sample the outer-ring hold independently of touch event frequency.
     _update_boost_gesture(delta)
@@ -1939,7 +2091,7 @@ func _physics_process(delta: float) -> void:
         # Begin counting only from the first frame AFTER ground contact.
         _advance_landing(delta)
     if combat_state != CombatState.IDLE:
-        if running and gesture_max_travel > TAP_MAX_TRAVEL:
+        if running and gesture_max_travel > TAP_MAX_TRAVEL and not bash_flick_candidate:
             _cancel_attack()
         elif hit_stop_remaining <= 0.0:
             _advance_attack(delta)
@@ -2026,7 +2178,7 @@ func _physics_process(delta: float) -> void:
     if damage_reaction_active:
         state_label.text = "DAMAGE  |  Damageknock"
     elif guard_active:
-        state_label.text = "GUARD  |  Guard"
+        state_label.text = "GUARD HIT  |  Guard_REACTION" if bool(rig.call("guard_reaction_playing")) else "GUARD  |  Guard"
     elif jumping_this_frame and combat_state == CombatState.IDLE and not stepping_this_frame:
         state_label.text = "AIR FALL  |  Jump" if jump_fall_after_action else "JUMP  |  Jump (1.5m)"
     elif stepping_this_frame:
@@ -2042,6 +2194,8 @@ func _physics_process(delta: float) -> void:
                 state_label.text = "MELEE APPROACH  |  hold meleeboost last key"
             CombatState.STRIKE:
                 state_label.text = "STRIKE %d/3  |  %s" % [strike_index + 1, str(STRIKE_CLIPS[strike_index])]
+            CombatState.BASH:
+                state_label.text = "SHIELD BASH  |  Bash"
             _:
                 if running and movement_boost_active:
                     state_label.text = "BOOST  x1.5  |  %s" % str(rig.call("get_boost_dominant_clip"))
