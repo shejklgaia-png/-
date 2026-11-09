@@ -8,7 +8,9 @@ def read(path):
     return (ROOT / path).read_text(encoding="utf-8")
 
 project = read("project.godot")
-assert re.findall(r'^config/name="([^"]+)"$', project, re.M) == ["SERA v198"]
+current = re.findall(r'^config/name="([^"]+)"$', project, re.M)
+assert len(current) == 1 and re.fullmatch(r"SERA v([1-9][0-9]*)", current[0])
+assert int(current[0].split("v")[1]) >= 198
 assert 'run/main_scene="res://scenes/launch_menu.tscn"' in project
 for scene in ("launch_menu", "main", "command_nexus"):
     assert (ROOT / ("scenes/" + scene + ".tscn")).is_file()

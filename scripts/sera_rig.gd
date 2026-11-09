@@ -202,6 +202,8 @@ func _ready() -> void:
         push_error("Sera hierarchy or animation missing")
         return
     _apply_animation(0.0)
+    # First frame must already contact the visual floor (no one-frame float).
+    equipment_handler.call("snap_grounded_sole_to_floor")
     _build_motion_afterimage_pool()
     equipment_handler.call("sync_afterimages")
     # Must update the authored blade transforms before main.gd tests contact.
@@ -1255,6 +1257,8 @@ func _process(delta: float) -> void:
         else:
             boost_direction_initialized = false
     _apply_animation(delta)
+    # Post-pose foot placement: account for pelvis bob, stride, and new boots.
+    equipment_handler.call("snap_grounded_sole_to_floor")
     _update_foot_contacts(delta)
 
 func _run_heading_from_weights() -> Vector2:
