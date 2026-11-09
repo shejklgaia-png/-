@@ -965,3 +965,9 @@
 - `scripts/sera_rig.gd`でB専用の剣閃前面パスおよび残像用マテリアルを複製し、描画シェーダーの`set_tint`に同じ値を指定する。A側は既定値の白で従来表示を維持し、攻撃・モーション・移動・残像のタイミングやアルファ値を変更しない。
 - `shaders/sera_foreground.gdshader`と`shaders/sera_motion_ghost.gdshader`に既定白の色補正を追加。Blockbench原本・共通アニメーションJSON・カメラ・UI操作は編集しない。
 - `project.godot`を`SERA v165`へ更新し、READMEおよび静的チェックを追加。GodotおよびAndroid実機での表示確認は未実施。
+
+## v166（2026-11-09） — トレーニングルームから拠点メニューへ戻る
+- 基準：main `4e48a0bd9d3620a2829b27b273bc386a98a2449d`（v165）。TRAININGの上部HUDに`BACK TO NEXUS`ボタンを追加し、既存`scenes/command_nexus.tscn`へ直接遷移。
+- Androidのraw touchを座標で拾い、HUDタップが格闘・移動と重複しないよう抑止。PCのマウス／EscおよびAndroidのシステム戻る通知を補助導線にし、トレーニング中だけ自動終了設定を一時解除、離脱時に復旧。
+- 遷移は重複を防ぎ、deferredで処理。失敗時はエラー表示（ログ）して再試行可能。NEXUS→TRAININGの既存ルート、入力・攻撃・ブースト・BGM・カスタマイズA/B・描画は変更しない。
+- `scripts/main.gd`、`project.godot`、`DEVELOPMENT.md`、旧v165チェックの版スキップを更新。`README_v166_ja.md`と`tools/v166_return_to_nexus_self_check.py`を追加。Godot/Android実機は未検証。
