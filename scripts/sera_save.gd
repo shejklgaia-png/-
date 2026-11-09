@@ -3,7 +3,7 @@ extends Node
 const SLOT_COUNT: int = 3
 const ARCHIVE_DIR: String = "user://sera_archive"
 const INDEX_PATH: String = ARCHIVE_DIR + "/index.json"
-const EQUIPMENT_SLOTS = ["head", "torso", "legs", "arms", "weapon_r", "weapon_l"]
+const EQUIPMENT_SLOTS = ["head", "torso", "legs", "arms", "booster", "weapon_r", "weapon_l"]
 const SCHEMA_VERSION: int = 1
 
 var active_slot: int = 0
