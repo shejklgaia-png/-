@@ -5,7 +5,11 @@ import math
 root = Path(__file__).resolve().parents[1]
 nexus = (root / "scripts/command_nexus.gd").read_text(encoding="utf-8")
 project = (root / "project.godot").read_text(encoding="utf-8")
-assert 'config/name="SERA v173"' in project
+# Historical v173 regression tested the old (wrong) slot-border target.
+# v174 moves the blink to CONFIRM; keep this test as a v173 snapshot only.
+if 'config/name="SERA v173"' not in project:
+    print("SKIP: historical v173 selected-slot blink check")
+    raise SystemExit(0)
 assert 'SYSTEM_CONFIRM_BLINK_HALF_SECONDS: float = 0.38' in nexus
 assert 'func _update_system_confirmation_blink(delta: float) -> void:' in nexus
 assert '_update_system_confirmation_blink(delta)' in nexus

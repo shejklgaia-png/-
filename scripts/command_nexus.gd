@@ -48,7 +48,7 @@ var system_selected_slot: int = 1
 var system_pending_action: String = ""
 var system_pending_slot: int = 0
 var system_message: String = ""
-# Blink only the selected slot border while a destructive action awaits CONFIRM.
+# Blink only the CONFIRM action button, never the selected save-slot border.
 const SYSTEM_CONFIRM_BLINK_HALF_SECONDS: float = 0.38
 var system_confirm_blink_elapsed: float = 0.0
 var system_confirm_blink_bright: bool = true
@@ -760,20 +760,23 @@ func _refresh_system_controls() -> void:
         var style: StyleBoxFlat = _menu_style()
         if system_selected_slot == slot:
             style.bg_color = Color(0.052, 0.190, 0.280, 0.95)
-            if not system_pending_action.is_empty() and system_pending_slot == slot:
-                style.set_border_width_all(3)
-                style.border_color = (Color("#e2f8ff") if system_confirm_blink_bright
-                    else Color(0.0, 0.0, 0.0, 0.0))
-            else:
-                style.border_color = Color("#b0edff")
+            style.border_color = Color("#b0edff")
         panel.add_theme_stylebox_override("panel", style)
     for entry in system_action_rows:
         var action: String = entry["action"]
         var label: Label = entry["label"]
+        var button: Panel = entry["panel"]
+        var button_style: StyleBoxFlat = _menu_style()
         if system_pending_action == action and system_pending_slot == system_selected_slot:
             label.text = "CONFIRM " + action
+            button_style.set_border_width_all(3)
+            button_style.border_color = (Color("#d2faff") if system_confirm_blink_bright
+                else Color(0.15, 0.45, 0.55, 0.50))
+            button_style.bg_color = (Color(0.09, 0.30, 0.42, 0.98)
+                if system_confirm_blink_bright else Color(0.018, 0.035, 0.060, 0.92))
         else:
             label.text = "NEW DATA" if action == "NEW" else action
+        button.add_theme_stylebox_override("panel", button_style)
     system_status.text = system_message if not system_message.is_empty() else (
         "SELECT A SLOT  /  SAVE, LOAD, NEW OR DELETE\n"
         + "Saves are stored locally on this device.")
@@ -793,16 +796,20 @@ func _update_system_confirmation_blink(delta: float) -> void:
     if bright == system_confirm_blink_bright:
         return
     system_confirm_blink_bright = bright
-    if system_pending_slot < 1 or system_pending_slot > system_slot_rows.size():
-        return
-    var panel: Panel = system_slot_rows[system_pending_slot - 1]["panel"]
-    # Each row owns its own StyleBoxFlat. Change only that row's border;
-    # keep its text/background readable and avoid allocating styles each frame.
-    var style: StyleBoxFlat = panel.get_theme_stylebox("panel") as StyleBoxFlat
-    if style != null:
-        style.border_color = (Color("#e2f8ff") if bright
-            else Color(0.0, 0.0, 0.0, 0.0))
-        panel.queue_redraw()
+    for entry in system_action_rows:
+        if str(entry["action"]) != system_pending_action:
+            continue
+        var button: Panel = entry["panel"]
+        # Alter only the button showing CONFIRM; save-slot frames stay static.
+        # Reuse the existing StyleBoxFlat and redraw only on phase changes.
+        var style: StyleBoxFlat = button.get_theme_stylebox("panel") as StyleBoxFlat
+        if style != null:
+            style.border_color = (Color("#d2faff") if bright
+                else Color(0.15, 0.45, 0.55, 0.50))
+            style.bg_color = (Color(0.09, 0.30, 0.42, 0.98) if bright
+                else Color(0.018, 0.035, 0.060, 0.92))
+            button.queue_redraw()
+        break
 
 func _cancel_system_confirmation() -> bool:
     if system_pending_action.is_empty():
