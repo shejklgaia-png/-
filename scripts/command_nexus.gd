@@ -93,8 +93,10 @@ const TRAINING_SCENE: String = "res://scenes/main.tscn"
 
 # Project the same Blockbench cuboids/SERA display geometry already present in the
 # scene into a silhouette; no duplicated render meshes or additional 3D draw calls.
-# Each entry holds world-space 3D vertex clusters, grouped by model component.
+# Each entry holds world-space 3D vertex clusters, one per visible mesh.
 var target_parts: Dictionary = {}
+# Reuse each mesh's actual authored vertices when reprojecting a changed outfit.
+var customize_silhouette_vertex_cache: Dictionary = {}
 
 # The object occupies one side of the portrait frame. The other side is
 # reserved for a menu panel. Camera transforms/FOV only: no moving 3D assets.
@@ -375,27 +377,57 @@ func _apply_nexus_pose(rig: Node3D) -> bool:
     return false
 
 func _capture_sera_silhouette(rig: Node3D) -> void:
-    # Group per original Blockbench bone, not per small mesh face. The result
-    # follows SERA's actual arm/leg proportions without allocating another rig.
-    var grouped: Dictionary = {}
-    _collect_sera_geometry(rig, grouped)
-    target_parts["CUSTOMIZE"] = grouped.values()
+    # Capture only the meshes currently visible after A/B/C part selection.
+    # Keep each mesh separate: a bone-level AABB connects unrelated armor
+    # pieces and cannot trace B's round head or future custom equipment.
+    var visible_parts: Array = []
+    _collect_sera_geometry(rig, visible_parts)
+    target_parts["CUSTOMIZE"] = visible_parts
 
-func _collect_sera_geometry(node: Node, grouped: Dictionary) -> void:
+func _mesh_outline_local_vertices(mesh: Mesh) -> PackedVector3Array:
+    # SurfaceTool emits duplicate triangle vertices. Cache their unique local
+    # positions once per mesh, then transform the current pose at each capture.
+    var mesh_id: int = mesh.get_instance_id()
+    if customize_silhouette_vertex_cache.has(mesh_id):
+        return customize_silhouette_vertex_cache[mesh_id]
+    var local_vertices := PackedVector3Array()
+    if mesh is ArrayMesh:
+        var array_mesh: ArrayMesh = mesh as ArrayMesh
+        var seen: Dictionary = {}
+        for surface_index in range(array_mesh.get_surface_count()):
+            var arrays: Array = array_mesh.surface_get_arrays(surface_index)
+            if arrays.size() <= Mesh.ARRAY_VERTEX:
+                continue
+            var points: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+            for vertex in points:
+                if seen.has(vertex):
+                    continue
+                seen[vertex] = true
+                local_vertices.append(vertex)
+    # PrimitiveMesh or unavailable CPU surfaces: retain the old safe fallback.
+    if local_vertices.is_empty():
+        var aabb: AABB = mesh.get_aabb()
+        for ix in [0.0, 1.0]:
+            for iy in [0.0, 1.0]:
+                for iz in [0.0, 1.0]:
+                    local_vertices.append(
+                        aabb.position + aabb.size * Vector3(ix, iy, iz))
+    customize_silhouette_vertex_cache[mesh_id] = local_vertices
+    return local_vertices
+
+func _collect_sera_geometry(node: Node, visible_parts: Array) -> void:
     if node is MeshInstance3D:
         var piece: MeshInstance3D = node as MeshInstance3D
-        if piece.mesh != null and piece.is_visible_in_tree():
-            var aabb: AABB = piece.mesh.get_aabb()
-            var parent_id: int = piece.get_parent().get_instance_id()
-            var corners: PackedVector3Array = grouped.get(parent_id, PackedVector3Array())
-            for ix in [0.0, 1.0]:
-                for iy in [0.0, 1.0]:
-                    for iz in [0.0, 1.0]:
-                        var local := aabb.position + aabb.size * Vector3(ix, iy, iz)
-                        corners.append(piece.global_transform * local)
-            grouped[parent_id] = corners
+        # Ignore hidden variants and the separate sword slash effect.
+        if piece.mesh != null and piece.is_visible_in_tree() and piece.name != "Swordeffect":
+            var local_vertices: PackedVector3Array = _mesh_outline_local_vertices(piece.mesh)
+            if local_vertices.size() >= 3:
+                var world_vertices := PackedVector3Array()
+                for vertex in local_vertices:
+                    world_vertices.append(piece.global_transform * vertex)
+                visible_parts.append(world_vertices)
     for child in node.get_children():
-        _collect_sera_geometry(child, grouped)
+        _collect_sera_geometry(child, visible_parts)
 
 func _camera() -> void:
     cam = Camera3D.new()
