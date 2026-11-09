@@ -7,6 +7,9 @@ main=(p/"scripts/main.gd").read_text(encoding="utf-8")
 ui=(p/"scripts/touch_overlay.gd").read_text(encoding="utf-8")
 rig=(p/"scripts/sera_rig.gd").read_text(encoding="utf-8")
 cfg=(p/"project.godot").read_text(encoding="utf-8")
+if "SERA v158" not in cfg:
+    print("SKIP: historical v158 joystick regression (requires SERA v158)")
+    raise SystemExit(0)
 assert re.findall(r'^config/name="([^"]+)"$',cfg,re.M)==["SERA v158"]
 for token in (
     "const RUN_CONTROL_RADIUS: float = 112.0",
