@@ -281,7 +281,7 @@ func _apply_equipment_tint(piece: MeshInstance3D, set_id: String) -> void:
     piece.set_meta("sera_equipment_set", set_id)
     # No texture is embedded in the Head C Blockbench source. Tint only C,
     # which otherwise samples the nearly white corner of SERA's palette.
-    if set_id == "C":
+    if set_id == "C" and str(piece.name).contains("HeadC_"):
         var original_c: StandardMaterial3D = piece.material_override as StandardMaterial3D
         if original_c != null:
             var material_c: StandardMaterial3D = original_c.duplicate() as StandardMaterial3D
