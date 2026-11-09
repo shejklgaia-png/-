@@ -27,10 +27,10 @@ var customize_right_panel: Panel
 var customize_right_header: Panel
 var customize_equipment_header: Label
 var customize_equipment_rows: Dictionary = {}
-const CUSTOMIZE_SLOTS = ["head", "torso", "legs", "arms", "weapon_r", "weapon_l"]
+const CUSTOMIZE_SLOTS = ["head", "torso", "legs", "arms", "booster", "weapon_r", "weapon_l"]
 const CUSTOMIZE_SLOT_LABELS = {
     "head": "HEAD", "torso": "TORSO", "legs": "LOWER BODY",
-    "arms": "ARMS", "weapon_r": "RIGHT WEAPON", "weapon_l": "LEFT WEAPON"
+    "arms": "ARMS", "booster": "BOOSTER", "weapon_r": "RIGHT WEAPON", "weapon_l": "LEFT WEAPON"
 }
 var action_panel: Panel
 var action_label: Label
@@ -639,7 +639,7 @@ func _refresh_equipment_controls() -> void:
             options = sera_display_rig.call("get_equipment_options", slot)
             current_set = str(sera_display_rig.call("get_equipment_selection", slot))
         var label: Label = customize_equipment_rows[slot]["value"]
-        label.text = "<   %s   >" % current_set if options.size() > 1 else current_set
+        label.text = "<   %s  %s   >" % [current_set, "MID" if current_set == "A" else "HEAVY"] if options.size() > 1 else current_set
 
 func _tap_equipment_control(point: Vector2) -> bool:
     if sera_display_rig == null or not Rect2(
