@@ -521,7 +521,7 @@ func _advance_target_motion(delta: float) -> void:
         enemy_shooter.call("warning_in_progress"))
     var frozen: bool = (not target_move_enabled or warning or target_hp <= 0
         or stagger_remaining > 0.0 or part_break_remaining > 0.0
-        or training_ko_remaining > 0.0)
+        or down_remaining > 0.0 or training_ko_remaining > 0.0)
     target.position = target_motion.call("advance", delta, target.position,
         player.position, frozen)
     if target_floor_mark != null:
