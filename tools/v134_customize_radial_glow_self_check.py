@@ -8,7 +8,7 @@ o = (root/"scripts/nexus_selection_outline.gd").read_text(encoding="utf-8")
 p = (root/"project.godot").read_text(encoding="utf-8")
 sh = (root/"shaders/nexus_customize_radial_glow.gdshader").read_text(encoding="utf-8")
 
-assert 'config/name="SERA v150"' in p
+assert 'config/name="SERA v151"' in p
 assert 'CUSTOMIZE_GLOW_SHADER = preload("res://shaders/nexus_customize_radial_glow.gdshader")' in n
 assert "func _create_customization_glow() -> void:" in n
 assert "var quad := QuadMesh.new()" in n
