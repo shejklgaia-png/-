@@ -823,8 +823,10 @@ func _tap_archive_control(point: Vector2) -> void:
 func _current_archive_equipment() -> Dictionary:
     var gear: Dictionary = {}
     for part in CUSTOMIZE_SLOTS:
-        gear[part] = str(sera_display_rig.call("get_equipment_selection", part)) \
-            if sera_display_rig != null else "A"
+        var selected: String = "A"
+        if sera_display_rig != null:
+            selected = str(sera_display_rig.call("get_equipment_selection", part))
+        gear[part] = selected
     return gear
 
 func _apply_archive_equipment() -> void:
