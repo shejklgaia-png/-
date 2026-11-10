@@ -159,6 +159,15 @@ const CAMERA_FIT_RADIUS_RESERVE: float = 0.12
 const CAMERA_CLOSE_BOOST_ENTER_DISTANCE: float = 6.0
 const CAMERA_CLOSE_BOOST_EXIT_DISTANCE: float = 7.5
 const CAMERA_FIT_RELAX_SPEED: float = 1.25
+# v234: responsive but slightly trailing camera dolly as the player closes
+# distance to the target. These govern zoom IN only, never safety zoom OUT.
+const CAMERA_NEAR_DOLLY_BLEND_START: float = 8.0
+const CAMERA_NEAR_DOLLY_BLEND_FULL: float = 5.0
+const CAMERA_NEAR_DOLLY_PLAYER_SPEED_RATIO: float = 0.88
+const CAMERA_NEAR_DOLLY_SPEED_FILTER_RATE: float = 10.0
+const CAMERA_NEAR_DOLLY_MAX_ACCEL: float = 24.0
+const CAMERA_NEAR_DOLLY_SETTLE_SPEED: float = 0.70
+const CAMERA_NEAR_DOLLY_MAX_CLOSING_SAMPLE: float = 12.0
 const TARGET_IDLE_GAP_RATIO: float = 0.034  # Resting silhouette gap as a fraction of viewport width.
 const SIDE_SWITCH_PIXELS: float = 2.0  # Only used while moving and on release: no 3.5% dead-band.
 const MAX_SIDE_SEARCH_ANGLE: float = 1.5  # radians; only the nearest clear orbit angle is used
@@ -343,6 +352,10 @@ var camera_yaw: float = 0.0
 var camera_radius: float = CAMERA_BASE_RADIUS
 var camera_follow_radius: float = CAMERA_BASE_RADIUS
 var camera_fit_radius_floor: float = 0.0
+var camera_last_separation: float = -1.0
+var camera_filtered_closing_speed: float = 0.0
+var camera_dolly_in_speed: float = 0.0
+var camera_near_dolly_weight: float = 0.0
 var close_boost_camera_active: bool = false
 var player_screen_side: int = 1  # Last observed player side of the target on screen.
 var was_running: bool = false
@@ -600,6 +613,12 @@ func _tick_training_ko(delta: float) -> void:
     # Teleports never blend from previous physics-frame transforms.
     player.reset_physics_interpolation()
     target.reset_physics_interpolation()
+    # Reset the derivative estimator after teleports; otherwise the new
+    # separation can be mistaken for a huge physical approach velocity.
+    camera_last_separation = -1.0
+    camera_filtered_closing_speed = 0.0
+    camera_dolly_in_speed = 0.0
+    camera_near_dolly_weight = 0.0
     target_motion = TARGET_MOTION_SCRIPT.new()
     if target_floor_mark != null:
         target_floor_mark.position = Vector3(0.0, -0.026, -8.0)
@@ -3231,10 +3250,51 @@ func _process(delta: float) -> void:
     var preferred_radius: float = lerpf(CAMERA_CLOSE_RADIUS, CAMERA_BASE_RADIUS, zoom_ratio)
     # Keep the camera behind the moving player rather than flying past them.
     preferred_radius = maxf(preferred_radius, separation + 2.0)
-    # The normal dolly must not try to erase a forced frame-fit zoom every
-    # single frame. Keep its natural lag separate from the safety radius.
-    camera_follow_radius = lerpf(
-        camera_follow_radius, preferred_radius, easing * 0.9)
+    # v234: derive near-field dolly speed from the ACTUAL interpolated
+    # player-target closing rate. A filtered derivative prevents small physics
+    # corrections or input turns from shaking the zoom. This controls only
+    # inward movement; outward zoom retains the existing exponential follow.
+    var raw_closing_speed: float = 0.0
+    if camera_last_separation >= 0.0 and delta > 0.00001:
+        raw_closing_speed = clampf(
+            (camera_last_separation - separation) / delta,
+            0.0, CAMERA_NEAR_DOLLY_MAX_CLOSING_SAMPLE)
+    camera_last_separation = separation
+    var closing_blend: float = 1.0 - exp(
+        -CAMERA_NEAR_DOLLY_SPEED_FILTER_RATE * maxf(delta, 0.0))
+    camera_filtered_closing_speed = lerpf(
+        camera_filtered_closing_speed, raw_closing_speed, closing_blend)
+    camera_near_dolly_weight = clampf(
+        (CAMERA_NEAR_DOLLY_BLEND_START - separation) /
+        (CAMERA_NEAR_DOLLY_BLEND_START - CAMERA_NEAR_DOLLY_BLEND_FULL),
+        0.0, 1.0)
+    camera_near_dolly_weight = camera_near_dolly_weight * camera_near_dolly_weight * (
+        3.0 - 2.0 * camera_near_dolly_weight)
+    var follow_easing: float = easing * 0.9
+    if camera_follow_radius > preferred_radius and delta > 0.00001:
+        var distance_to_preferred: float = camera_follow_radius - preferred_radius
+        var old_inward_speed: float = distance_to_preferred * follow_easing / delta
+        var near_inward_speed: float = maxf(
+            CAMERA_NEAR_DOLLY_SETTLE_SPEED,
+            camera_filtered_closing_speed * CAMERA_NEAR_DOLLY_PLAYER_SPEED_RATIO)
+        var requested_inward_speed: float = lerpf(
+            old_inward_speed, near_inward_speed, camera_near_dolly_weight)
+        if camera_near_dolly_weight <= 0.00001:
+            # Far-field behavior is exactly the original follow equation.
+            camera_dolly_in_speed = old_inward_speed
+        else:
+            # Acceleration/deceleration bounded, with no sign reversal or
+            # overshoot even when target movement suddenly stops.
+            camera_dolly_in_speed = move_toward(
+                camera_dolly_in_speed, requested_inward_speed,
+                CAMERA_NEAR_DOLLY_MAX_ACCEL * delta)
+        camera_follow_radius = maxf(
+            preferred_radius, camera_follow_radius - camera_dolly_in_speed * delta)
+    else:
+        camera_follow_radius = lerpf(
+            camera_follow_radius, preferred_radius, follow_easing)
+        camera_dolly_in_speed = 0.0
+    # The normal dolly must not try to erase a forced frame-fit zoom.
     camera_radius = maxf(camera_follow_radius, camera_fit_radius_floor)
     _place_camera()
 
@@ -3499,6 +3559,15 @@ func _minimum_boost_camera_radius() -> float:
     return min_radius
 
 
+func _camera_fit_release_speed() -> float:
+    # Near-field closing uses the SAME inward speed budget for the fitted
+    # safety radius. A fixed 1.25m/s release would otherwise leave the camera
+    # far behind the player's approach even after the follow dolly speeds up.
+    # This does not relax a minimum frame-safe radius.
+    return maxf(CAMERA_FIT_RELAX_SPEED,
+        camera_dolly_in_speed * camera_near_dolly_weight)
+
+
 func _fit_boost_frame_analytically(delta: float) -> void:
     var safe_radius: float = (_minimum_boost_camera_radius()
         + CAMERA_FIT_RADIUS_RESERVE)
@@ -3509,7 +3578,7 @@ func _fit_boost_frame_analytically(delta: float) -> void:
         camera_fit_radius_floor = safe_radius
     else:
         camera_fit_radius_floor = move_toward(camera_fit_radius_floor,
-            safe_radius, CAMERA_FIT_RELAX_SPEED * maxf(delta, 0.0))
+            safe_radius, _camera_fit_release_speed() * maxf(delta, 0.0))
     camera_radius = maxf(camera_follow_radius, camera_fit_radius_floor)
     _place_camera()
 
@@ -3550,7 +3619,7 @@ func _relax_camera_fit_radius(delta: float) -> void:
     # player silhouettes still fit. No fixed timer, distance guess or repeated
     # forced-zoom sawtooth near the left/rear BOOST screen boundary.
     var candidate_floor: float = maxf(0.0,
-        camera_fit_radius_floor - CAMERA_FIT_RELAX_SPEED * maxf(delta, 0.0))
+        camera_fit_radius_floor - _camera_fit_release_speed() * maxf(delta, 0.0))
     var candidate_radius: float = maxf(camera_follow_radius, candidate_floor)
     if candidate_radius >= camera_radius:
         camera_fit_radius_floor = candidate_floor
