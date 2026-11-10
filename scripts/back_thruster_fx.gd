@@ -11,8 +11,15 @@ const EXHAUST_LENGTH: float = 0.65
 var outer_material: ShaderMaterial
 var inner_material: ShaderMaterial
 var current_strength: float = 0.0
+var nozzle_rest_rotation: Quaternion = Quaternion.IDENTITY
+var steering_yaw: float = 0.0
+var steering_pitch: float = 0.0
 
 func _ready() -> void:
+    # The Blockbench Thruster_L/R group pivot, not this FX child, is the hinge.
+    var nozzle: Node3D = get_parent() as Node3D
+    if nozzle != null:
+        nozzle_rest_rotation = nozzle.quaternion
     outer_material = _build_tube(0.058, EXHAUST_LENGTH, Color(0.17, 0.63, 0.95, 0.53), 0.0)
     inner_material = _build_tube(0.029, EXHAUST_LENGTH * 0.83,
         Color(0.66, 0.91, 1.0, 0.48), 1.7)
@@ -56,36 +63,39 @@ func set_exhaust(enabled: bool, world_exhaust_direction: Vector3,
         delta: float) -> void:
     if outer_material == null or inner_material == null:
         return
-    # No grace when BOOST/STEP/homing stops: SLIDE and idle never show FX.
+    var nozzle: Node3D = get_parent() as Node3D
+    if nozzle == null or not (nozzle.get_parent() is Node3D):
+        return
+    # Rotate the authored 3D nozzle itself, carrying its exhaust lip along.
+    var yaw: float = 0.0
+    var pitch: float = 0.0
+    if enabled and world_exhaust_direction.length_squared() > 0.000001:
+        # Use the authored REST axes; using the rotating nozzle basis feeds the
+        # steering angle back into itself and can cause oscillation.
+        var nozzle_parent: Node3D = nozzle.get_parent() as Node3D
+        var rest_basis: Basis = (
+            nozzle_parent.global_transform.basis * Basis(nozzle_rest_rotation)).orthonormalized()
+        var local_dir: Vector3 = (
+            rest_basis.inverse() * world_exhaust_direction.normalized()).normalized()
+        var rear_denominator: float = (maxf(local_dir.z, 0.0)
+            + 2.0 * maxf(-local_dir.z, 0.0) + 0.02)
+        var requested_yaw: float = atan2(local_dir.x, rear_denominator)
+        yaw = clampf(requested_yaw, -YAW_LIMIT_RADIANS, YAW_LIMIT_RADIANS)
+        var horizontal: float = sqrt(local_dir.x * local_dir.x + local_dir.z * local_dir.z)
+        pitch = clampf(-atan2(local_dir.y, horizontal),
+            -PITCH_UP_LIMIT_RADIANS, PITCH_DOWN_LIMIT_RADIANS)
+    # Inactive nozzle softly returns to its authored zero-rotation angle.
+    var ease: float = 1.0 - exp(-maxf(delta, 0.0) / TURN_TIME)
+    steering_yaw = lerp_angle(steering_yaw, yaw, ease)
+    steering_pitch = lerp_angle(steering_pitch, pitch, ease)
+    nozzle.quaternion = (nozzle_rest_rotation
+        * Quaternion(Vector3.UP, steering_yaw)
+        * Quaternion(Vector3.RIGHT, steering_pitch)).normalized()
     visible = enabled
     if not enabled:
         current_strength = 0.0
         return
     current_strength = lerpf(current_strength, 1.0,
         1.0 - exp(-maxf(delta, 0.0) / 0.045))
-    if world_exhaust_direction.length_squared() > 0.000001:
-        # Inverse parent basis: rotating the effect itself must NOT feed back
-        # into the requested angle. The parent inherits animated Chest pivots.
-        var nozzle: Node3D = get_parent() as Node3D
-        var local_dir: Vector3 = (
-            nozzle.global_transform.basis.inverse()
-            * world_exhaust_direction.normalized()).normalized()
-        # The authored rear nozzle is local +Z. Project impossible forward
-        # requests toward rear-center continuously: the previous atan2(X, Z)
-        # jumped toward opposite limit angles on either side of a reverse move.
-        var rear_denominator: float = (maxf(local_dir.z, 0.0)
-            + 2.0 * maxf(-local_dir.z, 0.0) + 0.02)
-        var requested_yaw: float = atan2(local_dir.x, rear_denominator)
-        var yaw: float = clampf(requested_yaw,
-            -YAW_LIMIT_RADIANS, YAW_LIMIT_RADIANS)
-        var horizontal: float = sqrt(local_dir.x * local_dir.x + local_dir.z * local_dir.z)
-        # Godot's positive X rotation aims the +Z exhaust downward.
-        # Allow down 90 degrees, but just 1 degree above the rear axis.
-        var pitch: float = clampf(-atan2(local_dir.y, horizontal),
-            -PITCH_UP_LIMIT_RADIANS, PITCH_DOWN_LIMIT_RADIANS)
-        var ease: float = 1.0 - exp(-maxf(delta, 0.0) / TURN_TIME)
-        rotation.y = lerp_angle(rotation.y, yaw, ease)
-        rotation.x = lerp_angle(rotation.x, pitch, ease)
-        rotation.z = 0.0
     outer_material.set_shader_parameter("strength", current_strength)
     inner_material.set_shader_parameter("strength", current_strength)
