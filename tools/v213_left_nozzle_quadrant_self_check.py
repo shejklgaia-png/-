@@ -37,7 +37,7 @@ for file in (rig, equipment, fx):
 assert "active, exhaust_world, delta, backstroke_weight," in rig
 assert "left_sector_world, acceleration_burst, melee_sustain)" in rig
 assert "exhaust_world, delta, backstroke_weight, left_sector_world," in equipment
-assert "acceleration_burst)" in equipment
+assert "acceleration_burst, melee_sustain)" in equipment
 assert "Quaternion(Vector3.BACK, local_sector_direction)" in fx
 assert "nozzle_parent.global_transform.basis * Basis(nozzle_rest_rotation)" in fx
 assert "rest_basis.inverse() * left_sector_world.normalized()" in fx
