@@ -28,14 +28,14 @@ assert "left_sector_world = Vector3.DOWN.slerp(" in main
 assert "screen_right, leftward_weight * 0.50).normalized()" in main
 assert "_screen_drag_to_ground(Vector2.RIGHT).normalized()" in main
 assert "direction_of_exhaust.normalized(), delta, backstroke_weight," in main
-assert "left_sector_world, acceleration_burst)" in main
+assert "left_sector_world, acceleration_burst, melee_sustain)" in main
 assert 'var backstroke_weight: float = 0.0' in main
 
 # All layers forward the same world-space vector to the authored physical nozzle.
 for file in (rig, equipment, fx):
     assert "left_sector_world: Vector3 = Vector3.ZERO" in file
 assert "active, exhaust_world, delta, backstroke_weight," in rig
-assert "left_sector_world, acceleration_burst)" in rig
+assert "left_sector_world, acceleration_burst, melee_sustain)" in rig
 assert "exhaust_world, delta, backstroke_weight, left_sector_world," in equipment
 assert "acceleration_burst)" in equipment
 assert "Quaternion(Vector3.BACK, local_sector_direction)" in fx
