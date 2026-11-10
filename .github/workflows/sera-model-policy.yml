@@ -57,6 +57,7 @@ on:
       - 'tools/v222_nozzle_torso_clearance_self_check.py'
       - 'tools/v223_thruster_ribbon_trail_self_check.py'
       - 'tools/v224_melee_nozzle_articulation_self_check.py'
+      - 'tools/v225_thruster_draw_order_self_check.py'
       - 'shaders/back_thruster_trail.gdshader'
       - 'shaders/back_thruster.gdshader'
       - 'scripts/sera_equipment.gd'
@@ -151,6 +152,8 @@ jobs:
         run: python3 tools/v223_thruster_ribbon_trail_self_check.py
       - name: Verify v224 physically bounded nozzles during all melee clips
         run: python3 tools/v224_melee_nozzle_articulation_self_check.py
+      - name: Verify v225 depth-correct drawing above melee foreground overlay
+        run: python3 tools/v225_thruster_draw_order_self_check.py
       - name: Verify base model and repository paths
         run: |
           python3 tools/self_check.py
