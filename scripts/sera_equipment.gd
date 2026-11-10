@@ -37,7 +37,13 @@ var grounding_enabled: bool = true
 # Bird C alone keeps a smoothed, persistent visual root offset instead of
 # resetting its soles to bind height and teleporting a shoe once per stride.
 const BIRD_GROUND_FOLLOW_SECONDS: float = 0.10
+# v227: Only heavy B/D SLIDE receives render-only two-bone leg IK.
+# A small downward visual-hip adjustment helps both soles stay reachable.
+const SLIDE_IK_REACH_MARGIN: float = 0.003
+const SLIDE_IK_MAX_HIP_DROP: float = 0.24
+const SLIDE_IK_MIN_CHAIN_LENGTH: float = 0.04
 var bird_grounding_render_y: float = 0.0
+var slide_leg_chains: Dictionary = {}
 
 func setup(target_rig: Node3D) -> void:
     rig = target_rig
@@ -49,6 +55,7 @@ func setup(target_rig: Node3D) -> void:
     _install_back_booster_placeholder(data)
     _install_standard_lower_body_d()
     _cache_bind_foot_geometry()
+    _cache_slide_leg_chains()
     for slot in SLOTS:
         selected[slot] = "A"
     _restore_saved()
@@ -282,6 +289,117 @@ func get_active_foot_heights() -> Dictionary:
         if minimum < INF:
             result[side] = minimum
     return result
+
+# v227: Two-bone IK keeps BOTH B/D soles on the training floor while their
+# upper body continues following the existing half-strength BOOST SLIDE pose.
+# This is intentionally not a foot-mesh translation: thigh and shin rotate,
+# then the authored global foot orientation is restored. The feet travel with
+# the sliding character instead of locking at their previous world XZ position.
+func _cache_slide_leg_chains() -> void:
+    slide_leg_chains.clear()
+    for side in ["L", "R"]:
+        var thigh: Node3D = rig.get_node_or_null("Waist/Thigh_" + side) as Node3D
+        var knee: Node3D = rig.get_node_or_null(
+            "Waist/Thigh_" + side + "/LowerLeg_" + side) as Node3D
+        var foot: Node3D = rig.get_node_or_null(
+            "Waist/Thigh_" + side + "/LowerLeg_" + side + "/Foot_" + side) as Node3D
+        if thigh == null or knee == null or foot == null:
+            push_warning("SERA SLIDE IK: missing standard %s leg joint chain" % side)
+            continue
+        slide_leg_chains[side] = {"thigh": thigh, "knee": knee, "foot": foot}
+
+
+func _solve_slide_two_bone_ik(chain: Dictionary, target: Vector3, side: String) -> void:
+    var thigh: Node3D = chain["thigh"] as Node3D
+    var knee: Node3D = chain["knee"] as Node3D
+    var foot: Node3D = chain["foot"] as Node3D
+    var hip_pos: Vector3 = thigh.global_position
+    var knee_pos: Vector3 = knee.global_position
+    var ankle_pos: Vector3 = foot.global_position
+    var upper: float = hip_pos.distance_to(knee_pos)
+    var lower: float = knee_pos.distance_to(ankle_pos)
+    if upper < SLIDE_IK_MIN_CHAIN_LENGTH or lower < SLIDE_IK_MIN_CHAIN_LENGTH:
+        return
+    var to_goal: Vector3 = target - hip_pos
+    if to_goal.length_squared() < 0.000001:
+        return
+    var direction: Vector3 = to_goal.normalized()
+    # Clamping prevents straight-leg singularities and impossible stretches.
+    var distance: float = clampf(to_goal.length(),
+        absf(upper - lower) + SLIDE_IK_REACH_MARGIN,
+        upper + lower - SLIDE_IK_REACH_MARGIN)
+    var reachable_goal: Vector3 = hip_pos + direction * distance
+    var along: float = (upper * upper + distance * distance - lower * lower) / (2.0 * distance)
+    var away: float = sqrt(maxf(0.0, upper * upper - along * along))
+    # Preserve the authored knee bend side rather than flipping at near-full
+    # extension. A rig-relative lateral pole is the degenerate fallback.
+    var pole: Vector3 = knee_pos - hip_pos
+    pole -= direction * pole.dot(direction)
+    if pole.length_squared() < 0.000001:
+        pole = rig.global_basis * (Vector3.LEFT if side == "L" else Vector3.RIGHT)
+        pole -= direction * pole.dot(direction)
+    if pole.length_squared() < 0.000001:
+        pole = rig.global_basis * Vector3.BACK
+        pole -= direction * pole.dot(direction)
+    if pole.length_squared() < 0.000001:
+        return
+    var desired_knee: Vector3 = hip_pos + direction * along + pole.normalized() * away
+    var foot_basis: Basis = foot.global_basis
+    var hip_turn := Quaternion(
+        (knee_pos - hip_pos).normalized(), (desired_knee - hip_pos).normalized())
+    thigh.global_basis = Basis(hip_turn) * thigh.global_basis
+    var knee_after: Vector3 = knee.global_position
+    var ankle_after: Vector3 = foot.global_position
+    var shin_from: Vector3 = ankle_after - knee_after
+    var shin_to: Vector3 = reachable_goal - knee_after
+    if shin_from.length_squared() > 0.000001 and shin_to.length_squared() > 0.000001:
+        var knee_turn := Quaternion(shin_from.normalized(), shin_to.normalized())
+        knee.global_basis = Basis(knee_turn) * knee.global_basis
+    # Undo the inherited thigh/shin twist on the shoe, preserving the authored
+    # boost/slide toe angle and the actual lowest-triangle sole measurement.
+    foot.global_basis = foot_basis
+
+
+func apply_slide_leg_ik() -> void:
+    if not grounding_enabled or rig == null or not (str(selected.get("legs", "A")) in ["B", "D"]):
+        return
+    if not slide_leg_chains.has("L") or not slide_leg_chains.has("R"):
+        return
+    var wearer: Node3D = rig.get_parent() as Node3D
+    if wearer == null or absf(wearer.global_position.y) > 0.05 or bool(rig.get("jump_playback")):
+        return
+    var soles: Dictionary = get_active_foot_heights()
+    if not soles.has("L") or not soles.has("R"):
+        return
+    var targets: Dictionary = {}
+    var needed_hip_drop: float = 0.0
+    for side in ["L", "R"]:
+        var sole_y: float = float(soles[side])
+        if is_nan(sole_y) or is_inf(sole_y):
+            return
+        var chain: Dictionary = slide_leg_chains[side]
+        var thigh: Node3D = chain["thigh"] as Node3D
+        var knee: Node3D = chain["knee"] as Node3D
+        var foot: Node3D = chain["foot"] as Node3D
+        # Shoe orientation remains fixed by the solver, so moving the ankle
+        # by this Y delta places the existing triangle-defined sole on floor.
+        var sole_world_y: float = rig.to_global(Vector3(0.0, sole_y, 0.0)).y
+        var goal: Vector3 = foot.global_position + Vector3.UP * (
+            TRAINING_VISIBLE_FLOOR_Y - sole_world_y)
+        targets[side] = goal
+        var hip: Vector3 = thigh.global_position
+        var reach: float = thigh.global_position.distance_to(knee.global_position) + (
+            knee.global_position.distance_to(foot.global_position)) - SLIDE_IK_REACH_MARGIN
+        var lateral: float = Vector2(goal.x - hip.x, goal.z - hip.z).length()
+        if reach > lateral:
+            var vertical_reach: float = sqrt(maxf(0.0, reach * reach - lateral * lateral))
+            needed_hip_drop = maxf(needed_hip_drop, hip.y - goal.y - vertical_reach)
+    # Only the visual rig moves, never CharacterBody3D or its collision.
+    # The existing grounding baseline is restored at the next frame.
+    rig.position.y -= clampf(needed_hip_drop, 0.0, SLIDE_IK_MAX_HIP_DROP)
+    for side in ["L", "R"]:
+        _solve_slide_two_bone_ik(slide_leg_chains[side], targets[side], side)
+
 
 func sync_afterimages() -> void:
     _sync_afterimage_visibility()

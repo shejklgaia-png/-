@@ -140,3 +140,8 @@
 - `models/storage/SERA_BOOSTER_allテスト (4).bbmodel`のBOOSTERおよび左右Thrusterグループ原点と5メッシュだけを正式統合モデルへ反映し、無関係のHand_L階層変更等は持ち込まない。
 - 装備ローダーは`pivot.add_child(piece)`を採用し、各グループの絶対Pivotとの差分・回転を適用。エフェクト位置はOuterメッシュの原点とローカル最大Zから求め、ピボット変更に追従。
 - `scripts/back_thruster_fx.gd`と`shaders/back_thruster.gdshader`で四角筒の揺らぎ演出。実移動方向の逆、左右±38°・上下±24°、BOOST/STEP/格闘・バッシュ追尾時のみON。重量級SLIDEは背面FXを出さない。
+
+## v227 — 重量脚部SLIDEの両足IK
+- `LOWER BODY B/D`の通常移動SLIDEのみ、既存A骨格のThigh→LowerLeg→Footを左右独立の二骨IKで後段補正。Boost_*原本/装備メッシュは変更しない。
+- 靴の実メッシュ最低点を可視床面へ合わせ、元の足首XZと靴の傾きを維持し、膝の初期屈曲方向を優先。届かない場合は表示用リグを最大0.24m下げた上でIKを到達域へ制限する。
+- RUNの足音接地、通常BOOST/攻撃/STEP/ジャンプのポーズ、鳥脚C、NEXUS展示には適用しない。静的チェックのみでは実機の膝方向・足裏表示の確認にならない。
