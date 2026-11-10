@@ -15,6 +15,7 @@ const BLEND_SECONDS: float = 0.16
 const SOURCE_PATH: String = "res://assets/sera_source.json"
 const EMBEDDED = preload("res://assets/sera_data.gd")
 const EQUIPMENT_SCRIPT = preload("res://scripts/sera_equipment.gd")
+const RENDER_ORDER = preload("res://scripts/render_order_policy.gd")
 const BIRD_EMBEDDED = preload("res://assets/sera_bird_data.gd")
 const BIRD_LIVE_SOURCE: String = "res://models/storage/SERA_BIRD_LEGS_MIRROR_EDIT.bbmodel"
 const SERA_TEXTURE = preload("res://assets/sera_godot_shading_texture.png")
@@ -673,7 +674,7 @@ func _build_motion_afterimage_pool() -> void:
     player_body.get_parent().add_child(_afterimage_root)
     _afterimage_material = ShaderMaterial.new()
     _afterimage_material.shader = SERA_MOTION_BLUR_SHADER
-    _afterimage_material.render_priority = -20
+    _afterimage_material.render_priority = RENDER_ORDER.AFTERIMAGE
     _afterimage_material.set_shader_parameter("sera_palette", SERA_TEXTURE)
     _afterimage_material.set_shader_parameter("trail_alphas", Vector3.ZERO)
     _afterimage_material_b = _afterimage_material.duplicate() as ShaderMaterial
@@ -857,7 +858,7 @@ func _make_mesh(element: Dictionary) -> MeshInstance3D:
         if _foreground_mat == null:
             _foreground_mat = ShaderMaterial.new()
             _foreground_mat.shader = SERA_FOREGROUND_SHADER
-            _foreground_mat.render_priority = 126
+            _foreground_mat.render_priority = RENDER_ORDER.CHARACTER_FOREGROUND
             _foreground_mat.set_shader_parameter("sera_palette", SERA_TEXTURE)
         _foreground_parts.append(result)
     # v36: Sera already uses an unshaded authored palette; do not cast
