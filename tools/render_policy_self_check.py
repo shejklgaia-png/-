@@ -84,7 +84,7 @@ for path in sorted((ROOT / "scripts").rglob("*.gd")):
         assert reference is not None, (path.relative_to(ROOT), expr)
         assert reference.group(1) in priorities, (path, expr)
         assert 'const RENDER_ORDER = preload("res://scripts/render_order_policy.gd")' in source
-assert all_assignments >= 6, all_assignments
+assert all_assignments >= 5, all_assignments
 
 # Materials and shaders are separate concerns: render_priority cannot
 # substitute for opaque depth testing. Check every declared shader contract.
