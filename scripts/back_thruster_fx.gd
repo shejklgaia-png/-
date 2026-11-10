@@ -8,6 +8,9 @@ const PITCH_UP_LIMIT_RADIANS: float = PI * 1.0 / 180.0
 const PITCH_DOWN_LIMIT_RADIANS: float = PI * 90.0 / 180.0
 const TURN_TIME: float = 0.075
 const EXHAUST_LENGTH: float = 0.65
+# Vertex deformation needs intermediate rings: two end-caps cannot form a
+# rapid flare close to the nozzle, only a linearly tapered giant triangle.
+const EXHAUST_AXIAL_SEGMENTS: int = 12
 # A short acceleration flare widens the existing four-sided jet, then decays.
 const BURST_RISE_SECONDS: float = 0.10
 const BURST_FALL_SECONDS: float = 0.18
@@ -44,16 +47,21 @@ func _build_tube(half_width: float, length: float, tint: Color,
     for side in range(4):
         var a: Vector2 = corners[side] * half_width
         var b: Vector2 = corners[(side + 1) % 4] * half_width
-        var vertices := [
-            Vector3(a.x, a.y, 0.0), Vector3(b.x, b.y, 0.0),
-            Vector3(b.x, b.y, length), Vector3(a.x, a.y, length)
-        ]
-        var uvs := [Vector2(0.0, 0.0), Vector2(1.0, 0.0),
-            Vector2(1.0, 1.0), Vector2(0.0, 1.0)]
-        for corner_index in [0, 1, 2, 0, 2, 3]:
-            tool.set_uv(uvs[corner_index])
-            tool.set_normal(Vector3.BACK)
-            tool.add_vertex(vertices[corner_index])
+        for section in range(EXHAUST_AXIAL_SEGMENTS):
+            var t0: float = float(section) / float(EXHAUST_AXIAL_SEGMENTS)
+            var t1: float = float(section + 1) / float(EXHAUST_AXIAL_SEGMENTS)
+            var z0: float = length * t0
+            var z1: float = length * t1
+            var vertices := [
+                Vector3(a.x, a.y, z0), Vector3(b.x, b.y, z0),
+                Vector3(b.x, b.y, z1), Vector3(a.x, a.y, z1)
+            ]
+            var uvs := [Vector2(0.0, t0), Vector2(1.0, t0),
+                Vector2(1.0, t1), Vector2(0.0, t1)]
+            for corner_index in [0, 1, 2, 0, 2, 3]:
+                tool.set_uv(uvs[corner_index])
+                tool.set_normal(Vector3.BACK)
+                tool.add_vertex(vertices[corner_index])
     var instance := MeshInstance3D.new()
     instance.name = "RectangularExhaustCore" if offset > 0.0 else "RectangularExhaustShell"
     instance.mesh = tool.commit()

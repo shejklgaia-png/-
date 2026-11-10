@@ -61,7 +61,8 @@ main = (ROOT / "scripts/main.gd").read_text(encoding="utf-8")
 rig = (ROOT / "scripts/sera_rig.gd").read_text(encoding="utf-8")
 for phrase in (
     'for side in range(4):',
-    'Vector3(b.x, b.y, length)',
+    'Vector3(b.x, b.y, z1)',
+    'for section in range(EXHAUST_AXIAL_SEGMENTS):',
     'visible = enabled',
     'nozzle_parent.global_transform.basis * Basis(nozzle_rest_rotation)',
     'world_exhaust_direction.normalized()',
