@@ -78,7 +78,8 @@ assert 'active, exhaust_world, delta, backstroke_weight,' in rig
 assert 'left_sector_world)' in rig
 for phrase in (
     'movement_boost_active and running',
-    'stepping_this_frame or tracking_exhaust',
+    'boost_exhaust or boost_pose_exhaust or stepping_this_frame',
+    'or tracking_exhaust))',
     'combat_state == CombatState.BASH_TRACK',
     'combat_state == CombatState.STRIKE_TRACK',
     'combat_state == CombatState.DASH',
