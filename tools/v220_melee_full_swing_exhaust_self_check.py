@@ -62,7 +62,7 @@ assert "var acceleration_burst: bool = (exhaust_on" in burst
 assert "stepping_this_frame and not thruster_accel_previous_step" in burst
 assert "tracking_accel_state != thruster_accel_previous_tracking_state" in burst
 assert "normal_melee_exhaust" not in burst
-assert "left_sector_world, acceleration_burst, melee_sustain)" in main
+assert "left_sector_world, acceleration_burst, normal_melee_exhaust)" in main
 assert "left_sector_world, acceleration_burst, melee_sustain)" in rig
 assert "acceleration_burst)" in equip
 
