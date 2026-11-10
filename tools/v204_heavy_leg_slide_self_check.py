@@ -37,5 +37,6 @@ assert '"back": locomotion_mode == "boost"' in rig
 assert 'blur_step_this_physics_frame or (combat_state == CombatState.IDLE' in main
 assert 'and movement_boost_active and running)' in main
 assert 'blur_step_this_physics_frame = stepping_this_frame and not damage_reaction_active' in main
-assert 'config/name="SERA v204"' in project
+version = re.search(r'config/name="SERA v(\d+)"', project)
+assert version and int(version.group(1)) >= 204
 print("SERA v204 heavy-leg slide source checks passed")

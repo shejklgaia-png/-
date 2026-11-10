@@ -36,6 +36,8 @@ func setup(target_rig: Node3D) -> void:
     _collect_original_meshes(rig)
     var data: Dictionary = _read_model()
     _install_alternative_sets(data)
+    # v205: Chest/BOOSTER is authored on A's original Chest, not the alternate torso.
+    _install_back_booster_placeholder(data)
     _install_standard_lower_body_d()
     _cache_bind_foot_geometry()
     for slot in SLOTS:
@@ -289,6 +291,83 @@ func _read_standard_lower_body_d() -> Dictionary:
         push_warning("SERA lower body D: invalid live model, using embedded copy")
     var fallback: Variant = JSON.parse_string(LOWER_BODY_D_EMBEDDED.get_json())
     return fallback if fallback is Dictionary else {}
+
+
+# The combined authoring model contains the temporary BOOSTER under A Chest.
+# It is a separate equipment slot and follows Chest even if TORSO=B is selected.
+func _find_outliner_group(entry: Dictionary, groups: Dictionary, name: String) -> Dictionary:
+    var group: Dictionary = groups.get(str(entry.get("uuid", "")), {})
+    if str(group.get("name", "")) == name:
+        return entry
+    for child in entry.get("children", []):
+        if child is Dictionary:
+            var found: Dictionary = _find_outliner_group(child, groups, name)
+            if not found.is_empty():
+                return found
+    return {}
+
+func _install_back_booster_placeholder(data: Dictionary) -> void:
+    var roots: Array = data.get("outliner", [])
+    if roots.is_empty() or not roots[0] is Dictionary:
+        return
+    var groups: Dictionary = {}
+    var elements: Dictionary = {}
+    for group in data.get("groups", []):
+        if group is Dictionary:
+            groups[str(group.get("uuid", ""))] = group
+    for element in data.get("elements", []):
+        if element is Dictionary:
+            elements[str(element.get("uuid", ""))] = element
+    var a_chest_entry: Dictionary = _find_outliner_group(roots[0], groups, "Chest")
+    if a_chest_entry.is_empty():
+        push_warning("SERA booster: A Chest authoring group is missing")
+        return
+    var booster_entry: Dictionary = _find_outliner_group(a_chest_entry, groups, "BOOSTER")
+    if booster_entry.is_empty():
+        return
+    var chest_bone: Node3D = rig.get_node_or_null("Waist/Torso/Chest") as Node3D
+    if chest_bone == null or not chest_bone.has_meta("bb_origin"):
+        push_warning("SERA booster: A Chest runtime pivot is missing")
+        return
+    var chest_origin: Vector3 = chest_bone.get_meta("bb_origin", Vector3.ZERO)
+    for set_id in ["A", "B"]:
+        _attach_back_booster_group(booster_entry, chest_bone,
+            chest_origin, groups, elements, set_id)
+
+func _attach_back_booster_group(entry: Dictionary, parent: Node3D, parent_origin: Vector3,
+        groups: Dictionary, elements: Dictionary, set_id: String) -> void:
+    var group: Dictionary = groups.get(str(entry.get("uuid", "")), {})
+    if group.is_empty():
+        return
+    var group_origin: Vector3 = _v3(group.get("origin", [0, 0, 0]))
+    var pivot := Node3D.new()
+    pivot.name = str(group.get("name", "BOOSTER")) + "_" + set_id
+    pivot.position = (group_origin - parent_origin) * MODEL_UNIT
+    parent.add_child(pivot)
+    for child in entry.get("children", []):
+        if child is Dictionary:
+            _attach_back_booster_group(child, pivot, group_origin, groups, elements, set_id)
+        elif child is String and elements.has(child):
+            var element: Dictionary = elements[child]
+            if not element.has("vertices") or not element.has("faces"):
+                continue
+            var piece: MeshInstance3D = rig.call("_make_mesh", element)
+            if piece == null:
+                continue
+            piece.name = set_id + "_" + str(element.get("name", "BoosterMesh"))
+            piece.position = (_v3(element.get("origin", [0, 0, 0])) - group_origin) * MODEL_UNIT
+            var authored_name: String = str(element.get("name", ""))
+            var mat: StandardMaterial3D = piece.material_override as StandardMaterial3D
+            if mat != null:
+                var steel: StandardMaterial3D = mat.duplicate() as StandardMaterial3D
+                steel.albedo_texture = null
+                steel.albedo_color = Color("#141e2a") if authored_name.ends_with("_Inner") else (
+                    Color("#48535f") if authored_name.ends_with("_Outer") else Color("#77818b"))
+                piece.material_override = steel
+            piece.set_meta("sera_equipment_set", set_id)
+            parent.add_child(piece)
+            piece.visible = false
+            _add_mesh(set_id, "booster", piece)
 
 func _install_standard_lower_body_d() -> void:
     var data: Dictionary = _read_standard_lower_body_d()

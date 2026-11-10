@@ -127,3 +127,9 @@
 - v199の全ポーズ毎フレーム補正を制限します。まず装備ごとの従来の固定Y位置へ復元し、WAITのみ継続接地、RUNのみ足音イベントが発生する瞬間に一時接地します。通常攻撃・バッシュ・ガード・被弾・ブースト・全方向ステップは追加接地を行いません。
 - フリックは上下左右と斜めを含む360°の角度を連続入力として扱い、側面の周回、後方4m、前方暫定2mと中間方向を合成します。Step_L / Step_R / Backstep / Boost_frontのモーションを方向に合わせて補間し、入出時にフェードを使用します。
 - 操作・移動の既存安全条件、モデル、原本アニメーション、保存、NEXUS表示を維持。検査は tools/v200_contact_omni_step_self_check.py。
+
+
+## v205 — 背面BOOSTER仮モデルの導入
+- 標準Aの`Chest`直下に`BOOSTER`を作り、Bodyと左右の八角中空Thruster/内側面を保存します。新規UUIDを割り当て、既存Aモーションや別セットの形状を壊しません。
+- `scripts/sera_equipment.gd`が統合Blockbenchの元A Chest下`BOOSTER`を明示的に読み、既存のアニメーションChestに紐づく独立`booster`スロットとして登録します。A/Bとも同一仮メッシュを独立生成するため、別装備を選んでも消えません。
+- `tools/rebuild_equipment_data.py`由来の`assets/sera_equipment_data.gd`との一致を維持。噴射VFXは未実装であり、先行v204のSLIDE時脚部のみ／BOOST時背面ONという将来仕様は変更しません。
