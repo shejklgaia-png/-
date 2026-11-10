@@ -12,7 +12,8 @@ rig = read("scripts/sera_rig.gd")
 eq = read("scripts/sera_equipment.gd")
 main = read("scripts/main.gd")
 project = read("project.godot")
-assert 'config/name="SERA v227"' in project
+version = re.search(r'config/name="SERA v(\d+)"', project)
+assert version and int(version.group(1)) >= 227
 assert 'SLIDE_BOOST_POSE_MAX_WEIGHT: float = 0.50' in rig
 assert 'locomotion_mode = "slide"' in rig
 assert 'var sliding: bool = (moving and heavy_slide_run_enabled' in rig
@@ -46,10 +47,10 @@ apply = eq.split("func apply_slide_leg_ik()", 1)[1].split("func sync_afterimages
 for expected in ('not grounding_enabled', '["B", "D"]', 'get_active_foot_heights()',
                  'absf(wearer.global_position.y) > 0.05', 'bool(rig.get("jump_playback"))',
                  'TRAINING_VISIBLE_FLOOR_Y - sole_world_y',
-                 'rig.position.y -= clampf(needed_hip_drop, 0.0, SLIDE_IK_MAX_HIP_DROP)',
+                 'rig.position.y -= hip_drop',
                  '_solve_slide_two_bone_ik(slide_leg_chains[side], targets[side], side)'):
     assert expected in apply, expected
-assert 'const SLIDE_IK_MAX_HIP_DROP: float = 0.24' in eq
+assert 'const SLIDE_IK_MAX_HIP_DROP: float = 0.30' in eq
 assert 'rig.call("set_heavy_slide_run_enabled"' in main
 assert 'foot_contact.emit(side)' in rig
 assert 'func set_grounding_enabled(enabled: bool)' in eq

@@ -37,10 +37,12 @@ var grounding_enabled: bool = true
 # Bird C alone keeps a smoothed, persistent visual root offset instead of
 # resetting its soles to bind height and teleporting a shoe once per stride.
 const BIRD_GROUND_FOLLOW_SECONDS: float = 0.10
-# v227: Only heavy B/D SLIDE receives render-only two-bone leg IK.
-# A small downward visual-hip adjustment helps both soles stay reachable.
+# v227/v228: Only heavy B/D SLIDE receives render-only two-bone leg IK.
+# B and D's shoe bottoms are planar and lie parallel to the foot's local XZ.
 const SLIDE_IK_REACH_MARGIN: float = 0.003
-const SLIDE_IK_MAX_HIP_DROP: float = 0.24
+# A slight crouch adds knee flexion before dynamically solving foot contact.
+const SLIDE_IK_BASE_HIP_DROP: float = 0.07
+const SLIDE_IK_MAX_HIP_DROP: float = 0.30
 const SLIDE_IK_MIN_CHAIN_LENGTH: float = 0.04
 var bird_grounding_render_y: float = 0.0
 var slide_leg_chains: Dictionary = {}
@@ -368,6 +370,18 @@ func apply_slide_leg_ik() -> void:
     var wearer: Node3D = rig.get_parent() as Node3D
     if wearer == null or absf(wearer.global_position.y) > 0.05 or bool(rig.get("jump_playback")):
         return
+    # v228: B and D have genuinely flat shoe undersides in the authoring
+    # geometry (mesh-local Y constant, zero mesh rotation). Correct both
+    # shoes' pitch/roll BEFORE sampling vertices and solving ankle targets;
+    # v227 preserved the tilted BOOST ankle pose, causing toe/heel floating.
+    # The shortest-arc rotation preserves heading as much as possible.
+    for side in ["L", "R"]:
+        var foot: Node3D = slide_leg_chains[side]["foot"] as Node3D
+        var sole_up: Vector3 = foot.global_basis * Vector3.UP
+        if sole_up.length_squared() < 0.000001:
+            return
+        var level_rotation := Quaternion(sole_up.normalized(), Vector3.UP)
+        foot.global_basis = Basis(level_rotation) * foot.global_basis
     var soles: Dictionary = get_active_foot_heights()
     if not soles.has("L") or not soles.has("R"):
         return
@@ -381,8 +395,8 @@ func apply_slide_leg_ik() -> void:
         var thigh: Node3D = chain["thigh"] as Node3D
         var knee: Node3D = chain["knee"] as Node3D
         var foot: Node3D = chain["foot"] as Node3D
-        # Shoe orientation remains fixed by the solver, so moving the ankle
-        # by this Y delta places the existing triangle-defined sole on floor.
+        # The leveled shoe orientation is retained by the IK solver;
+        # using its real lowest triangles plants the entire flat outsole.
         var sole_world_y: float = rig.to_global(Vector3(0.0, sole_y, 0.0)).y
         var goal: Vector3 = foot.global_position + Vector3.UP * (
             TRAINING_VISIBLE_FLOOR_Y - sole_world_y)
@@ -396,7 +410,9 @@ func apply_slide_leg_ik() -> void:
             needed_hip_drop = maxf(needed_hip_drop, hip.y - goal.y - vertical_reach)
     # Only the visual rig moves, never CharacterBody3D or its collision.
     # The existing grounding baseline is restored at the next frame.
-    rig.position.y -= clampf(needed_hip_drop, 0.0, SLIDE_IK_MAX_HIP_DROP)
+    var hip_drop: float = clampf(maxf(SLIDE_IK_BASE_HIP_DROP,
+        needed_hip_drop + SLIDE_IK_REACH_MARGIN), 0.0, SLIDE_IK_MAX_HIP_DROP)
+    rig.position.y -= hip_drop
     for side in ["L", "R"]:
         _solve_slide_two_bone_ik(slide_leg_chains[side], targets[side], side)
 
