@@ -12,19 +12,21 @@ trail_shader = read("shaders/back_thruster_trail.gdshader")
 foreground_shader = read("shaders/sera_foreground.gdshader")
 rig = read("scripts/sera_rig.gd")
 sword = read("scripts/sword_trail.gd")
+policy = read("scripts/render_order_policy.gd")
 project = read("project.godot")
 version = re.search(r'config/name="SERA v(\d+)"', project)
 assert version is not None and int(version.group(1)) >= 225
 
 # The original melee slash drawing policy: overlay prioritizes SERA above the
 # sword (100..110), disables depth-testing, and can otherwise cover any jet.
-assert '_foreground_mat.render_priority = 126' in rig
+assert '_foreground_mat.render_priority = RENDER_ORDER.CHARACTER_FOREGROUND' in rig
 assert "depth_test_disabled" in foreground_shader
-for priority in (100, 105, 110):
-    assert f"_make_material({priority}," in sword
-assert "const EXHAUST_RENDER_PRIORITY: int = 127" in fx
-assert "ribbon_material.render_priority = EXHAUST_RENDER_PRIORITY" in fx
-assert "material.render_priority = EXHAUST_RENDER_PRIORITY" in fx
+for role in ("SLASH_VOLUME", "SLASH_SURFACE", "SLASH_PARTICLES"):
+    assert f"_make_material(RENDER_ORDER.{role}," in sword
+assert "const DEPTH_TESTED_EMISSIVE: int = 127" in policy
+assert "const CHARACTER_FOREGROUND: int = 126" in policy
+assert "ribbon_material.render_priority = RENDER_ORDER.DEPTH_TESTED_EMISSIVE" in fx
+assert "material.render_priority = RENDER_ORDER.DEPTH_TESTED_EMISSIVE" in fx
 assert 127 > 126 > 110
 
 # Draw AFTER the transparent foreground overlay, but test AGAINST opaque depth:
