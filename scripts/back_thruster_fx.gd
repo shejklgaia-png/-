@@ -11,6 +11,11 @@ const TURN_TIME: float = 0.075
 # Keep melee nozzles inside the outward hemisphere of the animated Chest.
 # Using a positive dot leaves clearance for the 10-sided flame cross-section.
 const MELEE_TORSO_CLEARANCE_DOT: float = 0.55
+# v224: during normal melee the animated Chest may yaw far from the
+# player root. Keep the physical nozzle near its authored back mount while
+# retaining limited steering for target homing (BOOST/STEP are unchanged).
+const MELEE_YAW_LIMIT_RADIANS: float = PI * 20.0 / 180.0
+const MELEE_PITCH_DOWN_LIMIT_RADIANS: float = PI * 35.0 / 180.0
 const EXHAUST_LENGTH: float = 0.65
 # Vertex deformation needs intermediate rings: two end-caps cannot form a
 # rapid flare close to the nozzle, only a linearly tapered giant triangle.
@@ -294,6 +299,15 @@ func set_exhaust(enabled: bool, world_exhaust_direction: Vector3,
         var backstroke: float = clampf(backstroke_weight, 0.0, 1.0)
         yaw = lerpf(yaw, 0.0, backstroke)
         pitch = lerpf(pitch, PITCH_DOWN_LIMIT_RADIANS, backstroke)
+    # Melee2 begins with a strongly rotated Torso/Chest. Unrestricted
+    # world-rear steering previously twisted the visible metal nozzle as far
+    # as 80 degrees relative to the pack, moving its lip and attached jet
+    # across the character during the Melee1 -> Melee2 transition.
+    # Limit ONLY normal melee nozzle articulation: actual homing/acceleration
+    # and its burst remain untouched, and the jet still follows the nozzle.
+    if enabled and melee_sustain:
+        yaw = clampf(yaw, -MELEE_YAW_LIMIT_RADIANS, MELEE_YAW_LIMIT_RADIANS)
+        pitch = clampf(pitch, -PITCH_UP_LIMIT_RADIANS, MELEE_PITCH_DOWN_LIMIT_RADIANS)
     # Inactive nozzle softly returns to a downward default, using the same
     # 3D nozzle pivot. Exhaust geometry remains attached to that pivot.
     var ease: float = 1.0 - exp(-maxf(delta, 0.0) / TURN_TIME)
