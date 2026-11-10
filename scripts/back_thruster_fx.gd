@@ -3,8 +3,9 @@ extends Node3D
 ## Authored nozzle group provides the origin; direction is limited relative to
 ## its actual animated/rotated Blockbench pivot. Separate from SLIDE mode.
 const FLAME_SHADER = preload("res://shaders/back_thruster.gdshader")
-const YAW_LIMIT_RADIANS: float = PI * 38.0 / 180.0
-const PITCH_LIMIT_RADIANS: float = PI * 24.0 / 180.0
+const YAW_LIMIT_RADIANS: float = PI * 80.0 / 180.0
+const PITCH_UP_LIMIT_RADIANS: float = PI * 1.0 / 180.0
+const PITCH_DOWN_LIMIT_RADIANS: float = PI * 90.0 / 180.0
 const TURN_TIME: float = 0.075
 const EXHAUST_LENGTH: float = 0.65
 var outer_material: ShaderMaterial
@@ -71,15 +72,17 @@ func set_exhaust(enabled: bool, world_exhaust_direction: Vector3,
             * world_exhaust_direction.normalized()).normalized()
         # The authored rear nozzle is local +Z. Project impossible forward
         # requests toward rear-center continuously: the previous atan2(X, Z)
-        # jumped to +/-38 degrees on either side of a reverse move.
+        # jumped toward opposite limit angles on either side of a reverse move.
         var rear_denominator: float = (maxf(local_dir.z, 0.0)
-            + 2.0 * maxf(-local_dir.z, 0.0) + 0.25)
+            + 2.0 * maxf(-local_dir.z, 0.0) + 0.02)
         var requested_yaw: float = atan2(local_dir.x, rear_denominator)
         var yaw: float = clampf(requested_yaw,
             -YAW_LIMIT_RADIANS, YAW_LIMIT_RADIANS)
         var horizontal: float = sqrt(local_dir.x * local_dir.x + local_dir.z * local_dir.z)
+        # Godot's positive X rotation aims the +Z exhaust downward.
+        # Allow down 90 degrees, but just 1 degree above the rear axis.
         var pitch: float = clampf(-atan2(local_dir.y, horizontal),
-            -PITCH_LIMIT_RADIANS, PITCH_LIMIT_RADIANS)
+            -PITCH_UP_LIMIT_RADIANS, PITCH_DOWN_LIMIT_RADIANS)
         var ease: float = 1.0 - exp(-maxf(delta, 0.0) / TURN_TIME)
         rotation.y = lerp_angle(rotation.y, yaw, ease)
         rotation.x = lerp_angle(rotation.x, pitch, ease)

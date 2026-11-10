@@ -13,7 +13,8 @@ fx = (root / "scripts/back_thruster_fx.gd").read_text(encoding="utf-8")
 shader = (root / "shaders/sera_energy_flash.gdshader").read_text(encoding="utf-8")
 project = (root / "project.godot").read_text(encoding="utf-8")
 
-assert 'config/name="SERA v207"' in project
+version = re.search(r'config/name="SERA v(\d+)"', project)
+assert version is not None and int(version.group(1)) >= 207
 assert "const BOOST_START_RADIUS_RATIO: float = 1.10" in main
 assert "const BOOST_EXIT_RADIUS_RATIO: float = 0.90" in main
 assert "const BOOST_CONFIRM_SECONDS: float = 0.10" in main
@@ -46,11 +47,11 @@ assert "nozzle.global_transform.basis.inverse()" in fx
 assert "rear_denominator" in fx and "atan2(local_dir.x, rear_denominator)" in fx
 assert "clampf(requested_yaw," in fx
 assert "-YAW_LIMIT_RADIANS, YAW_LIMIT_RADIANS" in fx
-assert "-PITCH_LIMIT_RADIANS, PITCH_LIMIT_RADIANS" in fx
+assert "-PITCH_UP_LIMIT_RADIANS, PITCH_DOWN_LIMIT_RADIANS" in fx
 
-max_yaw = math.radians(38.0)
+max_yaw = math.radians(80.0)
 def desired_yaw(x: float, z: float) -> float:
-    denom = max(z, 0.0) + 2.0 * max(-z, 0.0) + 0.25
+    denom = max(z, 0.0) + 2.0 * max(-z, 0.0) + 0.02
     return max(-max_yaw, min(max_yaw, math.atan2(x, denom)))
 
 assert abs(desired_yaw(0.0, -1.0)) < 1e-8
