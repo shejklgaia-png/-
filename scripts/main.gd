@@ -2988,6 +2988,11 @@ func _physics_process(delta: float) -> void:
             direction_of_exhaust = -requested_boost.normalized()
     elif boost_pose_exhaust and held_boost_exhaust_direction.length_squared() > 0.000001:
         direction_of_exhaust = held_boost_exhaust_direction
+    if normal_melee_exhaust and not tracking_exhaust:
+        # Full melee follow-through can have tiny collision/hit-stop position
+        # jitter even while the blade is still airborne. Never steer these
+        # small deltas into the body; hold a stable jet to SERA's rear.
+        direction_of_exhaust = player.global_transform.basis.z
     if direction_of_exhaust.length_squared() < 0.0004:
         # A wall can stop BOOST or STEP while the control remains active.
         # Keep the nozzle pointed behind SERA instead of using a zero vector.
@@ -3046,7 +3051,7 @@ func _physics_process(delta: float) -> void:
         held_boost_left_sector_world = Vector3.ZERO
     rig.call("update_back_thruster_fx", exhaust_on,
         direction_of_exhaust.normalized(), delta, backstroke_weight,
-        left_sector_world, acceleration_burst)
+        left_sector_world, acceleration_burst, normal_melee_exhaust)
     _update_melee_lock_marker()  # Update after player movement and auto-approach.
     # Update the idle HUD whenever the next step's speed changes by 0.1m/s.
     if not step_active and step_status_label != null:
