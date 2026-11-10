@@ -60,7 +60,7 @@ func _build_tube(half_width: float, length: float, tint: Color,
     return material
 
 func set_exhaust(enabled: bool, world_exhaust_direction: Vector3,
-        delta: float) -> void:
+        delta: float, backstroke_weight: float = 0.0) -> void:
     if outer_material == null or inner_material == null:
         return
     var nozzle: Node3D = get_parent() as Node3D
@@ -84,6 +84,13 @@ func set_exhaust(enabled: bool, world_exhaust_direction: Vector3,
         var horizontal: float = sqrt(local_dir.x * local_dir.x + local_dir.z * local_dir.z)
         pitch = clampf(-atan2(local_dir.y, horizontal),
             -PITCH_UP_LIMIT_RADIANS, PITCH_DOWN_LIMIT_RADIANS)
+        # Reverse BOOST and reverse STEP deliberately point the real nozzles
+        # DOWN instead of flipping the jets forward: backstroke-like travel.
+        # At 100% rearward, yaw=0 and pitch=+90 degrees around each authored
+        # Thruster_L/R pivot. Rear diagonals interpolate without snapping.
+        var backstroke: float = clampf(backstroke_weight, 0.0, 1.0)
+        yaw = lerpf(yaw, 0.0, backstroke)
+        pitch = lerpf(pitch, PITCH_DOWN_LIMIT_RADIANS, backstroke)
     # Inactive nozzle softly returns to its authored zero-rotation angle.
     var ease: float = 1.0 - exp(-maxf(delta, 0.0) / TURN_TIME)
     steering_yaw = lerp_angle(steering_yaw, yaw, ease)
