@@ -249,9 +249,11 @@ func get_thruster_intent() -> Dictionary:
 
 # v206: Only the combat controller may activate authored back-nozzle VFX.
 # This does not change gameplay animations or SLIDE's legs-only intent.
-func update_back_thruster_fx(active: bool, exhaust_world: Vector3, delta: float) -> void:
+func update_back_thruster_fx(active: bool, exhaust_world: Vector3,
+        delta: float, backstroke_weight: float = 0.0) -> void:
     if equipment_handler != null:
-        equipment_handler.call("update_back_thruster_fx", active, exhaust_world, delta)
+        equipment_handler.call("update_back_thruster_fx",
+            active, exhaust_world, delta, backstroke_weight)
 
 ## Equipment categories are intentionally independent of animation clips.
 func get_equipment_options(slot: String) -> Array:

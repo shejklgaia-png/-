@@ -2946,8 +2946,23 @@ func _physics_process(delta: float) -> void:
         # A wall can stop BOOST or STEP while the control remains active.
         # Keep the nozzle pointed behind SERA instead of using a zero vector.
         direction_of_exhaust = player.global_transform.basis.z
+    # A backward BOOST/STEP drives the actual nozzle downward like a
+    # backstroke. Use the intended target-relative movement, not collision-
+    # blocked velocity, to avoid a one-frame nozzle flip against a wall.
+    # Partial rear diagonals blend continuously into the downward posture.
+    var backstroke_weight: float = 0.0
+    if stepping_this_frame:
+        backstroke_weight = clampf(step_flick_this_frame.y, 0.0, 1.0)
+        # Legacy dedicated Backstep has no omnidirectional flick vector.
+        if step_side_this_frame == STEP_BACK and step_flick_this_frame.is_zero_approx():
+            backstroke_weight = 1.0
+    elif boost_exhaust:
+        var intended_boost: Vector3 = _screen_drag_to_ground(direction_input)
+        if intended_boost.length_squared() > 0.000001:
+            backstroke_weight = clampf(intended_boost.normalized().dot(
+                player.global_transform.basis.z), 0.0, 1.0)
     rig.call("update_back_thruster_fx", exhaust_on,
-        direction_of_exhaust.normalized(), delta)
+        direction_of_exhaust.normalized(), delta, backstroke_weight)
     _update_melee_lock_marker()  # Update after player movement and auto-approach.
     # Update the idle HUD whenever the next step's speed changes by 0.1m/s.
     if not step_active and step_status_label != null:

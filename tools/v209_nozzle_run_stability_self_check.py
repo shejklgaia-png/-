@@ -10,7 +10,9 @@ fx = read("scripts/back_thruster_fx.gd")
 eq = read("scripts/sera_equipment.gd")
 rig = read("scripts/sera_rig.gd")
 main = read("scripts/main.gd")
-assert 'config/name="SERA v209"' in read("project.godot")
+import re
+version = re.search(r'config/name="SERA v(\d+)"', read("project.godot"))
+assert version is not None and int(version.group(1)) >= 209
 
 # Blockbench authored group pivots remain the only physical nozzle hinges.
 model = json.loads(read("models/SERA_BOOSTER_allテスト.bbmodel"))
