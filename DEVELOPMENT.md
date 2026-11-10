@@ -1,3 +1,14 @@
+# セラ v226 — 3D描画順・深度・座標系の共通契約（2026-11-10）
+
+- スラスター固有のv225不具合を一般化し、全3Dエフェクトへ使える描画ロールを`scripts/render_order_policy.gd`に集約。残像-20、斬撃100/105/110、本体斬撃前面126、深度ON発光127。
+- `scripts/sera_rig.gd`、`scripts/sword_trail.gd`、`scripts/back_thruster_fx.gd`に散在していた優先度値を共通定数に置換。数値と深度/合成設定はそのまま維持し、表示を変更しないことを目的とするリファクタリング。
+- `shaders/back_thruster.gdshader`、`shaders/back_thruster_trail.gdshader`、`shaders/sera_foreground.gdshader`に深度契約コメントを追加。
+- `docs/RENDER_PIPELINE_POLICY_ja.md`を新設。機体に追従する座標と履歴、ON/OFF、深度遮蔽、透明描画順、補正適用順を独立して設計するチェックリストと、攻撃段間の遷移検証表を記載。`AGENTS.md`とモデル制作規約から必須参照。
+- `tools/render_policy_self_check.py`をCIに組み込み。描画優先度の直書き、参照漏れ、深度契約不一致、追加半透明shaderの申告漏れを検出。従来のv225回帰テストも共通定数参照に更新。
+- プロジェクト名のみv226へ変更。モデル・モーション・当たり判定・ゲーム操作・描画結果の意図した変更はない。Godot/Android実機での表示は未検証。
+
+---
+
 # セラ v225 — 格闘中のスラスター描画順と可動域補正（2026-11-10）
 
 - `scripts/sera_rig.gd`の斬撃中の本体オーバーレイは描画優先度126、深度テスト無効。噴射と帯状軌跡のマテリアルは従来優先度0で、機体手前の噴射もオーバーレイに消されていた。
