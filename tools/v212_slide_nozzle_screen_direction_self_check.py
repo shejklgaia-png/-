@@ -13,7 +13,8 @@ fx = read("scripts/back_thruster_fx.gd")
 main = read("scripts/main.gd")
 equip = read("scripts/sera_equipment.gd")
 project = read("project.godot")
-assert 'config/name="SERA v212"' in project
+version = re.search(r'config/name="SERA v(\d+)"', project)
+assert version and int(version.group(1)) >= 212
 
 # A heavyweight idle RUN (=SLIDE) is a 50/50 blend of authored Wait_motion
 # with the directional 4-way BOOST pose. This applies to all bone channels.
@@ -59,10 +60,11 @@ assert 'elif boost_exhaust and direction_input.length_squared() > 0.000001:' in 
 assert 'leftward_weight = clampf(-direction_input.normalized().x, 0.0, 1.0)' in main
 assert 'if exhaust_on and leftward_weight > 0.0:' in main
 assert '_screen_drag_to_ground(Vector2.RIGHT).normalized()' in main
-assert 'screen_right + Vector3.DOWN).normalized()' in main
-assert 'direction_of_exhaust = direction_of_exhaust.normalized().lerp(' in main
-assert 'bottom_right_exhaust, leftward_weight).normalized()' in main
-assert 'direction_of_exhaust.normalized(), delta, backstroke_weight)' in main
+assert 'left_sector_world = Vector3.DOWN.slerp(' in main
+assert 'screen_right, leftward_weight * 0.50).normalized()' in main
+assert 'direction_of_exhaust.normalized(), delta, backstroke_weight,' in main
+assert 'left_sector_world)' in main
+assert 'Quaternion(Vector3.BACK, local_sector_direction)' in fx
 
 # In screen axes, a full leftward control produces right+down at equal weight.
 # Ordinary camera turning cannot alter the screen-space meaning.
