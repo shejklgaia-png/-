@@ -35,7 +35,7 @@ assert "uniform float burst : hint_range(0.0, 1.0) = 0.0;" in shader
 assert "float fan = burst * smoothstep(0.0, 0.25, along);" in shader
 assert "VERTEX.xy *= 1.0 + 14.0 * fan;" in shader
 assert "VERTEX.z *= 1.0 + 0.28 * burst * along;" in shader
-assert "EMISSION = flame_tint.rgb * (0.75 + 0.45 * pulse) * (1.0 + 0.85 * burst);" in shader
+assert "EMISSION = flame_tint.rgb * (0.75 + 0.45 * pulse) * (1.0 + 0.85 * burst)" in shader
 assert 'for side in range(EXHAUST_RADIAL_SIDES):' in fx
 
 rise,fall=.05,.18
@@ -67,9 +67,9 @@ assert math.isclose(1. + 14.*envelope(.23)*spread(1.),1.0)
 # Original one-shot behavior and physical nozzle geometry remain unaffected.
 assert 'stepping_this_frame and not thruster_accel_previous_step' in main
 assert 'tracking_accel_state != thruster_accel_previous_tracking_state' in main
-assert 'left_sector_world, acceleration_burst)' in main
-assert 'left_sector_world, acceleration_burst)' in rig
-assert 'acceleration_burst)' in equipment
+assert 'left_sector_world, acceleration_burst, normal_melee_exhaust)' in main
+assert 'left_sector_world, acceleration_burst, melee_sustain)' in rig
+assert 'acceleration_burst, melee_sustain)' in equipment
 assert "nozzle_rest_rotation = nozzle.quaternion" in fx
 assert "const PITCH_DOWN_LIMIT_RADIANS: float = PI * 90.0 / 180.0" in fx
 assert "const SLIDE_BOOST_POSE_MAX_WEIGHT: float = 0.50" in rig

@@ -6,6 +6,7 @@ render_mode unshaded, cull_disabled, blend_add, depth_draw_never, shadows_disabl
 uniform vec4 flame_tint : source_color = vec4(0.2, 0.76, 1.0, 1.0);
 uniform float strength : hint_range(0.0, 1.0) = 0.0;
 uniform float burst : hint_range(0.0, 1.0) = 0.0;
+uniform float melee_sustain : hint_range(0.0, 1.0) = 0.0;
 uniform float tube_length = 0.65;
 uniform float phase_offset = 0.0;
 varying float distance_fraction;
@@ -23,6 +24,9 @@ void vertex() {
     float fan = burst * smoothstep(0.0, 0.25, along);
     VERTEX.xy *= 1.0 + 14.0 * fan;
     VERTEX.z *= 1.0 + 0.28 * burst * along;
+    // Make the ordinary jet project beyond the moving shoulders in close
+    // melee without changing its nozzle lip or its 15x burst geometry.
+    VERTEX.z *= 1.0 + 0.65 * melee_sustain * along;
     distance_fraction = along;
 }
 
@@ -31,6 +35,8 @@ void fragment() {
     float fade = 1.0 - smoothstep(0.20, 1.0, distance_fraction);
     float streaks = 0.86 + 0.14 * sin(TIME * 31.0 - distance_fraction * 21.0 + phase_offset);
     ALBEDO = flame_tint.rgb;
-    EMISSION = flame_tint.rgb * (0.75 + 0.45 * pulse) * (1.0 + 0.85 * burst);
-    ALPHA = clamp(strength * flame_tint.a * fade * pulse * streaks, 0.0, 0.8);
+    EMISSION = flame_tint.rgb * (0.75 + 0.45 * pulse) * (1.0 + 0.85 * burst)
+        * (1.0 + 0.30 * melee_sustain);
+    ALPHA = clamp(strength * flame_tint.a * fade * pulse * streaks
+        * (1.0 + 0.65 * melee_sustain), 0.0, 0.9);
 }

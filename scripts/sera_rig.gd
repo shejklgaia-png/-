@@ -270,11 +270,12 @@ func get_thruster_intent() -> Dictionary:
 func update_back_thruster_fx(active: bool, exhaust_world: Vector3,
         delta: float, backstroke_weight: float = 0.0,
         left_sector_world: Vector3 = Vector3.ZERO,
-        acceleration_burst: bool = false) -> void:
+        acceleration_burst: bool = false,
+        melee_sustain: bool = false) -> void:
     if equipment_handler != null:
         equipment_handler.call("update_back_thruster_fx",
             active, exhaust_world, delta, backstroke_weight,
-            left_sector_world, acceleration_burst)
+            left_sector_world, acceleration_burst, melee_sustain)
 
 ## Equipment categories are intentionally independent of animation clips.
 func get_equipment_options(slot: String) -> Array:

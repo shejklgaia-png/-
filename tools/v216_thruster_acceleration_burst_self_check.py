@@ -42,14 +42,14 @@ assert "not landing_active and not guard_active and not energy_exhausted" in mai
 
 # The burst parameter travels with the original v213 camera-relative
 # exhaust vector; neither nozzle direction nor combat movement is modified.
-assert 'left_sector_world, acceleration_burst)' in main
-assert 'acceleration_burst: bool = false) -> void:' in rig
-assert 'left_sector_world, acceleration_burst)' in rig
-assert 'acceleration_burst: bool = false) -> void:' in equip
+assert 'left_sector_world, acceleration_burst, normal_melee_exhaust)' in main
+assert 'acceleration_burst: bool = false,' in rig
+assert 'left_sector_world, acceleration_burst, melee_sustain)' in rig
+assert 'acceleration_burst: bool = false,' in equip
 assert 'exhaust_world, delta, backstroke_weight, left_sector_world,' in equip
-assert 'acceleration_burst)' in equip
+assert 'acceleration_burst, melee_sustain)' in equip
 assert 'fx.call("set_exhaust", active and str(set_id) == selected_booster,' in equip
-assert 'acceleration_burst: bool = false) -> void:' in fx
+assert 'acceleration_burst: bool = false,' in fx
 
 # CPU-side envelope: opens fast, decays smoothly, resets completely on off.
 for s in (
@@ -78,7 +78,7 @@ for s in (
     'float fan = burst * smoothstep(0.0, 0.25, along);',
     'VERTEX.xy *= 1.0 + 14.0 * fan;',
     'VERTEX.z *= 1.0 + 0.28 * burst * along;',
-    'EMISSION = flame_tint.rgb * (0.75 + 0.45 * pulse) * (1.0 + 0.85 * burst);',
+    'EMISSION = flame_tint.rgb * (0.75 + 0.45 * pulse) * (1.0 + 0.85 * burst)',
     'ALPHA = clamp(strength',
 ):
     assert s in shader,s

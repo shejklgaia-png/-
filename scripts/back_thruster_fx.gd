@@ -17,6 +17,10 @@ const EXHAUST_RADIAL_SIDES: int = 10
 const BURST_RISE_SECONDS: float = 0.05
 const BURST_FALL_SECONDS: float = 0.18
 const BURST_TOTAL_SECONDS: float = BURST_RISE_SECONDS + BURST_FALL_SECONDS
+# During normal melee, make the *ordinary* narrow jet long enough to clear
+# SERA's animated back/arms; do not fire the 15x acceleration burst again.
+const MELEE_SUSTAIN_RESPONSE_SECONDS: float = 0.06
+var melee_sustain_amount: float = 0.0
 var burst_elapsed: float = BURST_TOTAL_SECONDS
 var outer_material: ShaderMaterial
 var inner_material: ShaderMaterial
@@ -79,6 +83,7 @@ func _build_tube(half_width: float, length: float, tint: Color,
     material.set_shader_parameter("phase_offset", offset)
     material.set_shader_parameter("strength", 0.0)
     material.set_shader_parameter("burst", 0.0)
+    material.set_shader_parameter("melee_sustain", 0.0)
     instance.material_override = material
     add_child(instance)
     return material
@@ -86,7 +91,8 @@ func _build_tube(half_width: float, length: float, tint: Color,
 func set_exhaust(enabled: bool, world_exhaust_direction: Vector3,
         delta: float, backstroke_weight: float = 0.0,
         left_sector_world: Vector3 = Vector3.ZERO,
-        acceleration_burst: bool = false) -> void:
+        acceleration_burst: bool = false,
+        melee_sustain: bool = false) -> void:
     if outer_material == null or inner_material == null:
         return
     var nozzle: Node3D = get_parent() as Node3D
@@ -152,10 +158,16 @@ func set_exhaust(enabled: bool, world_exhaust_direction: Vector3,
     visible = enabled
     if not enabled:
         current_strength = 0.0
+        melee_sustain_amount = 0.0
         burst_elapsed = BURST_TOTAL_SECONDS
         outer_material.set_shader_parameter("burst", 0.0)
         inner_material.set_shader_parameter("burst", 0.0)
+        outer_material.set_shader_parameter("melee_sustain", 0.0)
+        inner_material.set_shader_parameter("melee_sustain", 0.0)
         return
+    var sustain_target: float = 1.0 if melee_sustain else 0.0
+    melee_sustain_amount = lerpf(melee_sustain_amount, sustain_target,
+        1.0 - exp(-maxf(delta, 0.0) / MELEE_SUSTAIN_RESPONSE_SECONDS))
     if acceleration_burst:
         burst_elapsed = 0.0
     burst_elapsed = minf(BURST_TOTAL_SECONDS, burst_elapsed + maxf(delta, 0.0))
@@ -174,3 +186,5 @@ func set_exhaust(enabled: bool, world_exhaust_direction: Vector3,
     inner_material.set_shader_parameter("strength", current_strength)
     outer_material.set_shader_parameter("burst", burst)
     inner_material.set_shader_parameter("burst", burst)
+    outer_material.set_shader_parameter("melee_sustain", melee_sustain_amount)
+    inner_material.set_shader_parameter("melee_sustain", melee_sustain_amount)
