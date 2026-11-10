@@ -63,12 +63,12 @@ for phrase in (
     'for side in range(4):',
     'Vector3(b.x, b.y, length)',
     'visible = enabled',
-    'nozzle.global_transform.basis.inverse()',
+    'nozzle_parent.global_transform.basis * Basis(nozzle_rest_rotation)',
     'world_exhaust_direction.normalized()',
     'clampf(requested_yaw,',
     '-YAW_LIMIT_RADIANS, YAW_LIMIT_RADIANS',
     '-PITCH_UP_LIMIT_RADIANS, PITCH_DOWN_LIMIT_RADIANS',
-    'lerp_angle(rotation.y, yaw, ease)',
+    'steering_yaw = lerp_angle(steering_yaw, yaw, ease)',
 ):
     assert phrase in fx, phrase
 assert 'sin(TIME * 17.0' in shader and 'sin(TIME * 25.0' in shader
