@@ -25,7 +25,8 @@ for set_id, expected_weight, expected_motion in [
 assert 'options.get(set_id, options["A"])' in stats
 assert 'rig.call("set_heavy_slide_run_enabled", str(part_stats.get("run_motion", "run")) == "slide")' in main
 assert 'local_run_direction, movement_boost_active)' in main
-assert 'var sliding: bool = moving and heavy_slide_run_enabled and not boost_input_active' in rig
+assert 'var sliding: bool = (moving and heavy_slide_run_enabled' in rig
+assert 'and not boost_input_active and not boosting)' in rig
 assert 'var use_boost_pose: bool = boosting or sliding' in rig
 assert 'wanted = BOOST_CLIP if use_boost_pose else RUN_CLIP' in rig
 assert '_set_boost_motion_direction(local_direction)' in rig
