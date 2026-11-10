@@ -2949,11 +2949,22 @@ func _physics_process(delta: float) -> void:
         or (combat_state == CombatState.STRIKE and not strike_did_hit)
         or (combat_state == CombatState.BASH and not bash_did_hit))
     # When a wall prevents a chase, do not display a false pursuing jet.
+    # This movement-only condition is also the source for the acceleration
+    # burst; it must NOT suppress the ordinary exhaust during a sword swing.
     tracking_exhaust = tracking_exhaust and blur_velocity.length_squared() > 0.04
+    # The three normal melee strikes are airborne throughout their approach,
+    # target chase and complete authored blade follow-through. Keep the normal
+    # jets on even while standing still, after contact or during hit-stop.
+    # Bash retains its own chase-only exhaust and is not part of this gate.
+    var normal_melee_exhaust: bool = (
+        combat_state == CombatState.MELEE_APPROACH
+        or combat_state == CombatState.DASH
+        or combat_state == CombatState.STRIKE_TRACK
+        or combat_state == CombatState.STRIKE)
     var exhaust_on: bool = (not damage_reaction_active and not jump_active
         and not landing_active and not guard_active and not energy_exhausted
         and (boost_exhaust or boost_pose_exhaust or stepping_this_frame
-            or tracking_exhaust))
+            or tracking_exhaust or normal_melee_exhaust))
     # A short visual burst marks the *start* of high acceleration. STEP can
     # use move_and_collide() (not player.velocity); a homing attack must have
     # actual displacement before emitting, avoiding false wall-blocked jets.
