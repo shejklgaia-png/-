@@ -434,6 +434,7 @@ func _load_part_stats() -> void:
     for slot in ["head", "torso", "arms", "legs", "booster", "weapon_r", "weapon_l"]:
         chosen[slot] = str(rig.call("get_equipment_selection", slot))
     part_stats = PART_STATS.build(chosen)
+    rig.call("set_heavy_slide_run_enabled", str(part_stats.get("run_motion", "run")) == "slide")
     player_hp = float(part_stats.get("max_hp", 800.0))
     rig.call("set_equipment_motion_scales", float(part_stats.get("damage_time_mult", 1.0)),
         float(part_stats.get("guard_speed_mult", 1.0)),
@@ -653,6 +654,8 @@ func _build_motion_blur() -> void:
 func _update_motion_blur(delta: float) -> void:
     if rig == null:
         return
+    # Actual BOOST input (or STEP) alone emits afterimages. The heavy-leg
+    # SLIDE animation reuses Boost_* poses without enabling boost effects.
     var active: bool = blur_active_this_physics_frame and blur_velocity.length_squared() > 0.16
     # Always tick the temporal pool: no new snapshots while inactive, but
     # previously captured poses continue fading for their remaining lifetime.
@@ -2864,7 +2867,8 @@ func _physics_process(delta: float) -> void:
                 movement_boost_active or boost_pose_grace_remaining > 0.0)
             var show_moving_pose: bool = running or (
                 show_boost_pose and gesture_active)
-            rig.call("set_moving", show_moving_pose, show_boost_pose, local_run_direction)
+            rig.call("set_moving", show_moving_pose, show_boost_pose,
+                local_run_direction, movement_boost_active)
         if running:
             # v9 behavior: world_move already uses the current camera's ground axes.
             # Analog RUN strength reaches unity at the 112px rim; BOOST changes
@@ -2890,6 +2894,7 @@ func _physics_process(delta: float) -> void:
     if player_floor_mark != null:
         player_floor_mark.position = Vector3(player.position.x, -0.026, player.position.z)
     blur_step_this_physics_frame = stepping_this_frame and not damage_reaction_active
+    # Keep effects tied to the confirmed BOOST action, not the rig animation.
     blur_active_this_physics_frame = (not damage_reaction_active and (
         blur_step_this_physics_frame or (combat_state == CombatState.IDLE
         and movement_boost_active and running)))

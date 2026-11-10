@@ -113,6 +113,11 @@ var boost_direction_initialized: bool = false
 var boost_direction_target: Vector2 = Vector2(0.0, 1.0)
 var boost_direction_smoothed: Vector2 = Vector2(0.0, 1.0)
 var run_left_handed: bool = false  # Right-handed by default.
+# v204: SLIDE is a semantic movement state, not another authored animation.
+# Heavy legs reuse Boost_* while moving normally; effects must not infer
+# actual BOOST input from current_clip == BOOST_CLIP.
+var heavy_slide_run_enabled: bool = false
+var locomotion_mode: String = "idle"
 var run_direction_target: Vector2 = Vector2(0.0, 1.0)
 var run_direction_smoothed: Vector2 = Vector2(0.0, 1.0)
 var run_turn_sign: float = 1.0
@@ -221,6 +226,21 @@ func set_equipment_motion_scales(damage_scale: float, guard_speed: float,
     equipment_guard_transition = clampf(transition, 0.04, 0.25)
     equipment_reaction_speed = 1.3 if reaction_type == "small" else (
         0.8 if reaction_type == "large" else 1.0)
+
+func set_heavy_slide_run_enabled(enabled: bool) -> void:
+    heavy_slide_run_enabled = enabled
+
+func get_locomotion_mode() -> String:
+    return locomotion_mode
+
+# Future VFX connections: SLIDE enables legs only, confirmed BOOST also
+# enables the back booster. A grace-period BOOST pose never activates FX.
+# These are intent channels only; no new thruster particles are created yet.
+func get_thruster_intent() -> Dictionary:
+    return {
+        "legs": locomotion_mode == "slide" or locomotion_mode == "boost",
+        "back": locomotion_mode == "boost"
+    }
 
 ## Equipment categories are intentionally independent of animation clips.
 func get_equipment_options(slot: String) -> Array:
@@ -1005,19 +1025,35 @@ func _blended_boost_pose(uid: String) -> Dictionary:
         "scale": fore_aft_scale.lerp(lateral_scale, lateral_weight)
     }
 
-func set_moving(moving: bool, boosting: bool = false, local_direction: Vector2 = Vector2(0.0, 1.0)) -> void:
+func set_moving(moving: bool, boosting: bool = false,
+        local_direction: Vector2 = Vector2(0.0, 1.0),
+        boost_input_active: bool = false) -> void:
     if not loading_ok or combat_playback or step_playback or jump_playback or damage_playback or guard_playback:
         return
-    if moving and boosting:
+    # Boosting includes the old 0.50s visual grace. Actual BOOST is passed
+    # separately so reusing its pose for heavy SLIDE never enables BOOST FX.
+    var sliding: bool = moving and heavy_slide_run_enabled and not boost_input_active
+    var use_boost_pose: bool = boosting or sliding
+    if not moving:
+        locomotion_mode = "idle"
+    elif boost_input_active:
+        locomotion_mode = "boost"
+    elif sliding:
+        locomotion_mode = "slide"
+    elif boosting:
+        locomotion_mode = "boost_grace"
+    else:
+        locomotion_mode = "run"
+    if moving and use_boost_pose:
         _set_boost_motion_direction(local_direction)
     elif moving:
         _set_run_motion_direction(local_direction)
     var wanted: String = WAIT_CLIP
     if moving:
-        wanted = BOOST_CLIP if boosting else RUN_CLIP
+        wanted = BOOST_CLIP if use_boost_pose else RUN_CLIP
     # v162: BOOST pose stays for 0.50s (main.gd), then BOOST -> RUN uses
     # a distinct 0.20s blend. BOOST entry and BOOST -> WAIT keep 0.08s;
-    # RUN <-> WAIT remains 0.16s.
+    # RUN <-> WAIT remains 0.16s. Heavy SLIDE uses the same static 4-way pose.
     var fade_seconds: float = BLEND_SECONDS
     if current_clip == BOOST_CLIP and wanted == RUN_CLIP:
         fade_seconds = BOOST_TO_RUN_BLEND_SECONDS

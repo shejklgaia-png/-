@@ -1263,3 +1263,11 @@
 - `scripts/main.gd` loads these defaults before the target/AI/UI are built. Default motion sets the existing MOVE debug control, and the AI attack mode/auto-fire are initialized before `add_child()`, retaining its original opening cadence. The debug selector displays those same initial states without emitting callbacks. Existing in-training controls still work and do not overwrite the saved starting defaults.
 - The existing TRAINING START action stays in the same bottom panel hit zone, now a high-contrast cyan bordered call-to-action with a slow 1.8s breathing glow. Other NEXUS destinations, training combat behavior, equipment, save slots, and raw touch routing are unchanged.
 - `README_v203_ja.md` and `tools/v203_training_defaults_self_check.py` document/check this contract. JS-level source checks performed before GitHub commit; Godot/Android runtime acceptance pending.
+
+
+## 2026-11-10 — SERA v204: heavy-leg SLIDE motion and D weight class
+- LOWER BODY B (already heavy) and D (newly designated heavy) use the same existing Boost_front/back/Left/right poses for ordinary ground RUN. This non-boost locomotion is named SLIDE in a separate rig state; A and C retain their ordinary RUN gait.
+- D now has an explicit heavy stat profile equal to B pending future balancing (HP26, defense0.30, run_speed3.35, boost multiplier0.82, damage duration1.1, damage push0.60, down hits5). No independent D balance is inferred. C still falls back to A.
+- Confirmed BOOST input and the heavy SLIDE are distinguished from the displayed Boost_* animation; BOOST pose grace is preserved but is not propulsion. Future thruster intent has two channels: SLIDE -> legs on/back off, confirmed BOOST -> legs and back on; actual particles/meshes are not yet created.
+- BOOST/STEP temporal afterimages continue to originate solely from real BOOST input/STEP, never from SLIDE. Movement physics, EN, boost thresholds/pose grace, directional blend, contacts, camera, touch controls, all source .bbmodel assets and saved slots remain unchanged.
+- Update SERA v204, README_v204_ja.md, tools/v204_heavy_leg_slide_self_check.py and model policy CI check. Structural checks do not replace Godot Android playback or effect inspection.
