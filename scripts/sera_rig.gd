@@ -1431,6 +1431,13 @@ func _process(delta: float) -> void:
         if str(equipment_handler.call("current_for", "legs")) == "C":
             equipment_handler.call("smooth_bird_grounding", delta)
         _update_foot_contacts(delta)
+    elif current_clip == BOOST_CLIP and locomotion_mode == "slide" \
+            and not combat_playback and not guard_playback and not damage_playback \
+            and not jump_playback and not step_playback:
+        # Solve after authored pose, baseline restore and contact-mesh reset.
+        # Real BOOST, STEP and attacks remain entirely animation driven.
+        equipment_handler.call("apply_slide_leg_ik")
+        reset_foot_contacts()
     else:
         reset_foot_contacts()
 
