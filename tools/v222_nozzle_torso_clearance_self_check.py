@@ -41,14 +41,16 @@ for token in (
 ):
     assert token in method,token
 assert "if enabled and melee_sustain:\n        _avoid_melee_body_penetration(nozzle, nozzle.get_parent() as Node3D)" in fx
-assert fx.index('if enabled and melee_sustain:') > fx.index('else:\n        nozzle.quaternion = normal_quaternion')
-assert fx.index('if enabled and melee_sustain:') < fx.index('visible = enabled')
+assert fx.rindex('if enabled and melee_sustain:') > fx.index('else:\n        nozzle.quaternion = normal_quaternion')
+assert fx.rindex('if enabled and melee_sustain:') < fx.index('visible = enabled')
 assert "nozzle_rest_rotation = nozzle.quaternion" in fx
 assert "melee_sustain: bool = false" in fx
 assert "left_sector_world, acceleration_burst, normal_melee_exhaust)" in main
 assert "left_sector_world, acceleration_burst, melee_sustain)" in rig
 assert "acceleration_burst, melee_sustain)" in equip
 
+# v224 also introduces an earlier melee articulation clamp; rindex() above
+# intentionally checks the later torso-clearance guard.
 # Safety applied only to active normal melee. All original BOOST/STEP/left
 # camera quadrant/nozzle pitch steering still has its own existing logic.
 assert "if enabled and world_exhaust_direction.length_squared() > 0.000001:" in fx

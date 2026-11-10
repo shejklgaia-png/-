@@ -56,6 +56,7 @@ on:
       - 'tools/v221_melee_jet_visibility_self_check.py'
       - 'tools/v222_nozzle_torso_clearance_self_check.py'
       - 'tools/v223_thruster_ribbon_trail_self_check.py'
+      - 'tools/v224_melee_nozzle_articulation_self_check.py'
       - 'shaders/back_thruster_trail.gdshader'
       - 'shaders/back_thruster.gdshader'
       - 'scripts/sera_equipment.gd'
@@ -148,6 +149,8 @@ jobs:
         run: python3 tools/v222_nozzle_torso_clearance_self_check.py
       - name: Verify v223 world-space ribbon thruster trails
         run: python3 tools/v223_thruster_ribbon_trail_self_check.py
+      - name: Verify v224 physically bounded nozzles during all melee clips
+        run: python3 tools/v224_melee_nozzle_articulation_self_check.py
       - name: Verify base model and repository paths
         run: |
           python3 tools/self_check.py
