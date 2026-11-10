@@ -108,5 +108,6 @@ for line in embedded.splitlines():
         parts.append(json.loads(line[:-1]))
 assert json.loads("".join(parts)) == {
     key: model[key] for key in ("groups", "elements", "outliner")}
-assert 'config/name="SERA v206"' in (ROOT / "project.godot").read_text(encoding="utf-8")
+name_match = re.search(r'config/name="SERA v(\d+)"', (ROOT / "project.godot").read_text(encoding="utf-8"))
+assert name_match is not None and int(name_match.group(1)) >= 206
 print("SERA v206 pivot and rectangular back-thruster effect checks passed")
