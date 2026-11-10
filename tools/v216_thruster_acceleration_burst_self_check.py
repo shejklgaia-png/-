@@ -75,8 +75,8 @@ for s in (
 # At the attachment lip (along=0), burst must not increase width.
 for s in (
     'uniform float burst : hint_range(0.0, 1.0) = 0.0;',
-    'float fan = burst * along * along;',
-    'VERTEX.xy *= 1.0 + 4.0 * fan;',
+    'float fan = burst * smoothstep(0.0, 0.25, along);',
+    'VERTEX.xy *= 1.0 + 14.0 * fan;',
     'VERTEX.z *= 1.0 + 0.28 * burst * along;',
     'EMISSION = flame_tint.rgb * (0.75 + 0.45 * pulse) * (1.0 + 0.85 * burst);',
     'ALPHA = clamp(strength',
@@ -102,10 +102,13 @@ for t in (0.,.01,.02,.035,.075,.10,.125,.17,.214,.27,.28,.5):
 assert math.isclose(intensity(.10),1.)
 assert intensity(.12)>intensity(.20)>intensity(.27)>0.
 assert math.isclose(intensity(.28),0.,abs_tol=1e-10)
-for p in (0.,.2,.5,1.):
-    assert math.isclose(1.+4.0*intensity(.10)*p*p,1.+4.0*p*p)
-assert math.isclose(1.+4.0*intensity(.10)*0.,1.)
-assert math.isclose(1.+4.0*intensity(.10)*1.,5.0)
+def spread(position: float) -> float:
+    alpha=max(0.,min(1.,position/.25))
+    return alpha*alpha*(3.-2.*alpha)
+for p in (0.,.05,.15,.25,.5,1.):
+    assert math.isclose(1.+14.0*intensity(.10)*spread(p),1.+14.0*spread(p))
+assert math.isclose(1.+14.0*intensity(.10)*spread(0.),1.)
+assert math.isclose(1.+14.0*intensity(.10)*spread(.25),15.0)
 states=[(False,-1),(True,-1),(True,-1),(True,-1),(False,-1),
         (False,4),(False,4),(False,5),(False,-1),(True,-1)]
 last_step=False
