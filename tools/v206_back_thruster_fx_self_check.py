@@ -60,7 +60,8 @@ shader = (ROOT / "shaders/back_thruster.gdshader").read_text(encoding="utf-8")
 main = (ROOT / "scripts/main.gd").read_text(encoding="utf-8")
 rig = (ROOT / "scripts/sera_rig.gd").read_text(encoding="utf-8")
 for phrase in (
-    'for side in range(4):',
+    'const EXHAUST_RADIAL_SIDES: int = 10',
+    'for side in range(EXHAUST_RADIAL_SIDES):',
     'Vector3(b.x, b.y, z1)',
     'for section in range(EXHAUST_AXIAL_SEGMENTS):',
     'visible = enabled',

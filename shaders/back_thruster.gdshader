@@ -1,7 +1,7 @@
 shader_type spatial;
 render_mode unshaded, cull_disabled, blend_add, depth_draw_never, shadows_disabled;
 
-// A low-cost, four-sided exhaust tube. No particles/textures/physics.
+// A low-cost, 10-sided exhaust tube. No particles/textures/physics.
 // Local +Z is out of the nozzle; vertex motion grows toward the end.
 uniform vec4 flame_tint : source_color = vec4(0.2, 0.76, 1.0, 1.0);
 uniform float strength : hint_range(0.0, 1.0) = 0.0;
