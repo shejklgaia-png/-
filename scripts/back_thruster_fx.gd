@@ -16,6 +16,10 @@ const MELEE_TORSO_CLEARANCE_DOT: float = 0.55
 # retaining limited steering for target homing (BOOST/STEP are unchanged).
 const MELEE_YAW_LIMIT_RADIANS: float = PI * 20.0 / 180.0
 const MELEE_PITCH_DOWN_LIMIT_RADIANS: float = PI * 35.0 / 180.0
+# The SERA slash foreground overlay uses priority 126 with disabled depth
+# testing. Both flame and ribbon MUST draw afterward with NORMAL depth tests:
+# visible when physically in front of the body, hidden when truly behind it.
+const EXHAUST_RENDER_PRIORITY: int = 127
 const EXHAUST_LENGTH: float = 0.65
 # Vertex deformation needs intermediate rings: two end-caps cannot form a
 # rapid flare close to the nozzle, only a linearly tapered giant triangle.
@@ -75,6 +79,7 @@ func _ready() -> void:
         ribbon_mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
         var ribbon_material := ShaderMaterial.new()
         ribbon_material.shader = RIBBON_SHADER
+        ribbon_material.render_priority = EXHAUST_RENDER_PRIORITY
         ribbon_mesh.material_override = ribbon_material
         nozzle.add_child(ribbon_mesh)
         ribbon_mesh.global_transform = Transform3D.IDENTITY
@@ -115,6 +120,7 @@ func _build_tube(half_width: float, length: float, tint: Color,
     # Keep transparent shader on its own instances, not on the shared SERA mesh.
     var material := ShaderMaterial.new()
     material.shader = FLAME_SHADER
+    material.render_priority = EXHAUST_RENDER_PRIORITY
     material.set_shader_parameter("flame_tint", tint)
     material.set_shader_parameter("tube_length", length)
     material.set_shader_parameter("phase_offset", offset)
@@ -249,7 +255,16 @@ func _avoid_melee_body_penetration(nozzle: Node3D, nozzle_parent: Node3D) -> voi
     var outward_dot: float = jet_axis.dot(outward)
     if outward_dot >= MELEE_TORSO_CLEARANCE_DOT:
         return
-    # Project the current jet onto the closest safe outward cone. Preserve
+    # First recover to the original physical mount orientation. The authored
+    # Thruster_L/R bind axes already lie in the safe outward hemisphere;
+    # arbitrary world-space cone projection would discard v224 mechanical
+    # limits and swing the nozzle back across Melee2's animated Chest.
+    var mount_axis: Vector3 = (nozzle_parent.global_transform.basis
+        * Basis(nozzle_rest_rotation) * Vector3.BACK).normalized()
+    if mount_axis.dot(outward) >= MELEE_TORSO_CLEARANCE_DOT:
+        nozzle.quaternion = nozzle_rest_rotation
+        return
+    # Exceptional imported geometry only: project onto safe outward cone. Preserve
     # the intended tangential direction as much as possible, but never allow
     # any transient inward-facing flame while the animated Chest rotates.
     var tangent: Vector3 = jet_axis - outward * outward_dot
@@ -313,6 +328,16 @@ func set_exhaust(enabled: bool, world_exhaust_direction: Vector3,
     var ease: float = 1.0 - exp(-maxf(delta, 0.0) / TURN_TIME)
     steering_yaw = lerp_angle(steering_yaw, yaw, ease)
     steering_pitch = lerp_angle(steering_pitch, pitch, ease)
+    if enabled and melee_sustain:
+        # Limit the ACTUAL servo pose, not only its target: a prior BOOST/
+        # screen-sector rotation can otherwise remain out of bounds during
+        # the first Melee1/Melee2 transition frames.
+        steering_yaw = clampf(steering_yaw,
+            -MELEE_YAW_LIMIT_RADIANS, MELEE_YAW_LIMIT_RADIANS)
+        steering_pitch = clampf(steering_pitch,
+            -PITCH_UP_LIMIT_RADIANS, MELEE_PITCH_DOWN_LIMIT_RADIANS)
+        returning_from_screen_sector = false
+        left_sector_world = Vector3.ZERO
     var normal_quaternion: Quaternion = (nozzle_rest_rotation
         * Quaternion(Vector3.UP, steering_yaw)
         * Quaternion(Vector3.RIGHT, steering_pitch)).normalized()
