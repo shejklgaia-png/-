@@ -8,6 +8,11 @@ const PITCH_UP_LIMIT_RADIANS: float = PI * 1.0 / 180.0
 const PITCH_DOWN_LIMIT_RADIANS: float = PI * 90.0 / 180.0
 const TURN_TIME: float = 0.075
 const EXHAUST_LENGTH: float = 0.65
+# A short acceleration flare widens the existing four-sided jet, then decays.
+const BURST_RISE_SECONDS: float = 0.035
+const BURST_FALL_SECONDS: float = 0.18
+const BURST_TOTAL_SECONDS: float = BURST_RISE_SECONDS + BURST_FALL_SECONDS
+var burst_elapsed: float = BURST_TOTAL_SECONDS
 var outer_material: ShaderMaterial
 var inner_material: ShaderMaterial
 var current_strength: float = 0.0
@@ -60,13 +65,15 @@ func _build_tube(half_width: float, length: float, tint: Color,
     material.set_shader_parameter("tube_length", length)
     material.set_shader_parameter("phase_offset", offset)
     material.set_shader_parameter("strength", 0.0)
+    material.set_shader_parameter("burst", 0.0)
     instance.material_override = material
     add_child(instance)
     return material
 
 func set_exhaust(enabled: bool, world_exhaust_direction: Vector3,
         delta: float, backstroke_weight: float = 0.0,
-        left_sector_world: Vector3 = Vector3.ZERO) -> void:
+        left_sector_world: Vector3 = Vector3.ZERO,
+        acceleration_burst: bool = false) -> void:
     if outer_material == null or inner_material == null:
         return
     var nozzle: Node3D = get_parent() as Node3D
@@ -132,8 +139,25 @@ func set_exhaust(enabled: bool, world_exhaust_direction: Vector3,
     visible = enabled
     if not enabled:
         current_strength = 0.0
+        burst_elapsed = BURST_TOTAL_SECONDS
+        outer_material.set_shader_parameter("burst", 0.0)
+        inner_material.set_shader_parameter("burst", 0.0)
         return
+    if acceleration_burst:
+        burst_elapsed = 0.0
+    burst_elapsed = minf(BURST_TOTAL_SECONDS, burst_elapsed + maxf(delta, 0.0))
+    var burst: float = 0.0
+    if burst_elapsed < BURST_RISE_SECONDS:
+        # The flare quickly opens outward from the nozzle lip.
+        burst = burst_elapsed / BURST_RISE_SECONDS
+    elif burst_elapsed < BURST_TOTAL_SECONDS:
+        # Ease smoothly back to the ordinary narrow exhaust over 0.18s.
+        var fall: float = clampf(
+            (burst_elapsed - BURST_RISE_SECONDS) / BURST_FALL_SECONDS, 0.0, 1.0)
+        burst = 1.0 - fall * fall * (3.0 - 2.0 * fall)
     current_strength = lerpf(current_strength, 1.0,
         1.0 - exp(-maxf(delta, 0.0) / 0.045))
     outer_material.set_shader_parameter("strength", current_strength)
     inner_material.set_shader_parameter("strength", current_strength)
+    outer_material.set_shader_parameter("burst", burst)
+    inner_material.set_shader_parameter("burst", burst)
