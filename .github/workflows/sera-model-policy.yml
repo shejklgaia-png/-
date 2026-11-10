@@ -39,6 +39,7 @@ on:
       - 'tools/v204_heavy_leg_slide_self_check.py'
       - 'tools/v227_slide_leg_ik_self_check.py'
       - 'tools/v228_slide_flat_soles_self_check.py'
+      - 'tools/v229_slide_boost_camera_self_check.py'
       - 'tools/v205_back_booster_stub_self_check.py'
       - 'tools/v206_back_thruster_fx_self_check.py'
       - 'scripts/back_thruster_fx.gd'
@@ -124,6 +125,8 @@ jobs:
         run: python3 tools/v227_slide_leg_ik_self_check.py
       - name: Verify v228 level shoe soles and lowered hip during SLIDE
         run: python3 tools/v228_slide_flat_soles_self_check.py
+      - name: Verify v229 SLIDE/BOOST fade and camera edge damping
+        run: python3 tools/v229_slide_boost_camera_self_check.py
       - name: Verify v205 authored back booster mockup and runtime import
         run: python3 tools/v205_back_booster_stub_self_check.py
       - name: Verify v206 authored pivots and limited rectangular exhaust effects
