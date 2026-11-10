@@ -43,6 +43,7 @@ on:
       - 'tools/v208_thruster_angle_limits_self_check.py'
       - 'tools/v209_nozzle_run_stability_self_check.py'
       - 'tools/v210_backstroke_thruster_self_check.py'
+      - 'tools/v211_frontstep_self_check.py'
       - 'shaders/back_thruster.gdshader'
       - 'scripts/sera_equipment.gd'
       - 'scripts/sera_rig.gd'
@@ -108,6 +109,8 @@ jobs:
         run: python3 tools/v209_nozzle_run_stability_self_check.py
       - name: Verify v210 downward nozzle steering on reverse BOOST/STEP
         run: python3 tools/v210_backstroke_thruster_self_check.py
+      - name: Verify v211 authored Frontstep forward and diagonal STEP
+        run: python3 tools/v211_frontstep_self_check.py
       - name: Verify base model and repository paths
         run: |
           python3 tools/self_check.py
