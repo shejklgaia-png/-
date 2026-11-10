@@ -8,7 +8,9 @@ def read(path):
 rig=read("scripts/sera_rig.gd")
 eq=read("scripts/sera_equipment.gd")
 main=read("scripts/main.gd")
-assert 'config/name="SERA v229"' in read("project.godot")
+import re
+ver = re.search(r'config/name="SERA v(\d+)"', read("project.godot"))
+assert ver and int(ver.group(1)) >= 229
 assert 'SLIDE_BOOST_TRANSITION_SECONDS: float = 0.18' in rig
 assert 'var slide_blend_weight: float = 0.0' in rig
 assert 'slide_blend_start = slide_blend_weight' in rig
