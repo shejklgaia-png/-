@@ -22,6 +22,7 @@
 | `SLASH_VOLUME` | 100 | 斬撃ボリューム | OFF（現行演出） |
 | `SLASH_SURFACE` | 105 | 斬撃メイン弧 | OFF（現行演出） |
 | `SLASH_PARTICLES` | 110 | 斬撃微粒子 | OFF（現行演出） |
+| `HIT_SPARKS` | 120 | 命中時の四角い火花 | ON（機体・標的に遮られる） |
 | `CHARACTER_FOREGROUND` | 126 | 斬撃中のセラ本体前面オーバーレイ | OFF（特殊描画） |
 | `DEPTH_TESTED_EMISSIVE` | 127 | ノズル噴射・帯状軌跡などの発光 | **ON** |
 
