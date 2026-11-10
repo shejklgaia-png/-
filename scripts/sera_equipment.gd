@@ -26,6 +26,8 @@ var back_thruster_effects: Dictionary = {}
 var foot_meshes: Dictionary = {}
 # Cached true mesh vertices avoid AABB-only false soles for rotated shoes.
 var foot_vertex_cache: Dictionary = {}
+# Cache original mesh-local positions for contact-only RUN foot placement.
+var contact_foot_bind_positions: Dictionary = {}
 var bind_sole_heights: Dictionary = {}
 var standard_sole_y: float = 0.0
 var rig_original_y: float = 0.0
@@ -137,6 +139,7 @@ func _mesh_lowest_y(piece: MeshInstance3D) -> float:
 func _cache_bind_foot_geometry() -> void:
     foot_meshes.clear()
     foot_vertex_cache.clear()
+    contact_foot_bind_positions.clear()
     bind_sole_heights.clear()
     for set_key in available.keys():
         var set_id: String = str(set_key)
@@ -148,6 +151,7 @@ func _cache_bind_foot_geometry() -> void:
             if side.is_empty():
                 continue
             (side_meshes[side] as Array).append(piece)
+            contact_foot_bind_positions[piece.get_instance_id()] = piece.position
             sole_y = minf(sole_y, _mesh_lowest_y(piece))
         if sole_y < INF and not (side_meshes["L"] as Array).is_empty() and not (side_meshes["R"] as Array).is_empty():
             foot_meshes[set_id] = side_meshes
@@ -194,6 +198,40 @@ func snap_grounded_sole_to_floor() -> void:
     # Ground plane is the top of the visible training grid. Player logical
     # height/velocity stay unchanged. The translation exactly plants one foot.
     rig.position.y = TRAINING_VISIBLE_FLOOR_Y - current_sole - wearer.global_position.y
+
+# Restore last frame's contact-only foot translation before measuring the
+# next animated pose. No player root translation or authored bone changes.
+func restore_run_contact_foot_positions() -> void:
+    for set_key in foot_meshes.keys():
+        var sides: Dictionary = foot_meshes[set_key]
+        for side in ["L", "R"]:
+            for raw_piece in sides.get(side, []):
+                var piece: MeshInstance3D = raw_piece
+                if is_instance_valid(piece) and contact_foot_bind_positions.has(piece.get_instance_id()):
+                    piece.position = contact_foot_bind_positions[piece.get_instance_id()]
+
+func snap_run_contact_foot_to_floor(side: String) -> void:
+    if not grounding_enabled or rig == null:
+        return
+    var wearer: Node3D = rig.get_parent() as Node3D
+    if wearer == null or absf(wearer.global_position.y) > 0.05:
+        return
+    var feet: Dictionary = foot_meshes.get(str(selected.get("legs", "A")), {})
+    var parts: Array = feet.get(side, [])
+    var sole_heights: Dictionary = get_active_foot_heights()
+    if parts.is_empty() or not sole_heights.has(side):
+        return
+    var sole_y: float = float(sole_heights[side])
+    if is_inf(sole_y) or is_nan(sole_y):
+        return
+    var current_world_y: float = rig.to_global(Vector3(0.0, sole_y, 0.0)).y
+    var adjustment: float = TRAINING_VISIBLE_FLOOR_Y - current_world_y
+    # The contacting shoe alone reaches the visible floor on its sound frame.
+    # This prevents the old full-body one-frame vertical pop/flicker.
+    for raw_piece in parts:
+        var piece: MeshInstance3D = raw_piece
+        if is_instance_valid(piece):
+            piece.global_position += Vector3.UP * adjustment
 
 func get_grounding_height_offset() -> float:
     return grounding_height_offset
