@@ -36,7 +36,9 @@ assert 'boost_pose_grace_remaining > 0.0' in camera
 assert 'separation < CAMERA_CLOSE_BOOST_EXIT_DISTANCE' in camera
 assert 'separation <= CAMERA_CLOSE_BOOST_ENTER_DISTANCE' in camera
 assert camera.index('var active_boost_travel: bool') < camera.index('var easing: float')
-assert 'camera_follow_radius = lerpf(' in camera
+assert '_advance_camera_dolly(separation, preferred_radius, easing, delta)' in camera
+assert 'camera_follow_radius = lerpf(' not in camera
+assert 'var legacy_radius: float = lerpf(' in main
 assert 'camera_radius = maxf(camera_follow_radius, camera_fit_radius_floor)' in camera
 assert camera.count('if not close_boost_camera_active and not boost_edge_frame_guard:') == 2
 assert 'var boost_edge_frame_guard: bool = (' in camera
