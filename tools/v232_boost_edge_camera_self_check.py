@@ -10,7 +10,8 @@ def read(path):
     return (ROOT / path).read_text(encoding="utf-8")
 
 main = read("scripts/main.gd")
-assert 'config/name="SERA v232"' in read("project.godot")
+version = re.search(r'config/name="SERA v(\d+)"', read("project.godot"))
+assert version and int(version.group(1)) >= 232
 render = main.split("func _process(delta: float) -> void:", 1)[1].split(
     "func _close_step_target_relative_yaw", 1)[0]
 assert 'var boost_edge_frame_guard: bool = (' in render
