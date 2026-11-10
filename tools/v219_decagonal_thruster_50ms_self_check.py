@@ -97,7 +97,7 @@ assert 'nozzle_rest_rotation = nozzle.quaternion' in fx
 assert 'const PITCH_DOWN_LIMIT_RADIANS: float = PI * 90.0 / 180.0' in fx
 assert 'stepping_this_frame and not thruster_accel_previous_step' in main
 assert 'tracking_accel_state != thruster_accel_previous_tracking_state' in main
-assert 'left_sector_world, acceleration_burst, melee_sustain)' in main
+assert 'left_sector_world, acceleration_burst, normal_melee_exhaust)' in main
 assert 'left_sector_world, acceleration_burst, melee_sustain)' in rig
 assert 'acceleration_burst, melee_sustain)' in equipment
 assert 'const SLIDE_BOOST_POSE_MAX_WEIGHT: float = 0.50' in rig
