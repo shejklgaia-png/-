@@ -22,7 +22,8 @@ assert match and int(match.group(1)) >= 218
 # close-to-nozzle flare, intermediate rings must exist so the vertex shader
 # can produce the curve instead of a straight 0->15x taper.
 assert "const EXHAUST_AXIAL_SEGMENTS: int = 12" in fx
-assert "for side in range(4):" in fx
+assert "const EXHAUST_RADIAL_SIDES: int = 10" in fx
+assert "for side in range(EXHAUST_RADIAL_SIDES):" in fx
 assert "for section in range(EXHAUST_AXIAL_SEGMENTS):" in fx
 assert "var t0: float = float(section) / float(EXHAUST_AXIAL_SEGMENTS)" in fx
 assert "var t1: float = float(section + 1) / float(EXHAUST_AXIAL_SEGMENTS)" in fx
@@ -34,8 +35,8 @@ assert "Vector2(0.0, t0), Vector2(1.0, t0)" in fx
 assert "Vector2(1.0, t1), Vector2(0.0, t1)" in fx
 assert "for corner_index in [0, 1, 2, 0, 2, 3]:" in fx
 assert "instance.mesh = tool.commit()" in fx
-# 12 axial quads per side, 4 sides, 6 triangle-corner vertices per quad.
-assert 12 * 4 * 6 == 288
+# 12 axial quads per side, 10 sides, 6 triangle-corner vertices per quad.
+assert 12 * 10 * 6 == 720
 # The 0.25 section aligns exactly with an authored ring (3 of 12).
 rings = [i / 12 for i in range(13)]
 assert .25 in rings and rings[0] == 0 and rings[-1] == 1
@@ -73,9 +74,9 @@ assert expansion(2/12,1.0) > 10.0
 assert "const EXHAUST_LENGTH: float = 0.65" in fx
 assert math.isclose(.65*.25,.1625,abs_tol=1e-12)
 
-# Timing remains 100ms expansion and 180ms return; the flare remains a
+# Timing is now 50ms expansion and 180ms return; the flare remains a
 # transient STEP / attack / bash onset effect, never a 15x permanent flame.
-assert "const BURST_RISE_SECONDS: float = 0.10" in fx
+assert "const BURST_RISE_SECONDS: float = 0.05" in fx
 assert "const BURST_FALL_SECONDS: float = 0.18" in fx
 assert "const BURST_TOTAL_SECONDS: float = BURST_RISE_SECONDS + BURST_FALL_SECONDS" in fx
 assert "if acceleration_burst:" in fx and "burst_elapsed = 0.0" in fx
@@ -92,7 +93,7 @@ assert "nozzle_rest_rotation = nozzle.quaternion" in fx
 assert "const SLIDE_BOOST_POSE_MAX_WEIGHT: float = 0.50" in rig
 assert "const PITCH_DOWN_LIMIT_RADIANS: float = PI * 90.0 / 180.0" in fx
 
-print("PASS v218: 12 axial rings segment a 4-sided exhaust; wide by 25% of its length")
-print("PASS: width 15x at flare peak, 1x at nozzle lip and after 280ms")
+print("PASS v218: 12 axial rings segment a 10-sided exhaust; wide by 25% of its length")
+print("PASS: width 15x at flare peak, 1x at nozzle lip and after 230ms")
 print("PASS: existing STEP/homing triggers, nozzle pivots, directions, EN unchanged")
 print("Godot/Android shader rendering remains unverified")
