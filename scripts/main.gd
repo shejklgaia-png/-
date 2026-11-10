@@ -180,6 +180,7 @@ const TARGET_FRAME_BOTTOM: float = 0.75  # v52: reserve the same lower control a
 const SERA_SCRIPT = preload("res://scripts/sera_rig.gd")
 const PART_STATS = preload("res://scripts/sera_part_stats.gd")
 const TARGET_MOTION_SCRIPT = preload("res://scripts/training_target_motion.gd")
+const TrainingDefaults = preload("res://scripts/training_defaults.gd")
 # v178 prototype damage table: AIM, LEAD, SHOCK, ARC, respectively.
 const ENEMY_ATTACK_HP_DAMAGE = [18.0, 22.0, 28.0, 34.0]
 const ENEMY_ATTACK_SHIELD_COST = [23.0, 28.0, 36.0, 42.0]
@@ -224,6 +225,7 @@ var training_ko_remaining: float = 0.0
 var target_motion: RefCounted
 var target_floor_mark: Node3D
 var target_move_enabled: bool = true
+var training_settings: Dictionary = {}
 var core_hp: float = 75.0
 var stagger_value: float = 0.0
 var stagger_remaining: float = 0.0
@@ -373,6 +375,8 @@ func _ready() -> void:
     _previous_quit_on_go_back = get_tree().quit_on_go_back
     get_tree().quit_on_go_back = false
     _load_handedness_preference()
+    training_settings = TrainingDefaults.load_defaults()
+    target_move_enabled = bool(training_settings.get("move_enabled", true))
     _build_world()
     _build_character()
     _update_equipped_collision_height()
@@ -747,6 +751,9 @@ func _build_enemy_shooter() -> void:
     enemy_shooter.set("target_node", target)
     enemy_shooter.set("player_node", player)
     enemy_shooter.set("projectile_parent", enemy_attack_pool)
+    # Apply the saved starting mode before the AI enters the scene tree.
+    enemy_shooter.set("selected_attack", int(training_settings.get("attack_type", 0)))
+    enemy_shooter.set("auto_fire_enabled", bool(training_settings.get("auto_fire_enabled", true)))
     enemy_shooter.connect("projectile_hit", Callable(self, "_on_enemy_projectile_hit"))
     add_child(enemy_shooter)
 
@@ -1059,7 +1066,7 @@ func _build_overlay() -> void:
     layer.add_child(test_break_button)
     move_target_button = Button.new()
     move_target_button.name = "DebugTargetMotion"
-    move_target_button.text = "MOVE: ON"
+    move_target_button.text = "MOVE: ON" if target_move_enabled else "MOVE: OFF"
     move_target_button.position = Vector2(314.0, 268.0)
     move_target_button.size = Vector2(148.0, 42.0)
     move_target_button.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1146,6 +1153,9 @@ func _build_overlay() -> void:
     enemy_debug_ui.connect("fire_requested", Callable(enemy_shooter, "trigger_attack"))
     enemy_debug_ui.connect("auto_fire_changed", Callable(enemy_shooter, "set_auto_fire"))
     enemy_debug_ui.connect("jump_test_requested", Callable(self, "_debug_jump"))
+    enemy_debug_ui.call("apply_initial_defaults",
+        int(training_settings.get("attack_type", 0)),
+        bool(training_settings.get("auto_fire_enabled", true)))
     VersionIndicator.attach(layer)
 
 func _update_target_marker_projection() -> void:
