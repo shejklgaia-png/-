@@ -64,7 +64,7 @@ assert "tracking_accel_state != thruster_accel_previous_tracking_state" in burst
 assert "normal_melee_exhaust" not in burst
 assert "left_sector_world, acceleration_burst, normal_melee_exhaust)" in main
 assert "left_sector_world, acceleration_burst, melee_sustain)" in rig
-assert "acceleration_burst)" in equip
+assert "acceleration_burst, melee_sustain)" in equip
 
 # All three normal melee stages use STRIKE for the authored swing. Follow-ups
 # use STRIKE_TRACK and then return to STRIKE after reaching the target.
