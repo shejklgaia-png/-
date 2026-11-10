@@ -4,6 +4,7 @@ extends Node3D
 const Modules = preload("res://assets/base_command_modules.gd")
 const SeraRig = preload("res://scripts/sera_rig.gd")
 const VersionIndicator = preload("res://scripts/version_indicator.gd")
+const TrainingDefaults = preload("res://scripts/training_defaults.gd")
 const NexusSelectionOutline = preload("res://scripts/nexus_selection_outline.gd")
 const CUSTOMIZE_GLOW_SHADER = preload("res://shaders/nexus_customize_radial_glow.gdshader")
 
@@ -35,6 +36,12 @@ const CUSTOMIZE_SLOT_LABELS = {
 }
 var action_panel: Panel
 var action_label: Label
+var training_heading: Label
+var training_footer: Label
+var training_option_rows: Array[Dictionary] = []
+var training_settings: Dictionary = {}
+var training_start_style: StyleBoxFlat
+var training_start_pulse: float = 0.0
 # SYSTEM edits save files; the DATA ARCHIVE tabs never mutate profiles.
 const ARCHIVE_TABS = ["SUMMARY", "COMBAT", "PROGRESS", "PROFILE"]
 var archive_record_tabs: Array[Dictionary] = []
@@ -183,6 +190,7 @@ func _ready() -> void:
 func _process(delta: float) -> void:
     SeraSave.record_game_time(delta)
     _update_system_confirmation_blink(delta)
+    _update_training_start_pulse(delta)
     if focused_target == "DATA ARCHIVE" and not in_transition:
         archive_refresh_elapsed += delta
         if archive_refresh_elapsed >= 1.0:
@@ -774,21 +782,139 @@ func _hud() -> void:
     action_panel = Panel.new()
     action_panel.name = "DestinationAction"
     action_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-    action_panel.add_theme_stylebox_override("panel", _action_style())
+    training_start_style = _action_style()
+    action_panel.add_theme_stylebox_override("panel", training_start_style)
     focus_panel.add_child(action_panel)
     action_label = Label.new()
     action_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
     action_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
     action_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-    action_label.add_theme_font_size_override("font_size", 17)
-    action_label.add_theme_color_override("font_color", Color("#bcecff"))
+    action_label.add_theme_font_size_override("font_size", 21)
+    action_label.add_theme_color_override("font_color", Color("#ffffff"))
     action_panel.add_child(action_label)
+    _create_training_controls()
     _create_system_controls()
     _create_archive_records()
     VersionIndicator.attach(hud)
     hud.resized.connect(_layout_hud)
     _layout_hud()
     _update_projected_silhouettes()
+
+# TRAINING target defaults are global preferences, not save-slot equipment data.
+# The touch hit zones use the same raw screen input as the other NEXUS menus.
+func _create_training_controls() -> void:
+    training_settings = TrainingDefaults.load_defaults()
+    training_heading = Label.new()
+    training_heading.name = "TrainingDefaultsHeading"
+    training_heading.text = "TARGET DEFAULTS  /  TAP TO CHANGE"
+    training_heading.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    training_heading.add_theme_font_size_override("font_size", 14)
+    training_heading.add_theme_color_override("font_color", Color("#bdeaff"))
+    training_heading.visible = false
+    focus_panel.add_child(training_heading)
+    for option_name in ["TARGET MOTION", "AUTO ATTACK", "ATTACK TYPE"]:
+        var row := Panel.new()
+        row.name = "Training" + option_name.replace(" ", "")
+        row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        row.add_theme_stylebox_override("panel", _menu_style())
+        row.visible = false
+        focus_panel.add_child(row)
+        var caption := Label.new()
+        caption.text = option_name
+        caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        caption.add_theme_font_size_override("font_size", 13)
+        caption.add_theme_color_override("font_color", Color("#8fbbcf"))
+        row.add_child(caption)
+        var value := Label.new()
+        value.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        value.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+        value.add_theme_font_size_override("font_size", 19)
+        value.add_theme_color_override("font_color", Color("#e4faff"))
+        row.add_child(value)
+        training_option_rows.append({"panel": row, "label": caption, "value": value})
+    training_footer = Label.new()
+    training_footer.name = "TrainingDefaultsSaved"
+    training_footer.text = "SAVED AUTOMATICALLY"
+    training_footer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    training_footer.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    training_footer.add_theme_font_size_override("font_size", 12)
+    training_footer.add_theme_color_override("font_color", Color("#8bc9da"))
+    training_footer.visible = false
+    focus_panel.add_child(training_footer)
+    _refresh_training_controls()
+
+func _set_training_visible(show: bool) -> void:
+    training_heading.visible = show
+    training_footer.visible = show
+    for entry in training_option_rows:
+        var panel: Panel = entry["panel"]
+        panel.visible = show
+
+func _layout_training_controls() -> void:
+    if training_heading == null:
+        return
+    var margin: float = 16.0
+    var content_width: float = maxf(10.0, focus_panel.size.x - margin * 2.0)
+    training_heading.position = Vector2(margin, focus_header.size.y + 12.0)
+    training_heading.size = Vector2(content_width, 23.0)
+    var top: float = focus_header.size.y + 44.0
+    var bottom: float = action_panel.position.y - 18.0
+    var gap: float = 9.0
+    var height: float = clampf((bottom - top - gap * 2.0) / 3.0, 35.0, 72.0)
+    for i in range(training_option_rows.size()):
+        var entry: Dictionary = training_option_rows[i]
+        var row: Panel = entry["panel"]
+        row.position = Vector2(margin, top + float(i) * (height + gap))
+        row.size = Vector2(content_width, height)
+        var caption: Label = entry["label"]
+        caption.position = Vector2(12.0, 0.0)
+        caption.size = Vector2(row.size.x - 24.0, row.size.y * 0.48)
+        var value: Label = entry["value"]
+        value.position = Vector2(12.0, row.size.y * 0.40)
+        value.size = Vector2(row.size.x - 24.0, row.size.y * 0.56)
+    training_footer.position = Vector2(margin, action_panel.position.y - 18.0)
+    training_footer.size = Vector2(content_width, 15.0)
+
+func _refresh_training_controls() -> void:
+    if training_option_rows.size() != 3:
+        return
+    var motion: Label = training_option_rows[0]["value"]
+    motion.text = "MOVE  >" if bool(training_settings.get("move_enabled", true)) else "HOLD  >"
+    var auto_attack: Label = training_option_rows[1]["value"]
+    auto_attack.text = "ON  >" if bool(training_settings.get("auto_fire_enabled", true)) else "OFF  >"
+    var attack_type: int = clampi(int(training_settings.get("attack_type", 0)), 0, 3)
+    var attack: Label = training_option_rows[2]["value"]
+    attack.text = ["AIM", "LEAD", "SHOCK", "ARC"][attack_type] + "  >"
+
+func _tap_training_control(point: Vector2) -> bool:
+    var local: Vector2 = point - focus_panel.position
+    for i in range(training_option_rows.size()):
+        var row: Panel = training_option_rows[i]["panel"]
+        if not Rect2(row.position, row.size).has_point(local):
+            continue
+        match i:
+            0:
+                training_settings["move_enabled"] = not bool(training_settings.get("move_enabled", true))
+            1:
+                training_settings["auto_fire_enabled"] = not bool(training_settings.get("auto_fire_enabled", true))
+            2:
+                training_settings["attack_type"] = (int(training_settings.get("attack_type", 0)) + 1) % 4
+        var err: Error = TrainingDefaults.save_defaults(training_settings)
+        if err != OK:
+            push_error("Training defaults save failed (%d)" % err)
+        _refresh_training_controls()
+        return true
+    return false
+
+func _update_training_start_pulse(delta: float) -> void:
+    if focused_target != "TRAINING" or in_transition or not action_panel.visible:
+        return
+    training_start_pulse = fposmod(training_start_pulse + delta, 1.8)
+    var wave: float = 0.5 + 0.5 * sin(training_start_pulse * TAU / 1.8)
+    training_start_style.bg_color = Color(0.045, 0.29 + wave * 0.12,
+        0.41 + wave * 0.10, 0.98)
+    training_start_style.border_color = Color(0.44 + wave * 0.36,
+        0.84 + wave * 0.16, 1.0, 1.0)
 
 ## Hit zones are handled by _input, matching the existing Android raw-touch UI.
 ## These labels are not Control buttons and therefore never steal preview drags.
@@ -1308,10 +1434,12 @@ func _menu_header_style() -> StyleBoxFlat:
     return style
 
 func _action_style() -> StyleBoxFlat:
-    # Retain the existing TRAINING navigation within its empty placeholder;
-    # no border or false actions on the other four panels.
+    # A high-contrast call to action; the border/fill breathe without flashing.
     var style := StyleBoxFlat.new()
-    style.bg_color = Color(0.045, 0.220, 0.340, 0.84)
+    style.bg_color = Color(0.045, 0.29, 0.41, 0.98)
+    style.border_color = Color("#80e9ff")
+    style.set_border_width_all(3)
+    style.set_corner_radius_all(5)
     return style
 
 # Three-zone CUSTOMIZE portrait: upper-left model, lower-left square,
@@ -1374,6 +1502,7 @@ func _layout_hud() -> void:
     action_panel.size = Vector2(focus_panel.size.x - 32.0, 60.0)
     action_label.position = Vector2.ZERO
     action_label.size = action_panel.size
+    _layout_training_controls()
     _layout_system_controls()
     _layout_archive_records()
     _update_projected_silhouettes()
@@ -2110,6 +2239,8 @@ func _tap_at(point: Vector2) -> void:
                 action_panel.size)
             if action_rect.has_point(point):
                 _start_training()
+            else:
+                _tap_training_control(point)
         return
     var polys: Dictionary = outline.get("polygons")
     # Front terminals win if the projections overlap a distant module.
@@ -2193,8 +2324,13 @@ func _focus_arrived(target_name: String) -> void:
         _reset_system_confirmation_blink()
         system_message = ""
         _refresh_system_controls()
-    action_label.text = "ENTER TRAINING" if target_name == "TRAINING" else ""
+    action_label.text = ">>  TRAINING START  <<" if target_name == "TRAINING" else ""
     action_panel.visible = target_name == "TRAINING"
+    if target_name == "TRAINING":
+        training_settings = TrainingDefaults.load_defaults()
+        _refresh_training_controls()
+        training_start_pulse = 0.0
+    _set_training_visible(target_name == "TRAINING")
     _layout_hud()
     focus_panel.visible = true
     customize_right_panel.visible = target_name == "CUSTOMIZE"
@@ -2214,6 +2350,7 @@ func _return_to_overview() -> void:
     in_transition = true
     focus_panel.visible = false
     customize_right_panel.visible = false
+    _set_training_visible(false)
     _set_system_visible(false)
     _set_archive_records_visible(false)
     system_pending_action = ""

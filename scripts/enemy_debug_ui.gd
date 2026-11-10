@@ -95,3 +95,11 @@ func _on_fire_pressed() -> void:
 
 func _on_jump_test_pressed() -> void:
     jump_test_requested.emit()
+
+# Update the selected visual state without emitting gameplay callbacks.
+func apply_initial_defaults(attack_type: int, auto_enabled: bool) -> void:
+    if _mode_buttons.size() != MODE_TEXTS.size() or _auto_button == null:
+        return
+    _mode_buttons[clampi(attack_type, 0, MODE_TEXTS.size() - 1)].set_pressed_no_signal(true)
+    _auto_button.set_pressed_no_signal(auto_enabled)
+    _auto_button.text = "AUTO ON" if auto_enabled else "AUTO OFF"
