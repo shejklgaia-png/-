@@ -28,8 +28,8 @@ assert "else:\n        reset_foot_contacts()" in tick
 assert tick.count('snap_grounded_sole_to_floor') == 1
 audio_event = rig.split("func _update_foot_contacts(delta: float)",1)[1].split("func _build_model(",1)[0]
 assert "foot_contact_elapsed >= FOOT_CONTACT_MIN_INTERVAL" in audio_event
-assert 'equipment_handler.call("snap_grounded_sole_to_floor")\n                foot_contact.emit(side)' in audio_event
-assert audio_event.count('equipment_handler.call("snap_grounded_sole_to_floor")') == 1
+assert 'equipment_handler.call("snap_run_contact_foot_to_floor", side)\n                foot_contact.emit(side)' in audio_event
+assert audio_event.count('equipment_handler.call("snap_run_contact_foot_to_floor", side)') == 1
 assert 'current_clip not in RUN_CLIPS' in audio_event
 assert 'foot_lifted[side] = true' in audio_event
 assert 'footstep_audio.play()' in main
