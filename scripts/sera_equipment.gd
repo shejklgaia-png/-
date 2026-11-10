@@ -34,6 +34,10 @@ var rig_original_y: float = 0.0
 var grounding_height_offset: float = 0.0
 # Nexus is a camera-fitted exhibition: changing rig.position breaks the preview.
 var grounding_enabled: bool = true
+# Bird C alone keeps a smoothed, persistent visual root offset instead of
+# resetting its soles to bind height and teleporting a shoe once per stride.
+const BIRD_GROUND_FOLLOW_SECONDS: float = 0.10
+var bird_grounding_render_y: float = 0.0
 
 func setup(target_rig: Node3D) -> void:
     rig = target_rig
@@ -95,6 +99,7 @@ func set_grounding_enabled(enabled: bool) -> void:
         # In the preview the camera fitter owns the entire rig transform.
         grounding_height_offset = 0.0
         rig.position.y = rig_original_y
+        bird_grounding_render_y = rig.position.y
         return
     _apply_legs_grounding(str(selected.get("legs", "A")))
 
@@ -167,13 +172,39 @@ func _apply_legs_grounding(set_id: String) -> void:
     grounding_height_offset = standard_sole_y - float(
         bind_sole_heights.get(set_id, standard_sole_y))
     rig.position.y = rig_original_y + grounding_height_offset
+    bird_grounding_render_y = rig.position.y
 
 func restore_grounding_baseline() -> void:
     # v200: all combat / step / airborne poses keep v198's fixed bind offset.
     # This only changes the visible rig; NEXUS preview stays camera-fitted.
     if not grounding_enabled or rig == null:
         return
-    rig.position.y = rig_original_y + grounding_height_offset
+    if str(selected.get("legs", "A")) == "C":
+        rig.position.y = bird_grounding_render_y
+    else:
+        rig.position.y = rig_original_y + grounding_height_offset
+
+func smooth_bird_grounding(delta: float) -> void:
+    # Unlike A/B/D, reverse-jointed C has a large changing sole envelope.
+    # Follow the actual lower sole smoothly each frame, maintaining support
+    # across steps without a one-frame character-root or mesh teleport.
+    if not grounding_enabled or rig == null or str(selected.get("legs", "A")) != "C":
+        return
+    var wearer: Node3D = rig.get_parent() as Node3D
+    if wearer == null or absf(wearer.global_position.y) > 0.05 \
+            or bool(rig.get("jump_playback")):
+        return
+    var heights: Dictionary = get_active_foot_heights()
+    if not heights.has("L") or not heights.has("R"):
+        return
+    var lowest: float = minf(float(heights["L"]), float(heights["R"]))
+    if is_inf(lowest) or is_nan(lowest):
+        return
+    var sole_world_y: float = rig.to_global(Vector3(0.0, lowest, 0.0)).y
+    var goal_y: float = rig.position.y + (TRAINING_VISIBLE_FLOOR_Y - sole_world_y)
+    var blend: float = 1.0 - exp(-maxf(delta, 0.0) / BIRD_GROUND_FOLLOW_SECONDS)
+    bird_grounding_render_y = lerpf(bird_grounding_render_y, goal_y, blend)
+    rig.position.y = bird_grounding_render_y
 
 func snap_grounded_sole_to_floor() -> void:
     # v199: evaluate the *current animated pose*, not only the bind pose.
@@ -198,6 +229,8 @@ func snap_grounded_sole_to_floor() -> void:
     # Ground plane is the top of the visible training grid. Player logical
     # height/velocity stay unchanged. The translation exactly plants one foot.
     rig.position.y = TRAINING_VISIBLE_FLOOR_Y - current_sole - wearer.global_position.y
+    if str(selected.get("legs", "A")) == "C":
+        bird_grounding_render_y = rig.position.y
 
 # Restore last frame's contact-only foot translation before measuring the
 # next animated pose. No player root translation or authored bone changes.
