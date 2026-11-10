@@ -51,6 +51,7 @@ on:
       - 'tools/v216_thruster_acceleration_burst_self_check.py'
       - 'tools/v217_thruster_burst_size_time_self_check.py'
       - 'tools/v218_thruster_short_15x_flare_self_check.py'
+      - 'tools/v219_decagonal_50ms_thruster_self_check.py'
       - 'shaders/back_thruster.gdshader'
       - 'scripts/sera_equipment.gd'
       - 'scripts/sera_rig.gd'
@@ -132,6 +133,8 @@ jobs:
         run: python3 tools/v217_thruster_burst_size_time_self_check.py
       - name: Verify v218 segmented exhaust flare grows to 15x at quarter length
         run: python3 tools/v218_thruster_short_15x_flare_self_check.py
+      - name: Verify v219 ten-sided acceleration jet and 50ms opening
+        run: python3 tools/v219_decagonal_50ms_thruster_self_check.py
       - name: Verify base model and repository paths
         run: |
           python3 tools/self_check.py
