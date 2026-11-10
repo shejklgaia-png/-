@@ -86,8 +86,8 @@ assert "outer_material.set_shader_parameter(\"burst\", 0.0)" in fx
 assert "inner_material.set_shader_parameter(\"burst\", 0.0)" in fx
 assert "stepping_this_frame and not thruster_accel_previous_step" in main
 assert "tracking_accel_state != thruster_accel_previous_tracking_state" in main
-assert "left_sector_world, acceleration_burst)" in main
-assert "left_sector_world, acceleration_burst)" in rig
+assert "left_sector_world, acceleration_burst, melee_sustain)" in main
+assert "left_sector_world, acceleration_burst, melee_sustain)" in rig
 assert "acceleration_burst)" in equipment
 assert "nozzle_rest_rotation = nozzle.quaternion" in fx
 assert "const SLIDE_BOOST_POSE_MAX_WEIGHT: float = 0.50" in rig
