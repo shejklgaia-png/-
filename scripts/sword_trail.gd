@@ -1,4 +1,5 @@
 extends Node3D
+const RENDER_ORDER = preload("res://scripts/render_order_policy.gd")
 ## v85 SERA sword-effect method (3D volume + scatter particles).
 ## Restore proven-in-source v35 cutout/convex shell/particles, applying all 8
 ## frames to each of the three v84 hand-positioned Swordeffect plates.
@@ -87,9 +88,9 @@ func attach_to_rig(rig_ref: Node3D) -> void:
     particles_mesh = MeshInstance3D.new()
     particles_mesh.name = "ScatteredSlashMicroParticles"
     effect_root.add_child(particles_mesh)
-    flat_material = _make_material(105, BaseMaterial3D.CULL_DISABLED, flat_layer_opacity)
-    lens_material = _make_material(100, BaseMaterial3D.CULL_FRONT, volume_opacity)
-    particle_material = _make_material(110, BaseMaterial3D.CULL_DISABLED, 1.0)
+    flat_material = _make_material(RENDER_ORDER.SLASH_SURFACE, BaseMaterial3D.CULL_DISABLED, flat_layer_opacity)
+    lens_material = _make_material(RENDER_ORDER.SLASH_VOLUME, BaseMaterial3D.CULL_FRONT, volume_opacity)
+    particle_material = _make_material(RENDER_ORDER.SLASH_PARTICLES, BaseMaterial3D.CULL_DISABLED, 1.0)
     flat_mesh.material_override = flat_material
     lens_mesh.material_override = lens_material
     particles_mesh.material_override = particle_material
