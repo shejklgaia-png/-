@@ -124,6 +124,8 @@ var run_turn_sign: float = 1.0
 var boost_turn_sign: float = 1.0
 var run_retreat_mode: bool = false
 var run_retreat_blend: float = 0.0
+# Hold turn side across center-back while forward/back gait is blending.
+var run_retreat_turn_sign: float = 1.0
 var run_facing_yaw: float = 0.0
 var run_upper_yaw_offsets: PackedFloat32Array = PackedFloat32Array([0.0, 0.0, 0.0, 0.0])
 # A positive bank leans toward the right side of the current travel heading.
@@ -440,9 +442,9 @@ func _update_foot_contacts(delta: float) -> void:
             foot_lifted[side] = false
             if foot_contact_elapsed >= FOOT_CONTACT_MIN_INTERVAL:
                 foot_contact_elapsed = 0.0
-                # Same exact frame as the audible footstep. All other RUN
-                # frames keep the original uncorrected animation height.
-                equipment_handler.call("snap_grounded_sole_to_floor")
+                # The foot touches the ground only on its sound frame.
+                # Do not snap the entire character vertically for one frame.
+                equipment_handler.call("snap_run_contact_foot_to_floor", side)
                 foot_contact.emit(side)
     foot_contact_initialized = true
 
@@ -943,6 +945,7 @@ func _set_run_motion_direction(local_direction: Vector2) -> void:
         run_turn_sign = 1.0
         run_retreat_mode = (_run_input_angle_degrees(direction)
             > _run_forward_sector_center(direction))
+        run_retreat_turn_sign = 1.0 if direction.x >= 0.0 else -1.0
         run_retreat_blend = 1.0 if run_retreat_mode else 0.0
         run_facing_yaw = _run_yaw_for_direction(direction, run_retreat_blend)
         run_upper_yaw_offsets = _run_joint_yaw_targets()
@@ -956,6 +959,10 @@ func _set_run_motion_direction(local_direction: Vector2) -> void:
 func _update_run_retreat_mode(direction: Vector2) -> void:
     var angle: float = _run_input_angle_degrees(direction)
     var edge_center: float = _run_forward_sector_center(direction)
+    # Keep the original retreat turn hemisphere while the mixed gait is
+    # transitioning. Raw x sign at center-back otherwise flips the Waist.
+    if not run_retreat_mode and run_retreat_blend < 0.05 and absf(direction.x) > 0.02:
+        run_retreat_turn_sign = 1.0 if direction.x >= 0.0 else -1.0
     # Preserve ±5° hysteresis and handedness bias, but use visual heading.
     if run_retreat_mode:
         if angle < edge_center - RUN_MODE_HYSTERESIS_DEGREES:
@@ -969,8 +976,7 @@ func _run_yaw_for_direction(direction: Vector2, retreat_weight: float) -> float:
     var travel_angle: float = atan2(direction.x, direction.y)
     # Right-back rotates toward the right; left-back toward the left.
     # One unconditional -PI sends right-back through the long rotation arc.
-    var retreat_sign: float = 1.0 if direction.x >= 0.0 else -1.0
-    return wrapf(-travel_angle + PI * retreat_weight * retreat_sign, -PI, PI)
+    return wrapf(-travel_angle + PI * retreat_weight * run_retreat_turn_sign, -PI, PI)
 
 # A normalized angle blend never shrinks a 180° reversal through Vector2.ZERO.
 # The last turn sign resolves noisy input on opposite sides of ±180°.
@@ -1369,6 +1375,7 @@ func _process(delta: float) -> void:
     # v200: combat (all strikes, bash, guard), steps, boosts and non-contact
     # RUN frames use the original v198 bind-height behavior.
     equipment_handler.call("restore_grounding_baseline")
+    equipment_handler.call("restore_run_contact_foot_positions")
     if (current_clip == WAIT_CLIP and not step_playback and not combat_playback
             and not guard_playback and not jump_playback and not damage_playback):
         equipment_handler.call("snap_grounded_sole_to_floor")
