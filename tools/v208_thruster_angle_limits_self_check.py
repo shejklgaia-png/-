@@ -7,18 +7,19 @@ import re
 root = Path(__file__).resolve().parents[1]
 fx = (root / "scripts/back_thruster_fx.gd").read_text(encoding="utf-8")
 project = (root / "project.godot").read_text(encoding="utf-8")
-assert 'config/name="SERA v208"' in project
+version = re.search(r'config/name="SERA v(\d+)"', project)
+assert version is not None and int(version.group(1)) >= 208
 
 for line in (
     'const YAW_LIMIT_RADIANS: float = PI * 80.0 / 180.0',
     'const PITCH_UP_LIMIT_RADIANS: float = PI * 1.0 / 180.0',
     'const PITCH_DOWN_LIMIT_RADIANS: float = PI * 90.0 / 180.0',
-    'nozzle.global_transform.basis.inverse()',
+    'nozzle_parent.global_transform.basis * Basis(nozzle_rest_rotation)',
     '+ 2.0 * maxf(-local_dir.z, 0.0) + 0.02)',
     '-YAW_LIMIT_RADIANS, YAW_LIMIT_RADIANS',
     '-PITCH_UP_LIMIT_RADIANS, PITCH_DOWN_LIMIT_RADIANS',
-    'rotation.y = lerp_angle(rotation.y, yaw, ease)',
-    'rotation.x = lerp_angle(rotation.x, pitch, ease)',
+    'steering_yaw = lerp_angle(steering_yaw, yaw, ease)',
+    'steering_pitch = lerp_angle(steering_pitch, pitch, ease)',
 ):
     assert line in fx, line
 
