@@ -9,13 +9,13 @@ rig = (ROOT / "scripts/sera_rig.gd").read_text(encoding="utf-8")
 main = (ROOT / "scripts/main.gd").read_text(encoding="utf-8")
 project = (ROOT / "project.godot").read_text(encoding="utf-8")
 
-match = re.search(r'    "legs": \\{(.*?)\\n    \\},\\n    "booster":', stats, re.S)
+match = re.search(r'    "legs": \{(.*?)\n    \},\n    "booster":', stats, re.S)
 assert match, "Cannot locate leg stats"
 legs = match.group(1)
 for set_id, expected_weight, expected_motion in [
     ("A", "medium", "run"), ("B", "heavy", "slide"), ("D", "heavy", "slide")
 ]:
-    match_part = re.search(rf'        "{set_id}": \\{{(.*?)\\}}', legs, re.S)
+    match_part = re.search(rf'        "{set_id}": \{{(.*?)\}}', legs, re.S)
     assert match_part, f"Missing leg set {set_id}"
     body = match_part.group(1)
     assert f'"weight_class": "{expected_weight}"' in body, set_id
