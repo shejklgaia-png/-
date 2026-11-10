@@ -13,7 +13,8 @@ rig = read("scripts/sera_rig.gd")
 eq = read("scripts/sera_equipment.gd")
 main = read("scripts/main.gd")
 project = read("project.godot")
-assert 'config/name="SERA v228"' in project
+version = re.search(r'config/name="SERA v(\d+)"', project)
+assert version and int(version.group(1)) >= 228
 assert "SLIDE_IK_BASE_HIP_DROP: float = 0.07" in eq
 assert "SLIDE_IK_MAX_HIP_DROP: float = 0.30" in eq
 apply = eq.split("func apply_slide_leg_ik(weight: float = 1.0) -> void:", 1)[1].split("func sync_afterimages()", 1)[0]
