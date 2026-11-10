@@ -77,7 +77,7 @@ for token in (
 assert 'var sliding: bool = (moving and heavy_slide_run_enabled' in rig
 assert 'and not boost_input_active and not boosting)' in rig
 assert 'const SLIDE_BOOST_POSE_MAX_WEIGHT: float = 0.50' in rig
-assert 'if locomotion_mode == "slide":' in rig
+assert 'if heavy_slide_run_enabled and slide_blend_weight > 0.00001:' in rig
 assert 'locomotion_mode = "boost_grace"' in rig
 assert 'locomotion_mode = "slide"' in rig
 assert 'fx.call("set_exhaust"' in read("scripts/sera_equipment.gd")
