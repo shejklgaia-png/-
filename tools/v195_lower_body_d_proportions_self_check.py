@@ -62,7 +62,8 @@ feet = [e for e in d["elements"] if "_Foot_" in e["name"]]
 assert len(feet) == 4
 feet_min, feet_max = bnds(feet)
 assert feet_max[2] - feet_min[2] > 11.0 # Old boots were 8.96 total.
-assert len(combined["animations"]) == 23
+# The original 23 clips remain; later versions may append new animations.
+assert len(combined["animations"]) >= 23
 
 gd = text("scripts/sera_equipment.gd")
 assert 'if set_id == "D":' in gd
