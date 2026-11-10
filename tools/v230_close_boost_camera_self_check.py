@@ -54,7 +54,7 @@ assert 'camera_radius = upper_radius + CAMERA_FIT_RADIUS_RESERVE' in fit
 assert 'camera_fit_radius_floor = maxf(camera_fit_radius_floor, camera_radius)' in fit
 assert 'func _relax_camera_fit_radius(delta: float) -> void:' in fit
 assert 'candidate_floor: float = maxf(0.0,' in fit
-assert 'camera_fit_radius_floor - CAMERA_FIT_RELAX_SPEED * maxf(delta, 0.0)' in fit
+assert 'camera_fit_radius_floor - _camera_fit_release_speed() * maxf(delta, 0.0)' in fit
 assert 'candidate_radius: float = maxf(camera_follow_radius, candidate_floor)' in fit
 assert 'if _full_frame_safe():' in fit
 assert 'camera_fit_radius_floor = candidate_floor' in fit
