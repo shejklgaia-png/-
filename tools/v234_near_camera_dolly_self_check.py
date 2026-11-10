@@ -10,7 +10,8 @@ def read(path):
 
 main = read("scripts/main.gd")
 project = read("project.godot")
-assert 'config/name="SERA v234"' in project
+version = re.search(r'^config/name="SERA v(\d+)"$', project, re.M)
+assert version and int(version.group(1)) >= 234
 
 def const(name):
     m = re.search(r'^const '+name+r': float = ([0-9.]+)', main, re.M)

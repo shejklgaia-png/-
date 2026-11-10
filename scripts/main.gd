@@ -78,6 +78,7 @@ const JUMP_GRAVITY: float = 8.0 * JUMP_HEIGHT / (JUMP_FLIGHT_SECONDS * JUMP_FLIG
 # Authored clip's fall pose begins at the 0.20833s key of its 0.375s duration.
 const JUMP_FALL_CLIP_START: float = 0.20833 / 0.375
 const BACK_STEP_DISTANCE: float = 4.0  # meters; side-step distance remains unchanged
+const STEP_FORWARD_DISTANCE: float = 3.0  # v235: 1.5x prior 2.0m front-step travel only
 # Side steps have a fixed world-space speed, so longer orbits last longer.
 # Sample step speed at the start (10m/s far, smooth falloff, 8m/s close);
 # keep that speed constant throughout each individual step.
@@ -2152,7 +2153,7 @@ func _start_omni_step(flick: Vector2) -> bool:
     var side_length: float = minf(
         maxf(STEP_MIN_ARC_LENGTH, radius * deg_to_rad(STEP_ORBIT_ANGLE_DEGREES)),
         minf(STEP_MAX_ARC_LENGTH, step_speed_current * STEP_MAX_DURATION))
-    var radial_distance: float = BACK_STEP_DISTANCE if direction.y >= 0.0 else STEP_MIN_ARC_LENGTH
+    var radial_distance: float = BACK_STEP_DISTANCE if direction.y >= 0.0 else STEP_FORWARD_DISTANCE
     step_radial_delta = direction.y * radial_distance
     var tangent_distance: float = absf(direction.x) * side_length
     step_arc_length = clampf(
