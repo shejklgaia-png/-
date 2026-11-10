@@ -454,14 +454,15 @@ func _add_back_thruster_effect(pivot: Node3D, group: Dictionary,
     (back_thruster_effects[set_id] as Array).append(fx)
 
 func update_back_thruster_fx(active: bool, exhaust_world: Vector3,
-        delta: float, backstroke_weight: float = 0.0) -> void:
+        delta: float, backstroke_weight: float = 0.0,
+        left_sector_world: Vector3 = Vector3.ZERO) -> void:
     var selected_booster: String = str(selected.get("booster", "A"))
     for set_id in back_thruster_effects.keys():
         for raw_fx in back_thruster_effects[set_id]:
             var fx: Node3D = raw_fx
             if is_instance_valid(fx):
                 fx.call("set_exhaust", active and str(set_id) == selected_booster,
-                    exhaust_world, delta, backstroke_weight)
+                    exhaust_world, delta, backstroke_weight, left_sector_world)
 
 func _install_standard_lower_body_d() -> void:
     var data: Dictionary = _read_standard_lower_body_d()
