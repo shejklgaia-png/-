@@ -23,7 +23,7 @@ for needle in (
     "if stepping_this_frame:",
     "backstroke_weight = clampf(step_flick_this_frame.y, 0.0, 1.0)",
     "step_side_this_frame == STEP_BACK and step_flick_this_frame.is_zero_approx()",
-    "elif boost_exhaust:",
+    "elif boost_exhaust or boost_pose_exhaust:",
     "var intended_boost: Vector3 = _screen_drag_to_ground(direction_input)",
     "player.global_transform.basis.z), 0.0, 1.0)",
     "direction_of_exhaust.normalized(), delta, backstroke_weight,",

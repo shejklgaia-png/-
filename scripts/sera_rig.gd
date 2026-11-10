@@ -243,8 +243,21 @@ func set_heavy_slide_run_enabled(enabled: bool) -> void:
 func get_locomotion_mode() -> String:
     return locomotion_mode
 
+# The back-nozzle FX follows a *visible* BOOST pose during thumb turns:
+# confirmed BOOST, the 0.50s pose hold and the remaining 0.20s RUN crossfade.
+# SLIDE reuses Boost_* for heavy legs but is NOT a true BOOST pose here.
+func is_boost_exhaust_pose_visible() -> bool:
+    if not loading_ok or training_ko_active or combat_playback or step_playback \
+            or guard_playback or damage_playback or jump_playback:
+        return false
+    if current_clip == BOOST_CLIP:
+        return locomotion_mode == "boost" or locomotion_mode == "boost_grace"
+    return (current_clip == RUN_CLIP and boost_to_run_crossfade
+        and blending_for < blend_duration)
+
 # Future VFX connections: SLIDE enables legs only, confirmed BOOST also
-# enables the back booster. A grace-period BOOST pose never activates FX.
+# enables the back booster. The visual pose hold is separately tracked by
+# is_boost_exhaust_pose_visible(), not by a heavyweight SLIDE state.
 # These are intent channels only; no new thruster particles are created yet.
 func get_thruster_intent() -> Dictionary:
     return {
@@ -1068,7 +1081,8 @@ func set_moving(moving: bool, boosting: bool = false,
         return
     # Boosting includes the old 0.50s visual grace. Actual BOOST is passed
     # separately so reusing its pose for heavy SLIDE never enables BOOST FX.
-    var sliding: bool = moving and heavy_slide_run_enabled and not boost_input_active
+    var sliding: bool = (moving and heavy_slide_run_enabled
+        and not boost_input_active and not boosting)
     var use_boost_pose: bool = boosting or sliding
     if not moving:
         locomotion_mode = "idle"
