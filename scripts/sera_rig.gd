@@ -159,6 +159,9 @@ var training_ko_active: bool = false
 var _ko_material: ShaderMaterial
 var _ko_material_b: ShaderMaterial
 const KO_DARK_SHADER = preload("res://shaders/sera_ko_dark.gdshader")
+const ENERGY_FLASH_SHADER = preload("res://shaders/sera_energy_flash.gdshader")
+var energy_flash_active: bool = false
+var _energy_flash_material: ShaderMaterial
 # v182: ping-pong only the AUTHORED early windup keyframes while chasing.
 # Release jumps to the actual windup endpoint with a 0.025s pose blend.
 var attack_windup_active: bool = false
@@ -573,6 +576,16 @@ func set_training_ko(active: bool) -> void:
                 _switch_clip(WAIT_CLIP, 0.10)
     _refresh_character_overlay()
 
+func set_energy_flash_active(active: bool) -> void:
+    if energy_flash_active == active:
+        return
+    energy_flash_active = active
+    if active and _energy_flash_material == null:
+        _energy_flash_material = ShaderMaterial.new()
+        _energy_flash_material.shader = ENERGY_FLASH_SHADER
+    # Preserve authored materials and existing slash/KO overlays.
+    _refresh_character_overlay()
+
 func set_slash_player_foreground(enabled: bool) -> void:
     if enabled == _foreground_enabled:
         return
@@ -593,6 +606,8 @@ func _refresh_character_overlay() -> void:
         var overlay: Material = null
         if training_ko_active:
             overlay = _ko_material_b if str(part.get_meta("sera_equipment_set", "A")) == "B" else _ko_material
+        elif energy_flash_active:
+            overlay = _energy_flash_material
         elif _foreground_enabled:
             if str(part.get_meta("sera_equipment_set", "A")) == "B":
                 if _foreground_mat_b == null:

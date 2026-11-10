@@ -69,14 +69,12 @@ func set_exhaust(enabled: bool, world_exhaust_direction: Vector3,
         var local_dir: Vector3 = (
             nozzle.global_transform.basis.inverse()
             * world_exhaust_direction.normalized()).normalized()
-        # Exhaust faces local +Z. A reverse STEP would require 180 degrees;
-        # clamp each axis instead to avoid a tube crossing the character.
-        # If the request points almost directly ahead of the character,
-        # 180 degrees cannot be achieved. Keep the nozzle centered rather
-        # than snapping unpredictably to one side of the cone.
-        var requested_yaw: float = atan2(local_dir.x, local_dir.z)
-        if local_dir.z < 0.0 and absf(local_dir.x) < 0.035:
-            requested_yaw = 0.0
+        # The authored rear nozzle is local +Z. Project impossible forward
+        # requests toward rear-center continuously: the previous atan2(X, Z)
+        # jumped to +/-38 degrees on either side of a reverse move.
+        var rear_denominator: float = (maxf(local_dir.z, 0.0)
+            + 2.0 * maxf(-local_dir.z, 0.0) + 0.25)
+        var requested_yaw: float = atan2(local_dir.x, rear_denominator)
         var yaw: float = clampf(requested_yaw,
             -YAW_LIMIT_RADIANS, YAW_LIMIT_RADIANS)
         var horizontal: float = sqrt(local_dir.x * local_dir.x + local_dir.z * local_dir.z)

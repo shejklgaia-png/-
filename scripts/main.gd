@@ -36,7 +36,7 @@ const MOVEMENT_BOOST_MULTIPLIER: float = 1.5
 # BOOST remains based on distance from the initial touch point.
 # v161: bring BOOST entry 25.2px closer; retain 15% radial hysteresis.
 const BOOST_START_RADIUS_RATIO: float = 1.10
-const BOOST_EXIT_RADIUS_RATIO: float = 0.95
+const BOOST_EXIT_RADIUS_RATIO: float = 0.90
 const BOOST_CONFIRM_SECONDS: float = 0.10
 # v163: RUN <-> BOOST speed uses a 0.20s smoothstep transition.
 # Changes of direction of the transition start at the CURRENT multiplier.
@@ -201,6 +201,8 @@ const DAMAGE_KNOCKBACK_DURATION: float = 0.24  # seconds
 # v177: trial A medium/B heavy equipment performance.
 const TEST_EN_MAX: float = 100.0
 const EN_RECOVERY_UNLOCK_RATIO: float = 0.60
+const EN_EMPTY_FLASH_SECONDS: float = 0.60
+const EN_EMPTY_FLASH_HZ: float = 7.0
 const TEST_SH_MAX: float = 100.0
 var part_stats: Dictionary = {}
 var player_hp: float = 800.0
@@ -208,6 +210,7 @@ var energy: float = TEST_EN_MAX
 var shield: float = TEST_SH_MAX
 var energy_exhausted: bool = false
 var energy_recovery_pause: float = 0.0
+var en_empty_flash_remaining: float = 0.0
 var shield_recovery_pause: float = 0.0
 var guard_break_remaining: float = 0.0
 var guard_break_hits: int = 0
@@ -268,8 +271,6 @@ var direction_input: Vector2 = Vector2.ZERO
 var movement_boost_active: bool = false
 var boost_confirm_elapsed: float = 0.0
 var boost_has_activated_this_gesture: bool = false
-# EN-related BOOST cancellation remains latched until the finger returns inward.
-var boost_rearm_required: bool = false
 var boost_speed_multiplier: float = 1.0
 var boost_speed_transition_start: float = 1.0
 var boost_speed_transition_target: float = 1.0
@@ -441,6 +442,24 @@ func _load_part_stats() -> void:
         float(part_stats.get("guard_transition", 0.095)),
         str(part_stats.get("guard_reaction", "medium")))
 
+func _enter_energy_exhaustion() -> void:
+    if energy_exhausted:
+        return
+    energy_exhausted = true
+    en_empty_flash_remaining = EN_EMPTY_FLASH_SECONDS
+    if rig != null:
+        rig.call("set_energy_flash_active", true)
+
+func _tick_energy_empty_flash(delta: float) -> void:
+    if en_empty_flash_remaining <= 0.0:
+        return
+    en_empty_flash_remaining = maxf(0.0, en_empty_flash_remaining - maxf(delta, 0.0))
+    var elapsed: float = EN_EMPTY_FLASH_SECONDS - en_empty_flash_remaining
+    var red_phase: bool = (en_empty_flash_remaining > 0.0
+        and int(floor(elapsed * EN_EMPTY_FLASH_HZ * 2.0)) % 2 == 0)
+    if rig != null:
+        rig.call("set_energy_flash_active", red_phase)
+
 func _spend_energy(amount: float) -> bool:
     if amount <= 0.0:
         return true
@@ -450,12 +469,12 @@ func _spend_energy(amount: float) -> bool:
         return false
     if energy + 0.0001 < amount:
         if energy <= 0.0001:
-            energy_exhausted = true
+            _enter_energy_exhaustion()
         return false
     energy = maxf(0.0, energy - amount)
     energy_recovery_pause = 0.25
     if energy <= 0.0001:
-        energy_exhausted = true
+        _enter_energy_exhaustion()
     return true
 
 func _tick_resources(delta: float) -> void:
@@ -511,6 +530,8 @@ func _begin_training_ko() -> void:
     movement_boost_active = false
     boost_pose_grace_remaining = 0.0
     gesture_active = false
+    en_empty_flash_remaining = 0.0
+    rig.call("set_energy_flash_active", false)
     player.velocity = Vector3.ZERO
     if touch_ui != null:
         touch_ui.call("hide_drag")
@@ -1678,7 +1699,6 @@ func _begin_drag(pos: Vector2) -> void:
     movement_boost_active = false
     boost_confirm_elapsed = 0.0
     boost_has_activated_this_gesture = false
-    boost_rearm_required = false
     _reset_boost_speed_transition()
     boost_pose_grace_remaining = 0.0
     touch_ui.call("set_movement_boost", false)
@@ -1717,7 +1737,7 @@ func _change_drag(pos: Vector2) -> void:
     # A forward Bash gesture does not create RUN motion or interrupt stage 3.
     direction_input = Vector2.ZERO if bash_flick_candidate else _analog_stick_direction(pos)
     touch_ui.call("set_analog_direction", direction_input)
-    # BOOST continues to use the original, fixed 125%/110% radial thresholds.
+    # BOOST uses the existing 110% entry rim and the more stable 90% exit rim.
     _update_boost_gesture(0.0)
     if gesture_max_travel > TAP_MAX_TRAVEL:
         if step_active and not jump_active:
@@ -1736,21 +1756,12 @@ func _update_boost_gesture(delta: float) -> void:
             or energy_exhausted or bash_flick_candidate or jump_active or landing_active:
         boost_confirm_elapsed = 0.0
         if movement_boost_active:
-            # Covers a successful spend that exhausted EN exactly to zero.
-            if energy_exhausted:
-                boost_rearm_required = true
             movement_boost_active = false
             touch_ui.call("set_movement_boost", false)
         return
-    # RUN rim is 112px, but BOOST stays at the original 168px reference.
+    # Preserve the held pointer/direction across EN exhaustion. Unlocking at
+    # 60% may restart BOOST on this very same outer-ring gesture.
     var finger_distance: float = pointer_location.distance_to(pointer_origin)
-    # A stationary outside hold cannot restart BOOST after EN regeneration.
-    # Re-arm only after an intentional inward drag past the existing exit rim.
-    if boost_rearm_required:
-        if finger_distance >= DRAG_RADIUS * BOOST_EXIT_RADIUS_RATIO:
-            boost_confirm_elapsed = 0.0
-            return
-        boost_rearm_required = false
     if movement_boost_active:
         # Hysteresis: do not flicker between RUN and BOOST at the entry rim.
         if finger_distance < DRAG_RADIUS * BOOST_EXIT_RADIUS_RATIO:
@@ -2739,6 +2750,7 @@ func _physics_process(delta: float) -> void:
         if state_label != null:
             state_label.text = "SERA KO / RESTART %.1fs" % training_ko_remaining
         _tick_resources(delta)
+        _tick_energy_empty_flash(delta)
         return
     _advance_target_motion(delta)
     bash_followup_window_remaining = maxf(0.0, bash_followup_window_remaining - delta)
@@ -2755,10 +2767,9 @@ func _physics_process(delta: float) -> void:
             # ANY positive-cost EN action is available again.
             if not boost_energy_ok and not energy_exhausted:
                 energy = 0.0
-                energy_exhausted = true
                 energy_recovery_pause = 0.25
-            # Retain v201's separate inward-thumb rearm requirement.
-            boost_rearm_required = true
+                _enter_energy_exhaustion()
+            # Keep the held touch valid; no inward-thumb reset is needed.
             boost_confirm_elapsed = 0.0
             movement_boost_active = false
             if touch_ui != null:
@@ -2767,7 +2778,12 @@ func _physics_process(delta: float) -> void:
         if energy_exhausted or not _spend_energy(6.0 * delta):
             # Energy-backed guards must not become free while EN is locked.
             _set_guard(false)
+    var was_energy_exhausted: bool = energy_exhausted
     _tick_resources(delta)
+    _tick_energy_empty_flash(delta)
+    if was_energy_exhausted and not energy_exhausted:
+        # After 60% unlock, resume on the existing held outer-ring drag.
+        _update_boost_gesture(BOOST_CONFIRM_SECONDS)
     stagger_remaining = maxf(0.0, stagger_remaining - delta)
     part_break_remaining = maxf(0.0, part_break_remaining - delta)
     if stagger_remaining <= 0.0:
