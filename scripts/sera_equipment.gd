@@ -6,6 +6,7 @@ const EMBEDDED_SOURCE = preload("res://assets/sera_equipment_data.gd")
 # Author-normalized standard legs use a dedicated source, not the C head's root index.
 const LOWER_BODY_D_SOURCE: String = "res://models/storage/SERA_LOWER_BODY_D_STANDARD_READY.bbmodel"
 const LOWER_BODY_D_EMBEDDED = preload("res://assets/sera_lower_body_d_data.gd")
+const BACK_THRUSTER_FX = preload("res://scripts/back_thruster_fx.gd")
 const SAVE_PATH: String = "user://sera_equipment.cfg"
 const SLOTS = ["head", "torso", "legs", "arms", "booster", "weapon_r", "weapon_l"]
 const MODEL_UNIT: float = 0.065
@@ -18,6 +19,8 @@ const B_SET_TINT: Color = Color(1.0, 0.18, 0.18, 1.0)
 var rig: Node3D
 var available: Dictionary = {}  # set letter -> slot -> Array[MeshInstance3D]
 var selected: Dictionary = {}
+# Both selectable booster sets have their own two nozzle effects.
+var back_thruster_effects: Dictionary = {}
 # Per-set bind-pose feet. The base reference is measured once with no motion
 # to avoid raising/lowering the body at each step (which would erase the gait).
 var foot_meshes: Dictionary = {}
@@ -342,7 +345,11 @@ func _attach_back_booster_group(entry: Dictionary, parent: Node3D, parent_origin
     var group_origin: Vector3 = _v3(group.get("origin", [0, 0, 0]))
     var pivot := Node3D.new()
     pivot.name = str(group.get("name", "BOOSTER")) + "_" + set_id
+    # Blockbench group origins are absolute authoring-space positions. Each
+    # child local transform must be measured from its immediate parent's Pivot.
     pivot.position = (group_origin - parent_origin) * MODEL_UNIT
+    pivot.quaternion = rig.call("_blockbench_rotation",
+        _v3(group.get("rotation", [0, 0, 0])))
     parent.add_child(pivot)
     for child in entry.get("children", []):
         if child is Dictionary:
@@ -356,6 +363,8 @@ func _attach_back_booster_group(entry: Dictionary, parent: Node3D, parent_origin
                 continue
             piece.name = set_id + "_" + str(element.get("name", "BoosterMesh"))
             piece.position = (_v3(element.get("origin", [0, 0, 0])) - group_origin) * MODEL_UNIT
+            piece.quaternion = rig.call("_blockbench_rotation",
+                _v3(element.get("rotation", [0, 0, 0])))
             var authored_name: String = str(element.get("name", ""))
             var mat: StandardMaterial3D = piece.material_override as StandardMaterial3D
             if mat != null:
@@ -365,9 +374,55 @@ func _attach_back_booster_group(entry: Dictionary, parent: Node3D, parent_origin
                     Color("#48535f") if authored_name.ends_with("_Outer") else Color("#77818b"))
                 piece.material_override = steel
             piece.set_meta("sera_equipment_set", set_id)
-            parent.add_child(piece)
+            # v205 mistakenly added pieces to the *parent*, bypassing the
+            # pivot translation. Attach under the authoring group itself.
+            pivot.add_child(piece)
             piece.visible = false
             _add_mesh(set_id, "booster", piece)
+    if str(group.get("name", "")).begins_with("Thruster_"):
+        _add_back_thruster_effect(pivot, group, entry, elements, set_id)
+
+
+# Anchor flames on the authored OUTER nozzle rim, not on a hard-coded pivot.
+# Re-editing any nozzle group origin in Blockbench keeps the nozzle and flame
+# together. Local +Z is the rectangular exhaust's outward axis.
+func _add_back_thruster_effect(pivot: Node3D, group: Dictionary,
+        entry: Dictionary, elements: Dictionary, set_id: String) -> void:
+    var side_name: String = str(group.get("name", ""))
+    var outer: Dictionary = {}
+    for child in entry.get("children", []):
+        if child is String:
+            var candidate: Dictionary = elements.get(child, {})
+            if str(candidate.get("name", "")) == side_name + "_Outer":
+                outer = candidate
+                break
+    if outer.is_empty():
+        push_warning("SERA booster: missing authored nozzle rim %s" % side_name)
+        return
+    var far_z: float = -INF
+    for vertex in (outer.get("vertices", {}) as Dictionary).values():
+        var position: Vector3 = _v3(vertex)
+        far_z = maxf(far_z, position.z)
+    if is_inf(far_z):
+        return
+    var author_rim: Vector3 = _v3(outer.get("origin", [0, 0, 0]))
+    author_rim.z += far_z + 0.08  # 0.08 Blockbench units outside the metal.
+    var fx: Node3D = BACK_THRUSTER_FX.new()
+    fx.name = side_name + "_ExhaustFX"
+    fx.position = (author_rim - _v3(group.get("origin", [0, 0, 0]))) * MODEL_UNIT
+    pivot.add_child(fx)
+    if not back_thruster_effects.has(set_id):
+        back_thruster_effects[set_id] = []
+    (back_thruster_effects[set_id] as Array).append(fx)
+
+func update_back_thruster_fx(active: bool, exhaust_world: Vector3, delta: float) -> void:
+    var selected_booster: String = str(selected.get("booster", "A"))
+    for set_id in back_thruster_effects.keys():
+        for raw_fx in back_thruster_effects[set_id]:
+            var fx: Node3D = raw_fx
+            if is_instance_valid(fx):
+                fx.call("set_exhaust", active and str(set_id) == selected_booster,
+                    exhaust_world, delta)
 
 func _install_standard_lower_body_d() -> void:
     var data: Dictionary = _read_standard_lower_body_d()

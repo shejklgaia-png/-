@@ -2907,6 +2907,31 @@ func _physics_process(delta: float) -> void:
     )
     if aim.length_squared() > 0.000001:
         player.look_at(player.global_position + aim, Vector3.UP)
+    # v206: Exhaust is independent of the displayed Boost_* pose: heavyweight
+    # SLIDE and the 0.50s post-BOOST pose grace do not activate back thrusters.
+    # Step displacement is captured before step_active is cleared by its final
+    # animation frame; attack tracking is detected from the actual swept motion.
+    var boost_exhaust: bool = movement_boost_active and running \
+        and combat_state == CombatState.IDLE
+    var tracking_exhaust: bool = (
+        combat_state == CombatState.DASH
+        or combat_state == CombatState.BASH_TRACK
+        or combat_state == CombatState.STRIKE_TRACK
+        or (combat_state == CombatState.STRIKE and not strike_did_hit)
+        or (combat_state == CombatState.BASH and not bash_did_hit))
+    # When a wall prevents a chase, do not display a false pursuing jet.
+    tracking_exhaust = tracking_exhaust and blur_velocity.length_squared() > 0.04
+    var exhaust_on: bool = (not damage_reaction_active and not jump_active
+        and not landing_active and not guard_active and not energy_exhausted
+        and (boost_exhaust or stepping_this_frame or tracking_exhaust))
+    var direction_of_exhaust: Vector3 = -blur_velocity
+    direction_of_exhaust.y = 0.0
+    if direction_of_exhaust.length_squared() < 0.0004:
+        # A wall can stop BOOST or STEP while the control remains active.
+        # Keep the nozzle pointed behind SERA instead of using a zero vector.
+        direction_of_exhaust = player.global_transform.basis.z
+    rig.call("update_back_thruster_fx", exhaust_on,
+        direction_of_exhaust.normalized(), delta)
     _update_melee_lock_marker()  # Update after player movement and auto-approach.
     # Update the idle HUD whenever the next step's speed changes by 0.1m/s.
     if not step_active and step_status_label != null:

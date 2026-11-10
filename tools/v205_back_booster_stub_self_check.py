@@ -62,5 +62,7 @@ for phrase in (
     '_add_mesh(set_id, "booster", piece)',
 ):
     assert phrase in equip, phrase
-assert 'config/name="SERA v205"' in (root / "project.godot").read_text(encoding="utf-8")
+import re
+version = re.search(r'config/name="SERA v(\d+)"', (root / "project.godot").read_text(encoding="utf-8"))
+assert version and int(version.group(1)) >= 205
 print("v205 booster authoring and in-game import checks passed")
