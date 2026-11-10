@@ -10,7 +10,8 @@ def read(path):
 
 main = read("scripts/main.gd")
 project = read("project.godot")
-assert 'config/name="SERA v233"' in project
+version = re.search(r'config/name="SERA v(\d+)"', project)
+assert version and int(version.group(1)) >= 233
 def const(name):
     m = re.search(r'^const '+name+r': float = ([0-9.]+)', main, re.M)
     assert m is not None, name
@@ -31,6 +32,8 @@ assert 'var preferred_radius: float = lerpf(CAMERA_CLOSE_RADIUS, CAMERA_BASE_RAD
 assert 'preferred_radius = maxf(preferred_radius, separation + 2.0)' in render
 assert 'zoom_ratio = zoom_ratio * zoom_ratio * (3.0 - 2.0 * zoom_ratio)' in render
 assert 'camera_follow_radius = lerpf(' in render
+assert 'camera_dolly_in_speed = move_toward(' in render
+assert 'var gap_stop_speed: float' in render
 assert 'camera_radius = maxf(camera_follow_radius, camera_fit_radius_floor)' in render
 assert '_fit_boost_frame_analytically(delta)' in render
 assert '_fit_full_frame()' in render

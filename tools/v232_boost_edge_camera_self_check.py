@@ -45,7 +45,7 @@ for token in (
     'for dz in [-TARGET_HALF_SIZE, TARGET_HALF_SIZE]:',
     'var safe_radius: float = (_minimum_boost_camera_radius()',
     'camera_fit_radius_floor = move_toward(camera_fit_radius_floor,',
-    'safe_radius, CAMERA_FIT_RELAX_SPEED * maxf(delta, 0.0))',
+    'safe_radius, _camera_fit_release_speed() * maxf(delta, 0.0))',
     'camera_radius = maxf(camera_follow_radius, camera_fit_radius_floor)',
 ):
     assert token in fit, token
