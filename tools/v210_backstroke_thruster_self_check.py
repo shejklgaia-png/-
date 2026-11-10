@@ -26,7 +26,7 @@ for needle in (
     "elif boost_exhaust:",
     "var intended_boost: Vector3 = _screen_drag_to_ground(direction_input)",
     "player.global_transform.basis.z), 0.0, 1.0)",
-    "direction_of_exhaust.normalized(), delta, backstroke_weight)",
+    "direction_of_exhaust.normalized(), delta, backstroke_weight,",
     "var step_flick_this_frame: Vector2 = step_flick_direction",
 ):
     assert needle in main, needle
@@ -34,11 +34,11 @@ assert "var boost_exhaust: bool = movement_boost_active and running" in main
 
 # End-to-end transport: controller -> rig -> selected equipment -> real pivots.
 for source, needle in (
-    (rig, "delta: float, backstroke_weight: float = 0.0) -> void:"),
-    (rig, "active, exhaust_world, delta, backstroke_weight)"),
-    (equip, "delta: float, backstroke_weight: float = 0.0) -> void:"),
-    (equip, "exhaust_world, delta, backstroke_weight)"),
-    (fx, "delta: float, backstroke_weight: float = 0.0) -> void:"),
+    (rig, "delta: float, backstroke_weight: float = 0.0,"),
+    (rig, "active, exhaust_world, delta, backstroke_weight,"),
+    (equip, "delta: float, backstroke_weight: float = 0.0,"),
+    (equip, "exhaust_world, delta, backstroke_weight,"),
+    (fx, "delta: float, backstroke_weight: float = 0.0,"),
     (fx, "var backstroke: float = clampf(backstroke_weight, 0.0, 1.0)"),
     (fx, "yaw = lerpf(yaw, 0.0, backstroke)"),
     (fx, "pitch = lerpf(pitch, PITCH_DOWN_LIMIT_RADIANS, backstroke)"),
