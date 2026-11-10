@@ -36,6 +36,9 @@ on:
       - 'tools/v200_contact_omni_step_self_check.py'
       - 'tools/v204_heavy_leg_slide_self_check.py'
       - 'tools/v205_back_booster_stub_self_check.py'
+      - 'tools/v206_back_thruster_fx_self_check.py'
+      - 'scripts/back_thruster_fx.gd'
+      - 'shaders/back_thruster.gdshader'
       - 'scripts/sera_equipment.gd'
       - 'scripts/sera_rig.gd'
       - 'scripts/version_indicator.gd'
@@ -90,6 +93,8 @@ jobs:
         run: python3 tools/v204_heavy_leg_slide_self_check.py
       - name: Verify v205 authored back booster mockup and runtime import
         run: python3 tools/v205_back_booster_stub_self_check.py
+      - name: Verify v206 authored pivots and limited rectangular exhaust effects
+        run: python3 tools/v206_back_thruster_fx_self_check.py
       - name: Verify base model and repository paths
         run: |
           python3 tools/self_check.py

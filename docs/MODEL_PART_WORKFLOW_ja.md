@@ -133,3 +133,9 @@
 - 標準Aの`Chest`直下に`BOOSTER`を作り、Bodyと左右の八角中空Thruster/内側面を保存します。新規UUIDを割り当て、既存Aモーションや別セットの形状を壊しません。
 - `scripts/sera_equipment.gd`が統合Blockbenchの元A Chest下`BOOSTER`を明示的に読み、既存のアニメーションChestに紐づく独立`booster`スロットとして登録します。A/Bとも同一仮メッシュを独立生成するため、別装備を選んでも消えません。
 - `tools/rebuild_equipment_data.py`由来の`assets/sera_equipment_data.gd`との一致を維持。噴射VFXは未実装であり、先行v204のSLIDE時脚部のみ／BOOST時背面ONという将来仕様は変更しません。
+
+
+## v206 — 最新BOOSTER Pivot同期とノズル演出
+- `models/storage/SERA_BOOSTER_allテスト (4).bbmodel`のBOOSTERおよび左右Thrusterグループ原点と5メッシュだけを正式統合モデルへ反映し、無関係のHand_L階層変更等は持ち込まない。
+- 装備ローダーは`pivot.add_child(piece)`を採用し、各グループの絶対Pivotとの差分・回転を適用。エフェクト位置はOuterメッシュの原点とローカル最大Zから求め、ピボット変更に追従。
+- `scripts/back_thruster_fx.gd`と`shaders/back_thruster.gdshader`で四角筒の揺らぎ演出。実移動方向の逆、左右±38°・上下±24°、BOOST/STEP/格闘・バッシュ追尾時のみON。重量級SLIDEは背面FXを出さない。
