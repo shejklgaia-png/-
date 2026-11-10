@@ -4,6 +4,7 @@ extends Node3D
 ## its actual animated/rotated Blockbench pivot. Separate from SLIDE mode.
 const FLAME_SHADER = preload("res://shaders/back_thruster.gdshader")
 const RIBBON_SHADER = preload("res://shaders/back_thruster_trail.gdshader")
+const RENDER_ORDER = preload("res://scripts/render_order_policy.gd")
 const YAW_LIMIT_RADIANS: float = PI * 80.0 / 180.0
 const PITCH_UP_LIMIT_RADIANS: float = PI * 1.0 / 180.0
 const PITCH_DOWN_LIMIT_RADIANS: float = PI * 90.0 / 180.0
@@ -16,10 +17,8 @@ const MELEE_TORSO_CLEARANCE_DOT: float = 0.55
 # retaining limited steering for target homing (BOOST/STEP are unchanged).
 const MELEE_YAW_LIMIT_RADIANS: float = PI * 20.0 / 180.0
 const MELEE_PITCH_DOWN_LIMIT_RADIANS: float = PI * 35.0 / 180.0
-# The SERA slash foreground overlay uses priority 126 with disabled depth
-# testing. Both flame and ribbon MUST draw afterward with NORMAL depth tests:
-# visible when physically in front of the body, hidden when truly behind it.
-const EXHAUST_RENDER_PRIORITY: int = 127
+# Draw afterward than the slash foreground overlay, but with depth
+# testing unchanged: the shared policy owns all rendering priority values.
 const EXHAUST_LENGTH: float = 0.65
 # Vertex deformation needs intermediate rings: two end-caps cannot form a
 # rapid flare close to the nozzle, only a linearly tapered giant triangle.
@@ -79,7 +78,7 @@ func _ready() -> void:
         ribbon_mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
         var ribbon_material := ShaderMaterial.new()
         ribbon_material.shader = RIBBON_SHADER
-        ribbon_material.render_priority = EXHAUST_RENDER_PRIORITY
+        ribbon_material.render_priority = RENDER_ORDER.DEPTH_TESTED_EMISSIVE
         ribbon_mesh.material_override = ribbon_material
         nozzle.add_child(ribbon_mesh)
         ribbon_mesh.global_transform = Transform3D.IDENTITY
@@ -120,7 +119,7 @@ func _build_tube(half_width: float, length: float, tint: Color,
     # Keep transparent shader on its own instances, not on the shared SERA mesh.
     var material := ShaderMaterial.new()
     material.shader = FLAME_SHADER
-    material.render_priority = EXHAUST_RENDER_PRIORITY
+    material.render_priority = RENDER_ORDER.DEPTH_TESTED_EMISSIVE
     material.set_shader_parameter("flame_tint", tint)
     material.set_shader_parameter("tube_length", length)
     material.set_shader_parameter("phase_offset", offset)

@@ -1,4 +1,5 @@
 shader_type spatial;
+// RENDER_POLICY: DEPTH_TESTED_EMISSIVE; depth_test=on
 render_mode unshaded, cull_disabled, blend_add, depth_draw_never, shadows_disabled;
 
 // Vertex colors are authored per frame from world-space positions and age.

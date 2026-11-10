@@ -1,4 +1,5 @@
 extends Node3D
+const RENDER_ORDER = preload("res://scripts/render_order_policy.gd")
 ## v19: independent square-pixel sparks with thin, curved motion trails.
 ## Each square has a sub-pixel dark-red BORDER around a light core; the border
 ## shade is unchanged from v18's sparks. Geometries are non-alpha 3D triangles.
@@ -43,7 +44,7 @@ func _ready() -> void:
     material.cull_mode = BaseMaterial3D.CULL_DISABLED
     material.no_depth_test = false  # v32: Sera can occlude hit sparks, unlike v31
     material.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_DISABLED
-    material.render_priority = 120
+    material.render_priority = RENDER_ORDER.HIT_SPARKS
     material.specular_mode = BaseMaterial3D.SPECULAR_DISABLED
 
 func _reset_sparks() -> void:
