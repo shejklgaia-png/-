@@ -407,7 +407,23 @@ func _merge_bird_animation_tracks(only_clip: String = "") -> void:
     # gameplay state by reusing the nearest compatible bird movement/pose.
     _fallback_bird_animation("run_back", "run_front_original")
     _fallback_bird_animation("run_right", "run_Left")
-    _fallback_bird_animation("Jump", "Wait_Pose")
+    _fallback_bird_animation("Jump", "Wait_motion")
+    # Some Step/Boost/Guard/Frontstep clips have only 3-5 of 6 bird joint
+    # keys. A missing track previously reset those joints to the *bind*
+    # rotation in one frame. Hold their authored Wait_motion pose instead.
+    var idle_tracks: Dictionary = animations[WAIT_CLIP]["tracks"]
+    for clip_key in animations.keys():
+        var clip_tracks: Dictionary = animations[clip_key]["tracks"]
+        for uid in bird_bone_ids:
+            var idle_channels: Dictionary = idle_tracks.get(uid, {})
+            var idle_rotations: Array = idle_channels.get("rotation", [])
+            if idle_rotations.is_empty():
+                continue
+            if not clip_tracks.has(uid):
+                clip_tracks[uid] = {"rotation": [], "position": [], "scale": []}
+            var channels: Dictionary = clip_tracks[uid]
+            if (channels.get("rotation", []) as Array).is_empty():
+                channels["rotation"] = [idle_rotations[0].duplicate(true)]
 
 func _fallback_bird_animation(target: String, source: String) -> void:
     if not animations.has(target) or not animations.has(source):
@@ -466,7 +482,8 @@ func _update_foot_contacts(delta: float) -> void:
                 foot_contact_elapsed = 0.0
                 # The foot touches the ground only on its sound frame.
                 # Do not snap the entire character vertically for one frame.
-                equipment_handler.call("snap_run_contact_foot_to_floor", side)
+                if str(equipment_handler.call("current_for", "legs")) != "C":
+                    equipment_handler.call("snap_run_contact_foot_to_floor", side)
                 foot_contact.emit(side)
     foot_contact_initialized = true
 
@@ -1401,9 +1418,15 @@ func _process(delta: float) -> void:
     equipment_handler.call("restore_run_contact_foot_positions")
     if (current_clip == WAIT_CLIP and not step_playback and not combat_playback
             and not guard_playback and not jump_playback and not damage_playback):
-        equipment_handler.call("snap_grounded_sole_to_floor")
+        if str(equipment_handler.call("current_for", "legs")) == "C":
+            equipment_handler.call("smooth_bird_grounding", delta)
+        else:
+            equipment_handler.call("snap_grounded_sole_to_floor")
     elif current_clip in RUN_CLIPS and not step_playback:
-        # The event calls the one-frame snap ONLY when a footstep sounds.
+        # Bird C follows its current support soles continuously; only A/B/D
+        # use the one-frame shoe contact on the audible footstep.
+        if str(equipment_handler.call("current_for", "legs")) == "C":
+            equipment_handler.call("smooth_bird_grounding", delta)
         _update_foot_contacts(delta)
     else:
         reset_foot_contacts()
@@ -1603,6 +1626,19 @@ func _apply_animation(_delta: float) -> void:
             scale_value = _value_at(scale_values, t) if not scale_values.is_empty() else Vector3.ONE
             translation = _value_at(position_values, t) * UNIT
             q = _rotation_at(rotation_values, t) if not rotation_values.is_empty() else bind_rotations[uid]
+            if uid in bird_bone_ids and current_clip == WAIT_CLIP \
+                    and rotation_values.size() > 1:
+                # The authored bird idle ankle's final key is at ~0.22s,
+                # but the loop lasts 3.6s. Fade it back to its first key
+                # over the final 0.20s so there is no loop-boundary snap.
+                var loop_return_start: float = maxf(
+                    float(rotation_values[rotation_values.size() - 1]["time"]),
+                    clip_length - 0.20)
+                if t > loop_return_start and clip_length > loop_return_start:
+                    var loop_alpha: float = clampf(
+                        (t - loop_return_start) / (clip_length - loop_return_start),
+                        0.0, 1.0)
+                    q = q.slerp(rotation_values[0]["quaternion"], loop_alpha).normalized()
         if blend_weight < 1.0 and prior_rotations.has(uid):
             q = (prior_rotations[uid] as Quaternion).slerp(q, blend_weight)
             translation = (prior_offsets[uid] as Vector3).lerp(translation, blend_weight)
