@@ -48,6 +48,7 @@ on:
       - 'tools/v213_left_nozzle_quadrant_self_check.py'
       - 'tools/v214_turn_boost_exhaust_self_check.py'
       - 'tools/v215_bird_gait_grounding_self_check.py'
+      - 'tools/v216_thruster_acceleration_burst_self_check.py'
       - 'shaders/back_thruster.gdshader'
       - 'scripts/sera_equipment.gd'
       - 'scripts/sera_rig.gd'
@@ -123,6 +124,8 @@ jobs:
         run: python3 tools/v214_turn_boost_exhaust_self_check.py
       - name: Verify v215 bird legs sole grounding and stable animation keys
         run: python3 tools/v215_bird_gait_grounding_self_check.py
+      - name: Verify v216 one-shot acceleration flare on STEP and homing
+        run: python3 tools/v216_thruster_acceleration_burst_self_check.py
       - name: Verify base model and repository paths
         run: |
           python3 tools/self_check.py
