@@ -269,11 +269,12 @@ func get_thruster_intent() -> Dictionary:
 # This does not change gameplay animations or SLIDE's legs-only intent.
 func update_back_thruster_fx(active: bool, exhaust_world: Vector3,
         delta: float, backstroke_weight: float = 0.0,
-        left_sector_world: Vector3 = Vector3.ZERO) -> void:
+        left_sector_world: Vector3 = Vector3.ZERO,
+        acceleration_burst: bool = false) -> void:
     if equipment_handler != null:
         equipment_handler.call("update_back_thruster_fx",
             active, exhaust_world, delta, backstroke_weight,
-            left_sector_world)
+            left_sector_world, acceleration_burst)
 
 ## Equipment categories are intentionally independent of animation clips.
 func get_equipment_options(slot: String) -> Array:
