@@ -11,7 +11,8 @@ def read(path):
 main = read("scripts/main.gd")
 rig = read("scripts/sera_rig.gd")
 project = read("project.godot")
-assert 'config/name="SERA v230"' in project
+version = re.search(r'config/name="SERA v(\d+)"', project)
+assert version and int(version.group(1)) >= 230
 for token in (
     "const CAMERA_CLOSE_BOOST_ENTER_DISTANCE: float = 6.0",
     "const CAMERA_CLOSE_BOOST_EXIT_DISTANCE: float = 7.5",
