@@ -3,6 +3,7 @@ extends Node3D
 ## Authored nozzle group provides the origin; direction is limited relative to
 ## its actual animated/rotated Blockbench pivot. Separate from SLIDE mode.
 const FLAME_SHADER = preload("res://shaders/back_thruster.gdshader")
+const RIBBON_SHADER = preload("res://shaders/back_thruster_trail.gdshader")
 const YAW_LIMIT_RADIANS: float = PI * 80.0 / 180.0
 const PITCH_UP_LIMIT_RADIANS: float = PI * 1.0 / 180.0
 const PITCH_DOWN_LIMIT_RADIANS: float = PI * 90.0 / 180.0
@@ -23,6 +24,16 @@ const BURST_TOTAL_SECONDS: float = BURST_RISE_SECONDS + BURST_FALL_SECONDS
 # During normal melee, make the *ordinary* narrow jet long enough to clear
 # SERA's animated back/arms; do not fire the 15x acceleration burst again.
 const MELEE_SUSTAIN_RESPONSE_SECONDS: float = 0.06
+# v223: a world-fixed, camera-facing ribbon behind each moving nozzle.
+# Past vertices never inherit the animated Chest/nozzle transform.
+const RIBBON_LIFETIME_SECONDS: float = 0.34
+const RIBBON_SAMPLE_INTERVAL_SECONDS: float = 0.026
+const RIBBON_MIN_SAMPLE_DISTANCE: float = 0.035
+const RIBBON_MAX_SEGMENT_DISTANCE: float = 1.35
+const RIBBON_MAX_SAMPLES: int = 32
+const RIBBON_START_OFFSET: float = 0.42
+const RIBBON_OUTER_HALF_WIDTH: float = 0.090
+const RIBBON_CORE_HALF_WIDTH: float = 0.026
 var melee_sustain_amount: float = 0.0
 var burst_elapsed: float = BURST_TOTAL_SECONDS
 var outer_material: ShaderMaterial
@@ -32,6 +43,10 @@ var nozzle_rest_rotation: Quaternion = Quaternion.IDENTITY
 var steering_yaw: float = 0.0
 var steering_pitch: float = 0.0
 var returning_from_screen_sector: bool = false
+var ribbon_mesh: MeshInstance3D
+var ribbon_points: Array[Dictionary] = []
+var ribbon_clock: float = 0.0
+var ribbon_was_emitting: bool = false
 
 func _ready() -> void:
     # The Blockbench Thruster_L/R group pivot, not this FX child, is the hinge.
@@ -45,6 +60,20 @@ func _ready() -> void:
     outer_material = _build_tube(0.058, EXHAUST_LENGTH, Color(0.17, 0.63, 0.95, 0.53), 0.0)
     inner_material = _build_tube(0.029, EXHAUST_LENGTH * 0.83,
         Color(0.66, 0.91, 1.0, 0.48), 1.7)
+    # Sibling of the flame: hiding ExhaustFX must not erase its fading wake.
+    # top_level prevents authored torso/nozzle rotations from dragging old
+    # trail vertices around; geometry is built in world coordinates.
+    if nozzle != null:
+        ribbon_mesh = MeshInstance3D.new()
+        ribbon_mesh.name = "WorldRibbonTrail"
+        ribbon_mesh.top_level = true
+        ribbon_mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+        var ribbon_material := ShaderMaterial.new()
+        ribbon_material.shader = RIBBON_SHADER
+        ribbon_mesh.material_override = ribbon_material
+        nozzle.add_child(ribbon_mesh)
+        ribbon_mesh.global_transform = Transform3D.IDENTITY
+        ribbon_mesh.visible = false
     visible = false
 
 func _build_tube(half_width: float, length: float, tint: Color,
@@ -90,6 +119,112 @@ func _build_tube(half_width: float, length: float, tint: Color,
     instance.material_override = material
     add_child(instance)
     return material
+
+
+# Sample each final physically steered nozzle in world space AFTER melee safety.
+# The trail is a history of exhaust-tip positions, not a duplicate of the
+# moving decagonal flame. No particles or GPU history textures are required.
+func _update_ribbon_trail(emitting: bool, delta: float) -> void:
+    if ribbon_mesh == null:
+        return
+    ribbon_clock += maxf(delta, 0.0)
+    while not ribbon_points.is_empty():
+        if ribbon_clock - float(ribbon_points[0]["time"]) <= RIBBON_LIFETIME_SECONDS:
+            break
+        ribbon_points.pop_front()
+    if emitting:
+        var tip: Vector3 = global_position + (
+            global_transform.basis * Vector3.BACK).normalized() * RIBBON_START_OFFSET
+        var should_append: bool = ribbon_points.is_empty() or not ribbon_was_emitting
+        var is_new_streak: bool = not ribbon_was_emitting
+        if not ribbon_points.is_empty():
+            var previous: Dictionary = ribbon_points[ribbon_points.size() - 1]
+            var distance: float = tip.distance_to(previous["position"])
+            var elapsed: float = ribbon_clock - float(previous["time"])
+            is_new_streak = is_new_streak or distance > RIBBON_MAX_SEGMENT_DISTANCE
+            should_append = should_append or is_new_streak
+            should_append = should_append or distance >= RIBBON_MIN_SAMPLE_DISTANCE
+            should_append = should_append or elapsed >= RIBBON_SAMPLE_INTERVAL_SECONDS
+        if should_append:
+            ribbon_points.append({
+                "position": tip,
+                "time": ribbon_clock,
+                "break": is_new_streak
+            })
+            if ribbon_points.size() > RIBBON_MAX_SAMPLES:
+                ribbon_points.pop_front()
+    ribbon_was_emitting = emitting
+    _rebuild_ribbon_trail()
+
+func _add_ribbon_quad(surface: SurfaceTool, a: Vector3, b: Vector3,
+        side: Vector3, half_width_a: float, half_width_b: float,
+        color_a: Color, color_b: Color) -> void:
+    var vertices := [
+        a - side * half_width_a, a + side * half_width_a,
+        b + side * half_width_b, b - side * half_width_b
+    ]
+    var colors := [color_a, color_a, color_b, color_b]
+    for index in [0, 1, 2, 0, 2, 3]:
+        surface.set_color(colors[index])
+        surface.add_vertex(vertices[index])
+
+func _rebuild_ribbon_trail() -> void:
+    if ribbon_points.size() < 2:
+        ribbon_mesh.mesh = null
+        ribbon_mesh.visible = false
+        return
+    var camera: Camera3D = get_viewport().get_camera_3d()
+    var camera_position: Vector3 = camera.global_position if camera != null else Vector3.ZERO
+    var surface := SurfaceTool.new()
+    surface.begin(Mesh.PRIMITIVE_TRIANGLES)
+    var segment_count: int = 0
+    for i in range(1, ribbon_points.size()):
+        var previous: Dictionary = ribbon_points[i - 1]
+        var current: Dictionary = ribbon_points[i]
+        if bool(current["break"]):
+            continue
+        var a: Vector3 = previous["position"]
+        var b: Vector3 = current["position"]
+        var direction: Vector3 = b - a
+        if direction.length_squared() < 0.000009:
+            continue
+        direction = direction.normalized()
+        # Face the actual training camera so the flat band stays visible
+        # during quick turns, with a stable fallback for edge-on viewpoints.
+        var view: Vector3 = camera_position - (a + b) * 0.5
+        if view.length_squared() < 0.000001:
+            view = Vector3.UP
+        var side: Vector3 = direction.cross(view.normalized())
+        if side.length_squared() < 0.000001:
+            side = direction.cross(Vector3.UP)
+        if side.length_squared() < 0.000001:
+            side = direction.cross(Vector3.RIGHT)
+        side = side.normalized()
+        var fade_a: float = clampf(
+            1.0 - (ribbon_clock - float(previous["time"])) / RIBBON_LIFETIME_SECONDS,
+            0.0, 1.0)
+        var fade_b: float = clampf(
+            1.0 - (ribbon_clock - float(current["time"])) / RIBBON_LIFETIME_SECONDS,
+            0.0, 1.0)
+        var width_a: float = 0.20 + 0.80 * fade_a
+        var width_b: float = 0.20 + 0.80 * fade_b
+        _add_ribbon_quad(surface, a, b, side,
+            RIBBON_OUTER_HALF_WIDTH * width_a,
+            RIBBON_OUTER_HALF_WIDTH * width_b,
+            Color(0.14, 0.64, 1.0, 0.63 * pow(fade_a, 1.5)),
+            Color(0.14, 0.64, 1.0, 0.63 * pow(fade_b, 1.5)))
+        _add_ribbon_quad(surface, a, b, side,
+            RIBBON_CORE_HALF_WIDTH * width_a,
+            RIBBON_CORE_HALF_WIDTH * width_b,
+            Color(0.74, 0.94, 1.0, 0.74 * pow(fade_a, 1.7)),
+            Color(0.74, 0.94, 1.0, 0.74 * pow(fade_b, 1.7)))
+        segment_count += 1
+    if segment_count == 0:
+        ribbon_mesh.mesh = null
+        ribbon_mesh.visible = false
+        return
+    ribbon_mesh.mesh = surface.commit()
+    ribbon_mesh.visible = true
 
 # Every melee frame is checked against the actual animated Chest, NOT the
 # fixed player facing: the authored torso pitches/rolls during the 3 swings.
@@ -196,6 +331,9 @@ func set_exhaust(enabled: bool, world_exhaust_direction: Vector3,
     # Other actions retain their original exact steering behavior.
     if enabled and melee_sustain:
         _avoid_melee_body_penetration(nozzle, nozzle.get_parent() as Node3D)
+    # A world-space wake must be updated even after the jet turns off,
+    # otherwise the last ribbon would remain frozen instead of fading.
+    _update_ribbon_trail(enabled, delta)
     visible = enabled
     if not enabled:
         current_strength = 0.0
