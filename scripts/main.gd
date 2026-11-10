@@ -167,6 +167,7 @@ const CAMERA_NEAR_DOLLY_PLAYER_SPEED_RATIO: float = 0.88
 const CAMERA_NEAR_DOLLY_SPEED_FILTER_RATE: float = 10.0
 const CAMERA_NEAR_DOLLY_MAX_ACCEL: float = 24.0
 const CAMERA_NEAR_DOLLY_SETTLE_SPEED: float = 0.70
+const CAMERA_NEAR_DOLLY_GAP_RATE: float = 6.0
 const CAMERA_NEAR_DOLLY_MAX_CLOSING_SAMPLE: float = 12.0
 const TARGET_IDLE_GAP_RATIO: float = 0.034  # Resting silhouette gap as a fraction of viewport width.
 const SIDE_SWITCH_PIXELS: float = 2.0  # Only used while moving and on release: no 3.5% dead-band.
@@ -3288,6 +3289,11 @@ func _process(delta: float) -> void:
             camera_dolly_in_speed = move_toward(
                 camera_dolly_in_speed, requested_inward_speed,
                 CAMERA_NEAR_DOLLY_MAX_ACCEL * delta)
+        # Exponential gap braking avoids a hard stop at the exact preferred
+        # radius, including when input/target motion changes abruptly.
+        var gap_stop_speed: float = distance_to_preferred * (
+            1.0 - exp(-CAMERA_NEAR_DOLLY_GAP_RATE * delta)) / delta
+        camera_dolly_in_speed = minf(camera_dolly_in_speed, gap_stop_speed)
         camera_follow_radius = maxf(
             preferred_radius, camera_follow_radius - camera_dolly_in_speed * delta)
     else:
