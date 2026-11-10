@@ -44,7 +44,7 @@ assert "var boost_pose_exhaust: bool = (" in main
 assert "gesture_active and boost_has_activated_this_gesture and rig != null" in main
 assert 'bool(rig.call("is_boost_exhaust_pose_visible"))' in main
 assert "boost_exhaust or boost_pose_exhaust or stepping_this_frame" in main
-assert "or tracking_exhaust))" in main
+assert "or tracking_exhaust or normal_melee_exhaust))" in main
 assert "not landing_active and not guard_active and not energy_exhausted" in main
 
 # The jet direction is cached over the neutral point and replaced by fresh
