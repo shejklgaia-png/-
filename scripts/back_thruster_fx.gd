@@ -14,6 +14,7 @@ var current_strength: float = 0.0
 var nozzle_rest_rotation: Quaternion = Quaternion.IDENTITY
 var steering_yaw: float = 0.0
 var steering_pitch: float = 0.0
+var returning_from_screen_sector: bool = false
 
 func _ready() -> void:
     # The Blockbench Thruster_L/R group pivot, not this FX child, is the hinge.
@@ -64,7 +65,8 @@ func _build_tube(half_width: float, length: float, tint: Color,
     return material
 
 func set_exhaust(enabled: bool, world_exhaust_direction: Vector3,
-        delta: float, backstroke_weight: float = 0.0) -> void:
+        delta: float, backstroke_weight: float = 0.0,
+        left_sector_world: Vector3 = Vector3.ZERO) -> void:
     if outer_material == null or inner_material == null:
         return
     var nozzle: Node3D = get_parent() as Node3D
@@ -100,9 +102,33 @@ func set_exhaust(enabled: bool, world_exhaust_direction: Vector3,
     var ease: float = 1.0 - exp(-maxf(delta, 0.0) / TURN_TIME)
     steering_yaw = lerp_angle(steering_yaw, yaw, ease)
     steering_pitch = lerp_angle(steering_pitch, pitch, ease)
-    nozzle.quaternion = (nozzle_rest_rotation
+    var normal_quaternion: Quaternion = (nozzle_rest_rotation
         * Quaternion(Vector3.UP, steering_yaw)
         * Quaternion(Vector3.RIGHT, steering_pitch)).normalized()
+    if enabled and left_sector_world.length_squared() > 0.000001:
+        # The special LEFT motion is bounded by the screen's DOWN->RIGHT
+        # quadrant, rather than yaw/pitch angles relative to the moving Chest.
+        # Convert the screen-space jet to the authored REST nozzle axes.
+        # This rotates the actual 3D metal nozzle AND its child jet together.
+        var nozzle_parent: Node3D = nozzle.get_parent() as Node3D
+        var rest_basis: Basis = (
+            nozzle_parent.global_transform.basis * Basis(nozzle_rest_rotation)).orthonormalized()
+        var local_sector_direction: Vector3 = (
+            rest_basis.inverse() * left_sector_world.normalized()).normalized()
+        var screen_sector_quaternion: Quaternion = (nozzle_rest_rotation
+            * Quaternion(Vector3.BACK, local_sector_direction)).normalized()
+        nozzle.quaternion = nozzle.quaternion.slerp(
+            screen_sector_quaternion, ease).normalized()
+        returning_from_screen_sector = true
+    elif returning_from_screen_sector:
+        # Exit the special quadrant without snapping to the standard yaw/
+        # pitch servo. Outside this transition normal steering is unchanged.
+        nozzle.quaternion = nozzle.quaternion.slerp(
+            normal_quaternion, ease).normalized()
+        if nozzle.quaternion.angle_to(normal_quaternion) < deg_to_rad(0.5):
+            returning_from_screen_sector = false
+    else:
+        nozzle.quaternion = normal_quaternion
     visible = enabled
     if not enabled:
         current_strength = 0.0
