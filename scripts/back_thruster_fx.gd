@@ -3,8 +3,8 @@ extends Node3D
 ## Authored nozzle group provides the origin; direction is limited relative to
 ## its actual animated/rotated Blockbench pivot. Separate from SLIDE mode.
 const FLAME_SHADER = preload("res://shaders/back_thruster.gdshader")
-const YAW_LIMIT_RADIANS: float = deg_to_rad(38.0)
-const PITCH_LIMIT_RADIANS: float = deg_to_rad(24.0)
+const YAW_LIMIT_RADIANS: float = PI * 38.0 / 180.0
+const PITCH_LIMIT_RADIANS: float = PI * 24.0 / 180.0
 const TURN_TIME: float = 0.075
 const EXHAUST_LENGTH: float = 0.65
 var outer_material: ShaderMaterial
@@ -71,7 +71,13 @@ func set_exhaust(enabled: bool, world_exhaust_direction: Vector3,
             * world_exhaust_direction.normalized()).normalized()
         # Exhaust faces local +Z. A reverse STEP would require 180 degrees;
         # clamp each axis instead to avoid a tube crossing the character.
-        var yaw: float = clampf(atan2(local_dir.x, local_dir.z),
+        # If the request points almost directly ahead of the character,
+        # 180 degrees cannot be achieved. Keep the nozzle centered rather
+        # than snapping unpredictably to one side of the cone.
+        var requested_yaw: float = atan2(local_dir.x, local_dir.z)
+        if local_dir.z < 0.0 and absf(local_dir.x) < 0.035:
+            requested_yaw = 0.0
+        var yaw: float = clampf(requested_yaw,
             -YAW_LIMIT_RADIANS, YAW_LIMIT_RADIANS)
         var horizontal: float = sqrt(local_dir.x * local_dir.x + local_dir.z * local_dir.z)
         var pitch: float = clampf(-atan2(local_dir.y, horizontal),
