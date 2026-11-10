@@ -11,7 +11,7 @@ fx = read("scripts/back_thruster_fx.gd")
 project = read("project.godot")
 model = json.loads(read("models/SERA_BOOSTER_allテスト.bbmodel"))
 motion = json.loads(read("assets/sera_source.json"))
-assert int(re.search(r'config/name="SERA v(\\d+)"', project).group(1)) >= 224
+assert int(re.search(r'config/name="SERA v(\d+)"', project).group(1)) >= 224
 assert "const MELEE_YAW_LIMIT_RADIANS: float = PI * 20.0 / 180.0" in fx
 assert "const MELEE_PITCH_DOWN_LIMIT_RADIANS: float = PI * 35.0 / 180.0" in fx
 assert "const YAW_LIMIT_RADIANS: float = PI * 80.0 / 180.0" in fx
