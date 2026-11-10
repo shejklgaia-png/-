@@ -49,6 +49,7 @@ const STRIKE_3_CLIP: String = "Melee3"
 const STEP_RIGHT_CLIP: String = "Step_R"
 const STEP_LEFT_CLIP: String = "Step_L"
 const STEP_BACK_CLIP: String = "Backstep"
+const STEP_FORWARD_CLIP: String = "Frontstep"
 const JUMP_CLIP: String = "Jump"  # takeoff/ascent/descent then a new landing key
 const JUMP_AIR_CLIP_END: float = 0.375  # old final fall key; flight ends here
 const JUMP_LANDING_CLIP_END: float = 0.500  # new final landing key
@@ -138,7 +139,7 @@ var boost_to_run_crossfade: bool = false
 var combat_playback: bool = false
 var step_playback: bool = false
 # A complete 360-degree flick uses a continuous blend of authored cardinal
-# step poses; the provisional forward pose is Boost_front.
+# step poses; forward movement uses the authored Frontstep pose.
 var directional_step_active: bool = false
 var directional_step_vector: Vector2 = Vector2.UP
 var jump_playback: bool = false
@@ -209,6 +210,7 @@ func _ready() -> void:
         and animations.has(STRIKE_CLIP) and animations.has(STRIKE_2_CLIP)
         and animations.has(STRIKE_3_CLIP) and animations.has(STEP_RIGHT_CLIP)
         and animations.has(STEP_LEFT_CLIP) and animations.has(STEP_BACK_CLIP)
+        and animations.has(STEP_FORWARD_CLIP)
         and animations.has(DAMAGE_CLIP) and animations.has(JUMP_CLIP)
         and animations.has(GUARD_CLIP)
         and animations.has(GUARD_REACTION_CLIP) and animations.has(BASH_CLIP))
@@ -1105,9 +1107,9 @@ func _sample_step_clip_pose(clip_name: String, uid: String, elapsed: float) -> D
 
 func _blended_directional_step_pose(uid: String, t: float) -> Dictionary:
     # Cardinal keys are exact. Any diagonal smoothly interpolates between
-    # lateral STEP_L/R and forward Boost_front or backward Backstep.
+    # lateral STEP_L/R and authored forward Frontstep or backward Backstep.
     var direction: Vector2 = directional_step_vector
-    var fore_aft: Dictionary = _sample_boost_pose(BOOST_CLIP, uid) if direction.y < 0.0 else (
+    var fore_aft: Dictionary = _sample_step_clip_pose(STEP_FORWARD_CLIP, uid, 0.0) if direction.y < 0.0 else (
         _sample_step_clip_pose(STEP_BACK_CLIP, uid, 0.0))
     var side_clip: String = STEP_RIGHT_CLIP if direction.x >= 0.0 else STEP_LEFT_CLIP
     var lateral: Dictionary = _sample_step_clip_pose(side_clip, uid, t)

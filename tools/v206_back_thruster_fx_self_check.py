@@ -14,7 +14,7 @@ groups = {group["uuid"]: group for group in model["groups"]}
 elements = {element["uuid"]: element for element in model["elements"]}
 source_groups = {group["uuid"]: group for group in authored["groups"]}
 source_elements = {element["uuid"]: element for element in authored["elements"]}
-assert len(model["outliner"]) == 4 and len(model["animations"]) == 23
+assert len(model["outliner"]) == 4 and len(model["animations"]) >= 23
 assert len(model["groups"]) == 57 and len(model["elements"]) == 68
 for idx in (1, 2, 3):
     uid = f"f2050000-0000-4000-8000-{idx:012d}"
@@ -39,7 +39,7 @@ def find(entry, target):
 
 chest = find(model["outliner"][0], "Chest")
 assert find(chest, "BOOSTER") is not None
-assert model["animations"] == authored["animations"]
+assert model["animations"][:len(authored["animations"])] == authored["animations"]
 
 # v206 uses authored, not a duplicated hard-coded, world-space FX location.
 equip = (ROOT / "scripts/sera_equipment.gd").read_text(encoding="utf-8")

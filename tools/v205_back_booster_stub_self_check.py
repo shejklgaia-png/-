@@ -42,7 +42,7 @@ for side, prefix in [(left, "Thruster_L"), (right, "Thruster_R")]:
     assert len(inner["vertices"]) == 8 and len(inner["faces"]) == 1
 assert groups[left["uuid"]]["origin"][0] == -groups[right["uuid"]]["origin"][0]
 assert groups[left["uuid"]]["origin"][1:] == groups[right["uuid"]]["origin"][1:]
-assert len(model["animations"]) == 23
+assert len(model["animations"]) >= 23
 
 generated = (root / "assets/sera_equipment_data.gd").read_text(encoding="utf-8")
 chunks = []

@@ -71,7 +71,7 @@ assert "STEP_MIN_ARC_LENGTH: float = 2.0" in main
 assert "BACK_STEP_DISTANCE: float = 4.0" in main
 
 pose = rig.split("func _blended_directional_step_pose(",1)[1].split("func start_omni_step(",1)[0]
-for phrase in ("_sample_boost_pose(BOOST_CLIP, uid)",
+for phrase in ("_sample_step_clip_pose(STEP_FORWARD_CLIP, uid, 0.0)",
                "_sample_step_clip_pose(STEP_BACK_CLIP, uid, 0.0)",
                "STEP_RIGHT_CLIP if direction.x >= 0.0 else STEP_LEFT_CLIP",
                "atan2(absf(direction.x), absf(direction.y))", ".slerp(", ".lerp("):
@@ -81,10 +81,10 @@ assert '_switch_clip(RUN_CLIP if resume_moving else WAIT_CLIP, 0.16)' in rig
 assert 'step_playback and directional_step_active' in rig
 assert 'var t: float = clip_time if (step_playback and directional_step_active)' in rig
 assert 'prior_rotations[uid] = pivot.quaternion' in rig
-assert 'state_label.text = "STEP FORWARD  |  Boost_front"' in main
+assert 'state_label.text = "STEP FORWARD  |  Frontstep"' in main
 assert 'player.motion_mode = CharacterBody3D.MOTION_MODE_FLOATING' in main
 assert 'const SLOTS = ["head", "torso", "legs", "arms", "booster", "weapon_r", "weapon_l"]' in eq
 print("PASS v200: WAIT grounding, RUN contact-signal grounding, other poses baseline")
 print("PASS v200: continuous full-circle flick direction and swept step movement")
-print("PASS v200: Step_L/Step_R/Backstep/Boost_front pose blend with fade")
+print("PASS v200: Step_L/Step_R/Backstep/Frontstep pose blend with fade")
 print("Android Godot runtime behavior not verified")

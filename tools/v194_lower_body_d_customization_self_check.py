@@ -55,7 +55,8 @@ assert not any(m["name"].startswith("Foot_") and not m["name"].startswith("LegD_
                for m in model["elements"])
 assert len({m["name"] for m in model["elements"]}) == 12
 assert len(base["elements"]) == 25
-assert len(combined["animations"]) == 23
+# The original 23 clips remain; later versions may append new animations.
+assert len(combined["animations"]) >= 23
 
 # Compare normalized D with A. All 12 parts are authored; A has two foot meshes.
 assert len([e for e in base["elements"] if e["name"].startswith("Foot_")]) == 2

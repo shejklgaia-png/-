@@ -2988,7 +2988,7 @@ func _physics_process(delta: float) -> void:
         state_label.text = "AIR FALL  |  Jump" if jump_fall_after_action else "JUMP  |  Jump (1.5m)"
     elif stepping_this_frame:
         if step_flick_this_frame.y < -0.8:
-            state_label.text = "STEP FORWARD  |  Boost_front"
+            state_label.text = "STEP FORWARD  |  Frontstep"
         elif step_flick_this_frame.y > 0.8:
             state_label.text = "STEP BACK  |  Backstep"
         elif absf(step_flick_this_frame.y) > 0.15:
