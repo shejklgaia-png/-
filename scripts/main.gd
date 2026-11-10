@@ -3240,6 +3240,11 @@ func _process(delta: float) -> void:
 
     var protect_close_step: bool = (close_step_camera_this_frame
         or (close_step_camera_recovery_remaining > 0.0 and not gesture_active))
+    # v232: both screen edges use one stable zoom fit during actual BOOST
+    # and pose grace. The v230 near-only guard was insufficient at distance.
+    var boost_edge_frame_guard: bool = (gesture_active and not protect_close_step
+        and combat_state == CombatState.IDLE and not step_active
+        and (movement_boost_active or boost_pose_grace_remaining > 0.0))
     if protect_close_step and separation > 0.08:
         # Restrict the angle between target->camera and target->player.
         # Unlike the v80 start-yaw clamp, this bound follows an orbiting
@@ -3258,7 +3263,7 @@ func _process(delta: float) -> void:
         # At close BOOST range, let continuous yaw follow the player and
         # protect the edges by dollying out (as close STEP already does).
         # Avoid a feedback loop of camera-relative velocity and yaw snapping.
-        if not close_boost_camera_active:
+        if not close_boost_camera_active and not boost_edge_frame_guard:
             _enforce_screen_edge(bearing, delta)
     else:
         # Latch the last actual left/right side when the finger is released.
@@ -3273,13 +3278,18 @@ func _process(delta: float) -> void:
             var idle_easing: float = 1.0 - exp(-CAMERA_IDLE_RECENTER_RATE * delta)
             camera_yaw = lerp_angle(camera_yaw, idle_yaw, idle_easing)
         _place_camera()
-        if not close_boost_camera_active:
+        if not close_boost_camera_active and not boost_edge_frame_guard:
             _enforce_screen_edge(bearing, delta)
 
     # Frame protection applies in BOTH modes, but never enforces the gap
     # during drag. This maintains full left-to-right control.
-    _fit_full_frame()
-    _relax_camera_fit_radius(delta)
+    if boost_edge_frame_guard:
+        # No iterative per-frame bisection on outward left/right BOOST:
+        # solve the minimum perspective radius directly from the silhouettes.
+        _fit_boost_frame_analytically(delta)
+    else:
+        _fit_full_frame()
+        _relax_camera_fit_radius(delta)
     _place_camera()
 
     # Do NOT override depth testing or render priority for the target.
@@ -3418,6 +3428,89 @@ func _enforce_screen_edge(bearing: float, delta: float) -> void:
     var max_step: float = deg_to_rad(
         CAMERA_EDGE_MAX_CORRECTION_DEGREES_PER_SECOND) * maxf(delta, 0.0)
     camera_yaw = old_yaw + clampf(delta_yaw, -max_step, max_step)
+    _place_camera()
+
+
+# v232: perspective fitting is algebraic when yaw, pitch and focus are fixed.
+# The minimum camera radius follows from the screen-space margin inequalities
+# for each protected point. This is O(corners), not 16+ recursive reprojections.
+func _camera_radius_for_safe_point(point: Vector3, focus: Vector3,
+        screen_right: Vector3, screen_up: Vector3, outward: Vector3,
+        radial_scale: float, tan_h: float, tan_v: float,
+        margin_x: float, margin_top: float, margin_bottom: float) -> float:
+    var offset: Vector3 = point - focus
+    var screen_x: float = offset.dot(screen_right)
+    var screen_y: float = offset.dot(screen_up)
+    var horizontal_depth: float = absf(screen_x) / maxf(
+        0.0001, tan_h * (1.0 - 2.0 * margin_x))
+    var vertical_depth: float = 0.0
+    if screen_y >= 0.0:
+        vertical_depth = screen_y / maxf(
+            0.0001, tan_v * (1.0 - 2.0 * margin_top))
+    else:
+        vertical_depth = -screen_y / maxf(
+            0.0001, tan_v * (2.0 * margin_bottom - 1.0))
+    # Camera-space depth = radial_scale * radius - offset.dot(outward).
+    var depth: float = maxf(camera.near + 0.005,
+        maxf(horizontal_depth, vertical_depth))
+    return maxf(0.0, (depth + offset.dot(outward)) / radial_scale)
+
+
+func _minimum_boost_camera_radius() -> float:
+    var viewport_size: Vector2 = get_viewport().get_visible_rect().size
+    if viewport_size.x <= 0.0 or viewport_size.y <= 0.0:
+        return camera_radius
+    var aspect: float = viewport_size.x / viewport_size.y
+    # Camera3D KEEP_HEIGHT is the project's default: FOV is vertical.
+    var tan_v: float = tan(deg_to_rad(camera.fov) * 0.5)
+    var tan_h: float = tan_v * aspect
+    if camera.keep_aspect == Camera3D.KEEP_WIDTH:
+        tan_h = tan(deg_to_rad(camera.fov) * 0.5)
+        tan_v = tan_h / aspect
+    var screen_right: Vector3 = camera.global_transform.basis.x.normalized()
+    var screen_up: Vector3 = camera.global_transform.basis.y.normalized()
+    var outward: Vector3 = Vector3(
+        sin(camera_yaw), CAMERA_ELEVATION_RATIO, cos(camera_yaw))
+    var radial_scale: float = outward.length()
+    outward /= radial_scale
+    var focus: Vector3 = camera_target_render_position - Vector3(
+        0.0, CAMERA_FOCUS_DROP, 0.0)
+
+    var min_radius: float = 0.0
+    var torso: Vector3 = camera_player_render_position + Vector3(0.0, 1.05, 0.0)
+    for lateral in [-CAMERA_SAFE_CORE_HALF_WIDTH, 0.0, CAMERA_SAFE_CORE_HALF_WIDTH]:
+        min_radius = maxf(min_radius, _camera_radius_for_safe_point(
+            torso + screen_right * lateral, focus,
+            screen_right, screen_up, outward, radial_scale, tan_h, tan_v,
+            SCREEN_MARGIN_X, 0.0, 1.0))
+    for height in [CAMERA_HEAD_HEIGHT, 0.08]:
+        min_radius = maxf(min_radius, _camera_radius_for_safe_point(
+            camera_player_render_position + Vector3(0.0, height, 0.0), focus,
+            screen_right, screen_up, outward, radial_scale, tan_h, tan_v,
+            0.0, SCREEN_MARGIN_TOP, SCREEN_MARGIN_BOTTOM))
+    for dx in [-TARGET_HALF_SIZE, TARGET_HALF_SIZE]:
+        for dy in [-TARGET_HALF_SIZE, TARGET_HALF_SIZE]:
+            for dz in [-TARGET_HALF_SIZE, TARGET_HALF_SIZE]:
+                min_radius = maxf(min_radius, _camera_radius_for_safe_point(
+                    camera_target_render_position + Vector3(dx, dy, dz), focus,
+                    screen_right, screen_up, outward, radial_scale, tan_h, tan_v,
+                    TARGET_FRAME_MARGIN_X, TARGET_FRAME_MARGIN_Y,
+                    TARGET_FRAME_BOTTOM))
+    return min_radius
+
+
+func _fit_boost_frame_analytically(delta: float) -> void:
+    var safe_radius: float = (_minimum_boost_camera_radius()
+        + CAMERA_FIT_RADIUS_RESERVE)
+    # Only shrink when safely ABOVE the newly required radius. The old
+    # _relax_camera_fit_radius could shrink below a margin and force the next
+    # frame to enlarge again: a small but persistent zoom sawtooth.
+    if camera_fit_radius_floor < safe_radius:
+        camera_fit_radius_floor = safe_radius
+    else:
+        camera_fit_radius_floor = move_toward(camera_fit_radius_floor,
+            safe_radius, CAMERA_FIT_RELAX_SPEED * maxf(delta, 0.0))
+    camera_radius = maxf(camera_follow_radius, camera_fit_radius_floor)
     _place_camera()
 
 
