@@ -20,6 +20,10 @@ func _ready() -> void:
     var nozzle: Node3D = get_parent() as Node3D
     if nozzle != null:
         nozzle_rest_rotation = nozzle.quaternion
+        # The default/idle posture is already down before the first frame.
+        steering_pitch = PITCH_DOWN_LIMIT_RADIANS
+        nozzle.quaternion = (nozzle_rest_rotation
+            * Quaternion(Vector3.RIGHT, steering_pitch)).normalized()
     outer_material = _build_tube(0.058, EXHAUST_LENGTH, Color(0.17, 0.63, 0.95, 0.53), 0.0)
     inner_material = _build_tube(0.029, EXHAUST_LENGTH * 0.83,
         Color(0.66, 0.91, 1.0, 0.48), 1.7)
@@ -68,7 +72,7 @@ func set_exhaust(enabled: bool, world_exhaust_direction: Vector3,
         return
     # Rotate the authored 3D nozzle itself, carrying its exhaust lip along.
     var yaw: float = 0.0
-    var pitch: float = 0.0
+    var pitch: float = PITCH_DOWN_LIMIT_RADIANS
     if enabled and world_exhaust_direction.length_squared() > 0.000001:
         # Use the authored REST axes; using the rotating nozzle basis feeds the
         # steering angle back into itself and can cause oscillation.
@@ -91,7 +95,8 @@ func set_exhaust(enabled: bool, world_exhaust_direction: Vector3,
         var backstroke: float = clampf(backstroke_weight, 0.0, 1.0)
         yaw = lerpf(yaw, 0.0, backstroke)
         pitch = lerpf(pitch, PITCH_DOWN_LIMIT_RADIANS, backstroke)
-    # Inactive nozzle softly returns to its authored zero-rotation angle.
+    # Inactive nozzle softly returns to a downward default, using the same
+    # 3D nozzle pivot. Exhaust geometry remains attached to that pivot.
     var ease: float = 1.0 - exp(-maxf(delta, 0.0) / TURN_TIME)
     steering_yaw = lerp_angle(steering_yaw, yaw, ease)
     steering_pitch = lerp_angle(steering_pitch, pitch, ease)
