@@ -2971,14 +2971,20 @@ func _physics_process(delta: float) -> void:
             leftward_weight = 1.0  # Legacy dedicated STEP_LEFT input.
     elif boost_exhaust and direction_input.length_squared() > 0.000001:
         leftward_weight = clampf(-direction_input.normalized().x, 0.0, 1.0)
+    # A leftward STEP/BOOST has a separate screen-space 90-degree sector:
+    # DOWN (0 degrees) -> SCREEN RIGHT (90 degrees). Halfway (45 degrees)
+    # is the full-left target; diagonal-left input sweeps from DOWN toward it.
+    # Pass the actual sector target explicitly so the physical nozzle pivot
+    # can match the CAMERA-relative vector without the old 80-degree local
+    # yaw clamp distorting the visible right-down direction.
+    var left_sector_world: Vector3 = Vector3.ZERO
     if exhaust_on and leftward_weight > 0.0:
         var screen_right: Vector3 = _screen_drag_to_ground(Vector2.RIGHT).normalized()
-        var bottom_right_exhaust: Vector3 = (
-            screen_right + Vector3.DOWN).normalized()
-        direction_of_exhaust = direction_of_exhaust.normalized().lerp(
-            bottom_right_exhaust, leftward_weight).normalized()
+        left_sector_world = Vector3.DOWN.slerp(
+            screen_right, leftward_weight * 0.50).normalized()
     rig.call("update_back_thruster_fx", exhaust_on,
-        direction_of_exhaust.normalized(), delta, backstroke_weight)
+        direction_of_exhaust.normalized(), delta, backstroke_weight,
+        left_sector_world)
     _update_melee_lock_marker()  # Update after player movement and auto-approach.
     # Update the idle HUD whenever the next step's speed changes by 0.1m/s.
     if not step_active and step_status_label != null:
