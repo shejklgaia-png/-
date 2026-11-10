@@ -165,6 +165,15 @@ const MAX_SIDE_SEARCH_ANGLE: float = 1.5  # radians; only the nearest clear orbi
 const MIN_SEPARABLE_DISTANCE: float = 1.9  # closer than silhouettes: orbit cannot solve occlusion
 const CAMERA_BASE_RADIUS: float = 16.0
 const CAMERA_CLOSE_RADIUS: float = 8.8  # v233: slightly wider closest framing (previously 7.8m).
+# v234: close-range inward dolly tracks relative approach at 88% of its
+# speed; smooth the measured separation speed and the camera's acceleration.
+# Blend the new rule in over 8–10m, preserving the distant camera behavior.
+const CAMERA_NEAR_ZOOM_FULL_DISTANCE: float = 8.0
+const CAMERA_NEAR_ZOOM_BLEND_DISTANCE: float = 10.0
+const CAMERA_NEAR_ZOOM_APPROACH_FRACTION: float = 0.88
+const CAMERA_NEAR_ZOOM_SETTLE_SPEED: float = 0.90
+const CAMERA_NEAR_ZOOM_SPEED_RESPONSE: float = 10.0
+const CAMERA_NEAR_ZOOM_ACCELERATION: float = 22.0
 const CAMERA_CLOSE_RANGE: float = 1.5  # Player-target distance where zoom-in is complete.
 const CAMERA_FAR_RANGE: float = 12.0  # Restore standard view beyond this separation.
 const CAMERA_ELEVATION_RATIO: float = 0.21  # v56: slightly stronger bird's-eye pitch (11.9 degrees vs 7.5 degrees).
@@ -342,6 +351,11 @@ var elapsed: float = 0.0
 var camera_yaw: float = 0.0
 var camera_radius: float = CAMERA_BASE_RADIUS
 var camera_follow_radius: float = CAMERA_BASE_RADIUS
+# Only the natural dolly uses these render-time states; the v230–v232
+# emergency safety radius remains independent.
+var camera_previous_separation: float = -1.0
+var camera_smoothed_approach_speed: float = 0.0
+var camera_dolly_velocity: float = 0.0
 var camera_fit_radius_floor: float = 0.0
 var close_boost_camera_active: bool = false
 var player_screen_side: int = 1  # Last observed player side of the target on screen.
@@ -600,6 +614,10 @@ func _tick_training_ko(delta: float) -> void:
     # Teleports never blend from previous physics-frame transforms.
     player.reset_physics_interpolation()
     target.reset_physics_interpolation()
+    # Do not interpret the KO respawn teleport as an extreme approach burst.
+    camera_previous_separation = -1.0
+    camera_smoothed_approach_speed = 0.0
+    camera_dolly_velocity = 0.0
     target_motion = TARGET_MOTION_SCRIPT.new()
     if target_floor_mark != null:
         target_floor_mark.position = Vector3(0.0, -0.026, -8.0)
@@ -964,6 +982,9 @@ func _build_camera() -> void:
     camera_yaw = 0.0
     camera_radius = CAMERA_BASE_RADIUS
     camera_follow_radius = CAMERA_BASE_RADIUS
+    camera_previous_separation = -1.0
+    camera_smoothed_approach_speed = 0.0
+    camera_dolly_velocity = 0.0
     camera_fit_radius_floor = 0.0
     close_boost_camera_active = false
     _place_camera()
@@ -3231,10 +3252,10 @@ func _process(delta: float) -> void:
     var preferred_radius: float = lerpf(CAMERA_CLOSE_RADIUS, CAMERA_BASE_RADIUS, zoom_ratio)
     # Keep the camera behind the moving player rather than flying past them.
     preferred_radius = maxf(preferred_radius, separation + 2.0)
-    # The normal dolly must not try to erase a forced frame-fit zoom every
-    # single frame. Keep its natural lag separate from the safety radius.
-    camera_follow_radius = lerpf(
-        camera_follow_radius, preferred_radius, easing * 0.9)
+    # The natural dolly is speed-controlled independently of emergency
+    # framing. Close-range approach can never forcibly pull the camera
+    # inside the already fitted safe radius.
+    _advance_camera_dolly(separation, preferred_radius, easing, delta)
     camera_radius = maxf(camera_follow_radius, camera_fit_radius_floor)
     _place_camera()
 
@@ -3397,6 +3418,67 @@ func _nearest_clear_yaw(bearing: float, side: int, gap_ratio: float) -> float:
     camera_yaw = saved_yaw
     _place_camera()
     return result
+
+
+func _advance_camera_dolly(separation: float, preferred_radius: float,
+        easing: float, delta: float) -> void:
+    if delta <= 0.000001:
+        return
+    # Use the same interpolated world positions as the camera framing.
+    # Filter differentiation noise so 60Hz physics / 90–120Hz drawing
+    # cannot produce alternating approach-speed spikes.
+    if camera_previous_separation < 0.0:
+        camera_previous_separation = separation
+    var sample_speed: float = clampf(
+        (camera_previous_separation - separation) / delta, 0.0, 20.0)
+    camera_previous_separation = separation
+    var speed_alpha: float = 1.0 - exp(-CAMERA_NEAR_ZOOM_SPEED_RESPONSE * delta)
+    camera_smoothed_approach_speed = lerpf(
+        camera_smoothed_approach_speed, sample_speed, speed_alpha)
+
+    # Keep the original far camera exactly unchanged. Smoothstep blends the
+    # new limit in over 10m→8m, without a binary camera-speed switch.
+    var close_mix: float = clampf(
+        (CAMERA_NEAR_ZOOM_BLEND_DISTANCE - separation)
+        / (CAMERA_NEAR_ZOOM_BLEND_DISTANCE - CAMERA_NEAR_ZOOM_FULL_DISTANCE),
+        0.0, 1.0)
+    close_mix = close_mix * close_mix * (3.0 - 2.0 * close_mix)
+    var old_radius: float = camera_follow_radius
+    var legacy_radius: float = lerpf(
+        old_radius, preferred_radius, easing * 0.9)
+    if close_mix <= 0.000001:
+        camera_follow_radius = legacy_radius
+        camera_dolly_velocity = (legacy_radius - old_radius) / delta
+        return
+
+    var remaining: float = preferred_radius - old_radius
+    var natural_velocity: float = (legacy_radius - old_radius) / delta
+    var wanted_velocity: float = natural_velocity
+    if remaining < 0.0:
+        # At genuine approach speeds, the camera may close at only 88% of
+        # player/target relative approach. If they stop, finish slowly rather
+        # than freezing with an unfinished zoom.
+        var moving_weight: float = clampf(
+            camera_smoothed_approach_speed / 1.0, 0.0, 1.0)
+        var near_limit: float = lerpf(CAMERA_NEAR_ZOOM_SETTLE_SPEED,
+            CAMERA_NEAR_ZOOM_APPROACH_FRACTION * camera_smoothed_approach_speed,
+            moving_weight)
+        # Braking distance: begin slowing before reaching the target radius,
+        # instead of hitting it at full speed and snapping to a stop.
+        near_limit = minf(near_limit, sqrt(
+            2.0 * CAMERA_NEAR_ZOOM_ACCELERATION * (-remaining)))
+        wanted_velocity = lerpf(natural_velocity, -near_limit, close_mix)
+
+    camera_dolly_velocity = move_toward(camera_dolly_velocity,
+        wanted_velocity, CAMERA_NEAR_ZOOM_ACCELERATION * delta)
+    var next_radius: float = old_radius + camera_dolly_velocity * delta
+    # A direction reversal or stationary target must not let the momentum
+    # carry the camera through the nominal zoom radius.
+    if (preferred_radius - old_radius) * (preferred_radius - next_radius) <= 0.0:
+        camera_follow_radius = preferred_radius
+        camera_dolly_velocity = 0.0
+    else:
+        camera_follow_radius = next_radius
 
 
 func _enforce_screen_edge(bearing: float, delta: float) -> void:
