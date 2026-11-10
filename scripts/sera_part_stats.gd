@@ -2,6 +2,7 @@ extends RefCounted
 ## v177 prototype equipment performance. A=medium, B=heavy.
 ## v180: each body part HP contribution is 1/5 of v179; A full 160, B full 208.
 ## v182: melee boost speed remains A=11.5/B=9.5; pre-strike tracking time A=0.4s/B=0.6s.
+## v204: B and D are heavy legs; ordinary RUN reuses the BOOST pose as SLIDE.
 ## Other trial stats remain unchanged; no animation or mesh is replaced.
 const BODY_SLOTS = ["head", "torso", "arms", "legs", "booster"]
 const PROFILES = {
@@ -22,10 +23,18 @@ const PROFILES = {
     "legs": {
         "A": {"hp": 20.0, "defense": 0.16, "run_speed": 4.0625,
             "boost_speed_mult": 1.0, "damage_time_mult": 1.0,
-            "damage_push_mult": 1.0, "down_hits": 3},
+            "damage_push_mult": 1.0, "down_hits": 3,
+            "weight_class": "medium", "run_motion": "run"},
         "B": {"hp": 26.0, "defense": 0.30, "run_speed": 3.35,
             "boost_speed_mult": 0.82, "damage_time_mult": 1.1,
-            "damage_push_mult": 0.60, "down_hits": 5}
+            "damage_push_mult": 0.60, "down_hits": 5,
+            "weight_class": "heavy", "run_motion": "slide"},
+        # D is the standard-bone 12-mesh heavy lower body; use B heavy stats
+        # until independent D balance values are explicitly authored.
+        "D": {"hp": 26.0, "defense": 0.30, "run_speed": 3.35,
+            "boost_speed_mult": 0.82, "damage_time_mult": 1.1,
+            "damage_push_mult": 0.60, "down_hits": 5,
+            "weight_class": "heavy", "run_motion": "slide"}
     },
     "booster": {
         "A": {"hp": 20.0, "defense": 0.16, "boost_speed": 6.09375,
