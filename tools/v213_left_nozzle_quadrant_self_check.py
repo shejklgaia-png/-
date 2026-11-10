@@ -104,7 +104,7 @@ for yaw in [-2.8,-1.0,0,0.9,2.7]:
 
 # Do not regress 50/50 heavy SLIDE or non-left signed nozzle angle limits.
 assert 'const SLIDE_BOOST_POSE_MAX_WEIGHT: float = 0.50' in rig
-assert 'if locomotion_mode == "slide":' in rig
+assert 'if heavy_slide_run_enabled and slide_blend_weight > 0.00001:' in rig
 assert 'const YAW_LIMIT_RADIANS: float = PI * 80.0 / 180.0' in fx
 assert 'const PITCH_UP_LIMIT_RADIANS: float = PI * 1.0 / 180.0' in fx
 assert 'const PITCH_DOWN_LIMIT_RADIANS: float = PI * 90.0 / 180.0' in fx

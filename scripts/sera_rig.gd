@@ -46,6 +46,8 @@ const BOOST_TO_RUN_BLEND_SECONDS: float = 0.20
 # A heavy leg's ordinary SLIDE uses at most half of the Boost_* posture;
 # the rest stays in the authored idle pose. Actual BOOST remains full strength.
 const SLIDE_BOOST_POSE_MAX_WEIGHT: float = 0.50
+# v229: SLIDE and BOOST share Boost_*; soften their pose and foot IK together.
+const SLIDE_BOOST_TRANSITION_SECONDS: float = 0.18
 const MELEE_APPROACH_CLIP: String = "meleeboost"
 const STRIKE_CLIP: String = "melee1"
 const STRIKE_2_CLIP: String = "Melee2"
@@ -123,6 +125,10 @@ var run_left_handed: bool = false  # Right-handed by default.
 # actual BOOST input from current_clip == BOOST_CLIP.
 var heavy_slide_run_enabled: bool = false
 var locomotion_mode: String = "idle"
+var slide_blend_weight: float = 0.0
+var slide_blend_start: float = 0.0
+var slide_blend_target: float = 0.0
+var slide_blend_elapsed: float = SLIDE_BOOST_TRANSITION_SECONDS
 var run_direction_target: Vector2 = Vector2(0.0, 1.0)
 var run_direction_smoothed: Vector2 = Vector2(0.0, 1.0)
 var run_turn_sign: float = 1.0
@@ -243,6 +249,34 @@ func set_heavy_slide_run_enabled(enabled: bool) -> void:
 
 func get_locomotion_mode() -> String:
     return locomotion_mode
+
+
+func _set_slide_blend_target(weight: float, immediate: bool = false) -> void:
+    var requested: float = clampf(weight, 0.0, 1.0)
+    if immediate:
+        slide_blend_weight = requested
+        slide_blend_start = requested
+        slide_blend_target = requested
+        slide_blend_elapsed = SLIDE_BOOST_TRANSITION_SECONDS
+        return
+    if is_equal_approx(requested, slide_blend_target):
+        return
+    # Reverse from the current visible pose, never a preset endpoint.
+    slide_blend_start = slide_blend_weight
+    slide_blend_target = requested
+    slide_blend_elapsed = 0.0
+
+
+func _advance_slide_blend(delta: float) -> void:
+    if slide_blend_elapsed >= SLIDE_BOOST_TRANSITION_SECONDS:
+        return
+    slide_blend_elapsed = minf(SLIDE_BOOST_TRANSITION_SECONDS,
+        slide_blend_elapsed + maxf(delta, 0.0))
+    var t: float = clampf(slide_blend_elapsed /
+        SLIDE_BOOST_TRANSITION_SECONDS, 0.0, 1.0)
+    var smooth: float = t * t * (3.0 - 2.0 * t)
+    slide_blend_weight = lerpf(slide_blend_start, slide_blend_target, smooth)
+
 
 # The back-nozzle FX follows a *visible* BOOST pose during thumb turns:
 # confirmed BOOST, the 0.50s pose hold and the remaining 0.20s RUN crossfade.
@@ -1129,7 +1163,14 @@ func set_moving(moving: bool, boosting: bool = false,
         fade_seconds = BOOST_TO_RUN_BLEND_SECONDS
     elif wanted == BOOST_CLIP or current_clip == BOOST_CLIP:
         fade_seconds = BOOST_STATE_BLEND_SECONDS
+    var was_boost_clip: bool = current_clip == BOOST_CLIP
     _switch_clip(wanted, fade_seconds)
+    # Both SLIDE and BOOST use the same clip, bypassing _switch_clip's fade.
+    # For a new clip, the existing WAIT/RUN crossfade already fades the pose.
+    if wanted == BOOST_CLIP:
+        _set_slide_blend_target(1.0 if sliding else 0.0, not was_boost_clip)
+    else:
+        _set_slide_blend_target(0.0, true)
 
 func _sample_step_clip_pose(clip_name: String, uid: String, elapsed: float) -> Dictionary:
     var sample_t: float = minf(maxf(0.0, elapsed), float(animations[clip_name]["length"]))
@@ -1414,6 +1455,8 @@ func _process(delta: float) -> void:
             boost_turn_sign = boost_update["turn_sign"]
         else:
             boost_direction_initialized = false
+    if current_clip == BOOST_CLIP and not combat_paused:
+        _advance_slide_blend(delta)
     _apply_animation(delta)
     # v200: combat (all strikes, bash, guard), steps, boosts and non-contact
     # RUN frames use the original v198 bind-height behavior.
@@ -1431,12 +1474,12 @@ func _process(delta: float) -> void:
         if str(equipment_handler.call("current_for", "legs")) == "C":
             equipment_handler.call("smooth_bird_grounding", delta)
         _update_foot_contacts(delta)
-    elif current_clip == BOOST_CLIP and locomotion_mode == "slide" \
+    elif current_clip == BOOST_CLIP and heavy_slide_run_enabled \
+            and slide_blend_weight > 0.00001 \
             and not combat_playback and not guard_playback and not damage_playback \
             and not jump_playback and not step_playback:
-        # Solve after authored pose, baseline restore and contact-mesh reset.
-        # Real BOOST, STEP and attacks remain entirely animation driven.
-        equipment_handler.call("apply_slide_leg_ik")
+        # Fade IK with the shared SLIDE/BOOST pose so the hips/feet never snap.
+        equipment_handler.call("apply_slide_leg_ik", slide_blend_weight)
         reset_foot_contacts()
     else:
         reset_foot_contacts()
@@ -1617,17 +1660,17 @@ func _apply_animation(_delta: float) -> void:
             q = boost_pose["rotation"]
             translation = boost_pose["position"]
             scale_value = boost_pose["scale"]
-            if locomotion_mode == "slide":
-                # A heavy SLIDE never assumes the full BOOST pose during RUN.
-                # Mix the entire authored WAIT transform (rotation, root
-                # offsets and scale), not just the waist angle.
+            if heavy_slide_run_enabled and slide_blend_weight > 0.00001:
+                # 50%-100% continuous pose strength over SLIDE/real BOOST.
+                var slide_pose_strength: float = lerpf(
+                    1.0, SLIDE_BOOST_POSE_MAX_WEIGHT, slide_blend_weight)
                 var idle_pose: Dictionary = _sample_step_clip_pose(WAIT_CLIP, str(uid), 0.0)
                 q = (idle_pose["rotation"] as Quaternion).slerp(
-                    q, SLIDE_BOOST_POSE_MAX_WEIGHT).normalized()
+                    q, slide_pose_strength).normalized()
                 translation = (idle_pose["position"] as Vector3).lerp(
-                    translation, SLIDE_BOOST_POSE_MAX_WEIGHT)
+                    translation, slide_pose_strength)
                 scale_value = (idle_pose["scale"] as Vector3).lerp(
-                    scale_value, SLIDE_BOOST_POSE_MAX_WEIGHT)
+                    scale_value, slide_pose_strength)
         else:
             var tracks_for_bone: Dictionary = tracks.get(uid, {})
             var rotation_values: Array = tracks_for_bone.get("rotation", [])

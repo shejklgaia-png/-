@@ -362,14 +362,27 @@ func _solve_slide_two_bone_ik(chain: Dictionary, target: Vector3, side: String) 
     foot.global_basis = foot_basis
 
 
-func apply_slide_leg_ik() -> void:
-    if not grounding_enabled or rig == null or not (str(selected.get("legs", "A")) in ["B", "D"]):
+func apply_slide_leg_ik(weight: float = 1.0) -> void:
+    var influence: float = clampf(weight, 0.0, 1.0)
+    if influence <= 0.00001 or not grounding_enabled or rig == null \
+            or not (str(selected.get("legs", "A")) in ["B", "D"]):
         return
     if not slide_leg_chains.has("L") or not slide_leg_chains.has("R"):
         return
     var wearer: Node3D = rig.get_parent() as Node3D
     if wearer == null or absf(wearer.global_position.y) > 0.05 or bool(rig.get("jump_playback")):
         return
+    # Capture uncorrected pose BEFORE leveling shoes and moving the hip.
+    var baseline_rig_y: float = rig.position.y
+    var original_rotations: Dictionary = {}
+    if influence < 0.99999:
+        for side in ["L", "R"]:
+            var chain: Dictionary = slide_leg_chains[side]
+            original_rotations[side] = {
+                "thigh": (chain["thigh"] as Node3D).quaternion,
+                "knee": (chain["knee"] as Node3D).quaternion,
+                "foot": (chain["foot"] as Node3D).quaternion
+            }
     # v228: B and D have genuinely flat shoe undersides in the authoring
     # geometry (mesh-local Y constant, zero mesh rotation). Correct both
     # shoes' pitch/roll BEFORE sampling vertices and solving ankle targets;
@@ -415,6 +428,16 @@ func apply_slide_leg_ik() -> void:
     rig.position.y -= hip_drop
     for side in ["L", "R"]:
         _solve_slide_two_bone_ik(slide_leg_chains[side], targets[side], side)
+    # Fade the solved hip, thigh, knee and leveled foot together.
+    if influence < 0.99999:
+        rig.position.y = lerpf(baseline_rig_y, rig.position.y, influence)
+        for side in ["L", "R"]:
+            var chain: Dictionary = slide_leg_chains[side]
+            var start: Dictionary = original_rotations[side]
+            for joint in ["thigh", "knee", "foot"]:
+                var bone: Node3D = chain[joint] as Node3D
+                bone.quaternion = (start[joint] as Quaternion).slerp(
+                    bone.quaternion, influence).normalized()
 
 
 func sync_afterimages() -> void:

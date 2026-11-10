@@ -13,17 +13,18 @@ rig = read("scripts/sera_rig.gd")
 eq = read("scripts/sera_equipment.gd")
 main = read("scripts/main.gd")
 project = read("project.godot")
-assert 'config/name="SERA v228"' in project
+version = re.search(r'config/name="SERA v(\d+)"', project)
+assert version and int(version.group(1)) >= 228
 assert "SLIDE_IK_BASE_HIP_DROP: float = 0.07" in eq
 assert "SLIDE_IK_MAX_HIP_DROP: float = 0.30" in eq
-apply = eq.split("func apply_slide_leg_ik() -> void:", 1)[1].split("func sync_afterimages()", 1)[0]
+apply = eq.split("func apply_slide_leg_ik(weight: float = 1.0) -> void:", 1)[1].split("func sync_afterimages()", 1)[0]
 
 # Only B and D training SLIDE, never NEXUS exhibition or gameplay moves.
 assert 'not grounding_enabled' in apply
 assert '["B", "D"]' in apply
 assert 'bool(rig.get("jump_playback"))' in apply
 assert 'absf(wearer.global_position.y) > 0.05' in apply
-assert 'elif current_clip == BOOST_CLIP and locomotion_mode == "slide"' in rig
+assert 'elif current_clip == BOOST_CLIP and heavy_slide_run_enabled' in rig
 assert 'not combat_playback and not guard_playback' in rig
 
 # Full contact requires level shoe orientation BEFORE measuring its triangles
