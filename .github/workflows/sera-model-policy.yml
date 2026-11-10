@@ -53,6 +53,7 @@ on:
       - 'tools/v218_thruster_short_15x_flare_self_check.py'
       - 'tools/v219_decagonal_thruster_50ms_self_check.py'
       - 'tools/v220_melee_full_swing_exhaust_self_check.py'
+      - 'tools/v221_melee_jet_visibility_self_check.py'
       - 'shaders/back_thruster.gdshader'
       - 'scripts/sera_equipment.gd'
       - 'scripts/sera_rig.gd'
@@ -138,6 +139,8 @@ jobs:
         run: python3 tools/v219_decagonal_thruster_50ms_self_check.py
       - name: Verify v220 sustained normal melee thruster through full swing
         run: python3 tools/v220_melee_full_swing_exhaust_self_check.py
+      - name: Verify v221 visible continuous melee jets and stable nozzle heading
+        run: python3 tools/v221_melee_jet_visibility_self_check.py
       - name: Verify base model and repository paths
         run: |
           python3 tools/self_check.py
