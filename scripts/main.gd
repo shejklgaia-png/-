@@ -150,6 +150,10 @@ const DRAG_RADIUS: float = 168.0  # v73: retain v72 outer diameter for the singl
 const CAMERA_FOLLOW_RATE: float = 1.65
 const CAMERA_IDLE_RECENTER_RATE: float = 1.05  # How quickly the player eases toward a clear centered resting position.
 const CAMERA_MOVING_YAW_SCALE: float = 0.55  # Softer rotation during drag to preserve left/right movement.
+# v229: anticipate screen edges, cap angular corrections and reserve zoom.
+const CAMERA_EDGE_GUARD_RATIO: float = 0.008
+const CAMERA_EDGE_MAX_CORRECTION_DEGREES_PER_SECOND: float = 240.0
+const CAMERA_FIT_RADIUS_RESERVE: float = 0.12
 const TARGET_IDLE_GAP_RATIO: float = 0.034  # Resting silhouette gap as a fraction of viewport width.
 const SIDE_SWITCH_PIXELS: float = 2.0  # Only used while moving and on release: no 3.5% dead-band.
 const MAX_SIDE_SEARCH_ANGLE: float = 1.5  # radians; only the nearest clear orbit angle is used
@@ -3193,7 +3197,7 @@ func _process(delta: float) -> void:
         camera_yaw = lerp_angle(camera_yaw, bearing, easing * CAMERA_MOVING_YAW_SCALE)
         _place_camera()
         _update_side_from_screen()  # Track the actual side while freely moving.
-        _enforce_screen_edge(bearing)
+        _enforce_screen_edge(bearing, delta)
     else:
         # Latch the last actual left/right side when the finger is released.
         # Do not re-evaluate it during idle: doing so can reverse the orbit
@@ -3207,7 +3211,7 @@ func _process(delta: float) -> void:
             var idle_easing: float = 1.0 - exp(-CAMERA_IDLE_RECENTER_RATE * delta)
             camera_yaw = lerp_angle(camera_yaw, idle_yaw, idle_easing)
         _place_camera()
-        _enforce_screen_edge(bearing)
+        _enforce_screen_edge(bearing, delta)
 
     # Frame protection applies in BOTH modes, but never enforces the gap
     # during drag. This maintains full left-to-right control.
@@ -3321,16 +3325,17 @@ func _nearest_clear_yaw(bearing: float, side: int, gap_ratio: float) -> float:
     return result
 
 
-func _enforce_screen_edge(bearing: float) -> void:
+func _enforce_screen_edge(bearing: float, delta: float) -> void:
     # Only the outer safe frame is a hard limit while dragging. The target
     # overlap area has no force-field and can be crossed in either direction.
-    if _horizontal_safe():
+    # Start correction before either hard edge, preventing left/right yaw snap.
+    if _horizontal_safe(CAMERA_EDGE_GUARD_RATIO):
         return
     var old_yaw: float = camera_yaw
     camera_yaw = bearing
     _place_camera()
-    if not _horizontal_safe():
-        # If angular correction alone cannot fix it, _fit_full_frame zooms out.
+    if not _horizontal_safe(CAMERA_EDGE_GUARD_RATIO):
+        # If yaw alone cannot protect the frame, use existing fit zoom.
         camera_yaw = old_yaw
         _place_camera()
         return
@@ -3340,11 +3345,15 @@ func _enforce_screen_edge(bearing: float) -> void:
         var fraction: float = (low + high) * 0.5
         camera_yaw = lerp_angle(old_yaw, bearing, fraction)
         _place_camera()
-        if _horizontal_safe():
+        if _horizontal_safe(CAMERA_EDGE_GUARD_RATIO):
             high = fraction
         else:
             low = fraction
-    camera_yaw = lerp_angle(old_yaw, bearing, high)
+    var safe_yaw: float = lerp_angle(old_yaw, bearing, high)
+    var delta_yaw: float = wrapf(safe_yaw - old_yaw, -PI, PI)
+    var max_step: float = deg_to_rad(
+        CAMERA_EDGE_MAX_CORRECTION_DEGREES_PER_SECOND) * maxf(delta, 0.0)
+    camera_yaw = old_yaw + clampf(delta_yaw, -max_step, max_step)
     _place_camera()
 
 
@@ -3368,7 +3377,9 @@ func _fit_full_frame() -> void:
                 upper_radius = test_radius
             else:
                 lower_radius = test_radius
-        camera_radius = upper_radius
+        # Reserve a little room to prevent the follow-zoom from oscillating
+        # across an exactly fitted boundary on the next rendered frame.
+        camera_radius = upper_radius + CAMERA_FIT_RADIUS_RESERVE
         _place_camera()
 
 
@@ -3387,7 +3398,7 @@ func _place_camera() -> void:
     camera.look_at(focus, Vector3.UP)
 
 
-func _horizontal_safe() -> bool:
+func _horizontal_safe(extra_margin_ratio: float = 0.0) -> bool:
     var size: Vector2 = get_viewport().get_visible_rect().size
     if size.x <= 0.0:
         return true
@@ -3398,7 +3409,8 @@ func _horizontal_safe() -> bool:
         if camera.is_position_behind(point):
             return false
         var screen: Vector2 = camera.unproject_position(point)
-        if screen.x < size.x * SCREEN_MARGIN_X or screen.x > size.x * (1.0 - SCREEN_MARGIN_X):
+        if screen.x < size.x * (SCREEN_MARGIN_X + extra_margin_ratio) \
+                or screen.x > size.x * (1.0 - SCREEN_MARGIN_X - extra_margin_ratio):
             return false
     return true
 
