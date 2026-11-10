@@ -1,5 +1,5 @@
 extends Node3D
-## v206: rectangular hollow back-thruster exhaust with wobbling emissive walls.
+## A lightweight decagonal hollow back-thruster exhaust with wobbling emissive walls.
 ## Authored nozzle group provides the origin; direction is limited relative to
 ## its actual animated/rotated Blockbench pivot. Separate from SLIDE mode.
 const FLAME_SHADER = preload("res://shaders/back_thruster.gdshader")
@@ -11,8 +11,9 @@ const EXHAUST_LENGTH: float = 0.65
 # Vertex deformation needs intermediate rings: two end-caps cannot form a
 # rapid flare close to the nozzle, only a linearly tapered giant triangle.
 const EXHAUST_AXIAL_SEGMENTS: int = 12
-# A short acceleration flare widens the existing four-sided jet, then decays.
-const BURST_RISE_SECONDS: float = 0.10
+const EXHAUST_RADIAL_SIDES: int = 10
+# A short acceleration flare widens the 10-sided jet, then decays.
+const BURST_RISE_SECONDS: float = 0.05
 const BURST_FALL_SECONDS: float = 0.18
 const BURST_TOTAL_SECONDS: float = BURST_RISE_SECONDS + BURST_FALL_SECONDS
 var burst_elapsed: float = BURST_TOTAL_SECONDS
@@ -42,11 +43,14 @@ func _build_tube(half_width: float, length: float, tint: Color,
         offset: float) -> ShaderMaterial:
     var tool := SurfaceTool.new()
     tool.begin(Mesh.PRIMITIVE_TRIANGLES)
-    var corners := [Vector2(-1.0, -1.0), Vector2(1.0, -1.0),
-        Vector2(1.0, 1.0), Vector2(-1.0, 1.0)]
-    for side in range(4):
-        var a: Vector2 = corners[side] * half_width
-        var b: Vector2 = corners[(side + 1) % 4] * half_width
+    # 10 vertices around each ring instead of the old square profile.
+    # Keep 12 axial bands so the 15x flare finishes within 25% of length.
+    # The original half_width remains the radius and attachment diameter.
+    for side in range(EXHAUST_RADIAL_SIDES):
+        var angle_a: float = TAU * float(side) / float(EXHAUST_RADIAL_SIDES)
+        var angle_b: float = TAU * float(side + 1) / float(EXHAUST_RADIAL_SIDES)
+        var a := Vector2(cos(angle_a), sin(angle_a)) * half_width
+        var b := Vector2(cos(angle_b), sin(angle_b)) * half_width
         for section in range(EXHAUST_AXIAL_SEGMENTS):
             var t0: float = float(section) / float(EXHAUST_AXIAL_SEGMENTS)
             var t1: float = float(section + 1) / float(EXHAUST_AXIAL_SEGMENTS)
@@ -63,7 +67,7 @@ func _build_tube(half_width: float, length: float, tint: Color,
                 tool.set_normal(Vector3.BACK)
                 tool.add_vertex(vertices[corner_index])
     var instance := MeshInstance3D.new()
-    instance.name = "RectangularExhaustCore" if offset > 0.0 else "RectangularExhaustShell"
+    instance.name = "DecagonalExhaustCore" if offset > 0.0 else "DecagonalExhaustShell"
     instance.mesh = tool.commit()
     instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
     # Keep transparent shader on its own instances, not on the shared SERA mesh.
@@ -156,7 +160,7 @@ func set_exhaust(enabled: bool, world_exhaust_direction: Vector3,
     burst_elapsed = minf(BURST_TOTAL_SECONDS, burst_elapsed + maxf(delta, 0.0))
     var burst: float = 0.0
     if burst_elapsed < BURST_RISE_SECONDS:
-        # The flare opens outward over the first 0.10s, reaching its widest tip.
+        # The flare opens outward over the first 0.05s, reaching its widest tip.
         burst = burst_elapsed / BURST_RISE_SECONDS
     elif burst_elapsed < BURST_TOTAL_SECONDS:
         # Ease smoothly back to the ordinary narrow exhaust over 0.18s.
