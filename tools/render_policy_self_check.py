@@ -32,6 +32,7 @@ expected = {
     "SLASH_VOLUME": 100,
     "SLASH_SURFACE": 105,
     "SLASH_PARTICLES": 110,
+    "HIT_SPARKS": 120,
     "CHARACTER_FOREGROUND": 126,
     "DEPTH_TESTED_EMISSIVE": 127,
 }
@@ -51,6 +52,7 @@ assert "docs/RENDER_PIPELINE_POLICY_ja.md" in model_guide
 owners = {
     "scripts/sera_rig.gd": ("AFTERIMAGE", "CHARACTER_FOREGROUND"),
     "scripts/sword_trail.gd": ("SLASH_VOLUME", "SLASH_SURFACE", "SLASH_PARTICLES"),
+    "scripts/hit_burst.gd": ("HIT_SPARKS",),
     "scripts/back_thruster_fx.gd": ("DEPTH_TESTED_EMISSIVE",),
 }
 for file, roles in owners.items():
@@ -69,6 +71,8 @@ for role in ("SLASH_VOLUME", "SLASH_SURFACE", "SLASH_PARTICLES"):
 assert "ribbon_material.render_priority = RENDER_ORDER.DEPTH_TESTED_EMISSIVE" in fx
 assert "material.render_priority = RENDER_ORDER.DEPTH_TESTED_EMISSIVE" in fx
 assert "mat.render_priority = priority" in sword
+assert "material.render_priority = RENDER_ORDER.HIT_SPARKS" in read("scripts/hit_burst.gd")
+assert "material.no_depth_test = false" in read("scripts/hit_burst.gd")
 
 assign = re.compile(r"(?m)^[ \t]*[A-Za-z_][A-Za-z_0-9]*\.render_priority[ \t]*=[ \t]*([^\n#]+)")
 all_assignments = 0
@@ -84,7 +88,7 @@ for path in sorted((ROOT / "scripts").rglob("*.gd")):
         assert reference is not None, (path.relative_to(ROOT), expr)
         assert reference.group(1) in priorities, (path, expr)
         assert 'const RENDER_ORDER = preload("res://scripts/render_order_policy.gd")' in source
-assert all_assignments >= 5, all_assignments
+assert all_assignments >= 6, all_assignments
 
 # Materials and shaders are separate concerns: render_priority cannot
 # substitute for opaque depth testing. Check every declared shader contract.
@@ -130,7 +134,7 @@ if base and head:
                 f"{rel_path}: new transparent shader lacks RENDER_POLICY contract"
             )
 
-print("PASS v226: six transparent layer roles centrally defined and ordered")
+print("PASS v226: seven transparent layer roles centrally defined and ordered")
 print(f"PASS: {all_assignments} runtime priority assignments use the contract")
 print("PASS: declared shader depth contracts and new transparent shader guard")
 print("Godot parsing, Android depth/sorting, and actual motion visibility remain unverified")
