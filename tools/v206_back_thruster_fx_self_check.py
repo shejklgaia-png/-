@@ -77,7 +77,7 @@ assert 'sin(TIME * 17.0' in shader and 'sin(TIME * 25.0' in shader
 assert 'ALPHA = clamp(strength' in shader
 assert 'equipment_handler.call("update_back_thruster_fx",' in rig
 assert 'active, exhaust_world, delta, backstroke_weight,' in rig
-assert 'left_sector_world, acceleration_burst)' in rig
+assert 'left_sector_world, acceleration_burst, melee_sustain)' in rig
 for phrase in (
     'movement_boost_active and running',
     'boost_exhaust or boost_pose_exhaust or stepping_this_frame',
