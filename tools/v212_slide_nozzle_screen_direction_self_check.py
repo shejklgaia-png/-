@@ -25,13 +25,14 @@ assert 'locomotion_mode = "slide"' in rig
 assert "var use_boost_pose: bool = boosting or sliding" in rig
 assert "wanted = BOOST_CLIP if use_boost_pose else RUN_CLIP" in rig
 branch = rig.split("elif current_clip == BOOST_CLIP:",1)[1].split("        else:",1)[0]
-assert 'if locomotion_mode == "slide":' in branch
+assert 'if heavy_slide_run_enabled and slide_blend_weight > 0.00001:' in branch
 assert '_sample_step_clip_pose(WAIT_CLIP, str(uid), 0.0)' in branch
 assert 'q = (idle_pose["rotation"] as Quaternion).slerp(' in branch
-assert 'q, SLIDE_BOOST_POSE_MAX_WEIGHT).normalized()' in branch
+assert 'q, slide_pose_strength).normalized()' in branch
 assert 'translation = (idle_pose["position"] as Vector3).lerp(' in branch
 assert 'scale_value = (idle_pose["scale"] as Vector3).lerp(' in branch
-assert branch.index('if locomotion_mode == "slide":') > branch.index('q = boost_pose["rotation"]')
+assert branch.index('if heavy_slide_run_enabled and slide_blend_weight > 0.00001:') > branch.index('q = boost_pose["rotation"]')
+assert '1.0, SLIDE_BOOST_POSE_MAX_WEIGHT, slide_blend_weight' in branch
 assert 'heavy_slide_run_enabled' in rig and '_blended_boost_pose(str(uid))' in branch
 # All non-slide modes, including actual BOOST, remain 100% authored pose.
 for wait, boost in ((0, 1), (-0.7, 0.9), (5.3, -1.2)):
