@@ -19,7 +19,8 @@ assert version and int(version.group(1)) >= 212
 # A heavyweight idle RUN (=SLIDE) is a 50/50 blend of authored Wait_motion
 # with the directional 4-way BOOST pose. This applies to all bone channels.
 assert "const SLIDE_BOOST_POSE_MAX_WEIGHT: float = 0.50" in rig
-assert 'var sliding: bool = moving and heavy_slide_run_enabled and not boost_input_active' in rig
+assert 'var sliding: bool = (moving and heavy_slide_run_enabled' in rig
+assert 'and not boost_input_active and not boosting)' in rig
 assert 'locomotion_mode = "slide"' in rig
 assert "var use_boost_pose: bool = boosting or sliding" in rig
 assert "wanted = BOOST_CLIP if use_boost_pose else RUN_CLIP" in rig
@@ -56,7 +57,7 @@ assert 'pivot.add_child(fx)' in equip
 assert 'var leftward_weight: float = 0.0' in main
 assert 'leftward_weight = clampf(-step_flick_this_frame.x, 0.0, 1.0)' in main
 assert 'step_side_this_frame == -1 and step_flick_this_frame.is_zero_approx()' in main
-assert 'elif boost_exhaust and direction_input.length_squared() > 0.000001:' in main
+assert 'elif (boost_exhaust or boost_pose_exhaust) and direction_input.length_squared() > 0.000001:' in main
 assert 'leftward_weight = clampf(-direction_input.normalized().x, 0.0, 1.0)' in main
 assert 'if exhaust_on and leftward_weight > 0.0:' in main
 assert '_screen_drag_to_ground(Vector2.RIGHT).normalized()' in main
