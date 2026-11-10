@@ -54,6 +54,7 @@ on:
       - 'tools/v219_decagonal_thruster_50ms_self_check.py'
       - 'tools/v220_melee_full_swing_exhaust_self_check.py'
       - 'tools/v221_melee_jet_visibility_self_check.py'
+      - 'tools/v222_nozzle_torso_clearance_self_check.py'
       - 'shaders/back_thruster.gdshader'
       - 'scripts/sera_equipment.gd'
       - 'scripts/sera_rig.gd'
@@ -141,6 +142,8 @@ jobs:
         run: python3 tools/v220_melee_full_swing_exhaust_self_check.py
       - name: Verify v221 visible continuous melee jets and stable nozzle heading
         run: python3 tools/v221_melee_jet_visibility_self_check.py
+      - name: Verify v222 physical nozzle stays outside animated Chest during melee
+        run: python3 tools/v222_nozzle_torso_clearance_self_check.py
       - name: Verify base model and repository paths
         run: |
           python3 tools/self_check.py
