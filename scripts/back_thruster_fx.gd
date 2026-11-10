@@ -9,7 +9,7 @@ const PITCH_DOWN_LIMIT_RADIANS: float = PI * 90.0 / 180.0
 const TURN_TIME: float = 0.075
 const EXHAUST_LENGTH: float = 0.65
 # A short acceleration flare widens the existing four-sided jet, then decays.
-const BURST_RISE_SECONDS: float = 0.035
+const BURST_RISE_SECONDS: float = 0.10
 const BURST_FALL_SECONDS: float = 0.18
 const BURST_TOTAL_SECONDS: float = BURST_RISE_SECONDS + BURST_FALL_SECONDS
 var burst_elapsed: float = BURST_TOTAL_SECONDS
@@ -148,7 +148,7 @@ func set_exhaust(enabled: bool, world_exhaust_direction: Vector3,
     burst_elapsed = minf(BURST_TOTAL_SECONDS, burst_elapsed + maxf(delta, 0.0))
     var burst: float = 0.0
     if burst_elapsed < BURST_RISE_SECONDS:
-        # The flare quickly opens outward from the nozzle lip.
+        # The flare opens outward over the first 0.10s, reaching its widest tip.
         burst = burst_elapsed / BURST_RISE_SECONDS
     elif burst_elapsed < BURST_TOTAL_SECONDS:
         # Ease smoothly back to the ordinary narrow exhaust over 0.18s.
