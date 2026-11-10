@@ -67,7 +67,7 @@ for phrase in (
     'world_exhaust_direction.normalized()',
     'clampf(requested_yaw,',
     '-YAW_LIMIT_RADIANS, YAW_LIMIT_RADIANS',
-    '-PITCH_LIMIT_RADIANS, PITCH_LIMIT_RADIANS',
+    '-PITCH_UP_LIMIT_RADIANS, PITCH_DOWN_LIMIT_RADIANS',
     'lerp_angle(rotation.y, yaw, ease)',
 ):
     assert phrase in fx, phrase
@@ -88,17 +88,18 @@ for phrase in (
     assert phrase in main, phrase
 
 # Angular safety: any requested direction is mechanically clamped.
-max_yaw = math.radians(38.0)
-max_pitch = math.radians(24.0)
-for vec in ((1, 0, 0), (-1, 0, 0), (0, 0, -1), (0.7, .5, -0.2)):
+max_yaw = math.radians(80.0)
+up_limit = math.radians(1.0)
+down_limit = math.radians(90.0)
+for vec in ((1, 0, 0), (-1, 0, 0), (0, 0, -1), (0.7, .5, -0.2), (0, -1, 0), (0, 1, 0)):
     x, y, z = vec
-    requested = math.atan2(x, z)
-    if z < 0 and abs(x) < .035:
-        requested = 0.0
+    rear_denominator = max(z, 0.0) + 2.0 * max(-z, 0.0) + 0.02
+    requested = math.atan2(x, rear_denominator)
     yaw = max(-max_yaw, min(max_yaw, requested))
-    pitch = max(-max_pitch, min(max_pitch,
+    pitch = max(-up_limit, min(down_limit,
         -math.atan2(y, math.sqrt(x * x + z * z))))
-    assert abs(yaw) <= max_yaw and abs(pitch) <= max_pitch
+    assert -max_yaw <= yaw <= max_yaw
+    assert -up_limit <= pitch <= down_limit
 # Runtime embed snapshot still matches canonical source exactly.
 embedded = (ROOT / "assets/sera_equipment_data.gd").read_text(encoding="utf-8")
 parts = []
