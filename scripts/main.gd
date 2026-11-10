@@ -154,6 +154,11 @@ const CAMERA_MOVING_YAW_SCALE: float = 0.55  # Softer rotation during drag to pr
 const CAMERA_EDGE_GUARD_RATIO: float = 0.008
 const CAMERA_EDGE_MAX_CORRECTION_DEGREES_PER_SECOND: float = 240.0
 const CAMERA_FIT_RADIUS_RESERVE: float = 0.12
+# v230: close-range BOOST uses zoom framing instead of competing yaw
+# correction. Keep a fitted minimum until closer zoom is safely possible.
+const CAMERA_CLOSE_BOOST_ENTER_DISTANCE: float = 6.0
+const CAMERA_CLOSE_BOOST_EXIT_DISTANCE: float = 7.5
+const CAMERA_FIT_RELAX_SPEED: float = 1.25
 const TARGET_IDLE_GAP_RATIO: float = 0.034  # Resting silhouette gap as a fraction of viewport width.
 const SIDE_SWITCH_PIXELS: float = 2.0  # Only used while moving and on release: no 3.5% dead-band.
 const MAX_SIDE_SEARCH_ANGLE: float = 1.5  # radians; only the nearest clear orbit angle is used
@@ -332,6 +337,9 @@ var combat_state: CombatState = CombatState.IDLE
 var elapsed: float = 0.0
 var camera_yaw: float = 0.0
 var camera_radius: float = CAMERA_BASE_RADIUS
+var camera_follow_radius: float = CAMERA_BASE_RADIUS
+var camera_fit_radius_floor: float = 0.0
+var close_boost_camera_active: bool = false
 var player_screen_side: int = 1  # Last observed player side of the target on screen.
 var was_running: bool = false
 var floor_stage: Node3D
@@ -930,6 +938,9 @@ func _build_camera() -> void:
     camera.current = true
     camera_yaw = 0.0
     camera_radius = CAMERA_BASE_RADIUS
+    camera_follow_radius = CAMERA_BASE_RADIUS
+    camera_fit_radius_floor = 0.0
+    close_boost_camera_active = false
     _place_camera()
     # Begin with an unobstructed composition instead of starting fully aligned.
     var start_delta: Vector2 = Vector2(player.position.x - target.position.x, player.position.z - target.position.z)
@@ -3168,6 +3179,19 @@ func _process(delta: float) -> void:
     # a wider close-up than v51). Never crop
     # the enlarged target cube: _fit_full_frame() tests all eight corners.
     # At longer distances, retain the original standard composition.
+    # Close BOOST moves fast enough for edge yaw correction and its subsequent
+    # zoom fit to fight each other, especially for screen-left/rear movement.
+    # Hysteresis prevents mode chatter near the distance boundary. The close
+    # STEP camera has its own independent angular limit.
+    var active_boost_travel: bool = (movement_boost_active and running
+        and combat_state == CombatState.IDLE and not step_active)
+    if close_boost_camera_active:
+        close_boost_camera_active = (
+            (active_boost_travel or (gesture_active and boost_pose_grace_remaining > 0.0))
+            and separation < CAMERA_CLOSE_BOOST_EXIT_DISTANCE)
+    elif active_boost_travel and separation <= CAMERA_CLOSE_BOOST_ENTER_DISTANCE:
+        close_boost_camera_active = true
+
     var easing: float = 1.0 - exp(-CAMERA_FOLLOW_RATE * delta)
     var zoom_ratio: float = clampf(
         (separation - CAMERA_CLOSE_RANGE) / (CAMERA_FAR_RANGE - CAMERA_CLOSE_RANGE),
@@ -3177,7 +3201,11 @@ func _process(delta: float) -> void:
     var preferred_radius: float = lerpf(CAMERA_CLOSE_RADIUS, CAMERA_BASE_RADIUS, zoom_ratio)
     # Keep the camera behind the moving player rather than flying past them.
     preferred_radius = maxf(preferred_radius, separation + 2.0)
-    camera_radius = lerpf(camera_radius, preferred_radius, easing * 0.9)
+    # The normal dolly must not try to erase a forced frame-fit zoom every
+    # single frame. Keep its natural lag separate from the safety radius.
+    camera_follow_radius = lerpf(
+        camera_follow_radius, preferred_radius, easing * 0.9)
+    camera_radius = maxf(camera_follow_radius, camera_fit_radius_floor)
     _place_camera()
 
     var protect_close_step: bool = (close_step_camera_this_frame
@@ -3197,7 +3225,11 @@ func _process(delta: float) -> void:
         camera_yaw = lerp_angle(camera_yaw, bearing, easing * CAMERA_MOVING_YAW_SCALE)
         _place_camera()
         _update_side_from_screen()  # Track the actual side while freely moving.
-        _enforce_screen_edge(bearing, delta)
+        # At close BOOST range, let continuous yaw follow the player and
+        # protect the edges by dollying out (as close STEP already does).
+        # Avoid a feedback loop of camera-relative velocity and yaw snapping.
+        if not close_boost_camera_active:
+            _enforce_screen_edge(bearing, delta)
     else:
         # Latch the last actual left/right side when the finger is released.
         # Do not re-evaluate it during idle: doing so can reverse the orbit
@@ -3211,11 +3243,13 @@ func _process(delta: float) -> void:
             var idle_easing: float = 1.0 - exp(-CAMERA_IDLE_RECENTER_RATE * delta)
             camera_yaw = lerp_angle(camera_yaw, idle_yaw, idle_easing)
         _place_camera()
-        _enforce_screen_edge(bearing, delta)
+        if not close_boost_camera_active:
+            _enforce_screen_edge(bearing, delta)
 
     # Frame protection applies in BOTH modes, but never enforces the gap
     # during drag. This maintains full left-to-right control.
     _fit_full_frame()
+    _relax_camera_fit_radius(delta)
     _place_camera()
 
     # Do NOT override depth testing or render priority for the target.
@@ -3380,6 +3414,31 @@ func _fit_full_frame() -> void:
         # Reserve a little room to prevent the follow-zoom from oscillating
         # across an exactly fitted boundary on the next rendered frame.
         camera_radius = upper_radius + CAMERA_FIT_RADIUS_RESERVE
+        # A fitted radius must survive the next frame's preferred close zoom;
+        # otherwise the camera repeatedly expands and contracts at the edge.
+        camera_fit_radius_floor = maxf(camera_fit_radius_floor, camera_radius)
+        _place_camera()
+
+
+func _relax_camera_fit_radius(delta: float) -> void:
+    if camera_fit_radius_floor <= 0.0:
+        return
+    # Trial-release the guard slowly; commit only when the actual target and
+    # player silhouettes still fit. No fixed timer, distance guess or repeated
+    # forced-zoom sawtooth near the left/rear BOOST screen boundary.
+    var candidate_floor: float = maxf(0.0,
+        camera_fit_radius_floor - CAMERA_FIT_RELAX_SPEED * maxf(delta, 0.0))
+    var candidate_radius: float = maxf(camera_follow_radius, candidate_floor)
+    if candidate_radius >= camera_radius:
+        camera_fit_radius_floor = candidate_floor
+        return
+    var previous_radius: float = camera_radius
+    camera_radius = candidate_radius
+    _place_camera()
+    if _full_frame_safe():
+        camera_fit_radius_floor = candidate_floor
+    else:
+        camera_radius = previous_radius
         _place_camera()
 
 
