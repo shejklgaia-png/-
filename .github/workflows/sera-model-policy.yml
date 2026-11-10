@@ -38,6 +38,8 @@ on:
       - 'tools/v205_back_booster_stub_self_check.py'
       - 'tools/v206_back_thruster_fx_self_check.py'
       - 'scripts/back_thruster_fx.gd'
+      - 'shaders/sera_energy_flash.gdshader'
+      - 'tools/v207_boost_exhaust_en_self_check.py'
       - 'shaders/back_thruster.gdshader'
       - 'scripts/sera_equipment.gd'
       - 'scripts/sera_rig.gd'
@@ -95,6 +97,8 @@ jobs:
         run: python3 tools/v205_back_booster_stub_self_check.py
       - name: Verify v206 authored pivots and limited rectangular exhaust effects
         run: python3 tools/v206_back_thruster_fx_self_check.py
+      - name: Verify v207 held BOOST, nozzle steering and EN-empty warning
+        run: python3 tools/v207_boost_exhaust_en_self_check.py
       - name: Verify base model and repository paths
         run: |
           python3 tools/self_check.py
