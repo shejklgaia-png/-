@@ -44,6 +44,7 @@ on:
       - 'tools/v209_nozzle_run_stability_self_check.py'
       - 'tools/v210_backstroke_thruster_self_check.py'
       - 'tools/v211_frontstep_self_check.py'
+      - 'tools/v212_slide_nozzle_screen_direction_self_check.py'
       - 'shaders/back_thruster.gdshader'
       - 'scripts/sera_equipment.gd'
       - 'scripts/sera_rig.gd'
@@ -111,6 +112,8 @@ jobs:
         run: python3 tools/v210_backstroke_thruster_self_check.py
       - name: Verify v211 authored Frontstep forward and diagonal STEP
         run: python3 tools/v211_frontstep_self_check.py
+      - name: Verify v212 50 percent SLIDE and downward/right-down nozzles
+        run: python3 tools/v212_slide_nozzle_screen_direction_self_check.py
       - name: Verify base model and repository paths
         run: |
           python3 tools/self_check.py

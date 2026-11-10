@@ -42,6 +42,9 @@ const BOOST_DIRECTION_BLEND_SECONDS: float = 0.045
 const BOOST_STATE_BLEND_SECONDS: float = 0.08
 # v162: after main's 0.50s BOOST pose hold, smoothly enter RUN over 0.20s.
 const BOOST_TO_RUN_BLEND_SECONDS: float = 0.20
+# A heavy leg's ordinary SLIDE uses at most half of the Boost_* posture;
+# the rest stays in the authored idle pose. Actual BOOST remains full strength.
+const SLIDE_BOOST_POSE_MAX_WEIGHT: float = 0.50
 const MELEE_APPROACH_CLIP: String = "meleeboost"
 const STRIKE_CLIP: String = "melee1"
 const STRIKE_2_CLIP: String = "Melee2"
@@ -1565,6 +1568,17 @@ func _apply_animation(_delta: float) -> void:
             q = boost_pose["rotation"]
             translation = boost_pose["position"]
             scale_value = boost_pose["scale"]
+            if locomotion_mode == "slide":
+                # A heavy SLIDE never assumes the full BOOST pose during RUN.
+                # Mix the entire authored WAIT transform (rotation, root
+                # offsets and scale), not just the waist angle.
+                var idle_pose: Dictionary = _sample_step_clip_pose(WAIT_CLIP, str(uid), 0.0)
+                q = (idle_pose["rotation"] as Quaternion).slerp(
+                    q, SLIDE_BOOST_POSE_MAX_WEIGHT).normalized()
+                translation = (idle_pose["position"] as Vector3).lerp(
+                    translation, SLIDE_BOOST_POSE_MAX_WEIGHT)
+                scale_value = (idle_pose["scale"] as Vector3).lerp(
+                    scale_value, SLIDE_BOOST_POSE_MAX_WEIGHT)
         else:
             var tracks_for_bone: Dictionary = tracks.get(uid, {})
             var rotation_values: Array = tracks_for_bone.get("rotation", [])

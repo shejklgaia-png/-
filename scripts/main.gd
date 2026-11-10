@@ -2961,6 +2961,22 @@ func _physics_process(delta: float) -> void:
         if intended_boost.length_squared() > 0.000001:
             backstroke_weight = clampf(intended_boost.normalized().dot(
                 player.global_transform.basis.z), 0.0, 1.0)
+    # Camera-left motion should fire toward the bottom-right of the SCREEN,
+    # like a swimmer's backstroke, regardless of the target orbit or camera
+    # heading. Blend by leftward input to keep diagonals continuous.
+    var leftward_weight: float = 0.0
+    if stepping_this_frame:
+        leftward_weight = clampf(-step_flick_this_frame.x, 0.0, 1.0)
+        if step_side_this_frame == -1 and step_flick_this_frame.is_zero_approx():
+            leftward_weight = 1.0  # Legacy dedicated STEP_LEFT input.
+    elif boost_exhaust and direction_input.length_squared() > 0.000001:
+        leftward_weight = clampf(-direction_input.normalized().x, 0.0, 1.0)
+    if exhaust_on and leftward_weight > 0.0:
+        var screen_right: Vector3 = _screen_drag_to_ground(Vector2.RIGHT).normalized()
+        var bottom_right_exhaust: Vector3 = (
+            screen_right + Vector3.DOWN).normalized()
+        direction_of_exhaust = direction_of_exhaust.normalized().lerp(
+            bottom_right_exhaust, leftward_weight).normalized()
     rig.call("update_back_thruster_fx", exhaust_on,
         direction_of_exhaust.normalized(), delta, backstroke_weight)
     _update_melee_lock_marker()  # Update after player movement and auto-approach.

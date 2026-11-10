@@ -12,7 +12,8 @@ def read(path: str) -> str:
     return (ROOT / path).read_text(encoding="utf-8")
 
 project = read("project.godot")
-assert 'config/name="SERA v211"' in project
+version = re.search(r'config/name="SERA v(\d+)"', project)
+assert version is not None and int(version.group(1)) >= 211
 source_bytes = (ROOT / "assets/sera_source.json").read_bytes()
 source = json.loads(source_bytes)
 model = json.loads(read("models/SERA_BOOSTER_allテスト.bbmodel"))
