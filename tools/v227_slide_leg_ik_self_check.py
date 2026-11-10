@@ -22,11 +22,11 @@ tick = rig.split("    _apply_animation(delta)", 1)[1].split(
     "func _run_heading_from_weights", 1)[0]
 assert tick.index('restore_grounding_baseline') < tick.index('restore_run_contact_foot_positions')
 assert tick.index('restore_run_contact_foot_positions') < tick.index('apply_slide_leg_ik')
-assert 'elif current_clip == BOOST_CLIP and locomotion_mode == "slide"' in tick
+assert 'elif current_clip == BOOST_CLIP and heavy_slide_run_enabled' in tick
 for condition in ("not combat_playback", "not guard_playback", "not damage_playback",
                   "not jump_playback", "not step_playback"):
-    assert condition in tick.split('elif current_clip == BOOST_CLIP and locomotion_mode == "slide"', 1)[1]
-assert tick.count('equipment_handler.call("apply_slide_leg_ik")') == 1
+    assert condition in tick.split('elif current_clip == BOOST_CLIP and heavy_slide_run_enabled', 1)[1]
+assert tick.count('equipment_handler.call("apply_slide_leg_ik", slide_blend_weight)') == 1
 assert tick.count('equipment_handler.call("snap_grounded_sole_to_floor")') == 1
 assert 'elif current_clip in RUN_CLIPS and not step_playback:' in tick
 assert 'equipment_handler.call("smooth_bird_grounding", delta)' in tick
@@ -43,7 +43,7 @@ for expected in ("Quaternion(", "thigh.global_basis = Basis(hip_turn) * thigh.gl
                  "upper * upper + distance * distance - lower * lower",
                  "SLIDE_IK_REACH_MARGIN", "Vector3.LEFT if side == \"L\" else Vector3.RIGHT"):
     assert expected in solver, expected
-apply = eq.split("func apply_slide_leg_ik()", 1)[1].split("func sync_afterimages()", 1)[0]
+apply = eq.split("func apply_slide_leg_ik(weight: float = 1.0)", 1)[1].split("func sync_afterimages()", 1)[0]
 for expected in ('not grounding_enabled', '["B", "D"]', 'get_active_foot_heights()',
                  'absf(wearer.global_position.y) > 0.05', 'bool(rig.get("jump_playback"))',
                  'TRAINING_VISIBLE_FLOOR_Y - sole_world_y',
