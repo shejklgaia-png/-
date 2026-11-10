@@ -276,6 +276,11 @@ var boost_speed_transition_start: float = 1.0
 var boost_speed_transition_target: float = 1.0
 var boost_speed_transition_elapsed: float = BOOST_SPEED_BLEND_SECONDS
 var boost_pose_grace_remaining: float = 0.0
+# Keep the last commanded jet heading across the momentary neutral thumb
+# crossing when the rig still renders its held BOOST directional pose.
+var held_boost_exhaust_direction: Vector3 = Vector3.ZERO
+var held_boost_backstroke_weight: float = 0.0
+var held_boost_left_sector_world: Vector3 = Vector3.ZERO
 var gesture_active: bool = false
 var gesture_suppressed_from_damage: bool = false
 var gesture_suppressed_from_landing: bool = false
@@ -2923,12 +2928,15 @@ func _physics_process(delta: float) -> void:
     )
     if aim.length_squared() > 0.000001:
         player.look_at(player.global_position + aim, Vector3.UP)
-    # v206: Exhaust is independent of the displayed Boost_* pose: heavyweight
-    # SLIDE and the 0.50s post-BOOST pose grace do not activate back thrusters.
-    # Step displacement is captured before step_active is cleared by its final
-    # animation frame; attack tracking is detected from the actual swept motion.
+    # Real BOOST provides movement speed and costs EN. During a direction
+    # change the rig keeps displaying BOOST for 0.50s and crossfades to RUN
+    # over 0.20s; keep the nozzle flames present for that *visible* motion
+    # even across a neutral-thumb frame. Heavy SLIDE by itself never fires.
     var boost_exhaust: bool = movement_boost_active and running \
         and combat_state == CombatState.IDLE
+    var boost_pose_exhaust: bool = (
+        gesture_active and boost_has_activated_this_gesture and rig != null
+        and bool(rig.call("is_boost_exhaust_pose_visible")))
     var tracking_exhaust: bool = (
         combat_state == CombatState.DASH
         or combat_state == CombatState.BASH_TRACK
@@ -2939,9 +2947,19 @@ func _physics_process(delta: float) -> void:
     tracking_exhaust = tracking_exhaust and blur_velocity.length_squared() > 0.04
     var exhaust_on: bool = (not damage_reaction_active and not jump_active
         and not landing_active and not guard_active and not energy_exhausted
-        and (boost_exhaust or stepping_this_frame or tracking_exhaust))
+        and (boost_exhaust or boost_pose_exhaust or stepping_this_frame
+            or tracking_exhaust))
     var direction_of_exhaust: Vector3 = -blur_velocity
     direction_of_exhaust.y = 0.0
+    # A BOOST direction change should follow the live input when present,
+    # even when a wall blocks velocity; with no new direction, retain the
+    # last active nozzle heading instead of jumping to the body rear axis.
+    if boost_pose_exhaust and running:
+        var requested_boost: Vector3 = _screen_drag_to_ground(direction_input)
+        if requested_boost.length_squared() > 0.000001:
+            direction_of_exhaust = -requested_boost.normalized()
+    elif boost_pose_exhaust and held_boost_exhaust_direction.length_squared() > 0.000001:
+        direction_of_exhaust = held_boost_exhaust_direction
     if direction_of_exhaust.length_squared() < 0.0004:
         # A wall can stop BOOST or STEP while the control remains active.
         # Keep the nozzle pointed behind SERA instead of using a zero vector.
@@ -2956,11 +2974,13 @@ func _physics_process(delta: float) -> void:
         # Legacy dedicated Backstep has no omnidirectional flick vector.
         if step_side_this_frame == STEP_BACK and step_flick_this_frame.is_zero_approx():
             backstroke_weight = 1.0
-    elif boost_exhaust:
+    elif boost_exhaust or boost_pose_exhaust:
         var intended_boost: Vector3 = _screen_drag_to_ground(direction_input)
         if intended_boost.length_squared() > 0.000001:
             backstroke_weight = clampf(intended_boost.normalized().dot(
                 player.global_transform.basis.z), 0.0, 1.0)
+        else:
+            backstroke_weight = held_boost_backstroke_weight
     # Camera-left motion should fire toward the bottom-right of the SCREEN,
     # like a swimmer's backstroke, regardless of the target orbit or camera
     # heading. Blend by leftward input to keep diagonals continuous.
@@ -2969,7 +2989,7 @@ func _physics_process(delta: float) -> void:
         leftward_weight = clampf(-step_flick_this_frame.x, 0.0, 1.0)
         if step_side_this_frame == -1 and step_flick_this_frame.is_zero_approx():
             leftward_weight = 1.0  # Legacy dedicated STEP_LEFT input.
-    elif boost_exhaust and direction_input.length_squared() > 0.000001:
+    elif (boost_exhaust or boost_pose_exhaust) and direction_input.length_squared() > 0.000001:
         leftward_weight = clampf(-direction_input.normalized().x, 0.0, 1.0)
     # A leftward STEP/BOOST has a separate screen-space 90-degree sector:
     # DOWN (0 degrees) -> SCREEN RIGHT (90 degrees). Halfway (45 degrees)
@@ -2982,6 +3002,20 @@ func _physics_process(delta: float) -> void:
         var screen_right: Vector3 = _screen_drag_to_ground(Vector2.RIGHT).normalized()
         left_sector_world = Vector3.DOWN.slerp(
             screen_right, leftward_weight * 0.50).normalized()
+    if boost_pose_exhaust:
+        if running:
+            held_boost_exhaust_direction = direction_of_exhaust.normalized()
+            held_boost_backstroke_weight = backstroke_weight
+            held_boost_left_sector_world = left_sector_world
+        elif held_boost_exhaust_direction.length_squared() > 0.000001:
+            # Neutral thumb: preserve the previous direction AND special
+            # backstroke / camera-left limits until a new heading is supplied.
+            backstroke_weight = held_boost_backstroke_weight
+            left_sector_world = held_boost_left_sector_world
+    elif not boost_exhaust:
+        held_boost_exhaust_direction = Vector3.ZERO
+        held_boost_backstroke_weight = 0.0
+        held_boost_left_sector_world = Vector3.ZERO
     rig.call("update_back_thruster_fx", exhaust_on,
         direction_of_exhaust.normalized(), delta, backstroke_weight,
         left_sector_world)
