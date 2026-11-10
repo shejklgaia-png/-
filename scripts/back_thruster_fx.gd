@@ -7,6 +7,9 @@ const YAW_LIMIT_RADIANS: float = PI * 80.0 / 180.0
 const PITCH_UP_LIMIT_RADIANS: float = PI * 1.0 / 180.0
 const PITCH_DOWN_LIMIT_RADIANS: float = PI * 90.0 / 180.0
 const TURN_TIME: float = 0.075
+# Keep melee nozzles inside the outward hemisphere of the animated Chest.
+# Using a positive dot leaves clearance for the 10-sided flame cross-section.
+const MELEE_TORSO_CLEARANCE_DOT: float = 0.55
 const EXHAUST_LENGTH: float = 0.65
 # Vertex deformation needs intermediate rings: two end-caps cannot form a
 # rapid flare close to the nozzle, only a linearly tapered giant triangle.
@@ -88,6 +91,39 @@ func _build_tube(half_width: float, length: float, tint: Color,
     add_child(instance)
     return material
 
+# Every melee frame is checked against the actual animated Chest, NOT the
+# fixed player facing: the authored torso pitches/rolls during the 3 swings.
+# Restrict the final, physically rendered nozzle +Z direction to point outward
+# from its hinge rather than into SERA. This is a per-nozzle geometric guard.
+func _avoid_melee_body_penetration(nozzle: Node3D, nozzle_parent: Node3D) -> void:
+    # Blockbench groups are Chest -> BOOSTER -> Thruster_L/R -> ExhaustFX.
+    var chest: Node3D = nozzle_parent.get_parent() as Node3D
+    if chest == null:
+        return
+    var outward: Vector3 = nozzle.global_position - chest.global_position
+    if outward.length_squared() < 0.000001:
+        return
+    outward = outward.normalized()
+    var jet_axis: Vector3 = (
+        nozzle.global_transform.basis * Vector3.BACK).normalized()
+    var outward_dot: float = jet_axis.dot(outward)
+    if outward_dot >= MELEE_TORSO_CLEARANCE_DOT:
+        return
+    # Project the current jet onto the closest safe outward cone. Preserve
+    # the intended tangential direction as much as possible, but never allow
+    # any transient inward-facing flame while the animated Chest rotates.
+    var tangent: Vector3 = jet_axis - outward * outward_dot
+    var safe_axis: Vector3 = outward
+    if tangent.length_squared() > 0.000001:
+        safe_axis = (outward * MELEE_TORSO_CLEARANCE_DOT
+            + tangent.normalized() * sqrt(
+                1.0 - MELEE_TORSO_CLEARANCE_DOT * MELEE_TORSO_CLEARANCE_DOT)).normalized()
+    var rest_basis: Basis = (nozzle_parent.global_transform.basis
+        * Basis(nozzle_rest_rotation)).orthonormalized()
+    var local_safe: Vector3 = (rest_basis.inverse() * safe_axis).normalized()
+    nozzle.quaternion = (nozzle_rest_rotation
+        * Quaternion(Vector3.BACK, local_safe)).normalized()
+
 func set_exhaust(enabled: bool, world_exhaust_direction: Vector3,
         delta: float, backstroke_weight: float = 0.0,
         left_sector_world: Vector3 = Vector3.ZERO,
@@ -155,6 +191,11 @@ func set_exhaust(enabled: bool, world_exhaust_direction: Vector3,
             returning_from_screen_sector = false
     else:
         nozzle.quaternion = normal_quaternion
+    # Applying this AFTER the regular yaw/pitch or left-screen-sector servo
+    # also protects the transition frames where the animated Chest rolls.
+    # Other actions retain their original exact steering behavior.
+    if enabled and melee_sustain:
+        _avoid_melee_body_penetration(nozzle, nozzle.get_parent() as Node3D)
     visible = enabled
     if not enabled:
         current_strength = 0.0
