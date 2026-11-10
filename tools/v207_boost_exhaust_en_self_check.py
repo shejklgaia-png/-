@@ -43,7 +43,7 @@ assert "ALPHA = 0.86;" in shader
 
 # The authored nozzle points toward local +Z. Reverse movement (-Z) should
 # remain on the rear-center axis, including infinitesimally left/right samples.
-assert "nozzle.global_transform.basis.inverse()" in fx
+assert "nozzle_parent.global_transform.basis * Basis(nozzle_rest_rotation)" in fx
 assert "rear_denominator" in fx and "atan2(local_dir.x, rear_denominator)" in fx
 assert "clampf(requested_yaw," in fx
 assert "-YAW_LIMIT_RADIANS, YAW_LIMIT_RADIANS" in fx
