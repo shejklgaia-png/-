@@ -2799,7 +2799,8 @@ func _physics_process(delta: float) -> void:
     # Hold BOOST pose for 0.50s after release from BOOST. The rig separately
     # blends BOOST -> RUN over 0.20s once the hold expires.
     # The hold counts down while crossing the 18px RUN deadzone;
-    # speed, HUD mode and BOOST effects use the real BOOST state.
+    # speed and HUD mode still use the real BOOST state. Back-nozzle FX
+    # follows the displayed pose during direction changes (v214).
     # Attacks, steps, guard, damage, jumps and touch release cancel the grace.
     if not gesture_active or guard_active or damage_reaction_active \
             or jump_active or landing_active or step_active \
