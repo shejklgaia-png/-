@@ -64,7 +64,7 @@ assert '_screen_drag_to_ground(Vector2.RIGHT).normalized()' in main
 assert 'left_sector_world = Vector3.DOWN.slerp(' in main
 assert 'screen_right, leftward_weight * 0.50).normalized()' in main
 assert 'direction_of_exhaust.normalized(), delta, backstroke_weight,' in main
-assert 'left_sector_world)' in main
+assert 'left_sector_world, acceleration_burst)' in main
 assert 'Quaternion(Vector3.BACK, local_sector_direction)' in fx
 
 # In screen axes, a full leftward control produces right+down at equal weight.

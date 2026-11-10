@@ -5,6 +5,7 @@ render_mode unshaded, cull_disabled, blend_add, depth_draw_never, shadows_disabl
 // Local +Z is out of the nozzle; vertex motion grows toward the end.
 uniform vec4 flame_tint : source_color = vec4(0.2, 0.76, 1.0, 1.0);
 uniform float strength : hint_range(0.0, 1.0) = 0.0;
+uniform float burst : hint_range(0.0, 1.0) = 0.0;
 uniform float tube_length = 0.65;
 uniform float phase_offset = 0.0;
 varying float distance_fraction;
@@ -16,6 +17,11 @@ void vertex() {
     VERTEX.x += along * along * 0.014 * flutter;
     VERTEX.y += along * along * 0.014 * flutter2;
     VERTEX.xy *= 1.0 + along * 0.19 * sin(TIME * 20.0 + along * 11.0);
+    // A launch pulse fans out near the jet tip (up to ~2.8x in width),
+    // leaving the base at the metal nozzle lip unchanged.
+    float fan = burst * along * along;
+    VERTEX.xy *= 1.0 + 1.8 * fan;
+    VERTEX.z *= 1.0 + 0.28 * burst * along;
     distance_fraction = along;
 }
 
@@ -24,6 +30,6 @@ void fragment() {
     float fade = 1.0 - smoothstep(0.20, 1.0, distance_fraction);
     float streaks = 0.86 + 0.14 * sin(TIME * 31.0 - distance_fraction * 21.0 + phase_offset);
     ALBEDO = flame_tint.rgb;
-    EMISSION = flame_tint.rgb * (0.75 + 0.45 * pulse);
+    EMISSION = flame_tint.rgb * (0.75 + 0.45 * pulse) * (1.0 + 0.85 * burst);
     ALPHA = clamp(strength * flame_tint.a * fade * pulse * streaks, 0.0, 0.8);
 }
