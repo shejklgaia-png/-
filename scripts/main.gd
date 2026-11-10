@@ -266,6 +266,10 @@ var handedness_button: Button
 var nexus_button: Button
 var _returning_to_nexus: bool = false
 var _previous_quit_on_go_back: bool = true
+# v231: sample the same physics-interpolated actor positions that render.
+var _previous_physics_interpolation: bool = false
+var camera_player_render_position: Vector3 = Vector3.ZERO
+var camera_target_render_position: Vector3 = Vector3.ZERO
 var left_handed: bool = false
 var step_status_label: Label
 var step_detail_label: Label
@@ -393,6 +397,11 @@ var strike_prev_time: float = 0.0
 var strike_prev_blade: PackedVector3Array = PackedVector3Array()
 
 func _ready() -> void:
+    # Enable interpolation only in training. Animated joints and menus must
+    # retain render-frequency evaluation; opt-in physics-driven actors below.
+    _previous_physics_interpolation = get_tree().physics_interpolation
+    get_tree().physics_interpolation = true
+    physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
     # Android Back should return to the base here instead of closing the app.
     _previous_quit_on_go_back = get_tree().quit_on_go_back
     get_tree().quit_on_go_back = false
@@ -413,6 +422,7 @@ func _ready() -> void:
 
 func _exit_tree() -> void:
     get_tree().quit_on_go_back = _previous_quit_on_go_back
+    get_tree().physics_interpolation = _previous_physics_interpolation
 
 func _notification(what: int) -> void:
     if what == NOTIFICATION_WM_GO_BACK_REQUEST:
@@ -587,6 +597,9 @@ func _tick_training_ko(delta: float) -> void:
     player.position = Vector3.ZERO
     player.velocity = Vector3.ZERO
     target.position = Vector3(0.0, TARGET_BASE_HEIGHT, -8.0)
+    # Teleports never blend from previous physics-frame transforms.
+    player.reset_physics_interpolation()
+    target.reset_physics_interpolation()
     target_motion = TARGET_MOTION_SCRIPT.new()
     if target_floor_mark != null:
         target_floor_mark.position = Vector3(0.0, -0.026, -8.0)
@@ -716,6 +729,7 @@ func _floor_line(center: Vector3, dimensions: Vector3, material: Material) -> vo
 func _build_character() -> void:
     player = CharacterBody3D.new()
     player.name = "Player"
+    player.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_ON
     player.collision_layer = PLAYER_COLLISION_LAYER
     player.collision_mask = TARGET_COLLISION_LAYER
     # There is no physics floor yet: motion remains on the original XZ plane.
@@ -733,6 +747,8 @@ func _build_character() -> void:
     player.add_child(player_collision_shape)
     rig = SERA_SCRIPT.new()
     rig.name = "SeraRig"
+    # Only parent world motion is interpolated; joints/IK run per render.
+    rig.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
     rig.position.y = 0.195  # Compensates for -3 BB units in Wait_motion root track
     player.add_child(rig)
     if rig.has_signal("foot_contact"):
@@ -740,10 +756,13 @@ func _build_character() -> void:
     # v97: anchor the ground marker to the world, not the jumping player's Y.
     _add_round_ground_shadow("PlayerFloorMark", self, Vector3(0.0, -0.026, 0.0))
     player_floor_mark = get_node_or_null("PlayerFloorMark") as Node3D
+    if player_floor_mark != null:
+        player_floor_mark.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_ON
 
 func _build_target() -> void:
     target = Node3D.new()
     target.name = "VirtualTarget"
+    target.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_ON
     target.position = Vector3(0, TARGET_BASE_HEIGHT, -8.0)
     add_child(target)
     target_motion = TARGET_MOTION_SCRIPT.new()
@@ -784,6 +803,8 @@ func _build_target() -> void:
     # Target marker stays on the ground even when its cube bobs vertically.
     _add_round_ground_shadow("TargetFloorMark", self, Vector3(target.position.x, -0.026, target.position.z))
     target_floor_mark = get_node_or_null("TargetFloorMark") as Node3D
+    if target_floor_mark != null:
+        target_floor_mark.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_ON
 
 func _build_enemy_shooter() -> void:
     # Keep all live enemy bullets/areas isolated so debug-mode switches can
@@ -931,6 +952,10 @@ func _add_round_ground_shadow(node_name: String, owner: Node3D, local_position: 
 func _build_camera() -> void:
     camera = Camera3D.new()
     camera.name = "DelayedTargetCamera"
+    # Camera itself updates each render and must not be interpolated twice.
+    camera.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
+    camera_player_render_position = player.global_position
+    camera_target_render_position = target.global_position
     camera.fov = 61.0  # Vertical FOV; keeps player visible in tall portrait
     camera.near = 0.08
     camera.far = 200.0
@@ -1212,7 +1237,7 @@ func _update_target_marker_projection() -> void:
     # Re-read target.global_position: animation / future movement both follow.
     if camera == null or target == null or touch_ui == null:
         return
-    var center_world: Vector3 = target.global_position
+    var center_world: Vector3 = camera_target_render_position
     var viewport_size: Vector2 = get_viewport().get_visible_rect().size
     if viewport_size.x <= 0.0 or viewport_size.y <= 0.0 or camera.is_position_behind(center_world):
         touch_ui.call("set_target_marker_projection", Vector2.ZERO, false)
@@ -2777,6 +2802,10 @@ func _physics_process(delta: float) -> void:
         _tick_energy_empty_flash(delta)
         return
     _advance_target_motion(delta)
+    # An interpolated target must not update its bob inside _process().
+    if hit_stop_remaining <= 0.0:
+        elapsed += delta
+        target.position.y = TARGET_BASE_HEIGHT + sin(elapsed * 1.4) * 0.07
     bash_followup_window_remaining = maxf(0.0, bash_followup_window_remaining - delta)
     bash_loop_window_remaining = maxf(0.0, bash_loop_window_remaining - delta)
     _update_guard_hold()
@@ -3129,6 +3158,10 @@ func _physics_process(delta: float) -> void:
                     state_label.text = "WAIT  |  Wait_motion"
 
 func _process(delta: float) -> void:
+    # At 90-120Hz render vs 60Hz physics, current tick positions alternate
+    # between stale and new values. Follow what the interpolated actors show.
+    camera_player_render_position = player.get_global_transform_interpolated().origin
+    camera_target_render_position = target.get_global_transform_interpolated().origin
     # Elapsed training time stays in the active profile until an explicit SAVE.
     SeraSave.record_training_time(delta)
     SeraSave.record_game_time(delta)
@@ -3155,12 +3188,9 @@ func _process(delta: float) -> void:
         _update_target_marker_projection()  # Still track externally moving targets during hit-stop.
         _update_motion_blur(delta)
         return  # Hold target bob and camera for the impact beat.
-    elapsed += delta
-    target.position.y = TARGET_BASE_HEIGHT + sin(elapsed * 1.4) * 0.07
-
     var radial: Vector2 = Vector2(
-        player.global_position.x - target.global_position.x,
-        player.global_position.z - target.global_position.z
+        camera_player_render_position.x - camera_target_render_position.x,
+        camera_player_render_position.z - camera_target_render_position.z
     )
     var separation: float = radial.length()
     # Auto-approach is camera movement, not idle recentering.
@@ -3283,7 +3313,7 @@ func _update_side_from_screen() -> void:
     var size: Vector2 = get_viewport().get_visible_rect().size
     if size.x <= 0.0:
         return
-    var torso: Vector3 = player.global_position + Vector3(0.0, 1.05, 0.0)
+    var torso: Vector3 = camera_player_render_position + Vector3(0.0, 1.05, 0.0)
     if camera.is_position_behind(torso):
         return
     var offset: float = camera.unproject_position(torso).x - size.x * 0.5
@@ -3298,7 +3328,7 @@ func _signed_screen_gap(side: int) -> float:
     # Project a conservative body silhouette and the enlarged floating 2m box.
     # Using the camera's RIGHT vector works even after orbiting 90+ degrees.
     var view_right: Vector3 = camera.global_transform.basis.x.normalized()
-    var torso: Vector3 = player.global_position + Vector3(0.0, 1.05, 0.0)
+    var torso: Vector3 = camera_player_render_position + Vector3(0.0, 1.05, 0.0)
     var pleft: Vector3 = torso - view_right * CAMERA_BODY_HALF_WIDTH
     var pright: Vector3 = torso + view_right * CAMERA_BODY_HALF_WIDTH
     if camera.is_position_behind(pleft) or camera.is_position_behind(pright):
@@ -3310,7 +3340,7 @@ func _signed_screen_gap(side: int) -> float:
     var tx_max: float = -INF
     for dx in [-TARGET_HALF_SIZE, TARGET_HALF_SIZE]:
         for dz in [-TARGET_HALF_SIZE, TARGET_HALF_SIZE]:
-            var corner: Vector3 = target.global_position + Vector3(dx, 0.0, dz)
+            var corner: Vector3 = camera_target_render_position + Vector3(dx, 0.0, dz)
             if camera.is_position_behind(corner):
                 return -1.0e7
             var x: float = camera.unproject_position(corner).x
@@ -3447,7 +3477,7 @@ func _place_camera() -> void:
     # playable portion of the portrait screen. Moving the camera with the
     # lower focus (rather than applying a canvas or HUD offset) preserves
     # world projection for drag, hit effects and screen-edge checks.
-    var focus: Vector3 = target.global_position - Vector3(0.0, CAMERA_FOCUS_DROP, 0.0)
+    var focus: Vector3 = camera_target_render_position - Vector3(0.0, CAMERA_FOCUS_DROP, 0.0)
     camera.position = focus + Vector3(
         sin(camera_yaw) * camera_radius,
         CAMERA_ELEVATION_RATIO * camera_radius,
@@ -3462,7 +3492,7 @@ func _horizontal_safe(extra_margin_ratio: float = 0.0) -> bool:
     if size.x <= 0.0:
         return true
     var right: Vector3 = camera.global_transform.basis.x.normalized()
-    var torso: Vector3 = player.global_position + Vector3(0.0, 1.05, 0.0)
+    var torso: Vector3 = camera_player_render_position + Vector3(0.0, 1.05, 0.0)
     for x_offset in [-CAMERA_SAFE_CORE_HALF_WIDTH, 0.0, CAMERA_SAFE_CORE_HALF_WIDTH]:
         var point: Vector3 = torso + right * x_offset
         if camera.is_position_behind(point):
@@ -3483,7 +3513,7 @@ func _target_fully_in_frame() -> bool:
     for dx in [-TARGET_HALF_SIZE, TARGET_HALF_SIZE]:
         for dy in [-TARGET_HALF_SIZE, TARGET_HALF_SIZE]:
             for dz in [-TARGET_HALF_SIZE, TARGET_HALF_SIZE]:
-                var world_corner: Vector3 = target.global_position + Vector3(dx, dy, dz)
+                var world_corner: Vector3 = camera_target_render_position + Vector3(dx, dy, dz)
                 if camera.is_position_behind(world_corner):
                     return false
                 var projected: Vector2 = camera.unproject_position(world_corner)
@@ -3504,8 +3534,8 @@ func _full_frame_safe() -> bool:
     var size: Vector2 = get_viewport().get_visible_rect().size
     if size.y <= 0.0:
         return true
-    var top: Vector3 = player.global_position + Vector3(0.0, CAMERA_HEAD_HEIGHT, 0.0)
-    var bottom: Vector3 = player.global_position + Vector3(0.0, 0.08, 0.0)
+    var top: Vector3 = camera_player_render_position + Vector3(0.0, CAMERA_HEAD_HEIGHT, 0.0)
+    var bottom: Vector3 = camera_player_render_position + Vector3(0.0, 0.08, 0.0)
     if camera.is_position_behind(top) or camera.is_position_behind(bottom):
         return false
     var upper_screen: Vector2 = camera.unproject_position(top)
