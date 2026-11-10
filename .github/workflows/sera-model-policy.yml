@@ -42,6 +42,7 @@ on:
       - 'tools/v229_slide_boost_camera_self_check.py'
       - 'tools/v230_close_boost_camera_self_check.py'
       - 'tools/v231_camera_physics_interpolation_self_check.py'
+      - 'tools/v232_boost_edge_camera_self_check.py'
       - 'tools/v205_back_booster_stub_self_check.py'
       - 'tools/v206_back_thruster_fx_self_check.py'
       - 'scripts/back_thruster_fx.gd'
@@ -133,6 +134,8 @@ jobs:
         run: python3 tools/v230_close_boost_camera_self_check.py
       - name: Verify v231 high-refresh camera physics interpolation
         run: python3 tools/v231_camera_physics_interpolation_self_check.py
+      - name: Verify v232 left/right edge BOOST camera analytic framing
+        run: python3 tools/v232_boost_edge_camera_self_check.py
       - name: Verify v205 authored back booster mockup and runtime import
         run: python3 tools/v205_back_booster_stub_self_check.py
       - name: Verify v206 authored pivots and limited rectangular exhaust effects

@@ -10,7 +10,8 @@ def read(path):
 
 main = read("scripts/main.gd")
 project = read("project.godot")
-assert 'config/name="SERA v231"' in project
+version = re.search(r'config/name="SERA v(\d+)"', project)
+assert version and int(version.group(1)) >= 231
 
 # The interpolation switch is local to the training scene, and is restored
 # when returning to Nexus. It must not globally re-time keyframed menus.
