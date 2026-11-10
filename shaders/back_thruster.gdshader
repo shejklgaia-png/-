@@ -17,10 +17,10 @@ void vertex() {
     VERTEX.x += along * along * 0.014 * flutter;
     VERTEX.y += along * along * 0.014 * flutter2;
     VERTEX.xy *= 1.0 + along * 0.19 * sin(TIME * 20.0 + along * 11.0);
-    // A launch pulse fans out near the jet tip (up to ~2.8x in width),
+    // A launch pulse fans out near the jet tip (up to 5.0x in width),
     // leaving the base at the metal nozzle lip unchanged.
     float fan = burst * along * along;
-    VERTEX.xy *= 1.0 + 1.8 * fan;
+    VERTEX.xy *= 1.0 + 4.0 * fan;
     VERTEX.z *= 1.0 + 0.28 * burst * along;
     distance_fraction = along;
 }

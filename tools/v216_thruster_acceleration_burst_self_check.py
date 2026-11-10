@@ -53,7 +53,7 @@ assert 'acceleration_burst: bool = false) -> void:' in fx
 
 # CPU-side envelope: opens fast, decays smoothly, resets completely on off.
 for s in (
-    'const BURST_RISE_SECONDS: float = 0.035',
+    'const BURST_RISE_SECONDS: float = 0.10',
     'const BURST_FALL_SECONDS: float = 0.18',
     'const BURST_TOTAL_SECONDS: float = BURST_RISE_SECONDS + BURST_FALL_SECONDS',
     'var burst_elapsed: float = BURST_TOTAL_SECONDS',
@@ -76,7 +76,7 @@ for s in (
 for s in (
     'uniform float burst : hint_range(0.0, 1.0) = 0.0;',
     'float fan = burst * along * along;',
-    'VERTEX.xy *= 1.0 + 1.8 * fan;',
+    'VERTEX.xy *= 1.0 + 4.0 * fan;',
     'VERTEX.z *= 1.0 + 0.28 * burst * along;',
     'EMISSION = flame_tint.rgb * (0.75 + 0.45 * pulse) * (1.0 + 0.85 * burst);',
     'ALPHA = clamp(strength',
@@ -89,7 +89,7 @@ assert "const SLIDE_BOOST_POSE_MAX_WEIGHT: float = 0.50" in rig
 
 # Math: rise -> single peak -> smooth fall -> ZERO, with no retrigger on
 # continuous STEP/tracking frames. Distinct chase modes retrigger once.
-rise=.035
+rise=.10
 fall=.18
 def intensity(t):
     if t<rise: return t/rise
@@ -97,15 +97,15 @@ def intensity(t):
         p=max(0.,min(1.,(t-rise)/fall))
         return 1.-p*p*(3.-2.*p)
     return 0.
-for t in (0.,.01,.02,.035,.075,.125,.17,.214,.215,.5):
+for t in (0.,.01,.02,.035,.075,.10,.125,.17,.214,.27,.28,.5):
     assert -1e-12<=intensity(t)<=1+1e-12
-assert math.isclose(intensity(.035),1.)
-assert intensity(.05)>intensity(.12)>intensity(.19)>0.
-assert math.isclose(intensity(.215),0.,abs_tol=1e-10)
+assert math.isclose(intensity(.10),1.)
+assert intensity(.12)>intensity(.20)>intensity(.27)>0.
+assert math.isclose(intensity(.28),0.,abs_tol=1e-10)
 for p in (0.,.2,.5,1.):
-    assert math.isclose(1.+1.8*intensity(.035)*p*p,1.+1.8*p*p)
-assert math.isclose(1.+1.8*intensity(.035)*0.,1.)
-assert math.isclose(1.+1.8*intensity(.035)*1.,2.8)
+    assert math.isclose(1.+4.0*intensity(.10)*p*p,1.+4.0*p*p)
+assert math.isclose(1.+4.0*intensity(.10)*0.,1.)
+assert math.isclose(1.+4.0*intensity(.10)*1.,5.0)
 states=[(False,-1),(True,-1),(True,-1),(True,-1),(False,-1),
         (False,4),(False,4),(False,5),(False,-1),(True,-1)]
 last_step=False
@@ -119,5 +119,5 @@ for stepping,tracking in states:
 assert pulse_count==4 # two STEPs + two distinct chase starts
 
 print("PASS v216: one-shot STEP/homing burst, four-sided wide-to-narrow flare")
-print("PASS: burst 35ms opening, 180ms return, original nozzle angles")
+print("PASS: burst 100ms opening, 180ms return, original nozzle angles")
 print("Godot/Android GPU shader output not device-tested")
