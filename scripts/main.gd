@@ -60,6 +60,14 @@ const STEP_FLICK_MAX_VERTICAL_RATIO: float = 0.42  # abs(dy) / abs(dx)
 # Preserve the side-step release-only threshold and orthogonal direction guard.
 const STEP_FLICK_MIN_VERTICAL: float = 78.0  # Backstep unchanged; jump has a shorter threshold.
 const STEP_FLICK_MAX_HORIZONTAL_RATIO: float = 0.42
+# v256: Bash alone gets forgiving human-thumb timings. These constants are
+# separate from STEP and archived JUMP so the 45-degree 8-way rule remains.
+const BASH_FLICK_MAX_SECONDS: float = 0.42  # old: 0.24s
+const BASH_FLICK_MIN_FORWARD_PIXELS: float = 30.0  # old: 50px
+const BASH_FLICK_MIN_FORWARD_SPEED: float = 200.0  # old: 500px/s
+const BASH_FLICK_CANDIDATE_GRACE_PIXELS: float = 38.0  # old: 18px
+const BASH_FLICK_REVERSAL_RATIO: float = 1.35  # old: 1.20
+const BASH_FLICK_TAIL_SECONDS: float = BASH_FLICK_MAX_SECONDS
 const STEP_BACK: int = 2  # step_side: -1=left, +1=right, 2=back
 # v100: Jump is archived as an optional debug-only action. It is NOT part of
 # ordinary touch controls. Turning this flag on restores the v99 up-flick path
@@ -2114,7 +2122,8 @@ func _change_drag(pos: Vector2) -> void:
     _remember_jump_flick_sample(pos)
     gesture_max_travel = maxf(gesture_max_travel, pos.distance_to(pointer_origin))
     var displacement: Vector2 = pos - pointer_origin
-    if bash_flick_candidate and gesture_max_travel > TAP_MAX_TRAVEL:
+    if bash_flick_candidate and gesture_max_travel > BASH_FLICK_CANDIDATE_GRACE_PIXELS:
+        # Initial finger wobble no longer immediately cancels the combo.
         # Candidate and final Bash share the same 45-degree forward sector
         # centered on SERA's saved screen-projected facing direction.
         if not FLICK_DIRECTION_POLICY.within_sector(
@@ -2213,7 +2222,7 @@ func _end_drag(release_pos: Vector2) -> void:
     var bash_requested: bool = (bash_flick_candidate
         and not boost_has_activated_this_gesture
         and _is_character_forward_flick(release_pos - pointer_origin, press_duration)
-        and gesture_max_travel <= (release_pos - pointer_origin).length() * 1.20)
+        and gesture_max_travel <= (release_pos - pointer_origin).length() * BASH_FLICK_REVERSAL_RATIO)
     bash_flick_candidate = false
     # A completed BOOST gesture is never reinterpreted as a release flick;
     # a quick flick BEFORE BOOST confirmation still causes a STEP as before.
@@ -2264,9 +2273,10 @@ func _end_drag(release_pos: Vector2) -> void:
 func _remember_jump_flick_sample(pos: Vector2) -> void:
     var now_ms: int = Time.get_ticks_msec()
     jump_flick_samples.append({"ms": now_ms, "pos": pos})
-    # A tail window allows a RUN/BOOST drag to end in a deliberate upward
-    # flick without changing the original release-only lateral/back steps.
-    while jump_flick_samples.size() > 1 and now_ms - int(jump_flick_samples[0]["ms"]) > int(JUMP_FLICK_TAIL_SECONDS * 1000.0):
+    # GUARD Bash gets a larger tail for a slower, shorter final flick.
+    # Archived debug-only Jump retains its original 0.20s sample window.
+    var tail_seconds: float = BASH_FLICK_TAIL_SECONDS if guard_active else JUMP_FLICK_TAIL_SECONDS
+    while jump_flick_samples.size() > 1 and now_ms - int(jump_flick_samples[0]["ms"]) > int(tail_seconds * 1000.0):
         jump_flick_samples.pop_front()
     if jump_flick_samples.size() > 32:
         jump_flick_samples.pop_front()
@@ -2277,8 +2287,8 @@ func _remember_jump_flick_sample(pos: Vector2) -> void:
 func _is_character_forward_flick(displacement: Vector2, seconds: float) -> bool:
     return FLICK_DIRECTION_POLICY.is_flick(
         displacement, seconds, gesture_screen_forward,
-        STEP_FLICK_MAX_SECONDS, JUMP_FLICK_MIN_VERTICAL,
-        STEP_FLICK_MIN_PIXELS_PER_SEC, STEP_FLICK_MAX_HORIZONTAL_RATIO)
+        BASH_FLICK_MAX_SECONDS, BASH_FLICK_MIN_FORWARD_PIXELS,
+        BASH_FLICK_MIN_FORWARD_SPEED, STEP_FLICK_MAX_HORIZONTAL_RATIO)
 
 func _classify_recent_character_forward_flick() -> bool:
     if jump_flick_samples.size() < 2:

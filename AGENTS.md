@@ -139,3 +139,8 @@ Additional historical checks may refer to unavailable prior ZIPs; read their pre
 - For a GUARD held while idle camera recentering occurs, acquire a fresh screen-forward snapshot at the start of the final flick (first displacement >= tap guard deadzone) and keep it until release; if Android coalesces drag, sample at release.
 - Bash selects only sector 0 **relative to the screen-projected character forward snapshot** obtained at touch start. Both Guard Bash and combo Bash must use the shared `within_sector`/`is_flick` helper, not raw screen-UP or an independently computed angle tolerance.
 - Any newly authored directional flick command must explicitly declare its chosen screen axis (absolute screen or actor-facing) and call the same sector functions for candidate detection, triggering and motion. Do not add another 360° quantizer or hard-coded angle wedges. Read `docs/SERA_INPUT_MOVEMENT_CAMERA.md`, run `tools/v254_eight_way_flick_self_check.py` and standard CI.
+
+## v256 accessible Bash-only touch thresholds (2026-11-12)
+- Bash and STEP continue sharing eight 45-degree sectors based on projected actor facing. Do not broaden the directional sectors or change STEP release thresholds as an incidental side effect of Bash accessibility changes.
+- For GUARD and Melee3 Bash, use the dedicated `BASH_FLICK_MAX_SECONDS=0.42`, `BASH_FLICK_MIN_FORWARD_PIXELS=30`, and `BASH_FLICK_MIN_FORWARD_SPEED=200`. Candidate cancellation begins only after 38px of movement, and small reversal tolerance is 1.35. Guard-flick history has its own 0.42s tail; debug-only Jump remains 0.20s.
+- Validate using `tools/v256_bash_accessibility_self_check.py` and the previous v253/v254/v255 regressions. Android gameplay remains the acceptance criterion.
