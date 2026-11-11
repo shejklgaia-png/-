@@ -8,6 +8,10 @@ on:
       - 'tools/sera_code_map.py'
       - 'tools/sera_quick_check.py'
       - 'tools/sera_dev_tools_self_check.py'
+      - 'tools/sera_parameter_audit.py'
+      - 'tools/sera_change_impact.py'
+      - 'tools/sera_agent_audits_self_check.py'
+      - 'docs/SERA_AGENT_MAINTENANCE_ja.md'
       - '.gitignore'
       - 'models/**'
       - 'blockbench/**'
@@ -236,3 +240,6 @@ jobs:
         run: |
           python3 tools/sera_quick_check.py
           python3 tools/sera_code_map.py camera --json > /dev/null
+          python3 tools/sera_agent_audits_self_check.py
+          python3 tools/sera_parameter_audit.py
+          python3 tools/sera_change_impact.py --changed scripts/main.gd --json > /dev/null

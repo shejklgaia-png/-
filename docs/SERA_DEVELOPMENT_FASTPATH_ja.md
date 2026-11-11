@@ -29,6 +29,8 @@
 | 背面スラスター・帯状軌跡 | `scripts/back_thruster_fx.gd` の `set_exhaust` | `docs/RENDER_PIPELINE_POLICY_ja.md` とv223〜v225テスト |
 | NEXUSとカスタマイズ | `scripts/command_nexus.gd` | 保存設定・装備プレビュー・バージョン表記 |
 
+補足: ChatGPT単独開発の追加監査は `docs/SERA_AGENT_MAINTENANCE_ja.md` を参照してください。
+
 ## 安全の境界
 - **この最適化ではランタイムの `.gd`、3Dモデル、アセット、`project.godot` は変更しません。** 版番号も進めません。
 - 静的検査はGDScriptの実行・描画・タッチ・パフォーマンスの証明ではありません。実機未検証を明示します。
