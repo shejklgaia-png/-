@@ -51,7 +51,8 @@ Additional historical checks may refer to unavailable prior ZIPs; read their pre
 - The **original 2026-11-06 packaging step** made no functional changes to v102; this is historical information, not a statement about the current game version.
 
 ## Shared SERA design-memory documents (2026-11-06)
-- Before planning gameplay changes, read `docs/SERA_MEMORY_INDEX.md` and the linked topic documents. They preserve user decisions from ChatGPT conversations for Codex.
+- Before planning gameplay changes, read `docs/SERA_MEMORY_INDEX.md` and the linked topic documents.
+- Before changing RUN/BOOST controller dimensions, run `python3 tools/sera_parameter_audit.py`; for any code change, use `python3 tools/sera_change_impact.py --changed <path>` to suggest scoped regressions (full CI remains mandatory). Details: `docs/SERA_AGENT_MAINTENANCE_ja.md`. They preserve user decisions from ChatGPT conversations for Codex.
 - Treat each item's status honestly: **implemented**, **decided but not implemented**, **under consideration**, **historical**, or **needs verification**. Memory does not override actual v102 code or the latest user request. Do not implement future ideas without an explicit instruction.
 - Keep documents consistent with the actual code, the relevant versioned README, tests, and `DEVELOPMENT.md` when a feature is approved and changed. This handoff adds documentation only; **do not change game version or assets**.
 
