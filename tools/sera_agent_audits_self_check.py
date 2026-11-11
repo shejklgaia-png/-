@@ -12,8 +12,8 @@ assert values["run_radius_px"] > values["run_deadzone_px"] > 0
 assert values["boost_enter_distance_px"] > values["boost_leave_distance_px"]
 # Intentional mismatches must fail closed, not silently pass.
 try:
-    audit(main, ui.replace("const CONTROLLER_RUN_RADIUS: float = 70.0",
-                           "const CONTROLLER_RUN_RADIUS: float = 71.0"))
+    audit(main, ui.replace("const CONTROLLER_RUN_RADIUS: float = 105.0",
+                           "const CONTROLLER_RUN_RADIUS: float = 106.0"))
 except TuningAuditError:
     pass
 else:

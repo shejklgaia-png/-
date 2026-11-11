@@ -57,9 +57,9 @@ for removed in (
     assert removed not in draw, removed
 
 for token in (
-    "const RUN_CONTROL_RADIUS: float = 70.0",
-    "const RUN_INPUT_DEADZONE_PIXELS: float = 11.25",
-    "const DRAG_RADIUS: float = 105.0",
+    "const RUN_CONTROL_RADIUS: float = 105.0",
+    "const RUN_INPUT_DEADZONE_PIXELS: float = 16.875",
+    "const DRAG_RADIUS: float = 157.5",
     "const BOOST_START_RADIUS_RATIO: float = 1.10",
     "const BOOST_EXIT_RADIUS_RATIO: float = 0.90",
     "const BOOST_CONFIRM_SECONDS: float = 0.10",
@@ -67,8 +67,8 @@ for token in (
     "func _end_drag(release_pos: Vector2) -> void:",
 ):
     assert token in main, token
-assert "const CONTROLLER_RUN_RADIUS: float = 70.0" in ui
-assert "var boost_base_radius: float = 105.0" in ui
+assert "const CONTROLLER_RUN_RADIUS: float = 105.0" in ui
+assert "var boost_base_radius: float = 157.5" in ui
 
 # Mathematical layout model: full viewport except the 3 unchanged
 # lock-button footprints and other actual UI buttons.
@@ -86,5 +86,5 @@ for point in ((-1,500), (721,500), (400,670), (540,670), (650,670)):
     assert not usable(*point)
 
 print("PASS v246: fullscreen joystick start and individual UI button exclusions")
-print("PASS v246-v247: frame/fill/gradient removed; input sizes retained")
+print("PASS v246-v248: frame/fill/gradient removed; current input/display sizes coherent")
 print("Godot parser, Android device and actual multitouch are NOT verified")

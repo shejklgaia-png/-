@@ -46,10 +46,10 @@ const BOOST_SPEED_BLEND_SECONDS: float = 0.20
 # v162: hold the authored BOOST pose for 0.50s after BOOST input ends.
 # The rig then crossfades to RUN over 0.20s independently of move speed.
 const BOOST_POSE_GRACE_SECONDS: float = 0.50
-# v245: both RUN radius and center deadzone are 125% of v244.
-# BOOST entry/exit percentages remain at the now 105px touch baseline.
-const RUN_CONTROL_RADIUS: float = 70.0
-const RUN_INPUT_DEADZONE_PIXELS: float = 11.25
+# v248: RUN, deadzone and BOOST dimensions are 150% of v247.
+# BOOST entry/exit percentages and 0.10s confirmation stay unchanged.
+const RUN_CONTROL_RADIUS: float = 105.0
+const RUN_INPUT_DEADZONE_PIXELS: float = 16.875
 # A side step is classified only when the finger is RELEASED.  In particular,
 # a long horizontal hold/drag never becomes a step, even if it ends quickly.
 const STEP_FLICK_MAX_SECONDS: float = 0.24
@@ -147,7 +147,7 @@ enum CombatState { IDLE, MELEE_APPROACH, DASH, STRIKE, BASH, BASH_TRACK, STRIKE_
 # v112: Persistent handedness changes RUN animation selection only.
 const HANDEDNESS_SETTINGS_FILE: String = "user://sera_settings.cfg"
 const NEXUS_SCENE: String = "res://scenes/command_nexus.tscn"
-const DRAG_RADIUS: float = 105.0  # v245: 125% of v244; retain BOOST entry/exit ratios.
+const DRAG_RADIUS: float = 157.5  # v248: 150% of v247; same BOOST entry/exit ratios.
 const CAMERA_FOLLOW_RATE: float = 1.65
 const CAMERA_IDLE_RECENTER_RATE: float = 1.05  # How quickly the player eases toward a clear centered resting position.
 const CAMERA_MOVING_YAW_SCALE: float = 0.55  # Softer rotation during drag to preserve left/right movement.
