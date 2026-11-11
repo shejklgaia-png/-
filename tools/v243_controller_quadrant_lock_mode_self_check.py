@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""SERA v243: bottom-right 1/4 controller, buttons on top, AUTO/MANUAL lock."""
+"""SERA v243 lock controls, updated for the v246 fullscreen controller."""
 from __future__ import annotations
 from pathlib import Path
 import math
@@ -24,8 +24,8 @@ for token in (
     'var auto_lock_enabled: bool = true',
     'var manual_part_lock_active: bool = false',
     'func _controller_start_area_contains(pos: Vector2) -> bool:',
-    'pos.x >= screen.x * CONTROLLER_REGION_START_RATIO',
-    'pos.y >= screen.y * CONTROLLER_REGION_START_RATIO',
+    'pos.x >= 0.0',
+    'pos.y >= 0.0',
     'pos.x <= screen.x', 'pos.y <= screen.y',
     'func _build_lock_switch_buttons(layer: CanvasLayer) -> void:',
     'button.anchor_top = CONTROLLER_REGION_START_RATIO',
@@ -47,8 +47,7 @@ for token in (
 ):
     assert token in main,token
 
-# Frame follows the same 50%-of-each-dimension boundary as the hit-test,
-# without having its input intercepted by the full-rect overlay.
+# Retain the optional gray gradient but no visible frame or corner markers.
 assert 'const CONTROLLER_FRAME_START_RATIO: float = 0.50' in ui
 for token in (
     'var frame_left: float = size.x * CONTROLLER_FRAME_START_RATIO',
@@ -56,17 +55,18 @@ for token in (
     'var fade_top: float = size.y * OPERATION_ZONE_TOP_RATIO',
     'Vector2(frame_left, fade_top)',
     'Vector2(frame_left, solid_top)',
-    'draw_rect(frame_rect.grow(-2.0)',
-    'draw_line(Vector2(frame_left + 12.0, bottom)',
-    'draw_line(Vector2(size.x - 12.0, bottom)',
+    'draw_polygon(fade_vertices, fade_colors)',
+    'draw_rect(Rect2(frame_left, solid_top',
     'if dragging:', '_draw_analog_controller(accent, low)',
 ):
     assert token in ui,token
+assert 'draw_rect(frame_rect.grow(-2.0)' not in ui
+assert 'corner_tint' not in ui
 assert 'mouse_filter = Control.MOUSE_FILTER_IGNORE' in main
 assert 'layer.add_child(touch_ui)' in main
 
-# Native Android pointer ownership: a finger can only START in the
-# quadrant, but its later drag and release are never position-clamped.
+# Native Android pointer ownership: touch starts anywhere except UI buttons,
+# and later drag/release locations have no position restriction.
 input_fn=main.split('func _input(event: InputEvent) -> void:',1)[1].split(
     'func _guard_can_start()',1)[0]
 assert 'current_touch < 0 and _controller_start_area_contains(event.position)' in input_fn
@@ -109,7 +109,7 @@ assert 'func _begin_drag(pos: Vector2) -> void:' in main
 assert 'func _change_drag(pos: Vector2) -> void:' in main
 assert 'func _end_drag(release_pos: Vector2) -> void:' in main
 
-# 720x1280 layout: right/bottom quadrant and 3 non-overlapping buttons.
+# 720x1280 layout: three non-overlapping lock buttons stay in place.
 w,h=720.0,1280.0
 frame=(w*.5,h*.5,w,h)
 assert frame==(360.0,640.0,720.0,1280.0)
@@ -121,15 +121,21 @@ for rect in (left,middle,right):
     assert frame[0]<=rect[0]<rect[2]<=frame[2]
     assert frame[1]<=rect[1]<rect[3]<=frame[3]
 def allowed_start(x,y):
-    return w*.5<=x<=w and h*.5<=y<=h
-for point in ((350,1000),(450,620),(0,0),(220,1200)):
+    if not (0 <= x <= w and 0 <= y <= h):
+        return False
+    for a,b,c,d in (left,middle,right):
+        if a <= x <= c and b <= y <= d:
+            return False
+    return True
+for point in ((-1,1000),(721,900),(400,670),(540,670),(650,670)):
     assert not allowed_start(*point)
-for point in ((410,750),(650,1120),(500,900)):
+for point in ((350,1000),(450,620),(0,0),(220,1200),
+              (410,750),(650,1120),(500,900)):
     assert allowed_start(*point)
 # Move/release from a valid origin can travel anywhere afterwards.
 start=(510,900)
 end=(80,200)
-assert allowed_start(*start) and not allowed_start(*end)
+assert allowed_start(*start) and allowed_start(*end)
 # AUTO mode keeps the auto-lock active; MANUAL holds the last selected part.
 auto=True
 manual_latch=not auto
@@ -141,7 +147,7 @@ auto=not auto
 manual_latch=not auto
 assert not manual_latch
 
-print("PASS v243: right-bottom 1/4 visible frame and touch-down-only gating")
+print("PASS v243-v246: no frame strokes, fullscreen gestures except button footprints")
 print("PASS v243: L/AUTO-MANUAL/R top-corner HUD, separated gesture IDs")
 print("PASS v243: auto lock restores selection; manual retains and switches screen-X")
 print("Godot parser, Android UI and real multi-touch behavior not exercised")
