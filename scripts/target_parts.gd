@@ -1,6 +1,6 @@
 extends Node3D
-## SERA v237: five independent, targetable dummy boss parts.
-## Opaque procedural geometry; no modifications to the player Blockbench model.
+## SERA v238: five independent breakable parts on the body perimeter.
+## Opaque mechanical frame made from BoxMesh; user Blockbench assets untouched.
 ## The central cube retains the authoritative movement collider and boss HP.
 
 const CORE_HP_SHARE: float = 0.50
@@ -13,22 +13,23 @@ const CORE_DEFENSE: float = 0.14
 var parts: Dictionary = {}
 
 func _ready() -> void:
-    # The four columns reach the floor beneath the existing 2m cube.
-    # Positive Z is its training-arena front face, facing the spawn point.
-    _add_part("head", "HEAD", Vector3(0.0, 1.18, 0.58),
-        Vector3(1.08, 0.75, 0.90), Vector3(0.0, 0.18, 0.34),
+    # The central body is 2m per axis, so its X/Z sides are +/-1.0m.
+    # Each leg originates OUTSIDE a side panel and extends to the floor;
+    # the front sensor head grows from the +Z outer face, not its roof.
+    _add_part("head", "HEAD", Vector3(0.0, 0.52, 1.28),
+        Vector3(1.48, 0.82, 0.96), Vector3(0.0, 0.0, 0.37),
         38.0, 0.20, 0.10, "change", Color("da755a"))
-    _add_part("leg_fl", "FRONT L", Vector3(-0.78, -1.03, 0.73),
-        Vector3(0.43, 1.04, 0.46), Vector3(0.0, -0.30, 0.0),
+    _add_part("leg_fl", "FRONT L", Vector3(-1.23, -0.67, 0.78),
+        Vector3(1.38, 1.88, 1.02), Vector3(-0.37, -0.33, 0.12),
         30.0, 0.12, 0.00, "remove", Color("b9604c"))
-    _add_part("leg_fr", "FRONT R", Vector3(0.78, -1.03, 0.73),
-        Vector3(0.43, 1.04, 0.46), Vector3(0.0, -0.30, 0.0),
+    _add_part("leg_fr", "FRONT R", Vector3(1.23, -0.67, 0.78),
+        Vector3(1.38, 1.88, 1.02), Vector3(0.37, -0.33, 0.12),
         30.0, 0.12, 0.00, "remove", Color("b9604c"))
-    _add_part("leg_rl", "REAR L", Vector3(-0.78, -1.03, -0.73),
-        Vector3(0.43, 1.04, 0.46), Vector3(0.0, -0.30, 0.0),
+    _add_part("leg_rl", "REAR L", Vector3(-1.23, -0.67, -0.78),
+        Vector3(1.38, 1.88, 1.02), Vector3(-0.37, -0.33, 0.12),
         32.0, 0.16, 0.12, "remain", Color("a95043"))
-    _add_part("leg_rr", "REAR R", Vector3(0.78, -1.03, -0.73),
-        Vector3(0.43, 1.04, 0.46), Vector3(0.0, -0.30, 0.0),
+    _add_part("leg_rr", "REAR R", Vector3(1.23, -0.67, -0.78),
+        Vector3(1.38, 1.88, 1.02), Vector3(0.37, -0.33, 0.12),
         32.0, 0.16, 0.12, "remain", Color("a95043"))
 
 func _make_box(owner: Node3D, name: String, offset: Vector3,
@@ -51,6 +52,59 @@ func _make_material(color: Color) -> StandardMaterial3D:
     material.roughness = 0.68
     return material
 
+func _build_head_frame(pivot: Node3D, shell: StandardMaterial3D,
+        accent: StandardMaterial3D, frame: StandardMaterial3D,
+        dark: StandardMaterial3D) -> MeshInstance3D:
+    # A short attachment to the +Z face makes the sensor a plugged-in module.
+    _make_box(pivot, "NeckMount", Vector3(0.0, -0.08, -0.23),
+        Vector3(0.58, 0.34, 0.38), frame)
+    _make_box(pivot, "SensorHousing", Vector3.ZERO,
+        Vector3(1.12, 0.56, 0.68), shell)
+    _make_box(pivot, "SideRailL", Vector3(-0.58, -0.02, 0.04),
+        Vector3(0.13, 0.40, 0.52), frame)
+    _make_box(pivot, "SideRailR", Vector3(0.58, -0.02, 0.04),
+        Vector3(0.13, 0.40, 0.52), frame)
+    _make_box(pivot, "UpperCrossmember", Vector3(0.0, 0.29, -0.05),
+        Vector3(0.98, 0.12, 0.34), frame)
+    _make_box(pivot, "LowerCrossmember", Vector3(0.0, -0.27, -0.04),
+        Vector3(0.87, 0.10, 0.28), dark)
+    _make_box(pivot, "Visor", Vector3(0.0, 0.02, 0.36),
+        Vector3(0.72, 0.18, 0.08), accent)
+    # A visible exposed frame sits in front of the visor after head break.
+    var fracture: MeshInstance3D = _make_box(pivot, "FracturedHead",
+        Vector3(0.0, 0.02, 0.42), Vector3(0.60, 0.37, 0.11), dark)
+    fracture.visible = false
+    return fracture
+
+
+func _build_leg_frame(pivot: Node3D, side: float,
+        shell: StandardMaterial3D, accent: StandardMaterial3D,
+        frame: StandardMaterial3D, dark: StandardMaterial3D) -> void:
+    # The inside mount overlaps the side of the 2m core; all long members
+    # remain outside it. The feet finish at world Y=0 when the core is at
+    # its normal 1.53m height (with the +0.07m training bob).
+    _make_box(pivot, "SideMount", Vector3(-side * 0.26, 0.37, 0.0),
+        Vector3(0.68, 0.27, 0.58), dark)
+    _make_box(pivot, "HipJoint", Vector3(-side * 0.02, 0.36, 0.0),
+        Vector3(0.40, 0.37, 0.44), accent)
+    _make_box(pivot, "Outrigger", Vector3(side * 0.18, 0.26, 0.0),
+        Vector3(0.55, 0.18, 0.28), frame)
+    _make_box(pivot, "UpperStrut", Vector3(side * 0.34, -0.02, 0.0),
+        Vector3(0.23, 0.64, 0.31), shell)
+    _make_box(pivot, "KneeHinge", Vector3(side * 0.34, -0.31, 0.0),
+        Vector3(0.37, 0.28, 0.38), accent)
+    _make_box(pivot, "LowerStrut", Vector3(side * 0.34, -0.53, 0.0),
+        Vector3(0.18, 0.49, 0.22), frame)
+    _make_box(pivot, "Piston", Vector3(side * 0.34, -0.52, 0.15),
+        Vector3(0.09, 0.44, 0.09), accent)
+    _make_box(pivot, "OuterPlate", Vector3(side * 0.51, -0.17, 0.0),
+        Vector3(0.12, 0.61, 0.37), shell)
+    _make_box(pivot, "HeelBrace", Vector3(side * 0.34, -0.70, -0.09),
+        Vector3(0.30, 0.19, 0.36), dark)
+    _make_box(pivot, "Foot", Vector3(side * 0.37, -0.77, 0.13),
+        Vector3(0.55, 0.18, 0.68), accent)
+
+
 func _add_part(id: String, display: String, center: Vector3,
         dimensions: Vector3, aim_offset: Vector3, integrity: float,
         defense: float, break_defense: float, break_mode: String,
@@ -59,20 +113,19 @@ func _add_part(id: String, display: String, center: Vector3,
     pivot.name = id
     pivot.position = center
     add_child(pivot)
-    var shell := _make_material(color)
-    var accent := _make_material(Color("5d4140"))
-    _make_box(pivot, "Armor", Vector3.ZERO, dimensions, shell)
+    var shell: StandardMaterial3D = _make_material(color)
+    var accent: StandardMaterial3D = _make_material(Color("5d4140"))
+    var frame: StandardMaterial3D = _make_material(Color("39444d"))
+    var dark: StandardMaterial3D = _make_material(Color("283039"))
     var fracture: MeshInstance3D = null
     if id == "head":
-        _make_box(pivot, "Visor", Vector3(0.0, 0.05, 0.45),
-            Vector3(0.70, 0.20, 0.06), accent)
-        fracture = _make_box(pivot, "FracturedVisor",
-            Vector3(0.0, 0.06, 0.50), Vector3(0.50, 0.40, 0.08),
-            _make_material(Color("293540")))
-        fracture.visible = false
+        fracture = _build_head_frame(pivot, shell, accent, frame, dark)
     else:
-        _make_box(pivot, "Foot", Vector3(0.0, -0.42, 0.13),
-            Vector3(0.53, 0.18, 0.67), accent)
+        # The X coordinate identifies the left/right body attachment.
+        var side: float = signf(center.x)
+        _build_leg_frame(pivot, side, shell, accent, frame, dark)
+    # The dimensions cover the entire exposed framework, not just one plate.
+    # This keeps sword contact and automatic occlusion checks aligned.
     parts[id] = {
         "id": id, "display": display, "node": pivot, "size": dimensions,
         "aim": aim_offset, "max_integrity": integrity,
