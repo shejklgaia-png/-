@@ -31,11 +31,11 @@ for token in (
 ):
     assert token in draw, token
 
-# Never change the touch start area, hit thresholds, gestures, or lock buttons.
+# Keep the touch start area, non-size gesture thresholds, and lock buttons.
 for token in (
-    "const RUN_CONTROL_RADIUS: float = 70.0",
-    "const RUN_INPUT_DEADZONE_PIXELS: float = 11.25",
-    "const DRAG_RADIUS: float = 105.0",
+    "const RUN_CONTROL_RADIUS: float = 105.0",
+    "const RUN_INPUT_DEADZONE_PIXELS: float = 16.875",
+    "const DRAG_RADIUS: float = 157.5",
     "const BOOST_START_RADIUS_RATIO: float = 1.10",
     "const BOOST_EXIT_RADIUS_RATIO: float = 0.90",
     "const BOOST_CONFIRM_SECONDS: float = 0.10",
@@ -46,6 +46,6 @@ for token in (
     "func _end_drag(release_pos: Vector2) -> void:",
 ):
     assert token in main, token
-assert "const CONTROLLER_RUN_RADIUS: float = 70.0" in ui
-assert "var boost_base_radius: float = 105.0" in ui
-print("PASS v247: no idle right-bottom rectangle or gradient; touch and lock controls preserved")
+assert "const CONTROLLER_RUN_RADIUS: float = 105.0" in ui
+assert "var boost_base_radius: float = 157.5" in ui
+print("PASS v247-v248: no idle rectangle/gradient; full-screen touch and lock controls preserved")

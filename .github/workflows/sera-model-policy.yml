@@ -57,6 +57,7 @@ on:
       - 'tools/v245_controller_125_percent_self_check.py'
       - 'tools/v246_fullscreen_controller_self_check.py'
       - 'tools/v247_transparent_controller_self_check.py'
+      - 'tools/v248_controller_150_percent_self_check.py'
       - 'scripts/training_target_motion.gd'
       - 'scripts/enemy_shooter.gd'
       - 'scripts/target_parts.gd'
@@ -166,6 +167,8 @@ jobs:
         run: python3 tools/v246_fullscreen_controller_self_check.py
       - name: Verify v247 completely transparent operation zone and unchanged controls
         run: python3 tools/v247_transparent_controller_self_check.py
+      - name: Verify v248 RUN and BOOST controller visuals and touch radii at 150 percent
+        run: python3 tools/v248_controller_150_percent_self_check.py
       - name: Verify v238 perimeter mechanical frame, collision bounds and unchanged break logic
         run: python3 tools/v238_target_mecha_frame_self_check.py
       - name: Verify v239 rectangular body, same-height legs and low head collision geometry

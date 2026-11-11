@@ -1,5 +1,6 @@
 extends Control
 ## v247: Remove the former lower-right operation-zone background; floating controls remain.
+## v248: Scale floating controller visuals and RUN/BOOST hit radii by 150%; keep gestures unchanged.
 ## v71: In-project vector-rendered two-part radial controller (no image dependency).
 ## v72: Enlarge guide and visualize run vs outer-ring boost from main.gd.
 ## v73: Legacy floating analog disc (retired in v157).
@@ -27,8 +28,8 @@ extends Control
 var dragging: bool = false
 var movement_boost_active: bool = false
 var anchor_point: Vector2 = Vector2.ZERO
-var radius: float = 70.0
-var boost_base_radius: float = 105.0
+var radius: float = 105.0
+var boost_base_radius: float = 157.5
 var analog_direction: Vector2 = Vector2.ZERO
 var melee_in_range: bool = false
 # Screen coordinates supplied by Camera3D.unproject_position(target.global_position).
@@ -60,17 +61,17 @@ const LOCK_RING_WIDTH_MELEE: float = 5.0
 # 4 arcs are centered exactly on the horizontal/vertical axes at rest.
 const LOCK_ARC_SWEEP: float = 0.70
 
-# v245: RUN 70px, BOOST entry 105*1.10=115.5px.
-const CONTROLLER_RUN_RADIUS: float = 70.0
+# v248: RUN 105px, BOOST entry 157.5*1.10=173.25px.
+const CONTROLLER_RUN_RADIUS: float = 105.0
 const CONTROLLER_BOOST_START_RADIUS_RATIO: float = 1.10
 const CONTROLLER_HUB_RADIUS_RATIO: float = 0.24
 # v160: visual-only propulsion shell OUTSIDE the original BOOST boundary.
 const BOOST_SHELL_RADIUS_RATIO: float = 1.19
 const BOOST_SHELL_SEGMENT_HALF_ARC: float = 0.17
-const BOOST_SHELL_SEGMENT_WIDTH: float = 3.125
+const BOOST_SHELL_SEGMENT_WIDTH: float = 4.6875
 const BOOST_CHEVRON_INNER_RATIO: float = 1.25
 const BOOST_CHEVRON_OUTER_RATIO: float = 1.35
-const BOOST_CHEVRON_HALF_WIDTH: float = 5.625
+const BOOST_CHEVRON_HALF_WIDTH: float = 8.4375
 const BOOST_SHELL_INACTIVE_ALPHA_SCALE: float = 0.55
 # v169: 2D-only, non-glowing cyan waves, centered on the released tap.
 const ATTACK_RIPPLE_DURATION: float = 0.46
@@ -307,19 +308,19 @@ func _draw_flick_wake() -> void:
 
 func _draw_analog_controller(accent: Color, low: Color) -> void:
     # The RUN disc stays fixed at the initial touch point; its radius is
-    # shorter, while BOOST begins at the v245 115.5px boundary.
+    # shorter, while BOOST begins at the v248 173.25px boundary.
     draw_circle(anchor_point, radius, Color(0.15, 0.60, 0.68, 0.08))
     var rim_color: Color = accent if movement_boost_active else low
-    draw_arc(anchor_point, radius, 0.0, TAU, 96, rim_color, 1.875, true)
+    draw_arc(anchor_point, radius, 0.0, TAU, 96, rim_color, 2.8125, true)
     var boost_guide: Color = Color(0.21, 0.85, 0.93, 0.60) if movement_boost_active else Color(0.21, 0.85, 0.93, 0.15)
     draw_arc(anchor_point, boost_base_radius * CONTROLLER_BOOST_START_RADIUS_RATIO,
-        0.0, TAU, 96, boost_guide, 1.25, true)
-    # Fixed propulsion shell moves inward alongside the 115.5px entry ring.
+        0.0, TAU, 96, boost_guide, 1.875, true)
+    # Fixed propulsion shell follows the 173.25px BOOST entry ring.
     _draw_boost_outer_shell(accent)
     draw_circle(anchor_point, radius * CONTROLLER_HUB_RADIUS_RATIO,
         Color(0.13, 0.54, 0.61, 0.22))
     draw_arc(anchor_point, radius * CONTROLLER_HUB_RADIUS_RATIO,
-        0.0, TAU, 48, low, 1.25, true)
+        0.0, TAU, 48, low, 1.875, true)
     # A rotating angular marker (not a finger-tracking knob) communicates
     # any of 360 degrees; brightness also reflects analog RUN strength.
     var strength: float = analog_direction.length()
@@ -329,19 +330,19 @@ func _draw_analog_controller(accent: Color, low: Color) -> void:
         var indicator_color: Color = Color(
             0.21, 0.85, 0.93, lerpf(0.38, 0.98, strength))
         draw_arc(anchor_point, radius * 0.88,
-            angle - 0.26, angle + 0.26, 20, indicator_color, 4.375, true)
+            angle - 0.26, angle + 0.26, 20, indicator_color, 6.5625, true)
         var sideways: Vector2 = Vector2(-heading.y, heading.x)
         var tip: Vector2 = anchor_point + heading * radius * 0.69
         var base: Vector2 = anchor_point + heading * radius * 0.39
         draw_colored_polygon(PackedVector2Array([
-            tip, base + sideways * 5.625, base - sideways * 5.625
+            tip, base + sideways * 8.4375, base - sideways * 8.4375
         ]), indicator_color)
     _draw_move_mode_indicator(accent, rim_color)
 
 
 func _draw_boost_outer_shell(accent: Color) -> void:
     # Eight fixed armor arcs and outward thrust arrows; no finger tracking.
-    # v245: all geometry follows the 105px BOOST baseline, 125% of v244.
+    # v248: all geometry follows the 157.5px BOOST baseline, 150% of v247.
     # Shell/chevron proportions remain aligned with the actual input radius.
     var alpha_scale: float = 1.0 if movement_boost_active else BOOST_SHELL_INACTIVE_ALPHA_SCALE
     var shell_color: Color = Color(accent.r, accent.g, accent.b, 0.34 * alpha_scale)
@@ -367,16 +368,16 @@ func _draw_boost_outer_shell(accent: Color) -> void:
 
 func _draw_move_mode_indicator(accent: Color, rim_color: Color) -> void:
     # Keep the RUN/BOOST label above the NEW outermost arrows; otherwise the
-    # label at the 115.5px rim would overlap the 141.75px thrust tips.
+    # label at the 173.25px rim would overlap the 212.625px thrust tips.
     var mode_label: String = "BOOST  1.5x" if movement_boost_active else "RUN  1.0x"
-    var label_width: float = 103.75
-    var label_height: float = 21.25
+    var label_width: float = 155.625
+    var label_height: float = 31.875
     var rect := Rect2(anchor_point.x - label_width * 0.5,
-        anchor_point.y - boost_base_radius * BOOST_CHEVRON_OUTER_RATIO - label_height - 10.0,
+        anchor_point.y - boost_base_radius * BOOST_CHEVRON_OUTER_RATIO - label_height - 15.0,
         label_width, label_height)
     draw_rect(rect, Color(0.13, 0.54, 0.61, 0.45), true)
-    draw_rect(rect, rim_color, false, 1.25, true)
+    draw_rect(rect, rim_color, false, 1.875, true)
     var font: Font = get_theme_default_font()
     if font != null:
-        draw_string(font, Vector2(rect.position.x, rect.position.y + 15.0),
-            mode_label, HORIZONTAL_ALIGNMENT_CENTER, label_width, 11, accent)
+        draw_string(font, Vector2(rect.position.x, rect.position.y + 22.5),
+            mode_label, HORIZONTAL_ALIGNMENT_CENTER, label_width, 17, accent)
