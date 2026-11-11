@@ -40,38 +40,33 @@ assert "_classify_recent_character_forward_flick()" in release
 assert "BASH_FLICK_TAIL_SECONDS if guard_active else JUMP_FLICK_TAIL_SECONDS" in sample
 assert "BASH_FLICK_MAX_SECONDS, BASH_FLICK_MIN_FORWARD_PIXELS" in bash
 assert "BASH_FLICK_MIN_FORWARD_SPEED, STEP_FLICK_MAX_HORIZONTAL_RATIO" in bash
-assert "return FLICK_DIRECTION_POLICY.eight_way_direction(displacement, gesture_screen_forward)" in step
+assert "return FLICK_DIRECTION_POLICY.four_way_direction(displacement, gesture_screen_forward)" in step
 assert "if seconds <= 0.0 or seconds > STEP_FLICK_MAX_SECONDS:" in step
 assert "if distance < STEP_FLICK_MIN_HORIZONTAL:" in step
 assert "distance / seconds < STEP_FLICK_MIN_PIXELS_PER_SEC" in step
-assert "const SECTOR_COUNT: int = 8" in policy
+assert "const SECTOR_COUNT: int = 4" in policy
 assert "sector_index(displacement, screen_axis) == 0" in policy
 assert "return FLICK_DIRECTION_POLICY.is_flick(" in main
 assert "target_parts.call(\"install_movement_colliders\", target_collider)" in main
 assert "if bash_requested and _request_combo_bash():" in release
 
-# Numerical acceptance: forward component and 45° front-sector both apply.
+# Numerical acceptance mirrors the v256 distance/speed but v258 angle gate.
 def accepts(distance,seconds,delta_deg=0.0):
     forward=distance*math.cos(math.radians(delta_deg))
-    if abs(delta_deg)>=22.5 or seconds<=0 or seconds>.42:
+    if abs(delta_deg)>=45.0 or seconds<=0 or seconds>.42:
         return False
     return forward>=30.0 and forward/seconds>=200.0
-assert not accepts(30,0.10,30)
 assert accepts(35,0.15,0)
 assert accepts(42,0.20,0)
-assert accepts(60,0.25,10)
+assert accepts(60,0.25,30)
 assert accepts(80,0.35,0)
 assert not accepts(29,0.10,0)
 assert not accepts(60,0.43,0)
-assert not accepts(70,0.40,0)  # 175px/s is below the new speed floor
-for deg in range(0,360,15):
-    assert accepts(45,0.17,0.0)
-    # Absolute heading does not matter; only facing-relative delta does.
-    for delta in (-22,-12,0,12,22):
-        assert accepts(45,0.17,delta),(deg,delta)
-    for delta in (-45,-23,23,45,90,180):
-        assert not accepts(45,0.17,delta),(deg,delta)
-
-print("PASS v256: Bash timing/distance/speed relaxed; candidate grace and GUARD tail")
-print("PASS v256: strict 8-sector direction unchanged, STEP/JUMP/boost untouched")
-print("Godot/Android input and exact frame timing not tested")
+assert not accepts(70,0.40,0)
+for actor_deg in range(0,360,15):
+    for delta in (-44,-35,-22,0,22,35,44):
+        assert accepts(80,0.20,delta),(actor_deg,delta)
+    for delta in (-90,-46,46,90,180):
+        assert not accepts(80,0.20,delta),(actor_deg,delta)
+print("PASS v256/v258: Bash short/slow thresholds and four-way full front sector")
+print("Godot/Android touch timing not tested")

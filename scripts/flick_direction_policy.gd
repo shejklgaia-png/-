@@ -1,26 +1,9 @@
 extends RefCounted
-## Shared SERA flick direction: project the visible character forward and
-## test all directional action gestures against a snapshot of this screen axis.
-## New action recognizers MUST NOT hard-code screen-UP or world-Z.
-## v254: every direction is assigned to exactly one of eight 45-degree
-## sectors (center +/-22.5 degrees), relative to a supplied visible axis.
-## v257: STEP and Bash use the controller-origin -> rendered lock-marker
-## screen vector as sector 0. This is NOT character-facing or screen-UP.
-## The actor's projected facing is only a fallback for a hidden marker.
-const SECTOR_COUNT: int = 8
-const SECTOR_ANGLE: float = TAU / 8.0
-
-# The exact marker pixel coordinates must come from the same HUD field
-# used to draw the visible reticle. Direction depends on touch origin.
-# If the reticle overlaps the controller, keep the supplied safe fallback.
-static func toward_lock_marker(controller_origin: Vector2,
-        marker_screen_position: Vector2, fallback: Vector2) -> Vector2:
-    var toward: Vector2 = marker_screen_position - controller_origin
-    if toward.length_squared() > 0.0001:
-        return toward.normalized()
-    if fallback.length_squared() > 0.000001:
-        return fallback.normalized()
-    return Vector2.UP
+## v258: screen-projected SERA facing is 0=FORWARD.
+## Four exclusive 90-degree sectors: FORWARD=0, RIGHT=1, BACK=2, LEFT=3.
+## Store the axis on touch-down; after long Guard refresh at flick onset.
+const SECTOR_COUNT: int = 4
+const SECTOR_ANGLE: float = TAU / 4.0
 
 static func projected_forward(camera: Camera3D, actor: Node3D) -> Vector2:
     if camera == null or actor == null:
@@ -39,10 +22,8 @@ static func projected_forward(camera: Camera3D, actor: Node3D) -> Vector2:
         return Vector2.UP
     return screen_forward.normalized()
 
-# Sector index: 0=FORWARD, 1=FORWARD_RIGHT, 2=RIGHT, 3=BACK_RIGHT,
-# 4=BACK, 5=BACK_LEFT, 6=LEFT, 7=FORWARD_LEFT.  Returned headings are
-# clockwise in viewport coordinates, relative to screen_axis.
-# At exact boundaries, clockwise sector wins. -1 means no direction.
+# 360-degree screen deltas relative to actor forward. Exact clockwise
+# boundary (+45 degrees) is classified as the clockwise neighbor.
 static func sector_index(displacement: Vector2, screen_axis: Vector2) -> int:
     if displacement.length_squared() < 0.000001 or screen_axis.length_squared() < 0.000001:
         return -1
@@ -52,27 +33,20 @@ static func sector_index(displacement: Vector2, screen_axis: Vector2) -> int:
     return posmod(floori((angle + SECTOR_ANGLE * 0.5) / SECTOR_ANGLE),
         SECTOR_COUNT)
 
-# Convert screen-space finger travel into the eight discrete relative
-# gameplay directions, then pass that normalized 2D vector to STEP/pose.
-# The supplied screen_axis determines only which sector is selected.
-static func eight_way_direction(displacement: Vector2, screen_axis: Vector2) -> Vector2:
+# Returns four cardinal local step vectors. Their world-space step
+# interpretation (actor forward/back and camera screen right/left) is unchanged.
+static func four_way_direction(displacement: Vector2, screen_axis: Vector2) -> Vector2:
     var sector: int = sector_index(displacement, screen_axis)
     if sector < 0:
         return Vector2.ZERO
     return Vector2.UP.rotated(float(sector) * SECTOR_ANGLE)
 
+# Compatibility parameter deliberately ignored. The 90-degree front
+# sector defines the complete Bash direction gate; an additional 0.42
+# side/forward ratio would accidentally narrow it back to ~45 degrees.
 static func within_sector(displacement: Vector2, screen_axis: Vector2,
-        lateral_ratio: float) -> bool:
-    if displacement.length_squared() < 0.000001 or screen_axis.length_squared() < 0.000001:
-        return false
-    var axis: Vector2 = screen_axis.normalized()
-    var forward_amount: float = displacement.dot(axis)
-    var sideways_amount: float = absf(displacement.cross(axis))
-    # The forward action occupies only sector 0, a fixed 45-degree wedge.
-    # Keep a narrower caller-specific tolerance when requested.
-    return (sector_index(displacement, screen_axis) == 0
-        and forward_amount > 0.0
-        and sideways_amount <= forward_amount * maxf(lateral_ratio, 0.0))
+        _lateral_ratio: float) -> bool:
+    return sector_index(displacement, screen_axis) == 0
 
 static func is_flick(displacement: Vector2, seconds: float,
         screen_axis: Vector2, max_seconds: float, min_forward_pixels: float,
