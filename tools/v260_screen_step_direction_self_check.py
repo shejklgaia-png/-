@@ -12,7 +12,7 @@ project=read("project.godot")
 v=re.search(r'^config/name="SERA v(\d+)"$',project,re.M)
 assert v and int(v.group(1)) >= 260
 assert (R/"README_v260_ja.md").is_file()
-assert "v260 STEP viewport cardinal" in read("AGENTS.md")
+assert "v260 STEP screen-cardinal direction fixes" in read("AGENTS.md")
 assert "v260 — STEPフリック" in read("docs/SERA_INPUT_MOVEMENT_CAMERA.md")
 assert "const SECTOR_COUNT: int = 4" in policy
 assert "const SECTOR_ANGLE: float = TAU / 4.0" in policy
