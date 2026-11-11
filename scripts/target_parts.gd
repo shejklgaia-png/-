@@ -1,7 +1,7 @@
 extends Node3D
-## SERA v238: five independent breakable parts on the body perimeter.
-## Opaque mechanical frame made from BoxMesh; user Blockbench assets untouched.
-## The central cube retains the authoritative movement collider and boss HP.
+## SERA v239: five independent rectangular breakable parts around a longer body.
+## Opaque BoxMesh mechanical frames; no user Blockbench assets modified.
+## The 2.0 x 2.0 x 3.4m torso keeps the authoritative collider and boss HP.
 
 const CORE_HP_SHARE: float = 0.50
 const EACH_PART_HP_SHARE: float = 0.10
@@ -13,23 +13,23 @@ const CORE_DEFENSE: float = 0.14
 var parts: Dictionary = {}
 
 func _ready() -> void:
-    # The central body is 2m per axis, so its X/Z sides are +/-1.0m.
-    # Each leg originates OUTSIDE a side panel and extends to the floor;
-    # the front sensor head grows from the +Z outer face, not its roof.
-    _add_part("head", "HEAD", Vector3(0.0, 0.52, 1.28),
-        Vector3(1.48, 0.82, 0.96), Vector3(0.0, 0.0, 0.37),
+    # Torso is 2m wide/high and 3.4m long (front/rear Z = +/-1.7m).
+    # Four 2m-tall rectangular legs connect to its side walls, reaching
+    # the floor. The lowered front sensor housing is within melee blade height.
+    _add_part("head", "HEAD", Vector3(0.0, -0.44, 1.85),
+        Vector3(1.48, 0.82, 0.96), Vector3(0.0, -0.03, 0.37),
         38.0, 0.20, 0.10, "change", Color("da755a"))
-    _add_part("leg_fl", "FRONT L", Vector3(-1.23, -0.67, 0.78),
-        Vector3(1.38, 1.88, 1.02), Vector3(-0.37, -0.33, 0.12),
+    _add_part("leg_fl", "FRONT L", Vector3(-1.23, -0.53, 1.27),
+        Vector3(1.38, 2.00, 1.02), Vector3(-0.37, -0.27, 0.12),
         30.0, 0.12, 0.00, "remove", Color("b9604c"))
-    _add_part("leg_fr", "FRONT R", Vector3(1.23, -0.67, 0.78),
-        Vector3(1.38, 1.88, 1.02), Vector3(0.37, -0.33, 0.12),
+    _add_part("leg_fr", "FRONT R", Vector3(1.23, -0.53, 1.27),
+        Vector3(1.38, 2.00, 1.02), Vector3(0.37, -0.27, 0.12),
         30.0, 0.12, 0.00, "remove", Color("b9604c"))
-    _add_part("leg_rl", "REAR L", Vector3(-1.23, -0.67, -0.78),
-        Vector3(1.38, 1.88, 1.02), Vector3(-0.37, -0.33, 0.12),
+    _add_part("leg_rl", "REAR L", Vector3(-1.23, -0.53, -1.27),
+        Vector3(1.38, 2.00, 1.02), Vector3(-0.37, -0.27, 0.12),
         32.0, 0.16, 0.12, "remain", Color("a95043"))
-    _add_part("leg_rr", "REAR R", Vector3(1.23, -0.67, -0.78),
-        Vector3(1.38, 1.88, 1.02), Vector3(0.37, -0.33, 0.12),
+    _add_part("leg_rr", "REAR R", Vector3(1.23, -0.53, -1.27),
+        Vector3(1.38, 2.00, 1.02), Vector3(0.37, -0.27, 0.12),
         32.0, 0.16, 0.12, "remain", Color("a95043"))
 
 func _make_box(owner: Node3D, name: String, offset: Vector3,
@@ -80,28 +80,28 @@ func _build_head_frame(pivot: Node3D, shell: StandardMaterial3D,
 func _build_leg_frame(pivot: Node3D, side: float,
         shell: StandardMaterial3D, accent: StandardMaterial3D,
         frame: StandardMaterial3D, dark: StandardMaterial3D) -> void:
-    # The inside mount overlaps the side of the 2m core; all long members
-    # remain outside it. The feet finish at world Y=0 when the core is at
-    # its normal 1.53m height (with the +0.07m training bob).
-    _make_box(pivot, "SideMount", Vector3(-side * 0.26, 0.37, 0.0),
+    # Full assembly spans local Y=-1..+1, equal to the torso's 2m height.
+    # The support mount overlaps X=+/-1m; all components are square/rectangular.
+    # At target center Y=1.53, the local sole at -1.00 touches the floor.
+    _make_box(pivot, "SideMount", Vector3(-side * 0.26, 0.865, 0.0),
         Vector3(0.68, 0.27, 0.58), dark)
-    _make_box(pivot, "HipJoint", Vector3(-side * 0.02, 0.36, 0.0),
-        Vector3(0.40, 0.37, 0.44), accent)
-    _make_box(pivot, "Outrigger", Vector3(side * 0.18, 0.26, 0.0),
+    _make_box(pivot, "HipJoint", Vector3(-side * 0.02, 0.81, 0.0),
+        Vector3(0.40, 0.38, 0.44), accent)
+    _make_box(pivot, "Outrigger", Vector3(side * 0.18, 0.65, 0.0),
         Vector3(0.55, 0.18, 0.28), frame)
-    _make_box(pivot, "UpperStrut", Vector3(side * 0.34, -0.02, 0.0),
-        Vector3(0.23, 0.64, 0.31), shell)
-    _make_box(pivot, "KneeHinge", Vector3(side * 0.34, -0.31, 0.0),
+    _make_box(pivot, "UpperStrut", Vector3(side * 0.34, 0.35, 0.0),
+        Vector3(0.23, 0.87, 0.31), shell)
+    _make_box(pivot, "KneeHinge", Vector3(side * 0.34, -0.22, 0.0),
         Vector3(0.37, 0.28, 0.38), accent)
-    _make_box(pivot, "LowerStrut", Vector3(side * 0.34, -0.53, 0.0),
-        Vector3(0.18, 0.49, 0.22), frame)
-    _make_box(pivot, "Piston", Vector3(side * 0.34, -0.52, 0.15),
-        Vector3(0.09, 0.44, 0.09), accent)
-    _make_box(pivot, "OuterPlate", Vector3(side * 0.51, -0.17, 0.0),
-        Vector3(0.12, 0.61, 0.37), shell)
-    _make_box(pivot, "HeelBrace", Vector3(side * 0.34, -0.70, -0.09),
-        Vector3(0.30, 0.19, 0.36), dark)
-    _make_box(pivot, "Foot", Vector3(side * 0.37, -0.77, 0.13),
+    _make_box(pivot, "LowerStrut", Vector3(side * 0.34, -0.55, 0.0),
+        Vector3(0.18, 0.68, 0.22), frame)
+    _make_box(pivot, "Piston", Vector3(side * 0.34, -0.50, 0.15),
+        Vector3(0.09, 0.64, 0.09), accent)
+    _make_box(pivot, "OuterPlate", Vector3(side * 0.51, -0.05, 0.0),
+        Vector3(0.12, 0.87, 0.37), shell)
+    _make_box(pivot, "HeelBrace", Vector3(side * 0.34, -0.81, -0.09),
+        Vector3(0.30, 0.17, 0.36), dark)
+    _make_box(pivot, "Foot", Vector3(side * 0.37, -0.91, 0.13),
         Vector3(0.55, 0.18, 0.68), accent)
 
 

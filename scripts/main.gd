@@ -187,7 +187,12 @@ const CAMERA_BODY_HALF_WIDTH: float = 0.78  # Idle composition silhouette (shoul
 const CAMERA_SAFE_CORE_HALF_WIDTH: float = 0.38  # Hard edge limit only protects the core torso
 const CAMERA_HEAD_HEIGHT: float = 1.85
 const TARGET_BASE_HEIGHT: float = 1.53
-const TARGET_HALF_SIZE: float = 1.0  # Cube size 2.0 x 2.0 x 2.0m (v8 was 1m)
+const TARGET_HALF_SIZE: float = 1.0  # 2m wide and 2m tall (X/Y).
+const TARGET_BODY_HALF_DEPTH: float = 1.70  # v239: 3.4m nose-to-tail along Z.
+# Framing includes the attached head, side-frame legs and feet (not only the core).
+const TARGET_FRAME_HALF_WIDTH: float = 1.85
+const TARGET_FRAME_HALF_HEIGHT: float = 1.53
+const TARGET_FRAME_HALF_DEPTH: float = 2.35
 # Only the target blocks movement. The visual ground is deliberately unbounded.
 const PLAYER_COLLISION_LAYER: int = 1
 const TARGET_COLLISION_LAYER: int = 2
@@ -807,7 +812,8 @@ func _build_target() -> void:
     target_motion = TARGET_MOTION_SCRIPT.new()
 
     var cube := BoxMesh.new()
-    cube.size = Vector3.ONE * TARGET_HALF_SIZE * 2.0
+    cube.size = Vector3(
+        TARGET_HALF_SIZE * 2.0, TARGET_HALF_SIZE * 2.0, TARGET_BODY_HALF_DEPTH * 2.0)
     var cube_mat := StandardMaterial3D.new()
     cube_mat.albedo_color = Color("e53935")
     cube_mat.shading_mode = BaseMaterial3D.SHADING_MODE_PER_PIXEL  # v38: directional lighting restores face shading
@@ -822,8 +828,8 @@ func _build_target() -> void:
     marker.material_override = cube_mat
     marker.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
     target.add_child(marker)
-    # A solid target body follows the same transform as the visible 2m cube.
-    # Use a box rather than a circle so its faces/corners match the graphics.
+    # Collision uses the exact elongated rectangular body silhouette,
+    # while head/leg AABBs continue to define breakable strike targets.
     target_collider = AnimatableBody3D.new()
     target_collider.name = "TargetSolidBody"
     target_collider.sync_to_physics = false
@@ -831,15 +837,15 @@ func _build_target() -> void:
     target_collider.collision_mask = 0  # The player's mask includes this layer.
     target.add_child(target_collider)
     var target_box := BoxShape3D.new()
-    target_box.size = Vector3.ONE * TARGET_HALF_SIZE * 2.0
+    target_box.size = cube.size
     var target_shape := CollisionShape3D.new()
     target_shape.name = "TargetBoxCollision"
     target_shape.shape = target_box
     target_collider.add_child(target_shape)
     target_mesh = marker
     target_material = cube_mat
-    # Five independent opaque visuals follow the existing moving/flashing box.
-    # The old central collision cube and camera anchor remain unchanged.
+    # Five independent opaque rectangular parts follow the extended body.
+    # Keep the camera anchor at the same center even when the length changes.
     target_parts = TARGET_PARTS_SCRIPT.new()
     target_parts.name = "TargetBreakableParts"
     marker.add_child(target_parts)
@@ -1499,13 +1505,13 @@ func _clear_strike_tracking() -> void:
     strike_prev_blade = PackedVector3Array()
 
 func _target_hit_aabb() -> AABB:
-    # Keep the original authoritative 2m collision cube for torso contact.
-    var extents := Vector3.ONE * TARGET_HALF_SIZE
+    # This matches the actual 2m x 2m x 3.4m physical body.
+    var extents := Vector3(TARGET_HALF_SIZE, TARGET_HALF_SIZE, TARGET_BODY_HALF_DEPTH)
     return AABB(target.global_position - extents, extents * 2.0)
 
 func _blade_contact(from_pt: Vector3, to_pt: Vector3) -> Variant:
     # Sword sweeps may hit an exterior head or leg without crossing the cube.
-    # Physical player collision stays on the original torso box.
+    # Physical player collision remains on the solid rectangular torso.
     if target_parts != null and bool(target_parts.call(
             "is_targetable", locked_target_part_id)):
         var part_box: AABB = target_parts.call("get_part_aabb", locked_target_part_id)
@@ -1566,7 +1572,7 @@ func _check_strike_contact() -> void:
             var hit_point: Vector3 = Vector3(
                 clampf(player.position.x, target.position.x - TARGET_HALF_SIZE, target.position.x + TARGET_HALF_SIZE),
                 target.position.y,
-                clampf(player.position.z, target.position.z - TARGET_HALF_SIZE, target.position.z + TARGET_HALF_SIZE)
+                clampf(player.position.z, target.position.z - TARGET_BODY_HALF_DEPTH, target.position.z + TARGET_BODY_HALF_DEPTH)
             )
             _register_strike_hit(hit_point)
     strike_prev_time = strike_t
@@ -1646,18 +1652,18 @@ func _part_hit_surface(id: String, hit: Vector3) -> Vector3:
     return visible
 
 func _visible_hit_surface(hit: Vector3) -> Vector3:
-    # Collision can return an interior point, especially the v13 close-range
-    # assist. Keep the burst visible on the camera-facing face of the real cube.
+    # Collision/assist can report an interior point; project its spark onto
+    # the camera-facing surface of the elongated rectangular body.
     var visible: Vector3 = Vector3(
         clampf(hit.x, target.global_position.x - TARGET_HALF_SIZE, target.global_position.x + TARGET_HALF_SIZE),
         clampf(hit.y, target.global_position.y - TARGET_HALF_SIZE, target.global_position.y + TARGET_HALF_SIZE),
-        clampf(hit.z, target.global_position.z - TARGET_HALF_SIZE, target.global_position.z + TARGET_HALF_SIZE)
+        clampf(hit.z, target.global_position.z - TARGET_BODY_HALF_DEPTH, target.global_position.z + TARGET_BODY_HALF_DEPTH)
     )
     var toward_camera: Vector3 = camera.global_position - target.global_position
     if absf(toward_camera.x) > absf(toward_camera.z):
         visible.x = target.global_position.x + signf(toward_camera.x) * (TARGET_HALF_SIZE + 0.035)
     else:
-        visible.z = target.global_position.z + signf(toward_camera.z) * (TARGET_HALF_SIZE + 0.035)
+        visible.z = target.global_position.z + signf(toward_camera.z) * (TARGET_BODY_HALF_DEPTH + 0.035)
     return visible
 
 func _spawn_sparks(world_hit: Vector3) -> void:
@@ -2669,7 +2675,7 @@ func _register_bash_hit() -> void:
     var closest: Vector3 = Vector3(
         clampf(player.position.x, target.position.x - TARGET_HALF_SIZE, target.position.x + TARGET_HALF_SIZE),
         target.position.y,
-        clampf(player.position.z, target.position.z - TARGET_HALF_SIZE, target.position.z + TARGET_HALF_SIZE))
+        clampf(player.position.z, target.position.z - TARGET_BODY_HALF_DEPTH, target.position.z + TARGET_BODY_HALF_DEPTH))
     impact_origin = _part_hit_surface(hit_part, closest)
     rig.call("set_combat_paused", true)
     damage_label.text = "%d" % int(result["applied_damage"])
@@ -2693,7 +2699,7 @@ func _distance_to_cube_surface(pos: Vector3) -> float:
     # 2D point-to-AABB distance; unlike center-to-center, it is accurate
     # near edges/corners of the enlarged target box.
     var dx: float = maxf(absf(pos.x - target.position.x) - TARGET_HALF_SIZE, 0.0)
-    var dz: float = maxf(absf(pos.z - target.position.z) - TARGET_HALF_SIZE, 0.0)
+    var dz: float = maxf(absf(pos.z - target.position.z) - TARGET_BODY_HALF_DEPTH, 0.0)
     return Vector2(dx, dz).length()
 
 func _start_strike(stage: int = 0) -> void:
@@ -3330,7 +3336,7 @@ func _process(delta: float) -> void:
 
     # When the player approaches the target, dolly IN smoothly (but stop at
     # a wider close-up than v51). Never crop
-    # the enlarged target cube: _fit_full_frame() tests all eight corners.
+    # the rectangular boss: _fit_full_frame() tests all eight outer corners.
     # At longer distances, retain the original standard composition.
     # Close BOOST moves fast enough for edge yaw correction and its subsequent
     # zoom fit to fight each other, especially for screen-left/rear movement.
@@ -3504,7 +3510,7 @@ func _update_side_from_screen() -> void:
 
 
 func _signed_screen_gap(side: int) -> float:
-    # Project a conservative body silhouette and the enlarged floating 2m box.
+    # Project the elongated body plus its four rectangular outer legs.
     # Using the camera's RIGHT vector works even after orbiting 90+ degrees.
     var view_right: Vector3 = camera.global_transform.basis.x.normalized()
     var torso: Vector3 = camera_player_render_position + Vector3(0.0, 1.05, 0.0)
@@ -3514,11 +3520,11 @@ func _signed_screen_gap(side: int) -> float:
         return -1.0e7
     var px_min: float = camera.unproject_position(pleft).x
     var px_max: float = camera.unproject_position(pright).x
-    # A cube seen diagonally can be wider than 2m on the screen.
+    # A rectangular mechanical boss can be wider diagonally than its 2m core.
     var tx_min: float = INF
     var tx_max: float = -INF
-    for dx in [-TARGET_HALF_SIZE, TARGET_HALF_SIZE]:
-        for dz in [-TARGET_HALF_SIZE, TARGET_HALF_SIZE]:
+    for dx in [-TARGET_FRAME_HALF_WIDTH, TARGET_FRAME_HALF_WIDTH]:
+        for dz in [-TARGET_FRAME_HALF_DEPTH, TARGET_FRAME_HALF_DEPTH]:
             var corner: Vector3 = camera_target_render_position + Vector3(dx, 0.0, dz)
             if camera.is_position_behind(corner):
                 return -1.0e7
@@ -3657,9 +3663,9 @@ func _minimum_boost_camera_radius() -> float:
             camera_player_render_position + Vector3(0.0, height, 0.0), focus,
             screen_right, screen_up, outward, radial_scale, tan_h, tan_v,
             0.0, SCREEN_MARGIN_TOP, SCREEN_MARGIN_BOTTOM))
-    for dx in [-TARGET_HALF_SIZE, TARGET_HALF_SIZE]:
-        for dy in [-TARGET_HALF_SIZE, TARGET_HALF_SIZE]:
-            for dz in [-TARGET_HALF_SIZE, TARGET_HALF_SIZE]:
+    for dx in [-TARGET_FRAME_HALF_WIDTH, TARGET_FRAME_HALF_WIDTH]:
+        for dy in [-TARGET_FRAME_HALF_HEIGHT, TARGET_FRAME_HALF_HEIGHT]:
+            for dz in [-TARGET_FRAME_HALF_DEPTH, TARGET_FRAME_HALF_DEPTH]:
                 min_radius = maxf(min_radius, _camera_radius_for_safe_point(
                     camera_target_render_position + Vector3(dx, dy, dz), focus,
                     screen_right, screen_up, outward, radial_scale, tan_h, tan_v,
@@ -3776,14 +3782,14 @@ func _horizontal_safe(extra_margin_ratio: float = 0.0) -> bool:
 
 
 func _target_fully_in_frame() -> bool:
-    # Project all eight corners, not only the target center. On a portrait
-    # screen, rotating a large cube can otherwise crop its left/right edges.
+    # Fit all corners of the rectangular boss including head and side legs,
+    # not merely the center of the physical torso.
     var size: Vector2 = get_viewport().get_visible_rect().size
     if size.x <= 0.0 or size.y <= 0.0:
         return true
-    for dx in [-TARGET_HALF_SIZE, TARGET_HALF_SIZE]:
-        for dy in [-TARGET_HALF_SIZE, TARGET_HALF_SIZE]:
-            for dz in [-TARGET_HALF_SIZE, TARGET_HALF_SIZE]:
+    for dx in [-TARGET_FRAME_HALF_WIDTH, TARGET_FRAME_HALF_WIDTH]:
+        for dy in [-TARGET_FRAME_HALF_HEIGHT, TARGET_FRAME_HALF_HEIGHT]:
+            for dz in [-TARGET_FRAME_HALF_DEPTH, TARGET_FRAME_HALF_DEPTH]:
                 var world_corner: Vector3 = camera_target_render_position + Vector3(dx, dy, dz)
                 if camera.is_position_behind(world_corner):
                     return false

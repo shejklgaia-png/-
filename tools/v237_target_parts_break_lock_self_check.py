@@ -46,7 +46,9 @@ assert "best_score + SELECTION_HYSTERESIS_RADIANS" in p
 assert 'if not is_targetable(id):' in p
 
 # No edits to the original central collision geometry or camera target.
-assert 'target_box.size = Vector3.ONE * TARGET_HALF_SIZE * 2.0' in m
+assert 'target_box.size = cube.size' in m
+assert 'const TARGET_BODY_HALF_DEPTH: float = 1.70' in m
+assert 'TARGET_HALF_SIZE * 2.0, TARGET_HALF_SIZE * 2.0, TARGET_BODY_HALF_DEPTH * 2.0' in m
 assert 'target_collider = AnimatableBody3D.new()' in m
 assert 'target_parts = TARGET_PARTS_SCRIPT.new()' in m
 assert 'marker.add_child(target_parts)' in m

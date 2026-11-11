@@ -10,6 +10,7 @@ signal projectile_hit(world_position: Vector3, travel_direction: Vector3,
 const PROJECTILE_SCRIPT = preload("res://scripts/enemy_projectile.gd")
 const AREA_SCRIPT = preload("res://scripts/enemy_area_attack.gd")
 const TARGET_HALF_SIZE: float = 1.0
+const TARGET_BODY_HALF_DEPTH: float = 1.70  # v239 rectangular torso along Z.
 const MUZZLE_OFFSET: float = 0.30
 const PLAYER_AIM_HEIGHT: float = 1.05
 const SHOCKWAVE_WARNING_SECONDS: float = 0.80
@@ -172,7 +173,11 @@ func _begin_warning() -> void:
     if toward_player.length_squared() < 0.000001:
         toward_player = Vector3.BACK
     var facing: Vector3 = toward_player.normalized()
-    var to_face: float = TARGET_HALF_SIZE / maxf(absf(facing.x), absf(facing.z))
+    # Ray/rectangle intersection: the shot originates outside whichever face
+    # the warning points through, not from inside the extended body.
+    var to_face: float = minf(
+        TARGET_HALF_SIZE / maxf(absf(facing.x), 0.00001),
+        TARGET_BODY_HALF_DEPTH / maxf(absf(facing.z), 0.00001))
     _warning_origin = target_center + facing * (to_face + MUZZLE_OFFSET)
     _warning_origin.y = player_node.global_position.y + PLAYER_AIM_HEIGHT
     var aim_point: Vector3 = player_node.global_position + Vector3.UP * PLAYER_AIM_HEIGHT
