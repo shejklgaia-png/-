@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""SERA v244: halve RUN / BOOST input and dynamic-controller visuals."""
+"""SERA v244-v245: scale RUN/BOOST input and dynamic visuals proportionally."""
 from pathlib import Path
 import math
 import re
@@ -8,7 +8,7 @@ root=Path(__file__).resolve().parents[1]
 main=(root/"scripts/main.gd").read_text(encoding="utf-8")
 ui=(root/"scripts/touch_overlay.gd").read_text(encoding="utf-8")
 cfg=(root/"project.godot").read_text(encoding="utf-8")
-assert 'config/name="SERA v244"' in cfg
+assert re.search(r'config/name="SERA v(\d+)"',cfg) and int(re.search(r'config/name="SERA v(\d+)"',cfg).group(1))>=244
 assert (root/"README_v244_ja.md").is_file()
 
 def const(src,name):
@@ -29,16 +29,16 @@ run_draw=const(ui,"CONTROLLER_RUN_RADIUS")
 boost_draw=declared_var(ui,"boost_base_radius")
 initial_run_draw=declared_var(ui,"radius")
 ui_start_ratio=const(ui,"CONTROLLER_BOOST_START_RADIUS_RATIO")
-assert math.isclose(run,112.0*.5)
-assert math.isclose(dead,18.0*.5)
-assert math.isclose(baseline,168.0*.5)
+assert math.isclose(run,112.0*.625)
+assert math.isclose(dead,18.0*.625)
+assert math.isclose(baseline,168.0*.625)
 assert math.isclose(run_draw,run)
 assert math.isclose(initial_run_draw,run)
 assert math.isclose(boost_draw,baseline)
 assert start_ratio == ui_start_ratio == 1.10
 assert exit_ratio == .90
-assert math.isclose(baseline*start_ratio,92.4)
-assert math.isclose(baseline*exit_ratio,75.6)
+assert math.isclose(baseline*start_ratio,115.5)
+assert math.isclose(baseline*exit_ratio,94.5)
 
 for token in (
     'if distance <= RUN_INPUT_DEADZONE_PIXELS:',
@@ -63,11 +63,11 @@ for token in (
     '_draw_analog_controller(accent, low)',
 ):
     assert token in ui,token
-assert 'const BOOST_SHELL_SEGMENT_WIDTH: float = 2.5' in ui
-assert 'const BOOST_CHEVRON_HALF_WIDTH: float = 4.5' in ui
-assert 'var label_width: float = 83.0' in ui
-assert 'var label_height: float = 17.0' in ui
-assert 'HORIZONTAL_ALIGNMENT_CENTER, label_width, 9, accent)' in ui
+assert 'const BOOST_SHELL_SEGMENT_WIDTH: float = 3.125' in ui
+assert 'const BOOST_CHEVRON_HALF_WIDTH: float = 5.625' in ui
+assert 'var label_width: float = 103.75' in ui
+assert 'var label_height: float = 21.25' in ui
+assert 'HORIZONTAL_ALIGNMENT_CENTER, label_width, 11, accent)' in ui
 
 # This change does NOT half flick/guard/attack thresholds, lock controls,
 # input acquisition region, boost timing, speed, or the camera.
@@ -86,18 +86,18 @@ assert 'func _update_guard_hold() -> void:' in main
 assert 'func _end_drag(release_pos: Vector2) -> void:' in main
 assert 'func _switch_lock_screen_direction(direction: int) -> void:' in main
 
-# At every point, the same finger displacement maps to double normalized
-# intensity compared with v243, and both BOOST transitions move by half.
+# 50% (v244) * 125% (v245) = 62.5% of v243. The stick response
+# follows exactly the same normalized curve over the scaled distance.
 def intensity(distance,full,deadzone):
     return max(0,min(1,(distance-deadzone)/(full-deadzone)))
-for distance in (0,4.5,9.,18.,28.,56.):
+for distance in (0,5.625,11.25,22.5,35.,70.):
     now=intensity(distance,run,dead)
-    old=intensity(distance*2,112.,18.)
+    old=intensity(distance*1.6,112.,18.)
     assert math.isclose(now,old,abs_tol=1e-9)
 assert baseline*exit_ratio < baseline*start_ratio
-assert math.isclose((baseline*start_ratio)/(168.*start_ratio),.5)
-assert math.isclose((baseline*exit_ratio)/(168.*exit_ratio),.5)
-print("PASS v244: RUN 56px, deadzone 9px, BOOST baseline 84px")
-print("PASS v244: BOOST start 92.4px / end 75.6px, both 50% of v243")
-print("PASS v244: visual controller 50% scaled; flick/guard/quadrant unchanged")
+assert math.isclose((baseline*start_ratio)/(168.*start_ratio),.625)
+assert math.isclose((baseline*exit_ratio)/(168.*exit_ratio),.625)
+print("PASS v244-v245: RUN 70px, deadzone 11.25px, BOOST baseline 105px")
+print("PASS v244-v245: BOOST start 115.5px / end 94.5px, both 62.5% of v243")
+print("PASS v244-v245: proportional visual scaling; flick/guard/quadrant unchanged")
 print("Godot runtime and Android touch/visual sizes NOT tested")
