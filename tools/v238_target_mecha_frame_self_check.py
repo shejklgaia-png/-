@@ -23,8 +23,9 @@ for key in ("func _build_head_frame(", "func _build_leg_frame(",
             '"OuterPlate"', '"HeelBrace"', '"Foot"'):
     assert key in code, key
 assert "_build_head_frame(pivot, shell, accent, frame, dark)" in code
-assert "_build_leg_frame(pivot, side, shell, accent, frame, dark)" in code
+assert "_build_leg_frame(pivot, side, fore_aft, shell, accent, frame, dark)" in code
 assert "var side: float = signf(center.x)" in code
+assert "var fore_aft: float = signf(center.z)" in code
 assert "render_priority" not in code and "TRANSPARENCY_ALPHA" not in code
 assert 'target_box.size = cube.size' in main
 assert 'const TARGET_BODY_HALF_DEPTH: float = 1.70' in main
@@ -37,13 +38,13 @@ assert 'marker.add_child(target_parts)' in main
 expected = {
     "head": ((0., -.44, 1.85), (1.48, .82, .96), (0.,-.03,.37),
              (38.,.20,.10,"change")),
-    "leg_fl": ((-1.23,-.53,1.27), (1.38,2.00,1.02), (-.37,-.27,.12),
+    "leg_fl": ((-1.23,-.53,1.27), (2.24,2.00,1.36), (-.78,-.27,.52),
               (30.,.12,.00,"remove")),
-    "leg_fr": ((1.23,-.53,1.27), (1.38,2.00,1.02), (.37,-.27,.12),
+    "leg_fr": ((1.23,-.53,1.27), (2.24,2.00,1.36), (.78,-.27,.52),
               (30.,.12,.00,"remove")),
-    "leg_rl": ((-1.23,-.53,-1.27), (1.38,2.00,1.02), (-.37,-.27,.12),
+    "leg_rl": ((-1.23,-.53,-1.27), (2.24,2.00,1.36), (-.78,-.27,-.52),
               (32.,.16,.12,"remain")),
-    "leg_rr": ((1.23,-.53,-1.27), (1.38,2.00,1.02), (.37,-.27,.12),
+    "leg_rr": ((1.23,-.53,-1.27), (2.24,2.00,1.36), (.78,-.27,-.52),
               (32.,.16,.12,"remain")),
 }
 def floats(xs: str) -> tuple[float, float, float]:
@@ -86,23 +87,26 @@ side = 1.
 pivot = expected["leg_fr"][0]
 half = tuple(v/2 for v in expected["leg_fr"][1])
 parts = [
-    (-.26, .865, 0., .68,.27,.58),  # side mount inward
-    (-.02, .81, 0., .40,.38,.44),  # hip
-    (.18, .65, 0., .55,.18,.28),  # outrigger
-    (.34, .35, 0., .23,.87,.31), # upper
-    (.34, -.22, 0., .37,.28,.38), # knee
-    (.34, -.55, 0., .18,.68,.22), # lower
-    (.34, -.50, .15, .09,.64,.09), # piston
-    (.51, -.05, 0., .12,.87,.37), # plate
-    (.34, -.81,-.09,.30,.17,.36), # heel
-    (.37, -.91,.13,.55,.18,.68),  # foot
+    (-.24, .83, 0., .90,.34,.78),  # side mount
+    (-.02, .76, 0., .64,.48,.62),  # hip
+    (.22, .63, 0., .95,.34,.52),  # arm outrigger
+    (.42, .59, 0., .78,.54,.74),  # shoulder
+    (.45, .30, 0., .46,1.02,.46), # upper
+    (.49,-.24, 0., .60,.44,.55),  # knee
+    (.50,-.55, 0., .38,.74,.38),  # lower
+    (.48,-.52,.20,.16,.66,.15),  # piston
+    (.73,-.02, 0., .25,1.08,.60), # outer plate
+    (.70,-.48,.12,.44,.70,.52),  # forearm
+    (.72,-.35,.42,.48,.82,.45),  # arm tip
+    (.50,-.81,-.14,.48,.22,.48), # heel
+    (.58,-.91,.18,.84,.18,.84),  # broad foot
 ]
 for x,y,z,sx,sy,sz in parts:
     assert abs(x)+sx/2 <= half[0]+1e-8
     assert abs(y)+sy/2 <= half[1]+1e-8
     assert abs(z)+sz/2 <= half[2]+1e-8
-assert pivot[0] - .26 - .68/2 < 1.0   # mount overlaps the body wall
-assert pivot[0] + .51 + .12/2 > 1.0  # outer plate projects beyond it
+assert pivot[0] - .24 - .90/2 < 1.0   # enlarged mount overlaps core
+assert pivot[0] + .58 + .84/2 > 2.0  # outer foot is noticeably wider
 foot_bottom = target_base_height + pivot[1] - .91 - .18/2
 assert math.isclose(foot_bottom, 0.0, abs_tol=1e-8)
 
@@ -124,7 +128,7 @@ for term in ('pivot.visible = false', 'fracture.visible = true',
              'func apply_part_hit('):
     assert term in code, term
 
-print("PASS v238+v239: mirrored side-mounted frame and front-mounted low head")
+print("PASS v238-v240: mirrored broad side-mounted frame and front-mounted low head")
 print("PASS v238: five geometry AABBs, core overlap, feet at ground, lock offsets")
 print("PASS v238: v237 part durability, appearance change and selection preserved")
 print("Godot/Android 3D rendering and real collision not verified")

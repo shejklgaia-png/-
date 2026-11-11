@@ -11,7 +11,7 @@ parts=read("scripts/target_parts.gd")
 motion=read("scripts/training_target_motion.gd")
 shooter=read("scripts/enemy_shooter.gd")
 project=read("project.godot")
-assert 'config/name="SERA v239"' in project
+assert re.search(r'config/name="SERA v(\d+)"', project) and int(re.search(r'config/name="SERA v(\d+)"', project).group(1)) >= 239
 assert (root/"README_v239_ja.md").exists()
 
 # The visible body, physical collider and sword contact must have the same
@@ -28,7 +28,7 @@ assert "target.global_position.z + signf(toward_camera.z) * (TARGET_BODY_HALF_DE
 
 # The camera sees extended parts even along diagonal directions, not only
 # the old 2m cube. Keep camera focus unchanged.
-for key in ("const TARGET_FRAME_HALF_WIDTH: float = 1.85",
+for key in ("const TARGET_FRAME_HALF_WIDTH: float = 2.35",
             "const TARGET_FRAME_HALF_HEIGHT: float = 1.53",
             "const TARGET_FRAME_HALF_DEPTH: float = 2.35"):
     assert key in main, key
@@ -77,15 +77,15 @@ assert head_center[2]-head_size[2]/2 < body_half[2]
 assert head_center[2]+head_size[2]/2 > body_half[2]
 for id,sign,z in (("leg_fl",-1,1.27),("leg_fr",1,1.27),
                   ("leg_rl",-1,-1.27),("leg_rr",1,-1.27)):
-    pattern = rf'_add_part\("{id}", "[^"]+", Vector3\(\s*({sign*1.23:.2f}), -0.53, ({z:.2f})\),\s*Vector3\(1.38, 2.00, 1.02\)'
+    pattern = rf'_add_part\("{id}", "[^"]+", Vector3\(\s*({sign*1.23:.2f}), -0.53, ({z:.2f})\),\s*Vector3\(2.24, 2.00, 1.36\)'
     # Negative coordinates can stringify as -1.23, not -0.00.
     assert re.search(pattern,parts), (id, pattern)
     assert 2.0 == body[1]
     assert math.isclose(target_base-.53-1.0,0.0)
-assert 'Vector3(-side * 0.26, 0.865, 0.0)' in parts
-assert 'Vector3(side * 0.37, -0.91, 0.13)' in parts
-assert 'Vector3(0.55, 0.18, 0.68)' in parts
-assert "Vector3(0.68, 0.27, 0.58)" in parts
+assert 'Vector3(-side * 0.24, 0.83, 0.0)' in parts
+assert 'Vector3(side * 0.58, -0.91, fore_aft * 0.18)' in parts
+assert 'Vector3(0.84, 0.18, 0.84)' in parts
+assert "Vector3(0.90, 0.34, 0.78)" in parts
 assert "BoxMesh.new()" in parts
 assert "SphereMesh" not in parts and "CylinderMesh" not in parts
 assert "render_priority" not in parts

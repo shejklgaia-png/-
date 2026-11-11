@@ -1,5 +1,5 @@
 extends Node3D
-## SERA v239: five independent rectangular breakable parts around a longer body.
+## SERA v240: enlarged rectangular arm-like outriggers and four heavy legs.
 ## Opaque BoxMesh mechanical frames; no user Blockbench assets modified.
 ## The 2.0 x 2.0 x 3.4m torso keeps the authoritative collider and boss HP.
 
@@ -14,22 +14,22 @@ var parts: Dictionary = {}
 
 func _ready() -> void:
     # Torso is 2m wide/high and 3.4m long (front/rear Z = +/-1.7m).
-    # Four 2m-tall rectangular legs connect to its side walls, reaching
-    # the floor. The lowered front sensor housing is within melee blade height.
+    # Four enlarged 2m-tall arm/leg frames attach along the sides.
+    # Their outward guards are mirrored across X and front/rear Z.
     _add_part("head", "HEAD", Vector3(0.0, -0.44, 1.85),
         Vector3(1.48, 0.82, 0.96), Vector3(0.0, -0.03, 0.37),
         38.0, 0.20, 0.10, "change", Color("da755a"))
     _add_part("leg_fl", "FRONT L", Vector3(-1.23, -0.53, 1.27),
-        Vector3(1.38, 2.00, 1.02), Vector3(-0.37, -0.27, 0.12),
+        Vector3(2.24, 2.00, 1.36), Vector3(-0.78, -0.27, 0.52),
         30.0, 0.12, 0.00, "remove", Color("b9604c"))
     _add_part("leg_fr", "FRONT R", Vector3(1.23, -0.53, 1.27),
-        Vector3(1.38, 2.00, 1.02), Vector3(0.37, -0.27, 0.12),
+        Vector3(2.24, 2.00, 1.36), Vector3(0.78, -0.27, 0.52),
         30.0, 0.12, 0.00, "remove", Color("b9604c"))
     _add_part("leg_rl", "REAR L", Vector3(-1.23, -0.53, -1.27),
-        Vector3(1.38, 2.00, 1.02), Vector3(-0.37, -0.27, 0.12),
+        Vector3(2.24, 2.00, 1.36), Vector3(-0.78, -0.27, -0.52),
         32.0, 0.16, 0.12, "remain", Color("a95043"))
     _add_part("leg_rr", "REAR R", Vector3(1.23, -0.53, -1.27),
-        Vector3(1.38, 2.00, 1.02), Vector3(0.37, -0.27, 0.12),
+        Vector3(2.24, 2.00, 1.36), Vector3(0.78, -0.27, -0.52),
         32.0, 0.16, 0.12, "remain", Color("a95043"))
 
 func _make_box(owner: Node3D, name: String, offset: Vector3,
@@ -77,32 +77,38 @@ func _build_head_frame(pivot: Node3D, shell: StandardMaterial3D,
     return fracture
 
 
-func _build_leg_frame(pivot: Node3D, side: float,
+func _build_leg_frame(pivot: Node3D, side: float, fore_aft: float,
         shell: StandardMaterial3D, accent: StandardMaterial3D,
         frame: StandardMaterial3D, dark: StandardMaterial3D) -> void:
-    # Full assembly spans local Y=-1..+1, equal to the torso's 2m height.
-    # The support mount overlaps X=+/-1m; all components are square/rectangular.
-    # At target center Y=1.53, the local sole at -1.00 touches the floor.
-    _make_box(pivot, "SideMount", Vector3(-side * 0.26, 0.865, 0.0),
-        Vector3(0.68, 0.27, 0.58), dark)
-    _make_box(pivot, "HipJoint", Vector3(-side * 0.02, 0.81, 0.0),
-        Vector3(0.40, 0.38, 0.44), accent)
-    _make_box(pivot, "Outrigger", Vector3(side * 0.18, 0.65, 0.0),
-        Vector3(0.55, 0.18, 0.28), frame)
-    _make_box(pivot, "UpperStrut", Vector3(side * 0.34, 0.35, 0.0),
-        Vector3(0.23, 0.87, 0.31), shell)
-    _make_box(pivot, "KneeHinge", Vector3(side * 0.34, -0.22, 0.0),
-        Vector3(0.37, 0.28, 0.38), accent)
-    _make_box(pivot, "LowerStrut", Vector3(side * 0.34, -0.55, 0.0),
-        Vector3(0.18, 0.68, 0.22), frame)
-    _make_box(pivot, "Piston", Vector3(side * 0.34, -0.50, 0.15),
-        Vector3(0.09, 0.64, 0.09), accent)
-    _make_box(pivot, "OuterPlate", Vector3(side * 0.51, -0.05, 0.0),
-        Vector3(0.12, 0.87, 0.37), shell)
-    _make_box(pivot, "HeelBrace", Vector3(side * 0.34, -0.81, -0.09),
-        Vector3(0.30, 0.17, 0.36), dark)
-    _make_box(pivot, "Foot", Vector3(side * 0.37, -0.91, 0.13),
-        Vector3(0.55, 0.18, 0.68), accent)
+    # A heavy rectangular arm/shoulder frame feeds into the broad 2m leg.
+    # X points outside the body; fore_aft mirrors protrusions on +/-Z.
+    # Top local Y=+1.00, sole=-1.00: match the previous 2m height.
+    _make_box(pivot, "SideMount", Vector3(-side * 0.24, 0.83, 0.0),
+        Vector3(0.90, 0.34, 0.78), dark)
+    _make_box(pivot, "HipJoint", Vector3(-side * 0.02, 0.76, 0.0),
+        Vector3(0.64, 0.48, 0.62), accent)
+    _make_box(pivot, "Outrigger", Vector3(side * 0.22, 0.63, 0.0),
+        Vector3(0.95, 0.34, 0.52), frame)
+    _make_box(pivot, "ShoulderArmor", Vector3(side * 0.42, 0.59, 0.0),
+        Vector3(0.78, 0.54, 0.74), shell)
+    _make_box(pivot, "UpperStrut", Vector3(side * 0.45, 0.30, 0.0),
+        Vector3(0.46, 1.02, 0.46), shell)
+    _make_box(pivot, "KneeHinge", Vector3(side * 0.49, -0.24, 0.0),
+        Vector3(0.60, 0.44, 0.55), accent)
+    _make_box(pivot, "LowerStrut", Vector3(side * 0.50, -0.55, 0.0),
+        Vector3(0.38, 0.74, 0.38), frame)
+    _make_box(pivot, "Piston", Vector3(side * 0.48, -0.52, fore_aft * 0.20),
+        Vector3(0.16, 0.66, 0.15), accent)
+    _make_box(pivot, "OuterPlate", Vector3(side * 0.73, -0.02, 0.0),
+        Vector3(0.25, 1.08, 0.60), shell)
+    _make_box(pivot, "ForearmGuard", Vector3(side * 0.70, -0.48, fore_aft * 0.12),
+        Vector3(0.44, 0.70, 0.52), shell)
+    _make_box(pivot, "ArmTip", Vector3(side * 0.72, -0.35, fore_aft * 0.42),
+        Vector3(0.48, 0.82, 0.45), frame)
+    _make_box(pivot, "HeelBrace", Vector3(side * 0.50, -0.81, -fore_aft * 0.14),
+        Vector3(0.48, 0.22, 0.48), dark)
+    _make_box(pivot, "Foot", Vector3(side * 0.58, -0.91, fore_aft * 0.18),
+        Vector3(0.84, 0.18, 0.84), accent)
 
 
 func _add_part(id: String, display: String, center: Vector3,
@@ -123,7 +129,8 @@ func _add_part(id: String, display: String, center: Vector3,
     else:
         # The X coordinate identifies the left/right body attachment.
         var side: float = signf(center.x)
-        _build_leg_frame(pivot, side, shell, accent, frame, dark)
+        var fore_aft: float = signf(center.z)
+        _build_leg_frame(pivot, side, fore_aft, shell, accent, frame, dark)
     # The dimensions cover the entire exposed framework, not just one plate.
     # This keeps sword contact and automatic occlusion checks aligned.
     parts[id] = {
