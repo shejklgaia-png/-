@@ -8,6 +8,9 @@ const RENDER_ORDER = preload("res://scripts/render_order_policy.gd")
 const YAW_LIMIT_RADIANS: float = PI * 80.0 / 180.0
 const PITCH_UP_LIMIT_RADIANS: float = PI * 1.0 / 180.0
 const PITCH_DOWN_LIMIT_RADIANS: float = PI * 90.0 / 180.0
+# World-DOWN thrust contribution for visual lift. A level exhaust jet tilts
+# about 21.8 degrees down; the existing directional limits still apply.
+const LIFT_DOWNWASH_WEIGHT: float = 0.40
 const TURN_TIME: float = 0.075
 # Keep melee nozzles inside the outward hemisphere of the animated Chest.
 # Using a positive dot leaves clearance for the 10-sided flame cross-section.
@@ -278,6 +281,16 @@ func _avoid_melee_body_penetration(nozzle: Node3D, nozzle_parent: Node3D) -> voi
     nozzle.quaternion = (nozzle_rest_rotation
         * Quaternion(Vector3.BACK, local_safe)).normalized()
 
+func _with_lift_downwash(local_direction: Vector3, rest_basis: Basis) -> Vector3:
+    # Transform world DOWN to the authored nozzle's REST basis, so Chest
+    # animation/rotation does not change the physical gravity direction.
+    # Applied before servo clamps and torso-penetration protection.
+    var local_down: Vector3 = (
+        rest_basis.inverse() * Vector3.DOWN).normalized()
+    return (local_direction.normalized()
+        + local_down * LIFT_DOWNWASH_WEIGHT).normalized()
+
+
 func set_exhaust(enabled: bool, world_exhaust_direction: Vector3,
         delta: float, backstroke_weight: float = 0.0,
         left_sector_world: Vector3 = Vector3.ZERO,
@@ -299,6 +312,7 @@ func set_exhaust(enabled: bool, world_exhaust_direction: Vector3,
             nozzle_parent.global_transform.basis * Basis(nozzle_rest_rotation)).orthonormalized()
         var local_dir: Vector3 = (
             rest_basis.inverse() * world_exhaust_direction.normalized()).normalized()
+        local_dir = _with_lift_downwash(local_dir, rest_basis)
         var rear_denominator: float = (maxf(local_dir.z, 0.0)
             + 2.0 * maxf(-local_dir.z, 0.0) + 0.02)
         var requested_yaw: float = atan2(local_dir.x, rear_denominator)
@@ -350,6 +364,8 @@ func set_exhaust(enabled: bool, world_exhaust_direction: Vector3,
             nozzle_parent.global_transform.basis * Basis(nozzle_rest_rotation)).orthonormalized()
         var local_sector_direction: Vector3 = (
             rest_basis.inverse() * left_sector_world.normalized()).normalized()
+        local_sector_direction = _with_lift_downwash(
+            local_sector_direction, rest_basis)
         var screen_sector_quaternion: Quaternion = (nozzle_rest_rotation
             * Quaternion(Vector3.BACK, local_sector_direction)).normalized()
         nozzle.quaternion = nozzle.quaternion.slerp(

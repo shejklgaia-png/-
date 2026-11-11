@@ -42,6 +42,7 @@ on:
       - 'tools/v238_target_mecha_frame_self_check.py'
       - 'tools/v239_target_rectangular_body_self_check.py'
       - 'tools/v240_target_large_limb_self_check.py'
+      - 'tools/v241_thruster_lift_downwash_self_check.py'
       - 'scripts/training_target_motion.gd'
       - 'scripts/enemy_shooter.gd'
       - 'scripts/target_parts.gd'
@@ -205,6 +206,8 @@ jobs:
         run: python3 tools/v224_melee_nozzle_articulation_self_check.py
       - name: Verify v225 depth-correct drawing above melee foreground overlay
         run: python3 tools/v225_thruster_draw_order_self_check.py
+      - name: Verify v241 world-down lift bias on both rear nozzles and LEFT screen sector
+        run: python3 tools/v241_thruster_lift_downwash_self_check.py
       - name: Verify shared transparent render contract and new shaders
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
