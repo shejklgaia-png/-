@@ -32,7 +32,7 @@ const CombatVitals = preload("res://scripts/combat_vitals.gd")
 const MOVE_SPEED: float = 3.25
 const GROUND_MOVE_SPEED_SCALE: float = 1.25  # v148: speed up ground RUN and BOOST; debug airborne control unchanged.
 const MOVEMENT_BOOST_MULTIPLIER: float = 1.5
-# RUN uses a continuously varying analog vector within a compact 112px radius.
+# RUN uses a continuously varying analog vector within a compact 56px radius.
 # BOOST remains based on distance from the initial touch point.
 # v161: bring BOOST entry 25.2px closer; retain 15% radial hysteresis.
 const BOOST_START_RADIUS_RATIO: float = 1.10
@@ -46,10 +46,10 @@ const BOOST_SPEED_BLEND_SECONDS: float = 0.20
 # v162: hold the authored BOOST pose for 0.50s after BOOST input ends.
 # The rig then crossfades to RUN over 0.20s independently of move speed.
 const BOOST_POSE_GRACE_SECONDS: float = 0.50
-# v158: full 360-degree analog heading on a shorter fixed RUN disc.
-# Keep the BOOST thresholds tied to the ORIGINAL 168px touch radius.
-const RUN_CONTROL_RADIUS: float = 112.0
-const RUN_INPUT_DEADZONE_PIXELS: float = 18.0
+# v244: uniform 50% size for RUN radius and its center deadzone.
+# BOOST entry/exit remains a percentage of the now 84px touch radius.
+const RUN_CONTROL_RADIUS: float = 56.0
+const RUN_INPUT_DEADZONE_PIXELS: float = 9.0
 # A side step is classified only when the finger is RELEASED.  In particular,
 # a long horizontal hold/drag never becomes a step, even if it ends quickly.
 const STEP_FLICK_MAX_SECONDS: float = 0.24
@@ -147,7 +147,7 @@ enum CombatState { IDLE, MELEE_APPROACH, DASH, STRIKE, BASH, BASH_TRACK, STRIKE_
 # v112: Persistent handedness changes RUN animation selection only.
 const HANDEDNESS_SETTINGS_FILE: String = "user://sera_settings.cfg"
 const NEXUS_SCENE: String = "res://scenes/command_nexus.tscn"
-const DRAG_RADIUS: float = 168.0  # v73: retain v72 outer diameter for the single RUN disc.
+const DRAG_RADIUS: float = 84.0  # v244: half-size BOOST baseline; keep entry/exit ratios.
 const CAMERA_FOLLOW_RATE: float = 1.65
 const CAMERA_IDLE_RECENTER_RATE: float = 1.05  # How quickly the player eases toward a clear centered resting position.
 const CAMERA_MOVING_YAW_SCALE: float = 0.55  # Softer rotation during drag to preserve left/right movement.
@@ -2067,7 +2067,7 @@ func _analog_stick_direction(pos: Vector2) -> Vector2:
     if distance <= RUN_INPUT_DEADZONE_PIXELS:
         return Vector2.ZERO
     # No angular quantization: tiny heading changes remain continuous, and
-    # full RUN speed is reached at the shortened 112px rim.
+    # full RUN speed is reached at the v244 half-size 56px rim.
     var strength: float = clampf(
         (distance - RUN_INPUT_DEADZONE_PIXELS) /
         (RUN_CONTROL_RADIUS - RUN_INPUT_DEADZONE_PIXELS), 0.0, 1.0)
@@ -2092,7 +2092,7 @@ func _change_drag(pos: Vector2) -> void:
     # A forward Bash gesture does not create RUN motion or interrupt stage 3.
     direction_input = Vector2.ZERO if bash_flick_candidate else _analog_stick_direction(pos)
     touch_ui.call("set_analog_direction", direction_input)
-    # BOOST uses the existing 110% entry rim and the more stable 90% exit rim.
+    # BOOST uses the existing 110% entry and 90% exit ratios at half-size.
     _update_boost_gesture(0.0)
     if gesture_max_travel > TAP_MAX_TRAVEL:
         if step_active and not jump_active:
