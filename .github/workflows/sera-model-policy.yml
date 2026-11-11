@@ -68,6 +68,7 @@ on:
       - 'tools/v256_bash_accessibility_self_check.py'
       - 'tools/v257_lock_marker_flick_axis_self_check.py'
       - 'tools/v258_four_way_character_facing_self_check.py'
+      - 'tools/v259_combo_lock_hold_self_check.py'
       - 'scripts/flick_direction_policy.gd'
       - 'scripts/training_target_motion.gd'
       - 'scripts/enemy_shooter.gd'
@@ -200,6 +201,8 @@ jobs:
         run: python3 tools/v257_lock_marker_flick_axis_self_check.py
       - name: Verify v258 four-way 90-degree SERA facing flicks
         run: python3 tools/v258_four_way_character_facing_self_check.py
+      - name: Verify v259 combo and Bash AUTO lock hold through input windows
+        run: python3 tools/v259_combo_lock_hold_self_check.py
       - name: Verify v238 perimeter mechanical frame, collision bounds and unchanged break logic
         run: python3 tools/v238_target_mecha_frame_self_check.py
       - name: Verify v239 rectangular body, same-height legs and low head collision geometry
