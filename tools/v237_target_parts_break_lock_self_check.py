@@ -26,9 +26,9 @@ assert "CORE_HP_SHARE: float = 0.50" in p
 assert "EACH_PART_HP_SHARE: float = 0.10" in p
 assert "SELECTION_HYSTERESIS_RADIANS: float = 0.13" in p
 assert "CORE_DEFENSE: float = 0.14" in p
-for value in ("38.0, 0.20, 0.10, \"change\"",
-              "30.0, 0.12, 0.00, \"remove\"",
-              "32.0, 0.16, 0.12, \"remain\""):
+for value in ("100.0, 0.20, 0.10, \"change\"",
+              "100.0, 0.12, 0.00, \"remove\"",
+              "100.0, 0.16, 0.12, \"remain\""):
     assert value in p, value
 assert "box.size = dimensions" in p
 assert 'pivot.name = id' in p
@@ -88,11 +88,11 @@ assert 'AttackType.AIMED if head_destroyed' in shooter
 assert 'func _register_test_hit(stagger_amount: float, extension: float)' in m
 
 # Numerical contract: independent raw attack/break power and defenses.
-specs = {"head": (38., .20, .10),
-         "leg_fl": (30., .12, .00),
-         "leg_fr": (30., .12, .00),
-         "leg_rl": (32., .16, .12),
-         "leg_rr": (32., .16, .12)}
+specs = {"head": (100., .20, .10),
+         "leg_fl": (100., .12, .00),
+         "leg_fr": (100., .12, .00),
+         "leg_rl": (100., .16, .12),
+         "leg_rr": (100., .16, .12)}
 assert math.isclose(0.50 + 5*0.10, 1.0)
 armor = sorted([.14] + [x[1] for x in specs.values()])
 median = (armor[2] + armor[3]) / 2
@@ -106,11 +106,13 @@ for id, (hp, defense, break_defense) in specs.items():
     assert 0 <= remaining < hp
     assert hp-normal_hit != hp-breaking_hit or defense == break_defense
 
-# Two 32-break strikes to separate front legs trigger 2-leg condition.
+# Both front legs require four 32-break strikes at 100 durability each;
+# their existing two-broken-legs down condition is still available.
 broken_legs = 0
 for id in ("leg_fl", "leg_fr"):
     hp, defense, break_defense = specs[id]
-    hp = max(0, hp - 32*(1-break_defense))
+    for _strike in range(4):
+        hp = max(0, hp - 32*(1-break_defense))
     assert hp == 0
     broken_legs += 1
 assert broken_legs >= 2

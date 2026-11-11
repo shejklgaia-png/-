@@ -112,7 +112,7 @@ const MELEE_HIT_ASSIST_BASE_REACH: float = 0.75
 const MELEE_BOOST_DEFAULT_SPEED: float = 11.5  # v181: A speed; per-booster stat overrides.
 const MELEE_BOOST_DEFAULT_DURATION: float = 0.4  # v182 A pre-strike homing cap.
 # Preserve v13 hit timing (confirmed by user).
-const TARGET_MAX_HP: int = 100
+const TARGET_MAX_HP: int = 500
 const STRIKE_DAMAGE = [12, 12, 26]  # Per-stage damage for melee1, Melee2, Melee3.
 const STRIKE_ACTIVE_FROM: float = 0.130
 const STRIKE_ACTIVE_TO: float = 0.345
@@ -1670,7 +1670,7 @@ func _refresh_hp_bar() -> void:
         return
     hp_label.text = "TARGET   %d / %d HP" % [target_hp, TARGET_MAX_HP] if target_hp > 0 else "TARGET   DOWN / RESTARTING"
     hp_fill.size = Vector2(TARGET_HP_BAR_WIDTH * float(target_hp) / float(TARGET_MAX_HP), 7.0)
-    hp_fill.color = Color("5de4d1") if target_hp > 40 else Color("ffb85d")
+    hp_fill.color = Color("5de4d1") if float(target_hp) / float(TARGET_MAX_HP) > 0.40 else Color("ffb85d")
 
 func _clear_strike_tracking() -> void:
     strike_did_hit = false

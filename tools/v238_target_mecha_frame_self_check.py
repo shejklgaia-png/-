@@ -37,15 +37,15 @@ assert 'marker.add_child(target_parts)' in main
 # walls, four legs near +/-1.27 Z on the elongated body; unchanged HP specs.
 expected = {
     "head": ((0., -.44, 1.85), (1.48, .82, .96), (0.,-.03,.37),
-             (38.,.20,.10,"change")),
+             (100.,.20,.10,"change")),
     "leg_fl": ((-1.23,-.53,1.27), (2.24,2.00,1.36), (-.78,-.27,.52),
-              (30.,.12,.00,"remove")),
+              (100.,.12,.00,"remove")),
     "leg_fr": ((1.23,-.53,1.27), (2.24,2.00,1.36), (.78,-.27,.52),
-              (30.,.12,.00,"remove")),
+              (100.,.12,.00,"remove")),
     "leg_rl": ((-1.23,-.53,-1.27), (2.24,2.00,1.36), (-.78,-.27,-.52),
-              (32.,.16,.12,"remain")),
+              (100.,.16,.12,"remain")),
     "leg_rr": ((1.23,-.53,-1.27), (2.24,2.00,1.36), (.78,-.27,-.52),
-              (32.,.16,.12,"remain")),
+              (100.,.16,.12,"remain")),
 }
 def floats(xs: str) -> tuple[float, float, float]:
     v = tuple(float(x.strip()) for x in xs.split(","))
