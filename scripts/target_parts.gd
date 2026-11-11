@@ -309,3 +309,35 @@ func select_front_part(origin: Vector3, forward: Vector3,
     if is_targetable(current) and old_score < INF             and old_score <= best_score + SELECTION_HYSTERESIS_RADIANS:
         return current
     return best_id
+
+func get_visible_part_ids(origin: Vector3, core_box: AABB) -> Array[String]:
+    # Manual selection uses the camera's line of sight but exactly the same
+    # geometry/visibility rules as the existing automatic part selector.
+    var candidates: Array[String] = []
+    for id in PART_ORDER:
+        if not is_targetable(id):
+            continue
+        var aim: Vector3 = get_part_aim_world(id)
+        var toward: Vector3 = aim - origin
+        if toward.length_squared() < 0.000001:
+            continue
+        var core_hit: Variant = core_box.intersects_segment(origin, aim)
+        if core_hit != null and origin.distance_to(core_hit) < (
+                toward.length() - 0.22):
+            continue
+        var occluded: bool = false
+        for other_id in PART_ORDER:
+            if other_id == id:
+                continue
+            var other_node: Node3D = parts[other_id]["node"]
+            if not other_node.visible:
+                continue
+            var other_hit: Variant = get_part_aabb(other_id).intersects_segment(
+                origin, aim)
+            if other_hit != null and origin.distance_to(other_hit) < (
+                    toward.length() - 0.22):
+                occluded = true
+                break
+        if not occluded:
+            candidates.append(id)
+    return candidates

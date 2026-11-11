@@ -43,6 +43,7 @@ on:
       - 'tools/v239_target_rectangular_body_self_check.py'
       - 'tools/v240_target_large_limb_self_check.py'
       - 'tools/v241_thruster_lift_downwash_self_check.py'
+      - 'tools/v242_screen_lock_buttons_self_check.py'
       - 'scripts/training_target_motion.gd'
       - 'scripts/enemy_shooter.gd'
       - 'scripts/target_parts.gd'
@@ -140,6 +141,8 @@ jobs:
         run: python3 tools/v236_lateral_step_no_proximity_slowdown_self_check.py
       - name: Verify v237 five-part target, part breaks and auto-lock
         run: python3 tools/v237_target_parts_break_lock_self_check.py
+      - name: Verify v242 screen-relative lock switch buttons and isolated touch
+        run: python3 tools/v242_screen_lock_buttons_self_check.py
       - name: Verify v238 perimeter mechanical frame, collision bounds and unchanged break logic
         run: python3 tools/v238_target_mecha_frame_self_check.py
       - name: Verify v239 rectangular body, same-height legs and low head collision geometry
