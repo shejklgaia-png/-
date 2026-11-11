@@ -2454,9 +2454,10 @@ func _classify_side_flick(displacement: Vector2, seconds: float) -> int:
     return 1 if displacement.x > 0.0 else -1
 
 func _classify_step_flick(displacement: Vector2, seconds: float) -> Vector2:
-    # v258: four 90-degree sectors centered on SERA's visible heading.
-    # Diagonals choose one cardinal action instead of mixing STEP poses.
-    # STEP and combo/Guard Bash use the same captured front axis.
+    # v260: STEP classification uses actual viewport UP/RIGHT/DOWN/LEFT.
+    # The old camera-dependent actor-front axis misclassified a down flick
+    # as SIDE and horizontal flicks as BACK when SERA faced diagonally.
+    # Bash keeps SERA-facing front; only STEP animation sector is changed.
     # Hold, BOOST suppression, Bash priority, reversal filtering and
     # archived debug-only Jump retain their existing precedence.
     if seconds <= 0.0 or seconds > STEP_FLICK_MAX_SECONDS:
@@ -2468,8 +2469,9 @@ func _classify_step_flick(displacement: Vector2, seconds: float) -> Vector2:
         return Vector2.ZERO
     if gesture_max_travel > distance * 1.20:
         return Vector2.ZERO
-    # Sector zero matches the GUARD/Combo Bash front (full +/-45 deg).
-    return FLICK_DIRECTION_POLICY.four_way_direction(displacement, gesture_screen_forward)
+    # Down always means BACKSTEP, and left/right always lateral STEP.
+    # Keep Bash's SERA-facing orientation for intentional forward Bash.
+    return FLICK_DIRECTION_POLICY.screen_step_direction(displacement)
 
 func _start_omni_step(flick: Vector2) -> bool:
     if (guard_active or damage_reaction_active or landing_active

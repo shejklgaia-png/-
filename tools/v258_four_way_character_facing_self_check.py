@@ -33,8 +33,11 @@ assert "gesture_screen_forward = FLICK_DIRECTION_POLICY.projected_forward(camera
 assert "gesture_screen_forward = FLICK_DIRECTION_POLICY.projected_forward(camera, player)" in drag
 assert "gesture_screen_forward = FLICK_DIRECTION_POLICY.projected_forward(camera, player)" in release
 assert "guard_flick_axis_captured = true" in drag
-assert "return FLICK_DIRECTION_POLICY.four_way_direction(displacement, gesture_screen_forward)" in step
+assert "return FLICK_DIRECTION_POLICY.screen_step_direction(displacement)" in step
 assert "FLICK_DIRECTION_POLICY.within_sector(" in drag
+assert "static func screen_step_direction(displacement: Vector2) -> Vector2:" in p
+assert "return four_way_direction(displacement, Vector2.UP)" in p
+assert "four_way_direction(displacement, gesture_screen_forward)" not in step
 assert "return FLICK_DIRECTION_POLICY.is_flick(" in m
 assert "displacement, seconds, gesture_screen_forward," in m
 assert "BASH_FLICK_MAX_SECONDS, BASH_FLICK_MIN_FORWARD_PIXELS" in m
@@ -83,6 +86,6 @@ for i in range(4):
     v=rot((0.,-1.),i*90)
     assert math.isclose(abs(v[0])+abs(v[1]),1,abs_tol=1e-9)
 print("PASS v258: 4 x 90-degree SERA-facing sectors, all 360-degree rotations and edge cases")
-print("PASS v258: Bash full +/-45 degrees, STEP 4 cardinal motions, Guard/Combo shared input")
+print("PASS v258/v260: Bash +/-45deg of actor front, STEP 4 fixed screen cardinal motions")
 print("PASS v258: v256 Bash accessibility and analog RUN/BOOST retained; marker not in flick")
 print("Godot parser/Android input feel not tested")

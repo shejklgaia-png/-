@@ -17,7 +17,7 @@ for term in ("const SECTOR_COUNT: int = 4",
              "static func is_flick("):
     assert term in policy,term
 step=m.split("func _classify_step_flick(displacement: Vector2, seconds: float) -> Vector2:",1)[1].split("func _start_omni_step(",1)[0]
-for tok in ("return FLICK_DIRECTION_POLICY.four_way_direction(displacement, gesture_screen_forward)",
+for tok in ("return FLICK_DIRECTION_POLICY.screen_step_direction(displacement)",
             "seconds > STEP_FLICK_MAX_SECONDS","distance < STEP_FLICK_MIN_HORIZONTAL",
             "distance / seconds < STEP_FLICK_MIN_PIXELS_PER_SEC",
             "gesture_max_travel > distance * 1.20"):

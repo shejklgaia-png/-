@@ -21,7 +21,7 @@ release=m.split("func _end_drag(",1)[1].split("func _remember_jump_flick_sample(
 step=m.split("func _classify_step_flick(",1)[1].split("func _start_omni_step(",1)[0]
 assert "gesture_screen_forward = FLICK_DIRECTION_POLICY.projected_forward(camera, player)" in begin
 assert "gesture_screen_forward = FLICK_DIRECTION_POLICY.projected_forward(camera, player)" in release
-assert "return FLICK_DIRECTION_POLICY.four_way_direction(displacement, gesture_screen_forward)" in step
+assert "return FLICK_DIRECTION_POLICY.screen_step_direction(displacement)" in step
 assert "const SECTOR_COUNT: int = 4" in p
 assert "const BASH_FLICK_MAX_SECONDS: float = 0.42" in m
 assert "const STEP_FLICK_MAX_SECONDS: float = 0.24" in m

@@ -19,7 +19,7 @@ assert "gesture_screen_forward = FLICK_DIRECTION_POLICY.projected_forward(camera
 assert "guard_flick_axis_captured = true" in drag
 assert "if not guard_flick_axis_captured:" in release
 assert "gesture_screen_forward = FLICK_DIRECTION_POLICY.projected_forward(camera, player)" in release
-assert "return FLICK_DIRECTION_POLICY.four_way_direction(displacement, gesture_screen_forward)" in step
+assert "return FLICK_DIRECTION_POLICY.screen_step_direction(displacement)" in step
 assert "FLICK_DIRECTION_POLICY.within_sector(" in drag
 assert "displacement, gesture_screen_forward, STEP_FLICK_MAX_HORIZONTAL_RATIO" in drag
 assert "_classify_recent_character_forward_flick()" in release
