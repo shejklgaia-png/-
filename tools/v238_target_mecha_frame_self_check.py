@@ -28,7 +28,7 @@ assert "var side: float = signf(center.x)" in code
 assert "render_priority" not in code and "TRANSPARENCY_ALPHA" not in code
 assert 'target_box.size = cube.size' in main
 assert 'const TARGET_BODY_HALF_DEPTH: float = 1.70' in main
-assert 'TARGET_HALF_SIZE * 2.0, TARGET_HALF_SIZE * 2.0, TARGET_BODY_HALF_DEPTH * 2.0' in mainain
+assert 'TARGET_HALF_SIZE * 2.0, TARGET_HALF_SIZE * 2.0, TARGET_BODY_HALF_DEPTH * 2.0' in main
 assert 'target_parts = TARGET_PARTS_SCRIPT.new()' in main
 assert 'marker.add_child(target_parts)' in main
 
