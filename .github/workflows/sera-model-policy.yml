@@ -45,6 +45,7 @@ on:
       - 'tools/v241_thruster_lift_downwash_self_check.py'
       - 'tools/v242_screen_lock_buttons_self_check.py'
       - 'tools/v243_controller_quadrant_lock_mode_self_check.py'
+      - 'tools/v244_half_size_run_boost_controller_self_check.py'
       - 'scripts/training_target_motion.gd'
       - 'scripts/enemy_shooter.gd'
       - 'scripts/target_parts.gd'
@@ -146,6 +147,8 @@ jobs:
         run: python3 tools/v242_screen_lock_buttons_self_check.py
       - name: Verify v243 bottom-right quadrant controller and AUTO/MANUAL mode
         run: python3 tools/v243_controller_quadrant_lock_mode_self_check.py
+      - name: Verify v244 half-size RUN/BOOST controller visual and input radii
+        run: python3 tools/v244_half_size_run_boost_controller_self_check.py
       - name: Verify v238 perimeter mechanical frame, collision bounds and unchanged break logic
         run: python3 tools/v238_target_mecha_frame_self_check.py
       - name: Verify v239 rectangular body, same-height legs and low head collision geometry
