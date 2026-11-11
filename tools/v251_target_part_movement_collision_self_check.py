@@ -9,7 +9,8 @@ def read(file): return (root/file).read_text(encoding="utf-8")
 main=read("scripts/main.gd")
 parts=read("scripts/target_parts.gd")
 project=read("project.godot")
-assert re.search(r'^config/name="SERA v251"$', project,re.M)
+version_match = re.search(r'^config/name="SERA v(\d+)"$', project, re.M)
+assert version_match and int(version_match.group(1)) >= 251
 assert (root/"README_v251_ja.md").is_file()
 assert 'target_collider = AnimatableBody3D.new()' in main
 assert 'target_collider.collision_layer = TARGET_COLLISION_LAYER' in main

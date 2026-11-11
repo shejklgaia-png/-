@@ -55,7 +55,10 @@ step = main.split("func _start_omni_step(flick: Vector2) -> bool:",1)[1].split("
 assert "var direction: Vector2 = flick.normalized()" in step
 assert "step_radial_delta = direction.y * radial_distance" in step
 assert "BACK_STEP_DISTANCE if direction.y >= 0.0 else STEP_FORWARD_DISTANCE" in step
-assert "step_signed_angle *= signf(direction.x) * tangent_sign" in step
+assert "step_linear_fallback = true" in step
+assert "step_linear_offset = Vector2(world_step.x, world_step.z)" in step
+assert "camera_right * direction.x * side_length" in step
+assert "- facing_forward * step_radial_delta" in step
 assert 'rig.call("start_omni_step", direction)' in step
 advance = main.split("func _advance_side_step(delta: float)",1)[1].split("func _move_player_swept(",1)[0]
 assert "initial_radius + step_radial_delta * progress" in advance
