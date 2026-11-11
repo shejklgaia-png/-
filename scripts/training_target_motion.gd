@@ -6,6 +6,8 @@ const NEAR_DISTANCE: float = 3.4
 const FAR_DISTANCE: float = 7.3
 const TETHER_RADIUS: float = 10.0
 const MIN_BOX_CLEARANCE: float = 0.55
+const BODY_HALF_WIDTH: float = 1.0
+const BODY_HALF_DEPTH: float = 1.70  # v239: match main's long rectangular body.
 const START_POINT: Vector2 = Vector2(0.0, -8.0)
 var phase: float = 0.0
 
@@ -37,13 +39,13 @@ func advance(delta: float, current: Vector3, player_pos: Vector3,
         flat = flat.limit_length(TETHER_RADIUS)
         wanted.x = START_POINT.x + flat.x
         wanted.z = START_POINT.y + flat.y
-    # The cube's half-extents are 1m, player's capsule radius 0.4m.
-    # Reject any movement that newly pushes the cube through the player.
-    var dx: float = maxf(absf(player_pos.x - wanted.x) - 1.0, 0.0)
-    var dz: float = maxf(absf(player_pos.z - wanted.z) - 1.0, 0.0)
+    # Match the actual 2 x 3.4m XZ collider so the moving dummy never
+    # pushes its elongated body into the player's 0.4m capsule.
+    var dx: float = maxf(absf(player_pos.x - wanted.x) - BODY_HALF_WIDTH, 0.0)
+    var dz: float = maxf(absf(player_pos.z - wanted.z) - BODY_HALF_DEPTH, 0.0)
     if Vector2(dx, dz).length() < MIN_BOX_CLEARANCE:
-        var current_dx: float = maxf(absf(player_pos.x - current.x) - 1.0, 0.0)
-        var current_dz: float = maxf(absf(player_pos.z - current.z) - 1.0, 0.0)
+        var current_dx: float = maxf(absf(player_pos.x - current.x) - BODY_HALF_WIDTH, 0.0)
+        var current_dz: float = maxf(absf(player_pos.z - current.z) - BODY_HALF_DEPTH, 0.0)
         var current_clearance: float = Vector2(current_dx, current_dz).length()
         if current_clearance >= MIN_BOX_CLEARANCE or Vector2(dx, dz).length() < current_clearance:
             return current

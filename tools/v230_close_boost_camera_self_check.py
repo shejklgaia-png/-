@@ -59,10 +59,10 @@ assert 'candidate_radius: float = maxf(camera_follow_radius, candidate_floor)' i
 assert 'if _full_frame_safe():' in fit
 assert 'camera_fit_radius_floor = candidate_floor' in fit
 assert 'camera_radius = previous_radius' in fit
-# Check the original target 8-corners and player-frame geometry remain intact.
-assert 'for dx in [-TARGET_HALF_SIZE, TARGET_HALF_SIZE]' in main
-assert 'for dy in [-TARGET_HALF_SIZE, TARGET_HALF_SIZE]' in main
-assert 'for dz in [-TARGET_HALF_SIZE, TARGET_HALF_SIZE]' in main
+# Check target outer-frame corners and player-frame geometry remain protected.
+assert 'for dx in [-TARGET_FRAME_HALF_WIDTH, TARGET_FRAME_HALF_WIDTH]' in main
+assert 'for dy in [-TARGET_FRAME_HALF_HEIGHT, TARGET_FRAME_HALF_HEIGHT]' in main
+assert 'for dz in [-TARGET_FRAME_HALF_DEPTH, TARGET_FRAME_HALF_DEPTH]' in main
 assert 'func _enforce_screen_edge(bearing: float, delta: float)' in main
 assert 'const BOOST_POSE_GRACE_SECONDS: float = 0.50' in main
 assert 'const CAMERA_EDGE_MAX_CORRECTION_DEGREES_PER_SECOND: float = 240.0' in main

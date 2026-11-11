@@ -40,9 +40,9 @@ for token in (
     'camera_target_render_position',
     'for lateral in [-CAMERA_SAFE_CORE_HALF_WIDTH, 0.0, CAMERA_SAFE_CORE_HALF_WIDTH]:',
     'for height in [CAMERA_HEAD_HEIGHT, 0.08]:',
-    'for dx in [-TARGET_HALF_SIZE, TARGET_HALF_SIZE]:',
-    'for dy in [-TARGET_HALF_SIZE, TARGET_HALF_SIZE]:',
-    'for dz in [-TARGET_HALF_SIZE, TARGET_HALF_SIZE]:',
+    'for dx in [-TARGET_FRAME_HALF_WIDTH, TARGET_FRAME_HALF_WIDTH]:',
+    'for dy in [-TARGET_FRAME_HALF_HEIGHT, TARGET_FRAME_HALF_HEIGHT]:',
+    'for dz in [-TARGET_FRAME_HALF_DEPTH, TARGET_FRAME_HALF_DEPTH]:',
     'var safe_radius: float = (_minimum_boost_camera_radius()',
     'camera_fit_radius_floor = move_toward(camera_fit_radius_floor,',
     'safe_radius, _camera_fit_release_speed() * maxf(delta, 0.0))',
@@ -85,9 +85,10 @@ def all_points(player, target, right):
         points.append((add(torso,mul(right,side)),.02,0.0,1.0))
     for y in [1.85,.08]:
         points.append((add(player,(0,y,0)),0.0,.145,.75))
-    for dx in [-1.0,1.0]:
-        for dy in [-1.0,1.0]:
-            for dz in [-1.0,1.0]:
+    # New boss frame fits all square/rectangular appendages around the 3.4m body.
+    for dx in [-1.85,1.85]:
+        for dy in [-1.53,1.53]:
+            for dz in [-2.35,2.35]:
                 points.append((add(target,(dx,dy,dz)),.025,.145,.75))
     return points
 
