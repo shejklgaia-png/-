@@ -190,7 +190,7 @@ const TARGET_BASE_HEIGHT: float = 1.53
 const TARGET_HALF_SIZE: float = 1.0  # 2m wide and 2m tall (X/Y).
 const TARGET_BODY_HALF_DEPTH: float = 1.70  # v239: 3.4m nose-to-tail along Z.
 # Framing includes the attached head, side-frame legs and feet (not only the core).
-const TARGET_FRAME_HALF_WIDTH: float = 1.85
+const TARGET_FRAME_HALF_WIDTH: float = 2.35  # v240 broad arm/leg outer frame.
 const TARGET_FRAME_HALF_HEIGHT: float = 1.53
 const TARGET_FRAME_HALF_DEPTH: float = 2.35
 # Only the target blocks movement. The visual ground is deliberately unbounded.
