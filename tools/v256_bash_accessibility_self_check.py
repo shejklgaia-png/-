@@ -40,7 +40,7 @@ assert "_classify_recent_character_forward_flick()" in release
 assert "BASH_FLICK_TAIL_SECONDS if guard_active else JUMP_FLICK_TAIL_SECONDS" in sample
 assert "BASH_FLICK_MAX_SECONDS, BASH_FLICK_MIN_FORWARD_PIXELS" in bash
 assert "BASH_FLICK_MIN_FORWARD_SPEED, STEP_FLICK_MAX_HORIZONTAL_RATIO" in bash
-assert "return FLICK_DIRECTION_POLICY.four_way_direction(displacement, gesture_screen_forward)" in step
+assert "return FLICK_DIRECTION_POLICY.screen_step_direction(displacement)" in step
 assert "if seconds <= 0.0 or seconds > STEP_FLICK_MAX_SECONDS:" in step
 assert "if distance < STEP_FLICK_MIN_HORIZONTAL:" in step
 assert "distance / seconds < STEP_FLICK_MIN_PIXELS_PER_SEC" in step
