@@ -143,11 +143,84 @@ func _add_part(id: String, display: String, center: Vector3,
         "hp_share": EACH_PART_HP_SHARE
     }
 
+
+# v251 collision contract:
+# - Build a BoxShape3D for each visible BoxMesh of the existing head/legs.
+#   Do not replace small real shapes with one large part AABB; that would
+#   block legitimate empty space around the exposed frame.
+# - Shapes are direct children of the existing AnimatableBody3D, and its
+#   parent target node moves them together during training locomotion.
+# - A compact extra guard per leg closes the body/limb seam near the torso.
+# - These are movement solids, NOT combat hitboxes or lock/occlusion bounds.
+func _append_movement_shape(body: CollisionObject3D, part_id: String,
+        label: String, mesh_transform: Transform3D,
+        dimensions: Vector3, initially_disabled: bool) -> CollisionShape3D:
+    var collider := CollisionShape3D.new()
+    collider.name = "%s_%s_Solid" % [part_id, label]
+    var box := BoxShape3D.new()
+    box.size = dimensions
+    collider.shape = box
+    collider.transform = body.global_transform.affine_inverse() * mesh_transform
+    collider.disabled = initially_disabled
+    body.add_child(collider)
+    return collider
+
+func install_movement_colliders(body: CollisionObject3D) -> void:
+    # Called once AFTER TargetBreakableParts enters the scene tree, so the
+    # source mesh global transforms and collider global transform are valid.
+    for id in PART_ORDER:
+        var part: Dictionary = parts[id]
+        var pivot: Node3D = part["node"]
+        var shapes: Array[CollisionShape3D] = []
+        var fracture_shape: CollisionShape3D = null
+        for child in pivot.get_children():
+            if not child is MeshInstance3D:
+                continue
+            var visible_box: MeshInstance3D = child as MeshInstance3D
+            if not visible_box.mesh is BoxMesh:
+                continue
+            var box_mesh: BoxMesh = visible_box.mesh as BoxMesh
+            var is_fracture: bool = visible_box == part["fracture"]
+            var solid: CollisionShape3D = _append_movement_shape(
+                body, id, visible_box.name, visible_box.global_transform,
+                box_mesh.size, is_fracture)
+            shapes.append(solid)
+            if is_fracture:
+                fracture_shape = solid
+        if id in LEG_IDS:
+            # Ground-to-hip connector. This overlaps the original torso
+            # and outer struts, closing the passable inside corner without
+            # enveloping the whole leg or its open outer frame.
+            var side: float = signf(pivot.position.x)
+            var joint_pose: Transform3D = pivot.global_transform * Transform3D(
+                Basis.IDENTITY, Vector3(-side * 0.19, -0.06, 0.0))
+            shapes.append(_append_movement_shape(body, id, "BodyJunction",
+                joint_pose, Vector3(0.96, 1.85, 0.62), false))
+        part["movement_colliders"] = shapes
+        part["fracture_collider"] = fracture_shape
+
+func _set_part_movement_collision(id: String, enabled: bool) -> void:
+    if not parts.has(id):
+        return
+    var part: Dictionary = parts[id]
+    for solid in part.get("movement_colliders", []):
+        var collider: CollisionShape3D = solid as CollisionShape3D
+        if collider == null:
+            continue
+        var is_fracture: bool = collider == part.get("fracture_collider")
+        # Fracture armor is only solid while its visual mesh is visible.
+        var should_enable: bool = enabled and (
+            not is_fracture or bool(part["broken"]))
+        # Collision shapes may be changed during a physics contact callback.
+        # Defer it instead of mutating PhysicsServer shape state mid-query.
+        collider.set_deferred("disabled", not should_enable)
+
 func reset_parts() -> void:
     for id in PART_ORDER:
         var part: Dictionary = parts[id]
         part["integrity"] = part["max_integrity"]
         part["broken"] = false
+        _set_part_movement_collision(id, true)
         var pivot: Node3D = part["node"]
         pivot.visible = true
         var shell: StandardMaterial3D = part["shell"]
@@ -254,6 +327,10 @@ func apply_part_hit(id: String, raw_attack: float, raw_break: float) -> Dictiona
             shell.albedo_color = Color("4c555d")
             var accent: StandardMaterial3D = part["accent"]
             accent.albedo_color = Color("283039")
+        # Hide solids only when the corresponding visual part is removed.
+        # HEAD ("change") and rear legs ("remain") continue blocking
+        # movement, while the now-visible fractured head armor becomes solid.
+        _set_part_movement_collision(effective_id, mode != "remove")
         result["broken"] = true
         result["kind"] = "head" if effective_id == "head" else "leg"
         result["broken_legs"] = broken_leg_count()

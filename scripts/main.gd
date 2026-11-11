@@ -839,8 +839,9 @@ func _build_target() -> void:
     marker.material_override = cube_mat
     marker.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
     target.add_child(marker)
-    # Collision uses the exact elongated rectangular body silhouette,
-    # while head/leg AABBs continue to define breakable strike targets.
+    # The core collider stays exactly 2 x 2 x 3.4m; v251 attaches the
+    # visual head/leg solids and junction guards to the same moving body.
+    # Breakable strike AABBs remain independent of physics.
     target_collider = AnimatableBody3D.new()
     target_collider.name = "TargetSolidBody"
     target_collider.sync_to_physics = false
@@ -860,6 +861,10 @@ func _build_target() -> void:
     target_parts = TARGET_PARTS_SCRIPT.new()
     target_parts.name = "TargetBreakableParts"
     marker.add_child(target_parts)
+    # v251: the same moving physical body holds the core, the modeled
+    # part solids and hidden limb/body junction guards. Physical collisions
+    # never affect the separate per-lock sword hit AABBs.
+    target_parts.call("install_movement_colliders", target_collider)
 
     # Target marker stays on the ground even when its cube bobs vertically.
     _add_round_ground_shadow("TargetFloorMark", self, Vector3(target.position.x, -0.026, target.position.z))
@@ -1684,7 +1689,7 @@ func _target_hit_aabb() -> AABB:
 
 func _blade_contact(from_pt: Vector3, to_pt: Vector3) -> Variant:
     # Sword sweeps may hit an exterior head or leg without crossing the cube.
-    # Physical player collision remains on the solid rectangular torso.
+    # v251 movement solids are separate; lock-exclusive hit AABBs stay intact.
     if target_parts != null and bool(target_parts.call(
             "is_targetable", locked_target_part_id)):
         var part_box: AABB = target_parts.call("get_part_aabb", locked_target_part_id)
@@ -2849,9 +2854,11 @@ func _advance_homing_toward_target(delta: float, reach: float) -> bool:
                 high = mid
             else:
                 low = mid
-        _move_player_swept(player.position.lerp(next_position, high) - player.position, false)
+        _move_player_swept(player.position.lerp(next_position, high) - player.position, true)
     else:
-        _move_player_swept(next_position - player.position, false)
+        _move_player_swept(next_position - player.position, true)
+    # v251: melee homing glides along visible part solids / joint guards,
+    # rather than stopping at the first solid while chasing the lock.
     return true
 
 func _check_bash_contact() -> void:

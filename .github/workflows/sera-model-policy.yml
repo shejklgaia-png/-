@@ -60,6 +60,7 @@ on:
       - 'tools/v248_controller_150_percent_self_check.py'
       - 'tools/v249_exclusive_attack_lock_self_check.py'
       - 'tools/v250_target_hp_self_check.py'
+      - 'tools/v251_target_part_movement_collision_self_check.py'
       - 'scripts/training_target_motion.gd'
       - 'scripts/enemy_shooter.gd'
       - 'scripts/target_parts.gd'
@@ -175,6 +176,8 @@ jobs:
         run: python3 tools/v249_exclusive_attack_lock_self_check.py
       - name: Verify v250 500 boss HP and 100 HP for all target parts
         run: python3 tools/v250_target_hp_self_check.py
+      - name: Verify v251 mesh-aligned target movement colliders and break lifecycle
+        run: python3 tools/v251_target_part_movement_collision_self_check.py
       - name: Verify v238 perimeter mechanical frame, collision bounds and unchanged break logic
         run: python3 tools/v238_target_mecha_frame_self_check.py
       - name: Verify v239 rectangular body, same-height legs and low head collision geometry
