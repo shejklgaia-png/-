@@ -420,7 +420,8 @@ var combo_queued: bool = false  # One buffered tap for the next attack stage.
 var bash_queued: bool = false
 var bash_combo_queued: bool = false
 var bash_flick_candidate: bool = false
-var gesture_screen_forward: Vector2 = Vector2.UP  # Captured at pointer down.
+var gesture_screen_forward: Vector2 = Vector2.UP  # Captured at flick touch start.
+var guard_flick_axis_captured: bool = false  # A long GUARD hold can outlast camera recentering.
 var bash_followup_window_remaining: float = 0.0
 var bash_loop_window_remaining: float = 0.0
 var bash_did_hit: bool = false
@@ -2051,8 +2052,11 @@ func _begin_drag(pos: Vector2) -> void:
     if gesture_active:
         return
     gesture_active = true
-    # Snapshot the VISIBLE direction of SERA before the camera can turn.
+    # Snapshot the VISIBLE direction of SERA. All STEP and BASH flicks
+    # use this identical 0-degree screen axis for their eight-way sectors.
+    # GUARD reacquires it once a late flick begins after the initial hold.
     gesture_screen_forward = FLICK_DIRECTION_POLICY.projected_forward(camera, player)
+    guard_flick_axis_captured = false
     # Preserve the third strike while classifying an intentional forward Bash
     # flick; unrelated directional drags still cancel attacks as before.
     bash_flick_candidate = (combat_state == CombatState.STRIKE
@@ -2097,8 +2101,12 @@ func _change_drag(pos: Vector2) -> void:
     if not gesture_active:
         return
     if guard_active:
-        # Hold guard stays stationary; track only the final quick forward
-        # motion so a release can commit a guard-origin shield bash.
+        # GUARD can be held for seconds while the camera orbits at idle.
+        # Capture forward when the actual final flick starts, not when
+        # the old stationary hold started. Lock the axis until release.
+        if not guard_flick_axis_captured and pos.distance_to(pointer_origin) >= TAP_MAX_TRAVEL:
+            gesture_screen_forward = FLICK_DIRECTION_POLICY.projected_forward(camera, player)
+            guard_flick_axis_captured = true
         pointer_location = pos
         _remember_jump_flick_sample(pos)
         return
@@ -2164,6 +2172,10 @@ func _end_drag(release_pos: Vector2) -> void:
         # change it into Bash, never ordinary movement or an attack tap.
         pointer_location = release_pos
         _remember_jump_flick_sample(release_pos)
+        # Some Android devices coalesce the first flick and release without
+        # a preceding drag event. In that case sample the CURRENT facing.
+        if not guard_flick_axis_captured:
+            gesture_screen_forward = FLICK_DIRECTION_POLICY.projected_forward(camera, player)
         var guard_bash_requested: bool = _classify_recent_character_forward_flick() and not keyboard_guard_held
         # A long-held guard responds to a short final facing-direction swipe.
         var guard_flick_origin: Vector2 = pointer_origin
@@ -2433,8 +2445,9 @@ func _classify_side_flick(displacement: Vector2, seconds: float) -> int:
     return 1 if displacement.x > 0.0 else -1
 
 func _classify_step_flick(displacement: Vector2, seconds: float) -> Vector2:
-    # v254: each release flick is assigned to one of eight 45-degree
-    # SCREEN sectors, centered on forward/diagonals/right/back/left.
+    # v255: each release flick is assigned to one of eight 45-degree
+    # sectors centered on SERA's SCREEN-PROJECTED facing: the same
+    # forward sector used by combo/Guard Bash.
     # Use one quantized vector for both STEP movement and 8-way pose blend.
     # Hold, BOOST suppression, Bash priority, reversal filtering and
     # archived debug-only Jump retain their existing precedence.
@@ -2447,7 +2460,10 @@ func _classify_step_flick(displacement: Vector2, seconds: float) -> Vector2:
         return Vector2.ZERO
     if gesture_max_travel > distance * 1.20:
         return Vector2.ZERO
-    return FLICK_DIRECTION_POLICY.eight_way_direction(displacement, Vector2.UP)
+    # Important: sector 0 here MUST equal the sector 0 used by Bash;
+    # using Vector2.UP classified identical swipes differently whenever
+    # SERA faced sideways on screen (v254 regression).
+    return FLICK_DIRECTION_POLICY.eight_way_direction(displacement, gesture_screen_forward)
 
 func _start_omni_step(flick: Vector2) -> bool:
     if (guard_active or damage_reaction_active or landing_active
