@@ -267,11 +267,15 @@ var target: Node3D
 var target_parts: Node3D
 var locked_target_part_id: String = ""
 var manual_part_lock_active: bool = false
+var auto_lock_enabled: bool = true
 var lock_switch_left_button: Button
 var lock_switch_right_button: Button
-const LOCK_SWITCH_FROM_BOTTOM_RATIO: float = 0.40
-const LOCK_SWITCH_BUTTON_SIZE: Vector2 = Vector2(108.0, 68.0)
-const LOCK_SWITCH_EDGE_INSET: float = 18.0
+var lock_mode_button: Button
+const CONTROLLER_REGION_START_RATIO: float = 0.50
+const LOCK_SWITCH_BUTTON_SIZE: Vector2 = Vector2(104.0, 58.0)
+const LOCK_MODE_BUTTON_SIZE: Vector2 = Vector2(128.0, 58.0)
+const CONTROLLER_BUTTON_TOP_INSET: float = 8.0
+const LOCK_SWITCH_EDGE_INSET: float = 8.0
 var target_parts_label: Label
 var target_collider: AnimatableBody3D
 var enemy_shooter: Node3D
@@ -655,7 +659,7 @@ func _tick_training_ko(delta: float) -> void:
     if target_parts != null:
         target_parts.call("reset_parts")
     locked_target_part_id = ""
-    manual_part_lock_active = false
+    manual_part_lock_active = not auto_lock_enabled
     if enemy_shooter != null:
         enemy_shooter.call("set_head_destroyed", false)
     stagger_value = 0.0
@@ -1297,43 +1301,100 @@ func _build_overlay() -> void:
     VersionIndicator.attach(layer)
 
 func _build_lock_switch_buttons(layer: CanvasLayer) -> void:
-    # The center is 40% of the viewport height above the lower edge,
-    # independent of Xperia screen resolution/aspect ratio.
+    # Both arrows occupy the upper left/right corners of the right-bottom
+    # controller frame. A centered mode button toggles AUTO and MANUAL.
     var normal_style := StyleBoxFlat.new()
-    normal_style.bg_color = Color(0.055, 0.12, 0.17, 0.72)
-    normal_style.border_color = Color(0.28, 0.72, 0.78, 0.84)
+    normal_style.bg_color = Color(0.055, 0.12, 0.17, 0.82)
+    normal_style.border_color = Color(0.28, 0.72, 0.78, 0.88)
     normal_style.set_border_width_all(2)
-    normal_style.set_corner_radius_all(12)
+    normal_style.set_corner_radius_all(10)
     var press_style := normal_style.duplicate() as StyleBoxFlat
     press_style.bg_color = Color(0.13, 0.34, 0.41, 0.95)
+    var disabled_style := normal_style.duplicate() as StyleBoxFlat
+    disabled_style.bg_color = Color(0.055, 0.12, 0.17, 0.38)
+    disabled_style.border_color = Color(0.20, 0.36, 0.42, 0.45)
     for direction in [-1, 1]:
         var button := Button.new()
         button.name = "LockSwitchLeft" if direction < 0 else "LockSwitchRight"
         button.text = "◀ LOCK" if direction < 0 else "LOCK ▶"
         button.focus_mode = Control.FOCUS_NONE
-        # With Android mouse emulation off, _input owns finger press and
-        # release, and must exclude these HUD areas from all swipe gestures.
+        # Android native touch is processed in _input, not Button signals.
         button.mouse_filter = Control.MOUSE_FILTER_IGNORE
-        button.add_theme_font_size_override("font_size", 17)
+        button.add_theme_font_size_override("font_size", 15)
         button.add_theme_color_override("font_color", Color("b9f5ff"))
+        button.add_theme_color_override("font_disabled_color", Color("68858c"))
         button.add_theme_stylebox_override("normal", normal_style)
         button.add_theme_stylebox_override("hover", normal_style)
         button.add_theme_stylebox_override("pressed", press_style)
-        button.anchor_top = 1.0 - LOCK_SWITCH_FROM_BOTTOM_RATIO
-        button.anchor_bottom = button.anchor_top
-        button.anchor_left = 0.0 if direction < 0 else 1.0
-        button.anchor_right = button.anchor_left
-        button.offset_top = -LOCK_SWITCH_BUTTON_SIZE.y * 0.5
-        button.offset_bottom = LOCK_SWITCH_BUTTON_SIZE.y * 0.5
+        button.add_theme_stylebox_override("disabled", disabled_style)
+        button.anchor_top = CONTROLLER_REGION_START_RATIO
+        button.anchor_bottom = CONTROLLER_REGION_START_RATIO
+        button.offset_top = CONTROLLER_BUTTON_TOP_INSET
+        button.offset_bottom = CONTROLLER_BUTTON_TOP_INSET + LOCK_SWITCH_BUTTON_SIZE.y
         if direction < 0:
+            button.anchor_left = CONTROLLER_REGION_START_RATIO
+            button.anchor_right = CONTROLLER_REGION_START_RATIO
             button.offset_left = LOCK_SWITCH_EDGE_INSET
             button.offset_right = LOCK_SWITCH_EDGE_INSET + LOCK_SWITCH_BUTTON_SIZE.x
             lock_switch_left_button = button
         else:
+            button.anchor_left = 1.0
+            button.anchor_right = 1.0
             button.offset_left = -LOCK_SWITCH_EDGE_INSET - LOCK_SWITCH_BUTTON_SIZE.x
             button.offset_right = -LOCK_SWITCH_EDGE_INSET
             lock_switch_right_button = button
         layer.add_child(button)
+    lock_mode_button = Button.new()
+    lock_mode_button.name = "LockModeToggle"
+    lock_mode_button.focus_mode = Control.FOCUS_NONE
+    lock_mode_button.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    lock_mode_button.add_theme_font_size_override("font_size", 16)
+    lock_mode_button.add_theme_color_override("font_color", Color("f4f9fc"))
+    lock_mode_button.add_theme_stylebox_override("normal", normal_style)
+    lock_mode_button.add_theme_stylebox_override("hover", normal_style)
+    lock_mode_button.add_theme_stylebox_override("pressed", press_style)
+    lock_mode_button.anchor_left = 0.75
+    lock_mode_button.anchor_right = 0.75
+    lock_mode_button.anchor_top = CONTROLLER_REGION_START_RATIO
+    lock_mode_button.anchor_bottom = CONTROLLER_REGION_START_RATIO
+    lock_mode_button.offset_left = -LOCK_MODE_BUTTON_SIZE.x * 0.5
+    lock_mode_button.offset_right = LOCK_MODE_BUTTON_SIZE.x * 0.5
+    lock_mode_button.offset_top = CONTROLLER_BUTTON_TOP_INSET
+    lock_mode_button.offset_bottom = CONTROLLER_BUTTON_TOP_INSET + LOCK_MODE_BUTTON_SIZE.y
+    layer.add_child(lock_mode_button)
+    _refresh_lock_mode_buttons()
+
+
+func _refresh_lock_mode_buttons() -> void:
+    if lock_mode_button != null:
+        lock_mode_button.text = "AUTO" if auto_lock_enabled else "MANUAL"
+    if lock_switch_left_button != null:
+        lock_switch_left_button.disabled = auto_lock_enabled
+    if lock_switch_right_button != null:
+        lock_switch_right_button.disabled = auto_lock_enabled
+
+
+func _toggle_auto_lock_mode() -> void:
+    auto_lock_enabled = not auto_lock_enabled
+    manual_part_lock_active = not auto_lock_enabled
+    # Entering manual mode preserves the current target; returning to AUTO
+    # releases the lock to the original automatic forward-angle selector.
+    _refresh_lock_mode_buttons()
+
+
+func _controller_start_area_contains(pos: Vector2) -> bool:
+    # Only the initial touch-down is bounded. _change_drag/_end_drag have
+    # no area checks, so the same gesture can travel beyond this frame.
+    var screen: Vector2 = get_viewport().get_visible_rect().size
+    return (pos.x >= screen.x * CONTROLLER_REGION_START_RATIO
+        and pos.x <= screen.x
+        and pos.y >= screen.y * CONTROLLER_REGION_START_RATIO
+        and pos.y <= screen.y)
+
+
+func _pointer_on_lock_mode_button(pos: Vector2) -> bool:
+    return (lock_mode_button != null and lock_mode_button.visible
+        and lock_mode_button.get_global_rect().has_point(pos))
 
 
 func _lock_switch_direction_at(pos: Vector2) -> int:
@@ -1349,8 +1410,8 @@ func _lock_switch_direction_at(pos: Vector2) -> int:
 func _switch_lock_screen_direction(direction: int) -> void:
     # Keep a frozen target during attack/approach/Bash. Manual selection
     # persists during movement and is cleared on break or training reset.
-    if (direction == 0 or target_parts == null or camera == null
-            or target_hp <= 0 or training_ko_remaining > 0.0
+    if (direction == 0 or auto_lock_enabled or target_parts == null
+            or camera == null or target_hp <= 0 or training_ko_remaining > 0.0
             or combat_state != CombatState.IDLE):
         return
     var viewport_size: Vector2 = get_viewport().get_visible_rect().size
@@ -1709,7 +1770,7 @@ func _apply_target_part_damage(kind: String, raw_attack: int, raw_break: float,
                 enemy_shooter.call("set_head_destroyed", true)
             # Do not keep hitting a removed/broken target during the combo.
             locked_target_part_id = ""
-            manual_part_lock_active = false
+            manual_part_lock_active = not auto_lock_enabled
     var actual_damage: int = hp_before_hit - target_hp
     result["applied_damage"] = actual_damage
     SeraSave.record_target_hit(kind, actual_damage,
@@ -1823,7 +1884,7 @@ func _advance_hit_fx(delta: float) -> void:
             if target_parts != null:
                 target_parts.call("reset_parts")
             locked_target_part_id = ""
-            manual_part_lock_active = false
+            manual_part_lock_active = not auto_lock_enabled
             if enemy_shooter != null:
                 enemy_shooter.call("set_head_destroyed", false)
             stagger_value = 0.0
@@ -1838,6 +1899,11 @@ func _input(event: InputEvent) -> void:
             # including taps on HUD buttons (which must keep their own input).
             if touch_ui != null:
                 touch_ui.call("cancel_gesture_effects")
+            if _pointer_on_lock_mode_button(event.position):
+                step_hud_touch = event.index
+                _toggle_auto_lock_mode()
+                get_viewport().set_input_as_handled()
+                return
             var switch_direction: int = _lock_switch_direction_at(event.position)
             if switch_direction != 0:
                 step_hud_touch = event.index
@@ -1858,7 +1924,7 @@ func _input(event: InputEvent) -> void:
                 # GUI handles the button event; gameplay owns no such touch.
                 step_hud_touch = event.index
                 return
-            if current_touch < 0:
+            if current_touch < 0 and _controller_start_area_contains(event.position):
                 current_touch = event.index
                 _begin_drag(event.position)
         elif event.index == step_hud_touch:
@@ -1878,6 +1944,11 @@ func _input(event: InputEvent) -> void:
             if event.pressed:
                 if touch_ui != null:
                     touch_ui.call("cancel_gesture_effects")
+                if _pointer_on_lock_mode_button(event.position):
+                    step_hud_mouse_press = true
+                    _toggle_auto_lock_mode()
+                    get_viewport().set_input_as_handled()
+                    return
                 var switch_direction: int = _lock_switch_direction_at(event.position)
                 if switch_direction != 0:
                     step_hud_mouse_press = true
@@ -1896,6 +1967,8 @@ func _input(event: InputEvent) -> void:
                     return
                 if _pointer_on_step_hud(event.position):
                     step_hud_mouse_press = true
+                    return
+                if not _controller_start_area_contains(event.position):
                     return
                 mouse_down = true
                 _begin_drag(event.position)
@@ -3219,7 +3292,7 @@ func _physics_process(delta: float) -> void:
         elif not locked_target_part_id.is_empty() and not bool(
                 target_parts.call("is_targetable", locked_target_part_id)):
             locked_target_part_id = ""
-            manual_part_lock_active = false
+            manual_part_lock_active = not auto_lock_enabled
         if not locked_target_part_id.is_empty():
             var part_aim: Vector3 = target_parts.call(
                 "get_part_aim_world", locked_target_part_id)
