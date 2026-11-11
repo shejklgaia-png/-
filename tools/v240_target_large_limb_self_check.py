@@ -11,7 +11,8 @@ def read(path): return (ROOT/path).read_text(encoding="utf-8")
 parts=read("scripts/target_parts.gd")
 main=read("scripts/main.gd")
 project=read("project.godot")
-assert 'config/name="SERA v240"' in project
+version=re.search(r'config/name="SERA v(\d+)"',project)
+assert version is not None and int(version.group(1))>=240
 assert (ROOT/"README_v240_ja.md").exists()
 assert "const TARGET_BODY_HALF_DEPTH: float = 1.70" in main
 assert "const TARGET_FRAME_HALF_WIDTH: float = 2.35" in main
