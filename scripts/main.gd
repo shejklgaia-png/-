@@ -266,6 +266,12 @@ var camera: Camera3D
 var target: Node3D
 var target_parts: Node3D
 var locked_target_part_id: String = ""
+var manual_part_lock_active: bool = false
+var lock_switch_left_button: Button
+var lock_switch_right_button: Button
+const LOCK_SWITCH_FROM_BOTTOM_RATIO: float = 0.40
+const LOCK_SWITCH_BUTTON_SIZE: Vector2 = Vector2(108.0, 68.0)
+const LOCK_SWITCH_EDGE_INSET: float = 18.0
 var target_parts_label: Label
 var target_collider: AnimatableBody3D
 var enemy_shooter: Node3D
@@ -649,6 +655,7 @@ func _tick_training_ko(delta: float) -> void:
     if target_parts != null:
         target_parts.call("reset_parts")
     locked_target_part_id = ""
+    manual_part_lock_active = false
     if enemy_shooter != null:
         enemy_shooter.call("set_head_destroyed", false)
     stagger_value = 0.0
@@ -1032,6 +1039,7 @@ func _build_overlay() -> void:
     touch_ui.mouse_filter = Control.MOUSE_FILTER_IGNORE
     layer.add_child(touch_ui)
     touch_ui.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+    _build_lock_switch_buttons(layer)
     _update_melee_lock_marker()  # Initial state before the first physics frame.
 
     # Compact read-only console occupies only the top ~12% of a 1280px portrait
@@ -1287,6 +1295,104 @@ func _build_overlay() -> void:
         int(training_settings.get("attack_type", 0)),
         bool(training_settings.get("auto_fire_enabled", true)))
     VersionIndicator.attach(layer)
+
+func _build_lock_switch_buttons(layer: CanvasLayer) -> void:
+    # The center is 40% of the viewport height above the lower edge,
+    # independent of Xperia screen resolution/aspect ratio.
+    var normal_style := StyleBoxFlat.new()
+    normal_style.bg_color = Color(0.055, 0.12, 0.17, 0.72)
+    normal_style.border_color = Color(0.28, 0.72, 0.78, 0.84)
+    normal_style.set_border_width_all(2)
+    normal_style.set_corner_radius_all(12)
+    var press_style := normal_style.duplicate() as StyleBoxFlat
+    press_style.bg_color = Color(0.13, 0.34, 0.41, 0.95)
+    for direction in [-1, 1]:
+        var button := Button.new()
+        button.name = "LockSwitchLeft" if direction < 0 else "LockSwitchRight"
+        button.text = "◀ LOCK" if direction < 0 else "LOCK ▶"
+        button.focus_mode = Control.FOCUS_NONE
+        # With Android mouse emulation off, _input owns finger press and
+        # release, and must exclude these HUD areas from all swipe gestures.
+        button.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        button.add_theme_font_size_override("font_size", 17)
+        button.add_theme_color_override("font_color", Color("b9f5ff"))
+        button.add_theme_stylebox_override("normal", normal_style)
+        button.add_theme_stylebox_override("hover", normal_style)
+        button.add_theme_stylebox_override("pressed", press_style)
+        button.anchor_top = 1.0 - LOCK_SWITCH_FROM_BOTTOM_RATIO
+        button.anchor_bottom = button.anchor_top
+        button.anchor_left = 0.0 if direction < 0 else 1.0
+        button.anchor_right = button.anchor_left
+        button.offset_top = -LOCK_SWITCH_BUTTON_SIZE.y * 0.5
+        button.offset_bottom = LOCK_SWITCH_BUTTON_SIZE.y * 0.5
+        if direction < 0:
+            button.offset_left = LOCK_SWITCH_EDGE_INSET
+            button.offset_right = LOCK_SWITCH_EDGE_INSET + LOCK_SWITCH_BUTTON_SIZE.x
+            lock_switch_left_button = button
+        else:
+            button.offset_left = -LOCK_SWITCH_EDGE_INSET - LOCK_SWITCH_BUTTON_SIZE.x
+            button.offset_right = -LOCK_SWITCH_EDGE_INSET
+            lock_switch_right_button = button
+        layer.add_child(button)
+
+
+func _lock_switch_direction_at(pos: Vector2) -> int:
+    if (lock_switch_left_button != null and lock_switch_left_button.visible
+            and lock_switch_left_button.get_global_rect().has_point(pos)):
+        return -1
+    if (lock_switch_right_button != null and lock_switch_right_button.visible
+            and lock_switch_right_button.get_global_rect().has_point(pos)):
+        return 1
+    return 0
+
+
+func _switch_lock_screen_direction(direction: int) -> void:
+    # Keep a frozen target during attack/approach/Bash. Manual selection
+    # persists during movement and is cleared on break or training reset.
+    if (direction == 0 or target_parts == null or camera == null
+            or target_hp <= 0 or training_ko_remaining > 0.0
+            or combat_state != CombatState.IDLE):
+        return
+    var viewport_size: Vector2 = get_viewport().get_visible_rect().size
+    if viewport_size.x <= 0.0 or viewport_size.y <= 0.0:
+        return
+    var reference_x: float = viewport_size.x * 0.5
+    if (not locked_target_part_id.is_empty() and bool(target_parts.call(
+            "is_targetable", locked_target_part_id))):
+        var current_aim: Vector3 = target_parts.call(
+            "get_part_aim_world", locked_target_part_id)
+        if not camera.is_position_behind(current_aim):
+            reference_x = camera.unproject_position(current_aim).x
+    # Project targets into CAMERA/VIEWPORT space: left and right are the
+    # visible screen directions, NOT the enemy's local X axis.
+    var candidates: Array = target_parts.call("get_visible_part_ids",
+        camera.global_position, _target_hit_aabb())
+    var nearest_id: String = ""
+    var nearest_offset: float = INF
+    for candidate in candidates:
+        var id: String = str(candidate)
+        if id == locked_target_part_id:
+            continue
+        var aim: Vector3 = target_parts.call("get_part_aim_world", id)
+        if camera.is_position_behind(aim):
+            continue
+        var screen_point: Vector2 = camera.unproject_position(aim)
+        if (screen_point.x < 0.0 or screen_point.x > viewport_size.x
+                or screen_point.y < 0.0 or screen_point.y > viewport_size.y):
+            continue
+        var offset: float = (screen_point.x - reference_x) * float(direction)
+        if offset <= 3.0 or offset >= nearest_offset:
+            continue
+        nearest_offset = offset
+        nearest_id = id
+    # No horizontal wrap: an edge button must not unexpectedly select the
+    # opposite edge of the boss. No viable part means retaining the lock.
+    if nearest_id.is_empty():
+        return
+    locked_target_part_id = nearest_id
+    manual_part_lock_active = true
+    _update_target_marker_projection()
+
 
 func _update_target_marker_projection() -> void:
     # Camera3D.unproject_position() gives screen coordinates in the viewport.
@@ -1603,6 +1709,7 @@ func _apply_target_part_damage(kind: String, raw_attack: int, raw_break: float,
                 enemy_shooter.call("set_head_destroyed", true)
             # Do not keep hitting a removed/broken target during the combo.
             locked_target_part_id = ""
+            manual_part_lock_active = false
     var actual_damage: int = hp_before_hit - target_hp
     result["applied_damage"] = actual_damage
     SeraSave.record_target_hit(kind, actual_damage,
@@ -1716,6 +1823,7 @@ func _advance_hit_fx(delta: float) -> void:
             if target_parts != null:
                 target_parts.call("reset_parts")
             locked_target_part_id = ""
+            manual_part_lock_active = false
             if enemy_shooter != null:
                 enemy_shooter.call("set_head_destroyed", false)
             stagger_value = 0.0
@@ -1730,6 +1838,12 @@ func _input(event: InputEvent) -> void:
             # including taps on HUD buttons (which must keep their own input).
             if touch_ui != null:
                 touch_ui.call("cancel_gesture_effects")
+            var switch_direction: int = _lock_switch_direction_at(event.position)
+            if switch_direction != 0:
+                step_hud_touch = event.index
+                _switch_lock_screen_direction(switch_direction)
+                get_viewport().set_input_as_handled()
+                return
             if _pointer_on_training_test_button(event.position):
                 step_hud_touch = event.index
                 _press_training_test_button(event.position)
@@ -1764,6 +1878,12 @@ func _input(event: InputEvent) -> void:
             if event.pressed:
                 if touch_ui != null:
                     touch_ui.call("cancel_gesture_effects")
+                var switch_direction: int = _lock_switch_direction_at(event.position)
+                if switch_direction != 0:
+                    step_hud_mouse_press = true
+                    _switch_lock_screen_direction(switch_direction)
+                    get_viewport().set_input_as_handled()
+                    return
                 if _pointer_on_training_test_button(event.position):
                     step_hud_mouse_press = true
                     _press_training_test_button(event.position)
@@ -3090,7 +3210,8 @@ func _physics_process(delta: float) -> void:
         target.position.x - player.position.x, 0.0,
         target.position.z - player.position.z)
     if target_parts != null:
-        if target_hp > 0 and combat_state == CombatState.IDLE:
+        if (target_hp > 0 and combat_state == CombatState.IDLE
+                and not manual_part_lock_active):
             locked_target_part_id = str(target_parts.call(
                 "select_front_part",
                 player.global_position + Vector3.UP * 1.05,
@@ -3098,6 +3219,7 @@ func _physics_process(delta: float) -> void:
         elif not locked_target_part_id.is_empty() and not bool(
                 target_parts.call("is_targetable", locked_target_part_id)):
             locked_target_part_id = ""
+            manual_part_lock_active = false
         if not locked_target_part_id.is_empty():
             var part_aim: Vector3 = target_parts.call(
                 "get_part_aim_world", locked_target_part_id)

@@ -71,7 +71,8 @@ assert 'SeraSave.record_target_hit(kind, actual_damage,' in apply
 assert '"apply_part_hit"' in m
 assert '"melee", strike_damage,' in m
 assert '"bash", bash_damage,' in m
-assert 'if target_hp > 0 and combat_state == CombatState.IDLE:' in m
+assert 'target_hp > 0 and combat_state == CombatState.IDLE' in m
+assert 'and not manual_part_lock_active' in m
 assert '"select_front_part",' in m
 assert '"get_part_aim_world", locked_target_part_id' in m
 assert 'pursuit_point = target_parts.call("get_part_aim_world", locked_target_part_id)' in m
