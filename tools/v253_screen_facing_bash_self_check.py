@@ -19,7 +19,8 @@ start=m.split("func _begin_drag(",1)[1].split("func _analog_stick_direction(",1)
 drag=m.split("func _change_drag(",1)[1].split("func _update_boost_gesture(",1)[0]
 release=m.split("func _end_drag(",1)[1].split("func _remember_jump_flick_sample(",1)[0]
 classifier=m.split("func _is_character_forward_flick(",1)[1].split("func _is_upward_jump_flick(",1)[0]
-assert "gesture_screen_forward = FLICK_DIRECTION_POLICY.projected_forward(camera, player)" in start
+assert "gesture_screen_forward = _flick_front_from_controller_origin(pos)" in start
+assert 'func _flick_front_from_controller_origin(controller_origin: Vector2) -> Vector2:' in m
 assert start.index("gesture_screen_forward =") < start.index("bash_flick_candidate =")
 assert "not FLICK_DIRECTION_POLICY.within_sector(" in drag
 assert "displacement, gesture_screen_forward, STEP_FLICK_MAX_HORIZONTAL_RATIO" in drag

@@ -15,13 +15,13 @@ begin=m.split("func _begin_drag(pos: Vector2) -> void:",1)[1].split("func _analo
 drag=m.split("func _change_drag(pos: Vector2) -> void:",1)[1].split("func _update_boost_gesture(",1)[0]
 release=m.split("func _end_drag(release_pos: Vector2) -> void:",1)[1].split("func _remember_jump_flick_sample(",1)[0]
 step=m.split("func _classify_step_flick(displacement: Vector2, seconds: float) -> Vector2:",1)[1].split("func _start_omni_step(",1)[0]
-assert "gesture_screen_forward = FLICK_DIRECTION_POLICY.projected_forward(camera, player)" in begin
+assert "gesture_screen_forward = _flick_front_from_controller_origin(pos)" in begin
 assert "guard_flick_axis_captured = false" in begin
 assert "if not guard_flick_axis_captured and pos.distance_to(pointer_origin) >= TAP_MAX_TRAVEL:" in drag
-assert "gesture_screen_forward = FLICK_DIRECTION_POLICY.projected_forward(camera, player)" in drag
+assert "gesture_screen_forward = _flick_front_from_controller_origin(pointer_origin)" in drag
 assert "guard_flick_axis_captured = true" in drag
 assert "if not guard_flick_axis_captured:" in release
-assert "gesture_screen_forward = FLICK_DIRECTION_POLICY.projected_forward(camera, player)" in release
+assert "gesture_screen_forward = _flick_front_from_controller_origin(pointer_origin)" in release
 assert "return FLICK_DIRECTION_POLICY.eight_way_direction(displacement, gesture_screen_forward)" in step
 assert "return FLICK_DIRECTION_POLICY.eight_way_direction(displacement, Vector2.UP)" not in step
 assert "FLICK_DIRECTION_POLICY.within_sector(" in drag
@@ -38,7 +38,7 @@ assert "static func eight_way_direction(displacement: Vector2, screen_axis: Vect
 assert "sector_index(displacement, screen_axis) == 0" in p
 assert "_screen_drag_to_ground(direction_input)" in m
 assert "target_parts.call(\"install_movement_colliders\", target_collider)" in m
-assert "same screen-projected character forward" in read("AGENTS.md")
+assert "controller-start → visible lock-reticle" in read("AGENTS.md")
 assert "STEPもBashも" in read("docs/SERA_INPUT_MOVEMENT_CAMERA.md")
 
 angle=math.tau/8
