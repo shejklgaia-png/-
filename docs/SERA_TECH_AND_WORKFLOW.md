@@ -1,5 +1,5 @@
 # SERA — Android制作・Godot技術・Git運用
-直近統合版 v103（2026-11-06、ターゲット赤色化）。v103のAndroid実機検証は未実施です。
+この文書の初版は v103（2026-11-06）の時点の記録です。**最新の統合版は `project.godot` で確認**し、`docs/SERA_DEVELOPMENT_FASTPATH_ja.md` と現行コードを優先してください。過去版の実機検証履歴を現在版の検証状況と混同しないでください。
 
 ## [実装・運用決定] 全スマホ制作
 - Xperia 1 V上に**モデル、Godotプロジェクト、動作確認環境**がすべてある。Godot Android版とBlockbenchを使用。Blender/PCが必須であるかのような工程を提案しない。無料の手段を優先。

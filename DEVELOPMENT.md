@@ -1622,3 +1622,13 @@
 - The ribbon MeshInstance3D is a top-level sibling of the nozzle-attached ExhaustFX, so hiding the current flame cannot hide fading history and authored Chest/nozzle rotation cannot move old vertices. Camera-aligned quads are rebuilt from world points without particles or textures.
 - The selected-equipment switching, v222 melee torso guard, v221 normal melee sustained jet, v219 ten-sided tube and 15x 50ms burst, STEPs/BOOST/SLIDE, combat controls, EN and Blockbench assets remain unchanged. Shader is an additive unshaded vertex-color material with depth testing retained.
 - Bumped project name to SERA v223; added standalone static/numeric regression in the model-policy CI and README_v223_ja.md. Actual Godot Android rendering and performance remain to be verified.
+
+## 2026-11-11 — 安全な開発高速化ツールの追加（ゲーム本体の変更なし）
+
+- `docs/SERA_DEVELOPMENT_FASTPATH_ja.md` に現行コード優先の調査手順と機能別の参照先を明記。
+- `tools/sera_code_map.py` に、実際のGDScriptから関数/定数の位置を抽出する読み取り専用索引を追加。
+- `tools/sera_quick_check.py` に、既存の基本静的検査をまとめて実行する入口を追加。描画契約は `--render`。
+- `tools/sera_dev_tools_self_check.py` に索引の回帰テストを追加。
+- `AGENTS.md` および `docs/SERA_TECH_AND_WORKFLOW.md` の旧版固定記述を「当時の記録」と明確化。最新の統合版は `project.godot` を参照するルールに変更。
+- `project.godot`、ランタイムコード、モデル、音源、シーン、従来の検査内容は変更しない。既存のGitHub Actionsに新ツール検査を統合し、別のワークフロー・ジョブは新設しない。
+- ツールのPython検証はPRの実行環境で確認し、Godot/Android実機テストは未実施として区別する。

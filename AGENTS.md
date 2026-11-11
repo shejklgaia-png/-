@@ -1,13 +1,13 @@
 # SERA — Codex / coding-agent repository instructions
 
 ## Goal and baseline
-- This is the Godot 4.x, **Android-first portrait 3D action prototype** "SERA". The most recently integrated gameplay version is **v103 (2026-11-06)** (red training target); **Android device verification for v103 remains outstanding**. The historical repository-preparation package itself was documentation-only.
-- `project.godot` must remain **at the repository root**. Current project declares Godot **4.3+** features, **GL Compatibility** rendering and 720 × 1280 portrait viewport. Do not automatically migrate renderers, upgrade the engine, or change display settings.
+- This is the Godot 4.x, **Android-first portrait 3D action prototype** "SERA". **Do not treat the historical v102/v103 notes below as the current build.** Determine the current integrated version from `project.godot`, then read its `README_vNNN_ja.md` and the actual code. First consult `docs/SERA_DEVELOPMENT_FASTPATH_ja.md` for change-localized investigation.
+- `project.godot` must remain **at the repository root**. Read its actual Godot feature version (`config/features`), **GL Compatibility** renderer and portrait viewport rather than relying on old version notes. Do not automatically migrate renderers, upgrade the engine, or change display settings.
 - Primary verification is via **Godot Editor on Xperia 1 V (Android)**. A cloud/desktop headless test does not verify touch control feel, rendering or audio on the phone.
 
 ## Nonnegotiable edit policy
 1. Keep all existing features, input mappings, assets, animation clips, scene paths, and gameplay logic unless the user explicitly asks for a change. Make the **smallest targeted diff**.
-2. Before edits, inspect `DEVELOPMENT.md`, `README_v102_ja.md` and related current scripts; check the Git diff and note the commit/branch as baseline. Never silently discard uncommitted changes.
+2. Before edits, inspect `docs/SERA_DEVELOPMENT_FASTPATH_ja.md`, the current project version and matching README, `DEVELOPMENT.md`, and related actual scripts; check the Git diff and note the commit/branch as baseline. Never silently discard uncommitted changes. Past v102 documents are historical, not the current baseline.
 3. Create a separate branch / pull request for each feature. After reviewing the scoped diff and available checks, **merge the PR into `main` as part of the same task by default without requesting a separate user instruction**. Explicitly report any Android/device checks not performed. If checks fail, the PR conflicts, or a change appears unsafe, stop rather than forcing a merge; explain the blocker.
 4. Test what you can and report **exactly** which checks ran; do not state Android/Godot runtime validation unless actually executed.
 5. For each requested code change, append a concise dated section to `DEVELOPMENT.md`, add/update the relevant versioned README/test, and report changed files, preserved functions, test results, and known untested items. Bump the game version only on actual user-authorized game changes.
@@ -15,11 +15,11 @@
 
 ## Godot project name (mandatory)
 - The `[application]` `config/name` in the root `project.godot` **must be exactly `SERA v<version>`**, e.g. `SERA v146`, with no suffix, subtitle, change summary, extra spaces, or other labels.
-- When implementing an approved game change and bumping the game version, update `config/name` to `SERA v147`, `SERA v148`, etc. Preserve this format for every subsequent version. A project-title-only correction does **not** increment the gameplay version.
+- When implementing an approved game change and bumping the game version, derive the next version from the current `project.godot` and update `config/name` to `SERA v<next-number>`; do not assume an old example is current. A project-title-only correction does **not** increment the gameplay version.
 - Describe changes in `DEVELOPMENT.md`, the versioned `README_vXXX_ja.md`, Git commits, and PRs; **never** in the visible Godot project title. This keeps the project-switcher text compact and stops changes in subtitle length from shifting the Run button position.
 - Run `python3 tools/project_name_self_check.py` when updating the project title. Its regex check is future-version-agnostic.
 
-## Current layout and important behavior
+## Current layout and important behavior (the v102 details below are historical; recheck today's code)
 - `project.godot` → `scenes/main.tscn` → `scripts/main.gd`.
 - `scripts/sera_rig.gd`: dynamic Blockbench mesh/animation reconstruction; animation state, skeleton, Guard pose.
 - `scripts/touch_overlay.gd`, `scripts/enemy_*`, `scripts/sword_trail.gd`, `scripts/hit_burst.gd`, `shaders/`: controls, combat, camera-related effects etc. Inspect actual code before touching.
@@ -32,10 +32,12 @@
 Run from repository root:
 
 ```sh
-python3 tools/codex_project_check.py
-python3 tools/self_check.py
-python3 tools/v102_guardfix_self_check.py
+python3 tools/sera_code_map.py camera          # optional targeted code navigation
+python3 tools/sera_quick_check.py              # core read-only static checks
+python3 tools/sera_quick_check.py --render     # additionally checks 3D render contract
 ```
+
+The quick check calls the existing `codex_project_check.py`, `self_check.py`, `project_name_self_check.py`, and the new developer-tool self-check; it does **not** replace relevant version-specific regressions (e.g. `v102_guardfix_self_check.py` for historical Guard work), PR CI, or Android device verification.
 
 Additional historical checks may refer to unavailable prior ZIPs; read their preconditions before running them. Use `python3 -m compileall -q tools` for Python syntax if relevant. If a compatible Godot editor binary is available, run `godot --headless --path . --import` and capture its exit code/log; optionally run a short headless scene smoke test. This is **not equivalent to Android runtime verification**. If no Godot binary exists, say "Godot runtime not tested". When updating a feature intentionally, adjust its regression tests without deleting useful coverage.
 
@@ -46,7 +48,7 @@ Additional historical checks may refer to unavailable prior ZIPs; read their pre
 
 ## Do not overstate
 - Successful Python static tests do not prove that Godot parses or renders the complete game, and a successful headless import does not prove Android touch behavior.
-- This repository package made no functional changes to v102.
+- The **original 2026-11-06 packaging step** made no functional changes to v102; this is historical information, not a statement about the current game version.
 
 ## Shared SERA design-memory documents (2026-11-06)
 - Before planning gameplay changes, read `docs/SERA_MEMORY_INDEX.md` and the linked topic documents. They preserve user decisions from ChatGPT conversations for Codex.
