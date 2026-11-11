@@ -271,7 +271,7 @@ var auto_lock_enabled: bool = true
 var lock_switch_left_button: Button
 var lock_switch_right_button: Button
 var lock_mode_button: Button
-const CONTROLLER_REGION_START_RATIO: float = 0.50
+const CONTROLLER_REGION_START_RATIO: float = 0.50  # Lock UI anchor only; not a touch boundary
 const LOCK_SWITCH_BUTTON_SIZE: Vector2 = Vector2(104.0, 58.0)
 const LOCK_MODE_BUTTON_SIZE: Vector2 = Vector2(128.0, 58.0)
 const CONTROLLER_BUTTON_TOP_INSET: float = 8.0
@@ -1301,8 +1301,8 @@ func _build_overlay() -> void:
     VersionIndicator.attach(layer)
 
 func _build_lock_switch_buttons(layer: CanvasLayer) -> void:
-    # Both arrows occupy the upper left/right corners of the right-bottom
-    # controller frame. A centered mode button toggles AUTO and MANUAL.
+    # Preserve the three lock buttons at their v243 screen positions.
+    # They no longer indicate a restricted controller start area.
     var normal_style := StyleBoxFlat.new()
     normal_style.bg_color = Color(0.055, 0.12, 0.17, 0.82)
     normal_style.border_color = Color(0.28, 0.72, 0.78, 0.88)
@@ -1383,13 +1383,12 @@ func _toggle_auto_lock_mode() -> void:
 
 
 func _controller_start_area_contains(pos: Vector2) -> bool:
-    # Only the initial touch-down is bounded. _change_drag/_end_drag have
-    # no area checks, so the same gesture can travel beyond this frame.
+    # v246: The floating controller can start anywhere inside the viewport.
+    # _input checks UI button hitboxes before calling this function.
+    # An active drag can still cross the entire screen without clamping.
     var screen: Vector2 = get_viewport().get_visible_rect().size
-    return (pos.x >= screen.x * CONTROLLER_REGION_START_RATIO
-        and pos.x <= screen.x
-        and pos.y >= screen.y * CONTROLLER_REGION_START_RATIO
-        and pos.y <= screen.y)
+    return (pos.x >= 0.0 and pos.x <= screen.x
+        and pos.y >= 0.0 and pos.y <= screen.y)
 
 
 func _pointer_on_lock_mode_button(pos: Vector2) -> bool:
@@ -1536,11 +1535,18 @@ func _pointer_on_nexus_button(pos: Vector2) -> bool:
         and nexus_button.get_global_rect().has_point(pos))
 
 func _pointer_on_step_hud(pos: Vector2) -> bool:
-    # The compact header is informational only. Do not interpret taps or
-    # horizontal swipes originating over it as attacks / side steps.
-    return ((hud_panel != null and hud_panel.visible and hud_panel.get_global_rect().has_point(pos))
-        or (enemy_debug_ui != null and enemy_debug_ui.visible
-            and enemy_debug_ui.get_global_rect().has_point(pos)))
+    # v246: Reserve actual interactive UI buttons, not read-only HUD panels.
+    # This preserves GUI control without unnecessarily restricting gestures.
+    if (handedness_button != null and handedness_button.visible
+            and handedness_button.get_global_rect().has_point(pos)):
+        return true
+    if enemy_debug_ui != null and enemy_debug_ui.visible:
+        for gui_node in enemy_debug_ui.find_children("*", "Button", true, false):
+            var gui_button := gui_node as Button
+            if (gui_button != null and gui_button.is_visible_in_tree()
+                    and gui_button.get_global_rect().has_point(pos)):
+                return true
+    return false
 
 # The body remains on the original XZ plane; lift the visual model to keep
 # enlarged soles on that plane, and extend only the capsule's upper envelope.
