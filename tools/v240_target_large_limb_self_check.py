@@ -75,7 +75,7 @@ for side in (-1,1):
         assert farthest_x < 2.35
         assert 1.23-.24-.90/2 < 1.0 # core-frame connection overlaps
         foot_position,foot_size=located["Foot"]
-        assert math.isclose(1.53-.53+foot_position[1]-foot_size[1]/2,0.0)
+        assert math.isclose(1.53-.53+foot_position[1]-foot_size[1]/2,0.0,abs_tol=1e-8)
         # The auto-lock offset sits *on* the protruding armored ArmTip box.
         aim=(side*.78,-.27,fore*.52)
         tip,tip_size=located["ArmTip"]
