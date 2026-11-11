@@ -206,6 +206,8 @@ const SERA_SCRIPT = preload("res://scripts/sera_rig.gd")
 const PART_STATS = preload("res://scripts/sera_part_stats.gd")
 const TARGET_MOTION_SCRIPT = preload("res://scripts/training_target_motion.gd")
 const TARGET_PARTS_SCRIPT = preload("res://scripts/target_parts.gd")
+# Shared screen projection and directional rules for new flick actions.
+const FLICK_DIRECTION_POLICY = preload("res://scripts/flick_direction_policy.gd")
 const TrainingDefaults = preload("res://scripts/training_defaults.gd")
 # v178 prototype damage table: AIM, LEAD, SHOCK, ARC, respectively.
 const ENEMY_ATTACK_HP_DAMAGE = [18.0, 22.0, 28.0, 34.0]
@@ -418,6 +420,7 @@ var combo_queued: bool = false  # One buffered tap for the next attack stage.
 var bash_queued: bool = false
 var bash_combo_queued: bool = false
 var bash_flick_candidate: bool = false
+var gesture_screen_forward: Vector2 = Vector2.UP  # Captured at pointer down.
 var bash_followup_window_remaining: float = 0.0
 var bash_loop_window_remaining: float = 0.0
 var bash_did_hit: bool = false
@@ -2048,6 +2051,8 @@ func _begin_drag(pos: Vector2) -> void:
     if gesture_active:
         return
     gesture_active = true
+    # Snapshot the VISIBLE direction of SERA before the camera can turn.
+    gesture_screen_forward = FLICK_DIRECTION_POLICY.projected_forward(camera, player)
     # Preserve the third strike while classifying an intentional forward Bash
     # flick; unrelated directional drags still cancel attacks as before.
     bash_flick_candidate = (combat_state == CombatState.STRIKE
@@ -2102,7 +2107,9 @@ func _change_drag(pos: Vector2) -> void:
     gesture_max_travel = maxf(gesture_max_travel, pos.distance_to(pointer_origin))
     var displacement: Vector2 = pos - pointer_origin
     if bash_flick_candidate and gesture_max_travel > TAP_MAX_TRAVEL:
-        if displacement.y >= 0.0 or absf(displacement.x) > -displacement.y * STEP_FLICK_MAX_HORIZONTAL_RATIO:
+        # The candidate and final Bash use the SAME projected character axis.
+        if not FLICK_DIRECTION_POLICY.within_sector(
+                displacement, gesture_screen_forward, STEP_FLICK_MAX_HORIZONTAL_RATIO):
             bash_flick_candidate = false
     # A forward Bash gesture does not create RUN motion or interrupt stage 3.
     direction_input = Vector2.ZERO if bash_flick_candidate else _analog_stick_direction(pos)
@@ -2156,8 +2163,8 @@ func _end_drag(release_pos: Vector2) -> void:
         # change it into Bash, never ordinary movement or an attack tap.
         pointer_location = release_pos
         _remember_jump_flick_sample(release_pos)
-        var guard_bash_requested: bool = _classify_recent_upward_flick() and not keyboard_guard_held
-        # A long-held guard's only motion is its final brief upward swipe.
+        var guard_bash_requested: bool = _classify_recent_character_forward_flick() and not keyboard_guard_held
+        # A long-held guard responds to a short final facing-direction swipe.
         var guard_flick_origin: Vector2 = pointer_origin
         if not jump_flick_samples.is_empty():
             guard_flick_origin = jump_flick_samples[0]["pos"]
@@ -2192,7 +2199,7 @@ func _end_drag(release_pos: Vector2) -> void:
         and press_duration <= TAP_MAX_DURATION)
     var bash_requested: bool = (bash_flick_candidate
         and not boost_has_activated_this_gesture
-        and _is_upward_jump_flick(release_pos - pointer_origin, press_duration)
+        and _is_character_forward_flick(release_pos - pointer_origin, press_duration)
         and gesture_max_travel <= (release_pos - pointer_origin).length() * 1.20)
     bash_flick_candidate = false
     # A completed BOOST gesture is never reinterpreted as a release flick;
@@ -2250,6 +2257,23 @@ func _remember_jump_flick_sample(pos: Vector2) -> void:
         jump_flick_samples.pop_front()
     if jump_flick_samples.size() > 32:
         jump_flick_samples.pop_front()
+
+# Character-facing actions use the shared projected screen direction.
+# Archived debug Jump retains its own absolute-screen-UP recognition.
+func _is_character_forward_flick(displacement: Vector2, seconds: float) -> bool:
+    return FLICK_DIRECTION_POLICY.is_flick(
+        displacement, seconds, gesture_screen_forward,
+        STEP_FLICK_MAX_SECONDS, JUMP_FLICK_MIN_VERTICAL,
+        STEP_FLICK_MIN_PIXELS_PER_SEC, STEP_FLICK_MAX_HORIZONTAL_RATIO)
+
+func _classify_recent_character_forward_flick() -> bool:
+    if jump_flick_samples.size() < 2:
+        return false
+    var first: Dictionary = jump_flick_samples[0]
+    var last: Dictionary = jump_flick_samples[jump_flick_samples.size() - 1]
+    var duration: float = float(int(last["ms"]) - int(first["ms"])) / 1000.0
+    return _is_character_forward_flick(
+        (last["pos"] as Vector2) - (first["pos"] as Vector2), duration)
 
 func _is_upward_jump_flick(displacement: Vector2, seconds: float) -> bool:
     if seconds <= 0.0 or seconds > STEP_FLICK_MAX_SECONDS:

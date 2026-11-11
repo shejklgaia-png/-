@@ -126,3 +126,9 @@ Additional historical checks may refer to unavailable prior ZIPs; read their pre
 - The release-only flick classification returns a normalized 360-degree vector (including forward and diagonals), without direction wedges; keep short/fast/reversal checks, boost suppression, guard-bash precedence and debug-only jump.
 - Omnidirectional step combines a target-centered lateral orbit and radial 4m back/2m forward travel. Pose blends Step_L / Step_R / Backstep / provisional Boost_front, 0.12-second entry and 0.16-second exit crossfade. Existing authored files, player collision/movement physics and camera should not be changed.
 - Verify tools/v199_animated_sole_grounding_self_check.py and tools/v200_contact_omni_step_self_check.py; Android device acceptance remains separate.
+
+## Mandatory future flick control convention (2026-11-12, v253)
+- For **every future character-relative directional flick**, interpret FORWARD/BACK relative to SERA's heading **as visibly projected on the screen**, not as absolute UP/DOWN pixels. Screen-left/right commands keep screen-left/right semantics. Use `scripts/flick_direction_policy.gd` and read `docs/SERA_INPUT_MOVEMENT_CAMERA.md` before adding a flick action.
+- Capture `projected_forward(camera, player)` when a touch begins and use the saved direction in `within_sector` and `is_flick` during both drag-time candidate gating and release-time recognition. Never add a fresh `displacement.y < 0` gate for a character-forward flick.
+- Both Bash paths (GUARD and Melee3 combo) must use the shared classifier; do not alter existing thresholds/priority except when explicitly requested. v252 STEP motion, screen-aligned analog RUN/BOOST, lock buttons and archived debug Jump are unaffected.
+- Run `python3 tools/v253_screen_facing_bash_self_check.py` and standard PR CI whenever modifying character-relative gestures.
