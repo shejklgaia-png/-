@@ -428,7 +428,7 @@ var combo_queued: bool = false  # One buffered tap for the next attack stage.
 var bash_queued: bool = false
 var bash_combo_queued: bool = false
 var bash_flick_candidate: bool = false
-var gesture_screen_forward: Vector2 = Vector2.UP  # Captured at flick touch start.
+var gesture_screen_forward: Vector2 = Vector2.UP  # Controller origin -> HUD lock reticle.
 var guard_flick_axis_captured: bool = false  # A long GUARD hold can outlast camera recentering.
 var bash_followup_window_remaining: float = 0.0
 var bash_loop_window_remaining: float = 0.0
@@ -2056,14 +2056,25 @@ func _update_guard_hold() -> void:
     if keyboard_guard_held or touch_held:
         _set_guard(true)
 
+# Use exactly the lock-marker position already displayed by DragGuide.
+# The controller can start anywhere, so a fixed camera/actor direction
+# would not necessarily point from the thumb toward its visible target.
+func _flick_front_from_controller_origin(controller_origin: Vector2) -> Vector2:
+    var fallback: Vector2 = FLICK_DIRECTION_POLICY.projected_forward(camera, player)
+    if touch_ui != null and bool(touch_ui.get("target_marker_visible")):
+        var marker_position: Vector2 = touch_ui.get("target_marker_position")
+        return FLICK_DIRECTION_POLICY.toward_lock_marker(
+            controller_origin, marker_position, fallback)
+    return fallback
+
 func _begin_drag(pos: Vector2) -> void:
     if gesture_active:
         return
     gesture_active = true
-    # Snapshot the VISIBLE direction of SERA. All STEP and BASH flicks
-    # use this identical 0-degree screen axis for their eight-way sectors.
-    # GUARD reacquires it once a late flick begins after the initial hold.
-    gesture_screen_forward = FLICK_DIRECTION_POLICY.projected_forward(camera, player)
+    # Sector 0 is the 2D arrow from the controller's spawn point to the
+    # ACTUAL displayed lock-marker pixel, not SERA's projected body heading.
+    # STEP and Bash share the same frozen axis for this gesture.
+    gesture_screen_forward = _flick_front_from_controller_origin(pos)
     guard_flick_axis_captured = false
     # Preserve the third strike while classifying an intentional forward Bash
     # flick; unrelated directional drags still cancel attacks as before.
@@ -2109,11 +2120,10 @@ func _change_drag(pos: Vector2) -> void:
     if not gesture_active:
         return
     if guard_active:
-        # GUARD can be held for seconds while the camera orbits at idle.
-        # Capture forward when the actual final flick starts, not when
-        # the old stationary hold started. Lock the axis until release.
+        # GUARD can outlast camera/reticle changes. Capture the latest
+        # controller-origin -> lock-marker arrow at final flick onset.
         if not guard_flick_axis_captured and pos.distance_to(pointer_origin) >= TAP_MAX_TRAVEL:
-            gesture_screen_forward = FLICK_DIRECTION_POLICY.projected_forward(camera, player)
+            gesture_screen_forward = _flick_front_from_controller_origin(pointer_origin)
             guard_flick_axis_captured = true
         pointer_location = pos
         _remember_jump_flick_sample(pos)
@@ -2124,8 +2134,8 @@ func _change_drag(pos: Vector2) -> void:
     var displacement: Vector2 = pos - pointer_origin
     if bash_flick_candidate and gesture_max_travel > BASH_FLICK_CANDIDATE_GRACE_PIXELS:
         # Initial finger wobble no longer immediately cancels the combo.
-        # Candidate and final Bash share the same 45-degree forward sector
-        # centered on SERA's saved screen-projected facing direction.
+        # Candidate and final Bash share the same 45-degree sector centered
+        # on the saved controller-origin -> lock-marker screen arrow.
         if not FLICK_DIRECTION_POLICY.within_sector(
                 displacement, gesture_screen_forward, STEP_FLICK_MAX_HORIZONTAL_RATIO):
             bash_flick_candidate = false
@@ -2181,10 +2191,10 @@ func _end_drag(release_pos: Vector2) -> void:
         # change it into Bash, never ordinary movement or an attack tap.
         pointer_location = release_pos
         _remember_jump_flick_sample(release_pos)
-        # Some Android devices coalesce the first flick and release without
-        # a preceding drag event. In that case sample the CURRENT facing.
+        # If Android coalesces the flick into one release event, use the
+        # latest reticle pixel with the ORIGINAL controller spawn point.
         if not guard_flick_axis_captured:
-            gesture_screen_forward = FLICK_DIRECTION_POLICY.projected_forward(camera, player)
+            gesture_screen_forward = _flick_front_from_controller_origin(pointer_origin)
         var guard_bash_requested: bool = _classify_recent_character_forward_flick() and not keyboard_guard_held
         # A long-held guard responds to a short final facing-direction swipe.
         var guard_flick_origin: Vector2 = pointer_origin
@@ -2281,9 +2291,9 @@ func _remember_jump_flick_sample(pos: Vector2) -> void:
     if jump_flick_samples.size() > 32:
         jump_flick_samples.pop_front()
 
-# Character-facing actions use sector 0 of the eight screen sectors,
-# relative to SERA's projected forward. Archived debug Jump keeps
-# its experimental absolute-screen-UP recognition.
+# STEP and Bash use the SAME 8-way screen sectors: sector 0 follows
+# the controller-origin -> HUD lock marker vector. Archived debug Jump
+# keeps its experimental absolute-screen-UP recognition.
 func _is_character_forward_flick(displacement: Vector2, seconds: float) -> bool:
     return FLICK_DIRECTION_POLICY.is_flick(
         displacement, seconds, gesture_screen_forward,
@@ -2455,9 +2465,9 @@ func _classify_side_flick(displacement: Vector2, seconds: float) -> int:
     return 1 if displacement.x > 0.0 else -1
 
 func _classify_step_flick(displacement: Vector2, seconds: float) -> Vector2:
-    # v255: each release flick is assigned to one of eight 45-degree
-    # sectors centered on SERA's SCREEN-PROJECTED facing: the same
-    # forward sector used by combo/Guard Bash.
+    # v257: assign each release flick to eight 45-degree sectors.
+    # Sector zero is the on-screen arrow from the controller start
+    # position to the lock reticle, shared by STEP and combo/Guard Bash.
     # Use one quantized vector for both STEP movement and 8-way pose blend.
     # Hold, BOOST suppression, Bash priority, reversal filtering and
     # archived debug-only Jump retain their existing precedence.
@@ -2470,9 +2480,8 @@ func _classify_step_flick(displacement: Vector2, seconds: float) -> Vector2:
         return Vector2.ZERO
     if gesture_max_travel > distance * 1.20:
         return Vector2.ZERO
-    # Important: sector 0 here MUST equal the sector 0 used by Bash;
-    # using Vector2.UP classified identical swipes differently whenever
-    # SERA faced sideways on screen (v254 regression).
+    # Important: sector 0 here MUST equal the sector 0 used by Bash.
+    # The axis was snapshotted from the same HUD reticle as the player sees.
     return FLICK_DIRECTION_POLICY.eight_way_direction(displacement, gesture_screen_forward)
 
 func _start_omni_step(flick: Vector2) -> bool:

@@ -4,9 +4,23 @@ extends RefCounted
 ## New action recognizers MUST NOT hard-code screen-UP or world-Z.
 ## v254: every direction is assigned to exactly one of eight 45-degree
 ## sectors (center +/-22.5 degrees), relative to a supplied visible axis.
-## STEP uses screen-UP as its axis; Bash uses SERA's projected facing.
+## v257: STEP and Bash use the controller-origin -> rendered lock-marker
+## screen vector as sector 0. This is NOT character-facing or screen-UP.
+## The actor's projected facing is only a fallback for a hidden marker.
 const SECTOR_COUNT: int = 8
 const SECTOR_ANGLE: float = TAU / 8.0
+
+# The exact marker pixel coordinates must come from the same HUD field
+# used to draw the visible reticle. Direction depends on touch origin.
+# If the reticle overlaps the controller, keep the supplied safe fallback.
+static func toward_lock_marker(controller_origin: Vector2,
+        marker_screen_position: Vector2, fallback: Vector2) -> Vector2:
+    var toward: Vector2 = marker_screen_position - controller_origin
+    if toward.length_squared() > 0.0001:
+        return toward.normalized()
+    if fallback.length_squared() > 0.000001:
+        return fallback.normalized()
+    return Vector2.UP
 
 static func projected_forward(camera: Camera3D, actor: Node3D) -> Vector2:
     if camera == null or actor == null:
