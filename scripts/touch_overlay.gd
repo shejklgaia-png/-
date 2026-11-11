@@ -83,7 +83,7 @@ const FLICK_WAKE_BANDS: int = 3
 const FLICK_WAKE_BAND_DELAY: float = 0.060
 const FLICK_WAKE_CURVE_STEPS: int = 12
 
-const CONTROLLER_FRAME_START_RATIO: float = 0.50  # v243: right-bottom 1/4
+const CONTROLLER_FRAME_START_RATIO: float = 0.50  # Gradient left edge only; no input boundary
 const OPERATION_ZONE_TOP_RATIO: float = 0.50  # frame top; 100% transparent
 const OPERATION_ZONE_SOLID_RATIO: float = 0.92  # bottom 8% is a uniform medium gray
 const OPERATION_ZONE_COLOR_TOP: Color = Color(0.494, 0.510, 0.533, 0.0)
@@ -234,9 +234,9 @@ func set_movement_boost(value: bool) -> void:
     queue_redraw()
 
 func _draw() -> void:
-    # The visible controller frame is exactly the bottom-right quadrant.
-    # Once a gesture starts inside, the joystick graphics may extend beyond
-    # this border; the border only gates the initial press in main.gd.
+    # v246: Keep the existing lower-right gray gradient as decoration.
+    # The former border/corner strokes are removed; controller circles
+    # can appear at any screen touch not reserved for an actual UI button.
     var frame_left: float = size.x * CONTROLLER_FRAME_START_RATIO
     var fade_top: float = size.y * OPERATION_ZONE_TOP_RATIO
     var solid_top: float = size.y * OPERATION_ZONE_SOLID_RATIO
@@ -255,22 +255,6 @@ func _draw() -> void:
     draw_polygon(fade_vertices, fade_colors)
     draw_rect(Rect2(frame_left, solid_top, size.x - frame_left,
         size.y - solid_top), OPERATION_ZONE_COLOR_BOTTOM, true)
-    var frame_rect := Rect2(Vector2(frame_left, fade_top),
-        Vector2(size.x - frame_left, size.y - fade_top))
-    draw_rect(frame_rect.grow(-2.0), Color(0.21, 0.85, 0.93, 0.62),
-        false, 2.0, true)
-    # Bottom corner markers reinforce the interactive region without
-    # occluding the center where the thumb begins its swipe.
-    var corner_tint := Color(0.21, 0.85, 0.93, 0.44)
-    var bottom: float = size.y - 13.0
-    draw_line(Vector2(frame_left + 12.0, bottom - 36.0),
-        Vector2(frame_left + 12.0, bottom), corner_tint, 3.0, true)
-    draw_line(Vector2(frame_left + 12.0, bottom),
-        Vector2(frame_left + 48.0, bottom), corner_tint, 3.0, true)
-    draw_line(Vector2(size.x - 12.0, bottom - 36.0),
-        Vector2(size.x - 12.0, bottom), corner_tint, 3.0, true)
-    draw_line(Vector2(size.x - 12.0, bottom),
-        Vector2(size.x - 48.0, bottom), corner_tint, 3.0, true)
 
     var accent := Color(0.21, 0.85, 0.93, 0.87)
     var low := Color(0.21, 0.85, 0.93, 0.30)

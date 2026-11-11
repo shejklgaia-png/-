@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""SERA v245: RUN/BOOST joystick + hit radius 125% of v244, within same quadrant."""
+"""SERA v245-v246: RUN/BOOST joystick + hit radius 125% of v244."""
 from pathlib import Path
 import math
 import re
@@ -18,7 +18,8 @@ def v(source,name):
     assert hit is not None,name
     return float(hit.group(1))
 
-assert 'config/name="SERA v245"' in project
+version=re.search(r'config/name="SERA v(\d+)"',project)
+assert version and int(version.group(1))>=245
 assert (ROOT/"README_v245_ja.md").is_file()
 
 # Prior exact radii: v244 RUN=56, deadzone=9, BOOST=84.
@@ -101,5 +102,5 @@ for step in range(0,101):
     assert (old>=84.*1.10)==(new>=105.*1.10)
 print("PASS v245: RUN 70px / deadzone 11.25px / BOOST 105px")
 print("PASS v245: BOOST entry 115.5px / exit 94.5px, all +25% over v244")
-print("PASS v245: ring, arrow and text geometry +25%; quadrant/lock/STEP/guard preserved")
+print("PASS v245-v246: ring, arrow and text +25%; lock/STEP/guard preserved")
 print("Android touch and Godot rendering are unverified")

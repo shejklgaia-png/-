@@ -69,8 +69,8 @@ assert 'var label_width: float = 103.75' in ui
 assert 'var label_height: float = 21.25' in ui
 assert 'HORIZONTAL_ALIGNMENT_CENTER, label_width, 11, accent)' in ui
 
-# This change does NOT half flick/guard/attack thresholds, lock controls,
-# input acquisition region, boost timing, speed, or the camera.
+# RUN/BOOST size changes do not alter flick/guard/attack thresholds, lock
+# controls, boost timing, speed or camera. v246 expands touch start locations.
 preserved={
     'STEP_FLICK_MIN_HORIZONTAL':78.,
     'STEP_FLICK_MIN_VERTICAL':78.,
@@ -99,5 +99,5 @@ assert math.isclose((baseline*start_ratio)/(168.*start_ratio),.625)
 assert math.isclose((baseline*exit_ratio)/(168.*exit_ratio),.625)
 print("PASS v244-v245: RUN 70px, deadzone 11.25px, BOOST baseline 105px")
 print("PASS v244-v245: BOOST start 115.5px / end 94.5px, both 62.5% of v243")
-print("PASS v244-v245: proportional visual scaling; flick/guard/quadrant unchanged")
+print("PASS v244-v246: proportional visual scaling; flick/guard unchanged")
 print("Godot runtime and Android touch/visual sizes NOT tested")
