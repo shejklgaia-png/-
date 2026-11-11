@@ -1688,10 +1688,8 @@ func _blade_contact(from_pt: Vector3, to_pt: Vector3) -> Variant:
     if target_parts != null and bool(target_parts.call(
             "is_targetable", locked_target_part_id)):
         var part_box: AABB = target_parts.call("get_part_aabb", locked_target_part_id)
-        var part_contact: Variant = part_box.grow(BLADE_THICKNESS).intersects_segment(
-            from_pt, to_pt)
-        if part_contact != null:
-            return part_contact
+        # v249: Locked part is exclusive; never fall through to the core.
+        return part_box.grow(BLADE_THICKNESS).intersects_segment(from_pt, to_pt)
     return _target_hit_aabb().grow(BLADE_THICKNESS).intersects_segment(from_pt, to_pt)
 
 func _check_strike_contact() -> void:
@@ -1739,14 +1737,20 @@ func _check_strike_contact() -> void:
             contact = _blade_contact(blade[0], blade[1])
         if contact != null:
             _register_strike_hit(contact as Vector3)
-        elif interval_end >= assist_at and _distance_to_cube_surface(player.position) <= MELEE_HIT_ASSIST_BASE_REACH + 0.08 * float(part_stats.get("tracking", 1.0)):
-            # The preexisting close-range assist is ALSO delayed, so no hit is
-            # possible during the backswing even if the target overlaps it.
+        elif interval_end >= assist_at and _distance_to_attack_target_surface(player.position) <= MELEE_HIT_ASSIST_BASE_REACH + 0.08 * float(part_stats.get("tracking", 1.0)):
+            # Assist checks the locked part rather than another nearby surface.
             var hit_point: Vector3 = Vector3(
                 clampf(player.position.x, target.position.x - TARGET_HALF_SIZE, target.position.x + TARGET_HALF_SIZE),
                 target.position.y,
                 clampf(player.position.z, target.position.z - TARGET_BODY_HALF_DEPTH, target.position.z + TARGET_BODY_HALF_DEPTH)
             )
+            if target_parts != null and bool(target_parts.call(
+                    "is_targetable", locked_target_part_id)):
+                var part_box: AABB = target_parts.call("get_part_aabb", locked_target_part_id)
+                hit_point = Vector3(
+                    clampf(player.position.x, part_box.position.x, part_box.end.x),
+                    part_box.get_center().y,
+                    clampf(player.position.z, part_box.position.z, part_box.end.z))
             _register_strike_hit(hit_point)
     strike_prev_time = strike_t
     strike_prev_blade = blade
@@ -2725,9 +2729,9 @@ func _start_attack() -> bool:
     # STRIKE (during MELEE_APPROACH/DASH), or while a side-step is playing.
     if combat_state != CombatState.IDLE:
         return false
-    if _distance_to_cube_surface(player.position) > float(part_stats.get("lock_range", 24.0)):
+    if _distance_to_attack_target_surface(player.position) > float(part_stats.get("lock_range", 24.0)):
         return false
-    if bash_loop_window_remaining > 0.0 and _distance_to_cube_surface(player.position) <= MELEE_SURFACE_REACH:
+    if bash_loop_window_remaining > 0.0 and _distance_to_attack_target_surface(player.position) <= MELEE_SURFACE_REACH:
         bash_loop_window_remaining = 0.0
         _start_strike(0)
         return true
@@ -2740,7 +2744,7 @@ func _start_attack() -> bool:
         sword_trail.call("stop_swing")
     if jump_active:
         jump_horizontal_velocity = Vector3.ZERO
-    if energy_exhausted and _distance_to_cube_surface(player.position) > MELEE_SURFACE_REACH:
+    if energy_exhausted and _distance_to_attack_target_surface(player.position) > MELEE_SURFACE_REACH:
         _start_strike(0)  # EN exhausted: stationary swing remains available.
         return true
     melee_boost_elapsed = 0.0
@@ -2805,7 +2809,7 @@ func _start_bash() -> void:
     # Loop the actual Bash windup keys (0..0.20833s) during the chase.
     # Release immediately on entering range; never delay a close-range Bash.
     rig.call("start_attack_windup", "Bash", BASH_WINDUP_KEY)
-    if _distance_to_cube_surface(player.position) <= BASH_REACH:
+    if _distance_to_attack_target_surface(player.position) <= BASH_REACH:
         _launch_bash_after_tracking()
 
 func _launch_bash_after_tracking() -> void:
@@ -2818,7 +2822,7 @@ func _launch_bash_after_tracking() -> void:
 func _advance_homing_toward_target(delta: float, reach: float) -> bool:
     # Uses live target coordinates on every physics tick. True means homing
     # was allowed (or is already in range), not that an attack connected.
-    if _distance_to_cube_surface(player.position) <= reach:
+    if _distance_to_attack_target_surface(player.position) <= reach:
         return true
     if delta <= 0.0:
         return true
@@ -2835,13 +2839,13 @@ func _advance_homing_toward_target(delta: float, reach: float) -> bool:
     var speed: float = float(part_stats.get("melee_boost_speed", MELEE_BOOST_DEFAULT_SPEED))
     var travel: float = minf(speed * delta, destination_delta.length())
     var next_position: Vector3 = player.position + destination_delta.normalized() * travel
-    if _distance_to_cube_surface(next_position) <= reach:
+    if _distance_to_attack_target_surface(next_position) <= reach:
         # End at the first edge of the strike/bash range; never overshoot.
         var low: float = 0.0
         var high: float = 1.0
         for _i in range(16):
             var mid: float = (low + high) * 0.5
-            if _distance_to_cube_surface(player.position.lerp(next_position, mid)) <= reach:
+            if _distance_to_attack_target_surface(player.position.lerp(next_position, mid)) <= reach:
                 high = mid
             else:
                 low = mid
@@ -2857,7 +2861,7 @@ func _check_bash_contact() -> void:
     # After the strike key, keep checking range on EVERY frame until a
     # confirmed hit or Bash ends. A moving target can evade the first sample.
     if bash_t >= BASH_CONTACT_TIME:
-        if _distance_to_cube_surface(player.position) <= BASH_REACH:
+        if _distance_to_attack_target_surface(player.position) <= BASH_REACH:
             _register_bash_hit()
     bash_prev_time = bash_t
 
@@ -2891,7 +2895,7 @@ func _update_melee_lock_marker() -> void:
     # v39: Reticle distance cue remains active even with 0 HP.
     if touch_ui == null or player == null or target == null:
         return
-    var can_melee: bool = _distance_to_cube_surface(player.position) <= MELEE_SURFACE_REACH
+    var can_melee: bool = _distance_to_attack_target_surface(player.position) <= MELEE_SURFACE_REACH
     touch_ui.call("set_melee_in_range", can_melee)
 
 func _distance_to_cube_surface(pos: Vector3) -> float:
@@ -2900,6 +2904,17 @@ func _distance_to_cube_surface(pos: Vector3) -> float:
     var dx: float = maxf(absf(pos.x - target.position.x) - TARGET_HALF_SIZE, 0.0)
     var dz: float = maxf(absf(pos.z - target.position.z) - TARGET_BODY_HALF_DEPTH, 0.0)
     return Vector2(dx, dz).length()
+
+func _distance_to_attack_target_surface(pos: Vector3) -> float:
+    # Chase, Bash and assisted hits share the active lock's horizontal AABB.
+    if target_parts != null and bool(target_parts.call(
+            "is_targetable", locked_target_part_id)):
+        var part_box: AABB = target_parts.call("get_part_aabb", locked_target_part_id)
+        var nearest_x: float = clampf(pos.x, part_box.position.x, part_box.end.x)
+        var nearest_z: float = clampf(pos.z, part_box.position.z, part_box.end.z)
+        return Vector2(pos.x - nearest_x, pos.z - nearest_z).length()
+    # Unlocked attacks preserve the original core range.
+    return _distance_to_cube_surface(pos)
 
 func _start_strike(stage: int = 0) -> void:
     var next_stage: int = clampi(stage, 0, STRIKE_CLIPS.size() - 1)
@@ -2919,7 +2934,7 @@ func _start_strike(stage: int = 0) -> void:
         followup_track_elapsed = 0.0
         rig.call("start_attack_windup", str(STRIKE_CLIPS[strike_index]),
             float(FOLLOWUP_WINDUP_KEYS[strike_index]))
-        if _distance_to_cube_surface(player.position) <= MELEE_SURFACE_REACH:
+        if _distance_to_attack_target_surface(player.position) <= MELEE_SURFACE_REACH:
             _launch_followup_strike()
         return
     # Melee1 keeps the existing normal attack clip after its booster approach.
@@ -2941,7 +2956,7 @@ func _advance_attack(delta: float) -> void:
     match combat_state:
         CombatState.MELEE_APPROACH:
             if rig.call("melee_approach_last_key_reached"):
-                if _distance_to_cube_surface(player.position) <= MELEE_SURFACE_REACH:
+                if _distance_to_attack_target_surface(player.position) <= MELEE_SURFACE_REACH:
                     _start_strike()
                 else:
                     rig.call("hold_melee_approach_last_pose")
@@ -2950,7 +2965,7 @@ func _advance_attack(delta: float) -> void:
         CombatState.DASH:
             # Booster duration caps the MOVING portion of normal melee boost;
             # the preceding authored approach animation stays unchanged.
-            if _distance_to_cube_surface(player.position) <= MELEE_SURFACE_REACH:
+            if _distance_to_attack_target_surface(player.position) <= MELEE_SURFACE_REACH:
                 _start_strike()
                 return
             var maximum_duration: float = maxf(0.01,
@@ -2964,14 +2979,14 @@ func _advance_attack(delta: float) -> void:
                 _cancel_attack()
                 return
             melee_boost_elapsed += boost_dt
-            if _distance_to_cube_surface(player.position) <= MELEE_SURFACE_REACH:
+            if _distance_to_attack_target_surface(player.position) <= MELEE_SURFACE_REACH:
                 _start_strike()
             elif melee_boost_elapsed >= maximum_duration - 0.00001:
                 _cancel_attack()
         CombatState.BASH_TRACK:
             # Chase for up to 0.2s while the authored Bash windup ping-pongs.
             # Launch immediately on reaching range, including on frame 0.
-            if _distance_to_cube_surface(player.position) <= BASH_REACH:
+            if _distance_to_attack_target_surface(player.position) <= BASH_REACH:
                 _launch_bash_after_tracking()
                 return
             var track_dt: float = minf(maxf(0.0, delta),
@@ -2981,13 +2996,13 @@ func _advance_attack(delta: float) -> void:
                 # into range during the remaining windup time.
                 _advance_homing_toward_target(track_dt, BASH_REACH)
                 bash_track_elapsed += track_dt
-            if _distance_to_cube_surface(player.position) <= BASH_REACH:
+            if _distance_to_attack_target_surface(player.position) <= BASH_REACH:
                 _launch_bash_after_tracking()
             elif bash_track_elapsed >= BASH_TRACK_SECONDS - 0.00001:
                 _cancel_attack()
         CombatState.STRIKE_TRACK:
             # Same windup chase for second/third melee, 0.2s each.
-            if _distance_to_cube_surface(player.position) <= MELEE_SURFACE_REACH:
+            if _distance_to_attack_target_surface(player.position) <= MELEE_SURFACE_REACH:
                 _launch_followup_strike()
                 return
             var follow_dt: float = minf(maxf(0.0, delta),
@@ -2995,7 +3010,7 @@ func _advance_attack(delta: float) -> void:
             if follow_dt > 0.0:
                 _advance_homing_toward_target(follow_dt, MELEE_SURFACE_REACH)
                 followup_track_elapsed += follow_dt
-            if _distance_to_cube_surface(player.position) <= MELEE_SURFACE_REACH:
+            if _distance_to_attack_target_surface(player.position) <= MELEE_SURFACE_REACH:
                 _launch_followup_strike()
             elif followup_track_elapsed >= FOLLOWUP_TRACK_SECONDS - 0.00001:
                 _cancel_attack()
