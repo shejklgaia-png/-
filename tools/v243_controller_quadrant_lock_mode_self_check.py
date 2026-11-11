@@ -47,21 +47,16 @@ for token in (
 ):
     assert token in main,token
 
-# Retain the optional gray gradient but no visible frame or corner markers.
-assert 'const CONTROLLER_FRAME_START_RATIO: float = 0.50' in ui
-for token in (
-    'var frame_left: float = size.x * CONTROLLER_FRAME_START_RATIO',
-    'const OPERATION_ZONE_TOP_RATIO: float = 0.50',
-    'var fade_top: float = size.y * OPERATION_ZONE_TOP_RATIO',
-    'Vector2(frame_left, fade_top)',
-    'Vector2(frame_left, solid_top)',
-    'draw_polygon(fade_vertices, fade_colors)',
+# v247 retains the floating controller and removes all old quadrant decoration.
+for token in ('if dragging:', '_draw_analog_controller(accent, low)'):
+    assert token in ui, token
+for old_background in (
+    'CONTROLLER_FRAME_START_RATIO', 'OPERATION_ZONE_',
+    'fade_vertices', 'draw_polygon(fade_vertices, fade_colors)',
     'draw_rect(Rect2(frame_left, solid_top',
-    'if dragging:', '_draw_analog_controller(accent, low)',
+    'draw_rect(frame_rect.grow(-2.0)', 'corner_tint',
 ):
-    assert token in ui,token
-assert 'draw_rect(frame_rect.grow(-2.0)' not in ui
-assert 'corner_tint' not in ui
+    assert old_background not in ui, old_background
 assert 'mouse_filter = Control.MOUSE_FILTER_IGNORE' in main
 assert 'layer.add_child(touch_ui)' in main
 
@@ -147,7 +142,7 @@ auto=not auto
 manual_latch=not auto
 assert not manual_latch
 
-print("PASS v243-v246: no frame strokes, fullscreen gestures except button footprints")
+print("PASS v243-v247: transparent quadrant, fullscreen gestures except button footprints")
 print("PASS v243: L/AUTO-MANUAL/R top-corner HUD, separated gesture IDs")
 print("PASS v243: auto lock restores selection; manual retains and switches screen-X")
 print("Godot parser, Android UI and real multi-touch behavior not exercised")

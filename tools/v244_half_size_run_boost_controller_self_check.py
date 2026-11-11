@@ -59,7 +59,6 @@ for token in (
     'draw_arc(anchor_point, boost_base_radius * CONTROLLER_BOOST_START_RADIUS_RATIO,',
     'var shell_radius: float = boost_base_radius * BOOST_SHELL_RADIUS_RATIO',
     'boost_base_radius * BOOST_CHEVRON_OUTER_RATIO',
-    'const CONTROLLER_FRAME_START_RATIO: float = 0.50',
     '_draw_analog_controller(accent, low)',
 ):
     assert token in ui,token
@@ -81,7 +80,7 @@ preserved={
 for name,value in preserved.items():
     assert math.isclose(const(main,name),value),(name,const(main,name))
 assert 'const BOOST_SPEED_BLEND_SECONDS: float = 0.20' in main
-assert 'const CONTROLLER_FRAME_START_RATIO: float = 0.50' in ui
+assert 'OPERATION_ZONE_' not in ui
 assert 'func _update_guard_hold() -> void:' in main
 assert 'func _end_drag(release_pos: Vector2) -> void:' in main
 assert 'func _switch_lock_screen_direction(direction: int) -> void:' in main

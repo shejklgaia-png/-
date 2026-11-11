@@ -72,7 +72,6 @@ for token in (
     'boost_base_radius * BOOST_CHEVRON_OUTER_RATIO - label_height - 10.0',
     'draw_rect(rect, rim_color, false, 1.25, true)',
     'HORIZONTAL_ALIGNMENT_CENTER, label_width, 11, accent)',
-    'const CONTROLLER_FRAME_START_RATIO: float = 0.50',
 ):
     assert token in ui,token
 
