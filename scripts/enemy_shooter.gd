@@ -30,6 +30,7 @@ var target_node: Node3D
 var player_node: CharacterBody3D
 var projectile_parent: Node3D
 var can_fire: bool = true
+var head_destroyed: bool = false  # Disable area attacks; bullet AIM remains available.
 var auto_fire_enabled: bool = true
 var selected_attack: int = AttackType.AIMED
 var _locked_attack: int = AttackType.AIMED
@@ -48,6 +49,14 @@ var _has_player_sample: bool = false
 func _ready() -> void:
     _remaining = maxf(0.0, first_shot_delay - warning_duration)
     _build_warning_marker()
+
+func set_head_destroyed(broken: bool) -> void:
+    if head_destroyed == broken:
+        return
+    head_destroyed = broken
+    if broken and _phase == FirePhase.WARNING             and _locked_attack >= AttackType.SHOCKWAVE:
+        _cancel_warning()
+        _remaining = maxf(0.0, fire_interval_min - warning_duration)
 
 func warning_in_progress() -> bool:
     # Target movement pauses after a telegraph locks its origin and direction.
@@ -150,7 +159,10 @@ func _begin_warning() -> void:
     if not can_fire or not is_instance_valid(projectile_parent):
         return
     _phase = FirePhase.WARNING
-    _locked_attack = selected_attack
+    # A destroyed head cannot issue SHOCK/ARC; preserve attack cadence
+    # using the existing telegraphed AIM shot instead.
+    _locked_attack = AttackType.AIMED if head_destroyed and (
+        selected_attack >= AttackType.SHOCKWAVE) else selected_attack
     _locked_warning_duration = _warning_seconds_for(_locked_attack)
     _remaining = _locked_warning_duration
     # Every attack's orientation is acquired at warning start and locked.
