@@ -352,10 +352,10 @@ var step_arc_length: float = 0.0
 var step_start_offset: Vector2 = Vector2.ZERO  # Player XZ relative to target.
 var step_target_center: Vector2 = Vector2.ZERO
 var step_signed_angle: float = 0.0
-var step_linear_fallback: bool = false  # only near target center: no circular loop
+var step_linear_fallback: bool = false  # screen flicks are linear; legacy debug STEPs may orbit
 var step_linear_offset: Vector2 = Vector2.ZERO
-# Additional radial displacement permits continuous forward/back/diagonal
-# trajectories while pure lateral movement retains the original orbit.
+# In screen-directed flicks, this holds forward/back step distance signed
+# against SERA's own facing; legacy debug STEPs retain their old orbit.
 var step_radial_delta: float = 0.0
 var step_flick_direction: Vector2 = Vector2.ZERO
 var step_side: int = 0  # -1 left / +1 right / STEP_BACK backward
@@ -2434,23 +2434,30 @@ func _start_omni_step(flick: Vector2) -> bool:
     if step_active:
         _finish_side_step(false)
 
-    # Target-relative polar motion: +Y is backwards, -Y is towards the
-    # target, X is the camera-visible tangent. This is continuous for all
-    # directions, including diagonal inputs and the four cardinal axes.
-    # Pure sideways retains the familiar target orbit; pure back remains 4m.
+    # v252: one flick has one SCREEN-visible travel direction, rather than
+    # a target-centered orbit that can curve away from the finger's direction.
+    # X = actual camera/screen left-right; negative Y = SERA's own forward
+    # (-player.basis.z, aimed at the currently locked target); positive Y
+    # is its reverse. Diagonals blend the two directions continuously.
+    # Snapshot both bases ON RELEASE; camera motion during STEP must never
+    # turn an already-committed flick.
     var direction: Vector2 = flick.normalized()
     var radial: Vector2 = Vector2(
         player.position.x - target.position.x,
         player.position.z - target.position.z)
     var radius: float = radial.length()
     var camera_right: Vector3 = _screen_drag_to_ground(Vector2.RIGHT).normalized()
-    var orbit_tangent: Vector3 = camera_right
-    if radius >= STEP_MIN_ORBIT_RADIUS:
-        orbit_tangent = Vector3(-radial.y, 0.0, radial.x).normalized()
-    var tangent_sign: float = 1.0 if orbit_tangent.dot(camera_right) >= 0.0 else -1.0
+    var facing_forward: Vector3 = -player.global_transform.basis.z
+    facing_forward.y = 0.0
+    if facing_forward.length_squared() < 0.000001:
+        facing_forward = target.position - player.position
+        facing_forward.y = 0.0
+    if facing_forward.length_squared() < 0.000001:
+        facing_forward = _screen_drag_to_ground(Vector2.UP)
+    facing_forward = facing_forward.normalized()
 
-    # Pure sideways no longer slows as it approaches the target box.
-    # Keep radial (forward/back) speed unchanged and blend diagonals smoothly.
+    # v236: lateral speed stays at equipment-adjusted STEP_SPEED; the
+    # forward/back speed alone follows the existing 5m->2m slowdown.
     var radial_speed: float = _step_speed_for_player_position(player.position)
     var lateral_speed: float = STEP_SPEED * float(part_stats.get("step_speed_mult", 1.0))
     step_speed_current = lerpf(radial_speed, lateral_speed, absf(direction.x))
@@ -2463,28 +2470,24 @@ func _start_omni_step(flick: Vector2) -> bool:
     step_arc_length = clampf(
         sqrt(tangent_distance * tangent_distance + step_radial_delta * step_radial_delta),
         STEP_MIN_ARC_LENGTH, STEP_MAX_ARC_LENGTH)
+
+    # +X to screen-right; upward finger motion is forward in SERA's facing.
+    # The authoritative travel vector is horizontal and continuous for all
+    # 360-degree diagonals. Preserve the established 2..4m path bounds.
+    var world_step: Vector3 = (camera_right * direction.x * side_length
+        - facing_forward * step_radial_delta)
+    if world_step.length_squared() < 0.000001:
+        # If camera-right happens to coincide with SERA forward, opposing
+        # diagonal components may cancel; keep the finger's SCREEN direction.
+        world_step = _screen_drag_to_ground(direction)
+    if world_step.length_squared() < 0.000001:
+        world_step = facing_forward
+    world_step = world_step.normalized() * step_arc_length
     step_start_offset = radial
     step_target_center = Vector2(target.position.x, target.position.z)
-    step_linear_fallback = radius < (STEP_MIN_ARC_LENGTH
-        / deg_to_rad(STEP_CLOSE_ORBIT_MAX_DEGREES))
+    step_linear_fallback = true
     step_signed_angle = 0.0
-    step_linear_offset = Vector2.ZERO
-    if step_linear_fallback:
-        # Avoid a rapid 360-degree spin if already overlapping the target.
-        var away: Vector3 = player.position - target.position
-        away.y = 0.0
-        if away.length_squared() < 0.000001:
-            away = -_screen_drag_to_ground(Vector2.UP)
-        away = away.normalized()
-        var wanted: Vector3 = camera_right * direction.x + away * direction.y
-        if wanted.length_squared() < 0.000001:
-            wanted = away
-        wanted = wanted.normalized() * step_arc_length
-        step_linear_offset = Vector2(wanted.x, wanted.z)
-    else:
-        step_signed_angle = minf(
-            tangent_distance / radius, deg_to_rad(STEP_CLOSE_ORBIT_MAX_DEGREES))
-        step_signed_angle *= signf(direction.x) * tangent_sign
+    step_linear_offset = Vector2(world_step.x, world_step.z)
 
     step_duration_current = (step_arc_length / step_speed_current
         * float(part_stats.get("step_time_mult", 1.0)))
@@ -2640,7 +2643,8 @@ func _advance_side_step(delta: float) -> void:
     if not step_active:
         return
     # Linear path progression preserves the direction-dependent speed
-    # snapshotted at step start, including close fallback.
+    # snapshotted at step start. The live touch flick always uses this
+    # screen/facing-aligned linear branch; legacy debug STEP orbit remains.
     step_elapsed = minf(step_duration_current, step_elapsed + delta)
     var progress: float = step_elapsed / step_duration_current
     var new_offset: Vector2 = step_start_offset + step_linear_offset * progress
