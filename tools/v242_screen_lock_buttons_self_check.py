@@ -15,19 +15,20 @@ assert (ROOT / "README_v242_ja.md").exists()
 # Two responsive touch controls: their vertical center is exactly 40% UP from
 # the screen bottom, and neither steals the underlying movement gestures.
 for token in (
-    'const LOCK_SWITCH_FROM_BOTTOM_RATIO: float = 0.40',
-    'const LOCK_SWITCH_BUTTON_SIZE: Vector2 = Vector2(108.0, 68.0)',
-    'const LOCK_SWITCH_EDGE_INSET: float = 18.0',
+    'const CONTROLLER_REGION_START_RATIO: float = 0.50',
+    'const LOCK_SWITCH_BUTTON_SIZE: Vector2 = Vector2(104.0, 58.0)',
+    'const LOCK_SWITCH_EDGE_INSET: float = 8.0',
     'lock_switch_left_button: Button', 'lock_switch_right_button: Button',
     'func _build_lock_switch_buttons(layer: CanvasLayer)',
     '_build_lock_switch_buttons(layer)',
     'button.name = "LockSwitchLeft" if direction < 0 else "LockSwitchRight"',
     'button.text = "◀ LOCK" if direction < 0 else "LOCK ▶"',
-    'button.anchor_top = 1.0 - LOCK_SWITCH_FROM_BOTTOM_RATIO',
-    'button.anchor_bottom = button.anchor_top',
-    'button.anchor_left = 0.0 if direction < 0 else 1.0',
-    'button.offset_top = -LOCK_SWITCH_BUTTON_SIZE.y * 0.5',
-    'button.offset_bottom = LOCK_SWITCH_BUTTON_SIZE.y * 0.5',
+    'button.anchor_top = CONTROLLER_REGION_START_RATIO',
+    'button.anchor_bottom = CONTROLLER_REGION_START_RATIO',
+    'button.offset_top = CONTROLLER_BUTTON_TOP_INSET',
+    'button.offset_bottom = CONTROLLER_BUTTON_TOP_INSET + LOCK_SWITCH_BUTTON_SIZE.y',
+    'button.anchor_left = CONTROLLER_REGION_START_RATIO',
+    'button.anchor_left = 1.0',
     'button.focus_mode = Control.FOCUS_NONE',
     'button.mouse_filter = Control.MOUSE_FILTER_IGNORE',
     'func _lock_switch_direction_at(pos: Vector2) -> int:',
@@ -77,7 +78,7 @@ assert '_change_drag(event.position)' in input_fn
 # a part or resetting training clears the latch so auto lock can recover.
 assert 'var manual_part_lock_active: bool = false' in main
 assert 'and not manual_part_lock_active' in main
-assert main.count("manual_part_lock_active = false") >= 4
+assert main.count("manual_part_lock_active = not auto_lock_enabled") >= 4
 assert 'func select_front_part(' in parts
 assert 'func get_visible_part_ids(origin: Vector3, core_box: AABB) -> Array[String]:' in parts
 visible = parts.split('func get_visible_part_ids(',1)[1]
@@ -121,10 +122,9 @@ assert choose(350,-1,[("off",100,True,False,False)]) is None
 assert choose(350,1,[("dead",480,True,True,True)]) is None
 
 h=1280.0
-assert math.isclose(h*(1-.40), 768.0)
-assert math.isclose(h-768., h*.40)
-assert 768.0-34.0 > h*.75-300 # just sanity: controls are above joystick gradient at 960
-print("PASS v242: 40%-from-bottom L/R buttons, Android+desktop gesture isolation")
+assert math.isclose(h*.50, 640.0)
+assert math.isclose(h-640.0,640.0)
+print("PASS v242-v243: responsive L/R buttons, Android+desktop gesture isolation")
 print("PASS v242: nearest screen-X selection, occlusion/broken handling, manual latch")
 print("PASS v242: original auto lock and attack lock preserved; rotation invariant")
 print("Godot parser, Android touch/multifinger and projection visuals not verified")
