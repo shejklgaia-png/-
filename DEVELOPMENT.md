@@ -1,3 +1,13 @@
+# SERA v259 — 格闘3段／バッシュの追加入力受付中は自動ロックを維持（2026-11-12）
+
+- AUTOロックは現状 `combat_state == IDLE` で直ちに再開するため、Melee3終了後のBashフリック受付0.65秒とBash後の次の格闘タップ受付0.65秒にロック部位が変わる可能性があった。
+- `_combo_followup_input_window_open()` で両方の受付タイマーを検出し、AUTOの `select_front_part` 呼出を抑制。初回格闘接近・Melee1〜3・Bash中（非IDLE）の既存停止は保持。
+- `_cancel_combo_followup_windows_for_movement()` でRUN/BOOSTの操作成立時、またはEN消費成功後のSTEP開始時に受付タイマーを解除。モーション途中の移動キャンセルには従来の `_cancel_attack()` が対応。0.65秒自然経過でもAUTOは再開する。
+- MANUAL／AUTOの切替と手動ロック保持、部位破壊時のロック解除、Bash/格闘の受付時間・速度・追尾/当たり判定、カメラ・HP・ENは不変。
+- 静的・数値モデルでのv259回帰をCIへ追加、Godot/Android実機は未検証。
+
+---
+
 # SERA v258 — セラの正面基準に復帰し、フリックを90°×4方向へ（2026-11-12）
 
 - v257のコントローラ原点→ロックマーカー方向から、セラ `-player.global_transform.basis.z` の画面投影方向へ「前」を戻す。指の位置やマーカー座標は方向分類から除外。

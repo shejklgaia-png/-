@@ -2131,6 +2131,9 @@ func _change_drag(pos: Vector2) -> void:
     touch_ui.call("set_analog_direction", direction_input)
     # BOOST uses the existing 110% entry and 90% exit ratios at half-size.
     _update_boost_gesture(0.0)
+    # A RUN/BOOST drag cancels the post-finisher links immediately.
+    if direction_input.length_squared() > 0.000001 or movement_boost_active:
+        _cancel_combo_followup_windows_for_movement()
     if gesture_max_travel > TAP_MAX_TRAVEL:
         if step_active and not jump_active:
             _finish_side_step(true)
@@ -2475,6 +2478,9 @@ func _start_omni_step(flick: Vector2) -> bool:
         return false
     if not _spend_energy(15.0 * float(part_stats.get("energy_cost_mult", 1.0))):
         return false
+    # A successfully initiated STEP cancels both follow-up input links.
+    # Do this only AFTER EN is spent, never for an unsuccessful STEP.
+    _cancel_combo_followup_windows_for_movement()
     if combat_state != CombatState.IDLE:
         _cancel_attack()
     if step_active:
@@ -2806,6 +2812,18 @@ func _start_attack() -> bool:
     combat_state = CombatState.MELEE_APPROACH
     rig.call("start_melee_approach")
     return true
+
+# The Melee3->Bash and Bash->Melee1 input windows persist in IDLE,
+# but the active combo must still hold the same lock during either.
+func _combo_followup_input_window_open() -> bool:
+    return (bash_followup_window_remaining > 0.0
+        or bash_loop_window_remaining > 0.0)
+
+# RUN/BOOST or a confirmed STEP cancels pending follow-up input.
+# Do not alter selected ID or AUTO/MANUAL preference here.
+func _cancel_combo_followup_windows_for_movement() -> void:
+    bash_followup_window_remaining = 0.0
+    bash_loop_window_remaining = 0.0
 
 func _cancel_attack() -> void:
     if combat_state == CombatState.IDLE:
@@ -3355,14 +3373,16 @@ func _physics_process(delta: float) -> void:
     blur_active_this_physics_frame = (not damage_reaction_active and (
         blur_step_this_physics_frame or (combat_state == CombatState.IDLE
         and movement_boost_active and running)))
-    # Auto-select the viable part nearest SERA's forward aim as the player
-    # moves. Keep it fixed throughout an approach, combo and Bash.
+    # Keep the same lock for an entire 3-strike/Bash combo, INCLUDING
+    # Melee3->Bash and Bash->Melee1 input windows after animation ends.
+    # Movement cancels those windows and resumes AUTO selection.
     var aim: Vector3 = Vector3(
         target.position.x - player.position.x, 0.0,
         target.position.z - player.position.z)
     if target_parts != null:
         if (target_hp > 0 and combat_state == CombatState.IDLE
-                and not manual_part_lock_active):
+                and not manual_part_lock_active
+                and not _combo_followup_input_window_open()):
             locked_target_part_id = str(target_parts.call(
                 "select_front_part",
                 player.global_position + Vector3.UP * 1.05,

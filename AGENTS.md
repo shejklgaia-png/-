@@ -156,3 +156,8 @@ Additional historical checks may refer to unavailable prior ZIPs; read their pre
 - STEP and GUARD/Melee3 Bash must share the same axis snapshot. Bash accepts the whole front sector 0; do not additionally narrow it with the historical 0.42 lateral ratio. Preserve v256 Bash time 0.42s, forward 30px, forward speed 200px/s, initial candidate grace and Guard-tail behavior.
 - Capture projected facing at touch start, and refresh at the final flick onset after long Guard (or release when no drag event). RUN/BOOST analog direction, 3m front/4m back/2–4m side STEP distances and all equipment/EN/motion/lock visuals remain unchanged. The previous v254/v257 8-sector requirements are historical, not active.
 - Use `tools/v258_four_way_character_facing_self_check.py` and the existing PR CI for future changes.
+
+## v259 AUTO lock hold for combo input windows (2026-11-12)
+- Melee3->Bash flick (`bash_followup_window_remaining`) and Bash->Melee1 tap (`bash_loop_window_remaining`) remain accepted for 0.65s each **after combat_state is IDLE**. AUTO selection must be blocked during either timer, as it already is during non-IDLE melee and Bash. Use `_combo_followup_input_window_open()` to gate `select_front_part`.
+- RUN/BOOST drag must cancel both timers via `_cancel_combo_followup_windows_for_movement()`; a successful STEP must also cancel them after spending EN. Mid-combat cancellation still uses `_cancel_attack()`. Natural window expiry resumes AUTO. Never change current lock ID or AUTO/MANUAL mode in the cancellation helper; keep broken/invalid-target clearing.
+- Do not change input timing or damage as a side effect. Run `tools/v259_combo_lock_hold_self_check.py` and existing CI.
