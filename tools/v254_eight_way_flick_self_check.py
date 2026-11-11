@@ -32,7 +32,7 @@ for phrase in (
 
 step = main.split("func _classify_step_flick(displacement: Vector2, seconds: float) -> Vector2:", 1)[1].split(
     "func _start_omni_step(", 1)[0]
-assert "return FLICK_DIRECTION_POLICY.eight_way_direction(displacement, Vector2.UP)" in step
+assert "return FLICK_DIRECTION_POLICY.eight_way_direction(displacement, gesture_screen_forward)" in step
 for phrase in ("seconds > STEP_FLICK_MAX_SECONDS",
                "distance < STEP_FLICK_MIN_HORIZONTAL",
                "distance / seconds < STEP_FLICK_MIN_PIXELS_PER_SEC",

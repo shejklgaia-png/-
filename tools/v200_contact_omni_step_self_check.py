@@ -44,7 +44,7 @@ flick = main.split('func _classify_step_flick(displacement: Vector2, seconds: fl
 for substring in ('distance / seconds < STEP_FLICK_MIN_PIXELS_PER_SEC',
                   'seconds > STEP_FLICK_MAX_SECONDS',
                   'gesture_max_travel > distance * 1.20',
-                  'return FLICK_DIRECTION_POLICY.eight_way_direction(displacement, Vector2.UP)'):
+                  'return FLICK_DIRECTION_POLICY.eight_way_direction(displacement, gesture_screen_forward)'):
     assert substring in flick
 assert "STEP_FLICK_MAX_HORIZONTAL_RATIO" not in flick
 assert "STEP_FLICK_MAX_VERTICAL_RATIO" not in flick
