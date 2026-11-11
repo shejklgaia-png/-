@@ -38,7 +38,7 @@ assert "static func eight_way_direction(displacement: Vector2, screen_axis: Vect
 assert "sector_index(displacement, screen_axis) == 0" in p
 assert "_screen_drag_to_ground(direction_input)" in m
 assert "target_parts.call(\"install_movement_colliders\", target_collider)" in m
-assert "same screen-projected character forward" in read("AGENTS.md")
+assert "controller-start → visible lock-reticle" in read("AGENTS.md")
 assert "STEPもBashも" in read("docs/SERA_INPUT_MOVEMENT_CAMERA.md")
 
 angle=math.tau/8
