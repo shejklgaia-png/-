@@ -200,6 +200,7 @@ const TARGET_FRAME_BOTTOM: float = 0.75  # v52: reserve the same lower control a
 const SERA_SCRIPT = preload("res://scripts/sera_rig.gd")
 const PART_STATS = preload("res://scripts/sera_part_stats.gd")
 const TARGET_MOTION_SCRIPT = preload("res://scripts/training_target_motion.gd")
+const TARGET_PARTS_SCRIPT = preload("res://scripts/target_parts.gd")
 const TrainingDefaults = preload("res://scripts/training_defaults.gd")
 # v178 prototype damage table: AIM, LEAD, SHOCK, ARC, respectively.
 const ENEMY_ATTACK_HP_DAMAGE = [18.0, 22.0, 28.0, 34.0]
@@ -249,7 +250,6 @@ var target_motion: RefCounted
 var target_floor_mark: Node3D
 var target_move_enabled: bool = true
 var training_settings: Dictionary = {}
-var core_hp: float = 75.0
 var stagger_value: float = 0.0
 var stagger_remaining: float = 0.0
 var part_break_remaining: float = 0.0
@@ -259,6 +259,9 @@ var player: CharacterBody3D
 var rig: Node3D
 var camera: Camera3D
 var target: Node3D
+var target_parts: Node3D
+var locked_target_part_id: String = ""
+var target_parts_label: Label
 var target_collider: AnimatableBody3D
 var enemy_shooter: Node3D
 var enemy_attack_pool: Node3D
@@ -538,11 +541,23 @@ func _tick_resources(delta: float) -> void:
             roundi(float(part_stats.get("defense", 0.16)) * 100.0),
             ceili(shield)]
     if core_label != null:
-        core_label.text = "CORE %d/75  STAGGER %d/50  %s" % [
-            ceili(core_hp), ceili(stagger_value),
-            "BREAK" if part_break_remaining > 0.0 else (
-                "STUN" if stagger_remaining > 0.0 else (
-                    "MOVE" if target_move_enabled else "HOLD"))]
+        var label_name: String = "CORE"
+        var integrity: float = 0.0
+        var maximum: float = 0.0
+        if target_parts != null and not locked_target_part_id.is_empty():
+            label_name = str(target_parts.call("get_part_name", locked_target_part_id))
+            integrity = float(target_parts.call("get_part_integrity", locked_target_part_id))
+            maximum = float(target_parts.call("get_part_max_integrity", locked_target_part_id))
+        core_label.text = "LOCK %s  %d/%d  STAGGER %d/50  %s" % [
+            label_name, ceili(integrity), ceili(maximum), ceili(stagger_value),
+            "DOWN" if part_break_remaining >= 3.0 else (
+                "BREAK" if part_break_remaining > 0.0 else (
+                    "STUN" if stagger_remaining > 0.0 else (
+                        "MOVE" if target_move_enabled else "HOLD")))]
+    if target_parts_label != null and target_parts != null:
+        var next_status: String = str(target_parts.call("status_line"))
+        if target_parts_label.text != next_status:
+            target_parts_label.text = next_status
 
 func _take_test_damage(raw: float) -> void:
     if training_ko_remaining > 0.0 or player_hp <= 0.0:
@@ -626,7 +641,11 @@ func _tick_training_ko(delta: float) -> void:
         target_floor_mark.position = Vector3(0.0, -0.026, -8.0)
     target_hp = TARGET_MAX_HP
     target_respawn_remaining = 0.0
-    core_hp = 75.0
+    if target_parts != null:
+        target_parts.call("reset_parts")
+    locked_target_part_id = ""
+    if enemy_shooter != null:
+        enemy_shooter.call("set_head_destroyed", false)
     stagger_value = 0.0
     stagger_remaining = 0.0
     part_break_remaining = 0.0
@@ -661,13 +680,12 @@ func _begin_test_down() -> void:
     if rig != null:
         rig.call("set_combat_paused", false)
 
-func _register_test_hit(break_amount: float, stagger_amount: float, extension: float) -> void:
+func _register_test_hit(stagger_amount: float, extension: float) -> void:
+    # Weak stagger accumulates on the entire boss, not on separate limbs.
+    # Old shared CORE 75 break gauge has been replaced by per-part durability.
     var now: float = float(Time.get_ticks_msec()) / 1000.0
-    if core_hp > 0.0:
-        core_hp = maxf(0.0, core_hp - break_amount)
-        if core_hp <= 0.0:
-            part_break_remaining = 1.0
     if stagger_remaining > 0.0:
+
         if now - last_hit_time <= 0.36:
             stagger_remaining = minf(1.5, stagger_remaining + extension)
     else:
@@ -820,6 +838,11 @@ func _build_target() -> void:
     target_collider.add_child(target_shape)
     target_mesh = marker
     target_material = cube_mat
+    # Five independent opaque visuals follow the existing moving/flashing box.
+    # The old central collision cube and camera anchor remain unchanged.
+    target_parts = TARGET_PARTS_SCRIPT.new()
+    target_parts.name = "TargetBreakableParts"
+    marker.add_child(target_parts)
 
     # Target marker stays on the ground even when its cube bobs vertically.
     _add_round_ground_shadow("TargetFloorMark", self, Vector3(target.position.x, -0.026, target.position.z))
@@ -1143,6 +1166,13 @@ func _build_overlay() -> void:
     core_label.add_theme_color_override("font_color", Color("b5e4f5"))
     core_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
     layer.add_child(core_label)
+    target_parts_label = Label.new()
+    target_parts_label.name = "TargetPartsStatus"
+    target_parts_label.position = Vector2(22.0, 320.0)
+    target_parts_label.add_theme_font_size_override("font_size", 13)
+    target_parts_label.add_theme_color_override("font_color", Color("e0b8a8"))
+    target_parts_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    layer.add_child(target_parts_label)
     # Android-safe debug triggers: touches never reach movement/attack gestures.
     test_hit_button = Button.new()
     test_hit_button.name = "DebugIncomingHit"
@@ -1259,6 +1289,10 @@ func _update_target_marker_projection() -> void:
     if camera == null or target == null or touch_ui == null:
         return
     var center_world: Vector3 = camera_target_render_position
+    # Keep the camera framed on the stable boss center. Only the lock reticle
+    # follows the selected head/leg, using the same interpolated target origin.
+    if target_parts != null and not locked_target_part_id.is_empty():
+        center_world += target_parts.call("get_part_local_aim", locked_target_part_id)
     var viewport_size: Vector2 = get_viewport().get_visible_rect().size
     if viewport_size.x <= 0.0 or viewport_size.y <= 0.0 or camera.is_position_behind(center_world):
         touch_ui.call("set_target_marker_projection", Vector2.ZERO, false)
@@ -1465,12 +1499,20 @@ func _clear_strike_tracking() -> void:
     strike_prev_blade = PackedVector3Array()
 
 func _target_hit_aabb() -> AABB:
-    # The visual target is a 2m cube; animation bobbing is included in the AABB.
+    # Keep the original authoritative 2m collision cube for torso contact.
     var extents := Vector3.ONE * TARGET_HALF_SIZE
     return AABB(target.global_position - extents, extents * 2.0)
 
 func _blade_contact(from_pt: Vector3, to_pt: Vector3) -> Variant:
-    # A swept blade point or blade segment against a padded target AABB.
+    # Sword sweeps may hit an exterior head or leg without crossing the cube.
+    # Physical player collision stays on the original torso box.
+    if target_parts != null and bool(target_parts.call(
+            "is_targetable", locked_target_part_id)):
+        var part_box: AABB = target_parts.call("get_part_aabb", locked_target_part_id)
+        var part_contact: Variant = part_box.grow(BLADE_THICKNESS).intersects_segment(
+            from_pt, to_pt)
+        if part_contact != null:
+            return part_contact
     return _target_hit_aabb().grow(BLADE_THICKNESS).intersects_segment(from_pt, to_pt)
 
 func _check_strike_contact() -> void:
@@ -1517,7 +1559,7 @@ func _check_strike_contact() -> void:
             # First available sample is already inside the attack window.
             contact = _blade_contact(blade[0], blade[1])
         if contact != null:
-            _register_strike_hit((contact as Vector3).clamp(_target_hit_aabb().position, _target_hit_aabb().end))
+            _register_strike_hit(contact as Vector3)
         elif interval_end >= assist_at and _distance_to_cube_surface(player.position) <= MELEE_HIT_ASSIST_BASE_REACH + 0.08 * float(part_stats.get("tracking", 1.0)):
             # The preexisting close-range assist is ALSO delayed, so no hit is
             # possible during the backswing even if the target overlaps it.
@@ -1530,38 +1572,78 @@ func _check_strike_contact() -> void:
     strike_prev_time = strike_t
     strike_prev_blade = blade
 
+func _apply_target_part_damage(kind: String, raw_attack: int, raw_break: float,
+        weak_stagger: float, extension: float) -> Dictionary:
+    # A-type damage: one confirmed contact reduces common boss HP AND the
+    # locked part's independent break gauge. The two powers are independent.
+    var hp_before_hit: int = target_hp
+    var result: Dictionary = {
+        "body_damage": 0, "part_damage": 0.0, "broken": false
+    }
+    if target_hp > 0 and target_parts != null:
+        result = target_parts.call(
+            "apply_part_hit", locked_target_part_id, raw_attack, raw_break)
+        target_hp = maxi(0, target_hp - int(result["body_damage"]))
+        _register_test_hit(weak_stagger, extension)
+        if bool(result["broken"]):
+            # Every break causes a stronger reaction. Two leg breaks satisfy
+            # this training boss's explicitly configurable long-down rule.
+            part_break_remaining = maxf(part_break_remaining, 1.0)
+            stagger_remaining = 0.0
+            stagger_value = 0.0
+            if str(result["kind"]) == "leg" and int(result["broken_legs"]) >= 2:
+                part_break_remaining = maxf(part_break_remaining, 3.5)
+            elif str(result["kind"]) == "head" and enemy_shooter != null:
+                enemy_shooter.call("set_head_destroyed", true)
+            # Do not keep hitting a removed/broken target during the combo.
+            locked_target_part_id = ""
+    var actual_damage: int = hp_before_hit - target_hp
+    result["applied_damage"] = actual_damage
+    SeraSave.record_target_hit(kind, actual_damage,
+        hp_before_hit > 0 and target_hp == 0)
+    if hp_before_hit > 0 and target_hp == 0:
+        target_respawn_remaining = TARGET_RESPAWN_SECONDS
+    _refresh_hp_bar()
+    return result
+
 func _register_strike_hit(world_hit: Vector3) -> void:
     if strike_did_hit:
         return
     strike_did_hit = true
-    var hp_before_hit: int = target_hp
+    var hit_part: String = locked_target_part_id
     var damages: Array = part_stats.get("attack_damage", STRIKE_DAMAGE)
     var strike_damage: int = roundi(float(damages[strike_index]) * float(part_stats.get("attack_mult", 1.0)))
     var breaks: Array = part_stats.get("break_damage", [14, 14, 32])
     var staggers: Array = part_stats.get("stagger_gain", [10.0, 10.0, 24.0])
-    _register_test_hit(float(breaks[strike_index]), float(staggers[strike_index]),
+    var result: Dictionary = _apply_target_part_damage("melee", strike_damage,
+        float(breaks[strike_index]), float(staggers[strike_index]),
         float(part_stats.get("stagger_extend", 0.18)))
-    target_hp = maxi(0, target_hp - strike_damage)  # Hits at 0 HP still play VFX, never go negative.
-    SeraSave.record_target_hit("melee", hp_before_hit - target_hp,
-        hp_before_hit > 0 and target_hp == 0)
     hit_stop_remaining = HIT_STOP_SECONDS
     hit_flash_remaining = HIT_FLASH_SECONDS
     damage_popup_remaining = 0.58
-    impact_origin = _visible_hit_surface(world_hit)
+    impact_origin = _part_hit_surface(hit_part, world_hit)
     rig.call("set_combat_paused", true)
-    if hp_before_hit > 0 and target_hp == 0:
-        target_respawn_remaining = TARGET_RESPAWN_SECONDS  # Keep the v38 reset; do not rearm at every 0-HP hit.
-    _refresh_hp_bar()
-    damage_label.text = "%d" % strike_damage
+    damage_label.text = "%d" % int(result["applied_damage"])
     damage_label.visible = true
-    # strike_index is 0/1/2 and this function is only called on a confirmed
-    # blade/assist collision, never on attack input or an empty swing.
     var strike_sound: AudioStreamPlayer = melee_finisher_audio if strike_index == 2 else hit_audio
     if is_instance_valid(strike_sound) and strike_sound.stream != null:
         strike_sound.play()
     _spawn_sparks(impact_origin)
     if sword_trail != null:
         sword_trail.call("on_hit", impact_origin)
+
+func _part_hit_surface(id: String, hit: Vector3) -> Vector3:
+    if target_parts == null or id.is_empty():
+        return _visible_hit_surface(hit)
+    # Even on the breaking blow, place sparks on the struck limb, not the core.
+    var box: AABB = target_parts.call("get_part_aabb", id)
+    var visible: Vector3 = hit.clamp(box.position, box.end)
+    var toward_camera: Vector3 = camera.global_position - box.get_center()
+    if absf(toward_camera.x) > absf(toward_camera.z):
+        visible.x = box.get_center().x + signf(toward_camera.x) * (box.size.x * 0.5 + 0.035)
+    else:
+        visible.z = box.get_center().z + signf(toward_camera.z) * (box.size.z * 0.5 + 0.035)
+    return visible
 
 func _visible_hit_surface(hit: Vector3) -> Vector3:
     # Collision can return an interior point, especially the v13 close-range
@@ -1625,7 +1707,11 @@ func _advance_hit_fx(delta: float) -> void:
         target_respawn_remaining = maxf(0.0, target_respawn_remaining - delta)
         if target_respawn_remaining == 0.0:
             target_hp = TARGET_MAX_HP
-            core_hp = 75.0
+            if target_parts != null:
+                target_parts.call("reset_parts")
+            locked_target_part_id = ""
+            if enemy_shooter != null:
+                enemy_shooter.call("set_head_destroyed", false)
             stagger_value = 0.0
             stagger_remaining = 0.0
             part_break_remaining = 0.0
@@ -2533,7 +2619,11 @@ func _advance_homing_toward_target(delta: float, reach: float) -> bool:
         return true
     if not _spend_energy(16.0 * delta * float(part_stats.get("energy_cost_mult", 1.0))):
         return false
-    var destination_delta: Vector3 = target.position - player.position
+    var pursuit_point: Vector3 = target.position
+    if target_parts != null and bool(target_parts.call(
+            "is_targetable", locked_target_part_id)):
+        pursuit_point = target_parts.call("get_part_aim_world", locked_target_part_id)
+    var destination_delta: Vector3 = pursuit_point - player.position
     destination_delta.y = 0.0
     if destination_delta.length_squared() < 0.000001:
         return true
@@ -2568,13 +2658,11 @@ func _check_bash_contact() -> void:
 
 func _register_bash_hit() -> void:
     bash_did_hit = true
-    var hp_before_hit: int = target_hp
+    var hit_part: String = locked_target_part_id
     var bash_damage: int = roundi(float(part_stats.get("bash_damage", BASH_DAMAGE)) *
         float(part_stats.get("attack_mult", 1.0)))
-    target_hp = maxi(0, target_hp - bash_damage)
-    _register_test_hit(float(part_stats.get("bash_break", 12)), 12.0, 0.08)
-    SeraSave.record_target_hit("bash", hp_before_hit - target_hp,
-        hp_before_hit > 0 and target_hp == 0)
+    var result: Dictionary = _apply_target_part_damage("bash", bash_damage,
+        float(part_stats.get("bash_break", 12)), 12.0, 0.08)
     hit_stop_remaining = HIT_STOP_SECONDS
     hit_flash_remaining = HIT_FLASH_SECONDS
     damage_popup_remaining = 0.58
@@ -2582,12 +2670,9 @@ func _register_bash_hit() -> void:
         clampf(player.position.x, target.position.x - TARGET_HALF_SIZE, target.position.x + TARGET_HALF_SIZE),
         target.position.y,
         clampf(player.position.z, target.position.z - TARGET_HALF_SIZE, target.position.z + TARGET_HALF_SIZE))
-    impact_origin = _visible_hit_surface(closest)
+    impact_origin = _part_hit_surface(hit_part, closest)
     rig.call("set_combat_paused", true)
-    if hp_before_hit > 0 and target_hp == 0:
-        target_respawn_remaining = TARGET_RESPAWN_SECONDS
-    _refresh_hp_bar()
-    damage_label.text = "%d" % bash_damage
+    damage_label.text = "%d" % int(result["applied_damage"])
     damage_label.visible = true
     if is_instance_valid(hit_audio) and hit_audio.stream != null:
         hit_audio.play()
@@ -2993,13 +3078,25 @@ func _physics_process(delta: float) -> void:
     blur_active_this_physics_frame = (not damage_reaction_active and (
         blur_step_this_physics_frame or (combat_state == CombatState.IDLE
         and movement_boost_active and running)))
-    # At the exact target position the look direction has zero length.
-    # Keep the last valid facing instead of calling look_at() with itself.
+    # Auto-select the viable part nearest SERA's forward aim as the player
+    # moves. Keep it fixed throughout an approach, combo and Bash.
     var aim: Vector3 = Vector3(
-        target.position.x - player.position.x,
-        0.0,
-        target.position.z - player.position.z
-    )
+        target.position.x - player.position.x, 0.0,
+        target.position.z - player.position.z)
+    if target_parts != null:
+        if target_hp > 0 and combat_state == CombatState.IDLE:
+            locked_target_part_id = str(target_parts.call(
+                "select_front_part",
+                player.global_position + Vector3.UP * 1.05,
+                aim, locked_target_part_id, _target_hit_aabb()))
+        elif not locked_target_part_id.is_empty() and not bool(
+                target_parts.call("is_targetable", locked_target_part_id)):
+            locked_target_part_id = ""
+        if not locked_target_part_id.is_empty():
+            var part_aim: Vector3 = target_parts.call(
+                "get_part_aim_world", locked_target_part_id)
+            aim = Vector3(part_aim.x - player.position.x, 0.0,
+                part_aim.z - player.position.z)
     if aim.length_squared() > 0.000001:
         player.look_at(player.global_position + aim, Vector3.UP)
     # Real BOOST provides movement speed and costs EN. During a direction
