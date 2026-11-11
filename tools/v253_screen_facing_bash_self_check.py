@@ -30,8 +30,8 @@ assert 'if guard_bash_requested:' in release and '_start_bash()' in release
 assert 'if bash_requested and _request_combo_bash():' in release
 assert "func _classify_recent_character_forward_flick() -> bool:" in m
 assert "return FLICK_DIRECTION_POLICY.is_flick(" in classifier
-assert "STEP_FLICK_MAX_SECONDS, JUMP_FLICK_MIN_VERTICAL" in classifier
-assert "STEP_FLICK_MIN_PIXELS_PER_SEC, STEP_FLICK_MAX_HORIZONTAL_RATIO" in classifier
+assert "BASH_FLICK_MAX_SECONDS, BASH_FLICK_MIN_FORWARD_PIXELS" in classifier
+assert "BASH_FLICK_MIN_FORWARD_SPEED, STEP_FLICK_MAX_HORIZONTAL_RATIO" in classifier
 assert "return _is_character_forward_flick(" in classifier
 assert 'and _is_upward_jump_flick(release_pos - pointer_origin, press_duration)' in release
 assert "const JUMP_TOUCH_INPUT_ENABLED: bool = false" in m
