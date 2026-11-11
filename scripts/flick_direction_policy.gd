@@ -6,7 +6,7 @@ extends RefCounted
 ## sectors (center +/-22.5 degrees), relative to a supplied visible axis.
 ## STEP uses screen-UP as its axis; Bash uses SERA's projected facing.
 const SECTOR_COUNT: int = 8
-const SECTOR_ANGLE: float = TAU / float(SECTOR_COUNT)
+const SECTOR_ANGLE: float = TAU / 8.0
 
 static func projected_forward(camera: Camera3D, actor: Node3D) -> Vector2:
     if camera == null or actor == null:
