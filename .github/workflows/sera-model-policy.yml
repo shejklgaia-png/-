@@ -37,6 +37,7 @@ on:
       - 'tools/v199_animated_sole_grounding_self_check.py'
       - 'tools/v200_contact_omni_step_self_check.py'
       - 'tools/v235_forward_step_distance_self_check.py'
+      - 'tools/v236_lateral_step_no_proximity_slowdown_self_check.py'
       - 'tools/v204_heavy_leg_slide_self_check.py'
       - 'tools/v227_slide_leg_ik_self_check.py'
       - 'tools/v228_slide_flat_soles_self_check.py'
@@ -127,6 +128,8 @@ jobs:
         run: python3 tools/v200_contact_omni_step_self_check.py
       - name: Verify v235 3m forward STEP and unchanged lateral/backward STEP
         run: python3 tools/v235_forward_step_distance_self_check.py
+      - name: Verify v236 lateral STEP constant speed, radial STEP preserved
+        run: python3 tools/v236_lateral_step_no_proximity_slowdown_self_check.py
       - name: Verify v204 heavy-leg slide and separate BOOST effects
         run: python3 tools/v204_heavy_leg_slide_self_check.py
       - name: Verify v227 B/D SLIDE full-body two-foot leg IK
