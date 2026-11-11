@@ -79,9 +79,9 @@ const JUMP_GRAVITY: float = 8.0 * JUMP_HEIGHT / (JUMP_FLIGHT_SECONDS * JUMP_FLIG
 const JUMP_FALL_CLIP_START: float = 0.20833 / 0.375
 const BACK_STEP_DISTANCE: float = 4.0  # meters; side-step distance remains unchanged
 const STEP_FORWARD_DISTANCE: float = 3.0  # v235: 1.5x prior 2.0m front-step travel only
-# Side steps have a fixed world-space speed, so longer orbits last longer.
-# Sample step speed at the start (10m/s far, smooth falloff, 8m/s close);
-# keep that speed constant throughout each individual step.
+# v236: pure lateral steps use the fixed equipment-adjusted STEP_SPEED;
+# forward/back radial steps retain the 5m->2m proximity slowdown.
+# Diagonal steps blend these speeds continuously when a flick is released.
 const STEP_ORBIT_ANGLE_DEGREES: float = 35.0
 const STEP_MIN_ARC_LENGTH: float = 2.0  # v53: minimum planned step path length in meters
 const STEP_MAX_ARC_LENGTH: float = 4.0  # meter cap even at very long target range
@@ -1285,11 +1285,11 @@ func _step_speed_for_player_position(pos: Vector3) -> float:
 func _refresh_step_status_ui() -> void:
     if step_status_label == null or step_detail_label == null:
         return
-    # During a step show its fixed speed, even if the target/player move.
-    # While idle, show the speed the NEXT flick would use at this distance.
+    # During a step display its snapshotted speed.
+    # Outside a step the HUD shows the pure lateral speed (distance-independent).
     var display_speed: float = step_speed_current
     if not step_active:
-        display_speed = _step_speed_for_player_position(player.position)
+        display_speed = STEP_SPEED * float(part_stats.get("step_speed_mult", 1.0))
     step_status_label.text = "STEP SPEED %.1fm/s" % display_speed
     if step_active:
         step_detail_label.text = "STEP %.2fm planned" % step_arc_length
@@ -2149,7 +2149,11 @@ func _start_omni_step(flick: Vector2) -> bool:
         orbit_tangent = Vector3(-radial.y, 0.0, radial.x).normalized()
     var tangent_sign: float = 1.0 if orbit_tangent.dot(camera_right) >= 0.0 else -1.0
 
-    step_speed_current = _step_speed_for_player_position(player.position)
+    # Pure sideways no longer slows as it approaches the target box.
+    # Keep radial (forward/back) speed unchanged and blend diagonals smoothly.
+    var radial_speed: float = _step_speed_for_player_position(player.position)
+    var lateral_speed: float = STEP_SPEED * float(part_stats.get("step_speed_mult", 1.0))
+    step_speed_current = lerpf(radial_speed, lateral_speed, absf(direction.x))
     var side_length: float = minf(
         maxf(STEP_MIN_ARC_LENGTH, radius * deg_to_rad(STEP_ORBIT_ANGLE_DEGREES)),
         minf(STEP_MAX_ARC_LENGTH, step_speed_current * STEP_MAX_DURATION))
@@ -2278,9 +2282,9 @@ func _start_side_step(side: int) -> bool:
     step_start_offset = radial
     step_target_center = Vector2(target.position.x, target.position.z)
     step_linear_offset = Vector2.ZERO
-    # Snapshot the smooth 8-10m/s speed on release, based on BOX SURFACE
-    # distance. Orbit geometry still uses center-to-center radius.
-    step_speed_current = _step_speed_for_player_position(player.position)
+    # Dedicated legacy left/right input uses the same constant lateral speed.
+    # Orbit geometry and its 2-4m path-length bounds are unchanged.
+    step_speed_current = STEP_SPEED * float(part_stats.get("step_speed_mult", 1.0))
     # Preserve the 0.40s ceiling without accelerating or compressing time.
     var max_path_length: float = minf(STEP_MAX_ARC_LENGTH, step_speed_current * STEP_MAX_DURATION)
     var path_length: float = STEP_MIN_ARC_LENGTH
@@ -2295,7 +2299,7 @@ func _start_side_step(side: int) -> bool:
         step_signed_angle = angle * orbit_sign
     step_arc_length = path_length
     # Keep the selected speed for the entire step (do not change mid-orbit).
-    # Minimum path length (2m) at 8m/s lasts 0.250s, within the 0.40s cap.
+    # Base 2m minimum at 10m/s lasts 0.20s, within the 0.40s cap.
     step_duration_current = path_length / step_speed_current * float(part_stats.get("step_time_mult", 1.0))
     # The orbit is measured around the target, not the old absolute camera
     # direction. At point-blank distance its bearing changes quickly.
@@ -2335,8 +2339,8 @@ func _finish_side_step(resume_moving: bool) -> void:
 func _advance_side_step(delta: float) -> void:
     if not step_active:
         return
-    # Linear path progression preserves the speed selected on step start
-    # (smoothly selected from 8-10m/s), including close fallback.
+    # Linear path progression preserves the direction-dependent speed
+    # snapshotted at step start, including close fallback.
     step_elapsed = minf(step_duration_current, step_elapsed + delta)
     var progress: float = step_elapsed / step_duration_current
     var new_offset: Vector2 = step_start_offset + step_linear_offset * progress
@@ -3118,9 +3122,10 @@ func _physics_process(delta: float) -> void:
         direction_of_exhaust.normalized(), delta, backstroke_weight,
         left_sector_world, acceleration_burst, normal_melee_exhaust)
     _update_melee_lock_marker()  # Update after player movement and auto-approach.
-    # Update the idle HUD whenever the next step's speed changes by 0.1m/s.
+    # The idle HUD shows lateral step speed; equipment changes still refresh it.
     if not step_active and step_status_label != null:
-        var next_speed_label: String = "STEP SPEED %.1fm/s" % _step_speed_for_player_position(player.position)
+        var next_speed_label: String = "STEP SPEED %.1fm/s" % (
+            STEP_SPEED * float(part_stats.get("step_speed_mult", 1.0)))
         if step_status_label.text != next_speed_label:
             _refresh_step_status_ui()
     if floor_stage != null:
