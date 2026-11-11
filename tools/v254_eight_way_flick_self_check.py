@@ -17,7 +17,7 @@ assert "45°×8区画" in read("docs/SERA_INPUT_MOVEMENT_CAMERA.md")
 
 for phrase in (
     "const SECTOR_COUNT: int = 8",
-    "const SECTOR_ANGLE: float = TAU / float(SECTOR_COUNT)",
+    "const SECTOR_ANGLE: float = TAU / 8.0",
     "static func sector_index(displacement: Vector2, screen_axis: Vector2) -> int:",
     "var angle: float = atan2(displacement.dot(right), displacement.dot(forward))",
     "return posmod(floori((angle + SECTOR_ANGLE * 0.5) / SECTOR_ANGLE)",
