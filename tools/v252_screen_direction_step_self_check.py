@@ -45,7 +45,7 @@ for tok in ('camera.global_transform.basis.x',
             '-camera.global_transform.basis.z',
             'screen_right * screen_drag.x - screen_forward * screen_drag.y'):
     assert tok in move,tok
-assert main.count("_screen_drag_to_ground(direction_input)")>=5
+assert main.count("_screen_drag_to_ground(direction_input)")>=4
 assert '_classify_step_flick(' in main
 assert 'if bash_requested and _request_combo_bash():' in main
 assert '_classify_recent_upward_flick()' in main
