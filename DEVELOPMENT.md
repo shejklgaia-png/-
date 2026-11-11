@@ -1630,5 +1630,5 @@
 - `tools/sera_quick_check.py` に、既存の基本静的検査をまとめて実行する入口を追加。描画契約は `--render`。
 - `tools/sera_dev_tools_self_check.py` に索引の回帰テストを追加。
 - `AGENTS.md` および `docs/SERA_TECH_AND_WORKFLOW.md` の旧版固定記述を「当時の記録」と明確化。最新の統合版は `project.godot` を参照するルールに変更。
-- `project.godot`、ランタイムコード、モデル、音源、シーン、CI設定、テスト仕様は一切変更しない。追加GitHub Actionsは作らない。
+- `project.godot`、ランタイムコード、モデル、音源、シーン、従来の検査内容は変更しない。既存のGitHub Actionsに新ツール検査を統合し、別のワークフロー・ジョブは新設しない。
 - ツールのPython検証はPRの実行環境で確認し、Godot/Android実機テストは未実施として区別する。

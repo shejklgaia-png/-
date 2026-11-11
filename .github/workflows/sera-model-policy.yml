@@ -4,6 +4,10 @@ on:
     types: [opened, synchronize, edited, reopened]
     paths:
       - 'AGENTS.md'
+      - 'docs/SERA_DEVELOPMENT_FASTPATH_ja.md'
+      - 'tools/sera_code_map.py'
+      - 'tools/sera_quick_check.py'
+      - 'tools/sera_dev_tools_self_check.py'
       - '.gitignore'
       - 'models/**'
       - 'blockbench/**'
@@ -225,8 +229,7 @@ jobs:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: python3 tools/render_policy_self_check.py
-      - name: Verify base model and repository paths
+      - name: Verify base model, repository paths and development fast path
         run: |
-          python3 tools/self_check.py
-          python3 tools/codex_project_check.py
-          python3 tools/project_name_self_check.py
+          python3 tools/sera_quick_check.py
+          python3 tools/sera_code_map.py camera --json > /dev/null
