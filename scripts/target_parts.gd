@@ -5,10 +5,8 @@ extends Node3D
 
 const CORE_HP_SHARE: float = 0.50
 const EACH_PART_HP_SHARE: float = 0.10
-const PART_ORDER: Array[String] = [
-    "head", "leg_fl", "leg_fr", "leg_rl", "leg_rr"
-]
-const LEG_IDS: Array[String] = ["leg_fl", "leg_fr", "leg_rl", "leg_rr"]
+const PART_ORDER = ["head", "leg_fl", "leg_fr", "leg_rl", "leg_rr"]
+const LEG_IDS = ["leg_fl", "leg_fr", "leg_rl", "leg_rr"]
 const SELECTION_HYSTERESIS_RADIANS: float = 0.13
 const CORE_DEFENSE: float = 0.14
 
@@ -222,6 +220,23 @@ func select_front_part(origin: Vector3, forward: Vector3,
         var core_contact: Variant = core_box.intersects_segment(origin, aim)
         if core_contact != null and origin.distance_to(core_contact) < (
                 toward.length() - 0.22):
+            continue
+        # A front leg can also hide a rear leg below the central box.
+        # Remove occluded candidates, but not already-removed armor.
+        var hidden_by_limb: bool = false
+        for other_id in PART_ORDER:
+            if other_id == id:
+                continue
+            var other_node: Node3D = parts[other_id]["node"]
+            if not other_node.visible:
+                continue
+            var other_contact: Variant = get_part_aabb(other_id).intersects_segment(
+                origin, aim)
+            if other_contact != null and origin.distance_to(other_contact) < (
+                    toward.length() - 0.22):
+                hidden_by_limb = true
+                break
+        if hidden_by_limb:
             continue
         var adjusted: Vector3 = Vector3(
             toward.x, toward.y * 0.35, toward.z).normalized()

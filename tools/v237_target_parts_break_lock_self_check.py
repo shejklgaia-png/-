@@ -37,9 +37,11 @@ assert 'part["broken"] = true' in p
 assert 'pivot.visible = false' in p
 assert 'fracture.visible = true' in p
 assert 'return (defenses[2] + defenses[3]) * 0.5' in p
-assert 'return not bool(parts[id]["broken"])' not in p or True
 assert 'not bool(parts[id]["broken"])' in p
 assert "core_box.intersects_segment(origin, aim)" in p
+assert "hidden_by_limb: bool = false" in p
+assert "get_part_aabb(other_id).intersects_segment(" in p
+assert "if not other_node.visible:" in p
 assert "best_score + SELECTION_HYSTERESIS_RADIANS" in p
 assert 'if not is_targetable(id):' in p
 
