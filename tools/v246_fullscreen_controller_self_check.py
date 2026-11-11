@@ -45,15 +45,15 @@ assert touch.count("_pointer_on_step_hud(event.position)") == 2
 assert touch.index("_pointer_on_step_hud(event.position)") < touch.index(
     "current_touch < 0 and _controller_start_area_contains(event.position)")
 
-# The existing gradient is visual-only. Its rectangular outline and corner
-# strokes must no longer be drawn, even while there is no active thumb.
+# v247 removes the remaining gradient/fill as well as border/corner strokes.
 draw = ui.split("func _draw() -> void:", 1)[1].split("func _draw_attack_ripple()", 1)[0]
-for token in ("draw_polygon(fade_vertices, fade_colors)",
-              "OPERATION_ZONE_COLOR_BOTTOM",
-              "_draw_analog_controller(accent, low)"):
-    assert token in draw
-for removed in ("draw_rect(frame_rect", "corner_tint", "var frame_rect",
-                "draw_line(Vector2(frame_left + 12.0"):
+assert "_draw_analog_controller(accent, low)" in draw
+for removed in (
+    "draw_polygon(fade_vertices", "OPERATION_ZONE_",
+    "var frame_left", "draw_rect(Rect2(frame_left",
+    "draw_rect(frame_rect", "corner_tint", "var frame_rect",
+    "draw_line(Vector2(frame_left + 12.0",
+):
     assert removed not in draw, removed
 
 for token in (
@@ -86,5 +86,5 @@ for point in ((-1,500), (721,500), (400,670), (540,670), (650,670)):
     assert not usable(*point)
 
 print("PASS v246: fullscreen joystick start and individual UI button exclusions")
-print("PASS v246: border/corner strokes removed; gray gradient and input sizes retained")
+print("PASS v246-v247: frame/fill/gradient removed; input sizes retained")
 print("Godot parser, Android device and actual multitouch are NOT verified")
