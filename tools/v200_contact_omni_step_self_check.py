@@ -44,7 +44,7 @@ flick = main.split('func _classify_step_flick(displacement: Vector2, seconds: fl
 for substring in ('distance / seconds < STEP_FLICK_MIN_PIXELS_PER_SEC',
                   'seconds > STEP_FLICK_MAX_SECONDS',
                   'gesture_max_travel > distance * 1.20',
-                  'return displacement / distance'):
+                  'return FLICK_DIRECTION_POLICY.eight_way_direction(displacement, Vector2.UP)'):
     assert substring in flick
 assert "STEP_FLICK_MAX_HORIZONTAL_RATIO" not in flick
 assert "STEP_FLICK_MAX_VERTICAL_RATIO" not in flick
@@ -89,6 +89,6 @@ assert 'state_label.text = "STEP FORWARD  |  Frontstep"' in main
 assert 'player.motion_mode = CharacterBody3D.MOTION_MODE_FLOATING' in main
 assert 'const SLOTS = ["head", "torso", "legs", "arms", "booster", "weapon_r", "weapon_l"]' in eq
 print("PASS v200: WAIT grounding, RUN contact-signal grounding, other poses baseline")
-print("PASS v200: continuous full-circle flick direction and swept step movement")
+print("PASS v200/v254: 360-degree flick acceptance, eight-way quantization and swept step")
 print("PASS v200: Step_L/Step_R/Backstep/Frontstep pose blend with fade")
 print("Android Godot runtime behavior not verified")
