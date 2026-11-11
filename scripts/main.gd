@@ -2107,7 +2107,8 @@ func _change_drag(pos: Vector2) -> void:
     gesture_max_travel = maxf(gesture_max_travel, pos.distance_to(pointer_origin))
     var displacement: Vector2 = pos - pointer_origin
     if bash_flick_candidate and gesture_max_travel > TAP_MAX_TRAVEL:
-        # The candidate and final Bash use the SAME projected character axis.
+        # Candidate and final Bash share the same 45-degree forward sector
+        # centered on SERA's saved screen-projected facing direction.
         if not FLICK_DIRECTION_POLICY.within_sector(
                 displacement, gesture_screen_forward, STEP_FLICK_MAX_HORIZONTAL_RATIO):
             bash_flick_candidate = false
@@ -2258,8 +2259,9 @@ func _remember_jump_flick_sample(pos: Vector2) -> void:
     if jump_flick_samples.size() > 32:
         jump_flick_samples.pop_front()
 
-# Character-facing actions use the shared projected screen direction.
-# Archived debug Jump retains its own absolute-screen-UP recognition.
+# Character-facing actions use sector 0 of the eight screen sectors,
+# relative to SERA's projected forward. Archived debug Jump keeps
+# its experimental absolute-screen-UP recognition.
 func _is_character_forward_flick(displacement: Vector2, seconds: float) -> bool:
     return FLICK_DIRECTION_POLICY.is_flick(
         displacement, seconds, gesture_screen_forward,
@@ -2431,10 +2433,11 @@ func _classify_side_flick(displacement: Vector2, seconds: float) -> int:
     return 1 if displacement.x > 0.0 else -1
 
 func _classify_step_flick(displacement: Vector2, seconds: float) -> Vector2:
-    # Release-only, 360-degree directional flick. No horizontal/vertical
-    # aspect-ratio wedge: every diagonal and UP has an accepted heading.
-    # Existing hold, BOOST suppression, BASH priority and reversal filtering
-    # are unchanged. UP is a forward step while touch jumping is disabled.
+    # v254: each release flick is assigned to one of eight 45-degree
+    # SCREEN sectors, centered on forward/diagonals/right/back/left.
+    # Use one quantized vector for both STEP movement and 8-way pose blend.
+    # Hold, BOOST suppression, Bash priority, reversal filtering and
+    # archived debug-only Jump retain their existing precedence.
     if seconds <= 0.0 or seconds > STEP_FLICK_MAX_SECONDS:
         return Vector2.ZERO
     var distance: float = displacement.length()
@@ -2444,7 +2447,7 @@ func _classify_step_flick(displacement: Vector2, seconds: float) -> Vector2:
         return Vector2.ZERO
     if gesture_max_travel > distance * 1.20:
         return Vector2.ZERO
-    return displacement / distance
+    return FLICK_DIRECTION_POLICY.eight_way_direction(displacement, Vector2.UP)
 
 func _start_omni_step(flick: Vector2) -> bool:
     if (guard_active or damage_reaction_active or landing_active
