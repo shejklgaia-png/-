@@ -6,12 +6,14 @@ R=Path(__file__).resolve().parents[1]
 m=(R/"scripts/main.gd").read_text(encoding="utf-8")
 project=(R/"project.godot").read_text(encoding="utf-8")
 assert int(re.search(r'config/name="SERA v(\d+)"',project).group(1))>=286
-assert "SIDE_KICK_SAFE_ORBIT_RADIUS: float = 3.55" in m
-assert "step_radial_delta = maxf(0.0, SIDE_KICK_SAFE_ORBIT_RADIUS - radius)" in m
-assert "step_arc_length / maxf(radius, SIDE_KICK_SAFE_ORBIT_RADIUS)" in m
-assert "smoothstep(0.0, 0.65, travel_progress)" in m
-assert "step_radial_delta * radial_progress" in m
-assert "_move_player_swept(requested, true)" in m
+# v300 replaces the old target-radius expansion with 3m total arc+straight.
+assert "SIDE_KICK_BOOST_DISTANCE: float = 3.0" in m
+assert "step_target_center = _kick_lock_center_xz()" in m
+assert "side_kick_linear_distance = maxf(0.0," in m
+assert "SIDE_KICK_BOOST_DISTANCE - radius * absf(step_signed_angle)" in m
+assert "side_kick_linear_active = true" in m
+assert "side_kick_linear_direction * side_kick_linear_distance * line_progress" in m
+assert "_move_player_swept(" in m
 for token in (
     "LOCK_CONTROLS_VERTICAL_RATIO: float = 0.76",
     "CONTROLLER_REGION_START_RATIO: float = 0.50",
@@ -28,10 +30,13 @@ assert "camera_elevation_ratio_current" not in m
 assert "_visible_combat_camera_yaw" not in m
 assert "CAMERA_COMBAT_MAX_PLAYER_SIDE_DEGREES: float = 30.0" in m
 assert "CAMERA_COMBAT_YAW_HOLD_SECONDS: float = 0.45" in m
-for start in (1.0,2.4,3.0,3.55,4.0,9.0):
-    radial=max(0.0,3.55-start)
-    for t in (0.0,0.2,0.5,0.65,1.0):
-        f=max(0.0,min(1.0,t/0.65));f=f*f*(3-2*f)
-        r=start+radial*f
-        assert start-1e-9<=r<=max(3.55,start)+1e-9
-print("V286_CLOSE_CAMERA_CLEARANCE_STATIC_PASS: safe radius and LOCK UI, v287 fixed low-pitch camera")
+# Radius affects the angle (and straight remainder), never the boost budget.
+for start in (0.05,0.4,1.0,2.4,3.0,3.55,4.0,9.0):
+    for turn_fraction in (0.2,0.3,0.5):
+        planned=3.*turn_fraction
+        angle=min(planned/start, math.radians(120.))
+        arc=start*angle
+        straight=3.-arc
+        assert arc>=0 and straight>=0
+        assert math.isclose(arc+straight,3.0,abs_tol=1e-10)
+print("V286_CLOSE_CAMERA_CLEARANCE_STATIC_PASS: 3m arc+straight budget, LOCK UI, v287 low-pitch camera")
