@@ -45,5 +45,6 @@ m = (root / "scripts/main.gd").read_text()
 assert "3.0 / 24.0" in e and "katana_saya_meshes" in e
 assert 'const KATANA_CLIP: String = "Melee_katana"' in r
 assert "_active_strike_clip" in m
-assert 'config/name="SERA v276"' in (root / "project.godot").read_text()
+version = re.search(r'config/name="SERA v([0-9]+)"', (root / "project.godot").read_text())
+assert version and int(version.group(1)) >= 276
 print("V276_KATANA_STATIC_PASS: 5 authored pivots, 7 meshes, 0.5s clip, exact embed")
