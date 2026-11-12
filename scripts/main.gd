@@ -361,6 +361,7 @@ var player_floor_mark: Node3D
 var step_active: bool = false
 var step_kick_side_request: int = 0  # transient; keep STEP method API unchanged
 var side_kick_active: bool = false
+var side_kick_side: int = 0  # -1 Kick_l, +1 Kick_r; distinct from screen travel
 var side_kick_did_hit: bool = false
 var step_elapsed: float = 0.0
 var step_duration_current: float = STEP_MIN_ARC_LENGTH / STEP_SPEED
@@ -434,6 +435,9 @@ var strike_index: int = 0  # 0, 1 or 2; only meaningful in STRIKE.
 var combo_queued: bool = false  # One buffered tap for the next attack stage.
 var bash_queued: bool = false
 var bash_combo_queued: bool = false
+# A lateral swipe DURING Melee3 must wait for the FULL authored follow-through.
+var buffered_side_kick_flick: Vector2 = Vector2.ZERO
+var buffered_side_kick_side: int = 0
 var bash_flick_candidate: bool = false
 var side_kick_flick_candidate: bool = false
 var gesture_screen_forward: Vector2 = Vector2.UP  # Screen-projected SERA front at flick start.
@@ -2105,11 +2109,13 @@ func _begin_drag(pos: Vector2) -> void:
     bash_flick_candidate = (combat_state == CombatState.STRIKE
         and strike_index == STRIKE_CLIPS.size() - 1) or (
         combat_state == CombatState.IDLE and bash_followup_window_remaining > 0.0)
-    # A kick is a POST-finisher link only. It never cancels Melee3 early.
-    # Snapshot the post-finisher link when the finger first touches.
-    # The remaining follow-up time may expire while a valid flick finishes.
-    side_kick_flick_candidate = (combat_state == CombatState.IDLE
-        and bash_followup_window_remaining > 0.0)
+    # Accept lateral kick input DURING the last authored strike as a buffer.
+    # It is played only AFTER the full Melee3 clip has finished. Touch-down
+    # during the 0.65s post-finisher link is also accepted.
+    side_kick_flick_candidate = (
+        ((combat_state == CombatState.STRIKE or combat_state == CombatState.STRIKE_TRACK)
+            and strike_index == STRIKE_CLIPS.size() - 1)
+        or (combat_state == CombatState.IDLE and bash_followup_window_remaining > 0.0))
     # New drag/tap takes over immediately: never retain close-step recovery
     # camera mode during a new move, boost, or attack.
     close_step_camera_recovery_remaining = 0.0
@@ -2171,7 +2177,7 @@ func _change_drag(pos: Vector2) -> void:
     # thumb movement. Only the RELEASE direction chooses kick vs other STEP.
     # Expired/long gestures still fall back to ordinary RUN/BOOST handling.
     if side_kick_flick_candidate and (
-            float(Time.get_ticks_msec() - gesture_start_ms) / 1000.0 > STEP_FLICK_MAX_SECONDS):
+            float(Time.get_ticks_msec() - gesture_start_ms) / 1000.0 > BASH_FLICK_MAX_SECONDS):
         side_kick_flick_candidate = false
     # Reserve short lateral release before interpreting RUN.
     direction_input = Vector2.ZERO if (bash_flick_candidate or side_kick_flick_candidate) else _analog_stick_direction(pos)
@@ -2184,7 +2190,7 @@ func _change_drag(pos: Vector2) -> void:
     if gesture_max_travel > TAP_MAX_TRAVEL:
         if step_active and not jump_active:
             _finish_side_step(true)
-        if combat_state != CombatState.IDLE and not bash_flick_candidate:
+        if combat_state != CombatState.IDLE and not (bash_flick_candidate or side_kick_flick_candidate):
             _cancel_attack()
     # The compact RUN ring rotates its indicator without moving its anchor.
     touch_ui.call("show_drag", pointer_origin, pointer_location, DRAG_RADIUS)
@@ -2288,6 +2294,10 @@ func _end_drag(release_pos: Vector2) -> void:
     var suppress_flick: bool = boost_has_activated_this_gesture or jump_requested
     var flick_direction: Vector2 = Vector2.ZERO if suppress_flick else _classify_step_flick(
         release_pos - pointer_origin, press_duration)
+    # Melee3's 0.833s visual clip must not be canceled by a human-paced side
+    # swipe. Kick uses the Bash 0.42s threshold; normal STEP stays at 0.24s.
+    var kick_flick_direction: Vector2 = Vector2.ZERO if suppress_flick or not side_kick_requested \
+        else _classify_combo_kick_flick(release_pos - pointer_origin, press_duration)
     var takeoff_momentum: Vector3 = gesture_start_ground_velocity if jump_from_initial_flick else Vector3(player.velocity.x, 0.0, player.velocity.z)
     gesture_active = false
     var suppress_release_action: bool = gesture_suppressed_from_damage or gesture_suppressed_from_landing
@@ -2308,10 +2318,10 @@ func _end_drag(release_pos: Vector2) -> void:
     # degrees. A 90-degree wedge around EACH side is exclusively a kick.
     # Ordinary RUN/BOOST/STEP travel continues to use screen coordinates.
     # Consume the gesture even if the kick cannot start.
-    if side_kick_requested and flick_direction.length_squared() > 0.000001 \
+    if side_kick_requested and kick_flick_direction.length_squared() > 0.000001 \
             and FLICK_DIRECTION_POLICY.sector_index(
-                flick_direction, gesture_screen_forward) in [1, 3]:
-        if _request_combo_side_kick(flick_direction):
+                kick_flick_direction, gesture_screen_forward) in [1, 3]:
+        if _request_combo_side_kick(kick_flick_direction):
             touch_ui.call("show_flick_wake", pointer_origin, release_pos)
         return
     if bash_requested and _request_combo_bash():
@@ -2531,6 +2541,21 @@ func _classify_step_flick(displacement: Vector2, seconds: float) -> Vector2:
     # Exact angle is preserved; cardinal and diagonal motions share input.
     return FLICK_DIRECTION_POLICY.screen_step_direction(displacement)
 
+# A side kick uses Bash-like human-flick timing and an unquantized SCREEN
+# displacement. The 90-degree sector is applied relative to SERA's facing
+# only when deciding WHICH kick animation to play.
+func _classify_combo_kick_flick(displacement: Vector2, seconds: float) -> Vector2:
+    if seconds <= 0.0 or seconds > BASH_FLICK_MAX_SECONDS:
+        return Vector2.ZERO
+    var distance: float = displacement.length()
+    if distance < BASH_FLICK_MIN_FORWARD_PIXELS:
+        return Vector2.ZERO
+    if distance / seconds < BASH_FLICK_MIN_FORWARD_SPEED:
+        return Vector2.ZERO
+    if gesture_max_travel > distance * BASH_FLICK_REVERSAL_RATIO:
+        return Vector2.ZERO
+    return FLICK_DIRECTION_POLICY.screen_step_direction(displacement)
+
 # Authored STEP clips are relative to SERA's LOCAL facing, while the
 # gesture/movement vector is relative to the CAMERA. Convert only for
 # animation, never use this local basis to build the world travel path.
@@ -2553,13 +2578,26 @@ func _request_combo_side_kick(flick: Vector2) -> bool:
     # _end_drag calls this only for a kick gesture latched during _begin_drag.
     # The 0.65s follow-up window must be checked on touch-down, NOT again on
     # release: a valid flick may outlast the remaining window by up to 0.24s.
-    if combat_state != CombatState.IDLE:
-        return false
     var sector: int = FLICK_DIRECTION_POLICY.sector_index(flick, gesture_screen_forward)
     if sector != 1 and sector != 3:
         return false
     var side: int = 1 if sector == 1 else -1
     if rig == null or not bool(rig.call("has_side_kick", side)):
+        return false
+    if (combat_state == CombatState.STRIKE or combat_state == CombatState.STRIKE_TRACK) \
+            and strike_index == STRIKE_CLIPS.size() - 1:
+        buffered_side_kick_flick = flick.normalized()
+        buffered_side_kick_side = side
+        bash_queued = false  # Latest combo direction wins.
+        return true
+    if combat_state != CombatState.IDLE:
+        return false
+    return _launch_combo_side_kick(flick, side)
+
+
+func _launch_combo_side_kick(flick: Vector2, side: int) -> bool:
+    if (side != 1 and side != -1) or rig == null \
+            or not bool(rig.call("has_side_kick", side)):
         return false
     step_kick_side_request = side
     var started: bool = _start_omni_step(flick)
@@ -2639,6 +2677,7 @@ func _start_omni_step(flick: Vector2) -> bool:
     step_elapsed = 0.0
     step_traveled_distance = 0.0
     side_kick_active = step_kick_side_request != 0
+    side_kick_side = step_kick_side_request
     side_kick_did_hit = false
     if side_kick_active:
         rig.call("start_side_kick", step_kick_side_request, step_duration_current)
@@ -2767,6 +2806,7 @@ func _finish_side_step(resume_moving: bool) -> void:
     step_has_last = true
     step_active = false
     side_kick_active = false
+    side_kick_side = 0
     side_kick_did_hit = false
     if step_close_camera:
         # Retain the target-relative guard very briefly after the final
