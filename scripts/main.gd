@@ -2454,10 +2454,9 @@ func _classify_side_flick(displacement: Vector2, seconds: float) -> int:
     return 1 if displacement.x > 0.0 else -1
 
 func _classify_step_flick(displacement: Vector2, seconds: float) -> Vector2:
-    # v260: STEP classification uses actual viewport UP/RIGHT/DOWN/LEFT.
-    # The old camera-dependent actor-front axis misclassified a down flick
-    # as SIDE and horizontal flicks as BACK when SERA faced diagonally.
-    # Bash keeps SERA-facing front; only STEP animation sector is changed.
+    # v262: preserve any 360deg screen flick as one STEP vector for
+    # both world movement and four-clip animation interpolation.
+    # Bash remains a separate SERA-facing, four-sector action.
     # Hold, BOOST suppression, Bash priority, reversal filtering and
     # archived debug-only Jump retain their existing precedence.
     if seconds <= 0.0 or seconds > STEP_FLICK_MAX_SECONDS:
@@ -2469,8 +2468,7 @@ func _classify_step_flick(displacement: Vector2, seconds: float) -> Vector2:
         return Vector2.ZERO
     if gesture_max_travel > distance * 1.20:
         return Vector2.ZERO
-    # Down always means BACKSTEP, and left/right always lateral STEP.
-    # Keep Bash's SERA-facing orientation for intentional forward Bash.
+    # Exact angle is preserved; cardinal and diagonal motions share input.
     return FLICK_DIRECTION_POLICY.screen_step_direction(displacement)
 
 func _start_omni_step(flick: Vector2) -> bool:
@@ -2518,7 +2516,11 @@ func _start_omni_step(flick: Vector2) -> bool:
     var side_length: float = minf(
         maxf(STEP_MIN_ARC_LENGTH, radius * deg_to_rad(STEP_ORBIT_ANGLE_DEGREES)),
         minf(STEP_MAX_ARC_LENGTH, step_speed_current * STEP_MAX_DURATION))
-    var radial_distance: float = BACK_STEP_DISTANCE if direction.y >= 0.0 else STEP_FORWARD_DISTANCE
+    # Blend front 3m / back 4m only near sideways to remove the
+    # coefficient kink at y=0; cardinal and 45deg distances stay unchanged.
+    var back_mix: float = smoothstep(-0.25, 0.25, direction.y)
+    var radial_distance: float = lerpf(
+        STEP_FORWARD_DISTANCE, BACK_STEP_DISTANCE, back_mix)
     step_radial_delta = direction.y * radial_distance
     var tangent_distance: float = absf(direction.x) * side_length
     step_arc_length = clampf(

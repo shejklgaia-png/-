@@ -25,7 +25,7 @@ for required in (
     "var world_step: Vector3 = (camera_right * direction.x * side_length",
     "- facing_forward * step_radial_delta)",
     "step_radial_delta = direction.y * radial_distance",
-    "BACK_STEP_DISTANCE if direction.y >= 0.0 else STEP_FORWARD_DISTANCE",
+    "STEP_FORWARD_DISTANCE, BACK_STEP_DISTANCE, back_mix",
     "step_linear_fallback = true",
     "step_linear_offset = Vector2(world_step.x, world_step.z)",
     "world_step = world_step.normalized() * step_arc_length",
@@ -59,7 +59,9 @@ def step_vector(x,y,facing=(0.0,1.0),screen_right=(1.0,0.0),radius=6.0):
     norm=math.hypot(x,y)
     x,y=x/norm,y/norm
     side=min(max(2.0,radius*math.radians(35)),4.0)
-    radial=y*(4.0 if y>=0 else 3.0)
+    t=max(0.,min(1.,(y+.25)/.5))
+    t=t*t*(3.-2.*t)
+    radial=y*(3.0+t)
     distance=max(2.0,min(4.0,math.hypot(abs(x)*side,radial)))
     vx=screen_right[0]*x*side - facing[0]*radial
     vz=screen_right[1]*x*side - facing[1]*radial
