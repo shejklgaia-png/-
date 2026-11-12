@@ -95,7 +95,7 @@ func _run() -> void:
     (core_mesh.mesh as BoxMesh).size = core_size
 
     # WAIT: sample actual lowest triangles at final authored pose.
-    var floor_y: float = float(eq.get("TRAINING_VISIBLE_FLOOR_Y")) if false else -0.0335
+    var floor_y: float = -0.0335
     rig.call("finish_attack",false,false)
     rig.call("_switch_clip","Wait_motion",0.0)
     rig.call("_process",0.016)
