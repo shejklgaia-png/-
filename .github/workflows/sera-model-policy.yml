@@ -64,6 +64,8 @@ on:
       - 'tools/v270_kick_input_priority_diagnostic_self_check.py'
       - 'tools/v271_embedded_kick_runtime_recovery_self_check.py'
       - 'tools/v272_dedicated_kick_pack_self_check.py'
+      - 'tools/v273_kick_lookup_self_check.py'
+      - 'tools/v273_kick_lookup_runtime_check.gd'
       - 'tools/v242_screen_lock_buttons_self_check.py'
       - 'tools/v243_controller_quadrant_lock_mode_self_check.py'
       - 'tools/v244_half_size_run_boost_controller_self_check.py'
@@ -311,6 +313,23 @@ jobs:
         run: python3 tools/v271_embedded_kick_runtime_recovery_self_check.py
       - name: Verify v272 independent authored kick pack and UUID/name mapping
         run: python3 tools/v272_dedicated_kick_pack_self_check.py
+      - name: Verify v273 canonical kick name and avoid conditional typed Array
+        run: python3 tools/v273_kick_lookup_self_check.py
+      # Earlier static regressions all passed while the Android side kick
+      # lookup failed. Test the real GDScript runtime, not just its text.
+      - name: Fetch Godot 4.7.2 for headless clip playback
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 3 --connect-timeout 15 --max-time 180 \
+            --output "$RUNNER_TEMP/godot.zip" \
+            "https://github.com/godotengine/godot/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip"
+          mkdir -p "$RUNNER_TEMP/godot"
+          unzip -q "$RUNNER_TEMP/godot.zip" -d "$RUNNER_TEMP/godot"
+          chmod +x "$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64"
+      - name: Import SERA resources in real Godot 4.7.2
+        run: '"$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" --headless --editor --path . --import --quit'
+      - name: Verify both Kick_l and Kick_r actually start in Godot
+        run: '"$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" --headless --path . --script res://tools/v273_kick_lookup_runtime_check.gd'
       - name: Verify shared transparent render contract and new shaders
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
