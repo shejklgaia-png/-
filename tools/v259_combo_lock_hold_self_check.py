@@ -40,7 +40,7 @@ physics=m.split("func _physics_process(delta: float) -> void:",1)[1].split("func
 assert "bash_followup_window_remaining = maxf(0.0, bash_followup_window_remaining - delta)" in physics
 assert "bash_loop_window_remaining = maxf(0.0, bash_loop_window_remaining - delta)" in physics
 lock=physics.split("# The boss WHOLE-center (camera rotation axis),",1)[1].split(
-    '"select_camera_front_part"',1)[0]
+    '_acquire_stable_camera_part(delta, locked_part_broken)',1)[0]
 assert "if not combo_held:" in lock
 assert "not manual_part_lock_active or locked_part_broken" in lock
 assert "var combo_held: bool = _combo_lock_retention_active()" in lock
@@ -48,7 +48,7 @@ assert "if not combo_held:" in lock
 assert "locked_target_part_id = str(target_parts.call(" in lock
 assert 'locked_target_part_id = ""' in physics
 assert "manual_part_lock_active = not auto_lock_enabled" in physics
-assert '"select_camera_front_part"' in physics
+assert "_acquire_stable_camera_part(delta, locked_part_broken)" in physics
 assert "const TARGET_MAX_HP: int = 500" in m
 assert "const JUMP_TOUCH_INPUT_ENABLED: bool = false" in m
 def permits_auto(state,manual,followup,loop):
