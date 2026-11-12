@@ -77,34 +77,29 @@ func _run() -> void:
         _fail("SERA collision root no longer points toward whole boss")
         return
 
-    # The camera still chooses healthy parts. An empty lock is obtained
-    # immediately; a valid lock is not replaced by a one-frame change.
-    camera.global_position = Vector3(2.0,4.5,13.0)
-    var aim_head: Vector3 = parts.call("get_part_aim_world","head")
-    camera.look_at(aim_head,Vector3.UP)
-    var preferred: String = str(parts.call("select_camera_orbit_part",camera))
-    if preferred.is_empty():
-        _fail("camera cannot acquire a boss part")
+    # v296: a genuinely intersected head is acquired immediately, and an
+    # off-line old limb must not survive the current frame.
+    camera.global_position = target.global_position + Vector3(0.0,-2.0,10.0)
+    camera.look_at(target.global_position,Vector3.UP)
+    var preferred: String = str(parts.call(
+        "select_camera_center_line_part",camera,target.global_position))
+    if preferred != "head":
+        _fail("camera-center segment did not hit real HEAD geometry")
         return
     game.set("locked_target_part_id","")
     game.set("auto_lock_initialized",false)
     game.call("_acquire_stable_camera_part",0.016,false)
     if str(game.get("locked_target_part_id")) != preferred:
-        _fail("first AUTO lock unnecessarily waits for switch hysteresis")
+        _fail("first AUTO lock unnecessarily waited for hysteresis")
         return
-    var other: String = "leg_rr" if preferred != "leg_rr" else "leg_fl"
-    game.set("locked_target_part_id",other)
+    game.set("locked_target_part_id","leg_rr")
+    game.set("auto_lock_initialized",true)
     game.set("auto_lock_pending_part","")
     game.set("auto_lock_pending_elapsed",0.0)
-    var current_preferred: String = str(parts.call("select_camera_orbit_part",camera))
-    if current_preferred != other:
-        game.call("_acquire_stable_camera_part",0.016,false)
-        if str(game.get("locked_target_part_id")) != other:
-            _fail("AUTO lock jumped to a limb in one physics frame")
-            return
-        game.call("_acquire_stable_camera_part",0.25,false)
-        if str(game.get("locked_target_part_id")) != current_preferred:
-            _fail("AUTO refused a sustained better camera-center part")
-            return
+    game.call("_acquire_stable_camera_part",0.016,false)
+    if str(game.get("locked_target_part_id")) != "head":
+        _fail("off-segment old limb persisted despite the HEAD intersection")
+        return
+
     print("GODOT_V292_VISUAL_LOCK_PASS: fixed SERA yaw, stable part selection and unchanged authored attack clips")
     quit(0)

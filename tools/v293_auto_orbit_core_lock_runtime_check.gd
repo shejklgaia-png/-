@@ -45,47 +45,38 @@ func _run() -> void:
         _fail("full orbit did not return to HEAD")
         return
 
-    # First acquisition is immediate; ordinary sector transitions require
-    # continuous candidate selection for at least 0.22 seconds.
+    # Historical orbit API still exists; AUTO now uses actual camera line
+    # intersection against the mesh, with immediate BODY fallback.
+    var target: Node3D = game.get("target")
+    if target == null:
+        _fail("missing target center")
+        return
     game.set("auto_lock_enabled", true)
     game.set("manual_part_lock_active", false)
     game.set("auto_lock_initialized", false)
     game.set("locked_target_part_id", "")
-    _place_camera(parts, camera, 0.0)
+    camera.global_position = target.global_position + Vector3(0.0,-2.0,10.0)
+    camera.look_at(target.global_position, Vector3.UP)
     game.call("_acquire_stable_camera_part", 0.016, false)
     if not bool(game.get("auto_lock_initialized")) or str(game.get("locked_target_part_id")) != "head":
-        _fail("initial AUTO head acquisition failed")
+        _fail("initial visible HEAD was not acquired")
         return
-    _place_camera(parts, camera, 36.0)
-    game.call("_acquire_stable_camera_part", 0.016, false)
-    game.call("_acquire_stable_camera_part", 0.10, false)
-    if str(game.get("locked_target_part_id")) != "head":
-        _fail("HEAD switched prematurely to BODY")
-        return
-    game.call("_acquire_stable_camera_part", 0.13, false)
-    if not str(game.get("locked_target_part_id")).is_empty():
-        _fail("AUTO cannot transition into BODY")
-        return
-    _place_camera(parts, camera, 72.0)
+    camera.global_position = target.global_position + Vector3(0.0,0.0,-12.0)
+    camera.look_at(target.global_position, Vector3.UP)
     game.call("_acquire_stable_camera_part", 0.016, false)
     if not str(game.get("locked_target_part_id")).is_empty():
-        _fail("BODY bypassed hysteresis as an uninitialized lock")
+        _fail("off-segment HEAD lock did not fall back to BODY immediately")
         return
-    game.call("_acquire_stable_camera_part", 0.23, false)
-    if str(game.get("locked_target_part_id")) != "leg_fl":
-        _fail("BODY cannot switch to FRONT LEFT after confirmation")
-        return
-
+    camera.global_position = target.global_position + Vector3(0.0,-2.0,10.0)
+    camera.look_at(target.global_position, Vector3.UP)
     var model: Dictionary = parts.get("parts")
-    var front_left: Dictionary = model["leg_fl"]
-    front_left["broken"] = true
-    _place_camera(parts, camera, 72.0)
-    if not str(parts.call("select_camera_orbit_part", camera)).is_empty():
-        _fail("broken FRONT LEFT did not fall back to BODY")
-        return
-    game.call("_acquire_stable_camera_part", 0.016, true)
+    var head: Dictionary = model["head"]
+    head["broken"] = true
+    game.call("_acquire_stable_camera_part", 0.016, false)
     if not str(game.get("locked_target_part_id")).is_empty():
-        _fail("broken target did not immediately recover to BODY")
+        _fail("broken HEAD was reselected instead of BODY")
         return
+    head["broken"] = false
+
     print("GODOT_V293_AUTO_ORBIT_CORE_LOCK_PASS")
     quit(0)

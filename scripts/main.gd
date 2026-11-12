@@ -1541,21 +1541,24 @@ func _toggle_auto_lock_mode() -> void:
     _update_target_marker_projection()
 
 
-# v292: the camera can briefly place its screen center between two legs,
-# making the nearest normalized-screen-space score flip every physics frame.
-# Acquire an empty/broken lock immediately; switch between intact parts only
-# after one candidate remains preferred for 0.22s. This is independent of
-# attack distance or collider LOS and does not affect manual cycling.
+# v296: AUTO only considers a real mesh intersected by the finite segment
+# from the CAMERA to the boss BODY center. Empty means BODY, not an error.
+# Never retain an off-segment limb: fall back/reacquire immediately when the
+# old limb no longer intersects, including BODY->limb. Preserve the existing
+# 0.22s confirmation ONLY when two intact limbs overlap the segment.
+# Combo lock retention is handled by the unchanged caller.
 func _acquire_stable_camera_part(delta: float,
         current_broken: bool) -> void:
-    if target_parts == null or camera == null:
+    if target_parts == null or camera == null or target == null:
         return
-    # AUTO follows a topological camera orbit: HEAD / BODY / FL / BODY
-    # / RL / BODY / RR / BODY / FR / BODY. The optional BODY target has
-    # an empty part ID by design; its hit volume is the boss core.
+    var center: Vector3 = target.global_position
     var preferred: String = str(target_parts.call(
-        "select_camera_orbit_part", camera))
-    if not auto_lock_initialized or current_broken:
+        "select_camera_center_line_part", camera, center))
+    var current_on_line: bool = (
+        not locked_target_part_id.is_empty()
+        and bool(target_parts.call("camera_center_line_hits_part",
+            camera, center, locked_target_part_id)))
+    if not auto_lock_initialized or current_broken or not current_on_line:
         locked_target_part_id = preferred
         auto_lock_initialized = true
         auto_lock_pending_part = ""
@@ -1565,7 +1568,6 @@ func _acquire_stable_camera_part(delta: float,
         auto_lock_pending_part = ""
         auto_lock_pending_elapsed = 0.0
         return
-    # BODY is a valid new candidate, not a failed/empty projection.
     if auto_lock_pending_part != preferred:
         auto_lock_pending_part = preferred
         auto_lock_pending_elapsed = 0.0

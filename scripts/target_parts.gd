@@ -390,6 +390,60 @@ func apply_part_hit(id: String, raw_attack: float, raw_break: float) -> Dictiona
         result["broken_legs"] = broken_leg_count()
     return result
 
+# v296: Only real, currently visible BoxMesh pieces count as a limb hit.
+# Work in each mesh's local coordinates so target yaw and animated part
+# offsets cannot invalidate the line test. Bounding part AABBs deliberately
+# do NOT count: their empty space contains no lockable geometry.
+# INF means no hit anywhere on the finite CAMERA->BODY-center segment.
+func _camera_center_line_part_distance(camera_origin: Vector3,
+        body_center: Vector3, id: String) -> float:
+    if not is_targetable(id) or camera_origin.distance_squared_to(body_center) < 0.000001:
+        return INF
+    var pivot: Node3D = parts[id]["node"]
+    var closest: float = INF
+    for child in pivot.get_children():
+        if not child is MeshInstance3D:
+            continue
+        var mesh_node: MeshInstance3D = child as MeshInstance3D
+        if not mesh_node.visible or not mesh_node.mesh is BoxMesh:
+            continue
+        var dimensions: Vector3 = (mesh_node.mesh as BoxMesh).size
+        var local_origin: Vector3 = mesh_node.to_local(camera_origin)
+        var local_center: Vector3 = mesh_node.to_local(body_center)
+        var contact: Variant = AABB(
+            -dimensions * 0.5, dimensions).intersects_segment(
+                local_origin, local_center)
+        if contact == null:
+            continue
+        var contact_world: Vector3 = mesh_node.to_global(contact)
+        closest = minf(closest,
+            camera_origin.distance_squared_to(contact_world))
+    return closest
+
+
+func camera_center_line_hits_part(view_camera: Camera3D,
+        body_center: Vector3, id: String) -> bool:
+    return view_camera != null and _camera_center_line_part_distance(
+        view_camera.global_position, body_center, id) < INF
+
+
+func select_camera_center_line_part(view_camera: Camera3D,
+        body_center: Vector3) -> String:
+    if view_camera == null:
+        return ""
+    var origin: Vector3 = view_camera.global_position
+    var closest: float = INF
+    var selected: String = ""
+    for id in PART_ORDER:
+        var distance: float = _camera_center_line_part_distance(
+            origin, body_center, id)
+        if distance < closest:
+            selected = id
+            closest = distance
+    return selected
+
+
+# v293 legacy orbital selector retained for historical regression tests.
 # v293: AUTO locks follow the camera's azimuth around the boss, not
 # fluctuations in projected limb-center distances. Five intact modules are
 # separated by five BODY sectors, guaranteeing the requested orbital order.
