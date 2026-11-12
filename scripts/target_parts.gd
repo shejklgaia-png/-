@@ -8,6 +8,8 @@ const EACH_PART_HP_SHARE: float = 0.10
 const PART_ORDER = ["head", "leg_fl", "leg_fr", "leg_rl", "leg_rr"]
 const LEG_IDS = ["leg_fl", "leg_fr", "leg_rl", "leg_rr"]
 const SELECTION_HYSTERESIS_RADIANS: float = 0.13
+const CAMERA_PART_LOCK_HYSTERESIS: float = 0.065
+const CAMERA_PART_DISTANCE_TIE_WEIGHT: float = 0.001
 const CORE_DEFENSE: float = 0.14
 # v289: use the same dark-red contact flash and wobble as the central boss.
 const PART_HIT_DARK_COLOR: Color = Color("632535")
@@ -394,9 +396,6 @@ func apply_part_hit(id: String, raw_attack: float, raw_break: float) -> Dictiona
 # Choose the available part nearest the VIEWPORT CENTER instead. Screen
 # offset owns the score; distance is a very weak tie-breaker, NEVER a veto.
 # A slightly worse existing selection is retained to prevent lock jitter.
-const CAMERA_PART_LOCK_HYSTERESIS: float = 0.065
-const CAMERA_PART_DISTANCE_TIE_WEIGHT: float = 0.001
-
 func select_camera_front_part(view_camera: Camera3D, current: String) -> String:
     if view_camera == null:
         return current if is_targetable(current) else ""
