@@ -50,8 +50,10 @@ func _run() -> void:
     game.set("camera_yaw", 0.0)
     game.set("camera_radius", 12.0)
     game.call("_place_camera")
-    var focus: Vector3 = game.get("camera_target_render_position") - Vector3.UP * (
-        float(cfg["CAMERA_FOCUS_DROP"]))
+    var follow_xz: Vector2 = game.get("camera_focus_follow_xz")
+    var focus: Vector3 = Vector3(follow_xz.x,
+        float(cfg["TARGET_BASE_HEIGHT"]) - float(cfg["CAMERA_FOCUS_DROP"]),
+        follow_xz.y)
     if absf(cam.position.y - focus.y - 12.0 * 0.21) > 0.0005:
         _fail("fixed camera pitch changed to overhead")
         return
