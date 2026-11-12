@@ -22,14 +22,14 @@ for name, timing, variable in (
 advance = main.split("func _advance_side_step(delta: float) -> void:", 1)[1].split(
     "func _move_player_swept(", 1)[0]
 assert "if side_kick_active:" in advance
-assert "(progress - second_windup) * SIDE_KICK_MOTION_TIME_MULTIPLIER" in advance
-assert "step_linear_offset * travel_progress" in advance
-assert "step_signed_angle * travel_progress" in advance
-assert "if not side_kick_travel_anchor_set:" in advance
-assert "if progress >= second_windup:" in advance
+assert "(progress - second_windup) / maxf(" in advance
+assert "side_kick_linear_direction * side_kick_linear_distance * line_progress" in advance
+assert "step_signed_angle * orbit_progress" in advance
+assert "if not side_kick_travel_anchor_set and progress >= second_windup:" in advance
+assert "if progress >= second_hit:" in advance
 assert "_configure_side_kick_orbit()" in advance
-assert "step_target_center = Vector2(target.position.x, target.position.z)" in advance
-assert "step_radial_delta * radial_progress" in advance
+assert "step_target_center = _kick_lock_center_xz()" in advance
+assert "side_kick_linear_active = true" in advance
 assert "side_kick_travel_anchor_set = true" in advance
 assert "if previous_progress < impact_progress and progress >= impact_progress:" in advance
 back = main.split("func _advance_back_somersault(delta: float) -> void:", 1)[1].split(
