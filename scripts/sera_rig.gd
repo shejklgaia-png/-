@@ -15,7 +15,7 @@ const BLEND_SECONDS: float = 0.16
 const SOURCE_PATH: String = "res://assets/sera_source.json"
 # Import only newly authored kick tracks from the synced Blockbench source.
 # This is a model read, not a mesh replacement or re-export.
-const KICK_AUTHORING_SOURCE: String = "res://models/SERA_BOOSTER_allテスト.bbmodel"
+const KICK_AUTHORING_SOURCE: String = "res://models/storage/SERA_BOOSTER_allテスト (9).bbmodel"
 const EMBEDDED = preload("res://assets/sera_data.gd")
 const EQUIPMENT_SCRIPT = preload("res://scripts/sera_equipment.gd")
 const RENDER_ORDER = preload("res://scripts/render_order_policy.gd")
