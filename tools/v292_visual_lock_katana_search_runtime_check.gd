@@ -87,6 +87,7 @@ func _run() -> void:
         _fail("camera cannot acquire a boss part")
         return
     game.set("locked_target_part_id","")
+    game.set("auto_lock_initialized",false)
     game.call("_acquire_stable_camera_part",0.016,false)
     if str(game.get("locked_target_part_id")) != preferred:
         _fail("first AUTO lock unnecessarily waits for switch hysteresis")
