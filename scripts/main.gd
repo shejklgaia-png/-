@@ -125,9 +125,10 @@ const STEP_CLOSE_ORBIT_MAX_DEGREES: float = 120.0  # prevent circular loops when
 const STEP_CLOSE_CAMERA_SURFACE_DISTANCE: float = 1.0  # distance to cube face (meters)
 # v285: narrower target-centered camera/player separation during close orbit.
 const STEP_CLOSE_CAMERA_MAX_RELATIVE_DEGREES: float = 45.0
-# v287: hold camera yaw and zoom during attacks; a slow shoulder camera
-# keeps SERA near the center and facing the boss instead of showing a side.
-# Never raise the camera pitch for combat: retain v56's 0.21 elevation.
+# v287/v288: retain the low shoulder camera and prevent attack-by-attack
+# zoom pumping. v288 also pursues SERA's position and yaw DURING attacks;
+# the hold timer below controls zoom recovery, not angular follow.
+# Never raise the pitch for combat: retain v56's 0.21 elevation.
 const CAMERA_COMBAT_VISIBILITY_DISTANCE: float = 6.5
 const CAMERA_COMBAT_YAW_HOLD_SECONDS: float = 0.45
 const CAMERA_COMBAT_SHOULDER_DEGREES: float = 12.0
@@ -4397,9 +4398,10 @@ func _process(delta: float) -> void:
     elif active_boost_travel and separation <= CAMERA_CLOSE_BOOST_ENTER_DISTANCE:
         close_boost_camera_active = true
 
-    # A combo or committed kick locks the orientation. Keep that hold for
-    # 0.45s after the final blow to prevent back-to-back flicks from causing
-    # yaw reversals between STRIKE -> IDLE -> STRIKE transitions.
+    # A combo or committed kick holds camera ZOOM, not its orientation.
+    # Continue tracking SERA in position and yaw with v288's short-delay
+    # leashes. Keep the zoom hold 0.45s after the final blow to prevent
+    # back-to-back attack dolly pumping.
     var active_attack_camera: bool = (
         combat_state != CombatState.IDLE
         or side_kick_active or back_somersault_active
