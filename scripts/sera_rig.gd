@@ -2037,8 +2037,10 @@ func _apply_animation(_delta: float) -> void:
         bone.position = (bind_positions[uid] as Vector3) + translation
         bone.scale = scale_value
     if somersault_authored and current_clip == BACK_SOMERSAULT_CLIP \
-            and t >= float(animations[BACK_SOMERSAULT_CLIP]["length"]) - 0.000001:
-        # Mark sampled only after all authored joint transforms were applied.
+            and t >= float(animations[BACK_SOMERSAULT_CLIP]["length"]) - 0.000001 \
+            and blend_weight >= 0.999999:
+        # Only acknowledge a FULL, unblended terminal authored sample.
+        # A render during the initial crossfade must not prematurely end it.
         somersault_final_pose_sampled = true
     if equipment_handler != null:
         equipment_handler.call("update_katana_visibility", current_clip, t)
