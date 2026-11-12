@@ -16,6 +16,7 @@ assert (ROOT / "README_v242_ja.md").exists()
 # the screen bottom, and neither steals the underlying movement gestures.
 for token in (
     'const CONTROLLER_REGION_START_RATIO: float = 0.50',
+    'const LOCK_CONTROLS_VERTICAL_RATIO: float = 0.76',
     'const LOCK_SWITCH_BUTTON_SIZE: Vector2 = Vector2(104.0, 58.0)',
     'const LOCK_SWITCH_EDGE_INSET: float = 8.0',
     'lock_switch_left_button: Button', 'lock_switch_right_button: Button',
@@ -23,8 +24,8 @@ for token in (
     '_build_lock_switch_buttons(layer)',
     'button.name = "LockSwitchLeft" if direction < 0 else "LockSwitchRight"',
     'button.text = "◀ LOCK" if direction < 0 else "LOCK ▶"',
-    'button.anchor_top = CONTROLLER_REGION_START_RATIO',
-    'button.anchor_bottom = CONTROLLER_REGION_START_RATIO',
+    'button.anchor_top = LOCK_CONTROLS_VERTICAL_RATIO',
+    'button.anchor_bottom = LOCK_CONTROLS_VERTICAL_RATIO',
     'button.offset_top = CONTROLLER_BUTTON_TOP_INSET',
     'button.offset_bottom = CONTROLLER_BUTTON_TOP_INSET + LOCK_SWITCH_BUTTON_SIZE.y',
     'button.anchor_left = CONTROLLER_REGION_START_RATIO',
