@@ -22,6 +22,9 @@ func _run() -> void:
     if player == null or rig == null or not bool(rig.get("loading_ok")):
         _fail("rig missing")
         return
+    game.set("locked_target_part_id", "")
+    game.set("target_hp", 500)
+    player.position = Vector3(0.0, 0.0, -5.5)
     if not bool(game.call("_start_back_somersault")):
         _fail("Kick_b failed to start")
         return
