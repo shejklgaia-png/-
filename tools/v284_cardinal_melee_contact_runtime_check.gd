@@ -18,7 +18,7 @@ func _spawn() -> Node3D:
     root.add_child(game)
     var player: CharacterBody3D = game.get("player")
     game.set("locked_target_part_id", "")
-    player.position = Vector3(0.0, 0.0, -5.5)
+    player.position = Vector3(0.0, 0.0, -5.0)
     game.set("energy", 100.0)
     return game
 
@@ -55,7 +55,9 @@ func _run() -> void:
         _fail("Kick_b failed to start")
         return
     game.call("_advance_back_somersault", HIT_TIME * 0.5)
-    if bool(game.get("back_somersault_launched")) or player.position.distance_to(start) > 0.03:
+    var preimpact_retreat: Vector3 = game.get("back_somersault_direction")
+    if bool(game.get("back_somersault_launched")) \
+            or (player.position - start).dot(preimpact_retreat) > 0.03:
         _fail("rear jump started before the kick made contact")
         return
     if str(rig.get("current_clip")) != "Kick_b":
@@ -69,7 +71,8 @@ func _run() -> void:
         _fail("successful foot contact did not trigger rear takeoff")
         return
     var takeoff: Vector3 = player.position
-    if takeoff.distance_to(start) > 0.03:
+    var before_retreat: Vector3 = game.get("back_somersault_direction")
+    if (takeoff - start).dot(before_retreat) > 0.03:
         _fail("hit triggered rear movement before takeoff")
         return
     var back: Vector3 = game.get("back_somersault_direction")
