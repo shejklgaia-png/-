@@ -62,7 +62,8 @@ const STEP_RIGHT_CLIP: String = "Step_R"
 const STEP_LEFT_CLIP: String = "Step_L"
 const STEP_BACK_CLIP: String = "Backstep"
 const STEP_FORWARD_CLIP: String = "Frontstep"
-const JUMP_CLIP: String = "Jump"  # takeoff/ascent/descent then a new landing key
+const JUMP_CLIP: String = "Jump"
+const BACK_SOMERSAULT_CLIP: String = "Kick_b"  # optional authored source; fallback is the existing Jump pose  # takeoff/ascent/descent then a new landing key
 const JUMP_AIR_CLIP_END: float = 0.375  # old final fall key; flight ends here
 const JUMP_LANDING_CLIP_END: float = 0.500  # new final landing key
 const JUMP_FALL_CLIP_START: float = 0.20833 / JUMP_AIR_CLIP_END
@@ -156,6 +157,7 @@ var combat_playback: bool = false
 var step_playback: bool = false
 var side_kick_clip_name: String = ""
 var side_kick_playback_scale: float = 1.0
+var somersault_authored: bool = false
 # Do not depend on a stale / manually edited Android res:// JSON export.
 # The integrated generated GDScript always carries both real authored clips.
 var embedded_side_kick_restore_attempted: bool = false
@@ -1510,6 +1512,41 @@ func finish_side_step(resume_moving: bool, airborne_fall: bool = false) -> void:
     else:
         _switch_clip(RUN_CLIP if resume_moving else WAIT_CLIP, 0.16)
 
+# The user-authored Kick_b will be used automatically once its actual
+# Blockbench keyframes are integrated. Current GitHub source lacks Kick_b,
+# so play the genuine Jump pose while the main controller supplies the
+# physical backward arc and a procedural full somersault. No fabricated
+# Kick_b keyframes are inserted into the source model.
+func has_back_somersault_clip() -> bool:
+    return _usable_side_kick_clip(BACK_SOMERSAULT_CLIP)
+
+
+func start_back_somersault() -> bool:
+    if not loading_ok or damage_playback or guard_playback or jump_playback or step_playback:
+        return false
+    somersault_authored = has_back_somersault_clip()
+    jump_playback = true
+    _switch_clip(BACK_SOMERSAULT_CLIP if somersault_authored else JUMP_CLIP, 0.055)
+    clip_time = 0.0
+    return true
+
+
+func back_somersault_uses_authored_clip() -> bool:
+    return somersault_authored
+
+
+func set_back_somersault_progress(progress: float) -> void:
+    if not jump_playback:
+        return
+    var fraction: float = clampf(progress, 0.0, 1.0)
+    if somersault_authored and current_clip == BACK_SOMERSAULT_CLIP:
+        var duration: float = float(animations[BACK_SOMERSAULT_CLIP]["length"])
+        # Prevent looping on the final frame if Blockbench set loop=true.
+        clip_time = minf(duration * fraction, maxf(0.0, duration - 0.0001))
+    elif current_clip == JUMP_CLIP:
+        set_jump_progress(fraction)
+
+
 func start_jump() -> void:
     if not loading_ok or damage_playback or guard_playback or jump_playback:
         return
@@ -1526,6 +1563,7 @@ func set_jump_progress(progress: float) -> void:
 func start_landing() -> void:
     if not loading_ok or damage_playback:
         return
+    somersault_authored = false
     jump_playback = true
     _switch_clip(JUMP_CLIP, 0.0)
     clip_time = JUMP_AIR_CLIP_END
@@ -1547,6 +1585,7 @@ func finish_jump(resume_moving: bool, boosting: bool = false) -> void:
     if not jump_playback:
         return
     jump_playback = false
+    somersault_authored = false
     _switch_clip((BOOST_CLIP if boosting else RUN_CLIP) if resume_moving else WAIT_CLIP, 0.11)
 
 func set_combat_paused(paused: bool) -> void:
@@ -1679,7 +1718,8 @@ func _process(delta: float) -> void:
         var cycle: float = attack_windup_end * 2.0
         var phase: float = fposmod(attack_windup_phase, cycle)
         clip_time = phase if phase <= attack_windup_end else cycle - phase
-    elif not freeze_attack_pose and not combat_paused and not (jump_playback and current_clip == JUMP_CLIP):
+    elif not freeze_attack_pose and not combat_paused and not (jump_playback
+            and current_clip in [JUMP_CLIP, BACK_SOMERSAULT_CLIP]):
         var playback_rate: float = RUN_ANIMATION_SPEED if current_clip in RUN_CLIPS else (
             1.0 / equipment_damage_scale if current_clip == DAMAGE_CLIP else (
                 equipment_reaction_speed if current_clip == GUARD_REACTION_CLIP else 1.0))

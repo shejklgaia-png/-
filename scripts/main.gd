@@ -76,6 +76,15 @@ const JUMP_TOUCH_INPUT_ENABLED: bool = false
 const JUMP_FLICK_TAIL_SECONDS: float = 0.20
 const JUMP_FLICK_MIN_VERTICAL: float = 50.0  # Reduced from 78px; backstep unchanged.
 const JUMP_HEIGHT: float = 1.50  # fixed world-space apex above takeoff plane
+# v274: Melee3 -> screen-DOWN flick: 4m rearward arc / 1.5m apex.
+# Unlike archived ordinary Jump, this is a dedicated combo action.
+const BACK_SOMERSAULT_DISTANCE: float = 4.0
+const BACK_SOMERSAULT_HEIGHT: float = 1.5
+const BACK_SOMERSAULT_FLIGHT_SECONDS: float = 0.80
+const BACK_SOMERSAULT_LANDING_SECONDS: float = 0.20
+const BACK_SOMERSAULT_VISUAL_PIVOT_HEIGHT: float = 0.90
+const BACK_SOMERSAULT_HIT_START: float = 0.10
+const BACK_SOMERSAULT_HIT_END: float = 0.45
 const JUMP_FLIGHT_SECONDS: float = 0.80  # 0.000..0.375 authored seconds are retimed over flight
 # New authored landing transition 0.375->0.500 runs after floor contact.
 const JUMP_LANDING_MOTION_SECONDS: float = 0.125
@@ -357,6 +366,14 @@ var jump_fall_duration: float = 0.0
 # key is held 0.60s AFTER the 0.125s landing transition finishes.
 var landing_active: bool = false
 var landing_elapsed: float = 0.0
+var landing_from_somersault: bool = false
+var back_somersault_active: bool = false
+var back_somersault_elapsed: float = 0.0
+var back_somersault_start: Vector3 = Vector3.ZERO
+var back_somersault_direction: Vector3 = Vector3.ZERO
+var back_somersault_original_rig_y: float = 0.195
+var back_somersault_has_authored_clip: bool = false
+var back_somersault_hit: bool = false
 var player_floor_mark: Node3D
 var step_active: bool = false
 var step_kick_side_request: int = 0  # transient; keep STEP method API unchanged
@@ -437,7 +454,7 @@ var bash_queued: bool = false
 var bash_combo_queued: bool = false
 # A lateral swipe DURING Melee3 must wait for the FULL authored follow-through.
 var buffered_side_kick_flick: Vector2 = Vector2.ZERO
-var buffered_side_kick_side: int = 0
+var buffered_side_kick_side: int = 0  # -1=Kick_l, +1=Kick_r, 2=Kick_b
 var bash_flick_candidate: bool = false
 var side_kick_flick_candidate: bool = false
 var kick_touch_started_in_window: bool = false
@@ -625,6 +642,14 @@ func _begin_training_ko() -> void:
         _set_guard(false)
     if step_active:
         _finish_side_step(false)
+    if back_somersault_active:
+        _cancel_back_somersault()
+    if landing_from_somersault:
+        landing_active = false
+        landing_elapsed = 0.0
+        landing_from_somersault = false
+        if rig != null:
+            rig.call("finish_jump", false, false)
     if combat_state != CombatState.IDLE:
         _cancel_attack()
     # Complete any ordinary action transitions before locking the KO pose.
@@ -971,6 +996,8 @@ func _begin_damage_reaction(incoming_direction: Vector3) -> void:
         return
     if step_active:
         _finish_side_step(false)
+    if back_somersault_active:
+        _cancel_back_somersault()
     if combat_state != CombatState.IDLE:
         _cancel_attack()
     # Cancel attack hit-stop / frozen sword pose before entering damage state.
@@ -994,6 +1021,9 @@ func _begin_damage_reaction(incoming_direction: Vector3) -> void:
         # Real damage interrupts landing recovery. Damageknock has priority.
         landing_active = false
         landing_elapsed = 0.0
+        if landing_from_somersault:
+            landing_from_somersault = false
+            rig.call("finish_jump", false, false)
     rig.call("start_damage")
     damage_reaction_active = true
     if gesture_active:
@@ -1530,7 +1560,11 @@ func _refresh_step_status_ui() -> void:
     if not step_active:
         display_speed = STEP_SPEED * float(part_stats.get("step_speed_mult", 1.0))
     step_status_label.text = "STEP SPEED %.1fm/s" % display_speed
-    if step_active:
+    if back_somersault_active:
+        step_detail_label.text = "KICK B / BACK ARC 4.0m"
+    elif landing_from_somersault:
+        step_detail_label.text = "KICK B / LAND 0.2s"
+    elif step_active:
         if side_kick_active:
             step_detail_label.text = "KICK %s %.2fm planned" % [
                 "R" if side_kick_side > 0 else "L", step_arc_length]
@@ -2071,7 +2105,8 @@ func _guard_can_start() -> bool:
     return (not guard_active and not damage_reaction_active and down_remaining <= 0.0
         and not (energy_exhausted and bool(part_stats.get("energy_shield", false)))
         and guard_break_remaining <= 0.0 and not landing_active
-        and not jump_active and not step_active and combat_state == CombatState.IDLE
+        and not jump_active and not step_active and not back_somersault_active
+        and combat_state == CombatState.IDLE
         and rig != null and bool(rig.get("loading_ok")))
 
 func _set_guard(active: bool) -> void:
@@ -2101,6 +2136,8 @@ func _set_guard(active: bool) -> void:
             rig.call("finish_guard")
 
 func _update_guard_hold() -> void:
+    if back_somersault_active or landing_active:
+        return
     # A hold with <18px maximum travel enters Guard on a physics frame.
     # Only a fresh release lowers the shield; dragging during Guard has no
     # movement, attack, flick or boost semantics.
@@ -2175,6 +2212,11 @@ func _analog_stick_direction(pos: Vector2) -> Vector2:
 func _change_drag(pos: Vector2) -> void:
     if not gesture_active:
         return
+    if back_somersault_active:
+        # The committed arc is not steerable or cancellable by another drag.
+        pointer_location = pos
+        direction_input = Vector2.ZERO
+        return
     if guard_active:
         # GUARD may outlast idle camera orbit. Reacquire SERA's visible
         # facing at the final flick onset, then keep it until release.
@@ -2223,7 +2265,7 @@ func _update_boost_gesture(delta: float) -> void:
     # it must NOT block BOOST after the damage reaction finishes.
     if not gesture_active or guard_active or damage_reaction_active \
             or energy_exhausted or bash_flick_candidate or side_kick_flick_candidate \
-            or jump_active or landing_active:
+            or jump_active or landing_active or back_somersault_active:
         boost_confirm_elapsed = 0.0
         if movement_boost_active:
             movement_boost_active = false
@@ -2336,8 +2378,8 @@ func _end_drag(release_pos: Vector2) -> void:
     jump_flick_samples.clear()
     touch_ui.call("set_movement_boost", false)
     touch_ui.call("hide_drag")
-    if damage_reaction_active or landing_active or suppress_release_action:
-        return  # A gesture interrupted by damage never queues a step/attack.
+    if damage_reaction_active or landing_active or back_somersault_active or suppress_release_action:
+        return  # Airborne somersault and landing own the input until fully complete.
     # A valid screen-horizontal combo swipe MUST resolve to a kick before
     # either actor-forward Bash or general 360-degree STEP. If it does not,
     # show the reason in the existing debug panel for recorded phone tests.
@@ -2349,14 +2391,14 @@ func _end_drag(release_pos: Vector2) -> void:
         if _request_combo_side_kick(kick_flick_direction):
             touch_ui.call("show_flick_wake", pointer_origin, release_pos)
         return
-    if kick_started_eligible and screen_sector in [1, 3]:
+    if kick_started_eligible and screen_sector in [1, 2, 3]:
         if not side_kick_requested:
             _record_kick_debug("HOLD >0.42s / BOOST")
         elif kick_flick_direction.length_squared() < 0.000001:
             _record_kick_debug("TOO SHORT / SLOW")
         else:
             _record_kick_debug("ANGLE")
-    elif recent_finisher and screen_sector in [1, 3] \
+    elif recent_finisher and screen_sector in [1, 2, 3] \
             and (release_pos - pointer_origin).length() >= BASH_FLICK_MIN_FORWARD_PIXELS:
         _record_kick_debug("WINDOW CLOSED")
     if bash_requested and _request_combo_bash():
@@ -2509,7 +2551,8 @@ func _advance_jump(delta: float) -> void:
         if not damage_reaction_active and rig != null:
             _begin_landing()
 
-func _begin_landing() -> void:
+func _begin_landing(from_back_somersault: bool = false) -> void:
+    landing_from_somersault = from_back_somersault
     # Airborne traversal is over. Keep the authored landing motion in control;
     # no movement, boost, attack, step or second jump before the 0.60s hold ends.
     landing_active = true
@@ -2528,17 +2571,19 @@ func _advance_landing(delta: float) -> void:
         return
     landing_elapsed += maxf(delta, 0.0)
     player.velocity = Vector3.ZERO
-    # Advance exactly the NEW authored 0.375->0.500 landing keys, then hold
-    # final pose for a full 0.60 seconds with no further animation motion.
-    var landing_fraction: float = clampf(landing_elapsed / JUMP_LANDING_MOTION_SECONDS, 0.0, 1.0)
+    # Archived Jump remains 0.125s + 0.60s hold. Only Kick_b uses the
+    # authored Jump landing keys at 0.20s with no subsequent static hold.
+    var duration: float = (BACK_SOMERSAULT_LANDING_SECONDS
+        if landing_from_somersault else JUMP_LANDING_MOTION_SECONDS)
+    var hold: float = 0.0 if landing_from_somersault else JUMP_LANDING_HOLD_SECONDS
+    var landing_fraction: float = clampf(landing_elapsed / duration, 0.0, 1.0)
     if rig != null:
         rig.call("set_landing_progress", landing_fraction)
-    if landing_elapsed >= JUMP_LANDING_MOTION_SECONDS + JUMP_LANDING_HOLD_SECONDS:
+    if landing_elapsed >= duration + hold:
         landing_active = false
         landing_elapsed = 0.0
+        landing_from_somersault = false
         if rig != null:
-            # Standing up is a blend from the final crouched landing pose,
-            # never a replay of the jump's launch animation.
             rig.call("finish_jump", gesture_active and direction_input.length_squared() > 0.000001, false)
 
 func _classify_side_flick(displacement: Vector2, seconds: float) -> int:
@@ -2602,14 +2647,19 @@ func _classify_combo_kick_flick(displacement: Vector2, seconds: float) -> Vector
 func _combo_kick_side_for_flick(flick: Vector2) -> int:
     if flick.length_squared() < 0.000001:
         return 0
+    # Controller directions are SCREEN-space: DOWN is the backwards
+    # somersault irrespective of SERA's target-facing yaw. Resolve before
+    # actor-relative lateral kicks and actor-forward Bash.
+    var screen_sector: int = FLICK_DIRECTION_POLICY.sector_index(
+        flick, Vector2.UP)
+    if screen_sector == 2:
+        return 2  # Kick_b (authored if available, procedural until uploaded)
     var actor_sector: int = FLICK_DIRECTION_POLICY.sector_index(
         flick, gesture_screen_forward)
     if actor_sector == 1:
         return 1
     if actor_sector == 3:
         return -1
-    var screen_sector: int = FLICK_DIRECTION_POLICY.sector_index(
-        flick, Vector2.UP)
     if screen_sector == 1:
         return 1
     if screen_sector == 3:
@@ -2645,7 +2695,10 @@ func _request_combo_side_kick(flick: Vector2) -> bool:
     if rig == null:
         _record_kick_debug("CLIP MISSING RIG")
         return false
-    if not bool(rig.call("has_side_kick", side)):
+    # Kick_b uses a genuine authored clip when present. Until the uploaded
+    # .bbmodel includes Kick_b, the same action has an explicit Jump-pose +
+    # rotating-body fallback (not a phantom CLIP MISSING).
+    if side != 2 and not bool(rig.call("has_side_kick", side)):
         _record_kick_debug("CLIP MISSING " + str(rig.call("get_side_kick_diagnostic", side)))
         return false
     if (combat_state == CombatState.STRIKE or combat_state == CombatState.STRIKE_TRACK) \
@@ -2653,7 +2706,7 @@ func _request_combo_side_kick(flick: Vector2) -> bool:
         buffered_side_kick_flick = flick.normalized()
         buffered_side_kick_side = side
         bash_queued = false  # Latest combo direction wins.
-        _record_kick_debug("QUEUED " + ("R" if side > 0 else "L"))
+        _record_kick_debug("QUEUED " + ("B" if side == 2 else ("R" if side > 0 else "L")))
         return true
     if combat_state != CombatState.IDLE:
         _record_kick_debug("STATE BLOCKED")
@@ -2662,6 +2715,10 @@ func _request_combo_side_kick(flick: Vector2) -> bool:
 
 
 func _launch_combo_side_kick(flick: Vector2, side: int) -> bool:
+    if side == 2:
+        var launched: bool = _start_back_somersault()
+        _record_kick_debug("START B" if launched else "B EN / ACTION BLOCKED")
+        return launched
     if (side != 1 and side != -1) or rig == null \
             or not bool(rig.call("has_side_kick", side)):
         return false
@@ -2671,6 +2728,105 @@ func _launch_combo_side_kick(flick: Vector2, side: int) -> bool:
     _record_kick_debug(("START " + ("R" if side > 0 else "L")) if started
         else "EN / ACTION BLOCKED")
     return started
+
+
+# Backward somersault is a distinct aerial combo, NOT a STEP: the 4m
+# displacement is behind SERA / away from the lock target even when the
+# on-screen DOWN flick points in a different world direction. A 1.5m arc
+# keeps player collision physically airborne, with a single foot impact.
+func _start_back_somersault() -> bool:
+    if (back_somersault_active or landing_active or jump_active or step_active
+            or guard_active or damage_reaction_active
+            or combat_state != CombatState.IDLE or rig == null
+            or not bool(rig.get("loading_ok"))):
+        return false
+    if not _spend_energy(15.0 * float(part_stats.get("energy_cost_mult", 1.0))):
+        return false
+    if not bool(rig.call("start_back_somersault")):
+        return false
+    _cancel_combo_followup_windows_for_movement()
+    back_somersault_active = true
+    back_somersault_elapsed = 0.0
+    back_somersault_hit = false
+    back_somersault_start = player.position
+    back_somersault_original_rig_y = rig.position.y
+    back_somersault_has_authored_clip = bool(rig.call("back_somersault_uses_authored_clip"))
+    # The melee lock faces the selected target. Backward is the opposite
+    # horizontal heading, with the player basis as a zero-length fallback.
+    back_somersault_direction = player.global_position - target.global_position
+    back_somersault_direction.y = 0.0
+    if back_somersault_direction.length_squared() < 0.000001:
+        back_somersault_direction = player.global_transform.basis.z
+        back_somersault_direction.y = 0.0
+    back_somersault_direction = back_somersault_direction.normalized()
+    direction_input = Vector2.ZERO
+    movement_boost_active = false
+    boost_confirm_elapsed = 0.0
+    _reset_boost_speed_transition()
+    boost_pose_grace_remaining = 0.0
+    if touch_ui != null:
+        touch_ui.call("set_movement_boost", false)
+    return true
+
+
+func _advance_back_somersault(delta: float) -> void:
+    if not back_somersault_active:
+        return
+    var previous: float = clampf(
+        back_somersault_elapsed / BACK_SOMERSAULT_FLIGHT_SECONDS, 0.0, 1.0)
+    back_somersault_elapsed = minf(
+        BACK_SOMERSAULT_FLIGHT_SECONDS, back_somersault_elapsed + maxf(0.0, delta))
+    var progress: float = clampf(
+        back_somersault_elapsed / BACK_SOMERSAULT_FLIGHT_SECONDS, 0.0, 1.0)
+    # Swept horizontal move: walls stop the 4m travel instead of allowing
+    # a teleport through the boss or arena obstacles.
+    var requested: Vector3 = back_somersault_direction * (
+        BACK_SOMERSAULT_DISTANCE * (progress - previous))
+    _move_player_swept(requested, true)
+    var wanted_y: float = BACK_SOMERSAULT_HEIGHT * sin(PI * progress)
+    var vertical_delta: float = wanted_y - player.position.y
+    if absf(vertical_delta) > 0.000001:
+        player.move_and_collide(Vector3.UP * vertical_delta)
+    player.velocity = Vector3.ZERO
+    if not back_somersault_has_authored_clip:
+        # Provisional backflip only while Kick_b has not been uploaded:
+        # rotate the whole visible model around its center, preserving the
+        # underlying authentic Jump pose and original Blockbench source.
+        var angle: float = TAU * progress
+        rig.rotation.x = angle
+        rig.position.y = back_somersault_original_rig_y + (
+            BACK_SOMERSAULT_VISUAL_PIVOT_HEIGHT * (1.0 - cos(angle)))
+    rig.call("set_back_somersault_progress", progress)
+    if not back_somersault_hit and progress >= BACK_SOMERSAULT_HIT_START \
+            and progress <= BACK_SOMERSAULT_HIT_END and target_hp > 0 \
+            and _distance_to_attack_target_surface(player.position) <= SIDE_KICK_REACH:
+        back_somersault_hit = true
+        _register_side_kick_hit()
+    if progress >= 1.0:
+        back_somersault_active = false
+        back_somersault_elapsed = 0.0
+        rig.rotation.x = 0.0
+        rig.position.y = back_somersault_original_rig_y
+        # The arena ground is at y=0; exactly one landing phase owns the
+        # authored Jump 0.375..0.500 landing keys, retimed to 0.20 seconds.
+        player.position.y = 0.0
+        player.velocity = Vector3.ZERO
+        _begin_landing(true)
+
+
+func _cancel_back_somersault() -> void:
+    if not back_somersault_active:
+        return
+    back_somersault_active = false
+    back_somersault_elapsed = 0.0
+    back_somersault_hit = false
+    if rig != null:
+        rig.rotation.x = 0.0
+        rig.position.y = back_somersault_original_rig_y
+        rig.call("finish_jump", false, false)
+    if player != null:
+        player.position.y = 0.0
+        player.velocity = Vector3.ZERO
 
 
 func _start_omni_step(flick: Vector2) -> bool:
@@ -2982,7 +3138,8 @@ func _start_attack() -> bool:
     # True means this tap was accepted, not necessarily that a hit connected.
     # Keyboard callers ignore the return value; only touch release uses it
     # to prevent false ripple feedback during guard, damage or approach.
-    if guard_active or damage_reaction_active or landing_active or step_active or rig == null or not rig.get("loading_ok"):
+    if guard_active or damage_reaction_active or landing_active or back_somersault_active \
+            or step_active or rig == null or not rig.get("loading_ok"):
         return false
     if combat_state == CombatState.BASH or combat_state == CombatState.BASH_TRACK:
         # One follow-up melee tap can be buffered during tracking or Bash.
@@ -3489,7 +3646,7 @@ func _physics_process(delta: float) -> void:
     # follows the displayed pose during direction changes (v214).
     # Attacks, steps, guard, damage, jumps and touch release cancel the grace.
     if not gesture_active or guard_active or damage_reaction_active \
-            or jump_active or landing_active or step_active \
+            or jump_active or landing_active or step_active or back_somersault_active \
             or combat_state != CombatState.IDLE:
         boost_pose_grace_remaining = 0.0
     elif movement_boost_active:
@@ -3527,6 +3684,7 @@ func _physics_process(delta: float) -> void:
     var running: bool = direction_input.length() > 0.001
     var stepping_this_frame: bool = step_active
     var jumping_this_frame: bool = jump_active
+    var somersault_this_frame: bool = back_somersault_active
     var landing_this_frame: bool = landing_active
     # Snapshot before _advance_side_step() can finish the step on this frame.
     close_step_camera_this_frame = stepping_this_frame and step_close_camera
@@ -3535,6 +3693,8 @@ func _physics_process(delta: float) -> void:
     var step_flick_this_frame: Vector2 = step_flick_direction
     if step_active:
         _advance_side_step(delta)
+    if back_somersault_active:
+        _advance_back_somersault(delta)
     if jump_active:
         _advance_jump(delta)
     if landing_this_frame:
@@ -3551,9 +3711,10 @@ func _physics_process(delta: float) -> void:
         # keep collision recovery available even in the damage state.
         player.velocity = Vector3.ZERO
         player.move_and_slide()
-    elif jumping_this_frame or landing_this_frame:
-        # Flight is handled above; landing locks XZ until the final-pose hold
-        # ends. Never run RUN/BOOST movement during landing recovery.
+    elif jumping_this_frame or landing_this_frame or somersault_this_frame \
+            or back_somersault_active or landing_active:
+        # Any committed flight or landing owns displacement; no RUN tick
+        # can interrupt the somersault on its first or final physics frame.
         player.velocity = Vector3.ZERO
     elif combat_state == CombatState.IDLE and not stepping_this_frame:
         # Keep v9 camera-relative input and choose animation relative to the
@@ -3792,6 +3953,12 @@ func _physics_process(delta: float) -> void:
         state_label.text = "DAMAGE  |  Damageknock"
     elif guard_active:
         state_label.text = "GUARD HIT  |  Guard_REACTION" if bool(rig.call("guard_reaction_playing")) else "GUARD  |  Guard"
+    elif back_somersault_active or somersault_this_frame:
+        state_label.text = ("KICK BACK  |  Kick_b" if back_somersault_has_authored_clip
+            else "KICK BACK  |  Jump FALLBACK")
+    elif landing_this_frame or landing_active:
+        state_label.text = ("KICK BACK LAND  |  0.2s" if landing_from_somersault
+            else "JUMP LAND  |  Jump")
     elif jumping_this_frame and combat_state == CombatState.IDLE and not stepping_this_frame:
         state_label.text = "AIR FALL  |  Jump" if jump_fall_after_action else "JUMP  |  Jump (1.5m)"
     elif stepping_this_frame:
@@ -3815,7 +3982,8 @@ func _physics_process(delta: float) -> void:
                     melee_boost_elapsed,
                     float(part_stats.get("melee_boost_duration", MELEE_BOOST_DEFAULT_DURATION))]
             CombatState.STRIKE:
-                state_label.text = "STRIKE 3/3  |  KICK QUEUED" if buffered_side_kick_side != 0 \
+                state_label.text = ("STRIKE 3/3  |  KICK B QUEUED" if buffered_side_kick_side == 2
+                    else "STRIKE 3/3  |  KICK QUEUED") if buffered_side_kick_side != 0 \
                     else "STRIKE %d/3  |  %s" % [strike_index + 1, str(STRIKE_CLIPS[strike_index])]
             CombatState.BASH_TRACK:
                 state_label.text = "BASH WINDUP  %.2f / %.2fs" % [

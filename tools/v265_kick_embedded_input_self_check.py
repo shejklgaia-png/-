@@ -60,7 +60,7 @@ assert release.index("if side_kick_requested and kick_flick_direction.length_squ
 assert 'if combat_state != CombatState.IDLE:' in request
 assert "bash_followup_window_remaining <= 0.0" not in request
 assert "bash_followup_window_remaining > 0.0" not in request
-assert 'if not bool(rig.call("has_side_kick", side)):' in request
+assert 'if side != 2 and not bool(rig.call("has_side_kick", side)):' in request
 assert "step_kick_side_request = 0" in request
 assert "return _start_omni_step(flick" not in request
 print("PASS: a valid lateral swipe starting inside the combo link retains priority on release")

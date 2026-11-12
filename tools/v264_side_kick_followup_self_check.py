@@ -50,7 +50,7 @@ require("single-hit is armed once per kick",
         "side_kick_did_hit = true" in main
         and "func _register_side_kick_hit()" in main)
 require("other directions retain normal step but lateral kick input is exclusive",
-        'if not bool(rig.call("has_side_kick", side)):' in main
+        'if side != 2 and not bool(rig.call("has_side_kick", side)):' in main
         and "if _start_omni_step(flick_direction):" in main
         and "_combo_kick_side_for_flick(kick_flick_direction) != 0" in main)
 require("kick clip imports do not replace model or old animations",

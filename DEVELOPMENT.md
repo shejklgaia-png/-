@@ -1872,3 +1872,10 @@
 - `.github/workflows/sera-model-policy.yml`に同ランタイム検証を追加。成功メッセージとGodotスクリプトエラーの有無を確認するCIチェックを、既存v273の左右蹴り単体ランタイムチェックの後に設定。
 - `docs/SERA_ANIMATION_RUNTIME_POLICY_ja.md`を作成し、`AGENTS.md`と`docs/MODEL_PART_WORKFLOW_ja.md`へ必須参照を明記。モーションの固定名・型付き配列の使用制約・読込/復元/実行の順序・実機とCIの区別・原因切り分けを標準化。
 - 本変更は**テストと開発規約のみ**で、`project.godot`はSERA v273のまま、モデル・キーフレーム・ゲーム挙動は全て保持する。Linux GodotのCIはAndroid画面操作の代わりではない。
+
+## 2026-11-12 — SERA v274：3段目後の画面下フリックで後方サマーソルト`Kick_b`派生
+- ユーザー指示：`Kick_b`はサマーソルトキック。格闘3連打のあとに後ろフリック、後方へ弧を描く跳躍、着地モーション0.2秒で着地。
+- GitHub`main`の`assets/sera_source.json`と最新の`models/storage/SERA_BOOSTER_allテスト (9).bbmodel`などを調査すると、`Kick_l`/`Kick_r`は存在するが**`Kick_b`の元キーフレームは未収録**。架空のBlockbench原本を作らず、`SeraRig`に`has_back_somersault_clip`/`start_back_somersault`/`set_back_somersault_progress`を設け、正規モーションが将来統合されたら優先し、現状は`Jump`の原本飛行ポーズ＋セラ表示モデルの360°回転で暫定動作。HUDに`Jump FALLBACK`と明示。
+- フリックは入力自体は画面基準：3段目（STRIKE/STRIKE_TRACK）または完走後0.65秒のコンボ受付中、画面下90°セクターを左右各90°より先に`side=2`として確定。`Melee3`完走まで派生を予約し、実行時はセラ→ロック対象への水平ベクトルを反転し、4.0mの連続衝突付き移動と高さ`1.5sin(πp)`の弧で0.80秒跳躍。既存の横蹴りと同じ消費EN15と1ヒット方式を暫定使用。通常バックSTEPとは別アクション。
+- 着地ではユーザーの`Jump`の0.375～0.500秒区間を使い**0.20秒、ホールドなし**で立ちへ復帰。旧Jumpの0.125秒＋0.60秒ホールドは変更しない。ガード・ラン・BOOST・攻撃とジャンプの割込みは無効、被弾/KOでは回転と高度をクリアしてダメージ処理を優先。
+- `tools/v274_back_somersault_self_check.py`（制御分岐/距離/高さ/時間/キャンセル）と`tools/v274_back_somersault_runtime_check.gd`（実Godot本体で物理移動・ジャンプ最高点・着地）を追加し、CIのGodot 4.7.2実行検査に追加。v273テストの固定バージョン表記を将来互換に更新。Android実機／原本`Kick_b`キーフレームは未確認。

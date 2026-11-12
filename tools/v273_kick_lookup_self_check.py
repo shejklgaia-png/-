@@ -9,7 +9,7 @@ project = (root/"project.godot").read_text(encoding="utf-8")
 rig = (root/"scripts/sera_rig.gd").read_text(encoding="utf-8")
 game = (root/"scripts/main.gd").read_text(encoding="utf-8")
 source = json.loads((root/"assets/sera_source.json").read_text(encoding="utf-8"))
-assert 'config/name="SERA v273"' in project
+assert (ver := re.search(r'config/name="SERA v([0-9]+)"', project)) and int(ver.group(1)) >= 273
 
 def part(begin, end):
     return rig.split("func "+begin,1)[1].split("func "+end,1)[0]
