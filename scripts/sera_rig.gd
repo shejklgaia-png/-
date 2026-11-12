@@ -58,6 +58,7 @@ const MELEE_APPROACH_CLIP: String = "meleeboost"
 const STRIKE_CLIP: String = "melee1"
 const STRIKE_2_CLIP: String = "Melee2"
 const STRIKE_3_CLIP: String = "Melee3"
+const KATANA_CLIP: String = "Melee_katana"
 const STEP_RIGHT_CLIP: String = "Step_R"
 const STEP_LEFT_CLIP: String = "Step_L"
 const STEP_BACK_CLIP: String = "Backstep"
@@ -174,6 +175,7 @@ var guard_playback: bool = false
 var freeze_attack_pose: bool = false
 var combat_paused: bool = false
 var sword_bone: Node3D
+var katana_drawn_bone: Node3D
 var sword_effect_mesh: MeshInstance3D
 var sword_effect_bone: Node3D
 var prior_rotations: Dictionary = {}
@@ -577,6 +579,8 @@ func _add_entry(entry: Variant, parent: Node3D, parent_origin: Vector3, groups: 
         pivot.quaternion = bind_rotations[uid]
         if pivot.name == "Sword":
             sword_bone = pivot
+        elif pivot.name == "Katana_r_nukimi":
+            katana_drawn_bone = pivot
         elif pivot.name == "Swordeffect":
             sword_effect_bone = pivot
         for child in entry.get("children", []):
@@ -1595,7 +1599,16 @@ func get_clip_time() -> float:
     return clip_time
 
 func get_blade_world_segment() -> PackedVector3Array:
-    if sword_bone == null or not loading_ok:
+    if not loading_ok:
+        return PackedVector3Array()
+    if equipment_handler != null and str(equipment_handler.call("current_for", "weapon_r")) == "K":
+        if katana_drawn_bone == null:
+            return PackedVector3Array()
+        # Authored mesh vertices, corrected for the original element origin.
+        var start: Vector3 = katana_drawn_bone.to_global(Vector3(0.2, 0.2, -3.2) * UNIT)
+        var end: Vector3 = katana_drawn_bone.to_global(Vector3(0.2, 0.2, -24.4) * UNIT)
+        return PackedVector3Array([start, end])
+    if sword_bone == null:
         return PackedVector3Array()
     # Derived from the original Blockbench 'Blade' mesh vertices:
     # core blade Y=3..5, Z=-8..8 in sword bone local units; not guessed screen points.
@@ -1627,7 +1640,7 @@ func start_attack_windup(clip_name: String, windup_end: float) -> void:
     # Bash, Melee2 and Melee3 each use their own Blockbench windup key.
     if not loading_ok or damage_playback or guard_playback:
         return
-    if clip_name != BASH_CLIP and clip_name != STRIKE_2_CLIP and clip_name != STRIKE_3_CLIP:
+    if clip_name != BASH_CLIP and clip_name != STRIKE_2_CLIP and clip_name != STRIKE_3_CLIP and clip_name != KATANA_CLIP:
         return
     combat_paused = false
     freeze_attack_pose = false
@@ -1654,7 +1667,7 @@ func release_attack_windup() -> void:
 func start_strike(clip_name: String = STRIKE_CLIP) -> void:
     if not loading_ok or damage_playback or guard_playback:
         return
-    if clip_name != STRIKE_CLIP and clip_name != STRIKE_2_CLIP and clip_name != STRIKE_3_CLIP:
+    if clip_name != STRIKE_CLIP and clip_name != STRIKE_2_CLIP and clip_name != STRIKE_3_CLIP and clip_name != KATANA_CLIP:
         return
     freeze_attack_pose = false
     combat_paused = false
@@ -2012,6 +2025,8 @@ func _apply_animation(_delta: float) -> void:
         bone.quaternion = q
         bone.position = (bind_positions[uid] as Vector3) + translation
         bone.scale = scale_value
+    if equipment_handler != null:
+        equipment_handler.call("update_katana_visibility", current_clip, t)
     if is_instance_valid(head_c_proxy) and bones.has(RUN_HEAD_BONE_UUID):
         var standard_head: Node3D = bones[RUN_HEAD_BONE_UUID]
         head_c_proxy.quaternion = standard_head.quaternion

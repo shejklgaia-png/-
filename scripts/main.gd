@@ -137,6 +137,7 @@ const STRIKE_ASSIST_AT: float = 0.170
 # The Blockbench clips use 24 fps. Cancel roughly two frames (0.0833 s)
 # after each authored follow-through, without shortening standalone recovery.
 const STRIKE_CLIPS = ["melee1", "Melee2", "Melee3"]
+const KATANA_STRIKE_CLIP: String = "Melee_katana"
 # v167: a forward flick after stage 3 triggers the authored shield bash.
 # Allow a brief post-finisher window, then one tap after Bash to loop to stage 1.
 const BASH_LINK_SECONDS: float = 0.65
@@ -1789,9 +1790,9 @@ func _check_strike_contact() -> void:
     # (windup) could bleed into the hit sweep as soon as the window opened.
     # This also works if low FPS skips across the start or end timestamp.
     var contact: Variant = null
-    var active_from: float = float(STRIKE_ACTIVE_FROM_TIMES[strike_index])
-    var active_to: float = float(STRIKE_ACTIVE_TO_TIMES[strike_index])
-    var assist_at: float = float(STRIKE_ASSIST_TIMES[strike_index])
+    var active_from: float = STRIKE_ACTIVE_FROM if _katana_equipped() else float(STRIKE_ACTIVE_FROM_TIMES[strike_index])
+    var active_to: float = STRIKE_ACTIVE_TO if _katana_equipped() else float(STRIKE_ACTIVE_TO_TIMES[strike_index])
+    var assist_at: float = STRIKE_ASSIST_AT if _katana_equipped() else float(STRIKE_ASSIST_TIMES[strike_index])
     var interval_begin: float = maxf(active_from, strike_prev_time)
     var interval_end: float = minf(active_to, strike_t)
     if interval_begin <= interval_end and strike_t >= active_from:
@@ -3364,6 +3365,20 @@ func _distance_to_attack_target_surface(pos: Vector3) -> float:
     # Unlocked attacks preserve the original core range.
     return _distance_to_cube_surface(pos)
 
+# Weapon-specific playback; preserve existing combo stage/damage and controls.
+func _katana_equipped() -> bool:
+    return rig != null and str(rig.call("get_equipment_selection", "weapon_r")) == "K"
+
+func _active_strike_clip(stage: int) -> String:
+    if _katana_equipped():
+        return KATANA_STRIKE_CLIP
+    return str(STRIKE_CLIPS[clampi(stage, 0, STRIKE_CLIPS.size() - 1)])
+
+func _strike_cancel_time(stage: int) -> float:
+    if _katana_equipped():
+        return minf(float(STRIKE_CANCEL_TIMES[stage]), 0.5)
+    return float(STRIKE_CANCEL_TIMES[stage])
+
 func _start_strike(stage: int = 0) -> void:
     var next_stage: int = clampi(stage, 0, STRIKE_CLIPS.size() - 1)
     var costs: Array = part_stats.get("attack_energy", [0.0, 0.0, 0.0])
@@ -3382,16 +3397,18 @@ func _start_strike(stage: int = 0) -> void:
         # 0.2s. Do not begin the sword trail or hit window until in range.
         combat_state = CombatState.STRIKE_TRACK
         followup_track_elapsed = 0.0
-        rig.call("start_attack_windup", str(STRIKE_CLIPS[strike_index]),
-            float(FOLLOWUP_WINDUP_KEYS[strike_index]))
+        var windup_end: float = float(FOLLOWUP_WINDUP_KEYS[strike_index])
+        if _katana_equipped():
+            windup_end = minf(windup_end, 2.0 / 24.0)
+        rig.call("start_attack_windup", _active_strike_clip(strike_index), windup_end)
         if _distance_to_attack_target_surface(player.position) <= MELEE_SURFACE_REACH:
             _launch_followup_strike()
         return
     # Melee1 keeps the existing normal attack clip after its booster approach.
     combat_state = CombatState.STRIKE
     if sword_trail != null:
-        sword_trail.call("begin_swing", float(STRIKE_TRAIL_OFFSETS[strike_index]))
-    rig.call("start_strike", str(STRIKE_CLIPS[strike_index]))
+        sword_trail.call("begin_swing", (0.0 if _katana_equipped() else float(STRIKE_TRAIL_OFFSETS[strike_index])))
+    rig.call("start_strike", _active_strike_clip(strike_index))
 
 func _launch_followup_strike() -> void:
     if combat_state != CombatState.STRIKE_TRACK:
@@ -3400,7 +3417,7 @@ func _launch_followup_strike() -> void:
     rig.call("release_attack_windup")
     _clear_strike_tracking()
     if sword_trail != null:
-        sword_trail.call("begin_swing", float(STRIKE_TRAIL_OFFSETS[strike_index]))
+        sword_trail.call("begin_swing", (0.0 if _katana_equipped() else float(STRIKE_TRAIL_OFFSETS[strike_index])))
 
 func _advance_attack(delta: float) -> void:
     match combat_state:
@@ -3473,7 +3490,7 @@ func _advance_attack(delta: float) -> void:
             # The second tap may arrive before or after the cancel frame.
             # In both cases the next strike starts only after that point.
             if (bash_queued and strike_index == STRIKE_CLIPS.size() - 1
-                    and float(rig.call("get_clip_time")) >= float(STRIKE_CANCEL_TIMES[strike_index])):
+                    and float(rig.call("get_clip_time")) >= _strike_cancel_time(strike_index)):
                 if not strike_did_hit:
                     _check_strike_contact()
                     if hit_stop_remaining > 0.0:
@@ -3481,7 +3498,7 @@ func _advance_attack(delta: float) -> void:
                 _start_bash()
                 return
             if (combo_queued and strike_index < STRIKE_CLIPS.size() - 1
-                    and float(rig.call("get_clip_time")) >= float(STRIKE_CANCEL_TIMES[strike_index])):
+                    and float(rig.call("get_clip_time")) >= _strike_cancel_time(strike_index)):
                 # Catch a low-FPS hit before switching clips. Respect hit-stop.
                 if not strike_did_hit:
                     _check_strike_contact()
@@ -3489,7 +3506,7 @@ func _advance_attack(delta: float) -> void:
                         return
                 _start_strike(strike_index + 1)
                 return
-            if rig.call("clip_finished", str(STRIKE_CLIPS[strike_index])):
+            if rig.call("clip_finished", _active_strike_clip(strike_index)):
                 # If a device skipped the entire active window in a long frame,
                 # still evaluate contact once before ending the attack.
                 if not strike_did_hit:

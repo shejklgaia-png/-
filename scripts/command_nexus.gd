@@ -982,6 +982,8 @@ func _refresh_equipment_controls() -> void:
             current_set = str(sera_display_rig.call("get_equipment_selection", slot))
         var label: Label = customize_equipment_rows[slot]["value"]
         var variant_label: String = "MID" if current_set == "A" else "HEAVY"
+        if slot == "weapon_r" and current_set == "K":
+            variant_label = "KATANA"
         if slot == "legs" and current_set == "C":
             variant_label = "BIRD"
         elif slot == "legs" and current_set == "D":

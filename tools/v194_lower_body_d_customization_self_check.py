@@ -54,7 +54,18 @@ for uid, mesh in elems.items():
 assert not any(m["name"].startswith("Foot_") and not m["name"].startswith("LegD_")
                for m in model["elements"])
 assert len({m["name"] for m in model["elements"]}) == 12
-assert len(base["elements"]) == 25
+# v276 adds seven isolated Katana meshes while keeping all 25 base meshes.
+# Count the unchanged A body/weapon source independently of new attachments.
+katana_uuids = {
+    "aaad34b8-6ed3-83ed-0dfc-a1a72afc1091",
+    "43ad14e7-205f-4c5f-28c9-24c32166b1cc",
+    "8c4e7bcf-830f-5eb8-24e7-154d6cf802ab",
+    "487e802d-e890-b52e-77e3-7819eefc1f33",
+    "2e7b8175-8aea-6b7b-72ae-62db3fcf4535",
+    "a1cea279-2054-7153-0fa0-a24318563d55",
+    "41e9a281-0e29-9a29-a911-bfa105bc32f3",
+}
+assert len([mesh for mesh in base["elements"] if mesh["uuid"] not in katana_uuids]) == 25
 # The original 23 clips remain; later versions may append new animations.
 assert len(combined["animations"]) >= 23
 

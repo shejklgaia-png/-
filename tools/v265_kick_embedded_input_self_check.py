@@ -27,7 +27,8 @@ print("PASS: embedded APK animation data exactly matches runtime source")
 
 names = {clip["name"]: clip for clip in data["animations"]}
 authored = {clip["name"]: clip for clip in original["animations"]}
-bone_uuids = {bone["uuid"] for bone in data["groups"]}
+# v276 has five additional Katana pivots; legacy kick clips still key exactly 22 A joints.
+bone_uuids = {bone["uuid"] for bone in data["groups"] if not bone["name"].startswith("Katana")}
 for name in ("Kick_l", "Kick_r"):
     assert name in names and name in authored
     clip = names[name]

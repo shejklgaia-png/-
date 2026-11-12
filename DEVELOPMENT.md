@@ -1885,3 +1885,8 @@
 - `models/storage/SERA_BOOSTER_allテスト (9) (2).bbmodel` の新規ユーザー制作モーションを確認。0.79167秒、既存標準Aと一致する16関節・71キーを変えずに `assets/sera_source.json` へ追加。既存の25モーション、メッシュ、Pivot、装備には変更なし。
 - `tools/rebuild_model_data.py` と同一方式で `assets/sera_data.gd` を再生成し、Godot実行時に正規 `Kick_b` を利用。既存の3段目→画面下フリック、後方弧4m、最高1.5m、0.8秒飛行、0.2秒着地、EN15等の操作・物理処理を維持。正式クリップ使用時は暫定リグ回転を加算しない。
 - CIへ原本とコピーのキーフレーム一致、16骨UUID、埋込復号のバイト一致を追加。v274の実Godotシーンテストと全モーションの実Godotテストで正規Kick_bの発動を必須化。Android実機検証は未実施。
+
+## 2026-11-12 — SERA v276 Katana integration
+- Integrate exactly 5 Katana groups, 7 meshes, and authored `Melee_katana` into canonical/embedded data from synced source (9) (2) (2); all old animation/data preserved.
+- RIGHT WEAPON set K, left sheath/rest and right drawn/frame-4, revert after strike. Preserve customizations and saves.
+- Playback Katana clip with existing 3-hit attack flow, switch hit segment to new blade; static + Godot CI. Android device unverified.
