@@ -15,7 +15,9 @@ assert "const BACK_SOMERSAULT_HIT_PROGRESS: float = 0.20833 / 0.79167" in game
 assert "side_kick_hit_mask |= bit" in game
 assert "back_somersault_hit_checked = true" in game
 assert "previous_progress < impact_progress and progress >= impact_progress" in game
-assert "previous < BACK_SOMERSAULT_HIT_PROGRESS" in game
+# v284: Kick_b checks grounded impact first, then begins a rearward arc on hit.
+assert "back_somersault_elapsed >= BACK_SOMERSAULT_STRIKE_SECONDS" in game
+assert "if not back_somersault_hit_checked:" in game
 assert "_advance_homing_toward_target(chase_dt, BASH_REACH)" in game
 assert "_advance_homing_toward_target(kick_dt, BASH_REACH)" in game
 assert "CombatState.BACK_KICK_TRACK" in game

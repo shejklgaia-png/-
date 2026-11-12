@@ -38,11 +38,11 @@ require("kick and step share the same start implementation",
 require("single EN charge in shared STEP entry",
         main.count("func _start_omni_step(") == 1
         and "_spend_energy(15.0 * float(part_stats.get" in main)
-require("kick preserves SERA-facing wedges with screen-side recovery",
+require("kick uses fixed SCREEN quadrants regardless of SERA facing",
         "func _combo_kick_side_for_flick(flick: Vector2) -> int:" in main
-        and "flick, gesture_screen_forward" in main
-        and "if actor_sector == 1:" in main
-        and "if actor_sector == 3:" in main)
+        and "flick, Vector2.UP" in main
+        and "return 1  # screen right -> Kick_r" in main
+        and "return -1  # screen left -> Kick_l" in main)
 require("physics uses same swept STEP, not new teleport",
         "if side_kick_active:" in main and "side_kick_hit_mask" in main
         and "_move_player_swept(requested, true)" in main)

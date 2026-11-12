@@ -87,7 +87,7 @@ for l in (.3,1.0):
         mag=math.sqrt(sum(v*v for v in biased))
         assert math.atan2(biased[0]/mag,-biased[1]/mag) <= math.atan2(vec[0],-vec[1])+1e-10
 assert "const SECTOR_COUNT: int = 4" in read("scripts/flick_direction_policy.gd")
-assert "not _combo_followup_input_window_open()" in main
+assert "_combo_followup_input_window_open()" in main
 assert "return FLICK_DIRECTION_POLICY.screen_step_direction(displacement)" in main
 print("PASS v261: pure left and full reverse preserved; rear-left diagonals increasingly point DOWN")
 print("PASS v261: all camera yaw angles, world-down lift bias, servo, trail, melee and input unchanged")

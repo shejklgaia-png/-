@@ -18,7 +18,7 @@ assert 'var boost_edge_frame_guard: bool = (' in render
 assert 'movement_boost_active or boost_pose_grace_remaining > 0.0' in render
 assert 'gesture_active and not protect_close_step' in render
 assert 'and combat_state == CombatState.IDLE and not step_active' in render
-assert render.count('if not close_boost_camera_active and not boost_edge_frame_guard:') == 2
+assert render.count('if not close_boost_camera_active and not boost_edge_frame_guard') == 2
 assert render.count('_enforce_screen_edge(bearing, delta)') == 2
 assert '    if boost_edge_frame_guard:\n' in render
 assert '        _fit_boost_frame_analytically(delta)' in render

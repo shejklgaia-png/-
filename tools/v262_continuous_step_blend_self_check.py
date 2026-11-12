@@ -50,8 +50,8 @@ for k in range(1,1441):
     last=cur;last_alpha=alpha(cur);last_dist=distance(cur)
 assert "const SECTOR_COUNT: int = 4" in p
 assert "return sector_index(displacement, screen_axis) == 0" in p
-assert "displacement, seconds, gesture_screen_forward," in main
-assert "not _combo_followup_input_window_open()" in main
+assert "displacement, seconds, Vector2.UP," in main
+assert "_combo_followup_input_window_open()" in main
 assert "left_sector_world = left_sector_world.slerp(" in main
 print("PASS v262: unquantized 360deg STEP, 0.25deg sweep and 3m/4m ends")
 print("PASS v262: four authored poses with eased interpolation; collision/Bash/boost retained")

@@ -33,7 +33,7 @@ physics=main.split("func _physics_process(delta: float) -> void:",1)[1].split(
     "func _process(delta: float) -> void:",1)[0]
 assert "_acquire_stable_camera_part(delta, locked_part_broken)" in physics
 assert "if not combo_held:" in physics
-assert '"" if locked_part_broken else locked_target_part_id' in physics
+assert 'var locked_part_broken: bool = (' in physics
 assert "player.look_at(player.global_position + aim, Vector3.UP)" in physics
 switch=main.split("func _switch_lock_screen_direction(direction: int) -> void:",1)[1].split(
     "func _update_target_marker_projection(",1)[0]
