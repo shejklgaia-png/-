@@ -2166,10 +2166,11 @@ func _change_drag(pos: Vector2) -> void:
         if not FLICK_DIRECTION_POLICY.within_sector(
                 displacement, gesture_screen_forward, STEP_FLICK_MAX_HORIZONTAL_RATIO):
             bash_flick_candidate = false
+    # Keep the post-finisher kick reservation through intermediate diagonal
+    # thumb movement. Only the RELEASE direction chooses kick vs other STEP.
+    # Expired/long gestures still fall back to ordinary RUN/BOOST handling.
     if side_kick_flick_candidate and (
-            float(Time.get_ticks_msec() - gesture_start_ms) / 1000.0 > STEP_FLICK_MAX_SECONDS
-            or (gesture_max_travel > BASH_FLICK_CANDIDATE_GRACE_PIXELS
-                and FLICK_DIRECTION_POLICY.sector_index(displacement, Vector2.UP) not in [1, 3])):
+            float(Time.get_ticks_msec() - gesture_start_ms) / 1000.0 > STEP_FLICK_MAX_SECONDS):
         side_kick_flick_candidate = false
     # Reserve short lateral release before interpreting RUN.
     direction_input = Vector2.ZERO if (bash_flick_candidate or side_kick_flick_candidate) else _analog_stick_direction(pos)
@@ -2302,11 +2303,14 @@ func _end_drag(release_pos: Vector2) -> void:
     touch_ui.call("hide_drag")
     if damage_reaction_active or landing_active or suppress_release_action:
         return  # A gesture interrupted by damage never queues a step/attack.
-    # After the completed finisher, screen-left/right are kicks; projected
-    # character-forward Bash retains priority for all other directions.
+    # Exclusively reserve lateral release for the authored post-finisher kick.
+    # Do not fall through to regular STEP if the kick is blocked (missing clip,
+    # insufficient EN, etc.); the same swipe may never mean both actions.
+    # Non-lateral directions retain their normal Bash/STEP behavior.
     if side_kick_requested and flick_direction.length_squared() > 0.000001 \
-            and _request_combo_side_kick(flick_direction):
-        touch_ui.call("show_flick_wake", pointer_origin, release_pos)
+            and FLICK_DIRECTION_POLICY.sector_index(flick_direction, Vector2.UP) in [1, 3]:
+        if _request_combo_side_kick(flick_direction):
+            touch_ui.call("show_flick_wake", pointer_origin, release_pos)
         return
     if bash_requested and _request_combo_bash():
         touch_ui.call("show_flick_wake", pointer_origin, release_pos)

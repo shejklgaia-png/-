@@ -17,7 +17,7 @@ data = json.loads(raw)
 original = json.loads(source("models/storage/SERA_BOOSTER_allテスト (9).bbmodel"))
 generated = source("assets/sera_data.gd")
 version = source("project.godot")
-assert 'config/name="SERA v265"' in version
+assert (match := re.search(r'config/name="SERA v([0-9]+)"', version)) and int(match.group(1)) >= 265
 
 parts = re.findall(r'^\s+"([A-Za-z0-9+/=]+)",$', generated, re.M)
 assert len(parts) > 100

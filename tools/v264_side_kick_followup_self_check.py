@@ -46,9 +46,10 @@ require("physics uses same swept STEP, not new teleport",
 require("single-hit is armed once per kick",
         "side_kick_did_hit = true" in main
         and "func _register_side_kick_hit()" in main)
-require("normal step remains fallback when clip missing",
+require("other directions retain normal step but lateral kick input is exclusive",
         'if rig == null or not bool(rig.call("has_side_kick", side)):' in main
-        and "if _start_omni_step(flick_direction):" in main)
+        and "if _start_omni_step(flick_direction):" in main
+        and "FLICK_DIRECTION_POLICY.sector_index(flick_direction, Vector2.UP) in [1, 3]" in main)
 require("kick clip imports do not replace model or old animations",
         "func _merge_authored_side_kick_clips()" in rig
         and "if animations.has(name):" in rig
