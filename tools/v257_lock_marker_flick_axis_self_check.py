@@ -14,8 +14,10 @@ assert "touch_ui.get(\"target_marker_position\")" not in m
 assert "touch_ui.get(\"target_marker_visible\")" not in m
 assert "var target_marker_position: Vector2 = Vector2.ZERO" in hud
 assert "var target_marker_visible: bool = false" in hud
-assert "func set_target_marker_projection(screen_position: Vector2, is_visible: bool) -> void:" in hud
-assert 'touch_ui.call("set_target_marker_projection", screen_position, on_screen)' in m
+# v291 extends projection with an explicit offscreen-edge marker.
+assert "func set_target_marker_projection(screen_position: Vector2," in hud
+assert "is_offscreen: bool = false)" in hud
+assert 'touch_ui.call("set_target_marker_projection", safe_screen, true, is_offscreen)' in m
 begin=m.split("func _begin_drag(",1)[1].split("func _analog_stick_direction(",1)[0]
 release=m.split("func _end_drag(",1)[1].split("func _remember_jump_flick_sample(",1)[0]
 step=m.split("func _classify_step_flick(",1)[1].split("func _start_omni_step(",1)[0]

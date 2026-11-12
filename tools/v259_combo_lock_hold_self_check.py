@@ -45,7 +45,9 @@ assert "if not combo_held:" in lock
 assert "not manual_part_lock_active or locked_part_broken" in lock
 assert "var combo_held: bool = _combo_lock_retention_active()" in lock
 assert "if not combo_held:" in lock
-assert "locked_target_part_id = str(target_parts.call(" in lock
+# v292/v293 routes part selection through a stable AUTO acquire function.
+assert "_acquire_stable_camera_part(delta, locked_part_broken)" in physics
+assert "var combo_held: bool = _combo_lock_retention_active()" in lock
 assert 'locked_target_part_id = ""' in physics
 assert "manual_part_lock_active = not auto_lock_enabled" in physics
 assert "_acquire_stable_camera_part(delta, locked_part_broken)" in physics

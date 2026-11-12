@@ -41,8 +41,10 @@ assert 'var combo_held: bool = _combo_lock_retention_active()' in phys
 assert 'if not combo_held:' in phys
 assert 'not manual_part_lock_active or locked_part_broken' in phys
 assert "_acquire_stable_camera_part(delta, locked_part_broken)" in phys
-assert '"" if locked_part_broken else locked_target_part_id' in phys
-assert 'target_parts.call("has_part", locked_target_part_id)' in phys
+assert 'var locked_part_broken: bool = (' in phys
+# v293 retains broken-part ownership through the shared lock hold helper.
+assert '_acquire_stable_camera_part(delta, locked_part_broken)' in phys
+assert 'if not combo_held:' in phys
 switch=section(main,"func _switch_lock_screen_direction(direction: int) -> void:","func _update_target_marker_projection(")
 assert "or _combo_lock_retention_active()" in switch
 fx=section(main,"func _advance_hit_fx(delta: float) -> void:","func _input(event: InputEvent)")

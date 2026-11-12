@@ -1904,3 +1904,11 @@
 ## 2026-11-12 — SERA v279: Kick_b full authored frame is rendered before landing
 - Existing 0.8s swept 4m/1.5m physical arc remains unchanged; stop at ground on time but defer transition while Kick_b's exact final time has not yet been sampled with full blend weight. Acknowledgement occurs only after `_apply_animation` really applied the authored final bone poses, not simply at the end of the physics timer. Extra physics ticks before the next render keep the terminal pose without additional movement.
 - Once sampled, blend the final Kick_b to Jump landing over 0.055s; retain full 0.20s landing, single hit, Bash homing, EN and all other moves. Clear acknowledgment on start/cancel/landing. Source Blockbench keys untouched. New static/runtime tests cover no premature interruption and low-FPS no-double-travel.
+
+
+## 2026-11-12 — SERA v293：AUTO部位ロックの周回順と本体ロック
+- Android動画約10.9秒でAUTO動作を確認。旧v292のスクリーン中央への近さによる頭/脚選択はBODYを候補に含まず、周回順と一致しなかった。
+- AUTO専用にカメラ相対方位の36度×10区間を追加。頭→本体→左前脚→本体→左後脚→本体→右後脚→本体→右前脚→本体を循環し、逆回りでは逆順。破壊済み部位は本体へ退避。
+- 空IDの本体ロックと「まだロックしていない」状態を新フラグで区別し、0.22秒の遷移確定を本体↔部位の両方向へ適用。初回取得/破壊回復は即時。HUDはBODYのHPを表示。
+- MANUALの既存左右スクリーン投影切り替え、戦闘ロック維持、攻撃判定・カメラ移動・3Dモデルは無変更。
+- 静的/Godot実行のv293回帰チェックをCIへ追加し、v291/v292のAUTOに関する検査を本体選択可能な仕様へ更新。Android Xperia 1 V実機の操作確認は未実施。

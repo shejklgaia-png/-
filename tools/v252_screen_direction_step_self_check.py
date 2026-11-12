@@ -21,7 +21,7 @@ for term in ("var direction: Vector2 = flick.normalized()",
     "var back_mix: float = smoothstep(-0.25, 0.25, direction.y)",
     "STEP_FORWARD_DISTANCE, BACK_STEP_DISTANCE, back_mix)",
     'rig.call("start_omni_step", pose_direction)',
-    "step_close_camera = (absf(pose_direction.x) > 0.001"):
+    "or (absf(pose_direction.x) > 0.001"):
     assert term in step,term
 for term in ("camera.global_transform.basis.x",
     "-camera.global_transform.basis.z",

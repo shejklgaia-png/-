@@ -335,6 +335,10 @@ var camera: Camera3D
 var target: Node3D
 var target_parts: Node3D
 var locked_target_part_id: String = ""
+# Empty part IDs now mean a deliberate BODY lock as well as pre-acquisition.
+# Keep the initial acquisition state independent so CORE->limb switching
+# cannot bypass the existing 0.22s AUTO confirmation window.
+var auto_lock_initialized: bool = false
 var manual_part_lock_active: bool = false
 var auto_lock_enabled: bool = true
 # v292: part selection should not thrash HEAD/RL/RR every physics frame
@@ -665,9 +669,9 @@ func _tick_resources(delta: float) -> void:
             roundi(float(part_stats.get("defense", 0.16)) * 100.0),
             ceili(shield)]
     if core_label != null:
-        var label_name: String = "CORE"
-        var integrity: float = 0.0
-        var maximum: float = 0.0
+        var label_name: String = "BODY"
+        var integrity: float = float(target_hp)
+        var maximum: float = float(TARGET_MAX_HP)
         if target_parts != null and not locked_target_part_id.is_empty():
             label_name = str(target_parts.call("get_part_name", locked_target_part_id))
             integrity = float(target_parts.call("get_part_integrity", locked_target_part_id))
@@ -784,6 +788,9 @@ func _tick_training_ko(delta: float) -> void:
     if target_parts != null:
         target_parts.call("reset_parts")
     locked_target_part_id = ""
+    auto_lock_initialized = false
+    auto_lock_pending_part = ""
+    auto_lock_pending_elapsed = 0.0
     manual_part_lock_active = not auto_lock_enabled
     if enemy_shooter != null:
         enemy_shooter.call("set_head_destroyed", false)
@@ -1519,11 +1526,13 @@ func _toggle_auto_lock_mode() -> void:
     auto_lock_pending_elapsed = 0.0
     auto_lock_enabled = not auto_lock_enabled
     manual_part_lock_active = not auto_lock_enabled
-    # MANUAL starts from the same visible camera-center candidate as AUTO,
-    # instead of freezing an empty CORE lock if the user toggles before
-    # the first physics tick.
+    if auto_lock_enabled:
+        # MANUAL can intentionally hold BODY; a fresh AUTO acquires immediately.
+        auto_lock_initialized = false
+    # Only pre-acquisition emptiness needs the legacy MANUAL center fallback.
+    # Do not replace an intentionally selected BODY lock on mode toggle.
     if not auto_lock_enabled and locked_target_part_id.is_empty() \
-            and target_parts != null and camera != null:
+            and not auto_lock_initialized and target_parts != null and camera != null:
         locked_target_part_id = str(target_parts.call(
             "select_camera_front_part", camera, ""))
     _refresh_lock_mode_buttons()
@@ -1539,21 +1548,22 @@ func _acquire_stable_camera_part(delta: float,
         current_broken: bool) -> void:
     if target_parts == null or camera == null:
         return
+    # AUTO follows a topological camera orbit: HEAD / BODY / FL / BODY
+    # / RL / BODY / RR / BODY / FR / BODY. The optional BODY target has
+    # an empty part ID by design; its hit volume is the boss core.
     var preferred: String = str(target_parts.call(
-        "select_camera_front_part", camera,
-        "" if current_broken else locked_target_part_id))
+        "select_camera_orbit_part", camera))
+    if not auto_lock_initialized or current_broken:
+        locked_target_part_id = preferred
+        auto_lock_initialized = true
+        auto_lock_pending_part = ""
+        auto_lock_pending_elapsed = 0.0
+        return
     if preferred == locked_target_part_id:
         auto_lock_pending_part = ""
         auto_lock_pending_elapsed = 0.0
         return
-    if locked_target_part_id.is_empty() or current_broken:
-        locked_target_part_id = preferred
-        auto_lock_pending_part = ""
-        auto_lock_pending_elapsed = 0.0
-        return
-    if preferred.is_empty():
-        # A momentary projection problem must not erase a still intact lock.
-        return
+    # BODY is a valid new candidate, not a failed/empty projection.
     if auto_lock_pending_part != preferred:
         auto_lock_pending_part = preferred
         auto_lock_pending_elapsed = 0.0
@@ -2154,6 +2164,9 @@ func _advance_hit_fx(delta: float) -> void:
             if target_parts != null:
                 target_parts.call("reset_parts")
             locked_target_part_id = ""
+            auto_lock_initialized = false
+            auto_lock_pending_part = ""
+            auto_lock_pending_elapsed = 0.0
             manual_part_lock_active = not auto_lock_enabled
             if enemy_shooter != null:
                 enemy_shooter.call("set_head_destroyed", false)

@@ -81,7 +81,7 @@ assert 'left_sector_world, acceleration_burst, melee_sustain)' in rig
 for phrase in (
     'movement_boost_active and running',
     'boost_exhaust or boost_pose_exhaust or stepping_this_frame',
-    'or tracking_exhaust or normal_melee_exhaust or normal_kick_exhaust))',
+    'or tracking_exhaust or normal_attack_exhaust))',
     'combat_state == CombatState.BASH_TRACK',
     'combat_state == CombatState.STRIKE_TRACK',
     'combat_state == CombatState.DASH',

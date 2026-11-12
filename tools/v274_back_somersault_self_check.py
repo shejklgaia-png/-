@@ -37,7 +37,7 @@ assert "return 2" in direction
 assert "flick, Vector2.UP" in direction and "gesture_screen_forward" not in direction
 assert "1:" in direction and "3:" in direction
 assert 'side_kick_flick_candidate = (' in begin
-assert "and strike_index == STRIKE_CLIPS.size() - 1)" in begin
+assert "_is_strike_finisher()" in begin
 assert "_combo_kick_side_for_flick(kick_flick_direction) != 0" in release
 assert release.index("if side_kick_requested and kick_flick_direction") < release.index("if bash_requested")
 assert "if side != 2 and not bool(rig.call(\"has_side_kick\", side)):" in request

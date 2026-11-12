@@ -26,10 +26,13 @@ expected = (
     "CombatState.DASH",
     "CombatState.STRIKE_TRACK",
     "CombatState.STRIKE",
+    "CombatState.BASH_TRACK",
+    "CombatState.BASH",
+    "CombatState.BACK_KICK_TRACK",
 )
 assert all(f"combat_state == {name}" in normal_gate for name in expected)
 assert normal_gate.count("combat_state == CombatState.") == len(expected)
-assert "CombatState.BASH" not in normal_gate
+assert "combat_state == CombatState.BASH" in normal_gate
 assert "blur_velocity" not in normal_gate
 assert "strike_did_hit" not in normal_gate
 assert "jump_active" not in normal_gate
@@ -42,7 +45,7 @@ exhaust_section = main.split("var exhaust_on: bool = (", 1)[1].split(
 assert "not damage_reaction_active and not jump_active" in exhaust_section
 assert "not landing_active and not guard_active and not energy_exhausted" in exhaust_section
 assert "boost_exhaust or boost_pose_exhaust or stepping_this_frame" in exhaust_section
-assert "or tracking_exhaust or normal_melee_exhaust or normal_kick_exhaust))" in exhaust_section
+assert "or tracking_exhaust or normal_attack_exhaust))" in exhaust_section
 
 # The existing homing-motion gate must not be changed: an acceleration burst
 # occurs only on measured movement + a new tracking/step state, never merely
@@ -54,7 +57,7 @@ assert "combat_state == CombatState.BASH_TRACK" in tracking
 assert "combat_state == CombatState.STRIKE_TRACK" in tracking
 assert "combat_state == CombatState.STRIKE and not strike_did_hit" in tracking
 assert "combat_state == CombatState.BASH and not bash_did_hit" in tracking
-assert "tracking_exhaust = tracking_exhaust and blur_velocity.length_squared() > 0.04" in tracking
+assert "and blur_velocity.length_squared() > 0.04" in tracking
 burst = main.split("var tracking_accel_state: int =", 1)[1].split(
     "var direction_of_exhaust: Vector3 =", 1)[0]
 assert "combat_state if tracking_exhaust else -1" in burst
@@ -62,7 +65,7 @@ assert "var acceleration_burst: bool = (exhaust_on" in burst
 assert "stepping_this_frame and not thruster_accel_previous_step" in burst
 assert "tracking_accel_state != thruster_accel_previous_tracking_state" in burst
 assert "normal_melee_exhaust" not in burst
-assert "left_sector_world, acceleration_burst, normal_melee_exhaust or normal_kick_exhaust)" in main
+assert "left_sector_world, acceleration_burst, normal_attack_exhaust)" in main
 assert "left_sector_world, acceleration_burst, melee_sustain)" in rig
 assert "acceleration_burst, melee_sustain)" in equip
 
@@ -83,7 +86,7 @@ def normal_fx(state: str, speed: float = 0.0, hit: bool = False,
               damage: bool = False, guard: bool = False,
               landing: bool = False, jumping: bool = False,
               exhausted: bool = False) -> tuple[bool, bool]:
-    normal = state in ("MELEE_APPROACH", "DASH", "STRIKE_TRACK", "STRIKE")
+    normal = state in ("MELEE_APPROACH", "DASH", "STRIKE_TRACK", "STRIKE", "BASH_TRACK", "BASH", "BACK_KICK_TRACK")
     moving_chase = (state in ("DASH", "STRIKE_TRACK")
                     or (state == "STRIKE" and not hit)
                     or (state in ("BASH_TRACK", "BASH") and not hit)) and speed > 0.2
@@ -112,7 +115,7 @@ for state,speed,hit in stages:
 # An uninterrupted swing still ends cleanly after recovery or cancellation.
 for state in ("IDLE", "RUN", "SLIDE"):
     assert normal_fx(state) == (False,False)
-assert normal_fx("BASH",0.0,True) == (False,False)
+assert normal_fx("BASH",0.0,True) == (True,False)
 assert normal_fx("BASH_TRACK",5.0,False) == (True,True)
 for blockers in (
     {"damage":True}, {"guard":True}, {"landing":True},

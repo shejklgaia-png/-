@@ -14,7 +14,7 @@ assert "const AUTO_LOCK_SWITCH_CONFIRM_SECONDS: float = 0.22" in main
 assert "var auto_lock_pending_part: String = \"\"" in main
 assert "var auto_lock_pending_elapsed: float = 0.0" in main
 helper = main.split("func _acquire_stable_camera_part(delta: float,",1)[1].split("func _controller_start_area_contains(",1)[0]
-for item in ("select_camera_front_part", "locked_target_part_id.is_empty() or current_broken",
+for item in ("select_camera_orbit_part", "not auto_lock_initialized or current_broken",
              "auto_lock_pending_part != preferred", "auto_lock_pending_elapsed += maxf(0.0, delta)",
              "auto_lock_pending_elapsed >= AUTO_LOCK_SWITCH_CONFIRM_SECONDS"):
     assert item in helper, item

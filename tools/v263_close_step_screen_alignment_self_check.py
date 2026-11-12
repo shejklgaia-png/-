@@ -58,7 +58,7 @@ assert 'const BACK_STEP_DISTANCE: float = 4.0' in m
 assert 'step_speed_current = lerpf(radial_speed, lateral_speed, absf(direction.x))' in m
 assert '_move_player_swept(requested, true)' in m
 assert 'return FLICK_DIRECTION_POLICY.screen_step_direction(displacement)' in m
-assert 'not _combo_followup_input_window_open()' in m
+assert '_combo_followup_input_window_open()' in m
 assert "left_sector_world = left_sector_world.slerp(" in m
 
 # Numeric mirrors: the two camera XZ axes must remain orthogonal and

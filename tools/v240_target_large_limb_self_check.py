@@ -94,7 +94,8 @@ for id,x,z,aim_x,aim_z in (
     assert lock == (aim_x,-.27,aim_z)
 assert parts.count("    _add_part(")==5
 assert "func apply_part_hit(" in parts and "func select_front_part(" in parts
-assert 'pivot.visible = false' in parts and 'fracture.visible = true' in parts
+# Broken legs remain modeled/collidable after v289; only appearance changes.
+assert 'pivot.visible = true' in parts and 'fracture.visible = true' in parts
 assert 'const CORE_HP_SHARE: float = 0.50' in parts
 assert 'const EACH_PART_HP_SHARE: float = 0.10' in parts
 print("PASS v240: 13 rectangular meshes per four mirrored limbs, thicker shoulders/feet")

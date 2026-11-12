@@ -84,7 +84,8 @@ assert 'if imported.size() != 12:' in code
 assert 'if set_id == "C" and slot == "legs":' in code
 assert 'var equipment_set: String = "D" if set_id == "C" and slot == "legs" else set_id' in code
 assert code.index('_install_alternative_sets(data)') < code.index('_install_standard_lower_body_d()') < code.index('_cache_bind_foot_geometry()')
-assert 'piece.visible = set_id == str(selected.get(slot, "A"))' in code
+# v291 reserves an opposite-handed weapon slot while keeping set selection.
+assert 'piece.visible = not reserved and set_id == str(selected.get(slot, "A"))' in code
 assert 'if slot == "legs":\n        _apply_legs_grounding(set_id)' in code
 assert 'cfg.set_value("equipment", "schema_version", 2)' in code
 

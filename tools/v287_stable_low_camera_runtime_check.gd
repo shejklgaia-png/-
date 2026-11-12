@@ -34,7 +34,9 @@ func _run() -> void:
     if absf(camera.position.y - focus_y - 12.0*0.21)>0.0001:
         _fail("v286 overhead view was restored")
         return
-    if absf(camera.position.x-follow.x)>0.0001:
+    # Current camera_yaw is not necessarily zero on scene spawn; the camera
+    # must include its actual polar radius as well as SERA's follow center.
+    if absf(camera.position.x-(follow.x+sin(float(game.get("camera_yaw")))*12.0))>0.0001:
         _fail("camera position did not use SERA-follow X coordinate")
         return
     if not bool(rig.get("loading_ok")):

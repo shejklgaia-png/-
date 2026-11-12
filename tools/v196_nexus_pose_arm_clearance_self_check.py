@@ -65,7 +65,8 @@ assert 'rig.set_process(false)' in nexus
 assert 'rig.set_physics_process(false)' in nexus
 assert 'func set_exhibition_mode(enabled: bool)' in rig
 assert 'if equipment_handler != null:' in rig
-assert 'piece.visible = set_id == str(selected.get(slot, "A"))' in equips
+# v291 reserves an opposite-handed weapon slot while keeping set selection.
+assert 'piece.visible = not reserved and set_id == str(selected.get(slot, "A"))' in equips
 assert 'NEXUS_ARM_MAX_STEPS' not in rig and 'NEXUS_ARM_MAX_STEPS' not in equips
 assert 'NEXUS_POSE_SOURCES' in nexus
 

@@ -31,8 +31,10 @@ assert 'rig.call("start_omni_step", pose_direction)' in step
 
 advance = main.split("func _advance_side_step(delta: float) -> void:", 1)[1].split(
     "func _move_player_swept(", 1)[0]
-assert "initial_radius + step_radial_delta * travel_progress" in advance
-assert "if side_kick_active else progress)" in advance
+assert "initial_radius + step_radial_delta * radial_progress" in advance
+# v285 kick radial interpolation eases separately from ordinary STEP travel.
+assert "smoothstep(0.0, 0.65, travel_progress) if side_kick_active" in advance
+assert "else travel_progress)" in advance
 assert "_move_player_swept(requested, true)" in advance
 
 # Mirror the four cardinal directional plans with a 6m target radius.

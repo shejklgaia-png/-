@@ -39,9 +39,9 @@ expected = {
     "head": ((0., -.44, 1.85), (1.48, .82, .96), (0.,-.03,.37),
              (100.,.20,.10,"change")),
     "leg_fl": ((-1.23,-.53,1.27), (2.24,2.00,1.36), (-.78,-.27,.52),
-              (100.,.12,.00,"remove")),
+              (100.,.12,.00,"remain")),
     "leg_fr": ((1.23,-.53,1.27), (2.24,2.00,1.36), (.78,-.27,.52),
-              (100.,.12,.00,"remove")),
+              (100.,.12,.00,"remain")),
     "leg_rl": ((-1.23,-.53,-1.27), (2.24,2.00,1.36), (-.78,-.27,-.52),
               (100.,.16,.12,"remain")),
     "leg_rr": ((1.23,-.53,-1.27), (2.24,2.00,1.36), (.78,-.27,-.52),
@@ -121,10 +121,10 @@ for loc, dim, aim, stats in expected.values():
     assert all(abs(a) <= d/2+1e-8 for a,d in zip(aim,dim))
 
 # Break/removal and aiming are unchanged from v237.
-for term in ('pivot.visible = false', 'fracture.visible = true',
-             'shell.albedo_color = Color("4c555d")',
+for term in ('pivot.visible = true', 'fracture.visible = true',
+             'part["rest_shell"] = Color("4c555d")',
              'func reset_parts() -> void:', 'func select_front_part(',
-             'get_part_aabb(other_id).intersects_segment(',
+             'func get_visible_part_ids(',
              'func apply_part_hit('):
     assert term in code, term
 

@@ -38,7 +38,7 @@ func _run() -> void:
     # Spawn just ahead of the target core so the first kick can connect.
     game.set("locked_target_part_id", "")
     game.set("target_hp", 500)
-    player.position = Vector3(0.0, 0.0, -5.5)
+    player.position = Vector3(0.0, 0.0, -5.0)
     var start_position: Vector3 = player.position
     var energy_before: float = float(game.get("energy"))
     if not bool(game.call("_start_back_somersault")):
@@ -58,7 +58,11 @@ func _run() -> void:
     if not bool(game.get("back_somersault_hit")) or not bool(game.get("back_somersault_launched")):
         _fail("rear flight was not armed by actual kick contact")
         return
-    if player.position.distance_to(start_position) > 0.01:
+    # A grounded pre-impact kick legitimately homes TOWARD the target.
+    # Only retreat movement must wait for confirmed contact.
+    var takeoff: Vector3 = player.position
+    var captured_retreat: Vector3 = game.get("back_somersault_direction")
+    if (takeoff - start_position).dot(captured_retreat) > 0.03:
         _fail("rearward flight started before the kick hit")
         return
     var flight_half: float = (0.80 - contact_seconds) * 0.5
@@ -67,8 +71,15 @@ func _run() -> void:
     if absf(middle.y - 1.5) > 0.15:
         _fail("missing 1.5m parabola apex: " + str(middle.y))
         return
-    if absf(middle.z - start_position.z) < 1.5:
-        _fail("no rearward displacement at half-time")
+    # v284 uses a target-relative retreat (not guaranteed to match world Z).
+    # A 4m Bezier arc must advance approximately 2m along its captured heading.
+    var retreat_dir: Vector3 = game.get("back_somersault_direction")
+    if absf((middle - takeoff).dot(retreat_dir) - 2.0) > 0.5:
+        _fail("no target-relative rearward displacement at half-time" +
+            " start=%s middle=%s target=%s direction=%s elapsed=%f" % [
+            str(start_position), str(middle),
+            str(game.get("target").position), str(retreat_dir),
+            float(game.get("back_somersault_elapsed"))])
         return
     if not bool(rig.call("back_somersault_uses_authored_clip")):
         if absf(absf(rig.rotation.x) - PI) > 0.1:

@@ -18,13 +18,15 @@ assert 'var boost_edge_frame_guard: bool = (' in render
 assert 'movement_boost_active or boost_pose_grace_remaining > 0.0' in render
 assert 'gesture_active and not protect_close_step' in render
 assert 'and combat_state == CombatState.IDLE and not step_active' in render
-assert render.count('if not close_boost_camera_active and not boost_edge_frame_guard:') == 2
+assert render.count('if not close_boost_camera_active and not boost_edge_frame_guard') == 2
 assert render.count('_enforce_screen_edge(bearing, delta)') == 2
 assert '    if boost_edge_frame_guard:\n' in render
 assert '        _fit_boost_frame_analytically(delta)' in render
-assert '    else:\n        _fit_full_frame()\n        _relax_camera_fit_radius(delta)' in render
+assert '    else:\n        _fit_full_frame()\n        if not hold_attack_camera:\n            _relax_camera_fit_radius(delta)' in render
 assert render.count('_fit_boost_frame_analytically(delta)') == 1
-assert 'camera_yaw = lerp_angle(camera_yaw, bearing, easing * CAMERA_MOVING_YAW_SCALE)' in render
+# v287/v288 use one stable yaw follower instead of the old frame-edge lerp.
+assert 'camera_yaw = _stable_shoulder_camera_yaw(bearing, delta)' in render
+assert 'if hold_attack_camera or step_active or close_step_camera_this_frame:' in render
 
 # BOOST-only exact perspective fit, no per-frame bisection or repeated unprojection.
 fit = main.split("func _camera_radius_for_safe_point(", 1)[1].split(
