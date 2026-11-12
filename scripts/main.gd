@@ -123,7 +123,8 @@ const STEP_CLOSE_ORBIT_MAX_DEGREES: float = 120.0  # prevent circular loops when
 # camera rotation from a step's starting orientation. The rate cap prevents
 # an instantaneous camera whip if the constraint is first exceeded.
 const STEP_CLOSE_CAMERA_SURFACE_DISTANCE: float = 1.0  # distance to cube face (meters)
-const STEP_CLOSE_CAMERA_MAX_RELATIVE_DEGREES: float = 65.0
+# v285: narrower target-centered camera/player separation during close orbit.
+const STEP_CLOSE_CAMERA_MAX_RELATIVE_DEGREES: float = 45.0
 const STEP_CLOSE_CAMERA_MAX_TURN_RATE_DEGREES: float = 300.0
 const STEP_CLOSE_CAMERA_RECOVERY_SECONDS: float = 0.18
 # Attack begins on a short tap. Dragging still uses v9's screen-space controls.
@@ -414,7 +415,7 @@ var step_arc_length: float = 0.0
 var step_start_offset: Vector2 = Vector2.ZERO  # Player XZ relative to target.
 var step_target_center: Vector2 = Vector2.ZERO
 var step_signed_angle: float = 0.0
-var step_linear_fallback: bool = false  # screen flicks are linear; legacy debug STEPs may orbit
+var step_linear_fallback: bool = false  # ordinary screen STEPs linear; side kicks orbit target
 var step_linear_offset: Vector2 = Vector2.ZERO
 # In screen-directed flicks, this holds forward/back step distance signed
 # against SERA's own facing; legacy debug STEPs retain their old orbit.
@@ -2982,8 +2983,14 @@ func _start_omni_step(flick: Vector2) -> bool:
 
     step_duration_current = (step_arc_length / step_speed_current
         * float(part_stats.get("step_time_mult", 1.0)))
-    step_close_camera = (absf(pose_direction.x) > 0.001
-        and _distance_to_cube_surface(player.position) <= STEP_CLOSE_CAMERA_SURFACE_DISTANCE)
+    # Side kicks use the enemy as an orbit pivot, so their camera guard
+    # activates throughout the nearby melee range; ordinary STEP retains
+    # the older 1m proximity threshold and committed screen trajectory.
+    step_close_camera = (
+        (step_kick_side_request != 0
+            and _distance_to_cube_surface(player.position) <= MELEE_SURFACE_REACH)
+        or (absf(pose_direction.x) > 0.001
+            and _distance_to_cube_surface(player.position) <= STEP_CLOSE_CAMERA_SURFACE_DISTANCE))
     close_step_camera_recovery_remaining = 0.0
     if jump_active:
         jump_horizontal_velocity = Vector3.ZERO
@@ -2995,10 +3002,14 @@ func _start_omni_step(flick: Vector2) -> bool:
     side_kick_active = step_kick_side_request != 0
     side_kick_side = step_kick_side_request
     side_kick_travel_anchor_set = false
-    # Only the kick action timeline is doubled: swept lateral travel starts
-    # at the second windup and takes its original STEP duration.
+    # A kick follows a target-centered orbit rather than this normal
+    # screen-linear STEP. Its angle and anchor are finalized at the SECOND
+    # windup after the first-foot homing, so no early snap-back can occur.
+    # The original planned 2-4m distance and STEP speed remain unchanged.
     if side_kick_active:
         step_duration_current *= SIDE_KICK_MOTION_TIME_MULTIPLIER
+        step_linear_fallback = false
+        step_signed_angle = 0.0
     side_kick_did_hit = false
     side_kick_hit_mask = 0
     side_kick_hit_count = 0
@@ -3152,67 +3163,102 @@ func _finish_side_step(resume_moving: bool) -> void:
     rig.call("finish_side_step", resume_moving, resume_fall)
     _refresh_step_status_ui()
 
+# v285: Opposite screen-side flicks select opposite world tangents around
+# the target. The arc is planned only when the second kick winds up, because
+# early Bash-style homing can move SERA closer to the target before that.
+# Use the same 2-4m planned path length, limited to 120deg at near-center.
+func _configure_side_kick_orbit() -> void:
+    var radial: Vector2 = Vector2(
+        player.position.x - target.position.x,
+        player.position.z - target.position.z)
+    var radius: float = radial.length()
+    step_target_center = Vector2(target.position.x, target.position.z)
+    step_start_offset = radial
+    var world_right: Vector3 = _screen_drag_to_ground(Vector2.RIGHT)
+    if world_right.length_squared() < 0.000001:
+        world_right = Vector3.RIGHT
+    var screen_right_xz: Vector2 = Vector2(world_right.x, world_right.z).normalized()
+    var tangent: Vector2 = Vector2(-radial.y, radial.x)
+    if radius >= STEP_MIN_ORBIT_RADIUS:
+        tangent /= radius
+    else:
+        tangent = screen_right_xz
+    var sign_to_screen_right: float = 1.0 if tangent.dot(screen_right_xz) >= 0.0 else -1.0
+    var orbit_sign: float = sign_to_screen_right * float(side_kick_side)
+    # At extreme near-center overlap a multi-revolution arc is unsafe.
+    # Match the existing dedicated side-STEP overlap fallback.
+    var min_orbit_radius: float = (STEP_MIN_ARC_LENGTH
+        / deg_to_rad(STEP_CLOSE_ORBIT_MAX_DEGREES))
+    step_linear_fallback = radius < min_orbit_radius
+    step_signed_angle = 0.0
+    if step_linear_fallback:
+        step_linear_offset = screen_right_xz * (
+            step_arc_length * float(side_kick_side))
+    else:
+        step_linear_offset = Vector2.ZERO
+        step_signed_angle = minf(
+            step_arc_length / radius,
+            deg_to_rad(STEP_CLOSE_ORBIT_MAX_DEGREES)) * orbit_sign
+
+
 func _advance_side_step(delta: float) -> void:
     if not step_active:
         return
-    # Linear path progression preserves the direction-dependent speed
-    # snapshotted at step start. The live touch flick always uses this
-    # screen/facing-aligned linear branch; legacy debug STEP orbit remains.
     var previous_progress: float = step_elapsed / step_duration_current
     step_elapsed = minf(step_duration_current, step_elapsed + delta)
-    # Timeline progress drives the authored kick pose and its two hit keys.
-    # Keep the first strike in place. The lateral STEP path begins only at
-    # each kick's actual second windup, and still moves at normal STEP speed.
-    # Finishing this travel before the animation ends preserves follow-through.
+    # The original first-hit and second-hit key times are unchanged.
     var progress: float = step_elapsed / step_duration_current
     var travel_progress: float = progress
     if side_kick_active:
         var second_windup: float = (SIDE_KICK_SECOND_WINDUP_R
             if side_kick_side > 0 else SIDE_KICK_SECOND_WINDUP_L)
-        # Bash-like homing can change the actor's position during the first
-        # kick. Anchor delayed STEP travel at the actual second windup,
-        # otherwise each physics tick would drag the actor back to takeoff.
+        # Chase only until second windup. If this tick crosses the key,
+        # use only the fraction BEFORE the key for homing, then snapshot
+        # the real position as the start of the circular second kick.
+        var previous_seconds: float = step_duration_current * previous_progress
+        var chase_until: float = minf(
+            BASH_TRACK_SECONDS, step_duration_current * second_windup)
+        var chase_dt: float = minf(
+            maxf(delta, 0.0), maxf(0.0, chase_until - previous_seconds))
+        if chase_dt > 0.0 and target_hp > 0 and not side_kick_travel_anchor_set:
+            _advance_homing_toward_target(chase_dt, BASH_REACH)
         if not side_kick_travel_anchor_set:
-            step_start_offset = Vector2(player.position.x - step_target_center.x,
-                player.position.z - step_target_center.y)
+            # Keep the radius anchored to the enemy throughout the first
+            # stationary foot kick, even if the target moves.
+            step_start_offset = Vector2(player.position.x - target.position.x,
+                player.position.z - target.position.z)
+            step_target_center = Vector2(target.position.x, target.position.z)
             if progress >= second_windup:
+                _configure_side_kick_orbit()
                 side_kick_travel_anchor_set = true
         travel_progress = clampf(
             (progress - second_windup) * SIDE_KICK_MOTION_TIME_MULTIPLIER,
             0.0, 1.0)
+        if side_kick_travel_anchor_set:
+            # The pivot follows a moving enemy, preserving target-centered
+            # orbit geometry without unswept character teleportation.
+            step_target_center = Vector2(target.position.x, target.position.z)
     var new_offset: Vector2 = step_start_offset + step_linear_offset * travel_progress
     if not step_linear_fallback:
         var initial_radius: float = step_start_offset.length()
-        var moved_radius: float = maxf(
-            STEP_MIN_ORBIT_RADIUS, initial_radius + step_radial_delta * travel_progress)
-        new_offset = (step_start_offset / initial_radius).rotated(
-            step_signed_angle * travel_progress) * moved_radius
+        if initial_radius >= STEP_MIN_ORBIT_RADIUS:
+            var moved_radius: float = maxf(
+                STEP_MIN_ORBIT_RADIUS, initial_radius + step_radial_delta * (
+                    0.0 if side_kick_active else travel_progress))
+            new_offset = (step_start_offset / initial_radius).rotated(
+                step_signed_angle * travel_progress) * moved_radius
     var requested: Vector3 = Vector3(
         step_target_center.x + new_offset.x - player.position.x,
         0.0,
         step_target_center.y + new_offset.y - player.position.z
     )
     var before: Vector3 = player.position
-    # Continuous sweep (not teleport): no step frame can pass through the box.
-    # Tangential remainder is allowed to slide along the box's sides.
+    # Physical swept collision remains mandatory, even along a curved arc.
     _move_player_swept(requested, true)
     step_traveled_distance += Vector2(
         player.position.x - before.x, player.position.z - before.z).length()
     if side_kick_active:
-        # During the first 0.2s of the kick, reuse Bash's live-target,
-        # energy-priced homing with swept collision (not a new teleport).
-        var chase_dt: float = minf(maxf(delta, 0.0),
-            maxf(0.0, BASH_TRACK_SECONDS - step_duration_current * previous_progress))
-        if chase_dt > 0.0 and target_hp > 0:
-            var before_homing: Vector3 = player.position
-            _advance_homing_toward_target(chase_dt, BASH_REACH)
-            if side_kick_travel_anchor_set:
-                # When early homing overlaps the second windup, carry its
-                # genuine displacement into the moving STEP anchor.
-                var homed: Vector3 = player.position - before_homing
-                step_start_offset += Vector2(homed.x, homed.z)
-        # Authored 24fps keys scale to the kick-only doubled action duration.
-        # Each straightened foot can register at most once, never a late hit.
+        # Original two foot-contact keys, damage/hitstop and 2x clip length.
         for i in range(SIDE_KICK_HIT_PROGRESS.size()):
             var impact_progress: float = float(SIDE_KICK_HIT_PROGRESS[i])
             var bit: int = 1 << i
@@ -3223,9 +3269,9 @@ func _advance_side_step(delta: float) -> void:
                 if target_hp > 0 and _distance_to_attack_target_surface(player.position) <= SIDE_KICK_REACH:
                     _register_side_kick_hit()
                     side_kick_hit_count += 1
-    # No Y/root-motion changes; preserve preexisting facing/camera pipeline.
     if step_elapsed >= step_duration_current:
         _finish_side_step(gesture_active and direction_input.length_squared() > 0.000001)
+
 
 func _move_player_swept(motion: Vector3, slide_on_wall: bool) -> void:
     # Used for the curved step and attack dash. move_and_collide() performs
@@ -4362,9 +4408,12 @@ func _process(delta: float) -> void:
         and combat_state == CombatState.IDLE and not step_active
         and (movement_boost_active or boost_pose_grace_remaining > 0.0))
     if step_active or close_step_camera_this_frame:
-        # Keep the camera's heading fixed for the COMMITTED step, so the
-        # visible trajectory stays aligned to the original screen gesture.
-        # Dolly/framing still updates below; yaw follows again after step.
+        # Ordinary screen-linear STEPs retain their committed camera yaw.
+        # During a side-kick ORBIT, follow the moving target->player bearing
+        # and enforce the tighter 45deg target-centered separation LIVE;
+        # a frozen yaw would defeat this angular limit until after the kick.
+        if step_active and side_kick_active and separation > 0.08:
+            camera_yaw = _close_step_target_relative_yaw(bearing, easing, delta)
         _place_camera()
         _update_side_from_screen()
     elif protect_close_step and separation > 0.08:
