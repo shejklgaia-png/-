@@ -2300,6 +2300,8 @@ func _end_drag(release_pos: Vector2) -> void:
         and gesture_max_travel <= (release_pos - pointer_origin).length() * BASH_FLICK_REVERSAL_RATIO)
     var side_kick_requested: bool = (side_kick_flick_candidate
         and not boost_has_activated_this_gesture)
+    var kick_started_eligible: bool = kick_touch_started_in_window
+    kick_touch_started_in_window = false
     bash_flick_candidate = false
     side_kick_flick_candidate = false
     # A completed BOOST gesture is never reinterpreted as a release flick;
@@ -2336,15 +2338,27 @@ func _end_drag(release_pos: Vector2) -> void:
     touch_ui.call("hide_drag")
     if damage_reaction_active or landing_active or suppress_release_action:
         return  # A gesture interrupted by damage never queues a step/attack.
-    # Actor-relative left/right: the screen-projected SERA facing is zero
-    # degrees. A 90-degree wedge around EACH side is exclusively a kick.
-    # Ordinary RUN/BOOST/STEP travel continues to use screen coordinates.
-    # Consume the gesture even if the kick cannot start.
+    # A valid screen-horizontal combo swipe MUST resolve to a kick before
+    # either actor-forward Bash or general 360-degree STEP. If it does not,
+    # show the reason in the existing debug panel for recorded phone tests.
+    var screen_sector: int = FLICK_DIRECTION_POLICY.sector_index(
+        release_pos - pointer_origin, Vector2.UP)
+    var recent_finisher: bool = (Time.get_ticks_msec() - last_melee3_finished_ms < 1600)
     if side_kick_requested and kick_flick_direction.length_squared() > 0.000001 \
             and _combo_kick_side_for_flick(kick_flick_direction) != 0:
         if _request_combo_side_kick(kick_flick_direction):
             touch_ui.call("show_flick_wake", pointer_origin, release_pos)
         return
+    if kick_started_eligible and screen_sector in [1, 3]:
+        if not side_kick_requested:
+            _record_kick_debug("HOLD >0.42s / BOOST")
+        elif kick_flick_direction.length_squared() < 0.000001:
+            _record_kick_debug("TOO SHORT / SLOW")
+        else:
+            _record_kick_debug("ANGLE")
+    elif recent_finisher and screen_sector in [1, 3] \
+            and (release_pos - pointer_origin).length() >= BASH_FLICK_MIN_FORWARD_PIXELS:
+        _record_kick_debug("WINDOW CLOSED")
     if bash_requested and _request_combo_bash():
         touch_ui.call("show_flick_wake", pointer_origin, release_pos)
         return
@@ -2629,14 +2643,17 @@ func _request_combo_side_kick(flick: Vector2) -> bool:
     if side == 0:
         return false
     if rig == null or not bool(rig.call("has_side_kick", side)):
+        _record_kick_debug("CLIP MISSING")
         return false
     if (combat_state == CombatState.STRIKE or combat_state == CombatState.STRIKE_TRACK) \
             and strike_index == STRIKE_CLIPS.size() - 1:
         buffered_side_kick_flick = flick.normalized()
         buffered_side_kick_side = side
         bash_queued = false  # Latest combo direction wins.
+        _record_kick_debug("QUEUED " + ("R" if side > 0 else "L"))
         return true
     if combat_state != CombatState.IDLE:
+        _record_kick_debug("STATE BLOCKED")
         return false
     return _launch_combo_side_kick(flick, side)
 
@@ -2648,6 +2665,8 @@ func _launch_combo_side_kick(flick: Vector2, side: int) -> bool:
     step_kick_side_request = side
     var started: bool = _start_omni_step(flick)
     step_kick_side_request = 0
+    _record_kick_debug(("START " + ("R" if side > 0 else "L")) if started
+        else "EN / ACTION BLOCKED")
     return started
 
 
