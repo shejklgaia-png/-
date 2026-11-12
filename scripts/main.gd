@@ -642,6 +642,14 @@ func _begin_training_ko() -> void:
         _set_guard(false)
     if step_active:
         _finish_side_step(false)
+    if back_somersault_active:
+        _cancel_back_somersault()
+    if landing_from_somersault:
+        landing_active = false
+        landing_elapsed = 0.0
+        landing_from_somersault = false
+        if rig != null:
+            rig.call("finish_jump", false, false)
     if combat_state != CombatState.IDLE:
         _cancel_attack()
     # Complete any ordinary action transitions before locking the KO pose.
@@ -988,6 +996,8 @@ func _begin_damage_reaction(incoming_direction: Vector3) -> void:
         return
     if step_active:
         _finish_side_step(false)
+    if back_somersault_active:
+        _cancel_back_somersault()
     if combat_state != CombatState.IDLE:
         _cancel_attack()
     # Cancel attack hit-stop / frozen sword pose before entering damage state.
@@ -1011,6 +1021,9 @@ func _begin_damage_reaction(incoming_direction: Vector3) -> void:
         # Real damage interrupts landing recovery. Damageknock has priority.
         landing_active = false
         landing_elapsed = 0.0
+        if landing_from_somersault:
+            landing_from_somersault = false
+            rig.call("finish_jump", false, false)
     rig.call("start_damage")
     damage_reaction_active = true
     if gesture_active:
@@ -2088,7 +2101,8 @@ func _guard_can_start() -> bool:
     return (not guard_active and not damage_reaction_active and down_remaining <= 0.0
         and not (energy_exhausted and bool(part_stats.get("energy_shield", false)))
         and guard_break_remaining <= 0.0 and not landing_active
-        and not jump_active and not step_active and combat_state == CombatState.IDLE
+        and not jump_active and not step_active and not back_somersault_active
+        and combat_state == CombatState.IDLE
         and rig != null and bool(rig.get("loading_ok")))
 
 func _set_guard(active: bool) -> void:
