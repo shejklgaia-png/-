@@ -65,7 +65,14 @@ advance = main.split("func _advance_side_step(delta: float)",1)[1].split("func _
 # a separate 2x kick action clock; the same travel value is used in both
 # orbit radius and arc, and equals progress for ordinary STEPs.
 assert "travel_progress" in advance
-assert "if side_kick_active else progress)" in advance
+# v285 changed kick travel to a post-windup target-centred orbit:
+# ordinary STEP still uses progress directly; kick motion uses a separate,
+# clamped and smooth radial interpolation so the second swing does not warp.
+assert "var travel_progress: float = progress" in advance
+assert "if side_kick_active:" in advance
+assert "(progress - second_windup) * SIDE_KICK_MOTION_TIME_MULTIPLIER" in advance
+assert "smoothstep(0.0, 0.65, travel_progress) if side_kick_active" in advance
+assert "else travel_progress)" in advance
 assert "initial_radius + step_radial_delta * travel_progress" in advance
 assert "step_signed_angle * travel_progress) * moved_radius" in advance
 assert "_move_player_swept(requested, true)" in advance
