@@ -25,8 +25,14 @@ func _run() -> void:
     if str(rig.get("current_clip")) != "Kick_b":
         _fail("authored Kick_b missing at start")
         return
+    game.set("locked_target_part_id", "")
+    game.set("target_hp", 500)
+    player.position = Vector3(0.0, 0.0, -5.5)
     var start: Vector3 = player.position
     game.call("_advance_back_somersault", 0.8)
+    if not bool(game.get("back_somersault_hit")):
+        _fail("rear flight requires confirmed kick contact")
+        return
     var end_position: Vector3 = player.position
     var actual_clip: Dictionary = (rig.get("animations") as Dictionary)["Kick_b"]
     var duration: float = float(actual_clip["length"])
