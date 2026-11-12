@@ -31,7 +31,7 @@ assert "other_contact" not in manual
 
 physics=main.split("func _physics_process(delta: float) -> void:",1)[1].split(
     "func _process(delta: float) -> void:",1)[0]
-assert '"select_camera_front_part", camera,' in physics
+assert "_acquire_stable_camera_part(delta, locked_part_broken)" in physics
 assert "if not combo_held:" in physics
 assert '"" if locked_part_broken else locked_target_part_id' in physics
 assert "player.look_at(player.global_position + aim, Vector3.UP)" in physics
