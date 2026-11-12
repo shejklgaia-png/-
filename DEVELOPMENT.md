@@ -1806,5 +1806,5 @@
 - Melee3 の最終フレーム終了後、既存の0.65秒派生受付中に画面左／右フリックを入力すると、それぞれ対応する蹴りクリップが登録済みの場合のみ発動するようにした。前方のBash派生、3段中の既存STEPキャンセルは維持。
 - 通常STEPの _start_omni_step を直接共有し、同じ画面基準の移動方向・距離2〜4m・最大0.4秒・装備別速度／EN・連続スイープ衝突・ステップ噴射／カメラを使用。蹴りのアニメーション再生時間はSTEP移動時間に同期。
 - 蹴り1回あたり1ヒット、移動50%以降の射程2mで判定。攻撃・破壊・怯みは暫定的に通常格闘1段目の装備パラメータを使用。蹴り中は自動ロック再選択しない。
-- モーションは実在する assets/sera_source.json を優先し、未登録の場合は models/SERA_BOOSTER_allテスト.bbmodel の Kick/蹴り名称クリップに含まれる既存骨格UUIDのトラックだけをロード。既存のモデルやモーションは変更しない。クリップ欠損・データ不正なら派生を発動せず通常STEPで安全に処理。
-- 2026-11-12 のGitHub mainでは左右蹴りクリップの同期を確認できなかったため、実機の蹴り表示は未検証。tools/v264_side_kick_followup_self_check.py を追加。Android／Godotでの実行結果は別途確認が必要。
+- モーションは実在する assets/sera_source.json を優先し、未登録の場合は models/storage/SERA_BOOSTER_allテスト (9).bbmodel の Kick/蹴り名称クリップに含まれる既存骨格UUIDのトラックだけをロード。既存のモデルやモーションは変更しない。クリップ欠損・データ不正なら派生を発動せず通常STEPで安全に処理。
+- 新しいAndroid同期コミット 6c22ffc（2026-11-12）で models/storage/SERA_BOOSTER_allテスト (9).bbmodel の Kick_l/Kick_r（各1秒）を確認した。両クリップのうち標準骨格22 UUIDが一致し、キーフレームを保持。これを実際のアニメーション読み込み先に指定した。tools/v264_side_kick_followup_self_check.py を既存CIへ登録。Godot/Androidのゲーム再生は未検証。
