@@ -95,6 +95,27 @@ func _run() -> void:
         return
     game.call("_advance_landing", 0.20)
 
+    # Confirm the animation's grounded windup still uses the normal
+    # target-following acceleration while out of contact range.
+    var chase_game: Node3D = _spawn()
+    var chase_player: CharacterBody3D = chase_game.get("player")
+    var chase_target: Node3D = chase_game.get("target")
+    chase_game.set("target_hp", 500)
+    chase_player.position = Vector3(0.0, 0.0, -3.5)
+    var chase_before: float = chase_player.position.distance_to(chase_target.position)
+    if not bool(chase_game.call("_start_back_somersault")):
+        _fail("grounded homing test could not begin Kick_b")
+        return
+    chase_game.call("_advance_back_somersault", 0.06)
+    var chase_after: float = chase_player.position.distance_to(chase_target.position)
+    if chase_after >= chase_before - 0.05:
+        _fail("Kick_b did not home during its pre-impact animation")
+        return
+    if bool(chase_game.get("back_somersault_launched")):
+        _fail("Kick_b launched during the pre-impact chase")
+        return
+    chase_game.call("_cancel_back_somersault")
+
     var miss_game: Node3D = _spawn()
     var miss_player: CharacterBody3D = miss_game.get("player")
     var miss_rig: Node3D = miss_game.get("rig")
