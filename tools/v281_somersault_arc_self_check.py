@@ -7,7 +7,7 @@ root = Path(__file__).resolve().parents[1]
 main = (root / "scripts/main.gd").read_text(encoding="utf-8")
 project = (root / "project.godot").read_text(encoding="utf-8")
 assert int(re.search(r'config/name="SERA v(\d+)"', project).group(1)) >= 281
-assert "BACK_SOMERSAULT_DISTANCE: float = 4.0" in main
+assert "BACK_SOMERSAULT_DISTANCE: float = 5.0" in main
 assert "BACK_SOMERSAULT_HEIGHT: float = 1.5" in main
 assert "BACK_SOMERSAULT_FLIGHT_SECONDS: float = 0.80" in main
 assert "BACK_SOMERSAULT_LANDING_SECONDS: float = 0.20" in main
