@@ -428,6 +428,7 @@ var blur_step_this_physics_frame: bool = false
 # v216: one acceleration flare for each STEP or new melee homing action,
 # not a continuous flicker while the action remains active.
 var thruster_accel_previous_step: bool = false
+var thruster_accel_previous_somersault: bool = false
 var thruster_accel_previous_tracking_state: int = -1
 # v36: One shared low-cost circular ground shadow for both combatants.
 var ground_shadow_mesh: CylinderMesh
@@ -3896,6 +3897,7 @@ func _physics_process(delta: float) -> void:
     var tracking_exhaust: bool = (
         combat_state == CombatState.DASH
         or combat_state == CombatState.BASH_TRACK
+        or combat_state == CombatState.BACK_KICK_TRACK
         or combat_state == CombatState.STRIKE_TRACK
         or (combat_state == CombatState.STRIKE and not strike_did_hit)
         or (combat_state == CombatState.BASH and not bash_did_hit))
@@ -3912,21 +3914,29 @@ func _physics_process(delta: float) -> void:
         or combat_state == CombatState.DASH
         or combat_state == CombatState.STRIKE_TRACK
         or combat_state == CombatState.STRIKE)
+    # Same physical nozzles, draw order, interpolation and shader as BOOST/STEP.
+    var normal_kick_exhaust: bool = (kick_side_this_frame != 0
+        or somersault_this_frame)
     var exhaust_on: bool = (not damage_reaction_active and not jump_active
         and not landing_active and not guard_active and not energy_exhausted
         and (boost_exhaust or boost_pose_exhaust or stepping_this_frame
-            or tracking_exhaust or normal_melee_exhaust))
+            or tracking_exhaust or normal_melee_exhaust or normal_kick_exhaust))
     # A short visual burst marks the *start* of high acceleration. STEP can
     # use move_and_collide() (not player.velocity); a homing attack must have
     # actual displacement before emitting, avoiding false wall-blocked jets.
     # Repeated strike/bash homing phases can restart a new flare when the
     # tracking state changes. Do not retrigger every physics frame.
     var tracking_accel_state: int = combat_state if tracking_exhaust else -1
+    # Launch backflip with the existing one-shot acceleration flare.
+    var new_somersault_burst: bool = (somersault_this_frame
+        and not thruster_accel_previous_somersault)
     var acceleration_burst: bool = (exhaust_on
         and ((stepping_this_frame and not thruster_accel_previous_step)
+            or new_somersault_burst
             or (tracking_accel_state >= 0
                 and tracking_accel_state != thruster_accel_previous_tracking_state)))
     thruster_accel_previous_step = stepping_this_frame
+    thruster_accel_previous_somersault = somersault_this_frame
     thruster_accel_previous_tracking_state = tracking_accel_state
     var direction_of_exhaust: Vector3 = -blur_velocity
     direction_of_exhaust.y = 0.0
@@ -3939,6 +3949,9 @@ func _physics_process(delta: float) -> void:
             direction_of_exhaust = -requested_boost.normalized()
     elif boost_pose_exhaust and held_boost_exhaust_direction.length_squared() > 0.000001:
         direction_of_exhaust = held_boost_exhaust_direction
+    if somersault_this_frame:
+        # The jets point opposite the exact rearward trajectory.
+        direction_of_exhaust = -back_somersault_direction
     if normal_melee_exhaust and not tracking_exhaust:
         # Full melee follow-through can have tiny collision/hit-stop position
         # jitter even while the blade is still airborne. Never steer these
@@ -3966,6 +3979,8 @@ func _physics_process(delta: float) -> void:
         # Legacy dedicated Backstep has no omnidirectional flick vector.
         if step_side_this_frame == STEP_BACK and step_flick_this_frame.is_zero_approx():
             backstroke_weight = 1.0
+    elif somersault_this_frame:
+        backstroke_weight = 1.0
     elif boost_exhaust or boost_pose_exhaust:
         var intended_boost: Vector3 = _screen_drag_to_ground(direction_input)
         if intended_boost.length_squared() > 0.000001:
@@ -4012,7 +4027,7 @@ func _physics_process(delta: float) -> void:
         held_boost_left_sector_world = Vector3.ZERO
     rig.call("update_back_thruster_fx", exhaust_on,
         direction_of_exhaust.normalized(), delta, backstroke_weight,
-        left_sector_world, acceleration_burst, normal_melee_exhaust)
+        left_sector_world, acceleration_burst, normal_melee_exhaust or normal_kick_exhaust)
     _update_melee_lock_marker()  # Update after player movement and auto-approach.
     # The idle HUD shows lateral step speed; equipment changes still refresh it.
     if not step_active and step_status_label != null:
