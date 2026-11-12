@@ -19,6 +19,9 @@ const B_SET_TINT: Color = Color(1.0, 0.18, 0.18, 1.0)
 var rig: Node3D
 var available: Dictionary = {}  # set letter -> slot -> Array[MeshInstance3D]
 var selected: Dictionary = {}
+# Katana is right-weapon set K: sheath left, exposed blade right.
+var katana_saya_meshes: Array[MeshInstance3D] = []
+var katana_drawn_meshes: Array[MeshInstance3D] = []
 # Both selectable booster sets have their own two nozzle effects.
 var back_thruster_effects: Dictionary = {}
 # Per-set bind-pose feet. The base reference is measured once with no motion
@@ -101,6 +104,25 @@ func _apply_part_visibility() -> void:
             for raw_piece in parts[slot]:
                 var piece: MeshInstance3D = raw_piece
                 piece.visible = set_id == str(selected.get(slot, "A"))
+    update_katana_visibility(str(rig.get("current_clip")), float(rig.get("clip_time")))
+
+# Blockbench uses 24FPS. Fourth frame starts at 3 / 24 = 0.125 s.
+func update_katana_visibility(clip_name: String, t: float) -> void:
+    var equipped: bool = str(selected.get("weapon_r", "A")) == "K"
+    var drawn: bool = equipped and clip_name == "Melee_katana" and t >= 3.0 / 24.0 - 0.00001
+    var changed: bool = false
+    for piece in katana_saya_meshes:
+        var visible_now: bool = equipped and not drawn
+        if piece.visible != visible_now:
+            piece.visible = visible_now
+            changed = true
+    for piece in katana_drawn_meshes:
+        var visible_now: bool = equipped and drawn
+        if piece.visible != visible_now:
+            piece.visible = visible_now
+            changed = true
+    if changed:
+        _sync_afterimage_visibility()
 
 func set_grounding_enabled(enabled: bool) -> void:
     grounding_enabled = enabled
@@ -447,7 +469,15 @@ func _collect_original_meshes(root: Node) -> void:
     for child in root.get_children():
         if child is MeshInstance3D:
             var slot: String = _slot_for_bone(child.get_parent())
-            if bool(child.get_meta("sera_bird_leg", false)):
+            var katana_role: String = _katana_role(child.get_parent())
+            if not katana_role.is_empty():
+                child.set_meta("sera_equipment_set", "K")
+                _add_mesh("K", "weapon_r", child)
+                if katana_role == "drawn":
+                    katana_drawn_meshes.append(child)
+                else:
+                    katana_saya_meshes.append(child)
+            elif bool(child.get_meta("sera_bird_leg", false)):
                 # Existing reverse-jointed lower body now occupies C, freeing
                 # D for the new complete standard-skeleton lower-body set.
                 _add_mesh("C", "legs", child)
@@ -455,6 +485,17 @@ func _collect_original_meshes(root: Node) -> void:
                 _add_mesh("A", slot, child)
         else:
             _collect_original_meshes(child)
+
+func _katana_role(node: Node) -> String:
+    var parent: Node = node
+    while parent != null and parent != rig:
+        var group_name: String = str(parent.name).to_lower()
+        if group_name == "katana_r_nukimi":
+            return "drawn"
+        if group_name.begins_with("katana_"):
+            return "saya"
+        parent = parent.get_parent()
+    return ""
 
 func _add_mesh(set_id: String, slot: String, mesh: MeshInstance3D) -> void:
     if not available.has(set_id):
