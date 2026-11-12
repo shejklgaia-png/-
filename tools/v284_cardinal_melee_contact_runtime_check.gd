@@ -1,0 +1,119 @@
+extends SceneTree
+## Godot regression for absolute screen flicks and grounded-contact Kick_b.
+const HIT_TIME: float = 0.80 * (0.20833 / 0.79167)
+const FLIGHT_TIME: float = 0.80 - HIT_TIME
+
+func _initialize() -> void:
+    call_deferred("_run")
+
+
+func _fail(message: String) -> void:
+    push_error("V284_CARDINAL_MELEE_CONTACT_FAILED: " + message)
+    quit(1)
+
+
+func _spawn() -> Node3D:
+    var scene: PackedScene = load("res://scenes/main.tscn")
+    var game: Node3D = scene.instantiate()
+    root.add_child(game)
+    var player: CharacterBody3D = game.get("player")
+    game.set("locked_target_part_id", "")
+    player.position = Vector3(0.0, 0.0, -5.5)
+    game.set("energy", 100.0)
+    return game
+
+
+func _run() -> void:
+    var game: Node3D = _spawn()
+    var player: CharacterBody3D = game.get("player")
+    var target: Node3D = game.get("target")
+    var rig: Node3D = game.get("rig")
+    if player == null or target == null or rig == null or not bool(rig.get("loading_ok")):
+        _fail("scene or model not loaded")
+        return
+    for front in [Vector2.UP, Vector2.RIGHT, Vector2.DOWN, Vector2.LEFT]:
+        game.set("gesture_screen_forward", front)
+        for heading in [Vector2.UP, Vector2.RIGHT, Vector2.DOWN, Vector2.LEFT]:
+            var expected: int = 1 if heading == Vector2.RIGHT else (
+                -1 if heading == Vector2.LEFT else (2 if heading == Vector2.DOWN else 0))
+            if int(game.call("_combo_kick_side_for_flick", heading)) != expected:
+                _fail("screen-fixed attack quadrant changed with actor facing")
+                return
+    if not bool(game.call("_is_character_forward_flick", Vector2.UP * 70.0, 0.2)):
+        _fail("screen-UP Bash classifier did not accept a valid flick")
+        return
+    if bool(game.call("_is_character_forward_flick", Vector2.DOWN * 70.0, 0.2)):
+        _fail("screen-DOWN was mistaken for Bash")
+        return
+    if absf(float(game.call("_melee3_flick_cancel_time")) - 0.675) > 0.00001:
+        _fail("finisher cancel is not 50ms after the authored stroke")
+        return
+
+    game.set("target_hp", 500)
+    var start: Vector3 = player.position
+    if not bool(game.call("_start_back_somersault")):
+        _fail("Kick_b failed to start")
+        return
+    game.call("_advance_back_somersault", HIT_TIME * 0.5)
+    if bool(game.get("back_somersault_launched")) or player.position.distance_to(start) > 0.03:
+        _fail("rear jump started before the kick made contact")
+        return
+    if str(rig.get("current_clip")) != "Kick_b":
+        _fail("original Kick_b was not playing before hit")
+        return
+    game.call("_advance_back_somersault", HIT_TIME * 0.5)
+    if not bool(game.get("back_somersault_hit_checked")):
+        _fail("authored hit frame was skipped")
+        return
+    if not bool(game.get("back_somersault_hit")) or not bool(game.get("back_somersault_launched")):
+        _fail("successful foot contact did not trigger rear takeoff")
+        return
+    var takeoff: Vector3 = player.position
+    if takeoff.distance_to(start) > 0.03:
+        _fail("hit triggered rear movement before takeoff")
+        return
+    var back: Vector3 = game.get("back_somersault_direction")
+    target.position.z -= 6.0  # homing must NOT resume after impact
+    game.call("_advance_back_somersault", FLIGHT_TIME * 0.5)
+    if absf(player.position.y - 1.5) > 0.10:
+        _fail("flight did not reach 1.5m apex")
+        return
+    if absf((player.position - takeoff).dot(back) - 2.0) > 0.12:
+        _fail("flight is not midway through the 4m Bezier retreat")
+        return
+    game.call("_advance_back_somersault", FLIGHT_TIME * 0.5)
+    if absf((player.position - takeoff).dot(back) - 4.0) > 0.12:
+        _fail("rear retreat did not finish 4m from impact")
+        return
+    if not bool(game.get("back_somersault_active")):
+        _fail("authored final pose was cut before render")
+        return
+    rig.call("_process", 0.07)
+    game.call("_advance_back_somersault", 0.016)
+    if not bool(game.get("landing_active")):
+        _fail("landed flight did not enter the 0.2s landing")
+        return
+    game.call("_advance_landing", 0.20)
+
+    var miss_game: Node3D = _spawn()
+    var miss_player: CharacterBody3D = miss_game.get("player")
+    var miss_rig: Node3D = miss_game.get("rig")
+    miss_game.set("target_hp", 0)
+    var miss_start: Vector3 = miss_player.position
+    if not bool(miss_game.call("_start_back_somersault")):
+        _fail("miss test could not start Kick_b")
+        return
+    miss_game.call("_advance_back_somersault", 0.80)
+    if bool(miss_game.get("back_somersault_launched")):
+        _fail("missed attack still launched a rear jump")
+        return
+    if miss_player.position.distance_to(miss_start) > 0.03:
+        _fail("missed Kick_b displaced the player")
+        return
+    miss_rig.call("_process", 0.07)
+    miss_game.call("_advance_back_somersault", 0.016)
+    if bool(miss_game.get("landing_active")) or bool(miss_game.get("back_somersault_active")):
+        _fail("missed Kick_b incorrectly entered airborne landing or stayed locked")
+        return
+    print("GODOT_V284_CARDINAL_MELEE_CONTACT_PASS: screen cardinal, 0.675s cancel, hit-only homing-to-arc and miss cleanup")
+    quit(0)
