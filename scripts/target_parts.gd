@@ -9,6 +9,11 @@ const PART_ORDER = ["head", "leg_fl", "leg_fr", "leg_rl", "leg_rr"]
 const LEG_IDS = ["leg_fl", "leg_fr", "leg_rl", "leg_rr"]
 const SELECTION_HYSTERESIS_RADIANS: float = 0.13
 const CORE_DEFENSE: float = 0.14
+# v289: use the same dark-red contact flash and wobble as the central boss.
+const PART_HIT_DARK_COLOR: Color = Color("632535")
+const PART_HIT_GLOW_COLOR: Color = Color("6b1727")
+const PART_HIT_WOBBLE_METERS: float = 0.09
+const PART_HIT_WOBBLE_DEGREES: float = 6.0
 
 var parts: Dictionary = {}
 
@@ -21,10 +26,10 @@ func _ready() -> void:
         100.0, 0.20, 0.10, "change", Color("da755a"))
     _add_part("leg_fl", "FRONT L", Vector3(-1.23, -0.53, 1.27),
         Vector3(2.24, 2.00, 1.36), Vector3(-0.78, -0.27, 0.52),
-        100.0, 0.12, 0.00, "remove", Color("b9604c"))
+        100.0, 0.12, 0.00, "remain", Color("b9604c"))
     _add_part("leg_fr", "FRONT R", Vector3(1.23, -0.53, 1.27),
         Vector3(2.24, 2.00, 1.36), Vector3(0.78, -0.27, 0.52),
-        100.0, 0.12, 0.00, "remove", Color("b9604c"))
+        100.0, 0.12, 0.00, "remain", Color("b9604c"))
     _add_part("leg_rl", "REAR L", Vector3(-1.23, -0.53, -1.27),
         Vector3(2.24, 2.00, 1.36), Vector3(-0.78, -0.27, -0.52),
         100.0, 0.16, 0.12, "remain", Color("a95043"))
@@ -139,7 +144,12 @@ func _add_part(id: String, display: String, center: Vector3,
         "integrity": integrity, "defense": defense,
         "break_defense": break_defense, "break_mode": break_mode,
         "broken": false, "shell": shell, "accent": accent,
-        "original_color": color, "fracture": fracture,
+        "frame": frame, "dark": dark, "rest_position": center,
+        "original_color": color, "rest_shell": color,
+        "rest_accent": Color("5d4140"),
+        "rest_frame": Color("39444d"), "rest_dark": Color("283039"),
+        "hit_fx_remaining": 0.0, "hit_fx_duration": 0.145,
+        "fracture": fracture,
         "hp_share": EACH_PART_HP_SHARE
     }
 
@@ -220,16 +230,63 @@ func reset_parts() -> void:
         var part: Dictionary = parts[id]
         part["integrity"] = part["max_integrity"]
         part["broken"] = false
+        part["hit_fx_remaining"] = 0.0
+        part["rest_shell"] = part["original_color"]
+        part["rest_accent"] = Color("5d4140")
         _set_part_movement_collision(id, true)
         var pivot: Node3D = part["node"]
         pivot.visible = true
-        var shell: StandardMaterial3D = part["shell"]
-        shell.albedo_color = part["original_color"]
-        var accent: StandardMaterial3D = part["accent"]
-        accent.albedo_color = Color("5d4140")
+        pivot.position = part["rest_position"]
+        pivot.rotation_degrees = Vector3.ZERO
         var fracture: MeshInstance3D = part["fracture"]
         if fracture != null:
             fracture.visible = false
+        _set_part_hit_visual(id, 0.0)
+
+
+# A broken part remains addressable until the current combo ends, even
+# though AUTO/MANUAL new-target selection excludes broken candidates.
+func has_part(id: String) -> bool:
+    return parts.has(id)
+
+
+func trigger_part_hit_fx(id: String, duration: float) -> void:
+    if not has_part(id):
+        return
+    var part: Dictionary = parts[id]
+    part["hit_fx_duration"] = maxf(0.001, duration)
+    part["hit_fx_remaining"] = part["hit_fx_duration"]
+
+
+# Same .145s dark-red albedo, subdued glow and wobble as the boss core,
+# but only the struck part's unique materials and visual pivot are affected.
+func _set_part_hit_visual(id: String, ratio: float) -> void:
+    var part: Dictionary = parts[id]
+    var mix: float = clampf(ratio, 0.0, 1.0)
+    for slot in ["shell", "accent", "frame", "dark"]:
+        var material: StandardMaterial3D = part[slot]
+        var base: Color = part["rest_" + slot]
+        material.albedo_color = base.lerp(PART_HIT_DARK_COLOR, mix * 0.78)
+        material.emission_enabled = mix > 0.0
+        material.emission = PART_HIT_GLOW_COLOR
+        material.emission_energy_multiplier = lerpf(0.08, 0.03, mix)
+    var pivot: Node3D = part["node"]
+    var wobble: float = sin((1.0 - mix) * 44.0) * PART_HIT_WOBBLE_METERS * mix
+    pivot.position = (part["rest_position"] as Vector3) + Vector3(wobble, 0.0, 0.0)
+    pivot.rotation_degrees.z = sin((1.0 - mix) * 22.0) * (
+        PART_HIT_WOBBLE_DEGREES * mix)
+
+
+func advance_part_hit_fx(delta: float) -> void:
+    for id in PART_ORDER:
+        var part: Dictionary = parts[id]
+        var remaining: float = float(part["hit_fx_remaining"])
+        if remaining <= 0.0:
+            continue
+        remaining = maxf(0.0, remaining - maxf(delta, 0.0))
+        part["hit_fx_remaining"] = remaining
+        _set_part_hit_visual(id, remaining / float(part["hit_fx_duration"]))
+
 
 func is_targetable(id: String) -> bool:
     return parts.has(id) and not bool(parts[id]["broken"])
@@ -313,24 +370,19 @@ func apply_part_hit(id: String, raw_attack: float, raw_break: float) -> Dictiona
     if old_hp > 0.0 and float(part["integrity"]) <= 0.0:
         part["broken"] = true
         var pivot: Node3D = part["node"]
-        var mode: String = str(part["break_mode"])
-        if mode == "remove":
-            pivot.visible = false
-        elif mode == "change":
-            var shell: StandardMaterial3D = part["shell"]
-            shell.albedo_color = Color("5b6570")
+        # Keep all destroyed limbs drawn and collidable; never remove
+        # the front legs from the world on their breaking hit.
+        pivot.visible = true
+        if effective_id == "head":
+            part["rest_shell"] = Color("5b6570")
             var fracture: MeshInstance3D = part["fracture"]
             if fracture != null:
                 fracture.visible = true
         else:
-            var shell: StandardMaterial3D = part["shell"]
-            shell.albedo_color = Color("4c555d")
-            var accent: StandardMaterial3D = part["accent"]
-            accent.albedo_color = Color("283039")
-        # Hide solids only when the corresponding visual part is removed.
-        # HEAD ("change") and rear legs ("remain") continue blocking
-        # movement, while the now-visible fractured head armor becomes solid.
-        _set_part_movement_collision(effective_id, mode != "remove")
+            part["rest_shell"] = Color("4c555d")
+            part["rest_accent"] = Color("283039")
+        _set_part_movement_collision(effective_id, true)
+        # The current hit timer flashes over this permanent broken palette.
         result["broken"] = true
         result["kind"] = "head" if effective_id == "head" else "leg"
         result["broken_legs"] = broken_leg_count()
@@ -338,9 +390,14 @@ func apply_part_hit(id: String, raw_attack: float, raw_break: float) -> Dictiona
 
 func select_front_part(origin: Vector3, forward: Vector3,
         current: String, core_box: AABB) -> String:
-    # Use a shallow vertical weight: this is primarily SERA's facing angle,
-    # not distance-to-center or camera position. Broken parts are excluded.
-    var desired: Vector3 = Vector3(forward.x, 0.0, forward.z).normalized()
+    # The whole enemy's center (the CAMERA ROTATION AXIS), not the
+    # previously selected part, defines SERA's forward sightline.
+    var enemy_pivot: Node3D = get_parent().get_parent() as Node3D
+    var to_center: Vector3 = (enemy_pivot.global_position - origin
+        if enemy_pivot != null else forward)
+    var desired: Vector3 = Vector3(to_center.x, 0.0, to_center.z).normalized()
+    if desired.length_squared() < 0.000001:
+        desired = Vector3(forward.x, 0.0, forward.z).normalized()
     if desired.length_squared() < 0.000001:
         return current if is_targetable(current) else ""
     var best_id: String = ""
@@ -351,15 +408,16 @@ func select_front_part(origin: Vector3, forward: Vector3,
             continue
         var aim: Vector3 = get_part_aim_world(id)
         var toward: Vector3 = aim - origin
-        if toward.length_squared() < 0.000001:
+        var flat_toward: Vector3 = Vector3(toward.x, 0.0, toward.z)
+        var straight_depth: float = desired.dot(flat_toward)
+        # Ignore limbs behind SERA; rank viable parts by their angular
+        # deviation from SERA->whole-boss center, not camera screen X.
+        if straight_depth <= 0.0 or flat_toward.length_squared() < 0.000001:
             continue
-        # Exclude an exterior limb behind the solid core from this vantage.
         var core_contact: Variant = core_box.intersects_segment(origin, aim)
         if core_contact != null and origin.distance_to(core_contact) < (
                 toward.length() - 0.22):
             continue
-        # A front leg can also hide a rear leg below the central box.
-        # Remove occluded candidates, but not already-removed armor.
         var hidden_by_limb: bool = false
         for other_id in PART_ORDER:
             if other_id == id:
@@ -375,17 +433,19 @@ func select_front_part(origin: Vector3, forward: Vector3,
                 break
         if hidden_by_limb:
             continue
-        var adjusted: Vector3 = Vector3(
-            toward.x, toward.y * 0.35, toward.z).normalized()
-        var score: float = acos(clampf(desired.dot(adjusted), -1.0, 1.0))
+        var lateral: float = absf(desired.cross(flat_toward).y)
+        var score: float = atan2(lateral, straight_depth)
+        score += 0.12 * absf(toward.y) / maxf(0.3, flat_toward.length())
         if id == current:
             old_score = score
         if score < best_score:
             best_score = score
             best_id = id
-    if is_targetable(current) and old_score < INF             and old_score <= best_score + SELECTION_HYSTERESIS_RADIANS:
+    if is_targetable(current) and old_score < INF \
+            and old_score <= best_score + SELECTION_HYSTERESIS_RADIANS:
         return current
     return best_id
+
 
 func get_visible_part_ids(origin: Vector3, core_box: AABB) -> Array[String]:
     # Manual selection uses the camera's line of sight but exactly the same
