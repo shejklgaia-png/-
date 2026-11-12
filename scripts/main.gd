@@ -4384,7 +4384,8 @@ func _process(delta: float) -> void:
     var active_attack_camera: bool = (
         combat_state != CombatState.IDLE
         or side_kick_active or back_somersault_active
-        or landing_active or hit_stop_remaining > 0.0)
+        or landing_active or damage_reaction_active
+        or hit_stop_remaining > 0.0)
     if active_attack_camera:
         camera_combat_hold_remaining = CAMERA_COMBAT_YAW_HOLD_SECONDS
     else:
