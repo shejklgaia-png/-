@@ -1,5 +1,5 @@
 extends SceneTree
-## Legacy v286: safe target-centered kick + unobstructed lower LOCK UI.
+## Legacy v286: fixed 3m lock-centered kick + unobstructed lower LOCK UI.
 ## v287 deliberately removed v286's overhead and every-frame yaw search.
 func _initialize() -> void:
     call_deferred("_run")
@@ -71,16 +71,24 @@ func _run() -> void:
     if not bool(game.get("side_kick_travel_anchor_set")):
         _fail("Kick_r orbit did not anchor at second windup")
         return
-    var planned_outward: float = float(game.get("step_radial_delta"))
-    if absf(planned_outward - 0.55)>0.01:
-        _fail("kick lost smooth safe-radius clearance")
+    # v300: the old outward radius inflation was removed. The kick now
+    # budgets exactly 3m between the part-centered circular phase and the
+    # straight tangent after hit 2, and never teleports the character root.
+    var planned_arc: float = float(game.get("step_start_offset")).length() * absf(
+        float(game.get("step_signed_angle")))
+    var planned_line: float = float(game.get("side_kick_linear_distance"))
+    if absf(planned_arc + planned_line - 3.0) > 0.001:
+        _fail("new fixed 3m kick plan exceeded its orbit-plus-line budget")
         return
-    if player.position.distance_to(original)>0.05:
-        _fail("safe-radius correction teleported the character")
+    if player.position.distance_to(original) > 0.05:
+        _fail("kick snapped before authored second windup")
         return
-    game.call("_advance_side_step",duration*0.35)
-    if Vector2(player.position.x,player.position.z).length() < 2.9:
-        _fail("enemy-centered orbit pulled SERA inside target")
+    game.call("_advance_side_step", duration * 0.25)
+    if not bool(game.get("side_kick_linear_active")):
+        _fail("kick did not exit orbit after second contact")
         return
-    print("GODOT_V286_CLOSE_CAMERA_CLEARANCE_PASS: low pitch, safe radius, lower LOCK buttons")
+    if player.position.distance_to(original) > 3.1:
+        _fail("kick exceeded its 3m boost budget or teleported")
+        return
+    print("GODOT_V286_CLOSE_CAMERA_CLEARANCE_PASS: low pitch, 3m fixed kick budget, lower LOCK buttons")
     quit(0)
