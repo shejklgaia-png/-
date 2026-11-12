@@ -12,8 +12,9 @@
 - 蹴り中はロック部位を保持し、終了後に通常STEPと同じ待機・入力処理へ戻します。
 
 ## Blockbenchモーションの取り扱い
-- `scripts/sera_rig.gd` は、`assets/sera_source.json` の実在クリップを優先し、未登録なら同期済みの `models/SERA_BOOSTER_allテスト.bbmodel` から**蹴りのアニメーショントラックだけ**を追加ロードします。`Kick_L`/`Kick_R`、`KickLeft`/`KickRight`、`左蹴り`/`右蹴り` 等に対応し、移動時間に合わせて再生速度を調整します。モデルや他クリップは上書きしません。長さ・有効ボーントラックのないクリップは蹴りとして使用しません。
-- **2026-11-12 に確認したGitHub `main` の `assets/sera_source.json` および `models/SERA_BOOSTER_allテスト.bbmodel` には、左右蹴りのクリップはまだ入っていません。**この段階では安全のため左右蹴り派生を発動せず、従来の左右STEPに戻します。制作済みの左右モーションを同一骨格の統合BlockbenchファイルとしてGitHubへ同期すれば、実行時に蹴りトラックを読み込めます。配布版でモデル原本を同梱しない場合は `assets/sera_source.json` への統合と `assets/sera_data.gd` の再生成が必要です。
+- `scripts/sera_rig.gd` は、`assets/sera_source.json` の実在クリップを優先し、未登録なら2026-11-12に同期された `models/storage/SERA_BOOSTER_allテスト (9).bbmodel` の **`Kick_l`・`Kick_r`（いずれも1.0秒）**のアニメーショントラックだけを追加ロードします。`Kick_L`/`Kick_R`、`KickLeft`/`KickRight`、`左蹴り`/`右蹴り` 等に対応し、移動時間に合わせて再生速度を調整します。モデルや他クリップは上書きしません。長さ・有効ボーントラックのないクリップは蹴りとして使用しません。
+- GitHubの新規同期コミット `6c22ffcc` を確認しました。両蹴りとも既存の22個の標準骨格UUIDに対応したキーフレームを保持しています。追加モデルは新規ファイルとしてmainにあり、このPRでは元データを変更しません。GitHub上でのコード確認と実機のモーション表示は別です。
+- もし実行環境から上記Blockbench原本を参照できない場合は、蹴りを発動せず通常STEPへ戻します。配布版で原本を同梱しない場合には、`assets/sera_source.json` と `assets/sera_data.gd` への正式統合が必要です。
 - Godot/Android実機での表示・モーション・入力感は未確認です。
 
 ## 変更範囲
