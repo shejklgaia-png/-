@@ -74,10 +74,10 @@ assert "var world_step: Vector3 = _screen_drag_to_ground(direction)" in step
 assert 'rig.call("start_side_kick", step_kick_side_request, step_duration_current)' in step
 
 # v283: kick is queued through the authored strike-through key (0.625s),
-# then dispatched at 0.725s. No queue means full 0.83333s Melee3 and
+# then dispatched at 0.675s. No queue means full 0.83333s Melee3 and
 # unchanged first-strike availability, with normal idle cleanup at clip end.
 handoff = body("_finish_strike_and_release_queued_kick() -> void:", "_advance_attack")
-assert "MELEE3_FLICK_CANCEL_DELAY: float = 0.10" in main
+assert "MELEE3_FLICK_CANCEL_DELAY: float = 0.05" in main
 assert "float(rig.call(\"get_clip_time\")) >= _melee3_flick_cancel_time()" in advance
 assert "and (bash_queued or buffered_side_kick_side != 0)" in advance
 assert "if rig.call(\"clip_finished\", _active_strike_clip(strike_index)):" in advance
@@ -93,7 +93,7 @@ assert "buffered_side_kick_side = 0" in cancel
 assert "buffered_side_kick_side = 0" in bash_start
 assert "buffered_side_kick_side = 0" in bash_request
 assert "buffered_side_kick_side = 0" in strike
-print("PASS: v283 0.1s post-swing cancel for queued kicks; full unqueued clip and cleanup")
+print("PASS: v284 0.05s post-swing cancel for queued kicks; full unqueued clip and cleanup")
 
 # Render current behavior explicitly in the same debug HUD the user recorded.
 assert '"STRIKE 3/3  |  KICK QUEUED"' in physics
