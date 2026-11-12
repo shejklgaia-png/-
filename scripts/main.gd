@@ -80,6 +80,9 @@ const JUMP_HEIGHT: float = 1.50  # fixed world-space apex above takeoff plane
 # Unlike archived ordinary Jump, this is a dedicated combo action.
 const BACK_SOMERSAULT_DISTANCE: float = 4.0
 const BACK_SOMERSAULT_HEIGHT: float = 1.5
+# Symmetrical cubic Bezier controls at 4/3 of the actual 1.5m apex.
+# Starts vertically, moves fastest near its peak, ends vertically.
+const BACK_SOMERSAULT_ARC_CONTROL_HEIGHT_RATIO: float = 4.0 / 3.0
 const BACK_SOMERSAULT_FLIGHT_SECONDS: float = 0.80
 const BACK_SOMERSAULT_LANDING_SECONDS: float = 0.20
 const BACK_SOMERSAULT_VISUAL_PIVOT_HEIGHT: float = 0.90
@@ -2806,6 +2809,20 @@ func _start_back_somersault() -> bool:
     return true
 
 
+# v281: One geometric Bezier arc drives BOTH horizontal displacement and
+# altitude, avoiding a linear XZ slide pasted onto an independent jump.
+# P0=(0,0), P1=(0,2m), P2=(4m,2m), P3=(4m,0) for the standard kick.
+# At t=0.5 this gives 2m rear travel and 1.5m genuine apex; it also
+# approaches launch and landing with vertical tangents (no horizontal pop).
+func _back_somersault_arc_offset(progress: float) -> Vector3:
+    var p: float = clampf(progress, 0.0, 1.0)
+    var finish: Vector3 = back_somersault_direction * BACK_SOMERSAULT_DISTANCE
+    var control_up: Vector3 = Vector3.UP * (
+        BACK_SOMERSAULT_HEIGHT * BACK_SOMERSAULT_ARC_CONTROL_HEIGHT_RATIO)
+    return Vector3.ZERO.bezier_interpolate(
+        control_up, finish + control_up, finish, p)
+
+
 func _advance_back_somersault(delta: float) -> void:
     if not back_somersault_active:
         return
@@ -2815,12 +2832,14 @@ func _advance_back_somersault(delta: float) -> void:
         BACK_SOMERSAULT_FLIGHT_SECONDS, back_somersault_elapsed + maxf(0.0, delta))
     var progress: float = clampf(
         back_somersault_elapsed / BACK_SOMERSAULT_FLIGHT_SECONDS, 0.0, 1.0)
-    # Swept horizontal move: walls stop the 4m travel instead of allowing
-    # a teleport through the boss or arena obstacles.
-    var requested: Vector3 = back_somersault_direction * (
-        BACK_SOMERSAULT_DISTANCE * (progress - previous))
-    _move_player_swept(requested, true)
-    var wanted_y: float = BACK_SOMERSAULT_HEIGHT * sin(PI * progress)
+    # Integrate the same fixed Bezier arc by successive displacements.
+    # Swept collision on the horizontal component stops the character
+    # safely at walls; do not recompute a path from the obstructed position.
+    var previous_offset: Vector3 = _back_somersault_arc_offset(previous)
+    var next_offset: Vector3 = _back_somersault_arc_offset(progress)
+    var arc_delta: Vector3 = next_offset - previous_offset
+    _move_player_swept(Vector3(arc_delta.x, 0.0, arc_delta.z), true)
+    var wanted_y: float = back_somersault_start.y + next_offset.y
     var vertical_delta: float = wanted_y - player.position.y
     if absf(vertical_delta) > 0.000001:
         player.move_and_collide(Vector3.UP * vertical_delta)
