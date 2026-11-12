@@ -39,11 +39,11 @@ assert 'pivot.visible = false' not in p
 assert 'fracture.visible = true' in p
 assert 'return (defenses[2] + defenses[3]) * 0.5' in p
 assert 'not bool(parts[id]["broken"])' in p
-assert "core_box.intersects_segment(origin, aim)" in p
-assert "hidden_by_limb: bool = false" in p
-assert "get_part_aabb(other_id).intersects_segment(" in p
-assert "if not other_node.visible:" in p
-assert "best_score + SELECTION_HYSTERESIS_RADIANS" in p
+assert "func select_camera_front_part(view_camera: Camera3D, current: String) -> String:" in p
+assert "view_camera.unproject_position(aim)" in p
+assert "core_box.intersects_segment(origin, aim)" not in p
+assert "hidden_by_limb: bool = false" not in p
+assert "current_score <= best_score + CAMERA_PART_LOCK_HYSTERESIS" in p
 assert 'if not is_targetable(id):' in p
 
 # No edits to the original central collision geometry or camera target.
@@ -76,7 +76,7 @@ assert '"melee", strike_damage,' in m
 assert '"bash", bash_damage,' in m
 assert 'if target_hp > 0 and (not manual_part_lock_active or locked_part_broken):' in m
 assert 'not manual_part_lock_active or locked_part_broken' in m
-assert '"select_front_part",' in m
+assert '"select_camera_front_part", camera,' in m
 assert '"get_part_aim_world", locked_target_part_id' in m
 assert 'pursuit_point = target_parts.call("get_part_aim_world", locked_target_part_id)' in m
 assert 'target_parts.call("reset_parts")' in m
