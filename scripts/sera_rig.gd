@@ -1363,8 +1363,8 @@ func _restore_dedicated_side_kicks() -> void:
             clips_recovered)
     else:
         dedicated_side_kick_status = "BONES %d/%d" % [best_bones, bones.size()]
-        push_warning("SERA Kick: dedicated clip has insufficient matching rig bones: ",
-            dedicated_side_kick_status)
+        push_warning("SERA Kick: dedicated clip has insufficient matching rig bones: "
+            + dedicated_side_kick_status)
 
 
 # Integrated model data is an independent fallback from SOURCE_PATH.
