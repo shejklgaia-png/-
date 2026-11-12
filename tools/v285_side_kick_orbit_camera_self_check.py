@@ -26,7 +26,7 @@ assert "step_kick_side_request != 0" in start
 assert "_distance_to_cube_surface(player.position) <= MELEE_SURFACE_REACH" in start
 for token in (
     "Vector2(-radial.y, radial.x)", "tangent.dot(screen_right_xz)",
-    "step_signed_angle = minf(", "step_arc_length / radius",
+    "step_signed_angle = minf(", "step_arc_length / maxf(radius, SIDE_KICK_SAFE_ORBIT_RADIUS)",
     "step_linear_fallback = radius < min_orbit_radius",
     "step_linear_offset = Vector2.ZERO",
     "step_target_center = Vector2(target.position.x, target.position.z)",
