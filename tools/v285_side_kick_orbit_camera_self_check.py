@@ -43,9 +43,10 @@ assert "step_radial_delta * radial_progress" in advance and "smoothstep(0.0, 0.6
 assert "step_signed_angle * travel_progress" in advance
 assert "_move_player_swept(requested, true)" in advance
 assert "if previous_progress < impact_progress and progress >= impact_progress:" in advance
-assert "if step_active and side_kick_active and separation > 0.08:" in camera
-assert "camera_yaw = _close_step_target_relative_yaw(bearing, easing, delta)" in camera
+assert "if hold_attack_camera or step_active or close_step_camera_this_frame:" in camera
+assert "camera_yaw = _stable_shoulder_camera_yaw(bearing, delta)" in camera
 assert "deg_to_rad(STEP_CLOSE_CAMERA_MAX_RELATIVE_DEGREES)" in limit
+assert "CAMERA_COMBAT_MAX_PLAYER_SIDE_DEGREES" in setup
 assert "STEP_CLOSE_CAMERA_MAX_TURN_RATE_DEGREES" in limit
 # Tangent-to-screen-right chooses proper sign at both sides of target,
 # including oblique camera bases. Circle radius and arc length stay fixed.
