@@ -27,6 +27,8 @@ func _run() -> void:
     game.set("locked_target_part_id", "")
     target.position = Vector3.ZERO
     player.position = Vector3(0.0, 0.0, 9.0)
+    game.set("camera_yaw", 0.0)
+    game.call("_place_camera")
     if not bool(game.call("_start_omni_step", Vector2.RIGHT)):
         _fail("regular screen STEP failed to initialize")
         return
