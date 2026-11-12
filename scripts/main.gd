@@ -326,7 +326,9 @@ var auto_lock_enabled: bool = true
 var lock_switch_left_button: Button
 var lock_switch_right_button: Button
 var lock_mode_button: Button
-const CONTROLLER_REGION_START_RATIO: float = 0.50  # Lock UI anchor only; not a touch boundary
+# v286: keep persistent LOCK buttons out of the middle combat silhouettes.
+# The analog/tap region is unrestricted; this shifts ONLY the 3 UI buttons.
+const CONTROLLER_REGION_START_RATIO: float = 0.76
 const LOCK_SWITCH_BUTTON_SIZE: Vector2 = Vector2(104.0, 58.0)
 const LOCK_MODE_BUTTON_SIZE: Vector2 = Vector2(128.0, 58.0)
 const CONTROLLER_BUTTON_TOP_INSET: float = 8.0
@@ -1404,8 +1406,9 @@ func _build_overlay() -> void:
     VersionIndicator.attach(layer)
 
 func _build_lock_switch_buttons(layer: CanvasLayer) -> void:
-    # Preserve the three lock buttons at their v243 screen positions.
-    # They no longer indicate a restricted controller start area.
+    # Three lock controls sit on the lower floor portion of the portrait
+    # screen, not on top of SERA's body / the boss's legs as in v285.
+    # Their gesture exclusion, styling and hit boxes are unchanged.
     var normal_style := StyleBoxFlat.new()
     normal_style.bg_color = Color(0.055, 0.12, 0.17, 0.82)
     normal_style.border_color = Color(0.28, 0.72, 0.78, 0.88)
