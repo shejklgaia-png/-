@@ -49,7 +49,7 @@ func _run() -> void:
         var expected_height: float = 6.0 * t * (1.0 - t)
         var offset: Vector3 = game.call("_back_somersault_arc_offset", t)
         if absf(offset.dot(direction) - expected_distance) > 0.0005:
-            _fail("Bezier XZ displacement mismatch at " + str(t))
+            _fail("Bezier XZ displacement mismatch at %s; actual=%.7f expected=%.7f; direction=%s offset=%s" % [str(t),offset.dot(direction),expected_distance,str(direction),str(offset)])
             return
         if absf(offset.y - expected_height) > 0.0005:
             _fail("Bezier height mismatch at " + str(t))
