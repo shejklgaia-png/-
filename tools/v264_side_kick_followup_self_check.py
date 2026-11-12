@@ -26,9 +26,9 @@ require("versioned change notes exist", "3段完走後" in readme)
 require("post-finisher is the only candidate window",
         "side_kick_flick_candidate = (combat_state == CombatState.IDLE\n"
         "        and bash_followup_window_remaining > 0.0)" in main)
-require("Bash retains priority over kick release",
-        main.index("if bash_requested and _request_combo_bash():")
-        < main.index("if side_kick_requested and flick_direction.length_squared()"))
+require("post-finisher side flick takes priority over Bash",
+        main.index("if side_kick_requested and flick_direction.length_squared()")
+        < main.index("if bash_requested and _request_combo_bash():"))
 require("kick and step share the same start implementation",
         "func _start_omni_step(flick: Vector2, kick_side: int = 0)" in main)
 require("single EN charge in shared STEP entry",
