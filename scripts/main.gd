@@ -1541,12 +1541,13 @@ func _toggle_auto_lock_mode() -> void:
     _update_target_marker_projection()
 
 
-# v296: AUTO only considers a real mesh intersected by the finite segment
-# from the CAMERA to the boss BODY center. Empty means BODY, not an error.
-# Never retain an off-segment limb: fall back/reacquire immediately when the
-# old limb no longer intersects, including BODY->limb. Preserve the existing
-# 0.22s confirmation ONLY when two intact limbs overlap the segment.
-# Combo lock retention is handled by the unchanged caller.
+# v298: BODY and each intact head/leg are equal AUTO candidates:
+# rank actual mesh intersections along the finite CAMERA->BODY center segment.
+# Empty part ID means the selected BODY mesh, not a no-hit fallback.
+# Keep existing 0.22s stability between ANY two intersected candidates
+# (including BODY); reacquire immediately only when the current mesh no
+# longer intersects or when the previous target broke. Combat lock retention
+# remains in the unchanged caller.
 func _acquire_stable_camera_part(delta: float,
         current_broken: bool) -> void:
     if target_parts == null or camera == null or target == null:
@@ -1555,7 +1556,7 @@ func _acquire_stable_camera_part(delta: float,
     var preferred: String = str(target_parts.call(
         "select_camera_center_line_part", camera, center))
     var current_on_line: bool = (
-        not locked_target_part_id.is_empty()
+        auto_lock_initialized
         and bool(target_parts.call("camera_center_line_hits_part",
             camera, center, locked_target_part_id)))
     if not auto_lock_initialized or current_broken or not current_on_line:
