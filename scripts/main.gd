@@ -165,6 +165,10 @@ const FOLLOWUP_WINDUP_KEYS = [0.0, 0.08333, 0.20833]
 const BASH_DAMAGE: int = 12
 const BASH_REACH: float = 0.95  # Unchanged from v183 (0.75 + 0.20).
 const STRIKE_CANCEL_TIMES = [7.0 / 24.0, 7.0 / 24.0, 15.0 / 24.0]
+# v283: Melee3's final swing reaches its authored 15/24s key, then leaves
+# 0.10s of follow-through before a buffered flick (Bash/Kick_l/r/b) may cancel.
+# Unqueued Melee3 still plays to 0.83333s; normal Melee1 restart is unchanged.
+const MELEE3_FLICK_CANCEL_DELAY: float = 0.10
 # Each strike has an independent active window and close-range assist.
 # melee1 preserves the original hit and impact timing exactly.
 const STRIKE_ACTIVE_FROM_TIMES = [0.130, 0.130, 0.290]
@@ -470,7 +474,7 @@ var strike_index: int = 0  # 0, 1 or 2; only meaningful in STRIKE.
 var combo_queued: bool = false  # One buffered tap for the next attack stage.
 var bash_queued: bool = false
 var bash_combo_queued: bool = false
-# A lateral swipe DURING Melee3 must wait for the FULL authored follow-through.
+# A flick during Melee3 is buffered until 0.10s after its strike-through key.
 var buffered_side_kick_flick: Vector2 = Vector2.ZERO
 var buffered_side_kick_side: int = 0  # -1=Kick_l, +1=Kick_r, 2=Kick_b
 var bash_flick_candidate: bool = false
@@ -2181,11 +2185,12 @@ func _begin_drag(pos: Vector2) -> void:
     guard_flick_axis_captured = false
     # Preserve the third strike while classifying an intentional forward Bash
     # flick; unrelated directional drags still cancel attacks as before.
-    bash_flick_candidate = (combat_state == CombatState.STRIKE
+    bash_flick_candidate = ((combat_state == CombatState.STRIKE
+        or combat_state == CombatState.STRIKE_TRACK)
         and strike_index == STRIKE_CLIPS.size() - 1) or (
         combat_state == CombatState.IDLE and bash_followup_window_remaining > 0.0)
     # Accept lateral kick input DURING the last authored strike as a buffer.
-    # It is played only AFTER the full Melee3 clip has finished. Touch-down
+    # It launches at Melee3's dedicated flick cancel point. Touch-down
     # during the 0.65s post-finisher link is also accepted.
     side_kick_flick_candidate = (
         ((combat_state == CombatState.STRIKE or combat_state == CombatState.STRIKE_TRACK)
@@ -2378,8 +2383,8 @@ func _end_drag(release_pos: Vector2) -> void:
     var suppress_flick: bool = boost_has_activated_this_gesture or jump_requested
     var flick_direction: Vector2 = Vector2.ZERO if suppress_flick else _classify_step_flick(
         release_pos - pointer_origin, press_duration)
-    # Melee3's 0.833s visual clip must not be canceled by a human-paced side
-    # swipe. Kick uses the Bash 0.42s threshold; normal STEP stays at 0.24s.
+    # Melee3 reserves a valid flick until 0.1s after the final swing;
+    # Kick uses the Bash 0.42s threshold; normal STEP stays at 0.24s.
     var kick_flick_direction: Vector2 = Vector2.ZERO if suppress_flick or not side_kick_requested \
         else _classify_combo_kick_flick(release_pos - pointer_origin, press_duration)
     var takeoff_momentum: Vector3 = gesture_start_ground_velocity if jump_from_initial_flick else Vector3(player.velocity.x, 0.0, player.velocity.z)
@@ -3334,7 +3339,8 @@ func _cancel_attack() -> void:
     rig.call("finish_attack", direction_input.length_squared() > 0.000001, jump_active and not damage_reaction_active)
 
 func _request_combo_bash() -> bool:
-    if combat_state == CombatState.STRIKE and strike_index == STRIKE_CLIPS.size() - 1:
+    if (combat_state == CombatState.STRIKE or combat_state == CombatState.STRIKE_TRACK) \
+            and strike_index == STRIKE_CLIPS.size() - 1:
         buffered_side_kick_flick = Vector2.ZERO
         buffered_side_kick_side = 0
         bash_queued = true
@@ -3493,6 +3499,16 @@ func _strike_cancel_time(stage: int) -> float:
         return minf(float(STRIKE_CANCEL_TIMES[stage]), 0.5)
     return float(STRIKE_CANCEL_TIMES[stage])
 
+
+func _melee3_flick_cancel_time() -> float:
+    # This is independent of the Melee1/2 tap-combo cancel points.
+    # The current authored Katana swing lasts only 0.5s, so do not
+    # request a frame beyond its clip end until it has separate timing.
+    if _katana_equipped():
+        return _strike_cancel_time(STRIKE_CLIPS.size() - 1)
+    return float(STRIKE_CANCEL_TIMES[STRIKE_CLIPS.size() - 1]) + MELEE3_FLICK_CANCEL_DELAY
+
+
 func _start_strike(stage: int = 0) -> void:
     var next_stage: int = clampi(stage, 0, STRIKE_CLIPS.size() - 1)
     var costs: Array = part_stats.get("attack_energy", [0.0, 0.0, 0.0])
@@ -3532,6 +3548,33 @@ func _launch_followup_strike() -> void:
     _clear_strike_tracking()
     if sword_trail != null:
         sword_trail.call("begin_swing", (0.0 if _katana_equipped() else float(STRIKE_TRAIL_OFFSETS[strike_index])))
+
+# Exit an authored strike once, then dispatch any queued lateral/back Kick.
+# Called either at Melee3's flick cancel point or at a clip's normal end.
+# Only stage 3 opens the existing post-finisher Bash/Kick link window.
+func _finish_strike_and_release_queued_kick() -> void:
+    var committed_kick_flick: Vector2 = Vector2.ZERO
+    var committed_kick_side: int = 0
+    if strike_index == STRIKE_CLIPS.size() - 1:
+        bash_followup_window_remaining = BASH_LINK_SECONDS
+        last_melee3_finished_ms = Time.get_ticks_msec()
+        committed_kick_flick = buffered_side_kick_flick
+        committed_kick_side = buffered_side_kick_side
+    buffered_side_kick_flick = Vector2.ZERO
+    buffered_side_kick_side = 0
+    combat_state = CombatState.IDLE
+    combo_queued = false
+    bash_queued = false
+    strike_index = 0
+    if sword_trail != null:
+        sword_trail.call("stop_swing")
+    _clear_strike_tracking()
+    if jump_active and not damage_reaction_active:
+        _enter_jump_fall()
+    rig.call("finish_attack", false, jump_active and not damage_reaction_active)
+    if committed_kick_side != 0 and committed_kick_flick.length_squared() > 0.000001:
+        _launch_combo_side_kick(committed_kick_flick, committed_kick_side)
+
 
 func _advance_attack(delta: float) -> void:
     match combat_state:
@@ -3618,19 +3661,24 @@ func _advance_attack(delta: float) -> void:
             # from the pre-strike time cap and avoids misses on moving bosses.
             if not strike_did_hit:
                 _advance_homing_toward_target(delta, MELEE_SURFACE_REACH)
-            # The second tap may arrive before or after the cancel frame.
-            # In both cases the next strike starts only after that point.
-            if (bash_queued and strike_index == STRIKE_CLIPS.size() - 1
-                    and float(rig.call("get_clip_time")) >= _strike_cancel_time(strike_index)):
+            # Stage 3 alone can cancel into a RESERVED flick 0.10s after
+            # its authored 15/24s swing-through. Do not unlock ordinary
+            # Melee1 here: without a flick, the full 0.83333s clip runs.
+            if strike_index == STRIKE_CLIPS.size() - 1 \
+                    and float(rig.call("get_clip_time")) >= _melee3_flick_cancel_time() \
+                    and (bash_queued or buffered_side_kick_side != 0):
                 if not strike_did_hit:
                     _check_strike_contact()
                     if hit_stop_remaining > 0.0:
                         return
-                _start_bash()
+                if bash_queued:
+                    _start_bash()
+                else:
+                    _finish_strike_and_release_queued_kick()
                 return
+            # Existing Melee1 -> Melee2 -> Melee3 TAP progression is untouched.
             if (combo_queued and strike_index < STRIKE_CLIPS.size() - 1
                     and float(rig.call("get_clip_time")) >= _strike_cancel_time(strike_index)):
-                # Catch a low-FPS hit before switching clips. Respect hit-stop.
                 if not strike_did_hit:
                     _check_strike_contact()
                     if hit_stop_remaining > 0.0:
@@ -3638,34 +3686,12 @@ func _advance_attack(delta: float) -> void:
                 _start_strike(strike_index + 1)
                 return
             if rig.call("clip_finished", _active_strike_clip(strike_index)):
-                # If a device skipped the entire active window in a long frame,
-                # still evaluate contact once before ending the attack.
+                # A frame skip can jump over contact: sample it before exit.
                 if not strike_did_hit:
                     _check_strike_contact()
                     if hit_stop_remaining > 0.0:
                         return
-                var committed_kick_flick: Vector2 = Vector2.ZERO
-                var committed_kick_side: int = 0
-                if strike_index == STRIKE_CLIPS.size() - 1:
-                    bash_followup_window_remaining = BASH_LINK_SECONDS
-                    last_melee3_finished_ms = Time.get_ticks_msec()
-                    committed_kick_flick = buffered_side_kick_flick
-                    committed_kick_side = buffered_side_kick_side
-                buffered_side_kick_flick = Vector2.ZERO
-                buffered_side_kick_side = 0
-                combat_state = CombatState.IDLE
-                combo_queued = false
-                strike_index = 0
-                if sword_trail != null:
-                    sword_trail.call("stop_swing")
-                _clear_strike_tracking()
-                if jump_active and not damage_reaction_active:
-                    _enter_jump_fall()
-                rig.call("finish_attack", false, jump_active and not damage_reaction_active)
-                # Only after the ENTIRE authored Melee3 has ended, play the
-                # buffered kick and reuse its normal screen-space STEP travel.
-                if committed_kick_side != 0 and committed_kick_flick.length_squared() > 0.000001:
-                    _launch_combo_side_kick(committed_kick_flick, committed_kick_side)
+                _finish_strike_and_release_queued_kick()
         CombatState.BASH:
             # Follow the moving target during the actual shield impact too.
             if not bash_did_hit:
