@@ -8,7 +8,7 @@ ROOT = Path(__file__).resolve().parents[1]
 main = (ROOT / "scripts/main.gd").read_text(encoding="utf-8")
 rig = (ROOT / "scripts/sera_rig.gd").read_text(encoding="utf-8")
 version = (ROOT / "project.godot").read_text(encoding="utf-8")
-assert 'config/name="SERA v270"' in version
+assert (ver := re.search(r'config/name="SERA v([0-9]+)"', version)) and int(ver.group(1)) >= 270
 
 def body(start, end):
     return main.split("func "+start,1)[1].split("func "+end,1)[0]
@@ -88,7 +88,7 @@ assert '"HOLD >0.42s / BOOST"' in release
 assert '"TOO SHORT / SLOW"' in release
 assert '"WINDOW CLOSED"' in release
 assert '"ANGLE"' in release
-assert '"CLIP MISSING"' in request
+assert '"CLIP MISSING "' in request
 assert '"STATE BLOCKED"' in request
 assert '"EN / ACTION BLOCKED"' in launch
 assert '"START "' in launch

@@ -42,7 +42,7 @@ assert "if _start_omni_step(flick_direction):" in release.split(
 print("PASS: lateral kick consumes the entire gesture, even on failed initiation")
 print("PASS: other sectors still route to existing Bash and 360-degree STEP")
 
-assert "if rig == null or not bool(rig.call(\"has_side_kick\", side)):" in kick
+assert 'if not bool(rig.call("has_side_kick", side)):' in kick
 assert "step_kick_side_request = side" in kick
 assert "step_kick_side_request = 0" in kick
 assert "return started" in kick
