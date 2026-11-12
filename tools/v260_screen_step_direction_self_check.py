@@ -38,8 +38,8 @@ assert "if bash_requested and _request_combo_bash():" in release
 assert "if _start_omni_step(flick_direction):" in release
 assert "var direction: Vector2 = flick.normalized()" in motion
 assert "STEP_FORWARD_DISTANCE, BACK_STEP_DISTANCE, back_mix" in motion
-assert "camera_right * direction.x * side_length" in motion
-assert "rig.call(\"start_omni_step\", direction)" in motion
+assert "var world_step: Vector3 = _screen_drag_to_ground(direction)" in motion
+assert "rig.call(\"start_omni_step\", pose_direction)" in motion
 assert "const STEP_FLICK_MIN_HORIZONTAL: float = 78.0" in main
 assert "const STEP_FLICK_MAX_SECONDS: float = 0.24" in main
 assert "const BASH_FLICK_MAX_SECONDS: float = 0.42" in main

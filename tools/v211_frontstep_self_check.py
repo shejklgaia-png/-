@@ -74,7 +74,7 @@ assert '_sample_boost_pose(BOOST_CLIP, uid) if direction.y < 0.0' not in blend
 assert 'const BOOST_CLIP: String = "Boost_front"' in rig
 assert 'directional_step_vector = direction.normalized()' in rig
 assert 'state_label.text = "STEP FORWARD  |  Frontstep"' in main
-assert 'rig.call("start_omni_step", direction)' in main
+assert 'rig.call("start_omni_step", pose_direction)' in main
 assert 'const STEP_MIN_ARC_LENGTH: float = 2.0' in main
 assert 'const STEP_MAX_ARC_LENGTH: float = 4.0' in main
 

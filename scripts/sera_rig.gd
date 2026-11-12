@@ -1217,6 +1217,16 @@ func start_omni_step(direction: Vector2) -> void:
         current_clip = WAIT_CLIP
     _switch_clip(STEP_RIGHT_CLIP, 0.12)
 
+# SERA always turns to track the currently locked boss during STEP.
+# Rebase the four authored clip weights against that changing LOCAL
+# heading without restarting the step or snapping between four clips.
+func update_omni_step_direction(direction: Vector2, delta: float) -> void:
+    if not step_playback or not directional_step_active or direction.length_squared() < 0.000001:
+        return
+    var blend: float = 1.0 - exp(-maxf(delta, 0.0) / 0.08)
+    directional_step_vector = directional_step_vector.slerp(
+        direction.normalized(), blend).normalized()
+
 func start_side_step(side: int) -> void:
     if not loading_ok or damage_playback or guard_playback or (side != 1 and side != -1):
         return
