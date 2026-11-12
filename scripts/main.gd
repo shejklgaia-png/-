@@ -145,6 +145,10 @@ const BASH_LINK_SECONDS: float = 0.65
 # Kick damage borrows melee1 until dedicated kick stats are specified.
 # Both authored kicks straighten alternate legs at these original 1s keys.
 const SIDE_KICK_HIT_PROGRESS = [0.25, 0.58333]
+# v280: start lateral travel at each authored SECOND windup, not on kick start.
+# Original 1.0s Blockbench keys: Kick_r=0.33333, Kick_l=0.41667.
+const SIDE_KICK_SECOND_WINDUP_R: float = 0.33333
+const SIDE_KICK_SECOND_WINDUP_L: float = 0.41667
 # v278: lateral kick animation lasts twice as long without reducing
 # normal STEP travel speed/distance, changing Kick_b, or cutting off clips.
 const SIDE_KICK_MOTION_TIME_MULTIPLIER: float = 2.0
@@ -2820,14 +2824,15 @@ func _advance_back_somersault(delta: float) -> void:
     if absf(vertical_delta) > 0.000001:
         player.move_and_collide(Vector3.UP * vertical_delta)
     player.velocity = Vector3.ZERO
-    if not back_somersault_has_authored_clip:
-        # Provisional backflip only while Kick_b has not been uploaded:
-        # rotate the whole visible model around its center, preserving the
-        # underlying authentic Jump pose and original Blockbench source.
-        var angle: float = TAU * progress
-        rig.rotation.x = angle
-        rig.position.y = back_somersault_original_rig_y + (
-            BACK_SOMERSAULT_VISUAL_PIVOT_HEIGHT * (1.0 - cos(angle)))
+    # Kick_b rotates the authored joints (not the whole rig), so its hips
+    # can curl without the full silhouette visibly flipping. Add one full
+    # backward turn of the entire visible rig regardless of the clip source.
+    # The pivot correction keeps a centered rotation from sinking below
+    # the ground; the CharacterBody3D collision/root is never rotated.
+    var angle: float = TAU * progress
+    rig.rotation.x = angle
+    rig.position.y = back_somersault_original_rig_y + (
+        BACK_SOMERSAULT_VISUAL_PIVOT_HEIGHT * (1.0 - cos(angle)))
     rig.call("set_back_somersault_progress", progress)
     # Each authored full-extension key is a one-shot event, including misses.
     if not back_somersault_hit_checked and previous < BACK_SOMERSAULT_HIT_PROGRESS \
@@ -2941,8 +2946,8 @@ func _start_omni_step(flick: Vector2) -> bool:
     step_traveled_distance = 0.0
     side_kick_active = step_kick_side_request != 0
     side_kick_side = step_kick_side_request
-    # Only the kick action timeline is doubled: the swept travel still
-    # completes at its original STEP duration and remains stationary afterward.
+    # Only the kick action timeline is doubled: swept lateral travel starts
+    # at the second windup and takes its original STEP duration.
     if side_kick_active:
         step_duration_current *= SIDE_KICK_MOTION_TIME_MULTIPLIER
     side_kick_did_hit = false
@@ -3106,11 +3111,17 @@ func _advance_side_step(delta: float) -> void:
     var previous_progress: float = step_elapsed / step_duration_current
     step_elapsed = minf(step_duration_current, step_elapsed + delta)
     # Timeline progress drives the authored kick pose and its two hit keys.
-    # Travel progress reaches 100% after the NORMAL STEP time, so the slowed
-    # kick finishes its remaining poses without halving movement speed.
+    # Keep the first strike in place. The lateral STEP path begins only at
+    # each kick's actual second windup, and still moves at normal STEP speed.
+    # Finishing this travel before the animation ends preserves follow-through.
     var progress: float = step_elapsed / step_duration_current
-    var travel_progress: float = (minf(1.0, progress * SIDE_KICK_MOTION_TIME_MULTIPLIER)
-        if side_kick_active else progress)
+    var travel_progress: float = progress
+    if side_kick_active:
+        var second_windup: float = (SIDE_KICK_SECOND_WINDUP_R
+            if side_kick_side > 0 else SIDE_KICK_SECOND_WINDUP_L)
+        travel_progress = clampf(
+            (progress - second_windup) * SIDE_KICK_MOTION_TIME_MULTIPLIER,
+            0.0, 1.0)
     var new_offset: Vector2 = step_start_offset + step_linear_offset * travel_progress
     if not step_linear_fallback:
         var initial_radius: float = step_start_offset.length()
