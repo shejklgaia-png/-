@@ -15,7 +15,7 @@ classify=m.split("func _is_character_forward_flick(",1)[1].split("func _is_upwar
 assert 'gesture_screen_forward = FLICK_DIRECTION_POLICY.projected_forward(camera, player)' in begin
 assert "var gesture_screen_forward: Vector2 = Vector2.UP" in m
 assert "not FLICK_DIRECTION_POLICY.within_sector(" in drag
-assert "displacement, gesture_screen_forward, STEP_FLICK_MAX_HORIZONTAL_RATIO" in drag
+assert "displacement, Vector2.UP, STEP_FLICK_MAX_HORIZONTAL_RATIO" in drag
 assert "var guard_bash_requested: bool = _classify_recent_character_forward_flick()" in release
 assert "and _is_character_forward_flick(release_pos - pointer_origin, press_duration)" in release
 assert "if bash_requested and _request_combo_bash():" in release
