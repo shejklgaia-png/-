@@ -40,7 +40,7 @@ phys=section(main,"func _physics_process(delta: float) -> void:","func _process(
 assert 'var combo_held: bool = _combo_lock_retention_active()' in phys
 assert 'if not combo_held:' in phys
 assert 'not manual_part_lock_active or locked_part_broken' in phys
-assert '"select_front_part",' in phys
+assert '"select_camera_front_part"' in phys
 assert '"" if locked_part_broken else locked_target_part_id' in phys
 assert 'target_parts.call("has_part", locked_target_part_id)' in phys
 switch=section(main,"func _switch_lock_screen_direction(direction: int) -> void:","func _update_target_marker_projection(")
@@ -49,14 +49,11 @@ fx=section(main,"func _advance_hit_fx(delta: float) -> void:","func _input(event
 assert '"advance_part_hit_fx", delta' in fx
 assert '_combo_lock_retention_active()' in fx  # defer boss KO respawn until combo ends
 
-selector=section(parts,"func select_front_part(origin: Vector3, forward: Vector3,","func get_visible_part_ids(")
-assert 'get_parent().get_parent() as Node3D' in selector
-assert 'var to_center: Vector3 = (enemy_pivot.global_position - origin' in selector
-assert 'var straight_depth: float = desired.dot(flat_toward)' in selector
-assert 'if straight_depth <= 0.0' in selector
-assert 'var score: float = atan2(lateral, straight_depth)' in selector
-assert 'best_score + SELECTION_HYSTERESIS_RADIANS' in selector
-assert 'core_box.intersects_segment(origin, aim)' in selector
+selector=section(parts,"func select_camera_front_part(view_camera: Camera3D, current: String) -> String:","func select_front_part(")
+assert 'view_camera.unproject_position(aim)' in selector
+assert 'normalized_offset.length()' in selector
+assert 'current_score <= best_score + CAMERA_PART_LOCK_HYSTERESIS' in selector
+assert 'core_box.intersects_segment' not in selector
 
 assert parts.count('100.0, 0.12, 0.00, "remain"')==2
 assert 'pivot.visible = false' not in parts
