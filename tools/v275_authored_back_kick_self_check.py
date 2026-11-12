@@ -20,8 +20,6 @@ assert abs(original["length"] - 0.79167) < 0.0001
 embedded = (root / "assets/sera_data.gd").read_text(encoding="utf-8")
 parts = re.findall(r'^\s+"([A-Za-z0-9+/=]+)",?$', embedded, re.MULTILINE)
 assert base64.b64decode("".join(parts), validate=True) == source_bytes
-match = re.search(r'^config/name="SERA v(\\d+)"
-print("PASS v275: exact authored Kick_b, 16 bones, embedded resource parity")
-, (root / "project.godot").read_text(encoding="utf-8"), re.MULTILINE)
+match = re.search(r'config/name="SERA v([0-9]+)"', (root / "project.godot").read_text(encoding="utf-8"))
 assert match and int(match.group(1)) >= 275
 print("PASS v275: exact authored Kick_b, 16 bones, embedded resource parity")
