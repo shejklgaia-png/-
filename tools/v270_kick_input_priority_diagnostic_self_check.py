@@ -88,7 +88,7 @@ assert '"HOLD >0.42s / BOOST"' in release
 assert '"TOO SHORT / SLOW"' in release
 assert '"WINDOW CLOSED"' in release
 assert '"ANGLE"' in release
-assert '"CLIP MISSING"' in request
+assert '"CLIP MISSING "' in request
 assert '"STATE BLOCKED"' in request
 assert '"EN / ACTION BLOCKED"' in launch
 assert '"START "' in launch
