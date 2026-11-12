@@ -75,9 +75,9 @@ assert 'rig.call("start_side_kick", step_kick_side_request, step_duration_curren
 
 # CRITICAL: do not start kick at the Melee3 0.625s cancel point. Finish the
 # authored 0.8333s clip and clear sword state first, then launch saved kick.
-assert "STRIKE_CANCEL_TIMES[strike_index]" in advance
+assert "_strike_cancel_time(strike_index)" in advance
 assert "bash_queued and strike_index" in advance
-assert "if rig.call(\"clip_finished\", str(STRIKE_CLIPS[strike_index])):" in advance
+assert "if rig.call(\"clip_finished\", _active_strike_clip(strike_index)):" in advance
 assert "committed_kick_flick = buffered_side_kick_flick" in advance
 assert "committed_kick_side = buffered_side_kick_side" in advance
 assert "buffered_side_kick_flick = Vector2.ZERO" in advance

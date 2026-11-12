@@ -28,7 +28,8 @@ assert pack["format"] == "SERA_KICK_PACK_v1"
 assert "static func get_data() -> Dictionary:" in pack_script
 assert 'JSON.parse_string("".join(PackedStringArray(CHUNKS)))' in pack_script
 assert len(pack["groups"]) == 22
-source_groups = {g["uuid"]: g["name"] for g in source["groups"]}
+# Compare the unchanged 22 A-bone mapping; v276 appends Katana-specific pivots.
+source_groups = {g["uuid"]: g["name"] for g in source["groups"] if not g["name"].startswith("Katana")}
 assert {g["uuid"]:g["name"] for g in pack["groups"]} == source_groups
 
 base = {a["name"]:a for a in source["animations"]}
