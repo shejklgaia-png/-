@@ -2844,15 +2844,16 @@ func _advance_back_somersault(delta: float) -> void:
     if absf(vertical_delta) > 0.000001:
         player.move_and_collide(Vector3.UP * vertical_delta)
     player.velocity = Vector3.ZERO
-    # Kick_b rotates the authored joints (not the whole rig), so its hips
-    # can curl without the full silhouette visibly flipping. Add one full
-    # backward turn of the entire visible rig regardless of the clip source.
-    # The pivot correction keeps a centered rotation from sinking below
-    # the ground; the CharacterBody3D collision/root is never rotated.
-    var angle: float = TAU * progress
-    rig.rotation.x = angle
-    rig.position.y = back_somersault_original_rig_y + (
-        BACK_SOMERSAULT_VISUAL_PIVOT_HEIGHT * (1.0 - cos(angle)))
+    # Kick_b already contains a >360-degree rotation on the Waist root.
+    # Never rotate the entire rig on top of that authored motion: doing so
+    # makes the model spin twice around its feet instead of flipping once
+    # around the original Blockbench waist pivot (17 BB units = 1.105m).
+    # If Kick_b is missing, preserve the independent procedural fallback.
+    if not back_somersault_has_authored_clip:
+        var angle: float = TAU * progress
+        rig.rotation.x = angle
+        rig.position.y = back_somersault_original_rig_y + (
+            BACK_SOMERSAULT_VISUAL_PIVOT_HEIGHT * (1.0 - cos(angle)))
     rig.call("set_back_somersault_progress", progress)
     # Each authored full-extension key is a one-shot event, including misses.
     if not back_somersault_hit_checked and previous < BACK_SOMERSAULT_HIT_PROGRESS \
