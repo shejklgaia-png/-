@@ -47,7 +47,8 @@ assert "clampf(error * alpha, -max_turn, max_turn)" in helper
 cam=m.split("func _process(delta: float) -> void:",1)[1].split(
     "func _stable_shoulder_camera_yaw(",1)[0]
 assert "or side_kick_active or back_somersault_active" in cam
-assert "or landing_active or hit_stop_remaining > 0.0" in cam
+assert "or landing_active or damage_reaction_active" in cam
+assert "or hit_stop_remaining > 0.0" in cam
 assert "camera_combat_hold_remaining = CAMERA_COMBAT_YAW_HOLD_SECONDS" in cam
 assert "hold_attack_camera: bool = camera_combat_hold_remaining > 0.0" in cam
 assert "if hold_attack_camera:" in cam
