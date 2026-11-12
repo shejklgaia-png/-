@@ -21,14 +21,25 @@ func _run() -> void:
     if player == null or rig == null or not bool(rig.get("loading_ok")):
         _fail("player or rig missing")
         return
+    game.set("locked_target_part_id", "")
+    game.set("target_hp", 500)
+    player.position = Vector3(0.0, 0.0, -5.5)
     if not bool(game.call("_start_back_somersault")):
         _fail("Kick_b did not start")
         return
     if str(rig.get("current_clip")) != "Kick_b":
         _fail("authored Kick_b was not preserved")
         return
-    var direction: Vector3 = game.get("back_somersault_direction")
     var initial_position: Vector3 = player.position
+    var strike_seconds: float = 0.80 * (0.20833 / 0.79167)
+    game.call("_advance_back_somersault", strike_seconds)
+    if not bool(game.get("back_somersault_launched")):
+        _fail("no leap after the foot impact key")
+        return
+    if initial_position.distance_to(player.position) > 0.01:
+        _fail("rear travel started during grounded strike")
+        return
+    var direction: Vector3 = game.get("back_somersault_direction")
     var stages: Array[float] = [0.125, 0.25, 0.5, 0.75, 1.0]
     var prior_time: float = 0.0
     for t in stages:
@@ -43,7 +54,7 @@ func _run() -> void:
         if absf(offset.y - expected_height) > 0.0005:
             _fail("Bezier height mismatch at " + str(t))
             return
-        game.call("_advance_back_somersault", (t - prior_time) * 0.80)
+        game.call("_advance_back_somersault", (t - prior_time) * (0.80 - strike_seconds))
         prior_time = t
         var travelled: float = (player.position - initial_position).dot(direction)
         if absf(travelled - expected_distance) > 0.07:
