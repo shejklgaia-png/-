@@ -73,24 +73,27 @@ assert "var started: bool = _start_omni_step(flick)" in launch
 assert "var world_step: Vector3 = _screen_drag_to_ground(direction)" in step
 assert 'rig.call("start_side_kick", step_kick_side_request, step_duration_current)' in step
 
-# CRITICAL: do not start kick at the Melee3 0.625s cancel point. Finish the
-# authored 0.8333s clip and clear sword state first, then launch saved kick.
-assert "_strike_cancel_time(strike_index)" in advance
-assert "bash_queued and strike_index" in advance
+# v283: kick is queued through the authored strike-through key (0.625s),
+# then dispatched at 0.725s. No queue means full 0.83333s Melee3 and
+# unchanged first-strike availability, with normal idle cleanup at clip end.
+handoff = body("_finish_strike_and_release_queued_kick() -> void:", "_advance_attack")
+assert "MELEE3_FLICK_CANCEL_DELAY: float = 0.10" in main
+assert "float(rig.call(\"get_clip_time\")) >= _melee3_flick_cancel_time()" in advance
+assert "and (bash_queued or buffered_side_kick_side != 0)" in advance
 assert "if rig.call(\"clip_finished\", _active_strike_clip(strike_index)):" in advance
-assert "committed_kick_flick = buffered_side_kick_flick" in advance
-assert "committed_kick_side = buffered_side_kick_side" in advance
-assert "buffered_side_kick_flick = Vector2.ZERO" in advance
-assert "rig.call(\"finish_attack\", false, jump_active and not damage_reaction_active)" in advance
-assert "if committed_kick_side != 0" in advance
-assert "_launch_combo_side_kick(committed_kick_flick, committed_kick_side)" in advance
-assert advance.index("rig.call(\"finish_attack\", false, jump_active") < advance.index(
+assert "committed_kick_flick = buffered_side_kick_flick" in handoff
+assert "committed_kick_side = buffered_side_kick_side" in handoff
+assert "buffered_side_kick_flick = Vector2.ZERO" in handoff
+assert "rig.call(\"finish_attack\", false, jump_active and not damage_reaction_active)" in handoff
+assert "if committed_kick_side != 0" in handoff
+assert "_launch_combo_side_kick(committed_kick_flick, committed_kick_side)" in handoff
+assert handoff.index("rig.call(\"finish_attack\", false, jump_active") < handoff.index(
     "_launch_combo_side_kick(committed_kick_flick, committed_kick_side)")
 assert "buffered_side_kick_side = 0" in cancel
 assert "buffered_side_kick_side = 0" in bash_start
 assert "buffered_side_kick_side = 0" in bash_request
 assert "buffered_side_kick_side = 0" in strike
-print("PASS: third swing completes before buffered kick; interruptions clear queue")
+print("PASS: v283 0.1s post-swing cancel for queued kicks; full unqueued clip and cleanup")
 
 # Render current behavior explicitly in the same debug HUD the user recorded.
 assert '"STRIKE 3/3  |  KICK QUEUED"' in physics
