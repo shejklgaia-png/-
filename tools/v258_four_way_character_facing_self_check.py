@@ -47,7 +47,7 @@ assert "and _is_character_forward_flick(release_pos - pointer_origin, press_dura
 assert 'if bash_requested and _request_combo_bash():' in release
 assert "step_linear_fallback = true" in omni
 assert "STEP_FORWARD_DISTANCE, BACK_STEP_DISTANCE, back_mix" in omni
-assert "rig.call(\"start_omni_step\", direction)" in omni
+assert "rig.call(\"start_omni_step\", pose_direction)" in omni
 assert "const JUMP_TOUCH_INPUT_ENABLED: bool = false" in m
 assert "const STEP_FLICK_MAX_SECONDS: float = 0.24" in m
 assert "const BASH_FLICK_MAX_SECONDS: float = 0.42" in m
