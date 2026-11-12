@@ -440,6 +440,10 @@ var buffered_side_kick_flick: Vector2 = Vector2.ZERO
 var buffered_side_kick_side: int = 0
 var bash_flick_candidate: bool = false
 var side_kick_flick_candidate: bool = false
+var kick_touch_started_in_window: bool = false
+var kick_debug_text: String = ""
+var kick_debug_remaining: float = 0.0
+var last_melee3_finished_ms: int = -9999999
 var gesture_screen_forward: Vector2 = Vector2.UP  # Screen-projected SERA front at flick start.
 var guard_flick_axis_captured: bool = false  # A long GUARD hold can outlast camera recentering.
 var bash_followup_window_remaining: float = 0.0
@@ -1530,13 +1534,25 @@ func _refresh_step_status_ui() -> void:
         if side_kick_active:
             step_detail_label.text = "KICK %s %.2fm planned" % [
                 "R" if side_kick_side > 0 else "L", step_arc_length]
+        elif kick_debug_remaining > 0.0:
+            step_detail_label.text = kick_debug_text
         else:
             step_detail_label.text = "STEP %.2fm planned" % step_arc_length
+    elif kick_debug_remaining > 0.0:
+        step_detail_label.text = kick_debug_text
     elif step_has_last:
         # When a body blocks a step, don't mislabel the planned length as actual.
         step_detail_label.text = "LAST %.2fm  /  %.2fs" % [step_traveled_distance, step_last_elapsed]
     else:
         step_detail_label.text = "SIDE <=0.4s / BACK 4.0m"
+
+# Record why an intended combo flick did or did not become a kick.
+# Visible for two seconds in the existing debug HUD; no new UI widgets.
+func _record_kick_debug(message: String) -> void:
+    kick_debug_text = "KICK: " + message
+    kick_debug_remaining = 2.0
+    _refresh_step_status_ui()
+
 
 func _pointer_on_training_test_button(pos: Vector2) -> bool:
     if test_hit_button == null or test_break_button == null:
@@ -2120,6 +2136,7 @@ func _begin_drag(pos: Vector2) -> void:
         ((combat_state == CombatState.STRIKE or combat_state == CombatState.STRIKE_TRACK)
             and strike_index == STRIKE_CLIPS.size() - 1)
         or (combat_state == CombatState.IDLE and bash_followup_window_remaining > 0.0))
+    kick_touch_started_in_window = side_kick_flick_candidate
     # New drag/tap takes over immediately: never retain close-step recovery
     # camera mode during a new move, boost, or attack.
     close_step_camera_recovery_remaining = 0.0
@@ -3301,6 +3318,7 @@ func _advance_attack(delta: float) -> void:
                 var committed_kick_side: int = 0
                 if strike_index == STRIKE_CLIPS.size() - 1:
                     bash_followup_window_remaining = BASH_LINK_SECONDS
+                    last_melee3_finished_ms = Time.get_ticks_msec()
                     committed_kick_flick = buffered_side_kick_flick
                     committed_kick_side = buffered_side_kick_side
                 buffered_side_kick_flick = Vector2.ZERO
@@ -3399,6 +3417,10 @@ func _physics_process(delta: float) -> void:
         target.position.y = TARGET_BASE_HEIGHT + sin(elapsed * 1.4) * 0.07
     bash_followup_window_remaining = maxf(0.0, bash_followup_window_remaining - delta)
     bash_loop_window_remaining = maxf(0.0, bash_loop_window_remaining - delta)
+    if kick_debug_remaining > 0.0:
+        kick_debug_remaining = maxf(0.0, kick_debug_remaining - delta)
+        if kick_debug_remaining == 0.0:
+            _refresh_step_status_ui()
     _update_guard_hold()
     # Sample the outer-ring hold independently of touch event frequency.
     _update_boost_gesture(delta)
