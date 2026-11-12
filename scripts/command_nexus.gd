@@ -977,18 +977,33 @@ func _refresh_equipment_controls() -> void:
             continue
         var options: Array = ["A"]
         var current_set: String = "A"
+        var blocker: Dictionary = {}
         if sera_display_rig != null and bool(sera_display_rig.get("loading_ok")):
             options = sera_display_rig.call("get_equipment_options", slot)
             current_set = str(sera_display_rig.call("get_equipment_selection", slot))
-        var label: Label = customize_equipment_rows[slot]["value"]
+            blocker = sera_display_rig.call(
+                "get_equipment_two_handed_blocker", slot)
+        var row_data: Dictionary = customize_equipment_rows[slot]
+        var row: Panel = row_data["panel"]
+        var label: Label = row_data["value"]
+        if not blocker.is_empty():
+            # v291: the other hand is physically occupied by a two-hand
+            # weapon. Keep the row as non-clickable grey UI and show its
+            # actual weapon name, not the hidden saved off-hand set.
+            row.modulate = Color(0.48, 0.50, 0.54, 1.0)
+            label.text = str(blocker.get("name", "TWO-HANDED"))
+            continue
+        row.modulate = Color.WHITE
         var variant_label: String = "MID" if current_set == "A" else "HEAVY"
-        if slot == "weapon_r" and current_set == "K":
+        if (slot == "weapon_r" or slot == "weapon_l") and current_set == "K":
             variant_label = "KATANA"
         if slot == "legs" and current_set == "C":
             variant_label = "BIRD"
         elif slot == "legs" and current_set == "D":
             variant_label = "NEW"
-        label.text = "<   %s  %s   >" % [current_set, variant_label] if options.size() > 1 else current_set
+        label.text = "<   %s  %s   >" % [current_set, variant_label] \
+            if options.size() > 1 else current_set
+
 
 func _tap_equipment_control(point: Vector2) -> bool:
     if sera_display_rig == null or not Rect2(
@@ -999,6 +1014,13 @@ func _tap_equipment_control(point: Vector2) -> bool:
         var row: Panel = customize_equipment_rows[slot]["panel"]
         if not Rect2(row.position, row.size).has_point(local):
             continue
+        # No arrows/no interaction when the opposite slot owns both hands.
+        # If a future LEFT two-hand weapon is equipped, the RIGHT row is
+        # blocked by exactly this same rule (no side-specific UI branch).
+        var blocker: Dictionary = sera_display_rig.call(
+            "get_equipment_two_handed_blocker", slot)
+        if not blocker.is_empty():
+            return true
         var choices: Array = sera_display_rig.call("get_equipment_options", slot)
         if choices.size() < 2:
             return true
