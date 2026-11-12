@@ -29,43 +29,68 @@ func _run() -> void:
     if absf(float(authored.get("length", 0.0)) - 0.58333) > 0.0001:
         _fail("not using the newly authored 0.58333s second clip")
         return
-    var keyed_frames: int = 0
-    var keyed_bones: int = 0
+    # All 19 authored A-rig tracks (70 keys) must survive import unchanged.
+    # The rig then fills one Wait_motion key for each of six BIRD joints:
+    # those additional stabilizers are intentional, not corrupted Katana keys.
+    var source_value: Variant = JSON.parse_string(FileAccess.get_file_as_string(
+        "res://models/storage/SERA_BOOSTER_allテスト.bbmodel"))
+    if not (source_value is Dictionary):
+        _fail("Katana2 Blockbench source cannot be parsed")
+        return
+    var author_animators: Dictionary = {}
+    for raw_clip in (source_value as Dictionary).get("animations", []):
+        if str(raw_clip.get("name", "")) == "Melee_katana2":
+            author_animators = raw_clip.get("animators", {})
+            break
+    if author_animators.is_empty():
+        _fail("authored Katana2 missing from original model")
+        return
     var tracks: Dictionary = authored.get("tracks", {})
-    for bone_data in tracks.values():
-        if not (bone_data is Dictionary):
+    var raw_keyed_bones: int = 0
+    var raw_keyframes: int = 0
+    for raw_uid in author_animators.keys():
+        var source_anim: Dictionary = author_animators[raw_uid]
+        var source_keys: Array = source_anim.get("keyframes", [])
+        if source_keys.is_empty():
             continue
+        raw_keyed_bones += 1
+        raw_keyframes += source_keys.size()
+        if not tracks.has(raw_uid):
+            _fail("missing authored Katana2 runtime bone " + str(raw_uid))
+            return
+        var imported: Dictionary = tracks[raw_uid]
+        var copied_keys: int = 0
+        for channel in ["rotation", "position", "scale"]:
+            copied_keys += (imported.get(channel, []) as Array).size()
+        if copied_keys != source_keys.size():
+            _fail("Katana2 bone key mismatch " + str(raw_uid) +
+                ": raw=" + str(source_keys.size()) +
+                " runtime=" + str(copied_keys))
+            return
+    if raw_keyed_bones != 19 or raw_keyframes != 70:
+        _fail("authored Katana2 source keys changed: %d bones/%d keys" % [
+            raw_keyed_bones, raw_keyframes])
+        return
+    var bird_bones: Array = rig.get("bird_bone_ids")
+    var extra_bird_keys: int = 0
+    for raw_uid in tracks.keys():
+        var raw_frames: Array = []
+        if author_animators.has(raw_uid):
+            raw_frames = (author_animators[raw_uid] as Dictionary).get("keyframes", [])
+        if not raw_frames.is_empty():
+            continue
+        var imported: Dictionary = tracks[raw_uid]
         var count: int = 0
         for channel in ["rotation", "position", "scale"]:
-            count += (bone_data.get(channel, []) as Array).size()
-        if count > 0:
-            keyed_bones += 1
-            keyed_frames += count
-    if keyed_bones != 19 or keyed_frames != 70:
-        var raw_source: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(
-            "res://models/storage/SERA_BOOSTER_allテスト.bbmodel"))
-        var raw_count: int = 0
-        var raw_animated: int = 0
-        for raw_clip in raw_source.get("animations", []):
-            if str(raw_clip.get("name", "")) != "Melee_katana2":
-                continue
-            for anim in (raw_clip.get("animators", {}) as Dictionary).values():
-                var keys: Array = (anim as Dictionary).get("keyframes", [])
-                if not keys.is_empty():
-                    raw_animated += 1
-                    raw_count += keys.size()
-        var runtime_counts: Array[String] = []
-        for raw_uuid in tracks.keys():
-            var td: Dictionary = tracks[raw_uuid]
-            var cnt: int = 0
-            for channel in ["rotation", "position", "scale"]:
-                cnt += (td.get(channel, []) as Array).size()
-            if cnt > 0:
-                runtime_counts.append(str(raw_uuid) + ":" + str(cnt))
-        _fail("authored track mismatch: runtime=%d/%d raw=%d/%d rigs=%d length=%s details=%s" % [
-            keyed_bones, keyed_frames, raw_animated, raw_count,
-            (rig.get("bones") as Dictionary).size(),
-            str(authored.get("length", 0.0)), ",".join(runtime_counts)])
+            count += (imported.get(channel, []) as Array).size()
+        if count == 0:
+            continue
+        if not bird_bones.has(raw_uid) or count != 1:
+            _fail("non-authored Katana2 frames appeared outside bird idle fallback")
+            return
+        extra_bird_keys += count
+    if extra_bird_keys != bird_bones.size():
+        _fail("bird-leg idle stabilization incomplete")
         return
     rig.call("start_strike", "Melee_katana2")
     if str(rig.get("current_clip")) != "Melee_katana2":
