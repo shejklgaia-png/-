@@ -1,7 +1,7 @@
 extends SceneTree
-## Run real main+rig to verify queued side/back/Bash starts at 0.725s
+## Run real main+rig to verify queued side/back/Bash starts at 0.675s
 ## and no-queue Melee3 remains locked until its original 0.83333s end.
-const CANCEL_TIME: float = 15.0 / 24.0 + 0.10
+const CANCEL_TIME: float = 15.0 / 24.0 + 0.05
 
 func _initialize() -> void:
     call_deferred("_run")
@@ -32,7 +32,7 @@ func _run() -> void:
         game.set("energy", 100.0)
         game.set("gesture_screen_forward", Vector2.UP)
         if absf(float(game.call("_melee3_flick_cancel_time")) - CANCEL_TIME) > 0.00001:
-            _fail("actual Melee3 flick cancel time is not 0.725s")
+            _fail("actual Melee3 flick cancel time is not 0.675s")
             return
         game.call("_start_strike", 2)
         if int(game.get("combat_state")) != 3 or str(rig.get("current_clip")) != "Melee3":
@@ -62,7 +62,7 @@ func _run() -> void:
                 _fail("unqueued strike ended at the flick-only cancel point")
                 return
             if bool(game.call("_start_attack")):
-                _fail("ordinary Melee1 was unlocked 0.1s too early")
+                _fail("ordinary Melee1 was unlocked 0.05s too early")
                 return
             rig.set("clip_time", 0.83333)
             game.call("_advance_attack", 0.0)
@@ -111,5 +111,5 @@ func _run() -> void:
         _fail("interrupted third strike kept its queued Bash")
         return
     track_game.free()
-    print("GODOT_V283_MELEE3_FLICK_CANCEL_PASS: 0.725s queued Bash/kicks; unchanged Melee1 restart after 0.83333s")
+    print("GODOT_V283_MELEE3_FLICK_CANCEL_PASS: 0.675s queued Bash/kicks; unchanged Melee1 restart after 0.83333s")
     quit(0)
