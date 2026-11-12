@@ -43,8 +43,10 @@ assert release.index("if side_kick_requested and kick_flick_direction") < releas
 assert "if side != 2 and not bool(rig.call(\"has_side_kick\", side)):" in request
 assert "buffered_side_kick_side = side" in request
 assert "if side == 2:" in launch and "_start_back_somersault()" in launch
-assert "committed_kick_side = buffered_side_kick_side" in finish
-assert "_launch_combo_side_kick(committed_kick_flick, committed_kick_side)" in finish
+handoff = segment(game, "_finish_strike_and_release_queued_kick() -> void:", "_advance_attack")
+assert "committed_kick_side = buffered_side_kick_side" in handoff
+assert "_launch_combo_side_kick(committed_kick_flick, committed_kick_side)" in handoff
+assert "_melee3_flick_cancel_time()" in finish
 print("PASS: third strike queues DOWN kick and consumes it before Bash or STEP")
 
 # Dedicated 4m airborne physical motion and one impact; NEVER fake a STEP.
@@ -78,7 +80,7 @@ assert "set_jump_progress(fraction)" in rig_progress
 assert 'somersault_authored = false' in rig_land
 assert "var angle: float = TAU * progress" in advance
 assert "rig.rotation.x = angle" in advance
-assert "if not back_somersault_has_authored_clip:" not in advance
+assert "if not back_somersault_has_authored_clip:" in advance
 assert "Kick_b" in {a["name"] for a in source["animations"]}
 print("PASS: use actual Kick_b when available, otherwise existing Jump-pose fallback")
 
