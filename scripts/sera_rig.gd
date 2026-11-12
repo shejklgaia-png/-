@@ -36,6 +36,10 @@ const RUN_CLIPS = [RUN_CLIP, RUN_BACK_CLIP, RUN_RIGHT_CLIP, RUN_LEFT_CLIP]
 # Correct their Waist root transform, never the Player / target / camera.
 const RUN_ROOT_BONE_UUID: String = "67435cb7-b6af-23e4-10f1-3cd13d8429fa"  # Waist
 const RUN_ROOT_YAW_OFFSET_RADIANS: float = -PI * 0.5
+# v290: keep SERA's entire visual torso aimed at the locked boss during
+# lateral RUN. Let the gait/feet strafe; never rotate the Waist 90deg
+# sideways after the parent CharacterBody3D has faced the boss center.
+const RUN_TARGET_LOCK_MAX_YAW_DEGREES: float = 25.0
 # Long-drag movement uses an authored single-pose clip, separate from flick steps.
 const BOOST_CLIP: String = "Boost_front"
 const BOOST_BACK_CLIP: String = "Boost_back"
@@ -1134,7 +1138,11 @@ func _run_yaw_for_direction(direction: Vector2, retreat_weight: float) -> float:
     var travel_angle: float = atan2(direction.x, direction.y)
     # Right-back rotates toward the right; left-back toward the left.
     # One unconditional -PI sends right-back through the long rotation arc.
-    return wrapf(-travel_angle + PI * retreat_weight * run_retreat_turn_sign, -PI, PI)
+    var travel_yaw: float = wrapf(
+        -travel_angle + PI * retreat_weight * run_retreat_turn_sign, -PI, PI)
+    return clampf(travel_yaw,
+        -deg_to_rad(RUN_TARGET_LOCK_MAX_YAW_DEGREES),
+        deg_to_rad(RUN_TARGET_LOCK_MAX_YAW_DEGREES))
 
 # A normalized angle blend never shrinks a 180° reversal through Vector2.ZERO.
 # The last turn sign resolves noisy input on opposite sides of ±180°.
