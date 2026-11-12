@@ -57,7 +57,10 @@ func _run() -> void:
             _fail("authored Kick_b was doubled by external rig rotation")
             return
         if absf(rig.position.y - resting_y) > 0.0001:
-            _fail("obsolete external pivot correction shifted the authored rig")
+            _fail("obsolete external pivot correction shifted authored rig at " + str(progress) +
+                " root_y=" + str(rig.position.y) + " resting_y=" + str(resting_y) +
+                " authored=" + str(game.get("back_somersault_has_authored_clip")) +
+                " launched=" + str(game.get("back_somersault_launched")))
             return
         if player.transform.basis.y.dot(initial_collision_basis.y) < 0.999:
             _fail("visual backflip rotated the player collision basis")
