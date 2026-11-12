@@ -53,7 +53,7 @@ func _run() -> void:
     if energy_before - float(game.get("energy")) < 14.9:
         _fail("kick did not charge 15 EN")
         return
-    var contact_seconds: float = float(game.get("BACK_SOMERSAULT_STRIKE_SECONDS"))
+    var contact_seconds: float = 0.80 * (0.20833 / 0.79167)
     game.call("_advance_back_somersault", contact_seconds)
     if not bool(game.get("back_somersault_hit")) or not bool(game.get("back_somersault_launched")):
         _fail("rear flight was not armed by actual kick contact")
@@ -61,7 +61,7 @@ func _run() -> void:
     if player.position.distance_to(start_position) > 0.01:
         _fail("rearward flight started before the kick hit")
         return
-    var flight_half: float = float(game.get("BACK_SOMERSAULT_REAR_FLIGHT_SECONDS")) * 0.5
+    var flight_half: float = (0.80 - contact_seconds) * 0.5
     game.call("_advance_back_somersault", flight_half)
     var middle: Vector3 = player.position
     if absf(middle.y - 1.5) > 0.15:
