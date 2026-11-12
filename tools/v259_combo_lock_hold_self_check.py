@@ -39,11 +39,12 @@ assert "_cancel_attack()" in step
 physics=m.split("func _physics_process(delta: float) -> void:",1)[1].split("func _process(delta: float) -> void:",1)[0]
 assert "bash_followup_window_remaining = maxf(0.0, bash_followup_window_remaining - delta)" in physics
 assert "bash_loop_window_remaining = maxf(0.0, bash_loop_window_remaining - delta)" in physics
-lock=physics.split("# Keep the same lock for an entire 3-strike/Bash combo,",1)[1].split(
+lock=physics.split("# The boss WHOLE-center (camera rotation axis),",1)[1].split(
     '"select_front_part"',1)[0]
 assert "if not combo_held:" in lock
-assert "not manual_part_lock_active" in lock
+assert "not manual_part_lock_active or locked_part_broken" in lock
 assert "var combo_held: bool = _combo_lock_retention_active()" in lock
+assert "if not combo_held:" in lock
 assert "locked_target_part_id = str(target_parts.call(" in lock
 assert 'locked_target_part_id = ""' in physics
 assert "manual_part_lock_active = not auto_lock_enabled" in physics
