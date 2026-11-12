@@ -1543,7 +1543,7 @@ func _switch_lock_screen_direction(direction: int) -> void:
     # persists during movement and is cleared on break or training reset.
     if (direction == 0 or auto_lock_enabled or target_parts == null
             or camera == null or target_hp <= 0 or training_ko_remaining > 0.0
-            or combat_state != CombatState.IDLE):
+            or _combo_lock_retention_active()):
         return
     var viewport_size: Vector2 = get_viewport().get_visible_rect().size
     if viewport_size.x <= 0.0 or viewport_size.y <= 0.0:
@@ -1834,11 +1834,21 @@ func _target_hit_aabb() -> AABB:
     var extents := Vector3(TARGET_HALF_SIZE, TARGET_HALF_SIZE, TARGET_BODY_HALF_DEPTH)
     return AABB(target.global_position - extents, extents * 2.0)
 
+# A destroyed part stays LOCKED and keeps its original hit volume until
+# the committed three-hit/Bash/Kick sequence (including input links) ends.
+# New locks still exclude broken candidates via is_targetable().
+func _locked_part_hit_volume_available() -> bool:
+    return (target_parts != null
+        and not locked_target_part_id.is_empty()
+        and bool(target_parts.call("has_part", locked_target_part_id))
+        and (bool(target_parts.call("is_targetable", locked_target_part_id))
+            or _combo_lock_retention_active()))
+
+
 func _blade_contact(from_pt: Vector3, to_pt: Vector3) -> Variant:
     # Sword sweeps may hit an exterior head or leg without crossing the cube.
     # v251 movement solids are separate; lock-exclusive hit AABBs stay intact.
-    if target_parts != null and bool(target_parts.call(
-            "is_targetable", locked_target_part_id)):
+    if _locked_part_hit_volume_available():
         var part_box: AABB = target_parts.call("get_part_aabb", locked_target_part_id)
         # v249: Locked part is exclusive; never fall through to the core.
         return part_box.grow(BLADE_THICKNESS).intersects_segment(from_pt, to_pt)
@@ -1896,8 +1906,7 @@ func _check_strike_contact() -> void:
                 target.position.y,
                 clampf(player.position.z, target.position.z - TARGET_BODY_HALF_DEPTH, target.position.z + TARGET_BODY_HALF_DEPTH)
             )
-            if target_parts != null and bool(target_parts.call(
-                    "is_targetable", locked_target_part_id)):
+            if _locked_part_hit_volume_available():
                 var part_box: AABB = target_parts.call("get_part_aabb", locked_target_part_id)
                 hit_point = Vector3(
                     clampf(player.position.x, part_box.position.x, part_box.end.x),
@@ -1918,6 +1927,10 @@ func _apply_target_part_damage(kind: String, raw_attack: int, raw_break: float,
     if target_hp > 0 and target_parts != null:
         result = target_parts.call(
             "apply_part_hit", locked_target_part_id, raw_attack, raw_break)
+        # Every strike/Bash/kick hit now animates the struck module too,
+        # including a part just destroyed or already broken in this combo.
+        target_parts.call("trigger_part_hit_fx",
+            locked_target_part_id, HIT_FLASH_SECONDS)
         target_hp = maxi(0, target_hp - int(result["body_damage"]))
         _register_test_hit(weak_stagger, extension)
         if bool(result["broken"]):
@@ -1930,9 +1943,8 @@ func _apply_target_part_damage(kind: String, raw_attack: int, raw_break: float,
                 part_break_remaining = maxf(part_break_remaining, 3.5)
             elif str(result["kind"]) == "head" and enemy_shooter != null:
                 enemy_shooter.call("set_head_destroyed", true)
-            # Do not keep hitting a removed/broken target during the combo.
-            locked_target_part_id = ""
-            manual_part_lock_active = not auto_lock_enabled
+            # Keep the broken ID and its hitbox until all linked attacks
+            # and 0.65s input windows have finished; reacquire only then.
     var actual_damage: int = hp_before_hit - target_hp
     result["applied_damage"] = actual_damage
     SeraSave.record_target_hit(kind, actual_damage,
@@ -2050,6 +2062,8 @@ func _advance_hit_fx(delta: float) -> void:
         var bounce: float = hit_flash_remaining / HIT_FLASH_SECONDS
         target_mesh.position.x = sin((1.0 - bounce) * 44.0) * 0.09 * bounce
         target_mesh.rotation_degrees.z = sin((1.0 - bounce) * 22.0) * 6.0 * bounce
+    if target_parts != null:
+        target_parts.call("advance_part_hit_fx", delta)
     if hit_burst != null:
         hit_burst.call("advance", delta)
     if damage_popup_remaining > 0.0:
@@ -2068,7 +2082,11 @@ func _advance_hit_fx(delta: float) -> void:
             incoming_damage_label.visible = false
     if target_respawn_remaining > 0.0:
         target_respawn_remaining = maxf(0.0, target_respawn_remaining - delta)
-        if target_respawn_remaining == 0.0:
+        if target_respawn_remaining <= 0.0 and _combo_lock_retention_active():
+            # A full boss KO must not reset/erase the locked broken part
+            # while a queued combo is still animating. Retry on next tick.
+            target_respawn_remaining = 0.01
+        elif target_respawn_remaining == 0.0:
             target_hp = TARGET_MAX_HP
             if target_parts != null:
                 target_parts.call("reset_parts")
@@ -2649,11 +2667,21 @@ func _advance_landing(delta: float) -> void:
     if rig != null:
         rig.call("set_landing_progress", landing_fraction)
     if landing_elapsed >= duration + hold:
+        var was_somersault_landing: bool = landing_from_somersault
         landing_active = false
         landing_elapsed = 0.0
         landing_from_somersault = false
+        if was_somersault_landing and gesture_active:
+            # The kickoff of Kick_b zeroes the old movement vector. If a
+            # finger is already held at touchdown, re-read that SAME stick
+            # position instead of waiting for an extra Android motion event
+            # before RUN can begin again.
+            direction_input = _analog_stick_direction(pointer_location)
+            if touch_ui != null:
+                touch_ui.call("set_analog_direction", direction_input)
         if rig != null:
-            rig.call("finish_jump", gesture_active and direction_input.length_squared() > 0.000001, false)
+            rig.call("finish_jump",
+                gesture_active and direction_input.length_squared() > 0.000001, false)
 
 func _classify_side_flick(displacement: Vector2, seconds: float) -> int:
     # This check runs on release, NOT on the first fast drag event.  No
@@ -3429,6 +3457,17 @@ func _combo_followup_input_window_open() -> bool:
     return (bash_followup_window_remaining > 0.0
         or bash_loop_window_remaining > 0.0)
 
+
+# v289: a combo includes all three strikes, Bash, the buffered side/back
+# kicks, the resulting somersault landing and the two link windows. Broken
+# part IDs must stay locked for EVERY frame of this entire lifecycle.
+func _combo_lock_retention_active() -> bool:
+    return (combat_state != CombatState.IDLE
+        or side_kick_active or back_somersault_active
+        or (landing_active and landing_from_somersault)
+        or _combo_followup_input_window_open())
+
+
 # RUN/BOOST or a confirmed STEP cancels pending follow-up input.
 # Do not alter selected ID or AUTO/MANUAL preference here.
 func _cancel_combo_followup_windows_for_movement() -> void:
@@ -3521,8 +3560,7 @@ func _advance_homing_toward_target(delta: float, reach: float) -> bool:
     if not _spend_energy(16.0 * delta * float(part_stats.get("energy_cost_mult", 1.0))):
         return false
     var pursuit_point: Vector3 = target.position
-    if target_parts != null and bool(target_parts.call(
-            "is_targetable", locked_target_part_id)):
+    if _locked_part_hit_volume_available():
         pursuit_point = target_parts.call("get_part_aim_world", locked_target_part_id)
     var destination_delta: Vector3 = pursuit_point - player.position
     destination_delta.y = 0.0
@@ -3601,8 +3639,7 @@ func _distance_to_cube_surface(pos: Vector3) -> float:
 
 func _distance_to_attack_target_surface(pos: Vector3) -> float:
     # Chase, Bash and assisted hits share the active lock's horizontal AABB.
-    if target_parts != null and bool(target_parts.call(
-            "is_targetable", locked_target_part_id)):
+    if _locked_part_hit_volume_available():
         var part_box: AABB = target_parts.call("get_part_aabb", locked_target_part_id)
         var nearest_x: float = clampf(pos.x, part_box.position.x, part_box.end.x)
         var nearest_z: float = clampf(pos.z, part_box.position.z, part_box.end.z)
@@ -4069,25 +4106,35 @@ func _physics_process(delta: float) -> void:
     blur_active_this_physics_frame = (not damage_reaction_active and (
         blur_step_this_physics_frame or (combat_state == CombatState.IDLE
         and movement_boost_active and running)))
-    # Keep the same lock for an entire 3-strike/Bash combo, INCLUDING
-    # Melee3->Bash and Bash->Melee1 input windows after animation ends.
-    # Movement cancels those windows and resumes AUTO selection.
+    # The boss WHOLE-center (camera rotation axis), viewed from SERA,
+    # determines which undestroyed limb lies directly forward.
+    # Keep the current ID (including a just-broken limb) through the whole
+    # 3-strike/Bash/side kick/backflip combo and its 0.65s input windows.
     var aim: Vector3 = Vector3(
         target.position.x - player.position.x, 0.0,
         target.position.z - player.position.z)
     if target_parts != null:
-        if (target_hp > 0 and combat_state == CombatState.IDLE
-                and not manual_part_lock_active and not side_kick_active
-                and not _combo_followup_input_window_open()):
-            locked_target_part_id = str(target_parts.call(
-                "select_front_part",
-                player.global_position + Vector3.UP * 1.05,
-                aim, locked_target_part_id, _target_hit_aabb()))
-        elif not locked_target_part_id.is_empty() and not bool(
-                target_parts.call("is_targetable", locked_target_part_id)):
-            locked_target_part_id = ""
-            manual_part_lock_active = not auto_lock_enabled
-        if not locked_target_part_id.is_empty():
+        var combo_held: bool = _combo_lock_retention_active()
+        var locked_part_broken: bool = (
+            not locked_target_part_id.is_empty()
+            and not bool(target_parts.call("is_targetable", locked_target_part_id)))
+        if not combo_held:
+            if target_hp > 0 and (not manual_part_lock_active or locked_part_broken):
+                # Reacquire a new FRONT visible part only AFTER the entire
+                # committed combo finishes. Manual selection of an intact
+                # target stays manual; a broken manual lock auto-recovers once.
+                locked_target_part_id = str(target_parts.call(
+                    "select_front_part",
+                    player.global_position + Vector3.UP * 1.05,
+                    aim, "" if locked_part_broken else locked_target_part_id,
+                    _target_hit_aabb()))
+                if locked_part_broken:
+                    manual_part_lock_active = not auto_lock_enabled
+            elif locked_part_broken:
+                locked_target_part_id = ""
+                manual_part_lock_active = not auto_lock_enabled
+        if not locked_target_part_id.is_empty() and bool(
+                target_parts.call("has_part", locked_target_part_id)):
             var part_aim: Vector3 = target_parts.call(
                 "get_part_aim_world", locked_target_part_id)
             aim = Vector3(part_aim.x - player.position.x, 0.0,
