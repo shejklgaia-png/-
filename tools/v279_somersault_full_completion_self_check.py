@@ -14,10 +14,10 @@ assert "BACK_SOMERSAULT_FLIGHT_SECONDS: float = 0.80" in main
 assert "BACK_SOMERSAULT_DISTANCE: float = 4.0" in main
 assert "BACK_SOMERSAULT_HEIGHT: float = 1.5" in main
 assert "BACK_SOMERSAULT_LANDING_SECONDS: float = 0.20" in main
-assert 'rig.call("set_back_somersault_progress", progress)' in main
+assert 'rig.call("set_back_somersault_progress", pose_progress)' in main
 assert 'rig.call("back_somersault_final_pose_sampled")' in main
 assert 'if back_somersault_has_authored_clip and not bool(' in main
-assert 'player.position.y = 0.0' in main
+assert 'player.position.y = back_somersault_start.y' in main
 assert 'rig.call("start_landing", from_back_somersault)' in main
 assert 'func back_somersault_final_pose_sampled() -> bool:' in rig
 assert 'clip_time = minf(duration * fraction, duration)' in rig
