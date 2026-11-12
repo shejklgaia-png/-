@@ -75,7 +75,9 @@ assert '"back_somersault_uses_authored_clip"' in game
 assert "BACK_SOMERSAULT_CLIP if somersault_authored else JUMP_CLIP" in rig_start
 assert "set_jump_progress(fraction)" in rig_progress
 assert 'somersault_authored = false' in rig_land
-assert "if not back_somersault_has_authored_clip:" in advance
+assert "var angle: float = TAU * progress" in advance
+assert "rig.rotation.x = angle" in advance
+assert "if not back_somersault_has_authored_clip:" not in advance
 assert "Kick_b" in {a["name"] for a in source["animations"]}
 print("PASS: use actual Kick_b when available, otherwise existing Jump-pose fallback")
 
