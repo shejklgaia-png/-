@@ -4363,11 +4363,15 @@ func _physics_process(delta: float) -> void:
                     float(part_stats.get("melee_boost_duration", MELEE_BOOST_DEFAULT_DURATION))]
             CombatState.STRIKE:
                 var count: int = _strike_stage_count()
-                state_label.text = ("STRIKE %d/%d  |  KICK B QUEUED" % [strike_index + 1, count]
-                    if buffered_side_kick_side == 2 else
-                    "STRIKE %d/%d  |  KICK QUEUED" % [strike_index + 1, count]) \
-                    if buffered_side_kick_side != 0 else \
-                    "STRIKE %d/%d  |  %s" % [strike_index + 1, count, _active_strike_clip(strike_index)]
+                if buffered_side_kick_side == 2:
+                    state_label.text = "STRIKE %d/%d  |  KICK B QUEUED" % [
+                        strike_index + 1, count]
+                elif buffered_side_kick_side != 0:
+                    state_label.text = "STRIKE %d/%d  |  KICK QUEUED" % [
+                        strike_index + 1, count]
+                else:
+                    state_label.text = "STRIKE %d/%d  |  %s" % [
+                        strike_index + 1, count, _active_strike_clip(strike_index)]
             CombatState.BACK_KICK_TRACK:
                 state_label.text = "KICK BACK TRACK  %.2f / %.2fs" % [
                     back_kick_track_elapsed, BASH_TRACK_SECONDS]
