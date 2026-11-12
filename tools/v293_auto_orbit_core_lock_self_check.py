@@ -29,9 +29,11 @@ for i,expected in enumerate(order):
     angle = math.radians(i*36)
     assert select(-math.sin(angle),math.cos(angle)) == expected, (i,expected)
 assert select(0,1) == "head"
-assert select(-1,0) == ""
+# Check sector centers, not exact halfway boundaries where rounding ties
+# legitimately belong to either neighboring segment.
+assert select(-math.sin(math.radians(108)), math.cos(math.radians(108))) == ""
 assert select(0,-1) == ""
-assert select(1,0) == ""
+assert select(-math.sin(math.radians(252)), math.cos(math.radians(252))) == ""
 assert select(-math.sin(math.radians(72)),math.cos(math.radians(72)),{"leg_fl"}) == ""
 assert "var auto_lock_initialized: bool = false" in main
 auto = main.split("func _acquire_stable_camera_part(delta: float,",1)[1].split(
