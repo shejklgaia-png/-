@@ -241,3 +241,11 @@ Additional historical checks may refer to unavailable prior ZIPs; read their pre
 - **全5部位それぞれの命中FXを共通本体FXへ統一**。本体の`HIT_FLASH_SECONDS=0.145`と同じタイマーで、被弾部位のシェル・関節・フレーム・ダーク材に暗赤色/発光および視覚的な小さな左右揺れを与える（`target_parts.trigger_part_hit_fx/advance_part_hit_fx`）。破壊フレーム中も演出し、終了時は元色または損傷色へ戻す。中心本体の既存FX、火花、音は維持。
 - **バク宙後RUN不具合**：後方蹴りの追尾`rig.start_melee_approach`が`combat_playback=true`を立てたまま`rig.start_back_somersault`へ遷移し、着地後に`set_moving()`がreturnしていた。空中移行と`finish_jump`で`combat_playback`、`combat_paused`、`freeze_attack_pose`、`attack_windup_active`を解除。0.2秒着地後、既に指が残っていれば`_analog_stick_direction(pointer_location)`を再取得してRUNを復帰。モーションやコンボ受付は変更しない。
 - プロジェクト表記`SERA v289`。新規静的・Godot実行用回帰テストをCIに登録。GitHub反映済み、実機映像での最終確認は未実施。
+
+
+## v290 — 最新仕様：カタナ2段＋鞘/抜き身切替、左右RUN中の全体中心ロック
+- カタナ右武器Kは元のBlockbench階層の**鞘側5メッシュ／抜き身側2メッシュ**を区別する（`Katana_l`～`Katana_r_saya`対`Katana_r_nukimi`）。装備選択直後・WAITは鞘のみ、`Melee_katana`の4フレーム目（3/24秒）で鞘非表示＋透明度1、抜き身表示＋透明度0。**2段目中は抜き身を表示したまま**。装備変更・戦闘終了では初期鞘表示へ戻し、残像も同期。従来の`visible`に加えて`GeometryInstance3D.transparency`も設定する。モデル元素自体を複製・削除・着色しない。
+- 原本には`Melee_katana2`のユーザー作成キーフレームが現時点で存在しない。元の`Melee_katana`（0.5秒）をGodot実行時に`duplicate(true)`でコピーし、**Waist/Torso/Chest/右腕/右手/抜き身刀支点の水平角の捻りを逆にした**別アニメーション`Melee_katana2`を生成。原本JSON／Blockbenchには手を入れない。もし将来原本`Melee_katana2`が追加された場合はそのキーを優先して派生生成をスキップする。
+- **カタナ選択中だけ攻撃は2段（stage 0→1）**。2段目は真の別クリップで、同名`_switch_clip`早期returnが発生しない。2段目の振り抜き7/24秒の0.05秒後（0.34167秒）からフリック派生解放、UP=Bash/RIGHT=Kick_r/LEFT=Kick_l/DOWN=Kick_b。予約フリックがなければ原本0.5秒を完走、派生入力窓0.65秒を維持。1段目からの追撃タップ受付は7/24秒で据え置き。通常武器Aは従来の3段格闘とMelee3の0.675秒派生受付を維持。ダメージ／EN／追尾や方向入力の仕様は変更しない。
+- 横移動時、`main.gd`の`player.look_at`を**ターゲット部位ではなく敵全体の中心点（カメラ軸）へ**向ける。部位IDはレティクル・ダメージ・追尾判定だけに利用。さらに`sera_rig.gd::_run_yaw_for_direction`はRUN/後退/左右RUNで移動方向にWaistが最大90°回っていたので、**全体中心からの視覚的なズレを±25°以内に制限**。脚の横移動・スライド/BOOST・入力360°・低いカメラ・v288の追従は維持。
+- `project.godot`: SERA v290。静的/シーン回帰テスト`v290_katana_combo_body_lock_*`をCIに追加。Androidでの実映像検証は未実施。
