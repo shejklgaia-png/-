@@ -132,8 +132,14 @@ const CAMERA_COMBAT_VISIBILITY_DISTANCE: float = 6.5
 const CAMERA_COMBAT_YAW_HOLD_SECONDS: float = 0.45
 const CAMERA_COMBAT_SHOULDER_DEGREES: float = 12.0
 const CAMERA_COMBAT_MAX_PLAYER_SIDE_DEGREES: float = 30.0
-const CAMERA_COMBAT_IDLE_YAW_RESPONSE: float = 0.9
-const CAMERA_COMBAT_IDLE_YAW_MAX_SPEED_DEGREES: float = 32.0
+# v288: small SERA-follow lag with a hard distance/angle leash. Beyond the
+# leash the camera moves at exactly the player's rate, never falling farther
+# behind during fast movement or homing attacks.
+const CAMERA_PLAYER_FOCUS_LEAD_METERS: float = 2.0
+const CAMERA_PLAYER_FOCUS_FOLLOW_RATE: float = 15.0
+const CAMERA_PLAYER_FOCUS_MAX_LAG_METERS: float = 0.65
+const CAMERA_PLAYER_YAW_FOLLOW_RATE: float = 10.0
+const CAMERA_PLAYER_YAW_MAX_LAG_DEGREES: float = 12.0
 const CAMERA_COMBAT_MIN_RADIUS: float = 11.3
 const CAMERA_COMBAT_ZOOM_OUT_SPEED: float = 8.0
 # v286: minimum safe target->SERA orbit radius includes the wide outer
@@ -450,6 +456,7 @@ var step_has_last: bool = false
 var combat_state: CombatState = CombatState.IDLE
 var elapsed: float = 0.0
 var camera_yaw: float = 0.0
+var camera_focus_follow_xz: Vector2 = Vector2.ZERO
 var camera_combat_hold_remaining: float = 0.0
 var camera_radius: float = CAMERA_BASE_RADIUS
 var camera_follow_radius: float = CAMERA_BASE_RADIUS
@@ -752,6 +759,14 @@ func _tick_training_ko(delta: float) -> void:
     camera_filtered_closing_speed = 0.0
     camera_dolly_in_speed = 0.0
     camera_near_dolly_weight = 0.0
+    camera_player_render_position = player.global_position
+    camera_target_render_position = target.global_position
+    camera_focus_follow_xz = _desired_camera_follow_focus_xz()
+    var respawn_radial: Vector2 = Vector2(
+        player.position.x - target.position.x, player.position.z - target.position.z)
+    if respawn_radial.length_squared() > 0.000001:
+        camera_yaw = atan2(respawn_radial.x, respawn_radial.y) - deg_to_rad(
+            CAMERA_COMBAT_SHOULDER_DEGREES)
     target_motion = TARGET_MOTION_SCRIPT.new()
     if target_floor_mark != null:
         target_floor_mark.position = Vector3(0.0, -0.026, -8.0)
@@ -1128,6 +1143,7 @@ func _build_camera() -> void:
     camera.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
     camera_player_render_position = player.global_position
     camera_target_render_position = target.global_position
+    camera_focus_follow_xz = _desired_camera_follow_focus_xz()
     camera.fov = 61.0  # Vertical FOV; keeps player visible in tall portrait
     camera.near = 0.08
     camera.far = 200.0
@@ -4344,6 +4360,9 @@ func _process(delta: float) -> void:
         _update_target_marker_projection()  # Still track externally moving targets during hit-stop.
         _update_motion_blur(delta)
         return  # Hold target bob and camera for the impact beat.
+    # Sample the camera follow focus once per rendered frame. _place_camera
+    # and fit searches must all use the same frozen focus for that frame.
+    _advance_camera_follow_focus(delta)
     var radial: Vector2 = Vector2(
         camera_player_render_position.x - camera_target_render_position.x,
         camera_player_render_position.z - camera_target_render_position.z
@@ -4476,6 +4495,11 @@ func _process(delta: float) -> void:
         and not step_active and
         (movement_boost_active or boost_pose_grace_remaining > 0.0))
     if hold_attack_camera or step_active or close_step_camera_this_frame:
+        # Only ordinary screen-relative STEP freezes yaw for its short
+        # committed trajectory. Kick/Strike/Bash/Somersault keep tracking
+        # SERA under the 12deg hard angular leash even during attacks.
+        if (not step_active or side_kick_active) and separation > 0.08:
+            camera_yaw = _stable_shoulder_camera_yaw(bearing, delta)
         _place_camera()
         _update_side_from_screen()
     elif protect_close_step and separation > 0.08:
@@ -4485,11 +4509,7 @@ func _process(delta: float) -> void:
         _place_camera()
         _update_side_from_screen()
     elif running:
-        if separation <= CAMERA_COMBAT_VISIBILITY_DISTANCE:
-            camera_yaw = _stable_shoulder_camera_yaw(bearing, delta)
-        else:
-            camera_yaw = lerp_angle(
-                camera_yaw, bearing, easing * CAMERA_MOVING_YAW_SCALE)
+        camera_yaw = _stable_shoulder_camera_yaw(bearing, delta)
         _place_camera()
         _update_side_from_screen()
         if not close_boost_camera_active and not boost_edge_frame_guard \
@@ -4528,19 +4548,45 @@ func _process(delta: float) -> void:
         0.0, close_step_camera_recovery_remaining - delta)
 
 
-# v287: low-pass target-relative camera follow. No per-frame candidate
-# scanning, silhouette-dependent side switching or reactive attack yaw.
-# 12deg shoulder offset preserves SERA's 3/4 rear view without drifting
-# toward a full left/right profile. Max 32deg/sec even after a long orbit.
+# v288: keep the tracking anchor near SERA, with a short (up to 2m)
+# lead toward the target for composition. At long range it translates
+# with SERA essentially one-for-one instead of orbiting a stationary boss.
+func _desired_camera_follow_focus_xz() -> Vector2:
+    var player_xz: Vector2 = Vector2(
+        camera_player_render_position.x, camera_player_render_position.z)
+    var target_xz: Vector2 = Vector2(
+        camera_target_render_position.x, camera_target_render_position.z)
+    return player_xz + (target_xz - player_xz).limit_length(
+        CAMERA_PLAYER_FOCUS_LEAD_METERS)
+
+
+# Light exponential damping followed by a hard 0.65m leash. Once the
+# cap is reached, translation matches SERA frame-for-frame with no
+# accumulating spring momentum, oscillation, or long catch-up delay.
+func _advance_camera_follow_focus(delta: float) -> void:
+    var desired: Vector2 = _desired_camera_follow_focus_xz()
+    var alpha: float = 1.0 - exp(
+        -CAMERA_PLAYER_FOCUS_FOLLOW_RATE * maxf(delta, 0.0))
+    camera_focus_follow_xz = camera_focus_follow_xz.lerp(desired, alpha)
+    var error: Vector2 = desired - camera_focus_follow_xz
+    if error.length_squared() > (
+            CAMERA_PLAYER_FOCUS_MAX_LAG_METERS * CAMERA_PLAYER_FOCUS_MAX_LAG_METERS):
+        camera_focus_follow_xz = desired - error.normalized() * (
+            CAMERA_PLAYER_FOCUS_MAX_LAG_METERS)
+
+
+# The same short-delay angular leash follows SERA through 3-hit combos.
+# At >12deg error, track at SERA's angular speed, never letting the view
+# fall to 90deg sideways. Ordinary STEP input retains its locked yaw.
 func _stable_shoulder_camera_yaw(player_bearing: float, delta: float) -> float:
     var desired: float = player_bearing - deg_to_rad(
         CAMERA_COMBAT_SHOULDER_DEGREES)
     var error: float = wrapf(desired - camera_yaw, -PI, PI)
     var alpha: float = 1.0 - exp(
-        -CAMERA_COMBAT_IDLE_YAW_RESPONSE * maxf(delta, 0.0))
-    var max_turn: float = deg_to_rad(
-        CAMERA_COMBAT_IDLE_YAW_MAX_SPEED_DEGREES) * maxf(delta, 0.0)
-    return camera_yaw + clampf(error * alpha, -max_turn, max_turn)
+        -CAMERA_PLAYER_YAW_FOLLOW_RATE * maxf(delta, 0.0))
+    var residual: float = error * (1.0 - alpha)
+    var leash: float = deg_to_rad(CAMERA_PLAYER_YAW_MAX_LAG_DEGREES)
+    return camera_yaw + error - clampf(residual, -leash, leash)
 
 
 func _close_step_target_relative_yaw(player_bearing: float, easing: float, delta: float) -> float:
@@ -4713,8 +4759,9 @@ func _minimum_boost_camera_radius() -> float:
         sin(camera_yaw), CAMERA_ELEVATION_RATIO, cos(camera_yaw))
     var radial_scale: float = outward.length()
     outward /= radial_scale
-    var focus: Vector3 = camera_target_render_position - Vector3(
-        0.0, CAMERA_FOCUS_DROP, 0.0)
+    var focus: Vector3 = Vector3(
+        camera_focus_follow_xz.x, TARGET_BASE_HEIGHT - CAMERA_FOCUS_DROP,
+        camera_focus_follow_xz.y)
 
     var min_radius: float = 0.0
     var torso: Vector3 = camera_player_render_position + Vector3(0.0, 1.05, 0.0)
@@ -4819,7 +4866,11 @@ func _place_camera() -> void:
     # playable portion of the portrait screen. Moving the camera with the
     # lower focus (rather than applying a canvas or HUD offset) preserves
     # world projection for drag, hit effects and screen-edge checks.
-    var focus: Vector3 = camera_target_render_position - Vector3(0.0, CAMERA_FOCUS_DROP, 0.0)
+    # Fixed vertical reference avoids idle-bob camera shake. Elevation is
+    # unchanged (the previous overhead adjustment stays removed).
+    var focus: Vector3 = Vector3(
+        camera_focus_follow_xz.x, TARGET_BASE_HEIGHT - CAMERA_FOCUS_DROP,
+        camera_focus_follow_xz.y)
     camera.position = focus + Vector3(
         sin(camera_yaw) * camera_radius,
         CAMERA_ELEVATION_RATIO * camera_radius,
