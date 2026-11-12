@@ -67,8 +67,11 @@ func _run() -> void:
     if absf(middle.y - 1.5) > 0.15:
         _fail("missing 1.5m parabola apex: " + str(middle.y))
         return
-    if absf(middle.z - start_position.z) < 1.5:
-        _fail("no rearward displacement at half-time")
+    # v284 uses a target-relative retreat (not guaranteed to match world Z).
+    # A 4m Bezier arc must advance approximately 2m along its captured heading.
+    var retreat_dir: Vector3 = game.get("back_somersault_direction")
+    if absf((middle - start_position).dot(retreat_dir) - 2.0) > 0.5:
+        _fail("no target-relative rearward displacement at half-time")
         return
     if not bool(rig.call("back_somersault_uses_authored_clip")):
         if absf(absf(rig.rotation.x) - PI) > 0.1:
