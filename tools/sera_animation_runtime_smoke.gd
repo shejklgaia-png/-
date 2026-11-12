@@ -40,8 +40,11 @@ func _run() -> void:
             return
         var compiled: Dictionary = loaded[clip_name]
         var length: float = float(compiled.get("length", 0.0))
-        if length <= 0.001:
-            _failure(clip_name + ": invalid playback duration")
+        # Blockbench's Wait_Pose and other static keyframe poses can have
+        # duration == 0. Godot samples them at t=0 without an error.
+        # Reject negative, broken durations but permit intentional poses.
+        if length < 0.0:
+            _failure(clip_name + ": negative playback duration")
             return
         var tracks: Dictionary = compiled.get("tracks", {})
         var usable_tracks: int = 0
@@ -60,7 +63,7 @@ func _run() -> void:
         # _switch_clip and _apply_animation exercise real Godot dictionaries,
         # quaternion interpolation and node/Pivot updates, unlike JSON checks.
         rig.call("_switch_clip", clip_name, 0.05)
-        rig.set("clip_time", length * 0.4)
+        rig.set("clip_time", length * 0.4 if length > 0.001 else 0.0)
         rig.call("_apply_animation", 0.0)
         if str(rig.get("current_clip")) != clip_name:
             _failure(clip_name + ": runtime did not switch to the clip")
