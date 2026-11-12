@@ -78,7 +78,7 @@ print("PASS: expiration during a valid touch cannot invalidate the stored link")
 assert "func _start_omni_step(flick: Vector2) -> bool:" in main
 assert 'rig.call("start_omni_step", pose_direction)' in main
 assert "_move_player_swept(requested, true)" in main
-assert "if side_kick_active and not side_kick_did_hit" in main
+assert "if side_kick_active:" in main and "side_kick_hit_mask" in main
 assert 'const BACK_STEP_DISTANCE: float = 4.0' in main
 print("PASS: original STEP API/collision and single kick impact preserved")
 print("SERA v265 kick regression PASS (static and numeric only; Android not executed)")

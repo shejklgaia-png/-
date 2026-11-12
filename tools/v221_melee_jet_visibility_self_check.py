@@ -29,7 +29,7 @@ assert "tracking_exhaust" not in normal
 assert "blur_velocity" not in normal
 exhaust=main.split("var exhaust_on: bool = (",1)[1].split(
     "var tracking_accel_state: int =",1)[0]
-assert "or tracking_exhaust or normal_melee_exhaust))" in exhaust
+assert "or tracking_exhaust or normal_melee_exhaust or normal_kick_exhaust))" in exhaust
 assert "not damage_reaction_active and not jump_active" in exhaust
 assert "not landing_active and not guard_active and not energy_exhausted" in exhaust
 
@@ -54,7 +54,7 @@ assert "normal_melee_exhaust" not in burst
 assert "acceleration_burst: bool = (exhaust_on" in burst
 assert "stepping_this_frame and not thruster_accel_previous_step" in burst
 assert "tracking_accel_state != thruster_accel_previous_tracking_state" in burst
-assert "left_sector_world, acceleration_burst, normal_melee_exhaust)" in main
+assert "left_sector_world, acceleration_burst, normal_melee_exhaust or normal_kick_exhaust)" in main
 for x in (rig,equip,fx):
     assert "melee_sustain: bool = false" in x
 assert "left_sector_world, acceleration_burst, melee_sustain)" in rig

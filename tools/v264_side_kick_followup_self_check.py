@@ -44,9 +44,9 @@ require("kick preserves SERA-facing wedges with screen-side recovery",
         and "if actor_sector == 1:" in main
         and "if actor_sector == 3:" in main)
 require("physics uses same swept STEP, not new teleport",
-        "if side_kick_active and not side_kick_did_hit" in main
+        "if side_kick_active:" in main and "side_kick_hit_mask" in main
         and "_move_player_swept(requested, true)" in main)
-require("single-hit is armed once per kick",
+require("per-extension kick hits are each armed once",
         "side_kick_did_hit = true" in main
         and "func _register_side_kick_hit()" in main)
 require("other directions retain normal step but lateral kick input is exclusive",

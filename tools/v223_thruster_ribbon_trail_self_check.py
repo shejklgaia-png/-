@@ -52,7 +52,7 @@ assert 'const EXHAUST_RADIAL_SIDES: int = 10' in fx
 assert 'const BURST_RISE_SECONDS: float = 0.05' in fx
 assert 'const BURST_FALL_SECONDS: float = 0.18' in fx
 assert 'VERTEX.xy *= 1.0 + 14.0 * fan;' in original_shader
-assert 'left_sector_world, acceleration_burst, normal_melee_exhaust)' in main
+assert 'left_sector_world, acceleration_burst, normal_melee_exhaust or normal_kick_exhaust)' in main
 assert 'fx.call("set_exhaust", active and str(set_id) == selected_booster,' in equipment
 
 # Opacity/width are bounded, ordered, and end at zero even after emission.
