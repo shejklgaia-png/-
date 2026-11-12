@@ -1,5 +1,5 @@
 extends SceneTree
-## Real-rig regression: Kick_b must turn the WHOLE silhouette even when authored.
+## Authored Kick_b must turn its Waist exactly once, around the original pivot.
 ## The v278 runtime test independently covers both kicks' delayed lateral STEP.
 func _initialize() -> void:
     call_deferred("_run")
@@ -30,58 +30,61 @@ func _run() -> void:
         return
     var resting_y: float = float(game.get("back_somersault_original_rig_y"))
     var initial_collision_basis: Basis = player.transform.basis
-    # Rotation is on the visible rig only, not the CharacterBody3D collision.
-    game.call("_advance_back_somersault", 0.20)
-    if absf(rig.transform.basis.y.z) < 0.90:
-        _fail("quarter-flight SERA silhouette has not rotated 90 degrees")
-        return
-    if absf(rig.position.y - resting_y - 0.90) > 0.03:
-        _fail("whole-body rotation pivot compensation missing")
-        return
-    game.call("_advance_back_somersault", 0.20)
-    if rig.transform.basis.y.y > -0.95:
-        _fail("authored Kick_b did not turn the whole character upside down")
-        return
-    if player.transform.basis.y.dot(initial_collision_basis.y) < 0.999:
-        _fail("somersault accidentally rotated physics collision")
-        return
-    game.call("_advance_back_somersault", 0.20)
-    if absf(rig.transform.basis.y.z) < 0.90:
-        _fail("third-quarter SERA silhouette did not continue rotating")
-        return
-    game.call("_advance_back_somersault", 0.20)
+    var waist: Node3D = (rig.get("bones") as Dictionary)[
+        "67435cb7-b6af-23e4-10f1-3cd13d8429fa"]
+    var source_keys: Array = ((rig.get("animations") as Dictionary)["Kick_b"]["tracks"][
+        "67435cb7-b6af-23e4-10f1-3cd13d8429fa"] as Dictionary)["rotation"]
+    # The Blockbench Waist itself turns through ~382 degrees. The visible
+    # rig must remain unrotated so the same authored flip is never applied
+    # twice. Check a frame inside the 125 -> 335 degree segment, where
+    # naive shortest-path quaternion SLERP reverses instead of flipping.
+    var previous_time: float = 0.0
+    for progress in [0.25, 0.40, 0.50, 0.75, 1.0]:
+        var wanted_time: float = 0.80 * progress
+        game.call("_advance_back_somersault", wanted_time - previous_time)
+        previous_time = wanted_time
+        rig.call("_process", 0.06)
+        var author_euler: Vector3 = rig.call("_value_at",
+            source_keys, float(rig.call("get_clip_time")))
+        var expected_q: Quaternion = rig.call("_blockbench_rotation", author_euler)
+        if absf(waist.quaternion.dot(expected_q)) < 0.9999:
+            _fail("Blockbench Waist full turn was lost at " + str(progress))
+            return
+        if absf(rig.rotation.x) > 0.0001:
+            _fail("authored Kick_b was doubled by external rig rotation")
+            return
+        if absf(rig.position.y - resting_y) > 0.0001:
+            _fail("obsolete external pivot correction shifted the authored rig")
+            return
+        if player.transform.basis.y.dot(initial_collision_basis.y) < 0.999:
+            _fail("visual backflip rotated the player collision basis")
+            return
     if not bool(game.get("back_somersault_active")):
-        _fail("authored final pose was interrupted before it was sampled")
+        _fail("authored final pose was cut off")
         return
-    if rig.transform.basis.y.y < 0.99:
-        _fail("full visible backflip did not end upright")
-        return
-    rig.call("_process", 0.06)
     if not bool(rig.call("back_somersault_final_pose_sampled")):
-        _fail("last authored pose not sampled")
+        _fail("authored final pose was not sampled")
         return
     game.call("_advance_back_somersault", 0.016)
     if not bool(game.get("landing_active")):
-        _fail("landing never started after full turn")
-        return
-    if absf(rig.rotation.x) > 0.0001 or absf(rig.position.y - resting_y) > 0.0001:
-        _fail("visual pitch or pivot offset leaked into landing")
+        _fail("landing did not follow completed flip")
         return
     game.call("_advance_landing", 0.20)
     if bool(game.get("landing_active")):
-        _fail("0.2s landing was changed")
+        _fail("0.2s landing duration changed")
         return
-    # Cancel path also restores rig transform after a partial somersault.
+    # Cancel path must reset any fallback rotation without touching the
+    # real Blockbench joint and must permit a new kick immediately.
     if not bool(game.call("_start_back_somersault")):
         _fail("Kick_b cannot restart after landing")
         return
     game.call("_advance_back_somersault", 0.20)
     game.call("_cancel_back_somersault")
     if bool(game.get("back_somersault_active")) or absf(rig.rotation.x) > 0.0001:
-        _fail("cancel left visual rotation active")
+        _fail("cancel left visual root rotation active")
         return
     if absf(rig.position.y - resting_y) > 0.0001:
-        _fail("cancel left rig pivot offset active")
+        _fail("cancel left root pivot offset active")
         return
     # The first strike may move toward the target, but delayed lateral STEP
     # must not snap that homing displacement back to its starting position.
@@ -106,5 +109,5 @@ func _run() -> void:
         _fail("delayed STEP anchor undid first-strike homing")
         return
     game.call("_finish_side_step", false)
-    print("GODOT_V280_KICK_MOTION_PASS: delayed Kick_r/l travel, preserved homing, authored full flip and reset")
+    print("GODOT_V280_KICK_MOTION_PASS: delayed kick travel, preserved homing, continuous authored Waist turn without doubled rig rotation")
     quit(0)
