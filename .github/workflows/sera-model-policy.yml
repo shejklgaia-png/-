@@ -90,6 +90,8 @@ on:
       - 'tools/v285_side_kick_orbit_camera_runtime_check.gd'
       - 'tools/v286_close_camera_clearance_self_check.py'
       - 'tools/v286_close_camera_clearance_runtime_check.gd'
+      - 'tools/v287_stable_low_camera_self_check.py'
+      - 'tools/v287_stable_low_camera_runtime_check.gd'
       - 'tools/v274_back_somersault_runtime_check.gd'
       - 'docs/SERA_ANIMATION_RUNTIME_POLICY_ja.md'
       - 'tools/v242_screen_lock_buttons_self_check.py'
@@ -365,8 +367,10 @@ jobs:
         run: python3 tools/v284_cardinal_melee_contact_self_check.py
       - name: Verify v285 side kick orbits target and 45-degree camera polar limit
         run: python3 tools/v285_side_kick_orbit_camera_self_check.py
-      - name: Verify v286 near-combat silhouette clearance, elevated camera and safe Kick orbit
+      - name: Verify v286 safe kick radius and lower LOCK button layout (v287 low camera)
         run: python3 tools/v286_close_camera_clearance_self_check.py
+      - name: Verify v287 stable non-overhead combat camera and limited Kick_l/r angles
+        run: python3 tools/v287_stable_low_camera_self_check.py
       # Earlier static regressions all passed while the Android side kick
       # lookup failed. Test the real GDScript runtime, not just its text.
       - name: Fetch Godot 4.7.2 for headless clip playback
@@ -400,8 +404,10 @@ jobs:
         run: '"$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" --headless --path . --script res://tools/v284_cardinal_melee_contact_runtime_check.gd'
       - name: Verify v285 enemy-centered Kick_l/r orbit and 45deg target/camera/player bound
         run: '"$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" --headless --path . --script res://tools/v285_side_kick_orbit_camera_runtime_check.gd'
-      - name: Verify v286 wide-boss foreground occlusion and Kick_l/r min safe orbit radius
+      - name: Verify v286 safe enemy-centered Kick_l/r radius and lower LOCK buttons
         run: '"$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" --headless --path . --script res://tools/v286_close_camera_clearance_runtime_check.gd'
+      - name: Verify v287 low-pitch attack yaw/zoom hold, mild shoulder and limited Kick orbit in Godot
+        run: '"$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" --headless --path . --script res://tools/v287_stable_low_camera_runtime_check.gd'
       - name: Verify Katana fourth-frame swap and real collision in Godot
         run: '"$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" --headless --path . --script res://tools/v276_katana_runtime_check.gd'
       - name: Verify every authored animation loads and samples in Godot
