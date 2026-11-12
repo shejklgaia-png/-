@@ -9,6 +9,10 @@ const LOWER_BODY_D_EMBEDDED = preload("res://assets/sera_lower_body_d_data.gd")
 const BACK_THRUSTER_FX = preload("res://scripts/back_thruster_fx.gd")
 const SAVE_PATH: String = "user://sera_equipment.cfg"
 const SLOTS = ["head", "torso", "legs", "arms", "booster", "weapon_r", "weapon_l"]
+# v291: weapon occupation is a SHARED rule for both hands. A future
+# left-hand two-handed set disables RIGHT WEAPON in exactly the same way.
+# Add any new two-handed weapon IDs here; no UI-specific Katana branching.
+const TWO_HANDED_WEAPON_LABELS: Dictionary = {"K": "KATANA"}
 const MODEL_UNIT: float = 0.065
 # Training's visible grid is at -0.038 with 0.009 thickness: top = -0.0335.
 # This is visual only; the logical Player still moves on its Y=0 XZ plane.
@@ -82,8 +86,31 @@ func options_for(slot: String) -> Array:
 func current_for(slot: String) -> String:
     return str(selected.get(slot, "A"))
 
+
+# Returns a named occupant when the OTHER hand holds a two-handed
+# weapon. Keep the off-hand's saved selection in the background so it
+# becomes visible again when the two-handed weapon is removed.
+func two_handed_blocker(slot: String) -> Dictionary:
+    if slot != "weapon_l" and slot != "weapon_r":
+        return {}
+    var other_slot: String = "weapon_r" if slot == "weapon_l" else "weapon_l"
+    var other_id: String = str(selected.get(other_slot, "A"))
+    if TWO_HANDED_WEAPON_LABELS.has(other_id):
+        return {
+            "owner": other_slot,
+            "set": other_id,
+            "name": str(TWO_HANDED_WEAPON_LABELS[other_id])
+        }
+    return {}
+
+
 func select_part(slot: String, set_id: String, persist: bool = true) -> bool:
     if not options_for(slot).has(set_id):
+        return false
+    # A user tap/programmatic equip cannot fill a two-hand occupant's
+    # reserved off-hand. Non-persistent restore may recover the offhand
+    # saved state invisibly without breaking the visible two-hand weapon.
+    if persist and not two_handed_blocker(slot).is_empty():
         return false
     selected[slot] = set_id
     _apply_part_visibility()
@@ -96,6 +123,8 @@ func select_part(slot: String, set_id: String, persist: bool = true) -> bool:
     return true
 
 func _apply_part_visibility() -> void:
+    var left_reserved: bool = not two_handed_blocker("weapon_l").is_empty()
+    var right_reserved: bool = not two_handed_blocker("weapon_r").is_empty()
     for set_key in available.keys():
         var set_id: String = str(set_key)
         var parts: Dictionary = available[set_id]
@@ -103,7 +132,12 @@ func _apply_part_visibility() -> void:
             var slot: String = str(slot_key)
             for raw_piece in parts[slot]:
                 var piece: MeshInstance3D = raw_piece
-                piece.visible = set_id == str(selected.get(slot, "A"))
+                var reserved: bool = (slot == "weapon_l" and left_reserved) \
+                    or (slot == "weapon_r" and right_reserved)
+                # A normal LEFT WEAPON shield was still rendered over the
+                # Katana saya on Forearm_L. Two-handed occupancy suppresses
+                # ALL regular opposite-hand meshes, not just the UI option.
+                piece.visible = not reserved and set_id == str(selected.get(slot, "A"))
     update_katana_visibility(str(rig.get("current_clip")), float(rig.get("clip_time")))
 
 
