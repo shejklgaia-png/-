@@ -51,7 +51,7 @@ damage=function("_apply_target_part_damage(","_register_strike_hit(")
 assert '"apply_part_hit", locked_target_part_id, raw_attack, raw_break)' in damage
 assert 'locked_target_part_id = ""' not in damage
 assert '"trigger_part_hit_fx"' in damage
-assert "and not manual_part_lock_active" in main
+assert "not manual_part_lock_active or locked_part_broken" in main
 assert "func get_part_aabb(id: String) -> AABB:" in parts
 
 # Locked limb 1.35m away, while inside torso -> cannot count as limb hit.
