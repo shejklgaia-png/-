@@ -9,7 +9,7 @@ project, target, rig, eq, main = map(read, (
     "project.godot", "scripts/target_parts.gd", "scripts/sera_rig.gd",
     "scripts/sera_equipment.gd", "scripts/main.gd"))
 manifest = read("tools/sera_ci_manifest.txt")
-assert re.search(r'config/name="SERA v299"', project)
+assert int(re.search(r'config/name="SERA v(\d+)"', project).group(1)) >= 299
 assert (R/"README_v299_ja.md").is_file()
 
 assert 'const HEAD_LOCK_UPWARD_EXTENSION_METERS: float = 1.0' in target

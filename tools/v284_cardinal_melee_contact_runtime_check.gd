@@ -81,12 +81,12 @@ func _run() -> void:
     if absf(player.position.y - 1.5) > 0.10:
         _fail("flight did not reach 1.5m apex")
         return
-    if absf((player.position - takeoff).dot(back) - 2.0) > 0.12:
-        _fail("flight is not midway through the 4m Bezier retreat")
+    if absf((player.position - takeoff).dot(back) - 2.5) > 0.12:
+        _fail("flight is not midway through the 5m Bezier retreat")
         return
     game.call("_advance_back_somersault", FLIGHT_TIME * 0.5)
-    if absf((player.position - takeoff).dot(back) - 4.0) > 0.12:
-        _fail("rear retreat did not finish 4m from impact")
+    if absf((player.position - takeoff).dot(back) - 5.0) > 0.12:
+        _fail("rear retreat did not finish 5m from impact")
         return
     if not bool(game.get("back_somersault_active")):
         _fail("authored final pose was cut before render")

@@ -16,7 +16,7 @@ motion=main.split("func _start_omni_step(flick: Vector2) -> bool:",1)[1].split("
 pose=rig.split("func _blended_directional_step_pose(uid: String, t: float) -> Dictionary:",1)[1].split("func start_omni_step(",1)[0]
 for s in ("return FLICK_DIRECTION_POLICY.screen_step_direction(displacement)","seconds > STEP_FLICK_MAX_SECONDS","distance < STEP_FLICK_MIN_HORIZONTAL","distance / seconds < STEP_FLICK_MIN_PIXELS_PER_SEC"):
     assert s in step,s
-for s in ("var direction: Vector2 = flick.normalized()","var back_mix: float = smoothstep(-0.25, 0.25, direction.y)","STEP_FORWARD_DISTANCE, BACK_STEP_DISTANCE, back_mix)","step_radial_delta = direction.y * radial_distance","var world_step: Vector3 = _screen_drag_to_ground(direction)","var pose_direction: Vector2 = _step_local_pose_direction(world_step)","step_linear_offset = Vector2(world_step.x, world_step.z)",'rig.call("start_omni_step", pose_direction)',"step_linear_fallback = true"):
+for s in ("var direction: Vector2 = flick.normalized()","step_arc_length = _step_fixed_distance_for_direction(direction)","step_radial_delta = 0.0","var world_step: Vector3 = _screen_drag_to_ground(direction)","var pose_direction: Vector2 = _step_local_pose_direction(world_step)","step_linear_offset = Vector2(world_step.x, world_step.z)",'rig.call("start_omni_step", pose_direction)',"step_linear_fallback = true"):
     assert s in motion,s
 for s in ("_sample_step_clip_pose(STEP_FORWARD_CLIP, uid, 0.0)","_sample_step_clip_pose(STEP_BACK_CLIP, uid, 0.0)","STEP_RIGHT_CLIP if direction.x >= 0.0 else STEP_LEFT_CLIP","atan2(absf(direction.x), absf(direction.y))","alpha = alpha * alpha * (3.0 - 2.0 * alpha)",'.slerp(lateral["rotation"], alpha)','.lerp(lateral["position"], alpha)'):
     assert s in pose,s
@@ -28,11 +28,9 @@ def alpha(x):
     t=math.atan2(abs(x[0]),abs(x[1]))/(math.pi/2)
     return ease(t)
 def distance(x):
-    q=max(0.,min(1.,(x[1]+.25)/.5))
-    radial=x[1]*(3+ease(q))
-    side=min(max(2.,6*math.radians(35)),4.)
-    return max(2.,min(4.,math.hypot(abs(x[0])*side,radial)))
-for a,w,d in ((0,0,3),(90,1,None),(180,0,4),(270,1,None)):
+    angle=math.atan2(max(x[1],0.0),abs(x[0]))/(math.pi/2)
+    return 3+2*ease(angle)
+for a,w,d in ((0,0,3),(90,1,3),(180,0,5),(270,1,3)):
     x=v(a)
     assert math.isclose(alpha(x),w,abs_tol=1e-10)
     if d is not None:assert math.isclose(distance(x),d,abs_tol=1e-10)
@@ -46,13 +44,13 @@ for k in range(1,1441):
     assert math.dist(last,cur)<.0045
     assert abs(alpha(cur)-last_alpha)<.009
     assert abs(distance(cur)-last_dist)<.04
-    assert 2-1e-10<=distance(cur)<=4+1e-10
+    assert 3-1e-10<=distance(cur)<=5+1e-10
     last=cur;last_alpha=alpha(cur);last_dist=distance(cur)
 assert "const SECTOR_COUNT: int = 4" in p
 assert "return sector_index(displacement, screen_axis) == 0" in p
 assert "displacement, seconds, Vector2.UP," in main
 assert "_combo_followup_input_window_open()" in main
 assert "left_sector_world = left_sector_world.slerp(" in main
-print("PASS v262: unquantized 360deg STEP, 0.25deg sweep and 3m/4m ends")
+print("PASS v262: unquantized 360deg STEP, 0.25deg sweep and 3m/5m ends")
 print("PASS v262: four authored poses with eased interpolation; collision/Bash/boost retained")
 print("Godot/Android runtime not verified")

@@ -69,30 +69,28 @@ assert "CAMERA_COMBAT_VISIBILITY_DISTANCE" in cam
 
 kick=m.split("func _configure_side_kick_orbit() -> void:",1)[1].split(
     "func _advance_side_step(",1)[0]
-for token in ("start_bearing: float = atan2(radial.x, radial.y)",
-              "relative_start: float = wrapf(start_bearing - camera_yaw, -PI, PI)",
-              "deg_to_rad(CAMERA_COMBAT_MAX_PLAYER_SIDE_DEGREES)",
-              "allowed: float = clampf(step_signed_angle,",
-              "step_signed_angle = allowed if allowed * orbit_sign > 0.0 else 0.0",
-              "SIDE_KICK_SAFE_ORBIT_RADIUS",
-              "tangent.dot(screen_right_xz)"):
+for token in (
+    "step_target_center = _kick_lock_center_xz()",
+    "step_start_offset = radial",
+    "tangent.dot(screen_right_xz)",
+    "side_kick_orbit_sign",
+    "STEP_CLOSE_ORBIT_MAX_DEGREES",
+    "side_kick_linear_distance = maxf(0.0,",
+    "SIDE_KICK_BOOST_DISTANCE - radius * absf(step_signed_angle)",
+):
     assert token in kick,token
 step=m.split("func _advance_side_step(delta: float) -> void:",1)[1].split(
     "func _move_player_swept(",1)[0]
-assert "smoothstep(0.0, 0.65, travel_progress)" in step
-assert "_move_player_swept(requested, true)" in step
+assert "step_start_offset.rotated(" in step
+assert "side_kick_linear_direction * side_kick_linear_distance * line_progress" in step
 assert "SIDE_KICK_HIT_PROGRESS.size()" in step
-assert "if progress >= second_windup:" in step
-
-# Kick arcs retain the 30deg planned-angle bound; v288 additionally
-# follows SERA through the arc with only 12deg of camera yaw lag.
-for initial in (-60,-30,-12,0,12,30,60):
-    for raw in (-90,-55,-30,30,55,90):
-        allowed=max(-30-initial,min(30-initial,raw))
-        arc=allowed if allowed*raw>0 else 0.0
-        if -30<=initial<=30:
-            assert abs(initial+arc)<=30+1e-12
-        assert arc*raw>=-1e-12
+assert "progress >= second_windup" in step
+# v300 removes the obsolete 30deg orbital plan bound; the independent
+# camera constraint still limits SERA/camera target bearing to 45deg.
+assert "const STEP_CLOSE_CAMERA_MAX_RELATIVE_DEGREES: float = 45.0" in m
+for radius in (0.1,0.5,1.,3.,9.):
+    arc=min(1.125/radius, math.radians(120.))*radius
+    assert arc<=1.125+1e-12 and 3.-arc>=0.
 # The 12deg hard leash prevents the 90deg sideways angle that v287's
 # fixed camera could accumulate during a fast series of melee actions.
 yaw=0.0

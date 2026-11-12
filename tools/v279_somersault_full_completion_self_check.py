@@ -11,7 +11,7 @@ import re
 assert int(re.search(r'config/name="SERA v(\d+)"', (ROOT/"project.godot").read_text()).group(1)) >= 279
 assert next(x for x in source["animations"] if x["name"] == "Kick_b") == next(x for x in author["animations"] if x["name"] == "Kick_b")
 assert "BACK_SOMERSAULT_FLIGHT_SECONDS: float = 0.80" in main
-assert "BACK_SOMERSAULT_DISTANCE: float = 4.0" in main
+assert "BACK_SOMERSAULT_DISTANCE: float = 5.0" in main
 assert "BACK_SOMERSAULT_HEIGHT: float = 1.5" in main
 assert "BACK_SOMERSAULT_LANDING_SECONDS: float = 0.20" in main
 assert 'rig.call("set_back_somersault_progress", pose_progress)' in main

@@ -18,35 +18,43 @@ camera=main.split("func _process(delta: float) -> void:",1)[1].split(
     "func _close_step_target_relative_yaw(",1)[0]
 limit=main.split("func _close_step_target_relative_yaw(",1)[1].split(
     "func _update_side_from_screen(",1)[0]
-assert "step_linear_fallback = true" in start  # ordinary screen STEP remains linear
+# Normal screen STEP stays linear, while Kick keeps its 2x authored duration.
+assert "step_linear_fallback = true" in start
 assert "side_kick_active = step_kick_side_request != 0" in start
-assert "step_duration_current *= SIDE_KICK_MOTION_TIME_MULTIPLIER" in start
+assert "SIDE_KICK_MOTION_TIME_MULTIPLIER" in start
+assert "step_arc_length = SIDE_KICK_BOOST_DISTANCE" in start
 assert start.index("if side_kick_active:") < start.index("step_linear_fallback = false")
-assert "step_kick_side_request != 0" in start
 assert "_distance_to_cube_surface(player.position) <= MELEE_SURFACE_REACH" in start
+
+# v300: true locked-part pivot, ending at the second authored foot hit.
 for token in (
-    "Vector2(-radial.y, radial.x)", "tangent.dot(screen_right_xz)",
-    "step_signed_angle = minf(", "step_arc_length / maxf(radius, SIDE_KICK_SAFE_ORBIT_RADIUS)",
-    "step_linear_fallback = radius < min_orbit_radius",
+    "step_target_center = _kick_lock_center_xz()",
+    "step_start_offset = radial",
+    "side_kick_orbit_sign",
+    "side_kick_linear_distance = maxf(",
+    "SIDE_KICK_BOOST_DISTANCE - radius * absf(step_signed_angle)",
     "step_linear_offset = Vector2.ZERO",
-    "step_target_center = Vector2(target.position.x, target.position.z)",
+    "STEP_CLOSE_ORBIT_MAX_DEGREES",
 ):
     assert token in setup,token
 assert "chase_until: float = minf(" in advance
 assert "step_duration_current * second_windup" in advance
-assert advance.index("_advance_homing_toward_target(chase_dt, BASH_REACH)") < advance.index(
-    "_configure_side_kick_orbit()")
-assert "if progress >= second_windup:" in advance
-assert "(progress - second_windup) * SIDE_KICK_MOTION_TIME_MULTIPLIER" in advance
-assert "step_target_center = Vector2(target.position.x, target.position.z)" in advance
-assert "step_radial_delta * radial_progress" in advance and "smoothstep(0.0, 0.65, travel_progress)" in advance
-assert "step_signed_angle * travel_progress" in advance
-assert "_move_player_swept(requested, true)" in advance
-assert "if previous_progress < impact_progress and progress >= impact_progress:" in advance
+assert advance.index("_advance_homing_toward_target(chase_dt, BASH_REACH)") < advance.index("_configure_side_kick_orbit()")
+for token in (
+    "if not side_kick_travel_anchor_set and progress >= second_windup:",
+    "step_target_center = _kick_lock_center_xz()",
+    "step_signed_angle * orbit_progress",
+    "if progress >= second_hit:",
+    "side_kick_linear_active = true",
+    "side_kick_linear_direction * side_kick_linear_distance * line_progress",
+    "_move_player_swept(",
+    "if previous_progress < impact_progress and progress >= impact_progress:",
+):
+    assert token in advance,token
 assert "if hold_attack_camera or step_active or close_step_camera_this_frame:" in camera
 assert "camera_yaw = _stable_shoulder_camera_yaw(bearing, delta)" in camera
 assert "deg_to_rad(STEP_CLOSE_CAMERA_MAX_RELATIVE_DEGREES)" in limit
-assert "CAMERA_COMBAT_MAX_PLAYER_SIDE_DEGREES" in setup
+assert "SIDE_KICK_HIT_PROGRESS[1]" in setup
 assert "STEP_CLOSE_CAMERA_MAX_TURN_RATE_DEGREES" in limit
 # Tangent-to-screen-right chooses proper sign at both sides of target,
 # including oblique camera bases. Circle radius and arc length stay fixed.

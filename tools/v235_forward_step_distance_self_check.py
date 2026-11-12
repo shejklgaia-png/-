@@ -1,66 +1,44 @@
 #!/usr/bin/env python3
-"""SERA v235: forward STEP moves 3m (1.5x), without changing other axes."""
+"""Historical v235 front-step regression, updated for v300 3/3/5m plan."""
 from pathlib import Path
-import math
-import re
-
-ROOT = Path(__file__).resolve().parents[1]
-main = (ROOT / "scripts/main.gd").read_text(encoding="utf-8")
-project = (ROOT / "project.godot").read_text(encoding="utf-8")
-version = re.search(r'^config/name="SERA v(\d+)"$', project, re.M)
-assert version and int(version.group(1)) >= 235
-
-assert "const STEP_MIN_ARC_LENGTH: float = 2.0" in main
-assert "const STEP_FORWARD_DISTANCE: float = 3.0" in main
-assert "const BACK_STEP_DISTANCE: float = 4.0" in main
-assert "const STEP_MAX_ARC_LENGTH: float = 4.0" in main
-assert "const STEP_SPEED: float = 10.0" in main
-assert "const STEP_CLOSE_SPEED: float = 8.0" in main
-
-step = main.split("func _start_omni_step(flick: Vector2) -> bool:", 1)[1].split(
-    "func _start_back_step()", 1)[0]
-assert "var direction: Vector2 = flick.normalized()" in step
-assert "var back_mix: float = smoothstep(-0.25, 0.25, direction.y)" in step
-assert "STEP_FORWARD_DISTANCE, BACK_STEP_DISTANCE, back_mix)" in step
-assert "step_radial_delta = direction.y * radial_distance" in step
-assert "var tangent_distance: float = absf(direction.x) * side_length" in step
-assert "sqrt(tangent_distance * tangent_distance + step_radial_delta * step_radial_delta)" in step
-assert "STEP_MIN_ARC_LENGTH, STEP_MAX_ARC_LENGTH)" in step
+import math,re
+R=Path(__file__).resolve().parents[1]
+main=(R/"scripts/main.gd").read_text(encoding="utf-8")
+project=(R/"project.godot").read_text(encoding="utf-8")
+v=re.search(r'config/name="SERA v(\d+)"',project)
+assert v and int(v.group(1))>=300
+for token in ("const STEP_FORWARD_DISTANCE: float = 3.0",
+              "const STEP_SIDE_DISTANCE: float = 3.0",
+              "const BACK_STEP_DISTANCE: float = 5.0",
+              "const STEP_SPEED: float = 10.0"):
+    assert token in main,token
+def segment(a,b):
+    return main.split(a,1)[1].split(b,1)[0]
+helper=segment("func _step_fixed_distance_for_direction(","func _start_omni_step(")
+step=segment("func _start_omni_step(flick: Vector2) -> bool:","func _start_back_step()")
+advance=segment("func _advance_side_step(delta: float) -> void:","func _move_player_swept(")
+for token in ("atan2(maxf(unit.y, 0.0), absf(unit.x))",
+              "smoothstep(0.0, 1.0, rear_angle / (PI * 0.5))",
+              "lerpf(STEP_SIDE_DISTANCE, BACK_STEP_DISTANCE, rear_mix)"):
+    assert token in helper,token
+assert "_step_fixed_distance_for_direction(direction)" in step
+assert "_step_speed_for_player_position(" not in step
+assert "step_linear_offset = Vector2(world_step.x, world_step.z)" in step
 assert "step_duration_current = (step_arc_length / step_speed_current" in step
 assert 'rig.call("start_omni_step", pose_direction)' in step
-
-advance = main.split("func _advance_side_step(delta: float) -> void:", 1)[1].split(
-    "func _move_player_swept(", 1)[0]
-assert "initial_radius + step_radial_delta * radial_progress" in advance
-# v285 kick radial interpolation eases separately from ordinary STEP travel.
-assert "smoothstep(0.0, 0.65, travel_progress) if side_kick_active" in advance
-assert "else travel_progress)" in advance
+assert "var new_offset: Vector2 = step_start_offset + step_linear_offset * progress" in advance
 assert "_move_player_swept(requested, true)" in advance
-
-# Mirror the four cardinal directional plans with a 6m target radius.
-radius = 6.0
-side_length = min(max(2.0, radius * math.radians(35)), min(4.0, 10.0 * 0.40))
-def plan(x: float, y: float) -> tuple[float, float]:
-    t=max(0.,min(1.,(y+.25)/.5))
-    t=t*t*(3.-2.*t)
-    radial = y * (3.0+t)
-    planned = min(4.0, max(2.0, math.hypot(abs(x) * side_length, radial)))
-    return radial, planned
-
-assert plan(0.0, -1.0) == (-3.0, 3.0), plan(0.0, -1.0)
-assert plan(0.0, 1.0) == (4.0, 4.0), plan(0.0, 1.0)
-assert math.isclose(plan(1.0, 0.0)[1], side_length)
-assert math.isclose(plan(-1.0, 0.0)[1], side_length)
-for speed in (8.0, 9.0, 10.0):
-    duration = 3.0 / speed
-    assert 0.30 - 1e-9 <= duration <= 0.375 + 1e-9
-    assert duration < 0.40
-    assert math.isclose(duration * speed, 3.0)
-# A forward-diagonal flick must still have an increased forward radial component.
-x, y = math.sqrt(0.5), -math.sqrt(0.5)
-assert math.isclose(plan(x, y)[0], -3.0 * math.sqrt(0.5))
-assert "const JUMP_TOUCH_INPUT_ENABLED: bool = false" in main
-
-print("PASS v235: forward STEP 2m -> 3m (x1.5), 8-10m/s unchanged")
-print("PASS v235: lateral/backward and 360-degree input, swept collision preserved")
-print("Android/Godot runtime not verified")
+def distance(deg):
+    radians=math.radians(deg)
+    x,y=math.sin(radians),-math.cos(radians)
+    t=math.atan2(max(0.,y),abs(x))/(math.pi/2)
+    t=t*t*(3-2*t)
+    return 3+2*t
+for d,w in ((0,3),(45,3),(90,3),(135,4),(180,5),(225,4),(270,3),(315,3)):
+    assert math.isclose(distance(d),w,abs_tol=1e-10)
+for d in range(0,360,5):
+    assert 3.-1e-9<=distance(d)<=5.+1e-9
+assert math.isclose(3./10.,.3)
+assert math.isclose(5./10.,.5)
+assert 'const JUMP_TOUCH_INPUT_ENABLED: bool = false' in main
+print("PASS v235/v300: front/side3m rear5m, angled smooth-distance and camera-linear travel")

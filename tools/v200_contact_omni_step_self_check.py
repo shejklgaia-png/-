@@ -54,39 +54,30 @@ assert "const JUMP_TOUCH_INPUT_ENABLED: bool = false" in main
 
 step = main.split("func _start_omni_step(flick: Vector2) -> bool:",1)[1].split("func _start_back_step()",1)[0]
 assert "var direction: Vector2 = flick.normalized()" in step
-assert "step_radial_delta = direction.y * radial_distance" in step
-assert "STEP_FORWARD_DISTANCE, BACK_STEP_DISTANCE, back_mix" in step
+assert "step_arc_length = _step_fixed_distance_for_direction(direction)" in step
+assert "step_speed_current = STEP_SPEED * float(part_stats.get(\"step_speed_mult\", 1.0))" in step
+assert "_step_speed_for_player_position(" not in step
 assert "step_linear_fallback = true" in step
 assert "step_linear_offset = Vector2(world_step.x, world_step.z)" in step
 assert "var world_step: Vector3 = _screen_drag_to_ground(direction)" in step
 assert "var pose_direction: Vector2 = _step_local_pose_direction(world_step)" in step
 assert 'rig.call("start_omni_step", pose_direction)' in step
 advance = main.split("func _advance_side_step(delta: float)",1)[1].split("func _move_player_swept(",1)[0]
-# v278 keeps ordinary STEP movement exactly as before and introduces
-# a separate 2x kick action clock; the same travel value is used in both
-# orbit radius and arc, and equals progress for ordinary STEPs.
-assert "travel_progress" in advance
-# v285 changed kick travel to a post-windup target-centred orbit:
-# ordinary STEP still uses progress directly; kick motion uses a separate,
-# clamped and smooth radial interpolation so the second swing does not warp.
-assert "var travel_progress: float = progress" in advance
 assert "if side_kick_active:" in advance
-assert "(progress - second_windup) * SIDE_KICK_MOTION_TIME_MULTIPLIER" in advance
-assert "smoothstep(0.0, 0.65, travel_progress) if side_kick_active" in advance
-assert "else travel_progress)" in advance
-assert "initial_radius + step_radial_delta * radial_progress" in advance
-assert "step_signed_angle * travel_progress) * moved_radius" in advance
+assert "var new_offset: Vector2 = step_start_offset + step_linear_offset * progress" in advance
+assert "step_start_offset.rotated(" in advance
+assert "side_kick_linear_direction * side_kick_linear_distance * line_progress" in advance
+assert "if progress >= second_hit:" in advance
 assert "_move_player_swept(requested, true)" in advance
-for deg in range(0, 360, 5):
-    x, y = math.cos(math.radians(deg)), math.sin(math.radians(deg))
-    t=max(0.,min(1.,(y+.25)/.5))
-    t=t*t*(3.-2.*t)
-    radial = y * (3.0+t)
-    side_length = max(2.0, min(4.0, 6.0 * math.radians(35)))
-    travel = max(2.0, min(4.0, math.hypot(abs(x) * side_length, radial)))
-    assert 2.0 - 1e-10 <= travel <= 4.0 + 1e-10 and math.isfinite(travel)
-assert "STEP_MIN_ARC_LENGTH: float = 2.0" in main
-assert "BACK_STEP_DISTANCE: float = 4.0" in main
+for deg in range(0,360,5):
+    a=math.radians(deg)
+    x,y=math.sin(a),-math.cos(a)
+    alpha=math.atan2(max(y,0.0),abs(x))/(math.pi/2)
+    t=alpha*alpha*(3-2*alpha)
+    distance=3.0+2.0*t
+    assert 3.0-1e-9<=distance<=5.0+1e-9
+assert "STEP_MIN_ARC_LENGTH: float = 3.0" in main
+assert "BACK_STEP_DISTANCE: float = 5.0" in main
 assert "STEP_FORWARD_DISTANCE: float = 3.0" in main
 
 pose = rig.split("func _blended_directional_step_pose(",1)[1].split("func start_omni_step(",1)[0]

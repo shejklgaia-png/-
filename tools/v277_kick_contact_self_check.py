@@ -24,7 +24,7 @@ assert "CombatState.BACK_KICK_TRACK" in game
 assert "normal_melee_exhaust or normal_kick_exhaust" in game
 assert "direction_of_exhaust = -back_somersault_direction" in game
 assert "backstroke_weight = 1.0" in game and "new_somersault_burst" in game
-assert "BACK_SOMERSAULT_DISTANCE: float = 4.0" in game
+assert "BACK_SOMERSAULT_DISTANCE: float = 5.0" in game
 assert "BACK_SOMERSAULT_LANDING_SECONDS: float = 0.20" in game
 for name in ("Kick_l", "Kick_r"):
     a = clips[name]

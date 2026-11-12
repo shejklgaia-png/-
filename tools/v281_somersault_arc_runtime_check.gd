@@ -43,13 +43,13 @@ func _run() -> void:
     var stages: Array[float] = [0.125, 0.25, 0.5, 0.75, 1.0]
     var prior_time: float = 0.0
     for t in stages:
-        # The same Bezier has x=4(3t²-2t³), y=6t(1-t). This makes
+        # The same Bezier has x=5(3t²-2t³), y=6t(1-t). This makes
         # takeoff/landing tangent vertical, with a symmetric 1.5m peak.
-        var expected_distance: float = 4.0 * (3.0 * t * t - 2.0 * t * t * t)
+        var expected_distance: float = 5.0 * (3.0 * t * t - 2.0 * t * t * t)
         var expected_height: float = 6.0 * t * (1.0 - t)
         var offset: Vector3 = game.call("_back_somersault_arc_offset", t)
         if absf(offset.dot(direction) - expected_distance) > 0.0005:
-            _fail("Bezier XZ displacement mismatch at " + str(t))
+            _fail("Bezier XZ displacement mismatch at %s; actual=%.7f expected=%.7f; direction=%s offset=%s" % [str(t),offset.dot(direction),expected_distance,str(direction),str(offset)])
             return
         if absf(offset.y - expected_height) > 0.0005:
             _fail("Bezier height mismatch at " + str(t))
@@ -65,7 +65,7 @@ func _run() -> void:
             return
     var beginning: Vector3 = game.call("_back_somersault_arc_offset", 0.01)
     var near_end: Vector3 = game.call("_back_somersault_arc_offset", 0.99)
-    if beginning.dot(direction) >= 0.002 or near_end.dot(direction) <= 3.998:
+    if beginning.dot(direction) >= 0.002 or near_end.dot(direction) <= 4.998:
         _fail("launch/landing horizontal velocity is not smoothly eased")
         return
     if not bool(game.get("back_somersault_active")) or bool(game.get("landing_active")):
@@ -86,5 +86,5 @@ func _run() -> void:
     if bool(game.get("landing_active")):
         _fail("0.2s landing duration changed")
         return
-    print("GODOT_V281_SOMERSAULT_ARC_PASS: symmetric 4m Bezier, 1.5m apex, 0.8s flight, 0.2s landing")
+    print("GODOT_V281_SOMERSAULT_ARC_PASS: symmetric 5m Bezier, 1.5m apex, 0.8s flight, 0.2s landing")
     quit(0)

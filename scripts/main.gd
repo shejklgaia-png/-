@@ -76,9 +76,9 @@ const JUMP_TOUCH_INPUT_ENABLED: bool = false
 const JUMP_FLICK_TAIL_SECONDS: float = 0.20
 const JUMP_FLICK_MIN_VERTICAL: float = 50.0  # Reduced from 78px; backstep unchanged.
 const JUMP_HEIGHT: float = 1.50  # fixed world-space apex above takeoff plane
-# v274: Melee3 -> screen-DOWN flick: 4m rearward arc / 1.5m apex.
+# v300: Melee3 -> screen-DOWN flick: 5m rearward arc / 1.5m apex.
 # Unlike archived ordinary Jump, this is a dedicated combo action.
-const BACK_SOMERSAULT_DISTANCE: float = 4.0
+const BACK_SOMERSAULT_DISTANCE: float = 5.0
 const BACK_SOMERSAULT_HEIGHT: float = 1.5
 # Symmetrical cubic Bezier controls at 4/3 of the actual 1.5m apex.
 # Starts vertically, moves fastest near its peak, ends vertically.
@@ -103,19 +103,20 @@ const JUMP_AIR_STEER_SPEED_FACTOR: float = 0.30  # ground RUN speed; never boost
 const JUMP_GRAVITY: float = 8.0 * JUMP_HEIGHT / (JUMP_FLIGHT_SECONDS * JUMP_FLIGHT_SECONDS)
 # Authored clip's fall pose begins at the 0.20833s key of its 0.375s duration.
 const JUMP_FALL_CLIP_START: float = 0.20833 / 0.375
-const BACK_STEP_DISTANCE: float = 4.0  # meters; side-step distance remains unchanged
-const STEP_FORWARD_DISTANCE: float = 3.0  # v235: 1.5x prior 2.0m front-step travel only
-# v236: pure lateral steps use the fixed equipment-adjusted STEP_SPEED;
-# forward/back radial steps retain the 5m->2m proximity slowdown.
-# Diagonal steps blend these speeds continuously when a flick is released.
-const STEP_ORBIT_ANGLE_DEGREES: float = 35.0
-const STEP_MIN_ARC_LENGTH: float = 2.0  # v53: minimum planned step path length in meters
-const STEP_MAX_ARC_LENGTH: float = 4.0  # meter cap even at very long target range
-const STEP_SPEED: float = 10.0  # normal step speed, m/s
-const STEP_CLOSE_SPEED: float = 8.0  # 2m or less from target box surface
-const STEP_CLOSE_SURFACE_DISTANCE: float = 2.0  # closest horizontal distance to the target box
-const STEP_FALLOFF_START_SURFACE_DISTANCE: float = 5.0  # start slowing when closer than 5m
-const STEP_MAX_DURATION: float = 0.40  # seconds: maximum step time
+# v300: screen STEP travel is determined ONLY by flick angle, never
+# player-target distance. Equipment speed/time multipliers still apply.
+const BACK_STEP_DISTANCE: float = 5.0
+const STEP_FORWARD_DISTANCE: float = 3.0
+const STEP_SIDE_DISTANCE: float = 3.0
+const STEP_SPEED: float = 10.0  # m/s, equipment-adjusted
+# Legacy speed policy retained for historic tests, not called by STEP.
+const STEP_CLOSE_SPEED: float = 8.0
+const STEP_CLOSE_SURFACE_DISTANCE: float = 2.0
+const STEP_FALLOFF_START_SURFACE_DISTANCE: float = 5.0
+const STEP_ORBIT_ANGLE_DEGREES: float = 35.0  # legacy-only reference
+const STEP_MIN_ARC_LENGTH: float = 3.0
+const STEP_MAX_ARC_LENGTH: float = 5.0
+const STEP_MAX_DURATION: float = 0.50  # 5m / 10m/s
 const STEP_MIN_ORBIT_RADIUS: float = 0.10  # tangent is unstable at the exact center
 const STEP_CLOSE_ORBIT_MAX_DEGREES: float = 120.0  # prevent circular loops when overlapping target
 # v82: At point-blank range the player may orbit around the target rapidly.
@@ -145,7 +146,8 @@ const CAMERA_COMBAT_MIN_RADIUS: float = 11.3
 const CAMERA_COMBAT_ZOOM_OUT_SPEED: float = 8.0
 # v286: minimum safe target->SERA orbit radius includes the wide outer
 # legs and SERA's shoulder width, not merely the central hitbox.
-const SIDE_KICK_SAFE_ORBIT_RADIUS: float = 3.55
+const SIDE_KICK_BOOST_DISTANCE: float = 3.0
+const SIDE_KICK_SAFE_ORBIT_RADIUS: float = 3.55  # historic bound; not boost distance
 const STEP_CLOSE_CAMERA_MAX_TURN_RATE_DEGREES: float = 300.0
 const STEP_CLOSE_CAMERA_RECOVERY_SECONDS: float = 0.18
 # Attack begins on a short tap. Dragging still uses v9's screen-space controls.
@@ -444,6 +446,13 @@ var step_kick_side_request: int = 0  # transient; keep STEP method API unchanged
 var side_kick_active: bool = false
 var side_kick_side: int = 0  # -1 Kick_l, +1 Kick_r; distinct from screen travel
 var side_kick_travel_anchor_set: bool = false  # do not undo first-strike homing
+# v300: circle around the locked PART until the authored second kick hit,
+# then move on the instantaneous tangent with no further rotation.
+var side_kick_linear_active: bool = false
+var side_kick_linear_start: Vector2 = Vector2.ZERO
+var side_kick_linear_direction: Vector2 = Vector2.ZERO
+var side_kick_linear_distance: float = 0.0
+var side_kick_orbit_sign: float = 1.0
 var side_kick_did_hit: bool = false
 var side_kick_hit_mask: int = 0
 var side_kick_hit_count: int = 0
@@ -1708,7 +1717,7 @@ func _refresh_step_status_ui() -> void:
         display_speed = STEP_SPEED * float(part_stats.get("step_speed_mult", 1.0))
     step_status_label.text = "STEP SPEED %.1fm/s" % display_speed
     if back_somersault_active:
-        step_detail_label.text = "KICK B / BACK ARC 4.0m"
+        step_detail_label.text = "KICK B / BACK ARC 5.0m"
     elif landing_from_somersault:
         step_detail_label.text = "KICK B / LAND 0.2s"
     elif step_active:
@@ -1725,7 +1734,7 @@ func _refresh_step_status_ui() -> void:
         # When a body blocks a step, don't mislabel the planned length as actual.
         step_detail_label.text = "LAST %.2fm  /  %.2fs" % [step_traveled_distance, step_last_elapsed]
     else:
-        step_detail_label.text = "SIDE <=0.4s / BACK 4.0m"
+        step_detail_label.text = "SIDE 3.0m / BACK 5.0m"
 
 # Record why an intended combo flick did or did not become a kick.
 # Visible for two seconds in the existing debug HUD; no new UI widgets.
@@ -2913,7 +2922,7 @@ func _start_back_kick_track() -> bool:
     rig.call("start_melee_approach")
     return true
 
-# Backward somersault is a distinct aerial combo, NOT a STEP: the 4m
+# Backward somersault is a distinct aerial combo, NOT a STEP: the 5m
 # displacement is behind SERA / away from the lock target even when the
 # on-screen DOWN flick points in a different world direction. A 1.5m arc
 # keeps player collision physically airborne, with a single foot impact.
@@ -2962,8 +2971,8 @@ func _start_back_somersault() -> bool:
 
 # v281: One geometric Bezier arc drives BOTH horizontal displacement and
 # altitude, avoiding a linear XZ slide pasted onto an independent jump.
-# P0=(0,0), P1=(0,2m), P2=(4m,2m), P3=(4m,0) for the standard kick.
-# At t=0.5 this gives 2m rear travel and 1.5m genuine apex; it also
+# P0=(0,0), P1=(0,2m), P2=(5m,2m), P3=(5m,0) for the standard kick.
+# At t=0.5 this gives 2.5m rear travel and 1.5m genuine apex; it also
 # approaches launch and landing with vertical tangents (no horizontal pop).
 func _back_somersault_arc_offset(progress: float) -> Vector3:
     var p: float = clampf(progress, 0.0, 1.0)
@@ -3026,7 +3035,7 @@ func _advance_back_somersault(delta: float) -> void:
         player.velocity = Vector3.ZERO
     # The original Kick_b starts while on the ground; its contact pose
     # occurs at BACK_SOMERSAULT_HIT_PROGRESS. After contact, continue the
-    # same authored clock while the 4m / 1.5m arc plays.
+    # same authored clock while the 5m / 1.5m arc plays.
     var pose_progress: float = back_somersault_elapsed / BACK_SOMERSAULT_FLIGHT_SECONDS
     if not back_somersault_has_authored_clip and back_somersault_launched:
         # Procedural rotation is fallback-only and begins on contact.
@@ -3071,6 +3080,17 @@ func _cancel_back_somersault() -> void:
         player.velocity = Vector3.ZERO
 
 
+# Fixed 3m front/side, 5m rear. Rear-diagonal angles interpolate with a
+# smoothstep: both 45-degree rear diagonals travel exactly 4m.
+func _step_fixed_distance_for_direction(direction: Vector2) -> float:
+    if direction.length_squared() < 0.000001:
+        return STEP_SIDE_DISTANCE
+    var unit: Vector2 = direction.normalized()
+    var rear_angle: float = atan2(maxf(unit.y, 0.0), absf(unit.x))
+    var rear_mix: float = smoothstep(0.0, 1.0, rear_angle / (PI * 0.5))
+    return lerpf(STEP_SIDE_DISTANCE, BACK_STEP_DISTANCE, rear_mix)
+
+
 func _start_omni_step(flick: Vector2) -> bool:
     if (guard_active or damage_reaction_active or landing_active
             or rig == null or not bool(rig.get("loading_ok"))
@@ -3095,25 +3115,11 @@ func _start_omni_step(flick: Vector2) -> bool:
     var radial: Vector2 = Vector2(
         player.position.x - target.position.x,
         player.position.z - target.position.z)
-    var radius: float = radial.length()
-    # v236: lateral speed stays at equipment-adjusted STEP_SPEED; the
-    # forward/back speed alone follows the existing 5m->2m slowdown.
-    var radial_speed: float = _step_speed_for_player_position(player.position)
-    var lateral_speed: float = STEP_SPEED * float(part_stats.get("step_speed_mult", 1.0))
-    step_speed_current = lerpf(radial_speed, lateral_speed, absf(direction.x))
-    var side_length: float = minf(
-        maxf(STEP_MIN_ARC_LENGTH, radius * deg_to_rad(STEP_ORBIT_ANGLE_DEGREES)),
-        minf(STEP_MAX_ARC_LENGTH, step_speed_current * STEP_MAX_DURATION))
-    # Blend front 3m / back 4m only near sideways to remove the
-    # coefficient kink at y=0; cardinal and 45deg distances stay unchanged.
-    var back_mix: float = smoothstep(-0.25, 0.25, direction.y)
-    var radial_distance: float = lerpf(
-        STEP_FORWARD_DISTANCE, BACK_STEP_DISTANCE, back_mix)
-    step_radial_delta = direction.y * radial_distance
-    var tangent_distance: float = absf(direction.x) * side_length
-    step_arc_length = clampf(
-        sqrt(tangent_distance * tangent_distance + step_radial_delta * step_radial_delta),
-        STEP_MIN_ARC_LENGTH, STEP_MAX_ARC_LENGTH)
+    # No target-radius term in distance or speed. The committed motion is
+    # screen-directed, so lock/pose rotation cannot change its trajectory.
+    step_speed_current = STEP_SPEED * float(part_stats.get("step_speed_mult", 1.0))
+    step_arc_length = _step_fixed_distance_for_direction(direction)
+    step_radial_delta = 0.0
 
     # Project BOTH screen axes through the camera. No actor-forward
     # component in the path: even if SERA faces screen-right, UP+RIGHT
@@ -3151,12 +3157,20 @@ func _start_omni_step(flick: Vector2) -> bool:
     side_kick_active = step_kick_side_request != 0
     side_kick_side = step_kick_side_request
     side_kick_travel_anchor_set = false
+    side_kick_linear_active = false
+    side_kick_linear_start = Vector2.ZERO
+    side_kick_linear_direction = Vector2.ZERO
+    side_kick_linear_distance = 0.0
+    side_kick_orbit_sign = 1.0
     # A kick follows a target-centered orbit rather than this normal
     # screen-linear STEP. Its angle and anchor are finalized at the SECOND
     # windup after the first-foot homing, so no early snap-back can occur.
-    # The original planned 2-4m distance and STEP speed remain unchanged.
+    # Each kick travels a total of 3m across its arc and tangent boost.
     if side_kick_active:
-        step_duration_current *= SIDE_KICK_MOTION_TIME_MULTIPLIER
+        step_arc_length = SIDE_KICK_BOOST_DISTANCE
+        step_duration_current = (step_arc_length / step_speed_current
+            * float(part_stats.get("step_time_mult", 1.0))
+            * SIDE_KICK_MOTION_TIME_MULTIPLIER)
         step_linear_fallback = false
         step_signed_angle = 0.0
     side_kick_did_hit = false
@@ -3197,8 +3211,8 @@ func _start_back_step() -> bool:
     step_linear_fallback = true  # Reuse collision-swept linear step travel.
     step_signed_angle = 0.0
     step_arc_length = BACK_STEP_DISTANCE
-    step_speed_current = _step_speed_for_player_position(player.position)
-    # 4m / 8-10m/s = 0.40-0.50s. Side-step 0.40s limit is intentionally unchanged.
+    step_speed_current = STEP_SPEED * float(part_stats.get("step_speed_mult", 1.0))
+    # 5m at 10m/s = 0.50 seconds before equipment scaling.
     step_duration_current = BACK_STEP_DISTANCE / step_speed_current * float(part_stats.get("step_time_mult", 1.0))
     # Unlike side steps, back steps do not orbit the target. Do not engage
     # the point-blank side-step camera constraint for backward movement.
@@ -3225,9 +3239,8 @@ func _start_side_step(side: int) -> bool:
     if step_active:
         _finish_side_step(false)
 
-    # Preserve v47's 35 degree arc at ordinary range. At close range expand
-    # the angle so that the planned arc is at least 2.0m, while keeping
-    # the same 4m distance ceiling. Keep the target-centered radius constant.
+    # Legacy direct side-step entry (touch uses _start_omni_step):
+    # fixed 3m arc length even though this helper retains its orbit path.
     var radial: Vector2 = Vector2(
         player.position.x - target.position.x,
         player.position.z - target.position.z
@@ -3237,7 +3250,7 @@ func _start_side_step(side: int) -> bool:
     # A tiny radius would require circling the target multiple times to
     # cover 2.0m. Only in this extreme overlap state use a 2.0m tangent
     # translation instead; the player must never spin in place.
-    var close_radius_limit: float = (STEP_MIN_ARC_LENGTH
+    var close_radius_limit: float = (STEP_SIDE_DISTANCE
         / deg_to_rad(STEP_CLOSE_ORBIT_MAX_DEGREES))
     step_linear_fallback = radius < close_radius_limit
 
@@ -3255,18 +3268,13 @@ func _start_side_step(side: int) -> bool:
     # Dedicated legacy left/right input uses the same constant lateral speed.
     # Orbit geometry and its 2-4m path-length bounds are unchanged.
     step_speed_current = STEP_SPEED * float(part_stats.get("step_speed_mult", 1.0))
-    # Preserve the 0.40s ceiling without accelerating or compressing time.
-    var max_path_length: float = minf(STEP_MAX_ARC_LENGTH, step_speed_current * STEP_MAX_DURATION)
-    var path_length: float = STEP_MIN_ARC_LENGTH
+    var path_length: float = STEP_SIDE_DISTANCE
     if step_linear_fallback:
         step_signed_angle = 0.0
-        step_linear_offset = Vector2(orbit_tangent.x, orbit_tangent.z) * (STEP_MIN_ARC_LENGTH * orbit_sign)
+        step_linear_offset = Vector2(orbit_tangent.x, orbit_tangent.z) * (
+            STEP_SIDE_DISTANCE * orbit_sign)
     else:
-        var angle: float = minf(
-            maxf(deg_to_rad(STEP_ORBIT_ANGLE_DEGREES), STEP_MIN_ARC_LENGTH / radius),
-            max_path_length / radius)
-        path_length = radius * angle
-        step_signed_angle = angle * orbit_sign
+        step_signed_angle = STEP_SIDE_DISTANCE / radius * orbit_sign
     step_arc_length = path_length
     # Keep the selected speed for the entire step (do not change mid-orbit).
     # Base 2m minimum at 10m/s lasts 0.20s, within the 0.40s cap.
@@ -3294,6 +3302,11 @@ func _finish_side_step(resume_moving: bool) -> void:
     side_kick_active = false
     side_kick_side = 0
     side_kick_travel_anchor_set = false
+    side_kick_linear_active = false
+    side_kick_linear_start = Vector2.ZERO
+    side_kick_linear_direction = Vector2.ZERO
+    side_kick_linear_distance = 0.0
+    side_kick_orbit_sign = 1.0
     side_kick_did_hit = false
     side_kick_hit_mask = 0
     side_kick_hit_count = 0
@@ -3312,56 +3325,56 @@ func _finish_side_step(resume_moving: bool) -> void:
     rig.call("finish_side_step", resume_moving, resume_fall)
     _refresh_step_status_ui()
 
-# v285: Opposite screen-side flicks select opposite world tangents around
-# the target. The arc is planned only when the second kick winds up, because
-# early Bash-style homing can move SERA closer to the target before that.
-# Use the same 2-4m planned path length, limited to 120deg at near-center.
+# The orbit center is the ACTUALLY LOCKED part, not the target BODY.
+# Preserve locked broken parts during the active combo until its lock
+# retention finishes, just like melee/bash hit selection.
+func _kick_lock_center_xz() -> Vector2:
+    var point: Vector3 = target.global_position
+    if target_parts != null and not locked_target_part_id.is_empty() \
+            and bool(target_parts.call("has_part", locked_target_part_id)):
+        point = target_parts.call("get_part_aim_world", locked_target_part_id)
+    return Vector2(point.x, point.z)
+
+
+# At second windup, AFTER the first Bash-style homing movement, snapshot
+# the radius around the locked part. Spend the first part of the FIXED 3m
+# movement following that circular arc until second contact. The remaining
+# distance is a straight tangent BOOST after second contact, not more orbit.
 func _configure_side_kick_orbit() -> void:
+    step_target_center = _kick_lock_center_xz()
     var radial: Vector2 = Vector2(
-        player.position.x - target.position.x,
-        player.position.z - target.position.z)
-    var radius: float = radial.length()
-    step_target_center = Vector2(target.position.x, target.position.z)
+        player.position.x - step_target_center.x,
+        player.position.z - step_target_center.y)
     step_start_offset = radial
+    var radius: float = radial.length()
     var world_right: Vector3 = _screen_drag_to_ground(Vector2.RIGHT)
     if world_right.length_squared() < 0.000001:
         world_right = Vector3.RIGHT
     var screen_right_xz: Vector2 = Vector2(world_right.x, world_right.z).normalized()
-    var tangent: Vector2 = Vector2(-radial.y, radial.x)
+    var tangent: Vector2 = screen_right_xz
     if radius >= STEP_MIN_ORBIT_RADIUS:
-        tangent /= radius
-    else:
-        tangent = screen_right_xz
-    var sign_to_screen_right: float = 1.0 if tangent.dot(screen_right_xz) >= 0.0 else -1.0
-    var orbit_sign: float = sign_to_screen_right * float(side_kick_side)
-    # At extreme near-center overlap a multi-revolution arc is unsafe.
-    # Match the existing dedicated side-STEP overlap fallback.
-    var min_orbit_radius: float = (STEP_MIN_ARC_LENGTH
-        / deg_to_rad(STEP_CLOSE_ORBIT_MAX_DEGREES))
-    step_linear_fallback = radius < min_orbit_radius
+        tangent = Vector2(-radial.y, radial.x) / radius
+    side_kick_orbit_sign = (
+        1.0 if tangent.dot(screen_right_xz) >= 0.0 else -1.0) * float(side_kick_side)
+    var second_windup: float = (
+        SIDE_KICK_SECOND_WINDUP_R if side_kick_side > 0 else SIDE_KICK_SECOND_WINDUP_L)
+    var orbit_fraction: float = clampf(
+        (float(SIDE_KICK_HIT_PROGRESS[1]) - second_windup)
+        / (1.0 - second_windup), 0.0, 1.0)
+    var requested_orbit_length: float = SIDE_KICK_BOOST_DISTANCE * orbit_fraction
     step_signed_angle = 0.0
-    # Do not leave SERA inside the boss's wide outer legs after Kick_l/r.
-    # Increase the radius progressively WHILE orbiting rather than pushing
-    # the collision body out in one frame or changing the first impact key.
-    step_radial_delta = maxf(0.0, SIDE_KICK_SAFE_ORBIT_RADIUS - radius)
-    if step_linear_fallback:
-        step_linear_offset = screen_right_xz * (
-            step_arc_length * float(side_kick_side))
-    else:
-        step_linear_offset = Vector2.ZERO
+    if radius >= STEP_MIN_ORBIT_RADIUS:
         step_signed_angle = minf(
-            step_arc_length / maxf(radius, SIDE_KICK_SAFE_ORBIT_RADIUS),
-            deg_to_rad(STEP_CLOSE_ORBIT_MAX_DEGREES)) * orbit_sign
-        # A 4m planned arc could put SERA 60deg to the side of the camera,
-        # exposing only its profile and pushing it to the portrait edge.
-        # Constrain the target-centered END bearing within +/-30deg of
-        # the stationary combat camera without reversing the commanded side.
-        var start_bearing: float = atan2(radial.x, radial.y)
-        var relative_start: float = wrapf(start_bearing - camera_yaw, -PI, PI)
-        var side_bound: float = deg_to_rad(CAMERA_COMBAT_MAX_PLAYER_SIDE_DEGREES)
-        var allowed: float = clampf(step_signed_angle,
-            -side_bound - relative_start, side_bound - relative_start)
-        step_signed_angle = allowed if allowed * orbit_sign > 0.0 else 0.0
+            requested_orbit_length / radius,
+            deg_to_rad(STEP_CLOSE_ORBIT_MAX_DEGREES)) * side_kick_orbit_sign
+    # If the locked pivot lies inside SERA or the maximum safe turn is hit,
+    # carry any unused arc metres into the straight phase. Always total 3m.
+    side_kick_linear_distance = maxf(0.0,
+        SIDE_KICK_BOOST_DISTANCE - radius * absf(step_signed_angle))
+    side_kick_linear_direction = screen_right_xz * float(side_kick_side)
+    step_linear_fallback = false
+    step_linear_offset = Vector2.ZERO
+    step_radial_delta = 0.0
 
 
 func _advance_side_step(delta: float) -> void:
@@ -3369,15 +3382,15 @@ func _advance_side_step(delta: float) -> void:
         return
     var previous_progress: float = step_elapsed / step_duration_current
     step_elapsed = minf(step_duration_current, step_elapsed + delta)
-    # The original first-hit and second-hit key times are unchanged.
     var progress: float = step_elapsed / step_duration_current
-    var travel_progress: float = progress
+    var before: Vector3 = player.position
     if side_kick_active:
         var second_windup: float = (SIDE_KICK_SECOND_WINDUP_R
             if side_kick_side > 0 else SIDE_KICK_SECOND_WINDUP_L)
-        # Chase only until second windup. If this tick crosses the key,
-        # use only the fraction BEFORE the key for homing, then snapshot
-        # the real position as the start of the circular second kick.
+        var second_hit: float = float(SIDE_KICK_HIT_PROGRESS[1])
+        # Retain the original first-hit and pre-second-windup homing window.
+        # The orbit starts from the ACTUAL chased position, never a stale
+        # pre-homing point. A low-FPS tick crossing the windup is split.
         var previous_seconds: float = step_duration_current * previous_progress
         var chase_until: float = minf(
             BASH_TRACK_SECONDS, step_duration_current * second_windup)
@@ -3385,46 +3398,65 @@ func _advance_side_step(delta: float) -> void:
             maxf(delta, 0.0), maxf(0.0, chase_until - previous_seconds))
         if chase_dt > 0.0 and target_hp > 0 and not side_kick_travel_anchor_set:
             _advance_homing_toward_target(chase_dt, BASH_REACH)
-        if not side_kick_travel_anchor_set:
-            # Keep the radius anchored to the enemy throughout the first
-            # stationary foot kick, even if the target moves.
-            step_start_offset = Vector2(player.position.x - target.position.x,
-                player.position.z - target.position.z)
-            step_target_center = Vector2(target.position.x, target.position.z)
-            if progress >= second_windup:
-                _configure_side_kick_orbit()
-                side_kick_travel_anchor_set = true
-        travel_progress = clampf(
-            (progress - second_windup) * SIDE_KICK_MOTION_TIME_MULTIPLIER,
-            0.0, 1.0)
+        if not side_kick_travel_anchor_set and progress >= second_windup:
+            _configure_side_kick_orbit()
+            side_kick_travel_anchor_set = true
         if side_kick_travel_anchor_set:
-            # The pivot follows a moving enemy, preserving target-centered
-            # orbit geometry without unswept character teleportation.
-            step_target_center = Vector2(target.position.x, target.position.z)
-    var new_offset: Vector2 = step_start_offset + step_linear_offset * travel_progress
-    if not step_linear_fallback:
-        var initial_radius: float = step_start_offset.length()
-        if initial_radius >= STEP_MIN_ORBIT_RADIUS:
-            var radial_progress: float = (
-                smoothstep(0.0, 0.65, travel_progress) if side_kick_active
-                else travel_progress)
-            var moved_radius: float = maxf(
-                STEP_MIN_ORBIT_RADIUS,
-                initial_radius + step_radial_delta * radial_progress)
-            new_offset = (step_start_offset / initial_radius).rotated(
-                step_signed_angle * travel_progress) * moved_radius
-    var requested: Vector3 = Vector3(
-        step_target_center.x + new_offset.x - player.position.x,
-        0.0,
-        step_target_center.y + new_offset.y - player.position.z
-    )
-    var before: Vector3 = player.position
-    # Physical swept collision remains mandatory, even along a curved arc.
-    _move_player_swept(requested, true)
+            if not side_kick_linear_active:
+                # The active lock may move (e.g. animated HEAD or a moving
+                # boss). Follow that pivot only during the circular part.
+                step_target_center = _kick_lock_center_xz()
+                var orbit_progress: float = clampf(
+                    (progress - second_windup) / maxf(
+                        second_hit - second_windup, 0.00001), 0.0, 1.0)
+                var rotated: Vector2 = step_start_offset.rotated(
+                    step_signed_angle * orbit_progress)
+                var orbit_goal: Vector2 = step_target_center + rotated
+                _move_player_swept(Vector3(
+                    orbit_goal.x - player.position.x, 0.0,
+                    orbit_goal.y - player.position.z), true)
+                if progress >= second_hit:
+                    # Record the SECOND foot impact while still on the arc,
+                    # before applying any post-impact linear displacement.
+                    if previous_progress < second_hit and (side_kick_hit_mask & 2) == 0:
+                        side_kick_hit_mask |= 2
+                        if target_hp > 0 and _distance_to_attack_target_surface(
+                                player.position) <= SIDE_KICK_REACH:
+                            _register_side_kick_hit()
+                            side_kick_hit_count += 1
+                    side_kick_linear_active = true
+                    side_kick_linear_start = Vector2(
+                        player.position.x, player.position.z)
+                    var contact_pivot: Vector2 = _kick_lock_center_xz()
+                    var contact_radial: Vector2 = side_kick_linear_start - contact_pivot
+                    if contact_radial.length_squared() >= STEP_MIN_ORBIT_RADIUS * STEP_MIN_ORBIT_RADIUS:
+                        side_kick_linear_direction = Vector2(
+                            -contact_radial.y, contact_radial.x).normalized() * side_kick_orbit_sign
+            if side_kick_linear_active:
+                # No further center tracking, yaw or orbital rotation.
+                # Straight BOOST advances along the tangent recorded at hit.
+                var line_progress: float = clampf(
+                    (progress - second_hit) / maxf(1.0 - second_hit, 0.00001),
+                    0.0, 1.0)
+                var line_goal: Vector2 = side_kick_linear_start + (
+                    side_kick_linear_direction * side_kick_linear_distance * line_progress)
+                _move_player_swept(Vector3(
+                    line_goal.x - player.position.x, 0.0,
+                    line_goal.y - player.position.z), true)
+    else:
+        # Ordinary 360deg STEP has a single committed screen-linear vector,
+        # independent of target distance, target motion and player facing.
+        var new_offset: Vector2 = step_start_offset + step_linear_offset * progress
+        var requested: Vector3 = Vector3(
+            step_target_center.x + new_offset.x - player.position.x,
+            0.0,
+            step_target_center.y + new_offset.y - player.position.z)
+        _move_player_swept(requested, true)
     step_traveled_distance += Vector2(
         player.position.x - before.x, player.position.z - before.z).length()
     if side_kick_active:
-        # Original two foot-contact keys, damage/hitstop and 2x clip length.
+        # Both authored foot-contact keys are still used exactly once.
+        # The second key is handled above, at the arc/line boundary.
         for i in range(SIDE_KICK_HIT_PROGRESS.size()):
             var impact_progress: float = float(SIDE_KICK_HIT_PROGRESS[i])
             var bit: int = 1 << i
@@ -3437,7 +3469,6 @@ func _advance_side_step(delta: float) -> void:
                     side_kick_hit_count += 1
     if step_elapsed >= step_duration_current:
         _finish_side_step(gesture_active and direction_input.length_squared() > 0.000001)
-
 
 func _move_player_swept(motion: Vector3, slide_on_wall: bool) -> void:
     # Used for the curved step and attack dash. move_and_collide() performs

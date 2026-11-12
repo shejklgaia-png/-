@@ -69,9 +69,9 @@ require("kick state cleaned at STEP finish",
 require("Bash and manual movement logic retained",
         "func _request_combo_bash()" in main
         and "func screen_step_direction" in flick)
-require("STEP geometry and speed remain original",
-        "const STEP_MIN_ARC_LENGTH: float = 2.0" in main
-        and "const STEP_MAX_ARC_LENGTH: float = 4.0" in main
+require("STEP uses fixed 3/3/5m geometry with the existing base speed",
+        "const STEP_MIN_ARC_LENGTH: float = 3.0" in main
+        and "const STEP_MAX_ARC_LENGTH: float = 5.0" in main
         and "const STEP_SPEED: float = 10.0" in main)
 
 def matching_kicks(doc):
