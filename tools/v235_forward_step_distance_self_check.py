@@ -31,7 +31,8 @@ assert 'rig.call("start_omni_step", pose_direction)' in step
 
 advance = main.split("func _advance_side_step(delta: float) -> void:", 1)[1].split(
     "func _move_player_swept(", 1)[0]
-assert "initial_radius + step_radial_delta * progress" in advance
+assert "initial_radius + step_radial_delta * travel_progress" in advance
+assert "if side_kick_active else progress)" in advance
 assert "_move_player_swept(requested, true)" in advance
 
 # Mirror the four cardinal directional plans with a 6m target radius.

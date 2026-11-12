@@ -145,6 +145,9 @@ const BASH_LINK_SECONDS: float = 0.65
 # Kick damage borrows melee1 until dedicated kick stats are specified.
 # Both authored kicks straighten alternate legs at these original 1s keys.
 const SIDE_KICK_HIT_PROGRESS = [0.25, 0.58333]
+# v278: lateral kick animation lasts twice as long without reducing
+# normal STEP travel speed/distance, changing Kick_b, or cutting off clips.
+const SIDE_KICK_MOTION_TIME_MULTIPLIER: float = 2.0
 const SIDE_KICK_REACH: float = MELEE_SURFACE_REACH
 const BASH_CONTACT_TIME: float = 0.25
 const BASH_TRACK_SECONDS: float = 0.20  # Max time to enter Bash reach before launch.
@@ -2934,6 +2937,10 @@ func _start_omni_step(flick: Vector2) -> bool:
     step_traveled_distance = 0.0
     side_kick_active = step_kick_side_request != 0
     side_kick_side = step_kick_side_request
+    # Only the kick action timeline is doubled: the swept travel still
+    # completes at its original STEP duration and remains stationary afterward.
+    if side_kick_active:
+        step_duration_current *= SIDE_KICK_MOTION_TIME_MULTIPLIER
     side_kick_did_hit = false
     side_kick_hit_mask = 0
     side_kick_hit_count = 0
@@ -3094,14 +3101,19 @@ func _advance_side_step(delta: float) -> void:
     # screen/facing-aligned linear branch; legacy debug STEP orbit remains.
     var previous_progress: float = step_elapsed / step_duration_current
     step_elapsed = minf(step_duration_current, step_elapsed + delta)
+    # Timeline progress drives the authored kick pose and its two hit keys.
+    # Travel progress reaches 100% after the NORMAL STEP time, so the slowed
+    # kick finishes its remaining poses without halving movement speed.
     var progress: float = step_elapsed / step_duration_current
-    var new_offset: Vector2 = step_start_offset + step_linear_offset * progress
+    var travel_progress: float = (minf(1.0, progress * SIDE_KICK_MOTION_TIME_MULTIPLIER)
+        if side_kick_active else progress)
+    var new_offset: Vector2 = step_start_offset + step_linear_offset * travel_progress
     if not step_linear_fallback:
         var initial_radius: float = step_start_offset.length()
         var moved_radius: float = maxf(
-            STEP_MIN_ORBIT_RADIUS, initial_radius + step_radial_delta * progress)
+            STEP_MIN_ORBIT_RADIUS, initial_radius + step_radial_delta * travel_progress)
         new_offset = (step_start_offset / initial_radius).rotated(
-            step_signed_angle * progress) * moved_radius
+            step_signed_angle * travel_progress) * moved_radius
     var requested: Vector3 = Vector3(
         step_target_center.x + new_offset.x - player.position.x,
         0.0,
@@ -3120,7 +3132,7 @@ func _advance_side_step(delta: float) -> void:
             maxf(0.0, BASH_TRACK_SECONDS - step_duration_current * previous_progress))
         if chase_dt > 0.0 and target_hp > 0:
             _advance_homing_toward_target(chase_dt, BASH_REACH)
-        # Original 24fps 1s clip is time-scaled to this actual STEP duration.
+        # Authored 24fps keys scale to the kick-only doubled action duration.
         # Each straightened foot can register at most once, never a late hit.
         for i in range(SIDE_KICK_HIT_PROGRESS.size()):
             var impact_progress: float = float(SIDE_KICK_HIT_PROGRESS[i])
