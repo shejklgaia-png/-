@@ -106,21 +106,33 @@ func _apply_part_visibility() -> void:
                 piece.visible = set_id == str(selected.get(slot, "A"))
     update_katana_visibility(str(rig.get("current_clip")), float(rig.get("clip_time")))
 
-# Blockbench uses 24FPS. Fourth frame starts at 3 / 24 = 0.125 s.
+
+# v290: independently drive the SEVEN authored Katana meshes (5 saya,
+# 2 drawn). Use both GeometryInstance3D.transparency and visible to keep
+# the cut/draw state unambiguous in the opaque forward rendering pipeline.
+# The fourth Blockbench 24fps frame is 3/24 seconds into the first strike.
+# A second Katana slash never re-sheathes between combo hits.
+func _set_katana_mesh_display(piece: MeshInstance3D, display: bool) -> bool:
+    if not is_instance_valid(piece):
+        return false
+    var next_transparency: float = 0.0 if display else 1.0
+    var changed: bool = piece.visible != display or absf(
+        piece.transparency - next_transparency) > 0.001
+    piece.transparency = next_transparency
+    piece.visible = display
+    return changed
+
+
 func update_katana_visibility(clip_name: String, t: float) -> void:
     var equipped: bool = str(selected.get("weapon_r", "A")) == "K"
-    var drawn: bool = equipped and clip_name == "Melee_katana" and t >= 3.0 / 24.0 - 0.00001
+    var drawn: bool = equipped and (
+        clip_name == "Melee_katana2"
+        or (clip_name == "Melee_katana" and t >= 3.0 / 24.0 - 0.00001))
     var changed: bool = false
     for piece in katana_saya_meshes:
-        var visible_now: bool = equipped and not drawn
-        if piece.visible != visible_now:
-            piece.visible = visible_now
-            changed = true
+        changed = _set_katana_mesh_display(piece, equipped and not drawn) or changed
     for piece in katana_drawn_meshes:
-        var visible_now: bool = equipped and drawn
-        if piece.visible != visible_now:
-            piece.visible = visible_now
-            changed = true
+        changed = _set_katana_mesh_display(piece, equipped and drawn) or changed
     if changed:
         _sync_afterimage_visibility()
 
