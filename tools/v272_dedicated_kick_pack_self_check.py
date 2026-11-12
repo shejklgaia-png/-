@@ -11,7 +11,7 @@ rig = (root/"scripts/sera_rig.gd").read_text(encoding="utf-8")
 game = (root/"scripts/main.gd").read_text(encoding="utf-8")
 source = json.loads((root/"assets/sera_source.json").read_text(encoding="utf-8"))
 pack_script = (root/"assets/sera_kick_clips.gd").read_text(encoding="utf-8")
-assert 'config/name="SERA v272"' in project
+assert (ver := re.search(r'config/name="SERA v([0-9]+)"', project)) and int(ver.group(1)) >= 272
 
 # Decode the exact independent .gd resource as Godot will (join literal
 # String chunks, JSON.parse_string); detect any truncation of large keys.

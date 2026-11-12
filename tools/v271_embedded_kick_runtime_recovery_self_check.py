@@ -104,7 +104,7 @@ assert "_usable_side_kick_clip(name)" in restore
 assert 'for channel in ["rotation", "position", "scale"]' in helper
 assert "if not bones.has(str(raw_uid)):" in helper
 assert "float(clip.get(\"length\", 0.0)) <= 0.01" in helper
-assert "if _usable_side_kick_clip(clip_name):" in choose
+assert "if _usable_side_kick_clip(canonical):" in choose
 assert "if not _usable_side_kick_clip(candidate):" in choose
 assert "_restore_embedded_side_kicks()" in has
 assert 'rig.call("get_side_kick_diagnostic", side)' in request
