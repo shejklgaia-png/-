@@ -18,6 +18,7 @@ cancel=main.split("func _melee3_flick_cancel_time() -> float:",1)[1].split(
     "func _start_strike(",1)[0]
 assert "STRIKE_CANCEL_TIMES[STRIKE_CLIPS.size() - 1]) + MELEE3_FLICK_CANCEL_DELAY" in cancel
 assert "if _katana_equipped():" in cancel
+assert "7.0 / 24.0 + MELEE3_FLICK_CANCEL_DELAY" in cancel
 advance=main.split("func _advance_attack(delta: float) -> void:",1)[1].split(
     "func _screen_drag_to_ground(",1)[0]
 assert "float(rig.call(\"get_clip_time\")) >= _melee3_flick_cancel_time()" in advance
@@ -37,7 +38,7 @@ assert "buffered_side_kick_side = 0" in handoff
 first=main.split("func _start_attack() -> bool:",1)[1].split(
     "func _combo_followup_input_window_open(",1)[0]
 assert "if combat_state == CombatState.STRIKE:" in first
-assert "if strike_index < STRIKE_CLIPS.size() - 1:" in first
+assert "if strike_index < _strike_stage_count() - 1:" in first
 assert "return false" in first
 assert "if combat_state != CombatState.IDLE:" in first
 assert "bash_loop_window_remaining > 0.0" in first
