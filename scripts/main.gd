@@ -2707,6 +2707,105 @@ func _launch_combo_side_kick(flick: Vector2, side: int) -> bool:
     return started
 
 
+# Backward somersault is a distinct aerial combo, NOT a STEP: the 4m
+# displacement is behind SERA / away from the lock target even when the
+# on-screen DOWN flick points in a different world direction. A 1.5m arc
+# keeps player collision physically airborne, with a single foot impact.
+func _start_back_somersault() -> bool:
+    if (back_somersault_active or landing_active or jump_active or step_active
+            or guard_active or damage_reaction_active
+            or combat_state != CombatState.IDLE or rig == null
+            or not bool(rig.get("loading_ok"))):
+        return false
+    if not _spend_energy(15.0 * float(part_stats.get("energy_cost_mult", 1.0))):
+        return false
+    if not bool(rig.call("start_back_somersault")):
+        return false
+    _cancel_combo_followup_windows_for_movement()
+    back_somersault_active = true
+    back_somersault_elapsed = 0.0
+    back_somersault_hit = false
+    back_somersault_start = player.position
+    back_somersault_original_rig_y = rig.position.y
+    back_somersault_has_authored_clip = bool(rig.call("back_somersault_uses_authored_clip"))
+    # The melee lock faces the selected target. Backward is the opposite
+    # horizontal heading, with the player basis as a zero-length fallback.
+    back_somersault_direction = player.global_position - target.global_position
+    back_somersault_direction.y = 0.0
+    if back_somersault_direction.length_squared() < 0.000001:
+        back_somersault_direction = player.global_transform.basis.z
+        back_somersault_direction.y = 0.0
+    back_somersault_direction = back_somersault_direction.normalized()
+    direction_input = Vector2.ZERO
+    movement_boost_active = false
+    boost_confirm_elapsed = 0.0
+    _reset_boost_speed_transition()
+    boost_pose_grace_remaining = 0.0
+    if touch_ui != null:
+        touch_ui.call("set_movement_boost", false)
+    return true
+
+
+func _advance_back_somersault(delta: float) -> void:
+    if not back_somersault_active:
+        return
+    var previous: float = clampf(
+        back_somersault_elapsed / BACK_SOMERSAULT_FLIGHT_SECONDS, 0.0, 1.0)
+    back_somersault_elapsed = minf(
+        BACK_SOMERSAULT_FLIGHT_SECONDS, back_somersault_elapsed + maxf(0.0, delta))
+    var progress: float = clampf(
+        back_somersault_elapsed / BACK_SOMERSAULT_FLIGHT_SECONDS, 0.0, 1.0)
+    # Swept horizontal move: walls stop the 4m travel instead of allowing
+    # a teleport through the boss or arena obstacles.
+    var requested: Vector3 = back_somersault_direction * (
+        BACK_SOMERSAULT_DISTANCE * (progress - previous))
+    _move_player_swept(requested, true)
+    var wanted_y: float = BACK_SOMERSAULT_HEIGHT * sin(PI * progress)
+    var vertical_delta: float = wanted_y - player.position.y
+    if absf(vertical_delta) > 0.000001:
+        player.move_and_collide(Vector3.UP * vertical_delta)
+    player.velocity = Vector3.ZERO
+    if not back_somersault_has_authored_clip:
+        # Provisional backflip only while Kick_b has not been uploaded:
+        # rotate the whole visible model around its center, preserving the
+        # underlying authentic Jump pose and original Blockbench source.
+        var angle: float = TAU * progress
+        rig.rotation.x = angle
+        rig.position.y = back_somersault_original_rig_y + (
+            BACK_SOMERSAULT_VISUAL_PIVOT_HEIGHT * (1.0 - cos(angle)))
+    rig.call("set_back_somersault_progress", progress)
+    if not back_somersault_hit and progress >= BACK_SOMERSAULT_HIT_START \
+            and progress <= BACK_SOMERSAULT_HIT_END and target_hp > 0 \
+            and _distance_to_attack_target_surface(player.position) <= SIDE_KICK_REACH:
+        back_somersault_hit = true
+        _register_side_kick_hit()
+    if progress >= 1.0:
+        back_somersault_active = false
+        back_somersault_elapsed = 0.0
+        rig.rotation.x = 0.0
+        rig.position.y = back_somersault_original_rig_y
+        # The arena ground is at y=0; exactly one landing phase owns the
+        # authored Jump 0.375..0.500 landing keys, retimed to 0.20 seconds.
+        player.position.y = 0.0
+        player.velocity = Vector3.ZERO
+        _begin_landing(true)
+
+
+func _cancel_back_somersault() -> void:
+    if not back_somersault_active:
+        return
+    back_somersault_active = false
+    back_somersault_elapsed = 0.0
+    back_somersault_hit = false
+    if rig != null:
+        rig.rotation.x = 0.0
+        rig.position.y = back_somersault_original_rig_y
+        rig.call("finish_jump", false, false)
+    if player != null:
+        player.position.y = 0.0
+        player.velocity = Vector3.ZERO
+
+
 func _start_omni_step(flick: Vector2) -> bool:
     if (guard_active or damage_reaction_active or landing_active
             or rig == null or not bool(rig.get("loading_ok"))
