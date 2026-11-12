@@ -1814,3 +1814,8 @@
 - 原本 `models/storage/SERA_BOOSTER_allテスト (9).bbmodel` の左右1秒アニメーションから、現行標準22骨格UUIDのキーフレームのみを `assets/sera_source.json` に統合。 `tools/rebuild_model_data.py` と同一形式で `assets/sera_data.gd` を生成し、Android埋込データでも確実に存在するようにした。既存モーションとユーザーの原本は無変更。
 - 3段目完走後0.65秒以内に入力**開始**したフリックは、指を離すまでの間に時間窓が失効しても蹴りの入力権を維持する。受付時間の二重チェックによる通常STEPへのフォールバックを解消。開始後の他方向や時間超過などは従来STEP入力ルールのまま。
 - 通常の2〜4mステップ距離・衝突スイープ・EN、バッシュ、3連撃、カメラ・描画・装備・保存は維持。新規 `tools/v265_kick_embedded_input_self_check.py` とCI回帰検査を追加。実際のAndroidゲーム実行は未検証。
+
+## 2026-11-12 — SERA v266: 3段完走後の左右蹴りと通常STEPの排他制御
+- 現行v265を確認したところ、左右蹴り用 `_request_combo_side_kick` が失敗すると、`_end_drag` の通常 `_start_omni_step` にフォールスルーしていた。また、指が途中で左右45°外へ移動すると `side_kick_flick_candidate` が解除され、離指時に左右でも通常STEPへ流れることがあった。
+- 派生受付中に開始した0.24秒以内のフリックは、途中の角度変動では蹴り候補を外さず、最終的な離指方向が画面左右45°内なら**蹴り専用**とする。蹴りが起動できない場合も通常STEPへ変換せず入力を消費する。前後/斜めの従来STEPとBash・RUN/BOOST・完走前キャンセルは維持する。
+- `tools/v266_exclusive_side_kick_self_check.py` をCIへ追加。v264/v265チェックは新バージョンの仕様に追従するよう更新。Android実機の動作確認は未実施。
