@@ -10,9 +10,8 @@ version = (ROOT / "project.godot").read_text(encoding="utf-8")
 readme = (ROOT / "README_v264_ja.md").read_text(encoding="utf-8")
 flick = (ROOT / "scripts/flick_direction_policy.gd").read_text(encoding="utf-8")
 source = json.loads((ROOT / "assets/sera_source.json").read_text(encoding="utf-8"))
-author = json.loads(
-    (ROOT / "models/SERA_BOOSTER_allテスト.bbmodel").read_text(encoding="utf-8")
-)
+author_file = ROOT / "models/storage/SERA_BOOSTER_allテスト (9).bbmodel"
+author = json.loads(author_file.read_text(encoding="utf-8")) if author_file.exists() else None
 
 
 def require(message: str, condition: bool) -> None:
@@ -73,9 +72,24 @@ def matching_kicks(doc):
                    for word in ("kick", "キック", "蹴"))]
 
 source_clips = matching_kicks(source)
-author_clips = matching_kicks(author)
+author_clips = matching_kicks(author) if author is not None else []
 print(f"INFO: runtime source kick clips: {source_clips}")
-print(f"INFO: synced Blockbench kick clips: {author_clips}")
+print(f"INFO: newly synced Blockbench kick clips: {author_clips}")
+if author is not None:
+    require("uploaded Kick_l and Kick_r available",
+            "Kick_l" in author_clips and "Kick_r" in author_clips)
+    known = {g["uuid"] for g in source.get("groups", [])}
+    for side in ("Kick_l", "Kick_r"):
+        clip = next(x for x in author["animations"] if x["name"] == side)
+        relevant = {uid: frames for uid, frames in clip["animators"].items()
+                    if uid in known}
+        require(f"{side} has keyframed runtime skeleton tracks",
+                float(clip.get("length", 0.0)) > 0.01
+                and len(relevant) >= 20
+                and any(frames.get("keyframes") for frames in relevant.values()))
+else:
+    print("INFO: source file absent from feature branch; incoming main sync"
+          " contributes it to the PR merge checkout.")
 if not (source_clips or author_clips):
-    print("INFO: authored kick clips not synced; safe STEP fallback remains active.")
+    print("INFO: missing asset uses safe ordinary STEP fallback.")
 print("SERA v264 post-finisher lateral kick static regression PASSED.")
