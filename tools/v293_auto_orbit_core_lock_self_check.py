@@ -6,14 +6,14 @@ root = Path(__file__).resolve().parents[1]
 main = (root / "scripts/main.gd").read_text(encoding="utf-8")
 parts = (root / "scripts/target_parts.gd").read_text(encoding="utf-8")
 project = (root / "project.godot").read_text(encoding="utf-8")
-assert re.search(r'config/name="SERA v293"', project)
+assert (int(re.search(r'config/name="SERA v(\d+)"', project).group(1)) >= 293)
 order = ["head", "", "leg_fl", "", "leg_rl", "", "leg_rr", "", "leg_fr", ""]
 ring = parts.split("const CAMERA_ORBIT_RING = [",1)[1].split("]",1)[0]
 actual = re.findall(r'"([^"]*)"', ring)
 assert actual == order, actual
 selector = parts.split("func select_camera_orbit_part(view_camera: Camera3D) -> String:",1)[1].split(
     "# v291: camera-forward locking.",1)[0]
-for key in ("view_camera.global_position - global_position",
+for key in ("to_local(view_camera.global_position)",
             "atan2(-relative.x, relative.z)", "CAMERA_ORBIT_STEP_DEGREES",
             "posmod(", "roundi(", "is_targetable(part_id) else \"\""):
     assert key in selector, key
