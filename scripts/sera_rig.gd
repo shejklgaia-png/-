@@ -1400,29 +1400,40 @@ func _restore_embedded_side_kicks() -> void:
 
 
 func get_side_kick_diagnostic(side: int) -> String:
-    var chosen: String = _side_kick_clip_for(side)
-    var side_name: String = "R" if side > 0 else "L"
+    if side != 1 and side != -1:
+        return "BAD SIDE %d" % side
+    var side_name: String = "R" if side == 1 else "L"
     if not loading_ok:
         return side_name + " RIG NOT READY"
-    if chosen.is_empty():
-        # Short enough to remain readable in the right-side training HUD.
-        return side_name + " " + dedicated_side_kick_status
-    return side_name + " READY"
+    var canonical: String = "Kick_r" if side == 1 else "Kick_l"
+    # The status recorded at startup does not prove lookup/playability NOW.
+    # Show an independent live keyframe check, not 'ALREADY READY' history.
+    if _usable_side_kick_clip(canonical):
+        var chosen: String = _side_kick_clip_for(side)
+        return side_name + (" LOOKUP FAIL" if chosen.is_empty() else " READY")
+    return side_name + " " + dedicated_side_kick_status
 
 
+# The two authored clips have FIXED names in the same primary animation
+# dictionary as Melee3 and Bash. Use direct key lookup, exactly like those
+# working actions. The old typed Array[String] = [...] if ... else [...] may
+# fail at runtime in Godot even when static source checks pass.
 func _side_kick_clip_for(side: int) -> String:
     if side != -1 and side != 1:
         return ""
-    var preferred: Array[String] = [
-        "Kick_r", "Kick_R", "Kick_Right", "RightKick", "KickRight", "KickR",
-        "右蹴り", "右キック"
-    ] if side > 0 else [
-        "Kick_l", "Kick_L", "Kick_Left", "LeftKick", "KickLeft", "KickL",
-        "左蹴り", "左キック"
-    ]
-    for clip_name in preferred:
-        if _usable_side_kick_clip(clip_name):
-            return clip_name
+    var canonical: String = "Kick_r" if side == 1 else "Kick_l"
+    if _usable_side_kick_clip(canonical):
+        return canonical
+    # Compatibility for legacy custom clip names; a plain untyped array is
+    # deliberate here (no ternary assignment to Array[String]).
+    var alternate_names: Array = []
+    if side == 1:
+        alternate_names = ["Kick_R", "Kick_Right", "RightKick", "KickRight", "KickR", "右蹴り", "右キック"]
+    else:
+        alternate_names = ["Kick_L", "Kick_Left", "LeftKick", "KickLeft", "KickL", "左蹴り", "左キック"]
+    for alias_name in alternate_names:
+        if _usable_side_kick_clip(str(alias_name)):
+            return str(alias_name)
     for raw_name in animations.keys():
         var candidate: String = str(raw_name)
         var lower: String = candidate.to_lower()
@@ -1430,10 +1441,10 @@ func _side_kick_clip_for(side: int) -> String:
             continue
         if not _usable_side_kick_clip(candidate):
             continue
-        if side > 0 and (lower.ends_with("_r") or lower.ends_with("right")
+        if side == 1 and (lower.ends_with("_r") or lower.ends_with("right")
                 or lower.ends_with("kickr") or lower.contains("右")):
             return candidate
-        if side < 0 and (lower.ends_with("_l") or lower.ends_with("left")
+        if side == -1 and (lower.ends_with("_l") or lower.ends_with("left")
                 or lower.ends_with("kickl") or lower.contains("左")):
             return candidate
     return ""
@@ -1454,8 +1465,12 @@ func has_side_kick(side: int) -> bool:
 func start_side_kick(side: int, movement_duration: float) -> bool:
     if not loading_ok or damage_playback or guard_playback:
         return false
-    var chosen: String = _side_kick_clip_for(side)
     if not has_side_kick(side):
+        return false
+    # The availability check may have recovered the clip. Resolve its
+    # actual name AFTER that check, otherwise a stale empty name is used.
+    var chosen: String = _side_kick_clip_for(side)
+    if chosen.is_empty():
         return false
     # Keep the authored kick's full timing mapped onto the normal STEP travel.
     side_kick_clip_name = chosen
