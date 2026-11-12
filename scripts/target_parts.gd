@@ -404,7 +404,7 @@ const CAMERA_ORBIT_STEP_DEGREES: float = 36.0
 func select_camera_orbit_part(view_camera: Camera3D) -> String:
     if view_camera == null:
         return ""
-    var relative: Vector3 = view_camera.global_position - global_position
+    var relative: Vector3 = to_local(view_camera.global_position)
     if Vector2(relative.x, relative.z).length_squared() < 0.000001:
         return ""
     var degrees: float = fposmod(
