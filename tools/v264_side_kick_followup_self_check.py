@@ -25,11 +25,12 @@ require("game version is at least v264",
         bool((m := re.search(r'config/name="SERA v([0-9]+)"', version))
             and int(m.group(1)) >= 264))
 require("versioned change notes exist", "3段完走後" in readme)
-require("post-finisher is the only candidate window",
-        "side_kick_flick_candidate = (combat_state == CombatState.IDLE\n"
-        "        and bash_followup_window_remaining > 0.0)" in main)
+require("post-finisher and third-strike gesture windows",
+        "side_kick_flick_candidate = (" in main
+        and "combat_state == CombatState.STRIKE_TRACK" in main
+        and "and bash_followup_window_remaining > 0.0))" in main)
 require("post-finisher side flick takes priority over Bash",
-        main.index("if side_kick_requested and flick_direction.length_squared()")
+        main.index("if side_kick_requested and kick_flick_direction.length_squared()")
         < main.index("if bash_requested and _request_combo_bash():"))
 require("kick and step share the same start implementation",
         "func _start_omni_step(flick: Vector2) -> bool:" in main
@@ -49,7 +50,7 @@ require("single-hit is armed once per kick",
 require("other directions retain normal step but lateral kick input is exclusive",
         'if rig == null or not bool(rig.call("has_side_kick", side)):' in main
         and "if _start_omni_step(flick_direction):" in main
-        and "flick_direction, gesture_screen_forward) in [1, 3]" in main)
+        and "kick_flick_direction, gesture_screen_forward) in [1, 3]" in main)
 require("kick clip imports do not replace model or old animations",
         "func _merge_authored_side_kick_clips()" in rig
         and "if animations.has(name):" in rig
