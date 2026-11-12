@@ -72,9 +72,9 @@ func _run() -> void:
         _fail("missing 1.5m parabola apex: " + str(middle.y))
         return
     # v284 uses a target-relative retreat (not guaranteed to match world Z).
-    # A 4m Bezier arc must advance approximately 2m along its captured heading.
+    # A 5m Bezier arc must advance approximately 2.5m along its captured heading.
     var retreat_dir: Vector3 = game.get("back_somersault_direction")
-    if absf((middle - takeoff).dot(retreat_dir) - 2.0) > 0.5:
+    if absf((middle - takeoff).dot(retreat_dir) - 2.5) > 0.5:
         _fail("no target-relative rearward displacement at half-time" +
             " start=%s middle=%s target=%s direction=%s elapsed=%f" % [
             str(start_position), str(middle),
@@ -87,7 +87,7 @@ func _run() -> void:
             return
     game.call("_advance_back_somersault", flight_half)
     var arrived: Vector3 = player.position
-    # v279: 4m travel finishes at 0.8s, but do NOT replace Kick_b before
+    # v300: 5m travel finishes at 0.8s, but do NOT replace Kick_b before
     # its completed final pose was sampled by the render rig.
     if not bool(game.get("back_somersault_active")) or bool(game.get("landing_active")):
         _fail("Kick_b was cut before its last authored pose was displayed")
@@ -128,5 +128,5 @@ func _run() -> void:
     if str(rig.get("current_clip")) != "Wait_motion":
         _fail("landing did not blend back to idle")
         return
-    print("GODOT_BACK_KICK_RUNTIME_PASS: rear arc, 1.5m apex, 4m plan, 0.8s clip including contact + 0.2s authored landing")
+    print("GODOT_BACK_KICK_RUNTIME_PASS: rear arc, 1.5m apex, 5m plan, 0.8s clip including contact + 0.2s authored landing")
     quit(0)
