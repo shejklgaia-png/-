@@ -30,7 +30,7 @@ for term in ("camera.global_transform.basis.x",
 assert "camera_right * direction.x * side_length" not in step
 assert "facing_forward * step_radial_delta" not in step
 for term in ("var progress: float = step_elapsed / step_duration_current",
-             "var new_offset: Vector2 = step_start_offset + step_linear_offset * progress",
+             "var new_offset: Vector2 = step_start_offset + step_linear_offset * travel_progress",
              "_move_player_swept(requested, true)"):
     assert term in advance,term
 assert main.count("_screen_drag_to_ground(direction_input)")>=4
