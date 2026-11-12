@@ -268,7 +268,7 @@ func _set_part_hit_visual(id: String, ratio: float) -> void:
         var base: Color = part["rest_" + slot]
         material.albedo_color = base.lerp(PART_HIT_DARK_COLOR, mix * 0.78)
         material.emission_enabled = mix > 0.0
-        material.emission = PART_HIT_GLOW_COLOR
+        material.emission = Color("a92724").lerp(PART_HIT_GLOW_COLOR, mix)
         material.emission_energy_multiplier = lerpf(0.08, 0.03, mix)
     var pivot: Node3D = part["node"]
     var wobble: float = sin((1.0 - mix) * 44.0) * PART_HIT_WOBBLE_METERS * mix
