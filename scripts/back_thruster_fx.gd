@@ -355,8 +355,11 @@ func set_exhaust(enabled: bool, world_exhaust_direction: Vector3,
         * Quaternion(Vector3.UP, steering_yaw)
         * Quaternion(Vector3.RIGHT, steering_pitch)).normalized()
     if enabled and left_sector_world.length_squared() > 0.000001:
-        # The special LEFT motion is bounded by the screen's DOWN->RIGHT
-        # quadrant, rather than yaw/pitch angles relative to the moving Chest.
+        # The LEFT screen-down/right vector is already blended toward
+        # WORLD DOWN by backstroke weight at the movement controller.
+        # Unlike v260, rear-left can no longer override reverse thrust
+        # with a full sideways sector. Preserve this physically steered
+        # nozzle pivot and its existing servo smoothing.
         # Convert the screen-space jet to the authored REST nozzle axes.
         # This rotates the actual 3D metal nozzle AND its child jet together.
         var nozzle_parent: Node3D = nozzle.get_parent() as Node3D
