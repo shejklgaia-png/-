@@ -2184,13 +2184,12 @@ func _begin_drag(pos: Vector2) -> void:
     if gesture_active:
         return
     gesture_active = true
-    # Capture SERA's facing projected onto the screen at touch-down.
-    # Bash and post-finisher kick sectors use this ACTOR axis; regular
-    # RUN/BOOST/STEP still use the literal SCREEN-space gesture vector.
+    # Keep this projected axis for existing camera/debug/guard diagnostics.
+    # All actual combo and Bash flick decisions are fixed SCREEN sectors.
     gesture_screen_forward = FLICK_DIRECTION_POLICY.projected_forward(camera, player)
     guard_flick_axis_captured = false
-    # Preserve the third strike while classifying an intentional forward Bash
-    # flick; unrelated directional drags still cancel attacks as before.
+    # Preserve the third strike while classifying a screen-UP Bash flick;
+    # unrelated drags still cancel attacks as before.
     bash_flick_candidate = ((combat_state == CombatState.STRIKE
         or combat_state == CombatState.STRIKE_TRACK)
         and strike_index == STRIKE_CLIPS.size() - 1) or (
@@ -2261,9 +2260,9 @@ func _change_drag(pos: Vector2) -> void:
     var displacement: Vector2 = pos - pointer_origin
     if bash_flick_candidate and gesture_max_travel > BASH_FLICK_CANDIDATE_GRACE_PIXELS:
         # Initial finger wobble will not immediately cancel the combo.
-        # Candidate and final Bash share the same 90-degree SERA-front sector.
+        # Candidate and final Bash both use the fixed 90deg screen-UP sector.
         if not FLICK_DIRECTION_POLICY.within_sector(
-                displacement, gesture_screen_forward, STEP_FLICK_MAX_HORIZONTAL_RATIO):
+                displacement, Vector2.UP, STEP_FLICK_MAX_HORIZONTAL_RATIO):
             bash_flick_candidate = false
     # Keep the post-finisher kick reservation through intermediate diagonal
     # thumb movement. Only the RELEASE direction chooses kick vs other STEP.
@@ -2409,8 +2408,8 @@ func _end_drag(release_pos: Vector2) -> void:
     touch_ui.call("hide_drag")
     if damage_reaction_active or landing_active or back_somersault_active or suppress_release_action:
         return  # Airborne somersault and landing own the input until fully complete.
-    # A valid screen-horizontal combo swipe MUST resolve to a kick before
-    # either actor-forward Bash or general 360-degree STEP. If it does not,
+    # A screen-left/right/down combo swipe MUST resolve to a kick before
+    # screen-UP Bash or general 360-degree STEP. If it does not,
     # show the reason in the existing debug panel for recorded phone tests.
     var screen_sector: int = FLICK_DIRECTION_POLICY.sector_index(
         release_pos - pointer_origin, Vector2.UP)
@@ -3525,8 +3524,8 @@ func _strike_cancel_time(stage: int) -> float:
 
 func _melee3_flick_cancel_time() -> float:
     # This is independent of the Melee1/2 tap-combo cancel points.
-    # The current authored Katana swing lasts only 0.5s, so do not
-    # request a frame beyond its clip end until it has separate timing.
+    # The current authored Katana swing lasts only 0.5s, so retain its
+    # existing cancel point until a separate strike-through key is set.
     if _katana_equipped():
         return _strike_cancel_time(STRIKE_CLIPS.size() - 1)
     return float(STRIKE_CANCEL_TIMES[STRIKE_CLIPS.size() - 1]) + MELEE3_FLICK_CANCEL_DELAY
@@ -3684,7 +3683,7 @@ func _advance_attack(delta: float) -> void:
             # from the pre-strike time cap and avoids misses on moving bosses.
             if not strike_did_hit:
                 _advance_homing_toward_target(delta, MELEE_SURFACE_REACH)
-            # Stage 3 alone can cancel into a RESERVED flick 0.10s after
+            # Stage 3 alone can cancel into a RESERVED flick 0.05s after
             # its authored 15/24s swing-through. Do not unlock ordinary
             # Melee1 here: without a flick, the full 0.83333s clip runs.
             if strike_index == STRIKE_CLIPS.size() - 1 \
