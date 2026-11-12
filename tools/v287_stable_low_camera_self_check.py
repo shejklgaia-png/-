@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""v287: camera stays low and stable across repeated attacks, player not side-on."""
+"""v287 perspective remains low; v288 keeps SERA inside the yaw/distance leashes."""
 from pathlib import Path
 import math,re
 R=Path(__file__).resolve().parents[1]
@@ -11,8 +11,10 @@ for const in (
     "const CAMERA_COMBAT_YAW_HOLD_SECONDS: float = 0.45",
     "const CAMERA_COMBAT_SHOULDER_DEGREES: float = 12.0",
     "const CAMERA_COMBAT_MAX_PLAYER_SIDE_DEGREES: float = 30.0",
-    "const CAMERA_COMBAT_IDLE_YAW_RESPONSE: float = 0.9",
-    "const CAMERA_COMBAT_IDLE_YAW_MAX_SPEED_DEGREES: float = 32.0",
+    "const CAMERA_PLAYER_YAW_FOLLOW_RATE: float = 10.0",
+    "const CAMERA_PLAYER_YAW_MAX_LAG_DEGREES: float = 12.0",
+    "const CAMERA_PLAYER_FOCUS_FOLLOW_RATE: float = 15.0",
+    "const CAMERA_PLAYER_FOCUS_MAX_LAG_METERS: float = 0.65",
     "const CAMERA_COMBAT_MIN_RADIUS: float = 11.3",
     "const CAMERA_COMBAT_ZOOM_OUT_SPEED: float = 8.0",
     "var camera_combat_hold_remaining: float = 0.0",
@@ -82,7 +84,8 @@ assert "_move_player_swept(requested, true)" in step
 assert "SIDE_KICK_HIT_PROGRESS.size()" in step
 assert "if progress >= second_windup:" in step
 
-# A fixed-yaw kick can never move farther out than 30deg relative to camera.
+# Kick arcs retain the 30deg planned-angle bound; v288 additionally
+# follows SERA through the arc with only 12deg of camera yaw lag.
 for initial in (-60,-30,-12,0,12,30,60):
     for raw in (-90,-55,-30,30,55,90):
         allowed=max(-30-initial,min(30-initial,raw))
