@@ -153,6 +153,10 @@ var combat_playback: bool = false
 var step_playback: bool = false
 var side_kick_clip_name: String = ""
 var side_kick_playback_scale: float = 1.0
+# Do not depend on a stale / manually edited Android res:// JSON export.
+# The integrated generated GDScript always carries both real authored clips.
+var embedded_side_kick_restore_attempted: bool = false
+var embedded_side_kick_restored: bool = false
 # A complete 360-degree flick uses a continuous blend of authored cardinal
 # step poses; forward movement uses the authored Frontstep pose.
 var directional_step_active: bool = false
@@ -213,6 +217,9 @@ func _ready() -> void:
     _install_bird_model()
     _build_animations(data)
     _merge_authored_side_kick_clips()
+    # Live res:// source may be older than the generated embedded snapshot.
+    # Restore only missing / unplayable kicks, keeping all other clips intact.
+    _restore_embedded_side_kicks()
     _merge_bird_animation_tracks()
     # Mesh alternatives reuse the original animated pivots/UUIDs unchanged.
     equipment_handler = EQUIPMENT_SCRIPT.new()
@@ -1257,6 +1264,67 @@ func update_omni_step_direction(direction: Vector2, delta: float) -> void:
 
 # The user-authored Kick clips may be published to the runtime source later.
 # Resolve actual available clip names, never fabricate a visual clip.
+# A clip dictionary may exist but have NO keyframes on an installed bone.
+# Such a clip cannot produce the user's authored kick, despite its name.
+func _usable_side_kick_clip(name: String) -> bool:
+    if not animations.has(name):
+        return false
+    var clip: Dictionary = animations[name]
+    if float(clip.get("length", 0.0)) <= 0.01:
+        return false
+    var clip_tracks: Dictionary = clip.get("tracks", {})
+    for raw_uid in clip_tracks.keys():
+        if not bones.has(str(raw_uid)):
+            continue
+        var channels: Dictionary = clip_tracks[raw_uid]
+        for channel in ["rotation", "position", "scale"]:
+            if not (channels.get(channel, []) as Array).is_empty():
+                return true
+    return false
+
+
+# Integrated model data is an independent fallback from SOURCE_PATH.
+# Android Godot may load an older res:// JSON with no Kick_l / Kick_r;
+# earlier versions never consulted EMBEDDED if that file existed.
+# Never replace a valid runtime clip or modify the authored keyframes.
+func _restore_embedded_side_kicks() -> void:
+    if embedded_side_kick_restore_attempted:
+        return
+    embedded_side_kick_restore_attempted = true
+    if _usable_side_kick_clip("Kick_l") and _usable_side_kick_clip("Kick_r"):
+        return
+    var parsed: Variant = JSON.parse_string(EMBEDDED.get_json())
+    if not (parsed is Dictionary):
+        push_warning("SERA Kick: embedded runtime JSON cannot be parsed")
+        return
+    var needed: Array = []
+    for candidate in parsed.get("animations", []):
+        if not (candidate is Dictionary):
+            continue
+        var name: String = str(candidate.get("name", ""))
+        if name not in ["Kick_l", "Kick_r"] or _usable_side_kick_clip(name):
+            continue
+        needed.append(candidate)
+    if not needed.is_empty():
+        _build_animations({"animations": needed})
+    embedded_side_kick_restored = (
+        _usable_side_kick_clip("Kick_l") and _usable_side_kick_clip("Kick_r"))
+    if embedded_side_kick_restored:
+        print("SERA Kick: restored authored Kick_l / Kick_r from embedded model data")
+    else:
+        push_warning("SERA Kick: embedded recovery failed; check bone UUIDs and exported assets")
+
+
+func get_side_kick_diagnostic(side: int) -> String:
+    var chosen: String = _side_kick_clip_for(side)
+    var side_name: String = "R" if side > 0 else "L"
+    if not loading_ok:
+        return side_name + " RIG NOT READY"
+    if chosen.is_empty():
+        return side_name + (" EMBEDDED FAILED" if embedded_side_kick_restore_attempted else " NO CLIP")
+    return side_name + " " + chosen + " KEYS OK"
+
+
 func _side_kick_clip_for(side: int) -> String:
     if side != -1 and side != 1:
         return ""
@@ -1268,12 +1336,14 @@ func _side_kick_clip_for(side: int) -> String:
         "左蹴り", "左キック"
     ]
     for clip_name in preferred:
-        if animations.has(clip_name):
+        if _usable_side_kick_clip(clip_name):
             return clip_name
     for raw_name in animations.keys():
         var candidate: String = str(raw_name)
         var lower: String = candidate.to_lower()
         if not (lower.contains("kick") or lower.contains("キック") or lower.contains("蹴")):
+            continue
+        if not _usable_side_kick_clip(candidate):
             continue
         if side > 0 and (lower.ends_with("_r") or lower.ends_with("right")
                 or lower.ends_with("kickr") or lower.contains("右")):
@@ -1285,10 +1355,13 @@ func _side_kick_clip_for(side: int) -> String:
 
 
 func has_side_kick(side: int) -> bool:
-    var chosen: String = _side_kick_clip_for(side)
-    return (loading_ok and not chosen.is_empty()
-        and float(animations[chosen]["length"]) > 0.01
-        and not (animations[chosen]["tracks"] as Dictionary).is_empty())
+    if not loading_ok or (side != 1 and side != -1):
+        return false
+    # Repair the missing-clip path even if an Android file changed after
+    # _ready(). This is attempted only once per rig instance.
+    if _side_kick_clip_for(side).is_empty():
+        _restore_embedded_side_kicks()
+    return not _side_kick_clip_for(side).is_empty()
 
 
 func start_side_kick(side: int, movement_duration: float) -> bool:
