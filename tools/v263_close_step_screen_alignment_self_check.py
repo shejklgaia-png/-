@@ -20,7 +20,8 @@ assert 'rig.call("start_omni_step", pose_direction)' in step
 assert "step_flick_direction = direction" in step
 assert "var back_mix: float = smoothstep(-0.25, 0.25, direction.y)" in step
 assert "step_linear_offset = Vector2(world_step.x, world_step.z)" in step
-assert "step_close_camera = (absf(pose_direction.x) > 0.001" in step
+assert "or (absf(pose_direction.x) > 0.001" in step
+assert "STEP_CLOSE_CAMERA_SURFACE_DISTANCE" in step
 assert "world_unit.dot(right), -world_unit.dot(facing)" in local
 assert "var right: Vector3 = facing.cross(Vector3.UP)" in local
 
@@ -38,7 +39,8 @@ camera=m.split("func _process(delta: float) -> void:",1)[1].split(
 assert "if step_active or close_step_camera_this_frame:" in camera
 assert camera.index("if step_active or close_step_camera_this_frame:") < camera.index(
     "elif protect_close_step and separation > 0.08:")
-assert "camera_yaw = _close_step_target_relative_yaw(bearing, easing, delta)" in camera
+assert "_close_step_target_relative_yaw(bearing, easing, delta)" in camera
+assert "_visible_combat_camera_yaw(bearing, delta)" in camera
 assert "camera_yaw = lerp_angle(camera_yaw, bearing, easing * CAMERA_MOVING_YAW_SCALE)" in camera
 assert "camera_radius = maxf(camera_follow_radius, camera_fit_radius_floor)" in camera
 assert "_fit_full_frame()" in camera
