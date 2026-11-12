@@ -56,7 +56,8 @@ assert "BACK_SOMERSAULT_FLIGHT_SECONDS: float = 0.80" in game
 assert "BACK_SOMERSAULT_LANDING_SECONDS: float = 0.20" in game
 assert "combat_state != CombatState.IDLE" in start
 assert 'rig.call("start_back_somersault")' in start
-assert "back_somersault_direction = player.global_position - target.global_position" in start
+assert "back_somersault_direction = player.global_position - target.global_position" in game
+assert "_capture_back_somersault_retreat_direction()" in advance
 assert "_move_player_swept(Vector3(arc_delta.x, 0.0, arc_delta.z), true)" in advance
 assert "_back_somersault_arc_offset(progress)" in advance
 assert "_back_somersault_arc_offset(previous)" in advance
