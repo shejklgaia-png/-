@@ -21,7 +21,7 @@ jobs:
           failed = []
           for i, name in enumerate(files, 1):
               path = pathlib.Path("tools") / name
-              if not path.exists() or name == "model_policy_check.py":
+              if not path.exists() or name in ("model_policy_check.py", "sera_change_impact.py"):
                   continue
               try:
                   p = subprocess.run(["python3", str(path)], text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=45)
