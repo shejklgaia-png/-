@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""v283: Melee3 queued flicks cancel 0.1s after swing; first tap unchanged."""
+"""v284: Melee3 queued flicks cancel 0.05s after swing; first tap unchanged."""
 from pathlib import Path
 import json, re
 
@@ -10,10 +10,10 @@ source=json.loads((root/"assets/sera_source.json").read_text(encoding="utf-8"))
 project=(root/"project.godot").read_text(encoding="utf-8")
 assert int(re.search(r'config/name="SERA v(\d+)"',project).group(1))>=283
 assert "const STRIKE_CANCEL_TIMES = [7.0 / 24.0, 7.0 / 24.0, 15.0 / 24.0]" in main
-assert "const MELEE3_FLICK_CANCEL_DELAY: float = 0.10" in main
+assert "const MELEE3_FLICK_CANCEL_DELAY: float = 0.05" in main
 melee3=next(a for a in source["animations"] if a["name"]=="Melee3")
 assert abs(float(melee3["length"])-0.83333)<0.0001
-assert 15.0 / 24.0 + 0.10 < float(melee3["length"])
+assert 15.0 / 24.0 + 0.05 < float(melee3["length"])
 cancel=main.split("func _melee3_flick_cancel_time() -> float:",1)[1].split(
     "func _start_strike(",1)[0]
 assert "STRIKE_CANCEL_TIMES[STRIKE_CLIPS.size() - 1]) + MELEE3_FLICK_CANCEL_DELAY" in cancel
