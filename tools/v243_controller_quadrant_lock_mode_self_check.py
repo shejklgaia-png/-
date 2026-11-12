@@ -17,6 +17,7 @@ assert (ROOT/"README_v243_ja.md").is_file()
 
 for token in (
     'const CONTROLLER_REGION_START_RATIO: float = 0.50',
+    'const LOCK_CONTROLS_VERTICAL_RATIO: float = 0.76',
     'const LOCK_SWITCH_BUTTON_SIZE: Vector2 = Vector2(104.0, 58.0)',
     'const LOCK_MODE_BUTTON_SIZE: Vector2 = Vector2(128.0, 58.0)',
     'const CONTROLLER_BUTTON_TOP_INSET: float = 8.0',
@@ -28,11 +29,11 @@ for token in (
     'pos.y >= 0.0',
     'pos.x <= screen.x', 'pos.y <= screen.y',
     'func _build_lock_switch_buttons(layer: CanvasLayer) -> void:',
-    'button.anchor_top = CONTROLLER_REGION_START_RATIO',
+    'button.anchor_top = LOCK_CONTROLS_VERTICAL_RATIO',
     'button.anchor_left = CONTROLLER_REGION_START_RATIO',
     'button.anchor_left = 1.0',
     'lock_mode_button.anchor_left = 0.75',
-    'lock_mode_button.anchor_top = CONTROLLER_REGION_START_RATIO',
+    'lock_mode_button.anchor_top = LOCK_CONTROLS_VERTICAL_RATIO',
     'lock_mode_button.name = "LockModeToggle"',
     'lock_mode_button.mouse_filter = Control.MOUSE_FILTER_IGNORE',
     'lock_mode_button.text = "AUTO" if auto_lock_enabled else "MANUAL"',
