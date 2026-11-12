@@ -22,7 +22,7 @@ def require(message: str, condition: bool) -> None:
 
 import re
 require("game version is at least v264",
-        bool((m := re.search(r'config/name="SERA v(\\d+)"', version))
+        bool((m := re.search(r'config/name="SERA v([0-9]+)"', version))
             and int(m.group(1)) >= 264))
 require("versioned change notes exist", "3段完走後" in readme)
 require("post-finisher is the only candidate window",
