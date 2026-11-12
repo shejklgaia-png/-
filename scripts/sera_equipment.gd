@@ -326,7 +326,7 @@ func restore_run_contact_foot_positions() -> void:
 # Hold the last verified RUN contact height between footstep events. This
 # preserves the root/legs hierarchy and avoids one-frame shoe-only movement.
 func restore_run_contact_height() -> void:
-    if grounding_enabled and rig != null and is_finite(run_contact_visual_y):
+    if grounding_enabled and rig != null and not is_inf(run_contact_visual_y) and not is_nan(run_contact_visual_y):
         rig.position.y = run_contact_visual_y
 
 
@@ -347,7 +347,7 @@ func snap_run_contact_foot_to_floor(side: String) -> void:
     # Use the actual minimum of BOTH visible feet at the contact frame,
     # not the shoe pivot, coarse AABB, or a time-based animation estimate.
     var lowest: float = minf(float(heights["L"]), float(heights["R"]))
-    if not is_finite(lowest):
+    if is_inf(lowest) or is_nan(lowest):
         return
     run_contact_visual_y = TRAINING_VISIBLE_FLOOR_Y - lowest - wearer.global_position.y
     rig.position.y = run_contact_visual_y
