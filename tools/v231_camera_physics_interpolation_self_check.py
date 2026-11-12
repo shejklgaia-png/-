@@ -52,6 +52,7 @@ functions = {
     for name in ('_update_side_from_screen', '_signed_screen_gap',
                  '_place_camera', '_horizontal_safe',
                  '_target_fully_in_frame', '_full_frame_safe',
+                 '_desired_camera_follow_focus_xz',
                  '_update_target_marker_projection')
 }
 assert 'camera_player_render_position' in functions['_update_side_from_screen']
