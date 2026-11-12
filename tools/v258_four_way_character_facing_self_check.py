@@ -46,7 +46,7 @@ assert "var guard_bash_requested: bool = _classify_recent_character_forward_flic
 assert "and _is_character_forward_flick(release_pos - pointer_origin, press_duration)" in release
 assert 'if bash_requested and _request_combo_bash():' in release
 assert "step_linear_fallback = true" in omni
-assert "STEP_FORWARD_DISTANCE, BACK_STEP_DISTANCE, back_mix" in omni
+assert "step_arc_length = _step_fixed_distance_for_direction(direction)" in omni
 assert "rig.call(\"start_omni_step\", pose_direction)" in omni
 assert "const JUMP_TOUCH_INPUT_ENABLED: bool = false" in m
 assert "const STEP_FLICK_MAX_SECONDS: float = 0.24" in m
