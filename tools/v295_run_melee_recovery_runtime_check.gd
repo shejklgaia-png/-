@@ -110,6 +110,22 @@ func _run() -> void:
             _fail(clip_name + " left RUN yaw broken: " + str(heading))
             return
 
+    # Production melee finishing calls finish_attack(false) then the same
+    # physics tick may receive a live drag. Verify that exact WAIT->RUN path
+    # also reinitializes rather than resurrecting the pre-combat heading.
+    rig.call("start_strike", "melee1")
+    rig.call("_process", 0.08)
+    rig.call("finish_attack", false, false)
+    if str(rig.get("current_clip")) != "Wait_motion":
+        _fail("normal melee did not return through WAIT")
+        return
+    rig.call("set_moving", true, false, Vector2.LEFT, false)
+    rig.call("_process", 0.24)
+    var ordinary_yaw: float = rad_to_deg(_flat_yaw(waist.quaternion))
+    if absf(wrapf(ordinary_yaw - 90.0, -180.0, 180.0)) > 35.0:
+        _fail("ordinary post-melee WAIT->RUN inherited old heading: " + str(ordinary_yaw))
+        return
+
     # Character collision stays target-facing, even when the visible RUN
     # Waist/legs take a 90 degree right or left sidestep.
     player.position = Vector3(3.0, 0.0, 0.0)
@@ -125,6 +141,24 @@ func _run() -> void:
         _fail("target-facing collision root changed with visual RUN yaw")
         return
 
+    # Exercise main.gd's real camera/world -> target-local movement mapping.
+    # This vector, not the screen axis, must reach the run animator.
+    var travel_screen: Vector2 = Vector2.RIGHT
+    var intended_world: Vector3 = game.call("_screen_drag_to_ground", travel_screen)
+    var target_forward: Vector3 = target.position - player.position
+    target_forward.y = 0.0
+    target_forward = target_forward.normalized()
+    var expected_local: Vector2 = Vector2(
+        intended_world.dot(target_forward.cross(Vector3.UP)),
+        intended_world.dot(target_forward)).normalized()
+    game.set("direction_input", travel_screen)
+    game.set("gesture_active", true)
+    game.call("_physics_process", 0.016)
+    var actual_local: Vector2 = rig.get("run_direction_target")
+    if actual_local.normalized().dot(expected_local) < 0.999:
+        _fail("main.gd sent the wrong target-local RUN direction to the rig")
+        return
+
     # v292 STEP/BOOST still retain their earlier boss lock correction.
     var step_pose: Dictionary = rig.call("_sample_step_clip_pose",
         "Step_R", waist_id, 0.0)
@@ -134,5 +168,5 @@ func _run() -> void:
         _fail("STEP boss-facing correction regressed")
         return
 
-    print("GODOT_V295_RUN_RECOVERY_PASS: 7 directions, melee and Katana/Bash recovery, boss lock and STEP")
+    print("GODOT_V295_RUN_RECOVERY_PASS: 7 directions, 2 melee returns, Katana/Bash, real input vector, boss lock and STEP")
     quit(0)
