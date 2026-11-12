@@ -17,7 +17,7 @@ assert "v260 — STEPフリック" in read("docs/SERA_INPUT_MOVEMENT_CAMERA.md")
 assert "const SECTOR_COUNT: int = 4" in policy
 assert "const SECTOR_ANGLE: float = TAU / 4.0" in policy
 assert "static func screen_step_direction(displacement: Vector2) -> Vector2:" in policy
-assert "return four_way_direction(displacement, Vector2.UP)" in policy
+assert "return displacement.normalized()" in policy
 assert "static func four_way_direction(displacement: Vector2, screen_axis: Vector2) -> Vector2:" in policy
 
 start=main.split("func _begin_drag(pos: Vector2) -> void:",1)[1].split("func _analog_stick_direction(",1)[0]
@@ -37,7 +37,7 @@ assert "and _is_character_forward_flick(release_pos - pointer_origin, press_dura
 assert "if bash_requested and _request_combo_bash():" in release
 assert "if _start_omni_step(flick_direction):" in release
 assert "var direction: Vector2 = flick.normalized()" in motion
-assert "BACK_STEP_DISTANCE if direction.y >= 0.0 else STEP_FORWARD_DISTANCE" in motion
+assert "STEP_FORWARD_DISTANCE, BACK_STEP_DISTANCE, back_mix" in motion
 assert "camera_right * direction.x * side_length" in motion
 assert "rig.call(\"start_omni_step\", direction)" in motion
 assert "const STEP_FLICK_MIN_HORIZONTAL: float = 78.0" in main
@@ -57,26 +57,28 @@ def classify(flick,axis):
     ang=math.atan2(dx*right[0]+dy*right[1],dx*ax+dy*ay)
     return math.floor((ang+math.pi/4)/(math.pi/2))%4
 def screen_step(flick):
-    return classify(flick,(0.,-1.))
+    d=math.hypot(*flick)
+    return (flick[0]/d,flick[1]/d) if d>1e-6 else (0.,0.)
 dirs={"front":((0.,-120.),0),
       "right":((120.,0.),1),
       "back":((0.,120.),2),
       "left":((-120.,0.),3)}
 for label,(v,n) in dirs.items():
-    assert screen_step(v)==n,(label,v,screen_step(v))
-assert screen_step((0.,0.))==-1
-# Every main cardinal plus ±44.9 degrees must map to the same action.
+    assert screen_step(v)==(v[0]/120.,v[1]/120.),label
+assert screen_step((0.,0.))==(0.,0.)
+# Preserve the exact diagonal ratio, including former 45deg boundaries.
 for i in range(4):
     for offset in (-44.9,-25.,0.,25.,44.9):
-        angle=math.radians(i*90+offset)
-        assert screen_step((math.sin(angle),-math.cos(angle)))==i,(i,offset)
+        a=math.radians(i*90+offset)
+        v=(math.sin(a),-math.cos(a))
+        assert all(math.isclose(x,y,abs_tol=1e-9) for x,y in zip(screen_step(v),v))
 # Compare with the old actor-facing sectors at oblique camera orientations.
 # Old mapping turns horizontal into BACK or DOWN into SIDE for 90°+ yaw.
 for actor_heading in range(0,360,5):
     a=math.radians(actor_heading)
     actor_axis=(math.sin(a),-math.cos(a))
     for label,(direction,expected) in dirs.items():
-        assert screen_step(direction)==expected,(actor_heading,label)
+        assert screen_step(direction)==(direction[0]/120.,direction[1]/120.),(actor_heading,label)
     # Bash remains actor-forward (no unintended screen-UP Bash).
     assert classify(actor_axis,actor_axis)==0
     opposite=(-actor_axis[0],-actor_axis[1])
@@ -84,10 +86,10 @@ for actor_heading in range(0,360,5):
 # A character facing screen-left made left swipe 'forward' and down 'left'
 # in v259; fixed STEP must interpret gesture itself, not SERA heading.
 assert classify((-100.,0.),(-1.,0.))==0
-assert screen_step((-100.,0.))==3
+assert screen_step((-100.,0.))==(-1.,0.)
 assert classify((0.,100.),(-1.,0.))==3
-assert screen_step((0.,100.))==2
+assert screen_step((0.,100.))==(0.,1.)
 
-print("PASS v260: down=BACK, horizontal=SIDE for all 360 actor headings and diagonal input")
+print("PASS v260/v262: UP/DOWN and lateral anchors, full-angle diagonals retained")
 print("PASS v260: Bash remains actor-facing; STEP distance/energy/lock cancellation unchanged")
 print("Static and numeric regression only; Godot/Android touch not executed")

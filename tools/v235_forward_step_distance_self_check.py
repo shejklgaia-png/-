@@ -20,7 +20,8 @@ assert "const STEP_CLOSE_SPEED: float = 8.0" in main
 step = main.split("func _start_omni_step(flick: Vector2) -> bool:", 1)[1].split(
     "func _start_back_step()", 1)[0]
 assert "var direction: Vector2 = flick.normalized()" in step
-assert "var radial_distance: float = BACK_STEP_DISTANCE if direction.y >= 0.0 else STEP_FORWARD_DISTANCE" in step
+assert "var back_mix: float = smoothstep(-0.25, 0.25, direction.y)" in step
+assert "STEP_FORWARD_DISTANCE, BACK_STEP_DISTANCE, back_mix)" in step
 assert "step_radial_delta = direction.y * radial_distance" in step
 assert "var tangent_distance: float = absf(direction.x) * side_length" in step
 assert "sqrt(tangent_distance * tangent_distance + step_radial_delta * step_radial_delta)" in step
@@ -37,7 +38,9 @@ assert "_move_player_swept(requested, true)" in advance
 radius = 6.0
 side_length = min(max(2.0, radius * math.radians(35)), min(4.0, 10.0 * 0.40))
 def plan(x: float, y: float) -> tuple[float, float]:
-    radial = y * (4.0 if y >= 0 else 3.0)
+    t=max(0.,min(1.,(y+.25)/.5))
+    t=t*t*(3.-2.*t)
+    radial = y * (3.0+t)
     planned = min(4.0, max(2.0, math.hypot(abs(x) * side_length, radial)))
     return radial, planned
 

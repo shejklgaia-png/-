@@ -1194,6 +1194,9 @@ func _blended_directional_step_pose(uid: String, t: float) -> Dictionary:
     var side_clip: String = STEP_RIGHT_CLIP if direction.x >= 0.0 else STEP_LEFT_CLIP
     var lateral: Dictionary = _sample_step_clip_pose(side_clip, uid, t)
     var alpha: float = atan2(absf(direction.x), absf(direction.y)) / (PI * 0.5)
+    # Ease the angular weight to zero slope at the four authored
+    # cardinals so pose transitions stay continuous across quadrants.
+    alpha = alpha * alpha * (3.0 - 2.0 * alpha)
     return {
         "rotation": (fore_aft["rotation"] as Quaternion).slerp(lateral["rotation"], alpha).normalized(),
         "position": (fore_aft["position"] as Vector3).lerp(lateral["position"], alpha),

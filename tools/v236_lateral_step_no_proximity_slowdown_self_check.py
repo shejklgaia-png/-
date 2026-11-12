@@ -39,7 +39,8 @@ assert "step_speed_current = lerpf(radial_speed, lateral_speed, absf(direction.x
 assert 'step_speed_current = STEP_SPEED * float(part_stats.get("step_speed_mult", 1.0))' in side
 assert "step_speed_current = _step_speed_for_player_position(player.position)" in back
 assert "step_radial_delta = direction.y * radial_distance" in omni
-assert "BACK_STEP_DISTANCE if direction.y >= 0.0 else STEP_FORWARD_DISTANCE" in omni
+assert "var back_mix: float = smoothstep(-0.25, 0.25, direction.y)" in omni
+assert "STEP_FORWARD_DISTANCE, BACK_STEP_DISTANCE, back_mix)" in omni
 assert "maxf(STEP_MIN_ARC_LENGTH, radius * deg_to_rad(STEP_ORBIT_ANGLE_DEGREES))" in omni
 assert "STEP_MIN_ARC_LENGTH, STEP_MAX_ARC_LENGTH)" in omni
 assert "_move_player_swept(requested, true)" in func(
