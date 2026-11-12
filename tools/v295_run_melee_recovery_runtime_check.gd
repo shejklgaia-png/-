@@ -94,7 +94,10 @@ func _run() -> void:
     # Katana's newly authored two strikes and the ordinary three-hit chain
     # share this restoration path. Existing original clips must remain playable.
     for clip_name in ["Melee2", "Melee3", "Melee_katana", "Melee_katana2", "Bash"]:
-        rig.call("start_strike", clip_name) if clip_name != "Bash" else rig.call("start_bash")
+        if clip_name == "Bash":
+            rig.call("start_bash")
+        else:
+            rig.call("start_strike", clip_name)
         rig.call("_process", 0.10)
         if bool(rig.get("run_motion_initialized")):
             _fail(clip_name + " did not clear previous RUN direction")
