@@ -156,7 +156,12 @@ func _run() -> void:
     game.call("_physics_process", 0.016)
     var actual_local: Vector2 = rig.get("run_direction_target")
     if actual_local.normalized().dot(expected_local) < 0.999:
-        _fail("main.gd sent the wrong target-local RUN direction to the rig")
+        _fail("main.gd target-local RUN vector mismatch: expected=" +
+            str(expected_local) + " actual=" + str(actual_local) +
+            " clip=" + str(rig.get("current_clip")) +
+            " active=" + str(game.get("gesture_active")) +
+            " input=" + str(game.get("direction_input")) +
+            " move=" + str(game.get("combat_state")))
         return
 
     # v292 STEP/BOOST still retain their earlier boss lock correction.
