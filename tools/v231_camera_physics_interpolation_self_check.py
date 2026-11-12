@@ -57,7 +57,10 @@ functions = {
 assert 'camera_player_render_position' in functions['_update_side_from_screen']
 assert 'camera_player_render_position' in functions['_signed_screen_gap']
 assert 'camera_target_render_position' in functions['_signed_screen_gap']
-assert 'camera_target_render_position' in functions['_place_camera']
+assert 'camera_focus_follow_xz' in functions['_place_camera']
+assert '_advance_camera_follow_focus(delta)' in render
+assert 'camera_player_render_position' in functions['_desired_camera_follow_focus_xz']
+assert 'camera_target_render_position' in functions['_desired_camera_follow_focus_xz']
 assert 'camera_player_render_position' in functions['_horizontal_safe']
 assert 'camera_target_render_position' in functions['_target_fully_in_frame']
 assert 'camera_player_render_position' in functions['_full_frame_safe']
