@@ -27,8 +27,8 @@ diagnostic=body("_record_kick_debug(message: String) -> void:","_pointer_on_trai
 # In the previous video STRIKE 3/3 -> BASH appeared twice, STRIKE 3/3 ->
 # STEP appeared at other times. The v269 "actor BACK only" fallback omitted
 # SCREEN-right/left flicks when the actor actually faced that same direction.
-assert helper.index("if actor_sector == 1:") < helper.index("var screen_sector:")
-assert helper.index("if actor_sector == 3:") < helper.index("var screen_sector:")
+assert helper.index("if screen_sector == 2:") < helper.index("if actor_sector == 1:")
+assert helper.index("if screen_sector == 2:") < helper.index("if actor_sector == 3:")
 assert "if actor_sector == 2:" not in helper
 assert "flick, gesture_screen_forward" in helper
 assert "flick, Vector2.UP" in helper
