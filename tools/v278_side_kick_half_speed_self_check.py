@@ -6,7 +6,10 @@ ROOT = Path(__file__).resolve().parents[1]
 main = (ROOT / "scripts/main.gd").read_text()
 rig = (ROOT / "scripts/sera_rig.gd").read_text()
 source = json.loads((ROOT / "assets/sera_source.json").read_text())
-assert 'config/name="SERA v278"' in (ROOT / "project.godot").read_text()
+import re
+version = re.search(r'config/name="SERA v([0-9]+)"',
+    (ROOT / "project.godot").read_text())
+assert version and int(version.group(1)) >= 278
 for text in (
     "const SIDE_KICK_MOTION_TIME_MULTIPLIER: float = 2.0",
     "step_duration_current *= SIDE_KICK_MOTION_TIME_MULTIPLIER",

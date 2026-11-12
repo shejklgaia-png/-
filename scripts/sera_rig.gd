@@ -159,6 +159,7 @@ var step_playback: bool = false
 var side_kick_clip_name: String = ""
 var side_kick_playback_scale: float = 1.0
 var somersault_authored: bool = false
+var somersault_final_pose_sampled: bool = false
 # Do not depend on a stale / manually edited Android res:// JSON export.
 # The integrated generated GDScript always carries both real authored clips.
 var embedded_side_kick_restore_attempted: bool = false
@@ -1529,6 +1530,7 @@ func start_back_somersault() -> bool:
     if not loading_ok or damage_playback or guard_playback or jump_playback or step_playback:
         return false
     somersault_authored = has_back_somersault_clip()
+    somersault_final_pose_sampled = false
     jump_playback = true
     _switch_clip(BACK_SOMERSAULT_CLIP if somersault_authored else JUMP_CLIP, 0.055)
     clip_time = 0.0
@@ -1539,14 +1541,19 @@ func back_somersault_uses_authored_clip() -> bool:
     return somersault_authored
 
 
+# True only AFTER the terminal authored pose passed through _apply_animation.
+func back_somersault_final_pose_sampled() -> bool:
+    return somersault_authored and somersault_final_pose_sampled
+
+
 func set_back_somersault_progress(progress: float) -> void:
     if not jump_playback:
         return
     var fraction: float = clampf(progress, 0.0, 1.0)
     if somersault_authored and current_clip == BACK_SOMERSAULT_CLIP:
         var duration: float = float(animations[BACK_SOMERSAULT_CLIP]["length"])
-        # Prevent looping on the final frame if Blockbench set loop=true.
-        clip_time = minf(duration * fraction, maxf(0.0, duration - 0.0001))
+        # Reach the exact terminal time; never end a frame early.
+        clip_time = minf(duration * fraction, duration)
     elif current_clip == JUMP_CLIP:
         set_jump_progress(fraction)
 
@@ -1564,12 +1571,15 @@ func set_jump_progress(progress: float) -> void:
         return
     clip_time = JUMP_AIR_CLIP_END * clampf(progress, 0.0, 1.0)
 
-func start_landing() -> void:
+func start_landing(from_back_somersault: bool = false) -> void:
     if not loading_ok or damage_playback:
         return
     somersault_authored = false
+    somersault_final_pose_sampled = false
     jump_playback = true
-    _switch_clip(JUMP_CLIP, 0.0)
+    # Blend the completed Kick_b into the original 0.20s landing, without
+    # modifying how ordinary Jump lands.
+    _switch_clip(JUMP_CLIP, 0.055 if from_back_somersault else 0.0)
     clip_time = JUMP_AIR_CLIP_END
 
 func set_landing_progress(progress: float) -> void:
@@ -1590,6 +1600,7 @@ func finish_jump(resume_moving: bool, boosting: bool = false) -> void:
         return
     jump_playback = false
     somersault_authored = false
+    somersault_final_pose_sampled = false
     _switch_clip((BOOST_CLIP if boosting else RUN_CLIP) if resume_moving else WAIT_CLIP, 0.11)
 
 func set_combat_paused(paused: bool) -> void:
@@ -2025,6 +2036,12 @@ func _apply_animation(_delta: float) -> void:
         bone.quaternion = q
         bone.position = (bind_positions[uid] as Vector3) + translation
         bone.scale = scale_value
+    if somersault_authored and current_clip == BACK_SOMERSAULT_CLIP \
+            and t >= float(animations[BACK_SOMERSAULT_CLIP]["length"]) - 0.000001 \
+            and blend_weight >= 0.999999:
+        # Only acknowledge a FULL, unblended terminal authored sample.
+        # A render during the initial crossfade must not prematurely end it.
+        somersault_final_pose_sampled = true
     if equipment_handler != null:
         equipment_handler.call("update_katana_visibility", current_clip, t)
     if is_instance_valid(head_c_proxy) and bones.has(RUN_HEAD_BONE_UUID):

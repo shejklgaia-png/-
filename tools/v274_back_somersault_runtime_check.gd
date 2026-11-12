@@ -63,12 +63,30 @@ func _run() -> void:
             return
     game.call("_advance_back_somersault", 0.40)
     var arrived: Vector3 = player.position
+    # v279: 4m travel finishes at 0.8s, but do NOT replace Kick_b before
+    # its completed final pose was sampled by the render rig.
+    if not bool(game.get("back_somersault_active")) or bool(game.get("landing_active")):
+        _fail("Kick_b was cut before its last authored pose was displayed")
+        return
+    var clip_data: Dictionary = rig.get("animations")
+    var source_clip: Dictionary = clip_data["Kick_b"]
+    if absf(float(rig.call("get_clip_time")) - float(source_clip["length"])) > 0.00001:
+        _fail("Kick_b did not reach its exact final frame")
+        return
+    if bool(rig.call("back_somersault_final_pose_sampled")):
+        _fail("terminal pose acknowledged without a rig render sample")
+        return
+    # Render the exact terminal pose before advancing the landing state.
+    rig.call("_process", 0.06)
+    if not bool(rig.call("back_somersault_final_pose_sampled")):
+        _fail("rendered terminal Kick_b pose was not acknowledged")
+        return
+    game.call("_advance_back_somersault", 0.016)
     if bool(game.get("back_somersault_active")):
-        _fail("flight did not finish at 0.8s")
+        _fail("flight did not release after the final pose was rendered")
         return
     if not bool(game.get("landing_active")) or not bool(game.get("landing_from_somersault")):
         _fail("authored landing sequence did not start")
-        return
     if absf(arrived.y) > 0.001:
         _fail("rear arc did not touch ground at completion")
         return
