@@ -66,6 +66,8 @@ on:
       - 'tools/v272_dedicated_kick_pack_self_check.py'
       - 'tools/v273_kick_lookup_self_check.py'
       - 'tools/v273_kick_lookup_runtime_check.gd'
+      - 'tools/sera_animation_runtime_smoke.gd'
+      - 'docs/SERA_ANIMATION_RUNTIME_POLICY_ja.md'
       - 'tools/v242_screen_lock_buttons_self_check.py'
       - 'tools/v243_controller_quadrant_lock_mode_self_check.py'
       - 'tools/v244_half_size_run_boost_controller_self_check.py'
@@ -330,6 +332,18 @@ jobs:
         run: '"$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" --headless --editor --path . --import --quit'
       - name: Verify both Kick_l and Kick_r actually start in Godot
         run: '"$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" --headless --path . --script res://tools/v273_kick_lookup_runtime_check.gd'
+      - name: Verify every authored animation loads and samples in Godot
+        shell: bash
+        run: |
+          set -euo pipefail
+          "$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" \
+            --headless --path . --script res://tools/sera_animation_runtime_smoke.gd \
+            2>&1 | tee "$RUNNER_TEMP/sera-animation-runtime.log"
+          grep -q 'GODOT_ALL_ANIMATIONS_TEST PASSED' "$RUNNER_TEMP/sera-animation-runtime.log"
+          if grep -E 'SCRIPT ERROR|Parse Error|SERA ANIMATION RUNTIME REGRESSION' "$RUNNER_TEMP/sera-animation-runtime.log"; then
+            echo 'Godot animation runtime errors are not allowed'
+            exit 1
+          fi
       - name: Verify shared transparent render contract and new shaders
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}

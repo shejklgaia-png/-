@@ -153,3 +153,9 @@
 
 ## v229 — 重量脚部SLIDE/BOOSTの姿勢・IK同期補間
 - LOWER BODY B/DのSLIDE Boost_*50%姿勢と実BOOST 100%姿勢は0.18秒smoothstepで連続移行し、足底水平化、左右二骨IK、表示用の腰下げも同じSLIDE寄与率でフェード。モデル原本・Pivotやキーフレームは変更しない。
+
+## 追記 2026-11-12：モーション再生不具合の再発防止（必須）
+- モーションの追加・改名・再生呼出しの変更時は、必ず `docs/SERA_ANIMATION_RUNTIME_POLICY_ja.md` を参照する。
+- キーフレーム／UUIDの静的検査に加えて、**実際のGodotランタイム**で各新規・既存クリップの読込・姿勢サンプル・再生開始を検査する。CIには `tools/sera_animation_runtime_smoke.gd` を組み込み済み。
+- 既存の`Melee3`等と同じ固定名で直接解決する。条件式で作った`Array`を型付き`Array[String]`へ直接代入する実装を避ける。再生開始APIの復元→名前選択→再生順序を検査する。
+- 利用者端末で`CLIP MISSING`等が出た場合、操作角度を変更する前に、実行時エラー・実骨格とアニメーションの対応・現在のクリップ検索結果を確認する。Android最終確認はLinux headless CIと別に記録する。
