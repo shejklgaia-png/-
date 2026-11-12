@@ -22,7 +22,7 @@ assert render.count('if not close_boost_camera_active and not boost_edge_frame_g
 assert render.count('_enforce_screen_edge(bearing, delta)') == 2
 assert '    if boost_edge_frame_guard:\n' in render
 assert '        _fit_boost_frame_analytically(delta)' in render
-assert '    else:\n        _fit_full_frame()\n        _relax_camera_fit_radius(delta)' in render
+assert '    else:\n        _fit_full_frame()\n        if not hold_attack_camera:\n            _relax_camera_fit_radius(delta)' in render
 assert render.count('_fit_boost_frame_analytically(delta)') == 1
 assert 'camera_yaw = lerp_angle(camera_yaw, bearing, easing * CAMERA_MOVING_YAW_SCALE)' in render
 
