@@ -1,0 +1,96 @@
+#!/usr/bin/env python3
+"""SERA v264: guarded post-Melee3 lateral kick integration static regression."""
+from pathlib import Path
+import json
+
+ROOT = Path(__file__).resolve().parents[1]
+main = (ROOT / "scripts/main.gd").read_text(encoding="utf-8")
+rig = (ROOT / "scripts/sera_rig.gd").read_text(encoding="utf-8")
+version = (ROOT / "project.godot").read_text(encoding="utf-8")
+readme = (ROOT / "README_v264_ja.md").read_text(encoding="utf-8")
+flick = (ROOT / "scripts/flick_direction_policy.gd").read_text(encoding="utf-8")
+source = json.loads((ROOT / "assets/sera_source.json").read_text(encoding="utf-8"))
+author_file = ROOT / "models/storage/SERA_BOOSTER_allテスト (9).bbmodel"
+author = json.loads(author_file.read_text(encoding="utf-8")) if author_file.exists() else None
+
+
+def require(message: str, condition: bool) -> None:
+    if not condition:
+        raise AssertionError(message)
+    print(f"PASS: {message}")
+
+
+require("game version is v264", 'config/name="SERA v264"' in version)
+require("versioned change notes exist", "3段完走後" in readme)
+require("post-finisher is the only candidate window",
+        "side_kick_flick_candidate = (combat_state == CombatState.IDLE\n"
+        "        and bash_followup_window_remaining > 0.0)" in main)
+require("post-finisher side flick takes priority over Bash",
+        main.index("if side_kick_requested and flick_direction.length_squared()")
+        < main.index("if bash_requested and _request_combo_bash():"))
+require("kick and step share the same start implementation",
+        "func _start_omni_step(flick: Vector2) -> bool:" in main
+        and "step_kick_side_request = side" in main)
+require("single EN charge in shared STEP entry",
+        main.count("func _start_omni_step(") == 1
+        and "_spend_energy(15.0 * float(part_stats.get" in main)
+require("kick uses screen lateral sectors",
+        "FLICK_DIRECTION_POLICY.sector_index(flick, Vector2.UP)" in main
+        and "sector != 1 and sector != 3" in main)
+require("physics uses same swept STEP, not new teleport",
+        "if side_kick_active and not side_kick_did_hit" in main
+        and "_move_player_swept(requested, true)" in main)
+require("single-hit is armed once per kick",
+        "side_kick_did_hit = true" in main
+        and "func _register_side_kick_hit()" in main)
+require("normal step remains fallback when clip missing",
+        'if rig == null or not bool(rig.call("has_side_kick", side)):' in main
+        and "if _start_omni_step(flick_direction):" in main)
+require("kick clip imports do not replace model or old animations",
+        "func _merge_authored_side_kick_clips()" in rig
+        and "if animations.has(name):" in rig
+        and '_build_animations({"animations": kick_clips})' in rig)
+require("invalid or zero-length clip does not enable kick",
+        'float(animations[chosen]["length"]) > 0.01' in rig
+        and 'not (animations[chosen]["tracks"] as Dictionary).is_empty()' in rig)
+require("kick animation time synchronized with step",
+        'rig.call("start_side_kick", step_kick_side_request, step_duration_current)' in main
+        and "playback_rate = side_kick_playback_scale" in rig)
+require("kick state cleaned at STEP finish",
+        "side_kick_active = false" in main
+        and 'side_kick_clip_name = ""' in rig)
+require("Bash and manual movement logic retained",
+        "func _request_combo_bash()" in main
+        and "func screen_step_direction" in flick)
+require("STEP geometry and speed remain original",
+        "const STEP_MIN_ARC_LENGTH: float = 2.0" in main
+        and "const STEP_MAX_ARC_LENGTH: float = 4.0" in main
+        and "const STEP_SPEED: float = 10.0" in main)
+
+def matching_kicks(doc):
+    return [a.get("name", "") for a in doc.get("animations", [])
+            if any(word in a.get("name", "").lower()
+                   for word in ("kick", "キック", "蹴"))]
+
+source_clips = matching_kicks(source)
+author_clips = matching_kicks(author) if author is not None else []
+print(f"INFO: runtime source kick clips: {source_clips}")
+print(f"INFO: newly synced Blockbench kick clips: {author_clips}")
+if author is not None:
+    require("uploaded Kick_l and Kick_r available",
+            "Kick_l" in author_clips and "Kick_r" in author_clips)
+    known = {g["uuid"] for g in source.get("groups", [])}
+    for side in ("Kick_l", "Kick_r"):
+        clip = next(x for x in author["animations"] if x["name"] == side)
+        relevant = {uid: frames for uid, frames in clip["animators"].items()
+                    if uid in known}
+        require(f"{side} has keyframed runtime skeleton tracks",
+                float(clip.get("length", 0.0)) > 0.01
+                and len(relevant) >= 20
+                and any(frames.get("keyframes") for frames in relevant.values()))
+else:
+    print("INFO: source file absent from feature branch; incoming main sync"
+          " contributes it to the PR merge checkout.")
+if not (source_clips or author_clips):
+    print("INFO: missing asset uses safe ordinary STEP fallback.")
+print("SERA v264 post-finisher lateral kick static regression PASSED.")

@@ -13,6 +13,9 @@ const UNIT: float = 0.065
 # No additional Z offset or geometry fitting is applied in Godot.
 const BLEND_SECONDS: float = 0.16
 const SOURCE_PATH: String = "res://assets/sera_source.json"
+# Import only newly authored kick tracks from the synced Blockbench source.
+# This is a model read, not a mesh replacement or re-export.
+const KICK_AUTHORING_SOURCE: String = "res://models/storage/SERA_BOOSTER_allテスト (9).bbmodel"
 const EMBEDDED = preload("res://assets/sera_data.gd")
 const EQUIPMENT_SCRIPT = preload("res://scripts/sera_equipment.gd")
 const RENDER_ORDER = preload("res://scripts/render_order_policy.gd")
@@ -148,6 +151,8 @@ var blend_duration: float = BLEND_SECONDS
 var boost_to_run_crossfade: bool = false
 var combat_playback: bool = false
 var step_playback: bool = false
+var side_kick_clip_name: String = ""
+var side_kick_playback_scale: float = 1.0
 # A complete 360-degree flick uses a continuous blend of authored cardinal
 # step poses; forward movement uses the authored Frontstep pose.
 var directional_step_active: bool = false
@@ -207,6 +212,7 @@ func _ready() -> void:
     _build_model(data)
     _install_bird_model()
     _build_animations(data)
+    _merge_authored_side_kick_clips()
     _merge_bird_animation_tracks()
     # Mesh alternatives reuse the original animated pivots/UUIDs unchanged.
     equipment_handler = EQUIPMENT_SCRIPT.new()
@@ -900,6 +906,28 @@ func _make_mesh(element: Dictionary) -> MeshInstance3D:
     result.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
     return result
 
+func _merge_authored_side_kick_clips() -> void:
+    if not FileAccess.file_exists(KICK_AUTHORING_SOURCE):
+        return
+    var raw: Variant = JSON.parse_string(
+        FileAccess.get_file_as_string(KICK_AUTHORING_SOURCE))
+    if not (raw is Dictionary):
+        return
+    var kick_clips: Array = []
+    for candidate in raw.get("animations", []):
+        if not (candidate is Dictionary):
+            continue
+        var name: String = str(candidate.get("name", ""))
+        var lower: String = name.to_lower()
+        if not (lower.contains("kick") or lower.contains("キック") or lower.contains("蹴")):
+            continue
+        if animations.has(name):
+            continue  # Integrated runtime source wins; never overwrite old clips.
+        kick_clips.append(candidate)
+    if not kick_clips.is_empty():
+        _build_animations({"animations": kick_clips})
+
+
 func _build_animations(data: Dictionary) -> void:
     for raw_clip in data.get("animations", []):
         var clip_name: String = str(raw_clip.get("name", ""))
@@ -1227,6 +1255,58 @@ func update_omni_step_direction(direction: Vector2, delta: float) -> void:
     directional_step_vector = directional_step_vector.slerp(
         direction.normalized(), blend).normalized()
 
+# The user-authored Kick clips may be published to the runtime source later.
+# Resolve actual available clip names, never fabricate a visual clip.
+func _side_kick_clip_for(side: int) -> String:
+    if side != -1 and side != 1:
+        return ""
+    var preferred: Array[String] = [
+        "Kick_r", "Kick_R", "Kick_Right", "RightKick", "KickRight", "KickR",
+        "右蹴り", "右キック"
+    ] if side > 0 else [
+        "Kick_l", "Kick_L", "Kick_Left", "LeftKick", "KickLeft", "KickL",
+        "左蹴り", "左キック"
+    ]
+    for clip_name in preferred:
+        if animations.has(clip_name):
+            return clip_name
+    for raw_name in animations.keys():
+        var candidate: String = str(raw_name)
+        var lower: String = candidate.to_lower()
+        if not (lower.contains("kick") or lower.contains("キック") or lower.contains("蹴")):
+            continue
+        if side > 0 and (lower.ends_with("_r") or lower.ends_with("right")
+                or lower.ends_with("kickr") or lower.contains("右")):
+            return candidate
+        if side < 0 and (lower.ends_with("_l") or lower.ends_with("left")
+                or lower.ends_with("kickl") or lower.contains("左")):
+            return candidate
+    return ""
+
+
+func has_side_kick(side: int) -> bool:
+    var chosen: String = _side_kick_clip_for(side)
+    return (loading_ok and not chosen.is_empty()
+        and float(animations[chosen]["length"]) > 0.01
+        and not (animations[chosen]["tracks"] as Dictionary).is_empty())
+
+
+func start_side_kick(side: int, movement_duration: float) -> bool:
+    if not loading_ok or damage_playback or guard_playback:
+        return false
+    var chosen: String = _side_kick_clip_for(side)
+    if not has_side_kick(side):
+        return false
+    # Keep the authored kick's full timing mapped onto the normal STEP travel.
+    side_kick_clip_name = chosen
+    side_kick_playback_scale = maxf(0.001, float(animations[chosen]["length"])) / maxf(movement_duration, 0.01)
+    step_playback = true
+    directional_step_active = false
+    _switch_clip(chosen, 0.10)
+    clip_time = 0.0
+    return true
+
+
 func start_side_step(side: int) -> void:
     if not loading_ok or damage_playback or guard_playback or (side != 1 and side != -1):
         return
@@ -1248,6 +1328,8 @@ func finish_side_step(resume_moving: bool, airborne_fall: bool = false) -> void:
         return
     step_playback = false
     directional_step_active = false
+    side_kick_clip_name = ""
+    side_kick_playback_scale = 1.0
     if airborne_fall:
         resume_jump_fall()
     else:
@@ -1423,9 +1505,12 @@ func _process(delta: float) -> void:
         var phase: float = fposmod(attack_windup_phase, cycle)
         clip_time = phase if phase <= attack_windup_end else cycle - phase
     elif not freeze_attack_pose and not combat_paused and not (jump_playback and current_clip == JUMP_CLIP):
-        clip_time += delta * (RUN_ANIMATION_SPEED if current_clip in RUN_CLIPS else (
+        var playback_rate: float = RUN_ANIMATION_SPEED if current_clip in RUN_CLIPS else (
             1.0 / equipment_damage_scale if current_clip == DAMAGE_CLIP else (
-                equipment_reaction_speed if current_clip == GUARD_REACTION_CLIP else 1.0)))
+                equipment_reaction_speed if current_clip == GUARD_REACTION_CLIP else 1.0))
+        if current_clip == side_kick_clip_name:
+            playback_rate = side_kick_playback_scale
+        clip_time += delta * playback_rate
     if guard_reaction_playing() and clip_time >= float(animations[GUARD_REACTION_CLIP]["length"]):
         # The authored clip is tagged loop, but each guarded hit plays once.
         _switch_clip(GUARD_CLIP, 0.075)

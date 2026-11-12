@@ -26,7 +26,8 @@ assert "bash_loop_window_remaining = 0.0" in cancel
 for phrase in ("locked_target_part_id =", "manual_part_lock_active =", "auto_lock_enabled ="):
     assert phrase not in cancel,phrase
 drag=m.split("func _change_drag(pos: Vector2) -> void:",1)[1].split("func _update_boost_gesture(",1)[0]
-assert "direction_input = Vector2.ZERO if bash_flick_candidate else _analog_stick_direction(pos)" in drag
+# v264: the completed finisher may also reserve a short side-kick flick.
+assert "direction_input = Vector2.ZERO if (bash_flick_candidate or side_kick_flick_candidate) else _analog_stick_direction(pos)" in drag
 assert "if direction_input.length_squared() > 0.000001 or movement_boost_active:" in drag
 assert "_cancel_combo_followup_windows_for_movement()" in drag
 assert "_cancel_attack()" in drag
