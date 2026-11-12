@@ -1,6 +1,6 @@
 extends SceneTree
 ## Actual Godot 4.7 runtime test for screen-down combo, airborne arc, landing.
-## Kick_b original Blockbench keyframes are not on main yet: fallback is tested.
+## v275: the actual authored Kick_b must play instead of the old Jump fallback.
 func _initialize() -> void:
     call_deferred("_run")
 
@@ -32,6 +32,9 @@ func _run() -> void:
     if int(game.call("_combo_kick_side_for_flick", Vector2.LEFT)) != -1:
         _fail("screen-left lateral kick was changed")
         return
+    if not bool(rig.call("has_back_somersault_clip")):
+        _fail("authored Kick_b missing or no valid tracks")
+        return
     var start_position: Vector3 = player.position
     var energy_before: float = float(game.get("energy"))
     if not bool(game.call("_start_back_somersault")):
@@ -39,6 +42,9 @@ func _run() -> void:
         return
     if not bool(game.get("back_somersault_active")):
         _fail("backflip action did not become active")
+        return
+    if not bool(rig.call("back_somersault_uses_authored_clip")) or str(rig.get("current_clip")) != "Kick_b":
+        _fail("Kick_b API did not start the authored clip")
         return
     if energy_before - float(game.get("energy")) < 14.9:
         _fail("kick did not charge 15 EN")

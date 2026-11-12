@@ -9,7 +9,7 @@ game = (root/"scripts/main.gd").read_text(encoding="utf-8")
 rig = (root/"scripts/sera_rig.gd").read_text(encoding="utf-8")
 source = json.loads((root/"assets/sera_source.json").read_text(encoding="utf-8"))
 project = (root/"project.godot").read_text(encoding="utf-8")
-assert 'config/name="SERA v274"' in project
+assert re.search(r'config/name="SERA v\d+"', project)
 
 def segment(text, a, b):
     return text.split("func "+a, 1)[1].split("func "+b, 1)[0]
@@ -76,7 +76,7 @@ assert "BACK_SOMERSAULT_CLIP if somersault_authored else JUMP_CLIP" in rig_start
 assert "set_jump_progress(fraction)" in rig_progress
 assert 'somersault_authored = false' in rig_land
 assert "if not back_somersault_has_authored_clip:" in advance
-assert "Kick_b" not in {a["name"] for a in source["animations"]} or True
+assert "Kick_b" in {a["name"] for a in source["animations"]}
 print("PASS: use actual Kick_b when available, otherwise existing Jump-pose fallback")
 
 # Only Kick_b changes landing from ordinary 0.125+0.60 to 0.20+0.00.
