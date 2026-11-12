@@ -38,9 +38,11 @@ require("kick and step share the same start implementation",
 require("single EN charge in shared STEP entry",
         main.count("func _start_omni_step(") == 1
         and "_spend_energy(15.0 * float(part_stats.get" in main)
-require("kick uses SERA-facing lateral sectors",
-        "FLICK_DIRECTION_POLICY.sector_index(flick, gesture_screen_forward)" in main
-        and "sector != 1 and sector != 3" in main)
+require("kick preserves SERA-facing wedges with screen-side recovery",
+        "func _combo_kick_side_for_flick(flick: Vector2) -> int:" in main
+        and "flick, gesture_screen_forward" in main
+        and "if actor_sector == 1:" in main
+        and "if actor_sector == 3:" in main)
 require("physics uses same swept STEP, not new teleport",
         "if side_kick_active and not side_kick_did_hit" in main
         and "_move_player_swept(requested, true)" in main)
@@ -50,7 +52,7 @@ require("single-hit is armed once per kick",
 require("other directions retain normal step but lateral kick input is exclusive",
         'if rig == null or not bool(rig.call("has_side_kick", side)):' in main
         and "if _start_omni_step(flick_direction):" in main
-        and "kick_flick_direction, gesture_screen_forward) in [1, 3]" in main)
+        and "_combo_kick_side_for_flick(kick_flick_direction) != 0" in main)
 require("kick clip imports do not replace model or old animations",
         "func _merge_authored_side_kick_clips()" in rig
         and "if animations.has(name):" in rig

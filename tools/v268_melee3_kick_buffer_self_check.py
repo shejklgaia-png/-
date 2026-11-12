@@ -9,7 +9,7 @@ main = (root / "scripts/main.gd").read_text(encoding="utf-8")
 rig = (root / "scripts/sera_rig.gd").read_text(encoding="utf-8")
 project = (root / "project.godot").read_text(encoding="utf-8")
 source = json.loads((root / "assets/sera_source.json").read_text(encoding="utf-8"))
-assert 'config/name="SERA v268"' in project
+assert (ver := re.search(r'config/name="SERA v([0-9]+)"', project)) and int(ver.group(1)) >= 268
 
 def body(begin, end):
     return main.split("func "+begin, 1)[1].split("func "+end, 1)[0]
@@ -52,7 +52,7 @@ assert "BASH_FLICK_REVERSAL_RATIO" in classify_kick
 assert "BASH_FLICK_MAX_SECONDS" in change.split("if side_kick_flick_candidate and (",1)[1].split(
     "side_kick_flick_candidate = false",1)[0]
 assert "kick_flick_direction: Vector2" in release
-assert "kick_flick_direction, gesture_screen_forward) in [1, 3]" in release
+assert "_combo_kick_side_for_flick(kick_flick_direction) != 0" in release
 assert "_request_combo_side_kick(kick_flick_direction)" in release
 assert "if _start_omni_step(flick_direction):" in release
 assert release.index("if side_kick_requested and kick_flick_direction") < release.index(
@@ -62,7 +62,7 @@ assert re.search(r"\n\s{8}return\s*\n",release.split(
 print("PASS: valid side-kick swipe never falls through to ordinary STEP")
 
 # Input release during STRIKE 3 stores side + raw screen travel vector.
-assert "FLICK_DIRECTION_POLICY.sector_index(flick, gesture_screen_forward)" in request
+assert "var side: int = _combo_kick_side_for_flick(flick)" in request
 assert "combat_state == CombatState.STRIKE_TRACK" in request
 assert "buffered_side_kick_flick = flick.normalized()" in request
 assert "buffered_side_kick_side = side" in request

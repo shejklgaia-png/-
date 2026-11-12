@@ -23,7 +23,7 @@ assert "static func four_way_direction(displacement: Vector2, screen_axis: Vecto
 start=main.split("func _begin_drag(pos: Vector2) -> void:",1)[1].split("func _analog_stick_direction(",1)[0]
 guard=main.split("func _change_drag(pos: Vector2) -> void:",1)[1].split("func _update_boost_gesture(",1)[0]
 release=main.split("func _end_drag(release_pos: Vector2) -> void:",1)[1].split("func _remember_jump_flick_sample(",1)[0]
-step=main.split("func _classify_step_flick(displacement: Vector2, seconds: float) -> Vector2:",1)[1].split("func _step_local_pose_direction(",1)[0]
+step=main.split("func _classify_step_flick(displacement: Vector2, seconds: float) -> Vector2:",1)[1].split("func _classify_combo_kick_flick(",1)[0]
 motion=main.split("func _start_omni_step(flick: Vector2) -> bool:",1)[1].split("func _start_back_step()",1)[0]
 bash=main.split("func _is_character_forward_flick(",1)[1].split("func _is_upward_jump_flick(",1)[0]
 assert "return FLICK_DIRECTION_POLICY.screen_step_direction(displacement)" in step

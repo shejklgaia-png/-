@@ -24,10 +24,11 @@ move = func("_screen_drag_to_ground(screen_drag: Vector2) -> Vector3:", "_reset_
 assert "gesture_screen_forward = FLICK_DIRECTION_POLICY.projected_forward(camera, player)" in begin
 assert "side_kick_flick_candidate = (" in begin
 assert "and bash_followup_window_remaining > 0.0))" in begin
-assert 'FLICK_DIRECTION_POLICY.sector_index(\n                kick_flick_direction, gesture_screen_forward) in [1, 3]' in end
-assert "FLICK_DIRECTION_POLICY.sector_index(flick, gesture_screen_forward)" in request
-assert "sector != 1 and sector != 3" in request
-assert "var side: int = 1 if sector == 1 else -1" in request
+assert "_combo_kick_side_for_flick(kick_flick_direction) != 0" in end
+helper = func("_combo_kick_side_for_flick(flick: Vector2) -> int:", "_step_local_pose_direction")
+assert "flick, gesture_screen_forward" in helper
+assert "if actor_sector == 1:" in helper and "if actor_sector == 3:" in helper
+assert "var side: int = _combo_kick_side_for_flick(flick)" in request
 assert "Vector2.UP" not in end.split("if side_kick_requested",1)[1].split("if bash_requested",1)[0]
 assert "Vector2.UP" not in request
 candidate = change.split("if side_kick_flick_candidate and (",1)[1].split(
