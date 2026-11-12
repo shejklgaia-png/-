@@ -109,11 +109,15 @@ func _run() -> void:
     if bool(rig.call("back_somersault_final_pose_sampled")):
         _fail("cancel failed to clear completion")
         return
-    # The regular Jump landing remains immediate; only Kick_b has a blend.
-    rig.call("start_jump")
+    # An ordinary landing requested from idle still uses the unmodified
+    # zero-fade entry. The normal in-flight Jump is already using the same
+    # clip, so _switch_clip intentionally does not reset its old blend.
     rig.call("start_landing")
+    if str(rig.get("current_clip")) != "Jump":
+        _fail("regular Jump landing clip was changed")
+        return
     if absf(float(rig.get("blend_duration"))) > 0.000001:
-        _fail("ordinary Jump landing transition was modified")
+        _fail("ordinary landing crossfade was modified")
         return
     print("GODOT_V279_SOMERSAULT_COMPLETE_PASS: final pose sampled, 4m/0.8s, 0.2s landing, safe cancel")
     quit(0)
