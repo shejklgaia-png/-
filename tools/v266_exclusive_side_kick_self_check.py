@@ -33,7 +33,8 @@ print("PASS: fast kick reservation survives intermediate diagonal drag")
 
 exclusive = release.split("if side_kick_requested and flick_direction.length_squared()", 1)[1].split(
     "if bash_requested and _request_combo_bash():", 1)[0]
-assert "FLICK_DIRECTION_POLICY.sector_index(flick_direction, Vector2.UP) in [1, 3]" in exclusive
+assert "FLICK_DIRECTION_POLICY.sector_index(" in exclusive
+assert "flick_direction, gesture_screen_forward) in [1, 3]" in exclusive
 assert 'if _request_combo_side_kick(flick_direction):' in exclusive
 assert re.search(r'\n\s{8}return\s*\n', exclusive), "lateral branch must return unconditionally"
 assert exclusive.index("return") > exclusive.index("_request_combo_side_kick(flick_direction)")

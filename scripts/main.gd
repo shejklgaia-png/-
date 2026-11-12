@@ -2095,8 +2095,9 @@ func _begin_drag(pos: Vector2) -> void:
     if gesture_active:
         return
     gesture_active = true
-    # v258: sector 0 is the SCREEN-PROJECTED SERA body forward, NOT
-    # the previous touch-origin -> lock-reticle arrow. STEP/Bash share it.
+    # Capture SERA's facing projected onto the screen at touch-down.
+    # Bash and post-finisher kick sectors use this ACTOR axis; regular
+    # RUN/BOOST/STEP still use the literal SCREEN-space gesture vector.
     gesture_screen_forward = FLICK_DIRECTION_POLICY.projected_forward(camera, player)
     guard_flick_axis_captured = false
     # Preserve the third strike while classifying an intentional forward Bash
@@ -2303,12 +2304,13 @@ func _end_drag(release_pos: Vector2) -> void:
     touch_ui.call("hide_drag")
     if damage_reaction_active or landing_active or suppress_release_action:
         return  # A gesture interrupted by damage never queues a step/attack.
-    # Exclusively reserve lateral release for the authored post-finisher kick.
-    # Do not fall through to regular STEP if the kick is blocked (missing clip,
-    # insufficient EN, etc.); the same swipe may never mean both actions.
-    # Non-lateral directions retain their normal Bash/STEP behavior.
+    # Actor-relative left/right: the screen-projected SERA facing is zero
+    # degrees. A 90-degree wedge around EACH side is exclusively a kick.
+    # Ordinary RUN/BOOST/STEP travel continues to use screen coordinates.
+    # Consume the gesture even if the kick cannot start.
     if side_kick_requested and flick_direction.length_squared() > 0.000001 \
-            and FLICK_DIRECTION_POLICY.sector_index(flick_direction, Vector2.UP) in [1, 3]:
+            and FLICK_DIRECTION_POLICY.sector_index(
+                flick_direction, gesture_screen_forward) in [1, 3]:
         if _request_combo_side_kick(flick_direction):
             touch_ui.call("show_flick_wake", pointer_origin, release_pos)
         return
@@ -2544,15 +2546,16 @@ func _step_local_pose_direction(world_direction: Vector3) -> Vector2:
     var world_unit: Vector3 = world_direction.normalized()
     return Vector2(world_unit.dot(right), -world_unit.dot(facing)).normalized()
 
-# Kick directions are SCREEN-left/right like STEP, not actor-forward Bash.
-# Missing authored kick clips leave release as a normal STEP.
+# Kick sectors are left/right of SERA's projected facing, just like the
+# existing actor-relative Bash forward sector. Travel stays screen-relative.
+# An unavailable kick consumes a reserved lateral gesture (never STEP).
 func _request_combo_side_kick(flick: Vector2) -> bool:
     # _end_drag calls this only for a kick gesture latched during _begin_drag.
     # The 0.65s follow-up window must be checked on touch-down, NOT again on
     # release: a valid flick may outlast the remaining window by up to 0.24s.
     if combat_state != CombatState.IDLE:
         return false
-    var sector: int = FLICK_DIRECTION_POLICY.sector_index(flick, Vector2.UP)
+    var sector: int = FLICK_DIRECTION_POLICY.sector_index(flick, gesture_screen_forward)
     if sector != 1 and sector != 3:
         return false
     var side: int = 1 if sector == 1 else -1
