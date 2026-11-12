@@ -16,6 +16,8 @@ const SOURCE_PATH: String = "res://assets/sera_source.json"
 # Import only newly authored kick tracks from the synced Blockbench source.
 # This is a model read, not a mesh replacement or re-export.
 const KICK_AUTHORING_SOURCE: String = "res://models/storage/SERA_BOOSTER_allテスト (9).bbmodel"
+# v293: import only the new authored second Katana clip; leave A meshes intact.
+const KATANA_SECOND_AUTHORING_SOURCE: String = "res://models/storage/SERA_BOOSTER_allテスト.bbmodel"
 const EMBEDDED = preload("res://assets/sera_data.gd")
 # Independently versioned 39KB authored kick-only resource. Mandatory for
 # v272: do not rely solely on a potentially stale source/whole-model embed.
@@ -231,6 +233,7 @@ func _ready() -> void:
     _build_model(data)
     _install_bird_model()
     _build_animations(data)
+    _merge_authored_katana_second_clip()
     _build_katana_second_strike()
     _merge_authored_side_kick_clips()
     # A dedicated, small Godot script resource is independent of both the
@@ -1011,7 +1014,39 @@ func _build_animations(data: Dictionary) -> void:
             "tracks": tracks
         }
 
-# v290: No separate user-authored Katana2 keys exist in the repository.
+# v293: Read the new user-authored second slash from the latest Blockbench
+# working model. This imports ONLY the animation and does not replace the A
+# rig, equipment geometry, other clips, or the generated embedded source.
+func _merge_authored_katana_second_clip() -> void:
+    if not FileAccess.file_exists(KATANA_SECOND_AUTHORING_SOURCE):
+        return  # Keep the v290 derived fallback when source isn't shipped.
+    var parsed: Variant = JSON.parse_string(
+        FileAccess.get_file_as_string(KATANA_SECOND_AUTHORING_SOURCE))
+    if not (parsed is Dictionary):
+        push_warning("Katana second animation source is invalid; using fallback")
+        return
+    for candidate in parsed.get("animations", []):
+        if not (candidate is Dictionary):
+            continue
+        var authored: Dictionary = candidate
+        if str(authored.get("name", "")) != KATANA_SECOND_CLIP:
+            continue
+        var raw_animators: Dictionary = authored.get("animators", {})
+        var keyed_tracks: int = 0
+        for raw_uid in raw_animators.keys():
+            if not bones.has(str(raw_uid)):
+                continue
+            var animator: Variant = raw_animators[raw_uid]
+            if animator is Dictionary and not (animator as Dictionary).get("keyframes", []).is_empty():
+                keyed_tracks += 1
+        if keyed_tracks == 0:
+            push_warning("Katana second animation bones do not match; using fallback")
+            return
+        _build_animations({"animations": [authored]})
+        return
+
+# v290 fallback: when no user-authored Katana2 can load, derive a playable
+# second clip from first slash without mutating any original keyframes.
 # Derive an ACTUAL second clip from Melee_katana's seven keyed combat poses,
 # reversing the twist of the torso and sword arm while retaining the 24fps
 # timing, weapon pivots, untouched source JSON and real blade AABB.
