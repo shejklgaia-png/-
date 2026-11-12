@@ -16,7 +16,8 @@ def function(name,next_name):
     return main.split("func "+name,1)[1].split("func "+next_name,1)[0]
 
 blade=function("_blade_contact(","_check_strike_contact(")
-assert '"is_targetable", locked_target_part_id' in blade
+assert "_locked_part_hit_volume_available()" in blade
+assert "func _locked_part_hit_volume_available() -> bool:" in main
 assert 'target_parts.call("get_part_aabb", locked_target_part_id)' in blade
 assert 'return part_box.grow(BLADE_THICKNESS).intersects_segment(from_pt, to_pt)' in blade
 assert 'return _target_hit_aabb().grow(BLADE_THICKNESS).intersects_segment(from_pt, to_pt)' in blade
@@ -28,7 +29,7 @@ assert 'target_parts.call("get_part_aabb", locked_target_part_id)' in strike
 assert 'part_box.get_center().y' in strike
 assert "_distance_to_cube_surface(" not in strike
 rng=function("_distance_to_attack_target_surface(","_start_strike(")
-for token in ('"is_targetable", locked_target_part_id',
+for token in ('_locked_part_hit_volume_available()',
               'target_parts.call("get_part_aabb", locked_target_part_id)',
               'nearest_x: float = clampf(pos.x, part_box.position.x, part_box.end.x)',
               'nearest_z: float = clampf(pos.z, part_box.position.z, part_box.end.z)',
@@ -48,7 +49,8 @@ bash=function("_check_bash_contact(","_register_bash_hit(")
 assert "if _distance_to_attack_target_surface(player.position) <= BASH_REACH:" in bash
 damage=function("_apply_target_part_damage(","_register_strike_hit(")
 assert '"apply_part_hit", locked_target_part_id, raw_attack, raw_break)' in damage
-assert 'locked_target_part_id = ""' in damage
+assert 'locked_target_part_id = ""' not in damage
+assert '"trigger_part_hit_fx"' in damage
 assert "and not manual_part_lock_active" in main
 assert "func get_part_aabb(id: String) -> AABB:" in parts
 
@@ -64,5 +66,5 @@ assert (None if True else "core") is None
 assert (None if False else "core")=="core"
 
 print("PASS v249: locked part exclusively gates blade, tracking, assist and Bash")
-print("PASS v249: unlocked torso fallback, original part damage/lock control kept")
+print("PASS v249: unlocked torso fallback and locked broken hitbox retained through combo")
 print("Godot parser and Android runtime not tested")
