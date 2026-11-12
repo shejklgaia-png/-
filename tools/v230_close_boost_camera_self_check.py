@@ -38,7 +38,8 @@ assert 'separation <= CAMERA_CLOSE_BOOST_ENTER_DISTANCE' in camera
 assert camera.index('var active_boost_travel: bool') < camera.index('var easing: float')
 assert 'camera_follow_radius = lerpf(' in camera
 assert 'camera_radius = maxf(camera_follow_radius, camera_fit_radius_floor)' in camera
-assert camera.count('if not close_boost_camera_active and not boost_edge_frame_guard:') == 2
+assert camera.count('if not close_boost_camera_active and not boost_edge_frame_guard') == 2
+assert 'and separation > CAMERA_COMBAT_VISIBILITY_DISTANCE:' in camera
 assert 'var boost_edge_frame_guard: bool = (' in camera
 assert '    if boost_edge_frame_guard:' in camera
 assert '        _fit_boost_frame_analytically(delta)' in camera
