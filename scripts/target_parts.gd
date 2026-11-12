@@ -7,6 +7,9 @@ const CORE_HP_SHARE: float = 0.50
 const EACH_PART_HP_SHARE: float = 0.10
 const PART_ORDER = ["head", "leg_fl", "leg_fr", "leg_rl", "leg_rr"]
 const LEG_IDS = ["leg_fl", "leg_fr", "leg_rl", "leg_rr"]
+# Head-only AUTO lock padding: a virtual cap above the existing head box.
+# Never alter the authored geometry, collision shapes or attack hit volume.
+const HEAD_LOCK_UPWARD_EXTENSION_METERS: float = 1.0
 const SELECTION_HYSTERESIS_RADIANS: float = 0.13
 const CAMERA_PART_LOCK_HYSTERESIS: float = 0.065
 const CAMERA_PART_DISTANCE_TIE_WEIGHT: float = 0.001
@@ -418,6 +421,22 @@ func _camera_center_line_part_distance(camera_origin: Vector3,
         var contact_world: Vector3 = mesh_node.to_global(contact)
         closest = minf(closest,
             camera_origin.distance_squared_to(contact_world))
+    # The low-mounted sensor sits below some CAMERA->BODY-center sightlines.
+    # Add exactly ONE virtual Box AABB above its existing bounds for AUTO
+    # lock selection only. The original mesh/physical/hit AABBs stay intact.
+    if id == "head":
+        var head_size: Vector3 = parts[id]["size"]
+        var overhead: AABB = AABB(
+            Vector3(-head_size.x * 0.5, head_size.y * 0.5,
+                -head_size.z * 0.5),
+            Vector3(head_size.x, HEAD_LOCK_UPWARD_EXTENSION_METERS,
+                head_size.z))
+        var overhead_contact: Variant = overhead.intersects_segment(
+            pivot.to_local(camera_origin), pivot.to_local(body_center))
+        if overhead_contact != null:
+            var overhead_world: Vector3 = pivot.to_global(overhead_contact)
+            closest = minf(closest,
+                camera_origin.distance_squared_to(overhead_world))
     return closest
 
 
