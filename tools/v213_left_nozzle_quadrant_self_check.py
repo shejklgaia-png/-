@@ -28,7 +28,7 @@ assert "left_sector_world = Vector3.DOWN.slerp(" in main
 assert "screen_right, leftward_weight * 0.50).normalized()" in main
 assert "_screen_drag_to_ground(Vector2.RIGHT).normalized()" in main
 assert "direction_of_exhaust.normalized(), delta, backstroke_weight," in main
-assert "left_sector_world, acceleration_burst, normal_melee_exhaust or normal_kick_exhaust)" in main
+assert "left_sector_world, acceleration_burst, normal_attack_exhaust)" in main
 assert 'var backstroke_weight: float = 0.0' in main
 
 # All layers forward the same world-space vector to the authored physical nozzle.

@@ -36,13 +36,13 @@ for chase in ("CombatState.DASH", "CombatState.BASH_TRACK",
               "CombatState.STRIKE_TRACK", "CombatState.STRIKE", "CombatState.BASH"):
     assert chase in main.split("var tracking_exhaust: bool =",1)[1].split(
         "tracking_exhaust = tracking_exhaust",1)[0],chase
-assert "tracking_exhaust = tracking_exhaust and blur_velocity.length_squared() > 0.04" in main
+assert "and blur_velocity.length_squared() > 0.04" in main
 assert "boost_exhaust or boost_pose_exhaust or stepping_this_frame" in main
 assert "not landing_active and not guard_active and not energy_exhausted" in main
 
 # The burst parameter travels with the original v213 camera-relative
 # exhaust vector; neither nozzle direction nor combat movement is modified.
-assert 'left_sector_world, acceleration_burst, normal_melee_exhaust or normal_kick_exhaust)' in main
+assert 'left_sector_world, acceleration_burst, normal_attack_exhaust)' in main
 assert 'acceleration_burst: bool = false,' in rig
 assert 'left_sector_world, acceleration_burst, melee_sustain)' in rig
 assert 'acceleration_burst: bool = false,' in equip

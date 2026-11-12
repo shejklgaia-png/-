@@ -31,7 +31,7 @@ assert motion.index("screen_right, leftward_weight * 0.50).normalized()") < moti
     "Vector3.DOWN, backstroke_weight).normalized()")
 assert "held_boost_left_sector_world = left_sector_world" in motion
 assert "left_sector_world = held_boost_left_sector_world" in motion
-assert "left_sector_world, acceleration_burst, normal_melee_exhaust or normal_kick_exhaust)" in main
+assert "left_sector_world, acceleration_burst, normal_attack_exhaust)" in main
 
 # Real physical nozzle follows the blended target, with old authored
 # pivot/servo, world-downwash and special camera sector unchanged.

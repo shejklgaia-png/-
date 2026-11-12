@@ -23,13 +23,13 @@ normal=main.split("var normal_melee_exhaust: bool = (",1)[1].split("var exhaust_
 for s in ("CombatState.MELEE_APPROACH", "CombatState.DASH",
           "CombatState.STRIKE_TRACK", "CombatState.STRIKE"):
     assert s in normal,s
-assert "CombatState.BASH" not in normal
+assert "combat_state == CombatState.BASH" in normal
 assert "strike_did_hit" not in normal
 assert "tracking_exhaust" not in normal
 assert "blur_velocity" not in normal
 exhaust=main.split("var exhaust_on: bool = (",1)[1].split(
     "var tracking_accel_state: int =",1)[0]
-assert "or tracking_exhaust or normal_melee_exhaust or normal_kick_exhaust))" in exhaust
+assert "or tracking_exhaust or normal_attack_exhaust))" in exhaust
 assert "not damage_reaction_active and not jump_active" in exhaust
 assert "not landing_active and not guard_active and not energy_exhausted" in exhaust
 
@@ -39,9 +39,9 @@ assert "not landing_active and not guard_active and not energy_exhausted" in exh
 steering=main.split("var direction_of_exhaust: Vector3 =",1)[1].split(
     "var backstroke_weight: float =",1)[0]
 assert "var direction_of_exhaust: Vector3 = -blur_velocity" in main
-assert "if normal_melee_exhaust and not tracking_exhaust:" in steering
+assert "if normal_attack_exhaust and not tracking_exhaust" in steering
 assert "direction_of_exhaust = player.global_transform.basis.z" in steering
-assert steering.index("if normal_melee_exhaust and not tracking_exhaust:") > steering.index(
+assert steering.index("if normal_attack_exhaust and not tracking_exhaust") > steering.index(
     "elif boost_pose_exhaust and held_boost_exhaust_direction.length_squared() > 0.000001:")
 assert "if direction_of_exhaust.length_squared() < 0.0004:" in steering
 
@@ -54,7 +54,7 @@ assert "normal_melee_exhaust" not in burst
 assert "acceleration_burst: bool = (exhaust_on" in burst
 assert "stepping_this_frame and not thruster_accel_previous_step" in burst
 assert "tracking_accel_state != thruster_accel_previous_tracking_state" in burst
-assert "left_sector_world, acceleration_burst, normal_melee_exhaust or normal_kick_exhaust)" in main
+assert "left_sector_world, acceleration_burst, normal_attack_exhaust)" in main
 for x in (rig,equip,fx):
     assert "melee_sustain: bool = false" in x
 assert "left_sector_world, acceleration_burst, melee_sustain)" in rig
@@ -102,9 +102,9 @@ assert math.isclose(1.0+.65*0.0,1.0)
 
 # A normal swing can be visible with no velocity, after hit, or during
 # hit-stop. Plain IDLE/BASH/SLIDE/STEP cannot acquire the melee sustain flag.
-for state in ("MELEE_APPROACH","DASH","STRIKE_TRACK","STRIKE"):
+for state in ("MELEE_APPROACH","DASH","STRIKE_TRACK","STRIKE","BASH_TRACK","BASH","BACK_KICK_TRACK"):
     assert state in normal
-for state in ("IDLE","BASH_TRACK","BASH","SLIDE"):
+for state in ("IDLE","SLIDE"):
     assert ("CombatState."+state) not in normal
 assert "const SLIDE_BOOST_POSE_MAX_WEIGHT: float = 0.50" in rig
 
