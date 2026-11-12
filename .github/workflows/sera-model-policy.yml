@@ -81,6 +81,7 @@ on:
       - 'tools/v280_kick_motion_runtime_check.gd'
       - 'tools/v281_somersault_arc_self_check.py'
       - 'tools/v281_somersault_arc_runtime_check.gd'
+      - 'tools/v282_somersault_authored_turn_self_check.py'
       - 'tools/v274_back_somersault_runtime_check.gd'
       - 'docs/SERA_ANIMATION_RUNTIME_POLICY_ja.md'
       - 'tools/v242_screen_lock_buttons_self_check.py'
@@ -348,6 +349,8 @@ jobs:
         run: python3 tools/v280_kick_motion_self_check.py
       - name: Verify v281 continuous Bezier arc for rear somersault
         run: python3 tools/v281_somersault_arc_self_check.py
+      - name: Verify v282 continuous authored Waist turn without double rotation
+        run: python3 tools/v282_somersault_authored_turn_self_check.py
       # Earlier static regressions all passed while the Android side kick
       # lookup failed. Test the real GDScript runtime, not just its text.
       - name: Fetch Godot 4.7.2 for headless clip playback
