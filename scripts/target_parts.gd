@@ -388,93 +388,83 @@ func apply_part_hit(id: String, raw_attack: float, raw_break: float) -> Dictiona
         result["broken_legs"] = broken_leg_count()
     return result
 
-func select_front_part(origin: Vector3, forward: Vector3,
-        current: String, core_box: AABB) -> String:
-    # The whole enemy's center (the CAMERA ROTATION AXIS), not the
-    # previously selected part, defines SERA's forward sightline.
-    var enemy_pivot: Node3D = get_parent().get_parent() as Node3D
-    var to_center: Vector3 = (enemy_pivot.global_position - origin
-        if enemy_pivot != null else forward)
-    var desired: Vector3 = Vector3(to_center.x, 0.0, to_center.z).normalized()
-    if desired.length_squared() < 0.000001:
-        desired = Vector3(forward.x, 0.0, forward.z).normalized()
-    if desired.length_squared() < 0.000001:
+# v291: camera-forward locking. The old v289 front/occlusion selector
+# rejected every limb whenever a large boss torso or another leg stood
+# along the SERA->aim line. That made AUTO appear unlocked on strafes.
+# Choose the available part nearest the VIEWPORT CENTER instead. Screen
+# offset owns the score; distance is a very weak tie-breaker, NEVER a veto.
+# A slightly worse existing selection is retained to prevent lock jitter.
+const CAMERA_PART_LOCK_HYSTERESIS: float = 0.065
+const CAMERA_PART_DISTANCE_TIE_WEIGHT: float = 0.001
+
+func select_camera_front_part(view_camera: Camera3D, current: String) -> String:
+    if view_camera == null:
         return current if is_targetable(current) else ""
+    var viewport_size: Vector2 = view_camera.get_viewport().get_visible_rect().size
+    if viewport_size.x <= 1.0 or viewport_size.y <= 1.0:
+        return current if is_targetable(current) else ""
+    var center: Vector2 = viewport_size * 0.5
+    var scale: Vector2 = Vector2(
+        maxf(1.0, viewport_size.x * 0.5),
+        maxf(1.0, viewport_size.y * 0.5))
     var best_id: String = ""
     var best_score: float = INF
-    var old_score: float = INF
+    var current_score: float = INF
     for id in PART_ORDER:
         if not is_targetable(id):
             continue
         var aim: Vector3 = get_part_aim_world(id)
-        var toward: Vector3 = aim - origin
-        var flat_toward: Vector3 = Vector3(toward.x, 0.0, toward.z)
-        var straight_depth: float = desired.dot(flat_toward)
-        # Ignore limbs behind SERA; rank viable parts by their angular
-        # deviation from SERA->whole-boss center, not camera screen X.
-        if straight_depth <= 0.0 or flat_toward.length_squared() < 0.000001:
+        if view_camera.is_position_behind(aim):
             continue
-        var core_contact: Variant = core_box.intersects_segment(origin, aim)
-        if core_contact != null and origin.distance_to(core_contact) < (
-                toward.length() - 0.22):
-            continue
-        var hidden_by_limb: bool = false
-        for other_id in PART_ORDER:
-            if other_id == id:
-                continue
-            var other_node: Node3D = parts[other_id]["node"]
-            if not other_node.visible:
-                continue
-            var other_contact: Variant = get_part_aabb(other_id).intersects_segment(
-                origin, aim)
-            if other_contact != null and origin.distance_to(other_contact) < (
-                    toward.length() - 0.22):
-                hidden_by_limb = true
-                break
-        if hidden_by_limb:
-            continue
-        var lateral: float = absf(desired.cross(flat_toward).y)
-        var score: float = atan2(lateral, straight_depth)
-        score += 0.12 * absf(toward.y) / maxf(0.3, flat_toward.length())
+        var screen_point: Vector2 = view_camera.unproject_position(aim)
+        # A candidate outside the viewport can still be kept as a fallback
+        # if the boss is partly out of frame. The marker itself still hides.
+        var normalized_offset: Vector2 = (screen_point - center) / scale
+        var score: float = normalized_offset.length()
+        score += minf(0.03,
+            view_camera.global_position.distance_to(aim) * CAMERA_PART_DISTANCE_TIE_WEIGHT)
         if id == current:
-            old_score = score
+            current_score = score
         if score < best_score:
             best_score = score
             best_id = id
-    if is_targetable(current) and old_score < INF \
-            and old_score <= best_score + SELECTION_HYSTERESIS_RADIANS:
+    if is_targetable(current) and current_score < INF \
+            and current_score <= best_score + CAMERA_PART_LOCK_HYSTERESIS:
         return current
     return best_id
 
 
-func get_visible_part_ids(origin: Vector3, core_box: AABB) -> Array[String]:
-    # Manual selection uses the camera's line of sight but exactly the same
-    # geometry/visibility rules as the existing automatic part selector.
-    var candidates: Array[String] = []
+# Keep the older entry point for historical call sites, but ensure that
+# new AUTO uses the camera-projection selector above rather than
+# the angle/distance/core-occlusion classifier below.
+func select_front_part(origin: Vector3, forward: Vector3,
+        current: String, _core_box: AABB) -> String:
+    var desired: Vector3 = Vector3(forward.x, 0.0, forward.z).normalized()
+    if desired.length_squared() < 0.000001:
+        desired = Vector3(global_position.x-origin.x, 0.0,
+            global_position.z-origin.z).normalized()
+    var best_id: String = ""
+    var best_score: float = INF
     for id in PART_ORDER:
         if not is_targetable(id):
             continue
         var aim: Vector3 = get_part_aim_world(id)
-        var toward: Vector3 = aim - origin
-        if toward.length_squared() < 0.000001:
+        var direction: Vector3 = Vector3(aim.x-origin.x, 0.0, aim.z-origin.z)
+        if direction.length_squared() <= 0.000001:
             continue
-        var core_hit: Variant = core_box.intersects_segment(origin, aim)
-        if core_hit != null and origin.distance_to(core_hit) < (
-                toward.length() - 0.22):
-            continue
-        var occluded: bool = false
-        for other_id in PART_ORDER:
-            if other_id == id:
-                continue
-            var other_node: Node3D = parts[other_id]["node"]
-            if not other_node.visible:
-                continue
-            var other_hit: Variant = get_part_aabb(other_id).intersects_segment(
-                origin, aim)
-            if other_hit != null and origin.distance_to(other_hit) < (
-                    toward.length() - 0.22):
-                occluded = true
-                break
-        if not occluded:
-            candidates.append(id)
-    return candidates
+        var score: float = 1.0 - direction.normalized().dot(desired)
+        if score < best_score:
+            best_id = id
+            best_score = score
+    return current if is_targetable(current) and best_score < 0.02 else best_id
+
+
+# Manual left/right switching: any intact part in front of the camera
+# may be selected even when it overlaps the torso or another massive leg.
+# Hard occlusion from the old implementation frequently yielded no choices.
+func get_visible_part_ids(origin: Vector3, _core_box: AABB) -> Array[String]:
+    var ids: Array[String] = []
+    for id in PART_ORDER:
+        if is_targetable(id) and get_part_aim_world(id).distance_squared_to(origin) > 0.000001:
+            ids.append(id)
+    return ids
