@@ -1865,3 +1865,10 @@
 - `start_side_kick`の「`has_side_kick`で遅延復元する前にchosenを選ぶ」潜在不整合を解消。利用可否・復元の確認後に実際の再生名を取得し、空の場合は安全にfalse。HUD診断は状態フラグだけでなく、現時点のキー有無と名前検索結果を確認。
 - 新規`tools/v273_kick_lookup_runtime_check.gd`で、Godot 4.7.2をLinux headless起動して実際の`SeraRig`を生成し、右/左の`has_side_kick`・`_side_kick_clip_for`・`start_side_kick`および`current_clip`を検査。既存CIに実Godot導入・プロジェクトimport・上記runtimeテストを追加。旧v271静的検査も固定名方式に合わせて更新。元データ/キーフレーム/他操作仕様は無変更。
 - 実GodotチェックはAndroid実機ではなくLinux実行のため、タッチ入力・Android固有の読み込み挙動まで保証しない。動作確認は別途必要。
+
+## 2026-11-12 — SERA v273：左右蹴り不具合の再発防止を全モーションへ拡張（ゲーム仕様変更なし）
+- Androidで`Kick_l`/`Kick_r`の再生成功が報告されたため、v264〜v272で静的検査を通しても再生できなかった教訓を開発規約へ反映。
+- `tools/sera_animation_runtime_smoke.gd`を追加。実Godotに`SeraRig`を初期化し、`assets/sera_source.json`の**全アニメーション**について、現在のリグ上の有効なアニメーショントラック・固定名クリップ選択・中間時刻の姿勢計算を検査。最後に左右蹴りの公開API`has_side_kick()`/`start_side_kick()`も実行して結果を検査。
+- `.github/workflows/sera-model-policy.yml`に同ランタイム検証を追加。成功メッセージとGodotスクリプトエラーの有無を確認するCIチェックを、既存v273の左右蹴り単体ランタイムチェックの後に設定。
+- `docs/SERA_ANIMATION_RUNTIME_POLICY_ja.md`を作成し、`AGENTS.md`と`docs/MODEL_PART_WORKFLOW_ja.md`へ必須参照を明記。モーションの固定名・型付き配列の使用制約・読込/復元/実行の順序・実機とCIの区別・原因切り分けを標準化。
+- 本変更は**テストと開発規約のみ**で、`project.godot`はSERA v273のまま、モデル・キーフレーム・ゲーム挙動は全て保持する。Linux GodotのCIはAndroid画面操作の代わりではない。
