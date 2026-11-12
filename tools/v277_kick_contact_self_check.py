@@ -7,7 +7,9 @@ game = (ROOT / "scripts/main.gd").read_text(encoding="utf-8")
 source = json.loads((ROOT / "assets/sera_source.json").read_text(encoding="utf-8"))
 clips = {c["name"]: c for c in source["animations"]}
 groups = {g["uuid"]: g["name"] for g in source["groups"]}
-assert 'config/name="SERA v277"' in (ROOT / "project.godot").read_text()
+import re
+version = re.search(r'config/name="SERA v([0-9]+)"', (ROOT / "project.godot").read_text())
+assert version and int(version.group(1)) >= 277
 assert "const SIDE_KICK_HIT_PROGRESS = [0.25, 0.58333]" in game
 assert "const BACK_SOMERSAULT_HIT_PROGRESS: float = 0.20833 / 0.79167" in game
 assert "side_kick_hit_mask |= bit" in game

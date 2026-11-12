@@ -1895,3 +1895,8 @@
 - Kick_l and Kick_r: two independent impact checks per clip at 0.25s and 0.58333s in the original 1s animation, scaled to active STEP duration. Kick_b: one check at 0.20833s in 0.79167s clip. The key is disarmed after the attempt, hit or miss.
 - Share the existing Bash lock-on/EN/collision homing for up to 0.2s during lateral kicks, and prior to the Kick_b rear arc when out of range. Bash-like timeout cancels if unreachable. Original 4m backward arc, 1.5m peak, 0.8s flight, 0.2s landing retained.
 - Shared back thruster FX during kicks, homing and backflip, including acceleration flare, continuous exhaust and reverse pitch. Add static/real Godot regression tests; Xperia device unverified.
+
+## 2026-11-12 — SERA v278 slower side-kick animation
+- Kick_l/Kick_r action timeline is 2x, halving actual authored clip playback rate without source edits. Two hit keys remain at normalized 0.25 and 0.58333.
+- Distinguish action progress from travel progress, which saturates at old STEP duration. Kick continues posing in place for the second half; standard STEP speed, arc and distance are unchanged. Bash homing still capped at 0.2s actual time. Kick_b unchanged.
+- Add v278 static and real Godot checks, including normal-STEP baseline, mid-clip progress, movement completion and full kick follow-through. Android input/rendering still unverified.

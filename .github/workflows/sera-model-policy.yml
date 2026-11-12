@@ -73,6 +73,8 @@ on:
       - 'tools/v276_katana_runtime_check.gd'
       - 'tools/v277_kick_contact_self_check.py'
       - 'tools/v277_kick_contact_runtime_check.gd'
+      - 'tools/v278_side_kick_half_speed_self_check.py'
+      - 'tools/v278_side_kick_half_speed_runtime_check.gd'
       - 'tools/v274_back_somersault_runtime_check.gd'
       - 'docs/SERA_ANIMATION_RUNTIME_POLICY_ja.md'
       - 'tools/v242_screen_lock_buttons_self_check.py'
@@ -332,6 +334,8 @@ jobs:
         run: python3 tools/v276_katana_self_check.py
       - name: Verify v277 kick contact slots and Bash homing
         run: python3 tools/v277_kick_contact_self_check.py
+      - name: Verify v278 half-speed lateral kicks without slowing travel
+        run: python3 tools/v278_side_kick_half_speed_self_check.py
       # Earlier static regressions all passed while the Android side kick
       # lookup failed. Test the real GDScript runtime, not just its text.
       - name: Fetch Godot 4.7.2 for headless clip playback
@@ -351,6 +355,8 @@ jobs:
         run: '"$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" --headless --path . --script res://tools/v274_back_somersault_runtime_check.gd'
       - name: Verify v277 foot contacts and homing in actual Godot
         run: '"$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" --headless --path . --script res://tools/v277_kick_contact_runtime_check.gd'
+      - name: Verify v278 slowed lateral kicks, full contact timing and STEP speed in Godot
+        run: '"$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" --headless --path . --script res://tools/v278_side_kick_half_speed_runtime_check.gd'
       - name: Verify Katana fourth-frame swap and real collision in Godot
         run: '"$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" --headless --path . --script res://tools/v276_katana_runtime_check.gd'
       - name: Verify every authored animation loads and samples in Godot
