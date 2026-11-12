@@ -34,7 +34,7 @@ step_hud = body("_refresh_step_status_ui() -> void:", "_pointer_on_training_test
 # at about 9.60 -> 9.76 and again around 14.24 -> 14.40. Touch-down during
 # STRIKE / STRIKE_TRACK 3 is now a kick candidate, not a premature STEP.
 assert "((combat_state == CombatState.STRIKE or combat_state == CombatState.STRIKE_TRACK)" in start
-assert "and strike_index == STRIKE_CLIPS.size() - 1)" in start
+assert "and _is_strike_finisher())" in start
 assert "or (combat_state == CombatState.IDLE and bash_followup_window_remaining > 0.0))" in start
 assert "gesture_screen_forward = FLICK_DIRECTION_POLICY.projected_forward(camera, player)" in start
 assert "direction_input = Vector2.ZERO if (bash_flick_candidate or side_kick_flick_candidate)" in change
@@ -96,7 +96,7 @@ assert "buffered_side_kick_side = 0" in strike
 print("PASS: v284 0.05s post-swing cancel for queued kicks; full unqueued clip and cleanup")
 
 # Render current behavior explicitly in the same debug HUD the user recorded.
-assert '"STRIKE 3/3  |  KICK QUEUED"' in physics
+assert '"STRIKE %d/%d  |  KICK QUEUED"' in physics
 assert '"KICK RIGHT  |  Kick_r"' in physics
 assert '"KICK LEFT  |  Kick_l"' in physics
 assert '"KICK %s %.2fm planned"' in step_hud
