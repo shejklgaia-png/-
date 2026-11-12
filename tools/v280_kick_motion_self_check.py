@@ -27,7 +27,10 @@ assert "step_linear_offset * travel_progress" in advance
 assert "step_signed_angle * travel_progress" in advance
 assert "if not side_kick_travel_anchor_set:" in advance
 assert "if progress >= second_windup:" in advance
-assert "step_start_offset += Vector2(homed.x, homed.z)" in advance
+assert "_configure_side_kick_orbit()" in advance
+assert "step_target_center = Vector2(target.position.x, target.position.z)" in advance
+assert "step_radial_delta * (" in advance
+assert "side_kick_travel_anchor_set = true" in advance
 assert "if previous_progress < impact_progress and progress >= impact_progress:" in advance
 back = main.split("func _advance_back_somersault(delta: float) -> void:", 1)[1].split(
     "func _cancel_back_somersault(", 1)[0]
