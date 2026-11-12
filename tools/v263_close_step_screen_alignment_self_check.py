@@ -41,7 +41,8 @@ assert camera.index("if hold_attack_camera or step_active or close_step_camera_t
     "elif protect_close_step and separation > 0.08:")
 assert "_stable_shoulder_camera_yaw(bearing, delta)" in camera
 assert "_visible_combat_camera_yaw" not in camera
-assert "camera_yaw = lerp_angle(camera_yaw, bearing, easing * CAMERA_MOVING_YAW_SCALE)" in camera
+assert "camera_yaw = _stable_shoulder_camera_yaw(bearing, delta)" in camera
+assert "(not step_active or side_kick_active)" in camera
 assert "camera_radius = maxf(camera_follow_radius, camera_fit_radius_floor)" in camera
 assert "_fit_full_frame()" in camera
 rig_update=rig.split("func update_omni_step_direction(direction: Vector2, delta: float) -> void:",1)[1].split(
