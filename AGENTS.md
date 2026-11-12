@@ -188,3 +188,12 @@ Additional historical checks may refer to unavailable prior ZIPs; read their pre
 - For **any** new/changed Blockbench animation or `scripts/sera_rig.gd` playback lookup, consult `docs/SERA_ANIMATION_RUNTIME_POLICY_ja.md` and ensure the **real-Godot** workflow step `tools/sera_animation_runtime_smoke.gd` passes. Static Python/json checks are insufficient.
 - Resolve published animation names directly before alias/heuristic searches. For public playback APIs, verify **lookup, recovery ordering, start, current_clip**, not just whether a clip name exists. Avoid conditional array literals assigned to typed `Array[String]`; prefer explicit branches or canonical strings.
 - Do not merge model/animation PRs without Godot runtime CI. An Android test is still distinct; never misstate cloud headless as Android validation. Preserve original Blockbench keys, mesh pivots, and unrelated animations unless requested.
+
+
+## v284 — 最新の格闘フリック・サマーソルト・スラスター仕様（旧v253〜v283の相反する規則より優先）
+- **Melee3とGUARD Bashのフリックは画面絶対方向**（`Vector2.UP`）を基準に90°ずつ4分類。**画面上＝Bash、右＝Kick_r、下＝Kick_b、左＝Kick_l**。セラの正面方向、ロック位置、カメラYawから方向を再分類しない。通常STEPは従来の360°連続スクリーン移動を維持。
+- Bashフリックの候補維持判定（`_change_drag`）と離指確定（`_is_character_forward_flick`、名前は互換性のため据え置き）はどちらも`Vector2.UP`。左右・下は必ず蹴り派生を優先し、通常STEPとして落とさない。
+- **Melee3の15/24秒（0.625秒）の振り切りから0.05秒後＝0.675秒**が予約済みフリック派生専用キャンセル。通常Melee1を再発動できる時間、Melee1/Melee2のタップキャンセルは変更しない。予約がなければ0.83333秒のMelee3終端まで再生する。
+- **Kick_bは誘導加速→接地したKick_bモーション開始→蹴り命中キーで接触判定→命中時のみ追尾OFF＋後方ベジェ跳躍**。全体モーション時間0.8秒。ヒットまで約0.211秒、その後の弧状飛行約0.589秒。弧は4m後退・1.5m頂点。空振りなら跳躍せずモーションを完走する。着地0.20秒は命中時のみ。
+- **全ての格闘（3連・Bash・Kick_l/r/b）で背面スラスターは接敵・追尾・接触・振り抜きまで継続**。追尾加速時の一瞬の拡散、継続噴射、通常攻撃同様の微小変位時の安定した背面方向を適用する。後ろ跳躍時のみ移動方向の逆噴射を継続。
+- バージョンが古いテストと本文にある「Bashはセラ向き基準」「蹴りは最後まで動いた後でジャンプ」「バッシュは追尾中だけ噴射」という記述は歴史的な記録であり、現在の実装仕様ではない。
