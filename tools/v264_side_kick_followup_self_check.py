@@ -50,7 +50,7 @@ require("single-hit is armed once per kick",
         "side_kick_did_hit = true" in main
         and "func _register_side_kick_hit()" in main)
 require("other directions retain normal step but lateral kick input is exclusive",
-        'if rig == null or not bool(rig.call("has_side_kick", side)):' in main
+        'if not bool(rig.call("has_side_kick", side)):' in main
         and "if _start_omni_step(flick_direction):" in main
         and "_combo_kick_side_for_flick(kick_flick_direction) != 0" in main)
 require("kick clip imports do not replace model or old animations",
@@ -58,8 +58,8 @@ require("kick clip imports do not replace model or old animations",
         and "if animations.has(name):" in rig
         and '_build_animations({"animations": kick_clips})' in rig)
 require("invalid or zero-length clip does not enable kick",
-        'float(animations[chosen]["length"]) > 0.01' in rig
-        and 'not (animations[chosen]["tracks"] as Dictionary).is_empty()' in rig)
+        'float(clip.get("length", 0.0)) <= 0.01' in rig
+        and 'if not (channels.get(channel, []) as Array).is_empty():' in rig)
 require("kick animation time synchronized with step",
         'rig.call("start_side_kick", step_kick_side_request, step_duration_current)' in main
         and "playback_rate = side_kick_playback_scale" in rig)
