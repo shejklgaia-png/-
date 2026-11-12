@@ -91,3 +91,12 @@
 ## [実装・実機未検証] v259 — 3段格闘／Bashの追加入力受付中はAUTOロック固定
 - 格闘・バッシュのアニメーション中（非IDLE）に加え、Melee3終了後のBash受付 `bash_followup_window_remaining` およびBash終了後の格闘再開受付 `bash_loop_window_remaining`（各0.65秒）に、現在のロック部位を自動変更しません。IDLE中も受付タイマーが残る間、`select_front_part` を呼ばない仕様です。
 - RUN/BOOST入力成立、または成功したSTEP開始で受付時間を解除しAUTO選択を再開。既存の攻撃中移動キャンセルは `_cancel_attack()` で処理します。時間切れでもAUTO再開。MANUALロックと破壊部位無効化処理、モーション・ダメージ・受付秒数は不変更。
+
+
+## v289 — 最新の部位破壊・ロック継続・被弾FX・Kick_b→RUN復帰（v237/v249/v259旧仕様より優先）
+- **ロックは3段コンボ／バッシュ／Kick_l/r／Kick_b／Kick_b着地／派生入力受付中に継続**する。部位耐久が0になっても`locked_target_part_id`はその時点でクリアしない。`_combo_lock_retention_active()`で戦闘再生・横蹴り・バク宙・着地・0.65秒派生窓を一元判定。手動切替も継続中はブロック。新規ロック候補は破壊済みを除外しつつ、既存ロックについてはコンボ中だけ破壊済みの攻撃AABBを残す（`_locked_part_hit_volume_available`）。破壊後の追加ヒットはボス共通HPへ通常どおり反映し、部位ゲージは0のまま。コンボ終了後に健全部位へ切り替える。共通HP0によるトレーニングリスポーンも継続中は短く延期する。
+- **部位のAUTO正面選択**は、セラの現在位置から敵**全体の中心（カメラ回転軸）**を結んだ水平軸を基準とし、各部位がその前方にあるか・水平角差・高さ・本体/他部位による遮蔽を評価。現在ロック中の部位へ顔が向いたことを次の選択基準にしないため、ロックの自己フィードバックや左右往復を防ぐ。従来の角度ヒステリシスは維持。手動の無傷ロックも維持する。
+- **頭・4脚の破壊後表示を維持**。以前消していた前脚2本も`break_mode="remain"`とし、破壊後は損傷色へ変更してメッシュ・衝突判定を残す。頭の追加露出フレームは従来どおり表示。復活時の見た目・衝突・部位HPは元に戻す。
+- **全5部位それぞれの命中FXを共通本体FXへ統一**。本体の`HIT_FLASH_SECONDS=0.145`と同じタイマーで、被弾部位のシェル・関節・フレーム・ダーク材に暗赤色/発光および視覚的な小さな左右揺れを与える（`target_parts.trigger_part_hit_fx/advance_part_hit_fx`）。破壊フレーム中も演出し、終了時は元色または損傷色へ戻す。中心本体の既存FX、火花、音は維持。
+- **バク宙後RUN不具合**：後方蹴りの追尾`rig.start_melee_approach`が`combat_playback=true`を立てたまま`rig.start_back_somersault`へ遷移し、着地後に`set_moving()`がreturnしていた。空中移行と`finish_jump`で`combat_playback`、`combat_paused`、`freeze_attack_pose`、`attack_windup_active`を解除。0.2秒着地後、既に指が残っていれば`_analog_stick_direction(pointer_location)`を再取得してRUNを復帰。モーションやコンボ受付は変更しない。
+- プロジェクト表記`SERA v289`。新規静的・Godot実行用回帰テストをCIに登録。GitHub反映済み、実機映像での最終確認は未実施。
