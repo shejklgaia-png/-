@@ -153,6 +153,11 @@ func _run() -> void:
         intended_world.dot(target_forward)).normalized()
     game.set("direction_input", travel_screen)
     game.set("gesture_active", true)
+    # A genuine RUN drag has already exceeded the tap/guard distance.
+    # Setting gesture_active alone leaves an ancient 0ms tap that the normal
+    # GUARD hold timer correctly converts into a shield (and clears input).
+    game.set("gesture_max_travel", 120.0)
+    game.set("gesture_start_ms", Time.get_ticks_msec())
     game.call("_physics_process", 0.016)
     var actual_local: Vector2 = rig.get("run_direction_target")
     if actual_local.normalized().dot(expected_local) < 0.999:
