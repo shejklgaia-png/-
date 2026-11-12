@@ -1900,3 +1900,7 @@
 - Kick_l/Kick_r action timeline is 2x, halving actual authored clip playback rate without source edits. Two hit keys remain at normalized 0.25 and 0.58333.
 - Distinguish action progress from travel progress, which saturates at old STEP duration. Kick continues posing in place for the second half; standard STEP speed, arc and distance are unchanged. Bash homing still capped at 0.2s actual time. Kick_b unchanged.
 - Add v278 static and real Godot checks, including normal-STEP baseline, mid-clip progress, movement completion and full kick follow-through. Android input/rendering still unverified.
+
+## 2026-11-12 — SERA v279: Kick_b full authored frame is rendered before landing
+- Existing 0.8s swept 4m/1.5m physical arc remains unchanged; stop at ground on time but defer transition while Kick_b's exact final time has not yet been sampled with full blend weight. Acknowledgement occurs only after `_apply_animation` really applied the authored final bone poses, not simply at the end of the physics timer. Extra physics ticks before the next render keep the terminal pose without additional movement.
+- Once sampled, blend the final Kick_b to Jump landing over 0.055s; retain full 0.20s landing, single hit, Bash homing, EN and all other moves. Clear acknowledgment on start/cancel/landing. Source Blockbench keys untouched. New static/runtime tests cover no premature interruption and low-FPS no-double-travel.

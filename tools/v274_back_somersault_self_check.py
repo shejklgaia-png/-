@@ -27,7 +27,7 @@ physics = segment(game, "_physics_process(delta: float) -> void:", "_process")
 begin = segment(game, "_begin_drag(pos: Vector2) -> void:", "_analog_stick_direction")
 rig_start = segment(rig, "start_back_somersault() -> bool:", "back_somersault_uses_authored_clip")
 rig_progress = segment(rig, "set_back_somersault_progress(progress: float) -> void:", "start_jump")
-rig_land = segment(rig, "start_landing() -> void:", "set_landing_progress")
+rig_land = segment(rig, "start_landing(from_back_somersault: bool = false) -> void:", "set_landing_progress")
 
 # Controller direction is SCREEN-relative; DOWN takes precedence within the
 # already-latched 3rd-strike combo window, and is never ordinary back-STEP.
