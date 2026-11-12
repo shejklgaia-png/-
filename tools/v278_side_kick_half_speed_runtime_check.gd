@@ -85,9 +85,11 @@ func _run() -> void:
             _fail("kick did not enter target-centered orbit at second windup")
             return
         var orbit_angle: float = float(game.get("step_signed_angle"))
-        var expected_sign: float = 1.0 if side > 0 else -1.0
-        if signf(orbit_angle) != expected_sign:
-            _fail("kick orbit rotated opposite to screen-side command")
+        var tangent: Vector2 = Vector2(-orbit_start.y, orbit_start.x).normalized()
+        var world_right: Vector3 = game.call("_screen_drag_to_ground", Vector2.RIGHT)
+        var screen_right: Vector2 = Vector2(world_right.x, world_right.z).normalized()
+        if orbit_angle * tangent.dot(screen_right) * float(side) <= 0.0:
+            _fail("kick orbit rotated opposite to its screen-side command")
             return
         var halfway_offset: Vector2 = orbit_start.rotated(orbit_angle * halfway_travel)
         var halfway_point: Vector3 = Vector3(
