@@ -29,7 +29,8 @@ bash=main.split("func _is_character_forward_flick(",1)[1].split("func _is_upward
 assert "return FLICK_DIRECTION_POLICY.screen_step_direction(displacement)" in step
 assert "gesture_screen_forward" not in step  # no camera-dependent step reclassification
 assert "gesture_screen_forward = FLICK_DIRECTION_POLICY.projected_forward(camera, player)" in start
-assert "displacement, gesture_screen_forward, STEP_FLICK_MAX_HORIZONTAL_RATIO" in guard
+# v284 Bash, like STEP and kick inputs, uses screen-space classification.
+assert "displacement, Vector2.UP, STEP_FLICK_MAX_HORIZONTAL_RATIO" in guard
 assert "return FLICK_DIRECTION_POLICY.is_flick(" in bash
 assert "displacement, seconds, gesture_screen_forward," in bash
 assert "var guard_bash_requested: bool = _classify_recent_character_forward_flick()" in release

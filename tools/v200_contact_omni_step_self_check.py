@@ -73,7 +73,7 @@ assert "if side_kick_active:" in advance
 assert "(progress - second_windup) * SIDE_KICK_MOTION_TIME_MULTIPLIER" in advance
 assert "smoothstep(0.0, 0.65, travel_progress) if side_kick_active" in advance
 assert "else travel_progress)" in advance
-assert "initial_radius + step_radial_delta * travel_progress" in advance
+assert "initial_radius + step_radial_delta * radial_progress" in advance
 assert "step_signed_angle * travel_progress) * moved_radius" in advance
 assert "_move_player_swept(requested, true)" in advance
 for deg in range(0, 360, 5):

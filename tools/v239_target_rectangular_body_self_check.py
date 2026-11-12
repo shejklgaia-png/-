@@ -49,8 +49,8 @@ assert "TARGET_BODY_HALF_DEPTH / maxf(absf(facing.z), 0.00001)" in shooter
 # v250 intentionally unifies the former 38/30/32 part durability at 100.
 assert parts.count("    _add_part(") == 5
 for id, hp, mode in (
-    ("head",100., "change"),("leg_fl",100., "remove"),
-    ("leg_fr",100., "remove"),("leg_rl",100., "remain"),
+    ("head",100., "change"),("leg_fl",100., "remain"),
+    ("leg_fr",100., "remain"),("leg_rl",100., "remain"),
     ("leg_rr",100., "remain")):
     assert f'_add_part("{id}",' in parts
     assert f'{hp:.1f}' in parts

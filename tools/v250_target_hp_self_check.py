@@ -31,8 +31,8 @@ parts={name:(float(hp),float(df),float(bdf),mode)
        for name,hp,df,bdf,mode in matches}
 assert parts=={
     "head":(100.0,.20,.10,"change"),
-    "leg_fl":(100.0,.12,.00,"remove"),
-    "leg_fr":(100.0,.12,.00,"remove"),
+    "leg_fl":(100.0,.12,.00,"remain"),
+    "leg_fr":(100.0,.12,.00,"remain"),
     "leg_rl":(100.0,.16,.12,"remain"),
     "leg_rr":(100.0,.16,.12,"remain")
 }
