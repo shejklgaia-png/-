@@ -74,7 +74,8 @@ func _run() -> void:
     # v300: the old outward radius inflation was removed. The kick now
     # budgets exactly 3m between the part-centered circular phase and the
     # straight tangent after hit 2, and never teleports the character root.
-    var planned_arc: float = float(game.get("step_start_offset")).length() * absf(
+    var orbit_start: Vector2 = game.get("step_start_offset")
+    var planned_arc: float = orbit_start.length() * absf(
         float(game.get("step_signed_angle")))
     var planned_line: float = float(game.get("side_kick_linear_distance"))
     if absf(planned_arc + planned_line - 3.0) > 0.001:
