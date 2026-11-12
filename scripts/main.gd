@@ -2118,6 +2118,8 @@ func _set_guard(active: bool) -> void:
             rig.call("finish_guard")
 
 func _update_guard_hold() -> void:
+    if back_somersault_active or landing_active:
+        return
     # A hold with <18px maximum travel enters Guard on a physics frame.
     # Only a fresh release lowers the shield; dragging during Guard has no
     # movement, attack, flick or boost semantics.
@@ -2245,7 +2247,7 @@ func _update_boost_gesture(delta: float) -> void:
     # it must NOT block BOOST after the damage reaction finishes.
     if not gesture_active or guard_active or damage_reaction_active \
             or energy_exhausted or bash_flick_candidate or side_kick_flick_candidate \
-            or jump_active or landing_active:
+            or jump_active or landing_active or back_somersault_active:
         boost_confirm_elapsed = 0.0
         if movement_boost_active:
             movement_boost_active = false
@@ -2531,7 +2533,8 @@ func _advance_jump(delta: float) -> void:
         if not damage_reaction_active and rig != null:
             _begin_landing()
 
-func _begin_landing() -> void:
+func _begin_landing(from_back_somersault: bool = false) -> void:
+    landing_from_somersault = from_back_somersault
     # Airborne traversal is over. Keep the authored landing motion in control;
     # no movement, boost, attack, step or second jump before the 0.60s hold ends.
     landing_active = true
@@ -2550,17 +2553,19 @@ func _advance_landing(delta: float) -> void:
         return
     landing_elapsed += maxf(delta, 0.0)
     player.velocity = Vector3.ZERO
-    # Advance exactly the NEW authored 0.375->0.500 landing keys, then hold
-    # final pose for a full 0.60 seconds with no further animation motion.
-    var landing_fraction: float = clampf(landing_elapsed / JUMP_LANDING_MOTION_SECONDS, 0.0, 1.0)
+    # Archived Jump remains 0.125s + 0.60s hold. Only Kick_b uses the
+    # authored Jump landing keys at 0.20s with no subsequent static hold.
+    var duration: float = (BACK_SOMERSAULT_LANDING_SECONDS
+        if landing_from_somersault else JUMP_LANDING_MOTION_SECONDS)
+    var hold: float = 0.0 if landing_from_somersault else JUMP_LANDING_HOLD_SECONDS
+    var landing_fraction: float = clampf(landing_elapsed / duration, 0.0, 1.0)
     if rig != null:
         rig.call("set_landing_progress", landing_fraction)
-    if landing_elapsed >= JUMP_LANDING_MOTION_SECONDS + JUMP_LANDING_HOLD_SECONDS:
+    if landing_elapsed >= duration + hold:
         landing_active = false
         landing_elapsed = 0.0
+        landing_from_somersault = false
         if rig != null:
-            # Standing up is a blend from the final crouched landing pose,
-            # never a replay of the jump's launch animation.
             rig.call("finish_jump", gesture_active and direction_input.length_squared() > 0.000001, false)
 
 func _classify_side_flick(displacement: Vector2, seconds: float) -> int:
@@ -3115,7 +3120,8 @@ func _start_attack() -> bool:
     # True means this tap was accepted, not necessarily that a hit connected.
     # Keyboard callers ignore the return value; only touch release uses it
     # to prevent false ripple feedback during guard, damage or approach.
-    if guard_active or damage_reaction_active or landing_active or step_active or rig == null or not rig.get("loading_ok"):
+    if guard_active or damage_reaction_active or landing_active or back_somersault_active \
+            or step_active or rig == null or not rig.get("loading_ok"):
         return false
     if combat_state == CombatState.BASH or combat_state == CombatState.BASH_TRACK:
         # One follow-up melee tap can be buffered during tracking or Bash.
