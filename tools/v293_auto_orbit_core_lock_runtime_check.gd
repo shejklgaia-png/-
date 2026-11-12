@@ -11,8 +11,8 @@ func _fail(reason: String) -> void:
 
 func _place_camera(parts: Node3D, camera: Camera3D, angle_degrees: float) -> void:
     var angle: float = deg_to_rad(angle_degrees)
-    camera.global_position = parts.global_position + Vector3(
-        -sin(angle) * 15.0, 4.0, cos(angle) * 15.0)
+    camera.global_position = parts.to_global(Vector3(
+        -sin(angle) * 15.0, 4.0, cos(angle) * 15.0))
     camera.look_at(parts.global_position, Vector3.UP)
 
 
