@@ -1527,7 +1527,11 @@ func _refresh_step_status_ui() -> void:
         display_speed = STEP_SPEED * float(part_stats.get("step_speed_mult", 1.0))
     step_status_label.text = "STEP SPEED %.1fm/s" % display_speed
     if step_active:
-        step_detail_label.text = "STEP %.2fm planned" % step_arc_length
+        if side_kick_active:
+            step_detail_label.text = "KICK %s %.2fm planned" % [
+                "R" if side_kick_side > 0 else "L", step_arc_length]
+        else:
+            step_detail_label.text = "STEP %.2fm planned" % step_arc_length
     elif step_has_last:
         # When a body blocks a step, don't mislabel the planned length as actual.
         step_detail_label.text = "LAST %.2fm  /  %.2fs" % [step_traveled_distance, step_last_elapsed]
@@ -3455,6 +3459,7 @@ func _physics_process(delta: float) -> void:
     # Snapshot before _advance_side_step() can finish the step on this frame.
     close_step_camera_this_frame = stepping_this_frame and step_close_camera
     var step_side_this_frame: int = step_side
+    var kick_side_this_frame: int = side_kick_side
     var step_flick_this_frame: Vector2 = step_flick_direction
     if step_active:
         _advance_side_step(delta)
@@ -3464,7 +3469,8 @@ func _physics_process(delta: float) -> void:
         # Begin counting only from the first frame AFTER ground contact.
         _advance_landing(delta)
     if combat_state != CombatState.IDLE:
-        if running and gesture_max_travel > TAP_MAX_TRAVEL and not bash_flick_candidate:
+        if running and gesture_max_travel > TAP_MAX_TRAVEL \
+                and not (bash_flick_candidate or side_kick_flick_candidate):
             _cancel_attack()
         elif hit_stop_remaining <= 0.0:
             _advance_attack(delta)
@@ -3717,7 +3723,9 @@ func _physics_process(delta: float) -> void:
     elif jumping_this_frame and combat_state == CombatState.IDLE and not stepping_this_frame:
         state_label.text = "AIR FALL  |  Jump" if jump_fall_after_action else "JUMP  |  Jump (1.5m)"
     elif stepping_this_frame:
-        if step_flick_this_frame.y < -0.8:
+        if kick_side_this_frame != 0:
+            state_label.text = "KICK RIGHT  |  Kick_r" if kick_side_this_frame > 0 else "KICK LEFT  |  Kick_l"
+        elif step_flick_this_frame.y < -0.8:
             state_label.text = "STEP FORWARD  |  Frontstep"
         elif step_flick_this_frame.y > 0.8:
             state_label.text = "STEP BACK  |  Backstep"
@@ -3735,7 +3743,8 @@ func _physics_process(delta: float) -> void:
                     melee_boost_elapsed,
                     float(part_stats.get("melee_boost_duration", MELEE_BOOST_DEFAULT_DURATION))]
             CombatState.STRIKE:
-                state_label.text = "STRIKE %d/3  |  %s" % [strike_index + 1, str(STRIKE_CLIPS[strike_index])]
+                state_label.text = "STRIKE 3/3  |  KICK QUEUED" if buffered_side_kick_side != 0 \
+                    else "STRIKE %d/3  |  %s" % [strike_index + 1, str(STRIKE_CLIPS[strike_index])]
             CombatState.BASH_TRACK:
                 state_label.text = "BASH WINDUP  %.2f / %.2fs" % [
                     bash_track_elapsed, BASH_TRACK_SECONDS]
