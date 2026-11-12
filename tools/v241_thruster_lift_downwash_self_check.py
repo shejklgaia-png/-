@@ -69,7 +69,7 @@ assert "material.render_priority = RENDER_ORDER.DEPTH_TESTED_EMISSIVE" in fx
 assert "const DEPTH_TESTED_EMISSIVE: int = 127" in policy
 assert "fx.call(\"set_exhaust\"" in equipment
 assert 'left_sector_world, acceleration_burst, melee_sustain)' in rig
-assert 'left_sector_world, acceleration_burst, normal_melee_exhaust)' in main
+assert 'left_sector_world, acceleration_burst, normal_melee_exhaust or normal_kick_exhaust)' in main
 
 def norm(v):
     length=math.sqrt(sum(x*x for x in v))
