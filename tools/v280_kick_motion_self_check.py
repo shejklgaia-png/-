@@ -34,11 +34,11 @@ back = main.split("func _advance_back_somersault(delta: float) -> void:", 1)[1].
 assert "var angle: float = TAU * progress" in back
 assert "rig.rotation.x = angle" in back
 assert "BACK_SOMERSAULT_VISUAL_PIVOT_HEIGHT * (1.0 - cos(angle))" in back
-assert "if not back_somersault_has_authored_clip:" in back
+assert "if not back_somersault_has_authored_clip and back_somersault_launched:" in back
 assert "func _back_somersault_arc_offset(progress: float) -> Vector3:" in main
 assert "if current_clip == BACK_SOMERSAULT_CLIP and uid == RUN_ROOT_BONE_UUID" in rig
 assert "q = _blockbench_rotation(_value_at(rotation_values, t))" in rig
 assert "if back_somersault_has_authored_clip and not bool(" in back
-assert 'rig.call("set_back_somersault_progress", progress)' in back
+assert 'rig.call("set_back_somersault_progress", pose_progress)' in back
 assert 'const BACK_SOMERSAULT_CLIP: String = "Kick_b"' in rig
 print("V280_KICK_MOTION_STATIC_PASS")
