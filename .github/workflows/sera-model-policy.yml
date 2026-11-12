@@ -18,6 +18,7 @@ on:
       - 'assets/AGENTS.md'
       - 'assets/sera_source.json'
       - 'assets/sera_data.gd'
+      - 'assets/sera_kick_clips.gd'
       - 'assets/sera_equipment_data.gd'
       - 'assets/sera_lower_body_d_data.gd'
       - 'assets/sera_bird_data.gd'
@@ -62,6 +63,7 @@ on:
       - 'tools/v269_screen_kick_video_self_check.py'
       - 'tools/v270_kick_input_priority_diagnostic_self_check.py'
       - 'tools/v271_embedded_kick_runtime_recovery_self_check.py'
+      - 'tools/v272_dedicated_kick_pack_self_check.py'
       - 'tools/v242_screen_lock_buttons_self_check.py'
       - 'tools/v243_controller_quadrant_lock_mode_self_check.py'
       - 'tools/v244_half_size_run_boost_controller_self_check.py'
@@ -307,6 +309,8 @@ jobs:
         run: python3 tools/v270_kick_input_priority_diagnostic_self_check.py
       - name: Verify v271 embedded side-kick clips recover from stale Android JSON
         run: python3 tools/v271_embedded_kick_runtime_recovery_self_check.py
+      - name: Verify v272 independent authored kick pack and UUID/name mapping
+        run: python3 tools/v272_dedicated_kick_pack_self_check.py
       - name: Verify shared transparent render contract and new shaders
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}

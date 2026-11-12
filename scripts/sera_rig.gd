@@ -17,6 +17,9 @@ const SOURCE_PATH: String = "res://assets/sera_source.json"
 # This is a model read, not a mesh replacement or re-export.
 const KICK_AUTHORING_SOURCE: String = "res://models/storage/SERA_BOOSTER_allテスト (9).bbmodel"
 const EMBEDDED = preload("res://assets/sera_data.gd")
+# Independently versioned 39KB authored kick-only resource. Mandatory for
+# v272: do not rely solely on a potentially stale source/whole-model embed.
+const KICK_PACK = preload("res://assets/sera_kick_clips.gd")
 const EQUIPMENT_SCRIPT = preload("res://scripts/sera_equipment.gd")
 const RENDER_ORDER = preload("res://scripts/render_order_policy.gd")
 const BIRD_EMBEDDED = preload("res://assets/sera_bird_data.gd")
@@ -157,6 +160,8 @@ var side_kick_playback_scale: float = 1.0
 # The integrated generated GDScript always carries both real authored clips.
 var embedded_side_kick_restore_attempted: bool = false
 var embedded_side_kick_restored: bool = false
+var dedicated_side_kick_attempted: bool = false
+var dedicated_side_kick_status: String = "NOT CHECKED"
 # A complete 360-degree flick uses a continuous blend of authored cardinal
 # step poses; forward movement uses the authored Frontstep pose.
 var directional_step_active: bool = false
@@ -217,8 +222,10 @@ func _ready() -> void:
     _install_bird_model()
     _build_animations(data)
     _merge_authored_side_kick_clips()
-    # Live res:// source may be older than the generated embedded snapshot.
-    # Restore only missing / unplayable kicks, keeping all other clips intact.
+    # A dedicated, small Godot script resource is independent of both the
+    # live JSON and the large generated whole-model GDScript. It also maps
+    # authored UUIDs to runtime joint names if an older file changed UUIDs.
+    _restore_dedicated_side_kicks()
     _restore_embedded_side_kicks()
     _merge_bird_animation_tracks()
     # Mesh alternatives reuse the original animated pivots/UUIDs unchanged.
@@ -1283,6 +1290,83 @@ func _usable_side_kick_clip(name: String) -> bool:
     return false
 
 
+# This dedicated two-clip payload is a separate NEW res:// GDScript file.
+# In contrast to the ~550KB historical whole-model embed, its small payload
+# cannot be silently shadowed by old source/sera_data files. Preserve the
+# 22-bone authored frames; where bone UUIDs differ, map by UNIQUE bone name.
+# Do NOT guess at ambiguous bone names or transform any mesh/model Pivot.
+func _restore_dedicated_side_kicks() -> void:
+    if dedicated_side_kick_attempted:
+        return
+    dedicated_side_kick_attempted = true
+    if _usable_side_kick_clip("Kick_l") and _usable_side_kick_clip("Kick_r"):
+        dedicated_side_kick_status = "ALREADY READY"
+        return
+    var pack: Dictionary = KICK_PACK.get_data()
+    if str(pack.get("format", "")) != "SERA_KICK_PACK_v1":
+        dedicated_side_kick_status = "PACK PARSE ERROR"
+        push_warning("SERA Kick: dedicated GDScript pack could not be decoded")
+        return
+    var group_names: Dictionary = {}
+    for group_variant in pack.get("groups", []):
+        if not (group_variant is Dictionary):
+            continue
+        var group: Dictionary = group_variant
+        group_names[str(group.get("uuid", ""))] = str(group.get("name", ""))
+    # A duplicate runtime name must NEVER map arbitrary animation joints.
+    var runtime_names: Dictionary = {}
+    for uid_variant in bones.keys():
+        var uid: String = str(uid_variant)
+        var pivot: Node3D = bones[uid]
+        var bone_name: String = str(pivot.name)
+        if runtime_names.has(bone_name):
+            runtime_names[bone_name] = ""
+        else:
+            runtime_names[bone_name] = uid
+    var clips_recovered: int = 0
+    var best_bones: int = 0
+    for clip_variant in pack.get("animations", []):
+        if not (clip_variant is Dictionary):
+            continue
+        var raw_clip: Dictionary = clip_variant
+        var clip_name: String = str(raw_clip.get("name", ""))
+        if clip_name not in ["Kick_l", "Kick_r"] or _usable_side_kick_clip(clip_name):
+            continue
+        var animators: Dictionary = raw_clip.get("animators", {})
+        var compatible: Dictionary = {}
+        var animated_bones: int = 0
+        for src_uid_variant in animators.keys():
+            var src_uid: String = str(src_uid_variant)
+            var destination_uid: String = src_uid
+            if not bones.has(destination_uid):
+                var bone_name: String = str(group_names.get(src_uid, ""))
+                destination_uid = str(runtime_names.get(bone_name, ""))
+            if destination_uid.is_empty() or not bones.has(destination_uid):
+                continue
+            var animator: Dictionary = animators[src_uid_variant]
+            compatible[destination_uid] = animator
+            if not (animator.get("keyframes", []) as Array).is_empty():
+                animated_bones += 1
+        best_bones = maxi(best_bones, animated_bones)
+        # Both authored kicks animate >=16 unique joints. Reject a bogus
+        # remap onto a single generic pivot or incomplete custom skeleton.
+        if animated_bones < 8:
+            continue
+        var remapped_clip: Dictionary = raw_clip.duplicate(true)
+        remapped_clip["animators"] = compatible
+        _build_animations({"animations": [remapped_clip]})
+        if _usable_side_kick_clip(clip_name):
+            clips_recovered += 1
+    if _usable_side_kick_clip("Kick_l") and _usable_side_kick_clip("Kick_r"):
+        dedicated_side_kick_status = "READY"
+        print("SERA Kick: both authored side kicks loaded from dedicated v272 data, repaired=",
+            clips_recovered)
+    else:
+        dedicated_side_kick_status = "BONES %d/%d" % [best_bones, bones.size()]
+        push_warning("SERA Kick: dedicated clip has insufficient matching rig bones: "
+            + dedicated_side_kick_status)
+
+
 # Integrated model data is an independent fallback from SOURCE_PATH.
 # Android Godot may load an older res:// JSON with no Kick_l / Kick_r;
 # earlier versions never consulted EMBEDDED if that file existed.
@@ -1321,8 +1405,9 @@ func get_side_kick_diagnostic(side: int) -> String:
     if not loading_ok:
         return side_name + " RIG NOT READY"
     if chosen.is_empty():
-        return side_name + (" EMBEDDED FAILED" if embedded_side_kick_restore_attempted else " NO CLIP")
-    return side_name + " " + chosen + " KEYS OK"
+        # Short enough to remain readable in the right-side training HUD.
+        return side_name + " " + dedicated_side_kick_status
+    return side_name + " READY"
 
 
 func _side_kick_clip_for(side: int) -> String:
@@ -1360,7 +1445,9 @@ func has_side_kick(side: int) -> bool:
     # Repair the missing-clip path even if an Android file changed after
     # _ready(). This is attempted only once per rig instance.
     if _side_kick_clip_for(side).is_empty():
-        _restore_embedded_side_kicks()
+        _restore_dedicated_side_kicks()
+        if _side_kick_clip_for(side).is_empty():
+            _restore_embedded_side_kicks()
     return not _side_kick_clip_for(side).is_empty()
 
 

@@ -11,7 +11,7 @@ rig = (root / "scripts/sera_rig.gd").read_text(encoding="utf-8")
 project = (root / "project.godot").read_text(encoding="utf-8")
 runtime_json = (root / "assets/sera_source.json").read_text(encoding="utf-8")
 embedded_script = (root / "assets/sera_data.gd").read_text(encoding="utf-8")
-assert 'config/name="SERA v271"' in project
+assert (ver := re.search(r'config/name="SERA v([0-9]+)"', project)) and int(ver.group(1)) >= 271
 
 # The embedded source is compiled as a GDScript resource, independent of
 # FileAccess.file_exists(res://assets/sera_source.json) on the Android phone.

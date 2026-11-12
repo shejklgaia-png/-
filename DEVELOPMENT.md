@@ -1851,3 +1851,10 @@
 - `sera_rig.gd` に再生可能性判定（実際に組み立てたボーンUUID上のrotation/position/scaleのキーフレームの存在）を追加。起動時に不足した左右キック**だけ**を生成済み `EMBEDDED.get_json()` から補完。蹴り実行時のチェックも一度だけ自己復元可能とし、既存の有効なクリップ・モデル・Pivot・他モーションを上書きしない。
 - `main.gd` はCLIP MISSING時に左右と埋込復元の失敗状態をHUDへ表示。リグが蹴り開始を拒否したときは誤ってKICK成功／STEP移動状態へ移行しないように修正。入力・コンボ時刻・通常STEP・Bash仕様は維持。
 - `tools/v271_embedded_kick_runtime_recovery_self_check.py` に実際のbase64埋込とモデル関節の検証、JSONのKick欠落とキー空の模擬復元、モデル・他アニメの不変、リグ/ゲーム接続を追加。既存v264〜v270検査は新仕様と一致するよう明示的に更新。Android実機のv271動作は未確認。
+
+## 2026-11-12 — SERA v272：実機で埋込復元も失敗した左右蹴りへ独立モーション資源を追加
+- ユーザー提供スクリーンショット（SERA v271）のHUDに **`KICK: CLIP MISSING R EMBEDDED FAILED`** が明示された。右フリックは蹴り受付まで到達したが、旧`EMBEDDED.get_json()`復元後も実行時クリップが有効にならないことを確認。元データのGitHub版は正常なので、単に入力の角度を変更する対応は誤り。Android端末側での大きな埋込資源の復号・ファイル同期状態または実行中骨格のUUID相違は直接観測できず、失敗の詳細原因は未確定。
+- 新規`assets/sera_kick_clips.gd`にGitHub正本`assets/sera_source.json`の`Kick_l`/`Kick_r`だけ（22骨・109/72キー）を改変せず独立収録。約46KBの新しいGodotスクリプトで、旧`sera_source.json`／旧`sera_data.gd`が端末に残っていても新規資源を優先して読む。
+- `scripts/sera_rig.gd`の起動時、通常JSON/Blockbenchモーションロード後に新規資源から欠落した左右クリップのみを復元する。元UUIDが現在の骨格と合わなければ、**重複のない関節名を一致させて**アニメーションの参照UUIDだけを修正。最低8個のキーフレーム入りボーンが対応しなければ補完せず、元メッシュ・Pivot・キーフレームを保護。既存の大きな埋込復元も最後の保険として維持。
+- 成功・失敗をGodotログと短いHUD診断（専用資源復号エラー／対応関節数不足）で判別できるようにした。v271の「再生失敗時にSTEP/KICK成功と誤認しない」処理と、既存のSTEP/3連撃/Bash/EN/カメラ仕様は維持。
+- `tools/v272_dedicated_kick_pack_self_check.py`に専用GDScriptの復号、正本との全キーフレーム一致、旧JSON/旧丸ごと埋込が両方古い場合の補完、完全UUID不一致時の名前対応、不適合な骨格への誤適用拒否、リグへの呼出しとHUD接続を追加。CIへ統合し旧v271テストの固定バージョン表記も解消。Android実機のv272再生は未確認。
