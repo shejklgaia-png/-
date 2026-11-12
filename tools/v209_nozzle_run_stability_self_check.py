@@ -58,8 +58,9 @@ for alpha in (0.05, 0.33, 0.66, 0.95):
         a, b = yaw(-0.0001, -1, alpha, sign), yaw(0.0001, -1, alpha, sign)
         assert abs(wrap(a - b)) < math.radians(0.1)
 
-# A RUN footfall may touch the floor but must not teleport the whole actor
-# for just one frame. WAIT keeps its original whole-character sole alignment.
+# v299: A RUN touchdown aligns the visual rig from the true minimum foot
+# vertex and HOLDS that visual Y to prevent a one-frame pop. No movement of
+# the physical CharacterBody3D or single-mesh-only teleport is permitted.
 run_update = rig.split("func _update_foot_contacts(delta: float)",1)[1].split("func _build_model(",1)[0]
 assert 'equipment_handler.call("snap_run_contact_foot_to_floor", side)' in run_update
 assert 'foot_contact.emit(side)' in run_update
@@ -68,9 +69,12 @@ assert 'equipment_handler.call("restore_run_contact_foot_positions")' in rig
 assert 'equipment_handler.call("snap_grounded_sole_to_floor")' in rig
 contact = eq.split("func snap_run_contact_foot_to_floor(side: String)",1)[1].split("func get_grounding_height_offset()",1)[0]
 assert "get_active_foot_heights()" in contact
-assert "TRAINING_VISIBLE_FLOOR_Y - current_world_y" in contact
-assert "piece.global_position += Vector3.UP * adjustment" in contact
-assert "rig.position.y =" not in contact
+assert 'minf(float(heights["L"]), float(heights["R"]))' in contact
+assert "TRAINING_VISIBLE_FLOOR_Y - lowest - wearer.global_position.y" in contact
+assert "rig.position.y = run_contact_visual_y" in contact
+assert "piece.global_position += Vector3.UP * adjustment" not in contact
+assert 'func restore_run_contact_height() -> void:' in eq
+assert 'rig.position.y = run_contact_visual_y' in eq
 assert "player.position" not in contact
 assert "contact_foot_bind_positions[piece.get_instance_id()] = piece.position" in eq
 assert "piece.position = contact_foot_bind_positions[piece.get_instance_id()]" in eq
