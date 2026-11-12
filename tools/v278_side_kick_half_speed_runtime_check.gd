@@ -1,5 +1,5 @@
 extends SceneTree
-## Actual main-scene and rig test: 50% playback, ordinary travel, both hit keys.
+## Actual main-scene and rig test: 50% playback, delayed travel, both hit keys.
 func _initialize() -> void:
     call_deferred("_run")
 
@@ -61,6 +61,9 @@ func _run() -> void:
         var flat_path: Vector2 = game.get("step_linear_offset")
         var end: Vector3 = start + Vector3(flat_path.x, 0.0, flat_path.y)
         game.call("_advance_side_step", duration * 0.249)
+        if player.position.distance_to(start) > 0.015:
+            _fail("kick moved sideways before first impact")
+            return
         if int(game.get("side_kick_hit_mask")) != 0:
             _fail("first foot hit before slow 25% key")
             return
@@ -68,14 +71,19 @@ func _run() -> void:
         if int(game.get("side_kick_hit_mask")) != 1:
             _fail("first delayed kick key was skipped")
             return
+        if player.position.distance_to(start) > 0.015:
+            _fail("kick moved sideways during first strike")
+            return
         game.call("_advance_side_step", duration * 0.249)
         if not bool(game.get("step_active")):
             _fail("the slowed kick stopped at old STEP finish")
             return
-        if player.position.distance_to(end) > 0.035:
-            _fail("kick travel did not finish at normal STEP time")
+        var second_windup: float = 0.33333 if side > 0 else 0.41667
+        var halfway_travel: float = (0.5 - second_windup) * 2.0
+        var halfway_point: Vector3 = start + Vector3(flat_path.x, 0.0, flat_path.y) * halfway_travel
+        if player.position.distance_to(halfway_point) > 0.035:
+            _fail("lateral travel was not aligned with second windup")
             return
-        var settled: Vector3 = player.position
         # Realtime skeleton sampling follows the same normalized action time.
         rig.call("_process", duration * 0.5)
         if absf(float(rig.call("get_clip_time")) - 0.5) > 0.016:
@@ -85,15 +93,17 @@ func _run() -> void:
         if int(game.get("side_kick_hit_mask")) != 3:
             _fail("second foot contact did not align with slow 58.3% key")
             return
-        if player.position.distance_to(settled) > 0.015:
-            _fail("kick kept sliding after old STEP duration")
+        var second_hit_travel: float = (0.585 - second_windup) * 2.0
+        var second_hit_point: Vector3 = start + Vector3(flat_path.x, 0.0, flat_path.y) * second_hit_travel
+        if player.position.distance_to(second_hit_point) > 0.035:
+            _fail("second impact interrupted delayed lateral travel")
             return
         game.call("_advance_side_step", duration * 0.415)
         if bool(game.get("step_active")):
             _fail("kick did not finish at doubled duration")
             return
-        if player.position.distance_to(settled) > 0.015:
-            _fail("slow kick incorrectly added travel distance")
+        if player.position.distance_to(end) > 0.035:
+            _fail("kick did not finish full STEP distance after second windup")
             return
-    print("GODOT_V278_SIDE_KICK_HALF_SPEED_PASS: Kick_l/r 2x, STEP travel unchanged, keyed hit timing")
+    print("GODOT_V278_SIDE_KICK_HALF_SPEED_PASS: Kick_l/r 2x, travel starts at second windup, keyed hits")
     quit(0)
