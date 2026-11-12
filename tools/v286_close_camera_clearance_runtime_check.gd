@@ -26,6 +26,27 @@ func _run() -> void:
     if not bool(rig.get("loading_ok")):
         _fail("authored rig not loaded")
         return
+    # Lock controls must no longer obscure the player at 50% screen
+    # height. Preserve the horizontal order and original native hitboxes.
+    var left: Button = game.get("lock_switch_left_button")
+    var mode: Button = game.get("lock_mode_button")
+    var right: Button = game.get("lock_switch_right_button")
+    if left == null or mode == null or right == null:
+        _fail("lock switch buttons missing")
+        return
+    for button in [left, mode, right]:
+        if absf(button.anchor_top - 0.76) > 0.0001 or absf(
+                button.anchor_bottom - 0.76) > 0.0001:
+            _fail("lock controls still overlay the central combat silhouettes")
+            return
+        if button.mouse_filter != Control.MOUSE_FILTER_IGNORE:
+            _fail("lock button stole regular touch gesture ownership")
+            return
+    if not (left.anchor_left < mode.anchor_left
+            and mode.anchor_left < right.anchor_left):
+        _fail("moving lock UI vertically scrambled left/AUTO/right order")
+        return
+
     # Simulate a player standing close enough to overlap a broad boss leg.
     target.position = Vector3.ZERO
     player.position = Vector3(0,0,3.0)
