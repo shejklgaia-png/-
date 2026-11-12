@@ -83,8 +83,8 @@ const BACK_SOMERSAULT_HEIGHT: float = 1.5
 const BACK_SOMERSAULT_FLIGHT_SECONDS: float = 0.80
 const BACK_SOMERSAULT_LANDING_SECONDS: float = 0.20
 const BACK_SOMERSAULT_VISUAL_PIVOT_HEIGHT: float = 0.90
-const BACK_SOMERSAULT_HIT_START: float = 0.10
-const BACK_SOMERSAULT_HIT_END: float = 0.45
+# Kick_b's extended right leg at original 0.20833s/0.79167s.
+const BACK_SOMERSAULT_HIT_PROGRESS: float = 0.20833 / 0.79167
 const JUMP_FLIGHT_SECONDS: float = 0.80  # 0.000..0.375 authored seconds are retimed over flight
 # New authored landing transition 0.375->0.500 runs after floor contact.
 const JUMP_LANDING_MOTION_SECONDS: float = 0.125
@@ -143,7 +143,8 @@ const KATANA_STRIKE_CLIP: String = "Melee_katana"
 const BASH_LINK_SECONDS: float = 0.65
 # Post-Melee3 lateral flick uses the same trajectory and cost as a STEP.
 # Kick damage borrows melee1 until dedicated kick stats are specified.
-const SIDE_KICK_HIT_PROGRESS: float = 0.50
+# Both authored kicks straighten alternate legs at these original 1s keys.
+const SIDE_KICK_HIT_PROGRESS = [0.25, 0.58333]
 const SIDE_KICK_REACH: float = MELEE_SURFACE_REACH
 const BASH_CONTACT_TIME: float = 0.25
 const BASH_TRACK_SECONDS: float = 0.20  # Max time to enter Bash reach before launch.
@@ -165,7 +166,7 @@ const BLADE_THICKNESS: float = 0.14
 const HIT_STOP_SECONDS: float = 0.060
 const HIT_FLASH_SECONDS: float = 0.145
 const TARGET_RESPAWN_SECONDS: float = 1.35
-enum CombatState { IDLE, MELEE_APPROACH, DASH, STRIKE, BASH, BASH_TRACK, STRIKE_TRACK }
+enum CombatState { IDLE, MELEE_APPROACH, DASH, STRIKE, BASH, BASH_TRACK, STRIKE_TRACK, BACK_KICK_TRACK }
 # v112: Persistent handedness changes RUN animation selection only.
 const HANDEDNESS_SETTINGS_FILE: String = "user://sera_settings.cfg"
 const NEXUS_SCENE: String = "res://scenes/command_nexus.tscn"
@@ -375,12 +376,16 @@ var back_somersault_direction: Vector3 = Vector3.ZERO
 var back_somersault_original_rig_y: float = 0.195
 var back_somersault_has_authored_clip: bool = false
 var back_somersault_hit: bool = false
+var back_somersault_hit_checked: bool = false
+var back_kick_track_elapsed: float = 0.0
 var player_floor_mark: Node3D
 var step_active: bool = false
 var step_kick_side_request: int = 0  # transient; keep STEP method API unchanged
 var side_kick_active: bool = false
 var side_kick_side: int = 0  # -1 Kick_l, +1 Kick_r; distinct from screen travel
 var side_kick_did_hit: bool = false
+var side_kick_hit_mask: int = 0
+var side_kick_hit_count: int = 0
 var step_elapsed: float = 0.0
 var step_duration_current: float = STEP_MIN_ARC_LENGTH / STEP_SPEED
 var step_speed_current: float = STEP_SPEED  # snapshotted once on each flick
@@ -2717,7 +2722,9 @@ func _request_combo_side_kick(flick: Vector2) -> bool:
 
 func _launch_combo_side_kick(flick: Vector2, side: int) -> bool:
     if side == 2:
-        var launched: bool = _start_back_somersault()
+        var launched: bool = (_start_back_somersault()
+            if _distance_to_attack_target_surface(player.position) <= BASH_REACH
+            else _start_back_kick_track())
         _record_kick_debug("START B" if launched else "B EN / ACTION BLOCKED")
         return launched
     if (side != 1 and side != -1) or rig == null \
@@ -2730,6 +2737,25 @@ func _launch_combo_side_kick(flick: Vector2, side: int) -> bool:
         else "EN / ACTION BLOCKED")
     return started
 
+
+# Same maximum 0.2s lock-on approach as Bash, before (never during) rear flight.
+func _start_back_kick_track() -> bool:
+    if (guard_active or damage_reaction_active or landing_active or jump_active
+            or step_active or back_somersault_active
+            or combat_state != CombatState.IDLE or rig == null
+            or not bool(rig.get("loading_ok"))):
+        return false
+    if energy_exhausted or energy < 15.0 * float(part_stats.get("energy_cost_mult", 1.0)):
+        return false
+    combat_state = CombatState.BACK_KICK_TRACK
+    back_kick_track_elapsed = 0.0
+    direction_input = Vector2.ZERO
+    movement_boost_active = false
+    boost_confirm_elapsed = 0.0
+    _reset_boost_speed_transition()
+    _cancel_combo_followup_windows_for_movement()
+    rig.call("start_melee_approach")
+    return true
 
 # Backward somersault is a distinct aerial combo, NOT a STEP: the 4m
 # displacement is behind SERA / away from the lock target even when the
@@ -2749,6 +2775,7 @@ func _start_back_somersault() -> bool:
     back_somersault_active = true
     back_somersault_elapsed = 0.0
     back_somersault_hit = false
+    back_somersault_hit_checked = false
     back_somersault_start = player.position
     back_somersault_original_rig_y = rig.position.y
     back_somersault_has_authored_clip = bool(rig.call("back_somersault_uses_authored_clip"))
@@ -2798,11 +2825,13 @@ func _advance_back_somersault(delta: float) -> void:
         rig.position.y = back_somersault_original_rig_y + (
             BACK_SOMERSAULT_VISUAL_PIVOT_HEIGHT * (1.0 - cos(angle)))
     rig.call("set_back_somersault_progress", progress)
-    if not back_somersault_hit and progress >= BACK_SOMERSAULT_HIT_START \
-            and progress <= BACK_SOMERSAULT_HIT_END and target_hp > 0 \
-            and _distance_to_attack_target_surface(player.position) <= SIDE_KICK_REACH:
-        back_somersault_hit = true
-        _register_side_kick_hit()
+    # Each authored full-extension key is a one-shot event, including misses.
+    if not back_somersault_hit_checked and previous < BACK_SOMERSAULT_HIT_PROGRESS \
+            and progress >= BACK_SOMERSAULT_HIT_PROGRESS:
+        back_somersault_hit_checked = true
+        if target_hp > 0 and _distance_to_attack_target_surface(player.position) <= SIDE_KICK_REACH:
+            back_somersault_hit = true
+            _register_side_kick_hit()
     if progress >= 1.0:
         back_somersault_active = false
         back_somersault_elapsed = 0.0
@@ -2821,6 +2850,7 @@ func _cancel_back_somersault() -> void:
     back_somersault_active = false
     back_somersault_elapsed = 0.0
     back_somersault_hit = false
+    back_somersault_hit_checked = false
     if rig != null:
         rig.rotation.x = 0.0
         rig.position.y = back_somersault_original_rig_y
@@ -2904,6 +2934,8 @@ func _start_omni_step(flick: Vector2) -> bool:
     side_kick_active = step_kick_side_request != 0
     side_kick_side = step_kick_side_request
     side_kick_did_hit = false
+    side_kick_hit_mask = 0
+    side_kick_hit_count = 0
     if side_kick_active:
         if not bool(rig.call("start_side_kick", step_kick_side_request, step_duration_current)):
             # Do not claim KICK START if the rig refused playback.
@@ -3036,6 +3068,8 @@ func _finish_side_step(resume_moving: bool) -> void:
     side_kick_active = false
     side_kick_side = 0
     side_kick_did_hit = false
+    side_kick_hit_mask = 0
+    side_kick_hit_count = 0
     if step_close_camera:
         # Retain the target-relative guard very briefly after the final
         # physics tick so idle recenter cannot immediately undo it.
@@ -3057,6 +3091,7 @@ func _advance_side_step(delta: float) -> void:
     # Linear path progression preserves the direction-dependent speed
     # snapshotted at step start. The live touch flick always uses this
     # screen/facing-aligned linear branch; legacy debug STEP orbit remains.
+    var previous_progress: float = step_elapsed / step_duration_current
     step_elapsed = minf(step_duration_current, step_elapsed + delta)
     var progress: float = step_elapsed / step_duration_current
     var new_offset: Vector2 = step_start_offset + step_linear_offset * progress
@@ -3077,12 +3112,25 @@ func _advance_side_step(delta: float) -> void:
     _move_player_swept(requested, true)
     step_traveled_distance += Vector2(
         player.position.x - before.x, player.position.z - before.z).length()
-    # One kick hit per movement, check again if target evades first contact.
-    if side_kick_active and not side_kick_did_hit \
-            and progress >= SIDE_KICK_HIT_PROGRESS \
-            and target_hp > 0 \
-            and _distance_to_attack_target_surface(player.position) <= SIDE_KICK_REACH:
-        _register_side_kick_hit()
+    if side_kick_active:
+        # During the first 0.2s of the kick, reuse Bash's live-target,
+        # energy-priced homing with swept collision (not a new teleport).
+        var chase_dt: float = minf(maxf(delta, 0.0),
+            maxf(0.0, BASH_TRACK_SECONDS - step_duration_current * previous_progress))
+        if chase_dt > 0.0 and target_hp > 0:
+            _advance_homing_toward_target(chase_dt, BASH_REACH)
+        # Original 24fps 1s clip is time-scaled to this actual STEP duration.
+        # Each straightened foot can register at most once, never a late hit.
+        for i in range(SIDE_KICK_HIT_PROGRESS.size()):
+            var impact_progress: float = float(SIDE_KICK_HIT_PROGRESS[i])
+            var bit: int = 1 << i
+            if (side_kick_hit_mask & bit) != 0:
+                continue
+            if previous_progress < impact_progress and progress >= impact_progress:
+                side_kick_hit_mask |= bit
+                if target_hp > 0 and _distance_to_attack_target_surface(player.position) <= SIDE_KICK_REACH:
+                    _register_side_kick_hit()
+                    side_kick_hit_count += 1
     # No Y/root-motion changes; preserve preexisting facing/camera pipeline.
     if step_elapsed >= step_duration_current:
         _finish_side_step(gesture_active and direction_input.length_squared() > 0.000001)
@@ -3198,6 +3246,7 @@ func _cancel_attack() -> void:
     combat_state = CombatState.IDLE
     melee_boost_elapsed = 0.0
     bash_track_elapsed = 0.0
+    back_kick_track_elapsed = 0.0
     followup_track_elapsed = 0.0
     combo_queued = false
     bash_queued = false
@@ -3450,6 +3499,21 @@ func _advance_attack(delta: float) -> void:
                 _start_strike()
             elif melee_boost_elapsed >= maximum_duration - 0.00001:
                 _cancel_attack()
+        CombatState.BACK_KICK_TRACK:
+            # Share the actual Bash homing function, target, EN and collisions.
+            var kick_dt: float = minf(maxf(delta, 0.0),
+                maxf(0.0, BASH_TRACK_SECONDS - back_kick_track_elapsed))
+            if _distance_to_attack_target_surface(player.position) > BASH_REACH:
+                if kick_dt > 0.0 and not _advance_homing_toward_target(kick_dt, BASH_REACH):
+                    _cancel_attack()
+                    return
+                back_kick_track_elapsed += kick_dt
+            if _distance_to_attack_target_surface(player.position) <= BASH_REACH \
+                    or back_kick_track_elapsed >= BASH_TRACK_SECONDS - 0.00001:
+                combat_state = CombatState.IDLE
+                back_kick_track_elapsed = 0.0
+                if not _start_back_somersault():
+                    rig.call("finish_attack", false)
         CombatState.BASH_TRACK:
             # Chase for up to 0.2s while the authored Bash windup ping-pongs.
             # Launch immediately on reaching range, including on frame 0.
@@ -3768,7 +3832,8 @@ func _physics_process(delta: float) -> void:
             player.velocity = Vector3.ZERO
         player.move_and_slide()
     elif not stepping_this_frame and combat_state != CombatState.DASH \
-            and combat_state != CombatState.BASH_TRACK and combat_state != CombatState.STRIKE_TRACK:
+            and combat_state != CombatState.BASH_TRACK and combat_state != CombatState.STRIKE_TRACK \
+            and combat_state != CombatState.BACK_KICK_TRACK:
         # Even with no input, resolve any pre-existing body penetration.
         player.velocity = Vector3.ZERO
         player.move_and_slide()
@@ -4002,6 +4067,9 @@ func _physics_process(delta: float) -> void:
                 state_label.text = ("STRIKE 3/3  |  KICK B QUEUED" if buffered_side_kick_side == 2
                     else "STRIKE 3/3  |  KICK QUEUED") if buffered_side_kick_side != 0 \
                     else "STRIKE %d/3  |  %s" % [strike_index + 1, str(STRIKE_CLIPS[strike_index])]
+            CombatState.BACK_KICK_TRACK:
+                state_label.text = "KICK BACK TRACK  %.2f / %.2fs" % [
+                    back_kick_track_elapsed, BASH_TRACK_SECONDS]
             CombatState.BASH_TRACK:
                 state_label.text = "BASH WINDUP  %.2f / %.2fs" % [
                     bash_track_elapsed, BASH_TRACK_SECONDS]
