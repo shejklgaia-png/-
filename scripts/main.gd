@@ -359,6 +359,7 @@ var landing_active: bool = false
 var landing_elapsed: float = 0.0
 var player_floor_mark: Node3D
 var step_active: bool = false
+var step_kick_side_request: int = 0  # transient; keep STEP method API unchanged
 var side_kick_active: bool = false
 var side_kick_did_hit: bool = false
 var step_elapsed: float = 0.0
@@ -2548,10 +2549,13 @@ func _request_combo_side_kick(flick: Vector2) -> bool:
     var side: int = 1 if sector == 1 else -1
     if rig == null or not bool(rig.call("has_side_kick", side)):
         return false
-    return _start_omni_step(flick, side)
+    step_kick_side_request = side
+    var started: bool = _start_omni_step(flick)
+    step_kick_side_request = 0
+    return started
 
 
-func _start_omni_step(flick: Vector2, kick_side: int = 0) -> bool:
+func _start_omni_step(flick: Vector2) -> bool:
     if (guard_active or damage_reaction_active or landing_active
             or rig == null or not bool(rig.get("loading_ok"))
             or flick.length_squared() < 0.000001):
@@ -2622,10 +2626,10 @@ func _start_omni_step(flick: Vector2, kick_side: int = 0) -> bool:
     step_side = STEP_BACK if direction.y > 0.8 else (1 if direction.x > 0.0 else -1)
     step_elapsed = 0.0
     step_traveled_distance = 0.0
-    side_kick_active = kick_side != 0
+    side_kick_active = step_kick_side_request != 0
     side_kick_did_hit = false
     if side_kick_active:
-        rig.call("start_side_kick", kick_side, step_duration_current)
+        rig.call("start_side_kick", step_kick_side_request, step_duration_current)
     else:
         rig.call("start_omni_step", pose_direction)
     _refresh_step_status_ui()
