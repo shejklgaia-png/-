@@ -1531,6 +1531,15 @@ func start_back_somersault() -> bool:
         return false
     somersault_authored = has_back_somersault_clip()
     somersault_final_pose_sampled = false
+    # BACK_KICK_TRACK previously used start_melee_approach(), which sets
+    # combat_playback=true. Entering Kick_b did not clear that flag:
+    # finish_jump then returned to WAIT/RUN but set_moving was blocked
+    # forever by the stale combat flag. Explicitly hand animation ownership
+    # from the melee tracker to the airborne authored somersault.
+    combat_playback = false
+    combat_paused = false
+    freeze_attack_pose = false
+    attack_windup_active = false
     jump_playback = true
     _switch_clip(BACK_SOMERSAULT_CLIP if somersault_authored else JUMP_CLIP, 0.055)
     clip_time = 0.0
@@ -1601,6 +1610,13 @@ func finish_jump(resume_moving: bool, boosting: bool = false) -> void:
     jump_playback = false
     somersault_authored = false
     somersault_final_pose_sampled = false
+    # Be robust if BACK_KICK_TRACK entered via melee tracking, including
+    # interrupted or missed kicks. No stale combat state may suppress
+    # set_moving() after the 0.2-second landing animation.
+    combat_playback = false
+    combat_paused = false
+    freeze_attack_pose = false
+    attack_windup_active = false
     _switch_clip((BOOST_CLIP if boosting else RUN_CLIP) if resume_moving else WAIT_CLIP, 0.11)
 
 func set_combat_paused(paused: bool) -> void:
