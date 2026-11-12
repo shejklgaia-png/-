@@ -1261,10 +1261,10 @@ func _side_kick_clip_for(side: int) -> String:
     if side != -1 and side != 1:
         return ""
     var preferred: Array[String] = [
-        "Kick_R", "Kick_Right", "RightKick", "KickRight", "KickR",
+        "Kick_r", "Kick_R", "Kick_Right", "RightKick", "KickRight", "KickR",
         "右蹴り", "右キック"
     ] if side > 0 else [
-        "Kick_L", "Kick_Left", "LeftKick", "KickLeft", "KickL",
+        "Kick_l", "Kick_L", "Kick_Left", "LeftKick", "KickLeft", "KickL",
         "左蹴り", "左キック"
     ]
     for clip_name in preferred:
