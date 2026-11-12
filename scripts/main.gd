@@ -2973,6 +2973,9 @@ func _cancel_attack() -> void:
     combo_queued = false
     bash_queued = false
     bash_combo_queued = false
+    buffered_side_kick_flick = Vector2.ZERO
+    buffered_side_kick_side = 0
+    side_kick_flick_candidate = false
     bash_flick_candidate = false
     bash_followup_window_remaining = 0.0
     bash_loop_window_remaining = 0.0
@@ -2989,6 +2992,8 @@ func _cancel_attack() -> void:
 
 func _request_combo_bash() -> bool:
     if combat_state == CombatState.STRIKE and strike_index == STRIKE_CLIPS.size() - 1:
+        buffered_side_kick_flick = Vector2.ZERO
+        buffered_side_kick_side = 0
         bash_queued = true
         return true
     if combat_state == CombatState.IDLE and bash_followup_window_remaining > 0.0:
@@ -3007,6 +3012,8 @@ func _start_bash() -> void:
     bash_track_elapsed = 0.0
     bash_queued = false
     bash_combo_queued = false
+    buffered_side_kick_flick = Vector2.ZERO
+    buffered_side_kick_side = 0
     bash_flick_candidate = false
     bash_followup_window_remaining = 0.0
     bash_loop_window_remaining = 0.0
@@ -3137,6 +3144,8 @@ func _start_strike(stage: int = 0) -> void:
         return
     strike_index = next_stage
     combo_queued = false
+    buffered_side_kick_flick = Vector2.ZERO
+    buffered_side_kick_side = 0
     _clear_strike_tracking()
     if sword_trail != null:
         sword_trail.call("stop_swing")
