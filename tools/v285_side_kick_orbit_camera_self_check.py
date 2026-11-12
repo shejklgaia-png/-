@@ -39,7 +39,7 @@ assert advance.index("_advance_homing_toward_target(chase_dt, BASH_REACH)") < ad
 assert "if progress >= second_windup:" in advance
 assert "(progress - second_windup) * SIDE_KICK_MOTION_TIME_MULTIPLIER" in advance
 assert "step_target_center = Vector2(target.position.x, target.position.z)" in advance
-assert "step_radial_delta * (" in advance and "0.0 if side_kick_active else travel_progress" in advance
+assert "step_radial_delta * radial_progress" in advance and "smoothstep(0.0, 0.65, travel_progress)" in advance
 assert "step_signed_angle * travel_progress" in advance
 assert "_move_player_swept(requested, true)" in advance
 assert "if previous_progress < impact_progress and progress >= impact_progress:" in advance
