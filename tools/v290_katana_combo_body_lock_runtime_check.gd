@@ -100,8 +100,10 @@ func _run() -> void:
     game.set("combat_state",0)
     var visual_yaw: float = float(rig.call("_run_yaw_for_direction",
         Vector2.RIGHT,0.0))
-    if absf(visual_yaw)>deg_to_rad(25.0)+0.0001:
-        _fail("lateral running turns SERA sideways from locked boss")
+    # v295: lateral RUN SHOULD rotate the visible Waist ±90° toward travel.
+    # The physical CharacterBody3D remains boss-facing (verified below).
+    if absf(wrapf(visual_yaw + PI * 0.5, -PI, PI)) > 0.0001:
+        _fail("lateral RUN does not face rightward travel")
         return
 
     # Sideways movement must track the WHOLE boss pivot, independently

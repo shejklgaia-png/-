@@ -37,7 +37,9 @@ assert "atan2(-authored_forward.x, -authored_forward.z)" in lock
 assert "correction * clampf(blend_weight, 0.0, 1.0)" in lock
 animation = rig.split("func _apply_animation(_delta: float) -> void:",1)[1].split("func _blockbench_rotation(",1)[0]
 assert "if uid == RUN_ROOT_BONE_UUID and (" in animation
-assert "running_pose or current_clip == BOOST_CLIP" in animation
+# v295: RUN preserves movement-relative Waist yaw, unlike STEP/BOOST.
+assert "running_pose or current_clip == BOOST_CLIP" not in animation
+assert "current_clip == BOOST_CLIP" in animation
 assert "or (step_playback and directional_step_active)" in animation
 assert "q = _face_locked_boss_with_waist(q, blend_weight)" in animation
 assert "if blend_weight < 1.0 and prior_rotations.has(uid):" in animation

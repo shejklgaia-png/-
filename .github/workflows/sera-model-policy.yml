@@ -198,7 +198,7 @@ jobs:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: python3 tools/model_policy_check.py --base "$BASE_SHA" --head "$HEAD_SHA"
-      - name: Verify all 103 historical Python regressions (batched, isolated, parallel)
+      - name: Verify all registered historical Python regressions (batched, isolated, parallel)
         run: python3 tools/sera_ci_suite.py static --workers 4
       # Earlier static regressions all passed while the Android side kick
       # lookup failed. Test the real GDScript runtime, not just its text.
@@ -213,7 +213,7 @@ jobs:
           chmod +x "$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64"
       - name: Import SERA resources in real Godot 4.7.2
         run: '"$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" --headless --editor --path . --import --quit'
-      - name: Verify all 21 real-Godot regressions (isolated, parallel)
+      - name: Verify all registered real-Godot regressions (isolated, parallel)
         env:
           SERA_GODOT_BIN: ${{ runner.temp }}/godot/Godot_v4.7.2-stable_linux.x86_64
         run: python3 tools/sera_ci_suite.py godot --workers 3
