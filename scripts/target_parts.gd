@@ -10,6 +10,10 @@ const LEG_IDS = ["leg_fl", "leg_fr", "leg_rl", "leg_rr"]
 # Head-only AUTO lock padding: a virtual cap above the existing head box.
 # Never alter the authored geometry, collision shapes or attack hit volume.
 const HEAD_LOCK_UPWARD_EXTENSION_METERS: float = 1.0
+# v299: the former upper-only cap missed low, shallow-angle camera rays,
+# so BODY (which always intersects the center line) won before HEAD.
+# Extend the head-only virtual box toward the authored +Z face of the boss.
+const HEAD_LOCK_FORWARD_EXTENSION_METERS: float = 0.85
 const SELECTION_HYSTERESIS_RADIANS: float = 0.13
 const CAMERA_PART_LOCK_HYSTERESIS: float = 0.065
 const CAMERA_PART_DISTANCE_TIE_WEIGHT: float = 0.001
@@ -421,16 +425,20 @@ func _camera_center_line_part_distance(camera_origin: Vector3,
         var contact_world: Vector3 = mesh_node.to_global(contact)
         closest = minf(closest,
             camera_origin.distance_squared_to(contact_world))
-    # The low-mounted sensor sits below some CAMERA->BODY-center sightlines.
-    # Add exactly ONE virtual Box AABB above its existing bounds for AUTO
-    # lock selection only. The original mesh/physical/hit AABBs stay intact.
+    # v299: the original v297 upper-only cap overlapped the central torso.
+    # Typical camera rays entered BODY first whenever they passed below that
+    # shallow cap, hiding HEAD despite its 1m vertical extension.
+    # One head-only virtual AABB covers the original head extent, the same
+    # 1m overhang above it, and 0.85m forward from its +Z face. This makes
+    # frontal camera rays meet HEAD in front of the BODY without any special
+    # lock priority. No rendered mesh, attack hitbox or collider is changed.
     if id == "head":
         var head_size: Vector3 = parts[id]["size"]
         var overhead: AABB = AABB(
-            Vector3(-head_size.x * 0.5, head_size.y * 0.5,
+            Vector3(-head_size.x * 0.5, -head_size.y * 0.5,
                 -head_size.z * 0.5),
-            Vector3(head_size.x, HEAD_LOCK_UPWARD_EXTENSION_METERS,
-                head_size.z))
+            Vector3(head_size.x, head_size.y + HEAD_LOCK_UPWARD_EXTENSION_METERS,
+                head_size.z + HEAD_LOCK_FORWARD_EXTENSION_METERS))
         var overhead_contact: Variant = overhead.intersects_segment(
             pivot.to_local(camera_origin), pivot.to_local(body_center))
         if overhead_contact != null:
