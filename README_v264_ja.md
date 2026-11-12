@@ -12,8 +12,8 @@
 - 蹴り中はロック部位を保持し、終了後に通常STEPと同じ待機・入力処理へ戻します。
 
 ## Blockbenchモーションの取り扱い
-- `scripts/sera_rig.gd` は、`assets/sera_source.json` に含まれる `Kick_L`/`Kick_R`（`KickLeft`/`KickRight`、`左蹴り`/`右蹴り` 等にも対応）の実在するクリップを読み込み、移動時間に合わせて再生速度を調整します。モーションを勝手に生成・複製しません。
-- **2026-11-12 に確認したGitHub `main` の `assets/sera_source.json` および `models/SERA_BOOSTER_allテスト.bbmodel` には、左右蹴りのクリップはまだ入っていません。**この段階では安全のため左右蹴り派生を発動せず、従来の左右STEPに戻します。ユーザーが制作済みの左右モーションを同一骨格でGitHubへ反映し、実行用の `assets/sera_source.json` に統合する必要があります（埋込フォールバック `assets/sera_data.gd` も対応するツールで再生成）。
+- `scripts/sera_rig.gd` は、`assets/sera_source.json` の実在クリップを優先し、未登録なら同期済みの `models/SERA_BOOSTER_allテスト.bbmodel` から**蹴りのアニメーショントラックだけ**を追加ロードします。`Kick_L`/`Kick_R`、`KickLeft`/`KickRight`、`左蹴り`/`右蹴り` 等に対応し、移動時間に合わせて再生速度を調整します。モデルや他クリップは上書きしません。長さ・有効ボーントラックのないクリップは蹴りとして使用しません。
+- **2026-11-12 に確認したGitHub `main` の `assets/sera_source.json` および `models/SERA_BOOSTER_allテスト.bbmodel` には、左右蹴りのクリップはまだ入っていません。**この段階では安全のため左右蹴り派生を発動せず、従来の左右STEPに戻します。制作済みの左右モーションを同一骨格の統合BlockbenchファイルとしてGitHubへ同期すれば、実行時に蹴りトラックを読み込めます。配布版でモデル原本を同梱しない場合は `assets/sera_source.json` への統合と `assets/sera_data.gd` の再生成が必要です。
 - Godot/Android実機での表示・モーション・入力感は未確認です。
 
 ## 変更範囲
