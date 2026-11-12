@@ -1613,10 +1613,18 @@ func _update_target_marker_projection() -> void:
         touch_ui.call("set_target_marker_projection", Vector2.ZERO, false)
         return
     var screen_position: Vector2 = camera.unproject_position(center_world)
-    # Hide offscreen instead of pinning the marker to an incorrect position.
-    var on_screen: bool = (screen_position.x >= 0.0 and screen_position.x <= viewport_size.x
-        and screen_position.y >= 0.0 and screen_position.y <= viewport_size.y)
-    touch_ui.call("set_target_marker_projection", screen_position, on_screen)
+    # A valid lock may be outside the view, especially when circling a
+    # large boss. Show an amber EDGE marker rather than making the lock
+    # look disabled. Clamp only the HUD indicator, never the real aim/hit.
+    var is_offscreen: bool = (screen_position.x < 0.0
+        or screen_position.x > viewport_size.x
+        or screen_position.y < 0.0
+        or screen_position.y > viewport_size.y)
+    var edge_margin: float = 42.0
+    var safe_screen: Vector2 = Vector2(
+        clampf(screen_position.x, edge_margin, maxf(edge_margin, viewport_size.x-edge_margin)),
+        clampf(screen_position.y, edge_margin, maxf(edge_margin, viewport_size.y-edge_margin)))
+    touch_ui.call("set_target_marker_projection", safe_screen, true, is_offscreen)
 
 
 func _step_speed_for_player_position(pos: Vector3) -> float:
