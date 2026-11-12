@@ -83,5 +83,28 @@ func _run() -> void:
     if absf(rig.position.y - resting_y) > 0.0001:
         _fail("cancel left rig pivot offset active")
         return
-    print("GODOT_V280_KICK_MOTION_PASS: authored Kick_b full rig flip, upright landing and reset")
+    # The first strike may move toward the target, but delayed lateral STEP
+    # must not snap that homing displacement back to its starting position.
+    var target: Node3D = game.get("target")
+    target.position = Vector3.ZERO
+    player.position = Vector3(0.0, 0.0, 3.0)
+    game.set("target_hp", 500)
+    game.set("step_kick_side_request", 1)
+    if not bool(game.call("_start_omni_step", Vector2.RIGHT)):
+        _fail("Kick_r failed after somersault cancel")
+        return
+    game.set("step_kick_side_request", 0)
+    var first_distance: float = player.position.distance_to(target.position)
+    game.call("_advance_side_step", 0.04)
+    var after_first_homing: float = player.position.distance_to(target.position)
+    game.call("_advance_side_step", 0.04)
+    var after_second_homing: float = player.position.distance_to(target.position)
+    if after_first_homing >= first_distance - 0.01:
+        _fail("first-strike Bash homing stopped before second windup")
+        return
+    if after_second_homing > after_first_homing + 0.03:
+        _fail("delayed STEP anchor undid first-strike homing")
+        return
+    game.call("_finish_side_step", false)
+    print("GODOT_V280_KICK_MOTION_PASS: delayed Kick_r/l travel, preserved homing, authored full flip and reset")
     quit(0)
