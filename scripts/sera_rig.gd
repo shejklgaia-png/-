@@ -350,6 +350,12 @@ func get_equipment_options(slot: String) -> Array:
 func get_equipment_selection(slot: String) -> String:
     return str(equipment_handler.call("current_for", slot)) if equipment_handler != null else "A"
 
+
+func get_equipment_two_handed_blocker(slot: String) -> Dictionary:
+    return (equipment_handler.call("two_handed_blocker", slot)
+        if equipment_handler != null else {})
+
+
 func set_equipment_selection(slot: String, set_id: String) -> bool:
     if equipment_handler == null:
         return false
@@ -604,8 +610,14 @@ func _add_entry(entry: Variant, parent: Node3D, parent_origin: Vector3, groups: 
             return
         piece.name = str(element.get("name", "Mesh"))
         piece.position = (_to_v3(element.get("origin", [0, 0, 0])) - parent_origin) * UNIT
-        if str(piece.name).begins_with("Bird_"):
-            # Keep bird-foot authored -22.5 degree mesh tilt, not only bone pose.
+        if str(piece.name).begins_with("Bird_") or (
+                str(parent.name).begins_with("Katana_")):
+            # v291: the saya has a free-model mesh under Katana_l3 with
+            # an authored +90deg Y rotation. Only bird-foot meshes were
+            # applying element rotation before, so the LEFT FOREARM sheath
+            # rendered at the wrong angle despite correct group pivots.
+            # Respect the authored mesh-local rotation for Katana meshes
+            # without changing unrelated equipment/rig orientations.
             piece.quaternion = _blockbench_rotation(
                 _to_v3(element.get("rotation", [0, 0, 0])))
         parent.add_child(piece)
