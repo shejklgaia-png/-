@@ -7,7 +7,7 @@ import re
 ROOT = Path(__file__).resolve().parents[1]
 main = (ROOT/"scripts/main.gd").read_text(encoding="utf-8")
 project = (ROOT/"project.godot").read_text(encoding="utf-8")
-assert 'config/name="SERA v269"' in project
+assert (v := re.search(r'config/name="SERA v([0-9]+)"', project)) and int(v.group(1)) >= 269
 
 def function(name, next_name):
     return main.split("func "+name, 1)[1].split("func "+next_name, 1)[0]
@@ -28,12 +28,11 @@ physics = function("_physics_process(delta: float) -> void:", "_process")
 assert "var actor_sector: int = FLICK_DIRECTION_POLICY.sector_index(" in helper
 assert "flick, gesture_screen_forward" in helper
 assert "if actor_sector == 1:" in helper and "if actor_sector == 3:" in helper
-assert "if actor_sector == 2:" in helper
 assert "var screen_sector: int = FLICK_DIRECTION_POLICY.sector_index(" in helper
 assert "flick, Vector2.UP" in helper
 assert "if screen_sector == 1:" in helper and "if screen_sector == 3:" in helper
 assert "return 0" in helper
-print("PASS: SERA-lateral kicks + screen-horizontal fallback inside actor-BACK sector")
+print("PASS: SERA-lateral kicks + screen-horizontal override for every actor heading")
 
 # Mirror the exact policy function from flick_direction_policy.gd.
 def sector(x,y,fx,fy):
@@ -48,10 +47,9 @@ def kick(x,y,fx,fy):
     actor=sector(x,y,fx,fy)
     if actor==1:return 1
     if actor==3:return -1
-    if actor==2:
-        screen=sector(x,y,0,-1)
-        if screen==1:return 1
-        if screen==3:return -1
+    screen=sector(x,y,0,-1)
+    if screen==1:return 1
+    if screen==3:return -1
     return 0
 
 # Observed camera: character faces the boss at SCREEN LEFT.
@@ -64,16 +62,17 @@ assert kick(0,-1,-1,0)==1
 assert kick(0,1,-1,0)==-1
 assert kick(0,-1,1,0)==-1
 assert kick(0,1,1,0)==1
-# When a screen swipe is clearly actor-forward, don't steal Bash.
-assert kick(-1,0,-1,0)==0
-assert kick(1,0,1,0)==0
+# A horizontal screen swipe in the actor-forward sector MUST kick during
+# a combo; before v270 it accidentally became Bash.
+assert kick(-1,0,-1,0)==-1
+assert kick(1,0,1,0)==1
 # In normal forward-facing screen view both left and right remain exact.
 assert kick(1,0,0,-1)==1
 assert kick(-1,0,0,-1)==-1
 # No face-on screen up/down should be misread as lateral kick.
 assert kick(0,-1,0,-1)==0
 assert kick(0,1,0,-1)==0
-print("PASS: filmed STEP RIGHT/DIAGONAL now Kick_r; Bash/front and actor-relative kicks preserved")
+print("PASS: filmed STEP RIGHT/DIAGONAL now Kick_r, actor-forward horizontal conflict resolved")
 
 # The release gate and actual launch use EXACTLY the same helper; no
 # double-classification regression. Outside combo window, normal STEP
