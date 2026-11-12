@@ -30,9 +30,10 @@ assert "sector != 1 and sector != 3" in request
 assert "var side: int = 1 if sector == 1 else -1" in request
 assert "Vector2.UP" not in end.split("if side_kick_requested",1)[1].split("if bash_requested",1)[0]
 assert "Vector2.UP" not in request
-assert "side_kick_flick_candidate = false" not in change.split(
-    "if side_kick_flick_candidate and (",1)[1].split("direction_input =",1)[0].split(
-        "side_kick_flick_candidate = false",1)[0] or True
+candidate = change.split("if side_kick_flick_candidate and (",1)[1].split(
+    "direction_input =",1)[0]
+assert "STEP_FLICK_MAX_SECONDS" in candidate
+assert "sector_index" not in candidate
 assert "if _request_combo_side_kick(flick_direction):" in end
 assert re.search(r"\n\s{8}return\s*\n", end.split(
     "if side_kick_requested",1)[1].split("if bash_requested",1)[0])
