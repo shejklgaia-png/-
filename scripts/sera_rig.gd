@@ -13,6 +13,9 @@ const UNIT: float = 0.065
 # No additional Z offset or geometry fitting is applied in Godot.
 const BLEND_SECONDS: float = 0.16
 const SOURCE_PATH: String = "res://assets/sera_source.json"
+# Import only newly authored kick tracks from the synced Blockbench source.
+# This is a model read, not a mesh replacement or re-export.
+const KICK_AUTHORING_SOURCE: String = "res://models/SERA_BOOSTER_allテスト.bbmodel"
 const EMBEDDED = preload("res://assets/sera_data.gd")
 const EQUIPMENT_SCRIPT = preload("res://scripts/sera_equipment.gd")
 const RENDER_ORDER = preload("res://scripts/render_order_policy.gd")
@@ -209,6 +212,7 @@ func _ready() -> void:
     _build_model(data)
     _install_bird_model()
     _build_animations(data)
+    _merge_authored_side_kick_clips()
     _merge_bird_animation_tracks()
     # Mesh alternatives reuse the original animated pivots/UUIDs unchanged.
     equipment_handler = EQUIPMENT_SCRIPT.new()
@@ -902,6 +906,28 @@ func _make_mesh(element: Dictionary) -> MeshInstance3D:
     result.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
     return result
 
+func _merge_authored_side_kick_clips() -> void:
+    if not FileAccess.file_exists(KICK_AUTHORING_SOURCE):
+        return
+    var raw: Variant = JSON.parse_string(
+        FileAccess.get_file_as_string(KICK_AUTHORING_SOURCE))
+    if not (raw is Dictionary):
+        return
+    var kick_clips: Array = []
+    for candidate in raw.get("animations", []):
+        if not (candidate is Dictionary):
+            continue
+        var name: String = str(candidate.get("name", ""))
+        var lower: String = name.to_lower()
+        if not (lower.contains("kick") or lower.contains("キック") or lower.contains("蹴")):
+            continue
+        if animations.has(name):
+            continue  # Integrated runtime source wins; never overwrite old clips.
+        kick_clips.append(candidate)
+    if not kick_clips.is_empty():
+        _build_animations({"animations": kick_clips})
+
+
 func _build_animations(data: Dictionary) -> void:
     for raw_clip in data.get("animations", []):
         var clip_name: String = str(raw_clip.get("name", ""))
@@ -1259,14 +1285,17 @@ func _side_kick_clip_for(side: int) -> String:
 
 
 func has_side_kick(side: int) -> bool:
-    return loading_ok and not _side_kick_clip_for(side).is_empty()
+    var chosen: String = _side_kick_clip_for(side)
+    return (loading_ok and not chosen.is_empty()
+        and float(animations[chosen]["length"]) > 0.01
+        and not (animations[chosen]["tracks"] as Dictionary).is_empty())
 
 
 func start_side_kick(side: int, movement_duration: float) -> bool:
     if not loading_ok or damage_playback or guard_playback:
         return false
     var chosen: String = _side_kick_clip_for(side)
-    if chosen.is_empty():
+    if not has_side_kick(side):
         return false
     # Keep the authored kick's full timing mapped onto the normal STEP travel.
     side_kick_clip_name = chosen
