@@ -54,9 +54,10 @@ local_y=-.53-.06
 assert -0.02<base+local_y-1.85/2<0.04
 assert 1.8<base+local_y+1.85/2<2.0
 
-# Front leg disappears and loses every solid; rear leg remains solid.
-assert 'pivot.visible = false' in parts
-assert '_set_part_movement_collision(effective_id, mode != "remove")' in parts
+# v289: all broken legs remain visibly rendered and keep original solids.
+assert 'pivot.visible = true' in parts
+assert 'pivot.visible = false' not in parts
+assert '_set_part_movement_collision(effective_id, true)' in parts
 assert 'collider.set_deferred("disabled", not should_enable)' in parts
 assert 'not is_fracture or bool(part["broken"])' in parts
 assert '_set_part_movement_collision(id, true)' in parts
@@ -85,6 +86,6 @@ for key in ("head","leg_fl","leg_fr","leg_rl","leg_rr"):
     assert f'_add_part("{key}",' in parts
 
 print("PASS v251: real model-aligned BoxShape3D colliders + four solid torso/limb joints")
-print("PASS v251: RUN/BOOST/STEP/jump/knockback/homing physics, break/reset lifecycle")
+print("PASS v251: RUN/BOOST/STEP/jump/knockback/homing physics, visible solid broken parts")
 print("PASS v251: lock-exclusive sword hitboxes, target HP, original visuals and rig kept")
 print("Godot/Android physics contacts and performance NOT exercised")
