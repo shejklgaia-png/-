@@ -71,7 +71,11 @@ func _run() -> void:
     # A 4m Bezier arc must advance approximately 2m along its captured heading.
     var retreat_dir: Vector3 = game.get("back_somersault_direction")
     if absf((middle - start_position).dot(retreat_dir) - 2.0) > 0.5:
-        _fail("no target-relative rearward displacement at half-time")
+        _fail("no target-relative rearward displacement at half-time" +
+            " start=%s middle=%s target=%s direction=%s elapsed=%f" % [
+            str(start_position), str(middle),
+            str(game.get("target").position), str(retreat_dir),
+            float(game.get("back_somersault_elapsed"))])
         return
     if not bool(rig.call("back_somersault_uses_authored_clip")):
         if absf(absf(rig.rotation.x) - PI) > 0.1:
