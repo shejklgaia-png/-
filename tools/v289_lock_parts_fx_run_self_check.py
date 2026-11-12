@@ -86,7 +86,7 @@ for code in ('combat_playback = false','combat_paused = false',
     assert code in kick and code in finish,code
 assert 'jump_playback = true' in kick
 assert 'jump_playback = false' in finish
-assert 'RUN_CLIP if resume_moving else WAIT_CLIP' in finish
+assert '(BOOST_CLIP if boosting else RUN_CLIP) if resume_moving else WAIT_CLIP' in finish
 landing=section(main,"func _advance_landing(delta: float) -> void:","func _classify_side_flick(")
 assert 'var was_somersault_landing: bool = landing_from_somersault' in landing
 assert 'if was_somersault_landing and gesture_active:' in landing
