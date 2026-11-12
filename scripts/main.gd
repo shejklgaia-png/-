@@ -2192,6 +2192,11 @@ func _analog_stick_direction(pos: Vector2) -> Vector2:
 func _change_drag(pos: Vector2) -> void:
     if not gesture_active:
         return
+    if back_somersault_active:
+        # The committed arc is not steerable or cancellable by another drag.
+        pointer_location = pos
+        direction_input = Vector2.ZERO
+        return
     if guard_active:
         # GUARD may outlast idle camera orbit. Reacquire SERA's visible
         # facing at the final flick onset, then keep it until release.
@@ -2353,8 +2358,8 @@ func _end_drag(release_pos: Vector2) -> void:
     jump_flick_samples.clear()
     touch_ui.call("set_movement_boost", false)
     touch_ui.call("hide_drag")
-    if damage_reaction_active or landing_active or suppress_release_action:
-        return  # A gesture interrupted by damage never queues a step/attack.
+    if damage_reaction_active or landing_active or back_somersault_active or suppress_release_action:
+        return  # Airborne somersault and landing own the input until fully complete.
     # A valid screen-horizontal combo swipe MUST resolve to a kick before
     # either actor-forward Bash or general 360-degree STEP. If it does not,
     # show the reason in the existing debug panel for recorded phone tests.
@@ -2366,14 +2371,14 @@ func _end_drag(release_pos: Vector2) -> void:
         if _request_combo_side_kick(kick_flick_direction):
             touch_ui.call("show_flick_wake", pointer_origin, release_pos)
         return
-    if kick_started_eligible and screen_sector in [1, 3]:
+    if kick_started_eligible and screen_sector in [1, 2, 3]:
         if not side_kick_requested:
             _record_kick_debug("HOLD >0.42s / BOOST")
         elif kick_flick_direction.length_squared() < 0.000001:
             _record_kick_debug("TOO SHORT / SLOW")
         else:
             _record_kick_debug("ANGLE")
-    elif recent_finisher and screen_sector in [1, 3] \
+    elif recent_finisher and screen_sector in [1, 2, 3] \
             and (release_pos - pointer_origin).length() >= BASH_FLICK_MIN_FORWARD_PIXELS:
         _record_kick_debug("WINDOW CLOSED")
     if bash_requested and _request_combo_bash():
@@ -2619,14 +2624,19 @@ func _classify_combo_kick_flick(displacement: Vector2, seconds: float) -> Vector
 func _combo_kick_side_for_flick(flick: Vector2) -> int:
     if flick.length_squared() < 0.000001:
         return 0
+    # Controller directions are SCREEN-space: DOWN is the backwards
+    # somersault irrespective of SERA's target-facing yaw. Resolve before
+    # actor-relative lateral kicks and actor-forward Bash.
+    var screen_sector: int = FLICK_DIRECTION_POLICY.sector_index(
+        flick, Vector2.UP)
+    if screen_sector == 2:
+        return 2  # Kick_b (authored if available, procedural until uploaded)
     var actor_sector: int = FLICK_DIRECTION_POLICY.sector_index(
         flick, gesture_screen_forward)
     if actor_sector == 1:
         return 1
     if actor_sector == 3:
         return -1
-    var screen_sector: int = FLICK_DIRECTION_POLICY.sector_index(
-        flick, Vector2.UP)
     if screen_sector == 1:
         return 1
     if screen_sector == 3:
@@ -2662,7 +2672,10 @@ func _request_combo_side_kick(flick: Vector2) -> bool:
     if rig == null:
         _record_kick_debug("CLIP MISSING RIG")
         return false
-    if not bool(rig.call("has_side_kick", side)):
+    # Kick_b uses a genuine authored clip when present. Until the uploaded
+    # .bbmodel includes Kick_b, the same action has an explicit Jump-pose +
+    # rotating-body fallback (not a phantom CLIP MISSING).
+    if side != 2 and not bool(rig.call("has_side_kick", side)):
         _record_kick_debug("CLIP MISSING " + str(rig.call("get_side_kick_diagnostic", side)))
         return false
     if (combat_state == CombatState.STRIKE or combat_state == CombatState.STRIKE_TRACK) \
@@ -2670,7 +2683,7 @@ func _request_combo_side_kick(flick: Vector2) -> bool:
         buffered_side_kick_flick = flick.normalized()
         buffered_side_kick_side = side
         bash_queued = false  # Latest combo direction wins.
-        _record_kick_debug("QUEUED " + ("R" if side > 0 else "L"))
+        _record_kick_debug("QUEUED " + ("B" if side == 2 else ("R" if side > 0 else "L")))
         return true
     if combat_state != CombatState.IDLE:
         _record_kick_debug("STATE BLOCKED")
@@ -2679,6 +2692,10 @@ func _request_combo_side_kick(flick: Vector2) -> bool:
 
 
 func _launch_combo_side_kick(flick: Vector2, side: int) -> bool:
+    if side == 2:
+        var launched: bool = _start_back_somersault()
+        _record_kick_debug("START B" if launched else "B EN / ACTION BLOCKED")
+        return launched
     if (side != 1 and side != -1) or rig == null \
             or not bool(rig.call("has_side_kick", side)):
         return false
