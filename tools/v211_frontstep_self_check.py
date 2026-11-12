@@ -40,8 +40,20 @@ assert model["textures"] == original_model["textures"]
 # The live A source already has Jump and run_back while the equipment model
 # retains separate historical names. Compare only the newly imported clip.
 assert source_clips["Frontstep"]["name"] == model_clips["Frontstep"]["name"]
-assert source["groups"] and len(source["groups"]) == 22
-assert len(source["elements"]) == 25
+# A's 22 pivots / 25 elements remain intact; v276 adds 5 Katana pivots
+# and 7 Katana meshes without changing the historical Frontstep.
+base_groups = [g for g in source["groups"] if not g["name"].startswith("Katana")]
+katana_ids = {
+    "aaad34b8-6ed3-83ed-0dfc-a1a72afc1091",
+    "43ad14e7-205f-4c5f-28c9-24c32166b1cc",
+    "8c4e7bcf-830f-5eb8-24e7-154d6cf802ab",
+    "487e802d-e890-b52e-77e3-7819eefc1f33",
+    "2e7b8175-8aea-6b7b-72ae-62db3fcf4535",
+    "a1cea279-2054-7153-0fa0-a24318563d55",
+    "41e9a281-0e29-9a29-a911-bfa105bc32f3",
+}
+assert len(base_groups) == 22
+assert len([x for x in source["elements"] if x["uuid"] not in katana_ids]) == 25
 
 # Frontstep is a single authored Blockbench pose, not a copied BOOST frame.
 user_clips = [a for a in user["animations"] if a["name"] == "Frontstep"]
@@ -49,7 +61,7 @@ assert len(user_clips) == 1
 front = user_clips[0]
 assert front["loop"] == "loop" and float(front["length"]) == 0.0
 assert model_clips["Frontstep"] == front
-allowed = {g["uuid"] for g in source["groups"]}
+allowed = {g["uuid"] for g in base_groups}
 expected_animators = {uid: anim for uid,anim in front["animators"].items() if uid in allowed}
 assert source_clips["Frontstep"]["animators"] == expected_animators
 assert set(source_clips["Frontstep"]["animators"]) == allowed
