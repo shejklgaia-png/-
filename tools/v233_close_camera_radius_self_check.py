@@ -28,7 +28,9 @@ assert const("CAMERA_CLOSE_BOOST_ENTER_DISTANCE") == 6.0
 assert const("CAMERA_CLOSE_BOOST_EXIT_DISTANCE") == 7.5
 
 render = main.split("func _process(delta: float) -> void:", 1)[1].split("func _close_step_target_relative_yaw", 1)[0]
-assert 'var preferred_radius: float = lerpf(CAMERA_CLOSE_RADIUS, CAMERA_BASE_RADIUS, zoom_ratio)' in render
+assert 'var preferred_radius: float = lerpf(' in render
+assert 'CAMERA_CLOSE_RADIUS, CAMERA_BASE_RADIUS, zoom_ratio) * CAMERA_DISTANCE_SCALE' in render
+assert 'const CAMERA_DISTANCE_SCALE: float = 0.60' in main
 assert 'preferred_radius = maxf(preferred_radius, separation + 2.0)' in render
 assert 'zoom_ratio = zoom_ratio * zoom_ratio * (3.0 - 2.0 * zoom_ratio)' in render
 assert 'camera_follow_radius = lerpf(' in render
@@ -44,11 +46,12 @@ def preferred(separation):
     x = max(0.0, min(1.0, (separation-1.5)/(12.0-1.5)))
     smooth = x*x*(3.0-2.0*x)
     r = 8.8+(16.0-8.8)*smooth
-    return max(r,separation+2.0)
+    return max(r * 0.60, separation + 2.0)
 
-assert math.isclose(preferred(1.5),8.8)
-assert math.isclose(preferred(0.0),8.8)
-assert math.isclose(preferred(12.0),16.0)
+assert math.isclose(preferred(1.5),8.8 * 0.60)
+assert math.isclose(preferred(0.0),8.8 * 0.60)
+# At high separation, never override the player-behind-camera gap.
+assert math.isclose(preferred(12.0),14.0)
 assert all(preferred(d2)>=preferred(d1) for d1,d2 in zip(
     [i*0.1 for i in range(119)], [i*0.1 for i in range(1,120)]))
 for x in [0.0,0.2,0.5,0.8,1.0]:
@@ -58,4 +61,4 @@ for x in [0.0,0.2,0.5,0.8,1.0]:
 assert 'const CAMERA_EDGE_MAX_CORRECTION_DEGREES_PER_SECOND: float = 240.0' in main
 assert 'var boost_edge_frame_guard: bool = (' in render
 assert 'var close_boost_camera_active: bool = false' in main
-print("PASS v233: closest camera 7.8 -> 8.8m; follow/zoom/BOOST safety unchanged")
+print("PASS v233-v294: authored close radius preserved, scaled preference and player clearance held")
