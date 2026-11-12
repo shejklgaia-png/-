@@ -44,8 +44,10 @@ func _run() -> void:
     game.set("manual_part_lock_active",false)
     game.set("locked_target_part_id","")
     game.call("_physics_process",0.016)
-    if str(game.get("locked_target_part_id")).is_empty():
-        _fail("AUTO left a visible boss without a lock")
+    # Since v293 AUTO may intentionally lock the boss BODY (empty part ID),
+    # an empty limb ID is not evidence of a missing lock.
+    if not bool(game.get("auto_lock_initialized")):
+        _fail("AUTO did not initialize either a body or a limb lock")
         return
 
     # Screen-side manual selector must wrap instead of stalling at edge.

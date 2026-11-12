@@ -390,6 +390,32 @@ func apply_part_hit(id: String, raw_attack: float, raw_break: float) -> Dictiona
         result["broken_legs"] = broken_leg_count()
     return result
 
+# v293: AUTO locks follow the camera's azimuth around the boss, not
+# fluctuations in projected limb-center distances. Five intact modules are
+# separated by five BODY sectors, guaranteeing the requested orbital order.
+# The boss's authored +Z axis is its front (HEAD); local -X is LEFT.
+# A broken module maps to BODY, retaining the same orbit sector.
+const CAMERA_ORBIT_RING = [
+    "head", "", "leg_fl", "", "leg_rl", "",
+    "leg_rr", "", "leg_fr", ""
+]
+const CAMERA_ORBIT_STEP_DEGREES: float = 36.0
+
+func select_camera_orbit_part(view_camera: Camera3D) -> String:
+    if view_camera == null:
+        return ""
+    var relative: Vector3 = view_camera.global_position - global_position
+    if Vector2(relative.x, relative.z).length_squared() < 0.000001:
+        return ""
+    var degrees: float = fposmod(
+        rad_to_deg(atan2(-relative.x, relative.z)), 360.0)
+    var index: int = posmod(
+        roundi(degrees / CAMERA_ORBIT_STEP_DEGREES),
+        CAMERA_ORBIT_RING.size())
+    var part_id: String = str(CAMERA_ORBIT_RING[index])
+    return part_id if is_targetable(part_id) else ""
+
+
 # v291: camera-forward locking. The old v289 front/occlusion selector
 # rejected every limb whenever a large boss torso or another leg stood
 # along the SERA->aim line. That made AUTO appear unlocked on strafes.

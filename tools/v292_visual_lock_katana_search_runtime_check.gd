@@ -82,7 +82,7 @@ func _run() -> void:
     camera.global_position = Vector3(2.0,4.5,13.0)
     var aim_head: Vector3 = parts.call("get_part_aim_world","head")
     camera.look_at(aim_head,Vector3.UP)
-    var preferred: String = str(parts.call("select_camera_front_part",camera,""))
+    var preferred: String = str(parts.call("select_camera_orbit_part",camera))
     if preferred.is_empty():
         _fail("camera cannot acquire a boss part")
         return
@@ -95,7 +95,7 @@ func _run() -> void:
     game.set("locked_target_part_id",other)
     game.set("auto_lock_pending_part","")
     game.set("auto_lock_pending_elapsed",0.0)
-    var current_preferred: String = str(parts.call("select_camera_front_part",camera,other))
+    var current_preferred: String = str(parts.call("select_camera_orbit_part",camera))
     if current_preferred != other:
         game.call("_acquire_stable_camera_part",0.016,false)
         if str(game.get("locked_target_part_id")) != other:
