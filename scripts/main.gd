@@ -390,6 +390,7 @@ var step_active: bool = false
 var step_kick_side_request: int = 0  # transient; keep STEP method API unchanged
 var side_kick_active: bool = false
 var side_kick_side: int = 0  # -1 Kick_l, +1 Kick_r; distinct from screen travel
+var side_kick_travel_anchor_set: bool = false  # do not undo first-strike homing
 var side_kick_did_hit: bool = false
 var side_kick_hit_mask: int = 0
 var side_kick_hit_count: int = 0
@@ -2946,6 +2947,7 @@ func _start_omni_step(flick: Vector2) -> bool:
     step_traveled_distance = 0.0
     side_kick_active = step_kick_side_request != 0
     side_kick_side = step_kick_side_request
+    side_kick_travel_anchor_set = false
     # Only the kick action timeline is doubled: swept lateral travel starts
     # at the second windup and takes its original STEP duration.
     if side_kick_active:
@@ -3084,6 +3086,7 @@ func _finish_side_step(resume_moving: bool) -> void:
     step_active = false
     side_kick_active = false
     side_kick_side = 0
+    side_kick_travel_anchor_set = false
     side_kick_did_hit = false
     side_kick_hit_mask = 0
     side_kick_hit_count = 0
@@ -3119,6 +3122,14 @@ func _advance_side_step(delta: float) -> void:
     if side_kick_active:
         var second_windup: float = (SIDE_KICK_SECOND_WINDUP_R
             if side_kick_side > 0 else SIDE_KICK_SECOND_WINDUP_L)
+        # Bash-like homing can change the actor's position during the first
+        # kick. Anchor delayed STEP travel at the actual second windup,
+        # otherwise each physics tick would drag the actor back to takeoff.
+        if not side_kick_travel_anchor_set:
+            step_start_offset = Vector2(player.position.x - step_target_center.x,
+                player.position.z - step_target_center.y)
+            if progress >= second_windup:
+                side_kick_travel_anchor_set = true
         travel_progress = clampf(
             (progress - second_windup) * SIDE_KICK_MOTION_TIME_MULTIPLIER,
             0.0, 1.0)
@@ -3146,7 +3157,13 @@ func _advance_side_step(delta: float) -> void:
         var chase_dt: float = minf(maxf(delta, 0.0),
             maxf(0.0, BASH_TRACK_SECONDS - step_duration_current * previous_progress))
         if chase_dt > 0.0 and target_hp > 0:
+            var before_homing: Vector3 = player.position
             _advance_homing_toward_target(chase_dt, BASH_REACH)
+            if side_kick_travel_anchor_set:
+                # When early homing overlaps the second windup, carry its
+                # genuine displacement into the moving STEP anchor.
+                var homed: Vector3 = player.position - before_homing
+                step_start_offset += Vector2(homed.x, homed.z)
         # Authored 24fps keys scale to the kick-only doubled action duration.
         # Each straightened foot can register at most once, never a late hit.
         for i in range(SIDE_KICK_HIT_PROGRESS.size()):
