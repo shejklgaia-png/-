@@ -21,7 +21,8 @@ assert "unproject_position" not in selector
 assert "intersects_segment" not in selector
 def select(x,z,broken=frozenset()):
     degrees = math.degrees(math.atan2(-x,z)) % 360
-    slot = round(degrees / 36) % 10
+    # Godot roundi() rounds positive half-steps away from zero; Python round() uses banker's rounding.
+    slot = int(math.floor(degrees / 36 + 0.5)) % 10
     item = order[slot]
     return "" if item in broken else item
 for i,expected in enumerate(order):
