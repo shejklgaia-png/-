@@ -94,6 +94,8 @@ on:
       - 'tools/v287_stable_low_camera_runtime_check.gd'
       - 'tools/v288_sera_camera_follow_self_check.py'
       - 'tools/v288_sera_camera_follow_runtime_check.gd'
+      - 'tools/v289_lock_parts_fx_run_self_check.py'
+      - 'tools/v289_lock_parts_fx_run_runtime_check.gd'
       - 'tools/v274_back_somersault_runtime_check.gd'
       - 'docs/SERA_ANIMATION_RUNTIME_POLICY_ja.md'
       - 'tools/v242_screen_lock_buttons_self_check.py'
@@ -375,6 +377,8 @@ jobs:
         run: python3 tools/v287_stable_low_camera_self_check.py
       - name: Verify v288 SERA-centered camera focus and hard yaw/distance follow leashes
         run: python3 tools/v288_sera_camera_follow_self_check.py
+      - name: Verify v289 broken limb lock continuity, front-axis selection, local hit FX and backflip RUN
+        run: python3 tools/v289_lock_parts_fx_run_self_check.py
       # Earlier static regressions all passed while the Android side kick
       # lookup failed. Test the real GDScript runtime, not just its text.
       - name: Fetch Godot 4.7.2 for headless clip playback
@@ -414,6 +418,8 @@ jobs:
         run: '"$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" --headless --path . --script res://tools/v287_stable_low_camera_runtime_check.gd'
       - name: Verify v288 slight-lag camera catches SERA under 0.65m and 12deg in Godot
         run: '"$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" --headless --path . --script res://tools/v288_sera_camera_follow_runtime_check.gd'
+      - name: Verify v289 combo-held broken parts, local hit FX, visible solids and post-somersault RUN in Godot
+        run: '"$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" --headless --path . --script res://tools/v289_lock_parts_fx_run_runtime_check.gd'
       - name: Verify Katana fourth-frame swap and real collision in Godot
         run: '"$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" --headless --path . --script res://tools/v276_katana_runtime_check.gd'
       - name: Verify every authored animation loads and samples in Godot
