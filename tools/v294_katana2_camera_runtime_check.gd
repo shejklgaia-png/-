@@ -42,9 +42,30 @@ func _run() -> void:
             keyed_bones += 1
             keyed_frames += count
     if keyed_bones != 19 or keyed_frames != 70:
-        _fail("authored tracks lost or UUIDs mismatched: keyed_bones=%d frames=%d rig_bones=%d clip_length=%s" % [
-            keyed_bones, keyed_frames, (rig.get("bones") as Dictionary).size(),
-            str(authored.get("length", 0.0))])
+        var raw_source: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(
+            "res://models/storage/SERA_BOOSTER_allテスト.bbmodel"))
+        var raw_count: int = 0
+        var raw_animated: int = 0
+        for raw_clip in raw_source.get("animations", []):
+            if str(raw_clip.get("name", "")) != "Melee_katana2":
+                continue
+            for anim in (raw_clip.get("animators", {}) as Dictionary).values():
+                var keys: Array = (anim as Dictionary).get("keyframes", [])
+                if not keys.is_empty():
+                    raw_animated += 1
+                    raw_count += keys.size()
+        var runtime_counts: Array[String] = []
+        for raw_uuid in tracks.keys():
+            var td: Dictionary = tracks[raw_uuid]
+            var cnt: int = 0
+            for channel in ["rotation", "position", "scale"]:
+                cnt += (td.get(channel, []) as Array).size()
+            if cnt > 0:
+                runtime_counts.append(str(raw_uuid) + ":" + str(cnt))
+        _fail("authored track mismatch: runtime=%d/%d raw=%d/%d rigs=%d length=%s details=%s" % [
+            keyed_bones, keyed_frames, raw_animated, raw_count,
+            (rig.get("bones") as Dictionary).size(),
+            str(authored.get("length", 0.0)), ",".join(runtime_counts)])
         return
     rig.call("start_strike", "Melee_katana2")
     if str(rig.get("current_clip")) != "Melee_katana2":
