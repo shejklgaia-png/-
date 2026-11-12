@@ -36,6 +36,7 @@ var melee_in_range: bool = false
 # A nonvisible/offscreen target does not leave a misleading marker at screen center.
 var target_marker_position: Vector2 = Vector2.ZERO
 var target_marker_visible: bool = false
+var target_marker_offscreen: bool = false
 # A brief visual acknowledgment of an accepted melee tap. Independent of the
 # target lock ring; only the attack-release path starts this animation.
 var attack_ripple_active: bool = false
@@ -97,13 +98,18 @@ func _ready() -> void:
     # Only spend per-frame CPU time when the ring is animating.
     set_process(false)
 
-func set_target_marker_projection(screen_position: Vector2, is_visible: bool) -> void:
-    # Reproject whenever the target OR the camera moves; this remains independent
-    # from the 0.20-second lock-on ring animation and never intercepts touch.
-    if target_marker_visible == is_visible and (not is_visible or target_marker_position.is_equal_approx(screen_position)):
+func set_target_marker_projection(screen_position: Vector2,
+        is_visible: bool, is_offscreen: bool = false) -> void:
+    # A valid offscreen target retains a pinned amber HUD ring; never
+    # silently hide the target while a part stays locked. This parameter
+    # affects only presentation, not the projected hit position or inputs.
+    if target_marker_visible == is_visible \
+            and target_marker_offscreen == is_offscreen \
+            and (not is_visible or target_marker_position.is_equal_approx(screen_position)):
         return
     target_marker_position = screen_position
     target_marker_visible = is_visible
+    target_marker_offscreen = is_offscreen
     queue_redraw()
 
 func set_melee_in_range(value: bool) -> void:
@@ -235,6 +241,8 @@ func _draw() -> void:
     var accent := Color(0.21, 0.85, 0.93, 0.87)
     var low := Color(0.21, 0.85, 0.93, 0.30)
     var reticle_color := Color(1.0, 0.22, 0.26, 0.98) if melee_in_range else accent
+    if target_marker_offscreen:
+        reticle_color = Color(1.0, 0.65, 0.25, 0.95)
     var reticle_outer_width: float = LOCK_RING_WIDTH_MELEE if melee_in_range else LOCK_RING_WIDTH_NORMAL
     if target_marker_visible:
         var mark: Vector2 = target_marker_position
