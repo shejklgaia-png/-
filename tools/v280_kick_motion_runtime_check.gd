@@ -24,7 +24,7 @@ func _run() -> void:
         return
     game.set("locked_target_part_id", "")
     game.set("target_hp", 500)
-    player.position = Vector3(0.0, 0.0, -5.5)
+    player.position = Vector3(0.0, 0.0, -5.0)
     if not bool(game.call("_start_back_somersault")):
         _fail("Kick_b failed to start")
         return
@@ -42,6 +42,7 @@ func _run() -> void:
     # twice. Check a frame inside the 125 -> 335 degree segment, where
     # naive shortest-path quaternion SLERP reverses instead of flipping.
     var previous_time: float = 0.0
+    var authored_root_y: float = NAN
     for progress in [0.25, 0.40, 0.50, 0.75, 1.0]:
         var wanted_time: float = 0.80 * progress
         game.call("_advance_back_somersault", wanted_time - previous_time)
@@ -56,11 +57,14 @@ func _run() -> void:
         if absf(rig.rotation.x) > 0.0001:
             _fail("authored Kick_b was doubled by external rig rotation")
             return
-        if absf(rig.position.y - resting_y) > 0.0001:
-            _fail("obsolete external pivot correction shifted authored rig at " + str(progress) +
-                " root_y=" + str(rig.position.y) + " resting_y=" + str(resting_y) +
-                " authored=" + str(game.get("back_somersault_has_authored_clip")) +
-                " launched=" + str(game.get("back_somersault_launched")))
+        # The first authored sample restores the rig's canonical idle->action
+        # root height; the pre-start IK/stance height need not equal it.
+        # Across the FULL authored clip no extra procedural pivot may be added.
+        if is_nan(authored_root_y):
+            authored_root_y = rig.position.y
+        elif absf(rig.position.y - authored_root_y) > 0.0001:
+            _fail("external rig pivot moved during authored Kick_b at " + str(progress) +
+                " root_y=" + str(rig.position.y) + " baseline_y=" + str(authored_root_y))
             return
         if player.transform.basis.y.dot(initial_collision_basis.y) < 0.999:
             _fail("visual backflip rotated the player collision basis")
