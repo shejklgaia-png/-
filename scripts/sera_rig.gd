@@ -522,6 +522,8 @@ func get_grounding_height_offset() -> float:
     return float(equipment_handler.call("get_grounding_height_offset")) if equipment_handler != null else 0.0
 
 func reset_foot_contacts() -> void:
+    if equipment_handler != null:
+        equipment_handler.call("clear_run_contact_height")
     foot_contact_initialized = false
     foot_lifted["L"] = false
     foot_lifted["R"] = false
