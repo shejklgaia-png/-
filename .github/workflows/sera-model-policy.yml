@@ -56,6 +56,7 @@ on:
       - 'tools/v263_close_step_screen_alignment_self_check.py'
       - 'tools/v264_side_kick_followup_self_check.py'
       - 'tools/v265_kick_embedded_input_self_check.py'
+      - 'tools/v266_exclusive_side_kick_self_check.py'
       - 'tools/v242_screen_lock_buttons_self_check.py'
       - 'tools/v243_controller_quadrant_lock_mode_self_check.py'
       - 'tools/v244_half_size_run_boost_controller_self_check.py'
@@ -289,6 +290,8 @@ jobs:
         run: python3 tools/v264_side_kick_followup_self_check.py
       - name: Verify v265 embedded kick animation and touch-down link retention
         run: python3 tools/v265_kick_embedded_input_self_check.py
+      - name: Verify v266 lateral kick has exclusive post-combo flick handling
+        run: python3 tools/v266_exclusive_side_kick_self_check.py
       - name: Verify shared transparent render contract and new shaders
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
