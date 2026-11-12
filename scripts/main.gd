@@ -3509,12 +3509,14 @@ func _advance_attack(delta: float) -> void:
                     _cancel_attack()
                     return
                 back_kick_track_elapsed += kick_dt
-            if _distance_to_attack_target_surface(player.position) <= BASH_REACH \
-                    or back_kick_track_elapsed >= BASH_TRACK_SECONDS - 0.00001:
+            if _distance_to_attack_target_surface(player.position) <= BASH_REACH:
                 combat_state = CombatState.IDLE
                 back_kick_track_elapsed = 0.0
                 if not _start_back_somersault():
                     rig.call("finish_attack", false)
+            elif back_kick_track_elapsed >= BASH_TRACK_SECONDS - 0.00001:
+                # Match Bash: abort if the target escaped the homing window.
+                _cancel_attack()
         CombatState.BASH_TRACK:
             # Chase for up to 0.2s while the authored Bash windup ping-pongs.
             # Launch immediately on reaching range, including on frame 0.
