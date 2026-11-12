@@ -337,6 +337,11 @@ var target_parts: Node3D
 var locked_target_part_id: String = ""
 var manual_part_lock_active: bool = false
 var auto_lock_enabled: bool = true
+# v292: part selection should not thrash HEAD/RL/RR every physics frame
+# when the camera's crosshair passes near multiple giant boss limbs.
+const AUTO_LOCK_SWITCH_CONFIRM_SECONDS: float = 0.22
+var auto_lock_pending_part: String = ""
+var auto_lock_pending_elapsed: float = 0.0
 var lock_switch_left_button: Button
 var lock_switch_right_button: Button
 var lock_mode_button: Button
@@ -1510,6 +1515,8 @@ func _refresh_lock_mode_buttons() -> void:
 
 
 func _toggle_auto_lock_mode() -> void:
+    auto_lock_pending_part = ""
+    auto_lock_pending_elapsed = 0.0
     auto_lock_enabled = not auto_lock_enabled
     manual_part_lock_active = not auto_lock_enabled
     # MANUAL starts from the same visible camera-center candidate as AUTO,
@@ -1521,6 +1528,41 @@ func _toggle_auto_lock_mode() -> void:
             "select_camera_front_part", camera, ""))
     _refresh_lock_mode_buttons()
     _update_target_marker_projection()
+
+
+# v292: the camera can briefly place its screen center between two legs,
+# making the nearest normalized-screen-space score flip every physics frame.
+# Acquire an empty/broken lock immediately; switch between intact parts only
+# after one candidate remains preferred for 0.22s. This is independent of
+# attack distance or collider LOS and does not affect manual cycling.
+func _acquire_stable_camera_part(delta: float,
+        current_broken: bool) -> void:
+    if target_parts == null or camera == null:
+        return
+    var preferred: String = str(target_parts.call(
+        "select_camera_front_part", camera,
+        "" if current_broken else locked_target_part_id))
+    if preferred == locked_target_part_id:
+        auto_lock_pending_part = ""
+        auto_lock_pending_elapsed = 0.0
+        return
+    if locked_target_part_id.is_empty() or current_broken:
+        locked_target_part_id = preferred
+        auto_lock_pending_part = ""
+        auto_lock_pending_elapsed = 0.0
+        return
+    if preferred.is_empty():
+        # A momentary projection problem must not erase a still intact lock.
+        return
+    if auto_lock_pending_part != preferred:
+        auto_lock_pending_part = preferred
+        auto_lock_pending_elapsed = 0.0
+        return
+    auto_lock_pending_elapsed += maxf(0.0, delta)
+    if auto_lock_pending_elapsed >= AUTO_LOCK_SWITCH_CONFIRM_SECONDS:
+        locked_target_part_id = preferred
+        auto_lock_pending_part = ""
+        auto_lock_pending_elapsed = 0.0
 
 
 func _controller_start_area_contains(pos: Vector2) -> bool:
@@ -1593,6 +1635,8 @@ func _switch_lock_screen_direction(direction: int) -> void:
     if next_id.is_empty():
         return
     locked_target_part_id = next_id
+    auto_lock_pending_part = ""
+    auto_lock_pending_elapsed = 0.0
     manual_part_lock_active = true
     _update_target_marker_projection()
 
@@ -4152,14 +4196,17 @@ func _physics_process(delta: float) -> void:
                 # The visible CAMERA projection owns AUTO priority. Large
                 # torso/leg occluders and distance-to-limb cannot leave AUTO
                 # without a lock. The preceding broken-combo gate stays.
-                locked_target_part_id = str(target_parts.call(
-                    "select_camera_front_part", camera,
-                    "" if locked_part_broken else locked_target_part_id))
+                _acquire_stable_camera_part(delta, locked_part_broken)
                 if locked_part_broken:
                     manual_part_lock_active = not auto_lock_enabled
             elif locked_part_broken:
                 locked_target_part_id = ""
                 manual_part_lock_active = not auto_lock_enabled
+        else:
+            # Do not apply a stale camera preference immediately after a
+            # combo finishes; its attack motion may have changed the view.
+            auto_lock_pending_part = ""
+            auto_lock_pending_elapsed = 0.0
         # Lock part ID/reticle/hit volume stay independent of actor facing.
         # Do NOT overwrite this vector with the selected limb's aim.
     # v290: always face the WHOLE boss pivot during lateral RUN/BOOST/STEP.
