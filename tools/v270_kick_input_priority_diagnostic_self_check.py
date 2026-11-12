@@ -8,7 +8,7 @@ ROOT = Path(__file__).resolve().parents[1]
 main = (ROOT / "scripts/main.gd").read_text(encoding="utf-8")
 rig = (ROOT / "scripts/sera_rig.gd").read_text(encoding="utf-8")
 version = (ROOT / "project.godot").read_text(encoding="utf-8")
-assert 'config/name="SERA v270"' in version
+assert (ver := re.search(r'config/name="SERA v([0-9]+)"', version)) and int(ver.group(1)) >= 270
 
 def body(start, end):
     return main.split("func "+start,1)[1].split("func "+end,1)[0]
