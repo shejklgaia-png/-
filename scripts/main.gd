@@ -2560,14 +2560,14 @@ func _classify_combo_kick_flick(displacement: Vector2, seconds: float) -> Vector
         return Vector2.ZERO
     return FLICK_DIRECTION_POLICY.screen_step_direction(displacement)
 
-# The gesture itself is in SCREEN coordinates. The author's 90-degree
-# SERA-relative left/right wedges take priority; the video also shows
-# horizontal screen swipes while SERA faces sideways toward the boss. Such
-# a swipe can fall squarely in SERA's BACK sector (and become STEP), even
-# though the on-screen thumb deliberately requested a lateral kick.
-# During the Melee3 combo ONLY, recover screen-left/right flicks from the
-# actor-BACK wedge. Never steal actor-FRONT (Bash) or outside-combo STEP.
-# Return +1 Kick_r, -1 Kick_l, or 0 for non-kick gestures.
+# Gesture travel is always SCREEN-relative. During Melee3's kick-input
+# window, prioritize SERA's left/right 90-degree sectors. Also accept direct
+# screen-left/right thumb flicks irrespective of actor yaw: a target-facing
+# SERA can be screen-left OR screen-right, so a horizontal flick may lie in
+# the actor-FRONT sector (v269 only handled actor-BACK). Without this case
+# the same lateral controller movement alternates between Bash and STEP
+# as the camera rotates. Outside the combo window STEP is untouched.
+# Return +1 Kick_r, -1 Kick_l, or 0; an explicit lateral swipe beats Bash.
 func _combo_kick_side_for_flick(flick: Vector2) -> int:
     if flick.length_squared() < 0.000001:
         return 0
@@ -2577,13 +2577,12 @@ func _combo_kick_side_for_flick(flick: Vector2) -> int:
         return 1
     if actor_sector == 3:
         return -1
-    if actor_sector == 2:
-        var screen_sector: int = FLICK_DIRECTION_POLICY.sector_index(
-            flick, Vector2.UP)
-        if screen_sector == 1:
-            return 1
-        if screen_sector == 3:
-            return -1
+    var screen_sector: int = FLICK_DIRECTION_POLICY.sector_index(
+        flick, Vector2.UP)
+    if screen_sector == 1:
+        return 1
+    if screen_sector == 3:
+        return -1
     return 0
 
 
