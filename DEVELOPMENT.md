@@ -1858,3 +1858,10 @@
 - `scripts/sera_rig.gd`の起動時、通常JSON/Blockbenchモーションロード後に新規資源から欠落した左右クリップのみを復元する。元UUIDが現在の骨格と合わなければ、**重複のない関節名を一致させて**アニメーションの参照UUIDだけを修正。最低8個のキーフレーム入りボーンが対応しなければ補完せず、元メッシュ・Pivot・キーフレームを保護。既存の大きな埋込復元も最後の保険として維持。
 - 成功・失敗をGodotログと短いHUD診断（専用資源復号エラー／対応関節数不足）で判別できるようにした。v271の「再生失敗時にSTEP/KICK成功と誤認しない」処理と、既存のSTEP/3連撃/Bash/EN/カメラ仕様は維持。
 - `tools/v272_dedicated_kick_pack_self_check.py`に専用GDScriptの復号、正本との全キーフレーム一致、旧JSON/旧丸ごと埋込が両方古い場合の補完、完全UUID不一致時の名前対応、不適合な骨格への誤適用拒否、リグへの呼出しとHUD接続を追加。CIへ統合し旧v271テストの固定バージョン表記も解消。Android実機のv272再生は未確認。
+
+## 2026-11-12 — SERA v273: CLIP MISSING R ALREADY READYの矛盾を固定名検索と実機相当Godotランタイム検査で修正
+- v272の実機スクリーンショットで`KICK: CLIP MISSING R ALREADY READY`を確認。起動時の`_usable_side_kick_clip("Kick_r")`は成功していた一方、蹴り要求時の`_side_kick_clip_for(1)`が空を返していた。つまり以前の`EMBEDDED FAILED`とは状況が変わり、追加データの有無ではなく**起動時判定と名前解決経路の食い違い**が問題。以前の静的テストではこれを見つけられなかった。
+- `sera_rig.gd`で蹴りだけに導入されていた`var preferred: Array[String] = [...] if side > 0 else [...]`に、Godotの型付き配列と条件式の既知の実行時互換性問題（godotengine/godot#110628・#83026）を確認。確定エラーログはまだないが症状と整合。既存Melee3/Bashと同じ`"Kick_r"`/`"Kick_l"`の固定名をまず直接検索し、互換名称は型なし配列・明示if/elseで補完する簡素な処理へ変更。
+- `start_side_kick`の「`has_side_kick`で遅延復元する前にchosenを選ぶ」潜在不整合を解消。利用可否・復元の確認後に実際の再生名を取得し、空の場合は安全にfalse。HUD診断は状態フラグだけでなく、現時点のキー有無と名前検索結果を確認。
+- 新規`tools/v273_kick_lookup_runtime_check.gd`で、Godot 4.7.2をLinux headless起動して実際の`SeraRig`を生成し、右/左の`has_side_kick`・`_side_kick_clip_for`・`start_side_kick`および`current_clip`を検査。既存CIに実Godot導入・プロジェクトimport・上記runtimeテストを追加。旧v271静的検査も固定名方式に合わせて更新。元データ/キーフレーム/他操作仕様は無変更。
+- 実GodotチェックはAndroid実機ではなくLinux実行のため、タッチ入力・Android固有の読み込み挙動まで保証しない。動作確認は別途必要。
