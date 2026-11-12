@@ -7,7 +7,8 @@ main = (ROOT/"scripts/main.gd").read_text()
 rig = (ROOT/"scripts/sera_rig.gd").read_text()
 author = json.loads((ROOT/"models/storage/SERA_BOOSTER_allテスト (9) (2).bbmodel").read_text())
 source = json.loads((ROOT/"assets/sera_source.json").read_text())
-assert 'config/name="SERA v279"' in (ROOT/"project.godot").read_text()
+import re
+assert int(re.search(r'config/name="SERA v(\d+)"', (ROOT/"project.godot").read_text()).group(1)) >= 279
 assert next(x for x in source["animations"] if x["name"] == "Kick_b") == next(x for x in author["animations"] if x["name"] == "Kick_b")
 assert "BACK_SOMERSAULT_FLIGHT_SECONDS: float = 0.80" in main
 assert "BACK_SOMERSAULT_DISTANCE: float = 4.0" in main
