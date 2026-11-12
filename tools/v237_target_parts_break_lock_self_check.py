@@ -77,6 +77,7 @@ assert '"bash", bash_damage,' in m
 assert 'if target_hp > 0 and (not manual_part_lock_active or locked_part_broken):' in m
 assert 'not manual_part_lock_active or locked_part_broken' in m
 assert '"select_camera_front_part", camera,' in m
+assert "_acquire_stable_camera_part(delta, locked_part_broken)" in m
 assert '"get_part_aim_world", locked_target_part_id' in m
 assert 'pursuit_point = target_parts.call("get_part_aim_world", locked_target_part_id)' in m
 assert 'target_parts.call("reset_parts")' in m
