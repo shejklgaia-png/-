@@ -50,7 +50,7 @@ assert "_melee3_flick_cancel_time()" in finish
 print("PASS: third strike queues DOWN kick and consumes it before Bash or STEP")
 
 # Dedicated 4m airborne physical motion and one impact; NEVER fake a STEP.
-assert "BACK_SOMERSAULT_DISTANCE: float = 4.0" in game
+assert "BACK_SOMERSAULT_DISTANCE: float = 5.0" in game
 assert "BACK_SOMERSAULT_HEIGHT: float = 1.5" in game
 assert "BACK_SOMERSAULT_FLIGHT_SECONDS: float = 0.80" in game
 assert "BACK_SOMERSAULT_LANDING_SECONDS: float = 0.20" in game
