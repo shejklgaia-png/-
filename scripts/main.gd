@@ -88,6 +88,12 @@ const BACK_SOMERSAULT_LANDING_SECONDS: float = 0.20
 const BACK_SOMERSAULT_VISUAL_PIVOT_HEIGHT: float = 0.90
 # Kick_b's extended right leg at original 0.20833s/0.79167s.
 const BACK_SOMERSAULT_HIT_PROGRESS: float = 0.20833 / 0.79167
+# v284: authored foot extension precedes liftoff. One 0.8s clip has
+# contact at 0.20833/0.79167 of its duration and a post-hit rear flight.
+const BACK_SOMERSAULT_STRIKE_SECONDS: float = (
+    BACK_SOMERSAULT_FLIGHT_SECONDS * BACK_SOMERSAULT_HIT_PROGRESS)
+const BACK_SOMERSAULT_REAR_FLIGHT_SECONDS: float = (
+    BACK_SOMERSAULT_FLIGHT_SECONDS - BACK_SOMERSAULT_STRIKE_SECONDS)
 const JUMP_FLIGHT_SECONDS: float = 0.80  # 0.000..0.375 authored seconds are retimed over flight
 # New authored landing transition 0.375->0.500 runs after floor contact.
 const JUMP_LANDING_MOTION_SECONDS: float = 0.125
@@ -165,10 +171,9 @@ const FOLLOWUP_WINDUP_KEYS = [0.0, 0.08333, 0.20833]
 const BASH_DAMAGE: int = 12
 const BASH_REACH: float = 0.95  # Unchanged from v183 (0.75 + 0.20).
 const STRIKE_CANCEL_TIMES = [7.0 / 24.0, 7.0 / 24.0, 15.0 / 24.0]
-# v283: Melee3's final swing reaches its authored 15/24s key, then leaves
-# 0.10s of follow-through before a buffered flick (Bash/Kick_l/r/b) may cancel.
-# Unqueued Melee3 still plays to 0.83333s; normal Melee1 restart is unchanged.
-const MELEE3_FLICK_CANCEL_DELAY: float = 0.10
+# v284: a reserved cardinal flick cancels Melee3 0.05s after its
+# authored 15/24s swing-through. Melee1 restart remains unchanged.
+const MELEE3_FLICK_CANCEL_DELAY: float = 0.05
 # Each strike has an independent active window and close-range assist.
 # melee1 preserves the original hit and impact timing exactly.
 const STRIKE_ACTIVE_FROM_TIMES = [0.130, 0.130, 0.290]
@@ -384,6 +389,7 @@ var landing_active: bool = false
 var landing_elapsed: float = 0.0
 var landing_from_somersault: bool = false
 var back_somersault_active: bool = false
+var back_somersault_launched: bool = false  # set only after confirmed foot contact
 var back_somersault_elapsed: float = 0.0
 var back_somersault_start: Vector3 = Vector3.ZERO
 var back_somersault_direction: Vector3 = Vector3.ZERO
@@ -2451,11 +2457,11 @@ func _remember_jump_flick_sample(pos: Vector2) -> void:
     if jump_flick_samples.size() > 32:
         jump_flick_samples.pop_front()
 
-# STEP and Bash use the same four sectors of SERA's projected facing.
-# Archived debug Jump keeps its experimental screen-UP recognition.
+# v284: Bash is SCREEN-UP; actor yaw must never change the gesture mapping.
+# Preserve the method name for existing guard/flick call sites.
 func _is_character_forward_flick(displacement: Vector2, seconds: float) -> bool:
     return FLICK_DIRECTION_POLICY.is_flick(
-        displacement, seconds, gesture_screen_forward,
+        displacement, seconds, Vector2.UP,
         BASH_FLICK_MAX_SECONDS, BASH_FLICK_MIN_FORWARD_PIXELS,
         BASH_FLICK_MIN_FORWARD_SPEED, STEP_FLICK_MAX_HORIZONTAL_RATIO)
 
@@ -2644,9 +2650,8 @@ func _classify_step_flick(displacement: Vector2, seconds: float) -> Vector2:
     # Exact angle is preserved; cardinal and diagonal motions share input.
     return FLICK_DIRECTION_POLICY.screen_step_direction(displacement)
 
-# A side kick uses Bash-like human-flick timing and an unquantized SCREEN
-# displacement. The 90-degree sector is applied relative to SERA's facing
-# only when deciding WHICH kick animation to play.
+# The same Bash-like flick timing applies to every fixed SCREEN quadrant.
+# Kick selection is unrelated to target-facing orientation.
 func _classify_combo_kick_flick(displacement: Vector2, seconds: float) -> Vector2:
     if seconds <= 0.0 or seconds > BASH_FLICK_MAX_SECONDS:
         return Vector2.ZERO
@@ -2659,35 +2664,21 @@ func _classify_combo_kick_flick(displacement: Vector2, seconds: float) -> Vector
         return Vector2.ZERO
     return FLICK_DIRECTION_POLICY.screen_step_direction(displacement)
 
-# Gesture travel is always SCREEN-relative. During Melee3's kick-input
-# window, prioritize SERA's left/right 90-degree sectors. Also accept direct
-# screen-left/right thumb flicks irrespective of actor yaw: a target-facing
-# SERA can be screen-left OR screen-right, so a horizontal flick may lie in
-# the actor-FRONT sector (v269 only handled actor-BACK). Without this case
-# the same lateral controller movement alternates between Bash and STEP
-# as the camera rotates. Outside the combo window STEP is untouched.
-# Return +1 Kick_r, -1 Kick_l, or 0; an explicit lateral swipe beats Bash.
+# v284: Every Melee3 flick uses fixed SCREEN sectors: UP is Bash,
+# RIGHT Kick_r, DOWN Kick_b, LEFT Kick_l. Facing/camera recentering can
+# never reclassify the same finger motion into a different attack.
 func _combo_kick_side_for_flick(flick: Vector2) -> int:
-    if flick.length_squared() < 0.000001:
-        return 0
-    # Controller directions are SCREEN-space: DOWN is the backwards
-    # somersault irrespective of SERA's target-facing yaw. Resolve before
-    # actor-relative lateral kicks and actor-forward Bash.
     var screen_sector: int = FLICK_DIRECTION_POLICY.sector_index(
         flick, Vector2.UP)
-    if screen_sector == 2:
-        return 2  # Kick_b (authored if available, procedural until uploaded)
-    var actor_sector: int = FLICK_DIRECTION_POLICY.sector_index(
-        flick, gesture_screen_forward)
-    if actor_sector == 1:
-        return 1
-    if actor_sector == 3:
-        return -1
-    if screen_sector == 1:
-        return 1
-    if screen_sector == 3:
-        return -1
-    return 0
+    match screen_sector:
+        1:
+            return 1  # screen right -> Kick_r
+        2:
+            return 2  # screen down -> Kick_b
+        3:
+            return -1  # screen left -> Kick_l
+        _:
+            return 0  # screen up -> Bash (handled by _request_combo_bash)
 
 
 # Authored STEP clips are relative to SERA's LOCAL facing, while the
@@ -2705,8 +2696,7 @@ func _step_local_pose_direction(world_direction: Vector3) -> Vector2:
     var world_unit: Vector3 = world_direction.normalized()
     return Vector2(world_unit.dot(right), -world_unit.dot(facing)).normalized()
 
-# Kick sectors are left/right of SERA's projected facing, just like the
-# existing actor-relative Bash forward sector. Travel stays screen-relative.
+# Kick sectors are fixed SCREEN left/right/down. Travel stays screen-relative.
 # An unavailable kick consumes a reserved lateral gesture (never STEP).
 func _request_combo_side_kick(flick: Vector2) -> bool:
     # _end_drag calls this only for a kick gesture latched during _begin_drag.
@@ -2778,6 +2768,17 @@ func _start_back_kick_track() -> bool:
 # displacement is behind SERA / away from the lock target even when the
 # on-screen DOWN flick points in a different world direction. A 1.5m arc
 # keeps player collision physically airborne, with a single foot impact.
+# Capture the opposite target heading only AFTER homing is shut off,
+# so the retreat arc starts precisely at the kick impact location.
+func _capture_back_somersault_retreat_direction() -> void:
+    back_somersault_direction = player.global_position - target.global_position
+    back_somersault_direction.y = 0.0
+    if back_somersault_direction.length_squared() < 0.000001:
+        back_somersault_direction = player.global_transform.basis.z
+        back_somersault_direction.y = 0.0
+    back_somersault_direction = back_somersault_direction.normalized()
+
+
 func _start_back_somersault() -> bool:
     if (back_somersault_active or landing_active or jump_active or step_active
             or guard_active or damage_reaction_active
@@ -2790,20 +2791,16 @@ func _start_back_somersault() -> bool:
         return false
     _cancel_combo_followup_windows_for_movement()
     back_somersault_active = true
+    back_somersault_launched = false
     back_somersault_elapsed = 0.0
     back_somersault_hit = false
     back_somersault_hit_checked = false
     back_somersault_start = player.position
     back_somersault_original_rig_y = rig.position.y
     back_somersault_has_authored_clip = bool(rig.call("back_somersault_uses_authored_clip"))
-    # The melee lock faces the selected target. Backward is the opposite
-    # horizontal heading, with the player basis as a zero-length fallback.
-    back_somersault_direction = player.global_position - target.global_position
-    back_somersault_direction.y = 0.0
-    if back_somersault_direction.length_squared() < 0.000001:
-        back_somersault_direction = player.global_transform.basis.z
-        back_somersault_direction.y = 0.0
-    back_somersault_direction = back_somersault_direction.normalized()
+    # The final retreat vector is captured AT CONTACT, after the last
+    # homing movement; the initial fallback is kept for animation setup.
+    _capture_back_somersault_retreat_direction()
     direction_input = Vector2.ZERO
     movement_boost_active = false
     boost_confirm_elapsed = 0.0
@@ -2828,65 +2825,91 @@ func _back_somersault_arc_offset(progress: float) -> Vector3:
         control_up, finish + control_up, finish, p)
 
 
+# v284: Pre-impact Kick_b is a grounded, homing strike. Only a real hit
+# triggers the curved leap. On a miss the complete pose still plays, but
+# there is no phantom retreat or landing. The authored clip clock remains
+# 0..0.8s and its last sample is held until the rig has rendered it.
 func _advance_back_somersault(delta: float) -> void:
     if not back_somersault_active:
         return
+    var remaining: float = maxf(0.0, delta)
+    if not back_somersault_hit_checked:
+        var strike_dt: float = minf(remaining, maxf(
+            0.0, BACK_SOMERSAULT_STRIKE_SECONDS - back_somersault_elapsed))
+        if strike_dt > 0.0:
+            # Reuse the normal melee swept chase, EN and current target lock.
+            # Do not allow this chase to continue once a kick connects.
+            if target_hp > 0:
+                _advance_homing_toward_target(strike_dt, BASH_REACH)
+            back_somersault_elapsed += strike_dt
+            remaining -= strike_dt
+        rig.call("set_back_somersault_progress",
+            back_somersault_elapsed / BACK_SOMERSAULT_FLIGHT_SECONDS)
+        if back_somersault_elapsed >= BACK_SOMERSAULT_STRIKE_SECONDS - 0.000001:
+            back_somersault_hit_checked = true
+            if target_hp > 0 and _distance_to_attack_target_surface(player.position) <= SIDE_KICK_REACH:
+                back_somersault_hit = true
+                _register_side_kick_hit()
+                # This is the FIRST frame of the retreat: no arc displacement
+                # occurred during pursuit or windup.
+                back_somersault_launched = true
+                back_somersault_start = player.position
+                _capture_back_somersault_retreat_direction()
     var previous: float = clampf(
-        back_somersault_elapsed / BACK_SOMERSAULT_FLIGHT_SECONDS, 0.0, 1.0)
+        (back_somersault_elapsed - BACK_SOMERSAULT_STRIKE_SECONDS)
+            / BACK_SOMERSAULT_REAR_FLIGHT_SECONDS, 0.0, 1.0)
     back_somersault_elapsed = minf(
-        BACK_SOMERSAULT_FLIGHT_SECONDS, back_somersault_elapsed + maxf(0.0, delta))
+        BACK_SOMERSAULT_FLIGHT_SECONDS, back_somersault_elapsed + remaining)
     var progress: float = clampf(
-        back_somersault_elapsed / BACK_SOMERSAULT_FLIGHT_SECONDS, 0.0, 1.0)
-    # Integrate the same fixed Bezier arc by successive displacements.
-    # Swept collision on the horizontal component stops the character
-    # safely at walls; do not recompute a path from the obstructed position.
-    var previous_offset: Vector3 = _back_somersault_arc_offset(previous)
-    var next_offset: Vector3 = _back_somersault_arc_offset(progress)
-    var arc_delta: Vector3 = next_offset - previous_offset
-    _move_player_swept(Vector3(arc_delta.x, 0.0, arc_delta.z), true)
-    var wanted_y: float = back_somersault_start.y + next_offset.y
-    var vertical_delta: float = wanted_y - player.position.y
-    if absf(vertical_delta) > 0.000001:
-        player.move_and_collide(Vector3.UP * vertical_delta)
-    player.velocity = Vector3.ZERO
-    # Kick_b already contains a >360-degree rotation on the Waist root.
-    # Never rotate the entire rig on top of that authored motion: doing so
-    # makes the model spin twice around its feet instead of flipping once
-    # around the original Blockbench waist pivot (17 BB units = 1.105m).
-    # If Kick_b is missing, preserve the independent procedural fallback.
-    if not back_somersault_has_authored_clip:
+        (back_somersault_elapsed - BACK_SOMERSAULT_STRIKE_SECONDS)
+            / BACK_SOMERSAULT_REAR_FLIGHT_SECONDS, 0.0, 1.0)
+    if back_somersault_launched:
+        # Horizontal and vertical path are one swept cubic curve. No chase
+        # is ever applied in flight, even if the target keeps moving.
+        var previous_offset: Vector3 = _back_somersault_arc_offset(previous)
+        var next_offset: Vector3 = _back_somersault_arc_offset(progress)
+        var arc_delta: Vector3 = next_offset - previous_offset
+        _move_player_swept(Vector3(arc_delta.x, 0.0, arc_delta.z), true)
+        var wanted_y: float = back_somersault_start.y + next_offset.y
+        var vertical_delta: float = wanted_y - player.position.y
+        if absf(vertical_delta) > 0.000001:
+            player.move_and_collide(Vector3.UP * vertical_delta)
+        player.velocity = Vector3.ZERO
+    # The original Kick_b starts while on the ground; its contact pose
+    # occurs at BACK_SOMERSAULT_HIT_PROGRESS. After contact, continue the
+    # same authored clock while the 4m / 1.5m arc plays.
+    var pose_progress: float = back_somersault_elapsed / BACK_SOMERSAULT_FLIGHT_SECONDS
+    if not back_somersault_has_authored_clip and back_somersault_launched:
+        # Procedural rotation is fallback-only and begins on contact.
         var angle: float = TAU * progress
         rig.rotation.x = angle
         rig.position.y = back_somersault_original_rig_y + (
             BACK_SOMERSAULT_VISUAL_PIVOT_HEIGHT * (1.0 - cos(angle)))
-    rig.call("set_back_somersault_progress", progress)
-    # Each authored full-extension key is a one-shot event, including misses.
-    if not back_somersault_hit_checked and previous < BACK_SOMERSAULT_HIT_PROGRESS \
-            and progress >= BACK_SOMERSAULT_HIT_PROGRESS:
-        back_somersault_hit_checked = true
-        if target_hp > 0 and _distance_to_attack_target_surface(player.position) <= SIDE_KICK_REACH:
-            back_somersault_hit = true
-            _register_side_kick_hit()
-    if progress >= 1.0:
-        # Keep the final authored Kick_b key on-screen until the render rig
-        # has actually sampled it. 4m of travel still finishes at 0.80s.
-        player.position.y = 0.0
-        player.velocity = Vector3.ZERO
+    rig.call("set_back_somersault_progress", pose_progress)
+    if back_somersault_elapsed >= BACK_SOMERSAULT_FLIGHT_SECONDS:
+        if back_somersault_launched:
+            player.position.y = back_somersault_start.y
+            player.velocity = Vector3.ZERO
         if back_somersault_has_authored_clip and not bool(
                 rig.call("back_somersault_final_pose_sampled")):
             return
         back_somersault_active = false
+        back_somersault_launched = false
         back_somersault_elapsed = 0.0
         rig.rotation.x = 0.0
         rig.position.y = back_somersault_original_rig_y
-        # Now safely blend into the unchanged 0.20s landing.
-        _begin_landing(true)
+        if back_somersault_hit:
+            _begin_landing(true)
+        else:
+            # Miss: do not fabricate airborne movement or landing.
+            rig.call("finish_jump", false, false)
 
 
 func _cancel_back_somersault() -> void:
     if not back_somersault_active:
         return
     back_somersault_active = false
+    back_somersault_launched = false
     back_somersault_elapsed = 0.0
     back_somersault_hit = false
     back_somersault_hit_checked = false
@@ -3996,23 +4019,32 @@ func _physics_process(delta: float) -> void:
     # When a wall prevents a chase, do not display a false pursuing jet.
     # This movement-only condition is also the source for the acceleration
     # burst; it must NOT suppress the ordinary exhaust during a sword swing.
-    tracking_exhaust = tracking_exhaust and blur_velocity.length_squared() > 0.04
+    tracking_exhaust = (tracking_exhaust
+        or (back_somersault_active and not back_somersault_hit_checked)
+        or (side_kick_active and step_elapsed < BASH_TRACK_SECONDS)) \
+        and blur_velocity.length_squared() > 0.04
     # The three normal melee strikes are airborne throughout their approach,
     # target chase and complete authored blade follow-through. Keep the normal
     # jets on even while standing still, after contact or during hit-stop.
     # Bash retains its own chase-only exhaust and is not part of this gate.
+    # One identical continuous-exhaust policy applies to ALL melee actions:
+    # homing, strike, contact and full authored follow-through. The same
+    # stable rearward nozzle is used whenever a swing has little velocity.
     var normal_melee_exhaust: bool = (
         combat_state == CombatState.MELEE_APPROACH
         or combat_state == CombatState.DASH
         or combat_state == CombatState.STRIKE_TRACK
-        or combat_state == CombatState.STRIKE)
-    # Same physical nozzles, draw order, interpolation and shader as BOOST/STEP.
+        or combat_state == CombatState.STRIKE
+        or combat_state == CombatState.BASH_TRACK
+        or combat_state == CombatState.BASH
+        or combat_state == CombatState.BACK_KICK_TRACK)
     var normal_kick_exhaust: bool = (kick_side_this_frame != 0
         or somersault_this_frame)
+    var normal_attack_exhaust: bool = normal_melee_exhaust or normal_kick_exhaust
     var exhaust_on: bool = (not damage_reaction_active and not jump_active
         and not landing_active and not guard_active and not energy_exhausted
         and (boost_exhaust or boost_pose_exhaust or stepping_this_frame
-            or tracking_exhaust or normal_melee_exhaust or normal_kick_exhaust))
+            or tracking_exhaust or normal_attack_exhaust))
     # A short visual burst marks the *start* of high acceleration. STEP can
     # use move_and_collide() (not player.velocity); a homing attack must have
     # actual displacement before emitting, avoiding false wall-blocked jets.
@@ -4021,14 +4053,14 @@ func _physics_process(delta: float) -> void:
     var tracking_accel_state: int = combat_state if tracking_exhaust else -1
     # Launch backflip with the existing one-shot acceleration flare.
     var new_somersault_burst: bool = (somersault_this_frame
-        and not thruster_accel_previous_somersault)
+        and back_somersault_launched and not thruster_accel_previous_somersault)
     var acceleration_burst: bool = (exhaust_on
         and ((stepping_this_frame and not thruster_accel_previous_step)
             or new_somersault_burst
             or (tracking_accel_state >= 0
                 and tracking_accel_state != thruster_accel_previous_tracking_state)))
     thruster_accel_previous_step = stepping_this_frame
-    thruster_accel_previous_somersault = somersault_this_frame
+    thruster_accel_previous_somersault = somersault_this_frame and back_somersault_launched
     thruster_accel_previous_tracking_state = tracking_accel_state
     var direction_of_exhaust: Vector3 = -blur_velocity
     direction_of_exhaust.y = 0.0
@@ -4041,10 +4073,12 @@ func _physics_process(delta: float) -> void:
             direction_of_exhaust = -requested_boost.normalized()
     elif boost_pose_exhaust and held_boost_exhaust_direction.length_squared() > 0.000001:
         direction_of_exhaust = held_boost_exhaust_direction
-    if somersault_this_frame:
-        # The jets point opposite the exact rearward trajectory.
+    if somersault_this_frame and back_somersault_launched:
+        # Once the kick connects, exhaust opposes the actual rearward leap.
         direction_of_exhaust = -back_somersault_direction
-    if normal_melee_exhaust and not tracking_exhaust:
+    if normal_attack_exhaust and not tracking_exhaust \
+            and not (somersault_this_frame and back_somersault_launched) \
+            and not stepping_this_frame:
         # Full melee follow-through can have tiny collision/hit-stop position
         # jitter even while the blade is still airborne. Never steer these
         # small deltas into the body; hold a stable jet to SERA's rear.
@@ -4071,7 +4105,7 @@ func _physics_process(delta: float) -> void:
         # Legacy dedicated Backstep has no omnidirectional flick vector.
         if step_side_this_frame == STEP_BACK and step_flick_this_frame.is_zero_approx():
             backstroke_weight = 1.0
-    elif somersault_this_frame:
+    elif somersault_this_frame and back_somersault_launched:
         backstroke_weight = 1.0
     elif boost_exhaust or boost_pose_exhaust:
         var intended_boost: Vector3 = _screen_drag_to_ground(direction_input)
@@ -4119,7 +4153,7 @@ func _physics_process(delta: float) -> void:
         held_boost_left_sector_world = Vector3.ZERO
     rig.call("update_back_thruster_fx", exhaust_on,
         direction_of_exhaust.normalized(), delta, backstroke_weight,
-        left_sector_world, acceleration_burst, normal_melee_exhaust or normal_kick_exhaust)
+        left_sector_world, acceleration_burst, normal_attack_exhaust)
     _update_melee_lock_marker()  # Update after player movement and auto-approach.
     # The idle HUD shows lateral step speed; equipment changes still refresh it.
     if not step_active and step_status_label != null:
