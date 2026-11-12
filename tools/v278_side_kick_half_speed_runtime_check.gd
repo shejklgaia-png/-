@@ -22,6 +22,8 @@ func _run() -> void:
         return
     target.position = Vector3.ZERO
     player.position = Vector3(0.0, 0.0, 9.0)
+    game.set("camera_yaw", 0.0)
+    game.call("_place_camera")
     # Disable target damage to keep Bash auto-homing from altering displacement.
     # Hit-event mask still advances on original authored extension frames.
     game.set("target_hp", 0)
