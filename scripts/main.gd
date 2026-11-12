@@ -2642,8 +2642,11 @@ func _request_combo_side_kick(flick: Vector2) -> bool:
     var side: int = _combo_kick_side_for_flick(flick)
     if side == 0:
         return false
-    if rig == null or not bool(rig.call("has_side_kick", side)):
-        _record_kick_debug("CLIP MISSING")
+    if rig == null:
+        _record_kick_debug("CLIP MISSING RIG")
+        return false
+    if not bool(rig.call("has_side_kick", side)):
+        _record_kick_debug("CLIP MISSING " + str(rig.call("get_side_kick_diagnostic", side)))
         return false
     if (combat_state == CombatState.STRIKE or combat_state == CombatState.STRIKE_TRACK) \
             and strike_index == STRIKE_CLIPS.size() - 1:
@@ -2745,7 +2748,10 @@ func _start_omni_step(flick: Vector2) -> bool:
     side_kick_side = step_kick_side_request
     side_kick_did_hit = false
     if side_kick_active:
-        rig.call("start_side_kick", step_kick_side_request, step_duration_current)
+        if not bool(rig.call("start_side_kick", step_kick_side_request, step_duration_current)):
+            # Do not claim KICK START if the rig refused playback.
+            _finish_side_step(false)
+            return false
     else:
         rig.call("start_omni_step", pose_direction)
     _refresh_step_status_ui()
