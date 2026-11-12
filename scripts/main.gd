@@ -4022,10 +4022,9 @@ func _physics_process(delta: float) -> void:
         or (back_somersault_active and not back_somersault_hit_checked)
         or (side_kick_active and step_elapsed < BASH_TRACK_SECONDS)) \
         and blur_velocity.length_squared() > 0.04
-    # The three normal melee strikes are airborne throughout their approach,
-    # target chase and complete authored blade follow-through. Keep the normal
-    # jets on even while standing still, after contact or during hit-stop.
-    # Bash retains its own chase-only exhaust and is not part of this gate.
+    # v284: Bash and all kicks share the three normal strikes' continuous
+    # exhaust across homing, hit-stop and final follow-through. No chase-only
+    # special-case remains for Bash.
     # One identical continuous-exhaust policy applies to ALL melee actions:
     # homing, strike, contact and full authored follow-through. The same
     # stable rearward nozzle is used whenever a swing has little velocity.
