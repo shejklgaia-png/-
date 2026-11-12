@@ -51,10 +51,10 @@ release = main.split("func _end_drag(release_pos: Vector2) -> void:", 1)[1].spli
     "func _remember_jump_flick_sample", 1)[0]
 request = main.split("func _request_combo_side_kick(flick: Vector2) -> bool:", 1)[1].split(
     "func _start_omni_step", 1)[0]
-assert "side_kick_flick_candidate = (combat_state == CombatState.IDLE\n" in touch
-assert "and bash_followup_window_remaining > 0.0)" in touch
+assert "side_kick_flick_candidate = (" in touch
+assert "and bash_followup_window_remaining > 0.0))" in touch
 assert "var side_kick_requested: bool = (side_kick_flick_candidate" in release
-assert release.index("if side_kick_requested and flick_direction.length_squared()") < release.index(
+assert release.index("if side_kick_requested and kick_flick_direction.length_squared()") < release.index(
     "if bash_requested and _request_combo_bash()"
 )
 assert 'if combat_state != CombatState.IDLE:' in request

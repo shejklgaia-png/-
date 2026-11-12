@@ -58,6 +58,7 @@ on:
       - 'tools/v265_kick_embedded_input_self_check.py'
       - 'tools/v266_exclusive_side_kick_self_check.py'
       - 'tools/v267_actor_facing_side_kick_self_check.py'
+      - 'tools/v268_melee3_kick_buffer_self_check.py'
       - 'tools/v242_screen_lock_buttons_self_check.py'
       - 'tools/v243_controller_quadrant_lock_mode_self_check.py'
       - 'tools/v244_half_size_run_boost_controller_self_check.py'
@@ -295,6 +296,8 @@ jobs:
         run: python3 tools/v266_exclusive_side_kick_self_check.py
       - name: Verify v267 actor-facing kick wedges and screen-space controller
         run: python3 tools/v267_actor_facing_side_kick_self_check.py
+      - name: Verify v268 third-strike queued kick and video-observed STEP fix
+        run: python3 tools/v268_melee3_kick_buffer_self_check.py
       - name: Verify shared transparent render contract and new shaders
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}

@@ -22,9 +22,9 @@ step = func("_start_omni_step(flick: Vector2) -> bool:", "_start_back_step")
 move = func("_screen_drag_to_ground(screen_drag: Vector2) -> Vector3:", "_reset_boost_speed_transition")
 
 assert "gesture_screen_forward = FLICK_DIRECTION_POLICY.projected_forward(camera, player)" in begin
-assert "side_kick_flick_candidate = (combat_state == CombatState.IDLE" in begin
-assert "and bash_followup_window_remaining > 0.0)" in begin
-assert 'FLICK_DIRECTION_POLICY.sector_index(\n                flick_direction, gesture_screen_forward) in [1, 3]' in end
+assert "side_kick_flick_candidate = (" in begin
+assert "and bash_followup_window_remaining > 0.0))" in begin
+assert 'FLICK_DIRECTION_POLICY.sector_index(\n                kick_flick_direction, gesture_screen_forward) in [1, 3]' in end
 assert "FLICK_DIRECTION_POLICY.sector_index(flick, gesture_screen_forward)" in request
 assert "sector != 1 and sector != 3" in request
 assert "var side: int = 1 if sector == 1 else -1" in request
@@ -32,9 +32,9 @@ assert "Vector2.UP" not in end.split("if side_kick_requested",1)[1].split("if ba
 assert "Vector2.UP" not in request
 candidate = change.split("if side_kick_flick_candidate and (",1)[1].split(
     "direction_input =",1)[0]
-assert "STEP_FLICK_MAX_SECONDS" in candidate
+assert "BASH_FLICK_MAX_SECONDS" in candidate
 assert "sector_index" not in candidate
-assert "if _request_combo_side_kick(flick_direction):" in end
+assert "if _request_combo_side_kick(kick_flick_direction):" in end
 assert re.search(r"\n\s{8}return\s*\n", end.split(
     "if side_kick_requested",1)[1].split("if bash_requested",1)[0])
 print("PASS: both kick routing sites use the touch-start SERA-facing screen axis")
