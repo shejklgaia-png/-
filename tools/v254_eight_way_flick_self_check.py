@@ -24,7 +24,7 @@ for tok in ("return FLICK_DIRECTION_POLICY.screen_step_direction(displacement)",
     assert tok in step,tok
 omni=m.split("func _start_omni_step(flick: Vector2) -> bool:",1)[1].split("func _start_back_step()",1)[0]
 for tok in ("var direction: Vector2 = flick.normalized()",
-            "BACK_STEP_DISTANCE if direction.y >= 0.0 else STEP_FORWARD_DISTANCE",
+            "STEP_FORWARD_DISTANCE, BACK_STEP_DISTANCE, back_mix",
             "step_linear_fallback = true", 'rig.call("start_omni_step", direction)'):
     assert tok in omni,tok
 assert "const JUMP_TOUCH_INPUT_ENABLED: bool = false" in m

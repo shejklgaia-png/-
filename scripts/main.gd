@@ -2454,10 +2454,9 @@ func _classify_side_flick(displacement: Vector2, seconds: float) -> int:
     return 1 if displacement.x > 0.0 else -1
 
 func _classify_step_flick(displacement: Vector2, seconds: float) -> Vector2:
-    # v260: STEP classification uses actual viewport UP/RIGHT/DOWN/LEFT.
-    # The old camera-dependent actor-front axis misclassified a down flick
-    # as SIDE and horizontal flicks as BACK when SERA faced diagonally.
-    # Bash keeps SERA-facing front; only STEP animation sector is changed.
+    # v262: use the exact on-screen 360-degree flick direction for STEP
+    # physics AND the four authored clip blend. Do not snap to quadrants.
+    # Bash retains its distinct SERA-facing front-sector recognition.
     # Hold, BOOST suppression, Bash priority, reversal filtering and
     # archived debug-only Jump retain their existing precedence.
     if seconds <= 0.0 or seconds > STEP_FLICK_MAX_SECONDS:
@@ -2469,8 +2468,8 @@ func _classify_step_flick(displacement: Vector2, seconds: float) -> Vector2:
         return Vector2.ZERO
     if gesture_max_travel > distance * 1.20:
         return Vector2.ZERO
-    # Down always means BACKSTEP, and left/right always lateral STEP.
-    # Keep Bash's SERA-facing orientation for intentional forward Bash.
+    # Preserve arbitrary diagonal ratios (including the 45-degree borders).
+    # World travel and rig both use the same continuous normalized vector.
     return FLICK_DIRECTION_POLICY.screen_step_direction(displacement)
 
 func _start_omni_step(flick: Vector2) -> bool:
@@ -2492,7 +2491,7 @@ func _start_omni_step(flick: Vector2) -> bool:
     # a target-centered orbit that can curve away from the finger's direction.
     # X = actual camera/screen left-right; negative Y = SERA's own forward
     # (-player.basis.z, aimed at the currently locked target); positive Y
-    # is its reverse. Diagonals blend the two directions continuously.
+    # is its reverse. Raw analog flick ratios blend all four directions.
     # Snapshot both bases ON RELEASE; camera motion during STEP must never
     # turn an already-committed flick.
     var direction: Vector2 = flick.normalized()
@@ -2518,7 +2517,12 @@ func _start_omni_step(flick: Vector2) -> bool:
     var side_length: float = minf(
         maxf(STEP_MIN_ARC_LENGTH, radius * deg_to_rad(STEP_ORBIT_ANGLE_DEGREES)),
         minf(STEP_MAX_ARC_LENGTH, step_speed_current * STEP_MAX_DURATION))
-    var radial_distance: float = BACK_STEP_DISTANCE if direction.y >= 0.0 else STEP_FORWARD_DISTANCE
+    # Avoid a change in slope at exact screen-left/right. Keep the
+    # established 3m pure-forward and 4m pure-back distance, and preserve
+    # both original diagonal distances outside this narrow side transition.
+    var back_mix: float = smoothstep(-0.25, 0.25, direction.y)
+    var radial_distance: float = lerpf(
+        STEP_FORWARD_DISTANCE, BACK_STEP_DISTANCE, back_mix)
     step_radial_delta = direction.y * radial_distance
     var tangent_distance: float = absf(direction.x) * side_length
     step_arc_length = clampf(
@@ -2526,8 +2530,8 @@ func _start_omni_step(flick: Vector2) -> bool:
         STEP_MIN_ARC_LENGTH, STEP_MAX_ARC_LENGTH)
 
     # +X to screen-right; upward finger motion is forward in SERA's facing.
-    # The authoritative travel vector is horizontal and continuous for all
-    # 360-degree diagonals. Preserve the established 2..4m path bounds.
+    # The authoritative travel vector follows the full 360-degree swipe.
+    # Keep established 2..4m length bounds and swept collision detection.
     var world_step: Vector3 = (camera_right * direction.x * side_length
         - facing_forward * step_radial_delta)
     if world_step.length_squared() < 0.000001:

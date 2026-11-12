@@ -1,8 +1,7 @@
 extends RefCounted
-## v260: classify STEP in viewport cardinal directions (UP/RIGHT/DOWN/LEFT);
-## a down flick must not become a side STEP as the camera orbits.
-## Bash still checks SERA's screen-projected facing for its front action.
-## Both use the SAME four exclusive 90-degree sectors in screen coordinates.
+## v262: STEP preserves the full 360-degree screen-space flick vector.
+## Its four authored key poses are continuously blended, not snapped to
+## quadrants. The four-sector classifier remains for SERA-facing BASH only.
 const SECTOR_COUNT: int = 4
 const SECTOR_ANGLE: float = TAU / 4.0
 
@@ -43,11 +42,14 @@ static func four_way_direction(displacement: Vector2, screen_axis: Vector2) -> V
         return Vector2.ZERO
     return Vector2.UP.rotated(float(sector) * SECTOR_ANGLE)
 
-# STEP actions are named for the observed SCREEN gesture, never the
-# camera-dependent actor facing. Down must always map to backstep and
-# horizontal flicks to lateral steps, including oblique camera angles.
+# Preserve every swipe angle for STEP; no 45-degree/90-degree snapping.
+# SCREEN X maps to left/right STEP, SCREEN Y to forward/back STEP.
+# Both physics travel and authored four-clip motion receive this same unit
+# direction. Guard/Combo Bash still uses the separate SERA-facing sector.
 static func screen_step_direction(displacement: Vector2) -> Vector2:
-    return four_way_direction(displacement, Vector2.UP)
+    if displacement.length_squared() < 0.000001:
+        return Vector2.ZERO
+    return displacement.normalized()
 
 # Compatibility parameter deliberately ignored. The 90-degree front
 # sector defines the complete Bash direction gate; an additional 0.42

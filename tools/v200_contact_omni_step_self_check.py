@@ -54,7 +54,7 @@ assert "const JUMP_TOUCH_INPUT_ENABLED: bool = false" in main
 step = main.split("func _start_omni_step(flick: Vector2) -> bool:",1)[1].split("func _start_back_step()",1)[0]
 assert "var direction: Vector2 = flick.normalized()" in step
 assert "step_radial_delta = direction.y * radial_distance" in step
-assert "BACK_STEP_DISTANCE if direction.y >= 0.0 else STEP_FORWARD_DISTANCE" in step
+assert "STEP_FORWARD_DISTANCE, BACK_STEP_DISTANCE, back_mix" in step
 assert "step_linear_fallback = true" in step
 assert "step_linear_offset = Vector2(world_step.x, world_step.z)" in step
 assert "camera_right * direction.x * side_length" in step
@@ -66,7 +66,9 @@ assert "step_signed_angle * progress) * moved_radius" in advance
 assert "_move_player_swept(requested, true)" in advance
 for deg in range(0, 360, 5):
     x, y = math.cos(math.radians(deg)), math.sin(math.radians(deg))
-    radial = y * (4.0 if y >= 0 else 3.0)
+    weight=max(0.,min(1.,(y+.25)/.50))
+    weight=weight*weight*(3.-2.*weight)
+    radial = y * (3.0 + weight)
     side_length = max(2.0, min(4.0, 6.0 * math.radians(35)))
     travel = max(2.0, min(4.0, math.hypot(abs(x) * side_length, radial)))
     assert 2.0 - 1e-10 <= travel <= 4.0 + 1e-10 and math.isfinite(travel)
@@ -89,6 +91,6 @@ assert 'state_label.text = "STEP FORWARD  |  Frontstep"' in main
 assert 'player.motion_mode = CharacterBody3D.MOTION_MODE_FLOATING' in main
 assert 'const SLOTS = ["head", "torso", "legs", "arms", "booster", "weapon_r", "weapon_l"]' in eq
 print("PASS v200: WAIT grounding, RUN contact-signal grounding, other poses baseline")
-print("PASS v200/v254: 360-degree flick acceptance, eight-way quantization and swept step")
+print("PASS v200/v262: continuous 360-degree flick acceptance, swept STEP and blended pose")
 print("PASS v200: Step_L/Step_R/Backstep/Frontstep pose blend with fade")
 print("Android Godot runtime behavior not verified")

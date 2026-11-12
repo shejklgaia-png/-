@@ -36,7 +36,7 @@ assert "guard_flick_axis_captured = true" in drag
 assert "return FLICK_DIRECTION_POLICY.screen_step_direction(displacement)" in step
 assert "FLICK_DIRECTION_POLICY.within_sector(" in drag
 assert "static func screen_step_direction(displacement: Vector2) -> Vector2:" in p
-assert "return four_way_direction(displacement, Vector2.UP)" in p
+assert "return displacement.normalized()" in p
 assert "four_way_direction(displacement, gesture_screen_forward)" not in step
 assert "return FLICK_DIRECTION_POLICY.is_flick(" in m
 assert "displacement, seconds, gesture_screen_forward," in m
@@ -46,7 +46,7 @@ assert "var guard_bash_requested: bool = _classify_recent_character_forward_flic
 assert "and _is_character_forward_flick(release_pos - pointer_origin, press_duration)" in release
 assert 'if bash_requested and _request_combo_bash():' in release
 assert "step_linear_fallback = true" in omni
-assert "BACK_STEP_DISTANCE if direction.y >= 0.0 else STEP_FORWARD_DISTANCE" in omni
+assert "STEP_FORWARD_DISTANCE, BACK_STEP_DISTANCE, back_mix" in omni
 assert "rig.call(\"start_omni_step\", direction)" in omni
 assert "const JUMP_TOUCH_INPUT_ENABLED: bool = false" in m
 assert "const STEP_FLICK_MAX_SECONDS: float = 0.24" in m

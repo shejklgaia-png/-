@@ -1186,14 +1186,18 @@ func _sample_step_clip_pose(clip_name: String, uid: String, elapsed: float) -> D
     }
 
 func _blended_directional_step_pose(uid: String, t: float) -> Dictionary:
-    # Cardinal keys are exact. Any diagonal smoothly interpolates between
-    # lateral STEP_L/R and authored forward Frontstep or backward Backstep.
+    # Cardinal keys are exact. All 360-degree angles continuously blend
+    # lateral STEP_L/R with authored Frontstep/Backstep by swipe angle.
     var direction: Vector2 = directional_step_vector
     var fore_aft: Dictionary = _sample_step_clip_pose(STEP_FORWARD_CLIP, uid, 0.0) if direction.y < 0.0 else (
         _sample_step_clip_pose(STEP_BACK_CLIP, uid, 0.0))
     var side_clip: String = STEP_RIGHT_CLIP if direction.x >= 0.0 else STEP_LEFT_CLIP
     var lateral: Dictionary = _sample_step_clip_pose(side_clip, uid, t)
     var alpha: float = atan2(absf(direction.x), absf(direction.y)) / (PI * 0.5)
+    # Ease the angular pose weight to zero slope at all four cardinals.
+    # Forward/back and left/right change continuously even at the 90deg
+    # quadrant boundaries as the flick heading sweeps around 360 degrees.
+    alpha = alpha * alpha * (3.0 - 2.0 * alpha)
     return {
         "rotation": (fore_aft["rotation"] as Quaternion).slerp(lateral["rotation"], alpha).normalized(),
         "position": (fore_aft["position"] as Vector3).lerp(lateral["position"], alpha),
