@@ -24,7 +24,7 @@ assert "var arc_delta: Vector3 = next_offset - previous_offset" in advance
 assert "_move_player_swept(Vector3(arc_delta.x, 0.0, arc_delta.z), true)" in advance
 assert "back_somersault_start.y + next_offset.y" in advance
 assert "BACK_SOMERSAULT_HEIGHT * sin(PI * progress)" not in advance
-assert 'rig.call("set_back_somersault_progress", progress)' in advance
+assert 'rig.call("set_back_somersault_progress", pose_progress)' in advance
 assert "rig.rotation.x = angle" in advance
 assert "if back_somersault_has_authored_clip and not bool(" in advance
 assert "_register_side_kick_hit()" in advance
