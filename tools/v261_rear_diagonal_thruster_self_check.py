@@ -16,6 +16,8 @@ assert "v261 rear-diagonal BOOST nozzle fix" in read("AGENTS.md")
 assert "v261 — 左斜め後退" in read("docs/SERA_INPUT_MOVEMENT_CAMERA.md")
 motion=main.split("var backstroke_weight: float = 0.0",1)[1].split(
     'rig.call("update_back_thruster_fx"',1)[0]
+assert "backstroke_weight = clampf(step_world_rear.dot(" in motion
+assert "player.global_transform.basis.z), 0.0, 1.0)" in motion
 assert "backstroke_weight = clampf(step_flick_this_frame.y, 0.0, 1.0)" in motion
 assert "intended_boost.normalized().dot(" in motion
 assert "player.global_transform.basis.z), 0.0, 1.0)" in motion
