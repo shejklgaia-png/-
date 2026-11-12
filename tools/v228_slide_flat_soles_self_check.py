@@ -59,7 +59,9 @@ for mesh in b_foot + d_foot:
     assert len({float(v[0]) for v in on_bottom}) >= 2, mesh["name"]
     assert len({float(v[2]) for v in on_bottom}) >= 2, mesh["name"]
 
-# v200 old contact-only RUN and C bird foot grounding remain separate.
+# v299: C uses the same RUN foot-contact event as the other lower bodies.
+# Keep B/D SLIDE IK and contact-only regular RUN pathways independent.
 assert 'equipment_handler.call("snap_run_contact_foot_to_floor", side)' in rig
-assert 'equipment_handler.call("smooth_bird_grounding", delta)' in rig
+assert 'equipment_handler.call("restore_run_contact_height")' in rig
+assert 'equipment_handler.call("smooth_bird_grounding", delta)' not in rig
 print("PASS v228 B/D level heel-to-toe soles, hip crouch, IK order and isolation")
