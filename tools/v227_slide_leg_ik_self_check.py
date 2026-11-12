@@ -29,7 +29,10 @@ for condition in ("not combat_playback", "not guard_playback", "not damage_playb
 assert tick.count('equipment_handler.call("apply_slide_leg_ik", slide_blend_weight)') == 1
 assert tick.count('equipment_handler.call("snap_grounded_sole_to_floor")') == 1
 assert 'elif current_clip in RUN_CLIPS and not step_playback:' in tick
-assert 'equipment_handler.call("smooth_bird_grounding", delta)' in tick
+# v299: bird C now uses the same foot-contact-only rule as A/B/D.
+assert 'equipment_handler.call("smooth_bird_grounding", delta)' not in tick
+assert 'equipment_handler.call("restore_run_contact_height")' in tick
+assert 'equipment_handler.call("snap_run_contact_foot_to_floor", side)' in rig
 assert '_update_foot_contacts(delta)' in tick
 
 cache = eq.split("func _cache_slide_leg_chains()", 1)[1].split("func _solve_slide_two_bone_ik(", 1)[0]
