@@ -27,7 +27,7 @@ func _run() -> void:
         return
     game.set("locked_target_part_id", "")
     game.set("target_hp", 500)
-    player.position = Vector3(0.0, 0.0, -5.5)
+    player.position = Vector3(0.0, 0.0, -5.0)
     var start: Vector3 = player.position
     game.call("_advance_back_somersault", 0.8)
     if not bool(game.get("back_somersault_hit")):
