@@ -68,6 +68,7 @@ on:
       - 'tools/v273_kick_lookup_runtime_check.gd'
       - 'tools/sera_animation_runtime_smoke.gd'
       - 'tools/v274_back_somersault_self_check.py'
+      - 'tools/v275_authored_back_kick_self_check.py'
       - 'tools/v274_back_somersault_runtime_check.gd'
       - 'docs/SERA_ANIMATION_RUNTIME_POLICY_ja.md'
       - 'tools/v242_screen_lock_buttons_self_check.py'
@@ -321,6 +322,8 @@ jobs:
         run: python3 tools/v273_kick_lookup_self_check.py
       - name: Verify v274 rear somersault kick state, 4m arc and 0.2s landing
         run: python3 tools/v274_back_somersault_self_check.py
+      - name: Verify v275 user-authored Kick_b and embedded data
+        run: python3 tools/v275_authored_back_kick_self_check.py
       # Earlier static regressions all passed while the Android side kick
       # lookup failed. Test the real GDScript runtime, not just its text.
       - name: Fetch Godot 4.7.2 for headless clip playback

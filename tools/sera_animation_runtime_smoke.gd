@@ -92,5 +92,22 @@ func _run() -> void:
             return
         rig.call("finish_side_step", false, false)
 
+    # Verify somersault's actual public playback API, not generic clip selection.
+    if not bool(rig.call("has_back_somersault_clip")):
+        _failure("Kick_b authored keyframes were not loaded")
+        return
+    if not bool(rig.call("start_back_somersault")):
+        _failure("Kick_b playback API rejected the authored clip")
+        return
+    if not bool(rig.call("back_somersault_uses_authored_clip")) or str(rig.get("current_clip")) != "Kick_b":
+        _failure("Kick_b playback silently fell back to Jump")
+        return
+    rig.call("set_back_somersault_progress", 0.5)
+    rig.call("_apply_animation", 0.0)
+    if str(rig.get("current_clip")) != "Kick_b":
+        _failure("Kick_b not retained during frame sampling")
+        return
+    rig.call("finish_jump", false, false)
+
     print("GODOT_ALL_ANIMATIONS_TEST PASSED ", tested, " source clips and both kicks")
     quit(0)
