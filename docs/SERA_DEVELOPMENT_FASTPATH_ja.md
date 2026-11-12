@@ -36,3 +36,12 @@
 - 静的検査はGDScriptの実行・描画・タッチ・パフォーマンスの証明ではありません。実機未検証を明示します。
 - 既存の検査は削除・弱体化せず、既存CIのベース検査を共通ランナーへ統合しました。新規の自動ワークフローやジョブは作りません（既存CIに新ツールの自己検査は追加されます）。
 - 今後の安全な段階的改修候補: コントローラー寸法の設定集約 → カメラと入力の責務分割 → 再現可能な実機デバッグ表示。**挙動変更の可能性があるため、このPRには含めません。**
+
+## 2026-11-12 — 回帰検査の並列化（CI）
+
+- GitHub Actionsの共通CI `.github/workflows/sera-model-policy.yml` は、既存の103件のPython静的検査と21件のGodot実行検査を `tools/sera_ci_suite.py` から実行します。各検査は**独立プロセス**で、テスト自体のコードや成功基準は変更していません。
+- 検査一覧の正本は `tools/sera_ci_manifest.txt` です。新しい静的テストを追加した場合は `py tools/xxx_self_check.py`、Godot実行テストは `gd tools/xxx_runtime_check.gd` の形式で必ず追記してください。manifestに追加し忘れるとCIでは実行されません。
+- 履歴テストを勝手に削除・スキップしないでください。全件を実行し、ひとつでも失敗・欠落・タイムアウトすればCI全体を失敗とします。各テストのログ・時間・失敗一覧はActionsログとStep Summaryから確認できます。
+- Pythonは4並列、Godotは3並列を既定としています。Godotはアセットを一度インポートした後、**プロセスとuser://相当のデータ保存先を分離**して実行します。端末上の挙動がこの検査だけで保証されるわけではありません。
+- ローカルからの静的検査例：`python3 tools/sera_ci_suite.py static --workers 4`。Godotはインポート済みなら、`SERA_GODOT_BIN=/path/to/godot python3 tools/sera_ci_suite.py godot --workers 3` で同一スイートを実行できます。
+- 共通CIの実測（GitHub Actions、同日）：変更前66秒 → 変更後34秒（約48%短縮）。今後のGitHubランナー・テスト増加・キャッシュ状態によって変動します。
