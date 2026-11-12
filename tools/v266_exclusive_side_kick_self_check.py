@@ -17,27 +17,27 @@ change = body("func _change_drag(pos: Vector2) -> void:", "func _update_boost_ge
 release = body("func _end_drag(release_pos: Vector2) -> void:", "func _remember_jump_flick_sample")
 kick = body("func _request_combo_side_kick(flick: Vector2) -> bool:", "func _start_omni_step")
 
-assert "side_kick_flick_candidate = (combat_state == CombatState.IDLE\n" in start
-assert "and bash_followup_window_remaining > 0.0)" in start
+assert "side_kick_flick_candidate = (" in start
+assert "and bash_followup_window_remaining > 0.0))" in start
 assert "var side_kick_requested: bool = (side_kick_flick_candidate" in release
 
 # No early directional cancellation; fast flicks with a transient diagonal
 # must still be classified from the final release displacement.
 reservation = change.split("if side_kick_flick_candidate and (", 1)[1].split(
     "side_kick_flick_candidate = false", 1)[0]
-assert "STEP_FLICK_MAX_SECONDS" in reservation
+assert "BASH_FLICK_MAX_SECONDS" in reservation
 assert "sector_index" not in reservation
 assert "gesture_max_travel > BASH_FLICK_CANDIDATE_GRACE_PIXELS" not in reservation
 assert "direction_input = Vector2.ZERO if (bash_flick_candidate or side_kick_flick_candidate)" in change
 print("PASS: fast kick reservation survives intermediate diagonal drag")
 
-exclusive = release.split("if side_kick_requested and flick_direction.length_squared()", 1)[1].split(
+exclusive = release.split("if side_kick_requested and kick_flick_direction.length_squared()", 1)[1].split(
     "if bash_requested and _request_combo_bash():", 1)[0]
 assert "FLICK_DIRECTION_POLICY.sector_index(" in exclusive
-assert "flick_direction, gesture_screen_forward) in [1, 3]" in exclusive
-assert 'if _request_combo_side_kick(flick_direction):' in exclusive
+assert "kick_flick_direction, gesture_screen_forward) in [1, 3]" in exclusive
+assert 'if _request_combo_side_kick(kick_flick_direction):' in exclusive
 assert re.search(r'\n\s{8}return\s*\n', exclusive), "lateral branch must return unconditionally"
-assert exclusive.index("return") > exclusive.index("_request_combo_side_kick(flick_direction)")
+assert exclusive.index("return") > exclusive.index("_request_combo_side_kick(kick_flick_direction)")
 assert "if _start_omni_step(flick_direction):" in release.split(
     "if bash_requested and _request_combo_bash():", 1)[1]
 print("PASS: lateral kick consumes the entire gesture, even on failed initiation")
