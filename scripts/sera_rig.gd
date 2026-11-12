@@ -59,6 +59,7 @@ const STRIKE_CLIP: String = "melee1"
 const STRIKE_2_CLIP: String = "Melee2"
 const STRIKE_3_CLIP: String = "Melee3"
 const KATANA_CLIP: String = "Melee_katana"
+const KATANA_SECOND_CLIP: String = "Melee_katana2"
 const STEP_RIGHT_CLIP: String = "Step_R"
 const STEP_LEFT_CLIP: String = "Step_L"
 const STEP_BACK_CLIP: String = "Backstep"
@@ -226,6 +227,7 @@ func _ready() -> void:
     _build_model(data)
     _install_bird_model()
     _build_animations(data)
+    _build_katana_second_strike()
     _merge_authored_side_kick_clips()
     # A dedicated, small Godot script resource is independent of both the
     # live JSON and the large generated whole-model GDScript. It also maps
@@ -993,6 +995,37 @@ func _build_animations(data: Dictionary) -> void:
             "tracks": tracks
         }
 
+# v290: No separate user-authored Katana2 keys exist in the repository.
+# Derive an ACTUAL second clip from Melee_katana's seven keyed combat poses,
+# reversing the twist of the torso and sword arm while retaining the 24fps
+# timing, weapon pivots, untouched source JSON and real blade AABB.
+# This is a distinct animation dictionary; repeated tap never gets swallowed
+# by _switch_clip's wanted==current_clip guard.
+func _build_katana_second_strike() -> void:
+    if animations.has(KATANA_SECOND_CLIP) or not animations.has(KATANA_CLIP):
+        return
+    var second: Dictionary = (animations[KATANA_CLIP] as Dictionary).duplicate(true)
+    var tracks: Dictionary = second["tracks"]
+    var reverse_twist: Array[String] = [
+        "Waist", "Torso", "Chest", "Shoulder_R", "UpperArm_R",
+        "Forearm_R", "Hand_R", "Katana_r_nukimi"
+    ]
+    for raw_uid in tracks.keys():
+        var uid: String = str(raw_uid)
+        if not bones.has(uid) or not reverse_twist.has(str((bones[uid] as Node3D).name)):
+            continue
+        var channels: Dictionary = tracks[uid]
+        for keyframe in channels.get("rotation", []):
+            var original: Vector3 = keyframe["value"]
+            # Reverse horizontal slash twist, preserving original authored
+            # pitch, roll and the swing-through / blade contact times.
+            var opposite: Vector3 = Vector3(original.x, -original.y, original.z)
+            keyframe["value"] = opposite
+            keyframe["quaternion"] = _blockbench_rotation(opposite)
+    second["looped"] = false
+    animations[KATANA_SECOND_CLIP] = second
+
+
 func _switch_clip(wanted: String, fade_seconds: float) -> void:
     if wanted == current_clip or not animations.has(wanted):
         return
@@ -1667,7 +1700,7 @@ func start_attack_windup(clip_name: String, windup_end: float) -> void:
     # Bash, Melee2 and Melee3 each use their own Blockbench windup key.
     if not loading_ok or damage_playback or guard_playback:
         return
-    if clip_name != BASH_CLIP and clip_name != STRIKE_2_CLIP and clip_name != STRIKE_3_CLIP and clip_name != KATANA_CLIP:
+    if clip_name != BASH_CLIP and clip_name != STRIKE_2_CLIP and clip_name != STRIKE_3_CLIP and clip_name != KATANA_CLIP and clip_name != KATANA_SECOND_CLIP:
         return
     combat_paused = false
     freeze_attack_pose = false
@@ -1694,7 +1727,7 @@ func release_attack_windup() -> void:
 func start_strike(clip_name: String = STRIKE_CLIP) -> void:
     if not loading_ok or damage_playback or guard_playback:
         return
-    if clip_name != STRIKE_CLIP and clip_name != STRIKE_2_CLIP and clip_name != STRIKE_3_CLIP and clip_name != KATANA_CLIP:
+    if clip_name != STRIKE_CLIP and clip_name != STRIKE_2_CLIP and clip_name != STRIKE_3_CLIP and clip_name != KATANA_CLIP and clip_name != KATANA_SECOND_CLIP:
         return
     freeze_attack_pose = false
     combat_paused = false
