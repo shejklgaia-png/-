@@ -48,8 +48,9 @@ func _run() -> void:
     # A close-up must expose the floor via increased pitch; a long-distance
     # camera must remain at its original v9 elevation. The interpolation is
     # smooth, rather than an instantaneous camera tilt/jerk.
-    var base_pitch: float = float(game.get("CAMERA_ELEVATION_RATIO"))
-    var new_pitch: float = float(game.get("CAMERA_COMBAT_ELEVATION_RATIO"))
+    var camera_constants: Dictionary = game.get_script().get_script_constant_map()
+    var base_pitch: float = float(camera_constants["CAMERA_ELEVATION_RATIO"])
+    var new_pitch: float = float(camera_constants["CAMERA_COMBAT_ELEVATION_RATIO"])
     if new_pitch <= base_pitch or new_pitch > 1.0:
         _fail("invalid near-combat elevated view range")
         return
