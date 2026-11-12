@@ -126,3 +126,5 @@ gd tools/v293_auto_orbit_core_lock_runtime_check.gd
 gd tools/v294_katana2_camera_runtime_check.gd
 gd tools/v276_katana_runtime_check.gd
 gd tools/sera_animation_runtime_smoke.gd
+py tools/v295_run_melee_recovery_self_check.py
+gd tools/v295_run_melee_recovery_runtime_check.gd

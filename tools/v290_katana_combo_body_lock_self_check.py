@@ -81,9 +81,11 @@ assert '"get_part_aim_world", locked_target_part_id' not in heading
 assert 'player.look_at(player.global_position + aim, Vector3.UP)' in phys
 assert 'center_world += target_parts.call("get_part_local_aim", locked_target_part_id)' in m
 turn=r.split("func _run_yaw_for_direction(direction: Vector2, retreat_weight: float) -> float:",1)[1].split("func _smooth_visual_direction(",1)[0]
-assert "RUN_TARGET_LOCK_MAX_YAW_DEGREES: float = 25.0" in r
-assert "return clampf(travel_yaw," in turn
-for d in (-math.pi,-math.pi/2,-math.pi/4,0,math.pi/4,math.pi/2,math.pi):
-    yaw=max(-math.radians(25),min(math.radians(25),-d))
-    assert abs(math.degrees(yaw)) <= 25+1e-8
+# v295: the character collider still locks to the entire boss, while the
+# authored RUN Waist follows actual travel; its torso/head track the boss.
+assert "return travel_yaw" in turn
+assert "RUN_TARGET_LOCK_MAX_YAW_DEGREES" not in r
+for d in (-math.pi/2, 0.0, math.pi/2):
+    yaw=-d
+    assert abs(yaw + d) < 1e-8
 print("V290_KATANA_COMBO_BODY_LOCK_STATIC_PASS")

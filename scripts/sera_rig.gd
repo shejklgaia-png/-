@@ -38,10 +38,9 @@ const RUN_CLIPS = [RUN_CLIP, RUN_BACK_CLIP, RUN_RIGHT_CLIP, RUN_LEFT_CLIP]
 # Correct their Waist root transform, never the Player / target / camera.
 const RUN_ROOT_BONE_UUID: String = "67435cb7-b6af-23e4-10f1-3cd13d8429fa"  # Waist
 const RUN_ROOT_YAW_OFFSET_RADIANS: float = -PI * 0.5
-# v290: keep SERA's entire visual torso aimed at the locked boss during
-# lateral RUN. Let the gait/feet strafe; never rotate the Waist 90deg
-# sideways after the parent CharacterBody3D has faced the boss center.
-const RUN_TARGET_LOCK_MAX_YAW_DEGREES: float = 25.0
+# v295: the collision root stays target-facing, but RUN Waist must retain
+# the movement-facing yaw. Only torso/chest/neck/head twist toward the boss;
+# a 25-degree Waist clamp caused sideways feet to face the wrong direction.
 # Long-drag movement uses an authored single-pose clip, separate from flick steps.
 const BOOST_CLIP: String = "Boost_front"
 const BOOST_BACK_CLIP: String = "Boost_back"
@@ -1094,6 +1093,13 @@ func _switch_clip(wanted: String, fade_seconds: float) -> void:
         prior_scales[uid] = pivot.scale
     attack_windup_active = false
     current_clip = wanted
+    # Reset RUN's cached travel heading at the transition, not later in
+    # _process(): a complete melee can begin/end between render frames.
+    # Without this, the first RUN after a strike inherits its old bearing.
+    if wanted not in RUN_CLIPS:
+        run_motion_initialized = false
+        run_turn_previous_direction = Vector2.ZERO
+        run_turn_lean_degrees = 0.0
     clip_time = 0.0
     blending_for = 0.0
     blend_duration = fade_seconds
@@ -1187,9 +1193,10 @@ func _run_yaw_for_direction(direction: Vector2, retreat_weight: float) -> float:
     # One unconditional -PI sends right-back through the long rotation arc.
     var travel_yaw: float = wrapf(
         -travel_angle + PI * retreat_weight * run_retreat_turn_sign, -PI, PI)
-    return clampf(travel_yaw,
-        -deg_to_rad(RUN_TARGET_LOCK_MAX_YAW_DEGREES),
-        deg_to_rad(RUN_TARGET_LOCK_MAX_YAW_DEGREES))
+    # Preserve the actual travel yaw (up to the front/back gait sector).
+    # Facing the boss is handled by CharacterBody3D and upper-body joints,
+    # not by suppressing 90-degree sideways RUN at the Waist.
+    return travel_yaw
 
 # A normalized angle blend never shrinks a 180° reversal through Vector2.ZERO.
 # The last turn sign resolves noisy input on opposite sides of ±180°.
@@ -2165,9 +2172,11 @@ func _apply_animation(_delta: float) -> void:
             translation = (prior_offsets[uid] as Vector3).lerp(translation, blend_weight)
             scale_value = (prior_scales[uid] as Vector3).lerp(scale_value, blend_weight)
         if uid == RUN_ROOT_BONE_UUID and (
-                running_pose or current_clip == BOOST_CLIP
+                current_clip == BOOST_CLIP
                 or (step_playback and directional_step_active)):
-            # Local movement twist must never defeat the parent target lock.
+            # BOOST and STEP still face the boss. RUN is movement-facing:
+            # applying this correction to RUN erased run_facing_yaw, often
+            # reorienting the legs after attack -> RUN crossfades.
             q = _face_locked_boss_with_waist(q, blend_weight)
         bone.quaternion = q
         bone.position = (bind_positions[uid] as Vector3) + translation
