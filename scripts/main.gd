@@ -1560,7 +1560,11 @@ func _refresh_step_status_ui() -> void:
     if not step_active:
         display_speed = STEP_SPEED * float(part_stats.get("step_speed_mult", 1.0))
     step_status_label.text = "STEP SPEED %.1fm/s" % display_speed
-    if step_active:
+    if back_somersault_active:
+        step_detail_label.text = "KICK B / BACK ARC 4.0m"
+    elif landing_from_somersault:
+        step_detail_label.text = "KICK B / LAND 0.2s"
+    elif step_active:
         if side_kick_active:
             step_detail_label.text = "KICK %s %.2fm planned" % [
                 "R" if side_kick_side > 0 else "L", step_arc_length]
@@ -3642,7 +3646,7 @@ func _physics_process(delta: float) -> void:
     # follows the displayed pose during direction changes (v214).
     # Attacks, steps, guard, damage, jumps and touch release cancel the grace.
     if not gesture_active or guard_active or damage_reaction_active \
-            or jump_active or landing_active or step_active \
+            or jump_active or landing_active or step_active or back_somersault_active \
             or combat_state != CombatState.IDLE:
         boost_pose_grace_remaining = 0.0
     elif movement_boost_active:
@@ -3680,6 +3684,7 @@ func _physics_process(delta: float) -> void:
     var running: bool = direction_input.length() > 0.001
     var stepping_this_frame: bool = step_active
     var jumping_this_frame: bool = jump_active
+    var somersault_this_frame: bool = back_somersault_active
     var landing_this_frame: bool = landing_active
     # Snapshot before _advance_side_step() can finish the step on this frame.
     close_step_camera_this_frame = stepping_this_frame and step_close_camera
@@ -3688,6 +3693,8 @@ func _physics_process(delta: float) -> void:
     var step_flick_this_frame: Vector2 = step_flick_direction
     if step_active:
         _advance_side_step(delta)
+    if back_somersault_active:
+        _advance_back_somersault(delta)
     if jump_active:
         _advance_jump(delta)
     if landing_this_frame:
@@ -3704,9 +3711,10 @@ func _physics_process(delta: float) -> void:
         # keep collision recovery available even in the damage state.
         player.velocity = Vector3.ZERO
         player.move_and_slide()
-    elif jumping_this_frame or landing_this_frame:
-        # Flight is handled above; landing locks XZ until the final-pose hold
-        # ends. Never run RUN/BOOST movement during landing recovery.
+    elif jumping_this_frame or landing_this_frame or somersault_this_frame \
+            or back_somersault_active or landing_active:
+        # Any committed flight or landing owns displacement; no RUN tick
+        # can interrupt the somersault on its first or final physics frame.
         player.velocity = Vector3.ZERO
     elif combat_state == CombatState.IDLE and not stepping_this_frame:
         # Keep v9 camera-relative input and choose animation relative to the
@@ -3945,6 +3953,12 @@ func _physics_process(delta: float) -> void:
         state_label.text = "DAMAGE  |  Damageknock"
     elif guard_active:
         state_label.text = "GUARD HIT  |  Guard_REACTION" if bool(rig.call("guard_reaction_playing")) else "GUARD  |  Guard"
+    elif back_somersault_active or somersault_this_frame:
+        state_label.text = ("KICK BACK  |  Kick_b" if back_somersault_has_authored_clip
+            else "KICK BACK  |  Jump FALLBACK")
+    elif landing_this_frame or landing_active:
+        state_label.text = ("KICK BACK LAND  |  0.2s" if landing_from_somersault
+            else "JUMP LAND  |  Jump")
     elif jumping_this_frame and combat_state == CombatState.IDLE and not stepping_this_frame:
         state_label.text = "AIR FALL  |  Jump" if jump_fall_after_action else "JUMP  |  Jump (1.5m)"
     elif stepping_this_frame:
@@ -3968,7 +3982,8 @@ func _physics_process(delta: float) -> void:
                     melee_boost_elapsed,
                     float(part_stats.get("melee_boost_duration", MELEE_BOOST_DEFAULT_DURATION))]
             CombatState.STRIKE:
-                state_label.text = "STRIKE 3/3  |  KICK QUEUED" if buffered_side_kick_side != 0 \
+                state_label.text = ("STRIKE 3/3  |  KICK B QUEUED" if buffered_side_kick_side == 2
+                    else "STRIKE 3/3  |  KICK QUEUED") if buffered_side_kick_side != 0 \
                     else "STRIKE %d/3  |  %s" % [strike_index + 1, str(STRIKE_CLIPS[strike_index])]
             CombatState.BASH_TRACK:
                 state_label.text = "BASH WINDUP  %.2f / %.2fs" % [
