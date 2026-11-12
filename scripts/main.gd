@@ -125,13 +125,17 @@ const STEP_CLOSE_ORBIT_MAX_DEGREES: float = 120.0  # prevent circular loops when
 const STEP_CLOSE_CAMERA_SURFACE_DISTANCE: float = 1.0  # distance to cube face (meters)
 # v285: narrower target-centered camera/player separation during close orbit.
 const STEP_CLOSE_CAMERA_MAX_RELATIVE_DEGREES: float = 45.0
-# v286: combatants should remain separated on screen. The close camera
-# preserves its 45deg yaw cap but pitches up to reveal the intervening floor.
-const CAMERA_COMBAT_VISIBILITY_DISTANCE: float = 6.0
-const CAMERA_COMBAT_ELEVATION_FULL_DISTANCE: float = 3.7
-const CAMERA_COMBAT_ELEVATION_RATIO: float = 0.82
-const CAMERA_COMBAT_ELEVATION_RESPONSE: float = 5.0
-const CAMERA_COMBAT_YAW_SAMPLE_COUNT: int = 9
+# v287: hold camera yaw and zoom during attacks; a slow shoulder camera
+# keeps SERA near the center and facing the boss instead of showing a side.
+# Never raise the camera pitch for combat: retain v56's 0.21 elevation.
+const CAMERA_COMBAT_VISIBILITY_DISTANCE: float = 6.5
+const CAMERA_COMBAT_YAW_HOLD_SECONDS: float = 0.45
+const CAMERA_COMBAT_SHOULDER_DEGREES: float = 12.0
+const CAMERA_COMBAT_MAX_PLAYER_SIDE_DEGREES: float = 30.0
+const CAMERA_COMBAT_IDLE_YAW_RESPONSE: float = 0.9
+const CAMERA_COMBAT_IDLE_YAW_MAX_SPEED_DEGREES: float = 32.0
+const CAMERA_COMBAT_MIN_RADIUS: float = 11.3
+const CAMERA_COMBAT_ZOOM_OUT_SPEED: float = 8.0
 # v286: minimum safe target->SERA orbit radius includes the wide outer
 # legs and SERA's shoulder width, not merely the central hitbox.
 const SIDE_KICK_SAFE_ORBIT_RADIUS: float = 3.55
@@ -446,7 +450,7 @@ var step_has_last: bool = false
 var combat_state: CombatState = CombatState.IDLE
 var elapsed: float = 0.0
 var camera_yaw: float = 0.0
-var camera_elevation_ratio_current: float = CAMERA_ELEVATION_RATIO
+var camera_combat_hold_remaining: float = 0.0
 var camera_radius: float = CAMERA_BASE_RADIUS
 var camera_follow_radius: float = CAMERA_BASE_RADIUS
 var camera_fit_radius_floor: float = 0.0
@@ -1134,11 +1138,14 @@ func _build_camera() -> void:
     camera_follow_radius = CAMERA_BASE_RADIUS
     camera_fit_radius_floor = 0.0
     close_boost_camera_active = false
+    camera_combat_hold_remaining = 0.0
     _place_camera()
-    # Begin with an unobstructed composition instead of starting fully aligned.
-    var start_delta: Vector2 = Vector2(player.position.x - target.position.x, player.position.z - target.position.z)
+    # Start behind SERA with a mild 12deg shoulder offset. The old
+    # silhouette-search could choose a near-90deg sideways first view.
+    var start_delta: Vector2 = Vector2(player.position.x - target.position.x,
+        player.position.z - target.position.z)
     var start_bearing: float = atan2(start_delta.x, start_delta.y)
-    camera_yaw = _nearest_clear_yaw(start_bearing, player_screen_side, TARGET_IDLE_GAP_RATIO)
+    camera_yaw = start_bearing - deg_to_rad(CAMERA_COMBAT_SHOULDER_DEGREES)
     _place_camera()
 
 func _build_overlay() -> void:
@@ -3219,6 +3226,16 @@ func _configure_side_kick_orbit() -> void:
         step_signed_angle = minf(
             step_arc_length / maxf(radius, SIDE_KICK_SAFE_ORBIT_RADIUS),
             deg_to_rad(STEP_CLOSE_ORBIT_MAX_DEGREES)) * orbit_sign
+        # A 4m planned arc could put SERA 60deg to the side of the camera,
+        # exposing only its profile and pushing it to the portrait edge.
+        # Constrain the target-centered END bearing within +/-30deg of
+        # the stationary combat camera without reversing the commanded side.
+        var start_bearing: float = atan2(radial.x, radial.y)
+        var relative_start: float = wrapf(start_bearing - camera_yaw, -PI, PI)
+        var side_bound: float = deg_to_rad(CAMERA_COMBAT_MAX_PLAYER_SIDE_DEGREES)
+        var allowed: float = clampf(step_signed_angle,
+            -side_bound - relative_start, side_bound - relative_start)
+        step_signed_angle = allowed if allowed * orbit_sign > 0.0 else 0.0
 
 
 func _advance_side_step(delta: float) -> void:
@@ -4361,18 +4378,19 @@ func _process(delta: float) -> void:
     elif active_boost_travel and separation <= CAMERA_CLOSE_BOOST_ENTER_DISTANCE:
         close_boost_camera_active = true
 
-    # Low close-up angles hide SERA behind the boss's bulky legs. Increase
-    # pitch gradually as distance closes, exposing floor/foot placement.
-    # Wide shots retain the original v9 elevation, with no sudden pitch cut.
-    var close_elevation_blend: float = 1.0 - smoothstep(
-        CAMERA_COMBAT_ELEVATION_FULL_DISTANCE,
-        CAMERA_COMBAT_VISIBILITY_DISTANCE, separation)
-    var elevation_target: float = lerpf(
-        CAMERA_ELEVATION_RATIO, CAMERA_COMBAT_ELEVATION_RATIO,
-        close_elevation_blend)
-    camera_elevation_ratio_current = lerpf(
-        camera_elevation_ratio_current, elevation_target,
-        1.0 - exp(-CAMERA_COMBAT_ELEVATION_RESPONSE * maxf(delta, 0.0)))
+    # A combo or committed kick locks the orientation. Keep that hold for
+    # 0.45s after the final blow to prevent back-to-back flicks from causing
+    # yaw reversals between STRIKE -> IDLE -> STRIKE transitions.
+    var active_attack_camera: bool = (
+        combat_state != CombatState.IDLE
+        or side_kick_active or back_somersault_active
+        or landing_active or hit_stop_remaining > 0.0)
+    if active_attack_camera:
+        camera_combat_hold_remaining = CAMERA_COMBAT_YAW_HOLD_SECONDS
+    else:
+        camera_combat_hold_remaining = maxf(0.0,
+            camera_combat_hold_remaining - maxf(delta, 0.0))
+    var hold_attack_camera: bool = camera_combat_hold_remaining > 0.0
     var easing: float = 1.0 - exp(-CAMERA_FOLLOW_RATE * delta)
     var zoom_ratio: float = clampf(
         (separation - CAMERA_CLOSE_RANGE) / (CAMERA_FAR_RANGE - CAMERA_CLOSE_RANGE),
@@ -4403,7 +4421,19 @@ func _process(delta: float) -> void:
     camera_near_dolly_weight = camera_near_dolly_weight * camera_near_dolly_weight * (
         3.0 - 2.0 * camera_near_dolly_weight)
     var follow_easing: float = easing * 0.9
-    if camera_follow_radius > preferred_radius and delta > 0.00001:
+    if hold_attack_camera:
+        # Never run the velocity-reactive inward dolly during individual
+        # strikes: intermittent contact and hit-stop previously caused
+        # a different camera distance at every attack. Only move OUT,
+        # smoothly, to a modest frame-safe radius. _fit_full_frame may
+        # still expand if actual objects approach a viewport boundary.
+        camera_follow_radius = move_toward(
+            camera_follow_radius,
+            maxf(camera_follow_radius, CAMERA_COMBAT_MIN_RADIUS),
+            CAMERA_COMBAT_ZOOM_OUT_SPEED * maxf(delta, 0.0))
+        camera_dolly_in_speed = 0.0
+        camera_filtered_closing_speed = 0.0
+    elif camera_follow_radius > preferred_radius and delta > 0.00001:
         var distance_to_preferred: float = camera_follow_radius - preferred_radius
         var old_inward_speed: float = distance_to_preferred * follow_easing / delta
         var near_inward_speed: float = maxf(
@@ -4437,60 +4467,41 @@ func _process(delta: float) -> void:
 
     var protect_close_step: bool = (close_step_camera_this_frame
         or (close_step_camera_recovery_remaining > 0.0 and not gesture_active))
-    # v232: both screen edges use one stable zoom fit during actual BOOST
-    # and pose grace. The v230 near-only guard was insufficient at distance.
+    # Boost stays screen-direction aligned. During combos and all side-kick
+    # animations DO NOT change camera yaw at all, even during the orbit.
+    # Normal 360deg STEP also retains its committed screen camera basis.
     var boost_edge_frame_guard: bool = (gesture_active and not protect_close_step
-        and combat_state == CombatState.IDLE and not step_active
-        and (movement_boost_active or boost_pose_grace_remaining > 0.0))
-    if step_active or close_step_camera_this_frame:
-        # Ordinary screen-linear STEPs retain their committed camera yaw.
-        # During a side-kick ORBIT, follow the moving target->player bearing
-        # and enforce the tighter 45deg target-centered separation LIVE;
-        # a frozen yaw would defeat this angular limit until after the kick.
-        if step_active and side_kick_active and separation > 0.08:
-            camera_yaw = _visible_combat_camera_yaw(bearing, delta)
+        and not hold_attack_camera and combat_state == CombatState.IDLE
+        and not step_active and
+        (movement_boost_active or boost_pose_grace_remaining > 0.0))
+    if hold_attack_camera or step_active or close_step_camera_this_frame:
         _place_camera()
         _update_side_from_screen()
     elif protect_close_step and separation > 0.08:
-        # Preserve the screen-side silhouette clearance for several frames
-        # after the kick, so return-to-idle never crosses behind the boss.
-        camera_yaw = (_visible_combat_camera_yaw(bearing, delta)
-            if separation <= CAMERA_COMBAT_VISIBILITY_DISTANCE
-            else _close_step_target_relative_yaw(bearing, easing, delta))
+        # An ordinary close STEP may gently recover, never with the old
+        # frame-by-frame silhouette-search or sudden 45deg corrections.
+        camera_yaw = _stable_shoulder_camera_yaw(bearing, delta)
         _place_camera()
         _update_side_from_screen()
     elif running:
-        # IMPORTANT: during a drag, never force a minimum gap from the target.
-        # The character must be allowed to cross the target's screen center
-        # and move naturally to EITHER side. Only the outer screen edge is hard.
-        camera_yaw = lerp_angle(camera_yaw, bearing, easing * CAMERA_MOVING_YAW_SCALE)
+        if separation <= CAMERA_COMBAT_VISIBILITY_DISTANCE:
+            camera_yaw = _stable_shoulder_camera_yaw(bearing, delta)
+        else:
+            camera_yaw = lerp_angle(
+                camera_yaw, bearing, easing * CAMERA_MOVING_YAW_SCALE)
         _place_camera()
-        _update_side_from_screen()  # Track the actual side while freely moving.
-        # At close BOOST range, let continuous yaw follow the player and
-        # protect the edges by dollying out (as close STEP already does).
-        # Avoid a feedback loop of camera-relative velocity and yaw snapping.
-        if not close_boost_camera_active and not boost_edge_frame_guard:
+        _update_side_from_screen()
+        if not close_boost_camera_active and not boost_edge_frame_guard \
+                and separation > CAMERA_COMBAT_VISIBILITY_DISTANCE:
             _enforce_screen_edge(bearing, delta)
     else:
-        # Latch the last actual left/right side when the finger is released.
-        # Do not re-evaluate it during idle: doing so can reverse the orbit
-        # and make the player snap to the other side of the target.
-        if was_running:
-            _update_side_from_screen()
-        if separation >= MIN_SEPARABLE_DISTANCE:
-            # Closest angle to center that still keeps both silhouettes apart.
-            # This is the ONLY time automatic target-avoidance turns the camera.
-            if separation <= CAMERA_COMBAT_VISIBILITY_DISTANCE:
-                # WAIT after the kick must also keep SERA visible: otherwise
-                # the idle auto-center immediately recreates the overlap.
-                camera_yaw = _visible_combat_camera_yaw(bearing, delta)
-            else:
-                var idle_yaw: float = _nearest_clear_yaw(
-                    bearing, player_screen_side, TARGET_IDLE_GAP_RATIO)
-                var idle_easing: float = 1.0 - exp(-CAMERA_IDLE_RECENTER_RATE * delta)
-                camera_yaw = lerp_angle(camera_yaw, idle_yaw, idle_easing)
+        # Never snap behind a leg or abruptly switch the camera shoulder
+        # after an attack. Use one continuous, low-speed idle follow.
+        if separation > 0.08:
+            camera_yaw = _stable_shoulder_camera_yaw(bearing, delta)
         _place_camera()
-        if not close_boost_camera_active and not boost_edge_frame_guard:
+        if not close_boost_camera_active and not boost_edge_frame_guard \
+                and separation > CAMERA_COMBAT_VISIBILITY_DISTANCE:
             _enforce_screen_edge(bearing, delta)
 
     # Frame protection applies in BOTH modes, but never enforces the gap
@@ -4501,7 +4512,8 @@ func _process(delta: float) -> void:
         _fit_boost_frame_analytically(delta)
     else:
         _fit_full_frame()
-        _relax_camera_fit_radius(delta)
+        if not hold_attack_camera:
+            _relax_camera_fit_radius(delta)
     _place_camera()
 
     # Do NOT override depth testing or render priority for the target.
@@ -4515,39 +4527,19 @@ func _process(delta: float) -> void:
         0.0, close_step_camera_recovery_remaining - delta)
 
 
-# v286: Instead of chasing the player's exact radial bearing (which places
-# both subjects atop each other), find the smallest camera shoulder offset
-# that displays their silhouettes separately. Never exceed the user's 45deg
-# target-centered camera bound. If a wide boss prevents clearance at ALL
-# allowed yaw angles, choose the maximum available gap; the near-camera
-# elevation simultaneously reveals the ground between the combatants.
-func _visible_combat_camera_yaw(player_bearing: float, delta: float) -> float:
-    var previous_yaw: float = camera_yaw
-    var side: int = player_screen_side if player_screen_side != 0 else 1
-    var max_angle: float = deg_to_rad(STEP_CLOSE_CAMERA_MAX_RELATIVE_DEGREES)
-    var viewport_width: float = get_viewport().get_visible_rect().size.x
-    var wanted_gap: float = viewport_width * TARGET_IDLE_GAP_RATIO
-    var best_gap: float = -INF
-    var best_yaw: float = player_bearing - float(side) * max_angle
-    for i in range(CAMERA_COMBAT_YAW_SAMPLE_COUNT):
-        var t: float = float(i) / float(CAMERA_COMBAT_YAW_SAMPLE_COUNT - 1)
-        var proposed_yaw: float = (
-            player_bearing - float(side) * max_angle * t)
-        camera_yaw = proposed_yaw
-        _place_camera()
-        var gap: float = _signed_screen_gap(side)
-        if gap > best_gap:
-            best_gap = gap
-            best_yaw = proposed_yaw
-        if gap >= wanted_gap:
-            best_yaw = proposed_yaw
-            break
-    camera_yaw = previous_yaw
-    _place_camera()
-    var yaw_error: float = wrapf(best_yaw - previous_yaw, -PI, PI)
-    var turn_limit: float = (
-        deg_to_rad(STEP_CLOSE_CAMERA_MAX_TURN_RATE_DEGREES) * maxf(delta, 0.0))
-    return previous_yaw + clampf(yaw_error, -turn_limit, turn_limit)
+# v287: low-pass target-relative camera follow. No per-frame candidate
+# scanning, silhouette-dependent side switching or reactive attack yaw.
+# 12deg shoulder offset preserves SERA's 3/4 rear view without drifting
+# toward a full left/right profile. Max 32deg/sec even after a long orbit.
+func _stable_shoulder_camera_yaw(player_bearing: float, delta: float) -> float:
+    var desired: float = player_bearing - deg_to_rad(
+        CAMERA_COMBAT_SHOULDER_DEGREES)
+    var error: float = wrapf(desired - camera_yaw, -PI, PI)
+    var alpha: float = 1.0 - exp(
+        -CAMERA_COMBAT_IDLE_YAW_RESPONSE * maxf(delta, 0.0))
+    var max_turn: float = deg_to_rad(
+        CAMERA_COMBAT_IDLE_YAW_MAX_SPEED_DEGREES) * maxf(delta, 0.0)
+    return camera_yaw + clampf(error * alpha, -max_turn, max_turn)
 
 
 func _close_step_target_relative_yaw(player_bearing: float, easing: float, delta: float) -> float:
@@ -4829,7 +4821,7 @@ func _place_camera() -> void:
     var focus: Vector3 = camera_target_render_position - Vector3(0.0, CAMERA_FOCUS_DROP, 0.0)
     camera.position = focus + Vector3(
         sin(camera_yaw) * camera_radius,
-        camera_elevation_ratio_current * camera_radius,
+        CAMERA_ELEVATION_RATIO * camera_radius,
         cos(camera_yaw) * camera_radius
     )
     camera.far = maxf(200.0, camera_radius * 3.0)
