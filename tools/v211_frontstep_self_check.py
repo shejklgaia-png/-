@@ -26,7 +26,8 @@ main = read("scripts/main.gd")
 # authored pivot/mesh geometry and equipment groups remain unchanged.
 source_clips = {a["name"]: a for a in source["animations"]}
 model_clips = {a["name"]: a for a in model["animations"]}
-assert len(source_clips) == len(source["animations"]) == 23
+assert len(source_clips) == len(source["animations"]) >= 25
+assert {"Kick_l", "Kick_r"} <= set(source_clips)  # v265 adds the user-authored kick clips
 assert len(model_clips) == len(model["animations"]) == 24
 assert model["animations"][:len(original_model["animations"])] == original_model["animations"]
 # Consolidated model diverged from the old authored (4) source in v206 to

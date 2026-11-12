@@ -1808,3 +1808,9 @@
 - 蹴り1回あたり1ヒット、移動50%以降の射程2mで判定。攻撃・破壊・怯みは暫定的に通常格闘1段目の装備パラメータを使用。蹴り中は自動ロック再選択しない。
 - モーションは実在する assets/sera_source.json を優先し、未登録の場合は models/storage/SERA_BOOSTER_allテスト (9).bbmodel の Kick/蹴り名称クリップに含まれる既存骨格UUIDのトラックだけをロード。既存のモデルやモーションは変更しない。クリップ欠損・データ不正なら派生を発動せず通常STEPで安全に処理。
 - 新しいAndroid同期コミット 6c22ffc（2026-11-12）で models/storage/SERA_BOOSTER_allテスト (9).bbmodel の Kick_l/Kick_r（各1秒）を確認した。両クリップのうち標準骨格22 UUIDが一致し、キーフレームを保持。これを実際のアニメーション読み込み先に指定した。tools/v264_side_kick_followup_self_check.py を既存CIへ登録。Godot/Androidのゲーム再生は未検証。
+
+## 2026-11-12 — SERA v265: 3段コンボ後の左右蹴りを確実に再生
+- v264では `Kick_l`/`Kick_r` を追加Blockbench原本から実行時に読み込む構成だったため、Android実行環境で原本を参照できない場合 `has_side_kick` が偽になり、通常STEPにフォールバックする可能性があった。
+- 原本 `models/storage/SERA_BOOSTER_allテスト (9).bbmodel` の左右1秒アニメーションから、現行標準22骨格UUIDのキーフレームのみを `assets/sera_source.json` に統合。 `tools/rebuild_model_data.py` と同一形式で `assets/sera_data.gd` を生成し、Android埋込データでも確実に存在するようにした。既存モーションとユーザーの原本は無変更。
+- 3段目完走後0.65秒以内に入力**開始**したフリックは、指を離すまでの間に時間窓が失効しても蹴りの入力権を維持する。受付時間の二重チェックによる通常STEPへのフォールバックを解消。開始後の他方向や時間超過などは従来STEP入力ルールのまま。
+- 通常の2〜4mステップ距離・衝突スイープ・EN、バッシュ、3連撃、カメラ・描画・装備・保存は維持。新規 `tools/v265_kick_embedded_input_self_check.py` とCI回帰検査を追加。実際のAndroidゲーム実行は未検証。

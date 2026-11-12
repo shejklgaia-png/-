@@ -2105,6 +2105,8 @@ func _begin_drag(pos: Vector2) -> void:
         and strike_index == STRIKE_CLIPS.size() - 1) or (
         combat_state == CombatState.IDLE and bash_followup_window_remaining > 0.0)
     # A kick is a POST-finisher link only. It never cancels Melee3 early.
+    # Snapshot the post-finisher link when the finger first touches.
+    # The remaining follow-up time may expire while a valid flick finishes.
     side_kick_flick_candidate = (combat_state == CombatState.IDLE
         and bash_followup_window_remaining > 0.0)
     # New drag/tap takes over immediately: never retain close-step recovery
@@ -2541,7 +2543,10 @@ func _step_local_pose_direction(world_direction: Vector3) -> Vector2:
 # Kick directions are SCREEN-left/right like STEP, not actor-forward Bash.
 # Missing authored kick clips leave release as a normal STEP.
 func _request_combo_side_kick(flick: Vector2) -> bool:
-    if combat_state != CombatState.IDLE or bash_followup_window_remaining <= 0.0:
+    # _end_drag calls this only for a kick gesture latched during _begin_drag.
+    # The 0.65s follow-up window must be checked on touch-down, NOT again on
+    # release: a valid flick may outlast the remaining window by up to 0.24s.
+    if combat_state != CombatState.IDLE:
         return false
     var sector: int = FLICK_DIRECTION_POLICY.sector_index(flick, Vector2.UP)
     if sector != 1 and sector != 3:

@@ -20,7 +20,10 @@ def require(message: str, condition: bool) -> None:
     print(f"PASS: {message}")
 
 
-require("game version is v264", 'config/name="SERA v264"' in version)
+import re
+require("game version is at least v264",
+        bool((m := re.search(r'config/name="SERA v([0-9]+)"', version))
+            and int(m.group(1)) >= 264))
 require("versioned change notes exist", "3段完走後" in readme)
 require("post-finisher is the only candidate window",
         "side_kick_flick_candidate = (combat_state == CombatState.IDLE\n"
