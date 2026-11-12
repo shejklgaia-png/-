@@ -1,0 +1,40 @@
+name: SERA v293 AUTO lock isolated verification
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/main.gd'
+      - 'scripts/target_parts.gd'
+      - 'tools/v293_auto_orbit_core_lock_*.py'
+      - 'tools/v293_auto_orbit_core_lock_*.gd'
+      - 'tools/v291_camera_lock_twohand_saya_runtime_check.gd'
+      - 'tools/v292_visual_lock_katana_search_*.py'
+      - 'tools/v292_visual_lock_katana_search_*.gd'
+      - 'project.godot'
+      - '.github/workflows/sera-v293-auto-lock.yml'
+  workflow_dispatch:
+
+jobs:
+  auto-lock-orbit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify v293 orbital sector and body-lock static invariants
+        run: python3 tools/v293_auto_orbit_core_lock_self_check.py
+      - name: Verify v292 stable lock and SERA visual yaw static invariants
+        run: python3 tools/v292_visual_lock_katana_search_self_check.py
+      - name: Fetch Godot 4.7.2 for isolated headless lock checks
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 3 --connect-timeout 15 --max-time 180             --output "$RUNNER_TEMP/godot.zip"             "https://github.com/godotengine/godot/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip"
+          mkdir -p "$RUNNER_TEMP/godot"
+          unzip -q "$RUNNER_TEMP/godot.zip" -d "$RUNNER_TEMP/godot"
+          chmod +x "$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64"
+      - name: Import game assets and animations
+        run: '"$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" --headless --editor --path . --import --quit'
+      - name: Verify v293 actual AUTO orbit and BODY transitions
+        run: '"$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" --headless --path . --script res://tools/v293_auto_orbit_core_lock_runtime_check.gd'
+      - name: Verify prior v292 lock visual and hysteresis behavior
+        run: '"$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" --headless --path . --script res://tools/v292_visual_lock_katana_search_runtime_check.gd'
+      - name: Verify prior v291 MANUAL buttons and Katana occupancy
+        run: '"$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" --headless --path . --script res://tools/v291_camera_lock_twohand_saya_runtime_check.gd'
