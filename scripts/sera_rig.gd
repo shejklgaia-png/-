@@ -2016,6 +2016,14 @@ func _apply_animation(_delta: float) -> void:
             scale_value = _value_at(scale_values, t) if not scale_values.is_empty() else Vector3.ONE
             translation = _value_at(position_values, t) * UNIT
             q = _rotation_at(rotation_values, t) if not rotation_values.is_empty() else bind_rotations[uid]
+            if current_clip == BACK_SOMERSAULT_CLIP and uid == RUN_ROOT_BONE_UUID \
+                    and not rotation_values.is_empty():
+                # The original Kick_b Waist X keys climb from -12 to 369deg.
+                # Quaternion SLERP chooses shortest turns, including the
+                # 125->335deg segment, reversing the intended backflip.
+                # Interpolate the authored Euler values before converting to
+                # a quaternion, solely for this multi-turn root joint.
+                q = _blockbench_rotation(_value_at(rotation_values, t))
             if uid in bird_bone_ids and current_clip == WAIT_CLIP \
                     and rotation_values.size() > 1:
                 # The authored bird idle ankle's final key is at ~0.22s,
