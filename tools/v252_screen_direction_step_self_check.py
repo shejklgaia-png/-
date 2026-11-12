@@ -22,15 +22,15 @@ for required in (
     "var facing_forward: Vector3 = -player.global_transform.basis.z",
     "facing_forward.y = 0.0",
     "facing_forward = facing_forward.normalized()",
-    "var world_step: Vector3 = (camera_right * direction.x * side_length",
-    "- facing_forward * step_radial_delta)",
+    "var world_step: Vector3 = _screen_drag_to_ground(direction)",
+    "var pose_direction: Vector2 = _step_local_pose_direction(world_step))",
     "step_radial_delta = direction.y * radial_distance",
     "STEP_FORWARD_DISTANCE, BACK_STEP_DISTANCE, back_mix",
     "step_linear_fallback = true",
     "step_linear_offset = Vector2(world_step.x, world_step.z)",
     "world_step = world_step.normalized() * step_arc_length",
     "world_step = _screen_drag_to_ground(direction)",
-    'rig.call("start_omni_step", direction)',
+    'rig.call("start_omni_step", pose_direction)',
     "step_close_camera = (absf(direction.x) > 0.001",
 ):
     assert required in step,required

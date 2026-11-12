@@ -2471,6 +2471,21 @@ func _classify_step_flick(displacement: Vector2, seconds: float) -> Vector2:
     # Exact angle is preserved; cardinal and diagonal motions share input.
     return FLICK_DIRECTION_POLICY.screen_step_direction(displacement)
 
+# Authored STEP clips are relative to SERA's LOCAL facing, while the
+# gesture/movement vector is relative to the CAMERA. Convert only for
+# animation, never use this local basis to build the world travel path.
+func _step_local_pose_direction(world_direction: Vector3) -> Vector2:
+    if world_direction.length_squared() < 0.000001:
+        return Vector2.UP
+    var facing: Vector3 = -player.global_transform.basis.z
+    facing.y = 0.0
+    if facing.length_squared() < 0.000001:
+        return Vector2.UP
+    facing = facing.normalized()
+    var right: Vector3 = facing.cross(Vector3.UP)
+    var world_unit: Vector3 = world_direction.normalized()
+    return Vector2(world_unit.dot(right), -world_unit.dot(facing)).normalized()
+
 func _start_omni_step(flick: Vector2) -> bool:
     if (guard_active or damage_reaction_active or landing_active
             or rig == null or not bool(rig.get("loading_ok"))
@@ -2486,28 +2501,16 @@ func _start_omni_step(flick: Vector2) -> bool:
     if step_active:
         _finish_side_step(false)
 
-    # v252: one flick has one SCREEN-visible travel direction, rather than
-    # a target-centered orbit that can curve away from the finger's direction.
-    # X = actual camera/screen left-right; negative Y = SERA's own forward
-    # (-player.basis.z, aimed at the currently locked target); positive Y
-    # is its reverse. Diagonals blend the two directions continuously.
-    # Snapshot both bases ON RELEASE; camera motion during STEP must never
-    # turn an already-committed flick.
+    # v263: one gesture, one SCREEN-space direction for all 360 degrees.
+    # The earlier mix of camera RIGHT and ACTOR FORWARD was non-orthogonal
+    # near the boss, so rear/side diagonal commands could cancel or rotate.
+    # Snapshot the same orthogonal CAMERA basis used by normal RUN/BOOST;
+    # hold camera YAW for the committed STEP to preserve screen alignment.
     var direction: Vector2 = flick.normalized()
     var radial: Vector2 = Vector2(
         player.position.x - target.position.x,
         player.position.z - target.position.z)
     var radius: float = radial.length()
-    var camera_right: Vector3 = _screen_drag_to_ground(Vector2.RIGHT).normalized()
-    var facing_forward: Vector3 = -player.global_transform.basis.z
-    facing_forward.y = 0.0
-    if facing_forward.length_squared() < 0.000001:
-        facing_forward = target.position - player.position
-        facing_forward.y = 0.0
-    if facing_forward.length_squared() < 0.000001:
-        facing_forward = _screen_drag_to_ground(Vector2.UP)
-    facing_forward = facing_forward.normalized()
-
     # v236: lateral speed stays at equipment-adjusted STEP_SPEED; the
     # forward/back speed alone follows the existing 5m->2m slowdown.
     var radial_speed: float = _step_speed_for_player_position(player.position)
@@ -2527,18 +2530,15 @@ func _start_omni_step(flick: Vector2) -> bool:
         sqrt(tangent_distance * tangent_distance + step_radial_delta * step_radial_delta),
         STEP_MIN_ARC_LENGTH, STEP_MAX_ARC_LENGTH)
 
-    # +X to screen-right; upward finger motion is forward in SERA's facing.
-    # The authoritative travel vector is horizontal and continuous for all
-    # 360-degree diagonals. Preserve the established 2..4m path bounds.
-    var world_step: Vector3 = (camera_right * direction.x * side_length
-        - facing_forward * step_radial_delta)
+    # Project BOTH screen axes through the camera. No actor-forward
+    # component in the path: even if SERA faces screen-right, UP+RIGHT
+    # flicks do not cancel or rotate into unrelated directions.
+    var world_step: Vector3 = _screen_drag_to_ground(direction)
     if world_step.length_squared() < 0.000001:
-        # If camera-right happens to coincide with SERA forward, opposing
-        # diagonal components may cancel; keep the finger's SCREEN direction.
-        world_step = _screen_drag_to_ground(direction)
-    if world_step.length_squared() < 0.000001:
-        world_step = facing_forward
+        world_step = Vector3(direction.x, 0.0, direction.y)
     world_step = world_step.normalized() * step_arc_length
+    # The authored body-relative pose must match this same world travel.
+    var pose_direction: Vector2 = _step_local_pose_direction(world_step)
     step_start_offset = radial
     step_target_center = Vector2(target.position.x, target.position.z)
     step_linear_fallback = true
@@ -2547,7 +2547,7 @@ func _start_omni_step(flick: Vector2) -> bool:
 
     step_duration_current = (step_arc_length / step_speed_current
         * float(part_stats.get("step_time_mult", 1.0)))
-    step_close_camera = (absf(direction.x) > 0.001
+    step_close_camera = (absf(pose_direction.x) > 0.001
         and _distance_to_cube_surface(player.position) <= STEP_CLOSE_CAMERA_SURFACE_DISTANCE)
     close_step_camera_recovery_remaining = 0.0
     if jump_active:
@@ -2557,7 +2557,7 @@ func _start_omni_step(flick: Vector2) -> bool:
     step_side = STEP_BACK if direction.y > 0.8 else (1 if direction.x > 0.0 else -1)
     step_elapsed = 0.0
     step_traveled_distance = 0.0
-    rig.call("start_omni_step", direction)
+    rig.call("start_omni_step", pose_direction)
     _refresh_step_status_ui()
     return true
 
@@ -3402,6 +3402,14 @@ func _physics_process(delta: float) -> void:
                 part_aim.z - player.position.z)
     if aim.length_squared() > 0.000001:
         player.look_at(player.global_position + aim, Vector3.UP)
+    # At close range SERA's body tracks the boss while the STEP path remains
+    # a committed screen direction. Continuously adapt the authored 4-way
+    # pose to the same WORLD travel without restarting its clip.
+    if stepping_this_frame and rig != null and step_linear_fallback:
+        var committed_world_step: Vector3 = Vector3(
+            step_linear_offset.x, 0.0, step_linear_offset.y)
+        rig.call("update_omni_step_direction",
+            _step_local_pose_direction(committed_world_step), delta)
     # Real BOOST provides movement speed and costs EN. During a direction
     # change the rig keeps displaying BOOST for 0.50s and crossfades to RUN
     # over 0.20s; keep the nozzle flames present for that *visible* motion
@@ -3472,7 +3480,15 @@ func _physics_process(delta: float) -> void:
     # Partial rear diagonals blend continuously into the downward posture.
     var backstroke_weight: float = 0.0
     if stepping_this_frame:
-        backstroke_weight = clampf(step_flick_this_frame.y, 0.0, 1.0)
+        # A camera-UP gesture can be SERA-relative backward during an
+        # oblique close-up: nozzle reverse bias must follow actual travel.
+        if step_linear_fallback and step_linear_offset.length_squared() > 0.000001:
+            var step_world_rear: Vector3 = Vector3(
+                step_linear_offset.x, 0.0, step_linear_offset.y).normalized()
+            backstroke_weight = clampf(step_world_rear.dot(
+                player.global_transform.basis.z), 0.0, 1.0)
+        else:
+            backstroke_weight = clampf(step_flick_this_frame.y, 0.0, 1.0)
         # Legacy dedicated Backstep has no omnidirectional flick vector.
         if step_side_this_frame == STEP_BACK and step_flick_this_frame.is_zero_approx():
             backstroke_weight = 1.0
@@ -3719,7 +3735,13 @@ func _process(delta: float) -> void:
     var boost_edge_frame_guard: bool = (gesture_active and not protect_close_step
         and combat_state == CombatState.IDLE and not step_active
         and (movement_boost_active or boost_pose_grace_remaining > 0.0))
-    if protect_close_step and separation > 0.08:
+    if step_active or close_step_camera_this_frame:
+        # Keep the camera's heading fixed for the COMMITTED step, so the
+        # visible trajectory stays aligned to the original screen gesture.
+        # Dolly/framing still updates below; yaw follows again after step.
+        _place_camera()
+        _update_side_from_screen()
+    elif protect_close_step and separation > 0.08:
         # Restrict the angle between target->camera and target->player.
         # Unlike the v80 start-yaw clamp, this bound follows an orbiting
         # player and cannot strand the camera on the other side of the target.

@@ -16,7 +16,7 @@ motion=main.split("func _start_omni_step(flick: Vector2) -> bool:",1)[1].split("
 pose=rig.split("func _blended_directional_step_pose(uid: String, t: float) -> Dictionary:",1)[1].split("func start_omni_step(",1)[0]
 for s in ("return FLICK_DIRECTION_POLICY.screen_step_direction(displacement)","seconds > STEP_FLICK_MAX_SECONDS","distance < STEP_FLICK_MIN_HORIZONTAL","distance / seconds < STEP_FLICK_MIN_PIXELS_PER_SEC"):
     assert s in step,s
-for s in ("var direction: Vector2 = flick.normalized()","var back_mix: float = smoothstep(-0.25, 0.25, direction.y)","STEP_FORWARD_DISTANCE, BACK_STEP_DISTANCE, back_mix)","step_radial_delta = direction.y * radial_distance","camera_right * direction.x * side_length","- facing_forward * step_radial_delta","step_linear_offset = Vector2(world_step.x, world_step.z)",'rig.call("start_omni_step", direction)',"step_linear_fallback = true"):
+for s in ("var direction: Vector2 = flick.normalized()","var back_mix: float = smoothstep(-0.25, 0.25, direction.y)","STEP_FORWARD_DISTANCE, BACK_STEP_DISTANCE, back_mix)","step_radial_delta = direction.y * radial_distance","var world_step: Vector3 = _screen_drag_to_ground(direction)","var pose_direction: Vector2 = _step_local_pose_direction(world_step)","step_linear_offset = Vector2(world_step.x, world_step.z)",'rig.call("start_omni_step", pose_direction)',"step_linear_fallback = true"):
     assert s in motion,s
 for s in ("_sample_step_clip_pose(STEP_FORWARD_CLIP, uid, 0.0)","_sample_step_clip_pose(STEP_BACK_CLIP, uid, 0.0)","STEP_RIGHT_CLIP if direction.x >= 0.0 else STEP_LEFT_CLIP","atan2(absf(direction.x), absf(direction.y))","alpha = alpha * alpha * (3.0 - 2.0 * alpha)",'.slerp(lateral["rotation"], alpha)','.lerp(lateral["position"], alpha)'):
     assert s in pose,s

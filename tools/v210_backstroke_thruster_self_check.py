@@ -21,6 +21,8 @@ assert version is not None and int(version.group(1)) >= 210
 for needle in (
     "var backstroke_weight: float = 0.0",
     "if stepping_this_frame:",
+    "backstroke_weight = clampf(step_world_rear.dot(",
+    "player.global_transform.basis.z), 0.0, 1.0)",
     "backstroke_weight = clampf(step_flick_this_frame.y, 0.0, 1.0)",
     "step_side_this_frame == STEP_BACK and step_flick_this_frame.is_zero_approx()",
     "elif boost_exhaust or boost_pose_exhaust:",
