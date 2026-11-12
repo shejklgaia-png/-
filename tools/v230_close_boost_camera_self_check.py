@@ -47,7 +47,8 @@ assert 'if protect_close_step and separation > 0.08:' in camera
 assert '_stable_shoulder_camera_yaw(bearing, delta)' in camera
 assert 'if hold_attack_camera or step_active or close_step_camera_this_frame:' in camera
 assert 'CAMERA_COMBAT_MIN_RADIUS' in camera
-assert 'camera_yaw = lerp_angle(camera_yaw, bearing, easing * CAMERA_MOVING_YAW_SCALE)' in camera
+assert 'camera_yaw = _stable_shoulder_camera_yaw(bearing, delta)' in camera
+assert '_advance_camera_follow_focus(delta)' in camera
 assert camera.count('_enforce_screen_edge(bearing, delta)') == 2
 assert camera.index('    _fit_full_frame()') < camera.index('    _relax_camera_fit_radius(delta)')
 
