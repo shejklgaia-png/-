@@ -3491,17 +3491,19 @@ func _physics_process(delta: float) -> void:
             leftward_weight = 1.0  # Legacy dedicated STEP_LEFT input.
     elif (boost_exhaust or boost_pose_exhaust) and direction_input.length_squared() > 0.000001:
         leftward_weight = clampf(-direction_input.normalized().x, 0.0, 1.0)
-    # A leftward STEP/BOOST has a separate screen-space 90-degree sector:
-    # DOWN (0 degrees) -> SCREEN RIGHT (90 degrees). Halfway (45 degrees)
-    # is the full-left target; diagonal-left input sweeps from DOWN toward it.
-    # Pass the actual sector target explicitly so the physical nozzle pivot
-    # can match the CAMERA-relative vector without the old 80-degree local
-    # yaw clamp distorting the visible right-down direction.
+    # A leftward STEP/BOOST uses the screen-down -> screen-right fan.
+    # Previously ANY left component overrode the backstroke nozzle pitch:
+    # back-left diagonal BOOST could keep a sideways nozzle even while
+    # moving rearward. Blend that special sector BACK TO WORLD DOWN by the
+    # same actor-relative backstroke weight used for the normal nozzle.
+    # Pure-left still targets its original 45-degree down/right aim.
     var left_sector_world: Vector3 = Vector3.ZERO
     if exhaust_on and leftward_weight > 0.0:
         var screen_right: Vector3 = _screen_drag_to_ground(Vector2.RIGHT).normalized()
         left_sector_world = Vector3.DOWN.slerp(
             screen_right, leftward_weight * 0.50).normalized()
+        left_sector_world = left_sector_world.slerp(
+            Vector3.DOWN, backstroke_weight).normalized()
     if boost_pose_exhaust:
         if running:
             held_boost_exhaust_direction = direction_of_exhaust.normalized()
