@@ -2030,6 +2030,25 @@ func _blended_run_pose(uid: String, t: float, stabilize_head: bool = true) -> Di
         blended_rotation = _stabilize_run_head_rotation(t, blended_rotation)
     return {"rotation": blended_rotation, "position": blended_translation, "scale": blended_scale}
 
+# v292: a successful part/core lock already rotates CharacterBody3D to
+# the boss pivot. Side STEP animation keys (e.g. Step_R's -70deg Waist)
+# then rotate the visible skeleton away AGAIN, so the model looks
+# unlocked even while the HUD correctly says LOCK HEAD/REAR R.
+# Cancel ONLY that baked yaw on locomotion Waist. Retain the authored
+# pitch, roll, lateral gait, thrusters, 360deg input, and ALL attacks.
+# Apply compensation after fade so entering/leaving a STEP never snaps.
+func _face_locked_boss_with_waist(q: Quaternion,
+        blend_weight: float) -> Quaternion:
+    var authored_forward: Vector3 = q * Vector3.FORWARD
+    var planar: Vector2 = Vector2(authored_forward.x, authored_forward.z)
+    if planar.length_squared() < 0.0001:
+        return q
+    var skeleton_yaw: float = atan2(-authored_forward.x, -authored_forward.z)
+    var correction: float = -wrapf(skeleton_yaw, -PI, PI)
+    return (Quaternion(Vector3.UP,
+        correction * clampf(blend_weight, 0.0, 1.0)) * q).normalized()
+
+
 func _apply_animation(_delta: float) -> void:
     var clip: Dictionary = animations[current_clip]
     var clip_length: float = maxf(float(clip.get("length", 1.0)), 0.001)
@@ -2110,6 +2129,11 @@ func _apply_animation(_delta: float) -> void:
             q = (prior_rotations[uid] as Quaternion).slerp(q, blend_weight)
             translation = (prior_offsets[uid] as Vector3).lerp(translation, blend_weight)
             scale_value = (prior_scales[uid] as Vector3).lerp(scale_value, blend_weight)
+        if uid == RUN_ROOT_BONE_UUID and (
+                running_pose or current_clip == BOOST_CLIP
+                or (step_playback and directional_step_active)):
+            # Local movement twist must never defeat the parent target lock.
+            q = _face_locked_boss_with_waist(q, blend_weight)
         bone.quaternion = q
         bone.position = (bind_positions[uid] as Vector3) + translation
         bone.scale = scale_value
