@@ -36,11 +36,11 @@ assert "leftward_weight = clampf(-step_flick_this_frame.x, 0.0, 1.0)" in physics
 
 camera=m.split("func _process(delta: float) -> void:",1)[1].split(
     "func _close_step_target_relative_yaw(",1)[0]
-assert "if step_active or close_step_camera_this_frame:" in camera
-assert camera.index("if step_active or close_step_camera_this_frame:") < camera.index(
+assert "if hold_attack_camera or step_active or close_step_camera_this_frame:" in camera
+assert camera.index("if hold_attack_camera or step_active or close_step_camera_this_frame:") < camera.index(
     "elif protect_close_step and separation > 0.08:")
-assert "_close_step_target_relative_yaw(bearing, easing, delta)" in camera
-assert "_visible_combat_camera_yaw(bearing, delta)" in camera
+assert "_stable_shoulder_camera_yaw(bearing, delta)" in camera
+assert "_visible_combat_camera_yaw" not in camera
 assert "camera_yaw = lerp_angle(camera_yaw, bearing, easing * CAMERA_MOVING_YAW_SCALE)" in camera
 assert "camera_radius = maxf(camera_follow_radius, camera_fit_radius_floor)" in camera
 assert "_fit_full_frame()" in camera
