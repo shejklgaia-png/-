@@ -56,7 +56,8 @@ assert "combat_state != CombatState.IDLE" in start
 assert 'rig.call("start_back_somersault")' in start
 assert "back_somersault_direction = player.global_position - target.global_position" in start
 assert "_move_player_swept(requested, true)" in advance
-assert "BACK_SOMERSAULT_HEIGHT * sin(PI * progress)" in advance
+assert "_back_somersault_arc_offset(progress)" in advance
+assert "_back_somersault_arc_offset(previous)" in advance
 assert "player.move_and_collide(Vector3.UP * vertical_delta)" in advance
 assert "rig.rotation.x = angle" in advance
 assert "BACK_SOMERSAULT_VISUAL_PIVOT_HEIGHT * (1.0 - cos(angle))" in advance
