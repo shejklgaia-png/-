@@ -136,3 +136,5 @@ py tools/v298_core_equal_auto_lock_self_check.py
 gd tools/v298_core_equal_auto_lock_runtime_check.gd
 py tools/v299_head_lock_contact_grounding_self_check.py
 gd tools/v299_head_lock_contact_grounding_runtime_check.gd
+py tools/v300_fixed_step_locked_kick_self_check.py
+gd tools/v300_fixed_step_locked_kick_runtime_check.gd
