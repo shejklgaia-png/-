@@ -40,9 +40,9 @@ helper=m.split("func _stable_shoulder_camera_yaw(player_bearing: float, delta: f
 assert "player_bearing - deg_to_rad(" in helper
 assert "CAMERA_COMBAT_SHOULDER_DEGREES" in helper
 assert "wrapf(desired - camera_yaw, -PI, PI)" in helper
-assert "-CAMERA_COMBAT_IDLE_YAW_RESPONSE * maxf(delta, 0.0)" in helper
-assert "CAMERA_COMBAT_IDLE_YAW_MAX_SPEED_DEGREES" in helper
-assert "clampf(error * alpha, -max_turn, max_turn)" in helper
+assert "-CAMERA_PLAYER_YAW_FOLLOW_RATE * maxf(delta, 0.0)" in helper
+assert "CAMERA_PLAYER_YAW_MAX_LAG_DEGREES" in helper
+assert "return camera_yaw + error - clampf(residual, -leash, leash)" in helper
 
 cam=m.split("func _process(delta: float) -> void:",1)[1].split(
     "func _stable_shoulder_camera_yaw(",1)[0]
@@ -90,13 +90,15 @@ for initial in (-60,-30,-12,0,12,30,60):
         if -30<=initial<=30:
             assert abs(initial+arc)<=30+1e-12
         assert arc*raw>=-1e-12
-# Independent of FPS, a 32deg/s smoothing cap prevents sudden yaw turns.
+# The 12deg hard leash prevents the 90deg sideways angle that v287's
+# fixed camera could accumulate during a fast series of melee actions.
 yaw=0.0
-for _ in range(60):
-    error=math.radians(90-12)-yaw
-    alpha=1-math.exp(-0.9/60)
-    step=max(-math.radians(32)/60,min(math.radians(32)/60,error*alpha))
-    assert abs(step)<=math.radians(32)/60+1e-12
-    yaw+=step
-assert 0<math.degrees(yaw)<=32
+for target_deg in (0,8,16,35,80,98,120,140):
+    desired=math.radians(target_deg-12)
+    error=(desired-yaw+math.pi)%(2*math.pi)-math.pi
+    alpha=1-math.exp(-10.0/60)
+    residual=error*(1-alpha)
+    leash=math.radians(12)
+    yaw+=error-max(-leash,min(leash,residual))
+    assert abs((desired-yaw+math.pi)%(2*math.pi)-math.pi)<=leash+1e-10
 print("V287_STABLE_LOW_CAMERA_STATIC_PASS")
