@@ -33,7 +33,7 @@ bash=main.split("func _is_character_forward_flick(displacement: Vector2, seconds
 step=main.split("func _classify_step_flick(displacement: Vector2, seconds: float) -> Vector2:",1)[1].split("func _start_omni_step(",1)[0]
 assert "gesture_max_travel > BASH_FLICK_CANDIDATE_GRACE_PIXELS" in change
 assert "not FLICK_DIRECTION_POLICY.within_sector(" in change
-assert "gesture_screen_forward, STEP_FLICK_MAX_HORIZONTAL_RATIO" in change
+assert "Vector2.UP, STEP_FLICK_MAX_HORIZONTAL_RATIO" in change
 assert "(release_pos - pointer_origin).length() * BASH_FLICK_REVERSAL_RATIO" in release
 assert "_is_character_forward_flick(release_pos - pointer_origin, press_duration)" in release
 assert "_classify_recent_character_forward_flick()" in release
