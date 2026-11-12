@@ -1512,9 +1512,15 @@ func _refresh_lock_mode_buttons() -> void:
 func _toggle_auto_lock_mode() -> void:
     auto_lock_enabled = not auto_lock_enabled
     manual_part_lock_active = not auto_lock_enabled
-    # Entering manual mode preserves the current target; returning to AUTO
-    # releases the lock to the original automatic forward-angle selector.
+    # MANUAL starts from the same visible camera-center candidate as AUTO,
+    # instead of freezing an empty CORE lock if the user toggles before
+    # the first physics tick.
+    if not auto_lock_enabled and locked_target_part_id.is_empty() \
+            and target_parts != null and camera != null:
+        locked_target_part_id = str(target_parts.call(
+            "select_camera_front_part", camera, ""))
     _refresh_lock_mode_buttons()
+    _update_target_marker_projection()
 
 
 func _controller_start_area_contains(pos: Vector2) -> bool:
@@ -1542,49 +1548,51 @@ func _lock_switch_direction_at(pos: Vector2) -> int:
 
 
 func _switch_lock_screen_direction(direction: int) -> void:
-    # Keep a frozen target during attack/approach/Bash. Manual selection
-    # persists during movement and is cleared on break or training reset.
     if (direction == 0 or auto_lock_enabled or target_parts == null
             or camera == null or target_hp <= 0 or training_ko_remaining > 0.0
             or _combo_lock_retention_active()):
         return
     var viewport_size: Vector2 = get_viewport().get_visible_rect().size
-    if viewport_size.x <= 0.0 or viewport_size.y <= 0.0:
+    if viewport_size.x <= 1.0 or viewport_size.y <= 1.0:
         return
     var reference_x: float = viewport_size.x * 0.5
-    if (not locked_target_part_id.is_empty() and bool(target_parts.call(
-            "is_targetable", locked_target_part_id))):
+    if not locked_target_part_id.is_empty() and bool(target_parts.call(
+            "is_targetable", locked_target_part_id)):
         var current_aim: Vector3 = target_parts.call(
             "get_part_aim_world", locked_target_part_id)
         if not camera.is_position_behind(current_aim):
             reference_x = camera.unproject_position(current_aim).x
-    # Project targets into CAMERA/VIEWPORT space: left and right are the
-    # visible screen directions, NOT the enemy's local X axis.
+    # v291: never discard candidates just because another box intersects
+    # the camera ray. Sort projected X, and WRAP at the edge so a manual
+    # button always cycles if two or more healthy parts remain visible.
     var candidates: Array = target_parts.call("get_visible_part_ids",
         camera.global_position, _target_hit_aabb())
-    var nearest_id: String = ""
-    var nearest_offset: float = INF
-    for candidate in candidates:
-        var id: String = str(candidate)
+    var forward_id: String = ""
+    var forward_gap: float = INF
+    var wrapped_id: String = ""
+    var wrapped_x: float = INF if direction > 0 else -INF
+    for raw_candidate in candidates:
+        var id: String = str(raw_candidate)
         if id == locked_target_part_id:
             continue
         var aim: Vector3 = target_parts.call("get_part_aim_world", id)
         if camera.is_position_behind(aim):
             continue
-        var screen_point: Vector2 = camera.unproject_position(aim)
-        if (screen_point.x < 0.0 or screen_point.x > viewport_size.x
-                or screen_point.y < 0.0 or screen_point.y > viewport_size.y):
-            continue
-        var offset: float = (screen_point.x - reference_x) * float(direction)
-        if offset <= 3.0 or offset >= nearest_offset:
-            continue
-        nearest_offset = offset
-        nearest_id = id
-    # No horizontal wrap: an edge button must not unexpectedly select the
-    # opposite edge of the boss. No viable part means retaining the lock.
-    if nearest_id.is_empty():
+        var projected: Vector2 = camera.unproject_position(aim)
+        # Even an offscreen part remains a viable fallback while the boss
+        # is near an edge; projected X is still stable for ordering.
+        var gap: float = (projected.x - reference_x) * float(direction)
+        if gap > 3.0 and gap < forward_gap:
+            forward_gap = gap
+            forward_id = id
+        if (direction > 0 and projected.x < wrapped_x) or (
+                direction < 0 and projected.x > wrapped_x):
+            wrapped_x = projected.x
+            wrapped_id = id
+    var next_id: String = forward_id if not forward_id.is_empty() else wrapped_id
+    if next_id.is_empty():
         return
-    locked_target_part_id = nearest_id
+    locked_target_part_id = next_id
     manual_part_lock_active = true
     _update_target_marker_projection()
 
@@ -4133,11 +4141,12 @@ func _physics_process(delta: float) -> void:
                 # Reacquire a new FRONT visible part only AFTER the entire
                 # committed combo finishes. Manual selection of an intact
                 # target stays manual; a broken manual lock auto-recovers once.
+                # The visible CAMERA projection owns AUTO priority. Large
+                # torso/leg occluders and distance-to-limb cannot leave AUTO
+                # without a lock. The preceding broken-combo gate stays.
                 locked_target_part_id = str(target_parts.call(
-                    "select_front_part",
-                    player.global_position + Vector3.UP * 1.05,
-                    aim, "" if locked_part_broken else locked_target_part_id,
-                    _target_hit_aabb()))
+                    "select_camera_front_part", camera,
+                    "" if locked_part_broken else locked_target_part_id))
                 if locked_part_broken:
                     manual_part_lock_active = not auto_lock_enabled
             elif locked_part_broken:
