@@ -14,7 +14,7 @@ back = main.split("func _advance_back_somersault(delta: float) -> void:", 1)[1].
     "func _cancel_back_somersault(", 1)[0]
 assert "if not back_somersault_has_authored_clip and back_somersault_launched:" in back
 assert back.index("if not back_somersault_has_authored_clip and back_somersault_launched:") < back.index("rig.rotation.x = angle")
-assert "rig.call(\"set_back_somersault_progress\", progress)" in back
+assert 'rig.call("set_back_somersault_progress", pose_progress)' in back
 assert "var previous_offset: Vector3 = _back_somersault_arc_offset(previous)" in back
 assert "var next_offset: Vector3 = _back_somersault_arc_offset(progress)" in back
 apply = rig.split("func _apply_animation(_delta: float) -> void:", 1)[1].split(
