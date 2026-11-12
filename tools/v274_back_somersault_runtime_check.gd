@@ -35,6 +35,10 @@ func _run() -> void:
     if not bool(rig.call("has_back_somersault_clip")):
         _fail("authored Kick_b missing or no valid tracks")
         return
+    # Spawn just ahead of the target core so the first kick can connect.
+    game.set("locked_target_part_id", "")
+    game.set("target_hp", 500)
+    player.position = Vector3(0.0, 0.0, -5.5)
     var start_position: Vector3 = player.position
     var energy_before: float = float(game.get("energy"))
     if not bool(game.call("_start_back_somersault")):
@@ -49,7 +53,16 @@ func _run() -> void:
     if energy_before - float(game.get("energy")) < 14.9:
         _fail("kick did not charge 15 EN")
         return
-    game.call("_advance_back_somersault", 0.40)
+    var contact_seconds: float = float(game.get("BACK_SOMERSAULT_STRIKE_SECONDS"))
+    game.call("_advance_back_somersault", contact_seconds)
+    if not bool(game.get("back_somersault_hit")) or not bool(game.get("back_somersault_launched")):
+        _fail("rear flight was not armed by actual kick contact")
+        return
+    if player.position.distance_to(start_position) > 0.01:
+        _fail("rearward flight started before the kick hit")
+        return
+    var flight_half: float = float(game.get("BACK_SOMERSAULT_REAR_FLIGHT_SECONDS")) * 0.5
+    game.call("_advance_back_somersault", flight_half)
     var middle: Vector3 = player.position
     if absf(middle.y - 1.5) > 0.15:
         _fail("missing 1.5m parabola apex: " + str(middle.y))
@@ -61,7 +74,7 @@ func _run() -> void:
         if absf(absf(rig.rotation.x) - PI) > 0.1:
             _fail("provisional full somersault has not rotated 180 degrees at apex")
             return
-    game.call("_advance_back_somersault", 0.40)
+    game.call("_advance_back_somersault", flight_half)
     var arrived: Vector3 = player.position
     # v279: 4m travel finishes at 0.8s, but do NOT replace Kick_b before
     # its completed final pose was sampled by the render rig.
@@ -104,5 +117,5 @@ func _run() -> void:
     if str(rig.get("current_clip")) != "Wait_motion":
         _fail("landing did not blend back to idle")
         return
-    print("GODOT_BACK_KICK_RUNTIME_PASS: rear arc, 1.5m apex, 4m plan, 0.8s flight + 0.2s authored landing")
+    print("GODOT_BACK_KICK_RUNTIME_PASS: rear arc, 1.5m apex, 4m plan, 0.8s clip including contact + 0.2s authored landing")
     quit(0)
