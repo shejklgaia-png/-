@@ -2574,7 +2574,7 @@ func _begin_landing(from_back_somersault: bool = false) -> void:
         gesture_suppressed_from_landing = true
     if touch_ui != null:
         touch_ui.call("set_movement_boost", false)
-    rig.call("start_landing")
+    rig.call("start_landing", from_back_somersault)
 
 func _advance_landing(delta: float) -> void:
     if not landing_active:
@@ -2837,14 +2837,18 @@ func _advance_back_somersault(delta: float) -> void:
             back_somersault_hit = true
             _register_side_kick_hit()
     if progress >= 1.0:
+        # Keep the final authored Kick_b key on-screen until the render rig
+        # has actually sampled it. 4m of travel still finishes at 0.80s.
+        player.position.y = 0.0
+        player.velocity = Vector3.ZERO
+        if back_somersault_has_authored_clip and not bool(
+                rig.call("back_somersault_final_pose_sampled")):
+            return
         back_somersault_active = false
         back_somersault_elapsed = 0.0
         rig.rotation.x = 0.0
         rig.position.y = back_somersault_original_rig_y
-        # The arena ground is at y=0; exactly one landing phase owns the
-        # authored Jump 0.375..0.500 landing keys, retimed to 0.20 seconds.
-        player.position.y = 0.0
-        player.velocity = Vector3.ZERO
+        # Now safely blend into the unchanged 0.20s landing.
         _begin_landing(true)
 
 
