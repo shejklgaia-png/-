@@ -32,10 +32,10 @@ rig_land = segment(rig, "start_landing(from_back_somersault: bool = false) -> vo
 # Controller direction is SCREEN-relative; DOWN takes precedence within the
 # already-latched 3rd-strike combo window, and is never ordinary back-STEP.
 assert 'flick, Vector2.UP' in direction
-assert "if screen_sector == 2:" in direction
+assert "2:" in direction
 assert "return 2" in direction
-assert direction.index("if screen_sector == 2:") < direction.index("if actor_sector == 1:")
-assert "if screen_sector == 1:" in direction and "if screen_sector == 3:" in direction
+assert "flick, Vector2.UP" in direction and "gesture_screen_forward" not in direction
+assert "1:" in direction and "3:" in direction
 assert 'side_kick_flick_candidate = (' in begin
 assert "and strike_index == STRIKE_CLIPS.size() - 1)" in begin
 assert "_combo_kick_side_for_flick(kick_flick_direction) != 0" in release
@@ -80,7 +80,7 @@ assert "set_jump_progress(fraction)" in rig_progress
 assert 'somersault_authored = false' in rig_land
 assert "var angle: float = TAU * progress" in advance
 assert "rig.rotation.x = angle" in advance
-assert "if not back_somersault_has_authored_clip:" in advance
+assert "if not back_somersault_has_authored_clip and back_somersault_launched:" in advance
 assert "Kick_b" in {a["name"] for a in source["animations"]}
 print("PASS: use actual Kick_b when available, otherwise existing Jump-pose fallback")
 
