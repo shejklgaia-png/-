@@ -61,8 +61,13 @@ assert "var world_step: Vector3 = _screen_drag_to_ground(direction)" in step
 assert "var pose_direction: Vector2 = _step_local_pose_direction(world_step)" in step
 assert 'rig.call("start_omni_step", pose_direction)' in step
 advance = main.split("func _advance_side_step(delta: float)",1)[1].split("func _move_player_swept(",1)[0]
-assert "initial_radius + step_radial_delta * progress" in advance
-assert "step_signed_angle * progress) * moved_radius" in advance
+# v278 keeps ordinary STEP movement exactly as before and introduces
+# a separate 2x kick action clock; the same travel value is used in both
+# orbit radius and arc, and equals progress for ordinary STEPs.
+assert "travel_progress" in advance
+assert "if side_kick_active else progress)" in advance
+assert "initial_radius + step_radial_delta * travel_progress" in advance
+assert "step_signed_angle * travel_progress) * moved_radius" in advance
 assert "_move_player_swept(requested, true)" in advance
 for deg in range(0, 360, 5):
     x, y = math.cos(math.radians(deg)), math.sin(math.radians(deg))
