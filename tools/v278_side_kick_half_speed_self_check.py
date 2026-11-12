@@ -20,7 +20,7 @@ for text in (
     "step_linear_offset * travel_progress",
     "_configure_side_kick_orbit()",
     "step_target_center = Vector2(target.position.x, target.position.z)",
-    "step_radial_delta * (",
+    "step_radial_delta * radial_progress",
     "step_signed_angle * travel_progress",
     "func _configure_side_kick_orbit() -> void:",
     "var previous_progress: float = step_elapsed / step_duration_current",
