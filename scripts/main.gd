@@ -76,6 +76,15 @@ const JUMP_TOUCH_INPUT_ENABLED: bool = false
 const JUMP_FLICK_TAIL_SECONDS: float = 0.20
 const JUMP_FLICK_MIN_VERTICAL: float = 50.0  # Reduced from 78px; backstep unchanged.
 const JUMP_HEIGHT: float = 1.50  # fixed world-space apex above takeoff plane
+# v274: Melee3 -> screen-DOWN flick: 4m rearward arc / 1.5m apex.
+# Unlike archived ordinary Jump, this is a dedicated combo action.
+const BACK_SOMERSAULT_DISTANCE: float = 4.0
+const BACK_SOMERSAULT_HEIGHT: float = 1.5
+const BACK_SOMERSAULT_FLIGHT_SECONDS: float = 0.80
+const BACK_SOMERSAULT_LANDING_SECONDS: float = 0.20
+const BACK_SOMERSAULT_VISUAL_PIVOT_HEIGHT: float = 0.90
+const BACK_SOMERSAULT_HIT_START: float = 0.10
+const BACK_SOMERSAULT_HIT_END: float = 0.45
 const JUMP_FLIGHT_SECONDS: float = 0.80  # 0.000..0.375 authored seconds are retimed over flight
 # New authored landing transition 0.375->0.500 runs after floor contact.
 const JUMP_LANDING_MOTION_SECONDS: float = 0.125
@@ -357,6 +366,14 @@ var jump_fall_duration: float = 0.0
 # key is held 0.60s AFTER the 0.125s landing transition finishes.
 var landing_active: bool = false
 var landing_elapsed: float = 0.0
+var landing_from_somersault: bool = false
+var back_somersault_active: bool = false
+var back_somersault_elapsed: float = 0.0
+var back_somersault_start: Vector3 = Vector3.ZERO
+var back_somersault_direction: Vector3 = Vector3.ZERO
+var back_somersault_original_rig_y: float = 0.195
+var back_somersault_has_authored_clip: bool = false
+var back_somersault_hit: bool = false
 var player_floor_mark: Node3D
 var step_active: bool = false
 var step_kick_side_request: int = 0  # transient; keep STEP method API unchanged
@@ -437,7 +454,7 @@ var bash_queued: bool = false
 var bash_combo_queued: bool = false
 # A lateral swipe DURING Melee3 must wait for the FULL authored follow-through.
 var buffered_side_kick_flick: Vector2 = Vector2.ZERO
-var buffered_side_kick_side: int = 0
+var buffered_side_kick_side: int = 0  # -1=Kick_l, +1=Kick_r, 2=Kick_b
 var bash_flick_candidate: bool = false
 var side_kick_flick_candidate: bool = false
 var kick_touch_started_in_window: bool = false
