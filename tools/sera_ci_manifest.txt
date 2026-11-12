@@ -134,3 +134,5 @@ py tools/v297_head_lock_vertical_cap_self_check.py
 gd tools/v297_head_lock_vertical_cap_runtime_check.gd
 py tools/v298_core_equal_auto_lock_self_check.py
 gd tools/v298_core_equal_auto_lock_runtime_check.gd
+py tools/v299_head_lock_contact_grounding_self_check.py
+gd tools/v299_head_lock_contact_grounding_runtime_check.gd

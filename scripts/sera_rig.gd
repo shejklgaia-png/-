@@ -522,6 +522,8 @@ func get_grounding_height_offset() -> float:
     return float(equipment_handler.call("get_grounding_height_offset")) if equipment_handler != null else 0.0
 
 func reset_foot_contacts() -> void:
+    if equipment_handler != null:
+        equipment_handler.call("clear_run_contact_height")
     foot_contact_initialized = false
     foot_lifted["L"] = false
     foot_lifted["R"] = false
@@ -556,10 +558,9 @@ func _update_foot_contacts(delta: float) -> void:
             foot_lifted[side] = false
             if foot_contact_elapsed >= FOOT_CONTACT_MIN_INTERVAL:
                 foot_contact_elapsed = 0.0
-                # The foot touches the ground only on its sound frame.
-                # Do not snap the entire character vertically for one frame.
-                if str(equipment_handler.call("current_for", "legs")) != "C":
-                    equipment_handler.call("snap_run_contact_foot_to_floor", side)
+                # On an actual touchdown, use the lowest mesh vertex of
+                # BOTH feet to align the visual rig. This also includes bird C.
+                equipment_handler.call("snap_run_contact_foot_to_floor", side)
                 foot_contact.emit(side)
     foot_contact_initialized = true
 
@@ -1906,30 +1907,36 @@ func _process(delta: float) -> void:
     if current_clip == BOOST_CLIP and not combat_paused:
         _advance_slide_blend(delta)
     _apply_animation(delta)
-    # v200: combat (all strikes, bash, guard), steps, boosts and non-contact
-    # RUN frames use the original v198 bind-height behavior.
+    # v299: Only WAIT poses and RUN touchdown events measure the true
+    # lowest foot vertices for root-height correction. Other poses restore
+    # the original static equip-height baseline; no added contact logic for
+    # strike/guard/step/boost/jump. Restore any legacy shoe translations first.
     equipment_handler.call("restore_grounding_baseline")
     equipment_handler.call("restore_run_contact_foot_positions")
     if (current_clip == WAIT_CLIP and not step_playback and not combat_playback
             and not guard_playback and not jump_playback and not damage_playback):
-        if str(equipment_handler.call("current_for", "legs")) == "C":
-            equipment_handler.call("smooth_bird_grounding", delta)
-        else:
-            equipment_handler.call("snap_grounded_sole_to_floor")
+        equipment_handler.call("clear_run_contact_height")
+        equipment_handler.call("snap_grounded_sole_to_floor")
     elif current_clip in RUN_CLIPS and not step_playback:
-        # Bird C follows its current support soles continuously; only A/B/D
-        # use the one-frame shoe contact on the audible footstep.
-        if str(equipment_handler.call("current_for", "legs")) == "C":
-            equipment_handler.call("smooth_bird_grounding", delta)
-        _update_foot_contacts(delta)
+        if not combat_playback and not guard_playback and not jump_playback \
+                and not damage_playback:
+            # Keep the previous contact height between touches; sample a new
+            # lowest-foot position only at the next foot_contact sound event.
+            equipment_handler.call("restore_run_contact_height")
+            _update_foot_contacts(delta)
+        else:
+            equipment_handler.call("clear_run_contact_height")
+            reset_foot_contacts()
     elif current_clip == BOOST_CLIP and heavy_slide_run_enabled \
             and slide_blend_weight > 0.00001 \
             and not combat_playback and not guard_playback and not damage_playback \
             and not jump_playback and not step_playback:
+        equipment_handler.call("clear_run_contact_height")
         # Fade IK with the shared SLIDE/BOOST pose so the hips/feet never snap.
         equipment_handler.call("apply_slide_leg_ik", slide_blend_weight)
         reset_foot_contacts()
     else:
+        equipment_handler.call("clear_run_contact_height")
         reset_foot_contacts()
 
 func _run_heading_from_weights() -> Vector2:

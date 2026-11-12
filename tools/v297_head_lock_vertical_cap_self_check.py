@@ -17,8 +17,8 @@ assert "if id == \"head\":" in selector
 head = selector.split('if id == "head":',1)[1]
 for token in (
     'var head_size: Vector3 = parts[id]["size"]',
-    'Vector3(-head_size.x * 0.5, head_size.y * 0.5,',
-    'Vector3(head_size.x, HEAD_LOCK_UPWARD_EXTENSION_METERS,',
+    'Vector3(-head_size.x * 0.5, -head_size.y * 0.5,',
+    'Vector3(head_size.x, head_size.y + HEAD_LOCK_UPWARD_EXTENSION_METERS,',
     'overhead.intersects_segment(',
     'pivot.to_local(camera_origin), pivot.to_local(body_center)',
     'if overhead_contact != null:',

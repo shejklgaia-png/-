@@ -52,6 +52,10 @@ const SLIDE_IK_BASE_HIP_DROP: float = 0.07
 const SLIDE_IK_MAX_HIP_DROP: float = 0.30
 const SLIDE_IK_MIN_CHAIN_LENGTH: float = 0.04
 var bird_grounding_render_y: float = 0.0
+# A RUN contact samples true mesh vertices once per audible touchdown.
+# Retain its visual-root height until the next contact instead of shifting
+# an isolated shoe for one frame or resampling the floor throughout RUN.
+var run_contact_visual_y: float = NAN
 var slide_leg_chains: Dictionary = {}
 
 func setup(target_rig: Node3D) -> void:
@@ -256,10 +260,9 @@ func restore_grounding_baseline() -> void:
     # This only changes the visible rig; NEXUS preview stays camera-fitted.
     if not grounding_enabled or rig == null:
         return
-    if str(selected.get("legs", "A")) == "C":
-        rig.position.y = bird_grounding_render_y
-    else:
-        rig.position.y = rig_original_y + grounding_height_offset
+    # All non-contact poses, including bird C, use the unchanged bind offset.
+    # Otherwise the last bird RUN/WAIT adjustment leaked into attack/STEP.
+    rig.position.y = rig_original_y + grounding_height_offset
 
 func smooth_bird_grounding(delta: float) -> void:
     # Unlike A/B/D, reverse-jointed C has a large changing sole envelope.
@@ -320,28 +323,37 @@ func restore_run_contact_foot_positions() -> void:
                 if is_instance_valid(piece) and contact_foot_bind_positions.has(piece.get_instance_id()):
                     piece.position = contact_foot_bind_positions[piece.get_instance_id()]
 
+# Hold the last verified RUN contact height between footstep events. This
+# preserves the root/legs hierarchy and avoids one-frame shoe-only movement.
+func restore_run_contact_height() -> void:
+    if grounding_enabled and rig != null and not is_inf(run_contact_visual_y) and not is_nan(run_contact_visual_y):
+        rig.position.y = run_contact_visual_y
+
+
+func clear_run_contact_height() -> void:
+    run_contact_visual_y = NAN
+
+
 func snap_run_contact_foot_to_floor(side: String) -> void:
-    if not grounding_enabled or rig == null:
+    if not grounding_enabled or rig == null or side not in ["L", "R"]:
         return
     var wearer: Node3D = rig.get_parent() as Node3D
-    if wearer == null or absf(wearer.global_position.y) > 0.05:
+    if wearer == null or absf(wearer.global_position.y) > 0.05 \
+            or bool(rig.get("jump_playback")):
         return
-    var feet: Dictionary = foot_meshes.get(str(selected.get("legs", "A")), {})
-    var parts: Array = feet.get(side, [])
-    var sole_heights: Dictionary = get_active_foot_heights()
-    if parts.is_empty() or not sole_heights.has(side):
+    var heights: Dictionary = get_active_foot_heights()
+    if not heights.has("L") or not heights.has("R"):
         return
-    var sole_y: float = float(sole_heights[side])
-    if is_inf(sole_y) or is_nan(sole_y):
+    # Use the actual minimum of BOTH visible feet at the contact frame,
+    # not the shoe pivot, coarse AABB, or a time-based animation estimate.
+    var lowest: float = minf(float(heights["L"]), float(heights["R"]))
+    if is_inf(lowest) or is_nan(lowest):
         return
-    var current_world_y: float = rig.to_global(Vector3(0.0, sole_y, 0.0)).y
-    var adjustment: float = TRAINING_VISIBLE_FLOOR_Y - current_world_y
-    # The contacting shoe alone reaches the visible floor on its sound frame.
-    # This prevents the old full-body one-frame vertical pop/flicker.
-    for raw_piece in parts:
-        var piece: MeshInstance3D = raw_piece
-        if is_instance_valid(piece):
-            piece.global_position += Vector3.UP * adjustment
+    run_contact_visual_y = TRAINING_VISIBLE_FLOOR_Y - lowest - wearer.global_position.y
+    rig.position.y = run_contact_visual_y
+    if str(selected.get("legs", "A")) == "C":
+        bird_grounding_render_y = run_contact_visual_y
+
 
 func get_grounding_height_offset() -> float:
     return grounding_height_offset

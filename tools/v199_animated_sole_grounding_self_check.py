@@ -46,7 +46,7 @@ assert "rig.position.y = TRAINING_VISIBLE_FLOOR_Y - current_sole - wearer.global
 assert "if is_inf(current_sole) or is_nan(current_sole):" in snap
 
 assert '    _apply_animation(0.0)\n    # First frame' in rig
-assert '    _apply_animation(delta)\n    # v200: combat' in rig
+assert '    _apply_animation(delta)\n    # v299: Only WAIT poses and RUN touchdown events' in rig
 assert '    equipment_handler.call("restore_grounding_baseline")' in rig
 assert '    equipment_handler.call("snap_grounded_sole_to_floor")' in rig
 assert '    _update_foot_contacts(delta)' in rig

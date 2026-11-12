@@ -73,19 +73,21 @@ for line in (
     'bird_grounding_render_y = lerpf(bird_grounding_render_y, goal_y, blend)',
 ):
     assert line in method,line
-assert 'if str(selected.get("legs", "A")) == "C":\n        rig.position.y = bird_grounding_render_y' in eq
+# v299: legacy bird smooth helper remains for reference but is not invoked
+# during WAIT/RUN or combat. All sets use the same vertex-based contact.
+assert "rig.position.y = rig_original_y + grounding_height_offset" in eq
 assert 'if str(selected.get("legs", "A")) == "C":\n        bird_grounding_render_y = rig.position.y' in eq
-assert 'equipment_handler.call("smooth_bird_grounding", delta)' in rig
-assert rig.count('equipment_handler.call("smooth_bird_grounding", delta)')==2
+assert 'equipment_handler.call("smooth_bird_grounding", delta)' not in rig
+assert 'equipment_handler.call("restore_run_contact_height")' in rig
 assert 'equipment_handler.call("snap_grounded_sole_to_floor")' in rig
 
-# Foot sound remains, but no one-frame mesh translation for the bird; A/B/D
-# still use the historical v209 contact-only shoe correction.
+# Foot sound and support moment are shared for all selected LOWER BODY
+# sets, with no one-frame per-mesh teleport and no non-contact grounding.
 contact=rig.split("func _update_foot_contacts(delta: float) -> void:",1)[1].split("func _build_model(",1)[0]
-assert 'if str(equipment_handler.call("current_for", "legs")) != "C":' in contact
+assert 'if str(equipment_handler.call("current_for", "legs")) != "C":' not in contact
 assert 'equipment_handler.call("snap_run_contact_foot_to_floor", side)' in contact
 assert 'foot_contact.emit(side)' in contact
-assert 'piece.global_position += Vector3.UP * adjustment' in eq
+assert 'run_contact_visual_y = TRAINING_VISIBLE_FLOOR_Y - lowest - wearer.global_position.y' in eq
 assert 'rig.call("reset_foot_contacts")' in eq
 assert 'func set_exhibition_mode(enabled: bool) -> void:' in rig
 assert 'equipment_handler.call("set_grounding_enabled", not enabled)' in rig
@@ -102,5 +104,5 @@ for fps in (30,60,90,120):
     assert math.isclose(y,target*(1-math.exp(-10)),abs_tol=1e-9)
 
 print("PASS v215: reverse-leg six-joint fallback and idle-loop seam continuity")
-print("PASS: C-only smoothed soles, original footstep events and A/B/D isolation")
+print("PASS: C included in WAIT and RUN touchdown-only soles, other actions isolated")
 print("Godot/Xperia Android foot placement/appearance not runtime-tested")
