@@ -27,14 +27,15 @@ assert "EACH_PART_HP_SHARE: float = 0.10" in p
 assert "SELECTION_HYSTERESIS_RADIANS: float = 0.13" in p
 assert "CORE_DEFENSE: float = 0.14" in p
 for value in ("100.0, 0.20, 0.10, \"change\"",
-              "100.0, 0.12, 0.00, \"remove\"",
+              "100.0, 0.12, 0.00, \"remain\"",
               "100.0, 0.16, 0.12, \"remain\""):
     assert value in p, value
 assert "box.size = dimensions" in p
 assert 'pivot.name = id' in p
 assert 'part["integrity"] = maxf(0.0, old_hp - break_damage)' in p
 assert 'part["broken"] = true' in p
-assert 'pivot.visible = false' in p
+assert 'pivot.visible = true' in p
+assert 'pivot.visible = false' not in p
 assert 'fracture.visible = true' in p
 assert 'return (defenses[2] + defenses[3]) * 0.5' in p
 assert 'not bool(parts[id]["broken"])' in p
@@ -66,7 +67,9 @@ assert 'part_break_remaining = maxf(part_break_remaining, 1.0)' in apply
 assert 'int(result["broken_legs"]) >= 2' in apply
 assert 'part_break_remaining = maxf(part_break_remaining, 3.5)' in apply
 assert 'enemy_shooter.call("set_head_destroyed", true)' in apply
-assert 'locked_target_part_id = ""' in apply
+assert 'locked_target_part_id = ""' not in apply
+assert 'trigger_part_hit_fx' in apply
+assert 'func _combo_lock_retention_active() -> bool:' in m
 assert 'SeraSave.record_target_hit(kind, actual_damage,' in apply
 assert '"apply_part_hit"' in m
 assert '"melee", strike_damage,' in m
