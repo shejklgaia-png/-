@@ -74,7 +74,7 @@ func _run() -> void:
         if absf(offset.length()-start_radius)>0.05:
             _fail("arc changed enemy-centered radius at midpoint")
             return
-        target.position.x += 0.08
+        target.position = target.position + Vector3(0.08, 0.0, 0.0)
         game.call("_advance_side_step",duration*0.03)
         pivot=Vector2(target.position.x,target.position.z)
         offset=Vector2(player.position.x-pivot.x,player.position.z-pivot.y)
