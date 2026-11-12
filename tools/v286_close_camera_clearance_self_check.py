@@ -16,6 +16,8 @@ for token in (
     "CAMERA_COMBAT_YAW_SAMPLE_COUNT: int = 9",
     "STEP_CLOSE_CAMERA_MAX_RELATIVE_DEGREES: float = 45.0",
     "camera_elevation_ratio_current: float = CAMERA_ELEVATION_RATIO",
+    "LOCK_CONTROLS_VERTICAL_RATIO: float = 0.76",
+    "CONTROLLER_REGION_START_RATIO: float = 0.50",
 ):
     assert token in m,token
 orbit=m.split("func _configure_side_kick_orbit() -> void:",1)[1].split(
