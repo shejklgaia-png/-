@@ -3268,8 +3268,14 @@ func _advance_attack(delta: float) -> void:
                     _check_strike_contact()
                     if hit_stop_remaining > 0.0:
                         return
+                var committed_kick_flick: Vector2 = Vector2.ZERO
+                var committed_kick_side: int = 0
                 if strike_index == STRIKE_CLIPS.size() - 1:
                     bash_followup_window_remaining = BASH_LINK_SECONDS
+                    committed_kick_flick = buffered_side_kick_flick
+                    committed_kick_side = buffered_side_kick_side
+                buffered_side_kick_flick = Vector2.ZERO
+                buffered_side_kick_side = 0
                 combat_state = CombatState.IDLE
                 combo_queued = false
                 strike_index = 0
@@ -3279,6 +3285,10 @@ func _advance_attack(delta: float) -> void:
                 if jump_active and not damage_reaction_active:
                     _enter_jump_fall()
                 rig.call("finish_attack", false, jump_active and not damage_reaction_active)
+                # Only after the ENTIRE authored Melee3 has ended, play the
+                # buffered kick and reuse its normal screen-space STEP travel.
+                if committed_kick_side != 0 and committed_kick_flick.length_squared() > 0.000001:
+                    _launch_combo_side_kick(committed_kick_flick, committed_kick_side)
         CombatState.BASH:
             # Follow the moving target during the actual shield impact too.
             if not bash_did_hit:
