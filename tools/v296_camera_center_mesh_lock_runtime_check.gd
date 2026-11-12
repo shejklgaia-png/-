@@ -46,11 +46,17 @@ func _run() -> void:
         _fail("head mesh on segment was not selected")
         return
 
-    # Passing through a part's coarse bounding box is NOT sufficient:
-    # its actual separate BoxMesh pieces must have a contact.
+    # A leg's coarse bounding box still must NOT become a hit when no
+    # real mesh is intersected. Temporarily exclude the newly padded HEAD
+    # so this historic test continues to isolate the leg mesh contract.
+    var parts_for_gap: Dictionary = parts.get("parts")
+    var gap_head: Dictionary = parts_for_gap["head"]
+    gap_head["broken"] = true
     _point_camera(camera, center, Vector3(-3.0,0.0,10.0))
-    if _pick(parts,camera,center) != "":
-        _fail("empty space inside part bounding box selected a limb")
+    var gap_pick: String = _pick(parts,camera,center)
+    gap_head["broken"] = false
+    if gap_pick != "":
+        _fail("empty space inside leg bounding box selected a limb")
         return
 
     # Aim through each real leg's authored metal tip, not just its pivot.
