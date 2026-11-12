@@ -25,6 +25,9 @@ assert "if side_kick_active:" in advance
 assert "(progress - second_windup) * SIDE_KICK_MOTION_TIME_MULTIPLIER" in advance
 assert "step_linear_offset * travel_progress" in advance
 assert "step_signed_angle * travel_progress" in advance
+assert "if not side_kick_travel_anchor_set:" in advance
+assert "if progress >= second_windup:" in advance
+assert "step_start_offset += Vector2(homed.x, homed.z)" in advance
 assert "if previous_progress < impact_progress and progress >= impact_progress:" in advance
 back = main.split("func _advance_back_somersault(delta: float) -> void:", 1)[1].split(
     "func _cancel_back_somersault(", 1)[0]
