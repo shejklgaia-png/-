@@ -42,7 +42,9 @@ func _run() -> void:
             keyed_bones += 1
             keyed_frames += count
     if keyed_bones != 19 or keyed_frames != 70:
-        _fail("authored tracks lost or UUIDs mismatched")
+        _fail("authored tracks lost or UUIDs mismatched: keyed_bones=%d frames=%d rig_bones=%d clip_length=%s" % [
+            keyed_bones, keyed_frames, (rig.get("bones") as Dictionary).size(),
+            str(authored.get("length", 0.0))])
         return
     rig.call("start_strike", "Melee_katana2")
     if str(rig.get("current_clip")) != "Melee_katana2":
