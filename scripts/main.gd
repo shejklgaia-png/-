@@ -2299,11 +2299,13 @@ func _end_drag(release_pos: Vector2) -> void:
     touch_ui.call("hide_drag")
     if damage_reaction_active or landing_active or suppress_release_action:
         return  # A gesture interrupted by damage never queues a step/attack.
-    if bash_requested and _request_combo_bash():
-        touch_ui.call("show_flick_wake", pointer_origin, release_pos)
-        return
+    # After the completed finisher, screen-left/right are kicks; projected
+    # character-forward Bash retains priority for all other directions.
     if side_kick_requested and flick_direction.length_squared() > 0.000001 \
             and _request_combo_side_kick(flick_direction):
+        touch_ui.call("show_flick_wake", pointer_origin, release_pos)
+        return
+    if bash_requested and _request_combo_bash():
         touch_ui.call("show_flick_wake", pointer_origin, release_pos)
         return
     if jump_requested:
