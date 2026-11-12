@@ -2205,7 +2205,8 @@ func _update_boost_gesture(delta: float) -> void:
     # prevent a damaged hold from triggering a phantom STEP or tap attack;
     # it must NOT block BOOST after the damage reaction finishes.
     if not gesture_active or guard_active or damage_reaction_active \
-            or energy_exhausted or bash_flick_candidate or jump_active or landing_active:
+            or energy_exhausted or bash_flick_candidate or side_kick_flick_candidate \
+            or jump_active or landing_active:
         boost_confirm_elapsed = 0.0
         if movement_boost_active:
             movement_boost_active = false
@@ -2323,8 +2324,7 @@ func _end_drag(release_pos: Vector2) -> void:
     # Ordinary RUN/BOOST/STEP travel continues to use screen coordinates.
     # Consume the gesture even if the kick cannot start.
     if side_kick_requested and kick_flick_direction.length_squared() > 0.000001 \
-            and FLICK_DIRECTION_POLICY.sector_index(
-                kick_flick_direction, gesture_screen_forward) in [1, 3]:
+            and _combo_kick_side_for_flick(kick_flick_direction) != 0:
         if _request_combo_side_kick(kick_flick_direction):
             touch_ui.call("show_flick_wake", pointer_origin, release_pos)
         return
@@ -2560,6 +2560,33 @@ func _classify_combo_kick_flick(displacement: Vector2, seconds: float) -> Vector
         return Vector2.ZERO
     return FLICK_DIRECTION_POLICY.screen_step_direction(displacement)
 
+# The gesture itself is in SCREEN coordinates. The author's 90-degree
+# SERA-relative left/right wedges take priority; the video also shows
+# horizontal screen swipes while SERA faces sideways toward the boss. Such
+# a swipe can fall squarely in SERA's BACK sector (and become STEP), even
+# though the on-screen thumb deliberately requested a lateral kick.
+# During the Melee3 combo ONLY, recover screen-left/right flicks from the
+# actor-BACK wedge. Never steal actor-FRONT (Bash) or outside-combo STEP.
+# Return +1 Kick_r, -1 Kick_l, or 0 for non-kick gestures.
+func _combo_kick_side_for_flick(flick: Vector2) -> int:
+    if flick.length_squared() < 0.000001:
+        return 0
+    var actor_sector: int = FLICK_DIRECTION_POLICY.sector_index(
+        flick, gesture_screen_forward)
+    if actor_sector == 1:
+        return 1
+    if actor_sector == 3:
+        return -1
+    if actor_sector == 2:
+        var screen_sector: int = FLICK_DIRECTION_POLICY.sector_index(
+            flick, Vector2.UP)
+        if screen_sector == 1:
+            return 1
+        if screen_sector == 3:
+            return -1
+    return 0
+
+
 # Authored STEP clips are relative to SERA's LOCAL facing, while the
 # gesture/movement vector is relative to the CAMERA. Convert only for
 # animation, never use this local basis to build the world travel path.
@@ -2582,10 +2609,9 @@ func _request_combo_side_kick(flick: Vector2) -> bool:
     # _end_drag calls this only for a kick gesture latched during _begin_drag.
     # The 0.65s follow-up window must be checked on touch-down, NOT again on
     # release: a valid flick may outlast the remaining window by up to 0.24s.
-    var sector: int = FLICK_DIRECTION_POLICY.sector_index(flick, gesture_screen_forward)
-    if sector != 1 and sector != 3:
+    var side: int = _combo_kick_side_for_flick(flick)
+    if side == 0:
         return false
-    var side: int = 1 if sector == 1 else -1
     if rig == null or not bool(rig.call("has_side_kick", side)):
         return false
     if (combat_state == CombatState.STRIKE or combat_state == CombatState.STRIKE_TRACK) \
