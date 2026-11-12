@@ -20,8 +20,9 @@ assert source['meta']['model_format'] == 'free'
 
 bones = {g['uuid']:g for g in source['groups']}
 elements = {e['uuid']:e for e in source['elements']}
-assert len(bones) == 22
-assert len(elements) == 25
+# Additional Katana equipment is additive: retain 22 base pivots and 25 base meshes.
+assert len([g for g in source['groups'] if not g['name'].startswith('Katana')]) == 22
+assert len(elements) >= 25
 reached_bones = set()
 reached_elements = set()
 def collect(value):

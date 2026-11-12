@@ -43,8 +43,12 @@ try:
 except (ValueError, UnicodeDecodeError) as exc:
     print(f"FAIL: invalid Sera JSON: {exc}")
     sys.exit(1)
-verify("model has 22 bones", len(model.get("groups", [])) == 22)
-verify("model has 25 elements", len(model.get("elements", [])) == 25)
+# New equipment pivots and meshes may be appended without replacing A's 22 bones.
+# The v276 asset regression separately verifies exact Katana additions.
+verify("model retains 22 A bones", len([
+    g for g in model.get("groups", []) if not g.get("name", "").startswith("Katana")
+]) == 22)
+verify("model retains base 25 meshes", len(model.get("elements", [])) >= 25)
 anims = {a.get("name") for a in model.get("animations", [])}
 for clip in ("Wait_motion", "run_front_original", "Step_R", "Step_L", "Backstep", "Guard", "Melee2", "Melee3"):
     verify(f"required animation exists: {clip}", clip in anims)
