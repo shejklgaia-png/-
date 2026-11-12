@@ -241,6 +241,8 @@ const TARGET_IDLE_GAP_RATIO: float = 0.034  # Resting silhouette gap as a fracti
 const SIDE_SWITCH_PIXELS: float = 2.0  # Only used while moving and on release: no 3.5% dead-band.
 const MAX_SIDE_SEARCH_ANGLE: float = 1.5  # radians; only the nearest clear orbit angle is used
 const MIN_SEPARABLE_DISTANCE: float = 1.9  # closer than silhouettes: orbit cannot solve occlusion
+# v293: 40% closer combat camera. Framing/edge safety may widen the radius.
+const CAMERA_DISTANCE_SCALE: float = 0.60
 const CAMERA_BASE_RADIUS: float = 16.0
 const CAMERA_CLOSE_RADIUS: float = 8.8  # v233: slightly wider closest framing (previously 7.8m).
 const CAMERA_CLOSE_RANGE: float = 1.5  # Player-target distance where zoom-in is complete.
@@ -467,8 +469,8 @@ var elapsed: float = 0.0
 var camera_yaw: float = 0.0
 var camera_focus_follow_xz: Vector2 = Vector2.ZERO
 var camera_combat_hold_remaining: float = 0.0
-var camera_radius: float = CAMERA_BASE_RADIUS
-var camera_follow_radius: float = CAMERA_BASE_RADIUS
+var camera_radius: float = CAMERA_BASE_RADIUS * CAMERA_DISTANCE_SCALE
+var camera_follow_radius: float = CAMERA_BASE_RADIUS * CAMERA_DISTANCE_SCALE
 var camera_fit_radius_floor: float = 0.0
 var camera_last_separation: float = -1.0
 var camera_filtered_closing_speed: float = 0.0
@@ -1159,8 +1161,8 @@ func _build_camera() -> void:
     add_child(camera)
     camera.current = true
     camera_yaw = 0.0
-    camera_radius = CAMERA_BASE_RADIUS
-    camera_follow_radius = CAMERA_BASE_RADIUS
+    camera_radius = CAMERA_BASE_RADIUS * CAMERA_DISTANCE_SCALE
+    camera_follow_radius = CAMERA_BASE_RADIUS * CAMERA_DISTANCE_SCALE
     camera_fit_radius_floor = 0.0
     close_boost_camera_active = false
     camera_combat_hold_remaining = 0.0
@@ -3734,8 +3736,8 @@ func _strike_cancel_time(stage: int) -> float:
 
 
 func _melee3_flick_cancel_time() -> float:
-    # Katana's 2nd slash is a 0.5s one-shot; its authored swing-through
-    # is at frame 7 (0.29167s), with the same +0.05s flick delay.
+    # Katana's authored 2nd slash lasts 0.58333s. Its swing-through keys
+    # reach frame 8 (0.33333s); retain the established flick cancel gate.
     if _katana_equipped():
         return 7.0 / 24.0 + MELEE3_FLICK_CANCEL_DELAY
     return float(STRIKE_CANCEL_TIMES[STRIKE_CLIPS.size() - 1]) + MELEE3_FLICK_CANCEL_DELAY
@@ -4549,6 +4551,7 @@ func _process(delta: float) -> void:
     var preferred_radius: float = lerpf(CAMERA_CLOSE_RADIUS, CAMERA_BASE_RADIUS, zoom_ratio)
     # Keep the camera behind the moving player rather than flying past them.
     preferred_radius = maxf(preferred_radius, separation + 2.0)
+    preferred_radius *= CAMERA_DISTANCE_SCALE
     # v234: derive near-field dolly speed from the ACTUAL interpolated
     # player-target closing rate. A filtered derivative prevents small physics
     # corrections or input turns from shaking the zoom. This controls only
@@ -4578,7 +4581,7 @@ func _process(delta: float) -> void:
         # still expand if actual objects approach a viewport boundary.
         camera_follow_radius = move_toward(
             camera_follow_radius,
-            maxf(camera_follow_radius, CAMERA_COMBAT_MIN_RADIUS),
+            maxf(camera_follow_radius, CAMERA_COMBAT_MIN_RADIUS * CAMERA_DISTANCE_SCALE),
             CAMERA_COMBAT_ZOOM_OUT_SPEED * maxf(delta, 0.0))
         camera_dolly_in_speed = 0.0
         camera_filtered_closing_speed = 0.0
