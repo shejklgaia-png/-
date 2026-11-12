@@ -326,9 +326,11 @@ var auto_lock_enabled: bool = true
 var lock_switch_left_button: Button
 var lock_switch_right_button: Button
 var lock_mode_button: Button
-# v286: keep persistent LOCK buttons out of the middle combat silhouettes.
-# The analog/tap region is unrestricted; this shifts ONLY the 3 UI buttons.
-const CONTROLLER_REGION_START_RATIO: float = 0.76
+# Horizontal lock layout is preserved: left near center, AUTO at 75%,
+# right at the edge. Only the vertical anchor is moved below combatants.
+const CONTROLLER_REGION_START_RATIO: float = 0.50
+# v286: keep persistent LOCK UI off the middle of the combat scene.
+const LOCK_CONTROLS_VERTICAL_RATIO: float = 0.76
 const LOCK_SWITCH_BUTTON_SIZE: Vector2 = Vector2(104.0, 58.0)
 const LOCK_MODE_BUTTON_SIZE: Vector2 = Vector2(128.0, 58.0)
 const CONTROLLER_BUTTON_TOP_INSET: float = 8.0
@@ -1433,8 +1435,8 @@ func _build_lock_switch_buttons(layer: CanvasLayer) -> void:
         button.add_theme_stylebox_override("hover", normal_style)
         button.add_theme_stylebox_override("pressed", press_style)
         button.add_theme_stylebox_override("disabled", disabled_style)
-        button.anchor_top = CONTROLLER_REGION_START_RATIO
-        button.anchor_bottom = CONTROLLER_REGION_START_RATIO
+        button.anchor_top = LOCK_CONTROLS_VERTICAL_RATIO
+        button.anchor_bottom = LOCK_CONTROLS_VERTICAL_RATIO
         button.offset_top = CONTROLLER_BUTTON_TOP_INSET
         button.offset_bottom = CONTROLLER_BUTTON_TOP_INSET + LOCK_SWITCH_BUTTON_SIZE.y
         if direction < 0:
@@ -1461,8 +1463,8 @@ func _build_lock_switch_buttons(layer: CanvasLayer) -> void:
     lock_mode_button.add_theme_stylebox_override("pressed", press_style)
     lock_mode_button.anchor_left = 0.75
     lock_mode_button.anchor_right = 0.75
-    lock_mode_button.anchor_top = CONTROLLER_REGION_START_RATIO
-    lock_mode_button.anchor_bottom = CONTROLLER_REGION_START_RATIO
+    lock_mode_button.anchor_top = LOCK_CONTROLS_VERTICAL_RATIO
+    lock_mode_button.anchor_bottom = LOCK_CONTROLS_VERTICAL_RATIO
     lock_mode_button.offset_left = -LOCK_MODE_BUTTON_SIZE.x * 0.5
     lock_mode_button.offset_right = LOCK_MODE_BUTTON_SIZE.x * 0.5
     lock_mode_button.offset_top = CONTROLLER_BUTTON_TOP_INSET
