@@ -27,7 +27,7 @@ assert "var tangent_distance: float = absf(direction.x) * side_length" in step
 assert "sqrt(tangent_distance * tangent_distance + step_radial_delta * step_radial_delta)" in step
 assert "STEP_MIN_ARC_LENGTH, STEP_MAX_ARC_LENGTH)" in step
 assert "step_duration_current = (step_arc_length / step_speed_current" in step
-assert 'rig.call("start_omni_step", direction)' in step
+assert 'rig.call("start_omni_step", pose_direction)' in step
 
 advance = main.split("func _advance_side_step(delta: float) -> void:", 1)[1].split(
     "func _move_player_swept(", 1)[0]
