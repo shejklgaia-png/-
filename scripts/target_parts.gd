@@ -440,9 +440,35 @@ func _camera_center_line_part_distance(camera_origin: Vector3,
     return closest
 
 
+# v298: The BODY is a real sixth selectable mesh, not an unconditional
+# fallback. FloatingBox is the parent of the breakable parts and owns the
+# authoritative 2m x 2m x 3.4m visible BoxMesh. Use the identical local-space
+# finite-segment intersection and camera-distance score used by head/legs.
+# The empty part ID is retained as BODY for HUD, damage and save compatibility.
+func _camera_center_line_body_distance(camera_origin: Vector3,
+        body_center: Vector3) -> float:
+    var core_mesh: MeshInstance3D = get_parent() as MeshInstance3D
+    if core_mesh == null or not core_mesh.visible or not core_mesh.mesh is BoxMesh:
+        return INF
+    if camera_origin.distance_squared_to(body_center) < 0.000001:
+        return INF
+    var core_size: Vector3 = (core_mesh.mesh as BoxMesh).size
+    var contact: Variant = AABB(-core_size * 0.5, core_size).intersects_segment(
+        core_mesh.to_local(camera_origin), core_mesh.to_local(body_center))
+    if contact == null:
+        return INF
+    var contact_world: Vector3 = core_mesh.to_global(contact)
+    return camera_origin.distance_squared_to(contact_world)
+
+
 func camera_center_line_hits_part(view_camera: Camera3D,
         body_center: Vector3, id: String) -> bool:
-    return view_camera != null and _camera_center_line_part_distance(
+    if view_camera == null:
+        return false
+    if id.is_empty():
+        return _camera_center_line_body_distance(
+            view_camera.global_position, body_center) < INF
+    return _camera_center_line_part_distance(
         view_camera.global_position, body_center, id) < INF
 
 
@@ -451,7 +477,10 @@ func select_camera_center_line_part(view_camera: Camera3D,
     if view_camera == null:
         return ""
     var origin: Vector3 = view_camera.global_position
-    var closest: float = INF
+    # BODY competes on the same nearest-entry-distance basis as each limb.
+    # If no mesh intersects, this empty identifier still means no selected
+    # part; in the normal game the camera->center line meets the body mesh.
+    var closest: float = _camera_center_line_body_distance(origin, body_center)
     var selected: String = ""
     for id in PART_ORDER:
         var distance: float = _camera_center_line_part_distance(

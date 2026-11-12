@@ -106,10 +106,16 @@ func _run() -> void:
         _fail("BODY lock was mistaken for uninitialized selection")
         return
 
+    # v298: BODY is a genuine intersecting candidate, so switching from
+    # BODY to HEAD uses the same 0.22 s confirmation as limb-to-limb.
     _point_camera(camera,center,Vector3(0.0,-2.0,10.0))
     game.call("_acquire_stable_camera_part",0.016,false)
+    if str(game.get("locked_target_part_id")) != "":
+        _fail("BODY->HEAD ignored the shared lock confirmation")
+        return
+    game.call("_acquire_stable_camera_part",0.23,false)
     if str(game.get("locked_target_part_id")) != "head":
-        _fail("BODY could not reacquire a real HEAD hit immediately")
+        _fail("BODY refused sustained HEAD intersection")
         return
 
     # Existing MANUAL and attack retention are separate from AUTO sampling.
