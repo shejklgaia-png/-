@@ -169,6 +169,9 @@ const STRIKE_ASSIST_AT: float = 0.170
 # after each authored follow-through, without shortening standalone recovery.
 const STRIKE_CLIPS = ["melee1", "Melee2", "Melee3"]
 const KATANA_STRIKE_CLIP: String = "Melee_katana"
+const KATANA_SECOND_STRIKE_CLIP: String = "Melee_katana2"
+# Katana's 2-stage chain ends on its second authored-derived slash,
+# while the original sword keeps its independent 3-stage chain.
 # v167: a forward flick after stage 3 triggers the authored shield bash.
 # Allow a brief post-finisher window, then one tap after Bash to loop to stage 1.
 const BASH_LINK_SECONDS: float = 0.65
@@ -1973,7 +1976,7 @@ func _register_strike_hit(world_hit: Vector3) -> void:
     rig.call("set_combat_paused", true)
     damage_label.text = "%d" % int(result["applied_damage"])
     damage_label.visible = true
-    var strike_sound: AudioStreamPlayer = melee_finisher_audio if strike_index == 2 else hit_audio
+    var strike_sound: AudioStreamPlayer = melee_finisher_audio if _is_strike_finisher() else hit_audio
     if is_instance_valid(strike_sound) and strike_sound.stream != null:
         strike_sound.play()
     _spawn_sparks(impact_origin)
@@ -2251,14 +2254,14 @@ func _begin_drag(pos: Vector2) -> void:
     # unrelated drags still cancel attacks as before.
     bash_flick_candidate = ((combat_state == CombatState.STRIKE
         or combat_state == CombatState.STRIKE_TRACK)
-        and strike_index == STRIKE_CLIPS.size() - 1) or (
+        and _is_strike_finisher()) or (
         combat_state == CombatState.IDLE and bash_followup_window_remaining > 0.0)
     # Accept lateral kick input DURING the last authored strike as a buffer.
     # It launches at Melee3's dedicated flick cancel point. Touch-down
     # during the 0.65s post-finisher link is also accepted.
     side_kick_flick_candidate = (
         ((combat_state == CombatState.STRIKE or combat_state == CombatState.STRIKE_TRACK)
-            and strike_index == STRIKE_CLIPS.size() - 1)
+            and _is_strike_finisher())
         or (combat_state == CombatState.IDLE and bash_followup_window_remaining > 0.0))
     kick_touch_started_in_window = side_kick_flick_candidate
     # New drag/tap takes over immediately: never retain close-step recovery
@@ -2783,7 +2786,7 @@ func _request_combo_side_kick(flick: Vector2) -> bool:
         _record_kick_debug("CLIP MISSING " + str(rig.call("get_side_kick_diagnostic", side)))
         return false
     if (combat_state == CombatState.STRIKE or combat_state == CombatState.STRIKE_TRACK) \
-            and strike_index == STRIKE_CLIPS.size() - 1:
+            and _is_strike_finisher():
         buffered_side_kick_flick = flick.normalized()
         buffered_side_kick_side = side
         bash_queued = false  # Latest combo direction wins.
@@ -3420,7 +3423,7 @@ func _start_attack() -> bool:
     if combat_state == CombatState.STRIKE:
         # Taps never restart the current attack. Buffer exactly one follow-up;
         # _advance_attack() consumes it at or after the authored cancel point.
-        if strike_index < STRIKE_CLIPS.size() - 1:
+        if strike_index < _strike_stage_count() - 1:
             combo_queued = true
             return true
         return false
@@ -3504,7 +3507,7 @@ func _cancel_attack() -> void:
 
 func _request_combo_bash() -> bool:
     if (combat_state == CombatState.STRIKE or combat_state == CombatState.STRIKE_TRACK) \
-            and strike_index == STRIKE_CLIPS.size() - 1:
+            and _is_strike_finisher():
         buffered_side_kick_flick = Vector2.ZERO
         buffered_side_kick_side = 0
         bash_queued = true
@@ -3519,7 +3522,7 @@ func _start_bash() -> void:
             or rig == null or not bool(rig.get("loading_ok")):
         return
     if combat_state != CombatState.IDLE and not (combat_state == CombatState.STRIKE
-            and strike_index == STRIKE_CLIPS.size() - 1):
+            and _is_strike_finisher()):
         return
     combat_state = CombatState.BASH_TRACK
     bash_track_elapsed = 0.0
@@ -3651,9 +3654,17 @@ func _distance_to_attack_target_surface(pos: Vector3) -> float:
 func _katana_equipped() -> bool:
     return rig != null and str(rig.call("get_equipment_selection", "weapon_r")) == "K"
 
+func _strike_stage_count() -> int:
+    return 2 if _katana_equipped() else STRIKE_CLIPS.size()
+
+
+func _is_strike_finisher() -> bool:
+    return strike_index == _strike_stage_count() - 1
+
+
 func _active_strike_clip(stage: int) -> String:
     if _katana_equipped():
-        return KATANA_STRIKE_CLIP
+        return KATANA_SECOND_STRIKE_CLIP if stage >= 1 else KATANA_STRIKE_CLIP
     return str(STRIKE_CLIPS[clampi(stage, 0, STRIKE_CLIPS.size() - 1)])
 
 func _strike_cancel_time(stage: int) -> float:
@@ -3663,16 +3674,15 @@ func _strike_cancel_time(stage: int) -> float:
 
 
 func _melee3_flick_cancel_time() -> float:
-    # This is independent of the Melee1/2 tap-combo cancel points.
-    # The current authored Katana swing lasts only 0.5s, so retain its
-    # existing cancel point until a separate strike-through key is set.
+    # Katana's 2nd slash is a 0.5s one-shot; its authored swing-through
+    # is at frame 7 (0.29167s), with the same +0.05s flick delay.
     if _katana_equipped():
-        return _strike_cancel_time(STRIKE_CLIPS.size() - 1)
+        return 7.0 / 24.0 + MELEE3_FLICK_CANCEL_DELAY
     return float(STRIKE_CANCEL_TIMES[STRIKE_CLIPS.size() - 1]) + MELEE3_FLICK_CANCEL_DELAY
 
 
 func _start_strike(stage: int = 0) -> void:
-    var next_stage: int = clampi(stage, 0, STRIKE_CLIPS.size() - 1)
+    var next_stage: int = clampi(stage, 0, _strike_stage_count() - 1)
     var costs: Array = part_stats.get("attack_energy", [0.0, 0.0, 0.0])
     if not _spend_energy(float(costs[next_stage])):
         _cancel_attack()
@@ -3717,7 +3727,7 @@ func _launch_followup_strike() -> void:
 func _finish_strike_and_release_queued_kick() -> void:
     var committed_kick_flick: Vector2 = Vector2.ZERO
     var committed_kick_side: int = 0
-    if strike_index == STRIKE_CLIPS.size() - 1:
+    if _is_strike_finisher():
         bash_followup_window_remaining = BASH_LINK_SECONDS
         last_melee3_finished_ms = Time.get_ticks_msec()
         committed_kick_flick = buffered_side_kick_flick
@@ -3826,7 +3836,7 @@ func _advance_attack(delta: float) -> void:
             # Stage 3 alone can cancel into a RESERVED flick 0.05s after
             # its authored 15/24s swing-through. Do not unlock ordinary
             # Melee1 here: without a flick, the full 0.83333s clip runs.
-            if strike_index == STRIKE_CLIPS.size() - 1 \
+            if _is_strike_finisher() \
                     and float(rig.call("get_clip_time")) >= _melee3_flick_cancel_time() \
                     and (bash_queued or buffered_side_kick_side != 0):
                 if not strike_did_hit:
@@ -3839,7 +3849,7 @@ func _advance_attack(delta: float) -> void:
                     _finish_strike_and_release_queued_kick()
                 return
             # Existing Melee1 -> Melee2 -> Melee3 TAP progression is untouched.
-            if (combo_queued and strike_index < STRIKE_CLIPS.size() - 1
+            if (combo_queued and strike_index < _strike_stage_count() - 1
                     and float(rig.call("get_clip_time")) >= _strike_cancel_time(strike_index)):
                 if not strike_did_hit:
                     _check_strike_contact()
@@ -4133,12 +4143,11 @@ func _physics_process(delta: float) -> void:
             elif locked_part_broken:
                 locked_target_part_id = ""
                 manual_part_lock_active = not auto_lock_enabled
-        if not locked_target_part_id.is_empty() and bool(
-                target_parts.call("has_part", locked_target_part_id)):
-            var part_aim: Vector3 = target_parts.call(
-                "get_part_aim_world", locked_target_part_id)
-            aim = Vector3(part_aim.x - player.position.x, 0.0,
-                part_aim.z - player.position.z)
+        # Lock part ID/reticle/hit volume stay independent of actor facing.
+        # Do NOT overwrite this vector with the selected limb's aim.
+    # v290: always face the WHOLE boss pivot during lateral RUN/BOOST/STEP.
+    # Part lock only directs attacks and the HUD marker. This prevents
+    # the limb offsets from turning SERA side-on while circling the boss.
     if aim.length_squared() > 0.000001:
         player.look_at(player.global_position + aim, Vector3.UP)
     # At close range SERA's body tracks the boss while the STEP path remains
@@ -4353,9 +4362,12 @@ func _physics_process(delta: float) -> void:
                     melee_boost_elapsed,
                     float(part_stats.get("melee_boost_duration", MELEE_BOOST_DEFAULT_DURATION))]
             CombatState.STRIKE:
-                state_label.text = ("STRIKE 3/3  |  KICK B QUEUED" if buffered_side_kick_side == 2
-                    else "STRIKE 3/3  |  KICK QUEUED") if buffered_side_kick_side != 0 \
-                    else "STRIKE %d/3  |  %s" % [strike_index + 1, str(STRIKE_CLIPS[strike_index])]
+                var count: int = _strike_stage_count()
+                state_label.text = ("STRIKE %d/%d  |  KICK B QUEUED" % [strike_index + 1, count]
+                    if buffered_side_kick_side == 2 else
+                    "STRIKE %d/%d  |  KICK QUEUED" % [strike_index + 1, count]) \
+                    if buffered_side_kick_side != 0 else \
+                    "STRIKE %d/%d  |  %s" % [strike_index + 1, count, _active_strike_clip(strike_index)]
             CombatState.BACK_KICK_TRACK:
                 state_label.text = "KICK BACK TRACK  %.2f / %.2fs" % [
                     back_kick_track_elapsed, BASH_TRACK_SECONDS]
