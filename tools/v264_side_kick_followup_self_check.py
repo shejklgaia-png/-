@@ -29,7 +29,8 @@ require("post-finisher side flick takes priority over Bash",
         main.index("if side_kick_requested and flick_direction.length_squared()")
         < main.index("if bash_requested and _request_combo_bash():"))
 require("kick and step share the same start implementation",
-        "func _start_omni_step(flick: Vector2, kick_side: int = 0)" in main)
+        "func _start_omni_step(flick: Vector2) -> bool:" in main
+        and "step_kick_side_request = side" in main)
 require("single EN charge in shared STEP entry",
         main.count("func _start_omni_step(") == 1
         and "_spend_energy(15.0 * float(part_stats.get" in main)
@@ -53,7 +54,7 @@ require("invalid or zero-length clip does not enable kick",
         'float(animations[chosen]["length"]) > 0.01' in rig
         and 'not (animations[chosen]["tracks"] as Dictionary).is_empty()' in rig)
 require("kick animation time synchronized with step",
-        'rig.call("start_side_kick", kick_side, step_duration_current)' in main
+        'rig.call("start_side_kick", step_kick_side_request, step_duration_current)' in main
         and "playback_rate = side_kick_playback_scale" in rig)
 require("kick state cleaned at STEP finish",
         "side_kick_active = false" in main
