@@ -183,3 +183,8 @@ Additional historical checks may refer to unavailable prior ZIPs; read their pre
 - SERA turns toward the locked target while traversing STEP; update rig direction without restarting the animation via `update_omni_step_direction` with a short 0.08s slerp. Per-frame step backstroke weight should be based on committed world travel relative to SERA rear rather than screen Y, while LEFT sector still obeys screen X. Keep v261 nozzle safety.
 - Keep `camera_yaw` stable during actual STEP frames (zoom and frame-fitting still run); resume existing close STEP camera recovery / moving yaw follow afterward so screen travel doesn't visibly rotate mid-step. Leave ordinary RUN/BOOST camera tracking unchanged.
 - Add regression `tools/v263_close_step_screen_alignment_self_check.py`; run all old v200/v252/v262, v210/v261, camera/renderer/model tests before merging.
+
+## Animation runtime regression requirements (added 2026-11-12)
+- For **any** new/changed Blockbench animation or `scripts/sera_rig.gd` playback lookup, consult `docs/SERA_ANIMATION_RUNTIME_POLICY_ja.md` and ensure the **real-Godot** workflow step `tools/sera_animation_runtime_smoke.gd` passes. Static Python/json checks are insufficient.
+- Resolve published animation names directly before alias/heuristic searches. For public playback APIs, verify **lookup, recovery ordering, start, current_clip**, not just whether a clip name exists. Avoid conditional array literals assigned to typed `Array[String]`; prefer explicit branches or canonical strings.
+- Do not merge model/animation PRs without Godot runtime CI. An Android test is still distinct; never misstate cloud headless as Android validation. Preserve original Blockbench keys, mesh pivots, and unrelated animations unless requested.
