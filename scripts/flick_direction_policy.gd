@@ -1,6 +1,6 @@
 extends RefCounted
 ## v262: STEP uses the full normalized 360-degree screen flick vector.
-## Four 90-degree sectors are used for SERA-facing Bash and lateral kicks.
+## Four 90-degree sectors use absolute SCREEN-UP for combo Bash and kicks (v284).
 const SECTOR_COUNT: int = 4
 const SECTOR_ANGLE: float = TAU / 4.0
 
@@ -21,7 +21,7 @@ static func projected_forward(camera: Camera3D, actor: Node3D) -> Vector2:
         return Vector2.UP
     return screen_forward.normalized()
 
-# 360-degree screen deltas relative to actor forward. Exact clockwise
+# 360-degree screen deltas relative to supplied reference axis. Exact clockwise
 # boundary (+45 degrees) is classified as the clockwise neighbor.
 static func sector_index(displacement: Vector2, screen_axis: Vector2) -> int:
     if displacement.length_squared() < 0.000001 or screen_axis.length_squared() < 0.000001:
@@ -34,7 +34,7 @@ static func sector_index(displacement: Vector2, screen_axis: Vector2) -> int:
 
 # Convert a sector into one of the four cardinal animation directions.
 # This is a reusable quantizer: STEP uses its continuous screen vector,
-# while Bash and Combo Kick use SERA's projected facing.
+# while Bash and Combo Kick now use absolute screen-UP.
 static func four_way_direction(displacement: Vector2, screen_axis: Vector2) -> Vector2:
     var sector: int = sector_index(displacement, screen_axis)
     if sector < 0:
