@@ -12,6 +12,8 @@ camera = (ROOT / "scripts/sera_camera_math.gd").read_text(encoding="utf-8")
 main = (ROOT / "scripts/main.gd").read_text(encoding="utf-8")
 for name in ("desired_follow_focus", "advance_follow_focus", "stable_shoulder_yaw"):
     assert f"static func {name}(" in camera
+for name in ("advance_follow_focus", "stable_shoulder_yaw"):
     assert f"CAMERA_MATH.{name}(" in main
+assert "return target_xz" in main.split("func _desired_camera_follow_focus_xz()",1)[1].split("func _advance_camera_follow_focus(",1)[0]
 assert 'const CAMERA_MATH = preload("res://scripts/sera_camera_math.gd")' in main
 print("SERA_FUNCTION_INDEX_AND_CAMERA_MATH_PASS")

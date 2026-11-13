@@ -66,8 +66,8 @@ func _run() -> void:
     game.set("camera_player_render_position",player.position)
     game.set("camera_target_render_position",target.position)
     game.set("camera_focus_follow_xz",game.call("_desired_camera_follow_focus_xz"))
-    player.position += Vector3(5.0,0,0)
-    game.set("camera_player_render_position",player.position)
+    target.position += Vector3(5.0,0,0)
+    game.set("camera_target_render_position",target.position)
     game.call("_advance_camera_follow_focus",1.0/60.0)
     var desired: Vector2 = game.call("_desired_camera_follow_focus_xz")
     var actual: Vector2 = game.get("camera_focus_follow_xz")
@@ -81,7 +81,7 @@ func _run() -> void:
     game.call("_place_camera")
     var polar_x: float = sin(float(game.get("camera_yaw")))*12.0
     if absf(camera.position.x - (actual.x+polar_x)) > 0.0001:
-        _fail("SERA-follow focus is not applied to actual camera transform")
+        _fail("boss-follow focus is not applied to actual camera transform")
         return
     print("GODOT_V287_STABLE_LOW_CAMERA_PASS: low fixed pitch, smooth small yaw and bounded SERA pursuit")
     quit(0)

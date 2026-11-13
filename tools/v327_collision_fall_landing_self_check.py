@@ -21,5 +21,7 @@ assert 'landing_pose_active = true' in rig
 assert 'equipment_handler.call("snap_grounded_sole_to_floor", true)' in rig
 assert 'func snap_grounded_sole_to_floor(allow_landing: bool = false)' in equipment
 assert 'bool(rig.get("jump_playback")) and not allow_landing' in equipment
-assert 'config/name="SERA v327"' in (root/"project.godot").read_text(encoding="utf-8")
+import re
+version = re.search(r'config/name="SERA v(\d+)"', (root/"project.godot").read_text(encoding="utf-8"))
+assert version and int(version.group(1)) >= 327
 print("PASS v327 collision XZ, passive fall, authored Kick_b landing feet")

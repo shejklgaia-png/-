@@ -41,16 +41,16 @@ assert 'camera_radius = maxf(camera_follow_radius, camera_fit_radius_floor)' in 
 assert camera.count('if not close_boost_camera_active and not boost_edge_frame_guard') == 2
 assert 'and separation > CAMERA_COMBAT_VISIBILITY_DISTANCE:' in camera
 assert 'var boost_edge_frame_guard: bool = (' in camera
-assert '    if boost_edge_frame_guard:' in camera
-assert '        _fit_boost_frame_analytically(delta)' in camera
+assert '    _fit_boost_frame_analytically(delta)' in camera
+assert '    if not _full_frame_safe():' in camera
 assert 'if protect_close_step and separation > 0.08:' in camera
 assert '_stable_shoulder_camera_yaw(bearing, delta)' in camera
 assert 'if hold_attack_camera or step_active or close_step_camera_this_frame:' in camera
 assert 'CAMERA_COMBAT_MIN_RADIUS' in camera
 assert 'camera_yaw = _stable_shoulder_camera_yaw(bearing, delta)' in camera
 assert '_advance_camera_follow_focus(delta)' in camera
-assert camera.count('_enforce_screen_edge(bearing, delta)') == 2
-assert camera.index('    _fit_full_frame()') < camera.index('    _relax_camera_fit_radius(delta)')
+assert camera.count('_enforce_screen_edge(bearing, delta)') == 0
+assert camera.index('    _fit_boost_frame_analytically(delta)') < camera.index('    if not _full_frame_safe():')
 
 fit = main.split("func _fit_full_frame() -> void:", 1)[1].split(
     "func _place_camera() -> void:", 1)[0]

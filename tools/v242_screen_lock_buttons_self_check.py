@@ -21,7 +21,7 @@ for token in (
     "const LOCK_SWITCH_BUTTON_SIZE: Vector2 = Vector2(104.0, 58.0)",
     "const LOCK_SWITCH_EDGE_INSET: float = 8.0",
     'button.name = "LockSwitchLeft" if direction < 0 else "LockSwitchRight"',
-    'button.text = "◀ LOCK" if direction < 0 else "LOCK ▶"',
+    'button.text = "◀" if direction < 0 else "▶"',
     "button.focus_mode = Control.FOCUS_NONE",
     "button.mouse_filter = Control.MOUSE_FILTER_IGNORE",
     "func _lock_switch_direction_at(pos: Vector2) -> int:",

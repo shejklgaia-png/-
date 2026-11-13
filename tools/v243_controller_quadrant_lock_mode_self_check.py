@@ -32,11 +32,11 @@ for token in (
     "func _controller_start_area_contains(pos: Vector2) -> bool:",
     "INPUT_GESTURES.controller_contains(",
     "button.anchor_top = LOCK_CONTROLS_VERTICAL_RATIO",
-    "button.anchor_left = CONTROLLER_REGION_START_RATIO",
-    "button.anchor_left = 1.0",
-    "lock_mode_button.anchor_left = 0.75",
+    "var base: float = 0.5 if left_handed else 0.0",
+    "button.anchor_left = base",
+    "button.anchor_right = base",
     "lock_mode_button.anchor_top = LOCK_CONTROLS_VERTICAL_RATIO",
-    'lock_mode_button.text = "AUTO" if auto_lock_enabled else "MANUAL"',
+    'lock_mode_button.text = ""',
     "lock_switch_left_button.disabled = auto_lock_enabled",
     "lock_switch_right_button.disabled = auto_lock_enabled",
     "_build_lock_switch_buttons(layer)",
@@ -66,7 +66,8 @@ for token in (
 ):
     assert token in input_fn, token
 assert input_fn.count("if _pointer_on_lock_mode_button(event.position):") == 2
-assert input_fn.count("_toggle_auto_lock_mode()") == 2
+assert input_fn.count("_toggle_auto_lock_mode()") == 0
+assert 'auto_lock_enabled = bool(settings.get_value(' in main
 assert input_fn.count("_switch_lock_screen_direction(switch_direction)") == 2
 assert input_fn.index("_pointer_on_lock_mode_button(event.position)") < input_fn.index(
     "_lock_switch_direction_at(event.position)")
@@ -83,23 +84,20 @@ assert "locked_target_part_id = next_id" in manual
 assert "manual_part_lock_active = true" in manual
 assert "func get_visible_part_ids(" in parts
 
-# Real current anchors place the three controls at 76% screen height.
-w, h = 720., 1280.
-top = h * .76 + 8
-left = (w * .50 + 8, top, w * .50 + 112, top + 58)
-middle = (w * .75 - 64, top, w * .75 + 64, top + 58)
-right = (w - 112, top, w - 8, top + 58)
-assert left[2] < middle[0] < middle[2] < right[0]
-def allowed(x, y):
-    return 0 <= x <= w and 0 <= y <= h and not any(
-        a <= x <= c and b <= y <= d for a, b, c, d in (left, middle, right))
-for p in ((-1, 1000), (721, 900), (400, 1000), (540, 1000), (650, 1000)):
-    assert not allowed(*p), p
-for p in ((350, 1000), (450, 620), (0, 0), (220, 1200),
-          (410, 750), (650, 1120)):
-    assert allowed(*p), p
-assert allowed(510, 900) and allowed(80, 200)
-print("V243_FULLSCREEN_AUTO_MANUAL_BUTTONS_STATIC_PASS")
+# Both handed layouts keep the 3 glyphs in one screen half.
+width=720.
+height=1280.
+y=height*0.76+8
+for left_handed in (False, True):
+    base=width*0.5 if left_handed else 0.0
+    x=base+8
+    boxes=[(x,y,x+104,y+58),(x+112,y,x+240,y+58),
+           (x+248,y,x+352,y+58)]
+    assert all(0 <= a < c <= width for a,b,c,d in boxes)
+    assert boxes[0][2] < boxes[1][0] and boxes[1][2] < boxes[2][0]
+    assert all((a>=width*.5 if left_handed else c<=width*.5)
+               for a,b,c,d in boxes)
+print("V243_HANDED_GLYPH_LOCK_AND_FULLSCREEN_STATIC_PASS")
 
 for _bound in ("pos.x >= 0.0", "pos.y >= 0.0", "pos.x <= screen.x", "pos.y <= screen.y"):
     assert _bound in SERA_INPUT, _bound

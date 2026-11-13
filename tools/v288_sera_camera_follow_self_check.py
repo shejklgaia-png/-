@@ -30,10 +30,10 @@ respawn=main.split("func _tick_training_ko(delta: float) -> void:",1)[1].split("
 placement=main.split("func _place_camera() -> void:",1)[1].split("func _horizontal_safe(",1)[0]
 analytic=main.split("func _minimum_boost_camera_radius() -> float:",1)[1].split(
     "func _camera_fit_release_speed()",1)[0]
-assert "CAMERA_MATH.desired_follow_focus(" in desired
+assert "return target_xz" in desired
 assert "(target_xz - player_xz).limit_length(lead)" in math_code
 assert "return player_xz +" in math_code
-assert "CAMERA_PLAYER_FOCUS_LEAD_METERS" in desired
+assert "CAMERA_PLAYER_FOCUS_LEAD_METERS" in main
 assert "CAMERA_MATH.advance_follow_focus(" in follow
 assert "current.lerp(desired, alpha)" in math_code
 assert "CAMERA_PLAYER_FOCUS_FOLLOW_RATE" in follow
@@ -58,7 +58,8 @@ assert "CAMERA_ELEVATION_RATIO * camera_radius" in placement
 assert "CAMERA_COMBAT_ELEVATION_RATIO" not in main
 assert "_visible_combat_camera_yaw" not in main
 assert "if hold_attack_camera:" in render and "camera_dolly_in_speed = 0.0" in render
-assert "_relax_camera_fit_radius(delta)" in render
+assert "_fit_boost_frame_analytically(delta)" in render
+assert "_advance_composition_side(delta)" in render
 
 # Mirror the bounded per-frame focus translation. A sudden player leap
 # must not make the camera snap its entire former 0.65m error leash.
