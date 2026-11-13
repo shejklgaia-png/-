@@ -28,8 +28,8 @@ for token in (
 assert "return INF" in body
 assert "get_part_aabb" not in body
 
-hit=parts.split("func camera_center_line_hits_part(",1)[1].split(
-    "func select_camera_center_line_part(",1)[0]
+hit=parts.split("func actor_center_line_hits_part(",1)[1].split(
+    "func select_actor_center_line_part(",1)[0]
 assert "if id.is_empty():" in hit
 assert "_camera_center_line_body_distance(" in hit
 assert "_camera_center_line_part_distance(" in hit
