@@ -37,6 +37,28 @@ func _run() -> void:
     if mirror >= -0.90:
         _fail("shoulder mirror does not converge")
         return
+    # Validate crossing with real 3D scene projection, not only pure math.
+    game.set("camera_yaw", 0.0)
+    game.set("camera_radius", 14.0)
+    game.set("camera_focus_follow_xz", Vector2.ZERO)
+    game.set("camera_target_render_position", Vector3(0.0, 1.53, 0.0))
+    game.call("_place_camera")
+    for spec in [[Vector3(4.0, 0.0, 0.0), 1],
+            [Vector3(-4.0, 0.0, 0.0), -1],
+            [Vector3(4.0, 0.0, 0.0), 1]]:
+        game.set("camera_player_render_position", spec[0])
+        game.call("_update_side_from_screen")
+        if int(game.get("player_screen_side")) != int(spec[1]):
+            _fail("real camera crossing did not mirror player screen side")
+            return
+    game.set("camera_yaw", 0.0)
+    game.set("camera_shoulder_mirror", -1.0)
+    var left_yaw: float = game.call("_adaptive_camera_yaw", 0.0, 0.10)
+    game.set("camera_shoulder_mirror", 1.0)
+    var right_yaw: float = game.call("_adaptive_camera_yaw", 0.0, 0.10)
+    if left_yaw <= 0.0 or right_yaw >= 0.0:
+        _fail("left/right shoulder correction did not reverse yaw")
+        return
     for id in ["", "head", "leg_fl"]:
         game.set("locked_target_part_id", id)
         var from: Vector3 = player.get_global_transform_interpolated().origin + Vector3.UP * 1.05

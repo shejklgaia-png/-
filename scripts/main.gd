@@ -860,6 +860,9 @@ func _tick_training_ko(delta: float) -> void:
     camera_player_render_position = player.global_position
     camera_target_render_position = target.global_position
     camera_focus_follow_xz = _desired_camera_follow_focus_xz()
+    # Teleport returns behind SERA: clear the old crossed-side correction.
+    player_screen_side = 1
+    camera_shoulder_mirror = 1.0
     var respawn_radial: Vector2 = Vector2(
         player.position.x - target.position.x, player.position.z - target.position.z)
     if respawn_radial.length_squared() > 0.000001:
