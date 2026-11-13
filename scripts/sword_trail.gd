@@ -55,6 +55,7 @@ var volume_frames: Array = []
 var frame_emitters: Array = []
 var sparks: Array[Dictionary] = []
 var rng := RandomNumberGenerator.new()
+var katana_second: bool = false
 var swing_running: bool = false
 var last_clip_time: float = 0.0
 var strike_trail_offset: float = 0.0
@@ -139,7 +140,12 @@ func _set_player_foreground(enabled: bool) -> void:
     if rig_node != null and rig_node.has_method("set_slash_player_foreground"):
         rig_node.call("set_slash_player_foreground", enabled)
 
-func begin_swing(clip_offset: float = 0.0) -> void:
+func begin_swing(clip_offset: float = 0.0, second_katana: bool = false) -> void:
+    katana_second = second_katana
+    if effect_root != null:
+        effect_root.transform = source_plane.transform
+        if katana_second:
+            effect_root.rotate_object_local(Vector3.RIGHT, PI)
     strike_trail_offset = clip_offset
     swing_running = true
     last_clip_time = 0.0
@@ -162,7 +168,11 @@ func on_hit(_world_hit: Vector3) -> void:
     pass
 
 func sample_swing(_base: Vector3, _tip: Vector3, clip_time: float, _delta: float) -> void:
-    if swing_running: last_clip_time = maxf(0.0, clip_time - strike_trail_offset)
+    if swing_running:
+        last_clip_time = maxf(0.0, clip_time - strike_trail_offset)
+        # Katana2 holds its windup until the authored 0.20833s arm key.
+        if katana_second:
+            last_clip_time = (clip_time - 0.20833) * (0.485 - START_TIME) / (0.485 - 0.20833) + START_TIME
 
 func _frame_index(t: float) -> int:
     if t >= 0.375: return 7

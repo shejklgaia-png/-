@@ -3877,7 +3877,7 @@ func _start_strike(stage: int = 0) -> void:
     # Melee1 keeps the existing normal attack clip after its booster approach.
     combat_state = CombatState.STRIKE
     if sword_trail != null:
-        sword_trail.call("begin_swing", (0.0 if _katana_equipped() else float(STRIKE_TRAIL_OFFSETS[strike_index])))
+        sword_trail.call("begin_swing", (0.0 if _katana_equipped() else float(STRIKE_TRAIL_OFFSETS[strike_index])), _katana_equipped() and strike_index == 1)
     rig.call("start_strike", _active_strike_clip(strike_index))
 
 func _launch_followup_strike() -> void:
@@ -3887,7 +3887,7 @@ func _launch_followup_strike() -> void:
     rig.call("release_attack_windup")
     _clear_strike_tracking()
     if sword_trail != null:
-        sword_trail.call("begin_swing", (0.0 if _katana_equipped() else float(STRIKE_TRAIL_OFFSETS[strike_index])))
+        sword_trail.call("begin_swing", (0.0 if _katana_equipped() else float(STRIKE_TRAIL_OFFSETS[strike_index])), _katana_equipped() and strike_index == 1)
 
 # Exit an authored strike once, then dispatch any queued lateral/back Kick.
 # Called either at Melee3's flick cancel point or at a clip's normal end.
