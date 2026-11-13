@@ -31,6 +31,7 @@ assert step["model_sources"]["standard"] == "models/core/Standard.bbmodel"
 assert any(x["path"] == "scripts/main.gd" for x in step["source_locations"])
 assert any("v315_step_warp" in x for x in step["focused_tests"]["gd"])
 assert all(len(x["symbols"]) <= 3 for x in step["source_locations"] if not x.get("missing"))
+assert all(symbol["end_line"] >= symbol["line"] for entry in step["source_locations"] if not entry.get("missing") for symbol in entry["symbols"])
 katana = build_plan("刀")
 assert "katana" in katana["features"]
 assert "models/core/Katana.bbmodel" in katana["model_sources"].values()

@@ -5,6 +5,7 @@ import math,re
 
 R=Path(__file__).resolve().parents[1]
 main=(R/"scripts/main.gd").read_text(encoding="utf-8")
+math_code=(R/"scripts/sera_camera_math.gd").read_text(encoding="utf-8")
 project=(R/"project.godot").read_text(encoding="utf-8")
 assert int(re.search(r'config/name="SERA v(\d+)"',project).group(1))>=288
 for token in (
@@ -29,16 +30,19 @@ respawn=main.split("func _tick_training_ko(delta: float) -> void:",1)[1].split("
 placement=main.split("func _place_camera() -> void:",1)[1].split("func _horizontal_safe(",1)[0]
 analytic=main.split("func _minimum_boost_camera_radius() -> float:",1)[1].split(
     "func _camera_fit_release_speed()",1)[0]
-assert "(target_xz - player_xz).limit_length(" in desired
-assert "return player_xz +" in desired
+assert "CAMERA_MATH.desired_follow_focus(" in desired
+assert "(target_xz - player_xz).limit_length(lead)" in math_code
+assert "return player_xz +" in math_code
 assert "CAMERA_PLAYER_FOCUS_LEAD_METERS" in desired
-assert "camera_focus_follow_xz.lerp(desired, alpha)" in follow
+assert "CAMERA_MATH.advance_follow_focus(" in follow
+assert "current.lerp(desired, alpha)" in math_code
 assert "CAMERA_PLAYER_FOCUS_FOLLOW_RATE" in follow
 assert "CAMERA_PLAYER_FOCUS_MAX_LAG_METERS" in follow
-assert "camera_focus_follow_xz = desired - error.normalized()" in follow
+assert "next = desired - error.normalized()" in math_code
 assert "CAMERA_PLAYER_YAW_FOLLOW_RATE" in yaw
 assert "CAMERA_PLAYER_YAW_MAX_LAG_DEGREES" in yaw
-assert "return camera_yaw + error - clampf(residual, -leash, leash)" in yaw
+assert "CAMERA_MATH.stable_shoulder_yaw(" in yaw
+assert "return current_yaw + error - clampf(residual, -leash, leash)" in math_code
 assert "camera_yaw = _stable_shoulder_camera_yaw(bearing, delta)" in render
 assert "(not step_active or side_kick_active) and separation > 0.08:" in render
 assert "if hold_attack_camera or step_active or close_step_camera_this_frame:" in render
