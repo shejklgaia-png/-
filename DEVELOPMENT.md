@@ -2361,3 +2361,11 @@
 - CI互換性：v255/v257/v264/v329/v331の静的検査は過去の「直接CharacterBody3Dを投影する」という実装詳細を期待していた。視覚ピボットを使う新しい単一ヘルパーへ期待値を更新。v332 Godot試験ではタッチ開始の`gesture_screen_forward`と赤いセクターの一致も確認。
 
 - v332初回静的CI（162件中158件成功）で旧テストv253/v258/v260/v268が直結の`projected_forward(camera, player)`呼出を必須としていた。見た目を無視する旧経路を復活させず、新`_projected_sera_facing`と3D可視ピボットの照合を条件に修正。
+
+## 2026-11-14 — SERA v333：ロック線基準フリック／コンボ状態に連動する常駐コントローラー
+
+- `flick_direction_policy.projected_lock_forward`が、プレイヤーXZと選択部位の照準点（`_locked_target_facing_direction`）を結ぶ水平ベクトルをカメラで投影。頭/腰の見た目のYawは一切使わない。現行の90°セクターと通常360°STEPは維持。
+- `main._projected_sera_facing`をロック対象方向へ変更。タッチ開始時に軸を固定して攻撃入力と色分けUIがずれないようにし、非タッチのコンボ継続中はロック方向へ平滑回転。
+- `_combo_normal_attack_ready`はSTRIKE非最終段、BASH/BASH_TRACKタップバッファ、IDLEの連携ウインドウでの実受付を反映。`_combo_flick_attack_ready`は最終段中やその後0.65秒の入力窓だけ真。未キューの使用可能入力のみ明示。
+- `touch_overlay`はコンボ継続中にタッチが離れても最後の操作円を残し、タップ中に区画を明るくして有効タップは0.18秒のフラッシュ。前=拳、左右=ブーツ、後=反転アイコン、中央=剣。入力領域、当たり判定、描画レイヤーに変更なし。
+- Python静的/実Godot回帰をCI登録、旧v332の頭部姿勢基準テストを新ロック契約へ更新。Android実機での表示・操作は未検証。

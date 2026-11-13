@@ -36,6 +36,13 @@ var analog_direction: Vector2 = Vector2.ZERO
 # that SAME axis so visible colors cannot disagree with action selection.
 var flick_sector_forward: Vector2 = Vector2.UP
 var flick_sector_initialized: bool = false
+# Persistent combat control: a finger can lift between combo strikes without
+# removing the 4-sector ring. Only real accepted actions illuminate icons.
+var combo_visible: bool = false
+var combo_normal_ready: bool = false
+var combo_flick_ready: bool = false
+var combo_tap_flash_remaining: float = 0.0
+const COMBO_TAP_FLASH_SECONDS: float = 0.18
 var melee_in_range: bool = false
 # Screen coordinates supplied by Camera3D.unproject_position(target.global_position).
 # A nonvisible/offscreen target does not leave a misleading marker at screen center.
@@ -80,6 +87,8 @@ const FLICK_SECTOR_FOLLOW_RATE: float = 24.0
 const FLICK_SECTOR_FRONT_COLOR: Color = Color(1.0, 0.22, 0.20, 0.29)
 const FLICK_SECTOR_SIDE_COLOR: Color = Color(1.0, 0.81, 0.19, 0.26)
 const FLICK_SECTOR_BACK_COLOR: Color = Color(0.37, 0.55, 0.66, 0.14)
+const COMBO_ICON_COLOR: Color = Color(0.79, 0.96, 1.0, 0.88)
+const COMBO_ICON_DIM_COLOR: Color = Color(0.65, 0.79, 0.87, 0.44)
 # v160: visual-only propulsion shell OUTSIDE the original BOOST boundary.
 const BOOST_SHELL_RADIUS_RATIO: float = 1.19
 const BOOST_SHELL_SEGMENT_HALF_ARC: float = 0.17
@@ -161,9 +170,12 @@ func _process(delta: float) -> void:
             flick_wake_elapsed + maxf(delta, 0.0), FLICK_WAKE_DURATION)
         if flick_wake_elapsed >= FLICK_WAKE_DURATION:
             flick_wake_active = false
-    # Lock spin, tap ripple and flick wake share one frame loop: finishing
-    # one effect must not prematurely stop either of the other two.
-    if progress >= 1.0 and not attack_ripple_active and not flick_wake_active:
+    if combo_tap_flash_remaining > 0.0:
+        combo_tap_flash_remaining = maxf(
+            0.0, combo_tap_flash_remaining - maxf(delta, 0.0))
+    # Lock effects and combo tap feedback all own the same process tick.
+    if progress >= 1.0 and not attack_ripple_active and not flick_wake_active \
+            and combo_tap_flash_remaining <= 0.0:
         set_process(false)
     queue_redraw()
 
@@ -220,6 +232,30 @@ func cancel_gesture_effects() -> void:
 # The camera samples the projected actor front once per rendered frame.
 # A committed attack swipe uses the frozen input axis (snap=true); ordinary
 # locomotion previews the current pose with frame-independent angular ease.
+func set_combo_presentation(active: bool, normal_ready: bool,
+        flick_ready: bool) -> void:
+    if combo_visible == active and combo_normal_ready == normal_ready \
+            and combo_flick_ready == flick_ready:
+        return
+    if active and not combo_visible and not dragging \
+            and anchor_point.is_zero_approx():
+        # Keyboard-triggered combos have no prior finger anchor. Do not
+        # move an already visible controller when a finger is released.
+        anchor_point = size * Vector2(0.73, 0.67)
+    combo_visible = active
+    combo_normal_ready = normal_ready
+    combo_flick_ready = flick_ready
+    if not active:
+        combo_tap_flash_remaining = 0.0
+    queue_redraw()
+
+
+func acknowledge_combo_tap() -> void:
+    combo_tap_flash_remaining = COMBO_TAP_FLASH_SECONDS
+    set_process(true)
+    queue_redraw()
+
+
 func set_flick_sector_forward(forward: Vector2, delta: float = 0.0,
         snap: bool = false) -> void:
     if forward.length_squared() < 0.000001:
@@ -235,7 +271,7 @@ func set_flick_sector_forward(forward: Vector2, delta: float = 0.0,
         return
     flick_sector_forward = result
     flick_sector_initialized = true
-    if dragging:
+    if dragging or combo_visible:
         queue_redraw()
 
 
@@ -301,7 +337,7 @@ func _draw() -> void:
         _draw_attack_ripple()
     if flick_wake_active:
         _draw_flick_wake()
-    if dragging:
+    if dragging or combo_visible:
         _draw_analog_controller(accent, low)
 
 
@@ -367,6 +403,16 @@ func _draw_flick_direction_sectors() -> void:
         FLICK_SECTOR_BACK_COLOR,
         FLICK_SECTOR_SIDE_COLOR
     ]
+    # Touching brightens the whole 90-degree dial. When the combo is
+    # active but flick attacks are not accepted, keep it dim as a compass.
+    var intensity: float = 1.0
+    if combo_visible and not combo_flick_ready and not dragging:
+        intensity = 0.44
+    if dragging:
+        intensity = 1.75
+    if combo_tap_flash_remaining > 0.0:
+        intensity = maxf(intensity, 1.0 + 0.9 * (
+            combo_tap_flash_remaining / COMBO_TAP_FLASH_SECONDS))
     for sector in range(FLICK_SECTOR_COUNT):
         var center: float = flick_sector_direction(sector).angle()
         var start_angle: float = center - FLICK_SECTOR_HALF_ARC
@@ -380,15 +426,71 @@ func _draw_flick_direction_sectors() -> void:
             var inner_angle: float = lerpf(start_angle, end_angle,
                 float(k) / float(FLICK_SECTOR_SLICES))
             points.append(anchor_point + Vector2.RIGHT.rotated(inner_angle) * inner)
-        draw_colored_polygon(points, colors[sector])
-        var outline: Color = colors[sector]
-        outline.a = minf(1.0, colors[sector].a * 2.0)
+        var fill: Color = colors[sector]
+        fill.a = clampf(fill.a * intensity, 0.0, 0.72)
+        draw_colored_polygon(points, fill)
+        var outline: Color = fill
+        outline.a = minf(1.0, fill.a * 2.0)
         draw_arc(anchor_point, outer, start_angle + 0.018,
             end_angle - 0.018, 25, outline, 2.8, true)
         var edge: Vector2 = Vector2.RIGHT.rotated(start_angle)
         draw_line(anchor_point + edge * inner,
             anchor_point + edge * outer, Color(0.52, 0.68, 0.77, 0.25),
             1.3, true)
+
+
+# Minimal vector glyphs: fist/impact ahead, left/right boot strikes,
+# backflip circular arrow behind, and sword at the hub for a legal tap.
+# All four directional icons rotate with EXACTLY the flick-sector centers.
+func _draw_combo_direction_icon(sector: int) -> void:
+    var direction: Vector2 = flick_sector_direction(sector)
+    var side: Vector2 = Vector2(-direction.y, direction.x)
+    var point: Vector2 = anchor_point + direction * (radius * 0.66)
+    var ink: Color = COMBO_ICON_COLOR
+    if not dragging and combo_tap_flash_remaining <= 0.0:
+        ink.a *= 0.88
+    if sector == 0:
+        # Bash: a compact fist striking into an outward double-chevron.
+        draw_circle(point - direction * 5.0, 7.0, ink)
+        draw_line(point + direction * 2.0 - side * 9.0,
+            point + direction * 15.0, ink, 2.7, true)
+        draw_line(point + direction * 2.0 + side * 9.0,
+            point + direction * 15.0, ink, 2.7, true)
+    elif sector == 2:
+        # Somersault: curved backward arrow, not another STEP chevron.
+        draw_arc(point, 11.0, 0.25 + direction.angle(),
+            4.9 + direction.angle(), 28, ink, 3.0, true)
+        draw_colored_polygon(PackedVector2Array([
+            point + direction * 12.0,
+            point + direction * 3.0 + side * 8.0,
+            point + direction * 3.0 - side * 8.0
+        ]), ink)
+    else:
+        # Side kick: stylized boot, toes pointing into the swipe sector.
+        draw_colored_polygon(PackedVector2Array([
+            point - direction * 12.0 - side * 6.0,
+            point + direction * 2.0 - side * 6.0,
+            point + direction * 12.0 - side * 2.0,
+            point + direction * 12.0 + side * 6.0,
+            point - direction * 3.0 + side * 6.0,
+            point - direction * 3.0 + side * 1.0,
+            point - direction * 12.0 + side * 1.0
+        ]), ink)
+
+
+func _draw_combo_sword_icon() -> void:
+    var ink: Color = COMBO_ICON_COLOR
+    var start: Vector2 = anchor_point + Vector2(-9.0, 10.0)
+    var tip: Vector2 = anchor_point + Vector2(11.0, -12.0)
+    draw_line(start, tip, ink, 4.0, true)
+    draw_colored_polygon(PackedVector2Array([
+        tip + Vector2(-4.0, 1.0),
+        tip + Vector2(5.0, -7.0),
+        tip + Vector2(2.0, 4.0)
+    ]), ink)
+    draw_line(start + Vector2(-5.0, -5.0), start + Vector2(5.0, 5.0),
+        ink, 3.2, true)
+    draw_circle(start + Vector2(-3.0, 4.0), 2.8, ink)
 
 
 func _draw_analog_controller(accent: Color, low: Color) -> void:
@@ -407,6 +509,11 @@ func _draw_analog_controller(accent: Color, low: Color) -> void:
         Color(0.13, 0.54, 0.61, 0.22))
     draw_arc(anchor_point, radius * CONTROLLER_HUB_RADIUS_RATIO,
         0.0, TAU, 48, low, 1.875, true)
+    if combo_visible and combo_flick_ready:
+        for sector in range(FLICK_SECTOR_COUNT):
+            _draw_combo_direction_icon(sector)
+    if combo_visible and combo_normal_ready:
+        _draw_combo_sword_icon()
     # A rotating angular marker (not a finger-tracking knob) communicates
     # any of 360 degrees; brightness also reflects analog RUN strength.
     var strength: float = analog_direction.length()

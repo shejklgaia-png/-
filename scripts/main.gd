@@ -2679,6 +2679,7 @@ func _end_drag(release_pos: Vector2) -> void:
         # The finger has already been released; play feedback only if the
         # combat state accepted this tap (including buffered combo inputs).
         if _start_attack():
+            touch_ui.call("acknowledge_combo_tap")
             touch_ui.call("show_attack_ripple", release_pos)
 
 func _remember_jump_flick_sample(pos: Vector2) -> void:
@@ -4810,25 +4811,63 @@ func _process(delta: float) -> void:
 # v288: keep the tracking anchor near SERA, with a short (up to 2m)
 # lead toward the target for composition. At long range it translates
 # with SERA essentially one-for-one instead of orbiting a stationary boss.
-# v332: consume the SAME rendered-bone axis for touch-down Bash/Kick
-# classification and for the rotating red/yellow guide. Head/Chest
-# animation may turn independently of the target-facing collision body.
+# v333: the active locked PART, not the animated SERA mesh nor the
+# camera forward, determines input/front. The same horizontal world vector
+# is used in _locked_target_facing_direction() for physical targeting.
 func _projected_sera_facing() -> Vector2:
-    var visible_pivot: Node3D = null
-    if rig != null and rig.has_method("get_visible_facing_pivot"):
-        visible_pivot = rig.call("get_visible_facing_pivot") as Node3D
-    return FLICK_DIRECTION_POLICY.projected_forward(
-        camera, player, visible_pivot)
+    if player == null:
+        return Vector2.UP
+    return FLICK_DIRECTION_POLICY.projected_lock_forward(
+        camera, player.global_position, _locked_target_facing_direction(),
+        gesture_screen_forward)
+
+
+# The controller stays visible during attack clips and both follow-up
+# windows; readiness comes from exactly the same state gates as input.
+# Icons indicate the next ACCEPTED action, not just the current animation.
+func _combo_normal_attack_ready() -> bool:
+    if guard_active or damage_reaction_active or landing_active \
+            or back_somersault_active or step_active or rig == null \
+            or not bool(rig.get("loading_ok")):
+        return false
+    if combat_state == CombatState.BASH or combat_state == CombatState.BASH_TRACK:
+        return not bash_combo_queued
+    if combat_state == CombatState.STRIKE:
+        return strike_index < _strike_stage_count() - 1 and not combo_queued
+    if combat_state == CombatState.IDLE and _combo_followup_input_window_open():
+        return _distance_to_attack_target_surface(player.position) <= float(
+            part_stats.get("lock_range", 24.0))
+    return false
+
+
+func _combo_flick_attack_ready() -> bool:
+    if guard_active or damage_reaction_active or landing_active \
+            or back_somersault_active or step_active or rig == null \
+            or not bool(rig.get("loading_ok")):
+        return false
+    if combat_state == CombatState.STRIKE or combat_state == CombatState.STRIKE_TRACK:
+        return _is_strike_finisher() and not bash_queued \
+            and buffered_side_kick_side == 0
+    return combat_state == CombatState.IDLE \
+        and bash_followup_window_remaining > 0.0
 
 
 func _update_controller_flick_guide(delta: float) -> void:
-    if not gesture_active or touch_ui == null:
+    if touch_ui == null:
         return
-    var frozen_axis: bool = guard_active or bash_flick_candidate or side_kick_flick_candidate
-    var facing: Vector2 = (
-        gesture_screen_forward if frozen_axis
-        else _projected_sera_facing())
-    touch_ui.call("set_flick_sector_forward", facing, delta, frozen_axis)
+    var combo_visible: bool = _combo_lock_retention_active() \
+        and not damage_reaction_active and training_ko_remaining <= 0.0
+    touch_ui.call("set_combo_presentation", combo_visible,
+        combo_visible and _combo_normal_attack_ready(),
+        combo_visible and _combo_flick_attack_ready())
+    if not gesture_active and not combo_visible:
+        return
+    # Every gesture's classification keeps its touch-down lock axis.
+    # During the no-finger combo display, smoothly follow the live lock
+    # pivot; do not let a moving target change a flick mid-gesture.
+    var forward: Vector2 = (
+        gesture_screen_forward if gesture_active else _projected_sera_facing())
+    touch_ui.call("set_flick_sector_forward", forward, delta, gesture_active)
 
 
 func _desired_camera_follow_focus_xz() -> Vector2:

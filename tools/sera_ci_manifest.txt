@@ -249,3 +249,6 @@ gd tools/v331_flick_sectors_idle_walk_runtime_check.gd
 
 py tools/v332_visible_flick_facing_self_check.py
 gd tools/v332_visible_flick_facing_runtime_check.gd
+
+py tools/v333_lock_combo_controller_self_check.py
+gd tools/v333_lock_combo_controller_runtime_check.gd

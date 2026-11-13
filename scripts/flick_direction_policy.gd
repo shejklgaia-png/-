@@ -33,6 +33,28 @@ static func projected_forward(camera: Camera3D, actor: Node3D,
         return Vector2.UP
     return screen_forward.normalized()
 
+# v333: A lock-target-relative front is the XZ line from SERA's world
+# position to the selected part's authored aim pivot. Project a one-metre
+# planar direction at torso height to avoid camera pitch/target height
+# rotating the front sector, and do NOT depend on animated Head or Waist.
+static func projected_lock_forward(camera: Camera3D, actor_world: Vector3,
+        lock_direction: Vector3, fallback: Vector2 = Vector2.UP) -> Vector2:
+    if camera == null:
+        return fallback
+    var planar: Vector3 = Vector3(lock_direction.x, 0.0, lock_direction.z)
+    if planar.length_squared() < 0.000001:
+        return fallback
+    var start: Vector3 = actor_world + Vector3.UP * 1.05
+    var finish: Vector3 = start + planar.normalized()
+    if camera.is_position_behind(start) or camera.is_position_behind(finish):
+        return fallback
+    var pixels: Vector2 = (
+        camera.unproject_position(finish) - camera.unproject_position(start))
+    if pixels.length_squared() < 0.000001:
+        return fallback
+    return pixels.normalized()
+
+
 # 360-degree screen deltas relative to supplied reference axis. Exact clockwise
 # boundary (+45 degrees) is classified as the clockwise neighbor.
 static func sector_index(displacement: Vector2, screen_axis: Vector2) -> int:
