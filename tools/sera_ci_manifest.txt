@@ -193,3 +193,5 @@ py tools/v317_boost_state_self_check.py
 gd tools/v317_boost_state_runtime_check.gd
 py tools/v317_resource_rules_self_check.py
 gd tools/v317_resource_rules_runtime_check.gd
+py tools/v317_combat_timers_self_check.py
+gd tools/v317_combat_timers_runtime_check.gd
