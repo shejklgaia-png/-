@@ -150,3 +150,5 @@ py tools/v305_target_facing_instant_lock_self_check.py
 gd tools/v305_target_facing_instant_lock_runtime_check.gd
 py tools/v306_katana_approach_self_check.py
 gd tools/v306_katana_approach_runtime_check.gd
+py tools/v307_step_pose_self_check.py
+gd tools/v307_step_pose_runtime_check.gd
