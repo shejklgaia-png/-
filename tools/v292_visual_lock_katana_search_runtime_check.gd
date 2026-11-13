@@ -39,9 +39,9 @@ func _run() -> void:
         _fail("authoring Waist joint missing")
         return
 
-    # v308 reshaped Step_R into a forward/right lean (Waist Y=-15deg).
-    # The authored pose retains nonzero yaw, which STEP compensation must
-    # still cancel without erasing its original pitch or roll.
+    # v309 restores the user-selected Step_R keyframes from 9.2.2,
+    # including a substantial authored Waist yaw. STEP runtime compensation
+    # must cancel that yaw without erasing the clip's pitch or roll.
     var step: Dictionary = rig.call("_sample_step_clip_pose","Step_R",waist_id,0.0)
     var raw_step: Quaternion = step["rotation"]
     if absf(_flat_yaw(raw_step)) < deg_to_rad(1.0):

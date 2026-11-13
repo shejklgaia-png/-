@@ -154,3 +154,5 @@ py tools/v307_step_pose_self_check.py
 gd tools/v307_step_pose_runtime_check.gd
 py tools/v308_step_r_forward_lean_self_check.py
 gd tools/v308_step_r_forward_lean_runtime_check.gd
+py tools/v309_step_r_922_self_check.py
+gd tools/v309_step_r_922_runtime_check.gd
