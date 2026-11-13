@@ -35,8 +35,11 @@ func _run() -> void:
         return
     var regular_distance: float=float(game.get("step_arc_length"))
     var regular_duration: float=float(game.get("step_duration_current"))
-    if absf(regular_distance-5.0)>0.0001 or absf(regular_duration-5.0/15.0)>0.0001:
-        _fail("regular horizontal dodge is not 5m at 15m/s")
+    var constants: Dictionary = game.get_script().get_script_constant_map()
+    var expected_distance: float = float(constants["STEP_SIDE_DISTANCE"])
+    var expected_speed: float = float(constants["STEP_SPEED"])
+    if absf(regular_distance-expected_distance)>0.0001 or absf(regular_duration-expected_distance/expected_speed)>0.0001:
+        _fail("ordinary dodge diverges from current STEP constants")
         return
     game.call("_finish_side_step",false)
     for side in [1,-1]:
