@@ -13,9 +13,9 @@ omni=segment("func _start_omni_step(flick: Vector2) -> bool:","func _start_back_
 side=segment("func _start_side_step(side: int) -> bool:","func _finish_side_step(")
 back=segment("func _start_back_step() -> bool:","func _start_side_step(")
 speed=segment("func _step_speed_for_player_position(pos: Vector3) -> float:","func _refresh_step_status_ui(")
-for token in ("const STEP_FORWARD_DISTANCE: float = 5.0",
-              "const STEP_SIDE_DISTANCE: float = 5.0",
-              "const BACK_STEP_DISTANCE: float = 5.0",
+for token in ("const STEP_FORWARD_DISTANCE: float = 4.0",
+              "const STEP_SIDE_DISTANCE: float = 4.0",
+              "const BACK_STEP_DISTANCE: float = 4.0",
               "const STEP_SPEED: float = 15.0"):
     assert token in main,token
 # The legacy falloff remains as an unused helper, but cannot affect a
