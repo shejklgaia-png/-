@@ -65,8 +65,12 @@ assert math.isclose(1. + 14.*envelope(.05)*spread(1.),15.0)
 assert math.isclose(1. + 14.*envelope(.05)*spread(0.),1.0)
 assert math.isclose(1. + 14.*envelope(.23)*spread(1.),1.0)
 # Original one-shot behavior and physical nozzle geometry remain unaffected.
-assert 'stepping_this_frame and not thruster_accel_previous_step' in main
-assert 'tracking_accel_state != thruster_accel_previous_tracking_state' in main
+frame = read("scripts/sera_physics_frame_rules.gd")
+assert "var acceleration_burst: bool = PHYSICS_FRAME.acceleration_burst(" in main
+assert "exhaust_on, stepping_this_frame, thruster_accel_previous_step," in main
+assert "thruster_accel_previous_tracking_state)" in main
+assert "stepping and not previous_step" in frame
+assert "tracking_state != previous_tracking_state" in frame
 assert 'left_sector_world, acceleration_burst, normal_attack_exhaust)' in main
 assert 'left_sector_world, acceleration_burst, melee_sustain)' in rig
 assert 'acceleration_burst, melee_sustain)' in equipment

@@ -95,8 +95,12 @@ for t in (0,.04,.125,.25,.5,1):
 # No change to the 3D pivot, jet aim or one-shot attack/STEP trigger.
 assert 'nozzle_rest_rotation = nozzle.quaternion' in fx
 assert 'const PITCH_DOWN_LIMIT_RADIANS: float = PI * 90.0 / 180.0' in fx
-assert 'stepping_this_frame and not thruster_accel_previous_step' in main
-assert 'tracking_accel_state != thruster_accel_previous_tracking_state' in main
+frame = read("scripts/sera_physics_frame_rules.gd")
+assert "var acceleration_burst: bool = PHYSICS_FRAME.acceleration_burst(" in main
+assert "exhaust_on, stepping_this_frame, thruster_accel_previous_step," in main
+assert "thruster_accel_previous_tracking_state)" in main
+assert "stepping and not previous_step" in frame
+assert "tracking_state != previous_tracking_state" in frame
 assert 'left_sector_world, acceleration_burst, normal_attack_exhaust)' in main
 assert 'left_sector_world, acceleration_burst, melee_sustain)' in rig
 assert 'acceleration_burst, melee_sustain)' in equipment

@@ -40,12 +40,17 @@ assert "energy_exhausted" not in normal_gate
 
 # Global FX safety gates stay in effect for damage, guard, jump, landing and
 # empty energy. The new boolean contributes ONLY to normal exhaust lifetime.
-exhaust_section = main.split("var exhaust_on: bool = (", 1)[1].split(
+physics_rules = read("scripts/sera_physics_frame_rules.gd")
+exhaust_section = main.split(
+    "var exhaust_on: bool = PHYSICS_FRAME.exhaust_allowed(", 1)[1].split(
     "var tracking_accel_state: int =", 1)[0]
-assert "not damage_reaction_active and not jump_active" in exhaust_section
-assert "not landing_active and not guard_active and not energy_exhausted" in exhaust_section
-assert "boost_exhaust or boost_pose_exhaust or stepping_this_frame" in exhaust_section
-assert "or tracking_exhaust or normal_attack_exhaust))" in exhaust_section
+assert "damage_reaction_active, jump_active, landing_active, guard_active," in exhaust_section
+assert "energy_exhausted, boost_exhaust, boost_pose_exhaust," in exhaust_section
+assert "stepping_this_frame, tracking_exhaust, normal_attack_exhaust)" in exhaust_section
+assert "not damage_active and not jumping and not landing" in physics_rules
+assert "and not guarding and not energy_exhausted" in physics_rules
+assert "boost_exhaust or boost_pose_exhaust or stepping" in physics_rules
+assert "or tracking_exhaust or attack_exhaust" in physics_rules
 
 # The existing homing-motion gate must not be changed: an acceleration burst
 # occurs only on measured movement + a new tracking/step state, never merely
@@ -61,9 +66,12 @@ assert "and blur_velocity.length_squared() > 0.04" in tracking
 burst = main.split("var tracking_accel_state: int =", 1)[1].split(
     "var direction_of_exhaust: Vector3 =", 1)[0]
 assert "combat_state if tracking_exhaust else -1" in burst
-assert "var acceleration_burst: bool = (exhaust_on" in burst
-assert "stepping_this_frame and not thruster_accel_previous_step" in burst
-assert "tracking_accel_state != thruster_accel_previous_tracking_state" in burst
+assert "var acceleration_burst: bool = PHYSICS_FRAME.acceleration_burst(" in burst
+assert "exhaust_on, stepping_this_frame, thruster_accel_previous_step," in burst
+assert "new_somersault_burst, tracking_accel_state," in burst
+assert "thruster_accel_previous_tracking_state)" in burst
+assert "stepping and not previous_step" in physics_rules
+assert "tracking_state != previous_tracking_state" in physics_rules
 assert "normal_melee_exhaust" not in burst
 assert "left_sector_world, acceleration_burst, normal_attack_exhaust)" in main
 assert "left_sector_world, acceleration_burst, melee_sustain)" in rig

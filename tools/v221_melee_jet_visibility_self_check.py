@@ -19,7 +19,8 @@ assert version and int(version.group(1)) >= 221
 
 # Normal emission stays ON throughout normal melee 1/2/3 even without
 # actual movement, after blade impact and during the existing hit stop.
-normal=main.split("var normal_melee_exhaust: bool = (",1)[1].split("var exhaust_on: bool = (",1)[0]
+normal=main.split("var normal_melee_exhaust: bool = (",1)[1].split(
+    "var normal_kick_exhaust: bool =",1)[0]
 for s in ("CombatState.MELEE_APPROACH", "CombatState.DASH",
           "CombatState.STRIKE_TRACK", "CombatState.STRIKE"):
     assert s in normal,s
@@ -27,11 +28,14 @@ assert "combat_state == CombatState.BASH" in normal
 assert "strike_did_hit" not in normal
 assert "tracking_exhaust" not in normal
 assert "blur_velocity" not in normal
-exhaust=main.split("var exhaust_on: bool = (",1)[1].split(
+frame=read("scripts/sera_physics_frame_rules.gd")
+exhaust=main.split("var exhaust_on: bool = PHYSICS_FRAME.exhaust_allowed(",1)[1].split(
     "var tracking_accel_state: int =",1)[0]
-assert "or tracking_exhaust or normal_attack_exhaust))" in exhaust
-assert "not damage_reaction_active and not jump_active" in exhaust
-assert "not landing_active and not guard_active and not energy_exhausted" in exhaust
+assert "energy_exhausted, boost_exhaust, boost_pose_exhaust," in exhaust
+assert "stepping_this_frame, tracking_exhaust, normal_attack_exhaust)" in exhaust
+assert "or tracking_exhaust or attack_exhaust" in frame
+assert "not damage_active and not jumping and not landing" in frame
+assert "and not guarding and not energy_exhausted" in frame
 
 # Previously, a very small hit-stop/collision delta could be normalized into
 # an unstable nozzle steering target and conceal the jet in the character.
@@ -51,9 +55,11 @@ burst=main.split("var tracking_accel_state: int =",1)[1].split(
     "var direction_of_exhaust: Vector3 =",1)[0]
 assert "combat_state if tracking_exhaust else -1" in burst
 assert "normal_melee_exhaust" not in burst
-assert "acceleration_burst: bool = (exhaust_on" in burst
-assert "stepping_this_frame and not thruster_accel_previous_step" in burst
-assert "tracking_accel_state != thruster_accel_previous_tracking_state" in burst
+assert "acceleration_burst: bool = PHYSICS_FRAME.acceleration_burst(" in burst
+assert "exhaust_on, stepping_this_frame, thruster_accel_previous_step," in burst
+assert "thruster_accel_previous_tracking_state)" in burst
+assert "stepping and not previous_step" in frame
+assert "tracking_state != previous_tracking_state" in frame
 assert "left_sector_world, acceleration_burst, normal_attack_exhaust)" in main
 for x in (rig,equip,fx):
     assert "melee_sustain: bool = false" in x

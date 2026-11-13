@@ -24,10 +24,6 @@ assert "var thruster_accel_previous_tracking_state: int = -1" in main
 assert "var stepping_this_frame: bool = step_active" in main
 assert "var tracking_accel_state: int = combat_state if tracking_exhaust else -1" in main
 for token in (
-    "var acceleration_burst: bool = (exhaust_on",
-    "stepping_this_frame and not thruster_accel_previous_step",
-    "tracking_accel_state >= 0",
-    "tracking_accel_state != thruster_accel_previous_tracking_state",
     "thruster_accel_previous_step = stepping_this_frame",
     "thruster_accel_previous_tracking_state = tracking_accel_state",
 ):
@@ -37,8 +33,18 @@ for chase in ("CombatState.DASH", "CombatState.BASH_TRACK",
     assert chase in main.split("var tracking_exhaust: bool =",1)[1].split(
         "tracking_exhaust = tracking_exhaust",1)[0],chase
 assert "and blur_velocity.length_squared() > 0.04" in main
-assert "boost_exhaust or boost_pose_exhaust or stepping_this_frame" in main
-assert "not landing_active and not guard_active and not energy_exhausted" in main
+frame=read("scripts/sera_physics_frame_rules.gd")
+assert "var acceleration_burst: bool = PHYSICS_FRAME.acceleration_burst(" in main
+assert "exhaust_on, stepping_this_frame, thruster_accel_previous_step," in main
+assert "new_somersault_burst, tracking_accel_state," in main
+assert "thruster_accel_previous_tracking_state)" in main
+assert "var exhaust_on: bool = PHYSICS_FRAME.exhaust_allowed(" in main
+for token in ("stepping and not previous_step", "tracking_state >= 0",
+              "tracking_state != previous_tracking_state",
+              "boost_exhaust or boost_pose_exhaust or stepping",
+              "not damage_active and not jumping and not landing",
+              "and not guarding and not energy_exhausted"):
+    assert token in frame, token
 
 # The burst parameter travels with the original v213 camera-relative
 # exhaust vector; neither nozzle direction nor combat movement is modified.
