@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""v319: short idle-to-RUN landing bridge, persistent KO/broken-part hits."""
+"""Regression: direct idle-to-RUN gait and persistent KO/broken-part hits."""
 from pathlib import Path
 import re
 ROOT = Path(__file__).resolve().parents[1]
@@ -9,19 +9,15 @@ parts = (ROOT / "scripts/target_parts.gd").read_text(encoding="utf-8")
 project = (ROOT / "project.godot").read_text(encoding="utf-8")
 manifest = (ROOT / "tools/sera_ci_manifest.txt").read_text(encoding="utf-8")
 
-assert re.search(r'config/name="SERA v319"', project)
-for term in (
-    "IDLE_TO_RUN_LANDING_SECONDS: float = 0.11",
-    "IDLE_TO_RUN_LANDING_POSE_FRACTION: float = 0.45",
-    "IDLE_TO_RUN_LANDING_WEIGHT: float = 0.62",
-    "current_clip == WAIT_CLIP and wanted == RUN_CLIP",
-    "idle_to_run_landing_elapsed = 0.0 if begin_idle_to_run_landing else -1.0",
-    "idle_to_run_landing_elapsed + maxf(delta, 0.0)",
-    "if not beginning_run:",
-    "var landing_weight: float = IDLE_TO_RUN_LANDING_WEIGHT * sin(",
-    "var partial_landing: Dictionary = _sample_step_clip_pose(",
-    "JUMP_CLIP, str(uid), landing_sample_time)",
-):
+assert re.search(r'config/name="SERA v320"', project)
+for term in ("IDLE_TO_RUN_LANDING_", "idle_to_run_landing_elapsed",
+             "begin_idle_to_run_landing", "partial_landing", "beginning_run"):
+    assert term not in rig, term
+for term in ("var fade_seconds: float = BLEND_SECONDS",
+             "_switch_clip(wanted, fade_seconds)",
+             "clip_time += delta * playback_rate",
+             'equipment_handler.call("restore_run_contact_height")',
+             "_update_foot_contacts(delta)"):
     assert term in rig, term
 assert "func is_targetable(id: String) -> bool:\n    return parts.has(id)" in parts
 assert 'func is_intact(id: String) -> bool:' in parts
