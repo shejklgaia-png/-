@@ -292,7 +292,11 @@ const CAMERA_CLOSE_RANGE: float = 1.5  # Player-target distance where zoom-in is
 const CAMERA_FAR_RANGE: float = 12.0  # Restore standard view beyond this separation.
 const CAMERA_ELEVATION_RATIO: float = 0.21  # v56: slightly stronger bird's-eye pitch (11.9 degrees vs 7.5 degrees).
 const CAMERA_FOCUS_DROP: float = 1.35  # v55: move camera AND focus down 0.45m; preserve the pitch via elevation ratio.
-const SCREEN_MARGIN_X: float = 0.02  # Only 2% margin for the core torso; forearms may leave view.
+const SCREEN_MARGIN_X: float = 0.02  # Legacy background edge budget.
+# Keep SERA's physical torso envelope within 20..80% screen width.
+# Extra 2% fit buffer suppresses zoom oscillation at the hard boundary.
+const CAMERA_PLAYER_SAFE_MARGIN_X: float = 0.20
+const CAMERA_PLAYER_FIT_MARGIN_X: float = 0.22
 const SCREEN_MARGIN_TOP: float = 0.145  # v55: keep the whole player below the compact top HUD.
 const SCREEN_MARGIN_BOTTOM: float = 0.75  # v52: reserve bottom 25% for thumb / on-screen controls.
 const CAMERA_BODY_HALF_WIDTH: float = 0.78  # Idle composition silhouette (shoulders/arms)
@@ -2433,11 +2437,11 @@ func _begin_drag(pos: Vector2) -> void:
     if gesture_active:
         return
     gesture_active = true
-    # Keep this projected axis for existing camera/debug/guard diagnostics.
-    # All actual combo and Bash flick decisions are fixed SCREEN sectors.
+    # Use the same camera-projected SERA forward for all gesture decisions.
+    # Do not resample during a swipe: camera rotation could switch Kick_l/r.
     gesture_screen_forward = FLICK_DIRECTION_POLICY.projected_forward(camera, player)
     guard_flick_axis_captured = false
-    # Preserve the third strike while classifying a screen-UP Bash flick;
+    # Preserve third strike while classifying a SERA-forward Bash flick;
     # unrelated drags still cancel attacks as before.
     bash_flick_candidate = ((combat_state == CombatState.STRIKE
         or combat_state == CombatState.STRIKE_TRACK)
@@ -2505,7 +2509,7 @@ func _change_drag(pos: Vector2) -> void:
         # Initial finger wobble will not immediately cancel the combo.
         # Candidate and final Bash both use the fixed 90deg screen-UP sector.
         if not FLICK_DIRECTION_POLICY.within_sector(
-                displacement, Vector2.UP, STEP_FLICK_MAX_HORIZONTAL_RATIO):
+                displacement, gesture_screen_forward, STEP_FLICK_MAX_HORIZONTAL_RATIO):
             bash_flick_candidate = false
     # Keep the post-finisher kick reservation through intermediate diagonal
     # thumb movement. Only the RELEASE direction chooses kick vs other STEP.
@@ -2654,7 +2658,7 @@ func _end_drag(release_pos: Vector2) -> void:
     # screen-UP Bash or general 360-degree STEP. If it does not,
     # show the reason in the existing debug panel for recorded phone tests.
     var screen_sector: int = FLICK_DIRECTION_POLICY.sector_index(
-        release_pos - pointer_origin, Vector2.UP)
+        release_pos - pointer_origin, gesture_screen_forward)
     var recent_finisher: bool = (Time.get_ticks_msec() - last_melee3_finished_ms < 1600)
     if side_kick_requested and kick_flick_direction.length_squared() > 0.000001 \
             and _combo_kick_side_for_flick(kick_flick_direction) != 0:
@@ -2698,11 +2702,11 @@ func _remember_jump_flick_sample(pos: Vector2) -> void:
     if jump_flick_samples.size() > 32:
         jump_flick_samples.pop_front()
 
-# v284: Bash is SCREEN-UP; actor yaw must never change the gesture mapping.
-# Preserve the method name for existing guard/flick call sites.
+# v329: Bash uses SERA's visible projected forward, frozen at touch-down.
+# Guard captures a fresh axis at its flick onset as before.
 func _is_character_forward_flick(displacement: Vector2, seconds: float) -> bool:
     return FLICK_DIRECTION_POLICY.is_flick(
-        displacement, seconds, Vector2.UP,
+        displacement, seconds, gesture_screen_forward,
         BASH_FLICK_MAX_SECONDS, BASH_FLICK_MIN_FORWARD_PIXELS,
         BASH_FLICK_MIN_FORWARD_SPEED, STEP_FLICK_MAX_HORIZONTAL_RATIO)
 
@@ -2878,20 +2882,16 @@ func _classify_step_flick(displacement: Vector2, seconds: float) -> Vector2:
         displacement, seconds, STEP_FLICK_MAX_SECONDS, STEP_FLICK_MIN_HORIZONTAL,
         STEP_FLICK_MIN_PIXELS_PER_SEC, gesture_max_travel)
 
-# The same Bash-like flick timing applies to every fixed SCREEN quadrant.
-# Kick selection is unrelated to target-facing orientation.
+# The same Bash-like timing applies to four projected SERA-facing sectors.
 func _classify_combo_kick_flick(displacement: Vector2, seconds: float) -> Vector2:
     return INPUT_GESTURES.combo_kick_flick(
         displacement, seconds, BASH_FLICK_MAX_SECONDS,
         BASH_FLICK_MIN_FORWARD_PIXELS, BASH_FLICK_MIN_FORWARD_SPEED,
         gesture_max_travel, BASH_FLICK_REVERSAL_RATIO)
 
-# v284: Every Melee3 flick uses fixed SCREEN sectors: UP is Bash,
-# RIGHT Kick_r, DOWN Kick_b, LEFT Kick_l. Facing/camera recentering can
-# never reclassify the same finger motion into a different attack.
+# Touch-start projected forward, not screen-UP, defines the 4 sectors.
 func _combo_kick_side_for_flick(flick: Vector2) -> int:
-    # Independent of SERA/target facing: always screen-UP Bash, right/left/down kicks.
-    return INPUT_GESTURES.combo_kick_side(flick)
+    return INPUT_GESTURES.combo_kick_side(flick, gesture_screen_forward)
 
 # Locked-target forward defines SERA's STEP motion frame. The actual
 # world movement remains camera/screen-relative; only pose selection is
@@ -2916,7 +2916,7 @@ func _step_motion_direction(world_direction: Vector3,
     return screen_direction.normalized()
 
 
-# Kick sectors are fixed SCREEN left/right/down. Travel stays screen-relative.
+# Kick sectors are projected SERA-right/left/back; travel stays screen-relative.
 # An unavailable kick consumes a reserved lateral gesture (never STEP).
 func _request_combo_side_kick(flick: Vector2) -> bool:
     # _end_drag calls this only for a kick gesture latched during _begin_drag.
@@ -5085,7 +5085,7 @@ func _minimum_boost_camera_radius() -> float:
         min_radius = maxf(min_radius, _camera_radius_for_safe_point(
             torso + screen_right * lateral, focus,
             screen_right, screen_up, outward, radial_scale, tan_h, tan_v,
-            SCREEN_MARGIN_X, 0.0, 1.0))
+            CAMERA_PLAYER_FIT_MARGIN_X, 0.0, 1.0))
     for height in [CAMERA_HEAD_HEIGHT, 0.08]:
         min_radius = maxf(min_radius, _camera_radius_for_safe_point(
             camera_player_render_position + Vector3(0.0, height, 0.0), focus,
@@ -5224,8 +5224,8 @@ func _horizontal_safe(extra_margin_ratio: float = 0.0) -> bool:
         if camera.is_position_behind(point):
             return false
         var screen: Vector2 = camera.unproject_position(point)
-        if screen.x < size.x * (SCREEN_MARGIN_X + extra_margin_ratio) \
-                or screen.x > size.x * (1.0 - SCREEN_MARGIN_X - extra_margin_ratio):
+        if screen.x < size.x * (CAMERA_PLAYER_SAFE_MARGIN_X + extra_margin_ratio) \
+                or screen.x > size.x * (1.0 - CAMERA_PLAYER_SAFE_MARGIN_X - extra_margin_ratio):
             return false
     return true
 

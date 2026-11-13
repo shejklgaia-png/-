@@ -63,11 +63,13 @@ static func combo_kick_flick(displacement: Vector2, seconds: float,
     return FLICK_DIRECTION_POLICY.screen_step_direction(displacement)
 
 
-static func combo_kick_side(flick: Vector2) -> int:
-    # UP=Bash, RIGHT=Kick_r, DOWN=Kick_b, LEFT=Kick_l.
-    var screen_sector: int = FLICK_DIRECTION_POLICY.sector_index(
-        flick, Vector2.UP)
-    match screen_sector:
+static func combo_kick_side(flick: Vector2,
+        actor_screen_forward: Vector2 = Vector2.UP) -> int:
+    # FWD=Bash, actor-right=Kick_r, BACK=Kick_b, actor-left=Kick_l.
+    # The camera-projected axis is frozen for the entire gesture.
+    var actor_sector: int = FLICK_DIRECTION_POLICY.sector_index(
+        flick, actor_screen_forward)
+    match actor_sector:
         1:
             return 1
         2:
