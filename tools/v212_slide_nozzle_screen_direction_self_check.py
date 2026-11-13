@@ -68,8 +68,10 @@ assert '_screen_drag_to_ground(Vector2.RIGHT).normalized()' in main
 assert 'NOZZLE_STEERING.left_sector_direction(' in main
 assert 'var left_sector_world: Vector3 = Vector3.DOWN.slerp(' in steer
 assert 'screen_right, left_weight * 0.50).normalized()' in steer
-assert 'direction_of_exhaust.normalized(), delta, backstroke_weight,' in main
-assert 'left_sector_world, acceleration_burst, normal_attack_exhaust)' in main
+presentation=read("scripts/sera_thruster_presentation.gd")
+assert 'thruster_presentation.update(rig, exhaust_on,' in main
+assert 'direction_of_exhaust.normalized(), delta, backstroke_weight,' in presentation
+assert 'left_sector_world, acceleration_burst, normal_attack_exhaust)' in presentation
 assert 'Quaternion(Vector3.BACK, local_sector_direction)' in fx
 
 # In screen axes, a full leftward control produces right+down at equal weight.
