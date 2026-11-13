@@ -52,11 +52,17 @@ physics = main.split("func _physics_process(delta: float) -> void:", 1)[1].split
     "func _process(", 1)[0]
 # Explicit ordering contract: KO early exit > combo windows > input
 # > EN/SH update > stagger/break > shooter > reaction lock countdown.
+# KO mode also calls _tick_resources; inspect the normal physics path
+# only after the early-return branch and verify the actual execution order.
+early = physics.split("    _tick_combo_window_timers(delta)", 1)[0]
+assert early.index("_tick_training_ko(delta)") < early.index(
+    "if training_ko_remaining > 0.0:")
+assert "        _tick_resources(delta)" in early
+assert "        return" in early
+normal = physics.split("    _tick_combo_window_timers(delta)", 1)[1]
 ordered = [
-    "_tick_training_ko(delta)",
-    "if training_ko_remaining > 0.0:",
-    "    _tick_combo_window_timers(delta)",
     "    _update_guard_hold()",
+    "    var was_energy_exhausted: bool = energy_exhausted",
     "    _tick_resources(delta)",
     "    _tick_target_recovery_timers(delta)",
     'enemy_shooter.set("can_fire",',
@@ -66,7 +72,7 @@ ordered = [
     "guard_break_remaining = COMBAT_TIMERS.remaining_after_delta(guard_break_remaining, delta)",
     "    if damage_reaction_active:",
 ]
-indices = [physics.index(x) for x in ordered]
+indices = [normal.index(x) for x in ordered]
 assert indices == sorted(indices), indices
 assert "if down_remaining <= 0.0:" in physics
 assert "energy = TEST_EN_MAX\n            shield = TEST_SH_MAX\n            energy_exhausted = false" in physics
