@@ -227,3 +227,4 @@ gd tools/v322_katana_swordeffect_import_runtime_check.gd
 
 gd tools/v323_katana2_fx_runtime_check.gd
 gd tools/v324_camera_recovery_hover_runtime_check.gd
+gd tools/v325_camera_transition_runtime_check.gd

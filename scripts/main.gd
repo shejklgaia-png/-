@@ -535,6 +535,7 @@ var camera_focus_follow_xz: Vector2 = Vector2.ZERO
 var camera_near_filtered_bearing: float = 0.0
 var camera_near_bearing_initialized: bool = false
 var camera_combat_hold_remaining: float = 0.0
+var camera_lateral_follow_weight: float = 0.0
 var camera_radius: float = CAMERA_BASE_RADIUS * CAMERA_DISTANCE_SCALE
 var camera_follow_radius: float = CAMERA_BASE_RADIUS * CAMERA_DISTANCE_SCALE
 var camera_fit_radius_floor: float = 0.0
@@ -4551,11 +4552,8 @@ func _process(delta: float) -> void:
             camera_near_bearing_initialized = true
         # Farther than the overlap zone retain the existing responsive yaw.
         # Close to or crossing the target, do not invert the view in one tick.
-        if separation >= 2.20:
-            camera_near_filtered_bearing = raw_bearing
-        else:
-            camera_near_filtered_bearing = CAMERA_MATH.stable_near_bearing(
-                camera_near_filtered_bearing, raw_bearing, separation, delta)
+        camera_near_filtered_bearing = CAMERA_MATH.stable_near_bearing(
+            camera_near_filtered_bearing, raw_bearing, separation, delta)
         bearing = camera_near_filtered_bearing
 
     # When the player approaches the target, dolly IN smoothly (but stop at
@@ -4789,8 +4787,10 @@ func _adaptive_camera_yaw(player_bearing: float, delta: float) -> float:
     var lateral_fraction: float = 0.0
     if direction_input.length_squared() > 0.000001:
         lateral_fraction = absf(direction_input.x) / direction_input.length()
+    camera_lateral_follow_weight = lerpf(camera_lateral_follow_weight,
+        lateral_fraction, 1.0 - exp(-8.0 * maxf(delta, 0.0)))
     var side_room: float = (CAMERA_NORMAL_SIDE_ROOM_DEGREES
-        * lateral_fraction * (1.0 - camera_melee_follow_weight))
+        * camera_lateral_follow_weight * (1.0 - camera_melee_follow_weight))
     var follow_rate: float = lerpf(
         CAMERA_PLAYER_YAW_FOLLOW_RATE, CAMERA_MELEE_YAW_PEAK_RATE,
         camera_melee_follow_weight)

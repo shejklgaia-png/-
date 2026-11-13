@@ -145,7 +145,7 @@ func begin_swing(clip_offset: float = 0.0, second_katana: bool = false) -> void:
     if effect_root != null:
         effect_root.transform = source_plane.transform
         if katana_second:
-            effect_root.rotate_object_local(Vector3.RIGHT, PI)
+            effect_root.rotate_object_local(Vector3.UP, PI)
     strike_trail_offset = clip_offset
     swing_running = true
     last_clip_time = 0.0
