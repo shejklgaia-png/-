@@ -25,7 +25,7 @@ def v(source,name):
 
 version=re.search(r'config/name="SERA v(\d+)"',project)
 assert version and int(version.group(1))>=245
-assert (ROOT/"README_v245_ja.md").is_file()
+assert (ROOT/"docs/history/release_notes/README_v245_ja.md").is_file()
 
 # Prior exact radii: v244 RUN=56, deadzone=9, BOOST=84.
 scale=1.25*1.5

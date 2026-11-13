@@ -13,7 +13,7 @@ main=read("scripts/main.gd")
 project=read("project.godot")
 version=re.search(r'config/name="SERA v(\d+)"',project)
 assert version is not None and int(version.group(1))>=240
-assert (ROOT/"README_v240_ja.md").exists()
+assert (ROOT/"docs/history/release_notes/README_v240_ja.md").exists()
 assert "const TARGET_BODY_HALF_DEPTH: float = 1.70" in main
 assert "const TARGET_FRAME_HALF_WIDTH: float = 2.35" in main
 assert "const TARGET_FRAME_HALF_HEIGHT: float = 1.53" in main

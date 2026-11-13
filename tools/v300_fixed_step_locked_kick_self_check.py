@@ -9,7 +9,7 @@ rig = (R/"scripts/sera_rig.gd").read_text(encoding="utf-8")
 manifest = (R/"tools/sera_ci_manifest.txt").read_text(encoding="utf-8")
 project = (R/"project.godot").read_text(encoding="utf-8")
 assert int(re.search(r'config/name="SERA v(\d+)"',project).group(1)) >= 300
-assert (R/"README_v300_ja.md").exists()
+assert (R/"docs/history/release_notes/README_v300_ja.md").exists()
 for t in (
     "const STEP_FORWARD_DISTANCE: float = 4.0",
     "const STEP_SIDE_DISTANCE: float = 4.0",

@@ -12,7 +12,7 @@ motion=read("scripts/training_target_motion.gd")
 shooter=read("scripts/enemy_shooter.gd")
 project=read("project.godot")
 assert re.search(r'config/name="SERA v(\d+)"', project) and int(re.search(r'config/name="SERA v(\d+)"', project).group(1)) >= 239
-assert (root/"README_v239_ja.md").exists()
+assert (root/"docs/history/release_notes/README_v239_ja.md").exists()
 
 # The visible body, physical collider and sword contact must have the same
 # rectangular half extents (1.0, 1.0, 1.7).

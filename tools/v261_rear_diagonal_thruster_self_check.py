@@ -16,7 +16,7 @@ fx=read("scripts/back_thruster_fx.gd")
 project=read("project.godot")
 v=re.search(r'^config/name="SERA v(\d+)"$',project,re.M)
 assert v and int(v.group(1))>=261
-assert (R/"README_v261_ja.md").is_file()
+assert (R/"docs/history/release_notes/README_v261_ja.md").is_file()
 assert "v261 rear-diagonal BOOST nozzle fix" in read("docs/history/AGENTS_THROUGH_V316.md")
 assert "v261 — 左斜め後退" in read("docs/SERA_INPUT_MOVEMENT_CAMERA.md")
 # Original calculations now live in one stateless helper, after input

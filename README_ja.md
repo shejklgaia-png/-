@@ -1,38 +1,17 @@
-最新の変更内容は `README_v56_ja.md` をご参照ください。
+# SERA — 開発・起動の入口
 
-最新の変更内容は `README_v55_ja.md` をご参照ください。
+現在のゲームは **SERA v318** です。実際のバージョンの正本は `project.godot` です。
 
-最新の変更内容は `README_v54_ja.md` をご参照ください。
+- [現行版の変更点](README_v318_ja.md)
+- [開発エージェントのルール](AGENTS.md)
+- [開発の高速作業手順](docs/SERA_DEVELOPMENT_FASTPATH_ja.md)
+- [実装・検証の履歴](DEVELOPMENT.md)
+- [ファイルとモデル原本の配置規約](docs/SERA_REPOSITORY_LAYOUT_ja.md)
+- [モデル編集原本の正本一覧](models/manifest.json)
+- [Blockbenchモデル統合規約](docs/MODEL_PART_WORKFLOW_ja.md)
+- [現行STEP／蹴りの仕様と回帰テスト](docs/SERA_ACTIVE_CI_POLICY_ja.md)
+- [過去のリリースノート（v318より前）](docs/history/release_notes/)
 
-最新の変更内容は `README_v53_ja.md` をご参照ください。
+旧版READMEに記載された値・パス・操作は履歴です。新機能の調査では `AGENTS.md`、現在のコード、`project.godot`、`models/manifest.json` を優先してください。
 
-# セラ v51 — 近距離ステップ速度を6m/秒に調整
-
-詳細は `README_v51_ja.md` をご参照ください。v50以前の変更履歴も同梱しています。
-
-
-## v57
-- 画面下の操作用空間に淡い明るめグラデーションを追加しました。
-
-
-## v58
-- 操作用空間のグラデーションを、より濃く・グレー寄りに調整しました。
-
-
-## v60
-画面下の操作領域を、上端透明→下端不透明度40%の暗い青灰色グラデーションへ変更しました。
-
-
-## v61
-- 下25%のグラデーションを青みの少ない濃いグレーに変更（上端透明、下端72%）。
-
-
-## v62（最新）
-- 近距離6m/s判定をターゲット外周から2.0m以内に変更。下15%を濃いグレー、その上10%を透明までフェード。詳細はREADME_v62_ja.mdを参照してください。
-
-## v63
-- ターゲット表面から5〜2mでステップ速度を10〜6m/sへ滑らかに補間。下部グレーを明るくしつつ不透明度90％を維持。詳細は README_v63_ja.md。
-
-
-## v65
-- 画面下部の操作領域を、推奨のミディアムグレー（#7E8288）に変更しました。
+Android端末での表示・操作は、Godotのheadless CIとは別に確認します。

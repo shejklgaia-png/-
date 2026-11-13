@@ -13,7 +13,7 @@ main = (root/"scripts/main.gd").read_text(encoding="utf-8")
 project = (root/"project.godot").read_text(encoding="utf-8")
 manifest = (root/"tools/sera_ci_manifest.txt").read_text(encoding="utf-8")
 assert int(re.search(r'config/name="SERA v(\d+)"',project).group(1)) >= 301
-assert (root/"README_v301_ja.md").is_file()
+assert (root/"docs/history/release_notes/README_v301_ja.md").is_file()
 
 auto = main.split("func _acquire_stable_camera_part(delta: float,",1)[1].split(
     "func _controller_start_area_contains(",1)[0]

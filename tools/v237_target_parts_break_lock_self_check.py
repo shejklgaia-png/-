@@ -14,7 +14,7 @@ shooter = read("scripts/enemy_shooter.gd")
 project = read("project.godot")
 v = re.search(r'^config/name="SERA v(\d+)"$', project, re.M)
 assert v and int(v.group(1)) >= 237
-assert read("README_v237_ja.md").startswith("# SERA v237")
+assert read("docs/history/release_notes/README_v237_ja.md").startswith("# SERA v237")
 assert "WORKFLOW_ID: SERA_MODEL_PARTS_V1" in read("docs/MODEL_PART_WORKFLOW_ja.md")
 assert "RENDER_POLICY_ID: SERA_RENDER_CONTRACT_V1" in read("docs/RENDER_PIPELINE_POLICY_ja.md")
 

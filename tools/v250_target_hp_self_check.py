@@ -10,7 +10,7 @@ p=(ROOT/"scripts/target_parts.gd").read_text(encoding="utf-8")
 version=(ROOT/"project.godot").read_text(encoding="utf-8")
 version_match = re.search(r'config/name="SERA v(\d+)"', version)
 assert version_match and int(version_match.group(1)) >= 250
-assert (ROOT/"README_v250_ja.md").exists()
+assert (ROOT/"docs/history/release_notes/README_v250_ja.md").exists()
 assert 'const TARGET_MAX_HP: int = 500' in m
 assert 'var target_hp: int = TARGET_MAX_HP' in m
 # v317 Stage9: KO recovery and timed respawn share exactly one reset body.

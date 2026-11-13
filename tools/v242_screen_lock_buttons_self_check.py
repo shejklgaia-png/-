@@ -13,7 +13,7 @@ parts = (ROOT / "scripts/target_parts.gd").read_text(encoding="utf-8")
 project = (ROOT / "project.godot").read_text(encoding="utf-8")
 version = re.search(r'config/name="SERA v(\d+)"', project)
 assert version and int(version.group(1)) >= 242
-assert (ROOT / "README_v242_ja.md").exists()
+assert (ROOT / "docs/history/release_notes/README_v242_ja.md").exists()
 
 for token in (
     "const CONTROLLER_REGION_START_RATIO: float = 0.50",

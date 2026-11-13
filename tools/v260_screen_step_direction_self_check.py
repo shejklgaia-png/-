@@ -16,7 +16,7 @@ policy=read("scripts/flick_direction_policy.gd")
 project=read("project.godot")
 v=re.search(r'^config/name="SERA v(\d+)"$',project,re.M)
 assert v and int(v.group(1)) >= 260
-assert (R/"README_v260_ja.md").is_file()
+assert (R/"docs/history/release_notes/README_v260_ja.md").is_file()
 assert "v260 STEP screen-cardinal direction fixes" in read("docs/history/AGENTS_THROUGH_V316.md")
 assert "v260 — STEPフリック" in read("docs/SERA_INPUT_MOVEMENT_CAMERA.md")
 assert "const SECTOR_COUNT: int = 4" in policy

@@ -12,7 +12,7 @@ main = (root / "scripts/main.gd").read_text(encoding="utf-8")
 project = (root / "project.godot").read_text(encoding="utf-8")
 ver = re.search(r'^config/name="SERA v(\d+)"$', project, re.MULTILINE)
 assert ver and int(ver.group(1)) >= 238
-assert (root / "README_v238_ja.md").is_file()
+assert (root / "docs/history/release_notes/README_v238_ja.md").is_file()
 
 # Mesh builders preserve their own materials and do not alter the original core.
 for key in ("func _build_head_frame(", "func _build_leg_frame(",

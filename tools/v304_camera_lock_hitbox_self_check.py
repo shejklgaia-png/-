@@ -12,7 +12,7 @@ game=(R/"scripts/main.gd").read_text(encoding="utf-8")
 manifest=(R/"tools/sera_ci_manifest.txt").read_text(encoding="utf-8")
 version=(R/"project.godot").read_text(encoding="utf-8")
 assert int(re.search(r'config/name="SERA v(\d+)"',version).group(1)) >= 304
-assert (R/"README_v304_ja.md").exists()
+assert (R/"docs/history/release_notes/README_v304_ja.md").exists()
 assert "const CAMERA_LOCK_VOLUME_SCALE: float = 1.15" in src
 builder=src.split("func _create_camera_lock_volume(",1)[1].split(
     "func _camera_lock_volume_distance(",1)[0]

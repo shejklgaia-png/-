@@ -45,5 +45,5 @@ for token in ('back_thruster_effects.get(selected_booster, [])',
               'frozen.global_transform = Transform3D(nozzle_basis, source_fx.global_position)',
               'create_timer(maxf(lifetime, 0.001)).timeout.connect('):
     assert token in fx,token
-assert (r/"README_v315_ja.md").exists()
+assert (r/"docs/history/release_notes/README_v315_ja.md").exists()
 print("V315_STEP_WARP_AND_FIXED_LAUNCH_FX_STATIC_PASS")

@@ -12,7 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 main = (ROOT / "scripts/main.gd").read_text(encoding="utf-8")
 rig = (ROOT / "scripts/sera_rig.gd").read_text(encoding="utf-8")
 version = (ROOT / "project.godot").read_text(encoding="utf-8")
-readme = (ROOT / "README_v264_ja.md").read_text(encoding="utf-8")
+readme = (ROOT / "docs/history/release_notes/README_v264_ja.md").read_text(encoding="utf-8")
 flick = (ROOT / "scripts/flick_direction_policy.gd").read_text(encoding="utf-8")
 source = json.loads((ROOT / "assets/sera_source.json").read_text(encoding="utf-8"))
 author_file = ROOT / "models/storage/SERA_BOOSTER_allテスト (9).bbmodel"

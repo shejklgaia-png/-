@@ -10,7 +10,7 @@ project, target, rig, eq, main = map(read, (
     "scripts/sera_equipment.gd", "scripts/main.gd"))
 manifest = read("tools/sera_ci_manifest.txt")
 assert int(re.search(r'config/name="SERA v(\d+)"', project).group(1)) >= 299
-assert (R/"README_v299_ja.md").is_file()
+assert (R/"docs/history/release_notes/README_v299_ja.md").is_file()
 
 assert 'const HEAD_LOCK_UPWARD_EXTENSION_METERS: float = 1.0' in target
 assert 'const HEAD_LOCK_FORWARD_EXTENSION_METERS: float = 0.85' in target

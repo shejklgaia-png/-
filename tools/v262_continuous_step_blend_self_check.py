@@ -12,7 +12,7 @@ def read(p):return (R/p).read_text(encoding="utf-8")
 main=read("scripts/main.gd");p=read("scripts/flick_direction_policy.gd");rig=read("scripts/sera_rig.gd")
 v=re.search(r'^config/name="SERA v(\d+)"$',read("project.godot"),re.M)
 assert v and int(v.group(1))>=262
-assert (R/"README_v262_ja.md").exists()
+assert (R/"docs/history/release_notes/README_v262_ja.md").exists()
 policy=p.split("static func screen_step_direction(displacement: Vector2) -> Vector2:",1)[1].split("static func within_sector(",1)[0]
 assert "return displacement.normalized()" in policy and "return Vector2.ZERO" in policy
 assert "four_way_direction(" not in policy

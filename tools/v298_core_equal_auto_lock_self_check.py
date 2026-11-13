@@ -13,7 +13,7 @@ parts = (root/"scripts/target_parts.gd").read_text(encoding="utf-8")
 main = (root/"scripts/main.gd").read_text(encoding="utf-8")
 manifest = (root/"tools/sera_ci_manifest.txt").read_text(encoding="utf-8")
 assert int(re.search(r'config/name="SERA v(\d+)"',project).group(1)) >= 298
-assert (root/"README_v298_ja.md").is_file()
+assert (root/"docs/history/release_notes/README_v298_ja.md").is_file()
 
 body=parts.split("func _camera_center_line_body_distance(",1)[1].split(
     "func camera_center_line_hits_part(",1)[0]

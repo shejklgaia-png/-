@@ -9,7 +9,7 @@ rig = (R / "scripts/sera_rig.gd").read_text(encoding="utf-8")
 main = (R / "scripts/main.gd").read_text(encoding="utf-8")
 project = (R / "project.godot").read_text(encoding="utf-8")
 assert int(re.search(r'config/name="SERA v(\d+)"', project).group(1)) >= 295
-assert (R / "README_v295_ja.md").is_file()
+assert (R / "docs/history/release_notes/README_v295_ja.md").is_file()
 assert "RUN_ROOT_YAW_OFFSET_RADIANS: float = -PI * 0.5" in rig
 assert 'source_name: String = RUN_CLIP if i == 0 else RUN_BACK_CLIP' in rig
 assert "_update_run_retreat_mode(heading)" in rig

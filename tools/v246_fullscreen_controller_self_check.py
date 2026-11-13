@@ -13,7 +13,7 @@ ui = (ROOT / "scripts/touch_overlay.gd").read_text(encoding="utf-8")
 project = (ROOT / "project.godot").read_text(encoding="utf-8")
 match = re.search(r'config/name="SERA v(\d+)"', project)
 assert match and int(match.group(1)) >= 246
-assert (ROOT / "README_v246_ja.md").is_file()
+assert (ROOT / "docs/history/release_notes/README_v246_ja.md").is_file()
 
 start = main.split("func _controller_start_area_contains(pos: Vector2) -> bool:", 1)[1].split(
     "func _pointer_on_lock_mode_button(", 1)[0]

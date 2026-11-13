@@ -15,7 +15,7 @@ policy=(root/"scripts/flick_direction_policy.gd").read_text(encoding="utf-8")
 project=(root/"project.godot").read_text(encoding="utf-8")
 v=re.search(r'^config/name="SERA v(\d+)"$',project,re.M)
 assert v and int(v.group(1))>=256
-assert (root/"README_v256_ja.md").exists()
+assert (root/"docs/history/release_notes/README_v256_ja.md").exists()
 required={
     "BASH_FLICK_MAX_SECONDS":0.42,
     "BASH_FLICK_MIN_FORWARD_PIXELS":30.0,
