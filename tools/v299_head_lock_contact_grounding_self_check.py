@@ -79,7 +79,7 @@ assert 'elif current_clip in RUN_CLIPS and not step_playback:' in tick
 assert 'equipment_handler.call("smooth_bird_grounding", delta)' not in tick
 assert tick.count('equipment_handler.call("snap_grounded_sole_to_floor")') == 1
 assert tick.count('equipment_handler.call("snap_grounded_sole_to_floor", true)') == 1
-assert 'elif landing_pose_active and current_clip == JUMP_CLIP:' in tick
+assert 'elif (landing_pose_active or wait_to_run_landing_active) and current_clip == JUMP_CLIP:' in tick
 assert '_update_foot_contacts(delta)' in tick
 assert '_combo_lock_retention_active()' in main
 
