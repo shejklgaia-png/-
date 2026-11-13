@@ -22,6 +22,9 @@ func _run() -> void:
         _fail("missing combat scene")
         return
     var game: Node3D = packed.instantiate()
+    # Historic geometry test: place SERA at the sampled synthetic ray origin.
+    # The camera may still aim the test ray, but AUTO reads only SERA.
+    var player: CharacterBody3D = game.get("player")
     root.add_child(game)
     var parts: Node3D = game.get("target_parts")
     var camera: Camera3D = game.get("camera")
@@ -57,12 +60,14 @@ func _run() -> void:
     game.set("locked_target_part_id", "")
     camera.global_position = target.global_position + Vector3(0.0,-2.0,10.0)
     camera.look_at(target.global_position, Vector3.UP)
+    player.global_position = camera.global_position
     game.call("_acquire_stable_camera_part", 0.016, false)
     if not bool(game.get("auto_lock_initialized")) or str(game.get("locked_target_part_id")) != "head":
         _fail("initial visible HEAD was not acquired")
         return
     camera.global_position = target.global_position + Vector3(0.0,0.0,-12.0)
     camera.look_at(target.global_position, Vector3.UP)
+    player.global_position = camera.global_position
     game.call("_acquire_stable_camera_part", 0.016, false)
     if not str(game.get("locked_target_part_id")).is_empty():
         _fail("off-segment HEAD lock did not fall back to BODY immediately")
@@ -72,6 +77,7 @@ func _run() -> void:
     var model: Dictionary = parts.get("parts")
     var head: Dictionary = model["head"]
     head["broken"] = true
+    player.global_position = camera.global_position
     game.call("_acquire_stable_camera_part", 0.016, false)
     if not str(game.get("locked_target_part_id")).is_empty():
         _fail("broken HEAD was reselected instead of BODY")
