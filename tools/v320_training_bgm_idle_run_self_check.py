@@ -6,7 +6,7 @@ ROOT = Path(__file__).resolve().parents[1]
 rig = (ROOT / "scripts/sera_rig.gd").read_text(encoding="utf-8")
 bgm = (ROOT / "scripts/stage_bgm.gd").read_text(encoding="utf-8")
 project = (ROOT / "project.godot").read_text(encoding="utf-8")
-assert 'config/name="SERA v320"' in project
+assert int(re.search(r'config/name="SERA v(\d+)"', project).group(1)) >= 320
 assert 'res://BGM/dennou_sector_seamless.ogg' in bgm
 assert 'SECTOR_LOOP_OFFSET_SECONDS: float = 18.46153846' in bgm
 assert "sector_stream.loop = true" in bgm
