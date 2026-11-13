@@ -49,15 +49,15 @@ func _run() -> void:
         _fail("head mesh on segment was not selected")
         return
 
-    # A leg's coarse bounding box still must NOT become a hit when no
-    # real mesh is intersected. Temporarily exclude the newly padded HEAD
-    # so this historic test continues to isolate the leg mesh contract.
+    # A leg's coarse bounding box must NOT count in the absence of metal.
+    # Temporarily REMOVE HEAD from this isolated fixture: broken HEAD stays
+    # attackable in v319, so toggling its broken flag cannot hide it.
     var parts_for_gap: Dictionary = parts.get("parts")
     var gap_head: Dictionary = parts_for_gap["head"]
-    gap_head["broken"] = true
+    parts_for_gap.erase("head")
     _point_camera(camera, center, Vector3(-3.0,0.0,10.0))
     var gap_pick: String = _pick(parts,camera,center)
-    gap_head["broken"] = false
+    parts_for_gap["head"] = gap_head
     if gap_pick != "":
         _fail("empty space inside leg bounding box selected a limb")
         return
