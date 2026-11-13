@@ -742,6 +742,57 @@ func _add_back_thruster_effect(pivot: Node3D, group: Dictionary,
         back_thruster_effects[set_id] = []
     (back_thruster_effects[set_id] as Array).append(fx)
 
+# v315: freeze the existing decagonal acceleration jet at the STEP origin.
+# The copies own their ShaderMaterials and exist in world space for 0.05s,
+# instead of following the moving Chest/Thruster pivot after the warp.
+func spawn_step_launch_flare(world_travel: Vector3, lifetime: float) -> void:
+    if rig == null or world_travel.length_squared() < 0.000001:
+        return
+    var player_body: Node3D = rig.get_parent() as Node3D
+    if player_body == null or not (player_body.get_parent() is Node3D):
+        return
+    var world_parent: Node3D = player_body.get_parent() as Node3D
+    var selected_booster: String = str(selected.get("booster", "A"))
+    var source_flares: Array = back_thruster_effects.get(selected_booster, [])
+    if source_flares.is_empty():
+        return
+    var launch_root := Node3D.new()
+    launch_root.name = "StepLaunchWorldFlare"
+    world_parent.add_child(launch_root)
+    # The decagonal tubes extend along local +Z, opposite the actual travel.
+    var nozzle_basis: Basis = Basis.looking_at(
+        world_travel.normalized(), Vector3.UP)
+    for raw_fx in source_flares:
+        var source_fx: Node3D = raw_fx as Node3D
+        if source_fx == null or not is_instance_valid(source_fx):
+            continue
+        for raw_mesh in source_fx.get_children():
+            var source_mesh: MeshInstance3D = raw_mesh as MeshInstance3D
+            if source_mesh == null or not source_mesh.name.begins_with("DecagonalExhaust"):
+                continue
+            var source_material: ShaderMaterial = source_mesh.material_override as ShaderMaterial
+            if source_material == null:
+                continue
+            var frozen := MeshInstance3D.new()
+            frozen.name = source_mesh.name + "_Launch"
+            frozen.mesh = source_mesh.mesh
+            frozen.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+            var frozen_material: ShaderMaterial = source_material.duplicate() as ShaderMaterial
+            # Preserve DEPTH_TESTED_EMISSIVE priority and the original shader.
+            frozen_material.set_shader_parameter("strength", 1.0)
+            frozen_material.set_shader_parameter("burst", 1.0)
+            frozen_material.set_shader_parameter("melee_sustain", 0.0)
+            frozen.material_override = frozen_material
+            launch_root.add_child(frozen)
+            frozen.global_transform = Transform3D(nozzle_basis, source_fx.global_position)
+    if launch_root.get_child_count() == 0:
+        launch_root.queue_free()
+        return
+    # The independent timer clears even if STEP ends or another starts.
+    rig.get_tree().create_timer(maxf(lifetime, 0.001)).timeout.connect(
+        launch_root.queue_free)
+
+
 func update_back_thruster_fx(active: bool, exhaust_world: Vector3,
         delta: float, backstroke_weight: float = 0.0,
         left_sector_world: Vector3 = Vector3.ZERO,
