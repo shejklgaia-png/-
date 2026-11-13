@@ -12,20 +12,21 @@ const UNIT: float = 0.065
 # v84: Render the Swordeffect board at its exact Blockbench location.
 # No additional Z offset or geometry fitting is applied in Godot.
 const BLEND_SECONDS: float = 0.16
-const SOURCE_PATH: String = "res://assets/sera_source.json"
+const SOURCE_PATH: String = "res://models/core/Standard.bbmodel"
 # Import only newly authored kick tracks from the synced Blockbench source.
 # This is a model read, not a mesh replacement or re-export.
-const KICK_AUTHORING_SOURCE: String = "res://models/storage/SERA_BOOSTER_allテスト (9).bbmodel"
+const KICK_AUTHORING_SOURCE: String = "res://models/core/Standard.bbmodel"
 # v293: import only the new authored second Katana clip; leave A meshes intact.
-const KATANA_SECOND_AUTHORING_SOURCE: String = "res://models/storage/SERA_BOOSTER_allテスト.bbmodel"
+const KATANA_SECOND_AUTHORING_SOURCE: String = "res://models/core/Katana.bbmodel"
 const EMBEDDED = preload("res://assets/sera_data.gd")
+const KATANA_EMBEDDED = preload("res://assets/sera_katana_data.gd")
 # Independently versioned 39KB authored kick-only resource. Mandatory for
 # v272: do not rely solely on a potentially stale source/whole-model embed.
 const KICK_PACK = preload("res://assets/sera_kick_clips.gd")
 const EQUIPMENT_SCRIPT = preload("res://scripts/sera_equipment.gd")
 const RENDER_ORDER = preload("res://scripts/render_order_policy.gd")
 const BIRD_EMBEDDED = preload("res://assets/sera_bird_data.gd")
-const BIRD_LIVE_SOURCE: String = "res://models/storage/SERA_BIRD_LEGS_MIRROR_EDIT.bbmodel"
+const BIRD_LIVE_SOURCE: String = "res://models/core/BirdLeg.bbmodel"
 const SERA_TEXTURE = preload("res://assets/sera_godot_shading_texture.png")
 const WAIT_CLIP: String = "Wait_motion"
 const RUN_CLIP: String = "run_front_original"
@@ -1040,19 +1041,25 @@ func _build_animations(data: Dictionary) -> void:
 # v293: Read the new user-authored second slash from the latest Blockbench
 # working model. This imports ONLY the animation and does not replace the A
 # rig, equipment geometry, other clips, or the generated embedded source.
+# Both Katana1 and Katana2 come from the same authored weapon file.
+# The Standard base's Katana1 track is only a backward-compatible fallback.
 func _merge_authored_katana_second_clip() -> void:
-    if not FileAccess.file_exists(KATANA_SECOND_AUTHORING_SOURCE):
-        return  # Keep the v290 derived fallback when source isn't shipped.
-    var parsed: Variant = JSON.parse_string(
-        FileAccess.get_file_as_string(KATANA_SECOND_AUTHORING_SOURCE))
+    var source: String = ""
+    if FileAccess.file_exists(KATANA_SECOND_AUTHORING_SOURCE):
+        source = FileAccess.get_file_as_string(KATANA_SECOND_AUTHORING_SOURCE)
+    if source.is_empty():
+        source = KATANA_EMBEDDED.get_json()
+    var parsed: Variant = JSON.parse_string(source)
     if not (parsed is Dictionary):
-        push_warning("Katana second animation source is invalid; using fallback")
+        push_warning("Katana animation source invalid; keeping compatibility fallback")
         return
+    var imported_second: bool = false
     for candidate in parsed.get("animations", []):
         if not (candidate is Dictionary):
             continue
         var authored: Dictionary = candidate
-        if str(authored.get("name", "")) != KATANA_SECOND_CLIP:
+        var name: String = str(authored.get("name", ""))
+        if name != KATANA_CLIP and name != KATANA_SECOND_CLIP:
             continue
         var raw_animators: Dictionary = authored.get("animators", {})
         var keyed_tracks: int = 0
@@ -1063,10 +1070,13 @@ func _merge_authored_katana_second_clip() -> void:
             if animator is Dictionary and not (animator as Dictionary).get("keyframes", []).is_empty():
                 keyed_tracks += 1
         if keyed_tracks == 0:
-            push_warning("Katana second animation bones do not match; using fallback")
-            return
+            push_warning("Katana animation joints do not match: " + name)
+            continue
         _build_animations({"animations": [authored]})
-        return
+        if name == KATANA_SECOND_CLIP:
+            imported_second = true
+    if not imported_second:
+        push_warning("Katana2 authored clip unavailable; using compatibility fallback")
 
 # v290 fallback: when no user-authored Katana2 can load, derive a playable
 # second clip from first slash without mutating any original keyframes.

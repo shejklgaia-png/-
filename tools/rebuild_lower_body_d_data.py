@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-SOURCE = ROOT / "models/storage/SERA_LOWER_BODY_D_STANDARD_READY.bbmodel"
+SOURCE = ROOT / "models/storage/LowerBody_D.bbmodel"
 OUTPUT = ROOT / "assets/sera_lower_body_d_data.gd"
 
 

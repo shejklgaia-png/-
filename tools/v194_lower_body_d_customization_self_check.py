@@ -75,7 +75,7 @@ assert len([e for e in model["elements"] if e["name"].startswith("LegD_Foot_")])
 
 # Runtime correctness: D must be installed BEFORE restoring saves / visibility,
 # and C's shared Waist3 root must not register duplicate D geometry.
-assert 'const LOWER_BODY_D_SOURCE: String = "res://models/storage/SERA_LOWER_BODY_D_STANDARD_READY.bbmodel"' in code
+assert 'const LOWER_BODY_D_SOURCE: String = "res://models/storage/LowerBody_D.bbmodel"' in code
 assert 'const LOWER_BODY_D_EMBEDDED = preload("res://assets/sera_lower_body_d_data.gd")' in code
 assert 'func _install_standard_lower_body_d() -> void:' in code
 assert 'func _read_standard_lower_body_d() -> Dictionary:' in code

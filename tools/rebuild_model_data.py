@@ -7,8 +7,12 @@ import pathlib
 import textwrap
 
 root = pathlib.Path(__file__).resolve().parents[1]
+canonical = root / "models" / "core" / "Standard.bbmodel"
 source = root / "assets" / "sera_source.json"
 target = root / "assets" / "sera_data.gd"
+# Keep this Android-compatible JSON alias strictly derived from the single
+# editable Blockbench source; never edit either generated file independently.
+source.write_bytes(canonical.read_bytes())
 encoded = base64.b64encode(source.read_bytes()).decode("ascii")
 parts = textwrap.wrap(encoded, 120)
 with target.open("w", encoding="utf-8") as file:

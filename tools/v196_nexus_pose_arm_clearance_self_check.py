@@ -68,7 +68,9 @@ assert 'if equipment_handler != null:' in rig
 # v291 reserves an opposite-handed weapon slot while keeping set selection.
 assert 'piece.visible = not reserved and set_id == str(selected.get(slot, "A"))' in equips
 assert 'NEXUS_ARM_MAX_STEPS' not in rig and 'NEXUS_ARM_MAX_STEPS' not in equips
-assert 'NEXUS_POSE_SOURCES' in nexus
+assert 'NEXUS_POSE_SOURCES' not in nexus
+assert 'rig.get("animations")' in nexus
+assert 'rig.call("_apply_animation", 0.0)' in nexus
 
 print("PASS: pose-original defaults, per-arm collision search, precise restore")
 print("PASS: current selected A/B/C/D lower body and A/B arm geometry used")

@@ -1,0 +1,15 @@
+{
+  "schema": 1,
+  "body_rig": "models/core/Standard.bbmodel",
+  "variants": {
+    "standard": "models/core/Standard.bbmodel",
+    "bird_legs": "models/core/BirdLeg.bbmodel",
+    "katana": "models/core/Katana.bbmodel",
+    "equipment": "models/core/Equipment.bbmodel"
+  },
+  "parts": {
+    "head_C": "models/storage/Head_C.bbmodel",
+    "lower_body_D": "models/storage/LowerBody_D.bbmodel"
+  },
+  "note": "Only paths in this manifest are active authoring model sources. Legacy files are retained for historical regression/compatibility; no runtime loader should browse legacy paths."
+}

@@ -13,8 +13,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 AUTHOR = ROOT / "models/storage/SERA_LEGS_C_AUTHOR_NORMALIZED.bbmodel"
-READY = ROOT / "models/storage/SERA_LOWER_BODY_D_STANDARD_READY.bbmodel"
-COMBINED = ROOT / "models/SERA_BOOSTER_allテスト.bbmodel"
+READY = ROOT / "models/storage/LowerBody_D.bbmodel"
 
 # Uniform scale rather than independently squeezing each body part into A's
 # per-segment bounding box; this is the previously observed visual regression.
@@ -33,9 +32,7 @@ def transformed(n: float) -> float:
 def main() -> None:
     source = json.loads(AUTHOR.read_text(encoding="utf-8"))
     ready = json.loads(READY.read_text(encoding="utf-8"))
-    combined = json.loads(COMBINED.read_text(encoding="utf-8"))
     by_name = {e["name"]: e for e in source["elements"]}
-    target_by_id = {e["uuid"]: e for e in combined["elements"]}
     assert len(by_name) == len(ready["elements"]) == 12
 
     for part in ready["elements"]:
@@ -53,11 +50,9 @@ def main() -> None:
         part["faces"] = src["faces"]
         part["color"] = src["color"]
         part["rotation"] = src.get("rotation", [0, 0, 0])
-        target = target_by_id[part["uuid"]]
-        target.update(part)
+        # v316: do not mutate historical combined Blockbench data.
 
     serialize(READY, ready)
-    serialize(COMBINED, combined)
     print("Updated 12 D meshes at uniform scale 0.36 (source sole y=0.2 -> 0)")
     print("A/B, HEAD C, bird C, all animations and group pivots unchanged")
 

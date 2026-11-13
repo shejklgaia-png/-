@@ -51,7 +51,10 @@ for line in generated.splitlines():
     if line.startswith('"') and line.endswith('",'):
         chunks.append(json.loads(line[:-1]))
 assert chunks, "Missing embedded payload"
-assert json.loads("".join(chunks)) == {key: model[key] for key in ("groups", "elements", "outliner")}
+active = json.loads((root / "models/core/Equipment.bbmodel").read_text(encoding="utf-8"))
+assert json.loads("".join(chunks)) == {key: active[key] for key in ("groups", "elements", "outliner")}
+assert len(active["animations"]) == 0
+assert active["outliner"] == model["outliner"][:2]
 
 equip = (root / "scripts/sera_equipment.gd").read_text(encoding="utf-8")
 for phrase in (

@@ -1,11 +1,13 @@
 extends RefCounted
 ## Seven interchangeable Blockbench equipment slots driven by the existing animated A rig.
 ## The authored model stays in one .bbmodel: first character root=A, next=B/C/etc.
-const LIVE_SOURCE: String = "res://models/SERA_BOOSTER_allテスト.bbmodel"
+const LIVE_SOURCE: String = "res://models/core/Equipment.bbmodel"
 const EMBEDDED_SOURCE = preload("res://assets/sera_equipment_data.gd")
 # Author-normalized standard legs use a dedicated source, not the C head's root index.
-const LOWER_BODY_D_SOURCE: String = "res://models/storage/SERA_LOWER_BODY_D_STANDARD_READY.bbmodel"
+const LOWER_BODY_D_SOURCE: String = "res://models/storage/LowerBody_D.bbmodel"
 const LOWER_BODY_D_EMBEDDED = preload("res://assets/sera_lower_body_d_data.gd")
+const HEAD_C_SOURCE: String = "res://models/storage/Head_C.bbmodel"
+const HEAD_C_EMBEDDED = preload("res://assets/sera_head_c_data.gd")
 const BACK_THRUSTER_FX = preload("res://scripts/back_thruster_fx.gd")
 const SAVE_PATH: String = "user://sera_equipment.cfg"
 const SLOTS = ["head", "torso", "legs", "arms", "booster", "weapon_r", "weapon_l"]
@@ -64,6 +66,7 @@ func setup(target_rig: Node3D) -> void:
     _collect_original_meshes(rig)
     var data: Dictionary = _read_model()
     _install_alternative_sets(data)
+    _install_head_c()
     # v205: Chest/BOOSTER is authored on A's original Chest, not the alternate torso.
     _install_back_booster_placeholder(data)
     _install_standard_lower_body_d()
@@ -572,6 +575,45 @@ func _read_model() -> Dictionary:
             return current
     var backup: Variant = JSON.parse_string(EMBEDDED_SOURCE.get_json())
     return backup if backup is Dictionary else {}
+
+# Head C is authored and exported independently of A/B equipment.
+# Preserve its original Waist3/Torso3/Chest3/Neck3/Head3 pivots.
+func _read_head_c() -> Dictionary:
+    if FileAccess.file_exists(HEAD_C_SOURCE):
+        var live: Variant = JSON.parse_string(FileAccess.get_file_as_string(HEAD_C_SOURCE))
+        if live is Dictionary and live.has("groups") and live.has("outliner"):
+            return live
+    var embedded: Variant = JSON.parse_string(HEAD_C_EMBEDDED.get_json())
+    return embedded if embedded is Dictionary else {}
+
+
+func _install_head_c() -> void:
+    var data: Dictionary = _read_head_c()
+    var roots: Array = data.get("outliner", [])
+    if roots.size() != 1 or data.get("elements", []).size() != 2:
+        push_error("SERA Head C: expected one authored root and two meshes")
+        return
+    var base_root: Node3D = null
+    for child in rig.get_children():
+        if child is Node3D and child.has_meta("bb_origin"):
+            base_root = child
+            break
+    if base_root == null:
+        push_error("SERA Head C: base waist pivot is missing")
+        return
+    var groups: Dictionary = {}
+    var elements: Dictionary = {}
+    for group in data.get("groups", []):
+        if group is Dictionary:
+            groups[str(group.get("uuid", ""))] = group
+    for mesh in data.get("elements", []):
+        if mesh is Dictionary:
+            elements[str(mesh.get("uuid", ""))] = mesh
+    _attach_group_meshes(roots[0], base_root, groups, elements, "C")
+    var imported: Array = (available.get("C", {}) as Dictionary).get("head", [])
+    if imported.size() != 2:
+        push_error("SERA Head C: missing imported head meshes (%d/2)" % imported.size())
+
 
 func _install_alternative_sets(data: Dictionary) -> void:
     var groups: Dictionary = {}
