@@ -40,7 +40,7 @@ select = target.split('func select_actor_center_line_part(',1)[1].split(
 assert 'var closest: float = _camera_center_line_body_distance(' in select
 assert 'if distance < closest:' in select
 
-snap = eq.split('func snap_grounded_sole_to_floor()',1)[1].split(
+snap = eq.split('func snap_grounded_sole_to_floor(allow_landing: bool = false)',1)[1].split(
     'func restore_run_contact_foot_positions()',1)[0]
 assert 'get_active_foot_heights()' in snap
 assert 'minf(float(heights["L"]), float(heights["R"]))' in snap
@@ -78,6 +78,8 @@ assert 'equipment_handler.call("clear_run_contact_height")' in tick
 assert 'elif current_clip in RUN_CLIPS and not step_playback:' in tick
 assert 'equipment_handler.call("smooth_bird_grounding", delta)' not in tick
 assert tick.count('equipment_handler.call("snap_grounded_sole_to_floor")') == 1
+assert tick.count('equipment_handler.call("snap_grounded_sole_to_floor", true)') == 1
+assert 'elif landing_pose_active and current_clip == JUMP_CLIP:' in tick
 assert '_update_foot_contacts(delta)' in tick
 assert '_combo_lock_retention_active()' in main
 

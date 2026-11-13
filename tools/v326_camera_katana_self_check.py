@@ -18,5 +18,8 @@ assert "effect_root.transform = source_plane.transform" in trail
 assert "rotate_object_local(Vector3.UP, PI)" not in trail
 assert "if katana_second:" not in trail.split("func begin_swing(", 1)[1].split("func stop_swing(", 1)[0]
 assert 'Melee_katana2' in runtime and 'Melee_katana' in runtime
-assert 'config/name="SERA v326"' in (root / "project.godot").read_text(encoding="utf-8")
+# The v326 camera/Swordeffect contract remains active in all later versions.
+import re
+version = re.search(r'config/name="SERA v(\d+)"', (root / "project.godot").read_text(encoding="utf-8"))
+assert version and int(version.group(1)) >= 326
 print("PASS v326 camera fit + authored Katana arc contracts")

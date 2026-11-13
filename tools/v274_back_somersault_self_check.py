@@ -65,7 +65,9 @@ assert "_capture_back_somersault_retreat_direction()" in advance
 assert "_move_player_swept(Vector3(arc_delta.x, 0.0, arc_delta.z), true)" in advance
 assert "_back_somersault_arc_offset(progress)" in advance
 assert "_back_somersault_arc_offset(previous)" in advance
-assert "player.move_and_collide(Vector3.UP * vertical_delta)" in advance
+# The boss is solid horizontally, never a vertical platform for Kick_b.
+assert "player.position.y = wanted_y" in advance
+assert "lerpf(back_somersault_start.y, 0.0," in advance
 assert "rig.rotation.x = angle" in advance
 assert "BACK_SOMERSAULT_VISUAL_PIVOT_HEIGHT * (1.0 - cos(angle))" in advance
 assert "_register_side_kick_hit()" in advance

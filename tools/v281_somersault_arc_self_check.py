@@ -22,7 +22,9 @@ assert "var previous_offset: Vector3 = _back_somersault_arc_offset(previous)" in
 assert "var next_offset: Vector3 = _back_somersault_arc_offset(progress)" in advance
 assert "var arc_delta: Vector3 = next_offset - previous_offset" in advance
 assert "_move_player_swept(Vector3(arc_delta.x, 0.0, arc_delta.z), true)" in advance
-assert "back_somersault_start.y + next_offset.y" in advance
+# Preserve the Bezier up/down while settling any pre-existing float to 0.
+assert "lerpf(back_somersault_start.y, 0.0," in advance
+assert "progress) + next_offset.y" in advance
 assert "BACK_SOMERSAULT_HEIGHT * sin(PI * progress)" not in advance
 assert 'rig.call("set_back_somersault_progress", pose_progress)' in advance
 assert "rig.rotation.x = angle" in advance
