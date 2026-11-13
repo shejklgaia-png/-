@@ -102,8 +102,10 @@ func _run() -> void:
         if _render(game, false, true, int(item[0]), item[1], int(item[2])) != str(item[3]):
             _fail("STEP/kick label changed: " + str(item[3]))
             return
-    if HUD.step_label(0, Vector2(0.0, -0.8), 1) != "STEP DIAGONAL  |  BLENDED" \
-            or HUD.step_label(0, Vector2(0.0, 0.8), 1) != "STEP DIAGONAL  |  BLENDED":
+    # Vector2 uses float32 components; avoid the double-literal 0.8 boundary
+    # where roundoff can turn an equality check into an apparent > or <.
+    if HUD.step_label(0, Vector2(0.0, -0.79), 1) != "STEP DIAGONAL  |  BLENDED" \
+            or HUD.step_label(0, Vector2(0.0, 0.79), 1) != "STEP DIAGONAL  |  BLENDED":
         _fail("STEP strict thresholds changed")
         return
 
