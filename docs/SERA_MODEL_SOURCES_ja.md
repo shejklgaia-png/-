@@ -13,12 +13,21 @@
 
 Androidエクスポートでは各生成データにフォールバックします。assets/sera_source.json はStandard.bbmodelのコピー（編集禁止）。Katanaの初段は互換維持のため標準モデルにも含まれますが、編集時はKatanaの基本モデルと対応を照合してください。
 
+## v322: 受け渡しKatanaモデルの取り込み
+
+GitHub `models/storage/Katana.bbmodel` にユーザーが置いた新しい編集データを検証し、`Melee_katana` / `Melee_katana2` の**完全なアニメーション定義**を正本 `models/core/Katana.bbmodel` の同名クリップへ差し替えます（キーフレームは結合せず置換）。グループ構成・メッシュ・UV・Pivotは既存の正本を保持します。
+
+`Swordeffect` グループのUUIDは標準リグと一致させてください。回転・位置・スケールのすべてをロードし、`scripts/sword_trail.gd` の既存v85生成メソッドが元の不可視板と同一Pivotで切り抜き弧・立体ボリューム・粒子を追従描画します。参照は正本とそこから作る`assets/sera_katana_data.gd` のみ。取り込み元ファイルは他の用途に使用されていない場合のみ、統合・検証後に削除できます。
+
+今後は`AGENTS.md`の「New Blockbench intake from strage / storage」を適用してください。`tools/sera_model_build.py --write` / `--check`で再生成・一致検査を行います。
+
 ## 再生成
 1. python3 tools/rebuild_model_data.py
 2. python3 tools/rebuild_bird_data.py
 3. python3 tools/rebuild_equipment_data.py
 4. python3 tools/rebuild_head_c_data.py
-5. python3 tools/rebuild_lower_body_d_data.py
+5. python3 tools/rebuild_katana_data.py
+6. python3 tools/rebuild_lower_body_d_data.py
 
 各関数の対象ファイルは models/manifest.json で確認します。1パーツ=1正本ファイル、同一骨格はモーション共有、実行時は旧ファイルを探索しない方針です。元のPivot、UUID、UV、キーフレームは保持し、変更時はPython検査だけでなくGodot実行検査を行います。
 

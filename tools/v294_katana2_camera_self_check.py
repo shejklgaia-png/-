@@ -18,8 +18,8 @@ assert clip["loop"] == "once"
 assert math.isclose(clip["length"], 0.58333, abs_tol=0.00001)
 existing_uuids = {g["uuid"] for g in source["groups"]}
 keyed = {uid: a["keyframes"] for uid, a in clip["animators"].items() if a.get("keyframes")}
-assert len(keyed) == 19
-assert sum(len(keys) for keys in keyed.values()) == 70
+assert len(keyed) == 20
+assert sum(len(keys) for keys in keyed.values()) == 73
 assert set(keyed).issubset(existing_uuids)
 assert "Melee_katana2" not in [a["name"] for a in source["animations"]]
 assert 'KATANA_SECOND_AUTHORING_SOURCE: String = "res://models/core/Katana.bbmodel"' in rig

@@ -58,7 +58,41 @@ assert set(katana_clips) == {"Melee_katana","Melee_katana2"}
 # The active weapon source owns both clips; Standard retains its historical
 # first slash solely for compatibility when the weapon source is absent.
 assert katana_clips["Melee_katana"]["name"] == "Melee_katana"
-assert katana_clips["Melee_katana2"] == next(a for a in full_katana["animations"] if a["name"]=="Melee_katana2")
+# v322: user-edited Katana1/Katana2 add explicit Swordeffect pivot transforms.
+# Older full-model clips remain fixtures only for non-FX motion. Order of
+# equivalent authored keyframes is not an animation change.
+effect_uuid = next(g["uuid"] for g in katana["groups"] if g["name"] == "Swordeffect")
+for clip_name, effect_time in (("Melee_katana", 0.33333), ("Melee_katana2", 0.0)):
+    source_fx = katana_clips[clip_name]["animators"][effect_uuid]["keyframes"]
+    assert len(source_fx) == 3
+    assert {k["channel"] for k in source_fx} == {"rotation", "position", "scale"}
+    assert all(abs(k["time"] - effect_time) < 1e-5 for k in source_fx)
+old_second = next(a for a in full_katana["animations"] if a["name"] == "Melee_katana2")
+new_second = katana_clips["Melee_katana2"]
+assert old_second["length"] == new_second["length"]
+for uid, animator in old_second["animators"].items():
+    if uid == effect_uuid:
+        continue
+    incoming = new_second["animators"][uid].get("keyframes", [])
+    historical = animator.get("keyframes", [])
+    sort_key = lambda k: (k["time"], k["channel"], k["uuid"])
+    if uid == next(g["uuid"] for g in katana["groups"] if g["name"] == "Foot_L"):
+        # The new user-authored Foot_L starting angle is zero (formerly
+        # -2.5deg). All other keys and their UUIDs remain identical.
+        newer = sorted(incoming, key=sort_key)
+        older = sorted(historical, key=sort_key)
+        assert len(newer) == len(older) == 3
+        for current, previous in zip(newer, older):
+            assert current["uuid"] == previous["uuid"]
+            assert current["time"] == previous["time"]
+            assert current["channel"] == previous["channel"]
+            if current["time"] == 0:
+                assert current["data_points"][0] == {"x": "0", "y": "0", "z": "0"}
+                assert previous["data_points"][0] == {"x": "-2.5", "y": "0", "z": "0"}
+            else:
+                assert current == previous
+    else:
+        assert sorted(incoming, key=sort_key) == sorted(historical, key=sort_key), uid
 for path, model in [
     ("assets/sera_equipment_data.gd", equipment),
     ("assets/sera_head_c_data.gd", head),

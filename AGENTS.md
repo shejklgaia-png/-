@@ -1,6 +1,6 @@
 # SERA — coding agents (current operating rules)
 
-> **Latest source of truth:** the user's latest instruction; current GitHub `main` and `project.godot`; the actual scripts and `models/manifest.json`. Old README_vNNN, past conversations and archived guidance are history, **not active specifications**. This short file intentionally supersedes the historical `docs/history/AGENTS_THROUGH_V316.md`.
+> **Authority:** latest instructions, GitHub `main`, `project.godot`, live code and `models/manifest.json`. Old README/AGENTS history is superseded by this file; see `docs/history/AGENTS_THROUGH_V316.md`.
 
 ## Fast, safe work sequence
 1. Check the latest `main` SHA, current version in `project.godot`, open PRs, and user-selected feature. Do **not** guess an implementation from version history.
@@ -21,6 +21,9 @@
 - **Repo layout:** follow `docs/SERA_REPOSITORY_LAYOUT_ja.md`; old README notes belong in `docs/history/release_notes/`. Keep model masters, import UIDs and CI fixtures.
 - **GitSync/phone:** only merged `main` reaches Android. Preserve unpushed edits; never sync while editors write or repeatedly ask to sync/start.
 - No secrets, signing keys, credentials, arbitrary dependencies, or unwarranted deletion of user models. If source is ambiguous, inspect hierarchy/Pivot before assigning a bone.
+
+## Staged model intake
+For new `strage`/`storage` uploads, follow `docs/SERA_INCOMING_MODEL_INTAKE_ja.md`: merge canonical clips and Swordeffect, rebuild, fully test, then delete only unreferenced staging files.
 
 ## Quick commands
 ```sh

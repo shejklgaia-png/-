@@ -2275,3 +2275,9 @@
 - `sera_equipment.gd`: Katana_l/l2/l3の鞘本体3メッシュを表示維持。Katana_r_sayaの納刀刀身2メッシュ／Katana_r_nukimiの抜き身2メッシュだけを第4フレーム以降に排他切替。連撃中も鞘本体は消さず、刀装備を外した時だけ全Kメッシュを非表示。
 - `sera_rig.gd` と `docs/RENDER_PIPELINE_POLICY_ja.md`: 斬撃時の深度無視半透明全身オーバーレイが、A/Bアトラスのみを参照してC/D装甲等の固有材質を覆う不具合を修正。機体全パーツの`material_override`を攻撃中も維持し、KO／EN個別オーバーレイのみ使用。
 - v276/v290刀、v288カメラ、共通カメラ数式テストの旧期待値を更新。v321静的とGodot実シーンの新テストを登録。実機のGL Compatibility描画とカメラの操作感はヘッドレス検査対象外。
+
+## 2026-11-14 — SERA v322: Katana Swordeffect authored import / safe staging cleanup
+- Incoming: `models/storage/Katana.bbmodel`; exact edits compared with canonical `models/core/Katana.bbmodel`. Non-animation geometry, hierarchy, UUIDs and UVs were unchanged. Editor-only selection flags differ. In `Melee_katana2` the `Foot_L` first-frame rotation changed from -2.5° to 0°; the other two Foot_L keys are reordered but identical. No right-arm movement key changes were detected.
+- Replace both `Melee_katana` / `Melee_katana2` animation entries in the core model, retaining their exact authored keyframes. `Swordeffect` UUID `cd682f33-b5f1-debc-4bcf-ce5d0e588753` now contains new position/rotation/scale keys at 0.33333s (first) and 0s (second); the same Standard rig pivot drives the original v85 arc/convex-volume/particle generator (`scripts/sword_trail.gd`). No duplicate effect geometry, full-screen plate or extra model runtime path is added.
+- Regenerate `assets/sera_katana_data.gd` via `tools/rebuild_katana_data.py`, maintaining the export fallback. New Python/Godot verification checks canonical and embedded animation, exact authored pose and FX parent/mesh behavior; full CI required before merge.
+- Add permanent incoming-file workflow to `AGENTS.md`: inspect strage/storage, map to manifest canonical sources, replace clips, rebuild, test, then audit/delete only unreferenced temporary input. Historical validation fixtures remain.
