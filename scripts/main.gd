@@ -472,6 +472,9 @@ var jump_fall_after_action: bool = false
 var jump_fall_elapsed: float = 0.0
 var jump_fall_start_height: float = 0.0
 var jump_fall_duration: float = 0.0
+# The visual training floor is not a PhysicsBody. World Y is exclusively
+# owned by authored flight/STEP/MELEE or this passive gravity recovery.
+var passive_fall_velocity: float = 0.0
 # Landing is a separate grounded, input-locked state. The exact final authored
 # key is held 0.60s AFTER the 0.125s landing transition finishes.
 var landing_active: bool = false
@@ -978,7 +981,8 @@ func _build_character() -> void:
     player.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_ON
     player.collision_layer = PLAYER_COLLISION_LAYER
     player.collision_mask = TARGET_COLLISION_LAYER
-    # There is no physics floor yet: motion remains on the original XZ plane.
+    # Enemy solid collisions must never be treated as a floor/ramp.
+    # The scene has a visual-only floor; grounded Y is resolved separately.
     player.motion_mode = CharacterBody3D.MOTION_MODE_FLOATING
     player.floor_snap_length = 0.0
     player.safe_margin = 0.01
@@ -2757,9 +2761,9 @@ func _advance_jump(delta: float) -> void:
         clip_progress = progress
         vertical_speed = 4.0 * JUMP_HEIGHT / JUMP_FLIGHT_SECONDS * (1.0 - 2.0 * progress)
         flight_complete = jump_elapsed >= JUMP_FLIGHT_SECONDS
-    var vertical_delta: float = y_wanted - player.position.y
-    if absf(vertical_delta) > 0.000001:
-        player.move_and_collide(Vector3(0.0, vertical_delta, 0.0))
+    # The enemy has movement solids but is never a walkable platform;
+    # authored Jump determines its own height without vertical collision.
+    player.position.y = y_wanted
     # Air-control is additive to launch inertia, capped at 30% of RUN speed.
     # No pose/animation change occurs when the thumb changes direction.
     var steering_velocity: Vector3 = Vector3.ZERO
@@ -3054,10 +3058,12 @@ func _advance_back_somersault(delta: float) -> void:
         var next_offset: Vector3 = _back_somersault_arc_offset(progress)
         var arc_delta: Vector3 = next_offset - previous_offset
         _move_player_swept(Vector3(arc_delta.x, 0.0, arc_delta.z), true)
-        var wanted_y: float = back_somersault_start.y + next_offset.y
-        var vertical_delta: float = wanted_y - player.position.y
-        if absf(vertical_delta) > 0.000001:
-            player.move_and_collide(Vector3.UP * vertical_delta)
+        # Preserve the existing ascent arc, but ease any pre-existing
+        # floating height down to floor Y=0 by the end of the backflip.
+        # Target limbs may obstruct XZ, never vertical retreat/landing.
+        var wanted_y: float = lerpf(back_somersault_start.y, 0.0,
+            progress) + next_offset.y
+        player.position.y = wanted_y
         player.velocity = Vector3.ZERO
     # The original Kick_b starts while on the ground; its contact pose
     # occurs at BACK_SOMERSAULT_HIT_PROGRESS. After contact, continue the
@@ -3072,7 +3078,7 @@ func _advance_back_somersault(delta: float) -> void:
     rig.call("set_back_somersault_progress", pose_progress)
     if back_somersault_elapsed >= BACK_SOMERSAULT_FLIGHT_SECONDS:
         if back_somersault_launched:
-            player.position.y = back_somersault_start.y
+            player.position.y = 0.0
             player.velocity = Vector3.ZERO
         if back_somersault_has_authored_clip and not bool(
                 rig.call("back_somersault_final_pose_sampled")):
@@ -3529,6 +3535,7 @@ func _move_player_swept(motion: Vector3, slide_on_wall: bool) -> void:
     # Used for the curved step and attack dash. move_and_collide() performs
     # continuous motion collision detection, even for large physics deltas.
     # Sliding is intentionally horizontal and never teleports the root.
+    var fixed_y: float = player.position.y
     var remainder: Vector3 = Vector3(motion.x, 0.0, motion.z)
     var max_attempts: int = 3 if slide_on_wall else 1
     for _attempt in range(max_attempts):
@@ -3541,6 +3548,9 @@ func _move_player_swept(motion: Vector3, slide_on_wall: bool) -> void:
             break
         remainder = collision.get_remainder().slide(collision.get_normal())
         remainder.y = 0.0
+    # Collision recovery can have a vertical component even when the
+    # requested sweep lies in XZ. Only the flight owner may change Y.
+    player.position.y = fixed_y
 
 # Explicit debug entry point: retained for future jump/air-combat experiments.
 # No movement flick, tap or boost gesture calls this while the flag is false.
@@ -4112,6 +4122,28 @@ func _tick_boost_pose_grace(delta: float) -> void:
         combat_state == CombatState.IDLE, movement_boost_active)
 
 
+# Gravity only applies while no committed aerial/melee animation owns Y.
+# It deliberately ignores enemy tops: the training floor is Y=0.
+func _resolve_passive_vertical_motion(delta: float, before_collision_y: float,
+        action_owns_height: bool) -> void:
+    if action_owns_height:
+        passive_fall_velocity = 0.0
+        return
+    # move_and_slide() can recover a horizontally moving capsule *upward*
+    # out of a leg box, even with zero vertical velocity.
+    player.position.y = maxf(0.0, before_collision_y)
+    if player.position.y > 0.00001:
+        passive_fall_velocity = minf(40.0,
+            passive_fall_velocity + JUMP_GRAVITY * maxf(delta, 0.0))
+        player.position.y = maxf(0.0,
+            player.position.y - passive_fall_velocity * maxf(delta, 0.0))
+    else:
+        player.position.y = 0.0
+    if player.position.y <= 0.00001:
+        player.position.y = 0.0
+        passive_fall_velocity = 0.0
+
+
 func _physics_process(delta: float) -> void:
     _update_equipped_collision_height()
     _tick_training_ko(delta)
@@ -4126,6 +4158,9 @@ func _physics_process(delta: float) -> void:
     if hit_stop_remaining <= 0.0:
         elapsed += delta
         target.position.y = TARGET_BASE_HEIGHT + sin(elapsed * 1.4) * 0.07
+    # The boss bob is purely visual vertically. A rising leg collider can
+    # otherwise carry the capsule upward as a moving platform.
+    target_collider.position.y = TARGET_BASE_HEIGHT - target.position.y
     _tick_combo_window_timers(delta)
     _update_guard_hold()
     # Sample the outer-ring hold independently of touch event frequency.
@@ -4214,6 +4249,7 @@ func _physics_process(delta: float) -> void:
             _cancel_attack()
         elif hit_stop_remaining <= 0.0:
             _advance_attack(delta)
+    var before_slide_y: float = player.position.y
     if damage_reaction_active:
         # Freeze player input while physical knockback is applied above;
         # keep collision recovery available even in the damage state.
@@ -4261,6 +4297,13 @@ func _physics_process(delta: float) -> void:
         # Even with no input, resolve any pre-existing body penetration.
         player.velocity = Vector3.ZERO
         player.move_and_slide()
+    # Restore ground Y after body collision recovery, or let an already
+    # elevated player descend at the physical gravity rate after actions.
+    _resolve_passive_vertical_motion(delta, before_slide_y,
+        PHYSICS_FRAME.flight_owns_displacement(
+            jumping_this_frame, landing_this_frame, somersault_this_frame,
+            back_somersault_active, landing_active)
+        or stepping_this_frame or combat_state != CombatState.IDLE)
     # Sample actual collision-resolved displacement, including curved steps.
     # Steps move by move_and_collide(), not by player.velocity.
     blur_velocity = PHYSICS_FRAME.displacement_velocity(

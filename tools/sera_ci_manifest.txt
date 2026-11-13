@@ -231,3 +231,6 @@ gd tools/v325_camera_transition_runtime_check.gd
 
 py tools/v326_camera_katana_self_check.py
 gd tools/v326_camera_katana_runtime_check.gd
+
+py tools/v327_collision_fall_landing_self_check.py
+gd tools/v327_collision_fall_landing_runtime_check.gd

@@ -35,7 +35,7 @@ assert "foot_vertex_cache.clear()" in eq
 
 # On grounded frames, adapt to currently animated foot motion AFTER the pose
 # is set, independently of which LOWER BODY set A/B/C/D is selected.
-snap = eq[eq.index("func snap_grounded_sole_to_floor()"):eq.index("func get_grounding_height_offset()")]
+snap = eq[eq.index("func snap_grounded_sole_to_floor(allow_landing: bool = false)"):eq.index("func get_grounding_height_offset()")]
 assert "if not grounding_enabled or rig == null:" in snap
 assert 'bool(rig.get("jump_playback"))' in snap
 assert "absf(wearer.global_position.y) > 0.05" in snap

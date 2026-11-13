@@ -17,7 +17,10 @@ assert "BACK_SOMERSAULT_LANDING_SECONDS: float = 0.20" in main
 assert 'rig.call("set_back_somersault_progress", pose_progress)' in main
 assert 'rig.call("back_somersault_final_pose_sampled")' in main
 assert 'if back_somersault_has_authored_clip and not bool(' in main
-assert 'player.position.y = back_somersault_start.y' in main
+# v327: the final physical contact must always be on the floor, even
+# when an earlier physics contact had raised the player above Y=0.
+assert 'player.position.y = 0.0' in main.split("func _advance_back_somersault(",1)[1].split(
+    "func _cancel_back_somersault(",1)[0]
 assert 'rig.call("start_landing", from_back_somersault)' in main
 assert 'func back_somersault_final_pose_sampled() -> bool:' in rig
 assert 'clip_time = minf(duration * fraction, duration)' in rig
