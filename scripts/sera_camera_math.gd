@@ -6,11 +6,16 @@ static func desired_follow_focus(player_xz: Vector2, target_xz: Vector2,
 
 static func advance_follow_focus(current: Vector2, desired: Vector2,
         delta: float, rate: float, max_lag: float) -> Vector2:
-    var alpha: float = 1.0 - exp(-rate * maxf(delta, 0.0))
+    var dt: float = maxf(delta, 0.0)
+    var alpha: float = 1.0 - exp(-rate * dt)
     var next: Vector2 = current.lerp(desired, alpha)
-    var error: Vector2 = desired - next
-    if error.length_squared() > max_lag * max_lag:
-        next = desired - error.normalized() * max_lag
+    # A hard error leash teleports the camera almost the full distance on a
+    # sudden STEP/BOOST displacement. Cap distance *per render frame* instead.
+    # max_lag is still the desired steady tracking tolerance, not a teleport.
+    var max_travel: float = maxf(16.0, rate * max_lag * 1.7) * dt
+    var travel: Vector2 = next - current
+    if travel.length_squared() > max_travel * max_travel:
+        next = current + travel.normalized() * max_travel
     return next
 
 static func stable_shoulder_yaw(current_yaw: float, bearing: float,
@@ -22,6 +27,17 @@ static func stable_shoulder_yaw(current_yaw: float, bearing: float,
     var residual: float = error * (1.0 - alpha)
     var leash: float = deg_to_rad(max_lag_degrees)
     return current_yaw + error - clampf(residual, -leash, leash)
+
+# Avoid abrupt 180-degree bearing reversals when SERA crosses the boss
+# center. Retain the previous bearing inside the nearly coincident radius,
+# then reacquire the new bearing continuously outside that radius.
+static func stable_near_bearing(previous: float, raw_bearing: float,
+        separation: float, delta: float) -> float:
+    var fraction: float = smooth_response(
+        (separation - 0.40) / (2.20 - 0.40))
+    var alpha: float = 1.0 - exp(-9.0 * maxf(0.0, delta) * fraction)
+    return lerp_angle(previous, raw_bearing, alpha)
+
 
 # Camera response profiles remain pure functions: main.gd owns event timing.
 static func smooth_response(progress: float) -> float:
