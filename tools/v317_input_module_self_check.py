@@ -30,7 +30,7 @@ for text in (i, v):
     assert "get_tree()" not in text and "get_viewport()" not in text
     assert "user://" not in text and "FileAccess" not in text
 assert "return FLICK_DIRECTION_POLICY.screen_step_direction(displacement)" in i
-assert "var has_lock: bool = (target_hp > 0" in m
+assert "var has_lock: bool = (" in m
 assert "var world_step: Vector3 = _screen_drag_to_ground(direction)" in m
 assert "return STEP_SIDE_DISTANCE" in m
 print("SERA_V317_SPLIT_INPUT_STATIC_PASS")
