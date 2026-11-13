@@ -73,7 +73,10 @@ assert "thruster_accel_previous_tracking_state)" in burst
 assert "stepping and not previous_step" in physics_rules
 assert "tracking_state != previous_tracking_state" in physics_rules
 assert "normal_melee_exhaust" not in burst
-assert "left_sector_world, acceleration_burst, normal_attack_exhaust)" in main
+presentation = read("scripts/sera_thruster_presentation.gd")
+assert "thruster_presentation.update(rig, exhaust_on," in main
+assert "direction_of_exhaust, delta, backstroke_weight, left_sector_world," in main
+assert "left_sector_world, acceleration_burst, normal_attack_exhaust)" in presentation
 assert "left_sector_world, acceleration_burst, melee_sustain)" in rig
 assert "acceleration_burst, melee_sustain)" in equip
 
