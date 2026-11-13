@@ -33,9 +33,9 @@ rig_start = segment(rig, "start_back_somersault() -> bool:", "back_somersault_us
 rig_progress = segment(rig, "set_back_somersault_progress(progress: float) -> void:", "start_jump")
 rig_land = segment(rig, "start_landing(from_back_somersault: bool = false) -> void:", "set_landing_progress")
 
-# Controller direction is SCREEN-relative; DOWN takes precedence within the
-# already-latched 3rd-strike combo window, and is never ordinary back-STEP.
-assert 'flick, Vector2.UP' in direction
+# Actor-relative BACK takes precedence within the latched third-strike
+# combo window; its screen-direction motion remains unchanged.
+assert 'flick, actor_screen_forward)' in direction
 assert "2:" in direction
 assert "return 2" in direction
 assert "flick, actor_screen_forward)" in direction and "gesture_screen_forward" in game
