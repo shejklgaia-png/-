@@ -294,7 +294,7 @@ func smooth_bird_grounding(delta: float) -> void:
     bird_grounding_render_y = lerpf(bird_grounding_render_y, goal_y, blend)
     rig.position.y = bird_grounding_render_y
 
-func snap_grounded_sole_to_floor() -> void:
+func snap_grounded_sole_to_floor(allow_landing: bool = false) -> void:
     # v199: evaluate the *current animated pose*, not only the bind pose.
     # The logical Player still stays on its existing XZ plane at world Y=0.
     # This translates only Sera's visual rig; it does not modify gameplay
@@ -306,7 +306,8 @@ func snap_grounded_sole_to_floor() -> void:
         return
     # During an authored/debug jump, preserve actual air height. The next
     # grounded frame resumes the exact sole-plane correction automatically.
-    if absf(wearer.global_position.y) > 0.05 or bool(rig.get("jump_playback")):
+    if absf(wearer.global_position.y) > 0.05 or (
+            bool(rig.get("jump_playback")) and not allow_landing):
         return
     var heights: Dictionary = get_active_foot_heights()
     if not heights.has("L") or not heights.has("R"):

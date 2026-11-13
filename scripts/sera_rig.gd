@@ -178,6 +178,8 @@ var side_kick_clip_name: String = ""
 var side_kick_playback_scale: float = 1.0
 var somersault_authored: bool = false
 var somersault_final_pose_sampled: bool = false
+# Distinguish the grounded landing phase from the airborne Jump pose.
+var landing_pose_active: bool = false
 # Do not depend on a stale / manually edited Android res:// JSON export.
 # The integrated generated GDScript always carries both real authored clips.
 var embedded_side_kick_restore_attempted: bool = false
@@ -1693,6 +1695,7 @@ func start_back_somersault() -> bool:
         return false
     somersault_authored = has_back_somersault_clip()
     somersault_final_pose_sampled = false
+    landing_pose_active = false
     # BACK_KICK_TRACK previously used start_melee_approach(), which sets
     # combat_playback=true. Entering Kick_b did not clear that flag:
     # finish_jump then returned to WAIT/RUN but set_moving was blocked
@@ -1732,6 +1735,7 @@ func set_back_somersault_progress(progress: float) -> void:
 func start_jump() -> void:
     if not loading_ok or damage_playback or guard_playback or jump_playback:
         return
+    landing_pose_active = false
     jump_playback = true
     _switch_clip(JUMP_CLIP, 0.055)
 
@@ -1747,6 +1751,7 @@ func start_landing(from_back_somersault: bool = false) -> void:
         return
     somersault_authored = false
     somersault_final_pose_sampled = false
+    landing_pose_active = true
     jump_playback = true
     # Blend the completed Kick_b into the original 0.20s landing, without
     # modifying how ordinary Jump lands.
@@ -1762,6 +1767,7 @@ func resume_jump_fall() -> void:
     # Re-enter just the authored descending keys, never the takeoff pose.
     if not loading_ok or damage_playback:
         return
+    landing_pose_active = false
     jump_playback = true
     _switch_clip(JUMP_CLIP, 0.075)
     set_jump_progress(JUMP_FALL_CLIP_START)
@@ -1770,6 +1776,7 @@ func finish_jump(resume_moving: bool, boosting: bool = false) -> void:
     if not jump_playback:
         return
     jump_playback = false
+    landing_pose_active = false
     somersault_authored = false
     somersault_final_pose_sampled = false
     # Be robust if BACK_KICK_TRACK entered via melee tracking, including
@@ -2002,6 +2009,12 @@ func _process(delta: float) -> void:
             and not guard_playback and not jump_playback and not damage_playback):
         equipment_handler.call("clear_run_contact_height")
         equipment_handler.call("snap_grounded_sole_to_floor")
+    elif landing_pose_active and current_clip == JUMP_CLIP:
+        # The completed Kick_b is crossfaded into authored Jump 0.375..0.5.
+        # Plant the actual lowest foot throughout that transition; the
+        # 0.055s pose blend and the original final Kick_b sample remain.
+        equipment_handler.call("snap_grounded_sole_to_floor", true)
+        reset_foot_contacts()
     elif current_clip in RUN_CLIPS and not step_playback:
         if not combat_playback and not guard_playback and not jump_playback \
                 and not damage_playback:
