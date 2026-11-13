@@ -74,7 +74,7 @@ assert 'SeraSave.record_target_hit(kind, actual_damage,' in apply
 assert '"apply_part_hit"' in m
 assert '"melee", strike_damage,' in m
 assert '"bash", bash_damage,' in m
-assert 'if target_hp > 0 and (not manual_part_lock_active or locked_part_broken):' in m
+assert 'if not manual_part_lock_active or locked_part_broken:' in m
 assert 'not manual_part_lock_active or locked_part_broken' in m
 assert '"select_camera_front_part", camera,' in m
 assert "_acquire_stable_camera_part(delta, locked_part_broken)" in m
