@@ -13,7 +13,7 @@ main = (root / "scripts/main.gd").read_text(encoding="utf-8")
 project = (root / "project.godot").read_text(encoding="utf-8")
 manifest = (root / "tools/sera_ci_manifest.txt").read_text(encoding="utf-8")
 assert int(re.search(r'config/name="SERA v(\d+)"', project).group(1)) >= 297
-assert (root / "README_v297_ja.md").is_file()
+assert (root / "docs/history/release_notes/README_v297_ja.md").is_file()
 assert "const HEAD_LOCK_UPWARD_EXTENSION_METERS: float = 1.0" in parts
 selector = parts.split("func _camera_center_line_part_distance(",1)[1].split(
     "func camera_center_line_hits_part(",1)[0]

@@ -12,7 +12,7 @@ parts=(R/"scripts/target_parts.gd").read_text(encoding="utf-8")
 project=(R/"project.godot").read_text(encoding="utf-8")
 manifest=(R/"tools/sera_ci_manifest.txt").read_text(encoding="utf-8")
 assert int(re.search(r'config/name="SERA v(\d+)"',project).group(1)) >= 305
-assert (R/"README_v305_ja.md").is_file()
+assert (R/"docs/history/release_notes/README_v305_ja.md").is_file()
 assert "const AUTO_LOCK_SWITCH_CONFIRM_SECONDS: float = 0.0" in main
 auto=main.split("func _acquire_stable_camera_part(delta: float,",1)[1].split(
     "# v305: yaw SERA toward the actual current LOCK target.",1)[0]

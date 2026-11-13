@@ -12,7 +12,7 @@ parts=(root/"scripts/target_parts.gd").read_text(encoding="utf-8")
 manifest=(root/"tools/sera_ci_manifest.txt").read_text(encoding="utf-8")
 project=(root/"project.godot").read_text(encoding="utf-8")
 assert int(re.search(r'config/name="SERA v(\d+)"',project).group(1)) >= 303
-assert (root/"README_v303_ja.md").is_file()
+assert (root/"docs/history/release_notes/README_v303_ja.md").is_file()
 assert "PARALLEL_LOCK_HALF_SPACING: float = 0.25" in parts
 pair=parts.split("func get_actor_parallel_lock_segments(",1)[1].split(
     "func _parallel_lock_part_distance(",1)[0]
