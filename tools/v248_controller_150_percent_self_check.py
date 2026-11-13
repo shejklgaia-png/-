@@ -15,7 +15,7 @@ ui = (ROOT / "scripts/touch_overlay.gd").read_text(encoding="utf-8")
 project = (ROOT / "project.godot").read_text(encoding="utf-8")
 version = re.search(r'config/name="SERA v(\d+)"', project)
 assert version and int(version.group(1)) >= 248
-assert (ROOT / "README_v248_ja.md").exists()
+assert (ROOT / "docs/history/release_notes/README_v248_ja.md").exists()
 
 def number(src,kind,name):
     m = re.search(rf'^{kind} {name}: float = ([0-9.]+)',src,re.M)

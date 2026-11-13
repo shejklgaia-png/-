@@ -14,7 +14,7 @@ boost_policy = (root/"scripts/sera_boost_state.gd").read_text(encoding="utf-8")
 ui=(root/"scripts/touch_overlay.gd").read_text(encoding="utf-8")
 cfg=(root/"project.godot").read_text(encoding="utf-8")
 assert re.search(r'config/name="SERA v(\d+)"',cfg) and int(re.search(r'config/name="SERA v(\d+)"',cfg).group(1))>=244
-assert (root/"README_v244_ja.md").is_file()
+assert (root/"docs/history/release_notes/README_v244_ja.md").is_file()
 
 def const(src,name):
     match=re.search(r"^const "+name+r": float = ([0-9.]+)",src,re.M)

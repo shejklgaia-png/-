@@ -7,7 +7,7 @@ def read(p):return (R/p).read_text(encoding="utf-8")
 m=read("scripts/main.gd");p=read("scripts/flick_direction_policy.gd")
 v=re.search(r'^config/name="SERA v(\d+)"$',read("project.godot"),re.M)
 assert v and int(v.group(1))>=258
-assert (R/"README_v253_ja.md").is_file()
+assert (R/"docs/history/release_notes/README_v253_ja.md").is_file()
 begin=m.split("func _begin_drag(",1)[1].split("func _analog_stick_direction(",1)[0]
 drag=m.split("func _change_drag(",1)[1].split("func _update_boost_gesture(",1)[0]
 release=m.split("func _end_drag(",1)[1].split("func _remember_jump_flick_sample(",1)[0]

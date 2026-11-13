@@ -10,7 +10,7 @@ parts=(ROOT/"scripts/target_parts.gd").read_text(encoding="utf-8")
 cfg=(ROOT/"project.godot").read_text(encoding="utf-8")
 match=re.search(r'config/name="SERA v(\d+)"',cfg)
 assert match and int(match.group(1))>=249
-assert (ROOT/"README_v249_ja.md").is_file()
+assert (ROOT/"docs/history/release_notes/README_v249_ja.md").is_file()
 
 def function(name,next_name):
     return main.split("func "+name,1)[1].split("func "+next_name,1)[0]

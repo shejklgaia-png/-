@@ -16,7 +16,7 @@ def read(p):return (R/p).read_text(encoding="utf-8")
 m=read("scripts/main.gd");p=read("scripts/flick_direction_policy.gd");hud=read("scripts/touch_overlay.gd")
 v=re.search(r'^config/name="SERA v(\d+)"$',read("project.godot"),re.M)
 assert v and int(v.group(1))>=258
-assert (R/"README_v257_ja.md").exists()
+assert (R/"docs/history/release_notes/README_v257_ja.md").exists()
 assert 'func _flick_front_from_controller_origin(' not in m
 assert "toward_lock_marker" not in p
 assert "touch_ui.get(\"target_marker_position\")" not in m

@@ -16,7 +16,7 @@ policy=read("scripts/render_order_policy.gd")
 project=read("project.godot")
 version=re.search(r'config/name="SERA v(\d+)"',project)
 assert version and int(version.group(1))>=241
-assert (ROOT/"README_v241_ja.md").exists()
+assert (ROOT/"docs/history/release_notes/README_v241_ja.md").exists()
 
 # A shared, WORLD-gravity-driven function acts on final requested headings.
 assert "const LIFT_DOWNWASH_WEIGHT: float = 0.40" in fx
