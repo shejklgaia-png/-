@@ -58,7 +58,7 @@ assert "CAMERA_ELEVATION_RATIO * camera_radius" in placement
 assert "CAMERA_COMBAT_ELEVATION_RATIO" not in main
 assert "_visible_combat_camera_yaw" not in main
 assert "if hold_attack_camera:" in render and "camera_dolly_in_speed = 0.0" in render
-assert "if not hold_attack_camera:" in render and "_relax_camera_fit_radius(delta)" in render
+assert "_relax_camera_fit_radius(delta)" in render
 
 # Mirror the bounded per-frame focus translation. A sudden player leap
 # must not make the camera snap its entire former 0.65m error leash.

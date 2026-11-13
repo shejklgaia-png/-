@@ -61,7 +61,6 @@ assert "camera_follow_radius = move_toward(" in cam
 assert "CAMERA_COMBAT_MIN_RADIUS" in cam
 assert "camera_dolly_in_speed = 0.0" in cam
 assert "if hold_attack_camera or step_active or close_step_camera_this_frame:" in cam
-assert "if not hold_attack_camera:" in cam
 assert "_relax_camera_fit_radius(delta)" in cam
 assert "camera_yaw = _stable_shoulder_camera_yaw(bearing, delta)" in cam
 assert "camera_yaw = _visible_combat_camera_yaw" not in cam

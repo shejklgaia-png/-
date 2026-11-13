@@ -65,7 +65,7 @@ assert 'camera_fit_radius_floor = candidate_floor' in fit
 assert 'camera_radius = previous_radius' in fit
 # Check target outer-frame corners and player-frame geometry remain protected.
 assert 'for dx in [-TARGET_FRAME_HALF_WIDTH, TARGET_FRAME_HALF_WIDTH]' in main
-assert 'for dy in [-TARGET_FRAME_HALF_HEIGHT, TARGET_FRAME_HALF_HEIGHT]' in main
+assert 'for dy in [-TARGET_FRAME_HALF_HEIGHT - TARGET_CAMERA_BOB_ENVELOPE,\n                TARGET_FRAME_HALF_HEIGHT + TARGET_CAMERA_BOB_ENVELOPE]' in main
 assert 'for dz in [-TARGET_FRAME_HALF_DEPTH, TARGET_FRAME_HALF_DEPTH]' in main
 assert 'func _enforce_screen_edge(bearing: float, delta: float)' in main
 assert 'const BOOST_POSE_GRACE_SECONDS: float = 0.50' in main

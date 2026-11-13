@@ -63,7 +63,8 @@ assert '_advance_camera_follow_focus(delta)' in render
 assert 'camera_player_render_position' in functions['_desired_camera_follow_focus_xz']
 assert 'camera_target_render_position' in functions['_desired_camera_follow_focus_xz']
 assert 'camera_player_render_position' in functions['_horizontal_safe']
-assert 'camera_target_render_position' in functions['_target_fully_in_frame']
+assert '_camera_target_frame_center()' in functions['_target_fully_in_frame']
+assert 'camera_target_render_position.x' in main and 'camera_target_render_position.z' in main
 assert 'camera_player_render_position' in functions['_full_frame_safe']
 assert 'camera_target_render_position' in functions['_update_target_marker_projection']
 for name in ('_update_side_from_screen', '_signed_screen_gap',
