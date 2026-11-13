@@ -1285,26 +1285,30 @@ func _build_overlay() -> void:
     if rig != null:
         rig.call("set_run_left_handed", left_handed)
 
-    # Place the return control between left-side status and right-side telemetry.
-    # Its raw touch hit-test below works even when mouse emulation is disabled.
+    # NEXUS return is a standalone HUD control, outside the hidden legacy
+    # combat panel. Right/top anchors remain correct on other screen widths.
+    # Raw touch/mouse _input owns the press on Android and desktop, so the
+    # Control must not intercept a second event or trigger a melee tap.
     nexus_button = Button.new()
     nexus_button.name = "ReturnToNexus"
-    nexus_button.text = "BACK TO NEXUS"
-    nexus_button.position = Vector2(226.0, 59.0)
-    nexus_button.size = Vector2(176.0, 35.0)
+    nexus_button.text = "< NEXUS"
+    nexus_button.flat = true
     nexus_button.focus_mode = Control.FOCUS_NONE
-    nexus_button.mouse_filter = Control.MOUSE_FILTER_STOP
-    nexus_button.add_theme_font_size_override("font_size", 15)
-    nexus_button.add_theme_color_override("font_color", Color("d5faff"))
-    var nexus_button_style := StyleBoxFlat.new()
-    nexus_button_style.bg_color = Color(0.08, 0.17, 0.22, 0.94)
-    nexus_button_style.border_color = Color("3fabb8")
-    nexus_button_style.set_border_width_all(1)
-    nexus_button_style.set_corner_radius_all(6)
-    nexus_button.add_theme_stylebox_override("normal", nexus_button_style)
-    nexus_button.add_theme_stylebox_override("hover", nexus_button_style)
+    nexus_button.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    nexus_button.add_theme_font_size_override("font_size", 18)
+    nexus_button.add_theme_color_override(
+        "font_color", Color("#dbeef5"))
+    nexus_button.add_theme_color_override(
+        "font_hover_color", Color("#42feff"))
+    nexus_button.add_theme_color_override(
+        "font_pressed_color", Color("#42feff"))
+    layer.add_child(nexus_button)
+    nexus_button.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+    nexus_button.offset_left = -168.0
+    nexus_button.offset_right = -12.0
+    nexus_button.offset_top = 8.0
+    nexus_button.offset_bottom = 48.0
     nexus_button.pressed.connect(_request_return_to_nexus)
-    hud_panel.add_child(nexus_button)
 
     var primary_widgets: Dictionary = HUD_LAYOUT.build_primary_status(
         hud_panel, CombatVitals, TARGET_HP_BAR_WIDTH)
@@ -1436,7 +1440,8 @@ func _build_overlay() -> void:
     hud_panel.visible = false
     if vitals_hud != null:
         vitals_hud.set_process(false)  # No legacy meter pulse work.
-    nexus_button.visible = false
+    # Standalone NEXUS control must remain visible despite the legacy HUD.
+    nexus_button.visible = true
     enemy_debug_ui.visible = false
     test_hit_button.visible = false
     test_break_button.visible = false
@@ -1474,8 +1479,8 @@ func _build_overlay() -> void:
     angle_debug_button.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
     angle_debug_button.offset_left = -145.0
     angle_debug_button.offset_right = -10.0
-    angle_debug_button.offset_top = 12.0
-    angle_debug_button.offset_bottom = 50.0
+    angle_debug_button.offset_top = 52.0
+    angle_debug_button.offset_bottom = 82.0
 
 func _build_lock_switch_buttons(layer: CanvasLayer) -> void:
     # Three lock controls sit on the lower floor portion of the portrait
