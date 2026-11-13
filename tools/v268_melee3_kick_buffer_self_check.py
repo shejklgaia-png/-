@@ -103,7 +103,8 @@ assert '"KICK LEFT  |  Kick_l"' in hud
 assert "COMBAT_HUD_TEXT.strike_label(" in physics
 assert "COMBAT_HUD_TEXT.step_label(" in physics
 assert '"KICK %s %.2fm planned"' in step_hud
-assert '"STEP DIAGONAL  |  BLENDED"' in physics
+assert '"STEP DIAGONAL  |  BLENDED"' in hud
+assert "if absf(step_flick.y) > 0.15:" in hud
 
 clips={a["name"]:a for a in source["animations"]}
 for name in ("Melee3","Kick_l","Kick_r"):
