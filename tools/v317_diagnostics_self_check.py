@@ -6,7 +6,7 @@ ROOT = Path(__file__).resolve().parents[1]
 main = (ROOT/"scripts/main.gd").read_text(encoding="utf-8")
 diag = (ROOT/"scripts/dev_diagnostics.gd").read_text(encoding="utf-8")
 project = (ROOT/"project.godot").read_text(encoding="utf-8")
-assert re.search(r'config/name="SERA v317"', project)
+assert (v := re.search(r'config/name="SERA v(\d+)"', project)) and int(v.group(1)) >= 317
 for token in (
     'const DEV_DIAGNOSTICS = preload("res://scripts/dev_diagnostics.gd")',
     "var diagnostic_enabled: bool = false",
