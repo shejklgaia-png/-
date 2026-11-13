@@ -31,6 +31,11 @@ var anchor_point: Vector2 = Vector2.ZERO
 var radius: float = 105.0
 var boost_base_radius: float = 157.5
 var analog_direction: Vector2 = Vector2.ZERO
+# v331: visual sectors follow SERA's projected body facing (not screen UP).
+# During an eligible combo flick the input axis is frozen; the guide uses
+# that SAME axis so visible colors cannot disagree with action selection.
+var flick_sector_forward: Vector2 = Vector2.UP
+var flick_sector_initialized: bool = false
 var melee_in_range: bool = false
 # Screen coordinates supplied by Camera3D.unproject_position(target.global_position).
 # A nonvisible/offscreen target does not leave a misleading marker at screen center.
@@ -66,6 +71,15 @@ const LOCK_ARC_SWEEP: float = 0.70
 const CONTROLLER_RUN_RADIUS: float = 105.0
 const CONTROLLER_BOOST_START_RADIUS_RATIO: float = 1.10
 const CONTROLLER_HUB_RADIUS_RATIO: float = 0.24
+const FLICK_SECTOR_COUNT: int = 4
+const FLICK_SECTOR_HALF_ARC: float = PI * 0.25
+const FLICK_SECTOR_INNER_RADIUS_RATIO: float = 0.35
+const FLICK_SECTOR_OUTER_RADIUS_RATIO: float = 0.95
+const FLICK_SECTOR_SLICES: int = 15
+const FLICK_SECTOR_FOLLOW_RATE: float = 24.0
+const FLICK_SECTOR_FRONT_COLOR: Color = Color(1.0, 0.22, 0.20, 0.29)
+const FLICK_SECTOR_SIDE_COLOR: Color = Color(1.0, 0.81, 0.19, 0.26)
+const FLICK_SECTOR_BACK_COLOR: Color = Color(0.37, 0.55, 0.66, 0.14)
 # v160: visual-only propulsion shell OUTSIDE the original BOOST boundary.
 const BOOST_SHELL_RADIUS_RATIO: float = 1.19
 const BOOST_SHELL_SEGMENT_HALF_ARC: float = 0.17
@@ -203,6 +217,32 @@ func cancel_gesture_effects() -> void:
     cancel_attack_ripple()
     cancel_flick_wake()
 
+# The camera samples the projected actor front once per rendered frame.
+# A committed attack swipe uses the frozen input axis (snap=true); ordinary
+# locomotion previews the current pose with frame-independent angular ease.
+func set_flick_sector_forward(forward: Vector2, delta: float = 0.0,
+        snap: bool = false) -> void:
+    if forward.length_squared() < 0.000001:
+        return
+    var wanted: Vector2 = forward.normalized()
+    var result: Vector2 = wanted
+    if flick_sector_initialized and not snap:
+        var old_angle: float = flick_sector_forward.angle()
+        var error: float = wrapf(wanted.angle() - old_angle, -PI, PI)
+        var alpha: float = 1.0 - exp(-FLICK_SECTOR_FOLLOW_RATE * maxf(delta, 0.0))
+        result = Vector2.RIGHT.rotated(old_angle + error * alpha)
+    if flick_sector_initialized and result.is_equal_approx(flick_sector_forward):
+        return
+    flick_sector_forward = result
+    flick_sector_initialized = true
+    if dragging:
+        queue_redraw()
+
+
+func flick_sector_direction(sector: int) -> Vector2:
+    return flick_sector_forward.rotated(float(posmod(sector, FLICK_SECTOR_COUNT)) * PI * 0.5)
+
+
 func show_drag(origin: Vector2, _pos: Vector2, max_radius: float) -> void:
     # New touch immediately restores the familiar RUN/BOOST ring.
     cancel_gesture_effects()
@@ -210,6 +250,7 @@ func show_drag(origin: Vector2, _pos: Vector2, max_radius: float) -> void:
     if dragging:
         return
     dragging = true
+    flick_sector_initialized = false
     anchor_point = origin
     radius = CONTROLLER_RUN_RADIUS
     boost_base_radius = max_radius
@@ -314,10 +355,47 @@ func _draw_flick_wake() -> void:
             draw_polyline(points, stroke, lerpf(3.1, 1.0, progress), true)
 
 
+# A 90-degree sector is exactly the same area that the real flick
+# classifier assigns to Bash/Right/Back/Left when supplied this facing.
+# Each polygon is an annular wedge, never a touch-intercepting Control.
+func _draw_flick_direction_sectors() -> void:
+    var inner: float = radius * FLICK_SECTOR_INNER_RADIUS_RATIO
+    var outer: float = radius * FLICK_SECTOR_OUTER_RADIUS_RATIO
+    var colors: Array[Color] = [
+        FLICK_SECTOR_FRONT_COLOR,
+        FLICK_SECTOR_SIDE_COLOR,
+        FLICK_SECTOR_BACK_COLOR,
+        FLICK_SECTOR_SIDE_COLOR
+    ]
+    for sector in range(FLICK_SECTOR_COUNT):
+        var center: float = flick_sector_direction(sector).angle()
+        var start_angle: float = center - FLICK_SECTOR_HALF_ARC
+        var end_angle: float = center + FLICK_SECTOR_HALF_ARC
+        var points: PackedVector2Array = PackedVector2Array()
+        for k in range(FLICK_SECTOR_SLICES + 1):
+            var outer_angle: float = lerpf(start_angle, end_angle,
+                float(k) / float(FLICK_SECTOR_SLICES))
+            points.append(anchor_point + Vector2.RIGHT.rotated(outer_angle) * outer)
+        for k in range(FLICK_SECTOR_SLICES, -1, -1):
+            var inner_angle: float = lerpf(start_angle, end_angle,
+                float(k) / float(FLICK_SECTOR_SLICES))
+            points.append(anchor_point + Vector2.RIGHT.rotated(inner_angle) * inner)
+        draw_colored_polygon(points, colors[sector])
+        var outline: Color = colors[sector]
+        outline.a = minf(1.0, colors[sector].a * 2.0)
+        draw_arc(anchor_point, outer, start_angle + 0.018,
+            end_angle - 0.018, 25, outline, 2.8, true)
+        var edge: Vector2 = Vector2.RIGHT.rotated(start_angle)
+        draw_line(anchor_point + edge * inner,
+            anchor_point + edge * outer, Color(0.52, 0.68, 0.77, 0.25),
+            1.3, true)
+
+
 func _draw_analog_controller(accent: Color, low: Color) -> void:
     # The RUN disc stays fixed at the initial touch point; its radius is
     # shorter, while BOOST begins at the v248 173.25px boundary.
     draw_circle(anchor_point, radius, Color(0.15, 0.60, 0.68, 0.08))
+    _draw_flick_direction_sectors()
     var rim_color: Color = accent if movement_boost_active else low
     draw_arc(anchor_point, radius, 0.0, TAU, 96, rim_color, 2.8125, true)
     var boost_guide: Color = Color(0.21, 0.85, 0.93, 0.60) if movement_boost_active else Color(0.21, 0.85, 0.93, 0.15)

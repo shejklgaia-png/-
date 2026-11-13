@@ -2465,6 +2465,7 @@ func _begin_drag(pos: Vector2) -> void:
     touch_ui.call("set_analog_direction", Vector2.ZERO)
     if not guard_active:
         touch_ui.call("show_drag", pointer_origin, pointer_location, DRAG_RADIUS)
+        touch_ui.call("set_flick_sector_forward", gesture_screen_forward, 0.0, true)
 
 func _analog_stick_direction(pos: Vector2) -> Vector2:
     var displacement: Vector2 = pos - pointer_origin
@@ -2486,6 +2487,7 @@ func _change_drag(pos: Vector2) -> void:
         if not guard_flick_axis_captured and pos.distance_to(pointer_origin) >= TAP_MAX_TRAVEL:
             gesture_screen_forward = FLICK_DIRECTION_POLICY.projected_forward(camera, player)
             guard_flick_axis_captured = true
+            touch_ui.call("set_flick_sector_forward", gesture_screen_forward, 0.0, true)
         pointer_location = pos
         _remember_jump_flick_sample(pos)
         return
@@ -4594,6 +4596,7 @@ func _process(delta: float) -> void:
     _advance_hit_fx(delta)
     _advance_camera_response_profile(delta)
     if hit_stop_remaining > 0.0:
+        _update_controller_flick_guide(delta)
         _update_target_marker_projection()  # Still track externally moving targets during hit-stop.
         _update_motion_blur(delta)
         _sample_diagnostics(delta)
@@ -4792,6 +4795,9 @@ func _process(delta: float) -> void:
     # Do NOT override depth testing or render priority for the target.
     # If the player stands between the camera and the cube, it is naturally occluded.
     was_running = running
+    # Project the live actor direction after the final camera placement.
+    # Attack flicks deliberately use the frozen touch-down axis instead.
+    _update_controller_flick_guide(delta)
     # Always project AFTER the camera's yaw / zoom / framing corrections.
     # This follows both camera movement and a target whose world position changes.
     _update_target_marker_projection()
@@ -4804,6 +4810,16 @@ func _process(delta: float) -> void:
 # v288: keep the tracking anchor near SERA, with a short (up to 2m)
 # lead toward the target for composition. At long range it translates
 # with SERA essentially one-for-one instead of orbiting a stationary boss.
+func _update_controller_flick_guide(delta: float) -> void:
+    if not gesture_active or touch_ui == null:
+        return
+    var frozen_axis: bool = guard_active or bash_flick_candidate or side_kick_flick_candidate
+    var facing: Vector2 = (
+        gesture_screen_forward if frozen_axis
+        else FLICK_DIRECTION_POLICY.projected_forward(camera, player))
+    touch_ui.call("set_flick_sector_forward", facing, delta, frozen_axis)
+
+
 func _desired_camera_follow_focus_xz() -> Vector2:
     # Use the same render-interpolated player/target samples as before.
     var player_xz: Vector2 = Vector2(

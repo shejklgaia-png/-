@@ -2,7 +2,7 @@
 
 Android向け縦画面・1対1ボス戦メレーアクションのGodotプロジェクトです。
 
-- **現在のゲーム:** [SERA v330](README_v330_ja.md)（実際の設定は [project.godot](project.godot)）
+- **現在のゲーム:** [SERA v331](README_v331_ja.md)（実際の設定は [project.godot](project.godot)）
 - **日本語案内:** [README_ja.md](README_ja.md)
 - **今後の開発・変更ルール:** [AGENTS.md](AGENTS.md)
 - **高速開発とテスト:** [docs/SERA_DEVELOPMENT_FASTPATH_ja.md](docs/SERA_DEVELOPMENT_FASTPATH_ja.md)

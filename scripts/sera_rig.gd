@@ -80,6 +80,8 @@ const JUMP_CLIP: String = "Jump"
 const BACK_SOMERSAULT_CLIP: String = "Kick_b"  # optional authored source; fallback is the existing Jump pose  # takeoff/ascent/descent then a new landing key
 const JUMP_AIR_CLIP_END: float = 0.375  # old final fall key; flight ends here
 const JUMP_LANDING_CLIP_END: float = 0.500  # new final landing key
+const WAIT_RUN_LANDING_SECONDS: float = 0.20
+const WAIT_RUN_EXIT_BLEND_SECONDS: float = 0.11
 const JUMP_FALL_CLIP_START: float = 0.20833 / JUMP_AIR_CLIP_END
 const DAMAGE_CLIP: String = "Damageknock"
 const GUARD_CLIP: String = "Guard"
@@ -180,6 +182,10 @@ var somersault_authored: bool = false
 var somersault_final_pose_sampled: bool = false
 # Distinguish the grounded landing phase from the airborne Jump pose.
 var landing_pose_active: bool = false
+# Visual-only idle->walk anticipation. It never sets jump_playback or
+# physical landing_active, so movement/STEP/attack remain fully interactive.
+var wait_to_run_landing_active: bool = false
+var wait_to_run_landing_elapsed: float = 0.0
 # Do not depend on a stale / manually edited Android res:// JSON export.
 # The integrated generated GDScript always carries both real authored clips.
 var embedded_side_kick_restore_attempted: bool = false
@@ -1118,7 +1124,10 @@ func _build_katana_second_strike() -> void:
 func _switch_clip(wanted: String, fade_seconds: float) -> void:
     if wanted == current_clip or not animations.has(wanted):
         return
-    # WAIT -> RUN uses the normal crossfade; never sample the airborne Jump pose.
+    if wanted != JUMP_CLIP:
+        wait_to_run_landing_active = false
+    # Cache the prior rendered pose for the EXIT blend only; WAIT->landing
+    # bypasses this blend to display the very first landing key immediately.
     # Capture BOOST -> RUN intent BEFORE changing current_clip. If a new
     # BOOST starts during the fade, _switch_clip resets this flag immediately.
     boost_to_run_crossfade = (current_clip == BOOST_CLIP and wanted == RUN_CLIP)
@@ -1347,6 +1356,23 @@ func set_moving(moving: bool, boosting: bool = false,
         fade_seconds = BOOST_TO_RUN_BLEND_SECONDS
     elif wanted == BOOST_CLIP or current_clip == BOOST_CLIP:
         fade_seconds = BOOST_STATE_BLEND_SECONDS
+    # One shot only when transitioning from WAIT to ordinary RUN.
+    # Do not trigger for BOOST, SLIDE, movement-direction reversals or
+    # an action/step resuming into RUN.
+    if wait_to_run_landing_active:
+        if wanted == RUN_CLIP:
+            return
+        wait_to_run_landing_active = false
+    if current_clip == WAIT_CLIP and wanted == RUN_CLIP \
+            and not jump_playback and not combat_playback and not step_playback:
+        wait_to_run_landing_elapsed = 0.0
+        _switch_clip(JUMP_CLIP, 0.0)  # ENTRY: no interpolation
+        wait_to_run_landing_active = true
+        clip_time = JUMP_AIR_CLIP_END  # only the authored landing section
+        blending_for = 1.0  # zero-duration ENTRY must weight authored pose 100%
+        _apply_animation(0.0)
+        equipment_handler.call("snap_grounded_sole_to_floor", true)
+        return
     var was_boost_clip: bool = current_clip == BOOST_CLIP
     _switch_clip(wanted, fade_seconds)
     # Both SLIDE and BOOST use the same clip, bypassing _switch_clip's fade.
@@ -1735,6 +1761,7 @@ func set_back_somersault_progress(progress: float) -> void:
 func start_jump() -> void:
     if not loading_ok or damage_playback or guard_playback or jump_playback:
         return
+    wait_to_run_landing_active = false
     landing_pose_active = false
     jump_playback = true
     _switch_clip(JUMP_CLIP, 0.055)
@@ -1749,6 +1776,7 @@ func set_jump_progress(progress: float) -> void:
 func start_landing(from_back_somersault: bool = false) -> void:
     if not loading_ok or damage_playback:
         return
+    wait_to_run_landing_active = false
     somersault_authored = false
     somersault_final_pose_sampled = false
     landing_pose_active = true
@@ -1939,7 +1967,14 @@ func clip_finished(name: String) -> bool:
 func _process(delta: float) -> void:
     if not loading_ok or training_ko_active:
         return
-    if attack_windup_active and not combat_paused and current_clip == attack_windup_clip:
+    if wait_to_run_landing_active and current_clip == JUMP_CLIP:
+        wait_to_run_landing_elapsed = minf(WAIT_RUN_LANDING_SECONDS,
+            wait_to_run_landing_elapsed + maxf(delta, 0.0))
+        var landing_progress: float = (wait_to_run_landing_elapsed /
+            WAIT_RUN_LANDING_SECONDS)
+        clip_time = lerpf(JUMP_AIR_CLIP_END, JUMP_LANDING_CLIP_END,
+            landing_progress)
+    elif attack_windup_active and not combat_paused and current_clip == attack_windup_clip:
         # Reverse within 0..windup_end instead of restarting at frame zero.
         # This continuously loops the real windup keys without a snap at wrap.
         attack_windup_phase += maxf(delta, 0.0)
@@ -2009,7 +2044,7 @@ func _process(delta: float) -> void:
             and not guard_playback and not jump_playback and not damage_playback):
         equipment_handler.call("clear_run_contact_height")
         equipment_handler.call("snap_grounded_sole_to_floor")
-    elif landing_pose_active and current_clip == JUMP_CLIP:
+    elif (landing_pose_active or wait_to_run_landing_active) and current_clip == JUMP_CLIP:
         # The completed Kick_b is crossfaded into authored Jump 0.375..0.5.
         # Plant the actual lowest foot throughout that transition; the
         # 0.055s pose blend and the original final Kick_b sample remain.
@@ -2036,6 +2071,12 @@ func _process(delta: float) -> void:
     else:
         equipment_handler.call("clear_run_contact_height")
         reset_foot_contacts()
+    if wait_to_run_landing_active \
+            and wait_to_run_landing_elapsed >= WAIT_RUN_LANDING_SECONDS:
+        # Sample the complete final grounded key BEFORE switching to RUN.
+        # _switch_clip captures that pose for a smooth 0.11s EXIT blend.
+        wait_to_run_landing_active = false
+        _switch_clip(RUN_CLIP, WAIT_RUN_EXIT_BLEND_SECONDS)
 
 func _run_heading_from_weights() -> Vector2:
     # Kept for v109 banking compatibility; now uses smoothed travel direction.

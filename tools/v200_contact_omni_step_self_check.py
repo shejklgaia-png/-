@@ -35,7 +35,7 @@ assert 'equipment_handler.call("restore_run_contact_height")' in tick
 # One call remains dedicated to WAIT; the second plants the feet only
 # while a completed aerial clip is entering its real landing phase.
 assert tick.count('snap_grounded_sole_to_floor') == 2
-assert 'elif landing_pose_active and current_clip == JUMP_CLIP:' in tick
+assert 'elif (landing_pose_active or wait_to_run_landing_active) and current_clip == JUMP_CLIP:' in tick
 assert 'equipment_handler.call("snap_grounded_sole_to_floor", true)' in tick
 audio_event = rig.split("func _update_foot_contacts(delta: float)",1)[1].split("func _build_model(",1)[0]
 assert "foot_contact_elapsed >= FOOT_CONTACT_MIN_INTERVAL" in audio_event
