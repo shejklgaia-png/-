@@ -77,10 +77,12 @@ for side in (-1,1):
         assert 1.23-.24-.90/2 < 1.0 # core-frame connection overlaps
         foot_position,foot_size=located["Foot"]
         assert math.isclose(1.53-.53+foot_position[1]-foot_size[1]/2,0.0,abs_tol=1e-8)
-        # The auto-lock offset sits *on* the protruding armored ArmTip box.
-        aim=(side*.78,-.27,fore*.52)
+        # v302: lock the middle of the WHOLE leg frame rather than a
+        # protruding armored tip. The 13 mesh pieces still retain bounds.
+        aim=(0.,0.,0.)
+        assert all(abs(aim[a])<=expected_size[a]/2+1e-8 for a in range(3))
         tip,tip_size=located["ArmTip"]
-        assert all(abs(aim[a]-tip[a])<=tip_size[a]/2+1e-8 for a in range(3))
+        assert tip_size[1]>=.80
 
 # All 5 HP containers are present, with two mirrored pairs of enlarged limbs.
 for id,x,z,aim_x,aim_z in (
@@ -91,7 +93,7 @@ for id,x,z,aim_x,aim_z in (
     center,size,lock=(tuple(float(v.strip()) for v in s.split(",")) for s in match.groups())
     assert center == (x,-.53,z)
     assert size == expected_size
-    assert lock == (aim_x,-.27,aim_z)
+    assert lock == (0.0,0.0,0.0)
 assert parts.count("    _add_part(")==5
 assert "func apply_part_hit(" in parts and "func select_front_part(" in parts
 # Broken legs remain modeled/collidable after v289; only appearance changes.
@@ -100,5 +102,5 @@ assert 'const CORE_HP_SHARE: float = 0.50' in parts
 assert 'const EACH_PART_HP_SHARE: float = 0.10' in parts
 print("PASS v240: 13 rectangular meshes per four mirrored limbs, thicker shoulders/feet")
 print("PASS v240: actual model fully inside widened part hit AABBs, 2m height, grounded")
-print("PASS v240: arm-tip lock points, 2.35m camera width, unchanged 5-part durability")
+print("PASS v240/v302: centered leg lock, 2.35m camera width, unchanged 5-part durability")
 print("Godot runtime and Android melee/render not exercised")
