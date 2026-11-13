@@ -2281,3 +2281,6 @@
 - Replace both `Melee_katana` / `Melee_katana2` animation entries in the core model, retaining their exact authored keyframes. `Swordeffect` UUID `cd682f33-b5f1-debc-4bcf-ce5d0e588753` now contains new position/rotation/scale keys at 0.33333s (first) and 0s (second); the same Standard rig pivot drives the original v85 arc/convex-volume/particle generator (`scripts/sword_trail.gd`). No duplicate effect geometry, full-screen plate or extra model runtime path is added.
 - Regenerate `assets/sera_katana_data.gd` via `tools/rebuild_katana_data.py`, maintaining the export fallback. New Python/Godot verification checks canonical and embedded animation, exact authored pose and FX parent/mesh behavior; full CI required before merge.
 - Add permanent incoming-file workflow to `AGENTS.md`: inspect strage/storage, map to manifest canonical sources, replace clips, rebuild, test, then audit/delete only unreferenced temporary input. Historical validation fixtures remain.
+
+## 2026-11-13 SERA v323
+刀2段目専用の剣閃方向補正と0.20833秒の振り始め同期。原本キーは保持。ローカルGodot 4.6.3で検査、Android外観未確認。

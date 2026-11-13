@@ -224,3 +224,5 @@ py tools/v321_run_camera_katana_material_self_check.py
 gd tools/v321_run_camera_katana_material_runtime_check.gd
 py tools/v322_katana_swordeffect_import_self_check.py
 gd tools/v322_katana_swordeffect_import_runtime_check.gd
+
+gd tools/v323_katana2_fx_runtime_check.gd
