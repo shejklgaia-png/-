@@ -46,8 +46,12 @@ assert "q = _face_locked_boss_with_waist(q, facing_weight)" in lock
 assert "blended_rotation = (facing * blended_rotation).normalized()" in rig
 assert "var gaze := Quaternion(Vector3.UP, run_upper_yaw_offsets[part_index])" in rig
 assert 'rig.call("set_moving", show_moving_pose, show_boost_pose,' in main
-assert "world_move.dot(target_forward.cross(Vector3.UP))" in main
-assert "world_move.dot(target_forward)" in main
+motion = (R / "scripts/sera_motion_direction.gd").read_text(encoding="utf-8")
+assert "var local_run_direction: Vector2 = MOTION_DIRECTION.local_run_direction(" in main
+assert "world_move, target_forward, -player.global_transform.basis.z)" in main
+assert "world_move.dot(facing.cross(Vector3.UP))" in motion
+assert "world_move.dot(facing)" in motion
+assert "if facing.length_squared() < 0.000001:" in motion
 assert "player.look_at(player.global_position + aim, Vector3.UP)" in main
 assert 'rig.call("finish_attack", false, jump_active and not damage_reaction_active)' in main
 
