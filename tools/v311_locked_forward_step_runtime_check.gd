@@ -27,11 +27,14 @@ func _run() -> void:
     game.set("manual_part_lock_active",true)
     game.set("locked_target_part_id","")
     game.set("auto_lock_initialized",false)
+    # Training boss is not at world origin; every probe is relative
+    # to the REAL selected BODY target, not an assumed (0,0,0).
+    var center: Vector3 = target.global_position
     var probes: Array[Vector3] = [
-        Vector3(0.0,0.0,9.0),  # toward -Z; world right is local right
-        Vector3(9.0,0.0,0.0),  # toward -X; world right is local back
-        Vector3(-9.0,0.0,0.0), # toward +X; world right is local front
-        Vector3(0.0,0.0,-9.0)  # toward +Z; world right is local left
+        Vector3(center.x,0.0,center.z+9.0),  # right relative to -Z
+        Vector3(center.x+9.0,0.0,center.z),  # back relative to -X
+        Vector3(center.x-9.0,0.0,center.z),  # front relative to +X
+        Vector3(center.x,0.0,center.z-9.0)   # left relative to +Z
     ]
     var expected_axes: Array[Vector2] = [
         Vector2.RIGHT,Vector2.DOWN,Vector2.UP,Vector2.LEFT
@@ -92,7 +95,7 @@ func _run() -> void:
 
     # Without lock, retain v310's screen cardinal selection even if SERA
     # is standing at the side of the boss.
-    player.position=Vector3(9.0,0.0,0.0)
+    player.position=Vector3(center.x+9.0,0.0,center.z)
     game.set("manual_part_lock_active",false)
     game.set("auto_lock_enabled",false)
     game.set("auto_lock_initialized",false)
@@ -109,7 +112,7 @@ func _run() -> void:
 
     # A selected limb changes the forward axis relative to body center.
     game.set("manual_part_lock_active",true)
-    player.position=Vector3(4.0,0.0,5.0)
+    player.position=Vector3(center.x+4.0,0.0,center.z+5.0)
     game.set("locked_target_part_id","")
     var body_dir: Vector2=game.call("_step_motion_direction",
         Vector3.RIGHT,Vector2.RIGHT)
