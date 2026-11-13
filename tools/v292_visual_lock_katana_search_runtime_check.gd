@@ -68,13 +68,16 @@ func _run() -> void:
     game.set("gesture_active",false)
     game.set("target_hp",500)
     game.set("combat_state",0)
+    game.set("auto_lock_enabled",false)
+    game.set("manual_part_lock_active",true)
+    game.set("locked_target_part_id","head")
     game.call("_physics_process",0.016)
     var actual_forward: Vector3 = -player.global_transform.basis.z
     actual_forward.y=0.0
-    var expected: Vector3 = target.global_position-player.global_position
+    var expected: Vector3 = parts.call("get_part_aim_world","head")-player.global_position
     expected.y=0.0
     if actual_forward.normalized().dot(expected.normalized()) < 0.999:
-        _fail("SERA collision root no longer points toward whole boss")
+        _fail("SERA collision root does not face the locked HEAD")
         return
 
     # v305: a paired SERA-origin selection changes immediately, even from
@@ -87,6 +90,8 @@ func _run() -> void:
     if preferred != "head":
         _fail("dual SERA segments did not select frontal HEAD")
         return
+    game.set("auto_lock_enabled",true)
+    game.set("manual_part_lock_active",false)
     game.set("locked_target_part_id","")
     game.set("auto_lock_initialized",false)
     game.call("_acquire_stable_camera_part",0.016,false)
