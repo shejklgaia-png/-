@@ -2357,3 +2357,5 @@
 - v331のコントローラー色ガイドがセラのモデルの見た目と一致しない実機画像を受領。原因は`flick_direction_policy.projected_forward`が衝突用`CharacterBody3D`の進行/敵ロック方向を見ていた一方、表示中のHead/Chest/Waistに独立したアニメーションYaw（RUN時Waist yawと頭部ターゲット追跡）が適用されていたこと。
 - `sera_rig.get_visible_facing_pivot`で、実表示Headのグローバル前方向を基本とし、ほぼ垂直になった場合のみChest→Waistへフォールバック。UIと実際のバッシュ/蹴り判断が`main._projected_sera_facing`を共通利用するため、表示・判定が別の基準へずれることを防ぐ。
 - カメラ/移動/着地/キーを変更せず、タッチ時軸は凍結・通常RUNのガイドのみ毎描画更新。新規実Godot回帰で実アニメーション中の投影を比較、CIを維持。
+
+- CI互換性：v255/v257/v264/v329/v331の静的検査は過去の「直接CharacterBody3Dを投影する」という実装詳細を期待していた。視覚ピボットを使う新しい単一ヘルパーへ期待値を更新。v332 Godot試験ではタッチ開始の`gesture_screen_forward`と赤いセクターの一致も確認。

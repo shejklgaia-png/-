@@ -74,6 +74,15 @@ func _run() -> void:
     if live.distance_to(visual) > 0.003:
         _fail("RUN's live visual direction not reflected in input")
         return
+    # Touch-down must sample the visual axis, not merely the pure helper.
+    game.call("_begin_drag", Vector2(365.0, 950.0))
+    if (game.get("gesture_screen_forward") as Vector2).distance_to(live) > 0.003:
+        _fail("touch-start input did not capture visible orientation")
+        return
+    if (touch.get("flick_sector_forward") as Vector2).distance_to(live) > 0.003:
+        _fail("touch-start red-sector orientation differs from input")
+        return
+    game.call("_end_drag", Vector2(365.0, 950.0))
     print("PASS v332 animated head projection, controller and combo sectors agree")
     game.queue_free()
     await process_frame

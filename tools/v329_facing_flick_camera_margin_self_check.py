@@ -4,7 +4,7 @@ import re
 r=Path(__file__).resolve().parents[1]
 m=(r/"scripts/main.gd").read_text()
 i=(r/"scripts/sera_input_gestures.gd").read_text()
-assert 'gesture_screen_forward = FLICK_DIRECTION_POLICY.projected_forward(camera, player)' in m
+assert 'gesture_screen_forward = _projected_sera_facing()' in m
 assert 'displacement, seconds, gesture_screen_forward,' in m
 assert 'displacement, gesture_screen_forward, STEP_FLICK_MAX_HORIZONTAL_RATIO' in m
 assert 'release_pos - pointer_origin, gesture_screen_forward)' in m
