@@ -17,21 +17,31 @@ project = read("project.godot")
 version = re.search(r'config/name="SERA v([0-9]+)"', project)
 assert version is not None and int(version.group(1)) >= 210
 
-# Backward input: use the requested motion, not the velocity after collision.
+# Backward input: use the committed world motion, not collision-blocked velocity.
+steer = read("scripts/sera_nozzle_steering.gd")
 for needle in (
-    "var backstroke_weight: float = 0.0",
-    "if stepping_this_frame:",
-    "backstroke_weight = clampf(step_world_rear.dot(",
-    "player.global_transform.basis.z), 0.0, 1.0)",
-    "backstroke_weight = clampf(step_flick_this_frame.y, 0.0, 1.0)",
-    "step_side_this_frame == STEP_BACK and step_flick_this_frame.is_zero_approx()",
-    "elif boost_exhaust or boost_pose_exhaust:",
-    "var intended_boost: Vector3 = _screen_drag_to_ground(direction_input)",
-    "player.global_transform.basis.z), 0.0, 1.0)",
+    "var backstroke_weight: float = NOZZLE_STEERING.backstroke_weight(",
+    "stepping_this_frame, step_linear_fallback, step_linear_offset,",
+    "step_flick_this_frame, step_side_this_frame, STEP_BACK,",
+    "somersault_this_frame, back_somersault_launched,",
+    "boost_exhaust, boost_pose_exhaust, intended_boost,",
+    "player.global_transform.basis.z, held_boost_backstroke_weight)",
+    "intended_boost = _screen_drag_to_ground(direction_input)",
     "direction_of_exhaust.normalized(), delta, backstroke_weight,",
     "var step_flick_this_frame: Vector2 = step_flick_direction",
 ):
     assert needle in main, needle
+for needle in (
+    "if stepping:",
+    "step_linear_fallback and step_linear_offset.length_squared() > 0.000001",
+    "weight = clampf(step_world_rear.dot(actor_rear), 0.0, 1.0)",
+    "weight = clampf(step_flick.y, 0.0, 1.0)",
+    "step_side == step_back and step_flick.is_zero_approx()",
+    "elif boost_exhaust or boost_pose_exhaust:",
+    "weight = clampf(intended_boost.normalized().dot(actor_rear), 0.0, 1.0)",
+    "weight = held_boost_weight",
+):
+    assert needle in steer, needle
 assert "var boost_exhaust: bool = movement_boost_active and running" in main
 
 # End-to-end transport: controller -> rig -> selected equipment -> real pivots.
