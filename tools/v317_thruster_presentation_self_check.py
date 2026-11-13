@@ -13,7 +13,9 @@ for field in ("held_boost_exhaust_direction", "held_boost_backstroke_weight",
               "held_boost_left_sector_world"):
     assert f"var {field}:" in module, field
     assert f"var {field}:" not in main, field
-    assert f"thruster_presentation.{field}" in main, field
+    if field != "held_boost_left_sector_world":
+        # The left-sector cache is private: only the new helper uses it.
+        assert f"thruster_presentation.{field}" in main, field
 for forbidden in ("get_tree(", "get_node(", "get_viewport(", "touch_ui", "part_stats",
                   "static var ", "FileAccess", "Array.new(", "Dictionary.new(",
                   "_screen_drag_to_ground(", "rig.new(", "add_child("):
