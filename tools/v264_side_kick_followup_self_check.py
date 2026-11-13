@@ -69,9 +69,9 @@ require("kick state cleaned at STEP finish",
 require("Bash and manual movement logic retained",
         "func _request_combo_bash()" in main
         and "func screen_step_direction" in flick)
-require("ordinary dodge is 7m/15m/s while combo kick keeps 3m/10m/s",
-        "const STEP_MIN_ARC_LENGTH: float = 7.0" in main
-        and "const STEP_MAX_ARC_LENGTH: float = 7.0" in main
+require("ordinary dodge is 5m/15m/s while combo kick keeps 3m/10m/s",
+        "const STEP_MIN_ARC_LENGTH: float = 5.0" in main
+        and "const STEP_MAX_ARC_LENGTH: float = 5.0" in main
         and "const STEP_SPEED: float = 15.0" in main
         and "const SIDE_KICK_STEP_SPEED: float = 10.0" in main
         and "const SIDE_KICK_BOOST_DISTANCE: float = 3.0" in main)
