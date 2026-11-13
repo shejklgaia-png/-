@@ -197,3 +197,5 @@ py tools/v317_combat_timers_self_check.py
 gd tools/v317_combat_timers_runtime_check.gd
 py tools/v317_hit_fx_presentation_self_check.py
 gd tools/v317_hit_fx_presentation_runtime_check.gd
+py tools/v317_target_lifecycle_self_check.py
+gd tools/v317_target_lifecycle_runtime_check.gd
