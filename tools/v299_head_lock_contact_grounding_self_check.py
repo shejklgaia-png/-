@@ -35,8 +35,8 @@ body = target.split('func _camera_center_line_body_distance(',1)[1].split(
 assert 'core_mesh.mesh is BoxMesh' in body
 assert 'core_mesh.to_local(camera_origin)' in body
 assert 'contact_world' in body
-select = target.split('func select_camera_center_line_part(',1)[1].split(
-    '# v293 legacy orbital selector',1)[0]
+select = target.split('func select_actor_center_line_part(',1)[1].split(
+    '# Read-only legacy camera-origin APIs',1)[0]
 assert 'var closest: float = _camera_center_line_body_distance(' in select
 assert 'if distance < closest:' in select
 
