@@ -105,13 +105,13 @@ func _run() -> void:
     target.rotation.y = 0.0
     body_center = target.global_position
 
-    # Broken heads never become valid targets through the padded region.
+    # v319: the same head geometry is attackable after its break.
     overhead_point = pivot.to_global(Vector3(
         0.0, dimensions.y * 0.5 + 0.6, 0.0))
     _place_along(camera,body_center,overhead_point)
     head["broken"] = true
-    if _pick(parts,camera,body_center) != "":
-        _fail("broken overhead head should fall back to BODY")
+    if _pick(parts,camera,body_center) != "head":
+        _fail("broken overhead head lost its retained lock volume")
         return
     head["broken"] = false
 
