@@ -49,6 +49,13 @@ jobs:
           mkdir -p "$RUNNER_TEMP/godot"
           unzip -q "$RUNNER_TEMP/godot.zip" -d "$RUNNER_TEMP/godot"
           chmod +x "$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64"
+      # Git does not track .godot caches; speed up unchanged resource imports
+      # without reintroducing editor-specific generated files to GitSync.
+      - name: Cache Godot imported resources
+        uses: actions/cache@v4
+        with:
+          path: .godot/imported
+          key: sera-godot472-${{ runner.os }}-${{ hashFiles('project.godot', 'assets/**', 'models/**', 'blockbench/**', 'BGM/**', 'shaders/**') }}
       - name: Import SERA resources in real Godot 4.7.2
         run: '"$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" --headless --editor --path . --import --quit'
       - name: Verify all registered real-Godot regressions (isolated, parallel)
