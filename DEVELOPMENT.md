@@ -2243,3 +2243,13 @@
 - 通常移動の水平Yawに22°の左右余白を追加し、余白を越えた角度には従来の追従レート10/sで反応。前後移動・ズーム・フォーカスの通常感度は維持。
 - 近接追尾の連打（通常3段／Katana／Bash／左右・後方フリック／ループ再入力待ち）をひとつのカメラ状態として保持。フォーカスは15→27/s、Yawは10→20/sへ0.65秒で段階的に加速し、連打終了から0.18秒で連続的に通常モードへ復帰。衝突スイープ・スラスター・モーションは変更なし。
 - 現行STEP契約をv318仕様へ更新し、旧版の履歴テストは新仕様参照へ改める。Android実機での見た目と操作感は別途確認が必要。
+
+
+## 2026-11-14 — v318 リポジトリ最終整理（実行時ファイルは不変）
+
+- `README_v318_ja.md` だけをルートに残し、旧バージョン `README_vNNN_ja.md` 288件を `docs/history/release_notes/` へ移動。旧版 `README_ja.md` を同フォルダの `README_legacy_ja.md` に保存。すべてGitのblob SHAは同一で、歴史的な内容を編集していません。
+- `README.md` と `README_ja.md` は現行v318、開発ルール、モデル原本、リリースノートへの入口に更新。
+- 完了済みのGitSync確認マーカー `SERA_AUTOSYNC_TEST.txt`、`SERA_SAFE_SYNC_TEST.txt`、`SYNC_PROBE_20261107_STAMINA.txt` を削除。 `models/storage/.trashed-1796821878-頭C.bbmodel` は `models/storage/頭C (2)_20261109_222329_691.bbmodel` とGit blobが同じため削除。6つのモデル正本、生成埋込資産、歴史的な異内容モデル、Godot `*.import` メタデータ、既存CIテストを保持。
+- `docs/SERA_REPOSITORY_LAYOUT_ja.md` を作成し、今後の開発ファイル・モデル・リリースノートの置き場所と削除判定を明文化。 `AGENTS.md`、`docs/SERA_DEVELOPMENT_FASTPATH_ja.md`、`docs/SERA_MEMORY_INDEX.md`、`.gitignore` を新配置へ追従。
+- `tools/sera_repository_layout_self_check.py` をCIに登録。現行版READMEのルート正本、履歴保存、旧プローブ排除、モデル正本保護、開発案内を検査。ゲーム名称SERA v318、入力、衝突、モデル・モーション原本の内容、エフェクト、エンジン設定、実行スクリプトは変更しません。
+- 旧版READMEへのGitHub URLは移動後の新しいパスに変わります。Android端末に古い版のREADMEを手元に保持している場合はGit同期で新旧の配置差が発生します。CIの成功だけで端末内GitSync状態まで検証したとは扱いません。
