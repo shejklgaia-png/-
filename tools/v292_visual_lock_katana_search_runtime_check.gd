@@ -77,9 +77,8 @@ func _run() -> void:
         _fail("SERA collision root no longer points toward whole boss")
         return
 
-    # v303: first paired SERA-origin selection remains immediate.
-    # A stale old limb now requires 0.22s stable overlap before switching,
-    # so crossing gaps between mesh plates cannot cause a one-tick flicker.
+    # v305: a paired SERA-origin selection changes immediately, even from
+    # an already-initialized old limb; no confirmation frames remain.
     camera.global_position = target.global_position + Vector3(0.0,-2.0,10.0)
     camera.look_at(target.global_position,Vector3.UP)
     player.global_position = camera.global_position
@@ -99,12 +98,8 @@ func _run() -> void:
     game.set("auto_lock_pending_part","")
     game.set("auto_lock_pending_elapsed",0.0)
     game.call("_acquire_stable_camera_part",0.016,false)
-    if str(game.get("locked_target_part_id")) != "leg_rr":
-        _fail("transient gap changed stale limb without 0.22s confirmation")
-        return
-    game.call("_acquire_stable_camera_part",0.23,false)
     if str(game.get("locked_target_part_id")) != "head":
-        _fail("sustained paired HEAD candidate did not replace stale limb")
+        _fail("paired HEAD candidate did not replace stale limb immediately")
         return
 
     print("GODOT_V292_VISUAL_LOCK_PASS: fixed SERA yaw, stable part selection and unchanged authored attack clips")
