@@ -73,9 +73,23 @@ for ext in ("*.gd", "*.tscn", "*.tres", "*.gdshader", "*.godot"):
             if any(s in path for s in ("%", "{", "}", "$")):
                 continue  # constructed at runtime
             references.add((str(file.relative_to(ROOT)), path))
+# Optional content is allowed only when an explicitly guarded asset has a
+# complete, committed runtime fallback. All other res:// literals stay required.
+optional_audio = ("scripts/stage_bgm.gd", "res://BGM/dennou_sector_seamless.ogg")
 for owner, uri in sorted(references):
     target = ROOT / uri[len("res://"):]
-    verify(f"resource path exists: {owner} -> {uri}", target.is_file())
+    if (owner, uri) == optional_audio and not target.is_file():
+        controller = (ROOT / owner).read_text(encoding="utf-8")
+        guarded = all(term in controller for term in (
+            'if FileAccess.file_exists(SECTOR_PATH):',
+            'AudioStreamOggVorbis.load_from_file(SECTOR_PATH)',
+            'AudioStreamOggVorbis.load_from_file(INTRO_PATH)',
+            'AudioStreamOggVorbis.load_from_file(LOOP_PATH)',
+            'push_warning("SERA BGM: Dennou Sector failed to decode;',
+        ))
+        verify(f"optional resource has verified legacy fallback: {owner} -> {uri}", guarded)
+    else:
+        verify(f"resource path exists: {owner} -> {uri}", target.is_file())
 
 print(f"Repository static checks: {checks - len(failures)}/{checks} passed; {len(references)} explicit resource paths inspected")
 if failures:

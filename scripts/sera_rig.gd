@@ -80,11 +80,6 @@ const JUMP_CLIP: String = "Jump"
 const BACK_SOMERSAULT_CLIP: String = "Kick_b"  # optional authored source; fallback is the existing Jump pose  # takeoff/ascent/descent then a new landing key
 const JUMP_AIR_CLIP_END: float = 0.375  # old final fall key; flight ends here
 const JUMP_LANDING_CLIP_END: float = 0.500  # new final landing key
-# v319: brief, partial authored landing accent before the idle->RUN gait.
-# Never play the complete landing key or delay actual CharacterBody movement.
-const IDLE_TO_RUN_LANDING_SECONDS: float = 0.11
-const IDLE_TO_RUN_LANDING_POSE_FRACTION: float = 0.45
-const IDLE_TO_RUN_LANDING_WEIGHT: float = 0.62
 const JUMP_FALL_CLIP_START: float = 0.20833 / JUMP_AIR_CLIP_END
 const DAMAGE_CLIP: String = "Damageknock"
 const GUARD_CLIP: String = "Guard"
@@ -170,8 +165,6 @@ var run_turn_lean_degrees: float = 0.0
 var run_turn_previous_direction: Vector2 = Vector2.ZERO
 var blending_for: float = BLEND_SECONDS
 var blend_duration: float = BLEND_SECONDS
-# -1 means inactive. This visual bridge only starts on WAIT -> normal RUN.
-var idle_to_run_landing_elapsed: float = -1.0
 # Apply ease-in/out only to the targeted BOOST -> RUN 0.20s transition.
 var boost_to_run_crossfade: bool = false
 var combat_playback: bool = false
@@ -1120,12 +1113,7 @@ func _build_katana_second_strike() -> void:
 func _switch_clip(wanted: String, fade_seconds: float) -> void:
     if wanted == current_clip or not animations.has(wanted):
         return
-    # Only an ordinary stand->walk transition gets the short landing accent;
-    # never trigger it after jump, somersault, melee, guard or a STEP.
-    var begin_idle_to_run_landing: bool = (
-        current_clip == WAIT_CLIP and wanted == RUN_CLIP
-        and not step_playback and not combat_playback and not jump_playback
-        and not damage_playback and not guard_playback)
+    # WAIT -> RUN uses the normal crossfade; never sample the airborne Jump pose.
     # Capture BOOST -> RUN intent BEFORE changing current_clip. If a new
     # BOOST starts during the fade, _switch_clip resets this flag immediately.
     boost_to_run_crossfade = (current_clip == BOOST_CLIP and wanted == RUN_CLIP)
@@ -1140,7 +1128,6 @@ func _switch_clip(wanted: String, fade_seconds: float) -> void:
         prior_scales[uid] = pivot.scale
     attack_windup_active = false
     current_clip = wanted
-    idle_to_run_landing_elapsed = 0.0 if begin_idle_to_run_landing else -1.0
     # Reset RUN's cached travel heading at the transition, not later in
     # _process(): a complete melee can begin/end between render frames.
     # Without this, the first RUN after a strike inherits its old bearing.
@@ -1942,12 +1929,6 @@ func clip_finished(name: String) -> bool:
 func _process(delta: float) -> void:
     if not loading_ok or training_ko_active:
         return
-    var beginning_run: bool = (current_clip == RUN_CLIP
-        and idle_to_run_landing_elapsed >= 0.0
-        and idle_to_run_landing_elapsed < IDLE_TO_RUN_LANDING_SECONDS)
-    if beginning_run and not combat_paused:
-        idle_to_run_landing_elapsed = minf(IDLE_TO_RUN_LANDING_SECONDS,
-            idle_to_run_landing_elapsed + maxf(delta, 0.0))
     if attack_windup_active and not combat_paused and current_clip == attack_windup_clip:
         # Reverse within 0..windup_end instead of restarting at frame zero.
         # This continuously loops the real windup keys without a snap at wrap.
@@ -1962,8 +1943,7 @@ func _process(delta: float) -> void:
                 equipment_reaction_speed if current_clip == GUARD_REACTION_CLIP else 1.0))
         if current_clip == side_kick_clip_name:
             playback_rate = side_kick_playback_scale
-        if not beginning_run:
-            clip_time += delta * playback_rate
+        clip_time += delta * playback_rate
     if guard_reaction_playing() and clip_time >= float(animations[GUARD_REACTION_CLIP]["length"]):
         # The authored clip is tagged loop, but each guarded hit plays once.
         _switch_clip(GUARD_CLIP, 0.075)
@@ -2024,14 +2004,8 @@ func _process(delta: float) -> void:
                 and not damage_playback:
             # Keep the previous contact height between touches; sample a new
             # lowest-foot position only at the next foot_contact sound event.
-            if idle_to_run_landing_elapsed >= 0.0 \
-                    and idle_to_run_landing_elapsed < IDLE_TO_RUN_LANDING_SECONDS:
-                # The standing-to-gait accent is not a RUN touchdown event.
-                equipment_handler.call("clear_run_contact_height")
-                reset_foot_contacts()
-            else:
-                equipment_handler.call("restore_run_contact_height")
-                _update_foot_contacts(delta)
+            equipment_handler.call("restore_run_contact_height")
+            _update_foot_contacts(delta)
         else:
             equipment_handler.call("clear_run_contact_height")
             reset_foot_contacts()
@@ -2284,26 +2258,6 @@ func _apply_animation(_delta: float) -> void:
             q = (prior_rotations[uid] as Quaternion).slerp(q, blend_weight)
             translation = (prior_offsets[uid] as Vector3).lerp(translation, blend_weight)
             scale_value = (prior_scales[uid] as Vector3).lerp(scale_value, blend_weight)
-        if running_pose and idle_to_run_landing_elapsed >= 0.0 \
-                and idle_to_run_landing_elapsed < IDLE_TO_RUN_LANDING_SECONDS:
-            # Sample only 45% of the authored landing segment, never the
-            # completed landing pose. A bell-shaped weight blends in/out
-            # before normal RUN playback starts at its first gait key.
-            var landing_progress: float = clampf(
-                idle_to_run_landing_elapsed / IDLE_TO_RUN_LANDING_SECONDS,
-                0.0, 1.0)
-            var landing_weight: float = IDLE_TO_RUN_LANDING_WEIGHT * sin(
-                PI * landing_progress)
-            var landing_sample_time: float = lerpf(
-                JUMP_AIR_CLIP_END, JUMP_LANDING_CLIP_END,
-                IDLE_TO_RUN_LANDING_POSE_FRACTION)
-            var partial_landing: Dictionary = _sample_step_clip_pose(
-                JUMP_CLIP, str(uid), landing_sample_time)
-            q = q.slerp(partial_landing["rotation"], landing_weight).normalized()
-            translation = translation.lerp(
-                partial_landing["position"], landing_weight)
-            scale_value = scale_value.lerp(
-                partial_landing["scale"], landing_weight)
         if uid == RUN_ROOT_BONE_UUID and (
                 current_clip == BOOST_CLIP
                 or (step_playback and directional_step_active)):

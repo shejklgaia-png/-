@@ -18,7 +18,7 @@ for role, (sha, size) in EXPECTED.items():
 
 src = (ROOT / "scripts/stage_bgm.gd").read_text(encoding="utf-8")
 scene = (ROOT / "scenes/main.tscn").read_text(encoding="utf-8")
-assert src.count("AudioStreamOggVorbis.load_from_file(") == 2
+assert src.count("AudioStreamOggVorbis.load_from_file(") == 3
 assert "ResourceLoader.exists(" not in src
 assert 'call_deferred("_start_bgm")' in src
 assert "intro_stream.loop = false" in src

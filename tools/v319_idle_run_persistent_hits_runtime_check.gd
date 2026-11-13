@@ -1,5 +1,5 @@
 extends SceneTree
-## Real Godot scene check: partial landing before RUN and continuous hits
+## Real Godot scene check: direct idle-to-RUN and continuous hits
 ## on broken modules and a shared boss HP already clamped to zero.
 func _initialize() -> void:
     call_deferred("_run")
@@ -28,33 +28,27 @@ func _run() -> void:
         _fail("authored animation rig failed to load")
         return
 
-    # WAIT -> normal RUN holds the first gait key while partial landing
-    # contributes a short bell-shaped accent. The complete landing stays
-    # exclusive to actual airborne actions.
+    # WAIT -> RUN must start the authored gait immediately; no Jump landing
+    # pose may contribute. Actual jump/somersault landing remains separate.
     rig.call("set_moving", false)
     rig.call("set_moving", true, false, Vector2.UP, false)
     if str(rig.get("current_clip")) != "run_front_original" \
-            or absf(float(rig.get("idle_to_run_landing_elapsed"))) > 0.00001:
-        _fail("ordinary stand->RUN did not start landing accent")
+            or absf(float(rig.get("clip_time"))) > 0.00001:
+        _fail("ordinary stand->RUN failed to choose the RUN clip")
         return
     rig.call("_process", 0.05)
-    if absf(float(rig.get("idle_to_run_landing_elapsed")) - 0.05) > 0.0001 \
-            or absf(float(rig.get("clip_time"))) > 0.0001:
-        _fail("partial landing accent advanced the RUN gait early")
+    if float(rig.get("clip_time")) < 0.08:
+        _fail("stand->RUN gait was held back by an extra landing phase")
         return
+    var elapsed_after_first: float = float(rig.get("clip_time"))
     rig.call("_process", 0.06)
-    if absf(float(rig.get("idle_to_run_landing_elapsed")) - 0.11) > 0.0001:
-        _fail("stand->RUN accent did not finish at 110ms")
-        return
-    rig.call("_process", 0.03)
-    if float(rig.get("clip_time")) <= 0.0:
-        _fail("RUN gait did not begin after the short accent")
+    if float(rig.get("clip_time")) <= elapsed_after_first:
+        _fail("stand->RUN gait did not continue normally")
         return
     rig.call("set_moving", false)
     rig.call("set_moving", true, true, Vector2.UP, true)
-    if str(rig.get("current_clip")) != "Boost_front" \
-            or float(rig.get("idle_to_run_landing_elapsed")) >= 0.0:
-        _fail("the accent leaked into real BOOST")
+    if str(rig.get("current_clip")) != "Boost_front":
+        _fail("direct idle->RUN transition changed actual BOOST")
         return
 
     # The first strike should show full mitigated damage even when only
