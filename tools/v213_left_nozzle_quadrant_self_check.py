@@ -31,7 +31,8 @@ assert "screen_right, left_weight * 0.50).normalized()" in steer
 assert "_screen_drag_to_ground(Vector2.RIGHT).normalized()" in main
 assert "direction_of_exhaust.normalized(), delta, backstroke_weight," in main
 assert "left_sector_world, acceleration_burst, normal_attack_exhaust)" in main
-assert 'var backstroke_weight: float = 0.0' in main
+assert 'var backstroke_weight: float = NOZZLE_STEERING.backstroke_weight(' in main
+assert 'weight = clampf(intended_boost.normalized().dot(actor_rear), 0.0, 1.0)' in steer
 
 # All layers forward the same world-space vector to the authored physical nozzle.
 for file in (rig, equipment, fx):
