@@ -30,7 +30,13 @@ for token in ("if FileAccess.file_exists(KATANA_SECOND_AUTHORING_SOURCE)", "KATA
     assert token in importer, token
 assert "if animations.has(KATANA_SECOND_CLIP) or not animations.has(KATANA_CLIP):" in rig
 assert 'KATANA_SECOND_STRIKE_CLIP: String = "Melee_katana2"' in main
-assert "return 2 if _katana_equipped() else STRIKE_CLIPS.size()" in main
+# The 2-stage Katana rule now lives in the combat-flow module.
+flow = (root / "scripts/sera_combat_flow.gd").read_text(encoding="utf-8")
+count = main.split("func _strike_stage_count() -> int:", 1)[1].split(
+    "func _is_strike_finisher()", 1)[0]
+assert "COMBAT_FLOW.strike_stage_count(" in count
+assert "_katana_equipped(), STRIKE_CLIPS.size()" in count
+assert "return 2 if katana else regular_clip_count" in flow
 assert "const CAMERA_DISTANCE_SCALE: float = 0.60" in main
 assert "var camera_radius: float = CAMERA_BASE_RADIUS * CAMERA_DISTANCE_SCALE" in main
 assert "var camera_follow_radius: float = CAMERA_BASE_RADIUS * CAMERA_DISTANCE_SCALE" in main
