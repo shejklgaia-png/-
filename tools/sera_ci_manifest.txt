@@ -187,3 +187,5 @@ py tools/v317_lock_module_self_check.py
 gd tools/v317_lock_module_runtime_check.gd
 py tools/v317_combat_flow_self_check.py
 gd tools/v317_combat_flow_runtime_check.gd
+py tools/v317_camera_framing_self_check.py
+gd tools/v317_camera_framing_runtime_check.gd
