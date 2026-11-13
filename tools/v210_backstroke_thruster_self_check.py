@@ -25,7 +25,7 @@ for needle in (
     "step_flick_this_frame, step_side_this_frame, STEP_BACK,",
     "somersault_this_frame, back_somersault_launched,",
     "boost_exhaust, boost_pose_exhaust, intended_boost,",
-    "player.global_transform.basis.z, held_boost_backstroke_weight)",
+    "player.global_transform.basis.z, thruster_presentation.held_boost_backstroke_weight)",
     "intended_boost = _screen_drag_to_ground(direction_input)",
     "direction_of_exhaust.normalized(), delta, backstroke_weight,",
     "var step_flick_this_frame: Vector2 = step_flick_direction",
