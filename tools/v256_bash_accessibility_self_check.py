@@ -47,9 +47,12 @@ assert "BASH_FLICK_MAX_SECONDS, BASH_FLICK_MIN_FORWARD_PIXELS" in bash
 assert "BASH_FLICK_MIN_FORWARD_SPEED, STEP_FLICK_MAX_HORIZONTAL_RATIO" in bash
 assert "INPUT_GESTURES.step_flick(" in step
 assert "return FLICK_DIRECTION_POLICY.screen_step_direction(displacement)" in SERA_INPUT
-assert "if seconds <= 0.0 or seconds > STEP_FLICK_MAX_SECONDS:" in step
-assert "if distance < STEP_FLICK_MIN_HORIZONTAL:" in step
-assert "distance / seconds < STEP_FLICK_MIN_PIXELS_PER_SEC" in step
+assert "STEP_FLICK_MAX_SECONDS" in step
+assert "if seconds <= 0.0 or seconds > max_seconds:" in SERA_INPUT
+assert "STEP_FLICK_MIN_HORIZONTAL" in step
+assert "if distance < min_distance:" in SERA_INPUT
+assert "STEP_FLICK_MIN_PIXELS_PER_SEC" in step
+assert "distance / seconds < min_speed" in SERA_INPUT
 assert "const SECTOR_COUNT: int = 4" in policy
 assert "sector_index(displacement, screen_axis) == 0" in policy
 assert "return FLICK_DIRECTION_POLICY.is_flick(" in main
