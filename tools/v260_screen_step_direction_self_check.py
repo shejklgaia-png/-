@@ -35,10 +35,10 @@ assert "INPUT_GESTURES.step_flick(" in step
 assert "return FLICK_DIRECTION_POLICY.screen_step_direction(displacement)" in SERA_INPUT
 assert "gesture_screen_forward" not in step  # no camera-dependent step reclassification
 assert "gesture_screen_forward = FLICK_DIRECTION_POLICY.projected_forward(camera, player)" in start
-# v284 Bash, like STEP and kick inputs, uses screen-space classification.
-assert "displacement, Vector2.UP, STEP_FLICK_MAX_HORIZONTAL_RATIO" in guard
+# v329 Bash follows projected actor front; STEP stays screen relative.
+assert "displacement, gesture_screen_forward, STEP_FLICK_MAX_HORIZONTAL_RATIO" in guard
 assert "return FLICK_DIRECTION_POLICY.is_flick(" in bash
-assert "displacement, seconds, Vector2.UP," in bash
+assert "displacement, seconds, gesture_screen_forward," in bash
 assert "var guard_bash_requested: bool = _classify_recent_character_forward_flick()" in release
 assert "and _is_character_forward_flick(release_pos - pointer_origin, press_duration)" in release
 assert "if bash_requested and _request_combo_bash():" in release
@@ -86,7 +86,7 @@ for actor_heading in range(0,360,5):
     actor_axis=(math.sin(a),-math.cos(a))
     for label,(direction,expected) in dirs.items():
         assert screen_step(direction)==(direction[0]/120.,direction[1]/120.),(actor_heading,label)
-    # Bash now deliberately uses screen-UP, not the actor heading. Test STEP independence.
+    # Bash uses actor front; STEP remains independent of actor heading.
     assert classify(actor_axis,actor_axis)==0
     opposite=(-actor_axis[0],-actor_axis[1])
     assert classify(opposite,actor_axis)==2

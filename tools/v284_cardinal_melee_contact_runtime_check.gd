@@ -1,5 +1,5 @@
 extends SceneTree
-## Godot regression for absolute screen flicks and grounded-contact Kick_b.
+## Godot regression for actor facing and grounded-contact Kick_b.
 const HIT_TIME: float = 0.80 * (0.20833 / 0.79167)
 const FLIGHT_TIME: float = 0.80 - HIT_TIME
 
@@ -33,18 +33,18 @@ func _run() -> void:
         return
     for front in [Vector2.UP, Vector2.RIGHT, Vector2.DOWN, Vector2.LEFT]:
         game.set("gesture_screen_forward", front)
-        for heading in [Vector2.UP, Vector2.RIGHT, Vector2.DOWN, Vector2.LEFT]:
-            var expected: int = 1 if heading == Vector2.RIGHT else (
-                -1 if heading == Vector2.LEFT else (2 if heading == Vector2.DOWN else 0))
-            if int(game.call("_combo_kick_side_for_flick", heading)) != expected:
-                _fail("screen-fixed attack quadrant changed with actor facing")
+        var actor_right: Vector2 = Vector2(-front.y, front.x)
+        for heading in [[front, 0], [actor_right, 1],
+                [-front, 2], [-actor_right, -1]]:
+            if int(game.call("_combo_kick_side_for_flick", heading[0])) != int(heading[1]):
+                _fail("projected SERA-forward kick quadrant incorrect")
                 return
-    if not bool(game.call("_is_character_forward_flick", Vector2.UP * 70.0, 0.2)):
-        _fail("screen-UP Bash classifier did not accept a valid flick")
-        return
-    if bool(game.call("_is_character_forward_flick", Vector2.DOWN * 70.0, 0.2)):
-        _fail("screen-DOWN was mistaken for Bash")
-        return
+        if not bool(game.call("_is_character_forward_flick", front * 70.0, 0.2)):
+            _fail("SERA-forward Bash did not accept flick")
+            return
+        if bool(game.call("_is_character_forward_flick", -front * 70.0, 0.2)):
+            _fail("SERA-backward was mistaken for Bash")
+            return
     if absf(float(game.call("_melee3_flick_cancel_time")) - 0.675) > 0.00001:
         _fail("finisher cancel is not 50ms after the authored stroke")
         return

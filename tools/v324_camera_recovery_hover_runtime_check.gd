@@ -37,7 +37,9 @@ func _run() -> void:
                 return
         var recovered: float = game.get("camera_radius")
         var safe: float = game.call("_minimum_boost_camera_radius")
-        if recovered > safe + 0.6 or recovered > 16.0:
+        # v329: 20% actor-side protection may need >16m; judge
+        # recovery against the actual computed safe envelope instead.
+        if recovered > safe + 0.6:
             _fail("stationary camera remains too far: %s / safe %s" % [recovered, safe])
             return
         finals.append(recovered)
@@ -50,8 +52,9 @@ func _run() -> void:
     for i in range(180):
         game.set("camera_combat_hold_remaining", 1.0)
         game.call("_process", 1.0 / 60.0)
-    if float(game.get("camera_radius")) > 16.0:
-        _fail("combat hold latched the expanded radius")
+    var combat_safe: float = game.call("_minimum_boost_camera_radius")
+    if float(game.get("camera_radius")) > combat_safe + 0.6:
+        _fail("combat hold latched an excessive radius")
         return
     # Full hover cycle must not pump zoom, while both extrema stay framed.
     var min_radius: float = INF

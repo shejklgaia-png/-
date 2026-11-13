@@ -20,17 +20,17 @@ assert "BACK_SOMERSAULT_STRIKE_SECONDS: float" in m
 assert "BACK_SOMERSAULT_REAR_FLIGHT_SECONDS: float" in m
 assert "back_somersault_launched: bool = false" in m
 
-classification=SERA_INPUT.split("static func combo_kick_side(flick: Vector2) -> int:",1)[1].split("static func upward_jump_flick",1)[0]
-assert "flick, Vector2.UP" in classification
-assert "gesture_screen_forward" not in classification
+classification=SERA_INPUT.split("static func combo_kick_side(flick: Vector2,",1)[1].split("static func upward_jump_flick",1)[0]
+assert "flick, actor_screen_forward)" in classification
+assert "actor_screen_forward" in classification
 for token in ("1:", "2:", "3:", "return 1", "return 2", "return -1", "return 0"):
     assert token in classification
 bash=m.split("func _is_character_forward_flick(displacement: Vector2, seconds: float) -> bool:",1)[1].split(
     "func _classify_recent_character_forward_flick",1)[0]
-assert "displacement, seconds, Vector2.UP" in bash
+assert "displacement, seconds, gesture_screen_forward" in bash
 change=m.split("func _change_drag(pos: Vector2) -> void:",1)[1].split(
     "func _update_boost_gesture",1)[0]
-assert "displacement, Vector2.UP" in change
+assert "displacement, gesture_screen_forward" in change
 release=m.split("func _end_drag(release_pos: Vector2) -> void:",1)[1].split(
     "func _remember_jump_flick_sample",1)[0]
 assert release.index("_request_combo_side_kick(kick_flick_direction)")<release.index(
@@ -79,4 +79,4 @@ assert math.isclose(float(clips["Kick_b"]["length"]),0.79167,rel_tol=0.02)
 assert math.isclose(float(clips["Melee3"]["length"]),0.83333,rel_tol=0.001)
 print("V284_CARDINAL_MELEE_CONTACT_STATIC_PASS")
 
-assert "return INPUT_GESTURES.combo_kick_side(flick)" in m
+assert "return INPUT_GESTURES.combo_kick_side(flick, gesture_screen_forward)" in m
