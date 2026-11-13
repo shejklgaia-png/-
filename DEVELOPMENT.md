@@ -1,3 +1,13 @@
+# SERA v301 — ロック線分をカメラ→敵からセラ→敵へ変更（2026-11-13）
+
+- AUTOの選択だけ、`player.global_position`から`target.global_position`へ伸ばした線分と各部位実BoxMesh・HEAD不可視補助領域・BODY実BoxMeshとの交点を評価。セラに近い実交点が選ばれ、カメラ移動に依存しない。
+- BODY・頭・四脚を同列比較、0.22sヒステリシス、既選択部位が線分から外れた際の即時再取得、コンボ中ロック固定、MANUAL画面左右の切替、HUDカメラ投影は維持。
+- 対象関数 `_acquire_stable_camera_part` の歴史的関数名は互換性のため維持、内部はセラ起点の`select_actor_center_line_part`/`actor_center_line_hits_part`を呼び出す。カメラ起点のAPIはレガシー形状検査のみ。
+- `v301`新規Python＋Godot実行回帰を追加。歴史的v293/v296/v297/v298の統合チェックはカメラとセラを同じ線分始点へ配置して旧交差・安定化条件を検証。ゲーム挙動はカメラ非依存を検証。
+- Android実機は未検証。
+
+---
+
 # SERA v300 — 3/3/5m固定STEP、左右蹴りのロック部位円弧→直線、Kick_b 5m（2026-11-13）
 
 - 通常の360°STEPは前3m・左右3m・後5m。後ろ側の角度だけsmoothstepを用いて3〜5mに補間し、敵の距離による移動距離・速度の変動を停止（基本10m/s、装備倍率は継続）。
