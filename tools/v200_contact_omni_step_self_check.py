@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 """SERA v200: RUN contact-only grounding and 360-degree flick steps."""
 from pathlib import Path
+
+# v317 relocated pure math: validate the actual new code and main.gd facade.
+from pathlib import Path as _SplitPath
+SERA_INPUT = (_SplitPath(__file__).resolve().parents[1] / "scripts/sera_input_gestures.gd").read_text(encoding="utf-8")
+SERA_MOVEMENT = (_SplitPath(__file__).resolve().parents[1] / "scripts/sera_movement_math.gd").read_text(encoding="utf-8")
 import math
 import re
 from sera_active_contracts import load_active_specs, main_float_constant
@@ -43,10 +48,10 @@ assert 'boost_has_activated_this_gesture or jump_requested' in release
 assert 'if bash_requested and _request_combo_bash():' in release
 assert 'if _start_omni_step(flick_direction):' in release
 flick = main.split('func _classify_step_flick(displacement: Vector2, seconds: float) -> Vector2:',1)[1].split('func _start_omni_step(',1)[0]
-for substring in ('distance / seconds < STEP_FLICK_MIN_PIXELS_PER_SEC',
-                  'seconds > STEP_FLICK_MAX_SECONDS',
-                  'gesture_max_travel > distance * 1.20',
-                  'return FLICK_DIRECTION_POLICY.screen_step_direction(displacement)'):
+for substring in ('STEP_FLICK_MIN_PIXELS_PER_SEC',
+                  'STEP_FLICK_MAX_SECONDS',
+                  'gesture_max_travel',
+                  'INPUT_GESTURES.step_flick('):
     assert substring in flick
 assert "STEP_FLICK_MAX_HORIZONTAL_RATIO" not in flick
 assert "STEP_FLICK_MAX_VERTICAL_RATIO" not in flick
@@ -92,3 +97,9 @@ print("PASS v200: WAIT grounding, RUN contact-signal grounding, other poses base
 print("PASS v200/v262: full 360-degree STEP, continuous blend and swept collision")
 print("PASS v200: Step_L/Step_R/Backstep/Frontstep pose blend with fade")
 print("Android Godot runtime behavior not verified")
+
+
+assert 'INPUT_GESTURES.step_flick(' in _SplitPath(__file__).resolve().parents[1].joinpath("scripts/main.gd").read_text(encoding="utf-8")
+assert "return FLICK_DIRECTION_POLICY.screen_step_direction(displacement)" in SERA_INPUT
+for _gate in ("seconds > max_seconds", "distance < min_distance", "distance / seconds < min_speed", "max_travel > distance * 1.20"):
+    assert _gate in SERA_INPUT, _gate

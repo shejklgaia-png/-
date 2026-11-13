@@ -3,6 +3,11 @@
 import base64, json, re
 from pathlib import Path
 
+# v317 relocated pure math: validate the actual new code and main.gd facade.
+from pathlib import Path as _SplitPath
+SERA_INPUT = (_SplitPath(__file__).resolve().parents[1] / "scripts/sera_input_gestures.gd").read_text(encoding="utf-8")
+SERA_MOVEMENT = (_SplitPath(__file__).resolve().parents[1] / "scripts/sera_movement_math.gd").read_text(encoding="utf-8")
+
 R = Path(__file__).resolve().parents[1]
 def read(path): return (R/path).read_text(encoding="utf-8")
 main=read("scripts/main.gd")
@@ -20,8 +25,10 @@ assert "return screen_direction.normalized()" in helper
 local=main.split("func _step_local_pose_direction(world_direction: Vector3) -> Vector2:",1)[1].split(
     "func _step_motion_direction(",1)[0]
 assert "_locked_target_facing_direction()" in local
-assert "facing = -player.global_transform.basis.z" in local
-assert "world_unit.dot(right), -world_unit.dot(facing)" in local
+assert "-player.global_transform.basis.z" in local
+assert "facing = player_forward" in SERA_MOVEMENT
+assert "MOVEMENT_MATH.step_local_pose_direction(" in local
+assert "world_unit.dot(right), -world_unit.dot(facing)" in SERA_MOVEMENT
 start=main.split("func _start_omni_step(flick: Vector2) -> bool:",1)[1].split(
     "func _start_back_step()",1)[0]
 for marker in ('var direction: Vector2 = flick.normalized()',

@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 """v257 legacy reticle requirement reverted in v258; reticle UI stays intact."""
 from pathlib import Path
+
+# v317 relocated pure math: validate the actual new code and main.gd facade.
+from pathlib import Path as _SplitPath
+SERA_INPUT = (_SplitPath(__file__).resolve().parents[1] / "scripts/sera_input_gestures.gd").read_text(encoding="utf-8")
+SERA_MOVEMENT = (_SplitPath(__file__).resolve().parents[1] / "scripts/sera_movement_math.gd").read_text(encoding="utf-8")
 import re
 R=Path(__file__).resolve().parents[1]
 def read(p):return (R/p).read_text(encoding="utf-8")
@@ -23,7 +28,8 @@ release=m.split("func _end_drag(",1)[1].split("func _remember_jump_flick_sample(
 step=m.split("func _classify_step_flick(",1)[1].split("func _start_omni_step(",1)[0]
 assert "gesture_screen_forward = FLICK_DIRECTION_POLICY.projected_forward(camera, player)" in begin
 assert "gesture_screen_forward = FLICK_DIRECTION_POLICY.projected_forward(camera, player)" in release
-assert "return FLICK_DIRECTION_POLICY.screen_step_direction(displacement)" in step
+assert "INPUT_GESTURES.step_flick(" in step
+assert "return FLICK_DIRECTION_POLICY.screen_step_direction(displacement)" in SERA_INPUT
 assert "const SECTOR_COUNT: int = 4" in p
 assert "const BASH_FLICK_MAX_SECONDS: float = 0.42" in m
 assert "const STEP_FLICK_MAX_SECONDS: float = 0.24" in m

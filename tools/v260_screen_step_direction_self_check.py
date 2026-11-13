@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 """SERA v260: STEP gestures stay screen-cardinal regardless of actor/camera yaw."""
 from pathlib import Path
+
+# v317 relocated pure math: validate the actual new code and main.gd facade.
+from pathlib import Path as _SplitPath
+SERA_INPUT = (_SplitPath(__file__).resolve().parents[1] / "scripts/sera_input_gestures.gd").read_text(encoding="utf-8")
+SERA_MOVEMENT = (_SplitPath(__file__).resolve().parents[1] / "scripts/sera_movement_math.gd").read_text(encoding="utf-8")
 import math
 import re
 
@@ -26,7 +31,8 @@ release=main.split("func _end_drag(release_pos: Vector2) -> void:",1)[1].split("
 step=main.split("func _classify_step_flick(displacement: Vector2, seconds: float) -> Vector2:",1)[1].split("func _classify_combo_kick_flick(",1)[0]
 motion=main.split("func _start_omni_step(flick: Vector2) -> bool:",1)[1].split("func _start_back_step()",1)[0]
 bash=main.split("func _is_character_forward_flick(",1)[1].split("func _is_upward_jump_flick(",1)[0]
-assert "return FLICK_DIRECTION_POLICY.screen_step_direction(displacement)" in step
+assert "INPUT_GESTURES.step_flick(" in step
+assert "return FLICK_DIRECTION_POLICY.screen_step_direction(displacement)" in SERA_INPUT
 assert "gesture_screen_forward" not in step  # no camera-dependent step reclassification
 assert "gesture_screen_forward = FLICK_DIRECTION_POLICY.projected_forward(camera, player)" in start
 # v284 Bash, like STEP and kick inputs, uses screen-space classification.
