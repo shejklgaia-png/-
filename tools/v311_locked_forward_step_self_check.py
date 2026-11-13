@@ -16,7 +16,7 @@ version=int(re.search(r'config/name="SERA v(\d+)"',read("project.godot")).group(
 assert version >= 311
 helper=main.split("func _step_motion_direction(world_direction: Vector3,",1)[1].split(
     "# Kick sectors are fixed SCREEN",1)[0]
-assert "target_hp > 0" in helper
+assert "var has_lock: bool = (" in helper
 for marker in ("auto_lock_enabled","manual_part_lock_active","auto_lock_initialized",
                "locked_target_part_id.is_empty()"):
     assert marker in helper,marker
