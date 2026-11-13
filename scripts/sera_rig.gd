@@ -1369,7 +1369,7 @@ func set_moving(moving: bool, boosting: bool = false,
         _switch_clip(JUMP_CLIP, 0.0)  # ENTRY: no interpolation
         wait_to_run_landing_active = true
         clip_time = JUMP_AIR_CLIP_END  # only the authored landing section
-        blending_for = blend_duration  # ensure initial pose is fully sampled
+        blending_for = 1.0  # zero-duration ENTRY must weight authored pose 100%
         _apply_animation(0.0)
         equipment_handler.call("snap_grounded_sole_to_floor", true)
         return

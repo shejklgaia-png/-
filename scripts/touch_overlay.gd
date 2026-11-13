@@ -373,13 +373,13 @@ func _draw_flick_direction_sectors() -> void:
         var end_angle: float = center + FLICK_SECTOR_HALF_ARC
         var points: PackedVector2Array = PackedVector2Array()
         for k in range(FLICK_SECTOR_SLICES + 1):
-            var angle: float = lerpf(start_angle, end_angle,
+            var outer_angle: float = lerpf(start_angle, end_angle,
                 float(k) / float(FLICK_SECTOR_SLICES))
-            points.append(anchor_point + Vector2.RIGHT.rotated(angle) * outer)
+            points.append(anchor_point + Vector2.RIGHT.rotated(outer_angle) * outer)
         for k in range(FLICK_SECTOR_SLICES, -1, -1):
-            var angle: float = lerpf(start_angle, end_angle,
+            var inner_angle: float = lerpf(start_angle, end_angle,
                 float(k) / float(FLICK_SECTOR_SLICES))
-            points.append(anchor_point + Vector2.RIGHT.rotated(angle) * inner)
+            points.append(anchor_point + Vector2.RIGHT.rotated(inner_angle) * inner)
         draw_colored_polygon(points, colors[sector])
         var outline: Color = colors[sector]
         outline.a = minf(1.0, colors[sector].a * 2.0)

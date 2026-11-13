@@ -35,7 +35,8 @@ func _run() -> void:
     if (touch.get("flick_sector_forward") as Vector2).distance_to(Vector2.UP) > 0.0001:
         _fail("frozen combo input angle is not exact")
         return
-    touch.call("_draw_flick_direction_sectors") # draw path must execute
+    # Drawing is exercised by the CanvasItem's regular _draw callback;
+    # calling draw_colored_polygon outside _draw is invalid in Godot.
     touch.call("hide_drag")
 
     rig.call("set_moving", false)
@@ -48,7 +49,8 @@ func _run() -> void:
             or bool(rig.get("jump_playback")):
         _fail("WAIT did not immediately enter nonblocking landing")
         return
-    if float(rig.get("blend_duration")) != 0.0:
+    if float(rig.get("blend_duration")) != 0.0 \
+            or float(rig.get("blending_for")) < 0.99:
         _fail("landing ENTRY uses interpolation")
         return
     rig.call("_process", 0.10)
