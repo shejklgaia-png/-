@@ -110,6 +110,9 @@ const JUMP_FALL_CLIP_START: float = 0.20833 / 0.375
 const BACK_STEP_DISTANCE: float = 5.0
 const STEP_FORWARD_DISTANCE: float = 5.0
 const STEP_SIDE_DISTANCE: float = 5.0
+# v315: a launch displacement of up to 1m is included in the full 5m STEP.
+const STEP_LAUNCH_WARP_DISTANCE: float = 1.0
+const STEP_LAUNCH_FX_SECONDS: float = 0.05
 const STEP_SPEED: float = 15.0  # m/s, equipment-adjusted
 const SIDE_KICK_STEP_SPEED: float = 10.0  # preserve legacy combo kick timing
 # Legacy speed policy retained for historic tests, not called by STEP.
@@ -3219,6 +3222,7 @@ func _step_fixed_distance_for_direction(_direction: Vector2) -> float:
     return STEP_SIDE_DISTANCE
 
 
+# Touch flicks only: direct legacy back/side helpers and combo kicks are unchanged.
 func _start_omni_step(flick: Vector2) -> bool:
     if (guard_active or damage_reaction_active or landing_active
             or rig == null or not bool(rig.get("loading_ok"))
@@ -3317,6 +3321,26 @@ func _start_omni_step(flick: Vector2) -> bool:
             return false
     else:
         rig.call("start_omni_step", pose_direction)
+        # Snapshot both effects BEFORE the player moves, independent of the
+        # next physics tick's nozzle animation / afterimage emission.
+        rig.call("capture_step_launch_afterimage", STEP_LAUNCH_FX_SECONDS)
+        rig.call("spawn_step_launch_flare", world_step, STEP_LAUNCH_FX_SECONDS)
+        # A 'warp' is visually immediate, but its physical relocation is
+        # collision-swept. An obstructed launch cannot tunnel through a wall.
+        var launch_origin: Vector3 = player.global_position
+        _move_player_swept(world_step.normalized() * minf(
+            STEP_LAUNCH_WARP_DISTANCE, step_arc_length), false)
+        var actual_launch: Vector3 = player.global_position - launch_origin
+        var launch_distance: float = Vector2(
+            actual_launch.x, actual_launch.z).length()
+        # Keep the original 5m path and 15m/s clock. Advancing the clock by
+        # the launch fraction prevents the following tick from snapping back
+        # to the pre-warp interpolation point or counting a sixth meter.
+        step_traveled_distance = launch_distance
+        step_elapsed = step_duration_current * clampf(
+            launch_distance / maxf(step_arc_length, 0.0001), 0.0, 1.0)
+        if launch_distance > 0.00001:
+            player.reset_physics_interpolation()
     _refresh_step_status_ui()
     return true
 
