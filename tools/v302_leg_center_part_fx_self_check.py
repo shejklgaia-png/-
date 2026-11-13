@@ -12,8 +12,8 @@ assert re.search(r'config/name="SERA v302"',project)
 assert (R/"README_v302_ja.md").is_file()
 for label in ("leg_fl","leg_fr","leg_rl","leg_rr"):
     declaration=part.split('_add_part("'+label+'"',1)[1].split('100.0,',1)[0]
-    assert 'Vector3.ZERO,' in declaration,(label,declaration)
-    assert declaration.count("Vector3(")==2, (label,declaration)
+    assert 'Vector3(0.0, 0.0, 0.0),' in declaration,(label,declaration)
+    assert declaration.count("Vector3(")==3, (label,declaration)
 head=part.split('_add_part("head",',1)[1].split('100.0,',1)[0]
 assert 'Vector3(0.0, -0.03, 0.37)' in head
 assert 'return node.to_global(parts[id]["aim"])' in part
