@@ -14,6 +14,7 @@ const RESOURCE_RULES = preload("res://scripts/sera_resource_rules.gd")
 const LOCK_MANAGEMENT = preload("res://scripts/sera_lock_management.gd")
 const COMBAT_FLOW = preload("res://scripts/sera_combat_flow.gd")
 const COMBAT_TIMERS = preload("res://scripts/sera_combat_timers.gd")
+const HIT_FX_PRESENTATION = preload("res://scripts/sera_hit_fx_presentation.gd")
 const DEV_DIAGNOSTICS = preload("res://scripts/dev_diagnostics.gd")
 ## v84: Authored 3-stage Swordeffect atlas, exact board placement.
 ## v83: Three-stage tap melee combo; cancel 2 authored frames after follow-through.
@@ -1170,10 +1171,10 @@ func _advance_damage_knockback(delta: float) -> void:
 func _advance_projectile_hit_overlay(delta: float) -> void:
     if projectile_hit_overlay == null:
         return
-    projectile_hit_flash_remaining = maxf(0.0, projectile_hit_flash_remaining - delta)
-    var intensity: float = projectile_hit_flash_remaining / PROJECTILE_HIT_FLASH_SECONDS
-    projectile_hit_overlay.color = Color(1.0, 0.26, 0.15, 0.13 * intensity)
-    projectile_hit_overlay.visible = projectile_hit_flash_remaining > 0.0
+    projectile_hit_flash_remaining = COMBAT_TIMERS.remaining_after_delta(
+        projectile_hit_flash_remaining, delta)
+    HIT_FX_PRESENTATION.present_projectile_hit(
+        projectile_hit_overlay, projectile_hit_flash_remaining, PROJECTILE_HIT_FLASH_SECONDS)
 
 func _add_round_ground_shadow(node_name: String, owner: Node3D, local_position: Vector3) -> void:
     # Exactly the same size/color/thickness as v35's target floor circle.
@@ -2285,13 +2286,10 @@ func _spawn_sparks(world_hit: Vector3) -> void:
 func _advance_hit_fx(delta: float) -> void:
     # UI and particles continue during the manual 60 ms combat animation pause.
     if hit_flash_remaining > 0.0:
-        hit_flash_remaining = maxf(0.0, hit_flash_remaining - delta)
+        hit_flash_remaining = COMBAT_TIMERS.remaining_after_delta(hit_flash_remaining, delta)
     if target_material != null:
-        var ratio: float = hit_flash_remaining / HIT_FLASH_SECONDS
-        # Darken enemy on contact instead of duplicating the sparks' yellow.
-        target_material.albedo_color = Color("e53935").lerp(Color("632535"), ratio * 0.78)
-        target_material.emission_energy_multiplier = lerpf(0.08, 0.03, ratio)
-        target_material.emission = Color("a92724").lerp(Color("6b1727"), ratio)
+        HIT_FX_PRESENTATION.present_target_body_flash(
+            target_material, hit_flash_remaining, HIT_FLASH_SECONDS)
     # TargetBreakableParts is a CHILD of target_mesh. Moving/rotating
     # that parent on any BODY hit would wobble every head/leg together,
     # even though their materials and own pivots are otherwise isolated.
@@ -2305,21 +2303,21 @@ func _advance_hit_fx(delta: float) -> void:
     if hit_burst != null:
         hit_burst.call("advance", delta)
     if damage_popup_remaining > 0.0:
-        damage_popup_remaining = maxf(0.0, damage_popup_remaining - delta)
+        damage_popup_remaining = COMBAT_TIMERS.remaining_after_delta(
+            damage_popup_remaining, delta)
         if camera != null:
-            var screen_pt: Vector2 = camera.unproject_position(impact_origin + Vector3.UP * 0.28)
-            var lift: float = (0.58 - damage_popup_remaining) * 75.0
-            damage_label.position = screen_pt - Vector2(26.0, 30.0 + lift)
-            damage_label.modulate.a = minf(1.0, damage_popup_remaining / 0.17)
+            HIT_FX_PRESENTATION.present_damage_popup(
+                damage_label, camera, impact_origin, damage_popup_remaining)
     elif damage_label != null:
         damage_label.visible = false
-    incoming_damage_remaining = maxf(0.0, incoming_damage_remaining - delta)
+    incoming_damage_remaining = COMBAT_TIMERS.remaining_after_delta(
+        incoming_damage_remaining, delta)
     if incoming_damage_label != null and incoming_damage_label.visible:
-        incoming_damage_label.modulate.a = minf(1.0, incoming_damage_remaining / 0.18)
-        if incoming_damage_remaining <= 0.0:
-            incoming_damage_label.visible = false
+        HIT_FX_PRESENTATION.present_incoming_damage_popup(
+            incoming_damage_label, incoming_damage_remaining)
     if target_respawn_remaining > 0.0:
-        target_respawn_remaining = maxf(0.0, target_respawn_remaining - delta)
+        target_respawn_remaining = COMBAT_TIMERS.remaining_after_delta(
+            target_respawn_remaining, delta)
         if target_respawn_remaining <= 0.0 and _combo_lock_retention_active():
             # A full boss KO must not reset/erase the locked broken part
             # while a queued combo is still animating. Retry on next tick.
