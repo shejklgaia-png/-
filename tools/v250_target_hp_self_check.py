@@ -13,12 +13,27 @@ assert version_match and int(version_match.group(1)) >= 250
 assert (ROOT/"README_v250_ja.md").exists()
 assert 'const TARGET_MAX_HP: int = 500' in m
 assert 'var target_hp: int = TARGET_MAX_HP' in m
-assert m.count('target_hp = TARGET_MAX_HP')==2  # reset and respawn
+# v317 Stage9: KO recovery and timed respawn share exactly one reset body.
+assert m.count('target_hp = TARGET_MAX_HP') == 1
+assert 'func _reset_target_after_respawn() -> void:' in m
+ko = m.split('func _tick_training_ko(delta: float) -> void:', 1)[1].split(
+    'func _advance_target_motion(', 1)[0]
+respawn = m.split('func _tick_target_respawn(delta: float) -> void:', 1)[1].split(
+    'func _reset_target_after_respawn(', 1)[0]
+assert '_reset_target_after_respawn()' in ko
+assert '_reset_target_after_respawn()' in respawn
+assert 'TARGET_LIFECYCLE.respawn_action(' in respawn
 assert 'target_hp = maxi(0, target_hp - int(result["body_damage"]))' in m
 assert '"TARGET   %d / %d HP" % [target_hp, TARGET_MAX_HP]' in m
 assert 'TARGET_HP_BAR_WIDTH * float(target_hp) / float(TARGET_MAX_HP)' in m
 assert 'float(target_hp) / float(TARGET_MAX_HP) > 0.40' in m
-assert m.count('target_parts.call("reset_parts")')==2
+assert m.count('target_parts.call("reset_parts")') == 1
+reset = m.split('func _reset_target_after_respawn() -> void:', 1)[1].split(
+    'func _update_enemy_fire_eligibility(', 1)[0]
+assert 'target_hp = TARGET_MAX_HP' in reset
+assert 'target_parts.call("reset_parts")' in reset
+assert 'manual_part_lock_active = not auto_lock_enabled' in reset
+assert 'enemy_shooter.call("set_head_destroyed", false)' in reset
 
 match_pattern=re.compile(
     r'_add_part\("(head|leg_(?:fl|fr|rl|rr))", "[^"]+", '
