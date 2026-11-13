@@ -15,6 +15,7 @@ const LOCK_MANAGEMENT = preload("res://scripts/sera_lock_management.gd")
 const COMBAT_FLOW = preload("res://scripts/sera_combat_flow.gd")
 const COMBAT_TIMERS = preload("res://scripts/sera_combat_timers.gd")
 const HIT_FX_PRESENTATION = preload("res://scripts/sera_hit_fx_presentation.gd")
+const TARGET_LIFECYCLE = preload("res://scripts/sera_target_lifecycle.gd")
 const DEV_DIAGNOSTICS = preload("res://scripts/dev_diagnostics.gd")
 ## v84: Authored 3-stage Swordeffect atlas, exact board placement.
 ## v83: Three-stage tap melee combo; cancel 2 authored frames after follow-through.
@@ -829,21 +830,7 @@ func _tick_training_ko(delta: float) -> void:
     target_motion = TARGET_MOTION_SCRIPT.new()
     if target_floor_mark != null:
         target_floor_mark.position = Vector3(0.0, -0.026, -8.0)
-    target_hp = TARGET_MAX_HP
-    target_respawn_remaining = 0.0
-    if target_parts != null:
-        target_parts.call("reset_parts")
-    locked_target_part_id = ""
-    auto_lock_initialized = false
-    auto_lock_pending_part = ""
-    auto_lock_pending_elapsed = 0.0
-    manual_part_lock_active = not auto_lock_enabled
-    if enemy_shooter != null:
-        enemy_shooter.call("set_head_destroyed", false)
-    stagger_value = 0.0
-    stagger_remaining = 0.0
-    part_break_remaining = 0.0
-    _refresh_hp_bar()
+    _reset_target_after_respawn()
 
 func _advance_target_motion(delta: float) -> void:
     if target == null or player == null or target_motion == null:
@@ -852,9 +839,9 @@ func _advance_target_motion(delta: float) -> void:
     # start. Freeze the moving target until launch to keep that cue truthful.
     var warning: bool = enemy_shooter != null and bool(
         enemy_shooter.call("warning_in_progress"))
-    var frozen: bool = (not target_move_enabled or warning or target_hp <= 0
-        or stagger_remaining > 0.0 or part_break_remaining > 0.0
-        or down_remaining > 0.0 or training_ko_remaining > 0.0)
+    var frozen: bool = TARGET_LIFECYCLE.movement_frozen(
+        target_move_enabled, warning, target_hp, stagger_remaining,
+        part_break_remaining, down_remaining, training_ko_remaining)
     target.position = target_motion.call("advance", delta, target.position,
         player.position, frozen)
     if target_floor_mark != null:
@@ -2315,28 +2302,54 @@ func _advance_hit_fx(delta: float) -> void:
     if incoming_damage_label != null and incoming_damage_label.visible:
         HIT_FX_PRESENTATION.present_incoming_damage_popup(
             incoming_damage_label, incoming_damage_remaining)
-    if target_respawn_remaining > 0.0:
-        target_respawn_remaining = COMBAT_TIMERS.remaining_after_delta(
-            target_respawn_remaining, delta)
-        if target_respawn_remaining <= 0.0 and _combo_lock_retention_active():
-            # A full boss KO must not reset/erase the locked broken part
-            # while a queued combo is still animating. Retry on next tick.
-            target_respawn_remaining = 0.01
-        elif target_respawn_remaining == 0.0:
-            target_hp = TARGET_MAX_HP
-            if target_parts != null:
-                target_parts.call("reset_parts")
-            locked_target_part_id = ""
-            auto_lock_initialized = false
-            auto_lock_pending_part = ""
-            auto_lock_pending_elapsed = 0.0
-            manual_part_lock_active = not auto_lock_enabled
-            if enemy_shooter != null:
-                enemy_shooter.call("set_head_destroyed", false)
-            stagger_value = 0.0
-            stagger_remaining = 0.0
-            part_break_remaining = 0.0
-            _refresh_hp_bar()
+    _tick_target_respawn(delta)
+
+
+func _tick_target_respawn(delta: float) -> void:
+    # Called at the END of the render-frequency hit-FX tick, even during
+    # hit-stop. An already-zero countdown must not repeatedly reset the boss.
+    if target_respawn_remaining <= 0.0:
+        return
+    target_respawn_remaining = COMBAT_TIMERS.remaining_after_delta(
+        target_respawn_remaining, delta)
+    # Resolve combo ownership only when the countdown reaches zero.
+    # In particular, a broken locked leg/head must not be erased mid-combo.
+    var combo_held: bool = (
+        target_respawn_remaining <= 0.0 and _combo_lock_retention_active())
+    var action: int = TARGET_LIFECYCLE.respawn_action(
+        target_respawn_remaining, combo_held)
+    if action == TARGET_LIFECYCLE.RESPAWN_RETRY:
+        target_respawn_remaining = 0.01
+    elif action == TARGET_LIFECYCLE.RESPAWN_RESET:
+        _reset_target_after_respawn()
+
+
+func _reset_target_after_respawn() -> void:
+    # Shared by timer expiration and training KO recovery. Reset each
+    # part, lock-selection cache, ranged enemy head state and boss HUD ONCE.
+    target_hp = TARGET_MAX_HP
+    target_respawn_remaining = 0.0
+    if target_parts != null:
+        target_parts.call("reset_parts")
+    locked_target_part_id = ""
+    auto_lock_initialized = false
+    auto_lock_pending_part = ""
+    auto_lock_pending_elapsed = 0.0
+    manual_part_lock_active = not auto_lock_enabled
+    if enemy_shooter != null:
+        enemy_shooter.call("set_head_destroyed", false)
+    stagger_value = 0.0
+    stagger_remaining = 0.0
+    part_break_remaining = 0.0
+    _refresh_hp_bar()
+
+
+func _update_enemy_fire_eligibility() -> void:
+    # Remains on the same physics-frame boundary, AFTER stagger countdown
+    # and BEFORE player damage/down recovery.
+    if enemy_shooter != null:
+        enemy_shooter.set("can_fire", TARGET_LIFECYCLE.fire_allowed(
+            target_hp, player_hp, stagger_remaining, part_break_remaining))
 
 func _input(event: InputEvent) -> void:
     if event is InputEventScreenTouch:
@@ -4250,9 +4263,7 @@ func _physics_process(delta: float) -> void:
     else:
         boost_pose_grace_remaining = maxf(0.0, boost_pose_grace_remaining - delta)
     # When the training cube is at zero HP, suspend its firing cycle.
-    if enemy_shooter != null:
-        enemy_shooter.set("can_fire", target_hp > 0 and player_hp > 0.0
-            and stagger_remaining <= 0.0 and part_break_remaining <= 0.0)
+    _update_enemy_fire_eligibility()
     # The authored 0.16667s reaction runs while the body moves. Only regain
     # control when BOTH the animation and short physical knockback are done.
     if down_remaining > 0.0:
