@@ -6,6 +6,7 @@ const VersionIndicator = preload("res://scripts/version_indicator.gd")
 const RENDER_ORDER = preload("res://scripts/render_order_policy.gd")
 const CombatVitals = preload("res://scripts/combat_vitals.gd")
 const CAMERA_MATH = preload("res://scripts/sera_camera_math.gd")
+const CAMERA_FRAMING = preload("res://scripts/sera_camera_framing.gd")
 const INPUT_GESTURES = preload("res://scripts/sera_input_gestures.gd")
 const MOVEMENT_MATH = preload("res://scripts/sera_movement_math.gd")
 const LOCK_MANAGEMENT = preload("res://scripts/sera_lock_management.gd")
@@ -4887,20 +4888,11 @@ func _stable_shoulder_camera_yaw(player_bearing: float, delta: float) -> float:
         CAMERA_PLAYER_YAW_FOLLOW_RATE, CAMERA_PLAYER_YAW_MAX_LAG_DEGREES)
 
 func _close_step_target_relative_yaw(player_bearing: float, easing: float, delta: float) -> float:
-    # First calculate the SAME gentle yaw follow used during normal movement.
-    var desired_yaw: float = lerp_angle(
-        camera_yaw, player_bearing, easing * CAMERA_MOVING_YAW_SCALE)
-    # Then restrict this yaw in target-centered polar coordinates. The center
-    # of the permitted sector moves with the player's actual target bearing.
-    var offset_from_player: float = wrapf(desired_yaw - player_bearing, -PI, PI)
-    var max_angle: float = deg_to_rad(STEP_CLOSE_CAMERA_MAX_RELATIVE_DEGREES)
-    var bounded_yaw: float = player_bearing + clampf(offset_from_player, -max_angle, max_angle)
-    # If the bearing changes very quickly (or the guard is first activated),
-    # limit how much the camera may turn in one frame. No angle teleport.
-    var yaw_to_go: float = wrapf(bounded_yaw - camera_yaw, -PI, PI)
-    var turn_limit: float = deg_to_rad(STEP_CLOSE_CAMERA_MAX_TURN_RATE_DEGREES) * delta
-    return camera_yaw + clampf(yaw_to_go, -turn_limit, turn_limit)
-
+    # Preserve current yaw and all gameplay tunables; delegate pure geometry.
+    return CAMERA_FRAMING.close_step_target_relative_yaw(
+        camera_yaw, player_bearing, easing, delta,
+        CAMERA_MOVING_YAW_SCALE, STEP_CLOSE_CAMERA_MAX_RELATIVE_DEGREES,
+        STEP_CLOSE_CAMERA_MAX_TURN_RATE_DEGREES)
 
 func _update_side_from_screen() -> void:
     var size: Vector2 = get_viewport().get_visible_rect().size
@@ -5021,23 +5013,10 @@ func _camera_radius_for_safe_point(point: Vector3, focus: Vector3,
         screen_right: Vector3, screen_up: Vector3, outward: Vector3,
         radial_scale: float, tan_h: float, tan_v: float,
         margin_x: float, margin_top: float, margin_bottom: float) -> float:
-    var offset: Vector3 = point - focus
-    var screen_x: float = offset.dot(screen_right)
-    var screen_y: float = offset.dot(screen_up)
-    var horizontal_depth: float = absf(screen_x) / maxf(
-        0.0001, tan_h * (1.0 - 2.0 * margin_x))
-    var vertical_depth: float = 0.0
-    if screen_y >= 0.0:
-        vertical_depth = screen_y / maxf(
-            0.0001, tan_v * (1.0 - 2.0 * margin_top))
-    else:
-        vertical_depth = -screen_y / maxf(
-            0.0001, tan_v * (2.0 * margin_bottom - 1.0))
-    # Camera-space depth = radial_scale * radius - offset.dot(outward).
-    var depth: float = maxf(camera.near + 0.005,
-        maxf(horizontal_depth, vertical_depth))
-    return maxf(0.0, (depth + offset.dot(outward)) / radial_scale)
-
+    # Pass live Camera3D clip plane to the stateless required-radius rule.
+    return CAMERA_FRAMING.required_radius_for_point(
+        point, focus, screen_right, screen_up, outward, radial_scale,
+        tan_h, tan_v, margin_x, margin_top, margin_bottom, camera.near)
 
 func _minimum_boost_camera_radius() -> float:
     var viewport_size: Vector2 = get_viewport().get_visible_rect().size
