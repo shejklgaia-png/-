@@ -35,8 +35,8 @@ func _run() -> void:
         return
     var regular_distance: float=float(game.get("step_arc_length"))
     var regular_duration: float=float(game.get("step_duration_current"))
-    if absf(regular_distance-3.0)>0.0001:
-        _fail("regular horizontal travel is not 3m")
+    if absf(regular_distance-7.0)>0.0001 or absf(regular_duration-7.0/15.0)>0.0001:
+        _fail("regular horizontal dodge is not 7m at 15m/s")
         return
     game.call("_finish_side_step",false)
     for side in [1,-1]:
@@ -52,7 +52,7 @@ func _run() -> void:
                 return
             game.set("step_kick_side_request",0)
             var duration: float=float(game.get("step_duration_current"))
-            if absf(duration-2.0*regular_duration)>0.0001:
+            if absf(duration-0.60)>0.0001:
                 _fail("original authored 2x kick timing lost")
                 return
             var windup: float=0.33333 if side>0 else 0.41667
