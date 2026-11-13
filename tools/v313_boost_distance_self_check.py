@@ -14,5 +14,5 @@ assert 'const BOOST_POSE_GRACE_SECONDS: float = 0.50' in s
 assert 'const STEP_SIDE_DISTANCE: float = 4.0' in s
 assert 'const STEP_SPEED: float = 15.0' in s
 assert 'const SIDE_KICK_BOOST_DISTANCE: float = 3.0' in s
-assert (p/"README_v313_ja.md").is_file()
+assert (p/"docs/history/release_notes/README_v313_ja.md").is_file()
 print("V313_BOOST_CAP_REVOKED_V314_CONTINUOUS_BOOST_STATIC_PASS")

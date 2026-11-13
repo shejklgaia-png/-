@@ -9,7 +9,7 @@ main = (ROOT / "scripts/main.gd").read_text(encoding="utf-8")
 project = (ROOT / "project.godot").read_text(encoding="utf-8")
 version = re.search(r'config/name="SERA v(\d+)"', project)
 assert version and int(version.group(1)) >= 247
-assert (ROOT / "README_v247_ja.md").exists()
+assert (ROOT / "docs/history/release_notes/README_v247_ja.md").exists()
 
 # The former rectangle was rendered by both a four-corner fade polygon and
 # a solid lower strip. No idle background shapes are allowed in _draw.

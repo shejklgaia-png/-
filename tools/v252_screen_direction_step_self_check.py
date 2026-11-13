@@ -16,7 +16,7 @@ def read(p):return (R/p).read_text(encoding="utf-8")
 main=read("scripts/main.gd");cfg=read("project.godot")
 v=re.search(r'^config/name="SERA v(\d+)"$',cfg,re.M)
 assert v and int(v.group(1))>=263
-assert (R/"README_v252_ja.md").exists()
+assert (R/"docs/history/release_notes/README_v252_ja.md").exists()
 step=main.split("func _start_omni_step(flick: Vector2) -> bool:",1)[1].split("func _start_back_step()",1)[0]
 ground=main.split("func _screen_drag_to_ground(screen_drag: Vector2) -> Vector3:",1)[1].split(
     "func _reset_boost_speed_transition(",1)[0]

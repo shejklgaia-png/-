@@ -11,7 +11,7 @@ parts=read("scripts/target_parts.gd")
 project=read("project.godot")
 version_match = re.search(r'^config/name="SERA v(\d+)"$', project, re.M)
 assert version_match and int(version_match.group(1)) >= 251
-assert (root/"README_v251_ja.md").is_file()
+assert (root/"docs/history/release_notes/README_v251_ja.md").is_file()
 assert 'target_collider = AnimatableBody3D.new()' in main
 assert 'target_collider.collision_layer = TARGET_COLLISION_LAYER' in main
 assert 'player.collision_mask = TARGET_COLLISION_LAYER' in main

@@ -11,7 +11,7 @@ R=Path(__file__).resolve().parents[1]
 def read(p):return (R/p).read_text(encoding="utf-8")
 m=read("scripts/main.gd");policy=read("scripts/flick_direction_policy.gd")
 v=re.search(r'^config/name="SERA v(\d+)"$',read("project.godot"),re.M)
-assert v and int(v.group(1))>=258 and (R/"README_v254_ja.md").exists()
+assert v and int(v.group(1))>=258 and (R/"docs/history/release_notes/README_v254_ja.md").exists()
 for term in ("const SECTOR_COUNT: int = 4",
              "const SECTOR_ANGLE: float = TAU / 4.0",
              "static func sector_index(displacement: Vector2, screen_axis: Vector2) -> int:",
