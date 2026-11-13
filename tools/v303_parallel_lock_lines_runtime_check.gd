@@ -61,39 +61,32 @@ func _run() -> void:
         _fail("rear SERA dual rays should select BODY")
         return
 
-    # A narrow artificial probe intersects ONE ray only, despite a valid
-    # real mesh. This reproduces gaps between large leg plates reliably.
+    # Simulate a CAMERA-only probe intersecting ONE ray. The actual
+    # visible strut meshes are deliberately untouched in v304.
     var model: Dictionary = parts.get("parts")
-    var leg: Node3D = model["leg_fl"]["node"]
-    var hidden: Array[MeshInstance3D] = []
-    for child in leg.get_children():
-        if child is MeshInstance3D and (child as MeshInstance3D).visible:
-            hidden.append(child)
-            (child as MeshInstance3D).visible = false
-    var probe: MeshInstance3D = MeshInstance3D.new()
-    probe.name = "SingleRayOnlyTestProbe"
-    var probe_box: BoxMesh = BoxMesh.new()
+    var leg_area: Area3D = model["leg_fl"]["camera_lock_area"]
+    var camera_shape: CollisionShape3D = leg_area.get_node("CameraOnlyBox")
+    var probe_box: BoxShape3D = camera_shape.shape
+    var old_size: Vector3 = probe_box.size
+    var old_position: Vector3 = leg_area.position
     probe_box.size = Vector3(0.09,0.4,0.25)
-    probe.mesh = probe_box
-    leg.add_child(probe)
     var sample: Vector3 = lines[2].lerp(lines[3],0.45)
-    probe.global_position = sample
-    var first: float = float(parts.call("_camera_center_line_part_distance",
+    leg_area.global_position = sample
+    var first: float = float(parts.call("_camera_lock_part_volume_distance",
         lines[0],lines[1],"leg_fl"))
-    var second: float = float(parts.call("_camera_center_line_part_distance",
+    var second: float = float(parts.call("_camera_lock_part_volume_distance",
         lines[2],lines[3],"leg_fl"))
     if first != INF or second == INF:
-        _fail("single-line synthetic leg test missed its intended ray")
+        _fail("single-line synthetic camera box missed its intended ray")
         return
     if bool(parts.call("actor_parallel_lines_hits_part",front,center,"leg_fl")):
-        _fail("one-line-only leg was accepted for AUTO")
+        _fail("one-line-only camera box was accepted for AUTO")
         return
     if str(parts.call("select_actor_parallel_lines_part",front,center)) != "head":
-        _fail("one-line-only leg overrode the fully intersected HEAD")
+        _fail("one-line-only camera box overrode the fully intersected HEAD")
         return
-    probe.queue_free()
-    for child in hidden:
-        child.visible = true
+    leg_area.position = old_position
+    probe_box.size = old_size
 
     game.set("auto_lock_enabled",true)
     game.set("manual_part_lock_active",false)
