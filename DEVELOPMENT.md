@@ -1,3 +1,12 @@
+# SERA v305 — ロック部位へ水平に正対・AUTOの0.22秒遅延廃止（2026-11-13）
+
+- `main.gd` のAUTOロックはセラ起点の左右2本線＆各部位115%専用ボックスの選択を**同じ物理ティック内でそのまま確定**。候補待機／0.22sタイマーを一切使わず、破壊時も即選択。互換用`AUTO_LOCK_SWITCH_CONFIRM_SECONDS`は0.0、旧pending変数は常に0へ初期化。MANUALやコンボ保持の分岐は従来どおり。
+- `_locked_target_facing_direction`を追加。HEAD／脚の`get_part_aim_world`を参照し、BODY（空ID）は敵中心。水平面XZでyawのみ制御し、頭や足の高さで機体が上下に傾かないよう保護。部位が壊れてもコンボ中固定なら同じ部位を向く。
+- 元のBODY向きだった`player.look_at`と、RUN`local_run_direction`算出のターゲット向きを統一。RUN／BOOST／STEPのアニメーション原本・ヒット判定・カメラ・移動・ステップ距離は変更せず。
+- v290〜v303の関連静的／Godotテストの遅延前提を更新。新規v305テストでAUTO即切替・MANUAL全部位正対・コンボ保持・壊れた頭・カメラ非依存を確認。Android実機未検証。
+
+---
+
 # SERA v304 — カメラ専用当たり判定を各部位の115%で新設（2026-11-13）
 
 - `target_parts.gd`で頭・四脚・BODYに独立した不可視`Area3D/CollisionShape3D/BoxShape3D`を付与。元のAABB寸法から全方向115%とし、頭は既存の上方1m・前方0.85mのロック補助範囲を含めて拡大。各領域は部位のpivotまたはBODYのMeshInstanceの子として追従。
