@@ -79,7 +79,9 @@ func _run() -> void:
             _fail("flare moved with the player")
             return
         await create_timer(0.07).timeout
-        if is_instance_valid(launch_fx):
+        # SceneTree.queue_free is deferred to the end of the frame.
+        await process_frame
+        if is_instance_valid(launch_fx) and not launch_fx.is_queued_for_deletion():
             _fail("old launch flare outlived 0.05s")
             return
         if bool(game.get("step_active")):
