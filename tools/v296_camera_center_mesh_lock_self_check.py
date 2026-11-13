@@ -25,8 +25,8 @@ for token in (
     "mesh_node.to_global(contact)",
     "camera_origin.distance_squared_to(contact_world)",
     "return closest",
-    "func camera_center_line_hits_part(",
-    "func select_camera_center_line_part(",
+    "func actor_center_line_hits_part(",
+    "func select_actor_center_line_part(",
     "if distance < closest:",
     "return selected",
 ):
@@ -39,8 +39,9 @@ auto = main.split("func _acquire_stable_camera_part(delta: float,", 1)[1].split(
     "func _controller_start_area_contains(", 1)[0]
 for token in (
     "target.global_position",
-    '"select_camera_center_line_part", camera, center',
-    '"camera_center_line_hits_part",',
+    "sera_origin: Vector3 = player.global_position",
+    '"select_actor_center_line_part", sera_origin, center',
+    '"actor_center_line_hits_part",',
     "not auto_lock_initialized or current_broken or not current_on_line",
     "locked_target_part_id = preferred",
     "auto_lock_initialized = true",
