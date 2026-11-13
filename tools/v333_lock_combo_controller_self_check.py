@@ -22,7 +22,9 @@ assert 'func _draw_combo_sword_icon()' in ui
 assert 'func _draw_combo_direction_icon(sector: int)' in ui
 assert 'COMBO_TAP_FLASH_SECONDS: float = 0.18' in ui
 assert 'touch_ui.call("acknowledge_combo_tap")' in m
-assert 'gesture_screen_forward if gesture_active else _projected_sera_facing()' in m
+# v334: actual 3D reticle aim is the sector front, not a planar 1m ray.
+assert 'return FLICK_DIRECTION_POLICY.projected_target_line(' in m
+assert 'gesture_screen_forward if committed_flick' in m
 assert 'return INPUT_GESTURES.combo_kick_side(flick, gesture_screen_forward)' in m
 assert 'return INPUT_GESTURES.step_flick(' in m
 v=re.search(r'config/name="SERA v(\d+)"',(r/"project.godot").read_text())

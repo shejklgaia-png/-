@@ -21,7 +21,7 @@ assert '_fit_boost_frame_analytically(delta)' in camera
 assert '_fit_full_frame()' in camera and '_relax_camera_fit_radius(delta)' in camera
 assert '_advance_composition_side' not in camera
 adaptive=main.split("func _adaptive_camera_yaw(",1)[1].split("func _stable_shoulder_camera_yaw(",1)[0]
-assert 'camera_yaw, player_bearing, delta, CAMERA_COMBAT_SHOULDER_DEGREES,' in adaptive
+assert 'CAMERA_COMBAT_SHOULDER_DEGREES * camera_shoulder_mirror' in adaptive
 assert 'SCREEN_MARGIN_X, 0.0, 1.0))' in main
 assert '(SCREEN_MARGIN_X + extra_margin_ratio)' in main
 assert 'return INPUT_GESTURES.combo_kick_side(flick, gesture_screen_forward)' in main

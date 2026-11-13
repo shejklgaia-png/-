@@ -28,6 +28,29 @@ static func stable_shoulder_yaw(current_yaw: float, bearing: float,
     var leash: float = deg_to_rad(max_lag_degrees)
     return current_yaw + error - clampf(residual, -leash, leash)
 
+# Camera side has to be measured relative to the TARGET's screen X,
+# not the viewport center. A hysteresis band prevents boundary chatter
+# when SERA and target overlap; initial side is kept until clear crossing.
+static func screen_side_after_crossing(current_side: int,
+        player_x: float, target_x: float, hysteresis_px: float) -> int:
+    if not is_finite(player_x) or not is_finite(target_x):
+        return current_side
+    var difference: float = player_x - target_x
+    if difference > hysteresis_px:
+        return 1
+    if difference < -hysteresis_px:
+        return -1
+    return current_side
+
+
+# Mirror the shoulder continuously over several rendered frames. Never
+# suddenly rotate by twice the shoulder angle at screen-crossing.
+static func smooth_shoulder_mirror(current: float, next_side: int,
+        delta: float, rate: float) -> float:
+    var alpha: float = 1.0 - exp(-maxf(0.0, rate) * maxf(0.0, delta))
+    return lerpf(current, float(next_side), alpha)
+
+
 # Avoid abrupt 180-degree bearing reversals when SERA crosses the boss
 # center. Retain the previous bearing inside the nearly coincident radius,
 # then reacquire the new bearing continuously outside that radius.

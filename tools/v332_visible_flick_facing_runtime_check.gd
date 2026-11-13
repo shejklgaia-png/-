@@ -25,8 +25,9 @@ func _run() -> void:
     var original: Quaternion = head.quaternion
     game.set("locked_target_part_id", "")
     var base_axis: Vector2 = game.call("_projected_sera_facing")
-    var base_expected: Vector2 = FLICK.projected_lock_forward(
-        cam, player.global_position, game.call("_locked_target_facing_direction"))
+    var base_expected: Vector2 = FLICK.projected_target_line(
+        cam, game.get("camera_player_render_position") + Vector3.UP * 1.05,
+        game.call("_current_lock_aim_world"))
     if base_axis.distance_to(base_expected) > 0.003:
         _fail("BODY lock axis not derived from SERA-to-target line")
         return

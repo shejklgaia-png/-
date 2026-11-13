@@ -158,6 +158,10 @@ const STEP_CLOSE_CAMERA_MAX_RELATIVE_DEGREES: float = 45.0
 const CAMERA_COMBAT_VISIBILITY_DISTANCE: float = 6.5
 const CAMERA_COMBAT_YAW_HOLD_SECONDS: float = 0.45
 const CAMERA_COMBAT_SHOULDER_DEGREES: float = 12.0
+# Mirror the corrective shoulder only when SERA passes the target's SCREEN X.
+# 2.5% of viewport width eliminates side swaps caused by camera micro-moves.
+const CAMERA_SIDE_CROSS_HYSTERESIS_RATIO: float = 0.025
+const CAMERA_SHOULDER_MIRROR_RATE: float = 7.0
 const CAMERA_COMBAT_MAX_PLAYER_SIDE_DEGREES: float = 30.0
 # v288: small SERA-follow lag with a hard distance/angle leash. Beyond the
 # leash the camera moves at exactly the player's rate, never falling farther
@@ -547,7 +551,8 @@ var camera_filtered_closing_speed: float = 0.0
 var camera_dolly_in_speed: float = 0.0
 var camera_near_dolly_weight: float = 0.0
 var close_boost_camera_active: bool = false
-var player_screen_side: int = 1  # Last observed player side of the target on screen.
+var player_screen_side: int = 1  # Last observed side relative to TARGET screen X.
+var camera_shoulder_mirror: float = 1.0  # Smooth +1(right) to -1(left).
 var was_running: bool = false
 var floor_stage: Node3D
 var blur_last_player_position: Vector3 = Vector3.ZERO
@@ -855,6 +860,9 @@ func _tick_training_ko(delta: float) -> void:
     camera_player_render_position = player.global_position
     camera_target_render_position = target.global_position
     camera_focus_follow_xz = _desired_camera_follow_focus_xz()
+    # Teleport returns behind SERA: clear the old crossed-side correction.
+    player_screen_side = 1
+    camera_shoulder_mirror = 1.0
     var respawn_radial: Vector2 = Vector2(
         player.position.x - target.position.x, player.position.z - target.position.z)
     if respawn_radial.length_squared() > 0.000001:
@@ -1238,6 +1246,8 @@ func _build_camera() -> void:
     camera_fit_radius_floor = 0.0
     close_boost_camera_active = false
     camera_combat_hold_remaining = 0.0
+    player_screen_side = 1
+    camera_shoulder_mirror = 1.0
     _place_camera()
     # Start behind SERA with a mild 12deg shoulder offset. The old
     # silhouette-search could choose a near-90deg sideways first view.
@@ -1693,14 +1703,25 @@ func _switch_lock_screen_direction(direction: int) -> void:
     manual_part_lock_active = true
     _update_target_marker_projection()
 
+# One shared aim point for lock marker AND directional controller.
+# Use the exact physics-interpolated position sampled for this RENDER frame:
+# resampling mid-touch or post-camera produces different projection clocks.
+func _current_lock_aim_world() -> Vector3:
+    if target == null:
+        return Vector3.ZERO
+    var aim: Vector3 = camera_target_render_position
+    if target_parts != null and not locked_target_part_id.is_empty() \
+            and bool(target_parts.call("has_part", locked_target_part_id)):
+        aim += target_parts.call("get_part_local_aim", locked_target_part_id)
+    return aim
+
+
 func _update_target_marker_projection() -> void:
-    # All camera/target scene state is captured here; only the reticle
-    # projection math is delegated. Boss framing still uses its center.
+    # Same 3D point as combat input. The reticle may be edge-clamped, but
+    # the heading is based on the unclamped world projection.
     if camera == null or target == null or touch_ui == null:
         return
-    var center_world: Vector3 = camera_target_render_position
-    if target_parts != null and not locked_target_part_id.is_empty():
-        center_world += target_parts.call("get_part_local_aim", locked_target_part_id)
+    var center_world: Vector3 = _current_lock_aim_world()
     var marker: Dictionary = LOCK_MANAGEMENT.reticle_projection(
         camera, center_world, get_viewport().get_visible_rect().size)
     if not bool(marker["visible"]):
@@ -4734,6 +4755,13 @@ func _process(delta: float) -> void:
     # The normal dolly must not try to erase a forced frame-fit zoom.
     camera_radius = maxf(camera_follow_radius, camera_fit_radius_floor)
     _place_camera()
+    # Resolve side ONCE per render, relative to the actual TARGET on screen,
+    # before adjusting yaw. Measuring again after yaw creates a feedback
+    # loop between the camera and the crossover detector.
+    _update_side_from_screen()
+    camera_shoulder_mirror = CAMERA_MATH.smooth_shoulder_mirror(
+        camera_shoulder_mirror, player_screen_side, delta,
+        CAMERA_SHOULDER_MIRROR_RATE)
 
     var protect_close_step: bool = (close_step_camera_this_frame
         or (close_step_camera_recovery_remaining > 0.0 and not gesture_active))
@@ -4751,20 +4779,18 @@ func _process(delta: float) -> void:
         if separation > 0.08:
             camera_yaw = _adaptive_camera_yaw(bearing, delta)
         _place_camera()
-        _update_side_from_screen()
     elif protect_close_step and separation > 0.08:
         # An ordinary close STEP may gently recover, never with the old
         # frame-by-frame silhouette-search or sudden 45deg corrections.
         camera_yaw = _adaptive_camera_yaw(bearing, delta)
         _place_camera()
-        _update_side_from_screen()
     elif running:
         camera_yaw = _adaptive_camera_yaw(bearing, delta)
         _place_camera()
-        _update_side_from_screen()
         if not close_boost_camera_active and not boost_edge_frame_guard \
                 and not camera_step_recovery_active \
-                and separation > CAMERA_COMBAT_VISIBILITY_DISTANCE:
+                and separation > CAMERA_COMBAT_VISIBILITY_DISTANCE \
+                and absf(camera_shoulder_mirror) >= 0.95:
             _enforce_screen_edge(bearing, delta)
     else:
         # Never snap behind a leg or abruptly switch the camera shoulder
@@ -4779,7 +4805,8 @@ func _process(delta: float) -> void:
         _place_camera()
         if not close_boost_camera_active and not boost_edge_frame_guard \
                 and not camera_step_recovery_active \
-                and separation > CAMERA_COMBAT_VISIBILITY_DISTANCE:
+                and separation > CAMERA_COMBAT_VISIBILITY_DISTANCE \
+                and absf(camera_shoulder_mirror) >= 0.95:
             _enforce_screen_edge(bearing, delta)
 
     # Frame protection applies in BOTH modes, but never enforces the gap
@@ -4811,15 +4838,18 @@ func _process(delta: float) -> void:
 # v288: keep the tracking anchor near SERA, with a short (up to 2m)
 # lead toward the target for composition. At long range it translates
 # with SERA essentially one-for-one instead of orbiting a stationary boss.
-# v333: the active locked PART, not the animated SERA mesh nor the
-# camera forward, determines input/front. The same horizontal world vector
-# is used in _locked_target_facing_direction() for physical targeting.
+# v334: use the projected SERA-to-actual-LOCK-POINT screen line
+# including the selected part's height. 3D yaw stays planar for movement
+# and attack tracking, but UI and directional flicks share one 2D axis.
 func _projected_sera_facing() -> Vector2:
-    if player == null:
+    if player == null or camera == null or target == null:
         return Vector2.UP
-    return FLICK_DIRECTION_POLICY.projected_lock_forward(
-        camera, player.global_position, _locked_target_facing_direction(),
-        gesture_screen_forward)
+    var torso: Vector3 = camera_player_render_position + Vector3.UP * 1.05
+    var fallback: Vector2 = FLICK_DIRECTION_POLICY.projected_lock_forward(
+        camera, torso - Vector3.UP * 1.05,
+        _locked_target_facing_direction(), gesture_screen_forward)
+    return FLICK_DIRECTION_POLICY.projected_target_line(
+        camera, torso, _current_lock_aim_world(), fallback)
 
 
 # The controller stays visible during attack clips and both follow-up
@@ -4862,12 +4892,18 @@ func _update_controller_flick_guide(delta: float) -> void:
         combo_visible and _combo_flick_attack_ready())
     if not gesture_active and not combo_visible:
         return
-    # Every gesture's classification keeps its touch-down lock axis.
-    # During the no-finger combo display, smoothly follow the live lock
-    # pivot; do not let a moving target change a flick mid-gesture.
+    # A committed combo/guard flick uses the exact axis captured at
+    # touch-down. Other held RUN/BOOST gestures preview the LIVE 3D lock
+    # line, so the colored dial never points to a stale camera heading.
+    var committed_flick: bool = (
+        gesture_active and (guard_flick_axis_captured
+            or bash_flick_candidate or side_kick_flick_candidate))
     var forward: Vector2 = (
-        gesture_screen_forward if gesture_active else _projected_sera_facing())
-    touch_ui.call("set_flick_sector_forward", forward, delta, gesture_active)
+        gesture_screen_forward if committed_flick
+        else _projected_sera_facing())
+    # No slow independent controller interpolation: the animation was
+    # visibly lagging behind the real attack sector after camera turns.
+    touch_ui.call("set_flick_sector_forward", forward, delta, true)
 
 
 func _desired_camera_follow_focus_xz() -> Vector2:
@@ -4939,7 +4975,8 @@ func _adaptive_camera_yaw(player_bearing: float, delta: float) -> float:
             camera_step_recovery_elapsed, CAMERA_STEP_RECOVERY_HOLD_SECONDS,
             CAMERA_STEP_RECOVERY_TOTAL_SECONDS)
     return CAMERA_MATH.follow_yaw_with_side_room(
-        camera_yaw, player_bearing, delta, CAMERA_COMBAT_SHOULDER_DEGREES,
+        camera_yaw, player_bearing, delta,
+        CAMERA_COMBAT_SHOULDER_DEGREES * camera_shoulder_mirror,
         follow_rate * response, side_room,
         CAMERA_YAW_SMOOTH_MAX_TURN_DEGREES_PER_SECOND)
 
@@ -4948,7 +4985,8 @@ func _adaptive_camera_yaw(player_bearing: float, delta: float) -> float:
 # angular response above to avoid frame-long snaps after a 4m STEP.
 func _stable_shoulder_camera_yaw(player_bearing: float, delta: float) -> float:
     return CAMERA_MATH.stable_shoulder_yaw(
-        camera_yaw, player_bearing, delta, CAMERA_COMBAT_SHOULDER_DEGREES,
+        camera_yaw, player_bearing, delta,
+        CAMERA_COMBAT_SHOULDER_DEGREES * camera_shoulder_mirror,
         CAMERA_PLAYER_YAW_FOLLOW_RATE, CAMERA_PLAYER_YAW_MAX_LAG_DEGREES)
 
 func _close_step_target_relative_yaw(player_bearing: float, easing: float, delta: float) -> float:
@@ -4959,18 +4997,21 @@ func _close_step_target_relative_yaw(player_bearing: float, easing: float, delta
         STEP_CLOSE_CAMERA_MAX_TURN_RATE_DEGREES)
 
 func _update_side_from_screen() -> void:
-    var size: Vector2 = get_viewport().get_visible_rect().size
-    if size.x <= 0.0:
+    if camera == null or player == null or target == null:
         return
-    var torso: Vector3 = camera_player_render_position + Vector3(0.0, 1.05, 0.0)
-    if camera.is_position_behind(torso):
+    var viewport: Vector2 = get_viewport().get_visible_rect().size
+    if viewport.x <= 0.0:
         return
-    var offset: float = camera.unproject_position(torso).x - size.x * 0.5
-    if offset > SIDE_SWITCH_PIXELS:
-        player_screen_side = 1
-    elif offset < -SIDE_SWITCH_PIXELS:
-        player_screen_side = -1
-    # Precisely centered: retain the last side until input makes it unambiguous.
+    var torso: Vector3 = camera_player_render_position + Vector3.UP * 1.05
+    var boss_center: Vector3 = _camera_target_frame_center()
+    if camera.is_position_behind(torso) \
+            or camera.is_position_behind(boss_center):
+        return
+    var player_x: float = camera.unproject_position(torso).x
+    var target_x: float = camera.unproject_position(boss_center).x
+    player_screen_side = CAMERA_MATH.screen_side_after_crossing(
+        player_screen_side, player_x, target_x,
+        viewport.x * CAMERA_SIDE_CROSS_HYSTERESIS_RATIO)
 
 
 func _signed_screen_gap(side: int) -> float:

@@ -55,6 +55,26 @@ static func projected_lock_forward(camera: Camera3D, actor_world: Vector3,
     return pixels.normalized()
 
 
+# The directional UI points from SERA's projected torso to the SAME
+# authored 3D aim point used by the lock-on marker. Projecting a planar
+# one-metre offset (v333) changes the apparent screen angle when head/legs
+# sit at a different height, especially at close camera distances.
+static func projected_target_line(camera: Camera3D,
+        actor_torso_world: Vector3, target_aim_world: Vector3,
+        fallback: Vector2 = Vector2.UP) -> Vector2:
+    if camera == null or camera.is_position_behind(actor_torso_world) \
+            or camera.is_position_behind(target_aim_world):
+        return fallback
+    var delta_screen: Vector2 = (
+        camera.unproject_position(target_aim_world)
+        - camera.unproject_position(actor_torso_world))
+    # At nearly coincident points, perspective projection has no stable
+    # horizontal direction: keep the last valid / planar heading.
+    if delta_screen.length_squared() < 16.0:
+        return fallback
+    return delta_screen.normalized()
+
+
 # 360-degree screen deltas relative to supplied reference axis. Exact clockwise
 # boundary (+45 degrees) is classified as the clockwise neighbor.
 static func sector_index(displacement: Vector2, screen_axis: Vector2) -> int:

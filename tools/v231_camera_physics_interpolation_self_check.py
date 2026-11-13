@@ -66,7 +66,11 @@ assert 'camera_player_render_position' in functions['_horizontal_safe']
 assert '_camera_target_frame_center()' in functions['_target_fully_in_frame']
 assert 'camera_target_render_position.x' in main and 'camera_target_render_position.z' in main
 assert 'camera_player_render_position' in functions['_full_frame_safe']
-assert 'camera_target_render_position' in functions['_update_target_marker_projection']
+# Marker and flick share the same cached interpolated target+part aim.
+assert '_current_lock_aim_world()' in functions['_update_target_marker_projection']
+assert 'var aim: Vector3 = camera_target_render_position' in main.split(
+    'func _current_lock_aim_world()',1)[1].split(
+    'func _update_target_marker_projection()',1)[0]
 for name in ('_update_side_from_screen', '_signed_screen_gap',
              '_place_camera','_horizontal_safe','_target_fully_in_frame','_full_frame_safe'):
     assert 'player.global_position' not in functions[name], name
