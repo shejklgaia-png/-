@@ -1,5 +1,11 @@
 # SERA — Codex / coding-agent repository instructions
 
+## Current-contract CI and fast navigation (2026-11-13)
+- Read `docs/SERA_ACTIVE_CI_POLICY_ja.md` before modifying gameplay or tests. The approved numerical STEP/kick contract is `tools/sera_active_specs.json`; update it with intentional gameplay changes only. Never let historical vNNN tests enforce superseded numeric values, and never suppress actual regressions.
+- Start scoped investigation with `python3 tools/sera_dev_index.py <term> --json`; inspect relevant source afterward. This index does not resolve dynamic calls.
+- Shared PR CI still runs every registered test in isolated processes. Real Godot runtime checks remain mandatory for animation changes; Android verification is separate.
+
+
 ## Goal and baseline
 - This is the Godot 4.x, **Android-first portrait 3D action prototype** "SERA". **Do not treat the historical v102/v103 notes below as the current build.** Determine the current integrated version from `project.godot`, then read its `README_vNNN_ja.md` and the actual code. First consult `docs/SERA_DEVELOPMENT_FASTPATH_ja.md` for change-localized investigation.
 - `project.godot` must remain **at the repository root**. Read its actual Godot feature version (`config/features`), **GL Compatibility** renderer and portrait viewport rather than relying on old version notes. Do not automatically migrate renderers, upgrade the engine, or change display settings.
