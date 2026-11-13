@@ -33,8 +33,8 @@ func _run() -> void:
     var baseline_duration: float = float(game.get("step_duration_current"))
     var baseline_distance: float = float(game.get("step_arc_length"))
     var baseline_speed: float = float(game.get("step_speed_current"))
-    if absf(baseline_distance-7.0)>0.0001             or absf(baseline_speed-15.0)>0.0001             or absf(baseline_duration-7.0/15.0)>0.0001:
-        _fail("ordinary dodge is no longer 7m at 15m/s")
+    if absf(baseline_distance-5.0)>0.0001             or absf(baseline_speed-15.0)>0.0001             or absf(baseline_duration-5.0/15.0)>0.0001:
+        _fail("ordinary dodge is no longer 5m at 15m/s")
         return
     game.call("_finish_side_step",false)
     for side in [1,-1]:
