@@ -203,3 +203,5 @@ py tools/v317_physics_frame_self_check.py
 gd tools/v317_physics_frame_runtime_check.gd
 py tools/v317_motion_direction_self_check.py
 gd tools/v317_motion_direction_runtime_check.gd
+py tools/v317_nozzle_steering_self_check.py
+gd tools/v317_nozzle_steering_runtime_check.gd
