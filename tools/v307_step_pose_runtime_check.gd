@@ -102,7 +102,7 @@ func _run() -> void:
             var front: Vector3 = root_bone.quaternion * Vector3.FORWARD
             var flat: Vector2 = Vector2(front.x,front.z)
             if flat.length_squared() < 0.5 or flat.normalized().dot(Vector2(0,-1)) < 0.998:
-                _fail(clips[i] + " torso root is no longer boss-facing")
+                _fail(clips[i] + " torso root is no longer boss-facing; front=" + str(front) + " dot=" + str(flat.normalized().dot(Vector2(0,-1))) + " q=" + str(root_bone.quaternion) + " fade=" + str(rig.get("blending_for")))
                 return
         game.call("_finish_side_step", false)
     # Motion remains screen-directed even when SERA turns toward another
