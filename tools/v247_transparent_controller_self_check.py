@@ -26,7 +26,7 @@ for obsolete in (
 for token in (
     "if target_marker_visible:", "if attack_ripple_active:",
     "_draw_attack_ripple()", "if flick_wake_active:",
-    "_draw_flick_wake()", "if dragging:",
+    "_draw_flick_wake()", "if dragging or combo_visible:",
     "_draw_analog_controller(accent, low)",
 ):
     assert token in draw, token
