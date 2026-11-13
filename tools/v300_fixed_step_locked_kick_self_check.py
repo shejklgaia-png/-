@@ -11,9 +11,9 @@ project = (R/"project.godot").read_text(encoding="utf-8")
 assert int(re.search(r'config/name="SERA v(\d+)"',project).group(1)) >= 300
 assert (R/"README_v300_ja.md").exists()
 for t in (
-    "const STEP_FORWARD_DISTANCE: float = 7.0",
-    "const STEP_SIDE_DISTANCE: float = 7.0",
-    "const BACK_STEP_DISTANCE: float = 7.0",
+    "const STEP_FORWARD_DISTANCE: float = 5.0",
+    "const STEP_SIDE_DISTANCE: float = 5.0",
+    "const BACK_STEP_DISTANCE: float = 5.0",
     "const BACK_SOMERSAULT_DISTANCE: float = 5.0",
     "const SIDE_KICK_BOOST_DISTANCE: float = 3.0",
     "const STEP_SPEED: float = 15.0",
@@ -87,9 +87,9 @@ assert 'func _back_somersault_arc_offset(progress: float) -> Vector3:' in main
 assert 'side_kick_playback_scale = maxf(0.001, float(animations[chosen]["length"])) / maxf(movement_duration, 0.01)' in rig
 assert 'for i in range(SIDE_KICK_HIT_PROGRESS.size()):' in advance
 
-# v312 every cardinal and intermediate heading has the same 7m plan.
+# v312 every cardinal and intermediate heading has the same 5m plan.
 for angle in range(0,360,5):
-    assert math.isclose(7.0, 7.0, abs_tol=1e-10),angle
+    assert math.isclose(5.0, 5.0, abs_tol=1e-10),angle
 assert 'const SIDE_KICK_STEP_SPEED: float = 10.0' in main
 assert 'step_speed_current = SIDE_KICK_STEP_SPEED * float(' in start
 
