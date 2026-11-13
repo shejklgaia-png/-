@@ -340,15 +340,14 @@ var camera: Camera3D
 var target: Node3D
 var target_parts: Node3D
 var locked_target_part_id: String = ""
-# Empty part IDs now mean a deliberate BODY lock as well as pre-acquisition.
-# Keep the initial acquisition state independent so CORE->limb switching
-# cannot bypass the existing 0.22s AUTO confirmation window.
+# An empty part ID identifies BODY; auto_lock_initialized distinguishes
+# an intentional BODY lock from initial acquisition (manual compatibility).
 var auto_lock_initialized: bool = false
 var manual_part_lock_active: bool = false
 var auto_lock_enabled: bool = true
-# v292: part selection should not thrash HEAD/RL/RR every physics frame
-# when the camera's crosshair passes near multiple giant boss limbs.
-const AUTO_LOCK_SWITCH_CONFIRM_SECONDS: float = 0.22
+# v305: AUTO has no confirmation timer. Retain the historic constant and
+# pending variables only as zeroed compatibility state for older callers.
+const AUTO_LOCK_SWITCH_CONFIRM_SECONDS: float = 0.0
 var auto_lock_pending_part: String = ""
 var auto_lock_pending_elapsed: float = 0.0
 var lock_switch_left_button: Button
@@ -1649,49 +1648,36 @@ func _toggle_auto_lock_mode() -> void:
     _update_target_marker_projection()
 
 
-# v303: AUTO scores only modules intersected by BOTH offset, parallel
-# SERA -> BODY center segments. BODY/HEAD/legs compete on their farther
-# first-contact distances. One-ray gaps do not cause instant lock changes;
-# preserve 0.22s confirmation and broken-part/combo
-# gates. Name kept for compatibility with the v293-v299 API tests.
-func _acquire_stable_camera_part(delta: float,
-        current_broken: bool) -> void:
+# v305: AUTO selection applies on the SAME physics tick as the dual-ray
+# intersection test. No pending candidate, debounce or 0.22s confirmation.
+# The caller continues to suppress acquisition throughout attack/combo
+# retention; MANUAL keeps its independent selection/part-break behavior.
+# Keep the historical function signature for compatibility with tests/tools.
+func _acquire_stable_camera_part(_delta: float,
+        _current_broken: bool) -> void:
     if target_parts == null or player == null or target == null:
         return
-    var center: Vector3 = target.global_position
-    var sera_origin: Vector3 = player.global_position
-    var preferred: String = str(target_parts.call(
-        "select_actor_parallel_lines_part", sera_origin, center))
-    var current_on_line: bool = (
-        auto_lock_initialized
-        and bool(target_parts.call("actor_parallel_lines_hits_part",
-            sera_origin, center, locked_target_part_id)))
-    # Losing overlap on one ray is not enough to force an immediate
-    # switch; confirm the NEW two-ray candidate for the existing 0.22s.
-    # Broken parts still reacquire immediately outside held combos.
-    if not auto_lock_initialized or current_broken:
-        locked_target_part_id = preferred
-        auto_lock_initialized = true
-        auto_lock_pending_part = ""
-        auto_lock_pending_elapsed = 0.0
-        return
-    if preferred == locked_target_part_id and current_on_line:
-        auto_lock_pending_part = ""
-        auto_lock_pending_elapsed = 0.0
-        return
-    if preferred == locked_target_part_id:
-        auto_lock_pending_part = ""
-        auto_lock_pending_elapsed = 0.0
-        return
-    if auto_lock_pending_part != preferred:
-        auto_lock_pending_part = preferred
-        auto_lock_pending_elapsed = 0.0
-        return
-    auto_lock_pending_elapsed += maxf(0.0, delta)
-    if auto_lock_pending_elapsed >= AUTO_LOCK_SWITCH_CONFIRM_SECONDS:
-        locked_target_part_id = preferred
-        auto_lock_pending_part = ""
-        auto_lock_pending_elapsed = 0.0
+    locked_target_part_id = str(target_parts.call(
+        "select_actor_parallel_lines_part",
+        player.global_position, target.global_position))
+    auto_lock_initialized = true
+    auto_lock_pending_part = ""
+    auto_lock_pending_elapsed = 0.0
+
+
+# v305: yaw SERA toward the actual current LOCK target. HEAD and each leg
+# use their world-space authored aim/pivot; BODY ("") uses the boss center.
+# A broken part retained by an active combo keeps its original aim point.
+# Never pitch or roll the collision root toward low/high parts.
+func _locked_target_facing_direction() -> Vector3:
+    if player == null or target == null:
+        return Vector3.ZERO
+    var point: Vector3 = target.global_position
+    if target_parts != null and not locked_target_part_id.is_empty():
+        point = target_parts.call("get_part_aim_world", locked_target_part_id)
+    return Vector3(
+        point.x - player.global_position.x, 0.0,
+        point.z - player.global_position.z)
 
 
 func _controller_start_area_contains(pos: Vector2) -> bool:
@@ -4303,9 +4289,9 @@ func _physics_process(delta: float) -> void:
         # target-facing character, not to the camera or the screen.
         var world_move: Vector3 = _screen_drag_to_ground(direction_input) if running else Vector3.ZERO
         if rig != null:
-            var target_forward: Vector3 = Vector3(
-                target.position.x - player.position.x, 0.0,
-                target.position.z - player.position.z)
+            # Match RUN pose directions to SERA's real locked-part-facing
+            # heading rather than the former whole-BODY reference.
+            var target_forward: Vector3 = _locked_target_facing_direction()
             if target_forward.length_squared() < 0.000001:
                 target_forward = -player.global_transform.basis.z
             target_forward = target_forward.normalized()
@@ -4352,13 +4338,10 @@ func _physics_process(delta: float) -> void:
     blur_active_this_physics_frame = (not damage_reaction_active and (
         blur_step_this_physics_frame or (combat_state == CombatState.IDLE
         and movement_boost_active and running)))
-    # The boss WHOLE-center (camera rotation axis), viewed from SERA,
-    # determines which undestroyed limb lies directly forward.
-    # Keep the current ID (including a just-broken limb) through the whole
-    # 3-strike/Bash/side kick/backflip combo and its 0.65s input windows.
-    var aim: Vector3 = Vector3(
-        target.position.x - player.position.x, 0.0,
-        target.position.z - player.position.z)
+    # The paired SERA->BODY rays still determine AUTO candidates. Lock
+    # selection never depends on the SERA body's displayed facing.
+    # Keep a locked ID across the whole combo and its input windows.
+    var aim: Vector3 = Vector3.ZERO
     if target_parts != null:
         var combo_held: bool = _combo_lock_retention_active()
         var locked_part_broken: bool = (
@@ -4366,12 +4349,9 @@ func _physics_process(delta: float) -> void:
             and not bool(target_parts.call("is_targetable", locked_target_part_id)))
         if not combo_held:
             if target_hp > 0 and (not manual_part_lock_active or locked_part_broken):
-                # Reacquire a new FRONT visible part only AFTER the entire
-                # committed combo finishes. Manual selection of an intact
-                # target stays manual; a broken manual lock auto-recovers once.
-                # SERA->BODY segment owns AUTO priority, not the camera.
-                # BODY remains a real hit candidate. Keep combo lock retention
-                # and the separate camera-projected MANUAL arrow selection.
+                # No AUTO delay: change to the current paired-ray candidate
+                # in this tick after the committed combo has finished.
+                # MANUAL and broken-part fallback retain their own gates.
                 _acquire_stable_camera_part(delta, locked_part_broken)
                 if locked_part_broken:
                     manual_part_lock_active = not auto_lock_enabled
@@ -4379,15 +4359,14 @@ func _physics_process(delta: float) -> void:
                 locked_target_part_id = ""
                 manual_part_lock_active = not auto_lock_enabled
         else:
-            # Do not apply a stale SERA-origin preference immediately after
-            # combo movement; the locked part stays fixed until it ends.
+            # Keep the current lock through the full combo and follow-up
+            # windows even though ordinary AUTO now changes immediately.
             auto_lock_pending_part = ""
             auto_lock_pending_elapsed = 0.0
-        # Lock part ID/reticle/hit volume stay independent of actor facing.
-        # Do NOT overwrite this vector with the selected limb's aim.
-    # v290: always face the WHOLE boss pivot during lateral RUN/BOOST/STEP.
-    # Part lock only directs attacks and the HUD marker. This prevents
-    # the limb offsets from turning SERA side-on while circling the boss.
+    # SERA's collision root looks at the SELECTED part's horizontal
+    # direction (BODY center when BODY is locked). Evaluate this after
+    # the AUTO switch so heading and reticle agree in the same tick.
+    aim = _locked_target_facing_direction()
     if aim.length_squared() > 0.000001:
         player.look_at(player.global_position + aim, Vector3.UP)
     # At close range SERA's body tracks the boss while the STEP path remains
