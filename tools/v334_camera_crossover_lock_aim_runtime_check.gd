@@ -43,6 +43,7 @@ func _run() -> void:
     game.set("camera_focus_follow_xz", Vector2.ZERO)
     game.set("camera_target_render_position", Vector3(0.0, 1.53, 0.0))
     game.call("_place_camera")
+    var initial_player_render: Vector3 = game.get("camera_player_render_position")
     for spec in [[Vector3(4.0, 0.0, 0.0), 1],
             [Vector3(-4.0, 0.0, 0.0), -1],
             [Vector3(4.0, 0.0, 0.0), 1]]:
@@ -59,9 +60,11 @@ func _run() -> void:
     if left_yaw <= 0.0 or right_yaw >= 0.0:
         _fail("left/right shoulder correction did not reverse yaw")
         return
+    game.set("camera_player_render_position", initial_player_render)
+    game.set("camera_target_render_position", boss.global_position)
     for id in ["", "head", "leg_fl"]:
         game.set("locked_target_part_id", id)
-        var from: Vector3 = player.get_global_transform_interpolated().origin + Vector3.UP * 1.05
+        var from: Vector3 = game.get("camera_player_render_position") + Vector3.UP * 1.05
         var to: Vector3 = game.call("_current_lock_aim_world")
         var expected: Vector2 = FLICK.projected_target_line(cam, from, to)
         var actual: Vector2 = game.call("_projected_sera_facing")

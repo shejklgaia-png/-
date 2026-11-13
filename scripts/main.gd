@@ -1704,12 +1704,12 @@ func _switch_lock_screen_direction(direction: int) -> void:
     _update_target_marker_projection()
 
 # One shared aim point for lock marker AND directional controller.
-# Reading the interpolated target at gesture onset avoids a one-frame stale
-# point when the opponent moves between the physics and render callbacks.
+# Use the exact physics-interpolated position sampled for this RENDER frame:
+# resampling mid-touch or post-camera produces different projection clocks.
 func _current_lock_aim_world() -> Vector3:
     if target == null:
         return Vector3.ZERO
-    var aim: Vector3 = target.get_global_transform_interpolated().origin
+    var aim: Vector3 = camera_target_render_position
     if target_parts != null and not locked_target_part_id.is_empty() \
             and bool(target_parts.call("has_part", locked_target_part_id)):
         aim += target_parts.call("get_part_local_aim", locked_target_part_id)
@@ -4844,9 +4844,7 @@ func _process(delta: float) -> void:
 func _projected_sera_facing() -> Vector2:
     if player == null or camera == null or target == null:
         return Vector2.UP
-    var torso: Vector3 = (
-        player.get_global_transform_interpolated().origin
-        + Vector3.UP * 1.05)
+    var torso: Vector3 = camera_player_render_position + Vector3.UP * 1.05
     var fallback: Vector2 = FLICK_DIRECTION_POLICY.projected_lock_forward(
         camera, torso - Vector3.UP * 1.05,
         _locked_target_facing_direction(), gesture_screen_forward)

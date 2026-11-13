@@ -54,7 +54,8 @@ assert 'target_collider = AnimatableBody3D.new()' in m
 assert 'target_parts = TARGET_PARTS_SCRIPT.new()' in m
 assert 'marker.add_child(target_parts)' in m
 assert 'camera_target_render_position = target.get_global_transform_interpolated().origin' in m
-assert 'center_world += target_parts.call("get_part_local_aim", locked_target_part_id)' in m
+assert 'aim += target_parts.call("get_part_local_aim", locked_target_part_id)' in m
+assert 'var center_world: Vector3 = _current_lock_aim_world()' in m
 assert 'target_parts.call("get_part_aabb", locked_target_part_id)' in m
 assert 'func _part_hit_surface(id: String, hit: Vector3) -> Vector3:' in m
 

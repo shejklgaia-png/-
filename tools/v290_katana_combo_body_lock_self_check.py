@@ -98,7 +98,8 @@ assert '"get_part_aim_world", part_id' in LOCK_MODULE
 assert "point: Vector3 = boss_center" in LOCK_MODULE
 assert "point.y - player" not in face
 assert 'player.look_at(player.global_position + aim, Vector3.UP)' in phys
-assert 'center_world += target_parts.call("get_part_local_aim", locked_target_part_id)' in m
+assert 'aim += target_parts.call("get_part_local_aim", locked_target_part_id)' in m
+assert 'var center_world: Vector3 = _current_lock_aim_world()' in m
 turn=r.split("func _run_yaw_for_direction(direction: Vector2, retreat_weight: float) -> float:",1)[1].split("func _smooth_visual_direction(",1)[0]
 # v305: the collider locks to the selected part, while the authored RUN
 # Waist follows actual travel and its torso/head track the selected target.

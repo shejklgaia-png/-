@@ -28,7 +28,7 @@ func _run() -> void:
     game.set("locked_target_part_id", "")
     var front: Vector2 = game.call("_projected_sera_facing")
     var expected: Vector2 = POLICY.projected_target_line(camera,
-        player.get_global_transform_interpolated().origin + Vector3.UP * 1.05,
+        game.get("camera_player_render_position") + Vector3.UP * 1.05,
         game.call("_current_lock_aim_world"))
     if front.distance_to(expected) > 0.0001:
         _fail("flick front is not the SERA-to-BODY lock vector")
@@ -42,7 +42,7 @@ func _run() -> void:
     game.set("locked_target_part_id", "leg_fl")
     var leg_front: Vector2 = game.call("_projected_sera_facing")
     var leg_expected: Vector2 = POLICY.projected_target_line(camera,
-        player.get_global_transform_interpolated().origin + Vector3.UP * 1.05,
+        game.get("camera_player_render_position") + Vector3.UP * 1.05,
         game.call("_current_lock_aim_world"))
     if leg_front.distance_to(leg_expected) > 0.0001:
         _fail("front does not follow the locked leg pivot")
