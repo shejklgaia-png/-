@@ -376,7 +376,13 @@ func advance_part_hit_fx(delta: float) -> void:
         _set_part_hit_visual(id, remaining / float(part["hit_fx_duration"]))
 
 
+# A destroyed module keeps its visible geometry, lock volume and attack AABB.
+# Distinguish its functional state from whether an attack can still hit it.
 func is_targetable(id: String) -> bool:
+    return parts.has(id)
+
+
+func is_intact(id: String) -> bool:
     return parts.has(id) and not bool(parts[id]["broken"])
 
 func get_part_center(id: String) -> Vector3:
@@ -439,6 +445,8 @@ func broken_leg_count() -> int:
     return count
 
 func apply_part_hit(id: String, raw_attack: float, raw_break: float) -> Dictionary:
+    # Broken modules retain their original defense and can absorb subsequent
+    # attacks; only their separate break gauge stays at zero.
     var effective_id: String = id if is_targetable(id) else ""
     var defense: float = get_part_defense(effective_id)
     var boss_damage: int = maxi(1, roundi(maxf(0.0, raw_attack) * (1.0 - defense)))
