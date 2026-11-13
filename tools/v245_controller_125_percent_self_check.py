@@ -10,6 +10,7 @@ import re
 
 ROOT=Path(__file__).resolve().parents[1]
 main=(ROOT/"scripts/main.gd").read_text(encoding="utf-8")
+boost_policy=(ROOT/"scripts/sera_boost_state.gd").read_text(encoding="utf-8")
 ui=(ROOT/"scripts/touch_overlay.gd").read_text(encoding="utf-8")
 project=(ROOT/"project.godot").read_text(encoding="utf-8")
 
@@ -53,8 +54,8 @@ assert math.isclose(const(main,"DRAG_RADIUS")*.90,141.75)
 for token in (
     'INPUT_GESTURES.analog_stick_direction(',
     'RUN_INPUT_DEADZONE_PIXELS, RUN_CONTROL_RADIUS)',
-    'if finger_distance < DRAG_RADIUS * BOOST_EXIT_RADIUS_RATIO:',
-    'elif finger_distance >= DRAG_RADIUS * BOOST_START_RADIUS_RATIO:',
+    'BOOST_STATE.next_gesture_state(', 
+    'DRAG_RADIUS, BOOST_START_RADIUS_RATIO, BOOST_EXIT_RADIUS_RATIO,', 
     'touch_ui.call("show_drag", pointer_origin, pointer_location, DRAG_RADIUS)',
     'if current_touch < 0 and _controller_start_area_contains(event.position):',
     'if not _controller_start_area_contains(event.position):',
@@ -63,6 +64,14 @@ for token in (
     'var auto_lock_enabled: bool = true',
 ):
     assert token in main,token
+# Inspect the same threshold equations at their new canonical location.
+for token in (
+    "if finger_distance < drag_radius * exit_ratio:",
+    "elif finger_distance >= drag_radius * start_ratio:",
+    "if next_confirmation >= confirm_seconds:",
+):
+    assert token in boost_policy, token
+
 for token in (
     'radius = CONTROLLER_RUN_RADIUS',
     'boost_base_radius = max_radius',
