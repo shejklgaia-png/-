@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """v292: verify visual boss-facing lock and stable camera-auto part selection."""
 from pathlib import Path
+
+# v317: AUTO state remains in main; paired-ray selection moved to a pure module.
+from pathlib import Path as _LockPath
+LOCK_MODULE = (_LockPath(__file__).resolve().parents[1] / "scripts/sera_lock_management.gd").read_text(encoding="utf-8")
 import json, math, re
 
 root = Path(__file__).resolve().parents[1]
@@ -14,7 +18,7 @@ assert "const AUTO_LOCK_SWITCH_CONFIRM_SECONDS: float = 0.0" in main
 assert "var auto_lock_pending_part: String = \"\"" in main
 assert "var auto_lock_pending_elapsed: float = 0.0" in main
 helper = main.split("func _acquire_stable_camera_part(delta: float,",1)[1].split("func _controller_start_area_contains(",1)[0]
-for item in ("select_actor_parallel_lines_part", "locked_target_part_id = preferred",
+for item in ("LOCK_MANAGEMENT.select_auto_part(", "locked_target_part_id = LOCK_MANAGEMENT.select_auto_part(",
              "auto_lock_initialized = true", 'auto_lock_pending_part = ""',
              "auto_lock_pending_elapsed = 0.0"):
     assert item in helper, item
@@ -72,3 +76,6 @@ for preferred in ("head","leg_rr","head",""):
 assert selected==""
 assert 'CAMERA_PART_LOCK_HYSTERESIS' in parts
 print("V292_VISUAL_LOCK_AND_AUTHORED_KATANA_SEARCH_STATIC_PASS")
+
+# The authoritative selection API is still the same actor-origin dual-line method.
+assert '"select_actor_parallel_lines_part", actor_origin, target_center' in LOCK_MODULE

@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """SERA v296: real CAMERA->BODY-center mesh intersections gate AUTO part locks."""
 from pathlib import Path
+
+# v317: AUTO state remains in main; paired-ray selection moved to a pure module.
+from pathlib import Path as _LockPath
+LOCK_MODULE = (_LockPath(__file__).resolve().parents[1] / "scripts/sera_lock_management.gd").read_text(encoding="utf-8")
 import re
 
 root = Path(__file__).resolve().parents[1]
@@ -39,9 +43,9 @@ auto = main.split("func _acquire_stable_camera_part(delta: float,", 1)[1].split(
     "func _controller_start_area_contains(", 1)[0]
 for token in (
     "target.global_position",
-    "sera_origin: Vector3 = player.global_position",
-    '"select_actor_parallel_lines_part", sera_origin, center',
-    "locked_target_part_id = preferred",
+    "target_parts, player.global_position, target.global_position",
+    'LOCK_MANAGEMENT.select_auto_part(',
+    "locked_target_part_id = LOCK_MANAGEMENT.select_auto_part(",
     "auto_lock_initialized = true",
     'auto_lock_pending_part = ""',
     "auto_lock_pending_elapsed = 0.0",
@@ -71,3 +75,6 @@ for entry in (
 ):
     assert entry in manifest, entry
 print("V296_CAMERA_CENTER_MESH_LOCK_STATIC_PASS")
+
+# The authoritative selection API is still the same actor-origin dual-line method.
+assert '"select_actor_parallel_lines_part", actor_origin, target_center' in LOCK_MODULE
