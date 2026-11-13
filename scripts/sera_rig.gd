@@ -850,6 +850,23 @@ func update_motion_afterimages(delta: float, fast_movement: bool, stepping: bool
         for ghosts in _afterimage_meshes:
             ghosts.multimesh.visible_instance_count = AFTERIMAGE_LAYERS if any_visible else 0
 
+# v315: one launch-position pose snapshot that fades exactly with the
+# 0.05s static nozzle burst. Later STEP snapshots use the normal 0.22s pool.
+func capture_step_launch_afterimage(lifetime: float) -> void:
+    if _afterimage_root == null or _afterimage_meshes.is_empty() or training_ko_active:
+        return
+    _emit_motion_afterimage(true)
+    var launch_slot: int = (_afterimage_next_slot + AFTERIMAGE_LAYERS - 1) % AFTERIMAGE_LAYERS
+    _afterimage_lifetimes[launch_slot] = maxf(0.001, lifetime)
+    _afterimage_since_emit = 0.0
+    _afterimage_was_moving = true
+
+
+func spawn_step_launch_flare(world_travel: Vector3, lifetime: float) -> void:
+    if equipment_handler != null:
+        equipment_handler.call("spawn_step_launch_flare", world_travel, lifetime)
+
+
 func _emit_motion_afterimage(stepping: bool) -> void:
     var slot: int = _afterimage_next_slot
     _afterimage_next_slot = (slot + 1) % AFTERIMAGE_LAYERS
