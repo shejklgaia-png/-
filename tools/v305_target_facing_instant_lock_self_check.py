@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """v305: immediate paired-ray AUTO and facing selected part rather than BODY."""
 from pathlib import Path
+
+# v317: AUTO state remains in main; paired-ray selection moved to a pure module.
+from pathlib import Path as _LockPath
+LOCK_MODULE = (_LockPath(__file__).resolve().parents[1] / "scripts/sera_lock_management.gd").read_text(encoding="utf-8")
 import re
 R=Path(__file__).resolve().parents[1]
 main=(R/"scripts/main.gd").read_text(encoding="utf-8")
@@ -13,9 +17,9 @@ assert "const AUTO_LOCK_SWITCH_CONFIRM_SECONDS: float = 0.0" in main
 auto=main.split("func _acquire_stable_camera_part(delta: float,",1)[1].split(
     "# v305: yaw SERA toward the actual current LOCK target.",1)[0]
 for term in (
-    '"select_actor_parallel_lines_part", sera_origin, center',
-    "sera_origin: Vector3 = player.global_position",
-    "locked_target_part_id = preferred",
+    'LOCK_MANAGEMENT.select_auto_part(',
+    "target_parts, player.global_position, target.global_position",
+    "locked_target_part_id = LOCK_MANAGEMENT.select_auto_part(",
     "auto_lock_initialized = true",
     'auto_lock_pending_part = ""',
     "auto_lock_pending_elapsed = 0.0",
@@ -31,11 +35,13 @@ for term in (
 
 face=main.split("func _locked_target_facing_direction() -> Vector3:",1)[1].split(
     "func _controller_start_area_contains(",1)[0]
-assert 'var point: Vector3 = target.global_position' in face
-assert 'not locked_target_part_id.is_empty()' in face
-assert '"get_part_aim_world", locked_target_part_id' in face
-assert "point.x - player.global_position.x, 0.0," in face
-assert "point.z - player.global_position.z" in face
+assert 'LOCK_MANAGEMENT.target_facing_direction(' in face
+assert 'locked_target_part_id)' in face
+assert 'var point: Vector3 = boss_center' in LOCK_MODULE
+assert 'not part_id.is_empty()' in LOCK_MODULE
+assert '"get_part_aim_world", part_id' in LOCK_MODULE
+assert 'point.x - player_world.x, 0.0,' in LOCK_MODULE
+assert 'point.z - player_world.z' in LOCK_MODULE
 assert "get_part_aim_world(id: String) -> Vector3:" in parts
 
 phys=main.split("func _physics_process(delta: float) -> void:",1)[1].split(
@@ -65,3 +71,6 @@ for path in (
 ):
     assert path in manifest,path
 print("V305_TARGET_FACING_INSTANT_LOCK_STATIC_PASS")
+
+# The authoritative selection API is still the same actor-origin dual-line method.
+assert '"select_actor_parallel_lines_part", actor_origin, target_center' in LOCK_MODULE

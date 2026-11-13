@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """v301 SERA->BODY AUTO lock; camera projection remains MANUAL/HUD only."""
 from pathlib import Path
+
+# v317: AUTO state remains in main; paired-ray selection moved to a pure module.
+from pathlib import Path as _LockPath
+LOCK_MODULE = (_LockPath(__file__).resolve().parents[1] / "scripts/sera_lock_management.gd").read_text(encoding="utf-8")
 import re
 
 root = Path(__file__).resolve().parents[1]
@@ -13,10 +17,10 @@ assert (root/"README_v301_ja.md").is_file()
 
 auto = main.split("func _acquire_stable_camera_part(delta: float,",1)[1].split(
     "func _controller_start_area_contains(",1)[0]
-assert "sera_origin: Vector3 = player.global_position" in auto
-assert '"select_actor_parallel_lines_part", sera_origin, center' in auto
+assert "target_parts, player.global_position, target.global_position" in auto
+assert 'LOCK_MANAGEMENT.select_auto_part(' in auto
 assert '"actor_parallel_lines_hits_part",' not in auto
-assert 'locked_target_part_id = preferred' in auto
+assert 'locked_target_part_id = LOCK_MANAGEMENT.select_auto_part(' in auto
 assert "camera.global_position" not in auto
 assert '"select_camera_center_line_part"' not in auto
 assert "if target_parts == null or player == null or target == null:" in auto
@@ -51,14 +55,19 @@ assert "HEAD_LOCK_FORWARD_EXTENSION_METERS" in target
 # Manual arrow buttons continue to use projected camera screen X and wrap.
 manual = main.split("func _switch_lock_screen_direction(direction: int) -> void:",1)[1].split(
     "func _update_target_marker_projection()",1)[0]
-assert "camera.unproject_position(aim)" in manual
-assert 'forward_id if not forward_id.is_empty() else wrapped_id' in manual
+assert "LOCK_MANAGEMENT.manual_screen_neighbor(" in manual
+assert "view.unproject_position(aim)" in LOCK_MODULE
+assert 'forward_id if not forward_id.is_empty() else wrapped_id' in LOCK_MODULE
 marker = main.split("func _update_target_marker_projection() -> void:",1)[1].split(
     "func _",1)[0]
-assert "camera.unproject_position(center_world)" in marker
+assert "LOCK_MANAGEMENT.reticle_projection(" in marker
+assert "view.unproject_position(target_world)" in LOCK_MODULE
 for path in (
     "py tools/v301_sera_target_center_lock_self_check.py",
     "gd tools/v301_sera_target_center_lock_runtime_check.gd"
 ):
     assert path in manifest,path
 print("V301_SERA_TARGET_LOCK_STATIC_PASS")
+
+# The authoritative selection API is still the same actor-origin dual-line method.
+assert '"select_actor_parallel_lines_part", actor_origin, target_center' in LOCK_MODULE

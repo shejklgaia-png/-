@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """SERA v303: dual parallel AUTO lock rays with visible/hidden debug toggle."""
 from pathlib import Path
+
+# v317: AUTO state remains in main; paired-ray selection moved to a pure module.
+from pathlib import Path as _LockPath
+LOCK_MODULE = (_LockPath(__file__).resolve().parents[1] / "scripts/sera_lock_management.gd").read_text(encoding="utf-8")
 import re
 root=Path(__file__).resolve().parents[1]
 main=(root/"scripts/main.gd").read_text(encoding="utf-8")
@@ -38,9 +42,9 @@ assert 'for id in PART_ORDER:' in hits
 assert 'if distance < closest:' in hits
 auto=main.split("func _acquire_stable_camera_part(delta: float,",1)[1].split(
     "func _controller_start_area_contains(",1)[0]
-assert '"select_actor_parallel_lines_part", sera_origin, center' in auto
+assert 'LOCK_MANAGEMENT.select_auto_part(' in auto
 assert '"actor_parallel_lines_hits_part",' not in auto
-assert 'locked_target_part_id = preferred' in auto
+assert 'locked_target_part_id = LOCK_MANAGEMENT.select_auto_part(' in auto
 assert 'auto_lock_initialized = true' in auto
 assert 'auto_lock_pending_elapsed = 0.0' in auto
 assert 'auto_lock_pending_elapsed >=' not in auto
@@ -87,3 +91,6 @@ for entry in ('py tools/v303_parallel_lock_lines_self_check.py',
               'gd tools/v303_parallel_lock_lines_runtime_check.gd'):
     assert entry in manifest
 print("V303_PARALLEL_LOCK_LINES_STATIC_PASS")
+
+# The authoritative selection API is still the same actor-origin dual-line method.
+assert '"select_actor_parallel_lines_part", actor_origin, target_center' in LOCK_MODULE

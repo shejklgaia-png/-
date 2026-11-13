@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """v290 Katana mesh swap, authored-derived second combo and boss-centered strafing."""
 from pathlib import Path
+
+# v317: lock projections reside in the canonical delegated module.
+from pathlib import Path as _LockPath
+LOCK_MODULE = (_LockPath(__file__).resolve().parents[1] / "scripts/sera_lock_management.gd").read_text(encoding="utf-8")
 import json, re, math
 root = Path(__file__).resolve().parents[1]
 m=(root/"scripts/main.gd").read_text()
@@ -76,8 +80,9 @@ phys=m.split("func _physics_process(delta: float) -> void:",1)[1].split("func _p
 heading=phys.split("# The paired SERA->BODY rays",1)[1].split("player.look_at(",1)[0]
 assert "aim = _locked_target_facing_direction()" in heading
 face=m.split("func _locked_target_facing_direction() -> Vector3:",1)[1].split("func _controller_start_area_contains(",1)[0]
-assert '"get_part_aim_world", locked_target_part_id' in face
-assert "point: Vector3 = target.global_position" in face
+assert 'LOCK_MANAGEMENT.target_facing_direction(' in face
+assert '"get_part_aim_world", part_id' in LOCK_MODULE
+assert "point: Vector3 = boss_center" in LOCK_MODULE
 assert "point.y - player" not in face
 assert 'player.look_at(player.global_position + aim, Vector3.UP)' in phys
 assert 'center_world += target_parts.call("get_part_local_aim", locked_target_part_id)' in m

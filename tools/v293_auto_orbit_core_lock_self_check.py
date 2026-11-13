@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """v293 historical orbital selector contract; v296 AUTO now uses mesh segment."""
 from pathlib import Path
+
+# v317: AUTO state remains in main; paired-ray selection moved to a pure module.
+from pathlib import Path as _LockPath
+LOCK_MODULE = (_LockPath(__file__).resolve().parents[1] / "scripts/sera_lock_management.gd").read_text(encoding="utf-8")
 import math, re
 root = Path(__file__).resolve().parents[1]
 main = (root / "scripts/main.gd").read_text(encoding="utf-8")
@@ -38,12 +42,12 @@ assert select(-math.sin(math.radians(72)),math.cos(math.radians(72)),{"leg_fl"})
 assert "var auto_lock_initialized: bool = false" in main
 auto = main.split("func _acquire_stable_camera_part(delta: float,",1)[1].split(
     "func _controller_start_area_contains(",1)[0]
-for key in ("select_actor_parallel_lines_part", "locked_target_part_id = preferred",
+for key in ("LOCK_MANAGEMENT.select_auto_part(", "locked_target_part_id = LOCK_MANAGEMENT.select_auto_part(",
             "auto_lock_initialized = true", 'auto_lock_pending_part = ""',
             "auto_lock_pending_elapsed = 0.0"):
     assert key in auto, key
 assert "actor_parallel_lines_hits_part" not in auto
-assert "sera_origin: Vector3 = player.global_position" in auto
+assert "target_parts, player.global_position, target.global_position" in auto
 assert "AUTO_LOCK_SWITCH_CONFIRM_SECONDS" not in auto
 assert 'var label_name: String = "BODY"' in main
 assert "var integrity: float = float(target_hp)" in main
@@ -51,6 +55,10 @@ assert "var maximum: float = float(TARGET_MAX_HP)" in main
 # Legacy MANUAL arrow selection remains camera-X based and otherwise unmodified.
 manual = main.split("func _switch_lock_screen_direction(direction: int) -> void:",1)[1].split(
     "func _update_target_marker_projection()",1)[0]
-assert "camera.unproject_position(aim)" in manual
-assert "forward_id if not forward_id.is_empty() else wrapped_id" in manual
+assert "LOCK_MANAGEMENT.manual_screen_neighbor(" in manual
+assert "view.unproject_position(aim)" in LOCK_MODULE
+assert "forward_id if not forward_id.is_empty() else wrapped_id" in LOCK_MODULE
 print("V293_AUTO_ORBIT_CORE_LOCK_STATIC_PASS")
+
+# The authoritative selection API is still the same actor-origin dual-line method.
+assert '"select_actor_parallel_lines_part", actor_origin, target_center' in LOCK_MODULE

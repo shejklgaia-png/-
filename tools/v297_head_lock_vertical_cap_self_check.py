@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """v297: head-only 1m upward AUTO-lock cap without touching combat geometry."""
 from pathlib import Path
+
+# v317: AUTO state remains in main; paired-ray selection moved to a pure module.
+from pathlib import Path as _LockPath
+LOCK_MODULE = (_LockPath(__file__).resolve().parents[1] / "scripts/sera_lock_management.gd").read_text(encoding="utf-8")
 import re
 
 root = Path(__file__).resolve().parents[1]
@@ -29,7 +33,7 @@ for token in (
 assert selector.index('for child in pivot.get_children():') < selector.index('if id == "head":')
 assert "get_part_aabb" not in selector
 assert "get_part_aim_world" not in selector
-assert "sera_origin: Vector3 = player.global_position" in main
+assert "target_parts, player.global_position, target.global_position" in main
 assert "select_camera_orbit_part" not in selector
 assert "HEAD_LOCK_UPWARD_EXTENSION_METERS" not in main
 assert 'func get_part_aabb(id: String) -> AABB:' in parts
@@ -37,7 +41,7 @@ assert "func install_movement_colliders(" in parts
 assert 'func get_part_aim_world(id: String) -> Vector3:' in parts
 auto = main.split("func _acquire_stable_camera_part(delta: float,",1)[1].split(
     "func _controller_start_area_contains(",1)[0]
-assert '"select_actor_parallel_lines_part", sera_origin, center' in auto
+assert 'LOCK_MANAGEMENT.select_auto_part(' in auto
 assert '"actor_parallel_lines_hits_part",' not in auto
 physics = main.split("func _physics_process(delta: float) -> void:",1)[1].split(
     "func _process(delta: float) -> void:",1)[0]
@@ -50,3 +54,6 @@ for entry in (
 ):
     assert entry in manifest, entry
 print("V297_HEAD_LOCK_VERTICAL_CAP_STATIC_PASS")
+
+# The authoritative selection API is still the same actor-origin dual-line method.
+assert '"select_actor_parallel_lines_part", actor_origin, target_center' in LOCK_MODULE

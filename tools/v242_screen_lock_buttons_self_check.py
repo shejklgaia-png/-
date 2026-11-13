@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """v242 manual left/right lock behavior preserved under v291/v293 camera selection."""
 from pathlib import Path
+
+# v317: lock projections reside in the canonical delegated module.
+from pathlib import Path as _LockPath
+LOCK_MODULE = (_LockPath(__file__).resolve().parents[1] / "scripts/sera_lock_management.gd").read_text(encoding="utf-8")
 import re
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -31,14 +35,7 @@ for token in (
     "direction == 0 or auto_lock_enabled or target_parts == null",
     "target_hp <= 0 or training_ko_remaining > 0.0",
     "or _combo_lock_retention_active()",
-    "camera.unproject_position(current_aim).x",
-    'target_parts.call("get_visible_part_ids",',
-    "camera.global_position, _target_hit_aabb()",
-    "camera.is_position_behind(aim)",
-    "camera.unproject_position(aim)",
-    "(projected.x - reference_x) * float(direction)",
-    "if gap > 3.0 and gap < forward_gap:",
-    "forward_id if not forward_id.is_empty() else wrapped_id",
+    "LOCK_MANAGEMENT.manual_screen_neighbor(",
     "locked_target_part_id = next_id",
     "manual_part_lock_active = true",
     "_update_target_marker_projection()",
@@ -82,3 +79,13 @@ rotated = {"head": 355, "leg_fl": 460, "leg_fr": 245}
 assert choose("head", 1, rotated) == "leg_fl"
 assert choose("head", -1, rotated) == "leg_fr"
 print("V242_MANUAL_LOCK_AND_TOUCH_STATIC_PASS")
+
+for token in ("view.unproject_position(current_aim).x",
+              'parts.call("get_visible_part_ids",',
+              "view.global_position, boss_body",
+              "view.is_position_behind(aim)",
+              "view.unproject_position(aim)",
+              "(projected.x - reference_x) * float(direction)",
+              "if gap > 3.0 and gap < forward_gap:",
+              "forward_id if not forward_id.is_empty() else wrapped_id"):
+    assert token in LOCK_MODULE, token

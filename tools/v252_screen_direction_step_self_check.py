@@ -2,6 +2,10 @@
 """v252 movement baseline, updated for v263 screen-orthogonal STEP path."""
 from pathlib import Path
 
+# v317: lock projections reside in the canonical delegated module.
+from pathlib import Path as _LockPath
+LOCK_MODULE = (_LockPath(__file__).resolve().parents[1] / "scripts/sera_lock_management.gd").read_text(encoding="utf-8")
+
 # v317 relocated pure math: validate the actual new code and main.gd facade.
 from pathlib import Path as _SplitPath
 SERA_INPUT = (_SplitPath(__file__).resolve().parents[1] / "scripts/sera_input_gestures.gd").read_text(encoding="utf-8")
@@ -41,7 +45,8 @@ for term in ("var progress: float = step_elapsed / step_duration_current",
 assert main.count("_screen_drag_to_ground(direction_input)")>=4
 assert 'if _start_omni_step(flick_direction):' in main
 assert 'if bash_requested and _request_combo_bash():' in main
-assert "camera.unproject_position(current_aim).x" in main
+assert "LOCK_MANAGEMENT.manual_screen_neighbor(" in main
+assert "view.unproject_position(current_aim).x" in LOCK_MODULE
 assert 'target_parts.call("install_movement_colliders", target_collider)' in main
 
 def basis(yaw):

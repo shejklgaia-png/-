@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """v304: each of BODY, HEAD and all four limbs has a separate 115% camera-only box."""
 from pathlib import Path
+
+# v317: AUTO state remains in main; paired-ray selection moved to a pure module.
+from pathlib import Path as _LockPath
+LOCK_MODULE = (_LockPath(__file__).resolve().parents[1] / "scripts/sera_lock_management.gd").read_text(encoding="utf-8")
 import re
 R=Path(__file__).resolve().parents[1]
 src=(R/"scripts/target_parts.gd").read_text(encoding="utf-8")
@@ -76,7 +80,7 @@ movement=src.split("func install_movement_colliders(",1)[1].split(
     "func _set_part_movement_collision(",1)[0]
 assert "CAMERA_LOCK_VOLUME_SCALE" not in movement
 assert "CAMERA_LOCK_VOLUME_SCALE" not in game
-assert '"select_actor_parallel_lines_part", sera_origin, center' in game
+assert 'LOCK_MANAGEMENT.select_auto_part(' in game
 assert 'func actor_parallel_lines_hits_part(' in src
 assert '"actor_parallel_lines_hits_part",' not in game.split(
     "func _acquire_stable_camera_part(delta: float,",1)[1].split(
@@ -86,3 +90,6 @@ for p in ("py tools/v304_camera_lock_hitbox_self_check.py",
           "gd tools/v304_camera_lock_hitbox_runtime_check.gd"):
     assert p in manifest,p
 print("V304_CAMERA_LOCK_HITBOX_STATIC_PASS")
+
+# The authoritative selection API is still the same actor-origin dual-line method.
+assert '"select_actor_parallel_lines_part", actor_origin, target_center' in LOCK_MODULE

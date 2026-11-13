@@ -39,3 +39,7 @@ Historical instructions and v102–v292 decisions remain available at `docs/hist
 ## v317 main.gd extraction policy
 - The existing main.gd gesture/locomotion wrapper methods remain the public compatibility surface for Godot tests, scene inputs and older scripts. Edit pure gesture classification in `scripts/sera_input_gestures.gd` and actor/screen XZ transforms in `scripts/sera_movement_math.gd`; main.gd passes approved active constants and scene state into them. Do not duplicate thresholds or change their meaning.
 - This is the first staged split, **not** a license for a simultaneous high-risk rewrite of `_physics_process`, combat cancellation, camera/locking state or scene lifecycle. Run full PR CI and Android visual checks after further behavioral changes.
+
+## v317 staged main lock extraction
+- The live lock state, combo retention, AUTO/MANUAL mode and lock input button ownership remain in `scripts/main.gd`. Candidate selection (actor pair-lines AUTO; projected-X manual wrap), target yaw-facing vector, and reticle projection are in `scripts/sera_lock_management.gd`. Keep the existing public `main.gd` method entry points for compatibility.
+- A BODY lock is the empty string; do not introduce artificial 0.22s auto delay or require camera-based rays for AUTO. Existing tests and user-confirmed v317 behavior are mandatory baselines.

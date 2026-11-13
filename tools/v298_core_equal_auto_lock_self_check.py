@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """v298 regression: BODY competes equally with intact limbs on finite camera line."""
 from pathlib import Path
+
+# v317: AUTO state remains in main; paired-ray selection moved to a pure module.
+from pathlib import Path as _LockPath
+LOCK_MODULE = (_LockPath(__file__).resolve().parents[1] / "scripts/sera_lock_management.gd").read_text(encoding="utf-8")
 import re
 
 root = Path(__file__).resolve().parents[1]
@@ -46,10 +50,10 @@ assert "return selected" in selection
 auto=main.split("func _acquire_stable_camera_part(delta: float,",1)[1].split(
     "# v305: yaw SERA toward the actual current LOCK target.",1)[0]
 assert "auto_lock_initialized" in auto
-assert '"select_actor_parallel_lines_part", sera_origin, center' in auto
-assert "sera_origin: Vector3 = player.global_position" in auto
+assert 'LOCK_MANAGEMENT.select_auto_part(' in auto
+assert "target_parts, player.global_position, target.global_position" in auto
 assert "not locked_target_part_id.is_empty()" not in auto
-assert "locked_target_part_id = preferred" in auto
+assert "locked_target_part_id = LOCK_MANAGEMENT.select_auto_part(" in auto
 assert "auto_lock_pending_part != preferred" not in auto
 assert "AUTO_LOCK_SWITCH_CONFIRM_SECONDS" not in auto
 assert "_combo_lock_retention_active()" in main
@@ -60,3 +64,6 @@ for entry in (
 ):
     assert entry in manifest,entry
 print("V298_CORE_EQUAL_AUTO_LOCK_STATIC_PASS")
+
+# The authoritative selection API is still the same actor-origin dual-line method.
+assert '"select_actor_parallel_lines_part", actor_origin, target_center' in LOCK_MODULE
