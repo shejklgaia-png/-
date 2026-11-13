@@ -1,3 +1,6 @@
+## Android実機の問題再現（v317）
+`docs/SERA_ANDROID_DIAGNOSTICS_ja.md` を参照。トレーニング画面のDIAG: OFFをタップすると診断パネルが表示され、再現後にCOPY LOGでクリップボードへ最大500行をコピーできます。普段はOFF（採取も保存もしません）。CIテストの重複/未登録候補は `python3 tools/sera_ci_inventory.py --json` で確認できます。
+
 ## AI関数索引（v316開発基盤追加）
 - `python3 tools/sera_function_index.py --query camera --json` は現行スクリプトから関数の開始行・終了行、静的な関数名候補、`call("...")` による動的呼び出し名、リソース参照を抽出します。動的参照の実体が一意に決まるとはみなしません。
 - `sera_workplan.py` の関数結果にも `end_line` を付与し、GitHubの行範囲指定取得を容易にします。

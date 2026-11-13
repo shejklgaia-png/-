@@ -178,3 +178,6 @@ py tools/sera_model_build_self_check.py
 py tools/sera_ci_timings_self_check.py
 py tools/sera_function_index_self_check.py
 gd tools/sera_camera_math_runtime_check.gd
+py tools/sera_ci_inventory_self_check.py
+py tools/v317_diagnostics_self_check.py
+gd tools/v317_diagnostics_runtime_check.gd
