@@ -43,3 +43,7 @@ Historical instructions and v102–v292 decisions remain available at `docs/hist
 ## v317 staged main lock extraction
 - The live lock state, combo retention, AUTO/MANUAL mode and lock input button ownership remain in `scripts/main.gd`. Candidate selection (actor pair-lines AUTO; projected-X manual wrap), target yaw-facing vector, and reticle projection are in `scripts/sera_lock_management.gd`. Keep the existing public `main.gd` method entry points for compatibility.
 - A BODY lock is the empty string; do not introduce artificial 0.22s auto delay or require camera-based rays for AUTO. Existing tests and user-confirmed v317 behavior are mandatory baselines.
+
+## v317 staged main combat-flow split
+- Stateless combo/guard eligibility, lock-retention windows, authored strike stage selection, cancel timing and limited tracking-frame durations live in `scripts/sera_combat_flow.gd`. The state and every mutation, resource usage, animation and collision side effect remain in `main.gd` under the original method signatures.
+- Do not reset queued follow-up input or move combat_state to another node opportunistically. Preserve Katana 2-stage vs normal 3-stage behavior, Melee3 flick cancel, Bash/Kick/landing lock retention and legacy test coverage.
