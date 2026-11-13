@@ -33,7 +33,7 @@ manual = main.split("func _switch_lock_screen_direction(direction: int) -> void:
     "func _update_target_marker_projection()", 1)[0]
 for token in (
     "direction == 0 or auto_lock_enabled or target_parts == null",
-    "target_hp <= 0 or training_ko_remaining > 0.0",
+    "training_ko_remaining > 0.0",
     "or _combo_lock_retention_active()",
     "LOCK_MANAGEMENT.manual_screen_neighbor(",
     "locked_target_part_id = next_id",
