@@ -87,6 +87,11 @@ const GUARD_REACTION_CLIP: String = "Guard_REACTION"
 const BASH_CLIP: String = "Bash"
 # v116: The existing 1.5x RUN animation is accelerated by 1.25x (1.5 * 1.25).
 const RUN_ANIMATION_SPEED: float = 1.875  # Motion playback only; does not change movement speed
+# Keep the RUN waist below the authored WAIT height (-3 Blockbench units).
+# The original RUN first key raised the waist to +1.5 units (a ~0.29 m pop).
+# Preserve a small fraction of gait bob without lifting into an upright pose.
+const RUN_LOW_STANCE_ROOT_Y: float = -0.235
+const RUN_LOW_STANCE_BOB_SCALE: float = 0.25
 # v151: Filter only rendered RUN direction, leaving actual steering instant.
 # Angle-based smoothing avoids the zero-vector flip from Vector2.lerp at 180°.
 const RUN_DIRECTION_BLEND_SECONDS: float = 0.055
@@ -741,14 +746,12 @@ func _refresh_character_overlay() -> void:
             overlay = _ko_material_b if str(part.get_meta("sera_equipment_set", "A")) == "B" else _ko_material
         elif energy_flash_active:
             overlay = _energy_flash_material
-        elif _foreground_enabled:
-            if str(part.get_meta("sera_equipment_set", "A")) == "B":
-                if _foreground_mat_b == null:
-                    _foreground_mat_b = _foreground_mat.duplicate() as ShaderMaterial
-                    _foreground_mat_b.set_shader_parameter("set_tint", B_SET_TINT_RGB)
-                overlay = _foreground_mat_b
-            else:
-                overlay = _foreground_mat
+        # A separate depth-test-disabled transparent slash overlay obscured
+        # the original opaque UV/material pass on Android. Its palette also
+        # replaced the authored solid-color C/D/booster materials, making
+        # body textures appear/disappear when the swing finished. Keep the
+        # true per-part base material visible during swings; the sword trail
+        # remains a separate FX pass. KO and EN warning overlays retain priority.
         part.material_overlay = overlay
 
 func _build_motion_afterimage_pool() -> void:
@@ -2131,6 +2134,11 @@ func _blended_run_pose(uid: String, t: float, stabilize_head: bool = true) -> Di
             blended_scale = blended_scale.lerp(sample_scale, fraction)
         total_weight += weight
     if uid == RUN_ROOT_BONE_UUID:
+        # Same vertical basis across front/back RUN and all travel headings.
+        # Do this to the sampled pose, before the normal WAIT->RUN crossfade:
+        # no transient full-height gait key can appear at clip start.
+        blended_translation.y = RUN_LOW_STANCE_ROOT_Y + clampf(
+            blended_translation.y * RUN_LOW_STANCE_BOB_SCALE, -0.035, 0.025)
         var facing := Quaternion(Vector3.UP, run_facing_yaw)
         blended_rotation = (facing * blended_rotation).normalized()
         # Source waist sway/position must follow the same travel-facing axis;

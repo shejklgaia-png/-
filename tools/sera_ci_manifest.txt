@@ -220,3 +220,5 @@ py tools/v319_idle_run_persistent_hits_self_check.py
 gd tools/v319_idle_run_persistent_hits_runtime_check.gd
 
 py tools/v320_training_bgm_idle_run_self_check.py
+py tools/v321_run_camera_katana_material_self_check.py
+gd tools/v321_run_camera_katana_material_runtime_check.gd

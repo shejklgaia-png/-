@@ -27,6 +27,9 @@ var available: Dictionary = {}  # set letter -> slot -> Array[MeshInstance3D]
 var selected: Dictionary = {}
 # Katana is right-weapon set K: sheath left, exposed blade right.
 var katana_saya_meshes: Array[MeshInstance3D] = []
+# Only the two meshes UNDER Katana_r_saya depict a blade in the sheath.
+# Katana_l/l2/l3 are the persistent physical forearm-mounted scabbard.
+var katana_sheathed_blade_meshes: Array[MeshInstance3D] = []
 var katana_drawn_meshes: Array[MeshInstance3D] = []
 # Both selectable booster sets have their own two nozzle effects.
 var back_thruster_effects: Dictionary = {}
@@ -148,9 +151,9 @@ func _apply_part_visibility() -> void:
     update_katana_visibility(str(rig.get("current_clip")), float(rig.get("clip_time")))
 
 
-# v290: independently drive the SEVEN authored Katana meshes (5 saya,
-# 2 drawn). Use both GeometryInstance3D.transparency and visible to keep
-# the cut/draw state unambiguous in the opaque forward rendering pipeline.
+# v321: keep the THREE physical scabbard meshes visible throughout both
+# Katana strikes; toggle only the TWO stowed blade and TWO drawn blade meshes.
+# Use both GeometryInstance3D.transparency and visible for blade switching.
 # The fourth Blockbench 24fps frame is 3/24 seconds into the first strike.
 # A second Katana slash never re-sheathes between combo hits.
 func _set_katana_mesh_display(piece: MeshInstance3D, display: bool) -> bool:
@@ -171,7 +174,9 @@ func update_katana_visibility(clip_name: String, t: float) -> void:
         or (clip_name == "Melee_katana" and t >= 3.0 / 24.0 - 0.00001))
     var changed: bool = false
     for piece in katana_saya_meshes:
-        changed = _set_katana_mesh_display(piece, equipped and not drawn) or changed
+        var is_stowed_blade: bool = katana_sheathed_blade_meshes.has(piece)
+        changed = _set_katana_mesh_display(
+            piece, equipped and (not is_stowed_blade or not drawn)) or changed
     for piece in katana_drawn_meshes:
         changed = _set_katana_mesh_display(piece, equipped and drawn) or changed
     if changed:
@@ -538,6 +543,8 @@ func _collect_original_meshes(root: Node) -> void:
                     katana_drawn_meshes.append(child)
                 else:
                     katana_saya_meshes.append(child)
+                    if katana_role == "stowed_blade":
+                        katana_sheathed_blade_meshes.append(child)
             elif bool(child.get_meta("sera_bird_leg", false)):
                 # Existing reverse-jointed lower body now occupies C, freeing
                 # D for the new complete standard-skeleton lower-body set.
@@ -553,6 +560,8 @@ func _katana_role(node: Node) -> String:
         var group_name: String = str(parent.name).to_lower()
         if group_name == "katana_r_nukimi":
             return "drawn"
+        if group_name == "katana_r_saya":
+            return "stowed_blade"
         if group_name.begins_with("katana_"):
             return "saya"
         parent = parent.get_parent()

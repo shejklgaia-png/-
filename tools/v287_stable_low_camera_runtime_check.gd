@@ -60,7 +60,7 @@ func _run() -> void:
         _fail("short angular delay was lost")
         return
 
-    # A fast physical move may leave 0.65m of lag, never more.
+    # A fast physical move must not teleport the camera to the former 0.65m leash.
     target.position = Vector3.ZERO
     player.position = Vector3(0,0,9)
     game.set("camera_player_render_position",player.position)
@@ -71,8 +71,11 @@ func _run() -> void:
     game.call("_advance_camera_follow_focus",1.0/60.0)
     var desired: Vector2 = game.call("_desired_camera_follow_focus_xz")
     var actual: Vector2 = game.get("camera_focus_follow_xz")
-    if actual.distance_to(desired) > 0.65001:
-        _fail("camera did not catch up to SERA beyond positional threshold")
+    if actual.distance_to(desired) < 3.0 or actual.distance_to(desired) > 5.0:
+        _fail("camera snapped to the old hard positional leash")
+        return
+    if actual.x <= 0.0 or actual.x > 0.4:
+        _fail("bounded follow focus moved too far in one render frame")
         return
     game.set("camera_radius",12.0)
     game.call("_place_camera")
@@ -80,5 +83,5 @@ func _run() -> void:
     if absf(camera.position.x - (actual.x+polar_x)) > 0.0001:
         _fail("SERA-follow focus is not applied to actual camera transform")
         return
-    print("GODOT_V287_STABLE_LOW_CAMERA_PASS: low fixed pitch, smooth small yaw and hard SERA pursuit")
+    print("GODOT_V287_STABLE_LOW_CAMERA_PASS: low fixed pitch, smooth small yaw and bounded SERA pursuit")
     quit(0)

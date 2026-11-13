@@ -38,7 +38,7 @@ assert "CAMERA_MATH.advance_follow_focus(" in follow
 assert "current.lerp(desired, alpha)" in math_code
 assert "CAMERA_PLAYER_FOCUS_FOLLOW_RATE" in follow
 assert "CAMERA_PLAYER_FOCUS_MAX_LAG_METERS" in follow
-assert "next = desired - error.normalized()" in math_code
+assert "next = current + travel.normalized() * max_travel" in math_code
 assert "CAMERA_PLAYER_YAW_FOLLOW_RATE" in yaw
 assert "CAMERA_PLAYER_YAW_MAX_LAG_DEGREES" in yaw
 assert "CAMERA_MATH.stable_shoulder_yaw(" in yaw
@@ -60,17 +60,17 @@ assert "_visible_combat_camera_yaw" not in main
 assert "if hold_attack_camera:" in render and "camera_dolly_in_speed = 0.0" in render
 assert "if not hold_attack_camera:" in render and "_relax_camera_fit_radius(delta)" in render
 
-# Mirror only the stateless exponential+leash equations. A slow target and
-# an instantaneous sprint cannot leave an accumulating camera error.
+# Mirror the bounded per-frame focus translation. A sudden player leap
+# must not make the camera snap its entire former 0.65m error leash.
 dt=1/60
 x=0.0
 for t in range(1,181):
     desired_x=0.0 if t<15 else (t-14)*0.24
-    x=x+(desired_x-x)*(1-math.exp(-15*dt))
-    err=desired_x-x
-    if abs(err)>0.65:
-        x=desired_x-math.copysign(0.65,err)
-    assert abs(desired_x-x)<=0.65000001
+    old_x=x
+    next_x=x+(desired_x-x)*(1-math.exp(-15*dt))
+    max_travel=max(16.0, 15*0.65*1.7)*dt
+    x=x+max(-max_travel,min(max_travel,next_x-x))
+    assert abs(x-old_x)<=max_travel+1e-9
     if t>70: assert x>0
 yaw_old=0.0
 for d in [0,1,5,14,30,60,110,160,195,-160,-130]:

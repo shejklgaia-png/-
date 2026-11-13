@@ -42,8 +42,13 @@ func _run() -> void:
         return
     var equip: RefCounted = rig.get("equipment_handler")
     var saya: Array = equip.get("katana_saya_meshes")
+    var stowed: Array = equip.get("katana_sheathed_blade_meshes")
+    var scabbard: Array = []
+    for piece in saya:
+        if not stowed.has(piece):
+            scabbard.append(piece)
     var blade: Array = equip.get("katana_drawn_meshes")
-    if saya.size() != 5 or blade.size() != 2:
+    if saya.size() != 5 or stowed.size() != 2 or scabbard.size() != 3 or blade.size() != 2:
         _fail("incorrect 5:2 Katana mesh classification")
         return
     if not bool(rig.call("set_equipment_selection","weapon_r","K")):
@@ -64,7 +69,7 @@ func _run() -> void:
         return
     rig.set("clip_time", 3.0/24.0)
     rig.call("_apply_animation",0.0)
-    if not _meshes_match(saya,false) or not _meshes_match(blade,true):
+    if not _meshes_match(scabbard,true) or not _meshes_match(stowed,false) or not _meshes_match(blade,true):
         _fail("first strike did not swap sheath/drawn at frame four")
         return
 
@@ -82,7 +87,7 @@ func _run() -> void:
         return
     rig.set("clip_time",0.0)
     rig.call("_apply_animation",0.0)
-    if not _meshes_match(saya,false) or not _meshes_match(blade,true):
+    if not _meshes_match(scabbard,true) or not _meshes_match(stowed,false) or not _meshes_match(blade,true):
         _fail("stage 2 re-sheathed the blade at t=0")
         return
     var prepared: float = float(game.call("_melee3_flick_cancel_time"))

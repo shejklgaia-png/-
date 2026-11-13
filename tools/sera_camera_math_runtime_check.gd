@@ -11,11 +11,13 @@ func _run() -> void:
         _fail("focus lead changed")
         return
     var current: Vector2 = Vector2.ZERO
+    var last: Vector2 = current
     for i in range(180):
+        last = current
         var desired: Vector2 = Vector2(float(i) * 0.24, -2.0)
         current = M.advance_follow_focus(current, desired, 1.0/60.0, 15.0, 0.65)
-        if current.distance_to(desired) > 0.6501:
-            _fail("hard position leash failed")
+        if i > 0 and current.distance_to(last) > maxf(16.0, 15.0 * 0.65 * 1.7) / 60.0 + 0.0001:
+            _fail("camera focus exceeded its render-frame travel budget")
             return
     var yaw: float = 0.0
     for degrees in [0.0, 1.0, 5.0, 14.0, 30.0, 60.0, 110.0, 160.0, 195.0, -160.0]:
