@@ -7,7 +7,7 @@ src=(R/"scripts/target_parts.gd").read_text(encoding="utf-8")
 game=(R/"scripts/main.gd").read_text(encoding="utf-8")
 manifest=(R/"tools/sera_ci_manifest.txt").read_text(encoding="utf-8")
 version=(R/"project.godot").read_text(encoding="utf-8")
-assert re.search(r'config/name="SERA v304"',version)
+assert int(re.search(r'config/name="SERA v(\d+)"',version).group(1)) >= 304
 assert (R/"README_v304_ja.md").exists()
 assert "const CAMERA_LOCK_VOLUME_SCALE: float = 1.15" in src
 builder=src.split("func _create_camera_lock_volume(",1)[1].split(
@@ -77,7 +77,10 @@ movement=src.split("func install_movement_colliders(",1)[1].split(
 assert "CAMERA_LOCK_VOLUME_SCALE" not in movement
 assert "CAMERA_LOCK_VOLUME_SCALE" not in game
 assert '"select_actor_parallel_lines_part", sera_origin, center' in game
-assert '"actor_parallel_lines_hits_part",' in game
+assert 'func actor_parallel_lines_hits_part(' in src
+assert '"actor_parallel_lines_hits_part",' not in game.split(
+    "func _acquire_stable_camera_part(delta: float,",1)[1].split(
+    "# v305: yaw SERA toward the actual current LOCK target.",1)[0]
 assert "var lock_lines_visible: bool = false" in game
 for p in ("py tools/v304_camera_lock_hitbox_self_check.py",
           "gd tools/v304_camera_lock_hitbox_runtime_check.gd"):
