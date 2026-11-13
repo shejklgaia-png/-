@@ -167,3 +167,5 @@ gd tools/v313_boost_distance_runtime_check.gd
 
 py tools/v314_step_distance_self_check.py
 gd tools/v314_step_distance_runtime_check.gd
+py tools/v315_step_warp_launch_self_check.py
+gd tools/v315_step_warp_launch_runtime_check.gd
