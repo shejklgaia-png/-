@@ -5025,6 +5025,15 @@ func _fit_boost_frame_analytically(delta: float) -> void:
 
 
 func _fit_full_frame() -> void:
+    # v326: use the same continuous perspective-fit floor as BOOST before
+    # considering the legacy reprojection/bisection fallback. Without this,
+    # normal movement repeatedly crosses a one-pixel crop boundary and
+    # alternates sudden zoom-out with release zoom-in (camera judder).
+    var safe_floor: float = (
+        _minimum_boost_camera_radius() + CAMERA_FIT_RADIUS_RESERVE)
+    camera_fit_radius_floor = maxf(camera_fit_radius_floor, safe_floor)
+    camera_radius = maxf(camera_follow_radius, camera_fit_radius_floor)
+    _place_camera()
     if _full_frame_safe():
         return
     var lower_radius: float = camera_radius
@@ -5061,6 +5070,11 @@ func _relax_camera_fit_radius(delta: float) -> void:
     # forced-zoom sawtooth near the left/rear BOOST screen boundary.
     var candidate_floor: float = maxf(0.0,
         camera_fit_radius_floor - _camera_fit_release_speed() * maxf(delta, 0.0))
+    # Never release below the analytic frame-safe radius; otherwise the
+    # next render frame expands it again and creates a visible sawtooth.
+    var safe_floor: float = (
+        _minimum_boost_camera_radius() + CAMERA_FIT_RADIUS_RESERVE)
+    candidate_floor = maxf(candidate_floor, safe_floor)
     var candidate_radius: float = maxf(camera_follow_radius, candidate_floor)
     if candidate_radius >= camera_radius:
         camera_fit_radius_floor = candidate_floor
