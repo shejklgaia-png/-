@@ -14,14 +14,14 @@ assert (root/"README_v301_ja.md").is_file()
 auto = main.split("func _acquire_stable_camera_part(delta: float,",1)[1].split(
     "func _controller_start_area_contains(",1)[0]
 assert "sera_origin: Vector3 = player.global_position" in auto
-assert '"select_actor_center_line_part", sera_origin, center' in auto
-assert '"actor_center_line_hits_part",' in auto
+assert '"select_actor_parallel_lines_part", sera_origin, center' in auto
+assert '"actor_parallel_lines_hits_part",' in auto
 assert 'sera_origin, center, locked_target_part_id' in auto
 assert "camera.global_position" not in auto
 assert '"select_camera_center_line_part"' not in auto
 assert "if target_parts == null or player == null or target == null:" in auto
 assert "target.global_position" in auto
-assert "not auto_lock_initialized or current_broken or not current_on_line" in auto
+assert "not auto_lock_initialized or current_broken:" in auto
 assert "auto_lock_pending_elapsed >= AUTO_LOCK_SWITCH_CONFIRM_SECONDS" in auto
 assert "_combo_lock_retention_active()" in main
 assert "_acquire_stable_camera_part(delta, locked_part_broken)" in main
