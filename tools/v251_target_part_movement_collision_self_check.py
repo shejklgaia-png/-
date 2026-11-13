@@ -61,7 +61,18 @@ assert '_set_part_movement_collision(effective_id, true)' in parts
 assert 'collider.set_deferred("disabled", not should_enable)' in parts
 assert 'not is_fracture or bool(part["broken"])' in parts
 assert '_set_part_movement_collision(id, true)' in parts
-assert main.count('target_parts.call("reset_parts")')==2
+# v317 Stage9: timed respawn and player KO use one shared parts/HP reset.
+assert main.count('target_parts.call("reset_parts")') == 1
+reset = main.split("func _reset_target_after_respawn() -> void:", 1)[1].split(
+    "func _update_enemy_fire_eligibility(", 1)[0]
+ko = main.split("func _tick_training_ko(delta: float) -> void:", 1)[1].split(
+    "func _advance_target_motion(", 1)[0]
+timed = main.split("func _tick_target_respawn(delta: float) -> void:", 1)[1].split(
+    "func _reset_target_after_respawn(", 1)[0]
+assert 'target_parts.call("reset_parts")' in reset
+assert 'locked_target_part_id = ""' in reset
+assert '_reset_target_after_respawn()' in ko
+assert '_reset_target_after_respawn()' in timed
 assert 'enemy_shooter.call("set_head_destroyed", true)' in main
 
 # Existing collision paths all use the original Player capsule/layer:
