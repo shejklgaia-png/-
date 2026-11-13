@@ -8,6 +8,7 @@ LOCK_MODULE = (_LockPath(__file__).resolve().parents[1] / "scripts/sera_lock_man
 import json, re, math
 root = Path(__file__).resolve().parents[1]
 m=(root/"scripts/main.gd").read_text()
+flow=(root/"scripts/sera_combat_flow.gd").read_text()
 r=(root/"scripts/sera_rig.gd").read_text()
 e=(root/"scripts/sera_equipment.gd").read_text()
 source=json.loads((root/"assets/sera_source.json").read_text())
@@ -50,11 +51,15 @@ assert 'KATANA_SECOND_CLIP' in r.split("func start_strike(",1)[1].split("func st
 assert 'KATANA_SECOND_CLIP' in r.split("func start_attack_windup(",1)[1].split("func release_attack_windup(",1)[0]
 
 count=m.split("func _strike_stage_count() -> int:",1)[1].split("func _active_strike_clip(",1)[0]
-assert "return 2 if _katana_equipped() else STRIKE_CLIPS.size()" in count
-assert "return strike_index == _strike_stage_count() - 1" in count
+assert "COMBAT_FLOW.strike_stage_count(" in count
+assert "COMBAT_FLOW.strike_is_finisher(" in count
+assert "return 2 if katana else regular_clip_count" in flow
+assert "return stage == total_stages - 1" in flow
 active=m.split("func _active_strike_clip(stage: int) -> String:",1)[1].split("func _strike_cancel_time(",1)[0]
-assert "KATANA_SECOND_STRIKE_CLIP if stage >= 1 else KATANA_STRIKE_CLIP" in active
-assert 'str(STRIKE_CLIPS[clampi(stage, 0, STRIKE_CLIPS.size() - 1)])' in active
+assert "COMBAT_FLOW.active_strike_clip(" in active
+assert "KATANA_STRIKE_CLIP, KATANA_SECOND_STRIKE_CLIP, STRIKE_CLIPS" in active
+assert "katana_second_clip if stage >= 1 else katana_first_clip" in flow
+assert "str(regular_clips[clampi(stage, 0, regular_clips.size() - 1)])" in flow
 attack=m.split("func _start_attack() -> bool:",1)[1].split("func _combo_followup_input_window_open(",1)[0]
 assert "strike_index < _strike_stage_count() - 1" in attack
 finish=m.split("func _finish_strike_and_release_queued_kick() -> void:",1)[1].split("func _advance_attack(",1)[0]
@@ -70,8 +75,10 @@ flick=m.split("func _request_combo_side_kick(flick: Vector2) -> bool:",1)[1].spl
 assert "and _is_strike_finisher():" in flick
 assert '"STRIKE %d/%d  |  %s"' in m
 cancel=m.split("func _melee3_flick_cancel_time() -> float:",1)[1].split("func _start_strike(",1)[0]
-assert "7.0 / 24.0 + MELEE3_FLICK_CANCEL_DELAY" in cancel
-assert "STRIKE_CANCEL_TIMES[STRIKE_CLIPS.size() - 1]) + MELEE3_FLICK_CANCEL_DELAY" in cancel
+assert "COMBAT_FLOW.melee3_flick_cancel_time(" in cancel
+assert "STRIKE_CLIPS.size(), MELEE3_FLICK_CANCEL_DELAY)" in cancel
+assert "7.0 / 24.0 + delay" in flow
+assert "return float(cancel_times[regular_clip_count - 1]) + delay" in flow
 assert 7/24+0.05 < .5
 
 # v305: the authored run yaw stays movement-relative, while the collider

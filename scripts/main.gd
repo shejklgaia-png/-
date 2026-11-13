@@ -9,6 +9,7 @@ const CAMERA_MATH = preload("res://scripts/sera_camera_math.gd")
 const INPUT_GESTURES = preload("res://scripts/sera_input_gestures.gd")
 const MOVEMENT_MATH = preload("res://scripts/sera_movement_math.gd")
 const LOCK_MANAGEMENT = preload("res://scripts/sera_lock_management.gd")
+const COMBAT_FLOW = preload("res://scripts/sera_combat_flow.gd")
 const DEV_DIAGNOSTICS = preload("res://scripts/dev_diagnostics.gd")
 ## v84: Authored 3-stage Swordeffect atlas, exact board placement.
 ## v83: Three-stage tap melee combo; cancel 2 authored frames after follow-through.
@@ -2429,12 +2430,14 @@ func _input(event: InputEvent) -> void:
             _change_drag(event.position)
 
 func _guard_can_start() -> bool:
-    return (not guard_active and not damage_reaction_active and down_remaining <= 0.0
-        and not (energy_exhausted and bool(part_stats.get("energy_shield", false)))
-        and guard_break_remaining <= 0.0 and not landing_active
-        and not jump_active and not step_active and not back_somersault_active
-        and combat_state == CombatState.IDLE
-        and rig != null and bool(rig.get("loading_ok")))
+    return COMBAT_FLOW.guard_can_start(
+        guard_active, damage_reaction_active, down_remaining,
+        energy_exhausted and bool(part_stats.get("energy_shield", false)),
+        guard_break_remaining, landing_active, jump_active,
+        step_active, back_somersault_active,
+        combat_state == CombatState.IDLE,
+        rig != null and bool(rig.get("loading_ok")))
+
 
 func _set_guard(active: bool) -> void:
     if active == guard_active:
@@ -3701,18 +3704,21 @@ func _start_attack() -> bool:
 # The Melee3->Bash and Bash->Melee1 input windows persist in IDLE,
 # but the active combo must still hold the same lock during either.
 func _combo_followup_input_window_open() -> bool:
-    return (bash_followup_window_remaining > 0.0
-        or bash_loop_window_remaining > 0.0)
+    return COMBAT_FLOW.followup_window_open(
+        bash_followup_window_remaining, bash_loop_window_remaining)
+
 
 
 # v289: a combo includes all three strikes, Bash, the buffered side/back
 # kicks, the resulting somersault landing and the two link windows. Broken
 # part IDs must stay locked for EVERY frame of this entire lifecycle.
 func _combo_lock_retention_active() -> bool:
-    return (combat_state != CombatState.IDLE
-        or side_kick_active or back_somersault_active
-        or (landing_active and landing_from_somersault)
-        or _combo_followup_input_window_open())
+    return COMBAT_FLOW.combo_retains_lock(
+        combat_state != CombatState.IDLE, side_kick_active,
+        back_somersault_active,
+        landing_active and landing_from_somersault,
+        _combo_followup_input_window_open())
+
 
 
 # RUN/BOOST or a confirmed STEP cancels pending follow-up input.
@@ -3898,30 +3904,35 @@ func _katana_equipped() -> bool:
     return rig != null and str(rig.call("get_equipment_selection", "weapon_r")) == "K"
 
 func _strike_stage_count() -> int:
-    return 2 if _katana_equipped() else STRIKE_CLIPS.size()
+    return COMBAT_FLOW.strike_stage_count(
+        _katana_equipped(), STRIKE_CLIPS.size())
+
 
 
 func _is_strike_finisher() -> bool:
-    return strike_index == _strike_stage_count() - 1
+    return COMBAT_FLOW.strike_is_finisher(
+        strike_index, _strike_stage_count())
+
 
 
 func _active_strike_clip(stage: int) -> String:
-    if _katana_equipped():
-        return KATANA_SECOND_STRIKE_CLIP if stage >= 1 else KATANA_STRIKE_CLIP
-    return str(STRIKE_CLIPS[clampi(stage, 0, STRIKE_CLIPS.size() - 1)])
+    return COMBAT_FLOW.active_strike_clip(
+        stage, _katana_equipped(),
+        KATANA_STRIKE_CLIP, KATANA_SECOND_STRIKE_CLIP, STRIKE_CLIPS)
+
 
 func _strike_cancel_time(stage: int) -> float:
-    if _katana_equipped():
-        return minf(float(STRIKE_CANCEL_TIMES[stage]), 0.5)
-    return float(STRIKE_CANCEL_TIMES[stage])
+    return COMBAT_FLOW.strike_cancel_time(
+        stage, _katana_equipped(), STRIKE_CANCEL_TIMES)
+
 
 
 func _melee3_flick_cancel_time() -> float:
-    # The second Katana clip is authored at 0.58333s. Retain the existing
-    # frame-7 + 0.05s flick gate, independent of its longer follow-through.
-    if _katana_equipped():
-        return 7.0 / 24.0 + MELEE3_FLICK_CANCEL_DELAY
-    return float(STRIKE_CANCEL_TIMES[STRIKE_CLIPS.size() - 1]) + MELEE3_FLICK_CANCEL_DELAY
+    # Katana and the three-stage blade keep their distinct authored gates.
+    return COMBAT_FLOW.melee3_flick_cancel_time(
+        _katana_equipped(), STRIKE_CANCEL_TIMES,
+        STRIKE_CLIPS.size(), MELEE3_FLICK_CANCEL_DELAY)
+
 
 
 func _start_strike(stage: int = 0) -> void:
@@ -4009,8 +4020,8 @@ func _advance_attack(delta: float) -> void:
                 return
             var maximum_duration: float = maxf(0.01,
                 float(part_stats.get("melee_boost_duration", MELEE_BOOST_DEFAULT_DURATION)))
-            var boost_dt: float = minf(maxf(0.0, delta),
-                maxf(0.0, maximum_duration - melee_boost_elapsed))
+            var boost_dt: float = COMBAT_FLOW.tracking_slice(
+                delta, melee_boost_elapsed, maximum_duration)
             if boost_dt <= 0.0:
                 _cancel_attack()  # Beyond timed range: no phantom hit.
                 return
@@ -4024,8 +4035,8 @@ func _advance_attack(delta: float) -> void:
                 _cancel_attack()
         CombatState.BACK_KICK_TRACK:
             # Share the actual Bash homing function, target, EN and collisions.
-            var kick_dt: float = minf(maxf(delta, 0.0),
-                maxf(0.0, BASH_TRACK_SECONDS - back_kick_track_elapsed))
+            var kick_dt: float = COMBAT_FLOW.tracking_slice(
+                delta, back_kick_track_elapsed, BASH_TRACK_SECONDS)
             if _distance_to_attack_target_surface(player.position) > BASH_REACH:
                 if kick_dt > 0.0 and not _advance_homing_toward_target(kick_dt, BASH_REACH):
                     _cancel_attack()
@@ -4045,8 +4056,8 @@ func _advance_attack(delta: float) -> void:
             if _distance_to_attack_target_surface(player.position) <= BASH_REACH:
                 _launch_bash_after_tracking()
                 return
-            var track_dt: float = minf(maxf(0.0, delta),
-                maxf(0.0, BASH_TRACK_SECONDS - bash_track_elapsed))
+            var track_dt: float = COMBAT_FLOW.tracking_slice(
+                delta, bash_track_elapsed, BASH_TRACK_SECONDS)
             if track_dt > 0.0:
                 # EN exhaustion prevents displacement but the target can move
                 # into range during the remaining windup time.
@@ -4061,8 +4072,8 @@ func _advance_attack(delta: float) -> void:
             if _distance_to_attack_target_surface(player.position) <= MELEE_SURFACE_REACH:
                 _launch_followup_strike()
                 return
-            var follow_dt: float = minf(maxf(0.0, delta),
-                maxf(0.0, FOLLOWUP_TRACK_SECONDS - followup_track_elapsed))
+            var follow_dt: float = COMBAT_FLOW.tracking_slice(
+                delta, followup_track_elapsed, FOLLOWUP_TRACK_SECONDS)
             if follow_dt > 0.0:
                 _advance_homing_toward_target(follow_dt, MELEE_SURFACE_REACH)
                 followup_track_elapsed += follow_dt
