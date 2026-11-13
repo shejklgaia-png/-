@@ -175,3 +175,4 @@ py tools/sera_dev_index_self_check.py
 py tools/v316_canonical_models_self_check.py
 py tools/sera_workplan_self_check.py
 py tools/sera_model_build_self_check.py
+py tools/sera_ci_timings_self_check.py

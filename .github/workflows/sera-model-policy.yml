@@ -41,7 +41,7 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: python3 tools/model_policy_check.py --base "$BASE_SHA" --head "$HEAD_SHA"
       - name: Verify all registered historical Python regressions (batched, isolated, parallel)
-        run: python3 tools/sera_ci_suite.py static --workers 4
+        run: python3 tools/sera_ci_suite.py static --workers 4 --report-json "$RUNNER_TEMP/sera-static-results.json"
       # Earlier static regressions all passed while the Android side kick
       # lookup failed. Test the real GDScript runtime, not just its text.
       - name: Fetch Godot 4.7.2 for headless clip playback
@@ -69,7 +69,18 @@ jobs:
       - name: Verify all registered real-Godot regressions (isolated, parallel)
         env:
           SERA_GODOT_BIN: ${{ runner.temp }}/godot/Godot_v4.7.2-stable_linux.x86_64
-        run: python3 tools/sera_ci_suite.py godot --workers 3
+        run: python3 tools/sera_ci_suite.py godot --workers 3 --report-json "$RUNNER_TEMP/sera-godot-results.json"
+      # These reports help identify high-cost tests without hiding coverage.
+      - name: Publish CI test durations
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sera-ci-per-test-durations
+          path: |
+            ${{ runner.temp }}/sera-static-results.json
+            ${{ runner.temp }}/sera-godot-results.json
+          if-no-files-found: warn
+          retention-days: 14
       - name: Verify shared transparent render contract and new shaders
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
