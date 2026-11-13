@@ -80,7 +80,13 @@ func _run() -> void:
     rig.call("_apply_animation",0.0)
     var waist_bone: Node3D=bones[waist_id]
     var facing: Vector3=waist_bone.quaternion*Vector3.FORWARD
-    if Vector2(facing.x,facing.z).normalized().dot(Vector2(0,-1))<0.995:
+    var version: int = int(str(ProjectSettings.get_setting(
+        "application/config/name")).trim_prefix("SERA v"))
+    if version >= 310:
+        if waist_bone.quaternion.angle_to(desired_waist) > 0.001:
+            _fail("runtime overwrote original 9.2.2 Step_R Waist rotation")
+            return
+    elif Vector2(facing.x,facing.z).normalized().dot(Vector2(0,-1))<0.995:
         _fail("right step runtime pose lost lock facing")
         return
     game.call("_finish_side_step",false)

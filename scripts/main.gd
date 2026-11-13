@@ -2955,11 +2955,9 @@ func _combo_kick_side_for_flick(flick: Vector2) -> int:
             return 0  # screen up -> Bash (handled by _request_combo_bash)
 
 
-# The STEP pose is actor-relative, while finger travel is camera-relative.
-# Use the SAME selected-lock facing as the physics tick (v305), rather than
-# the previous frame's player transform. A touch can arrive before look_at()
-# runs; otherwise RIGHT can momentarily sample LEFT/backward animation.
-# This affects visual pose selection only, never the committed world path.
+# Historical local-space diagnostic kept for older tooling. Ordinary STEP
+# clip selection no longer uses this transform: flick pose is screen-relative
+# so RIGHT always uses Step_R, even during lock-on turns (v310).
 func _step_local_pose_direction(world_direction: Vector3) -> Vector2:
     if world_direction.length_squared() < 0.000001:
         return Vector2.UP
@@ -3248,8 +3246,10 @@ func _start_omni_step(flick: Vector2) -> bool:
     if world_step.length_squared() < 0.000001:
         world_step = Vector3(direction.x, 0.0, direction.y)
     world_step = world_step.normalized() * step_arc_length
-    # The authored body-relative pose must match this same world travel.
-    var pose_direction: Vector2 = _step_local_pose_direction(world_step)
+    # v310: STEP animation selection is SCREEN-relative, exactly like the
+    # committed flick/travel. Reprojecting against boss-facing SERA caused
+    # RIGHT flicks to blend into Frontstep as SERA circled the boss.
+    var pose_direction: Vector2 = direction
     step_start_offset = radial
     step_target_center = Vector2(target.position.x, target.position.z)
     step_linear_fallback = true
@@ -4375,14 +4375,12 @@ func _physics_process(delta: float) -> void:
     aim = _locked_target_facing_direction()
     if aim.length_squared() > 0.000001:
         player.look_at(player.global_position + aim, Vector3.UP)
-    # At close range SERA's body tracks the boss while the STEP path remains
-    # a committed screen direction. Continuously adapt the authored 4-way
-    # pose to the same WORLD travel without restarting its clip.
+    # v310: persist the SCREEN flick pose for the full STEP, regardless of
+    # SERA's changing lock-facing yaw/camera orbit. Motion and physical travel
+    # must refer to the same committed screen direction. Kicks use their
+    # dedicated clips and keep the existing target-relative orbit.
     if stepping_this_frame and rig != null and step_linear_fallback:
-        var committed_world_step: Vector3 = Vector3(
-            step_linear_offset.x, 0.0, step_linear_offset.y)
-        rig.call("update_omni_step_direction",
-            _step_local_pose_direction(committed_world_step), delta)
+        rig.call("update_omni_step_direction", step_flick_this_frame, delta)
     # Real BOOST provides movement speed and costs EN. During a direction
     # change the rig keeps displaying BOOST for 0.50s and crossfades to RUN
     # over 0.20s; keep the nozzle flames present for that *visible* motion

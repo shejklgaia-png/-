@@ -59,7 +59,15 @@ func _run() -> void:
         if (raw_pose["rotation"] as Quaternion).angle_to(expected) > 0.001:
             _fail("9.2.2 Step_R Waist keyframe was not loaded")
             return
-    if Vector2(front.x,front.z).normalized().dot(Vector2(0,-1)) < 0.995:
+    var version: int = int(str(ProjectSettings.get_setting(
+        "application/config/name")).trim_prefix("SERA v"))
+    if version >= 310:
+        var actual_authored: Dictionary = rig.call("_sample_step_clip_pose",
+            "Step_R", "67435cb7-b6af-23e4-10f1-3cd13d8429fa", 0.0)
+        if waist.quaternion.angle_to(actual_authored["rotation"]) > 0.001:
+            _fail("right STEP incorrectly rewrote 9.2.2 lateral Waist yaw")
+            return
+    elif Vector2(front.x,front.z).normalized().dot(Vector2(0,-1)) < 0.995:
         _fail("right STEP breaks locked facing: "+str(front))
         return
     var animations: Dictionary=rig.get("animations")

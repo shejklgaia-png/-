@@ -67,9 +67,9 @@ func _run() -> void:
         if world.length_squared() < 0.000001:
             _fail("invalid screen STEP vector")
             return
-        var expected: Vector2 = Vector2(
-            world.normalized().dot(target_face.cross(Vector3.UP)),
-            -world.normalized().dot(target_face)).normalized()
+        # v310: pose direction follows the finger's SCREEN axes, not
+        # the target-relative actor basis. Target facing affects only lock.
+        var expected: Vector2 = axes[i]
         if not bool(game.call("_start_omni_step", axes[i])):
             _fail("step refused at angle " + str(i))
             return
@@ -101,8 +101,17 @@ func _run() -> void:
             var root_bone: Node3D = bones[waist_uid]
             var front: Vector3 = root_bone.quaternion * Vector3.FORWARD
             var flat: Vector2 = Vector2(front.x,front.z)
-            if flat.length_squared() < 0.01 or flat.normalized().dot(Vector2(0,-1)) < 0.998:
-                _fail(clips[i] + " torso root is no longer boss-facing; front=" + str(front) + " dot=" + str(flat.normalized().dot(Vector2(0,-1))) + " q=" + str(root_bone.quaternion) + " fade=" + str(rig.get("blending_for")))
+            var version: int = int(str(ProjectSettings.get_setting(
+                "application/config/name")).trim_prefix("SERA v"))
+            if i == 0 and version >= 310:
+                # Right STEP must KEEP 9.2.2 sideways Waist yaw.
+                var authored_waist: Dictionary = rig.call(
+                    "_sample_step_clip_pose", "Step_R", waist_uid, 0.0)
+                if root_bone.quaternion.angle_to(authored_waist["rotation"]) > 0.001:
+                    _fail("right STEP lost its original sideways Waist yaw")
+                    return
+            elif flat.length_squared() < 0.01 or flat.normalized().dot(Vector2(0,-1)) < 0.998:
+                _fail(clips[i] + " torso root is no longer boss-facing; front=" + str(front))
                 return
         game.call("_finish_side_step", false)
     # Motion remains screen-directed even when SERA turns toward another
