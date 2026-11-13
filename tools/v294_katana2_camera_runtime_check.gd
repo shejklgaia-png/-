@@ -29,11 +29,11 @@ func _run() -> void:
     if absf(float(authored.get("length", 0.0)) - 0.58333) > 0.0001:
         _fail("not using the newly authored 0.58333s second clip")
         return
-    # All 19 authored A-rig tracks (70 keys) must survive import unchanged.
+    # All 20 canonical authored tracks (73 keys including Swordeffect) survive import.
     # The rig then fills one Wait_motion key for each of six BIRD joints:
     # those additional stabilizers are intentional, not corrupted Katana keys.
     var source_value: Variant = JSON.parse_string(FileAccess.get_file_as_string(
-        "res://models/storage/SERA_BOOSTER_allテスト.bbmodel"))
+        "res://models/core/Katana.bbmodel"))
     if not (source_value is Dictionary):
         _fail("Katana2 Blockbench source cannot be parsed")
         return
@@ -67,7 +67,7 @@ func _run() -> void:
                 ": raw=" + str(source_keys.size()) +
                 " runtime=" + str(copied_keys))
             return
-    if raw_keyed_bones != 19 or raw_keyframes != 70:
+    if raw_keyed_bones != 20 or raw_keyframes != 73:
         _fail("authored Katana2 source keys changed: %d bones/%d keys" % [
             raw_keyed_bones, raw_keyframes])
         return
