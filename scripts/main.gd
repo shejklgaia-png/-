@@ -4789,7 +4789,7 @@ func _process(delta: float) -> void:
         _place_camera()
         if not close_boost_camera_active and not boost_edge_frame_guard \
                 and not camera_step_recovery_active \
-                and separation > CAMERA_COMBAT_VISIBILITY_DISTANCE
+                and separation > CAMERA_COMBAT_VISIBILITY_DISTANCE \
                 and absf(camera_shoulder_mirror) >= 0.95:
             _enforce_screen_edge(bearing, delta)
     else:
@@ -4805,7 +4805,7 @@ func _process(delta: float) -> void:
         _place_camera()
         if not close_boost_camera_active and not boost_edge_frame_guard \
                 and not camera_step_recovery_active \
-                and separation > CAMERA_COMBAT_VISIBILITY_DISTANCE
+                and separation > CAMERA_COMBAT_VISIBILITY_DISTANCE \
                 and absf(camera_shoulder_mirror) >= 0.95:
             _enforce_screen_edge(bearing, delta)
 
