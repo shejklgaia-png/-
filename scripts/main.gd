@@ -2017,6 +2017,12 @@ func _apply_target_part_damage(kind: String, raw_attack: int, raw_break: float,
         # including a part just destroyed or already broken in this combo.
         target_parts.call("trigger_part_hit_fx",
             locked_target_part_id, HIT_FLASH_SECONDS)
+        # A part hit must not flash the central BODY. Conversely, BODY
+        # hits have no part ID and only run the core material flash.
+        # Use the LOCKED ID even if a broken part is held by a combo:
+        # apply_part_hit() may report BODY damage for its broken gauge.
+        hit_flash_remaining = (
+            HIT_FLASH_SECONDS if locked_target_part_id.is_empty() else 0.0)
         target_hp = maxi(0, target_hp - int(result["body_damage"]))
         _register_test_hit(weak_stagger, extension)
         if bool(result["broken"]):
@@ -2053,7 +2059,6 @@ func _register_strike_hit(world_hit: Vector3) -> void:
         float(breaks[strike_index]), float(staggers[strike_index]),
         float(part_stats.get("stagger_extend", 0.18)))
     hit_stop_remaining = HIT_STOP_SECONDS
-    hit_flash_remaining = HIT_FLASH_SECONDS
     damage_popup_remaining = 0.58
     impact_origin = _part_hit_surface(hit_part, world_hit)
     rig.call("set_combat_paused", true)
@@ -2084,7 +2089,6 @@ func _register_side_kick_hit() -> void:
         target.position.y,
         clampf(player.position.z, target.position.z - TARGET_BODY_HALF_DEPTH, target.position.z + TARGET_BODY_HALF_DEPTH))
     impact_origin = _part_hit_surface(hit_part, closest)
-    hit_flash_remaining = HIT_FLASH_SECONDS
     damage_popup_remaining = 0.58
     damage_label.text = "%d" % int(result["applied_damage"])
     damage_label.visible = true
@@ -2144,10 +2148,14 @@ func _advance_hit_fx(delta: float) -> void:
         target_material.albedo_color = Color("e53935").lerp(Color("632535"), ratio * 0.78)
         target_material.emission_energy_multiplier = lerpf(0.08, 0.03, ratio)
         target_material.emission = Color("a92724").lerp(Color("6b1727"), ratio)
+    # TargetBreakableParts is a CHILD of target_mesh. Moving/rotating
+    # that parent on any BODY hit would wobble every head/leg together,
+    # even though their materials and own pivots are otherwise isolated.
+    # Keep the parent transform fixed; core retains its dark-red material
+    # flash, and only the actual struck limb gets a localized visual wobble.
     if target_mesh != null:
-        var bounce: float = hit_flash_remaining / HIT_FLASH_SECONDS
-        target_mesh.position.x = sin((1.0 - bounce) * 44.0) * 0.09 * bounce
-        target_mesh.rotation_degrees.z = sin((1.0 - bounce) * 22.0) * 6.0 * bounce
+        target_mesh.position = Vector3.ZERO
+        target_mesh.rotation_degrees.z = 0.0
     if target_parts != null:
         target_parts.call("advance_part_hit_fx", delta)
     if hit_burst != null:
@@ -3716,7 +3724,6 @@ func _register_bash_hit() -> void:
     var result: Dictionary = _apply_target_part_damage("bash", bash_damage,
         float(part_stats.get("bash_break", 12)), 12.0, 0.08)
     hit_stop_remaining = HIT_STOP_SECONDS
-    hit_flash_remaining = HIT_FLASH_SECONDS
     damage_popup_remaining = 0.58
     var closest: Vector3 = Vector3(
         clampf(player.position.x, target.position.x - TARGET_HALF_SIZE, target.position.x + TARGET_HALF_SIZE),

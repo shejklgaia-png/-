@@ -6,7 +6,9 @@ const RENDER_ORDER = preload("res://scripts/render_order_policy.gd")
 
 const DURATION: float = 0.380
 const SPARK_COUNT: int = 27
-const FRONT_OFFSET: float = 1.52
+# Draw sparks at their hit location, not on a fixed plane in front of the
+# WHOLE boss. This preserves part-specific depth/scale for limb impacts.
+const FRONT_OFFSET: float = 0.06
 const SPAWN_JITTER_HORIZONTAL: float = 0.125
 const SPAWN_JITTER_VERTICAL: float = 0.105
 const TRAIL_LAG: float = 0.083
@@ -150,14 +152,15 @@ func _redraw() -> void:
     mesh.clear_surfaces()
     if elapsed >= DURATION or view_camera == null or view_camera.is_position_behind(origin):
         return
-    var center_world: Vector3 = target_node.global_position if target_node != null else origin
+    # v302: camera depth and pixel scale must follow the struck surface,
+    # not target_node (which always points at the whole boss BODY).
+    # Otherwise a front-leg impact can be projected on the central core.
+    var center_world: Vector3 = origin
     var target_depth: float = (center_world - view_camera.global_position).dot(-view_camera.global_basis.z)
-    var depth: float = maxf(0.9, target_depth - FRONT_OFFSET)
-    var scale_factor: float = 1.0
-    if target_node != null:
-        var top: Vector2 = view_camera.unproject_position(center_world + Vector3.UP)
-        var bottom: Vector2 = view_camera.unproject_position(center_world - Vector3.UP)
-        scale_factor = clampf(top.distance_to(bottom) / 300.0, 0.66, 1.55)
+    var depth: float = maxf(view_camera.near + 0.01, target_depth - FRONT_OFFSET)
+    var top: Vector2 = view_camera.unproject_position(center_world + Vector3.UP)
+    var bottom: Vector2 = view_camera.unproject_position(center_world - Vector3.UP)
+    var scale_factor: float = clampf(top.distance_to(bottom) / 300.0, 0.66, 1.55)
     mesh.surface_begin(Mesh.PRIMITIVE_TRIANGLES, material)
     # Subtle square contact flash, no prominent angular starburst.
     if elapsed < 0.075:

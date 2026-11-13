@@ -140,3 +140,5 @@ py tools/v300_fixed_step_locked_kick_self_check.py
 gd tools/v300_fixed_step_locked_kick_runtime_check.gd
 py tools/v301_sera_target_center_lock_self_check.py
 gd tools/v301_sera_target_center_lock_runtime_check.gd
+py tools/v302_leg_center_part_fx_self_check.py
+gd tools/v302_leg_center_part_fx_runtime_check.gd
