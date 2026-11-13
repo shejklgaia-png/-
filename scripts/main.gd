@@ -13,6 +13,7 @@ const BOOST_STATE = preload("res://scripts/sera_boost_state.gd")
 const RESOURCE_RULES = preload("res://scripts/sera_resource_rules.gd")
 const LOCK_MANAGEMENT = preload("res://scripts/sera_lock_management.gd")
 const COMBAT_FLOW = preload("res://scripts/sera_combat_flow.gd")
+const COMBAT_TIMERS = preload("res://scripts/sera_combat_timers.gd")
 const DEV_DIAGNOSTICS = preload("res://scripts/dev_diagnostics.gd")
 ## v84: Authored 3-stage Swordeffect atlas, exact board placement.
 ## v83: Three-stage tap melee combo; cancel 2 authored frames after follow-through.
@@ -4164,6 +4165,30 @@ func _update_boost_speed(delta: float) -> void:
     boost_speed_transition_target = float(state["target"])
     boost_speed_transition_elapsed = float(state["elapsed"])
 
+func _tick_combo_window_timers(delta: float) -> void:
+    # The queued-input windows advance before guard, BOOST and attack input.
+    bash_followup_window_remaining = COMBAT_TIMERS.remaining_after_delta(
+        bash_followup_window_remaining, delta)
+    bash_loop_window_remaining = COMBAT_TIMERS.remaining_after_delta(
+        bash_loop_window_remaining, delta)
+    if kick_debug_remaining > 0.0:
+        kick_debug_remaining = COMBAT_TIMERS.remaining_after_delta(
+            kick_debug_remaining, delta)
+        if kick_debug_remaining == 0.0:
+            _refresh_step_status_ui()
+
+
+func _tick_target_recovery_timers(delta: float) -> void:
+    # Stagger recovers AFTER EN/SH but BEFORE enemy fire eligibility.
+    # Reaching zero on this tick also starts decaying the stagger meter.
+    stagger_remaining = COMBAT_TIMERS.remaining_after_delta(
+        stagger_remaining, delta)
+    part_break_remaining = COMBAT_TIMERS.remaining_after_delta(
+        part_break_remaining, delta)
+    stagger_value = COMBAT_TIMERS.stagger_after_countdown(
+        stagger_value, stagger_remaining, delta, 8.0)
+
+
 func _physics_process(delta: float) -> void:
     _update_equipped_collision_height()
     _tick_training_ko(delta)
@@ -4178,12 +4203,7 @@ func _physics_process(delta: float) -> void:
     if hit_stop_remaining <= 0.0:
         elapsed += delta
         target.position.y = TARGET_BASE_HEIGHT + sin(elapsed * 1.4) * 0.07
-    bash_followup_window_remaining = maxf(0.0, bash_followup_window_remaining - delta)
-    bash_loop_window_remaining = maxf(0.0, bash_loop_window_remaining - delta)
-    if kick_debug_remaining > 0.0:
-        kick_debug_remaining = maxf(0.0, kick_debug_remaining - delta)
-        if kick_debug_remaining == 0.0:
-            _refresh_step_status_ui()
+    _tick_combo_window_timers(delta)
     _update_guard_hold()
     # Sample the outer-ring hold independently of touch event frequency.
     _update_boost_gesture(delta)
@@ -4213,10 +4233,7 @@ func _physics_process(delta: float) -> void:
     if was_energy_exhausted and not energy_exhausted:
         # After 60% unlock, resume on the existing held outer-ring drag.
         _update_boost_gesture(BOOST_CONFIRM_SECONDS)
-    stagger_remaining = maxf(0.0, stagger_remaining - delta)
-    part_break_remaining = maxf(0.0, part_break_remaining - delta)
-    if stagger_remaining <= 0.0:
-        stagger_value = maxf(0.0, stagger_value - 8.0 * delta)
+    _tick_target_recovery_timers(delta)
     # v163: symmetric eased 0.20s RUN <-> BOOST speed transitions.
     # This is independent of the 0.50s BOOST pose hold and 0.20s pose fade.
     _update_boost_speed(delta)
@@ -4241,7 +4258,7 @@ func _physics_process(delta: float) -> void:
     # The authored 0.16667s reaction runs while the body moves. Only regain
     # control when BOTH the animation and short physical knockback are done.
     if down_remaining > 0.0:
-        down_remaining = maxf(0.0, down_remaining - delta)
+        down_remaining = COMBAT_TIMERS.remaining_after_delta(down_remaining, delta)
         if down_remaining <= 0.0:
             energy = TEST_EN_MAX
             shield = TEST_SH_MAX
@@ -4253,7 +4270,7 @@ func _physics_process(delta: float) -> void:
             if rig != null:
                 rig.call("finish_damage", false)
     if guard_break_remaining > 0.0:
-        guard_break_remaining = maxf(0.0, guard_break_remaining - delta)
+        guard_break_remaining = COMBAT_TIMERS.remaining_after_delta(guard_break_remaining, delta)
     if damage_reaction_active:
         _advance_damage_knockback(delta)
         if guard_break_remaining <= 0.0 and down_remaining <= 0.0 and damage_knockback_elapsed >= DAMAGE_KNOCKBACK_DURATION * float(part_stats.get("damage_time_mult", 1.0)) and rig != null and bool(rig.call("damage_finished")):
