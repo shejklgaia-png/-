@@ -1041,6 +1041,8 @@ func _build_animations(data: Dictionary) -> void:
 # v293: Read the new user-authored second slash from the latest Blockbench
 # working model. This imports ONLY the animation and does not replace the A
 # rig, equipment geometry, other clips, or the generated embedded source.
+# Both Katana1 and Katana2 come from the same authored weapon file.
+# The Standard base's Katana1 track is only a backward-compatible fallback.
 func _merge_authored_katana_second_clip() -> void:
     var source: String = ""
     if FileAccess.file_exists(KATANA_SECOND_AUTHORING_SOURCE):
@@ -1049,13 +1051,15 @@ func _merge_authored_katana_second_clip() -> void:
         source = KATANA_EMBEDDED.get_json()
     var parsed: Variant = JSON.parse_string(source)
     if not (parsed is Dictionary):
-        push_warning("Katana second animation source is invalid; using fallback")
+        push_warning("Katana animation source invalid; keeping compatibility fallback")
         return
+    var imported_second: bool = false
     for candidate in parsed.get("animations", []):
         if not (candidate is Dictionary):
             continue
         var authored: Dictionary = candidate
-        if str(authored.get("name", "")) != KATANA_SECOND_CLIP:
+        var name: String = str(authored.get("name", ""))
+        if name != KATANA_CLIP and name != KATANA_SECOND_CLIP:
             continue
         var raw_animators: Dictionary = authored.get("animators", {})
         var keyed_tracks: int = 0
@@ -1066,10 +1070,13 @@ func _merge_authored_katana_second_clip() -> void:
             if animator is Dictionary and not (animator as Dictionary).get("keyframes", []).is_empty():
                 keyed_tracks += 1
         if keyed_tracks == 0:
-            push_warning("Katana second animation bones do not match; using fallback")
-            return
+            push_warning("Katana animation joints do not match: " + name)
+            continue
         _build_animations({"animations": [authored]})
-        return
+        if name == KATANA_SECOND_CLIP:
+            imported_second = true
+    if not imported_second:
+        push_warning("Katana2 authored clip unavailable; using compatibility fallback")
 
 # v290 fallback: when no user-authored Katana2 can load, derive a playable
 # second clip from first slash without mutating any original keyframes.

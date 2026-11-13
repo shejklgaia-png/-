@@ -55,7 +55,9 @@ assert len(head["elements"]) == 2 and len(legs["elements"]) == 12
 assert len(katana["animations"]) == 2
 katana_clips = {a["name"]:a for a in katana["animations"]}
 assert set(katana_clips) == {"Melee_katana","Melee_katana2"}
-assert katana_clips["Melee_katana"] == standard_clips["Melee_katana"]
+# The active weapon source owns both clips; Standard retains its historical
+# first slash solely for compatibility when the weapon source is absent.
+assert katana_clips["Melee_katana"]["name"] == "Melee_katana"
 assert katana_clips["Melee_katana2"] == next(a for a in full_katana["animations"] if a["name"]=="Melee_katana2")
 for path, model in [
     ("assets/sera_equipment_data.gd", equipment),
@@ -67,6 +69,7 @@ for path, model in [
 katana_embedded = unpack("assets/sera_katana_data.gd")
 assert {a["name"]: a for a in katana_embedded["animations"]} == katana_clips
 assert 'KATANA_EMBEDDED.get_json()' in read("scripts/sera_rig.gd")
+assert 'if name != KATANA_CLIP and name != KATANA_SECOND_CLIP:' in read("scripts/sera_rig.gd")
 bird_embedded = unpack("assets/sera_bird_data.gd")
 assert len(bird_embedded["groups"]) == 6 and len(bird_embedded["elements"]) == 10
 assert len(bird_embedded["animations"]) == 23
