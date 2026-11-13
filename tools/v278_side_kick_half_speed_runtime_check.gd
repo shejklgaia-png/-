@@ -26,6 +26,11 @@ func _run() -> void:
     game.set("camera_yaw",0.0)
     game.call("_place_camera")
     game.set("target_hp",0)
+    # The dead target is still damageable in v319; disable tracking speed
+    # for this isolated authored kick-orbit timing test.
+    var stats: Dictionary = game.get("part_stats")
+    stats["melee_boost_speed"] = 0.0
+    game.set("part_stats",stats)
     game.set("locked_target_part_id","")
     if not bool(game.call("_start_omni_step",Vector2.RIGHT)):
         _fail("normal STEP refused")
