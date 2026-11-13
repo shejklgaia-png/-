@@ -1550,24 +1550,23 @@ func _toggle_auto_lock_mode() -> void:
     _update_target_marker_projection()
 
 
-# v298: BODY and each intact head/leg are equal AUTO candidates:
-# rank actual mesh intersections along the finite CAMERA->BODY center segment.
-# Empty part ID means the selected BODY mesh, not a no-hit fallback.
-# Keep existing 0.22s stability between ANY two intersected candidates
-# (including BODY); reacquire immediately only when the current mesh no
-# longer intersects or when the previous target broke. Combat lock retention
-# remains in the unchanged caller.
+# v301: AUTO ranks the FIRST real mesh intersection on the finite
+# SERA collision-root -> boss BODY center segment. BODY, intact HEAD and
+# legs compete equally; only the origin changed from CAMERA to SERA.
+# Preserve the existing 0.22s switch confirmation and broken-part/combo
+# gates. Name kept for compatibility with the v293-v299 API tests.
 func _acquire_stable_camera_part(delta: float,
         current_broken: bool) -> void:
-    if target_parts == null or camera == null or target == null:
+    if target_parts == null or player == null or target == null:
         return
     var center: Vector3 = target.global_position
+    var sera_origin: Vector3 = player.global_position
     var preferred: String = str(target_parts.call(
-        "select_camera_center_line_part", camera, center))
+        "select_actor_center_line_part", sera_origin, center))
     var current_on_line: bool = (
         auto_lock_initialized
-        and bool(target_parts.call("camera_center_line_hits_part",
-            camera, center, locked_target_part_id)))
+        and bool(target_parts.call("actor_center_line_hits_part",
+            sera_origin, center, locked_target_part_id)))
     if not auto_lock_initialized or current_broken or not current_on_line:
         locked_target_part_id = preferred
         auto_lock_initialized = true
@@ -4242,9 +4241,9 @@ func _physics_process(delta: float) -> void:
                 # Reacquire a new FRONT visible part only AFTER the entire
                 # committed combo finishes. Manual selection of an intact
                 # target stays manual; a broken manual lock auto-recovers once.
-                # The visible CAMERA projection owns AUTO priority. Large
-                # torso/leg occluders and distance-to-limb cannot leave AUTO
-                # without a lock. The preceding broken-combo gate stays.
+                # SERA->BODY segment owns AUTO priority, not the camera.
+                # BODY remains a real hit candidate. Keep combo lock retention
+                # and the separate camera-projected MANUAL arrow selection.
                 _acquire_stable_camera_part(delta, locked_part_broken)
                 if locked_part_broken:
                     manual_part_lock_active = not auto_lock_enabled
@@ -4252,8 +4251,8 @@ func _physics_process(delta: float) -> void:
                 locked_target_part_id = ""
                 manual_part_lock_active = not auto_lock_enabled
         else:
-            # Do not apply a stale camera preference immediately after a
-            # combo finishes; its attack motion may have changed the view.
+            # Do not apply a stale SERA-origin preference immediately after
+            # combo movement; the locked part stays fixed until it ends.
             auto_lock_pending_part = ""
             auto_lock_pending_elapsed = 0.0
         # Lock part ID/reticle/hit volume stay independent of actor facing.

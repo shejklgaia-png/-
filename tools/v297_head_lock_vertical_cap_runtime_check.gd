@@ -41,7 +41,10 @@ func _run() -> void:
         _fail("missing combat scene")
         return
     var game: Node3D = packed.instantiate()
+    # Historic geometry test: place SERA at the sampled synthetic ray origin.
+    # The camera may still aim the test ray, but AUTO reads only SERA.
     root.add_child(game)
+    var player: CharacterBody3D = game.get("player")
     var camera: Camera3D = game.get("camera")
     var target: Node3D = game.get("target")
     var parts: Node3D = game.get("target_parts")
@@ -127,12 +130,14 @@ func _run() -> void:
     game.set("manual_part_lock_active", false)
     game.set("auto_lock_initialized", false)
     game.set("locked_target_part_id", "")
+    player.global_position = camera.global_position
     game.call("_acquire_stable_camera_part",0.016,false)
     if str(game.get("locked_target_part_id")) != "head":
         _fail("integrated AUTO did not lock head via virtual cap")
         return
     camera.global_position = body_center + Vector3(0.0, 0.0, -12.0)
     camera.look_at(body_center,Vector3.UP)
+    player.global_position = camera.global_position
     game.call("_acquire_stable_camera_part",0.016,false)
     if not str(game.get("locked_target_part_id")).is_empty():
         _fail("stale head lock did not release when segment moved off cap")

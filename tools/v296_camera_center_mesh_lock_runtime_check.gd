@@ -25,7 +25,10 @@ func _run() -> void:
         _fail("combat scene not found")
         return
     var game: Node3D = packed.instantiate()
+    # Historic geometry test: place SERA at the sampled synthetic ray origin.
+    # The camera may still aim the test ray, but AUTO reads only SERA.
     root.add_child(game)
+    var player: CharacterBody3D = game.get("player")
     var camera: Camera3D = game.get("camera")
     var target: Node3D = game.get("target")
     var parts: Node3D = game.get("target_parts")
@@ -92,12 +95,14 @@ func _run() -> void:
     game.set("manual_part_lock_active",false)
     game.set("auto_lock_initialized",false)
     game.set("locked_target_part_id","")
+    player.global_position = camera.global_position
     game.call("_acquire_stable_camera_part",0.016,false)
     if str(game.get("locked_target_part_id")) != "head":
         _fail("BODY-to-HEAD acquisition was not immediate")
         return
 
     _point_camera(camera,center,Vector3(0.0,0.0,-12.0))
+    player.global_position = camera.global_position
     game.call("_acquire_stable_camera_part",0.016,false)
     if str(game.get("locked_target_part_id")) != "":
         _fail("HEAD persisted after camera line no longer hit it")
@@ -109,10 +114,12 @@ func _run() -> void:
     # v298: BODY is a genuine intersecting candidate, so switching from
     # BODY to HEAD uses the same 0.22 s confirmation as limb-to-limb.
     _point_camera(camera,center,Vector3(0.0,-2.0,10.0))
+    player.global_position = camera.global_position
     game.call("_acquire_stable_camera_part",0.016,false)
     if str(game.get("locked_target_part_id")) != "":
         _fail("BODY->HEAD ignored the shared lock confirmation")
         return
+    player.global_position = camera.global_position
     game.call("_acquire_stable_camera_part",0.23,false)
     if str(game.get("locked_target_part_id")) != "head":
         _fail("BODY refused sustained HEAD intersection")
