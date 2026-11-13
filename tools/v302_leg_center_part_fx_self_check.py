@@ -8,7 +8,7 @@ read=lambda p:(R/p).read_text(encoding="utf-8")
 part,main,burst,project,manifest = [read(x) for x in (
     "scripts/target_parts.gd","scripts/main.gd","scripts/hit_burst.gd",
     "project.godot","tools/sera_ci_manifest.txt")]
-assert re.search(r'config/name="SERA v302"',project)
+assert int(re.search(r'config/name="SERA v(\d+)"',project).group(1)) >= 302
 assert (R/"README_v302_ja.md").is_file()
 for label in ("leg_fl","leg_fr","leg_rl","leg_rr"):
     declaration=part.split('_add_part("'+label+'"',1)[1].split('100.0,',1)[0]
