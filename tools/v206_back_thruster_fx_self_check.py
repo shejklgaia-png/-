@@ -39,7 +39,14 @@ def find(entry, target):
 
 chest = find(model["outliner"][0], "Chest")
 assert find(chest, "BOOSTER") is not None
-assert model["animations"][:len(authored["animations"])] == authored["animations"]
+# v308 changes only the authored Step_R Waist/Head rotation key at time 0.
+# Preserve the historical comparison for all other animation clips.
+for new_clip, old_clip in zip(model["animations"][:len(authored["animations"])], authored["animations"]):
+    if old_clip["name"] == "Step_R":
+        assert new_clip["uuid"] == old_clip["uuid"] and new_clip["name"] == old_clip["name"]
+        assert set(new_clip["animators"]) == set(old_clip["animators"])
+        continue
+    assert new_clip == old_clip
 
 # v206 uses authored, not a duplicated hard-coded, world-space FX location.
 equip = (ROOT / "scripts/sera_equipment.gd").read_text(encoding="utf-8")
