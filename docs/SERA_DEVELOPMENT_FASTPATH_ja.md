@@ -2,6 +2,12 @@
 
 この文書は **開発エージェント・Codex・ChatGPT向け** の入口です。機能仕様そのものを変更する指示ではありません。現在値は必ず最新の GitHub `main` の実装から取得してください。
 
+## v316 AI高速作業ルート（2026-11-13）
+- 入口は短縮版 `AGENTS.md` と `python3 tools/sera_workplan.py --query <機能> --json` です。全文の旧AGENTS規則は `docs/history/AGENTS_THROUGH_V316.md` に保存し、必要な時だけ参照します。
+- 変更ファイル名だけ分かる場合は `--changed scripts/sera_rig.gd`、機能が分かる場合は `--query katana` を併用し、全体が関係する巨大ファイルでも検査対象を絞って調査してください。
+- 開発中の局所確認は `--execute` で登録済みPython回帰テストのみ選択実行できます。Godotは `--godot <binary>` も指定した時のみ局所実行。**PR上では必ず既存の全170件以上の共通CIを実行**します。
+- 変更直後に古いCIが失敗した場合は `docs/SERA_ACTIVE_CI_POLICY_ja.md` に従い、意図して更新した仕様と実不具合を分けてください。
+
 ## 真実の参照先と優先順位
 1. 最新の明示的ユーザー指示と、実機で確認された挙動
 2. 現在の `project.godot`、関連する `scripts/`、`scenes/`、`assets/` とモデル原本
