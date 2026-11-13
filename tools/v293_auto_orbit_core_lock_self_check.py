@@ -38,13 +38,13 @@ assert select(-math.sin(math.radians(72)),math.cos(math.radians(72)),{"leg_fl"})
 assert "var auto_lock_initialized: bool = false" in main
 auto = main.split("func _acquire_stable_camera_part(delta: float,",1)[1].split(
     "func _controller_start_area_contains(",1)[0]
-for key in ("select_actor_center_line_part", "not auto_lock_initialized or current_broken",
+for key in ("select_actor_parallel_lines_part", "not auto_lock_initialized or current_broken:",
             "auto_lock_initialized = true", "auto_lock_pending_part != preferred",
             "auto_lock_pending_elapsed >= AUTO_LOCK_SWITCH_CONFIRM_SECONDS"):
     assert key in auto, key
 assert "actor_center_line_hits_part" in auto
 assert "sera_origin: Vector3 = player.global_position" in auto
-assert "not current_on_line" in auto
+assert "preferred == locked_target_part_id and current_on_line" in auto
 assert 'var label_name: String = "BODY"' in main
 assert "var integrity: float = float(target_hp)" in main
 assert "var maximum: float = float(TARGET_MAX_HP)" in main
