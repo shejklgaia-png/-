@@ -158,6 +158,9 @@ const STEP_CLOSE_CAMERA_MAX_RELATIVE_DEGREES: float = 45.0
 const CAMERA_COMBAT_VISIBILITY_DISTANCE: float = 6.5
 const CAMERA_COMBAT_YAW_HOLD_SECONDS: float = 0.45
 const CAMERA_COMBAT_SHOULDER_DEGREES: float = 12.0
+const CAMERA_TARGET_COMPOSITION_SHOULDER_DEGREES: float = 43.0
+const CAMERA_COMPOSITION_SWITCH_SECONDS: float = 0.28
+const CAMERA_COMPOSITION_SWITCH_SCREEN_RATIO: float = 0.14
 const CAMERA_COMBAT_MAX_PLAYER_SIDE_DEGREES: float = 30.0
 # v288: small SERA-follow lag with a hard distance/angle leash. Beyond the
 # leash the camera moves at exactly the player's rate, never falling farther
@@ -548,6 +551,8 @@ var camera_dolly_in_speed: float = 0.0
 var camera_near_dolly_weight: float = 0.0
 var close_boost_camera_active: bool = false
 var player_screen_side: int = 1  # Last observed player side of the target on screen.
+var camera_composition_side: int = 1
+var camera_composition_switch_elapsed: float = 0.0
 var was_running: bool = false
 var floor_stage: Node3D
 var blur_last_player_position: Vector3 = Vector3.ZERO
@@ -659,12 +664,16 @@ func _load_handedness_preference() -> void:
     var settings := ConfigFile.new()
     if settings.load(HANDEDNESS_SETTINGS_FILE) == OK:
         left_handed = bool(settings.get_value("controls", "left_handed", false))
+        auto_lock_enabled = bool(settings.get_value(
+            "controls", "auto_lock_enabled", true))
+    manual_part_lock_active = not auto_lock_enabled
 
 func _toggle_handedness() -> void:
     left_handed = not left_handed
     if rig != null:
         rig.call("set_run_left_handed", left_handed)
     _refresh_handedness_button()
+    _layout_lock_control_buttons()
     var settings := ConfigFile.new()
     settings.load(HANDEDNESS_SETTINGS_FILE)
     settings.set_value("controls", "left_handed", left_handed)
@@ -1240,7 +1249,10 @@ func _build_camera() -> void:
     var start_delta: Vector2 = Vector2(player.position.x - target.position.x,
         player.position.z - target.position.z)
     var start_bearing: float = atan2(start_delta.x, start_delta.y)
-    camera_yaw = start_bearing - deg_to_rad(CAMERA_COMBAT_SHOULDER_DEGREES)
+    camera_yaw = start_bearing - deg_to_rad(
+        CAMERA_TARGET_COMPOSITION_SHOULDER_DEGREES)
+    camera_composition_side = 1
+    camera_composition_switch_elapsed = 0.0
     _place_camera()
 
 func _build_overlay() -> void:
@@ -1253,6 +1265,7 @@ func _build_overlay() -> void:
     layer.add_child(touch_ui)
     touch_ui.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
     _build_lock_switch_buttons(layer)
+    _layout_lock_control_buttons()
     _update_melee_lock_marker()  # Initial state before the first physics frame.
 
     hud_panel = HUD_LAYOUT.build_panel(layer)
@@ -1437,11 +1450,11 @@ func _build_lock_switch_buttons(layer: CanvasLayer) -> void:
     for direction in [-1, 1]:
         var button := Button.new()
         button.name = "LockSwitchLeft" if direction < 0 else "LockSwitchRight"
-        button.text = "◀ LOCK" if direction < 0 else "LOCK ▶"
+        button.text = "◀" if direction < 0 else "▶"
         button.focus_mode = Control.FOCUS_NONE
         # Android native touch is processed in _input, not Button signals.
         button.mouse_filter = Control.MOUSE_FILTER_IGNORE
-        button.add_theme_font_size_override("font_size", 15)
+        button.add_theme_font_size_override("font_size", 29)
         button.add_theme_color_override("font_color", Color("b9f5ff"))
         button.add_theme_color_override("font_disabled_color", Color("68858c"))
         button.add_theme_stylebox_override("normal", normal_style)
@@ -1453,37 +1466,32 @@ func _build_lock_switch_buttons(layer: CanvasLayer) -> void:
         button.offset_top = CONTROLLER_BUTTON_TOP_INSET
         button.offset_bottom = CONTROLLER_BUTTON_TOP_INSET + LOCK_SWITCH_BUTTON_SIZE.y
         if direction < 0:
-            button.anchor_left = CONTROLLER_REGION_START_RATIO
-            button.anchor_right = CONTROLLER_REGION_START_RATIO
-            button.offset_left = LOCK_SWITCH_EDGE_INSET
-            button.offset_right = LOCK_SWITCH_EDGE_INSET + LOCK_SWITCH_BUTTON_SIZE.x
             lock_switch_left_button = button
         else:
-            button.anchor_left = 1.0
-            button.anchor_right = 1.0
-            button.offset_left = -LOCK_SWITCH_EDGE_INSET - LOCK_SWITCH_BUTTON_SIZE.x
-            button.offset_right = -LOCK_SWITCH_EDGE_INSET
             lock_switch_right_button = button
         layer.add_child(button)
     lock_mode_button = Button.new()
-    lock_mode_button.name = "LockModeToggle"
+    lock_mode_button.name = "LockSite"
     lock_mode_button.focus_mode = Control.FOCUS_NONE
     lock_mode_button.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    lock_mode_button.text = ""
     lock_mode_button.add_theme_font_size_override("font_size", 16)
     lock_mode_button.add_theme_color_override("font_color", Color("f4f9fc"))
     lock_mode_button.add_theme_stylebox_override("normal", normal_style)
     lock_mode_button.add_theme_stylebox_override("hover", normal_style)
     lock_mode_button.add_theme_stylebox_override("pressed", press_style)
-    lock_mode_button.anchor_left = 0.75
-    lock_mode_button.anchor_right = 0.75
     lock_mode_button.anchor_top = LOCK_CONTROLS_VERTICAL_RATIO
     lock_mode_button.anchor_bottom = LOCK_CONTROLS_VERTICAL_RATIO
-    lock_mode_button.offset_left = -LOCK_MODE_BUTTON_SIZE.x * 0.5
-    lock_mode_button.offset_right = LOCK_MODE_BUTTON_SIZE.x * 0.5
     lock_mode_button.offset_top = CONTROLLER_BUTTON_TOP_INSET
     lock_mode_button.offset_bottom = CONTROLLER_BUTTON_TOP_INSET + LOCK_MODE_BUTTON_SIZE.y
     layer.add_child(lock_mode_button)
-    # The optional pair-lines debug control sits BELOW AUTO, leaving all
+    var icon: Control = preload("res://scripts/lock_site_icon.gd").new()
+    icon.name = "LockSiteGlyph"
+    icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    lock_mode_button.add_child(icon)
+    icon.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+    # The optional dual-ray diagnostic lives outside the three-symbol
+    # lock control group; it never overlays the operation arrows. Lines
     # three existing LOCK button hitboxes, size and anchors unchanged.
     lock_lines_button = Button.new()
     lock_lines_button.name = "LockLinesVisibility"
@@ -1494,24 +1502,40 @@ func _build_lock_switch_buttons(layer: CanvasLayer) -> void:
     lock_lines_button.add_theme_stylebox_override("normal", normal_style)
     lock_lines_button.add_theme_stylebox_override("hover", normal_style)
     lock_lines_button.add_theme_stylebox_override("pressed", press_style)
-    lock_lines_button.anchor_left = 0.75
-    lock_lines_button.anchor_right = 0.75
-    lock_lines_button.anchor_top = LOCK_CONTROLS_VERTICAL_RATIO
-    lock_lines_button.anchor_bottom = LOCK_CONTROLS_VERTICAL_RATIO
+    lock_lines_button.anchor_left = 0.80
+    lock_lines_button.anchor_right = 0.80
+    lock_lines_button.anchor_top = 0.35
+    lock_lines_button.anchor_bottom = 0.35
     lock_lines_button.offset_left = -LOCK_LINES_BUTTON_SIZE.x * 0.5
     lock_lines_button.offset_right = LOCK_LINES_BUTTON_SIZE.x * 0.5
-    lock_lines_button.offset_top = (
-        CONTROLLER_BUTTON_TOP_INSET + LOCK_MODE_BUTTON_SIZE.y + 8.0)
-    lock_lines_button.offset_bottom = (
-        lock_lines_button.offset_top + LOCK_LINES_BUTTON_SIZE.y)
+    lock_lines_button.offset_top = 0.0
+    lock_lines_button.offset_bottom = LOCK_LINES_BUTTON_SIZE.y
     layer.add_child(lock_lines_button)
     _refresh_lock_mode_buttons()
     _refresh_lock_lines_button()
 
 
+# The three-symbol cluster fits inside one half of the 720px HUD.
+# Right hand -> LEFT edge, left hand -> RIGHT edge. No fixed screen X.
+func _layout_lock_control_buttons() -> void:
+    if lock_switch_left_button == null or lock_mode_button == null \
+            or lock_switch_right_button == null:
+        return
+    var base: float = 0.5 if left_handed else 0.0
+    var offset: float = LOCK_SWITCH_EDGE_INSET
+    for button in [lock_switch_left_button, lock_mode_button, lock_switch_right_button]:
+        var width: float = (LOCK_MODE_BUTTON_SIZE.x if button == lock_mode_button
+            else LOCK_SWITCH_BUTTON_SIZE.x)
+        button.anchor_left = base
+        button.anchor_right = base
+        button.offset_left = offset
+        button.offset_right = offset + width
+        offset += width + LOCK_SWITCH_EDGE_INSET
+
+
 func _refresh_lock_mode_buttons() -> void:
     if lock_mode_button != null:
-        lock_mode_button.text = "AUTO" if auto_lock_enabled else "MANUAL"
+        lock_mode_button.text = ""
     if lock_switch_left_button != null:
         lock_switch_left_button.disabled = auto_lock_enabled
     if lock_switch_right_button != null:
@@ -2267,7 +2291,7 @@ func _input(event: InputEvent) -> void:
                 return
             if _pointer_on_lock_mode_button(event.position):
                 step_hud_touch = event.index
-                _toggle_auto_lock_mode()
+                # Center glyph is display-only; mode is selected in SYSTEM.
                 get_viewport().set_input_as_handled()
                 return
             var switch_direction: int = _lock_switch_direction_at(event.position)
@@ -2317,7 +2341,7 @@ func _input(event: InputEvent) -> void:
                     return
                 if _pointer_on_lock_mode_button(event.position):
                     step_hud_mouse_press = true
-                    _toggle_auto_lock_mode()
+                    # Center glyph is display-only; mode is selected in SYSTEM.
                     get_viewport().set_input_as_handled()
                     return
                 var switch_direction: int = _lock_switch_direction_at(event.position)
@@ -2617,8 +2641,15 @@ func _end_drag(release_pos: Vector2) -> void:
     jump_flick_samples.clear()
     touch_ui.call("set_movement_boost", false)
     touch_ui.call("hide_drag")
-    if damage_reaction_active or landing_active or back_somersault_active or suppress_release_action:
-        return  # Airborne somersault and landing own the input until fully complete.
+    # A valid 360-degree STEP cancels *any* landing frame, including its
+    # first rendered transition key. Other input stays suppressed.
+    if landing_active:
+        if not damage_reaction_active and flick_direction.length_squared() > 0.000001:
+            if _start_omni_step(flick_direction):
+                touch_ui.call("show_flick_wake", pointer_origin, release_pos)
+        return
+    if damage_reaction_active or back_somersault_active or suppress_release_action:
+        return
     # A screen-left/right/down combo swipe MUST resolve to a kick before
     # screen-UP Bash or general 360-degree STEP. If it does not,
     # show the reason in the existing debug panel for recorded phone tests.
@@ -3120,12 +3151,20 @@ func _step_fixed_distance_for_direction(_direction: Vector2) -> float:
 
 # Touch flicks only: direct legacy back/side helpers and combo kicks are unchanged.
 func _start_omni_step(flick: Vector2) -> bool:
-    if (guard_active or damage_reaction_active or landing_active
+    if (guard_active or damage_reaction_active
             or rig == null or not bool(rig.get("loading_ok"))
             or flick.length_squared() < 0.000001):
         return false
     if not _spend_energy(15.0 * float(part_stats.get("energy_cost_mult", 1.0))):
         return false
+    # Only a committed STEP may terminate a landing. Preserve its existing
+    # complete-pose crossfade for every other action/input.
+    if landing_active:
+        landing_active = false
+        landing_from_somersault = false
+        landing_elapsed = 0.0
+        gesture_suppressed_from_landing = false
+        rig.call("finish_jump", false, false)
     # A successfully initiated STEP cancels both follow-up input links.
     # Do this only AFTER EN is spent, never for an unsuccessful STEP.
     _cancel_combo_followup_windows_for_movement()
@@ -4734,7 +4773,7 @@ func _process(delta: float) -> void:
         if not close_boost_camera_active and not boost_edge_frame_guard \
                 and not camera_step_recovery_active \
                 and separation > CAMERA_COMBAT_VISIBILITY_DISTANCE:
-            _enforce_screen_edge(bearing, delta)
+            pass  # Only analytic zoom protects the edges (no yaw solver race).
     else:
         # Never snap behind a leg or abruptly switch the camera shoulder
         # after an attack. Use one continuous, low-speed idle follow.
@@ -4749,18 +4788,15 @@ func _process(delta: float) -> void:
         if not close_boost_camera_active and not boost_edge_frame_guard \
                 and not camera_step_recovery_active \
                 and separation > CAMERA_COMBAT_VISIBILITY_DISTANCE:
-            _enforce_screen_edge(bearing, delta)
+            pass  # Only analytic zoom protects the edges (no yaw solver race).
 
-    # Frame protection applies in BOTH modes, but never enforces the gap
-    # during drag. This maintains full left-to-right control.
-    if boost_edge_frame_guard:
-        # No iterative per-frame bisection on outward left/right BOOST:
-        # solve the minimum perspective radius directly from the silhouettes.
-        _fit_boost_frame_analytically(delta)
-    else:
-        _fit_full_frame()
-        _relax_camera_fit_radius(delta)
+    # One analytic fit handles normal movement and BOOST alike, preventing
+    # zoom recovery, orbit correction and edge checks from competing.
+    _fit_boost_frame_analytically(delta)
+    if not _full_frame_safe():
+        _fit_full_frame() # emergency frame safety only
     _place_camera()
+    _advance_composition_side(delta)
 
     # Do NOT override depth testing or render priority for the target.
     # If the player stands between the camera and the cube, it is naturally occluded.
@@ -4777,14 +4813,41 @@ func _process(delta: float) -> void:
 # v288: keep the tracking anchor near SERA, with a short (up to 2m)
 # lead toward the target for composition. At long range it translates
 # with SERA essentially one-for-one instead of orbiting a stationary boss.
+# Switch sides only after the player has clearly crossed the reticle's
+# opposite side for 0.28s; never switch due to 1px leg/camera jitter.
+func _advance_composition_side(delta: float) -> void:
+    if camera == null or target == null or player == null:
+        return
+    var viewport_width: float = get_viewport().get_visible_rect().size.x
+    if viewport_width <= 1.0:
+        return
+    var torso: Vector3 = camera_player_render_position + Vector3(0.0, 1.05, 0.0)
+    var boss: Vector3 = _camera_target_frame_center()
+    if camera.is_position_behind(torso) or camera.is_position_behind(boss):
+        camera_composition_switch_elapsed = 0.0
+        return
+    var separation: float = torso.distance_to(boss)
+    var difference: float = (camera.unproject_position(torso).x
+        - camera.unproject_position(boss).x)
+    if separation > 2.2 and difference * float(camera_composition_side) < (
+            -viewport_width * CAMERA_COMPOSITION_SWITCH_SCREEN_RATIO):
+        camera_composition_switch_elapsed += maxf(delta, 0.0)
+        if camera_composition_switch_elapsed >= CAMERA_COMPOSITION_SWITCH_SECONDS:
+            camera_composition_side *= -1
+            camera_composition_switch_elapsed = 0.0
+    else:
+        camera_composition_switch_elapsed = 0.0
+
+
 func _desired_camera_follow_focus_xz() -> Vector2:
     # Use the same render-interpolated player/target samples as before.
     var player_xz: Vector2 = Vector2(
         camera_player_render_position.x, camera_player_render_position.z)
     var target_xz: Vector2 = Vector2(
         camera_target_render_position.x, camera_target_render_position.z)
-    return CAMERA_MATH.desired_follow_focus(
-        player_xz, target_xz, CAMERA_PLAYER_FOCUS_LEAD_METERS)
+    # The boss is the composition anchor. Player tracking is angular and
+    # distance-based; never translate focus to the player's midpoint.
+    return target_xz
 
 # Light exponential damping followed by a hard 0.65m leash. Once the
 # cap is reached, translation matches SERA frame-for-frame with no
@@ -4846,7 +4909,8 @@ func _adaptive_camera_yaw(player_bearing: float, delta: float) -> float:
             camera_step_recovery_elapsed, CAMERA_STEP_RECOVERY_HOLD_SECONDS,
             CAMERA_STEP_RECOVERY_TOTAL_SECONDS)
     return CAMERA_MATH.follow_yaw_with_side_room(
-        camera_yaw, player_bearing, delta, CAMERA_COMBAT_SHOULDER_DEGREES,
+        camera_yaw, player_bearing, delta,
+        CAMERA_TARGET_COMPOSITION_SHOULDER_DEGREES * float(camera_composition_side),
         follow_rate * response, side_room,
         CAMERA_YAW_SMOOTH_MAX_TURN_DEGREES_PER_SECOND)
 
