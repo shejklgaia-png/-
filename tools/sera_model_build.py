@@ -52,6 +52,8 @@ def canonical_sources() -> list[Path]:
 
 
 def build_snapshots(temp: Path) -> dict[str, bytes]:
+    # All rebuild scripts write into assets/, including the Standard alias.
+    (temp / "assets").mkdir(parents=True, exist_ok=True)
     for source in canonical_sources():
         dest = temp / source
         dest.parent.mkdir(parents=True, exist_ok=True)
