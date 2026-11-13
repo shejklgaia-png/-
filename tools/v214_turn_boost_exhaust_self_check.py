@@ -64,9 +64,9 @@ for token in (
     "requested_boost = _screen_drag_to_ground(direction_input)",
     "MOTION_DIRECTION.exhaust_direction(",
     "held_boost_exhaust_direction, somersault_this_frame,",
-    "elif boost_exhaust or boost_pose_exhaust:",
+    "NOZZLE_STEERING.backstroke_weight(",
     "backstroke_weight = held_boost_backstroke_weight",
-    "elif (boost_exhaust or boost_pose_exhaust) and direction_input.length_squared() > 0.000001:",
+    "boost_exhaust or boost_pose_exhaust, direction_input)",
     "held_boost_exhaust_direction = direction_of_exhaust.normalized()",
     "held_boost_backstroke_weight = backstroke_weight",
     "held_boost_left_sector_world = left_sector_world",
@@ -76,6 +76,10 @@ for token in (
     "held_boost_exhaust_direction = Vector3.ZERO",
 ):
     assert token in main,token
+steering = read("scripts/sera_nozzle_steering.gd")
+assert "elif boost_exhaust or boost_pose_exhaust:" in steering
+assert "weight = held_boost_weight" in steering
+assert "elif boost_or_pose and direction_input.length_squared() > 0.000001:" in steering
 motion = read("scripts/sera_motion_direction.gd")
 for token in (
     "if boost_pose_exhaust and running:",

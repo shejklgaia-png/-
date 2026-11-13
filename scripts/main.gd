@@ -18,6 +18,7 @@ const HIT_FX_PRESENTATION = preload("res://scripts/sera_hit_fx_presentation.gd")
 const TARGET_LIFECYCLE = preload("res://scripts/sera_target_lifecycle.gd")
 const PHYSICS_FRAME = preload("res://scripts/sera_physics_frame_rules.gd")
 const MOTION_DIRECTION = preload("res://scripts/sera_motion_direction.gd")
+const NOZZLE_STEERING = preload("res://scripts/sera_nozzle_steering.gd")
 const DEV_DIAGNOSTICS = preload("res://scripts/dev_diagnostics.gd")
 ## v84: Authored 3-stage Swordeffect atlas, exact board placement.
 ## v83: Three-stage tap melee combo; cancel 2 authored frames after follow-through.
@@ -4480,56 +4481,27 @@ func _physics_process(delta: float) -> void:
         back_somersault_launched, back_somersault_direction,
         normal_attack_exhaust, tracking_exhaust, stepping_this_frame,
         player.global_transform.basis.z)
-    # A backward BOOST/STEP drives the actual nozzle downward like a
-    # backstroke. Use the intended target-relative movement, not collision-
-    # blocked velocity, to avoid a one-frame nozzle flip against a wall.
-    # Partial rear diagonals blend continuously into the downward posture.
-    var backstroke_weight: float = 0.0
-    if stepping_this_frame:
-        # A camera-UP gesture can be SERA-relative backward during an
-        # oblique close-up: nozzle reverse bias must follow actual travel.
-        if step_linear_fallback and step_linear_offset.length_squared() > 0.000001:
-            var step_world_rear: Vector3 = Vector3(
-                step_linear_offset.x, 0.0, step_linear_offset.y).normalized()
-            backstroke_weight = clampf(step_world_rear.dot(
-                player.global_transform.basis.z), 0.0, 1.0)
-        else:
-            backstroke_weight = clampf(step_flick_this_frame.y, 0.0, 1.0)
-        # Legacy dedicated Backstep has no omnidirectional flick vector.
-        if step_side_this_frame == STEP_BACK and step_flick_this_frame.is_zero_approx():
-            backstroke_weight = 1.0
-    elif somersault_this_frame and back_somersault_launched:
-        backstroke_weight = 1.0
-    elif boost_exhaust or boost_pose_exhaust:
-        var intended_boost: Vector3 = _screen_drag_to_ground(direction_input)
-        if intended_boost.length_squared() > 0.000001:
-            backstroke_weight = clampf(intended_boost.normalized().dot(
-                player.global_transform.basis.z), 0.0, 1.0)
-        else:
-            backstroke_weight = held_boost_backstroke_weight
-    # Camera-left motion should fire toward the bottom-right of the SCREEN,
-    # like a swimmer's backstroke, regardless of the target orbit or camera
-    # heading. Blend by leftward input to keep diagonals continuous.
-    var leftward_weight: float = 0.0
-    if stepping_this_frame:
-        leftward_weight = clampf(-step_flick_this_frame.x, 0.0, 1.0)
-        if step_side_this_frame == -1 and step_flick_this_frame.is_zero_approx():
-            leftward_weight = 1.0  # Legacy dedicated STEP_LEFT input.
-    elif (boost_exhaust or boost_pose_exhaust) and direction_input.length_squared() > 0.000001:
-        leftward_weight = clampf(-direction_input.normalized().x, 0.0, 1.0)
-    # A leftward STEP/BOOST uses the screen-down -> screen-right fan.
-    # Previously ANY left component overrode the backstroke nozzle pitch:
-    # back-left diagonal BOOST could keep a sideways nozzle even while
-    # moving rearward. Blend that special sector BACK TO WORLD DOWN by the
-    # same actor-relative backstroke weight used for the normal nozzle.
-    # Pure-left still targets its original 45-degree down/right aim.
-    var left_sector_world: Vector3 = Vector3.ZERO
+    # Preserve the actor-relative backward priority and the camera-left
+    # down/right fan, including its diagonal blend back toward world DOWN.
+    # Camera conversion, BOOST pose cache and actual nozzle animation remain
+    # scene-owned. As before, project BOOST intent even if RUN is neutral.
+    var intended_boost: Vector3 = Vector3.ZERO
+    if boost_exhaust or boost_pose_exhaust:
+        intended_boost = _screen_drag_to_ground(direction_input)
+    var backstroke_weight: float = NOZZLE_STEERING.backstroke_weight(
+        stepping_this_frame, step_linear_fallback, step_linear_offset,
+        step_flick_this_frame, step_side_this_frame, STEP_BACK,
+        somersault_this_frame, back_somersault_launched,
+        boost_exhaust, boost_pose_exhaust, intended_boost,
+        player.global_transform.basis.z, held_boost_backstroke_weight)
+    var leftward_weight: float = NOZZLE_STEERING.leftward_weight(
+        stepping_this_frame, step_flick_this_frame, step_side_this_frame,
+        boost_exhaust or boost_pose_exhaust, direction_input)
+    var screen_right: Vector3 = Vector3.ZERO
     if exhaust_on and leftward_weight > 0.0:
-        var screen_right: Vector3 = _screen_drag_to_ground(Vector2.RIGHT).normalized()
-        left_sector_world = Vector3.DOWN.slerp(
-            screen_right, leftward_weight * 0.50).normalized()
-        left_sector_world = left_sector_world.slerp(
-            Vector3.DOWN, backstroke_weight).normalized()
+        screen_right = _screen_drag_to_ground(Vector2.RIGHT).normalized()
+    var left_sector_world: Vector3 = NOZZLE_STEERING.left_sector_direction(
+        exhaust_on, leftward_weight, screen_right, backstroke_weight)
     if boost_pose_exhaust:
         if running:
             held_boost_exhaust_direction = direction_of_exhaust.normalized()

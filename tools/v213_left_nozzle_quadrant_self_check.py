@@ -19,17 +19,20 @@ assert version and int(version.group(1)) >= 213
 
 # Direction is an explicit screen-sector vector, NOT inferred by the nozzle
 # from the current 3D nozzle yaw/pitch or a vertical-axis magic number.
-assert "var leftward_weight: float = 0.0" in main
-assert "leftward_weight = clampf(-step_flick_this_frame.x, 0.0, 1.0)" in main
-assert "step_side_this_frame == -1 and step_flick_this_frame.is_zero_approx()" in main
-assert "leftward_weight = clampf(-direction_input.normalized().x, 0.0, 1.0)" in main
-assert "var left_sector_world: Vector3 = Vector3.ZERO" in main
-assert "left_sector_world = Vector3.DOWN.slerp(" in main
-assert "screen_right, leftward_weight * 0.50).normalized()" in main
+steer = read("scripts/sera_nozzle_steering.gd")
+assert "var leftward_weight: float = NOZZLE_STEERING.leftward_weight(" in main
+assert "boost_exhaust or boost_pose_exhaust, direction_input)" in main
+assert "weight = clampf(-step_flick.x, 0.0, 1.0)" in steer
+assert "step_side == -1 and step_flick.is_zero_approx()" in steer
+assert "weight = clampf(-direction_input.normalized().x, 0.0, 1.0)" in steer
+assert "var left_sector_world: Vector3 = NOZZLE_STEERING.left_sector_direction(" in main
+assert "var left_sector_world: Vector3 = Vector3.DOWN.slerp(" in steer
+assert "screen_right, left_weight * 0.50).normalized()" in steer
 assert "_screen_drag_to_ground(Vector2.RIGHT).normalized()" in main
 assert "direction_of_exhaust.normalized(), delta, backstroke_weight," in main
 assert "left_sector_world, acceleration_burst, normal_attack_exhaust)" in main
-assert 'var backstroke_weight: float = 0.0' in main
+assert 'var backstroke_weight: float = NOZZLE_STEERING.backstroke_weight(' in main
+assert 'weight = clampf(intended_boost.normalized().dot(actor_rear), 0.0, 1.0)' in steer
 
 # All layers forward the same world-space vector to the authored physical nozzle.
 for file in (rig, equipment, fx):

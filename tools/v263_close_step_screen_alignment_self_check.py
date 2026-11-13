@@ -37,9 +37,13 @@ assert 'rig.call("update_omni_step_direction",' in physics
 assert 'rig.call("update_omni_step_direction", _step_motion_direction(' in physics
 assert 'committed_world_step, step_flick_this_frame), delta)' in physics
 assert "if stepping_this_frame and rig != null and step_linear_fallback:" in physics
-assert "step_world_rear.dot(" in physics
-assert "player.global_transform.basis.z), 0.0, 1.0)" in physics
-assert "leftward_weight = clampf(-step_flick_this_frame.x, 0.0, 1.0)" in physics
+steer=read("scripts/sera_nozzle_steering.gd")
+assert "NOZZLE_STEERING.backstroke_weight(" in physics
+assert "step_flick_this_frame, step_side_this_frame, STEP_BACK," in physics
+assert "player.global_transform.basis.z, held_boost_backstroke_weight)" in physics
+assert "step_world_rear.dot(actor_rear)" in steer
+assert "NOZZLE_STEERING.leftward_weight(" in physics
+assert "weight = clampf(-step_flick.x, 0.0, 1.0)" in steer
 
 camera=m.split("func _process(delta: float) -> void:",1)[1].split(
     "func _close_step_target_relative_yaw(",1)[0]
@@ -67,7 +71,8 @@ assert '_move_player_swept(requested, true)' in m
 assert 'INPUT_GESTURES.step_flick(' in m
 assert 'return FLICK_DIRECTION_POLICY.screen_step_direction(displacement)' in SERA_INPUT
 assert '_combo_followup_input_window_open()' in m
-assert "left_sector_world = left_sector_world.slerp(" in m
+assert "NOZZLE_STEERING.left_sector_direction(" in m
+assert "left_sector_world = left_sector_world.slerp(" in steer
 
 # Numeric mirrors: the two camera XZ axes must remain orthogonal and
 # produce the exact screen vector for all camera and actor heading combos.

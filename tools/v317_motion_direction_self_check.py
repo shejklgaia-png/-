@@ -56,9 +56,9 @@ for phrase in (
     "back_somersault_launched, back_somersault_direction,",
     "normal_attack_exhaust, tracking_exhaust, stepping_this_frame,",
     "player.global_transform.basis.z)",
-    "var backstroke_weight: float = 0.0",
-    "var leftward_weight: float = 0.0",
-    "var left_sector_world: Vector3 = Vector3.ZERO",
+    "var backstroke_weight: float = NOZZLE_STEERING.backstroke_weight(",
+    "var leftward_weight: float = NOZZLE_STEERING.leftward_weight(",
+    "var left_sector_world: Vector3 = NOZZLE_STEERING.left_sector_direction(",
     "held_boost_exhaust_direction = direction_of_exhaust.normalized()",
     "direction_of_exhaust.normalized(), delta, backstroke_weight,",
     "left_sector_world, acceleration_burst, normal_attack_exhaust)",
@@ -68,6 +68,12 @@ assert fx.index("var exhaust_on:") < fx.index("var requested_boost:") < fx.index
     "MOTION_DIRECTION.exhaust_direction(") < fx.index("var backstroke_weight:")
 assert fx.index("var backstroke_weight:") < fx.index("var leftward_weight:") < fx.index(
     "var left_sector_world:")
+steering = (ROOT / "scripts/sera_nozzle_steering.gd").read_text(encoding="utf-8")
+assert "NOZZLE_STEERING.backstroke_weight(" in fx
+assert "NOZZLE_STEERING.leftward_weight(" in fx
+assert "NOZZLE_STEERING.left_sector_direction(" in fx
+assert "if not exhaust_on or left_weight <= 0.0:" in steering
+assert "left_sector_world = left_sector_world.slerp(" in steering
 for phrase in (
     "var direction_of_exhaust: Vector3 = -blur_velocity",
     "direction_of_exhaust.y = 0.0",

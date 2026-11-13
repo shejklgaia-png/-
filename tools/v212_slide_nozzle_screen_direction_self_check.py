@@ -55,15 +55,19 @@ assert 'pivot.add_child(fx)' in equip
 
 # The left-only target is defined by CAMERA screen right + vertical DOWN,
 # not a character-relative side that flips while orbiting the target.
-assert 'var leftward_weight: float = 0.0' in main
-assert 'leftward_weight = clampf(-step_flick_this_frame.x, 0.0, 1.0)' in main
-assert 'step_side_this_frame == -1 and step_flick_this_frame.is_zero_approx()' in main
-assert 'elif (boost_exhaust or boost_pose_exhaust) and direction_input.length_squared() > 0.000001:' in main
-assert 'leftward_weight = clampf(-direction_input.normalized().x, 0.0, 1.0)' in main
+steer = read("scripts/sera_nozzle_steering.gd")
+assert 'var leftward_weight: float = NOZZLE_STEERING.leftward_weight(' in main
+assert 'stepping_this_frame, step_flick_this_frame, step_side_this_frame,' in main
+assert 'boost_exhaust or boost_pose_exhaust, direction_input)' in main
+assert 'weight = clampf(-step_flick.x, 0.0, 1.0)' in steer
+assert 'step_side == -1 and step_flick.is_zero_approx()' in steer
+assert 'elif boost_or_pose and direction_input.length_squared() > 0.000001:' in steer
+assert 'weight = clampf(-direction_input.normalized().x, 0.0, 1.0)' in steer
 assert 'if exhaust_on and leftward_weight > 0.0:' in main
 assert '_screen_drag_to_ground(Vector2.RIGHT).normalized()' in main
-assert 'left_sector_world = Vector3.DOWN.slerp(' in main
-assert 'screen_right, leftward_weight * 0.50).normalized()' in main
+assert 'NOZZLE_STEERING.left_sector_direction(' in main
+assert 'var left_sector_world: Vector3 = Vector3.DOWN.slerp(' in steer
+assert 'screen_right, left_weight * 0.50).normalized()' in steer
 assert 'direction_of_exhaust.normalized(), delta, backstroke_weight,' in main
 assert 'left_sector_world, acceleration_burst, normal_attack_exhaust)' in main
 assert 'Quaternion(Vector3.BACK, local_sector_direction)' in fx

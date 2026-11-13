@@ -26,7 +26,11 @@ motion=(ROOT/"scripts/sera_motion_direction.gd").read_text(encoding="utf-8")
 assert "back_somersault_launched, back_somersault_direction," in game
 assert "if somersault_this_frame and somersault_launched:" in motion
 assert "direction_of_exhaust = -somersault_direction" in motion
-assert "backstroke_weight = 1.0" in game and "new_somersault_burst" in game
+steering=(ROOT/"scripts/sera_nozzle_steering.gd").read_text(encoding="utf-8")
+assert "NOZZLE_STEERING.backstroke_weight(" in game
+assert "elif somersault and somersault_launched:" in steering
+assert "weight = 1.0" in steering
+assert "new_somersault_burst" in game
 assert "BACK_SOMERSAULT_DISTANCE: float = 5.0" in game
 assert "BACK_SOMERSAULT_LANDING_SECONDS: float = 0.20" in game
 for name in ("Kick_l", "Kick_r"):
