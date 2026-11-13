@@ -2227,3 +2227,10 @@
 - `scripts/sera_numeric_hud.gd` を追加。プレイヤーHP/ENバーの`CombatVitals.set_vitals`呼び出し、敵HPバー幅（300×HP/500）と残HP40%色判定、DEF%/SH切上げ、ロック部位残HPとDOWN/BREAK/STUN/MOVE/HOLD、STEP速度とKick_b/蹴り/デバッグ/衝突後の実走距離を副作用を限定した表示専用関数に分離。
 - `main.gd` は`_tick_resources`のEN/SH回復・解禁と更新順序、対象部位名・部位HPと最大HPの取得、`_refresh_numeric_status_hud`の主導、UIラベル/部品の所有を維持。`_refresh_step_status_ui`も入口のみ残して、固定閾値・表示条件は移設。物理フレームのSTEP SPEED変更検知も同一関数に委譲。
 - v250・v268・Stage6リソース静的テストを新モジュール参照に更新し、実際のGodotシーンでHP/EN、40%閾値、DEF/SH、BODYと部位ロック、STEP/蹴り/履歴の表示を確認する新規2テストを登録（総208件）。モデル・操作・ゲームバージョンv317据置。
+
+
+## 2026-11-14 — v317 main.gd 第16回分割：戦闘HUD生成・配置
+
+- `scripts/sera_hud_layout.gd` を追加し、コンパクトHUDの上部パネル、HP/EN・敵HP表示、アクション状態、STEP速度と詳細の生成・色・フォント・アンカー・レイアウトを分離。
+- `main.gd`の`_build_overlay`は、フルスクリーンタッチUI→ロックボタン→HUDパネル→持ち替え/拠点ボタン→アクションとHP/EN→その他HUD/診断パネル→STEP速度/詳細→被弾演出→敵攻撃UIの旧順序を厳守。持ち替えと拠点帰還ボタンのPressedコールバック、手動タッチ除外、ノード参照、物理更新と情報HUD書換えは`main.gd`所有。毎フレームの新規辞書割当なし。
+- 新規Python1件とGodot実シーン1件で従来の親子階層、描画順、背景の範囲、HP/EN/STEPのアンカー、ボタンの入力対象・イベント配線を検査。総210件のCIを統合条件とし、ゲームv317・モデル・モーション・操作仕様は据置。
