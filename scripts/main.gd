@@ -3676,7 +3676,7 @@ func _start_attack() -> bool:
         return true
     melee_boost_elapsed = 0.0
     combat_state = CombatState.MELEE_APPROACH
-    rig.call("start_melee_approach")
+    rig.call("start_melee_approach", _katana_equipped())
     return true
 
 # The Melee3->Bash and Bash->Melee1 input windows persist in IDLE,

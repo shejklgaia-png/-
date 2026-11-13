@@ -65,6 +65,8 @@ const STRIKE_2_CLIP: String = "Melee2"
 const STRIKE_3_CLIP: String = "Melee3"
 const KATANA_CLIP: String = "Melee_katana"
 const KATANA_SECOND_CLIP: String = "Melee_katana2"
+# The tap-to-ready phase lasts exactly 0.2 s before Katana homing starts.
+const KATANA_APPROACH_BLEND_SECONDS: float = 0.20
 const STEP_RIGHT_CLIP: String = "Step_R"
 const STEP_LEFT_CLIP: String = "Step_L"
 const STEP_BACK_CLIP: String = "Backstep"
@@ -1739,20 +1741,39 @@ func get_blade_world_segment() -> PackedVector3Array:
     var tip: Vector3 = sword_bone.to_global(Vector3(0, 4.0 * UNIT, -7.5 * UNIT))
     return PackedVector3Array([base, tip])
 
-func start_melee_approach() -> void:
+func start_melee_approach(katana_equipped: bool = false) -> void:
     if not loading_ok or damage_playback or guard_playback:
         return
     combat_playback = true
     combat_paused = false
     freeze_attack_pose = false
+    if katana_equipped and animations.has(KATANA_CLIP):
+        # Start from the CURRENT rendered pose, crossfade over 0.2 seconds
+        # to Melee_katana's exact time-zero keys, and do not advance its
+        # playback during the approach. The blade stays in its sheath.
+        _switch_clip(KATANA_CLIP, KATANA_APPROACH_BLEND_SECONDS)
+        clip_time = 0.0
+        freeze_attack_pose = true
+        return
     _switch_clip(MELEE_APPROACH_CLIP, 0.045)
 
 func melee_approach_last_key_reached() -> bool:
+    if loading_ok and current_clip == KATANA_CLIP and freeze_attack_pose:
+        # Blend completion starts the movement phase, not the strike.
+        return blending_for >= KATANA_APPROACH_BLEND_SECONDS
     return (loading_ok and current_clip == MELEE_APPROACH_CLIP
         and clip_time >= float(animations[MELEE_APPROACH_CLIP]["last_key_time"]))
 
 func hold_melee_approach_last_pose() -> void:
-    if not loading_ok or current_clip != MELEE_APPROACH_CLIP:
+    if not loading_ok:
+        return
+    if current_clip == KATANA_CLIP and freeze_attack_pose:
+        # Holding frame 0 during DASH allows start_strike() to unfreeze the
+        # SAME clip with no reset/pop when contact distance is reached.
+        clip_time = 0.0
+        _apply_animation(0.0)
+        return
+    if current_clip != MELEE_APPROACH_CLIP:
         return
     # Exactly the last authored key, not the nominal clip duration (0.5s).
     clip_time = float(animations[MELEE_APPROACH_CLIP]["last_key_time"])
