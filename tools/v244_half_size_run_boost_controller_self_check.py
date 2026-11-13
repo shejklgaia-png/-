@@ -10,6 +10,7 @@ import re
 
 root=Path(__file__).resolve().parents[1]
 main=(root/"scripts/main.gd").read_text(encoding="utf-8")
+boost_policy = (root/"scripts/sera_boost_state.gd").read_text(encoding="utf-8")
 ui=(root/"scripts/touch_overlay.gd").read_text(encoding="utf-8")
 cfg=(root/"project.godot").read_text(encoding="utf-8")
 assert re.search(r'config/name="SERA v(\d+)"',cfg) and int(re.search(r'config/name="SERA v(\d+)"',cfg).group(1))>=244
@@ -49,9 +50,9 @@ assert math.isclose(baseline*exit_ratio,141.75)
 for token in (
     'INPUT_GESTURES.analog_stick_direction(',
     'RUN_INPUT_DEADZONE_PIXELS, RUN_CONTROL_RADIUS)',
-    'if finger_distance < DRAG_RADIUS * BOOST_EXIT_RADIUS_RATIO:',
-    'elif finger_distance >= DRAG_RADIUS * BOOST_START_RADIUS_RATIO:',
-    'boost_confirm_elapsed >= BOOST_CONFIRM_SECONDS',
+    'BOOST_STATE.next_gesture_state(',
+    'DRAG_RADIUS, BOOST_START_RADIUS_RATIO, BOOST_EXIT_RADIUS_RATIO,',
+    'BOOST_CONFIRM_SECONDS)',
     'touch_ui.call("show_drag", pointer_origin, pointer_location, DRAG_RADIUS)',
     'func _controller_start_area_contains(pos: Vector2) -> bool:',
     'const CONTROLLER_REGION_START_RATIO: float = 0.50',
@@ -59,6 +60,14 @@ for token in (
     'if not _controller_start_area_contains(event.position):',
 ):
     assert token in main,token
+# The corresponding hysteresis/confirmation expression now lives in BOOST_STATE.
+for token in (
+    "if finger_distance < drag_radius * exit_ratio:",
+    "elif finger_distance >= drag_radius * start_ratio:",
+    "if next_confirmation >= confirm_seconds:",
+):
+    assert token in boost_policy, token
+
 for token in (
     'radius = CONTROLLER_RUN_RADIUS',
     'boost_base_radius = max_radius',
