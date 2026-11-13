@@ -64,7 +64,8 @@ func _run() -> void:
         game.set("gesture_active", false)
         game.set("movement_boost_active", false)
         game.set("direction_input", Vector2.ZERO)
-    if absf(float(game.call("_step_fixed_distance_for_direction", Vector2.UP)) - 5.0) > 0.0001:
+    var expected_distance: float = float(game.get_script().get_script_constant_map()["STEP_FORWARD_DISTANCE"])
+    if absf(float(game.call("_step_fixed_distance_for_direction", Vector2.UP)) - expected_distance) > 0.0001:
         _fail("STEP distance not corrected")
         return
     print("GODOT_V313_CAP_REVOKED_CONTINUOUS_BOOST_PASS")

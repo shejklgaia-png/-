@@ -6,6 +6,7 @@ import base64
 import json
 import re
 from pathlib import Path
+from sera_active_contracts import load_active_specs, main_float_constant
 
 ROOT = Path(__file__).resolve().parents[1]
 def read(path: str) -> str:
@@ -95,8 +96,9 @@ assert 'const BOOST_CLIP: String = "Boost_front"' in rig
 assert 'directional_step_vector = direction.normalized()' in rig
 assert 'state_label.text = "STEP FORWARD  |  Frontstep"' in main
 assert 'rig.call("start_omni_step", pose_direction)' in main
-assert 'const STEP_MIN_ARC_LENGTH: float = 5.0' in main
-assert 'const STEP_MAX_ARC_LENGTH: float = 5.0' in main
+distance = float(load_active_specs()["ordinary_step"]["distance_m"])
+assert main_float_constant(main, "STEP_MIN_ARC_LENGTH") == distance
+assert main_float_constant(main, "STEP_MAX_ARC_LENGTH") == distance
 
 print("PASS SERA v211: user Frontstep authored tracks integrated; originals preserved")
 print("PASS: exact APK embed and forward/diagonal STEP wiring, other axes unchanged")

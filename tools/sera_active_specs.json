@@ -1,0 +1,15 @@
+{
+  "schema": 1,
+  "approved_at_version": 315,
+  "description": "Approved current movement contract. Change together with intentionally updated gameplay, never merely to silence tests.",
+  "ordinary_step": {
+    "distance_m": 5,
+    "speed_mps": 15,
+    "launch_warp_m": 1,
+    "launch_fx_s": 0.05
+  },
+  "side_kick": {
+    "distance_m": 3,
+    "speed_mps": 10
+  }
+}

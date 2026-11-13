@@ -1,19 +1,8 @@
 name: SERA v293 AUTO lock isolated verification
 
+# Coverage is in sera-model-policy.yml. Keep this as manual diagnostic only.
 on:
-  pull_request:
-    paths:
-      - 'scripts/main.gd'
-      - 'scripts/target_parts.gd'
-      - 'tools/v293_auto_orbit_core_lock_*.py'
-      - 'tools/v293_auto_orbit_core_lock_*.gd'
-      - 'tools/v291_camera_lock_twohand_saya_runtime_check.gd'
-      - 'tools/v292_visual_lock_katana_search_*.py'
-      - 'tools/v292_visual_lock_katana_search_*.gd'
-      - 'project.godot'
-      - '.github/workflows/sera-v293-auto-lock.yml'
   workflow_dispatch:
-
 jobs:
   auto-lock-orbit:
     runs-on: ubuntu-latest

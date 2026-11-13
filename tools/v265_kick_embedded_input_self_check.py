@@ -5,6 +5,7 @@ import base64
 import json
 import math
 import re
+from sera_active_contracts import load_active_specs, main_float_constant
 
 R = Path(__file__).resolve().parents[1]
 def source(path):
@@ -79,6 +80,6 @@ assert "func _start_omni_step(flick: Vector2) -> bool:" in main
 assert 'rig.call("start_omni_step", pose_direction)' in main
 assert "_move_player_swept(requested, true)" in main
 assert "if side_kick_active:" in main and "side_kick_hit_mask" in main
-assert 'const BACK_STEP_DISTANCE: float = 5.0' in main
+assert main_float_constant(main, "BACK_STEP_DISTANCE") == load_active_specs()["ordinary_step"]["distance_m"]
 print("PASS: original STEP API/collision and single kick impact preserved")
 print("SERA v265 kick regression PASS (static and numeric only; Android not executed)")

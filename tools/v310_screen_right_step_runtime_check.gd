@@ -68,8 +68,8 @@ func _run() -> void:
                 + " got " + str(direction) + " expected " + str(expected_pose))
             return
         var planned: Vector2 = game.get("step_linear_offset")
-        var expected: Vector2 = Vector2(travel.x,travel.z).normalized() * (
-            5.0 if version >= 314 else (7.0 if version >= 312 else 3.0))
+        var expected_distance: float = float(game.get_script().get_script_constant_map()["STEP_SIDE_DISTANCE"])
+        var expected: Vector2 = Vector2(travel.x,travel.z).normalized() * expected_distance
         if planned.distance_to(expected) > 0.001:
             _fail("STEP world travel changed: " + str(planned) + ", expected " + str(expected))
             return
@@ -112,7 +112,7 @@ func _run() -> void:
             _fail("physical lock facing was changed by the pose fix " + str(i))
             return
         if (game.get("step_linear_offset") as Vector2).distance_to(planned)>0.00001:
-            _fail("committed 3m travel changed while turning " + str(i))
+            _fail("committed STEP travel changed while turning " + str(i))
             return
         game.call("_finish_side_step",false)
 

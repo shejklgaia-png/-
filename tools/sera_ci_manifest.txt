@@ -1,4 +1,4 @@
-# All historical regression tests executed by SERA model-policy CI.
+# Historical and active-contract regression tests executed by SERA model-policy CI.
 # Each entry is mandatory: missing files and failing scripts fail the run.
 # One test per line. Add new tests here to retain full historical coverage.
 # Python tests run in fresh interpreters; Godot tests run in fresh engine processes.
@@ -169,3 +169,5 @@ py tools/v314_step_distance_self_check.py
 gd tools/v314_step_distance_runtime_check.gd
 py tools/v315_step_warp_launch_self_check.py
 gd tools/v315_step_warp_launch_runtime_check.gd
+py tools/sera_active_contracts_self_check.py
+py tools/sera_dev_index_self_check.py
