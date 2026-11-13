@@ -13,10 +13,10 @@ omni=segment("func _start_omni_step(flick: Vector2) -> bool:","func _start_back_
 side=segment("func _start_side_step(side: int) -> bool:","func _finish_side_step(")
 back=segment("func _start_back_step() -> bool:","func _start_side_step(")
 speed=segment("func _step_speed_for_player_position(pos: Vector3) -> float:","func _refresh_step_status_ui(")
-for token in ("const STEP_FORWARD_DISTANCE: float = 3.0",
-              "const STEP_SIDE_DISTANCE: float = 3.0",
-              "const BACK_STEP_DISTANCE: float = 5.0",
-              "const STEP_SPEED: float = 10.0"):
+for token in ("const STEP_FORWARD_DISTANCE: float = 7.0",
+              "const STEP_SIDE_DISTANCE: float = 7.0",
+              "const BACK_STEP_DISTANCE: float = 7.0",
+              "const STEP_SPEED: float = 15.0"):
     assert token in main,token
 # The legacy falloff remains as an unused helper, but cannot affect a
 # committed STEP in any direction, including direct back/side helpers.
@@ -32,5 +32,5 @@ assert "_move_player_swept(requested, true)" in segment(
     "func _advance_side_step(delta: float) -> void:","func _move_player_swept(")
 for equipment in (0.7,1.,1.3):
     for radius in (0.2,1.,2.,4.,10.,100.):
-        assert math.isclose(10.*equipment,10.*equipment)
-print("PASS v236/v300: 10m/s in all directions independent of target distance; equipment still multiplies")
+        assert math.isclose(15.*equipment,15.*equipment)
+print("PASS v236/v300: 15m/s in all directions independent of target distance; equipment still multiplies")

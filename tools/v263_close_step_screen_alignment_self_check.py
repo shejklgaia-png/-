@@ -54,8 +54,8 @@ assert "direction.normalized(), blend).normalized()" in rig_update
 assert "maxf(delta, 0.0) / 0.08" in rig_update
 assert "directional_step_vector = direction.normalized()" in rig
 assert "alpha = alpha * alpha * (3.0 - 2.0 * alpha)" in rig
-assert 'const STEP_FORWARD_DISTANCE: float = 3.0' in m
-assert 'const BACK_STEP_DISTANCE: float = 5.0' in m
+assert 'const STEP_FORWARD_DISTANCE: float = 7.0' in m
+assert 'const BACK_STEP_DISTANCE: float = 7.0' in m
 assert 'step_speed_current = STEP_SPEED * float(part_stats.get("step_speed_mult", 1.0))' in m
 assert '_move_player_swept(requested, true)' in m
 assert 'return FLICK_DIRECTION_POLICY.screen_step_direction(displacement)' in m

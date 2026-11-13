@@ -36,7 +36,7 @@ func _run() -> void:
         Vector2.UP,Vector2.RIGHT,Vector2.DOWN,Vector2.LEFT,
         Vector2(1,1).normalized(),Vector2(-1,1).normalized(),
         Vector2(1,-1).normalized(),Vector2(-1,-1).normalized()]
-    var expected: Array[float] = [3.0,3.0,5.0,3.0,4.0,4.0,3.0,3.0]
+    var expected: Array[float] = [7.0,7.0,7.0,7.0,7.0,7.0,7.0,7.0]
     for i in range(vectors.size()):
         for radius in [3.0, 6.0, 12.0]:
             player.position = Vector3(0.0,0.0,radius)
@@ -49,13 +49,12 @@ func _run() -> void:
             if absf(planned-expected[i])>0.0001:
                 _fail("distance changed for angle/radius: "+str(i)+" / "+str(radius))
                 return
-            if absf(float(game.get("step_speed_current"))-10.0)>0.0001:
+            if absf(float(game.get("step_speed_current"))-15.0)>0.0001:
                 _fail("distance-to-target speed falloff was not removed")
                 return
             game.call("_finish_side_step",false)
 
-    # Free-space linear motion really traverses exactly 3m per lateral STEP,
-    # and the 5m backstep lasts 0.5s (unmodified 10m/s base speed).
+    # Free-space ordinary dodge travels 7m, with 15m/s base speed.
     player.position=Vector3(0.0,0.0,9.0)
     game.set("energy",100.0)
     if not bool(game.call("_start_omni_step",Vector2.RIGHT)):
@@ -63,8 +62,8 @@ func _run() -> void:
         return
     var start: Vector3 = player.position
     game.call("_advance_side_step",float(game.get("step_duration_current")))
-    if player.position.distance_to(start+Vector3(3.0,0.0,0.0))>0.05:
-        _fail("right STEP did not travel exactly 3m")
+    if player.position.distance_to(start+Vector3(7.0,0.0,0.0))>0.05:
+        _fail("right STEP did not travel exactly 7m")
         return
 
     # Lateral kicks: circle around ACTUAL locked HEAD/leg/BODY, retain

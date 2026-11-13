@@ -42,9 +42,7 @@ def basis(yaw):
             (-math.sin(yaw),-math.cos(yaw)))
 def travel(x,y,yaw,radius=6.):
     d=math.hypot(x,y);x/=d;y/=d
-    angle=math.atan2(max(0.,y),abs(x))/(math.pi/2)
-    blend=angle*angle*(3-2*angle)
-    distance=3.+2.*blend
+    distance=7.0
     right,forward=basis(yaw)
     dx=right[0]*x-forward[0]*y;dz=right[1]*x-forward[1]*y
     magnitude=math.hypot(dx,dz)
@@ -55,13 +53,13 @@ for yaw_deg in range(0,360,5):
     r=travel(1,0,yaw);l=travel(-1,0,yaw)
     f=travel(0,-1,yaw);b=travel(0,1,yaw)
     assert math.isclose(r[2],l[2],abs_tol=1e-9)
-    assert math.isclose(f[2],3,abs_tol=1e-9)
-    assert math.isclose(b[2],5,abs_tol=1e-9)
+    assert math.isclose(f[2],7,abs_tol=1e-9)
+    assert math.isclose(b[2],7,abs_tol=1e-9)
     for degrees in range(0,360,5):
         a=math.radians(degrees);x,y=math.sin(a),-math.cos(a)
         vx,vz,length=travel(x,y,yaw)
         assert math.isfinite(vx) and math.isfinite(vz)
-        assert 3.-1e-10<=length<=5.+1e-10
+        assert math.isclose(length,7.,abs_tol=1e-10)
         assert math.isclose(math.hypot(vx,vz),length,abs_tol=1e-10)
         sx=(vx*right[0]+vz*right[1])/length
         sy=-(vx*front[0]+vz*front[1])/length

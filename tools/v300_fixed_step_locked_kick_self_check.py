@@ -11,19 +11,18 @@ project = (R/"project.godot").read_text(encoding="utf-8")
 assert int(re.search(r'config/name="SERA v(\d+)"',project).group(1)) >= 300
 assert (R/"README_v300_ja.md").exists()
 for t in (
-    "const STEP_FORWARD_DISTANCE: float = 3.0",
-    "const STEP_SIDE_DISTANCE: float = 3.0",
-    "const BACK_STEP_DISTANCE: float = 5.0",
+    "const STEP_FORWARD_DISTANCE: float = 7.0",
+    "const STEP_SIDE_DISTANCE: float = 7.0",
+    "const BACK_STEP_DISTANCE: float = 7.0",
     "const BACK_SOMERSAULT_DISTANCE: float = 5.0",
     "const SIDE_KICK_BOOST_DISTANCE: float = 3.0",
-    "const STEP_SPEED: float = 10.0",
+    "const STEP_SPEED: float = 15.0",
 ):
     assert t in main,t
-distance=main.split("func _step_fixed_distance_for_direction(direction: Vector2) -> float:",1)[1].split(
+distance=main.split("func _step_fixed_distance_for_direction(_direction: Vector2) -> float:",1)[1].split(
     "func _start_omni_step(",1)[0]
-assert 'atan2(maxf(unit.y, 0.0), absf(unit.x))' in distance
-assert 'smoothstep(0.0, 1.0, rear_angle / (PI * 0.5))' in distance
-assert 'lerpf(STEP_SIDE_DISTANCE, BACK_STEP_DISTANCE, rear_mix)' in distance
+assert 'return STEP_SIDE_DISTANCE' in distance
+assert 'lerpf(STEP_SIDE_DISTANCE, BACK_STEP_DISTANCE, rear_mix)' not in distance
 start=main.split("func _start_omni_step(flick: Vector2) -> bool:",1)[1].split(
     "func _start_back_step(",1)[0]
 assert 'step_arc_length = _step_fixed_distance_for_direction(direction)' in start
@@ -88,21 +87,11 @@ assert 'func _back_somersault_arc_offset(progress: float) -> Vector3:' in main
 assert 'side_kick_playback_scale = maxf(0.001, float(animations[chosen]["length"])) / maxf(movement_duration, 0.01)' in rig
 assert 'for i in range(SIDE_KICK_HIT_PROGRESS.size()):' in advance
 
-def fixed_angle(deg):
-    d=(math.sin(math.radians(deg)),-math.cos(math.radians(deg)))
-    rear=math.atan2(max(d[1],0.0),abs(d[0]))/(math.pi/2)
-    rear=min(1.,max(0.,rear))
-    blend=rear*rear*(3-2*rear)
-    return 3+2*blend
-
-for angle,want in [(0,3),(45,3),(90,3),(135,4),(180,5),(225,4),(270,3),(315,3)]:
-    assert math.isclose(fixed_angle(angle),want,abs_tol=1e-10),(angle,fixed_angle(angle))
-prior=fixed_angle(0)
-for i in range(1,1441):
-    new=fixed_angle(i*0.25)
-    assert abs(new-prior)<0.02
-    assert 3-1e-10<=new<=5+1e-10
-    prior=new
+# v312 every cardinal and intermediate heading has the same 7m plan.
+for angle in range(0,360,5):
+    assert math.isclose(7.0, 7.0, abs_tol=1e-10),angle
+assert 'const SIDE_KICK_STEP_SPEED: float = 10.0' in main
+assert 'step_speed_current = SIDE_KICK_STEP_SPEED * float(' in start
 
 for e in (
     "py tools/v300_fixed_step_locked_kick_self_check.py",

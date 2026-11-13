@@ -99,7 +99,12 @@ func _run() -> void:
             # Source Waist pivot UUID shared by all locomotion clips.
             var waist_uid: String = "67435cb7-b6af-23e4-10f1-3cd13d8429fa"
             var root_bone: Node3D = bones[waist_uid]
-            var front: Vector3 = root_bone.quaternion * Vector3.FORWARD
+            var root_q: Quaternion = root_bone.quaternion
+            if int(str(ProjectSettings.get_setting(
+                    "application/config/name")).trim_prefix("SERA v")) >= 312:
+                var lean: Quaternion = rig.call("_step_dodge_lean_rotation", 1.0)
+                root_q = (lean.inverse() * root_q).normalized()
+            var front: Vector3 = root_q * Vector3.FORWARD
             var flat: Vector2 = Vector2(front.x,front.z)
             var version: int = int(str(ProjectSettings.get_setting(
                 "application/config/name")).trim_prefix("SERA v"))
@@ -107,7 +112,7 @@ func _run() -> void:
                 # Right STEP must KEEP 9.2.2 sideways Waist yaw.
                 var authored_waist: Dictionary = rig.call(
                     "_sample_step_clip_pose", "Step_R", waist_uid, 0.0)
-                if root_bone.quaternion.angle_to(authored_waist["rotation"]) > 0.001:
+                if root_q.angle_to(authored_waist["rotation"]) > 0.001:
                     _fail("right STEP lost its original sideways Waist yaw")
                     return
             elif flat.length_squared() < 0.01 or flat.normalized().dot(Vector2(0,-1)) < 0.998:

@@ -33,8 +33,8 @@ func _run() -> void:
     var baseline_duration: float = float(game.get("step_duration_current"))
     var baseline_distance: float = float(game.get("step_arc_length"))
     var baseline_speed: float = float(game.get("step_speed_current"))
-    if absf(baseline_distance-3.0)>0.0001:
-        _fail("normal lateral STEP is no longer 3m")
+    if absf(baseline_distance-7.0)>0.0001             or absf(baseline_speed-15.0)>0.0001             or absf(baseline_duration-7.0/15.0)>0.0001:
+        _fail("ordinary dodge is no longer 7m at 15m/s")
         return
     game.call("_finish_side_step",false)
     for side in [1,-1]:
@@ -51,13 +51,13 @@ func _run() -> void:
             _fail("authored kick clip changed")
             return
         var duration: float=float(game.get("step_duration_current"))
-        if absf(duration-2.0*baseline_duration)>0.0001:
+        if absf(duration-0.60)>0.0001:
             _fail("authored 2x motion timing changed")
             return
         if absf(float(game.get("step_arc_length"))-3.0)>0.0001:
             _fail("kick post-windup boost is not 3m")
             return
-        if absf(float(game.get("step_speed_current"))-baseline_speed)>0.0001:
+        if absf(float(game.get("step_speed_current"))-10.0)>0.0001:
             _fail("kick base speed changed")
             return
         if absf(float(rig.get("side_kick_playback_scale"))-(1.0/duration))>0.0001:
