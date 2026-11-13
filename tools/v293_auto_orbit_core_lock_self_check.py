@@ -42,7 +42,7 @@ for key in ("select_actor_parallel_lines_part", "not auto_lock_initialized or cu
             "auto_lock_initialized = true", "auto_lock_pending_part != preferred",
             "auto_lock_pending_elapsed >= AUTO_LOCK_SWITCH_CONFIRM_SECONDS"):
     assert key in auto, key
-assert "actor_center_line_hits_part" in auto
+assert "actor_parallel_lines_hits_part" in auto
 assert "sera_origin: Vector3 = player.global_position" in auto
 assert "preferred == locked_target_part_id and current_on_line" in auto
 assert 'var label_name: String = "BODY"' in main
