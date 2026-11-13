@@ -78,13 +78,40 @@ def build_snapshots(temp: Path) -> dict[str, bytes]:
     return expected
 
 
+def same_snapshot(name: str, actual: bytes, expected: bytes) -> bool:
+    if actual == expected:
+        return True
+    # The 2026-11-13 Head C embed was serialized by JSON.stringify.
+    # Python's json.dumps may spell mathematically identical floats
+    # differently (including -0, exponent formatting). Preserve the
+    # already verified original text unless its parsed data or executable
+    # wrapper actually differs; other files remain strict byte matches.
+    if name != "assets/sera_head_c_data.gd":
+        return False
+
+    def unpack(content: bytes) -> tuple[str, dict]:
+        lines = content.decode("utf-8").splitlines()
+        payload = []
+        wrapper = []
+        for line in lines:
+            if line.startswith('    "') and line.endswith('",'):
+                payload.append(json.loads(line.strip().removesuffix(",")))
+            else:
+                wrapper.append(line)
+        if not payload:
+            raise ValueError("Missing Head C JSON chunks")
+        return "\n".join(wrapper), json.loads("".join(payload))
+
+    return unpack(actual) == unpack(expected)
+
+
 def check_or_write(write: bool = False, root: Path = ROOT) -> list[str]:
     with tempfile.TemporaryDirectory(prefix="sera-model-build-") as directory:
         expected = build_snapshots(Path(directory))
     stale = []
     for name, content in expected.items():
         destination = root / name
-        if not destination.is_file() or destination.read_bytes() != content:
+        if not destination.is_file() or not same_snapshot(name, destination.read_bytes(), content):
             stale.append(name)
     if write:
         # No live project files are touched before ALL source validation and
