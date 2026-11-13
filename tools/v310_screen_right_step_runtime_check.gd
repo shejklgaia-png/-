@@ -65,7 +65,8 @@ func _run() -> void:
                 + " got " + str(direction) + " expected " + str(expected_pose))
             return
         var planned: Vector2 = game.get("step_linear_offset")
-        var expected: Vector2 = Vector2(travel.x,travel.z).normalized() * 3.0
+        var expected: Vector2 = Vector2(travel.x,travel.z).normalized() * (
+            7.0 if version >= 312 else 3.0)
         if planned.distance_to(expected) > 0.001:
             _fail("STEP world travel changed: " + str(planned) + ", expected " + str(expected))
             return
@@ -73,9 +74,14 @@ func _run() -> void:
         rig.call("_apply_animation",0.0)
         var bones: Dictionary=rig.get("bones")
         var displayed: Node3D=bones[waist_uid]
-        if direction.distance_to(Vector2.RIGHT)<0.001                 and displayed.quaternion.angle_to(raw_q)>0.001:
-            _fail("RIGHT clip's sideways Waist yaw was canceled at probe " + str(i))
-            return
+        if direction.distance_to(Vector2.RIGHT)<0.001:
+            var q_check: Quaternion = displayed.quaternion
+            if version >= 312:
+                q_check = ((rig.call("_step_dodge_lean_rotation", 1.0)
+                    as Quaternion).inverse() * q_check).normalized()
+            if q_check.angle_to(raw_q)>0.001:
+                _fail("RIGHT clip's sideways Waist yaw was canceled at probe " + str(i))
+                return
         # A physics tick must not convert screen-right back into actor-front.
         game.call("_physics_process",0.016)
         direction=rig.get("directional_step_vector")
@@ -87,9 +93,14 @@ func _run() -> void:
             return
         rig.set("blending_for",0.12)
         rig.call("_apply_animation",0.0)
-        if direction.distance_to(Vector2.RIGHT)<0.001                 and displayed.quaternion.angle_to(raw_q)>0.001:
-            _fail("RIGHT pose lost authored Waist rotation after physics tick " + str(i))
-            return
+        if direction.distance_to(Vector2.RIGHT)<0.001:
+            var q_check2: Quaternion = displayed.quaternion
+            if version >= 312:
+                q_check2 = ((rig.call("_step_dodge_lean_rotation", 1.0)
+                    as Quaternion).inverse() * q_check2).normalized()
+            if q_check2.angle_to(raw_q)>0.001:
+                _fail("RIGHT pose lost authored Waist rotation after physics tick " + str(i))
+                return
         var actor_forward: Vector3 = -player.global_transform.basis.z
         actor_forward.y=0.0
         var desired: Vector3=game.call("_locked_target_facing_direction")
@@ -108,7 +119,11 @@ func _run() -> void:
         rig.set("blending_for",0.12)
         rig.call("_apply_animation",0.0)
         var root_bone: Node3D=(rig.get("bones") as Dictionary)[waist_uid]
-        var front: Vector3=root_bone.quaternion*Vector3.FORWARD
+        var q_cardinal: Quaternion = root_bone.quaternion
+        if version >= 312:
+            q_cardinal = ((rig.call("_step_dodge_lean_rotation", 1.0)
+                as Quaternion).inverse() * q_cardinal).normalized()
+        var front: Vector3=q_cardinal*Vector3.FORWARD
         var flat: Vector2=Vector2(front.x,front.z)
         if flat.length_squared()<0.01 or flat.normalized().dot(Vector2.UP)<0.998:
             _fail("other cardinal STEP lost previous boss-facing waist correction: "

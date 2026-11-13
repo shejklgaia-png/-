@@ -104,20 +104,22 @@ const JUMP_AIR_STEER_SPEED_FACTOR: float = 0.30  # ground RUN speed; never boost
 const JUMP_GRAVITY: float = 8.0 * JUMP_HEIGHT / (JUMP_FLIGHT_SECONDS * JUMP_FLIGHT_SECONDS)
 # Authored clip's fall pose begins at the 0.20833s key of its 0.375s duration.
 const JUMP_FALL_CLIP_START: float = 0.20833 / 0.375
-# v300: screen STEP travel is determined ONLY by flick angle, never
-# player-target distance. Equipment speed/time multipliers still apply.
-const BACK_STEP_DISTANCE: float = 5.0
-const STEP_FORWARD_DISTANCE: float = 3.0
-const STEP_SIDE_DISTANCE: float = 3.0
-const STEP_SPEED: float = 10.0  # m/s, equipment-adjusted
+# v312: all 360-degree dodge STEP directions travel 7m at base 15m/s,
+# independent of lock target/distance. Equipment multipliers still apply.
+# Side-kick follow-up retains its separate original 3m/10m/s timing.
+const BACK_STEP_DISTANCE: float = 7.0
+const STEP_FORWARD_DISTANCE: float = 7.0
+const STEP_SIDE_DISTANCE: float = 7.0
+const STEP_SPEED: float = 15.0  # m/s, equipment-adjusted
+const SIDE_KICK_STEP_SPEED: float = 10.0  # preserve legacy combo kick timing
 # Legacy speed policy retained for historic tests, not called by STEP.
 const STEP_CLOSE_SPEED: float = 8.0
 const STEP_CLOSE_SURFACE_DISTANCE: float = 2.0
 const STEP_FALLOFF_START_SURFACE_DISTANCE: float = 5.0
 const STEP_ORBIT_ANGLE_DEGREES: float = 35.0  # legacy-only reference
-const STEP_MIN_ARC_LENGTH: float = 3.0
-const STEP_MAX_ARC_LENGTH: float = 5.0
-const STEP_MAX_DURATION: float = 0.50  # 5m / 10m/s
+const STEP_MIN_ARC_LENGTH: float = 7.0
+const STEP_MAX_ARC_LENGTH: float = 7.0
+const STEP_MAX_DURATION: float = 0.50  # 7m / 15m/s = ~0.467s
 const STEP_MIN_ORBIT_RADIUS: float = 0.10  # tangent is unstable at the exact center
 const STEP_CLOSE_ORBIT_MAX_DEGREES: float = 120.0  # prevent circular loops when overlapping target
 # v82: At point-blank range the player may orbit around the target rapidly.
@@ -3211,15 +3213,10 @@ func _cancel_back_somersault() -> void:
         player.velocity = Vector3.ZERO
 
 
-# Fixed 3m front/side, 5m rear. Rear-diagonal angles interpolate with a
-# smoothstep: both 45-degree rear diagonals travel exactly 4m.
-func _step_fixed_distance_for_direction(direction: Vector2) -> float:
-    if direction.length_squared() < 0.000001:
-        return STEP_SIDE_DISTANCE
-    var unit: Vector2 = direction.normalized()
-    var rear_angle: float = atan2(maxf(unit.y, 0.0), absf(unit.x))
-    var rear_mix: float = smoothstep(0.0, 1.0, rear_angle / (PI * 0.5))
-    return lerpf(STEP_SIDE_DISTANCE, BACK_STEP_DISTANCE, rear_mix)
+# v312: all 360-degree dodge angles share a single, fixed 7m distance.
+# A direction changes pose/travel vector, not duration or displacement.
+func _step_fixed_distance_for_direction(_direction: Vector2) -> float:
+    return STEP_SIDE_DISTANCE
 
 
 func _start_omni_step(flick: Vector2) -> bool:
@@ -3300,7 +3297,11 @@ func _start_omni_step(flick: Vector2) -> bool:
     # windup after the first-foot homing, so no early snap-back can occur.
     # Each kick travels a total of 3m across its arc and tangent boost.
     if side_kick_active:
+        # Kick is a combo attack, not the regular 7m dodge. Keep its
+        # original 3m/10m/s motion, contact timing and attack windows.
         step_arc_length = SIDE_KICK_BOOST_DISTANCE
+        step_speed_current = SIDE_KICK_STEP_SPEED * float(
+            part_stats.get("step_speed_mult", 1.0))
         step_duration_current = (step_arc_length / step_speed_current
             * float(part_stats.get("step_time_mult", 1.0))
             * SIDE_KICK_MOTION_TIME_MULTIPLIER)
@@ -3345,7 +3346,7 @@ func _start_back_step() -> bool:
     step_signed_angle = 0.0
     step_arc_length = BACK_STEP_DISTANCE
     step_speed_current = STEP_SPEED * float(part_stats.get("step_speed_mult", 1.0))
-    # 5m at 10m/s = 0.50 seconds before equipment scaling.
+    # 7m at 15m/s = ~0.467 seconds before equipment scaling.
     step_duration_current = BACK_STEP_DISTANCE / step_speed_current * float(part_stats.get("step_time_mult", 1.0))
     # Unlike side steps, back steps do not orbit the target. Do not engage
     # the point-blank side-step camera constraint for backward movement.
@@ -3373,7 +3374,7 @@ func _start_side_step(side: int) -> bool:
         _finish_side_step(false)
 
     # Legacy direct side-step entry (touch uses _start_omni_step):
-    # fixed 3m arc length even though this helper retains its orbit path.
+    # use the same 7m arc length while this helper retains its orbit path.
     var radial: Vector2 = Vector2(
         player.position.x - target.position.x,
         player.position.z - target.position.z
@@ -3398,8 +3399,8 @@ func _start_side_step(side: int) -> bool:
     step_start_offset = radial
     step_target_center = Vector2(target.position.x, target.position.z)
     step_linear_offset = Vector2.ZERO
-    # Dedicated legacy left/right input uses the same constant lateral speed.
-    # Orbit geometry and its 2-4m path-length bounds are unchanged.
+    # Dedicated legacy left/right input also uses the 7m dodge speed/range.
+    # This direct orbit helper is not the screen-linear touch STEP.
     step_speed_current = STEP_SPEED * float(part_stats.get("step_speed_mult", 1.0))
     var path_length: float = STEP_SIDE_DISTANCE
     if step_linear_fallback:
@@ -3410,7 +3411,7 @@ func _start_side_step(side: int) -> bool:
         step_signed_angle = STEP_SIDE_DISTANCE / radius * orbit_sign
     step_arc_length = path_length
     # Keep the selected speed for the entire step (do not change mid-orbit).
-    # Base 2m minimum at 10m/s lasts 0.20s, within the 0.40s cap.
+    # At 7m/15m/s the base duration is ~0.467s.
     step_duration_current = path_length / step_speed_current * float(part_stats.get("step_time_mult", 1.0))
     # The orbit is measured around the target, not the old absolute camera
     # direction. At point-blank distance its bearing changes quickly.

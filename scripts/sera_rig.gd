@@ -71,6 +71,10 @@ const STEP_RIGHT_CLIP: String = "Step_R"
 const STEP_LEFT_CLIP: String = "Step_L"
 const STEP_BACK_CLIP: String = "Backstep"
 const STEP_FORWARD_CLIP: String = "Frontstep"
+# v312: additive dodge lean on the Waist joint, never on authored clips.
+# Lower the center of mass while banking toward the local escape direction.
+const STEP_DODGE_LEAN_DEGREES: float = 22.0
+const STEP_DODGE_LOWER_METERS: float = 0.14
 const JUMP_CLIP: String = "Jump"
 const BACK_SOMERSAULT_CLIP: String = "Kick_b"  # optional authored source; fallback is the existing Jump pose  # takeoff/ascent/descent then a new landing key
 const JUMP_AIR_CLIP_END: float = 0.375  # old final fall key; flight ends here
@@ -1364,6 +1368,21 @@ func _step_right_authored_yaw_weight() -> float:
     return angle * angle * (3.0 - 2.0 * angle)
 
 
+# Procedural full-body dodge: the Waist is the common parent of the rig.
+# In SERA local space, UP is forward (-Z); screen/actor direction uses
+# Vector2(x right, y down). Axis rotates local UP toward intended travel.
+# Apply after authored pose and lock yaw compensation. Fade over the
+# existing 0.12s entry and 0.16s exit; no model keys are overwritten.
+func _step_dodge_lean_rotation(blend_weight: float) -> Quaternion:
+    if (not step_playback or not directional_step_active
+            or directional_step_vector.length_squared() < 0.000001):
+        return Quaternion.IDENTITY
+    var motion: Vector2 = directional_step_vector.normalized()
+    var axis: Vector3 = Vector3(motion.y, 0.0, -motion.x).normalized()
+    return Quaternion(axis, deg_to_rad(
+        STEP_DODGE_LEAN_DEGREES) * clampf(blend_weight, 0.0, 1.0))
+
+
 func start_omni_step(direction: Vector2) -> void:
     if not loading_ok or damage_playback or guard_playback or direction.length_squared() < 0.000001:
         return
@@ -2222,6 +2241,11 @@ func _apply_animation(_delta: float) -> void:
             if step_playback and directional_step_active:
                 facing_weight *= 1.0 - _step_right_authored_yaw_weight()
             q = _face_locked_boss_with_waist(q, facing_weight)
+        if uid == RUN_ROOT_BONE_UUID and step_playback and directional_step_active:
+            # Layer directional bank + crouch on top of the authored STEP.
+            # Hitboxes/physics stay untouched; non-dodge kick clips excluded.
+            q = (_step_dodge_lean_rotation(blend_weight) * q).normalized()
+            translation.y -= STEP_DODGE_LOWER_METERS * blend_weight
         bone.quaternion = q
         bone.position = (bind_positions[uid] as Vector3) + translation
         bone.scale = scale_value

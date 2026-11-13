@@ -78,7 +78,10 @@ func _run() -> void:
                 _fail("rendered pose not "+expected_clips[i]+" at "+str(i))
                 return
         var linear: Vector2=game.get("step_linear_offset")
-        if linear.distance_to(Vector2(3.0,0.0))>0.001:
+        if linear.distance_to(Vector2(
+                7.0 if int(str(ProjectSettings.get_setting(
+                    "application/config/name")).trim_prefix("SERA v"))>=312
+                else 3.0,0.0))>0.001:
             _fail("physical screen-right travel altered at "+str(i)+": "+str(linear))
             return
         game.call("_physics_process",0.016)

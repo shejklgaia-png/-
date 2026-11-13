@@ -64,7 +64,11 @@ func _run() -> void:
     if version >= 310:
         var actual_authored: Dictionary = rig.call("_sample_step_clip_pose",
             "Step_R", "67435cb7-b6af-23e4-10f1-3cd13d8429fa", 0.0)
-        if waist.quaternion.angle_to(actual_authored["rotation"]) > 0.001:
+        var check_q: Quaternion = waist.quaternion
+        if version >= 312:
+            var lean: Quaternion = rig.call("_step_dodge_lean_rotation", 1.0)
+            check_q = (lean.inverse() * check_q).normalized()
+        if check_q.angle_to(actual_authored["rotation"]) > 0.001:
             _fail("right STEP incorrectly rewrote 9.2.2 lateral Waist yaw")
             return
     elif Vector2(front.x,front.z).normalized().dot(Vector2(0,-1)) < 0.995:
@@ -76,7 +80,7 @@ func _run() -> void:
     if not tracks.has("67435cb7-b6af-23e4-10f1-3cd13d8429fa"):
         _fail("authored Waist track missing")
         return
-    if absf(float(game.get("step_arc_length"))-3.0)>0.0001:
+    if absf(float(game.get("step_arc_length"))-(7.0 if version >= 312 else 3.0))>0.0001:
         _fail("right step distance changed")
         return
     game.call("_finish_side_step",false)
