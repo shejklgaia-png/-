@@ -39,13 +39,12 @@ assert 'if distance < closest:' in hits
 auto=main.split("func _acquire_stable_camera_part(delta: float,",1)[1].split(
     "func _controller_start_area_contains(",1)[0]
 assert '"select_actor_parallel_lines_part", sera_origin, center' in auto
-assert '"actor_parallel_lines_hits_part",' in auto
-assert 'sera_origin, center, locked_target_part_id' in auto
-assert 'if not auto_lock_initialized or current_broken:' in auto
-assert 'if not auto_lock_initialized or current_broken or not current_on_line:' not in auto
-assert 'auto_lock_pending_elapsed >= AUTO_LOCK_SWITCH_CONFIRM_SECONDS' in auto
-assert 'auto_lock_pending_part != preferred' in auto
-assert 'preferred == locked_target_part_id and current_on_line' in auto
+assert '"actor_parallel_lines_hits_part",' not in auto
+assert 'locked_target_part_id = preferred' in auto
+assert 'auto_lock_initialized = true' in auto
+assert 'auto_lock_pending_elapsed = 0.0' in auto
+assert 'auto_lock_pending_elapsed >=' not in auto
+assert 'auto_lock_pending_part != preferred' not in auto
 assert 'camera.global_position' not in auto
 assert 'manual_part_lock_active' in main
 assert 'or _combo_lock_retention_active()' in main
