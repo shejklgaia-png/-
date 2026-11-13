@@ -9,7 +9,7 @@ parts = (ROOT / "scripts/target_parts.gd").read_text(encoding="utf-8")
 project = (ROOT / "project.godot").read_text(encoding="utf-8")
 manifest = (ROOT / "tools/sera_ci_manifest.txt").read_text(encoding="utf-8")
 
-assert re.search(r'config/name="SERA v320"', project)
+assert int(re.search(r'config/name="SERA v(\d+)"', project).group(1)) >= 320
 for term in ("IDLE_TO_RUN_LANDING_", "idle_to_run_landing_elapsed",
              "begin_idle_to_run_landing", "partial_landing", "beginning_run"):
     assert term not in rig, term
