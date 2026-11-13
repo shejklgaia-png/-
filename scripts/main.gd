@@ -3,6 +3,7 @@
 ## v99: Authored jump landing pose, hold 0.60s after landing before standing.
 extends Node3D
 const VersionIndicator = preload("res://scripts/version_indicator.gd")
+const RENDER_ORDER = preload("res://scripts/render_order_policy.gd")
 const CombatVitals = preload("res://scripts/combat_vitals.gd")
 ## v84: Authored 3-stage Swordeffect atlas, exact board placement.
 ## v83: Three-stage tap melee combo; cancel 2 authored frames after follow-through.
@@ -353,6 +354,13 @@ var auto_lock_pending_elapsed: float = 0.0
 var lock_switch_left_button: Button
 var lock_switch_right_button: Button
 var lock_mode_button: Button
+# v303: optional two-ray world visualization, OFF by default.
+var lock_lines_button: Button
+var lock_lines_visible: bool = false
+var lock_line_root: Node3D
+var lock_line_meshes: Array[MeshInstance3D] = []
+const LOCK_LINE_BEAM_RADIUS: float = 0.017
+const LOCK_LINES_BUTTON_SIZE: Vector2 = Vector2(128.0, 43.0)
 # Horizontal lock layout is preserved: left near center, AUTO at 75%,
 # right at the edge. Only the vertical anchor is moved below combatants.
 const CONTROLLER_REGION_START_RATIO: float = 0.50
@@ -572,6 +580,7 @@ func _ready() -> void:
     _build_target()
     _build_enemy_shooter()
     _build_camera()
+    _build_lock_line_visuals()
     _build_overlay()
     _build_hit_effects()
     _build_motion_blur()
@@ -1520,7 +1529,30 @@ func _build_lock_switch_buttons(layer: CanvasLayer) -> void:
     lock_mode_button.offset_top = CONTROLLER_BUTTON_TOP_INSET
     lock_mode_button.offset_bottom = CONTROLLER_BUTTON_TOP_INSET + LOCK_MODE_BUTTON_SIZE.y
     layer.add_child(lock_mode_button)
+    # The optional pair-lines debug control sits BELOW AUTO, leaving all
+    # three existing LOCK button hitboxes, size and anchors unchanged.
+    lock_lines_button = Button.new()
+    lock_lines_button.name = "LockLinesVisibility"
+    lock_lines_button.focus_mode = Control.FOCUS_NONE
+    lock_lines_button.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    lock_lines_button.add_theme_font_size_override("font_size", 14)
+    lock_lines_button.add_theme_color_override("font_color", Color("b9f5ff"))
+    lock_lines_button.add_theme_stylebox_override("normal", normal_style)
+    lock_lines_button.add_theme_stylebox_override("hover", normal_style)
+    lock_lines_button.add_theme_stylebox_override("pressed", press_style)
+    lock_lines_button.anchor_left = 0.75
+    lock_lines_button.anchor_right = 0.75
+    lock_lines_button.anchor_top = LOCK_CONTROLS_VERTICAL_RATIO
+    lock_lines_button.anchor_bottom = LOCK_CONTROLS_VERTICAL_RATIO
+    lock_lines_button.offset_left = -LOCK_LINES_BUTTON_SIZE.x * 0.5
+    lock_lines_button.offset_right = LOCK_LINES_BUTTON_SIZE.x * 0.5
+    lock_lines_button.offset_top = (
+        CONTROLLER_BUTTON_TOP_INSET + LOCK_MODE_BUTTON_SIZE.y + 8.0)
+    lock_lines_button.offset_bottom = (
+        lock_lines_button.offset_top + LOCK_LINES_BUTTON_SIZE.y)
+    layer.add_child(lock_lines_button)
     _refresh_lock_mode_buttons()
+    _refresh_lock_lines_button()
 
 
 func _refresh_lock_mode_buttons() -> void:
@@ -1530,6 +1562,73 @@ func _refresh_lock_mode_buttons() -> void:
         lock_switch_left_button.disabled = auto_lock_enabled
     if lock_switch_right_button != null:
         lock_switch_right_button.disabled = auto_lock_enabled
+
+
+# Lines are world-space, depth-tested, narrow non-colliding beams;
+# this is an optional observation aid and must never change lock decisions.
+func _build_lock_line_visuals() -> void:
+    lock_line_root = Node3D.new()
+    lock_line_root.name = "DualLockRayDebug"
+    lock_line_root.visible = lock_lines_visible
+    add_child(lock_line_root)
+    var material := StandardMaterial3D.new()
+    material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+    material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+    material.albedo_color = Color(0.36, 0.93, 1.0, 0.82)
+    material.no_depth_test = false
+    material.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_DISABLED
+    material.render_priority = RENDER_ORDER.DEPTH_TESTED_EMISSIVE
+    for side in range(2):
+        var cylinder := CylinderMesh.new()
+        cylinder.top_radius = LOCK_LINE_BEAM_RADIUS
+        cylinder.bottom_radius = LOCK_LINE_BEAM_RADIUS
+        cylinder.height = 1.0
+        var line := MeshInstance3D.new()
+        line.name = "LeftParallelLockRay" if side == 0 else "RightParallelLockRay"
+        line.mesh = cylinder
+        line.material_override = material
+        line.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+        lock_line_root.add_child(line)
+        lock_line_meshes.append(line)
+
+
+func _refresh_lock_lines_button() -> void:
+    if lock_lines_button != null:
+        lock_lines_button.text = "LINES ON" if lock_lines_visible else "LINES OFF"
+
+
+func _toggle_lock_lines() -> void:
+    lock_lines_visible = not lock_lines_visible
+    if lock_line_root != null:
+        lock_line_root.visible = lock_lines_visible
+    _refresh_lock_lines_button()
+    if lock_lines_visible:
+        _update_lock_line_visuals()
+
+
+func _update_lock_line_visuals() -> void:
+    if not lock_lines_visible or lock_line_root == null \
+            or target_parts == null or player == null or target == null:
+        return
+    # Interpolated positions match the render camera's own coordinate
+    # sampling. Both beams use the very same pair-line geometry as AUTO.
+    var endpoints: PackedVector3Array = target_parts.call(
+        "get_actor_parallel_lock_segments",
+        camera_player_render_position, camera_target_render_position)
+    if endpoints.size() != 4:
+        return
+    for side in range(2):
+        var from_point: Vector3 = endpoints[side * 2]
+        var to_point: Vector3 = endpoints[side * 2 + 1]
+        var segment: Vector3 = to_point - from_point
+        var line: MeshInstance3D = lock_line_meshes[side]
+        if segment.length_squared() < 0.000001:
+            line.visible = false
+            continue
+        line.visible = true
+        line.global_position = (from_point + to_point) * 0.5
+        line.global_basis = Basis(Quaternion(Vector3.UP, segment.normalized()))
+        line.scale = Vector3(1.0, segment.length(), 1.0)
 
 
 func _toggle_auto_lock_mode() -> void:
@@ -1550,10 +1649,10 @@ func _toggle_auto_lock_mode() -> void:
     _update_target_marker_projection()
 
 
-# v301: AUTO ranks the FIRST real mesh intersection on the finite
-# SERA collision-root -> boss BODY center segment. BODY, intact HEAD and
-# legs compete equally; only the origin changed from CAMERA to SERA.
-# Preserve the existing 0.22s switch confirmation and broken-part/combo
+# v303: AUTO scores only modules intersected by BOTH offset, parallel
+# SERA -> BODY center segments. BODY/HEAD/legs compete on their farther
+# first-contact distances. One-ray gaps do not cause instant lock changes;
+# preserve 0.22s confirmation and broken-part/combo
 # gates. Name kept for compatibility with the v293-v299 API tests.
 func _acquire_stable_camera_part(delta: float,
         current_broken: bool) -> void:
@@ -1562,14 +1661,21 @@ func _acquire_stable_camera_part(delta: float,
     var center: Vector3 = target.global_position
     var sera_origin: Vector3 = player.global_position
     var preferred: String = str(target_parts.call(
-        "select_actor_center_line_part", sera_origin, center))
+        "select_actor_parallel_lines_part", sera_origin, center))
     var current_on_line: bool = (
         auto_lock_initialized
-        and bool(target_parts.call("actor_center_line_hits_part",
+        and bool(target_parts.call("actor_parallel_lines_hits_part",
             sera_origin, center, locked_target_part_id)))
-    if not auto_lock_initialized or current_broken or not current_on_line:
+    # Losing overlap on one ray is not enough to force an immediate
+    # switch; confirm the NEW two-ray candidate for the existing 0.22s.
+    # Broken parts still reacquire immediately outside held combos.
+    if not auto_lock_initialized or current_broken:
         locked_target_part_id = preferred
         auto_lock_initialized = true
+        auto_lock_pending_part = ""
+        auto_lock_pending_elapsed = 0.0
+        return
+    if preferred == locked_target_part_id and current_on_line:
         auto_lock_pending_part = ""
         auto_lock_pending_elapsed = 0.0
         return
@@ -1595,6 +1701,11 @@ func _controller_start_area_contains(pos: Vector2) -> bool:
     var screen: Vector2 = get_viewport().get_visible_rect().size
     return (pos.x >= 0.0 and pos.x <= screen.x
         and pos.y >= 0.0 and pos.y <= screen.y)
+
+
+func _pointer_on_lock_lines_button(pos: Vector2) -> bool:
+    return (lock_lines_button != null and lock_lines_button.visible
+        and lock_lines_button.get_global_rect().has_point(pos))
 
 
 func _pointer_on_lock_mode_button(pos: Vector2) -> bool:
@@ -2203,6 +2314,11 @@ func _input(event: InputEvent) -> void:
             # including taps on HUD buttons (which must keep their own input).
             if touch_ui != null:
                 touch_ui.call("cancel_gesture_effects")
+            if _pointer_on_lock_lines_button(event.position):
+                step_hud_touch = event.index
+                _toggle_lock_lines()
+                get_viewport().set_input_as_handled()
+                return
             if _pointer_on_lock_mode_button(event.position):
                 step_hud_touch = event.index
                 _toggle_auto_lock_mode()
@@ -2248,6 +2364,11 @@ func _input(event: InputEvent) -> void:
             if event.pressed:
                 if touch_ui != null:
                     touch_ui.call("cancel_gesture_effects")
+                if _pointer_on_lock_lines_button(event.position):
+                    step_hud_mouse_press = true
+                    _toggle_lock_lines()
+                    get_viewport().set_input_as_handled()
+                    return
                 if _pointer_on_lock_mode_button(event.position):
                     step_hud_mouse_press = true
                     _toggle_auto_lock_mode()
@@ -4517,6 +4638,7 @@ func _process(delta: float) -> void:
     # between stale and new values. Follow what the interpolated actors show.
     camera_player_render_position = player.get_global_transform_interpolated().origin
     camera_target_render_position = target.get_global_transform_interpolated().origin
+    _update_lock_line_visuals()
     # Elapsed training time stays in the active profile until an explicit SAVE.
     SeraSave.record_training_time(delta)
     SeraSave.record_game_time(delta)
