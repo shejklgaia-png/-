@@ -215,3 +215,4 @@ py tools/v317_hud_layout_self_check.py
 gd tools/v317_hud_layout_runtime_check.gd
 py tools/v318_step_camera_self_check.py
 gd tools/v318_step_camera_runtime_check.gd
+py tools/sera_repository_layout_self_check.py
