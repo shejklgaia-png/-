@@ -87,8 +87,6 @@ assert 'active, exhaust_world, delta, backstroke_weight,' in rig
 assert 'left_sector_world, acceleration_burst, melee_sustain)' in rig
 for phrase in (
     'movement_boost_active and running',
-    'boost_exhaust or boost_pose_exhaust or stepping_this_frame',
-    'or tracking_exhaust or normal_attack_exhaust))',
     'combat_state == CombatState.BASH_TRACK',
     'combat_state == CombatState.STRIKE_TRACK',
     'combat_state == CombatState.DASH',
@@ -98,6 +96,17 @@ for phrase in (
     'rig.call("update_back_thruster_fx", exhaust_on,',
 ):
     assert phrase in main, phrase
+
+# Stage10: the exact safety gate has moved to the stateless frame module.
+frame = (ROOT / "scripts/sera_physics_frame_rules.gd").read_text(encoding="utf-8")
+assert "var exhaust_on: bool = PHYSICS_FRAME.exhaust_allowed(" in main
+assert "energy_exhausted, boost_exhaust, boost_pose_exhaust," in main
+assert "stepping_this_frame, tracking_exhaust, normal_attack_exhaust)" in main
+for phrase in ("boost_exhaust or boost_pose_exhaust or stepping",
+               "or tracking_exhaust or attack_exhaust",
+               "not damage_active and not jumping and not landing",
+               "and not guarding and not energy_exhausted"):
+    assert phrase in frame, phrase
 
 # Angular safety: any requested direction is mechanically clamped.
 max_yaw = math.radians(80.0)
