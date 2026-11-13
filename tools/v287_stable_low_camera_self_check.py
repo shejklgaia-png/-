@@ -4,6 +4,7 @@ from pathlib import Path
 import math,re
 R=Path(__file__).resolve().parents[1]
 m=(R/"scripts/main.gd").read_text(encoding="utf-8")
+math_code=(R/"scripts/sera_camera_math.gd").read_text(encoding="utf-8")
 project=(R/"project.godot").read_text(encoding="utf-8")
 assert int(re.search(r'config/name="SERA v(\d+)"',project).group(1)) >= 287
 for const in (
@@ -39,12 +40,14 @@ assert "start_bearing - deg_to_rad(CAMERA_COMBAT_SHOULDER_DEGREES)" in init
 assert "_nearest_clear_yaw" not in init
 helper=m.split("func _stable_shoulder_camera_yaw(player_bearing: float, delta: float) -> float:",1)[1].split(
     "func _close_step_target_relative_yaw(",1)[0]
-assert "player_bearing - deg_to_rad(" in helper
+assert "CAMERA_MATH.stable_shoulder_yaw(" in helper
 assert "CAMERA_COMBAT_SHOULDER_DEGREES" in helper
-assert "wrapf(desired - camera_yaw, -PI, PI)" in helper
-assert "-CAMERA_PLAYER_YAW_FOLLOW_RATE * maxf(delta, 0.0)" in helper
+assert "CAMERA_PLAYER_YAW_FOLLOW_RATE" in helper
 assert "CAMERA_PLAYER_YAW_MAX_LAG_DEGREES" in helper
-assert "return camera_yaw + error - clampf(residual, -leash, leash)" in helper
+assert "bearing - deg_to_rad(shoulder_degrees)" in math_code
+assert "wrapf(desired - current_yaw, -PI, PI)" in math_code
+assert "-rate * maxf(delta, 0.0)" in math_code
+assert "return current_yaw + error - clampf(residual, -leash, leash)" in math_code
 
 cam=m.split("func _process(delta: float) -> void:",1)[1].split(
     "func _stable_shoulder_camera_yaw(",1)[0]

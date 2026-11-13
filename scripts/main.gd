@@ -5,6 +5,7 @@ extends Node3D
 const VersionIndicator = preload("res://scripts/version_indicator.gd")
 const RENDER_ORDER = preload("res://scripts/render_order_policy.gd")
 const CombatVitals = preload("res://scripts/combat_vitals.gd")
+const CAMERA_MATH = preload("res://scripts/sera_camera_math.gd")
 ## v84: Authored 3-stage Swordeffect atlas, exact board placement.
 ## v83: Three-stage tap melee combo; cancel 2 authored frames after follow-through.
 ## v82: Close-range side-step camera bound by target-relative player/camera bearing.
@@ -4884,42 +4885,30 @@ func _process(delta: float) -> void:
 # lead toward the target for composition. At long range it translates
 # with SERA essentially one-for-one instead of orbiting a stationary boss.
 func _desired_camera_follow_focus_xz() -> Vector2:
+    # Use the same render-interpolated player/target samples as before.
     var player_xz: Vector2 = Vector2(
         camera_player_render_position.x, camera_player_render_position.z)
     var target_xz: Vector2 = Vector2(
         camera_target_render_position.x, camera_target_render_position.z)
-    return player_xz + (target_xz - player_xz).limit_length(
-        CAMERA_PLAYER_FOCUS_LEAD_METERS)
-
+    return CAMERA_MATH.desired_follow_focus(
+        player_xz, target_xz, CAMERA_PLAYER_FOCUS_LEAD_METERS)
 
 # Light exponential damping followed by a hard 0.65m leash. Once the
 # cap is reached, translation matches SERA frame-for-frame with no
 # accumulating spring momentum, oscillation, or long catch-up delay.
 func _advance_camera_follow_focus(delta: float) -> void:
     var desired: Vector2 = _desired_camera_follow_focus_xz()
-    var alpha: float = 1.0 - exp(
-        -CAMERA_PLAYER_FOCUS_FOLLOW_RATE * maxf(delta, 0.0))
-    camera_focus_follow_xz = camera_focus_follow_xz.lerp(desired, alpha)
-    var error: Vector2 = desired - camera_focus_follow_xz
-    if error.length_squared() > (
-            CAMERA_PLAYER_FOCUS_MAX_LAG_METERS * CAMERA_PLAYER_FOCUS_MAX_LAG_METERS):
-        camera_focus_follow_xz = desired - error.normalized() * (
-            CAMERA_PLAYER_FOCUS_MAX_LAG_METERS)
-
+    camera_focus_follow_xz = CAMERA_MATH.advance_follow_focus(
+        camera_focus_follow_xz, desired, delta,
+        CAMERA_PLAYER_FOCUS_FOLLOW_RATE, CAMERA_PLAYER_FOCUS_MAX_LAG_METERS)
 
 # The same short-delay angular leash follows SERA through 3-hit combos.
 # At >12deg error, track at SERA's angular speed, never letting the view
 # fall to 90deg sideways. Ordinary STEP input retains its locked yaw.
 func _stable_shoulder_camera_yaw(player_bearing: float, delta: float) -> float:
-    var desired: float = player_bearing - deg_to_rad(
-        CAMERA_COMBAT_SHOULDER_DEGREES)
-    var error: float = wrapf(desired - camera_yaw, -PI, PI)
-    var alpha: float = 1.0 - exp(
-        -CAMERA_PLAYER_YAW_FOLLOW_RATE * maxf(delta, 0.0))
-    var residual: float = error * (1.0 - alpha)
-    var leash: float = deg_to_rad(CAMERA_PLAYER_YAW_MAX_LAG_DEGREES)
-    return camera_yaw + error - clampf(residual, -leash, leash)
-
+    return CAMERA_MATH.stable_shoulder_yaw(
+        camera_yaw, player_bearing, delta, CAMERA_COMBAT_SHOULDER_DEGREES,
+        CAMERA_PLAYER_YAW_FOLLOW_RATE, CAMERA_PLAYER_YAW_MAX_LAG_DEGREES)
 
 func _close_step_target_relative_yaw(player_bearing: float, easing: float, delta: float) -> float:
     # First calculate the SAME gentle yaw follow used during normal movement.

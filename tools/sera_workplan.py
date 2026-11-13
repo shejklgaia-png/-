@@ -19,6 +19,7 @@ import sys
 
 from sera_ci_suite import load_tests
 from sera_code_map import ROOT, extract_symbols, version_from_text
+from sera_function_index import ranges_for_source
 
 # Explicit, deliberately conservative hints. Unknown source/feature => warn,
 # never declare other systems independent. Test filenames must be CI-registered.
@@ -164,8 +165,11 @@ def build_plan(query: str = "", changed: list[str] | None = None, limit: int = 1
         if query:
             tokens.add(query.casefold())
         symbols = extract_symbols(source, include_constants=True)
-        relevant = [symbol for symbol in symbols if any(
-            token in symbol["name"].casefold() for token in tokens)]
+        # Start AND end line are needed for targeted GitHub range reads.
+        function_ends = {item["name"]: item["end_line"] for item in ranges_for_source(source)}
+        relevant = [{**symbol, "end_line": function_ends.get(symbol["name"], symbol["line"])}
+                    for symbol in symbols if any(
+                        token in symbol["name"].casefold() for token in tokens)]
         scripts.append({
             "path": relative, "size_bytes": len(source.encode("utf-8")),
             "matching_symbol_count": len(relevant),
