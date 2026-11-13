@@ -35,8 +35,8 @@ func _run() -> void:
         return
     var regular_distance: float=float(game.get("step_arc_length"))
     var regular_duration: float=float(game.get("step_duration_current"))
-    if absf(regular_distance-7.0)>0.0001 or absf(regular_duration-7.0/15.0)>0.0001:
-        _fail("regular horizontal dodge is not 7m at 15m/s")
+    if absf(regular_distance-5.0)>0.0001 or absf(regular_duration-5.0/15.0)>0.0001:
+        _fail("regular horizontal dodge is not 5m at 15m/s")
         return
     game.call("_finish_side_step",false)
     for side in [1,-1]:
