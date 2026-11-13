@@ -55,7 +55,9 @@ assert "const SECTOR_COUNT: int = 4" in p
 assert "return sector_index(displacement, screen_axis) == 0" in p
 assert "displacement, seconds, Vector2.UP," in main
 assert "_combo_followup_input_window_open()" in main
-assert "left_sector_world = left_sector_world.slerp(" in main
+steering=read("scripts/sera_nozzle_steering.gd")
+assert "left_sector_world = left_sector_world.slerp(" in steering
+assert "NOZZLE_STEERING.left_sector_direction(" in main
 print("PASS v262: unquantized 360deg STEP, 0.25deg sweep and 3m/5m ends")
 print("PASS v262: four authored poses with eased interpolation; collision/Bash/boost retained")
 print("Godot/Android runtime not verified")
