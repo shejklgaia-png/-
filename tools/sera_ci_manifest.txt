@@ -243,3 +243,6 @@ gd tools/v329_facing_flick_camera_margin_runtime_check.gd
 
 py tools/v330_restore_camera_self_check.py
 gd tools/v330_restore_camera_runtime_check.gd
+
+py tools/v331_flick_sectors_idle_walk_self_check.py
+gd tools/v331_flick_sectors_idle_walk_runtime_check.gd
