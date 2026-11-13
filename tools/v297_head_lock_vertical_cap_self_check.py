@@ -38,7 +38,7 @@ assert 'func get_part_aim_world(id: String) -> Vector3:' in parts
 auto = main.split("func _acquire_stable_camera_part(delta: float,",1)[1].split(
     "func _controller_start_area_contains(",1)[0]
 assert '"select_actor_parallel_lines_part", sera_origin, center' in auto
-assert '"actor_parallel_lines_hits_part",' in auto
+assert '"actor_parallel_lines_hits_part",' not in auto
 physics = main.split("func _physics_process(delta: float) -> void:",1)[1].split(
     "func _process(delta: float) -> void:",1)[0]
 assert "var combo_held: bool = _combo_lock_retention_active()" in physics

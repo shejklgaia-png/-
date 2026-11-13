@@ -68,18 +68,20 @@ func _run() -> void:
     game.set("gesture_active",false)
     game.set("target_hp",500)
     game.set("combat_state",0)
+    game.set("auto_lock_enabled",false)
+    game.set("manual_part_lock_active",true)
+    game.set("locked_target_part_id","head")
     game.call("_physics_process",0.016)
     var actual_forward: Vector3 = -player.global_transform.basis.z
     actual_forward.y=0.0
-    var expected: Vector3 = target.global_position-player.global_position
+    var expected: Vector3 = parts.call("get_part_aim_world","head")-player.global_position
     expected.y=0.0
     if actual_forward.normalized().dot(expected.normalized()) < 0.999:
-        _fail("SERA collision root no longer points toward whole boss")
+        _fail("SERA collision root does not face the locked HEAD")
         return
 
-    # v303: first paired SERA-origin selection remains immediate.
-    # A stale old limb now requires 0.22s stable overlap before switching,
-    # so crossing gaps between mesh plates cannot cause a one-tick flicker.
+    # v305: a paired SERA-origin selection changes immediately, even from
+    # an already-initialized old limb; no confirmation frames remain.
     camera.global_position = target.global_position + Vector3(0.0,-2.0,10.0)
     camera.look_at(target.global_position,Vector3.UP)
     player.global_position = camera.global_position
@@ -88,6 +90,8 @@ func _run() -> void:
     if preferred != "head":
         _fail("dual SERA segments did not select frontal HEAD")
         return
+    game.set("auto_lock_enabled",true)
+    game.set("manual_part_lock_active",false)
     game.set("locked_target_part_id","")
     game.set("auto_lock_initialized",false)
     game.call("_acquire_stable_camera_part",0.016,false)
@@ -99,12 +103,8 @@ func _run() -> void:
     game.set("auto_lock_pending_part","")
     game.set("auto_lock_pending_elapsed",0.0)
     game.call("_acquire_stable_camera_part",0.016,false)
-    if str(game.get("locked_target_part_id")) != "leg_rr":
-        _fail("transient gap changed stale limb without 0.22s confirmation")
-        return
-    game.call("_acquire_stable_camera_part",0.23,false)
     if str(game.get("locked_target_part_id")) != "head":
-        _fail("sustained paired HEAD candidate did not replace stale limb")
+        _fail("paired HEAD candidate did not replace stale limb immediately")
         return
 
     print("GODOT_V292_VISUAL_LOCK_PASS: fixed SERA yaw, stable part selection and unchanged authored attack clips")

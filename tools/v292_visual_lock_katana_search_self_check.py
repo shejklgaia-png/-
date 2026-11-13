@@ -10,14 +10,16 @@ parts = (root/"scripts/target_parts.gd").read_text(encoding="utf-8")
 project = (root/"project.godot").read_text(encoding="utf-8")
 source = json.loads((root/"assets/sera_source.json").read_text(encoding="utf-8"))
 assert int(re.search(r'config/name="SERA v(\d+)"', project).group(1)) >= 292
-assert "const AUTO_LOCK_SWITCH_CONFIRM_SECONDS: float = 0.22" in main
+assert "const AUTO_LOCK_SWITCH_CONFIRM_SECONDS: float = 0.0" in main
 assert "var auto_lock_pending_part: String = \"\"" in main
 assert "var auto_lock_pending_elapsed: float = 0.0" in main
 helper = main.split("func _acquire_stable_camera_part(delta: float,",1)[1].split("func _controller_start_area_contains(",1)[0]
-for item in ("select_actor_parallel_lines_part", "not auto_lock_initialized or current_broken:",
-             "auto_lock_pending_part != preferred", "auto_lock_pending_elapsed += maxf(0.0, delta)",
-             "auto_lock_pending_elapsed >= AUTO_LOCK_SWITCH_CONFIRM_SECONDS"):
+for item in ("select_actor_parallel_lines_part", "locked_target_part_id = preferred",
+             "auto_lock_initialized = true", 'auto_lock_pending_part = ""',
+             "auto_lock_pending_elapsed = 0.0"):
     assert item in helper, item
+assert "auto_lock_pending_elapsed >=" not in helper
+assert "auto_lock_pending_part != preferred" not in helper
 physics = main.split("func _physics_process(delta: float) -> void:",1)[1].split("func _process(delta: float) -> void:",1)[0]
 assert "_acquire_stable_camera_part(delta, locked_part_broken)" in physics
 assert "if not combo_held:" in physics
@@ -60,20 +62,12 @@ if latest.exists():
     if "Melee_katana2" not in [a["name"] for a in authored.get("animations",[])]:
         assert "Melee_katana2" not in clips
 
-# Basic hysteresis model: a different preferred camera part must remain
-# selected for >0.22s, but empty/broken locks acquire immediately.
+# v305: no temporal confirmation: each paired-ray preferred candidate wins
+# on the very first ordinary AUTO update outside the held-combo window.
 selected="leg_fl"
-pending=""
-elapsed=0.0
-for dt,preferred in [(0.016,"head"),(0.11,"head"),(0.09,"leg_rr"),(0.13,"leg_rr"),(0.11,"leg_rr")]:
-    if preferred == selected:
-        pending="";elapsed=0.0
-    elif preferred != pending:
-        pending=preferred;elapsed=0.0
-    else:
-        elapsed+=dt
-        if elapsed>=0.22:
-            selected=preferred;pending="";elapsed=0.0
-assert selected=="leg_rr"
+for preferred in ("head","leg_rr","head",""):
+    selected=preferred
+    assert selected==preferred
+assert selected==""
 assert 'CAMERA_PART_LOCK_HYSTERESIS' in parts
 print("V292_VISUAL_LOCK_AND_AUTHORED_KATANA_SEARCH_STATIC_PASS")

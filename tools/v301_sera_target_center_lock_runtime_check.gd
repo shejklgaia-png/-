@@ -76,28 +76,16 @@ func _run() -> void:
         _fail("BODY should be a real mesh intersection, never a fallback")
         return
     game.call("_acquire_stable_camera_part",0.016,false)
-    if str(game.get("locked_target_part_id")) != "head":
-        _fail("SERA-moved HEAD was dropped without stable pair confirmation")
-        return
-    game.call("_acquire_stable_camera_part",0.23,false)
     if not str(game.get("locked_target_part_id")).is_empty():
-        _fail("off-segment HEAD stayed after stable rear BODY")
+        _fail("off-segment HEAD was not immediately switched to rear BODY")
         return
 
-    # BODY and HEAD both intersect the front ray, so BODY->HEAD must
-    # obey the same 0.22-second hysteresis as the old algorithm.
+    # BODY and HEAD intersect the front rays. BODY->HEAD now switches
+    # on the first eligible paired-ray frame, without waiting.
     player.global_position = front
     game.call("_acquire_stable_camera_part",0.016,false)
-    if not str(game.get("locked_target_part_id")).is_empty():
-        _fail("BODY->HEAD skipped confirmation")
-        return
-    game.call("_acquire_stable_camera_part",0.10,false)
-    if not str(game.get("locked_target_part_id")).is_empty():
-        _fail("BODY->HEAD confirmation finished prematurely")
-        return
-    game.call("_acquire_stable_camera_part",0.13,false)
     if str(game.get("locked_target_part_id")) != "head":
-        _fail("sustained SERA-origin HEAD did not become active")
+        _fail("SERA-origin HEAD was not selected instantly")
         return
 
     # Both HEAD and enlarged BODY remain intersectable. BODY wins only
@@ -123,14 +111,9 @@ func _run() -> void:
     var old_camera_size: Vector3 = camera_box.size
     camera_box.size = Vector3(old_camera_size.x,old_camera_size.y,12.0)
     game.call("_acquire_stable_camera_part",0.016,false)
-    if str(game.get("locked_target_part_id")) != "head":
-        camera_box.size = old_camera_size
-        _fail("HEAD->BODY overlap bypassed shared hysteresis")
-        return
-    game.call("_acquire_stable_camera_part",0.23,false)
     if not str(game.get("locked_target_part_id")).is_empty():
         camera_box.size = old_camera_size
-        _fail("nearest camera-only BODY could not acquire after confirmation")
+        _fail("nearest camera-only BODY did not acquire instantly")
         return
     camera_box.size = old_camera_size
 

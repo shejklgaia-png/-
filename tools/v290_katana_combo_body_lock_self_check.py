@@ -70,19 +70,20 @@ assert "7.0 / 24.0 + MELEE3_FLICK_CANCEL_DELAY" in cancel
 assert "STRIKE_CANCEL_TIMES[STRIKE_CLIPS.size() - 1]) + MELEE3_FLICK_CANCEL_DELAY" in cancel
 assert 7/24+0.05 < .5
 
-# The lock marker/hitpoint stays on the part, while the WHOLE player body
-# faces the boss pivot even when the left/right RUN is being performed.
+# v305: the authored run yaw stays movement-relative, while the collider
+# now faces the current locked head/leg point (BODY still uses core pivot).
 phys=m.split("func _physics_process(delta: float) -> void:",1)[1].split("func _process(delta: float) -> void:",1)[0]
-heading=phys.split("# The boss WHOLE-center (camera rotation axis)",1)[1].split("player.look_at(",1)[0]
-assert "target.position.x - player.position.x" in heading
-assert "target.position.z - player.position.z" in heading
-assert "aim = Vector3(part_aim" not in heading
-assert '"get_part_aim_world", locked_target_part_id' not in heading
+heading=phys.split("# The paired SERA->BODY rays",1)[1].split("player.look_at(",1)[0]
+assert "aim = _locked_target_facing_direction()" in heading
+face=m.split("func _locked_target_facing_direction() -> Vector3:",1)[1].split("func _controller_start_area_contains(",1)[0]
+assert '"get_part_aim_world", locked_target_part_id' in face
+assert "point: Vector3 = target.global_position" in face
+assert "point.y - player" not in face
 assert 'player.look_at(player.global_position + aim, Vector3.UP)' in phys
 assert 'center_world += target_parts.call("get_part_local_aim", locked_target_part_id)' in m
 turn=r.split("func _run_yaw_for_direction(direction: Vector2, retreat_weight: float) -> float:",1)[1].split("func _smooth_visual_direction(",1)[0]
-# v295: the character collider still locks to the entire boss, while the
-# authored RUN Waist follows actual travel; its torso/head track the boss.
+# v305: the collider locks to the selected part, while the authored RUN
+# Waist follows actual travel and its torso/head track the selected target.
 assert "return travel_yaw" in turn
 assert "RUN_TARGET_LOCK_MAX_YAW_DEGREES" not in r
 for d in (-math.pi/2, 0.0, math.pi/2):

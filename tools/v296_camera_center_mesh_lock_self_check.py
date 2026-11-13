@@ -41,15 +41,14 @@ for token in (
     "target.global_position",
     "sera_origin: Vector3 = player.global_position",
     '"select_actor_parallel_lines_part", sera_origin, center',
-    '"actor_parallel_lines_hits_part",',
-    "not auto_lock_initialized or current_broken:",
     "locked_target_part_id = preferred",
     "auto_lock_initialized = true",
     'auto_lock_pending_part = ""',
-    "AUTO_LOCK_SWITCH_CONFIRM_SECONDS",
+    "auto_lock_pending_elapsed = 0.0",
 ):
     assert token in auto, token
 assert "select_camera_orbit_part" not in auto
+assert '"actor_parallel_lines_hits_part",' not in auto
 
 physics = main.split("func _physics_process(delta: float) -> void:", 1)[1].split(
     "func _process(delta: float) -> void:", 1)[0]

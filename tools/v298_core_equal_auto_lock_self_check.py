@@ -44,14 +44,14 @@ assert "if distance < closest:" in selection
 assert "return selected" in selection
 
 auto=main.split("func _acquire_stable_camera_part(delta: float,",1)[1].split(
-    "func _controller_start_area_contains(",1)[0]
+    "# v305: yaw SERA toward the actual current LOCK target.",1)[0]
 assert "auto_lock_initialized" in auto
-assert 'sera_origin, center, locked_target_part_id' in auto
+assert '"select_actor_parallel_lines_part", sera_origin, center' in auto
 assert "sera_origin: Vector3 = player.global_position" in auto
 assert "not locked_target_part_id.is_empty()" not in auto
-assert "not auto_lock_initialized or current_broken:" in auto
-assert "auto_lock_pending_part != preferred" in auto
-assert "auto_lock_pending_elapsed >= AUTO_LOCK_SWITCH_CONFIRM_SECONDS" in auto
+assert "locked_target_part_id = preferred" in auto
+assert "auto_lock_pending_part != preferred" not in auto
+assert "AUTO_LOCK_SWITCH_CONFIRM_SECONDS" not in auto
 assert "_combo_lock_retention_active()" in main
 
 for entry in (

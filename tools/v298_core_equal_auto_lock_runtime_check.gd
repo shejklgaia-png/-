@@ -97,8 +97,8 @@ func _run() -> void:
         as CollisionShape3D).shape
     var original_camera_size: Vector3 = camera_box.size
 
-    # BODY->HEAD is now a normal intersecting-target change and must obey
-    # the exact same 0.22s stable confirmation as limb-to-limb changes.
+    # v305: BODY->HEAD is a normal intersecting-target change with no
+    # temporal confirmation; first paired-ray sample wins.
     _place(camera,center,Vector3(0.0,0.0,-12.0))
     game.set("auto_lock_enabled",true)
     game.set("manual_part_lock_active",false)
@@ -113,18 +113,8 @@ func _run() -> void:
     _place(camera,center,Vector3(0.0,-2.0,10.0))
     player.global_position = camera.global_position
     game.call("_acquire_stable_camera_part",0.016,false)
-    if str(game.get("locked_target_part_id")) != "":
-        _fail("BODY->HEAD skipped uniform switch confirmation")
-        return
-    player.global_position = camera.global_position
-    game.call("_acquire_stable_camera_part",0.10,false)
-    if str(game.get("locked_target_part_id")) != "":
-        _fail("BODY->HEAD changed during early hysteresis")
-        return
-    player.global_position = camera.global_position
-    game.call("_acquire_stable_camera_part",0.13,false)
     if str(game.get("locked_target_part_id")) != "head":
-        _fail("BODY->HEAD did not switch after sustained better intersection")
+        _fail("BODY->HEAD did not switch on first eligible frame")
         return
 
     # The active HEAD still intersects, but expanding the CAMERA-ONLY
@@ -132,29 +122,19 @@ func _run() -> void:
     camera_box.size = Vector3(original_camera_size.x,original_camera_size.y,12.0)
     player.global_position = camera.global_position
     game.call("_acquire_stable_camera_part",0.016,false)
-    if str(game.get("locked_target_part_id")) != "head":
-        camera_box.size = original_camera_size
-        _fail("HEAD->BODY bypassed stable overlap selection")
-        return
-    player.global_position = camera.global_position
-    game.call("_acquire_stable_camera_part",0.23,false)
     if str(game.get("locked_target_part_id")) != "":
         camera_box.size = original_camera_size
-        _fail("HEAD->BODY did not confirm the nearer camera BODY")
+        _fail("HEAD->BODY did not immediately choose nearer camera BODY")
         return
     camera_box.size = original_camera_size
 
-    # If HEAD loses pair intersection, require a stable 0.22s replacement.
+    # If HEAD loses paired intersection, immediately select BODY.
     game.set("locked_target_part_id","head")
     _place(camera,center,Vector3(0.0,0.0,-12.0))
     player.global_position = camera.global_position
     game.call("_acquire_stable_camera_part",0.016,false)
-    if str(game.get("locked_target_part_id")) != "head":
-        _fail("transient off-segment HEAD lost stable-lock hold")
-        return
-    game.call("_acquire_stable_camera_part",0.23,false)
     if str(game.get("locked_target_part_id")) != "":
-        _fail("HEAD did not release for stable paired-ray BODY")
+        _fail("HEAD did not release instantly for paired-ray BODY")
         return
 
     # Do not affect weapon hitboxes or part lock/followup compatibility.

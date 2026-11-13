@@ -39,7 +39,7 @@ assert "_cancel_attack()" in step
 physics=m.split("func _physics_process(delta: float) -> void:",1)[1].split("func _process(delta: float) -> void:",1)[0]
 assert "bash_followup_window_remaining = maxf(0.0, bash_followup_window_remaining - delta)" in physics
 assert "bash_loop_window_remaining = maxf(0.0, bash_loop_window_remaining - delta)" in physics
-lock=physics.split("# The boss WHOLE-center (camera rotation axis),",1)[1].split(
+lock=physics.split("# The paired SERA->BODY rays",1)[1].split(
     '_acquire_stable_camera_part(delta, locked_part_broken)',1)[0]
 assert "if not combo_held:" in lock
 assert "not manual_part_lock_active or locked_part_broken" in lock

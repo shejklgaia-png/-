@@ -33,7 +33,8 @@ func _run() -> void:
     var rig: Node3D = game.get("rig")
     var player: CharacterBody3D = game.get("player")
     var target: Node3D = game.get("target")
-    if rig == null or player == null or target == null:
+    var parts: Node3D = game.get("target_parts")
+    if rig == null or player == null or target == null or parts == null:
         _fail("player/rig/target not ready")
         return
     if not bool(rig.get("loading_ok")):
@@ -106,8 +107,8 @@ func _run() -> void:
         _fail("lateral RUN does not face rightward travel")
         return
 
-    # Sideways movement must track the WHOLE boss pivot, independently
-    # of which specific limb is selected by the HUD/attacks.
+    # SERA yaw now follows the selected limb's attack/HUD aim; the visual
+    # RUN waist still turns toward the travel direction independently.
     game.set("locked_target_part_id","leg_fr")
     game.set("manual_part_lock_active",true)
     player.position=Vector3(5,0,0)
@@ -116,11 +117,11 @@ func _run() -> void:
     game.set("direction_input",Vector2.ZERO)
     game.call("_physics_process",0.016)
     var flat_face: Vector3 = -player.global_transform.basis.z
-    var want: Vector3 = target.position-player.position
+    var want: Vector3 = parts.call("get_part_aim_world","leg_fr")-player.global_position
     want.y=0
     flat_face.y=0
     if flat_face.normalized().dot(want.normalized()) < 0.999:
-        _fail("actor faced locked limb instead of whole target center")
+        _fail("actor did not face the selected leg_fr lock point")
         return
     rig.call("finish_attack",false)
     rig.call("_apply_animation",0.0)

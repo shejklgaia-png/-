@@ -69,12 +69,8 @@ func _run() -> void:
     camera.look_at(target.global_position, Vector3.UP)
     player.global_position = camera.global_position
     game.call("_acquire_stable_camera_part", 0.016, false)
-    if str(game.get("locked_target_part_id")) != "head":
-        _fail("dual-ray loss switched HEAD immediately")
-        return
-    game.call("_acquire_stable_camera_part", 0.23, false)
     if not str(game.get("locked_target_part_id")).is_empty():
-        _fail("sustained BODY candidate did not replace off-ray HEAD")
+        _fail("off-ray HEAD was not replaced by BODY instantly")
         return
     camera.global_position = target.global_position + Vector3(0.0,-2.0,10.0)
     camera.look_at(target.global_position, Vector3.UP)
