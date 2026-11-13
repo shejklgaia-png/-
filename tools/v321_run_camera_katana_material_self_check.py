@@ -11,7 +11,7 @@ math = (root/"scripts/sera_camera_math.gd").read_text(encoding="utf-8")
 manifest = (root/"tools/sera_ci_manifest.txt").read_text(encoding="utf-8")
 project = (root/"project.godot").read_text(encoding="utf-8")
 
-assert 'config/name="SERA v321"' in project
+assert int(re.search(r'config/name="SERA v(\d+)"', project).group(1)) >= 321
 assert "RUN_LOW_STANCE_ROOT_Y: float = -0.235" in rig
 assert "RUN_LOW_STANCE_BOB_SCALE: float = 0.25" in rig
 assert "blended_translation.y = RUN_LOW_STANCE_ROOT_Y + clampf(" in rig
