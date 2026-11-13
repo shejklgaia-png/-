@@ -34,9 +34,9 @@ assert "if id.is_empty():" in hit
 assert "_camera_center_line_body_distance(" in hit
 assert "_camera_center_line_part_distance(" in hit
 
-selection=parts.split("func select_camera_center_line_part(",1)[1].split(
-    "# v293 legacy orbital selector",1)[0]
-assert "var closest: float = _camera_center_line_body_distance(origin, body_center)" in selection
+selection=parts.split("func select_actor_center_line_part(",1)[1].split(
+    "# Read-only legacy camera-origin APIs",1)[0]
+assert "var closest: float = _camera_center_line_body_distance(actor_origin, body_center)" in selection
 assert 'var selected: String = ""' in selection
 assert "for id in PART_ORDER:" in selection
 assert "_camera_center_line_part_distance(" in selection
@@ -46,7 +46,8 @@ assert "return selected" in selection
 auto=main.split("func _acquire_stable_camera_part(delta: float,",1)[1].split(
     "func _controller_start_area_contains(",1)[0]
 assert "auto_lock_initialized" in auto
-assert 'camera, center, locked_target_part_id' in auto
+assert 'sera_origin, center, locked_target_part_id' in auto
+assert "sera_origin: Vector3 = player.global_position" in auto
 assert "not locked_target_part_id.is_empty()" not in auto
 assert "not auto_lock_initialized or current_broken or not current_on_line" in auto
 assert "auto_lock_pending_part != preferred" in auto
