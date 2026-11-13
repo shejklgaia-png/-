@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Generate the bird-leg runtime snapshot from the latest mirror-edit Blockbench file."""
+"""Generate the bird-leg runtime snapshot from the canonical BirdLeg Blockbench file."""
 from pathlib import Path
 import json
 ROOT = Path(__file__).resolve().parents[1]
-MODEL = ROOT / "models/storage/SERA_BIRD_LEGS_MIRROR_EDIT.bbmodel"
+MODEL = ROOT / "models/core/BirdLeg.bbmodel"
 OUTPUT = ROOT / "assets/sera_bird_data.gd"
 
 def build(data):

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Embed the current combined A/B/C Blockbench model for exported SERA builds.
+"""Embed normalized A/B equipment for exported SERA builds.
 
-Run after editing models/SERA_BOOSTER_allテスト.bbmodel:
+Run after editing models/core/Equipment.bbmodel:
     python3 tools/rebuild_equipment_data.py
 
 Godot Android editor prefers the live .bbmodel when accessible; the generated
@@ -13,7 +13,7 @@ import json
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-MODEL = ROOT / "models" / "SERA_BOOSTER_allテスト.bbmodel"
+MODEL = ROOT / "models" / "core" / "Equipment.bbmodel"
 OUTPUT = ROOT / "assets" / "sera_equipment_data.gd"
 
 

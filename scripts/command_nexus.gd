@@ -121,14 +121,8 @@ const NEXUS_SHOULDER_STEP_DEGREES: float = 0.2
 const NEXUS_SHOULDER_MAX_DEGREES: float = 3.2
 const NEXUS_ARM_MAX_STEPS: int = 16 # max upper-arm lift is 24 degrees
 const NEXUS_ARM_CLEARANCE: float = 0.018
-# Authoritative synchronized Blockbench file first; canonical source fallback.
-# Both are JSON text readable by the Android Godot editor after GitSync.
-const NEXUS_POSE_SOURCES: Array[String] = [
-    "res://models/storage/SERA_BIRD_LEGS_MIRROR_EDIT.bbmodel",
-    "res://models/SERA_BOOSTER_allテスト.bbmodel",
-    "res://models/SERA_BOOSTER_all.bbmodel",
-    "res://assets/sera_source.json"
-]
+# NEXUSpose lives inside the already-loaded canonical SERA rig.
+# No independent file search is necessary; exported builds use its embedded snapshot.
 const CUSTOMIZE_DRAG_FULL_TURN: float = TAU
 
 const CAMERA_TRANSITION_SECONDS: float = 0.18
@@ -601,37 +595,23 @@ func _fit_nexus_arms_to_lower_body() -> void:
                 + " arm has remaining contact, preserved minimal practical lift")
 
 func _apply_nexus_pose(rig: Node3D) -> bool:
-    # Blockbench animation tracks are decoded by SeraRig's own production
-    # ZYX quaternion converter; combat animation data is never overwritten.
-    # Only the independent exhibition rig receives this one named pose.
-    for source_path in NEXUS_POSE_SOURCES:
-        if not FileAccess.file_exists(source_path):
+    # Reuse the actual canonical animation dictionary loaded by SeraRig.
+    # Bird-specific tracks have already been merged into NEXUS_pose.
+    var available: Dictionary = rig.get("animations")
+    for pose_name in NEXUS_POSE_NAMES:
+        if not available.has(pose_name):
             continue
-        var json_data: Variant = JSON.parse_string(
-            FileAccess.get_file_as_string(source_path))
-        if not json_data is Dictionary:
+        var clip: Dictionary = available[pose_name]
+        if (clip.get("tracks", {}) as Dictionary).is_empty():
             continue
-        var clips: Array = json_data.get("animations", [])
-        for raw_clip in clips:
-            if not raw_clip is Dictionary:
-                continue
-            var pose_name: String = str(raw_clip.get("name", ""))
-            if not NEXUS_POSE_NAMES.has(pose_name):
-                continue
-            if raw_clip.get("animators", {}).is_empty():
-                continue
-            rig.call("_build_animations", {"animations": [raw_clip]})
-            rig.call("_merge_bird_animation_tracks", pose_name)
-            var available: Dictionary = rig.get("animations")
-            if not available.has(pose_name):
-                continue
-            rig.set("current_clip", pose_name)
-            rig.set("clip_time", 0.0)
-            rig.set("blending_for", 1.0)
-            rig.set("blend_duration", 0.0)
-            rig.call("_apply_animation", 0.0)
-            return true
+        rig.set("current_clip", pose_name)
+        rig.set("clip_time", 0.0)
+        rig.set("blending_for", 1.0)
+        rig.set("blend_duration", 0.0)
+        rig.call("_apply_animation", 0.0)
+        return true
     return false
+
 
 func _capture_sera_silhouette(rig: Node3D) -> void:
     # Capture only the meshes currently visible after A/B/C part selection.

@@ -12,12 +12,12 @@ const UNIT: float = 0.065
 # v84: Render the Swordeffect board at its exact Blockbench location.
 # No additional Z offset or geometry fitting is applied in Godot.
 const BLEND_SECONDS: float = 0.16
-const SOURCE_PATH: String = "res://assets/sera_source.json"
+const SOURCE_PATH: String = "res://models/core/Standard.bbmodel"
 # Import only newly authored kick tracks from the synced Blockbench source.
 # This is a model read, not a mesh replacement or re-export.
-const KICK_AUTHORING_SOURCE: String = "res://models/storage/SERA_BOOSTER_allテスト (9).bbmodel"
+const KICK_AUTHORING_SOURCE: String = "res://models/core/Standard.bbmodel"
 # v293: import only the new authored second Katana clip; leave A meshes intact.
-const KATANA_SECOND_AUTHORING_SOURCE: String = "res://models/storage/SERA_BOOSTER_allテスト.bbmodel"
+const KATANA_SECOND_AUTHORING_SOURCE: String = "res://models/core/Katana.bbmodel"
 const EMBEDDED = preload("res://assets/sera_data.gd")
 # Independently versioned 39KB authored kick-only resource. Mandatory for
 # v272: do not rely solely on a potentially stale source/whole-model embed.
@@ -25,7 +25,7 @@ const KICK_PACK = preload("res://assets/sera_kick_clips.gd")
 const EQUIPMENT_SCRIPT = preload("res://scripts/sera_equipment.gd")
 const RENDER_ORDER = preload("res://scripts/render_order_policy.gd")
 const BIRD_EMBEDDED = preload("res://assets/sera_bird_data.gd")
-const BIRD_LIVE_SOURCE: String = "res://models/storage/SERA_BIRD_LEGS_MIRROR_EDIT.bbmodel"
+const BIRD_LIVE_SOURCE: String = "res://models/core/BirdLeg.bbmodel"
 const SERA_TEXTURE = preload("res://assets/sera_godot_shading_texture.png")
 const WAIT_CLIP: String = "Wait_motion"
 const RUN_CLIP: String = "run_front_original"
