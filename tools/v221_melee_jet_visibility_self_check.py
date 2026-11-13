@@ -64,7 +64,9 @@ assert "exhaust_on, stepping_this_frame, thruster_accel_previous_step," in burst
 assert "thruster_accel_previous_tracking_state)" in burst
 assert "stepping and not previous_step" in frame
 assert "tracking_state != previous_tracking_state" in frame
-assert "left_sector_world, acceleration_burst, normal_attack_exhaust)" in main
+presentation=read("scripts/sera_thruster_presentation.gd")
+assert "thruster_presentation.update(rig, exhaust_on," in main
+assert "left_sector_world, acceleration_burst, normal_attack_exhaust)" in presentation
 for x in (rig,equip,fx):
     assert "melee_sustain: bool = false" in x
 assert "left_sector_world, acceleration_burst, melee_sustain)" in rig
