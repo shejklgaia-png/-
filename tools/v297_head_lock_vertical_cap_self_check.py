@@ -29,6 +29,7 @@ for token in (
 assert selector.index('for child in pivot.get_children():') < selector.index('if id == "head":')
 assert "get_part_aabb" not in selector
 assert "get_part_aim_world" not in selector
+assert "sera_origin: Vector3 = player.global_position" in main
 assert "select_camera_orbit_part" not in selector
 assert "HEAD_LOCK_UPWARD_EXTENSION_METERS" not in main
 assert 'func get_part_aabb(id: String) -> AABB:' in parts
@@ -36,8 +37,8 @@ assert "func install_movement_colliders(" in parts
 assert 'func get_part_aim_world(id: String) -> Vector3:' in parts
 auto = main.split("func _acquire_stable_camera_part(delta: float,",1)[1].split(
     "func _controller_start_area_contains(",1)[0]
-assert '"select_camera_center_line_part", camera, center' in auto
-assert '"camera_center_line_hits_part",' in auto
+assert '"select_actor_center_line_part", sera_origin, center' in auto
+assert '"actor_center_line_hits_part",' in auto
 physics = main.split("func _physics_process(delta: float) -> void:",1)[1].split(
     "func _process(delta: float) -> void:",1)[0]
 assert "var combo_held: bool = _combo_lock_retention_active()" in physics
