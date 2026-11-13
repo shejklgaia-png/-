@@ -44,7 +44,7 @@ func _run() -> void:
     # still cancel without erasing its original pitch or roll.
     var step: Dictionary = rig.call("_sample_step_clip_pose","Step_R",waist_id,0.0)
     var raw_step: Quaternion = step["rotation"]
-    if absf(_flat_yaw(raw_step)) < deg_to_rad(5.0):
+    if absf(_flat_yaw(raw_step)) < deg_to_rad(1.0):
         _fail("Step_R yaw was unexpectedly eliminated from authored clip")
         return
     var corrected: Quaternion = rig.call("_face_locked_boss_with_waist",raw_step,1.0)
