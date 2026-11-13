@@ -31,7 +31,11 @@ func _run() -> void:
     target.position = Vector3.ZERO
     game.set("camera_yaw",0.0)
     game.call("_place_camera")
-    game.set("target_hp",0) # No chase for deterministic geometry.
+    game.set("target_hp",0) # KO collision remains valid in v319.
+    # This fixture examines authored STEP/KICK geometry without melee chase.
+    var stats: Dictionary = game.get("part_stats")
+    stats["melee_boost_speed"] = 0.0
+    game.set("part_stats",stats)
     var vectors: Array[Vector2] = [
         Vector2.UP,Vector2.RIGHT,Vector2.DOWN,Vector2.LEFT,
         Vector2(1,1).normalized(),Vector2(-1,1).normalized(),
