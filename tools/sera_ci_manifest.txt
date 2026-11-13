@@ -183,3 +183,5 @@ py tools/v317_diagnostics_self_check.py
 gd tools/v317_diagnostics_runtime_check.gd
 py tools/v317_input_module_self_check.py
 gd tools/v317_input_module_runtime_check.gd
+py tools/v317_lock_module_self_check.py
+gd tools/v317_lock_module_runtime_check.gd

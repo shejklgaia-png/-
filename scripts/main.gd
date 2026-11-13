@@ -8,6 +8,7 @@ const CombatVitals = preload("res://scripts/combat_vitals.gd")
 const CAMERA_MATH = preload("res://scripts/sera_camera_math.gd")
 const INPUT_GESTURES = preload("res://scripts/sera_input_gestures.gd")
 const MOVEMENT_MATH = preload("res://scripts/sera_movement_math.gd")
+const LOCK_MANAGEMENT = preload("res://scripts/sera_lock_management.gd")
 const DEV_DIAGNOSTICS = preload("res://scripts/dev_diagnostics.gd")
 ## v84: Authored 3-stage Swordeffect atlas, exact board placement.
 ## v83: Three-stage tap melee combo; cancel 2 authored frames after follow-through.
@@ -1695,15 +1696,12 @@ func _acquire_stable_camera_part(delta: float,
         current_broken: bool) -> void:
     if target_parts == null or player == null or target == null:
         return
-    var center: Vector3 = target.global_position
-    var sera_origin: Vector3 = player.global_position
-    var preferred: String = str(target_parts.call(
-        "select_actor_parallel_lines_part", sera_origin, center))
-    locked_target_part_id = preferred
+    # State ownership and zero-delay acquisition remain in main.gd.
+    locked_target_part_id = LOCK_MANAGEMENT.select_auto_part(
+        target_parts, player.global_position, target.global_position)
     auto_lock_initialized = true
     auto_lock_pending_part = ""
     auto_lock_pending_elapsed = 0.0
-
 
 # v305: yaw SERA toward the actual current LOCK target. HEAD and each leg
 # use their world-space authored aim/pivot; BODY ("") uses the boss center.
@@ -1712,13 +1710,9 @@ func _acquire_stable_camera_part(delta: float,
 func _locked_target_facing_direction() -> Vector3:
     if player == null or target == null:
         return Vector3.ZERO
-    var point: Vector3 = target.global_position
-    if target_parts != null and not locked_target_part_id.is_empty():
-        point = target_parts.call("get_part_aim_world", locked_target_part_id)
-    return Vector3(
-        point.x - player.global_position.x, 0.0,
-        point.z - player.global_position.z)
-
+    return LOCK_MANAGEMENT.target_facing_direction(
+        player.global_position, target.global_position, target_parts,
+        locked_target_part_id)
 
 func _controller_start_area_contains(pos: Vector2) -> bool:
     # v246: all viewport pixels can start an analog drag; UI hit-tests run first.
@@ -1754,41 +1748,11 @@ func _switch_lock_screen_direction(direction: int) -> void:
     var viewport_size: Vector2 = get_viewport().get_visible_rect().size
     if viewport_size.x <= 1.0 or viewport_size.y <= 1.0:
         return
-    var reference_x: float = viewport_size.x * 0.5
-    if not locked_target_part_id.is_empty() and bool(target_parts.call(
-            "is_targetable", locked_target_part_id)):
-        var current_aim: Vector3 = target_parts.call(
-            "get_part_aim_world", locked_target_part_id)
-        if not camera.is_position_behind(current_aim):
-            reference_x = camera.unproject_position(current_aim).x
-    # v291: never discard candidates just because another box intersects
-    # the camera ray. Sort projected X, and WRAP at the edge so a manual
-    # button always cycles if two or more healthy parts remain visible.
-    var candidates: Array = target_parts.call("get_visible_part_ids",
-        camera.global_position, _target_hit_aabb())
-    var forward_id: String = ""
-    var forward_gap: float = INF
-    var wrapped_id: String = ""
-    var wrapped_x: float = INF if direction > 0 else -INF
-    for raw_candidate in candidates:
-        var id: String = str(raw_candidate)
-        if id == locked_target_part_id:
-            continue
-        var aim: Vector3 = target_parts.call("get_part_aim_world", id)
-        if camera.is_position_behind(aim):
-            continue
-        var projected: Vector2 = camera.unproject_position(aim)
-        # Even an offscreen part remains a viable fallback while the boss
-        # is near an edge; projected X is still stable for ordering.
-        var gap: float = (projected.x - reference_x) * float(direction)
-        if gap > 3.0 and gap < forward_gap:
-            forward_gap = gap
-            forward_id = id
-        if (direction > 0 and projected.x < wrapped_x) or (
-                direction < 0 and projected.x > wrapped_x):
-            wrapped_x = projected.x
-            wrapped_id = id
-    var next_id: String = forward_id if not forward_id.is_empty() else wrapped_id
+    # Screen-X candidate ordering and edge wrapping are pure lock policy;
+    # attack suppression, MANUAL state and UI remain owned by main.
+    var next_id: String = LOCK_MANAGEMENT.manual_screen_neighbor(
+        direction, locked_target_part_id, viewport_size, camera,
+        target_parts, _target_hit_aabb())
     if next_id.is_empty():
         return
     locked_target_part_id = next_id
@@ -1797,36 +1761,21 @@ func _switch_lock_screen_direction(direction: int) -> void:
     manual_part_lock_active = true
     _update_target_marker_projection()
 
-
 func _update_target_marker_projection() -> void:
-    # Camera3D.unproject_position() gives screen coordinates in the viewport.
-    # HUD's full-rect Control uses those same pixels; no fixed center offset.
-    # Re-read target.global_position: animation / future movement both follow.
+    # All camera/target scene state is captured here; only the reticle
+    # projection math is delegated. Boss framing still uses its center.
     if camera == null or target == null or touch_ui == null:
         return
     var center_world: Vector3 = camera_target_render_position
-    # Keep the camera framed on the stable boss center. Only the lock reticle
-    # follows the selected head/leg, using the same interpolated target origin.
     if target_parts != null and not locked_target_part_id.is_empty():
         center_world += target_parts.call("get_part_local_aim", locked_target_part_id)
-    var viewport_size: Vector2 = get_viewport().get_visible_rect().size
-    if viewport_size.x <= 0.0 or viewport_size.y <= 0.0 or camera.is_position_behind(center_world):
+    var marker: Dictionary = LOCK_MANAGEMENT.reticle_projection(
+        camera, center_world, get_viewport().get_visible_rect().size)
+    if not bool(marker["visible"]):
         touch_ui.call("set_target_marker_projection", Vector2.ZERO, false)
         return
-    var screen_position: Vector2 = camera.unproject_position(center_world)
-    # A valid lock may be outside the view, especially when circling a
-    # large boss. Show an amber EDGE marker rather than making the lock
-    # look disabled. Clamp only the HUD indicator, never the real aim/hit.
-    var is_offscreen: bool = (screen_position.x < 0.0
-        or screen_position.x > viewport_size.x
-        or screen_position.y < 0.0
-        or screen_position.y > viewport_size.y)
-    var edge_margin: float = 42.0
-    var safe_screen: Vector2 = Vector2(
-        clampf(screen_position.x, edge_margin, maxf(edge_margin, viewport_size.x-edge_margin)),
-        clampf(screen_position.y, edge_margin, maxf(edge_margin, viewport_size.y-edge_margin)))
-    touch_ui.call("set_target_marker_projection", safe_screen, true, is_offscreen)
-
+    touch_ui.call("set_target_marker_projection",
+        marker["position"], true, marker["offscreen"])
 
 func _step_speed_for_player_position(pos: Vector3) -> float:
     # v63: Use the target BOX SURFACE (not its center), as introduced in v62.
