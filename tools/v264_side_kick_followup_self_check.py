@@ -2,6 +2,7 @@
 """SERA v264: guarded post-Melee3 lateral kick integration static regression."""
 from pathlib import Path
 import json
+from sera_active_contracts import load_active_specs, main_float_constant
 
 ROOT = Path(__file__).resolve().parents[1]
 main = (ROOT / "scripts/main.gd").read_text(encoding="utf-8")
@@ -69,12 +70,14 @@ require("kick state cleaned at STEP finish",
 require("Bash and manual movement logic retained",
         "func _request_combo_bash()" in main
         and "func screen_step_direction" in flick)
-require("ordinary dodge is 5m/15m/s while combo kick keeps 3m/10m/s",
-        "const STEP_MIN_ARC_LENGTH: float = 5.0" in main
-        and "const STEP_MAX_ARC_LENGTH: float = 5.0" in main
-        and "const STEP_SPEED: float = 15.0" in main
-        and "const SIDE_KICK_STEP_SPEED: float = 10.0" in main
-        and "const SIDE_KICK_BOOST_DISTANCE: float = 3.0" in main)
+spec = load_active_specs()
+step_spec, kick_spec = spec["ordinary_step"], spec["side_kick"]
+require("ordinary STEP and combo kick match the approved active specification",
+        all(main_float_constant(main, name) == step_spec["distance_m"]
+            for name in ("STEP_MIN_ARC_LENGTH", "STEP_MAX_ARC_LENGTH"))
+        and main_float_constant(main, "STEP_SPEED") == step_spec["speed_mps"]
+        and main_float_constant(main, "SIDE_KICK_STEP_SPEED") == kick_spec["speed_mps"]
+        and main_float_constant(main, "SIDE_KICK_BOOST_DISTANCE") == kick_spec["distance_m"])
 
 def matching_kicks(doc):
     return [a.get("name", "") for a in doc.get("animations", [])

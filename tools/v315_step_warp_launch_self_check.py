@@ -2,17 +2,19 @@
 """v315: a swept 1m pre-step warp, fixed 5m total, 50ms anchored launch FX."""
 from pathlib import Path
 import re
+from sera_active_contracts import load_active_specs, main_float_constant
 r=Path(__file__).resolve().parents[1]
 main=(r/"scripts/main.gd").read_text(encoding="utf-8")
 rig=(r/"scripts/sera_rig.gd").read_text(encoding="utf-8")
 eq=(r/"scripts/sera_equipment.gd").read_text(encoding="utf-8")
 project=(r/"project.godot").read_text(encoding="utf-8")
-assert re.search(r'config/name="SERA v315"',project)
-for token in ('const STEP_LAUNCH_WARP_DISTANCE: float = 1.0',
-              'const STEP_LAUNCH_FX_SECONDS: float = 0.05',
-              'const STEP_SIDE_DISTANCE: float = 5.0',
-              'const STEP_SPEED: float = 15.0'):
-    assert token in main,token
+assert (m := re.search(r'config/name="SERA v(\d+)"',project)) and int(m.group(1)) >= 315
+spec = load_active_specs()["ordinary_step"]
+for constant, expected in (("STEP_LAUNCH_WARP_DISTANCE", spec["launch_warp_m"]),
+                           ("STEP_LAUNCH_FX_SECONDS", spec["launch_fx_s"]),
+                           ("STEP_SIDE_DISTANCE", spec["distance_m"]),
+                           ("STEP_SPEED", spec["speed_mps"])):
+    assert main_float_constant(main, constant) == expected, constant
 ordinary=main.split('func _start_omni_step(flick: Vector2) -> bool:',1)[1].split(
     'func _start_back_step()',1)[0]
 assert ordinary.index('rig.call("capture_step_launch_afterimage", STEP_LAUNCH_FX_SECONDS)') < ordinary.index(
