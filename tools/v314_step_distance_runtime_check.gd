@@ -1,5 +1,5 @@
 extends SceneTree
-## v314: 5m dodge in every screen direction, independent of target distance.
+## v314: 4m dodge in every screen direction, independent of target distance.
 func _initialize() -> void:
     call_deferred("_run")
 
@@ -50,7 +50,7 @@ func _run() -> void:
             _fail("step refused "+str(i))
             return
         if absf(float(game.get("step_arc_length"))-step_distance)>0.0001:
-            _fail("not 5m "+str(i))
+            _fail("not 4m "+str(i))
             return
         if absf(float(game.get("step_speed_current"))-step_speed)>0.0001:
             _fail("speed changed "+str(i))
@@ -82,5 +82,5 @@ func _run() -> void:
         _fail("kick speed changed")
         return
     game.call("_finish_side_step",false)
-    print("GODOT_V314_ALL_8_DIRECTIONS_5M_PASS")
+    print("GODOT_V318_ALL_8_DIRECTIONS_4M_PASS")
     quit(0)
