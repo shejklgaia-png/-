@@ -13,7 +13,7 @@ parts = (root / "scripts/target_parts.gd").read_text(encoding="utf-8")
 project = (root / "project.godot").read_text(encoding="utf-8")
 manifest = (root / "tools/sera_ci_manifest.txt").read_text(encoding="utf-8")
 assert int(re.search(r'config/name="SERA v(\d+)"', project).group(1)) >= 296
-assert (root / "README_v296_ja.md").is_file()
+assert (root / "docs/history/release_notes/README_v296_ja.md").is_file()
 selector = parts.split("func _camera_center_line_part_distance(", 1)[1].split(
     "# v293 legacy orbital selector", 1)[0]
 for token in (
