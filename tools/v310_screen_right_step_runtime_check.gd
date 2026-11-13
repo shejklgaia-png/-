@@ -66,7 +66,7 @@ func _run() -> void:
             return
         var planned: Vector2 = game.get("step_linear_offset")
         var expected: Vector2 = Vector2(travel.x,travel.z).normalized() * (
-            7.0 if version >= 312 else 3.0)
+            5.0 if version >= 314 else (7.0 if version >= 312 else 3.0))
         if planned.distance_to(expected) > 0.001:
             _fail("STEP world travel changed: " + str(planned) + ", expected " + str(expected))
             return
