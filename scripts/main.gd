@@ -23,6 +23,8 @@ const THRUSTER_PRESENTATION = preload("res://scripts/sera_thruster_presentation.
 const COMBAT_HUD_TEXT = preload("res://scripts/sera_combat_hud_text.gd")
 const NUMERIC_HUD = preload("res://scripts/sera_numeric_hud.gd")
 const HUD_LAYOUT = preload("res://scripts/sera_hud_layout.gd")
+const CLEAN_TRAINING_HUD = preload("res://scripts/sera_clean_training_hud.gd")
+const FACING_ANGLE_DEBUG = preload("res://scripts/sera_facing_angle_debug.gd")
 const DEV_DIAGNOSTICS = preload("res://scripts/dev_diagnostics.gd")
 ## v84: Authored 3-stage Swordeffect atlas, exact board placement.
 ## v83: Three-stage tap melee combo; cancel 2 authored frames after follow-through.
@@ -358,6 +360,11 @@ var guard_break_hits: int = 0
 var down_remaining: float = 0.0
 var resources_label: Label
 var vitals_hud: Control
+var clean_training_hud: Control
+var angle_debug_overlay: Control
+var angle_debug_button: Button
+var visual_torso_screen: Vector2 = Vector2.ZERO
+var visual_torso_screen_initialized: bool = false
 const TARGET_HP_BAR_WIDTH: float = 246.0
 var core_label: Label
 var test_hit_button: Button
@@ -766,6 +773,8 @@ func _refresh_numeric_status_hud() -> void:
         core_label.text = NUMERIC_HUD.target_lock_text(
             label_name, integrity, maximum, stagger_value,
             part_break_remaining, stagger_remaining, target_move_enabled)
+        if clean_training_hud != null:
+            clean_training_hud.call("set_locked_part", label_name, integrity, maximum)
     if target_parts_label != null and target_parts != null:
         var next_status: String = str(target_parts.call("status_line"))
         if target_parts_label.text != next_status:
@@ -1272,18 +1281,7 @@ func _build_overlay() -> void:
 
     hud_panel = HUD_LAYOUT.build_panel(layer)
 
-    # A compact in-game setting, separate from the drag area and combat UI.
-    # Button sits between the combat title and the right-side STEP telemetry.
-    handedness_button = Button.new()
-    handedness_button.name = "HandednessToggle"
-    handedness_button.position = Vector2(226.0, 11.0)
-    handedness_button.size = Vector2(176.0, 35.0)
-    handedness_button.focus_mode = Control.FOCUS_NONE
-    handedness_button.mouse_filter = Control.MOUSE_FILTER_STOP
-    handedness_button.add_theme_font_size_override("font_size", 14)
-    handedness_button.pressed.connect(_toggle_handedness)
-    hud_panel.add_child(handedness_button)
-    _refresh_handedness_button()
+    # Hand preference is selected exclusively in NEXUS > SYSTEM.
     if rig != null:
         rig.call("set_run_left_handed", left_handed)
 
@@ -1433,7 +1431,49 @@ func _build_overlay() -> void:
     enemy_debug_ui.call("apply_initial_defaults",
         int(training_settings.get("attack_type", 0)),
         bool(training_settings.get("auto_fire_enabled", true)))
-    VersionIndicator.attach(layer)
+    # Keep legacy telemetry nodes alive for internal state updates, but render
+    # only the three combat bar groups plus the opt-in angle diagnostic.
+    hud_panel.visible = false
+    nexus_button.visible = false
+    enemy_debug_ui.visible = false
+    test_hit_button.visible = false
+    test_break_button.visible = false
+    move_target_button.visible = false
+    diagnostic_button.visible = false
+    diagnostic_copy_button.visible = false
+    core_label.visible = false
+    target_parts_label.visible = false
+    clean_training_hud = CLEAN_TRAINING_HUD.new()
+    clean_training_hud.name = "CleanTrainingBars"
+    clean_training_hud.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    layer.add_child(clean_training_hud)
+    clean_training_hud.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+    clean_training_hud.offset_top = 0.0
+    clean_training_hud.offset_bottom = 205.0
+    _refresh_player_hp_bar()
+    _refresh_hp_bar()
+    _refresh_numeric_status_hud()
+
+    angle_debug_overlay = FACING_ANGLE_DEBUG.new()
+    angle_debug_overlay.name = "FacingAngleDiagnostic"
+    angle_debug_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    layer.add_child(angle_debug_overlay)
+    angle_debug_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+    angle_debug_overlay.visible = false
+    angle_debug_button = Button.new()
+    angle_debug_button.name = "FacingAngleToggle"
+    angle_debug_button.text = "ANGLE OFF"
+    angle_debug_button.flat = true
+    angle_debug_button.focus_mode = Control.FOCUS_NONE
+    angle_debug_button.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    angle_debug_button.add_theme_font_size_override("font_size", 15)
+    angle_debug_button.add_theme_color_override("font_color", Color("7acfe5"))
+    layer.add_child(angle_debug_button)
+    angle_debug_button.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+    angle_debug_button.offset_left = -145.0
+    angle_debug_button.offset_right = -10.0
+    angle_debug_button.offset_top = 12.0
+    angle_debug_button.offset_bottom = 50.0
 
 func _build_lock_switch_buttons(layer: CanvasLayer) -> void:
     # Three lock controls sit on the lower floor portion of the portrait
@@ -1515,6 +1555,7 @@ func _build_lock_switch_buttons(layer: CanvasLayer) -> void:
     layer.add_child(lock_lines_button)
     _refresh_lock_mode_buttons()
     _refresh_lock_lines_button()
+    lock_lines_button.visible = false  # Replaced by the angle-only debug toggle.
 
 
 # The three-symbol cluster fits inside one half of the 720px HUD.
@@ -1536,12 +1577,18 @@ func _layout_lock_control_buttons() -> void:
 
 
 func _refresh_lock_mode_buttons() -> void:
+    # NEXUS > SYSTEM is the sole AUTO/MANUAL authority. Do not leave
+    # invisible AUTO hit zones that consume touches during combat.
+    var manual: bool = not auto_lock_enabled
     if lock_mode_button != null:
         lock_mode_button.text = ""
+        lock_mode_button.visible = manual
     if lock_switch_left_button != null:
-        lock_switch_left_button.disabled = auto_lock_enabled
+        lock_switch_left_button.disabled = not manual
+        lock_switch_left_button.visible = manual
     if lock_switch_right_button != null:
-        lock_switch_right_button.disabled = auto_lock_enabled
+        lock_switch_right_button.disabled = not manual
+        lock_switch_right_button.visible = manual
 
 
 # Lines are world-space, depth-tested, narrow non-colliding beams;
@@ -1662,6 +1709,30 @@ func _controller_start_area_contains(pos: Vector2) -> bool:
         pos, get_viewport().get_visible_rect().size)
 
 
+func _pointer_on_angle_debug_button(pos: Vector2) -> bool:
+    return (angle_debug_button != null and angle_debug_button.visible
+        and angle_debug_button.get_global_rect().has_point(pos))
+
+
+func _toggle_angle_debug() -> void:
+    if angle_debug_overlay == null:
+        return
+    angle_debug_overlay.visible = not angle_debug_overlay.visible
+    angle_debug_button.text = "ANGLE ON" if angle_debug_overlay.visible else "ANGLE OFF"
+    _refresh_angle_debug_overlay()
+
+
+func _refresh_angle_debug_overlay() -> void:
+    if angle_debug_overlay == null or not angle_debug_overlay.visible             or camera == null or target == null or player == null:
+        return
+    var aim: Vector3 = _current_lock_aim_world()
+    if camera.is_position_behind(aim):
+        return
+    var torso: Vector2 = _visual_torso_screen_point()
+    angle_debug_overlay.call("set_geometry", torso, camera.unproject_position(aim),
+        _projected_sera_facing(), gesture_screen_forward, gesture_active)
+
+
 func _pointer_on_lock_lines_button(pos: Vector2) -> bool:
     return (lock_lines_button != null and lock_lines_button.visible
         and lock_lines_button.get_global_rect().has_point(pos))
@@ -1766,11 +1837,11 @@ func _record_kick_debug(message: String) -> void:
 func _pointer_on_training_test_button(pos: Vector2) -> bool:
     if test_hit_button == null or test_break_button == null:
         return false
-    return (test_hit_button.get_global_rect().has_point(pos)
-        or test_break_button.get_global_rect().has_point(pos)
-        or (move_target_button != null
+    return ((test_hit_button.visible and test_hit_button.get_global_rect().has_point(pos))
+        or (test_break_button.visible and test_break_button.get_global_rect().has_point(pos))
+        or (move_target_button != null and move_target_button.visible
             and move_target_button.get_global_rect().has_point(pos))
-        or (diagnostic_button != null
+        or (diagnostic_button != null and diagnostic_button.visible
             and diagnostic_button.get_global_rect().has_point(pos))
         or (diagnostic_copy_button != null and diagnostic_copy_button.visible
             and diagnostic_copy_button.get_global_rect().has_point(pos)))
@@ -1971,11 +2042,17 @@ func _refresh_player_hp_bar() -> void:
     NUMERIC_HUD.present_player_vitals(vitals_hud, player_hp,
         float(part_stats.get("max_hp", 800.0)), energy, TEST_EN_MAX,
         energy_exhausted)
+    if clean_training_hud != null:
+        clean_training_hud.call("set_vitals", player_hp,
+            float(part_stats.get("max_hp", 800.0)), energy, TEST_EN_MAX,
+            energy_exhausted)
 
 
 func _refresh_hp_bar() -> void:
     NUMERIC_HUD.present_target_health(
         hp_label, hp_fill, target_hp, TARGET_MAX_HP, TARGET_HP_BAR_WIDTH)
+    if clean_training_hud != null:
+        clean_training_hud.call("set_boss_health", target_hp, TARGET_MAX_HP)
 
 
 func _clear_strike_tracking() -> void:
@@ -2297,6 +2374,11 @@ func _input(event: InputEvent) -> void:
             # including taps on HUD buttons (which must keep their own input).
             if touch_ui != null:
                 touch_ui.call("cancel_gesture_effects")
+            if _pointer_on_angle_debug_button(event.position):
+                step_hud_touch = event.index
+                _toggle_angle_debug()
+                get_viewport().set_input_as_handled()
+                return
             if _pointer_on_lock_lines_button(event.position):
                 step_hud_touch = event.index
                 _toggle_lock_lines()
@@ -2347,6 +2429,11 @@ func _input(event: InputEvent) -> void:
             if event.pressed:
                 if touch_ui != null:
                     touch_ui.call("cancel_gesture_effects")
+                if _pointer_on_angle_debug_button(event.position):
+                    step_hud_mouse_press = true
+                    _toggle_angle_debug()
+                    get_viewport().set_input_as_handled()
+                    return
                 if _pointer_on_lock_lines_button(event.position):
                     step_hud_mouse_press = true
                     _toggle_lock_lines()
@@ -4618,7 +4705,9 @@ func _process(delta: float) -> void:
     _advance_hit_fx(delta)
     _advance_camera_response_profile(delta)
     if hit_stop_remaining > 0.0:
+        _update_visual_torso_screen(delta)
         _update_controller_flick_guide(delta)
+        _refresh_angle_debug_overlay()
         _update_target_marker_projection()  # Still track externally moving targets during hit-stop.
         _update_motion_blur(delta)
         _sample_diagnostics(delta)
@@ -4823,9 +4912,11 @@ func _process(delta: float) -> void:
     # Do NOT override depth testing or render priority for the target.
     # If the player stands between the camera and the cube, it is naturally occluded.
     was_running = running
-    # Project the live actor direction after the final camera placement.
-    # Attack flicks deliberately use the frozen touch-down axis instead.
+    # Project after final camera placement; one shared render-frame torso
+    # sample drives the sector display, swipe input, and angle debug overlay.
+    _update_visual_torso_screen(delta)
     _update_controller_flick_guide(delta)
+    _refresh_angle_debug_overlay()
     # Always project AFTER the camera's yaw / zoom / framing corrections.
     # This follows both camera movement and a target whose world position changes.
     _update_target_marker_projection()
@@ -4841,6 +4932,31 @@ func _process(delta: float) -> void:
 # v334: use the projected SERA-to-actual-LOCK-POINT screen line
 # including the selected part's height. 3D yaw stays planar for movement
 # and attack tracking, but UI and directional flicks share one 2D axis.
+func _visual_torso_screen_point() -> Vector2:
+    if visual_torso_screen_initialized:
+        return visual_torso_screen
+    if camera != null and rig != null:
+        return camera.unproject_position(rig.call("get_visible_torso_world"))
+    return camera.unproject_position(camera_player_render_position + Vector3.UP * 1.05)
+
+
+func _update_visual_torso_screen(delta: float) -> void:
+    if camera == null or rig == null:
+        return
+    var torso_world: Vector3 = rig.call("get_visible_torso_world")
+    if camera.is_position_behind(torso_world):
+        return
+    var sample: Vector2 = camera.unproject_position(torso_world)
+    # Filter small animated Torso jitter without lagging far-behind teleports
+    # or rapid camera crossover. 18Hz critically damps pose micro-movement.
+    if not visual_torso_screen_initialized or visual_torso_screen.distance_to(sample) > 160.0:
+        visual_torso_screen = sample
+        visual_torso_screen_initialized = true
+    else:
+        visual_torso_screen = visual_torso_screen.lerp(sample,
+            1.0 - exp(-18.0 * maxf(delta, 0.0)))
+
+
 func _projected_sera_facing() -> Vector2:
     if player == null or camera == null or target == null:
         return Vector2.UP
@@ -4848,8 +4964,13 @@ func _projected_sera_facing() -> Vector2:
     var fallback: Vector2 = FLICK_DIRECTION_POLICY.projected_lock_forward(
         camera, torso - Vector3.UP * 1.05,
         _locked_target_facing_direction(), gesture_screen_forward)
-    return FLICK_DIRECTION_POLICY.projected_target_line(
-        camera, torso, _current_lock_aim_world(), fallback)
+    var aim: Vector3 = _current_lock_aim_world()
+    if camera.is_position_behind(aim):
+        return fallback
+    # Exactly the visual Torso -> authored lock-aim SCREEN line, including
+    # target-part height and perspective. No arbitrary +1.05m actor origin.
+    var pixels: Vector2 = camera.unproject_position(aim) - _visual_torso_screen_point()
+    return pixels.normalized() if pixels.length_squared() >= 16.0 else fallback
 
 
 # The controller stays visible during attack clips and both follow-up
@@ -4895,11 +5016,10 @@ func _update_controller_flick_guide(delta: float) -> void:
     # A committed combo/guard flick uses the exact axis captured at
     # touch-down. Other held RUN/BOOST gestures preview the LIVE 3D lock
     # line, so the colored dial never points to a stale camera heading.
-    var committed_flick: bool = (
-        gesture_active and (guard_flick_axis_captured
-            or bash_flick_candidate or side_kick_flick_candidate))
+    # Every ongoing touch uses the same axis captured for action selection.
+    # Never show the live axis after a combo candidate is cancelled.
     var forward: Vector2 = (
-        gesture_screen_forward if committed_flick
+        gesture_screen_forward if gesture_active
         else _projected_sera_facing())
     # No slow independent controller interpolation: the animation was
     # visibly lagging behind the real attack sector after camera turns.

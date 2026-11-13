@@ -318,6 +318,15 @@ func get_visible_facing_pivot() -> Node3D:
     return null
 
 
+# The authored Torso pivot supplies the visible body center used by the
+# lock-direction UI. It does not affect physics, bone posing or the camera.
+func get_visible_torso_world() -> Vector3:
+    var torso: Node3D = bones.get(RUN_TORSO_BONE_UUID) as Node3D
+    if loading_ok and is_instance_valid(torso):
+        return torso.global_position
+    return global_position + Vector3.UP * 1.05
+
+
 func get_locomotion_mode() -> String:
     return locomotion_mode
 
