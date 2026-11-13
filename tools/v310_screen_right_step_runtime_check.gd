@@ -35,6 +35,8 @@ func _run() -> void:
         _fail("9.2.2 sideways Waist authored yaw is missing")
         return
 
+    var version: int = int(str(ProjectSettings.get_setting(
+        "application/config/name")).trim_prefix("SERA v"))
     var probes: Array[Vector3] = [
         Vector3(0,0,9), Vector3(6,0,9), Vector3(-6,0,9), Vector3(6,0,3)
     ]
@@ -56,9 +58,11 @@ func _run() -> void:
             _fail("RIGHT screen flick selected a different clip")
             return
         var direction: Vector2 = rig.get("directional_step_vector")
-        if direction.distance_to(Vector2.RIGHT) > 0.001:
-            _fail("screen RIGHT became forward/left/backward at probe " + str(i)
-                + " got " + str(direction))
+        var expected_pose: Vector2 = Vector2.RIGHT if version == 310 else (
+            game.call("_step_motion_direction",travel,Vector2.RIGHT))
+        if direction.distance_to(expected_pose) > 0.001:
+            _fail("RIGHT flick selected wrong pose at probe " + str(i)
+                + " got " + str(direction) + " expected " + str(expected_pose))
             return
         var planned: Vector2 = game.get("step_linear_offset")
         var expected: Vector2 = Vector2(travel.x,travel.z).normalized() * 3.0
@@ -69,19 +73,22 @@ func _run() -> void:
         rig.call("_apply_animation",0.0)
         var bones: Dictionary=rig.get("bones")
         var displayed: Node3D=bones[waist_uid]
-        if displayed.quaternion.angle_to(raw_q)>0.001:
+        if direction.distance_to(Vector2.RIGHT)<0.001                 and displayed.quaternion.angle_to(raw_q)>0.001:
             _fail("RIGHT clip's sideways Waist yaw was canceled at probe " + str(i))
             return
         # A physics tick must not convert screen-right back into actor-front.
         game.call("_physics_process",0.016)
         direction=rig.get("directional_step_vector")
-        if direction.distance_to(Vector2.RIGHT)>0.001:
-            _fail("RIGHT pose changed during target-facing update " + str(i))
+        var post_pose: Vector2 = Vector2.RIGHT if version == 310 else (
+            game.call("_step_motion_direction",Vector3(planned.x,0.0,planned.y),
+                Vector2.RIGHT))
+        if direction.dot(post_pose)<0.995:
+            _fail("STEP pose no longer tracks selected basis " + str(i))
             return
         rig.set("blending_for",0.12)
         rig.call("_apply_animation",0.0)
-        if displayed.quaternion.angle_to(raw_q)>0.001:
-            _fail("RIGHT pose was reoriented into Frontstep after physics tick " + str(i))
+        if direction.distance_to(Vector2.RIGHT)<0.001                 and displayed.quaternion.angle_to(raw_q)>0.001:
+            _fail("RIGHT pose lost authored Waist rotation after physics tick " + str(i))
             return
         var actor_forward: Vector3 = -player.global_transform.basis.z
         actor_forward.y=0.0

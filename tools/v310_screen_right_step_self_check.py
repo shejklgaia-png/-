@@ -15,13 +15,20 @@ assert now==original,"the user's 9.2.2 Step_R must not be modified"
 start=main.split("func _start_omni_step(flick: Vector2) -> bool:",1)[1].split("func _start_back_step()",1)[0]
 assert "var direction: Vector2 = flick.normalized()" in start
 assert "var world_step: Vector3 = _screen_drag_to_ground(direction)" in start
-assert "var pose_direction: Vector2 = direction" in start
+version=int(re.search(r'config/name="SERA v(\d+)"',read("project.godot")).group(1))
+if version == 310:
+    assert "var pose_direction: Vector2 = direction" in start
+else:
+    assert "var pose_direction: Vector2 = _step_motion_direction(world_step, direction)" in start
 assert "_step_local_pose_direction(world_step)" not in start
 assert 'rig.call("start_omni_step", pose_direction)' in start
 assert "step_linear_offset = Vector2(world_step.x, world_step.z)" in start
 assert "step_arc_length = _step_fixed_distance_for_direction(direction)" in start
 phy=main.split("func _physics_process(delta: float) -> void:",1)[1].split("func _process(delta: float) -> void:",1)[0]
-assert 'rig.call("update_omni_step_direction", step_flick_this_frame, delta)' in phy
+if version == 310:
+    assert 'rig.call("update_omni_step_direction", step_flick_this_frame, delta)' in phy
+else:
+    assert 'rig.call("update_omni_step_direction", _step_motion_direction(' in phy
 assert "_step_local_pose_direction(committed_world_step)" not in phy
 pose=rig.split("func _step_right_authored_yaw_weight() -> float:",1)[1].split("func start_omni_step(",1)[0]
 for tok in ("step_playback","directional_step_active","directional_step_vector.x <= 0.0",
