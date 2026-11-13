@@ -496,6 +496,68 @@ func select_actor_center_line_part(actor_origin: Vector3,
     return selected
 
 
+# v303: two parallel SERA->BODY rays must BOTH intersect an eligible
+# module. They share a horizontal perpendicular to the player's real
+# forward axis (never the camera's right vector), with a 0.50m total gap.
+# Use the same endpoints for gameplay selection AND optional debug display.
+const PARALLEL_LOCK_HALF_SPACING: float = 0.25
+
+
+func get_actor_parallel_lock_segments(actor_origin: Vector3,
+        body_center: Vector3) -> PackedVector3Array:
+    var forward: Vector3 = body_center - actor_origin
+    forward.y = 0.0
+    var lateral: Vector3 = Vector3.RIGHT
+    if forward.length_squared() > 0.000001:
+        forward = forward.normalized()
+        lateral = Vector3(-forward.z, 0.0, forward.x)
+    var side_offset: Vector3 = lateral * PARALLEL_LOCK_HALF_SPACING
+    return PackedVector3Array([
+        actor_origin - side_offset, body_center - side_offset,
+        actor_origin + side_offset, body_center + side_offset])
+
+
+func _parallel_lock_part_distance(segments: PackedVector3Array,
+        id: String) -> float:
+    if segments.size() != 4:
+        return INF
+    var first: float = INF
+    var second: float = INF
+    if id.is_empty():
+        first = _camera_center_line_body_distance(segments[0], segments[1])
+        second = _camera_center_line_body_distance(segments[2], segments[3])
+    else:
+        first = _camera_center_line_part_distance(segments[0], segments[1], id)
+        second = _camera_center_line_part_distance(segments[2], segments[3], id)
+    # A single intersecting ray does not authorize a lock.
+    if first == INF or second == INF:
+        return INF
+    # Rank candidates by the more distant first entry, to discourage
+    # choosing an edge that only barely overlaps the second ray.
+    return maxf(first, second)
+
+
+func actor_parallel_lines_hits_part(actor_origin: Vector3,
+        body_center: Vector3, id: String) -> bool:
+    var segments: PackedVector3Array = get_actor_parallel_lock_segments(
+        actor_origin, body_center)
+    return _parallel_lock_part_distance(segments, id) < INF
+
+
+func select_actor_parallel_lines_part(actor_origin: Vector3,
+        body_center: Vector3) -> String:
+    var segments: PackedVector3Array = get_actor_parallel_lock_segments(
+        actor_origin, body_center)
+    var closest: float = _parallel_lock_part_distance(segments, "")
+    var selected: String = ""
+    for id in PART_ORDER:
+        var distance: float = _parallel_lock_part_distance(segments, id)
+        if distance < closest:
+            closest = distance
+            selected = id
+    return selected
+
+
 # Read-only legacy camera-origin APIs retained for historic mesh-geometry
 # regressions. Gameplay AUTO uses only the SERA-origin helpers above.
 func camera_center_line_hits_part(view_camera: Camera3D,
