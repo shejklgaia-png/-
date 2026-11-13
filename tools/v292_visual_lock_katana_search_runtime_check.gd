@@ -77,28 +77,34 @@ func _run() -> void:
         _fail("SERA collision root no longer points toward whole boss")
         return
 
-    # v296: a genuinely intersected head is acquired immediately, and an
-    # off-line old limb must not survive the current frame.
+    # v303: first paired SERA-origin selection remains immediate.
+    # A stale old limb now requires 0.22s stable overlap before switching,
+    # so crossing gaps between mesh plates cannot cause a one-tick flicker.
     camera.global_position = target.global_position + Vector3(0.0,-2.0,10.0)
     camera.look_at(target.global_position,Vector3.UP)
+    player.global_position = camera.global_position
     var preferred: String = str(parts.call(
-        "select_camera_center_line_part",camera,target.global_position))
+        "select_actor_parallel_lines_part",player.global_position,target.global_position))
     if preferred != "head":
-        _fail("camera-center segment did not hit real HEAD geometry")
+        _fail("dual SERA segments did not select frontal HEAD")
         return
     game.set("locked_target_part_id","")
     game.set("auto_lock_initialized",false)
     game.call("_acquire_stable_camera_part",0.016,false)
     if str(game.get("locked_target_part_id")) != preferred:
-        _fail("first AUTO lock unnecessarily waited for hysteresis")
+        _fail("first paired AUTO lock unnecessarily waited for hysteresis")
         return
     game.set("locked_target_part_id","leg_rr")
     game.set("auto_lock_initialized",true)
     game.set("auto_lock_pending_part","")
     game.set("auto_lock_pending_elapsed",0.0)
     game.call("_acquire_stable_camera_part",0.016,false)
+    if str(game.get("locked_target_part_id")) != "leg_rr":
+        _fail("transient gap changed stale limb without 0.22s confirmation")
+        return
+    game.call("_acquire_stable_camera_part",0.23,false)
     if str(game.get("locked_target_part_id")) != "head":
-        _fail("off-segment old limb persisted despite the HEAD intersection")
+        _fail("sustained paired HEAD candidate did not replace stale limb")
         return
 
     print("GODOT_V292_VISUAL_LOCK_PASS: fixed SERA yaw, stable part selection and unchanged authored attack clips")
