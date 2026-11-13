@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import concurrent.futures
+import json
 import os
 from pathlib import Path
 import subprocess
@@ -20,6 +21,7 @@ MANIFEST = ROOT / "tools" / "sera_ci_manifest.txt"
 ANIMATION_SMOKE = "tools/sera_animation_runtime_smoke.gd"
 ANIMATION_SUCCESS = "GODOT_ALL_ANIMATIONS_TEST PASSED"
 SCRIPT_ERRORS = ("SCRIPT ERROR", "Parse Error", "SERA ANIMATION RUNTIME REGRESSION")
+TIMING_HINTS = ROOT / "tools/sera_ci_timings.json"
 
 
 def load_tests(kind: str) -> list[str]:
@@ -61,6 +63,20 @@ def focused_selection(kind: str, requested: list[str] | None) -> list[str]:
     if unknown:
         raise ValueError("Unregistered/incorrect test kind: " + ", ".join(sorted(unknown)))
     return [path for path in registered if path in requested]
+
+
+def prioritize_slowest(tests: list[str], kind: str, hints: Path = TIMING_HINTS) -> list[str]:
+    """LPT scheduling improves the tail; no test is skipped or reclassified."""
+    try:
+        data = json.loads(hints.read_text(encoding="utf-8"))
+        if data.get("schema") != 1:
+            return list(tests)
+        durations = data["tests"][kind]
+    except (OSError, ValueError, TypeError, KeyError):
+        return list(tests)
+    order = {path: index for index, path in enumerate(tests)}
+    return sorted(tests, key=lambda path: (-max(0.0, float(durations.get(path, 0.0))),
+                                          order[path]))
 
 
 def run_test(kind: str, relative: str, godot: str, timeout: int) -> tuple[str, bool, float, str]:
@@ -138,10 +154,12 @@ def main() -> int:
     parser.add_argument("--tests", nargs="+", default=None,
                         help="LOCAL FOCUSED checks only; full PR CI must omit this flag")
     parser.add_argument("--godot", default=os.environ.get("SERA_GODOT_BIN", ""))
+    parser.add_argument("--report-json", default="", help="write per-test duration/status for CI profiling")
     args = parser.parse_args()
     kind = "py" if args.suite == "static" else "gd"
     try:
         tests = focused_selection(kind, args.tests)
+        tests = prioritize_slowest(tests, kind)
     except (OSError, ValueError) as exc:
         print(f"Manifest invalid: {exc}", file=sys.stderr)
         return 1
@@ -169,7 +187,19 @@ def main() -> int:
                       flush=True)
                 print(f"::error file={name},title=SERA regression failed::{name} failed",
                       flush=True)
-    write_summary(kind, results, time.monotonic() - start)
+    wall = time.monotonic() - start
+    write_summary(kind, results, wall)
+    if args.report_json:
+        report = {
+            "schema": 1, "kind": kind, "full_suite": args.tests is None,
+            "wall_seconds": round(wall, 3),
+            "results": [{"test": name, "success": ok, "seconds": round(duration, 3)}
+                        for name, ok, duration, _ in sorted(results)],
+        }
+        destination = Path(args.report_json)
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n",
+                               encoding="utf-8")
     return 0 if all(ok for _, ok, _, _ in results) and len(results) == len(tests) else 1
 
 

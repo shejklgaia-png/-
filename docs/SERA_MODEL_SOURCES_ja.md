@@ -25,3 +25,6 @@ Androidエクスポートでは各生成データにフォールバックしま�
 カタナ二段目はGodotエクスポート時にmodels/core/Katana.bbmodelを含められなくてもassets/sera_katana_data.gdから本来のキーフレームを復元します。旧初段からの推定補完は正規データが壊れている場合に限ります。
 
 Katana.bbmodelが初段・二段目の唯一の編集元です。実行時には両クリップを優先して上書きし、Standardに残した初段の古いトラックは互換フォールバック専用です。
+
+
+最新の安全な一括再生成と確認方法: `docs/SERA_MODEL_PIPELINE_ja.md`。
