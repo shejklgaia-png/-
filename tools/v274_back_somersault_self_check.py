@@ -98,8 +98,12 @@ assert 'rig.call("set_landing_progress", landing_fraction)' in land
 assert 'rig.call("finish_jump"' in land
 assert "if back_somersault_active:" in physics
 assert "_advance_back_somersault(delta)" in physics
-assert '"KICK BACK  |  Kick_b"' in physics
-assert '"KICK BACK LAND  |  0.2s"' in physics
+hud = read("scripts/sera_combat_hud_text.gd")
+refresh = segment(game, "_refresh_combat_state_hud(", "_process(delta: float) -> void:")
+assert 'COMBAT_HUD_TEXT.somersault_label(' in refresh
+assert 'COMBAT_HUD_TEXT.landing_label(' in refresh
+assert '"KICK BACK  |  Kick_b"' in hud
+assert '"KICK BACK LAND  |  0.2s"' in hud
 assert 'if back_somersault_active:' in segment(game, "_begin_damage_reaction(incoming_direction: Vector3) -> void:", "_advance_damage_knockback")
 assert '_cancel_back_somersault()' in segment(game, "_begin_training_ko() -> void:", "_tick_training_ko")
 print("PASS: exact 0.20s authored landing, action lock, damage/KO cancellation")
