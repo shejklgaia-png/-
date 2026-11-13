@@ -76,7 +76,7 @@ ordered = [
 ]
 indices = [physics.index(x) for x in ordered]
 assert indices == sorted(indices), list(zip(ordered, indices))
-presentation = (root / "scripts/sera_thruster_presentation.gd").read_text(encoding="utf-8")
+presentation = (ROOT / "scripts/sera_thruster_presentation.gd").read_text(encoding="utf-8")
 assert 'rig.call("update_back_thruster_fx", exhaust_on,' in presentation
 assert "left_sector_world, acceleration_burst, normal_attack_exhaust)" in presentation
 normal_resource = physics.index("    var was_energy_exhausted: bool = energy_exhausted")
