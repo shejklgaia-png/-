@@ -40,7 +40,8 @@ assert "if stepping_this_frame and rig != null and step_linear_fallback:" in phy
 steer=read("scripts/sera_nozzle_steering.gd")
 assert "NOZZLE_STEERING.backstroke_weight(" in physics
 assert "step_flick_this_frame, step_side_this_frame, STEP_BACK," in physics
-assert "player.global_transform.basis.z, held_boost_backstroke_weight)" in physics
+assert "player.global_transform.basis.z, thruster_presentation.held_boost_backstroke_weight)" in physics
+assert "var thruster_presentation = THRUSTER_PRESENTATION.new()" in m
 assert "step_world_rear.dot(actor_rear)" in steer
 assert "NOZZLE_STEERING.leftward_weight(" in physics
 assert "weight = clampf(-step_flick.x, 0.0, 1.0)" in steer
