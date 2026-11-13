@@ -27,7 +27,7 @@ assert right["length"] == 0 and right["loop"] == "once"
 
 groups = {g["uuid"]:g["name"] for g in selected["groups"]}
 keys = [(groups.get(uid,uid),key)
-        for uid,anim in right["animators"].items() for key in anim["keyframes"]]
+        for uid,anim in right["animators"].items() for key in anim.get("keyframes", [])]
 assert len(keys) == 19
 assert sum(key["channel"] == "rotation" for _,key in keys) == 18
 assert sum(key["channel"] == "position" for _,key in keys) == 1
