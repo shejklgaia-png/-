@@ -158,9 +158,6 @@ const STEP_CLOSE_CAMERA_MAX_RELATIVE_DEGREES: float = 45.0
 const CAMERA_COMBAT_VISIBILITY_DISTANCE: float = 6.5
 const CAMERA_COMBAT_YAW_HOLD_SECONDS: float = 0.45
 const CAMERA_COMBAT_SHOULDER_DEGREES: float = 12.0
-const CAMERA_TARGET_COMPOSITION_SHOULDER_DEGREES: float = 43.0
-const CAMERA_COMPOSITION_SWITCH_SECONDS: float = 0.28
-const CAMERA_COMPOSITION_SWITCH_SCREEN_RATIO: float = 0.14
 const CAMERA_COMBAT_MAX_PLAYER_SIDE_DEGREES: float = 30.0
 # v288: small SERA-follow lag with a hard distance/angle leash. Beyond the
 # leash the camera moves at exactly the player's rate, never falling farther
@@ -292,11 +289,7 @@ const CAMERA_CLOSE_RANGE: float = 1.5  # Player-target distance where zoom-in is
 const CAMERA_FAR_RANGE: float = 12.0  # Restore standard view beyond this separation.
 const CAMERA_ELEVATION_RATIO: float = 0.21  # v56: slightly stronger bird's-eye pitch (11.9 degrees vs 7.5 degrees).
 const CAMERA_FOCUS_DROP: float = 1.35  # v55: move camera AND focus down 0.45m; preserve the pitch via elevation ratio.
-const SCREEN_MARGIN_X: float = 0.02  # Legacy background edge budget.
-# Keep SERA's physical torso envelope within 20..80% screen width.
-# Extra 2% fit buffer suppresses zoom oscillation at the hard boundary.
-const CAMERA_PLAYER_SAFE_MARGIN_X: float = 0.20
-const CAMERA_PLAYER_FIT_MARGIN_X: float = 0.22
+const SCREEN_MARGIN_X: float = 0.02  # Only 2% margin for the core torso; forearms may leave view.
 const SCREEN_MARGIN_TOP: float = 0.145  # v55: keep the whole player below the compact top HUD.
 const SCREEN_MARGIN_BOTTOM: float = 0.75  # v52: reserve bottom 25% for thumb / on-screen controls.
 const CAMERA_BODY_HALF_WIDTH: float = 0.78  # Idle composition silhouette (shoulders/arms)
@@ -555,8 +548,6 @@ var camera_dolly_in_speed: float = 0.0
 var camera_near_dolly_weight: float = 0.0
 var close_boost_camera_active: bool = false
 var player_screen_side: int = 1  # Last observed player side of the target on screen.
-var camera_composition_side: int = 1
-var camera_composition_switch_elapsed: float = 0.0
 var was_running: bool = false
 var floor_stage: Node3D
 var blur_last_player_position: Vector3 = Vector3.ZERO
@@ -1253,10 +1244,7 @@ func _build_camera() -> void:
     var start_delta: Vector2 = Vector2(player.position.x - target.position.x,
         player.position.z - target.position.z)
     var start_bearing: float = atan2(start_delta.x, start_delta.y)
-    camera_yaw = start_bearing - deg_to_rad(
-        CAMERA_TARGET_COMPOSITION_SHOULDER_DEGREES)
-    camera_composition_side = 1
-    camera_composition_switch_elapsed = 0.0
+    camera_yaw = start_bearing - deg_to_rad(CAMERA_COMBAT_SHOULDER_DEGREES)
     _place_camera()
 
 func _build_overlay() -> void:
@@ -4773,28 +4761,33 @@ func _process(delta: float) -> void:
         if not close_boost_camera_active and not boost_edge_frame_guard \
                 and not camera_step_recovery_active \
                 and separation > CAMERA_COMBAT_VISIBILITY_DISTANCE:
-            pass  # Only analytic zoom protects the edges (no yaw solver race).
+            _enforce_screen_edge(bearing, delta)
     else:
         # Never snap behind a leg or abruptly switch the camera shoulder
         # after an attack. Use one continuous, low-speed idle follow.
         if separation > 0.08:
-            # Damage shares the SAME bounded response and 43deg shoulder
-            # used by movement. The old 12deg hard-leash yaw on impact could
-            # instantly turn the camera by 30+ degrees.
-            camera_yaw = _adaptive_camera_yaw(bearing, delta)
+            # Hard-leash fallback is kept for damage displacement outside STEP
+            # recovery; ordinary idle/side movement never snaps to the target.
+            if damage_reaction_active and not camera_step_recovery_active:
+                camera_yaw = _stable_shoulder_camera_yaw(bearing, delta)
+            else:
+                camera_yaw = _adaptive_camera_yaw(bearing, delta)
         _place_camera()
         if not close_boost_camera_active and not boost_edge_frame_guard \
                 and not camera_step_recovery_active \
                 and separation > CAMERA_COMBAT_VISIBILITY_DISTANCE:
-            pass  # Only analytic zoom protects the edges (no yaw solver race).
+            _enforce_screen_edge(bearing, delta)
 
-    # One analytic fit handles normal movement and BOOST alike, preventing
-    # zoom recovery, orbit correction and edge checks from competing.
-    _fit_boost_frame_analytically(delta)
-    if not _full_frame_safe():
-        _fit_full_frame() # emergency frame safety only
+    # Frame protection applies in BOTH modes, but never enforces the gap
+    # during drag. This maintains full left-to-right control.
+    if boost_edge_frame_guard:
+        # No iterative per-frame bisection on outward left/right BOOST:
+        # solve the minimum perspective radius directly from the silhouettes.
+        _fit_boost_frame_analytically(delta)
+    else:
+        _fit_full_frame()
+        _relax_camera_fit_radius(delta)
     _place_camera()
-    _advance_composition_side(delta)
 
     # Do NOT override depth testing or render priority for the target.
     # If the player stands between the camera and the cube, it is naturally occluded.
@@ -4811,41 +4804,14 @@ func _process(delta: float) -> void:
 # v288: keep the tracking anchor near SERA, with a short (up to 2m)
 # lead toward the target for composition. At long range it translates
 # with SERA essentially one-for-one instead of orbiting a stationary boss.
-# Switch sides only after the player has clearly crossed the reticle's
-# opposite side for 0.28s; never switch due to 1px leg/camera jitter.
-func _advance_composition_side(delta: float) -> void:
-    if camera == null or target == null or player == null:
-        return
-    var viewport_width: float = get_viewport().get_visible_rect().size.x
-    if viewport_width <= 1.0:
-        return
-    var torso: Vector3 = camera_player_render_position + Vector3(0.0, 1.05, 0.0)
-    var boss: Vector3 = _camera_target_frame_center()
-    if camera.is_position_behind(torso) or camera.is_position_behind(boss):
-        camera_composition_switch_elapsed = 0.0
-        return
-    var separation: float = torso.distance_to(boss)
-    var difference: float = (camera.unproject_position(torso).x
-        - camera.unproject_position(boss).x)
-    if separation > 2.2 and difference * float(camera_composition_side) < (
-            -viewport_width * CAMERA_COMPOSITION_SWITCH_SCREEN_RATIO):
-        camera_composition_switch_elapsed += maxf(delta, 0.0)
-        if camera_composition_switch_elapsed >= CAMERA_COMPOSITION_SWITCH_SECONDS:
-            camera_composition_side *= -1
-            camera_composition_switch_elapsed = 0.0
-    else:
-        camera_composition_switch_elapsed = 0.0
-
-
 func _desired_camera_follow_focus_xz() -> Vector2:
     # Use the same render-interpolated player/target samples as before.
     var player_xz: Vector2 = Vector2(
         camera_player_render_position.x, camera_player_render_position.z)
     var target_xz: Vector2 = Vector2(
         camera_target_render_position.x, camera_target_render_position.z)
-    # The boss is the composition anchor. Player tracking is angular and
-    # distance-based; never translate focus to the player's midpoint.
-    return target_xz
+    return CAMERA_MATH.desired_follow_focus(
+        player_xz, target_xz, CAMERA_PLAYER_FOCUS_LEAD_METERS)
 
 # Light exponential damping followed by a hard 0.65m leash. Once the
 # cap is reached, translation matches SERA frame-for-frame with no
@@ -4907,8 +4873,7 @@ func _adaptive_camera_yaw(player_bearing: float, delta: float) -> float:
             camera_step_recovery_elapsed, CAMERA_STEP_RECOVERY_HOLD_SECONDS,
             CAMERA_STEP_RECOVERY_TOTAL_SECONDS)
     return CAMERA_MATH.follow_yaw_with_side_room(
-        camera_yaw, player_bearing, delta,
-        CAMERA_TARGET_COMPOSITION_SHOULDER_DEGREES * float(camera_composition_side),
+        camera_yaw, player_bearing, delta, CAMERA_COMBAT_SHOULDER_DEGREES,
         follow_rate * response, side_room,
         CAMERA_YAW_SMOOTH_MAX_TURN_DEGREES_PER_SECOND)
 
@@ -5085,7 +5050,7 @@ func _minimum_boost_camera_radius() -> float:
         min_radius = maxf(min_radius, _camera_radius_for_safe_point(
             torso + screen_right * lateral, focus,
             screen_right, screen_up, outward, radial_scale, tan_h, tan_v,
-            CAMERA_PLAYER_FIT_MARGIN_X, 0.0, 1.0))
+            SCREEN_MARGIN_X, 0.0, 1.0))
     for height in [CAMERA_HEAD_HEIGHT, 0.08]:
         min_radius = maxf(min_radius, _camera_radius_for_safe_point(
             camera_player_render_position + Vector3(0.0, height, 0.0), focus,
@@ -5224,8 +5189,8 @@ func _horizontal_safe(extra_margin_ratio: float = 0.0) -> bool:
         if camera.is_position_behind(point):
             return false
         var screen: Vector2 = camera.unproject_position(point)
-        if screen.x < size.x * (CAMERA_PLAYER_SAFE_MARGIN_X + extra_margin_ratio) \
-                or screen.x > size.x * (1.0 - CAMERA_PLAYER_SAFE_MARGIN_X - extra_margin_ratio):
+        if screen.x < size.x * (SCREEN_MARGIN_X + extra_margin_ratio) \
+                or screen.x > size.x * (1.0 - SCREEN_MARGIN_X - extra_margin_ratio):
             return false
     return true
 

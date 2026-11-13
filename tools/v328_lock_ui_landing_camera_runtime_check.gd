@@ -37,20 +37,18 @@ func _run() -> void:
     game.set("camera_player_render_position", player.position)
     game.set("camera_target_render_position", boss.position)
     var wanted: Vector2 = game.call("_desired_camera_follow_focus_xz")
-    if wanted.distance_to(Vector2(boss.position.x, boss.position.z)) > 0.0001:
-        _fail("focus is still player-centered")
+    var player_xz: Vector2 = Vector2(player.position.x, player.position.z)
+    var boss_xz: Vector2 = Vector2(boss.position.x, boss.position.z)
+    var expected: Vector2 = player_xz + (boss_xz - player_xz).limit_length(2.0)
+    if wanted.distance_to(expected) > 0.0001:
+        _fail("v327 player-led camera focus was not restored")
         return
     game.set("camera_focus_follow_xz", wanted)
-    game.set("camera_yaw", deg_to_rad(-43.0))
+    game.set("camera_yaw", deg_to_rad(-12.0))
     game.call("_place_camera")
     game.call("_fit_boost_frame_analytically", 1.0 / 60.0)
     if not game.call("_full_frame_safe"):
-        _fail("target-centered composition clips actors")
-        return
-    var viewport_width: float = game.get_viewport().get_visible_rect().size.x
-    var boss_x: float = camera.unproject_position(boss.position).x
-    if absf(boss_x - viewport_width * 0.5) > viewport_width * 0.11:
-        _fail("boss is not near horizontal screen center")
+        _fail("restored camera clips actors")
         return
     game.set("landing_active", true)
     game.set("landing_from_somersault", true)
@@ -73,7 +71,7 @@ func _run() -> void:
     if bool(game.call("_start_omni_step", Vector2.LEFT)) or not bool(game.get("landing_active")):
         _fail("unaffordable STEP cancelled landing")
         return
-    print("PASS v328 handheld lock layout, boss focus/fit, full landing STEP cancellation")
+    print("PASS v328 handed lock layout, legacy camera fit, landing STEP cancellation")
     game.queue_free()
     await process_frame
     quit(0)

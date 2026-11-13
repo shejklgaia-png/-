@@ -10,12 +10,14 @@ assert 'displacement, gesture_screen_forward, STEP_FLICK_MAX_HORIZONTAL_RATIO' i
 assert 'release_pos - pointer_origin, gesture_screen_forward)' in m
 assert 'return INPUT_GESTURES.combo_kick_side(flick, gesture_screen_forward)' in m
 assert 'flick, actor_screen_forward)' in i
-assert 'CAMERA_PLAYER_SAFE_MARGIN_X: float = 0.20' in m
-assert 'CAMERA_PLAYER_FIT_MARGIN_X: float = 0.22' in m
-assert 'CAMERA_PLAYER_FIT_MARGIN_X, 0.0, 1.0))' in m
-assert 'CAMERA_PLAYER_SAFE_MARGIN_X + extra_margin_ratio' in m
+# v329's actor-flick behavior remains, but v330 intentionally restores
+# v327's permissive 2% horizontal framing rather than enforcing 20%.
+assert 'CAMERA_PLAYER_SAFE_MARGIN_X' not in m
+assert 'SCREEN_MARGIN_X: float = 0.02' in m
+assert 'SCREEN_MARGIN_X, 0.0, 1.0))' in m
+assert 'SCREEN_MARGIN_X + extra_margin_ratio' in m
 assert 'return INPUT_GESTURES.step_flick(' in m
-assert '_enforce_screen_edge(bearing, delta)' not in m
+assert m.count('_enforce_screen_edge(bearing, delta)') == 2
 ver=re.search(r'config/name="SERA v(\d+)"',(r/"project.godot").read_text())
 assert ver and int(ver.group(1))>=329
-print("PASS v329 projected-forward Bash/kicks, screen STEP, 20% camera band")
+print("PASS v329 projected-forward Bash/kicks and screen STEP retained; v330 camera restored")

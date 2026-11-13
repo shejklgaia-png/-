@@ -36,8 +36,7 @@ assert "CAMERA_ELEVATION_RATIO" in m.split(
     "func _camera_fit_release_speed()",1)[0]
 init=m.split("func _build_camera() -> void:",1)[1].split(
     "func _build_overlay() -> void:",1)[0]
-assert "CAMERA_TARGET_COMPOSITION_SHOULDER_DEGREES" in init
-assert "camera_composition_side = 1" in init
+assert "start_bearing - deg_to_rad(CAMERA_COMBAT_SHOULDER_DEGREES)" in init
 assert "_nearest_clear_yaw" not in init
 helper=m.split("func _stable_shoulder_camera_yaw(player_bearing: float, delta: float) -> float:",1)[1].split(
     "func _close_step_target_relative_yaw(",1)[0]
@@ -62,8 +61,8 @@ assert "camera_follow_radius = move_toward(" in cam
 assert "CAMERA_COMBAT_MIN_RADIUS" in cam
 assert "camera_dolly_in_speed = 0.0" in cam
 assert "if hold_attack_camera or step_active or close_step_camera_this_frame:" in cam
-assert "_fit_boost_frame_analytically(delta)" in cam
-assert "camera_yaw = _adaptive_camera_yaw(bearing, delta)" in cam
+assert "_relax_camera_fit_radius(delta)" in cam
+assert "camera_yaw = _stable_shoulder_camera_yaw(bearing, delta)" in cam
 assert "camera_yaw = _visible_combat_camera_yaw" not in cam
 assert "camera_elevation_ratio_current" not in cam
 assert "CAMERA_COMBAT_ELEVATION_RATIO" not in cam

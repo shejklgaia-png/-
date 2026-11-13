@@ -35,15 +35,14 @@ for begin in [0.0,0.1,0.4,1.0]:
 assert 'CAMERA_EDGE_GUARD_RATIO: float = 0.008' in main
 assert 'CAMERA_EDGE_MAX_CORRECTION_DEGREES_PER_SECOND: float = 240.0' in main
 assert 'CAMERA_FIT_RADIUS_RESERVE: float = 0.12' in main
-assert main.count('_enforce_screen_edge(bearing, delta)') == 0
-assert '    _fit_boost_frame_analytically(delta)' in main
+assert main.count('_enforce_screen_edge(bearing, delta)') == 2
 edge=main.split('func _enforce_screen_edge(',1)[1].split('func _fit_full_frame()',1)[0]
 assert edge.count('_horizontal_safe(CAMERA_EDGE_GUARD_RATIO)') == 3
 assert 'var delta_yaw: float = wrapf(safe_yaw - old_yaw, -PI, PI)' in edge
 assert 'camera_yaw = old_yaw + clampf(delta_yaw, -max_step, max_step)' in edge
 assert 'camera_radius = upper_radius + CAMERA_FIT_RADIUS_RESERVE' in main
 assert 'func _horizontal_safe(extra_margin_ratio: float = 0.0)' in main
-assert 'CAMERA_PLAYER_SAFE_MARGIN_X + extra_margin_ratio' in main
-assert 'CAMERA_PLAYER_SAFE_MARGIN_X - extra_margin_ratio' in main
+assert 'SCREEN_MARGIN_X + extra_margin_ratio' in main
+assert 'SCREEN_MARGIN_X - extra_margin_ratio' in main
 assert 'const BOOST_POSE_GRACE_SECONDS: float = 0.50' in main
 print("PASS v229: smooth SLIDE/BOOST transitions and camera edge safety")

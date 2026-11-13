@@ -23,13 +23,16 @@ step=main.split('func _start_omni_step(flick: Vector2) -> bool:',1)[1].split('fu
 assert 'landing_active = false' in step and 'rig.call("finish_jump", false, false)' in step
 assert step.index('_spend_energy(') < step.index('landing_active = false')
 focus=main.split('func _desired_camera_follow_focus_xz() -> Vector2:',1)[1].split('func _advance_camera_follow_focus(',1)[0]
-assert 'return target_xz' in focus
-assert 'CAMERA_TARGET_COMPOSITION_SHOULDER_DEGREES * float(camera_composition_side)' in main
-assert 'CAMERA_COMPOSITION_SWITCH_SECONDS: float = 0.28' in main
+# v330 restores pre-v328 camera, while the v328 lock and landing
+# behavior must survive. The camera returns to a player-led anchor.
+assert 'return CAMERA_MATH.desired_follow_focus(' in focus
+assert 'CAMERA_COMBAT_SHOULDER_DEGREES: float = 12.0' in main
+assert 'CAMERA_COMPOSITION_SWITCH_SECONDS' not in main
 camera=main.split('func _process(delta: float) -> void:',1)[1].split('func _desired_camera_follow_focus_xz()',1)[0]
+assert 'if boost_edge_frame_guard:' in camera
 assert '_fit_boost_frame_analytically(delta)' in camera
-assert '_advance_composition_side(delta)' in camera
-assert '_enforce_screen_edge(bearing, delta)' not in camera
+assert '_relax_camera_fit_radius(delta)' in camera
+assert camera.count('_enforce_screen_edge(bearing, delta)') == 2
 version=re.search(r'config/name="SERA v(\d+)"',(root/"project.godot").read_text())
 assert version and int(version.group(1))>=328
-print("PASS v328 lock control layout, system pref, landing STEP, target-centered camera")
+print("PASS v328 lock controls, system pref and landing STEP preserved after camera restoration")

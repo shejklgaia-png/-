@@ -1,5 +1,5 @@
 extends SceneTree
-## Real scene: four projected-facing sectors and actor 20%-80% safe frame.
+## Real scene: projected-facing flick survives v330 camera rollback.
 func _initialize() -> void:
     call_deferred("_run")
 func _fail(message: String) -> void:
@@ -45,22 +45,22 @@ func _run() -> void:
         player.position.y = 0.0
         game.set("camera_player_render_position", player.position)
         game.set("camera_target_render_position", boss.position)
-        game.set("camera_focus_follow_xz", Vector2(boss.position.x,boss.position.z))
-        game.set("camera_yaw", atan2(offset.x,offset.z) - deg_to_rad(43.0))
+        game.set("camera_focus_follow_xz", game.call("_desired_camera_follow_focus_xz"))
+        game.set("camera_yaw", atan2(offset.x,offset.z) - deg_to_rad(12.0))
         game.set("camera_follow_radius",8.0)
         game.set("camera_fit_radius_floor",0.0)
         game.set("camera_radius",8.0)
         game.call("_place_camera")
         game.call("_fit_boost_frame_analytically",1.0/60.0)
         if not bool(game.call("_horizontal_safe")):
-            _fail("player envelope violated 20% side band")
+            _fail("v327 camera failed to keep player within visible frame")
             return
         var torso: Vector3 = player.position + Vector3(0.0,1.05,0.0)
         var x: float = cam.unproject_position(torso).x / viewport_width
-        if x < 0.20-0.0001 or x > 0.80+0.0001:
-            _fail("player outside safe band: " + str(x))
+        if x < 0.02-0.0001 or x > 0.98+0.0001:
+            _fail("player outside legacy safe band: " + str(x))
             return
-    print("PASS v329 actor-facing kicks/Bash, 20% player frame")
+    print("PASS v329 actor-facing kicks/Bash and restored 2% player frame")
     game.queue_free()
     await process_frame
     quit(0)
