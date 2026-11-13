@@ -10,7 +10,7 @@ project = (root / "project.godot").read_text(encoding="utf-8")
 main = (root / "scripts/main.gd").read_text(encoding="utf-8")
 rig = (root / "scripts/sera_rig.gd").read_text(encoding="utf-8")
 source = json.loads((root / "assets/sera_source.json").read_text(encoding="utf-8"))
-author = json.loads((root / "models/storage/SERA_BOOSTER_allテスト.bbmodel").read_text(encoding="utf-8"))
+author = json.loads((root / "models/core/Katana.bbmodel").read_text(encoding="utf-8"))
 assert re.search(r'config/name="SERA v(\d+)"', project)
 assert int(re.search(r'config/name="SERA v(\d+)"', project).group(1)) >= 293
 clip = next(c for c in author["animations"] if c["name"] == "Melee_katana2")
@@ -22,7 +22,7 @@ assert len(keyed) == 19
 assert sum(len(keys) for keys in keyed.values()) == 70
 assert set(keyed).issubset(existing_uuids)
 assert "Melee_katana2" not in [a["name"] for a in source["animations"]]
-assert 'KATANA_SECOND_AUTHORING_SOURCE: String = "res://models/storage/SERA_BOOSTER_allテスト.bbmodel"' in rig
+assert 'KATANA_SECOND_AUTHORING_SOURCE: String = "res://models/core/Katana.bbmodel"' in rig
 ready = rig.split("func _ready() -> void:",1)[1].split("func ",1)[0]
 assert ready.index("_build_animations(data)") < ready.index("_merge_authored_katana_second_clip()") < ready.index("_build_katana_second_strike()")
 importer = rig.split("func _merge_authored_katana_second_clip() -> void:",1)[1].split("func _build_katana_second_strike()",1)[0]

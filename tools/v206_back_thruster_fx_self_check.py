@@ -119,8 +119,10 @@ for line in embedded.splitlines():
     line = line.strip()
     if line.startswith('"') and line.endswith('",'):
         parts.append(json.loads(line[:-1]))
+active = json.loads((ROOT / "models/core/Equipment.bbmodel").read_text(encoding="utf-8"))
 assert json.loads("".join(parts)) == {
-    key: model[key] for key in ("groups", "elements", "outliner")}
+    key: active[key] for key in ("groups", "elements", "outliner")}
+assert active["outliner"] == model["outliner"][:2]
 name_match = re.search(r'config/name="SERA v(\d+)"', (ROOT / "project.godot").read_text(encoding="utf-8"))
 assert name_match is not None and int(name_match.group(1)) >= 206
 print("SERA v206 pivot and rectangular back-thruster effect checks passed")

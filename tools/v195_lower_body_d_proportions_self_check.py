@@ -78,7 +78,7 @@ assert len([x for x in d["elements"] if x["name"].startswith("LegD_")]) == 12
 # Both embedded snapshots must match their respective source models.
 for embedded_path, model in [
     ("assets/sera_lower_body_d_data.gd", d),
-    ("assets/sera_equipment_data.gd", combined),
+    ("assets/sera_equipment_data.gd", read("models/core/Equipment.bbmodel")),
 ]:
     chunks = [json.loads(line.strip().removesuffix(","))
               for line in text(embedded_path).splitlines()
