@@ -19,7 +19,7 @@ for forbidden in ("get_tree(", "get_node(", "get_viewport(", "rig.call(", "touch
 physics = main.split("func _physics_process(delta: float) -> void:", 1)[1].split(
     "func _process(delta: float) -> void:", 1)[0]
 start = physics.index("var direction_of_exhaust: Vector3 = MOTION_DIRECTION.exhaust_direction(")
-last = physics.index('rig.call("update_back_thruster_fx", exhaust_on,', start)
+last = physics.index('thruster_presentation.update(rig, exhaust_on,', start)
 fx = physics[start:last]
 for token in (
     "var intended_boost: Vector3 = Vector3.ZERO",
@@ -30,7 +30,7 @@ for token in (
     "step_flick_this_frame, step_side_this_frame, STEP_BACK,",
     "somersault_this_frame, back_somersault_launched,",
     "boost_exhaust, boost_pose_exhaust, intended_boost,",
-    "player.global_transform.basis.z, held_boost_backstroke_weight)",
+    "player.global_transform.basis.z, thruster_presentation.held_boost_backstroke_weight)",
     "var leftward_weight: float = NOZZLE_STEERING.leftward_weight(",
     "stepping_this_frame, step_flick_this_frame, step_side_this_frame,",
     "boost_exhaust or boost_pose_exhaust, direction_input)",
@@ -39,16 +39,7 @@ for token in (
     "screen_right = _screen_drag_to_ground(Vector2.RIGHT).normalized()",
     "var left_sector_world: Vector3 = NOZZLE_STEERING.left_sector_direction(",
     "exhaust_on, leftward_weight, screen_right, backstroke_weight)",
-    "if boost_pose_exhaust:",
-    "held_boost_exhaust_direction = direction_of_exhaust.normalized()",
-    "held_boost_backstroke_weight = backstroke_weight",
-    "held_boost_left_sector_world = left_sector_world",
-    "backstroke_weight = held_boost_backstroke_weight",
-    "left_sector_world = held_boost_left_sector_world",
-    "elif not boost_exhaust:",
-    "held_boost_exhaust_direction = Vector3.ZERO",
-    "held_boost_backstroke_weight = 0.0",
-    "held_boost_left_sector_world = Vector3.ZERO",
+
 ):
     assert token in fx, token
 ordered = [
@@ -57,13 +48,27 @@ ordered = [
     "var leftward_weight: float = NOZZLE_STEERING.leftward_weight(",
     "if exhaust_on and leftward_weight > 0.0:",
     "NOZZLE_STEERING.left_sector_direction(",
-    "if boost_pose_exhaust:",
-    "held_boost_exhaust_direction = direction_of_exhaust.normalized()",
-    "elif not boost_exhaust:",
+    "thruster_presentation.held_boost_backstroke_weight)",
 ]
 assert [fx.index(x) for x in ordered] == sorted(fx.index(x) for x in ordered)
-assert 'direction_of_exhaust.normalized(), delta, backstroke_weight,' in main
-assert 'left_sector_world, acceleration_burst, normal_attack_exhaust)' in main
+assert 'thruster_presentation.update(rig, exhaust_on,' in main
+presentation = (ROOT / "scripts/sera_thruster_presentation.gd").read_text(encoding="utf-8")
+for token in (
+    "if boost_pose_exhaust:",
+    "held_boost_exhaust_direction = direction_of_exhaust.normalized()",
+    "held_boost_backstroke_weight = backstroke_weight",
+    "held_boost_left_sector_world = left_sector_world",
+    "elif held_boost_exhaust_direction.length_squared() > 0.000001:",
+    "backstroke_weight = held_boost_backstroke_weight",
+    "left_sector_world = held_boost_left_sector_world",
+    "elif not boost_exhaust:",
+    "held_boost_exhaust_direction = Vector3.ZERO",
+    "held_boost_backstroke_weight = 0.0",
+    "held_boost_left_sector_world = Vector3.ZERO",
+    "direction_of_exhaust.normalized(), delta, backstroke_weight,",
+    "left_sector_world, acceleration_burst, normal_attack_exhaust)",
+):
+    assert token in presentation, token
 # The actual physical nozzle clamps in the FX layer, not in policy.
 physical = (ROOT / "scripts/back_thruster_fx.gd").read_text(encoding="utf-8")
 for name in ("YAW_LIMIT_RADIANS", "PITCH_UP_LIMIT_RADIANS", "PITCH_DOWN_LIMIT_RADIANS"):
