@@ -12,7 +12,7 @@ project=read("project.godot")
 v=re.search(r'^config/name="SERA v(\d+)"$',project,re.M)
 assert v and int(v.group(1))>=261
 assert (R/"README_v261_ja.md").is_file()
-assert "v261 rear-diagonal BOOST nozzle fix" in read("AGENTS.md")
+assert "v261 rear-diagonal BOOST nozzle fix" in read("docs/history/AGENTS_THROUGH_V316.md")
 assert "v261 — 左斜め後退" in read("docs/SERA_INPUT_MOVEMENT_CAMERA.md")
 motion=main.split("var backstroke_weight: float = 0.0",1)[1].split(
     'rig.call("update_back_thruster_fx"',1)[0]

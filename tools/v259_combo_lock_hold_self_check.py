@@ -9,7 +9,7 @@ v=re.search(r'^config/name="SERA v(\d+)"$',read("project.godot"),re.M)
 assert v and int(v.group(1))>=259
 assert (R/"README_v259_ja.md").exists()
 assert "v259 — 3段格闘" in read("docs/SERA_COMBAT_DEFENSE_ENEMIES.md")
-assert "v259 AUTO lock hold" in read("AGENTS.md")
+assert "v259 AUTO lock hold" in read("docs/history/AGENTS_THROUGH_V316.md")
 attack=m.split("func _advance_attack(delta: float) -> void:",1)[1].split("func _screen_drag_to_ground(",1)[0]
 assert "bash_followup_window_remaining = BASH_LINK_SECONDS" in m
 assert "func _combo_lock_retention_active() -> bool:" in m
