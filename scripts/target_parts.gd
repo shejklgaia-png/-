@@ -37,16 +37,16 @@ func _ready() -> void:
     # frame; aim for that center instead of the previous outer/toe offset.
     # Only lock/aim points change. Meshes and hitboxes remain unchanged.
     _add_part("leg_fl", "FRONT L", Vector3(-1.23, -0.53, 1.27),
-        Vector3(2.24, 2.00, 1.36), Vector3.ZERO,
+        Vector3(2.24, 2.00, 1.36), Vector3(0.0, 0.0, 0.0),
         100.0, 0.12, 0.00, "remain", Color("b9604c"))
     _add_part("leg_fr", "FRONT R", Vector3(1.23, -0.53, 1.27),
-        Vector3(2.24, 2.00, 1.36), Vector3.ZERO,
+        Vector3(2.24, 2.00, 1.36), Vector3(0.0, 0.0, 0.0),
         100.0, 0.12, 0.00, "remain", Color("b9604c"))
     _add_part("leg_rl", "REAR L", Vector3(-1.23, -0.53, -1.27),
-        Vector3(2.24, 2.00, 1.36), Vector3.ZERO,
+        Vector3(2.24, 2.00, 1.36), Vector3(0.0, 0.0, 0.0),
         100.0, 0.16, 0.12, "remain", Color("a95043"))
     _add_part("leg_rr", "REAR R", Vector3(1.23, -0.53, -1.27),
-        Vector3(2.24, 2.00, 1.36), Vector3.ZERO,
+        Vector3(2.24, 2.00, 1.36), Vector3(0.0, 0.0, 0.0),
         100.0, 0.16, 0.12, "remain", Color("a95043"))
 
 func _make_box(owner: Node3D, name: String, offset: Vector3,
