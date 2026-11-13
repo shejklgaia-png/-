@@ -252,3 +252,6 @@ gd tools/v332_visible_flick_facing_runtime_check.gd
 
 py tools/v333_lock_combo_controller_self_check.py
 gd tools/v333_lock_combo_controller_runtime_check.gd
+
+py tools/v334_camera_crossover_lock_aim_self_check.py
+gd tools/v334_camera_crossover_lock_aim_runtime_check.gd
