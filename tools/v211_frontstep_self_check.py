@@ -95,8 +95,8 @@ assert 'const BOOST_CLIP: String = "Boost_front"' in rig
 assert 'directional_step_vector = direction.normalized()' in rig
 assert 'state_label.text = "STEP FORWARD  |  Frontstep"' in main
 assert 'rig.call("start_omni_step", pose_direction)' in main
-assert 'const STEP_MIN_ARC_LENGTH: float = 7.0' in main
-assert 'const STEP_MAX_ARC_LENGTH: float = 7.0' in main
+assert 'const STEP_MIN_ARC_LENGTH: float = 5.0' in main
+assert 'const STEP_MAX_ARC_LENGTH: float = 5.0' in main
 
 print("PASS SERA v211: user Frontstep authored tracks integrated; originals preserved")
 print("PASS: exact APK embed and forward/diagonal STEP wiring, other axes unchanged")

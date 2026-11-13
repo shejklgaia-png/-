@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""v312: every screen dodge is 7m/15m/s, with additive directional crouch."""
+"""v312: every screen dodge is 5m/15m/s, with additive directional crouch."""
 from pathlib import Path
 import math, re, json, base64
 ROOT=Path(__file__).resolve().parents[1]
@@ -13,11 +13,11 @@ def constant(text,name):
     return float(x.group(1))
 for name in ("STEP_SIDE_DISTANCE","STEP_FORWARD_DISTANCE","BACK_STEP_DISTANCE",
              "STEP_MIN_ARC_LENGTH","STEP_MAX_ARC_LENGTH"):
-    assert constant(m,name)==7.0,name
+    assert constant(m,name)==5.0,name
 assert constant(m,"STEP_SPEED")==15.0
 assert constant(m,"SIDE_KICK_STEP_SPEED")==10.0
 assert constant(m,"SIDE_KICK_BOOST_DISTANCE")==3.0
-assert math.isclose(7.0/15.0,0.4666666666666667)
+assert math.isclose(5.0/15.0,0.3333333333333333)
 distance=m.split("func _step_fixed_distance_for_direction(_direction: Vector2) -> float:",1)[1].split(
     "func _start_omni_step(",1)[0]
 assert "return STEP_SIDE_DISTANCE" in distance
@@ -70,4 +70,4 @@ for x,y in ((0,-1),(1,0),(0,1),(-1,0),
     assert math.isclose(math.hypot(axis[0],axis[2]),1,abs_tol=1e-10)
     tilted_horizontal=(-axis[2],axis[0])
     assert math.isclose(tilted_horizontal[0]*x+tilted_horizontal[1]*y,1.,abs_tol=1e-10)
-print("V312_DODGE_7M_15MPS_LOW_DIRECTIONAL_LEAN_STATIC_PASS")
+print("V312_DODGE_5M_15MPS_LOW_DIRECTIONAL_LEAN_STATIC_PASS")

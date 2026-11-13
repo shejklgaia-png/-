@@ -1,5 +1,5 @@
 extends SceneTree
-## v312: 7m/15m/s in all directions; Waist leans down toward evasive travel.
+## v312: 5m/15m/s in all directions; Waist leans down toward evasive travel.
 func _initialize() -> void:
     call_deferred("_run")
 
@@ -51,17 +51,17 @@ func _run() -> void:
         if not bool(game.call("_start_omni_step",directions[i])):
             _fail("dodge refused at "+str(i))
             return
-        if absf(float(game.get("step_arc_length"))-7.0)>0.0001:
-            _fail("dodge not 7m at "+str(i))
+        if absf(float(game.get("step_arc_length"))-5.0)>0.0001:
+            _fail("dodge not 5m at "+str(i))
             return
         if absf(float(game.get("step_speed_current"))-15.0)>0.0001:
             _fail("dodge not 15m/s at "+str(i))
             return
-        if absf(float(game.get("step_duration_current"))-7.0/15.0)>0.0001:
-            _fail("dodge not 7m/15m/s duration at "+str(i))
+        if absf(float(game.get("step_duration_current"))-5.0/15.0)>0.0001:
+            _fail("dodge not 5m/15m/s duration at "+str(i))
             return
         var displacement: Vector2=game.get("step_linear_offset")
-        var expected_world: Vector2=Vector2(wanted_world.x,wanted_world.z).normalized()*7.0
+        var expected_world: Vector2=Vector2(wanted_world.x,wanted_world.z).normalized()*5.0
         if displacement.distance_to(expected_world)>0.001:
             _fail("screen direction or distance changed at "+str(i))
             return
@@ -93,12 +93,12 @@ func _run() -> void:
         if absf(player.position.y)>0.0001:
             _fail("physical collision root was lowered")
             return
-        # End-to-end actual world movement in free space: 7m, independent
+        # End-to-end actual world movement in free space: 5m, independent
         # of chosen lock-based pose, including every diagonal.
         game.call("_advance_side_step",float(game.get("step_duration_current")))
         var moved: Vector3=player.position-origin
         if Vector2(moved.x,moved.z).distance_to(expected_world)>0.07:
-            _fail("actual displacement not 7m at "+str(i)+": "+str(moved))
+            _fail("actual displacement not 5m at "+str(i)+": "+str(moved))
             return
         if bool(game.get("step_active")):
             game.call("_finish_side_step",false)
@@ -142,5 +142,5 @@ func _run() -> void:
         _fail("directional crouch was applied to side-kick clip")
         return
     game.call("_finish_side_step",false)
-    print("GODOT_V312_7M_15MPS_LOW_DODGE_ALL_DIRECTIONS_PASS")
+    print("GODOT_V312_5M_15MPS_LOW_DODGE_ALL_DIRECTIONS_PASS")
     quit(0)

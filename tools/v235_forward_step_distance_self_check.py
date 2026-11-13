@@ -7,9 +7,9 @@ main=(R/"scripts/main.gd").read_text(encoding="utf-8")
 project=(R/"project.godot").read_text(encoding="utf-8")
 v=re.search(r'config/name="SERA v(\d+)"',project)
 assert v and int(v.group(1))>=300
-for token in ("const STEP_FORWARD_DISTANCE: float = 7.0",
-              "const STEP_SIDE_DISTANCE: float = 7.0",
-              "const BACK_STEP_DISTANCE: float = 7.0",
+for token in ("const STEP_FORWARD_DISTANCE: float = 5.0",
+              "const STEP_SIDE_DISTANCE: float = 5.0",
+              "const BACK_STEP_DISTANCE: float = 5.0",
               "const STEP_SPEED: float = 15.0"):
     assert token in main,token
 def segment(a,b):
@@ -27,7 +27,7 @@ assert 'rig.call("start_omni_step", pose_direction)' in step
 assert "var new_offset: Vector2 = step_start_offset + step_linear_offset * progress" in advance
 assert "_move_player_swept(requested, true)" in advance
 for d in range(0,360,5):
-    assert math.isclose(7.0,7.0,abs_tol=1e-10),d
-assert math.isclose(7./15.,7.0/15.0)
+    assert math.isclose(5.0,5.0,abs_tol=1e-10),d
+assert math.isclose(5./15.,5.0/15.0)
 assert 'const JUMP_TOUCH_INPUT_ENABLED: bool = false' in main
-print("PASS v235/v312: fixed all-direction 7m, 15m/s and camera-linear travel")
+print("PASS v235/v312: fixed all-direction 5m, 15m/s and camera-linear travel")

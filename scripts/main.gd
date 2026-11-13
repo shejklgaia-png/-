@@ -42,8 +42,6 @@ const BOOST_CONFIRM_SECONDS: float = 0.10
 # v163: RUN <-> BOOST speed uses a 0.20s smoothstep transition.
 # Changes of direction of the transition start at the CURRENT multiplier.
 const BOOST_SPEED_BLEND_SECONDS: float = 0.20
-# v313: one confirmed manual BOOST traversal is limited to 5m in any direction.
-const BOOST_TRAVEL_DISTANCE: float = 5.0
 # v159: avoid RUN/WAIT clips interrupting quick BOOST direction changes.
 # This is VISUAL ONLY: physics speed and BOOST input thresholds stay unchanged.
 # v162: hold the authored BOOST pose for 0.50s after BOOST input ends.
@@ -106,12 +104,12 @@ const JUMP_AIR_STEER_SPEED_FACTOR: float = 0.30  # ground RUN speed; never boost
 const JUMP_GRAVITY: float = 8.0 * JUMP_HEIGHT / (JUMP_FLIGHT_SECONDS * JUMP_FLIGHT_SECONDS)
 # Authored clip's fall pose begins at the 0.20833s key of its 0.375s duration.
 const JUMP_FALL_CLIP_START: float = 0.20833 / 0.375
-# v312: all 360-degree dodge STEP directions travel 7m at base 15m/s,
+# v314: all 360-degree dodge STEP directions travel 5m at base 15m/s,
 # independent of lock target/distance. Equipment multipliers still apply.
 # Side-kick follow-up retains its separate original 3m/10m/s timing.
-const BACK_STEP_DISTANCE: float = 7.0
-const STEP_FORWARD_DISTANCE: float = 7.0
-const STEP_SIDE_DISTANCE: float = 7.0
+const BACK_STEP_DISTANCE: float = 5.0
+const STEP_FORWARD_DISTANCE: float = 5.0
+const STEP_SIDE_DISTANCE: float = 5.0
 const STEP_SPEED: float = 15.0  # m/s, equipment-adjusted
 const SIDE_KICK_STEP_SPEED: float = 10.0  # preserve legacy combo kick timing
 # Legacy speed policy retained for historic tests, not called by STEP.
@@ -119,9 +117,9 @@ const STEP_CLOSE_SPEED: float = 8.0
 const STEP_CLOSE_SURFACE_DISTANCE: float = 2.0
 const STEP_FALLOFF_START_SURFACE_DISTANCE: float = 5.0
 const STEP_ORBIT_ANGLE_DEGREES: float = 35.0  # legacy-only reference
-const STEP_MIN_ARC_LENGTH: float = 7.0
-const STEP_MAX_ARC_LENGTH: float = 7.0
-const STEP_MAX_DURATION: float = 0.50  # 7m / 15m/s = ~0.467s
+const STEP_MIN_ARC_LENGTH: float = 5.0
+const STEP_MAX_ARC_LENGTH: float = 5.0
+const STEP_MAX_DURATION: float = 0.50  # 5m / 15m/s = ~0.333s
 const STEP_MIN_ORBIT_RADIUS: float = 0.10  # tangent is unstable at the exact center
 const STEP_CLOSE_ORBIT_MAX_DEGREES: float = 120.0  # prevent circular loops when overlapping target
 # v82: At point-blank range the player may orbit around the target rapidly.
@@ -410,8 +408,6 @@ var direction_input: Vector2 = Vector2.ZERO
 var movement_boost_active: bool = false
 var boost_confirm_elapsed: float = 0.0
 var boost_has_activated_this_gesture: bool = false
-var boost_distance_traveled: float = 0.0
-var boost_distance_capped: bool = false
 var boost_speed_multiplier: float = 1.0
 var boost_speed_transition_start: float = 1.0
 var boost_speed_transition_target: float = 1.0
@@ -1838,7 +1834,7 @@ func _refresh_step_status_ui() -> void:
         # When a body blocks a step, don't mislabel the planned length as actual.
         step_detail_label.text = "LAST %.2fm  /  %.2fs" % [step_traveled_distance, step_last_elapsed]
     else:
-        step_detail_label.text = "SIDE 3.0m / BACK 5.0m"
+        step_detail_label.text = "STEP ALL 5.0m"
 
 # Record why an intended combo flick did or did not become a kick.
 # Visible for two seconds in the existing debug HUD; no new UI widgets.
@@ -2489,8 +2485,6 @@ func _begin_drag(pos: Vector2) -> void:
     movement_boost_active = false
     boost_confirm_elapsed = 0.0
     boost_has_activated_this_gesture = false
-    boost_distance_traveled = 0.0
-    boost_distance_capped = false
     _reset_boost_speed_transition()
     boost_pose_grace_remaining = 0.0
     touch_ui.call("set_movement_boost", false)
@@ -2575,14 +2569,6 @@ func _update_boost_gesture(delta: float) -> void:
     # Preserve the held pointer/direction across EN exhaustion. Unlocking at
     # 60% may restart BOOST on this very same outer-ring gesture.
     var finger_distance: float = pointer_location.distance_to(pointer_origin)
-    # A completed 5m burst cannot retrigger during the same outer hold.
-    # Returning inside the exit ring rearms BOOST without requiring release.
-    if boost_distance_capped:
-        if finger_distance < DRAG_RADIUS * BOOST_EXIT_RADIUS_RATIO:
-            boost_distance_capped = false
-        else:
-            boost_confirm_elapsed = 0.0
-            return
     if movement_boost_active:
         # Hysteresis: do not flicker between RUN and BOOST at the entry rim.
         if finger_distance < DRAG_RADIUS * BOOST_EXIT_RADIUS_RATIO:
@@ -2594,7 +2580,6 @@ func _update_boost_gesture(delta: float) -> void:
         if boost_confirm_elapsed >= BOOST_CONFIRM_SECONDS:
             movement_boost_active = true
             boost_has_activated_this_gesture = true
-            boost_distance_traveled = 0.0
             touch_ui.call("set_movement_boost", true)
     else:
         # Even a very short dip below 125% restarts entry confirmation.
@@ -3228,7 +3213,7 @@ func _cancel_back_somersault() -> void:
         player.velocity = Vector3.ZERO
 
 
-# v312: all 360-degree dodge angles share a single, fixed 7m distance.
+# v314: all 360-degree dodge angles share a single, fixed 5m distance.
 # A direction changes pose/travel vector, not duration or displacement.
 func _step_fixed_distance_for_direction(_direction: Vector2) -> float:
     return STEP_SIDE_DISTANCE
@@ -3312,7 +3297,7 @@ func _start_omni_step(flick: Vector2) -> bool:
     # windup after the first-foot homing, so no early snap-back can occur.
     # Each kick travels a total of 3m across its arc and tangent boost.
     if side_kick_active:
-        # Kick is a combo attack, not the regular 7m dodge. Keep its
+        # Kick is a combo attack, not the regular 5m dodge. Keep its
         # original 3m/10m/s motion, contact timing and attack windows.
         step_arc_length = SIDE_KICK_BOOST_DISTANCE
         step_speed_current = SIDE_KICK_STEP_SPEED * float(
@@ -3361,7 +3346,7 @@ func _start_back_step() -> bool:
     step_signed_angle = 0.0
     step_arc_length = BACK_STEP_DISTANCE
     step_speed_current = STEP_SPEED * float(part_stats.get("step_speed_mult", 1.0))
-    # 7m at 15m/s = ~0.467 seconds before equipment scaling.
+    # 5m at 15m/s = ~0.333 seconds before equipment scaling.
     step_duration_current = BACK_STEP_DISTANCE / step_speed_current * float(part_stats.get("step_time_mult", 1.0))
     # Unlike side steps, back steps do not orbit the target. Do not engage
     # the point-blank side-step camera constraint for backward movement.
@@ -3389,7 +3374,7 @@ func _start_side_step(side: int) -> bool:
         _finish_side_step(false)
 
     # Legacy direct side-step entry (touch uses _start_omni_step):
-    # use the same 7m arc length while this helper retains its orbit path.
+    # use the same 5m arc length while this helper retains its orbit path.
     var radial: Vector2 = Vector2(
         player.position.x - target.position.x,
         player.position.z - target.position.z
@@ -3414,7 +3399,7 @@ func _start_side_step(side: int) -> bool:
     step_start_offset = radial
     step_target_center = Vector2(target.position.x, target.position.z)
     step_linear_offset = Vector2.ZERO
-    # Dedicated legacy left/right input also uses the 7m dodge speed/range.
+    # Dedicated legacy left/right input also uses the 5m dodge speed/range.
     # This direct orbit helper is not the screen-linear touch STEP.
     step_speed_current = STEP_SPEED * float(part_stats.get("step_speed_mult", 1.0))
     var path_length: float = STEP_SIDE_DISTANCE
@@ -3426,7 +3411,7 @@ func _start_side_step(side: int) -> bool:
         step_signed_angle = STEP_SIDE_DISTANCE / radius * orbit_sign
     step_arc_length = path_length
     # Keep the selected speed for the entire step (do not change mid-orbit).
-    # At 7m/15m/s the base duration is ~0.467s.
+    # At 5m/15m/s the base duration is ~0.333s.
     step_duration_current = path_length / step_speed_current * float(part_stats.get("step_time_mult", 1.0))
     # The orbit is measured around the target, not the old absolute camera
     # direction. At point-blank distance its bearing changes quickly.
@@ -4323,8 +4308,6 @@ func _physics_process(delta: float) -> void:
         # Keep v9 camera-relative input and choose animation relative to the
         # target-facing character, not to the camera or the screen.
         var world_move: Vector3 = _screen_drag_to_ground(direction_input) if running else Vector3.ZERO
-        var boosted_travel_this_frame: bool = movement_boost_active and running
-        var boost_start_position: Vector3 = player.global_position
         if rig != null:
             # Match RUN pose directions to SERA's real locked-part-facing
             # heading rather than the former whole-BODY reference.
@@ -4350,27 +4333,11 @@ func _physics_process(delta: float) -> void:
             # Analog RUN strength reaches unity at the 112px rim; BOOST changes
             # speed only after the new 184.8px threshold is confirmed.
             player.velocity = world_move * float(part_stats.get("run_speed", 4.0625)) * boost_speed_multiplier
-            # Clamp the final physics tick to the remaining BOOST path budget.
-            # Count actual collision-resolved XZ travel, not target distance.
-            if boosted_travel_this_frame and delta > 0.0:
-                var budget_remaining: float = maxf(0.0, BOOST_TRAVEL_DISTANCE - boost_distance_traveled)
-                player.velocity = player.velocity.limit_length(budget_remaining / delta)
             # Drag keeps working along the cube's faces instead of becoming
             # blocked or falling through it. No world X/Z bounds are added.
         else:
             player.velocity = Vector3.ZERO
         player.move_and_slide()
-        if boosted_travel_this_frame:
-            var boost_displacement: Vector3 = player.global_position - boost_start_position
-            boost_displacement.y = 0.0
-            boost_distance_traveled = minf(BOOST_TRAVEL_DISTANCE,
-                boost_distance_traveled + boost_displacement.length())
-            if boost_distance_traveled >= BOOST_TRAVEL_DISTANCE - 0.0001:
-                movement_boost_active = false
-                boost_distance_capped = true
-                boost_confirm_elapsed = 0.0
-                if touch_ui != null:
-                    touch_ui.call("set_movement_boost", false)
     elif not stepping_this_frame and combat_state != CombatState.DASH \
             and combat_state != CombatState.BASH_TRACK and combat_state != CombatState.STRIKE_TRACK \
             and combat_state != CombatState.BACK_KICK_TRACK:

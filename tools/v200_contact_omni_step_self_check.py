@@ -70,10 +70,10 @@ assert "side_kick_linear_direction * side_kick_linear_distance * line_progress" 
 assert "if progress >= second_hit:" in advance
 assert "_move_player_swept(requested, true)" in advance
 for deg in range(0,360,5):
-    assert math.isclose(7.0,7.0,abs_tol=1e-9),deg
-assert "STEP_MIN_ARC_LENGTH: float = 7.0" in main
-assert "BACK_STEP_DISTANCE: float = 7.0" in main
-assert "STEP_FORWARD_DISTANCE: float = 7.0" in main
+    assert math.isclose(5.0,5.0,abs_tol=1e-9),deg
+assert "STEP_MIN_ARC_LENGTH: float = 5.0" in main
+assert "BACK_STEP_DISTANCE: float = 5.0" in main
+assert "STEP_FORWARD_DISTANCE: float = 5.0" in main
 
 pose = rig.split("func _blended_directional_step_pose(",1)[1].split("func start_omni_step(",1)[0]
 for phrase in ("_sample_step_clip_pose(STEP_FORWARD_CLIP, uid, 0.0)",
