@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""v314 correction to v313: restore continuous BOOST, STEP is 5m."""
+"""v314 correction to v313: restore continuous BOOST, STEP is now 4m."""
 from pathlib import Path
 import re
 p=Path(__file__).resolve().parents[1]
@@ -11,7 +11,7 @@ assert "boost_distance_traveled" not in s
 assert "boost_distance_capped" not in s
 assert 'const BOOST_SPEED_BLEND_SECONDS: float = 0.20' in s
 assert 'const BOOST_POSE_GRACE_SECONDS: float = 0.50' in s
-assert 'const STEP_SIDE_DISTANCE: float = 5.0' in s
+assert 'const STEP_SIDE_DISTANCE: float = 4.0' in s
 assert 'const STEP_SPEED: float = 15.0' in s
 assert 'const SIDE_KICK_BOOST_DISTANCE: float = 3.0' in s
 assert (p/"README_v313_ja.md").is_file()

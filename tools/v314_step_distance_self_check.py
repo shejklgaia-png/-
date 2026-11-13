@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""v314: every ordinary 360-degree flick STEP is fixed 5m; BOOST uncapped."""
+"""v314: every ordinary 360-degree flick STEP is fixed 4m; BOOST uncapped."""
 from pathlib import Path
 import math,re
 from sera_active_contracts import load_active_specs, main_float_constant
@@ -31,4 +31,4 @@ for token in (
 assert "_step_speed_for_player_position(" not in step
 assert "return STEP_SIDE_DISTANCE" in main.split("func _step_fixed_distance_for_direction(",1)[1].split("func _start_omni_step(",1)[0]
 assert 0 < distance / speed <= main_float_constant(main, "STEP_MAX_DURATION")
-print("V314_360_STEP_FIXED_5M_STATIC_PASS")
+print("V318_360_STEP_FIXED_4M_STATIC_PASS")

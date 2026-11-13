@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""v315: a swept 1m pre-step warp, fixed 5m total, 50ms anchored launch FX."""
+"""v315: a swept 0.3m pre-step warp, fixed 4m total, 50ms anchored launch FX."""
 from pathlib import Path
 import re
 from sera_active_contracts import load_active_specs, main_float_constant

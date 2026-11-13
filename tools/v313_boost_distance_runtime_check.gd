@@ -1,5 +1,5 @@
 extends SceneTree
-## v314 correction to v313: BOOST continues beyond 5m; STEP is 5m.
+## v314 correction to v313: BOOST continues beyond 5m; STEP is now 4m.
 func _initialize() -> void:
     call_deferred("_run")
 
