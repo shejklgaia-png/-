@@ -8,7 +8,7 @@ target = (root/"scripts/target_parts.gd").read_text(encoding="utf-8")
 main = (root/"scripts/main.gd").read_text(encoding="utf-8")
 project = (root/"project.godot").read_text(encoding="utf-8")
 manifest = (root/"tools/sera_ci_manifest.txt").read_text(encoding="utf-8")
-assert int(re.search(r'config/name="SERA v(\\d+)"',project).group(1)) >= 301
+assert int(re.search(r'config/name="SERA v(\d+)"',project).group(1)) >= 301
 assert (root/"README_v301_ja.md").is_file()
 
 auto = main.split("func _acquire_stable_camera_part(delta: float,",1)[1].split(
