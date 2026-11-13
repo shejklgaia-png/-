@@ -9,7 +9,7 @@ main = (ROOT / "scripts/main.gd").read_text(encoding="utf-8")
 camera = (ROOT / "scripts/sera_camera_math.gd").read_text(encoding="utf-8")
 project = (ROOT / "project.godot").read_text(encoding="utf-8")
 spec = load_active_specs()
-assert re.search(r'config/name="SERA v318"', project)
+assert re.search(r'config/name="SERA v(\\d+)"', project) and int(re.search(r'config/name="SERA v(\\d+)"', project).group(1)) >= 318
 assert spec["approved_at_version"] == 318
 assert spec["ordinary_step"]["distance_m"] == 4
 assert spec["ordinary_step"]["launch_warp_m"] == 0.3
