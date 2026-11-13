@@ -39,9 +39,21 @@ func _run() -> void:
     var left: Button = game.get("lock_switch_left_button")
     var center: Button = game.get("lock_mode_button")
     var right: Button = game.get("lock_switch_right_button")
-    if not (left.anchor_left < center.anchor_left and center.anchor_left < right.anchor_left):
-        _fail("LOCK button order changed")
-        return
+    # v328: all anchors are equal within the handed half; offsets order
+    # the buttons. The cluster mirrors to the opposite half with handedness.
+    for handed in [false, true]:
+        game.set("left_handed", handed)
+        game.call("_layout_lock_control_buttons")
+        var half: float = 0.5 if handed else 0.0
+        if absf(left.anchor_left - half) > 0.0001 or absf(
+                center.anchor_left - half) > 0.0001 or absf(
+                right.anchor_left - half) > 0.0001:
+            _fail("LOCK cluster failed handedness mirroring")
+            return
+        if not (left.offset_right < center.offset_left
+                and center.offset_right < right.offset_left):
+            _fail("LOCK symbol button order/spacing changed")
+            return
     var cfg: Dictionary = game.get_script().get_script_constant_map()
     var base_pitch: float = float(cfg["CAMERA_ELEVATION_RATIO"])
     if absf(base_pitch - 0.21) > 0.0001:

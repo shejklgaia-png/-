@@ -44,10 +44,10 @@ assert 'var boost_edge_frame_guard: bool = (' in camera
 assert '    _fit_boost_frame_analytically(delta)' in camera
 assert '    if not _full_frame_safe():' in camera
 assert 'if protect_close_step and separation > 0.08:' in camera
-assert '_stable_shoulder_camera_yaw(bearing, delta)' in camera
+assert 'camera_yaw = _adaptive_camera_yaw(bearing, delta)' in camera
 assert 'if hold_attack_camera or step_active or close_step_camera_this_frame:' in camera
 assert 'CAMERA_COMBAT_MIN_RADIUS' in camera
-assert 'camera_yaw = _stable_shoulder_camera_yaw(bearing, delta)' in camera
+assert 'camera_yaw = _adaptive_camera_yaw(bearing, delta)' in camera
 assert '_advance_camera_follow_focus(delta)' in camera
 assert camera.count('_enforce_screen_edge(bearing, delta)') == 0
 assert camera.index('    _fit_boost_frame_analytically(delta)') < camera.index('    if not _full_frame_safe():')

@@ -4778,12 +4778,10 @@ func _process(delta: float) -> void:
         # Never snap behind a leg or abruptly switch the camera shoulder
         # after an attack. Use one continuous, low-speed idle follow.
         if separation > 0.08:
-            # Hard-leash fallback is kept for damage displacement outside STEP
-            # recovery; ordinary idle/side movement never snaps to the target.
-            if damage_reaction_active and not camera_step_recovery_active:
-                camera_yaw = _stable_shoulder_camera_yaw(bearing, delta)
-            else:
-                camera_yaw = _adaptive_camera_yaw(bearing, delta)
+            # Damage shares the SAME bounded response and 43deg shoulder
+            # used by movement. The old 12deg hard-leash yaw on impact could
+            # instantly turn the camera by 30+ degrees.
+            camera_yaw = _adaptive_camera_yaw(bearing, delta)
         _place_camera()
         if not close_boost_camera_active and not boost_edge_frame_guard \
                 and not camera_step_recovery_active \

@@ -25,7 +25,7 @@ assert '    _fit_boost_frame_analytically(delta)' in render
 assert '    if not _full_frame_safe():\n        _fit_full_frame()' in render
 assert render.count('_fit_boost_frame_analytically(delta)') == 1
 # v287/v288 use one stable yaw follower instead of the old frame-edge lerp.
-assert 'camera_yaw = _stable_shoulder_camera_yaw(bearing, delta)' in render
+assert 'camera_yaw = _adaptive_camera_yaw(bearing, delta)' in render
 assert 'if hold_attack_camera or step_active or close_step_camera_this_frame:' in render
 
 # BOOST-only exact perspective fit, no per-frame bisection or repeated unprojection.
