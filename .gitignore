@@ -7,3 +7,11 @@
 # Python execution artifacts
 __pycache__/
 *.pyc
+
+# Completed sync-probe artifacts; do not recommit these to the working tree.
+SERA_AUTOSYNC_TEST.txt
+SERA_SAFE_SYNC_TEST.txt
+SYNC_PROBE_*.txt
+# Android/Blockbench may leave these 'trashed' duplicates during uploads.
+models/storage/.trashed-*
+# Tracked *.import files are NOT cache clutter: retain UID remaps.
