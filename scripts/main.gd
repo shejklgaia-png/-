@@ -21,6 +21,7 @@ const MOTION_DIRECTION = preload("res://scripts/sera_motion_direction.gd")
 const NOZZLE_STEERING = preload("res://scripts/sera_nozzle_steering.gd")
 const THRUSTER_PRESENTATION = preload("res://scripts/sera_thruster_presentation.gd")
 const COMBAT_HUD_TEXT = preload("res://scripts/sera_combat_hud_text.gd")
+const NUMERIC_HUD = preload("res://scripts/sera_numeric_hud.gd")
 const DEV_DIAGNOSTICS = preload("res://scripts/dev_diagnostics.gd")
 ## v84: Authored 3-stage Swordeffect atlas, exact board placement.
 ## v83: Three-stage tap melee combo; cancel 2 authored frames after follow-through.
@@ -714,10 +715,13 @@ func _tick_resources(delta: float) -> void:
             energy_exhausted, energy, TEST_EN_MAX, EN_RECOVERY_UNLOCK_RATIO):
         energy_exhausted = false
     _refresh_player_hp_bar()
+    _refresh_numeric_status_hud()
+
+
+func _refresh_numeric_status_hud() -> void:
     if resources_label != null:
-        resources_label.text = "DEF %d%%  SH %d" % [
-            roundi(float(part_stats.get("defense", 0.16)) * 100.0),
-            ceili(shield)]
+        resources_label.text = NUMERIC_HUD.defense_shield_text(
+            float(part_stats.get("defense", 0.16)), shield)
     if core_label != null:
         var label_name: String = "BODY"
         var integrity: float = float(target_hp)
@@ -726,16 +730,14 @@ func _tick_resources(delta: float) -> void:
             label_name = str(target_parts.call("get_part_name", locked_target_part_id))
             integrity = float(target_parts.call("get_part_integrity", locked_target_part_id))
             maximum = float(target_parts.call("get_part_max_integrity", locked_target_part_id))
-        core_label.text = "LOCK %s  %d/%d  STAGGER %d/50  %s" % [
-            label_name, ceili(integrity), ceili(maximum), ceili(stagger_value),
-            "DOWN" if part_break_remaining >= 3.0 else (
-                "BREAK" if part_break_remaining > 0.0 else (
-                    "STUN" if stagger_remaining > 0.0 else (
-                        "MOVE" if target_move_enabled else "HOLD")))]
+        core_label.text = NUMERIC_HUD.target_lock_text(
+            label_name, integrity, maximum, stagger_value,
+            part_break_remaining, stagger_remaining, target_move_enabled)
     if target_parts_label != null and target_parts != null:
         var next_status: String = str(target_parts.call("status_line"))
         if target_parts_label.text != next_status:
             target_parts_label.text = next_status
+
 
 func _take_test_damage(raw: float) -> void:
     if training_ko_remaining > 0.0 or player_hp <= 0.0:
@@ -1794,31 +1796,15 @@ func _step_speed_for_player_position(pos: Vector3) -> float:
 func _refresh_step_status_ui() -> void:
     if step_status_label == null or step_detail_label == null:
         return
-    # During a step display its snapshotted speed.
-    # Outside a step the HUD shows the pure lateral speed (distance-independent).
-    var display_speed: float = step_speed_current
-    if not step_active:
-        display_speed = STEP_SPEED * float(part_stats.get("step_speed_mult", 1.0))
-    step_status_label.text = "STEP SPEED %.1fm/s" % display_speed
-    if back_somersault_active:
-        step_detail_label.text = "KICK B / BACK ARC 5.0m"
-    elif landing_from_somersault:
-        step_detail_label.text = "KICK B / LAND 0.2s"
-    elif step_active:
-        if side_kick_active:
-            step_detail_label.text = "KICK %s %.2fm planned" % [
-                "R" if side_kick_side > 0 else "L", step_arc_length]
-        elif kick_debug_remaining > 0.0:
-            step_detail_label.text = kick_debug_text
-        else:
-            step_detail_label.text = "STEP %.2fm planned" % step_arc_length
-    elif kick_debug_remaining > 0.0:
-        step_detail_label.text = kick_debug_text
-    elif step_has_last:
-        # When a body blocks a step, don't mislabel the planned length as actual.
-        step_detail_label.text = "LAST %.2fm  /  %.2fs" % [step_traveled_distance, step_last_elapsed]
-    else:
-        step_detail_label.text = "STEP ALL 5.0m"
+    step_status_label.text = NUMERIC_HUD.step_speed_text(
+        step_speed_current, step_active, STEP_SPEED,
+        float(part_stats.get("step_speed_mult", 1.0)))
+    step_detail_label.text = NUMERIC_HUD.step_detail_text(
+        back_somersault_active, landing_from_somersault, step_active,
+        side_kick_active, side_kick_side, step_arc_length,
+        kick_debug_remaining, kick_debug_text, step_has_last,
+        step_traveled_distance, step_last_elapsed)
+
 
 # Record why an intended combo flick did or did not become a kick.
 # Visible for two seconds in the existing debug HUD; no new UI widgets.
@@ -2033,17 +2019,15 @@ func _build_hit_effects() -> void:
     sword_trail.call("attach_to_rig", rig)
 
 func _refresh_player_hp_bar() -> void:
-    if vitals_hud == null:
-        return
-    vitals_hud.call("set_vitals", player_hp,
-        float(part_stats.get("max_hp", 800.0)), energy, TEST_EN_MAX, energy_exhausted)
+    NUMERIC_HUD.present_player_vitals(vitals_hud, player_hp,
+        float(part_stats.get("max_hp", 800.0)), energy, TEST_EN_MAX,
+        energy_exhausted)
+
 
 func _refresh_hp_bar() -> void:
-    if hp_label == null:
-        return
-    hp_label.text = "TARGET   %d / %d HP" % [target_hp, TARGET_MAX_HP] if target_hp > 0 else "TARGET   DOWN / RESTARTING"
-    hp_fill.size = Vector2(TARGET_HP_BAR_WIDTH * float(target_hp) / float(TARGET_MAX_HP), 7.0)
-    hp_fill.color = Color("5de4d1") if float(target_hp) / float(TARGET_MAX_HP) > 0.40 else Color("ffb85d")
+    NUMERIC_HUD.present_target_health(
+        hp_label, hp_fill, target_hp, TARGET_MAX_HP, TARGET_HP_BAR_WIDTH)
+
 
 func _clear_strike_tracking() -> void:
     strike_did_hit = false
@@ -4509,8 +4493,9 @@ func _physics_process(delta: float) -> void:
     _update_melee_lock_marker()  # Update after player movement and auto-approach.
     # The idle HUD shows lateral step speed; equipment changes still refresh it.
     if not step_active and step_status_label != null:
-        var next_speed_label: String = "STEP SPEED %.1fm/s" % (
-            STEP_SPEED * float(part_stats.get("step_speed_mult", 1.0)))
+        var next_speed_label: String = NUMERIC_HUD.step_speed_text(
+            step_speed_current, false, STEP_SPEED,
+            float(part_stats.get("step_speed_mult", 1.0)))
         if step_status_label.text != next_speed_label:
             _refresh_step_status_ui()
     if floor_stage != null:

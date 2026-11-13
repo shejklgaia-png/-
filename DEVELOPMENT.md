@@ -2220,3 +2220,10 @@
 - `scripts/sera_combat_hud_text.gd` に、ガード反応、Kick_b/Jump着地・フォールバック、STEPの前後左右/斜め/蹴り方向、格闘中の予約/再生中クリップ、BASH/追尾残り時間、RUN/BOOST/姿勢継続の表示文言とフォーマットを純粋関数へ分離。
 - `main.gd` は`_refresh_combat_state_hud`へ状態優先度・ラベル更新を集約、`_physics_process`末尾に元どおり床位置追従後の一呼出しを残す。DOWN > GUARD BREAK > DAMAGE > GUARD > KICK BACK > LAND > JUMP > STEP > COMBAT > RUN/BOOST の分岐と数値は保存。`_active_strike_clip`・リグクリップ名は必要な枝でだけ呼び出す。
 - Python静的契約・Godot実シーンの状態表示テスト計2件を追加して総206件の全CIへ登録。ゲームv317据置。
+
+
+## 2026-11-14 — v317 main.gd 第15回分割：HP/EN、ロック、STEPの数値HUD
+
+- `scripts/sera_numeric_hud.gd` を追加。プレイヤーHP/ENバーの`CombatVitals.set_vitals`呼び出し、敵HPバー幅（300×HP/500）と残HP40%色判定、DEF%/SH切上げ、ロック部位残HPとDOWN/BREAK/STUN/MOVE/HOLD、STEP速度とKick_b/蹴り/デバッグ/衝突後の実走距離を副作用を限定した表示専用関数に分離。
+- `main.gd` は`_tick_resources`のEN/SH回復・解禁と更新順序、対象部位名・部位HPと最大HPの取得、`_refresh_numeric_status_hud`の主導、UIラベル/部品の所有を維持。`_refresh_step_status_ui`も入口のみ残して、固定閾値・表示条件は移設。物理フレームのSTEP SPEED変更検知も同一関数に委譲。
+- v250・v268・Stage6リソース静的テストを新モジュール参照に更新し、実際のGodotシーンでHP/EN、40%閾値、DEF/SH、BODYと部位ロック、STEP/蹴り/履歴の表示を確認する新規2テストを登録（総208件）。モデル・操作・ゲームバージョンv317据置。

@@ -39,7 +39,11 @@ assert '"EN / ACTION BLOCKED"' in launch
 assert '"QUEUED "' in request
 assert "kick_debug_remaining = 2.0" in diagnostic
 assert 'kick_debug_text = "KICK: " + message' in diagnostic
-assert "step_detail_label.text = kick_debug_text" in detail
+hud=(root/"scripts/sera_numeric_hud.gd").read_text(encoding="utf-8")
+assert "step_detail_label.text = NUMERIC_HUD.step_detail_text(" in detail
+assert "if kick_debug_remaining > 0.0:" in hud
+assert "return kick_debug_text" in hud
+assert "kick_debug_remaining, kick_debug_text, step_has_last," in detail
 assert "var screen_sector: int = FLICK_DIRECTION_POLICY.sector_index(" in release
 assert "func start_side_kick(side: int, movement_duration: float) -> bool:" in rig
 def sector(x,y):

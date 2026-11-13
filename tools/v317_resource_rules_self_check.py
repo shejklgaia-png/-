@@ -45,10 +45,17 @@ for token in (
     "energy_exhausted, energy, TEST_EN_MAX, EN_RECOVERY_UNLOCK_RATIO",
     "energy_exhausted = false",
     "_refresh_player_hp_bar()",
-    'resources_label.text = "DEF %d%%  SH %d"',
-    'core_label.text = "LOCK %s  %d/%d  STAGGER %d/50  %s"',
+    "_refresh_numeric_status_hud()",
 ):
     assert token in tick, token
+numeric=main.split("func _refresh_numeric_status_hud() -> void:",1)[1].split(
+    "func _take_test_damage(",1)[0]
+view=(root/"scripts/sera_numeric_hud.gd").read_text(encoding="utf-8")
+assert 'resources_label.text = NUMERIC_HUD.defense_shield_text(' in numeric
+assert 'core_label.text = NUMERIC_HUD.target_lock_text(' in numeric
+assert 'target_parts.call("get_part_integrity", locked_target_part_id)' in numeric
+assert '"DEF %d%%  SH %d"' in view
+assert '"LOCK %s  %d/%d  STAGGER %d/50  %s"' in view
 assert tick.index("energy_recovery_pause =") < tick.index("energy = RESOURCE_RULES.recovered_energy(")
 assert tick.index("shield_recovery_pause =") < tick.index("shield = RESOURCE_RULES.recovered_shield(")
 assert tick.index("energy = RESOURCE_RULES.recovered_energy(") < tick.index(

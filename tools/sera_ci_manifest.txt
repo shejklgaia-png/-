@@ -209,3 +209,5 @@ py tools/v317_thruster_presentation_self_check.py
 gd tools/v317_thruster_presentation_runtime_check.gd
 py tools/v317_combat_hud_self_check.py
 gd tools/v317_combat_hud_runtime_check.gd
+py tools/v317_numeric_hud_self_check.py
+gd tools/v317_numeric_hud_runtime_check.gd

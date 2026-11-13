@@ -102,7 +102,10 @@ assert '"KICK RIGHT  |  Kick_r"' in hud
 assert '"KICK LEFT  |  Kick_l"' in hud
 assert "COMBAT_HUD_TEXT.strike_label(" in physics
 assert "COMBAT_HUD_TEXT.step_label(" in physics
-assert '"KICK %s %.2fm planned"' in step_hud
+numeric=(root/"scripts/sera_numeric_hud.gd").read_text(encoding="utf-8")
+assert "NUMERIC_HUD.step_detail_text(" in step_hud
+assert '"KICK %s %.2fm planned"' in numeric
+assert '"R" if side_kick_side > 0 else "L"' in numeric
 assert '"STEP DIAGONAL  |  BLENDED"' in hud
 assert "if absf(step_flick.y) > 0.15:" in hud
 

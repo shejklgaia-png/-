@@ -24,9 +24,12 @@ assert '_reset_target_after_respawn()' in ko
 assert '_reset_target_after_respawn()' in respawn
 assert 'TARGET_LIFECYCLE.respawn_action(' in respawn
 assert 'target_hp = maxi(0, target_hp - int(result["body_damage"]))' in m
-assert '"TARGET   %d / %d HP" % [target_hp, TARGET_MAX_HP]' in m
-assert 'TARGET_HP_BAR_WIDTH * float(target_hp) / float(TARGET_MAX_HP)' in m
-assert 'float(target_hp) / float(TARGET_MAX_HP) > 0.40' in m
+hud=(ROOT/"scripts/sera_numeric_hud.gd").read_text(encoding="utf-8")
+assert "NUMERIC_HUD.present_target_health(" in m
+assert "hp_label, hp_fill, target_hp, TARGET_MAX_HP, TARGET_HP_BAR_WIDTH)" in m
+assert '"TARGET   %d / %d HP" % [target_hp, target_max_hp]' in hud
+assert 'bar_width * float(target_hp) / float(target_max_hp)' in hud
+assert 'float(target_hp) / float(target_max_hp) > 0.40' in hud
 assert m.count('target_parts.call("reset_parts")') == 1
 reset = m.split('func _reset_target_after_respawn() -> void:', 1)[1].split(
     'func _update_enemy_fire_eligibility(', 1)[0]
