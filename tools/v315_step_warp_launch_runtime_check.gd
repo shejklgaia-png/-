@@ -75,7 +75,7 @@ func _run() -> void:
         if Vector2(final_move.x, final_move.z).distance_to(unit * 5.0) > 0.07:
             _fail("instant launch double-counted or snapped back: " + str(i))
             return
-        if fx_position.distance_to(snapshot_position) > 0.0001:
+        if (launch_fx.get_child(0) as Node3D).global_position.distance_to(snapshot_position) > 0.0001:
             _fail("flare moved with the player")
             return
         await create_timer(0.07).timeout
