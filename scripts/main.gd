@@ -2955,13 +2955,17 @@ func _combo_kick_side_for_flick(flick: Vector2) -> int:
             return 0  # screen up -> Bash (handled by _request_combo_bash)
 
 
-# Authored STEP clips are relative to SERA's LOCAL facing, while the
-# gesture/movement vector is relative to the CAMERA. Convert only for
-# animation, never use this local basis to build the world travel path.
+# The STEP pose is actor-relative, while finger travel is camera-relative.
+# Use the SAME selected-lock facing as the physics tick (v305), rather than
+# the previous frame's player transform. A touch can arrive before look_at()
+# runs; otherwise RIGHT can momentarily sample LEFT/backward animation.
+# This affects visual pose selection only, never the committed world path.
 func _step_local_pose_direction(world_direction: Vector3) -> Vector2:
     if world_direction.length_squared() < 0.000001:
         return Vector2.UP
-    var facing: Vector3 = -player.global_transform.basis.z
+    var facing: Vector3 = _locked_target_facing_direction()
+    if facing.length_squared() < 0.000001:
+        facing = -player.global_transform.basis.z
     facing.y = 0.0
     if facing.length_squared() < 0.000001:
         return Vector2.UP
