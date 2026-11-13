@@ -1,3 +1,8 @@
+## v317 main.gd 第8回分割：ヒットエフェクトの寿命・表示の分離（2026-11-13）
+- `scripts/sera_hit_fx_presentation.gd` に弾着時の画面フラッシュ、BODYのマテリアル発光/色、攻撃ダメージ表示のカメラ投影・浮き上がり・フェード、被弾ラベルの消去を分離しました。対象ノードを明示的に渡し、シーン探索・新規ノード生成・状態の保持はしません。
+- エフェクト残時間は前段階で切り出した `sera_combat_timers.gd` の純粋減算を共用。表示順は元の`_advance_hit_fx`に保持し、BODY以外の部位演出、親メッシュ静止、コンボ中のBOSS再出現延期（0.01秒）を保護します。
+- PythonとGodotの新規2テストを登録して、全194件をCIで検証します。ゲームv317据置です。
+
 ## v317 main.gd 第7回分割：戦闘タイマーの更新（2026-11-13）
 - `scripts/sera_combat_timers.gd` に戦闘ウィンドウ、スタン・部位ブレイク、ダウン・ガードブレイクの残時間計算と、スタン終了後のゲージ自然減衰を分離しました。毎フレームのDictionary割当を避け、floatで計算します。
 - `main.gd` に`_tick_combo_window_timers`と`_tick_target_recovery_timers`を設け、元の`_physics_process`の位置から呼びます。KO早期return、EN/SH更新→スタン更新→敵攻撃許可、デバッグ表示期限、ダウン解除時の復旧を維持します。

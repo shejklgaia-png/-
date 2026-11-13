@@ -45,7 +45,11 @@ assert 'target_mesh.position = Vector3.ZERO' in advance
 assert 'target_mesh.rotation_degrees.z = 0.0' in advance
 assert 'target_mesh.position.x = sin(' not in advance
 assert 'target_mesh.rotation_degrees.z = sin(' not in advance
-assert 'target_material.albedo_color = Color("e53935").lerp(' in advance
+# v317 Stage8 owns the exact BODY color curve in the presentation module.
+present = read("scripts/sera_hit_fx_presentation.gd")
+assert 'HIT_FX_PRESENTATION.present_target_body_flash(' in advance
+assert 'material.albedo_color = Color("e53935").lerp(' in present
+assert 'material.emission_energy_multiplier = lerpf(0.08, 0.03, ratio)' in present
 local=part.split('func _set_part_hit_visual(id: String, ratio: float) -> void:',1)[1].split(
     'func advance_part_hit_fx(',1)[0]
 assert 'var part: Dictionary = parts[id]' in local
