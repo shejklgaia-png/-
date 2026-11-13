@@ -53,3 +53,6 @@ Historical instructions and v102–v292 decisions remain available at `docs/hist
 
 ## v317 staged BOOST state extraction
 - `scripts/sera_boost_state.gd` owns stateless RUN/BOOST finger-distance hysteresis and 0.20s speed transition calculations. Main keeps mutable gesture/transition variables, scene pointer, EN eligibility, equipment multipliers, UI/rig effects and method entry points. Do not alter thresholds, confirmation, mid-blend reversal or 60% EN recovery semantics.
+
+## v317 staged EN/SH resource-rules extraction
+- `scripts/sera_resource_rules.gd` owns pure EN spending decisions, recovery-pause decay, EN/SH regeneration and 60%-of-max exhaustion unlock tests. Main still owns live resources, scene/UI updates, exhaustion flashing, equipment costs, KO/down/guard-break sequencing, and the final depleted BOOST sliver exhaustion side effect. Rates and thresholds remain defined by current main callers; do not re-order pause decay/recovery within a frame.
