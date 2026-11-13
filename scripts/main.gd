@@ -123,14 +123,14 @@ const JUMP_AIR_STEER_SPEED_FACTOR: float = 0.30  # ground RUN speed; never boost
 const JUMP_GRAVITY: float = 8.0 * JUMP_HEIGHT / (JUMP_FLIGHT_SECONDS * JUMP_FLIGHT_SECONDS)
 # Authored clip's fall pose begins at the 0.20833s key of its 0.375s duration.
 const JUMP_FALL_CLIP_START: float = 0.20833 / 0.375
-# v314: all 360-degree dodge STEP directions travel 5m at base 15m/s,
+# v318: all 360-degree dodge STEP directions travel 4m at base 15m/s,
 # independent of lock target/distance. Equipment multipliers still apply.
 # Side-kick follow-up retains its separate original 3m/10m/s timing.
-const BACK_STEP_DISTANCE: float = 5.0
-const STEP_FORWARD_DISTANCE: float = 5.0
-const STEP_SIDE_DISTANCE: float = 5.0
-# v315: a launch displacement of up to 1m is included in the full 5m STEP.
-const STEP_LAUNCH_WARP_DISTANCE: float = 1.0
+const BACK_STEP_DISTANCE: float = 4.0
+const STEP_FORWARD_DISTANCE: float = 4.0
+const STEP_SIDE_DISTANCE: float = 4.0
+# v318: the swept launch warp is included in the full 4m STEP.
+const STEP_LAUNCH_WARP_DISTANCE: float = 0.3
 const STEP_LAUNCH_FX_SECONDS: float = 0.05
 const STEP_SPEED: float = 15.0  # m/s, equipment-adjusted
 const SIDE_KICK_STEP_SPEED: float = 10.0  # preserve legacy combo kick timing
@@ -139,9 +139,9 @@ const STEP_CLOSE_SPEED: float = 8.0
 const STEP_CLOSE_SURFACE_DISTANCE: float = 2.0
 const STEP_FALLOFF_START_SURFACE_DISTANCE: float = 5.0
 const STEP_ORBIT_ANGLE_DEGREES: float = 35.0  # legacy-only reference
-const STEP_MIN_ARC_LENGTH: float = 5.0
-const STEP_MAX_ARC_LENGTH: float = 5.0
-const STEP_MAX_DURATION: float = 0.50  # 5m / 15m/s = ~0.333s
+const STEP_MIN_ARC_LENGTH: float = 4.0
+const STEP_MAX_ARC_LENGTH: float = 4.0
+const STEP_MAX_DURATION: float = 0.50  # 4m / 15m/s = ~0.267s
 const STEP_MIN_ORBIT_RADIUS: float = 0.10  # tangent is unstable at the exact center
 const STEP_CLOSE_ORBIT_MAX_DEGREES: float = 120.0  # prevent circular loops when overlapping target
 # v82: At point-blank range the player may orbit around the target rapidly.
@@ -167,6 +167,17 @@ const CAMERA_PLAYER_FOCUS_FOLLOW_RATE: float = 15.0
 const CAMERA_PLAYER_FOCUS_MAX_LAG_METERS: float = 0.65
 const CAMERA_PLAYER_YAW_FOLLOW_RATE: float = 10.0
 const CAMERA_PLAYER_YAW_MAX_LAG_DEGREES: float = 12.0
+# v318: lateral room applies to yaw only. Translational / zoom sensitivity
+# and the existing 10/s response outside this room remain unchanged.
+const CAMERA_NORMAL_SIDE_ROOM_DEGREES: float = 22.0
+const CAMERA_YAW_SMOOTH_MAX_TURN_DEGREES_PER_SECOND: float = 300.0
+const CAMERA_STEP_ENTRY_SECONDS: float = 0.07
+const CAMERA_STEP_RECOVERY_HOLD_SECONDS: float = 0.06
+const CAMERA_STEP_RECOVERY_TOTAL_SECONDS: float = 0.30
+const CAMERA_MELEE_FOLLOW_ACCEL_SECONDS: float = 0.65
+const CAMERA_MELEE_FOLLOW_RELEASE_SECONDS: float = 0.18
+const CAMERA_MELEE_FOCUS_PEAK_RATE: float = 27.0
+const CAMERA_MELEE_YAW_PEAK_RATE: float = 20.0
 const CAMERA_COMBAT_MIN_RADIUS: float = 11.3
 const CAMERA_COMBAT_ZOOM_OUT_SPEED: float = 8.0
 # v286: minimum safe target->SERA orbit radius includes the wide outer
@@ -508,6 +519,10 @@ var step_close_camera: bool = false
 # Shared across _physics_process and _process. Avoid a cross-function local.
 var close_step_camera_this_frame: bool = false
 var close_step_camera_recovery_remaining: float = 0.0
+var camera_step_entry_elapsed: float = CAMERA_STEP_ENTRY_SECONDS
+var camera_step_recovery_elapsed: float = CAMERA_STEP_RECOVERY_TOTAL_SECONDS
+var camera_step_recovery_active: bool = false
+var camera_melee_follow_weight: float = 0.0
 var step_traveled_distance: float = 0.0  # Measured, not the intended orbit length.
 var step_last_elapsed: float = 0.0
 var step_has_last: bool = false
@@ -3149,6 +3164,8 @@ func _start_omni_step(flick: Vector2) -> bool:
         or (absf(pose_direction.x) > 0.001
             and _distance_to_cube_surface(player.position) <= STEP_CLOSE_CAMERA_SURFACE_DISTANCE))
     close_step_camera_recovery_remaining = 0.0
+    camera_step_recovery_active = false
+    camera_step_entry_elapsed = 0.0
     if jump_active:
         jump_horizontal_velocity = Vector3.ZERO
     step_active = true
@@ -3201,7 +3218,7 @@ func _start_omni_step(flick: Vector2) -> bool:
         var actual_launch: Vector3 = player.global_position - launch_origin
         var launch_distance: float = Vector2(
             actual_launch.x, actual_launch.z).length()
-        # Keep the original 5m path and 15m/s clock. Advancing the clock by
+        # Keep the total 4m path and 15m/s clock. Advancing the clock by
         # the launch fraction prevents the following tick from snapping back
         # to the pre-warp interpolation point or counting a sixth meter.
         step_traveled_distance = launch_distance
@@ -3324,6 +3341,11 @@ func _finish_side_step(resume_moving: bool) -> void:
         return
     step_last_elapsed = step_elapsed
     step_has_last = true
+    # Side-kick motion belongs to the melee chain, not the ordinary STEP
+    # recovery. Only normal dodges trigger the 0.30-second yaw ramp.
+    if not side_kick_active:
+        camera_step_recovery_elapsed = 0.0
+        camera_step_recovery_active = true
     step_active = false
     side_kick_active = false
     side_kick_side = 0
@@ -4493,6 +4515,7 @@ func _process(delta: float) -> void:
     if sword_trail != null:
         sword_trail.call("advance", delta, hit_stop_remaining > 0.0)
     _advance_hit_fx(delta)
+    _advance_camera_response_profile(delta)
     if hit_stop_remaining > 0.0:
         _update_target_marker_projection()  # Still track externally moving targets during hit-stop.
         _update_motion_blur(delta)
@@ -4636,21 +4659,21 @@ func _process(delta: float) -> void:
         and not step_active and
         (movement_boost_active or boost_pose_grace_remaining > 0.0))
     if hold_attack_camera or step_active or close_step_camera_this_frame:
-        # Only ordinary screen-relative STEP freezes yaw for its short
-        # committed trajectory. Kick/Strike/Bash/Somersault keep tracking
-        # SERA under the 12deg hard angular leash even during attacks.
-        if (not step_active or side_kick_active) and separation > 0.08:
-            camera_yaw = _stable_shoulder_camera_yaw(bearing, delta)
+        # Dodge starts with a short fade out of angular response, then the
+        # same camera recovers after a brief beat. Combo kicks retain
+        # continuous melee tracking, including their orbit and followups.
+        if separation > 0.08:
+            camera_yaw = _adaptive_camera_yaw(bearing, delta)
         _place_camera()
         _update_side_from_screen()
     elif protect_close_step and separation > 0.08:
         # An ordinary close STEP may gently recover, never with the old
         # frame-by-frame silhouette-search or sudden 45deg corrections.
-        camera_yaw = _stable_shoulder_camera_yaw(bearing, delta)
+        camera_yaw = _adaptive_camera_yaw(bearing, delta)
         _place_camera()
         _update_side_from_screen()
     elif running:
-        camera_yaw = _stable_shoulder_camera_yaw(bearing, delta)
+        camera_yaw = _adaptive_camera_yaw(bearing, delta)
         _place_camera()
         _update_side_from_screen()
         if not close_boost_camera_active and not boost_edge_frame_guard \
@@ -4660,7 +4683,12 @@ func _process(delta: float) -> void:
         # Never snap behind a leg or abruptly switch the camera shoulder
         # after an attack. Use one continuous, low-speed idle follow.
         if separation > 0.08:
-            camera_yaw = _stable_shoulder_camera_yaw(bearing, delta)
+            # Hard-leash fallback is kept for damage displacement outside STEP
+            # recovery; ordinary idle/side movement never snaps to the target.
+            if damage_reaction_active and not camera_step_recovery_active:
+                camera_yaw = _stable_shoulder_camera_yaw(bearing, delta)
+            else:
+                camera_yaw = _adaptive_camera_yaw(bearing, delta)
         _place_camera()
         if not close_boost_camera_active and not boost_edge_frame_guard \
                 and separation > CAMERA_COMBAT_VISIBILITY_DISTANCE:
@@ -4709,11 +4737,64 @@ func _advance_camera_follow_focus(delta: float) -> void:
     var desired: Vector2 = _desired_camera_follow_focus_xz()
     camera_focus_follow_xz = CAMERA_MATH.advance_follow_focus(
         camera_focus_follow_xz, desired, delta,
-        CAMERA_PLAYER_FOCUS_FOLLOW_RATE, CAMERA_PLAYER_FOCUS_MAX_LAG_METERS)
+        lerpf(CAMERA_PLAYER_FOCUS_FOLLOW_RATE, CAMERA_MELEE_FOCUS_PEAK_RATE,
+            camera_melee_follow_weight), CAMERA_PLAYER_FOCUS_MAX_LAG_METERS)
 
-# The same short-delay angular leash follows SERA through 3-hit combos.
-# At >12deg error, track at SERA's angular speed, never letting the view
-# fall to 90deg sideways. Ordinary STEP input retains its locked yaw.
+# Carry combo tracking through Melee1-3, Katana, Bash and side/back flick
+# followups, including the open link windows between attacks. Weight changes
+# only once per render frame, never at a strike boundary.
+func _advance_camera_response_profile(delta: float) -> void:
+    var chain_active: bool = (combat_state != CombatState.IDLE
+        or side_kick_active or back_somersault_active
+        or (landing_active and landing_from_somersault)
+        or _combo_followup_input_window_open())
+    var transition_seconds: float = (
+        CAMERA_MELEE_FOLLOW_ACCEL_SECONDS if chain_active
+        else CAMERA_MELEE_FOLLOW_RELEASE_SECONDS)
+    camera_melee_follow_weight = move_toward(
+        camera_melee_follow_weight, 1.0 if chain_active else 0.0,
+        maxf(0.0, delta) / transition_seconds)
+    if step_active and not side_kick_active:
+        camera_step_entry_elapsed = minf(CAMERA_STEP_ENTRY_SECONDS,
+            camera_step_entry_elapsed + maxf(0.0, delta))
+    elif camera_step_recovery_active:
+        camera_step_recovery_elapsed = minf(
+            CAMERA_STEP_RECOVERY_TOTAL_SECONDS,
+            camera_step_recovery_elapsed + maxf(0.0, delta))
+        if camera_step_recovery_elapsed >= CAMERA_STEP_RECOVERY_TOTAL_SECONDS:
+            camera_step_recovery_active = false
+
+
+func _adaptive_camera_yaw(player_bearing: float, delta: float) -> float:
+    # Side room allows SERA to move to either side of the boss on screen
+    # without the yaw immediately cancelling that movement. Outside the
+    # room the original 10/s sensitivity is retained.
+    var moving: bool = (direction_input.length_squared() > 0.000001
+        or movement_boost_active or step_active)
+    var side_room: float = (
+        CAMERA_NORMAL_SIDE_ROOM_DEGREES if moving else 0.0)
+    side_room *= 1.0 - camera_melee_follow_weight
+    var follow_rate: float = lerpf(
+        CAMERA_PLAYER_YAW_FOLLOW_RATE, CAMERA_MELEE_YAW_PEAK_RATE,
+        camera_melee_follow_weight)
+    if not moving and camera_melee_follow_weight <= 0.00001:
+        follow_rate = CAMERA_IDLE_RECENTER_RATE
+    var response: float = 1.0
+    if step_active and not side_kick_active:
+        response = 1.0 - CAMERA_MATH.smooth_response(
+            camera_step_entry_elapsed / CAMERA_STEP_ENTRY_SECONDS)
+    elif camera_step_recovery_active:
+        response = CAMERA_MATH.step_recovery_response(
+            camera_step_recovery_elapsed, CAMERA_STEP_RECOVERY_HOLD_SECONDS,
+            CAMERA_STEP_RECOVERY_TOTAL_SECONDS)
+    return CAMERA_MATH.follow_yaw_with_side_room(
+        camera_yaw, player_bearing, delta, CAMERA_COMBAT_SHOULDER_DEGREES,
+        follow_rate * response, side_room,
+        CAMERA_YAW_SMOOTH_MAX_TURN_DEGREES_PER_SECOND)
+
+
+# Retained for legacy hard-leash diagnostics; live camera uses the smooth
+# angular response above to avoid frame-long snaps after a 4m STEP.
 func _stable_shoulder_camera_yaw(player_bearing: float, delta: float) -> float:
     return CAMERA_MATH.stable_shoulder_yaw(
         camera_yaw, player_bearing, delta, CAMERA_COMBAT_SHOULDER_DEGREES,
