@@ -23,7 +23,7 @@ assert render.count('if not close_boost_camera_active and not boost_edge_frame_g
 assert render.count('_enforce_screen_edge(bearing, delta)') == 2
 assert '    if boost_edge_frame_guard:\n' in render
 assert '        _fit_boost_frame_analytically(delta)' in render
-assert '    else:\n        _fit_full_frame()\n        if not hold_attack_camera:\n            _relax_camera_fit_radius(delta)' in render
+assert '    else:\n        _fit_full_frame()\n        _relax_camera_fit_radius(delta)' in render
 assert render.count('_fit_boost_frame_analytically(delta)') == 1
 # v287/v288 use one stable yaw follower instead of the old frame-edge lerp.
 assert 'camera_yaw = _stable_shoulder_camera_yaw(bearing, delta)' in render
@@ -44,7 +44,7 @@ for token in (
     'for lateral in [-CAMERA_SAFE_CORE_HALF_WIDTH, 0.0, CAMERA_SAFE_CORE_HALF_WIDTH]:',
     'for height in [CAMERA_HEAD_HEIGHT, 0.08]:',
     'for dx in [-TARGET_FRAME_HALF_WIDTH, TARGET_FRAME_HALF_WIDTH]:',
-    'for dy in [-TARGET_FRAME_HALF_HEIGHT, TARGET_FRAME_HALF_HEIGHT]:',
+    'for dy in [-TARGET_FRAME_HALF_HEIGHT - TARGET_CAMERA_BOB_ENVELOPE,\n                TARGET_FRAME_HALF_HEIGHT + TARGET_CAMERA_BOB_ENVELOPE]:',
     'for dz in [-TARGET_FRAME_HALF_DEPTH, TARGET_FRAME_HALF_DEPTH]:',
     'var safe_radius: float = (_minimum_boost_camera_radius()',
     'camera_fit_radius_floor = move_toward(camera_fit_radius_floor,',

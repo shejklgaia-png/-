@@ -33,7 +33,7 @@ for key in ("const TARGET_FRAME_HALF_WIDTH: float = 2.35",
             "const TARGET_FRAME_HALF_DEPTH: float = 2.35"):
     assert key in main, key
 assert main.count("for dx in [-TARGET_FRAME_HALF_WIDTH, TARGET_FRAME_HALF_WIDTH]:") == 3
-assert main.count("for dy in [-TARGET_FRAME_HALF_HEIGHT, TARGET_FRAME_HALF_HEIGHT]:") == 2
+assert main.count("for dy in [-TARGET_FRAME_HALF_HEIGHT - TARGET_CAMERA_BOB_ENVELOPE,\n                TARGET_FRAME_HALF_HEIGHT + TARGET_CAMERA_BOB_ENVELOPE]:") == 2
 assert main.count("for dz in [-TARGET_FRAME_HALF_DEPTH, TARGET_FRAME_HALF_DEPTH]:") == 3
 assert "camera_target_render_position = target.get_global_transform_interpolated().origin" in main
 

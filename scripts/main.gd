@@ -265,6 +265,8 @@ const CAMERA_FIT_RADIUS_RESERVE: float = 0.12
 const CAMERA_CLOSE_BOOST_ENTER_DISTANCE: float = 6.0
 const CAMERA_CLOSE_BOOST_EXIT_DISTANCE: float = 7.5
 const CAMERA_FIT_RELAX_SPEED: float = 1.25
+const CAMERA_ZOOM_RECOVERY_RATE: float = 3.0
+const TARGET_CAMERA_BOB_ENVELOPE: float = 0.07
 # v234: responsive but slightly trailing camera dolly as the player closes
 # distance to the target. These govern zoom IN only, never safety zoom OUT.
 const CAMERA_NEAR_DOLLY_BLEND_START: float = 8.0
@@ -4573,10 +4575,9 @@ func _process(delta: float) -> void:
     elif active_boost_travel and separation <= CAMERA_CLOSE_BOOST_ENTER_DISTANCE:
         close_boost_camera_active = true
 
-    # A combo or committed kick holds camera ZOOM, not its orientation.
-    # Continue tracking SERA in position and yaw with v288's short-delay
-    # leashes. Keep the zoom hold 0.45s after the final blow to prevent
-    # back-to-back attack dolly pumping.
+    # A combo or committed kick uses a stable combat zoom target while
+    # still recovering excess distance from earlier frame-fit expansion.
+    # Retain this composition 0.45s after the final blow.
     var active_attack_camera: bool = (
         combat_state != CombatState.IDLE
         or side_kick_active or back_somersault_active
@@ -4621,14 +4622,11 @@ func _process(delta: float) -> void:
         3.0 - 2.0 * camera_near_dolly_weight)
     var follow_easing: float = easing * 0.9
     if hold_attack_camera:
-        # Never run the velocity-reactive inward dolly during individual
-        # strikes: intermittent contact and hit-stop previously caused
-        # a different camera distance at every attack. Only move OUT,
-        # smoothly, to a modest frame-safe radius. _fit_full_frame may
-        # still expand if actual objects approach a viewport boundary.
+        # Recover toward a stable combat composition in either direction;
+        # a prior forced zoom must not remain latched throughout a combo.
         camera_follow_radius = move_toward(
             camera_follow_radius,
-            maxf(camera_follow_radius, CAMERA_COMBAT_MIN_RADIUS * CAMERA_DISTANCE_SCALE),
+            maxf(preferred_radius, CAMERA_COMBAT_MIN_RADIUS * CAMERA_DISTANCE_SCALE),
             CAMERA_COMBAT_ZOOM_OUT_SPEED * maxf(delta, 0.0))
         camera_dolly_in_speed = 0.0
         camera_filtered_closing_speed = 0.0
@@ -4637,7 +4635,8 @@ func _process(delta: float) -> void:
         var old_inward_speed: float = distance_to_preferred * follow_easing / delta
         var near_inward_speed: float = maxf(
             CAMERA_NEAR_DOLLY_SETTLE_SPEED,
-            camera_filtered_closing_speed * CAMERA_NEAR_DOLLY_PLAYER_SPEED_RATIO)
+            maxf(camera_filtered_closing_speed * CAMERA_NEAR_DOLLY_PLAYER_SPEED_RATIO,
+                distance_to_preferred * CAMERA_ZOOM_RECOVERY_RATE))
         var requested_inward_speed: float = lerpf(
             old_inward_speed, near_inward_speed, camera_near_dolly_weight)
         if camera_near_dolly_weight <= 0.00001:
@@ -4719,8 +4718,7 @@ func _process(delta: float) -> void:
         _fit_boost_frame_analytically(delta)
     else:
         _fit_full_frame()
-        if not hold_attack_camera:
-            _relax_camera_fit_radius(delta)
+        _relax_camera_fit_radius(delta)
     _place_camera()
 
     # Do NOT override depth testing or render priority for the target.
@@ -4948,6 +4946,13 @@ func _camera_radius_for_safe_point(point: Vector3, focus: Vector3,
         point, focus, screen_right, screen_up, outward, radial_scale,
         tan_h, tan_v, margin_x, margin_top, margin_bottom, camera.near)
 
+# Fit the complete idle hover envelope instead of chasing its phase.
+# Keep the live interpolated target for locks, markers and hit detection.
+func _camera_target_frame_center() -> Vector3:
+    return Vector3(camera_target_render_position.x, TARGET_BASE_HEIGHT,
+        camera_target_render_position.z)
+
+
 func _minimum_boost_camera_radius() -> float:
     var viewport_size: Vector2 = get_viewport().get_visible_rect().size
     if viewport_size.x <= 0.0 or viewport_size.y <= 0.0:
@@ -4982,10 +4987,11 @@ func _minimum_boost_camera_radius() -> float:
             screen_right, screen_up, outward, radial_scale, tan_h, tan_v,
             0.0, SCREEN_MARGIN_TOP, SCREEN_MARGIN_BOTTOM))
     for dx in [-TARGET_FRAME_HALF_WIDTH, TARGET_FRAME_HALF_WIDTH]:
-        for dy in [-TARGET_FRAME_HALF_HEIGHT, TARGET_FRAME_HALF_HEIGHT]:
+        for dy in [-TARGET_FRAME_HALF_HEIGHT - TARGET_CAMERA_BOB_ENVELOPE,
+                TARGET_FRAME_HALF_HEIGHT + TARGET_CAMERA_BOB_ENVELOPE]:
             for dz in [-TARGET_FRAME_HALF_DEPTH, TARGET_FRAME_HALF_DEPTH]:
                 min_radius = maxf(min_radius, _camera_radius_for_safe_point(
-                    camera_target_render_position + Vector3(dx, dy, dz), focus,
+                    _camera_target_frame_center() + Vector3(dx, dy, dz), focus,
                     screen_right, screen_up, outward, radial_scale, tan_h, tan_v,
                     TARGET_FRAME_MARGIN_X, TARGET_FRAME_MARGIN_Y,
                     TARGET_FRAME_BOTTOM))
@@ -4997,8 +5003,10 @@ func _camera_fit_release_speed() -> float:
     # safety radius. A fixed 1.25m/s release would otherwise leave the camera
     # far behind the player's approach even after the follow dolly speeds up.
     # This does not relax a minimum frame-safe radius.
-    return maxf(CAMERA_FIT_RELAX_SPEED,
-        camera_dolly_in_speed * camera_near_dolly_weight)
+    return maxf(CAMERA_FIT_RELAX_SPEED, maxf(
+        camera_dolly_in_speed * camera_near_dolly_weight,
+        (camera_fit_radius_floor - _minimum_boost_camera_radius()
+            - CAMERA_FIT_RADIUS_RESERVE) * CAMERA_ZOOM_RECOVERY_RATE))
 
 
 func _fit_boost_frame_analytically(delta: float) -> void:
@@ -5110,9 +5118,10 @@ func _target_fully_in_frame() -> bool:
     if size.x <= 0.0 or size.y <= 0.0:
         return true
     for dx in [-TARGET_FRAME_HALF_WIDTH, TARGET_FRAME_HALF_WIDTH]:
-        for dy in [-TARGET_FRAME_HALF_HEIGHT, TARGET_FRAME_HALF_HEIGHT]:
+        for dy in [-TARGET_FRAME_HALF_HEIGHT - TARGET_CAMERA_BOB_ENVELOPE,
+                TARGET_FRAME_HALF_HEIGHT + TARGET_CAMERA_BOB_ENVELOPE]:
             for dz in [-TARGET_FRAME_HALF_DEPTH, TARGET_FRAME_HALF_DEPTH]:
-                var world_corner: Vector3 = camera_target_render_position + Vector3(dx, dy, dz)
+                var world_corner: Vector3 = _camera_target_frame_center() + Vector3(dx, dy, dz)
                 if camera.is_position_behind(world_corner):
                     return false
                 var projected: Vector2 = camera.unproject_position(world_corner)
