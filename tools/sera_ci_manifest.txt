@@ -240,3 +240,6 @@ gd tools/v328_lock_ui_landing_camera_runtime_check.gd
 
 py tools/v329_facing_flick_camera_margin_self_check.py
 gd tools/v329_facing_flick_camera_margin_runtime_check.gd
+
+py tools/v330_restore_camera_self_check.py
+gd tools/v330_restore_camera_runtime_check.gd
