@@ -1,3 +1,8 @@
+## v317 main.gd 第7回分割：戦闘タイマーの更新（2026-11-13）
+- `scripts/sera_combat_timers.gd` に戦闘ウィンドウ、スタン・部位ブレイク、ダウン・ガードブレイクの残時間計算と、スタン終了後のゲージ自然減衰を分離しました。毎フレームのDictionary割当を避け、floatで計算します。
+- `main.gd` に`_tick_combo_window_timers`と`_tick_target_recovery_timers`を設け、元の`_physics_process`の位置から呼びます。KO早期return、EN/SH更新→スタン更新→敵攻撃許可、デバッグ表示期限、ダウン解除時の復旧を維持します。
+- v317据置、CI登録192件（新規静的1件・Godot実シーン1件）。Android実機の見た目は未確認です。
+
 ## v317 main.gd 第6回分割：EN・シールドの純粋な状態計算（2026-11-13）
 - `scripts/sera_resource_rules.gd` にEN消費の可否と残量計算、回復待ちタイマー減算、ENとSHの回復演算、60％のEN再使用解禁条件を分離しました。
 - `main.gd` に現在値、EN枯渇時の点滅・演出、BOOST枯渇寸前の特殊処理、ガードブレイク/ダウン等の時間順序、HUD更新を保持します。24EN/s、16SH/s、0.25秒待機、0.0001の判定幅と60％解禁を変えずに渡します。
