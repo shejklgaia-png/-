@@ -6,7 +6,7 @@ root = Path(__file__).resolve().parents[1]
 rig = (root / "scripts/sera_rig.gd").read_text(encoding="utf-8")
 main = (root / "scripts/main.gd").read_text(encoding="utf-8")
 project = (root / "project.godot").read_text(encoding="utf-8")
-assert re.search(r'config/name="SERA v306"', project)
+assert int(re.search(r'config/name="SERA v(\d+)"', project).group(1)) >= 306
 assert 'const KATANA_APPROACH_BLEND_SECONDS: float = 0.20' in rig
 assert 'rig.call("start_melee_approach", _katana_equipped())' in main
 assert 'func start_melee_approach(katana_equipped: bool = false)' in rig
