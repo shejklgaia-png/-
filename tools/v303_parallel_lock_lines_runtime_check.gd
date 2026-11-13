@@ -100,24 +100,19 @@ func _run() -> void:
     camera.global_position=center+Vector3(7.0,3.0,7.0)
     camera.look_at(center,Vector3.UP)
     game.call("_acquire_stable_camera_part",0.016,false)
-    if str(game.get("locked_target_part_id"))!="head":
-        _fail("temporary one-sided loss instantly changed lock")
+    if not str(game.get("locked_target_part_id")).is_empty():
+        _fail("rear BODY candidate did not replace HEAD immediately")
         return
     player.global_position=front
-    game.call("_acquire_stable_camera_part",0.05,false)
+    game.call("_acquire_stable_camera_part",0.016,false)
     if str(game.get("locked_target_part_id"))!="head" \
             or str(game.get("auto_lock_pending_part"))!="":
-        _fail("candidate recovered but pending switch did not reset")
+        _fail("frontal HEAD did not reacquire immediately or stale timer survived")
         return
     player.global_position=rear
     game.call("_acquire_stable_camera_part",0.016,false)
-    game.call("_acquire_stable_camera_part",0.10,false)
-    if str(game.get("locked_target_part_id"))!="head":
-        _fail("single hit confirmed a premature switch")
-        return
-    game.call("_acquire_stable_camera_part",0.13,false)
     if not str(game.get("locked_target_part_id")).is_empty():
-        _fail("stable BODY candidate failed to replace HEAD")
+        _fail("re-entered rear BODY was not selected instantly")
         return
     # Moving only the camera is irrelevant to this geometric decision.
     player.global_position=rear
