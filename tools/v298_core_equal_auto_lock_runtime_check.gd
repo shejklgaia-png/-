@@ -25,8 +25,8 @@ func _run() -> void:
         return
     var game: Node3D = scene.instantiate()
     # Historic geometry test: SERA is positioned at the synthetic ray origin.
-    var player: CharacterBody3D = game.get("player")
     root.add_child(game)
+    var player: CharacterBody3D = game.get("player")
     var camera: Camera3D = game.get("camera")
     var target: Node3D = game.get("target")
     var parts: Node3D = game.get("target_parts")
