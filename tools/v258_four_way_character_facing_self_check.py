@@ -16,8 +16,10 @@ assert (R/"docs/history/release_notes/README_v258_ja.md").exists()
 assert "CURRENT flick policy — v258" in read("docs/history/AGENTS_THROUGH_V316.md")
 assert "v258 — 現行仕様" in read("docs/SERA_INPUT_MOVEMENT_CAMERA.md")
 for tok in ("const SECTOR_COUNT: int = 4","const SECTOR_ANGLE: float = TAU / 4.0",
-            "static func projected_forward(camera: Camera3D, actor: Node3D) -> Vector2:",
+            "static func projected_forward(camera: Camera3D, actor: Node3D,",
             "-actor.global_transform.basis.z",
+            "visual_pivot: Node3D = null",
+            "forward_world = visual_forward",
             "camera.unproject_position(to_world) - camera.unproject_position(from_world)",
             "static func sector_index(displacement: Vector2, screen_axis: Vector2) -> int:",
             "static func four_way_direction(displacement: Vector2, screen_axis: Vector2) -> Vector2:",
@@ -34,9 +36,9 @@ drag=m.split("func _change_drag(",1)[1].split("func _update_boost_gesture(",1)[0
 release=m.split("func _end_drag(",1)[1].split("func _remember_jump_flick_sample(",1)[0]
 step=m.split("func _classify_step_flick(",1)[1].split("func _start_omni_step(",1)[0]
 omni=m.split("func _start_omni_step(",1)[1].split("func _start_back_step(",1)[0]
-assert "gesture_screen_forward = FLICK_DIRECTION_POLICY.projected_forward(camera, player)" in start
-assert "gesture_screen_forward = FLICK_DIRECTION_POLICY.projected_forward(camera, player)" in drag
-assert "gesture_screen_forward = FLICK_DIRECTION_POLICY.projected_forward(camera, player)" in release
+assert "gesture_screen_forward = _projected_sera_facing()" in start
+assert "gesture_screen_forward = _projected_sera_facing()" in drag
+assert "gesture_screen_forward = _projected_sera_facing()" in release
 assert "guard_flick_axis_captured = true" in drag
 assert "INPUT_GESTURES.step_flick(" in step
 assert "return FLICK_DIRECTION_POLICY.screen_step_direction(displacement)" in SERA_INPUT

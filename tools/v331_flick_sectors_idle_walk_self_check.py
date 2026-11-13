@@ -16,7 +16,8 @@ assert 'FLICK_SECTOR_FOLLOW_RATE: float = 24.0' in ui
 assert 'func set_flick_sector_forward(' in ui
 assert 'flick_sector_forward.rotated(float(posmod(sector, FLICK_SECTOR_COUNT))' in ui
 assert 'gesture_screen_forward if frozen_axis' in main
-assert 'FLICK_DIRECTION_POLICY.projected_forward(camera, player)' in main
+assert 'FLICK_DIRECTION_POLICY.projected_forward(' in main
+assert 'rig.call("get_visible_facing_pivot") as Node3D' in main
 assert 'touch_ui.call("set_flick_sector_forward", gesture_screen_forward, 0.0, true)' in main
 assert 'touch_ui.call("set_flick_sector_forward", facing, delta, frozen_axis)' in main
 assert 'WAIT_RUN_LANDING_SECONDS: float = 0.20' in rig

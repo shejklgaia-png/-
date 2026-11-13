@@ -4,11 +4,23 @@ extends RefCounted
 const SECTOR_COUNT: int = 4
 const SECTOR_ANGLE: float = TAU / 4.0
 
-static func projected_forward(camera: Camera3D, actor: Node3D) -> Vector2:
+# The controller must use the VISIBLE SERA's projected front, not only
+# CharacterBody3D's target-facing collision root. During RUN the rendered
+# Waist, upper body and head have independent authored/procedural yaw.
+# visual_pivot is the actual head/upper-body Node3D sampled after rig pose.
+# The fallback keeps old callers and missing/unloaded rigs operational.
+static func projected_forward(camera: Camera3D, actor: Node3D,
+        visual_pivot: Node3D = null) -> Vector2:
     if camera == null or actor == null:
         return Vector2.UP
     var from_world: Vector3 = actor.global_position + Vector3.UP * 1.05
     var forward_world: Vector3 = -actor.global_transform.basis.z
+    if is_instance_valid(visual_pivot):
+        var visual_forward: Vector3 = -visual_pivot.global_transform.basis.z
+        visual_forward.y = 0.0
+        if visual_forward.length_squared() > 0.0001:
+            from_world = visual_pivot.global_position
+            forward_world = visual_forward
     forward_world.y = 0.0
     if forward_world.length_squared() < 0.000001:
         return Vector2.UP

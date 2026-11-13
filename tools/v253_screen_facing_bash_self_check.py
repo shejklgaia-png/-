@@ -12,7 +12,7 @@ begin=m.split("func _begin_drag(",1)[1].split("func _analog_stick_direction(",1)
 drag=m.split("func _change_drag(",1)[1].split("func _update_boost_gesture(",1)[0]
 release=m.split("func _end_drag(",1)[1].split("func _remember_jump_flick_sample(",1)[0]
 classify=m.split("func _is_character_forward_flick(",1)[1].split("func _is_upward_jump_flick(",1)[0]
-assert 'gesture_screen_forward = FLICK_DIRECTION_POLICY.projected_forward(camera, player)' in begin
+assert 'gesture_screen_forward = _projected_sera_facing()' in begin
 assert "var gesture_screen_forward: Vector2 = Vector2.UP" in m
 assert "not FLICK_DIRECTION_POLICY.within_sector(" in drag
 assert "displacement, gesture_screen_forward, STEP_FLICK_MAX_HORIZONTAL_RATIO" in drag

@@ -47,7 +47,7 @@ require("kick sectors rotate with projected SERA facing",
         "func _combo_kick_side_for_flick(flick: Vector2) -> int:" in main
         and "return INPUT_GESTURES.combo_kick_side(flick, gesture_screen_forward)" in main
         and "flick, actor_screen_forward)" in SERA_INPUT
-        and "gesture_screen_forward = FLICK_DIRECTION_POLICY.projected_forward(camera, player)" in main
+        and "gesture_screen_forward = _projected_sera_facing()" in main
         and "return 1" in SERA_INPUT
         and "return -1" in SERA_INPUT)
 require("physics uses same swept STEP, not new teleport",

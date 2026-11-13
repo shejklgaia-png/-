@@ -2427,7 +2427,7 @@ func _begin_drag(pos: Vector2) -> void:
     gesture_active = true
     # Use the same camera-projected SERA forward for all gesture decisions.
     # Do not resample during a swipe: camera rotation could switch Kick_l/r.
-    gesture_screen_forward = FLICK_DIRECTION_POLICY.projected_forward(camera, player)
+    gesture_screen_forward = _projected_sera_facing()
     guard_flick_axis_captured = false
     # Preserve third strike while classifying a SERA-forward Bash flick;
     # unrelated drags still cancel attacks as before.
@@ -2485,7 +2485,7 @@ func _change_drag(pos: Vector2) -> void:
         # GUARD may outlast idle camera orbit. Reacquire SERA's visible
         # facing at the final flick onset, then keep it until release.
         if not guard_flick_axis_captured and pos.distance_to(pointer_origin) >= TAP_MAX_TRAVEL:
-            gesture_screen_forward = FLICK_DIRECTION_POLICY.projected_forward(camera, player)
+            gesture_screen_forward = _projected_sera_facing()
             guard_flick_axis_captured = true
             touch_ui.call("set_flick_sector_forward", gesture_screen_forward, 0.0, true)
         pointer_location = pos
@@ -2558,7 +2558,7 @@ func _end_drag(release_pos: Vector2) -> void:
         # If Android coalesces drag into release only, sample the current
         # projected body facing; the touch origin/marker are irrelevant.
         if not guard_flick_axis_captured:
-            gesture_screen_forward = FLICK_DIRECTION_POLICY.projected_forward(camera, player)
+            gesture_screen_forward = _projected_sera_facing()
         var guard_bash_requested: bool = _classify_recent_character_forward_flick() and not keyboard_guard_held
         # A long-held guard responds to a short final facing-direction swipe.
         var guard_flick_origin: Vector2 = pointer_origin
@@ -4810,13 +4810,24 @@ func _process(delta: float) -> void:
 # v288: keep the tracking anchor near SERA, with a short (up to 2m)
 # lead toward the target for composition. At long range it translates
 # with SERA essentially one-for-one instead of orbiting a stationary boss.
+# v332: consume the SAME rendered-bone axis for touch-down Bash/Kick
+# classification and for the rotating red/yellow guide. Head/Chest
+# animation may turn independently of the target-facing collision body.
+func _projected_sera_facing() -> Vector2:
+    var visible_pivot: Node3D = null
+    if rig != null and rig.has_method("get_visible_facing_pivot"):
+        visible_pivot = rig.call("get_visible_facing_pivot") as Node3D
+    return FLICK_DIRECTION_POLICY.projected_forward(
+        camera, player, visible_pivot)
+
+
 func _update_controller_flick_guide(delta: float) -> void:
     if not gesture_active or touch_ui == null:
         return
     var frozen_axis: bool = guard_active or bash_flick_candidate or side_kick_flick_candidate
     var facing: Vector2 = (
         gesture_screen_forward if frozen_axis
-        else FLICK_DIRECTION_POLICY.projected_forward(camera, player))
+        else _projected_sera_facing())
     touch_ui.call("set_flick_sector_forward", facing, delta, frozen_axis)
 
 
