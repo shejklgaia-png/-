@@ -10,6 +10,7 @@ def read(path):
     return (ROOT / path).read_text(encoding="utf-8")
 
 main = read("scripts/main.gd")
+framing = read("scripts/sera_camera_framing.gd")
 version = re.search(r'config/name="SERA v(\d+)"', read("project.godot"))
 assert version and int(version.group(1)) >= 232
 render = main.split("func _process(delta: float) -> void:", 1)[1].split(
@@ -50,7 +51,9 @@ for token in (
     'safe_radius, _camera_fit_release_speed() * maxf(delta, 0.0))',
     'camera_radius = maxf(camera_follow_radius, camera_fit_radius_floor)',
 ):
-    assert token in fit, token
+    assert token in fit or token in framing, token
+assert "CAMERA_FRAMING.required_radius_for_point(" in fit
+assert "camera.near)" in fit
 assert '_horizontal_safe(' not in fit
 assert '_full_frame_safe(' not in fit
 assert '_place_camera()' in fit
