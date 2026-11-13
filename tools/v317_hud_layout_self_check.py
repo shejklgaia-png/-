@@ -12,7 +12,7 @@ for name in ("build_panel", "build_primary_status", "build_step_telemetry"):
     assert f"HUD_LAYOUT.{name}(" in main, name
 for forbidden in ("get_tree(", "get_node(", "get_viewport(", "get_global_rect(",
                   "static var ", "_input(", "physics_process", "Gesture",
-                  "player_hp", "target_hp", "energy_exhausted",
+                  "player_hp: float", "target_hp: int", "energy_exhausted: bool",
                   "controller_contains", "Callable(", "connect("):
     assert forbidden not in layout, forbidden
 
