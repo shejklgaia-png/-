@@ -401,7 +401,7 @@ func apply_part_hit(id: String, raw_attack: float, raw_break: float) -> Dictiona
 # Work in each mesh's local coordinates so target yaw and animated part
 # offsets cannot invalidate the line test. Bounding part AABBs deliberately
 # do NOT count: their empty space contains no lockable geometry.
-# INF means no hit anywhere on the finite CAMERA->BODY-center segment.
+# INF means no hit on the finite origin->BODY-center segment (SERA in AUTO).
 func _camera_center_line_part_distance(camera_origin: Vector3,
         body_center: Vector3, id: String) -> float:
     if not is_targetable(id) or camera_origin.distance_squared_to(body_center) < 0.000001:
@@ -426,11 +426,11 @@ func _camera_center_line_part_distance(camera_origin: Vector3,
         closest = minf(closest,
             camera_origin.distance_squared_to(contact_world))
     # v299: the original v297 upper-only cap overlapped the central torso.
-    # Typical camera rays entered BODY first whenever they passed below that
+    # Shallow sightlines entered BODY first whenever they passed below that
     # shallow cap, hiding HEAD despite its 1m vertical extension.
     # One head-only virtual AABB covers the original head extent, the same
     # 1m overhang above it, and 0.85m forward from its +Z face. This makes
-    # frontal camera rays meet HEAD in front of the BODY without any special
+    # frontal SERA-origin segments meet HEAD before BODY without any special
     # lock priority. No rendered mesh, attack hitbox or collider is changed.
     if id == "head":
         var head_size: Vector3 = parts[id]["size"]
@@ -451,7 +451,7 @@ func _camera_center_line_part_distance(camera_origin: Vector3,
 # v298: The BODY is a real sixth selectable mesh, not an unconditional
 # fallback. FloatingBox is the parent of the breakable parts and owns the
 # authoritative 2m x 2m x 3.4m visible BoxMesh. Use the identical local-space
-# finite-segment intersection and camera-distance score used by head/legs.
+# finite-segment intersection and origin-distance score used by head/legs.
 # The empty part ID is retained as BODY for HUD, damage and save compatibility.
 func _camera_center_line_body_distance(camera_origin: Vector3,
         body_center: Vector3) -> float:
@@ -469,34 +469,44 @@ func _camera_center_line_body_distance(camera_origin: Vector3,
     return camera_origin.distance_squared_to(contact_world)
 
 
+# v301: authoritative AUTO segment begins at SERA's collision-root world
+# position and ends at the boss BODY center, not at the camera. These generic
+# helpers use the SAME actual BoxMesh/HEAD virtual volume intersection and
+# nearest first-contact comparison for all selectable parts including BODY.
+func actor_center_line_hits_part(actor_origin: Vector3,
+        body_center: Vector3, id: String) -> bool:
+    if id.is_empty():
+        return _camera_center_line_body_distance(actor_origin, body_center) < INF
+    return _camera_center_line_part_distance(actor_origin, body_center, id) < INF
+
+
+func select_actor_center_line_part(actor_origin: Vector3,
+        body_center: Vector3) -> String:
+    var closest: float = _camera_center_line_body_distance(actor_origin, body_center)
+    var selected: String = ""
+    for id in PART_ORDER:
+        var distance: float = _camera_center_line_part_distance(
+            actor_origin, body_center, id)
+        if distance < closest:
+            selected = id
+            closest = distance
+    return selected
+
+
+# Read-only legacy camera-origin APIs retained for historic mesh-geometry
+# regressions. Gameplay AUTO uses only the SERA-origin helpers above.
 func camera_center_line_hits_part(view_camera: Camera3D,
         body_center: Vector3, id: String) -> bool:
-    if view_camera == null:
-        return false
-    if id.is_empty():
-        return _camera_center_line_body_distance(
-            view_camera.global_position, body_center) < INF
-    return _camera_center_line_part_distance(
-        view_camera.global_position, body_center, id) < INF
+    return (view_camera != null
+        and actor_center_line_hits_part(
+            view_camera.global_position, body_center, id))
 
 
 func select_camera_center_line_part(view_camera: Camera3D,
         body_center: Vector3) -> String:
     if view_camera == null:
         return ""
-    var origin: Vector3 = view_camera.global_position
-    # BODY competes on the same nearest-entry-distance basis as each limb.
-    # If no mesh intersects, this empty identifier still means no selected
-    # part; in the normal game the camera->center line meets the body mesh.
-    var closest: float = _camera_center_line_body_distance(origin, body_center)
-    var selected: String = ""
-    for id in PART_ORDER:
-        var distance: float = _camera_center_line_part_distance(
-            origin, body_center, id)
-        if distance < closest:
-            selected = id
-            closest = distance
-    return selected
+    return select_actor_center_line_part(view_camera.global_position, body_center)
 
 
 # v293 legacy orbital selector retained for historical regression tests.
