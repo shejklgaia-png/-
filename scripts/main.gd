@@ -4677,6 +4677,7 @@ func _process(delta: float) -> void:
         _place_camera()
         _update_side_from_screen()
         if not close_boost_camera_active and not boost_edge_frame_guard \
+                and not camera_step_recovery_active \
                 and separation > CAMERA_COMBAT_VISIBILITY_DISTANCE:
             _enforce_screen_edge(bearing, delta)
     else:
@@ -4691,6 +4692,7 @@ func _process(delta: float) -> void:
                 camera_yaw = _adaptive_camera_yaw(bearing, delta)
         _place_camera()
         if not close_boost_camera_active and not boost_edge_frame_guard \
+                and not camera_step_recovery_active \
                 and separation > CAMERA_COMBAT_VISIBILITY_DISTANCE:
             _enforce_screen_edge(bearing, delta)
 
@@ -4777,8 +4779,6 @@ func _adaptive_camera_yaw(player_bearing: float, delta: float) -> float:
     var follow_rate: float = lerpf(
         CAMERA_PLAYER_YAW_FOLLOW_RATE, CAMERA_MELEE_YAW_PEAK_RATE,
         camera_melee_follow_weight)
-    if not moving and camera_melee_follow_weight <= 0.00001:
-        follow_rate = CAMERA_IDLE_RECENTER_RATE
     var response: float = 1.0
     if step_active and not side_kick_active:
         response = 1.0 - CAMERA_MATH.smooth_response(
