@@ -10,6 +10,7 @@ const CAMERA_FRAMING = preload("res://scripts/sera_camera_framing.gd")
 const INPUT_GESTURES = preload("res://scripts/sera_input_gestures.gd")
 const MOVEMENT_MATH = preload("res://scripts/sera_movement_math.gd")
 const BOOST_STATE = preload("res://scripts/sera_boost_state.gd")
+const RESOURCE_RULES = preload("res://scripts/sera_resource_rules.gd")
 const LOCK_MANAGEMENT = preload("res://scripts/sera_lock_management.gd")
 const COMBAT_FLOW = preload("res://scripts/sera_combat_flow.gd")
 const DEV_DIAGNOSTICS = preload("res://scripts/dev_diagnostics.gd")
@@ -675,30 +676,36 @@ func _tick_energy_empty_flash(delta: float) -> void:
         rig.call("set_energy_flash_active", red_phase)
 
 func _spend_energy(amount: float) -> bool:
+    # Preserve free actions, the global positive-cost EN lock, and the
+    # special insufficient-BOOST-tick exhaustion path in _physics_process.
     if amount <= 0.0:
         return true
-    # Exhaustion is a global EN-spend lock, not merely a BOOST restriction.
-    # Free actions still work; positive EN costs cannot bypass recovery.
-    if energy_exhausted:
-        return false
-    if energy + 0.0001 < amount:
-        if energy <= 0.0001:
+    var state: Dictionary = RESOURCE_RULES.energy_spend(
+        energy, energy_exhausted, amount, 0.0001)
+    if not bool(state["allowed"]):
+        if bool(state["trigger_exhaustion"]):
             _enter_energy_exhaustion()
         return false
-    energy = maxf(0.0, energy - amount)
+    energy = float(state["remaining"])
     energy_recovery_pause = 0.25
-    if energy <= 0.0001:
+    if bool(state["trigger_exhaustion"]):
         _enter_energy_exhaustion()
     return true
 
+
 func _tick_resources(delta: float) -> void:
-    energy_recovery_pause = maxf(0.0, energy_recovery_pause - delta)
-    shield_recovery_pause = maxf(0.0, shield_recovery_pause - delta)
-    if energy_recovery_pause <= 0.0:
-        energy = minf(TEST_EN_MAX, energy + 24.0 * delta)
-    if shield_recovery_pause <= 0.0 and guard_break_remaining <= 0.0 and down_remaining <= 0.0:
-        shield = minf(TEST_SH_MAX, shield + 16.0 * delta)
-    if energy_exhausted and energy >= TEST_EN_MAX * EN_RECOVERY_UNLOCK_RATIO:
+    # Pauses advance before recovery; the frame reaching zero may recover.
+    energy_recovery_pause = RESOURCE_RULES.next_recovery_pause(
+        energy_recovery_pause, delta)
+    shield_recovery_pause = RESOURCE_RULES.next_recovery_pause(
+        shield_recovery_pause, delta)
+    energy = RESOURCE_RULES.recovered_energy(
+        energy, energy_recovery_pause, delta, TEST_EN_MAX, 24.0)
+    shield = RESOURCE_RULES.recovered_shield(
+        shield, shield_recovery_pause, guard_break_remaining, down_remaining,
+        delta, TEST_SH_MAX, 16.0)
+    if RESOURCE_RULES.exhaustion_unlocked(
+            energy_exhausted, energy, TEST_EN_MAX, EN_RECOVERY_UNLOCK_RATIO):
         energy_exhausted = false
     _refresh_player_hp_bar()
     if resources_label != null:
