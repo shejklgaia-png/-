@@ -40,7 +40,7 @@ for phrase in (
 physics = main.split("func _physics_process(delta: float) -> void:", 1)[1].split(
     "func _process(delta: float) -> void:", 1)[0]
 start = physics.index("var boost_exhaust: bool = movement_boost_active and running")
-fx = physics[start:physics.index('rig.call("update_back_thruster_fx"', start)]
+fx = physics[start:physics.index('thruster_presentation.update(rig, exhaust_on,', start)]
 for phrase in (
     "var boost_pose_exhaust: bool = (",
     "var tracking_exhaust: bool = (",
@@ -52,16 +52,16 @@ for phrase in (
     "requested_boost = _screen_drag_to_ground(direction_input)",
     "var direction_of_exhaust: Vector3 = MOTION_DIRECTION.exhaust_direction(",
     "blur_velocity, boost_pose_exhaust, running, requested_boost,",
-    "held_boost_exhaust_direction, somersault_this_frame,",
+    "thruster_presentation.held_boost_exhaust_direction, somersault_this_frame,",
     "back_somersault_launched, back_somersault_direction,",
     "normal_attack_exhaust, tracking_exhaust, stepping_this_frame,",
     "player.global_transform.basis.z)",
     "var backstroke_weight: float = NOZZLE_STEERING.backstroke_weight(",
     "var leftward_weight: float = NOZZLE_STEERING.leftward_weight(",
     "var left_sector_world: Vector3 = NOZZLE_STEERING.left_sector_direction(",
-    "held_boost_exhaust_direction = direction_of_exhaust.normalized()",
-    "direction_of_exhaust.normalized(), delta, backstroke_weight,",
-    "left_sector_world, acceleration_burst, normal_attack_exhaust)",
+    "thruster_presentation.update(rig, exhaust_on,",
+    "direction_of_exhaust, delta, backstroke_weight, left_sector_world,",
+    "acceleration_burst, normal_attack_exhaust,",
 ):
     assert phrase in physics or phrase in fx, phrase
 assert fx.index("var exhaust_on:") < fx.index("var requested_boost:") < fx.index(
@@ -74,6 +74,11 @@ assert "NOZZLE_STEERING.leftward_weight(" in fx
 assert "NOZZLE_STEERING.left_sector_direction(" in fx
 assert "if not exhaust_on or left_weight <= 0.0:" in steering
 assert "left_sector_world = left_sector_world.slerp(" in steering
+presentation = (ROOT / "scripts/sera_thruster_presentation.gd").read_text(encoding="utf-8")
+assert "held_boost_exhaust_direction = direction_of_exhaust.normalized()" in presentation
+assert 'rig.call("update_back_thruster_fx", exhaust_on,' in presentation
+assert "direction_of_exhaust.normalized(), delta, backstroke_weight," in presentation
+assert "left_sector_world, acceleration_burst, normal_attack_exhaust)" in presentation
 for phrase in (
     "var direction_of_exhaust: Vector3 = -blur_velocity",
     "direction_of_exhaust.y = 0.0",
