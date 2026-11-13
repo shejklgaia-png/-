@@ -30,8 +30,12 @@ for phrase in (
     assert phrase in api,phrase
 assert 'const BOOST_TO_RUN_BLEND_SECONDS: float = 0.20' in rig
 assert 'const BOOST_POSE_GRACE_SECONDS: float = 0.50' in main
-assert 'boost_pose_grace_remaining = BOOST_POSE_GRACE_SECONDS' in main
-assert 'boost_pose_grace_remaining = maxf(0.0, boost_pose_grace_remaining - delta)' in main
+frame=read("scripts/sera_physics_frame_rules.gd")
+assert 'boost_pose_grace_remaining = PHYSICS_FRAME.next_boost_pose_grace(' in main
+assert '_tick_boost_pose_grace(delta)' in main
+assert 'boost_pose_grace_remaining, delta, BOOST_POSE_GRACE_SECONDS,' in main
+assert 'if boost_active:' in frame and 'return grace_seconds' in frame
+assert 'return maxf(0.0, remaining - delta)' in frame
 
 # Real-world energy/locomotion still depends ONLY on actual BOOST input.
 assert "var boost_exhaust: bool = movement_boost_active and running" in main
@@ -43,9 +47,12 @@ assert "and movement_boost_active and running)))" in main
 assert "var boost_pose_exhaust: bool = (" in main
 assert "gesture_active and boost_has_activated_this_gesture and rig != null" in main
 assert 'bool(rig.call("is_boost_exhaust_pose_visible"))' in main
-assert "boost_exhaust or boost_pose_exhaust or stepping_this_frame" in main
-assert "or tracking_exhaust or normal_attack_exhaust))" in main
-assert "not landing_active and not guard_active and not energy_exhausted" in main
+assert "var exhaust_on: bool = PHYSICS_FRAME.exhaust_allowed(" in main
+assert "energy_exhausted, boost_exhaust, boost_pose_exhaust," in main
+assert "stepping_this_frame, tracking_exhaust, normal_attack_exhaust)" in main
+assert "boost_exhaust or boost_pose_exhaust or stepping" in frame
+assert "or tracking_exhaust or attack_exhaust" in frame
+assert "and not guarding and not energy_exhausted" in frame
 
 # The jet direction is cached over the neutral point and replaced by fresh
 # requested direction as soon as the finger begins moving the other way.
