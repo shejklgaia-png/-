@@ -1653,8 +1653,8 @@ func _toggle_auto_lock_mode() -> void:
 # The caller continues to suppress acquisition throughout attack/combo
 # retention; MANUAL keeps its independent selection/part-break behavior.
 # Keep the historical function signature for compatibility with tests/tools.
-func _acquire_stable_camera_part(_delta: float,
-        _current_broken: bool) -> void:
+func _acquire_stable_camera_part(delta: float,
+        current_broken: bool) -> void:
     if target_parts == null or player == null or target == null:
         return
     locked_target_part_id = str(target_parts.call(
