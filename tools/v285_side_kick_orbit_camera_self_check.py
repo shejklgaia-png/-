@@ -5,6 +5,7 @@ from pathlib import Path
 
 R=Path(__file__).resolve().parents[1]
 main=(R/"scripts/main.gd").read_text(encoding="utf-8")
+framing=(R/"scripts/sera_camera_framing.gd").read_text(encoding="utf-8")
 project=(R/"project.godot").read_text(encoding="utf-8")
 assert int(re.search(r'config/name="SERA v(\d+)"',project).group(1))>=285
 assert "const STEP_CLOSE_CAMERA_MAX_RELATIVE_DEGREES: float = 45.0" in main
@@ -53,9 +54,12 @@ for token in (
     assert token in advance,token
 assert "if hold_attack_camera or step_active or close_step_camera_this_frame:" in camera
 assert "camera_yaw = _stable_shoulder_camera_yaw(bearing, delta)" in camera
-assert "deg_to_rad(STEP_CLOSE_CAMERA_MAX_RELATIVE_DEGREES)" in limit
+assert "CAMERA_FRAMING.close_step_target_relative_yaw(" in limit
+assert "STEP_CLOSE_CAMERA_MAX_RELATIVE_DEGREES" in limit
+assert "deg_to_rad(max_relative_degrees)" in framing
 assert "SIDE_KICK_HIT_PROGRESS[1]" in setup
 assert "STEP_CLOSE_CAMERA_MAX_TURN_RATE_DEGREES" in limit
+assert "deg_to_rad(max_turn_degrees_per_second) * delta" in framing
 # Tangent-to-screen-right chooses proper sign at both sides of target,
 # including oblique camera bases. Circle radius and arc length stay fixed.
 for x,z in ((0,9),(3,4),(-3,4),(4,-3),(-4,-3)):
