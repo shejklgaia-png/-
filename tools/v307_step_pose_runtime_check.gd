@@ -84,8 +84,6 @@ func _run() -> void:
                 return
             # Pure cardinal direction must sample its OWN real source clip,
             # not the Step_R clock or a mirrored/reconstructed pose.
-            var authored: Dictionary = animations[clips[i]]
-            var authored_tracks: Dictionary = authored["tracks"]
             for raw_id in bones.keys():
                 var uid: String = str(raw_id)
                 var blend: Dictionary = rig.call("_blended_directional_step_pose", uid, 0.0)
@@ -98,10 +96,8 @@ func _run() -> void:
                     return
             rig.set("blending_for", 0.12)
             rig.call("_apply_animation", 0.0)
-            var waist_uid: String = str(rig.get("RUN_ROOT_BONE_UUID"))
-            # Script constants need not be exposed via Node.get; use the
-            # source Waist group UUID already shared with all locomotion.
-            waist_uid = "67435cb7-b6af-23e4-10f1-3cd13d8429fa"
+            # Source Waist pivot UUID shared by all locomotion clips.
+            var waist_uid: String = "67435cb7-b6af-23e4-10f1-3cd13d8429fa"
             var root_bone: Node3D = bones[waist_uid]
             var front: Vector3 = root_bone.quaternion * Vector3.FORWARD
             var flat: Vector2 = Vector2(front.x,front.z)
