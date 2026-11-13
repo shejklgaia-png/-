@@ -76,7 +76,23 @@ for uid, animator in old_second["animators"].items():
     incoming = new_second["animators"][uid]["keyframes"]
     historical = animator["keyframes"]
     sort_key = lambda k: (k["time"], k["channel"], k["uuid"])
-    assert sorted(incoming, key=sort_key) == sorted(historical, key=sort_key), uid
+    if uid == next(g["uuid"] for g in katana["groups"] if g["name"] == "Foot_L"):
+        # The new user-authored Foot_L starting angle is zero (formerly
+        # -2.5deg). All other keys and their UUIDs remain identical.
+        newer = sorted(incoming, key=sort_key)
+        older = sorted(historical, key=sort_key)
+        assert len(newer) == len(older) == 3
+        for current, previous in zip(newer, older):
+            assert current["uuid"] == previous["uuid"]
+            assert current["time"] == previous["time"]
+            assert current["channel"] == previous["channel"]
+            if current["time"] == 0:
+                assert current["data_points"][0] == {"x": "0", "y": "0", "z": "0"}
+                assert previous["data_points"][0] == {"x": "-2.5", "y": "0", "z": "0"}
+            else:
+                assert current == previous
+    else:
+        assert sorted(incoming, key=sort_key) == sorted(historical, key=sort_key), uid
 for path, model in [
     ("assets/sera_equipment_data.gd", equipment),
     ("assets/sera_head_c_data.gd", head),
