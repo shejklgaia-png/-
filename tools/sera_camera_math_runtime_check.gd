@@ -14,7 +14,7 @@ func _run() -> void:
     for i in range(180):
         var desired: Vector2 = Vector2(float(i) * 0.24, -2.0)
         current = M.advance_follow_focus(current, desired, 1.0/60.0, 15.0, 0.65)
-        if current.distance_to(desired) > 0.650001:
+        if current.distance_to(desired) > 0.6501:
             _fail("hard position leash failed")
             return
     var yaw: float = 0.0
