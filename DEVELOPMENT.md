@@ -2029,3 +2029,9 @@
 - STEPフリックを受けた直後、前フレームの`player`表示向きが現在のロック対象とずれていると、右入力に左/後ろポーズが一瞬選ばれていました。STEP姿勢基準をv305の`_locked_target_facing_direction`へ統一して、ロック更新時の初期モーション反転を防止。
 - Step_R/Step_L/Frontstep/BackstepのBlockbench原本、4方向360°補間、ステップ3m/5m移動、カメラ、コンボ受付を保持。v307の静的/Godot実行テストで全方向・初期向き不一致を検査します。
 - Android実機での映像、タッチ反応は未確認。
+
+## 2026-11-13 — SERA v308 Step_Rを右前傾へ修正
+- GitHub現行・過去のBlockbenchモーションを比較。別の姿勢を持つ同名Step_Rがないため、既存の名前とUUIDのまま時刻0の腰と頭の回転を調整。
+- 腰を前30°・右18°に傾け、頭の大きなねじれを緩和。元の脚・腕モーション、他3方向、移動距離とロック追従は保持。
+- `assets/sera_source.json`と`models/SERA_BOOSTER_allテスト.bbmodel`を同期し、`assets/sera_data.gd`を再生成。旧原本は非破壊。新しいPython/GodotテストをCIへ追加。
+- Android実機の描画とタッチ動作は未確認。
