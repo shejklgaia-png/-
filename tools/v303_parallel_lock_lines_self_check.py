@@ -75,7 +75,7 @@ ui=main.split('func _build_lock_switch_buttons(layer: CanvasLayer) -> void:',1)[
     'func _toggle_auto_lock_mode() -> void:',1)[0]
 assert 'lock_lines_button.name = "LockLinesVisibility"' in ui
 assert 'lock_lines_button.mouse_filter = Control.MOUSE_FILTER_IGNORE' in ui
-assert 'CONTROLLER_BUTTON_TOP_INSET + LOCK_MODE_BUTTON_SIZE.y + 8.0' in ui
+assert 'lock_lines_button.anchor_top = 0.35' in ui
 assert 'layer.add_child(lock_lines_button)' in ui
 input_=main.split('func _input(event: InputEvent) -> void:',1)[1].split(
     'func _guard_can_start()',1)[0]

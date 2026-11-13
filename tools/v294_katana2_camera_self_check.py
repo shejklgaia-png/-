@@ -48,6 +48,6 @@ assert "CAMERA_COMBAT_MIN_RADIUS * CAMERA_DISTANCE_SCALE" in main
 assert math.isclose(16.0 * 0.60, 9.6)
 assert math.isclose(8.8 * 0.60, 5.28)
 assert math.isclose(11.3 * 0.60, 6.78)
-for keep in ("_fit_full_frame()", "_minimum_boost_camera_radius()", "_fit_boost_frame_analytically(delta)", "_relax_camera_fit_radius(delta)", "camera_radius = maxf(camera_follow_radius, camera_fit_radius_floor)", "CAMERA_ELEVATION_RATIO * camera_radius"):
+for keep in ("_fit_full_frame()", "_minimum_boost_camera_radius()", "_fit_boost_frame_analytically(delta)", "func _relax_camera_fit_radius(delta: float)", "camera_radius = maxf(camera_follow_radius, camera_fit_radius_floor)", "CAMERA_ELEVATION_RATIO * camera_radius"):
     assert keep in main, keep
 print("V294_AUTHORED_KATANA2_CLOSE_CAMERA_STATIC_PASS")

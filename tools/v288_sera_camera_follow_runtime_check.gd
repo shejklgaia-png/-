@@ -41,18 +41,18 @@ func _run() -> void:
         _fail("camera fell more than 12deg behind during rapid turn")
         return
 
-    # Near enough to SERA for smooth tracking, but not anchored to target.
+    # Target-centered focus must not follow player lateral movement.
     target.position = Vector3(0,0,-8)
     player.position = Vector3.ZERO
     game.set("camera_player_render_position",player.position)
     game.set("camera_target_render_position",target.position)
     var desired_start: Vector2 = game.call("_desired_camera_follow_focus_xz")
-    if desired_start.distance_to(Vector2(0,-2))>0.0001:
-        _fail("follow focus is not SERA-relative with 2m lead")
+    if desired_start.distance_to(Vector2(0,-8))>0.0001:
+        _fail("boss-centered focus was lost")
         return
     game.set("camera_focus_follow_xz",desired_start)
-    player.position.x = 5.0
-    game.set("camera_player_render_position",player.position)
+    target.position.x = 5.0
+    game.set("camera_target_render_position",target.position)
     game.call("_advance_camera_follow_focus",1.0/60.0)
     var desired: Vector2 = game.call("_desired_camera_follow_focus_xz")
     var actual: Vector2 = game.get("camera_focus_follow_xz")
@@ -74,7 +74,7 @@ func _run() -> void:
     game.set("camera_radius",13.0)
     game.call("_place_camera")
     if absf(camera.position.x-actual.x)>0.0001:
-        _fail("camera does not use interpolated SERA follow focus")
+        _fail("camera does not use interpolated boss focus")
         return
     var focus_y:float=float(cfg["TARGET_BASE_HEIGHT"])-float(cfg["CAMERA_FOCUS_DROP"])
     if absf(camera.position.y-focus_y-13.0*0.21)>0.0001:

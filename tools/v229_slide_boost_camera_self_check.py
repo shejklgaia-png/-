@@ -35,7 +35,8 @@ for begin in [0.0,0.1,0.4,1.0]:
 assert 'CAMERA_EDGE_GUARD_RATIO: float = 0.008' in main
 assert 'CAMERA_EDGE_MAX_CORRECTION_DEGREES_PER_SECOND: float = 240.0' in main
 assert 'CAMERA_FIT_RADIUS_RESERVE: float = 0.12' in main
-assert main.count('_enforce_screen_edge(bearing, delta)') == 2
+assert main.count('_enforce_screen_edge(bearing, delta)') == 0
+assert '    _fit_boost_frame_analytically(delta)' in main
 edge=main.split('func _enforce_screen_edge(',1)[1].split('func _fit_full_frame()',1)[0]
 assert edge.count('_horizontal_safe(CAMERA_EDGE_GUARD_RATIO)') == 3
 assert 'var delta_yaw: float = wrapf(safe_yaw - old_yaw, -PI, PI)' in edge

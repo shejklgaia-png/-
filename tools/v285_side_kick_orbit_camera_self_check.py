@@ -53,7 +53,7 @@ for token in (
 ):
     assert token in advance,token
 assert "if hold_attack_camera or step_active or close_step_camera_this_frame:" in camera
-assert "camera_yaw = _stable_shoulder_camera_yaw(bearing, delta)" in camera
+assert "camera_yaw = _adaptive_camera_yaw(bearing, delta)" in camera
 assert "CAMERA_FRAMING.close_step_target_relative_yaw(" in limit
 assert "STEP_CLOSE_CAMERA_MAX_RELATIVE_DEGREES" in limit
 assert "deg_to_rad(max_relative_degrees)" in framing

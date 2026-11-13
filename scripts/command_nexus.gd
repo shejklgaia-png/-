@@ -5,6 +5,7 @@ const Modules = preload("res://assets/base_command_modules.gd")
 const SeraRig = preload("res://scripts/sera_rig.gd")
 const VersionIndicator = preload("res://scripts/version_indicator.gd")
 const TrainingDefaults = preload("res://scripts/training_defaults.gd")
+const CONTROL_SETTINGS_FILE: String = "user://sera_settings.cfg"
 const NexusSelectionOutline = preload("res://scripts/nexus_selection_outline.gd")
 const CUSTOMIZE_GLOW_SHADER = preload("res://shaders/nexus_customize_radial_glow.gdshader")
 
@@ -52,6 +53,9 @@ const SYSTEM_ACTIONS = ["SAVE", "LOAD", "NEW", "DELETE"]
 var system_slot_rows: Array[Dictionary] = []
 var system_action_rows: Array[Dictionary] = []
 var system_status: Label
+var system_lock_mode_row: Panel
+var system_lock_mode_label: Label
+var system_auto_lock_enabled: bool = true
 var system_selected_slot: int = 1
 var system_pending_action: String = ""
 var system_pending_slot: int = 0
@@ -1021,6 +1025,24 @@ func _tap_equipment_control(point: Vector2) -> bool:
 
 ## v171 DATA ARCHIVE: reusable focus-panel elements. Text-only slot rows keep
 ## the 3D data bank visible and avoid a second full-screen UI layer.
+func _load_system_lock_preference() -> void:
+    var settings := ConfigFile.new()
+    if settings.load(CONTROL_SETTINGS_FILE) == OK:
+        system_auto_lock_enabled = bool(settings.get_value(
+            "controls", "auto_lock_enabled", true))
+
+
+func _set_system_auto_lock(enabled: bool) -> void:
+    var settings := ConfigFile.new()
+    settings.load(CONTROL_SETTINGS_FILE)
+    settings.set_value("controls", "auto_lock_enabled", enabled)
+    var result: Error = settings.save(CONTROL_SETTINGS_FILE)
+    if result != OK:
+        push_warning("Unable to save lock mode preference: %d" % result)
+        return
+    system_auto_lock_enabled = enabled
+
+
 func _create_system_controls() -> void:
     system_selected_slot = SeraSave.active_slot if SeraSave.active_slot > 0 else 1
     for index in range(SeraSave.SLOT_COUNT):
@@ -1051,6 +1073,20 @@ func _create_system_controls() -> void:
         action_text.add_theme_color_override("font_color", Color("#c8f1ff"))
         button.add_child(action_text)
         system_action_rows.append({"panel": button, "label": action_text, "action": action})
+    system_lock_mode_row = Panel.new()
+    system_lock_mode_row.name = "SystemLockMode"
+    system_lock_mode_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    system_lock_mode_row.add_theme_stylebox_override("panel", _menu_style())
+    system_lock_mode_row.visible = false
+    focus_panel.add_child(system_lock_mode_row)
+    system_lock_mode_label = Label.new()
+    system_lock_mode_label.name = "SystemLockModeValue"
+    system_lock_mode_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    system_lock_mode_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+    system_lock_mode_label.add_theme_font_size_override("font_size", 16)
+    system_lock_mode_label.add_theme_color_override("font_color", Color("#ccf3ff"))
+    system_lock_mode_row.add_child(system_lock_mode_label)
+    _load_system_lock_preference()
     system_status = Label.new()
     system_status.name = "ArchiveStatus"
     system_status.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1068,6 +1104,7 @@ func _set_system_visible(show: bool) -> void:
     for entry in system_action_rows:
         (entry["panel"] as Panel).visible = show
     system_status.visible = show
+    system_lock_mode_row.visible = show
 
 func _layout_system_controls() -> void:
     if system_status == null:
@@ -1095,13 +1132,21 @@ func _layout_system_controls() -> void:
         var label: Label = system_action_rows[i]["label"]
         label.position = Vector2.ZERO
         label.size = button.size
-    system_status.position = Vector2(margin, actions_top + 126.0)
+    system_lock_mode_row.position = Vector2(margin, actions_top + 123.0)
+    system_lock_mode_row.size = Vector2(width - margin * 2.0, 44.0)
+    system_lock_mode_label.position = Vector2(12.0, 0.0)
+    system_lock_mode_label.size = system_lock_mode_row.size - Vector2(24.0, 0.0)
+    system_status.position = Vector2(margin, actions_top + 176.0)
     system_status.size = Vector2(width - margin * 2.0,
         maxf(34.0, focus_panel.size.y - system_status.position.y - 10.0))
 
 func _refresh_system_controls() -> void:
     if system_status == null:
         return
+    if system_lock_mode_label != null:
+        system_lock_mode_label.text = (
+            "LOCK MODE  /  AUTO  >" if system_auto_lock_enabled
+            else "LOCK MODE  /  MANUAL  >")
     for index in range(system_slot_rows.size()):
         var slot: int = index + 1
         var data: Dictionary = SeraSave.get_slot(slot)
@@ -1196,6 +1241,12 @@ func _tap_system_control(point: Vector2) -> void:
         if not touched_confirm:
             _cancel_system_confirmation()
             return
+    # Mode is a global control preference, independent of save slots.
+    if system_lock_mode_row != null and Rect2(
+            system_lock_mode_row.position, system_lock_mode_row.size).has_point(local):
+        _set_system_auto_lock(not system_auto_lock_enabled)
+        _refresh_system_controls()
+        return
     for i in range(system_slot_rows.size()):
         var panel: Panel = system_slot_rows[i]["panel"]
         if Rect2(panel.position, panel.size).has_point(local):
@@ -2323,6 +2374,7 @@ func _focus_arrived(target_name: String) -> void:
         archive_record_tab = 0
         _refresh_archive_records()
     if target_name == "SYSTEM":
+        _load_system_lock_preference()
         system_pending_action = ""
         system_pending_slot = 0
         _reset_system_confirmation_blink()

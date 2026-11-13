@@ -19,7 +19,7 @@ for token in (
     "CONTROLLER_REGION_START_RATIO: float = 0.50",
     "button.anchor_top = LOCK_CONTROLS_VERTICAL_RATIO",
     "lock_mode_button.anchor_top = LOCK_CONTROLS_VERTICAL_RATIO",
-    "button.anchor_left = CONTROLLER_REGION_START_RATIO",
+    "button.anchor_left = base",
 ):
     assert token in m,token
 # v287 reverts the pitch and silhouette-scan portions of v286: both were
