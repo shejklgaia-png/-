@@ -76,8 +76,12 @@ func _run() -> void:
         _fail("BODY should be a real mesh intersection, never a fallback")
         return
     game.call("_acquire_stable_camera_part",0.016,false)
+    if str(game.get("locked_target_part_id")) != "head":
+        _fail("SERA-moved HEAD was dropped without stable pair confirmation")
+        return
+    game.call("_acquire_stable_camera_part",0.23,false)
     if not str(game.get("locked_target_part_id")).is_empty():
-        _fail("off-segment HEAD was retained despite SERA moving behind boss")
+        _fail("off-segment HEAD stayed after stable rear BODY")
         return
 
     # BODY and HEAD both intersect the front ray, so BODY->HEAD must
