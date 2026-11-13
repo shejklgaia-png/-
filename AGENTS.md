@@ -47,3 +47,6 @@ Historical instructions and v102–v292 decisions remain available at `docs/hist
 ## v317 staged main combat-flow split
 - Stateless combo/guard eligibility, lock-retention windows, authored strike stage selection, cancel timing and limited tracking-frame durations live in `scripts/sera_combat_flow.gd`. The state and every mutation, resource usage, animation and collision side effect remain in `main.gd` under the original method signatures.
 - Do not reset queued follow-up input or move combat_state to another node opportunistically. Preserve Katana 2-stage vs normal 3-stage behavior, Melee3 flick cancel, Bash/Kick/landing lock retention and legacy test coverage.
+
+## v317 staged camera-framing extraction
+- `scripts/sera_camera_framing.gd` owns only pure perspective radius and close STEP yaw limits. `main.gd` retains Camera3D, near plane, frustum/viewport loops, live camera state, screen projection, and original method signatures. Preserve all numeric margins, yaw speed, near-plane reserve and runtime behavior.
