@@ -44,7 +44,8 @@ assert "CAMERA_PLAYER_YAW_MAX_LAG_DEGREES" in yaw
 assert "CAMERA_MATH.stable_shoulder_yaw(" in yaw
 assert "return current_yaw + error - clampf(residual, -leash, leash)" in math_code
 assert "camera_yaw = _stable_shoulder_camera_yaw(bearing, delta)" in render
-assert "(not step_active or side_kick_active) and separation > 0.08:" in render
+assert "camera_yaw = _adaptive_camera_yaw(bearing, delta)" in render
+assert "if separation > 0.08:" in render
 assert "if hold_attack_camera or step_active or close_step_camera_this_frame:" in render
 assert render.index("_advance_camera_follow_focus(delta)") < render.index("var radial: Vector2")
 assert "_desired_camera_follow_focus_xz()" in build
