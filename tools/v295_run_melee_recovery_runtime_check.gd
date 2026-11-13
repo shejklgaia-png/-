@@ -126,8 +126,11 @@ func _run() -> void:
         _fail("ordinary post-melee WAIT->RUN inherited old heading: " + str(ordinary_yaw))
         return
 
-    # Character collision stays target-facing, even when the visible RUN
-    # Waist/legs take a 90 degree right or left sidestep.
+    # Character collision tracks the selected part, while RUN Waist/legs
+    # keep their directional travel clip independent of root yaw.
+    game.set("auto_lock_enabled",false)
+    game.set("manual_part_lock_active",true)
+    game.set("locked_target_part_id","leg_fr")
     player.position = Vector3(3.0, 0.0, 0.0)
     target.position = Vector3(0.0, 1.53, -8.0)
     game.set("direction_input", Vector2.ZERO)
@@ -135,18 +138,17 @@ func _run() -> void:
     game.call("_physics_process", 0.016)
     var actual: Vector3 = -player.global_transform.basis.z
     actual.y = 0.0
-    var wanted: Vector3 = target.global_position - player.global_position
+    var wanted: Vector3 = game.call("_locked_target_facing_direction")
     wanted.y = 0.0
     if actual.normalized().dot(wanted.normalized()) < 0.999:
-        _fail("target-facing collision root changed with visual RUN yaw")
+        _fail("locked-part-facing collision root changed with visual RUN yaw")
         return
 
     # Exercise main.gd's real camera/world -> target-local movement mapping.
     # This vector, not the screen axis, must reach the run animator.
     var travel_screen: Vector2 = Vector2.RIGHT
     var intended_world: Vector3 = game.call("_screen_drag_to_ground", travel_screen)
-    var target_forward: Vector3 = target.position - player.position
-    target_forward.y = 0.0
+    var target_forward: Vector3 = game.call("_locked_target_facing_direction")
     target_forward = target_forward.normalized()
     var expected_local: Vector2 = Vector2(
         intended_world.dot(target_forward.cross(Vector3.UP)),
