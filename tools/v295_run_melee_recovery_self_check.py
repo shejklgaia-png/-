@@ -42,7 +42,7 @@ lock = apply.split("if uid == RUN_ROOT_BONE_UUID and (", 1)[1].split(
 assert "current_clip == BOOST_CLIP" in lock
 assert "(step_playback and directional_step_active)" in lock
 assert "running_pose or" not in lock
-assert "q = _face_locked_boss_with_waist(q, blend_weight)" in lock
+assert "q = _face_locked_boss_with_waist(q, facing_weight)" in lock
 assert "blended_rotation = (facing * blended_rotation).normalized()" in rig
 assert "var gaze := Quaternion(Vector3.UP, run_upper_yaw_offsets[part_index])" in rig
 assert 'rig.call("set_moving", show_moving_pose, show_boost_pose,' in main

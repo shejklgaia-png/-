@@ -1350,6 +1350,20 @@ func _blended_directional_step_pose(uid: String, t: float) -> Dictionary:
         "scale": (fore_aft["scale"] as Vector3).lerp(lateral["scale"], alpha)
     }
 
+# Preserve the user-authored lateral twist of Step_R (9.2.2). Previous
+# locomotion yaw cancellation rotated the entire rightward pose back to
+# enemy-front, making it look like Frontstep. Weight its yaw retention by
+# the SAME eased angular interpolation used for the STEP pose, so diagonal
+# transitions stay continuous while front/left/back keep boss-facing yaw.
+func _step_right_authored_yaw_weight() -> float:
+    if (not step_playback or not directional_step_active
+            or directional_step_vector.x <= 0.0):
+        return 0.0
+    var direction: Vector2 = directional_step_vector
+    var angle: float = atan2(absf(direction.x), absf(direction.y)) / (PI * 0.5)
+    return angle * angle * (3.0 - 2.0 * angle)
+
+
 func start_omni_step(direction: Vector2) -> void:
     if not loading_ok or damage_playback or guard_playback or direction.length_squared() < 0.000001:
         return
@@ -2100,13 +2114,11 @@ func _blended_run_pose(uid: String, t: float, stabilize_head: bool = true) -> Di
         blended_rotation = _stabilize_run_head_rotation(t, blended_rotation)
     return {"rotation": blended_rotation, "position": blended_translation, "scale": blended_scale}
 
-# v292: a successful part/core lock already rotates CharacterBody3D to
-# the boss pivot. Side STEP animation keys (e.g. Step_R's -70deg Waist)
-# then rotate the visible skeleton away AGAIN, so the model looks
-# unlocked even while the HUD correctly says LOCK HEAD/REAR R.
-# Cancel ONLY that baked yaw on locomotion Waist. Retain the authored
-# pitch, roll, lateral gait, thrusters, 360deg input, and ALL attacks.
-# Apply compensation after fade so entering/leaving a STEP never snaps.
+# v292: physical lock rotates CharacterBody3D toward the selected part.
+# For BOOST and non-right STEP, neutralize additional Waist yaw visually
+# without modifying hit/lock geometry. v310 intentionally RETAINS the
+# authored lateral Waist yaw of Step_R so the right-step pose remains
+# recognizable. Blend that exception continuously into diagonal poses.
 func _face_locked_boss_with_waist(q: Quaternion,
         blend_weight: float) -> Quaternion:
     var authored_forward: Vector3 = q * Vector3.FORWARD
@@ -2202,10 +2214,14 @@ func _apply_animation(_delta: float) -> void:
         if uid == RUN_ROOT_BONE_UUID and (
                 current_clip == BOOST_CLIP
                 or (step_playback and directional_step_active)):
-            # BOOST and STEP still face the boss. RUN is movement-facing:
-            # applying this correction to RUN erased run_facing_yaw, often
-            # reorienting the legs after attack -> RUN crossfades.
-            q = _face_locked_boss_with_waist(q, blend_weight)
+            # BOOST and front/left/back STEP retain the existing correction.
+            # For RIGHT STEP use the actual authored 9.2.2 waist yaw, or it
+            # looks like a forward step despite the correct source clip.
+            # CharacterBody3D itself remains target-facing for lock/hit tests.
+            var facing_weight: float = blend_weight
+            if step_playback and directional_step_active:
+                facing_weight *= 1.0 - _step_right_authored_yaw_weight()
+            q = _face_locked_boss_with_waist(q, facing_weight)
         bone.quaternion = q
         bone.position = (bind_positions[uid] as Vector3) + translation
         bone.scale = scale_value

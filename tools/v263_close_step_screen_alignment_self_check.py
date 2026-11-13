@@ -15,7 +15,7 @@ assert "var world_step: Vector3 = _screen_drag_to_ground(direction)" in step
 assert "camera_right * direction.x" not in step
 assert "- facing_forward * step_radial_delta" not in step
 assert "world_step = world_step.normalized() * step_arc_length" in step
-assert "var pose_direction: Vector2 = _step_local_pose_direction(world_step)" in step
+assert "var pose_direction: Vector2 = direction" in step
 assert 'rig.call("start_omni_step", pose_direction)' in step
 assert "step_flick_direction = direction" in step
 assert "step_arc_length = _step_fixed_distance_for_direction(direction)" in step
@@ -28,7 +28,7 @@ assert "var right: Vector3 = facing.cross(Vector3.UP)" in local
 physics=m.split("func _physics_process(delta: float) -> void:",1)[1].split(
     "func _process(delta: float) -> void:",1)[0]
 assert 'rig.call("update_omni_step_direction",' in physics
-assert "_step_local_pose_direction(committed_world_step), delta)" in physics
+assert 'rig.call("update_omni_step_direction", step_flick_this_frame, delta)' in physics
 assert "if stepping_this_frame and rig != null and step_linear_fallback:" in physics
 assert "step_world_rear.dot(" in physics
 assert "player.global_transform.basis.z), 0.0, 1.0)" in physics
@@ -107,5 +107,5 @@ a=actor_local(before,.0);b=actor_local(before,math.pi/2)
 assert a!=b and before==step_world((0.,-1.),0.)
 # Camera yaw held during step, so basis stays fixed; dolly/framing may adjust.
 print("PASS v263: orthogonal camera STEP projection for all 360deg flick/camera/actor angles")
-print("PASS v263: pose follows actual world travel, 0.08s smooth local updates, fixed STEP yaw")
+print("PASS v263/v310: screen pose stays aligned to screen travel, 0.08s directional blend, fixed travel yaw")
 print("Static/numeric only; real Godot/Android collision and visual controls not exercised")

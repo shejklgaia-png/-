@@ -18,7 +18,8 @@ for clip_name in ("Step_R","Step_L","Frontstep","Backstep"):
     src=next(x for x in model["animations"] if x["name"]==clip_name)
     assert len([x for x in src["animators"].values() if x.get("keyframes")])>=12,clip_name
 assert 'rig.call("start_omni_step", pose_direction)' in m
-assert 'rig.call("update_omni_step_direction",' in m
+assert 'rig.call("update_omni_step_direction", step_flick_this_frame, delta)' in m
+assert "var pose_direction: Vector2 = direction" in m
 assert "step_linear_offset = Vector2(world_step.x, world_step.z)" in m
 assert "STEP_RIGHT_CLIP if direction.x >= 0.0 else STEP_LEFT_CLIP" in r
 assert "var fore_aft: Dictionary = _sample_step_clip_pose(STEP_FORWARD_CLIP, uid, 0.0)" in r

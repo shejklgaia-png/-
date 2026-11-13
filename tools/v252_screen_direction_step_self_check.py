@@ -15,7 +15,7 @@ advance=main.split("func _advance_side_step(delta: float)",1)[1].split("func _mo
 for term in ("var direction: Vector2 = flick.normalized()",
     "var world_step: Vector3 = _screen_drag_to_ground(direction)",
     "world_step = world_step.normalized() * step_arc_length",
-    "var pose_direction: Vector2 = _step_local_pose_direction(world_step)",
+    "var pose_direction: Vector2 = direction",
     "step_linear_offset = Vector2(world_step.x, world_step.z)",
     "step_linear_fallback = true","step_arc_length = _step_fixed_distance_for_direction(direction)",
     'rig.call("start_omni_step", pose_direction)',

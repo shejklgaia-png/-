@@ -60,7 +60,7 @@ assert "_step_speed_for_player_position(" not in step
 assert "step_linear_fallback = true" in step
 assert "step_linear_offset = Vector2(world_step.x, world_step.z)" in step
 assert "var world_step: Vector3 = _screen_drag_to_ground(direction)" in step
-assert "var pose_direction: Vector2 = _step_local_pose_direction(world_step)" in step
+assert "var pose_direction: Vector2 = direction" in step
 assert 'rig.call("start_omni_step", pose_direction)' in step
 advance = main.split("func _advance_side_step(delta: float)",1)[1].split("func _move_player_swept(",1)[0]
 assert "if side_kick_active:" in advance

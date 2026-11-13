@@ -43,9 +43,10 @@ assert "if uid == RUN_ROOT_BONE_UUID and (" in animation
 assert "running_pose or current_clip == BOOST_CLIP" not in animation
 assert "current_clip == BOOST_CLIP" in animation
 assert "or (step_playback and directional_step_active)" in animation
-assert "q = _face_locked_boss_with_waist(q, blend_weight)" in animation
+assert "q = _face_locked_boss_with_waist(q, facing_weight)" in animation
+assert "facing_weight *= 1.0 - _step_right_authored_yaw_weight()" in animation
 assert "if blend_weight < 1.0 and prior_rotations.has(uid):" in animation
-assert animation.index("if blend_weight < 1.0 and prior_rotations.has(uid):") < animation.index("q = _face_locked_boss_with_waist(q, blend_weight)")
+assert animation.index("if blend_weight < 1.0 and prior_rotations.has(uid):") < animation.index("q = _face_locked_boss_with_waist(q, facing_weight)")
 # Attack clips are excluded from the new locomotion-only yaw constraint.
 assert "current_clip == BACK_SOMERSAULT_CLIP" not in lock
 
