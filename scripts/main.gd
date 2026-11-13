@@ -4771,11 +4771,13 @@ func _adaptive_camera_yaw(player_bearing: float, delta: float) -> float:
     # Side room allows SERA to move to either side of the boss on screen
     # without the yaw immediately cancelling that movement. Outside the
     # room the original 10/s sensitivity is retained.
-    var moving: bool = (direction_input.length_squared() > 0.000001
-        or movement_boost_active or step_active)
-    var side_room: float = (
-        CAMERA_NORMAL_SIDE_ROOM_DEGREES if moving else 0.0)
-    side_room *= 1.0 - camera_melee_follow_weight
+    # The slack is screen-lateral only: forward/backward commands retain
+    # the baseline yaw sensitivity and do not inherit an orbit dead zone.
+    var lateral_fraction: float = 0.0
+    if direction_input.length_squared() > 0.000001:
+        lateral_fraction = absf(direction_input.x) / direction_input.length()
+    var side_room: float = (CAMERA_NORMAL_SIDE_ROOM_DEGREES
+        * lateral_fraction * (1.0 - camera_melee_follow_weight))
     var follow_rate: float = lerpf(
         CAMERA_PLAYER_YAW_FOLLOW_RATE, CAMERA_MELEE_YAW_PEAK_RATE,
         camera_melee_follow_weight)
