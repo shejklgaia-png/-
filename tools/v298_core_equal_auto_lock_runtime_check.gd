@@ -90,6 +90,13 @@ func _run() -> void:
         _fail("original BODY geometry was not restored")
         return
 
+    # v304: the *separate camera-only BODY box* is the integrated AUTO
+    # hit region; changing only the visible mesh does not resize it.
+    var camera_area: Area3D = parts.get("core_camera_lock_area")
+    var camera_box: BoxShape3D = (camera_area.get_node("CameraOnlyBox")
+        as CollisionShape3D).shape
+    var original_camera_size: Vector3 = camera_box.size
+
     # BODY->HEAD is now a normal intersecting-target change and must obey
     # the exact same 0.22s stable confirmation as limb-to-limb changes.
     _place(camera,center,Vector3(0.0,0.0,-12.0))
@@ -120,22 +127,22 @@ func _run() -> void:
         _fail("BODY->HEAD did not switch after sustained better intersection")
         return
 
-    # The active HEAD still intersects, but expanding the core makes
-    # BODY the closer candidate; do not skip the shared hysteresis.
-    body_mesh.size = Vector3(original_size.x,original_size.y,12.0)
+    # The active HEAD still intersects, but expanding the CAMERA-ONLY
+    # BODY box makes BODY closer. Visible/physics mesh stays unchanged.
+    camera_box.size = Vector3(original_camera_size.x,original_camera_size.y,12.0)
     player.global_position = camera.global_position
     game.call("_acquire_stable_camera_part",0.016,false)
     if str(game.get("locked_target_part_id")) != "head":
-        body_mesh.size = original_size
+        camera_box.size = original_camera_size
         _fail("HEAD->BODY bypassed stable overlap selection")
         return
     player.global_position = camera.global_position
     game.call("_acquire_stable_camera_part",0.23,false)
     if str(game.get("locked_target_part_id")) != "":
-        body_mesh.size = original_size
-        _fail("HEAD->BODY did not confirm the nearer BODY")
+        camera_box.size = original_camera_size
+        _fail("HEAD->BODY did not confirm the nearer camera BODY")
         return
-    body_mesh.size = original_size
+    camera_box.size = original_camera_size
 
     # If HEAD loses pair intersection, require a stable 0.22s replacement.
     game.set("locked_target_part_id","head")

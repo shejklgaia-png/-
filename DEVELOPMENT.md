@@ -1,3 +1,12 @@
+# SERA v304 — カメラ専用当たり判定を各部位の115%で新設（2026-11-13）
+
+- `target_parts.gd`で頭・四脚・BODYに独立した不可視`Area3D/CollisionShape3D/BoxShape3D`を付与。元のAABB寸法から全方向115%とし、頭は既存の上方1m・前方0.85mのロック補助範囲を含めて拡大。各領域は部位のpivotまたはBODYのMeshInstanceの子として追従。
+- `_parallel_lock_part_distance`が新しい`_camera_lock_part_volume_distance`/`_camera_lock_body_volume_distance`の左右2本分をAND評価。単線の実メッシュ交差検査は履歴回帰用として残す。
+- 専用Areaは`collision_layer=0`、`collision_mask=0`、`monitoring=false`、`monitorable=false`。物理当たり判定・攻撃Hit AABB・頭の可視メッシュ・移動連携・ダメージ計算の拡大なし。
+- 旧v303片線交差のランタイム回帰はカメラ用ボックスを細くして片線だけに交差させる検査へ変更。新v304静的/Godot検査追加。Android実機未検証。
+
+---
+
 # SERA v303 — AUTOロックを左右2本の平行レイへ・可視化ON/OFF（2026-11-13）
 
 - `target_parts.gd`でセラ→敵本体中心の水平垂直面を基準に左右±0.25m、計0.50m間隔で平行な有限線分を生成。BODY/HEAD/四脚の各実BoxMesh（HEADは従来ロック補助領域）との**両線共通交差**だけをAUTO候補とし、2線の最初の交点距離のうち遠い側を採用して最前部位を選択。

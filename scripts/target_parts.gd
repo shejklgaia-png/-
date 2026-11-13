@@ -14,6 +14,10 @@ const HEAD_LOCK_UPWARD_EXTENSION_METERS: float = 1.0
 # so BODY (which always intersects the center line) won before HEAD.
 # Extend the head-only virtual box toward the authored +Z face of the boss.
 const HEAD_LOCK_FORWARD_EXTENSION_METERS: float = 0.85
+# v304: separate CAMERA/AUTO volume for each of six selectable modules.
+# A 15% size increase wraps the entire part rather than each tiny metal
+# strut independently. No contact, melee or movement shape uses this size.
+const CAMERA_LOCK_VOLUME_SCALE: float = 1.15
 const SELECTION_HYSTERESIS_RADIANS: float = 0.13
 const CAMERA_PART_LOCK_HYSTERESIS: float = 0.065
 const CAMERA_PART_DISTANCE_TIE_WEIGHT: float = 0.001
@@ -25,6 +29,58 @@ const PART_HIT_WOBBLE_METERS: float = 0.09
 const PART_HIT_WOBBLE_DEGREES: float = 6.0
 
 var parts: Dictionary = {}
+var core_camera_lock_area: Area3D
+
+# These invisible Area3D/BoxShape3D nodes are reference volumes ONLY:
+# layers/masks zero, no monitoring, no physics or attack contact callbacks.
+# Local-space segment tests below use the shapes directly, not PhysicsServer.
+func _create_camera_lock_volume(owner: Node3D, name: String,
+        model_size: Vector3, extra_size: Vector3 = Vector3.ZERO,
+        center_offset: Vector3 = Vector3.ZERO) -> Area3D:
+    var area := Area3D.new()
+    area.name = name
+    area.collision_layer = 0
+    area.collision_mask = 0
+    area.monitoring = false
+    area.monitorable = false
+    area.position = center_offset
+    var shape := CollisionShape3D.new()
+    shape.name = "CameraOnlyBox"
+    var box := BoxShape3D.new()
+    box.size = (model_size + extra_size) * CAMERA_LOCK_VOLUME_SCALE
+    shape.shape = box
+    area.add_child(shape)
+    owner.add_child(area)
+    return area
+
+
+func _camera_lock_volume_distance(origin: Vector3, destination: Vector3,
+        area: Area3D) -> float:
+    if area == null or not area.is_inside_tree():
+        return INF
+    var collision: CollisionShape3D = area.get_node_or_null(
+        "CameraOnlyBox") as CollisionShape3D
+    if collision == null or not collision.shape is BoxShape3D:
+        return INF
+    var size: Vector3 = (collision.shape as BoxShape3D).size
+    var entry: Variant = AABB(-size * 0.5, size).intersects_segment(
+        area.to_local(origin), area.to_local(destination))
+    if entry == null:
+        return INF
+    return origin.distance_squared_to(area.to_global(entry))
+
+
+func _camera_lock_part_volume_distance(origin: Vector3,
+        destination: Vector3, id: String) -> float:
+    if not is_targetable(id):
+        return INF
+    return _camera_lock_volume_distance(origin, destination, parts[id]["camera_lock_area"])
+
+
+func _camera_lock_body_volume_distance(origin: Vector3,
+        destination: Vector3) -> float:
+    return _camera_lock_volume_distance(origin, destination, core_camera_lock_area)
+
 
 func _ready() -> void:
     # Torso is 2m wide/high and 3.4m long (front/rear Z = +/-1.7m).
@@ -48,6 +104,12 @@ func _ready() -> void:
     _add_part("leg_rr", "REAR R", Vector3(1.23, -0.53, -1.27),
         Vector3(2.24, 2.00, 1.36), Vector3(0.0, 0.0, 0.0),
         100.0, 0.16, 0.12, "remain", Color("a95043"))
+    # The central BODY also competes on the same enlarged-camera-box
+    # intersection basis; it is not a forced default lock.
+    var core: MeshInstance3D = get_parent() as MeshInstance3D
+    if core != null and core.mesh is BoxMesh:
+        core_camera_lock_area = _create_camera_lock_volume(
+            core, "BodyCameraLockArea", (core.mesh as BoxMesh).size)
 
 func _make_box(owner: Node3D, name: String, offset: Vector3,
         dimensions: Vector3, material: StandardMaterial3D) -> MeshInstance3D:
@@ -148,10 +210,24 @@ func _add_part(id: String, display: String, center: Vector3,
         var side: float = signf(center.x)
         var fore_aft: float = signf(center.z)
         _build_leg_frame(pivot, side, fore_aft, shell, accent, frame, dark)
-    # The dimensions cover the entire exposed framework, not just one plate.
-    # This keeps sword contact and automatic occlusion checks aligned.
+    # AUTO uses a dedicated 115%-sized invisible camera volume. Existing
+    # combat hitboxes, all real BoxMesh components and movement collision
+    # still use the unscaled original dimensions/individual pieces.
+    var extra: Vector3 = Vector3.ZERO
+    var shift: Vector3 = Vector3.ZERO
+    if id == "head":
+        # Keep the established low-HEAD acquisition cap + front extension,
+        # and expand that entire lock-only volume by another 15%.
+        extra = Vector3(0.0, HEAD_LOCK_UPWARD_EXTENSION_METERS,
+            HEAD_LOCK_FORWARD_EXTENSION_METERS)
+        shift = Vector3(0.0, HEAD_LOCK_UPWARD_EXTENSION_METERS * 0.5,
+            HEAD_LOCK_FORWARD_EXTENSION_METERS * 0.5)
+    var camera_area: Area3D = _create_camera_lock_volume(
+        pivot, "CameraLockArea", dimensions, extra, shift)
+    # Normal part metadata still refers to original mesh/hitbox size.
     parts[id] = {
         "id": id, "display": display, "node": pivot, "size": dimensions,
+        "camera_lock_area": camera_area,
         "aim": aim_offset, "max_integrity": integrity,
         "integrity": integrity, "defense": defense,
         "break_defense": break_defense, "break_mode": break_mode,
@@ -523,12 +599,15 @@ func _parallel_lock_part_distance(segments: PackedVector3Array,
         return INF
     var first: float = INF
     var second: float = INF
+    # v304: both parallel rays test the same enlarged camera-only volume.
+    # The former per-mesh intersection helpers are left unchanged for
+    # historical geometry regression, never used by active AUTO.
     if id.is_empty():
-        first = _camera_center_line_body_distance(segments[0], segments[1])
-        second = _camera_center_line_body_distance(segments[2], segments[3])
+        first = _camera_lock_body_volume_distance(segments[0], segments[1])
+        second = _camera_lock_body_volume_distance(segments[2], segments[3])
     else:
-        first = _camera_center_line_part_distance(segments[0], segments[1], id)
-        second = _camera_center_line_part_distance(segments[2], segments[3], id)
+        first = _camera_lock_part_volume_distance(segments[0], segments[1], id)
+        second = _camera_lock_part_volume_distance(segments[2], segments[3], id)
     # A single intersecting ray does not authorize a lock.
     if first == INF or second == INF:
         return INF

@@ -144,3 +144,5 @@ py tools/v302_leg_center_part_fx_self_check.py
 gd tools/v302_leg_center_part_fx_runtime_check.gd
 py tools/v303_parallel_lock_lines_self_check.py
 gd tools/v303_parallel_lock_lines_runtime_check.gd
+py tools/v304_camera_lock_hitbox_self_check.py
+gd tools/v304_camera_lock_hitbox_runtime_check.gd

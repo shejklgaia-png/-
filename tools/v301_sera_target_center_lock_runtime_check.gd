@@ -112,19 +112,27 @@ func _run() -> void:
     if str(parts.call("select_actor_center_line_part",
             player.global_position,center)) != "":
         core_box.size = original_size
-        _fail("head received artificial priority over nearer BODY")
+        _fail("head received artificial priority over nearer real BODY")
         return
+    # v304: the legacy real-mesh geometry test above remains unchanged.
+    # Actual AUTO must instead compare the 115%-sized CAMERA-only boxes.
+    core_box.size = original_size
+    var camera_area: Area3D = parts.get("core_camera_lock_area")
+    var camera_box: BoxShape3D = (camera_area.get_node("CameraOnlyBox")
+        as CollisionShape3D).shape
+    var old_camera_size: Vector3 = camera_box.size
+    camera_box.size = Vector3(old_camera_size.x,old_camera_size.y,12.0)
     game.call("_acquire_stable_camera_part",0.016,false)
     if str(game.get("locked_target_part_id")) != "head":
-        core_box.size = original_size
+        camera_box.size = old_camera_size
         _fail("HEAD->BODY overlap bypassed shared hysteresis")
         return
     game.call("_acquire_stable_camera_part",0.23,false)
     if not str(game.get("locked_target_part_id")).is_empty():
-        core_box.size = original_size
-        _fail("nearest BODY could not acquire after confirmation")
+        camera_box.size = old_camera_size
+        _fail("nearest camera-only BODY could not acquire after confirmation")
         return
-    core_box.size = original_size
+    camera_box.size = old_camera_size
 
     # Broken HEAD is not eligible. No change to hitboxes, boss
     # rotation or left/right MANUAL button selection is required.
