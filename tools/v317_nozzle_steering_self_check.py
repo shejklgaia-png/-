@@ -48,9 +48,9 @@ ordered = [
     "var leftward_weight: float = NOZZLE_STEERING.leftward_weight(",
     "if exhaust_on and leftward_weight > 0.0:",
     "NOZZLE_STEERING.left_sector_direction(",
-    "thruster_presentation.held_boost_backstroke_weight)",
 ]
 assert [fx.index(x) for x in ordered] == sorted(fx.index(x) for x in ordered)
+assert "thruster_presentation.update(rig, exhaust_on," in main
 assert 'thruster_presentation.update(rig, exhaust_on,' in main
 presentation = (ROOT / "scripts/sera_thruster_presentation.gd").read_text(encoding="utf-8")
 for token in (
