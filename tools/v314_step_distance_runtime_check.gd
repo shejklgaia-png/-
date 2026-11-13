@@ -20,6 +20,11 @@ func _run() -> void:
     if player==null or target==null or rig==null or not bool(rig.get("loading_ok")):
         _fail("missing actors or rig")
         return
+    var constants: Dictionary=game.get_script().get_script_constant_map()
+    var step_distance: float=float(constants["STEP_SIDE_DISTANCE"])
+    var step_speed: float=float(constants["STEP_SPEED"])
+    var kick_distance: float=float(constants["SIDE_KICK_BOOST_DISTANCE"])
+    var kick_speed: float=float(constants["SIDE_KICK_STEP_SPEED"])
     game.set("auto_lock_enabled",false)
     game.set("manual_part_lock_active",true)
     game.set("locked_target_part_id","")
@@ -44,17 +49,17 @@ func _run() -> void:
         if not bool(game.call("_start_omni_step",directions[i])):
             _fail("step refused "+str(i))
             return
-        if absf(float(game.get("step_arc_length"))-5.0)>0.0001:
+        if absf(float(game.get("step_arc_length"))-step_distance)>0.0001:
             _fail("not 5m "+str(i))
             return
-        if absf(float(game.get("step_speed_current"))-15.0)>0.0001:
+        if absf(float(game.get("step_speed_current"))-step_speed)>0.0001:
             _fail("speed changed "+str(i))
             return
-        if absf(float(game.get("step_duration_current"))-5.0/15.0)>0.0001:
+        if absf(float(game.get("step_duration_current"))-step_distance/step_speed)>0.0001:
             _fail("duration changed "+str(i))
             return
         var planned: Vector2=game.get("step_linear_offset")
-        var expected: Vector2=Vector2(world.x,world.z).normalized()*5.0
+        var expected: Vector2=Vector2(world.x,world.z).normalized()*step_distance
         if planned.distance_to(expected)>0.001:
             _fail("planned direction changed "+str(i))
             return
@@ -70,10 +75,10 @@ func _run() -> void:
     if not bool(game.call("_start_omni_step",Vector2.RIGHT)):
         _fail("kick refused")
         return
-    if absf(float(game.get("step_arc_length"))-3.0)>0.0001:
+    if absf(float(game.get("step_arc_length"))-kick_distance)>0.0001:
         _fail("kick distance changed")
         return
-    if absf(float(game.get("step_speed_current"))-10.0)>0.0001:
+    if absf(float(game.get("step_speed_current"))-kick_speed)>0.0001:
         _fail("kick speed changed")
         return
     game.call("_finish_side_step",false)
