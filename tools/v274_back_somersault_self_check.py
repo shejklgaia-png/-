@@ -18,7 +18,7 @@ assert re.search(r'config/name="SERA v\d+"', project)
 def segment(text, a, b):
     return text.split("func "+a, 1)[1].split("func "+b, 1)[0]
 
-direction = SERA_INPUT.split("static func combo_kick_side(flick: Vector2) -> int:",1)[1].split("static func upward_jump_flick",1)[0]
+direction = SERA_INPUT.split("static func combo_kick_side(flick: Vector2,",1)[1].split("static func upward_jump_flick",1)[0]
 release = segment(game, "_end_drag(release_pos: Vector2) -> void:", "_remember_jump_flick_sample")
 request = segment(game, "_request_combo_side_kick(flick: Vector2) -> bool:", "_launch_combo_side_kick")
 launch = segment(game, "_launch_combo_side_kick(flick: Vector2, side: int) -> bool:", "_start_back_somersault")
@@ -38,7 +38,7 @@ rig_land = segment(rig, "start_landing(from_back_somersault: bool = false) -> vo
 assert 'flick, Vector2.UP' in direction
 assert "2:" in direction
 assert "return 2" in direction
-assert "flick, Vector2.UP" in direction and "gesture_screen_forward" not in direction
+assert "flick, actor_screen_forward)" in direction and "gesture_screen_forward" in game
 assert "1:" in direction and "3:" in direction
 assert 'side_kick_flick_candidate = (' in begin
 assert "_is_strike_finisher()" in begin
@@ -111,4 +111,4 @@ assert '_cancel_back_somersault()' in segment(game, "_begin_training_ko() -> voi
 print("PASS: exact 0.20s authored landing, action lock, damage/KO cancellation")
 print("v274 STATIC PASS; real Godot action runtime checked separately")
 
-assert "return INPUT_GESTURES.combo_kick_side(flick)" in game
+assert "return INPUT_GESTURES.combo_kick_side(flick, gesture_screen_forward)" in game

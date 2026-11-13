@@ -45,7 +45,7 @@ assert "static func screen_step_direction(displacement: Vector2) -> Vector2:" in
 assert "return displacement.normalized()" in p
 assert "four_way_direction(displacement, gesture_screen_forward)" not in step
 assert "return FLICK_DIRECTION_POLICY.is_flick(" in m
-assert "displacement, seconds, Vector2.UP," in m
+assert "displacement, seconds, gesture_screen_forward," in m
 assert "BASH_FLICK_MAX_SECONDS, BASH_FLICK_MIN_FORWARD_PIXELS" in m
 assert "BASH_FLICK_MIN_FORWARD_SPEED, STEP_FLICK_MAX_HORIZONTAL_RATIO" in m
 assert "var guard_bash_requested: bool = _classify_recent_character_forward_flick()" in release

@@ -27,8 +27,8 @@ assert "gesture_screen_forward = FLICK_DIRECTION_POLICY.projected_forward(camera
 assert "INPUT_GESTURES.step_flick(" in step
 assert "return FLICK_DIRECTION_POLICY.screen_step_direction(displacement)" in SERA_INPUT
 assert "FLICK_DIRECTION_POLICY.within_sector(" in drag
-# v284 Bash candidate uses fixed screen-UP 90-degree sector.
-assert "displacement, Vector2.UP, STEP_FLICK_MAX_HORIZONTAL_RATIO" in drag
+# v329 Bash uses actor-projected forward sector.
+assert "displacement, gesture_screen_forward, STEP_FLICK_MAX_HORIZONTAL_RATIO" in drag
 assert "_classify_recent_character_forward_flick()" in release
 assert "_is_character_forward_flick(release_pos - pointer_origin, press_duration)" in release
 assert "const JUMP_TOUCH_INPUT_ENABLED: bool = false" in m
