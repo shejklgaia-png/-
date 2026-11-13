@@ -92,9 +92,14 @@ for phrase in (
     'combat_state == CombatState.DASH',
     'combat_state == CombatState.STRIKE and not strike_did_hit',
     'combat_state == CombatState.BASH and not bash_did_hit',
-    'rig.call("update_back_thruster_fx", exhaust_on,',
+    'thruster_presentation.update(rig, exhaust_on,',
 ):
     assert phrase in main, phrase
+
+presentation = (ROOT / "scripts/sera_thruster_presentation.gd").read_text(encoding="utf-8")
+assert 'rig.call("update_back_thruster_fx", exhaust_on,' in presentation
+assert 'direction_of_exhaust.normalized(), delta, backstroke_weight,' in presentation
+assert 'left_sector_world, acceleration_burst, normal_attack_exhaust)' in presentation
 
 # Stage11: original world movement reverse and fallback are now pure math.
 motion = (ROOT / "scripts/sera_motion_direction.gd").read_text(encoding="utf-8")
