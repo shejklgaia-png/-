@@ -3,7 +3,7 @@
 ## v316 canonical model sources (supersedes historical paths)
 - Always consult models/manifest.json and docs/SERA_MODEL_SOURCES_ja.md.
 - Active Blockbench sources are models/core/Standard.bbmodel, BirdLeg.bbmodel, Katana.bbmodel and Equipment.bbmodel; standalone parts: models/storage/Head_C.bbmodel and LowerBody_D.bbmodel.
-- Do not modify assets/sera_source.json or assets/sera_*.gd directly; regenerate from canonical sources with tools/rebuild_* scripts.
+- Do not modify assets/sera_source.json or assets/sera_*.gd directly; regenerate from canonical sources with tools/rebuild_* scripts. Include tools/rebuild_katana_data.py for the original authored Katana2 export fallback.
 - Existing historical numbered Blockbench files remain test fixtures, NOT current authoring inputs or runtime fallbacks. Do not scan them at runtime.
 - Changes to clips, pivots, UUID, meshes or equipment need real Godot runtime tests; Android device validation is separate.
 

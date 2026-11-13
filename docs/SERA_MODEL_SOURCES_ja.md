@@ -21,3 +21,5 @@ Androidエクスポートでは各生成データにフォールバックしま�
 5. python3 tools/rebuild_lower_body_d_data.py
 
 各関数の対象ファイルは models/manifest.json で確認します。1パーツ=1正本ファイル、同一骨格はモーション共有、実行時は旧ファイルを探索しない方針です。元のPivot、UUID、UV、キーフレームは保持し、変更時はPython検査だけでなくGodot実行検査を行います。
+
+カタナ二段目はGodotエクスポート時にmodels/core/Katana.bbmodelを含められなくてもassets/sera_katana_data.gdから本来のキーフレームを復元します。旧初段からの推定補完は正規データが壊れている場合に限ります。

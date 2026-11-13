@@ -64,6 +64,9 @@ for path, model in [
 ]:
     payload = unpack(path)
     assert payload == {key:model[key] for key in ("groups","elements","outliner")}, path
+katana_embedded = unpack("assets/sera_katana_data.gd")
+assert {a["name"]: a for a in katana_embedded["animations"]} == katana_clips
+assert 'KATANA_EMBEDDED.get_json()' in read("scripts/sera_rig.gd")
 bird_embedded = unpack("assets/sera_bird_data.gd")
 assert len(bird_embedded["groups"]) == 6 and len(bird_embedded["elements"]) == 10
 assert len(bird_embedded["animations"]) == 23

@@ -19,6 +19,7 @@ const KICK_AUTHORING_SOURCE: String = "res://models/core/Standard.bbmodel"
 # v293: import only the new authored second Katana clip; leave A meshes intact.
 const KATANA_SECOND_AUTHORING_SOURCE: String = "res://models/core/Katana.bbmodel"
 const EMBEDDED = preload("res://assets/sera_data.gd")
+const KATANA_EMBEDDED = preload("res://assets/sera_katana_data.gd")
 # Independently versioned 39KB authored kick-only resource. Mandatory for
 # v272: do not rely solely on a potentially stale source/whole-model embed.
 const KICK_PACK = preload("res://assets/sera_kick_clips.gd")
@@ -1041,10 +1042,12 @@ func _build_animations(data: Dictionary) -> void:
 # working model. This imports ONLY the animation and does not replace the A
 # rig, equipment geometry, other clips, or the generated embedded source.
 func _merge_authored_katana_second_clip() -> void:
-    if not FileAccess.file_exists(KATANA_SECOND_AUTHORING_SOURCE):
-        return  # Keep the v290 derived fallback when source isn't shipped.
-    var parsed: Variant = JSON.parse_string(
-        FileAccess.get_file_as_string(KATANA_SECOND_AUTHORING_SOURCE))
+    var source: String = ""
+    if FileAccess.file_exists(KATANA_SECOND_AUTHORING_SOURCE):
+        source = FileAccess.get_file_as_string(KATANA_SECOND_AUTHORING_SOURCE)
+    if source.is_empty():
+        source = KATANA_EMBEDDED.get_json()
+    var parsed: Variant = JSON.parse_string(source)
     if not (parsed is Dictionary):
         push_warning("Katana second animation source is invalid; using fallback")
         return

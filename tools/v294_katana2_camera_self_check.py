@@ -26,7 +26,7 @@ assert 'KATANA_SECOND_AUTHORING_SOURCE: String = "res://models/core/Katana.bbmod
 ready = rig.split("func _ready() -> void:",1)[1].split("func ",1)[0]
 assert ready.index("_build_animations(data)") < ready.index("_merge_authored_katana_second_clip()") < ready.index("_build_katana_second_strike()")
 importer = rig.split("func _merge_authored_katana_second_clip() -> void:",1)[1].split("func _build_katana_second_strike()",1)[0]
-for token in ("if not FileAccess.file_exists(KATANA_SECOND_AUTHORING_SOURCE)", "bones.has(str(raw_uid))", '_build_animations({"animations": [authored]})'):
+for token in ("if FileAccess.file_exists(KATANA_SECOND_AUTHORING_SOURCE)", "KATANA_EMBEDDED.get_json()", "bones.has(str(raw_uid))", '_build_animations({"animations": [authored]})'):
     assert token in importer, token
 assert "if animations.has(KATANA_SECOND_CLIP) or not animations.has(KATANA_CLIP):" in rig
 assert 'KATANA_SECOND_STRIKE_CLIP: String = "Melee_katana2"' in main
