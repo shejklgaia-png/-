@@ -42,6 +42,8 @@ const BOOST_CONFIRM_SECONDS: float = 0.10
 # v163: RUN <-> BOOST speed uses a 0.20s smoothstep transition.
 # Changes of direction of the transition start at the CURRENT multiplier.
 const BOOST_SPEED_BLEND_SECONDS: float = 0.20
+# v313: one confirmed manual BOOST traversal is limited to 5m in any direction.
+const BOOST_TRAVEL_DISTANCE: float = 5.0
 # v159: avoid RUN/WAIT clips interrupting quick BOOST direction changes.
 # This is VISUAL ONLY: physics speed and BOOST input thresholds stay unchanged.
 # v162: hold the authored BOOST pose for 0.50s after BOOST input ends.
@@ -408,6 +410,8 @@ var direction_input: Vector2 = Vector2.ZERO
 var movement_boost_active: bool = false
 var boost_confirm_elapsed: float = 0.0
 var boost_has_activated_this_gesture: bool = false
+var boost_distance_traveled: float = 0.0
+var boost_distance_capped: bool = false
 var boost_speed_multiplier: float = 1.0
 var boost_speed_transition_start: float = 1.0
 var boost_speed_transition_target: float = 1.0
@@ -2485,6 +2489,8 @@ func _begin_drag(pos: Vector2) -> void:
     movement_boost_active = false
     boost_confirm_elapsed = 0.0
     boost_has_activated_this_gesture = false
+    boost_distance_traveled = 0.0
+    boost_distance_capped = false
     _reset_boost_speed_transition()
     boost_pose_grace_remaining = 0.0
     touch_ui.call("set_movement_boost", false)
@@ -2569,6 +2575,14 @@ func _update_boost_gesture(delta: float) -> void:
     # Preserve the held pointer/direction across EN exhaustion. Unlocking at
     # 60% may restart BOOST on this very same outer-ring gesture.
     var finger_distance: float = pointer_location.distance_to(pointer_origin)
+    # A completed 5m burst cannot retrigger during the same outer hold.
+    # Returning inside the exit ring rearms BOOST without requiring release.
+    if boost_distance_capped:
+        if finger_distance < DRAG_RADIUS * BOOST_EXIT_RADIUS_RATIO:
+            boost_distance_capped = false
+        else:
+            boost_confirm_elapsed = 0.0
+            return
     if movement_boost_active:
         # Hysteresis: do not flicker between RUN and BOOST at the entry rim.
         if finger_distance < DRAG_RADIUS * BOOST_EXIT_RADIUS_RATIO:
@@ -2580,6 +2594,7 @@ func _update_boost_gesture(delta: float) -> void:
         if boost_confirm_elapsed >= BOOST_CONFIRM_SECONDS:
             movement_boost_active = true
             boost_has_activated_this_gesture = true
+            boost_distance_traveled = 0.0
             touch_ui.call("set_movement_boost", true)
     else:
         # Even a very short dip below 125% restarts entry confirmation.
@@ -4308,6 +4323,8 @@ func _physics_process(delta: float) -> void:
         # Keep v9 camera-relative input and choose animation relative to the
         # target-facing character, not to the camera or the screen.
         var world_move: Vector3 = _screen_drag_to_ground(direction_input) if running else Vector3.ZERO
+        var boosted_travel_this_frame: bool = movement_boost_active and running
+        var boost_start_position: Vector3 = player.global_position
         if rig != null:
             # Match RUN pose directions to SERA's real locked-part-facing
             # heading rather than the former whole-BODY reference.
@@ -4333,11 +4350,27 @@ func _physics_process(delta: float) -> void:
             # Analog RUN strength reaches unity at the 112px rim; BOOST changes
             # speed only after the new 184.8px threshold is confirmed.
             player.velocity = world_move * float(part_stats.get("run_speed", 4.0625)) * boost_speed_multiplier
+            # Clamp the final physics tick to the remaining BOOST path budget.
+            # Count actual collision-resolved XZ travel, not target distance.
+            if boosted_travel_this_frame and delta > 0.0:
+                var budget_remaining: float = maxf(0.0, BOOST_TRAVEL_DISTANCE - boost_distance_traveled)
+                player.velocity = player.velocity.limit_length(budget_remaining / delta)
             # Drag keeps working along the cube's faces instead of becoming
             # blocked or falling through it. No world X/Z bounds are added.
         else:
             player.velocity = Vector3.ZERO
         player.move_and_slide()
+        if boosted_travel_this_frame:
+            var boost_displacement: Vector3 = player.global_position - boost_start_position
+            boost_displacement.y = 0.0
+            boost_distance_traveled = minf(BOOST_TRAVEL_DISTANCE,
+                boost_distance_traveled + boost_displacement.length())
+            if boost_distance_traveled >= BOOST_TRAVEL_DISTANCE - 0.0001:
+                movement_boost_active = false
+                boost_distance_capped = true
+                boost_confirm_elapsed = 0.0
+                if touch_ui != null:
+                    touch_ui.call("set_movement_boost", false)
     elif not stepping_this_frame and combat_state != CombatState.DASH \
             and combat_state != CombatState.BASH_TRACK and combat_state != CombatState.STRIKE_TRACK \
             and combat_state != CombatState.BACK_KICK_TRACK:
