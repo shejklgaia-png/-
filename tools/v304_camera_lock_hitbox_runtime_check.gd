@@ -62,9 +62,6 @@ func _run() -> void:
         if (box.size-expected).length()>0.0001:
             _fail("camera box not 115% of original envelope "+id)
             return
-        if (box.size-reference_size).min_axis_index()==-1:
-            _fail("invalid camera padding "+id)
-            return
         if box.size.x <= reference_size.x or box.size.y <= reference_size.y \
                 or box.size.z <= reference_size.z:
             _fail("not enlarged along all three axes "+id)
