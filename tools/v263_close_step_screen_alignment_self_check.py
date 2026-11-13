@@ -51,9 +51,9 @@ camera=m.split("func _process(delta: float) -> void:",1)[1].split(
 assert "if hold_attack_camera or step_active or close_step_camera_this_frame:" in camera
 assert camera.index("if hold_attack_camera or step_active or close_step_camera_this_frame:") < camera.index(
     "elif protect_close_step and separation > 0.08:")
-assert "_stable_shoulder_camera_yaw(bearing, delta)" in camera
+assert "_adaptive_camera_yaw(bearing, delta)" in camera
 assert "_visible_combat_camera_yaw" not in camera
-assert "camera_yaw = _stable_shoulder_camera_yaw(bearing, delta)" in camera
+assert "camera_yaw = _adaptive_camera_yaw(bearing, delta)" in camera
 assert "camera_yaw = _adaptive_camera_yaw(bearing, delta)" in camera
 assert "camera_step_recovery_active" in camera
 assert "camera_radius = maxf(camera_follow_radius, camera_fit_radius_floor)" in camera
