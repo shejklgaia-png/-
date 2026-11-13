@@ -104,8 +104,12 @@ func _run() -> void:
     _point_camera(camera,center,Vector3(0.0,0.0,-12.0))
     player.global_position = camera.global_position
     game.call("_acquire_stable_camera_part",0.016,false)
+    if str(game.get("locked_target_part_id")) != "head":
+        _fail("one-sided HEAD loss prematurely selected BODY")
+        return
+    game.call("_acquire_stable_camera_part",0.23,false)
     if str(game.get("locked_target_part_id")) != "":
-        _fail("HEAD persisted after camera line no longer hit it")
+        _fail("BODY did not take over after 0.22s")
         return
     if not bool(game.get("auto_lock_initialized")):
         _fail("BODY lock was mistaken for uninitialized selection")

@@ -49,7 +49,7 @@ func _run() -> void:
         return
 
     # Historical orbit API still exists; AUTO now uses actual camera line
-    # intersection against the mesh, with immediate BODY fallback.
+    # intersection against two parallel meshes, with stable BODY confirmation.
     var target: Node3D = game.get("target")
     if target == null:
         _fail("missing target center")
@@ -69,8 +69,12 @@ func _run() -> void:
     camera.look_at(target.global_position, Vector3.UP)
     player.global_position = camera.global_position
     game.call("_acquire_stable_camera_part", 0.016, false)
+    if str(game.get("locked_target_part_id")) != "head":
+        _fail("dual-ray loss switched HEAD immediately")
+        return
+    game.call("_acquire_stable_camera_part", 0.23, false)
     if not str(game.get("locked_target_part_id")).is_empty():
-        _fail("off-segment HEAD lock did not fall back to BODY immediately")
+        _fail("sustained BODY candidate did not replace off-ray HEAD")
         return
     camera.global_position = target.global_position + Vector3(0.0,-2.0,10.0)
     camera.look_at(target.global_position, Vector3.UP)

@@ -40,9 +40,9 @@ auto = main.split("func _acquire_stable_camera_part(delta: float,", 1)[1].split(
 for token in (
     "target.global_position",
     "sera_origin: Vector3 = player.global_position",
-    '"select_actor_center_line_part", sera_origin, center',
-    '"actor_center_line_hits_part",',
-    "not auto_lock_initialized or current_broken or not current_on_line",
+    '"select_actor_parallel_lines_part", sera_origin, center',
+    '"actor_parallel_lines_hits_part",',
+    "not auto_lock_initialized or current_broken:",
     "locked_target_part_id = preferred",
     "auto_lock_initialized = true",
     'auto_lock_pending_part = ""',

@@ -1,3 +1,12 @@
+# SERA v303 — AUTOロックを左右2本の平行レイへ・可視化ON/OFF（2026-11-13）
+
+- `target_parts.gd`でセラ→敵本体中心の水平垂直面を基準に左右±0.25m、計0.50m間隔で平行な有限線分を生成。BODY/HEAD/四脚の各実BoxMesh（HEADは従来ロック補助領域）との**両線共通交差**だけをAUTO候補とし、2線の最初の交点距離のうち遠い側を採用して最前部位を選択。
+- `main.gd` AUTOは両線APIのみ使用。境界で片線が外れるたびの即時変更は廃止し、次の両線候補が0.22秒連続したら切替。破損時の即時再取得・コンボ中ロック固定・MANUAL左右のカメラ投影切替は維持。
+- LOCK MODE直下に`LINES OFF/ON`ボタン。既存Touch/Mouse入力を独立に消費。可視化はOFF初期、ON時のみ細い水色の深度テスト3D円柱2本を同じ線分位置に描き、物理当たり判定には関与しない。`render_order_policy.gd`の`DEPTH_TESTED_EMISSIVE`パスを使用。
+- 旧1本線のAPIは歴史回帰互換、AUTOのみ2本へ移行。新しい静的/実Godotテストを登録。Android実機未検証。
+
+---
+
 # SERA v302 — 四脚ロック狙点中央化・部位別命中FX完全分離（2026-11-13）
 
 - `target_parts.gd` の4脚`aim`オフセットを`Vector3(0.0, 0.0, 0.0)`に変更。各脚pivotが全体メカフレームの中心なので、`get_part_aim_world`・`get_part_local_aim`経由のHUD、近接追尾、Kick_l/r回転中心が中央へ移る。AABB／実メッシュ／敵接触判定は不変。

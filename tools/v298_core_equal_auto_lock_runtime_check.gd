@@ -137,13 +137,17 @@ func _run() -> void:
         return
     body_mesh.size = original_size
 
-    # If the currently selected HEAD ceases to intersect, release at once.
+    # If HEAD loses pair intersection, require a stable 0.22s replacement.
     game.set("locked_target_part_id","head")
     _place(camera,center,Vector3(0.0,0.0,-12.0))
     player.global_position = camera.global_position
     game.call("_acquire_stable_camera_part",0.016,false)
+    if str(game.get("locked_target_part_id")) != "head":
+        _fail("transient off-segment HEAD lost stable-lock hold")
+        return
+    game.call("_acquire_stable_camera_part",0.23,false)
     if str(game.get("locked_target_part_id")) != "":
-        _fail("off-segment HEAD was not released for a real BODY hit")
+        _fail("HEAD did not release for stable paired-ray BODY")
         return
 
     # Do not affect weapon hitboxes or part lock/followup compatibility.
