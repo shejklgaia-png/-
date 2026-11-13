@@ -60,7 +60,7 @@ ordered = [
     "_update_enemy_fire_eligibility()",
     "var running: bool = direction_input.length() > 0.001",
     "_advance_side_step(delta)",
-    "if damage_reaction_active:",
+    "    if damage_reaction_active:\n        # Freeze player input while physical knockback",
     "elif PHYSICS_FRAME.flight_owns_displacement(",
     "elif combat_state == CombatState.IDLE and not stepping_this_frame:",
     "player.move_and_slide()",
