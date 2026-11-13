@@ -41,8 +41,14 @@ assert "_cancel_combo_followup_windows_for_movement()" in step
 assert step.index("if not _spend_energy(") < step.index("_cancel_combo_followup_windows_for_movement()")
 assert "_cancel_attack()" in step
 physics=m.split("func _physics_process(delta: float) -> void:",1)[1].split("func _process(delta: float) -> void:",1)[0]
-assert "bash_followup_window_remaining = maxf(0.0, bash_followup_window_remaining - delta)" in physics
-assert "bash_loop_window_remaining = maxf(0.0, bash_loop_window_remaining - delta)" in physics
+# v317 stage7: the same windows count down in main's delegated wrapper.
+assert "_tick_combo_window_timers(delta)" in physics
+combo_timers = m.split("func _tick_combo_window_timers(delta: float) -> void:", 1)[1].split(
+    "func _tick_target_recovery_timers(", 1)[0]
+assert "bash_followup_window_remaining = COMBAT_TIMERS.remaining_after_delta(" in combo_timers
+assert "bash_loop_window_remaining = COMBAT_TIMERS.remaining_after_delta(" in combo_timers
+assert "return maxf(0.0, remaining - delta)" in read("scripts/sera_combat_timers.gd")
+assert physics.index("_tick_combo_window_timers(delta)") < physics.index("_update_guard_hold()")
 lock=physics.split("# The paired SERA->BODY rays",1)[1].split(
     '_acquire_stable_camera_part(delta, locked_part_broken)',1)[0]
 assert "if not combo_held:" in lock
