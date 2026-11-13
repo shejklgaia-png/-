@@ -53,7 +53,7 @@ physics = section("func _physics_process(delta: float) -> void:",
 ordered = [
     "_tick_training_ko(delta)",
     "_tick_combo_window_timers(delta)",
-    "_tick_resources(delta)",
+    "    var was_energy_exhausted: bool = energy_exhausted",
     "_tick_target_recovery_timers(delta)",
     "_update_boost_speed(delta)",
     "_tick_boost_pose_grace(delta)",
@@ -63,7 +63,6 @@ ordered = [
     "    if damage_reaction_active:\n        # Freeze player input while physical knockback",
     "elif PHYSICS_FRAME.flight_owns_displacement(",
     "elif combat_state == CombatState.IDLE and not stepping_this_frame:",
-    "player.move_and_slide()",
     "blur_velocity = PHYSICS_FRAME.displacement_velocity(",
     "blur_last_player_position = player.global_position",
     "_acquire_stable_camera_part(delta, locked_part_broken)",
@@ -77,6 +76,11 @@ ordered = [
 ]
 indices = [physics.index(x) for x in ordered]
 assert indices == sorted(indices), list(zip(ordered, indices))
+normal_resource = physics.index("    var was_energy_exhausted: bool = energy_exhausted")
+assert normal_resource < physics.index("    _tick_resources(delta)", normal_resource) < physics.index(
+    "    _tick_target_recovery_timers(delta)")
+assert "player.move_and_slide()" in physics.split(
+    "elif PHYSICS_FRAME.flight_owns_displacement(", 1)[1]
 for token in (
     "jumping_this_frame, landing_this_frame, somersault_this_frame,",
     "back_somersault_active, landing_active):",
