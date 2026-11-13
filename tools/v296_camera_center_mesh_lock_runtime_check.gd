@@ -104,29 +104,20 @@ func _run() -> void:
     _point_camera(camera,center,Vector3(0.0,0.0,-12.0))
     player.global_position = camera.global_position
     game.call("_acquire_stable_camera_part",0.016,false)
-    if str(game.get("locked_target_part_id")) != "head":
-        _fail("one-sided HEAD loss prematurely selected BODY")
-        return
-    game.call("_acquire_stable_camera_part",0.23,false)
     if str(game.get("locked_target_part_id")) != "":
-        _fail("BODY did not take over after 0.22s")
+        _fail("BODY did not take over immediately after dual-ray loss")
         return
     if not bool(game.get("auto_lock_initialized")):
         _fail("BODY lock was mistaken for uninitialized selection")
         return
 
-    # v298: BODY is a genuine intersecting candidate, so switching from
-    # BODY to HEAD uses the same 0.22 s confirmation as limb-to-limb.
+    # v305: BODY is a genuine intersecting candidate, but switching
+    # from BODY to HEAD now happens in the first dual-ray sample.
     _point_camera(camera,center,Vector3(0.0,-2.0,10.0))
     player.global_position = camera.global_position
     game.call("_acquire_stable_camera_part",0.016,false)
-    if str(game.get("locked_target_part_id")) != "":
-        _fail("BODY->HEAD ignored the shared lock confirmation")
-        return
-    player.global_position = camera.global_position
-    game.call("_acquire_stable_camera_part",0.23,false)
     if str(game.get("locked_target_part_id")) != "head":
-        _fail("BODY refused sustained HEAD intersection")
+        _fail("BODY->HEAD did not switch on the first paired-ray hit")
         return
 
     # Existing MANUAL and attack retention are separate from AUTO sampling.
