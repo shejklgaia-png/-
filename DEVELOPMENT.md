@@ -2035,3 +2035,9 @@
 - 腰を前30°・右18°に傾け、頭の大きなねじれを緩和。元の脚・腕モーション、他3方向、移動距離とロック追従は保持。
 - `assets/sera_source.json`と`models/SERA_BOOSTER_allテスト.bbmodel`を同期し、`assets/sera_data.gd`を再生成。旧原本は非破壊。新しいPython/GodotテストをCIへ追加。
 - Android実機の描画とタッチ動作は未確認。
+
+## 2026-11-13 — SERA v309 9.2.2原本の右ステップを指定適用
+- ユーザーがBlockbench画像で指定した`models/storage/SERA_BOOSTER_allテスト (9) (2) (2).bbmodel`内の`Step_R`を、原本のすべてのキーフレーム/UUID/名前ごと`assets/sera_source.json`へ正確に適用。
+- v308で独自変更されたWaist/Headの2回転キーだけが原本と異なっていたため、この2キーを復元。`models/SERA_BOOSTER_allテスト.bbmodel`も同じStep_Rに同期し、`assets/sera_data.gd`を正規のbase64形式で再生成。
+- 他の原本モーション/3Dモデル/スクリプト/360°STEP補間・移動距離・カメラ・ロック/攻撃仕様は保持。9.2.2元ファイルは変更しない。
+- 旧v308の独自ポーズ期待テストをバージョン条件付きにし、v309では指定原本一致を検査。専用のPython静的・Godot実行テストをCIに追加。Android実機上の見た目は未検証。

@@ -44,13 +44,21 @@ func _run() -> void:
     var waist: Node3D=bones["67435cb7-b6af-23e4-10f1-3cd13d8429fa"]
     var front: Vector3=waist.quaternion*Vector3.FORWARD
     var up: Vector3=waist.quaternion*Vector3.UP
-    # Lock yaw compensation leaves the authored forward pitch/right lean intact.
-    if front.y > -0.40:
-        _fail("right STEP does not pitch forward: "+str(front))
-        return
-    if up.x < 0.20:
-        _fail("right STEP does not lean to the right: "+str(up))
-        return
+    if str(ProjectSettings.get_setting("application/config/name")) == "SERA v308":
+        # Preserve the exact v308 historical posture assertion.
+        if front.y > -0.40 or up.x < 0.20:
+            _fail("v308 right-forward lean no longer matches authored pose")
+            return
+    else:
+        # In v309 the user selected the complete Step_R from 9.2.2.
+        # Check that the runtime samples the original, unmodified keyframe.
+        var raw_pose: Dictionary = rig.call("_sample_step_clip_pose",
+            "Step_R", "67435cb7-b6af-23e4-10f1-3cd13d8429fa", 0.0)
+        var expected: Quaternion = rig.call("_blockbench_rotation",
+            Vector3(-42.5, -70.0, 0.0))
+        if (raw_pose["rotation"] as Quaternion).angle_to(expected) > 0.001:
+            _fail("9.2.2 Step_R Waist keyframe was not loaded")
+            return
     if Vector2(front.x,front.z).normalized().dot(Vector2(0,-1)) < 0.995:
         _fail("right STEP breaks locked facing: "+str(front))
         return
