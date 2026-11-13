@@ -65,7 +65,7 @@ ordered = [
     "    var was_energy_exhausted: bool = energy_exhausted",
     "    _tick_resources(delta)",
     "    _tick_target_recovery_timers(delta)",
-    'enemy_shooter.set("can_fire",',
+    "_update_enemy_fire_eligibility()",
     "    if down_remaining > 0.0:",
     "down_remaining = COMBAT_TIMERS.remaining_after_delta(down_remaining, delta)",
     "    if guard_break_remaining > 0.0:",
@@ -74,6 +74,10 @@ ordered = [
 ]
 indices = [normal.index(x) for x in ordered]
 assert indices == sorted(indices), indices
+fire = main.split("func _update_enemy_fire_eligibility() -> void:", 1)[1].split(
+    "func _input(event: InputEvent) -> void:", 1)[0]
+assert 'enemy_shooter.set("can_fire", TARGET_LIFECYCLE.fire_allowed(' in fire
+assert 'target_hp, player_hp, stagger_remaining, part_break_remaining))' in fire
 assert "if down_remaining <= 0.0:" in physics
 assert "energy = TEST_EN_MAX\n            shield = TEST_SH_MAX\n            energy_exhausted = false" in physics
 assert "if guard_break_remaining <= 0.0 and down_remaining <= 0.0" in physics
