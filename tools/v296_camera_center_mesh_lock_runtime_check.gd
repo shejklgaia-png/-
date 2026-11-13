@@ -27,8 +27,8 @@ func _run() -> void:
     var game: Node3D = packed.instantiate()
     # Historic geometry test: place SERA at the sampled synthetic ray origin.
     # The camera may still aim the test ray, but AUTO reads only SERA.
-    var player: CharacterBody3D = game.get("player")
     root.add_child(game)
+    var player: CharacterBody3D = game.get("player")
     var camera: Camera3D = game.get("camera")
     var target: Node3D = game.get("target")
     var parts: Node3D = game.get("target_parts")
