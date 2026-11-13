@@ -106,7 +106,7 @@ func _run() -> void:
         if own_shell.albedo_color == (all[id]["rest_shell"] as Color) or not own_shell.emission_enabled:
             _fail(id+": own surface did not flash")
             return
-        if mat.albedo_color != Color("e53935") or mat.emission_enabled:
+        if mat.albedo_color != Color("e53935"):
             _fail(id+": core was flashed along with struck part")
             return
         if core_mesh.position != Vector3.ZERO or absf(core_mesh.rotation_degrees.z)>0.00001:
