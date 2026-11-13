@@ -2213,3 +2213,10 @@
 - `scripts/sera_thruster_presentation.gd` に最後のBOOST噴射方向・後退重み・画面左扇形の3値を集約し、最終的な `rig.call("update_back_thruster_fx",...)` を委譲。`main.gd` はこのシーンごとの1インスタンスを所有し、入力・カメラ・STEP・加速スラスターの発火判定と戦闘状態、実際のノズルモデルと描画を引き続き管理します。
 - ニュートラル指移動では3値を保持し、方向反転時は即時更新。表示BOOSTがなくても実BOOST中は保持をクリアしない点、両方が終わって初めてクリアする点、噴射OFFでも毎物理フレーム更新する点を維持。毎フレーム辞書生成なし。
 - v206/v212/v213/v214/v216/v221/v261/Stage11/Stage12テストは新しい責務境界の実処理を参照させる形に移行。新規静的1件・実Godot1件を登録した全204件CIを統合条件とし、ゲームv317据置。
+
+
+## 2026-11-14 — v317 main.gd 第14回分割：戦闘状態HUDの独立化
+
+- `scripts/sera_combat_hud_text.gd` に、ガード反応、Kick_b/Jump着地・フォールバック、STEPの前後左右/斜め/蹴り方向、格闘中の予約/再生中クリップ、BASH/追尾残り時間、RUN/BOOST/姿勢継続の表示文言とフォーマットを純粋関数へ分離。
+- `main.gd` は`_refresh_combat_state_hud`へ状態優先度・ラベル更新を集約、`_physics_process`末尾に元どおり床位置追従後の一呼出しを残す。DOWN > GUARD BREAK > DAMAGE > GUARD > KICK BACK > LAND > JUMP > STEP > COMBAT > RUN/BOOST の分岐と数値は保存。`_active_strike_clip`・リグクリップ名は必要な枝でだけ呼び出す。
+- Python静的契約・Godot実シーンの状態表示テスト計2件を追加して総206件の全CIへ登録。ゲームv317据置。

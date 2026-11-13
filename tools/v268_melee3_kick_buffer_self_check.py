@@ -96,11 +96,15 @@ assert "buffered_side_kick_side = 0" in strike
 print("PASS: v284 0.05s post-swing cancel for queued kicks; full unqueued clip and cleanup")
 
 # Render current behavior explicitly in the same debug HUD the user recorded.
-assert '"STRIKE %d/%d  |  KICK QUEUED"' in physics
-assert '"KICK RIGHT  |  Kick_r"' in physics
-assert '"KICK LEFT  |  Kick_l"' in physics
+hud = (Path(__file__).resolve().parents[1] / "scripts/sera_combat_hud_text.gd").read_text(encoding="utf-8")
+assert '"STRIKE %d/%d  |  KICK QUEUED"' in hud
+assert '"KICK RIGHT  |  Kick_r"' in hud
+assert '"KICK LEFT  |  Kick_l"' in hud
+assert "COMBAT_HUD_TEXT.strike_label(" in physics
+assert "COMBAT_HUD_TEXT.step_label(" in physics
 assert '"KICK %s %.2fm planned"' in step_hud
-assert '"STEP DIAGONAL  |  BLENDED"' in physics
+assert '"STEP DIAGONAL  |  BLENDED"' in hud
+assert "if absf(step_flick.y) > 0.15:" in hud
 
 clips={a["name"]:a for a in source["animations"]}
 for name in ("Melee3","Kick_l","Kick_r"):

@@ -73,7 +73,11 @@ assert "float(rig.call(\"get_clip_time\")) >= _melee3_flick_cancel_time()" in ad
 assert "_launch_combo_side_kick(committed_kick_flick, committed_kick_side)" in finish
 flick=m.split("func _request_combo_side_kick(flick: Vector2) -> bool:",1)[1].split("func _launch_combo_side_kick(",1)[0]
 assert "and _is_strike_finisher():" in flick
-assert '"STRIKE %d/%d  |  %s"' in m
+hud = (Path(__file__).resolve().parents[1] / "scripts/sera_combat_hud_text.gd").read_text(encoding="utf-8")
+assert '"STRIKE %d/%d  |  %s"' in hud
+assert "COMBAT_HUD_TEXT.strike_label(" in m
+assert "if buffered_side_kick_side == 0:" in m
+assert "clip = _active_strike_clip(strike_index)" in m
 cancel=m.split("func _melee3_flick_cancel_time() -> float:",1)[1].split("func _start_strike(",1)[0]
 assert "COMBAT_FLOW.melee3_flick_cancel_time(" in cancel
 assert "STRIKE_CLIPS.size(), MELEE3_FLICK_CANCEL_DELAY)" in cancel

@@ -90,7 +90,10 @@ assert '_switch_clip(RUN_CLIP if resume_moving else WAIT_CLIP, 0.16)' in rig
 assert 'step_playback and directional_step_active' in rig
 assert 'var t: float = clip_time if (step_playback and directional_step_active)' in rig
 assert 'prior_rotations[uid] = pivot.quaternion' in rig
-assert 'state_label.text = "STEP FORWARD  |  Frontstep"' in main
+hud = (Path(__file__).resolve().parents[1] / "scripts/sera_combat_hud_text.gd").read_text(encoding="utf-8")
+assert '"STEP FORWARD  |  Frontstep"' in hud
+assert "COMBAT_HUD_TEXT.step_label(" in main
+assert "if step_flick.y < -0.8:" in hud
 assert 'player.motion_mode = CharacterBody3D.MOTION_MODE_FLOATING' in main
 assert 'const SLOTS = ["head", "torso", "legs", "arms", "booster", "weapon_r", "weapon_l"]' in eq
 print("PASS v200: WAIT grounding, RUN contact-signal grounding, other poses baseline")

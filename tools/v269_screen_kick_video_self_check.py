@@ -24,8 +24,11 @@ assert release.index("if side_kick_requested and kick_flick_direction") < releas
 assert "buffered_side_kick_flick = flick.normalized()" in request
 assert "buffered_side_kick_side = side" in request
 assert "not (bash_flick_candidate or side_kick_flick_candidate)" in physics
-assert '"KICK RIGHT  |  Kick_r"' in physics
-assert '"KICK LEFT  |  Kick_l"' in physics
+hud = (Path(__file__).resolve().parents[1] / "scripts/sera_combat_hud_text.gd").read_text(encoding="utf-8")
+assert '"KICK RIGHT  |  Kick_r"' in hud
+assert '"KICK LEFT  |  Kick_l"' in hud
+assert "COMBAT_HUD_TEXT.step_label(" in physics
+assert "if kick_side != 0:" in hud
 def sector(x,y):
     return math.floor((math.atan2(x,-y)+math.pi/4)/(math.pi/2))%4
 for yaw in range(720):

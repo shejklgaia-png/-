@@ -20,6 +20,7 @@ const PHYSICS_FRAME = preload("res://scripts/sera_physics_frame_rules.gd")
 const MOTION_DIRECTION = preload("res://scripts/sera_motion_direction.gd")
 const NOZZLE_STEERING = preload("res://scripts/sera_nozzle_steering.gd")
 const THRUSTER_PRESENTATION = preload("res://scripts/sera_thruster_presentation.gd")
+const COMBAT_HUD_TEXT = preload("res://scripts/sera_combat_hud_text.gd")
 const DEV_DIAGNOSTICS = preload("res://scripts/dev_diagnostics.gd")
 ## v84: Authored 3-stage Swordeffect atlas, exact board placement.
 ## v83: Three-stage tap melee combo; cancel 2 authored frames after follow-through.
@@ -4518,6 +4519,19 @@ func _physics_process(delta: float) -> void:
             0.0,
             roundf(player.position.z / 4.0) * 4.0
         )
+    _refresh_combat_state_hud(
+        running, stepping_this_frame, kick_side_this_frame,
+        step_flick_this_frame, step_side_this_frame, somersault_this_frame,
+        landing_this_frame, jumping_this_frame)
+
+
+func _refresh_combat_state_hud(running: bool, stepping_this_frame: bool,
+        kick_side_this_frame: int, step_flick_this_frame: Vector2,
+        step_side_this_frame: int, somersault_this_frame: bool,
+        landing_this_frame: bool, jumping_this_frame: bool) -> void:
+    # Keep original exclusive priority: invulnerability -> guard break ->
+    # damage/guard -> dedicated kicks -> jump/step -> normal combat/locomotion.
+    # Reading the rig's clip names remains lazy (only the selected status).
     if down_remaining > 0.0:
         state_label.text = "DOWN / INVULNERABLE"
     elif guard_break_remaining > 0.0:
@@ -4526,64 +4540,55 @@ func _physics_process(delta: float) -> void:
     elif damage_reaction_active:
         state_label.text = "DAMAGE  |  Damageknock"
     elif guard_active:
-        state_label.text = "GUARD HIT  |  Guard_REACTION" if bool(rig.call("guard_reaction_playing")) else "GUARD  |  Guard"
+        state_label.text = COMBAT_HUD_TEXT.guard_label(
+            bool(rig.call("guard_reaction_playing")))
     elif back_somersault_active or somersault_this_frame:
-        state_label.text = ("KICK BACK  |  Kick_b" if back_somersault_has_authored_clip
-            else "KICK BACK  |  Jump FALLBACK")
+        state_label.text = COMBAT_HUD_TEXT.somersault_label(
+            back_somersault_has_authored_clip)
     elif landing_this_frame or landing_active:
-        state_label.text = ("KICK BACK LAND  |  0.2s" if landing_from_somersault
-            else "JUMP LAND  |  Jump")
+        state_label.text = COMBAT_HUD_TEXT.landing_label(landing_from_somersault)
     elif jumping_this_frame and combat_state == CombatState.IDLE and not stepping_this_frame:
-        state_label.text = "AIR FALL  |  Jump" if jump_fall_after_action else "JUMP  |  Jump (1.5m)"
+        state_label.text = COMBAT_HUD_TEXT.jump_label(jump_fall_after_action)
     elif stepping_this_frame:
-        if kick_side_this_frame != 0:
-            state_label.text = "KICK RIGHT  |  Kick_r" if kick_side_this_frame > 0 else "KICK LEFT  |  Kick_l"
-        elif step_flick_this_frame.y < -0.8:
-            state_label.text = "STEP FORWARD  |  Frontstep"
-        elif step_flick_this_frame.y > 0.8:
-            state_label.text = "STEP BACK  |  Backstep"
-        elif absf(step_flick_this_frame.y) > 0.15:
-            state_label.text = "STEP DIAGONAL  |  BLENDED"
-        else:
-            state_label.text = "STEP RIGHT  |  Step_R" if step_side_this_frame > 0 else "STEP LEFT  |  Step_L"
+        state_label.text = COMBAT_HUD_TEXT.step_label(
+            kick_side_this_frame, step_flick_this_frame, step_side_this_frame)
     else:
         match combat_state:
             CombatState.MELEE_APPROACH:
                 state_label.text = "MELEE APPROACH  |  meleeboost"
             CombatState.DASH:
-                state_label.text = "MELEE BOOST  %.1fm/s  %.2f/%.1fs" % [
+                state_label.text = COMBAT_HUD_TEXT.dash_label(
                     float(part_stats.get("melee_boost_speed", MELEE_BOOST_DEFAULT_SPEED)),
                     melee_boost_elapsed,
-                    float(part_stats.get("melee_boost_duration", MELEE_BOOST_DEFAULT_DURATION))]
+                    float(part_stats.get("melee_boost_duration", MELEE_BOOST_DEFAULT_DURATION)))
             CombatState.STRIKE:
                 var count: int = _strike_stage_count()
-                if buffered_side_kick_side == 2:
-                    state_label.text = "STRIKE %d/%d  |  KICK B QUEUED" % [
-                        strike_index + 1, count]
-                elif buffered_side_kick_side != 0:
-                    state_label.text = "STRIKE %d/%d  |  KICK QUEUED" % [
-                        strike_index + 1, count]
-                else:
-                    state_label.text = "STRIKE %d/%d  |  %s" % [
-                        strike_index + 1, count, _active_strike_clip(strike_index)]
+                var clip: String = ""
+                if buffered_side_kick_side == 0:
+                    clip = _active_strike_clip(strike_index)
+                state_label.text = COMBAT_HUD_TEXT.strike_label(
+                    strike_index, count, buffered_side_kick_side, clip)
             CombatState.BACK_KICK_TRACK:
-                state_label.text = "KICK BACK TRACK  %.2f / %.2fs" % [
-                    back_kick_track_elapsed, BASH_TRACK_SECONDS]
+                state_label.text = COMBAT_HUD_TEXT.back_kick_track_label(
+                    back_kick_track_elapsed, BASH_TRACK_SECONDS)
             CombatState.BASH_TRACK:
-                state_label.text = "BASH WINDUP  %.2f / %.2fs" % [
-                    bash_track_elapsed, BASH_TRACK_SECONDS]
+                state_label.text = COMBAT_HUD_TEXT.bash_track_label(
+                    bash_track_elapsed, BASH_TRACK_SECONDS)
             CombatState.STRIKE_TRACK:
-                state_label.text = "MELEE %d WINDUP  %.2f / %.2fs" % [
-                    strike_index + 1, followup_track_elapsed, FOLLOWUP_TRACK_SECONDS]
+                state_label.text = COMBAT_HUD_TEXT.strike_track_label(
+                    strike_index, followup_track_elapsed, FOLLOWUP_TRACK_SECONDS)
             CombatState.BASH:
                 state_label.text = "SHIELD BASH  |  Bash"
             _:
                 if running and movement_boost_active:
-                    state_label.text = "BOOST  x1.5  |  %s" % str(rig.call("get_boost_dominant_clip"))
+                    state_label.text = COMBAT_HUD_TEXT.boost_label(
+                        str(rig.call("get_boost_dominant_clip")))
                 elif boost_pose_grace_remaining > 0.0 and gesture_active:
-                    state_label.text = "RUN  |  BOOST POSE HOLD  |  %s" % str(rig.call("get_boost_dominant_clip"))
+                    state_label.text = COMBAT_HUD_TEXT.boost_hold_label(
+                        str(rig.call("get_boost_dominant_clip")))
                 elif running:
-                    state_label.text = "RUN  x1.0  |  %s" % str(rig.call("get_run_dominant_clip"))
+                    state_label.text = COMBAT_HUD_TEXT.run_label(
+                        str(rig.call("get_run_dominant_clip")))
                 else:
                     state_label.text = "WAIT  |  Wait_motion"
 
