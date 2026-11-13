@@ -28,22 +28,31 @@ func _run() -> void:
         _fail("authored animation rig failed to load")
         return
 
-    # WAIT -> RUN must start the authored gait immediately; no Jump landing
-    # pose may contribute. Actual jump/somersault landing remains separate.
+    # v331: WAIT enters the authored Jump landing keys immediately,
+    # completes exactly 0.20s, then crossfades 0.11s to normal RUN.
+    # It is purely visual and never starts a real jump/landing controller.
     rig.call("set_moving", false)
     rig.call("set_moving", true, false, Vector2.UP, false)
-    if str(rig.get("current_clip")) != "run_front_original" \
-            or absf(float(rig.get("clip_time"))) > 0.00001:
-        _fail("ordinary stand->RUN failed to choose the RUN clip")
+    if str(rig.get("current_clip")) != "Jump" \
+            or not bool(rig.get("wait_to_run_landing_active")) \
+            or bool(rig.get("jump_playback")):
+        _fail("ordinary stand->RUN did not enter visual landing")
         return
     rig.call("_process", 0.05)
-    if float(rig.get("clip_time")) < 0.08:
-        _fail("stand->RUN gait was held back by an extra landing phase")
+    if absf(float(rig.get("clip_time")) - 0.40625) > 0.001:
+        _fail("stand->RUN visual landing played incorrect authored key")
         return
-    var elapsed_after_first: float = float(rig.get("clip_time"))
+    rig.call("_process", 0.15)
+    if str(rig.get("current_clip")) != "run_front_original" \
+            or bool(rig.get("wait_to_run_landing_active")):
+        _fail("stand->RUN did not transition to RUN after 0.20 seconds")
+        return
+    if absf(float(rig.get("blend_duration")) - 0.11) > 0.00001:
+        _fail("stand->RUN lost smooth exit blend")
+        return
     rig.call("_process", 0.06)
-    if float(rig.get("clip_time")) <= elapsed_after_first:
-        _fail("stand->RUN gait did not continue normally")
+    if float(rig.get("clip_time")) < 0.08:
+        _fail("RUN gait did not advance after visual landing")
         return
     rig.call("set_moving", false)
     rig.call("set_moving", true, true, Vector2.UP, true)

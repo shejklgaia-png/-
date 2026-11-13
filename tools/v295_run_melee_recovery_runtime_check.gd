@@ -21,6 +21,9 @@ func _check_run(rig: Node3D, waist: Node3D, direction: Vector2,
     rig.call("_process", 0.025)
     rig.call("set_moving", true, false, direction, false)
     rig.call("_process", 0.24)
+    # v331: the initial 0.20s landing has completed; give RUN its own
+    # rendered frame to establish the correct travel-direction Waist yaw.
+    rig.call("_process", 0.16)
     if str(rig.get("current_clip")) != "run_front_original":
         _fail(label + ": normal RUN clip not selected")
         return false
@@ -121,6 +124,7 @@ func _run() -> void:
         return
     rig.call("set_moving", true, false, Vector2.LEFT, false)
     rig.call("_process", 0.24)
+    rig.call("_process", 0.16)
     var ordinary_yaw: float = rad_to_deg(_flat_yaw(waist.quaternion))
     if absf(wrapf(ordinary_yaw - 90.0, -180.0, 180.0)) > 35.0:
         _fail("ordinary post-melee WAIT->RUN inherited old heading: " + str(ordinary_yaw))
