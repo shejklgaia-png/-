@@ -54,7 +54,8 @@ assert camera.index("if hold_attack_camera or step_active or close_step_camera_t
 assert "_stable_shoulder_camera_yaw(bearing, delta)" in camera
 assert "_visible_combat_camera_yaw" not in camera
 assert "camera_yaw = _stable_shoulder_camera_yaw(bearing, delta)" in camera
-assert "(not step_active or side_kick_active)" in camera
+assert "camera_yaw = _adaptive_camera_yaw(bearing, delta)" in camera
+assert "camera_step_recovery_active" in camera
 assert "camera_radius = maxf(camera_follow_radius, camera_fit_radius_floor)" in camera
 assert "_fit_full_frame()" in camera
 rig_update=rig.split("func update_omni_step_direction(direction: Vector2, delta: float) -> void:",1)[1].split(
@@ -65,8 +66,8 @@ assert "direction.normalized(), blend).normalized()" in rig_update
 assert "maxf(delta, 0.0) / 0.08" in rig_update
 assert "directional_step_vector = direction.normalized()" in rig
 assert "alpha = alpha * alpha * (3.0 - 2.0 * alpha)" in rig
-assert 'const STEP_FORWARD_DISTANCE: float = 5.0' in m
-assert 'const BACK_STEP_DISTANCE: float = 5.0' in m
+assert 'const STEP_FORWARD_DISTANCE: float = 4.0' in m
+assert 'const BACK_STEP_DISTANCE: float = 4.0' in m
 assert 'step_speed_current = STEP_SPEED * float(part_stats.get("step_speed_mult", 1.0))' in m
 assert '_move_player_swept(requested, true)' in m
 assert 'INPUT_GESTURES.step_flick(' in m
