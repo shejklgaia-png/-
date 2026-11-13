@@ -27,7 +27,7 @@ for needle in (
     "boost_exhaust, boost_pose_exhaust, intended_boost,",
     "player.global_transform.basis.z, thruster_presentation.held_boost_backstroke_weight)",
     "intended_boost = _screen_drag_to_ground(direction_input)",
-    "direction_of_exhaust.normalized(), delta, backstroke_weight,",
+    "thruster_presentation.update(rig, exhaust_on,",
     "var step_flick_this_frame: Vector2 = step_flick_direction",
 ):
     assert needle in main, needle
@@ -42,6 +42,10 @@ for needle in (
     "weight = held_boost_weight",
 ):
     assert needle in steer, needle
+presentation = read("scripts/sera_thruster_presentation.gd")
+assert 'rig.call("update_back_thruster_fx", exhaust_on,' in presentation
+assert "direction_of_exhaust.normalized(), delta, backstroke_weight," in presentation
+assert "left_sector_world, acceleration_burst, normal_attack_exhaust)" in presentation
 assert "var boost_exhaust: bool = movement_boost_active and running" in main
 
 # End-to-end transport: controller -> rig -> selected equipment -> real pivots.
