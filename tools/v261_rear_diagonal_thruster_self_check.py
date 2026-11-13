@@ -23,7 +23,7 @@ assert "v261 — 左斜め後退" in read("docs/SERA_INPUT_MOVEMENT_CAMERA.md")
 # projection in main and before the unchanged BOOST direction cache.
 motion=read("scripts/sera_nozzle_steering.gd")
 frame=main.split("var backstroke_weight: float = NOZZLE_STEERING.backstroke_weight(",1)[1].split(
-    'rig.call("update_back_thruster_fx"',1)[0]
+    'thruster_presentation.update(rig, exhaust_on,',1)[0]
 assert "NOZZLE_STEERING.leftward_weight(" in frame
 assert "NOZZLE_STEERING.left_sector_direction(" in frame
 assert "weight = clampf(step_world_rear.dot(actor_rear), 0.0, 1.0)" in motion
@@ -37,9 +37,11 @@ assert "left_sector_world = left_sector_world.slerp(" in motion
 assert "Vector3.DOWN, backstroke).normalized()" in motion
 assert motion.index("screen_right, left_weight * 0.50).normalized()") < motion.index(
     "Vector3.DOWN, backstroke).normalized()")
-assert "held_boost_left_sector_world = left_sector_world" in frame
-assert "left_sector_world = held_boost_left_sector_world" in frame
-assert "left_sector_world, acceleration_burst, normal_attack_exhaust)" in main
+presentation=read("scripts/sera_thruster_presentation.gd")
+assert "held_boost_left_sector_world = left_sector_world" in presentation
+assert "left_sector_world = held_boost_left_sector_world" in presentation
+assert "thruster_presentation.update(rig, exhaust_on," in main
+assert "left_sector_world, acceleration_burst, normal_attack_exhaust)" in presentation
 
 # Real physical nozzle follows the blended target, with old authored
 # pivot/servo, world-downwash and special camera sector unchanged.
