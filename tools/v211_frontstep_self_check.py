@@ -29,7 +29,14 @@ model_clips = {a["name"]: a for a in model["animations"]}
 assert len(source_clips) == len(source["animations"]) >= 25
 assert {"Kick_l", "Kick_r"} <= set(source_clips)  # v265 adds the user-authored kick clips
 assert len(model_clips) == len(model["animations"]) == 24
-assert model["animations"][:len(original_model["animations"])] == original_model["animations"]
+# v308 intentionally updates Step_R's Waist/Head while retaining its
+# name and UUID. Every other historical clip remains unchanged.
+for current, old in zip(model["animations"][:len(original_model["animations"])], original_model["animations"]):
+    if old["name"] == "Step_R":
+        assert current["uuid"] == old["uuid"] and current["name"] == old["name"]
+        assert set(current["animators"]) == set(old["animators"])
+        continue
+    assert current == old
 # Consolidated model diverged from the old authored (4) source in v206 to
 # correct nozzle pivots and geometry. Its existing group and mesh counts must
 # remain intact, but exact equality to that older source is not expected.

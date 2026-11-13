@@ -39,12 +39,13 @@ func _run() -> void:
         _fail("authoring Waist joint missing")
         return
 
-    # Step_R authored Waist y=-70deg looks like a side-on body, even
-    # though CharacterBody3D.look_at() was already facing the enemy.
+    # v308 reshaped Step_R into a forward/right lean (Waist Y=-15deg).
+    # The authored pose retains nonzero yaw, which STEP compensation must
+    # still cancel without erasing its original pitch or roll.
     var step: Dictionary = rig.call("_sample_step_clip_pose","Step_R",waist_id,0.0)
     var raw_step: Quaternion = step["rotation"]
-    if absf(_flat_yaw(raw_step)) < deg_to_rad(35.0):
-        _fail("v292 regression setup lost the original sideways Step_R yaw")
+    if absf(_flat_yaw(raw_step)) < deg_to_rad(1.0):
+        _fail("Step_R yaw was unexpectedly eliminated from authored clip")
         return
     var corrected: Quaternion = rig.call("_face_locked_boss_with_waist",raw_step,1.0)
     if absf(_flat_yaw(corrected)) > deg_to_rad(0.2):
