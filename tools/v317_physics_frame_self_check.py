@@ -94,7 +94,7 @@ for token in (
     "exhaust_on, stepping_this_frame, thruster_accel_previous_step,",
     "new_somersault_burst, tracking_accel_state,",
     "thruster_accel_previous_tracking_state)",
-    "left_sector_world, acceleration_burst, normal_attack_exhaust)",
+    "acceleration_burst, normal_attack_exhaust,",
 ):
     assert token in physics, token
 # Melee jets still persist through windup and post-hit follow-through.
