@@ -16,6 +16,7 @@ const COMBAT_FLOW = preload("res://scripts/sera_combat_flow.gd")
 const COMBAT_TIMERS = preload("res://scripts/sera_combat_timers.gd")
 const HIT_FX_PRESENTATION = preload("res://scripts/sera_hit_fx_presentation.gd")
 const TARGET_LIFECYCLE = preload("res://scripts/sera_target_lifecycle.gd")
+const PHYSICS_FRAME = preload("res://scripts/sera_physics_frame_rules.gd")
 const DEV_DIAGNOSTICS = preload("res://scripts/dev_diagnostics.gd")
 ## v84: Authored 3-stage Swordeffect atlas, exact board placement.
 ## v83: Three-stage tap melee combo; cancel 2 authored frames after follow-through.
@@ -4200,6 +4201,14 @@ func _tick_target_recovery_timers(delta: float) -> void:
         stagger_value, stagger_remaining, delta, 8.0)
 
 
+func _tick_boost_pose_grace(delta: float) -> void:
+    boost_pose_grace_remaining = PHYSICS_FRAME.next_boost_pose_grace(
+        boost_pose_grace_remaining, delta, BOOST_POSE_GRACE_SECONDS,
+        gesture_active, guard_active, damage_reaction_active,
+        jump_active, landing_active, step_active, back_somersault_active,
+        combat_state == CombatState.IDLE, movement_boost_active)
+
+
 func _physics_process(delta: float) -> void:
     _update_equipped_collision_height()
     _tick_training_ko(delta)
@@ -4248,20 +4257,9 @@ func _physics_process(delta: float) -> void:
     # v163: symmetric eased 0.20s RUN <-> BOOST speed transitions.
     # This is independent of the 0.50s BOOST pose hold and 0.20s pose fade.
     _update_boost_speed(delta)
-    # Hold BOOST pose for 0.50s after release from BOOST. The rig separately
-    # blends BOOST -> RUN over 0.20s once the hold expires.
-    # The hold counts down while crossing the 18px RUN deadzone;
-    # speed and HUD mode still use the real BOOST state. Back-nozzle FX
-    # follows the displayed pose during direction changes (v214).
-    # Attacks, steps, guard, damage, jumps and touch release cancel the grace.
-    if not gesture_active or guard_active or damage_reaction_active \
-            or jump_active or landing_active or step_active or back_somersault_active \
-            or combat_state != CombatState.IDLE:
-        boost_pose_grace_remaining = 0.0
-    elif movement_boost_active:
-        boost_pose_grace_remaining = BOOST_POSE_GRACE_SECONDS
-    else:
-        boost_pose_grace_remaining = maxf(0.0, boost_pose_grace_remaining - delta)
+    # The 0.50s BOOST pose hold is a visual rule, independent of actual
+    # RUN/BOOST speed, input confirmation and energy spending.
+    _tick_boost_pose_grace(delta)
     # When the training cube is at zero HP, suspend its firing cycle.
     _update_enemy_fire_eligibility()
     # The authored 0.16667s reaction runs while the body moves. Only regain
@@ -4318,8 +4316,9 @@ func _physics_process(delta: float) -> void:
         # keep collision recovery available even in the damage state.
         player.velocity = Vector3.ZERO
         player.move_and_slide()
-    elif jumping_this_frame or landing_this_frame or somersault_this_frame \
-            or back_somersault_active or landing_active:
+    elif PHYSICS_FRAME.flight_owns_displacement(
+            jumping_this_frame, landing_this_frame, somersault_this_frame,
+            back_somersault_active, landing_active):
         # Any committed flight or landing owns displacement; no RUN tick
         # can interrupt the somersault on its first or final physics frame.
         player.velocity = Vector3.ZERO
@@ -4365,10 +4364,8 @@ func _physics_process(delta: float) -> void:
         player.move_and_slide()
     # Sample actual collision-resolved displacement, including curved steps.
     # Steps move by move_and_collide(), not by player.velocity.
-    if delta > 0.000001:
-        blur_velocity = (player.global_position - blur_last_player_position) / delta
-    else:
-        blur_velocity = Vector3.ZERO
+    blur_velocity = PHYSICS_FRAME.displacement_velocity(
+        player.global_position, blur_last_player_position, delta)
     blur_last_player_position = player.global_position
     if player_floor_mark != null:
         player_floor_mark.position = Vector3(player.position.x, -0.026, player.position.z)
@@ -4457,10 +4454,10 @@ func _physics_process(delta: float) -> void:
     var normal_kick_exhaust: bool = (kick_side_this_frame != 0
         or somersault_this_frame)
     var normal_attack_exhaust: bool = normal_melee_exhaust or normal_kick_exhaust
-    var exhaust_on: bool = (not damage_reaction_active and not jump_active
-        and not landing_active and not guard_active and not energy_exhausted
-        and (boost_exhaust or boost_pose_exhaust or stepping_this_frame
-            or tracking_exhaust or normal_attack_exhaust))
+    var exhaust_on: bool = PHYSICS_FRAME.exhaust_allowed(
+        damage_reaction_active, jump_active, landing_active, guard_active,
+        energy_exhausted, boost_exhaust, boost_pose_exhaust,
+        stepping_this_frame, tracking_exhaust, normal_attack_exhaust)
     # A short visual burst marks the *start* of high acceleration. STEP can
     # use move_and_collide() (not player.velocity); a homing attack must have
     # actual displacement before emitting, avoiding false wall-blocked jets.
@@ -4470,11 +4467,10 @@ func _physics_process(delta: float) -> void:
     # Launch backflip with the existing one-shot acceleration flare.
     var new_somersault_burst: bool = (somersault_this_frame
         and back_somersault_launched and not thruster_accel_previous_somersault)
-    var acceleration_burst: bool = (exhaust_on
-        and ((stepping_this_frame and not thruster_accel_previous_step)
-            or new_somersault_burst
-            or (tracking_accel_state >= 0
-                and tracking_accel_state != thruster_accel_previous_tracking_state)))
+    var acceleration_burst: bool = PHYSICS_FRAME.acceleration_burst(
+        exhaust_on, stepping_this_frame, thruster_accel_previous_step,
+        new_somersault_burst, tracking_accel_state,
+        thruster_accel_previous_tracking_state)
     thruster_accel_previous_step = stepping_this_frame
     thruster_accel_previous_somersault = somersault_this_frame and back_somersault_launched
     thruster_accel_previous_tracking_state = tracking_accel_state
