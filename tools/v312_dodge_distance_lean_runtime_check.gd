@@ -1,5 +1,5 @@
 extends SceneTree
-## v312: 4m/14m/s in all directions; Waist leans down toward evasive travel.
+## v312: 4m/15m/s in all directions; Waist leans down toward evasive travel.
 func _initialize() -> void:
     call_deferred("_run")
 
@@ -54,11 +54,11 @@ func _run() -> void:
         if absf(float(game.get("step_arc_length"))-4.0)>0.0001:
             _fail("dodge not 4m at "+str(i))
             return
-        if absf(float(game.get("step_speed_current"))-14.0)>0.0001:
-            _fail("dodge not 14m/s at "+str(i))
+        if absf(float(game.get("step_speed_current"))-15.0)>0.0001:
+            _fail("dodge not 15m/s at "+str(i))
             return
-        if absf(float(game.get("step_duration_current"))-4.0/14.0)>0.0001:
-            _fail("dodge not 4m/14m/s duration at "+str(i))
+        if absf(float(game.get("step_duration_current"))-4.0/15.0)>0.0001:
+            _fail("dodge not 4m/15m/s duration at "+str(i))
             return
         var displacement: Vector2=game.get("step_linear_offset")
         var expected_world: Vector2=Vector2(wanted_world.x,wanted_world.z).normalized()*4.0
@@ -142,5 +142,5 @@ func _run() -> void:
         _fail("directional crouch was applied to side-kick clip")
         return
     game.call("_finish_side_step",false)
-    print("GODOT_V312_5M_15MPS_LOW_DODGE_ALL_DIRECTIONS_PASS")
+    print("GODOT_V318_4M_15MPS_LOW_DODGE_ALL_DIRECTIONS_PASS")
     quit(0)
