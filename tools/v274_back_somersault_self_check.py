@@ -98,7 +98,7 @@ assert 'rig.call("set_landing_progress", landing_fraction)' in land
 assert 'rig.call("finish_jump"' in land
 assert "if back_somersault_active:" in physics
 assert "_advance_back_somersault(delta)" in physics
-hud = read("scripts/sera_combat_hud_text.gd")
+hud = (root/"scripts/sera_combat_hud_text.gd").read_text(encoding="utf-8")
 refresh = segment(game, "_refresh_combat_state_hud(", "_process(delta: float) -> void:")
 assert 'COMBAT_HUD_TEXT.somersault_label(' in refresh
 assert 'COMBAT_HUD_TEXT.landing_label(' in refresh
