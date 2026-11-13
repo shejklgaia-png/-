@@ -65,7 +65,8 @@ assert 'player.look_at(player.global_position + aim, Vector3.UP)' in physics
 
 manual = main.split("func _switch_lock_screen_direction(direction: int)", 1)[1].split(
     "func _update_target_marker_projection(", 1)[0]
-assert 'get_visible_part_ids' in manual
+assert 'LOCK_MANAGEMENT.manual_screen_neighbor(' in manual
+assert 'get_visible_part_ids' in LOCK_MODULE
 assert "manual_part_lock_active = true" in manual
 assert "_combo_lock_retention_active()" in manual
 

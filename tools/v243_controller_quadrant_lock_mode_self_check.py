@@ -2,6 +2,10 @@
 """v243 AUTO/MANUAL button and fullscreen gesture ownership, updated through v293."""
 from pathlib import Path
 
+# v317: lock projections reside in the canonical delegated module.
+from pathlib import Path as _LockPath
+LOCK_MODULE = (_LockPath(__file__).resolve().parents[1] / "scripts/sera_lock_management.gd").read_text(encoding="utf-8")
+
 # v317 refactor: assert main's delegation and the canonical pure math.
 from pathlib import Path as _SplitPath
 SERA_INPUT = (_SplitPath(__file__).resolve().parents[1] / "scripts/sera_input_gestures.gd").read_text(encoding="utf-8")
@@ -72,8 +76,9 @@ manual = main.split("func _switch_lock_screen_direction(direction: int) -> void:
     "func _update_target_marker_projection()", 1)[0]
 assert "direction == 0 or auto_lock_enabled or target_parts == null" in manual
 assert "or _combo_lock_retention_active()" in manual
-assert "forward_id if not forward_id.is_empty() else wrapped_id" in manual
-assert 'target_parts.call("get_visible_part_ids",' in manual
+assert "LOCK_MANAGEMENT.manual_screen_neighbor(" in manual
+assert "forward_id if not forward_id.is_empty() else wrapped_id" in LOCK_MODULE
+assert 'parts.call("get_visible_part_ids",' in LOCK_MODULE
 assert "locked_target_part_id = next_id" in manual
 assert "manual_part_lock_active = true" in manual
 assert "func get_visible_part_ids(" in parts

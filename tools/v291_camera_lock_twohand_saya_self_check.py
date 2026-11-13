@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """v291: camera-center selectable boss parts, symmetric two-hand slot and sheath mesh orientation."""
 from pathlib import Path
+
+# v317: lock projections reside in the canonical delegated module.
+from pathlib import Path as _LockPath
+LOCK_MODULE = (_LockPath(__file__).resolve().parents[1] / "scripts/sera_lock_management.gd").read_text(encoding="utf-8")
 import json,re,math
 root=Path(__file__).resolve().parents[1]
 main=(root/"scripts/main.gd").read_text()
@@ -37,17 +41,19 @@ assert 'var locked_part_broken: bool = (' in physics
 assert "player.look_at(player.global_position + aim, Vector3.UP)" in physics
 switch=main.split("func _switch_lock_screen_direction(direction: int) -> void:",1)[1].split(
     "func _update_target_marker_projection(",1)[0]
-assert "get_visible_part_ids" in switch
-assert "wrapped_id" in switch and "wrapped_x" in switch
-assert "forward_id if not forward_id.is_empty() else wrapped_id" in switch
+assert "LOCK_MANAGEMENT.manual_screen_neighbor(" in switch
+assert "get_visible_part_ids" in LOCK_MODULE
+assert "wrapped_id" in LOCK_MODULE and "wrapped_x" in LOCK_MODULE
+assert "forward_id if not forward_id.is_empty() else wrapped_id" in LOCK_MODULE
 assert "core_box.intersects_segment" not in switch
 toggle=main.split("func _toggle_auto_lock_mode() -> void:",1)[1].split(
     "func _controller_start_area_contains(",1)[0]
 assert '"select_camera_front_part", camera, ""' in toggle
 reticle=main.split("func _update_target_marker_projection() -> void:",1)[1].split(
     "func _step_speed_for_player_position(",1)[0]
-assert 'clampf(screen_position.x, edge_margin' in reticle
-assert '"set_target_marker_projection", safe_screen, true, is_offscreen' in reticle
+assert "LOCK_MANAGEMENT.reticle_projection(" in reticle
+assert 'clampf(screen_position.x, edge_margin' in LOCK_MODULE
+assert 'marker["position"], true, marker["offscreen"]' in reticle
 assert "var target_marker_offscreen: bool = false" in overlay
 assert "if target_marker_offscreen:" in overlay
 

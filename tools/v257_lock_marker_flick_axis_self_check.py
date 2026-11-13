@@ -2,6 +2,10 @@
 """v257 legacy reticle requirement reverted in v258; reticle UI stays intact."""
 from pathlib import Path
 
+# v317: lock projections reside in the canonical delegated module.
+from pathlib import Path as _LockPath
+LOCK_MODULE = (_LockPath(__file__).resolve().parents[1] / "scripts/sera_lock_management.gd").read_text(encoding="utf-8")
+
 # v317 relocated pure math: validate the actual new code and main.gd facade.
 from pathlib import Path as _SplitPath
 SERA_INPUT = (_SplitPath(__file__).resolve().parents[1] / "scripts/sera_input_gestures.gd").read_text(encoding="utf-8")
@@ -22,7 +26,9 @@ assert "var target_marker_visible: bool = false" in hud
 # v291 extends projection with an explicit offscreen-edge marker.
 assert "func set_target_marker_projection(screen_position: Vector2," in hud
 assert "is_offscreen: bool = false)" in hud
-assert 'touch_ui.call("set_target_marker_projection", safe_screen, true, is_offscreen)' in m
+assert 'LOCK_MANAGEMENT.reticle_projection(' in m
+assert 'marker["position"], true, marker["offscreen"]' in m
+assert '"offscreen": is_offscreen' in LOCK_MODULE
 begin=m.split("func _begin_drag(",1)[1].split("func _analog_stick_direction(",1)[0]
 release=m.split("func _end_drag(",1)[1].split("func _remember_jump_flick_sample(",1)[0]
 step=m.split("func _classify_step_flick(",1)[1].split("func _start_omni_step(",1)[0]

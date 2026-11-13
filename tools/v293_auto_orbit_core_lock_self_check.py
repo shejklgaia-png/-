@@ -55,8 +55,9 @@ assert "var maximum: float = float(TARGET_MAX_HP)" in main
 # Legacy MANUAL arrow selection remains camera-X based and otherwise unmodified.
 manual = main.split("func _switch_lock_screen_direction(direction: int) -> void:",1)[1].split(
     "func _update_target_marker_projection()",1)[0]
-assert "camera.unproject_position(aim)" in manual
-assert "forward_id if not forward_id.is_empty() else wrapped_id" in manual
+assert "LOCK_MANAGEMENT.manual_screen_neighbor(" in manual
+assert "view.unproject_position(aim)" in LOCK_MODULE
+assert "forward_id if not forward_id.is_empty() else wrapped_id" in LOCK_MODULE
 print("V293_AUTO_ORBIT_CORE_LOCK_STATIC_PASS")
 
 # The authoritative selection API is still the same actor-origin dual-line method.

@@ -35,11 +35,13 @@ for term in (
 
 face=main.split("func _locked_target_facing_direction() -> Vector3:",1)[1].split(
     "func _controller_start_area_contains(",1)[0]
-assert 'var point: Vector3 = target.global_position' in face
-assert 'not locked_target_part_id.is_empty()' in face
-assert '"get_part_aim_world", locked_target_part_id' in face
-assert "point.x - player.global_position.x, 0.0," in face
-assert "point.z - player.global_position.z" in face
+assert 'LOCK_MANAGEMENT.target_facing_direction(' in face
+assert 'locked_target_part_id)' in face
+assert 'var point: Vector3 = boss_center' in LOCK_MODULE
+assert 'not part_id.is_empty()' in LOCK_MODULE
+assert '"get_part_aim_world", part_id' in LOCK_MODULE
+assert 'point.x - player_world.x, 0.0,' in LOCK_MODULE
+assert 'point.z - player_world.z' in LOCK_MODULE
 assert "get_part_aim_world(id: String) -> Vector3:" in parts
 
 phys=main.split("func _physics_process(delta: float) -> void:",1)[1].split(
