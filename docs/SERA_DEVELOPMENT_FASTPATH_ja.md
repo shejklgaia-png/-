@@ -1,3 +1,9 @@
+## v317 main.gd 第1回モジュール分割
+- `scripts/sera_input_gestures.gd`: RUNアナログ入力、STEPの360°認識、左右STEP、コンボ蹴り方向、上フリック判定、画面内タッチ判定。main.gd側は設定値を渡す薄いラッパーに変更しました。
+- `scripts/sera_movement_math.gd`: カメラ向きからXZ移動ベクトルへの変換、ロック対象正面に対するステップ姿勢方向の数学処理。カメラ・プレイヤーの取得自体はmain.gdが担当。
+- 通常のRUN・BOOST・蹴り・ステップの入力優先順位、キャンセルや加速度、移動距離、各種Stateはmain.gd側に残しました。Godotランタイム検査で両モジュールを実行します。
+- Godot既存テストの参照箇所が変わった場合は、旧仕様の検査を除去せず新ファイルの同じ演算を引き続き検査してください。ゲーム版はv317据置。
+
 ## Android実機の問題再現（v317）
 `docs/SERA_ANDROID_DIAGNOSTICS_ja.md` を参照。トレーニング画面のDIAG: OFFをタップすると診断パネルが表示され、再現後にCOPY LOGでクリップボードへ最大500行をコピーできます。普段はOFF（採取も保存もしません）。CIテストの重複/未登録候補は `python3 tools/sera_ci_inventory.py --json` で確認できます。
 
