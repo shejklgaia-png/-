@@ -73,8 +73,8 @@ assert old_second["length"] == new_second["length"]
 for uid, animator in old_second["animators"].items():
     if uid == effect_uuid:
         continue
-    incoming = new_second["animators"][uid]["keyframes"]
-    historical = animator["keyframes"]
+    incoming = new_second["animators"][uid].get("keyframes", [])
+    historical = animator.get("keyframes", [])
     sort_key = lambda k: (k["time"], k["channel"], k["uuid"])
     if uid == next(g["uuid"] for g in katana["groups"] if g["name"] == "Foot_L"):
         # The new user-authored Foot_L starting angle is zero (formerly
