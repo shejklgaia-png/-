@@ -12,6 +12,7 @@ assert 'SECTOR_LOOP_OFFSET_SECONDS: float = 18.46153846' in bgm
 assert "sector_stream.loop = true" in bgm
 assert "sector_stream.loop_offset = SECTOR_LOOP_OFFSET_SECONDS" in bgm
 assert "if FileAccess.file_exists(SECTOR_PATH):" in bgm
+assert 'optional_audio = ("scripts/stage_bgm.gd", "res://BGM/dennou_sector_seamless.ogg")' in (ROOT / "tools/codex_project_check.py").read_text(encoding="utf-8")
 assert "AudioStreamOggVorbis.load_from_file(SECTOR_PATH)" in bgm
 assert "AudioStreamOggVorbis.load_from_file(INTRO_PATH)" in bgm
 assert "AudioStreamOggVorbis.load_from_file(LOOP_PATH)" in bgm
