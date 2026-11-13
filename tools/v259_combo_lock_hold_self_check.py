@@ -5,6 +5,7 @@ import re
 R=Path(__file__).resolve().parents[1]
 def read(p):return (R/p).read_text(encoding="utf-8")
 m=read("scripts/main.gd")
+flow=read("scripts/sera_combat_flow.gd")
 v=re.search(r'^config/name="SERA v(\d+)"$',read("project.godot"),re.M)
 assert v and int(v.group(1))>=259
 assert (R/"README_v259_ja.md").exists()
@@ -18,8 +19,11 @@ assert "combat_state = CombatState.IDLE" in attack
 assert "const BASH_LINK_SECONDS: float = 0.65" in m
 hold=m.split("func _combo_followup_input_window_open() -> bool:",1)[1].split(
     "func _cancel_combo_followup_windows_for_movement()",1)[0]
-assert "bash_followup_window_remaining > 0.0" in hold
-assert "bash_loop_window_remaining > 0.0" in hold
+assert "COMBAT_FLOW.followup_window_open(" in hold
+assert "bash_followup_window_remaining, bash_loop_window_remaining" in hold
+assert "bash_followup_seconds > 0.0 or bash_loop_seconds > 0.0" in flow
+assert "COMBAT_FLOW.combo_retains_lock(" in hold
+assert "or somersault_landing_active or followup_open" in flow
 cancel=m.split("func _cancel_combo_followup_windows_for_movement() -> void:",1)[1].split(
     "func _cancel_attack()",1)[0]
 assert "bash_followup_window_remaining = 0.0" in cancel

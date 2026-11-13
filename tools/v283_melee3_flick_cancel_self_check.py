@@ -5,6 +5,7 @@ import json, re
 
 root=Path(__file__).resolve().parents[1]
 main=(root/"scripts/main.gd").read_text(encoding="utf-8")
+flow=(root/"scripts/sera_combat_flow.gd").read_text(encoding="utf-8")
 rig=(root/"scripts/sera_rig.gd").read_text(encoding="utf-8")
 source=json.loads((root/"assets/sera_source.json").read_text(encoding="utf-8"))
 project=(root/"project.godot").read_text(encoding="utf-8")
@@ -16,9 +17,12 @@ assert abs(float(melee3["length"])-0.83333)<0.0001
 assert 15.0 / 24.0 + 0.05 < float(melee3["length"])
 cancel=main.split("func _melee3_flick_cancel_time() -> float:",1)[1].split(
     "func _start_strike(",1)[0]
-assert "STRIKE_CANCEL_TIMES[STRIKE_CLIPS.size() - 1]) + MELEE3_FLICK_CANCEL_DELAY" in cancel
-assert "if _katana_equipped():" in cancel
-assert "7.0 / 24.0 + MELEE3_FLICK_CANCEL_DELAY" in cancel
+assert "COMBAT_FLOW.melee3_flick_cancel_time(" in cancel
+assert "_katana_equipped(), STRIKE_CANCEL_TIMES," in cancel
+assert "STRIKE_CLIPS.size(), MELEE3_FLICK_CANCEL_DELAY)" in cancel
+assert "if katana:" in flow
+assert "7.0 / 24.0 + delay" in flow
+assert "return float(cancel_times[regular_clip_count - 1]) + delay" in flow
 advance=main.split("func _advance_attack(delta: float) -> void:",1)[1].split(
     "func _screen_drag_to_ground(",1)[0]
 assert "float(rig.call(\"get_clip_time\")) >= _melee3_flick_cancel_time()" in advance
