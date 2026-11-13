@@ -24,6 +24,8 @@ func _run() -> void:
         _fail("missing combat scene")
         return
     var game: Node3D = scene.instantiate()
+    # Historic geometry test: SERA is positioned at the synthetic ray origin.
+    var player: CharacterBody3D = game.get("player")
     root.add_child(game)
     var camera: Camera3D = game.get("camera")
     var target: Node3D = game.get("target")
@@ -95,20 +97,24 @@ func _run() -> void:
     game.set("manual_part_lock_active",false)
     game.set("auto_lock_initialized",false)
     game.set("locked_target_part_id","")
+    player.global_position = camera.global_position
     game.call("_acquire_stable_camera_part",0.016,false)
     if not bool(game.get("auto_lock_initialized")) or str(game.get(
             "locked_target_part_id")) != "":
         _fail("initial BODY was not acquired as a real lock")
         return
     _place(camera,center,Vector3(0.0,-2.0,10.0))
+    player.global_position = camera.global_position
     game.call("_acquire_stable_camera_part",0.016,false)
     if str(game.get("locked_target_part_id")) != "":
         _fail("BODY->HEAD skipped uniform switch confirmation")
         return
+    player.global_position = camera.global_position
     game.call("_acquire_stable_camera_part",0.10,false)
     if str(game.get("locked_target_part_id")) != "":
         _fail("BODY->HEAD changed during early hysteresis")
         return
+    player.global_position = camera.global_position
     game.call("_acquire_stable_camera_part",0.13,false)
     if str(game.get("locked_target_part_id")) != "head":
         _fail("BODY->HEAD did not switch after sustained better intersection")
@@ -117,11 +123,13 @@ func _run() -> void:
     # The active HEAD still intersects, but expanding the core makes
     # BODY the closer candidate; do not skip the shared hysteresis.
     body_mesh.size = Vector3(original_size.x,original_size.y,12.0)
+    player.global_position = camera.global_position
     game.call("_acquire_stable_camera_part",0.016,false)
     if str(game.get("locked_target_part_id")) != "head":
         body_mesh.size = original_size
         _fail("HEAD->BODY bypassed stable overlap selection")
         return
+    player.global_position = camera.global_position
     game.call("_acquire_stable_camera_part",0.23,false)
     if str(game.get("locked_target_part_id")) != "":
         body_mesh.size = original_size
@@ -132,6 +140,7 @@ func _run() -> void:
     # If the currently selected HEAD ceases to intersect, release at once.
     game.set("locked_target_part_id","head")
     _place(camera,center,Vector3(0.0,0.0,-12.0))
+    player.global_position = camera.global_position
     game.call("_acquire_stable_camera_part",0.016,false)
     if str(game.get("locked_target_part_id")) != "":
         _fail("off-segment HEAD was not released for a real BODY hit")
