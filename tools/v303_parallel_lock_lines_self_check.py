@@ -7,7 +7,7 @@ main=(root/"scripts/main.gd").read_text(encoding="utf-8")
 parts=(root/"scripts/target_parts.gd").read_text(encoding="utf-8")
 manifest=(root/"tools/sera_ci_manifest.txt").read_text(encoding="utf-8")
 project=(root/"project.godot").read_text(encoding="utf-8")
-assert re.search(r'config/name="SERA v303"',project)
+assert int(re.search(r'config/name="SERA v(\d+)"',project).group(1)) >= 303
 assert (root/"README_v303_ja.md").is_file()
 assert "PARALLEL_LOCK_HALF_SPACING: float = 0.25" in parts
 pair=parts.split("func get_actor_parallel_lock_segments(",1)[1].split(
@@ -23,10 +23,10 @@ for term in ('var forward: Vector3 = body_center - actor_origin',
 distance=parts.split("func _parallel_lock_part_distance(",1)[1].split(
     "func actor_parallel_lines_hits_part(",1)[0]
 for token in (
-    '_camera_center_line_body_distance(segments[0], segments[1])',
-    '_camera_center_line_body_distance(segments[2], segments[3])',
-    '_camera_center_line_part_distance(segments[0], segments[1], id)',
-    '_camera_center_line_part_distance(segments[2], segments[3], id)',
+    '_camera_lock_body_volume_distance(segments[0], segments[1])',
+    '_camera_lock_body_volume_distance(segments[2], segments[3])',
+    '_camera_lock_part_volume_distance(segments[0], segments[1], id)',
+    '_camera_lock_part_volume_distance(segments[2], segments[3], id)',
     'if first == INF or second == INF:',
     'return INF','return maxf(first, second)'):
     assert token in distance,token
