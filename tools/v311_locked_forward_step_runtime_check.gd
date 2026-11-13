@@ -79,9 +79,10 @@ func _run() -> void:
                 return
         var linear: Vector2=game.get("step_linear_offset")
         if linear.distance_to(Vector2(
-                7.0 if int(str(ProjectSettings.get_setting(
-                    "application/config/name")).trim_prefix("SERA v"))>=312
-                else 3.0,0.0))>0.001:
+                5.0 if int(str(ProjectSettings.get_setting(
+                    "application/config/name")).trim_prefix("SERA v"))>=314
+                else (7.0 if int(str(ProjectSettings.get_setting(
+                    "application/config/name")).trim_prefix("SERA v"))>=312 else 3.0),0.0))>0.001:
             _fail("physical screen-right travel altered at "+str(i)+": "+str(linear))
             return
         game.call("_physics_process",0.016)
