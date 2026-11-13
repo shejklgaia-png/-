@@ -73,9 +73,11 @@ func _run() -> void:
         if (right_pose["position"] as Vector3).distance_to(authored_pose["position"])>0.00001:
             _fail("right step blend changed joint position " + id)
             return
-    if absf(float(game.get("step_arc_length"))-(7.0 if int(str(
+    if absf(float(game.get("step_arc_length"))-(5.0 if int(str(
             ProjectSettings.get_setting("application/config/name")).trim_prefix(
-                "SERA v")) >= 312 else 3.0))>0.0001:
+                "SERA v")) >= 314 else (7.0 if int(str(
+            ProjectSettings.get_setting("application/config/name")).trim_prefix(
+                "SERA v")) >= 312 else 3.0)))>0.0001:
         _fail("right step distance no longer 3m")
         return
     rig.set("blending_for",0.12)
