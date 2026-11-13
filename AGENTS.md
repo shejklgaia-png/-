@@ -50,3 +50,6 @@ Historical instructions and v102–v292 decisions remain available at `docs/hist
 
 ## v317 staged camera-framing extraction
 - `scripts/sera_camera_framing.gd` owns only pure perspective radius and close STEP yaw limits. `main.gd` retains Camera3D, near plane, frustum/viewport loops, live camera state, screen projection, and original method signatures. Preserve all numeric margins, yaw speed, near-plane reserve and runtime behavior.
+
+## v317 staged BOOST state extraction
+- `scripts/sera_boost_state.gd` owns stateless RUN/BOOST finger-distance hysteresis and 0.20s speed transition calculations. Main keeps mutable gesture/transition variables, scene pointer, EN eligibility, equipment multipliers, UI/rig effects and method entry points. Do not alter thresholds, confirmation, mid-blend reversal or 60% EN recovery semantics.

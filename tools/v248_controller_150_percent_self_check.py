@@ -10,6 +10,7 @@ import re
 
 ROOT = Path(__file__).resolve().parents[1]
 main = (ROOT / "scripts/main.gd").read_text(encoding="utf-8")
+boost_policy = (ROOT / "scripts/sera_boost_state.gd").read_text(encoding="utf-8")
 ui = (ROOT / "scripts/touch_overlay.gd").read_text(encoding="utf-8")
 project = (ROOT / "project.godot").read_text(encoding="utf-8")
 version = re.search(r'config/name="SERA v(\d+)"', project)
@@ -60,13 +61,21 @@ for token in (
     'mode_label, HORIZONTAL_ALIGNMENT_CENTER, label_width, 17, accent)',
 ):
     assert token in ui,token
+# The canonical policy still implements the same exit/entry thresholds.
+for token in (
+    "if finger_distance < drag_radius * exit_ratio:",
+    "elif finger_distance >= drag_radius * start_ratio:",
+    "if next_confirmation >= confirm_seconds:",
+):
+    assert token in boost_policy, token
+
 for token in (
     'INPUT_GESTURES.analog_stick_direction(',
     'RUN_INPUT_DEADZONE_PIXELS, RUN_CONTROL_RADIUS)',
     'touch_ui.call("show_drag", pointer_origin, pointer_location, DRAG_RADIUS)',
-    'if finger_distance < DRAG_RADIUS * BOOST_EXIT_RADIUS_RATIO:',
-    'elif finger_distance >= DRAG_RADIUS * BOOST_START_RADIUS_RATIO:',
-    'boost_confirm_elapsed >= BOOST_CONFIRM_SECONDS',
+    'BOOST_STATE.next_gesture_state(', 
+    'DRAG_RADIUS, BOOST_START_RADIUS_RATIO, BOOST_EXIT_RADIUS_RATIO,', 
+    'BOOST_CONFIRM_SECONDS)', 
     'func _controller_start_area_contains(pos: Vector2) -> bool:',
     'func _end_drag(release_pos: Vector2) -> void:',
 ):

@@ -35,7 +35,11 @@ def equal(label: str, a: float, b: float) -> None:
         raise TuningAuditError(f"{label}: gameplay {a:g} != display {b:g}")
 
 
-def audit(main: str, ui: str) -> dict:
+def audit(main: str, ui: str, boost_policy: str | None = None) -> dict:
+    # Accept injected source for regression tests while retaining the old
+    # audit(main, ui) entry point used by developer tools.
+    if boost_policy is None:
+        boost_policy = (ROOT / "scripts/sera_boost_state.gd").read_text(encoding="utf-8")
     run = number(main, "RUN_CONTROL_RADIUS")
     dead = number(main, "RUN_INPUT_DEADZONE_PIXELS")
     boost = number(main, "DRAG_RADIUS")
@@ -57,8 +61,14 @@ def audit(main: str, ui: str) -> dict:
     contracts = {
         "scripts/main.gd": (
             'touch_ui.call("show_drag", pointer_origin, pointer_location, DRAG_RADIUS)',
-            "if finger_distance < DRAG_RADIUS * BOOST_EXIT_RADIUS_RATIO:",
-            "elif finger_distance >= DRAG_RADIUS * BOOST_START_RADIUS_RATIO:",
+            "BOOST_STATE.next_gesture_state(",
+            "DRAG_RADIUS, BOOST_START_RADIUS_RATIO, BOOST_EXIT_RADIUS_RATIO,",
+            "BOOST_CONFIRM_SECONDS)",
+        ),
+        "scripts/sera_boost_state.gd": (
+            "if finger_distance < drag_radius * exit_ratio:",
+            "elif finger_distance >= drag_radius * start_ratio:",
+            "if next_confirmation >= confirm_seconds:",
         ),
         "scripts/touch_overlay.gd": (
             "radius = CONTROLLER_RUN_RADIUS",
@@ -67,7 +77,8 @@ def audit(main: str, ui: str) -> dict:
         ),
     }
     for filename, tokens in contracts.items():
-        source = main if filename.endswith("main.gd") else ui
+        source = (main if filename.endswith("main.gd") else
+                  boost_policy if filename.endswith("sera_boost_state.gd") else ui)
         for token in tokens:
             if token not in source:
                 raise TuningAuditError(f"{filename}: required active usage missing: {token}")
@@ -92,6 +103,7 @@ def main() -> None:
     result = audit(
         (ROOT / "scripts/main.gd").read_text(encoding="utf-8"),
         (ROOT / "scripts/touch_overlay.gd").read_text(encoding="utf-8"),
+        (ROOT / "scripts/sera_boost_state.gd").read_text(encoding="utf-8"),
     )
     if args.json:
         print(json.dumps(result, ensure_ascii=False, indent=2))
