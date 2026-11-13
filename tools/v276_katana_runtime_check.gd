@@ -28,7 +28,10 @@ func _run() -> void:
     var equip: RefCounted = rig.get("equipment_handler")
     var saya: Array = equip.get("katana_saya_meshes")
     var stowed: Array = equip.get("katana_sheathed_blade_meshes")
-    var scabbard: Array = saya.filter(func(piece: Variant) -> bool: return not stowed.has(piece))
+    var scabbard: Array = []
+    for piece in saya:
+        if not stowed.has(piece):
+            scabbard.append(piece)
     var drawn: Array = equip.get("katana_drawn_meshes")
     if saya.size() != 5 or stowed.size() != 2 or scabbard.size() != 3 or drawn.size() != 2:
         _fail("incorrect mesh classification")
