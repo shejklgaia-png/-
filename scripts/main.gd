@@ -2955,9 +2955,9 @@ func _combo_kick_side_for_flick(flick: Vector2) -> int:
             return 0  # screen up -> Bash (handled by _request_combo_bash)
 
 
-# Historical local-space diagnostic kept for older tooling. Ordinary STEP
-# clip selection no longer uses this transform: flick pose is screen-relative
-# so RIGHT always uses Step_R, even during lock-on turns (v310).
+# Locked-target forward defines SERA's STEP motion frame. The actual
+# world movement remains camera/screen-relative; only pose selection is
+# actor-relative and follows the currently locked part (v311).
 func _step_local_pose_direction(world_direction: Vector3) -> Vector2:
     if world_direction.length_squared() < 0.000001:
         return Vector2.UP
@@ -2971,6 +2971,19 @@ func _step_local_pose_direction(world_direction: Vector3) -> Vector2:
     var right: Vector3 = facing.cross(Vector3.UP)
     var world_unit: Vector3 = world_direction.normalized()
     return Vector2(world_unit.dot(right), -world_unit.dot(facing)).normalized()
+
+# v311: choose cardinal/diagonal STEP pose relative to SERA's actual
+# locked-target facing. Without an active lock, preserve v310's screen-relative
+# fallback. This never affects the committed world displacement or kick input.
+func _step_motion_direction(world_direction: Vector3,
+        screen_direction: Vector2) -> Vector2:
+    var has_lock: bool = (target_hp > 0 and (
+        auto_lock_enabled or manual_part_lock_active
+        or auto_lock_initialized or not locked_target_part_id.is_empty()))
+    if has_lock:
+        return _step_local_pose_direction(world_direction)
+    return screen_direction.normalized()
+
 
 # Kick sectors are fixed SCREEN left/right/down. Travel stays screen-relative.
 # An unavailable kick consumes a reserved lateral gesture (never STEP).
@@ -3246,10 +3259,10 @@ func _start_omni_step(flick: Vector2) -> bool:
     if world_step.length_squared() < 0.000001:
         world_step = Vector3(direction.x, 0.0, direction.y)
     world_step = world_step.normalized() * step_arc_length
-    # v310: STEP animation selection is SCREEN-relative, exactly like the
-    # committed flick/travel. Reprojecting against boss-facing SERA caused
-    # RIGHT flicks to blend into Frontstep as SERA circled the boss.
-    var pose_direction: Vector2 = direction
+    # v311: During lock-on, SERA's forward is toward the selected part.
+    # Select STEP pose using the world travel projected onto that facing.
+    # Physical travel still follows the original screen-space flick.
+    var pose_direction: Vector2 = _step_motion_direction(world_step, direction)
     step_start_offset = radial
     step_target_center = Vector2(target.position.x, target.position.z)
     step_linear_fallback = true
@@ -4375,12 +4388,15 @@ func _physics_process(delta: float) -> void:
     aim = _locked_target_facing_direction()
     if aim.length_squared() > 0.000001:
         player.look_at(player.global_position + aim, Vector3.UP)
-    # v310: persist the SCREEN flick pose for the full STEP, regardless of
-    # SERA's changing lock-facing yaw/camera orbit. Motion and physical travel
-    # must refer to the same committed screen direction. Kicks use their
-    # dedicated clips and keep the existing target-relative orbit.
+    # v311: physical travel is the committed screen vector, while the pose
+    # continuously follows current locked-target forward. A target switch
+    # can smoothly rebase the animation without changing displacement.
+    # Side-kick uses its own authored clip/orbit and stays independent.
     if stepping_this_frame and rig != null and step_linear_fallback:
-        rig.call("update_omni_step_direction", step_flick_this_frame, delta)
+        var committed_world_step: Vector3 = Vector3(
+            step_linear_offset.x, 0.0, step_linear_offset.y)
+        rig.call("update_omni_step_direction", _step_motion_direction(
+            committed_world_step, step_flick_this_frame), delta)
     # Real BOOST provides movement speed and costs EN. During a direction
     # change the rig keeps displaying BOOST for 0.50s and crossfades to RUN
     # over 0.20s; keep the nozzle flames present for that *visible* motion
