@@ -19,6 +19,7 @@ const TARGET_LIFECYCLE = preload("res://scripts/sera_target_lifecycle.gd")
 const PHYSICS_FRAME = preload("res://scripts/sera_physics_frame_rules.gd")
 const MOTION_DIRECTION = preload("res://scripts/sera_motion_direction.gd")
 const NOZZLE_STEERING = preload("res://scripts/sera_nozzle_steering.gd")
+const THRUSTER_PRESENTATION = preload("res://scripts/sera_thruster_presentation.gd")
 const DEV_DIAGNOSTICS = preload("res://scripts/dev_diagnostics.gd")
 ## v84: Authored 3-stage Swordeffect atlas, exact board placement.
 ## v83: Three-stage tap melee combo; cancel 2 authored frames after follow-through.
@@ -436,11 +437,9 @@ var boost_speed_transition_start: float = 1.0
 var boost_speed_transition_target: float = 1.0
 var boost_speed_transition_elapsed: float = BOOST_SPEED_BLEND_SECONDS
 var boost_pose_grace_remaining: float = 0.0
-# Keep the last commanded jet heading across the momentary neutral thumb
-# crossing when the rig still renders its held BOOST directional pose.
-var held_boost_exhaust_direction: Vector3 = Vector3.ZERO
-var held_boost_backstroke_weight: float = 0.0
-var held_boost_left_sector_world: Vector3 = Vector3.ZERO
+# One persistent helper owns the last commanded nozzle direction and
+# backstroke/left-sector values during visual BOOST hold.
+var thruster_presentation = THRUSTER_PRESENTATION.new()
 var gesture_active: bool = false
 var gesture_suppressed_from_damage: bool = false
 var gesture_suppressed_from_landing: bool = false
@@ -4477,7 +4476,7 @@ func _physics_process(delta: float) -> void:
         requested_boost = _screen_drag_to_ground(direction_input)
     var direction_of_exhaust: Vector3 = MOTION_DIRECTION.exhaust_direction(
         blur_velocity, boost_pose_exhaust, running, requested_boost,
-        held_boost_exhaust_direction, somersault_this_frame,
+        thruster_presentation.held_boost_exhaust_direction, somersault_this_frame,
         back_somersault_launched, back_somersault_direction,
         normal_attack_exhaust, tracking_exhaust, stepping_this_frame,
         player.global_transform.basis.z)
@@ -4493,7 +4492,7 @@ func _physics_process(delta: float) -> void:
         step_flick_this_frame, step_side_this_frame, STEP_BACK,
         somersault_this_frame, back_somersault_launched,
         boost_exhaust, boost_pose_exhaust, intended_boost,
-        player.global_transform.basis.z, held_boost_backstroke_weight)
+        player.global_transform.basis.z, thruster_presentation.held_boost_backstroke_weight)
     var leftward_weight: float = NOZZLE_STEERING.leftward_weight(
         stepping_this_frame, step_flick_this_frame, step_side_this_frame,
         boost_exhaust or boost_pose_exhaust, direction_input)
@@ -4502,23 +4501,10 @@ func _physics_process(delta: float) -> void:
         screen_right = _screen_drag_to_ground(Vector2.RIGHT).normalized()
     var left_sector_world: Vector3 = NOZZLE_STEERING.left_sector_direction(
         exhaust_on, leftward_weight, screen_right, backstroke_weight)
-    if boost_pose_exhaust:
-        if running:
-            held_boost_exhaust_direction = direction_of_exhaust.normalized()
-            held_boost_backstroke_weight = backstroke_weight
-            held_boost_left_sector_world = left_sector_world
-        elif held_boost_exhaust_direction.length_squared() > 0.000001:
-            # Neutral thumb: preserve the previous direction AND special
-            # backstroke / camera-left limits until a new heading is supplied.
-            backstroke_weight = held_boost_backstroke_weight
-            left_sector_world = held_boost_left_sector_world
-    elif not boost_exhaust:
-        held_boost_exhaust_direction = Vector3.ZERO
-        held_boost_backstroke_weight = 0.0
-        held_boost_left_sector_world = Vector3.ZERO
-    rig.call("update_back_thruster_fx", exhaust_on,
-        direction_of_exhaust.normalized(), delta, backstroke_weight,
-        left_sector_world, acceleration_burst, normal_attack_exhaust)
+    thruster_presentation.update(rig, exhaust_on,
+        direction_of_exhaust, delta, backstroke_weight, left_sector_world,
+        acceleration_burst, normal_attack_exhaust,
+        boost_pose_exhaust, running, boost_exhaust)
     _update_melee_lock_marker()  # Update after player movement and auto-approach.
     # The idle HUD shows lateral step speed; equipment changes still refresh it.
     if not step_active and step_status_label != null:

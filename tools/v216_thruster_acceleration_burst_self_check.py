@@ -48,7 +48,9 @@ for token in ("stepping and not previous_step", "tracking_state >= 0",
 
 # The burst parameter travels with the original v213 camera-relative
 # exhaust vector; neither nozzle direction nor combat movement is modified.
-assert 'left_sector_world, acceleration_burst, normal_attack_exhaust)' in main
+presentation=read("scripts/sera_thruster_presentation.gd")
+assert 'thruster_presentation.update(rig, exhaust_on,' in main
+assert 'left_sector_world, acceleration_burst, normal_attack_exhaust)' in presentation
 assert 'acceleration_burst: bool = false,' in rig
 assert 'left_sector_world, acceleration_burst, melee_sustain)' in rig
 assert 'acceleration_burst: bool = false,' in equip

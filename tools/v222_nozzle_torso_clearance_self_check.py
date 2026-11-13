@@ -45,7 +45,10 @@ assert fx.rindex('if enabled and melee_sustain:') > fx.index('else:\n        noz
 assert fx.rindex('if enabled and melee_sustain:') < fx.index('visible = enabled')
 assert "nozzle_rest_rotation = nozzle.quaternion" in fx
 assert "melee_sustain: bool = false" in fx
-assert "left_sector_world, acceleration_burst, normal_attack_exhaust)" in main
+presentation = read("scripts/sera_thruster_presentation.gd")
+assert "thruster_presentation.update(rig, exhaust_on," in main
+assert "direction_of_exhaust, delta, backstroke_weight, left_sector_world," in main
+assert "left_sector_world, acceleration_burst, normal_attack_exhaust)" in presentation
 assert "left_sector_world, acceleration_burst, melee_sustain)" in rig
 assert "acceleration_burst, melee_sustain)" in equip
 

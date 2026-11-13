@@ -101,7 +101,10 @@ assert "exhaust_on, stepping_this_frame, thruster_accel_previous_step," in main
 assert "thruster_accel_previous_tracking_state)" in main
 assert "stepping and not previous_step" in frame
 assert "tracking_state != previous_tracking_state" in frame
-assert 'left_sector_world, acceleration_burst, normal_attack_exhaust)' in main
+presentation = read("scripts/sera_thruster_presentation.gd")
+assert "thruster_presentation.update(rig, exhaust_on," in main
+assert "direction_of_exhaust, delta, backstroke_weight, left_sector_world," in main
+assert "left_sector_world, acceleration_burst, normal_attack_exhaust)" in presentation
 assert 'left_sector_world, acceleration_burst, melee_sustain)' in rig
 assert 'acceleration_burst, melee_sustain)' in equipment
 assert 'const SLIDE_BOOST_POSE_MAX_WEIGHT: float = 0.50' in rig

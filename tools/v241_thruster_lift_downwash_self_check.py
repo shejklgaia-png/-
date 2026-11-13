@@ -69,7 +69,10 @@ assert "material.render_priority = RENDER_ORDER.DEPTH_TESTED_EMISSIVE" in fx
 assert "const DEPTH_TESTED_EMISSIVE: int = 127" in policy
 assert "fx.call(\"set_exhaust\"" in equipment
 assert 'left_sector_world, acceleration_burst, melee_sustain)' in rig
-assert 'left_sector_world, acceleration_burst, normal_attack_exhaust)' in main
+presentation = read("scripts/sera_thruster_presentation.gd")
+assert "thruster_presentation.update(rig, exhaust_on," in main
+assert "direction_of_exhaust, delta, backstroke_weight, left_sector_world," in main
+assert "left_sector_world, acceleration_burst, normal_attack_exhaust)" in presentation
 
 def norm(v):
     length=math.sqrt(sum(x*x for x in v))

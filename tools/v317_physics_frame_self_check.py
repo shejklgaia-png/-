@@ -72,10 +72,13 @@ ordered = [
     "var exhaust_on: bool = PHYSICS_FRAME.exhaust_allowed(",
     "var acceleration_burst: bool = PHYSICS_FRAME.acceleration_burst(",
     "thruster_accel_previous_step = stepping_this_frame",
-    'rig.call("update_back_thruster_fx", exhaust_on,',
+    "thruster_presentation.update(rig, exhaust_on,",
 ]
 indices = [physics.index(x) for x in ordered]
 assert indices == sorted(indices), list(zip(ordered, indices))
+presentation = (ROOT / "scripts/sera_thruster_presentation.gd").read_text(encoding="utf-8")
+assert 'rig.call("update_back_thruster_fx", exhaust_on,' in presentation
+assert "left_sector_world, acceleration_burst, normal_attack_exhaust)" in presentation
 normal_resource = physics.index("    var was_energy_exhausted: bool = energy_exhausted")
 assert normal_resource < physics.index("    _tick_resources(delta)", normal_resource) < physics.index(
     "    _tick_target_recovery_timers(delta)")
@@ -91,7 +94,7 @@ for token in (
     "exhaust_on, stepping_this_frame, thruster_accel_previous_step,",
     "new_somersault_burst, tracking_accel_state,",
     "thruster_accel_previous_tracking_state)",
-    "left_sector_world, acceleration_burst, normal_attack_exhaust)",
+    "acceleration_burst, normal_attack_exhaust,",
 ):
     assert token in physics, token
 # Melee jets still persist through windup and post-hit follow-through.

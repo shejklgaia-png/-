@@ -57,25 +57,36 @@ assert "and not guarding and not energy_exhausted" in frame
 # The jet direction is cached over the neutral point and replaced by fresh
 # requested direction as soon as the finger begins moving the other way.
 for token in (
-    "var held_boost_exhaust_direction: Vector3 = Vector3.ZERO",
-    "var held_boost_backstroke_weight: float = 0.0",
-    "var held_boost_left_sector_world: Vector3 = Vector3.ZERO",
+    "var thruster_presentation = THRUSTER_PRESENTATION.new()",
     "if boost_pose_exhaust and running:",
     "requested_boost = _screen_drag_to_ground(direction_input)",
     "MOTION_DIRECTION.exhaust_direction(",
-    "held_boost_exhaust_direction, somersault_this_frame,",
+    "thruster_presentation.held_boost_exhaust_direction, somersault_this_frame,",
     "NOZZLE_STEERING.backstroke_weight(",
-    "backstroke_weight = held_boost_backstroke_weight",
     "boost_exhaust or boost_pose_exhaust, direction_input)",
+    "thruster_presentation.update(rig, exhaust_on,",
+):
+    assert token in main,token
+presentation = read("scripts/sera_thruster_presentation.gd")
+for token in (
+    "var held_boost_exhaust_direction: Vector3 = Vector3.ZERO",
+    "var held_boost_backstroke_weight: float = 0.0",
+    "var held_boost_left_sector_world: Vector3 = Vector3.ZERO",
+    "if boost_pose_exhaust:",
+    "if running:",
     "held_boost_exhaust_direction = direction_of_exhaust.normalized()",
     "held_boost_backstroke_weight = backstroke_weight",
     "held_boost_left_sector_world = left_sector_world",
+    "elif held_boost_exhaust_direction.length_squared() > 0.000001:",
     "backstroke_weight = held_boost_backstroke_weight",
     "left_sector_world = held_boost_left_sector_world",
     "elif not boost_exhaust:",
     "held_boost_exhaust_direction = Vector3.ZERO",
+    "held_boost_backstroke_weight = 0.0",
+    "held_boost_left_sector_world = Vector3.ZERO",
+    'rig.call("update_back_thruster_fx", exhaust_on,',
 ):
-    assert token in main,token
+    assert token in presentation,token
 steering = read("scripts/sera_nozzle_steering.gd")
 assert "elif boost_exhaust or boost_pose_exhaust:" in steering
 assert "weight = held_boost_weight" in steering
