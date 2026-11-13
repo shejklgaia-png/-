@@ -81,13 +81,13 @@ func _run() -> void:
     target.rotation.y = 0.0
     center = target.global_position
 
-    # Broken geometry is not lockable even though its mesh remains visible.
+    # Broken geometry remains selectable and hit-testable in v319.
     _point_camera(camera, center, Vector3(0.0,-2.0,10.0))
     var dictionary: Dictionary = parts.get("parts")
     var head: Dictionary = dictionary["head"]
     head["broken"] = true
-    if _pick(parts,camera,center) != "":
-        _fail("broken head was still eligible")
+    if _pick(parts,camera,center) != "head":
+        _fail("broken head lost its real mesh lock")
         return
     head["broken"] = false
 
