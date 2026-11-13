@@ -33,7 +33,8 @@ func _run() -> void:
     var rig: Node3D = game.get("rig")
     var player: CharacterBody3D = game.get("player")
     var target: Node3D = game.get("target")
-    if rig == null or player == null or target == null:
+    var parts: Node3D = game.get("target_parts")
+    if rig == null or player == null or target == null or parts == null:
         _fail("player/rig/target not ready")
         return
     if not bool(rig.get("loading_ok")):
