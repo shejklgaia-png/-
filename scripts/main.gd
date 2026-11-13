@@ -9,6 +9,7 @@ const CAMERA_MATH = preload("res://scripts/sera_camera_math.gd")
 const CAMERA_FRAMING = preload("res://scripts/sera_camera_framing.gd")
 const INPUT_GESTURES = preload("res://scripts/sera_input_gestures.gd")
 const MOVEMENT_MATH = preload("res://scripts/sera_movement_math.gd")
+const BOOST_STATE = preload("res://scripts/sera_boost_state.gd")
 const LOCK_MANAGEMENT = preload("res://scripts/sera_lock_management.gd")
 const COMBAT_FLOW = preload("res://scripts/sera_combat_flow.gd")
 const DEV_DIAGNOSTICS = preload("res://scripts/dev_diagnostics.gd")
@@ -2584,10 +2585,8 @@ func _change_drag(pos: Vector2) -> void:
     touch_ui.call("show_drag", pointer_origin, pointer_location, DRAG_RADIUS)
 
 func _update_boost_gesture(delta: float) -> void:
-    # Gate BOOST only while the damage reaction is actually in progress.
-    # gesture_suppressed_from_damage is deliberately latched until release to
-    # prevent a damaged hold from triggering a phantom STEP or tap attack;
-    # it must NOT block BOOST after the damage reaction finishes.
+    # Eligibility and all scene/UI side effects remain owned by main.gd.
+    # A held thumb can restart BOOST as soon as EN becomes available again.
     if not gesture_active or guard_active or damage_reaction_active \
             or energy_exhausted or bash_flick_candidate or side_kick_flick_candidate \
             or jump_active or landing_active or back_somersault_active:
@@ -2596,24 +2595,18 @@ func _update_boost_gesture(delta: float) -> void:
             movement_boost_active = false
             touch_ui.call("set_movement_boost", false)
         return
-    # Preserve the held pointer/direction across EN exhaustion. Unlocking at
-    # 60% may restart BOOST on this very same outer-ring gesture.
     var finger_distance: float = pointer_location.distance_to(pointer_origin)
-    if movement_boost_active:
-        # Hysteresis: do not flicker between RUN and BOOST at the entry rim.
-        if finger_distance < DRAG_RADIUS * BOOST_EXIT_RADIUS_RATIO:
-            movement_boost_active = false
-            boost_confirm_elapsed = 0.0
-            touch_ui.call("set_movement_boost", false)
-    elif finger_distance >= DRAG_RADIUS * BOOST_START_RADIUS_RATIO:
-        boost_confirm_elapsed += maxf(delta, 0.0)
-        if boost_confirm_elapsed >= BOOST_CONFIRM_SECONDS:
-            movement_boost_active = true
-            boost_has_activated_this_gesture = true
-            touch_ui.call("set_movement_boost", true)
-    else:
-        # Even a very short dip below 125% restarts entry confirmation.
-        boost_confirm_elapsed = 0.0
+    var previous_active: bool = movement_boost_active
+    var state: Dictionary = BOOST_STATE.next_gesture_state(
+        movement_boost_active, boost_confirm_elapsed, finger_distance, delta,
+        DRAG_RADIUS, BOOST_START_RADIUS_RATIO, BOOST_EXIT_RADIUS_RATIO,
+        BOOST_CONFIRM_SECONDS)
+    movement_boost_active = bool(state["active"])
+    boost_confirm_elapsed = float(state["confirmation_elapsed"])
+    if movement_boost_active and not previous_active:
+        boost_has_activated_this_gesture = true
+    if movement_boost_active != previous_active:
+        touch_ui.call("set_movement_boost", movement_boost_active)
 
 func _end_drag(release_pos: Vector2) -> void:
     if not gesture_active:
@@ -4143,33 +4136,26 @@ func _screen_drag_to_ground(screen_drag: Vector2) -> Vector3:
 
 
 func _reset_boost_speed_transition() -> void:
-    # Hard reset only when the touch / locomotion is explicitly interrupted.
-    # Both ends of the interpolation reset together so a fresh gesture
-    # cannot inherit a stale BOOST ramp from the previous touch.
-    boost_speed_multiplier = 1.0
-    boost_speed_transition_start = 1.0
-    boost_speed_transition_target = 1.0
-    boost_speed_transition_elapsed = BOOST_SPEED_BLEND_SECONDS
+    # Explicit interruptions reset the four coupled scalars together.
+    var state: Dictionary = BOOST_STATE.reset_speed_state(BOOST_SPEED_BLEND_SECONDS)
+    boost_speed_multiplier = float(state["multiplier"])
+    boost_speed_transition_start = float(state["start"])
+    boost_speed_transition_target = float(state["target"])
+    boost_speed_transition_elapsed = float(state["elapsed"])
 
 
 func _update_boost_speed(delta: float) -> void:
     var wanted: float = (float(part_stats.get("boost_speed", 6.09375)) *
         float(part_stats.get("boost_speed_mult", 1.0)) /
         maxf(0.1, float(part_stats.get("run_speed", 4.0625)))) if movement_boost_active else 1.0
-    if not is_equal_approx(wanted, boost_speed_transition_target):
-        # A reversal during an incomplete blend resumes from the PRESENT
-        # multiplier, never from RUN=1.0 or BOOST=1.5 prematurely.
-        boost_speed_transition_start = boost_speed_multiplier
-        boost_speed_transition_target = wanted
-        boost_speed_transition_elapsed = 0.0
-    boost_speed_transition_elapsed = minf(
-        BOOST_SPEED_BLEND_SECONDS, boost_speed_transition_elapsed + maxf(delta, 0.0))
-    var t: float = clampf(boost_speed_transition_elapsed / BOOST_SPEED_BLEND_SECONDS, 0.0, 1.0)
-    # Zero slope at the beginning/end, unlike the old constant-speed ramp.
-    var eased: float = t * t * (3.0 - 2.0 * t)
-    boost_speed_multiplier = lerpf(
-        boost_speed_transition_start, boost_speed_transition_target, eased)
-
+    var state: Dictionary = BOOST_STATE.next_speed_state(
+        boost_speed_multiplier, boost_speed_transition_start,
+        boost_speed_transition_target, boost_speed_transition_elapsed,
+        wanted, delta, BOOST_SPEED_BLEND_SECONDS)
+    boost_speed_multiplier = float(state["multiplier"])
+    boost_speed_transition_start = float(state["start"])
+    boost_speed_transition_target = float(state["target"])
+    boost_speed_transition_elapsed = float(state["elapsed"])
 
 func _physics_process(delta: float) -> void:
     _update_equipped_collision_height()
