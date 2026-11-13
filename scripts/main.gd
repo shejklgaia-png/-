@@ -17,6 +17,7 @@ const COMBAT_TIMERS = preload("res://scripts/sera_combat_timers.gd")
 const HIT_FX_PRESENTATION = preload("res://scripts/sera_hit_fx_presentation.gd")
 const TARGET_LIFECYCLE = preload("res://scripts/sera_target_lifecycle.gd")
 const PHYSICS_FRAME = preload("res://scripts/sera_physics_frame_rules.gd")
+const MOTION_DIRECTION = preload("res://scripts/sera_motion_direction.gd")
 const DEV_DIAGNOSTICS = preload("res://scripts/dev_diagnostics.gd")
 ## v84: Authored 3-stage Swordeffect atlas, exact board placement.
 ## v83: Three-stage tap melee combo; cancel 2 authored frames after follow-through.
@@ -4330,12 +4331,8 @@ func _physics_process(delta: float) -> void:
             # Match RUN pose directions to SERA's real locked-part-facing
             # heading rather than the former whole-BODY reference.
             var target_forward: Vector3 = _locked_target_facing_direction()
-            if target_forward.length_squared() < 0.000001:
-                target_forward = -player.global_transform.basis.z
-            target_forward = target_forward.normalized()
-            var local_run_direction: Vector2 = Vector2(
-                world_move.dot(target_forward.cross(Vector3.UP)),
-                world_move.dot(target_forward))
+            var local_run_direction: Vector2 = MOTION_DIRECTION.local_run_direction(
+                world_move, target_forward, -player.global_transform.basis.z)
             # A brief neutral thumb crossing MUST NOT flash WAIT or RUN
             # between two BOOST directions. Rig still receives the latest
             # local heading when RUN input is present; a zero heading keeps
@@ -4474,31 +4471,15 @@ func _physics_process(delta: float) -> void:
     thruster_accel_previous_step = stepping_this_frame
     thruster_accel_previous_somersault = somersault_this_frame and back_somersault_launched
     thruster_accel_previous_tracking_state = tracking_accel_state
-    var direction_of_exhaust: Vector3 = -blur_velocity
-    direction_of_exhaust.y = 0.0
-    # A BOOST direction change should follow the live input when present,
-    # even when a wall blocks velocity; with no new direction, retain the
-    # last active nozzle heading instead of jumping to the body rear axis.
+    var requested_boost: Vector3 = Vector3.ZERO
     if boost_pose_exhaust and running:
-        var requested_boost: Vector3 = _screen_drag_to_ground(direction_input)
-        if requested_boost.length_squared() > 0.000001:
-            direction_of_exhaust = -requested_boost.normalized()
-    elif boost_pose_exhaust and held_boost_exhaust_direction.length_squared() > 0.000001:
-        direction_of_exhaust = held_boost_exhaust_direction
-    if somersault_this_frame and back_somersault_launched:
-        # Once the kick connects, exhaust opposes the actual rearward leap.
-        direction_of_exhaust = -back_somersault_direction
-    if normal_attack_exhaust and not tracking_exhaust \
-            and not (somersault_this_frame and back_somersault_launched) \
-            and not stepping_this_frame:
-        # Full melee follow-through can have tiny collision/hit-stop position
-        # jitter even while the blade is still airborne. Never steer these
-        # small deltas into the body; hold a stable jet to SERA's rear.
-        direction_of_exhaust = player.global_transform.basis.z
-    if direction_of_exhaust.length_squared() < 0.0004:
-        # A wall can stop BOOST or STEP while the control remains active.
-        # Keep the nozzle pointed behind SERA instead of using a zero vector.
-        direction_of_exhaust = player.global_transform.basis.z
+        requested_boost = _screen_drag_to_ground(direction_input)
+    var direction_of_exhaust: Vector3 = MOTION_DIRECTION.exhaust_direction(
+        blur_velocity, boost_pose_exhaust, running, requested_boost,
+        held_boost_exhaust_direction, somersault_this_frame,
+        back_somersault_launched, back_somersault_direction,
+        normal_attack_exhaust, tracking_exhaust, stepping_this_frame,
+        player.global_transform.basis.z)
     # A backward BOOST/STEP drives the actual nozzle downward like a
     # backstroke. Use the intended target-relative movement, not collision-
     # blocked velocity, to avoid a one-frame nozzle flip against a wall.

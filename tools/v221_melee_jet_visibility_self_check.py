@@ -40,13 +40,17 @@ assert "and not guarding and not energy_exhausted" in frame
 # Previously, a very small hit-stop/collision delta could be normalized into
 # an unstable nozzle steering target and conceal the jet in the character.
 # Only an attack frame WITHOUT actual homing uses SERA's stable rear axis.
-steering=main.split("var direction_of_exhaust: Vector3 =",1)[1].split(
+steering=read("scripts/sera_motion_direction.gd")
+body=main.split("var requested_boost: Vector3 = Vector3.ZERO",1)[1].split(
     "var backstroke_weight: float =",1)[0]
-assert "var direction_of_exhaust: Vector3 = -blur_velocity" in main
+assert "MOTION_DIRECTION.exhaust_direction(" in body
+assert "normal_attack_exhaust, tracking_exhaust, stepping_this_frame," in body
+assert "player.global_transform.basis.z)" in body
+assert "var direction_of_exhaust: Vector3 = -blur_velocity" in steering
 assert "if normal_attack_exhaust and not tracking_exhaust" in steering
-assert "direction_of_exhaust = player.global_transform.basis.z" in steering
+assert "direction_of_exhaust = actor_rear" in steering
 assert steering.index("if normal_attack_exhaust and not tracking_exhaust") > steering.index(
-    "elif boost_pose_exhaust and held_boost_exhaust_direction.length_squared() > 0.000001:")
+    "elif boost_pose_exhaust and held_boost_direction.length_squared() > 0.000001:")
 assert "if direction_of_exhaust.length_squared() < 0.0004:" in steering
 
 # A separate sustain flag never accidentally triggers the one-shot 15x

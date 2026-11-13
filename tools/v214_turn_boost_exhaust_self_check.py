@@ -61,10 +61,9 @@ for token in (
     "var held_boost_backstroke_weight: float = 0.0",
     "var held_boost_left_sector_world: Vector3 = Vector3.ZERO",
     "if boost_pose_exhaust and running:",
-    "var requested_boost: Vector3 = _screen_drag_to_ground(direction_input)",
-    "direction_of_exhaust = -requested_boost.normalized()",
-    "elif boost_pose_exhaust and held_boost_exhaust_direction.length_squared() > 0.000001:",
-    "direction_of_exhaust = held_boost_exhaust_direction",
+    "requested_boost = _screen_drag_to_ground(direction_input)",
+    "MOTION_DIRECTION.exhaust_direction(",
+    "held_boost_exhaust_direction, somersault_this_frame,",
     "elif boost_exhaust or boost_pose_exhaust:",
     "backstroke_weight = held_boost_backstroke_weight",
     "elif (boost_exhaust or boost_pose_exhaust) and direction_input.length_squared() > 0.000001:",
@@ -77,6 +76,17 @@ for token in (
     "held_boost_exhaust_direction = Vector3.ZERO",
 ):
     assert token in main,token
+motion = read("scripts/sera_motion_direction.gd")
+for token in (
+    "if boost_pose_exhaust and running:",
+    "if requested_boost.length_squared() > 0.000001:",
+    "direction_of_exhaust = -requested_boost.normalized()",
+    "elif boost_pose_exhaust and held_boost_direction.length_squared() > 0.000001:",
+    "direction_of_exhaust = held_boost_direction",
+):
+    assert token in motion, token
+assert motion.index("direction_of_exhaust = -requested_boost.normalized()") < motion.index(
+    "elif boost_pose_exhaust and held_boost_direction.length_squared()")
 
 # Heavy legs' ordinary SLIDE has no flames even though its animation clip
 # is Boost_front. A genuine held BOOST gets full pose throughout its grace;

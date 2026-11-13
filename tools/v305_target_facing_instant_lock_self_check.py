@@ -56,8 +56,12 @@ assert phys.index("aim = _locked_target_facing_direction()") > phys.index(
     "_acquire_stable_camera_part(delta, locked_part_broken)")
 assert 'if aim.length_squared() > 0.000001:' in phys
 assert "var target_forward: Vector3 = _locked_target_facing_direction()" in phys
-assert "world_move.dot(target_forward.cross(Vector3.UP))" in phys
-assert "world_move.dot(target_forward)" in phys
+motion=(R/"scripts/sera_motion_direction.gd").read_text(encoding="utf-8")
+assert "var local_run_direction: Vector2 = MOTION_DIRECTION.local_run_direction(" in phys
+assert "world_move, target_forward, -player.global_transform.basis.z)" in phys
+assert "world_move.dot(facing.cross(Vector3.UP))" in motion
+assert "world_move.dot(facing)" in motion
+assert "if facing.length_squared() < 0.000001:" in motion
 assert "target.position.x - player.position.x" not in phys[
     phys.index("var target_forward: Vector3"):phys.index("var local_run_direction: Vector2")]
 

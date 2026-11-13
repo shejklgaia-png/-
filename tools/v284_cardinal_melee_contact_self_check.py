@@ -65,9 +65,14 @@ assert "or somersault_this_frame)" in fx
 assert "var normal_attack_exhaust: bool = normal_melee_exhaust or normal_kick_exhaust" in fx
 assert "and not back_somersault_hit_checked" in fx
 assert "back_somersault_launched and not thruster_accel_previous_somersault" in fx
-assert "if normal_attack_exhaust and not tracking_exhaust" in fx
+motion=(R/"scripts/sera_motion_direction.gd").read_text(encoding="utf-8")
+assert "MOTION_DIRECTION.exhaust_direction(" in fx
+assert "normal_attack_exhaust, tracking_exhaust, stepping_this_frame," in fx
+assert "if normal_attack_exhaust and not tracking_exhaust" in motion
 assert "normal_attack_exhaust)" in m
-assert "if somersault_this_frame and back_somersault_launched:" in fx
+assert "back_somersault_launched, back_somersault_direction," in fx
+assert "if somersault_this_frame and somersault_launched:" in motion
+assert "direction_of_exhaust = -somersault_direction" in motion
 
 clips={a["name"]:a for a in source["animations"]}
 assert math.isclose(float(clips["Kick_b"]["length"]),0.79167,rel_tol=0.02)

@@ -22,7 +22,10 @@ assert "_advance_homing_toward_target(chase_dt, BASH_REACH)" in game
 assert "_advance_homing_toward_target(kick_dt, BASH_REACH)" in game
 assert "CombatState.BACK_KICK_TRACK" in game
 assert "normal_melee_exhaust or normal_kick_exhaust" in game
-assert "direction_of_exhaust = -back_somersault_direction" in game
+motion=(ROOT/"scripts/sera_motion_direction.gd").read_text(encoding="utf-8")
+assert "back_somersault_launched, back_somersault_direction," in game
+assert "if somersault_this_frame and somersault_launched:" in motion
+assert "direction_of_exhaust = -somersault_direction" in motion
 assert "backstroke_weight = 1.0" in game and "new_somersault_burst" in game
 assert "BACK_SOMERSAULT_DISTANCE: float = 5.0" in game
 assert "BACK_SOMERSAULT_LANDING_SECONDS: float = 0.20" in game
