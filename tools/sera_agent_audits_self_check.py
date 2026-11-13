@@ -8,6 +8,17 @@ from sera_change_impact import dependencies_of, inventory, impact_report, sugges
 main = (ROOT / "scripts/main.gd").read_text(encoding="utf-8")
 ui = (ROOT / "scripts/touch_overlay.gd").read_text(encoding="utf-8")
 values = audit(main, ui)
+boost_policy = (ROOT / "scripts/sera_boost_state.gd").read_text(encoding="utf-8")
+assert "BOOST_STATE.next_gesture_state(" in main
+assert "if finger_distance < drag_radius * exit_ratio:" in boost_policy
+try:
+    audit(main, ui, boost_policy.replace(
+        "if finger_distance < drag_radius * exit_ratio:",
+        "if finger_distance < drag_radius * start_ratio:"))
+except TuningAuditError:
+    pass
+else:
+    raise AssertionError("BOOST leave threshold source drift must fail")
 assert values["run_radius_px"] > values["run_deadzone_px"] > 0
 assert values["boost_enter_distance_px"] > values["boost_leave_distance_px"]
 # Intentional mismatches must fail closed, not silently pass.
