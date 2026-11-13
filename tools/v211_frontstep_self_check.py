@@ -94,7 +94,10 @@ assert '.slerp(' in blend and '.lerp(' in blend
 assert '_sample_boost_pose(BOOST_CLIP, uid) if direction.y < 0.0' not in blend
 assert 'const BOOST_CLIP: String = "Boost_front"' in rig
 assert 'directional_step_vector = direction.normalized()' in rig
-assert 'state_label.text = "STEP FORWARD  |  Frontstep"' in main
+hud = (Path(__file__).resolve().parents[1] / "scripts/sera_combat_hud_text.gd").read_text(encoding="utf-8")
+assert '"STEP FORWARD  |  Frontstep"' in hud
+assert "COMBAT_HUD_TEXT.step_label(" in main
+assert "if step_flick.y < -0.8:" in hud
 assert 'rig.call("start_omni_step", pose_direction)' in main
 distance = float(load_active_specs()["ordinary_step"]["distance_m"])
 assert main_float_constant(main, "STEP_MIN_ARC_LENGTH") == distance
