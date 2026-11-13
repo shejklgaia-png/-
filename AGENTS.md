@@ -50,6 +50,6 @@ Keep `main.gd` live state, inputs, collisions, scene effects, HUD priority and t
 - **Target:** `sera_target_lifecycle.gd` decides movement, firing and respawn. Main owns parts, 0.01s combo retry, locks, resets, KO teleport and HUD.
 - **Physics frame:** `sera_physics_frame_rules.gd` owns pose grace, flight movement, real velocity, jet and burst gates. Main owns physics, rig/FX and input order; stationary melee retains exhaust.
 - **Motion/nozzle:** `sera_motion_direction.gd` computes RUN/jet heading; `sera_nozzle_steering.gd` computes rear/left bias; `sera_thruster_presentation.gd` owns BOOST cache and final FX call. Main retains camera, movement, collision, EN and rig controls. Nozzle articulation limits stay ±80° yaw/up 1°/down 90°.
-- **Combat HUD:** `sera_combat_hud_text.gd` owns action text; `sera_numeric_hud.gd` owns HP/EN, target HP bars, DEF/SH, lock stats and STEP telemetry. Main owns status priority, resource/part selection, combat ticks and HUD nodes.
+- **HUD:** `sera_combat_hud_text.gd` owns action text; `sera_numeric_hud.gd` owns numerical text; `sera_hud_layout.gd` builds panel, vitals and STEP nodes. Main keeps priority, resources, buttons, callbacks and input exclusion.
 
 See `docs/SERA_DEVELOPMENT_FASTPATH_ja.md` and `DEVELOPMENT.md` for details.
