@@ -8,7 +8,7 @@ m=read("scripts/main.gd");p=read("scripts/flick_direction_policy.gd");proj=read(
 v=re.search(r'^config/name="SERA v(\d+)"$',proj,re.M)
 assert v and int(v.group(1))>=258
 assert (R/"README_v258_ja.md").exists()
-assert "CURRENT flick policy — v258" in read("AGENTS.md")
+assert "CURRENT flick policy — v258" in read("docs/history/AGENTS_THROUGH_V316.md")
 assert "v258 — 現行仕様" in read("docs/SERA_INPUT_MOVEMENT_CAMERA.md")
 for tok in ("const SECTOR_COUNT: int = 4","const SECTOR_ANGLE: float = TAU / 4.0",
             "static func projected_forward(camera: Camera3D, actor: Node3D) -> Vector2:",

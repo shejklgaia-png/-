@@ -50,6 +50,19 @@ def load_tests(kind: str) -> list[str]:
     return tests
 
 
+def focused_selection(kind: str, requested: list[str] | None) -> list[str]:
+    """Validate a local focused subset; full PR CI never supplies --tests."""
+    registered = load_tests(kind)
+    if requested is None:
+        return registered
+    if not requested or len(requested) != len(set(requested)):
+        raise ValueError("Focused tests must be a nonempty, unique list")
+    unknown = set(requested) - set(registered)
+    if unknown:
+        raise ValueError("Unregistered/incorrect test kind: " + ", ".join(sorted(unknown)))
+    return [path for path in registered if path in requested]
+
+
 def run_test(kind: str, relative: str, godot: str, timeout: int) -> tuple[str, bool, float, str]:
     if kind == "py":
         command = [sys.executable, relative]
@@ -122,11 +135,13 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("suite", choices=["static", "godot"])
     parser.add_argument("--workers", type=int, default=None)
+    parser.add_argument("--tests", nargs="+", default=None,
+                        help="LOCAL FOCUSED checks only; full PR CI must omit this flag")
     parser.add_argument("--godot", default=os.environ.get("SERA_GODOT_BIN", ""))
     args = parser.parse_args()
     kind = "py" if args.suite == "static" else "gd"
     try:
-        tests = load_tests(kind)
+        tests = focused_selection(kind, args.tests)
     except (OSError, ValueError) as exc:
         print(f"Manifest invalid: {exc}", file=sys.stderr)
         return 1
@@ -136,7 +151,8 @@ def main() -> int:
     if kind == "gd" and (not args.godot or not Path(args.godot).is_file()):
         print(f"Godot executable not found: {args.godot}", file=sys.stderr)
         return 1
-    print(f"SERA {args.suite}: executing all {len(tests)} tests with "
+    mode = "FOCUSED (NOT FULL CI)" if args.tests is not None else "FULL"
+    print(f"SERA {args.suite}: {mode} - executing {len(tests)} registered tests with "
           f"{workers} worker(s); per-test process isolation retained", flush=True)
     start = time.monotonic()
     timeout = 90 if kind == "py" else 180
