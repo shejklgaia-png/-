@@ -36,7 +36,7 @@ step_hud = body("_refresh_step_status_ui() -> void:", "_pointer_on_training_test
 assert "((combat_state == CombatState.STRIKE or combat_state == CombatState.STRIKE_TRACK)" in start
 assert "and _is_strike_finisher())" in start
 assert "or (combat_state == CombatState.IDLE and bash_followup_window_remaining > 0.0))" in start
-assert "gesture_screen_forward = FLICK_DIRECTION_POLICY.projected_forward(camera, player)" in start
+assert "gesture_screen_forward = _projected_sera_facing()" in start
 assert "direction_input = Vector2.ZERO if (bash_flick_candidate or side_kick_flick_candidate)" in change
 assert "not (bash_flick_candidate or side_kick_flick_candidate)" in change
 assert "not (bash_flick_candidate or side_kick_flick_candidate)" in physics

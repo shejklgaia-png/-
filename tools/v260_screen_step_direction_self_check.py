@@ -34,7 +34,7 @@ bash=main.split("func _is_character_forward_flick(",1)[1].split("func _is_upward
 assert "INPUT_GESTURES.step_flick(" in step
 assert "return FLICK_DIRECTION_POLICY.screen_step_direction(displacement)" in SERA_INPUT
 assert "gesture_screen_forward" not in step  # no camera-dependent step reclassification
-assert "gesture_screen_forward = FLICK_DIRECTION_POLICY.projected_forward(camera, player)" in start
+assert "gesture_screen_forward = _projected_sera_facing()" in start
 # v329 Bash follows projected actor front; STEP stays screen relative.
 assert "displacement, gesture_screen_forward, STEP_FLICK_MAX_HORIZONTAL_RATIO" in guard
 assert "return FLICK_DIRECTION_POLICY.is_flick(" in bash
