@@ -52,7 +52,10 @@ assert 'const EXHAUST_RADIAL_SIDES: int = 10' in fx
 assert 'const BURST_RISE_SECONDS: float = 0.05' in fx
 assert 'const BURST_FALL_SECONDS: float = 0.18' in fx
 assert 'VERTEX.xy *= 1.0 + 14.0 * fan;' in original_shader
-assert 'left_sector_world, acceleration_burst, normal_attack_exhaust)' in main
+presentation = (Path(__file__).resolve().parents[1] / "scripts/sera_thruster_presentation.gd").read_text(encoding="utf-8")
+assert "thruster_presentation.update(rig, exhaust_on," in main
+assert "direction_of_exhaust, delta, backstroke_weight, left_sector_world," in main
+assert "left_sector_world, acceleration_burst, normal_attack_exhaust)" in presentation
 assert 'fx.call("set_exhaust", active and str(set_id) == selected_booster,' in equipment
 
 # Opacity/width are bounded, ordered, and end at zero even after emission.
