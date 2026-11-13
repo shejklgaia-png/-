@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """v270 diagnostic regression updated for v284 absolute 4-way melee flicks."""
 from pathlib import Path
+
+# v317 refactor: assert main's delegation and the canonical pure math.
+from pathlib import Path as _SplitPath
+SERA_INPUT = (_SplitPath(__file__).resolve().parents[1] / "scripts/sera_input_gestures.gd").read_text(encoding="utf-8")
 import re,math
 root=Path(__file__).resolve().parents[1]
 main=(root/"scripts/main.gd").read_text(encoding="utf-8")
@@ -8,7 +12,7 @@ rig=(root/"scripts/sera_rig.gd").read_text(encoding="utf-8")
 assert int(re.search(r'config/name="SERA v(\d+)"',(root/"project.godot").read_text()).group(1))>=284
 def body(a,b):
     return main.split("func "+a,1)[1].split("func "+b,1)[0]
-helper=body("_combo_kick_side_for_flick(flick: Vector2) -> int:","_step_local_pose_direction")
+helper=SERA_INPUT.split("static func combo_kick_side(flick: Vector2) -> int:",1)[1].split("static func upward_jump_flick",1)[0]
 release=body("_end_drag(release_pos: Vector2) -> void:","_remember_jump_flick_sample")
 request=body("_request_combo_side_kick(flick: Vector2) -> bool:","_launch_combo_side_kick")
 launch=body("_launch_combo_side_kick(flick: Vector2, side: int) -> bool:","_start_omni_step")
@@ -44,3 +48,5 @@ for yaw in range(720):
     assert sector(120,0)==1 and sector(-120,0)==3
     assert sector(0,120)==2 and sector(0,-120)==0
 print("PASS v284: all cardinal gestures independent of actor heading and kick debug intact")
+
+assert "return INPUT_GESTURES.combo_kick_side(flick)" in main

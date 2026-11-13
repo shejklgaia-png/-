@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """v243 AUTO/MANUAL button and fullscreen gesture ownership, updated through v293."""
 from pathlib import Path
+
+# v317 refactor: assert main's delegation and the canonical pure math.
+from pathlib import Path as _SplitPath
+SERA_INPUT = (_SplitPath(__file__).resolve().parents[1] / "scripts/sera_input_gestures.gd").read_text(encoding="utf-8")
 import re
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -22,7 +26,7 @@ for token in (
     "var auto_lock_enabled: bool = true",
     "var manual_part_lock_active: bool = false",
     "func _controller_start_area_contains(pos: Vector2) -> bool:",
-    "pos.x >= 0.0", "pos.y >= 0.0", "pos.x <= screen.x", "pos.y <= screen.y",
+    "INPUT_GESTURES.controller_contains(",
     "button.anchor_top = LOCK_CONTROLS_VERTICAL_RATIO",
     "button.anchor_left = CONTROLLER_REGION_START_RATIO",
     "button.anchor_left = 1.0",
@@ -91,3 +95,6 @@ for p in ((350, 1000), (450, 620), (0, 0), (220, 1200),
     assert allowed(*p), p
 assert allowed(510, 900) and allowed(80, 200)
 print("V243_FULLSCREEN_AUTO_MANUAL_BUTTONS_STATIC_PASS")
+
+for _bound in ("pos.x >= 0.0", "pos.y >= 0.0", "pos.x <= screen.x", "pos.y <= screen.y"):
+    assert _bound in SERA_INPUT, _bound

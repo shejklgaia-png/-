@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """Historical v244/v245 RUN/BOOST ratios with v248 further 1.5x scaling."""
 from pathlib import Path
+
+# v317 refactor: assert main's delegation and the canonical pure math.
+from pathlib import Path as _SplitPath
+SERA_INPUT = (_SplitPath(__file__).resolve().parents[1] / "scripts/sera_input_gestures.gd").read_text(encoding="utf-8")
 import math
 import re
 
@@ -43,8 +47,8 @@ assert math.isclose(baseline*start_ratio,173.25)
 assert math.isclose(baseline*exit_ratio,141.75)
 
 for token in (
-    'if distance <= RUN_INPUT_DEADZONE_PIXELS:',
-    '(RUN_CONTROL_RADIUS - RUN_INPUT_DEADZONE_PIXELS), 0.0, 1.0)',
+    'INPUT_GESTURES.analog_stick_direction(',
+    'RUN_INPUT_DEADZONE_PIXELS, RUN_CONTROL_RADIUS)',
     'if finger_distance < DRAG_RADIUS * BOOST_EXIT_RADIUS_RATIO:',
     'elif finger_distance >= DRAG_RADIUS * BOOST_START_RADIUS_RATIO:',
     'boost_confirm_elapsed >= BOOST_CONFIRM_SECONDS',
@@ -101,3 +105,6 @@ print("PASS v244-v248: RUN 105px, deadzone 16.875px, BOOST baseline 157.5px")
 print("PASS v244-v248: BOOST start 173.25px / end 141.75px, 93.75% of v243")
 print("PASS v244-v248: proportional visual scaling; flick/guard unchanged")
 print("Godot runtime and Android touch/visual sizes NOT tested")
+
+assert "if distance <= deadzone:" in SERA_INPUT
+assert "(radius - deadzone), 0.0, 1.0)" in SERA_INPUT

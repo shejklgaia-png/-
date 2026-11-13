@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """SERA v246: borderless fullscreen floating controller, except actual UI buttons."""
 from pathlib import Path
+
+# v317 refactor: assert main's delegation and the canonical pure math.
+from pathlib import Path as _SplitPath
+SERA_INPUT = (_SplitPath(__file__).resolve().parents[1] / "scripts/sera_input_gestures.gd").read_text(encoding="utf-8")
 import re
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -13,9 +17,10 @@ assert (ROOT / "README_v246_ja.md").is_file()
 
 start = main.split("func _controller_start_area_contains(pos: Vector2) -> bool:", 1)[1].split(
     "func _pointer_on_lock_mode_button(", 1)[0]
+assert "INPUT_GESTURES.controller_contains(" in start
 for token in ("pos.x >= 0.0", "pos.x <= screen.x",
               "pos.y >= 0.0", "pos.y <= screen.y"):
-    assert token in start, token
+    assert token in SERA_INPUT, token
 assert "CONTROLLER_REGION_START_RATIO" not in start
 
 buttons = main.split("func _pointer_on_step_hud(pos: Vector2) -> bool:", 1)[1].split(

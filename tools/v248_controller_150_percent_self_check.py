@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """SERA v248: the entire floating controller geometry and hit distances are 1.5x v247."""
 from pathlib import Path
+
+# v317 refactor: assert main's delegation and the canonical pure math.
+from pathlib import Path as _SplitPath
+SERA_INPUT = (_SplitPath(__file__).resolve().parents[1] / "scripts/sera_input_gestures.gd").read_text(encoding="utf-8")
 import math
 import re
 
@@ -57,8 +61,8 @@ for token in (
 ):
     assert token in ui,token
 for token in (
-    'if distance <= RUN_INPUT_DEADZONE_PIXELS:',
-    '(RUN_CONTROL_RADIUS - RUN_INPUT_DEADZONE_PIXELS), 0.0, 1.0)',
+    'INPUT_GESTURES.analog_stick_direction(',
+    'RUN_INPUT_DEADZONE_PIXELS, RUN_CONTROL_RADIUS)',
     'touch_ui.call("show_drag", pointer_origin, pointer_location, DRAG_RADIUS)',
     'if finger_distance < DRAG_RADIUS * BOOST_EXIT_RADIUS_RATIO:',
     'elif finger_distance >= DRAG_RADIUS * BOOST_START_RADIUS_RATIO:',
@@ -100,3 +104,6 @@ assert '_draw_analog_controller(accent, low)' in static_draw
 print("PASS v248: 1.5x RUN/BOOST display, thresholds, shell, arrows and text")
 print("PASS v248: proportional input response; no fullscreen / flick / guard regression")
 print("Android Godot runtime / tactile feel remain unverified")
+
+assert "if distance <= deadzone:" in SERA_INPUT
+assert "(radius - deadzone), 0.0, 1.0)" in SERA_INPUT

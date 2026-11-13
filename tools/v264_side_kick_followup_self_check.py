@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """SERA v264: guarded post-Melee3 lateral kick integration static regression."""
 from pathlib import Path
+
+# v317 refactor: assert main's delegation and the canonical pure math.
+from pathlib import Path as _SplitPath
+SERA_INPUT = (_SplitPath(__file__).resolve().parents[1] / "scripts/sera_input_gestures.gd").read_text(encoding="utf-8")
 import json
 from sera_active_contracts import load_active_specs, main_float_constant
 
@@ -41,9 +45,10 @@ require("single EN charge in shared STEP entry",
         and "_spend_energy(15.0 * float(part_stats.get" in main)
 require("kick uses fixed SCREEN quadrants regardless of SERA facing",
         "func _combo_kick_side_for_flick(flick: Vector2) -> int:" in main
-        and "flick, Vector2.UP" in main
-        and "return 1  # screen right -> Kick_r" in main
-        and "return -1  # screen left -> Kick_l" in main)
+        and "return INPUT_GESTURES.combo_kick_side(flick)" in main
+        and "flick, Vector2.UP" in SERA_INPUT
+        and "return 1" in SERA_INPUT
+        and "return -1" in SERA_INPUT)
 require("physics uses same swept STEP, not new teleport",
         "if side_kick_active:" in main and "side_kick_hit_mask" in main
         and "_move_player_swept(requested, true)" in main)
