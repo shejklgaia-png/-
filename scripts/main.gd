@@ -6,6 +6,7 @@ const VersionIndicator = preload("res://scripts/version_indicator.gd")
 const RENDER_ORDER = preload("res://scripts/render_order_policy.gd")
 const CombatVitals = preload("res://scripts/combat_vitals.gd")
 const CAMERA_MATH = preload("res://scripts/sera_camera_math.gd")
+const DEV_DIAGNOSTICS = preload("res://scripts/dev_diagnostics.gd")
 ## v84: Authored 3-stage Swordeffect atlas, exact board placement.
 ## v83: Three-stage tap melee combo; cancel 2 authored frames after follow-through.
 ## v82: Close-range side-step camera bound by target-relative player/camera bearing.
@@ -328,6 +329,11 @@ var core_label: Label
 var test_hit_button: Button
 var test_break_button: Button
 var move_target_button: Button
+var diagnostic_button: Button
+var diagnostic_copy_button: Button
+var diagnostic_overlay: Control
+var diagnostic_enabled: bool = false
+var diagnostic_sample_elapsed: float = 0.0
 var incoming_damage_label: Label
 var incoming_damage_remaining: float = 0.0
 var training_ko_remaining: float = 0.0
@@ -1384,6 +1390,30 @@ func _build_overlay() -> void:
     move_target_button.size = Vector2(148.0, 42.0)
     move_target_button.mouse_filter = Control.MOUSE_FILTER_IGNORE
     layer.add_child(move_target_button)
+    # Development-only telemetry. Sampling and panel are OFF by default.
+    # Both buttons use the existing raw UI hit-test; touches do not fire attacks.
+    diagnostic_button = Button.new()
+    diagnostic_button.name = "DiagnosticToggle"
+    diagnostic_button.text = "DIAG: OFF"
+    diagnostic_button.position = Vector2(558.0, 268.0)
+    diagnostic_button.size = Vector2(140.0, 42.0)
+    diagnostic_button.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    diagnostic_button.focus_mode = Control.FOCUS_NONE
+    layer.add_child(diagnostic_button)
+    diagnostic_copy_button = Button.new()
+    diagnostic_copy_button.name = "DiagnosticCopy"
+    diagnostic_copy_button.text = "COPY LOG"
+    diagnostic_copy_button.position = Vector2(558.0, 318.0)
+    diagnostic_copy_button.size = Vector2(140.0, 42.0)
+    diagnostic_copy_button.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    diagnostic_copy_button.focus_mode = Control.FOCUS_NONE
+    diagnostic_copy_button.visible = false
+    layer.add_child(diagnostic_copy_button)
+    diagnostic_overlay = DEV_DIAGNOSTICS.new()
+    diagnostic_overlay.name = "DiagnosticPanel"
+    diagnostic_overlay.position = Vector2(18.0, 385.0)
+    diagnostic_overlay.size = Vector2(682.0, 166.0)
+    layer.add_child(diagnostic_overlay)
     incoming_damage_label = Label.new()
     incoming_damage_label.name = "PlayerDamagePopup"
     incoming_damage_label.position = Vector2(476.0, 275.0)
@@ -1854,9 +1884,20 @@ func _pointer_on_training_test_button(pos: Vector2) -> bool:
     return (test_hit_button.get_global_rect().has_point(pos)
         or test_break_button.get_global_rect().has_point(pos)
         or (move_target_button != null
-            and move_target_button.get_global_rect().has_point(pos)))
+            and move_target_button.get_global_rect().has_point(pos))
+        or (diagnostic_button != null
+            and diagnostic_button.get_global_rect().has_point(pos))
+        or (diagnostic_copy_button != null and diagnostic_copy_button.visible
+            and diagnostic_copy_button.get_global_rect().has_point(pos)))
 
 func _press_training_test_button(pos: Vector2) -> void:
+    if diagnostic_button != null and diagnostic_button.get_global_rect().has_point(pos):
+        _toggle_diagnostics()
+        return
+    if (diagnostic_copy_button != null and diagnostic_copy_button.visible
+            and diagnostic_copy_button.get_global_rect().has_point(pos)):
+        _copy_diagnostics()
+        return
     if move_target_button != null and move_target_button.get_global_rect().has_point(pos):
         target_move_enabled = not target_move_enabled
         move_target_button.text = "MOVE: ON" if target_move_enabled else "MOVE: OFF"
@@ -1872,6 +1913,45 @@ func _press_training_test_button(pos: Vector2) -> void:
     if incoming.length_squared() < 0.000001:
         incoming = Vector3.FORWARD
     _on_enemy_projectile_hit(player.global_position, incoming.normalized(), true, 0)
+
+# Opt-in only. No trace sampling or clipboard work during regular play.
+func _toggle_diagnostics() -> void:
+    diagnostic_enabled = not diagnostic_enabled
+    diagnostic_sample_elapsed = 0.0
+    if diagnostic_overlay != null:
+        diagnostic_overlay.call("set_collecting", diagnostic_enabled)
+    if diagnostic_copy_button != null:
+        diagnostic_copy_button.visible = diagnostic_enabled
+    if diagnostic_button != null:
+        diagnostic_button.text = "DIAG: ON" if diagnostic_enabled else "DIAG: OFF"
+
+func _copy_diagnostics() -> void:
+    if diagnostic_enabled and diagnostic_overlay != null:
+        diagnostic_overlay.call("copy_trace")
+
+func _sample_diagnostics(delta: float) -> void:
+    if not diagnostic_enabled or diagnostic_overlay == null:
+        return
+    diagnostic_sample_elapsed += maxf(delta, 0.0)
+    if diagnostic_sample_elapsed < 0.12:
+        return
+    diagnostic_sample_elapsed = 0.0
+    var desired_focus: Vector2 = _desired_camera_follow_focus_xz()
+    var camera_lag: float = camera_focus_follow_xz.distance_to(desired_focus)
+    diagnostic_overlay.call("record_sample", {
+        "fps": Engine.get_frames_per_second(),
+        "clip": str(rig.get("current_clip")) if rig != null else "NONE",
+        "combat": str(combat_state),
+        "lock": "BODY" if locked_target_part_id.is_empty() else locked_target_part_id,
+        "camera_yaw": camera_yaw,
+        "camera_radius": camera_radius,
+        "camera_lag": camera_lag,
+        "step": step_traveled_distance,
+        "drag_x": direction_input.x,
+        "drag_y": direction_input.y,
+        "boost": movement_boost_active,
+        "energy": energy,
+    })
 
 func _pointer_on_nexus_button(pos: Vector2) -> bool:
     return (nexus_button != null and nexus_button.visible
@@ -4689,6 +4769,7 @@ func _process(delta: float) -> void:
     if hit_stop_remaining > 0.0:
         _update_target_marker_projection()  # Still track externally moving targets during hit-stop.
         _update_motion_blur(delta)
+        _sample_diagnostics(delta)
         return  # Hold target bob and camera for the impact beat.
     # Sample the camera follow focus once per rendered frame. _place_camera
     # and fit searches must all use the same frozen focus for that frame.
@@ -4879,6 +4960,7 @@ func _process(delta: float) -> void:
     _update_motion_blur(delta)
     close_step_camera_recovery_remaining = maxf(
         0.0, close_step_camera_recovery_remaining - delta)
+    _sample_diagnostics(delta)
 
 
 # v288: keep the tracking anchor near SERA, with a short (up to 2m)

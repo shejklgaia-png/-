@@ -31,3 +31,7 @@ python3 tools/sera_ci_suite.py static --workers 4      # FULL registered Python 
 ```
 
 Historical instructions and v102–v292 decisions remain available at `docs/history/AGENTS_THROUGH_V316.md`; their superseded numeric values, model paths and design drafts must not override the current code.
+
+## v317 optional Android diagnostics
+- During Android training only, DIAG: OFF toggles diagnostic recording ON. COPY LOG copies bounded local runtime samples to the device clipboard; paste into chat for analysis. No telemetry or network access when OFF. Details in `docs/SERA_ANDROID_DIAGNOSTICS_ja.md`.
+- Existing touch controller areas and ordinary game logic must not be changed for diagnostic instrumentation.
