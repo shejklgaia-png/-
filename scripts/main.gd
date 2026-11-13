@@ -1657,9 +1657,11 @@ func _acquire_stable_camera_part(delta: float,
         current_broken: bool) -> void:
     if target_parts == null or player == null or target == null:
         return
-    locked_target_part_id = str(target_parts.call(
-        "select_actor_parallel_lines_part",
-        player.global_position, target.global_position))
+    var center: Vector3 = target.global_position
+    var sera_origin: Vector3 = player.global_position
+    var preferred: String = str(target_parts.call(
+        "select_actor_parallel_lines_part", sera_origin, center))
+    locked_target_part_id = preferred
     auto_lock_initialized = true
     auto_lock_pending_part = ""
     auto_lock_pending_elapsed = 0.0
