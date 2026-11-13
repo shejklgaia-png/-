@@ -3,6 +3,9 @@
 
 **適用対象**：ChatGPT / Codexが3Dモデル・装備・骨格・モーションを追加、編集、削除、ゲーム内統合するとき。ここでの「担当」は**今後の作業分担**であり、未実装の自動取り込み機能が既にあるという意味ではありません。
 
+## v316 現行正本（この後の旧パス記述に優先）
+編集元の唯一の一覧は models/manifest.json です。Standard.bbmodel が通常骨格・基本モーション、BirdLeg.bbmodel が鳥脚専用骨格とトラック、Katana.bbmodel が刀の二段モーション、Equipment.bbmodel が装備A/Bとブースターです。頭Cと下半身Dはstorage内のHead_C.bbmodel・LowerBody_D.bbmodelをそれぞれ正本とします。旧連番ファイルは歴史的な検証資料として保持し、新規編集やランタイム参照に使用しません。詳細は docs/SERA_MODEL_SOURCES_ja.md を参照してください。
+
 ## 0. 作業を始める前に（必須）
 1. **本書全体とルート `AGENTS.md` を毎回参照**し、GitHub `shejklgaia-png/-` の最新 `main`、現行のモデルと `sera_rig.gd` / `sera_equipment.gd` を調べる。古い添付ZIPだけを基準にしない。
 2. 3Dモデル関連PRの本文に、**本書を実際に読んだ後で** `MODEL_GUIDE_READ: YES` と明記する。CIで存在を検査するが、内容理解そのものは保証できない。

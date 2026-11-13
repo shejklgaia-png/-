@@ -1,5 +1,14 @@
 # SERA — Codex / coding-agent repository instructions
 
+## v316 canonical model sources (supersedes historical paths)
+- Always consult models/manifest.json and docs/SERA_MODEL_SOURCES_ja.md.
+- Active Blockbench sources are models/core/Standard.bbmodel, BirdLeg.bbmodel, Katana.bbmodel and Equipment.bbmodel; standalone parts: models/storage/Head_C.bbmodel and LowerBody_D.bbmodel.
+- Do not modify assets/sera_source.json or assets/sera_*.gd directly; regenerate from canonical sources with tools/rebuild_* scripts.
+- Existing historical numbered Blockbench files remain test fixtures, NOT current authoring inputs or runtime fallbacks. Do not scan them at runtime.
+- Changes to clips, pivots, UUID, meshes or equipment need real Godot runtime tests; Android device validation is separate.
+
+
+
 ## Current-contract CI and fast navigation (2026-11-13)
 - Read `docs/SERA_ACTIVE_CI_POLICY_ja.md` before modifying gameplay or tests. The approved numerical STEP/kick contract is `tools/sera_active_specs.json`; update it with intentional gameplay changes only. Never let historical vNNN tests enforce superseded numeric values, and never suppress actual regressions.
 - Start scoped investigation with `python3 tools/sera_dev_index.py <term> --json`; inspect relevant source afterward. This index does not resolve dynamic calls.
