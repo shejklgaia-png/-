@@ -26,7 +26,7 @@ for token in (
     "piece.visible = display",
     'clip_name == "Melee_katana2"',
     'clip_name == "Melee_katana" and t >= 3.0 / 24.0 - 0.00001',
-    "equipped and not drawn",
+    "equipped and (not is_stowed_blade or not drawn)",
     "equipped and drawn",
     "_sync_afterimage_visibility()",
 ):
@@ -34,6 +34,8 @@ for token in (
 assert 'if katana_role == "drawn":' in e
 assert 'katana_drawn_meshes.append(child)' in e
 assert 'katana_saya_meshes.append(child)' in e
+assert 'katana_sheathed_blade_meshes.append(child)' in e
+assert 'group_name == "katana_r_saya"' in e
 assert 'group_name == "katana_r_nukimi"' in e
 assert 'group_name.begins_with("katana_")' in e
 
