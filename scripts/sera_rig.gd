@@ -300,6 +300,24 @@ func set_equipment_motion_scales(damage_scale: float, guard_speed: float,
 func set_heavy_slide_run_enabled(enabled: bool) -> void:
     heavy_slide_run_enabled = enabled
 
+# Actual rendered front (Head is stabilized and visually aimed at boss).
+# The collision root faces the locked enemy, while RUN Waist rotates
+# independently. Resolve a visible bone for the directional UI/combos.
+# Head C uses the same bone orientation, so this works for all head sets.
+func get_visible_facing_pivot() -> Node3D:
+    if not loading_ok:
+        return null
+    for uid in [RUN_HEAD_BONE_UUID, RUN_CHEST_BONE_UUID, RUN_ROOT_BONE_UUID]:
+        var pivot: Node3D = bones.get(uid) as Node3D
+        if not is_instance_valid(pivot):
+            continue
+        var forward: Vector3 = -pivot.global_transform.basis.z
+        forward.y = 0.0
+        if forward.length_squared() > 0.0001:
+            return pivot
+    return null
+
+
 func get_locomotion_mode() -> String:
     return locomotion_mode
 
