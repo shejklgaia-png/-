@@ -56,11 +56,11 @@ func _run() -> void:
     game.call("_advance_camera_follow_focus",1.0/60.0)
     var desired: Vector2 = game.call("_desired_camera_follow_focus_xz")
     var actual: Vector2 = game.get("camera_focus_follow_xz")
-    if actual.distance_to(desired)>0.65001:
-        _fail("distance leash failed after sudden SERA displacement")
+    if actual.distance_to(desired)<3.0 or actual.distance_to(desired)>5.0:
+        _fail("focus teleported across a sudden SERA displacement")
         return
-    if actual.x<2.0:
-        _fail("camera stayed anchored near stationary target")
+    if actual.x<=0.0 or actual.x>0.40:
+        _fail("camera focus did not move smoothly with bounded per-frame speed")
         return
     # At steady, low speed the follow point eases instead of jittering.
     var before: Vector2=actual
@@ -87,5 +87,5 @@ func _run() -> void:
     if absf(camera.position.y-old_y)>0.0001:
         _fail("camera vertical anchor inherits enemy bob")
         return
-    print("GODOT_V288_SERA_CAMERA_FOLLOW_PASS: slight lag, hard 0.65m/12deg leash, fixed low pitch")
+    print("GODOT_V288_SERA_CAMERA_FOLLOW_PASS: bounded smooth focus, 12deg yaw leash, fixed pitch")
     quit(0)
