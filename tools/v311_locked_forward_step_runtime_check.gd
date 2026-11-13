@@ -89,7 +89,9 @@ func _run() -> void:
         var expected: Vector2=game.call("_step_motion_direction",
             Vector3.RIGHT,Vector2.RIGHT)
         var smoothed: Vector2=rig.get("directional_step_vector")
-        if smoothed.dot(expected)<0.995:
+        # The newly introduced first 1m STEP changes the target bearing;
+        # preserve the rig's authored 0.08s gradual pose realignment.
+        if smoothed.dot(expected)<0.98:
             _fail("physics changed locked-facing STEP axis at "+str(i))
             return
         if (game.get("step_linear_offset") as Vector2).distance_to(linear)>0.00001:

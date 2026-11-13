@@ -51,6 +51,10 @@ func _run() -> void:
         if travel.length_squared() < 0.01:
             _fail("invalid camera world-right at probe " + str(i))
             return
+        # The initial pose samples the pre-warp facing, not the location
+        # reached after the new 1m instantaneous relocation.
+        var launch_expected_pose: Vector2 = game.call(
+            "_step_motion_direction", travel, Vector2.RIGHT)
         if not bool(game.call("_start_omni_step", Vector2.RIGHT)):
             _fail("right flick refused at probe " + str(i))
             return
@@ -58,8 +62,7 @@ func _run() -> void:
             _fail("RIGHT screen flick selected a different clip")
             return
         var direction: Vector2 = rig.get("directional_step_vector")
-        var expected_pose: Vector2 = Vector2.RIGHT if version == 310 else (
-            game.call("_step_motion_direction",travel,Vector2.RIGHT))
+        var expected_pose: Vector2 = Vector2.RIGHT if version == 310 else launch_expected_pose
         if direction.distance_to(expected_pose) > 0.001:
             _fail("RIGHT flick selected wrong pose at probe " + str(i)
                 + " got " + str(direction) + " expected " + str(expected_pose))

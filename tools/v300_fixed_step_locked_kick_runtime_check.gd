@@ -57,10 +57,10 @@ func _run() -> void:
     # Free-space ordinary dodge travels 5m, with 15m/s base speed.
     player.position=Vector3(0.0,0.0,9.0)
     game.set("energy",100.0)
+    var start: Vector3 = player.position
     if not bool(game.call("_start_omni_step",Vector2.RIGHT)):
         _fail("free-space right step refused")
         return
-    var start: Vector3 = player.position
     game.call("_advance_side_step",float(game.get("step_duration_current")))
     if player.position.distance_to(start+Vector3(5.0,0.0,0.0))>0.05:
         _fail("right STEP did not travel exactly 5m")
