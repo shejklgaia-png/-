@@ -139,12 +139,8 @@ func _run() -> void:
     camera.look_at(body_center,Vector3.UP)
     player.global_position = camera.global_position
     game.call("_acquire_stable_camera_part",0.016,false)
-    if str(game.get("locked_target_part_id")) != "head":
-        _fail("HEAD dropped before BODY candidate was stable")
-        return
-    game.call("_acquire_stable_camera_part",0.23,false)
     if not str(game.get("locked_target_part_id")).is_empty():
-        _fail("HEAD failed to switch after sustained off-cap BODY")
+        _fail("HEAD did not switch to BODY instantly after leaving cap")
         return
 
     print("GODOT_V297_HEAD_LOCK_VERTICAL_CAP_PASS")
