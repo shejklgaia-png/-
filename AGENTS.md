@@ -37,19 +37,17 @@ Historical instructions and v102–v292 decisions remain available at `docs/hist
 - Existing touch controller areas and ordinary game logic must not be changed for diagnostic instrumentation.
 
 ## v317 main.gd split contracts
-Retain existing `main.gd` entry points and all live state, resource/animation/scene/HUD side effects. Only stateless calculations move to helpers; never rewrite the entire physics/combat/camera state machine in one pass. Keep numeric gameplay thresholds and all legacy tests. Full PR CI is mandatory; Android visuals require device verification.
+Keep all old `main.gd` entry points and live state, events, collision, rendering, HUD and scene effects. Extract only stateless calculations; preserve numeric thresholds and callback order. Full PR CI required; Android visuals require device verification.
 
-- **Input/movement:** `scripts/sera_input_gestures.gd` handles touch/flick classification; `scripts/sera_movement_math.gd` handles pure XZ transforms. Main supplies constants and camera/player transforms.
-- **Lock:** `scripts/sera_lock_management.gd` handles pair-line AUTO selection, screen-X MANUAL wrap, yaw facing and reticle projection. Main owns AUTO/MANUAL/retention/HUD. BODY ID is `""`; no artificial 0.22s delay or camera-ray acquisition.
-- **Combat:** `scripts/sera_combat_flow.gd` handles pure guard/combo eligibility, timing, clip selection and limited tracking delta. Main owns queued input, attack state, EN, movement and effects. Normal 3-stage/Katana 2-stage and Melee3 cancel/retention must not regress.
-- **Camera:** `scripts/sera_camera_framing.gd` handles pure perspective radius and close STEP yaw. Main owns Camera3D, near/frustum state, viewport, actual camera motion and camera collision. Keep all margins/rates.
-- **BOOST:** `scripts/sera_boost_state.gd` handles gesture hysteresis/confirmation and 0.20s smooth speed blend. Main owns live state, EN gate, equipment and UI/rig. Preserve reversal continuity and EN 60% unlock.
-- **EN/SH:** `scripts/sera_resource_rules.gd` handles pure EN spending, pause decay, recovery and unlock. Main owns EN/SH state, HUD, flashes, costs, guard break/down/KO ordering and final BOOST sliver depletion. Preserve 24 EN/s, 16 SH/s, 0.25s cost pause, 0.0001 epsilon and 60% unlock. Decrease pause before applying same-frame recovery.
+- **Gesture/locomotion:** `sera_input_gestures.gd`, `sera_movement_math.gd` own pure input and XZ transforms. Main owns touch, player and camera.
+- **Lock:** `sera_lock_management.gd` owns paired-ray AUTO, manual screen-X wrap, facing and reticle geometry; main owns modes, combo lock and buttons. BODY ID is `""`; no delayed acquisition.
+- **Combat:** `sera_combat_flow.gd` owns guard/combo gates, timing, clips and homing slices. Main owns strikes, queued input, EN, collision and authored animation. Normal 3-hit/Katana 2-hit and combo locks remain.
+- **Camera:** `sera_camera_framing.gd` owns pure fit and STEP yaw; main owns physical camera, framing, zoom and collision.
+- **BOOST:** `sera_boost_state.gd` owns finger hysteresis and 0.20s speed smoothstep. Main owns active touch, EN, equipment, visual pose and reversal continuity.
+- **EN/SH:** `sera_resource_rules.gd` owns EN spending and recovery. Main owns HUD, KO and final BOOST sliver. Preserve 24/16 per-second rates, 0.25s spend pause, epsilon 0.0001 and 60% unlock.
+- **Combat timers:** `sera_combat_timers.gd` owns countdown/stagger math. Main owns KO, UI, stagger/fire ordering and damage completion.
+- **Hit FX:** `sera_hit_fx_presentation.gd` updates passed overlay/material/labels only. Main owns timers, hit-stop, parts, FX order and respawn.
+- **Target:** `sera_target_lifecycle.gd` decides movement, firing and respawn. Main owns parts, 0.01s combo retry, locks, resets, KO teleport and HUD.
+- **Physics frame:** `sera_physics_frame_rules.gd` owns pure BOOST pose grace, flight ownership, displacement velocity, exhaust and acceleration burst gates. Main owns movement/physics, rig/nozzle visuals and input order. Stationary melee swing must keep normal exhaust.
 
-- **Hit FX:** `scripts/sera_hit_fx_presentation.gd` updates explicit visual nodes only. Main owns timers, hit-stop, effect ordering and boss respawn.
-
-- **Target:** `scripts/sera_target_lifecycle.gd` decides movement, firing and respawn. Main owns parts, combo lock, 0.01s retry, resets, KO teleports and HUD.
-
-See `docs/SERA_DEVELOPMENT_FASTPATH_ja.md` and `DEVELOPMENT.md` for stage-by-stage detail.
-
-- **Combat timers:** `scripts/sera_combat_timers.gd` owns countdown and stagger-decay arithmetic. Main retains KO shortcut, debug expiry side effects, resource/stagger/enemy-fire order, and damage/guard-break completion effects.
+See `docs/SERA_DEVELOPMENT_FASTPATH_ja.md` and `DEVELOPMENT.md` for details.
