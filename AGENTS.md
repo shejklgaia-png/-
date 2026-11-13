@@ -46,7 +46,9 @@ Retain existing `main.gd` entry points and all live state, resource/animation/sc
 - **BOOST:** `scripts/sera_boost_state.gd` handles gesture hysteresis/confirmation and 0.20s smooth speed blend. Main owns live state, EN gate, equipment and UI/rig. Preserve reversal continuity and EN 60% unlock.
 - **EN/SH:** `scripts/sera_resource_rules.gd` handles pure EN spending, pause decay, recovery and unlock. Main owns EN/SH state, HUD, flashes, costs, guard break/down/KO ordering and final BOOST sliver depletion. Preserve 24 EN/s, 16 SH/s, 0.25s cost pause, 0.0001 epsilon and 60% unlock. Decrease pause before applying same-frame recovery.
 
-- **Hit FX:** `scripts/sera_hit_fx_presentation.gd` updates only explicitly passed overlay/material/labels. Main owns timers, BODY/part selection, hit-stop, ordered particle calls, and combo-safe boss respawn.
+- **Hit FX:** `scripts/sera_hit_fx_presentation.gd` updates explicit visual nodes only. Main owns timers, hit-stop, effect ordering and boss respawn.
+
+- **Target:** `scripts/sera_target_lifecycle.gd` decides movement, firing and respawn. Main owns parts, combo lock, 0.01s retry, resets, KO teleports and HUD.
 
 See `docs/SERA_DEVELOPMENT_FASTPATH_ja.md` and `DEVELOPMENT.md` for stage-by-stage detail.
 
