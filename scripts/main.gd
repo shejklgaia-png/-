@@ -1649,7 +1649,7 @@ func _lock_switch_direction_at(pos: Vector2) -> int:
 
 func _switch_lock_screen_direction(direction: int) -> void:
     if (direction == 0 or auto_lock_enabled or target_parts == null
-            or camera == null or target_hp <= 0 or training_ko_remaining > 0.0
+            or camera == null or training_ko_remaining > 0.0
             or _combo_lock_retention_active()):
         return
     var viewport_size: Vector2 = get_viewport().get_visible_rect().size
@@ -1942,9 +1942,8 @@ func _target_hit_aabb() -> AABB:
     var extents := Vector3(TARGET_HALF_SIZE, TARGET_HALF_SIZE, TARGET_BODY_HALF_DEPTH)
     return AABB(target.global_position - extents, extents * 2.0)
 
-# A destroyed part stays LOCKED and keeps its original hit volume until
-# the committed three-hit/Bash/Kick sequence (including input links) ends.
-# New locks still exclude broken candidates via is_targetable().
+# Broken and dead-target geometry stays attackable and lockable throughout
+# the respawn countdown, including after any combo input window expires.
 func _locked_part_hit_volume_available() -> bool:
     return (target_parts != null
         and not locked_target_part_id.is_empty()
@@ -2032,7 +2031,7 @@ func _apply_target_part_damage(kind: String, raw_attack: int, raw_break: float,
     var result: Dictionary = {
         "body_damage": 0, "part_damage": 0.0, "broken": false
     }
-    if target_hp > 0 and target_parts != null:
+    if target_parts != null:
         result = target_parts.call(
             "apply_part_hit", locked_target_part_id, raw_attack, raw_break)
         # Every strike/Bash/kick hit now animates the struck module too,
@@ -2046,7 +2045,9 @@ func _apply_target_part_damage(kind: String, raw_attack: int, raw_break: float,
         hit_flash_remaining = (
             HIT_FLASH_SECONDS if locked_target_part_id.is_empty() else 0.0)
         target_hp = maxi(0, target_hp - int(result["body_damage"]))
-        _register_test_hit(weak_stagger, extension)
+        # A KO target can still be struck, but stagger no longer accumulates.
+        if hp_before_hit > 0:
+            _register_test_hit(weak_stagger, extension)
         if bool(result["broken"]):
             # Every break causes a stronger reaction. Two leg breaks satisfy
             # this training boss's explicitly configurable long-down rule.
@@ -2059,7 +2060,9 @@ func _apply_target_part_damage(kind: String, raw_attack: int, raw_break: float,
                 enemy_shooter.call("set_head_destroyed", true)
             # Keep the broken ID and its hitbox until all linked attacks
             # and 0.65s input windows have finished; reacquire only then.
-    var actual_damage: int = hp_before_hit - target_hp
+    # Display the mitigated power of this confirmed hit, not the HP delta.
+    # Clamping the boss at 0 HP must never show 0 or a truncated last hit.
+    var actual_damage: int = int(result["body_damage"])
     result["applied_damage"] = actual_damage
     SeraSave.record_target_hit(kind, actual_damage,
         hp_before_hit > 0 and target_hp == 0)
@@ -2865,9 +2868,9 @@ func _step_local_pose_direction(world_direction: Vector3) -> Vector2:
 # fallback. This never affects the committed world displacement or kick input.
 func _step_motion_direction(world_direction: Vector3,
         screen_direction: Vector2) -> Vector2:
-    var has_lock: bool = (target_hp > 0 and (
+    var has_lock: bool = (
         auto_lock_enabled or manual_part_lock_active
-        or auto_lock_initialized or not locked_target_part_id.is_empty()))
+        or auto_lock_initialized or not locked_target_part_id.is_empty())
     if has_lock:
         return _step_local_pose_direction(world_direction)
     return screen_direction.normalized()
@@ -3016,15 +3019,14 @@ func _advance_back_somersault(delta: float) -> void:
         if strike_dt > 0.0:
             # Reuse the normal melee swept chase, EN and current target lock.
             # Do not allow this chase to continue once a kick connects.
-            if target_hp > 0:
-                _advance_homing_toward_target(strike_dt, BASH_REACH)
+            _advance_homing_toward_target(strike_dt, BASH_REACH)
             back_somersault_elapsed += strike_dt
             remaining -= strike_dt
         rig.call("set_back_somersault_progress",
             back_somersault_elapsed / BACK_SOMERSAULT_FLIGHT_SECONDS)
         if back_somersault_elapsed >= BACK_SOMERSAULT_STRIKE_SECONDS - 0.000001:
             back_somersault_hit_checked = true
-            if target_hp > 0 and _distance_to_attack_target_surface(player.position) <= SIDE_KICK_REACH:
+            if _distance_to_attack_target_surface(player.position) <= SIDE_KICK_REACH:
                 back_somersault_hit = true
                 _register_side_kick_hit()
                 # This is the FIRST frame of the retreat: no arc displacement
@@ -3444,7 +3446,7 @@ func _advance_side_step(delta: float) -> void:
             BASH_TRACK_SECONDS, step_duration_current * second_windup)
         var chase_dt: float = minf(
             maxf(delta, 0.0), maxf(0.0, chase_until - previous_seconds))
-        if chase_dt > 0.0 and target_hp > 0 and not side_kick_travel_anchor_set:
+        if chase_dt > 0.0 and not side_kick_travel_anchor_set:
             _advance_homing_toward_target(chase_dt, BASH_REACH)
         if not side_kick_travel_anchor_set and progress >= second_windup:
             _configure_side_kick_orbit()
@@ -3468,7 +3470,7 @@ func _advance_side_step(delta: float) -> void:
                     # before applying any post-impact linear displacement.
                     if previous_progress < second_hit and (side_kick_hit_mask & 2) == 0:
                         side_kick_hit_mask |= 2
-                        if target_hp > 0 and _distance_to_attack_target_surface(
+                        if _distance_to_attack_target_surface(
                                 player.position) <= SIDE_KICK_REACH:
                             _register_side_kick_hit()
                             side_kick_hit_count += 1
@@ -3512,7 +3514,7 @@ func _advance_side_step(delta: float) -> void:
                 continue
             if previous_progress < impact_progress and progress >= impact_progress:
                 side_kick_hit_mask |= bit
-                if target_hp > 0 and _distance_to_attack_target_surface(player.position) <= SIDE_KICK_REACH:
+                if _distance_to_attack_target_surface(player.position) <= SIDE_KICK_REACH:
                     _register_side_kick_hit()
                     side_kick_hit_count += 1
     if step_elapsed >= step_duration_current:
@@ -4276,7 +4278,7 @@ func _physics_process(delta: float) -> void:
             not locked_target_part_id.is_empty()
             and not bool(target_parts.call("is_targetable", locked_target_part_id)))
         if not combo_held:
-            if target_hp > 0 and (not manual_part_lock_active or locked_part_broken):
+            if not manual_part_lock_active or locked_part_broken:
                 # No AUTO delay: change to the current paired-ray candidate
                 # in this tick after the committed combo has finished.
                 # MANUAL and broken-part fallback retain their own gates.

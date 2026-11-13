@@ -60,6 +60,11 @@ func _run() -> void:
     target.position = Vector3.ZERO
     player.position = Vector3(0,0,3.0)
     game.set("target_hp",0)
+    # KO is still attackable; isolate the pre-second-windup orbit by
+    # disabling homing velocity in this camera/trajectory regression.
+    var stats: Dictionary = game.get("part_stats")
+    stats["melee_boost_speed"] = 0.0
+    game.set("part_stats",stats)
     game.set("step_kick_side_request",1)
     if not bool(game.call("_start_omni_step",Vector2.RIGHT)):
         _fail("Kick_r could not start")

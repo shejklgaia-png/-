@@ -117,12 +117,12 @@ func _run() -> void:
         return
     camera_box.size = old_camera_size
 
-    # Broken HEAD is not eligible. No change to hitboxes, boss
-    # rotation or left/right MANUAL button selection is required.
+    # Broken HEAD retains its active aim/hit volume; camera-independence
+    # and BODY-vs-real-mesh priority are unchanged in v319.
     var head: Dictionary = (parts.get("parts") as Dictionary)["head"]
     head["broken"] = true
-    if str(parts.call("select_actor_center_line_part",front,center)) != "":
-        _fail("broken HEAD remained selectable through virtual cap")
+    if str(parts.call("select_actor_center_line_part",front,center)) != "head":
+        _fail("broken HEAD was no longer selectable through its real cap")
         return
     head["broken"] = false
     if not game.has_method("_combo_lock_retention_active") or not game.has_method(

@@ -79,8 +79,8 @@ func _run() -> void:
     head["broken"] = true
     player.global_position = camera.global_position
     game.call("_acquire_stable_camera_part", 0.016, false)
-    if not str(game.get("locked_target_part_id")).is_empty():
-        _fail("broken HEAD was reselected instead of BODY")
+    if str(game.get("locked_target_part_id")) != "head":
+        _fail("broken HEAD lost its legitimate AUTO lock")
         return
     head["broken"] = false
 

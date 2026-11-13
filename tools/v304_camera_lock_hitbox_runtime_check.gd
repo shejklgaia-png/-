@@ -125,10 +125,11 @@ func _run() -> void:
     if str(parts.call("select_actor_parallel_lines_part",rear,center))!="":
         _fail("rear BODY was lost after adding camera boxes")
         return
-    # Destroyed parts keep their volume but never become AUTO candidates.
+    # Destroyed parts retain their AUTO selection and enlarged camera box
+    # as long as the ray truly intersects it.
     model["head"]["broken"]=true
-    if bool(parts.call("actor_parallel_lines_hits_part",front,center,"head")):
-        _fail("broken HEAD was acquired from invisible camera box")
+    if not bool(parts.call("actor_parallel_lines_hits_part",front,center,"head")):
+        _fail("broken HEAD lost its retained ray hitbox")
         return
     model["head"]["broken"]=false
     print("GODOT_V304_CAMERA_LOCK_HITBOX_PASS")

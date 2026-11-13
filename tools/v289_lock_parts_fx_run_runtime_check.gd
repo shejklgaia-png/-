@@ -38,8 +38,8 @@ func _run() -> void:
     game.set("locked_target_part_id","leg_fl")
     var hit: Dictionary = game.call("_apply_target_part_damage",
         "melee",26,200.0,0.0,0.0)
-    if not bool(hit["broken"]) or bool(parts.call("is_targetable","leg_fl")):
-        _fail("leg did not transition to broken")
+    if not bool(hit["broken"]) or not bool(parts.call("is_targetable","leg_fl")):
+        _fail("broken leg is no longer targetable")
         return
     if not bool(parts.call("has_part","leg_fl")) or not leg_node.visible:
         _fail("destroyed leg mesh disappeared")
@@ -81,8 +81,10 @@ func _run() -> void:
         _fail("lock did not release once combo ended")
         return
     game.call("_physics_process",0.016)
-    if str(game.get("locked_target_part_id")) == "leg_fl":
-        _fail("broken part remained selected after full combo ended")
+    var selected_after_combo: String = str(game.get("locked_target_part_id"))
+    if not selected_after_combo.is_empty() and not bool(parts.call(
+            "is_targetable", selected_after_combo)):
+        _fail("post-combo lock selected an unattackable part")
         return
     var aim: Vector3 = Vector3(
         target.position.x-player.position.x,0.0,target.position.z-player.position.z)

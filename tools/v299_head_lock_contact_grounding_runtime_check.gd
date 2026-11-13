@@ -105,6 +105,8 @@ func _run() -> void:
     # RUN: no per-frame grounding, but one actual toe-down signal must
     # sample the lower of both feet and move only the visual rig root.
     rig.call("_switch_clip","run_front_original",0.0)
+    # v319: finish the stand->RUN accent before sampling normal foot support.
+    rig.call("_process",0.11)
     rig.call("_process",0.04)
     var run_base: float = rig.position.y
     var heights: Dictionary = eq.call("get_active_foot_heights")

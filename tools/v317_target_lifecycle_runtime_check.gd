@@ -92,7 +92,9 @@ func _run() -> void:
     game.set("part_break_remaining", 1.4)
     parts.call("apply_part_hit", "head", 4.0, 200.0)
     shooter.call("set_head_destroyed", true)
-    if bool(parts.call("is_targetable", "head")) or not bool(shooter.get("head_destroyed")):
+    if not bool(parts.call("is_targetable", "head")) \
+            or bool(parts.call("is_intact", "head")) \
+            or not bool(shooter.get("head_destroyed")):
         _fail("broken-head test setup failed")
         return
     game.set("target_respawn_remaining", 0.0)
@@ -107,7 +109,8 @@ func _run() -> void:
     game.call("_tick_target_respawn", 0.10)
     if not _near(float(game.get("target_respawn_remaining")), 0.40) \
             or int(game.get("target_hp")) != 0 \
-            or bool(parts.call("is_targetable", "head")):
+            or not bool(parts.call("is_targetable", "head")) \
+            or bool(parts.call("is_intact", "head")):
         _fail("premature respawn before countdown expiry")
         return
     game.call("_advance_hit_fx", 0.50)

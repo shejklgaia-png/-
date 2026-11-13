@@ -122,7 +122,13 @@ func _run() -> void:
     var miss_game: Node3D = _spawn()
     var miss_player: CharacterBody3D = miss_game.get("player")
     var miss_rig: Node3D = miss_game.get("rig")
+    # A KO target can now be hit. Force a genuinely out-of-range miss and
+    # disable pursuit only within this negative-contact test fixture.
     miss_game.set("target_hp", 0)
+    miss_player.position = Vector3(0.0, 0.0, 30.0)
+    var miss_stats: Dictionary = miss_game.get("part_stats")
+    miss_stats["melee_boost_speed"] = 0.0
+    miss_game.set("part_stats", miss_stats)
     var miss_start: Vector3 = miss_player.position
     if not bool(miss_game.call("_start_back_somersault")):
         _fail("miss test could not start Kick_b")

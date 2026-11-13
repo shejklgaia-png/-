@@ -148,8 +148,8 @@ func _run() -> void:
     var model: Dictionary=parts.get("parts")
     model["head"]["broken"]=true
     game.call("_acquire_stable_camera_part",0.0,true)
-    if str(game.get("locked_target_part_id"))!="":
-        _fail("broken HEAD did not immediately fall back to BODY")
+    if str(game.get("locked_target_part_id"))!="head":
+        _fail("broken HEAD was not immediately reacquired as an attackable part")
         return
     model["head"]["broken"]=false
     if not game.has_method("_switch_lock_screen_direction"):
