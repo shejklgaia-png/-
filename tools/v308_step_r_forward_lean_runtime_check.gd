@@ -80,7 +80,7 @@ func _run() -> void:
     if not tracks.has("67435cb7-b6af-23e4-10f1-3cd13d8429fa"):
         _fail("authored Waist track missing")
         return
-    if absf(float(game.get("step_arc_length"))-(7.0 if version >= 312 else 3.0))>0.0001:
+    if absf(float(game.get("step_arc_length"))-(5.0 if version >= 314 else (7.0 if version >= 312 else 3.0)))>0.0001:
         _fail("right step distance changed")
         return
     game.call("_finish_side_step",false)
