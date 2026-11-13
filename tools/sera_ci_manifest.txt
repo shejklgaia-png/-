@@ -164,3 +164,6 @@ py tools/v312_dodge_distance_lean_self_check.py
 gd tools/v312_dodge_distance_lean_runtime_check.gd
 py tools/v313_boost_distance_self_check.py
 gd tools/v313_boost_distance_runtime_check.gd
+
+py tools/v314_step_distance_self_check.py
+gd tools/v314_step_distance_runtime_check.gd
