@@ -92,10 +92,16 @@ for phrase in (
     'combat_state == CombatState.DASH',
     'combat_state == CombatState.STRIKE and not strike_did_hit',
     'combat_state == CombatState.BASH and not bash_did_hit',
-    'var direction_of_exhaust: Vector3 = -blur_velocity',
     'rig.call("update_back_thruster_fx", exhaust_on,',
 ):
     assert phrase in main, phrase
+
+# Stage11: original world movement reverse and fallback are now pure math.
+motion = (ROOT / "scripts/sera_motion_direction.gd").read_text(encoding="utf-8")
+assert "var direction_of_exhaust: Vector3 = MOTION_DIRECTION.exhaust_direction(" in main
+assert "var direction_of_exhaust: Vector3 = -blur_velocity" in motion
+assert "if direction_of_exhaust.length_squared() < 0.0004:" in motion
+assert "direction_of_exhaust = actor_rear" in motion
 
 # Stage10: the exact safety gate has moved to the stateless frame module.
 frame = (ROOT / "scripts/sera_physics_frame_rules.gd").read_text(encoding="utf-8")
