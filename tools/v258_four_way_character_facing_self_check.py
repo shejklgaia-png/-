@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 """SERA v258 full 4-way / 90° actor-facing mapping and Bash regression."""
 from pathlib import Path
+
+# v317 relocated pure math: validate the actual new code and main.gd facade.
+from pathlib import Path as _SplitPath
+SERA_INPUT = (_SplitPath(__file__).resolve().parents[1] / "scripts/sera_input_gestures.gd").read_text(encoding="utf-8")
+SERA_MOVEMENT = (_SplitPath(__file__).resolve().parents[1] / "scripts/sera_movement_math.gd").read_text(encoding="utf-8")
 import re,math
 R=Path(__file__).resolve().parents[1]
 def read(p):return (R/p).read_text(encoding="utf-8")
@@ -33,7 +38,8 @@ assert "gesture_screen_forward = FLICK_DIRECTION_POLICY.projected_forward(camera
 assert "gesture_screen_forward = FLICK_DIRECTION_POLICY.projected_forward(camera, player)" in drag
 assert "gesture_screen_forward = FLICK_DIRECTION_POLICY.projected_forward(camera, player)" in release
 assert "guard_flick_axis_captured = true" in drag
-assert "return FLICK_DIRECTION_POLICY.screen_step_direction(displacement)" in step
+assert "INPUT_GESTURES.step_flick(" in step
+assert "return FLICK_DIRECTION_POLICY.screen_step_direction(displacement)" in SERA_INPUT
 assert "FLICK_DIRECTION_POLICY.within_sector(" in drag
 assert "static func screen_step_direction(displacement: Vector2) -> Vector2:" in p
 assert "return displacement.normalized()" in p

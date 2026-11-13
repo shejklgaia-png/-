@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 """v261: left/rear diagonal thruster keeps backstroke's downward nozzle priority."""
 from pathlib import Path
+
+# v317 relocated pure math: validate the actual new code and main.gd facade.
+from pathlib import Path as _SplitPath
+SERA_INPUT = (_SplitPath(__file__).resolve().parents[1] / "scripts/sera_input_gestures.gd").read_text(encoding="utf-8")
+SERA_MOVEMENT = (_SplitPath(__file__).resolve().parents[1] / "scripts/sera_movement_math.gd").read_text(encoding="utf-8")
 import math
 import re
 
@@ -88,7 +93,8 @@ for l in (.3,1.0):
         assert math.atan2(biased[0]/mag,-biased[1]/mag) <= math.atan2(vec[0],-vec[1])+1e-10
 assert "const SECTOR_COUNT: int = 4" in read("scripts/flick_direction_policy.gd")
 assert "_combo_followup_input_window_open()" in main
-assert "return FLICK_DIRECTION_POLICY.screen_step_direction(displacement)" in main
+assert "INPUT_GESTURES.step_flick(" in main
+assert "return FLICK_DIRECTION_POLICY.screen_step_direction(displacement)" in SERA_INPUT
 print("PASS v261: pure left and full reverse preserved; rear-left diagonals increasingly point DOWN")
 print("PASS v261: all camera yaw angles, world-down lift bias, servo, trail, melee and input unchanged")
 print("Static/numerical checks only; Android rendering not tested")

@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 """SERA v256: easy GUARD/Combo Bash without modifying eight-way STEP."""
 from pathlib import Path
+
+# v317 relocated pure math: validate the actual new code and main.gd facade.
+from pathlib import Path as _SplitPath
+SERA_INPUT = (_SplitPath(__file__).resolve().parents[1] / "scripts/sera_input_gestures.gd").read_text(encoding="utf-8")
+SERA_MOVEMENT = (_SplitPath(__file__).resolve().parents[1] / "scripts/sera_movement_math.gd").read_text(encoding="utf-8")
 import math
 import re
 
@@ -40,10 +45,14 @@ assert "_classify_recent_character_forward_flick()" in release
 assert "BASH_FLICK_TAIL_SECONDS if guard_active else JUMP_FLICK_TAIL_SECONDS" in sample
 assert "BASH_FLICK_MAX_SECONDS, BASH_FLICK_MIN_FORWARD_PIXELS" in bash
 assert "BASH_FLICK_MIN_FORWARD_SPEED, STEP_FLICK_MAX_HORIZONTAL_RATIO" in bash
-assert "return FLICK_DIRECTION_POLICY.screen_step_direction(displacement)" in step
-assert "if seconds <= 0.0 or seconds > STEP_FLICK_MAX_SECONDS:" in step
-assert "if distance < STEP_FLICK_MIN_HORIZONTAL:" in step
-assert "distance / seconds < STEP_FLICK_MIN_PIXELS_PER_SEC" in step
+assert "INPUT_GESTURES.step_flick(" in step
+assert "return FLICK_DIRECTION_POLICY.screen_step_direction(displacement)" in SERA_INPUT
+assert "STEP_FLICK_MAX_SECONDS" in step
+assert "if seconds <= 0.0 or seconds > max_seconds:" in SERA_INPUT
+assert "STEP_FLICK_MIN_HORIZONTAL" in step
+assert "if distance < min_distance:" in SERA_INPUT
+assert "STEP_FLICK_MIN_PIXELS_PER_SEC" in step
+assert "distance / seconds < min_speed" in SERA_INPUT
 assert "const SECTOR_COUNT: int = 4" in policy
 assert "sector_index(displacement, screen_axis) == 0" in policy
 assert "return FLICK_DIRECTION_POLICY.is_flick(" in main

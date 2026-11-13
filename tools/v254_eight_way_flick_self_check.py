@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 """Historic v254 flick regression updated to v258 four equal 90-degree sectors."""
 from pathlib import Path
+
+# v317 relocated pure math: validate the actual new code and main.gd facade.
+from pathlib import Path as _SplitPath
+SERA_INPUT = (_SplitPath(__file__).resolve().parents[1] / "scripts/sera_input_gestures.gd").read_text(encoding="utf-8")
+SERA_MOVEMENT = (_SplitPath(__file__).resolve().parents[1] / "scripts/sera_movement_math.gd").read_text(encoding="utf-8")
 import math,re
 R=Path(__file__).resolve().parents[1]
 def read(p):return (R/p).read_text(encoding="utf-8")
@@ -17,10 +22,10 @@ for term in ("const SECTOR_COUNT: int = 4",
              "static func is_flick("):
     assert term in policy,term
 step=m.split("func _classify_step_flick(displacement: Vector2, seconds: float) -> Vector2:",1)[1].split("func _start_omni_step(",1)[0]
-for tok in ("return FLICK_DIRECTION_POLICY.screen_step_direction(displacement)",
-            "seconds > STEP_FLICK_MAX_SECONDS","distance < STEP_FLICK_MIN_HORIZONTAL",
-            "distance / seconds < STEP_FLICK_MIN_PIXELS_PER_SEC",
-            "gesture_max_travel > distance * 1.20"):
+for tok in ("INPUT_GESTURES.step_flick(",
+            "STEP_FLICK_MAX_SECONDS","STEP_FLICK_MIN_HORIZONTAL",
+            "STEP_FLICK_MIN_PIXELS_PER_SEC",
+            "gesture_max_travel"):
     assert tok in step,tok
 omni=m.split("func _start_omni_step(flick: Vector2) -> bool:",1)[1].split("func _start_back_step()",1)[0]
 for tok in ("var direction: Vector2 = flick.normalized()",
@@ -58,3 +63,9 @@ for base in range(0,360,5):
         assert sector(vec,axis)==i,(base,i)
 print("PASS v254/v258: four mutually exclusive 90-degree sectors, all camera-facing orientations")
 print("PASS v254/v258: STEP motion, GUARD/Combo Bash priority and collision preserved")
+
+
+assert 'INPUT_GESTURES.step_flick(' in _SplitPath(__file__).resolve().parents[1].joinpath("scripts/main.gd").read_text(encoding="utf-8")
+assert "return FLICK_DIRECTION_POLICY.screen_step_direction(displacement)" in SERA_INPUT
+for _gate in ("seconds > max_seconds", "distance < min_distance", "distance / seconds < min_speed", "max_travel > distance * 1.20"):
+    assert _gate in SERA_INPUT, _gate

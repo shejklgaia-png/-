@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 """v252 movement baseline, updated for v263 screen-orthogonal STEP path."""
 from pathlib import Path
+
+# v317 relocated pure math: validate the actual new code and main.gd facade.
+from pathlib import Path as _SplitPath
+SERA_INPUT = (_SplitPath(__file__).resolve().parents[1] / "scripts/sera_input_gestures.gd").read_text(encoding="utf-8")
+SERA_MOVEMENT = (_SplitPath(__file__).resolve().parents[1] / "scripts/sera_movement_math.gd").read_text(encoding="utf-8")
 import math,re
 R=Path(__file__).resolve().parents[1]
 def read(p):return (R/p).read_text(encoding="utf-8")
@@ -21,10 +26,12 @@ for term in ("var direction: Vector2 = flick.normalized()",
     'rig.call("start_omni_step", pose_direction)',
     "or (absf(pose_direction.x) > 0.001"):
     assert term in step,term
-for term in ("camera.global_transform.basis.x",
-    "-camera.global_transform.basis.z",
+assert "MOVEMENT_MATH.screen_drag_to_ground(" in ground
+assert "camera.global_transform.basis" in ground
+for term in ("camera_basis.x",
+    "-camera_basis.z",
     "screen_right * screen_drag.x - screen_forward * screen_drag.y"):
-    assert term in ground,term
+    assert term in SERA_MOVEMENT, term
 assert "camera_right * direction.x * side_length" not in step
 assert "facing_forward * step_radial_delta" not in step
 for term in ("var progress: float = step_elapsed / step_duration_current",

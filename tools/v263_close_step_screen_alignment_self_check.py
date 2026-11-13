@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 """SERA v263: STEP world travel follows a stable screen basis near the target."""
 from pathlib import Path
+
+# v317 relocated pure math: validate the actual new code and main.gd facade.
+from pathlib import Path as _SplitPath
+SERA_INPUT = (_SplitPath(__file__).resolve().parents[1] / "scripts/sera_input_gestures.gd").read_text(encoding="utf-8")
+SERA_MOVEMENT = (_SplitPath(__file__).resolve().parents[1] / "scripts/sera_movement_math.gd").read_text(encoding="utf-8")
 import math,re
 R=Path(__file__).resolve().parents[1]
 def read(p):return (R/p).read_text(encoding="utf-8")
@@ -22,8 +27,9 @@ assert "step_arc_length = _step_fixed_distance_for_direction(direction)" in step
 assert "step_linear_offset = Vector2(world_step.x, world_step.z)" in step
 assert "or (absf(pose_direction.x) > 0.001" in step
 assert "STEP_CLOSE_CAMERA_SURFACE_DISTANCE" in step
-assert "world_unit.dot(right), -world_unit.dot(facing)" in local
-assert "var right: Vector3 = facing.cross(Vector3.UP)" in local
+assert "MOVEMENT_MATH.step_local_pose_direction(" in local
+assert "world_unit.dot(right), -world_unit.dot(facing)" in SERA_MOVEMENT
+assert "var right: Vector3 = facing.cross(Vector3.UP)" in SERA_MOVEMENT
 
 physics=m.split("func _physics_process(delta: float) -> void:",1)[1].split(
     "func _process(delta: float) -> void:",1)[0]
@@ -58,7 +64,8 @@ assert 'const STEP_FORWARD_DISTANCE: float = 5.0' in m
 assert 'const BACK_STEP_DISTANCE: float = 5.0' in m
 assert 'step_speed_current = STEP_SPEED * float(part_stats.get("step_speed_mult", 1.0))' in m
 assert '_move_player_swept(requested, true)' in m
-assert 'return FLICK_DIRECTION_POLICY.screen_step_direction(displacement)' in m
+assert 'INPUT_GESTURES.step_flick(' in m
+assert 'return FLICK_DIRECTION_POLICY.screen_step_direction(displacement)' in SERA_INPUT
 assert '_combo_followup_input_window_open()' in m
 assert "left_sector_world = left_sector_world.slerp(" in m
 

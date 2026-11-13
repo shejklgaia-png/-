@@ -6,6 +6,8 @@ const VersionIndicator = preload("res://scripts/version_indicator.gd")
 const RENDER_ORDER = preload("res://scripts/render_order_policy.gd")
 const CombatVitals = preload("res://scripts/combat_vitals.gd")
 const CAMERA_MATH = preload("res://scripts/sera_camera_math.gd")
+const INPUT_GESTURES = preload("res://scripts/sera_input_gestures.gd")
+const MOVEMENT_MATH = preload("res://scripts/sera_movement_math.gd")
 const DEV_DIAGNOSTICS = preload("res://scripts/dev_diagnostics.gd")
 ## v84: Authored 3-stage Swordeffect atlas, exact board placement.
 ## v83: Three-stage tap melee combo; cancel 2 authored frames after follow-through.
@@ -1719,12 +1721,9 @@ func _locked_target_facing_direction() -> Vector3:
 
 
 func _controller_start_area_contains(pos: Vector2) -> bool:
-    # v246: The floating controller can start anywhere inside the viewport.
-    # _input checks UI button hitboxes before calling this function.
-    # An active drag can still cross the entire screen without clamping.
-    var screen: Vector2 = get_viewport().get_visible_rect().size
-    return (pos.x >= 0.0 and pos.x <= screen.x
-        and pos.y >= 0.0 and pos.y <= screen.y)
+    # v246: all viewport pixels can start an analog drag; UI hit-tests run first.
+    return INPUT_GESTURES.controller_contains(
+        pos, get_viewport().get_visible_rect().size)
 
 
 func _pointer_on_lock_lines_button(pos: Vector2) -> bool:
@@ -2578,15 +2577,9 @@ func _begin_drag(pos: Vector2) -> void:
 
 func _analog_stick_direction(pos: Vector2) -> Vector2:
     var displacement: Vector2 = pos - pointer_origin
-    var distance: float = displacement.length()
-    if distance <= RUN_INPUT_DEADZONE_PIXELS:
-        return Vector2.ZERO
-    # No angular quantization: tiny heading changes remain continuous, and
-    # full RUN speed is reached at the v245 70px rim.
-    var strength: float = clampf(
-        (distance - RUN_INPUT_DEADZONE_PIXELS) /
-        (RUN_CONTROL_RADIUS - RUN_INPUT_DEADZONE_PIXELS), 0.0, 1.0)
-    return displacement / distance * strength
+    return INPUT_GESTURES.analog_stick_direction(
+        displacement, RUN_INPUT_DEADZONE_PIXELS, RUN_CONTROL_RADIUS)
+
 
 func _change_drag(pos: Vector2) -> void:
     if not gesture_active:
@@ -2825,12 +2818,10 @@ func _classify_recent_character_forward_flick() -> bool:
         (last["pos"] as Vector2) - (first["pos"] as Vector2), duration)
 
 func _is_upward_jump_flick(displacement: Vector2, seconds: float) -> bool:
-    if seconds <= 0.0 or seconds > STEP_FLICK_MAX_SECONDS:
-        return false
-    var upward: float = -displacement.y
-    return upward >= JUMP_FLICK_MIN_VERTICAL \
-        and upward / seconds >= STEP_FLICK_MIN_PIXELS_PER_SEC \
-        and absf(displacement.x) <= upward * STEP_FLICK_MAX_HORIZONTAL_RATIO
+    return INPUT_GESTURES.upward_jump_flick(
+        displacement, seconds, STEP_FLICK_MAX_SECONDS, JUMP_FLICK_MIN_VERTICAL,
+        STEP_FLICK_MIN_PIXELS_PER_SEC, STEP_FLICK_MAX_HORIZONTAL_RATIO)
+
 
 func _classify_recent_upward_flick() -> bool:
     if jump_flick_samples.size() < 2:
@@ -2976,70 +2967,33 @@ func _advance_landing(delta: float) -> void:
                 gesture_active and direction_input.length_squared() > 0.000001, false)
 
 func _classify_side_flick(displacement: Vector2, seconds: float) -> int:
-    # This check runs on release, NOT on the first fast drag event.  No
-    # time-limited hold means normal lateral dragging is ever converted.
-    if seconds <= 0.0 or seconds > STEP_FLICK_MAX_SECONDS:
-        return 0
-    var horizontal: float = absf(displacement.x)
-    if horizontal < STEP_FLICK_MIN_HORIZONTAL:
-        return 0
-    if horizontal / seconds < STEP_FLICK_MIN_PIXELS_PER_SEC:
-        return 0
-    if absf(displacement.y) > horizontal * STEP_FLICK_MAX_VERTICAL_RATIO:
-        return 0
-    # A reversal should not count as a flick from the initial touch position.
-    if gesture_max_travel > displacement.length() * 1.20:
-        return 0
-    return 1 if displacement.x > 0.0 else -1
+    # Only classify at release; do not turn a held horizontal RUN into STEP.
+    return INPUT_GESTURES.side_flick(
+        displacement, seconds, STEP_FLICK_MAX_SECONDS, STEP_FLICK_MIN_HORIZONTAL,
+        STEP_FLICK_MIN_PIXELS_PER_SEC, STEP_FLICK_MAX_VERTICAL_RATIO,
+        gesture_max_travel)
+
 
 func _classify_step_flick(displacement: Vector2, seconds: float) -> Vector2:
-    # v262: preserve any 360deg screen flick as one STEP vector for
-    # both world movement and four-clip animation interpolation.
-    # Bash remains a separate SERA-facing, four-sector action.
-    # Hold, BOOST suppression, Bash priority, reversal filtering and
-    # archived debug-only Jump retain their existing precedence.
-    if seconds <= 0.0 or seconds > STEP_FLICK_MAX_SECONDS:
-        return Vector2.ZERO
-    var distance: float = displacement.length()
-    if distance < STEP_FLICK_MIN_HORIZONTAL:
-        return Vector2.ZERO
-    if distance / seconds < STEP_FLICK_MIN_PIXELS_PER_SEC:
-        return Vector2.ZERO
-    if gesture_max_travel > distance * 1.20:
-        return Vector2.ZERO
-    # Exact angle is preserved; cardinal and diagonal motions share input.
-    return FLICK_DIRECTION_POLICY.screen_step_direction(displacement)
+    # Full 360-degree screen direction is retained for both travel and clip mix.
+    return INPUT_GESTURES.step_flick(
+        displacement, seconds, STEP_FLICK_MAX_SECONDS, STEP_FLICK_MIN_HORIZONTAL,
+        STEP_FLICK_MIN_PIXELS_PER_SEC, gesture_max_travel)
 
 # The same Bash-like flick timing applies to every fixed SCREEN quadrant.
 # Kick selection is unrelated to target-facing orientation.
 func _classify_combo_kick_flick(displacement: Vector2, seconds: float) -> Vector2:
-    if seconds <= 0.0 or seconds > BASH_FLICK_MAX_SECONDS:
-        return Vector2.ZERO
-    var distance: float = displacement.length()
-    if distance < BASH_FLICK_MIN_FORWARD_PIXELS:
-        return Vector2.ZERO
-    if distance / seconds < BASH_FLICK_MIN_FORWARD_SPEED:
-        return Vector2.ZERO
-    if gesture_max_travel > distance * BASH_FLICK_REVERSAL_RATIO:
-        return Vector2.ZERO
-    return FLICK_DIRECTION_POLICY.screen_step_direction(displacement)
+    return INPUT_GESTURES.combo_kick_flick(
+        displacement, seconds, BASH_FLICK_MAX_SECONDS,
+        BASH_FLICK_MIN_FORWARD_PIXELS, BASH_FLICK_MIN_FORWARD_SPEED,
+        gesture_max_travel, BASH_FLICK_REVERSAL_RATIO)
 
 # v284: Every Melee3 flick uses fixed SCREEN sectors: UP is Bash,
 # RIGHT Kick_r, DOWN Kick_b, LEFT Kick_l. Facing/camera recentering can
 # never reclassify the same finger motion into a different attack.
 func _combo_kick_side_for_flick(flick: Vector2) -> int:
-    var screen_sector: int = FLICK_DIRECTION_POLICY.sector_index(
-        flick, Vector2.UP)
-    match screen_sector:
-        1:
-            return 1  # screen right -> Kick_r
-        2:
-            return 2  # screen down -> Kick_b
-        3:
-            return -1  # screen left -> Kick_l
-        _:
-            return 0  # screen up -> Bash (handled by _request_combo_bash)
-
+    # Independent of SERA/target facing: always screen-UP Bash, right/left/down kicks.
+    return INPUT_GESTURES.combo_kick_side(flick)
 
 # Locked-target forward defines SERA's STEP motion frame. The actual
 # world movement remains camera/screen-relative; only pose selection is
@@ -3047,16 +3001,9 @@ func _combo_kick_side_for_flick(flick: Vector2) -> int:
 func _step_local_pose_direction(world_direction: Vector3) -> Vector2:
     if world_direction.length_squared() < 0.000001:
         return Vector2.UP
-    var facing: Vector3 = _locked_target_facing_direction()
-    if facing.length_squared() < 0.000001:
-        facing = -player.global_transform.basis.z
-    facing.y = 0.0
-    if facing.length_squared() < 0.000001:
-        return Vector2.UP
-    facing = facing.normalized()
-    var right: Vector3 = facing.cross(Vector3.UP)
-    var world_unit: Vector3 = world_direction.normalized()
-    return Vector2(world_unit.dot(right), -world_unit.dot(facing)).normalized()
+    return MOVEMENT_MATH.step_local_pose_direction(
+        world_direction, _locked_target_facing_direction(),
+        -player.global_transform.basis.z)
 
 # v311: choose cardinal/diagonal STEP pose relative to SERA's actual
 # locked-target facing. Without an active lock, preserve v310's screen-relative
@@ -4227,24 +4174,11 @@ func _advance_attack(delta: float) -> void:
                 rig.call("finish_attack", false)
 
 func _screen_drag_to_ground(screen_drag: Vector2) -> Vector3:
-    # InputEvent positions use screen axes: +X right, +Y down.
-    # Camera3D basis.x points to screen-right; -basis.z points forward.
-    # Project both into the XZ ground plane so motion never gains height.
     if screen_drag.length_squared() < 0.000001:
         return Vector3.ZERO
-
-    var screen_right: Vector3 = camera.global_transform.basis.x
-    screen_right.y = 0.0
-    var screen_forward: Vector3 = -camera.global_transform.basis.z
-    screen_forward.y = 0.0
-    if screen_right.length_squared() < 0.000001 or screen_forward.length_squared() < 0.000001:
-        # Defensive fallback if camera is in an invalid or vertical pose.
-        return Vector3(screen_drag.x, 0.0, screen_drag.y).limit_length(1.0)
-
-    screen_right = screen_right.normalized()
-    screen_forward = screen_forward.normalized()
-    # Up on screen has negative Y, hence the minus sign before forward.
-    return (screen_right * screen_drag.x - screen_forward * screen_drag.y).limit_length(1.0)
+    # Camera/scene state remains owned by main; pure XZ projection is separate.
+    return MOVEMENT_MATH.screen_drag_to_ground(
+        screen_drag, camera.global_transform.basis)
 
 
 func _reset_boost_speed_transition() -> void:

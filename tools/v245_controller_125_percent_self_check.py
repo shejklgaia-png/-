@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """SERA v245 baseline (125% of v244), plus v248 150% enlargement."""
 from pathlib import Path
+
+# v317 refactor: assert main's delegation and the canonical pure math.
+from pathlib import Path as _SplitPath
+SERA_INPUT = (_SplitPath(__file__).resolve().parents[1] / "scripts/sera_input_gestures.gd").read_text(encoding="utf-8")
 import math
 import re
 
@@ -47,8 +51,8 @@ assert math.isclose(const(ui,"CONTROLLER_BOOST_START_RADIUS_RATIO"),
 assert math.isclose(const(main,"DRAG_RADIUS")*1.10,173.25)
 assert math.isclose(const(main,"DRAG_RADIUS")*.90,141.75)
 for token in (
-    'if distance <= RUN_INPUT_DEADZONE_PIXELS:',
-    '(RUN_CONTROL_RADIUS - RUN_INPUT_DEADZONE_PIXELS), 0.0, 1.0)',
+    'INPUT_GESTURES.analog_stick_direction(',
+    'RUN_INPUT_DEADZONE_PIXELS, RUN_CONTROL_RADIUS)',
     'if finger_distance < DRAG_RADIUS * BOOST_EXIT_RADIUS_RATIO:',
     'elif finger_distance >= DRAG_RADIUS * BOOST_START_RADIUS_RATIO:',
     'touch_ui.call("show_drag", pointer_origin, pointer_location, DRAG_RADIUS)',
@@ -103,3 +107,6 @@ print("PASS v245-v248: RUN 105px / deadzone 16.875px / BOOST 157.5px")
 print("PASS v245-v248: BOOST entry 173.25px / exit 141.75px; v245 1.25x then v248 1.5x")
 print("PASS v245-v248: ring, arrow and text scaled; lock/STEP/guard preserved")
 print("Android touch and Godot rendering are unverified")
+
+assert "if distance <= deadzone:" in SERA_INPUT
+assert "(radius - deadzone), 0.0, 1.0)" in SERA_INPUT

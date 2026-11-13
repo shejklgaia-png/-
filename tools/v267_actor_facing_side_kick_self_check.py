@@ -1,14 +1,17 @@
 #!/usr/bin/env python3
 """Regression migrated in v284: kick directions are SCREEN-fixed, never actor-yaw."""
 from pathlib import Path
+
+# v317 refactor: assert main's delegation and the canonical pure math.
+from pathlib import Path as _SplitPath
+SERA_INPUT = (_SplitPath(__file__).resolve().parents[1] / "scripts/sera_input_gestures.gd").read_text(encoding="utf-8")
 import math, re
 
 root=Path(__file__).resolve().parents[1]
 main=(root/"scripts/main.gd").read_text(encoding="utf-8")
 project=(root/"project.godot").read_text(encoding="utf-8")
 assert int(re.search(r'config/name="SERA v(\d+)"',project).group(1))>=284
-helper=main.split("func _combo_kick_side_for_flick(flick: Vector2) -> int:",1)[1].split(
-    "func _step_local_pose_direction",1)[0]
+helper=SERA_INPUT.split("static func combo_kick_side(flick: Vector2) -> int:",1)[1].split("static func upward_jump_flick",1)[0]
 assert "FLICK_DIRECTION_POLICY.sector_index(" in helper
 assert "flick, Vector2.UP" in helper
 assert "gesture_screen_forward" not in helper
@@ -33,3 +36,5 @@ for actor_degrees in range(0,360,10):
     for swipe, expected in [((0,-100),0),((100,0),1),((0,100),2),((-100,0),3)]:
         assert sector(*swipe)==expected
 print("PASS v284: cardinal kicks and Bash fixed to screen; RUN/STEP raw vectors preserved")
+
+assert "return INPUT_GESTURES.combo_kick_side(flick)" in main

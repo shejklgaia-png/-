@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 """v262 all-angle STEP input, distance and 4-clip pose continuity."""
 from pathlib import Path
+
+# v317 relocated pure math: validate the actual new code and main.gd facade.
+from pathlib import Path as _SplitPath
+SERA_INPUT = (_SplitPath(__file__).resolve().parents[1] / "scripts/sera_input_gestures.gd").read_text(encoding="utf-8")
+SERA_MOVEMENT = (_SplitPath(__file__).resolve().parents[1] / "scripts/sera_movement_math.gd").read_text(encoding="utf-8")
 import math,re
 R=Path(__file__).resolve().parents[1]
 def read(p):return (R/p).read_text(encoding="utf-8")
@@ -14,7 +19,7 @@ assert "four_way_direction(" not in policy
 step=main.split("func _classify_step_flick(displacement: Vector2, seconds: float) -> Vector2:",1)[1].split("func _start_omni_step(",1)[0]
 motion=main.split("func _start_omni_step(flick: Vector2) -> bool:",1)[1].split("func _start_back_step()",1)[0]
 pose=rig.split("func _blended_directional_step_pose(uid: String, t: float) -> Dictionary:",1)[1].split("func start_omni_step(",1)[0]
-for s in ("return FLICK_DIRECTION_POLICY.screen_step_direction(displacement)","seconds > STEP_FLICK_MAX_SECONDS","distance < STEP_FLICK_MIN_HORIZONTAL","distance / seconds < STEP_FLICK_MIN_PIXELS_PER_SEC"):
+for s in ("INPUT_GESTURES.step_flick(","STEP_FLICK_MAX_SECONDS","STEP_FLICK_MIN_HORIZONTAL","STEP_FLICK_MIN_PIXELS_PER_SEC"):
     assert s in step,s
 for s in ("var direction: Vector2 = flick.normalized()","step_arc_length = _step_fixed_distance_for_direction(direction)","step_radial_delta = 0.0","var world_step: Vector3 = _screen_drag_to_ground(direction)","var pose_direction: Vector2 = _step_motion_direction(world_step, direction)","step_linear_offset = Vector2(world_step.x, world_step.z)",'rig.call("start_omni_step", pose_direction)',"step_linear_fallback = true"):
     assert s in motion,s
@@ -54,3 +59,9 @@ assert "left_sector_world = left_sector_world.slerp(" in main
 print("PASS v262: unquantized 360deg STEP, 0.25deg sweep and 3m/5m ends")
 print("PASS v262: four authored poses with eased interpolation; collision/Bash/boost retained")
 print("Godot/Android runtime not verified")
+
+
+assert 'INPUT_GESTURES.step_flick(' in _SplitPath(__file__).resolve().parents[1].joinpath("scripts/main.gd").read_text(encoding="utf-8")
+assert "return FLICK_DIRECTION_POLICY.screen_step_direction(displacement)" in SERA_INPUT
+for _gate in ("seconds > max_seconds", "distance < min_distance", "distance / seconds < min_speed", "max_travel > distance * 1.20"):
+    assert _gate in SERA_INPUT, _gate

@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """SERA v284: fixed screen quadrants, 50ms finisher cancel, hit-then-retreat and shared thrusters."""
 from pathlib import Path
+
+# v317 refactor: assert main's delegation and the canonical pure math.
+from pathlib import Path as _SplitPath
+SERA_INPUT = (_SplitPath(__file__).resolve().parents[1] / "scripts/sera_input_gestures.gd").read_text(encoding="utf-8")
 import json,re,math
 
 R=Path(__file__).resolve().parents[1]
@@ -16,8 +20,7 @@ assert "BACK_SOMERSAULT_STRIKE_SECONDS: float" in m
 assert "BACK_SOMERSAULT_REAR_FLIGHT_SECONDS: float" in m
 assert "back_somersault_launched: bool = false" in m
 
-classification=m.split("func _combo_kick_side_for_flick(flick: Vector2) -> int:",1)[1].split(
-    "func _step_local_pose_direction",1)[0]
+classification=SERA_INPUT.split("static func combo_kick_side(flick: Vector2) -> int:",1)[1].split("static func upward_jump_flick",1)[0]
 assert "flick, Vector2.UP" in classification
 assert "gesture_screen_forward" not in classification
 for token in ("1:", "2:", "3:", "return 1", "return 2", "return -1", "return 0"):
@@ -70,3 +73,5 @@ clips={a["name"]:a for a in source["animations"]}
 assert math.isclose(float(clips["Kick_b"]["length"]),0.79167,rel_tol=0.02)
 assert math.isclose(float(clips["Melee3"]["length"]),0.83333,rel_tol=0.001)
 print("V284_CARDINAL_MELEE_CONTACT_STATIC_PASS")
+
+assert "return INPUT_GESTURES.combo_kick_side(flick)" in m

@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """SERA v274: Kick_b screen-down combo, 4m airborne somersault, 0.2s landing."""
 from pathlib import Path
+
+# v317 refactor: assert main's delegation and the canonical pure math.
+from pathlib import Path as _SplitPath
+SERA_INPUT = (_SplitPath(__file__).resolve().parents[1] / "scripts/sera_input_gestures.gd").read_text(encoding="utf-8")
 import re
 import json
 
@@ -14,7 +18,7 @@ assert re.search(r'config/name="SERA v\d+"', project)
 def segment(text, a, b):
     return text.split("func "+a, 1)[1].split("func "+b, 1)[0]
 
-direction = segment(game, "_combo_kick_side_for_flick(flick: Vector2) -> int:", "_step_local_pose_direction")
+direction = SERA_INPUT.split("static func combo_kick_side(flick: Vector2) -> int:",1)[1].split("static func upward_jump_flick",1)[0]
 release = segment(game, "_end_drag(release_pos: Vector2) -> void:", "_remember_jump_flick_sample")
 request = segment(game, "_request_combo_side_kick(flick: Vector2) -> bool:", "_launch_combo_side_kick")
 launch = segment(game, "_launch_combo_side_kick(flick: Vector2, side: int) -> bool:", "_start_back_somersault")
@@ -100,3 +104,5 @@ assert 'if back_somersault_active:' in segment(game, "_begin_damage_reaction(inc
 assert '_cancel_back_somersault()' in segment(game, "_begin_training_ko() -> void:", "_tick_training_ko")
 print("PASS: exact 0.20s authored landing, action lock, damage/KO cancellation")
 print("v274 STATIC PASS; real Godot action runtime checked separately")
+
+assert "return INPUT_GESTURES.combo_kick_side(flick)" in game
