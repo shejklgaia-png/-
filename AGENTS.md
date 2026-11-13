@@ -36,23 +36,14 @@ Historical instructions and v102–v292 decisions remain available at `docs/hist
 - During Android training only, DIAG: OFF toggles diagnostic recording ON. COPY LOG copies bounded local runtime samples to the device clipboard; paste into chat for analysis. No telemetry or network access when OFF. Details in `docs/SERA_ANDROID_DIAGNOSTICS_ja.md`.
 - Existing touch controller areas and ordinary game logic must not be changed for diagnostic instrumentation.
 
-## v317 main.gd extraction policy
-- The existing main.gd gesture/locomotion wrapper methods remain the public compatibility surface for Godot tests, scene inputs and older scripts. Edit pure gesture classification in `scripts/sera_input_gestures.gd` and actor/screen XZ transforms in `scripts/sera_movement_math.gd`; main.gd passes approved active constants and scene state into them. Do not duplicate thresholds or change their meaning.
-- This is the first staged split, **not** a license for a simultaneous high-risk rewrite of `_physics_process`, combat cancellation, camera/locking state or scene lifecycle. Run full PR CI and Android visual checks after further behavioral changes.
+## v317 main.gd split contracts
+Retain existing `main.gd` entry points and all live state, resource/animation/scene/HUD side effects. Only stateless calculations move to helpers; never rewrite the entire physics/combat/camera state machine in one pass. Keep numeric gameplay thresholds and all legacy tests. Full PR CI is mandatory; Android visuals require device verification.
 
-## v317 staged main lock extraction
-- The live lock state, combo retention, AUTO/MANUAL mode and lock input button ownership remain in `scripts/main.gd`. Candidate selection (actor pair-lines AUTO; projected-X manual wrap), target yaw-facing vector, and reticle projection are in `scripts/sera_lock_management.gd`. Keep the existing public `main.gd` method entry points for compatibility.
-- A BODY lock is the empty string; do not introduce artificial 0.22s auto delay or require camera-based rays for AUTO. Existing tests and user-confirmed v317 behavior are mandatory baselines.
+- **Input/movement:** `scripts/sera_input_gestures.gd` handles touch/flick classification; `scripts/sera_movement_math.gd` handles pure XZ transforms. Main supplies constants and camera/player transforms.
+- **Lock:** `scripts/sera_lock_management.gd` handles pair-line AUTO selection, screen-X MANUAL wrap, yaw facing and reticle projection. Main owns AUTO/MANUAL/retention/HUD. BODY ID is `""`; no artificial 0.22s delay or camera-ray acquisition.
+- **Combat:** `scripts/sera_combat_flow.gd` handles pure guard/combo eligibility, timing, clip selection and limited tracking delta. Main owns queued input, attack state, EN, movement and effects. Normal 3-stage/Katana 2-stage and Melee3 cancel/retention must not regress.
+- **Camera:** `scripts/sera_camera_framing.gd` handles pure perspective radius and close STEP yaw. Main owns Camera3D, near/frustum state, viewport, actual camera motion and camera collision. Keep all margins/rates.
+- **BOOST:** `scripts/sera_boost_state.gd` handles gesture hysteresis/confirmation and 0.20s smooth speed blend. Main owns live state, EN gate, equipment and UI/rig. Preserve reversal continuity and EN 60% unlock.
+- **EN/SH:** `scripts/sera_resource_rules.gd` handles pure EN spending, pause decay, recovery and unlock. Main owns EN/SH state, HUD, flashes, costs, guard break/down/KO ordering and final BOOST sliver depletion. Preserve 24 EN/s, 16 SH/s, 0.25s cost pause, 0.0001 epsilon and 60% unlock. Decrease pause before applying same-frame recovery.
 
-## v317 staged main combat-flow split
-- Stateless combo/guard eligibility, lock-retention windows, authored strike stage selection, cancel timing and limited tracking-frame durations live in `scripts/sera_combat_flow.gd`. The state and every mutation, resource usage, animation and collision side effect remain in `main.gd` under the original method signatures.
-- Do not reset queued follow-up input or move combat_state to another node opportunistically. Preserve Katana 2-stage vs normal 3-stage behavior, Melee3 flick cancel, Bash/Kick/landing lock retention and legacy test coverage.
-
-## v317 staged camera-framing extraction
-- `scripts/sera_camera_framing.gd` owns only pure perspective radius and close STEP yaw limits. `main.gd` retains Camera3D, near plane, frustum/viewport loops, live camera state, screen projection, and original method signatures. Preserve all numeric margins, yaw speed, near-plane reserve and runtime behavior.
-
-## v317 staged BOOST state extraction
-- `scripts/sera_boost_state.gd` owns stateless RUN/BOOST finger-distance hysteresis and 0.20s speed transition calculations. Main keeps mutable gesture/transition variables, scene pointer, EN eligibility, equipment multipliers, UI/rig effects and method entry points. Do not alter thresholds, confirmation, mid-blend reversal or 60% EN recovery semantics.
-
-## v317 staged EN/SH resource-rules extraction
-- `scripts/sera_resource_rules.gd` owns pure EN spending decisions, recovery-pause decay, EN/SH regeneration and 60%-of-max exhaustion unlock tests. Main still owns live resources, scene/UI updates, exhaustion flashing, equipment costs, KO/down/guard-break sequencing, and the final depleted BOOST sliver exhaustion side effect. Rates and thresholds remain defined by current main callers; do not re-order pause decay/recovery within a frame.
+See `docs/SERA_DEVELOPMENT_FASTPATH_ja.md` and `DEVELOPMENT.md` for stage-by-stage detail.
