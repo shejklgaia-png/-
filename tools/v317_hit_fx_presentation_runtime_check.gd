@@ -12,6 +12,10 @@ func _fail(message: String) -> void:
 func _near(a: float, b: float) -> bool:
     return absf(a - b) <= 0.00003
 
+func _color_near(a: Color, b: Color) -> bool:
+    return _near(a.r, b.r) and _near(a.g, b.g) \
+        and _near(a.b, b.b) and _near(a.a, b.a)
+
 func _run() -> void:
     var scene: PackedScene = load("res://scenes/main.tscn")
     if scene == null:
@@ -51,13 +55,13 @@ func _run() -> void:
     game.set("hit_flash_remaining", body_length)
     game.call("_advance_hit_fx", body_length * 0.5)
     var expected: Color = Color("e53935").lerp(Color("632535"), 0.5 * 0.78)
-    if mat.albedo_color.distance_to(expected) > 0.00003 \
+    if not _color_near(mat.albedo_color, expected) \
             or not _near(mat.emission_energy_multiplier, lerpf(0.08, 0.03, 0.5)) \
             or mesh.position != Vector3.ZERO or not _near(mesh.rotation_degrees.z, 0.0):
         _fail("BODY-only flash or parent stability changed")
         return
     game.call("_advance_hit_fx", body_length)
-    if mat.albedo_color.distance_to(Color("e53935")) > 0.00003:
+    if not _color_near(mat.albedo_color, Color("e53935")):
         _fail("expired BODY flash did not restore normal color")
         return
 
