@@ -19,23 +19,26 @@ assert v and int(v.group(1))>=261
 assert (R/"README_v261_ja.md").is_file()
 assert "v261 rear-diagonal BOOST nozzle fix" in read("docs/history/AGENTS_THROUGH_V316.md")
 assert "v261 — 左斜め後退" in read("docs/SERA_INPUT_MOVEMENT_CAMERA.md")
-motion=main.split("var backstroke_weight: float = 0.0",1)[1].split(
+# Original calculations now live in one stateless helper, after input
+# projection in main and before the unchanged BOOST direction cache.
+motion=read("scripts/sera_nozzle_steering.gd")
+frame=main.split("var backstroke_weight: float = NOZZLE_STEERING.backstroke_weight(",1)[1].split(
     'rig.call("update_back_thruster_fx"',1)[0]
-assert "backstroke_weight = clampf(step_world_rear.dot(" in motion
-assert "player.global_transform.basis.z), 0.0, 1.0)" in motion
-assert "backstroke_weight = clampf(step_flick_this_frame.y, 0.0, 1.0)" in motion
-assert "intended_boost.normalized().dot(" in motion
-assert "player.global_transform.basis.z), 0.0, 1.0)" in motion
-assert "leftward_weight = clampf(-direction_input.normalized().x, 0.0, 1.0)" in motion
-assert "leftward_weight = clampf(-step_flick_this_frame.x, 0.0, 1.0)" in motion
-assert "left_sector_world = Vector3.DOWN.slerp(" in motion
-assert "screen_right, leftward_weight * 0.50).normalized()" in motion
+assert "NOZZLE_STEERING.leftward_weight(" in frame
+assert "NOZZLE_STEERING.left_sector_direction(" in frame
+assert "weight = clampf(step_world_rear.dot(actor_rear), 0.0, 1.0)" in motion
+assert "weight = clampf(step_flick.y, 0.0, 1.0)" in motion
+assert "weight = clampf(intended_boost.normalized().dot(actor_rear), 0.0, 1.0)" in motion
+assert "weight = clampf(-direction_input.normalized().x, 0.0, 1.0)" in motion
+assert "weight = clampf(-step_flick.x, 0.0, 1.0)" in motion
+assert "var left_sector_world: Vector3 = Vector3.DOWN.slerp(" in motion
+assert "screen_right, left_weight * 0.50).normalized()" in motion
 assert "left_sector_world = left_sector_world.slerp(" in motion
-assert "Vector3.DOWN, backstroke_weight).normalized()" in motion
-assert motion.index("screen_right, leftward_weight * 0.50).normalized()") < motion.index(
-    "Vector3.DOWN, backstroke_weight).normalized()")
-assert "held_boost_left_sector_world = left_sector_world" in motion
-assert "left_sector_world = held_boost_left_sector_world" in motion
+assert "Vector3.DOWN, backstroke).normalized()" in motion
+assert motion.index("screen_right, left_weight * 0.50).normalized()") < motion.index(
+    "Vector3.DOWN, backstroke).normalized()")
+assert "held_boost_left_sector_world = left_sector_world" in frame
+assert "left_sector_world = held_boost_left_sector_world" in frame
 assert "left_sector_world, acceleration_burst, normal_attack_exhaust)" in main
 
 # Real physical nozzle follows the blended target, with old authored
