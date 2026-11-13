@@ -143,9 +143,10 @@ func _set_player_foreground(enabled: bool) -> void:
 func begin_swing(clip_offset: float = 0.0, second_katana: bool = false) -> void:
     katana_second = second_katana
     if effect_root != null:
+        # Both Katana clips carry their own authored Swordeffect bone pose.
+        # A separate 180-degree correction fought the second clip's 75-degree
+        # authored rotation and turned the arc onto the wrong diagonal.
         effect_root.transform = source_plane.transform
-        if katana_second:
-            effect_root.rotate_object_local(Vector3.UP, PI)
     strike_trail_offset = clip_offset
     swing_running = true
     last_clip_time = 0.0
