@@ -1434,6 +1434,8 @@ func _build_overlay() -> void:
     # Keep legacy telemetry nodes alive for internal state updates, but render
     # only the three combat bar groups plus the opt-in angle diagnostic.
     hud_panel.visible = false
+    if vitals_hud != null:
+        vitals_hud.set_process(false)  # No legacy meter pulse work.
     nexus_button.visible = false
     enemy_debug_ui.visible = false
     test_hit_button.visible = false
@@ -1815,6 +1817,8 @@ func _step_speed_for_player_position(pos: Vector3) -> float:
 
 func _refresh_step_status_ui() -> void:
     if step_status_label == null or step_detail_label == null:
+        return
+    if not step_status_label.is_visible_in_tree():
         return
     step_status_label.text = NUMERIC_HUD.step_speed_text(
         step_speed_current, step_active, STEP_SPEED,
@@ -4612,6 +4616,9 @@ func _refresh_combat_state_hud(running: bool, stepping_this_frame: bool,
         kick_side_this_frame: int, step_flick_this_frame: Vector2,
         step_side_this_frame: int, somersault_this_frame: bool,
         landing_this_frame: bool, jumping_this_frame: bool) -> void:
+    # The old telemetry remains for compatibility but is never drawn.
+    if state_label == null or not state_label.is_visible_in_tree():
+        return
     # Keep original exclusive priority: invulnerability -> guard break ->
     # damage/guard -> dedicated kicks -> jump/step -> normal combat/locomotion.
     # Reading the rig's clip names remains lazy (only the selected status).

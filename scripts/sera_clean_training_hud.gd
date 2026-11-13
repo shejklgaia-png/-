@@ -108,9 +108,19 @@ func _draw() -> void:
         player_bar_width, 9.0 * scale_factor, shown_hp, hp_color,
         blink_slow if hp_ratio > 0.0 and hp_ratio <= 0.25 else 1.0)
     var en_text: String = "RECOVER %d%%" % roundi(en_ratio * 100.0) if en_locked         else "%d%%" % roundi(en_ratio * 100.0)
-    _write(Vector2(player_left, en_y), en_text, font_size - 1)
+    var en_label_color: Color = TEXT_COLOR
+    if en_ratio <= 0.0:
+        en_text = "EMPTY 0%"
+        en_label_color = EMPTY_COLOR
+        en_label_color.a = blink_fast
+    _write(Vector2(player_left, en_y), en_text, font_size - 1, en_label_color)
     _bar(Vector2(player_left, en_y + 8.0 * scale_factor),
         player_bar_width, 9.0 * scale_factor, shown_en, en_color, en_alpha)
+    # At zero no rectangle remains to blink: flash the label and warning line.
+    if en_ratio <= 0.0:
+        draw_line(Vector2(player_left, en_y + 18.0 * scale_factor),
+            Vector2(player_left + player_bar_width, en_y + 18.0 * scale_factor),
+            en_label_color, 2.0 * scale_factor, true)
 
     # BOSS is the wide bar; the selected lock part is always the smaller bar.
     var boss_left: float = gap
