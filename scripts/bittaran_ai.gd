@@ -22,14 +22,13 @@ func reset() -> void:
     closing_in = false
 
 func advance_recovery_turn(delta: float, position: Vector3, yaw: float,
-        player_position: Vector3, pose_weight: float) -> Dictionary:
-    # Recovery yaw is independent of Turn/Approach animation. The entire
-    # body (and its planted IK feet) may begin to rotate as it stands up,
-    # but cannot translate or select a walking clip until fully upright.
+        player_position: Vector3, turn_enabled: bool) -> Dictionary:
+    # Yaw starts at NORMAL stationary-turn speed on the very first
+    # stand-up frame. No advance, velocity blend, speed interpolation
+    # or translation: the actual walk/Turn clip still waits for standing.
     current_speed = 0.0
     var state := {"position": position, "yaw": yaw, "motion": "Idle"}
-    var weight: float = clampf(pose_weight, 0.0, 1.0)
-    if delta <= 0.0 or weight <= 0.0:
+    if delta <= 0.0 or not turn_enabled:
         return state
     var toward: Vector3 = player_position - position
     toward.y = 0.0
@@ -38,7 +37,7 @@ func advance_recovery_turn(delta: float, position: Vector3, yaw: float,
     var wanted_yaw: float = atan2(toward.x, toward.z)
     var angle: float = wrapf(wanted_yaw - yaw, -PI, PI)
     var maximum_step: float = deg_to_rad(
-        STATIONARY_TURN_DEG_PER_SEC) * delta * weight
+        STATIONARY_TURN_DEG_PER_SEC) * delta
     state["yaw"] = yaw + clampf(angle, -maximum_step, maximum_step)
     return state
 
