@@ -3,6 +3,7 @@ extends SceneTree
 ## Sword contact follows rotated mesh elements instead of the old head AABB.
 ## Existing AI/lock, 70%-head rise, leg collision and attack timing unchanged.
 const DT: float = 1.0 / 60.0
+const BOSS_SCRIPT = preload("res://scripts/bittaran_battle.gd")
 
 func _initialize() -> void:
     call_deferred("_run")
@@ -17,7 +18,6 @@ func _check_head_solids(parts: Node3D) -> bool:
         _fail("no mesh-fitted head physical colliders")
         return false
     var body: Node3D = parts.get("collision_body")
-    var all_convex: bool = false
     var convex_count: int = 0
     var meshes_seen: Dictionary = {}
     for record in entries:
@@ -114,7 +114,7 @@ func _run() -> void:
         return
     head_node.quaternion = saved
     parts.call("sync_bittaran_parts")
-    if absf(float(battle.HEAD_TRACK_STANDUP_START_FRACTION) - 0.70) > 0.00001:
+    if absf(float(BOSS_SCRIPT.HEAD_TRACK_STANDUP_START_FRACTION) - 0.70) > 0.00001:
         _fail("head movement threshold changed unexpectedly")
         return
     if absf(float(ik.get("break_duration")) - float(
