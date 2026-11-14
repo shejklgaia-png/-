@@ -15,6 +15,7 @@ const LOCK_MANAGEMENT = preload("res://scripts/sera_lock_management.gd")
 const COMBAT_FLOW = preload("res://scripts/sera_combat_flow.gd")
 const COMBAT_TIMERS = preload("res://scripts/sera_combat_timers.gd")
 const HIT_FX_PRESENTATION = preload("res://scripts/sera_hit_fx_presentation.gd")
+const DAMAGE_POPUP_SPACING = preload("res://scripts/sera_damage_popup_spacing.gd")
 const TARGET_LIFECYCLE = preload("res://scripts/sera_target_lifecycle.gd")
 const PHYSICS_FRAME = preload("res://scripts/sera_physics_frame_rules.gd")
 const MOTION_DIRECTION = preload("res://scripts/sera_motion_direction.gd")
@@ -605,6 +606,11 @@ var hit_flash_remaining: float = 0.0
 var target_respawn_remaining: float = 0.0
 var damage_popup_remaining: float = 0.0
 var impact_origin: Vector3 = Vector3.ZERO
+# Keep the legacy newest popup for test/scene compatibility, but allow up
+# to five older impacts to remain visible during fast attack combos.
+const DAMAGE_POPUP_HISTORY_CAPACITY: int = 5
+var damage_popup_offset: Vector2 = Vector2.ZERO
+var damage_popup_history: Array[Dictionary] = []
 var strike_index: int = 0  # 0, 1 or 2; only meaningful in STRIKE.
 var combo_queued: bool = false  # One buffered tap for the next attack stage.
 var bash_queued: bool = false
@@ -1340,6 +1346,22 @@ func _build_overlay() -> void:
     damage_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
     damage_label.visible = false
     layer.add_child(damage_label)
+    # Preallocate the tiny fixed history once; no scene/node allocation per
+    # hit and no unbounded popup build-up during rapid combo strings.
+    for popup_index in range(DAMAGE_POPUP_HISTORY_CAPACITY):
+        var history_label: Label = Label.new()
+        history_label.name = "DamagePopupHistory%d" % popup_index
+        history_label.add_theme_font_size_override("font_size", 36)
+        history_label.add_theme_color_override("font_color", Color("ffd883"))
+        history_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        history_label.visible = false
+        layer.add_child(history_label)
+        damage_popup_history.append({
+            "label": history_label, "world": Vector3.ZERO,
+            "remaining": 0.0, "offset": Vector2.ZERO
+        })
+    # Most recent hit stays on top of its older overlapping numbers.
+    layer.move_child(damage_label, layer.get_child_count() - 1)
     _refresh_hp_bar()
     resources_label = Label.new()
     resources_label.position = Vector2(226.0, 103.0)
@@ -2234,11 +2256,9 @@ func _register_strike_hit(world_hit: Vector3) -> void:
         float(breaks[strike_index]), float(staggers[strike_index]),
         float(part_stats.get("stagger_extend", 0.18)))
     hit_stop_remaining = HIT_STOP_SECONDS
-    damage_popup_remaining = 0.58
-    impact_origin = _part_hit_surface(hit_part, world_hit)
+    _show_target_damage_popup(int(result["applied_damage"]),
+        _part_hit_surface(hit_part, world_hit))
     rig.call("set_combat_paused", true)
-    damage_label.text = "%d" % int(result["applied_damage"])
-    damage_label.visible = true
     var strike_sound: AudioStreamPlayer = melee_finisher_audio if _is_strike_finisher() else hit_audio
     if is_instance_valid(strike_sound) and strike_sound.stream != null:
         strike_sound.play()
@@ -2263,10 +2283,8 @@ func _register_side_kick_hit() -> void:
         clampf(player.position.x, target.position.x - TARGET_HALF_SIZE, target.position.x + TARGET_HALF_SIZE),
         target.position.y,
         clampf(player.position.z, target.position.z - TARGET_BODY_HALF_DEPTH, target.position.z + TARGET_BODY_HALF_DEPTH))
-    impact_origin = _part_hit_surface(hit_part, closest)
-    damage_popup_remaining = 0.58
-    damage_label.text = "%d" % int(result["applied_damage"])
-    damage_label.visible = true
+    _show_target_damage_popup(int(result["applied_damage"]),
+        _part_hit_surface(hit_part, closest))
     if is_instance_valid(hit_audio) and hit_audio.stream != null:
         hit_audio.play()
     _spawn_sparks(impact_origin)
@@ -2313,6 +2331,65 @@ func _spawn_sparks(world_hit: Vector3) -> void:
         sweep = blade_axis.cross((target.global_position - player.global_position).normalized())
     hit_burst.call("start_burst", world_hit, sweep)
 
+# v344: retain the previous damage label instead of overwriting it when
+# multiple body/part hits project into approximately the same screen area.
+# The smallest available lateral/upward nudge is chosen only when necessary;
+# the result is then locked for this number's lifetime (no frame jitter).
+func _show_target_damage_popup(amount: int, hit_world: Vector3) -> void:
+    if damage_label == null:
+        return
+    if damage_popup_remaining > 0.0 and damage_label.visible:
+        var slot_index: int = -1
+        for i in range(damage_popup_history.size()):
+            if float(damage_popup_history[i]["remaining"]) <= 0.0:
+                slot_index = i
+                break
+        if slot_index < 0:
+            # Pool full: reuse the oldest/most-faded number.
+            var shortest: float = INF
+            for i in range(damage_popup_history.size()):
+                var remaining: float = float(damage_popup_history[i]["remaining"])
+                if remaining < shortest:
+                    shortest = remaining
+                    slot_index = i
+        if slot_index >= 0:
+            var previous: Dictionary = damage_popup_history[slot_index]
+            var history_label: Label = previous["label"] as Label
+            history_label.text = damage_label.text
+            history_label.visible = true
+            history_label.position = damage_label.position
+            history_label.modulate.a = damage_label.modulate.a
+            previous["world"] = impact_origin
+            previous["remaining"] = damage_popup_remaining
+            previous["offset"] = damage_popup_offset
+            damage_popup_history[slot_index] = previous
+
+    var projected_neighbors: Array[Vector2] = []
+    if camera != null:
+        for entry in damage_popup_history:
+            var remaining: float = float(entry["remaining"])
+            if remaining <= 0.0:
+                continue
+            var old_world: Vector3 = entry["world"]
+            var projected: Vector2 = camera.unproject_position(
+                old_world + Vector3.UP * 0.28)
+            var rise: float = (0.58 - remaining) * 75.0
+            projected_neighbors.append(
+                projected - Vector2(26.0, 30.0 + rise)
+                + (entry["offset"] as Vector2))
+        var new_base: Vector2 = camera.unproject_position(
+            hit_world + Vector3.UP * 0.28) - Vector2(26.0, 30.0)
+        damage_popup_offset = DAMAGE_POPUP_SPACING.choose_offset(
+            new_base, projected_neighbors)
+    else:
+        damage_popup_offset = Vector2.ZERO
+    damage_popup_remaining = 0.58
+    impact_origin = hit_world
+    damage_label.text = "%d" % amount
+    damage_label.modulate.a = 1.0
+    damage_label.visible = true
+
+
 func _advance_hit_fx(delta: float) -> void:
     # UI and particles continue during the manual 60 ms combat animation pause.
     if hit_flash_remaining > 0.0:
@@ -2338,8 +2415,27 @@ func _advance_hit_fx(delta: float) -> void:
         if camera != null:
             HIT_FX_PRESENTATION.present_damage_popup(
                 damage_label, camera, impact_origin, damage_popup_remaining)
+            damage_label.position += damage_popup_offset
     elif damage_label != null:
         damage_label.visible = false
+    # Preserve all older simultaneous impacts, each with an independent
+    # world projection, vertical lift and existing fade timing.
+    for i in range(damage_popup_history.size()):
+        var entry: Dictionary = damage_popup_history[i]
+        var old_remaining: float = float(entry["remaining"])
+        if old_remaining <= 0.0:
+            continue
+        old_remaining = COMBAT_TIMERS.remaining_after_delta(
+            old_remaining, delta)
+        entry["remaining"] = old_remaining
+        var history_label: Label = entry["label"] as Label
+        if old_remaining > 0.0 and camera != null:
+            HIT_FX_PRESENTATION.present_damage_popup(
+                history_label, camera, entry["world"], old_remaining)
+            history_label.position += entry["offset"] as Vector2
+        else:
+            history_label.visible = false
+        damage_popup_history[i] = entry
     incoming_damage_remaining = COMBAT_TIMERS.remaining_after_delta(
         incoming_damage_remaining, delta)
     if incoming_damage_label != null and incoming_damage_label.visible:
@@ -3935,15 +4031,13 @@ func _register_bash_hit() -> void:
     var result: Dictionary = _apply_target_part_damage("bash", bash_damage,
         float(part_stats.get("bash_break", 12)), 12.0, 0.08)
     hit_stop_remaining = HIT_STOP_SECONDS
-    damage_popup_remaining = 0.58
     var closest: Vector3 = Vector3(
         clampf(player.position.x, target.position.x - TARGET_HALF_SIZE, target.position.x + TARGET_HALF_SIZE),
         target.position.y,
         clampf(player.position.z, target.position.z - TARGET_BODY_HALF_DEPTH, target.position.z + TARGET_BODY_HALF_DEPTH))
-    impact_origin = _part_hit_surface(hit_part, closest)
+    _show_target_damage_popup(int(result["applied_damage"]),
+        _part_hit_surface(hit_part, closest))
     rig.call("set_combat_paused", true)
-    damage_label.text = "%d" % int(result["applied_damage"])
-    damage_label.visible = true
     if is_instance_valid(hit_audio) and hit_audio.stream != null:
         hit_audio.play()
     if hit_burst != null:

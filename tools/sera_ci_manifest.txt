@@ -271,3 +271,7 @@ gd tools/v341_somersault_coast_kick_1x_runtime_check.gd
 py tools/v342_boss2_hierarchy_kick_duration_self_check.py
 
 py tools/v343_kick_065_timing_self_check.py
+
+py tools/v344_damage_popup_overlap_self_check.py
+
+gd tools/v344_damage_popup_overlap_runtime_check.gd
