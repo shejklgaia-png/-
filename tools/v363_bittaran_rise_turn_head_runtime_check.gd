@@ -1,8 +1,7 @@
 extends SceneTree
-## v363/v365: at the exact start of stand-up the root YAW immediately
-## uses normal stationary-turn speed without a ramp. HEAD follow is strictly
-## disabled until 70% of eased upright pose, then eases in during last 30%.
-## No Turn/Approach clip or XZ translation until full 0.24s Idle settle.
+## v363-v366: exact stand-up starts root yaw AND normal Turn/Approach
+## clips and movement without delay. HEAD follows only after 70% rise.
+## The fallen hold remains stationary, while IK restores the body.
 const DT: float = 1.0 / 60.0
 const EPS: float = 0.0001
 const LEG_IDS: Array[String] = ["leg_fl", "leg_fr", "leg_rl", "leg_rr"]
@@ -83,13 +82,19 @@ func _run_case(battle: Node3D, leg_ids: Array[String],
             deg_to_rad(MAX_YAW_DEGREES_PER_SECOND) * DT
             if turn_enabled else 0.0)
         if not was_ready:
-            if str(battle.get("bittaran_motion")) != "Idle" or str(
-                    rig.get("current_clip")) != "Idle":
-                _fail(label + ": Turn/Approach gait started before full stand")
+            var chosen: String = str(battle.get("bittaran_motion"))
+            var played: String = str(rig.get("current_clip"))
+            if not turn_enabled and (chosen != "Idle" or played != "Idle"):
+                _fail(label + ": gait animated during fallen hold")
                 return false
-            if Vector2(boss.position.x - old_position.x,
+            if turn_enabled and (not chosen in ["Turn", "Approach"] \
+                    or played != chosen):
+                _fail(label + ": locomotion clip failed to start with rise")
+                return false
+            if not turn_enabled and Vector2(
+                    boss.position.x - old_position.x,
                     boss.position.z - old_position.z).length() > EPS:
-                _fail(label + ": boss translated during knockdown/stand-up")
+                _fail(label + ": boss translated before stand-up")
                 return false
             if yaw_delta > allowed_step + EPS:
                 _fail(label + ": turn speed exceeds exact start-gated normal rate: "
@@ -195,5 +200,5 @@ func _run() -> void:
     if not _run_case(battle, LEG_IDS, "four-leg"):
         return
     print("GODOT_V363_BITTARAN_RISE_PASS: actual pose 70% head follow, "
-        + "smooth rising yaw, Idle gait and no Approach until fully upright")
+        + "Turn/Approach clip and root motion from rise without delay")
     quit(0)
