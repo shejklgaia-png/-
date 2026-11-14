@@ -92,17 +92,21 @@ func _run() -> void:
     # Fixture is parented to a REAL articulated foreleg joint. This
     # emulates the swept upper arm moving under the nose during a turn,
     # without altering the source rig/model or collision-only lock Areas.
-    var lower_leg: Node3D = model.find_child(
-        "FrontLowerLeg_L", true, false) as Node3D
-    if lower_leg == null:
-        _fail("missing foreleg joint for turn-overlap contact fixture")
+    # Anchor the test's translated forearm contact piece at the planted
+    # front foot joint. A box attached high on a free rotating shin would
+    # artificially chase the rising torso by metres after IK corrections;
+    # the real supported foreleg has a ground-contact constraint instead.
+    var foot_joint: Node3D = model.find_child(
+        "FrontFoot_L", true, false) as Node3D
+    if foot_joint == null:
+        _fail("missing planted front foot joint for forearm fixture")
         return
     var fixture := MeshInstance3D.new()
     fixture.name = "TurnedForearmContactFixture"
     var box := BoxMesh.new()
     box.size = Vector3(0.75, 0.28, 0.75)
     fixture.mesh = box
-    lower_leg.add_child(fixture)
+    foot_joint.add_child(fixture)
     var center: Vector3 = before.get_center()
     center.y = before.position.y + 0.03
     fixture.global_transform = Transform3D(Basis.IDENTITY, center)
