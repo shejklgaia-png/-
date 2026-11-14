@@ -1457,7 +1457,7 @@ func _build_overlay() -> void:
     layer.add_child(clean_training_hud)
     clean_training_hud.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
     clean_training_hud.offset_top = 0.0
-    clean_training_hud.offset_bottom = 205.0
+    clean_training_hud.offset_bottom = 180.0
     _refresh_player_hp_bar()
     _refresh_hp_bar()
     _refresh_numeric_status_hud()

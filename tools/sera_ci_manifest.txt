@@ -257,3 +257,5 @@ py tools/v334_camera_crossover_lock_aim_self_check.py
 gd tools/v334_camera_crossover_lock_aim_runtime_check.gd
 
 py tools/v337_touch_lock_axis_self_check.py
+
+py tools/v338_top_left_hud_self_check.py

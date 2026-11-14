@@ -1,10 +1,20 @@
 extends Control
-## SERA v336: HP/EN instrument bars recreated as vector geometry from the
+## SERA v338: compact top-left HP/EN bars in reference vector geometry.
 ## user-provided 1536x512 design screenshot (no image or texture dependency).
 ## The reference is wide, but the geometry scales to the portrait viewport.
 ## main.gd remains the sole owner of actual HP/EN, exhaustion and target HP.
 
 const DESIGN_WIDTH: float = 720.0
+# The player meters occupy only the top-left of the 720-wide design space,
+# leaving the top-right for NEXUS and the independent ANGLE toggle.
+const PLAYER_RULE_RIGHT: float = 520.0
+const PLAYER_BAR_RIGHT: float = 387.0
+const PLAYER_VALUE_RIGHT: float = 520.0
+const PLAYER_HP_BASELINE: float = 33.0
+const PLAYER_EN_BASELINE: float = 70.0
+# Place boss/part health immediately below the player meters.
+const BOSS_ROW_TOP: float = 109.0
+const PART_ROW_TOP: float = 151.0
 const HP_TINT: Color = Color("#42feff")
 const EN_TINT: Color = Color("#ffba1b")
 const EMPTY_TINT: Color = Color("#ef615b")
@@ -103,8 +113,8 @@ func _draw_instrument_row(kind: String, baseline: float,
     var rule: PackedVector2Array = PackedVector2Array([
         Vector2(25.0, baseline - 10.0),
         Vector2(45.0, baseline + 10.0),
-        Vector2(686.0, baseline + 10.0),
-        Vector2(694.0, baseline + 2.0)
+        Vector2(PLAYER_RULE_RIGHT - 8.0, baseline + 10.0),
+        Vector2(PLAYER_RULE_RIGHT, baseline + 2.0)
     ])
     draw_polyline(rule, RULE_TINT, 1.2, true)
     _draw_text("H P" if kind == "HP" else "E N",
@@ -112,7 +122,7 @@ func _draw_instrument_row(kind: String, baseline: float,
     _draw_text("/", Vector2(100.0, baseline), 18)
 
     var bar_x: float = 113.0
-    var bar_right: float = 574.0
+    var bar_right: float = PLAYER_BAR_RIGHT
     var bar_y: float = baseline - 2.0
     var bar_height: float = 7.0
     draw_colored_polygon(_slanted_quad(bar_x, bar_y, bar_right,
@@ -153,7 +163,7 @@ func _draw_instrument_row(kind: String, baseline: float,
         # Empty bars have no fill to flash: retain a small flashing edge.
         draw_line(Vector2(bar_x, bar_y + 9.0),
             Vector2(bar_x + 38.0, bar_y + 9.0), digits_color, 1.6, true)
-    _draw_text(amount_text, Vector2(694.0, baseline),
+    _draw_text(amount_text, Vector2(PLAYER_VALUE_RIGHT, baseline),
         15, digits_color, true)
 
 
@@ -183,14 +193,18 @@ func _draw() -> void:
     draw_set_transform(Vector2.ZERO, 0.0,
         Vector2(scale_factor, scale_factor))
 
-    # Leave the top-right navigation and optional angle-toggle buttons clear.
-    _draw_instrument_row("HP", 101.0, hp, hp_max, shown_hp, false)
-    _draw_instrument_row("EN", 141.0, en, en_max, shown_en, en_locked)
+    # The two short player meters sit at top-left; the independent
+    # NEXUS (top right) and ANGLE (right, second row) never cover them.
+    _draw_instrument_row("HP", PLAYER_HP_BASELINE,
+        hp, hp_max, shown_hp, false)
+    _draw_instrument_row("EN", PLAYER_EN_BASELINE,
+        en, en_max, shown_en, en_locked)
 
-    # Boss total is intentionally larger than the selected part meter.
+    # Boss total and selected lock part rise along with the compact player
+    # HUD; no large unused block remains between the two health groups.
     _draw_target_row("BOSS", boss_hp, boss_max,
-        shown_boss, 190.0, 12.0, 670.0, BOSS_TINT)
+        shown_boss, BOSS_ROW_TOP, 12.0, 670.0, BOSS_TINT)
     _draw_target_row("LOCK / " + part_name, part_hp, part_max,
-        shown_part, 233.0, 7.0, 360.0, PART_TINT)
+        shown_part, PART_ROW_TOP, 7.0, 360.0, PART_TINT)
 
     draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
