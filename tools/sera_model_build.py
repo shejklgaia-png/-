@@ -25,6 +25,7 @@ STEPS = {
     "rebuild_head_c_data.py": ("assets/sera_head_c_data.gd",),
     "rebuild_katana_data.py": ("assets/sera_katana_data.gd",),
     "rebuild_lower_body_d_data.py": ("assets/sera_lower_body_d_data.gd",),
+    "rebuild_bittaran_data.py": ("assets/bittaran_data.gd",),
 }
 
 
@@ -32,7 +33,8 @@ def canonical_sources() -> list[Path]:
     manifest = json.loads((ROOT / "models/manifest.json").read_text(encoding="utf-8"))
     if manifest.get("schema") != 1:
         raise ValueError("Unexpected model manifest schema")
-    names = {manifest["body_rig"], *manifest["variants"].values(), *manifest["parts"].values()}
+    names = {manifest["body_rig"], *manifest["variants"].values(), *manifest["parts"].values(),
+             *manifest.get("bosses", {}).values()}
     paths = []
     for value in sorted(names):
         path = Path(value)

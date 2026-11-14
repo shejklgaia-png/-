@@ -37,3 +37,12 @@ Katana.bbmodelが初段・二段目の唯一の編集元です。実行時には
 
 
 最新の安全な一括再生成と確認方法: `docs/SERA_MODEL_PIPELINE_ja.md`。
+
+## v345: 独立ボス骨格「ビットタラン」
+
+- 正本：`models/bosses/Bittaran.bbmodel`（ユーザーが作成した `models/storage/ボステスト (2).bbmodel` を無改造で残して派生）。
+- Head / Body / FrontLeg / FrontLowerLeg / FrontFoot / RearLeg / RearLowerLeg / RearFoot の計14グループ、右・左各6脚節＋本体・頭。
+- `Wait` 初期姿勢の10本の既存キーを保持。`Idle`（2.4s）、`Turn`（1.8s）、`Approach`（2.8s）はLoop追加クリップ。
+- 描画とアニメーション：`scripts/bittaran_rig.gd`。移動・旋回AI：`scripts/bittaran_ai.gd`。専用戦闘：`scenes/bittaran_battle.tscn`。
+- Android向け埋め込み：`tools/rebuild_bittaran_data.py` → `assets/bittaran_data.gd`。`tools/sera_model_build.py --write/--check`で他の正本とまとめて一致検証。
+- SERA標準リグや既存の訓練ターゲット用コントローラに改造を加えない。
