@@ -41,6 +41,7 @@ on:
       - 'tools/v366_bittaran_*.gd'
       - 'tools/v367_bittaran_*.gd'
       - 'tools/v368_bittaran_*.gd'
+      - 'tools/v369_bittaran_*.gd'
       - 'tools/rebuild_bittaran_data.py'
       - 'scripts/command_nexus.gd'
       - 'project.godot'
@@ -442,7 +443,7 @@ jobs:
           fi
           grep -q 'GODOT_V367_BITTARAN_FOOT_CATCHUP_PASS' "$log"
 
-      - name: Verify all four consecutive limb breaks and 1.25x faster upright recovery
+      - name: Verify all four consecutive limb breaks with 1.0s / 1.3s stand-up
         run: |
           set -euo pipefail
           log="$RUNNER_TEMP/bittaran-v368.log"
@@ -450,7 +451,7 @@ jobs:
           "$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" --headless --path . --script tools/v368_bittaran_repeat_break_fast_rise_runtime_check.gd > "$log" 2>&1 || status=$?
           cat "$log"
           if [ "$status" -ne 0 ]; then
-            echo "::error::Bittaran v368 repeated limb break / faster rise test failed with code $status"
+            echo "::error::Bittaran v368 repeated limb break / new rise duration test failed with code $status"
             exit "$status"
           fi
           if grep -E 'SCRIPT ERROR|Parse Error|Compile Error|ERROR: Failed to load|Invalid call|V368_REPEAT_BREAK_FAIL' "$log"; then
@@ -458,3 +459,20 @@ jobs:
             exit 1
           fi
           grep -q 'GODOT_V368_REPEAT_BREAK_PASS' "$log"
+
+      - name: Verify exact stand-up duration and rearward BODY/shoulder posture
+        run: |
+          set -euo pipefail
+          log="$RUNNER_TEMP/bittaran-v369.log"
+          status=0
+          "$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" --headless --path . --script tools/v369_bittaran_standup_timing_posture_runtime_check.gd > "$log" 2>&1 || status=$?
+          cat "$log"
+          if [ "$status" -ne 0 ]; then
+            echo "::error::Bittaran v369 rise duration and posture test failed"
+            exit "$status"
+          fi
+          if grep -E 'SCRIPT ERROR|Parse Error|Compile Error|ERROR: Failed to load|Invalid call|V369_BITTARAN_STANDUP_FAIL' "$log"; then
+            echo "::error::Bittaran v369 rise runtime regression"
+            exit 1
+          fi
+          grep -q 'GODOT_V369_BITTARAN_STANDUP_PASS' "$log"
