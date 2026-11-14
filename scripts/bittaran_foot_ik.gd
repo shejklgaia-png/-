@@ -35,8 +35,6 @@ const HEAD_MELEE_REACH_WORLD_Y: float = 1.35
 const MAX_LEG_BREAK_DROP_METERS: float = 1.45
 const MAX_LEG_BREAK_NOSE_DIP_DEGREES: float = 68.0
 const HEAD_HEIGHT_SOLVE_STEPS: int = 13
-# Contact limits the downed chassis nose-down pitch, not the entire robot's
-# height. This keeps hip reach and all four planted sole anchors intact.
 
 const LEG_NAMES: Array[String] = [
     "FrontLeg_R", "RearLeg_L", "FrontLeg_L", "RearLeg_R"
@@ -57,9 +55,6 @@ var windup_elapsed: float = -1.0
 var front_anchor_rest: Dictionary = {}
 var front_extension_direction: Dictionary = {}
 var ground_correction_world: float = 0.0
-var break_chassis_base_rotation: Quaternion = Quaternion.IDENTITY
-var break_nose_dip_radians: float = 0.0
-var head_support_pitch_reduction: float = 0.0
 var head_bone: Node3D
 var break_duration: float = LEG_BREAK_REACTION_SECONDS
 var break_recover_start: float = LEG_BREAK_RECOVER_START_SECONDS
@@ -184,8 +179,6 @@ func reset() -> void:
     break_elapsed = -1.0
     windup_elapsed = -1.0
     ground_correction_world = 0.0
-    break_nose_dip_radians = 0.0
-    head_support_pitch_reduction = 0.0
     front_anchor_rest.clear()
     front_extension_direction.clear()
     break_duration = LEG_BREAK_REACTION_SECONDS
@@ -349,7 +342,6 @@ func start_leg_break_slide(id: String, head_world_y: float,
     elif not already_winding:
         windup_elapsed = 0.0
         break_elapsed = -1.0
-        head_support_pitch_reduction = 0.0
     break_duration = (ALL_LEGS_BREAK_REACTION_SECONDS if all_legs_broken
         else LEG_BREAK_REACTION_SECONDS)
     break_recover_start = (ALL_LEGS_BREAK_RECOVER_START_SECONDS if all_legs_broken
@@ -435,17 +427,14 @@ func _advance_leg_break(delta: float) -> void:
         elif break_elapsed < break_duration:
             amount = 1.0 - _cubic((break_elapsed - break_recover_start)
                 / (break_duration - break_recover_start))
-    # Preserve the original chassis/drop height. Supporting the nose by
-    # lifting the entire torso made the planted forearm chase the head and
-    # caused both the shin and toes to float: constrain PITCH instead.
+    # This is a visual-only chassis drop; foot anchors stay at world Y=0.
+    # Include the persistent grounding correction to prevent a 1-frame
+    # hover when the hips move through the analytical IK reach limit.
     actor.position.y = (rest_actor_local_y
         + (ground_correction_world - amount * break_drop_world)
         / parent_scale_y)
-    head_support_pitch_reduction = 0.0
-    break_nose_dip_radians = 0.0
     if break_elapsed >= 0.0 and chassis_bone != null             and head_mesh_for_height != null:
         var base_pose: Quaternion = chassis_bone.quaternion
-        break_chassis_base_rotation = base_pose
         var desired_head_y: float = lerpf(break_head_start_y,
             HEAD_MELEE_REACH_WORLD_Y, amount)
         if amount > 0.00001:
@@ -461,9 +450,8 @@ func _advance_leg_break(delta: float) -> void:
                     lo = mid
                 else:
                     hi = mid
-            break_nose_dip_radians = (lo + hi) * 0.5
             chassis_bone.quaternion = (base_pose *
-                Quaternion(Vector3.RIGHT, -break_nose_dip_radians)).normalized()
+                Quaternion(Vector3.RIGHT, -(lo + hi) * 0.5)).normalized()
         else:
             chassis_bone.quaternion = base_pose
     # Ease the two front legs from their slight stretch to the planted
@@ -483,7 +471,6 @@ func _advance_leg_break(delta: float) -> void:
         if break_elapsed >= break_duration:
             break_elapsed = -1.0
             break_leg_index = -1
-            head_support_pitch_reduction = 0.0
             front_anchor_rest.clear()
             front_extension_direction.clear()
 
@@ -569,27 +556,6 @@ func advance_ik(delta: float, motion: String) -> void:
             if bool(leg["stepping"]):
                 continue
             leg["last_error"] = _solve(leg, foot_pos, foot_rot)
-
-## Limit the falling chassis nose-down rotation when an articulated
-## foreleg catches the head. Reaching the head by raising the whole model
-## makes every leg move with it and cannot resolve self contact; a pitch
-## constraint turns only the shoulders/head while IK plants the soles.
-func apply_head_support_pitch(pitch_radians: float) -> void:
-    if not ready or not down_pose_active() or chassis_bone == null:
-        return
-    var constrained: float = clampf(pitch_radians, 0.0,
-        break_nose_dip_radians)
-    chassis_bone.quaternion = (break_chassis_base_rotation *
-        Quaternion(Vector3.RIGHT, -constrained)).normalized()
-    head_support_pitch_reduction = break_nose_dip_radians - constrained
-    # The hip moves with the pitched chassis; keep existing planted toes
-    # world-fixed by resolving all four independent articulated legs.
-    for leg in legs:
-        if bool(leg["stepping"]):
-            continue
-        leg["last_error"] = _solve(
-            leg, leg["anchor"], leg["anchor_rotation"])
-
 
 func maximum_ground_error() -> float:
     var worst: float = 0.0
