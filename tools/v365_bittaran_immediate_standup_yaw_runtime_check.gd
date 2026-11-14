@@ -62,13 +62,17 @@ func _run_case(battle: Node3D, ids: Array[String], label: String) -> bool:
         var actual_step: float = absf(wrapf(
             actor.rotation.y - before_yaw, -PI, PI))
         if not ready_to_move:
-            if str(battle.get("bittaran_motion")) != "Idle" or str(
-                    rig.get("current_clip")) != "Idle":
-                _fail(label + ": locomotion clip started during knockdown")
+            var expected_clip: String = ("Turn" if allowed_turn else "Idle")
+            if str(battle.get("bittaran_motion")) != expected_clip or str(
+                    rig.get("current_clip")) != expected_clip:
+                _fail(label + ": wrong clip before/at stand-up: "
+                    + str(battle.get("bittaran_motion"))
+                    + " expected=" + expected_clip)
                 return false
-            if Vector2(actor.position.x - before_position.x,
+            if not allowed_turn and Vector2(
+                    actor.position.x - before_position.x,
                     actor.position.z - before_position.z).length() > 0.00001:
-                _fail(label + ": player was approached during stand-up")
+                _fail(label + ": root moved before stand-up")
                 return false
 
         # Movement is updated before IK each tick, so the gate must use
@@ -121,7 +125,7 @@ func _run_case(battle: Node3D, ids: Array[String], label: String) -> bool:
     print("V365_YAW_CASE_PASS: " + label + " still until frame "
         + str(first_rise_frame) + ", then immediate "
         + str(rad_to_deg(yaw_at_first_rise))
-        + "deg/60Hz turn with no speed ramp, full Idle stand-up")
+        + "deg/60Hz turn with no speed ramp and active Turn clip")
     return true
 
 func _run() -> void:
@@ -133,7 +137,6 @@ func _run() -> void:
         return
     if not _run_case(battle, FOUR_LEGS, "four-leg 6.0s"):
         return
-    print("GODOT_V365_BITTARAN_YAW_START_PASS: turn starts exactly "
-        + "with chassis stand-up at full 34deg/s, no interpolation, "
-        + "no approach or gait until fully recovered")
+    print("GODOT_V365_BITTARAN_YAW_START_PASS: Turn clip starts exactly "
+        + "with chassis stand-up at full 34deg/s, no interpolation")
     quit(0)
