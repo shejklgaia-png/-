@@ -1,12 +1,12 @@
 extends SceneTree
 ## v368: break four DIFFERENT limbs in the SAME live encounter,
 ## without boss respawn or artificial clearing of part-break stun.
-## Each break must reproduce anticipation, fall, 1.25x rise duration, chest
+## Each break must reproduce anticipation, fall, 1.0s/1.3s stand-up, chest
 ## yaw / Approach, world-planted soles and post-upright foot catch-up.
 const DT: float = 1.0 / 60.0
 const IDS: Array[String] = ["leg_fl", "leg_fr", "leg_rl", "leg_rr"]
-const RISE_SINGLE: float = 0.50
-const RISE_ALL: float = 0.75
+const RISE_SINGLE: float = 1.0
+const RISE_ALL: float = 1.3
 const SMALL: float = 0.0002
 
 func _initialize() -> void:
@@ -56,7 +56,7 @@ func _check_break(battle: Node3D, id: String,
     if absf(float(ik.get("break_recover_start"))
             - expected_start) > 0.00001 or absf(float(
             ik.get("break_duration")) - expected_duration) > 0.0001:
-        _fail(id + ": 1.25x rise duration changed hold or is incorrect: "
+        _fail(id + ": 1.0s/1.3s stand-up changed hold or is incorrect: "
             + str([ik.get("break_recover_start"), ik.get("break_duration"),
                 expected_start, expected_duration]))
         return false
@@ -138,7 +138,7 @@ func _check_break(battle: Node3D, id: String,
                 final_rise_time = float(ik.get("break_duration"))
                 var elapsed_since_start: float = final_rise_time - expected_start
                 if absf(elapsed_since_start - expected_rise) > SMALL:
-                    _fail(id + ": changed 1.25x rise duration mid-encounter")
+                    _fail(id + ": changed 1.0s/1.3s stand-up mid-encounter")
                     return false
             post_rise_frames += 1
             if int(ik.get("stepping_pair")) >= 0:
@@ -189,5 +189,5 @@ func _run() -> void:
     print("GODOT_V368_REPEAT_BREAK_PASS: all four distinct limbs break "
         + "successively WITHOUT respawn, with the same rise/turn/approach "
         + "and delayed foot-placement logic every time; physical stand-up "
-        + "takes 1.25x normal time, original fallen hold unchanged")
+        + "takes 1.0s/1.3s, original fallen hold unchanged")
     quit(0)
