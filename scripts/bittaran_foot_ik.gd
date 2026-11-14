@@ -23,7 +23,8 @@ const LEG_BREAK_RECOVER_START_SECONDS: float = 0.67
 const LEG_BREAK_SLIDE_METERS: float = 1.05
 const HEAD_MELEE_REACH_WORLD_Y: float = 1.35
 const MAX_LEG_BREAK_DROP_METERS: float = 1.45
-const LEG_BREAK_NOSE_DIP_DEGREES: float = 68.0
+const MAX_LEG_BREAK_NOSE_DIP_DEGREES: float = 68.0
+const HEAD_HEIGHT_SOLVE_STEPS: int = 13
 
 const LEG_NAMES: Array[String] = [
     "FrontLeg_R", "RearLeg_L", "FrontLeg_L", "RearLeg_R"
@@ -46,6 +47,8 @@ var break_anchor: Vector3 = Vector3.ZERO
 var break_slide: Vector3 = Vector3.ZERO
 var chassis_bone: Node3D
 var rest_chassis_rotation: Quaternion = Quaternion.IDENTITY
+var head_mesh_for_height: MeshInstance3D
+var break_head_start_y: float = 0.0
 
 func setup(model: Node3D) -> bool:
     actor = model
@@ -108,6 +111,15 @@ func setup(model: Node3D) -> bool:
         return false
     # Keep the authored Wait 25-degree BODY pose through setup/reset.
     rest_chassis_rotation = chassis_bone.quaternion
+    var authored_head: Node3D = actor.find_child("Head", true, false) as Node3D
+    if authored_head == null:
+        return false
+    for head_child in authored_head.get_children():
+        if head_child is MeshInstance3D:
+            head_mesh_for_height = head_child as MeshInstance3D
+            break
+    if head_mesh_for_height == null:
+        return false
     reset()
     ready = true
     # Ensure soles are on the floor immediately, before the first physics tick.
@@ -285,6 +297,7 @@ func start_leg_break_slide(id: String, head_world_y: float) -> void:
     stepping_pair = -1
     cooldown = 0.0
     break_elapsed = 0.0
+    break_head_start_y = head_world_y
     break_drop_world = clampf(
         head_world_y - HEAD_MELEE_REACH_WORLD_Y, 0.20,
         MAX_LEG_BREAK_DROP_METERS)
@@ -315,11 +328,30 @@ func _advance_leg_break(delta: float) -> void:
     var parent_scale_y: float = maxf(
         absf(actor.get_parent().global_basis.get_scale().y), 0.001)
     actor.position.y = rest_actor_local_y - amount * break_drop_world / parent_scale_y
-    # Pivot at the authored BODY joint: the front head dives while the rear
-    # remains supported. IK counter-rotates the feet to hold ground contact.
-    if chassis_bone != null:
-        chassis_bone.quaternion = (chassis_bone.quaternion * Quaternion(
-            Vector3.RIGHT, -deg_to_rad(LEG_BREAK_NOSE_DIP_DEGREES) * amount)).normalized()
+    # Aim the actual HEAD mesh center at a reachable Y. The Blockbench
+    # BODY/HEAD geometry is not assumed to have a fixed lever arm: numerically
+    # solve a nose-down pitch each frame, so the head never clips the floor.
+    if chassis_bone != null and head_mesh_for_height != null:
+        var base_pose: Quaternion = chassis_bone.quaternion
+        var desired_head_y: float = lerpf(break_head_start_y,
+            HEAD_MELEE_REACH_WORLD_Y, amount)
+        if amount > 0.00001:
+            var lo: float = 0.0
+            var hi: float = deg_to_rad(MAX_LEG_BREAK_NOSE_DIP_DEGREES)
+            for i in range(HEAD_HEIGHT_SOLVE_STEPS):
+                var mid: float = (lo + hi) * 0.5
+                chassis_bone.quaternion = (base_pose *
+                    Quaternion(Vector3.RIGHT, -mid)).normalized()
+                var head_y: float = head_mesh_for_height.to_global(
+                    head_mesh_for_height.mesh.get_aabb().get_center()).y
+                if head_y > desired_head_y:
+                    lo = mid
+                else:
+                    hi = mid
+            chassis_bone.quaternion = (base_pose *
+                Quaternion(Vector3.RIGHT, -(lo + hi) * 0.5)).normalized()
+        else:
+            chassis_bone.quaternion = base_pose
     var leg: Dictionary = legs[break_leg_index]
     var skidding: Vector3 = break_anchor + break_slide * amount
     skidding.y = FLOOR_Y
