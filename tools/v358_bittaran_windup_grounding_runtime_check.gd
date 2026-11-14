@@ -156,5 +156,5 @@ func _run() -> void:
         return
     print("GODOT_V358_BITTARAN_PASS: 0.6s heavy head rebound, front reach "
         + str(farthest_front_reach) + "m, neutral head on down, planted feet "
-        + "through both 2.5s and 6.0s reactions")
+        + "through 2.42s and 5.88s reactions")
     quit(0)
