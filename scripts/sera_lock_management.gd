@@ -74,8 +74,13 @@ static func manual_screen_neighbor(direction: int, current_id: String,
             var head_screen: Vector2 = view.unproject_position(head_world)
             var shin_screen: Vector2 = view.unproject_position(shin_world)
             if head_screen.distance_to(shin_screen) <= 90.0:
-                return "head"
-    return chosen
+                if not forward_id.is_empty():
+                    forward_id = "head"
+                else:
+                    wrapped_id = "head"
+    # Keep the canonical neighbor fallback for the shared training-room
+    # selector and the v317 lock-module contract.
+    return forward_id if not forward_id.is_empty() else wrapped_id
 
 
 static func reticle_projection(view: Camera3D, target_world: Vector3,
