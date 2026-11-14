@@ -30,7 +30,6 @@ assert "v198" not in widget
 
 screens = {
     "selection": ("scripts/launch_menu.gd", "VersionIndicator.attach(self)"),
-    "training": ("scripts/main.gd", "VersionIndicator.attach(layer)"),
     "nexus": ("scripts/command_nexus.gd", "VersionIndicator.attach(hud)"),
 }
 for name, (path, call) in screens.items():
@@ -45,7 +44,9 @@ assert 'nexus_button.pressed.connect(_open_scene.bind(NEXUS_SCENE))' in launcher
 training = read("scripts/main.gd")
 assert 'nexus_button.pressed.connect(_request_return_to_nexus)' in training
 assert 'var layer := CanvasLayer.new()' in training
-assert training.index("VersionIndicator.attach(layer)") > training.index("enemy_debug_ui.connect")
+assert "VersionIndicator.attach(layer)" not in training
+assert "clean_training_hud = CLEAN_TRAINING_HUD.new()" in training
+assert "hud_panel.visible = false" in training
 nexus = read("scripts/command_nexus.gd")
 assert 'hud.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)' in nexus
 assert nexus.index("VersionIndicator.attach(hud)") > nexus.index("_create_archive_records()")

@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """v344: very close projected damage numbers offset but still slightly overlap."""
+from sera_active_contracts import require_min_version
 from pathlib import Path
 root=Path(__file__).resolve().parents[1]
 m=(root/"scripts/main.gd").read_text(encoding="utf-8")
 space=(root/"scripts/sera_damage_popup_spacing.gd").read_text(encoding="utf-8")
 presenter=(root/"scripts/sera_hit_fx_presentation.gd").read_text(encoding="utf-8")
 project=(root/"project.godot").read_text(encoding="utf-8")
-assert 'config/name="SERA v344"' in project
+assert require_min_version(project, 344)
 assert 'preload("res://scripts/sera_damage_popup_spacing.gd")' in m
 assert "const DAMAGE_POPUP_HISTORY_CAPACITY: int = 5" in m
 assert "func _show_target_damage_popup(amount: int, hit_world: Vector3) -> void:" in m

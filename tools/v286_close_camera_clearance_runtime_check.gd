@@ -95,8 +95,10 @@ func _run() -> void:
     var planned_arc: float = orbit_start.length() * absf(
         float(game.get("step_signed_angle")))
     var planned_line: float = float(game.get("side_kick_linear_distance"))
-    if absf(planned_arc + planned_line - 3.0) > 0.001:
-        _fail("new fixed 3m kick plan exceeded its orbit-plus-line budget")
+    var kick_spec: Dictionary = (JSON.parse_string(FileAccess.get_file_as_string(
+        "res://tools/sera_active_specs.json")) as Dictionary)["side_kick"]
+    if absf(planned_arc) > 0.001 or absf(planned_line - float(kick_spec["distance_m"])) > 0.001:
+        _fail("straight kick plan differs from approved distance / has residual orbit")
         return
     if player.position.distance_to(original) > 0.05:
         _fail("kick snapped before authored second windup")
@@ -105,7 +107,7 @@ func _run() -> void:
     if not bool(game.get("side_kick_linear_active")):
         _fail("kick did not exit orbit after second contact")
         return
-    if player.position.distance_to(original) > 3.1:
+    if player.position.distance_to(original) > float(kick_spec["distance_m"]) + 0.1:
         _fail("kick exceeded its 3m boost budget or teleported")
         return
     print("GODOT_V286_CLOSE_CAMERA_CLEARANCE_PASS: low pitch, 3m fixed kick budget, lower LOCK buttons")

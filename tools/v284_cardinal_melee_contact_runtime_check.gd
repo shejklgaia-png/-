@@ -81,7 +81,9 @@ func _run() -> void:
     if absf(player.position.y - 1.5) > 0.10:
         _fail("flight did not reach 1.5m apex")
         return
-    if absf((player.position - takeoff).dot(back) - 2.5) > 0.12:
+    var terminal_control: float = 5.0 - 0.30 * FLIGHT_TIME / 0.20
+    var expected_halfway: float = 0.375 * terminal_control + 0.625
+    if absf((player.position - takeoff).dot(back) - expected_halfway) > 0.12:
         _fail("flight is not midway through the 5m Bezier retreat")
         return
     game.call("_advance_back_somersault", FLIGHT_TIME * 0.5)

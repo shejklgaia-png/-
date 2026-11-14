@@ -37,7 +37,7 @@ handoff=main.split("func _finish_strike_and_release_queued_kick() -> void:",1)[1
 assert "committed_kick_flick = buffered_side_kick_flick" in handoff
 assert "committed_kick_side = buffered_side_kick_side" in handoff
 assert 'rig.call("finish_attack", false, jump_active and not damage_reaction_active)' in handoff
-assert "_launch_combo_side_kick(committed_kick_flick, committed_kick_side)" in handoff
+assert "_launch_combo_side_kick(committed_kick_flick, committed_kick_side," in handoff
 assert "buffered_side_kick_side = 0" in handoff
 first=main.split("func _start_attack() -> bool:",1)[1].split(
     "func _combo_followup_input_window_open(",1)[0]

@@ -75,9 +75,9 @@ assert 'rig.call("start_omni_step", pose_direction)' in step
 advance = main.split("func _advance_side_step(delta: float)",1)[1].split("func _move_player_swept(",1)[0]
 assert "if side_kick_active:" in advance
 assert "var new_offset: Vector2 = step_start_offset + step_linear_offset * progress" in advance
-assert "step_start_offset.rotated(" in advance
+assert "step_start_offset.rotated(" not in advance  # v340 removes the kick orbit
 assert "side_kick_linear_direction * side_kick_linear_distance * line_progress" in advance
-assert "if progress >= second_hit:" in advance
+assert "if previous_progress < second_hit and progress >= second_hit:" in advance
 assert "_move_player_swept(requested, true)" in advance
 distance = float(load_active_specs()["ordinary_step"]["distance_m"])
 for name in ("STEP_MIN_ARC_LENGTH", "BACK_STEP_DISTANCE", "STEP_FORWARD_DISTANCE"):

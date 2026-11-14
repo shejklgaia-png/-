@@ -21,7 +21,7 @@ def segment(text, a, b):
 direction = SERA_INPUT.split("static func combo_kick_side(flick: Vector2,",1)[1].split("static func upward_jump_flick",1)[0]
 release = segment(game, "_end_drag(release_pos: Vector2) -> void:", "_remember_jump_flick_sample")
 request = segment(game, "_request_combo_side_kick(flick: Vector2) -> bool:", "_launch_combo_side_kick")
-launch = segment(game, "_launch_combo_side_kick(flick: Vector2, side: int) -> bool:", "_start_back_somersault")
+launch = segment(game, "_launch_combo_side_kick(flick: Vector2, side: int,", "_start_back_somersault")
 start = segment(game, "_start_back_somersault() -> bool:", "_advance_back_somersault")
 advance = segment(game, "_advance_back_somersault(delta: float) -> void:", "_cancel_back_somersault")
 cancel = segment(game, "_cancel_back_somersault() -> void:", "_start_omni_step")
@@ -49,7 +49,7 @@ assert "buffered_side_kick_side = side" in request
 assert "if side == 2:" in launch and "_start_back_somersault()" in launch
 handoff = segment(game, "_finish_strike_and_release_queued_kick() -> void:", "_advance_attack")
 assert "committed_kick_side = buffered_side_kick_side" in handoff
-assert "_launch_combo_side_kick(committed_kick_flick, committed_kick_side)" in handoff
+assert "_launch_combo_side_kick(committed_kick_flick, committed_kick_side," in handoff
 assert "_melee3_flick_cancel_time()" in finish
 print("PASS: third strike queues DOWN kick and consumes it before Bash or STEP")
 

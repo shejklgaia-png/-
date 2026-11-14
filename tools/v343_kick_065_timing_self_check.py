@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """v343: authored Kick_l and Kick_r nominally last 0.65 seconds."""
 import json,math
+from sera_active_contracts import require_min_version
 from pathlib import Path
 r=Path(__file__).resolve().parents[1]
 m=(r/"scripts/main.gd").read_text()
 rig=(r/"scripts/sera_rig.gd").read_text()
 spec=json.loads((r/"tools/sera_active_specs.json").read_text())
-assert 'config/name="SERA v343"' in (r/"project.godot").read_text()
+assert require_min_version((r/"project.godot").read_text(), 343)
 assert "const SIDE_KICK_MOTION_TIME_MULTIPLIER: float = 13.0 / 6.0" in m
 assert "const SIDE_KICK_DURATION_REFERENCE_DISTANCE: float = 3.0" in m
 assert "const SIDE_KICK_STEP_SPEED: float = 10.0" in m

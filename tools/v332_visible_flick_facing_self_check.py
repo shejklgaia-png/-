@@ -17,9 +17,10 @@ axis=main.split('func _projected_sera_facing()',1)[1].split(
     'func _combo_normal_attack_ready()',1)[0]
 assert '_locked_target_facing_direction()' in axis
 assert '_current_lock_aim_world()' in axis
-assert 'projected_target_line(' in axis
+assert 'camera.unproject_position(aim) - _visual_torso_screen_point()' in axis
 assert 'get_visible_facing_pivot' not in axis
-assert main.count('gesture_screen_forward = _projected_sera_facing()') == 3
+assert main.count('gesture_screen_forward = _projected_sera_facing()') == 0
+assert 'gesture_screen_forward = _touch_to_lock_forward(pos)' in main
 assert 'return INPUT_GESTURES.combo_kick_side(flick, gesture_screen_forward)' in main
 assert 'flick_sector_forward.rotated(' in overlay
 assert 'FLICK_SECTOR_FRONT_COLOR' in overlay and 'FLICK_SECTOR_SIDE_COLOR' in overlay

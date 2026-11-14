@@ -25,9 +25,8 @@ func _run() -> void:
     var original: Quaternion = head.quaternion
     game.set("locked_target_part_id", "")
     var base_axis: Vector2 = game.call("_projected_sera_facing")
-    var base_expected: Vector2 = FLICK.projected_target_line(
-        cam, game.get("camera_player_render_position") + Vector3.UP * 1.05,
-        game.call("_current_lock_aim_world"))
+    var base_expected: Vector2 = (cam.unproject_position(game.call("_current_lock_aim_world"))
+        - (game.call("_visual_torso_screen_point") as Vector2)).normalized()
     if base_axis.distance_to(base_expected) > 0.003:
         _fail("BODY lock axis not derived from SERA-to-target line")
         return
@@ -56,9 +55,12 @@ func _run() -> void:
     rig.call("set_moving", true, false, Vector2.RIGHT, false)
     rig.call("_process", 0.20)
     rig.call("_process", 0.16)
-    var live: Vector2 = game.call("_projected_sera_facing")
-    if live.distance_to(base_axis) > 0.003:
-        _fail("run animation changed lock-based controller")
+    var live: Vector2 = (cam.unproject_position(game.call("_current_lock_aim_world"))
+        - Vector2(365.0, 950.0)).normalized()
+    var torso_axis: Vector2 = (cam.unproject_position(game.call("_current_lock_aim_world"))
+        - (game.call("_visual_torso_screen_point") as Vector2)).normalized()
+    if (game.call("_projected_sera_facing") as Vector2).distance_to(torso_axis) > 0.003:
+        _fail("run fallback no longer follows actual torso-to-lock projection")
         return
     game.call("_begin_drag", Vector2(365.0, 950.0))
     if (game.get("gesture_screen_forward") as Vector2).distance_to(live) > 0.003:

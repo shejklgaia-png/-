@@ -19,6 +19,11 @@ func _run() -> void:
     if bool(game.get("diagnostic_enabled")) or overlay.visible or copy_button.visible:
         _fail("diagnostics are not OFF by default")
         return
+    # v338 keeps the opt-in diagnostic controls hidden in ordinary play.
+    if bool(game.call("_pointer_on_training_test_button", toggle.get_global_rect().get_center())):
+        _fail("hidden diagnostic controls captured gameplay input")
+        return
+    toggle.show()  # Exercise the diagnostic tool independently of its visibility default.
     var player: Node3D = game.get("player")
     var player_before: Vector3 = player.position
     var touch: Vector2 = toggle.get_global_rect().get_center()

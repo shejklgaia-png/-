@@ -1,0 +1,33 @@
+name: Remove resolved failed workflow history
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/sera-resolved-failure-cleanup.yml']
+  workflow_dispatch:
+permissions:
+  actions: write
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete completed failed runs requested by the repository owner
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          runs_file="$(mktemp)"
+          trap 'rm -f "$runs_file"' EXIT
+          # Snapshot the complete list before deleting; deleting while
+          # paginating would shift pages and silently leave older failures.
+          gh api --paginate "repos/$GH_REPO/actions/runs?status=failure&per_page=100" \
+            --jq '.workflow_runs[].id' > "$runs_file"
+          deleted=0
+          while IFS= read -r run_id; do
+            [[ "$run_id" =~ ^[0-9]+$ ]] || continue
+            gh api --method DELETE "repos/$GH_REPO/actions/runs/$run_id"
+            deleted=$((deleted + 1))
+          done < "$runs_file"
+          echo "Deleted $deleted completed failed workflow runs."
+          echo "Removed $deleted completed failed runs requested by the owner." >> "$GITHUB_STEP_SUMMARY"

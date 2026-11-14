@@ -72,7 +72,7 @@ advance=m.split("func _advance_attack(delta: float) -> void:",1)[1].split("func 
 assert "if _is_strike_finisher()" in advance
 assert "strike_index < _strike_stage_count() - 1" in advance
 assert "float(rig.call(\"get_clip_time\")) >= _melee3_flick_cancel_time()" in advance
-assert "_launch_combo_side_kick(committed_kick_flick, committed_kick_side)" in finish
+assert "_launch_combo_side_kick(committed_kick_flick, committed_kick_side," in finish
 flick=m.split("func _request_combo_side_kick(flick: Vector2) -> bool:",1)[1].split("func _launch_combo_side_kick(",1)[0]
 assert "and _is_strike_finisher():" in flick
 hud = (Path(__file__).resolve().parents[1] / "scripts/sera_combat_hud_text.gd").read_text(encoding="utf-8")

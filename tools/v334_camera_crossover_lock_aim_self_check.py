@@ -18,9 +18,10 @@ assert m.count('and absf(camera_shoulder_mirror) >= 0.95:') == 2
 assert 'func _current_lock_aim_world() -> Vector3:' in m
 assert 'var center_world: Vector3 = _current_lock_aim_world()' in m
 assert 'func projected_target_line(' in p
-assert 'return FLICK_DIRECTION_POLICY.projected_target_line(' in m
-assert 'camera, torso, _current_lock_aim_world(), fallback)' in m
-assert 'var committed_flick: bool' in m
+assert 'return FLICK_DIRECTION_POLICY.touch_to_target_forward(' in m
+assert 'camera, origin_screen, _current_lock_aim_world(),' in m
+assert 'var live_locomotion: bool' in m
+assert 'if live_locomotion:' in m
 assert 'touch_ui.call("set_flick_sector_forward", forward, delta, true)' in m
 assert 'return INPUT_GESTURES.combo_kick_side(flick, gesture_screen_forward)' in m
 assert 'return INPUT_GESTURES.step_flick(' in m

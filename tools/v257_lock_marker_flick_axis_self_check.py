@@ -32,8 +32,8 @@ assert '"offscreen": is_offscreen' in LOCK_MODULE
 begin=m.split("func _begin_drag(",1)[1].split("func _analog_stick_direction(",1)[0]
 release=m.split("func _end_drag(",1)[1].split("func _remember_jump_flick_sample(",1)[0]
 step=m.split("func _classify_step_flick(",1)[1].split("func _start_omni_step(",1)[0]
-assert "gesture_screen_forward = _projected_sera_facing()" in begin
-assert "gesture_screen_forward = _projected_sera_facing()" in release
+assert "gesture_screen_forward = _touch_to_lock_forward(pos)" in begin
+assert "gesture_screen_forward =" not in release
 assert "INPUT_GESTURES.step_flick(" in step
 assert "return FLICK_DIRECTION_POLICY.screen_step_direction(displacement)" in SERA_INPUT
 assert "const SECTOR_COUNT: int = 4" in p

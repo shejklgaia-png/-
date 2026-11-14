@@ -128,13 +128,15 @@ func _run() -> void:
         _fail("side-kick fallback unavailable")
         return
     game.set("step_kick_side_request",0)
-    if absf(float(game.get("step_arc_length"))-3.0)>0.0001:
+    var kick_spec: Dictionary = (JSON.parse_string(FileAccess.get_file_as_string(
+        "res://tools/sera_active_specs.json")) as Dictionary)["side_kick"]
+    if absf(float(game.get("step_arc_length"))-float(kick_spec["distance_m"]))>0.0001:
         _fail("side kick distance was changed")
         return
-    if absf(float(game.get("step_speed_current"))-10.0)>0.0001:
+    if absf(float(game.get("step_speed_current"))-float(kick_spec["speed_mps"]))>0.0001:
         _fail("side kick animation speed was changed")
         return
-    if absf(float(game.get("step_duration_current"))-0.60)>0.0001:
+    if absf(float(game.get("step_duration_current"))-float(kick_spec["nominal_duration_s"]))>0.0001:
         _fail("side kick original contact timing was changed")
         return
     if (rig.call("_step_dodge_lean_rotation",1.0) as Quaternion).angle_to(

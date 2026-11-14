@@ -33,7 +33,7 @@ func _run() -> void:
     var resources: Label = game.get("resources_label")
     var lock_left: Button = game.get("lock_switch_left_button")
     var lock_right: Button = game.get("lock_switch_right_button")
-    if hud == null or panel == null or drag == null or handed == null \
+    if hud == null or panel == null or drag == null \
             or nexus == null or state == null or hp == null or fill == null \
             or vitals == null or step == null or detail == null \
             or resources == null or lock_left == null or lock_right == null:
@@ -52,25 +52,29 @@ func _run() -> void:
             or vitals.mouse_filter != Control.MOUSE_FILTER_IGNORE \
             or step.mouse_filter != Control.MOUSE_FILTER_IGNORE \
             or detail.mouse_filter != Control.MOUSE_FILTER_IGNORE \
-            or handed.mouse_filter != Control.MOUSE_FILTER_STOP \
-            or nexus.mouse_filter != Control.MOUSE_FILTER_STOP \
+            or nexus.mouse_filter != Control.MOUSE_FILTER_IGNORE \
             or lock_left.mouse_filter != Control.MOUSE_FILTER_IGNORE \
             or lock_right.mouse_filter != Control.MOUSE_FILTER_IGNORE:
         _fail("read-only/controller or interactive button mouse filtering changed")
         return
-    if not handed.pressed.is_connected(Callable(game, "_toggle_handedness")) \
-            or not nexus.pressed.is_connected(Callable(game, "_request_return_to_nexus")):
+    if handed != null or not nexus.pressed.is_connected(Callable(game, "_request_return_to_nexus")):
         _fail("in-game settings and Nexus callbacks no longer owned by main")
         return
 
     # Verify the original draw order, including both clickable buttons
     # BETWEEN title and state, and read-only resources BEFORE STEP telemetry.
+    if panel.visible or not (game.get("clean_training_hud") as Control).visible \
+            or nexus.get_parent() != hud:
+        _fail("v338 active HUD or standalone navigation changed")
+        return
+    panel.show()  # Validate legacy formatters only while explicitly visible.
+    game.call("_refresh_step_status_ui")
     var children: Array[Node] = panel.get_children()
     var names: Array[String] = []
     for child in children:
         names.append(child.name)
     var correct: Array[String] = [
-        "Accent", "CombatTitle", "HandednessToggle", "ReturnToNexus",
+        "Accent", "CombatTitle",
         "ActionState", "TargetHpLabel", "TargetHpBackground", "TargetHpFill",
         "CombatVitals",
     ]
@@ -117,8 +121,6 @@ func _run() -> void:
     # intended controls are interactive, and raw lock buttons retain their
     # manual-screen switching entry points.
     if game.call("_pointer_on_step_hud", Vector2(1.0, 1.0)) \
-            or not game.call("_pointer_on_step_hud",
-                handed.get_global_rect().get_center()) \
             or not game.call("_pointer_on_nexus_button",
                 nexus.get_global_rect().get_center()):
         _fail("HUD touch exclusion changed")

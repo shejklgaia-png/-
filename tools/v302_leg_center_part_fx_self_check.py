@@ -34,7 +34,10 @@ for start,end in (
     section=main.split(start,1)[1].split(end,1)[0]
     assert 'hit_flash_remaining = HIT_FLASH_SECONDS' not in section
     assert '_apply_target_part_damage(' in section
-    assert 'impact_origin = _part_hit_surface(' in section
+    assert '_show_target_damage_popup(' in section
+    assert '_part_hit_surface(hit_part,' in section
+    popup = main.split('func _show_target_damage_popup(', 1)[1].split('func _refresh_hp_bar(', 1)[0]
+    assert 'impact_origin = hit_world' in popup
     assert ('_spawn_sparks(impact_origin)' in section
             or 'hit_burst.call("start_burst", impact_origin,' in section)
 

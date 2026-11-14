@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 """v340: remove arc, preserve hit keys, start 4m original-flick exit NEXT tick."""
+from sera_active_contracts import require_min_version
 from pathlib import Path
 import json,math
 r=Path(__file__).resolve().parents[1]
 m=(r/"scripts/main.gd").read_text()
 rig=(r/"scripts/sera_rig.gd").read_text()
 spec=json.loads((r/"tools/sera_active_specs.json").read_text())
-assert 'config/name="SERA v343"' in (r/"project.godot").read_text()
+assert require_min_version((r/"project.godot").read_text(), 343)
 assert spec["side_kick"]["post_hit_only"] is True
 assert spec["side_kick"]["distance_m"]==4
 assert spec["side_kick"]["duration_reference_distance_m"]==3

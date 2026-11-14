@@ -36,3 +36,11 @@ def require_close(actual: float, expected: float, label: str) -> None:
     if not math.isfinite(actual) or not math.isclose(actual, expected, abs_tol=1e-6):
         raise AssertionError(f"{label}: runtime={actual:g}, approved={expected:g}; "
                              "change code and active spec together only when intended")
+
+
+def require_min_version(project: str, minimum: int) -> bool:
+    """Require a valid project title and a release containing this contract."""
+    matches = re.findall(r'^config/name="SERA v([1-9][0-9]*)"$', project, re.MULTILINE)
+    if len(matches) != 1 or int(matches[0]) < minimum:
+        raise AssertionError(f"Expected one SERA project version >= {minimum}")
+    return True

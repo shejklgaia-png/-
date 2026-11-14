@@ -23,3 +23,15 @@
 - CIのGodot初回インポート負荷はGitHub Actionsのキャッシュ（アセット内容のハッシュでキーを分離）で抑える。初回・素材変更直後はコールドインポートとなる。
 
 **この変更では**ゲーム挙動・モデル/モーション正本を変更しない。将来のモデル参照統一は別途、依存確認と実機確認を行う。
+
+## v354 Bittaran lock regression rule
+- Front/rear AUTO uses the current final-IK shin pair midpoints in world XZ. Do not rotate a saved standing boundary with the chassis: planted feet lag yaw.
+- Target root motion/bob must finish before `_finalize_target_pose`, which completes contact IK/part sync before main's collisions and AUTO. Do not move IK back after AUTO.
+- Lock regression expectations must come independently from actual post-IK shin Areas. Exercise full scene physics and both traversal directions; a sweep constructed from the selector's own calibration cannot prove visible boundary correctness.
+
+## 2026-11-14：履歴テストの更新時に保持する条件
+- プロジェクト名の検査は最低対応版。特定版への完全一致で将来の版を拒否しない。承認済み数値は既存のactive_specsを参照し、現在の実装値を期待値として自動取得しない。
+- v337/v339以後、Bash/蹴りの方向は指開始点から非クランプのロック投影へ向かう。ガード/攻撃フリックでは開始時方向を保持し、通常のRUN/BOOST時のみ実時間更新する。通常STEPは画面方向の連続入力を維持。
+- v340以後、左右蹴りは円弧を作らず、2段目ヒットの次フレームから受理した方向へ直線移動。v341以後、サマーソルトの空中曲線末尾と着地後退の速度が連続する。
+- v338以後、旧HUDは非表示。旧フォーマッタ検査でのみ明示表示し、通常の表示と入力領域は現行HUD検査で保証する。
+- Godot検査の保存領域はテスト名ごとの固定ディレクトリを再利用しない。実行ごとに新規作成・終了時削除し、再実行でも装備・設定の初期条件を一定にする。

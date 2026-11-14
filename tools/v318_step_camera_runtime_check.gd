@@ -61,9 +61,10 @@ func _run() -> void:
     if not bool(game.call("_start_omni_step", Vector2.RIGHT)):
         _fail("normal right dodge could not start")
         return
+    var spec: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://tools/sera_active_specs.json"))
     var launch: Vector3 = player.position - start
-    if absf(Vector2(launch.x, launch.z).length() - 0.3) > 0.06:
-        _fail("launch is not 0.3m")
+    if absf(Vector2(launch.x, launch.z).length() - float(spec["ordinary_step"]["launch_warp_m"])) > 0.06:
+        _fail("launch differs from approved active specification")
         return
     if absf(float(game.get("step_arc_length")) - 4.0) > 0.0001:
         _fail("dodge is not a total 4m")
