@@ -51,6 +51,9 @@ var lock_front_mid_local: Vector3 = Vector3.ZERO
 var lock_rear_mid_local: Vector3 = Vector3.ZERO
 var lock_halfway_initialized: bool = false
 var combat_shapes: Dictionary = {}
+## Each authored HEAD mesh has its own convex physical shape. The old
+## single, oversized world-axis-aligned head solid is not used.
+var head_mesh_solids: Array[Dictionary] = []
 var fx_meshes: Dictionary = {}
 var fx_timers: Dictionary = {}
 var fx_durations: Dictionary = {}
@@ -118,7 +121,15 @@ func setup_bittaran(model: Node3D, moving_body: AnimatableBody3D) -> bool:
             moving_body.remove_child(child)
             child.queue_free()
     combat_shapes.clear()
+    head_mesh_solids.clear()
     for id in ["", "head", "leg_fl", "leg_fr", "leg_rl", "leg_rr"]:
+        if id == "head":
+            # The HEAD is a compound of actual Blockbench mesh pieces,
+            # NOT one world-space box inflated by head yaw/pitch.
+            if not _install_head_mesh_solids(moving_body):
+                push_error("Bittaran: no valid HEAD mesh colliders")
+                return false
+            continue
         var solid := CollisionShape3D.new()
         solid.name = "BittaranSolid_" + ("BODY" if id.is_empty() else id)
         solid.shape = BoxShape3D.new()
@@ -144,6 +155,104 @@ func setup_bittaran(model: Node3D, moving_body: AnimatableBody3D) -> bool:
     sync_bittaran_parts()
     _calibrate_front_rear_lock_midpoint()
     return lock_halfway_initialized
+
+func _head_mesh_vertices(mesh: MeshInstance3D) -> PackedVector3Array:
+    # The Blockbench renderer builds each visible element as an ArrayMesh.
+    # Reuse those triangles; no separate approximate authoring geometry.
+    var points := PackedVector3Array()
+    if mesh == null or mesh.mesh == null:
+        return points
+    for surface in range(mesh.mesh.get_surface_count()):
+        var arrays: Array = mesh.mesh.surface_get_arrays(surface)
+        if arrays.size() > Mesh.ARRAY_VERTEX:
+            var positions: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+            points.append_array(positions)
+    return points
+
+
+func _collect_head_meshes(node: Node3D,
+        meshes: Array[MeshInstance3D]) -> void:
+    for child in node.get_children():
+        if child is MeshInstance3D:
+            var mesh: MeshInstance3D = child as MeshInstance3D
+            if mesh.mesh != null:
+                meshes.append(mesh)
+        elif child is Node3D and not child is Area3D:
+            _collect_head_meshes(child as Node3D, meshes)
+
+
+func _install_head_mesh_solids(body: AnimatableBody3D) -> bool:
+    var head: Node3D = bone_nodes.get("head") as Node3D
+    if head == null:
+        return false
+    var meshes: Array[MeshInstance3D] = []
+    _collect_head_meshes(head, meshes)
+    for mesh in meshes:
+        var points: PackedVector3Array = _head_mesh_vertices(mesh)
+        if points.is_empty():
+            continue
+        var solid := CollisionShape3D.new()
+        solid.name = "BittaranSolid_head_mesh_" + str(head_mesh_solids.size())
+        var local_offset := Transform3D.IDENTITY
+        if points.size() >= 4:
+            var convex := ConvexPolygonShape3D.new()
+            convex.points = points
+            convex.margin = 0.005
+            solid.shape = convex
+        else:
+            # Rare planar/degenerate decorations still get a localized
+            # physical box rather than restoring a huge all-head collider.
+            var bounds: AABB = mesh.mesh.get_aabb()
+            if not bounds.has_volume():
+                continue
+            var fallback := BoxShape3D.new()
+            fallback.size = bounds.size
+            solid.shape = fallback
+            local_offset.origin = bounds.get_center()
+        body.add_child(solid)
+        solid.global_transform = mesh.global_transform * local_offset
+        head_mesh_solids.append({
+            "mesh": mesh,
+            "solid": solid,
+            "local_offset": local_offset
+        })
+    if head_mesh_solids.is_empty():
+        return false
+    # Keep the legacy lookup key for other hit/lock consumers. Only the
+    # HEAD solid itself is split; all existing shin/body shapes are intact.
+    combat_shapes["head"] = head_mesh_solids[0]["solid"]
+    return true
+
+
+func get_head_mesh_blade_contact(from_world: Vector3,
+        to_world: Vector3, blade_radius_world: float) -> Variant:
+    # Segment tests are in each mesh's own pose/scale space. The broad
+    # boss HEAD AABB (including large empty corners) is not a valid hit.
+    # Grow only by the sword's existing thickness so near-edge strikes
+    # stay forgiving without enlarging the enemy's visible head.
+    var nearest: float = INF
+    var contact: Variant = null
+    for record in head_mesh_solids:
+        var mesh: MeshInstance3D = record["mesh"]
+        if not is_instance_valid(mesh) or mesh.mesh == null:
+            continue
+        var scale: Vector3 = mesh.global_basis.get_scale().abs()
+        var smallest_scale: float = maxf(
+            minf(scale.x, minf(scale.y, scale.z)), 0.001)
+        var source: AABB = mesh.mesh.get_aabb().grow(
+            maxf(0.0, blade_radius_world) / smallest_scale)
+        var local_a: Vector3 = mesh.to_local(from_world)
+        var local_b: Vector3 = mesh.to_local(to_world)
+        var local_hit: Variant = source.intersects_segment(local_a, local_b)
+        if local_hit == null:
+            continue
+        var world_hit: Vector3 = mesh.to_global(local_hit)
+        var distance: float = from_world.distance_squared_to(world_hit)
+        if distance < nearest:
+            nearest = distance
+            contact = world_hit
+    return contact
+
 
 func _material_records(root: Node3D, descend: bool) -> Array[Dictionary]:
     var records: Array[Dictionary] = []
@@ -610,6 +719,17 @@ func sync_bittaran_parts() -> void:
         var collision: CollisionShape3D = area.get_node("CameraOnlyBox")
         var box: BoxShape3D = collision.shape
         box.size = lock_size
+        if id == "head":
+            # Every convex/element collider follows the authored HEAD mesh
+            # orientation, including the pitch when falling and yaw when
+            # tracking SERA. No changes to head/knee animation logic.
+            for record in head_mesh_solids:
+                var solid: CollisionShape3D = record["solid"]
+                var piece: MeshInstance3D = record["mesh"]
+                var offset: Transform3D = record["local_offset"]
+                solid.set_deferred("global_transform",
+                    piece.global_transform * offset)
+            continue
         var physical: CollisionShape3D = combat_shapes[id]
         var box_solid: BoxShape3D = physical.shape
         box_solid.size = bounds.size

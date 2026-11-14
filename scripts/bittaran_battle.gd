@@ -623,6 +623,17 @@ func _target_hit_aabb() -> AABB:
         return target_parts.call("get_body_hit_aabb")
     return super._target_hit_aabb()
 
+
+func _blade_contact(from_pt: Vector3, to_pt: Vector3) -> Variant:
+    # HEAD attack contact follows each visible mesh element's rotated
+    # geometry, rather than the empty corners of the old axis-aligned box.
+    # Keep the original lock-exclusive rules and sword thickness.
+    if locked_target_part_id == "head" and _locked_part_hit_volume_available() \
+            and target_parts != null:
+        return target_parts.call("get_head_mesh_blade_contact",
+            from_pt, to_pt, BLADE_THICKNESS)
+    return super._blade_contact(from_pt, to_pt)
+
 func _current_lock_aim_world() -> Vector3:
     if target_parts != null and target != null:
         if not locked_target_part_id.is_empty():

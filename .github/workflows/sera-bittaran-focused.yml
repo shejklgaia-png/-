@@ -48,6 +48,7 @@ on:
       - 'tools/v373_bittaran_*.gd'
       - 'tools/v374_bittaran_*.gd'
       - 'tools/v375_bittaran_*.gd'
+      - 'tools/v376_bittaran_*.gd'
       - 'tools/rebuild_bittaran_data.py'
       - 'scripts/command_nexus.gd'
       - 'project.godot'
@@ -584,3 +585,20 @@ jobs:
             exit 1
           fi
           grep -q 'GODOT_V375_BITTARAN_HEAD_STABILITY_PASS' "$log"
+
+      - name: Verify mesh-fitted HEAD collision shapes and sword contact
+        run: |
+          set -euo pipefail
+          log="$RUNNER_TEMP/bittaran-v376.log"
+          status=0
+          "$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" --headless --path . --script tools/v376_bittaran_head_mesh_hitboxes_runtime_check.gd > "$log" 2>&1 || status=$?
+          cat "$log"
+          if [ "$status" -ne 0 ]; then
+            echo "::error::Bittaran v376 head mesh hitbox runtime failed with code $status"
+            exit "$status"
+          fi
+          if grep -E 'SCRIPT ERROR|Parse Error|Compile Error|ERROR: Failed to load|Invalid call|V376_BITTARAN_HEAD_MESH_FAIL' "$log"; then
+            echo "::error::Bittaran v376 head collider mismatch"
+            exit 1
+          fi
+          grep -q 'GODOT_V376_BITTARAN_HEAD_MESH_PASS' "$log"
