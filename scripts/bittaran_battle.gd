@@ -410,27 +410,24 @@ func _build_enemy_shooter() -> void:
 func _advance_target_motion(delta: float) -> void:
     if target == null or player == null or bittaran_ai == null:
         return
-    # Keep the windup and fallen hold stationary. On the EXACT tick
-    # the physical stand-up begins, rotate at full stationary-turn speed
-    # (no speed ramp). Continue yaw during the final 0.24s Idle settle.
-    # Turn/Approach clips and translation wait until locomotion_ready().
-    var recovery_motion_locked: bool = (bittaran_foot_ik != null
-        and not bool(bittaran_foot_ik.call("locomotion_ready")))
-    var other_frozen: bool = (
+    # The fall and its 0.60s anticipation remain motion-locked, but
+    # Turn/Approach animation, root yaw and approaching movement must all
+    # begin on the SAME tick that the physical stand-up first starts.
+    # IK advances after AI, so preview its next fall/recovery timer tick.
+    var rising_now: bool = (bittaran_foot_ik != null
+        and bool(bittaran_foot_ik.call("standup_turn_enabled", delta)))
+    var recovered: bool = (bittaran_foot_ik == null
+        or bool(bittaran_foot_ik.call("locomotion_ready")))
+    var recovery_motion_locked: bool = not (rising_now or recovered)
+    var frozen: bool = (
         not target_move_enabled or target_hp <= 0
         or stagger_remaining > 0.0 or part_break_remaining > 0.0
-        or down_remaining > 0.0 or training_ko_remaining > 0.0)
-    var result: Dictionary
-    if recovery_motion_locked and not other_frozen:
-        var turn_enabled: bool = bool(bittaran_foot_ik.call(
-            "standup_turn_enabled", delta))
-        result = bittaran_ai.call("advance_recovery_turn", delta,
-            target.position, target.rotation.y, player.position,
-            turn_enabled)
-    else:
-        result = bittaran_ai.call("advance", delta, target.position,
-            target.rotation.y, player.position,
-            other_frozen or recovery_motion_locked)
+        or down_remaining > 0.0 or training_ko_remaining > 0.0
+        or recovery_motion_locked)
+    # Use the normal AI branch to choose Turn, Approach, or Idle. Do not
+    # substitute the v365 Idle-only recovery yaw controller here.
+    var result: Dictionary = bittaran_ai.call("advance", delta,
+        target.position, target.rotation.y, player.position, frozen)
     target.position = result["position"]
     target.rotation.y = float(result["yaw"])
     bittaran_motion = str(result["motion"])
