@@ -162,6 +162,39 @@ func available_attack_feet() -> Dictionary:
         result[LEG_PART_IDS[i]] = legs[i]["anchor"]
     return result
 
+func attack_foot_aabb() -> AABB:
+    # The STOMP's physical foot strike is independent of its 1.5x
+    # ground shockwave. Only actual attached foot meshes count here.
+    if attack_pose.is_empty():
+        return AABB()
+    var i: int = LEG_PART_IDS.find(str(attack_pose.get("id", "")))
+    if i < 0 or i >= legs.size():
+        return AABB()
+    var foot: Node3D = legs[i]["foot"]
+    var first: bool = true
+    var low: Vector3 = Vector3.ZERO
+    var high: Vector3 = Vector3.ZERO
+    for child in foot.get_children():
+        if not child is MeshInstance3D:
+            continue
+        var piece: MeshInstance3D = child as MeshInstance3D
+        if piece.mesh == null:
+            continue
+        var bounds: AABB = piece.mesh.get_aabb()
+        for j in range(8):
+            var vertex: Vector3 = piece.to_global(bounds.get_endpoint(j))
+            if first:
+                low = vertex
+                high = vertex
+                first = false
+            else:
+                low = low.min(vertex)
+                high = high.max(vertex)
+    if first:
+        return AABB()
+    return AABB(low, high - low)
+
+
 func attack_contact_world() -> Vector3:
     if attack_pose.is_empty():
         return Vector3.ZERO
