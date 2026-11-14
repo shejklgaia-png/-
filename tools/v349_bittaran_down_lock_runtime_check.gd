@@ -94,7 +94,7 @@ func _run() -> void:
         _fail("downed manual BODY lock was rejected")
         return
     var duration: float = 0.0
-    for frame in range(200):
+    for frame in range(250):
         var dt: float = 1.0 / 60.0
         duration += dt
         (battle.get("bittaran_rig") as Node3D).call("set_motion", "Idle", dt)
