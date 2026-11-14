@@ -47,6 +47,16 @@ func _run() -> void:
             AABB(nose.position + Vector3.UP * 1.0, nose.size), surfaces)["leg_id"]) != "":
         _fail("airborne HEAD incorrectly rests on distant limb")
         return
+    # A 0.17s chassis fall can put the entire nose BELOW a narrow shin
+    # between physics samples. The last visible nose bottom proves that
+    # it crossed the real top surface from above, not a pre-existing AABB.
+    var fast_fall := AABB(Vector3(-0.45, 0.25, -0.4), nose.size)
+    var swept: Dictionary = SUPPORT.find_contact(
+        fast_fall, surfaces, "", nose)
+    if str(swept["leg_id"]) != "leg_fl" \
+            or float(swept["penetration"]) < 1.0:
+        _fail("fast fall tunneled through forearm: " + str(swept))
+        return
 
     var battle: Node3D = load("res://scenes/bittaran_battle.tscn").instantiate()
     root.add_child(battle)
@@ -111,6 +121,11 @@ func _run() -> void:
     center.y = before.position.y + 0.03
     fixture.global_transform = Transform3D(Basis.IDENTITY, center)
 
+    # Hold this synthetic forearm contact surface at its world position
+    # after every IK solve. The real model has planted world-space toes;
+    # an intentionally elevated piece on the test FOOT must not inherit
+    # reach-limit drift and move away from the incoming head.
+    var contact_surface_world: Vector3 = center
     # The descending head should be stopped at the TOP of the foreleg,
     # while keeping the neutral downed head and planted sole constraints.
     var max_pitch_reduction: float = 0.0
@@ -118,7 +133,17 @@ func _run() -> void:
     var contacted: bool = false
     for frame in range(10):
         model.call("set_motion", "Idle", DT)
-        battle.call("_finalize_target_pose", DT)
+        # Reproduce the complete runtime order but anchor the TEST mesh
+        # at the same world contact surface after legs finish their IK.
+        head.position = battle.get("boss_head_default_position")
+        ik.call("advance_ik", DT, "Idle")
+        battle.call("_aim_bittaran_head", DT)
+        fixture.global_transform = Transform3D(
+            Basis.IDENTITY, contact_surface_world)
+        battle.call("_resolve_downed_head_leg_support", DT)
+        parts.call("sync_bittaran_parts")
+        battle.set("boss_previous_head_nose",
+            parts.call("get_head_swing_aabb"))
         var owner: String = str(battle.get("boss_head_supported_leg"))
         var pitched: float = float(ik.get("head_support_pitch_reduction"))
         var slide: float = float(battle.get("boss_head_contact_translation_world"))
