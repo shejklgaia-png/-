@@ -145,7 +145,51 @@ func _run() -> void:
     if absf(head_after - head_before) > LIMIT or bool(ik.call("break_reaction_active")):
         _fail("boss did not quickly recover original stance")
         return
-    print("GODOT_V348_BITTARAN_PARTS_PASS: 6 locks, exclusive hit FX, shin break skid="
+    # Independently break each of the remaining three shins. Every bone
+    # mapping must move *its own* foot, not a shared or mirrored wrong leg.
+    var remaining: Dictionary = {
+        "leg_fr": "FrontLeg_R",
+        "leg_rl": "RearLeg_L",
+        "leg_rr": "RearLeg_R"
+    }
+    for broken_id in remaining:
+        parts.call("reset_parts")
+        rig.call("apply_pose", "Wait", 0.0)
+        ik.call("reset")
+        parts.call("sync_bittaran_parts")
+        var selected_leg_name: String = str(remaining[broken_id])
+        var selected_anchor := Vector3.ZERO
+        for leg in ik.get("legs"):
+            if (leg["upper"] as Node3D).name == selected_leg_name:
+                selected_anchor = leg["anchor"]
+        battle.set("locked_target_part_id", broken_id)
+        var next_hit: Dictionary = battle.call("_apply_target_part_damage",
+            "melee", 1, 240.0, 0.0, 0.0)
+        if not bool(next_hit.get("broken", false)):
+            _fail("other shin was not breakable: " + broken_id)
+            return
+        var skid: float = 0.0
+        var next_lowest: float = INF
+        for tick in range(85):
+            var dt: float = 1.0 / 60.0
+            rig.call("set_motion", "Idle", dt)
+            ik.call("advance_ik", dt, "Idle")
+            parts.call("sync_bittaran_parts")
+            next_lowest = minf(next_lowest,
+                (parts.call("get_part_aim_world", "head") as Vector3).y)
+            for leg in ik.get("legs"):
+                if (leg["upper"] as Node3D).name == selected_leg_name:
+                    var a: Vector3 = leg["anchor"]
+                    skid = maxf(skid, Vector2(
+                        a.x - selected_anchor.x, a.z - selected_anchor.z).length())
+        if skid < 0.5 or next_lowest < 1.12 or next_lowest > 1.55:
+            _fail("wrong sliding leg/head height " + broken_id + " skid="
+                + str(skid) + " head=" + str(next_lowest))
+            return
+        if bool(ik.call("break_reaction_active")):
+            _fail("reaction failed to recover for " + broken_id)
+            return
+    print("GODOT_V348_BITTARAN_PARTS_PASS: all 4 shin breaks, 6 locks, isolated FX, skid="
         + str(farthest) + " head before/min/after="
         + str(head_before) + "/" + str(lowered) + "/"
         + str(head_after) + " max IK error=" + str(highest_error))
