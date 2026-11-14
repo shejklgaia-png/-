@@ -15,13 +15,12 @@ func _run() -> void:
     if absf(IK.HEAD_KNEE_MAX_BEND - 0.30) > 0.0001:
         _fail("head avoidance must not exceed 30% lateral knee bend")
         return
-    if IK.HEAD_KNEE_ALLOWED_NEW_OVERLAP_M3 < 0.030 or (
-            IK.HEAD_KNEE_AUTHORED_OVERLAP_M3 < 0.050):
-        _fail("subtle head overlap must be accepted before knee moves")
+    if absf(IK.HEAD_KNEE_ALLOWED_PENETRATION_METERS - 0.30) > 0.00001:
+        _fail("knee must permit 30cm of head/leg penetration")
         return
-    if IK.HEAD_KNEE_MIN_BENEFIT_M3 < 0.004 or (
-            IK.HEAD_KNEE_BEND_PENALTY_M3 < 0.010):
-        _fail("knee movement must be strongly discouraged for tiny gains")
+    if IK.HEAD_KNEE_MIN_BENEFIT_METERS < 0.025 or (
+            IK.HEAD_KNEE_BEND_PENALTY_METERS < 0.080):
+        _fail("knee movement must be discouraged for minor depth gains")
         return
     if absf(IK.STEP_DURATION_SECONDS - 0.58) > 0.00001:
         _fail("original swing duration changed")
