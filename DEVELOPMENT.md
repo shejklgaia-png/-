@@ -2530,3 +2530,10 @@
 - AI凍結中は`BittaranAI.advance(..., frozen=true)`からIdleを選び、ボスのXY移動・Yaw回転・`Turn`/`Approach`クリップの再生を禁止。凍結が終われば距離／視野判定により従来どおり旋回・接近を自動再開する。
 - `tools/v362_bittaran_standup_motion_gate_runtime_check.gd`で、1脚破壊・4脚破壊の両方について、倒れる前にTurn/Approachが有効であること、倒れている間と復帰直後のIdle維持、胴体正常姿勢での0.24秒静止、復帰後のAIアニメーションと移動の再開をGodot本体で確認する。
 - 脚の横倒し頭接触、頭部優先ロック、モデル元データ、コンボ操作・カメラ・2.5/6秒の倒れ時間は変更しない。
+
+
+## 2026-11-14 — SERA v363 起き上がり開始から滑らかに旋回／70％姿勢復帰で頭部追従
+- `bittaran_foot_ik.gd::standup_pose_fraction()`を復帰時間の三次イージング（立ち上がり姿勢・脚の戻りと同一）から算出し、頭部・旋回の共通進捗とする。予備動作0.60秒、ダウン保持、2.5秒／6秒全時間と、終了後0.24秒Idle保持は変更しない。
+- ダウン中の頭部関節は原則デフォルト角度固定。姿勢復帰率70％到達から残り30％で追尾重みを0→1のsmoothstepで増加させ、既存の頭部角速度・脚装甲貫通チェックを適用したままゆっくり追従へ遷移する。
+- `bittaran_ai.gd::advance_recovery_turn()`を追加。実際の起き上がり開始から旋回Yawのみを最大34°/s×姿勢復帰率で滑らかに増大。倒れている間と予備動作中は0、復帰後0.24秒Idle保持中は通常の旋回速度。復帰完了まで`Turn`/`Approach`アニメーションと前進移動は引き続き停止。AI通常復帰後は従来の旋回／接近選択を適用する。
+- `tools/v362_bittaran_standup_motion_gate_runtime_check.gd`を更新し、前進禁止・Idleアニメーションの不変条件は維持しつつ、仕様変更された復帰Yawの速度上限を確認。`tools/v363_bittaran_rise_turn_head_runtime_check.gd`で1脚・4脚ダウン、頭部70％以前の固定／以降の滑らかな追従、初期からのYaw漸増、復帰後通常Turn再開をGodot runtimeで確認。Android実機の描画・操作は未検証。
