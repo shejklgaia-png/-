@@ -281,26 +281,35 @@ func _resolve_downed_head_leg_support() -> void:
     var hit: Dictionary = HEAD_SUPPORT.find_contact(
         nose, boxes, boss_head_supported_leg)
     var supported: String = str(hit["leg_id"])
-    # One penetration correction may slightly shift articulated elbows.
-    # Re-sample the real mesh contacts after IK and apply a second small
-    # correction, with no additional advancement of fall/animation time.
-    for correction_pass in range(2):
-        if supported.is_empty():
-            break
-        var penetration: float = float(hit["penetration"])
-        if penetration <= 0.0001:
-            break
-        var raised: float = float(bittaran_foot_ik.call(
-            "apply_head_leg_support_lift", penetration))
-        if raised <= 0.00001:
-            break
+    var full_pitch: float = float(
+        bittaran_foot_ik.get("break_nose_dip_radians"))
+    if not supported.is_empty() and float(hit["penetration"]) > 0.0 \
+            and full_pitch > 0.0001:
+        # Search for the DEEPEST legal body dip. An arm that was beneath
+        # HEAD during a turn becomes a collision stop, not something that
+        # follows a raised torso upward. Each probe re-solves four IK feet.
+        var safe_pitch: float = 0.0
+        var bad_pitch: float = full_pitch
+        for i in range(8):
+            var candidate: float = (safe_pitch + bad_pitch) * 0.5
+            bittaran_foot_ik.call("apply_head_support_pitch", candidate)
+            var candidate_nose: AABB = target_parts.call(
+                "get_head_swing_aabb")
+            var supporting: Dictionary = {supported:
+                target_parts.call("get_leg_support_mesh_boxes", supported)}
+            var test_hit: Dictionary = HEAD_SUPPORT.find_contact(
+                candidate_nose, supporting, supported)
+            if float(test_hit["penetration"]) > 0.02:
+                bad_pitch = candidate
+            else:
+                safe_pitch = candidate
+        bittaran_foot_ik.call("apply_head_support_pitch", safe_pitch)
         nose = target_parts.call("get_head_swing_aabb")
         for id in boxes:
             boxes[id] = target_parts.call("get_leg_support_mesh_boxes", id)
         hit = HEAD_SUPPORT.find_contact(nose, boxes, supported)
-        if str(hit["leg_id"]).is_empty():
-            break
-        supported = str(hit["leg_id"])
+        if not str(hit["leg_id"]).is_empty():
+            supported = str(hit["leg_id"])
     boss_head_supported_leg = supported
     target_parts.call("set_head_support_leg", supported)
 
