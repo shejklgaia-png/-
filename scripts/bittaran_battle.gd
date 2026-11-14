@@ -312,10 +312,18 @@ func _build_enemy_shooter() -> void:
 func _advance_target_motion(delta: float) -> void:
     if target == null or player == null or bittaran_ai == null:
         return
+    # IK owns the entire collapse and stand-up, including the final
+    # 0.24s neutral Idle settle. Do NOT let the AI select a Turn/Approach
+    # clip while the body is down or its feet are still standing back up.
+    # The v361 under-head supporting leg also remains protected until
+    # the pose has fully recovered.
+    var recovery_motion_locked: bool = (bittaran_foot_ik != null
+        and not bool(bittaran_foot_ik.call("locomotion_ready")))
     var frozen: bool = (
         not target_move_enabled or target_hp <= 0
         or stagger_remaining > 0.0 or part_break_remaining > 0.0
-        or down_remaining > 0.0 or training_ko_remaining > 0.0)
+        or down_remaining > 0.0 or training_ko_remaining > 0.0
+        or recovery_motion_locked)
     var result: Dictionary = bittaran_ai.call("advance", delta,
         target.position, target.rotation.y, player.position, frozen)
     target.position = result["position"]

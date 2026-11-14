@@ -27,6 +27,10 @@ const LEG_BREAK_FRONT_REACH_METERS: float = 0.24
 const GROUND_HOVER_THRESHOLD_METERS: float = 0.045
 const GROUND_CORRECTION_MAX_PER_TICK_METERS: float = 0.18
 const LEG_BREAK_FALL_SECONDS: float = 0.17
+# After the last recovery frame, finish one complete Idle pose/blend
+# before Turn/Approach is permitted. Matches BittaranRig.BLEND_SECONDS.
+const POST_DOWN_IDLE_SETTLE_SECONDS: float = 0.24
+const POST_DOWN_UPRIGHT_TOLERANCE_WORLD_METERS: float = 0.06
 const LEG_BREAK_RECOVER_START_SECONDS: float = 2.10
 const ALL_LEGS_BREAK_REACTION_SECONDS: float = 6.0
 const ALL_LEGS_BREAK_RECOVER_START_SECONDS: float = 5.40
@@ -63,6 +67,7 @@ var cooldown: float = 0.0
 var rest_actor_local_y: float = 0.0
 var break_elapsed: float = -1.0
 var windup_elapsed: float = -1.0
+var post_down_idle_remaining: float = 0.0
 var front_anchor_rest: Dictionary = {}
 var front_extension_direction: Dictionary = {}
 var ground_correction_world: float = 0.0
@@ -204,6 +209,7 @@ func reset() -> void:
         chassis_bone.quaternion = rest_chassis_rotation
     break_elapsed = -1.0
     windup_elapsed = -1.0
+    post_down_idle_remaining = 0.0
     ground_correction_world = 0.0
     front_anchor_rest.clear()
     front_extension_direction.clear()
@@ -355,6 +361,9 @@ func start_leg_break_slide(id: String, head_world_y: float,
     }
     if not id_to_name.has(id):
         return
+    # Any new collapse invalidates the last stand-up handoff, including
+    # another broken leg during the previous recovery/Idle-settle phase.
+    post_down_idle_remaining = 0.0
     # A second leg can break while the boss is already down. Refresh the
     # down timer but never snap an already fallen chassis UP into a windup.
     var already_downed: bool = break_elapsed >= 0.0
@@ -512,6 +521,13 @@ func _resolve_head_on_leg_contact() -> void:
         absf(head_box.position.y - contact_y) <= 0.065)
 
 
+func locomotion_ready() -> bool:
+    # Read BEFORE physics IK advances: release only after the entire down
+    # duration, all lower-body support and the explicit Idle settle finish.
+    # Ordinary RUN/TURN leg gait must remain possible once released.
+    return ready and not break_reaction_active()         and post_down_idle_remaining <= 0.0         and head_support_leg_index < 0
+
+
 func windup_active() -> bool:
     return windup_elapsed >= 0.0
 
@@ -626,6 +642,10 @@ func _advance_leg_break(delta: float) -> void:
         skidding.y = FLOOR_Y
         leg["anchor"] = skidding
         if break_elapsed >= break_duration:
+            # The chassis/sole collapse has eased to zero on this tick, but
+            # don't start Turn/Approach while the rendered rig and four IK
+            # feet finish returning to their neutral standing posture.
+            post_down_idle_remaining = POST_DOWN_IDLE_SETTLE_SECONDS
             break_elapsed = -1.0
             break_leg_index = -1
             _clear_head_support()
@@ -772,6 +792,20 @@ func advance_ik(delta: float, motion: String) -> void:
                     sign * deg_to_rad(SUPPORT_FOOT_ROLL_DEGREES) * collapse) *
                     head_support_foot_rotation).normalized()
             leg["last_error"] = _solve(leg, foot_pos, foot_rot)
+    # Starting the release timer on the final fall tick would be too early
+    # unless IK has already rebuilt the normal standing pose. Count only
+    # fully neutral, planted Idle frames; do not keep it waiting forever
+    # for the authored feet's harmless residual reach errors.
+    if post_down_idle_remaining > 0.0 and not break_reaction_active()             and head_support_leg_index < 0 and stepping_pair == -1:
+        var scale_y: float = maxf(
+            absf(actor.get_parent().global_basis.get_scale().y), 0.001)
+        var expected_local_y: float = (rest_actor_local_y
+            + ground_correction_world / scale_y)
+        var upright_error_world: float = (
+            absf(actor.position.y - expected_local_y) * scale_y)
+        if upright_error_world <= POST_DOWN_UPRIGHT_TOLERANCE_WORLD_METERS:
+            post_down_idle_remaining = maxf(0.0,
+                post_down_idle_remaining - maxf(delta, 0.0))
 
 func maximum_ground_error() -> float:
     var worst: float = 0.0
