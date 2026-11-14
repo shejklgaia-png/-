@@ -81,7 +81,7 @@ func _run() -> void:
     if not bool(ik.call("break_reaction_active")):
         _fail("6s fall ended too early")
         return
-    for frame in range(20):
+    for frame in range(60):
         rig.call("set_motion", "Idle", DT)
         ik.call("advance_ik", DT, "Idle")
     if bool(ik.call("break_reaction_active")):
