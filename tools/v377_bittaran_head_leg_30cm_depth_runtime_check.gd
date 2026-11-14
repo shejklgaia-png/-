@@ -1,6 +1,6 @@
 extends SceneTree
-## v377: shared 30cm depth tolerance, including mesh rotation/scale.
-## Retain the existing 70%-standup HEAD gate and <=30% knee folding.
+## v377-v380: shared 10cm limit, including mesh rotation/scale.
+## Retain the existing 70%-standup HEAD gate and <=45% knee folding.
 const PARTS = preload("res://scripts/bittaran_parts.gd")
 const BOSS = preload("res://scripts/bittaran_battle.gd")
 const IK = preload("res://scripts/bittaran_foot_ik.gd")
@@ -43,10 +43,10 @@ func _run() -> void:
     if parts == null or ik == null:
         _fail("boss collision parts or IK missing")
         return
-    if absf(PARTS.HEAD_LEG_ALLOWED_PENETRATION_METERS - 0.30) > 0.00001 \
-            or absf(BOSS.HEAD_LEG_ALLOWED_PENETRATION_METERS - 0.30) > 0.00001 \
-            or absf(IK.HEAD_KNEE_ALLOWED_PENETRATION_METERS - 0.30) > 0.00001:
-        _fail("knee and HEAD do not share exactly 30cm")
+    if absf(PARTS.HEAD_LEG_ALLOWED_PENETRATION_METERS - 0.10) > 0.00001 \
+            or absf(BOSS.HEAD_LEG_ALLOWED_PENETRATION_METERS - 0.10) > 0.00001 \
+            or absf(IK.HEAD_KNEE_ALLOWED_PENETRATION_METERS - 0.10) > 0.00001:
+        _fail("knee and HEAD do not share exactly 10cm")
         return
     var a: MeshInstance3D = _box()
     var b: MeshInstance3D = _box()
@@ -92,7 +92,7 @@ func _run() -> void:
                 _fail("invalid head/leg mesh penetration depth")
                 return
     head.quaternion = original
-    # At zero overlap the head moves freely; at 30cm an inward
+    # At zero overlap the head moves freely; at 10cm an inward
     # proposed turn stops, and an outward turn is always allowed.
     battle.set("head_collision_filtered_depth", 0.0)
     battle.set("head_collision_blocked", false)
@@ -102,23 +102,23 @@ func _run() -> void:
         _fail("head slowed without any overlap")
         return
     var stop: float = float(battle.call(
-        "_head_collision_motion_scale", 0.30, 0.32, DT))
+        "_head_collision_motion_scale", 0.10, 0.12, DT))
     if stop != 0.0:
-        _fail("head failed to stop at 30cm penetration")
+        _fail("head failed to stop at 10cm penetration")
         return
     var reverse: float = float(battle.call(
-        "_head_collision_motion_scale", 0.34, 0.30, DT))
+        "_head_collision_motion_scale", 0.14, 0.10, DT))
     if reverse < 0.39 or reverse > 1.00001:
-        _fail("head cannot smoothly escape from >30cm penetration")
+        _fail("head cannot smoothly escape from >10cm penetration")
         return
     if absf(BOSS.HEAD_TRACK_STANDUP_START_FRACTION - 0.70) > 0.00001 \
-            or absf(IK.HEAD_KNEE_MAX_BEND - 0.30) > 0.00001 \
+            or absf(IK.HEAD_KNEE_MAX_BEND - 0.45) > 0.00001 \
             or absf(IK.STEP_DURATION_SECONDS - 0.58) > 0.00001 \
             or absf(IK.SINGLE_LEG_RISE_SECONDS - 1.0) > 0.00001 \
             or absf(IK.FOUR_LEG_RISE_SECONDS - 1.3) > 0.00001:
         _fail("head/leg movement behavior changed unexpectedly")
         return
-    print("GODOT_V377_BITTARAN_DEPTH_30CM_PASS: 30cm world-space "
+    print("GODOT_V377_BITTARAN_DEPTH_30CM_PASS: 10cm limit and world-space "
         + "oriented mesh depth under rotation and scale, common HEAD/IK "
-        + "threshold, hard stop at >=30cm, free escape direction")
+        + "threshold, hard stop at >=10cm, free escape direction")
     quit(0)

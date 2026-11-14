@@ -24,21 +24,21 @@ func _run() -> void:
         _fail("scene initialization")
         return
     if absf(float(BOSS_SCRIPT.HEAD_LEG_ALLOWED_PENETRATION_METERS)
-            - 0.30) > 0.00001:
-        _fail("HEAD must permit exactly 30cm penetration")
+            - 0.10) > 0.00001:
+        _fail("HEAD must permit exactly 10cm penetration")
         return
     # One noisy contact may slightly slow, but cannot stop or jerk yaw.
     battle.set("head_collision_filtered_depth", 0.0)
     battle.set("head_collision_blocked", false)
     var one_frame: float = float(battle.call(
-        "_head_collision_motion_scale", 0.0, 0.20, DT))
+        "_head_collision_motion_scale", 0.0, 0.03, DT))
     if one_frame < 0.97 or one_frame > 1.00001:
         _fail("one-frame contact caused sudden head braking")
         return
     # Persistent deeper contact should slow smoothly towards zero.
     battle.set("head_collision_filtered_depth", 0.0)
     var speeds: Array[float] = []
-    for depth in [0.0, 0.10, 0.20, 0.28]:
+    for depth in [0.0, 0.03, 0.06, 0.09]:
         for _frame in range(120):
             var speed: float = float(battle.call(
                 "_head_collision_motion_scale", depth, depth, DT))
@@ -51,21 +51,21 @@ func _run() -> void:
         if speeds[i] >= speeds[i - 1] - 0.01:
             _fail("head must slow progressively from first overlap")
             return
-    # Hard stop at 30cm in the worsening direction; no jitter on
+    # Hard stop at 10cm in the worsening direction; no jitter on
     # barely moving knee boxes until penetration falls under 27.5cm.
     var stopped: float = float(battle.call(
-        "_head_collision_motion_scale", 0.30, 0.31, DT))
+        "_head_collision_motion_scale", 0.10, 0.11, DT))
     if stopped != 0.0:
-        _fail("head kept rotating deeper at 30cm")
+        _fail("head kept rotating deeper at 10cm")
         return
-    for depth in [0.299, 0.301, 0.291, 0.285]:
+    for depth in [0.099, 0.101, 0.091, 0.088]:
         var held: float = float(battle.call(
             "_head_collision_motion_scale", depth, depth + 0.004, DT))
         if held != 0.0:
             _fail("contact jitter caused stop/start flicker")
             return
     var escape: float = float(battle.call(
-        "_head_collision_motion_scale", 0.34, 0.31, DT))
+        "_head_collision_motion_scale", 0.14, 0.10, DT))
     if escape < 0.39 or escape > 1.00001:
         _fail("head was prevented from gradually escaping overlap")
         return
@@ -106,7 +106,7 @@ func _run() -> void:
         _fail("real rise/normal tracking was not exercised")
         return
     print("GODOT_V375_BITTARAN_HEAD_STABILITY_PASS: progressive "
-        + "0-30cm slowdown, hard stop at 30cm, no contact flicker, "
+        + "0-10cm slowdown, hard stop at 10cm, no contact flicker, "
         + "smooth escape and no head snap during 480 frames, max "
         + "post-rise head yaw=" + str(rad_to_deg(max_stand_yaw)) + "deg")
     quit(0)

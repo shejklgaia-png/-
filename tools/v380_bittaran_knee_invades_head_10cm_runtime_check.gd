@@ -8,6 +8,24 @@ const BOSS = preload("res://scripts/bittaran_battle.gd")
 const IK = preload("res://scripts/bittaran_foot_ik.gd")
 const DT: float = 1.0 / 60.0
 
+class KneeInvadesHeadProbe extends Node3D:
+    var moving_leg: Dictionary = {}
+
+    func get_head_swing_aabb() -> AABB:
+        return AABB(Vector3(-1, -1, -1), Vector3.ONE * 2.0)
+
+    func get_leg_visual_aabb(_id: String) -> AABB:
+        return AABB(Vector3(-50, -50, -50), Vector3.ONE * 100.0)
+
+    func get_head_leg_penetration_depth(id: String) -> float:
+        if id != "leg_fl":
+            return 0.0
+        # The moving knee initially penetrates 20cm. Gradually bending
+        # out by 45% reduces it below the strict 10cm limit.
+        return maxf(0.0, 0.20 - 0.31 *
+            float(moving_leg.get("head_knee_bend", 0.0)))
+
+
 func _initialize() -> void:
     call_deferred("_run")
 
@@ -69,14 +87,24 @@ func _run() -> void:
     # knee; it cannot ignore it until the toe plants.
     var saved_step: bool = bool(selected["stepping"])
     var saved_scan: float = float(ik.get("head_knee_scan_elapsed"))
+    var original_collision: Node3D = ik.get("collision_parts")
+    var probe := KneeInvadesHeadProbe.new()
+    probe.moving_leg = selected
+    root.add_child(probe)
+    ik.set("collision_parts", probe)
     selected["stepping"] = true
     selected["head_knee_target"] = 0.0
     ik.set("head_knee_scan_elapsed", IK.HEAD_KNEE_SCAN_SECONDS)
     ik.call("steer_knees_for_head", DT, 0.0, 0.20)
-    if not selected.has("head_knee_target") or (
-            not is_finite(float(selected["head_knee_target"]))):
-        _fail("moving knee evaluation invalid")
+    # During SWING, the knee must choose an actual bend, even though
+    # the HEAD's desired yaw is zero and did not cause the contact.
+    var chosen: float = float(selected["head_knee_target"])
+    if chosen < 0.30 or chosen > IK.HEAD_KNEE_MAX_BEND + 0.00001:
+        _fail("swinging knee failed to fold around a stationary head: "
+            + str(chosen))
         return
+    ik.set("collision_parts", original_collision)
+    probe.queue_free()
     if (selected["last_goal"] as Vector3).distance_to(
             original_goal) > 0.00001:
         _fail("swinging foot trajectory changed")

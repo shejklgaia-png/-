@@ -87,22 +87,22 @@ func _run() -> void:
         _fail("HEAD blend source contains a second procedural look yaw")
         return
     # Collision latch may NOT release on one frame of leg jitter.
-    battle.set("head_collision_filtered_depth", 0.30)
+    battle.set("head_collision_filtered_depth", 0.10)
     battle.set("head_collision_blocked", true)
     battle.set("head_collision_release_elapsed", 0.0)
-    for depth in [0.296, 0.282, 0.294, 0.284, 0.296]:
+    for depth in [0.096, 0.089, 0.094, 0.087, 0.096]:
         var speed: float = float(battle.call(
             "_head_collision_motion_scale", depth, depth, DT))
         if speed > 0.00001:
-            _fail("collision latch flickered ON/OFF near 30cm")
+            _fail("collision latch flickered ON/OFF near 10cm")
             return
     var escaped: float = float(battle.call(
-        "_head_collision_motion_scale", 0.34, 0.30, DT))
+        "_head_collision_motion_scale", 0.14, 0.10, DT))
     if escaped < 0.39:
         _fail("the player cannot rotate HEAD out of collision")
         return
-    if absf(BOSS.HEAD_LEG_ALLOWED_PENETRATION_METERS - 0.30) > 0.00001:
-        _fail("30cm stop rule was changed")
+    if absf(BOSS.HEAD_LEG_ALLOWED_PENETRATION_METERS - 0.10) > 0.00001:
+        _fail("10cm stop rule was changed")
         return
     print("GODOT_V379_NEAR_HEAD_NO_JITTER_PASS: no near-HEAD atan2 "
         + "sign flip, stable desired yaw, authored blend excludes "

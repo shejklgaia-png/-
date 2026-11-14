@@ -1,6 +1,6 @@
 extends SceneTree
 ## v378: head yaw slows smoothly with contact depth and cannot advance
-## beyond 30cm; 2.5cm stop hysteresis rejects contact frame flicker.
+## beyond 10cm; 1.8cm stop hysteresis rejects contact frame flicker.
 ## A synthetic head/leg depth probe checks the actual yaw limiter at
 ## known geometric threshold, independent of the battle staging.
 const BOSS = preload("res://scripts/bittaran_battle.gd")
@@ -41,8 +41,8 @@ func _run() -> void:
     if actual_head == null or original_parts == null:
         _fail("missing real head or collision adapter")
         return
-    if absf(BOSS.HEAD_LEG_ALLOWED_PENETRATION_METERS - 0.30) > 0.00001:
-        _fail("stop penetration must be 30cm")
+    if absf(BOSS.HEAD_LEG_ALLOWED_PENETRATION_METERS - 0.10) > 0.00001:
+        _fail("stop penetration must be 10cm")
         return
     var probe := DepthProbe.new()
     probe.observed_head = actual_head
@@ -51,15 +51,15 @@ func _run() -> void:
     battle.set("target_parts", probe)
     var limited: float = float(battle.call(
         "_head_limit_yaw_to_30cm", probe.base, 0.0, 1.0, 0.0))
-    if limited < 0.592 or limited > 0.599:
-        _fail("head yaw was not clamped at 30cm depth: " + str(limited))
+    if limited < 0.192 or limited > 0.200:
+        _fail("head yaw was not clamped at 10cm depth: " + str(limited))
         return
     # 60fps and low-FPS frames must never tunnel past the cap.
-    for wanted in [0.62, 0.8, 1.2, 1.6]:
+    for wanted in [0.22, 0.4, 0.8, 1.6]:
         var cap: float = float(battle.call(
             "_head_limit_yaw_to_30cm", probe.base, 0.0,
             float(wanted), 0.0))
-        if cap < 0.0 or cap > 0.60:
+        if cap < 0.0 or cap > 0.20:
             _fail("a large frame crossed the head depth cap")
             return
     # An already deep pose may rotate only OUT of the penetration.
@@ -76,11 +76,11 @@ func _run() -> void:
     battle.set("target_parts", original_parts)
     actual_head.quaternion = probe.base
     probe.queue_free()
-    # Speed must be monotone across depth and reach EXACT zero at 30cm.
+    # Speed must be monotone across depth and reach exact zero at 10cm.
     battle.set("head_collision_filtered_depth", 0.0)
     battle.set("head_collision_blocked", false)
     var previous_speed: float = 2.0
-    for depth in [0.0, 0.06, 0.12, 0.18, 0.24, 0.29]:
+    for depth in [0.0, 0.02, 0.04, 0.06, 0.08, 0.098]:
         for _frame in range(120):
             battle.call("_head_collision_motion_scale",
                 float(depth), float(depth), DT)
@@ -91,26 +91,26 @@ func _run() -> void:
             return
         previous_speed = speed
     if previous_speed > 0.05:
-        _fail("head yaw did not nearly stop just below 30cm")
+        _fail("head yaw did not nearly stop just below 10cm")
         return
     var stopped: float = float(battle.call(
-        "_head_collision_motion_scale", 0.30, 0.31, DT))
+        "_head_collision_motion_scale", 0.10, 0.11, DT))
     if stopped != 0.0:
-        _fail("head did not fully stop at 30cm")
+        _fail("head did not fully stop at 10cm")
         return
-    for p in [0.299, 0.301, 0.288, 0.296, 0.282]:
+    for p in [0.099, 0.101, 0.088, 0.096, 0.085]:
         if float(battle.call("_head_collision_motion_scale",
                 p, p + 0.003, DT)) != 0.0:
             _fail("tiny collision noise released head stop")
             return
     if float(battle.call("_head_collision_motion_scale",
-            0.34, 0.29, DT)) < 0.39:
+            0.14, 0.09, DT)) < 0.39:
         _fail("retreat was trapped")
         return
     if absf(BOSS.HEAD_TRACK_STANDUP_START_FRACTION - 0.70) > 0.00001 \
-            or absf(IK.HEAD_KNEE_MAX_BEND - 0.30) > 0.00001:
+            or absf(IK.HEAD_KNEE_MAX_BEND - 0.45) > 0.00001:
         _fail("head recovery or minimal knee IK changed")
         return
     print("GODOT_V378_HEAD_BRAKE_PASS: smooth depth brake, hard "
-        + "30cm yaw cap, no stop flicker, unrestricted escape")
+        + "10cm yaw cap, no stop flicker, unrestricted escape")
     quit(0)

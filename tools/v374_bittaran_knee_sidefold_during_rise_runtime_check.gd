@@ -4,7 +4,7 @@ extends SceneTree
 const DT: float = 1.0 / 60.0
 const IDS: Array[String] = ["leg_fl", "leg_fr", "leg_rl", "leg_rr"]
 const ONE: Array[String] = ["leg_fl"]
-const MAX_BEND: float = 0.30
+const MAX_BEND: float = 0.45
 
 func _initialize() -> void:
     call_deferred("_run")
