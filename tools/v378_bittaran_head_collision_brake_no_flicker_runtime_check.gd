@@ -3,7 +3,6 @@ extends SceneTree
 ## beyond 10cm; 1.8cm stop hysteresis rejects contact frame flicker.
 ## A synthetic head/leg depth probe checks the actual yaw limiter at
 ## known geometric threshold, independent of the battle staging.
-const BOSS = preload("res://scripts/bittaran_battle.gd")
 const IK = preload("res://scripts/bittaran_foot_ik.gd")
 const DT: float = 1.0 / 60.0
 
@@ -31,6 +30,10 @@ func _fail(text_value: String) -> void:
     quit(1)
 
 func _run() -> void:
+    # SceneTree scripts are compiled before project autoload singletons
+    # become available; avoid eager battle-script preloads at file scope.
+    var boss_constants: Dictionary = (load(
+        "res://scripts/bittaran_battle.gd") as GDScript).get_script_constant_map()
     var battle: Node3D = load(
         "res://scenes/bittaran_battle.tscn").instantiate()
     root.add_child(battle)
@@ -41,7 +44,7 @@ func _run() -> void:
     if actual_head == null or original_parts == null:
         _fail("missing real head or collision adapter")
         return
-    if absf(BOSS.HEAD_LEG_ALLOWED_PENETRATION_METERS - 0.10) > 0.00001:
+    if absf(boss_constants["HEAD_LEG_ALLOWED_PENETRATION_METERS"] - 0.10) > 0.00001:
         _fail("stop penetration must be 10cm")
         return
     var probe := DepthProbe.new()
@@ -107,7 +110,7 @@ func _run() -> void:
             0.14, 0.09, DT)) < 0.39:
         _fail("retreat was trapped")
         return
-    if absf(BOSS.HEAD_TRACK_STANDUP_START_FRACTION - 0.70) > 0.00001 \
+    if absf(boss_constants["HEAD_TRACK_STANDUP_START_FRACTION"] - 0.70) > 0.00001 \
             or absf(IK.HEAD_KNEE_MAX_BEND - 0.45) > 0.00001:
         _fail("head recovery or minimal knee IK changed")
         return
