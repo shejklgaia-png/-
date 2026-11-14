@@ -1,8 +1,7 @@
 extends SceneTree
-## v366: both Turn and Approach must start on the FIRST rising IK tick.
-## Not only root YAW: the authored clip must play, and a non-supporting
-## diagonal IK foot must begin stepping while the chassis stands up.
-## The HEAD-supporting leg must remain planted until released.
+## v366/v367: Turn and Approach still start on the FIRST rising tick.
+## The body turns at full rate with world-planted soles. Once the torso
+## is upright, IK starts catching up, retargeting touchdown to live stance.
 const DT: float = 1.0 / 60.0
 const ONE_LEG: Array[String] = ["leg_fl"]
 const FOUR_LEGS: Array[String] = ["leg_fl", "leg_fr", "leg_rl", "leg_rr"]
@@ -52,6 +51,7 @@ func _case(battle: Node3D, legs_to_break: Array[String],
     var first_rise_frame: int = -1
     var rise_played_frames: int = 0
     var first_step_pair: int = -1
+    var upright_first_step_frame: int = -1
     var rise_root_distance: float = 0.0
     var final_recovered: bool = false
     for frame in range(480):
@@ -109,10 +109,9 @@ func _case(battle: Node3D, legs_to_break: Array[String],
             if chosen != motion or playing != motion:
                 _fail("first rise tick is still Idle, not " + motion)
                 return false
-            if stepping_pair < 0:
-                _fail("no IK diagonal step began with rising gait")
+            if stepping_pair >= 0:
+                _fail("foot stepping before the chassis fully rose")
                 return false
-            first_step_pair = stepping_pair
             var support_index: int = int(ik.get("head_support_leg_index"))
             if support_index >= 0:
                 var leg_list: Array = ik.get("legs")
@@ -120,13 +119,15 @@ func _case(battle: Node3D, legs_to_break: Array[String],
                 if bool(support["stepping"]):
                     _fail("support leg lifted while still under HEAD")
                     return false
-        if down_active and rising and stepping_pair >= 0:
-            var support_index: int = int(ik.get("head_support_leg_index"))
-            if support_index >= 0:
-                var leg_list: Array = ik.get("legs")
-                if bool((leg_list[support_index] as Dictionary)["stepping"]):
-                    _fail("support leg moved during head contact")
-                    return false
+        if bool(ik.call("down_pose_active")) and stepping_pair >= 0:
+            _fail("IK foot must remain planted while torso is rising")
+            return false
+        if stepping_pair >= 0 and first_step_pair < 0:
+            if bool(ik.call("down_pose_active")):
+                _fail("foot caught up before the torso was upright")
+                return false
+            first_step_pair = stepping_pair
+            upright_first_step_frame = frame
         if not bool(ik.call("break_reaction_active")) and not final_recovered:
             final_recovered = true
             if chosen != motion:
@@ -146,7 +147,8 @@ func _case(battle: Node3D, legs_to_break: Array[String],
         return false
     print("V366_LIVE_RISE_CASE_PASS: " + motion + " legs="
         + str(legs_to_break.size()) + " first rising frame="
-        + str(first_rise_frame) + " IK step pair=" + str(first_step_pair)
+        + str(first_rise_frame) + " first upright IK step="
+        + str(upright_first_step_frame) + " pair=" + str(first_step_pair)
         + " during-rise distance=" + str(rise_root_distance))
     return true
 
@@ -159,7 +161,7 @@ func _run() -> void:
         for clip in ["Turn", "Approach"]:
             if not _case(battle, ids, clip):
                 return
-    print("GODOT_V366_BITTARAN_LIVE_RISE_PASS: Turn and Approach clips, "
-        + "IK gait and real movement start with stand-up; protected "
-        + "supporting limb, original head/arm clearance and down durations")
+    print("GODOT_V366_BITTARAN_LIVE_RISE_PASS: Turn/Approach clips "
+        + "and real body movement start with rise; IK steps only after "
+        + "fully upright, original head/arm clearance and down durations")
     quit(0)
