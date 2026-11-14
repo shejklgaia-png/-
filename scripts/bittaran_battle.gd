@@ -99,6 +99,9 @@ func _build_target() -> void:
     target_mesh.add_child(target_parts)
     if not bool(target_parts.call("setup_bittaran", bittaran_rig, target_collider)):
         push_error("Bittaran: six-part lock adapter failed")
+    # The shared physical HEAD/leg AABBs form a self-contact constraint
+    # on down. Godot cannot collide sibling shapes on one AnimatableBody3D.
+    bittaran_foot_ik.call("set_collision_parts", target_parts)
     _build_boss_death_particles()
 
 func _build_boss_death_particles() -> void:
