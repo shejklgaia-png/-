@@ -15,7 +15,10 @@ assert "BACK_SOMERSAULT_ARC_CONTROL_HEIGHT_RATIO: float = 4.0 / 3.0" in main
 curve = main.split("func _back_somersault_arc_offset(progress: float) -> Vector3:", 1)[1].split(
     "func _advance_back_somersault(", 1)[0]
 assert "Vector3.ZERO.bezier_interpolate(" in curve
-assert "control_up, finish + control_up, finish, p" in curve
+assert "BACK_SOMERSAULT_LANDING_SLIDE_DISTANCE" in curve
+assert "BACK_SOMERSAULT_REAR_FLIGHT_SECONDS" in curve
+assert "func _back_somersault_landing_slide_offset(progress: float) -> float:" in curve
+assert "control_up, terminal_rear_control + control_up, finish, p" in curve
 advance = main.split("func _advance_back_somersault(delta: float) -> void:", 1)[1].split(
     "func _cancel_back_somersault(", 1)[0]
 assert "var previous_offset: Vector3 = _back_somersault_arc_offset(previous)" in advance

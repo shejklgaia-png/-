@@ -7,7 +7,7 @@ m=(r/"scripts/main.gd").read_text()
 rig=(r/"scripts/sera_rig.gd").read_text()
 ui=(r/"scripts/touch_overlay.gd").read_text()
 spec=json.loads((r/"tools/sera_active_specs.json").read_text())
-assert 'config/name="SERA v340"' in (r/"project.godot").read_text()
+assert 'config/name="SERA v341"' in (r/"project.godot").read_text()
 assert spec["ordinary_step"]["distance_m"]==4
 assert spec["ordinary_step"]["launch_warp_m"]==.1
 assert spec["ordinary_step"]["speed_mps"]==15
@@ -35,7 +35,7 @@ for token in ("var previous_seconds: float = step_duration_current * previous_pr
     assert token in kick,token
 assert "step_signed_angle * orbit_progress" not in kick
 assert "const SIDE_KICK_HIT_PROGRESS = [0.25, 0.58333]" in m
-assert "const SIDE_KICK_MOTION_TIME_MULTIPLIER: float = 2.0" in m
+assert "const SIDE_KICK_MOTION_TIME_MULTIPLIER: float = 1.0" in m
 assert 'side_kick_playback_scale = maxf(0.001, float(animations[chosen]["length"])) / maxf(movement_duration, 0.01)' in rig
 def chase_slice(t0,t1,d,w,hit=.58333):
     return max(0.,min(t1,d*hit)-max(t0,d*w))

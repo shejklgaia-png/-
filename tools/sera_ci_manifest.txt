@@ -264,3 +264,6 @@ py tools/v339_step_kick_live_guide_self_check.py
 
 py tools/v340_side_kick_linear_exit_self_check.py
 gd tools/v340_side_kick_linear_exit_runtime_check.gd
+
+py tools/v341_somersault_coast_kick_1x_self_check.py
+gd tools/v341_somersault_coast_kick_1x_runtime_check.gd

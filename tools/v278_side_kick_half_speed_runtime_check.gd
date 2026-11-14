@@ -38,8 +38,8 @@ func _run() -> void:
             return
         game.set("step_kick_side_request",0)
         var d: float=float(game.get("step_duration_current"))
-        if absf(d-.60)>.0001:
-            _fail("authored 2x duration changed")
+        if absf(d-.30)>.0001:
+            _fail("authored 1x duration changed")
             return
         if absf(float(game.get("step_arc_length"))-4.0)>.0001:
             _fail("post-contact dash not 4m")

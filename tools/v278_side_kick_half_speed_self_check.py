@@ -8,7 +8,7 @@ rig=(r/"scripts/sera_rig.gd").read_text()
 assets=json.loads((r/"assets/sera_source.json").read_text())
 ver=int(re.search(r'config/name="SERA v(\d+)"',(r/"project.godot").read_text()).group(1))
 assert ver>=340
-assert "const SIDE_KICK_MOTION_TIME_MULTIPLIER: float = 2.0" in m
+assert "const SIDE_KICK_MOTION_TIME_MULTIPLIER: float = 1.0" in m
 assert "const SIDE_KICK_DURATION_REFERENCE_DISTANCE: float = 3.0" in m
 assert "const SIDE_KICK_BOOST_DISTANCE: float = 4.0" in m
 assert "SIDE_KICK_DURATION_REFERENCE_DISTANCE / step_speed_current" in m

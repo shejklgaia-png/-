@@ -60,7 +60,7 @@ func _run() -> void:
                 return
             game.set("step_kick_side_request",0)
             var d: float=float(game.get("step_duration_current"))
-            if absf(d-.60)>.0001 or absf(float(game.get("step_arc_length"))-4.0)>.0001:
+            if absf(d-.30)>.0001 or absf(float(game.get("step_arc_length"))-4.0)>.0001:
                 _fail("kick clip or 4m dash contract changed")
                 return
             game.call("_advance_side_step",d*.50)

@@ -107,6 +107,8 @@ const BACK_SOMERSAULT_HEIGHT: float = 1.5
 const BACK_SOMERSAULT_ARC_CONTROL_HEIGHT_RATIO: float = 4.0 / 3.0
 const BACK_SOMERSAULT_FLIGHT_SECONDS: float = 0.80
 const BACK_SOMERSAULT_LANDING_SECONDS: float = 0.20
+# Additional rear travel during the authored landing; ends at zero velocity.
+const BACK_SOMERSAULT_LANDING_SLIDE_DISTANCE: float = 0.30
 const BACK_SOMERSAULT_VISUAL_PIVOT_HEIGHT: float = 0.90
 # Kick_b's extended right leg at original 0.20833s/0.79167s.
 const BACK_SOMERSAULT_HIT_PROGRESS: float = 0.20833 / 0.79167
@@ -232,7 +234,7 @@ const SIDE_KICK_SECOND_WINDUP_R: float = 0.33333
 const SIDE_KICK_SECOND_WINDUP_L: float = 0.41667
 # v278: lateral kick animation lasts twice as long without reducing
 # normal STEP travel speed/distance, changing Kick_b, or cutting off clips.
-const SIDE_KICK_MOTION_TIME_MULTIPLIER: float = 2.0
+const SIDE_KICK_MOTION_TIME_MULTIPLIER: float = 1.0
 const SIDE_KICK_REACH: float = MELEE_SURFACE_REACH
 const BASH_CONTACT_TIME: float = 0.25
 const BASH_TRACK_SECONDS: float = 0.20  # Max time to enter Bash reach before launch.
@@ -495,6 +497,7 @@ var passive_fall_velocity: float = 0.0
 var landing_active: bool = false
 var landing_elapsed: float = 0.0
 var landing_from_somersault: bool = false
+var back_somersault_landing_slide_previous: float = 0.0
 var back_somersault_active: bool = false
 var back_somersault_launched: bool = false  # set only after confirmed foot contact
 var back_somersault_elapsed: float = 0.0
@@ -815,6 +818,7 @@ func _begin_training_ko() -> void:
         landing_active = false
         landing_elapsed = 0.0
         landing_from_somersault = false
+        back_somersault_landing_slide_previous = 0.0
         if rig != null:
             rig.call("finish_jump", false, false)
     if combat_state != CombatState.IDLE:
@@ -1191,6 +1195,7 @@ func _begin_damage_reaction(incoming_direction: Vector3) -> void:
         landing_elapsed = 0.0
         if landing_from_somersault:
             landing_from_somersault = false
+            back_somersault_landing_slide_previous = 0.0
             rig.call("finish_jump", false, false)
     rig.call("start_damage")
     damage_reaction_active = true
@@ -2943,6 +2948,7 @@ func _advance_jump(delta: float) -> void:
 
 func _begin_landing(from_back_somersault: bool = false) -> void:
     landing_from_somersault = from_back_somersault
+    back_somersault_landing_slide_previous = 0.0
     # Airborne traversal is over. Keep the authored landing motion in control;
     # no movement, boost, attack, step or second jump before the 0.60s hold ends.
     landing_active = true
@@ -2961,6 +2967,16 @@ func _advance_landing(delta: float) -> void:
         return
     landing_elapsed += maxf(delta, 0.0)
     player.velocity = Vector3.ZERO
+    if landing_from_somersault and back_somersault_hit:
+        var landing_t: float = clampf(
+            landing_elapsed / BACK_SOMERSAULT_LANDING_SECONDS, 0.0, 1.0)
+        # Cumulative cubic ease-out: nonzero speed at touchdown, settling
+        # to zero on the final landing key, independent of physics FPS.
+        var coast_offset: float = _back_somersault_landing_slide_offset(landing_t)
+        var coast_distance: float = maxf(0.0,
+            coast_offset - back_somersault_landing_slide_previous)
+        _move_player_swept(back_somersault_direction * coast_distance, true)
+        back_somersault_landing_slide_previous = coast_offset
     # Archived Jump remains 0.125s + 0.60s hold. Only Kick_b uses the
     # authored Jump landing keys at 0.20s with no subsequent static hold.
     var duration: float = (BACK_SOMERSAULT_LANDING_SECONDS
@@ -2974,6 +2990,7 @@ func _advance_landing(delta: float) -> void:
         landing_active = false
         landing_elapsed = 0.0
         landing_from_somersault = false
+        back_somersault_landing_slide_previous = 0.0
         if was_somersault_landing and gesture_active:
             # The kickoff of Kick_b zeroes the old movement vector. If a
             # finger is already held at touchdown, re-read that SAME stick
@@ -3149,6 +3166,7 @@ func _start_back_somersault() -> bool:
     back_somersault_start = player.position
     back_somersault_original_rig_y = rig.position.y
     back_somersault_has_authored_clip = bool(rig.call("back_somersault_uses_authored_clip"))
+    back_somersault_landing_slide_previous = 0.0
     # The final retreat vector is captured AT CONTACT, after the last
     # homing movement; the initial fallback is kept for animation setup.
     _capture_back_somersault_retreat_direction()
@@ -3162,18 +3180,27 @@ func _start_back_somersault() -> bool:
     return true
 
 
-# v281: One geometric Bezier arc drives BOTH horizontal displacement and
-# altitude, avoiding a linear XZ slide pasted onto an independent jump.
-# P0=(0,0), P1=(0,2m), P2=(5m,2m), P3=(5m,0) for the standard kick.
-# At t=0.5 this gives 2.5m rear travel and 1.5m genuine apex; it also
-# approaches launch and landing with vertical tangents (no horizontal pop).
+# The 5m flight finishes with a NONZERO rearward speed. Its last Bezier
+# derivative matches the 0.20s landing ease-out at touchdown exactly.
+# Vertical Bezier control points remain identical (1.5m maximum height).
 func _back_somersault_arc_offset(progress: float) -> Vector3:
     var p: float = clampf(progress, 0.0, 1.0)
     var finish: Vector3 = back_somersault_direction * BACK_SOMERSAULT_DISTANCE
     var control_up: Vector3 = Vector3.UP * (
         BACK_SOMERSAULT_HEIGHT * BACK_SOMERSAULT_ARC_CONTROL_HEIGHT_RATIO)
+    var terminal_rear_control: Vector3 = finish - (
+        back_somersault_direction
+        * BACK_SOMERSAULT_LANDING_SLIDE_DISTANCE
+        * BACK_SOMERSAULT_REAR_FLIGHT_SECONDS
+        / BACK_SOMERSAULT_LANDING_SECONDS)
     return Vector3.ZERO.bezier_interpolate(
-        control_up, finish + control_up, finish, p)
+        control_up, terminal_rear_control + control_up, finish, p)
+
+
+func _back_somersault_landing_slide_offset(progress: float) -> float:
+    var remaining: float = 1.0 - clampf(progress, 0.0, 1.0)
+    return BACK_SOMERSAULT_LANDING_SLIDE_DISTANCE * (
+        1.0 - remaining * remaining * remaining)
 
 
 # v284: Pre-impact Kick_b is a grounded, homing strike. Only a real hit
@@ -3227,9 +3254,8 @@ func _advance_back_somersault(delta: float) -> void:
             progress) + next_offset.y
         player.position.y = wanted_y
         player.velocity = Vector3.ZERO
-    # The original Kick_b starts while on the ground; its contact pose
-    # occurs at BACK_SOMERSAULT_HIT_PROGRESS. After contact, continue the
-    # same authored clock while the 5m / 1.5m arc plays.
+    # Keep the authored 0.80s Kick_b clip and 5m/1.5m flight;
+    # the extra rear slide belongs exclusively to _advance_landing().
     var pose_progress: float = back_somersault_elapsed / BACK_SOMERSAULT_FLIGHT_SECONDS
     if not back_somersault_has_authored_clip and back_somersault_launched:
         # Procedural rotation is fallback-only and begins on contact.
@@ -3265,6 +3291,7 @@ func _cancel_back_somersault() -> void:
     back_somersault_elapsed = 0.0
     back_somersault_hit = false
     back_somersault_hit_checked = false
+    back_somersault_landing_slide_previous = 0.0
     if rig != null:
         rig.rotation.x = 0.0
         rig.position.y = back_somersault_original_rig_y
