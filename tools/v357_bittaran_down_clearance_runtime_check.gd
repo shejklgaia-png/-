@@ -135,13 +135,12 @@ func _run() -> void:
     if not found_escape or player.global_position.distance_to(start) < 0.8:
         _fail("player remained beneath downed torso instead of being pushed out")
         return
+    var current_feet: Array[AABB] = []
+    for id in ["leg_fl", "leg_fr", "leg_rl", "leg_rr"]:
+        current_feet.append(parts.call("get_part_aabb", id))
     var route_after: Dictionary = CLEARANCE.escape_waypoint(
         player.global_position, parts.call("get_body_hit_aabb"),
-        [parts.call("get_part_aabb", "leg_fl"),
-         parts.call("get_part_aabb", "leg_fr"),
-         parts.call("get_part_aabb", "leg_rl"),
-         parts.call("get_part_aabb", "leg_rr")],
-        0.4, target.global_basis.z)
+        current_feet, 0.4, target.global_basis.z)
     if bool(route_after["active"]):
         _fail("player still overlaps body or foot after downed evacuation")
         return
