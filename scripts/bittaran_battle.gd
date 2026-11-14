@@ -21,12 +21,16 @@ const HEAD_TRACK_STANDUP_START_FRACTION: float = 0.70
 # settle eases the remaining 40% in smoothly without a rotation snap.
 const HEAD_TRACK_RISE_FOLLOW_WEIGHT: float = 0.60
 const HEAD_TRACK_RECOVERY_DEGREES_PER_SECOND: float = 48.0
-## Real mesh-to-mesh penetration cap applies while standing AND recovering.
-# Allow modest visible overlap instead of forcing a deep knee fold.
-const HEAD_TRACK_COMPONENT_OVERLAP_TOLERANCE_M3: float = 0.023
-const HEAD_TRACK_RECOVERY_SWEEP_STEPS: int = 24
+# Head tracking is the priority. Ignore mild upper-arm/head overlap.
+# AABB collisions flicker as IK replants each toe; only SUSTAINED deep
+# overlap softly reduces angular speed. Never snap the head backwards.
+const HEAD_TRACK_COMPONENT_OVERLAP_TOLERANCE_M3: float = 0.065
 const HEAD_LEG_CLEARANCE_METERS: float = 0.05
-const HEAD_LEG_BASELINE_AABB_TOLERANCE_M3: float = 0.035
+const HEAD_LEG_BASELINE_AABB_TOLERANCE_M3: float = 0.115
+const HEAD_TRACK_COLLISION_FILTER_PER_SECOND: float = 9.0
+const HEAD_TRACK_COLLISION_SOFT_START_M3: float = 0.060
+const HEAD_TRACK_COLLISION_SOFT_FULL_M3: float = 0.145
+const HEAD_TRACK_COLLISION_MIN_SPEED_FACTOR: float = 0.55
 
 var bittaran_rig: Node3D
 var bittaran_ai: RefCounted
@@ -44,6 +48,7 @@ var boss_head_default_rotation: Quaternion = Quaternion.IDENTITY
 var boss_head_windup_start_yaw: float = 0.0
 var head_neutral_overlap: Dictionary = {}
 var head_neutral_component_overlap: Dictionary = {}
+var head_collision_filtered_excess: float = 0.0
 var boss_downed_escaping: bool = false
 
 func _ready() -> void:
@@ -229,45 +234,47 @@ func _head_component_overlap_by_id(mesh_boxes: Dictionary) -> Dictionary:
     return overlaps
 
 
-func _head_collides_with_leg(base_pose: Quaternion,
-        relative_yaw: float, resting: Dictionary,
-        allowed_extra_volume: float = HEAD_LEG_BASELINE_AABB_TOLERANCE_M3,
-        mesh_neutral: Dictionary = {}, mesh_boxes: Dictionary = {},
-        whole_boxes: Dictionary = {}) -> bool:
-    # Preserve the old broad collider clearance as a secondary cap, then
-    # restrict NEW overlap with each real arm mesh much more precisely.
-    var overlaps: Dictionary = _head_leg_overlap_by_id(
+func _head_overlap_excess(base_pose: Quaternion,
+        relative_yaw: float, whole_neutral: Dictionary,
+        component_neutral: Dictionary, mesh_boxes: Dictionary,
+        whole_boxes: Dictionary) -> float:
+    # A positive result means MORE than the generously allowed overlap.
+    # The whole-leg box is only a coarse emergency check because the
+    # space between knee/shoulder/foot is actually empty.
+    var whole: Dictionary = _head_leg_overlap_by_id(
         base_pose, relative_yaw, whole_boxes)
-    for id in overlaps:
-        if float(overlaps[id]) > (
-                float(resting.get(id, 0.0)) + allowed_extra_volume):
-            return true
-    if mesh_boxes.is_empty():
-        return false
-    var actual: Dictionary = _head_component_overlap_by_id(mesh_boxes)
-    for id in actual:
-        if float(actual[id]) > (float(mesh_neutral.get(id, 0.0))
-                + HEAD_TRACK_COMPONENT_OVERLAP_TOLERANCE_M3):
-            return true
-    return false
+    var excess: float = 0.0
+    for id in whole:
+        excess = maxf(excess, float(whole[id])
+            - float(whole_neutral.get(id, 0.0))
+            - HEAD_LEG_BASELINE_AABB_TOLERANCE_M3)
+    var component: Dictionary = _head_component_overlap_by_id(mesh_boxes)
+    for id in component:
+        excess = maxf(excess, float(component[id])
+            - float(component_neutral.get(id, 0.0))
+            - HEAD_TRACK_COMPONENT_OVERLAP_TOLERANCE_M3)
+    return maxf(0.0, excess)
 
 
-func _safe_head_yaw(base_pose: Quaternion, wanted_yaw: float,
-        neutral_overlap: Dictionary, allowed_extra_volume: float,
-        mesh_neutral: Dictionary = {}, mesh_boxes: Dictionary = {},
-        whole_boxes: Dictionary = {}) -> float:
-    # Search the full arc, not just the endpoint. During recovery the
-    # sub-mesh intersections protect actual arm plates and shin pieces
-    # while retaining motion in the empty gap inside the full arm AABB.
-    var safe: float = 0.0
-    for i in range(1, HEAD_TRACK_RECOVERY_SWEEP_STEPS + 1):
-        var trial: float = wanted_yaw * (
-            float(i) / float(HEAD_TRACK_RECOVERY_SWEEP_STEPS))
-        if _head_collides_with_leg(base_pose, trial, neutral_overlap,
-                allowed_extra_volume, mesh_neutral, mesh_boxes, whole_boxes):
-            break
-        safe = trial
-    return safe
+func _head_collision_motion_scale(current_excess: float,
+        next_excess: float, delta: float) -> float:
+    # Low-pass filtering suppresses one-frame IK/AABB contact noise.
+    # Even under persistent deep intrusion, allow >=55% of the requested
+    # head rotation: it must keep looking at SERA instead of getting stuck.
+    var alpha: float = 1.0 - exp(
+        -HEAD_TRACK_COLLISION_FILTER_PER_SECOND * maxf(delta, 0.0))
+    head_collision_filtered_excess = lerpf(
+        head_collision_filtered_excess, next_excess, alpha)
+    # A turn AWAY from an obstruction is always allowed at full speed.
+    # Tiny differences below this deadband cannot cause head jitter.
+    if next_excess <= current_excess + 0.007:
+        return 1.0
+    var u: float = clampf(
+        (head_collision_filtered_excess - HEAD_TRACK_COLLISION_SOFT_START_M3)
+        / (HEAD_TRACK_COLLISION_SOFT_FULL_M3
+        - HEAD_TRACK_COLLISION_SOFT_START_M3), 0.0, 1.0)
+    var eased: float = u * u * (3.0 - 2.0 * u)
+    return lerpf(1.0, HEAD_TRACK_COLLISION_MIN_SPEED_FACTOR, eased)
 
 
 func _head_smootherstep(t: float) -> float:
@@ -353,6 +360,7 @@ func _aim_bittaran_head(delta: float) -> void:
         bittaran_head.quaternion = boss_head_default_rotation
         if head_track_weight <= 0.0:
             boss_head_yaw = 0.0
+            head_collision_filtered_excess = 0.0
             return
     if bittaran_foot_ik != null and bool(
             bittaran_foot_ik.call("windup_active")):
@@ -379,38 +387,31 @@ func _aim_bittaran_head(delta: float) -> void:
     var wanted: float = clampf(atan2(-toward.x, -toward.z),
         -deg_to_rad(HEAD_TRACK_MAX_YAW_DEGREES),
         deg_to_rad(HEAD_TRACK_MAX_YAW_DEGREES))
-    # Use individual upper-arm, forearm and foot mesh bounds even AFTER
-    # standing up. The old standing-only whole-leg AABB check missed actual
-    # arm plates when the torso turned and the IK re-planted its feet.
-    # Retain only the authored neutral overlap at this frame; forbid NEW
-    # mesh intersections as the head steers.
+    # The head tracks SERA directly, independent of tiny arm/foreleg
+    # AABB changes. A severe, SUSTAINED collision only slows rotation:
+    # never jump to a "safe" angle or freeze behind a moving knee.
+    var degrees_per_second: float = _head_recovery_turn_speed()
+    var proposed_yaw: float = move_toward(
+        boss_head_yaw, wanted * head_track_weight,
+        deg_to_rad(degrees_per_second) * maxf(delta, 0.0)
+        * head_track_weight)
     var whole_boxes: Dictionary = {}
     var mesh_boxes: Dictionary = {}
     for id in ["leg_fl", "leg_fr", "leg_rl", "leg_rr"]:
         whole_boxes[id] = target_parts.call("get_leg_visual_aabb", id)
-        # Sample the final IK arm/forearm/foot pose on EVERY frame, including
-        # normal Turn and Approach after the post-down settle completes.
         mesh_boxes[id] = target_parts.call("get_leg_visual_mesh_boxes", id)
     head_neutral_overlap = _head_leg_overlap_by_id(
         base_pose, 0.0, whole_boxes)
     head_neutral_component_overlap = _head_component_overlap_by_id(mesh_boxes)
-    var feasible: float = _safe_head_yaw(
-        base_pose, wanted, head_neutral_overlap,
-        HEAD_LEG_BASELINE_AABB_TOLERANCE_M3,
+    var current_excess: float = _head_overlap_excess(
+        base_pose, boss_head_yaw, head_neutral_overlap,
         head_neutral_component_overlap, mesh_boxes, whole_boxes)
-    var degrees_per_second: float = _head_recovery_turn_speed()
-    # The head eases from zero after 70% of actual rise, stays gentle
-    # through upright settle, then smoothly reaches normal tracking speed.
-    var proposed_yaw: float = move_toward(
-        boss_head_yaw, feasible * head_track_weight,
-        deg_to_rad(degrees_per_second) * maxf(delta, 0.0)
-        * head_track_weight)
-    # If the other arm moved into the previous yaw, back off to the last
-    # safe intermediate rotation rather than snapping to a distant target.
-    boss_head_yaw = _safe_head_yaw(
+    var proposed_excess: float = _head_overlap_excess(
         base_pose, proposed_yaw, head_neutral_overlap,
-        HEAD_LEG_BASELINE_AABB_TOLERANCE_M3,
         head_neutral_component_overlap, mesh_boxes, whole_boxes)
+    var motion_scale: float = _head_collision_motion_scale(
+        current_excess, proposed_excess, delta)
+    boss_head_yaw = lerpf(boss_head_yaw, proposed_yaw, motion_scale)
     bittaran_head.quaternion = (base_pose *
         Quaternion(Vector3.UP, boss_head_yaw)).normalized()
 
@@ -642,6 +643,7 @@ func _apply_target_part_damage(kind: String, raw_attack: int, raw_break: float,
     if bool(result.get("broken", false)) and str(result.get("kind", "")) == "leg":
         if bittaran_foot_ik != null and target_parts != null:
             boss_head_windup_start_yaw = boss_head_yaw
+            head_collision_filtered_excess = 0.0
             var head_world: Vector3 = target_parts.call("get_part_aim_world", "head")
             bittaran_foot_ik.call("start_leg_break_slide", hit_id, head_world.y,
                 int(result.get("broken_legs", 0)) >= 4)
@@ -672,6 +674,7 @@ func _reset_target_after_respawn() -> void:
     boss_head_windup_start_yaw = 0.0
     head_neutral_overlap.clear()
     head_neutral_component_overlap.clear()
+    head_collision_filtered_excess = 0.0
     boss_downed_escaping = false
     if boss_death_particles != null:
         boss_death_particles.emitting = false

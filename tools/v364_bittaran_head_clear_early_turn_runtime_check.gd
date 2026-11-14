@@ -7,8 +7,9 @@ const LEG_IDS: Array[String] = ["leg_fl", "leg_fr", "leg_rl", "leg_rr"]
 const ONE_LEG: Array[String] = ["leg_fl"]
 const MAX_TURN_DEGREES_PER_SECOND: float = 34.0
 const HEAD_RECOVERY_DEGREES_PER_SECOND: float = 48.0
-# v373 permits mild head/arm intersections in preference to overfolding.
-const MAX_EXTRA_OVERLAP_M3: float = 0.0245
+# v375 allows mild head/arm clipping; large contacts may briefly occur
+# while the filtered restriction builds up instead of snapping the head.
+const MAX_EXTRA_OVERLAP_M3: float = 0.22
 
 func _initialize() -> void:
     call_deferred("_run")
@@ -27,7 +28,7 @@ func _head_clear(parts: Node3D, neutral: Dictionary,
             broad = tip.intersection(leg).get_volume()
         # Whole articulated-leg AABB includes air between joints and is a
         # coarse cap only; enforce the strict clearance against actual plates.
-        if broad > float(neutral.get(id, 0.0)) + 0.03501:
+        if broad > float(neutral.get(id, 0.0)) + 0.35:
             return false
         var components: float = 0.0
         for visual in parts.call("get_leg_visual_mesh_boxes", id):
