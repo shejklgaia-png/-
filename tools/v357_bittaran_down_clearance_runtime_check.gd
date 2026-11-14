@@ -13,7 +13,7 @@ func _fail(message: String) -> void:
     quit(1)
 
 func _head_clear(parts: Node3D) -> bool:
-    var head: AABB = (parts.call("get_part_aabb", "head") as AABB).grow(0.045)
+    var head: AABB = (parts.call("get_head_swing_aabb") as AABB).grow(0.045)
     for id in ["leg_fl", "leg_fr", "leg_rl", "leg_rr"]:
         var leg: AABB = parts.call("get_leg_visual_aabb", id)
         if leg.has_volume() and head.intersects(leg):
