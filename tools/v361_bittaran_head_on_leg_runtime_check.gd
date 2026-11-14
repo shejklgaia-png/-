@@ -85,8 +85,6 @@ func _run() -> void:
         "get_actor_parallel_lock_segments",
         boss.global_position + Vector3(0.0, 0.0, 5.0),
         boss.global_position)
-    var baseline: float = parts.get_script().get_base_script()._parallel_lock_part_distance(
-        candidate, "leg_fl") if false else 0.0
     # Test priority without reaching into super-method internals.
     parts.call("set_head_support_leg", "")
     var original: float = parts.call("_parallel_lock_part_distance",
