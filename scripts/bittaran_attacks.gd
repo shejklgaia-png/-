@@ -3,7 +3,7 @@ extends RefCounted
 ## Timings are in physics seconds, independent of the authored locomotion clip.
 const LEG_IDS: Array[String] = ["leg_fl", "leg_fr", "leg_rl", "leg_rr"]
 const ATTACK_KINDS: Array[String] = ["stomp", "kick", "sweep"]
-const START_RANGE_METERS: float = 6.0
+const START_RANGE_METERS: float = 9.0
 const STOMP_WINDUP_SECONDS: float = 1.0
 const KICK_WINDUP_SECONDS: float = 1.0
 const SWEEP_WINDUP_SECONDS: float = 0.72
