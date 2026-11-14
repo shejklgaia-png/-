@@ -28,6 +28,7 @@ func _ready() -> void:
     boss_name_label = _make_boss_label(layer, NAME_TEXT, 115.0, 22)
     victory_label = _make_boss_label(layer, "BITTARAN DEFEATED", 176.0, 26)
     victory_label.visible = false
+    _update_bittaran_lock_permissions()
 
 func _make_boss_label(parent: CanvasLayer, caption: String,
         y: float, font_size: int) -> Label:
@@ -100,7 +101,31 @@ func _advance_target_motion(delta: float) -> void:
         target_floor_mark.position = Vector3(
             target.position.x, -0.026, target.position.z)
 
+func _update_bittaran_lock_permissions() -> void:
+    if target_parts == null or bittaran_foot_ik == null or target == null:
+        return
+    var down: bool = target_hp > 0 and bool(
+        bittaran_foot_ik.call("break_reaction_active"))
+    target_parts.call("set_down_lock_enabled", down)
+    # Empty ID means BODY in the inherited AUTO code. Replace that fallback
+    # with a shin whenever the boss is standing, even during a held combo.
+    if not down and not bool(target_parts.call(
+            "can_lock_boss_part", locked_target_part_id)):
+        if player != null:
+            locked_target_part_id = str(target_parts.call(
+                "select_actor_parallel_lines_part",
+                player.global_position, target.global_position))
+        else:
+            locked_target_part_id = "leg_fl"
+        auto_lock_pending_part = ""
+        auto_lock_pending_elapsed = 0.0
+        auto_lock_initialized = true
+        _update_target_marker_projection()
+
 func _physics_process(delta: float) -> void:
+    # Provide the policy *before* base AUTO/MANUAL selection, then refresh
+    # after IK finishes its fall/recovery tick. Do not allow a one-frame leak.
+    _update_bittaran_lock_permissions()
     # main.gd advances root motion and finishes the vertical boss bob first.
     # Solve contact IK last, in world space, against the final interpolated root.
     super._physics_process(delta)
@@ -108,6 +133,7 @@ func _physics_process(delta: float) -> void:
         bittaran_foot_ik.call("advance_ik", delta, bittaran_motion)
     if target_parts != null:
         target_parts.call("sync_bittaran_parts")
+    _update_bittaran_lock_permissions()
 
 func _target_hit_aabb() -> AABB:
     if target_parts != null and target_parts.has_method("get_body_hit_aabb"):
@@ -134,6 +160,8 @@ func _apply_target_part_damage(kind: String, raw_attack: int, raw_break: float,
         if bittaran_foot_ik != null and target_parts != null:
             var head_world: Vector3 = target_parts.call("get_part_aim_world", "head")
             bittaran_foot_ik.call("start_leg_break_slide", hit_id, head_world.y)
+            # Weakpoints become lockable in this very hit frame.
+            target_parts.call("set_down_lock_enabled", true)
     return result
 
 func _tick_target_respawn(_delta: float) -> void:
@@ -150,6 +178,7 @@ func _reset_target_after_respawn() -> void:
         target.rotation.y = 0.0
     if bittaran_foot_ik != null:
         bittaran_foot_ik.call("reset")
+    _update_bittaran_lock_permissions()
 
 func _process(delta: float) -> void:
     super._process(delta)
