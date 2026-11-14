@@ -188,7 +188,10 @@ const CAMERA_COMBAT_MIN_RADIUS: float = 11.3
 const CAMERA_COMBAT_ZOOM_OUT_SPEED: float = 8.0
 # v286: minimum safe target->SERA orbit radius includes the wide outer
 # legs and SERA's shoulder width, not merely the central hitbox.
-const SIDE_KICK_BOOST_DISTANCE: float = 3.0
+# Four metres AFTER second kick contact, never part of an orbit.
+const SIDE_KICK_BOOST_DISTANCE: float = 4.0
+# Preserve original 0.6s authored kick: 3m / 10m/s * 2x.
+const SIDE_KICK_DURATION_REFERENCE_DISTANCE: float = 3.0
 const SIDE_KICK_SAFE_ORBIT_RADIUS: float = 3.55  # historic bound; not boost distance
 const STEP_CLOSE_CAMERA_MAX_TURN_RATE_DEGREES: float = 300.0
 const STEP_CLOSE_CAMERA_RECOVERY_SECONDS: float = 0.18
@@ -507,14 +510,14 @@ var step_active: bool = false
 var step_kick_side_request: int = 0  # transient; keep STEP method API unchanged
 var side_kick_active: bool = false
 var side_kick_side: int = 0  # -1 Kick_l, +1 Kick_r; distinct from screen travel
-var side_kick_travel_anchor_set: bool = false  # do not undo first-strike homing
-# v300: circle around the locked PART until the authored second kick hit,
-# then move on the instantaneous tangent with no further rotation.
+var side_kick_travel_anchor_set: bool = false  # second windup reached
+# No circular phase: second contact, then NEXT tick a fixed 4m dash.
 var side_kick_linear_active: bool = false
 var side_kick_linear_start: Vector2 = Vector2.ZERO
+var side_kick_linear_start_elapsed: float = 0.0
 var side_kick_linear_direction: Vector2 = Vector2.ZERO
 var side_kick_linear_distance: float = 0.0
-var side_kick_orbit_sign: float = 1.0
+var side_kick_world_direction_request: Vector3 = Vector3.ZERO
 var side_kick_did_hit: bool = false
 var side_kick_hit_mask: int = 0
 var side_kick_hit_count: int = 0
@@ -603,6 +606,7 @@ var bash_queued: bool = false
 var bash_combo_queued: bool = false
 # A flick during Melee3 is buffered until 0.10s after its strike-through key.
 var buffered_side_kick_flick: Vector2 = Vector2.ZERO
+var buffered_side_kick_world_direction: Vector3 = Vector3.ZERO
 var buffered_side_kick_side: int = 0  # -1=Kick_l, +1=Kick_r, 2=Kick_b
 var bash_flick_candidate: bool = false
 var side_kick_flick_candidate: bool = false
@@ -3052,6 +3056,10 @@ func _request_combo_side_kick(flick: Vector2) -> bool:
     if (combat_state == CombatState.STRIKE or combat_state == CombatState.STRIKE_TRACK) \
             and _is_strike_finisher():
         buffered_side_kick_flick = flick.normalized()
+        # Snapshot at the original recognized flick, not at queued playback.
+        buffered_side_kick_world_direction = (
+            _screen_drag_to_ground(flick).normalized() if side != 2
+            else Vector3.ZERO)
         buffered_side_kick_side = side
         bash_queued = false  # Latest combo direction wins.
         _record_kick_debug("QUEUED " + ("B" if side == 2 else ("R" if side > 0 else "L")))
@@ -3059,10 +3067,12 @@ func _request_combo_side_kick(flick: Vector2) -> bool:
     if combat_state != CombatState.IDLE:
         _record_kick_debug("STATE BLOCKED")
         return false
-    return _launch_combo_side_kick(flick, side)
+    return _launch_combo_side_kick(flick, side,
+        _screen_drag_to_ground(flick).normalized() if side != 2 else Vector3.ZERO)
 
 
-func _launch_combo_side_kick(flick: Vector2, side: int) -> bool:
+func _launch_combo_side_kick(flick: Vector2, side: int,
+        accepted_world_direction: Vector3 = Vector3.ZERO) -> bool:
     if side == 2:
         var launched: bool = (_start_back_somersault()
             if _distance_to_attack_target_surface(player.position) <= BASH_REACH
@@ -3073,8 +3083,14 @@ func _launch_combo_side_kick(flick: Vector2, side: int) -> bool:
             or not bool(rig.call("has_side_kick", side)):
         return false
     step_kick_side_request = side
+    side_kick_world_direction_request = accepted_world_direction
+    if side_kick_world_direction_request.length_squared() < 0.000001:
+        side_kick_world_direction_request = _screen_drag_to_ground(flick)
+    side_kick_world_direction_request.y = 0.0
+    side_kick_world_direction_request = side_kick_world_direction_request.normalized()
     var started: bool = _start_omni_step(flick)
     step_kick_side_request = 0
+    side_kick_world_direction_request = Vector3.ZERO
     _record_kick_debug(("START " + ("R" if side > 0 else "L")) if started
         else "EN / ACTION BLOCKED")
     return started
@@ -3322,8 +3338,8 @@ func _start_omni_step(flick: Vector2) -> bool:
 
     step_duration_current = (step_arc_length / step_speed_current
         * float(part_stats.get("step_time_mult", 1.0)))
-    # Side kicks use the enemy as an orbit pivot, so their camera guard
-    # activates throughout the nearby melee range; ordinary STEP retains
+    # Side kicks preserve close-combat camera protection through pursuit
+    # and the 4m straight exit; ordinary STEP retains
     # the older 1m proximity threshold and committed screen trajectory.
     step_close_camera = (
         (step_kick_side_request != 0
@@ -3345,24 +3361,27 @@ func _start_omni_step(flick: Vector2) -> bool:
     side_kick_travel_anchor_set = false
     side_kick_linear_active = false
     side_kick_linear_start = Vector2.ZERO
+    side_kick_linear_start_elapsed = 0.0
     side_kick_linear_direction = Vector2.ZERO
     side_kick_linear_distance = 0.0
-    side_kick_orbit_sign = 1.0
-    # A kick follows a target-centered orbit rather than this normal
-    # screen-linear STEP. Its angle and anchor are finalized at the SECOND
-    # windup after the first-foot homing, so no early snap-back can occur.
-    # Each kick travels a total of 3m across its arc and tangent boost.
     if side_kick_active:
-        # Kick is a combo attack, not the regular 5m dodge. Keep its
-        # original 3m/10m/s motion, contact timing and attack windows.
+        # 4m post-contact displacement and unchanged .6s animation clock.
         step_arc_length = SIDE_KICK_BOOST_DISTANCE
         step_speed_current = SIDE_KICK_STEP_SPEED * float(
             part_stats.get("step_speed_mult", 1.0))
-        step_duration_current = (step_arc_length / step_speed_current
+        step_duration_current = (
+            SIDE_KICK_DURATION_REFERENCE_DISTANCE / step_speed_current
             * float(part_stats.get("step_time_mult", 1.0))
             * SIDE_KICK_MOTION_TIME_MULTIPLIER)
         step_linear_fallback = false
         step_signed_angle = 0.0
+        side_kick_linear_distance = SIDE_KICK_BOOST_DISTANCE
+        var accepted: Vector3 = side_kick_world_direction_request
+        if accepted.length_squared() < 0.000001:
+            accepted = world_step
+        accepted.y = 0.0
+        side_kick_linear_direction = Vector2(
+            accepted.x, accepted.z).normalized()
     side_kick_did_hit = false
     side_kick_hit_mask = 0
     side_kick_hit_count = 0
@@ -3519,9 +3538,10 @@ func _finish_side_step(resume_moving: bool) -> void:
     side_kick_travel_anchor_set = false
     side_kick_linear_active = false
     side_kick_linear_start = Vector2.ZERO
+    side_kick_linear_start_elapsed = 0.0
     side_kick_linear_direction = Vector2.ZERO
     side_kick_linear_distance = 0.0
-    side_kick_orbit_sign = 1.0
+    side_kick_world_direction_request = Vector3.ZERO
     side_kick_did_hit = false
     side_kick_hit_mask = 0
     side_kick_hit_count = 0
@@ -3540,56 +3560,8 @@ func _finish_side_step(resume_moving: bool) -> void:
     rig.call("finish_side_step", resume_moving, resume_fall)
     _refresh_step_status_ui()
 
-# The orbit center is the ACTUALLY LOCKED part, not the target BODY.
-# Preserve locked broken parts during the active combo until its lock
-# retention finishes, just like melee/bash hit selection.
-func _kick_lock_center_xz() -> Vector2:
-    var point: Vector3 = target.global_position
-    if target_parts != null and not locked_target_part_id.is_empty() \
-            and bool(target_parts.call("has_part", locked_target_part_id)):
-        point = target_parts.call("get_part_aim_world", locked_target_part_id)
-    return Vector2(point.x, point.z)
-
-
-# At second windup, AFTER the first Bash-style homing movement, snapshot
-# the radius around the locked part. Spend the first part of the FIXED 3m
-# movement following that circular arc until second contact. The remaining
-# distance is a straight tangent BOOST after second contact, not more orbit.
-func _configure_side_kick_orbit() -> void:
-    step_target_center = _kick_lock_center_xz()
-    var radial: Vector2 = Vector2(
-        player.position.x - step_target_center.x,
-        player.position.z - step_target_center.y)
-    step_start_offset = radial
-    var radius: float = radial.length()
-    var world_right: Vector3 = _screen_drag_to_ground(Vector2.RIGHT)
-    if world_right.length_squared() < 0.000001:
-        world_right = Vector3.RIGHT
-    var screen_right_xz: Vector2 = Vector2(world_right.x, world_right.z).normalized()
-    var tangent: Vector2 = screen_right_xz
-    if radius >= STEP_MIN_ORBIT_RADIUS:
-        tangent = Vector2(-radial.y, radial.x) / radius
-    side_kick_orbit_sign = (
-        1.0 if tangent.dot(screen_right_xz) >= 0.0 else -1.0) * float(side_kick_side)
-    var second_windup: float = (
-        SIDE_KICK_SECOND_WINDUP_R if side_kick_side > 0 else SIDE_KICK_SECOND_WINDUP_L)
-    var orbit_fraction: float = clampf(
-        (float(SIDE_KICK_HIT_PROGRESS[1]) - second_windup)
-        / (1.0 - second_windup), 0.0, 1.0)
-    var requested_orbit_length: float = SIDE_KICK_BOOST_DISTANCE * orbit_fraction
-    step_signed_angle = 0.0
-    if radius >= STEP_MIN_ORBIT_RADIUS:
-        step_signed_angle = minf(
-            requested_orbit_length / radius,
-            deg_to_rad(STEP_CLOSE_ORBIT_MAX_DEGREES)) * side_kick_orbit_sign
-    # If the locked pivot lies inside SERA or the maximum safe turn is hit,
-    # carry any unused arc metres into the straight phase. Always total 3m.
-    side_kick_linear_distance = maxf(0.0,
-        SIDE_KICK_BOOST_DISTANCE - radius * absf(step_signed_angle))
-    side_kick_linear_direction = screen_right_xz * float(side_kick_side)
-    step_linear_fallback = false
-    step_linear_offset = Vector2.ZERO
-    step_radial_delta = 0.0
+# Kick pursuit checks the live locked hit volume, not an orbit pivot.
+# The accepted flick is the only direction for the post-contact exit.
 
 
 func _advance_side_step(delta: float) -> void:
@@ -3603,10 +3575,8 @@ func _advance_side_step(delta: float) -> void:
         var second_windup: float = (SIDE_KICK_SECOND_WINDUP_R
             if side_kick_side > 0 else SIDE_KICK_SECOND_WINDUP_L)
         var second_hit: float = float(SIDE_KICK_HIT_PROGRESS[1])
-        # Retain the original first-hit and pre-second-windup homing window.
-        # The orbit starts from the ACTUAL chased position, never a stale
-        # pre-homing point. A low-FPS tick crossing the windup is split.
         var previous_seconds: float = step_duration_current * previous_progress
+        # Existing first kick homing; never overwrite its contact frame.
         var chase_until: float = minf(
             BASH_TRACK_SECONDS, step_duration_current * second_windup)
         var chase_dt: float = minf(
@@ -3614,71 +3584,44 @@ func _advance_side_step(delta: float) -> void:
         if chase_dt > 0.0 and not side_kick_travel_anchor_set:
             _advance_homing_toward_target(chase_dt, BASH_REACH)
         if not side_kick_travel_anchor_set and progress >= second_windup:
-            _configure_side_kick_orbit()
             side_kick_travel_anchor_set = true
-        if side_kick_travel_anchor_set:
-            if not side_kick_linear_active:
-                # The locked HEAD/leg/BODY remains the orbit center.
-                # During the SECOND kick's authored windup -> foot extension,
-                # add live homing until the exact original second contact key.
-                # Never alter step_elapsed, step_duration_current, the clip,
-                # playback rate or the post-contact tangent phase.
-                step_target_center = _kick_lock_center_xz()
-                var orbit_progress: float = clampf(
-                    (progress - second_windup) / maxf(
-                        second_hit - second_windup, 0.00001), 0.0, 1.0)
-                var rotated: Vector2 = step_start_offset.rotated(
-                    step_signed_angle * orbit_progress)
-                var orbit_goal: Vector2 = step_target_center + rotated
-                _move_player_swept(Vector3(
-                    orbit_goal.x - player.position.x, 0.0,
-                    orbit_goal.y - player.position.z), true)
-                # Split low-FPS boundary frames: chase ONLY the slice
-                # [second windup, second hit], never a post-impact fraction.
-                var second_chase_start: float = maxf(
-                    previous_seconds, step_duration_current * second_windup)
-                var second_chase_end: float = minf(
-                    step_elapsed, step_duration_current * second_hit)
-                var second_chase_dt: float = maxf(
-                    0.0, second_chase_end - second_chase_start)
-                if second_chase_dt > 0.0:
-                    _advance_homing_toward_target(second_chase_dt, SIDE_KICK_REACH)
-                    # Chase and swept collisions can shift the actor off
-                    # the mathematical arc. Rebase the next arc sample to
-                    # this ACTUAL pose so it cannot snap back next frame.
-                    var actual_radial: Vector2 = Vector2(
-                        player.position.x - step_target_center.x,
-                        player.position.z - step_target_center.y)
-                    step_start_offset = actual_radial.rotated(
-                        -step_signed_angle * orbit_progress)
-                if progress >= second_hit:
-                    # Record the SECOND foot impact while still on the arc,
-                    # before applying any post-impact linear displacement.
-                    if previous_progress < second_hit and (side_kick_hit_mask & 2) == 0:
-                        side_kick_hit_mask |= 2
-                        if _distance_to_attack_target_surface(
-                                player.position) <= SIDE_KICK_REACH:
-                            _register_side_kick_hit()
-                            side_kick_hit_count += 1
-                    side_kick_linear_active = true
-                    side_kick_linear_start = Vector2(
-                        player.position.x, player.position.z)
-                    var contact_pivot: Vector2 = _kick_lock_center_xz()
-                    var contact_radial: Vector2 = side_kick_linear_start - contact_pivot
-                    if contact_radial.length_squared() >= STEP_MIN_ORBIT_RADIUS * STEP_MIN_ORBIT_RADIUS:
-                        side_kick_linear_direction = Vector2(
-                            -contact_radial.y, contact_radial.x).normalized() * side_kick_orbit_sign
-            if side_kick_linear_active:
-                # No further center tracking, yaw or orbital rotation.
-                # Straight BOOST advances along the tangent recorded at hit.
-                var line_progress: float = clampf(
-                    (progress - second_hit) / maxf(1.0 - second_hit, 0.00001),
-                    0.0, 1.0)
-                var line_goal: Vector2 = side_kick_linear_start + (
-                    side_kick_linear_direction * side_kick_linear_distance * line_progress)
-                _move_player_swept(Vector3(
-                    line_goal.x - player.position.x, 0.0,
-                    line_goal.y - player.position.z), true)
+
+        if not side_kick_linear_active:
+            # SECOND windup -> authored foot contact: chase, NOT orbit.
+            # Clip time and hit-frame thresholds remain completely unchanged.
+            var second_chase_start: float = maxf(
+                previous_seconds, step_duration_current * second_windup)
+            var second_chase_end: float = minf(
+                step_elapsed, step_duration_current * second_hit)
+            var second_chase_dt: float = maxf(
+                0.0, second_chase_end - second_chase_start)
+            if second_chase_dt > 0.0:
+                _advance_homing_toward_target(second_chase_dt, SIDE_KICK_REACH)
+            if previous_progress < second_hit and progress >= second_hit:
+                # Hit must be resolved before the linear 4m displacement.
+                if (side_kick_hit_mask & 2) == 0:
+                    side_kick_hit_mask |= 2
+                    if _distance_to_attack_target_surface(
+                            player.position) <= SIDE_KICK_REACH:
+                        _register_side_kick_hit()
+                        side_kick_hit_count += 1
+                side_kick_linear_active = true
+                side_kick_linear_start = Vector2(
+                    player.position.x, player.position.z)
+                side_kick_linear_start_elapsed = step_elapsed
+                # No travel this hit frame. Next physics tick begins the dash.
+        else:
+            # Frozen at flick ACCEPTANCE. Target/camera movement cannot turn it.
+            # Fit the full 4m into the clip's UNCHANGED remaining time.
+            var line_progress: float = clampf(
+                (step_elapsed - side_kick_linear_start_elapsed)
+                / maxf(step_duration_current - side_kick_linear_start_elapsed,
+                    0.00001), 0.0, 1.0)
+            var line_goal: Vector2 = side_kick_linear_start + (
+                side_kick_linear_direction * side_kick_linear_distance * line_progress)
+            _move_player_swept(Vector3(
+                line_goal.x - player.position.x, 0.0,
+                line_goal.y - player.position.z), true)
     else:
         # Ordinary 360deg STEP has a single committed screen-linear vector,
         # independent of target distance, target motion and player facing.
@@ -3692,7 +3635,7 @@ func _advance_side_step(delta: float) -> void:
         player.position.x - before.x, player.position.z - before.z).length()
     if side_kick_active:
         # Both authored foot-contact keys are still used exactly once.
-        # The second key is handled above, at the arc/line boundary.
+        # The second key is resolved BEFORE the next-frame straight dash.
         for i in range(SIDE_KICK_HIT_PROGRESS.size()):
             var impact_progress: float = float(SIDE_KICK_HIT_PROGRESS[i])
             var bit: int = 1 << i
@@ -3841,6 +3784,7 @@ func _cancel_attack() -> void:
     bash_queued = false
     bash_combo_queued = false
     buffered_side_kick_flick = Vector2.ZERO
+    buffered_side_kick_world_direction = Vector3.ZERO
     buffered_side_kick_side = 0
     side_kick_flick_candidate = false
     bash_flick_candidate = false
@@ -3861,6 +3805,7 @@ func _request_combo_bash() -> bool:
     if (combat_state == CombatState.STRIKE or combat_state == CombatState.STRIKE_TRACK) \
             and _is_strike_finisher():
         buffered_side_kick_flick = Vector2.ZERO
+        buffered_side_kick_world_direction = Vector3.ZERO
         buffered_side_kick_side = 0
         bash_queued = true
         return true
@@ -3881,6 +3826,7 @@ func _start_bash() -> void:
     bash_queued = false
     bash_combo_queued = false
     buffered_side_kick_flick = Vector2.ZERO
+    buffered_side_kick_world_direction = Vector3.ZERO
     buffered_side_kick_side = 0
     bash_flick_candidate = false
     bash_followup_window_remaining = 0.0
@@ -4046,6 +3992,7 @@ func _start_strike(stage: int = 0) -> void:
     strike_index = next_stage
     combo_queued = false
     buffered_side_kick_flick = Vector2.ZERO
+    buffered_side_kick_world_direction = Vector3.ZERO
     buffered_side_kick_side = 0
     _clear_strike_tracking()
     if sword_trail != null:
@@ -4082,13 +4029,16 @@ func _launch_followup_strike() -> void:
 # Only stage 3 opens the existing post-finisher Bash/Kick link window.
 func _finish_strike_and_release_queued_kick() -> void:
     var committed_kick_flick: Vector2 = Vector2.ZERO
+    var committed_kick_world_direction: Vector3 = Vector3.ZERO
     var committed_kick_side: int = 0
     if _is_strike_finisher():
         bash_followup_window_remaining = BASH_LINK_SECONDS
         last_melee3_finished_ms = Time.get_ticks_msec()
         committed_kick_flick = buffered_side_kick_flick
+        committed_kick_world_direction = buffered_side_kick_world_direction
         committed_kick_side = buffered_side_kick_side
     buffered_side_kick_flick = Vector2.ZERO
+    buffered_side_kick_world_direction = Vector3.ZERO
     buffered_side_kick_side = 0
     combat_state = CombatState.IDLE
     combo_queued = false
@@ -4101,7 +4051,8 @@ func _finish_strike_and_release_queued_kick() -> void:
         _enter_jump_fall()
     rig.call("finish_attack", false, jump_active and not damage_reaction_active)
     if committed_kick_side != 0 and committed_kick_flick.length_squared() > 0.000001:
-        _launch_combo_side_kick(committed_kick_flick, committed_kick_side)
+        _launch_combo_side_kick(committed_kick_flick, committed_kick_side,
+            committed_kick_world_direction)
 
 
 func _advance_attack(delta: float) -> void:
