@@ -28,6 +28,8 @@ var boss_death_elapsed: float = -1.0
 var boss_far_side_screen_axis: bool = false
 var bittaran_head: Node3D
 var boss_head_yaw: float = 0.0
+var boss_head_default_rotation: Quaternion = Quaternion.IDENTITY
+var boss_head_windup_start_yaw: float = 0.0
 var head_neutral_overlap: Dictionary = {}
 var boss_downed_escaping: bool = false
 
@@ -78,6 +80,8 @@ func _build_target() -> void:
     bittaran_rig.position.y = -1.12
     target.add_child(bittaran_rig)
     bittaran_head = bittaran_rig.find_child("Head", true, false) as Node3D
+    if bittaran_head != null:
+        boss_head_default_rotation = bittaran_head.quaternion
     bittaran_ai = BittaranAI.new()
     bittaran_ai.call("reset")
     bittaran_foot_ik = BittaranFootIK.new()
@@ -195,6 +199,23 @@ func _head_collides_with_leg(base_pose: Quaternion,
 
 func _aim_bittaran_head(delta: float) -> void:
     if bittaran_head == null or player == null or target_hp <= 0:
+        return
+    if bittaran_foot_ik != null and bool(
+            bittaran_foot_ik.call("down_pose_active")):
+        # The 0.6-second throw has finished. Down and recovery must use the
+        # ORIGINAL head joint rotation, not the standing player-facing yaw.
+        boss_head_yaw = 0.0
+        bittaran_head.quaternion = boss_head_default_rotation
+        return
+    if bittaran_foot_ik != null and bool(
+            bittaran_foot_ik.call("windup_active")):
+        # Let the heavy nose-up throw lead the motion. Smoothly unwind the
+        # old yaw so the down phase meets neutral without a rotation snap.
+        var t: float = float(bittaran_foot_ik.call("windup_progress"))
+        var ease: float = t * t * (3.0 - 2.0 * t)
+        boss_head_yaw = boss_head_windup_start_yaw * (1.0 - ease)
+        bittaran_head.quaternion = (bittaran_head.quaternion *
+            Quaternion(Vector3.UP, boss_head_yaw)).normalized()
         return
     # Each authored animation reinitializes the HEAD joint before this
     # post-IK step. Do not accumulate on its already turned quaternion.
@@ -382,6 +403,7 @@ func _apply_target_part_damage(kind: String, raw_attack: int, raw_break: float,
     # the chassis until the HEAD comes into SERA's melee reach, then restore.
     if bool(result.get("broken", false)) and str(result.get("kind", "")) == "leg":
         if bittaran_foot_ik != null and target_parts != null:
+            boss_head_windup_start_yaw = boss_head_yaw
             var head_world: Vector3 = target_parts.call("get_part_aim_world", "head")
             bittaran_foot_ik.call("start_leg_break_slide", hit_id, head_world.y,
                 int(result.get("broken_legs", 0)) >= 4)
@@ -402,6 +424,7 @@ func _reset_target_after_respawn() -> void:
     boss_death_elapsed = -1.0
     boss_far_side_screen_axis = false
     boss_head_yaw = 0.0
+    boss_head_windup_start_yaw = 0.0
     head_neutral_overlap.clear()
     boss_downed_escaping = false
     if boss_death_particles != null:
