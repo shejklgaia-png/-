@@ -6,7 +6,7 @@ r=Path(__file__).resolve().parents[1]
 m=(r/"scripts/main.gd").read_text()
 rig=(r/"scripts/sera_rig.gd").read_text()
 spec=json.loads((r/"tools/sera_active_specs.json").read_text())
-assert 'config/name="SERA v341"' in (r/"project.godot").read_text()
+assert 'config/name="SERA v342"' in (r/"project.godot").read_text()
 assert spec["side_kick"]["post_hit_only"] is True
 assert spec["side_kick"]["distance_m"]==4
 assert spec["side_kick"]["duration_reference_distance_m"]==3
@@ -14,7 +14,7 @@ assert "const SIDE_KICK_BOOST_DISTANCE: float = 4.0" in m
 assert "const SIDE_KICK_DURATION_REFERENCE_DISTANCE: float = 3.0" in m
 assert "SIDE_KICK_DURATION_REFERENCE_DISTANCE / step_speed_current" in m
 assert "const SIDE_KICK_HIT_PROGRESS = [0.25, 0.58333]" in m
-assert "const SIDE_KICK_MOTION_TIME_MULTIPLIER: float = 1.0" in m
+assert "const SIDE_KICK_MOTION_TIME_MULTIPLIER: float = 8.0 / 3.0" in m
 assert 'side_kick_playback_scale = maxf(0.001, float(animations[chosen]["length"])) / maxf(movement_duration, 0.01)' in rig
 for unused in ("_configure_side_kick_orbit","side_kick_orbit_sign",
                "step_signed_angle * orbit_progress","contact_radial"):
@@ -38,9 +38,9 @@ for token in ("if previous_progress < second_hit and progress >= second_hit:",
 assert kick.index("side_kick_linear_start_elapsed = step_elapsed")<kick.index(
     "var line_progress: float = clampf(")
 assert "        else:\n            # Frozen at flick ACCEPTANCE." in kick
-for hit in (.35,.3666667,.39):
-    for t in (hit,(hit+.6)*.5,.6):
-        amount=0. if t<=hit else 4.*min(1.,(t-hit)/(.6-hit))
+for hit in (.47,.49,.52):
+    for t in (hit,(hit+.8)*.5,.8):
+        amount=0. if t<=hit else 4.*min(1.,(t-hit)/(.8-hit))
         assert 0.<=amount<=4.
-    assert abs(4.*(.6-hit)/(.6-hit)-4.)<1e-10
+    assert abs(4.*(.8-hit)/(.8-hit)-4.)<1e-10
 print("PASS v340 4m straight exit starts next physics frame, hit/clip unchanged")

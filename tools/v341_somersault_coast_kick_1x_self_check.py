@@ -6,9 +6,10 @@ r=Path(__file__).resolve().parents[1]
 m=(r/"scripts/main.gd").read_text()
 rig=(r/"scripts/sera_rig.gd").read_text()
 spec=json.loads((r/"tools/sera_active_specs.json").read_text())
-assert 'config/name="SERA v341"' in (r/"project.godot").read_text()
-assert spec["side_kick"]["motion_time_multiplier"]==1
-assert "const SIDE_KICK_MOTION_TIME_MULTIPLIER: float = 1.0" in m
+assert 'config/name="SERA v342"' in (r/"project.godot").read_text()
+assert math.isclose(spec["side_kick"]["motion_time_multiplier"],8.0/3.0)
+assert math.isclose(spec["side_kick"]["nominal_duration_s"],0.8)
+assert "const SIDE_KICK_MOTION_TIME_MULTIPLIER: float = 8.0 / 3.0" in m
 assert "const SIDE_KICK_DURATION_REFERENCE_DISTANCE: float = 3.0" in m
 assert "const SIDE_KICK_BOOST_DISTANCE: float = 4.0" in m
 assert "const BACK_SOMERSAULT_DISTANCE: float = 5.0" in m
@@ -32,5 +33,5 @@ assert all(x((i+1)/120)>x(i/120) for i in range(120))
 assert all(slide((i+1)/120)>slide(i/120) for i in range(120))
 assert math.isclose(3*(5-control)/duration,3*coast/landing,abs_tol=1e-12)
 assert math.isclose(slide(1),coast,abs_tol=1e-12)
-assert math.isclose(3/10*1,.30,abs_tol=1e-12)
-print("PASS v341 5m continuous air retreat + 0.30m easing grounded retreat; Kick_l/r 1x")
+assert math.isclose(3/10*(8.0/3.0),.80,abs_tol=1e-12)
+print("PASS v341 5m continuous air retreat + 0.30m easing grounded retreat; Kick_l/r 0.80s")

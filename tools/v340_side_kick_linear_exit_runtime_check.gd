@@ -48,7 +48,7 @@ func _run() -> void:
         _fail("queued release direction changed on camera turn")
         return
     var d: float=float(game.get("step_duration_current"))
-    if absf(d-.30)>.0001:
+    if absf(d-.80)>.0001:
         _fail("original authored kick shortened/extended")
         return
     game.call("_advance_side_step",d*.584)
