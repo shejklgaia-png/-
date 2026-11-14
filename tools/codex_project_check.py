@@ -62,11 +62,20 @@ except ValueError:
     decoded = b""
 verify("embedded Godot model equals source JSON bytes", bool(parts) and decoded == src)
 
-# Only inspect explicit resource strings, not dynamic paths produced by runtime code.
+# Only inspect explicit resource strings for this SERA Godot project.
+# Other standalone Godot projects may coexist in subfolders (e.g. an
+# Android-synced racing prototype). Their res:// paths start at their own
+# project.godot, NOT at SERA's repository root. Never flag those paths as
+# missing SERA resources, and never change/delete the other project.
+nested_project_roots = tuple(sorted({
+    file.parent for file in ROOT.rglob("project.godot")
+    if file.parent != ROOT and ".godot" not in file.parts
+}))
 references: set[tuple[str, str]] = set()
 for ext in ("*.gd", "*.tscn", "*.tres", "*.gdshader", "*.godot"):
     for file in ROOT.rglob(ext):
-        if ".godot" in file.parts:
+        if ".godot" in file.parts or any(
+                project_root in file.parents for project_root in nested_project_roots):
             continue
         data = file.read_text(encoding="utf-8")
         for path in re.findall(r"[\"'](res://[^\"'\r\n]+)[\"']", data):
