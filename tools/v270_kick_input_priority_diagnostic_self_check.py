@@ -15,7 +15,7 @@ def body(a,b):
 helper=SERA_INPUT.split("static func combo_kick_side(flick: Vector2,",1)[1].split("static func upward_jump_flick",1)[0]
 release=body("_end_drag(release_pos: Vector2) -> void:","_remember_jump_flick_sample")
 request=body("_request_combo_side_kick(flick: Vector2) -> bool:","_launch_combo_side_kick")
-launch=body("_launch_combo_side_kick(flick: Vector2, side: int) -> bool:","_start_omni_step")
+launch=body("_launch_combo_side_kick(flick: Vector2, side: int,","_start_omni_step")
 movement=body("_start_omni_step(flick: Vector2) -> bool:","_start_back_step")
 begin=body("_begin_drag(pos: Vector2) -> void:","_analog_stick_direction")
 detail=body("_refresh_step_status_ui() -> void:","_record_kick_debug")

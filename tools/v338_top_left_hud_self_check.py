@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """v338: compact player HP/EN at top-left, boss and selected part shifted up."""
+from sera_active_contracts import require_min_version
 from pathlib import Path
 import math
 import re
@@ -51,7 +52,7 @@ assert 'clean_training_hud.call("set_boss_health"' in main
 assert 'clean_training_hud.call("set_locked_part"' in main
 assert 'const EN_RECOVERY_UNLOCK_RATIO: float = 0.60' in main
 assert 'if RESOURCE_RULES.exhaustion_unlocked(' in main
-assert 'config/name="SERA v338"' in project
+assert require_min_version(project, 338)
 
 # Check geometry in both native 720px and scaled portrait viewport width.
 for w in (360, 480, 720, 1080):

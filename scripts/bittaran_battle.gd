@@ -126,9 +126,13 @@ func _physics_process(delta: float) -> void:
     # Provide the policy *before* base AUTO/MANUAL selection, then refresh
     # after IK finishes its fall/recovery tick. Do not allow a one-frame leak.
     _update_bittaran_lock_permissions()
-    # main.gd advances root motion and finishes the vertical boss bob first.
-    # Solve contact IK last, in world space, against the final interpolated root.
     super._physics_process(delta)
+    _update_bittaran_lock_permissions()
+
+func _finalize_target_pose(delta: float) -> void:
+    # main calls this after root motion/bob, before collision and AUTO.
+    # Otherwise AUTO samples the reset animation pose, then IK moves the
+    # visible shins to different positions later in the same frame.
     if bittaran_foot_ik != null and target != null and target_hp > 0:
         bittaran_foot_ik.call("advance_ik", delta, bittaran_motion)
     if target_parts != null:

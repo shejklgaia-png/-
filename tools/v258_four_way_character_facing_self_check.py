@@ -36,9 +36,9 @@ drag=m.split("func _change_drag(",1)[1].split("func _update_boost_gesture(",1)[0
 release=m.split("func _end_drag(",1)[1].split("func _remember_jump_flick_sample(",1)[0]
 step=m.split("func _classify_step_flick(",1)[1].split("func _start_omni_step(",1)[0]
 omni=m.split("func _start_omni_step(",1)[1].split("func _start_back_step(",1)[0]
-assert "gesture_screen_forward = _projected_sera_facing()" in start
-assert "gesture_screen_forward = _projected_sera_facing()" in drag
-assert "gesture_screen_forward = _projected_sera_facing()" in release
+assert "gesture_screen_forward = _touch_to_lock_forward(pos)" in start
+assert "gesture_screen_forward =" not in drag
+assert "gesture_screen_forward =" not in release
 assert "guard_flick_axis_captured = true" in drag
 assert "INPUT_GESTURES.step_flick(" in step
 assert "return FLICK_DIRECTION_POLICY.screen_step_direction(displacement)" in SERA_INPUT

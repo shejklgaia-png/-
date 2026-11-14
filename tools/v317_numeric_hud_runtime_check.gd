@@ -19,6 +19,8 @@ func _run() -> void:
         return
     var game: Node3D = scene.instantiate()
     root.add_child(game)
+    # v338 hides legacy telemetry; expose it only in this formatter test.
+    (game.get("hud_panel") as Control).show()
     var c: Dictionary = game.get_script().get_script_constant_map()
     var vital: Control = game.get("vitals_hud")
     var hp_title: Label = game.get("hp_label")

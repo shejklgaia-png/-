@@ -152,6 +152,9 @@ func _run() -> void:
         if material.no_depth_test:
             _fail("visual beam ignores occlusion / 3D depth")
             return
+    # v338 hides development controls. A hidden button must not capture input;
+    # make this diagnostic explicitly available for the touch ownership test.
+    button.show()
     var tap: InputEventScreenTouch=InputEventScreenTouch.new()
     tap.index=6
     tap.pressed=true

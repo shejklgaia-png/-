@@ -22,8 +22,7 @@ func _run() -> void:
     if absf(float(constants["SIDE_KICK_MOTION_TIME_MULTIPLIER"])-(13.0/6.0))>.0001:
         _fail("side kicks are not 0.65s at the baseline speed")
         return
-    target.position=Vector3.ZERO
-    player.position=Vector3(0.0,0.0,-5.5)
+    player.position=target.position + Vector3(0.0,-target.position.y,3.0)
     game.set("target_hp",500)
     game.set("energy",100.0)
     game.set("locked_target_part_id","")

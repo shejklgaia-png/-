@@ -20,7 +20,7 @@ release = body("_end_drag(release_pos: Vector2) -> void:", "_remember_jump_flick
 classify_step = body("_classify_step_flick(displacement: Vector2, seconds: float) -> Vector2:", "_classify_combo_kick_flick")
 classify_kick = body("_classify_combo_kick_flick(displacement: Vector2, seconds: float) -> Vector2:", "_step_local_pose_direction")
 request = body("_request_combo_side_kick(flick: Vector2) -> bool:", "_launch_combo_side_kick")
-launch = body("_launch_combo_side_kick(flick: Vector2, side: int) -> bool:", "_start_omni_step")
+launch = body("_launch_combo_side_kick(flick: Vector2, side: int,", "_start_omni_step")
 step = body("_start_omni_step(flick: Vector2) -> bool:", "_start_back_step")
 advance = body("_advance_attack(delta: float) -> void:", "_screen_drag_to_ground")
 cancel = body("_cancel_attack() -> void:", "_request_combo_bash")
@@ -36,7 +36,7 @@ step_hud = body("_refresh_step_status_ui() -> void:", "_pointer_on_training_test
 assert "((combat_state == CombatState.STRIKE or combat_state == CombatState.STRIKE_TRACK)" in start
 assert "and _is_strike_finisher())" in start
 assert "or (combat_state == CombatState.IDLE and bash_followup_window_remaining > 0.0))" in start
-assert "gesture_screen_forward = _projected_sera_facing()" in start
+assert "gesture_screen_forward = _touch_to_lock_forward(pos)" in start
 assert "direction_input = Vector2.ZERO if (bash_flick_candidate or side_kick_flick_candidate)" in change
 assert "not (bash_flick_candidate or side_kick_flick_candidate)" in change
 assert "not (bash_flick_candidate or side_kick_flick_candidate)" in physics
@@ -67,7 +67,7 @@ assert "combat_state == CombatState.STRIKE_TRACK" in request
 assert "buffered_side_kick_flick = flick.normalized()" in request
 assert "buffered_side_kick_side = side" in request
 assert "bash_queued = false" in request
-assert "_launch_combo_side_kick(flick, side)" in request
+assert "_launch_combo_side_kick(flick, side," in request
 assert "step_kick_side_request = side" in launch
 assert "var started: bool = _start_omni_step(flick)" in launch
 assert "var world_step: Vector3 = _screen_drag_to_ground(direction)" in step
@@ -86,9 +86,9 @@ assert "committed_kick_side = buffered_side_kick_side" in handoff
 assert "buffered_side_kick_flick = Vector2.ZERO" in handoff
 assert "rig.call(\"finish_attack\", false, jump_active and not damage_reaction_active)" in handoff
 assert "if committed_kick_side != 0" in handoff
-assert "_launch_combo_side_kick(committed_kick_flick, committed_kick_side)" in handoff
+assert "_launch_combo_side_kick(committed_kick_flick, committed_kick_side," in handoff
 assert handoff.index("rig.call(\"finish_attack\", false, jump_active") < handoff.index(
-    "_launch_combo_side_kick(committed_kick_flick, committed_kick_side)")
+    "_launch_combo_side_kick(committed_kick_flick, committed_kick_side,")
 assert "buffered_side_kick_side = 0" in cancel
 assert "buffered_side_kick_side = 0" in bash_start
 assert "buffered_side_kick_side = 0" in bash_request

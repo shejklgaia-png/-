@@ -38,3 +38,16 @@ for token in (
     assert token in ordinary, "Current mechanic missing: " + token
 assert "_step_speed_for_player_position(" not in ordinary
 print("ACTIVE_SERA_CONTRACT_PASS")
+
+# Project-name checks are minimum supported versions, not fixed releases.
+from sera_active_contracts import require_min_version
+assert require_min_version('config/name="SERA v354"', 337)
+assert require_min_version('config/name="SERA v999"', 337)
+for invalid in ['config/name="SERA v336"', 'config/name="Other v354"',
+                'config/name="SERA v0"', 'config/name="SERA v354"\nconfig/name="SERA v355"']:
+    try:
+        require_min_version(invalid, 337)
+    except AssertionError:
+        pass
+    else:
+        raise AssertionError(f"Malformed/unsupported project title accepted: {invalid}")

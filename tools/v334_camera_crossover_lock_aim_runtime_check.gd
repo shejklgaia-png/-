@@ -66,7 +66,8 @@ func _run() -> void:
         game.set("locked_target_part_id", id)
         var from: Vector3 = game.get("camera_player_render_position") + Vector3.UP * 1.05
         var to: Vector3 = game.call("_current_lock_aim_world")
-        var expected: Vector2 = FLICK.projected_target_line(cam, from, to)
+        var expected: Vector2 = (cam.unproject_position(to)
+            - (game.call("_visual_torso_screen_point") as Vector2)).normalized()
         var actual: Vector2 = game.call("_projected_sera_facing")
         if actual.distance_to(expected) > 0.0001:
             _fail("lock marker differs from visible guide front for " + id)
@@ -81,11 +82,12 @@ func _run() -> void:
                 return
         game.call("_begin_drag", Vector2(400.0, 930.0))
         var frozen: Vector2 = game.get("gesture_screen_forward")
-        if frozen.distance_to(actual) > 0.0001:
+        var touch_expected: Vector2 = (cam.unproject_position(to) - Vector2(400, 930)).normalized()
+        if frozen.distance_to(touch_expected) > 0.0001:
             _fail("flick capture disagrees with current reticle")
             return
         game.call("_update_controller_flick_guide", 1.0/60.0)
-        if (ui.get("flick_sector_forward") as Vector2).distance_to(actual) > 0.0001:
+        if (ui.get("flick_sector_forward") as Vector2).distance_to(touch_expected) > 0.0001:
             _fail("red area disagrees with attack direction")
             return
         game.call("_end_drag", Vector2(400.0, 930.0))

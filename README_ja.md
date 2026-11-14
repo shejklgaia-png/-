@@ -1,8 +1,8 @@
 # SERA — 開発・起動の入口
 
-現在のゲームは **SERA v353** です。実際のバージョンの正本は `project.godot` です。
+現在のゲームは **SERA v354** です。実際のバージョンの正本は `project.godot` です。
 
-- [現行版の変更点](README_v353_ja.md)
+- [現行版の変更点](README_v354_ja.md)
 - [開発エージェントのルール](AGENTS.md)
 - [開発の高速作業手順](docs/SERA_DEVELOPMENT_FASTPATH_ja.md)
 - [実装・検証の履歴](DEVELOPMENT.md)

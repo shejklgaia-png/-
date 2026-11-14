@@ -80,21 +80,23 @@ def prioritize_slowest(tests: list[str], kind: str, hints: Path = TIMING_HINTS) 
 
 
 def run_test(kind: str, relative: str, godot: str, timeout: int) -> tuple[str, bool, float, str]:
+    isolated = None
     if kind == "py":
         command = [sys.executable, relative]
         env = os.environ.copy()
     else:
         command = [godot, "--headless", "--path", ".", "--script", f"res://{relative}"]
         env = os.environ.copy()
-        # One isolated user:// tree per Godot test prevents simultaneous
-        # scene/save state from sharing mutable settings across processes.
+        # Each execution needs a fresh user:// tree, including reruns of
+        # the same test. Equipment tests save settings at the end.
         base = Path(os.environ.get("RUNNER_TEMP", tempfile.gettempdir()))
         unique = relative.removeprefix("tools/").removesuffix(".gd")
+        isolated = tempfile.TemporaryDirectory(prefix="sera-ci-" + unique + "-", dir=base)
         for folder, variable in (
             ("data", "XDG_DATA_HOME"), ("config", "XDG_CONFIG_HOME"),
             ("cache", "XDG_CACHE_HOME")
         ):
-            location = base / "sera-ci-isolated" / unique / folder
+            location = Path(isolated.name) / folder
             location.mkdir(parents=True, exist_ok=True)
             env[variable] = str(location)
     start = time.monotonic()
@@ -119,6 +121,9 @@ def run_test(kind: str, relative: str, godot: str, timeout: int) -> tuple[str, b
     except OSError as exc:
         success = False
         output = f"Unable to start test: {exc}"
+    finally:
+        if isolated is not None:
+            isolated.cleanup()
     return relative, success, time.monotonic() - start, str(output)
 
 
@@ -134,11 +139,11 @@ def write_summary(kind: str, results: list[tuple[str, bool, float, str]], wall: 
     )
     if failures:
         summary += "\n**Failing tests:**\n" + "".join(
-            f"- \`{name}\` ({duration:.2f}s)\n" for name, duration in failures
+            f"- `{name}` ({duration:.2f}s)\n" for name, duration in failures
         )
     slowest = sorted(results, key=lambda x: x[2], reverse=True)[:5]
     summary += "\n**Slowest tests:**\n" + "".join(
-        f"- \`{name}\`: {duration:.2f}s\n" for name, _, duration, _ in slowest
+        f"- `{name}`: {duration:.2f}s\n" for name, _, duration, _ in slowest
     )
     print(summary, flush=True)
     step_summary = os.environ.get("GITHUB_STEP_SUMMARY")

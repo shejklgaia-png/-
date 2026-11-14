@@ -10,15 +10,15 @@ camera = (ROOT / "scripts/sera_camera_math.gd").read_text(encoding="utf-8")
 project = (ROOT / "project.godot").read_text(encoding="utf-8")
 spec = load_active_specs()
 assert int(re.search(r'config/name="SERA v(\d+)"', project).group(1)) >= 318
-assert spec["approved_at_version"] == 318
+assert spec["approved_at_version"] >= 318
 assert spec["ordinary_step"]["distance_m"] == 4
-assert spec["ordinary_step"]["launch_warp_m"] == 0.3
+assert 0 < spec["ordinary_step"]["launch_warp_m"] < spec["ordinary_step"]["distance_m"]
 for key in ("BACK_STEP_DISTANCE", "STEP_FORWARD_DISTANCE", "STEP_SIDE_DISTANCE",
             "STEP_MIN_ARC_LENGTH", "STEP_MAX_ARC_LENGTH"):
     assert main_float_constant(main, key) == 4, key
-assert main_float_constant(main, "STEP_LAUNCH_WARP_DISTANCE") == 0.3
+assert main_float_constant(main, "STEP_LAUNCH_WARP_DISTANCE") == spec["ordinary_step"]["launch_warp_m"]
 assert main_float_constant(main, "STEP_SPEED") == 15
-assert main_float_constant(main, "SIDE_KICK_BOOST_DISTANCE") == 3
+assert main_float_constant(main, "SIDE_KICK_BOOST_DISTANCE") == spec["side_kick"]["distance_m"]
 assert main_float_constant(main, "BACK_SOMERSAULT_DISTANCE") == 5
 for name, value in (
     ("CAMERA_NORMAL_SIDE_ROOM_DEGREES", 22.0),

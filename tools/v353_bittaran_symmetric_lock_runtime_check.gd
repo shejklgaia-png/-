@@ -32,8 +32,13 @@ func _sample_actor(model: Node3D, midpoint: Vector3, longitudinal: Vector2,
         + Vector3(horizontal.x, 0.0, horizontal.y))
 
 func _assert_sweep(parts: Node3D, model: Node3D, direction: int) -> bool:
-    var front_local: Vector3 = parts.get("lock_front_mid_local")
-    var rear_local: Vector3 = parts.get("lock_rear_mid_local")
+    # v354: compare with actual post-IK shin Areas, independently of the
+    # selector. The old rig-local stance hid the chassis/feet yaw mismatch.
+    var areas: Dictionary = parts.get("camera_areas")
+    var front_local: Vector3 = model.to_local((
+        areas["leg_fl"].global_position + areas["leg_fr"].global_position) * 0.5)
+    var rear_local: Vector3 = model.to_local((
+        areas["leg_rl"].global_position + areas["leg_rr"].global_position) * 0.5)
     var midpoint: Vector3 = (front_local + rear_local) * 0.5
     var axis: Vector2 = Vector2(
         front_local.x - rear_local.x,
@@ -132,8 +137,8 @@ func _run() -> void:
             parts, model, -1):
         return
 
-    # Walking, pitch and 2x rig scale do not move the calibrated halfway
-    # plane. Evaluate both lateral traversals throughout a moving boss.
+    # Walking, pitch and 2x rig scale preserve reciprocity; the halfway
+    # plane is sampled from the current visible shins. Evaluate both sides.
     for frame in range(90):
         var dt: float = 1.0 / 60.0
         target.position += Vector3(0.009, 0.0, 0.013)

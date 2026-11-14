@@ -4393,6 +4393,12 @@ func _resolve_passive_vertical_motion(delta: float, before_collision_y: float,
         passive_fall_velocity = 0.0
 
 
+func _finalize_target_pose(_delta: float) -> void:
+    # Boss-specific contact IK must finish after root motion/bob and before
+    # collisions, attacks and AUTO sample the visible part geometry.
+    pass
+
+
 func _physics_process(delta: float) -> void:
     _update_equipped_collision_height()
     _tick_training_ko(delta)
@@ -4410,6 +4416,7 @@ func _physics_process(delta: float) -> void:
     # The boss bob is purely visual vertically. A rising leg collider can
     # otherwise carry the capsule upward as a moving platform.
     target_collider.position.y = TARGET_BASE_HEIGHT - target.position.y
+    _finalize_target_pose(delta)
     _tick_combo_window_timers(delta)
     _update_guard_hold()
     # Sample the outer-ring hold independently of touch event frequency.

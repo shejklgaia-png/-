@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """v312: every screen dodge is 4m/15m/s, with additive directional crouch."""
+from sera_active_contracts import load_active_specs, main_float_constant
 from pathlib import Path
 import math, re, json, base64
 ROOT=Path(__file__).resolve().parents[1]
@@ -16,7 +17,7 @@ for name in ("STEP_SIDE_DISTANCE","STEP_FORWARD_DISTANCE","BACK_STEP_DISTANCE",
     assert constant(m,name)==4.0,name
 assert constant(m,"STEP_SPEED")==15.0
 assert constant(m,"SIDE_KICK_STEP_SPEED")==10.0
-assert constant(m,"SIDE_KICK_BOOST_DISTANCE")==3.0
+assert constant(m,"SIDE_KICK_BOOST_DISTANCE") == load_active_specs()["side_kick"]["distance_m"]
 assert math.isclose(4.0/15.0,4.0/15.0)
 distance=m.split("func _step_fixed_distance_for_direction(_direction: Vector2) -> float:",1)[1].split(
     "func _start_omni_step(",1)[0]

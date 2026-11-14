@@ -28,8 +28,6 @@ required = [
     "_build_lock_switch_buttons(layer)",
     "_update_melee_lock_marker()",
     "hud_panel = HUD_LAYOUT.build_panel(layer)",
-    'handedness_button.name = "HandednessToggle"',
-    'handedness_button.pressed.connect(_toggle_handedness)',
     'nexus_button.name = "ReturnToNexus"',
     'nexus_button.pressed.connect(_request_return_to_nexus)',
     "var primary_widgets: Dictionary = HUD_LAYOUT.build_primary_status(",
@@ -53,7 +51,6 @@ required = [
     'projectile_hit_overlay.name = "ProjectileHitTint"',
     "enemy_debug_ui = ENEMY_DEBUG_SCRIPT.new()",
     'enemy_debug_ui.connect("attack_selected", Callable(enemy_shooter, "set_attack_type"))',
-    "VersionIndicator.attach(layer)",
 ]
 for token in required:
     assert token in overlay, token
@@ -112,7 +109,10 @@ button = section("func _pointer_on_step_hud(pos: Vector2) -> bool:",
 assert "hud_panel.get_global_rect().has_point(pos)" not in button
 assert "handedness_button.get_global_rect().has_point(pos)" in button
 assert "enemy_debug_ui.find_children(" in button
-assert 'nexus_button.mouse_filter = Control.MOUSE_FILTER_STOP' in main
-assert 'handedness_button.mouse_filter = Control.MOUSE_FILTER_STOP' in main
+assert 'nexus_button.mouse_filter = Control.MOUSE_FILTER_IGNORE' in main
+assert 'handedness_button = Button.new()' not in main
+assert 'rig.call("set_run_left_handed", left_handed)' in main
+assert 'hud_panel.visible = false' in main
+assert 'clean_training_hud = CLEAN_TRAINING_HUD.new()' in main
 assert '_pointer_on_nexus_button(event.position)' in main
 print("SERA_HUD_LAYOUT_STATIC_PASS")

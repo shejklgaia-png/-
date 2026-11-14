@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """v337: four-screen-sector compass uses finger-down -> raw lock projection."""
+from sera_active_contracts import require_min_version
 from pathlib import Path
 import math
 root = Path(__file__).resolve().parents[1]
@@ -44,7 +45,7 @@ assert "var center: float = flick_sector_direction(sector).angle()" in ui
 assert "anchor_point + Vector2.RIGHT.rotated(outer_angle)" in ui
 assert 'angle_debug_overlay.call("set_geometry", pointer_origin,' in m
 assert "touch_origin + ray * 115.0" in dbg
-assert 'config/name="SERA v337"' in (root / "project.godot").read_text()
+assert require_min_version((root / "project.godot").read_text(), 337)
 
 # Screen-space angular sectors: tilted/front vectors, all quadrants and
 # boundary angles. This checks the math independently of the 3D projection.

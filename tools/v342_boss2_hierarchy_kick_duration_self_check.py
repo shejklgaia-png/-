@@ -6,6 +6,7 @@ Checks hierarchy/animation UUID integrity; no geometry or keyframe migration.
 import json
 import math
 from collections import Counter
+from sera_active_contracts import require_min_version
 from pathlib import Path
 
 root=Path(__file__).resolve().parents[1]
@@ -14,7 +15,7 @@ model=json.loads(bb.read_text(encoding="utf-8"))
 main=(root/"scripts/main.gd").read_text(encoding="utf-8")
 spec=json.loads((root/"tools/sera_active_specs.json").read_text(encoding="utf-8"))
 project=(root/"project.godot").read_text(encoding="utf-8")
-assert 'config/name="SERA v343"' in project
+assert require_min_version(project, 343)
 assert "const SIDE_KICK_MOTION_TIME_MULTIPLIER: float = 13.0 / 6.0" in main
 assert "const SIDE_KICK_DURATION_REFERENCE_DISTANCE: float = 3.0" in main
 assert "const SIDE_KICK_STEP_SPEED: float = 10.0" in main
