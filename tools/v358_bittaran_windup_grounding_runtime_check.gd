@@ -100,8 +100,12 @@ func _run() -> void:
         if bool(ik.call("down_pose_active")):
             reached_down = true
             var yaw: float = float(battle.get("boss_head_yaw"))
-            if absf(yaw) > EPS or head.quaternion.angle_to(normal) > EPS:
-                _fail("head did not snap to original rotation when down began: "
+            # v363: neutral HEAD remains strict until 70% of the
+            # actual stand-up. Above that it may smoothly reacquire SERA.
+            if float(ik.call("standup_pose_fraction")) <= 0.70 and (
+                    absf(yaw) > EPS
+                    or head.quaternion.angle_to(normal) > EPS):
+                _fail("head did not stay neutral before 70% of stand-up: "
                     + str(head.quaternion) + " yaw=" + str(yaw))
                 return
         if frame >= 36 and bool(ik.call("windup_active")):
