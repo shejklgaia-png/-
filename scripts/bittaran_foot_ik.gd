@@ -16,6 +16,13 @@ const IK_REACH_MARGIN_METERS: float = 0.002
 ## Do not subtract a fixed number from IK reach: that would cause foot sliding.
 const BODY_CROUCH_WORLD_METERS: float = 0.34
 const STANCE_TUCK_METERS: float = 0.42
+## A broken shin skids out while the chassis briefly dips to melee-head height.
+const LEG_BREAK_REACTION_SECONDS: float = 1.15
+const LEG_BREAK_FALL_SECONDS: float = 0.17
+const LEG_BREAK_RECOVER_START_SECONDS: float = 0.67
+const LEG_BREAK_SLIDE_METERS: float = 1.05
+const HEAD_MELEE_REACH_WORLD_Y: float = 1.35
+const MAX_LEG_BREAK_DROP_METERS: float = 1.45
 
 const LEG_NAMES: Array[String] = [
     "FrontLeg_R", "RearLeg_L", "FrontLeg_L", "RearLeg_R"
@@ -30,6 +37,12 @@ var last_actor_yaw: float = 0.0
 var stepping_pair: int = -1
 var preferred_pair: int = 0
 var cooldown: float = 0.0
+var rest_actor_local_y: float = 0.0
+var break_elapsed: float = -1.0
+var break_drop_world: float = 0.0
+var break_leg_index: int = -1
+var break_anchor: Vector3 = Vector3.ZERO
+var break_slide: Vector3 = Vector3.ZERO
 
 func setup(model: Node3D) -> bool:
     actor = model
@@ -86,6 +99,7 @@ func setup(model: Node3D) -> bool:
     # measurements and the requested crouch are in world metres.
     var parent_scale_y: float = maxf(absf(actor.get_parent().global_basis.get_scale().y), 0.001)
     actor.position.y += (FLOOR_Y - average_sole_y - BODY_CROUCH_WORLD_METERS) / parent_scale_y
+    rest_actor_local_y = actor.position.y
     reset()
     ready = true
     # Ensure soles are on the floor immediately, before the first physics tick.
@@ -121,6 +135,10 @@ func _sole_local_point(foot: Node3D) -> Vector3:
 func reset() -> void:
     if actor == null or legs.size() != 4:
         return
+    actor.position.y = rest_actor_local_y
+    break_elapsed = -1.0
+    break_drop_world = 0.0
+    break_leg_index = -1
     stepping_pair = -1
     preferred_pair = 0
     cooldown = 0.0
@@ -232,6 +250,72 @@ func _align(joint: Node3D, from_axis: Vector3, to_axis: Vector3) -> void:
     var original_scale: Vector3 = joint.global_basis.get_scale()
     joint.global_basis = Basis((q * joint.global_basis.get_rotation_quaternion()).normalized()).scaled(original_scale)
 
+## Stop gait, plant all four feet, then skid the broken shin along the floor.
+## The body drops only on the visual IK rig; combat target never teleports.
+func start_leg_break_slide(id: String, head_world_y: float) -> void:
+    if not ready or actor == null:
+        return
+    const id_to_name: Dictionary = {
+        "leg_fl": "FrontLeg_L", "leg_fr": "FrontLeg_R",
+        "leg_rl": "RearLeg_L", "leg_rr": "RearLeg_R"
+    }
+    if not id_to_name.has(id):
+        return
+    for i in range(legs.size()):
+        var leg: Dictionary = legs[i]
+        leg["stepping"] = false
+        var world_sole: Vector3 = (leg["foot"] as Node3D).to_global(leg["sole_local"])
+        world_sole.y = FLOOR_Y
+        leg["anchor"] = world_sole
+        if (leg["upper"] as Node3D).name == id_to_name[id]:
+            break_leg_index = i
+    if break_leg_index < 0:
+        return
+    stepping_pair = -1
+    cooldown = 0.0
+    break_elapsed = 0.0
+    break_drop_world = clampf(
+        head_world_y - HEAD_MELEE_REACH_WORLD_Y, 0.20,
+        MAX_LEG_BREAK_DROP_METERS)
+    var broken: Dictionary = legs[break_leg_index]
+    break_anchor = broken["anchor"]
+    var spread: Vector3 = break_anchor - actor.global_position
+    spread.y = 0.0
+    if spread.length_squared() < 0.0001:
+        spread = actor.global_basis.x
+    break_slide = spread.normalized() * LEG_BREAK_SLIDE_METERS
+
+func _cubic(t: float) -> float:
+    var x: float = clampf(t, 0.0, 1.0)
+    return x * x * (3.0 - 2.0 * x)
+
+func _advance_leg_break(delta: float) -> void:
+    if break_elapsed < 0.0 or break_leg_index < 0:
+        return
+    break_elapsed += maxf(0.0, delta)
+    var amount: float = 0.0
+    if break_elapsed < LEG_BREAK_FALL_SECONDS:
+        amount = _cubic(break_elapsed / LEG_BREAK_FALL_SECONDS)
+    elif break_elapsed < LEG_BREAK_RECOVER_START_SECONDS:
+        amount = 1.0
+    elif break_elapsed < LEG_BREAK_REACTION_SECONDS:
+        amount = 1.0 - _cubic((break_elapsed - LEG_BREAK_RECOVER_START_SECONDS)
+            / (LEG_BREAK_REACTION_SECONDS - LEG_BREAK_RECOVER_START_SECONDS))
+    var parent_scale_y: float = maxf(
+        absf(actor.get_parent().global_basis.get_scale().y), 0.001)
+    actor.position.y = rest_actor_local_y - amount * break_drop_world / parent_scale_y
+    var leg: Dictionary = legs[break_leg_index]
+    var skidding: Vector3 = break_anchor + break_slide * amount
+    skidding.y = FLOOR_Y
+    leg["anchor"] = skidding
+    if break_elapsed >= LEG_BREAK_REACTION_SECONDS:
+        break_elapsed = -1.0
+        break_leg_index = -1
+        actor.position.y = rest_actor_local_y
+
+func break_reaction_active() -> bool:
+    return break_elapsed >= 0.0
+
 func advance_ik(delta: float, motion: String) -> void:
     if not ready or legs.size() != 4 or actor == null:
         return
@@ -245,7 +329,8 @@ func advance_ik(delta: float, motion: String) -> void:
     last_actor_position = actor.global_position
     last_actor_yaw = actor.global_rotation.y
     cooldown = maxf(0.0, cooldown - delta)
-    var active: bool = motion == "Approach" or motion == "Turn"
+    _advance_leg_break(delta)
+    var active: bool = (motion == "Approach" or motion == "Turn") and not break_reaction_active()
     if stepping_pair == -1 and active and cooldown <= 0.0:
         var a: float = _pair_error(0)
         var b: float = _pair_error(1)
