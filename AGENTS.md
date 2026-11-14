@@ -57,3 +57,8 @@ Keep `main.gd` live state, inputs, collisions, scene effects, HUD priority and t
 - **HUD:** `sera_combat_hud_text.gd` owns action text; `sera_numeric_hud.gd` owns numerical text; `sera_hud_layout.gd` builds panel, vitals and STEP nodes. Main keeps priority, resources, buttons, callbacks and input exclusion.
 
 See `docs/SERA_DEVELOPMENT_FASTPATH_ja.md` and `DEVELOPMENT.md` for details.
+
+## v354 Bittaran lock regression rule
+- Front/rear AUTO uses the current final-IK shin pair midpoints in world XZ. Do not rotate a saved standing boundary with the chassis: planted feet lag yaw.
+- Target root motion/bob must finish before `_finalize_target_pose`, which completes contact IK/part sync before main's collisions and AUTO. Do not move IK back after AUTO.
+- Lock regression expectations must come independently from actual post-IK shin Areas. Exercise full scene physics and both traversal directions; a sweep constructed from the selector's own calibration cannot prove visible boundary correctness.

@@ -39,9 +39,8 @@ var camera_areas: Dictionary = {}
 ## Walking / step-lift / knockdown may change the rendered shin's Y, but the
 ## lock box height and dimensions remain fixed in WORLD coordinates.
 var shin_selection_standing: Dictionary = {}
-## Four standing shin selection centers determine a true halfway plane.
-## Calibrated in the RIG's local coordinate system, so walking IK cannot
-## move the front/rear changeover point back and forth.
+## Initial standing calibration validates the four-shin setup. Runtime
+## selection uses the final IK shin positions, not this saved rig-local pose.
 var lock_front_mid_local: Vector3 = Vector3.ZERO
 var lock_rear_mid_local: Vector3 = Vector3.ZERO
 var lock_halfway_initialized: bool = false
@@ -216,7 +215,7 @@ func _camera_lock_part_volume_distance(origin: Vector3,
 ## The mesh BODY center is used for the actual two horizontal lock
 ## lines. It does NOT imply an unbiased front-vs-rear selection: the former
 ## first-entry intersection ranking always preferred the nearer shin.
-## Calibrate a separate, geometrically exact front/rear halfway plane.
+## Validate an initial front/rear axis. Runtime uses the final IK positions.
 func _calibrate_front_rear_lock_midpoint() -> void:
     lock_halfway_initialized = false
     if boss_model == null or not installed:
@@ -241,24 +240,33 @@ func _calibrate_front_rear_lock_midpoint() -> void:
 func get_front_rear_lock_midpoint_world() -> Vector3:
     if boss_model == null or not lock_halfway_initialized:
         return Vector3.ZERO
-    return boss_model.to_global(
-        (lock_front_mid_local + lock_rear_mid_local) * 0.5)
+    var mids: PackedVector3Array = _current_front_rear_lock_mids()
+    return (mids[0] + mids[1]) * 0.5
+
+
+func _current_front_rear_lock_mids() -> PackedVector3Array:
+    # Planted feet lag chassis yaw. Use final IK shin X/Z, rather than
+    # rotating the initial stance with the chassis. Selection-box Y stays
+    # fixed by get_shin_selection_box and is ignored by the half-plane.
+    var front: Vector3 = (get_shin_selection_box("leg_fl").get_center()
+        + get_shin_selection_box("leg_fr").get_center()) * 0.5
+    var rear: Vector3 = (get_shin_selection_box("leg_rl").get_center()
+        + get_shin_selection_box("leg_rr").get_center()) * 0.5
+    return PackedVector3Array([front, rear])
 
 
 func _lockable_shin_pair(origin: Vector3) -> Array[String]:
     ## Exactly one shared boundary halfway between *both* front shins
     ## and *both* rear shins. Crossing it from either direction is equally
-    ## immediate. Local calibration makes it insensitive to gait or yaw.
+    ## immediate. Both directions use the same final, visible shin pose.
     if boss_model == null or not lock_halfway_initialized:
         return ["leg_fl", "leg_fr"]
-    var local_actor: Vector3 = boss_model.to_local(origin)
-    var middle: Vector3 = (
-        lock_front_mid_local + lock_rear_mid_local) * 0.5
+    var mids: PackedVector3Array = _current_front_rear_lock_mids()
+    var middle: Vector3 = (mids[0] + mids[1]) * 0.5
     var front_axis: Vector2 = Vector2(
-        lock_front_mid_local.x - lock_rear_mid_local.x,
-        lock_front_mid_local.z - lock_rear_mid_local.z)
+        mids[0].x - mids[1].x, mids[0].z - mids[1].z)
     var relative: Vector2 = Vector2(
-        local_actor.x - middle.x, local_actor.z - middle.z)
+        origin.x - middle.x, origin.z - middle.z)
     if relative.dot(front_axis) >= 0.0:
         return ["leg_fl", "leg_fr"]
     return ["leg_rl", "leg_rr"]
