@@ -37,15 +37,15 @@ const POST_DOWN_UPRIGHT_TOLERANCE_WORLD_METERS: float = 0.06
 const LEG_BREAK_RECOVER_START_SECONDS: float = 2.10
 const ALL_LEGS_BREAK_REACTION_SECONDS: float = 6.0
 const ALL_LEGS_BREAK_RECOVER_START_SECONDS: float = 5.40
-# Only the upward recovery motion runs 1.25x faster. The anticipation,
-# 0.17s fall and the fully down hold retain their previous timing.
-const STANDUP_RECOVERY_SPEED_MULTIPLIER: float = 1.25
+# Only the upward recovery takes 1.25x the normal time (0.40->0.50s /
+# 0.60->0.75s). Anticipation, fall and fully down hold are unchanged.
+const STANDUP_RECOVERY_DURATION_MULTIPLIER: float = 1.25
 const SINGLE_LEG_RISE_SECONDS: float = (
     LEG_BREAK_REACTION_SECONDS - LEG_BREAK_RECOVER_START_SECONDS
-    ) / STANDUP_RECOVERY_SPEED_MULTIPLIER
+    ) * STANDUP_RECOVERY_DURATION_MULTIPLIER
 const FOUR_LEG_RISE_SECONDS: float = (
     ALL_LEGS_BREAK_REACTION_SECONDS - ALL_LEGS_BREAK_RECOVER_START_SECONDS
-    ) / STANDUP_RECOVERY_SPEED_MULTIPLIER
+    ) * STANDUP_RECOVERY_DURATION_MULTIPLIER
 const LEG_BREAK_SLIDE_METERS: float = 1.05
 const HEAD_MELEE_REACH_WORLD_Y: float = 1.35
 const MAX_LEG_BREAK_DROP_METERS: float = 1.45
@@ -420,8 +420,8 @@ func start_leg_break_slide(id: String, head_world_y: float,
         break_elapsed = -1.0
     break_recover_start = (ALL_LEGS_BREAK_RECOVER_START_SECONDS if all_legs_broken
         else LEG_BREAK_RECOVER_START_SECONDS)
-    # Keep the same moment of stand-up initiation. Complete only the
-    # physical rise 1.25x sooner (0.40->0.32s / 0.60->0.48s).
+    # Keep the same moment of stand-up initiation. The physical rise alone
+    # takes 1.25x longer (0.40->0.50s / 0.60->0.75s).
     break_duration = break_recover_start + (
         FOUR_LEG_RISE_SECONDS if all_legs_broken else SINGLE_LEG_RISE_SECONDS)
     break_head_start_y = head_world_y
