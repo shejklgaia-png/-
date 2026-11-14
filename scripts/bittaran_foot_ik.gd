@@ -247,6 +247,32 @@ func _apply_attack_chassis_pose() -> void:
         actor.position.y += clampf(
             shoulder_shift, -1.85, 1.20) * weight / scale_y
 
+# Convert the attack direction to an exact two-bone reach in WORLD
+# metres. _solve() receives a sole position but solves the FOOT PIVOT;
+# the sampled sole offset must be added back or a nominally extended
+# leg stays bent. Attack poses deliberately ignore the planted floor.
+func _straight_attack_goal(leg: Dictionary, world_direction: Vector3) -> Vector3:
+    var hip: Vector3 = (leg["upper"] as Node3D).global_position
+    var knee: Vector3 = (leg["lower"] as Node3D).global_position
+    var ankle: Vector3 = (leg["foot"] as Node3D).global_position
+    var max_reach: float = hip.distance_to(knee) + knee.distance_to(ankle)
+    var outward: Vector3 = Vector3(
+        world_direction.x, 0.0, world_direction.z)
+    if outward.length_squared() < 0.000001:
+        outward = actor.global_basis.x
+        outward.y = 0.0
+    outward = outward.normalized()
+    var foot: Node3D = leg["foot"]
+    var target_foot_basis := Basis(leg["anchor_rotation"] as Quaternion)
+    var sole_offset: Vector3 = (
+        target_foot_basis.scaled(foot.global_basis.get_scale())
+        * (leg["sole_local"] as Vector3))
+    # The reachable end is a straight shoulder-knee-ankle line. Leave
+    # only the existing 2mm solver margin, never a grounded-foot limit.
+    return (hip + outward * maxf(0.0,
+        max_reach - IK_REACH_MARGIN_METERS) + sole_offset)
+
+
 func _attack_goal(leg: Dictionary) -> Vector3:
     var goal: Vector3 = leg["anchor"]
     if attack_pose.is_empty() or str(attack_pose.get("id", "")) != (
@@ -295,16 +321,26 @@ func _attack_goal(leg: Dictionary) -> Vector3:
                     0.0, 1.0)
                 goal.y += 0.18 * sin(PI * recovery_t)
     elif kind == "kick":
-        if t > windup:
-            goal += outward * 1.65 * attack_progress * finish
+        # Keep the foot planted while the knee folds inward for 1.0s.
+        # On release, extend HIP-KNEE-ANKLE to the physical full reach,
+        # even when the foot must leave the floor to form a straight leg.
+        var straight: Vector3 = _straight_attack_goal(leg, outward)
+        goal = goal.lerp(straight, attack_progress * finish)
     elif kind == "sweep":
+        # The shoulder rolls close to the floor. Extend the attacking
+        # leg nearly straight during anticipation, then maintain that
+        # full reach throughout a horizontal side-to-side sweep.
+        # Do not clamp the sole to FLOOR_Y: that artificial grounding
+        # previously forced the knee to remain visibly bent.
         var preparation: float = _cubic(t / maxf(windup, 0.001))
         var tangent: Vector3 = Vector3.UP.cross(outward).normalized()
-        var whip: float = sin(PI * attack_progress)
-        goal += (outward * (0.65 + whip * 0.75)
-            + tangent * lerpf(-1.50, 1.50, attack_progress)) * (
-            preparation * finish)
-        goal.y = FLOOR_Y + 0.025 * preparation * finish
+        var sweep_angle: float = deg_to_rad(52.0) * (
+            2.0 * attack_progress - 1.0)
+        var sweep_dir: Vector3 = (
+            outward * cos(sweep_angle)
+            + tangent * sin(sweep_angle)).normalized()
+        var straight: Vector3 = _straight_attack_goal(leg, sweep_dir)
+        goal = goal.lerp(straight, preparation * finish)
     return goal
 
 func setup(model: Node3D) -> bool:
