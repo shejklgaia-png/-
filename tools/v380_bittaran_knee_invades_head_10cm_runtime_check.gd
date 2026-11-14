@@ -65,7 +65,13 @@ func _run() -> void:
         _fail("actual boss geometry not initialized")
         return
     var legs: Array = ik.get("legs")
-    var selected: Dictionary = legs[0]
+    # The contact probe measures leg_fl, not the default leg_fr at index 0.
+    # Match the actual IK ID ordering instead of exercising a different leg.
+    var selected_index: int = IK.LEG_PART_IDS.find("leg_fl")
+    if selected_index < 0:
+        _fail("leg_fl is missing from IK leg ordering")
+        return
+    var selected: Dictionary = legs[selected_index]
     var original_goal: Vector3 = selected["last_goal"]
     var original_rotation: Quaternion = selected["last_rotation"]
     var saved_bend: float = float(selected["head_knee_bend"])
