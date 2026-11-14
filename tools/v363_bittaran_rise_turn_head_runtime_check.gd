@@ -63,8 +63,17 @@ func _run_case(battle: Node3D, leg_ids: Array[String],
     var max_head_delta: float = 0.0
     var previous_head_yaw: float = 0.0
     var previous_turn_weight: float = 0.0
+    var positioned_for_head_tracking: bool = false
     for frame in range(480):
         var was_ready: bool = bool(ik.call("locomotion_ready"))
+        # The sideways-looking HEAD is protected by authored leg collision.
+        # While rising, face the player in the unobstructed front quadrant
+        # proven in the standing head-swing regression (v357). The root
+        # still has a nonzero reason to turn. For the post-stand gait test,
+        # restore a clear 90-degree Turn request once released.
+        if was_ready:
+            player.global_position = (boss.global_position
+                + Vector3(28.0, 0.0, 0.0))
         var before_yaw: float = boss.rotation.y
         var old_position: Vector3 = boss.position
         var before_weight: float = float(ik.call("standup_turn_weight"))
@@ -89,6 +98,11 @@ func _run_case(battle: Node3D, leg_ids: Array[String],
                 return false
         battle.call("_finalize_target_pose", DT)
         var pose: float = float(ik.call("standup_pose_fraction"))
+        if pose > 0.05 and not positioned_for_head_tracking:
+            player.global_position = (
+                boss.global_position + boss.global_basis.z * 10.0
+                + boss.global_basis.x * 4.0)
+            positioned_for_head_tracking = true
         var head_yaw: float = absf(float(battle.get("boss_head_yaw")))
         if bool(ik.call("down_pose_active")):
             if pose <= 0.70 + 0.00001:
