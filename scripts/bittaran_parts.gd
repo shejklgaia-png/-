@@ -27,9 +27,9 @@ const LOCK_VOLUME_EXPANSION: float = 1.15
 ## Bittaran SHIN-only AUTO/MANUAL selection volume: exactly twice the
 ## authored lower-leg mesh AABB, not the 3-bone leg or its physical collider.
 const SHIN_SELECTION_VOLUME_SCALE: float = 2.0
-# Shared WORLD-space permitted HEAD/LEG penetration: 30cm.
+# Shared WORLD-space permitted HEAD/LEG penetration: 10cm.
 # Measured per oriented mesh element, not an AABB overlap volume.
-const HEAD_LEG_ALLOWED_PENETRATION_METERS: float = 0.30
+const HEAD_LEG_ALLOWED_PENETRATION_METERS: float = 0.10
 # A front/rear pair may overlap the same two horizontal lock rays.
 # Hold the selected left/right shin until SERA clearly crosses the center.
 const LATERAL_SHIN_LOCK_HYSTERESIS_METERS: float = 0.65
@@ -348,7 +348,7 @@ func _oriented_mesh_penetration_depth(a: MeshInstance3D,
 
 func get_head_leg_penetration_depth(id: String) -> float:
     # Maximum per-element penetration; depth is never summed across
-    # overlapping armor plates (which would turn 30cm into a volume rule).
+    # overlapping armor plates (which would turn 10cm into a volume rule).
     if not installed or not leg_depth_meshes.has(id):
         return 0.0
     var maximum: float = 0.0

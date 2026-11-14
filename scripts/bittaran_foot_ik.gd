@@ -20,19 +20,20 @@ const RECOVERY_FOOT_CATCHUP_THRESHOLD_METERS: float = 0.16
 const MAX_TELEPORT_METERS: float = 1.50
 const MAX_YAW_SNAP_RADIANS: float = 1.4
 const IK_REACH_MARGIN_METERS: float = 0.002
-# Minimal knee-fold: a little head/arm overlap is preferable to visibly
-# contorting the whole leg. Leave planted soles and swing cadence intact.
-const HEAD_KNEE_SCAN_SECONDS: float = 0.08
+# Fold the knees farther when THEY swing or replant into the head.
+# Keep the exact heel/sole target; increase the lateral pole only.
+const HEAD_KNEE_SCAN_SECONDS: float = 0.05
 const HEAD_KNEE_OUTWARD_DOWN_BIAS: float = 0.28
 const HEAD_KNEE_PROXIMITY_METERS: float = 0.38
-const HEAD_KNEE_MAX_BEND: float = 0.30
-const HEAD_KNEE_FLEX_IN_PER_SECOND: float = 1.50
-const HEAD_KNEE_FLEX_OUT_PER_SECOND: float = 2.00
-# Same 30cm penetration-depth limit as head tracking.
+const HEAD_KNEE_MAX_BEND: float = 0.45
+const HEAD_KNEE_FLEX_IN_PER_SECOND: float = 1.80
+const HEAD_KNEE_FLEX_OUT_PER_SECOND: float = 1.35
+# Same 10cm depth limit as the HEAD's collision slowdown and stop.
 const HEAD_KNEE_ALLOWED_PENETRATION_METERS: float = (
     BittaranParts.HEAD_LEG_ALLOWED_PENETRATION_METERS)
-const HEAD_KNEE_MIN_BENEFIT_METERS: float = 0.025
-const HEAD_KNEE_BEND_PENALTY_METERS: float = 0.080
+const HEAD_KNEE_MIN_BENEFIT_METERS: float = 0.012
+const HEAD_KNEE_BEND_PENALTY_METERS: float = 0.045
+const HEAD_KNEE_TARGET_HYSTERESIS_METERS: float = 0.009
 # A heavy chassis dominates the approximate center of mass, while four
 # independent knee/leg assemblies each contribute 4.5% of the total.
 const HEAD_KNEE_BODY_MASS: float = 0.82
@@ -975,7 +976,7 @@ func _head_knee_support_center_xz() -> Vector2:
 func _head_knee_collision_cost(id: String, base_pose: Quaternion,
         swept_poses: Array[Quaternion]) -> float:
     # The deepest actual oriented-element overlap in world metres.
-    # 30cm of penetration is free; no cubic-metre volume penalties.
+    # 10cm of penetration is free; no cubic-metre volume penalties.
     var worst: float = 0.0
     for pose in swept_poses:
         head_bone.quaternion = pose
@@ -992,11 +993,11 @@ func _scan_head_knee_targets(sweep_heads: Array[AABB],
     var center: Vector2 = _head_knee_support_center_xz()
     for index in range(legs.size()):
         var leg: Dictionary = legs[index]
+        var previous_target: float = float(leg["head_knee_target"])
         leg["head_knee_target"] = 0.0
-        # A diagonally swinging leg has no grounded support: do not
-        # force a side-fold on it until it plants, preserving the gait.
-        if bool(leg["stepping"]):
-            continue
+        # Do not skip a SWINGING leg: its moving knee/upper segment can
+        # run into an otherwise stationary head. _solve() below preserves
+        # the current sole swing target and the authored swing duration.
         var broad: AABB = collision_parts.call(
             "get_leg_visual_aabb", LEG_PART_IDS[index])
         var nearby: bool = false
@@ -1017,8 +1018,11 @@ func _scan_head_knee_targets(sweep_heads: Array[AABB],
             LEG_PART_IDS[index], base_pose, swept_poses)
         var best_cost: float = base_cost
         var best: float = 0.0
-        # Try small bends first; maximum is 30% of the old full fold.
-        for candidate in [0.075, 0.15, 0.225, HEAD_KNEE_MAX_BEND]:
+        var retained_score: float = INF
+        # Modest additional lateral folding, only as far as improves
+        # real 10cm HEAD/LEG clearance; include last target for stability.
+        for candidate in [0.10, 0.20, 0.30, 0.375,
+                HEAD_KNEE_MAX_BEND, previous_target]:
             leg["head_knee_bend"] = float(candidate)
             _solve(leg, sole_goal, sole_rotation)
             var collision_cost: float = _head_knee_collision_cost(
@@ -1029,18 +1033,30 @@ func _scan_head_knee_targets(sweep_heads: Array[AABB],
             var score: float = (collision_cost
                 + added_imbalance * HEAD_KNEE_BALANCE_PENALTY
                 + float(candidate) * HEAD_KNEE_BEND_PENALTY_METERS)
+            if absf(float(candidate) - previous_target) < 0.00001:
+                retained_score = score
             if score < best_cost - 0.00001:
                 best_cost = score
                 best = float(candidate)
-        # Reject tiny gains so the bent knee doesn't chatter while the
-        # HEAD sweeps just outside a shoulder plate.
-        if base_cost - best_cost >= HEAD_KNEE_MIN_BENEFIT_METERS:
+        # Hysteresis of 9mm: a moving plate must not switch the knee
+        # from slightly bent to neutral and back every 50ms scan.
+        if previous_target > 0.0 and base_cost > 0.0 and (
+                retained_score <= best_cost
+                + HEAD_KNEE_TARGET_HYSTERESIS_METERS):
+            best = previous_target
+            best_cost = retained_score
+        if best > 0.0 and (
+                base_cost - best_cost >= HEAD_KNEE_MIN_BENEFIT_METERS
+                or (previous_target > 0.0 and base_cost > 0.0
+                and retained_score <= best_cost
+                + HEAD_KNEE_TARGET_HYSTERESIS_METERS)):
             leg["head_knee_target"] = best
         leg["head_knee_bend"] = before_bend
         _solve(leg, sole_goal, sole_rotation)
 
 
-func steer_knees_for_head(delta: float, desired_head_yaw: float) -> void:
+func steer_knees_for_head(delta: float, desired_head_yaw: float,
+        current_head_yaw: float = 0.0) -> void:
     if not ready or legs.size() != 4 or collision_parts == null \
             or head_bone == null or chassis_bone == null:
         return
@@ -1057,9 +1073,13 @@ func steer_knees_for_head(delta: float, desired_head_yaw: float) -> void:
         head_knee_scan_elapsed = 0.0
         var sweep_heads: Array[AABB] = []
         var sweep_poses: Array[Quaternion] = []
-        for t in [0.33, 0.66, 1.0]:
+        # The current pose is essential: a planted/stepping knee may
+        # INVADE the head even without any requested head rotation.
+        for yaw in [current_head_yaw,
+                lerpf(current_head_yaw, desired_head_yaw, 0.5),
+                desired_head_yaw]:
             var pose: Quaternion = (head_pose *
-                Quaternion(Vector3.UP, desired_head_yaw * float(t))).normalized()
+                Quaternion(Vector3.UP, float(yaw))).normalized()
             head_bone.quaternion = pose
             sweep_poses.append(pose)
             sweep_heads.append(collision_parts.call("get_head_swing_aabb"))

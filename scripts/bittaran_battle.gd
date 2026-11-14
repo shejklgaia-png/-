@@ -21,16 +21,16 @@ const HEAD_TRACK_STANDUP_START_FRACTION: float = 0.70
 # settle eases the remaining 40% in smoothly without a rotation snap.
 const HEAD_TRACK_RISE_FOLLOW_WEIGHT: float = 0.60
 const HEAD_TRACK_RECOVERY_DEGREES_PER_SECOND: float = 48.0
-# Head yaw eases continuously from first real overlap to ZERO speed at
-# 30cm of oriented-mesh penetration. Crossing the limit is clamped by
-# a short binary search; hysteresis prevents collision-induced chatter.
+# Head yaw eases continuously from first overlap to zero speed at
+# 10cm of oriented-mesh penetration. A binary-search limit prevents
+# tunneling. A narrow release hysteresis prevents short-range flicker.
 const HEAD_LEG_ALLOWED_PENETRATION_METERS: float = (
     BittaranParts.HEAD_LEG_ALLOWED_PENETRATION_METERS)
 const HEAD_TRACK_COLLISION_FILTER_PER_SECOND: float = 7.0
 const HEAD_TRACK_COLLISION_RELEASE_PER_SECOND: float = 4.0
 const HEAD_TRACK_COLLISION_DEADBAND_METERS: float = 0.004
-const HEAD_TRACK_COLLISION_RELEASE_DEPTH_METERS: float = 0.275
-const HEAD_TRACK_COLLISION_STOP_SAFETY_METERS: float = 0.001
+const HEAD_TRACK_COLLISION_RELEASE_DEPTH_METERS: float = 0.082
+const HEAD_TRACK_COLLISION_STOP_SAFETY_METERS: float = 0.0005
 const HEAD_TRACK_COLLISION_SWEEP_STEPS: int = 8
 # Close targets can cross the nose's local +/-Z plane, making atan2
 # alternate between +/-PI. Keep a forward-facing denominator, a short
@@ -44,7 +44,7 @@ const HEAD_AIM_NEAR_DEADBAND_DEGREES: float = 1.8
 # A depth change caused by one replanting knee cannot instantly release
 # the 30cm stop. The latch releases only after a stable gap persists.
 const HEAD_TRACK_COLLISION_ESCAPE_MIN_SPEED_FACTOR: float = 0.40
-const HEAD_TRACK_COLLISION_ESCAPE_GUARD_METERS: float = 0.012
+const HEAD_TRACK_COLLISION_ESCAPE_GUARD_METERS: float = 0.008
 const HEAD_TRACK_COLLISION_RELEASE_HOLD_SECONDS: float = 0.12
 
 var bittaran_rig: Node3D
@@ -246,7 +246,7 @@ func _head_collision_motion_scale(current_depth: float,
         head_collision_filtered_depth /
         HEAD_LEG_ALLOWED_PENETRATION_METERS, 0.0, 1.0)
     var brake: float = 1.0 - u * u * (3.0 - 2.0 * u)
-    # Escaping an obstruction is possible even when already over 30cm.
+    # Escaping an obstruction is possible even when already over 10cm.
     # However, do not jump to 100% speed merely because the moving knee
     # changed the sampled contact by a few millimetres in one frame.
     var escaping: bool = next_depth < (
@@ -451,8 +451,8 @@ func _aim_bittaran_head(delta: float) -> void:
     if not head_look_initialized:
         _update_head_look_target(delta)
     var wanted: float = head_look_filtered_yaw
-    # HEAD slows smoothly from FIRST contact and cannot turn deeper
-    # into a 30cm overlap. Tracking away from the leg remains free.
+    # HEAD slows smoothly from first contact and cannot turn deeper
+    # into a 10cm overlap. Tracking away from the leg remains free.
     var degrees_per_second: float = _head_recovery_turn_speed()
     var proposed_yaw: float = move_toward(
         boss_head_yaw, wanted * head_track_weight,
@@ -661,11 +661,13 @@ func _finalize_target_pose(delta: float) -> void:
     if bittaran_foot_ik != null and target != null and target_hp > 0:
         bittaran_foot_ik.call("advance_ik", delta, bittaran_motion)
         if bittaran_head != null and player != null:
-            # Sample one stable close-range yaw for both the preemptive
-            # knee pose and the final head follow, avoiding opposing targets.
+            # A KNEE can move into an already-turned HEAD while the
+            # player's target yaw stays unchanged. Pass BOTH the current
+            # actual head yaw and the anticipated target to IK.
             _update_head_look_target(delta)
             bittaran_foot_ik.call("steer_knees_for_head", delta,
-                head_look_filtered_yaw * _head_knee_look_weight())
+                head_look_filtered_yaw * _head_knee_look_weight(),
+                boss_head_yaw)
     _aim_bittaran_head(delta)
     if target_parts != null:
         target_parts.call("sync_bittaran_parts")
