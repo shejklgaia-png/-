@@ -112,7 +112,7 @@ func _run() -> void:
     var lowered: float = INF
     var farthest: float = 0.0
     var highest_error: float = 0.0
-    for frame in range(200):
+    for frame in range(250):
         var delta: float = 1.0 / 60.0
         rig.call("set_motion", "Idle", delta)
         ik.call("advance_ik", delta, "Idle")
@@ -170,7 +170,7 @@ func _run() -> void:
             return
         var skid: float = 0.0
         var next_lowest: float = INF
-        for tick in range(200):
+        for tick in range(250):
             var dt: float = 1.0 / 60.0
             rig.call("set_motion", "Idle", dt)
             ik.call("advance_ik", dt, "Idle")
