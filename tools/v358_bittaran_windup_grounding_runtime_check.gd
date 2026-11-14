@@ -123,11 +123,11 @@ func _run() -> void:
             + str(farthest_front_reach))
         return
     if bool(ik.call("break_reaction_active")):
-        _fail("single-leg down exceeded 0.6s + 2.5s")
+        _fail("single-leg down exceeded 0.6s + 2.42s (1.25x rise)")
         return
 
-    # Four broken legs must still cause 6.0s of actual down, plus 0.6s
-    # anticipation when a NEW encounter begins.
+    # Four broken legs keep the same 5.40s grounded hold, but shorten
+    # just the physical rise to 0.48s (1.25x) after the 0.6s windup.
     battle.call("_reset_target_after_respawn")
     for id in ["leg_fl", "leg_fr", "leg_rl", "leg_rr"]:
         battle.set("locked_target_part_id", id)
@@ -136,23 +136,23 @@ func _run() -> void:
         if not bool(hit.get("broken", false)):
             _fail("failed to break " + id)
             return
-    if absf(float(ik.get("break_duration")) - 6.0) > EPS:
-        _fail("four-leg down duration no longer 6.0 seconds")
+    if absf(float(ik.get("break_duration")) - 5.88) > EPS:
+        _fail("four-leg rise did not accelerate from 0.6s to 0.48s")
         return
-    for frame in range(395):
+    for frame in range(380):
         model.call("set_motion", "Idle", DT)
         ik.call("advance_ik", DT, "Idle")
         battle.call("_aim_bittaran_head", DT)
         if not _sole_height_acceptable(ik, "four-leg down " + str(frame)):
             return
     if not bool(ik.call("break_reaction_active")):
-        _fail("six-second down ended before 0.6+6.0 seconds")
+        _fail("four-leg down ended before 0.6+5.88 seconds")
         return
     for frame in range(15):
         model.call("set_motion", "Idle", DT)
         ik.call("advance_ik", DT, "Idle")
     if bool(ik.call("break_reaction_active")):
-        _fail("six-second down did not recover")
+        _fail("four-leg down did not recover after 0.6+5.88 seconds")
         return
     print("GODOT_V358_BITTARAN_PASS: 0.6s heavy head rebound, front reach "
         + str(farthest_front_reach) + "m, neutral head on down, planted feet "
