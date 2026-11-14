@@ -27,6 +27,9 @@ const LOCK_VOLUME_EXPANSION: float = 1.15
 ## Bittaran SHIN-only AUTO/MANUAL selection volume: exactly twice the
 ## authored lower-leg mesh AABB, not the 3-bone leg or its physical collider.
 const SHIN_SELECTION_VOLUME_SCALE: float = 2.0
+# Shared WORLD-space permitted HEAD/LEG penetration: 30cm.
+# Measured per oriented mesh element, not an AABB overlap volume.
+const HEAD_LEG_ALLOWED_PENETRATION_METERS: float = 0.30
 # A front/rear pair may overlap the same two horizontal lock rays.
 # Hold the selected left/right shin until SERA clearly crosses the center.
 const LATERAL_SHIN_LOCK_HYSTERESIS_METERS: float = 0.65
@@ -54,6 +57,7 @@ var combat_shapes: Dictionary = {}
 ## Each authored HEAD mesh has its own convex physical shape. The old
 ## single, oversized world-axis-aligned head solid is not used.
 var head_mesh_solids: Array[Dictionary] = []
+var leg_depth_meshes: Dictionary = {}
 var fx_meshes: Dictionary = {}
 var fx_timers: Dictionary = {}
 var fx_durations: Dictionary = {}
@@ -135,6 +139,16 @@ func setup_bittaran(model: Node3D, moving_body: AnimatableBody3D) -> bool:
         solid.shape = BoxShape3D.new()
         moving_body.add_child(solid)
         combat_shapes[id] = solid
+
+    # Cache articulated mesh nodes once; IK changes only their transforms.
+    leg_depth_meshes.clear()
+    for id in LEG_ROOT_BONES:
+        var limb: Node3D = model.find_child(
+            str(LEG_ROOT_BONES[id]), true, false) as Node3D
+        var meshes: Array[MeshInstance3D] = []
+        if limb != null:
+            _collect_head_meshes(limb, meshes)
+        leg_depth_meshes[id] = meshes
 
     fx_meshes.clear()
     fx_timers.clear()
@@ -270,6 +284,93 @@ func get_head_mesh_blade_contact(from_world: Vector3,
             near_distance = assist_dist
             near_contact = assisted
     return contact if contact != null else near_contact
+
+
+
+func _mesh_world_bounds(mesh: MeshInstance3D) -> AABB:
+    var bounds: AABB = mesh.mesh.get_aabb()
+    var first: Vector3 = mesh.to_global(bounds.get_endpoint(0))
+    var low: Vector3 = first
+    var high: Vector3 = first
+    for i in range(1, 8):
+        var p: Vector3 = mesh.to_global(bounds.get_endpoint(i))
+        low = low.min(p)
+        high = high.max(p)
+    return AABB(low, high - low)
+
+
+func _oriented_mesh_penetration_depth(a: MeshInstance3D,
+        b: MeshInstance3D) -> float:
+    # SAT minimum-translation penetration depth between oriented
+    # individual mesh element bounds, in WORLD METERS. 3+3 face axes and
+    # 9 cross axes prevent yaw/pitch from inflating the contact by an
+    # axis-aligned hull's empty corner.
+    if a == null or b == null or a.mesh == null or b.mesh == null:
+        return 0.0
+    if not _mesh_world_bounds(a).intersects(_mesh_world_bounds(b)):
+        return 0.0
+    var box_a: AABB = a.mesh.get_aabb()
+    var box_b: AABB = b.mesh.get_aabb()
+    var center_delta: Vector3 = b.to_global(box_b.get_center()) \
+        - a.to_global(box_a.get_center())
+    var basis_a: Basis = a.global_basis
+    var basis_b: Basis = b.global_basis
+    var half_a: Array[Vector3] = [
+        basis_a.x * box_a.size.x * 0.5,
+        basis_a.y * box_a.size.y * 0.5,
+        basis_a.z * box_a.size.z * 0.5]
+    var half_b: Array[Vector3] = [
+        basis_b.x * box_b.size.x * 0.5,
+        basis_b.y * box_b.size.y * 0.5,
+        basis_b.z * box_b.size.z * 0.5]
+    var axes: Array[Vector3] = [
+        basis_a.x, basis_a.y, basis_a.z,
+        basis_b.x, basis_b.y, basis_b.z]
+    for edge_a in [basis_a.x, basis_a.y, basis_a.z]:
+        for edge_b in [basis_b.x, basis_b.y, basis_b.z]:
+            axes.append(edge_a.cross(edge_b))
+    var minimum_depth: float = INF
+    for raw_axis in axes:
+        if raw_axis.length_squared() <= 0.0000001:
+            continue
+        var axis: Vector3 = raw_axis.normalized()
+        var radius_a: float = (absf(half_a[0].dot(axis))
+            + absf(half_a[1].dot(axis)) + absf(half_a[2].dot(axis)))
+        var radius_b: float = (absf(half_b[0].dot(axis))
+            + absf(half_b[1].dot(axis)) + absf(half_b[2].dot(axis)))
+        var depth: float = (radius_a + radius_b
+            - absf(center_delta.dot(axis)))
+        if depth <= 0.0:
+            return 0.0
+        minimum_depth = minf(minimum_depth, depth)
+    return 0.0 if minimum_depth == INF else minimum_depth
+
+
+func get_head_leg_penetration_depth(id: String) -> float:
+    # Maximum per-element penetration; depth is never summed across
+    # overlapping armor plates (which would turn 30cm into a volume rule).
+    if not installed or not leg_depth_meshes.has(id):
+        return 0.0
+    var maximum: float = 0.0
+    var limb_meshes: Array = leg_depth_meshes[id]
+    for record in head_mesh_solids:
+        var head_mesh: MeshInstance3D = record["mesh"]
+        if not is_instance_valid(head_mesh):
+            continue
+        for limb in limb_meshes:
+            var leg_mesh: MeshInstance3D = limb as MeshInstance3D
+            if not is_instance_valid(leg_mesh):
+                continue
+            maximum = maxf(maximum,
+                _oriented_mesh_penetration_depth(head_mesh, leg_mesh))
+    return maximum
+
+
+func get_head_leg_penetration_depths() -> Dictionary:
+    var result: Dictionary = {}
+    for id in ["leg_fl", "leg_fr", "leg_rl", "leg_rr"]:
+        result[id] = get_head_leg_penetration_depth(id)
+    return result
 
 
 func _material_records(root: Node3D, descend: bool) -> Array[Dictionary]:
