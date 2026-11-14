@@ -37,15 +37,11 @@ const POST_DOWN_UPRIGHT_TOLERANCE_WORLD_METERS: float = 0.06
 const LEG_BREAK_RECOVER_START_SECONDS: float = 2.10
 const ALL_LEGS_BREAK_REACTION_SECONDS: float = 6.0
 const ALL_LEGS_BREAK_RECOVER_START_SECONDS: float = 5.40
-# Only the upward recovery takes 1.25x the normal time (0.40->0.50s /
-# 0.60->0.75s). Anticipation, fall and fully down hold are unchanged.
-const STANDUP_RECOVERY_DURATION_MULTIPLIER: float = 1.25
-const SINGLE_LEG_RISE_SECONDS: float = (
-    LEG_BREAK_REACTION_SECONDS - LEG_BREAK_RECOVER_START_SECONDS
-    ) * STANDUP_RECOVERY_DURATION_MULTIPLIER
-const FOUR_LEG_RISE_SECONDS: float = (
-    ALL_LEGS_BREAK_REACTION_SECONDS - ALL_LEGS_BREAK_RECOVER_START_SECONDS
-    ) * STANDUP_RECOVERY_DURATION_MULTIPLIER
+# Exactly timed rise, independent of the original fall/grounded hold.
+const SINGLE_LEG_RISE_SECONDS: float = 1.0
+const FOUR_LEG_RISE_SECONDS: float = 1.3
+# Positive local-X BODY pitch raises the two front shoulder pivots.
+const STANDUP_BACK_LEAN_DEGREES: float = 10.0
 const LEG_BREAK_SLIDE_METERS: float = 1.05
 const HEAD_MELEE_REACH_WORLD_Y: float = 1.35
 const MAX_LEG_BREAK_DROP_METERS: float = 1.45
@@ -420,8 +416,8 @@ func start_leg_break_slide(id: String, head_world_y: float,
         break_elapsed = -1.0
     break_recover_start = (ALL_LEGS_BREAK_RECOVER_START_SECONDS if all_legs_broken
         else LEG_BREAK_RECOVER_START_SECONDS)
-    # Keep the same moment of stand-up initiation. The physical rise alone
-    # takes 1.25x longer (0.40->0.50s / 0.60->0.75s).
+    # Preserve the previous stand-up start; physical rise now lasts 1.0s
+    # for a normal knockdown and 1.3s after all four legs break.
     break_duration = break_recover_start + (
         FOUR_LEG_RISE_SECONDS if all_legs_broken else SINGLE_LEG_RISE_SECONDS)
     break_head_start_y = head_world_y
@@ -647,8 +643,19 @@ func _advance_leg_break(delta: float) -> void:
         / parent_scale_y)
     break_chassis_pitch_radians = 0.0
     if break_elapsed >= 0.0 and chassis_bone != null             and head_mesh_for_height != null:
-        break_chassis_base_pose = chassis_bone.quaternion
         var base_pose: Quaternion = chassis_bone.quaternion
+        # Backward (nose-up) pitch raises front shoulders during the rise.
+        # A sine envelope keeps both transition boundaries at neutral.
+        var rise_back_lean: float = 0.0
+        if break_elapsed >= break_recover_start and break_elapsed < break_duration:
+            var rise_phase: float = clampf(
+                (break_elapsed - break_recover_start) /
+                maxf(break_duration - break_recover_start, 0.001), 0.0, 1.0)
+            rise_back_lean = (deg_to_rad(STANDUP_BACK_LEAN_DEGREES)
+                * sin(PI * rise_phase))
+        # The head/leg collision resolver retains this lean in its base pose.
+        break_chassis_base_pose = (base_pose *
+            Quaternion(Vector3.RIGHT, rise_back_lean)).normalized()
         var desired_head_y: float = lerpf(break_head_start_y,
             HEAD_MELEE_REACH_WORLD_Y, amount)
         if amount > 0.00001:
@@ -665,10 +672,10 @@ func _advance_leg_break(delta: float) -> void:
                 else:
                     hi = mid
             break_chassis_pitch_radians = (lo + hi) * 0.5
-            chassis_bone.quaternion = (base_pose *
+            chassis_bone.quaternion = (break_chassis_base_pose *
                 Quaternion(Vector3.RIGHT, -break_chassis_pitch_radians)).normalized()
         else:
-            chassis_bone.quaternion = base_pose
+            chassis_bone.quaternion = break_chassis_base_pose
     # Ease the two front legs from their slight stretch to the planted
     # anchors as the chest falls. The broken leg still skids separately.
     var reach_end: float = 1.0 - _cubic(
