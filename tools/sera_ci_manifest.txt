@@ -290,3 +290,6 @@ gd tools/v348_bittaran_parts_runtime_check.gd
 
 py tools/v349_bittaran_down_lock_self_check.py
 gd tools/v349_bittaran_down_lock_runtime_check.gd
+
+py tools/v350_bittaran_shin_lock_self_check.py
+gd tools/v350_bittaran_shin_lock_runtime_check.gd

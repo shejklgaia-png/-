@@ -19,6 +19,8 @@ on:
       - 'tools/v348_bittaran_*.py'
       - 'tools/v349_bittaran_*.py'
       - 'tools/v349_bittaran_*.gd'
+      - 'tools/v350_bittaran_*.gd'
+      - 'tools/v350_bittaran_*.py'
       - 'tools/rebuild_bittaran_data.py'
       - 'scripts/command_nexus.gd'
       - 'project.godot'
@@ -37,6 +39,7 @@ jobs:
           python3 tools/v347_bittaran_scale_crouch_self_check.py
           python3 tools/v348_bittaran_parts_self_check.py
           python3 tools/v349_bittaran_down_lock_self_check.py
+          python3 tools/v350_bittaran_shin_lock_self_check.py
           python3 tools/sera_model_build.py --check
       - name: Install Godot 4.7.2
         run: |
@@ -131,3 +134,19 @@ jobs:
             exit 1
           fi
           grep -q 'GODOT_V349_BITTARAN_LOCK_PASS' "$log"
+      - name: Verify 2x shin-only horizontal lock volumes never change melee/physics
+        run: |
+          set -euo pipefail
+          log="$RUNNER_TEMP/bittaran-shin-lock-v350.log"
+          status=0
+          "$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" --headless --path . --script tools/v350_bittaran_shin_lock_runtime_check.gd > "$log" 2>&1 || status=$?
+          cat "$log"
+          if [ "$status" -ne 0 ]; then
+            echo "::error::Bittaran 2x shin-only lock test exited with code $status"
+            exit "$status"
+          fi
+          if grep -E 'SCRIPT ERROR|Parse Error|Compile Error|ERROR: Failed to load|Invalid call|V350_BITTARAN_SHIN_LOCK_FAIL' "$log"; then
+            echo "::error::Bittaran shin lock reported a runtime error"
+            exit 1
+          fi
+          grep -q 'GODOT_V350_BITTARAN_SHIN_LOCK_PASS' "$log"
