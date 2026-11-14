@@ -6,6 +6,7 @@ const BittaranAI = preload("res://scripts/bittaran_ai.gd")
 const BittaranFootIK = preload("res://scripts/bittaran_foot_ik.gd")
 const BittaranParts = preload("res://scripts/bittaran_parts.gd")
 const DOWN_CLEARANCE = preload("res://scripts/bittaran_down_clearance.gd")
+const CONTROLLER_AXIS = preload("res://scripts/bittaran_controller_axis.gd")
 const NAME_TEXT: String = "BITTARAN  /  ビットタラン"
 const BOSS_WORLD_SCALE: float = 2.0
 const BOSS_DEATH_RESPAWN_SECONDS: float = 3.0
@@ -26,6 +27,7 @@ var victory_label: Label
 var boss_death_particles: CPUParticles3D
 var boss_death_elapsed: float = -1.0
 var boss_far_side_screen_axis: bool = false
+var boss_last_controller_axis: Vector2 = Vector2.UP
 var bittaran_head: Node3D
 var boss_head_yaw: float = 0.0
 var boss_head_default_rotation: Quaternion = Quaternion.IDENTITY
@@ -136,21 +138,15 @@ func _start_boss_death_fx() -> void:
         boss_death_particles.restart()
 
 func _touch_to_lock_forward(_origin_screen: Vector2) -> Vector2:
-    # Boss-only controller semantics: front ALWAYS follows the 3D segment
-    # SERA CAPSULE CENTER -> current locked part, projected into screen space.
-    # The previous finger-down -> part branch made identical body positions
-    # show different front sectors depending on where the player touched.
-    # Do not keep different axes when crossing the lock's camera depth.
+    # Both input and HUD use exactly ONE depth-safe projected direction.
+    # Projecting elevated HEAD straight to the screen can invert its Y
+    # relative to the ground direction when SERA is beyond the lock.
+    # Never return Vector2.UP solely because of camera near-plane failure.
     if camera == null or player == null or target == null:
-        return Vector2.UP
+        return boss_last_controller_axis
     var aim: Vector3 = _current_lock_aim_world()
-    var player_center: Vector3 = player.global_position + (
+    var actor_center: Vector3 = player.global_position + (
         Vector3.UP * PLAYER_COLLISION_HEIGHT * 0.5)
-    var toward: Vector3 = aim - player_center
-    var fallback: Vector2 = FLICK_DIRECTION_POLICY.projected_lock_forward(
-        camera, player.global_position, toward, Vector2.UP)
-    # Keep this boundary as diagnostics/compatibility, but it must NOT
-    # change the actual direction reference or flick sector.
     var camera_forward: Vector3 = -camera.global_transform.basis.z
     camera_forward.y = 0.0
     if camera_forward.length_squared() > 0.000001:
@@ -163,8 +159,21 @@ func _touch_to_lock_forward(_origin_screen: Vector2) -> Vector2:
                 boss_far_side_screen_axis = false
         elif depth > BOSS_FAR_SIDE_ENTER_METERS:
             boss_far_side_screen_axis = true
-    return FLICK_DIRECTION_POLICY.projected_target_line(
-        camera, player_center, aim, fallback)
+    boss_last_controller_axis = CONTROLLER_AXIS.heading(
+        camera, actor_center, aim, boss_last_controller_axis)
+    return boss_last_controller_axis
+
+
+func _update_controller_flick_guide(delta: float) -> void:
+    # While an ordinary touch is held, the target can move or the camera
+    # can orbit without any finger movement. Refresh the uncommitted
+    # controller every render, not only when RUN/BOOST is already moving.
+    # Guard, committed combo flicks and STEP retain their captured axis.
+    if gesture_active and not guard_active and not bash_flick_candidate \
+            and not side_kick_flick_candidate and not step_active \
+            and not damage_reaction_active and not _combo_lock_retention_active():
+        gesture_screen_forward = _touch_to_lock_forward(pointer_origin)
+    super._update_controller_flick_guide(delta)
 
 
 func _head_leg_overlap_by_id(base_pose: Quaternion,
@@ -437,6 +446,7 @@ func _reset_target_after_respawn() -> void:
     super._reset_target_after_respawn()
     boss_death_elapsed = -1.0
     boss_far_side_screen_axis = false
+    boss_last_controller_axis = Vector2.UP
     boss_head_yaw = 0.0
     boss_head_windup_start_yaw = 0.0
     head_neutral_overlap.clear()

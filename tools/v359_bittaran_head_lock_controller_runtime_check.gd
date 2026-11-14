@@ -16,9 +16,10 @@ func _axis_from_player(battle: Node3D, aim: Vector3) -> Vector2:
     var player: CharacterBody3D = battle.get("player")
     var view: Camera3D = battle.get("camera")
     var start: Vector3 = player.global_position + Vector3.UP * 0.925
-    return FLICK.projected_target_line(view, start, aim,
-        FLICK.projected_lock_forward(view, player.global_position,
-            aim - start, Vector2.UP))
+    # v360: use the depth-safe direction when a high HEAD projection
+    # would turn the compass against the real XZ lock target.
+    return preload("res://scripts/bittaran_controller_axis.gd").heading(
+        view, start, aim, Vector2.UP)
 
 func _test_same_axis(battle: Node3D, label: String) -> bool:
     var view: Camera3D = battle.get("camera")

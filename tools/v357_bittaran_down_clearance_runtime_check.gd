@@ -49,8 +49,11 @@ func _run() -> void:
     var touch: Vector2 = Vector2(60.0, 990.0)
     var forward: Vector2 = battle.call("_touch_to_lock_forward", touch)
     var center: Vector3 = player.global_position + Vector3.UP * 0.925
-    var expected: Vector2 = (view.unproject_position(aim)
-        - view.unproject_position(center)).normalized()
+    # Keep the real SERA-centered target while guarding inverted camera
+    # pitch and high lock geometry (introduced in v360).
+    var expected: Vector2 = preload(
+        "res://scripts/bittaran_controller_axis.gd").heading(
+        view, center, aim, Vector2.UP)
     if not bool(battle.get("boss_far_side_screen_axis"))             or forward.distance_to(expected) > 0.001:
         _fail("far-side flick not along player capsule center -> lock target")
         return
