@@ -261,3 +261,6 @@ py tools/v337_touch_lock_axis_self_check.py
 py tools/v338_top_left_hud_self_check.py
 
 py tools/v339_step_kick_live_guide_self_check.py
+
+py tools/v340_side_kick_linear_exit_self_check.py
+gd tools/v340_side_kick_linear_exit_runtime_check.gd
