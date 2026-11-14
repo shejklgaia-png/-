@@ -131,13 +131,18 @@ func _run() -> void:
             return
         if owner == "leg_fl":
             var current: AABB = parts.call("get_head_swing_aabb")
-            var support_boxes: Array = parts.call(
-                "get_leg_support_mesh_boxes", "leg_fl")
-            var fixture_box: AABB = AABB()
-            for support_box in support_boxes:
-                if (support_box as AABB).has_point(fixture.global_position):
-                    fixture_box = support_box
-                    break
+            # Inspect ONLY the injected forearm fixture's mesh, not an
+            # unrelated upper-arm box that happens to contain its center.
+            var fixture_source: AABB = fixture.mesh.get_aabb()
+            var minimum: Vector3 = fixture.to_global(
+                fixture_source.get_endpoint(0))
+            var maximum: Vector3 = minimum
+            for corner in range(1, 8):
+                var vertex: Vector3 = fixture.to_global(
+                    fixture_source.get_endpoint(corner))
+                minimum = minimum.min(vertex)
+                maximum = maximum.max(vertex)
+            var fixture_box := AABB(minimum, maximum - minimum)
             if fixture_box.has_volume() \
                     and current.position.y < fixture_box.end.y - 0.09:
                 _fail("HEAD still sinks through supporting foreleg frame="
