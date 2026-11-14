@@ -512,6 +512,42 @@ func get_leg_visual_aabb(id: String) -> AABB:
     return AABB(low, high - low)
 
 
+func _append_component_visual_boxes(node: Node3D,
+        boxes: Array[AABB]) -> void:
+    # A full leg AABB contains large EMPTY corners between the bent upper
+    # limb, shin and foot. Component boxes prevent the head from treating
+    # that empty space as solid when it starts tracking during stand-up.
+    for child in node.get_children():
+        if child is MeshInstance3D:
+            var piece: MeshInstance3D = child as MeshInstance3D
+            if piece.mesh == null:
+                continue
+            var source: AABB = piece.mesh.get_aabb()
+            var first: Vector3 = piece.to_global(source.get_endpoint(0))
+            var low: Vector3 = first
+            var high: Vector3 = first
+            for i in range(1, 8):
+                var corner: Vector3 = piece.to_global(source.get_endpoint(i))
+                low = low.min(corner)
+                high = high.max(corner)
+            boxes.append(AABB(low, high - low))
+        elif child is Node3D and not child is Area3D:
+            _append_component_visual_boxes(child as Node3D, boxes)
+
+
+func get_leg_visual_mesh_boxes(id: String) -> Array[AABB]:
+    # Read-only real mesh-component bounds, never the oversized camera-lock
+    # volume. Includes every upper arm, lower arm and foot mesh.
+    var boxes: Array[AABB] = []
+    if not installed or not LEG_ROOT_BONES.has(id):
+        return boxes
+    var root_leg: Node3D = boss_model.find_child(
+        str(LEG_ROOT_BONES[id]), true, false) as Node3D
+    if root_leg != null:
+        _append_component_visual_boxes(root_leg, boxes)
+    return boxes
+
+
 func get_body_hit_aabb() -> AABB:
     return _bounds("")
 
