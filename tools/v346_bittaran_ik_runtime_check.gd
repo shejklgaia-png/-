@@ -24,6 +24,13 @@ func _run() -> void:
     if ik == null or model == null or target == null or not bool(ik.get("ready")):
         _fail("scene IK setup failed")
         return
+    if not target.scale.is_equal_approx(Vector3.ONE * 2.0):
+        _fail("boss root must be uniformly double-sized")
+        return
+    var collider: AnimatableBody3D = boss.get("target_collider")
+    if collider == null or not collider.global_basis.get_scale().is_equal_approx(Vector3.ONE * 2.0):
+        _fail("physical boss collision was not scaled with its model")
+        return
     var legs: Array = ik.get("legs")
     if legs.size() != 4:
         _fail("required four IK limbs not loaded")

@@ -4,14 +4,18 @@ extends RefCounted
 ## unchanged. The pose clips are evaluated first; grounded IK is layered last.
 ## The sole anchor is measured from the real imported foot mesh AABB.
 const FLOOR_Y: float = 0.0
-const STEP_TRIGGER_METERS: float = 0.38
-const STEP_DURATION_SECONDS: float = 0.52
-const STEP_HEIGHT_METERS: float = 0.19
-const STEP_FORWARD_LEAD_METERS: float = 0.14
-const STEP_COOLDOWN_SECONDS: float = 0.09
-const MAX_TELEPORT_METERS: float = 0.75
+const STEP_TRIGGER_METERS: float = 0.76
+const STEP_DURATION_SECONDS: float = 0.58
+const STEP_HEIGHT_METERS: float = 0.34
+const STEP_FORWARD_LEAD_METERS: float = 0.28
+const STEP_COOLDOWN_SECONDS: float = 0.10
+const MAX_TELEPORT_METERS: float = 1.50
 const MAX_YAW_SNAP_RADIANS: float = 1.4
 const IK_REACH_MARGIN_METERS: float = 0.002
+## World-space crouch and inward sole placement increase actual joint flexion.
+## Do not subtract a fixed number from IK reach: that would cause foot sliding.
+const BODY_CROUCH_WORLD_METERS: float = 0.34
+const STANCE_TUCK_METERS: float = 0.42
 
 const LEG_NAMES: Array[String] = [
     "FrontLeg_R", "RearLeg_L", "FrontLeg_L", "RearLeg_R"
@@ -78,9 +82,14 @@ func setup(model: Node3D) -> bool:
     var average_sole_y: float = 0.0
     for leg in legs:
         average_sole_y += (leg["anchor"] as Vector3).y / float(legs.size())
-    actor.position.y += FLOOR_Y - average_sole_y
+    # actor.position is in the scaled target's local units, while contact
+    # measurements and the requested crouch are in world metres.
+    var parent_scale_y: float = maxf(absf(actor.get_parent().global_basis.get_scale().y), 0.001)
+    actor.position.y += (FLOOR_Y - average_sole_y - BODY_CROUCH_WORLD_METERS) / parent_scale_y
     reset()
     ready = true
+    # Ensure soles are on the floor immediately, before the first physics tick.
+    advance_ik(0.0, "Idle")
     return true
 
 func _sole_local_point(foot: Node3D) -> Vector3:
@@ -119,15 +128,21 @@ func reset() -> void:
     last_actor_yaw = actor.global_rotation.y
     for leg in legs:
         var foot: Node3D = leg["foot"]
-        var sole: Vector3 = foot.to_global(leg["sole_local"])
-        sole.y = FLOOR_Y
-        leg["anchor"] = sole
+        # Reinitialize with a tucked, reachable world-space stance rather
+        # than anchoring to the formerly straight-legged visual pose.
+        leg["anchor"] = _home(leg, false)
         leg["stepping"] = false
         leg["swing_elapsed"] = 0.0
         leg["anchor_rotation"] = foot.global_basis.get_rotation_quaternion()
 
 func _home(leg: Dictionary, with_lead: bool) -> Vector3:
     var p: Vector3 = actor.to_global(leg["rest_sole_local"])
+    # Bring the wide original stance slightly inward to increase knee
+    # flexion at the same planted toe height, without deforming the mesh.
+    var radial: Vector3 = p - actor.global_position
+    radial.y = 0.0
+    if radial.length_squared() > 0.000001:
+        p -= radial.normalized() * STANCE_TUCK_METERS
     if with_lead:
         # Authored Blockbench faces -Z, while the model's runtime +PI turn
         # makes Bittaran face the combat controller's +Z direction.
@@ -165,7 +180,11 @@ func _solve(leg: Dictionary, sole_goal: Vector3, desired_rotation: Quaternion) -
     var foot: Node3D = leg["foot"]
     # Fix the sole's orientation (no toe roll while planted) and then solve
     # the exact foot-pivot target required to place its sole at sole_goal.
-    var wanted_end: Vector3 = sole_goal - desired_rotation * (leg["sole_local"] as Vector3)
+    # Rotation alone cannot transform a mesh-local sole offset when the
+    # entire boss is uniformly scaled. Preserve the true world scale.
+    var foot_world_scale: Vector3 = foot.global_basis.get_scale()
+    var wanted_end: Vector3 = sole_goal - (Basis(desired_rotation).scaled(foot_world_scale)
+        * (leg["sole_local"] as Vector3))
     var hip: Vector3 = upper.global_position
     var knee: Vector3 = lower.global_position
     var end: Vector3 = foot.global_position
@@ -201,7 +220,8 @@ func _solve(leg: Dictionary, sole_goal: Vector3, desired_rotation: Quaternion) -
     _align(lower, end - knee, end_target - knee)
     # Foot orientation is world-stable throughout stance. The foot mesh's
     # authored local rotation is preserved by leaving the mesh untouched.
-    foot.global_basis = Basis(desired_rotation)
+    # Never silently reset the foot's 2x inherited scale to 1x.
+    foot.global_basis = Basis(desired_rotation).scaled(foot_world_scale)
     return foot.to_global(leg["sole_local"]).distance_to(sole_goal)
 
 func _align(joint: Node3D, from_axis: Vector3, to_axis: Vector3) -> void:
@@ -209,7 +229,8 @@ func _align(joint: Node3D, from_axis: Vector3, to_axis: Vector3) -> void:
             to_axis.length_squared() <= 0.00000001):
         return
     var q := Quaternion(from_axis.normalized(), to_axis.normalized())
-    joint.global_basis = Basis((q * joint.global_basis.get_rotation_quaternion()).normalized())
+    var original_scale: Vector3 = joint.global_basis.get_scale()
+    joint.global_basis = Basis((q * joint.global_basis.get_rotation_quaternion()).normalized()).scaled(original_scale)
 
 func advance_ik(delta: float, motion: String) -> void:
     if not ready or legs.size() != 4 or actor == null:

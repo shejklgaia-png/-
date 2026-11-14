@@ -281,3 +281,6 @@ gd tools/v345_bittaran_runtime_check.gd
 
 py tools/v346_bittaran_ik_self_check.py
 gd tools/v346_bittaran_ik_runtime_check.gd
+
+py tools/v347_bittaran_scale_crouch_self_check.py
+gd tools/v347_bittaran_scale_crouch_runtime_check.gd

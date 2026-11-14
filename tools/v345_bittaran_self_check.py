@@ -48,7 +48,7 @@ assert 'const VISION_HALF_DEGREES: float = 50.0' in ai
 assert 'const APPROACH_SPEED_MPS: float = 0.72' in ai
 assert 'const STATIONARY_TURN_DEG_PER_SEC: float = 34.0' in ai
 assert 'const MOVING_TURN_DEG_PER_SEC: float = 22.0' in ai
-assert 'const STOP_DISTANCE_METERS: float = 3.9' in ai
+assert 'const STOP_DISTANCE_METERS: float = 7.8' in ai
 assert 'func _tap_deployment_boss(' in nexus
 assert 'func _start_boss_scene(' in nexus
 assert 'res://scenes/bittaran_battle.tscn' in nexus

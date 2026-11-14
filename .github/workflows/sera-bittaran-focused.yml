@@ -13,6 +13,8 @@ on:
       - 'tools/v345_bittaran_*.gd'
       - 'tools/v346_bittaran_*.gd'
       - 'tools/v346_bittaran_*.py'
+      - 'tools/v347_bittaran_*.py'
+      - 'tools/v347_bittaran_*.gd'
       - 'tools/rebuild_bittaran_data.py'
       - 'scripts/command_nexus.gd'
       - 'project.godot'
@@ -28,6 +30,7 @@ jobs:
         run: |
           python3 tools/v345_bittaran_self_check.py
           python3 tools/v346_bittaran_ik_self_check.py
+          python3 tools/v347_bittaran_scale_crouch_self_check.py
           python3 tools/sera_model_build.py --check
       - name: Install Godot 4.7.2
         run: |
@@ -44,8 +47,13 @@ jobs:
         run: |
           set -euo pipefail
           log="$RUNNER_TEMP/bittaran-runtime.log"
-          "$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" --headless --path . --script tools/v345_bittaran_runtime_check.gd > "$log" 2>&1
+          status=0
+          "$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" --headless --path . --script tools/v345_bittaran_runtime_check.gd > "$log" 2>&1 || status=$?
           cat "$log"
+          if [ "$status" -ne 0 ]; then
+            echo "::error::Bittaran battle runtime exited with code $status"
+            exit "$status"
+          fi
           if grep -E 'SCRIPT ERROR|Parse Error|Compile Error|ERROR: Failed to load|Invalid call|V345_BITTARAN_FAIL' "$log"; then
             echo "::error::Godot reported a script/runtime failure despite process exit 0"
             exit 1
@@ -68,3 +76,19 @@ jobs:
             exit 1
           fi
           grep -q 'GODOT_V346_BITTARAN_IK_PASS' "$log"
+      - name: Test doubled Bittaran size and grounded deep knee crouch
+        run: |
+          set -euo pipefail
+          log="$RUNNER_TEMP/bittaran-crouch.log"
+          status=0
+          "$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" --headless --path . --script tools/v347_bittaran_scale_crouch_runtime_check.gd > "$log" 2>&1 || status=$?
+          cat "$log"
+          if [ "$status" -ne 0 ]; then
+            echo "::error::Bittaran crouch test failed with exit code $status"
+            exit "$status"
+          fi
+          if grep -E 'SCRIPT ERROR|Parse Error|Compile Error|ERROR: Failed to load|Invalid call|V347_BITTARAN_SIZE_CROUCH_FAIL' "$log"; then
+            echo "::error::Bittaran crouch/Godot reported a runtime error"
+            exit 1
+          fi
+          grep -q 'GODOT_V347_BITTARAN_PASS' "$log"

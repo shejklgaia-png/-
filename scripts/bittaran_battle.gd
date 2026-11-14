@@ -5,6 +5,7 @@ const BittaranRig = preload("res://scripts/bittaran_rig.gd")
 const BittaranAI = preload("res://scripts/bittaran_ai.gd")
 const BittaranFootIK = preload("res://scripts/bittaran_foot_ik.gd")
 const NAME_TEXT: String = "BITTARAN  /  ビットタラン"
+const BOSS_WORLD_SCALE: float = 2.0
 
 var bittaran_rig: Node3D
 var bittaran_ai: RefCounted
@@ -46,6 +47,9 @@ func _build_target() -> void:
     # Retain combat HP, five targetable parts, lock volumes and physical
     # collision; hide their old training-only red geometry.
     super._build_target()
+    # Scale the full target root (model, lock positions and collision shapes)
+    # as one object; scaling the mesh alone would leave combat hits behind.
+    target.scale = Vector3.ONE * BOSS_WORLD_SCALE
     target_mesh.visible = false
     bittaran_rig = BittaranRig.new()
     bittaran_rig.name = "BittaranRig"
