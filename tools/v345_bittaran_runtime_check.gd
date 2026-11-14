@@ -35,7 +35,7 @@ func _run() -> void:
         _fail("walking clip did not start")
         return
     var brain: RefCounted = AI.new()
-    var origin := Vector3(0.0, 1.53, -8.0)
+    var origin := Vector3(0.0, 1.53, -12.0)
     var approaching: Dictionary = brain.call(
         "advance", 0.5, origin, 0.0, Vector3.ZERO, false)
     if approaching["motion"] != "Approach" or (approaching["position"] as Vector3).z <= -8.0:
@@ -43,7 +43,7 @@ func _run() -> void:
         return
     brain.call("reset")
     var behind: Dictionary = brain.call(
-        "advance", 0.5, origin, 0.0, Vector3(0, 0, -18), false)
+        "advance", 0.5, origin, 0.0, Vector3(0, 0, -22), false)
     if behind["motion"] != "Turn" or (
             (behind["position"] as Vector3).distance_to(origin) > 0.000001):
         _fail("boss advanced toward player outside 100-degree view")
