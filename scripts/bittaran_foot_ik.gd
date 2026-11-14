@@ -665,7 +665,7 @@ func advance_ik(delta: float, motion: String) -> void:
                 done = false
         # Sideways topple only the leg whose planted foot was under the
         # head on the XZ plane at the moment the body began falling.
-        if break_elapsed >= 0.0 and head_support_leg_index >= 0                 and leg == legs[head_support_leg_index]:
+        if break_elapsed >= 0.0 and head_support_leg_index >= 0                 and leg["upper"] == legs[head_support_leg_index]["upper"]:
             var collapse: float = _cubic(clampf(
                 break_elapsed / LEG_BREAK_FALL_SECONDS, 0.0, 1.0))
             if break_elapsed > break_recover_start:
@@ -710,7 +710,7 @@ func advance_ik(delta: float, motion: String) -> void:
             var foot_rot: Quaternion = leg["anchor_rotation"]
             if bool(leg["stepping"]):
                 continue
-            if break_elapsed >= 0.0 and head_support_leg_index >= 0                     and leg == legs[head_support_leg_index]:
+            if break_elapsed >= 0.0 and head_support_leg_index >= 0                     and leg["upper"] == legs[head_support_leg_index]["upper"]:
                 var collapse: float = _cubic(clampf(
                     break_elapsed / LEG_BREAK_FALL_SECONDS, 0.0, 1.0))
                 if break_elapsed > break_recover_start:
