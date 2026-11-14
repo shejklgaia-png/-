@@ -1,6 +1,6 @@
 extends SceneTree
-## v362: the boss must finish the IK collapse, complete its visible
-## stand-up, and settle in neutral Idle before AI may emit Turn/Approach.
+## v362/v363: no Turn/Approach animation or position translation during
+## knockdown/stand-up; v363 permits only smoothly weighted root yaw.
 ## Exercise BOTH short (2.5s) and four-leg (6s) knockdowns with the
 ## actual scene, boss AI, rig clips, collision IK, and release timer.
 const DT: float = 1.0 / 60.0
@@ -66,6 +66,7 @@ func _check_case(battle: Node3D, expected_motion: String,
         6.0 if broken_leg_ids.size() == 4 else 2.5)
     for frame in range(470):
         var was_ready: bool = bool(ik.call("locomotion_ready"))
+        var turn_weight: float = float(ik.call("standup_turn_weight"))
         var original_position: Vector3 = target.position
         var original_yaw: float = target.rotation.y
         battle.call("_advance_target_motion", DT)
@@ -76,10 +77,20 @@ func _check_case(battle: Node3D, expected_motion: String,
                 _fail(expected_motion + " played during recovery: "
                     + chosen + "/" + played + " frame=" + str(frame))
                 return false
-            if absf(target.rotation.y - original_yaw) > 0.00001                     or Vector2(target.position.x - original_position.x,
-                        target.position.z - original_position.z).length() > 0.00001:
-                _fail("AI rotated/approached while the boss was down "
-                    + "or still standing up: " + str(frame))
+            if Vector2(target.position.x - original_position.x,
+                    target.position.z - original_position.z).length() > 0.00001:
+                _fail("AI approached before boss stood fully upright: "
+                    + str(frame))
+                return false
+            # v363 intentionally allows a weighted root yaw while rising,
+            # but keeps the Turn/Approach clips disabled. No turning is
+            # permitted in the throw, fall, or hold before stand-up begins.
+            var yaw_step: float = absf(wrapf(
+                target.rotation.y - original_yaw, -PI, PI))
+            var max_step: float = deg_to_rad(34.0) * DT * turn_weight
+            if yaw_step > max_step + 0.00005:
+                _fail("recovery root yaw exceeded smoothly weighted cap: "
+                    + str(yaw_step) + " max=" + str(max_step))
                 return false
         battle.call("_finalize_target_pose", DT)
         if down_finished_at < 0 and not bool(ik.call(
@@ -147,6 +158,6 @@ func _run() -> void:
     if not _check_case(battle, "Approach", LEG_IDS):
         return
     print("GODOT_V362_BITTARAN_STANDUP_PASS: no Turn/Approach clip "
-        + "or root motion until all 2.5/6s down poses and "
-        + "0.24s upright Idle settle finish")
+        + "or translation until 2.5/6s downs and upright Idle settle; "
+        + "only weighted yaw allowed during stand-up")
     quit(0)
