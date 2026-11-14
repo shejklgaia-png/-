@@ -135,37 +135,37 @@ func _start_boss_death_fx() -> void:
         boss_death_particles.emitting = true
         boss_death_particles.restart()
 
-func _touch_to_lock_forward(origin_screen: Vector2) -> Vector2:
-    # Behind the locked boss, screen-UP remains front for combo flicks.
-    # Ordinary STEP displacement is screen-relative and unchanged.
+func _touch_to_lock_forward(_origin_screen: Vector2) -> Vector2:
+    # Boss-only controller semantics: front ALWAYS follows the 3D segment
+    # SERA CAPSULE CENTER -> current locked part, projected into screen space.
+    # The previous finger-down -> part branch made identical body positions
+    # show different front sectors depending on where the player touched.
+    # Do not keep different axes when crossing the lock's camera depth.
     if camera == null or player == null or target == null:
-        return super._touch_to_lock_forward(origin_screen)
+        return Vector2.UP
+    var aim: Vector3 = _current_lock_aim_world()
+    var player_center: Vector3 = player.global_position + (
+        Vector3.UP * PLAYER_COLLISION_HEIGHT * 0.5)
+    var toward: Vector3 = aim - player_center
+    var fallback: Vector2 = FLICK_DIRECTION_POLICY.projected_lock_forward(
+        camera, player.global_position, toward, Vector2.UP)
+    # Keep this boundary as diagnostics/compatibility, but it must NOT
+    # change the actual direction reference or flick sector.
     var camera_forward: Vector3 = -camera.global_transform.basis.z
     camera_forward.y = 0.0
     if camera_forward.length_squared() > 0.000001:
         camera_forward = camera_forward.normalized()
-        var to_player: Vector3 = player.global_position - _current_lock_aim_world()
-        to_player.y = 0.0
-        var depth: float = to_player.dot(camera_forward)
+        var relative: Vector3 = player.global_position - aim
+        relative.y = 0.0
+        var depth: float = relative.dot(camera_forward)
         if boss_far_side_screen_axis:
             if depth < BOSS_FAR_SIDE_EXIT_METERS:
                 boss_far_side_screen_axis = false
         elif depth > BOSS_FAR_SIDE_ENTER_METERS:
             boss_far_side_screen_axis = true
-    if boss_far_side_screen_axis:
-        # Far beyond the lock point, finger-down -> marker can rotate toward
-        # an unrelated direction. Use the PLAYER CAPSULE CENTER -> actual
-        # locked aim point, projected through the SAME camera as the HUD.
-        # The returned axis drives both the compass and flick classifier.
-        var actor_center: Vector3 = player.global_position + (
-            Vector3.UP * PLAYER_COLLISION_HEIGHT * 0.5)
-        var aim: Vector3 = _current_lock_aim_world()
-        var fallback: Vector2 = FLICK_DIRECTION_POLICY.projected_lock_forward(
-            camera, player.global_position, aim - player.global_position,
-            super._touch_to_lock_forward(origin_screen))
-        return FLICK_DIRECTION_POLICY.projected_target_line(
-            camera, actor_center, aim, fallback)
-    return super._touch_to_lock_forward(origin_screen)
+    return FLICK_DIRECTION_POLICY.projected_target_line(
+        camera, player_center, aim, fallback)
+
 
 func _head_leg_overlap_by_id(base_pose: Quaternion,
         relative_yaw: float) -> Dictionary:
@@ -345,7 +345,21 @@ func _acquire_stable_camera_part(delta: float,
         super._acquire_stable_camera_part(delta, current_broken)
         return
     if bool(target_parts.get("down_lock_enabled")):
-        super._acquire_stable_camera_part(delta, current_broken)
+        # v359: paired HORIZONTAL body rays strike low BODY/limbs before
+        # the raised HEAD volume, so normal AUTO virtually never reaches
+        # HEAD despite it being targetable. During actual knockdown make
+        # the exposed head the explicit AUTO weakpoint. The preceding
+        # 0.60s nose-up windup keeps existing selection, and MANUAL can
+        # still select any available head/body/leg part independently.
+        if target_hp > 0 and bittaran_foot_ik != null and bool(
+                bittaran_foot_ik.call("down_pose_active")) and bool(
+                target_parts.call("can_lock_boss_part", "head")):
+            locked_target_part_id = "head"
+            auto_lock_initialized = true
+            auto_lock_pending_part = ""
+            auto_lock_pending_elapsed = 0.0
+        else:
+            super._acquire_stable_camera_part(delta, current_broken)
         return
     locked_target_part_id = str(target_parts.call(
         "select_stable_actor_parallel_lines_part",
