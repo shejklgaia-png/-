@@ -136,7 +136,11 @@ func _run() -> void:
                     break
             if fixture_box.has_volume() \
                     and current.position.y < fixture_box.end.y - 0.09:
-                _fail("HEAD still sinks through supporting foreleg")
+                _fail("HEAD still sinks through supporting foreleg frame="
+                    + str(frame) + " nose.bottom=" + str(current.position.y)
+                    + " fixture.top=" + str(fixture_box.end.y)
+                    + " support.lift=" + str(lifted)
+                    + " support.id=" + owner)
                 return
             if int(parts.call("get_boss_lock_priority", "head")) <= int(
                     parts.call("get_boss_lock_priority", "leg_fl")):
