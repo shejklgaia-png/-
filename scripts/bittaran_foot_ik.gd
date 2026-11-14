@@ -258,12 +258,12 @@ func _rotation_home(leg: Dictionary) -> Quaternion:
     return (actor.global_basis.get_rotation_quaternion()
         * (leg["rest_foot_rotation_local"] as Quaternion)).normalized()
 
-func _pair_error(pair_index: int) -> float:
+func _pair_error(pair_index: int, with_lead: bool = false) -> float:
     var magnitude: float = 0.0
     for i in LEG_PAIRS[pair_index]:
         var leg: Dictionary = legs[i]
         magnitude = maxf(magnitude,
-            (leg["anchor"] as Vector3).distance_to(_home(leg, false)))
+            (leg["anchor"] as Vector3).distance_to(_home(leg, with_lead)))
     return magnitude
 
 func _start_pair(pair_index: int, walking: bool) -> void:
@@ -710,8 +710,8 @@ func advance_ik(delta: float, motion: String) -> void:
     var upright: bool = not break_reaction_active()
     var active: bool = (motion == "Approach" or motion == "Turn") and upright
     if active and stepping_pair == -1 and cooldown <= 0.0:
-        var a: float = _pair_error(0)
-        var b: float = _pair_error(1)
+        var a: float = _pair_error(0, motion == "Approach")
+        var b: float = _pair_error(1, motion == "Approach")
         if not recovery_gait_started and post_down_idle_remaining > 0.0:
             # The first fully upright IK tick selects the pair furthest
             # from its NEW stance under the rotated/moved chassis.
