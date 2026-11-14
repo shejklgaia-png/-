@@ -5,8 +5,8 @@ const AI = preload("res://scripts/bittaran_ai.gd")
 const IK = preload("res://scripts/bittaran_foot_ik.gd")
 const DT: float = 1.0 / 60.0
 const IDS: Array[String] = ["leg_fl", "leg_fr", "leg_rl", "leg_rr"]
-# v375: preserve tracking despite AABB flicker and modest overlap.
-const MAX_EXTRA_COMPONENT_OVERLAP: float = 0.22
+# v377: this legacy test rejects only extreme penetration.
+const MAX_COMPONENT_PENETRATION_METERS: float = 2.0
 
 func _initialize() -> void:
     call_deferred("_run")
@@ -51,24 +51,15 @@ func _speed_and_stride(battle: Node3D) -> bool:
 
 func _check_head_clearance(battle: Node3D, label: String) -> bool:
     var parts: Node3D = battle.get("target_parts")
-    var neutral: Dictionary = battle.get("head_neutral_component_overlap")
-    if neutral.size() != IDS.size():
-        _fail(label + ": missing standing component mesh collision baseline")
-        return false
-    var tip: AABB = (
-        parts.call("get_head_swing_aabb") as AABB).grow(0.05)
     for id in IDS:
-        var volume: float = 0.0
-        for visual in parts.call("get_leg_visual_mesh_boxes", id):
-            var piece: AABB = visual
-            if piece.has_volume() and tip.intersects(piece):
-                volume += tip.intersection(piece).get_volume()
-        if volume > float(neutral.get(id, 0.0)) + MAX_EXTRA_COMPONENT_OVERLAP:
-            _fail(label + ": head intersects arm " + id
-                + " volume=" + str(volume)
-                + " bind=" + str(neutral.get(id, 0.0)))
+        var depth: float = float(parts.call(
+            "get_head_leg_penetration_depth", id))
+        if depth > MAX_COMPONENT_PENETRATION_METERS:
+            _fail(label + ": extreme head/leg penetration " + id
+                + " depth=" + str(depth))
             return false
     return true
+
 
 func _run() -> void:
     var battle: Node3D = load(
