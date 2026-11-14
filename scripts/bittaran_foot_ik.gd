@@ -422,6 +422,13 @@ func start_leg_break_slide(id: String, head_world_y: float,
     post_down_idle_remaining = 0.0
     recovery_gait_started = false
     recovery_catchup_pending_pair = -1
+    # A new collapse invalidates ALL previous avoidance goals; otherwise
+    # the knees can snap back into the last standing turn on recovery.
+    head_knee_scan_elapsed = HEAD_KNEE_SCAN_SECONDS
+    head_knee_active = false
+    for leg in legs:
+        leg["head_knee_bend"] = 0.0
+        leg["head_knee_target"] = 0.0
     # A second leg can break while the boss is already down. Refresh the
     # down timer but never snap an already fallen chassis UP into a windup.
     var already_downed: bool = break_elapsed >= 0.0

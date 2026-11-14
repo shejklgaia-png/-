@@ -88,25 +88,43 @@ func _run() -> void:
                 planted_checks += 1
         if bend_sum > 0.1:
             tested_fold = true
-    # Independently force a knee bend to prove it moves the knee sideways
-    # while preserving the exact foot target and the heavy torso location.
-    var first: Dictionary = ik.get("legs")[0]
-    var sole_goal: Vector3 = first["last_goal"]
-    var sole_rot: Quaternion = first["last_rotation"]
-    var hip: Vector3 = (first["upper"] as Node3D).global_position
-    var knee_before: Vector3 = (first["lower"] as Node3D).global_position
+    # Independently force a neutral->sidefold on each PLANTED leg.
+    # Do not compare against an already-bent knee from the 280 frame turn.
+    var best_lateral_change: float = 0.0
     var root_before: Vector3 = boss.global_position
-    first["head_knee_bend"] = 1.0
-    var after_error: float = float(ik.call("_solve", first, sole_goal, sole_rot))
-    var knee_after: Vector3 = (first["lower"] as Node3D).global_position
-    if knee_before.distance_to(knee_after) < 0.035:
-        _fail("lateral pole did not fold knee away from neutral")
+    var support_center: Vector2 = ik.call("_head_knee_support_center_xz")
+    var mass_before: Vector2 = ik.call("_head_knee_mass_center_xz")
+    for leg in ik.get("legs"):
+        if bool(leg["stepping"]):
+            continue
+        var sole_goal: Vector3 = leg["last_goal"]
+        var sole_rot: Quaternion = leg["last_rotation"]
+        var old_bend: float = float(leg["head_knee_bend"])
+        leg["head_knee_bend"] = 0.0
+        var baseline_error: float = float(
+            ik.call("_solve", leg, sole_goal, sole_rot))
+        var knee_before: Vector3 = (leg["lower"] as Node3D).global_position
+        leg["head_knee_bend"] = 1.0
+        var after_error: float = float(
+            ik.call("_solve", leg, sole_goal, sole_rot))
+        var knee_after: Vector3 = (leg["lower"] as Node3D).global_position
+        best_lateral_change = maxf(best_lateral_change,
+            knee_before.distance_to(knee_after))
+        if after_error > maxf(0.20, baseline_error + 0.015):
+            _fail("bending knee broke IK foot contact " + str(after_error))
+            return
+        leg["head_knee_bend"] = old_bend
+        ik.call("_solve", leg, sole_goal, sole_rot)
+    var mass_after: Vector2 = ik.call("_head_knee_mass_center_xz")
+    if best_lateral_change < 0.035:
+        _fail("none of the planted knee poles could fold sideways")
         return
     if boss.global_position.distance_to(root_before) > 0.00001:
         _fail("knee avoider shifted center of mass/root")
         return
-    if after_error > maxf(0.20, float(first.get("last_error", 0.0)) + 0.015):
-        _fail("bending knee broke IK foot contact " + str(after_error))
+    if mass_after.distance_to(support_center) > (
+            mass_before.distance_to(support_center) + 0.08):
+        _fail("knee pose shifted mass excessively from support center")
         return
     if absf(IK.STEP_DURATION_SECONDS - 0.58) > 0.00001:
         _fail("gait timing changed")
