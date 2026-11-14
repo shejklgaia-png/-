@@ -44,8 +44,11 @@ func _run() -> void:
     player.global_position = Vector3(point.x, player.global_position.y, point.z) + view_forward * 2.0
     var axis: Vector2 = battle.call("_touch_to_lock_forward", Vector2(80.0, 1050.0))
     var capsule_center: Vector3 = player.global_position + Vector3.UP * 0.925
-    var expected_axis: Vector2 = (
-        view.unproject_position(point) - view.unproject_position(capsule_center)).normalized()
+    # v360: an elevated lock can project into the wrong screen hemisphere
+    # behind the boss. Use the depth-safe SERA-center world-bearing oracle.
+    var expected_axis: Vector2 = preload(
+        "res://scripts/bittaran_controller_axis.gd").heading(
+        view, capsule_center, point, Vector2.UP)
     if not bool(battle.get("boss_far_side_screen_axis")) or axis.distance_to(expected_axis) > 0.001:
         _fail("far-side combo front does not follow player center -> locked part")
         return
