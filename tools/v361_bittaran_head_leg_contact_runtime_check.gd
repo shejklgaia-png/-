@@ -44,7 +44,7 @@ func _run() -> void:
             + str(contact))
         return
     if str(SUPPORT.find_contact(
-            nose.translated(Vector3.UP * 1.0), surfaces)["leg_id"]) != "":
+            AABB(nose.position + Vector3.UP * 1.0, nose.size), surfaces)["leg_id"]) != "":
         _fail("airborne HEAD incorrectly rests on distant limb")
         return
 
