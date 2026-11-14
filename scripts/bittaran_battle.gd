@@ -18,6 +18,8 @@ const HEAD_TRACK_MAX_YAW_DEGREES: float = 48.0
 const HEAD_TRACK_DEGREES_PER_SECOND: float = 140.0
 const HEAD_LEG_CLEARANCE_METERS: float = 0.05
 const HEAD_LEG_BASELINE_AABB_TOLERANCE_M3: float = 0.035
+const HEAD_CONTACT_MAX_TRANSLATION_METERS: float = 1.25
+const HEAD_CONTACT_RELEASE_METERS_PER_SECOND: float = 5.0
 
 var bittaran_rig: Node3D
 var bittaran_ai: RefCounted
@@ -32,6 +34,8 @@ var boss_last_controller_axis: Vector2 = Vector2.UP
 var bittaran_head: Node3D
 var boss_head_yaw: float = 0.0
 var boss_head_default_rotation: Quaternion = Quaternion.IDENTITY
+var boss_head_default_position: Vector3 = Vector3.ZERO
+var boss_head_contact_translation_world: float = 0.0
 var boss_head_windup_start_yaw: float = 0.0
 var head_neutral_overlap: Dictionary = {}
 var boss_downed_escaping: bool = false
@@ -86,6 +90,7 @@ func _build_target() -> void:
     bittaran_head = bittaran_rig.find_child("Head", true, false) as Node3D
     if bittaran_head != null:
         boss_head_default_rotation = bittaran_head.quaternion
+        boss_head_default_position = bittaran_head.position
     bittaran_ai = BittaranAI.new()
     bittaran_ai.call("reset")
     bittaran_foot_ik = BittaranFootIK.new()
@@ -267,10 +272,11 @@ func _aim_bittaran_head(delta: float) -> void:
 ## quaternion have been applied, then replant the four feet in the same tick.
 ## Mesh AABBs for each real upper/lower/toe piece replace the broad shin
 ## lock areas, which are deliberately enlarged and must never block HEAD.
-func _resolve_downed_head_leg_support() -> void:
+func _resolve_downed_head_leg_support(delta: float) -> void:
     if target_parts == null or bittaran_foot_ik == null or target_hp <= 0 \
             or not bool(bittaran_foot_ik.call("down_pose_active")):
         boss_head_supported_leg = ""
+        boss_head_contact_translation_world = 0.0
         if target_parts != null:
             target_parts.call("set_head_support_leg", "")
         return
@@ -310,6 +316,26 @@ func _resolve_downed_head_leg_support() -> void:
         hit = HEAD_SUPPORT.find_contact(nose, boxes, supported)
         if not str(hit["leg_id"]).is_empty():
             supported = str(hit["leg_id"])
+    # Pitch relief can be too small if the fallen chassis does not tilt
+    # much, while a forearm lies directly under the face. Correct only
+    # the articulated HEAD joint's world-height, never the body/hips:
+    # lifting the body made the same IK leg chase HEAD and lose the floor.
+    # The original HEAD quaternion remains exactly neutral.
+    var desired_lift: float = 0.0
+    if not supported.is_empty():
+        desired_lift = float(hit["penetration"])
+    else:
+        desired_lift = maxf(0.0,
+            boss_head_contact_translation_world
+            - HEAD_CONTACT_RELEASE_METERS_PER_SECOND * maxf(delta, 0.0))
+    boss_head_contact_translation_world = clampf(
+        desired_lift, 0.0, HEAD_CONTACT_MAX_TRANSLATION_METERS)
+    if bittaran_head != null and boss_head_contact_translation_world > 0.00001:
+        var neck_parent: Node3D = bittaran_head.get_parent() as Node3D
+        if neck_parent != null:
+            bittaran_head.position = boss_head_default_position + (
+                neck_parent.global_basis.inverse() * Vector3.UP
+                * boss_head_contact_translation_world)
     boss_head_supported_leg = supported
     target_parts.call("set_head_support_leg", supported)
 
@@ -444,13 +470,18 @@ func _physics_process(delta: float) -> void:
     _update_bittaran_lock_permissions()
 
 func _finalize_target_pose(delta: float) -> void:
+    # HEAD positional contact from the last tick must not bias the next
+    # chassis fall/pitch height solve. Always start from the authored neck
+    # attachment before IK and collision detection for the new frame.
+    if bittaran_head != null:
+        bittaran_head.position = boss_head_default_position
     # main calls this after root motion/bob, before collision and AUTO.
     # Otherwise AUTO samples the reset animation pose, then IK moves the
     # visible shins to different positions later in the same frame.
     if bittaran_foot_ik != null and target != null and target_hp > 0:
         bittaran_foot_ik.call("advance_ik", delta, bittaran_motion)
     _aim_bittaran_head(delta)
-    _resolve_downed_head_leg_support()
+    _resolve_downed_head_leg_support(delta)
     if target_parts != null:
         target_parts.call("sync_bittaran_parts")
     _push_player_out_of_downed_body(delta)
@@ -506,6 +537,9 @@ func _reset_target_after_respawn() -> void:
     head_neutral_overlap.clear()
     boss_downed_escaping = false
     boss_head_supported_leg = ""
+    boss_head_contact_translation_world = 0.0
+    if bittaran_head != null:
+        bittaran_head.position = boss_head_default_position
     if target_parts != null:
         target_parts.call("set_head_support_leg", "")
     if boss_death_particles != null:
