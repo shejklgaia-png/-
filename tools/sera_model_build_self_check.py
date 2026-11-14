@@ -2,8 +2,8 @@
 """Check generated snapshots against each canonical Blockbench source, without writes."""
 from pathlib import Path
 from sera_model_build import ROOT, STEPS, canonical_sources, check_or_write, same_snapshot
-assert len(canonical_sources()) == 6
-assert len(STEPS) == 6
+assert len(canonical_sources()) == 7
+assert len(STEPS) == 7
 assert all((ROOT / path).is_file() for paths in STEPS.values() for path in paths)
 stale = check_or_write(write=False)
 assert not stale, "Canonical Blockbench snapshots stale: " + ", ".join(stale) + "; run --write"
