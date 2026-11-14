@@ -1,40 +1,27 @@
 #!/usr/bin/env python3
-"""v278/v280: 2x kick timeline, full clips and second-windup STEP travel."""
-import json
+"""Historical 2x authored side-kick motion and v340 post-contact linear exit."""
 from pathlib import Path
-ROOT = Path(__file__).resolve().parents[1]
-main = (ROOT / "scripts/main.gd").read_text()
-rig = (ROOT / "scripts/sera_rig.gd").read_text()
-source = json.loads((ROOT / "assets/sera_source.json").read_text())
-import re
-version = re.search(r'config/name="SERA v([0-9]+)"',
-    (ROOT / "project.godot").read_text())
-assert version and int(version.group(1)) >= 278
-for text in (
-    "const SIDE_KICK_MOTION_TIME_MULTIPLIER: float = 2.0",
-    "step_duration_current = (step_arc_length / step_speed_current",
-    "var progress: float = step_elapsed / step_duration_current",
-    "if side_kick_active:",
-    "var second_windup: float = (SIDE_KICK_SECOND_WINDUP_R",
-    "(progress - second_windup) / maxf(",
-    "side_kick_linear_direction * side_kick_linear_distance * line_progress",
-    "_configure_side_kick_orbit()",
-    "step_target_center = Vector2(target.position.x, target.position.z)",
-    "step_start_offset.rotated(",
-    "step_signed_angle * orbit_progress",
-    "func _configure_side_kick_orbit() -> void:",
-    "var previous_progress: float = step_elapsed / step_duration_current",
-    "SIDE_KICK_HIT_PROGRESS = [0.25, 0.58333]",
-    "SIDE_KICK_SECOND_WINDUP_R: float = 0.33333",
-    "SIDE_KICK_SECOND_WINDUP_L: float = 0.41667",
-    "step_duration_current * previous_progress",
-    'rig.call("start_side_kick", step_kick_side_request, step_duration_current)',
-    "BACK_SOMERSAULT_FLIGHT_SECONDS: float = 0.80",
-    "BACK_SOMERSAULT_LANDING_SECONDS: float = 0.20",
-):
-    assert text in main, text
+import json,re
+r=Path(__file__).resolve().parents[1]
+m=(r/"scripts/main.gd").read_text()
+rig=(r/"scripts/sera_rig.gd").read_text()
+assets=json.loads((r/"assets/sera_source.json").read_text())
+ver=int(re.search(r'config/name="SERA v(\d+)"',(r/"project.godot").read_text()).group(1))
+assert ver>=340
+assert "const SIDE_KICK_MOTION_TIME_MULTIPLIER: float = 2.0" in m
+assert "const SIDE_KICK_DURATION_REFERENCE_DISTANCE: float = 3.0" in m
+assert "const SIDE_KICK_BOOST_DISTANCE: float = 4.0" in m
+assert "SIDE_KICK_DURATION_REFERENCE_DISTANCE / step_speed_current" in m
+assert "const SIDE_KICK_HIT_PROGRESS = [0.25, 0.58333]" in m
+assert "SIDE_KICK_SECOND_WINDUP_R: float = 0.33333" in m
+assert "SIDE_KICK_SECOND_WINDUP_L: float = 0.41667" in m
+assert "side_kick_linear_start_elapsed = step_elapsed" in m
+assert "side_kick_linear_direction * side_kick_linear_distance * line_progress" in m
+assert "step_signed_angle * orbit_progress" not in m
+assert "_configure_side_kick_orbit" not in m
+assert 'rig.call("start_side_kick", step_kick_side_request, step_duration_current)' in m
 assert 'side_kick_playback_scale = maxf(0.001, float(animations[chosen]["length"])) / maxf(movement_duration, 0.01)' in rig
-clips = {a["name"]: a for a in source["animations"]}
-assert all(float(clips[name]["length"]) == 1.0 for name in ("Kick_l", "Kick_r"))
-assert abs(float(clips["Kick_b"]["length"])-0.79167) < 0.00002
-print("V278_SIDE_KICK_HALF_SPEED_STATIC_PASS")
+clips={x["name"]:x for x in assets["animations"]}
+for name in ("Kick_l","Kick_r"): assert float(clips[name]["length"])==1.0
+assert abs(float(clips["Kick_b"]["length"])-0.79167)<0.00002
+print("V278_SIDE_KICK_HALF_SPEED_STATIC_PASS (2x clip, 4m post-contact)")
