@@ -195,7 +195,9 @@ func _tick_bittaran_shockwave(delta: float) -> void:
         shockwave_half_extents.y * lerpf(0.55, 1.0, progress))
     var glow: StandardMaterial3D = (bittaran_shockwave.material_override as StandardMaterial3D)
     if glow != null:
-        glow.albedo_color.a = 0.70 * (1.0 - progress)
+        var fading: Color = glow.albedo_color
+        fading.a = 0.70 * (1.0 - progress)
+        glow.albedo_color = fading
     if progress >= 1.0:
         shockwave_elapsed = -1.0
         bittaran_shockwave.visible = false
