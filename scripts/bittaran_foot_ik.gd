@@ -303,6 +303,26 @@ func _solve(leg: Dictionary, sole_goal: Vector3, desired_rotation: Quaternion) -
     if pole.length_squared() < 0.00001:
         pole = Vector3.RIGHT
     pole = pole.normalized()
+    # An under-head limb cannot genuinely lie on its side if the authored
+    # IK knee pole still bends UP: it holds the lower shin >3m in the air
+    # and the head cannot ever rest on it. Fold that knee DOWN and laterally
+    # while preserving the exact upper/lower lengths and the planted sole.
+    if head_support_leg_index >= 0 and break_elapsed >= 0.0             and leg["upper"] == legs[head_support_leg_index]["upper"]:
+        var fold: float = _cubic(clampf(
+            break_elapsed / LEG_BREAK_FALL_SECONDS, 0.0, 1.0))
+        if break_elapsed > break_recover_start:
+            fold *= 1.0 - _cubic((break_elapsed - break_recover_start) /
+                maxf(break_duration - break_recover_start, 0.001))
+        var toppled_pole: Vector3 = (
+            Vector3.DOWN * 1.15 + head_support_outward * 0.45)
+        toppled_pole -= direction * toppled_pole.dot(direction)
+        if toppled_pole.length_squared() > 0.00001:
+            var start_pole: Vector3 = pole
+            pole = start_pole.lerp(toppled_pole.normalized(), fold)
+            if pole.length_squared() > 0.00001:
+                pole = pole.normalized()
+            else:
+                pole = toppled_pole.normalized()
     var knee_target: Vector3 = hip + direction * along + pole * sideways
     var end_target: Vector3 = hip + direction * distance
     _align(upper, knee - hip, knee_target - hip)
