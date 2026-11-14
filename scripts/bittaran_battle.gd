@@ -410,12 +410,10 @@ func _build_enemy_shooter() -> void:
 func _advance_target_motion(delta: float) -> void:
     if target == null or player == null or bittaran_ai == null:
         return
-    # The 0.6s windup and fallen hold remain stationary. During the
-    # ACTUAL stand-up the boss may progressively turn its root toward
-    # SERA, matching the cubic physical recovery fraction. Continue full
-    # root turning through the 0.24s upright Idle settle, but NEVER play
-    # Turn/Approach or translate until locomotion_ready(). The normal
-    # AI/gait resumes only at the final upright handoff.
+    # Keep the windup and fallen hold stationary. On the EXACT tick
+    # the physical stand-up begins, rotate at full stationary-turn speed
+    # (no speed ramp). Continue yaw during the final 0.24s Idle settle.
+    # Turn/Approach clips and translation wait until locomotion_ready().
     var recovery_motion_locked: bool = (bittaran_foot_ik != null
         and not bool(bittaran_foot_ik.call("locomotion_ready")))
     var other_frozen: bool = (
@@ -424,11 +422,11 @@ func _advance_target_motion(delta: float) -> void:
         or down_remaining > 0.0 or training_ko_remaining > 0.0)
     var result: Dictionary
     if recovery_motion_locked and not other_frozen:
-        var recovery_weight: float = float(bittaran_foot_ik.call(
-            "standup_turn_weight"))
+        var turn_enabled: bool = bool(bittaran_foot_ik.call(
+            "standup_turn_enabled", delta))
         result = bittaran_ai.call("advance_recovery_turn", delta,
             target.position, target.rotation.y, player.position,
-            recovery_weight)
+            turn_enabled)
     else:
         result = bittaran_ai.call("advance", delta, target.position,
             target.rotation.y, player.position,
