@@ -84,7 +84,10 @@ func _run() -> void:
     if not bool(ik.call("break_reaction_active")):
         _fail("6.70s fall ended too early")
         return
-    for frame in range(60):
+    # Total time includes the independent 0.60s break windup, so the
+    # second phase must cover the remaining recovery instead of stopping
+    # at a stale 6.83s when the full sequence lasts about 7.30s.
+    for frame in range(100):
         rig.call("set_motion", "Idle", DT)
         ik.call("advance_ik", DT, "Idle")
     if bool(ik.call("break_reaction_active")):
