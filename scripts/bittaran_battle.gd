@@ -16,6 +16,11 @@ const DOWN_ESCAPE_SPEED_MPS: float = 15.0
 const HEAD_TRACK_MAX_YAW_DEGREES: float = 48.0
 const HEAD_TRACK_DEGREES_PER_SECOND: float = 140.0
 const HEAD_TRACK_STANDUP_START_FRACTION: float = 0.70
+# Ease into reacquisition during and immediately after getting upright:
+# the full standing 140°/s is far too fast next to folded forelegs.
+const HEAD_TRACK_RECOVERY_DEGREES_PER_SECOND: float = 48.0
+const HEAD_TRACK_RECOVERY_OVERLAP_TOLERANCE_M3: float = 0.008
+const HEAD_TRACK_RECOVERY_SWEEP_STEPS: int = 24
 const HEAD_LEG_CLEARANCE_METERS: float = 0.05
 const HEAD_LEG_BASELINE_AABB_TOLERANCE_M3: float = 0.035
 
@@ -202,12 +207,30 @@ func _head_leg_overlap_by_id(base_pose: Quaternion,
 
 
 func _head_collides_with_leg(base_pose: Quaternion,
-        relative_yaw: float, resting: Dictionary) -> bool:
+        relative_yaw: float, resting: Dictionary,
+        allowed_extra_volume: float = HEAD_LEG_BASELINE_AABB_TOLERANCE_M3) -> bool:
     var overlaps: Dictionary = _head_leg_overlap_by_id(base_pose, relative_yaw)
     for id in overlaps:
-        if float(overlaps[id]) > float(resting.get(id, 0.0))                 + HEAD_LEG_BASELINE_AABB_TOLERANCE_M3:
+        if float(overlaps[id]) > (
+                float(resting.get(id, 0.0)) + allowed_extra_volume):
             return true
     return false
+
+
+func _safe_head_yaw(base_pose: Quaternion, wanted_yaw: float,
+        neutral_overlap: Dictionary, allowed_extra_volume: float) -> float:
+    # Search the full path from neutral through the nose's swing AABB.
+    # Checking only the end angle can let the head CROSS an arm between
+    # two consecutive frames. The first blocked interval ends the sweep.
+    var safe: float = 0.0
+    for i in range(1, HEAD_TRACK_RECOVERY_SWEEP_STEPS + 1):
+        var trial: float = wanted_yaw * (
+            float(i) / float(HEAD_TRACK_RECOVERY_SWEEP_STEPS))
+        if _head_collides_with_leg(
+                base_pose, trial, neutral_overlap, allowed_extra_volume):
+            break
+        safe = trial
+    return safe
 
 
 func _head_recovery_follow_weight() -> float:
@@ -221,7 +244,10 @@ func _head_recovery_follow_weight() -> float:
     var ratio: float = clampf(
         (upright - HEAD_TRACK_STANDUP_START_FRACTION) /
         (1.0 - HEAD_TRACK_STANDUP_START_FRACTION), 0.0, 1.0)
-    return ratio * ratio * (3.0 - 2.0 * ratio)
+    # A second ease on the smoothstep keeps the first few degrees of
+    # head motion deliberately slower than the chassis recovery yaw.
+    var eased: float = ratio * ratio * (3.0 - 2.0 * ratio)
+    return eased * eased
 
 
 func _aim_bittaran_head(delta: float) -> void:
@@ -262,24 +288,33 @@ func _aim_bittaran_head(delta: float) -> void:
     var wanted: float = clampf(atan2(-toward.x, -toward.z),
         -deg_to_rad(HEAD_TRACK_MAX_YAW_DEGREES),
         deg_to_rad(HEAD_TRACK_MAX_YAW_DEGREES))
-    # Continuously check ACTUAL posed upper legs, shins and feet against
-    # the proposed head swing, stopping at the last collision-free angle.
+    # Collision uses the current, full upper/lower/foot visual volumes,
+    # including the sideways under-head support leg. During recovery the
+    # allowance for any NEW head/arm intersection is much smaller than
+    # the standing tolerance; existing authored neutral contacts are
+    # retained rather than trying to force the head through the shoulder.
+    var recovering: bool = bittaran_foot_ik != null and (
+        bool(bittaran_foot_ik.call("down_pose_active"))
+        or float(bittaran_foot_ik.get("post_down_idle_remaining")) > 0.0)
+    var overlap_tolerance: float = (
+        HEAD_TRACK_RECOVERY_OVERLAP_TOLERANCE_M3 if recovering
+        else HEAD_LEG_BASELINE_AABB_TOLERANCE_M3)
     head_neutral_overlap = _head_leg_overlap_by_id(base_pose, 0.0)
-    var feasible: float = 0.0
-    for step in range(1, 13):
-        var candidate: float = wanted * float(step) / 12.0
-        if _head_collides_with_leg(base_pose, candidate, head_neutral_overlap):
-            break
-        feasible = candidate
-    # Restore and smoothly turn in local yaw; chassis down pitch remains.
-    boss_head_yaw = move_toward(boss_head_yaw,
-        feasible * head_track_weight,
-        deg_to_rad(HEAD_TRACK_DEGREES_PER_SECOND) * maxf(delta, 0.0)
+    var feasible: float = _safe_head_yaw(
+        base_pose, wanted, head_neutral_overlap, overlap_tolerance)
+    var degrees_per_second: float = (
+        HEAD_TRACK_RECOVERY_DEGREES_PER_SECOND if recovering
+        else HEAD_TRACK_DEGREES_PER_SECOND)
+    # Both the target yaw and the turn speed ease in from zero after 70%
+    # of the actual rise; no rotation pop when the head begins following.
+    var proposed_yaw: float = move_toward(
+        boss_head_yaw, feasible * head_track_weight,
+        deg_to_rad(degrees_per_second) * maxf(delta, 0.0)
         * head_track_weight)
-    if _head_collides_with_leg(base_pose, boss_head_yaw, head_neutral_overlap):
-        # A moving foot can enter the old heading. Resolve this immediately
-        # instead of allowing a collision during a smooth turn.
-        boss_head_yaw = feasible * head_track_weight
+    # If the other arm moved into the previous yaw, back off to the last
+    # safe intermediate rotation rather than snapping to a distant target.
+    boss_head_yaw = _safe_head_yaw(
+        base_pose, proposed_yaw, head_neutral_overlap, overlap_tolerance)
     bittaran_head.quaternion = (base_pose *
         Quaternion(Vector3.UP, boss_head_yaw)).normalized()
 
