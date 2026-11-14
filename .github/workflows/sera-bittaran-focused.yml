@@ -51,6 +51,7 @@ on:
       - 'tools/v376_bittaran_*.gd'
       - 'tools/v377_bittaran_*.gd'
       - 'tools/v378_bittaran_*.gd'
+      - 'tools/v379_bittaran_*.gd'
       - 'tools/rebuild_bittaran_data.py'
       - 'scripts/command_nexus.gd'
       - 'project.godot'
@@ -638,3 +639,20 @@ jobs:
             exit 1
           fi
           grep -q 'GODOT_V378_HEAD_BRAKE_PASS' "$log"
+
+      - name: Verify point-blank head aiming and authored clip blend do not flicker
+        run: |
+          set -euo pipefail
+          log="$RUNNER_TEMP/bittaran-v379.log"
+          status=0
+          "$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" --headless --path . --script tools/v379_bittaran_near_head_aim_no_jitter_runtime_check.gd > "$log" 2>&1 || status=$?
+          cat "$log"
+          if [ "$status" -ne 0 ]; then
+            echo "::error::Bittaran v379 near-field head stability failed with code $status"
+            exit "$status"
+          fi
+          if grep -E 'SCRIPT ERROR|Parse Error|Compile Error|ERROR: Failed to load|Invalid call|V379_NEAR_HEAD_JITTER_FAIL' "$log"; then
+            echo "::error::Bittaran v379 head flicker regression"
+            exit 1
+          fi
+          grep -q 'GODOT_V379_NEAR_HEAD_NO_JITTER_PASS' "$log"

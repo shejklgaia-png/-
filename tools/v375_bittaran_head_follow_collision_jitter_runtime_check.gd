@@ -66,11 +66,12 @@ func _run() -> void:
             return
     var escape: float = float(battle.call(
         "_head_collision_motion_scale", 0.34, 0.31, DT))
-    if absf(escape - 1.0) > 0.00001:
-        _fail("head was prevented from turning out of leg overlap")
+    if escape < 0.39 or escape > 1.00001:
+        _fail("head was prevented from gradually escaping overlap")
         return
     battle.set("head_collision_filtered_depth", 0.0)
     battle.set("head_collision_blocked", false)
+    battle.set("head_collision_release_elapsed", 0.0)
     # Exercise the real post-break look-at while the four planted legs
     # move under the turning body.
     battle.set("locked_target_part_id", "leg_fl")
@@ -106,6 +107,6 @@ func _run() -> void:
         return
     print("GODOT_V375_BITTARAN_HEAD_STABILITY_PASS: progressive "
         + "0-30cm slowdown, hard stop at 30cm, no contact flicker, "
-        + "unrestricted escape and no head snap during 480 frames, max "
+        + "smooth escape and no head snap during 480 frames, max "
         + "post-rise head yaw=" + str(rad_to_deg(max_stand_yaw)) + "deg")
     quit(0)

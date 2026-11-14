@@ -32,6 +32,20 @@ const HEAD_TRACK_COLLISION_DEADBAND_METERS: float = 0.004
 const HEAD_TRACK_COLLISION_RELEASE_DEPTH_METERS: float = 0.275
 const HEAD_TRACK_COLLISION_STOP_SAFETY_METERS: float = 0.001
 const HEAD_TRACK_COLLISION_SWEEP_STEPS: int = 8
+# Close targets can cross the nose's local +/-Z plane, making atan2
+# alternate between +/-PI. Keep a forward-facing denominator, a short
+# near-field hold, and a low-pass on the desired yaw (not the mesh pose).
+const HEAD_AIM_MIN_FORWARD_METERS: float = 0.70
+const HEAD_AIM_HOLD_RADIUS_METERS: float = 0.50
+const HEAD_AIM_NEAR_RADIUS_METERS: float = 2.20
+const HEAD_AIM_NEAR_FILTER_PER_SECOND: float = 3.6
+const HEAD_AIM_FAR_FILTER_PER_SECOND: float = 12.0
+const HEAD_AIM_NEAR_DEADBAND_DEGREES: float = 1.8
+# A depth change caused by one replanting knee cannot instantly release
+# the 30cm stop. The latch releases only after a stable gap persists.
+const HEAD_TRACK_COLLISION_ESCAPE_MIN_SPEED_FACTOR: float = 0.40
+const HEAD_TRACK_COLLISION_ESCAPE_GUARD_METERS: float = 0.012
+const HEAD_TRACK_COLLISION_RELEASE_HOLD_SECONDS: float = 0.12
 
 var bittaran_rig: Node3D
 var bittaran_ai: RefCounted
@@ -51,6 +65,9 @@ var head_neutral_overlap: Dictionary = {}
 var head_neutral_component_overlap: Dictionary = {}
 var head_collision_filtered_depth: float = 0.0
 var head_collision_blocked: bool = false
+var head_collision_release_elapsed: float = 0.0
+var head_look_filtered_yaw: float = 0.0
+var head_look_initialized: bool = false
 var boss_downed_escaping: bool = false
 
 func _ready() -> void:
@@ -213,9 +230,9 @@ func _head_penetration_depth(base_pose: Quaternion,
 
 func _head_collision_motion_scale(current_depth: float,
         next_depth: float, delta: float) -> float:
-    # The low-pass uses absolute WORLD penetration depth, not depth
-    # beyond 30cm. Two time constants make RELEASE slower than APPLY.
-    # A 4mm deadband prevents 1-frame plate/IK contact fluctuations.
+    # Filter actual physical penetration in world metres; closing contacts
+    # react promptly, opening contacts relax more slowly. The 4mm deadband
+    # prevents tiny SAT/AABB pose changes from modulating HEAD yaw.
     var observed: float = maxf(0.0, next_depth)
     var rate: float = (HEAD_TRACK_COLLISION_FILTER_PER_SECOND
         if observed > head_collision_filtered_depth
@@ -225,25 +242,75 @@ func _head_collision_motion_scale(current_depth: float,
         var alpha: float = 1.0 - exp(-rate * maxf(delta, 0.0))
         head_collision_filtered_depth = lerpf(
             head_collision_filtered_depth, observed, alpha)
-    # Turning OUT of the leg must never be blocked, even when deep
-    # overlap already exists due to the torso/leg moving independently.
-    if next_depth < current_depth - HEAD_TRACK_COLLISION_DEADBAND_METERS:
-        head_collision_blocked = false
-        return 1.0
-    if current_depth >= HEAD_LEG_ALLOWED_PENETRATION_METERS - 0.00001:
-        head_collision_blocked = true
-    if head_collision_blocked:
-        # Keep a 2.5cm release band while the pose jitters near 30cm.
-        if current_depth > HEAD_TRACK_COLLISION_RELEASE_DEPTH_METERS:
-            return 0.0
-        head_collision_blocked = false
-    # Smoothstep: full speed without contact, progressively slower
-    # through 0..30cm, zero at 30cm. Do not make micro-collisions
-    # oscillate the yaw angle (the scale is always non-negative).
     var u: float = clampf(
         head_collision_filtered_depth /
         HEAD_LEG_ALLOWED_PENETRATION_METERS, 0.0, 1.0)
-    return 1.0 - u * u * (3.0 - 2.0 * u)
+    var brake: float = 1.0 - u * u * (3.0 - 2.0 * u)
+    # Escaping an obstruction is possible even when already over 30cm.
+    # However, do not jump to 100% speed merely because the moving knee
+    # changed the sampled contact by a few millimetres in one frame.
+    var escaping: bool = next_depth < (
+        current_depth - HEAD_TRACK_COLLISION_ESCAPE_GUARD_METERS)
+    if current_depth >= HEAD_LEG_ALLOWED_PENETRATION_METERS - 0.00001:
+        head_collision_blocked = true
+        head_collision_release_elapsed = 0.0
+    if head_collision_blocked:
+        if (current_depth <= HEAD_TRACK_COLLISION_RELEASE_DEPTH_METERS
+                and head_collision_filtered_depth <= (
+                HEAD_TRACK_COLLISION_RELEASE_DEPTH_METERS)):
+            head_collision_release_elapsed += maxf(delta, 0.0)
+            if head_collision_release_elapsed >= (
+                    HEAD_TRACK_COLLISION_RELEASE_HOLD_SECONDS):
+                head_collision_blocked = false
+                head_collision_release_elapsed = 0.0
+        else:
+            head_collision_release_elapsed = 0.0
+        if head_collision_blocked:
+            return (maxf(brake, HEAD_TRACK_COLLISION_ESCAPE_MIN_SPEED_FACTOR)
+                if escaping else 0.0)
+    return (maxf(brake, HEAD_TRACK_COLLISION_ESCAPE_MIN_SPEED_FACTOR)
+        if escaping else brake)
+
+
+func _update_head_look_target(delta: float) -> void:
+    # One sample per physics frame feeds BOTH knee anticipation and
+    # final head tracking. At point-blank range the player can cross
+    # behind the nose by centimetres: raw atan2 would flip +/-48deg.
+    if bittaran_head == null or player == null:
+        return
+    var parent_joint: Node3D = bittaran_head.get_parent() as Node3D
+    if parent_joint == null:
+        return
+    var toward: Vector3 = parent_joint.to_local(
+        player.global_position + Vector3.UP * 0.9) - bittaran_head.position
+    var horizontal: float = Vector2(toward.x, toward.z).length()
+    if head_look_initialized and horizontal <= HEAD_AIM_HOLD_RADIUS_METERS:
+        return
+    # A nonzero forward component eliminates the discontinuity directly
+    # under / slightly behind the head, while leaving far frontal aiming.
+    var forward: float = maxf(-toward.z, HEAD_AIM_MIN_FORWARD_METERS)
+    var raw_yaw: float = clampf(atan2(-toward.x, forward),
+        -deg_to_rad(HEAD_TRACK_MAX_YAW_DEGREES),
+        deg_to_rad(HEAD_TRACK_MAX_YAW_DEGREES))
+    if not head_look_initialized:
+        head_look_filtered_yaw = raw_yaw
+        head_look_initialized = true
+        return
+    var error: float = wrapf(
+        raw_yaw - head_look_filtered_yaw, -PI, PI)
+    if absf(error) < deg_to_rad(HEAD_AIM_NEAR_DEADBAND_DEGREES) \
+            and horizontal < HEAD_AIM_NEAR_RADIUS_METERS:
+        return
+    var distance_weight: float = smoothstep(
+        HEAD_AIM_HOLD_RADIUS_METERS, HEAD_AIM_NEAR_RADIUS_METERS,
+        horizontal)
+    var speed: float = lerpf(HEAD_AIM_NEAR_FILTER_PER_SECOND,
+        HEAD_AIM_FAR_FILTER_PER_SECOND, distance_weight)
+    var alpha: float = 1.0 - exp(-speed * maxf(delta, 0.0))
+    head_look_filtered_yaw = clampf(
+        head_look_filtered_yaw + error * alpha,
+        -deg_to_rad(HEAD_TRACK_MAX_YAW_DEGREES),
+        deg_to_rad(HEAD_TRACK_MAX_YAW_DEGREES))
 
 
 func _head_limit_yaw_to_30cm(base_pose: Quaternion, from_yaw: float,
@@ -363,6 +430,7 @@ func _aim_bittaran_head(delta: float) -> void:
             boss_head_yaw = 0.0
             head_collision_filtered_depth = 0.0
             head_collision_blocked = false
+            head_collision_release_elapsed = 0.0
             return
     if bittaran_foot_ik != null and bool(
             bittaran_foot_ik.call("windup_active")):
@@ -377,18 +445,12 @@ func _aim_bittaran_head(delta: float) -> void:
     # Each authored animation reinitializes the HEAD joint before this
     # post-IK step. Do not accumulate on its already turned quaternion.
     var base_pose: Quaternion = bittaran_head.quaternion
-    var parent_joint: Node3D = bittaran_head.get_parent() as Node3D
-    if parent_joint == null:
-        return
-    var toward: Vector3 = parent_joint.to_local(
-        player.global_position + Vector3.UP * 0.9) - bittaran_head.position
-    toward.y = 0.0
-    if toward.length_squared() < 0.0001:
-        return
-    # Blockbench head's authored forward is local -Z (the rig has PI yaw).
-    var wanted: float = clampf(atan2(-toward.x, -toward.z),
-        -deg_to_rad(HEAD_TRACK_MAX_YAW_DEGREES),
-        deg_to_rad(HEAD_TRACK_MAX_YAW_DEGREES))
+    # The target was filtered once after IK this physics frame.
+    # In particular, do NOT return at zero planar distance: that leaves
+    # the animated bind pose on the HEAD for exactly one frame.
+    if not head_look_initialized:
+        _update_head_look_target(delta)
+    var wanted: float = head_look_filtered_yaw
     # HEAD slows smoothly from FIRST contact and cannot turn deeper
     # into a 30cm overlap. Tracking away from the leg remains free.
     var degrees_per_second: float = _head_recovery_turn_speed()
@@ -518,6 +580,9 @@ func _advance_target_motion(delta: float) -> void:
     target.rotation.y = float(result["yaw"])
     bittaran_motion = str(result["motion"])
     if bittaran_rig != null:
+        # The previous frame's HEAD has a procedural yaw applied after IK.
+        # Strip only that additive yaw from the next clip's blend source.
+        bittaran_rig.call("set_external_head_yaw", boss_head_yaw)
         bittaran_rig.call("set_motion", bittaran_motion, delta)
     if target_floor_mark != null:
         target_floor_mark.position = Vector3(
@@ -596,20 +661,11 @@ func _finalize_target_pose(delta: float) -> void:
     if bittaran_foot_ik != null and target != null and target_hp > 0:
         bittaran_foot_ik.call("advance_ik", delta, bittaran_motion)
         if bittaran_head != null and player != null:
-            # Reconfigure the planted knees BEFORE the head follows SERA;
-            # the final collision-aware head sweep remains a safety net.
-            var head_parent: Node3D = bittaran_head.get_parent() as Node3D
-            if head_parent != null:
-                var toward: Vector3 = head_parent.to_local(
-                    player.global_position + Vector3.UP * 0.9) - bittaran_head.position
-                toward.y = 0.0
-                if toward.length_squared() > 0.0001:
-                    var wanted: float = clampf(
-                        atan2(-toward.x, -toward.z),
-                        -deg_to_rad(HEAD_TRACK_MAX_YAW_DEGREES),
-                        deg_to_rad(HEAD_TRACK_MAX_YAW_DEGREES))
-                    bittaran_foot_ik.call("steer_knees_for_head", delta,
-                        wanted * _head_knee_look_weight())
+            # Sample one stable close-range yaw for both the preemptive
+            # knee pose and the final head follow, avoiding opposing targets.
+            _update_head_look_target(delta)
+            bittaran_foot_ik.call("steer_knees_for_head", delta,
+                head_look_filtered_yaw * _head_knee_look_weight())
     _aim_bittaran_head(delta)
     if target_parts != null:
         target_parts.call("sync_bittaran_parts")
@@ -654,6 +710,7 @@ func _apply_target_part_damage(kind: String, raw_attack: int, raw_break: float,
             boss_head_windup_start_yaw = boss_head_yaw
             head_collision_filtered_depth = 0.0
             head_collision_blocked = false
+            head_collision_release_elapsed = 0.0
             var head_world: Vector3 = target_parts.call("get_part_aim_world", "head")
             bittaran_foot_ik.call("start_leg_break_slide", hit_id, head_world.y,
                 int(result.get("broken_legs", 0)) >= 4)
@@ -686,6 +743,9 @@ func _reset_target_after_respawn() -> void:
     head_neutral_component_overlap.clear()
     head_collision_filtered_depth = 0.0
     head_collision_blocked = false
+    head_collision_release_elapsed = 0.0
+    head_look_filtered_yaw = 0.0
+    head_look_initialized = false
     boss_downed_escaping = false
     if boss_death_particles != null:
         boss_death_particles.emitting = false

@@ -17,6 +17,8 @@ var current_clip: String = "Idle"
 var elapsed: float = 0.0
 var blend_elapsed: float = BLEND_SECONDS
 var blend_from: Dictionary = {}
+# Procedural HEAD look yaw is not part of an authored blend source.
+var external_head_yaw: float = 0.0
 var loading_ok: bool = false
 
 func _ready() -> void:
@@ -179,13 +181,22 @@ func apply_pose(clip_name: String, t: float) -> void:
             rotation = (blend_from[uid] as Quaternion).slerp(rotation, amount)
         joint.quaternion = rotation.normalized()
 
+func set_external_head_yaw(yaw: float) -> void:
+    external_head_yaw = yaw
+
+
 func set_motion(clip_name: String, delta: float) -> void:
     if not loading_ok or not animations.has(clip_name):
         return
     if current_clip != clip_name:
         blend_from.clear()
         for uid in bones.keys():
-            blend_from[uid] = (bones[uid] as Node3D).quaternion
+            var joint: Node3D = bones[uid]
+            var source: Quaternion = joint.quaternion
+            if joint.name == "Head" and absf(external_head_yaw) > 0.000001:
+                source = (source * Quaternion(
+                    Vector3.UP, -external_head_yaw)).normalized()
+            blend_from[uid] = source
         current_clip = clip_name
         elapsed = 0.0
         blend_elapsed = 0.0

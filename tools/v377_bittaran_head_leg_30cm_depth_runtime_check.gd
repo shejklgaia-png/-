@@ -108,8 +108,8 @@ func _run() -> void:
         return
     var reverse: float = float(battle.call(
         "_head_collision_motion_scale", 0.34, 0.30, DT))
-    if absf(reverse - 1.0) > 0.00001:
-        _fail("head cannot escape from >30cm penetration")
+    if reverse < 0.39 or reverse > 1.00001:
+        _fail("head cannot smoothly escape from >30cm penetration")
         return
     if absf(BOSS.HEAD_TRACK_STANDUP_START_FRACTION - 0.70) > 0.00001 \
             or absf(IK.HEAD_KNEE_MAX_BEND - 0.30) > 0.00001 \

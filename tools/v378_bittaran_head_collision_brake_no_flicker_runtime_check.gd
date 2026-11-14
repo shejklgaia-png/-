@@ -104,8 +104,8 @@ func _run() -> void:
             _fail("tiny collision noise released head stop")
             return
     if float(battle.call("_head_collision_motion_scale",
-            0.34, 0.29, DT)) < 0.99:
-        _fail("retreat was restricted")
+            0.34, 0.29, DT)) < 0.39:
+        _fail("retreat was trapped")
         return
     if absf(BOSS.HEAD_TRACK_STANDUP_START_FRACTION - 0.70) > 0.00001 \
             or absf(IK.HEAD_KNEE_MAX_BEND - 0.30) > 0.00001:
