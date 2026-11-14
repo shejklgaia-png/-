@@ -1,7 +1,6 @@
 extends SceneTree
 ## v346: an instantiated battle must preserve planted soles while Bittaran
 ## translates/turns, swap diagonal support and swing feet above the floor.
-const BATTLE = preload("res://scenes/bittaran_battle.tscn")
 const DELTA: float = 1.0 / 60.0
 const MAX_ERROR_METERS: float = 0.12
 
@@ -13,7 +12,11 @@ func _fail(reason: String) -> void:
     quit(1)
 
 func _run() -> void:
-    var boss: Node3D = BATTLE.instantiate()
+    var packed: PackedScene = load("res://scenes/bittaran_battle.tscn")
+    if packed == null:
+        _fail("battle scene cannot be loaded")
+        return
+    var boss: Node3D = packed.instantiate()
     root.add_child(boss)
     var ik: RefCounted = boss.get("bittaran_foot_ik")
     var model: Node3D = boss.get("bittaran_rig")
