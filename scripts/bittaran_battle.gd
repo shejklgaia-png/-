@@ -7,6 +7,7 @@ const BittaranFootIK = preload("res://scripts/bittaran_foot_ik.gd")
 const BittaranParts = preload("res://scripts/bittaran_parts.gd")
 const DOWN_CLEARANCE = preload("res://scripts/bittaran_down_clearance.gd")
 const CONTROLLER_AXIS = preload("res://scripts/bittaran_controller_axis.gd")
+const HEAD_SUPPORT = preload("res://scripts/bittaran_head_support.gd")
 const NAME_TEXT: String = "BITTARAN  /  ビットタラン"
 const BOSS_WORLD_SCALE: float = 2.0
 const BOSS_DEATH_RESPAWN_SECONDS: float = 3.0
@@ -34,6 +35,7 @@ var boss_head_default_rotation: Quaternion = Quaternion.IDENTITY
 var boss_head_windup_start_yaw: float = 0.0
 var head_neutral_overlap: Dictionary = {}
 var boss_downed_escaping: bool = false
+var boss_head_supported_leg: String = ""
 
 func _ready() -> void:
     super._ready()
@@ -261,6 +263,48 @@ func _aim_bittaran_head(delta: float) -> void:
         Quaternion(Vector3.UP, boss_head_yaw)).normalized()
 
 
+## Resolve the head AFTER final leg IK and the down-pose neutral head
+## quaternion have been applied, then replant the four feet in the same tick.
+## Mesh AABBs for each real upper/lower/toe piece replace the broad shin
+## lock areas, which are deliberately enlarged and must never block HEAD.
+func _resolve_downed_head_leg_support() -> void:
+    if target_parts == null or bittaran_foot_ik == null or target_hp <= 0 \
+            or not bool(bittaran_foot_ik.call("down_pose_active")):
+        boss_head_supported_leg = ""
+        if target_parts != null:
+            target_parts.call("set_head_support_leg", "")
+        return
+    var boxes: Dictionary = {}
+    for id in ["leg_fl", "leg_fr", "leg_rl", "leg_rr"]:
+        boxes[id] = target_parts.call("get_leg_support_mesh_boxes", id)
+    var nose: AABB = target_parts.call("get_head_swing_aabb")
+    var hit: Dictionary = HEAD_SUPPORT.find_contact(
+        nose, boxes, boss_head_supported_leg)
+    var supported: String = str(hit["leg_id"])
+    # One penetration correction may slightly shift articulated elbows.
+    # Re-sample the real mesh contacts after IK and apply a second small
+    # correction, with no additional advancement of fall/animation time.
+    for correction_pass in range(2):
+        if supported.is_empty():
+            break
+        var penetration: float = float(hit["penetration"])
+        if penetration <= 0.0001:
+            break
+        var raised: float = float(bittaran_foot_ik.call(
+            "apply_head_leg_support_lift", penetration))
+        if raised <= 0.00001:
+            break
+        nose = target_parts.call("get_head_swing_aabb")
+        for id in boxes:
+            boxes[id] = target_parts.call("get_leg_support_mesh_boxes", id)
+        hit = HEAD_SUPPORT.find_contact(nose, boxes, supported)
+        if str(hit["leg_id"]).is_empty():
+            break
+        supported = str(hit["leg_id"])
+    boss_head_supported_leg = supported
+    target_parts.call("set_head_support_leg", supported)
+
+
 func _push_player_out_of_downed_body(delta: float) -> void:
     if player == null or target_parts == null or bittaran_foot_ik == null:
         return
@@ -397,6 +441,7 @@ func _finalize_target_pose(delta: float) -> void:
     if bittaran_foot_ik != null and target != null and target_hp > 0:
         bittaran_foot_ik.call("advance_ik", delta, bittaran_motion)
     _aim_bittaran_head(delta)
+    _resolve_downed_head_leg_support()
     if target_parts != null:
         target_parts.call("sync_bittaran_parts")
     _push_player_out_of_downed_body(delta)
@@ -451,6 +496,9 @@ func _reset_target_after_respawn() -> void:
     boss_head_windup_start_yaw = 0.0
     head_neutral_overlap.clear()
     boss_downed_escaping = false
+    boss_head_supported_leg = ""
+    if target_parts != null:
+        target_parts.call("set_head_support_leg", "")
     if boss_death_particles != null:
         boss_death_particles.emitting = false
     if bittaran_ai != null:
