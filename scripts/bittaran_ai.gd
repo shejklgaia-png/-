@@ -3,8 +3,9 @@ extends RefCounted
 ## Blockbench model is rotated 180 degrees to face SERA.
 const VISION_TOTAL_DEGREES: float = 100.0
 const VISION_HALF_DEGREES: float = 50.0
-const APPROACH_SPEED_MPS: float = 0.72
-const ACCELERATION_MPS2: float = 0.60
+## 1.30x approach travel speed, with the authored gait cadence unchanged.
+const APPROACH_SPEED_MPS: float = 0.936
+const ACCELERATION_MPS2: float = 0.78
 const STATIONARY_TURN_DEG_PER_SEC: float = 34.0
 const MOVING_TURN_DEG_PER_SEC: float = 22.0
 const TRACK_AT_REST_DEG_PER_SEC: float = 18.0

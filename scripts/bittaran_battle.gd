@@ -19,7 +19,8 @@ const HEAD_TRACK_STANDUP_START_FRACTION: float = 0.70
 # Ease into reacquisition during and immediately after getting upright:
 # the full standing 140°/s is far too fast next to folded forelegs.
 const HEAD_TRACK_RECOVERY_DEGREES_PER_SECOND: float = 48.0
-const HEAD_TRACK_RECOVERY_OVERLAP_TOLERANCE_M3: float = 0.008
+## Real mesh-to-mesh penetration cap applies while standing AND recovering.
+const HEAD_TRACK_COMPONENT_OVERLAP_TOLERANCE_M3: float = 0.008
 const HEAD_TRACK_RECOVERY_SWEEP_STEPS: int = 24
 const HEAD_LEG_CLEARANCE_METERS: float = 0.05
 const HEAD_LEG_BASELINE_AABB_TOLERANCE_M3: float = 0.035
@@ -243,7 +244,7 @@ func _head_collides_with_leg(base_pose: Quaternion,
     var actual: Dictionary = _head_component_overlap_by_id(mesh_boxes)
     for id in actual:
         if float(actual[id]) > (float(mesh_neutral.get(id, 0.0))
-                + HEAD_TRACK_RECOVERY_OVERLAP_TOLERANCE_M3):
+                + HEAD_TRACK_COMPONENT_OVERLAP_TOLERANCE_M3):
             return true
     return false
 
@@ -321,11 +322,11 @@ func _aim_bittaran_head(delta: float) -> void:
     var wanted: float = clampf(atan2(-toward.x, -toward.z),
         -deg_to_rad(HEAD_TRACK_MAX_YAW_DEGREES),
         deg_to_rad(HEAD_TRACK_MAX_YAW_DEGREES))
-    # Collision uses the current, full upper/lower/foot visual volumes,
-    # including the sideways under-head support leg. During recovery the
-    # allowance for any NEW head/arm intersection is much smaller than
-    # the standing tolerance; existing authored neutral contacts are
-    # retained rather than trying to force the head through the shoulder.
+    # Use individual upper-arm, forearm and foot mesh bounds even AFTER
+    # standing up. The old standing-only whole-leg AABB check missed actual
+    # arm plates when the torso turned and the IK re-planted its feet.
+    # Retain only the authored neutral overlap at this frame; forbid NEW
+    # mesh intersections as the head steers.
     var recovering: bool = bittaran_foot_ik != null and (
         bool(bittaran_foot_ik.call("down_pose_active"))
         or float(bittaran_foot_ik.get("post_down_idle_remaining")) > 0.0)
@@ -333,12 +334,12 @@ func _aim_bittaran_head(delta: float) -> void:
     var mesh_boxes: Dictionary = {}
     for id in ["leg_fl", "leg_fr", "leg_rl", "leg_rr"]:
         whole_boxes[id] = target_parts.call("get_leg_visual_aabb", id)
-        if recovering:
-            mesh_boxes[id] = target_parts.call("get_leg_visual_mesh_boxes", id)
+        # Sample the final IK arm/forearm/foot pose on EVERY frame, including
+        # normal Turn and Approach after the post-down settle completes.
+        mesh_boxes[id] = target_parts.call("get_leg_visual_mesh_boxes", id)
     head_neutral_overlap = _head_leg_overlap_by_id(
         base_pose, 0.0, whole_boxes)
-    head_neutral_component_overlap = (
-        _head_component_overlap_by_id(mesh_boxes) if recovering else {})
+    head_neutral_component_overlap = _head_component_overlap_by_id(mesh_boxes)
     var feasible: float = _safe_head_yaw(
         base_pose, wanted, head_neutral_overlap,
         HEAD_LEG_BASELINE_AABB_TOLERANCE_M3,

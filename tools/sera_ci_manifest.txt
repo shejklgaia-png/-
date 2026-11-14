@@ -335,3 +335,4 @@ gd tools/v367_bittaran_body_turn_foot_catchup_runtime_check.gd
 
 gd tools/v368_bittaran_repeat_break_fast_rise_runtime_check.gd
 gd tools/v369_bittaran_standup_timing_posture_runtime_check.gd
+gd tools/v370_bittaran_turn_head_stride_runtime_check.gd

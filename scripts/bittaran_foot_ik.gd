@@ -7,7 +7,11 @@ const FLOOR_Y: float = 0.0
 const STEP_TRIGGER_METERS: float = 0.76
 const STEP_DURATION_SECONDS: float = 0.58
 const STEP_HEIGHT_METERS: float = 0.34
-const STEP_FORWARD_LEAD_METERS: float = 0.28
+## Approach feet land 1.30x farther ahead without speeding up the swing.
+const STEP_FORWARD_LEAD_METERS: float = 0.364
+## Scale the translation threshold only while approaching. Turning feet
+## retain the original 0.76m threshold and swing time.
+const STEP_APPROACH_TRIGGER_METERS: float = 0.988
 const STEP_COOLDOWN_SECONDS: float = 0.10
 # A landing target must be the live foot placement beneath the turned
 # chassis. Do not alter the authored STEP_DURATION_SECONDS to catch up.
@@ -745,7 +749,9 @@ func advance_ik(delta: float, motion: String) -> void:
             recovery_catchup_pending_pair = -1
         else:
             var selected: int = preferred_pair
-            if maxf(a, b) > STEP_TRIGGER_METERS or (
+            var trigger: float = (STEP_APPROACH_TRIGGER_METERS
+                if motion == "Approach" else STEP_TRIGGER_METERS)
+            if maxf(a, b) > trigger or (
                     recovery_gait_started
                     and maxf(a, b) > RECOVERY_FOOT_CATCHUP_THRESHOLD_METERS):
                 if absf(a - b) > 0.12:
