@@ -39,6 +39,7 @@ var boss_head_yaw: float = 0.0
 var boss_head_default_rotation: Quaternion = Quaternion.IDENTITY
 var boss_head_windup_start_yaw: float = 0.0
 var head_neutral_overlap: Dictionary = {}
+var head_neutral_component_overlap: Dictionary = {}
 var boss_downed_escaping: bool = false
 
 func _ready() -> void:
@@ -186,7 +187,7 @@ func _update_controller_flick_guide(delta: float) -> void:
 
 
 func _head_leg_overlap_by_id(base_pose: Quaternion,
-        relative_yaw: float) -> Dictionary:
+        relative_yaw: float, cached_leg_boxes: Dictionary = {}) -> Dictionary:
     # Axis-aligned bounds include empty corners at the authored neck/hip
     # junction. Permit the original bind-pose overlap, but never let a turn
     # substantially INCREASE penetration into a currently posed leg.
@@ -198,7 +199,9 @@ func _head_leg_overlap_by_id(base_pose: Quaternion,
     var tip: AABB = (target_parts.call(
         "get_head_swing_aabb") as AABB).grow(HEAD_LEG_CLEARANCE_METERS)
     for id in ["leg_fl", "leg_fr", "leg_rl", "leg_rr"]:
-        var leg: AABB = target_parts.call("get_leg_visual_aabb", id)
+        var leg: AABB = (
+            cached_leg_boxes[id] if cached_leg_boxes.has(id)
+            else target_parts.call("get_leg_visual_aabb", id))
         var volume: float = 0.0
         if leg.has_volume() and tip.intersects(leg):
             volume = tip.intersection(leg).get_volume()
@@ -206,28 +209,58 @@ func _head_leg_overlap_by_id(base_pose: Quaternion,
     return overlaps
 
 
+func _head_component_overlap_by_id(mesh_boxes: Dictionary) -> Dictionary:
+    # Only test real component mesh bounds, not the giant whole-leg AABB.
+    # Each arm's empty IK bend gap is not a solid obstacle.
+    var overlaps: Dictionary = {}
+    var tip: AABB = (target_parts.call(
+        "get_head_swing_aabb") as AABB).grow(HEAD_LEG_CLEARANCE_METERS)
+    for id in ["leg_fl", "leg_fr", "leg_rl", "leg_rr"]:
+        var volume: float = 0.0
+        for box in mesh_boxes.get(id, []):
+            var piece: AABB = box
+            if piece.has_volume() and tip.intersects(piece):
+                volume += tip.intersection(piece).get_volume()
+        overlaps[id] = volume
+    return overlaps
+
+
 func _head_collides_with_leg(base_pose: Quaternion,
         relative_yaw: float, resting: Dictionary,
-        allowed_extra_volume: float = HEAD_LEG_BASELINE_AABB_TOLERANCE_M3) -> bool:
-    var overlaps: Dictionary = _head_leg_overlap_by_id(base_pose, relative_yaw)
+        allowed_extra_volume: float = HEAD_LEG_BASELINE_AABB_TOLERANCE_M3,
+        mesh_neutral: Dictionary = {}, mesh_boxes: Dictionary = {},
+        whole_boxes: Dictionary = {}) -> bool:
+    # Preserve the old broad collider clearance as a secondary cap, then
+    # restrict NEW overlap with each real arm mesh much more precisely.
+    var overlaps: Dictionary = _head_leg_overlap_by_id(
+        base_pose, relative_yaw, whole_boxes)
     for id in overlaps:
         if float(overlaps[id]) > (
                 float(resting.get(id, 0.0)) + allowed_extra_volume):
+            return true
+    if mesh_boxes.is_empty():
+        return false
+    var actual: Dictionary = _head_component_overlap_by_id(mesh_boxes)
+    for id in actual:
+        if float(actual[id]) > (float(mesh_neutral.get(id, 0.0))
+                + HEAD_TRACK_RECOVERY_OVERLAP_TOLERANCE_M3):
             return true
     return false
 
 
 func _safe_head_yaw(base_pose: Quaternion, wanted_yaw: float,
-        neutral_overlap: Dictionary, allowed_extra_volume: float) -> float:
-    # Search the full path from neutral through the nose's swing AABB.
-    # Checking only the end angle can let the head CROSS an arm between
-    # two consecutive frames. The first blocked interval ends the sweep.
+        neutral_overlap: Dictionary, allowed_extra_volume: float,
+        mesh_neutral: Dictionary = {}, mesh_boxes: Dictionary = {},
+        whole_boxes: Dictionary = {}) -> float:
+    # Search the full arc, not just the endpoint. During recovery the
+    # sub-mesh intersections protect actual arm plates and shin pieces
+    # while retaining motion in the empty gap inside the full arm AABB.
     var safe: float = 0.0
     for i in range(1, HEAD_TRACK_RECOVERY_SWEEP_STEPS + 1):
         var trial: float = wanted_yaw * (
             float(i) / float(HEAD_TRACK_RECOVERY_SWEEP_STEPS))
-        if _head_collides_with_leg(
-                base_pose, trial, neutral_overlap, allowed_extra_volume):
+        if _head_collides_with_leg(base_pose, trial, neutral_overlap,
+                allowed_extra_volume, mesh_neutral, mesh_boxes, whole_boxes):
             break
         safe = trial
     return safe
@@ -296,12 +329,20 @@ func _aim_bittaran_head(delta: float) -> void:
     var recovering: bool = bittaran_foot_ik != null and (
         bool(bittaran_foot_ik.call("down_pose_active"))
         or float(bittaran_foot_ik.get("post_down_idle_remaining")) > 0.0)
-    var overlap_tolerance: float = (
-        HEAD_TRACK_RECOVERY_OVERLAP_TOLERANCE_M3 if recovering
-        else HEAD_LEG_BASELINE_AABB_TOLERANCE_M3)
-    head_neutral_overlap = _head_leg_overlap_by_id(base_pose, 0.0)
+    var whole_boxes: Dictionary = {}
+    var mesh_boxes: Dictionary = {}
+    for id in ["leg_fl", "leg_fr", "leg_rl", "leg_rr"]:
+        whole_boxes[id] = target_parts.call("get_leg_visual_aabb", id)
+        if recovering:
+            mesh_boxes[id] = target_parts.call("get_leg_visual_mesh_boxes", id)
+    head_neutral_overlap = _head_leg_overlap_by_id(
+        base_pose, 0.0, whole_boxes)
+    head_neutral_component_overlap = (
+        _head_component_overlap_by_id(mesh_boxes) if recovering else {})
     var feasible: float = _safe_head_yaw(
-        base_pose, wanted, head_neutral_overlap, overlap_tolerance)
+        base_pose, wanted, head_neutral_overlap,
+        HEAD_LEG_BASELINE_AABB_TOLERANCE_M3,
+        head_neutral_component_overlap, mesh_boxes, whole_boxes)
     var degrees_per_second: float = (
         HEAD_TRACK_RECOVERY_DEGREES_PER_SECOND if recovering
         else HEAD_TRACK_DEGREES_PER_SECOND)
@@ -314,7 +355,9 @@ func _aim_bittaran_head(delta: float) -> void:
     # If the other arm moved into the previous yaw, back off to the last
     # safe intermediate rotation rather than snapping to a distant target.
     boss_head_yaw = _safe_head_yaw(
-        base_pose, proposed_yaw, head_neutral_overlap, overlap_tolerance)
+        base_pose, proposed_yaw, head_neutral_overlap,
+        HEAD_LEG_BASELINE_AABB_TOLERANCE_M3,
+        head_neutral_component_overlap, mesh_boxes, whole_boxes)
     bittaran_head.quaternion = (base_pose *
         Quaternion(Vector3.UP, boss_head_yaw)).normalized()
 
@@ -525,6 +568,7 @@ func _reset_target_after_respawn() -> void:
     boss_head_yaw = 0.0
     boss_head_windup_start_yaw = 0.0
     head_neutral_overlap.clear()
+    head_neutral_component_overlap.clear()
     boss_downed_escaping = false
     if boss_death_particles != null:
         boss_death_particles.emitting = false
