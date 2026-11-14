@@ -2,7 +2,6 @@ extends SceneTree
 ## v375: ignore brief collisions, never snap the HEAD away from the
 ## player, and progressively slow only sustained deep head/leg intrusion.
 const DT: float = 1.0 / 60.0
-const BOSS_SCRIPT = preload("res://scripts/bittaran_battle.gd")
 
 func _initialize() -> void:
     call_deferred("_run")
@@ -12,6 +11,10 @@ func _fail(why: String) -> void:
     quit(1)
 
 func _run() -> void:
+    # SceneTree scripts are compiled before project autoload singletons
+    # become available; avoid eager battle-script preloads at file scope.
+    var boss_constants: Dictionary = (load(
+        "res://scripts/bittaran_battle.gd") as GDScript).get_script_constant_map()
     var battle: Node3D = load(
         "res://scenes/bittaran_battle.tscn").instantiate()
     root.add_child(battle)
@@ -23,7 +26,7 @@ func _run() -> void:
     if boss == null or player == null or ik == null:
         _fail("scene initialization")
         return
-    if absf(float(BOSS_SCRIPT.HEAD_LEG_ALLOWED_PENETRATION_METERS)
+    if absf(float(boss_constants["HEAD_LEG_ALLOWED_PENETRATION_METERS"])
             - 0.10) > 0.00001:
         _fail("HEAD must permit exactly 10cm penetration")
         return
