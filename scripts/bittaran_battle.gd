@@ -234,7 +234,12 @@ func _check_bittaran_attack_hit() -> void:
             Vector3(contact.x - half_size.x, -0.05,
                 contact.z - half_size.y),
             Vector3(half_size.x * 2.0, 1.75, half_size.y * 2.0))
-        struck = _bittaran_player_overlap(shock_box)
+        # Both contact systems are evaluated on the SAME touchdown tick.
+        # A direct foot strike still hits at the edge of the blast volume.
+        var foot_box: AABB = bittaran_foot_ik.call("attack_foot_aabb")
+        struck = (_bittaran_player_overlap(shock_box)
+            or (foot_box.size.length_squared() > 0.000001
+                and _bittaran_player_overlap(foot_box.grow(0.06))))
     elif hit_window:
         # Use individual real visible mesh boxes: a whole-leg AABB
         # would falsely hit through the empty gap inside a bent knee.
