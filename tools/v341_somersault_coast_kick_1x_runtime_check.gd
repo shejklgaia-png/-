@@ -19,8 +19,8 @@ func _run() -> void:
         _fail("rig unavailable")
         return
     var constants: Dictionary=game.get_script().get_script_constant_map()
-    if absf(float(constants["SIDE_KICK_MOTION_TIME_MULTIPLIER"])-(8.0/3.0))>.0001:
-        _fail("side kicks are not 0.80s at the baseline speed")
+    if absf(float(constants["SIDE_KICK_MOTION_TIME_MULTIPLIER"])-(13.0/6.0))>.0001:
+        _fail("side kicks are not 0.65s at the baseline speed")
         return
     target.position=Vector3.ZERO
     player.position=Vector3(0.0,0.0,-5.5)
@@ -60,5 +60,5 @@ func _run() -> void:
     if player.position.y>0.0001:
         _fail("grounded slide lifted the actor")
         return
-    print("GODOT_V341_COAST_PASS: sustained Kick_b rear movement, 0.80s lateral kicks")
+    print("GODOT_V341_COAST_PASS: sustained Kick_b rear movement, 0.65s lateral kicks")
     quit(0)

@@ -14,14 +14,14 @@ model=json.loads(bb.read_text(encoding="utf-8"))
 main=(root/"scripts/main.gd").read_text(encoding="utf-8")
 spec=json.loads((root/"tools/sera_active_specs.json").read_text(encoding="utf-8"))
 project=(root/"project.godot").read_text(encoding="utf-8")
-assert 'config/name="SERA v342"' in project
-assert "const SIDE_KICK_MOTION_TIME_MULTIPLIER: float = 8.0 / 3.0" in main
+assert 'config/name="SERA v343"' in project
+assert "const SIDE_KICK_MOTION_TIME_MULTIPLIER: float = 13.0 / 6.0" in main
 assert "const SIDE_KICK_DURATION_REFERENCE_DISTANCE: float = 3.0" in main
 assert "const SIDE_KICK_STEP_SPEED: float = 10.0" in main
 assert "const SIDE_KICK_BOOST_DISTANCE: float = 4.0" in main
-assert math.isclose(3.0/10.0*(8.0/3.0),.80,abs_tol=1e-12)
-assert math.isclose(spec["side_kick"]["nominal_duration_s"],.8,abs_tol=1e-12)
-assert math.isclose(spec["side_kick"]["motion_time_multiplier"],8.0/3.0,abs_tol=1e-12)
+assert math.isclose(3.0/10.0*(13.0/6.0),.65,abs_tol=1e-12)
+assert math.isclose(spec["side_kick"]["nominal_duration_s"],.65,abs_tol=1e-12)
+assert math.isclose(spec["side_kick"]["motion_time_multiplier"],13.0/6.0,abs_tol=1e-12)
 
 groups={g["uuid"]:g for g in model["groups"]}
 meshes={e["uuid"]:e for e in model["elements"]}
@@ -104,4 +104,4 @@ for mesh in meshes.values():
     assert mesh["allow_mirror_modeling"] is True
     assert mesh.get("vertices") and mesh.get("faces")
 
-print("PASS v342 boss-test (2) single Body root, 14 meshes, 14 groups, 6 mirrored L/R pairs, Wait refs, 0.80s kicks")
+print("PASS v342 boss-test (2) single Body root, 14 meshes, 14 groups, 6 mirrored L/R pairs, Wait refs, 0.65s kicks")
