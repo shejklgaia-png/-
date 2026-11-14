@@ -270,10 +270,13 @@ func _bittaran_attack_candidates() -> Dictionary:
     var candidates: Dictionary = {}
     if bittaran_foot_ik == null or target_parts == null:
         return candidates
+    # Part destruction damages the shin gauge but does not detach the
+    # articulated leg. All four feet remain available after knockdown:
+    # broken shins can still stomp, kick and sweep until the boss dies.
+    # _advance_target_motion owns the actual down/rise/stun attack gate.
     var feet: Dictionary = bittaran_foot_ik.call("available_attack_feet")
-    for id in feet:
-        # Broken shins cannot start another strike until full respawn.
-        if float(target_parts.call("get_part_integrity", str(id))) > 0.0:
+    for id in BittaranAttacks.LEG_IDS:
+        if feet.has(id):
             candidates[id] = feet[id]
     return candidates
 
