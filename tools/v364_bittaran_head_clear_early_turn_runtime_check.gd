@@ -7,9 +7,9 @@ const LEG_IDS: Array[String] = ["leg_fl", "leg_fr", "leg_rl", "leg_rr"]
 const ONE_LEG: Array[String] = ["leg_fl"]
 const MAX_TURN_DEGREES_PER_SECOND: float = 34.0
 const HEAD_RECOVERY_DEGREES_PER_SECOND: float = 48.0
-# v375 allows mild head/arm clipping; large contacts may briefly occur
-# while the filtered restriction builds up instead of snapping the head.
-const MAX_EXTRA_OVERLAP_M3: float = 0.22
+# v377: depth-based collision; severe overlap is only an emergency
+# check because HEAD tracking must not snap or fully stop.
+const MAX_HEAD_PENETRATION_METERS: float = 2.0
 
 func _initialize() -> void:
     call_deferred("_run")
@@ -18,27 +18,14 @@ func _fail(message: String) -> void:
     push_error("V364_BITTARAN_HEAD_CLEAR_FAIL: " + message)
     quit(1)
 
-func _head_clear(parts: Node3D, neutral: Dictionary,
-        component_neutral: Dictionary) -> bool:
-    var tip: AABB = (parts.call("get_head_swing_aabb") as AABB).grow(0.05)
+func _head_clear(parts: Node3D, _neutral: Dictionary,
+        _component_neutral: Dictionary) -> bool:
     for id in LEG_IDS:
-        var leg: AABB = parts.call("get_leg_visual_aabb", id)
-        var broad: float = 0.0
-        if leg.has_volume() and tip.intersects(leg):
-            broad = tip.intersection(leg).get_volume()
-        # Whole articulated-leg AABB includes air between joints and is a
-        # coarse cap only; enforce the strict clearance against actual plates.
-        if broad > float(neutral.get(id, 0.0)) + 0.35:
-            return false
-        var components: float = 0.0
-        for visual in parts.call("get_leg_visual_mesh_boxes", id):
-            var piece: AABB = visual
-            if piece.has_volume() and tip.intersects(piece):
-                components += tip.intersection(piece).get_volume()
-        if components > float(component_neutral.get(id, 0.0)) \
-                + MAX_EXTRA_OVERLAP_M3:
+        if float(parts.call("get_head_leg_penetration_depth", id)) > (
+                MAX_HEAD_PENETRATION_METERS):
             return false
     return true
+
 
 func _case(battle: Node3D, broken_ids: Array[String],
         label: String) -> bool:
@@ -77,7 +64,7 @@ func _case(battle: Node3D, broken_ids: Array[String],
     var head_follow_frames: int = 0
     var first_head_step: float = -1.0
     var max_forward_head_step: float = 0.0
-    var max_extra_overlap: float = 0.0
+    var maximum_depth: float = 0.0
     var unlocked: bool = false
     var switched_to_front: bool = false
     var previous_head_yaw: float = 0.0
@@ -158,16 +145,9 @@ func _case(battle: Node3D, broken_ids: Array[String],
                     _fail(label + ": rotating head entered actual upper/lower "
                         + "arm meshes above neutral at frame=" + str(frame))
                     return false
-                var tip: AABB = (parts.call(
-                    "get_head_swing_aabb") as AABB).grow(0.05)
                 for id in LEG_IDS:
-                    var extra: float = 0.0
-                    for visual in parts.call("get_leg_visual_mesh_boxes", id):
-                        var arm: AABB = visual
-                        if tip.intersects(arm):
-                            extra += tip.intersection(arm).get_volume()
-                    max_extra_overlap = maxf(max_extra_overlap,
-                        extra - float(component_baseline.get(id, 0.0)))
+                    maximum_depth = maxf(maximum_depth, float(
+                        parts.call("get_head_leg_penetration_depth", id)))
             previous_head_yaw = actual_head_yaw
         if not locked:
             unlocked = true
@@ -190,8 +170,8 @@ func _case(battle: Node3D, broken_ids: Array[String],
     print("V364_CASE_PASS: " + label + " pre-rise still="
         + str(pre_rise_still_frames) + " frames, full-speed first yaw="
         + str(rad_to_deg(first_rise_turn_step)) + "deg, first head step="
-        + str(rad_to_deg(first_head_step)) + "deg, maximum extra leg "
-        + "overlap=" + str(max_extra_overlap) + "m3")
+        + str(rad_to_deg(first_head_step)) + "deg, maximum head/leg "
+        + "depth=" + str(maximum_depth) + "m")
     return true
 
 func _run() -> void:
