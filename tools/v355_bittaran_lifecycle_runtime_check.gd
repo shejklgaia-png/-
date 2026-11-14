@@ -1,6 +1,6 @@
 extends SceneTree
 ## Bittaran v355 regression: IK interpolation, far-side input, break visuals,
-## 2.42/5.88-second downs (1.25x rise), broken HP and respawn.
+## 3.10/6.70-second downs (1.0s/1.3s rise), broken HP and respawn.
 const DT: float = 1.0 / 60.0
 const LEGS: Array[String] = ["leg_fl", "leg_fr", "leg_rl", "leg_rr"]
 
@@ -60,8 +60,8 @@ func _run() -> void:
 
     battle.set("locked_target_part_id", "leg_fl")
     var initial: Dictionary = battle.call("_apply_target_part_damage", "melee", 1, 240.0, 0.0, 0.0)
-    if not bool(initial.get("broken", false)) or absf(float(ik.get("break_duration")) - 2.42) > 0.001:
-        _fail("single-leg 2.42s fall missing (1.25x rise)")
+    if not bool(initial.get("broken", false)) or absf(float(ik.get("break_duration")) - 3.10) > 0.001:
+        _fail("single-leg 3.10s fall missing (1.0s/1.3s rise)")
         return
     parts.call("advance_part_hit_fx", 0.25)
     var record: Dictionary = parts.get("fx_meshes")["leg_fl"][0]
@@ -75,20 +75,20 @@ func _run() -> void:
         if not bool(result.get("broken", false)):
             _fail("leg failed to break: " + id)
             return
-    if int(parts.call("broken_leg_count")) != 4 or absf(float(ik.get("break_duration")) - 5.88) > 0.001:
-        _fail("four-leg 5.88s down missing (1.25x rise)")
+    if int(parts.call("broken_leg_count")) != 4 or absf(float(ik.get("break_duration")) - 6.70) > 0.001:
+        _fail("four-leg 6.70s down missing (1.0s/1.3s rise)")
         return
     for frame in range(350):
         rig.call("set_motion", "Idle", DT)
         ik.call("advance_ik", DT, "Idle")
     if not bool(ik.call("break_reaction_active")):
-        _fail("5.88s fall ended too early")
+        _fail("6.70s fall ended too early")
         return
     for frame in range(60):
         rig.call("set_motion", "Idle", DT)
         ik.call("advance_ik", DT, "Idle")
     if bool(ik.call("break_reaction_active")):
-        _fail("5.88s fall never recovers")
+        _fail("6.70s fall never recovers")
         return
 
     # Repeat damage to core with the four independent leg gauges still at 0.
@@ -122,5 +122,5 @@ func _run() -> void:
     if float(battle.get("boss_death_elapsed")) >= 0.0 or fragments.emitting:
         _fail("death effect did not reset after revival")
         return
-    print("GODOT_V355_BITTARAN_PASS: interpolated IK, player-centered far-side flick, 2.42/5.88s fall, death and full revival")
+    print("GODOT_V355_BITTARAN_PASS: interpolated IK, player-centered far-side flick, 3.10/6.70s fall, death and full revival")
     quit(0)
