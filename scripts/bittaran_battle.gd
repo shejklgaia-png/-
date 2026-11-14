@@ -3,10 +3,13 @@ extends "res://scripts/main.gd"
 ## but replace the red training dummy with the authored quadruped.
 const BittaranRig = preload("res://scripts/bittaran_rig.gd")
 const BittaranAI = preload("res://scripts/bittaran_ai.gd")
+const BittaranFootIK = preload("res://scripts/bittaran_foot_ik.gd")
 const NAME_TEXT: String = "BITTARAN  /  ビットタラン"
 
 var bittaran_rig: Node3D
 var bittaran_ai: RefCounted
+var bittaran_foot_ik: RefCounted
+var bittaran_motion: String = "Idle"
 var boss_name_label: Label
 var victory_label: Label
 
@@ -53,6 +56,9 @@ func _build_target() -> void:
     target.add_child(bittaran_rig)
     bittaran_ai = BittaranAI.new()
     bittaran_ai.call("reset")
+    bittaran_foot_ik = BittaranFootIK.new()
+    if not bool(bittaran_foot_ik.call("setup", bittaran_rig)):
+        push_error("Bittaran: four-leg IK setup failed")
 
 func _build_enemy_shooter() -> void:
     # Bittaran's requested initial moveset is movement only, not the
@@ -72,11 +78,19 @@ func _advance_target_motion(delta: float) -> void:
         target.position, target.rotation.y, player.position, frozen)
     target.position = result["position"]
     target.rotation.y = float(result["yaw"])
+    bittaran_motion = str(result["motion"])
     if bittaran_rig != null:
-        bittaran_rig.call("set_motion", str(result["motion"]), delta)
+        bittaran_rig.call("set_motion", bittaran_motion, delta)
     if target_floor_mark != null:
         target_floor_mark.position = Vector3(
             target.position.x, -0.026, target.position.z)
+
+func _physics_process(delta: float) -> void:
+    # main.gd advances root motion and finishes the vertical boss bob first.
+    # Solve contact IK last, in world space, against the final interpolated root.
+    super._physics_process(delta)
+    if bittaran_foot_ik != null and target != null and target_hp > 0:
+        bittaran_foot_ik.call("advance_ik", delta, bittaran_motion)
 
 func _tick_target_respawn(_delta: float) -> void:
     # Defeating a named boss ends the encounter, rather than repeatedly
@@ -90,6 +104,8 @@ func _reset_target_after_respawn() -> void:
         bittaran_ai.call("reset")
     if target != null:
         target.rotation.y = 0.0
+    if bittaran_foot_ik != null:
+        bittaran_foot_ik.call("reset")
 
 func _process(delta: float) -> void:
     super._process(delta)

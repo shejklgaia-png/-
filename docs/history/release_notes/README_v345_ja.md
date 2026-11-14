@@ -16,3 +16,4 @@
 - `models/manifest.json` のbossesで正本を定義。`tools/sera_model_build.py` がAndroid向け `assets/bittaran_data.gd` を再生成・整合性確認します。
 - `tools/v345_bittaran_self_check.py` と `tools/v345_bittaran_runtime_check.gd` を共通CIに追加しました。
 - Godot headlessの検査は3D構造・シーンロード・実行時分岐を検査します。Androidの歩行時の接地・表示・描画FPSは実機確認が必要です。
+
