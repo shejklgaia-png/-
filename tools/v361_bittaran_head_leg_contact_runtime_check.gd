@@ -114,15 +114,18 @@ func _run() -> void:
     # The descending head should be stopped at the TOP of the foreleg,
     # while keeping the neutral downed head and planted sole constraints.
     var max_pitch_reduction: float = 0.0
+    var max_head_slide: float = 0.0
     var contacted: bool = false
     for frame in range(10):
         model.call("set_motion", "Idle", DT)
         battle.call("_finalize_target_pose", DT)
         var owner: String = str(battle.get("boss_head_supported_leg"))
         var pitched: float = float(ik.get("head_support_pitch_reduction"))
-        if owner == "leg_fl" and pitched > 0.0001:
+        var slide: float = float(battle.get("boss_head_contact_translation_world"))
+        if owner == "leg_fl" and (pitched > 0.0001 or slide > 0.0001):
             contacted = true
             max_pitch_reduction = maxf(max_pitch_reduction, pitched)
+            max_head_slide = maxf(max_head_slide, slide)
         if head.quaternion.angle_to(initial_head_rotation) > 0.003:
             _fail("resting on leg changed original HEAD down quaternion")
             return
@@ -149,6 +152,7 @@ func _run() -> void:
                     + str(frame) + " nose.bottom=" + str(current.position.y)
                     + " fixture.top=" + str(fixture_box.end.y)
                     + " pitch.reduced=" + str(pitched)
+                    + " head.slide=" + str(slide)
                     + " support.id=" + owner)
                 return
             if int(parts.call("get_boss_lock_priority", "head")) <= int(
@@ -170,6 +174,7 @@ func _run() -> void:
     # Reset removes both support offset and special lock ranking.
     battle.call("_reset_target_after_respawn")
     if float(ik.get("head_support_pitch_reduction")) != 0.0 \
+            or float(battle.get("boss_head_contact_translation_world")) != 0.0 \
             or str(parts.get("head_supported_by_leg")) != "" \
             or int(parts.call("get_boss_lock_priority", "leg_fl")) != 0:
         _fail("leg contact or priority remained after recovery/reset")
@@ -177,5 +182,6 @@ func _run() -> void:
     print("GODOT_V361_BITTARAN_HEAD_REST_PASS: turning foreleg supports "
         + "neutral HEAD via actual mesh contact, IK keeps ground soles, "
         + "support shin deprioritized under HEAD, AUTO and reset retained. "
-        + "peak pitch relief=" + str(max_pitch_reduction))
+        + "peak pitch relief=" + str(max_pitch_reduction)
+        + " head slide=" + str(max_head_slide))
     quit(0)
