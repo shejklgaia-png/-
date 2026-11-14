@@ -11,7 +11,7 @@ const MIN_SUPPORT_HEAD_HEIGHT_FRACTION: float = 0.08
 # A visible leg can start inside the nose's union-AABB near its neck.
 # A genuine falling contact crosses the surface in small physics steps;
 # never snap the entire robot UP toward a shoulder already deep inside it.
-const MAX_NEW_CONTACT_PENETRATION_METERS: float = 0.60
+const MAX_NEW_CONTACT_PENETRATION_METERS: float = 1.20
 
 ## Return the highest eligible real leg surface directly under HEAD's
 ## articulated front (not its neck and not its enormous BODY AABB).
