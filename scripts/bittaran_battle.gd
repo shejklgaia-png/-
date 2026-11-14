@@ -21,15 +21,13 @@ const HEAD_TRACK_STANDUP_START_FRACTION: float = 0.70
 # settle eases the remaining 40% in smoothly without a rotation snap.
 const HEAD_TRACK_RISE_FOLLOW_WEIGHT: float = 0.60
 const HEAD_TRACK_RECOVERY_DEGREES_PER_SECOND: float = 48.0
-# Head tracking is the priority. Ignore mild upper-arm/head overlap.
-# AABB collisions flicker as IK replants each toe; only SUSTAINED deep
-# overlap softly reduces angular speed. Never snap the head backwards.
-const HEAD_TRACK_COMPONENT_OVERLAP_TOLERANCE_M3: float = 0.065
-const HEAD_LEG_CLEARANCE_METERS: float = 0.05
-const HEAD_LEG_BASELINE_AABB_TOLERANCE_M3: float = 0.115
+# Head tracks SERA despite up to 30cm of oriented-mesh penetration.
+# Only sustained greater depth softly reduces yaw; never snap backwards.
+const HEAD_LEG_ALLOWED_PENETRATION_METERS: float = (
+    BittaranParts.HEAD_LEG_ALLOWED_PENETRATION_METERS)
 const HEAD_TRACK_COLLISION_FILTER_PER_SECOND: float = 9.0
-const HEAD_TRACK_COLLISION_SOFT_START_M3: float = 0.060
-const HEAD_TRACK_COLLISION_SOFT_FULL_M3: float = 0.145
+const HEAD_TRACK_COLLISION_SOFT_START_METERS: float = 0.030
+const HEAD_TRACK_COLLISION_SOFT_FULL_METERS: float = 0.145
 const HEAD_TRACK_COLLISION_MIN_SPEED_FACTOR: float = 0.55
 
 var bittaran_rig: Node3D
@@ -195,65 +193,18 @@ func _update_controller_flick_guide(delta: float) -> void:
     super._update_controller_flick_guide(delta)
 
 
-func _head_leg_overlap_by_id(base_pose: Quaternion,
-        relative_yaw: float, cached_leg_boxes: Dictionary = {}) -> Dictionary:
-    # Axis-aligned bounds include empty corners at the authored neck/hip
-    # junction. Permit the original bind-pose overlap, but never let a turn
-    # substantially INCREASE penetration into a currently posed leg.
-    var overlaps: Dictionary = {}
+func _head_depth_excess(base_pose: Quaternion,
+        relative_yaw: float) -> float:
     if bittaran_head == null or target_parts == null:
-        return overlaps
+        return 0.0
     bittaran_head.quaternion = (base_pose *
         Quaternion(Vector3.UP, relative_yaw)).normalized()
-    var tip: AABB = (target_parts.call(
-        "get_head_swing_aabb") as AABB).grow(HEAD_LEG_CLEARANCE_METERS)
-    for id in ["leg_fl", "leg_fr", "leg_rl", "leg_rr"]:
-        var leg: AABB = (
-            cached_leg_boxes[id] if cached_leg_boxes.has(id)
-            else target_parts.call("get_leg_visual_aabb", id))
-        var volume: float = 0.0
-        if leg.has_volume() and tip.intersects(leg):
-            volume = tip.intersection(leg).get_volume()
-        overlaps[id] = volume
-    return overlaps
-
-
-func _head_component_overlap_by_id(mesh_boxes: Dictionary) -> Dictionary:
-    # Only test real component mesh bounds, not the giant whole-leg AABB.
-    # Each arm's empty IK bend gap is not a solid obstacle.
-    var overlaps: Dictionary = {}
-    var tip: AABB = (target_parts.call(
-        "get_head_swing_aabb") as AABB).grow(HEAD_LEG_CLEARANCE_METERS)
-    for id in ["leg_fl", "leg_fr", "leg_rl", "leg_rr"]:
-        var volume: float = 0.0
-        for box in mesh_boxes.get(id, []):
-            var piece: AABB = box
-            if piece.has_volume() and tip.intersects(piece):
-                volume += tip.intersection(piece).get_volume()
-        overlaps[id] = volume
-    return overlaps
-
-
-func _head_overlap_excess(base_pose: Quaternion,
-        relative_yaw: float, whole_neutral: Dictionary,
-        component_neutral: Dictionary, mesh_boxes: Dictionary,
-        whole_boxes: Dictionary) -> float:
-    # A positive result means MORE than the generously allowed overlap.
-    # The whole-leg box is only a coarse emergency check because the
-    # space between knee/shoulder/foot is actually empty.
-    var whole: Dictionary = _head_leg_overlap_by_id(
-        base_pose, relative_yaw, whole_boxes)
-    var excess: float = 0.0
-    for id in whole:
-        excess = maxf(excess, float(whole[id])
-            - float(whole_neutral.get(id, 0.0))
-            - HEAD_LEG_BASELINE_AABB_TOLERANCE_M3)
-    var component: Dictionary = _head_component_overlap_by_id(mesh_boxes)
-    for id in component:
-        excess = maxf(excess, float(component[id])
-            - float(component_neutral.get(id, 0.0))
-            - HEAD_TRACK_COMPONENT_OVERLAP_TOLERANCE_M3)
-    return maxf(0.0, excess)
+    var depths: Dictionary = target_parts.call(
+        "get_head_leg_penetration_depths")
+    var deepest: float = 0.0
+    for value in depths.values():
+        deepest = maxf(deepest, float(value))
+    return maxf(0.0, deepest - HEAD_LEG_ALLOWED_PENETRATION_METERS)
 
 
 func _head_collision_motion_scale(current_excess: float,
@@ -270,9 +221,9 @@ func _head_collision_motion_scale(current_excess: float,
     if next_excess <= current_excess + 0.007:
         return 1.0
     var u: float = clampf(
-        (head_collision_filtered_excess - HEAD_TRACK_COLLISION_SOFT_START_M3)
-        / (HEAD_TRACK_COLLISION_SOFT_FULL_M3
-        - HEAD_TRACK_COLLISION_SOFT_START_M3), 0.0, 1.0)
+        (head_collision_filtered_excess - HEAD_TRACK_COLLISION_SOFT_START_METERS)
+        / (HEAD_TRACK_COLLISION_SOFT_FULL_METERS
+        - HEAD_TRACK_COLLISION_SOFT_START_METERS), 0.0, 1.0)
     var eased: float = u * u * (3.0 - 2.0 * u)
     return lerpf(1.0, HEAD_TRACK_COLLISION_MIN_SPEED_FACTOR, eased)
 
@@ -387,28 +338,20 @@ func _aim_bittaran_head(delta: float) -> void:
     var wanted: float = clampf(atan2(-toward.x, -toward.z),
         -deg_to_rad(HEAD_TRACK_MAX_YAW_DEGREES),
         deg_to_rad(HEAD_TRACK_MAX_YAW_DEGREES))
-    # The head tracks SERA directly, independent of tiny arm/foreleg
-    # AABB changes. A severe, SUSTAINED collision only slows rotation:
-    # never jump to a "safe" angle or freeze behind a moving knee.
+    # HEAD follows SERA freely until penetration exceeds 30cm;
+    # persistent deeper contact only damps the angular speed.
     var degrees_per_second: float = _head_recovery_turn_speed()
     var proposed_yaw: float = move_toward(
         boss_head_yaw, wanted * head_track_weight,
         deg_to_rad(degrees_per_second) * maxf(delta, 0.0)
         * head_track_weight)
-    var whole_boxes: Dictionary = {}
-    var mesh_boxes: Dictionary = {}
-    for id in ["leg_fl", "leg_fr", "leg_rl", "leg_rr"]:
-        whole_boxes[id] = target_parts.call("get_leg_visual_aabb", id)
-        mesh_boxes[id] = target_parts.call("get_leg_visual_mesh_boxes", id)
-    head_neutral_overlap = _head_leg_overlap_by_id(
-        base_pose, 0.0, whole_boxes)
-    head_neutral_component_overlap = _head_component_overlap_by_id(mesh_boxes)
-    var current_excess: float = _head_overlap_excess(
-        base_pose, boss_head_yaw, head_neutral_overlap,
-        head_neutral_component_overlap, mesh_boxes, whole_boxes)
-    var proposed_excess: float = _head_overlap_excess(
-        base_pose, proposed_yaw, head_neutral_overlap,
-        head_neutral_component_overlap, mesh_boxes, whole_boxes)
+    # Per-element oriented-mesh penetration depth in WORLD METRES.
+    var current_excess: float = _head_depth_excess(base_pose, boss_head_yaw)
+    var proposed_excess: float = _head_depth_excess(base_pose, proposed_yaw)
+    # Keep diagnostic compatibility with prior runtime fixtures.
+    head_neutral_overlap = target_parts.call(
+        "get_head_leg_penetration_depths")
+    head_neutral_component_overlap = head_neutral_overlap.duplicate()
     var motion_scale: float = _head_collision_motion_scale(
         current_excess, proposed_excess, delta)
     boss_head_yaw = lerpf(boss_head_yaw, proposed_yaw, motion_scale)
