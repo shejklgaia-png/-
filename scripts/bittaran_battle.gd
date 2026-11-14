@@ -210,25 +210,33 @@ func _head_collides_with_leg(base_pose: Quaternion,
     return false
 
 
+func _head_recovery_follow_weight() -> float:
+    if bittaran_foot_ik == null or not bool(
+            bittaran_foot_ik.call("down_pose_active")):
+        return 1.0
+    var upright: float = float(bittaran_foot_ik.call(
+        "standup_pose_fraction"))
+    if upright <= HEAD_TRACK_STANDUP_START_FRACTION:
+        return 0.0
+    var ratio: float = clampf(
+        (upright - HEAD_TRACK_STANDUP_START_FRACTION) /
+        (1.0 - HEAD_TRACK_STANDUP_START_FRACTION), 0.0, 1.0)
+    return ratio * ratio * (3.0 - 2.0 * ratio)
+
+
 func _aim_bittaran_head(delta: float) -> void:
     if bittaran_head == null or player == null or target_hp <= 0:
         return
     # While lying down keep the head on its original bind orientation.
     # Once 70% of the ACTUAL eased rise is complete, softly fade in the
     # ordinary collision-aware look-at without a sudden yaw jump.
-    var head_track_weight: float = 1.0
+    var head_track_weight: float = _head_recovery_follow_weight()
     if bittaran_foot_ik != null and bool(
             bittaran_foot_ik.call("down_pose_active")):
-        var upright: float = float(bittaran_foot_ik.call(
-            "standup_pose_fraction"))
         bittaran_head.quaternion = boss_head_default_rotation
-        if upright <= HEAD_TRACK_STANDUP_START_FRACTION:
+        if head_track_weight <= 0.0:
             boss_head_yaw = 0.0
             return
-        var ratio: float = clampf(
-            (upright - HEAD_TRACK_STANDUP_START_FRACTION) /
-            (1.0 - HEAD_TRACK_STANDUP_START_FRACTION), 0.0, 1.0)
-        head_track_weight = ratio * ratio * (3.0 - 2.0 * ratio)
     if bittaran_foot_ik != null and bool(
             bittaran_foot_ik.call("windup_active")):
         # Let the heavy nose-up throw lead the motion. Smoothly unwind the
