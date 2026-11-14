@@ -56,6 +56,8 @@ var fx_timers: Dictionary = {}
 var fx_durations: Dictionary = {}
 var installed: bool = false
 var down_lock_enabled: bool = false
+var head_support_leg_id: String = ""
+const UNDER_HEAD_LEG_AUTO_PENALTY: float = 5.0
 var death_visual_power: float = 0.0
 
 func _ready() -> void:
@@ -182,6 +184,22 @@ func set_down_lock_enabled(enabled: bool) -> void:
     # This is the actual IK fall/skid animation, not generic stagger or the
     # training-room part-break pause. Only a genuine collapse opens weakpoints.
     down_lock_enabled = enabled
+
+func set_head_support_leg(id: String) -> void:
+    # Selection penalty only: never disable the actual leg collision,
+    # damage, weakpoint gauge, or explicit MANUAL selection.
+    head_support_leg_id = id if id in LEG_IDS else ""
+
+
+func _parallel_lock_part_distance(segments: PackedVector3Array,
+        id: String) -> float:
+    var distance: float = super._parallel_lock_part_distance(segments, id)
+    if down_lock_enabled and id == head_support_leg_id and distance < INF:
+        # During a fall the leg beneath the HEAD is an inferior AUTO
+        # target even if its oversized selection box intersects first.
+        return distance + UNDER_HEAD_LEG_AUTO_PENALTY
+    return distance
+
 
 func can_lock_boss_part(id: String) -> bool:
     if id == "head" or id.is_empty() or id == BODY_MANUAL_LOCK_ID:
@@ -629,6 +647,7 @@ func set_death_visual(power: float) -> void:
 
 func reset_parts() -> void:
     down_lock_enabled = false
+    head_support_leg_id = ""
     death_visual_power = 0.0
     super.reset_parts()
     for id in fx_timers:
