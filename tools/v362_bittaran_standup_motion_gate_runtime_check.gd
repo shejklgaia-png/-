@@ -1,6 +1,6 @@
 extends SceneTree
-## v362/v363: no Turn/Approach animation or position translation during
-## knockdown/stand-up; v363 permits only smoothly weighted root yaw.
+## v362-v366: the fallen hold must remain still; Turn/Approach clips
+## and movement now START with the physical stand-up, not afterwards.
 ## Exercise BOTH short (2.5s) and four-leg (6s) knockdowns with the
 ## actual scene, boss AI, rig clips, collision IK, and release timer.
 const DT: float = 1.0 / 60.0
@@ -73,23 +73,29 @@ func _check_case(battle: Node3D, expected_motion: String,
         var chosen: String = str(battle.get("bittaran_motion"))
         var played: String = str(rig.get("current_clip"))
         if not was_ready:
-            if chosen != "Idle" or played != "Idle":
-                _fail(expected_motion + " played during recovery: "
-                    + chosen + "/" + played + " frame=" + str(frame))
+            # v366: movement and clip playback start on the first physical
+            # stand-up frame, but NEVER during the fallen hold or windup.
+            var requested: String = expected_motion if turn_enabled else "Idle"
+            if chosen != requested or played != requested:
+                _fail("wrong animation at recovery phase: expected="
+                    + requested + ", actual=" + chosen + "/" + played
+                    + ", frame=" + str(frame))
                 return false
-            if Vector2(target.position.x - original_position.x,
-                    target.position.z - original_position.z).length() > 0.00001:
-                _fail("AI approached before boss stood fully upright: "
-                    + str(frame))
+            var planar_delta: float = Vector2(
+                target.position.x - original_position.x,
+                target.position.z - original_position.z).length()
+            if not turn_enabled and planar_delta > 0.00001:
+                _fail("boss translated before beginning stand-up")
                 return false
-            # v365 starts normal-rate yaw on the FIRST stand-up frame.
-            # Still forbid any turning before the actual recovery begins,
-            # and never permit Turn/Approach clips or XZ translation.
+            if turn_enabled and expected_motion == "Approach" \
+                    and planar_delta <= 0.000001:
+                _fail("Approach clip played but boss did not advance")
+                return false
             var yaw_step: float = absf(wrapf(
                 target.rotation.y - original_yaw, -PI, PI))
             var max_step: float = (deg_to_rad(34.0) * DT if turn_enabled else 0.0)
             if yaw_step > max_step + 0.00005:
-                _fail("recovery root yaw exceeded start-gated full-speed cap: "
+                _fail("recovery root yaw exceeded normal turn speed: "
                     + str(yaw_step) + " max=" + str(max_step))
                 return false
         battle.call("_finalize_target_pose", DT)
@@ -157,7 +163,7 @@ func _run() -> void:
         return
     if not _check_case(battle, "Approach", LEG_IDS):
         return
-    print("GODOT_V362_BITTARAN_STANDUP_PASS: no Turn/Approach clip "
-        + "or translation until 2.5/6s downs and upright Idle settle; "
-        + "only weighted yaw allowed during stand-up")
+    print("GODOT_V362_BITTARAN_STANDUP_PASS: Idle during fall, "
+        + "Turn/Approach clips and movement from stand-up first frame, "
+        + "2.5/6s and 0.24s pose settle preserved")
     quit(0)
