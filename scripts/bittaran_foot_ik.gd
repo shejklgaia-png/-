@@ -30,9 +30,6 @@ const LEG_BREAK_FALL_SECONDS: float = 0.17
 # After the last recovery frame, finish one complete Idle pose/blend
 # before Turn/Approach is permitted. Matches BittaranRig.BLEND_SECONDS.
 const POST_DOWN_IDLE_SETTLE_SECONDS: float = 0.24
-# Let the chassis begin to rotate gently BEFORE the vertical stand-up starts.
-# The feet remain planted, and no Turn/Approach clip or XZ movement plays.
-const STANDUP_TURN_LEAD_SECONDS: float = 0.30
 const POST_DOWN_UPRIGHT_TOLERANCE_WORLD_METERS: float = 0.06
 const LEG_BREAK_RECOVER_START_SECONDS: float = 2.10
 const ALL_LEGS_BREAK_REACTION_SECONDS: float = 6.0
@@ -542,21 +539,15 @@ func standup_pose_fraction() -> float:
         (break_duration - break_recover_start))
 
 
-func standup_turn_weight() -> float:
-    # Start a small, smooth YAW turn 0.30s before the chassis physically
-    # begins to rise. Map the entire lead+rise duration through smoothstep,
-    # so yaw speed stays continuous at both the lead/rise boundary and
-    # normal standing speed. Head follow retains its independent 70% gate.
+func standup_turn_enabled(next_delta: float = 0.0) -> bool:
+    # The physical recovery begins when _advance_leg_break(delta) crosses
+    # break_recover_start. Preview that SAME tick from _advance_target_motion
+    # (called before IK), so root yaw starts on the exact first rising frame.
+    # No lead-in, smoothstep or angular-speed ramp is applied.
     if down_pose_active():
-        var begin: float = maxf(LEG_BREAK_FALL_SECONDS,
-            break_recover_start - STANDUP_TURN_LEAD_SECONDS)
-        if break_elapsed <= begin:
-            return 0.0
-        return _cubic((break_elapsed - begin) /
-            maxf(break_duration - begin, 0.001))
-    if post_down_idle_remaining > 0.0:
-        return 1.0
-    return 0.0
+        return break_elapsed + maxf(next_delta, 0.0) >= break_recover_start
+    # Keep turning during the final Idle settle without permitting gait.
+    return post_down_idle_remaining > 0.0
 
 
 func windup_active() -> bool:

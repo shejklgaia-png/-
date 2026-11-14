@@ -1,6 +1,6 @@
 extends SceneTree
-## v363: during the actual stand-up the Bittaran root YAW alone ramps
-## from zero to normal stationary-turn speed. HEAD follow is strictly
+## v363/v365: at the exact start of stand-up the root YAW immediately
+## uses normal stationary-turn speed without a ramp. HEAD follow is strictly
 ## disabled until 70% of eased upright pose, then eases in during last 30%.
 ## No Turn/Approach clip or XZ translation until full 0.24s Idle settle.
 const DT: float = 1.0 / 60.0
@@ -62,7 +62,6 @@ func _run_case(battle: Node3D, leg_ids: Array[String],
     var settled: bool = false
     var max_head_delta: float = 0.0
     var previous_head_yaw: float = 0.0
-    var previous_turn_weight: float = 0.0
     var positioned_for_head_tracking: bool = false
     for frame in range(480):
         var was_ready: bool = bool(ik.call("locomotion_ready"))
@@ -76,13 +75,13 @@ func _run_case(battle: Node3D, leg_ids: Array[String],
                 + Vector3(28.0, 0.0, 0.0))
         var before_yaw: float = boss.rotation.y
         var old_position: Vector3 = boss.position
-        var before_weight: float = float(ik.call("standup_turn_weight"))
-        var before_pose: float = float(ik.call("standup_pose_fraction"))
+        var turn_enabled: bool = bool(ik.call("standup_turn_enabled", DT))
         battle.call("_advance_target_motion", DT)
         var yaw_delta: float = absf(wrapf(
             boss.rotation.y - before_yaw, -PI, PI))
-        var allowed_step: float = deg_to_rad(
-            MAX_YAW_DEGREES_PER_SECOND) * DT * before_weight
+        var allowed_step: float = (
+            deg_to_rad(MAX_YAW_DEGREES_PER_SECOND) * DT
+            if turn_enabled else 0.0)
         if not was_ready:
             if str(battle.get("bittaran_motion")) != "Idle" or str(
                     rig.get("current_clip")) != "Idle":
@@ -93,7 +92,7 @@ func _run_case(battle: Node3D, leg_ids: Array[String],
                 _fail(label + ": boss translated during knockdown/stand-up")
                 return false
             if yaw_delta > allowed_step + EPS:
-                _fail(label + ": abrupt turn speed exceeds cubic ramp: "
+                _fail(label + ": turn speed exceeds exact start-gated normal rate: "
                     + str(yaw_delta) + " > " + str(allowed_step))
                 return false
         battle.call("_finalize_target_pose", DT)
@@ -137,10 +136,6 @@ func _run_case(battle: Node3D, leg_ids: Array[String],
                     saw_initial_turn = true
                 if pose > 0.75 and yaw_delta >= 0.00015:
                     saw_strong_turn = true
-                if before_weight > 0.0 and before_weight < 1.0                         and before_weight + EPS < previous_turn_weight:
-                    _fail(label + ": turn-speed factor decreased during rise")
-                    return false
-                previous_turn_weight = before_weight
                 max_turn_step = maxf(max_turn_step, yaw_delta)
         if not bool(ik.call("down_pose_active")) and not bool(
                 ik.call("windup_active")) and not completed_standup:
@@ -150,8 +145,8 @@ func _run_case(battle: Node3D, leg_ids: Array[String],
                 _fail(label + ": unlocked walking before upright settle")
                 return false
         if completed_standup and not was_ready:
-            if before_weight < 0.99 and frame > 2:
-                _fail(label + ": recovery yaw stopped during Idle settle")
+            if not turn_enabled and frame > 2:
+                _fail(label + ": recovery yaw disabled during Idle settle")
                 return false
         if was_ready and completed_standup:
             if not bool(ik.call("locomotion_ready")):
@@ -167,7 +162,7 @@ func _run_case(battle: Node3D, leg_ids: Array[String],
             + str([settled, rise_frames, pre_70_head_frames, after_70_head_frames]))
         return false
     if not saw_initial_turn or not saw_strong_turn:
-        _fail(label + ": recovery yaw did not start progressively with rise "
+        _fail(label + ": recovery yaw did not start at full speed with rise "
             + str([saw_initial_turn, saw_strong_turn, max_turn_step]))
         return false
     if absf(rotation_at_full_stand) < deg_to_rad(0.5):
@@ -185,7 +180,7 @@ func _run_case(battle: Node3D, leg_ids: Array[String],
             + str(rad_to_deg(max_head_delta)))
         return false
     print("V363_RISE_CASE_PASS: " + label
-        + " turn begins under 40%, 70% head gate passed, "
+        + " normal-speed turn begins with rise, 70% head gate passed, "
         + "head max step=" + str(rad_to_deg(max_head_delta))
         + "deg, max root step=" + str(rad_to_deg(max_turn_step)) + "deg")
     return true

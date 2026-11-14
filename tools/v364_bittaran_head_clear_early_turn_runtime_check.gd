@@ -1,5 +1,5 @@
 extends SceneTree
-## v364: root turning starts 0.30s BEFORE stand-up, with planted feet and
+## v364/v365: root turning starts at FULL SPEED exactly with stand-up, with planted feet and
 ## Idle gait; head reacquisition remains slow and cannot add meaningful
 ## penetration into any current FULL upper/lower/foot visual geometry.
 const DT: float = 1.0 / 60.0
@@ -70,8 +70,8 @@ func _case(battle: Node3D, broken_ids: Array[String],
     battle.set("part_break_remaining", 0.0)
     battle.set("down_remaining", 0.0)
 
-    var before_standup_yaw: float = 0.0
-    var pre_rise_turn_frames: int = 0
+    var pre_rise_still_frames: int = 0
+    var first_rise_turn_step: float = -1.0
     var head_follow_frames: int = 0
     var first_head_step: float = -1.0
     var max_forward_head_step: float = 0.0
@@ -84,7 +84,7 @@ func _case(battle: Node3D, broken_ids: Array[String],
         var down_active: bool = bool(ik.call("down_pose_active"))
         var elapsed: float = float(ik.get("break_elapsed"))
         var rise_starts: float = float(ik.get("break_recover_start"))
-        var root_weight: float = float(ik.call("standup_turn_weight"))
+        var turn_enabled: bool = bool(ik.call("standup_turn_enabled", DT))
         var prev_root_yaw: float = boss.rotation.y
         var old_pos: Vector3 = boss.position
         # After documenting early turning toward a 90-degree target, give
@@ -106,13 +106,19 @@ func _case(battle: Node3D, broken_ids: Array[String],
                 return false
             var yaw_step: float = absf(wrapf(
                 boss.rotation.y - prev_root_yaw, -PI, PI))
-            if yaw_step > deg_to_rad(
-                    MAX_TURN_DEGREES_PER_SECOND) * DT * root_weight + 0.0001:
-                _fail(label + ": root yaw exceeded eased rate cap")
+            var full_yaw_limit: float = (
+                deg_to_rad(MAX_TURN_DEGREES_PER_SECOND) * DT
+                if turn_enabled else 0.0)
+            if yaw_step > full_yaw_limit + 0.0001:
+                _fail(label + ": yaw turned before rise or exceeded normal rate")
                 return false
-            if down_active and elapsed < rise_starts and root_weight > 0.0:
-                pre_rise_turn_frames += 1
-                before_standup_yaw += yaw_step
+            if down_active and elapsed + DT < rise_starts - 0.00001:
+                pre_rise_still_frames += 1
+                if turn_enabled or yaw_step > 0.00001:
+                    _fail(label + ": root yaw began before physical stand-up")
+                    return false
+            elif down_active and turn_enabled and first_rise_turn_step < 0.0:
+                first_rise_turn_step = yaw_step
         battle.call("_finalize_target_pose", DT)
         if down_active and bool(ik.call("down_pose_active")):
             var pose: float = float(ik.call("standup_pose_fraction"))
@@ -158,10 +164,12 @@ func _case(battle: Node3D, broken_ids: Array[String],
         if not locked:
             unlocked = true
             break
-    if pre_rise_turn_frames < 8 or before_standup_yaw < deg_to_rad(0.30):
-        _fail(label + ": root did not begin turning BEFORE stand-up: "
-            + str(pre_rise_turn_frames) + " frames, "
-            + str(rad_to_deg(before_standup_yaw)) + " deg")
+    if pre_rise_still_frames < 8 or first_rise_turn_step < (
+            deg_to_rad(30.0) * DT):
+        _fail(label + ": yaw must stay off before rise and start "
+            + "immediately at normal speed: "
+            + str(pre_rise_still_frames) + " stationary frames, "
+            + str(rad_to_deg(first_rise_turn_step)) + " deg first step")
         return false
     if not unlocked or head_follow_frames < 3:
         _fail(label + ": incomplete rise / head 70-percent test "
@@ -171,9 +179,9 @@ func _case(battle: Node3D, broken_ids: Array[String],
         _fail(label + ": first head rotation was not gentle: "
             + str(rad_to_deg(first_head_step)))
         return false
-    print("V364_CASE_PASS: " + label + " pre-rise yaw="
-        + str(rad_to_deg(before_standup_yaw)) + "deg over "
-        + str(pre_rise_turn_frames) + " frames, first head step="
+    print("V364_CASE_PASS: " + label + " pre-rise still="
+        + str(pre_rise_still_frames) + " frames, full-speed first yaw="
+        + str(rad_to_deg(first_rise_turn_step)) + "deg, first head step="
         + str(rad_to_deg(first_head_step)) + "deg, maximum extra leg "
         + "overlap=" + str(max_extra_overlap) + "m3")
     return true
@@ -187,7 +195,7 @@ func _run() -> void:
         return
     if not _case(battle, LEG_IDS, "four-leg"):
         return
-    print("GODOT_V364_BITTARAN_HEAD_CLEAR_PASS: 0.30s early YAW, "
+    print("GODOT_V364_BITTARAN_HEAD_CLEAR_PASS: full-rate yaw from stand-up, "
         + "slow 70% head entry, no increased arm penetration, "
         + "Idle gait and no XZ approach until full recovery")
     quit(0)
