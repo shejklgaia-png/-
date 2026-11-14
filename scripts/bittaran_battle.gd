@@ -18,7 +18,7 @@ const HEAD_TRACK_MAX_YAW_DEGREES: float = 48.0
 const HEAD_TRACK_DEGREES_PER_SECOND: float = 140.0
 const HEAD_LEG_CLEARANCE_METERS: float = 0.05
 const HEAD_LEG_BASELINE_AABB_TOLERANCE_M3: float = 0.035
-const HEAD_CONTACT_MAX_TRANSLATION_METERS: float = 1.25
+const HEAD_CONTACT_MAX_TRANSLATION_METERS: float = 1.65
 const HEAD_CONTACT_RELEASE_METERS_PER_SECOND: float = 5.0
 
 var bittaran_rig: Node3D
@@ -36,6 +36,7 @@ var boss_head_yaw: float = 0.0
 var boss_head_default_rotation: Quaternion = Quaternion.IDENTITY
 var boss_head_default_position: Vector3 = Vector3.ZERO
 var boss_head_contact_translation_world: float = 0.0
+var boss_previous_head_nose: AABB = AABB()
 var boss_head_windup_start_yaw: float = 0.0
 var head_neutral_overlap: Dictionary = {}
 var boss_downed_escaping: bool = false
@@ -285,7 +286,7 @@ func _resolve_downed_head_leg_support(delta: float) -> void:
         boxes[id] = target_parts.call("get_leg_support_mesh_boxes", id)
     var nose: AABB = target_parts.call("get_head_swing_aabb")
     var hit: Dictionary = HEAD_SUPPORT.find_contact(
-        nose, boxes, boss_head_supported_leg)
+        nose, boxes, boss_head_supported_leg, boss_previous_head_nose)
     var supported: String = str(hit["leg_id"])
     var full_pitch: float = float(
         bittaran_foot_ik.get("break_nose_dip_radians"))
@@ -304,7 +305,7 @@ func _resolve_downed_head_leg_support(delta: float) -> void:
             var supporting: Dictionary = {supported:
                 target_parts.call("get_leg_support_mesh_boxes", supported)}
             var test_hit: Dictionary = HEAD_SUPPORT.find_contact(
-                candidate_nose, supporting, supported)
+                candidate_nose, supporting, supported, boss_previous_head_nose)
             if float(test_hit["penetration"]) > 0.02:
                 bad_pitch = candidate
             else:
@@ -313,7 +314,8 @@ func _resolve_downed_head_leg_support(delta: float) -> void:
         nose = target_parts.call("get_head_swing_aabb")
         for id in boxes:
             boxes[id] = target_parts.call("get_leg_support_mesh_boxes", id)
-        hit = HEAD_SUPPORT.find_contact(nose, boxes, supported)
+        hit = HEAD_SUPPORT.find_contact(
+            nose, boxes, supported, boss_previous_head_nose)
         if not str(hit["leg_id"]).is_empty():
             supported = str(hit["leg_id"])
     # Pitch relief can be too small if the fallen chassis does not tilt
@@ -484,6 +486,9 @@ func _finalize_target_pose(delta: float) -> void:
     _resolve_downed_head_leg_support(delta)
     if target_parts != null:
         target_parts.call("sync_bittaran_parts")
+        # Save previous rendered nose height for swept top-surface contact:
+        # a rapid 0.17-second fall can cross a whole shin between ticks.
+        boss_previous_head_nose = target_parts.call("get_head_swing_aabb")
     _push_player_out_of_downed_body(delta)
     _update_bittaran_lock_permissions()
 
@@ -538,6 +543,7 @@ func _reset_target_after_respawn() -> void:
     boss_downed_escaping = false
     boss_head_supported_leg = ""
     boss_head_contact_translation_world = 0.0
+    boss_previous_head_nose = AABB()
     if bittaran_head != null:
         bittaran_head.position = boss_head_default_position
     if target_parts != null:
