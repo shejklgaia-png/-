@@ -87,7 +87,19 @@ for path in sorted((ROOT / "scripts").rglob("*.gd")):
         reference = re.fullmatch(r"RENDER_ORDER\.([A-Z][A-Z_0-9]*)", expr)
         assert reference is not None, (path.relative_to(ROOT), expr)
         assert reference.group(1) in priorities, (path, expr)
-        assert 'const RENDER_ORDER = preload("res://scripts/render_order_policy.gd")' in source
+        # Boss battles inherit main.gd's already-loaded render policy.
+        # Shadowing that constant in a subclass is a GDScript parse error.
+        # Accept inheritance only from the verified first-party main.gd.
+        direct_policy = (
+            'const RENDER_ORDER = preload("res://scripts/render_order_policy.gd")'
+            in source)
+        inherited_main_policy = (
+            path.relative_to(ROOT).as_posix() == "scripts/bittaran_battle.gd"
+            and 'extends "res://scripts/main.gd"' in source
+            and 'const RENDER_ORDER = preload("res://scripts/render_order_policy.gd")'
+            in read("scripts/main.gd")
+        )
+        assert direct_policy or inherited_main_policy, path
 assert all_assignments >= 6, all_assignments
 
 # Materials and shaders are separate concerns: render_priority cannot

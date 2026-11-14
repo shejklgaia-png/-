@@ -60,6 +60,13 @@ func _run_case(battle: Node3D, ids: Array[String],
         var rising_this_tick: bool = bool(ik.call("standup_turn_enabled", DT))
         var previous_yaw: float = boss.rotation.y
         var before_position: Vector3 = boss.position
+        # Avoid closing the original aim error during the rise and then
+        # incorrectly diagnosing a final tiny saturation step as 22deg/s.
+        player.global_position = (boss.global_position
+            + (boss.global_basis.x.normalized() * 27.0
+                if requested == "Turn" else
+                (boss.global_basis.z.normalized() * 26.0
+                 + boss.global_basis.x.normalized() * 15.0)))
         battle.call("_advance_target_motion", DT)
         var chosen: String = str(battle.get("bittaran_motion"))
         var yaw_step: float = absf(wrapf(

@@ -58,6 +58,10 @@ func _run_case(battle: Node3D, ids: Array[String], label: String) -> bool:
         var allowed_turn: bool = bool(ik.call("standup_turn_enabled", DT))
         var before_yaw: float = actor.rotation.y
         var before_position: Vector3 = actor.position
+        # The initial fixed +X target falls into FOV as the chassis
+        # rotates. Pin the relative bearing to exercise Turn at full speed.
+        player.global_position = (actor.global_position
+            + actor.global_basis.x.normalized() * 26.0)
         battle.call("_advance_target_motion", DT)
         var actual_step: float = absf(wrapf(
             actor.rotation.y - before_yaw, -PI, PI))

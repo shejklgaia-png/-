@@ -63,6 +63,11 @@ func _case(battle: Node3D, legs_to_break: Array[String],
             elapsed < recover_start and elapsed + DT >= recover_start)
         var old_pos: Vector3 = actor.position
         var old_yaw: float = actor.rotation.y
+        # Preserve a stable relative Turn/Approach request; fixed world
+        # positions otherwise drift into the opposite AI FOV branch.
+        player.global_position = (actor.global_position
+            + (actor.global_basis.x.normalized() * 26.0
+                if motion == "Turn" else actor.global_basis.z.normalized() * 26.0))
         battle.call("_advance_target_motion", DT)
         var chosen: String = str(battle.get("bittaran_motion"))
         var playing: String = str(rig.get("current_clip"))

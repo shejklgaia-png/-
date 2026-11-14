@@ -70,6 +70,8 @@ func _run() -> void:
     for n in range(16):
         rig.call("set_motion", "Idle", DT)
         ik.call("advance_ik", DT, "Idle")
+        # v379 filters the desired yaw in the pose update, not in _aim.
+        battle.call("_update_head_look_target", DT)
         battle.call("_aim_bittaran_head", DT)
         if not _head_clear(parts, battle.get("head_neutral_overlap")):
             _fail("head swing worsened contact beyond authored leg clearance "
@@ -84,6 +86,8 @@ func _run() -> void:
     for n in range(35):
         rig.call("set_motion", "Idle", DT)
         ik.call("advance_ik", DT, "Idle")
+        # v379 filters the desired yaw in the pose update, not in _aim.
+        battle.call("_update_head_look_target", DT)
         battle.call("_aim_bittaran_head", DT)
         if not _head_clear(parts, battle.get("head_neutral_overlap")):
             _fail("head crossed into a foot during reciprocal tracking")

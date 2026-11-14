@@ -70,8 +70,15 @@ func _run_case(battle: Node3D, leg_ids: Array[String],
         # still has a nonzero reason to turn. For the post-stand gait test,
         # restore a clear 90-degree Turn request once released.
         if was_ready:
+            # Persist a 90-degree Turn request after the body has turned.
             player.global_position = (boss.global_position
-                + Vector3(28.0, 0.0, 0.0))
+                + boss.global_basis.x.normalized() * 28.0)
+        elif positioned_for_head_tracking:
+            # Track the head in the frontal quadrant while preserving a
+            # real 20-degree root yaw error throughout the final 30% rise.
+            player.global_position = (boss.global_position
+                + boss.global_basis.z.normalized() * 10.0
+                + boss.global_basis.x.normalized() * 4.0)
         var before_yaw: float = boss.rotation.y
         var old_position: Vector3 = boss.position
         var turn_enabled: bool = bool(ik.call("standup_turn_enabled", DT))
