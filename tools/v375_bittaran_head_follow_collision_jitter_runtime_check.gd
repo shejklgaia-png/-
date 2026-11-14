@@ -2,6 +2,7 @@ extends SceneTree
 ## v375: ignore brief collisions, never snap the HEAD away from the
 ## player, and progressively slow only sustained deep head/leg intrusion.
 const DT: float = 1.0 / 60.0
+const BOSS_SCRIPT = preload("res://scripts/bittaran_battle.gd")
 
 func _initialize() -> void:
     call_deferred("_run")
@@ -22,7 +23,7 @@ func _run() -> void:
     if boss == null or player == null or ik == null:
         _fail("scene initialization")
         return
-    if absf(float(battle.HEAD_TRACK_COMPONENT_OVERLAP_TOLERANCE_M3)
+    if absf(float(BOSS_SCRIPT.HEAD_TRACK_COMPONENT_OVERLAP_TOLERANCE_M3)
             - 0.065) > 0.00001:
         _fail("head overlap tolerance not increased")
         return
