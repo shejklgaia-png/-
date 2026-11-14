@@ -207,9 +207,12 @@ func _apply_attack_chassis_pose() -> void:
             Quaternion(Vector3.BACK, -sign * deg_to_rad(67.0) * weight)).normalized()
         # An additional vertical shift brings the attacking shoulder down
         # to ground height. It is eased out with the same pose envelope.
-        var shoulder_clearance: float = maxf(
-            0.0, shoulder.global_position.y - FLOOR_Y - 0.12)
-        actor.position.y -= minf(shoulder_clearance, 1.85) * weight / scale_y
+        var shoulder_shift: float = (
+            FLOOR_Y + 0.12 - shoulder.global_position.y)
+        # Compensate in BOTH directions: a long side-roll can put the
+        # shoulder below the floor, not only above it.
+        actor.position.y += clampf(
+            shoulder_shift, -1.85, 1.20) * weight / scale_y
 
 func _attack_goal(leg: Dictionary) -> Vector3:
     var goal: Vector3 = leg["anchor"]
