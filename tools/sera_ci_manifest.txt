@@ -312,3 +312,5 @@ py tools/sera_ci_isolation_self_check.py
 gd tools/v356_bittaran_lateral_lock_runtime_check.gd
 
 gd tools/v357_bittaran_down_clearance_runtime_check.gd
+
+gd tools/v358_bittaran_windup_grounding_runtime_check.gd
