@@ -187,6 +187,25 @@ func _update_bittaran_lock_permissions() -> void:
         auto_lock_initialized = true
         _update_target_marker_projection()
 
+func _acquire_stable_camera_part(delta: float,
+        current_broken: bool) -> void:
+    # In the standing boss only, resolve the left/right overlap with a
+    # symmetric lateral deadband. The generic training-room target and
+    # downed BODY/HEAD AUTO selection keep their original behavior.
+    if target_parts == null or player == null or target == null:
+        super._acquire_stable_camera_part(delta, current_broken)
+        return
+    if bool(target_parts.get("down_lock_enabled")):
+        super._acquire_stable_camera_part(delta, current_broken)
+        return
+    locked_target_part_id = str(target_parts.call(
+        "select_stable_actor_parallel_lines_part",
+        player.global_position, target.global_position, locked_target_part_id))
+    auto_lock_initialized = true
+    auto_lock_pending_part = ""
+    auto_lock_pending_elapsed = 0.0
+
+
 func _physics_process(delta: float) -> void:
     # Provide the policy *before* base AUTO/MANUAL selection, then refresh
     # after IK finishes its fall/recovery tick. Do not allow a one-frame leak.

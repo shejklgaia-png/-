@@ -28,6 +28,7 @@ on:
       - 'tools/v353_bittaran_*.gd'
       - 'tools/v353_bittaran_*.py'
       - 'tools/v354_bittaran_*.gd'
+      - 'tools/v356_bittaran_*.gd'
       - 'tools/rebuild_bittaran_data.py'
       - 'scripts/command_nexus.gd'
       - 'project.godot'
@@ -224,3 +225,20 @@ jobs:
             exit 1
           fi
           grep -q 'GODOT_V354_BITTARAN_LIVE_BOUNDARY_PASS' "$log"
+
+      - name: Verify no left/right overlap flicker at Bittaran frontal spawn
+        run: |
+          set -euo pipefail
+          log="$RUNNER_TEMP/bittaran-lateral-v356.log"
+          status=0
+          "$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" --headless --path . --script tools/v356_bittaran_lateral_lock_runtime_check.gd > "$log" 2>&1 || status=$?
+          cat "$log"
+          if [ "$status" -ne 0 ]; then
+            echo "::error::Bittaran lateral lock test failed with exit code $status"
+            exit "$status"
+          fi
+          if grep -E 'SCRIPT ERROR|Parse Error|Compile Error|ERROR: Failed to load|Invalid call|V356_BITTARAN_LATERAL_FAIL' "$log"; then
+            echo "::error::Bittaran lateral lock test reported a Godot runtime error"
+            exit 1
+          fi
+          grep -q 'GODOT_V356_BITTARAN_LATERAL_PASS' "$log"
