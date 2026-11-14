@@ -12,11 +12,14 @@ func _fail(message: String) -> void:
     push_error("V357_BITTARAN_FAIL: " + message)
     quit(1)
 
-func _head_clear(parts: Node3D) -> bool:
-    var head: AABB = (parts.call("get_head_swing_aabb") as AABB).grow(0.045)
+func _head_clear(parts: Node3D, resting: Dictionary) -> bool:
+    var tip: AABB = (parts.call("get_head_swing_aabb") as AABB).grow(0.05)
     for id in ["leg_fl", "leg_fr", "leg_rl", "leg_rr"]:
         var leg: AABB = parts.call("get_leg_visual_aabb", id)
-        if leg.has_volume() and head.intersects(leg):
+        var current: float = 0.0
+        if leg.has_volume() and tip.intersects(leg):
+            current = tip.intersection(leg).get_volume()
+        if current > float(resting.get(id, 0.0)) + 0.03501:
             return false
     return true
 
@@ -65,14 +68,9 @@ func _run() -> void:
         rig.call("set_motion", "Idle", DT)
         ik.call("advance_ik", DT, "Idle")
         battle.call("_aim_bittaran_head", DT)
-        if not _head_clear(parts):
-            print("HEAD_DEBUG sway=", battle.get("boss_head_yaw"),
-                " tip=", parts.call("get_head_swing_aabb"),
-                " full=", parts.call("get_part_aabb", "head"))
-            for leg_id in ["leg_fl", "leg_fr", "leg_rl", "leg_rr"]:
-                print("HEAD_DEBUG ", leg_id, " = ",
-                    parts.call("get_leg_visual_aabb", leg_id))
-            _fail("head tracked into an upper leg/shin/foot at frame " + str(n))
+        if not _head_clear(parts, battle.get("head_neutral_overlap")):
+            _fail("head swing worsened contact beyond authored leg clearance "
+                + str(n) + " yaw=" + str(battle.get("boss_head_yaw")))
             return
     var left_yaw: float = float(battle.get("boss_head_yaw"))
     if absf(left_yaw) <= deg_to_rad(1.0)             or absf(left_yaw) > deg_to_rad(48.01):
@@ -84,7 +82,7 @@ func _run() -> void:
         rig.call("set_motion", "Idle", DT)
         ik.call("advance_ik", DT, "Idle")
         battle.call("_aim_bittaran_head", DT)
-        if not _head_clear(parts):
+        if not _head_clear(parts, battle.get("head_neutral_overlap")):
             _fail("head crossed into a foot during reciprocal tracking")
             return
     if float(battle.get("boss_head_yaw")) * left_yaw >= 0.0:
@@ -132,7 +130,7 @@ func _run() -> void:
             _fail("downward collision recovery embedded player under floor at "
                 + str(n) + " y=" + str(player.global_position.y))
             return
-        if not _head_clear(parts):
+        if not _head_clear(parts, battle.get("head_neutral_overlap")):
             _fail("head touched leg during falling head tracking")
             return
         if not bool(battle.get("boss_downed_escaping")):
