@@ -462,7 +462,7 @@ func _home(leg: Dictionary, with_lead: bool) -> Vector3:
     if with_lead:
         # Authored Blockbench faces -Z, while the model's runtime +PI turn
         # makes Bittaran face the combat controller's +Z direction.
-        p += -actor.global_basis.z * STEP_FORWARD_LEAD_METERS
+        p += -actor.global_basis.z.normalized() * STEP_FORWARD_LEAD_METERS
     p.y = FLOOR_Y
     return p
 
