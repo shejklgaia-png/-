@@ -128,7 +128,7 @@ func _run() -> void:
     var head_y: float = (
         parts.call("get_part_aim_world", "head") as Vector3).y
     ik.call("start_leg_break_slide", "leg_fl", head_y)
-    for step in range(200):
+    for step in range(250):
         var dt: float = 1.0 / 60.0
         rig.call("set_motion", "Idle", dt)
         ik.call("advance_ik", dt, "Idle")
