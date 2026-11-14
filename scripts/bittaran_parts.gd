@@ -21,6 +21,9 @@ const SHIN_LABELS: Dictionary = {
 const HIT_COLOR: Color = Color("#ff5772")
 const HIT_EMISSION: Color = Color("#c52f43")
 const LOCK_VOLUME_EXPANSION: float = 1.15
+## Bittaran SHIN-only AUTO/MANUAL selection volume: exactly twice the
+## authored lower-leg mesh AABB, not the 3-bone leg or its physical collider.
+const SHIN_SELECTION_VOLUME_SCALE: float = 2.0
 const MIN_SHIN_BOX: Vector3 = Vector3(0.52, 0.65, 0.52)
 const MIN_BODY_BOX: Vector3 = Vector3(0.65, 0.55, 0.65)
 # "body" is an explicit MANUAL selection. The legacy "" ID remains the
@@ -32,6 +35,10 @@ var boss_model: Node3D
 var collision_body: AnimatableBody3D
 var bone_nodes: Dictionary = {}
 var camera_areas: Dictionary = {}
+## Standing mesh-space calibration, captured once after the IK rig is planted.
+## Walking / step-lift / knockdown may change the rendered shin's Y, but the
+## lock box height and dimensions remain fixed in WORLD coordinates.
+var shin_selection_standing: Dictionary = {}
 var combat_shapes: Dictionary = {}
 var fx_meshes: Dictionary = {}
 var fx_timers: Dictionary = {}
@@ -64,6 +71,7 @@ func setup_bittaran(model: Node3D, moving_body: AnimatableBody3D) -> bool:
     # The training-room BoxMesh is hidden; replace its camera-only volumes
     # and movement solids with geometry measured from the real 14-bone rig.
     camera_areas.clear()
+    shin_selection_standing.clear()
     for id in ["", "head", "leg_fl", "leg_fr", "leg_rl", "leg_rr"]:
         var anchor: Node3D = bone_nodes[id]
         var camera_area := Area3D.new()
@@ -269,6 +277,36 @@ func _bounds(id: String) -> AABB:
     var center: Vector3 = (maximum + minimum) * 0.5
     return AABB(center - size * 0.5, size)
 
+## Bounding box of the SHIN's mesh only. The authored Foot is a child of the
+## lower-leg joint and must not inflate a box intended for the shin itself.
+func _shin_mesh_bounds(id: String) -> AABB:
+    if not SHIN_BONES.has(id) or not bone_nodes.has(id):
+        return AABB()
+    var vertices: Array[Vector3] = []
+    _append_mesh_bounds(bone_nodes[id], vertices, false)
+    if vertices.is_empty():
+        return _bounds(id)
+    var low: Vector3 = vertices[0]
+    var high: Vector3 = vertices[0]
+    for vertex in vertices:
+        low = low.min(vertex)
+        high = high.max(vertex)
+    return AABB(low, high - low)
+
+func get_shin_selection_box(id: String) -> AABB:
+    ## Read-only world-space volume for lock diagnostics and tests. This
+    ## deliberately differs from get_part_aabb(), which stays melee-sized.
+    if not SHIN_BONES.has(id):
+        return AABB()
+    if not shin_selection_standing.has(id):
+        return AABB()
+    var standing: Dictionary = shin_selection_standing[id]
+    var box: AABB = _shin_mesh_bounds(id)
+    var current: Vector3 = box.get_center()
+    var locked_center := Vector3(current.x, float(standing["world_y"]), current.z)
+    var scaled_size: Vector3 = standing["box_size"]
+    return AABB(locked_center - scaled_size * 0.5, scaled_size)
+
 func get_body_hit_aabb() -> AABB:
     return _bounds("")
 
@@ -310,11 +348,27 @@ func sync_bittaran_parts() -> void:
     for id in camera_areas:
         var bounds: AABB = _bounds(id)
         var area: Area3D = camera_areas[id]
-        # World-oriented volumes follow each articulated shin and head.
-        area.global_transform = Transform3D(Basis.IDENTITY, bounds.get_center())
+        # Only the four shin lock-selection volumes are enlarged/fixed-height.
+        # The head and BODY retain their previous collision-independent 1.15x
+        # selection boxes; all actual attack/body colliders remain unchanged.
+        var lock_center: Vector3 = bounds.get_center()
+        var lock_size: Vector3 = bounds.size * LOCK_VOLUME_EXPANSION
+        if SHIN_BONES.has(id):
+            if not shin_selection_standing.has(id):
+                var authored_shin: AABB = _shin_mesh_bounds(id)
+                shin_selection_standing[id] = {
+                    "world_y": authored_shin.get_center().y,
+                    "box_size": authored_shin.size * SHIN_SELECTION_VOLUME_SCALE
+                }
+            var selection_box: AABB = get_shin_selection_box(id)
+            lock_center = selection_box.get_center()
+            lock_size = selection_box.size
+        # Area3D is camera/lock math only: zero collision layers and masks.
+        # World-space identity cancels rotation and inherited 2x boss scale.
+        area.global_transform = Transform3D(Basis.IDENTITY, lock_center)
         var collision: CollisionShape3D = area.get_node("CameraOnlyBox")
         var box: BoxShape3D = collision.shape
-        box.size = bounds.size * LOCK_VOLUME_EXPANSION
+        box.size = lock_size
         var physical: CollisionShape3D = combat_shapes[id]
         var box_solid: BoxShape3D = physical.shape
         box_solid.size = bounds.size
