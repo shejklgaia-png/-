@@ -1,7 +1,7 @@
 extends SceneTree
 ## v362-v366: the fallen hold must remain still; Turn/Approach clips
 ## and movement now START with the physical stand-up, not afterwards.
-## Exercise BOTH short (2.5s) and four-leg (6s) knockdowns with the
+## Exercise BOTH short (2.42s) and four-leg (5.88s) knockdowns with the
 ## actual scene, boss AI, rig clips, collision IK, and release timer.
 const DT: float = 1.0 / 60.0
 const LEG_IDS: Array[String] = ["leg_fl", "leg_fr", "leg_rl", "leg_rr"]
@@ -63,7 +63,7 @@ func _check_case(battle: Node3D, expected_motion: String,
     var locomotion_released_at: int = -1
     var post_down_idle_frames: int = 0
     var actual_down_seconds: float = (
-        6.0 if broken_leg_ids.size() == 4 else 2.5)
+        5.88 if broken_leg_ids.size() == 4 else 2.42)
     for frame in range(470):
         var was_ready: bool = bool(ik.call("locomotion_ready"))
         var turn_enabled: bool = bool(ik.call("standup_turn_enabled", DT))
@@ -165,5 +165,5 @@ func _run() -> void:
         return
     print("GODOT_V362_BITTARAN_STANDUP_PASS: Idle during fall, "
         + "Turn/Approach clips and movement from stand-up first frame, "
-        + "2.5/6s and 0.24s pose settle preserved")
+        + "2.42/5.88s and 0.24s pose settle preserved")
     quit(0)
