@@ -80,9 +80,14 @@ func _run() -> void:
         _fail("training attacks leaked into movement-only boss")
         return
     battle.set("target_hp", 0)
-    battle.call("_tick_target_respawn", 5.0)
+    battle.set("target_respawn_remaining", 0.2)
+    battle.call("_tick_target_respawn", 0.1)
     if int(battle.get("target_hp")) != 0:
-        _fail("defeated boss respawned like training dummy")
+        _fail("boss revived before death countdown")
+        return
+    battle.call("_tick_target_respawn", 0.2)
+    if int(battle.get("target_hp")) != 500:
+        _fail("defeated boss did not revive at full HP")
         return
     print("GODOT_V345_BITTARAN_PASS: 14 bones, clips, 100-degree AI, battle scene")
     quit(0)

@@ -20,9 +20,10 @@ assert 'fx_meshes[id] = _material_records(root_leg, true)' in parts
 assert 'target_parts = BittaranParts.new()' in battle
 assert 'target_parts.call("sync_bittaran_parts")' in battle
 assert 'func _apply_target_part_damage(' in battle
-assert 'bittaran_foot_ik.call("start_leg_break_slide", hit_id, head_world.y)' in battle
-assert 'func start_leg_break_slide(id: String, head_world_y: float)' in ik
-assert 'const LEG_BREAK_REACTION_SECONDS: float = 1.15' in ik
+assert 'bittaran_foot_ik.call("start_leg_break_slide", hit_id, head_world.y,' in battle
+assert 'func start_leg_break_slide(id: String, head_world_y: float,' in ik
+assert 'const LEG_BREAK_REACTION_SECONDS: float = 2.5' in ik
+assert 'const ALL_LEGS_BREAK_REACTION_SECONDS: float = 6.0' in ik
 assert 'const LEG_BREAK_SLIDE_METERS: float = 1.05' in ik
 assert 'const HEAD_MELEE_REACH_WORLD_Y: float = 1.35' in ik
 assert 'break_elapsed = -1.0' in ik
