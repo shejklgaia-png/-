@@ -318,3 +318,5 @@ gd tools/v358_bittaran_windup_grounding_runtime_check.gd
 gd tools/v359_bittaran_head_lock_controller_runtime_check.gd
 
 gd tools/v360_bittaran_controller_depth_runtime_check.gd
+
+gd tools/v361_bittaran_head_on_leg_runtime_check.gd
