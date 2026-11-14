@@ -11,5 +11,8 @@
     "head_C": "models/storage/Head_C.bbmodel",
     "lower_body_D": "models/storage/LowerBody_D.bbmodel"
   },
-  "note": "Only paths in this manifest are active authoring model sources. Legacy files are retained for historical regression/compatibility; no runtime loader should browse legacy paths."
+  "note": "Canonical SERA sources and independent boss rigs are explicitly listed; staging and historical Blockbench files are never runtime dependencies.",
+  "bosses": {
+    "bittaran": "models/bosses/Bittaran.bbmodel"
+  }
 }
