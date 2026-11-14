@@ -39,6 +39,12 @@ var camera_areas: Dictionary = {}
 ## Walking / step-lift / knockdown may change the rendered shin's Y, but the
 ## lock box height and dimensions remain fixed in WORLD coordinates.
 var shin_selection_standing: Dictionary = {}
+## Four standing shin selection centers determine a true halfway plane.
+## Calibrated in the RIG's local coordinate system, so walking IK cannot
+## move the front/rear changeover point back and forth.
+var lock_front_mid_local: Vector3 = Vector3.ZERO
+var lock_rear_mid_local: Vector3 = Vector3.ZERO
+var lock_halfway_initialized: bool = false
 var combat_shapes: Dictionary = {}
 var fx_meshes: Dictionary = {}
 var fx_timers: Dictionary = {}
@@ -72,6 +78,7 @@ func setup_bittaran(model: Node3D, moving_body: AnimatableBody3D) -> bool:
     # and movement solids with geometry measured from the real 14-bone rig.
     camera_areas.clear()
     shin_selection_standing.clear()
+    lock_halfway_initialized = false
     for id in ["", "head", "leg_fl", "leg_fr", "leg_rl", "leg_rr"]:
         var anchor: Node3D = bone_nodes[id]
         var camera_area := Area3D.new()
@@ -126,7 +133,8 @@ func setup_bittaran(model: Node3D, moving_body: AnimatableBody3D) -> bool:
         fx_durations[id] = 0.145
     installed = true
     sync_bittaran_parts()
-    return true
+    _calibrate_front_rear_lock_midpoint()
+    return lock_halfway_initialized
 
 func _material_records(root: Node3D, descend: bool) -> Array[Dictionary]:
     var records: Array[Dictionary] = []
@@ -205,27 +213,73 @@ func _camera_lock_part_volume_distance(origin: Vector3,
         return INF
     return super._camera_lock_part_volume_distance(origin, destination, id)
 
-func _nearest_lockable_shin(origin: Vector3, body_center: Vector3) -> String:
-    # AUTO's two-ray test can miss all four articulated shins. Never fall
-    # through to the BODY just because the legacy empty ID also means BODY.
-    # Match the actual torso-centered parallel rays when neither ray
-    # intersects a shin. Do not fall back to the boss's unrelated root.
-    var torso_center: Vector3 = (
-        get_body_hit_aabb().get_center() if installed else body_center)
-    var line: Vector3 = torso_center - origin
-    var length_sq: float = maxf(line.length_squared(), 0.00001)
-    var best_score: float = INF
-    var best_id: String = "leg_fl"
+## The mesh BODY center is used for the actual two horizontal lock
+## lines. It does NOT imply an unbiased front-vs-rear selection: the former
+## first-entry intersection ranking always preferred the nearer shin.
+## Calibrate a separate, geometrically exact front/rear halfway plane.
+func _calibrate_front_rear_lock_midpoint() -> void:
+    lock_halfway_initialized = false
+    if boss_model == null or not installed:
+        return
     for id in LEG_IDS:
-        var aim: Vector3 = get_part_aim_world(id)
-        var fraction: float = clampf((aim - origin).dot(line) / length_sq,
-            0.0, 1.0)
-        var nearest: Vector3 = origin + line * fraction
-        var score: float = aim.distance_squared_to(nearest)
+        if not shin_selection_standing.has(id):
+            return
+    var fl: Vector3 = get_shin_selection_box("leg_fl").get_center()
+    var fr: Vector3 = get_shin_selection_box("leg_fr").get_center()
+    var rl: Vector3 = get_shin_selection_box("leg_rl").get_center()
+    var rr: Vector3 = get_shin_selection_box("leg_rr").get_center()
+    lock_front_mid_local = boss_model.to_local((fl + fr) * 0.5)
+    lock_rear_mid_local = boss_model.to_local((rl + rr) * 0.5)
+    var axis: Vector2 = Vector2(
+        lock_front_mid_local.x - lock_rear_mid_local.x,
+        lock_front_mid_local.z - lock_rear_mid_local.z)
+    lock_halfway_initialized = axis.length_squared() > 0.0001
+    if not lock_halfway_initialized:
+        push_error("Bittaran: front/rear shin midpoint axis is degenerate")
+
+
+func get_front_rear_lock_midpoint_world() -> Vector3:
+    if boss_model == null or not lock_halfway_initialized:
+        return Vector3.ZERO
+    return boss_model.to_global(
+        (lock_front_mid_local + lock_rear_mid_local) * 0.5)
+
+
+func _lockable_shin_pair(origin: Vector3) -> Array[String]:
+    ## Exactly one shared boundary halfway between *both* front shins
+    ## and *both* rear shins. Crossing it from either direction is equally
+    ## immediate. Local calibration makes it insensitive to gait or yaw.
+    if boss_model == null or not lock_halfway_initialized:
+        return ["leg_fl", "leg_fr"]
+    var local_actor: Vector3 = boss_model.to_local(origin)
+    var middle: Vector3 = (
+        lock_front_mid_local + lock_rear_mid_local) * 0.5
+    var front_axis: Vector2 = Vector2(
+        lock_front_mid_local.x - lock_rear_mid_local.x,
+        lock_front_mid_local.z - lock_rear_mid_local.z)
+    var relative: Vector2 = Vector2(
+        local_actor.x - middle.x, local_actor.z - middle.z)
+    if relative.dot(front_axis) >= 0.0:
+        return ["leg_fl", "leg_fr"]
+    return ["leg_rl", "leg_rr"]
+
+
+func _nearest_lockable_shin(origin: Vector3, _body_center: Vector3) -> String:
+    ## After the two-line test misses, keep the same front/rear half-plane;
+    ## selecting a deep back leg due to depth/Y would skew the switch point.
+    var pair: Array[String] = _lockable_shin_pair(origin)
+    var best_id: String = pair[0]
+    var best_score: float = INF
+    for id in pair:
+        var box: AABB = get_shin_selection_box(id)
+        var aim: Vector3 = box.get_center()
+        var delta: Vector2 = Vector2(aim.x - origin.x, aim.z - origin.z)
+        var score: float = delta.length_squared()
         if score < best_score:
             best_score = score
             best_id = id
     return best_id
+
 
 ## The Bittaran-only two-line lock scan aims at the actual BODY mesh AABB
 ## center, not the target Node3D's pivot/root. Only X/Z of that mesh center
@@ -250,7 +304,9 @@ func select_actor_parallel_lines_part(origin: Vector3,
         origin, body_center)
     var best_score: float = INF
     var result: String = ""
-    for id in LEG_IDS:
+    # Compare only the two shins on the front/rear side of the *midpoint*.
+    # The old all-four min-ray-entry distance biased near/far transition.
+    for id in _lockable_shin_pair(origin):
         var score: float = _parallel_lock_part_distance(segments, id)
         if score < best_score:
             best_score = score
