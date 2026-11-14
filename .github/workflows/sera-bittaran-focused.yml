@@ -11,6 +11,8 @@ on:
       - 'scenes/bittaran_battle.tscn'
       - 'tools/v345_bittaran_*.py'
       - 'tools/v345_bittaran_*.gd'
+      - 'tools/v346_bittaran_*.gd'
+      - 'tools/v346_bittaran_*.py'
       - 'tools/rebuild_bittaran_data.py'
       - 'scripts/command_nexus.gd'
       - 'project.godot'
@@ -25,6 +27,7 @@ jobs:
       - name: Verify Bittaran authored source and Android model snapshot
         run: |
           python3 tools/v345_bittaran_self_check.py
+          python3 tools/v346_bittaran_ik_self_check.py
           python3 tools/sera_model_build.py --check
       - name: Install Godot 4.7.2
         run: |
@@ -48,3 +51,14 @@ jobs:
             exit 1
           fi
           grep -q 'GODOT_V345_BITTARAN_PASS' "$log"
+      - name: Test grounded four-leg IK and no-sliding contacts
+        run: |
+          set -euo pipefail
+          log="$RUNNER_TEMP/bittaran-ik.log"
+          "$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" --headless --path . --script tools/v346_bittaran_ik_runtime_check.gd > "$log" 2>&1
+          cat "$log"
+          if grep -E 'SCRIPT ERROR|Parse Error|Compile Error|ERROR: Failed to load|Invalid call|V346_BITTARAN_IK_FAIL' "$log"; then
+            echo "::error::Bittaran IK/Godot reported an error"
+            exit 1
+          fi
+          grep -q 'GODOT_V346_BITTARAN_IK_PASS' "$log"
