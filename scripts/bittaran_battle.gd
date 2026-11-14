@@ -22,7 +22,8 @@ const HEAD_TRACK_STANDUP_START_FRACTION: float = 0.70
 const HEAD_TRACK_RISE_FOLLOW_WEIGHT: float = 0.60
 const HEAD_TRACK_RECOVERY_DEGREES_PER_SECOND: float = 48.0
 ## Real mesh-to-mesh penetration cap applies while standing AND recovering.
-const HEAD_TRACK_COMPONENT_OVERLAP_TOLERANCE_M3: float = 0.008
+# Allow modest visible overlap instead of forcing a deep knee fold.
+const HEAD_TRACK_COMPONENT_OVERLAP_TOLERANCE_M3: float = 0.023
 const HEAD_TRACK_RECOVERY_SWEEP_STEPS: int = 24
 const HEAD_LEG_CLEARANCE_METERS: float = 0.05
 const HEAD_LEG_BASELINE_AABB_TOLERANCE_M3: float = 0.035

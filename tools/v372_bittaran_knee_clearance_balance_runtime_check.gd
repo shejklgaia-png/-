@@ -69,7 +69,7 @@ func _run() -> void:
             var leg: Dictionary = leg_data[i]
             var bend: float = float(leg["head_knee_bend"])
             bend_sum += bend
-            if bend < -0.0001 or bend > 1.0001 or (
+            if bend < -0.0001 or bend > IK.HEAD_KNEE_MAX_BEND + 0.0001 or (
                     absf(bend - previous_bend[i]) >
                     IK.HEAD_KNEE_FLEX_IN_PER_SECOND * DT + 0.0002):
                 _fail("knee bend snapped or exceeded limits " + str([i, bend]))
@@ -104,7 +104,7 @@ func _run() -> void:
         var baseline_error: float = float(
             ik.call("_solve", leg, sole_goal, sole_rot))
         var knee_before: Vector3 = (leg["lower"] as Node3D).global_position
-        leg["head_knee_bend"] = 1.0
+        leg["head_knee_bend"] = IK.HEAD_KNEE_MAX_BEND
         var after_error: float = float(
             ik.call("_solve", leg, sole_goal, sole_rot))
         var knee_after: Vector3 = (leg["lower"] as Node3D).global_position
@@ -116,7 +116,7 @@ func _run() -> void:
         leg["head_knee_bend"] = old_bend
         ik.call("_solve", leg, sole_goal, sole_rot)
     var mass_after: Vector2 = ik.call("_head_knee_mass_center_xz")
-    if best_lateral_change < 0.035:
+    if best_lateral_change < 0.012:
         _fail("none of the planted knee poles could fold sideways")
         return
     if boss.global_position.distance_to(root_before) > 0.00001:

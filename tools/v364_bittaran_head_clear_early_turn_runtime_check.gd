@@ -7,7 +7,8 @@ const LEG_IDS: Array[String] = ["leg_fl", "leg_fr", "leg_rl", "leg_rr"]
 const ONE_LEG: Array[String] = ["leg_fl"]
 const MAX_TURN_DEGREES_PER_SECOND: float = 34.0
 const HEAD_RECOVERY_DEGREES_PER_SECOND: float = 48.0
-const MAX_EXTRA_OVERLAP_M3: float = 0.0095
+# v373 permits mild head/arm intersections in preference to overfolding.
+const MAX_EXTRA_OVERLAP_M3: float = 0.0245
 
 func _initialize() -> void:
     call_deferred("_run")

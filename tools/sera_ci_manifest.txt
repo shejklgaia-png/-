@@ -338,3 +338,4 @@ gd tools/v369_bittaran_standup_timing_posture_runtime_check.gd
 gd tools/v370_bittaran_turn_head_stride_runtime_check.gd
 gd tools/v371_bittaran_gentle_head_recovery_runtime_check.gd
 gd tools/v372_bittaran_knee_clearance_balance_runtime_check.gd
+gd tools/v373_bittaran_minimal_knee_fold_runtime_check.gd

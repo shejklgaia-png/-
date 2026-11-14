@@ -19,15 +19,19 @@ const RECOVERY_FOOT_CATCHUP_THRESHOLD_METERS: float = 0.16
 const MAX_TELEPORT_METERS: float = 1.50
 const MAX_YAW_SNAP_RADIANS: float = 1.4
 const IK_REACH_MARGIN_METERS: float = 0.002
-# Adaptive knee-pole clearance: bend sideways, never move the planted sole.
-# Select a safe bend at 12Hz and interpolate its pose every physics frame.
+# Minimal knee-fold: a little head/arm overlap is preferable to visibly
+# contorting the whole leg. Leave planted soles and swing cadence intact.
 const HEAD_KNEE_SCAN_SECONDS: float = 0.08
 const HEAD_KNEE_OUTWARD_DOWN_BIAS: float = 0.28
 const HEAD_KNEE_PROXIMITY_METERS: float = 0.38
-const HEAD_KNEE_FLEX_IN_PER_SECOND: float = 2.6
-const HEAD_KNEE_FLEX_OUT_PER_SECOND: float = 1.35
-const HEAD_KNEE_MIN_BENEFIT_M3: float = 0.0012
-const HEAD_KNEE_AUTHORED_OVERLAP_M3: float = 0.012
+const HEAD_KNEE_MAX_BEND: float = 0.30
+const HEAD_KNEE_FLEX_IN_PER_SECOND: float = 1.50
+const HEAD_KNEE_FLEX_OUT_PER_SECOND: float = 2.00
+const HEAD_KNEE_MIN_BENEFIT_M3: float = 0.0040
+# A few centimeters of mesh overlap are visually acceptable.
+const HEAD_KNEE_ALLOWED_NEW_OVERLAP_M3: float = 0.032
+const HEAD_KNEE_AUTHORED_OVERLAP_M3: float = 0.055
+const HEAD_KNEE_BEND_PENALTY_M3: float = 0.010
 # A heavy chassis dominates the approximate center of mass, while four
 # independent knee/leg assemblies each contribute 4.5% of the total.
 const HEAD_KNEE_BODY_MASS: float = 0.82
@@ -375,7 +379,7 @@ func _solve(leg: Dictionary, sole_goal: Vector3, desired_rotation: Quaternion) -
     # pivoting at the hip and preserving both limb lengths and the sole.
     if break_elapsed < 0.0 and windup_elapsed < 0.0:
         var sideways_bend: float = clampf(
-            float(leg.get("head_knee_bend", 0.0)), 0.0, 1.0)
+            float(leg.get("head_knee_bend", 0.0)), 0.0, HEAD_KNEE_MAX_BEND)
         if sideways_bend > 0.00001 and chassis_bone != null:
             var lateral: Vector3 = actor.global_basis.x.normalized()
             var hip_offset: Vector3 = hip - chassis_bone.global_position
@@ -978,7 +982,8 @@ func _head_knee_collision_cost(id: String, neutral_head: AABB,
             total += _head_knee_overlap_volume(head_box, piece)
         # Limit newly caused intersections, but ALSO gently penalize
         # deep neutral contacts left after the torso swept over its feet.
-        var extra: float = maxf(0.0, total - baseline - 0.008)
+        var extra: float = maxf(0.0, total - baseline
+            - HEAD_KNEE_ALLOWED_NEW_OVERLAP_M3)
         var actual: float = maxf(0.0,
             total - HEAD_KNEE_AUTHORED_OVERLAP_M3) * 0.20
         worst = maxf(worst, extra + actual)
@@ -1015,7 +1020,8 @@ func _scan_head_knee_targets(neutral_head: AABB,
             LEG_PART_IDS[index], neutral_head, sweep_heads)
         var best_cost: float = base_cost
         var best: float = 0.0
-        for candidate in [0.35, 0.70, 1.0]:
+        # Try small bends first; maximum is 30% of the old full fold.
+        for candidate in [0.075, 0.15, 0.225, HEAD_KNEE_MAX_BEND]:
             leg["head_knee_bend"] = float(candidate)
             _solve(leg, sole_goal, sole_rotation)
             var collision_cost: float = _head_knee_collision_cost(
@@ -1025,7 +1031,7 @@ func _scan_head_knee_targets(neutral_head: AABB,
                 mass.distance_to(center) - initial_mass.distance_to(center))
             var score: float = (collision_cost
                 + added_imbalance * HEAD_KNEE_BALANCE_PENALTY
-                + float(candidate) * 0.0005)
+                + float(candidate) * HEAD_KNEE_BEND_PENALTY_M3)
             if score < best_cost - 0.00001:
                 best_cost = score
                 best = float(candidate)
@@ -1062,7 +1068,8 @@ func steer_knees_for_head(delta: float, desired_head_yaw: float) -> void:
     var active: bool = false
     for leg in legs:
         var before: float = float(leg["head_knee_bend"])
-        var target: float = float(leg["head_knee_target"])
+        var target: float = clampf(
+            float(leg["head_knee_target"]), 0.0, HEAD_KNEE_MAX_BEND)
         var rate: float = (HEAD_KNEE_FLEX_IN_PER_SECOND
             if target > before else HEAD_KNEE_FLEX_OUT_PER_SECOND)
         var after: float = move_toward(before, target,

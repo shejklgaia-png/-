@@ -5,7 +5,8 @@ const AI = preload("res://scripts/bittaran_ai.gd")
 const IK = preload("res://scripts/bittaran_foot_ik.gd")
 const DT: float = 1.0 / 60.0
 const IDS: Array[String] = ["leg_fl", "leg_fr", "leg_rl", "leg_rr"]
-const MAX_EXTRA_COMPONENT_OVERLAP: float = 0.009
+# v373: permit minor clipping rather than distorting the knee.
+const MAX_EXTRA_COMPONENT_OVERLAP: float = 0.0245
 
 func _initialize() -> void:
     call_deferred("_run")
