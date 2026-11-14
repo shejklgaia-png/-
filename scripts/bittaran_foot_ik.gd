@@ -127,12 +127,127 @@ var break_chassis_base_pose: Quaternion = Quaternion.IDENTITY
 var break_chassis_pitch_radians: float = 0.0
 var head_knee_scan_elapsed: float = HEAD_KNEE_SCAN_SECONDS
 var head_knee_active: bool = false
+var attack_pose: Dictionary = {}
 
 func set_collision_parts(parts: Node3D) -> void:
     # Use the SAME authored collider AABBs that sync_bittaran_parts() places
     # on target_collider. Head/leg do not self-resolve inside one physics body.
     collision_parts = parts
 
+
+## The attack director is the sole writer of this per-frame, deterministic pose.
+## IK remains the only owner of foot goals, joint lengths and knee poles.
+func set_attack_pose(pose: Dictionary) -> void:
+    if attack_pose.is_empty() and not pose.is_empty() and legs.size() == 4:
+        # End the previous gait in its actual contact position; attack
+        # telegraphs begin from the visible, not the cached old, sole.
+        for leg in legs:
+            if bool(leg["stepping"]):
+                var world: Vector3 = leg["last_goal"]
+                world.y = FLOOR_Y
+                leg["anchor"] = world
+                leg["stepping"] = false
+        stepping_pair = -1
+        cooldown = STEP_COOLDOWN_SECONDS
+    attack_pose = pose.duplicate()
+
+func clear_attack_pose() -> void:
+    attack_pose.clear()
+
+func available_attack_feet() -> Dictionary:
+    var result: Dictionary = {}
+    if not ready:
+        return result
+    for i in range(legs.size()):
+        result[LEG_PART_IDS[i]] = legs[i]["anchor"]
+    return result
+
+func attack_contact_world() -> Vector3:
+    if attack_pose.is_empty():
+        return Vector3.ZERO
+    var i: int = LEG_PART_IDS.find(str(attack_pose.get("id", "")))
+    if i < 0 or i >= legs.size():
+        return Vector3.ZERO
+    return legs[i]["last_goal"]
+
+func _attack_weight() -> float:
+    if attack_pose.is_empty():
+        return 0.0
+    var t: float = float(attack_pose.get("time", 0.0))
+    var windup: float = float(attack_pose.get("windup", 1.0))
+    var strike: float = float(attack_pose.get("strike", 0.2))
+    var recovery: float = float(attack_pose.get("recovery", 0.5))
+    var incoming: float = _cubic(t / maxf(windup, 0.001))
+    var outgoing: float = 1.0 - _cubic(
+        (t - windup - strike) / maxf(recovery, 0.001))
+    return incoming * outgoing
+
+func _apply_attack_chassis_pose() -> void:
+    if attack_pose.is_empty() or actor == null or chassis_bone == null:
+        return
+    var kind: String = str(attack_pose.get("kind", ""))
+    var weight: float = _attack_weight()
+    var scale_y: float = maxf(
+        absf(actor.get_parent().global_basis.get_scale().y), 0.001)
+    if kind == "stomp":
+        # Plant the other three legs while the striking foot rises.
+        actor.position.y -= 0.08 * weight / scale_y
+    elif kind == "kick":
+        # The sole stays in place during the full one-second knee tuck.
+        actor.position.y -= 0.34 * weight / scale_y
+    elif kind == "sweep":
+        var i: int = LEG_PART_IDS.find(str(attack_pose.get("id", "")))
+        if i < 0:
+            return
+        var shoulder: Node3D = legs[i]["upper"]
+        var side_local: Vector3 = chassis_bone.to_local(shoulder.global_position)
+        var sign: float = 1.0 if side_local.x >= 0.0 else -1.0
+        # Roll toward the active shoulder; opposite legs support the chassis.
+        chassis_bone.quaternion = (chassis_bone.quaternion *
+            Quaternion(Vector3.BACK, -sign * deg_to_rad(67.0) * weight)).normalized()
+        # An additional vertical shift brings the attacking shoulder down
+        # to ground height. It is eased out with the same pose envelope.
+        var shoulder_clearance: float = maxf(
+            0.0, shoulder.global_position.y - FLOOR_Y - 0.12)
+        actor.position.y -= minf(shoulder_clearance, 1.85) * weight / scale_y
+
+func _attack_goal(leg: Dictionary) -> Vector3:
+    var goal: Vector3 = leg["anchor"]
+    if attack_pose.is_empty() or str(attack_pose.get("id", "")) != (
+            LEG_PART_IDS[legs.find(leg)]):
+        return goal
+    var t: float = float(attack_pose.get("time", 0.0))
+    var windup: float = float(attack_pose.get("windup", 1.0))
+    var strike: float = float(attack_pose.get("strike", 0.2))
+    var recovery: float = float(attack_pose.get("recovery", 0.5))
+    var kind: String = str(attack_pose.get("kind", ""))
+    var attack_progress: float = _cubic(
+        (t - windup) / maxf(strike, 0.001))
+    var finish: float = 1.0 - _cubic(
+        (t - windup - strike) / maxf(recovery, 0.001))
+    var outward: Vector3 = goal - (
+        leg["upper"] as Node3D).global_position
+    outward.y = 0.0
+    if outward.length_squared() < 0.0001:
+        outward = actor.global_basis.x
+    outward = outward.normalized()
+    if kind == "stomp":
+        var height: float = 1.05 * _cubic(t / maxf(windup, 0.001))
+        if t > windup:
+            height = 1.05 * (1.0 - attack_progress)
+        goal.y += height
+    elif kind == "kick":
+        if t > windup:
+            goal += outward * 1.65 * attack_progress * finish
+    elif kind == "sweep":
+        var preparation: float = _cubic(t / maxf(windup, 0.001))
+        var tangent: Vector3 = Vector3.UP.cross(outward).normalized()
+        var whip: float = sin(PI * attack_progress)
+        goal += (outward * (0.65 + whip * 0.75)
+            + tangent * lerpf(-1.50, 1.50, attack_progress)) * (
+            preparation * finish)
+        goal.y = FLOOR_Y + 0.025 * preparation * finish
+    return goal
 
 func setup(model: Node3D) -> bool:
     actor = model
@@ -254,6 +369,7 @@ func reset() -> void:
     ground_correction_world = 0.0
     head_knee_scan_elapsed = HEAD_KNEE_SCAN_SECONDS
     head_knee_active = false
+    attack_pose.clear()
     front_anchor_rest.clear()
     front_extension_direction.clear()
     break_recover_start = LEG_BREAK_RECOVER_START_SECONDS
@@ -393,6 +509,19 @@ func _solve(leg: Dictionary, sole_goal: Vector3, desired_rotation: Quaternion) -
             escape -= direction * escape.dot(direction)
             if escape.length_squared() > 0.00001:
                 pole = pole.slerp(escape.normalized(), sideways_bend).normalized()
+    # The planted-foot kick winds the knee inward without sliding the sole.
+    if not attack_pose.is_empty() and str(attack_pose.get("kind", "")) == "kick":
+        var active_index: int = LEG_PART_IDS.find(
+            str(attack_pose.get("id", "")))
+        if active_index >= 0 and leg["upper"] == legs[active_index]["upper"]:
+            var inward: Vector3 = -actor.global_basis.x
+            var offset: Vector3 = hip - actor.global_position
+            if offset.dot(actor.global_basis.x) < 0.0:
+                inward = actor.global_basis.x
+            inward -= direction * inward.dot(direction)
+            if inward.length_squared() > 0.00001:
+                pole = pole.slerp(inward.normalized(),
+                    0.70 * _attack_weight()).normalized()
     var knee_target: Vector3 = hip + direction * along + pole * sideways
     var end_target: Vector3 = hip + direction * distance
     _align(upper, knee - hip, knee_target - hip)
@@ -787,12 +916,15 @@ func advance_ik(delta: float, motion: String) -> void:
     last_actor_yaw = actor.global_rotation.y
     cooldown = maxf(0.0, cooldown - delta)
     _advance_leg_break(delta)
+    var attacking: bool = not attack_pose.is_empty() and not break_reaction_active()
+    if attacking:
+        _apply_attack_chassis_pose()
     # During the physical stand-up, planted feet keep their world-space
     # anchors as the chassis turns toward SERA. Locomotion clips already
     # play on the rig, but the IK soles must NOT chase the torso until
     # the head/torso have completely risen and their support is released.
     var upright: bool = not break_reaction_active()
-    var active: bool = (motion == "Approach" or motion == "Turn") and upright
+    var active: bool = (motion == "Approach" or motion == "Turn") and upright and not attacking
     if active and stepping_pair == -1 and cooldown <= 0.0:
         var a: float = _pair_error(0, motion == "Approach")
         var b: float = _pair_error(1, motion == "Approach")
@@ -822,6 +954,8 @@ func advance_ik(delta: float, motion: String) -> void:
     var done: bool = true
     for leg in legs:
         var position: Vector3 = leg["anchor"]
+        if attacking:
+            position = _attack_goal(leg)
         var rotation: Quaternion = leg["anchor_rotation"]
         if bool(leg["stepping"]):
             leg["swing_elapsed"] = minf(STEP_DURATION_SECONDS,
@@ -879,7 +1013,7 @@ func advance_ik(delta: float, motion: String) -> void:
         var world_sole: Vector3 = (
             leg["foot"] as Node3D).to_global(leg["sole_local"])
         min_planted_height = minf(min_planted_height, world_sole.y)
-    if planted_count >= 2 and min_planted_height != INF             and absf(min_planted_height) > GROUND_HOVER_THRESHOLD_METERS:
+    if not attacking and planted_count >= 2 and min_planted_height != INF             and absf(min_planted_height) > GROUND_HOVER_THRESHOLD_METERS:
         var correction: float = clampf(-min_planted_height,
             -GROUND_CORRECTION_MAX_PER_TICK_METERS,
             GROUND_CORRECTION_MAX_PER_TICK_METERS)
