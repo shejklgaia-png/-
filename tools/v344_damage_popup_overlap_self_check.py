@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""v344: overlapping projected damage labels get a small frozen offset."""
+"""v344: very close projected damage numbers offset but still slightly overlap."""
 from pathlib import Path
 root=Path(__file__).resolve().parents[1]
 m=(root/"scripts/main.gd").read_text(encoding="utf-8")
@@ -30,32 +30,35 @@ assert "static func choose_offset(" in space
 assert "static func overlap_ratio(" in space
 assert "APPROX_TEXT_WIDTH: float = 64.0" in space
 assert "APPROX_TEXT_HEIGHT: float = 40.0" in space
+assert "MAX_ACCEPTABLE_OVERLAP: float = 0.29" in space
 
-# Replicate the exact scoring to validate the intended soft overlap rather
-# than relying on vague "spread" offsets or clipping all text apart.
-options=((0,0),(44,-18),(-44,-18),(44,18),(-44,18),(0,-32),(0,32),
+choices=((0,0),(44,-18),(-44,-18),(44,18),(-44,18),(0,-32),(0,32),
          (64,-8),(-64,-8),(64,24),(-64,24),(0,-53),(0,53))
 def overlap(a,b):
     dx=abs(a[0]-b[0]);dy=abs(a[1]-b[1])
     return max(0,64-dx)/64*max(0,40-dy)/40
 def choose(base,occupied):
-    if not occupied:return (0,0)
-    return min(options,key=lambda v:
-        sum(overlap((base[0]+v[0],base[1]+v[1]),o)*120 for o in occupied)
-        +abs(v[0])*.12+abs(v[1])*.5)
+    if all(overlap(base,p)<=.29 for p in occupied):return (0,0)
+    best=None
+    for v in choices[1:]:
+        p=(base[0]+v[0],base[1]+v[1])
+        values=[overlap(p,o) for o in occupied]
+        if max(values)<=.29:return v
+        score=sum(values)*100+(v[0]**2+v[1]**2)**.5*.2
+        if best is None or score<best[0]:best=(score,v)
+    return best[1]
 base=(220,350)
 assert choose(base,[])==(0,0)
-chosen=choose(base,[base])
-assert chosen!=(0,0)
-shifted=(base[0]+chosen[0],base[1]+chosen[1])
-assert 0.01<overlap(base,shifted)<.38
-assert max(abs(chosen[0]),abs(chosen[1]))<=64
+v=choose(base,[base])
+assert v==(44,-18),v
+p=(base[0]+v[0],base[1]+v[1])
+assert .10<overlap(base,p)<.29
 assert choose((440,600),[base])==(0,0)
 used=[base]
-for _ in range(5):
-    v=choose(base,used)
-    p=(base[0]+v[0],base[1]+v[1])
-    assert abs(v[0])<=64 and abs(v[1])<=53
-    used.append(p)
+for i in range(5):
+    off=choose(base,used)
+    position=(base[0]+off[0],base[1]+off[1])
+    assert abs(off[0])<=64 and abs(off[1])<=53
+    used.append(position)
 assert len(used)==6
-print("PASS v344 gentle popup spacing, stable per-hit offsets and 6 visible hits")
+print("PASS v344 gentle overlapping popup offsets, stable history and six hit numbers")
