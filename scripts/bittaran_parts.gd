@@ -23,6 +23,10 @@ const HIT_EMISSION: Color = Color("#c52f43")
 const LOCK_VOLUME_EXPANSION: float = 1.15
 const MIN_SHIN_BOX: Vector3 = Vector3(0.52, 0.65, 0.52)
 const MIN_BODY_BOX: Vector3 = Vector3(0.65, 0.55, 0.65)
+# "body" is an explicit MANUAL selection. The legacy "" ID remains the
+# AUTO/core fallback, so old SERA damage, saves and HUD still work.
+const BODY_MANUAL_LOCK_ID: String = "body"
+const BODY_MAX_HP: float = 500.0
 
 var boss_model: Node3D
 var collision_body: AnimatableBody3D
@@ -33,6 +37,7 @@ var fx_meshes: Dictionary = {}
 var fx_timers: Dictionary = {}
 var fx_durations: Dictionary = {}
 var installed: bool = false
+var down_lock_enabled: bool = false
 
 func _ready() -> void:
     super._ready()
@@ -41,6 +46,7 @@ func setup_bittaran(model: Node3D, moving_body: AnimatableBody3D) -> bool:
     boss_model = model
     collision_body = moving_body
     installed = false
+    down_lock_enabled = false
     if model == null or moving_body == null or not model.is_inside_tree():
         return false
     bone_nodes.clear()
@@ -146,7 +152,104 @@ func _append_mesh_bounds(node: Node3D, bounds: Array[Vector3],
         elif descend and child is Node3D and not child is Area3D:
             _append_mesh_bounds(child, bounds, true)
 
+func _normalize_boss_part(id: String) -> String:
+    return "" if id == BODY_MANUAL_LOCK_ID else id
+
+func set_down_lock_enabled(enabled: bool) -> void:
+    # This is the actual IK fall/skid animation, not generic stagger or the
+    # training-room part-break pause. Only a genuine collapse opens weakpoints.
+    down_lock_enabled = enabled
+
+func can_lock_boss_part(id: String) -> bool:
+    if id == "head" or id.is_empty() or id == BODY_MANUAL_LOCK_ID:
+        return down_lock_enabled
+    return id in LEG_IDS
+
+func is_targetable(id: String) -> bool:
+    if id == "head" or id == BODY_MANUAL_LOCK_ID:
+        return down_lock_enabled
+    if id.is_empty():
+        return false # The legacy BODY has no ordinary part gauge.
+    return super.is_targetable(id)
+
+func has_part(id: String) -> bool:
+    if id == BODY_MANUAL_LOCK_ID:
+        return down_lock_enabled
+    return super.has_part(id)
+
+func get_visible_part_ids(origin: Vector3, core_box: AABB) -> Array[String]:
+    var ids: Array[String] = super.get_visible_part_ids(origin, core_box)
+    if down_lock_enabled:
+        ids.append(BODY_MANUAL_LOCK_ID)
+    return ids
+
+func _camera_lock_body_volume_distance(origin: Vector3,
+        destination: Vector3) -> float:
+    if not down_lock_enabled:
+        return INF
+    return super._camera_lock_body_volume_distance(origin, destination)
+
+func _camera_lock_part_volume_distance(origin: Vector3,
+        destination: Vector3, id: String) -> float:
+    if id == BODY_MANUAL_LOCK_ID:
+        return _camera_lock_body_volume_distance(origin, destination)
+    if not is_targetable(id):
+        return INF
+    return super._camera_lock_part_volume_distance(origin, destination, id)
+
+func _nearest_lockable_shin(origin: Vector3, body_center: Vector3) -> String:
+    # AUTO's two-ray test can miss all four articulated shins. Never fall
+    # through to the BODY just because the legacy empty ID also means BODY.
+    var line: Vector3 = body_center - origin
+    var length_sq: float = maxf(line.length_squared(), 0.00001)
+    var best_score: float = INF
+    var best_id: String = "leg_fl"
+    for id in LEG_IDS:
+        var aim: Vector3 = get_part_aim_world(id)
+        var fraction: float = clampf((aim - origin).dot(line) / length_sq,
+            0.0, 1.0)
+        var nearest: Vector3 = origin + line * fraction
+        var score: float = aim.distance_squared_to(nearest)
+        if score < best_score:
+            best_score = score
+            best_id = id
+    return best_id
+
+func select_actor_parallel_lines_part(origin: Vector3,
+        body_center: Vector3) -> String:
+    if down_lock_enabled:
+        return super.select_actor_parallel_lines_part(origin, body_center)
+    var segments: PackedVector3Array = get_actor_parallel_lock_segments(
+        origin, body_center)
+    var best_score: float = INF
+    var result: String = ""
+    for id in LEG_IDS:
+        var score: float = _parallel_lock_part_distance(segments, id)
+        if score < best_score:
+            best_score = score
+            result = id
+    if not result.is_empty():
+        return result
+    return _nearest_lockable_shin(origin, body_center)
+
+func select_actor_center_line_part(origin: Vector3,
+        body_center: Vector3) -> String:
+    if down_lock_enabled:
+        return super.select_actor_center_line_part(origin, body_center)
+    return _nearest_lockable_shin(origin, body_center)
+
+func select_camera_front_part(view_camera: Camera3D,
+        current: String) -> String:
+    var result: String = super.select_camera_front_part(view_camera, current)
+    if not down_lock_enabled and (result.is_empty() or result == "head"
+            or result == BODY_MANUAL_LOCK_ID):
+        return _nearest_lockable_shin(
+            view_camera.global_position if view_camera != null
+            else global_position + Vector3(0, 0, 10), get_body_hit_aabb().get_center())
+    return result
+
 func _bounds(id: String) -> AABB:
+    id = _normalize_boss_part(id)
     if not installed or not bone_nodes.has(id):
         return AABB(Vector3(-0.4, 0.0, -0.4), Vector3(0.8, 0.8, 0.8))
     var points: Array[Vector3] = []
@@ -170,21 +273,25 @@ func get_body_hit_aabb() -> AABB:
     return _bounds("")
 
 func get_part_center(id: String) -> Vector3:
+    id = _normalize_boss_part(id)
     if not installed or not bone_nodes.has(id):
         return super.get_part_center(id)
     return _bounds(id).get_center()
 
 func get_part_aim_world(id: String) -> Vector3:
+    id = _normalize_boss_part(id)
     if not installed or not bone_nodes.has(id):
         return super.get_part_aim_world(id)
     return _bounds(id).get_center()
 
 func get_part_local_aim(id: String) -> Vector3:
+    id = _normalize_boss_part(id)
     if not installed or not bone_nodes.has(id):
         return super.get_part_local_aim(id)
     return _bounds(id).get_center() - boss_model.get_parent().global_position
 
 func get_part_aabb(id: String) -> AABB:
+    id = _normalize_boss_part(id)
     if not installed or not bone_nodes.has(id):
         return super.get_part_aabb(id)
     return _bounds(id)
@@ -216,7 +323,27 @@ func sync_bittaran_parts() -> void:
         physical.set_deferred("global_transform",
             Transform3D(Basis.IDENTITY, bounds.get_center()))
 
+func get_part_name(id: String) -> String:
+    return "BODY" if id == BODY_MANUAL_LOCK_ID else super.get_part_name(id)
+
+func get_part_integrity(id: String) -> float:
+    if id == BODY_MANUAL_LOCK_ID:
+        var battle: Node = get_parent().get_parent().get_parent()
+        return float(battle.get("target_hp")) if battle != null else 0.0
+    return super.get_part_integrity(id)
+
+func get_part_max_integrity(id: String) -> float:
+    return BODY_MAX_HP if id == BODY_MANUAL_LOCK_ID else super.get_part_max_integrity(id)
+
+func get_part_defense(id: String) -> float:
+    return super.get_part_defense("") if id == BODY_MANUAL_LOCK_ID else super.get_part_defense(id)
+
+func apply_part_hit(id: String, raw_attack: float, raw_break: float) -> Dictionary:
+    # Explicit manual BODY is a core hit, not a sixth breakable gauge.
+    return super.apply_part_hit(_normalize_boss_part(id), raw_attack, raw_break)
+
 func trigger_part_hit_fx(id: String, duration: float) -> void:
+    id = _normalize_boss_part(id)
     if not fx_meshes.has(id):
         return
     if not id.is_empty():
@@ -241,6 +368,7 @@ func advance_part_hit_fx(delta: float) -> void:
                 float(record["energy"]), 0.52, power)
 
 func reset_parts() -> void:
+    down_lock_enabled = false
     super.reset_parts()
     for id in fx_timers:
         fx_timers[id] = 0.0
