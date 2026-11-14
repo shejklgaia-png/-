@@ -235,10 +235,32 @@ func _attack_goal(leg: Dictionary) -> Vector3:
         outward = actor.global_basis.x
     outward = outward.normalized()
     if kind == "stomp":
-        var height: float = 1.05 * _cubic(t / maxf(windup, 0.001))
+        var lift_ratio: float = _cubic(t / maxf(windup, 0.001))
+        var height: float = 1.05 * lift_ratio
         if t > windup:
             height = 1.05 * (1.0 - attack_progress)
         goal.y += height
+        # Snapshot the player's ground position when the foot starts to
+        # rise. The follow-through is physical, not a teleport, and is
+        # capped to the limb's comfortable range.
+        var aim: Vector3 = attack_pose.get("stomp_aim", Vector3.INF)
+        if aim != Vector3.INF:
+            var reach: Vector3 = aim - (leg["anchor"] as Vector3)
+            reach.y = 0.0
+            if reach.length() > 1.90:
+                reach = reach.normalized() * 1.90
+            var slide: float = _cubic(clampf(
+                (t / maxf(windup, 0.001) - 0.25) / 0.75, 0.0, 1.0))
+            var return_ratio: float = 1.0 - _cubic(
+                (t - windup - strike) / maxf(recovery, 0.001))
+            goal += reach * slide * return_ratio
+            # The raised foot retracts from impact instead of scraping
+            # back across the ground during the short return step.
+            if t > windup + strike:
+                var recovery_t: float = clampf(
+                    (t - windup - strike) / maxf(recovery, 0.001),
+                    0.0, 1.0)
+                goal.y += 0.18 * sin(PI * recovery_t)
     elif kind == "kick":
         if t > windup:
             goal += outward * 1.65 * attack_progress * finish
