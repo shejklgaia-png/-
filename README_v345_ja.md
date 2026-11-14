@@ -16,3 +16,13 @@
 - `models/manifest.json` のbossesで正本を定義。`tools/sera_model_build.py` がAndroid向け `assets/bittaran_data.gd` を再生成・整合性確認します。
 - `tools/v345_bittaran_self_check.py` と `tools/v345_bittaran_runtime_check.gd` を共通CIに追加しました。
 - Godot headlessの検査は3D構造・シーンロード・実行時分岐を検査します。Androidの歩行時の接地・表示・描画FPSは実機確認が必要です。
+
+## 4脚の接地IK（2026-11-14 追補）
+
+- `scripts/bittaran_foot_ik.gd` で前後左右の脚を個別に2ボーン解析IK制御します（元のBlockbenchメッシュ・Wait姿勢・ボーンUUIDは変更しません）。
+- Godot 3Dワールド内で接地中の足裏座標を固定。足先3階層目は接地中の姿勢を保持し、上側2つの関節を解析的に解きます。
+- 脚の組合せは右前＋左後、左前＋右後の対角ペアです。常に2脚以上を接地させます。
+- 歩き・旋回中に足先が基準位置から0.38mずれたら踏み換え、時間0.52秒・足上げ高さ0.19m、歩行中の予測着地点は前方へ0.14mです。
+- 対角踏み換え後のクールダウン0.09秒。テレポートやボス復活時は足裏固定位置を再設定します。
+- 解法はランタイムのルート移動・bob適用後に行い、各脚の接地点は実際のFootメッシュの最下点から取得して床Y=0mへ合わせます。
+- 主な検査：`tools/v346_bittaran_ik_self_check.py`、`tools/v346_bittaran_ik_runtime_check.gd`。
