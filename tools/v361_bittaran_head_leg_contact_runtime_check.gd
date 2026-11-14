@@ -52,7 +52,8 @@ func _run() -> void:
     # it crossed the real top surface from above, not a pre-existing AABB.
     var fast_fall := AABB(Vector3(-0.45, 0.25, -0.4), nose.size)
     var swept: Dictionary = SUPPORT.find_contact(
-        fast_fall, surfaces, "", nose)
+        fast_fall, surfaces, "", AABB(
+            nose.position + Vector3.UP * 0.5, nose.size))
     if str(swept["leg_id"]) != "leg_fl" \
             or float(swept["penetration"]) < 1.0:
         _fail("fast fall tunneled through forearm: " + str(swept))
