@@ -19,6 +19,20 @@ const RECOVERY_FOOT_CATCHUP_THRESHOLD_METERS: float = 0.16
 const MAX_TELEPORT_METERS: float = 1.50
 const MAX_YAW_SNAP_RADIANS: float = 1.4
 const IK_REACH_MARGIN_METERS: float = 0.002
+# Adaptive knee-pole clearance: bend sideways, never move the planted sole.
+# Select a safe bend at 12Hz and interpolate its pose every physics frame.
+const HEAD_KNEE_SCAN_SECONDS: float = 0.08
+const HEAD_KNEE_OUTWARD_DOWN_BIAS: float = 0.28
+const HEAD_KNEE_PROXIMITY_METERS: float = 0.38
+const HEAD_KNEE_FLEX_IN_PER_SECOND: float = 2.6
+const HEAD_KNEE_FLEX_OUT_PER_SECOND: float = 1.35
+const HEAD_KNEE_MIN_BENEFIT_M3: float = 0.0012
+const HEAD_KNEE_AUTHORED_OVERLAP_M3: float = 0.012
+# A heavy chassis dominates the approximate center of mass, while four
+# independent knee/leg assemblies each contribute 4.5% of the total.
+const HEAD_KNEE_BODY_MASS: float = 0.82
+const HEAD_KNEE_LEG_MASS: float = 0.045
+const HEAD_KNEE_BALANCE_PENALTY: float = 0.020
 ## World-space crouch and inward sole placement increase actual joint flexion.
 ## Do not subtract a fixed number from IK reach: that would cause foot sliding.
 const BODY_CROUCH_WORLD_METERS: float = 0.34
@@ -105,6 +119,8 @@ var head_support_foot_rotation: Quaternion = Quaternion.IDENTITY
 var head_support_contact: bool = false
 var break_chassis_base_pose: Quaternion = Quaternion.IDENTITY
 var break_chassis_pitch_radians: float = 0.0
+var head_knee_scan_elapsed: float = HEAD_KNEE_SCAN_SECONDS
+var head_knee_active: bool = false
 
 func set_collision_parts(parts: Node3D) -> void:
     # Use the SAME authored collider AABBs that sync_bittaran_parts() places
@@ -156,7 +172,10 @@ func setup(model: Node3D) -> bool:
             "anchor_rotation": foot.global_basis.get_rotation_quaternion(),
             "swing_from": Vector3.ZERO, "swing_to": Vector3.ZERO,
             "rotation_from": Quaternion.IDENTITY, "rotation_to": Quaternion.IDENTITY,
-            "swing_elapsed": 0.0, "stepping": false
+            "swing_elapsed": 0.0, "stepping": false,
+            "head_knee_bend": 0.0, "head_knee_target": 0.0,
+            "last_goal": foot.to_global(sole_local),
+            "last_rotation": foot.global_basis.get_rotation_quaternion()
         })
     # Establish the ground level once. Keep the user's entire articulated
     # neutral stance: shift only the visual model, never individual pivots.
@@ -227,6 +246,8 @@ func reset() -> void:
     recovery_gait_started = false
     recovery_catchup_pending_pair = -1
     ground_correction_world = 0.0
+    head_knee_scan_elapsed = HEAD_KNEE_SCAN_SECONDS
+    head_knee_active = false
     front_anchor_rest.clear()
     front_extension_direction.clear()
     break_recover_start = LEG_BREAK_RECOVER_START_SECONDS
@@ -247,6 +268,8 @@ func reset() -> void:
         leg["stepping"] = false
         leg["swing_elapsed"] = 0.0
         leg["anchor_rotation"] = foot.global_basis.get_rotation_quaternion()
+        leg["head_knee_bend"] = 0.0
+        leg["head_knee_target"] = 0.0
 
 func _home(leg: Dictionary, with_lead: bool) -> Vector3:
     var p: Vector3 = actor.to_global(leg["rest_sole_local"])
@@ -291,6 +314,8 @@ func _solve(leg: Dictionary, sole_goal: Vector3, desired_rotation: Quaternion) -
     var upper: Node3D = leg["upper"]
     var lower: Node3D = leg["lower"]
     var foot: Node3D = leg["foot"]
+    leg["last_goal"] = sole_goal
+    leg["last_rotation"] = desired_rotation
     # Fix the sole's orientation (no toe roll while planted) and then solve
     # the exact foot-pivot target required to place its sole at sole_goal.
     # Rotation alone cannot transform a mesh-local sole offset when the
@@ -345,6 +370,21 @@ func _solve(leg: Dictionary, sole_goal: Vector3, desired_rotation: Quaternion) -
                 pole = pole.normalized()
             else:
                 pole = toppled_pole.normalized()
+    # The original authored knee pole remains the neutral pose. On full
+    # standing, blend its bend plane laterally OUT of the HEAD's sweep,
+    # pivoting at the hip and preserving both limb lengths and the sole.
+    if break_elapsed < 0.0 and windup_elapsed < 0.0:
+        var sideways_bend: float = clampf(
+            float(leg.get("head_knee_bend", 0.0)), 0.0, 1.0)
+        if sideways_bend > 0.00001 and chassis_bone != null:
+            var lateral: Vector3 = actor.global_basis.x.normalized()
+            var hip_offset: Vector3 = hip - chassis_bone.global_position
+            var sign: float = 1.0 if hip_offset.dot(lateral) >= 0.0 else -1.0
+            var escape: Vector3 = (lateral * sign
+                + Vector3.DOWN * HEAD_KNEE_OUTWARD_DOWN_BIAS)
+            escape -= direction * escape.dot(direction)
+            if escape.length_squared() > 0.00001:
+                pole = pole.slerp(escape.normalized(), sideways_bend).normalized()
     var knee_target: Vector3 = hip + direction * along + pole * sideways
     var end_target: Vector3 = hip + direction * distance
     _align(upper, knee - hip, knee_target - hip)
@@ -885,6 +925,150 @@ func advance_ik(delta: float, motion: String) -> void:
         if upright_error_world <= POST_DOWN_UPRIGHT_TOLERANCE_WORLD_METERS:
             post_down_idle_remaining = maxf(0.0,
                 post_down_idle_remaining - maxf(delta, 0.0))
+
+
+# Reuse final IK sole targets after the authored clip, grounding correction
+# and head-support pitch have all been resolved. Search only articulated
+# knee bend planes; the boss's root/center of mass never teleports.
+func _head_knee_mass_center_xz() -> Vector2:
+    var weighted: Vector3 = chassis_bone.global_position * HEAD_KNEE_BODY_MASS
+    for leg in legs:
+        weighted += (leg["lower"] as Node3D).global_position * HEAD_KNEE_LEG_MASS
+    return Vector2(weighted.x, weighted.z)
+
+
+func _head_knee_support_center_xz() -> Vector2:
+    var point := Vector2.ZERO
+    var count: float = 0.0
+    for leg in legs:
+        if bool(leg["stepping"]):
+            continue
+        var sole: Vector3 = leg["anchor"]
+        point += Vector2(sole.x, sole.z)
+        count += 1.0
+    if count < 2.0:
+        return Vector2(actor.global_position.x, actor.global_position.z)
+    return point / count
+
+
+func _head_knee_overlap_volume(a: AABB, b: AABB) -> float:
+    if not a.has_volume() or not b.has_volume() or not a.intersects(b):
+        return 0.0
+    return a.intersection(b).get_volume()
+
+
+func _head_knee_collision_cost(id: String, neutral_head: AABB,
+        sweep_heads: Array[AABB]) -> float:
+    var pieces: Array[AABB] = collision_parts.call(
+        "get_leg_visual_mesh_boxes", id)
+    var baseline: float = 0.0
+    for piece in pieces:
+        baseline += _head_knee_overlap_volume(neutral_head, piece)
+    var worst: float = 0.0
+    for head_box in sweep_heads:
+        var total: float = 0.0
+        for piece in pieces:
+            total += _head_knee_overlap_volume(head_box, piece)
+        # Limit newly caused intersections, but ALSO gently penalize
+        # deep neutral contacts left after the torso swept over its feet.
+        var extra: float = maxf(0.0, total - baseline - 0.008)
+        var actual: float = maxf(0.0,
+            total - HEAD_KNEE_AUTHORED_OVERLAP_M3) * 0.20
+        worst = maxf(worst, extra + actual)
+    return worst
+
+
+func _scan_head_knee_targets(neutral_head: AABB,
+        sweep_heads: Array[AABB]) -> void:
+    var center: Vector2 = _head_knee_support_center_xz()
+    for index in range(legs.size()):
+        var leg: Dictionary = legs[index]
+        leg["head_knee_target"] = 0.0
+        # A diagonally swinging leg has no grounded support: do not
+        # force a side-fold on it until it plants, preserving the gait.
+        if bool(leg["stepping"]):
+            continue
+        var broad: AABB = collision_parts.call(
+            "get_leg_visual_aabb", LEG_PART_IDS[index])
+        var nearby: bool = false
+        for head_box in sweep_heads:
+            if broad.intersects(head_box.grow(HEAD_KNEE_PROXIMITY_METERS)):
+                nearby = true
+                break
+        if not nearby:
+            continue
+        var sole_goal: Vector3 = leg["last_goal"]
+        var sole_rotation: Quaternion = leg["last_rotation"]
+        var before_bend: float = float(leg["head_knee_bend"])
+        var initial_mass: Vector2 = _head_knee_mass_center_xz()
+        # Re-evaluate the baseline as an exact neutral-pole pose.
+        leg["head_knee_bend"] = 0.0
+        _solve(leg, sole_goal, sole_rotation)
+        var base_cost: float = _head_knee_collision_cost(
+            LEG_PART_IDS[index], neutral_head, sweep_heads)
+        var best_cost: float = base_cost
+        var best: float = 0.0
+        for candidate in [0.35, 0.70, 1.0]:
+            leg["head_knee_bend"] = float(candidate)
+            _solve(leg, sole_goal, sole_rotation)
+            var collision_cost: float = _head_knee_collision_cost(
+                LEG_PART_IDS[index], neutral_head, sweep_heads)
+            var mass: Vector2 = _head_knee_mass_center_xz()
+            var added_imbalance: float = maxf(0.0,
+                mass.distance_to(center) - initial_mass.distance_to(center))
+            var score: float = (collision_cost
+                + added_imbalance * HEAD_KNEE_BALANCE_PENALTY
+                + float(candidate) * 0.0005)
+            if score < best_cost - 0.00001:
+                best_cost = score
+                best = float(candidate)
+        # Reject tiny gains so the bent knee doesn't chatter while the
+        # HEAD sweeps just outside a shoulder plate.
+        if base_cost - best_cost >= HEAD_KNEE_MIN_BENEFIT_M3:
+            leg["head_knee_target"] = best
+        leg["head_knee_bend"] = before_bend
+        _solve(leg, sole_goal, sole_rotation)
+
+
+func steer_knees_for_head(delta: float, desired_head_yaw: float) -> void:
+    if not ready or legs.size() != 4 or collision_parts == null \
+            or head_bone == null or chassis_bone == null:
+        return
+    # The fall and the 70%-gated physical stand-up keep their existing
+    # special supporting-leg pole. Side-fold begins on FULL upright only.
+    if break_reaction_active():
+        head_knee_scan_elapsed = HEAD_KNEE_SCAN_SECONDS
+        return
+    var head_pose: Quaternion = head_bone.quaternion
+    head_knee_scan_elapsed += maxf(0.0, delta)
+    if head_knee_scan_elapsed >= HEAD_KNEE_SCAN_SECONDS:
+        head_knee_scan_elapsed = 0.0
+        var neutral_head: AABB = collision_parts.call("get_head_swing_aabb")
+        var sweep_heads: Array[AABB] = []
+        for t in [0.33, 0.66, 1.0]:
+            head_bone.quaternion = (head_pose *
+                Quaternion(Vector3.UP, desired_head_yaw * float(t))).normalized()
+            sweep_heads.append(collision_parts.call("get_head_swing_aabb"))
+        head_bone.quaternion = head_pose
+        if neutral_head.has_volume():
+            _scan_head_knee_targets(neutral_head, sweep_heads)
+    var active: bool = false
+    for leg in legs:
+        var before: float = float(leg["head_knee_bend"])
+        var target: float = float(leg["head_knee_target"])
+        var rate: float = (HEAD_KNEE_FLEX_IN_PER_SECOND
+            if target > before else HEAD_KNEE_FLEX_OUT_PER_SECOND)
+        var after: float = move_toward(before, target,
+            rate * maxf(0.0, delta))
+        leg["head_knee_bend"] = after
+        if after > 0.00001:
+            active = true
+        if absf(after - before) > 0.00001:
+            # No new foot targets: re-solve against the exact final sole
+            # goal, conserving reach, floor contact and 0.58s step timing.
+            leg["last_error"] = _solve(leg,
+                leg["last_goal"], leg["last_rotation"])
+    head_knee_active = active
 
 func maximum_ground_error() -> float:
     var worst: float = 0.0

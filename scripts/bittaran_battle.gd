@@ -578,6 +578,21 @@ func _finalize_target_pose(delta: float) -> void:
     # visible shins to different positions later in the same frame.
     if bittaran_foot_ik != null and target != null and target_hp > 0:
         bittaran_foot_ik.call("advance_ik", delta, bittaran_motion)
+        if bittaran_head != null and player != null:
+            # Reconfigure the planted knees BEFORE the head follows SERA;
+            # the final collision-aware head sweep remains a safety net.
+            var head_parent: Node3D = bittaran_head.get_parent() as Node3D
+            if head_parent != null:
+                var toward: Vector3 = head_parent.to_local(
+                    player.global_position + Vector3.UP * 0.9) - bittaran_head.position
+                toward.y = 0.0
+                if toward.length_squared() > 0.0001:
+                    var wanted: float = clampf(
+                        atan2(-toward.x, -toward.z),
+                        -deg_to_rad(HEAD_TRACK_MAX_YAW_DEGREES),
+                        deg_to_rad(HEAD_TRACK_MAX_YAW_DEGREES))
+                    bittaran_foot_ik.call("steer_knees_for_head", delta,
+                        wanted * _head_recovery_follow_weight())
     _aim_bittaran_head(delta)
     if target_parts != null:
         target_parts.call("sync_bittaran_parts")
