@@ -5,6 +5,7 @@ extends SceneTree
 ## actual scene, boss AI, rig clips, collision IK, and release timer.
 const DT: float = 1.0 / 60.0
 const LEG_IDS: Array[String] = ["leg_fl", "leg_fr", "leg_rl", "leg_rr"]
+const SINGLE_LEG_IDS: Array[String] = ["leg_fl"]
 const IDLE_SETTLE_SECONDS: float = 0.24
 
 func _initialize() -> void:
@@ -141,7 +142,7 @@ func _run() -> void:
     root.add_child(battle)
     battle.set_physics_process(false)
     battle.set_process(false)
-    if not _check_case(battle, "Turn", ["leg_fl"]):
+    if not _check_case(battle, "Turn", SINGLE_LEG_IDS):
         return
     if not _check_case(battle, "Approach", LEG_IDS):
         return
