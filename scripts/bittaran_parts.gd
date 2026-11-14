@@ -56,6 +56,7 @@ var fx_timers: Dictionary = {}
 var fx_durations: Dictionary = {}
 var installed: bool = false
 var down_lock_enabled: bool = false
+var head_supported_by_leg: String = ""
 var death_visual_power: float = 0.0
 
 func _ready() -> void:
@@ -66,6 +67,7 @@ func setup_bittaran(model: Node3D, moving_body: AnimatableBody3D) -> bool:
     collision_body = moving_body
     installed = false
     down_lock_enabled = false
+    head_supported_by_leg = ""
     death_visual_power = 0.0
     if model == null or moving_body == null or not model.is_inside_tree():
         return false
@@ -182,6 +184,26 @@ func set_down_lock_enabled(enabled: bool) -> void:
     # This is the actual IK fall/skid animation, not generic stagger or the
     # training-room part-break pause. Only a genuine collapse opens weakpoints.
     down_lock_enabled = enabled
+    if not enabled:
+        head_supported_by_leg = ""
+
+
+func set_head_support_leg(id: String) -> void:
+    # Recorded from real articulated mesh contacts AFTER down-pose IK.
+    # Other shins keep their ordinary priority and manual access is intact.
+    head_supported_by_leg = id if down_lock_enabled and id in LEG_IDS else ""
+
+
+func get_boss_lock_priority(id: String) -> int:
+    # Only matter when HEAD and a supporting shin project onto almost
+    # the same screen-X in MANUAL lock switching. AUTO already favors HEAD.
+    if not down_lock_enabled or head_supported_by_leg.is_empty():
+        return 0
+    if id == "head":
+        return 2
+    if id == head_supported_by_leg:
+        return -2
+    return 0
 
 func can_lock_boss_part(id: String) -> bool:
     if id == "head" or id.is_empty() or id == BODY_MANUAL_LOCK_ID:
@@ -494,6 +516,41 @@ func get_leg_visual_aabb(id: String) -> AABB:
     return AABB(low, high - low)
 
 
+## Individual mesh boxes, one per visible piece. The broad union of
+## upper arm + lower shin + toes has large empty regions; do NOT use it to
+## collide the head against the actual moving arm under the nose.
+func _append_leg_support_mesh_boxes(node: Node3D,
+        boxes: Array[AABB]) -> void:
+    for child in node.get_children():
+        if child is MeshInstance3D:
+            var piece: MeshInstance3D = child as MeshInstance3D
+            if piece.mesh == null:
+                continue
+            var source: AABB = piece.mesh.get_aabb()
+            var low: Vector3 = piece.to_global(source.get_endpoint(0))
+            var high: Vector3 = low
+            for i in range(1, 8):
+                var vertex: Vector3 = piece.to_global(source.get_endpoint(i))
+                low = low.min(vertex)
+                high = high.max(vertex)
+            var box := AABB(low, high - low)
+            if box.has_volume():
+                boxes.append(box)
+        elif child is Node3D and not child is Area3D:
+            _append_leg_support_mesh_boxes(child as Node3D, boxes)
+
+
+func get_leg_support_mesh_boxes(id: String) -> Array[AABB]:
+    var boxes: Array[AABB] = []
+    if not installed or not LEG_ROOT_BONES.has(id):
+        return boxes
+    var root_leg: Node3D = boss_model.find_child(
+        str(LEG_ROOT_BONES[id]), true, false) as Node3D
+    if root_leg != null:
+        _append_leg_support_mesh_boxes(root_leg, boxes)
+    return boxes
+
+
 func get_body_hit_aabb() -> AABB:
     return _bounds("")
 
@@ -628,6 +685,7 @@ func set_death_visual(power: float) -> void:
                     material.emission_energy_multiplier, 0.24, death_visual_power)
 
 func reset_parts() -> void:
+    head_supported_by_leg = ""
     down_lock_enabled = false
     death_visual_power = 0.0
     super.reset_parts()
