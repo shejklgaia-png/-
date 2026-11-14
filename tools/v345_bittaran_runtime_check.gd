@@ -38,7 +38,7 @@ func _run() -> void:
     var origin := Vector3(0.0, 1.53, -12.0)
     var approaching: Dictionary = brain.call(
         "advance", 0.5, origin, 0.0, Vector3.ZERO, false)
-    if approaching["motion"] != "Approach" or (approaching["position"] as Vector3).z <= -8.0:
+    if approaching["motion"] != "Approach" or (approaching["position"] as Vector3).z <= origin.z:
         _fail("forward target not approached")
         return
     brain.call("reset")
