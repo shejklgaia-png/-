@@ -528,6 +528,28 @@ func locomotion_ready() -> bool:
     return ready and not break_reaction_active()         and post_down_idle_remaining <= 0.0         and head_support_leg_index < 0
 
 
+# Actual return-to-upright fraction, NOT raw elapsed time. Both
+# chassis drop and the sideways supporting leg use this cubic easing.
+func standup_pose_fraction() -> float:
+    if break_elapsed < break_recover_start or break_elapsed < 0.0:
+        return 0.0
+    if break_duration <= break_recover_start:
+        return 1.0
+    return _cubic((break_elapsed - break_recover_start) /
+        (break_duration - break_recover_start))
+
+
+func standup_turn_weight() -> float:
+    # The yaw starts at zero speed WITH stand-up and increases smoothly
+    # with the actual restored pose. Keep full yaw available during the
+    # 0.24s final neutral Idle settle without starting walk animation.
+    if down_pose_active():
+        return standup_pose_fraction()
+    if post_down_idle_remaining > 0.0:
+        return 1.0
+    return 0.0
+
+
 func windup_active() -> bool:
     return windup_elapsed >= 0.0
 

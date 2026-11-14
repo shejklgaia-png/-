@@ -15,6 +15,7 @@ const BOSS_FAR_SIDE_EXIT_METERS: float = -0.25
 const DOWN_ESCAPE_SPEED_MPS: float = 15.0
 const HEAD_TRACK_MAX_YAW_DEGREES: float = 48.0
 const HEAD_TRACK_DEGREES_PER_SECOND: float = 140.0
+const HEAD_TRACK_STANDUP_START_FRACTION: float = 0.70
 const HEAD_LEG_CLEARANCE_METERS: float = 0.05
 const HEAD_LEG_BASELINE_AABB_TOLERANCE_M3: float = 0.035
 
@@ -209,16 +210,33 @@ func _head_collides_with_leg(base_pose: Quaternion,
     return false
 
 
+func _head_recovery_follow_weight() -> float:
+    if bittaran_foot_ik == null or not bool(
+            bittaran_foot_ik.call("down_pose_active")):
+        return 1.0
+    var upright: float = float(bittaran_foot_ik.call(
+        "standup_pose_fraction"))
+    if upright <= HEAD_TRACK_STANDUP_START_FRACTION:
+        return 0.0
+    var ratio: float = clampf(
+        (upright - HEAD_TRACK_STANDUP_START_FRACTION) /
+        (1.0 - HEAD_TRACK_STANDUP_START_FRACTION), 0.0, 1.0)
+    return ratio * ratio * (3.0 - 2.0 * ratio)
+
+
 func _aim_bittaran_head(delta: float) -> void:
     if bittaran_head == null or player == null or target_hp <= 0:
         return
+    # While lying down keep the head on its original bind orientation.
+    # Once 70% of the ACTUAL eased rise is complete, softly fade in the
+    # ordinary collision-aware look-at without a sudden yaw jump.
+    var head_track_weight: float = _head_recovery_follow_weight()
     if bittaran_foot_ik != null and bool(
             bittaran_foot_ik.call("down_pose_active")):
-        # The 0.6-second throw has finished. Down and recovery must use the
-        # ORIGINAL head joint rotation, not the standing player-facing yaw.
-        boss_head_yaw = 0.0
         bittaran_head.quaternion = boss_head_default_rotation
-        return
+        if head_track_weight <= 0.0:
+            boss_head_yaw = 0.0
+            return
     if bittaran_foot_ik != null and bool(
             bittaran_foot_ik.call("windup_active")):
         # Let the heavy nose-up throw lead the motion. Smoothly unwind the
@@ -254,12 +272,14 @@ func _aim_bittaran_head(delta: float) -> void:
             break
         feasible = candidate
     # Restore and smoothly turn in local yaw; chassis down pitch remains.
-    boss_head_yaw = move_toward(boss_head_yaw, feasible,
-        deg_to_rad(HEAD_TRACK_DEGREES_PER_SECOND) * maxf(delta, 0.0))
+    boss_head_yaw = move_toward(boss_head_yaw,
+        feasible * head_track_weight,
+        deg_to_rad(HEAD_TRACK_DEGREES_PER_SECOND) * maxf(delta, 0.0)
+        * head_track_weight)
     if _head_collides_with_leg(base_pose, boss_head_yaw, head_neutral_overlap):
         # A moving foot can enter the old heading. Resolve this immediately
         # instead of allowing a collision during a smooth turn.
-        boss_head_yaw = feasible
+        boss_head_yaw = feasible * head_track_weight
     bittaran_head.quaternion = (base_pose *
         Quaternion(Vector3.UP, boss_head_yaw)).normalized()
 
@@ -312,20 +332,29 @@ func _build_enemy_shooter() -> void:
 func _advance_target_motion(delta: float) -> void:
     if target == null or player == null or bittaran_ai == null:
         return
-    # IK owns the entire collapse and stand-up, including the final
-    # 0.24s neutral Idle settle. Do NOT let the AI select a Turn/Approach
-    # clip while the body is down or its feet are still standing back up.
-    # The v361 under-head supporting leg also remains protected until
-    # the pose has fully recovered.
+    # The 0.6s windup and fallen hold remain stationary. During the
+    # ACTUAL stand-up the boss may progressively turn its root toward
+    # SERA, matching the cubic physical recovery fraction. Continue full
+    # root turning through the 0.24s upright Idle settle, but NEVER play
+    # Turn/Approach or translate until locomotion_ready(). The normal
+    # AI/gait resumes only at the final upright handoff.
     var recovery_motion_locked: bool = (bittaran_foot_ik != null
         and not bool(bittaran_foot_ik.call("locomotion_ready")))
-    var frozen: bool = (
+    var other_frozen: bool = (
         not target_move_enabled or target_hp <= 0
         or stagger_remaining > 0.0 or part_break_remaining > 0.0
-        or down_remaining > 0.0 or training_ko_remaining > 0.0
-        or recovery_motion_locked)
-    var result: Dictionary = bittaran_ai.call("advance", delta,
-        target.position, target.rotation.y, player.position, frozen)
+        or down_remaining > 0.0 or training_ko_remaining > 0.0)
+    var result: Dictionary
+    if recovery_motion_locked and not other_frozen:
+        var recovery_weight: float = float(bittaran_foot_ik.call(
+            "standup_turn_weight"))
+        result = bittaran_ai.call("advance_recovery_turn", delta,
+            target.position, target.rotation.y, player.position,
+            recovery_weight)
+    else:
+        result = bittaran_ai.call("advance", delta, target.position,
+            target.rotation.y, player.position,
+            other_frozen or recovery_motion_locked)
     target.position = result["position"]
     target.rotation.y = float(result["yaw"])
     bittaran_motion = str(result["motion"])
