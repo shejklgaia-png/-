@@ -5,11 +5,17 @@ const BittaranRig = preload("res://scripts/bittaran_rig.gd")
 const BittaranAI = preload("res://scripts/bittaran_ai.gd")
 const BittaranFootIK = preload("res://scripts/bittaran_foot_ik.gd")
 const BittaranParts = preload("res://scripts/bittaran_parts.gd")
+const DOWN_CLEARANCE = preload("res://scripts/bittaran_down_clearance.gd")
 const NAME_TEXT: String = "BITTARAN  /  ビットタラン"
 const BOSS_WORLD_SCALE: float = 2.0
 const BOSS_DEATH_RESPAWN_SECONDS: float = 3.0
 const BOSS_FAR_SIDE_ENTER_METERS: float = 0.65
 const BOSS_FAR_SIDE_EXIT_METERS: float = -0.25
+const DOWN_ESCAPE_SPEED_MPS: float = 15.0
+const HEAD_TRACK_MAX_YAW_DEGREES: float = 48.0
+const HEAD_TRACK_DEGREES_PER_SECOND: float = 140.0
+const HEAD_LEG_CLEARANCE_METERS: float = 0.05
+const HEAD_LEG_BASELINE_AABB_TOLERANCE_M3: float = 0.035
 
 var bittaran_rig: Node3D
 var bittaran_ai: RefCounted
@@ -20,6 +26,10 @@ var victory_label: Label
 var boss_death_particles: CPUParticles3D
 var boss_death_elapsed: float = -1.0
 var boss_far_side_screen_axis: bool = false
+var bittaran_head: Node3D
+var boss_head_yaw: float = 0.0
+var head_neutral_overlap: Dictionary = {}
+var boss_downed_escaping: bool = false
 
 func _ready() -> void:
     super._ready()
@@ -67,6 +77,7 @@ func _build_target() -> void:
     bittaran_rig.rotation.y = PI
     bittaran_rig.position.y = -1.12
     target.add_child(bittaran_rig)
+    bittaran_head = bittaran_rig.find_child("Head", true, false) as Node3D
     bittaran_ai = BittaranAI.new()
     bittaran_ai.call("reset")
     bittaran_foot_ik = BittaranFootIK.new()
@@ -138,8 +149,125 @@ func _touch_to_lock_forward(origin_screen: Vector2) -> Vector2:
         elif depth > BOSS_FAR_SIDE_ENTER_METERS:
             boss_far_side_screen_axis = true
     if boss_far_side_screen_axis:
-        return Vector2.UP
+        # Far beyond the lock point, finger-down -> marker can rotate toward
+        # an unrelated direction. Use the PLAYER CAPSULE CENTER -> actual
+        # locked aim point, projected through the SAME camera as the HUD.
+        # The returned axis drives both the compass and flick classifier.
+        var actor_center: Vector3 = player.global_position + (
+            Vector3.UP * PLAYER_COLLISION_HEIGHT * 0.5)
+        var aim: Vector3 = _current_lock_aim_world()
+        var fallback: Vector2 = FLICK_DIRECTION_POLICY.projected_lock_forward(
+            camera, player.global_position, aim - player.global_position,
+            super._touch_to_lock_forward(origin_screen))
+        return FLICK_DIRECTION_POLICY.projected_target_line(
+            camera, actor_center, aim, fallback)
     return super._touch_to_lock_forward(origin_screen)
+
+func _head_leg_overlap_by_id(base_pose: Quaternion,
+        relative_yaw: float) -> Dictionary:
+    # Axis-aligned bounds include empty corners at the authored neck/hip
+    # junction. Permit the original bind-pose overlap, but never let a turn
+    # substantially INCREASE penetration into a currently posed leg.
+    var overlaps: Dictionary = {}
+    if bittaran_head == null or target_parts == null:
+        return overlaps
+    bittaran_head.quaternion = (base_pose *
+        Quaternion(Vector3.UP, relative_yaw)).normalized()
+    var tip: AABB = (target_parts.call(
+        "get_head_swing_aabb") as AABB).grow(HEAD_LEG_CLEARANCE_METERS)
+    for id in ["leg_fl", "leg_fr", "leg_rl", "leg_rr"]:
+        var leg: AABB = target_parts.call("get_leg_visual_aabb", id)
+        var volume: float = 0.0
+        if leg.has_volume() and tip.intersects(leg):
+            volume = tip.intersection(leg).get_volume()
+        overlaps[id] = volume
+    return overlaps
+
+
+func _head_collides_with_leg(base_pose: Quaternion,
+        relative_yaw: float, resting: Dictionary) -> bool:
+    var overlaps: Dictionary = _head_leg_overlap_by_id(base_pose, relative_yaw)
+    for id in overlaps:
+        if float(overlaps[id]) > float(resting.get(id, 0.0))                 + HEAD_LEG_BASELINE_AABB_TOLERANCE_M3:
+            return true
+    return false
+
+
+func _aim_bittaran_head(delta: float) -> void:
+    if bittaran_head == null or player == null or target_hp <= 0:
+        return
+    # Each authored animation reinitializes the HEAD joint before this
+    # post-IK step. Do not accumulate on its already turned quaternion.
+    var base_pose: Quaternion = bittaran_head.quaternion
+    var parent_joint: Node3D = bittaran_head.get_parent() as Node3D
+    if parent_joint == null:
+        return
+    var toward: Vector3 = parent_joint.to_local(
+        player.global_position + Vector3.UP * 0.9) - bittaran_head.position
+    toward.y = 0.0
+    if toward.length_squared() < 0.0001:
+        return
+    # Blockbench head's authored forward is local -Z (the rig has PI yaw).
+    var wanted: float = clampf(atan2(-toward.x, -toward.z),
+        -deg_to_rad(HEAD_TRACK_MAX_YAW_DEGREES),
+        deg_to_rad(HEAD_TRACK_MAX_YAW_DEGREES))
+    # Continuously check ACTUAL posed upper legs, shins and feet against
+    # the proposed head swing, stopping at the last collision-free angle.
+    head_neutral_overlap = _head_leg_overlap_by_id(base_pose, 0.0)
+    var feasible: float = 0.0
+    for step in range(1, 13):
+        var candidate: float = wanted * float(step) / 12.0
+        if _head_collides_with_leg(base_pose, candidate, head_neutral_overlap):
+            break
+        feasible = candidate
+    # Restore and smoothly turn in local yaw; chassis down pitch remains.
+    boss_head_yaw = move_toward(boss_head_yaw, feasible,
+        deg_to_rad(HEAD_TRACK_DEGREES_PER_SECOND) * maxf(delta, 0.0))
+    if _head_collides_with_leg(base_pose, boss_head_yaw, head_neutral_overlap):
+        # A moving foot can enter the old heading. Resolve this immediately
+        # instead of allowing a collision during a smooth turn.
+        boss_head_yaw = feasible
+    bittaran_head.quaternion = (base_pose *
+        Quaternion(Vector3.UP, boss_head_yaw)).normalized()
+
+
+func _push_player_out_of_downed_body(delta: float) -> void:
+    if player == null or target_parts == null or bittaran_foot_ik == null:
+        return
+    if target_hp <= 0 or not bool(bittaran_foot_ik.call(
+            "break_reaction_active")):
+        boss_downed_escaping = false
+        return
+    var body: AABB = target_parts.call("get_body_hit_aabb")
+    if player.global_position.y > body.end.y + 0.35:
+        # SERA is airborne ABOVE the collapsing body, not underneath it.
+        return
+    var foot_boxes: Array[AABB] = []
+    for id in ["leg_fl", "leg_fr", "leg_rl", "leg_rr"]:
+        foot_boxes.append(target_parts.call("get_part_aabb", id))
+    var route: Dictionary = DOWN_CLEARANCE.escape_waypoint(
+        player.global_position, body, foot_boxes, PLAYER_COLLISION_RADIUS,
+        target.global_transform.basis.z)
+    if not bool(route["active"]):
+        boss_downed_escaping = false
+        return
+    boss_downed_escaping = true
+    var destination: Vector3 = route["waypoint"]
+    var position: Vector3 = player.global_position
+    var difference: Vector3 = destination - position
+    difference.y = 0.0
+    if difference.length_squared() < 0.000001:
+        return
+    var step: Vector3 = difference.limit_length(
+        DOWN_ESCAPE_SPEED_MPS * maxf(delta, 0.0))
+    var wanted: Vector3 = position + step
+    var safe: Vector3 = DOWN_CLEARANCE.safe_advance(
+        position, wanted, foot_boxes, PLAYER_COLLISION_RADIUS)
+    # Direct horizontal recovery while the torso overlap is active avoids
+    # Godot solving penetration along -Y through the visual-only floor.
+    # Foot boxes are treated as 2D barriers and the path follows a side.
+    player.global_position = Vector3(safe.x, maxf(position.y, 0.0), safe.z)
+
 
 func _build_enemy_shooter() -> void:
     # Bittaran's requested initial moveset is movement only, not the
@@ -211,6 +339,11 @@ func _physics_process(delta: float) -> void:
     # after IK finishes its fall/recovery tick. Do not allow a one-frame leak.
     _update_bittaran_lock_permissions()
     super._physics_process(delta)
+    # The arena ground is visual (no floor physics). Enemy collision recovery
+    # may push an action-locked capsule below zero while the torso descends.
+    if player != null and player.position.y < 0.0:
+        player.position.y = 0.0
+        passive_fall_velocity = 0.0
     _update_bittaran_lock_permissions()
 
 func _finalize_target_pose(delta: float) -> void:
@@ -219,8 +352,10 @@ func _finalize_target_pose(delta: float) -> void:
     # visible shins to different positions later in the same frame.
     if bittaran_foot_ik != null and target != null and target_hp > 0:
         bittaran_foot_ik.call("advance_ik", delta, bittaran_motion)
+    _aim_bittaran_head(delta)
     if target_parts != null:
         target_parts.call("sync_bittaran_parts")
+    _push_player_out_of_downed_body(delta)
     _update_bittaran_lock_permissions()
 
 func _target_hit_aabb() -> AABB:
@@ -266,6 +401,9 @@ func _reset_target_after_respawn() -> void:
     super._reset_target_after_respawn()
     boss_death_elapsed = -1.0
     boss_far_side_screen_axis = false
+    boss_head_yaw = 0.0
+    head_neutral_overlap.clear()
+    boss_downed_escaping = false
     if boss_death_particles != null:
         boss_death_particles.emitting = false
     if bittaran_ai != null:

@@ -441,6 +441,59 @@ func get_shin_selection_box(id: String) -> AABB:
     var scaled_size: Vector3 = standing["box_size"]
     return AABB(locked_center - scaled_size * 0.5, scaled_size)
 
+func get_head_swing_aabb() -> AABB:
+    # The neck/root is integrated into the body and can have overlapping
+    # world-AABB bounds even at the untouched Blockbench bind pose. Only
+    # the front, articulated nose/face portion sweeps into the four legs.
+    var head: Node3D = bone_nodes.get("head") as Node3D
+    if head == null:
+        return AABB()
+    var vertices: Array[Vector3] = []
+    _append_mesh_bounds(head, vertices, false)
+    if vertices.is_empty():
+        return AABB()
+    var nearest: float = INF
+    var furthest: float = -INF
+    for world in vertices:
+        var depth: float = -head.to_local(world).z
+        nearest = minf(nearest, depth)
+        furthest = maxf(furthest, depth)
+    var threshold: float = lerpf(nearest, furthest, 0.55)
+    var filtered: Array[Vector3] = []
+    for world in vertices:
+        if -head.to_local(world).z >= threshold:
+            filtered.append(world)
+    if filtered.is_empty():
+        return AABB()
+    var low: Vector3 = filtered[0]
+    var high: Vector3 = filtered[0]
+    for p in filtered:
+        low = low.min(p)
+        high = high.max(p)
+    return AABB(low, high - low)
+
+
+func get_leg_visual_aabb(id: String) -> AABB:
+    # Full upper/lower/foot mesh bound for HEAD swing clearance, not the
+    # shin-only AUTO hitbox or the larger lock-selection Area3D.
+    if not installed or not LEG_ROOT_BONES.has(id):
+        return AABB()
+    var root_leg: Node3D = boss_model.find_child(
+        str(LEG_ROOT_BONES[id]), true, false) as Node3D
+    if root_leg == null:
+        return AABB()
+    var points: Array[Vector3] = []
+    _append_mesh_bounds(root_leg, points, true)
+    if points.is_empty():
+        return AABB()
+    var low: Vector3 = points[0]
+    var high: Vector3 = points[0]
+    for p in points:
+        low = low.min(p)
+        high = high.max(p)
+    return AABB(low, high - low)
+
+
 func get_body_hit_aabb() -> AABB:
     return _bounds("")
 

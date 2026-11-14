@@ -43,8 +43,11 @@ func _run() -> void:
     var point: Vector3 = parts.call("get_part_aim_world", "leg_fl")
     player.global_position = Vector3(point.x, player.global_position.y, point.z) + view_forward * 2.0
     var axis: Vector2 = battle.call("_touch_to_lock_forward", Vector2(80.0, 1050.0))
-    if not bool(battle.get("boss_far_side_screen_axis")) or axis.distance_to(Vector2.UP) > 0.001:
-        _fail("far-side combo front not screen UP")
+    var capsule_center: Vector3 = player.global_position + Vector3.UP * 0.925
+    var expected_axis: Vector2 = (
+        view.unproject_position(point) - view.unproject_position(capsule_center)).normalized()
+    if not bool(battle.get("boss_far_side_screen_axis")) or axis.distance_to(expected_axis) > 0.001:
+        _fail("far-side combo front does not follow player center -> locked part")
         return
     player.global_position -= view_forward * 4.0
     battle.call("_touch_to_lock_forward", Vector2(80.0, 1050.0))
@@ -116,5 +119,5 @@ func _run() -> void:
     if float(battle.get("boss_death_elapsed")) >= 0.0 or fragments.emitting:
         _fail("death effect did not reset after revival")
         return
-    print("GODOT_V355_BITTARAN_PASS: interpolated IK, far-side flick, 2.5/6s fall, death and full revival")
+    print("GODOT_V355_BITTARAN_PASS: interpolated IK, player-centered far-side flick, 2.5/6s fall, death and full revival")
     quit(0)
