@@ -58,6 +58,28 @@ static func manual_screen_neighbor(direction: int, current_id: String,
                 direction < 0 and projected.x > wrapped_x):
             wrapped_x = projected.x
             wrapped_id = id
+    var chosen: String = forward_id if not forward_id.is_empty() else wrapped_id
+    # Bittaran only: the shin physically supporting a downed HEAD can
+    # project onto the same marker. In that overlap the head wins first;
+    # deliberate MANUAL cycling FROM head can still reach the shin.
+    # Training targets do not implement this optional ranking method.
+    if not chosen.is_empty() and chosen != "head" and current_id != "head" \
+            and parts.has_method("get_boss_lock_priority") \
+            and int(parts.call("get_boss_lock_priority", chosen)) < 0 \
+            and bool(parts.call("is_targetable", "head")):
+        var head_world: Vector3 = parts.call("get_part_aim_world", "head")
+        var shin_world: Vector3 = parts.call("get_part_aim_world", chosen)
+        if not view.is_position_behind(head_world) \
+                and not view.is_position_behind(shin_world):
+            var head_screen: Vector2 = view.unproject_position(head_world)
+            var shin_screen: Vector2 = view.unproject_position(shin_world)
+            if head_screen.distance_to(shin_screen) <= 90.0:
+                if not forward_id.is_empty():
+                    forward_id = "head"
+                else:
+                    wrapped_id = "head"
+    # Keep the canonical neighbor fallback for the shared training-room
+    # selector and the v317 lock-module contract.
     return forward_id if not forward_id.is_empty() else wrapped_id
 
 
