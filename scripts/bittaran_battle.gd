@@ -288,40 +288,10 @@ func _resolve_downed_head_leg_support(delta: float) -> void:
     var hit: Dictionary = HEAD_SUPPORT.find_contact(
         nose, boxes, boss_head_supported_leg, boss_previous_head_nose)
     var supported: String = str(hit["leg_id"])
-    var full_pitch: float = float(
-        bittaran_foot_ik.get("break_nose_dip_radians"))
-    if not supported.is_empty() and float(hit["penetration"]) > 0.0 \
-            and full_pitch > 0.0001:
-        # Search for the DEEPEST legal body dip. An arm that was beneath
-        # HEAD during a turn becomes a collision stop, not something that
-        # follows a raised torso upward. Each probe re-solves four IK feet.
-        var safe_pitch: float = 0.0
-        var bad_pitch: float = full_pitch
-        for i in range(8):
-            var candidate: float = (safe_pitch + bad_pitch) * 0.5
-            bittaran_foot_ik.call("apply_head_support_pitch", candidate)
-            var candidate_nose: AABB = target_parts.call(
-                "get_head_swing_aabb")
-            var supporting: Dictionary = {supported:
-                target_parts.call("get_leg_support_mesh_boxes", supported)}
-            var test_hit: Dictionary = HEAD_SUPPORT.find_contact(
-                candidate_nose, supporting, supported, boss_previous_head_nose)
-            if float(test_hit["penetration"]) > 0.02:
-                bad_pitch = candidate
-            else:
-                safe_pitch = candidate
-        bittaran_foot_ik.call("apply_head_support_pitch", safe_pitch)
-        nose = target_parts.call("get_head_swing_aabb")
-        for id in boxes:
-            boxes[id] = target_parts.call("get_leg_support_mesh_boxes", id)
-        hit = HEAD_SUPPORT.find_contact(
-            nose, boxes, supported, boss_previous_head_nose)
-        if not str(hit["leg_id"]).is_empty():
-            supported = str(hit["leg_id"])
-    # Pitch relief can be too small if the fallen chassis does not tilt
-    # much, while a forearm lies directly under the face. Correct only
-    # the articulated HEAD joint's world-height, never the body/hips:
-    # lifting the body made the same IK leg chase HEAD and lose the floor.
+    # Place only the articulated HEAD on the actual support top. Never
+    # move the chassis or pitch its shoulders to resolve this contact:
+    # either response would move the supporting leg itself and cause
+    # unstable head/forearm feedback, as well as potentially floating toes.
     # The original HEAD quaternion remains exactly neutral.
     var desired_lift: float = 0.0
     if not supported.is_empty():
