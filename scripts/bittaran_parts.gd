@@ -223,6 +223,19 @@ func _nearest_lockable_shin(origin: Vector3, body_center: Vector3) -> String:
             best_id = id
     return best_id
 
+## Bittaran-only horizontal two-line lock scan. The inherited training
+## implementation connects to the target's Y and may tilt upward/downward.
+## Preserve the SERA-origin Y at BOTH ends. Bittaran's chassis/IK/down Y
+## must never pitch the two beams, including in the optional ray visualizer.
+## X/Z still target the boss root and the common +/-0.25m separation remains.
+func get_actor_parallel_lock_segments(actor_origin: Vector3,
+        body_center: Vector3) -> PackedVector3Array:
+    var horizontal_target := Vector3(
+        body_center.x, actor_origin.y, body_center.z)
+    return super.get_actor_parallel_lock_segments(
+        actor_origin, horizontal_target)
+
+
 func select_actor_parallel_lines_part(origin: Vector3,
         body_center: Vector3) -> String:
     if down_lock_enabled:
