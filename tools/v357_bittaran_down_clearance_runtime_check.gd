@@ -140,8 +140,12 @@ func _run() -> void:
         if bool(ik.call("down_pose_active")):
             var neutral_head: Quaternion = battle.get(
                 "boss_head_default_rotation")
-            if head.quaternion.angle_to(neutral_head) > 0.003:
-                _fail("downed head retained player-facing rotation")
+            # v363: only the first 70% of actual upright recovery
+            # keeps the default head rotation; above that tracking
+            # intentionally resumes as the chassis stands.
+            if float(ik.call("standup_pose_fraction")) <= 0.70 \
+                    and head.quaternion.angle_to(neutral_head) > 0.003:
+                _fail("downed head turned before 70% of recovery")
                 return
         elif not bool(ik.call("windup_active")) and not _head_clear(
                 parts, battle.get("head_neutral_overlap")):
