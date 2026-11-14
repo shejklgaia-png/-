@@ -15,6 +15,8 @@ on:
       - 'tools/v346_bittaran_*.py'
       - 'tools/v347_bittaran_*.py'
       - 'tools/v347_bittaran_*.gd'
+      - 'tools/v348_bittaran_*.gd'
+      - 'tools/v348_bittaran_*.py'
       - 'tools/rebuild_bittaran_data.py'
       - 'scripts/command_nexus.gd'
       - 'project.godot'
@@ -31,6 +33,7 @@ jobs:
           python3 tools/v345_bittaran_self_check.py
           python3 tools/v346_bittaran_ik_self_check.py
           python3 tools/v347_bittaran_scale_crouch_self_check.py
+          python3 tools/v348_bittaran_parts_self_check.py
           python3 tools/sera_model_build.py --check
       - name: Install Godot 4.7.2
         run: |
@@ -92,3 +95,20 @@ jobs:
             exit 1
           fi
           grep -q 'GODOT_V347_BITTARAN_PASS' "$log"
+
+      - name: Verify six moving Bittaran locks, hit effects and leg-break skid
+        run: |
+          set -euo pipefail
+          log="$RUNNER_TEMP/bittaran-parts.log"
+          status=0
+          "$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" --headless --path . --script tools/v348_bittaran_parts_runtime_check.gd > "$log" 2>&1 || status=$?
+          cat "$log"
+          if [ "$status" -ne 0 ]; then
+            echo "::error::Bittaran 6-part combat test exited with code $status"
+            exit "$status"
+          fi
+          if grep -E 'SCRIPT ERROR|Parse Error|Compile Error|ERROR: Failed to load|Invalid call|V348_BITTARAN_PARTS_FAIL' "$log"; then
+            echo "::error::Bittaran 6-part/Godot reported a runtime error"
+            exit 1
+          fi
+          grep -q 'GODOT_V348_BITTARAN_PARTS_PASS' "$log"
