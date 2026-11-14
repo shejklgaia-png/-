@@ -54,6 +54,7 @@ func _run_case(battle: Node3D, ids: Array[String],
     var live_target_updates: int = 0
     var last_swing_targets: Dictionary = {}
     var upright_frame: int = -1
+    var had_fallen: bool = false
     for frame in range(550):
         var before_break: bool = bool(ik.call("down_pose_active"))
         var rising_this_tick: bool = bool(ik.call("standup_turn_enabled", DT))
@@ -87,6 +88,7 @@ func _run_case(battle: Node3D, ids: Array[String],
         var pair: int = int(ik.get("stepping_pair"))
         var all_legs: Array = ik.get("legs")
         if still_down:
+            had_fallen = true
             if pair != -1:
                 _fail("feet lifted during chassis stand-up")
                 return false
@@ -94,7 +96,7 @@ func _run_case(battle: Node3D, ids: Array[String],
                 if bool((leg as Dictionary)["stepping"]):
                     _fail("planted foot began moving before upright")
                     return false
-        elif upright_frame < 0:
+        elif had_fallen and upright_frame < 0:
             upright_frame = frame
             if pair < 0:
                 _fail("first upright tick failed to initiate foot catch-up")
