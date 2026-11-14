@@ -374,10 +374,12 @@ func _solve(leg: Dictionary, sole_goal: Vector3, desired_rotation: Quaternion) -
                 pole = pole.normalized()
             else:
                 pole = toppled_pole.normalized()
-    # The original authored knee pole remains the neutral pose. On full
-    # standing, blend its bend plane laterally OUT of the HEAD's sweep,
-    # pivoting at the hip and preserving both limb lengths and the sole.
-    if break_elapsed < 0.0 and windup_elapsed < 0.0:
+    # Preserve the original authored pole while falling or lying still.
+    # During PHYSICAL STAND-UP, also allow a small lateral knee fold,
+    # including the under-head support leg. Blend it over the folded
+    # support pole without moving the world-planted sole or body root.
+    if windup_elapsed < 0.0 and (
+            break_elapsed < 0.0 or standup_knee_enabled()):
         var sideways_bend: float = clampf(
             float(leg.get("head_knee_bend", 0.0)), 0.0, HEAD_KNEE_MAX_BEND)
         if sideways_bend > 0.00001 and chassis_bone != null:
@@ -608,6 +610,13 @@ func standup_pose_fraction() -> float:
         return 1.0
     return _cubic((break_elapsed - break_recover_start) /
         (break_duration - break_recover_start))
+
+
+# A planted knee can already fold sideways while the chest is rising
+# and turning. Do not wait for down_pose_active() to become false.
+func standup_knee_enabled() -> bool:
+    return windup_elapsed < 0.0 and break_elapsed >= break_recover_start \
+        and break_elapsed >= 0.0 and break_elapsed < break_duration
 
 
 func standup_turn_enabled(next_delta: float = 0.0) -> bool:
@@ -1047,9 +1056,11 @@ func steer_knees_for_head(delta: float, desired_head_yaw: float) -> void:
     if not ready or legs.size() != 4 or collision_parts == null \
             or head_bone == null or chassis_bone == null:
         return
-    # The fall and the 70%-gated physical stand-up keep their existing
-    # special supporting-leg pole. Side-fold begins on FULL upright only.
-    if break_reaction_active():
+    # Never interrupt the special falling/lying support-leg pose.
+    # Once physical stand-up starts, however, the chest ALREADY rotates:
+    # let the planted knees avoid the head throughout the rise. The
+    # original 70% threshold still controls HEAD motion, not knee IK.
+    if windup_active() or (down_pose_active() and not standup_knee_enabled()):
         head_knee_scan_elapsed = HEAD_KNEE_SCAN_SECONDS
         return
     var head_pose: Quaternion = head_bone.quaternion

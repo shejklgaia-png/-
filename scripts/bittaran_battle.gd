@@ -324,6 +324,23 @@ func _head_recovery_turn_speed() -> float:
     return HEAD_TRACK_DEGREES_PER_SECOND
 
 
+func _head_knee_look_weight() -> float:
+    # The chest turns from the FIRST rise frame, but HEAD follows only
+    # after 70% upright. Anticipate the future head sweep gently so the
+    # remaining knees can clear its path DURING stand-up instead of
+    # waiting for a collision at the last frame.
+    var follow: float = _head_recovery_follow_weight()
+    if bittaran_foot_ik != null and bool(
+            bittaran_foot_ik.call("standup_knee_enabled")):
+        var upright: float = float(bittaran_foot_ik.call(
+            "standup_pose_fraction"))
+        var anticipation: float = (HEAD_TRACK_RISE_FOLLOW_WEIGHT
+            * _head_smootherstep(clampf(
+            upright / HEAD_TRACK_STANDUP_START_FRACTION, 0.0, 1.0)))
+        return maxf(follow, anticipation)
+    return follow
+
+
 func _aim_bittaran_head(delta: float) -> void:
     if bittaran_head == null or player == null or target_hp <= 0:
         return
@@ -593,7 +610,7 @@ func _finalize_target_pose(delta: float) -> void:
                         -deg_to_rad(HEAD_TRACK_MAX_YAW_DEGREES),
                         deg_to_rad(HEAD_TRACK_MAX_YAW_DEGREES))
                     bittaran_foot_ik.call("steer_knees_for_head", delta,
-                        wanted * _head_recovery_follow_weight())
+                        wanted * _head_knee_look_weight())
     _aim_bittaran_head(delta)
     if target_parts != null:
         target_parts.call("sync_bittaran_parts")
