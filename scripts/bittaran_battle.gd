@@ -5,6 +5,8 @@ const BittaranRig = preload("res://scripts/bittaran_rig.gd")
 const BittaranAI = preload("res://scripts/bittaran_ai.gd")
 const BittaranFootIK = preload("res://scripts/bittaran_foot_ik.gd")
 const BittaranParts = preload("res://scripts/bittaran_parts.gd")
+const BittaranAttacks = preload("res://scripts/bittaran_attacks.gd")
+const RENDER_ORDER = preload("res://scripts/render_order_policy.gd")
 const DOWN_CLEARANCE = preload("res://scripts/bittaran_down_clearance.gd")
 const CONTROLLER_AXIS = preload("res://scripts/bittaran_controller_axis.gd")
 const NAME_TEXT: String = "BITTARAN  /  ビットタラン"
@@ -69,6 +71,11 @@ var head_collision_release_elapsed: float = 0.0
 var head_look_filtered_yaw: float = 0.0
 var head_look_initialized: bool = false
 var boss_downed_escaping: bool = false
+var bittaran_attacks: RefCounted
+var bittaran_attack_frame: Dictionary = {}
+var bittaran_shockwave: MeshInstance3D
+var shockwave_elapsed: float = -1.0
+var shockwave_half_extents: Vector2 = Vector2.ONE
 
 func _ready() -> void:
     super._ready()
@@ -137,7 +144,133 @@ func _build_target() -> void:
     # The shared physical HEAD/leg AABBs form a self-contact constraint
     # on down. Godot cannot collide sibling shapes on one AnimatableBody3D.
     bittaran_foot_ik.call("set_collision_parts", target_parts)
+    bittaran_attacks = BittaranAttacks.new()
+    _build_bittaran_shockwave()
     _build_boss_death_particles()
+
+func _build_bittaran_shockwave() -> void:
+    # Ground-centred annulus is WORLD-fixed after contact, not parented
+    # to a moving shin. Depth test remains enabled over opaque geometry.
+    bittaran_shockwave = MeshInstance3D.new()
+    bittaran_shockwave.name = "BittaranStompShockwave"
+    var ring := TorusMesh.new()
+    ring.inner_radius = 0.83
+    ring.outer_radius = 1.0
+    ring.rings = 12
+    ring.ring_segments = 40
+    bittaran_shockwave.mesh = ring
+    var glow := StandardMaterial3D.new()
+    glow.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+    glow.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+    glow.albedo_color = Color(0.38, 0.84, 1.0, 0.70)
+    glow.emission_enabled = true
+    glow.emission = Color("#45bdff")
+    glow.emission_energy_multiplier = 2.0
+    glow.render_priority = RENDER_ORDER.DEPTH_TESTED_EMISSIVE
+    bittaran_shockwave.material_override = glow
+    bittaran_shockwave.visible = false
+    add_child(bittaran_shockwave)
+
+
+func _emit_bittaran_shockwave(point: Vector3, half_size: Vector2) -> void:
+    if bittaran_shockwave == null:
+        return
+    shockwave_elapsed = 0.0
+    shockwave_half_extents = half_size
+    bittaran_shockwave.global_position = Vector3(
+        point.x, 0.055, point.z)
+    bittaran_shockwave.scale = Vector3(
+        half_size.x * 0.55, 0.45, half_size.y * 0.55)
+    bittaran_shockwave.visible = true
+
+
+func _tick_bittaran_shockwave(delta: float) -> void:
+    if shockwave_elapsed < 0.0 or bittaran_shockwave == null:
+        return
+    shockwave_elapsed += maxf(delta, 0.0)
+    var progress: float = clampf(shockwave_elapsed / 0.30, 0.0, 1.0)
+    bittaran_shockwave.scale = Vector3(
+        shockwave_half_extents.x * lerpf(0.55, 1.0, progress),
+        0.45,
+        shockwave_half_extents.y * lerpf(0.55, 1.0, progress))
+    var glow: StandardMaterial3D = bittaran_shockwave.material_override
+    if glow != null:
+        glow.albedo_color.a = 0.70 * (1.0 - progress)
+    if progress >= 1.0:
+        shockwave_elapsed = -1.0
+        bittaran_shockwave.visible = false
+
+
+func _bittaran_player_overlap(box: AABB) -> bool:
+    if player == null:
+        return false
+    var capsule_box := AABB(
+        player.global_position + Vector3(-0.40, 0.08, -0.40),
+        Vector3(0.80, 1.70, 0.80))
+    return box.intersects(capsule_box)
+
+
+func _check_bittaran_attack_hit() -> void:
+    if bittaran_attack_frame.is_empty() or bittaran_attacks == null             or target_parts == null or player == null or target_hp <= 0             or player_hp <= 0 or training_ko_remaining > 0.0:
+        return
+    var kind: String = str(bittaran_attack_frame.get("kind", ""))
+    var leg_id: String = str(bittaran_attack_frame.get("id", ""))
+    var is_impact: bool = bool(bittaran_attack_frame.get("impact", false))
+    var hit_window: bool = bool(bittaran_attack_frame.get("hit_window", false))
+    if not is_impact and not hit_window:
+        return
+    var contact: Vector3 = bittaran_foot_ik.call("attack_contact_world")
+    var struck: bool = false
+    if kind == "stomp" and is_impact:
+        # Exactly 1.5x the CURRENT shin's world-space XZ footprint.
+        # Foot contact and shockwave share this one impact physics tick.
+        var shin: AABB = target_parts.call("get_part_aabb", leg_id)
+        var half_size := Vector2(
+            maxf(shin.size.x * 0.75, 0.01),
+            maxf(shin.size.z * 0.75, 0.01))
+        _emit_bittaran_shockwave(contact, half_size)
+        var shock_box := AABB(
+            Vector3(contact.x - half_size.x, -0.05,
+                contact.z - half_size.y),
+            Vector3(half_size.x * 2.0, 1.75, half_size.y * 2.0))
+        struck = _bittaran_player_overlap(shock_box)
+    elif hit_window:
+        # Use individual real visible mesh boxes: a whole-leg AABB
+        # would falsely hit through the empty gap inside a bent knee.
+        var boxes: Array = target_parts.call(
+            "get_leg_visual_mesh_boxes", leg_id)
+        for raw in boxes:
+            var box: AABB = raw
+            if _bittaran_player_overlap(box.grow(0.08)):
+                struck = true
+                break
+    if not struck or bool(bittaran_attacks.get("hit_consumed")):
+        return
+    bittaran_attacks.set("hit_consumed", true)
+    var direction: Vector3 = player.global_position - contact
+    direction.y = 0.0
+    if direction.length_squared() < 0.0001:
+        direction = player.global_position - target.global_position
+    if direction.length_squared() < 0.0001:
+        direction = Vector3.FORWARD
+    # Existing SERA guard, SH, HP, knockback and KO all remain authoritative.
+    var damage_index: int = 2 if kind == "stomp" else (
+        1 if kind == "kick" else 3)
+    _on_enemy_projectile_hit(
+        player.global_position, direction.normalized(), false, damage_index)
+
+
+func _bittaran_attack_candidates() -> Dictionary:
+    var candidates: Dictionary = {}
+    if bittaran_foot_ik == null or target_parts == null:
+        return candidates
+    var feet: Dictionary = bittaran_foot_ik.call("available_attack_feet")
+    for id in feet:
+        # Broken shins cannot start another strike until full respawn.
+        if float(target_parts.call("get_part_integrity", str(id))) > 0.0:
+            candidates[id] = feet[id]
+    return candidates
+
 
 func _build_boss_death_particles() -> void:
     # Use depth-tested opaque fragments rather than transparent boss overlays.
@@ -543,8 +676,18 @@ func _advance_target_motion(delta: float) -> void:
     var generic_damage_frozen: bool = (
         (stagger_remaining > 0.0 or part_break_remaining > 0.0)
         and not rising_after_break)
+    var attack_permitted: bool = (
+        target_move_enabled and target_hp > 0 and player_hp > 0
+        and not generic_damage_frozen
+        and not recovery_motion_locked
+        and down_remaining <= 0.0 and training_ko_remaining <= 0.0)
+    bittaran_attack_frame = (bittaran_attacks.call(
+        "advance", delta, player.global_position,
+        _bittaran_attack_candidates(), attack_permitted)
+        if bittaran_attacks != null else {})
+    var attacking: bool = not bittaran_attack_frame.is_empty()
     var frozen: bool = (
-        not target_move_enabled or target_hp <= 0
+        attacking or not target_move_enabled or target_hp <= 0
         or generic_damage_frozen
         or down_remaining > 0.0 or training_ko_remaining > 0.0
         or recovery_motion_locked)
@@ -578,7 +721,7 @@ func _advance_target_motion(delta: float) -> void:
             result["yaw"] = upright_yaw
     target.position = result["position"]
     target.rotation.y = float(result["yaw"])
-    bittaran_motion = str(result["motion"])
+    bittaran_motion = "Idle" if attacking else str(result["motion"])
     if bittaran_rig != null:
         # The previous frame's HEAD has a procedural yaw applied after IK.
         # Strip only that additive yaw from the next clip's blend source.
@@ -652,6 +795,7 @@ func _physics_process(delta: float) -> void:
     if player != null and player.position.y < 0.0:
         player.position.y = 0.0
         passive_fall_velocity = 0.0
+    _tick_bittaran_shockwave(delta)
     _update_bittaran_lock_permissions()
 
 func _finalize_target_pose(delta: float) -> void:
@@ -659,8 +803,9 @@ func _finalize_target_pose(delta: float) -> void:
     # Otherwise AUTO samples the reset animation pose, then IK moves the
     # visible shins to different positions later in the same frame.
     if bittaran_foot_ik != null and target != null and target_hp > 0:
+        bittaran_foot_ik.call("set_attack_pose", bittaran_attack_frame)
         bittaran_foot_ik.call("advance_ik", delta, bittaran_motion)
-        if bittaran_head != null and player != null:
+        if bittaran_head != null and player != null                 and bittaran_attack_frame.is_empty():
             # A KNEE can move into an already-turned HEAD while the
             # player's target yaw stays unchanged. Pass BOTH the current
             # actual head yaw and the anticipated target to IK.
@@ -672,6 +817,7 @@ func _finalize_target_pose(delta: float) -> void:
     if target_parts != null:
         target_parts.call("sync_bittaran_parts")
     _push_player_out_of_downed_body(delta)
+    _check_bittaran_attack_hit()
     _update_bittaran_lock_permissions()
 
 func _target_hit_aabb() -> AABB:
@@ -708,6 +854,11 @@ func _apply_target_part_damage(kind: String, raw_attack: int, raw_break: float,
     # A shin breaking makes its whole leg skid out; temporarily lower
     # the chassis until the HEAD comes into SERA's melee reach, then restore.
     if bool(result.get("broken", false)) and str(result.get("kind", "")) == "leg":
+        if bittaran_attacks != null:
+            bittaran_attacks.call("cancel")
+        bittaran_attack_frame.clear()
+        if bittaran_foot_ik != null:
+            bittaran_foot_ik.call("clear_attack_pose")
         if bittaran_foot_ik != null and target_parts != null:
             boss_head_windup_start_yaw = boss_head_yaw
             head_collision_filtered_depth = 0.0
@@ -725,6 +876,11 @@ func _apply_target_part_damage(kind: String, raw_attack: int, raw_break: float,
             # Weakpoints become lockable in this very hit frame.
             target_parts.call("set_down_lock_enabled", true)
     if alive_before and target_hp == 0:
+        if bittaran_attacks != null:
+            bittaran_attacks.call("cancel")
+        bittaran_attack_frame.clear()
+        if bittaran_foot_ik != null:
+            bittaran_foot_ik.call("clear_attack_pose")
         target_respawn_remaining = BOSS_DEATH_RESPAWN_SECONDS
         _start_boss_death_fx()
     return result
@@ -753,6 +909,12 @@ func _reset_target_after_respawn() -> void:
         boss_death_particles.emitting = false
     if bittaran_ai != null:
         bittaran_ai.call("reset")
+    if bittaran_attacks != null:
+        bittaran_attacks.call("reset")
+    bittaran_attack_frame.clear()
+    shockwave_elapsed = -1.0
+    if bittaran_shockwave != null:
+        bittaran_shockwave.visible = false
     if target != null:
         target.rotation.y = 0.0
     if bittaran_foot_ik != null:
