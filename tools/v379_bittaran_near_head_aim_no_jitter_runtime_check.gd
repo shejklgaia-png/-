@@ -2,7 +2,6 @@ extends SceneTree
 ## v379: point-blank player crossings cannot flip HEAD yaw between
 ## +/-48 degrees; a new clip never blends last frame's procedural aim
 ## into the already authored HEAD quaternion; stop latch is stable.
-const BOSS = preload("res://scripts/bittaran_battle.gd")
 const DT: float = 1.0 / 60.0
 
 func _initialize() -> void:
@@ -13,6 +12,10 @@ func _fail(message: String) -> void:
     quit(1)
 
 func _run() -> void:
+    # SceneTree scripts are compiled before project autoload singletons
+    # become available; avoid eager battle-script preloads at file scope.
+    var boss_constants: Dictionary = (load(
+        "res://scripts/bittaran_battle.gd") as GDScript).get_script_constant_map()
     var battle: Node3D = load(
         "res://scenes/bittaran_battle.tscn").instantiate()
     root.add_child(battle)
@@ -24,8 +27,8 @@ func _run() -> void:
     if head == null or player == null or rig == null:
         _fail("missing HEAD, player or rig")
         return
-    if BOSS.HEAD_AIM_MIN_FORWARD_METERS < 0.60 or (
-            BOSS.HEAD_AIM_HOLD_RADIUS_METERS < 0.40):
+    if boss_constants["HEAD_AIM_MIN_FORWARD_METERS"] < 0.60 or (
+            boss_constants["HEAD_AIM_HOLD_RADIUS_METERS"] < 0.40):
         _fail("point-blank look-at discontinuity guard missing")
         return
     var parent: Node3D = head.get_parent() as Node3D
@@ -101,7 +104,7 @@ func _run() -> void:
     if escaped < 0.39:
         _fail("the player cannot rotate HEAD out of collision")
         return
-    if absf(BOSS.HEAD_LEG_ALLOWED_PENETRATION_METERS - 0.10) > 0.00001:
+    if absf(boss_constants["HEAD_LEG_ALLOWED_PENETRATION_METERS"] - 0.10) > 0.00001:
         _fail("10cm stop rule was changed")
         return
     print("GODOT_V379_NEAR_HEAD_NO_JITTER_PASS: no near-HEAD atan2 "
