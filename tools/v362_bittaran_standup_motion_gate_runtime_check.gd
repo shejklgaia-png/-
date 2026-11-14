@@ -66,7 +66,7 @@ func _check_case(battle: Node3D, expected_motion: String,
         6.0 if broken_leg_ids.size() == 4 else 2.5)
     for frame in range(470):
         var was_ready: bool = bool(ik.call("locomotion_ready"))
-        var turn_weight: float = float(ik.call("standup_turn_weight"))
+        var turn_enabled: bool = bool(ik.call("standup_turn_enabled", DT))
         var original_position: Vector3 = target.position
         var original_yaw: float = target.rotation.y
         battle.call("_advance_target_motion", DT)
@@ -82,14 +82,14 @@ func _check_case(battle: Node3D, expected_motion: String,
                 _fail("AI approached before boss stood fully upright: "
                     + str(frame))
                 return false
-            # v363 intentionally allows a weighted root yaw while rising,
-            # but keeps the Turn/Approach clips disabled. No turning is
-            # permitted in the throw, fall, or hold before stand-up begins.
+            # v365 starts normal-rate yaw on the FIRST stand-up frame.
+            # Still forbid any turning before the actual recovery begins,
+            # and never permit Turn/Approach clips or XZ translation.
             var yaw_step: float = absf(wrapf(
                 target.rotation.y - original_yaw, -PI, PI))
-            var max_step: float = deg_to_rad(34.0) * DT * turn_weight
+            var max_step: float = (deg_to_rad(34.0) * DT if turn_enabled else 0.0)
             if yaw_step > max_step + 0.00005:
-                _fail("recovery root yaw exceeded smoothly weighted cap: "
+                _fail("recovery root yaw exceeded start-gated full-speed cap: "
                     + str(yaw_step) + " max=" + str(max_step))
                 return false
         battle.call("_finalize_target_pose", DT)
