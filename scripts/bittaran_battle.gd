@@ -21,14 +21,17 @@ const HEAD_TRACK_STANDUP_START_FRACTION: float = 0.70
 # settle eases the remaining 40% in smoothly without a rotation snap.
 const HEAD_TRACK_RISE_FOLLOW_WEIGHT: float = 0.60
 const HEAD_TRACK_RECOVERY_DEGREES_PER_SECOND: float = 48.0
-# Head tracks SERA despite up to 30cm of oriented-mesh penetration.
-# Only sustained greater depth softly reduces yaw; never snap backwards.
+# Head yaw eases continuously from first real overlap to ZERO speed at
+# 30cm of oriented-mesh penetration. Crossing the limit is clamped by
+# a short binary search; hysteresis prevents collision-induced chatter.
 const HEAD_LEG_ALLOWED_PENETRATION_METERS: float = (
     BittaranParts.HEAD_LEG_ALLOWED_PENETRATION_METERS)
-const HEAD_TRACK_COLLISION_FILTER_PER_SECOND: float = 9.0
-const HEAD_TRACK_COLLISION_SOFT_START_METERS: float = 0.030
-const HEAD_TRACK_COLLISION_SOFT_FULL_METERS: float = 0.145
-const HEAD_TRACK_COLLISION_MIN_SPEED_FACTOR: float = 0.55
+const HEAD_TRACK_COLLISION_FILTER_PER_SECOND: float = 7.0
+const HEAD_TRACK_COLLISION_RELEASE_PER_SECOND: float = 4.0
+const HEAD_TRACK_COLLISION_DEADBAND_METERS: float = 0.004
+const HEAD_TRACK_COLLISION_RELEASE_DEPTH_METERS: float = 0.275
+const HEAD_TRACK_COLLISION_STOP_SAFETY_METERS: float = 0.001
+const HEAD_TRACK_COLLISION_SWEEP_STEPS: int = 8
 
 var bittaran_rig: Node3D
 var bittaran_ai: RefCounted
@@ -46,7 +49,8 @@ var boss_head_default_rotation: Quaternion = Quaternion.IDENTITY
 var boss_head_windup_start_yaw: float = 0.0
 var head_neutral_overlap: Dictionary = {}
 var head_neutral_component_overlap: Dictionary = {}
-var head_collision_filtered_excess: float = 0.0
+var head_collision_filtered_depth: float = 0.0
+var head_collision_blocked: bool = false
 var boss_downed_escaping: bool = false
 
 func _ready() -> void:
@@ -193,7 +197,7 @@ func _update_controller_flick_guide(delta: float) -> void:
     super._update_controller_flick_guide(delta)
 
 
-func _head_depth_excess(base_pose: Quaternion,
+func _head_penetration_depth(base_pose: Quaternion,
         relative_yaw: float) -> float:
     if bittaran_head == null or target_parts == null:
         return 0.0
@@ -204,28 +208,74 @@ func _head_depth_excess(base_pose: Quaternion,
     var deepest: float = 0.0
     for value in depths.values():
         deepest = maxf(deepest, float(value))
-    return maxf(0.0, deepest - HEAD_LEG_ALLOWED_PENETRATION_METERS)
+    return deepest
 
 
-func _head_collision_motion_scale(current_excess: float,
-        next_excess: float, delta: float) -> float:
-    # Low-pass filtering suppresses one-frame IK/AABB contact noise.
-    # Even under persistent deep intrusion, allow >=55% of the requested
-    # head rotation: it must keep looking at SERA instead of getting stuck.
-    var alpha: float = 1.0 - exp(
-        -HEAD_TRACK_COLLISION_FILTER_PER_SECOND * maxf(delta, 0.0))
-    head_collision_filtered_excess = lerpf(
-        head_collision_filtered_excess, next_excess, alpha)
-    # A turn AWAY from an obstruction is always allowed at full speed.
-    # Tiny differences below this deadband cannot cause head jitter.
-    if next_excess <= current_excess + 0.007:
+func _head_collision_motion_scale(current_depth: float,
+        next_depth: float, delta: float) -> float:
+    # The low-pass uses absolute WORLD penetration depth, not depth
+    # beyond 30cm. Two time constants make RELEASE slower than APPLY.
+    # A 4mm deadband prevents 1-frame plate/IK contact fluctuations.
+    var observed: float = maxf(0.0, next_depth)
+    var rate: float = (HEAD_TRACK_COLLISION_FILTER_PER_SECOND
+        if observed > head_collision_filtered_depth
+        else HEAD_TRACK_COLLISION_RELEASE_PER_SECOND)
+    if absf(observed - head_collision_filtered_depth) > (
+            HEAD_TRACK_COLLISION_DEADBAND_METERS):
+        var alpha: float = 1.0 - exp(-rate * maxf(delta, 0.0))
+        head_collision_filtered_depth = lerpf(
+            head_collision_filtered_depth, observed, alpha)
+    # Turning OUT of the leg must never be blocked, even when deep
+    # overlap already exists due to the torso/leg moving independently.
+    if next_depth < current_depth - HEAD_TRACK_COLLISION_DEADBAND_METERS:
+        head_collision_blocked = false
         return 1.0
+    if current_depth >= HEAD_LEG_ALLOWED_PENETRATION_METERS - 0.00001:
+        head_collision_blocked = true
+    if head_collision_blocked:
+        # Keep a 2.5cm release band while the pose jitters near 30cm.
+        if current_depth > HEAD_TRACK_COLLISION_RELEASE_DEPTH_METERS:
+            return 0.0
+        head_collision_blocked = false
+    # Smoothstep: full speed without contact, progressively slower
+    # through 0..30cm, zero at 30cm. Do not make micro-collisions
+    # oscillate the yaw angle (the scale is always non-negative).
     var u: float = clampf(
-        (head_collision_filtered_excess - HEAD_TRACK_COLLISION_SOFT_START_METERS)
-        / (HEAD_TRACK_COLLISION_SOFT_FULL_METERS
-        - HEAD_TRACK_COLLISION_SOFT_START_METERS), 0.0, 1.0)
-    var eased: float = u * u * (3.0 - 2.0 * u)
-    return lerpf(1.0, HEAD_TRACK_COLLISION_MIN_SPEED_FACTOR, eased)
+        head_collision_filtered_depth /
+        HEAD_LEG_ALLOWED_PENETRATION_METERS, 0.0, 1.0)
+    return 1.0 - u * u * (3.0 - 2.0 * u)
+
+
+func _head_limit_yaw_to_30cm(base_pose: Quaternion, from_yaw: float,
+        candidate_yaw: float, current_depth: float) -> float:
+    if absf(candidate_yaw - from_yaw) <= 0.0000001:
+        return from_yaw
+    var limit: float = HEAD_LEG_ALLOWED_PENETRATION_METERS
+    var candidate_depth: float = _head_penetration_depth(
+        base_pose, candidate_yaw)
+    if candidate_depth < limit - HEAD_TRACK_COLLISION_STOP_SAFETY_METERS:
+        return candidate_yaw
+    # Already embedded >30cm? Never advance INTO the overlap; let
+    # backwards / outward tracking immediately escape it.
+    if current_depth >= limit - HEAD_TRACK_COLLISION_STOP_SAFETY_METERS:
+        return (candidate_yaw if candidate_depth <
+            current_depth - HEAD_TRACK_COLLISION_DEADBAND_METERS
+            else from_yaw)
+    if candidate_depth <= current_depth:
+        return candidate_yaw
+    # A frame may cross 30cm even with soft damping at low FPS.
+    # Clamp its FINAL angle to <=29.9cm, with no backwards snapping.
+    var lo: float = 0.0
+    var hi: float = 1.0
+    for _i in range(HEAD_TRACK_COLLISION_SWEEP_STEPS):
+        var mid: float = (lo + hi) * 0.5
+        var probe: float = lerpf(from_yaw, candidate_yaw, mid)
+        if _head_penetration_depth(base_pose, probe) < (
+                limit - HEAD_TRACK_COLLISION_STOP_SAFETY_METERS):
+            lo = mid
+        else:
+            hi = mid
+    return lerpf(from_yaw, candidate_yaw, lo)
 
 
 func _head_smootherstep(t: float) -> float:
@@ -311,7 +361,8 @@ func _aim_bittaran_head(delta: float) -> void:
         bittaran_head.quaternion = boss_head_default_rotation
         if head_track_weight <= 0.0:
             boss_head_yaw = 0.0
-            head_collision_filtered_excess = 0.0
+            head_collision_filtered_depth = 0.0
+            head_collision_blocked = false
             return
     if bittaran_foot_ik != null and bool(
             bittaran_foot_ik.call("windup_active")):
@@ -338,23 +389,27 @@ func _aim_bittaran_head(delta: float) -> void:
     var wanted: float = clampf(atan2(-toward.x, -toward.z),
         -deg_to_rad(HEAD_TRACK_MAX_YAW_DEGREES),
         deg_to_rad(HEAD_TRACK_MAX_YAW_DEGREES))
-    # HEAD follows SERA freely until penetration exceeds 30cm;
-    # persistent deeper contact only damps the angular speed.
+    # HEAD slows smoothly from FIRST contact and cannot turn deeper
+    # into a 30cm overlap. Tracking away from the leg remains free.
     var degrees_per_second: float = _head_recovery_turn_speed()
     var proposed_yaw: float = move_toward(
         boss_head_yaw, wanted * head_track_weight,
         deg_to_rad(degrees_per_second) * maxf(delta, 0.0)
         * head_track_weight)
-    # Per-element oriented-mesh penetration depth in WORLD METRES.
-    var current_excess: float = _head_depth_excess(base_pose, boss_head_yaw)
-    var proposed_excess: float = _head_depth_excess(base_pose, proposed_yaw)
-    # Keep diagnostic compatibility with prior runtime fixtures.
+    # Predict on real rotated head/leg mesh elements in world METRES.
+    var current_depth: float = _head_penetration_depth(
+        base_pose, boss_head_yaw)
+    var proposed_depth: float = _head_penetration_depth(
+        base_pose, proposed_yaw)
+    # The diagnostic dictionaries report raw per-leg depth, in metres.
     head_neutral_overlap = target_parts.call(
         "get_head_leg_penetration_depths")
     head_neutral_component_overlap = head_neutral_overlap.duplicate()
     var motion_scale: float = _head_collision_motion_scale(
-        current_excess, proposed_excess, delta)
-    boss_head_yaw = lerpf(boss_head_yaw, proposed_yaw, motion_scale)
+        current_depth, proposed_depth, delta)
+    var next_yaw: float = lerpf(boss_head_yaw, proposed_yaw, motion_scale)
+    boss_head_yaw = _head_limit_yaw_to_30cm(
+        base_pose, boss_head_yaw, next_yaw, current_depth)
     bittaran_head.quaternion = (base_pose *
         Quaternion(Vector3.UP, boss_head_yaw)).normalized()
 
@@ -597,7 +652,8 @@ func _apply_target_part_damage(kind: String, raw_attack: int, raw_break: float,
     if bool(result.get("broken", false)) and str(result.get("kind", "")) == "leg":
         if bittaran_foot_ik != null and target_parts != null:
             boss_head_windup_start_yaw = boss_head_yaw
-            head_collision_filtered_excess = 0.0
+            head_collision_filtered_depth = 0.0
+            head_collision_blocked = false
             var head_world: Vector3 = target_parts.call("get_part_aim_world", "head")
             bittaran_foot_ik.call("start_leg_break_slide", hit_id, head_world.y,
                 int(result.get("broken_legs", 0)) >= 4)
@@ -628,7 +684,8 @@ func _reset_target_after_respawn() -> void:
     boss_head_windup_start_yaw = 0.0
     head_neutral_overlap.clear()
     head_neutral_component_overlap.clear()
-    head_collision_filtered_excess = 0.0
+    head_collision_filtered_depth = 0.0
+    head_collision_blocked = false
     boss_downed_escaping = false
     if boss_death_particles != null:
         boss_death_particles.emitting = false
