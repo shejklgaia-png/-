@@ -208,7 +208,11 @@ func _camera_lock_part_volume_distance(origin: Vector3,
 func _nearest_lockable_shin(origin: Vector3, body_center: Vector3) -> String:
     # AUTO's two-ray test can miss all four articulated shins. Never fall
     # through to the BODY just because the legacy empty ID also means BODY.
-    var line: Vector3 = body_center - origin
+    # Match the actual torso-centered parallel rays when neither ray
+    # intersects a shin. Do not fall back to the boss's unrelated root.
+    var torso_center: Vector3 = (
+        get_body_hit_aabb().get_center() if installed else body_center)
+    var line: Vector3 = torso_center - origin
     var length_sq: float = maxf(line.length_squared(), 0.00001)
     var best_score: float = INF
     var best_id: String = "leg_fl"
@@ -223,15 +227,17 @@ func _nearest_lockable_shin(origin: Vector3, body_center: Vector3) -> String:
             best_id = id
     return best_id
 
-## Bittaran-only horizontal two-line lock scan. The inherited training
-## implementation connects to the target's Y and may tilt upward/downward.
-## Preserve the SERA-origin Y at BOTH ends. Bittaran's chassis/IK/down Y
-## must never pitch the two beams, including in the optional ray visualizer.
-## X/Z still target the boss root and the common +/-0.25m separation remains.
+## The Bittaran-only two-line lock scan aims at the actual BODY mesh AABB
+## center, not the target Node3D's pivot/root. Only X/Z of that mesh center
+## matter: Y at both endpoints stays SERA's Y, so both beams are horizontal
+## even during crouch, walk bob, and a leg-break tumble.
+## Reuse the shared +/-0.25m perpendicular spacing and debug visualization.
 func get_actor_parallel_lock_segments(actor_origin: Vector3,
         body_center: Vector3) -> PackedVector3Array:
+    var real_center: Vector3 = (
+        get_body_hit_aabb().get_center() if installed else body_center)
     var horizontal_target := Vector3(
-        body_center.x, actor_origin.y, body_center.z)
+        real_center.x, actor_origin.y, real_center.z)
     return super.get_actor_parallel_lock_segments(
         actor_origin, horizontal_target)
 
