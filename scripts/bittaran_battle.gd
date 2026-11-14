@@ -6,7 +6,6 @@ const BittaranAI = preload("res://scripts/bittaran_ai.gd")
 const BittaranFootIK = preload("res://scripts/bittaran_foot_ik.gd")
 const BittaranParts = preload("res://scripts/bittaran_parts.gd")
 const BittaranAttacks = preload("res://scripts/bittaran_attacks.gd")
-const RENDER_ORDER = preload("res://scripts/render_order_policy.gd")
 const DOWN_CLEARANCE = preload("res://scripts/bittaran_down_clearance.gd")
 const CONTROLLER_AXIS = preload("res://scripts/bittaran_controller_axis.gd")
 const NAME_TEXT: String = "BITTARAN  /  ビットタラン"
