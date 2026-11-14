@@ -1,5 +1,5 @@
 extends SceneTree
-## v349: all lock entry points obey Bittaran's actual 1.15s IK down window.
+## v349 updated: all lock entry points obey Bittaran's actual 2.5s IK down window.
 const LOCK = preload("res://scripts/sera_lock_management.gd")
 const SHINS: Array[String] = ["leg_fl", "leg_fr", "leg_rl", "leg_rr"]
 
@@ -94,7 +94,7 @@ func _run() -> void:
         _fail("downed manual BODY lock was rejected")
         return
     var duration: float = 0.0
-    for frame in range(78):
+    for frame in range(160):
         var dt: float = 1.0 / 60.0
         duration += dt
         (battle.get("bittaran_rig") as Node3D).call("set_motion", "Idle", dt)

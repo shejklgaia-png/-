@@ -20,6 +20,8 @@ var blend_from: Dictionary = {}
 var loading_ok: bool = false
 
 func _ready() -> void:
+    # Interpolate all IK pose joints against the interpolated combat camera.
+    physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_ON
     # Source is useful for desktop authoring; embed works in Android exports.
     var source: String = ""
     if FileAccess.file_exists(SOURCE_PATH):
@@ -71,7 +73,7 @@ func _add_entry(entry: Variant, parent: Node3D, parent_origin: Vector3,
         joint.name = str(group.get("name", "Joint"))
         joint.position = (origin - parent_origin) * UNIT
         joint.quaternion = _bb_rotation(_v3(group.get("rotation", [0, 0, 0])))
-        joint.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
+        joint.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_ON
         parent.add_child(joint)
         bones[uid] = joint
         bind_rotations[uid] = joint.quaternion

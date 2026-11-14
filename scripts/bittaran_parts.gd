@@ -20,6 +20,9 @@ const SHIN_LABELS: Dictionary = {
 }
 const HIT_COLOR: Color = Color("#ff5772")
 const HIT_EMISSION: Color = Color("#c52f43")
+const BROKEN_STEEL: Color = Color("#252c34")
+const BROKEN_GLOW: Color = Color("#b14322")
+const DEATH_STEEL: Color = Color("#10141a")
 const LOCK_VOLUME_EXPANSION: float = 1.15
 ## Bittaran SHIN-only AUTO/MANUAL selection volume: exactly twice the
 ## authored lower-leg mesh AABB, not the 3-bone leg or its physical collider.
@@ -50,6 +53,7 @@ var fx_timers: Dictionary = {}
 var fx_durations: Dictionary = {}
 var installed: bool = false
 var down_lock_enabled: bool = false
+var death_visual_power: float = 0.0
 
 func _ready() -> void:
     super._ready()
@@ -59,6 +63,7 @@ func setup_bittaran(model: Node3D, moving_body: AnimatableBody3D) -> bool:
     collision_body = moving_body
     installed = false
     down_lock_enabled = false
+    death_visual_power = 0.0
     if model == null or moving_body == null or not model.is_inside_tree():
         return false
     bone_nodes.clear()
@@ -494,18 +499,38 @@ func advance_part_hit_fx(delta: float) -> void:
         var remaining: float = maxf(0.0, float(fx_timers[id]) - maxf(0.0, delta))
         fx_timers[id] = remaining
         var power: float = remaining / maxf(float(fx_durations[id]), 0.001)
+        var destroyed: bool = (not id.is_empty() and parts.has(id)
+            and bool(parts[id]["broken"]))
         for record in fx_meshes[id]:
             var material: StandardMaterial3D = record["material"]
-            material.albedo_color = (record["albedo"] as Color).lerp(
-                HIT_COLOR, power * 0.8)
-            material.emission_enabled = power > 0.0 or bool(record["emission_on"])
-            material.emission = (record["emission"] as Color).lerp(
-                HIT_EMISSION, power)
+            var intact: Color = record["albedo"]
+            var base: Color = intact.lerp(BROKEN_STEEL, 0.78) if destroyed else intact
+            material.albedo_color = base.lerp(HIT_COLOR, power * 0.8)
+            material.emission_enabled = (destroyed or power > 0.0
+                or bool(record["emission_on"]))
+            var glow: Color = BROKEN_GLOW if destroyed else record["emission"]
+            material.emission = glow.lerp(HIT_EMISSION, power)
             material.emission_energy_multiplier = lerpf(
-                float(record["energy"]), 0.52, power)
+                0.18 if destroyed else float(record["energy"]), 0.52, power)
+
+func set_death_visual(power: float) -> void:
+    # Opaque materials only; no transparent clone or lost depth testing.
+    death_visual_power = clampf(power, 0.0, 1.0)
+    for id in fx_meshes:
+        for record in fx_meshes[id]:
+            var material: StandardMaterial3D = record["material"]
+            material.albedo_color = material.albedo_color.lerp(
+                DEATH_STEEL, death_visual_power * 0.88)
+            if death_visual_power > 0.0:
+                material.emission_enabled = true
+                material.emission = material.emission.lerp(
+                    BROKEN_GLOW, death_visual_power)
+                material.emission_energy_multiplier = lerpf(
+                    material.emission_energy_multiplier, 0.24, death_visual_power)
 
 func reset_parts() -> void:
     down_lock_enabled = false
+    death_visual_power = 0.0
     super.reset_parts()
     for id in fx_timers:
         fx_timers[id] = 0.0

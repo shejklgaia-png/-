@@ -17,9 +17,11 @@ const IK_REACH_MARGIN_METERS: float = 0.002
 const BODY_CROUCH_WORLD_METERS: float = 0.34
 const STANCE_TUCK_METERS: float = 0.42
 ## A broken shin skids out while the chassis briefly dips to melee-head height.
-const LEG_BREAK_REACTION_SECONDS: float = 1.15
+const LEG_BREAK_REACTION_SECONDS: float = 2.5
 const LEG_BREAK_FALL_SECONDS: float = 0.17
-const LEG_BREAK_RECOVER_START_SECONDS: float = 0.67
+const LEG_BREAK_RECOVER_START_SECONDS: float = 2.10
+const ALL_LEGS_BREAK_REACTION_SECONDS: float = 6.0
+const ALL_LEGS_BREAK_RECOVER_START_SECONDS: float = 5.40
 const LEG_BREAK_SLIDE_METERS: float = 1.05
 const HEAD_MELEE_REACH_WORLD_Y: float = 1.35
 const MAX_LEG_BREAK_DROP_METERS: float = 1.45
@@ -41,6 +43,8 @@ var preferred_pair: int = 0
 var cooldown: float = 0.0
 var rest_actor_local_y: float = 0.0
 var break_elapsed: float = -1.0
+var break_duration: float = LEG_BREAK_REACTION_SECONDS
+var break_recover_start: float = LEG_BREAK_RECOVER_START_SECONDS
 var break_drop_world: float = 0.0
 var break_leg_index: int = -1
 var break_anchor: Vector3 = Vector3.ZERO
@@ -159,6 +163,8 @@ func reset() -> void:
     if chassis_bone != null:
         chassis_bone.quaternion = rest_chassis_rotation
     break_elapsed = -1.0
+    break_duration = LEG_BREAK_REACTION_SECONDS
+    break_recover_start = LEG_BREAK_RECOVER_START_SECONDS
     break_drop_world = 0.0
     break_leg_index = -1
     stepping_pair = -1
@@ -274,7 +280,8 @@ func _align(joint: Node3D, from_axis: Vector3, to_axis: Vector3) -> void:
 
 ## Stop gait, plant all four feet, then skid the broken shin along the floor.
 ## The body drops only on the visual IK rig; combat target never teleports.
-func start_leg_break_slide(id: String, head_world_y: float) -> void:
+func start_leg_break_slide(id: String, head_world_y: float,
+        all_legs_broken: bool = false) -> void:
     if not ready or actor == null:
         return
     var id_to_name: Dictionary = {
@@ -297,6 +304,10 @@ func start_leg_break_slide(id: String, head_world_y: float) -> void:
     stepping_pair = -1
     cooldown = 0.0
     break_elapsed = 0.0
+    break_duration = (ALL_LEGS_BREAK_REACTION_SECONDS if all_legs_broken
+        else LEG_BREAK_REACTION_SECONDS)
+    break_recover_start = (ALL_LEGS_BREAK_RECOVER_START_SECONDS if all_legs_broken
+        else LEG_BREAK_RECOVER_START_SECONDS)
     break_head_start_y = head_world_y
     break_drop_world = clampf(
         head_world_y - HEAD_MELEE_REACH_WORLD_Y, 0.20,
@@ -320,11 +331,11 @@ func _advance_leg_break(delta: float) -> void:
     var amount: float = 0.0
     if break_elapsed < LEG_BREAK_FALL_SECONDS:
         amount = _cubic(break_elapsed / LEG_BREAK_FALL_SECONDS)
-    elif break_elapsed < LEG_BREAK_RECOVER_START_SECONDS:
+    elif break_elapsed < break_recover_start:
         amount = 1.0
-    elif break_elapsed < LEG_BREAK_REACTION_SECONDS:
-        amount = 1.0 - _cubic((break_elapsed - LEG_BREAK_RECOVER_START_SECONDS)
-            / (LEG_BREAK_REACTION_SECONDS - LEG_BREAK_RECOVER_START_SECONDS))
+    elif break_elapsed < break_duration:
+        amount = 1.0 - _cubic((break_elapsed - break_recover_start)
+            / (break_duration - break_recover_start))
     var parent_scale_y: float = maxf(
         absf(actor.get_parent().global_basis.get_scale().y), 0.001)
     actor.position.y = rest_actor_local_y - amount * break_drop_world / parent_scale_y
@@ -356,7 +367,7 @@ func _advance_leg_break(delta: float) -> void:
     var skidding: Vector3 = break_anchor + break_slide * amount
     skidding.y = FLOOR_Y
     leg["anchor"] = skidding
-    if break_elapsed >= LEG_BREAK_REACTION_SECONDS:
+    if break_elapsed >= break_duration:
         break_elapsed = -1.0
         break_leg_index = -1
         actor.position.y = rest_actor_local_y

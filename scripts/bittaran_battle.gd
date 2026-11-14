@@ -7,6 +7,9 @@ const BittaranFootIK = preload("res://scripts/bittaran_foot_ik.gd")
 const BittaranParts = preload("res://scripts/bittaran_parts.gd")
 const NAME_TEXT: String = "BITTARAN  /  ビットタラン"
 const BOSS_WORLD_SCALE: float = 2.0
+const BOSS_DEATH_RESPAWN_SECONDS: float = 3.0
+const BOSS_FAR_SIDE_ENTER_METERS: float = 0.65
+const BOSS_FAR_SIDE_EXIT_METERS: float = -0.25
 
 var bittaran_rig: Node3D
 var bittaran_ai: RefCounted
@@ -14,6 +17,9 @@ var bittaran_foot_ik: RefCounted
 var bittaran_motion: String = "Idle"
 var boss_name_label: Label
 var victory_label: Label
+var boss_death_particles: CPUParticles3D
+var boss_death_elapsed: float = -1.0
+var boss_far_side_screen_axis: bool = false
 
 func _ready() -> void:
     super._ready()
@@ -52,6 +58,7 @@ func _build_target() -> void:
     # Scale the full target root (model, lock positions and collision shapes)
     # as one object; scaling the mesh alone would leave combat hits behind.
     target.scale = Vector3.ONE * BOSS_WORLD_SCALE
+    target.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_ON
     target_mesh.visible = false
     bittaran_rig = BittaranRig.new()
     bittaran_rig.name = "BittaranRig"
@@ -75,6 +82,64 @@ func _build_target() -> void:
     target_mesh.add_child(target_parts)
     if not bool(target_parts.call("setup_bittaran", bittaran_rig, target_collider)):
         push_error("Bittaran: six-part lock adapter failed")
+    _build_boss_death_particles()
+
+func _build_boss_death_particles() -> void:
+    # Use depth-tested opaque fragments rather than transparent boss overlays.
+    boss_death_particles = CPUParticles3D.new()
+    boss_death_particles.name = "BittaranDeathFragments"
+    boss_death_particles.emitting = false
+    boss_death_particles.one_shot = true
+    boss_death_particles.amount = 90
+    boss_death_particles.lifetime = 1.15
+    boss_death_particles.explosiveness = 1.0
+    boss_death_particles.direction = Vector3.UP
+    boss_death_particles.spread = 180.0
+    boss_death_particles.gravity = Vector3(0.0, -3.0, 0.0)
+    boss_death_particles.initial_velocity_min = 2.5
+    boss_death_particles.initial_velocity_max = 7.0
+    boss_death_particles.scale_amount_min = 0.08
+    boss_death_particles.scale_amount_max = 0.22
+    var fragment := BoxMesh.new()
+    fragment.size = Vector3(0.2, 0.07, 0.14)
+    var sparks := StandardMaterial3D.new()
+    sparks.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+    sparks.albedo_color = Color("#ff7540")
+    sparks.emission_enabled = true
+    sparks.emission = Color("#ff4a22")
+    sparks.emission_energy_multiplier = 1.8
+    fragment.material = sparks
+    boss_death_particles.mesh = fragment
+    add_child(boss_death_particles)
+
+func _start_boss_death_fx() -> void:
+    boss_death_elapsed = 0.0
+    if boss_death_particles != null and target_parts != null:
+        var body_bounds: AABB = target_parts.call("get_body_hit_aabb")
+        boss_death_particles.global_position = body_bounds.get_center()
+        boss_death_particles.emitting = true
+        boss_death_particles.restart()
+
+func _touch_to_lock_forward(origin_screen: Vector2) -> Vector2:
+    # Behind the locked boss, screen-UP remains front for combo flicks.
+    # Ordinary STEP displacement is screen-relative and unchanged.
+    if camera == null or player == null or target == null:
+        return super._touch_to_lock_forward(origin_screen)
+    var camera_forward: Vector3 = -camera.global_transform.basis.z
+    camera_forward.y = 0.0
+    if camera_forward.length_squared() > 0.000001:
+        camera_forward = camera_forward.normalized()
+        var to_player: Vector3 = player.global_position - _current_lock_aim_world()
+        to_player.y = 0.0
+        var depth: float = to_player.dot(camera_forward)
+        if boss_far_side_screen_axis:
+            if depth < BOSS_FAR_SIDE_EXIT_METERS:
+                boss_far_side_screen_axis = false
+        elif depth > BOSS_FAR_SIDE_ENTER_METERS:
+            boss_far_side_screen_axis = true
+    if boss_far_side_screen_axis:
+        return Vector2.UP
+    return super._touch_to_lock_forward(origin_screen)
 
 func _build_enemy_shooter() -> void:
     # Bittaran's requested initial moveset is movement only, not the
@@ -156,6 +221,7 @@ func _current_lock_aim_world() -> Vector3:
 func _apply_target_part_damage(kind: String, raw_attack: int, raw_break: float,
         weak_stagger: float, extension: float) -> Dictionary:
     var hit_id: String = locked_target_part_id
+    var alive_before: bool = target_hp > 0
     var result: Dictionary = super._apply_target_part_damage(
         kind, raw_attack, raw_break, weak_stagger, extension)
     # A shin breaking makes its whole leg skid out; temporarily lower
@@ -163,19 +229,26 @@ func _apply_target_part_damage(kind: String, raw_attack: int, raw_break: float,
     if bool(result.get("broken", false)) and str(result.get("kind", "")) == "leg":
         if bittaran_foot_ik != null and target_parts != null:
             var head_world: Vector3 = target_parts.call("get_part_aim_world", "head")
-            bittaran_foot_ik.call("start_leg_break_slide", hit_id, head_world.y)
+            bittaran_foot_ik.call("start_leg_break_slide", hit_id, head_world.y,
+                int(result.get("broken_legs", 0)) >= 4)
             # Weakpoints become lockable in this very hit frame.
             target_parts.call("set_down_lock_enabled", true)
+    if alive_before and target_hp == 0:
+        target_respawn_remaining = BOSS_DEATH_RESPAWN_SECONDS
+        _start_boss_death_fx()
     return result
 
-func _tick_target_respawn(_delta: float) -> void:
-    # Defeating a named boss ends the encounter, rather than repeatedly
-    # auto-respawning it like the TRAINING ROOM target.
-    pass
+func _tick_target_respawn(delta: float) -> void:
+    # Shared countdown resets BODY and all parts together after combo finishes.
+    super._tick_target_respawn(delta)
 
 func _reset_target_after_respawn() -> void:
-    # A player KO starts a fresh encounter with the same full boss HP.
+    # A player KO or boss revival starts a full-health encounter.
     super._reset_target_after_respawn()
+    boss_death_elapsed = -1.0
+    boss_far_side_screen_axis = false
+    if boss_death_particles != null:
+        boss_death_particles.emitting = false
     if bittaran_ai != null:
         bittaran_ai.call("reset")
     if target != null:
@@ -186,5 +259,9 @@ func _reset_target_after_respawn() -> void:
 
 func _process(delta: float) -> void:
     super._process(delta)
+    if boss_death_elapsed >= 0.0 and target_parts != null:
+        boss_death_elapsed += maxf(0.0, delta)
+        target_parts.call("set_death_visual",
+            clampf(boss_death_elapsed / 0.70, 0.0, 1.0))
     if victory_label != null:
         victory_label.visible = target_hp <= 0
