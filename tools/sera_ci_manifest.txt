@@ -299,3 +299,6 @@ gd tools/v351_bittaran_horizontal_lock_runtime_check.gd
 
 py tools/v352_bittaran_body_center_self_check.py
 gd tools/v352_bittaran_body_center_runtime_check.gd
+
+py tools/v353_bittaran_symmetric_lock_self_check.py
+gd tools/v353_bittaran_symmetric_lock_runtime_check.gd
