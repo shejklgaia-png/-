@@ -2,7 +2,6 @@ extends SceneTree
 ## v377-v380: shared 10cm limit, including mesh rotation/scale.
 ## Retain the existing 70%-standup HEAD gate and <=45% knee folding.
 const PARTS = preload("res://scripts/bittaran_parts.gd")
-const BOSS = preload("res://scripts/bittaran_battle.gd")
 const IK = preload("res://scripts/bittaran_foot_ik.gd")
 const DT: float = 1.0 / 60.0
 
@@ -33,6 +32,10 @@ func _depth_is(parts: Node3D, a: MeshInstance3D,
     return true
 
 func _run() -> void:
+    # SceneTree scripts are compiled before project autoload singletons
+    # become available; avoid eager battle-script preloads at file scope.
+    var boss_constants: Dictionary = (load(
+        "res://scripts/bittaran_battle.gd") as GDScript).get_script_constant_map()
     var battle: Node3D = load(
         "res://scenes/bittaran_battle.tscn").instantiate()
     root.add_child(battle)
@@ -44,7 +47,7 @@ func _run() -> void:
         _fail("boss collision parts or IK missing")
         return
     if absf(PARTS.HEAD_LEG_ALLOWED_PENETRATION_METERS - 0.10) > 0.00001 \
-            or absf(BOSS.HEAD_LEG_ALLOWED_PENETRATION_METERS - 0.10) > 0.00001 \
+            or absf(boss_constants["HEAD_LEG_ALLOWED_PENETRATION_METERS"] - 0.10) > 0.00001 \
             or absf(IK.HEAD_KNEE_ALLOWED_PENETRATION_METERS - 0.10) > 0.00001:
         _fail("knee and HEAD do not share exactly 10cm")
         return
@@ -111,7 +114,7 @@ func _run() -> void:
     if reverse < 0.39 or reverse > 1.00001:
         _fail("head cannot smoothly escape from >10cm penetration")
         return
-    if absf(BOSS.HEAD_TRACK_STANDUP_START_FRACTION - 0.70) > 0.00001 \
+    if absf(boss_constants["HEAD_TRACK_STANDUP_START_FRACTION"] - 0.70) > 0.00001 \
             or absf(IK.HEAD_KNEE_MAX_BEND - 0.45) > 0.00001 \
             or absf(IK.STEP_DURATION_SECONDS - 0.58) > 0.00001 \
             or absf(IK.SINGLE_LEG_RISE_SECONDS - 1.0) > 0.00001 \
