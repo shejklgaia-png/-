@@ -32,6 +32,7 @@ on:
       - 'tools/v357_bittaran_*.gd'
       - 'tools/v358_bittaran_*.gd'
       - 'tools/v359_bittaran_*.gd'
+      - 'tools/v360_bittaran_*.gd'
       - 'tools/rebuild_bittaran_data.py'
       - 'scripts/command_nexus.gd'
       - 'project.godot'
@@ -296,3 +297,20 @@ jobs:
             exit 1
           fi
           grep -q 'GODOT_V359_BITTARAN_LOCK_AXIS_PASS' "$log"
+
+      - name: Verify 180-degree controller inversion and camera near-plane fallback
+        run: |
+          set -euo pipefail
+          log="$RUNNER_TEMP/bittaran-v360.log"
+          status=0
+          "$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" --headless --path . --script tools/v360_bittaran_controller_depth_runtime_check.gd > "$log" 2>&1 || status=$?
+          cat "$log"
+          if [ "$status" -ne 0 ]; then
+            echo "::error::Bittaran v360 depth-safe compass test failed with code $status"
+            exit "$status"
+          fi
+          if grep -E 'SCRIPT ERROR|Parse Error|Compile Error|ERROR: Failed to load|Invalid call|V360_BITTARAN_AXIS_FAIL' "$log"; then
+            echo "::error::Bittaran v360 compass reported a Godot regression"
+            exit 1
+          fi
+          grep -q 'GODOT_V360_BITTARAN_AXIS_PASS' "$log"
