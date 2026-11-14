@@ -53,15 +53,17 @@ func _run() -> void:
         return
     var sera := Vector3(4.2, 1.53, -12.0)
     var boss := Vector3(-3.4, 7.8, 2.0)
+    var actual_body: AABB = parts.call("get_body_hit_aabb")
+    var body_mesh_center: Vector3 = actual_body.get_center()
     var horizontal: PackedVector3Array = parts.call(
         "get_actor_parallel_lock_segments", sera, boss)
-    if not _assert_horizontal(horizontal, sera, boss):
+    if not _assert_horizontal(horizontal, sera, body_mesh_center):
         return
     for changed_y in [-20.0, -5.0, 0.0, 1.53, 12.0, 55.0]:
         var moved := Vector3(boss.x, changed_y, boss.z)
         var next: PackedVector3Array = parts.call(
             "get_actor_parallel_lock_segments", sera, moved)
-        if not _assert_horizontal(next, sera, moved):
+        if not _assert_horizontal(next, sera, body_mesh_center):
             return
         for index in range(4):
             if (next[index] as Vector3).distance_to(horizontal[index]) > EPS:
@@ -70,7 +72,7 @@ func _run() -> void:
     var higher_sera := sera + Vector3.UP * 1.17
     var higher: PackedVector3Array = parts.call(
         "get_actor_parallel_lock_segments", higher_sera, boss)
-    if not _assert_horizontal(higher, higher_sera, boss):
+    if not _assert_horizontal(higher, higher_sera, body_mesh_center):
         return
     if absf(higher[0].y - (sera.y + 1.17)) > EPS:
         _fail("line height not sourced from SERA")
