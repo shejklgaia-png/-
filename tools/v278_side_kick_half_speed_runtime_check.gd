@@ -1,5 +1,5 @@
 extends SceneTree
-## Historical v278 full authored 2x kick and v340 next-frame 4m exit.
+## v342 authored 0.80s Kick_l/Kick_r, v340 next-frame 4m exit.
 func _initialize() -> void:
     call_deferred("_run")
 func _fail(message: String) -> void:
@@ -38,8 +38,8 @@ func _run() -> void:
             return
         game.set("step_kick_side_request",0)
         var d: float=float(game.get("step_duration_current"))
-        if absf(d-.30)>.0001:
-            _fail("authored 1x duration changed")
+        if absf(d-.80)>.0001:
+            _fail("authored 0.80s duration changed")
             return
         if absf(float(game.get("step_arc_length"))-4.0)>.0001:
             _fail("post-contact dash not 4m")
@@ -90,5 +90,5 @@ func _run() -> void:
         if Vector2(player.position.x,player.position.z).distance_to(at_hit+direction*4.0)>.06:
             _fail("4m line incomplete")
             return
-    print("GODOT_V278_SLOW_KICK_PASS (2x clip, 4m next-frame exit)")
+    print("GODOT_V278_KICK_0P8S_PASS (0.80s clip, 4m next-frame exit)")
     quit(0)

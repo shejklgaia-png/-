@@ -192,7 +192,8 @@ const CAMERA_COMBAT_ZOOM_OUT_SPEED: float = 8.0
 # legs and SERA's shoulder width, not merely the central hitbox.
 # Four metres AFTER second kick contact, never part of an orbit.
 const SIDE_KICK_BOOST_DISTANCE: float = 4.0
-# Preserve original 0.6s authored kick: 3m / 10m/s * 2x.
+# Authored Kick_l/Kick_r each last 0.80s at default stats:
+# 3m / 10m/s * (8/3). Post-second-hit travel remains a separate 4m dash.
 const SIDE_KICK_DURATION_REFERENCE_DISTANCE: float = 3.0
 const SIDE_KICK_SAFE_ORBIT_RADIUS: float = 3.55  # historic bound; not boost distance
 const STEP_CLOSE_CAMERA_MAX_TURN_RATE_DEGREES: float = 300.0
@@ -232,9 +233,10 @@ const SIDE_KICK_HIT_PROGRESS = [0.25, 0.58333]
 # Original 1.0s Blockbench keys: Kick_r=0.33333, Kick_l=0.41667.
 const SIDE_KICK_SECOND_WINDUP_R: float = 0.33333
 const SIDE_KICK_SECOND_WINDUP_L: float = 0.41667
-# v278: lateral kick animation lasts twice as long without reducing
-# normal STEP travel speed/distance, changing Kick_b, or cutting off clips.
-const SIDE_KICK_MOTION_TIME_MULTIPLIER: float = 1.0
+# v342: 0.80s fixed nominal duration, mapped over the complete authored
+# Kick_l / Kick_r timeline. Equipment step-time/speed modifiers still apply.
+# Does not retime the unrelated 0.80s Kick_b or affect 4m exit distance.
+const SIDE_KICK_MOTION_TIME_MULTIPLIER: float = 8.0 / 3.0
 const SIDE_KICK_REACH: float = MELEE_SURFACE_REACH
 const BASH_CONTACT_TIME: float = 0.25
 const BASH_TRACK_SECONDS: float = 0.20  # Max time to enter Bash reach before launch.
@@ -3392,7 +3394,7 @@ func _start_omni_step(flick: Vector2) -> bool:
     side_kick_linear_direction = Vector2.ZERO
     side_kick_linear_distance = 0.0
     if side_kick_active:
-        # 4m post-contact displacement and unchanged .6s animation clock.
+        # 4m post-contact displacement and the complete 0.80s kick clip.
         step_arc_length = SIDE_KICK_BOOST_DISTANCE
         step_speed_current = SIDE_KICK_STEP_SPEED * float(
             part_stats.get("step_speed_mult", 1.0))

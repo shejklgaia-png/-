@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Historical 2x authored side-kick motion and v340 post-contact linear exit."""
+"""v342 0.80s authored side-kick motion and v340 post-contact linear exit."""
 from pathlib import Path
 import json,re
 r=Path(__file__).resolve().parents[1]
@@ -8,7 +8,7 @@ rig=(r/"scripts/sera_rig.gd").read_text()
 assets=json.loads((r/"assets/sera_source.json").read_text())
 ver=int(re.search(r'config/name="SERA v(\d+)"',(r/"project.godot").read_text()).group(1))
 assert ver>=340
-assert "const SIDE_KICK_MOTION_TIME_MULTIPLIER: float = 1.0" in m
+assert "const SIDE_KICK_MOTION_TIME_MULTIPLIER: float = 8.0 / 3.0" in m
 assert "const SIDE_KICK_DURATION_REFERENCE_DISTANCE: float = 3.0" in m
 assert "const SIDE_KICK_BOOST_DISTANCE: float = 4.0" in m
 assert "SIDE_KICK_DURATION_REFERENCE_DISTANCE / step_speed_current" in m
@@ -24,4 +24,4 @@ assert 'side_kick_playback_scale = maxf(0.001, float(animations[chosen]["length"
 clips={x["name"]:x for x in assets["animations"]}
 for name in ("Kick_l","Kick_r"): assert float(clips[name]["length"])==1.0
 assert abs(float(clips["Kick_b"]["length"])-0.79167)<0.00002
-print("V278_SIDE_KICK_HALF_SPEED_STATIC_PASS (2x clip, 4m post-contact)")
+print("V278_SIDE_KICK_RUNTIME_STATIC_PASS (0.80s clip, 4m post-contact)")

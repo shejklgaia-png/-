@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "approved_at_version": 341,
+  "approved_at_version": 342,
   "description": "Approved current movement contract. Change together with intentionally updated gameplay, never merely to silence tests.",
   "ordinary_step": {
     "distance_m": 4,
@@ -12,7 +12,8 @@
     "distance_m": 4,
     "speed_mps": 10,
     "duration_reference_distance_m": 3,
-    "motion_time_multiplier": 1,
+    "motion_time_multiplier": 2.6666666666666665,
+    "nominal_duration_s": 0.8,
     "second_hit_progress": 0.58333,
     "post_hit_only": true
   }
