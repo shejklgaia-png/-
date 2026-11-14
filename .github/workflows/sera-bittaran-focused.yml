@@ -43,6 +43,7 @@ on:
       - 'tools/v368_bittaran_*.gd'
       - 'tools/v369_bittaran_*.gd'
       - 'tools/v370_bittaran_*.gd'
+      - 'tools/v371_bittaran_*.gd'
       - 'tools/rebuild_bittaran_data.py'
       - 'scripts/command_nexus.gd'
       - 'project.godot'
@@ -494,3 +495,20 @@ jobs:
             exit 1
           fi
           grep -q 'GODOT_V370_BITTARAN_TURN_HEAD_STRIDE_PASS' "$log"
+
+      - name: Verify weak 70-percent head follow and seamless post-upright easing
+        run: |
+          set -euo pipefail
+          log="$RUNNER_TEMP/bittaran-v371.log"
+          status=0
+          "$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" --headless --path . --script tools/v371_bittaran_gentle_head_recovery_runtime_check.gd > "$log" 2>&1 || status=$?
+          cat "$log"
+          if [ "$status" -ne 0 ]; then
+            echo "::error::Bittaran v371 gentle head follow runtime failed with code $status"
+            exit "$status"
+          fi
+          if grep -E 'SCRIPT ERROR|Parse Error|Compile Error|ERROR: Failed to load|Invalid call|V371_BITTARAN_GENTLE_HEAD_FAIL' "$log"; then
+            echo "::error::Bittaran v371 head easing runtime regression"
+            exit 1
+          fi
+          grep -q 'GODOT_V371_BITTARAN_GENTLE_HEAD_PASS' "$log"

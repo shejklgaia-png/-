@@ -16,8 +16,10 @@ const DOWN_ESCAPE_SPEED_MPS: float = 15.0
 const HEAD_TRACK_MAX_YAW_DEGREES: float = 48.0
 const HEAD_TRACK_DEGREES_PER_SECOND: float = 140.0
 const HEAD_TRACK_STANDUP_START_FRACTION: float = 0.70
-# Ease into reacquisition during and immediately after getting upright:
-# the full standing 140°/s is far too fast next to folded forelegs.
+# A gentle, weaker head reacquisition starts at 70% ACTUAL upright pose.
+# End the physical rise at only 60% head authority; the post-upright
+# settle eases the remaining 40% in smoothly without a rotation snap.
+const HEAD_TRACK_RISE_FOLLOW_WEIGHT: float = 0.60
 const HEAD_TRACK_RECOVERY_DEGREES_PER_SECOND: float = 48.0
 ## Real mesh-to-mesh penetration cap applies while standing AND recovering.
 const HEAD_TRACK_COMPONENT_OVERLAP_TOLERANCE_M3: float = 0.008
@@ -267,21 +269,58 @@ func _safe_head_yaw(base_pose: Quaternion, wanted_yaw: float,
     return safe
 
 
-func _head_recovery_follow_weight() -> float:
-    if bittaran_foot_ik == null or not bool(
-            bittaran_foot_ik.call("down_pose_active")):
+func _head_smootherstep(t: float) -> float:
+    # Quintic: zero first AND second derivatives at each boundary.
+    # Unlike the older cubic-squared ramp this has no harsh late surge.
+    var x: float = clampf(t, 0.0, 1.0)
+    return x * x * x * (x * (x * 6.0 - 15.0) + 10.0)
+
+
+func _head_post_upright_progress() -> float:
+    if bittaran_foot_ik == null:
         return 1.0
-    var upright: float = float(bittaran_foot_ik.call(
-        "standup_pose_fraction"))
-    if upright <= HEAD_TRACK_STANDUP_START_FRACTION:
-        return 0.0
-    var ratio: float = clampf(
-        (upright - HEAD_TRACK_STANDUP_START_FRACTION) /
-        (1.0 - HEAD_TRACK_STANDUP_START_FRACTION), 0.0, 1.0)
-    # A second ease on the smoothstep keeps the first few degrees of
-    # head motion deliberately slower than the chassis recovery yaw.
-    var eased: float = ratio * ratio * (3.0 - 2.0 * ratio)
-    return eased * eased
+    var remaining: float = float(bittaran_foot_ik.get(
+        "post_down_idle_remaining"))
+    return clampf(1.0 - remaining /
+        BittaranFootIK.POST_DOWN_IDLE_SETTLE_SECONDS, 0.0, 1.0)
+
+
+func _head_recovery_follow_weight() -> float:
+    if bittaran_foot_ik == null:
+        return 1.0
+    if bool(bittaran_foot_ik.call("down_pose_active")):
+        var upright: float = float(bittaran_foot_ik.call(
+            "standup_pose_fraction"))
+        if upright <= HEAD_TRACK_STANDUP_START_FRACTION:
+            return 0.0
+        var ratio: float = clampf(
+            (upright - HEAD_TRACK_STANDUP_START_FRACTION) /
+            (1.0 - HEAD_TRACK_STANDUP_START_FRACTION), 0.0, 1.0)
+        # Weak S-curve: only 60% authority at the end of physical rise.
+        # Smootherstep squared is gentler than the old cubic-squared ramp.
+        var eased: float = _head_smootherstep(ratio)
+        return HEAD_TRACK_RISE_FOLLOW_WEIGHT * eased * eased
+    var remaining: float = float(bittaran_foot_ik.get(
+        "post_down_idle_remaining"))
+    if remaining > 0.0:
+        # No abrupt 60% -> 100% jump on the first fully upright frame.
+        return lerpf(HEAD_TRACK_RISE_FOLLOW_WEIGHT, 1.0,
+            _head_smootherstep(_head_post_upright_progress()))
+    return 1.0
+
+
+func _head_recovery_turn_speed() -> float:
+    if bittaran_foot_ik == null:
+        return HEAD_TRACK_DEGREES_PER_SECOND
+    if bool(bittaran_foot_ik.call("down_pose_active")):
+        return HEAD_TRACK_RECOVERY_DEGREES_PER_SECOND
+    if float(bittaran_foot_ik.get("post_down_idle_remaining")) > 0.0:
+        # Blend from 48°/s to the normal 140°/s during upright settle,
+        # rather than accelerating in a single frame at the boundary.
+        return lerpf(HEAD_TRACK_RECOVERY_DEGREES_PER_SECOND,
+            HEAD_TRACK_DEGREES_PER_SECOND,
+            _head_smootherstep(_head_post_upright_progress()))
+    return HEAD_TRACK_DEGREES_PER_SECOND
 
 
 func _aim_bittaran_head(delta: float) -> void:
@@ -327,9 +366,6 @@ func _aim_bittaran_head(delta: float) -> void:
     # arm plates when the torso turned and the IK re-planted its feet.
     # Retain only the authored neutral overlap at this frame; forbid NEW
     # mesh intersections as the head steers.
-    var recovering: bool = bittaran_foot_ik != null and (
-        bool(bittaran_foot_ik.call("down_pose_active"))
-        or float(bittaran_foot_ik.get("post_down_idle_remaining")) > 0.0)
     var whole_boxes: Dictionary = {}
     var mesh_boxes: Dictionary = {}
     for id in ["leg_fl", "leg_fr", "leg_rl", "leg_rr"]:
@@ -344,11 +380,9 @@ func _aim_bittaran_head(delta: float) -> void:
         base_pose, wanted, head_neutral_overlap,
         HEAD_LEG_BASELINE_AABB_TOLERANCE_M3,
         head_neutral_component_overlap, mesh_boxes, whole_boxes)
-    var degrees_per_second: float = (
-        HEAD_TRACK_RECOVERY_DEGREES_PER_SECOND if recovering
-        else HEAD_TRACK_DEGREES_PER_SECOND)
-    # Both the target yaw and the turn speed ease in from zero after 70%
-    # of the actual rise; no rotation pop when the head begins following.
+    var degrees_per_second: float = _head_recovery_turn_speed()
+    # The head eases from zero after 70% of actual rise, stays gentle
+    # through upright settle, then smoothly reaches normal tracking speed.
     var proposed_yaw: float = move_toward(
         boss_head_yaw, feasible * head_track_weight,
         deg_to_rad(degrees_per_second) * maxf(delta, 0.0)
