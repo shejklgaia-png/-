@@ -7,7 +7,8 @@ boss = read("scripts/bittaran_parts.gd")
 generic = read("scripts/target_parts.gd")
 visual = read("scripts/main.gd")
 assert 'func get_actor_parallel_lock_segments(actor_origin: Vector3,' in boss
-assert 'body_center.x, actor_origin.y, body_center.z' in boss
+assert 'real_center.x, actor_origin.y, real_center.z' in boss
+assert 'get_body_hit_aabb().get_center() if installed else body_center' in boss
 assert 'return super.get_actor_parallel_lock_segments(' in boss
 assert 'var segments: PackedVector3Array = get_actor_parallel_lock_segments(' in boss
 assert 'PARALLEL_LOCK_HALF_SPACING: float = 0.25' in generic
