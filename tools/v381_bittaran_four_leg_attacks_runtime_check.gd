@@ -117,6 +117,40 @@ func _run() -> void:
     if ring.visible:
         _fail("impact shockwave did not expire")
         return
+    # Real combat integration: a planted SERA standing at the contact
+    # point takes exactly one shockwave/foot damage event, not two hits.
+    brain.call("reset")
+    ik.call("reset")
+    if not bool(brain.call("force_start", "leg_fr", "stomp")):
+        _fail("cannot start live stomp hit regression")
+        return
+    var impact_seen: bool = false
+    var hero: CharacterBody3D = battle.get("player")
+    var hp_before: float = float(battle.get("player_hp"))
+    for _tick in range(ceili(1.25 / DT)):
+        var state: Dictionary = brain.call(
+            "advance", DT, Vector3.ZERO, {}, true)
+        ik.call("set_attack_pose", state)
+        rig.call("set_motion", "Idle", DT)
+        ik.call("advance_ik", DT, "Idle")
+        if bool(state.get("impact", false)):
+            var contact: Vector3 = ik.call("attack_contact_world")
+            hero.global_position = Vector3(contact.x, 0.0, contact.z)
+            battle.set("bittaran_attack_frame", state)
+            battle.call("_check_bittaran_attack_hit")
+            var once: float = float(battle.get("player_hp"))
+            battle.call("_check_bittaran_attack_hit")
+            var twice: float = float(battle.get("player_hp"))
+            if once >= hp_before or absf(once - twice) > 0.0001:
+                _fail("stomp did not damage exactly once via player combat")
+                return
+            if not ring.visible:
+                _fail("stomp damage tick did not create the ring effect")
+                return
+            impact_seen = true
+    if not impact_seen:
+        _fail("stomp did not reach the impact physics tick")
+        return
     print("GODOT_V381_BITTARAN_ATTACKS_PASS: 12 distinct leg/attack "
         + "combinations, 1s planted previews, one stomp impact, "
         + "IK sole recovery, world-space shockwave lifetime")
