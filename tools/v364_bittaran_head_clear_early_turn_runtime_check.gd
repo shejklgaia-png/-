@@ -16,14 +16,25 @@ func _fail(message: String) -> void:
     push_error("V364_BITTARAN_HEAD_CLEAR_FAIL: " + message)
     quit(1)
 
-func _head_clear(parts: Node3D, neutral: Dictionary) -> bool:
+func _head_clear(parts: Node3D, neutral: Dictionary,
+        component_neutral: Dictionary) -> bool:
     var tip: AABB = (parts.call("get_head_swing_aabb") as AABB).grow(0.05)
     for id in LEG_IDS:
         var leg: AABB = parts.call("get_leg_visual_aabb", id)
-        var overlap: float = 0.0
+        var broad: float = 0.0
         if leg.has_volume() and tip.intersects(leg):
-            overlap = tip.intersection(leg).get_volume()
-        if overlap > float(neutral.get(id, 0.0)) + MAX_EXTRA_OVERLAP_M3:
+            broad = tip.intersection(leg).get_volume()
+        # Whole articulated-leg AABB includes air between joints and is a
+        # coarse cap only; enforce the strict clearance against actual plates.
+        if broad > float(neutral.get(id, 0.0)) + 0.03501:
+            return false
+        var components: float = 0.0
+        for visual in parts.call("get_leg_visual_mesh_boxes", id):
+            var piece: AABB = visual
+            if piece.has_volume() and tip.intersects(piece):
+                components += tip.intersection(piece).get_volume()
+        if components > float(component_neutral.get(id, 0.0)) \
+                + MAX_EXTRA_OVERLAP_M3:
             return false
     return true
 
@@ -127,18 +138,22 @@ func _case(battle: Node3D, broken_ids: Array[String],
                         return false
                 var baseline: Dictionary = battle.get(
                     "head_neutral_overlap")
-                if not _head_clear(parts, baseline):
-                    _fail(label + ": rotating head entered upper/lower arm "
-                        + "above neutral baseline at frame=" + str(frame))
+                var component_baseline: Dictionary = battle.get(
+                    "head_neutral_component_overlap")
+                if not _head_clear(parts, baseline, component_baseline):
+                    _fail(label + ": rotating head entered actual upper/lower "
+                        + "arm meshes above neutral at frame=" + str(frame))
                     return false
                 var tip: AABB = (parts.call(
                     "get_head_swing_aabb") as AABB).grow(0.05)
                 for id in LEG_IDS:
-                    var arm: AABB = parts.call("get_leg_visual_aabb", id)
-                    if tip.intersects(arm):
-                        max_extra_overlap = maxf(max_extra_overlap,
-                            tip.intersection(arm).get_volume()
-                            - float(baseline.get(id, 0.0)))
+                    var extra: float = 0.0
+                    for visual in parts.call("get_leg_visual_mesh_boxes", id):
+                        var arm: AABB = visual
+                        if tip.intersects(arm):
+                            extra += tip.intersection(arm).get_volume()
+                    max_extra_overlap = maxf(max_extra_overlap,
+                        extra - float(component_baseline.get(id, 0.0)))
             previous_head_yaw = actual_head_yaw
         if not locked:
             unlocked = true
