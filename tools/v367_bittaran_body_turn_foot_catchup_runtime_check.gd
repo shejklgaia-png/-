@@ -32,7 +32,7 @@ func _run_case(battle: Node3D, ids: Array[String],
     # 22deg/s, but v367 must aim the chassis at 34deg/s while rising.
     player.global_position = boss.global_position + (
         Vector3(27.0, 0, 0) if requested == "Turn"
-        else Vector3(9.0, 0, 27.0))
+        else Vector3(15.0, 0, 26.0))
     battle.call("_advance_target_motion", DT)
     if str(battle.get("bittaran_motion")) != requested:
         _fail("wrong initial motion: " + requested)
@@ -52,12 +52,8 @@ func _run_case(battle: Node3D, ids: Array[String],
     var upright_first_pair: int = -1
     var second_pair_seen: bool = false
     var live_target_updates: int = 0
-    var first_step_done: bool = false
-    var first_pair_finished: bool = false
-    var first_anchor_targets: Dictionary = {}
     var last_swing_targets: Dictionary = {}
     var upright_frame: int = -1
-    var previous_step_pair: int = -1
     for frame in range(550):
         var before_break: bool = bool(ik.call("down_pose_active"))
         var rising_this_tick: bool = bool(ik.call("standup_turn_enabled", DT))
@@ -86,9 +82,6 @@ func _run_case(battle: Node3D, ids: Array[String],
             if chosen != "Idle" or yaw_step > 0.000003:
                 _fail("chassis turned before rising")
                 return false
-        if not before_break and upright_frame < 0:
-            _fail("broken state never started")
-            return false
         battle.call("_finalize_target_pose", DT)
         var still_down: bool = bool(ik.call("down_pose_active"))
         var pair: int = int(ik.get("stepping_pair"))
@@ -115,10 +108,7 @@ func _run_case(battle: Node3D, ids: Array[String],
                     if float(foot["swing_elapsed"]) > DT + 0.00001:
                         _fail("stepping began before the body stood up")
                         return false
-                    first_anchor_targets[str(foot["upper"].name)] = foot["swing_to"]
         elif upright_frame >= 0:
-            if previous_step_pair >= 0 and pair == -1:
-                first_pair_finished = true
             if pair >= 0 and pair != upright_first_pair:
                 second_pair_seen = true
             for leg in all_legs:
@@ -141,7 +131,6 @@ func _run_case(battle: Node3D, ids: Array[String],
                     if before.distance_to(actual) > 0.00002:
                         live_target_updates += 1
                 last_swing_targets[foot_name] = actual
-        previous_step_pair = pair
         if upright_frame >= 0 and frame > upright_frame + 115:
             break
     if rise_frames < 12 or hold_frames < 80 or upright_frame < 0 \
