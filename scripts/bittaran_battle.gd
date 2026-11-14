@@ -15,6 +15,7 @@ const DOWN_ESCAPE_SPEED_MPS: float = 15.0
 const HEAD_TRACK_MAX_YAW_DEGREES: float = 48.0
 const HEAD_TRACK_DEGREES_PER_SECOND: float = 140.0
 const HEAD_LEG_CLEARANCE_METERS: float = 0.05
+const HEAD_LEG_BASELINE_AABB_TOLERANCE_M3: float = 0.035
 
 var bittaran_rig: Node3D
 var bittaran_ai: RefCounted
@@ -27,6 +28,7 @@ var boss_death_elapsed: float = -1.0
 var boss_far_side_screen_axis: bool = false
 var bittaran_head: Node3D
 var boss_head_yaw: float = 0.0
+var head_neutral_overlap: Dictionary = {}
 var boss_downed_escaping: bool = false
 
 func _ready() -> void:
@@ -161,17 +163,32 @@ func _touch_to_lock_forward(origin_screen: Vector2) -> Vector2:
             camera, actor_center, aim, fallback)
     return super._touch_to_lock_forward(origin_screen)
 
-func _head_collides_with_leg(base_pose: Quaternion,
-        relative_yaw: float) -> bool:
+func _head_leg_overlap_by_id(base_pose: Quaternion,
+        relative_yaw: float) -> Dictionary:
+    # Axis-aligned bounds include empty corners at the authored neck/hip
+    # junction. Permit the original bind-pose overlap, but never let a turn
+    # substantially INCREASE penetration into a currently posed leg.
+    var overlaps: Dictionary = {}
     if bittaran_head == null or target_parts == null:
-        return false
+        return overlaps
     bittaran_head.quaternion = (base_pose *
         Quaternion(Vector3.UP, relative_yaw)).normalized()
-    var head_box: AABB = (target_parts.call(
+    var tip: AABB = (target_parts.call(
         "get_head_swing_aabb") as AABB).grow(HEAD_LEG_CLEARANCE_METERS)
     for id in ["leg_fl", "leg_fr", "leg_rl", "leg_rr"]:
-        var foot_leg: AABB = target_parts.call("get_leg_visual_aabb", id)
-        if foot_leg.has_volume() and head_box.intersects(foot_leg):
+        var leg: AABB = target_parts.call("get_leg_visual_aabb", id)
+        var volume: float = 0.0
+        if leg.has_volume() and tip.intersects(leg):
+            volume = tip.intersection(leg).get_volume()
+        overlaps[id] = volume
+    return overlaps
+
+
+func _head_collides_with_leg(base_pose: Quaternion,
+        relative_yaw: float, resting: Dictionary) -> bool:
+    var overlaps: Dictionary = _head_leg_overlap_by_id(base_pose, relative_yaw)
+    for id in overlaps:
+        if float(overlaps[id]) > float(resting.get(id, 0.0))                 + HEAD_LEG_BASELINE_AABB_TOLERANCE_M3:
             return true
     return false
 
@@ -196,19 +213,17 @@ func _aim_bittaran_head(delta: float) -> void:
         deg_to_rad(HEAD_TRACK_MAX_YAW_DEGREES))
     # Continuously check ACTUAL posed upper legs, shins and feet against
     # the proposed head swing, stopping at the last collision-free angle.
+    head_neutral_overlap = _head_leg_overlap_by_id(base_pose, 0.0)
     var feasible: float = 0.0
-    if not _head_collides_with_leg(base_pose, 0.0):
-        var last_safe: float = 0.0
-        for step in range(1, 13):
-            var candidate: float = wanted * float(step) / 12.0
-            if _head_collides_with_leg(base_pose, candidate):
-                break
-            last_safe = candidate
-        feasible = last_safe
+    for step in range(1, 13):
+        var candidate: float = wanted * float(step) / 12.0
+        if _head_collides_with_leg(base_pose, candidate, head_neutral_overlap):
+            break
+        feasible = candidate
     # Restore and smoothly turn in local yaw; chassis down pitch remains.
     boss_head_yaw = move_toward(boss_head_yaw, feasible,
         deg_to_rad(HEAD_TRACK_DEGREES_PER_SECOND) * maxf(delta, 0.0))
-    if _head_collides_with_leg(base_pose, boss_head_yaw):
+    if _head_collides_with_leg(base_pose, boss_head_yaw, head_neutral_overlap):
         # A moving foot can enter the old heading. Resolve this immediately
         # instead of allowing a collision during a smooth turn.
         boss_head_yaw = feasible
@@ -387,6 +402,7 @@ func _reset_target_after_respawn() -> void:
     boss_death_elapsed = -1.0
     boss_far_side_screen_axis = false
     boss_head_yaw = 0.0
+    head_neutral_overlap.clear()
     boss_downed_escaping = false
     if boss_death_particles != null:
         boss_death_particles.emitting = false
