@@ -66,6 +66,12 @@ func _run() -> void:
         ik.call("advance_ik", DT, "Idle")
         battle.call("_aim_bittaran_head", DT)
         if not _head_clear(parts):
+            print("HEAD_DEBUG sway=", battle.get("boss_head_yaw"),
+                " tip=", parts.call("get_head_swing_aabb"),
+                " full=", parts.call("get_part_aabb", "head"))
+            for leg_id in ["leg_fl", "leg_fr", "leg_rl", "leg_rr"]:
+                print("HEAD_DEBUG ", leg_id, " = ",
+                    parts.call("get_leg_visual_aabb", leg_id))
             _fail("head tracked into an upper leg/shin/foot at frame " + str(n))
             return
     var left_yaw: float = float(battle.get("boss_head_yaw"))
