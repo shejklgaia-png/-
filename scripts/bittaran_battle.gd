@@ -419,9 +419,19 @@ func _advance_target_motion(delta: float) -> void:
     var recovered: bool = (bittaran_foot_ik == null
         or bool(bittaran_foot_ik.call("locomotion_ready")))
     var recovery_motion_locked: bool = not (rising_now or recovered)
+    # A 2nd/3rd broken shin gives main.gd a 3.5s part-break stun.
+    # Its timer outlasts this boss's physical stand-up, suppressing
+    # Turn/Approach on every subsequent destruction. The Bittaran IK
+    # reaction already owns this freeze; while physically rising the
+    # generic part-break/stagger timers must not block its AI again.
+    var rising_after_break: bool = rising_now and bittaran_foot_ik != null \
+        and bool(bittaran_foot_ik.call("down_pose_active"))
+    var generic_damage_frozen: bool = (
+        (stagger_remaining > 0.0 or part_break_remaining > 0.0)
+        and not rising_after_break)
     var frozen: bool = (
         not target_move_enabled or target_hp <= 0
-        or stagger_remaining > 0.0 or part_break_remaining > 0.0
+        or generic_damage_frozen
         or down_remaining > 0.0 or training_ko_remaining > 0.0
         or recovery_motion_locked)
     # Use the normal AI branch to choose Turn, Approach, or Idle. Do not
@@ -567,6 +577,12 @@ func _apply_target_part_damage(kind: String, raw_attack: int, raw_break: float,
             var head_world: Vector3 = target_parts.call("get_part_aim_world", "head")
             bittaran_foot_ik.call("start_leg_break_slide", hit_id, head_world.y,
                 int(result.get("broken_legs", 0)) >= 4)
+            # The base training boss starts a generic 1s/3.5s animation
+            # freeze on every broken limb. Bittaran's longer physical
+            # knockdown replaces it entirely; otherwise 2nd+ breaks
+            # remain animation-locked past the first upward recovery.
+            part_break_remaining = 0.0
+            stagger_remaining = 0.0
             # Weakpoints become lockable in this very hit frame.
             target_parts.call("set_down_lock_enabled", true)
     if alive_before and target_hp == 0:
