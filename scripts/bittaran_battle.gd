@@ -168,7 +168,7 @@ func _head_collides_with_leg(base_pose: Quaternion,
     bittaran_head.quaternion = (base_pose *
         Quaternion(Vector3.UP, relative_yaw)).normalized()
     var head_box: AABB = (target_parts.call(
-        "get_part_aabb", "head") as AABB).grow(HEAD_LEG_CLEARANCE_METERS)
+        "get_head_swing_aabb") as AABB).grow(HEAD_LEG_CLEARANCE_METERS)
     for id in ["leg_fl", "leg_fr", "leg_rl", "leg_rr"]:
         var foot_leg: AABB = target_parts.call("get_leg_visual_aabb", id)
         if foot_leg.has_volume() and head_box.intersects(foot_leg):
