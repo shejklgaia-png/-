@@ -330,3 +330,5 @@ gd tools/v364_bittaran_head_clear_early_turn_runtime_check.gd
 gd tools/v365_bittaran_immediate_standup_yaw_runtime_check.gd
 
 gd tools/v366_bittaran_live_rise_motion_runtime_check.gd
+
+gd tools/v367_bittaran_body_turn_foot_catchup_runtime_check.gd

@@ -428,6 +428,30 @@ func _advance_target_motion(delta: float) -> void:
     # substitute the v365 Idle-only recovery yaw controller here.
     var result: Dictionary = bittaran_ai.call("advance", delta,
         target.position, target.rotation.y, player.position, frozen)
+    # During physical stand-up the CHEST always turns toward SERA at the
+    # stationary 34deg/s turn rate, even when Approach would normally use
+    # the slower moving-turn rate. The feet stay world-planted until upright.
+    # Approach is still allowed to translate as in v366; rebuild its next
+    # root XZ using the corrected chassis yaw and the SAME traveled distance.
+    var rising: bool = (bittaran_foot_ik != null
+        and bool(bittaran_foot_ik.call("down_pose_active"))
+        and rising_now and not frozen)
+    if rising:
+        var toward: Vector3 = player.global_position - target.global_position
+        toward.y = 0.0
+        if toward.length_squared() > 0.000001:
+            var desired_yaw: float = atan2(toward.x, toward.z)
+            var yaw_error: float = wrapf(
+                desired_yaw - target.rotation.y, -PI, PI)
+            var yaw_limit: float = deg_to_rad(BittaranAI.STATIONARY_TURN_DEG_PER_SEC) * maxf(delta, 0.0)
+            var upright_yaw: float = target.rotation.y + clampf(
+                yaw_error, -yaw_limit, yaw_limit)
+            if str(result["motion"]) == "Approach":
+                var step: Vector3 = (result["position"] as Vector3) - target.position
+                var distance: float = Vector2(step.x, step.z).length()
+                result["position"] = target.position + Vector3(
+                    sin(upright_yaw), 0.0, cos(upright_yaw)) * distance
+            result["yaw"] = upright_yaw
     target.position = result["position"]
     target.rotation.y = float(result["yaw"])
     bittaran_motion = str(result["motion"])

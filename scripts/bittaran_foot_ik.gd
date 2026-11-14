@@ -9,6 +9,9 @@ const STEP_DURATION_SECONDS: float = 0.58
 const STEP_HEIGHT_METERS: float = 0.34
 const STEP_FORWARD_LEAD_METERS: float = 0.28
 const STEP_COOLDOWN_SECONDS: float = 0.10
+# A landing target must be the live foot placement beneath the turned
+# chassis. Do not alter the authored STEP_DURATION_SECONDS to catch up.
+const RECOVERY_FOOT_CATCHUP_THRESHOLD_METERS: float = 0.16
 const MAX_TELEPORT_METERS: float = 1.50
 const MAX_YAW_SNAP_RADIANS: float = 1.4
 const IK_REACH_MARGIN_METERS: float = 0.002
@@ -69,6 +72,7 @@ var break_elapsed: float = -1.0
 var windup_elapsed: float = -1.0
 var post_down_idle_remaining: float = 0.0
 var recovery_gait_started: bool = false
+var recovery_catchup_pending_pair: int = -1
 var front_anchor_rest: Dictionary = {}
 var front_extension_direction: Dictionary = {}
 var ground_correction_world: float = 0.0
@@ -212,6 +216,7 @@ func reset() -> void:
     windup_elapsed = -1.0
     post_down_idle_remaining = 0.0
     recovery_gait_started = false
+    recovery_catchup_pending_pair = -1
     ground_correction_world = 0.0
     front_anchor_rest.clear()
     front_extension_direction.clear()
@@ -253,12 +258,12 @@ func _rotation_home(leg: Dictionary) -> Quaternion:
     return (actor.global_basis.get_rotation_quaternion()
         * (leg["rest_foot_rotation_local"] as Quaternion)).normalized()
 
-func _pair_error(pair_index: int) -> float:
+func _pair_error(pair_index: int, with_lead: bool = false) -> float:
     var magnitude: float = 0.0
     for i in LEG_PAIRS[pair_index]:
         var leg: Dictionary = legs[i]
         magnitude = maxf(magnitude,
-            (leg["anchor"] as Vector3).distance_to(_home(leg, false)))
+            (leg["anchor"] as Vector3).distance_to(_home(leg, with_lead)))
     return magnitude
 
 func _start_pair(pair_index: int, walking: bool) -> void:
@@ -367,6 +372,7 @@ func start_leg_break_slide(id: String, head_world_y: float,
     # another broken leg during the previous recovery/Idle-settle phase.
     post_down_idle_remaining = 0.0
     recovery_gait_started = false
+    recovery_catchup_pending_pair = -1
     # A second leg can break while the boss is already down. Refresh the
     # down timer but never snap an already fallen chassis UP into a windup.
     var already_downed: bool = break_elapsed >= 0.0
@@ -697,34 +703,35 @@ func advance_ik(delta: float, motion: String) -> void:
     last_actor_yaw = actor.global_rotation.y
     cooldown = maxf(0.0, cooldown - delta)
     _advance_leg_break(delta)
-    # The authored Turn/Approach clip is sampled BEFORE this IK pass.
-    # The previous down gate suppressed ALL IK foot motion until fully
-    # upright, leaving the boss visibly frozen for the entire stand-up.
-    # Begin the first available diagonal step on the exact physical rise
-    # frame. Never swing the supporting leg while the HEAD rests on it.
-    var rising: bool = (down_pose_active()
-        and break_elapsed >= break_recover_start)
-    var active: bool = (motion == "Approach" or motion == "Turn") and (
-        not break_reaction_active() or rising)
-    if rising and active and stepping_pair == -1 and not recovery_gait_started:
-        var first_pair: int = preferred_pair
-        if head_support_leg_index in LEG_PAIRS[first_pair]:
-            first_pair = 1 - first_pair
-        _start_pair(first_pair, motion == "Approach")
-        recovery_gait_started = true
-    if stepping_pair == -1 and active and cooldown <= 0.0:
-        var a: float = _pair_error(0)
-        var b: float = _pair_error(1)
-        var selected: int = preferred_pair
-        if maxf(a, b) > STEP_TRIGGER_METERS:
-            # Bias to alternating diagonal pairs, but never leave the other
-            # diagonal pinned indefinitely when turning.
-            if absf(a-b) > 0.12:
-                selected = 0 if a > b else 1
-            # Avoid lifting the trapped head-supporting foot before the
-            # actual recovery pose releases it, even on repeated steps.
-            if not rising or head_support_leg_index < 0 or (
-                    not head_support_leg_index in LEG_PAIRS[selected]):
+    # During the physical stand-up, planted feet keep their world-space
+    # anchors as the chassis turns toward SERA. Locomotion clips already
+    # play on the rig, but the IK soles must NOT chase the torso until
+    # the head/torso have completely risen and their support is released.
+    var upright: bool = not break_reaction_active()
+    var active: bool = (motion == "Approach" or motion == "Turn") and upright
+    if active and stepping_pair == -1 and cooldown <= 0.0:
+        var a: float = _pair_error(0, motion == "Approach")
+        var b: float = _pair_error(1, motion == "Approach")
+        if not recovery_gait_started and post_down_idle_remaining > 0.0:
+            # The first fully upright IK tick selects the pair furthest
+            # from its NEW stance under the rotated/moved chassis.
+            var first_pair: int = 0 if a >= b else 1
+            _start_pair(first_pair, motion == "Approach")
+            recovery_catchup_pending_pair = 1 - first_pair
+            recovery_gait_started = true
+        elif recovery_catchup_pending_pair >= 0:
+            # Both pairs must eventually place their feet under the new
+            # body heading. Keep the original gait duration, not faster
+            # animation, and retarget their landing positions instead.
+            _start_pair(recovery_catchup_pending_pair, motion == "Approach")
+            recovery_catchup_pending_pair = -1
+        else:
+            var selected: int = preferred_pair
+            if maxf(a, b) > STEP_TRIGGER_METERS or (
+                    recovery_gait_started
+                    and maxf(a, b) > RECOVERY_FOOT_CATCHUP_THRESHOLD_METERS):
+                if absf(a - b) > 0.12:
+                    selected = 0 if a > b else 1
                 _start_pair(selected, motion == "Approach")
     var done: bool = true
     for leg in legs:
@@ -735,6 +742,12 @@ func advance_ik(delta: float, motion: String) -> void:
                 float(leg["swing_elapsed"]) + delta)
             var ratio: float = float(leg["swing_elapsed"]) / STEP_DURATION_SECONDS
             var eased: float = ratio * ratio * (3.0 - 2.0 * ratio)
+            # Target the actual landing location for THIS body's CURRENT
+            # position/yaw, not the old chassis orientation at step start.
+            # The 0.58s swing duration remains fixed. Both the foot's
+            # touchdown position and rotation match the body's NEW stance.
+            leg["swing_to"] = _home(leg, motion == "Approach")
+            leg["rotation_to"] = _rotation_home(leg)
             position = (leg["swing_from"] as Vector3).lerp(
                 leg["swing_to"] as Vector3, eased)
             position.y += sin(PI * ratio) * STEP_HEIGHT_METERS
