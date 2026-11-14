@@ -50,7 +50,7 @@ func _run() -> void:
         var launch: Vector3 = player.position - before
         var unit: Vector2 = Vector2(motion.x, motion.z).normalized()
         if Vector2(launch.x, launch.z).distance_to(unit * launch_distance) > 0.07:
-            _fail("not a 0.3m launch: " + str(i) + " " + str(launch))
+            _fail("not a 0.1m launch: " + str(i) + " " + str(launch))
             return
         if absf(float(game.get("step_arc_length"))-step_distance)>0.0001:
             _fail("total planned STEP no longer 4m")
@@ -107,5 +107,5 @@ func _run() -> void:
         _fail("side kick arc changed")
         return
     game.call("_finish_side_step",false)
-    print("GODOT_V318_STEP_0P3M_LAUNCH_4M_TOTAL_50MS_FX_PASS")
+    print("GODOT_V339_STEP_0P1M_LAUNCH_4M_TOTAL_50MS_FX_PASS")
     quit(0)

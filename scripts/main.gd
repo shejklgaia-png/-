@@ -131,8 +131,8 @@ const JUMP_FALL_CLIP_START: float = 0.20833 / 0.375
 const BACK_STEP_DISTANCE: float = 4.0
 const STEP_FORWARD_DISTANCE: float = 4.0
 const STEP_SIDE_DISTANCE: float = 4.0
-# v318: the swept launch warp is included in the full 4m STEP.
-const STEP_LAUNCH_WARP_DISTANCE: float = 0.3
+# v339: a 0.1m swept launch, counted within the unchanged full 4m STEP.
+const STEP_LAUNCH_WARP_DISTANCE: float = 0.1
 const STEP_LAUNCH_FX_SECONDS: float = 0.05
 const STEP_SPEED: float = 15.0  # m/s, equipment-adjusted
 const SIDE_KICK_STEP_SPEED: float = 10.0  # preserve legacy combo kick timing
@@ -3618,8 +3618,11 @@ func _advance_side_step(delta: float) -> void:
             side_kick_travel_anchor_set = true
         if side_kick_travel_anchor_set:
             if not side_kick_linear_active:
-                # The active lock may move (e.g. animated HEAD or a moving
-                # boss). Follow that pivot only during the circular part.
+                # The locked HEAD/leg/BODY remains the orbit center.
+                # During the SECOND kick's authored windup -> foot extension,
+                # add live homing until the exact original second contact key.
+                # Never alter step_elapsed, step_duration_current, the clip,
+                # playback rate or the post-contact tangent phase.
                 step_target_center = _kick_lock_center_xz()
                 var orbit_progress: float = clampf(
                     (progress - second_windup) / maxf(
@@ -3630,6 +3633,24 @@ func _advance_side_step(delta: float) -> void:
                 _move_player_swept(Vector3(
                     orbit_goal.x - player.position.x, 0.0,
                     orbit_goal.y - player.position.z), true)
+                # Split low-FPS boundary frames: chase ONLY the slice
+                # [second windup, second hit], never a post-impact fraction.
+                var second_chase_start: float = maxf(
+                    previous_seconds, step_duration_current * second_windup)
+                var second_chase_end: float = minf(
+                    step_elapsed, step_duration_current * second_hit)
+                var second_chase_dt: float = maxf(
+                    0.0, second_chase_end - second_chase_start)
+                if second_chase_dt > 0.0:
+                    _advance_homing_toward_target(second_chase_dt, SIDE_KICK_REACH)
+                    # Chase and swept collisions can shift the actor off
+                    # the mathematical arc. Rebase the next arc sample to
+                    # this ACTUAL pose so it cannot snap back next frame.
+                    var actual_radial: Vector2 = Vector2(
+                        player.position.x - step_target_center.x,
+                        player.position.z - step_target_center.y)
+                    step_start_offset = actual_radial.rotated(
+                        -step_signed_angle * orbit_progress)
                 if progress >= second_hit:
                     # Record the SECOND foot impact while still on the arc,
                     # before applying any post-impact linear displacement.
@@ -5044,14 +5065,20 @@ func _update_controller_flick_guide(delta: float) -> void:
         combo_visible and _combo_flick_attack_ready())
     if not gesture_active and not combo_visible:
         return
-    # Every active gesture shares its FROZEN finger-to-lock axis with Bash,
-    # Side Kick and Guard. Between combo taps, reproject the same saved
-    # finger-down origin as the HUD's persistent sector guide.
+    # RUN/BOOST uses the current finger-down -> lock projection every
+    # rendered frame, including when the camera or target moves. Commit the
+    # same live axis for release classification, so the colored compass
+    # never disagrees with the eventual flick direction.
+    # Combo/Guard swipes are deliberately frozen until finger release:
+    # moving the camera must not switch Bash into a lateral Kick mid-input.
+    var live_locomotion: bool = gesture_active and not guard_active         and not damage_reaction_active and not bash_flick_candidate         and not side_kick_flick_candidate and not step_active         and (movement_boost_active or direction_input.length_squared() > 0.000001)
+    if live_locomotion:
+        gesture_screen_forward = _touch_to_lock_forward(pointer_origin)
     var forward: Vector2 = gesture_screen_forward
     if not gesture_active and touch_lock_origin_initialized:
         forward = _touch_to_lock_forward(pointer_origin)
-    # No slow independent controller interpolation: the animation was
-    # visibly lagging behind the real attack sector after camera turns.
+    # The presentation is snapped to the current actual classification
+    # heading; no independent filter or deferred animation can lag it.
     touch_ui.call("set_flick_sector_forward", forward, delta, true)
 
 
