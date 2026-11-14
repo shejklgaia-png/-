@@ -453,6 +453,7 @@ var step_hud_mouse_press: bool = false
 var current_touch: int = -1
 var mouse_down: bool = false
 var pointer_origin: Vector2 = Vector2.ZERO
+var touch_lock_origin_initialized: bool = false
 var pointer_location: Vector2 = Vector2.ZERO
 # Analog 360-degree input is continuous; no 45-degree quantization.
 var direction_input: Vector2 = Vector2.ZERO
@@ -1735,9 +1736,15 @@ func _refresh_angle_debug_overlay() -> void:
     var aim: Vector3 = _current_lock_aim_world()
     if camera.is_position_behind(aim):
         return
-    var torso: Vector2 = _visual_torso_screen_point()
-    angle_debug_overlay.call("set_geometry", torso, camera.unproject_position(aim),
-        _projected_sera_facing(), gesture_screen_forward, gesture_active)
+    if not touch_lock_origin_initialized:
+        return
+    # Diagnostics now originate at the last actual finger-down point.
+    # Cyan is the current touch-to-target line; amber is the captured
+    # flick axis while held, so camera drift is immediately observable.
+    angle_debug_overlay.call("set_geometry", pointer_origin,
+        camera.unproject_position(aim),
+        _touch_to_lock_forward(pointer_origin), gesture_screen_forward,
+        gesture_active)
 
 
 func _pointer_on_lock_lines_button(pos: Vector2) -> bool:
@@ -2542,9 +2549,12 @@ func _begin_drag(pos: Vector2) -> void:
     if gesture_active:
         return
     gesture_active = true
-    # Use the same camera-projected SERA forward for all gesture decisions.
-    # Do not resample during a swipe: camera rotation could switch Kick_l/r.
-    gesture_screen_forward = _projected_sera_facing()
+    # v337: front = finger-down -> currently LOCKED part on the screen.
+    # Freeze this once per gesture; future target/camera movement cannot
+    # reclassify a flick or rotate the controller under the player's thumb.
+    pointer_origin = pos
+    touch_lock_origin_initialized = true
+    gesture_screen_forward = _touch_to_lock_forward(pos)
     guard_flick_axis_captured = false
     # Preserve third strike while classifying a SERA-forward Bash flick;
     # unrelated drags still cancel attacks as before.
@@ -2599,12 +2609,10 @@ func _change_drag(pos: Vector2) -> void:
         direction_input = Vector2.ZERO
         return
     if guard_active:
-        # GUARD may outlast idle camera orbit. Reacquire SERA's visible
-        # facing at the final flick onset, then keep it until release.
+        # Guard uses the exact finger-down direction, including its final
+        # release-only flick. Never rebase to SERA or the moving camera.
         if not guard_flick_axis_captured and pos.distance_to(pointer_origin) >= TAP_MAX_TRAVEL:
-            gesture_screen_forward = _projected_sera_facing()
             guard_flick_axis_captured = true
-            touch_ui.call("set_flick_sector_forward", gesture_screen_forward, 0.0, true)
         pointer_location = pos
         _remember_jump_flick_sample(pos)
         return
@@ -2672,10 +2680,8 @@ func _end_drag(release_pos: Vector2) -> void:
         # change it into Bash, never ordinary movement or an attack tap.
         pointer_location = release_pos
         _remember_jump_flick_sample(release_pos)
-        # If Android coalesces drag into release only, sample the current
-        # projected body facing; the touch origin/marker are irrelevant.
-        if not guard_flick_axis_captured:
-            gesture_screen_forward = _projected_sera_facing()
+        # Android may coalesce movement into a release event. The axis
+        # captured at _begin_drag() is still authoritative in that case.
         var guard_bash_requested: bool = _classify_recent_character_forward_flick() and not keyboard_guard_held
         # A long-held guard responds to a short final facing-direction swipe.
         var guard_flick_origin: Vector2 = pointer_origin
@@ -2810,8 +2816,8 @@ func _remember_jump_flick_sample(pos: Vector2) -> void:
     if jump_flick_samples.size() > 32:
         jump_flick_samples.pop_front()
 
-# v329: Bash uses SERA's visible projected forward, frozen at touch-down.
-# Guard captures a fresh axis at its flick onset as before.
+# v337: Bash, lateral kicks, and Guard all share the finger-down -> lock
+# screen direction frozen at touch-down; recent Guard flicks keep this axis.
 func _is_character_forward_flick(displacement: Vector2, seconds: float) -> bool:
     return FLICK_DIRECTION_POLICY.is_flick(
         displacement, seconds, gesture_screen_forward,
@@ -2997,7 +3003,8 @@ func _classify_combo_kick_flick(displacement: Vector2, seconds: float) -> Vector
         BASH_FLICK_MIN_FORWARD_PIXELS, BASH_FLICK_MIN_FORWARD_SPEED,
         gesture_max_travel, BASH_FLICK_REVERSAL_RATIO)
 
-# Touch-start projected forward, not screen-UP, defines the 4 sectors.
+# The touch-down -> lock screen axis, not world SERA forward or screen-UP,
+# defines the four 90-degree combo sectors.
 func _combo_kick_side_for_flick(flick: Vector2) -> int:
     return INPUT_GESTURES.combo_kick_side(flick, gesture_screen_forward)
 
@@ -4985,6 +4992,18 @@ func _projected_sera_facing() -> Vector2:
     return pixels.normalized() if pixels.length_squared() >= 16.0 else fallback
 
 
+# The same un-clamped authored aim point used by the reticle is the
+# destination for both the touch controller and the actual flick classifier.
+# The fallback is needed only for the degenerate touch-on-target case, where
+# a point-to-point angle does not mathematically exist.
+func _touch_to_lock_forward(origin_screen: Vector2) -> Vector2:
+    if camera == null or target == null:
+        return Vector2.UP
+    return FLICK_DIRECTION_POLICY.touch_to_target_forward(
+        camera, origin_screen, _current_lock_aim_world(),
+        _projected_sera_facing())
+
+
 # The controller stays visible during attack clips and both follow-up
 # windows; readiness comes from exactly the same state gates as input.
 # Icons indicate the next ACCEPTED action, not just the current animation.
@@ -5025,14 +5044,12 @@ func _update_controller_flick_guide(delta: float) -> void:
         combo_visible and _combo_flick_attack_ready())
     if not gesture_active and not combo_visible:
         return
-    # A committed combo/guard flick uses the exact axis captured at
-    # touch-down. Other held RUN/BOOST gestures preview the LIVE 3D lock
-    # line, so the colored dial never points to a stale camera heading.
-    # Every ongoing touch uses the same axis captured for action selection.
-    # Never show the live axis after a combo candidate is cancelled.
-    var forward: Vector2 = (
-        gesture_screen_forward if gesture_active
-        else _projected_sera_facing())
+    # Every active gesture shares its FROZEN finger-to-lock axis with Bash,
+    # Side Kick and Guard. Between combo taps, reproject the same saved
+    # finger-down origin as the HUD's persistent sector guide.
+    var forward: Vector2 = gesture_screen_forward
+    if not gesture_active and touch_lock_origin_initialized:
+        forward = _touch_to_lock_forward(pointer_origin)
     # No slow independent controller interpolation: the animation was
     # visibly lagging behind the real attack sector after camera turns.
     touch_ui.call("set_flick_sector_forward", forward, delta, true)

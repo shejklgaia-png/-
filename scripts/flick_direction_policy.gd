@@ -75,6 +75,23 @@ static func projected_target_line(camera: Camera3D,
     return delta_screen.normalized()
 
 
+# v337: The front sector starts at the finger-down SCREEN coordinate and
+# points to the locked part's raw Camera3D projection (never the edge-clamped
+# indicator). One caller can freeze this for an entire swipe so camera and
+# target motion cannot change the result partway through a combo.
+static func touch_to_target_forward(camera: Camera3D,
+        touch_screen: Vector2, target_world: Vector3,
+        fallback: Vector2 = Vector2.UP) -> Vector2:
+    if camera == null or camera.is_position_behind(target_world):
+        return fallback
+    var toward_lock: Vector2 = camera.unproject_position(target_world) - touch_screen
+    # A finger on top of the lock marker has no geometrically defined
+    # forward axis; use the stable supplied fallback, not a random quadrant.
+    if toward_lock.length_squared() < 16.0:
+        return fallback
+    return toward_lock.normalized()
+
+
 # 360-degree screen deltas relative to supplied reference axis. Exact clockwise
 # boundary (+45 degrees) is classified as the clockwise neighbor.
 static func sector_index(displacement: Vector2, screen_axis: Vector2) -> int:
