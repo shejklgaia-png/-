@@ -9,7 +9,7 @@ const STEP_DURATION_SECONDS: float = 0.52
 const STEP_HEIGHT_METERS: float = 0.19
 const STEP_FORWARD_LEAD_METERS: float = 0.14
 const STEP_COOLDOWN_SECONDS: float = 0.09
-const MAX_TELEPORT_METERS: float = 2.0
+const MAX_TELEPORT_METERS: float = 0.75
 const MAX_YAW_SNAP_RADIANS: float = 1.4
 const IK_REACH_MARGIN_METERS: float = 0.002
 
