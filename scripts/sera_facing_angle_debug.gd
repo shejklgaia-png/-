@@ -8,7 +8,7 @@ var target: Vector2 = Vector2.ZERO
 var forward: Vector2 = Vector2.UP
 var input_forward: Vector2 = Vector2.UP
 var committed: bool = false
-var ready: bool = false
+var _geometry_ready: bool = false
 
 func set_geometry(from_point: Vector2, to_point: Vector2, axis: Vector2,
         captured_axis: Vector2, gesture_active: bool) -> void:
@@ -17,12 +17,12 @@ func set_geometry(from_point: Vector2, to_point: Vector2, axis: Vector2,
     forward = axis.normalized() if axis.length_squared() > 0.000001 else Vector2.UP
     input_forward = captured_axis.normalized() if captured_axis.length_squared() > 0.000001 else forward
     committed = gesture_active
-    ready = true
+    _geometry_ready = true
     if visible:
         queue_redraw()
 
 func _draw() -> void:
-    if not ready:
+    if not _geometry_ready:
         return
     var color: Color = Color(0.25, 0.93, 0.99, 0.95)
     var frozen: Color = Color(1.0, 0.77, 0.27, 0.92)
