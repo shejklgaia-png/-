@@ -8,6 +8,10 @@ const MIN_HORIZONTAL_OVERLAP_METERS: float = 0.065
 const MIN_SUPPORT_TOP_WORLD_Y: float = 0.18
 const APPROACH_EPSILON_METERS: float = 0.09
 const MIN_SUPPORT_HEAD_HEIGHT_FRACTION: float = 0.08
+# A visible leg can start inside the nose's union-AABB near its neck.
+# A genuine falling contact crosses the surface in small physics steps;
+# never snap the entire robot UP toward a shoulder already deep inside it.
+const MAX_NEW_CONTACT_PENETRATION_METERS: float = 0.60
 
 ## Return the highest eligible real leg surface directly under HEAD's
 ## articulated front (not its neck and not its enormous BODY AABB).
@@ -42,6 +46,10 @@ static func find_contact(head_nose: AABB, leg_boxes: Dictionary,
                 continue
             var clearance: float = CONTACT_CLEARANCE_METERS
             var penetration: float = top_y + clearance - head_nose.position.y
+            if penetration > MAX_NEW_CONTACT_PENETRATION_METERS:
+                # This is a pre-existing inside overlap, not the upper
+                # surface approached from above during the collapse.
+                continue
             # An already-supported head may be just above the limb; retain
             # support ownership until the head separates, then release it.
             var tolerance: float = (APPROACH_EPSILON_METERS
