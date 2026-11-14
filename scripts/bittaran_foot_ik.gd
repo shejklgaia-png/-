@@ -35,6 +35,17 @@ const HEAD_MELEE_REACH_WORLD_Y: float = 1.35
 const MAX_LEG_BREAK_DROP_METERS: float = 1.45
 const MAX_LEG_BREAK_NOSE_DIP_DEGREES: float = 68.0
 const HEAD_HEIGHT_SOLVE_STEPS: int = 13
+# Only a foot close to the actual nose/head XZ footprint may turn sideways.
+# The threshold includes the measured head/leg collision footprints, with
+# a small allowance for a rotating IK stance; Y NEVER enters the decision.
+const HEAD_FOOT_HORIZONTAL_EXTRA_METERS: float = 0.18
+const HEAD_FOOT_HORIZONTAL_MAX_METERS: float = 1.75
+const HEAD_FOOT_HORIZONTAL_MIN_METERS: float = 0.65
+const SUPPORT_LEG_OUTWARD_METERS: float = 0.62
+const SUPPORT_FOOT_ROLL_DEGREES: float = 72.0
+const SUPPORT_HEAD_COLLISION_GAP_METERS: float = 0.015
+const SUPPORT_COLLISION_ITERATIONS: int = 12
+const LEG_PART_IDS: Array[String] = ["leg_fr", "leg_rl", "leg_fl", "leg_rr"]
 
 const LEG_NAMES: Array[String] = [
     "FrontLeg_R", "RearLeg_L", "FrontLeg_L", "RearLeg_R"
@@ -66,6 +77,21 @@ var chassis_bone: Node3D
 var rest_chassis_rotation: Quaternion = Quaternion.IDENTITY
 var head_mesh_for_height: MeshInstance3D
 var break_head_start_y: float = 0.0
+var collision_parts: Node3D
+var head_support_leg_index: int = -1
+var head_support_leg_id: String = ""
+var head_support_sole_at_down: Vector3 = Vector3.ZERO
+var head_support_outward: Vector3 = Vector3.ZERO
+var head_support_foot_rotation: Quaternion = Quaternion.IDENTITY
+var head_support_contact: bool = false
+var break_chassis_base_pose: Quaternion = Quaternion.IDENTITY
+var break_chassis_pitch_radians: float = 0.0
+
+func set_collision_parts(parts: Node3D) -> void:
+    # Use the SAME authored collider AABBs that sync_bittaran_parts() places
+    # on target_collider. Head/leg do not self-resolve inside one physics body.
+    collision_parts = parts
+
 
 func setup(model: Node3D) -> bool:
     actor = model
@@ -185,6 +211,7 @@ func reset() -> void:
     break_recover_start = LEG_BREAK_RECOVER_START_SECONDS
     break_drop_world = 0.0
     break_leg_index = -1
+    _clear_head_support()
     stepping_pair = -1
     preferred_pair = 0
     cooldown = 0.0
@@ -313,6 +340,8 @@ func start_leg_break_slide(id: String, head_world_y: float,
     var already_downed: bool = break_elapsed >= 0.0
     var already_winding: bool = windup_elapsed >= 0.0
     break_leg_index = -1
+    if not already_downed:
+        _clear_head_support()
     front_anchor_rest.clear()
     front_extension_direction.clear()
     for i in range(legs.size()):
@@ -357,6 +386,110 @@ func start_leg_break_slide(id: String, head_world_y: float,
     if spread.length_squared() < 0.0001:
         spread = actor.global_basis.x
     break_slide = spread.normalized() * LEG_BREAK_SLIDE_METERS
+
+
+func _clear_head_support() -> void:
+    head_support_leg_index = -1
+    head_support_leg_id = ""
+    head_support_sole_at_down = Vector3.ZERO
+    head_support_outward = Vector3.ZERO
+    head_support_foot_rotation = Quaternion.IDENTITY
+    head_support_contact = false
+    break_chassis_pitch_radians = 0.0
+    if collision_parts != null and collision_parts.has_method(
+            "set_head_support_leg"):
+        collision_parts.call("set_head_support_leg", "")
+
+
+func _select_head_support_leg() -> void:
+    # Evaluate only when the real fall starts, AFTER the 0.6s anticipation.
+    # During TURN a planted foot can lag beneath the nose while the BODY
+    # rotates above it. Compare HEAD/FOOT XZ, not their different heights.
+    _clear_head_support()
+    if collision_parts == null or legs.size() != 4:
+        return
+    var head_box: AABB = collision_parts.call("get_head_swing_aabb")
+    if not head_box.has_volume():
+        return
+    var head_center: Vector3 = head_box.get_center()
+    var best_distance: float = INF
+    for i in range(legs.size()):
+        var leg: Dictionary = legs[i]
+        var foot: Node3D = leg["foot"]
+        var sole: Vector3 = foot.to_global(leg["sole_local"])
+        var id: String = LEG_PART_IDS[i]
+        var foot_box: AABB = collision_parts.call("get_part_aabb", id)
+        # Front/rear and left/right must use identical geometry thresholds.
+        var head_radius: float = maxf(head_box.size.x, head_box.size.z) * 0.5
+        var foot_radius: float = maxf(foot_box.size.x, foot_box.size.z) * 0.5
+        var threshold: float = clampf(
+            head_radius + foot_radius + HEAD_FOOT_HORIZONTAL_EXTRA_METERS,
+            HEAD_FOOT_HORIZONTAL_MIN_METERS,
+            HEAD_FOOT_HORIZONTAL_MAX_METERS)
+        var horizontal: Vector2 = Vector2(head_center.x - sole.x,
+            head_center.z - sole.z)
+        var gap: float = horizontal.length()
+        if gap > threshold or gap >= best_distance:
+            continue
+        best_distance = gap
+        head_support_leg_index = i
+        head_support_leg_id = id
+        head_support_sole_at_down = leg["anchor"]
+        head_support_foot_rotation = leg["anchor_rotation"]
+        var lateral: Vector3 = actor.global_basis.x
+        lateral.y = 0.0
+        lateral = lateral.normalized()
+        var from_body: Vector3 = sole - actor.global_position
+        from_body.y = 0.0
+        if from_body.dot(lateral) < 0.0:
+            lateral = -lateral
+        head_support_outward = lateral
+    if collision_parts.has_method("set_head_support_leg"):
+        collision_parts.call("set_head_support_leg", head_support_leg_id)
+
+
+func _support_boxes_overlap_xz(head_box: AABB, leg_box: AABB) -> bool:
+    return (head_box.position.x < leg_box.end.x
+        and leg_box.position.x < head_box.end.x
+        and head_box.position.z < leg_box.end.z
+        and leg_box.position.z < head_box.end.z)
+
+
+func _resolve_head_on_leg_contact() -> void:
+    # The HEAD and SHIN shapes belong to ONE AnimatableBody3D: Godot cannot
+    # generate self-collision impulses between its own sibling shapes.
+    # Resolve their actual collision AABBs by limiting the BODY's nose-down
+    # pitch, rather than letting the head mesh intersect the toppled leg.
+    head_support_contact = false
+    if break_elapsed < 0.0 or head_support_leg_index < 0             or collision_parts == null or chassis_bone == null             or break_chassis_pitch_radians <= 0.0001:
+        return
+    var leg_box: AABB = collision_parts.call(
+        "get_part_aabb", head_support_leg_id)
+    var head_box: AABB = collision_parts.call("get_part_aabb", "head")
+    if not _support_boxes_overlap_xz(head_box, leg_box):
+        return
+    var contact_y: float = leg_box.end.y + SUPPORT_HEAD_COLLISION_GAP_METERS
+    if head_box.position.y >= contact_y:
+        head_support_contact = head_box.position.y <= contact_y + 0.04
+        return
+    var lowest_pitch: float = 0.0
+    var steepest_pitch: float = break_chassis_pitch_radians
+    for _i in range(SUPPORT_COLLISION_ITERATIONS):
+        var trial: float = (lowest_pitch + steepest_pitch) * 0.5
+        chassis_bone.quaternion = (break_chassis_base_pose *
+            Quaternion(Vector3.RIGHT, -trial)).normalized()
+        var current_head: AABB = collision_parts.call("get_part_aabb", "head")
+        if current_head.position.y < contact_y:
+            steepest_pitch = trial
+        else:
+            lowest_pitch = trial
+    chassis_bone.quaternion = (break_chassis_base_pose *
+        Quaternion(Vector3.RIGHT, -lowest_pitch)).normalized()
+    break_chassis_pitch_radians = lowest_pitch
+    head_box = collision_parts.call("get_part_aabb", "head")
+    head_support_contact = (
+        _support_boxes_overlap_xz(head_box, leg_box) and
+        absf(head_box.position.y - contact_y) <= 0.065)
 
 
 func windup_active() -> bool:
@@ -415,6 +548,7 @@ func _advance_leg_break(delta: float) -> void:
             # head joint starts the falling animation without a rotation pop.
             windup_elapsed = -1.0
             break_elapsed = 0.0
+            _select_head_support_leg()
         return
 
     var amount: float = 0.0
@@ -433,7 +567,9 @@ func _advance_leg_break(delta: float) -> void:
     actor.position.y = (rest_actor_local_y
         + (ground_correction_world - amount * break_drop_world)
         / parent_scale_y)
+    break_chassis_pitch_radians = 0.0
     if break_elapsed >= 0.0 and chassis_bone != null             and head_mesh_for_height != null:
+        break_chassis_base_pose = chassis_bone.quaternion
         var base_pose: Quaternion = chassis_bone.quaternion
         var desired_head_y: float = lerpf(break_head_start_y,
             HEAD_MELEE_REACH_WORLD_Y, amount)
@@ -450,8 +586,9 @@ func _advance_leg_break(delta: float) -> void:
                     lo = mid
                 else:
                     hi = mid
+            break_chassis_pitch_radians = (lo + hi) * 0.5
             chassis_bone.quaternion = (base_pose *
-                Quaternion(Vector3.RIGHT, -(lo + hi) * 0.5)).normalized()
+                Quaternion(Vector3.RIGHT, -break_chassis_pitch_radians)).normalized()
         else:
             chassis_bone.quaternion = base_pose
     # Ease the two front legs from their slight stretch to the planted
@@ -471,6 +608,7 @@ func _advance_leg_break(delta: float) -> void:
         if break_elapsed >= break_duration:
             break_elapsed = -1.0
             break_leg_index = -1
+            _clear_head_support()
             front_anchor_rest.clear()
             front_extension_direction.clear()
 
@@ -525,6 +663,23 @@ func advance_ik(delta: float, motion: String) -> void:
                 leg["anchor_rotation"] = leg["rotation_to"]
             else:
                 done = false
+        # Sideways topple only the leg whose planted foot was under the
+        # head on the XZ plane at the moment the body began falling.
+        if break_elapsed >= 0.0 and head_support_leg_index >= 0                 and leg == legs[head_support_leg_index]:
+            var collapse: float = _cubic(clampf(
+                break_elapsed / LEG_BREAK_FALL_SECONDS, 0.0, 1.0))
+            if break_elapsed > break_recover_start:
+                collapse *= 1.0 - _cubic(
+                    (break_elapsed - break_recover_start) /
+                    maxf(break_duration - break_recover_start, 0.001))
+            position += head_support_outward * (
+                SUPPORT_LEG_OUTWARD_METERS * collapse)
+            var tilt_axis: Vector3 = actor.global_basis.z.normalized()
+            var sign: float = 1.0 if head_support_outward.dot(
+                actor.global_basis.x) >= 0.0 else -1.0
+            rotation = (Quaternion(tilt_axis, sign * deg_to_rad(
+                SUPPORT_FOOT_ROLL_DEGREES) * collapse) *
+                head_support_foot_rotation).normalized()
         leg["last_error"] = _solve(leg, position, rotation)
     if stepping_pair != -1 and done:
         stepping_pair = -1
@@ -555,6 +710,47 @@ func advance_ik(delta: float, motion: String) -> void:
             var foot_rot: Quaternion = leg["anchor_rotation"]
             if bool(leg["stepping"]):
                 continue
+            if break_elapsed >= 0.0 and head_support_leg_index >= 0                     and leg == legs[head_support_leg_index]:
+                var collapse: float = _cubic(clampf(
+                    break_elapsed / LEG_BREAK_FALL_SECONDS, 0.0, 1.0))
+                if break_elapsed > break_recover_start:
+                    collapse *= 1.0 - _cubic(
+                        (break_elapsed - break_recover_start) /
+                        maxf(break_duration - break_recover_start, 0.001))
+                foot_pos += head_support_outward * (
+                    SUPPORT_LEG_OUTWARD_METERS * collapse)
+                var tilt_axis: Vector3 = actor.global_basis.z.normalized()
+                var sign: float = 1.0 if head_support_outward.dot(
+                    actor.global_basis.x) >= 0.0 else -1.0
+                foot_rot = (Quaternion(tilt_axis, sign * deg_to_rad(
+                    SUPPORT_FOOT_ROLL_DEGREES) * collapse) *
+                    head_support_foot_rotation).normalized()
+            leg["last_error"] = _solve(leg, foot_pos, foot_rot)
+    if break_elapsed >= 0.0 and head_support_leg_index >= 0:
+        _resolve_head_on_leg_contact()
+        # Limiting chassis pitch changes the hip position. Re-solve soles
+        # against the same planted floor anchors AFTER the head touches the
+        # support leg, without undoing the sideways foot roll.
+        for i in range(legs.size()):
+            var leg: Dictionary = legs[i]
+            if bool(leg["stepping"]):
+                continue
+            var foot_pos: Vector3 = leg["anchor"]
+            var foot_rot: Quaternion = leg["anchor_rotation"]
+            if i == head_support_leg_index:
+                var collapse: float = _cubic(clampf(
+                    break_elapsed / LEG_BREAK_FALL_SECONDS, 0.0, 1.0))
+                if break_elapsed > break_recover_start:
+                    collapse *= 1.0 - _cubic(
+                        (break_elapsed - break_recover_start) /
+                        maxf(break_duration - break_recover_start, 0.001))
+                foot_pos += head_support_outward * (
+                    SUPPORT_LEG_OUTWARD_METERS * collapse)
+                var sign: float = 1.0 if head_support_outward.dot(
+                    actor.global_basis.x) >= 0.0 else -1.0
+                foot_rot = (Quaternion(actor.global_basis.z.normalized(),
+                    sign * deg_to_rad(SUPPORT_FOOT_ROLL_DEGREES) * collapse) *
+                    head_support_foot_rotation).normalized()
             leg["last_error"] = _solve(leg, foot_pos, foot_rot)
 
 func maximum_ground_error() -> float:
