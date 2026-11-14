@@ -122,9 +122,17 @@ func _run() -> void:
             if intersects_xz:
                 physical_overlap_frames += 1
                 if head_box.position.y < leg_box.end.y - 0.075:
+                    var leg_joints: Array = ik.get("legs")
+                    var supporting: Dictionary = leg_joints[2]
                     _fail("HEAD penetrated the toppled leg physical collider: "
                         + str(head_box.position.y) + " vs "
-                        + str(leg_box.end.y) + " at " + str(frame))
+                        + str(leg_box.end.y) + " at " + str(frame)
+                        + " head=" + str(head_box) + " shin=" + str(leg_box)
+                        + " shoulder=" + str((supporting["upper"] as Node3D).global_position)
+                        + " knee=" + str((supporting["lower"] as Node3D).global_position)
+                        + " foot=" + str((supporting["foot"] as Node3D).global_position)
+                        + " soles=" + str(supporting["anchor"])
+                        + " pitch=" + str(ik.get("break_chassis_pitch_radians")))
                     return
             if bool(ik.get("head_support_contact")):
                 contact_frames += 1
