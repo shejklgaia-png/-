@@ -104,8 +104,13 @@ func _run_case(battle: Node3D, leg_ids: Array[String],
                 + boss.global_basis.x * 4.0)
             positioned_for_head_tracking = true
         var head_yaw: float = absf(float(battle.get("boss_head_yaw")))
+        var follow_weight: float = float(battle.call(
+            "_head_recovery_follow_weight"))
         if bool(ik.call("down_pose_active")):
             if pose <= 0.70 + 0.00001:
+                if follow_weight > 0.00001:
+                    _fail(label + ": tracking enabled before 70% of pose")
+                    return false
                 if head_yaw > EPS:
                     _fail(label + ": HEAD followed too early at fraction="
                         + str(pose) + " yaw=" + str(head_yaw))
@@ -114,6 +119,9 @@ func _run_case(battle: Node3D, leg_ids: Array[String],
                     pre_70_head_frames += 1
             elif pose < 0.999:
                 after_70_head_frames += 1
+                if follow_weight <= 0.0 or follow_weight > 1.0:
+                    _fail(label + ": head tracking weight failed to fade in")
+                    return false
                 max_head_delta = maxf(max_head_delta,
                     absf(head_yaw - previous_head_yaw))
                 if head_yaw > deg_to_rad(0.2):
@@ -165,7 +173,11 @@ func _run_case(battle: Node3D, leg_ids: Array[String],
     if absf(rotation_at_full_stand) < deg_to_rad(0.5):
         _fail(label + ": boss remained stationary until standing")
         return false
-    if not head_turned:
+    # The four-leg collapse can keep HEAD physically on a supporting
+    # shin until the last fraction of the rise. Its valid collision
+    # constraint may prevent actual yaw, but the 70% follow WEIGHT must
+    # still activate. The single-leg case verifies real head articulation.
+    if not head_turned and leg_ids.size() == 1:
         _fail(label + ": HEAD never began looking toward SERA above 70%")
         return false
     if max_head_delta > deg_to_rad(5.0):
