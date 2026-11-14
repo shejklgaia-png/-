@@ -5,9 +5,9 @@ ROOT = Path(__file__).resolve().parents[1]
 read = lambda p: (ROOT / p).read_text(encoding="utf-8")
 rig = read("scripts/bittaran_foot_ik.gd")
 battle = read("scripts/bittaran_battle.gd")
-assert 'const STEP_TRIGGER_METERS: float = 0.38' in rig
-assert 'const STEP_DURATION_SECONDS: float = 0.52' in rig
-assert 'const STEP_HEIGHT_METERS: float = 0.19' in rig
+assert 'const STEP_TRIGGER_METERS: float = 0.76' in rig
+assert 'const STEP_DURATION_SECONDS: float = 0.58' in rig
+assert 'const STEP_HEIGHT_METERS: float = 0.34' in rig
 assert 'const LEG_PAIRS: Array[Array] = [[0, 1], [2, 3]]' in rig
 assert 'func _solve(' in rig
 assert 'var knee_target: Vector3' in rig
