@@ -18,7 +18,8 @@ const MAX_NEW_CONTACT_PENETRATION_METERS: float = 1.20
 ## The surface must cross the nose's Y span: tall hip faces above the head
 ## are not floors, and toes on Y=0 are not unintended supports.
 static func find_contact(head_nose: AABB, leg_boxes: Dictionary,
-        former_leg: String = "") -> Dictionary:
+        former_leg: String = "",
+        previous_nose: AABB = AABB()) -> Dictionary:
     var hit: Dictionary = {
         "leg_id": "", "penetration": 0.0, "surface_y": -INF
     }
@@ -40,15 +41,25 @@ static func find_contact(head_nose: AABB, leg_boxes: Dictionary,
                     or overlap_z < MIN_HORIZONTAL_OVERLAP_METERS:
                 continue
             var top_y: float = surface.end.y
-            if top_y < MIN_SUPPORT_TOP_WORLD_Y \
-                    or top_y >= head_nose.end.y - head_nose.size.y * (
-                        MIN_SUPPORT_HEAD_HEIGHT_FRACTION):
+            # A 0.17s heavy fall can cross the entire thickness of a thin
+            # arm mesh between physics ticks. Use the previous nose bottom
+            # to catch TOP-surface crossings even if the new nose is already
+            # entirely below the limb (discrete AABBs would miss the hit).
+            var crossed_from_above: bool = previous_nose.has_volume() \
+                and previous_nose.position.y >= top_y - 0.065 \
+                and head_nose.position.y < top_y + CONTACT_CLEARANCE_METERS
+            if top_y < MIN_SUPPORT_TOP_WORLD_Y:
+                continue
+            if top_y >= head_nose.end.y - head_nose.size.y * (
+                    MIN_SUPPORT_HEAD_HEIGHT_FRACTION) \
+                    and not crossed_from_above and id != former_leg:
                 continue
             var clearance: float = CONTACT_CLEARANCE_METERS
             var penetration: float = top_y + clearance - head_nose.position.y
-            if penetration > MAX_NEW_CONTACT_PENETRATION_METERS:
-                # This is a pre-existing inside overlap, not the upper
-                # surface approached from above during the collapse.
+            if penetration > MAX_NEW_CONTACT_PENETRATION_METERS \
+                    and not crossed_from_above and id != former_leg:
+                # A deep mesh union overlap was already present before
+                # the fall; do not mistake it for a new support contact.
                 continue
             # An already-supported head may be just above the limb; retain
             # support ownership until the head separates, then release it.
