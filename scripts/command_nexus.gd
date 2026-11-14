@@ -41,6 +41,8 @@ var training_heading: Label
 var training_footer: Label
 var training_option_rows: Array[Dictionary] = []
 var training_settings: Dictionary = {}
+var deployment_heading: Label
+var deployment_rows: Array[Dictionary] = []
 var training_start_style: StyleBoxFlat
 var training_start_pulse: float = 0.0
 # SYSTEM edits save files; the DATA ARCHIVE tabs never mutate profiles.
@@ -134,6 +136,8 @@ const CUSTOMIZE_DRAG_FULL_TURN: float = TAU
 
 const CAMERA_TRANSITION_SECONDS: float = 0.18
 const TRAINING_SCENE: String = "res://scenes/main.tscn"
+const BITTARAN_SCENE: String = "res://scenes/bittaran_battle.tscn"
+const BOSS_ENTRIES = [{"name": "ビットタラン  /  BITTARAN", "scene": BITTARAN_SCENE}]
 
 # Project the same Blockbench cuboids/SERA display geometry already present in the
 # scene into a silhouette; no duplicated render meshes or additional 3D draw calls.
@@ -780,6 +784,7 @@ func _hud() -> void:
     action_label.add_theme_color_override("font_color", Color("#ffffff"))
     action_panel.add_child(action_label)
     _create_training_controls()
+    _create_deployment_controls()
     _create_system_controls()
     _create_archive_records()
     VersionIndicator.attach(hud)
@@ -829,6 +834,72 @@ func _create_training_controls() -> void:
     training_footer.visible = false
     focus_panel.add_child(training_footer)
     _refresh_training_controls()
+
+## Touch-only deployment catalog, isolated from TRAINING destination defaults.
+func _create_deployment_controls() -> void:
+    deployment_heading = Label.new()
+    deployment_heading.name = "DeploymentSelectBoss"
+    deployment_heading.text = "SELECT BOSS  /  TAP NAME TO SORTIE"
+    deployment_heading.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    deployment_heading.add_theme_font_size_override("font_size", 14)
+    deployment_heading.add_theme_color_override("font_color", Color("#bdeaff"))
+    deployment_heading.visible = false
+    focus_panel.add_child(deployment_heading)
+    for entry in BOSS_ENTRIES:
+        var row := Panel.new()
+        row.name = "BossEntry"
+        row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        row.add_theme_stylebox_override("panel", _action_style())
+        row.visible = false
+        focus_panel.add_child(row)
+        var name_label := Label.new()
+        name_label.name = "BossName"
+        name_label.text = str(entry["name"])
+        name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+        name_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+        name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        name_label.add_theme_font_size_override("font_size", 21)
+        name_label.add_theme_color_override("font_color", Color("#e4faff"))
+        row.add_child(name_label)
+        deployment_rows.append({"row": row, "label": name_label,
+            "scene": str(entry["scene"])})
+
+func _set_deployment_visible(show: bool) -> void:
+    if deployment_heading != null:
+        deployment_heading.visible = show
+    for entry in deployment_rows:
+        (entry["row"] as Panel).visible = show
+
+func _layout_deployment_controls() -> void:
+    if deployment_heading == null:
+        return
+    var width: float = maxf(10.0, focus_panel.size.x - 32.0)
+    deployment_heading.position = Vector2(16.0, focus_header.size.y + 18.0)
+    deployment_heading.size = Vector2(width, 36.0)
+    for i in range(deployment_rows.size()):
+        var row: Panel = deployment_rows[i]["row"]
+        row.position = Vector2(16.0, focus_header.size.y + 72.0 + float(i) * 90.0)
+        row.size = Vector2(width, 72.0)
+        var label: Label = deployment_rows[i]["label"]
+        label.position = Vector2.ZERO
+        label.size = row.size
+        label.add_theme_font_size_override("font_size",
+            17 if focus_panel.size.x < 280.0 else 21)
+
+func _tap_deployment_boss(point: Vector2) -> void:
+    var local: Vector2 = point - focus_panel.position
+    for entry in deployment_rows:
+        var row: Panel = entry["row"]
+        if Rect2(row.position, row.size).has_point(local):
+            _start_boss_scene(str(entry["scene"]))
+            return
+
+func _start_boss_scene(scene_path: String) -> void:
+    if focused_target != "DEPLOYMENT" or in_transition:
+        return
+    var err: Error = get_tree().change_scene_to_file(scene_path)
+    if err != OK:
+        push_error("Bittaran battle scene load failed (%d)" % err)
 
 func _set_training_visible(show: bool) -> void:
     training_heading.visible = show
@@ -1603,6 +1674,7 @@ func _layout_hud() -> void:
     action_label.position = Vector2.ZERO
     action_label.size = action_panel.size
     _layout_training_controls()
+    _layout_deployment_controls()
     _layout_system_controls()
     _layout_archive_records()
     _update_projected_silhouettes()
@@ -2334,6 +2406,8 @@ func _tap_at(point: Vector2) -> void:
             _tap_archive_record(point)
         elif focused_target == "CUSTOMIZE" and customize_right_panel.visible:
             _tap_equipment_control(point)
+        elif focused_target == "DEPLOYMENT" and focus_panel.visible:
+            _tap_deployment_boss(point)
         elif focused_target == "TRAINING" and focus_panel.visible:
             var action_rect := Rect2(focus_panel.position + action_panel.position,
                 action_panel.size)
@@ -2432,6 +2506,7 @@ func _focus_arrived(target_name: String) -> void:
         _refresh_training_controls()
         training_start_pulse = 0.0
     _set_training_visible(target_name == "TRAINING")
+    _set_deployment_visible(target_name == "DEPLOYMENT")
     _layout_hud()
     focus_panel.visible = true
     customize_right_panel.visible = target_name == "CUSTOMIZE"
@@ -2452,6 +2527,7 @@ func _return_to_overview() -> void:
     focus_panel.visible = false
     customize_right_panel.visible = false
     _set_training_visible(false)
+    _set_deployment_visible(false)
     _set_system_visible(false)
     _set_archive_records_visible(false)
     system_pending_action = ""
