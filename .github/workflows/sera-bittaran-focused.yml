@@ -36,6 +36,7 @@ on:
       - 'tools/v361_bittaran_*.gd'
       - 'tools/v362_bittaran_*.gd'
       - 'tools/v363_bittaran_*.gd'
+      - 'tools/v364_bittaran_*.gd'
       - 'tools/rebuild_bittaran_data.py'
       - 'scripts/command_nexus.gd'
       - 'project.godot'
@@ -368,3 +369,20 @@ jobs:
             exit 1
           fi
           grep -q 'GODOT_V363_BITTARAN_RISE_PASS' "$log"
+
+      - name: Verify early pre-rise turning and slow, arm-safe head reacquisition
+        run: |
+          set -euo pipefail
+          log="$RUNNER_TEMP/bittaran-v364.log"
+          status=0
+          "$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" --headless --path . --script tools/v364_bittaran_head_clear_early_turn_runtime_check.gd > "$log" 2>&1 || status=$?
+          cat "$log"
+          if [ "$status" -ne 0 ]; then
+            echo "::error::Bittaran v364 early yaw and head/arm clearance runtime failed with code $status"
+            exit "$status"
+          fi
+          if grep -E 'SCRIPT ERROR|Parse Error|Compile Error|ERROR: Failed to load|Invalid call|V364_BITTARAN_HEAD_CLEAR_FAIL' "$log"; then
+            echo "::error::Bittaran v364 reported a Godot regression"
+            exit 1
+          fi
+          grep -q 'GODOT_V364_BITTARAN_HEAD_CLEAR_PASS' "$log"
