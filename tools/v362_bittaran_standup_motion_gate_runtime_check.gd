@@ -69,6 +69,11 @@ func _check_case(battle: Node3D, expected_motion: String,
         var turn_enabled: bool = bool(ik.call("standup_turn_enabled", DT))
         var original_position: Vector3 = target.position
         var original_yaw: float = target.rotation.y
+        # Keep the requested Turn outside the moving 100-degree cone.
+        # A fixed world-space +X eventually becomes Approach after yaw.
+        if expected_motion == "Turn":
+            player.global_position = (target.global_position
+                + target.global_basis.x.normalized() * 26.0)
         battle.call("_advance_target_motion", DT)
         var chosen: String = str(battle.get("bittaran_motion"))
         var played: String = str(rig.get("current_clip"))
