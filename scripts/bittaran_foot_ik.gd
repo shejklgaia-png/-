@@ -1,4 +1,5 @@
 extends RefCounted
+const BittaranParts = preload("res://scripts/bittaran_parts.gd")
 ## Analytical two-bone IK for four independent Bittaran legs.
 ## The authored Blockbench asset, joints, Wait pose and animation UUIDs are
 ## unchanged. The pose clips are evaluated first; grounded IK is layered last.
@@ -27,11 +28,11 @@ const HEAD_KNEE_PROXIMITY_METERS: float = 0.38
 const HEAD_KNEE_MAX_BEND: float = 0.30
 const HEAD_KNEE_FLEX_IN_PER_SECOND: float = 1.50
 const HEAD_KNEE_FLEX_OUT_PER_SECOND: float = 2.00
-const HEAD_KNEE_MIN_BENEFIT_M3: float = 0.0040
-# A few centimeters of mesh overlap are visually acceptable.
-const HEAD_KNEE_ALLOWED_NEW_OVERLAP_M3: float = 0.032
-const HEAD_KNEE_AUTHORED_OVERLAP_M3: float = 0.055
-const HEAD_KNEE_BEND_PENALTY_M3: float = 0.010
+# Same 30cm penetration-depth limit as head tracking.
+const HEAD_KNEE_ALLOWED_PENETRATION_METERS: float = (
+    BittaranParts.HEAD_LEG_ALLOWED_PENETRATION_METERS)
+const HEAD_KNEE_MIN_BENEFIT_METERS: float = 0.025
+const HEAD_KNEE_BEND_PENALTY_METERS: float = 0.080
 # A heavy chassis dominates the approximate center of mass, while four
 # independent knee/leg assemblies each contribute 4.5% of the total.
 const HEAD_KNEE_BODY_MASS: float = 0.82
@@ -971,36 +972,23 @@ func _head_knee_support_center_xz() -> Vector2:
     return point / count
 
 
-func _head_knee_overlap_volume(a: AABB, b: AABB) -> float:
-    if not a.has_volume() or not b.has_volume() or not a.intersects(b):
-        return 0.0
-    return a.intersection(b).get_volume()
-
-
-func _head_knee_collision_cost(id: String, neutral_head: AABB,
-        sweep_heads: Array[AABB]) -> float:
-    var pieces: Array[AABB] = collision_parts.call(
-        "get_leg_visual_mesh_boxes", id)
-    var baseline: float = 0.0
-    for piece in pieces:
-        baseline += _head_knee_overlap_volume(neutral_head, piece)
+func _head_knee_collision_cost(id: String, base_pose: Quaternion,
+        swept_poses: Array[Quaternion]) -> float:
+    # The deepest actual oriented-element overlap in world metres.
+    # 30cm of penetration is free; no cubic-metre volume penalties.
     var worst: float = 0.0
-    for head_box in sweep_heads:
-        var total: float = 0.0
-        for piece in pieces:
-            total += _head_knee_overlap_volume(head_box, piece)
-        # Limit newly caused intersections, but ALSO gently penalize
-        # deep neutral contacts left after the torso swept over its feet.
-        var extra: float = maxf(0.0, total - baseline
-            - HEAD_KNEE_ALLOWED_NEW_OVERLAP_M3)
-        var actual: float = maxf(0.0,
-            total - HEAD_KNEE_AUTHORED_OVERLAP_M3) * 0.20
-        worst = maxf(worst, extra + actual)
+    for pose in swept_poses:
+        head_bone.quaternion = pose
+        var depth: float = float(collision_parts.call(
+            "get_head_leg_penetration_depth", id))
+        worst = maxf(worst, maxf(0.0,
+            depth - HEAD_KNEE_ALLOWED_PENETRATION_METERS))
+    head_bone.quaternion = base_pose
     return worst
 
 
-func _scan_head_knee_targets(neutral_head: AABB,
-        sweep_heads: Array[AABB]) -> void:
+func _scan_head_knee_targets(sweep_heads: Array[AABB],
+        base_pose: Quaternion, swept_poses: Array[Quaternion]) -> void:
     var center: Vector2 = _head_knee_support_center_xz()
     for index in range(legs.size()):
         var leg: Dictionary = legs[index]
@@ -1026,7 +1014,7 @@ func _scan_head_knee_targets(neutral_head: AABB,
         leg["head_knee_bend"] = 0.0
         _solve(leg, sole_goal, sole_rotation)
         var base_cost: float = _head_knee_collision_cost(
-            LEG_PART_IDS[index], neutral_head, sweep_heads)
+            LEG_PART_IDS[index], base_pose, swept_poses)
         var best_cost: float = base_cost
         var best: float = 0.0
         # Try small bends first; maximum is 30% of the old full fold.
@@ -1034,19 +1022,19 @@ func _scan_head_knee_targets(neutral_head: AABB,
             leg["head_knee_bend"] = float(candidate)
             _solve(leg, sole_goal, sole_rotation)
             var collision_cost: float = _head_knee_collision_cost(
-                LEG_PART_IDS[index], neutral_head, sweep_heads)
+                LEG_PART_IDS[index], base_pose, swept_poses)
             var mass: Vector2 = _head_knee_mass_center_xz()
             var added_imbalance: float = maxf(0.0,
                 mass.distance_to(center) - initial_mass.distance_to(center))
             var score: float = (collision_cost
                 + added_imbalance * HEAD_KNEE_BALANCE_PENALTY
-                + float(candidate) * HEAD_KNEE_BEND_PENALTY_M3)
+                + float(candidate) * HEAD_KNEE_BEND_PENALTY_METERS)
             if score < best_cost - 0.00001:
                 best_cost = score
                 best = float(candidate)
         # Reject tiny gains so the bent knee doesn't chatter while the
         # HEAD sweeps just outside a shoulder plate.
-        if base_cost - best_cost >= HEAD_KNEE_MIN_BENEFIT_M3:
+        if base_cost - best_cost >= HEAD_KNEE_MIN_BENEFIT_METERS:
             leg["head_knee_target"] = best
         leg["head_knee_bend"] = before_bend
         _solve(leg, sole_goal, sole_rotation)
@@ -1067,15 +1055,16 @@ func steer_knees_for_head(delta: float, desired_head_yaw: float) -> void:
     head_knee_scan_elapsed += maxf(0.0, delta)
     if head_knee_scan_elapsed >= HEAD_KNEE_SCAN_SECONDS:
         head_knee_scan_elapsed = 0.0
-        var neutral_head: AABB = collision_parts.call("get_head_swing_aabb")
         var sweep_heads: Array[AABB] = []
+        var sweep_poses: Array[Quaternion] = []
         for t in [0.33, 0.66, 1.0]:
-            head_bone.quaternion = (head_pose *
+            var pose: Quaternion = (head_pose *
                 Quaternion(Vector3.UP, desired_head_yaw * float(t))).normalized()
+            head_bone.quaternion = pose
+            sweep_poses.append(pose)
             sweep_heads.append(collision_parts.call("get_head_swing_aabb"))
         head_bone.quaternion = head_pose
-        if neutral_head.has_volume():
-            _scan_head_knee_targets(neutral_head, sweep_heads)
+        _scan_head_knee_targets(sweep_heads, head_pose, sweep_poses)
     var active: bool = false
     for leg in legs:
         var before: float = float(leg["head_knee_bend"])
