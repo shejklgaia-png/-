@@ -275,3 +275,6 @@ py tools/v343_kick_065_timing_self_check.py
 py tools/v344_damage_popup_overlap_self_check.py
 
 gd tools/v344_damage_popup_overlap_runtime_check.gd
+
+py tools/v345_bittaran_self_check.py
+gd tools/v345_bittaran_runtime_check.gd
