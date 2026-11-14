@@ -214,7 +214,8 @@ func _install_head_mesh_solids(body: AnimatableBody3D) -> bool:
         head_mesh_solids.append({
             "mesh": mesh,
             "solid": solid,
-            "local_offset": local_offset
+            "local_offset": local_offset,
+            "triangles": points
         })
     if head_mesh_solids.is_empty():
         return false
@@ -232,6 +233,8 @@ func get_head_mesh_blade_contact(from_world: Vector3,
     # stay forgiving without enlarging the enemy's visible head.
     var nearest: float = INF
     var contact: Variant = null
+    var near_contact: Variant = null
+    var near_distance: float = INF
     for record in head_mesh_solids:
         var mesh: MeshInstance3D = record["mesh"]
         if not is_instance_valid(mesh) or mesh.mesh == null:
@@ -246,12 +249,27 @@ func get_head_mesh_blade_contact(from_world: Vector3,
         var local_hit: Variant = source.intersects_segment(local_a, local_b)
         if local_hit == null:
             continue
-        var world_hit: Vector3 = mesh.to_global(local_hit)
-        var distance: float = from_world.distance_squared_to(world_hit)
-        if distance < nearest:
-            nearest = distance
-            contact = world_hit
-    return contact
+        # First take the exact rendered triangle if the sword crosses it.
+        # The padded per-element box is only a near-miss assist for a
+        # thick sword, never a giant AABB around the entire head.
+        var triangles: PackedVector3Array = record["triangles"]
+        for i in range(0, triangles.size() - 2, 3):
+            var triangle_hit: Variant = Geometry3D.segment_intersects_triangle(
+                local_a, local_b, triangles[i], triangles[i + 1],
+                triangles[i + 2])
+            if triangle_hit == null:
+                continue
+            var world_hit: Vector3 = mesh.to_global(triangle_hit)
+            var distance: float = from_world.distance_squared_to(world_hit)
+            if distance < nearest:
+                nearest = distance
+                contact = world_hit
+        var assisted: Vector3 = mesh.to_global(local_hit)
+        var assist_dist: float = from_world.distance_squared_to(assisted)
+        if assist_dist < near_distance:
+            near_distance = assist_dist
+            near_contact = assisted
+    return contact if contact != null else near_contact
 
 
 func _material_records(root: Node3D, descend: bool) -> Array[Dictionary]:
