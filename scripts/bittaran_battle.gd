@@ -806,14 +806,14 @@ func _finalize_target_pose(delta: float) -> void:
     if bittaran_foot_ik != null and target != null and target_hp > 0:
         bittaran_foot_ik.call("set_attack_pose", bittaran_attack_frame)
         bittaran_foot_ik.call("advance_ik", delta, bittaran_motion)
-        if bittaran_head != null and player != null                 and bittaran_attack_frame.is_empty():
-            # A KNEE can move into an already-turned HEAD while the
-            # player's target yaw stays unchanged. Pass BOTH the current
-            # actual head yaw and the anticipated target to IK.
+        if bittaran_head != null and player != null:
+            # Keep head aim live during attacks too; only the knee scan
+            # yields to the explicitly animated striking leg.
             _update_head_look_target(delta)
-            bittaran_foot_ik.call("steer_knees_for_head", delta,
-                head_look_filtered_yaw * _head_knee_look_weight(),
-                boss_head_yaw)
+            if bittaran_attack_frame.is_empty():
+                bittaran_foot_ik.call("steer_knees_for_head", delta,
+                    head_look_filtered_yaw * _head_knee_look_weight(),
+                    boss_head_yaw)
     _aim_bittaran_head(delta)
     if target_parts != null:
         target_parts.call("sync_bittaran_parts")
