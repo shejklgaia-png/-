@@ -38,6 +38,7 @@ on:
       - 'tools/v363_bittaran_*.gd'
       - 'tools/v364_bittaran_*.gd'
       - 'tools/v365_bittaran_*.gd'
+      - 'tools/v366_bittaran_*.gd'
       - 'tools/rebuild_bittaran_data.py'
       - 'scripts/command_nexus.gd'
       - 'project.godot'
@@ -404,3 +405,20 @@ jobs:
             exit 1
           fi
           grep -q 'GODOT_V365_BITTARAN_YAW_START_PASS' "$log"
+
+      - name: Verify Turn and Approach clips, IK gait and movement begin with stand-up
+        run: |
+          set -euo pipefail
+          log="$RUNNER_TEMP/bittaran-v366.log"
+          status=0
+          "$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" --headless --path . --script tools/v366_bittaran_live_rise_motion_runtime_check.gd > "$log" 2>&1 || status=$?
+          cat "$log"
+          if [ "$status" -ne 0 ]; then
+            echo "::error::Bittaran v366 live stand-up motion test failed with code $status"
+            exit "$status"
+          fi
+          if grep -E 'SCRIPT ERROR|Parse Error|Compile Error|ERROR: Failed to load|Invalid call|V366_BITTARAN_LIVE_RISE_FAIL' "$log"; then
+            echo "::error::Bittaran v366 runtime reported a regression"
+            exit 1
+          fi
+          grep -q 'GODOT_V366_BITTARAN_LIVE_RISE_PASS' "$log"

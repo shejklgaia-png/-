@@ -68,6 +68,7 @@ var rest_actor_local_y: float = 0.0
 var break_elapsed: float = -1.0
 var windup_elapsed: float = -1.0
 var post_down_idle_remaining: float = 0.0
+var recovery_gait_started: bool = false
 var front_anchor_rest: Dictionary = {}
 var front_extension_direction: Dictionary = {}
 var ground_correction_world: float = 0.0
@@ -210,6 +211,7 @@ func reset() -> void:
     break_elapsed = -1.0
     windup_elapsed = -1.0
     post_down_idle_remaining = 0.0
+    recovery_gait_started = false
     ground_correction_world = 0.0
     front_anchor_rest.clear()
     front_extension_direction.clear()
@@ -364,6 +366,7 @@ func start_leg_break_slide(id: String, head_world_y: float,
     # Any new collapse invalidates the last stand-up handoff, including
     # another broken leg during the previous recovery/Idle-settle phase.
     post_down_idle_remaining = 0.0
+    recovery_gait_started = false
     # A second leg can break while the boss is already down. Refresh the
     # down timer but never snap an already fallen chassis UP into a windup.
     var already_downed: bool = break_elapsed >= 0.0
@@ -522,9 +525,9 @@ func _resolve_head_on_leg_contact() -> void:
 
 
 func locomotion_ready() -> bool:
-    # Read BEFORE physics IK advances: release only after the entire down
-    # duration, all lower-body support and the explicit Idle settle finish.
-    # Ordinary RUN/TURN leg gait must remain possible once released.
+    # Whether the old post-down neutral settle has completed. This is
+    # still useful for lock/contact cleanup, but is NO LONGER the gate
+    # for beginning Turn/Approach animation or locomotion on stand-up.
     return ready and not break_reaction_active()         and post_down_idle_remaining <= 0.0         and head_support_leg_index < 0
 
 
@@ -546,7 +549,7 @@ func standup_turn_enabled(next_delta: float = 0.0) -> bool:
     # No lead-in, smoothstep or angular-speed ramp is applied.
     if down_pose_active():
         return break_elapsed + maxf(next_delta, 0.0) >= break_recover_start
-    # Keep turning during the final Idle settle without permitting gait.
+    # Keep ordinary gait enabled during the post-down pose settle too.
     return post_down_idle_remaining > 0.0
 
 
@@ -694,7 +697,21 @@ func advance_ik(delta: float, motion: String) -> void:
     last_actor_yaw = actor.global_rotation.y
     cooldown = maxf(0.0, cooldown - delta)
     _advance_leg_break(delta)
-    var active: bool = (motion == "Approach" or motion == "Turn") and not break_reaction_active()
+    # The authored Turn/Approach clip is sampled BEFORE this IK pass.
+    # The previous down gate suppressed ALL IK foot motion until fully
+    # upright, leaving the boss visibly frozen for the entire stand-up.
+    # Begin the first available diagonal step on the exact physical rise
+    # frame. Never swing the supporting leg while the HEAD rests on it.
+    var rising: bool = (down_pose_active()
+        and break_elapsed >= break_recover_start)
+    var active: bool = (motion == "Approach" or motion == "Turn") and (
+        not break_reaction_active() or rising)
+    if rising and active and stepping_pair == -1 and not recovery_gait_started:
+        var first_pair: int = preferred_pair
+        if head_support_leg_index in LEG_PAIRS[first_pair]:
+            first_pair = 1 - first_pair
+        _start_pair(first_pair, motion == "Approach")
+        recovery_gait_started = true
     if stepping_pair == -1 and active and cooldown <= 0.0:
         var a: float = _pair_error(0)
         var b: float = _pair_error(1)
@@ -704,7 +721,11 @@ func advance_ik(delta: float, motion: String) -> void:
             # diagonal pinned indefinitely when turning.
             if absf(a-b) > 0.12:
                 selected = 0 if a > b else 1
-            _start_pair(selected, motion == "Approach")
+            # Avoid lifting the trapped head-supporting foot before the
+            # actual recovery pose releases it, even on repeated steps.
+            if not rising or head_support_leg_index < 0 or (
+                    not head_support_leg_index in LEG_PAIRS[selected]):
+                _start_pair(selected, motion == "Approach")
     var done: bool = true
     for leg in legs:
         var position: Vector3 = leg["anchor"]
@@ -814,11 +835,10 @@ func advance_ik(delta: float, motion: String) -> void:
                     sign * deg_to_rad(SUPPORT_FOOT_ROLL_DEGREES) * collapse) *
                     head_support_foot_rotation).normalized()
             leg["last_error"] = _solve(leg, foot_pos, foot_rot)
-    # Starting the release timer on the final fall tick would be too early
-    # unless IK has already rebuilt the normal standing pose. Count only
-    # fully neutral, planted Idle frames; do not keep it waiting forever
-    # for the authored feet's harmless residual reach errors.
-    if post_down_idle_remaining > 0.0 and not break_reaction_active()             and head_support_leg_index < 0 and stepping_pair == -1:
+    # The last pose-settle counter is for collision/weakpoint lifecycle,
+    # NOT a motion gate. The locomotion clip and planted-foot IK are
+    # allowed to run while this counter drains.
+    if post_down_idle_remaining > 0.0 and not break_reaction_active()             and head_support_leg_index < 0:
         var scale_y: float = maxf(
             absf(actor.get_parent().global_basis.get_scale().y), 0.001)
         var expected_local_y: float = (rest_actor_local_y

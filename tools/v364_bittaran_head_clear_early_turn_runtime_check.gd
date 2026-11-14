@@ -1,6 +1,6 @@
 extends SceneTree
-## v364/v365: root turning starts at FULL SPEED exactly with stand-up, with planted feet and
-## Idle gait; head reacquisition remains slow and cannot add meaningful
+## v364-v366: root turning and Turn/Approach clips start exactly with
+## stand-up; head reacquisition remains slow and cannot add meaningful
 ## penetration into any current FULL upper/lower/foot visual geometry.
 const DT: float = 1.0 / 60.0
 const LEG_IDS: Array[String] = ["leg_fl", "leg_fr", "leg_rl", "leg_rr"]
@@ -96,11 +96,17 @@ func _case(battle: Node3D, broken_ids: Array[String],
             switched_to_front = true
         battle.call("_advance_target_motion", DT)
         if locked:
-            if str(battle.get("bittaran_motion")) != "Idle" or str(
-                    rig.get("current_clip")) != "Idle":
-                _fail(label + ": movement clip played during recovery")
+            var chosen: String = str(battle.get("bittaran_motion"))
+            var played: String = str(rig.get("current_clip"))
+            if not turn_enabled and (chosen != "Idle" or played != "Idle"):
+                _fail(label + ": locomotion played before stand-up")
                 return false
-            if Vector2(boss.position.x - old_pos.x,
+            if turn_enabled and (not (chosen in ["Turn", "Approach"])
+                    or played != chosen):
+                _fail(label + ": locomotion clip missing after rise started")
+                return false
+            if not turn_enabled and Vector2(
+                    boss.position.x - old_pos.x,
                     boss.position.z - old_pos.z).length() > 0.0001:
                 _fail(label + ": advanced across arena before stand-up")
                 return false
@@ -195,7 +201,6 @@ func _run() -> void:
         return
     if not _case(battle, LEG_IDS, "four-leg"):
         return
-    print("GODOT_V364_BITTARAN_HEAD_CLEAR_PASS: full-rate yaw from stand-up, "
-        + "slow 70% head entry, no increased arm penetration, "
-        + "Idle gait and no XZ approach until full recovery")
+    print("GODOT_V364_BITTARAN_HEAD_CLEAR_PASS: normal gait begins with rise, "
+        + "slow 70% head entry, no increased arm penetration")
     quit(0)
