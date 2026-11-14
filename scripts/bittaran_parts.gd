@@ -27,6 +27,9 @@ const LOCK_VOLUME_EXPANSION: float = 1.15
 ## Bittaran SHIN-only AUTO/MANUAL selection volume: exactly twice the
 ## authored lower-leg mesh AABB, not the 3-bone leg or its physical collider.
 const SHIN_SELECTION_VOLUME_SCALE: float = 2.0
+# A front/rear pair may overlap the same two horizontal lock rays.
+# Hold the selected left/right shin until SERA clearly crosses the center.
+const LATERAL_SHIN_LOCK_HYSTERESIS_METERS: float = 0.65
 const MIN_SHIN_BOX: Vector3 = Vector3(0.52, 0.65, 0.52)
 const MIN_BODY_BOX: Vector3 = Vector3(0.65, 0.55, 0.65)
 # "body" is an explicit MANUAL selection. The legacy "" ID remains the
@@ -327,6 +330,49 @@ func select_actor_parallel_lines_part(origin: Vector3,
     if not result.is_empty():
         return result
     return _nearest_lockable_shin(origin, body_center)
+
+func select_stable_actor_parallel_lines_part(origin: Vector3,
+        body_center: Vector3, previous_id: String) -> String:
+    # AUTO-only left/right ownership. Preserve the exact midpoint rule for
+    # front/rear switching; this policy operates ONLY inside that pair.
+    # Both enlarged shin boxes can pass both rays directly in front of the
+    # boss. Comparing first-intersection distances then alternates left/right
+    # whenever either grounded shin moves a few centimetres.
+    if down_lock_enabled:
+        return select_actor_parallel_lines_part(origin, body_center)
+    var pair: Array[String] = _lockable_shin_pair(origin)
+    var first: String = pair[0]
+    var second: String = pair[1]
+    var first_center: Vector3 = get_shin_selection_box(first).get_center()
+    var second_center: Vector3 = get_shin_selection_box(second).get_center()
+    var lateral_axis := Vector2(
+        first_center.x - second_center.x, first_center.z - second_center.z)
+    if lateral_axis.length_squared() < 0.0001:
+        return select_actor_parallel_lines_part(origin, body_center)
+    lateral_axis = lateral_axis.normalized()
+    var midpoint: Vector3 = (first_center + second_center) * 0.5
+    var relative := Vector2(origin.x - midpoint.x, origin.z - midpoint.z)
+    var side_meters: float = relative.dot(lateral_axis)
+    # A currently locked shin wins the central ambiguity corridor. No
+    # timer/debounce: crossing 0.65m into the other side switches THIS tick.
+    if previous_id == first and side_meters >= -LATERAL_SHIN_LOCK_HYSTERESIS_METERS:
+        return first
+    if previous_id == second and side_meters <= LATERAL_SHIN_LOCK_HYSTERESIS_METERS:
+        return second
+    # No previous lock (spawn), or a decisive crossover: one deterministic
+    # side, rather than frame-to-frame ray-entry-distance competition.
+    var preferred: String = first if side_meters >= 0.0 else second
+    var alternate: String = second if preferred == first else first
+    var rays: PackedVector3Array = get_actor_parallel_lock_segments(
+        origin, body_center)
+    if _parallel_lock_part_distance(rays, preferred) < INF:
+        return preferred
+    if _parallel_lock_part_distance(rays, alternate) < INF:
+        return alternate
+    # As with the existing selector, keep a nearest fallback where neither
+    # oversized shin intersects both rays (e.g. almost side-on).
+    return preferred
+
 
 func select_actor_center_line_part(origin: Vector3,
         body_center: Vector3) -> String:
