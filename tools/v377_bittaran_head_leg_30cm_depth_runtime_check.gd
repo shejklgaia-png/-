@@ -92,19 +92,24 @@ func _run() -> void:
                 _fail("invalid head/leg mesh penetration depth")
                 return
     head.quaternion = original
-    # Exactly 30cm yields zero penalty. Any additional depth is
-    # low-pass filtered, preserving smooth HEAD tracking.
-    var zero: float = float(battle.call(
+    # At zero overlap the head moves freely; at 30cm an inward
+    # proposed turn stops, and an outward turn is always allowed.
+    battle.set("head_collision_filtered_depth", 0.0)
+    battle.set("head_collision_blocked", false)
+    var free: float = float(battle.call(
         "_head_collision_motion_scale", 0.0, 0.0, DT))
-    if absf(zero - 1.0) > 0.00001:
-        _fail("head slowed at or below 30cm")
+    if absf(free - 1.0) > 0.00001:
+        _fail("head slowed without any overlap")
         return
-    var deep_speed: float = 1.0
-    for frame in range(80):
-        deep_speed = float(battle.call(
-            "_head_collision_motion_scale", 0.0, 0.20, DT))
-    if deep_speed > 0.75 or deep_speed < 0.55 - 0.00001:
-        _fail("deep collision did not damp without freezing")
+    var stop: float = float(battle.call(
+        "_head_collision_motion_scale", 0.30, 0.32, DT))
+    if stop != 0.0:
+        _fail("head failed to stop at 30cm penetration")
+        return
+    var reverse: float = float(battle.call(
+        "_head_collision_motion_scale", 0.34, 0.30, DT))
+    if absf(reverse - 1.0) > 0.00001:
+        _fail("head cannot escape from >30cm penetration")
         return
     if absf(BOSS.HEAD_TRACK_STANDUP_START_FRACTION - 0.70) > 0.00001 \
             or absf(IK.HEAD_KNEE_MAX_BEND - 0.30) > 0.00001 \
@@ -115,5 +120,5 @@ func _run() -> void:
         return
     print("GODOT_V377_BITTARAN_DEPTH_30CM_PASS: 30cm world-space "
         + "oriented mesh depth under rotation and scale, common HEAD/IK "
-        + "threshold, no interference with rise and head tracking")
+        + "threshold, hard stop at >=30cm, free escape direction")
     quit(0)

@@ -343,3 +343,4 @@ gd tools/v374_bittaran_knee_sidefold_during_rise_runtime_check.gd
 gd tools/v375_bittaran_head_follow_collision_jitter_runtime_check.gd
 gd tools/v376_bittaran_head_mesh_hitboxes_runtime_check.gd
 gd tools/v377_bittaran_head_leg_30cm_depth_runtime_check.gd
+gd tools/v378_bittaran_head_collision_brake_no_flicker_runtime_check.gd

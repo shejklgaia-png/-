@@ -27,36 +27,50 @@ func _run() -> void:
             - 0.30) > 0.00001:
         _fail("HEAD must permit exactly 30cm penetration")
         return
-    # One frame of even severe-looking AABB contact MUST NOT change speed.
-    battle.set("head_collision_filtered_excess", 0.0)
+    # One noisy contact may slightly slow, but cannot stop or jerk yaw.
+    battle.set("head_collision_filtered_depth", 0.0)
+    battle.set("head_collision_blocked", false)
     var one_frame: float = float(battle.call(
         "_head_collision_motion_scale", 0.0, 0.20, DT))
-    if absf(one_frame - 1.0) > 0.00001:
-        _fail("one-frame collision slowed/flickered head")
+    if one_frame < 0.97 or one_frame > 1.00001:
+        _fail("one-frame contact caused sudden head braking")
         return
-    # A non-worsening collision may never penalize the follow angle.
-    for frame in range(100):
-        var harmless: float = float(battle.call(
-            "_head_collision_motion_scale", 0.16, 0.16, DT))
-        if absf(harmless - 1.0) > 0.00001:
-            _fail("unchanging overlap throttled tracking")
+    # Persistent deeper contact should slow smoothly towards zero.
+    battle.set("head_collision_filtered_depth", 0.0)
+    var speeds: Array[float] = []
+    for depth in [0.0, 0.10, 0.20, 0.28]:
+        for _frame in range(120):
+            var speed: float = float(battle.call(
+                "_head_collision_motion_scale", depth, depth, DT))
+            if speed < 0.0 or speed > 1.00001:
+                _fail("head collision speed escaped [0,1]")
+                return
+        speeds.append(float(battle.call(
+            "_head_collision_motion_scale", depth, depth, DT)))
+    for i in range(1, speeds.size()):
+        if speeds[i] >= speeds[i - 1] - 0.01:
+            _fail("head must slow progressively from first overlap")
             return
-    var persistent: float = 1.0
-    for frame in range(80):
-        persistent = float(battle.call(
-            "_head_collision_motion_scale", 0.0, 0.25, DT))
-        if persistent < 0.55 - 0.00001 or persistent > 1.00001:
-            _fail("sustained collision stopped or accelerated head")
-            return
-    if persistent >= 0.70:
-        _fail("sustained severe collision was never softened")
+    # Hard stop at 30cm in the worsening direction; no jitter on
+    # barely moving knee boxes until penetration falls under 27.5cm.
+    var stopped: float = float(battle.call(
+        "_head_collision_motion_scale", 0.30, 0.31, DT))
+    if stopped != 0.0:
+        _fail("head kept rotating deeper at 30cm")
         return
+    for depth in [0.299, 0.301, 0.291, 0.285]:
+        var held: float = float(battle.call(
+            "_head_collision_motion_scale", depth, depth + 0.004, DT))
+        if held != 0.0:
+            _fail("contact jitter caused stop/start flicker")
+            return
     var escape: float = float(battle.call(
-        "_head_collision_motion_scale", 0.3, 0.18, DT))
+        "_head_collision_motion_scale", 0.34, 0.31, DT))
     if absf(escape - 1.0) > 0.00001:
-        _fail("head was prevented from turning away from obstacle")
+        _fail("head was prevented from turning out of leg overlap")
         return
-    battle.set("head_collision_filtered_excess", 0.0)
+    battle.set("head_collision_filtered_depth", 0.0)
+    battle.set("head_collision_blocked", false)
     # Exercise the real post-break look-at while the four planted legs
     # move under the turning body.
     battle.set("locked_target_part_id", "leg_fl")
@@ -90,8 +104,8 @@ func _run() -> void:
     if not saw_rise_head or not saw_full_turn:
         _fail("real rise/normal tracking was not exercised")
         return
-    print("GODOT_V375_BITTARAN_HEAD_STABILITY_PASS: no 1-frame "
-        + "collision jitter, 55% minimum deep-overlap tracking speed, "
-        + "no backwards collision snap during 480 real frames, max "
+    print("GODOT_V375_BITTARAN_HEAD_STABILITY_PASS: progressive "
+        + "0-30cm slowdown, hard stop at 30cm, no contact flicker, "
+        + "unrestricted escape and no head snap during 480 frames, max "
         + "post-rise head yaw=" + str(rad_to_deg(max_stand_yaw)) + "deg")
     quit(0)

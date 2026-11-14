@@ -50,6 +50,7 @@ on:
       - 'tools/v375_bittaran_*.gd'
       - 'tools/v376_bittaran_*.gd'
       - 'tools/v377_bittaran_*.gd'
+      - 'tools/v378_bittaran_*.gd'
       - 'tools/rebuild_bittaran_data.py'
       - 'scripts/command_nexus.gd'
       - 'project.godot'
@@ -620,3 +621,20 @@ jobs:
             exit 1
           fi
           grep -q 'GODOT_V377_BITTARAN_DEPTH_30CM_PASS' "$log"
+
+      - name: Verify head collision brake and 30cm hard stop without jitter
+        run: |
+          set -euo pipefail
+          log="$RUNNER_TEMP/bittaran-v378.log"
+          status=0
+          "$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" --headless --path . --script tools/v378_bittaran_head_collision_brake_no_flicker_runtime_check.gd > "$log" 2>&1 || status=$?
+          cat "$log"
+          if [ "$status" -ne 0 ]; then
+            echo "::error::Bittaran v378 head collision braking test failed with code $status"
+            exit "$status"
+          fi
+          if grep -E 'SCRIPT ERROR|Parse Error|Compile Error|ERROR: Failed to load|Invalid call|V378_HEAD_BRAKE_FAIL' "$log"; then
+            echo "::error::Bittaran v378 head braking/jitter regression"
+            exit 1
+          fi
+          grep -q 'GODOT_V378_HEAD_BRAKE_PASS' "$log"
