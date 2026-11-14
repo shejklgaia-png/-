@@ -23,6 +23,7 @@ const LEG_BREAK_RECOVER_START_SECONDS: float = 0.67
 const LEG_BREAK_SLIDE_METERS: float = 1.05
 const HEAD_MELEE_REACH_WORLD_Y: float = 1.35
 const MAX_LEG_BREAK_DROP_METERS: float = 1.45
+const LEG_BREAK_NOSE_DIP_DEGREES: float = 43.0
 
 const LEG_NAMES: Array[String] = [
     "FrontLeg_R", "RearLeg_L", "FrontLeg_L", "RearLeg_R"
@@ -43,6 +44,7 @@ var break_drop_world: float = 0.0
 var break_leg_index: int = -1
 var break_anchor: Vector3 = Vector3.ZERO
 var break_slide: Vector3 = Vector3.ZERO
+var chassis_bone: Node3D
 
 func setup(model: Node3D) -> bool:
     actor = model
@@ -100,6 +102,9 @@ func setup(model: Node3D) -> bool:
     var parent_scale_y: float = maxf(absf(actor.get_parent().global_basis.get_scale().y), 0.001)
     actor.position.y += (FLOOR_Y - average_sole_y - BODY_CROUCH_WORLD_METERS) / parent_scale_y
     rest_actor_local_y = actor.position.y
+    chassis_bone = actor.find_child("Body", true, false) as Node3D
+    if chassis_bone == null:
+        return false
     reset()
     ready = true
     # Ensure soles are on the floor immediately, before the first physics tick.
@@ -136,6 +141,8 @@ func reset() -> void:
     if actor == null or legs.size() != 4:
         return
     actor.position.y = rest_actor_local_y
+    if chassis_bone != null:
+        chassis_bone.quaternion = Quaternion.IDENTITY
     break_elapsed = -1.0
     break_drop_world = 0.0
     break_leg_index = -1
@@ -255,12 +262,13 @@ func _align(joint: Node3D, from_axis: Vector3, to_axis: Vector3) -> void:
 func start_leg_break_slide(id: String, head_world_y: float) -> void:
     if not ready or actor == null:
         return
-    const id_to_name: Dictionary = {
+    var id_to_name: Dictionary = {
         "leg_fl": "FrontLeg_L", "leg_fr": "FrontLeg_R",
         "leg_rl": "RearLeg_L", "leg_rr": "RearLeg_R"
     }
     if not id_to_name.has(id):
         return
+    break_leg_index = -1
     for i in range(legs.size()):
         var leg: Dictionary = legs[i]
         leg["stepping"] = false
@@ -304,6 +312,11 @@ func _advance_leg_break(delta: float) -> void:
     var parent_scale_y: float = maxf(
         absf(actor.get_parent().global_basis.get_scale().y), 0.001)
     actor.position.y = rest_actor_local_y - amount * break_drop_world / parent_scale_y
+    # Pivot at the authored BODY joint: the front head dives while the rear
+    # remains supported. IK counter-rotates the feet to hold ground contact.
+    if chassis_bone != null:
+        chassis_bone.quaternion = (chassis_bone.quaternion * Quaternion(
+            Vector3.RIGHT, -deg_to_rad(LEG_BREAK_NOSE_DIP_DEGREES) * amount)).normalized()
     var leg: Dictionary = legs[break_leg_index]
     var skidding: Vector3 = break_anchor + break_slide * amount
     skidding.y = FLOOR_Y
