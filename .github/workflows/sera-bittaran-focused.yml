@@ -39,6 +39,7 @@ on:
       - 'tools/v364_bittaran_*.gd'
       - 'tools/v365_bittaran_*.gd'
       - 'tools/v366_bittaran_*.gd'
+      - 'tools/v367_bittaran_*.gd'
       - 'tools/rebuild_bittaran_data.py'
       - 'scripts/command_nexus.gd'
       - 'project.godot'
@@ -422,3 +423,20 @@ jobs:
             exit 1
           fi
           grep -q 'GODOT_V366_BITTARAN_LIVE_RISE_PASS' "$log"
+
+      - name: Verify planted feet during rise and live landing-target catch-up after stand-up
+        run: |
+          set -euo pipefail
+          log="$RUNNER_TEMP/bittaran-v367.log"
+          status=0
+          "$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" --headless --path . --script tools/v367_bittaran_body_turn_foot_catchup_runtime_check.gd > "$log" 2>&1 || status=$?
+          cat "$log"
+          if [ "$status" -ne 0 ]; then
+            echo "::error::Bittaran v367 body/foot landing sync test failed with code $status"
+            exit "$status"
+          fi
+          if grep -E 'SCRIPT ERROR|Parse Error|Compile Error|ERROR: Failed to load|Invalid call|V367_BITTARAN_FOOT_CATCHUP_FAIL' "$log"; then
+            echo "::error::Bittaran v367 runtime reported a regression"
+            exit 1
+          fi
+          grep -q 'GODOT_V367_BITTARAN_FOOT_CATCHUP_PASS' "$log"
