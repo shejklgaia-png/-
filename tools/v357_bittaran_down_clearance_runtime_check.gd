@@ -92,8 +92,9 @@ func _run() -> void:
     var feet: Array[AABB] = [foot_box]
     var around: Dictionary = CLEARANCE.escape_waypoint(
         Vector3(0.0, 0.0, 0.0), body_box, feet, 0.4, Vector3.RIGHT)
-    if not bool(around["active"])             or (CLEARANCE.call("safe_advance",
-                Vector3.ZERO, around["waypoint"], feet, 0.4) as Vector3)             .distance_to(Vector3.ZERO) < 0.001:
+    var advanced: Vector3 = CLEARANCE.safe_advance(
+        Vector3.ZERO, around["waypoint"], feet, 0.4)
+    if not bool(around["active"]) or advanced.distance_to(Vector3.ZERO) < 0.001:
         _fail("blocked body exit had no available horizontal escape")
         return
     var at_foot: Dictionary = CLEARANCE.escape_waypoint(
