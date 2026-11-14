@@ -130,8 +130,19 @@ func _run() -> void:
             _fail("downward collision recovery embedded player under floor at "
                 + str(n) + " y=" + str(player.global_position.y))
             return
-        if not _head_clear(parts, battle.get("head_neutral_overlap")):
-            _fail("head touched leg during falling head tracking")
+        # v358 replaces player-facing HEAD yaw with neutral rotation for
+        # the full down; the falling chassis naturally moves the head near
+        # its own shoulders. Do not apply the standing tracking overlap
+        # baseline to this distinct authored down pose.
+        if bool(ik.call("down_pose_active")):
+            var neutral_head: Quaternion = battle.get(
+                "boss_head_default_rotation")
+            if head.quaternion.angle_to(neutral_head) > 0.003:
+                _fail("downed head retained player-facing rotation")
+                return
+        elif not bool(ik.call("windup_active")) and not _head_clear(
+                parts, battle.get("head_neutral_overlap")):
+            _fail("standing head entered a leg while tracking")
             return
         if not bool(battle.get("boss_downed_escaping")):
             found_escape = true

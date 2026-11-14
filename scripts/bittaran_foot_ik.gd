@@ -18,6 +18,14 @@ const BODY_CROUCH_WORLD_METERS: float = 0.34
 const STANCE_TUCK_METERS: float = 0.42
 ## A broken shin skids out while the chassis briefly dips to melee-head height.
 const LEG_BREAK_REACTION_SECONDS: float = 2.5
+# A full, separate anticipatory beat; the original down duration begins
+# AFTER these 0.60 seconds, not inside it.
+const LEG_BREAK_WINDUP_SECONDS: float = 0.60
+const LEG_BREAK_WINDUP_HEAD_LIFT_DEGREES: float = 26.0
+const LEG_BREAK_WINDUP_HEAD_DIP_DEGREES: float = 4.0
+const LEG_BREAK_FRONT_REACH_METERS: float = 0.24
+const GROUND_HOVER_THRESHOLD_METERS: float = 0.045
+const GROUND_CORRECTION_MAX_PER_TICK_METERS: float = 0.18
 const LEG_BREAK_FALL_SECONDS: float = 0.17
 const LEG_BREAK_RECOVER_START_SECONDS: float = 2.10
 const ALL_LEGS_BREAK_REACTION_SECONDS: float = 6.0
@@ -43,6 +51,11 @@ var preferred_pair: int = 0
 var cooldown: float = 0.0
 var rest_actor_local_y: float = 0.0
 var break_elapsed: float = -1.0
+var windup_elapsed: float = -1.0
+var front_anchor_rest: Dictionary = {}
+var front_extension_direction: Dictionary = {}
+var ground_correction_world: float = 0.0
+var head_bone: Node3D
 var break_duration: float = LEG_BREAK_REACTION_SECONDS
 var break_recover_start: float = LEG_BREAK_RECOVER_START_SECONDS
 var break_drop_world: float = 0.0
@@ -118,6 +131,7 @@ func setup(model: Node3D) -> bool:
     var authored_head: Node3D = actor.find_child("Head", true, false) as Node3D
     if authored_head == null:
         return false
+    head_bone = authored_head
     for head_child in authored_head.get_children():
         if head_child is MeshInstance3D:
             head_mesh_for_height = head_child as MeshInstance3D
@@ -163,6 +177,10 @@ func reset() -> void:
     if chassis_bone != null:
         chassis_bone.quaternion = rest_chassis_rotation
     break_elapsed = -1.0
+    windup_elapsed = -1.0
+    ground_correction_world = 0.0
+    front_anchor_rest.clear()
+    front_extension_direction.clear()
     break_duration = LEG_BREAK_REACTION_SECONDS
     break_recover_start = LEG_BREAK_RECOVER_START_SECONDS
     break_drop_world = 0.0
@@ -290,20 +308,40 @@ func start_leg_break_slide(id: String, head_world_y: float,
     }
     if not id_to_name.has(id):
         return
+    # A second leg can break while the boss is already down. Refresh the
+    # down timer but never snap an already fallen chassis UP into a windup.
+    var already_downed: bool = break_elapsed >= 0.0
+    var already_winding: bool = windup_elapsed >= 0.0
     break_leg_index = -1
+    front_anchor_rest.clear()
+    front_extension_direction.clear()
     for i in range(legs.size()):
         var leg: Dictionary = legs[i]
         leg["stepping"] = false
-        var world_sole: Vector3 = (leg["foot"] as Node3D).to_global(leg["sole_local"])
+        var world_sole: Vector3 = (
+            leg["foot"] as Node3D).to_global(leg["sole_local"])
         world_sole.y = FLOOR_Y
         leg["anchor"] = world_sole
-        if (leg["upper"] as Node3D).name == id_to_name[id]:
+        var root_name: String = (leg["upper"] as Node3D).name
+        if root_name == id_to_name[id]:
             break_leg_index = i
+        if root_name.begins_with("Front"):
+            front_anchor_rest[i] = world_sole
+            var outward: Vector3 = world_sole - actor.global_position
+            outward.y = 0.0
+            if outward.length_squared() < 0.00001:
+                outward = actor.global_basis.x
+            front_extension_direction[i] = outward.normalized()
     if break_leg_index < 0:
         return
     stepping_pair = -1
     cooldown = 0.0
-    break_elapsed = 0.0
+    if already_downed:
+        break_elapsed = 0.0
+        windup_elapsed = -1.0
+    elif not already_winding:
+        windup_elapsed = 0.0
+        break_elapsed = -1.0
     break_duration = (ALL_LEGS_BREAK_REACTION_SECONDS if all_legs_broken
         else LEG_BREAK_REACTION_SECONDS)
     break_recover_start = (ALL_LEGS_BREAK_RECOVER_START_SECONDS if all_legs_broken
@@ -320,29 +358,82 @@ func start_leg_break_slide(id: String, head_world_y: float,
         spread = actor.global_basis.x
     break_slide = spread.normalized() * LEG_BREAK_SLIDE_METERS
 
+
+func windup_active() -> bool:
+    return windup_elapsed >= 0.0
+
+
+func down_pose_active() -> bool:
+    return break_elapsed >= 0.0
+
+
+func windup_progress() -> float:
+    if windup_elapsed < 0.0:
+        return 0.0
+    return clampf(windup_elapsed / LEG_BREAK_WINDUP_SECONDS, 0.0, 1.0)
+
+
 func _cubic(t: float) -> float:
     var x: float = clampf(t, 0.0, 1.0)
     return x * x * (3.0 - 2.0 * x)
 
 func _advance_leg_break(delta: float) -> void:
-    if break_elapsed < 0.0 or break_leg_index < 0:
-        return
-    break_elapsed += maxf(0.0, delta)
-    var amount: float = 0.0
-    if break_elapsed < LEG_BREAK_FALL_SECONDS:
-        amount = _cubic(break_elapsed / LEG_BREAK_FALL_SECONDS)
-    elif break_elapsed < break_recover_start:
-        amount = 1.0
-    elif break_elapsed < break_duration:
-        amount = 1.0 - _cubic((break_elapsed - break_recover_start)
-            / (break_duration - break_recover_start))
     var parent_scale_y: float = maxf(
         absf(actor.get_parent().global_basis.get_scale().y), 0.001)
-    actor.position.y = rest_actor_local_y - amount * break_drop_world / parent_scale_y
-    # Aim the actual HEAD mesh center at a reachable Y. The Blockbench
-    # BODY/HEAD geometry is not assumed to have a fixed lever arm: numerically
-    # solve a nose-down pitch each frame, so the head never clips the floor.
-    if chassis_bone != null and head_mesh_for_height != null:
+    if windup_elapsed >= 0.0:
+        windup_elapsed += maxf(delta, 0.0)
+        var progress: float = windup_progress()
+        # Heavy anticipation: slight initial head dip, a slow accelerating
+        # nose-up throw, then weight settling before the actual fall.
+        var pitch_degrees: float = 0.0
+        if progress < 0.20:
+            pitch_degrees = -LEG_BREAK_WINDUP_HEAD_DIP_DEGREES * _cubic(
+                progress / 0.20)
+        elif progress < 0.80:
+            pitch_degrees = lerpf(-LEG_BREAK_WINDUP_HEAD_DIP_DEGREES,
+                LEG_BREAK_WINDUP_HEAD_LIFT_DEGREES,
+                _cubic((progress - 0.20) / 0.60))
+        else:
+            pitch_degrees = LEG_BREAK_WINDUP_HEAD_LIFT_DEGREES * (
+                1.0 - _cubic((progress - 0.80) / 0.20))
+        if head_bone != null:
+            head_bone.quaternion = (head_bone.quaternion *
+                Quaternion(Vector3.RIGHT,
+                deg_to_rad(pitch_degrees))).normalized()
+        # Reach forward with both forelimbs by extending their PLANTED sole
+        # anchors, rather than raising toes or moving the whole robot upward.
+        var reach: float = LEG_BREAK_FRONT_REACH_METERS * _cubic(
+            minf(progress / 0.72, 1.0))
+        for index in front_anchor_rest:
+            var leg: Dictionary = legs[index]
+            leg["anchor"] = (front_anchor_rest[index] as Vector3) + (
+                front_extension_direction[index] as Vector3) * reach
+        actor.position.y = (rest_actor_local_y
+            + ground_correction_world / parent_scale_y)
+        if windup_elapsed >= LEG_BREAK_WINDUP_SECONDS:
+            # The last windup frame is exactly neutral, so the original
+            # head joint starts the falling animation without a rotation pop.
+            windup_elapsed = -1.0
+            break_elapsed = 0.0
+        return
+
+    var amount: float = 0.0
+    if break_elapsed >= 0.0 and break_leg_index >= 0:
+        break_elapsed += maxf(0.0, delta)
+        if break_elapsed < LEG_BREAK_FALL_SECONDS:
+            amount = _cubic(break_elapsed / LEG_BREAK_FALL_SECONDS)
+        elif break_elapsed < break_recover_start:
+            amount = 1.0
+        elif break_elapsed < break_duration:
+            amount = 1.0 - _cubic((break_elapsed - break_recover_start)
+                / (break_duration - break_recover_start))
+    # This is a visual-only chassis drop; foot anchors stay at world Y=0.
+    # Include the persistent grounding correction to prevent a 1-frame
+    # hover when the hips move through the analytical IK reach limit.
+    actor.position.y = (rest_actor_local_y
+        + (ground_correction_world - amount * break_drop_world)
+        / parent_scale_y)
+    if break_elapsed >= 0.0 and chassis_bone != null             and head_mesh_for_height != null:
         var base_pose: Quaternion = chassis_bone.quaternion
         var desired_head_y: float = lerpf(break_head_start_y,
             HEAD_MELEE_REACH_WORLD_Y, amount)
@@ -363,17 +454,31 @@ func _advance_leg_break(delta: float) -> void:
                 Quaternion(Vector3.RIGHT, -(lo + hi) * 0.5)).normalized()
         else:
             chassis_bone.quaternion = base_pose
-    var leg: Dictionary = legs[break_leg_index]
-    var skidding: Vector3 = break_anchor + break_slide * amount
-    skidding.y = FLOOR_Y
-    leg["anchor"] = skidding
-    if break_elapsed >= break_duration:
-        break_elapsed = -1.0
-        break_leg_index = -1
-        actor.position.y = rest_actor_local_y
+    # Ease the two front legs from their slight stretch to the planted
+    # anchors as the chest falls. The broken leg still skids separately.
+    var reach_end: float = 1.0 - _cubic(
+        clampf(break_elapsed / LEG_BREAK_FALL_SECONDS, 0.0, 1.0))
+    if break_elapsed >= 0.0:
+        for index in front_anchor_rest:
+            var leg: Dictionary = legs[index]
+            leg["anchor"] = (front_anchor_rest[index] as Vector3) + (
+                front_extension_direction[index] as Vector3) * (
+                LEG_BREAK_FRONT_REACH_METERS * reach_end)
+        var leg: Dictionary = legs[break_leg_index]
+        var skidding: Vector3 = break_anchor + break_slide * amount
+        skidding.y = FLOOR_Y
+        leg["anchor"] = skidding
+        if break_elapsed >= break_duration:
+            break_elapsed = -1.0
+            break_leg_index = -1
+            front_anchor_rest.clear()
+            front_extension_direction.clear()
+
 
 func break_reaction_active() -> bool:
-    return break_elapsed >= 0.0
+    # Freeze AI/gait and permit weakpoint lock from the breaking hit onward.
+    # The original 2.5/6s down timer itself starts after the 0.6s windup.
+    return windup_active() or down_pose_active()
 
 func advance_ik(delta: float, motion: String) -> void:
     if not ready or legs.size() != 4 or actor == null:
@@ -424,6 +529,33 @@ func advance_ik(delta: float, motion: String) -> void:
     if stepping_pair != -1 and done:
         stepping_pair = -1
         cooldown = STEP_COOLDOWN_SECONDS
+    # Reconcile the actual visible sole contacts with the visual-only
+    # arena floor. Some maximum-reach/down transitions can momentarily
+    # leave ALL four soles hovering. Do not push the torso up in response to
+    # a raised stepping foot; use only planted feet and solve once again.
+    var min_planted_height: float = INF
+    var planted_count: int = 0
+    for leg in legs:
+        if bool(leg["stepping"]):
+            continue
+        planted_count += 1
+        var world_sole: Vector3 = (
+            leg["foot"] as Node3D).to_global(leg["sole_local"])
+        min_planted_height = minf(min_planted_height, world_sole.y)
+    if planted_count >= 2 and min_planted_height != INF             and absf(min_planted_height) > GROUND_HOVER_THRESHOLD_METERS:
+        var correction: float = clampf(-min_planted_height,
+            -GROUND_CORRECTION_MAX_PER_TICK_METERS,
+            GROUND_CORRECTION_MAX_PER_TICK_METERS)
+        var scale_y: float = maxf(
+            absf(actor.get_parent().global_basis.get_scale().y), 0.001)
+        ground_correction_world += correction
+        actor.position.y += correction / scale_y
+        for leg in legs:
+            var foot_pos: Vector3 = leg["anchor"]
+            var foot_rot: Quaternion = leg["anchor_rotation"]
+            if bool(leg["stepping"]):
+                continue
+            leg["last_error"] = _solve(leg, foot_pos, foot_rot)
 
 func maximum_ground_error() -> float:
     var worst: float = 0.0
