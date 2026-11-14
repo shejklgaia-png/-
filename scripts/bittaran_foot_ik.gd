@@ -263,9 +263,9 @@ func _straight_attack_goal(leg: Dictionary, world_direction: Vector3) -> Vector3
         outward.y = 0.0
     outward = outward.normalized()
     var foot: Node3D = leg["foot"]
+    var target_foot_basis := Basis(leg["anchor_rotation"] as Quaternion)
     var sole_offset: Vector3 = (
-        Basis(leg["anchor_rotation"] as Quaternion)
-        .scaled(foot.global_basis.get_scale())
+        target_foot_basis.scaled(foot.global_basis.get_scale())
         * (leg["sole_local"] as Vector3))
     # The reachable end is a straight shoulder-knee-ankle line. Leave
     # only the existing 2mm solver margin, never a grounded-foot limit.
