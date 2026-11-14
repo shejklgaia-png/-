@@ -136,8 +136,11 @@ func _run() -> void:
     if head_before - lowered < 0.15:
         _fail("head did not descend to melee height: " + str(head_before - lowered))
         return
-    if lowered > 1.55:
-        _fail("head remained beyond intended melee range: " + str(lowered))
+    if lowered < 1.12 or lowered > 1.55:
+        _fail("head did not settle at a safe reachable height: " + str(lowered))
+        return
+    if highest_error > 0.12:
+        _fail("leg-break collapse pulled planted feet off the ground: " + str(highest_error))
         return
     if absf(head_after - head_before) > LIMIT or bool(ik.call("break_reaction_active")):
         _fail("boss did not quickly recover original stance")
