@@ -105,7 +105,7 @@ func _run() -> void:
         battle.call("_aim_bittaran_head", DT)
         var down: bool = bool(ik.call("down_pose_active"))
         if not down:
-            _fail("fall ended before the original 2.5s down period")
+            _fail("fall ended before the full recovery window")
             return
         if frame > 20 and frame < 75:
             var sole_rotation: Quaternion = (
@@ -145,7 +145,7 @@ func _run() -> void:
         return
 
     # Recovery returns the old support foot and ordinary lock priority.
-    for frame in range(90):
+    for frame in range(125):
         _step(rig, ik, parts)
     if bool(ik.call("break_reaction_active")):
         _fail("single-shin down failed to recover normally")
