@@ -88,9 +88,10 @@ func _case(battle: Node3D, id: String, kind: String) -> bool:
                 _fail(kind + ": support world anchor moved " + key)
                 return false
         if kind == "sweep":
-            if absf(float(battle.get("boss_head_yaw")) - initial_head) > 0.0001:
-                _fail("sweep head still followed changing player")
-                return false
+            # v387: the SWEEP torso/aim remains fixed, but the HEAD
+            # MUST independently track SERA just as in every other move.
+            # This check is now performed by the v387 live head test.
+            pass
         if kind != "stomp":
             var current_offset: float = float(
                 ik.get("initial_attack_contact_height_world"))
