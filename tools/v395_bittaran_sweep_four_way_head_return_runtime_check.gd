@@ -160,10 +160,49 @@ func _check_realtime_sweep(battle: Node3D) -> bool:
                                     largest = volume
                                     worst_leg = test_leg
                     if largest > 0.035:
+                        var head: Node3D = battle.get("bittaran_head")
+                        var saved_pose: Quaternion = head.quaternion
+                        var saved_pos: Vector3 = head.global_position
+                        var baseline: Quaternion = battle.call(
+                            "_head_level_local_base_pose")
+                        var rig: Node3D = battle.get("bittaran_rig")
+                        var chest: Node3D = rig.find_child(
+                            "Body", true, false)
+                        var right: Vector3 = (
+                            chest.global_basis.x.normalized())
+                        var cost_scan: Array = []
+                        var optimal: Array = [INF, 0.0, 0.0]
+                        for offset in [-0.8, -0.4, 0.0, 0.4, 0.8]:
+                            head.global_position = saved_pos + (
+                                right * float(offset))
+                            for degrees in [-60.0, -40.0, -25.0,
+                                    -10.0, 0.0, 10.0, 25.0, 40.0, 60.0]:
+                                head.quaternion = battle.call(
+                                    "_head_oriented_local_pose", baseline,
+                                    deg_to_rad(degrees),
+                                    float(battle.get("boss_head_pitch")))
+                                var test_nose: AABB = parts.call(
+                                    "get_head_swing_aabb")
+                                var score: float = 0.0
+                                for check_leg in IK.LEG_PART_IDS:
+                                    var boxes: Array[AABB] = parts.call(
+                                        "get_leg_visual_mesh_boxes", check_leg)
+                                    for piece in boxes:
+                                        if test_nose.intersects(piece):
+                                            score = maxf(score,
+                                                test_nose.intersection(
+                                                    piece).get_volume())
+                                if absf(float(offset)) < 0.001:
+                                    cost_scan.append([degrees, score])
+                                if score < float(optimal[0]):
+                                    optimal = [score, offset, degrees]
+                        head.global_position = saved_pos
+                        head.quaternion = saved_pose
                         _fail(id + " SWEEP nose obstructs returning limb "
                             + str([return_elapsed, largest, worst_leg,
                                 yaw, nose, battle.get(
-                                    "head_visual_clearance_lift_world")]))
+                                    "head_visual_clearance_lift_world"),
+                                cost_scan, optimal]))
                         return false
                 if return_elapsed > 0.48 and yaw > allowed + 0.018:
                     _fail(id + " HEAD failed to clear returning sweep "
