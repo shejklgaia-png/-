@@ -433,21 +433,23 @@ func _straight_attack_goal(leg: Dictionary, world_direction: Vector3,
         max_reach - IK_REACH_MARGIN_METERS) + sole_offset)
 
 
-# The STOMP tip's short end FACE is perpendicular to local -Y. Its
-# short sides are horizontal only at contact when local +Y points UP.
-# Preserve the source foot keys during the entire authored windup;
-# pitch the toe toward the ground-normal during the 0.25s downstroke.
-func _attack_rotation(leg: Dictionary) -> Quaternion:
+# The model's LONG TOE is its local Y axis (6.4 authored units):
+# keep that actual longest axis VERTICAL to the ground in every STOMP
+# phase, not only the final 0.25s impact pose.
+func _stomp_vertical_foot_rotation(leg: Dictionary) -> Quaternion:
     var original: Quaternion = leg["anchor_rotation"]
     var forward: Vector3 = Basis(original).z
     forward.y = 0.0
     if forward.length_squared() < 0.000001:
         forward = actor.global_basis.z
         forward.y = 0.0
-    # Desired contact pose: local -Y (long toe) down, short end surface
-    # level with the arena. It is NOT forced onto the authored windup.
-    var upright: Quaternion = Basis.looking_at(
+    return Basis.looking_at(
         -forward.normalized(), Vector3.UP).get_rotation_quaternion()
+
+
+func _attack_rotation(leg: Dictionary) -> Quaternion:
+    var original: Quaternion = leg["anchor_rotation"]
+    var upright: Quaternion = _stomp_vertical_foot_rotation(leg)
     var t: float = float(attack_pose.get("time", 0.0))
     var windup: float = float(attack_pose.get("windup", 1.0))
     var strike: float = float(attack_pose.get("strike", 0.2))
@@ -1460,19 +1462,30 @@ func advance_ik(delta: float, motion: String) -> void:
                     attack_pose.get("windup", 1.25))
                 if bool(attack_pose.get("authored", false)) and (
                         attack_kind == "stomp") and attack_t <= attack_windup:
-                    # Preserve all THREE authored leg joints during the
-                    # windup. Prematurely aligning the toe to world-up
-                    # erased the original sweep/lift shape. Capture the
-                    # real terminal keyframe as the downstroke's entry.
+                    # Preserve authored shoulder and knee keyframes but
+                    # orient the long rectangular toe VERTICALLY while
+                    # the limb rises. The old authored FOOT track laid
+                    # its long side flat until the final downstroke.
                     var foot: Node3D = leg["foot"]
-                    var authored_foot_rotation: Quaternion = (
+                    var source_rotation: Quaternion = (
                         foot.global_basis.get_rotation_quaternion())
+                    var upright: Quaternion = (
+                        _stomp_vertical_foot_rotation(leg))
+                    # Smoothly settle from the attack's entry pose, then
+                    # keep a genuinely upright toe throughout anticipation.
+                    var upright_weight: float = _cubic(
+                        attack_t / 0.18)
+                    var raised_rotation: Quaternion = (
+                        source_rotation.slerp(upright,
+                            upright_weight).normalized())
+                    foot.global_basis = Basis(raised_rotation).scaled(
+                        foot.global_basis.get_scale())
                     position = foot.to_global(leg["sole_local"] as Vector3)
                     leg["stomp_authored_windup_goal"] = position
                     leg["stomp_authored_windup_rotation"] = (
-                        authored_foot_rotation)
+                        raised_rotation)
                     leg["last_goal"] = position
-                    leg["last_rotation"] = authored_foot_rotation
+                    leg["last_rotation"] = raised_rotation
                     continue
                 if bool(attack_pose.get("authored", false)) and (
                         attack_kind != "stomp"):
