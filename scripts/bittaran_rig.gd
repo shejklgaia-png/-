@@ -26,6 +26,11 @@ var authored_leg_id: String = ""
 const ATTACK_LEG_AIM_MAX_DEGREES: float = 100.0
 const ATTACK_LEG_AIM_TURN_DEGREES_PER_SECOND: float = 300.0
 var attack_leg_aim_yaw: float = 0.0
+# Captured ACTUAL active combat pose becomes a six-tenths-second smooth
+# transition into the raised original STOMP anticipation pose. HEAD is
+# deliberately excluded: its live player-tracking owner never changes.
+var down_stomp_leg_id: String = ""
+var down_stomp_entry_rotations: Dictionary = {}
 # The user authored one front-left limb. Retarget its rotational DELTAS
 # relative to Wait for each of the other three mechanically symmetric limbs.
 const ATTACK_NAMES: Dictionary = {
@@ -269,6 +274,54 @@ func start_authored_attack(kind: String, id: String) -> void:
         attack_entry_rotations[uid] = (bones[uid] as Node3D).quaternion
 
 
+
+## Capture joint-local rotations BEFORE clearing the active attack. Use
+## the author's STOMP windup keys as a target (not a newly fabricated
+## folded pose); all untouched support arms remain under world-fixed IK.
+func begin_stomp_down_windup(id: String) -> bool:
+    if not loading_ok or not ATTACK_LEG_BONES.has(id):
+        return false
+    down_stomp_leg_id = id
+    down_stomp_entry_rotations.clear()
+    var names: Array[String] = ["Body"]
+    for name in ATTACK_LEG_BONES[id]:
+        names.append(str(name))
+    for name in names:
+        var uid: String = str(bone_uuid_by_name.get(name, ""))
+        if uid.is_empty() or not bones.has(uid):
+            clear_stomp_down_windup()
+            return false
+        down_stomp_entry_rotations[uid] = (
+            bones[uid] as Node3D).quaternion
+    return true
+
+
+func apply_stomp_down_windup(progress: float) -> void:
+    if down_stomp_leg_id.is_empty():
+        return
+    var alpha: float = smoothstep(0.0, 1.0,
+        clampf(progress, 0.0, 1.0))
+    var names: Array[String] = ["Body"]
+    for name in ATTACK_LEG_BONES[down_stomp_leg_id]:
+        names.append(str(name))
+    for slot in range(names.size()):
+        var name: String = names[slot]
+        var uid: String = str(bone_uuid_by_name.get(name, ""))
+        if not bones.has(uid) or not down_stomp_entry_rotations.has(uid):
+            continue
+        var destination: Quaternion = (
+            _authored_key_rotation("踏みつけ", "Body", 1.25)
+            if slot == 0 else _authored_rotation_for_leg(
+                "stomp", down_stomp_leg_id, slot - 1, 1.25))
+        var origin: Quaternion = down_stomp_entry_rotations[uid]
+        (bones[uid] as Node3D).quaternion = origin.slerp(
+            destination, alpha).normalized()
+
+
+func clear_stomp_down_windup() -> void:
+    down_stomp_leg_id = ""
+    down_stomp_entry_rotations.clear()
+
 func end_authored_attack() -> void:
     active_authored_attack = ""
     authored_leg_id = ""
@@ -282,6 +335,7 @@ func end_authored_attack() -> void:
 ## neutral Wait pose. No lingering attack keys may reappear on the next
 ## Idle/Turn/Approach frame. HEAD stays controller-owned throughout.
 func cancel_authored_attack_for_down() -> bool:
+    clear_stomp_down_windup()
     if active_authored_attack.is_empty():
         return false
     end_authored_attack()
