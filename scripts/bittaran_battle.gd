@@ -497,7 +497,8 @@ func _clamp_head_to_mechanical_limits() -> void:
 ## nose versus individually rendered upper/lower/foot pieces, excluding
 ## the built-in neck/shoulder meshes outside the forward nose region.
 func _head_return_face_overlap(base_pose: Quaternion,
-        yaw: float, pitch: float) -> float:
+        yaw: float, pitch: float,
+        cached_pieces: Array[AABB] = []) -> float:
     if bittaran_head == null or target_parts == null:
         return 0.0
     bittaran_head.quaternion = _head_oriented_local_pose(
@@ -505,14 +506,16 @@ func _head_return_face_overlap(base_pose: Quaternion,
     var nose: AABB = target_parts.call("get_head_swing_aabb")
     if not nose.has_volume():
         return 0.0
+    var pieces: Array[AABB] = cached_pieces
+    if pieces.is_empty():
+        for id in ["leg_fl", "leg_fr", "leg_rl", "leg_rr"]:
+            pieces.append_array(target_parts.call(
+                "get_leg_visual_mesh_boxes", id))
     var overlap: float = 0.0
-    for id in ["leg_fl", "leg_fr", "leg_rl", "leg_rr"]:
-        var pieces: Array[AABB] = target_parts.call(
-            "get_leg_visual_mesh_boxes", id)
-        for piece in pieces:
-            if nose.intersects(piece):
-                overlap = maxf(overlap,
-                    nose.intersection(piece).get_volume())
+    for piece in pieces:
+        if nose.intersects(piece):
+            overlap = maxf(overlap,
+                nose.intersection(piece).get_volume())
     return overlap
 
 
@@ -529,21 +532,34 @@ func _choose_head_return_clear_yaw(base_pose: Quaternion) -> float:
     var best_safe_score: float = INF
     var best_fallback_score: float = INF
     var safe_found: bool = false
+    var leg_pieces: Array[AABB] = []
+    for id in ["leg_fl", "leg_fr", "leg_rl", "leg_rr"]:
+        leg_pieces.append_array(target_parts.call(
+            "get_leg_visual_mesh_boxes", id))
     var candidates: Array[float] = [
-        -60.0, -50.0, -45.0, -40.0, -30.0, -25.0, -15.0,
-        0.0, 15.0, 25.0, 30.0, 40.0, 45.0, 50.0, 60.0,
+        -60.0, -45.0, -40.0, -25.0, -15.0, 0.0, 15.0,
+        25.0, 40.0, 45.0, 60.0,
         rad_to_deg(chosen),
         rad_to_deg(head_return_safe_yaw_target)
     ]
     for degrees in candidates:
         var yaw: float = clampf(deg_to_rad(degrees), -limit, limit)
         var overlap: float = _head_return_face_overlap(
-            base_pose, yaw, boss_head_pitch)
+            base_pose, yaw, boss_head_pitch, leg_pieces)
         var travel: float = absf(wrapf(yaw - boss_head_yaw, -PI, PI))
         var hysteresis: float = absf(wrapf(
             yaw - head_return_safe_yaw_target, -PI, PI))
-        var route_score: float = (travel + absf(yaw) * 0.08
-            + hysteresis * 0.10)
+        # Reject a "safe" end angle if the SHORTER route to it
+        # crosses the planted knee. Prefer nearby non-colliding paths
+        # before rotating the head across the opposite side.
+        var mid_yaw: float = lerp_angle(boss_head_yaw, yaw, 0.5)
+        var corridor_overlap: float = _head_return_face_overlap(
+            base_pose, mid_yaw, boss_head_pitch, leg_pieces)
+        var route_score: float = (travel * 0.35
+            + absf(yaw) * 0.70
+            + hysteresis * 0.10
+            + maxf(0.0, corridor_overlap
+                - HEAD_RETURN_FACE_MAX_OVERLAP_VOLUME_M3) * 9.0)
         if overlap <= HEAD_RETURN_FACE_MAX_OVERLAP_VOLUME_M3:
             if not safe_found or route_score < best_safe_score:
                 safe_found = true
