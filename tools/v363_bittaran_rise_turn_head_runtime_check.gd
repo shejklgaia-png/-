@@ -122,11 +122,11 @@ func _run_case(battle: Node3D, leg_ids: Array[String],
                 if follow_weight > 0.00001:
                     _fail(label + ": tracking enabled before 70% of pose")
                     return false
-                # The larger v391 HEAD yaw envelope (85deg) needs up
-                # to 85/140 seconds to unwind at the EXISTING maximum
+                # The current HEAD yaw envelope (30deg) needs up to
+                # 30/140 seconds to unwind at the EXISTING maximum
                 # 140deg/s. This remains a strict no-tracking check,
                 # but must not demand an impossible angular velocity.
-                var max_unwind_seconds: float = (85.0 / 140.0 + 2.0 * DT)
+                var max_unwind_seconds: float = (30.0 / 140.0 + 2.0 * DT)
                 if float(ik.get("break_elapsed")) >= max_unwind_seconds and (
                         head_yaw > EPS):
                     _fail(label + ": HEAD followed before 70% recovery "
