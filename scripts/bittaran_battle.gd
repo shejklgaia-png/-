@@ -42,6 +42,11 @@ const HEAD_RETURN_SIDE_MAX_METERS: float = 1.20
 const HEAD_RETURN_SIDE_STEP_METERS: float = 0.50
 const HEAD_RETURN_SIDE_SPEED_MPS: float = 3.00
 const HEAD_RETURN_SIDE_RELEASE_MPS: float = 0.85
+# The long upper support arm may form a roof over the nose. Allow a
+# temporary small extra vertical neck lift with the lateral escape;
+# the ordinary 1.0m collision lift remains unchanged outside returns.
+const HEAD_RETURN_EXTRA_UP_MAX_METERS: float = 1.2
+const HEAD_RETURN_EXTRA_UP_SPEED_MPS: float = 3.0
 const HEAD_LEG_RETURN_YAW_SPEED_DEGREES_PER_SECOND: float = 140.0
 const HEAD_LEG_RETURN_PITCH_SPEED_DEGREES_PER_SECOND: float = 140.0
 const HEAD_LEG_RETURN_SAFE_PITCH_DEGREES: float = 12.0
@@ -116,6 +121,8 @@ var head_return_scan_elapsed: float = HEAD_RETURN_RESCAN_SECONDS
 var head_return_was_active: bool = false
 var head_return_side_offset_world: float = 0.0
 var head_return_side_goal_world: float = 0.0
+var head_return_extra_up_world: float = 0.0
+var head_return_extra_up_goal_world: float = 0.0
 var boss_head_pitch: float = 0.0
 var head_look_filtered_pitch: float = 0.0
 var boss_head_default_rotation: Quaternion = Quaternion.IDENTITY
@@ -528,6 +535,7 @@ func _head_return_face_overlap(base_pose: Quaternion,
 func _choose_head_return_clear_yaw(base_pose: Quaternion) -> float:
     if bittaran_head == null:
         head_return_side_goal_world = 0.0
+        head_return_extra_up_goal_world = 0.0
         return 0.0
     var saved_rotation: Quaternion = bittaran_head.quaternion
     var saved_position: Vector3 = bittaran_head.global_position
@@ -536,6 +544,7 @@ func _choose_head_return_clear_yaw(base_pose: Quaternion) -> float:
     var limit: float = _head_safe_yaw_limit()
     var chosen_yaw: float = clampf(boss_head_yaw, -limit, limit)
     var chosen_side: float = head_return_side_offset_world
+    var chosen_lift: float = head_return_extra_up_world
     var best_safe_score: float = INF
     var best_fallback_score: float = INF
     var safe_found: bool = false
@@ -544,47 +553,62 @@ func _choose_head_return_clear_yaw(base_pose: Quaternion) -> float:
         45.0, 60.0, rad_to_deg(chosen_yaw),
         rad_to_deg(head_return_safe_yaw_target)]
     var candidate_sides: Array[float] = [
-        -1.0, -HEAD_RETURN_SIDE_STEP_METERS, 0.0,
-        HEAD_RETURN_SIDE_STEP_METERS, 1.0,
-        head_return_side_goal_world
-    ]
+        -1.0, -0.5, 0.0, 0.5, 1.0,
+        head_return_side_goal_world]
+    var candidate_lifts: Array[float] = [
+        0.0, 0.6, 1.2, head_return_extra_up_goal_world]
     for raw_side in candidate_sides:
         var side: float = clampf(raw_side,
             -HEAD_RETURN_SIDE_MAX_METERS,
             HEAD_RETURN_SIDE_MAX_METERS)
-        bittaran_head.global_position = saved_position + (
-            right_axis * (side - head_return_side_offset_world))
-        for degrees in candidate_yaws:
-            var yaw: float = clampf(deg_to_rad(degrees), -limit, limit)
-            var depth: float = _head_return_face_overlap(
-                base_pose, yaw, boss_head_pitch)
-            var travel: float = absf(wrapf(
-                yaw - boss_head_yaw, -PI, PI))
-            var last_target: float = absf(wrapf(
-                yaw - head_return_safe_yaw_target, -PI, PI))
-            var side_travel: float = absf(
-                side - head_return_side_offset_world)
-            # Favor a small, near-current recovery if it is COLLISION
-            # FREE. Offset penalty prevents lateral "neck wagging"
-            # while the ordinary forward/neutral route remains clear.
-            var route_score: float = (travel * 0.26
-                + absf(yaw) * 0.10 + last_target * 0.045
-                + absf(side) * 0.28 + side_travel * 0.09)
-            if depth <= HEAD_RETURN_FACE_MAX_PENETRATION_METERS:
-                if not safe_found or route_score < best_safe_score:
-                    safe_found = true
-                    best_safe_score = route_score
-                    chosen_yaw = yaw
-                    chosen_side = side
-            elif not safe_found:
-                var fallback: float = (depth * 8.0 + route_score)
-                if fallback < best_fallback_score:
-                    best_fallback_score = fallback
-                    chosen_yaw = yaw
-                    chosen_side = side
+        for raw_lift in candidate_lifts:
+            var lift: float = clampf(raw_lift,
+                0.0, HEAD_RETURN_EXTRA_UP_MAX_METERS)
+            bittaran_head.global_position = saved_position + (
+                right_axis * (side - head_return_side_offset_world)
+                + Vector3.UP * (lift - head_return_extra_up_world))
+            for degrees in candidate_yaws:
+                var yaw: float = clampf(deg_to_rad(degrees), -limit, limit)
+                var depth: float = _head_return_face_overlap(
+                    base_pose, yaw, boss_head_pitch)
+                var travel: float = absf(wrapf(
+                    yaw - boss_head_yaw, -PI, PI))
+                var last_target: float = absf(wrapf(
+                    yaw - head_return_safe_yaw_target, -PI, PI))
+                var side_travel: float = absf(
+                    side - head_return_side_offset_world)
+                var up_travel: float = absf(
+                    lift - head_return_extra_up_world)
+                var side_flip_cost: float = 0.0
+                if absf(head_return_side_offset_world) > 0.30 and (
+                        side * head_return_side_offset_world < -0.08):
+                    side_flip_cost = 0.55
+                # Prefer the nearest collision-free corridor and the
+                # LEAST physical neck displacement. A modest lift is
+                # preferable to crossing the opposite planted knee.
+                var route_score: float = (travel * 0.25
+                    + absf(yaw) * 0.10 + last_target * 0.10
+                    + absf(side) * 0.25 + side_travel * 0.12
+                    + lift * 0.23 + up_travel * 0.08
+                    + side_flip_cost)
+                if depth <= HEAD_RETURN_FACE_MAX_PENETRATION_METERS:
+                    if not safe_found or route_score < best_safe_score:
+                        safe_found = true
+                        best_safe_score = route_score
+                        chosen_yaw = yaw
+                        chosen_side = side
+                        chosen_lift = lift
+                elif not safe_found:
+                    var fallback: float = (depth * 10.0 + route_score)
+                    if fallback < best_fallback_score:
+                        best_fallback_score = fallback
+                        chosen_yaw = yaw
+                        chosen_side = side
+                        chosen_lift = lift
     bittaran_head.global_position = saved_position
     bittaran_head.quaternion = saved_rotation
     head_return_side_goal_world = chosen_side
+    head_return_extra_up_goal_world = chosen_lift
     return chosen_yaw
 
 func _head_penetration_depth(base_pose: Quaternion,
@@ -923,7 +947,8 @@ func _update_head_vertical_follow(delta: float, follow: float) -> void:
     # Include the persistent visual-leg clearance BEFORE testing yaw
     # collision, then only add an incremental new lift after final yaw.
     bittaran_head.global_position += Vector3.UP * (
-        head_vertical_offset_world + head_visual_clearance_lift_world)
+        head_vertical_offset_world + head_visual_clearance_lift_world
+        + head_return_extra_up_world)
     # The returning front arm can force a short temporary neck-side
     # displacement. Reset the authored neck pivot FIRST every frame,
     # so the motion cannot accumulate translational drift.
@@ -1031,11 +1056,15 @@ func _aim_bittaran_head(delta: float) -> void:
         head_return_scan_elapsed = HEAD_RETURN_RESCAN_SECONDS
         head_return_safe_yaw_target = 0.0
         head_return_side_goal_world = 0.0
+        head_return_extra_up_goal_world = 0.0
         head_return_was_active = false
         # A gradual release is important during the same frame that
         # the last planted foot reaches HOME: no neck displacement snap.
         head_return_side_offset_world = move_toward(
             head_return_side_offset_world, 0.0,
+            HEAD_RETURN_SIDE_RELEASE_MPS * maxf(delta, 0.0))
+        head_return_extra_up_world = move_toward(
+            head_return_extra_up_world, 0.0,
             HEAD_RETURN_SIDE_RELEASE_MPS * maxf(delta, 0.0))
     _clamp_head_to_mechanical_limits()
     if returning:
@@ -1109,6 +1138,12 @@ func _aim_bittaran_head(delta: float) -> void:
                 base_pose)
             head_return_scan_elapsed = 0.0
             head_return_was_active = true
+        var before_up: float = head_return_extra_up_world
+        head_return_extra_up_world = move_toward(
+            before_up, head_return_extra_up_goal_world,
+            HEAD_RETURN_EXTRA_UP_SPEED_MPS * maxf(delta, 0.0))
+        bittaran_head.global_position += Vector3.UP * (
+            head_return_extra_up_world - before_up)
         var before_side: float = head_return_side_offset_world
         head_return_side_offset_world = move_toward(
             before_side, head_return_side_goal_world,
@@ -1566,6 +1601,8 @@ func _reset_target_after_respawn() -> void:
     boss_head_yaw = 0.0
     head_return_side_offset_world = 0.0
     head_return_side_goal_world = 0.0
+    head_return_extra_up_world = 0.0
+    head_return_extra_up_goal_world = 0.0
     head_return_was_active = false
     head_return_scan_elapsed = HEAD_RETURN_RESCAN_SECONDS
     if bittaran_rig != null:
