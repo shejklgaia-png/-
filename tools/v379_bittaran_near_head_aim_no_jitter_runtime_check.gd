@@ -85,9 +85,15 @@ func _run() -> void:
     if head_uid.is_empty():
         _fail("Head is not tracked in the rig")
         return
-    var captured: Quaternion = rig.get("blend_from")[head_uid]
-    if captured.angle_to(clean) > 0.001:
-        _fail("HEAD blend source contains a second procedural look yaw")
+    # v388: HEAD is now CONTROLLER-OWNED and must be excluded from
+    # the animation blend dictionary entirely, not stripped then
+    # blended toward a motion pose that would overwrite live tracking.
+    if (rig.get("blend_from") as Dictionary).has(head_uid):
+        _fail("HEAD leaked into motion blend source")
+        return
+    if head.quaternion.angle_to((clean * Quaternion(
+            Vector3.UP, additive)).normalized()) > 0.00001:
+        _fail("Turn clip overwrote the tracked HEAD quaternion")
         return
     # Collision latch may NOT release on one frame of leg jitter.
     battle.set("head_collision_filtered_depth", 0.10)
