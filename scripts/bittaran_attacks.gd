@@ -132,7 +132,7 @@ func advance(delta: float, player_position: Vector3,
     # sample its last position at the swing boundary and then stop tracking.
     # The other two attacks keep their existing aim contract unchanged:
     # their authored clips are to be supplied separately.
-    if previous < windup:
+    if previous < windup and kind != "sweep":
         var next_aim: Vector3 = player_position
         if kind == "stomp":
             next_aim = (player_head_position
@@ -155,8 +155,9 @@ func advance(delta: float, player_position: Vector3,
         "kind": kind, "id": leg_id, "time": elapsed,
         "stomp_aim": stomp_aim if stomp_aim_valid else Vector3.INF,
         "aim": stomp_aim if stomp_aim_valid else Vector3.INF,
-        "tracking": previous < windup,
+        "tracking": kind != "sweep" and previous < windup,
         "strike_start": previous < windup and elapsed >= windup,
+        "player_tracking_disabled": kind == "sweep",
         "windup": windup, "strike": strike, "recovery": recovery,
         "impact": kind == "stomp" and previous < windup + strike
             and elapsed >= windup + strike,
