@@ -11,6 +11,10 @@ const CONTROLLER_AXIS = preload("res://scripts/bittaran_controller_axis.gd")
 const NAME_TEXT: String = "BITTARAN  /  ビットタラン"
 const BOSS_WORLD_SCALE: float = 2.0
 const BOSS_DEATH_RESPAWN_SECONDS: float = 3.0
+# During attacks only the articulated chest can follow the player.
+# The boss root, gait and planted support-foot positions stay fixed.
+const ATTACK_CHEST_TURN_DEGREES_PER_SECOND: float = 100.0
+const ATTACK_CHEST_MAX_YAW_DEGREES: float = 60.0
 const BOSS_FAR_SIDE_ENTER_METERS: float = 0.65
 const BOSS_FAR_SIDE_EXIT_METERS: float = -0.25
 const DOWN_ESCAPE_SPEED_MPS: float = 15.0
@@ -72,6 +76,7 @@ var head_look_initialized: bool = false
 var boss_downed_escaping: bool = false
 var bittaran_attacks: RefCounted
 var bittaran_attack_frame: Dictionary = {}
+var bittaran_attack_body_yaw: float = 0.0
 var bittaran_shockwave: MeshInstance3D
 var shockwave_elapsed: float = -1.0
 var shockwave_half_extents: Vector2 = Vector2.ONE
@@ -687,14 +692,35 @@ func _advance_target_motion(delta: float) -> void:
         and not rising_after_break)
     var attack_permitted: bool = (
         target_move_enabled and target_hp > 0 and player_hp > 0
-        and not generic_damage_frozen
-        and not recovery_motion_locked
+        and not generic_damage_frozen and recovered
         and down_remaining <= 0.0 and training_ko_remaining <= 0.0)
     bittaran_attack_frame = (bittaran_attacks.call(
         "advance", delta, player.global_position,
         _bittaran_attack_candidates(), attack_permitted)
         if bittaran_attacks != null else {})
     var attacking: bool = not bittaran_attack_frame.is_empty()
+    if attacking:
+        # Follow SERA only while drawing the leg back. The first strike
+        # frame stores the final torso heading; no re-aim on the swing.
+        # Unlike normal Turn, this yaw belongs solely to the BODY bone:
+        # target.root position and orientation never change in an attack.
+        if bool(bittaran_attack_frame.get("tracking", false)):
+            var player_offset: Vector3 = player.global_position - target.global_position
+            player_offset.y = 0.0
+            if player_offset.length_squared() > 0.0001:
+                var desired: float = wrapf(
+                    atan2(player_offset.x, player_offset.z)
+                    - target.rotation.y, -PI, PI)
+                desired = clampf(desired,
+                    -deg_to_rad(ATTACK_CHEST_MAX_YAW_DEGREES),
+                    deg_to_rad(ATTACK_CHEST_MAX_YAW_DEGREES))
+                bittaran_attack_body_yaw = move_toward(
+                    bittaran_attack_body_yaw, desired,
+                    deg_to_rad(ATTACK_CHEST_TURN_DEGREES_PER_SECOND)
+                        * maxf(delta, 0.0))
+        bittaran_attack_frame["body_yaw"] = bittaran_attack_body_yaw
+    else:
+        bittaran_attack_body_yaw = 0.0
     var frozen: bool = (
         attacking or not target_move_enabled or target_hp <= 0
         or generic_damage_frozen
@@ -866,6 +892,7 @@ func _apply_target_part_damage(kind: String, raw_attack: int, raw_break: float,
         if bittaran_attacks != null:
             bittaran_attacks.call("cancel")
         bittaran_attack_frame.clear()
+        bittaran_attack_body_yaw = 0.0
         if bittaran_foot_ik != null:
             bittaran_foot_ik.call("clear_attack_pose")
         if bittaran_foot_ik != null and target_parts != null:
@@ -921,6 +948,7 @@ func _reset_target_after_respawn() -> void:
     if bittaran_attacks != null:
         bittaran_attacks.call("reset")
     bittaran_attack_frame.clear()
+    bittaran_attack_body_yaw = 0.0
     shockwave_elapsed = -1.0
     if bittaran_shockwave != null:
         bittaran_shockwave.visible = false
