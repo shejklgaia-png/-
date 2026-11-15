@@ -38,8 +38,14 @@ func _check_12_attack_pivots(battle: Node3D) -> bool:
                     return false
                 var saw_frame: bool = false
                 for tick in range(235):
-                    player.global_position = boss.global_position + (
-                        Vector3(2.4 if tick < 35 else -3.2, 0, 7.0))
+                    # Retreat outside every active strike hitbox after
+                    # the windup. This is a joint-integrity regression,
+                    # not an HP/KO test: a KO would cancel later rounds.
+                    var dodge_tick: int = (76 if kind == "stomp" else 43)
+                    var player_offset: Vector3 = (
+                        Vector3(15.0, 0.0, 16.0) if tick >= dodge_tick
+                        else Vector3(2.4 if tick < 35 else -3.2, 0, 7.0))
+                    player.global_position = boss.global_position + player_offset
                     battle.call("_advance_target_motion", DT)
                     # This runs AFTER the base Idle clip has restored all
                     # joint positions, but BEFORE new IK makes a temporary
