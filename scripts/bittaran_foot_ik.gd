@@ -1347,6 +1347,45 @@ func advance_ik(delta: float, motion: String) -> void:
                 SUPPORT_FOOT_ROLL_DEGREES) * collapse) *
                 head_support_foot_rotation).normalized()
         leg["last_error"] = _solve(leg, position, rotation)
+        if attacking and not attacking_this_leg:
+            # Some BODY windup poses sit a few centimetres outside a
+            # full-extension support knee's reachable sphere. Do not
+            # let the real visible foot drift from its WORLD-FIXED
+            # contact when the goal remains unchanged. Apply at most
+            # a tiny end-effector contact correction; IK still handles
+            # the actual large-scale articulation of the entire leg.
+            var support_foot: Node3D = leg["foot"]
+            var support_error: Vector3 = position - support_foot.to_global(
+                leg["sole_local"] as Vector3)
+            if support_error.length_squared() < 0.15 * 0.15:
+                support_foot.global_position += support_error
+                leg["last_error"] = support_foot.to_global(
+                    leg["sole_local"] as Vector3).distance_to(position)
+        if attacking and attacking_this_leg and bool(
+                attack_pose.get("authored", false)) and str(
+                attack_pose.get("kind", "")) != "stomp":
+            # Recovering the authored foot changes its pitch. Its
+            # formerly planted corner may become the low corner again.
+            # Check the full mesh AFTER recovery IK, not just during
+            # the strike and post-hit hold.
+            var clip_foot: Node3D = leg["foot"]
+            var clip_min: float = _foot_mesh_lowest_y(clip_foot)
+            if clip_min < FLOOR_Y - 0.001:
+                for retry in range(2):
+                    var extra: float = maxf(
+                        FLOOR_Y + 0.003 - clip_min, 0.0)
+                    if extra < 0.0001:
+                        break
+                    var safe: Vector3 = (
+                        clip_foot.to_global(leg["sole_local"] as Vector3)
+                        + Vector3.UP * extra)
+                    leg["last_error"] = _solve(leg, safe, rotation)
+                    clip_min = _foot_mesh_lowest_y(clip_foot)
+                if clip_min < FLOOR_Y - 0.001:
+                    clip_foot.global_position += Vector3.UP * (
+                        FLOOR_Y + 0.003 - clip_min)
+                leg["last_goal"] = clip_foot.to_global(
+                    leg["sole_local"] as Vector3)
     if stepping_pair != -1 and done:
         stepping_pair = -1
         cooldown = STEP_COOLDOWN_SECONDS
