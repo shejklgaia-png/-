@@ -208,6 +208,30 @@ func attack_down_windup_active() -> bool:
     return not attack_down_windup_leg_id.is_empty() and windup_active()
 
 
+## A returning limb takes precedence over HEAD look-at. Detect gait
+## replants, post-strike recoveries, and the stand-up catch-up step
+## without relying on a mesh collision AFTER the head has moved into
+## the leg's future path. The attack-to-STOMP down anticipation is
+## intentionally NOT a leg returning to its neutral stance.
+func legs_returning_to_stance() -> bool:
+    if post_down_idle_remaining > 0.0 or recovery_catchup_pending_pair >= 0:
+        return true
+    for leg in legs:
+        if bool(leg.get("stepping", false)):
+            return true
+    if down_pose_active() and standup_knee_enabled():
+        return true
+    if not attack_pose.is_empty():
+        var elapsed: float = float(attack_pose.get("time", 0.0))
+        var recovery_start: float = (
+            float(attack_pose.get("windup", 0.0))
+            + float(attack_pose.get("strike", 0.0))
+            + float(attack_pose.get("hold", 0.0)))
+        if elapsed >= recovery_start:
+            return true
+    return false
+
+
 func clear_attack_down_windup() -> void:
     attack_down_windup_leg_id = ""
 
@@ -1493,14 +1517,15 @@ func advance_ik(delta: float, motion: String) -> void:
                             var ground_goal: Vector3 = (
                                 foot.to_global(leg["sole_local"])
                                 + Vector3.DOWN * lower * contact_mix)
-                            if attack_kind == "kick":
-                                # The original IK re-solve folded KICK's
-                                # preparatory knee far past its authored
-                                # keyframe. Keep every bone's rotation;
-                                # correct toe contact without re-folding
-                                # the knee. The rear mirrored pose can
-                                # leave a >30cm gap, so a fixed 12cm cap
-                                # is insufficient to reach the floor.
+                            if attack_kind == "kick" or attack_kind == "sweep":
+                                # Both source-authored moving strikes use
+                                # exact joint angles. Re-solving SWEEP with
+                                # planted-foot IK had been bending the
+                                # rear/right knee into another plane and
+                                # dragging the entire toe above the floor.
+                                # Make only temporary world-space contact
+                                # corrections; v393 resets local toe
+                                # pivots before the next animation frame.
                                 foot.global_position += Vector3.DOWN * (
                                     lower * contact_mix)
                             else:
@@ -1512,8 +1537,9 @@ func advance_ik(delta: float, motion: String) -> void:
                                         (bottom - FLOOR_Y - 0.003)
                                         * contact_mix)
                             bottom = _foot_mesh_lowest_y(foot)
-                        if attack_kind == "kick" and bottom < FLOOR_Y - 0.001:
-                            # Anti-penetration without an extra knee bend.
+                        if (attack_kind == "kick" or attack_kind == "sweep")                                 and bottom < FLOOR_Y - 0.001:
+                            # Preserve source knee/foot rotations while
+                            # clearing penetrations without extra IK bends.
                             foot.global_position += Vector3.UP * (
                                 FLOOR_Y + 0.003 - bottom)
                         elif bottom < FLOOR_Y - 0.001:
