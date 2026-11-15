@@ -15,7 +15,7 @@ func _run() -> void:
     if absf(IK.HEAD_KNEE_MAX_BEND - 0.70) > 0.0001:
         _fail("head avoidance must not exceed 70% lateral knee bend")
         return
-    if absf(IK.HEAD_KNEE_ALLOWED_PENETRATION_METERS - 0.10) > 0.00001:
+    if absf(IK.HEAD_KNEE_ALLOWED_PENETRATION_METERS - 0.20) > 0.00001:
         _fail("knee must permit 20cm of head/leg penetration")
         return
     if IK.HEAD_KNEE_MIN_BENEFIT_METERS > 0.0081 or (
