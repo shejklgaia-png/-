@@ -111,14 +111,19 @@ func _run_case(battle: Node3D, id: String) -> bool:
                 return false
         if bool(frame.get("impact", false)):
             impact_count += 1
-            at_impact = actual.y
+            # The visible short tip's bottom is the REAL impact point;
+            # the old Wait-pose sole marker sits along its long side.
+            var foot_box: AABB = ik.call("attack_foot_aabb")
+            at_impact = foot_box.position.y
             if up_axis.dot(Vector3.UP) < 0.998:
                 _fail(id + ": long edge tilted away from ground-normal at impact")
                 return false
             var fx_center: Vector3 = ik.call("attack_contact_world")
-            if fx_center.distance_to(actual) > 0.0002:
-                _fail(id + ": impact FX point did not use real sole "
-                    + str([fx_center, actual, ik.get("attack_pose")]))
+            var expected: Vector3 = Vector3(foot_box.get_center().x,
+                foot_box.position.y, foot_box.get_center().z)
+            if fx_center.distance_to(expected) > 0.0002:
+                _fail(id + ": impact FX point did not use real toe tip "
+                    + str([fx_center, expected, ik.get("attack_pose")]))
                 return false
     if not recovered or not saw_track or not aim_moved             or locked_aim == Vector3.INF:
         _fail(id + ": incomplete moving-head track / recovery")
