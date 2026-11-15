@@ -598,9 +598,17 @@ func _aim_bittaran_head(delta: float) -> void:
     var head_track_weight: float = _head_recovery_follow_weight()
     if bittaran_foot_ik != null and bool(
             bittaran_foot_ik.call("down_pose_active")):
-        bittaran_head.quaternion = boss_head_default_rotation
         if head_track_weight <= 0.0:
-            boss_head_yaw = 0.0
+            # The previous windup NOW tracks SERA all the way to the
+            # instant of physical knockdown. Neutralize smoothly instead
+            # of snapping its nonzero yaw to zero on the first down
+            # frame; keep the normal 140deg/s hard angular-speed limit.
+            boss_head_yaw = move_toward(boss_head_yaw, 0.0,
+                deg_to_rad(HEAD_TRACK_DEGREES_PER_SECOND)
+                * maxf(delta, 0.0))
+            bittaran_head.quaternion = (
+                boss_head_default_rotation * Quaternion(
+                Vector3.UP, boss_head_yaw)).normalized()
             head_collision_filtered_depth = 0.0
             head_collision_blocked = false
             head_collision_release_elapsed = 0.0
