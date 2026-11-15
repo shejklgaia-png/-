@@ -1495,50 +1495,25 @@ func advance_ik(delta: float, motion: String) -> void:
                             var ground_goal: Vector3 = (
                                 foot.to_global(leg["sole_local"])
                                 + Vector3.DOWN * lower * contact_mix)
-                            if attack_kind == "kick":
-                                # The original IK re-solve folded KICK's
-                                # preparatory knee far past its authored
-                                # keyframe. Keep every bone's rotation;
-                                # correct toe contact without re-folding
-                                # the knee. The rear mirrored pose can
-                                # leave a >30cm gap, so a fixed 12cm cap
-                                # is insufficient to reach the floor.
-                                foot.global_position += Vector3.DOWN * (
-                                    lower * contact_mix)
-                            else:
-                                leg["last_error"] = _solve(
-                                    leg, ground_goal, authored_rotation)
-                                bottom = _foot_mesh_lowest_y(foot)
-                                if bottom > FLOOR_Y + 0.003:
-                                    foot.global_position += Vector3.DOWN * (
-                                        (bottom - FLOOR_Y - 0.003)
-                                        * contact_mix)
+                            # KICK and SWEEP are authored joint
+                            # trajectories. Do not run two-bone _solve()
+                            # on their striking limb: it recomputes the
+                            # knee/shoulder angles and visibly changes
+                            # the reflected right/rear SWEEP silhouette.
+                            # The chest floor correction has already
+                            # grounded the source prepose; use a purely
+                            # translational final toe contact adjustment.
+                            foot.global_position += Vector3.DOWN * (
+                                lower * contact_mix)
                             bottom = _foot_mesh_lowest_y(foot)
-                        if attack_kind == "kick" and bottom < FLOOR_Y - 0.001:
-                            # Anti-penetration without an extra knee bend.
+                        if bottom < FLOOR_Y - 0.001:
+                            # Keep all three authored local rotations and
+                            # the mesh above the floor. World-space toe
+                            # adjustment never feeds back into the NEXT
+                            # authored frame because pivots are restored
+                            # before every new pose sample.
                             foot.global_position += Vector3.UP * (
                                 FLOOR_Y + 0.003 - bottom)
-                        elif bottom < FLOOR_Y - 0.001:
-                            for attempt in range(2):
-                                var required: float = maxf(0.0,
-                                    FLOOR_Y + 0.003 - bottom)
-                                if required <= 0.0001:
-                                    break
-                                var safe_goal: Vector3 = (
-                                    foot.to_global(leg["sole_local"])
-                                    + Vector3.UP * required)
-                                leg["last_error"] = _solve(
-                                    leg, safe_goal, authored_rotation)
-                                bottom = _foot_mesh_lowest_y(foot)
-                            if bottom < FLOOR_Y - 0.001:
-                                # Near the analytic two-bone reach limit
-                                # the solved ankle can still be ~3cm below
-                                # the arena. A final tiny end-effector
-                                # correction guarantees no visible mesh
-                                # vertex is buried; BODY and 3 supports
-                                # stay at their world-space contacts.
-                                foot.global_position += Vector3.UP * (
-                                    FLOOR_Y + 0.003 - bottom)
                         position = foot.to_global(leg["sole_local"])
                         rotation = foot.global_basis.get_rotation_quaternion()
                         leg["attack_exit_goal"] = position
