@@ -30,6 +30,10 @@ const SHIN_SELECTION_VOLUME_SCALE: float = 2.0
 # Shared WORLD-space permitted HEAD/LEG penetration: 10cm.
 # Measured per oriented mesh element, not an AABB overlap volume.
 const HEAD_LEG_ALLOWED_PENETRATION_METERS: float = 0.10
+# Only the FRONT 70% of the authored HEAD rectangular silhouette
+# may hit SERA or stop a returning shin. The neck-side rear 30%
+# is always excluded, including physical collision and blade contact.
+const HEAD_FRONT_COLLISION_FRACTION: float = 0.70
 # A front/rear pair may overlap the same two horizontal lock rays.
 # Hold the selected left/right shin until SERA clearly crosses the center.
 const LATERAL_SHIN_LOCK_HYSTERESIS_METERS: float = 0.65
@@ -57,6 +61,7 @@ var combat_shapes: Dictionary = {}
 ## Each authored HEAD mesh has its own convex physical shape. The old
 ## single, oversized world-axis-aligned head solid is not used.
 var head_mesh_solids: Array[Dictionary] = []
+var head_front_local_box: AABB = AABB()
 var leg_depth_meshes: Dictionary = {}
 var fx_meshes: Dictionary = {}
 var fx_timers: Dictionary = {}
@@ -201,91 +206,73 @@ func _install_head_mesh_solids(body: AnimatableBody3D) -> bool:
         return false
     var meshes: Array[MeshInstance3D] = []
     _collect_head_meshes(head, meshes)
+    var low: Vector3 = Vector3(INF, INF, INF)
+    var high: Vector3 = Vector3(-INF, -INF, -INF)
     for mesh in meshes:
-        var points: PackedVector3Array = _head_mesh_vertices(mesh)
-        if points.is_empty():
-            continue
-        var solid := CollisionShape3D.new()
-        solid.name = "BittaranSolid_head_mesh_" + str(head_mesh_solids.size())
-        var local_offset := Transform3D.IDENTITY
-        if points.size() >= 4:
-            var convex := ConvexPolygonShape3D.new()
-            convex.points = points
-            convex.margin = 0.005
-            solid.shape = convex
-        else:
-            # Rare planar/degenerate decorations still get a localized
-            # physical box rather than restoring a huge all-head collider.
-            var bounds: AABB = mesh.mesh.get_aabb()
-            if not bounds.has_volume():
-                continue
-            var fallback := BoxShape3D.new()
-            fallback.size = bounds.size
-            solid.shape = fallback
-            local_offset.origin = bounds.get_center()
-        body.add_child(solid)
-        solid.global_transform = mesh.global_transform * local_offset
-        head_mesh_solids.append({
-            "mesh": mesh,
-            "solid": solid,
-            "local_offset": local_offset,
-            "triangles": points
-        })
-    if head_mesh_solids.is_empty():
+        var raw_box: AABB = mesh.mesh.get_aabb()
+        for corner in range(8):
+            var point: Vector3 = head.to_local(
+                mesh.to_global(raw_box.get_endpoint(corner)))
+            low = low.min(point)
+            high = high.max(point)
+    if low.x == INF or high.z - low.z <= 0.0001:
         return false
-    # Keep the legacy lookup key for other hit/lock consumers. Only the
-    # HEAD solid itself is split; all existing shin/body shapes are intact.
-    combat_shapes["head"] = head_mesh_solids[0]["solid"]
+    # HEAD looks toward local -Z. Keep its full rectangular width/height
+    # and only the foremost 70% of its ACTUAL authored longitudinal span.
+    var local_size: Vector3 = high - low
+    local_size.z *= HEAD_FRONT_COLLISION_FRACTION
+    head_front_local_box = AABB(low, local_size)
+    var shape := BoxShape3D.new()
+    shape.size = local_size
+    var solid := CollisionShape3D.new()
+    solid.name = "BittaranSolid_HEAD_front70"
+    solid.shape = shape
+    body.add_child(solid)
+    var offset := Transform3D(Basis.IDENTITY,
+        head_front_local_box.get_center())
+    solid.global_transform = head.global_transform * offset
+    head_mesh_solids.append({
+        "mesh": meshes[0], "solid": solid,
+        "local_offset": offset, "head": head
+    })
+    combat_shapes["head"] = solid
     return true
 
 
+func get_head_front_local_box() -> AABB:
+    return head_front_local_box
+
+
+func _head_front_world_aabb() -> AABB:
+    var head: Node3D = bone_nodes.get("head") as Node3D
+    if head == null or not head_front_local_box.has_volume():
+        return AABB()
+    var origin: Vector3 = head.to_global(
+        head_front_local_box.get_endpoint(0))
+    var low: Vector3 = origin
+    var high: Vector3 = origin
+    for corner in range(1, 8):
+        var world: Vector3 = head.to_global(
+            head_front_local_box.get_endpoint(corner))
+        low = low.min(world)
+        high = high.max(world)
+    return AABB(low, high - low)
+
 func get_head_mesh_blade_contact(from_world: Vector3,
         to_world: Vector3, blade_radius_world: float) -> Variant:
-    # Segment tests are in each mesh's own pose/scale space. The broad
-    # boss HEAD AABB (including large empty corners) is not a valid hit.
-    # Grow only by the sword's existing thickness so near-edge strikes
-    # stay forgiving without enlarging the enemy's visible head.
-    var nearest: float = INF
-    var contact: Variant = null
-    var near_contact: Variant = null
-    var near_distance: float = INF
-    for record in head_mesh_solids:
-        var mesh: MeshInstance3D = record["mesh"]
-        if not is_instance_valid(mesh) or mesh.mesh == null:
-            continue
-        var scale: Vector3 = mesh.global_basis.get_scale().abs()
-        var smallest_scale: float = maxf(
-            minf(scale.x, minf(scale.y, scale.z)), 0.001)
-        var source: AABB = mesh.mesh.get_aabb().grow(
-            maxf(0.0, blade_radius_world) / smallest_scale)
-        var local_a: Vector3 = mesh.to_local(from_world)
-        var local_b: Vector3 = mesh.to_local(to_world)
-        var local_hit: Variant = source.intersects_segment(local_a, local_b)
-        if local_hit == null:
-            continue
-        # First take the exact rendered triangle if the sword crosses it.
-        # The padded per-element box is only a near-miss assist for a
-        # thick sword, never a giant AABB around the entire head.
-        var triangles: PackedVector3Array = record["triangles"]
-        for i in range(0, triangles.size() - 2, 3):
-            var triangle_hit: Variant = Geometry3D.segment_intersects_triangle(
-                local_a, local_b, triangles[i], triangles[i + 1],
-                triangles[i + 2])
-            if triangle_hit == null:
-                continue
-            var world_hit: Vector3 = mesh.to_global(triangle_hit)
-            var distance: float = from_world.distance_squared_to(world_hit)
-            if distance < nearest:
-                nearest = distance
-                contact = world_hit
-        var assisted: Vector3 = mesh.to_global(local_hit)
-        var assist_dist: float = from_world.distance_squared_to(assisted)
-        if assist_dist < near_distance:
-            near_distance = assist_dist
-            near_contact = assisted
-    return contact if contact != null else near_contact
-
-
+    # Sword/blade hits now use precisely the same forward 70% rectangular
+    # HEAD region as the physical solid and head/leg clearance solver.
+    # Do not accept the rear neck region even if its authored mesh exists.
+    var head: Node3D = bone_nodes.get("head") as Node3D
+    if head == null or not head_front_local_box.has_volume():
+        return null
+    var scale: Vector3 = head.global_basis.get_scale().abs()
+    var least: float = maxf(minf(scale.x, minf(scale.y, scale.z)), 0.001)
+    var padded: AABB = head_front_local_box.grow(
+        maxf(0.0, blade_radius_world) / least)
+    var contact: Variant = padded.intersects_segment(
+        head.to_local(from_world), head.to_local(to_world))
+    return head.to_global(contact) if contact != null else null
 
 func _mesh_world_bounds(mesh: MeshInstance3D) -> AABB:
     var bounds: AABB = mesh.mesh.get_aabb()
@@ -299,22 +286,15 @@ func _mesh_world_bounds(mesh: MeshInstance3D) -> AABB:
     return AABB(low, high - low)
 
 
-func _oriented_mesh_penetration_depth(a: MeshInstance3D,
-        b: MeshInstance3D) -> float:
-    # SAT minimum-translation penetration depth between oriented
-    # individual mesh element bounds, in WORLD METERS. 3+3 face axes and
-    # 9 cross axes prevent yaw/pitch from inflating the contact by an
-    # axis-aligned hull's empty corner.
-    if a == null or b == null or a.mesh == null or b.mesh == null:
-        return 0.0
-    if not _mesh_world_bounds(a).intersects(_mesh_world_bounds(b)):
-        return 0.0
-    var box_a: AABB = a.mesh.get_aabb()
-    var box_b: AABB = b.mesh.get_aabb()
-    var center_delta: Vector3 = b.to_global(box_b.get_center()) \
-        - a.to_global(box_a.get_center())
-    var basis_a: Basis = a.global_basis
-    var basis_b: Basis = b.global_basis
+func _oriented_box_penetration_depth(box_a: AABB,
+        transform_a: Transform3D, box_b: AABB,
+        transform_b: Transform3D) -> float:
+    # 15-axis SAT of the ACTUAL local rectangular front-70% head and
+    # each rotated leg mesh piece. Depth remains in WORLD meters.
+    var center_delta: Vector3 = transform_b * box_b.get_center() - (
+        transform_a * box_a.get_center())
+    var basis_a: Basis = transform_a.basis
+    var basis_b: Basis = transform_b.basis
     var half_a: Array[Vector3] = [
         basis_a.x * box_a.size.x * 0.5,
         basis_a.y * box_a.size.y * 0.5,
@@ -338,33 +318,41 @@ func _oriented_mesh_penetration_depth(a: MeshInstance3D,
             + absf(half_a[1].dot(axis)) + absf(half_a[2].dot(axis)))
         var radius_b: float = (absf(half_b[0].dot(axis))
             + absf(half_b[1].dot(axis)) + absf(half_b[2].dot(axis)))
-        var depth: float = (radius_a + radius_b
-            - absf(center_delta.dot(axis)))
+        var depth: float = radius_a + radius_b - absf(center_delta.dot(axis))
         if depth <= 0.0:
             return 0.0
         minimum_depth = minf(minimum_depth, depth)
     return 0.0 if minimum_depth == INF else minimum_depth
 
 
+func _oriented_mesh_penetration_depth(a: MeshInstance3D,
+        b: MeshInstance3D) -> float:
+    # Preserve the old general-purpose SAT utility for IK regression
+    # fixtures, but actual HEAD uses only its new front rectangle.
+    if a == null or b == null or a.mesh == null or b.mesh == null:
+        return 0.0
+    if not _mesh_world_bounds(a).intersects(_mesh_world_bounds(b)):
+        return 0.0
+    return _oriented_box_penetration_depth(a.mesh.get_aabb(),
+        a.global_transform, b.mesh.get_aabb(), b.global_transform)
+
 func get_head_leg_penetration_depth(id: String) -> float:
-    # Maximum per-element penetration; depth is never summed across
-    # overlapping armor plates (which would turn 10cm into a volume rule).
+    # No rear-neck, shoulder or unrotated whole-mesh collision matters:
+    # only the front 70% oriented box is considered against each leg.
     if not installed or not leg_depth_meshes.has(id):
         return 0.0
+    var head: Node3D = bone_nodes.get("head") as Node3D
+    if head == null:
+        return 0.0
     var maximum: float = 0.0
-    var limb_meshes: Array = leg_depth_meshes[id]
-    for record in head_mesh_solids:
-        var head_mesh: MeshInstance3D = record["mesh"]
-        if not is_instance_valid(head_mesh):
+    for limb in leg_depth_meshes[id]:
+        var piece: MeshInstance3D = limb as MeshInstance3D
+        if piece == null or piece.mesh == null:
             continue
-        for limb in limb_meshes:
-            var leg_mesh: MeshInstance3D = limb as MeshInstance3D
-            if not is_instance_valid(leg_mesh):
-                continue
-            maximum = maxf(maximum,
-                _oriented_mesh_penetration_depth(head_mesh, leg_mesh))
+        maximum = maxf(maximum, _oriented_box_penetration_depth(
+            head_front_local_box, head.global_transform,
+            piece.mesh.get_aabb(), piece.global_transform))
     return maximum
-
 
 func get_head_leg_penetration_depths() -> Dictionary:
     var result: Dictionary = {}
@@ -640,6 +628,8 @@ func _bounds(id: String) -> AABB:
     id = _normalize_boss_part(id)
     if not installed or not bone_nodes.has(id):
         return AABB(Vector3(-0.4, 0.0, -0.4), Vector3(0.8, 0.8, 0.8))
+    if id == "head":
+        return _head_front_world_aabb()
     var points: Array[Vector3] = []
     # A shin lock follows the lower bone and its foot, not the whole leg.
     _append_mesh_bounds(bone_nodes[id], points, id.begins_with("leg_"))
@@ -688,36 +678,9 @@ func get_shin_selection_box(id: String) -> AABB:
     return AABB(locked_center - scaled_size * 0.5, scaled_size)
 
 func get_head_swing_aabb() -> AABB:
-    # The neck/root is integrated into the body and can have overlapping
-    # world-AABB bounds even at the untouched Blockbench bind pose. Only
-    # the front, articulated nose/face portion sweeps into the four legs.
-    var head: Node3D = bone_nodes.get("head") as Node3D
-    if head == null:
-        return AABB()
-    var vertices: Array[Vector3] = []
-    _append_mesh_bounds(head, vertices, false)
-    if vertices.is_empty():
-        return AABB()
-    var nearest: float = INF
-    var furthest: float = -INF
-    for world in vertices:
-        var depth: float = -head.to_local(world).z
-        nearest = minf(nearest, depth)
-        furthest = maxf(furthest, depth)
-    var threshold: float = lerpf(nearest, furthest, 0.55)
-    var filtered: Array[Vector3] = []
-    for world in vertices:
-        if -head.to_local(world).z >= threshold:
-            filtered.append(world)
-    if filtered.is_empty():
-        return AABB()
-    var low: Vector3 = filtered[0]
-    var high: Vector3 = filtered[0]
-    for p in filtered:
-        low = low.min(p)
-        high = high.max(p)
-    return AABB(low, high - low)
-
+    # All head/leg look and knee clearance queries use the very same
+    # forward rectangular 70% box as blade and physical collisions.
+    return _head_front_world_aabb()
 
 func get_leg_visual_aabb(id: String) -> AABB:
     # Full upper/lower/foot mesh bound for HEAD swing clearance, not the
@@ -844,10 +807,10 @@ func sync_bittaran_parts() -> void:
             # tracking SERA. No changes to head/knee animation logic.
             for record in head_mesh_solids:
                 var solid: CollisionShape3D = record["solid"]
-                var piece: MeshInstance3D = record["mesh"]
+                var head: Node3D = record["head"]
                 var offset: Transform3D = record["local_offset"]
                 solid.set_deferred("global_transform",
-                    piece.global_transform * offset)
+                    head.global_transform * offset)
             continue
         var physical: CollisionShape3D = combat_shapes[id]
         var box_solid: BoxShape3D = physical.shape
