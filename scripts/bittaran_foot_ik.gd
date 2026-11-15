@@ -250,6 +250,13 @@ func attack_contact_world() -> Vector3:
     # position. STOMP's impact/shockwave must use the VISIBLE real sole,
     # not the unreachable requested point.
     if str(attack_pose.get("kind", "")) == "stomp":
+        # The Wait-stance sole marker is on the SIDE of the long toe
+        # after the STOMP short end is made horizontal. Use the actual
+        # bottom face of the rendered striking foot for shockwave/hit.
+        var foot_box: AABB = attack_foot_aabb()
+        if foot_box.has_volume():
+            var center: Vector3 = foot_box.get_center()
+            return Vector3(center.x, foot_box.position.y, center.z)
         var leg: Dictionary = legs[i]
         return (leg["foot"] as Node3D).to_global(
             leg["sole_local"] as Vector3)
