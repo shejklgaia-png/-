@@ -35,7 +35,14 @@ func _check_straight_strikes(battle: Node3D) -> bool:
             var off_floor_at_peak: bool = false
             var peak_shift: float = 0.0
             var recovered: bool = false
-            for frame in range(ceili((end_time + 0.80) / DT)):
+            # The 1.5s KICK hold was introduced after this v382 test.
+            # Keep the full straight-leg test, but allow the actual
+            # current hold plus full recovery to complete.
+            var hold: float = (ATTACKS.KICK_POST_HIT_HOLD_SECONDS
+                if kind == "kick" else ATTACKS.SWEEP_POST_HIT_HOLD_SECONDS)
+            var recovery: float = (ATTACKS.KICK_RECOVERY_SECONDS
+                if kind == "kick" else ATTACKS.SWEEP_RECOVERY_SECONDS)
+            for frame in range(ceili((end_time + hold + recovery + 0.08) / DT)):
                 var state: Dictionary = brain.call(
                     "advance", DT, Vector3.ZERO, {}, true)
                 ik.call("set_attack_pose", state)
