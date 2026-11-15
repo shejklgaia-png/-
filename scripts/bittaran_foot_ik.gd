@@ -286,9 +286,10 @@ func _apply_attack_chassis_pose() -> void:
         actor.position.y += initial_attack_contact_height_world * (
             ease_in * ease_out) / scale_y
     if kind == "stomp":
-        # The authored STOMP clip lifts its own limb; move the chassis
-        # only slightly while the other three real soles stay fixed.
-        actor.position.y -= 0.08 * weight / scale_y
+        # STOMP now plants the entire long toe VERTICALLY, which gives
+        # substantially more ground reach than the horizontal v386 toe.
+        # The obsolete 8cm forced BODY dip pulled supporting feet off
+        # their reach limits; leave the chassis at its authored height.
         var i: int = LEG_PART_IDS.find(str(attack_pose.get("id", "")))
         if i >= 0 and i < legs.size():
             var aim: Vector3 = attack_pose.get("stomp_aim", Vector3.INF)
@@ -1269,6 +1270,15 @@ func advance_ik(delta: float, motion: String) -> void:
                                 leg["last_error"] = _solve(
                                     leg, safe_goal, authored_rotation)
                                 bottom = _foot_mesh_lowest_y(foot)
+                            if bottom < FLOOR_Y - 0.001:
+                                # Near the analytic two-bone reach limit
+                                # the solved ankle can still be ~3cm below
+                                # the arena. A final tiny end-effector
+                                # correction guarantees no visible mesh
+                                # vertex is buried; BODY and 3 supports
+                                # stay at their world-space contacts.
+                                foot.global_position += Vector3.UP * (
+                                    FLOOR_Y + 0.003 - bottom)
                         position = foot.to_global(leg["sole_local"])
                         rotation = foot.global_basis.get_rotation_quaternion()
                         leg["attack_exit_goal"] = position
