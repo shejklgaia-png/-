@@ -28,6 +28,10 @@ var kick_mirror_weight: float = 0.0
 # v404: KICK pose blend toward Wait that shortens the extension for
 # close targets (see apply_authored_attack_pose). 1.0 = authored.
 var kick_reach_factor: float = 1.0
+# v405: true while initial_authored_sole_height samples the
+# canonical contact pose; disables the v404 Body-damping
+# compensation so the sample stays the author's original pose.
+var authored_contact_probe_active: bool = false
 
 # Rotational bearing adjustment is applied to the entire attacking leg.
 # Authored joint-local rotations are never stretched or rewritten.
@@ -610,9 +614,14 @@ func _authored_body_full_rotation(kind: String, id: String,
 # instead; both restore the chain's authored world orientation
 # while the torso itself stays damped. The shoulder aim samples
 # the same rotations, so the v403 direction correction is
-# unaffected.
+# unaffected. While the IK's canonical contact sample is being
+# taken (initial_authored_sole_height), the compensation is
+# disabled: that sample must describe the author's original pose,
+# not the damped in-game one (v405).
 func _body_damp_compensation(kind: String, id: String,
         at: float) -> Quaternion:
+    if authored_contact_probe_active:
+        return Quaternion.IDENTITY
     if kind != "kick" and kind != "sweep":
         return Quaternion.IDENTITY
     var source: Quaternion = _authored_key_rotation(
@@ -645,8 +654,17 @@ func initial_authored_sole_height(kind: String, id: String,
         tracked.append(str(value))
     # The keyframe-zero sample is the grounded fold: always the pure
     # delta map, never a leftover strike-phase mirror weight.
+    # v405: the sample is the author's canonical pose — the FULL
+    # Body track with no v404 damping or leg compensation. The IK's
+    # actor offset (initial_attack_contact_height_world) is
+    # calibrated to exactly this sample; when v404's damping first
+    # leaked into it through the calls below, the offset dragged
+    # the chassis to the floor during attacks (device report:
+    # chassis bone at 0.06m instead of the authored ~0.57m crouch).
     var saved_mirror_weight: float = kick_mirror_weight
     kick_mirror_weight = 0.0
+    var saved_probe: bool = authored_contact_probe_active
+    authored_contact_probe_active = true
     var saved_reach_factor: float = kick_reach_factor
     kick_reach_factor = 1.0
     var saved: Dictionary = {}
@@ -657,7 +675,7 @@ func initial_authored_sole_height(kind: String, id: String,
         var joint: Node3D = bones[uid]
         saved[uid] = joint.quaternion
         if name == "Body":
-            joint.quaternion = _authored_body_rotation_for_attack(
+            joint.quaternion = _authored_body_full_rotation(
                 kind, id, 0.0)
         else:
             joint.quaternion = _authored_rotation_for_leg(
@@ -671,6 +689,7 @@ func initial_authored_sole_height(kind: String, id: String,
         (bones[uid] as Node3D).quaternion = saved[uid]
     kick_mirror_weight = saved_mirror_weight
     kick_reach_factor = saved_reach_factor
+    authored_contact_probe_active = saved_probe
     return height
 
 
