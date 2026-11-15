@@ -151,6 +151,6 @@ func _run() -> void:
         if not _run_case(battle, id):
             return
     print("GODOT_V384_STOMP_OVERHEAD_PASS: four STOMP legs preserve authored "
-        + "toe angles while raising above SERA head, lock on 
+        + "toe angles while raising above SERA head, lock on "
         + "strike, impact only once using real sole; supports stay fixed")
     quit(0)
