@@ -628,6 +628,11 @@ func aim_authored_attack_leg(frame: Dictionary, delta: float) -> void:
     var aim: Vector3 = frame.get("aim", Vector3.INF)
     if aim == Vector3.INF:
         return
+    var t: float = float(frame.get("time", 0.0))
+    var windup: float = float(frame.get("windup", 0.70))
+    var strike: float = float(frame.get("strike", 1.0))
+    var hold: float = float(frame.get("hold", 0.0))
+    var recovery: float = float(frame.get("recovery", 0.60))
     var joints: Array[Node3D] = []
     var saved: Array[Quaternion] = []
     for name in ATTACK_LEG_BONES[id]:
@@ -639,6 +644,32 @@ func aim_authored_attack_leg(frame: Dictionary, delta: float) -> void:
     # Do not aim from the folded KICK prepose: it points in a completely
     # different direction to the real contact/extended-foot pose.
     var reference_time: float = 0.625 if kind == "kick" else 0.50
+    var saved_mirror_weight: float = kick_mirror_weight
+    if kind == "kick":
+        if t >= windup:
+            # v403: during the strike and hold, sample the pose the leg
+            # actually has NOW. The retargeted KICK clips rotate their
+            # hip->foot direction by 50-100 degrees while extending on
+            # every leg except the authored leg_fl (measured: fr -56,
+            # rl -97, rr +57 degrees of drift between strike start and
+            # full extension), so a yaw fitted to the fixed extended
+            # reference cannot hold the kick on target: by full
+            # extension it pointed up to 91 degrees away from the
+            # player. Sampling the current pose lets the yaw update
+            # below cancel that internal rotation as it happens. The
+            # aim POINT stays the windup-locked one (the director stops
+            # tracking at release), so this is drift cancellation, not
+            # homing.
+            reference_time = clampf(
+                float(frame.get("authored_time", t - windup)),
+                0.0, authored_clip_length(kind))
+        else:
+            # Windup keeps the predictive extended-pose sample, but the
+            # sample must use the strike's world-mirror weight (1.0):
+            # at weight 0 the reference direction itself is off by up
+            # to 18 degrees on the right legs, which showed up as a
+            # fixed direction error already at strike start.
+            kick_mirror_weight = 1.0
     for slot in range(3):
         joints[slot].quaternion = _authored_rotation_for_leg(
             kind, id, slot, reference_time)
@@ -646,14 +677,21 @@ func aim_authored_attack_leg(frame: Dictionary, delta: float) -> void:
         joints[2].global_position - joints[0].global_position)
     for slot in range(3):
         joints[slot].quaternion = saved[slot]
+    kick_mirror_weight = saved_mirror_weight
     var to_player: Vector3 = aim - joints[0].global_position
     from_hip.y = 0.0
     to_player.y = 0.0
     if from_hip.length_squared() < 0.0001 or to_player.length_squared() < 0.0001:
         return
     # Only anticipation acquires a moving player. Retain the last
-    # correction throughout the strike and post-hit hold.
-    if bool(frame.get("tracking", false)):
+    # correction throughout the strike and post-hit hold. v403: KICK
+    # keeps updating through the strike and hold as well, but against
+    # the windup-locked aim point and the CURRENT pose direction, which
+    # cancels the retargeted clips' internal direction drift without
+    # re-aiming at the moving player.
+    var may_aim: bool = bool(frame.get("tracking", false)) or (
+        kind == "kick" and t <= windup + strike + hold)
+    if may_aim:
         var wanted: float = wrapf(
             atan2(to_player.x, to_player.z)
             - atan2(from_hip.x, from_hip.z), -PI, PI)
@@ -663,11 +701,6 @@ func aim_authored_attack_leg(frame: Dictionary, delta: float) -> void:
         attack_leg_aim_yaw = move_toward(attack_leg_aim_yaw, wanted,
             deg_to_rad(ATTACK_LEG_AIM_TURN_DEGREES_PER_SECOND)
             * maxf(delta, 0.0))
-    var t: float = float(frame.get("time", 0.0))
-    var windup: float = float(frame.get("windup", 0.70))
-    var strike: float = float(frame.get("strike", 1.0))
-    var hold: float = float(frame.get("hold", 0.0))
-    var recovery: float = float(frame.get("recovery", 0.60))
     var incoming: float = smoothstep(0.0, maxf(windup, 0.001), t)
     var outgoing: float = 1.0 - smoothstep(
         windup + strike + hold,
