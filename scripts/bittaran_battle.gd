@@ -33,7 +33,7 @@ const HEAD_VERTICAL_MAX_SPEED_MPS: float = 1.40
 const HEAD_VISUAL_OVERLAP_MAX_VOLUME_M3: float = 0.030
 const HEAD_VISUAL_CLEARANCE_MAX_LIFT_METERS: float = 1.00
 const HEAD_VISUAL_CLEARANCE_RELEASE_SPEED_MPS: float = 0.75
-const HEAD_WINDUP_LIFT_METERS_PER_DEGREE: float = 0.0075
+const HEAD_WINDUP_LIFT_METERS_PER_DEGREE: float = 0.0120
 const HEAD_TRACK_STANDUP_START_FRACTION: float = 0.70
 # A gentle, weaker head reacquisition starts at 70% ACTUAL upright pose.
 # End the physical rise at only 60% head authority; the post-upright
