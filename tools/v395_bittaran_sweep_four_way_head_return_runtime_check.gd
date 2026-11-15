@@ -6,6 +6,8 @@ extends SceneTree
 const ATTACKS = preload("res://scripts/bittaran_attacks.gd")
 const IK = preload("res://scripts/bittaran_foot_ik.gd")
 const DT: float = 1.0 / 60.0
+const RETURN_YAW_DEGREES: float = 22.0
+const RETURN_PITCH_DEGREES: float = 12.0
 
 func _initialize() -> void:
     call_deferred("_run")
@@ -128,8 +130,8 @@ func _check_realtime_sweep(battle: Node3D) -> bool:
                 seen_recovery = true
                 var cap: float = deg_to_rad(float(
                     battle.get("head_arm_return_yaw_limit_degrees")))
-                var allowed: float = minf(cap, deg_to_rad(
-                    float(battle.get("HEAD_LEG_RETURN_SAFE_YAW_DEGREES"))))
+                var allowed: float = minf(cap,
+                    deg_to_rad(RETURN_YAW_DEGREES))
                 var yaw: float = absf(float(
                     battle.get("boss_head_yaw")))
                 if yaw > allowed + 0.015:
@@ -150,8 +152,7 @@ func _check_head_all_states(battle: Node3D) -> bool:
     var head: Node3D = battle.get("bittaran_head")
     var max_limit: float = float(battle.get(
         "head_arm_return_yaw_limit_degrees"))
-    var return_limit: float = float(
-        battle.get("HEAD_LEG_RETURN_SAFE_YAW_DEGREES"))
+    var return_limit: float = RETURN_YAW_DEGREES
     for side in [-1.0, 1.0]:
         player.global_position = boss.global_position + Vector3(
             side * 15.0, 0.0, 2.0)
@@ -177,8 +178,7 @@ func _check_head_all_states(battle: Node3D) -> bool:
             battle.get("head_look_filtered_yaw"))))
         var pitch: float = absf(rad_to_deg(float(
             battle.get("boss_head_pitch"))))
-        if yaw > return_limit + 0.50 or filtered > return_limit + 0.50                 or pitch > float(battle.get(
-                "HEAD_LEG_RETURN_SAFE_PITCH_DEGREES")) + 0.50:
+        if yaw > return_limit + 0.50 or filtered > return_limit + 0.50                 or pitch > RETURN_PITCH_DEGREES + 0.50:
             _fail("HEAD crossed returning-foot safety bound "
                 + str([yaw, filtered, pitch, return_limit]))
             return false
