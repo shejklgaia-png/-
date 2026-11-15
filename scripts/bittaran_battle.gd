@@ -30,7 +30,7 @@ const HEAD_ARM_RETURN_GUARD_DEGREES: float = 45.0
 const HEAD_ARM_RETURN_MIN_YAW_DEGREES: float = 40.0
 # When a limb replants or retracts, protect the ENTIRE future return
 # sweep, not merely the current frame's collision geometry.
-const HEAD_LEG_RETURN_SAFE_YAW_DEGREES: float = 22.0
+const HEAD_LEG_RETURN_SAFE_YAW_DEGREES: float = 25.0
 const HEAD_LEG_RETURN_YAW_SPEED_DEGREES_PER_SECOND: float = 140.0
 const HEAD_LEG_RETURN_PITCH_SPEED_DEGREES_PER_SECOND: float = 140.0
 const HEAD_LEG_RETURN_SAFE_PITCH_DEGREES: float = 12.0
@@ -919,6 +919,16 @@ func _aim_bittaran_head(delta: float) -> void:
     var head_track_weight: float = _head_recovery_follow_weight()
     var returning: bool = _head_return_clearance_active()
     _clamp_head_to_mechanical_limits()
+    if returning:
+        # The camera/IK finalize path updates the look-target normally,
+        # but the safety guard must also work when HEAD is updated on
+        # its own (KO, paused clips, detached diagnostic ticks). Clear
+        # stale filtered targets instead of letting the face reacquire
+        # an unsafe 60deg bearing the instant a stepping limb pauses.
+        head_look_filtered_yaw = move_toward(
+            head_look_filtered_yaw, 0.0,
+            deg_to_rad(HEAD_LEG_RETURN_YAW_SPEED_DEGREES_PER_SECOND)
+            * maxf(delta, 0.0))
     _update_head_vertical_follow(delta, head_track_weight)
     if bittaran_foot_ik != null and bool(
             bittaran_foot_ik.call("down_pose_active")):
