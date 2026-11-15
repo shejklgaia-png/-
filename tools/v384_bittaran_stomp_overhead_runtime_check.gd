@@ -38,7 +38,7 @@ func _run_case(battle: Node3D, id: String) -> bool:
     var at_impact: float = INF
     var recovered: bool = false
     var start_supports: Dictionary = {}
-    for tick in range(120):
+    for tick in range(260):
         # Move laterally twice during the windup, then cross to the
         # opposite side once the strike has begun. STOMP must not chase.
         var lateral: float = 0.0
@@ -109,8 +109,8 @@ func _run_case(battle: Node3D, id: String) -> bool:
         if bool(frame.get("impact", false)):
             impact_count += 1
             at_impact = actual.y
-            if absf(up_axis.dot(Vector3.UP)) > 0.35:
-                _fail(id + ": toe failed to level when hitting floor")
+            if up_axis.dot(Vector3.UP) < 0.998:
+                _fail(id + ": long edge tilted away from ground-normal at impact")
                 return false
             var fx_center: Vector3 = ik.call("attack_contact_world")
             if fx_center.distance_to(actual) > 0.0002:
