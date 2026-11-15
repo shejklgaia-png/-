@@ -122,6 +122,12 @@ func advance(delta: float, player_position: Vector3,
         next_leg_index = (LEG_IDS.find(selected) + 1) % LEG_IDS.size()
     var previous: float = elapsed
     var windup: float = _windup()
+    # Keep tracking the live player throughout the entire anticipation.
+    # The last windup sample is captured on the strike boundary and then
+    # frozen for the swing and recovery (not when the attack begins).
+    if previous < windup:
+        stomp_aim = player_position
+        stomp_aim_valid = true
     var strike: float = _strike()
     var recovery: float = _recovery()
     var total: float = windup + strike + recovery
@@ -129,6 +135,8 @@ func advance(delta: float, player_position: Vector3,
     var result: Dictionary = {
         "kind": kind, "id": leg_id, "time": elapsed,
         "stomp_aim": stomp_aim if stomp_aim_valid else Vector3.INF,
+        "aim": stomp_aim if stomp_aim_valid else Vector3.INF,
+        "tracking": previous < windup,
         "windup": windup, "strike": strike, "recovery": recovery,
         "impact": kind == "stomp" and previous < windup + strike
             and elapsed >= windup + strike,
