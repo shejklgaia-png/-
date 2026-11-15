@@ -592,6 +592,14 @@ func _head_knee_look_weight() -> float:
 func _aim_bittaran_head(delta: float) -> void:
     if bittaran_head == null or player == null or target_hp <= 0:
         return
+    if not bittaran_attack_frame.is_empty() and str(
+            bittaran_attack_frame.get("kind", "")) == "sweep":
+        # No player tracking at all in SWEEP: not the torso, aim sample,
+        # or independent head. Keep the head at its entry yaw rather
+        # than reading SERA's moving position mid-sweep.
+        bittaran_head.quaternion = (bittaran_head.quaternion *
+            Quaternion(Vector3.UP, boss_head_yaw)).normalized()
+        return
     # While lying down keep the head on its original bind orientation.
     # Once 70% of the ACTUAL eased rise is complete, softly fade in the
     # ordinary collision-aware look-at without a sudden yaw jump.
@@ -879,9 +887,10 @@ func _finalize_target_pose(delta: float) -> void:
         bittaran_foot_ik.call("set_attack_pose", attack_frame)
         bittaran_foot_ik.call("advance_ik", delta, bittaran_motion)
         if bittaran_head != null and player != null:
-            # Keep head aim live during attacks too; only the knee scan
-            # yields to the explicitly animated striking leg.
-            _update_head_look_target(delta)
+            # SWEEP owns a fixed attack direction and must not sample
+            # player position for head/torso tracking at any point.
+            if str(bittaran_attack_frame.get("kind", "")) != "sweep":
+                _update_head_look_target(delta)
             if bittaran_attack_frame.is_empty():
                 bittaran_foot_ik.call("steer_knees_for_head", delta,
                     head_look_filtered_yaw * _head_knee_look_weight(),
