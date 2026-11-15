@@ -1287,10 +1287,20 @@ func _finalize_target_pose(delta: float) -> void:
             # Head follows SERA independently for all three attacks,
             # including SWEEP (which still disables BODY/swing aiming).
             _update_head_look_target(delta)
-            if bittaran_attack_frame.is_empty():
+            # A previously planted support knee can cross the moving
+            # HEAD when the chest twists during SWEEP, even while the
+            # attacking limb itself remains on its original source clip.
+            # Keep avoidance enabled for the OTHER THREE limbs. The
+            # source-authored attacking limb must not be touched.
+            var sweep_support_clearance: bool = (
+                not attack_frame.is_empty()
+                and str(attack_frame.get("kind", "")) == "sweep")
+            if bittaran_attack_frame.is_empty() or sweep_support_clearance:
                 bittaran_foot_ik.call("steer_knees_for_head", delta,
                     head_look_filtered_yaw * _head_knee_look_weight(),
-                    boss_head_yaw)
+                    boss_head_yaw,
+                    str(attack_frame.get("id", ""))
+                        if sweep_support_clearance else "")
     _aim_bittaran_head(delta)
     if target_parts != null:
         target_parts.call("sync_bittaran_parts")
