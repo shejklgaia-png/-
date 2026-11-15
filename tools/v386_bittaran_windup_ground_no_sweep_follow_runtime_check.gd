@@ -102,10 +102,15 @@ func _case(battle: Node3D, id: String, kind: String) -> bool:
                 leg["foot"] as Node3D).to_global(
                 leg["sole_local"] as Vector3)
             if t >= active_timing - 0.009 and t <= active_timing + 0.009:
-                near_floor = absf(real_sole.y - IK.FLOOR_Y) < 0.11
+                # In v387 the rotated *mesh* corner that actually
+                # touches the floor may differ from the v386 cached
+                # sole-local point by nearly a metre. Check real mesh.
+                var bottom: float = float(ik.call(
+                    "_foot_mesh_lowest_y", leg["foot"]))
+                near_floor = absf(bottom - IK.FLOOR_Y) < 0.11
                 if not near_floor:
-                    _fail(id + "/" + kind + ": initial pose missed floor "
-                        + str([real_sole.y, reference_offset]))
+                    _fail(id + "/" + kind + ": initial mesh missed floor "
+                        + str([bottom, real_sole.y, reference_offset]))
                     return false
             if t <= active_timing:
                 var step_y: float = (rig as Node3D).position.y
