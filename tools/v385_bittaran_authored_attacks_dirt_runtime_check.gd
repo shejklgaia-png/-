@@ -91,6 +91,23 @@ func _run_case(battle: Node3D, id: String, kind: String) -> bool:
                 stopped_aim) > 0.0001:
             _fail("aim continued after swing start: " + kind)
             return false
+        # Validate that the authored source joint key is genuinely
+        # sampled BEFORE contact IK changes only buried frames. Comparing
+        # the final compensated joint directly to the raw key is now
+        # invalid when that raw foot would intersect the ground.
+        if kind != "stomp" and t >= preview + 0.30 and (
+                t <= preview + 0.35):
+            var raw: Dictionary = frame.duplicate()
+            rig.call("apply_authored_attack_pose", raw)
+            var raw_name: String = str(
+                BittaranRig.ATTACK_LEG_BONES[id][0])
+            var raw_joint: Node3D = rig.find_child(
+                raw_name, true, false)
+            var raw_expected: Quaternion = rig.call(
+                "_authored_rotation_for_leg", kind, id, 0,
+                t - preview)
+            source_pose_sampled = source_pose_sampled or (
+                raw_joint.quaternion.angle_to(raw_expected) < 0.05)
         battle.call("_finalize_target_pose", DT)
         var goal: Vector3 = leg["last_goal"]
         for support_id in supports:
@@ -125,8 +142,10 @@ func _run_case(battle: Node3D, id: String, kind: String) -> bool:
                 var source: Quaternion = rig.call(
                     "_authored_rotation_for_leg",
                     kind, id, 0, t - preview)
-                source_pose_sampled = joint.quaternion.angle_to(
-                    source) < 0.05
+                # Ground contact is now an IK correction after raw
+                # source playback; source verification above is primary.
+                source_pose_sampled = source_pose_sampled or (
+                    joint.quaternion.angle_to(source) < 0.05)
             var contact: Vector3 = (leg["foot"] as Node3D).to_global(
                 leg["sole_local"] as Vector3)
             if contact.distance_to(goal) > 0.001 and t < strike_end:
