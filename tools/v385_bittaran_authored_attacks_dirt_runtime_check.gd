@@ -67,7 +67,7 @@ func _run_case(battle: Node3D, id: String, kind: String) -> bool:
     var delta_prepose: float = 0.0
     var first_foot_y: float = -INF
     var close_foot_horizontal: bool = false
-    for tick in range(240):
+    for tick in range(290):
         var sideways: float = (
             0.0 if tick < 20 else (
             1.0 if tick < 40 else -0.6))
@@ -91,6 +91,23 @@ func _run_case(battle: Node3D, id: String, kind: String) -> bool:
                 stopped_aim) > 0.0001:
             _fail("aim continued after swing start: " + kind)
             return false
+        # Validate that the authored source joint key is genuinely
+        # sampled BEFORE contact IK changes only buried frames. Comparing
+        # the final compensated joint directly to the raw key is now
+        # invalid when that raw foot would intersect the ground.
+        if kind != "stomp" and t >= preview + 0.30 and (
+                t <= preview + 0.35):
+            var raw: Dictionary = frame.duplicate()
+            rig.call("apply_authored_attack_pose", raw)
+            var raw_name: String = str(
+                BittaranRig.ATTACK_LEG_BONES[id][0])
+            var raw_joint: Node3D = rig.find_child(
+                raw_name, true, false)
+            var raw_expected: Quaternion = rig.call(
+                "_authored_rotation_for_leg", kind, id, 0,
+                t - preview)
+            source_pose_sampled = source_pose_sampled or (
+                raw_joint.quaternion.angle_to(raw_expected) < 0.05)
         battle.call("_finalize_target_pose", DT)
         var goal: Vector3 = leg["last_goal"]
         for support_id in supports:
@@ -125,8 +142,10 @@ func _run_case(battle: Node3D, id: String, kind: String) -> bool:
                 var source: Quaternion = rig.call(
                     "_authored_rotation_for_leg",
                     kind, id, 0, t - preview)
-                source_pose_sampled = joint.quaternion.angle_to(
-                    source) < 0.05
+                # Ground contact is now an IK correction after raw
+                # source playback; source verification above is primary.
+                source_pose_sampled = source_pose_sampled or (
+                    joint.quaternion.angle_to(source) < 0.05)
             var contact: Vector3 = (leg["foot"] as Node3D).to_global(
                 leg["sole_local"] as Vector3)
             if contact.distance_to(goal) > 0.001 and t < strike_end:
@@ -151,8 +170,8 @@ func _run_case(battle: Node3D, id: String, kind: String) -> bool:
                 return false
             if bool(frame.get("impact", false)):
                 impact_seen = true
-                close_foot_horizontal = absf(
-                    foot.global_basis.y.normalized().dot(Vector3.UP)) < 0.30
+                close_foot_horizontal = (
+                    foot.global_basis.y.normalized().dot(Vector3.UP)) > 0.998
                 earthen_fx_seen = (ring.visible and bool(
                     (fx.get("stomp_dust") as CPUParticles3D).emitting)
                     and bool((fx.get("stomp_chunks") as CPUParticles3D).emitting))
@@ -175,7 +194,7 @@ func _run_case(battle: Node3D, id: String, kind: String) -> bool:
     if kind == "stomp" and (
             not impact_seen or not close_foot_horizontal
             or first_foot_y < 1.90):
-        _fail("stomp did not raise above head / flatten toe at contact " + id
+        _fail("stomp did not raise above head / keep long toe vertical at contact " + id
             + " " + str([first_foot_y, close_foot_horizontal]))
         return false
     return true

@@ -245,9 +245,10 @@ func _attack_weight() -> float:
     var windup: float = float(attack_pose.get("windup", 1.0))
     var strike: float = float(attack_pose.get("strike", 0.2))
     var recovery: float = float(attack_pose.get("recovery", 0.5))
+    var hold: float = float(attack_pose.get("hold", 0.0))
     var incoming: float = _cubic(t / maxf(windup, 0.001))
     var outgoing: float = 1.0 - _cubic(
-        (t - windup - strike) / maxf(recovery, 0.001))
+        (t - windup - strike - hold) / maxf(recovery, 0.001))
     return incoming * outgoing
 
 func _apply_attack_chassis_pose() -> void:
@@ -264,8 +265,9 @@ func _apply_attack_chassis_pose() -> void:
     var swing_end: float = float(attack_pose.get("windup", 1.0)) + float(
         attack_pose.get("strike", 0.2))
     var recover: float = float(attack_pose.get("recovery", 0.5))
+    var hold: float = float(attack_pose.get("hold", 0.0))
     var yaw_release: float = 1.0 - _cubic(
-        (t - swing_end) / maxf(recover, 0.001))
+        (t - swing_end - hold) / maxf(recover, 0.001))
     var body_yaw: float = float(attack_pose.get("body_yaw", 0.0))
     chassis_bone.quaternion = (Quaternion(
         Vector3.UP, body_yaw * yaw_release)
@@ -277,16 +279,17 @@ func _apply_attack_chassis_pose() -> void:
         var strike: float = float(attack_pose.get("strike", 1.0))
         var ease_in: float = _cubic(t / maxf(prepare, 0.001))
         var ease_out: float = 1.0 - _cubic(
-            (t - prepare - strike) / maxf(recover, 0.001))
+            (t - prepare - strike - hold) / maxf(recover, 0.001))
         # Contact height is sampled exactly ONCE at attack entry from
         # the author's LOW initial BODY/limb pose. No mid-swing bobbing
         # or following the moving attacking foot toward the ground.
         actor.position.y += initial_attack_contact_height_world * (
             ease_in * ease_out) / scale_y
     if kind == "stomp":
-        # The authored STOMP clip lifts its own limb; move the chassis
-        # only slightly while the other three real soles stay fixed.
-        actor.position.y -= 0.08 * weight / scale_y
+        # STOMP now plants the entire long toe VERTICALLY, which gives
+        # substantially more ground reach than the horizontal v386 toe.
+        # The obsolete 8cm forced BODY dip pulled supporting feet off
+        # their reach limits; leave the chassis at its authored height.
         var i: int = LEG_PART_IDS.find(str(attack_pose.get("id", "")))
         if i >= 0 and i < legs.size():
             var aim: Vector3 = attack_pose.get("stomp_aim", Vector3.INF)
@@ -317,7 +320,7 @@ func _apply_attack_chassis_pose() -> void:
                     hip.y - ankle_goal.y - up_reach, 0.0)
                 var lower: float = _cubic((t - windup) / maxf(strike, 0.001))
                 lower *= 1.0 - _cubic(
-                    (t - windup - strike) / maxf(recover, 0.001))
+                    (t - windup - strike - hold) / maxf(recover, 0.001))
                 actor.position.y -= minf(shortage + 0.035, 2.2) * lower / scale_y
     # KICK/SWEEP crouch/roll are now entirely driven by the user-authored
     # BODY keyframe, reached over 0.70s. Never stack the old procedural
@@ -361,50 +364,25 @@ func _attack_rotation(leg: Dictionary) -> Quaternion:
     if forward.length_squared() < 0.000001:
         forward = actor.global_basis.z
         forward.y = 0.0
-    var flat: Quaternion = Basis.looking_at(
+    # On the authored foot mesh, local -Y is the LONG edge. Align local
+    # +Y with WORLD UP to keep that edge PERPENDICULAR to the arena floor
+    # at windup, contact, and for the entire 1.50s post-impact hold.
+    var upright: Quaternion = Basis.looking_at(
         -forward.normalized(), Vector3.UP).get_rotation_quaternion()
     var t: float = float(attack_pose.get("time", 0.0))
     var windup: float = float(attack_pose.get("windup", 1.0))
     var strike: float = float(attack_pose.get("strike", 0.2))
+    var hold: float = float(attack_pose.get("hold", 0.0))
     var recovery: float = float(attack_pose.get("recovery", 0.5))
-    var amount: float = _cubic(t / maxf(windup, 0.001)) * (
-        1.0 - _cubic((t - windup - strike) / maxf(recovery, 0.001)))
+    var release: float = _cubic((t - windup - strike - hold) /
+        maxf(recovery, 0.001))
     if str(attack_pose.get("kind", "")) == "stomp":
-        # Keep the pointed toe vertical throughout the lift. As the
-        # actual strike reaches FLOOR height rotate it into a horizontal
-        # toe, not at the start of the downstroke or at attack spawn.
-        var target: Vector3 = attack_pose.get("stomp_aim", Vector3.INF)
-        var hip: Vector3 = (leg["upper"] as Node3D).global_position
-        var horizontal: Vector3 = target - hip
-        horizontal.y = 0.0
-        if target == Vector3.INF or horizontal.length_squared() < 0.0001:
-            horizontal = -actor.global_basis.z
-            horizontal.y = 0.0
-        var face: Vector3 = -horizontal.normalized()
-        var right: Vector3 = face.cross(Vector3.UP).normalized()
-        var tilted: Quaternion = Basis(
-            right, face, Vector3.UP).get_rotation_quaternion()
-        var contact: float = 0.0
-        if t >= windup:
-            var fall: float = _cubic(
-                (t - windup) / maxf(strike, 0.001))
-            var real_height: float = (leg["foot"] as Node3D).to_global(
-                leg["sole_local"] as Vector3).y
-            var nominal: float = lerpf(
-                maxf(target.y + 0.35, 1.05), FLOOR_Y, fall)
-            var height: float = minf(real_height, nominal)
-            contact = (1.0 - smoothstep(0.06, 0.32, height))
-        var toe: Quaternion = flat.slerp(tilted, contact)
-        var retract: float = _cubic(
-            (t - windup - strike) / maxf(recovery, 0.001))
-        return toe.slerp(original, retract).normalized()
-    return original.slerp(flat, amount).normalized()
+        return upright.slerp(original, release).normalized()
+    var preparation: float = _cubic(t / maxf(windup, 0.001))
+    return original.slerp(upright, preparation * (1.0 - release)).normalized()
 
 
-# Use the real shoulder-knee-ankle segment lengths, foot scale and
-# sampled sole offset to limit only physically impossible STOMP targets.
-# A far target is approached by the actual reachable tip; the collision
-# and impact point are taken from the solved visible foot.
+
 func _reachable_stomp_goal(leg: Dictionary, goal: Vector3,
         rotation: Quaternion) -> Vector3:
     var hip: Vector3 = (leg["upper"] as Node3D).global_position
@@ -431,11 +409,12 @@ func _attack_goal(leg: Dictionary, desired_rotation: Quaternion) -> Vector3:
     var windup: float = float(attack_pose.get("windup", 1.0))
     var strike: float = float(attack_pose.get("strike", 0.2))
     var recovery: float = float(attack_pose.get("recovery", 0.5))
+    var hold: float = float(attack_pose.get("hold", 0.0))
     var kind: String = str(attack_pose.get("kind", ""))
     var attack_progress: float = _cubic(
         (t - windup) / maxf(strike, 0.001))
     var finish: float = 1.0 - _cubic(
-        (t - windup - strike) / maxf(recovery, 0.001))
+        (t - windup - strike - hold) / maxf(recovery, 0.001))
     var outward: Vector3 = goal - (
         leg["upper"] as Node3D).global_position
     outward.y = 0.0
@@ -456,16 +435,17 @@ func _attack_goal(leg: Dictionary, desired_rotation: Quaternion) -> Vector3:
             var lift: float = _cubic(t / maxf(windup, 0.001))
             goal = goal.lerp(overhead, lift)
         elif t <= windup + strike:
-            # Do NOT jump to a synthetic overhead goal at the beginning
-            # of the downstroke. Continue from the actual last authored
-            # windup position of the striking sole instead.
+            # Strike from the LAST real authored windup pose; no snap.
             var top: Vector3 = leg.get("stomp_authored_windup_goal", overhead)
             var downward: float = _cubic(
                 (t - windup) / maxf(strike, 0.001))
             goal = top.lerp(touchdown, downward)
+        elif t <= windup + strike + hold:
+            # Freeze the foot at impact for the complete 1.5s hit pause.
+            goal = touchdown
         else:
             var retract: float = _cubic(
-                (t - windup - strike) / maxf(recovery, 0.001))
+                (t - windup - strike - hold) / maxf(recovery, 0.001))
             goal = touchdown.lerp(goal, retract)
             # After contact, lift a little while retracting; no foot drag.
             goal.y += 0.18 * sin(PI * retract)
@@ -579,6 +559,23 @@ func setup(model: Node3D) -> bool:
     # Ensure soles are on the floor immediately, before the first physics tick.
     advance_ik(0.0, "Idle")
     return true
+
+## World-space lower bound of the ACTUAL authored foot mesh, not the
+## initial sole contact point. A rotated foot can present another corner
+## below ground even when the captured sole-local coordinate is above it.
+func _foot_mesh_lowest_y(foot: Node3D) -> float:
+    var lowest: float = INF
+    for child in foot.get_children():
+        if child is MeshInstance3D:
+            var piece: MeshInstance3D = child as MeshInstance3D
+            if piece.mesh == null:
+                continue
+            var box: AABB = piece.mesh.get_aabb()
+            for corner in range(8):
+                lowest = minf(lowest,
+                    piece.to_global(box.get_endpoint(corner)).y)
+    return lowest
+
 
 func _sole_local_point(foot: Node3D) -> Vector3:
     var lowest: float = INF
@@ -1214,10 +1211,9 @@ func advance_ik(delta: float, motion: String) -> void:
     for leg in legs:
         var position: Vector3 = leg["anchor"]
         var rotation: Quaternion = leg["anchor_rotation"]
+        var attacking_this_leg: bool = (attacking and str(
+            attack_pose.get("id", "")) == LEG_PART_IDS[legs.find(leg)])
         if attacking:
-            var attacking_this_leg: bool = (
-                str(attack_pose.get("id", "")) == (
-                    LEG_PART_IDS[legs.find(leg)]))
             if attacking_this_leg:
                 var attack_kind: String = str(attack_pose.get("kind", ""))
                 var attack_t: float = float(attack_pose.get("time", 0.0))
@@ -1250,21 +1246,55 @@ func advance_ik(delta: float, motion: String) -> void:
                     var t: float = float(attack_pose.get("time", 0.0))
                     var end: float = float(attack_pose.get("windup", 0.7)) + (
                         float(attack_pose.get("strike", 1.0)))
-                    if t > end:
-                        # Blend from the real last authored foot position
-                        # back to the saved planted sole during recovery.
-                        var recover_t: float = _cubic((t - end) / maxf(
-                            float(attack_pose.get("recovery", 0.45)), 0.001))
-                        position = actual.lerp(leg["anchor"], recover_t)
-                        rotation = foot.global_basis.get_rotation_quaternion().slerp(
-                            leg["anchor_rotation"] as Quaternion, recover_t)
-                    else:
-                        position = actual
+                    var hold: float = float(attack_pose.get("hold", 0.0))
+                    var freeze_end: float = end + hold
+                    var authored_rotation: Quaternion = (
+                        foot.global_basis.get_rotation_quaternion())
+                    if t <= freeze_end:
+                        # Let the authored shoulder/knee/foot keys play,
+                        # correcting ONLY frames where a rotated foot's
+                        # visible geometry actually intersects the floor.
+                        # Sole-only checks miss the opposite long-edge
+                        # corner during a kick or lateral sweep.
+                        var bottom: float = _foot_mesh_lowest_y(foot)
+                        if bottom < FLOOR_Y - 0.001:
+                            for attempt in range(2):
+                                var required: float = maxf(0.0,
+                                    FLOOR_Y + 0.003 - bottom)
+                                if required <= 0.0001:
+                                    break
+                                var safe_goal: Vector3 = (
+                                    foot.to_global(leg["sole_local"])
+                                    + Vector3.UP * required)
+                                leg["last_error"] = _solve(
+                                    leg, safe_goal, authored_rotation)
+                                bottom = _foot_mesh_lowest_y(foot)
+                            if bottom < FLOOR_Y - 0.001:
+                                # Near the analytic two-bone reach limit
+                                # the solved ankle can still be ~3cm below
+                                # the arena. A final tiny end-effector
+                                # correction guarantees no visible mesh
+                                # vertex is buried; BODY and 3 supports
+                                # stay at their world-space contacts.
+                                foot.global_position += Vector3.UP * (
+                                    FLOOR_Y + 0.003 - bottom)
+                        position = foot.to_global(leg["sole_local"])
                         rotation = foot.global_basis.get_rotation_quaternion()
-                    if t <= end:
+                        leg["attack_exit_goal"] = position
+                        leg["attack_exit_rotation"] = rotation
                         leg["last_goal"] = position
                         leg["last_rotation"] = rotation
                         continue
+                    # After the exact 1.5s KICK hold, or immediately after
+                    # SWEEP's strike, blend from the LAST grounded pose,
+                    # not the newly resampled/rest-keyed pose (no jump).
+                    var recover_t: float = _cubic((t - freeze_end) / maxf(
+                        float(attack_pose.get("recovery", 0.60)), 0.001))
+                    position = (leg.get("attack_exit_goal",
+                        actual) as Vector3).lerp(leg["anchor"], recover_t)
+                    rotation = (leg.get("attack_exit_rotation",
+                        authored_rotation) as Quaternion).slerp(
+                        leg["anchor_rotation"] as Quaternion, recover_t)
                 else:
                     rotation = _attack_rotation(leg)
                     position = _attack_goal(leg, rotation)
@@ -1316,6 +1346,49 @@ func advance_ik(delta: float, motion: String) -> void:
                 SUPPORT_FOOT_ROLL_DEGREES) * collapse) *
                 head_support_foot_rotation).normalized()
         leg["last_error"] = _solve(leg, position, rotation)
+        if attacking and not attacking_this_leg:
+            # Some BODY windup poses sit a few centimetres outside a
+            # full-extension support knee's reachable sphere. Do not
+            # let the real visible foot drift from its WORLD-FIXED
+            # contact when the goal remains unchanged. Apply at most
+            # a tiny end-effector contact correction; IK still handles
+            # the actual large-scale articulation of the entire leg.
+            var support_foot: Node3D = leg["foot"]
+            var support_error: Vector3 = position - support_foot.to_global(
+                leg["sole_local"] as Vector3)
+            # A very low authored KICK/SWEEP torso can exceed even
+            # the full anatomical two-bone support reach. Prefer the
+            # guaranteed world-fixed visible sole to stepping/sliding
+            # it up to 40cm (or more) from its contact. This position
+            # is restored from the same fixed anchor every physics tick.
+            support_foot.global_position += support_error
+            leg["last_error"] = support_foot.to_global(
+                leg["sole_local"] as Vector3).distance_to(position)
+        if attacking and attacking_this_leg and bool(
+                attack_pose.get("authored", false)) and str(
+                attack_pose.get("kind", "")) != "stomp":
+            # Recovering the authored foot changes its pitch. Its
+            # formerly planted corner may become the low corner again.
+            # Check the full mesh AFTER recovery IK, not just during
+            # the strike and post-hit hold.
+            var clip_foot: Node3D = leg["foot"]
+            var clip_min: float = _foot_mesh_lowest_y(clip_foot)
+            if clip_min < FLOOR_Y - 0.001:
+                for retry in range(2):
+                    var extra: float = maxf(
+                        FLOOR_Y + 0.003 - clip_min, 0.0)
+                    if extra < 0.0001:
+                        break
+                    var safe: Vector3 = (
+                        clip_foot.to_global(leg["sole_local"] as Vector3)
+                        + Vector3.UP * extra)
+                    leg["last_error"] = _solve(leg, safe, rotation)
+                    clip_min = _foot_mesh_lowest_y(clip_foot)
+                if clip_min < FLOOR_Y - 0.001:
+                    clip_foot.global_position += Vector3.UP * (
+                        FLOOR_Y + 0.003 - clip_min)
+                leg["last_goal"] = clip_foot.to_global(
+                    leg["sole_local"] as Vector3)
     if stepping_pair != -1 and done:
         stepping_pair = -1
         cooldown = STEP_COOLDOWN_SECONDS

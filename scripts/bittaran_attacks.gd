@@ -14,10 +14,15 @@ const SWEEP_WINDUP_SECONDS: float = 0.70
 const STOMP_STRIKE_SECONDS: float = 0.25
 const KICK_STRIKE_SECONDS: float = 1.0
 const SWEEP_STRIKE_SECONDS: float = 1.5
-const STOMP_RECOVERY_SECONDS: float = 0.25
-const KICK_RECOVERY_SECONDS: float = 0.45
-const SWEEP_RECOVERY_SECONDS: float = 0.65
+const STOMP_RECOVERY_SECONDS: float = 0.55
+const KICK_RECOVERY_SECONDS: float = 0.60
+const SWEEP_RECOVERY_SECONDS: float = 1.40
 const BETWEEN_ATTACKS_SECONDS: float = 1.35
+# STOMP/KICK hold the final strike pose completely still for 1.5s.
+# SWEEP has no hold and instead eases gently back over 1.4s.
+const STOMP_POST_HIT_HOLD_SECONDS: float = 1.50
+const KICK_POST_HIT_HOLD_SECONDS: float = 1.50
+const SWEEP_POST_HIT_HOLD_SECONDS: float = 0.0
 
 var kind: String = ""
 var leg_id: String = ""
@@ -61,6 +66,12 @@ func _strike() -> float:
         "stomp": return STOMP_STRIKE_SECONDS
         "kick": return KICK_STRIKE_SECONDS
         _: return SWEEP_STRIKE_SECONDS
+
+func _hold() -> float:
+    match kind:
+        "stomp": return STOMP_POST_HIT_HOLD_SECONDS
+        "kick": return KICK_POST_HIT_HOLD_SECONDS
+        _: return SWEEP_POST_HIT_HOLD_SECONDS
 
 func _recovery() -> float:
     match kind:
@@ -149,7 +160,8 @@ func advance(delta: float, player_position: Vector3,
         stomp_aim_valid = true
     var strike: float = _strike()
     var recovery: float = _recovery()
-    var total: float = windup + strike + recovery
+    var hold: float = _hold()
+    var total: float = windup + strike + hold + recovery
     elapsed = minf(total, elapsed + maxf(delta, 0.0))
     var result: Dictionary = {
         "kind": kind, "id": leg_id, "time": elapsed,
@@ -158,7 +170,11 @@ func advance(delta: float, player_position: Vector3,
         "tracking": kind != "sweep" and previous < windup,
         "strike_start": previous < windup and elapsed >= windup,
         "player_tracking_disabled": kind == "sweep",
-        "windup": windup, "strike": strike, "recovery": recovery,
+        "windup": windup, "strike": strike, "hold": hold,
+        "recovery": recovery,
+        "phase": ("windup" if elapsed < windup else
+            ("strike" if elapsed < windup + strike else
+            ("hold" if elapsed < windup + strike + hold else "recovery"))),
         "impact": kind == "stomp" and previous < windup + strike
             and elapsed >= windup + strike,
         "hit_window": kind != "stomp" and elapsed >= windup

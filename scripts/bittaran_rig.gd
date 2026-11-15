@@ -192,9 +192,15 @@ func apply_pose(clip_name: String, t: float) -> void:
     for uid in bones.keys():
         var joint: Node3D = bones[uid]
         var rotation: Quaternion = bind_rotations[uid]
-        if tracks.has(uid):
-            rotation = rotation * _sample_rotation(tracks[uid].get("keyframes", []), sample_time)
-        if blend_elapsed < BLEND_SECONDS and blend_from.has(uid):
+        if joint.name == "Head":
+            # The HEAD does not play ANY keyed clip (Idle/Turn/Approach
+            # or an attack). It holds the user's Wait neck posture;
+            # battle.gd adds the live collision-safe SERA tracking yaw.
+            rotation = _authored_key_rotation("Wait", "Head", 0.0)
+        elif tracks.has(uid):
+            rotation = rotation * _sample_rotation(
+                tracks[uid].get("keyframes", []), sample_time)
+        if joint.name != "Head" and blend_elapsed < BLEND_SECONDS and blend_from.has(uid):
             var amount: float = clampf(blend_elapsed / BLEND_SECONDS, 0.0, 1.0)
             rotation = (blend_from[uid] as Quaternion).slerp(rotation, amount)
         joint.quaternion = rotation.normalized()
@@ -339,13 +345,14 @@ func apply_authored_attack_pose(frame: Dictionary) -> void:
     var windup: float = float(frame.get("windup", 1.0))
     var strike: float = float(frame.get("strike", 0.2))
     var recovery: float = float(frame.get("recovery", 0.5))
+    var hold: float = float(frame.get("hold", 0.0))
     var preparation: float = 0.0 if kind == "stomp" else windup
     var clip_time: float = clampf(seconds - preparation,
         0.0, authored_clip_length(kind))
     var blend_in: float = clampf(seconds /
         maxf(0.24 if kind == "stomp" else preparation, 0.001), 0.0, 1.0)
     blend_in = blend_in * blend_in * (3.0 - 2.0 * blend_in)
-    var retreat: float = clampf((seconds - windup - strike) /
+    var retreat: float = clampf((seconds - windup - strike - hold) /
         maxf(recovery, 0.001), 0.0, 1.0)
     var blend_out: float = 1.0 - retreat * retreat * (3.0 - 2.0 * retreat)
     var weight: float = blend_in * blend_out
