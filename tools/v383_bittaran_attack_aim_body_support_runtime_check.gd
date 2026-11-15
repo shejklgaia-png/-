@@ -124,6 +124,21 @@ func _case(battle: Node3D, id: String, kind: String,
                     _fail(id + "/" + kind + " did not plant support sole "
                         + support_id)
                     return false
+                # Not just the requested IK goal: the visible foot mesh
+                # must ACTUALLY remain at that planted world contact.
+                if elapsed > 0.26:
+                    var rendered_sole: Vector3 = (
+                        support["foot"] as Node3D).to_global(
+                        support["sole_local"])
+                    var planted: Vector3 = support["anchor"]
+                    var actual_xz: float = Vector2(
+                        rendered_sole.x - planted.x,
+                        rendered_sole.z - planted.z).length()
+                    if actual_xz > 0.045 or (
+                            absf(rendered_sole.y - IK.FLOOR_Y) > 0.07):
+                        _fail(id + "/" + kind + " actual support sole slipped "
+                            + support_id + ": " + str(rendered_sole - planted))
+                        return false
         if bool(battle.get("head_look_initialized")) and absf(float(
                 battle.get("head_look_filtered_yaw"))) > 0.002:
             saw_head_look = true
