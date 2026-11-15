@@ -5,6 +5,9 @@ const BittaranParts = preload("res://scripts/bittaran_parts.gd")
 ## unchanged. The pose clips are evaluated first; grounded IK is layered last.
 ## The sole anchor is measured from the real imported foot mesh AABB.
 const FLOOR_Y: float = 0.0
+# A visible chassis plate must never intersect the arena when the
+# authored low attack pose or leg-break nose-dip lowers the rig.
+const BODY_MESH_FLOOR_CLEARANCE_METERS: float = 0.020
 const STEP_TRIGGER_METERS: float = 0.76
 const STEP_DURATION_SECONDS: float = 0.58
 const STEP_HEIGHT_METERS: float = 0.34
@@ -184,6 +187,14 @@ func set_attack_pose(pose: Dictionary) -> void:
 
 func clear_attack_pose() -> void:
     attack_pose.clear()
+    # Clear even when the attack is cancelled INSIDE a damage callback,
+    # before the next normal set_attack_pose(empty) frame.
+    initial_attack_contact_height_world = 0.0
+    for leg in legs:
+        leg.erase("stomp_authored_windup_goal")
+        leg.erase("attack_exit_goal")
+        leg.erase("attack_exit_rotation")
+        leg.erase("attack_entry_goal")
 
 func available_attack_feet() -> Dictionary:
     var result: Dictionary = {}
@@ -566,6 +577,45 @@ func setup(model: Node3D) -> bool:
 ## World-space lower bound of the ACTUAL authored foot mesh, not the
 ## initial sole contact point. A rotated foot can present another corner
 ## below ground even when the captured sole-local coordinate is above it.
+## The BODY bone has exactly one direct authored mesh; its HEAD and
+## articulated limbs are child joints and must NOT be included here.
+## Check 8 WORLD-space mesh bounds corners, including the authored pitch/
+## yaw at this physics tick, instead of assuming a static body height.
+func chassis_mesh_lowest_world_y() -> float:
+    if chassis_bone == null:
+        return INF
+    var lowest: float = INF
+    for child in chassis_bone.get_children():
+        if child is MeshInstance3D:
+            var piece: MeshInstance3D = child as MeshInstance3D
+            if piece.mesh == null:
+                continue
+            var bounds: AABB = piece.mesh.get_aabb()
+            for index in range(8):
+                lowest = minf(lowest, piece.to_global(
+                    bounds.get_endpoint(index)).y)
+    return lowest
+
+
+func _keep_chassis_above_ground() -> void:
+    if actor == null or chassis_bone == null:
+        return
+    var bottom: float = chassis_mesh_lowest_world_y()
+    if not is_finite(bottom):
+        return
+    var required: float = (FLOOR_Y + BODY_MESH_FLOOR_CLEARANCE_METERS
+        - bottom)
+    if required <= 0.0:
+        return
+    # The actor is child of the uniformly scaled boss target. Move its
+    # visual root in local Y by the exact positive WORLD-space deficit.
+    # This is applied AFTER both attack-height and down-pitch controllers
+    # but BEFORE world-anchored feet are solved, so no soles are dragged.
+    var scale_y: float = maxf(absf(
+        actor.get_parent().global_basis.get_scale().y), 0.001)
+    actor.position.y += required / scale_y
+
+
 func _foot_mesh_lowest_y(foot: Node3D) -> float:
     var lowest: float = INF
     for child in foot.get_children():
@@ -1180,6 +1230,10 @@ func advance_ik(delta: float, motion: String) -> void:
     var attacking: bool = not attack_pose.is_empty() and not break_reaction_active()
     if attacking:
         _apply_attack_chassis_pose()
+    # Both authored KICK/SWEEP start-height calibration and leg-break
+    # nose-dip can bury the actual chassis mesh. Enforce a real mesh
+    # floor bound *after* every torso adjustment and *before* foot IK.
+    _keep_chassis_above_ground()
     # During the physical stand-up, planted feet keep their world-space
     # anchors as the chassis turns toward SERA. Locomotion clips already
     # play on the rig, but the IK soles must NOT chase the torso until
@@ -1262,6 +1316,45 @@ func advance_ik(delta: float, motion: String) -> void:
                         # Sole-only checks miss the opposite long-edge
                         # corner during a kick or lateral sweep.
                         var bottom: float = _foot_mesh_lowest_y(foot)
+                        # The BODY floor clamp can lift the authored
+                        # low KICK/SWEEP preparation by several centimetres.
+                        # Re-seat the active striking foot only during the
+                        # FINAL 0.12s of the original 0.70s windup. Keep the
+                        # chassis above ground and the other three feet
+                        # world-anchored; from the strike boundary onward
+                        # the original authored limb is free to swing.
+                        var windup: float = float(
+                            attack_pose.get("windup", 0.70))
+                        if t >= windup - 0.12 and (
+                                t <= windup + 0.12) and (
+                                bottom > FLOOR_Y + 0.004):
+                            # C1-continuous contact at the boundary:
+                            # real frame time can be windup + 1e-15
+                            # after 42 updates at 60Hz. Do not end
+                            # ground correction on an exact t<=windup
+                            # comparison or the start toe will float.
+                            # Ease out over 0.12s of the actual strike,
+                            # so the raw authored foot never jumps.
+                            var contact_mix: float = _cubic(
+                                (t - (windup - 0.12)) / 0.12) * (
+                                1.0 - _cubic((t - windup) / 0.12))
+                            var lower: float = maxf(
+                                bottom - FLOOR_Y - 0.003, 0.0)
+                            var ground_goal: Vector3 = (
+                                foot.to_global(leg["sole_local"])
+                                + Vector3.DOWN * lower * contact_mix)
+                            leg["last_error"] = _solve(
+                                leg, ground_goal, authored_rotation)
+                            bottom = _foot_mesh_lowest_y(foot)
+                            # An overextended limb may still be unable
+                            # to reach the floor after the torso lift.
+                            # Apply a single visual end-effector ground
+                            # contact delta, using the same smooth weight.
+                            if bottom > FLOOR_Y + 0.003:
+                                foot.global_position += Vector3.DOWN * (
+                                    (bottom - FLOOR_Y - 0.003)
+                                    * contact_mix)
+                                bottom = _foot_mesh_lowest_y(foot)
                         if bottom < FLOOR_Y - 0.001:
                             for attempt in range(2):
                                 var required: float = maxf(0.0,
