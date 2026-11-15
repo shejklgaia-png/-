@@ -35,15 +35,17 @@ const SPIRAL_TWIST_SPEED_DEGREES_PER_SECOND: float = 220.0
 # Keep the exact heel/sole target; increase the lateral pole only.
 const HEAD_KNEE_SCAN_SECONDS: float = 0.05
 const HEAD_KNEE_OUTWARD_DOWN_BIAS: float = 0.28
-const HEAD_KNEE_PROXIMITY_METERS: float = 0.38
-const HEAD_KNEE_MAX_BEND: float = 0.45
-const HEAD_KNEE_FLEX_IN_PER_SECOND: float = 1.80
+const HEAD_KNEE_PROXIMITY_METERS: float = 0.45
+const HEAD_KNEE_MAX_BEND: float = 0.70
+const HEAD_KNEE_FLEX_IN_PER_SECOND: float = 3.00
 const HEAD_KNEE_FLEX_OUT_PER_SECOND: float = 1.35
-# Same 10cm depth limit as the HEAD's collision slowdown and stop.
+# Shared hard limit is 20cm; begin bending knees at 13cm so the
+# head can keep tracking while its support leg yields first.
 const HEAD_KNEE_ALLOWED_PENETRATION_METERS: float = (
     BittaranParts.HEAD_LEG_ALLOWED_PENETRATION_METERS)
-const HEAD_KNEE_MIN_BENEFIT_METERS: float = 0.012
-const HEAD_KNEE_BEND_PENALTY_METERS: float = 0.045
+const HEAD_KNEE_PREFERRED_PENETRATION_METERS: float = 0.13
+const HEAD_KNEE_MIN_BENEFIT_METERS: float = 0.008
+const HEAD_KNEE_BEND_PENALTY_METERS: float = 0.025
 const HEAD_KNEE_TARGET_HYSTERESIS_METERS: float = 0.009
 # A heavy chassis dominates the approximate center of mass, while four
 # independent knee/leg assemblies each contribute 4.5% of the total.
@@ -1819,14 +1821,15 @@ func _head_knee_support_center_xz() -> Vector2:
 func _head_knee_collision_cost(id: String, base_pose: Quaternion,
         swept_poses: Array[Quaternion]) -> float:
     # The deepest actual oriented-element overlap in world metres.
-    # 10cm of penetration is free; no cubic-metre volume penalties.
+    # Fold the leg proactively above 13cm, before the shared 20cm hard
+    # head limit. Use actual oriented-mesh depth, never AABB volume.
     var worst: float = 0.0
     for pose in swept_poses:
         head_bone.quaternion = pose
         var depth: float = float(collision_parts.call(
             "get_head_leg_penetration_depth", id))
         worst = maxf(worst, maxf(0.0,
-            depth - HEAD_KNEE_ALLOWED_PENETRATION_METERS))
+            depth - HEAD_KNEE_PREFERRED_PENETRATION_METERS))
     head_bone.quaternion = base_pose
     return worst
 
@@ -1838,6 +1841,11 @@ func _scan_head_knee_targets(sweep_heads: Array[AABB],
         var leg: Dictionary = legs[index]
         var previous_target: float = float(leg["head_knee_target"])
         leg["head_knee_target"] = 0.0
+        # The actively authored striker owns its three joints. Fold only
+        # the other support legs so the original attack never gets erased.
+        if not attack_pose.is_empty() and str(attack_pose.get("id", "")) == LEG_PART_IDS[index]:
+            leg["head_knee_bend"] = 0.0
+            continue
         # Do not skip a SWINGING leg: its moving knee/upper segment can
         # run into an otherwise stationary head. _solve() below preserves
         # the current sole swing target and the authored swing duration.
@@ -1862,9 +1870,9 @@ func _scan_head_knee_targets(sweep_heads: Array[AABB],
         var best_cost: float = base_cost
         var best: float = 0.0
         var retained_score: float = INF
-        # Modest additional lateral folding, only as far as improves
-        # real 10cm HEAD/LEG clearance; include last target for stability.
-        for candidate in [0.10, 0.20, 0.30, 0.375,
+        # Prefer letting a support knee fall outward and down before
+        # the head approaches 20cm; include last target for stability.
+        for candidate in [0.10, 0.20, 0.30, 0.45, 0.55, 0.65,
                 HEAD_KNEE_MAX_BEND, previous_target]:
             leg["head_knee_bend"] = float(candidate)
             _solve(leg, sole_goal, sole_rotation)
@@ -1922,7 +1930,8 @@ func steer_knees_for_head(delta: float, desired_head_yaw: float,
                 lerpf(current_head_yaw, desired_head_yaw, 0.5),
                 desired_head_yaw]:
             var pose: Quaternion = (head_pose *
-                Quaternion(Vector3.UP, float(yaw))).normalized()
+                Quaternion(Vector3.UP,
+                    float(yaw - current_head_yaw))).normalized()
             head_bone.quaternion = pose
             sweep_poses.append(pose)
             sweep_heads.append(collision_parts.call("get_head_swing_aabb"))
@@ -1930,6 +1939,9 @@ func steer_knees_for_head(delta: float, desired_head_yaw: float,
         _scan_head_knee_targets(sweep_heads, head_pose, sweep_poses)
     var active: bool = false
     for leg in legs:
+        if not attack_pose.is_empty() and str(attack_pose.get("id", "")) == LEG_PART_IDS[legs.find(leg)]:
+            leg["head_knee_bend"] = 0.0
+            continue
         var before: float = float(leg["head_knee_bend"])
         var target: float = clampf(
             float(leg["head_knee_target"]), 0.0, HEAD_KNEE_MAX_BEND)
