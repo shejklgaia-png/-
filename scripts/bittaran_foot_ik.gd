@@ -486,8 +486,8 @@ func _apply_attack_chassis_pose() -> void:
                 var foot: Node3D = leg["foot"]
                 var limb_length: float = hip.distance_to(knee) + (
                     knee.distance_to(foot.global_position)) - IK_REACH_MARGIN_METERS
-                # Flattening the long authored toe at floor contact removes
-                # its former vertical 1.7m reach. Lower ONLY the chassis
+                # The toe points straight down at floor contact (v400),
+                # restoring its vertical reach. Lower ONLY the chassis
                 # enough for the two-bone limb to physically hit the floor,
                 # while the other three soles remain world-planted in IK.
                 var foot_quat: Quaternion = _attack_rotation(leg)
@@ -537,8 +537,29 @@ func _straight_attack_goal(leg: Dictionary, world_direction: Vector3,
         max_reach - IK_REACH_MARGIN_METERS) + sole_offset)
 
 
-# The STOMP tip's short end FACE is perpendicular to local -Y. Its
-# short sides are horizontal only at contact when local +Y points UP.
+## STOMP contact frame: the level frame pitched about the forward
+## axis by a quarter turn, choosing the sign that points the MEASURED
+## toe axis (see _toe_axis_local_point) straight down. The short end
+## face is then level with the arena and the long toe perpendicular
+## to the ground, as the v387 design intended; the previous frame
+## kept local +Y up, which left the +/-X toe lying almost flat.
+func _stomp_contact_rotation(leg: Dictionary, upright: Quaternion,
+        forward: Vector3) -> Quaternion:
+    var toe_axis: Vector3 = leg.get("toe_axis_local", Vector3.DOWN)
+    var axis: Vector3 = forward.normalized()
+    var best: Quaternion = upright
+    var best_error: float = INF
+    for sign in [1.0, -1.0]:
+        var candidate: Quaternion = (Quaternion(
+            axis, sign * PI * 0.5) * upright).normalized()
+        var error: float = (Basis(candidate) * toe_axis).angle_to(
+            Vector3.DOWN)
+        if error < best_error:
+            best_error = error
+            best = candidate
+    return best
+
+
 # Preserve the source foot keys during the entire authored windup;
 # pitch the toe toward the ground-normal during the 0.25s downstroke.
 func _attack_rotation(leg: Dictionary) -> Quaternion:
@@ -548,8 +569,9 @@ func _attack_rotation(leg: Dictionary) -> Quaternion:
     if forward.length_squared() < 0.000001:
         forward = actor.global_basis.z
         forward.y = 0.0
-    # Desired contact pose: local -Y (long toe) down, short end surface
-    # level with the arena. It is NOT forced onto the authored windup.
+    # Level frame (local +Y up): the KICK/SWEEP foot-levelling target.
+    # STOMP derives its toe-down contact frame from it below. Neither
+    # is forced onto the authored windup.
     var upright: Quaternion = Basis.looking_at(
         -forward.normalized(), Vector3.UP).get_rotation_quaternion()
     var t: float = float(attack_pose.get("time", 0.0))
@@ -564,11 +586,14 @@ func _attack_rotation(leg: Dictionary) -> Quaternion:
             "stomp_authored_windup_rotation",
             (leg["foot"] as Node3D).global_basis.get_rotation_quaternion())
         # The last genuine user key is the entry orientation. The actual
-        # strike rotates this same toe smoothly to its horizontal short
-        # tip; the shoulder/knee source keys are never overwritten here.
+        # strike rotates this same toe smoothly until its short end is
+        # flat on the floor and the long toe points straight down; the
+        # shoulder/knee source keys are never overwritten here.
         var touchdown: float = _cubic(
             (t - windup) / maxf(strike, 0.001))
-        return windup_source.slerp(upright, touchdown).slerp(
+        var contact: Quaternion = _stomp_contact_rotation(
+            leg, upright, forward)
+        return windup_source.slerp(contact, touchdown).slerp(
             original, release).normalized()
     var preparation: float = _cubic(t / maxf(windup, 0.001))
     return original.slerp(upright, preparation * (1.0 - release)).normalized()
@@ -718,6 +743,7 @@ func setup(model: Node3D) -> bool:
             "upper": upper, "lower": lower, "foot": foot,
             "sole_local": sole_local,
             "stomp_tip_local": _stomp_tip_local_point(foot),
+            "toe_axis_local": _toe_axis_local_point(foot),
             "pole_local": actor.global_basis.inverse() * pole.normalized(),
             "rest_sole_local": actor.to_local(foot.to_global(sole_local)),
             "rest_foot_rotation_local": actor.global_basis.get_rotation_quaternion().inverse()
@@ -819,11 +845,46 @@ func _foot_mesh_lowest_y(foot: Node3D) -> float:
     return lowest
 
 
-## Centre of the short end of the LONG toe. This is the -Y mesh
-## extremity in the foot joint's coordinates, regardless of Wait pose.
+## Lowest visible point of an entire articulated limb (the joint's own
+## meshes plus every descendant joint), sampled exactly like
+## _foot_mesh_lowest_y. INF when the limb has no meshes at all.
+func _leg_mesh_lowest_y(joint: Node3D) -> float:
+    var lowest: float = _foot_mesh_lowest_y(joint)
+    for child in joint.get_children():
+        if child is Node3D:
+            lowest = minf(lowest, _leg_mesh_lowest_y(child as Node3D))
+    return lowest
+
+
+## Direction from the foot joint to the centre of its toe mesh, in
+## foot-joint coordinates (pose independent). Measured from the real
+## imported geometry: on this model the long toe runs along the
+## joint's +/-X axis (sign differs per side), NOT along -Y as older
+## comments assumed.
+func _toe_axis_local_point(foot: Node3D) -> Vector3:
+    for child in foot.get_children():
+        if child is MeshInstance3D:
+            var piece: MeshInstance3D = child as MeshInstance3D
+            if piece.mesh == null:
+                continue
+            var centre: Vector3 = foot.to_local(
+                piece.to_global(piece.mesh.get_aabb().get_center()))
+            if centre.length_squared() > 0.000001:
+                return centre.normalized()
+    return Vector3.DOWN
+
+
+## Centre of the short end of the LONG toe, in the foot joint's
+## coordinates, regardless of Wait pose. v400: the previous version
+## averaged the mesh corners with the lowest joint-local Y, which
+## lands mid-toe (the toe runs along +/-X, so its whole underside
+## shares nearly the same Y); with the toe vertical at contact, the
+## goal/chassis math then placed that mid-toe point on the floor and
+## the recovery goal dropped the sole ~0.94m in one tick. Measure the
+## actual end face: from the mesh centre, step half the box's extent
+## along the measured toe axis.
 func _stomp_tip_local_point(foot: Node3D) -> Vector3:
-    var lowest: float = INF
-    var vertices: Array[Vector3] = []
+    var axis: Vector3 = _toe_axis_local_point(foot)
     for child in foot.get_children():
         if not child is MeshInstance3D:
             continue
@@ -831,20 +892,16 @@ func _stomp_tip_local_point(foot: Node3D) -> Vector3:
         if piece.mesh == null:
             continue
         var bounds: AABB = piece.mesh.get_aabb()
+        var centre: Vector3 = foot.to_local(
+            piece.to_global(bounds.get_center()))
+        var half_extent: float = 0.0
         for i in range(8):
-            var vertex: Vector3 = foot.to_local(
+            var corner: Vector3 = foot.to_local(
                 piece.to_global(bounds.get_endpoint(i)))
-            vertices.append(vertex)
-            lowest = minf(lowest, vertex.y)
-    if vertices.is_empty():
-        return Vector3.ZERO
-    var centre: Vector3 = Vector3.ZERO
-    var count: float = 0.0
-    for vertex in vertices:
-        if vertex.y <= lowest + 0.015:
-            centre += vertex
-            count += 1.0
-    return centre / maxf(count, 1.0)
+            half_extent = maxf(half_extent,
+                absf((corner - centre).dot(axis)))
+        return centre + axis * half_extent
+    return Vector3.ZERO
 
 
 func _sole_local_point(foot: Node3D) -> Vector3:
@@ -1600,6 +1657,21 @@ func advance_ik(delta: float, motion: String) -> void:
                         # visible geometry actually intersects the floor.
                         # Sole-only checks miss the opposite long-edge
                         # corner during a kick or lateral sweep.
+                        # v400: sole-only checks also miss the upper and
+                        # lower leg meshes entirely: the SWEEP swing
+                        # carried them to -1.22m (front) / -1.57m (rear)
+                        # while the foot stayed clamped. Translate the
+                        # whole limb at its shoulder by the deficit,
+                        # exactly like the foot correction below:
+                        # authored rotations are untouched and
+                        # apply_pose restores every pivot before the
+                        # next frame, so nothing accumulates.
+                        var leg_bottom: float = _leg_mesh_lowest_y(
+                            leg["upper"] as Node3D)
+                        if leg_bottom < FLOOR_Y - 0.001:
+                            (leg["upper"] as Node3D).global_position += (
+                                Vector3.UP * (FLOOR_Y + 0.003
+                                - leg_bottom))
                         var bottom: float = _foot_mesh_lowest_y(foot)
                         # The BODY floor clamp can lift the authored
                         # low KICK/SWEEP preparation by several centimetres.

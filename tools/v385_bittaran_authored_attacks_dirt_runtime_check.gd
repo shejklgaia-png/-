@@ -173,8 +173,21 @@ func _run_case(battle: Node3D, id: String, kind: String) -> bool:
                     return false
             if bool(frame.get("impact", false)):
                 impact_seen = true
-                close_foot_horizontal = (
-                    foot.global_basis.y.normalized().dot(Vector3.UP)) > 0.998
+                # v400: the model's long toe runs along the foot
+                # joint's +/-X, not -Y as originally assumed. Measure
+                # the toe itself from the real mesh (joint to mesh
+                # centre): at contact it must point straight down,
+                # leaving the short end face flat on the floor.
+                var toe_axis: Vector3 = Vector3.ZERO
+                for child in foot.get_children():
+                    if child is MeshInstance3D:
+                        var piece: MeshInstance3D = child as MeshInstance3D
+                        if piece.mesh != null:
+                            toe_axis = (piece.to_global(
+                                piece.mesh.get_aabb().get_center())
+                                - foot.global_position).normalized()
+                            break
+                close_foot_horizontal = toe_axis.dot(Vector3.DOWN) > 0.998
                 earthen_fx_seen = (ring.visible and bool(
                     (fx.get("stomp_dust") as CPUParticles3D).emitting)
                     and bool((fx.get("stomp_chunks") as CPUParticles3D).emitting))

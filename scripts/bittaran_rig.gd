@@ -21,6 +21,10 @@ var bone_uuid_by_name: Dictionary = {}
 var attack_entry_rotations: Dictionary = {}
 var active_authored_attack: String = ""
 var authored_leg_id: String = ""
+# v400: phase weight for the KICK shoulder's world-mirror blend (see
+# _authored_rotation_for_leg). Set by apply_authored_attack_pose from
+# the frame's phase timings; 0 outside a KICK strike/hold.
+var kick_mirror_weight: float = 0.0
 # Rotational bearing adjustment is applied to the entire attacking leg.
 # Authored joint-local rotations are never stretched or rewritten.
 const ATTACK_LEG_AIM_MAX_DEGREES: float = 100.0
@@ -373,6 +377,71 @@ func _mirror_author_delta(delta: Quaternion, target_id: String) -> Quaternion:
     return q.normalized()
 
 
+## Reflect a world-space rotation across the plane through the rig
+## origin with unit normal n: R -> S R S with S = I - 2nn^T.
+func _reflect_world_rotation(q: Quaternion, n: Vector3) -> Quaternion:
+    var s := Basis(
+        Vector3(1.0 - 2.0 * n.x * n.x, -2.0 * n.y * n.x,
+            -2.0 * n.z * n.x),
+        Vector3(-2.0 * n.x * n.y, 1.0 - 2.0 * n.y * n.y,
+            -2.0 * n.z * n.y),
+        Vector3(-2.0 * n.x * n.z, -2.0 * n.y * n.z,
+            1.0 - 2.0 * n.z * n.z))
+    return (s * Basis(q) * s).get_rotation_quaternion()
+
+
+## World-space mirror of the source leg's chain, built on a supplied
+## BODY world rotation; returns every joint's mirrored world rotation.
+## The component-flip maps (_mirror_author_delta) conjugate each LOCAL
+## quaternion as if the reflection planes were coordinate planes of
+## every parent frame; the leg joints' parent frames are themselves
+## rotated (Body crouch, folded bind poses), so mapped feet ended up
+## rolled/pitched by up to ~100 degrees on non-source legs while joint
+## positions still landed correctly. Reflecting each joint's WORLD
+## rotation across the anatomical planes through the rig is exact:
+## measured, every leg's mirrored KICK foot matches the source leg's
+## 9-degree extension tilt.
+func _mirrored_chain_worlds(kind: String, target_id: String,
+        at: float, body_world: Quaternion) -> Array:
+    var world: Basis = global_basis.orthonormalized()
+    var source_world: Quaternion = body_world
+    var worlds: Array = []
+    for slot in range(3):
+        var source_local: Quaternion = _authored_key_rotation(
+            str(ATTACK_NAMES[kind]),
+            str(ATTACK_LEG_BONES["leg_fl"][slot]), at)
+        source_world = (source_world * source_local).normalized()
+        var reflected: Quaternion = source_world
+        if target_id.ends_with("r"):
+            reflected = _reflect_world_rotation(
+                reflected, world.x.normalized())
+        if target_id.begins_with("leg_r"):
+            reflected = _reflect_world_rotation(
+                reflected, world.z.normalized())
+        worlds.append(reflected)
+    return worlds
+
+
+## v400: a KICK joint's local rotation taken from the world-space
+## mirror instead of the delta map: build the mirrored world chain
+## on the frame's own BODY target and convert the requested joint
+## back to a local against its mirrored parent. The component-flip
+## retarget error lives in these upper joints, whose parent frames
+## are themselves rotated (crouched BODY, folded binds).
+func _mirrored_chain_local_for_leg(kind: String, target_id: String,
+        bone_slot: int, at: float) -> Quaternion:
+    var body_local: Quaternion = _authored_body_rotation_for_attack(
+        kind, target_id, at)
+    var body_world: Quaternion = (
+        global_basis.get_rotation_quaternion() * body_local).normalized()
+    var worlds: Array = _mirrored_chain_worlds(
+        kind, target_id, at, body_world)
+    var parent_world: Quaternion = body_world if bone_slot == 0 \
+        else (worlds[bone_slot - 1] as Quaternion)
+    return (parent_world.inverse()
+        * (worlds[bone_slot] as Quaternion)).normalized()
+
+
 func _authored_rotation_for_leg(kind: String,
         target_id: String, bone_slot: int, at: float) -> Quaternion:
     var source_name: String = ATTACK_LEG_BONES["leg_fl"][bone_slot]
@@ -390,10 +459,29 @@ func _authored_rotation_for_leg(kind: String,
     # the entire sweeping limb upward. Mirror the absolute source pose for
     # SWEEP, and let the existing blend-in/out connect it to each leg's
     # own WAIT stance. Other attack types retain their original delta map.
+    # v400: the KICK shoulder and knee — where the retarget error
+    # lives — blend from the delta map to the world-space mirror
+    # across the strike (kick_mirror_weight, set from the frame's
+    # phases). The delta fold keeps the striking foot planted through
+    # the windup, which the mirrored joints cannot do on the rear
+    # legs' different bind geometry (their mirrored folds float ~1m
+    # and the chassis floor clamp cannot follow); once the leg is
+    # airborne and extending, the mirrored joints give the source
+    # leg's true orientation. The foot keeps the delta map (its local
+    # error is small once the chain above it is right). STOMP keeps
+    # the delta map for every joint: its limb is IK-driven to the
+    # aim, and only its windup keys come from here.
     if kind == "sweep":
         return _mirror_author_delta(source_action, target_id)
     var delta: Quaternion = (source_wait.inverse() * source_action).normalized()
-    return (dest_wait * _mirror_author_delta(delta, target_id)).normalized()
+    var mapped: Quaternion = (
+        dest_wait * _mirror_author_delta(delta, target_id)).normalized()
+    if kind == "kick" and bone_slot <= 1 and kick_mirror_weight > 0.0:
+        mapped = mapped.slerp(
+            _mirrored_chain_local_for_leg(
+                kind, target_id, bone_slot, at),
+            kick_mirror_weight).normalized()
+    return mapped
 
 
 func _authored_body_rotation_for_attack(kind: String, id: String,
@@ -427,6 +515,10 @@ func initial_authored_sole_height(kind: String, id: String,
     var tracked: Array[String] = ["Body"]
     for value in ATTACK_LEG_BONES[id]:
         tracked.append(str(value))
+    # The keyframe-zero sample is the grounded fold: always the pure
+    # delta map, never a leftover strike-phase mirror weight.
+    var saved_mirror_weight: float = kick_mirror_weight
+    kick_mirror_weight = 0.0
     var saved: Dictionary = {}
     for name in tracked:
         var uid: String = str(bone_uuid_by_name.get(name, ""))
@@ -447,6 +539,7 @@ func initial_authored_sole_height(kind: String, id: String,
         height = foot.to_global(sole_local).y
     for uid in saved:
         (bones[uid] as Node3D).quaternion = saved[uid]
+    kick_mirror_weight = saved_mirror_weight
     return height
 
 
@@ -464,6 +557,22 @@ func apply_authored_attack_pose(frame: Dictionary) -> void:
     var strike: float = float(frame.get("strike", 0.2))
     var recovery: float = float(frame.get("recovery", 0.5))
     var hold: float = float(frame.get("hold", 0.0))
+    # v400: the KICK shoulder blends to its world-mirrored rotation
+    # over the first 0.30s of the strike (the leg is airborne by then
+    # and reaches full extension early in the strike, so the blend
+    # must complete before it), holds it, and blends back over the
+    # first 0.30s of recovery.
+    kick_mirror_weight = 0.0
+    if kind == "kick":
+        var ramp_in: float = clampf(
+            (seconds - windup) / maxf(minf(strike, 0.30), 0.001),
+            0.0, 1.0)
+        var ramp_out: float = clampf(
+            (seconds - windup - strike - hold)
+            / maxf(minf(recovery, 0.30), 0.001), 0.0, 1.0)
+        kick_mirror_weight = (
+            (ramp_in * ramp_in * (3.0 - 2.0 * ramp_in))
+            * (1.0 - ramp_out * ramp_out * (3.0 - 2.0 * ramp_out)))
     var preparation: float = 0.0 if kind == "stomp" else windup
     var clip_time: float = clampf(
         float(frame.get("authored_time", seconds - preparation)),

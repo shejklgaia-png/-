@@ -81,7 +81,20 @@ func _run_case(battle: Node3D, id: String) -> bool:
         var foot: Node3D = leg["foot"]
         var actual: Vector3 = foot.to_global(
             leg["sole_local"] as Vector3)
-        var up_axis: Vector3 = foot.global_basis.y.normalized()
+        # v400: the model's long toe runs along the foot joint's +/-X,
+        # not -Y as this check originally assumed. Measure the toe
+        # itself from the real mesh: the direction from the joint to
+        # its mesh centre. At impact it must align with the ground
+        # normal (point straight down).
+        var up_axis: Vector3 = Vector3.ZERO
+        for child in foot.get_children():
+            if child is MeshInstance3D:
+                var piece: MeshInstance3D = child as MeshInstance3D
+                if piece.mesh != null:
+                    up_axis = (piece.to_global(
+                        piece.mesh.get_aabb().get_center())
+                        - foot.global_position).normalized()
+                    break
         if t > 0.32 and t < BRAIN.STOMP_WINDUP_SECONDS - 0.03:
             # The original authored foot angle must survive anticipation.
             var authored: Quaternion = rig.call(
@@ -115,7 +128,7 @@ func _run_case(battle: Node3D, id: String) -> bool:
             # the old Wait-pose sole marker sits along its long side.
             var foot_box: AABB = ik.call("attack_foot_aabb")
             at_impact = foot_box.position.y
-            if up_axis.dot(Vector3.UP) < 0.998:
+            if up_axis.dot(Vector3.DOWN) < 0.998:
                 _fail(id + ": long edge tilted away from ground-normal at impact")
                 return false
             var fx_center: Vector3 = ik.call("attack_contact_world")
