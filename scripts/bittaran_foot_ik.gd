@@ -184,8 +184,14 @@ func begin_attack_stance(id: String) -> void:
     stepping_pair = -1
     for leg in legs:
         var foot: Node3D = leg["foot"]
-        leg["stance_from"] = foot.to_global(leg["sole_local"] as Vector3)
-        leg["stance_rotation_from"] = (
+        # set_motion() restores local authored pivots before IK runs in
+        # this frame, so sampling foot.global_position here would read
+        # the unsolved Idle foot and cause a visible one-frame teleport.
+        # last_goal/last_rotation are the FINAL rendered contacts from
+        # the previous IK frame and form the continuous prep entry.
+        leg["stance_from"] = leg.get("last_goal",
+            foot.to_global(leg["sole_local"] as Vector3))
+        leg["stance_rotation_from"] = leg.get("last_rotation",
             foot.global_basis.get_rotation_quaternion())
         leg["stance_to"] = _home(leg, false)
         leg["stance_rotation_to"] = _rotation_home(leg)
