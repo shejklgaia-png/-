@@ -160,10 +160,44 @@ func _check_realtime_sweep(battle: Node3D) -> bool:
                                     largest = volume
                                     worst_leg = test_leg
                     if largest > 0.035:
+                        # Diagnose whether a slight independent pitch
+                        # would offer an otherwise clear return corridor.
+                        var head: Node3D = battle.get("bittaran_head")
+                        var saved: Quaternion = head.quaternion
+                        var base: Quaternion = battle.call(
+                            "_head_level_local_base_pose")
+                        var best: Array = [INF, 0.0, 0.0]
+                        var scans: Array = []
+                        for yaw_deg in [-50.0, -40.0, -25.0, 0.0,
+                                25.0, 40.0, 45.0, 55.0]:
+                            var row: Array = [yaw_deg]
+                            for pitch_deg in [-30.0, -15.0, 0.0,
+                                    15.0, 30.0]:
+                                head.quaternion = battle.call(
+                                    "_head_oriented_local_pose",
+                                    base, deg_to_rad(yaw_deg),
+                                    deg_to_rad(pitch_deg))
+                                var piece_nose: AABB = parts.call(
+                                    "get_head_swing_aabb")
+                                var cost: float = 0.0
+                                for lid in IK.LEG_PART_IDS:
+                                    var boxes: Array[AABB] = parts.call(
+                                        "get_leg_visual_mesh_boxes", lid)
+                                    for piece in boxes:
+                                        if piece_nose.intersects(piece):
+                                            cost = maxf(cost,
+                                                piece_nose.intersection(
+                                                    piece).get_volume())
+                                row.append(snappedf(cost, 0.001))
+                                if cost < float(best[0]):
+                                    best = [cost, yaw_deg, pitch_deg]
+                            scans.append(row)
+                        head.quaternion = saved
                         _fail(id + " SWEEP nose obstructs returning limb "
                             + str([return_elapsed, largest, worst_leg,
                                 yaw, nose,
-                                battle.get("head_return_safe_yaw_target")]))
+                                battle.get("head_return_safe_yaw_target"),
+                                best, scans]))
                         return false
                 # The return-angle target is chosen from clear geometry,
                 # NOT always absolute zero/25deg. Hard mechanical limits
