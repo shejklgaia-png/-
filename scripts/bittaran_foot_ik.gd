@@ -128,6 +128,9 @@ var break_chassis_pitch_radians: float = 0.0
 var head_knee_scan_elapsed: float = HEAD_KNEE_SCAN_SECONDS
 var head_knee_active: bool = false
 var attack_pose: Dictionary = {}
+# Calculated once from the authored t=0 contact pose when KICK/SWEEP
+# begins, then retained across the strike without resampling the floor.
+var initial_attack_contact_height_world: float = 0.0
 
 func set_collision_parts(parts: Node3D) -> void:
     # Use the SAME authored collider AABBs that sync_bittaran_parts() places
@@ -139,6 +142,24 @@ func set_collision_parts(parts: Node3D) -> void:
 ## IK remains the only owner of foot goals, joint lengths and knee poles.
 func set_attack_pose(pose: Dictionary) -> void:
     if attack_pose.is_empty() and not pose.is_empty() and legs.size() == 4:
+        initial_attack_contact_height_world = 0.0
+        var kind: String = str(pose.get("kind", ""))
+        if bool(pose.get("authored", false)) and (
+                kind == "kick" or kind == "sweep"):
+            var attack_id: String = str(pose.get("id", ""))
+            var index: int = LEG_PART_IDS.find(attack_id)
+            if index >= 0 and actor != null and actor.has_method(
+                    "initial_authored_sole_height"):
+                var first_height: float = float(actor.call(
+                    "initial_authored_sole_height", kind, attack_id,
+                    legs[index]["sole_local"]))
+                if is_finite(first_height):
+                    # All 4 retargeted limbs differ in actual pivot
+                    # height. Limiting the measured displacement caused
+                    # rear/other-side feet to remain visibly airborne.
+                    # The authored contact sample is finite and canonical:
+                    # use its exact initial offset, once per attack.
+                    initial_attack_contact_height_world = FLOOR_Y - first_height
         # End the previous gait in its actual contact position; attack
         # telegraphs begin from the visible, not the cached old, sole.
         for leg in legs:
@@ -154,6 +175,8 @@ func set_attack_pose(pose: Dictionary) -> void:
                 leg["stepping"] = false
         stepping_pair = -1
         cooldown = STEP_COOLDOWN_SECONDS
+    if pose.is_empty():
+        initial_attack_contact_height_world = 0.0
     attack_pose = pose.duplicate()
 
 func clear_attack_pose() -> void:
@@ -249,6 +272,17 @@ func _apply_attack_chassis_pose() -> void:
         * chassis_bone.quaternion).normalized()
     var scale_y: float = maxf(
         absf(actor.get_parent().global_basis.get_scale().y), 0.001)
+    if kind == "kick" or kind == "sweep":
+        var prepare: float = float(attack_pose.get("windup", 0.70))
+        var strike: float = float(attack_pose.get("strike", 1.0))
+        var ease_in: float = _cubic(t / maxf(prepare, 0.001))
+        var ease_out: float = 1.0 - _cubic(
+            (t - prepare - strike) / maxf(recover, 0.001))
+        # Contact height is sampled exactly ONCE at attack entry from
+        # the author's LOW initial BODY/limb pose. No mid-swing bobbing
+        # or following the moving attacking foot toward the ground.
+        actor.position.y += initial_attack_contact_height_world * (
+            ease_in * ease_out) / scale_y
     if kind == "stomp":
         # The authored STOMP clip lifts its own limb; move the chassis
         # only slightly while the other three real soles stay fixed.
@@ -422,9 +456,13 @@ func _attack_goal(leg: Dictionary, desired_rotation: Quaternion) -> Vector3:
             var lift: float = _cubic(t / maxf(windup, 0.001))
             goal = goal.lerp(overhead, lift)
         elif t <= windup + strike:
+            # Do NOT jump to a synthetic overhead goal at the beginning
+            # of the downstroke. Continue from the actual last authored
+            # windup position of the striking sole instead.
+            var top: Vector3 = leg.get("stomp_authored_windup_goal", overhead)
             var downward: float = _cubic(
                 (t - windup) / maxf(strike, 0.001))
-            goal = overhead.lerp(touchdown, downward)
+            goal = top.lerp(touchdown, downward)
         else:
             var retract: float = _cubic(
                 (t - windup - strike) / maxf(recovery, 0.001))
@@ -433,7 +471,7 @@ func _attack_goal(leg: Dictionary, desired_rotation: Quaternion) -> Vector3:
             goal.y += 0.18 * sin(PI * retract)
         goal = _reachable_stomp_goal(leg, goal, desired_rotation)
     elif kind == "kick":
-        # Keep the foot planted while the knee folds inward for 1.0s.
+        # Legacy procedural fallback for tests that do not request the authored clip.
         # On release, extend HIP-KNEE-ANKLE to the physical full reach,
         # even when the foot must leave the floor to form a straight leg.
         var straight: Vector3 = _straight_attack_goal(leg, outward,
@@ -583,6 +621,7 @@ func reset() -> void:
     head_knee_scan_elapsed = HEAD_KNEE_SCAN_SECONDS
     head_knee_active = false
     attack_pose.clear()
+    initial_attack_contact_height_world = 0.0
     front_anchor_rest.clear()
     front_extension_direction.clear()
     break_recover_start = LEG_BREAK_RECOVER_START_SECONDS
@@ -1180,8 +1219,29 @@ func advance_ik(delta: float, motion: String) -> void:
                 str(attack_pose.get("id", "")) == (
                     LEG_PART_IDS[legs.find(leg)]))
             if attacking_this_leg:
+                var attack_kind: String = str(attack_pose.get("kind", ""))
+                var attack_t: float = float(attack_pose.get("time", 0.0))
+                var attack_windup: float = float(
+                    attack_pose.get("windup", 1.25))
                 if bool(attack_pose.get("authored", false)) and (
-                        str(attack_pose.get("kind", "")) != "stomp"):
+                        attack_kind == "stomp") and attack_t <= attack_windup:
+                    # Critical: The USER's authored front-left attack
+                    # rotations (mirrored to 4 legs) own the WINDUP.
+                    # Running the 2-bone solver here had discarded the
+                    # entire keyframe motion, leaving a synthetic wobble.
+                    # Keep the authored hip/knee untouched, but point the
+                    # toe vertically until it reaches floor height.
+                    var foot: Node3D = leg["foot"]
+                    var foot_scale: Vector3 = foot.global_basis.get_scale()
+                    var desired: Quaternion = _attack_rotation(leg)
+                    foot.global_basis = Basis(desired).scaled(foot_scale)
+                    position = foot.to_global(leg["sole_local"] as Vector3)
+                    leg["stomp_authored_windup_goal"] = position
+                    leg["last_goal"] = position
+                    leg["last_rotation"] = desired
+                    continue
+                if bool(attack_pose.get("authored", false)) and (
+                        attack_kind != "stomp"):
                     # The user's keyframes ARE the attacking limb pose:
                     # solving its old procedural IK would erase them.
                     var foot: Node3D = leg["foot"]
