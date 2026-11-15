@@ -28,6 +28,12 @@ const HEAD_TRACK_MAX_YAW_DEGREES: float = 85.0
 # intersects the head. Reserve clearance before the returning shoulder.
 const HEAD_ARM_RETURN_GUARD_DEGREES: float = 45.0
 const HEAD_ARM_RETURN_MIN_YAW_DEGREES: float = 40.0
+# When a limb replants or retracts, protect the ENTIRE future return
+# sweep, not merely the current frame's collision geometry.
+const HEAD_LEG_RETURN_SAFE_YAW_DEGREES: float = 22.0
+const HEAD_LEG_RETURN_YAW_SPEED_DEGREES_PER_SECOND: float = 420.0
+const HEAD_LEG_RETURN_PITCH_SPEED_DEGREES_PER_SECOND: float = 240.0
+const HEAD_LEG_RETURN_SAFE_PITCH_DEGREES: float = 12.0
 const HEAD_TRACK_DEGREES_PER_SECOND: float = 140.0
 # HEAD looks down/up from its actual neck pivot: yaw first, then a LOCAL
 # pitch, never roll. Only the part-break anticipation and shin clearance
@@ -450,6 +456,37 @@ func _head_arm_return_yaw_limit() -> float:
             arm_return_bearing - HEAD_ARM_RETURN_GUARD_DEGREES))
     return cap
 
+## This cap is a physical mechanical limit, independent from the
+## player and the look-at filter. A returning leg receives extra space
+## *before* its animated toe enters the head's currently empty sector.
+func _head_return_clearance_active() -> bool:
+    return (bittaran_foot_ik != null and bool(
+        bittaran_foot_ik.call("legs_returning_to_stance")))
+
+
+func _head_safe_yaw_limit() -> float:
+    var degrees: float = minf(
+        HEAD_TRACK_MAX_YAW_DEGREES,
+        head_arm_return_yaw_limit_degrees)
+    if _head_return_clearance_active():
+        degrees = minf(degrees, HEAD_LEG_RETURN_SAFE_YAW_DEGREES)
+    return deg_to_rad(degrees)
+
+
+func _clamp_head_to_mechanical_limits() -> void:
+    var limit: float = _head_safe_yaw_limit()
+    # Enforce even when the target is point-blank (look-target HOLD),
+    # animation is paused, or we are already transitioning into DOWN.
+    head_look_filtered_yaw = clampf(
+        head_look_filtered_yaw, -limit, limit)
+    boss_head_yaw = clampf(boss_head_yaw, -limit, limit)
+    if _head_return_clearance_active():
+        var pitch_limit: float = deg_to_rad(
+            HEAD_LEG_RETURN_SAFE_PITCH_DEGREES)
+        boss_head_pitch = clampf(
+            boss_head_pitch, -pitch_limit, pitch_limit)
+
+
 func _head_penetration_depth(base_pose: Quaternion,
         relative_yaw: float, relative_pitch: float = NAN) -> float:
     if bittaran_head == null or target_parts == null:
@@ -545,11 +582,11 @@ func _update_head_look_target(delta: float) -> void:
     # Never interpolate the two +/-PI representatives directly.
     raw_bearing = near_bearing + wrapf(
         raw_bearing - near_bearing, -PI, PI) * near_weight
-    var mechanical_limit: float = deg_to_rad(
-        minf(HEAD_TRACK_MAX_YAW_DEGREES,
-            head_arm_return_yaw_limit_degrees))
-    var raw_yaw: float = clampf(raw_bearing,
-        -mechanical_limit, mechanical_limit)
+    var mechanical_limit: float = _head_safe_yaw_limit()
+    # The return has priority over target acquisition, regardless of
+    # whether the returning shin currently touches the face.
+    var raw_yaw: float = (0.0 if _head_return_clearance_active()
+        else clampf(raw_bearing, -mechanical_limit, mechanical_limit))
     if not head_look_initialized:
         head_look_filtered_yaw = raw_yaw
         head_look_initialized = true
@@ -881,6 +918,8 @@ func _aim_bittaran_head(delta: float) -> void:
     # Once 70% of the ACTUAL eased rise is complete, softly fade in the
     # ordinary collision-aware look-at without a sudden yaw jump.
     var head_track_weight: float = _head_recovery_follow_weight()
+    var returning: bool = _head_return_clearance_active()
+    _clamp_head_to_mechanical_limits()
     _update_head_vertical_follow(delta, head_track_weight)
     if bittaran_foot_ik != null and bool(
             bittaran_foot_ik.call("down_pose_active")):
@@ -895,6 +934,7 @@ func _aim_bittaran_head(delta: float) -> void:
             boss_head_pitch = move_toward(boss_head_pitch, 0.0,
                 deg_to_rad(HEAD_PITCH_TURN_DEGREES_PER_SECOND)
                 * maxf(delta, 0.0))
+            _clamp_head_to_mechanical_limits()
             bittaran_head.quaternion = _head_oriented_local_pose(
                 boss_head_default_rotation, boss_head_yaw, boss_head_pitch)
             head_collision_filtered_depth = 0.0
@@ -923,18 +963,23 @@ func _aim_bittaran_head(delta: float) -> void:
         if head_track_weight >= 0.99
         else HEAD_TRACK_RECOVERY_DEGREES_PER_SECOND)
     var proposed_pitch: float = move_toward(boss_head_pitch,
-        head_look_filtered_pitch * head_track_weight,
-        deg_to_rad(pitch_speed) * maxf(delta, 0.0)
-        * head_track_weight)
+        (0.0 if returning else head_look_filtered_pitch * head_track_weight),
+        deg_to_rad(
+            HEAD_LEG_RETURN_PITCH_SPEED_DEGREES_PER_SECOND
+            if returning else pitch_speed)
+            * maxf(delta, 0.0) * head_track_weight)
     var before_pitch_depth: float = _head_penetration_depth(
         base_pose, boss_head_yaw, boss_head_pitch)
     boss_head_pitch = _head_limit_pitch_to_10cm(
         base_pose, boss_head_pitch, proposed_pitch, boss_head_yaw,
         before_pitch_depth)
-    var wanted: float = head_look_filtered_yaw
+    var wanted: float = (
+        0.0 if returning else head_look_filtered_yaw)
     # HEAD slows smoothly from first contact and cannot turn deeper
     # into a 10cm overlap. Tracking away from the leg remains free.
-    var degrees_per_second: float = _head_recovery_turn_speed()
+    var degrees_per_second: float = (
+        HEAD_LEG_RETURN_YAW_SPEED_DEGREES_PER_SECOND
+        if returning else _head_recovery_turn_speed())
     var proposed_yaw: float = move_toward(
         boss_head_yaw, wanted * head_track_weight,
         deg_to_rad(degrees_per_second) * maxf(delta, 0.0)
@@ -953,6 +998,7 @@ func _aim_bittaran_head(delta: float) -> void:
     var next_yaw: float = lerpf(boss_head_yaw, proposed_yaw, motion_scale)
     boss_head_yaw = _head_limit_yaw_to_30cm(
         base_pose, boss_head_yaw, next_yaw, current_depth)
+    _clamp_head_to_mechanical_limits()
     bittaran_head.quaternion = _head_oriented_local_pose(
         base_pose, boss_head_yaw, boss_head_pitch)
     # Resolve pitched HEAD vs animated leg mesh clearance AFTER
