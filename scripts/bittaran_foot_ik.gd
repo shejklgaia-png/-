@@ -326,7 +326,7 @@ func _attack_rotation(leg: Dictionary) -> Quaternion:
                 leg["sole_local"] as Vector3).y
             var nominal: float = lerpf(
                 maxf(target.y + 0.35, 1.05), FLOOR_Y, fall)
-            var height: float = maxf(real_height, nominal)
+            var height: float = minf(real_height, nominal)
             contact = (1.0 - smoothstep(0.06, 0.32, height))
         var toe: Quaternion = flat.slerp(tilted, contact)
         var retract: float = _cubic(
