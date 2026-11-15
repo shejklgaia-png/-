@@ -941,6 +941,8 @@ func _current_lock_aim_world() -> Vector3:
 func _apply_target_part_damage(kind: String, raw_attack: int, raw_break: float,
         weak_stagger: float, extension: float) -> Dictionary:
     var hit_id: String = locked_target_part_id
+    var active_at_hit: bool = (bittaran_rig != null and not str(
+        bittaran_rig.get("active_authored_attack")).is_empty())
     var alive_before: bool = target_hp > 0
     var result: Dictionary = super._apply_target_part_damage(
         kind, raw_attack, raw_break, weak_stagger, extension)
@@ -961,6 +963,13 @@ func _apply_target_part_damage(kind: String, raw_attack: int, raw_break: float,
             var head_world: Vector3 = target_parts.call("get_part_aim_world", "head")
             bittaran_foot_ik.call("start_leg_break_slide", hit_id, head_world.y,
                 int(result.get("broken_legs", 0)) >= 4)
+            # Sole anchors MUST be sampled from the real attack contact
+            # BEFORE resetting its raised/sweeping limb. Otherwise
+            # broken-limb fall begins with a sudden foot teleport.
+            # Reset all arms/legs to the genuine Wait skeleton pose at
+            # the DOWN transition, never keep the authored strike keys.
+            if active_at_hit and bittaran_rig != null:
+                bittaran_rig.call("cancel_authored_attack_for_down")
             # The base training boss starts a generic 1s/3.5s animation
             # freeze on every broken limb. Bittaran's longer physical
             # knockdown replaces it entirely; otherwise 2nd+ breaks
@@ -975,6 +984,9 @@ func _apply_target_part_damage(kind: String, raw_attack: int, raw_break: float,
         bittaran_attack_frame.clear()
         if bittaran_foot_ik != null:
             bittaran_foot_ik.call("clear_attack_pose")
+        if active_at_hit and bittaran_rig != null and not bool(
+                result.get("broken", false)):
+            bittaran_rig.call("cancel_authored_attack_for_down")
         target_respawn_remaining = BOSS_DEATH_RESPAWN_SECONDS
         _start_boss_death_fx()
     return result
