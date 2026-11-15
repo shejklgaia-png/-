@@ -154,8 +154,12 @@ func set_attack_pose(pose: Dictionary) -> void:
                     "initial_authored_sole_height", kind, attack_id,
                     legs[index]["sole_local"]))
                 if is_finite(first_height):
-                    initial_attack_contact_height_world = clampf(
-                        FLOOR_Y - first_height, -5.00, 3.00)
+                    # All 4 retargeted limbs differ in actual pivot
+                    # height. Limiting the measured displacement caused
+                    # rear/other-side feet to remain visibly airborne.
+                    # The authored contact sample is finite and canonical:
+                    # use its exact initial offset, once per attack.
+                    initial_attack_contact_height_world = FLOOR_Y - first_height
         # End the previous gait in its actual contact position; attack
         # telegraphs begin from the visible, not the cached old, sole.
         for leg in legs:
