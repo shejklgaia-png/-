@@ -72,8 +72,22 @@ func _run() -> void:
                         return
                     authored_checked = true
                 if bool(frame.get("impact", false)):
-                    var up: Vector3 = foot.global_basis.y.normalized()
-                    if up.dot(Vector3.UP) < 0.995:
+                    # v400: the model's long toe runs along the foot
+                    # joint's +/-X, not -Y as originally assumed. The
+                    # short tip is horizontal exactly when the toe
+                    # itself points straight down; measure the toe
+                    # from the real mesh (joint to mesh centre).
+                    var toe_axis: Vector3 = Vector3.ZERO
+                    for child in foot.get_children():
+                        if child is MeshInstance3D:
+                            var piece: MeshInstance3D = (
+                                child as MeshInstance3D)
+                            if piece.mesh != null:
+                                toe_axis = (piece.to_global(
+                                    piece.mesh.get_aabb().get_center())
+                                    - foot.global_position).normalized()
+                                break
+                    if toe_axis.dot(Vector3.DOWN) < 0.995:
                         _fail(id + ": STOMP short tip not horizontal at hit")
                         return
                     var bottom: float = float(ik.call(

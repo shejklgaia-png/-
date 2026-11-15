@@ -115,8 +115,22 @@ func _case(battle: Node3D, id: String, kind: String) -> bool:
         var sole: Vector3 = active_foot.to_global(
             active["sole_local"] as Vector3)
         if kind == "stomp":
-            if active_foot.global_basis.y.normalized().dot(
-                    Vector3.UP) < 0.998 and t >= windup + strike - DT \
+            # v400: the model's long toe runs along the foot joint's
+            # +/-X, not -Y as originally assumed. Measure the toe
+            # itself from the real mesh (joint to mesh centre): from
+            # the strike's end through the hold it must stay
+            # perpendicular to the ground (pointing straight down).
+            var toe_axis: Vector3 = Vector3.ZERO
+            for child in active_foot.get_children():
+                if child is MeshInstance3D:
+                    var piece: MeshInstance3D = child as MeshInstance3D
+                    if piece.mesh != null:
+                        toe_axis = (piece.to_global(
+                            piece.mesh.get_aabb().get_center())
+                            - active_foot.global_position).normalized()
+                        break
+            if toe_axis.dot(Vector3.DOWN) < 0.998 \
+                    and t >= windup + strike - DT \
                     and t <= windup + strike + hold:
                 _fail(id + ": long foot edge not perpendicular to ground")
                 return false
