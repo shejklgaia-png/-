@@ -95,8 +95,8 @@ func _run() -> void:
             float(battle.get("boss_head_yaw")))
     var chosen: float = float(support["head_knee_target"])
     var actual_bend: float = float(support["head_knee_bend"])
-    var moved: float = (support["lower"] as Node3D
-        ).global_position.distance_to(bend_start)
+    var folded_knee: Node3D = support["lower"] as Node3D
+    var moved: float = folded_knee.global_position.distance_to(bend_start)
     ik.set("collision_parts", original_parts)
     probe.queue_free()
     if chosen < 0.35 or actual_bend < 0.25 or moved < 0.015:
