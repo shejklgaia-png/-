@@ -1316,6 +1316,36 @@ func advance_ik(delta: float, motion: String) -> void:
                         # Sole-only checks miss the opposite long-edge
                         # corner during a kick or lateral sweep.
                         var bottom: float = _foot_mesh_lowest_y(foot)
+                        # The BODY floor clamp can lift the authored
+                        # low KICK/SWEEP preparation by several centimetres.
+                        # Re-seat the active striking foot only during the
+                        # FINAL 0.12s of the original 0.70s windup. Keep the
+                        # chassis above ground and the other three feet
+                        # world-anchored; from the strike boundary onward
+                        # the original authored limb is free to swing.
+                        var windup: float = float(
+                            attack_pose.get("windup", 0.70))
+                        if t <= windup and t >= windup - 0.12 and (
+                                bottom > FLOOR_Y + 0.004):
+                            var contact_mix: float = _cubic(
+                                (t - (windup - 0.12)) / 0.12)
+                            var lower: float = maxf(
+                                bottom - FLOOR_Y - 0.003, 0.0)
+                            var ground_goal: Vector3 = (
+                                foot.to_global(leg["sole_local"])
+                                + Vector3.DOWN * lower * contact_mix)
+                            leg["last_error"] = _solve(
+                                leg, ground_goal, authored_rotation)
+                            bottom = _foot_mesh_lowest_y(foot)
+                            # A fully extended limb cannot always reach
+                            # the new ground contact after the chassis
+                            # collision lift. Guarantee the real mesh
+                            # foot touches without dragging the BODY down.
+                            if contact_mix >= 0.999 and (
+                                    bottom > FLOOR_Y + 0.003):
+                                foot.global_position += Vector3.DOWN * (
+                                    bottom - FLOOR_Y - 0.003)
+                                bottom = _foot_mesh_lowest_y(foot)
                         if bottom < FLOOR_Y - 0.001:
                             for attempt in range(2):
                                 var required: float = maxf(0.0,
