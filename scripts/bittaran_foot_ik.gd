@@ -47,6 +47,12 @@ const RECOVERY_FOOT_CATCHUP_THRESHOLD_METERS: float = 0.16
 const MAX_TELEPORT_METERS: float = 1.50
 const MAX_YAW_SNAP_RADIANS: float = 1.4
 const IK_REACH_MARGIN_METERS: float = 0.002
+# v406: KICK strike shortening, calibrated with bittaran_rig's
+# KICK_REACH_BASE_METERS / KICK_REACH_PER_FACTOR (the target
+# hip->foot XZ length is BASE + reach_factor * PER, i.e. the
+# locked aim distance + the rig's aim margin when unclamped).
+const KICK_REACH_BASE_METERS: float = 2.30
+const KICK_REACH_PER_FACTOR: float = 3.2
 # When the chest turns beyond the planted foot's stance bearing, wrap
 # its knee pole around the hip-to-ankle axis to make a controlled HELIX,
 # instead of stretching one unchanging flat knee plane. Bone lengths and
@@ -354,6 +360,7 @@ func clear_attack_pose() -> void:
         leg.erase("attack_exit_rotation")
         leg.erase("attack_exit_lift_world")
         leg.erase("attack_entry_goal")
+        leg.erase("authored_pole_active")
 
 func available_attack_feet() -> Dictionary:
     var result: Dictionary = {}
@@ -1103,12 +1110,15 @@ func _solve(leg: Dictionary, sole_goal: Vector3, desired_rotation: Quaternion) -
     var sideways: float = sqrt(maxf(0.0,
         upper_length * upper_length - along * along))
     var pole: Vector3 = actor.global_basis * (leg["pole_local"] as Vector3)
-    if not attack_pose.is_empty() and bool(attack_pose.get("authored", false)) \
+    if (not attack_pose.is_empty() and bool(attack_pose.get("authored", false)) \
             and str(attack_pose.get("kind", "")) == "stomp" \
-            and LEG_PART_IDS[legs.find(leg)] == str(attack_pose.get("id", "")):
+            and LEG_PART_IDS[legs.find(leg)] == str(attack_pose.get("id", ""))) \
+            or bool(leg.get("authored_pole_active", false)):
         # The animated front-left knee describes the intended bend plane.
         # Keep that authored pole while IK moves the foot toward SERA's
         # live head. This preserves the clip's keyframed windup silhouette.
+        # v406: the same authored pole serves the KICK reach solve, so a
+        # shortened strike bends exactly in the authored plane.
         pole = knee - hip
     pole -= direction * pole.dot(direction)
     if pole.length_squared() < 0.00001:
@@ -1154,7 +1164,10 @@ func _solve(leg: Dictionary, sole_goal: Vector3, desired_rotation: Quaternion) -
             if escape.length_squared() > 0.00001:
                 pole = pole.slerp(escape.normalized(), sideways_bend).normalized()
     # The planted-foot kick winds the knee inward without sliding the sole.
-    if not attack_pose.is_empty() and str(attack_pose.get("kind", "")) == "kick":
+    # v406: skipped while the reach solve is bending this leg in its
+    # authored plane; the block still shapes the recovery solves.
+    if not attack_pose.is_empty() and str(attack_pose.get("kind", "")) == "kick" \
+            and not bool(leg.get("authored_pole_active", false)):
         var active_index: int = LEG_PART_IDS.find(
             str(attack_pose.get("id", "")))
         if active_index >= 0 and leg["upper"] == legs[active_index]["upper"]:
@@ -1742,6 +1755,10 @@ func advance_ik(delta: float, motion: String) -> void:
                     var freeze_end: float = end + hold
                     var authored_rotation: Quaternion = (
                         foot.global_basis.get_rotation_quaternion())
+                    # v406: the reach-solve pole flag is per-tick; the
+                    # freeze branch below sets it only on ticks where
+                    # the shortened KICK actually goes through _solve.
+                    leg["authored_pole_active"] = false
                     if t <= freeze_end:
                         # Let the authored shoulder/knee/foot keys play,
                         # correcting ONLY frames where a rotated foot's
@@ -1819,11 +1836,46 @@ func advance_ik(delta: float, motion: String) -> void:
                                 FLOOR_Y + 0.003 - bottom)
                         position = foot.to_global(leg["sole_local"])
                         rotation = foot.global_basis.get_rotation_quaternion()
+                        # v406: shorten an over-extended KICK along its
+                        # own hip->foot ray and let _solve bend the
+                        # knee in the authored plane (see _solve's
+                        # authored-pole override). The v404 pose
+                        # slerp rotated the leg through the floor and
+                        # the floor lift above then hoisted the hip
+                        # by up to 2.5m for the whole strike/hold.
+                        # Engages only once the authored extension
+                        # passes the target length, so the strike
+                        # path, direction and foot orientation stay
+                        # authored; at full reach it never engages.
+                        var solve_for_reach: bool = false
+                        if attack_kind == "kick" and (
+                                t >= attack_windup):
+                            var reach_factor: float = float(
+                                actor.get("kick_reach_factor"))
+                            if reach_factor < 0.999:
+                                var hip_pos: Vector3 = (
+                                    leg["upper"] as Node3D
+                                    ).global_position
+                                var ray: Vector3 = (
+                                    foot.global_position - hip_pos)
+                                var ray_xz: float = Vector2(
+                                    ray.x, ray.z).length()
+                                var target_xz: float = (
+                                    KICK_REACH_BASE_METERS
+                                    + reach_factor
+                                    * KICK_REACH_PER_FACTOR)
+                                if ray_xz > target_xz + 0.001:
+                                    position += hip_pos + ray * (
+                                        target_xz / ray_xz) \
+                                        - foot.global_position
+                                    solve_for_reach = true
                         leg["attack_exit_goal"] = position
                         leg["attack_exit_rotation"] = rotation
                         leg["last_goal"] = position
                         leg["last_rotation"] = rotation
-                        continue
+                        if not solve_for_reach:
+                            continue
+                        leg["authored_pole_active"] = true
                     # After the exact 1.5s KICK hold, or immediately after
                     # SWEEP's strike, blend from the LAST grounded pose,
                     # not the newly resampled/rest-keyed pose (no jump).
