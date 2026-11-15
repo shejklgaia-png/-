@@ -48,6 +48,12 @@ func _run_case(battle: Node3D, id: String) -> bool:
             lateral = -0.35
         elif tick >= 60:
             lateral = 1.80
+        if tick >= 76:
+            # The swing has already frozen its target. Dodge out of the
+            # shockwave so this tracking regression cannot trigger a
+            # player KO/respawn in an earlier leg case and clear the IK
+            # attack pose before the impact-contact assertion.
+            lateral = 14.0
         player.global_position = Vector3(
             standing.x + lateral, 0.0, standing.z)
         battle.call("_advance_target_motion", DT)
@@ -108,7 +114,8 @@ func _run_case(battle: Node3D, id: String) -> bool:
                 return false
             var fx_center: Vector3 = ik.call("attack_contact_world")
             if fx_center.distance_to(actual) > 0.0002:
-                _fail(id + ": impact FX point did not use real sole")
+                _fail(id + ": impact FX point did not use real sole "
+                    + str([fx_center, actual, ik.get("attack_pose")]))
                 return false
     if not recovered or not saw_track or not aim_moved             or locked_aim == Vector3.INF:
         _fail(id + ": incomplete moving-head track / recovery")
