@@ -335,11 +335,11 @@ func _apply_attack_chassis_pose() -> void:
                 # enough for the two-bone limb to physically hit the floor,
                 # while the other three soles remain world-planted in IK.
                 var foot_quat: Quaternion = _attack_rotation(leg)
-                var local_sole: Vector3 = (
+                var tip_offset: Vector3 = (
                     Basis(foot_quat).scaled(foot.global_basis.get_scale())
-                    * (leg["sole_local"] as Vector3))
+                    * (leg["stomp_tip_local"] as Vector3))
                 var ankle_goal: Vector3 = Vector3(
-                    aim.x, FLOOR_Y, aim.z) - local_sole
+                    aim.x, FLOOR_Y, aim.z) - tip_offset
                 var across: Vector3 = ankle_goal - hip
                 across.y = 0.0
                 var up_reach: float = sqrt(maxf(
@@ -467,6 +467,15 @@ func _attack_goal(leg: Dictionary, desired_rotation: Quaternion) -> Vector3:
         var overhead: Vector3 = Vector3(
             aim.x, maxf(aim.y + 0.35, goal.y + 1.05), aim.z)
         var touchdown: Vector3 = Vector3(aim.x, FLOOR_Y, aim.z)
+        # IK requests the WAIT sole position, not the contact point.
+        # Offset that solver goal by the actual short toe end's distance
+        # from the old sole marker in the *current* intended toe pose.
+        var toe: Node3D = leg["foot"]
+        var tip_minus_sole: Vector3 = (
+            Basis(desired_rotation).scaled(toe.global_basis.get_scale())
+            * ((leg["stomp_tip_local"] as Vector3)
+            - (leg["sole_local"] as Vector3)))
+        touchdown -= tip_minus_sole
         if t <= windup:
             var lift: float = _cubic(t / maxf(windup, 0.001))
             goal = goal.lerp(overhead, lift)
@@ -552,6 +561,7 @@ func setup(model: Node3D) -> bool:
         legs.append({
             "upper": upper, "lower": lower, "foot": foot,
             "sole_local": sole_local,
+            "stomp_tip_local": _stomp_tip_local_point(foot),
             "pole_local": actor.global_basis.inverse() * pole.normalized(),
             "rest_sole_local": actor.to_local(foot.to_global(sole_local)),
             "rest_foot_rotation_local": actor.global_basis.get_rotation_quaternion().inverse()
@@ -650,6 +660,34 @@ func _foot_mesh_lowest_y(foot: Node3D) -> float:
                 lowest = minf(lowest,
                     piece.to_global(box.get_endpoint(corner)).y)
     return lowest
+
+
+## Centre of the short end of the LONG toe. This is the -Y mesh
+## extremity in the foot joint's coordinates, regardless of Wait pose.
+func _stomp_tip_local_point(foot: Node3D) -> Vector3:
+    var lowest: float = INF
+    var vertices: Array[Vector3] = []
+    for child in foot.get_children():
+        if not child is MeshInstance3D:
+            continue
+        var piece: MeshInstance3D = child as MeshInstance3D
+        if piece.mesh == null:
+            continue
+        var bounds: AABB = piece.mesh.get_aabb()
+        for i in range(8):
+            var vertex: Vector3 = foot.to_local(
+                piece.to_global(bounds.get_endpoint(i)))
+            vertices.append(vertex)
+            lowest = minf(lowest, vertex.y)
+    if vertices.is_empty():
+        return Vector3.ZERO
+    var centre: Vector3 = Vector3.ZERO
+    var count: float = 0.0
+    for vertex in vertices:
+        if vertex.y <= lowest + 0.015:
+            centre += vertex
+            count += 1.0
+    return centre / maxf(count, 1.0)
 
 
 func _sole_local_point(foot: Node3D) -> Vector3:
