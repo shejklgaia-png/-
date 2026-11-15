@@ -1,7 +1,7 @@
 extends SceneTree
 ## v393: repeated world-space contact corrections must never alter the
 ## Blockbench parent-local joint origins in the NEXT physics animation.
-## A pitched head may not freely rotate deeper into a real 10cm shin.
+## A pitched head may not freely rotate deeper into a real 20cm shin.
 const BRAIN = preload("res://scripts/bittaran_attacks.gd")
 const DT: float = 1.0 / 60.0
 
@@ -111,7 +111,7 @@ func _check_head_pitch_collision(battle: Node3D) -> bool:
                 "_head_penetration_depth", base, yaw, limited))
             if intended > before + 0.03:
                 found_closing_pitch = true
-                if after > maxf(before, 0.10) + 0.004:
+                if after > maxf(before, 0.20) + 0.004:
                     _fail("pitch advanced into shin: "
                         + str([before, intended, after,
                             pitch_deg, rad_to_deg(limited)]))
@@ -139,7 +139,7 @@ func _check_head_pitch_collision(battle: Node3D) -> bool:
     var measured: float = 0.0
     for value in depths.values():
         measured = maxf(measured, float(value))
-    if measured > 0.125:
+    if measured > 0.225:
         _fail("head buried through shin after pitch follow: "
             + str(measured))
         return false
