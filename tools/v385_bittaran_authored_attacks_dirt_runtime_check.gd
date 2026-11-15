@@ -4,6 +4,7 @@ extends SceneTree
 ## world-planted supports, and real earth/debris FX for every attack.
 const BRAIN = preload("res://scripts/bittaran_attacks.gd")
 const IK = preload("res://scripts/bittaran_foot_ik.gd")
+const BittaranRig = preload("res://scripts/bittaran_rig.gd")
 const DT: float = 1.0 / 60.0
 
 func _initialize() -> void:
@@ -35,7 +36,7 @@ func _run_case(battle: Node3D, id: String, kind: String) -> bool:
     if not bool(brain.call("force_start", id, kind)):
         _fail("unable to start " + kind + " for " + id)
         return false
-    var clip: String = str(rig.ATTACK_NAMES[kind])
+    var clip: String = str(BittaranRig.ATTACK_NAMES[kind])
     if not bool(rig.get("animations").has(clip)):
         _fail("missing real user clip " + clip)
         return false
@@ -118,7 +119,7 @@ func _run_case(battle: Node3D, id: String, kind: String) -> bool:
                     body.quaternion.angle_to(want) < 1.15)
             if t >= preview + 0.30 and t <= preview + 0.35:
                 var joint_name: String = str(
-                    rig.ATTACK_LEG_BONES[id][0])
+                    BittaranRig.ATTACK_LEG_BONES[id][0])
                 var joint: Node3D = rig.find_child(
                     joint_name, true, false)
                 var source: Quaternion = rig.call(
