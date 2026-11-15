@@ -12,6 +12,10 @@ const PALETTE = [
 ]
 var bones: Dictionary = {}
 var bind_rotations: Dictionary = {}
+# Parent-local pivots are immutable Blockbench rig geometry. IK may
+# translate a foot in WORLD space for saturated contact, but that must
+# never become the following frame's anatomical joint origin.
+var bind_positions: Dictionary = {}
 var animations: Dictionary = {}
 var bone_uuid_by_name: Dictionary = {}
 var attack_entry_rotations: Dictionary = {}
@@ -109,6 +113,7 @@ func _add_entry(entry: Variant, parent: Node3D, parent_origin: Vector3,
         bones[uid] = joint
         bone_uuid_by_name[joint.name] = uid
         bind_rotations[uid] = joint.quaternion
+        bind_positions[uid] = joint.position
         for child in entry.get("children", []):
             _add_entry(child, joint, origin, groups, elements)
     elif entry is String and elements.has(entry):
@@ -203,6 +208,12 @@ func apply_pose(clip_name: String, t: float) -> void:
     var tracks: Dictionary = clip.get("animators", {})
     for uid in bones.keys():
         var joint: Node3D = bones[uid]
+        if joint.name != "Head":
+            # Solve contacts only for the CURRENT rendered frame. A foot
+            # was translated globally by IK near the floor in previous
+            # frames; restore its exact authored LOCAL pivot before the
+            # next clip sample to prevent permanent bone length drift.
+            joint.position = bind_positions[uid]
         if joint.name == "Head":
             # NEVER write HEAD here. The tracking controller owns its
             # rotation continuously across Idle, Turn, Approach, attack,

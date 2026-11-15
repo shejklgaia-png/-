@@ -682,7 +682,8 @@ jobs:
           for check in tools/v38[1-9]_bittaran_*_runtime_check.gd \
               tools/v390_bittaran_*_runtime_check.gd \
               tools/v391_bittaran_*_runtime_check.gd \
-              tools/v392_bittaran_*_runtime_check.gd; do
+              tools/v392_bittaran_*_runtime_check.gd \
+              tools/v393_bittaran_*_runtime_check.gd; do
             echo "::group::$(basename "$check")"
             log="$RUNNER_TEMP/$(basename "$check").log"
             status=0

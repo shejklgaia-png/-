@@ -1,3 +1,9 @@
+## 2026-11-15 — SERA v393: Bittaran attack bone-local pivot restoration and head depth safety
+- Cache immutable parent-local Blockbench joint positions on rig creation. IK previously translated an attacking or supporting toe in world-space to seat a hit, changing its parent-local joint origin. Reset every non-Head joint local position before each apply_pose rotation sample; preserve source pivots, attack timings, keyframes, retargeting and independent Head controller.
+- Treat independently live HEAD pitch as a second collision-relevant axis: reject/bisect a pitch step before oriented HEAD/shin penetration crosses 10cm, allowing escape when already obstructed. Continue the existing YAW mesh solver afterward.
+- Dynamic knees can move into a stationary HEAD even with no new head rotation. At final pose, compare actual OBB mesh depths, search limited positive world-up displacement only if depth improves, including down-pose tracking suspension; never accumulate local neck-pivot offsets.
+- Add v393 Godot test: repeat all 12 attacks twice, assert restored local anchors and independent pitch-shin stop/roll freedom. Android visual confirmation outstanding.
+
 ## 2026-11-15 — SERA v392: Bittaran head look pitch, diagonal 45deg chest aim, authored STOMP toe
 - HEAD follows SERA by world-level yaw followed by a local pitch (no roll), replacing the v390 normal player-elevation neck translation. Down anticipation and mesh/leg clearance lifts remain.
 - On each attacking leg, the BODY tracks with a mirrored ±45deg offset from the player bearing during windup, freezes during the authored strike, and releases smoothly without rotating the root or moving planted support soles.

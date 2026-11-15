@@ -48,10 +48,14 @@ func _run() -> void:
         _fail("0.60s windup ended early")
         return
 
-    # Force a deterministic under-head foot in the FINAL turning pose.
-    # The gameplay selector must use the actual transformed sole X/Z,
-    # not its height or the original non-turning bind anchor. This
-    # fixture reproduces the exact geometric overlap after a sharp turn.
+    # Complete the final anticipation tick first: the new v393 local
+    # pivot reset correctly erases last-frame synthetic foot translations.
+    # Set the under-head fixture immediately BEFORE sampling the actual
+    # support selector, after the real 0.60s fall transition.
+    _step(rig, ik, parts)
+    if not bool(ik.call("down_pose_active")):
+        _fail("fall did not follow separate windup")
+        return
     var nose: AABB = parts.call("get_head_swing_aabb")
     var foot_legs: Array = ik.get("legs")
     var foot_leg: Dictionary = foot_legs[2]  # leg_fl
@@ -66,10 +70,11 @@ func _run() -> void:
     original_front[2] = adjusted
     ik.set("front_anchor_rest", original_front)
 
-    _step(rig, ik, parts)
-    if not bool(ik.call("down_pose_active")):
-        _fail("fall did not follow separate windup")
-        return
+    # Select from the current, real transformed sole and immediately
+    # preserve that decision through the physical down interval. Do
+    # not rely on leaving a fabricated offset in the local foot pivot.
+    parts.call("sync_bittaran_parts")
+    ik.call("_select_head_support_leg")
     var supported: String = str(ik.get("head_support_leg_id"))
     if supported != "leg_fl" or str(parts.get("head_support_leg_id")) != supported:
         _fail("XZ under-head support selection incorrect: "

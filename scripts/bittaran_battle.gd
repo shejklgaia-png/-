@@ -422,11 +422,13 @@ func _update_controller_flick_guide(delta: float) -> void:
 
 
 func _head_penetration_depth(base_pose: Quaternion,
-        relative_yaw: float) -> float:
+        relative_yaw: float, relative_pitch: float = NAN) -> float:
     if bittaran_head == null or target_parts == null:
         return 0.0
+    var checked_pitch: float = (boss_head_pitch if is_nan(relative_pitch)
+        else relative_pitch)
     bittaran_head.quaternion = _head_oriented_local_pose(
-        base_pose, relative_yaw, boss_head_pitch)
+        base_pose, relative_yaw, checked_pitch)
     var depths: Dictionary = target_parts.call(
         "get_head_leg_penetration_depths")
     var deepest: float = 0.0
@@ -600,6 +602,40 @@ func _head_limit_yaw_to_30cm(base_pose: Quaternion, from_yaw: float,
     return lerpf(from_yaw, candidate_yaw, lo)
 
 
+## PITCH is a second live tracking axis. It must pass the SAME actual
+## head-vs-shin OBB depth bound as YAW; otherwise a low SERA causes the
+## face to pitch straight INTO a stationary knee while the yaw-only
+## collision solver incorrectly reports that turning was safe.
+func _head_limit_pitch_to_10cm(base_pose: Quaternion,
+        from_pitch: float, candidate_pitch: float,
+        yaw: float, current_depth: float) -> float:
+    if absf(candidate_pitch - from_pitch) <= 0.0000001:
+        return from_pitch
+    var safe: float = (HEAD_LEG_ALLOWED_PENETRATION_METERS
+        - HEAD_TRACK_COLLISION_STOP_SAFETY_METERS)
+    var candidate_depth: float = _head_penetration_depth(
+        base_pose, yaw, candidate_pitch)
+    if candidate_depth <= safe:
+        return candidate_pitch
+    # Existing contact may deepen as the support leg animates. Allow
+    # ONLY motions which actually reduce the measured mesh penetration.
+    if current_depth >= safe:
+        return (candidate_pitch if candidate_depth < current_depth
+            - HEAD_TRACK_COLLISION_STOP_SAFETY_METERS else from_pitch)
+    if candidate_depth <= current_depth:
+        return candidate_pitch
+    var lo: float = 0.0
+    var hi: float = 1.0
+    for _i in range(HEAD_TRACK_COLLISION_SWEEP_STEPS):
+        var mid: float = (lo + hi) * 0.5
+        var candidate: float = lerpf(from_pitch, candidate_pitch, mid)
+        if _head_penetration_depth(base_pose, yaw, candidate) < safe:
+            lo = mid
+        else:
+            hi = mid
+    return lerpf(from_pitch, candidate_pitch, lo)
+
+
 func _head_smootherstep(t: float) -> float:
     # Quintic: zero first AND second derivatives at each boundary.
     # Unlike the older cubic-squared ramp this has no harsh late surge.
@@ -764,6 +800,50 @@ func _avoid_head_visual_leg_overlap(delta: float) -> void:
         head_visual_clearance_lift_world - previous_lift)
 
 
+## The yaw/pitch limit prevents new rotation-based intrusion, but a knee
+## can still move INTO an already stopped head, or a low chest can bring
+## the face through an arm without either HEAD angle changing. Search
+## small WORLD-UP displacements only when actual mesh SAT exceeds 10cm.
+## Recompute from the same absolute neck baseline on every tick; never
+## accumulate IK-style corrections in the HEAD joint's local origin.
+func _resolve_head_deep_leg_overlap() -> void:
+    if bittaran_head == null or target_parts == null:
+        return
+    var depths: Dictionary = target_parts.call(
+        "get_head_leg_penetration_depths")
+    var current: float = 0.0
+    for depth in depths.values():
+        current = maxf(current, float(depth))
+    var safe: float = HEAD_LEG_ALLOWED_PENETRATION_METERS - 0.002
+    if current <= safe:
+        return
+    var original: Vector3 = bittaran_head.global_position
+    var available: float = maxf(0.0,
+        HEAD_VISUAL_CLEARANCE_MAX_LIFT_METERS
+        - head_visual_clearance_lift_world)
+    if available <= 0.001:
+        return
+    var best_offset: float = 0.0
+    var best_depth: float = current
+    # First acceptable offset wins; if none is fully safe, use the
+    # candidate with least penetration, never blindly lift INTO a shin.
+    for fraction in [0.06, 0.13, 0.25, 0.42, 0.63, 0.82, 1.0]:
+        var offset: float = minf(float(fraction), available)
+        bittaran_head.global_position = original + Vector3.UP * offset
+        var candidate_depths: Dictionary = target_parts.call(
+            "get_head_leg_penetration_depths")
+        var candidate: float = 0.0
+        for value in candidate_depths.values():
+            candidate = maxf(candidate, float(value))
+        if candidate < best_depth - 0.001:
+            best_depth = candidate
+            best_offset = offset
+        if candidate <= safe:
+            break
+    bittaran_head.global_position = original + Vector3.UP * best_offset
+    head_visual_clearance_lift_world += best_offset
+
+
 func _aim_bittaran_head(delta: float) -> void:
     if bittaran_head == null or player == null or target_hp <= 0:
         return
@@ -790,6 +870,9 @@ func _aim_bittaran_head(delta: float) -> void:
             head_collision_filtered_depth = 0.0
             head_collision_blocked = false
             head_collision_release_elapsed = 0.0
+            # A collapsing knee can still push through the face even
+            # while look-at is disabled for the physical down pose.
+            _resolve_head_deep_leg_overlap()
             return
     # BODY may pitch or roll during an authored attack. The head stays
     # free to PITCH down at SERA without inheriting that body's roll.
@@ -809,10 +892,15 @@ func _aim_bittaran_head(delta: float) -> void:
     var pitch_speed: float = (HEAD_PITCH_TURN_DEGREES_PER_SECOND
         if head_track_weight >= 0.99
         else HEAD_TRACK_RECOVERY_DEGREES_PER_SECOND)
-    boss_head_pitch = move_toward(boss_head_pitch,
+    var proposed_pitch: float = move_toward(boss_head_pitch,
         head_look_filtered_pitch * head_track_weight,
         deg_to_rad(pitch_speed) * maxf(delta, 0.0)
         * head_track_weight)
+    var before_pitch_depth: float = _head_penetration_depth(
+        base_pose, boss_head_yaw, boss_head_pitch)
+    boss_head_pitch = _head_limit_pitch_to_10cm(
+        base_pose, boss_head_pitch, proposed_pitch, boss_head_yaw,
+        before_pitch_depth)
     var wanted: float = head_look_filtered_yaw
     # HEAD slows smoothly from first contact and cannot turn deeper
     # into a 10cm overlap. Tracking away from the leg remains free.
@@ -840,6 +928,7 @@ func _aim_bittaran_head(delta: float) -> void:
     # Resolve pitched HEAD vs animated leg mesh clearance AFTER
     # final collision-constrained yaw and BEFORE target_parts.sync().
     _avoid_head_visual_leg_overlap(delta)
+    _resolve_head_deep_leg_overlap()
 
 
 func _push_player_out_of_downed_body(delta: float) -> void:
