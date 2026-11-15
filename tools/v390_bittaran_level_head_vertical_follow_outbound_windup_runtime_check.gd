@@ -52,8 +52,11 @@ func _check_head_height(battle: Node3D) -> bool:
                 + " expected " + str(desired_height))
             return false
         var rest_world: Vector3 = parent.to_global(home)
-        if absf(head.global_position.y - rest_world.y - offset) > 0.005:
-            _fail("HEAD Y offset was not applied along WORLD UP")
+        var clearance: float = float(
+            battle.get("head_visual_clearance_lift_world"))
+        if absf(head.global_position.y - rest_world.y - offset -
+                clearance) > 0.005:
+            _fail("HEAD height/visual-shin clearance did not move on WORLD UP")
             return false
         var delta: Vector3 = head.global_position - rest_world
         if Vector2(delta.x, delta.z).length() > 0.005:
