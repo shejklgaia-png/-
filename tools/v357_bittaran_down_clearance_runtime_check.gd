@@ -1,6 +1,6 @@
 extends SceneTree
 ## v357: far-side player-center flick, downed torso evacuation, lateral
-## foot-side clearance, aimed head that cannot intersect a visual leg, and
+## foot-side clearance, aimed head with <=20cm real shin depth, and
 ## no negative-Y SERA capsule during a collapsing boss's physics ticks.
 const DT: float = 1.0 / 60.0
 const CLEARANCE = preload("res://scripts/bittaran_down_clearance.gd")
@@ -12,21 +12,22 @@ func _fail(message: String) -> void:
     push_error("V357_BITTARAN_FAIL: " + message)
     quit(1)
 
-func _head_clear(parts: Node3D, resting: Dictionary) -> bool:
-    var tip: AABB = (parts.call("get_head_swing_aabb") as AABB).grow(0.05)
+func _head_clear(parts: Node3D, _resting: Dictionary) -> bool:
+    # v395 permits up to 20cm of real oriented-mesh overlap and makes
+    # the LEG knee bend first. The old regression mixed world AABB
+    # intersection VOLUME (m³) with head_neutral_overlap DEPTH (m),
+    # which could never prove collision clearance. Validate the actual
+    # shared world-space penetration rule for all four live limbs.
+    var measured: Dictionary = parts.call("get_head_leg_penetration_depths")
+    if measured.size() != 4:
+        return false
     for id in ["leg_fl", "leg_fr", "leg_rl", "leg_rr"]:
-        var leg: AABB = parts.call("get_leg_visual_aabb", id)
-        var current: float = 0.0
-        if leg.has_volume() and tip.intersects(leg):
-            current = tip.intersection(leg).get_volume()
-        if current > float(resting.get(id, 0.0)) + 0.03501:
-            print("V390_HEAD_CLEAR_DIAGNOSTIC: " + str({
+        var depth: float = float(measured.get(id, INF))
+        if not is_finite(depth) or depth > 0.205:
+            print("V396_HEAD_CLEAR_DEPTH_DIAGNOSTIC: " + str({
                 "id": id,
-                "volume": current,
-                "baseline": float(resting.get(id, 0.0)),
-                "head_box": tip,
-                "leg_box": leg,
-                "head_floor": tip.position.y
+                "depth_m": depth,
+                "max_m": 0.20
             }))
             return false
     return true
