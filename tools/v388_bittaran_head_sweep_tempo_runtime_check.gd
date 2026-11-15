@@ -1,6 +1,6 @@
 extends SceneTree
-## SERA v388: SWEEP returns from authored t=0.50 with 0.60x
-## sampling for 0.70 real seconds, then plays at 1.0x. Independently
+## SERA v390: SWEEP slows its FINAL 0.70 REAL seconds BEFORE source
+## outbound t=0.50 at 0.20x, then returns at 1.0x. Independently
 ## controlled HEAD must never be overwritten by ANY motion update.
 const BRAIN = preload("res://scripts/bittaran_attacks.gd")
 const DT: float = 1.0 / 60.0
@@ -27,16 +27,16 @@ func _check_sweep_timeline(battle: Node3D) -> bool:
     if not _expect_close(BRAIN.SWEEP_SOURCE_STRIKE_SECONDS, 1.50,
             "authored duration preserved"):
         return false
-    if not _expect_close(BRAIN.SWEEP_STRIKE_SECONDS, 1.78,
+    if not _expect_close(BRAIN.SWEEP_STRIKE_SECONDS, 2.06,
             "time added by slowdown"):
         return false
     if not bool(brain.call("force_start", "leg_fl", "sweep")):
         _fail("unable to begin authored sweep")
         return false
-    var times: Array = [0.20, 0.499, 0.50, 0.85, 1.199,
-        1.20, 1.30, 1.78]
-    var authored: Array = [0.20, 0.499, 0.50, 0.71, 0.9194,
-        0.92, 1.02, 1.50]
+    var times: Array = [0.20, 0.359, 0.36, 0.56, 0.71,
+        1.059, 1.06, 1.30, 2.06]
+    var authored: Array = [0.20, 0.359, 0.36, 0.40, 0.43,
+        0.4998, 0.50, 0.74, 1.50]
     for i in range(times.size()):
         brain.set("elapsed", BRAIN.SWEEP_WINDUP_SECONDS + float(times[i]))
         var frame: Dictionary = brain.call("advance", 0.0,
@@ -47,16 +47,16 @@ func _check_sweep_timeline(battle: Node3D) -> bool:
         if not _expect_close(float(frame.get("authored_time", -1.0)),
                 float(authored[i]), "time warp sample " + str(times[i])):
             return false
-        var expected_rate: float = (0.60 if float(times[i]) >= 0.50 and
-            float(times[i]) < 1.20 else 1.0)
+        var expected_rate: float = (0.20 if float(times[i]) >= 0.36 and
+            float(times[i]) < 1.06 else 1.0)
         if not _expect_close(float(frame.get(
                 "authored_playback_speed", -1.0)), expected_rate,
                 "speed interval " + str(times[i])):
             return false
-        if float(times[i]) > 0.499 and float(times[i]) < 1.78:
+        if float(times[i]) > 0.359 and float(times[i]) < 2.06:
             # Verify real rig sampling, not only timeline math. The
             # source's front-left rotational keys do not use linear time
-            # after t=0.50 because of the outbound/return slowdown.
+            # near t=0.50 because of the delayed outbound windup.
             rig.call("apply_authored_attack_pose", frame)
             var upper: Node3D = rig.find_child(
                 "FrontLeg_L", true, false) as Node3D
@@ -69,8 +69,8 @@ func _check_sweep_timeline(battle: Node3D) -> bool:
                     + " expected " + str(expected) + " angle "
                     + str(upper.quaternion.angle_to(expected)))
                 return false
-    # Original 1.50 authored seconds are played in 1.78 REAL seconds.
-    # 0.70 of those real seconds are at exactly 60% speed.
+    # Original 1.50 authored seconds are played in 2.06 REAL seconds.
+    # The final 0.70 REAL seconds BEFORE the turnaround are at 20%.
     return true
 
 
@@ -158,8 +158,9 @@ func _run() -> void:
     if not _check_head_ownership(battle):
         return
     print("GODOT_V388_HEAD_SWEEP_TEMPO_PASS: authored sweep t=0.5 "
-        + "turnaround, 0.6x for 0.7 real seconds, speed 1.0 afterward, "
-        + "full source t=1.5 in 1.78 real seconds, rig actual source "
+        + "turnaround, outbound ending slowed to 0.2x for 0.7 real "
+        + "seconds, return at 1.0x, source t=1.5 in 2.06 real "
+        + "seconds, rig actual source "
         + "joint playback, HEAD live continuity across 3 gait and 3 "
         + "attack clips, and neutral head only while physically down")
     quit(0)
