@@ -23,6 +23,11 @@ const BOSS_FAR_SIDE_ENTER_METERS: float = 0.65
 const BOSS_FAR_SIDE_EXIT_METERS: float = -0.25
 const DOWN_ESCAPE_SPEED_MPS: float = 15.0
 const HEAD_TRACK_MAX_YAW_DEGREES: float = 85.0
+# The returned/neutral FRONT ARM pivots form a mechanical head-look
+# envelope, independent of whether the currently animated arm actually
+# intersects the head. Reserve clearance before the returning shoulder.
+const HEAD_ARM_RETURN_GUARD_DEGREES: float = 45.0
+const HEAD_ARM_RETURN_MIN_YAW_DEGREES: float = 40.0
 const HEAD_TRACK_DEGREES_PER_SECOND: float = 140.0
 # HEAD looks down/up from its actual neck pivot: yaw first, then a LOCAL
 # pitch, never roll. Only the part-break anticipation and shin clearance
@@ -88,6 +93,7 @@ var boss_far_side_screen_axis: bool = false
 var boss_last_controller_axis: Vector2 = Vector2.UP
 var bittaran_head: Node3D
 var boss_head_yaw: float = 0.0
+var head_arm_return_yaw_limit_degrees: float = 65.0
 var boss_head_pitch: float = 0.0
 var head_look_filtered_pitch: float = 0.0
 var boss_head_default_rotation: Quaternion = Quaternion.IDENTITY
@@ -164,6 +170,7 @@ func _build_target() -> void:
     if bittaran_head != null:
         boss_head_default_rotation = bittaran_head.quaternion
         boss_head_rest_local_position = bittaran_head.position
+        head_arm_return_yaw_limit_degrees = _head_arm_return_yaw_limit()
         if player != null:
             head_player_rest_world_y = player.global_position.y
         head_vertical_offset_world = 0.0
@@ -421,6 +428,28 @@ func _update_controller_flick_guide(delta: float) -> void:
     super._update_controller_flick_guide(delta)
 
 
+
+## Compute the head's independent rotational ceiling from the ACTUAL
+## returning front-arm shoulder pivots in BODY-local coordinates, not the
+## instantaneous collision shape of an arm during an attack. This keeps
+## the nose inside the place where the arms will come BACK even when the
+## arms are currently swung outward and leave the head unobstructed.
+func _head_arm_return_yaw_limit() -> float:
+    if bittaran_rig == null or bittaran_head == null:
+        return HEAD_TRACK_MAX_YAW_DEGREES
+    var cap: float = HEAD_TRACK_MAX_YAW_DEGREES
+    for name in ["FrontLeg_L", "FrontLeg_R"]:
+        var arm: Node3D = bittaran_rig.find_child(
+            name, true, false) as Node3D
+        if arm == null or arm.get_parent() != bittaran_head.get_parent():
+            continue
+        var offset: Vector3 = arm.position - boss_head_rest_local_position
+        var arm_return_bearing: float = rad_to_deg(
+            absf(atan2(offset.x, -offset.z)))
+        cap = minf(cap, maxf(HEAD_ARM_RETURN_MIN_YAW_DEGREES,
+            arm_return_bearing - HEAD_ARM_RETURN_GUARD_DEGREES))
+    return cap
+
 func _head_penetration_depth(base_pose: Quaternion,
         relative_yaw: float, relative_pitch: float = NAN) -> float:
     if bittaran_head == null or target_parts == null:
@@ -516,9 +545,11 @@ func _update_head_look_target(delta: float) -> void:
     # Never interpolate the two +/-PI representatives directly.
     raw_bearing = near_bearing + wrapf(
         raw_bearing - near_bearing, -PI, PI) * near_weight
+    var mechanical_limit: float = deg_to_rad(
+        minf(HEAD_TRACK_MAX_YAW_DEGREES,
+            head_arm_return_yaw_limit_degrees))
     var raw_yaw: float = clampf(raw_bearing,
-        -deg_to_rad(HEAD_TRACK_MAX_YAW_DEGREES),
-        deg_to_rad(HEAD_TRACK_MAX_YAW_DEGREES))
+        -mechanical_limit, mechanical_limit)
     if not head_look_initialized:
         head_look_filtered_yaw = raw_yaw
         head_look_initialized = true
@@ -541,8 +572,7 @@ func _update_head_look_target(delta: float) -> void:
         yaw_step = clampf(yaw_step, -cap, cap)
     head_look_filtered_yaw = clampf(
         head_look_filtered_yaw + yaw_step,
-        -deg_to_rad(HEAD_TRACK_MAX_YAW_DEGREES),
-        deg_to_rad(HEAD_TRACK_MAX_YAW_DEGREES))
+        -mechanical_limit, mechanical_limit)
 
 
 func _head_pitch_target(delta: float) -> void:
@@ -1166,6 +1196,19 @@ func _finalize_target_pose(delta: float) -> void:
         if not attack_frame.is_empty() and bittaran_rig != null:
             bittaran_rig.call("apply_authored_attack_pose", attack_frame)
             attack_frame["authored"] = true
+        elif bittaran_rig != null and bool(bittaran_foot_ik.call(
+                "attack_down_windup_active")):
+            # The current 0.60s transition is separate from the original
+            # attack timeline. Apply it after Idle sampling and BEFORE IK.
+            # The head joint is never a target of this blend.
+            var progress: float = clampf(
+                (float(bittaran_foot_ik.get("windup_elapsed"))
+                + maxf(delta, 0.0))
+                / BittaranFootIK.LEG_BREAK_WINDUP_SECONDS, 0.0, 1.0)
+            bittaran_rig.call("apply_stomp_down_windup", progress)
+        elif bittaran_rig != null and bool(bittaran_foot_ik.call(
+                "down_pose_active")):
+            bittaran_rig.call("clear_stomp_down_windup")
         bittaran_foot_ik.call("set_attack_pose", attack_frame)
         bittaran_foot_ik.call("advance_ik", delta, bittaran_motion)
         if bittaran_head != null and player != null:
@@ -1224,8 +1267,11 @@ func _current_lock_aim_world() -> Vector3:
 func _apply_target_part_damage(kind: String, raw_attack: int, raw_break: float,
         weak_stagger: float, extension: float) -> Dictionary:
     var hit_id: String = locked_target_part_id
+    var attacking_leg_at_hit: String = (str(
+        bittaran_rig.get("authored_leg_id")) if bittaran_rig != null else "")
     var active_at_hit: bool = (bittaran_rig != null and not str(
-        bittaran_rig.get("active_authored_attack")).is_empty())
+        bittaran_rig.get("active_authored_attack")).is_empty()
+        and not attacking_leg_at_hit.is_empty())
     var alive_before: bool = target_hp > 0
     var result: Dictionary = super._apply_target_part_damage(
         kind, raw_attack, raw_break, weak_stagger, extension)
@@ -1246,13 +1292,22 @@ func _apply_target_part_damage(kind: String, raw_attack: int, raw_break: float,
             var head_world: Vector3 = target_parts.call("get_part_aim_world", "head")
             bittaran_foot_ik.call("start_leg_break_slide", hit_id, head_world.y,
                 int(result.get("broken_legs", 0)) >= 4)
-            # Sole anchors MUST be sampled from the real attack contact
-            # BEFORE resetting its raised/sweeping limb. Otherwise
-            # broken-limb fall begins with a sudden foot teleport.
-            # Reset all arms/legs to the genuine Wait skeleton pose at
-            # the DOWN transition, never keep the authored strike keys.
+            # On an INTERRUPTED attack retain the player's head tracker.
+            # Shift the authored combat BODY and striking limb to the
+            # real STOMP raised prepose over the existing separate 0.60s
+            # down anticipation, rather than resetting to Wait instantly.
+            # Non-attacking knockdowns retain their old nose-up telegraph.
             if active_at_hit and bittaran_rig != null:
-                bittaran_rig.call("cancel_authored_attack_for_down")
+                if bool(bittaran_rig.call(
+                        "begin_stomp_down_windup",
+                        attacking_leg_at_hit)):
+                    bittaran_foot_ik.call(
+                        "begin_attack_down_windup", attacking_leg_at_hit)
+                    # Stop the old swing controller but do NOT reset
+                    # the actual currently displayed joint angles.
+                    bittaran_rig.call("end_authored_attack")
+                else:
+                    bittaran_rig.call("cancel_authored_attack_for_down")
             # The base training boss starts a generic 1s/3.5s animation
             # freeze on every broken limb. Bittaran's longer physical
             # knockdown replaces it entirely; otherwise 2nd+ breaks
@@ -1267,6 +1322,10 @@ func _apply_target_part_damage(kind: String, raw_attack: int, raw_break: float,
         bittaran_attack_frame.clear()
         if bittaran_foot_ik != null:
             bittaran_foot_ik.call("clear_attack_pose")
+        if bittaran_rig != null:
+            bittaran_rig.call("clear_stomp_down_windup")
+        if bittaran_foot_ik != null:
+            bittaran_foot_ik.call("clear_attack_down_windup")
         if active_at_hit and bittaran_rig != null and not bool(
                 result.get("broken", false)):
             bittaran_rig.call("cancel_authored_attack_for_down")
@@ -1285,6 +1344,8 @@ func _reset_target_after_respawn() -> void:
     boss_far_side_screen_axis = false
     boss_last_controller_axis = Vector2.UP
     boss_head_yaw = 0.0
+    if bittaran_rig != null:
+        bittaran_rig.call("clear_stomp_down_windup")
     boss_head_pitch = 0.0
     head_look_filtered_pitch = 0.0
     boss_head_windup_start_yaw = 0.0
