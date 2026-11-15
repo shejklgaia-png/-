@@ -65,15 +65,19 @@ func _run() -> void:
         if cap < 0.0 or cap > 0.40:
             _fail("a large frame crossed the head depth cap")
             return
-    # An already deep pose may rotate only OUT of the penetration.
+    # An already deep pose may rotate only OUT of penetration.
+    # v397 restricts the final head to +/-30deg (0.524rad). The old
+    # 0.70->0.85 synthetic sample was physically impossible and its
+    # collision probe was clamped at final output. Keep all samples
+    # inside the new reachable range while preserving the invariant.
     var block: float = float(battle.call(
-        "_head_limit_yaw_to_30cm", probe.base, 0.70, 0.85, 0.35))
-    if absf(block - 0.70) > 0.00001:
+        "_head_limit_yaw_to_30cm", probe.base, 0.50, 0.52, 0.25))
+    if absf(block - 0.50) > 0.00001:
         _fail("overlapping HEAD advanced farther into leg")
         return
     var out: float = float(battle.call(
-        "_head_limit_yaw_to_30cm", probe.base, 0.70, 0.50, 0.35))
-    if absf(out - 0.50) > 0.00001:
+        "_head_limit_yaw_to_30cm", probe.base, 0.50, 0.45, 0.25))
+    if absf(out - 0.45) > 0.00001:
         _fail("HEAD was trapped when trying to retreat")
         return
     battle.set("target_parts", original_parts)
