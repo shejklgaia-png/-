@@ -187,6 +187,14 @@ func set_attack_pose(pose: Dictionary) -> void:
 
 func clear_attack_pose() -> void:
     attack_pose.clear()
+    # Clear even when the attack is cancelled INSIDE a damage callback,
+    # before the next normal set_attack_pose(empty) frame.
+    initial_attack_contact_height_world = 0.0
+    for leg in legs:
+        leg.erase("stomp_authored_windup_goal")
+        leg.erase("attack_exit_goal")
+        leg.erase("attack_exit_rotation")
+        leg.erase("attack_entry_goal")
 
 func available_attack_feet() -> Dictionary:
     var result: Dictionary = {}
