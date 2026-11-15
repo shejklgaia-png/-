@@ -352,6 +352,7 @@ func clear_attack_pose() -> void:
         leg.erase("stomp_impact_rotation")
         leg.erase("attack_exit_goal")
         leg.erase("attack_exit_rotation")
+        leg.erase("attack_exit_lift_world")
         leg.erase("attack_entry_goal")
 
 func available_attack_feet() -> Dictionary:
@@ -1163,8 +1164,25 @@ func _solve(leg: Dictionary, sole_goal: Vector3, desired_rotation: Quaternion) -
                 inward = actor.global_basis.x
             inward -= direction * inward.dot(direction)
             if inward.length_squared() > 0.00001:
+                # v402: release the inward wind over the first 0.12s
+                # of recovery instead of letting _attack_weight()'s
+                # tail drag it through the whole recovery blend. With
+                # the tail, the slerped pole crossed the hip-ankle
+                # bend-plane singularity mid-recovery on the rear
+                # legs and the solved knee flipped in one tick
+                # (measured 56 degrees on the lower joint, both rear
+                # legs, with smooth goal/hip/rotation inputs).
+                var inward_factor: float = 0.70 * _attack_weight()
+                var kick_t: float = float(attack_pose.get("time", 0.0))
+                var freeze_end: float = float(
+                    attack_pose.get("windup", 0.0)) + float(
+                    attack_pose.get("strike", 0.0)) + float(
+                    attack_pose.get("hold", 0.0))
+                if kick_t > freeze_end:
+                    inward_factor *= clampf(
+                        1.0 - (kick_t - freeze_end) / 0.12, 0.0, 1.0)
                 pole = pole.slerp(inward.normalized(),
-                    0.70 * _attack_weight()).normalized()
+                    inward_factor).normalized()
     # Swing the middle joint around the actual hip/ankle axis as the
     # grounded toe lags behind chest rotation: a helical, not planar,
     # three-dimensional knee path. No pivot translation or bone scaling.
@@ -1741,10 +1759,17 @@ func advance_ik(delta: float, motion: String) -> void:
                         # next frame, so nothing accumulates.
                         var leg_bottom: float = _leg_mesh_lowest_y(
                             leg["upper"] as Node3D)
+                        var lift_applied: float = 0.0
                         if leg_bottom < FLOOR_Y - 0.001:
+                            lift_applied = FLOOR_Y + 0.003 - leg_bottom
                             (leg["upper"] as Node3D).global_position += (
-                                Vector3.UP * (FLOOR_Y + 0.003
-                                - leg_bottom))
+                                Vector3.UP * lift_applied)
+                        # v402: remember the lift so the recovery blend
+                        # can decay it instead of dropping it in one
+                        # tick at the authored->IK handover (measured
+                        # hip teleport 0.74m and a 49-degree shoulder
+                        # snap on rear SWEEPs at that boundary).
+                        leg["attack_exit_lift_world"] = lift_applied
                         var bottom: float = _foot_mesh_lowest_y(foot)
                         # The BODY floor clamp can lift the authored
                         # low KICK/SWEEP preparation by several centimetres.
@@ -1809,6 +1834,20 @@ func advance_ik(delta: float, motion: String) -> void:
                     rotation = (leg.get("attack_exit_rotation",
                         authored_rotation) as Quaternion).slerp(
                         leg["anchor_rotation"] as Quaternion, recover_t)
+                    # v402: decay the whole-limb floor lift over the
+                    # blend instead of dropping it at the boundary.
+                    # apply_pose restored the shoulder pivot to its
+                    # bind position this tick, so re-apply the
+                    # remaining lift before _solve reads the hip: at
+                    # recover_t == 0 the hip is exactly where the
+                    # authored branch left it, and the solve geometry
+                    # now moves continuously on both sides of the
+                    # handover.
+                    var exit_lift: float = float(
+                        leg.get("attack_exit_lift_world", 0.0))
+                    if exit_lift > 0.0:
+                        (leg["upper"] as Node3D).global_position += (
+                            Vector3.UP * exit_lift * (1.0 - recover_t))
                 else:
                     rotation = _attack_rotation(leg)
                     position = _attack_goal(leg, rotation)
