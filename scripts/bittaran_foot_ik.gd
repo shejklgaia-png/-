@@ -1352,9 +1352,12 @@ func advance_ik(delta: float, motion: String) -> void:
                                 # The original IK re-solve folded KICK's
                                 # preparatory knee far past its authored
                                 # keyframe. Keep every bone's rotation;
-                                # correct only a small toe contact gap.
+                                # correct toe contact without re-folding
+                                # the knee. The rear mirrored pose can
+                                # leave a >30cm gap, so a fixed 12cm cap
+                                # is insufficient to reach the floor.
                                 foot.global_position += Vector3.DOWN * (
-                                    minf(lower, 0.12) * contact_mix)
+                                    lower * contact_mix)
                             else:
                                 leg["last_error"] = _solve(
                                     leg, ground_goal, authored_rotation)
