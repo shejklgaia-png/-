@@ -1826,7 +1826,15 @@ func advance_ik(delta: float, motion: String) -> void:
         var world_sole: Vector3 = (
             leg["foot"] as Node3D).to_global(leg["sole_local"])
         min_planted_height = minf(min_planted_height, world_sole.y)
-    if not attacking and planted_count >= 2 and min_planted_height != INF             and absf(min_planted_height) > GROUND_HOVER_THRESHOLD_METERS:
+    # Never reconcile while the v398 attack-stance preparation owns
+    # the feet: its moving diagonal is intentionally airborne and the
+    # waiting diagonal may still sit at its interrupted gait-step
+    # height, so every sole can read above the floor at once. Treating
+    # them as planted dragged the chassis down and accumulated the
+    # error in the persistent ground correction on every attack.
+    # The preparation itself lands all four soles on exact Wait
+    # contacts, so reconciliation safely resumes once it hands off.
+    if not attacking and not attack_stance_active and planted_count >= 2 and min_planted_height != INF             and absf(min_planted_height) > GROUND_HOVER_THRESHOLD_METERS:
         var correction: float = clampf(-min_planted_height,
             -GROUND_CORRECTION_MAX_PER_TICK_METERS,
             GROUND_CORRECTION_MAX_PER_TICK_METERS)
