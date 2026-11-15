@@ -13,20 +13,23 @@ func _fail(message: String) -> void:
     quit(1)
 
 func _head_clear(parts: Node3D, resting: Dictionary) -> bool:
-    var tip: AABB = (parts.call("get_head_swing_aabb") as AABB).grow(0.05)
+    # v395: HEAD is now only its frontmost 70% oriented BOX, while the
+    # individual leg component meshes remain articulated. Their broad
+    # world AABBs overlap at harmless empty/diagonal corners; do not
+    # mistake that for actual head/foot penetration. Use the exact
+    # shared 15-axis SAT depth instead, including the pre-existing
+    # real overlap as the baseline.
+    var depths: Dictionary = parts.call("get_head_leg_penetration_depths")
     for id in ["leg_fl", "leg_fr", "leg_rl", "leg_rr"]:
-        var leg: AABB = parts.call("get_leg_visual_aabb", id)
-        var current: float = 0.0
-        if leg.has_volume() and tip.intersects(leg):
-            current = tip.intersection(leg).get_volume()
-        if current > float(resting.get(id, 0.0)) + 0.03501:
-            print("V390_HEAD_CLEAR_DIAGNOSTIC: " + str({
+        var current: float = float(depths.get(id, 0.0))
+        var allowed: float = maxf(0.10, float(
+            resting.get(id, 0.0))) + 0.03501
+        if current > allowed:
+            print("V395_HEAD_CLEAR_SAT_DIAGNOSTIC: " + str({
                 "id": id,
-                "volume": current,
-                "baseline": float(resting.get(id, 0.0)),
-                "head_box": tip,
-                "leg_box": leg,
-                "head_floor": tip.position.y
+                "current_world_depth": current,
+                "allowed_world_depth": allowed,
+                "head_front_box": parts.call("get_head_front_local_box")
             }))
             return false
     return true

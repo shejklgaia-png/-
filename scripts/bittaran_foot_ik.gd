@@ -208,6 +208,35 @@ func attack_down_windup_active() -> bool:
     return not attack_down_windup_leg_id.is_empty() and windup_active()
 
 
+## A returning limb takes precedence over HEAD look-at. Detect gait
+## replants, post-strike recoveries, and the stand-up catch-up step
+## without relying on a mesh collision AFTER the head has moved into
+## the leg's future path. The attack-to-STOMP down anticipation is
+## intentionally NOT a leg returning to its neutral stance.
+func legs_returning_to_stance() -> bool:
+    if post_down_idle_remaining > 0.0 or recovery_catchup_pending_pair >= 0:
+        return true
+    for leg in legs:
+        if bool(leg.get("stepping", false)):
+            return true
+    # Physical stand-up rotates the chest while the soles stay planted.
+    # It is NOT a replant, and must retain the live HEAD reacquisition
+    # that begins at 70% upright. Catch-up steps after rise are replants.
+    if not attack_pose.is_empty():
+        var elapsed: float = float(attack_pose.get("time", 0.0))
+        var recovery_start: float = (
+            float(attack_pose.get("windup", 0.0))
+            + float(attack_pose.get("strike", 0.0))
+            + float(attack_pose.get("hold", 0.0)))
+        # Begin vacating the head's swing sector BEFORE the foot
+        # retracts. A 0.45s lead at the ordinary 140deg/s neck cap can
+        # clear the complete 62deg arm envelope without a snap when the
+        # returning shin crosses in front of the neck.
+        if elapsed >= recovery_start - 0.45:
+            return true
+    return false
+
+
 func clear_attack_down_windup() -> void:
     attack_down_windup_leg_id = ""
 
@@ -404,21 +433,23 @@ func _straight_attack_goal(leg: Dictionary, world_direction: Vector3,
         max_reach - IK_REACH_MARGIN_METERS) + sole_offset)
 
 
-# The STOMP tip's short end FACE is perpendicular to local -Y. Its
-# short sides are horizontal only at contact when local +Y points UP.
-# Preserve the source foot keys during the entire authored windup;
-# pitch the toe toward the ground-normal during the 0.25s downstroke.
-func _attack_rotation(leg: Dictionary) -> Quaternion:
+# The model's LONG TOE is its local Y axis (6.4 authored units):
+# keep that actual longest axis VERTICAL to the ground in every STOMP
+# phase, not only the final 0.25s impact pose.
+func _stomp_vertical_foot_rotation(leg: Dictionary) -> Quaternion:
     var original: Quaternion = leg["anchor_rotation"]
     var forward: Vector3 = Basis(original).z
     forward.y = 0.0
     if forward.length_squared() < 0.000001:
         forward = actor.global_basis.z
         forward.y = 0.0
-    # Desired contact pose: local -Y (long toe) down, short end surface
-    # level with the arena. It is NOT forced onto the authored windup.
-    var upright: Quaternion = Basis.looking_at(
+    return Basis.looking_at(
         -forward.normalized(), Vector3.UP).get_rotation_quaternion()
+
+
+func _attack_rotation(leg: Dictionary) -> Quaternion:
+    var original: Quaternion = leg["anchor_rotation"]
+    var upright: Quaternion = _stomp_vertical_foot_rotation(leg)
     var t: float = float(attack_pose.get("time", 0.0))
     var windup: float = float(attack_pose.get("windup", 1.0))
     var strike: float = float(attack_pose.get("strike", 0.2))
@@ -1431,19 +1462,30 @@ func advance_ik(delta: float, motion: String) -> void:
                     attack_pose.get("windup", 1.25))
                 if bool(attack_pose.get("authored", false)) and (
                         attack_kind == "stomp") and attack_t <= attack_windup:
-                    # Preserve all THREE authored leg joints during the
-                    # windup. Prematurely aligning the toe to world-up
-                    # erased the original sweep/lift shape. Capture the
-                    # real terminal keyframe as the downstroke's entry.
+                    # Preserve authored shoulder and knee keyframes but
+                    # orient the long rectangular toe VERTICALLY while
+                    # the limb rises. The old authored FOOT track laid
+                    # its long side flat until the final downstroke.
                     var foot: Node3D = leg["foot"]
-                    var authored_foot_rotation: Quaternion = (
+                    var source_rotation: Quaternion = (
                         foot.global_basis.get_rotation_quaternion())
+                    var vertical_toe_orientation: Quaternion = (
+                        _stomp_vertical_foot_rotation(leg))
+                    # Smoothly settle from the attack's entry pose, then
+                    # keep a genuinely upright toe throughout anticipation.
+                    var upright_weight: float = _cubic(
+                        attack_t / 0.18)
+                    var raised_rotation: Quaternion = (
+                        source_rotation.slerp(vertical_toe_orientation,
+                            upright_weight).normalized())
+                    foot.global_basis = Basis(raised_rotation).scaled(
+                        foot.global_basis.get_scale())
                     position = foot.to_global(leg["sole_local"] as Vector3)
                     leg["stomp_authored_windup_goal"] = position
                     leg["stomp_authored_windup_rotation"] = (
-                        authored_foot_rotation)
+                        raised_rotation)
                     leg["last_goal"] = position
-                    leg["last_rotation"] = authored_foot_rotation
+                    leg["last_rotation"] = raised_rotation
                     continue
                 if bool(attack_pose.get("authored", false)) and (
                         attack_kind != "stomp"):
@@ -1493,14 +1535,15 @@ func advance_ik(delta: float, motion: String) -> void:
                             var ground_goal: Vector3 = (
                                 foot.to_global(leg["sole_local"])
                                 + Vector3.DOWN * lower * contact_mix)
-                            if attack_kind == "kick":
-                                # The original IK re-solve folded KICK's
-                                # preparatory knee far past its authored
-                                # keyframe. Keep every bone's rotation;
-                                # correct toe contact without re-folding
-                                # the knee. The rear mirrored pose can
-                                # leave a >30cm gap, so a fixed 12cm cap
-                                # is insufficient to reach the floor.
+                            if attack_kind == "kick" or attack_kind == "sweep":
+                                # Both source-authored moving strikes use
+                                # exact joint angles. Re-solving SWEEP with
+                                # planted-foot IK had been bending the
+                                # rear/right knee into another plane and
+                                # dragging the entire toe above the floor.
+                                # Make only temporary world-space contact
+                                # corrections; v393 resets local toe
+                                # pivots before the next animation frame.
                                 foot.global_position += Vector3.DOWN * (
                                     lower * contact_mix)
                             else:
@@ -1512,8 +1555,9 @@ func advance_ik(delta: float, motion: String) -> void:
                                         (bottom - FLOOR_Y - 0.003)
                                         * contact_mix)
                             bottom = _foot_mesh_lowest_y(foot)
-                        if attack_kind == "kick" and bottom < FLOOR_Y - 0.001:
-                            # Anti-penetration without an extra knee bend.
+                        if (attack_kind == "kick" or attack_kind == "sweep")                                 and bottom < FLOOR_Y - 0.001:
+                            # Preserve source knee/foot rotations while
+                            # clearing penetrations without extra IK bends.
                             foot.global_position += Vector3.UP * (
                                 FLOOR_Y + 0.003 - bottom)
                         elif bottom < FLOOR_Y - 0.001:
@@ -1832,10 +1876,17 @@ func _head_knee_collision_cost(id: String, base_pose: Quaternion,
 
 
 func _scan_head_knee_targets(sweep_heads: Array[AABB],
-        base_pose: Quaternion, swept_poses: Array[Quaternion]) -> void:
+        base_pose: Quaternion, swept_poses: Array[Quaternion],
+        excluded_leg_id: String = "") -> void:
     var center: Vector2 = _head_knee_support_center_xz()
     for index in range(legs.size()):
         var leg: Dictionary = legs[index]
+        if LEG_PART_IDS[index] == excluded_leg_id:
+            # Source-authored attacking upper/knee/toe keys must not
+            # be re-solved by support-knee avoidance during SWEEP.
+            leg["head_knee_target"] = 0.0
+            leg["head_knee_bend"] = 0.0
+            continue
         var previous_target: float = float(leg["head_knee_target"])
         leg["head_knee_target"] = 0.0
         # Do not skip a SWINGING leg: its moving knee/upper segment can
@@ -1899,7 +1950,8 @@ func _scan_head_knee_targets(sweep_heads: Array[AABB],
 
 
 func steer_knees_for_head(delta: float, desired_head_yaw: float,
-        current_head_yaw: float = 0.0) -> void:
+        current_head_yaw: float = 0.0,
+        excluded_leg_id: String = "") -> void:
     if not ready or legs.size() != 4 or collision_parts == null \
             or head_bone == null or chassis_bone == null:
         return
@@ -1927,9 +1979,12 @@ func steer_knees_for_head(delta: float, desired_head_yaw: float,
             sweep_poses.append(pose)
             sweep_heads.append(collision_parts.call("get_head_swing_aabb"))
         head_bone.quaternion = head_pose
-        _scan_head_knee_targets(sweep_heads, head_pose, sweep_poses)
+        _scan_head_knee_targets(sweep_heads, head_pose, sweep_poses,
+            excluded_leg_id)
     var active: bool = false
     for leg in legs:
+        if excluded_leg_id == LEG_PART_IDS[legs.find(leg)]:
+            continue
         var before: float = float(leg["head_knee_bend"])
         var target: float = clampf(
             float(leg["head_knee_target"]), 0.0, HEAD_KNEE_MAX_BEND)

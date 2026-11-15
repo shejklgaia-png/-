@@ -376,13 +376,21 @@ func _mirror_author_delta(delta: Quaternion, target_id: String) -> Quaternion:
 func _authored_rotation_for_leg(kind: String,
         target_id: String, bone_slot: int, at: float) -> Quaternion:
     var source_name: String = ATTACK_LEG_BONES["leg_fl"][bone_slot]
+    var source_action: Quaternion = _authored_key_rotation(
+        str(ATTACK_NAMES[kind]), source_name, at)
+    if kind == "sweep":
+        # The four legs have DIFFERENT authored Wait rotations. Mirroring
+        # only the left-front delta and multiplying it by another limb's
+        # Wait pose tilts the sweep into a different plane (rear limbs
+        # rise and the opposite foot rolls). Reflect the ABSOLUTE source
+        # authored pose instead. Their Blockbench bind joint axes are
+        # identical and all four roots have the same world-Y hip pivot.
+        return _mirror_author_delta(source_action, target_id)
     var dest_name: String = ATTACK_LEG_BONES[target_id][bone_slot]
     var source_wait: Quaternion = _authored_key_rotation("Wait",
         source_name, 0.0)
     var dest_wait: Quaternion = _authored_key_rotation("Wait",
         dest_name, 0.0)
-    var source_action: Quaternion = _authored_key_rotation(
-        str(ATTACK_NAMES[kind]), source_name, at)
     var delta: Quaternion = (source_wait.inverse() * source_action).normalized()
     return (dest_wait * _mirror_author_delta(delta, target_id)).normalized()
 
@@ -473,6 +481,12 @@ func apply_authored_attack_pose(frame: Dictionary) -> void:
         if bone_name == "Body":
             target_rotation = _authored_key_rotation(
                 str(ATTACK_NAMES[kind]), bone_name, clip_time)
+            if kind == "sweep":
+                # The original BODY prepose leans toward FRONT-LEFT.
+                # Reflect this roll/pitch together with the striking arm,
+                # or the rear/right mirrored toe changes floor height.
+                target_rotation = _mirror_author_delta(
+                    target_rotation, id)
         else:
             var bone_slot: int = slots.find(bone_name) - 1
             target_rotation = _authored_rotation_for_leg(
