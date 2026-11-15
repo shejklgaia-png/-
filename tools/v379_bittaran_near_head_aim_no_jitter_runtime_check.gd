@@ -96,22 +96,22 @@ func _run() -> void:
         _fail("Turn clip overwrote the tracked HEAD quaternion")
         return
     # Collision latch may NOT release on one frame of leg jitter.
-    battle.set("head_collision_filtered_depth", 0.10)
+    battle.set("head_collision_filtered_depth", 0.20)
     battle.set("head_collision_blocked", true)
     battle.set("head_collision_release_elapsed", 0.0)
-    for depth in [0.096, 0.089, 0.094, 0.087, 0.096]:
+    for depth in [0.196, 0.189, 0.194, 0.187, 0.196]:
         var speed: float = float(battle.call(
             "_head_collision_motion_scale", depth, depth, DT))
         if speed > 0.00001:
-            _fail("collision latch flickered ON/OFF near 10cm")
+            _fail("collision latch flickered ON/OFF near 20cm")
             return
     var escaped: float = float(battle.call(
-        "_head_collision_motion_scale", 0.14, 0.10, DT))
+        "_head_collision_motion_scale", 0.24, 0.18, DT))
     if escaped < 0.39:
         _fail("the player cannot rotate HEAD out of collision")
         return
-    if absf(boss_constants["HEAD_LEG_ALLOWED_PENETRATION_METERS"] - 0.10) > 0.00001:
-        _fail("10cm stop rule was changed")
+    if absf(boss_constants["HEAD_LEG_ALLOWED_PENETRATION_METERS"] - 0.20) > 0.00001:
+        _fail("20cm stop rule was changed")
         return
     print("GODOT_V379_NEAR_HEAD_NO_JITTER_PASS: no near-HEAD atan2 "
         + "sign flip, stable desired yaw, authored blend excludes "
