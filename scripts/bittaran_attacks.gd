@@ -35,6 +35,8 @@ const STOMP_RECOVERY_SECONDS: float = 0.55
 const KICK_RECOVERY_SECONDS: float = 0.60
 const SWEEP_RECOVERY_SECONDS: float = 1.40
 const BETWEEN_ATTACKS_SECONDS: float = 1.35
+# The leg-placement phase is outside every authored attack timeline.
+# Its actual duration is owned by the four-foot IK controller.
 # STOMP/KICK hold the final strike pose completely still for 1.5s.
 # SWEEP has no hold and instead eases gently back over 1.4s.
 const STOMP_POST_HIT_HOLD_SECONDS: float = 1.50
@@ -48,6 +50,7 @@ var cooldown: float = 1.0
 var next_kind_index: int = 0
 var next_leg_index: int = 0
 var hit_consumed: bool = false
+var preparing_stance: bool = false
 var stomp_aim: Vector3 = Vector3.ZERO
 var stomp_aim_valid: bool = false
 
@@ -59,6 +62,7 @@ func reset() -> void:
     next_kind_index = 0
     next_leg_index = 0
     hit_consumed = false
+    preparing_stance = false
     stomp_aim_valid = false
 
 func cancel() -> void:
@@ -67,6 +71,7 @@ func cancel() -> void:
     elapsed = 0.0
     cooldown = BETWEEN_ATTACKS_SECONDS
     hit_consumed = false
+    preparing_stance = false
     stomp_aim_valid = false
 
 func is_active() -> bool:
@@ -112,18 +117,30 @@ func _recovery() -> float:
         "kick": return KICK_RECOVERY_SECONDS
         _: return SWEEP_RECOVERY_SECONDS
 
-func _start(id: String, attack_kind: String) -> void:
+func _start(id: String, attack_kind: String,
+        with_stance_preparation: bool = false) -> void:
     leg_id = id
     kind = attack_kind
     elapsed = 0.0
     hit_consumed = false
     stomp_aim_valid = false
+    preparing_stance = with_stance_preparation
+
 
 func force_start(id: String, attack_kind: String) -> bool:
-    # Public deterministic entry point for the full twelve-variant CI test.
+    # Legacy deterministic clip tests start straight at authored t=0.
+    # Actual AI selections always use _start(..., true) below.
     if not LEG_IDS.has(id) or not ATTACK_KINDS.has(attack_kind):
         return false
-    _start(id, attack_kind)
+    _start(id, attack_kind, false)
+    return true
+
+
+func force_start_with_stance(id: String, attack_kind: String) -> bool:
+    # Deterministic entry into the *actual* pre-attack IK stage.
+    if not LEG_IDS.has(id) or not ATTACK_KINDS.has(attack_kind):
+        return false
+    _start(id, attack_kind, true)
     return true
 
 func _choose_leg(player_position: Vector3, feet: Dictionary) -> String:
@@ -150,7 +167,8 @@ func _choose_leg(player_position: Vector3, feet: Dictionary) -> String:
 
 func advance(delta: float, player_position: Vector3,
         available_feet: Dictionary, permitted: bool,
-        player_head_position: Vector3 = Vector3.INF) -> Dictionary:
+        player_head_position: Vector3 = Vector3.INF,
+        stance_ready: bool = false) -> Dictionary:
     if not permitted:
         if is_active():
             cancel()
@@ -164,11 +182,26 @@ func advance(delta: float, player_position: Vector3,
         var selected: String = _choose_leg(player_position, available_feet)
         if selected.is_empty():
             return {}
-        _start(selected, ATTACK_KINDS[next_kind_index])
+        _start(selected, ATTACK_KINDS[next_kind_index], true)
         stomp_aim = player_position
         stomp_aim_valid = false
         next_kind_index = (next_kind_index + 1) % ATTACK_KINDS.size()
         next_leg_index = (LEG_IDS.find(selected) + 1) % LEG_IDS.size()
+    if preparing_stance:
+        if not stance_ready:
+            # No attack clock, author keys, body turn or hitboxes during
+            # the two diagonal IK replanting steps. The selected strike
+            # is held and cannot switch targets halfway through.
+            return {
+                "kind": kind, "id": leg_id, "phase": "stance",
+                "stance_prepare": true, "time": 0.0,
+                "tracking": false, "hit_window": false,
+                "impact": false
+            }
+        preparing_stance = false
+        # The first true attack frame is now t=delta: every attack uses
+        # its original complete authored anticipation and strike timing.
+        stomp_aim_valid = false
     var previous: float = elapsed
     var windup: float = _windup()
     # The raised STOMP foot follows the player's HEAD, not their
