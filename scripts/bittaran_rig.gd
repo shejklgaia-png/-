@@ -291,6 +291,41 @@ func authored_clip_length(kind: String) -> float:
     return float(clip.get("length", 0.0))
 
 
+## Sample the ACTUAL source keyframe-zero attacking sole at the current
+## root pose. Only KICK/SWEEP use this once when their attack starts.
+## Do not advance or re-key the user's authored clips; restore every
+## sampled joint before the normal animation/IK update.
+func initial_authored_sole_height(kind: String, id: String,
+        sole_local: Vector3) -> float:
+    if not loading_ok or not ATTACK_LEG_BONES.has(id) or (
+            kind != "kick" and kind != "sweep"):
+        return NAN
+    var tracked: Array[String] = ["Body"]
+    for value in ATTACK_LEG_BONES[id]:
+        tracked.append(str(value))
+    var saved: Dictionary = {}
+    for name in tracked:
+        var uid: String = str(bone_uuid_by_name.get(name, ""))
+        if uid.is_empty() or not bones.has(uid):
+            return NAN
+        var joint: Node3D = bones[uid]
+        saved[uid] = joint.quaternion
+        if name == "Body":
+            joint.quaternion = _authored_key_rotation(
+                str(ATTACK_NAMES[kind]), name, 0.0)
+        else:
+            joint.quaternion = _authored_rotation_for_leg(
+                kind, id, tracked.find(name) - 1, 0.0)
+    var foot: Node3D = find_child(
+        str(ATTACK_LEG_BONES[id][2]), true, false) as Node3D
+    var height: float = NAN
+    if foot != null:
+        height = foot.to_global(sole_local).y
+    for uid in saved:
+        (bones[uid] as Node3D).quaternion = saved[uid]
+    return height
+
+
 func apply_authored_attack_pose(frame: Dictionary) -> void:
     if frame.is_empty() or not loading_ok:
         return
