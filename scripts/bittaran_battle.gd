@@ -21,6 +21,19 @@ const BOSS_FAR_SIDE_EXIT_METERS: float = -0.25
 const DOWN_ESCAPE_SPEED_MPS: float = 15.0
 const HEAD_TRACK_MAX_YAW_DEGREES: float = 48.0
 const HEAD_TRACK_DEGREES_PER_SECOND: float = 140.0
+# The articulated HEAD stays level in world-space. SERA's vertical
+# motion is instead mirrored by an independent WORLD-UP telescoping
+# shift of the actual head joint, with a smooth ±0.65m travel limit.
+const HEAD_VERTICAL_MAX_OFFSET_METERS: float = 0.65
+const HEAD_VERTICAL_FILTER_PER_SECOND: float = 8.0
+const HEAD_VERTICAL_MAX_SPEED_MPS: float = 1.40
+# World-level HEAD is wider across planted shins than the old angled
+# head. Clear REAL animated head/leg AABB overlap by raising the head
+# (not tilting it) while its collision-safe yaw is still tracking.
+const HEAD_VISUAL_OVERLAP_MAX_VOLUME_M3: float = 0.030
+const HEAD_VISUAL_CLEARANCE_MAX_LIFT_METERS: float = 1.00
+const HEAD_VISUAL_CLEARANCE_RELEASE_SPEED_MPS: float = 0.75
+const HEAD_WINDUP_LIFT_METERS_PER_DEGREE: float = 0.0120
 const HEAD_TRACK_STANDUP_START_FRACTION: float = 0.70
 # A gentle, weaker head reacquisition starts at 70% ACTUAL upright pose.
 # End the physical rise at only 60% head authority; the post-upright
@@ -66,6 +79,10 @@ var boss_last_controller_axis: Vector2 = Vector2.UP
 var bittaran_head: Node3D
 var boss_head_yaw: float = 0.0
 var boss_head_default_rotation: Quaternion = Quaternion.IDENTITY
+var boss_head_rest_local_position: Vector3 = Vector3.ZERO
+var head_player_rest_world_y: float = 0.0
+var head_vertical_offset_world: float = 0.0
+var head_visual_clearance_lift_world: float = 0.0
 var boss_head_windup_start_yaw: float = 0.0
 var head_neutral_overlap: Dictionary = {}
 var head_neutral_component_overlap: Dictionary = {}
@@ -134,6 +151,11 @@ func _build_target() -> void:
     bittaran_head = bittaran_rig.find_child("Head", true, false) as Node3D
     if bittaran_head != null:
         boss_head_default_rotation = bittaran_head.quaternion
+        boss_head_rest_local_position = bittaran_head.position
+        if player != null:
+            head_player_rest_world_y = player.global_position.y
+        head_vertical_offset_world = 0.0
+        head_visual_clearance_lift_world = 0.0
     bittaran_ai = BittaranAI.new()
     bittaran_ai.call("reset")
     bittaran_foot_ik = BittaranFootIK.new()
@@ -589,6 +611,106 @@ func _head_knee_look_weight() -> float:
     return follow
 
 
+## Convert the current articulated BODY heading to a LEVEL world-space
+## head pose. Counter-rotate torso pitch/roll instead of replaying a
+## Head track. The live tracking yaw is applied on top of this pose;
+## target_parts' collision sweeps use the very same base quaternion.
+func _head_level_local_base_pose() -> Quaternion:
+    if bittaran_head == null:
+        return boss_head_default_rotation
+    var parent: Node3D = bittaran_head.get_parent() as Node3D
+    if parent == null:
+        return boss_head_default_rotation
+    var front: Vector3 = -parent.global_basis.z
+    front.y = 0.0
+    if front.length_squared() <= 0.000001:
+        front = Vector3.FORWARD
+    var flat_world: Quaternion = Basis.looking_at(
+        front.normalized(), Vector3.UP).get_rotation_quaternion()
+    var parent_world: Quaternion = parent.global_basis.orthonormalized(
+        ).get_rotation_quaternion()
+    return (parent_world.inverse() * flat_world).normalized()
+
+
+## Absolute rather than cumulative: reset the joint's local reference
+## every frame, then add the filtered world-up travel. Moving the pivot,
+## not tilting it, keeps the head horizontal while following jumps and
+## other changes in SERA's elevation. During knockdown the travel returns
+## smoothly to zero; tracking is otherwise always active.
+func _update_head_vertical_follow(delta: float, follow: float) -> void:
+    if bittaran_head == null or player == null:
+        return
+    var wanted: float = clampf(
+        player.global_position.y - head_player_rest_world_y,
+        -HEAD_VERTICAL_MAX_OFFSET_METERS,
+        HEAD_VERTICAL_MAX_OFFSET_METERS) * follow
+    if bittaran_foot_ik != null and bool(
+            bittaran_foot_ik.call("windup_active")):
+        # Keep the old visible nose-up anticipation but raise the
+        # horizontal head instead of pitching the mesh.
+        var windup_degrees: float = float(bittaran_foot_ik.get(
+            "head_windup_pitch_degrees"))
+        wanted += windup_degrees * HEAD_WINDUP_LIFT_METERS_PER_DEGREE
+    var alpha: float = 1.0 - exp(
+        -HEAD_VERTICAL_FILTER_PER_SECOND * maxf(delta, 0.0))
+    head_vertical_offset_world = move_toward(
+        head_vertical_offset_world,
+        lerpf(head_vertical_offset_world, wanted, alpha),
+        HEAD_VERTICAL_MAX_SPEED_MPS * maxf(delta, 0.0))
+    if bittaran_foot_ik != null and bool(
+            bittaran_foot_ik.call("down_pose_active")) and follow <= 0.0:
+        head_visual_clearance_lift_world = move_toward(
+            head_visual_clearance_lift_world, 0.0,
+            HEAD_VISUAL_CLEARANCE_RELEASE_SPEED_MPS * maxf(delta, 0.0))
+    bittaran_head.position = boss_head_rest_local_position
+    # Include the persistent visual-leg clearance BEFORE testing yaw
+    # collision, then only add an incremental new lift after final yaw.
+    bittaran_head.global_position += Vector3.UP * (
+        head_vertical_offset_world + head_visual_clearance_lift_world)
+
+
+## A level (world-horizontal) head has a different swept AABB from
+## the former tilted one. After live yaw, prevent the head's *rendered*
+## AABB crossing an actual visible shin. This extra clearance is upward
+## only; it never changes HEAD pitch, yaw ownership, IK foot anchors, or
+## player-follow height. Upward collision avoidance is immediate to
+## prevent tunnelling, but release is gradual to avoid a bobbing head.
+func _avoid_head_visual_leg_overlap(delta: float) -> void:
+    if bittaran_head == null or target_parts == null:
+        return
+    var head_box: AABB = (target_parts.call(
+        "get_head_swing_aabb") as AABB).grow(0.05)
+    var required: float = 0.0
+    for id in ["leg_fl", "leg_fr", "leg_rl", "leg_rr"]:
+        var leg_box: AABB = target_parts.call(
+            "get_leg_visual_aabb", id)
+        if not leg_box.has_volume() or not head_box.intersects(leg_box):
+            continue
+        var overlap: AABB = head_box.intersection(leg_box)
+        var horizontal_area: float = overlap.size.x * overlap.size.z
+        if horizontal_area <= 0.00001:
+            continue
+        var overlap_volume: float = overlap.get_volume()
+        if overlap_volume > HEAD_VISUAL_OVERLAP_MAX_VOLUME_M3:
+            required = maxf(required, overlap.size.y -
+                HEAD_VISUAL_OVERLAP_MAX_VOLUME_M3 / horizontal_area
+                + 0.005)
+    required = clampf(required, 0.0,
+        HEAD_VISUAL_CLEARANCE_MAX_LIFT_METERS)
+    # The previous collision lift has ALREADY been applied before yaw
+    # testing: otherwise the mesh penetration solver locks the head
+    # before it gets a chance to rise away from the visible shin.
+    # The remaining intersection requires EXTRA positive world Y.
+    var previous_lift: float = head_visual_clearance_lift_world
+    head_visual_clearance_lift_world = clampf(maxf(
+        previous_lift + required,
+        move_toward(previous_lift, 0.0,
+            HEAD_VISUAL_CLEARANCE_RELEASE_SPEED_MPS * maxf(delta, 0.0))),
+        0.0, HEAD_VISUAL_CLEARANCE_MAX_LIFT_METERS)
+    bittaran_head.global_position += Vector3.UP * (
+        head_visual_clearance_lift_world - previous_lift)
+
+
 func _aim_bittaran_head(delta: float) -> void:
     if bittaran_head == null or player == null or target_hp <= 0:
         return
@@ -596,6 +718,7 @@ func _aim_bittaran_head(delta: float) -> void:
     # Once 70% of the ACTUAL eased rise is complete, softly fade in the
     # ordinary collision-aware look-at without a sudden yaw jump.
     var head_track_weight: float = _head_recovery_follow_weight()
+    _update_head_vertical_follow(delta, head_track_weight)
     if bittaran_foot_ik != null and bool(
             bittaran_foot_ik.call("down_pose_active")):
         if head_track_weight <= 0.0:
@@ -613,18 +736,17 @@ func _aim_bittaran_head(delta: float) -> void:
             head_collision_blocked = false
             head_collision_release_elapsed = 0.0
             return
-    # Head ownership is independent of every animation track, gait
-    # crossfade, and the part-break nose-up windup. Compose the stable
-    # Wait neck pitch plus optional anticipation pitch + live target yaw
-    # as an ABSOLUTE quaternion (not an increment onto the prior yaw).
-    # Consequently no clip can reset or accumulate the head rotation.
-    var base_pose: Quaternion = boss_head_default_rotation
+    # The head is horizontally level in WORLD space even while BODY
+    # pitches in crouch/turn/attack. The controller alone owns yaw.
+    # During the last 30% of physical rise, smoothly interpolate from
+    # the old neutral down pose to the level orientation; never snap.
+    var base_pose: Quaternion = _head_level_local_base_pose()
     if bittaran_foot_ik != null and bool(
-            bittaran_foot_ik.call("windup_active")):
-        var pitch: float = float(bittaran_foot_ik.get(
-            "head_windup_pitch_degrees"))
-        base_pose = (base_pose * Quaternion(
-            Vector3.RIGHT, deg_to_rad(pitch))).normalized()
+            bittaran_foot_ik.call("down_pose_active")):
+        var level_mix: float = clampf(
+            head_track_weight / HEAD_TRACK_RISE_FOLLOW_WEIGHT, 0.0, 1.0)
+        base_pose = boss_head_default_rotation.slerp(
+            base_pose, _head_smootherstep(level_mix))
     # The target was filtered once after IK this physics frame.
     # In particular, do NOT return at zero planar distance: that leaves
     # the animated bind pose on the HEAD for exactly one frame.
@@ -654,6 +776,9 @@ func _aim_bittaran_head(delta: float) -> void:
         base_pose, boss_head_yaw, next_yaw, current_depth)
     bittaran_head.quaternion = (base_pose *
         Quaternion(Vector3.UP, boss_head_yaw)).normalized()
+    # Resolve world-horizontal HEAD vs animated leg mesh clearance AFTER
+    # final collision-constrained yaw and BEFORE target_parts.sync().
+    _avoid_head_visual_leg_overlap(delta)
 
 
 func _push_player_out_of_downed_body(delta: float) -> void:
@@ -1010,6 +1135,12 @@ func _reset_target_after_respawn() -> void:
     head_collision_release_elapsed = 0.0
     head_look_filtered_yaw = 0.0
     head_look_initialized = false
+    head_vertical_offset_world = 0.0
+    head_visual_clearance_lift_world = 0.0
+    if player != null:
+        head_player_rest_world_y = player.global_position.y
+    if bittaran_head != null:
+        bittaran_head.position = boss_head_rest_local_position
     boss_downed_escaping = false
     if boss_death_particles != null:
         boss_death_particles.emitting = false

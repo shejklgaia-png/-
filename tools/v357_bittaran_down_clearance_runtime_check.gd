@@ -20,6 +20,14 @@ func _head_clear(parts: Node3D, resting: Dictionary) -> bool:
         if leg.has_volume() and tip.intersects(leg):
             current = tip.intersection(leg).get_volume()
         if current > float(resting.get(id, 0.0)) + 0.03501:
+            print("V390_HEAD_CLEAR_DIAGNOSTIC: " + str({
+                "id": id,
+                "volume": current,
+                "baseline": float(resting.get(id, 0.0)),
+                "head_box": tip,
+                "leg_box": leg,
+                "head_floor": tip.position.y
+            }))
             return false
     return true
 
