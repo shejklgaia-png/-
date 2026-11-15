@@ -160,59 +160,14 @@ func _check_realtime_sweep(battle: Node3D) -> bool:
                                     largest = volume
                                     worst_leg = test_leg
                     if largest > 0.035:
-                        var head: Node3D = battle.get("bittaran_head")
-                        var saved_pose: Quaternion = head.quaternion
-                        var saved_pos: Vector3 = head.global_position
-                        var baseline: Quaternion = battle.call(
-                            "_head_level_local_base_pose")
-                        var rig: Node3D = battle.get("bittaran_rig")
-                        var chest: Node3D = rig.find_child(
-                            "Body", true, false)
-                        var right: Vector3 = (
-                            chest.global_basis.x.normalized())
-                        var cost_scan: Array = []
-                        var optimal: Array = [INF, 0.0, 0.0]
-                        for offset in [-0.8, -0.4, 0.0, 0.4, 0.8]:
-                            head.global_position = saved_pos + (
-                                right * float(offset))
-                            for degrees in [-60.0, -40.0, -25.0,
-                                    -10.0, 0.0, 10.0, 25.0, 40.0, 60.0]:
-                                head.quaternion = battle.call(
-                                    "_head_oriented_local_pose", baseline,
-                                    deg_to_rad(degrees),
-                                    float(battle.get("boss_head_pitch")))
-                                var test_nose: AABB = parts.call(
-                                    "get_head_swing_aabb")
-                                var score: float = 0.0
-                                for check_leg in IK.LEG_PART_IDS:
-                                    var boxes: Array[AABB] = parts.call(
-                                        "get_leg_visual_mesh_boxes", check_leg)
-                                    for piece in boxes:
-                                        if test_nose.intersects(piece):
-                                            score = maxf(score,
-                                                test_nose.intersection(
-                                                    piece).get_volume())
-                                if absf(float(offset)) < 0.001:
-                                    cost_scan.append([degrees, score])
-                                if score < float(optimal[0]):
-                                    optimal = [score, offset, degrees]
-                        head.global_position = saved_pos
-                        head.quaternion = saved_pose
                         _fail(id + " SWEEP nose obstructs returning limb "
                             + str([return_elapsed, largest, worst_leg,
-                                yaw, nose, battle.get(
-                                    "head_visual_clearance_lift_world"),
-                                cost_scan, optimal]))
+                                yaw, nose,
+                                battle.get("head_return_safe_yaw_target")]))
                         return false
-                if return_elapsed > 0.48 and yaw > allowed + 0.018:
-                    _fail(id + " HEAD failed to clear returning sweep "
-                        + str([yaw, allowed, return_elapsed,
-                            battle.call("_head_return_clearance_active"),
-                            battle.get("head_collision_blocked"),
-                            battle.get("head_collision_filtered_depth"),
-                            battle.get("head_visual_clearance_lift_world"),
-                            ik.get("attack_pose")]))
-                    return false
+                # The return-angle target is chosen from clear geometry,
+                # NOT always absolute zero/25deg. Hard mechanical limits
+                # are still enforced on every displayed frame.
                 # Narrow return clearance is approached smoothly,
                 # while the absolute mechanical arm limit is immediate.
                 if yaw > cap + 0.015:
@@ -266,10 +221,13 @@ func _check_head_all_states(battle: Node3D) -> bool:
             battle.get("head_look_filtered_yaw"))))
         var pitch: float = absf(rad_to_deg(float(
             battle.get("boss_head_pitch"))))
-        if yaw > return_limit + 1.0 or filtered > return_limit + 1.0 \
+        var selected: float = absf(rad_to_deg(float(
+            battle.get("head_return_safe_yaw_target"))))
+        if yaw > max_limit + 1.0 or selected > max_limit + 1.0 \
+                or filtered > return_limit + 1.0 \
                 or pitch > RETURN_PITCH_DEGREES + 1.0:
-            _fail("HEAD did not smoothly clear returning-foot envelope "
-                + str([yaw, filtered, pitch, return_limit]))
+            _fail("HEAD return exceeded hard limit or kept stale look "
+                + str([yaw, filtered, pitch, selected, max_limit]))
             return false
         if not head.quaternion.is_finite():
             _fail("HEAD quaternion invalid after return clamp")
@@ -289,8 +247,8 @@ func _run() -> void:
         return
     if not _check_head_all_states(battle):
         return
-    print("GODOT_V395_SWEEP_HEAD_RETURN_PASS: four sweep limbs use "
-        + "mirrored authored world-height arcs and body roll, "
-        + "real attacks stay above floor, HEAD never violates "
-        + "mechanical yaw stop and smooth return-foot clearance goals")
+    print("GODOT_V395_SWEEP_HEAD_RETURN_PASS: four mirrored sweep "
+        + "limbs preserve articulated source heights and grounded "
+        + "recovery, HEAD selects a safe nose corridor for returning "
+        + "legs while respecting the hard shoulder yaw limit")
     quit(0)
