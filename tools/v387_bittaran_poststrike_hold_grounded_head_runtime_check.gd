@@ -39,6 +39,7 @@ func _case(battle: Node3D, id: String, kind: String) -> bool:
     var saw_live_head_yaw: bool = false
     var saw_head_yaw_move: bool = false
     var prior_head_yaw: float = 0.0
+    var previous_visual_head: Quaternion = wait_neck
     var hold_start_sole: Vector3 = Vector3.INF
     var original_supports: Dictionary = {}
     var previous_sole: Vector3 = Vector3.INF
@@ -78,10 +79,19 @@ func _case(battle: Node3D, id: String, kind: String) -> bool:
                     absf(float(frame.get("body_yaw", 0.0))) > 0.0001):
                 _fail(id + ": SWEEP torso/strike still follows player")
                 return false
-        if not neck.quaternion.is_equal_approx(wait_neck):
-            _fail(id + "/" + kind + ": keyed HEAD animation before live look")
+        # Animation must NOT reset the previous frame's actual look.
+        # This is checked BEFORE battle's live head solver updates it.
+        # Quaternion.angle_to uses acos(dot) and can report a tiny
+        # nonzero angle for the SAME floating-point quaternion. Compare
+        # its actual four components, not an unstable 0.00005rad arc.
+        if tick > 0 and not neck.quaternion.is_equal_approx(
+                previous_visual_head):
+            _fail(id + "/" + kind
+                + ": motion overwrote the continuously tracked HEAD "
+                + str([tick, neck.quaternion, previous_visual_head]))
             return false
         battle.call("_finalize_target_pose", DT)
+        previous_visual_head = neck.quaternion
         var head_yaw: float = float(battle.get("head_look_filtered_yaw"))
         if absf(head_yaw) > 0.02:
             saw_live_head_yaw = true

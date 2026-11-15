@@ -13,7 +13,16 @@ const KICK_WINDUP_SECONDS: float = 0.70
 const SWEEP_WINDUP_SECONDS: float = 0.70
 const STOMP_STRIKE_SECONDS: float = 0.25
 const KICK_STRIKE_SECONDS: float = 1.0
-const SWEEP_STRIKE_SECONDS: float = 1.5
+# Original authored SWEEP clip is 1.50s; the 0.60x interval below
+# adds (1-0.60)*0.70 = 0.28s of WALL time to the strike.
+const SWEEP_SOURCE_STRIKE_SECONDS: float = 1.50
+const SWEEP_OUTBOUND_END_CLIP_SECONDS: float = 0.50
+const SWEEP_SLOW_SPEED: float = 0.60
+const SWEEP_SLOW_REAL_SECONDS: float = 0.70
+const SWEEP_EXTRA_REAL_SECONDS: float = (
+    1.0 - SWEEP_SLOW_SPEED) * SWEEP_SLOW_REAL_SECONDS
+const SWEEP_STRIKE_SECONDS: float = (
+    SWEEP_SOURCE_STRIKE_SECONDS + SWEEP_EXTRA_REAL_SECONDS)
 const STOMP_RECOVERY_SECONDS: float = 0.55
 const KICK_RECOVERY_SECONDS: float = 0.60
 const SWEEP_RECOVERY_SECONDS: float = 1.40
@@ -66,6 +75,24 @@ func _strike() -> float:
         "stomp": return STOMP_STRIKE_SECONDS
         "kick": return KICK_STRIKE_SECONDS
         _: return SWEEP_STRIKE_SECONDS
+
+## Map elapsed REAL strike time to original Blockbench clip time.
+## Source t=0.50 is the authored outbound end (front-left foot
+## yaw/roll changes sign toward its return path after this key).
+## From there exactly 0.70 REAL seconds advance the clip at 0.60x;
+## speed returns to 1.0x for the rest. The source keys are untouched.
+static func sweep_clip_time_at(real_strike_seconds: float) -> float:
+    var t: float = maxf(real_strike_seconds, 0.0)
+    var turnaround: float = SWEEP_OUTBOUND_END_CLIP_SECONDS
+    if t <= turnaround:
+        return t
+    var after_turn: float = t - turnaround
+    if after_turn <= SWEEP_SLOW_REAL_SECONDS:
+        return turnaround + after_turn * SWEEP_SLOW_SPEED
+    return minf(SWEEP_SOURCE_STRIKE_SECONDS, turnaround
+        + SWEEP_SLOW_REAL_SECONDS * SWEEP_SLOW_SPEED
+        + (after_turn - SWEEP_SLOW_REAL_SECONDS))
+
 
 func _hold() -> float:
     match kind:
@@ -163,8 +190,24 @@ func advance(delta: float, player_position: Vector3,
     var hold: float = _hold()
     var total: float = windup + strike + hold + recovery
     elapsed = minf(total, elapsed + maxf(delta, 0.0))
+    # STOMP's authored clip begins at attack t=0 and contains its
+    # full 1.25s windup. KICK/SWEEP source clips begin AFTER the 0.70s
+    # preparatory crouch. Preserve this existing timing distinction.
+    var authored_time: float = (elapsed if kind == "stomp" else
+        maxf(elapsed - windup, 0.0))
+    var source_rate: float = 1.0
+    if kind == "sweep":
+        var wall_strike_t: float = clampf(
+            authored_time, 0.0, SWEEP_STRIKE_SECONDS)
+        authored_time = sweep_clip_time_at(wall_strike_t)
+        if wall_strike_t >= SWEEP_OUTBOUND_END_CLIP_SECONDS and (
+                wall_strike_t < SWEEP_OUTBOUND_END_CLIP_SECONDS
+                + SWEEP_SLOW_REAL_SECONDS):
+            source_rate = SWEEP_SLOW_SPEED
     var result: Dictionary = {
         "kind": kind, "id": leg_id, "time": elapsed,
+        "authored_time": authored_time,
+        "authored_playback_speed": source_rate,
         "stomp_aim": stomp_aim if stomp_aim_valid else Vector3.INF,
         "aim": stomp_aim if stomp_aim_valid else Vector3.INF,
         "tracking": kind != "sweep" and previous < windup,

@@ -100,12 +100,17 @@ func _run() -> void:
         if bool(ik.call("down_pose_active")):
             reached_down = true
             var yaw: float = float(battle.get("boss_head_yaw"))
-            # v363: neutral HEAD remains strict until 70% of the
-            # actual stand-up. Above that it may smoothly reacquire SERA.
-            if float(ik.call("standup_pose_fraction")) <= 0.70 and (
+            # v388: HEAD tracks to the final pre-DOWN frame, so the
+            # first physical down tick must not snap the neck to neutral.
+            # It settles at <=140deg/s; after 0.40s of actual falling
+            # it must be neutral until 70% of stand-up, when the smooth
+            # collision-safe reacquisition resumes.
+            var down_elapsed: float = float(ik.get("break_elapsed"))
+            if down_elapsed >= 0.40 and float(
+                    ik.call("standup_pose_fraction")) <= 0.70 and (
                     absf(yaw) > EPS
                     or head.quaternion.angle_to(normal) > EPS):
-                _fail("head did not stay neutral before 70% of stand-up: "
+                _fail("head not neutral after safe down transition: "
                     + str(head.quaternion) + " yaw=" + str(yaw))
                 return
         if frame >= 36 and bool(ik.call("windup_active")):

@@ -122,9 +122,15 @@ func _run_case(battle: Node3D, leg_ids: Array[String],
                 if follow_weight > 0.00001:
                     _fail(label + ": tracking enabled before 70% of pose")
                     return false
-                if head_yaw > EPS:
-                    _fail(label + ": HEAD followed too early at fraction="
-                        + str(pose) + " yaw=" + str(head_yaw))
+                # v388 tracks all the way through the PRE-DOWN
+                # windup. Allow only the first 0.40s of actual physical
+                # down to unwind the previous yaw at <=140deg/s; after
+                # that, the strict 70%-rise no-tracking gate still holds.
+                if float(ik.get("break_elapsed")) >= 0.40 and (
+                        head_yaw > EPS):
+                    _fail(label + ": HEAD followed before 70% recovery "
+                        + "after neutral down settle: "
+                        + str([pose, head_yaw]))
                     return false
                 if pose > 0.0:
                     pre_70_head_frames += 1
