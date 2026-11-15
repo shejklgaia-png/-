@@ -219,8 +219,9 @@ func legs_returning_to_stance() -> bool:
     for leg in legs:
         if bool(leg.get("stepping", false)):
             return true
-    if down_pose_active() and standup_knee_enabled():
-        return true
+    # Physical stand-up rotates the chest while the soles stay planted.
+    # It is NOT a replant, and must retain the live HEAD reacquisition
+    # that begins at 70% upright. Catch-up steps after rise are replants.
     if not attack_pose.is_empty():
         var elapsed: float = float(attack_pose.get("time", 0.0))
         var recovery_start: float = (
