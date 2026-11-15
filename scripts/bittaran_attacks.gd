@@ -190,7 +190,11 @@ func advance(delta: float, player_position: Vector3,
     var hold: float = _hold()
     var total: float = windup + strike + hold + recovery
     elapsed = minf(total, elapsed + maxf(delta, 0.0))
-    var authored_time: float = maxf(elapsed - windup, 0.0)
+    # STOMP's authored clip begins at attack t=0 and contains its
+    # full 1.25s windup. KICK/SWEEP source clips begin AFTER the 0.70s
+    # preparatory crouch. Preserve this existing timing distinction.
+    var authored_time: float = (elapsed if kind == "stomp" else
+        maxf(elapsed - windup, 0.0))
     var source_rate: float = 1.0
     if kind == "sweep":
         var wall_strike_t: float = clampf(
