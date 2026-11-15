@@ -1230,6 +1230,11 @@ func advance_ik(delta: float, motion: String) -> void:
     var attacking: bool = not attack_pose.is_empty() and not break_reaction_active()
     if attacking:
         _apply_attack_chassis_pose()
+        # The chest heading is now final. Steer only the attacking
+        # shoulder in WORLD Y, preserving source hip/knee/foot keys.
+        if bool(attack_pose.get("authored", false)) and actor.has_method(
+                "aim_authored_attack_leg"):
+            actor.call("aim_authored_attack_leg", attack_pose, delta)
     # Both authored KICK/SWEEP start-height calibration and leg-break
     # nose-dip can bury the actual chassis mesh. Enforce a real mesh
     # floor bound *after* every torso adjustment and *before* foot IK.
@@ -1343,19 +1348,27 @@ func advance_ik(delta: float, motion: String) -> void:
                             var ground_goal: Vector3 = (
                                 foot.to_global(leg["sole_local"])
                                 + Vector3.DOWN * lower * contact_mix)
-                            leg["last_error"] = _solve(
-                                leg, ground_goal, authored_rotation)
-                            bottom = _foot_mesh_lowest_y(foot)
-                            # An overextended limb may still be unable
-                            # to reach the floor after the torso lift.
-                            # Apply a single visual end-effector ground
-                            # contact delta, using the same smooth weight.
-                            if bottom > FLOOR_Y + 0.003:
+                            if attack_kind == "kick":
+                                # The original IK re-solve folded KICK's
+                                # preparatory knee far past its authored
+                                # keyframe. Keep every bone's rotation;
+                                # correct only a small toe contact gap.
                                 foot.global_position += Vector3.DOWN * (
-                                    (bottom - FLOOR_Y - 0.003)
-                                    * contact_mix)
+                                    minf(lower, 0.12) * contact_mix)
+                            else:
+                                leg["last_error"] = _solve(
+                                    leg, ground_goal, authored_rotation)
                                 bottom = _foot_mesh_lowest_y(foot)
-                        if bottom < FLOOR_Y - 0.001:
+                                if bottom > FLOOR_Y + 0.003:
+                                    foot.global_position += Vector3.DOWN * (
+                                        (bottom - FLOOR_Y - 0.003)
+                                        * contact_mix)
+                            bottom = _foot_mesh_lowest_y(foot)
+                        if attack_kind == "kick" and bottom < FLOOR_Y - 0.001:
+                            # Anti-penetration without an extra knee bend.
+                            foot.global_position += Vector3.UP * (
+                                FLOOR_Y + 0.003 - bottom)
+                        elif bottom < FLOOR_Y - 0.001:
                             for attempt in range(2):
                                 var required: float = maxf(0.0,
                                     FLOOR_Y + 0.003 - bottom)
