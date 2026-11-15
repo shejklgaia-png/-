@@ -139,6 +139,22 @@ func _check_realtime_sweep(battle: Node3D) -> bool:
                     float(frame.get("windup", 0.0))
                     + float(frame.get("strike", 0.0))
                     + float(frame.get("hold", 0.0)))
+                # Angle checks alone can miss a returning shin passing
+                # THROUGH the head with a neutral-facing yaw. Reject
+                # actual rendered-mesh penetration beyond 12cm.
+                if return_elapsed > 0.48:
+                    var depths: Dictionary = (
+                        battle.get("target_parts") as Node3D).call(
+                        "get_head_leg_penetration_depths")
+                    var worst: float = 0.0
+                    for depth in depths.values():
+                        worst = maxf(worst, float(depth))
+                    if worst > 0.12:
+                        _fail(id + " SWEEP returning leg obstructs HEAD "
+                            + str([return_elapsed, worst, depths,
+                                yaw, battle.get(
+                                    "head_visual_clearance_lift_world")]))
+                        return false
                 if return_elapsed > 0.48 and yaw > allowed + 0.018:
                     _fail(id + " HEAD failed to clear returning sweep "
                         + str([yaw, allowed, return_elapsed,
