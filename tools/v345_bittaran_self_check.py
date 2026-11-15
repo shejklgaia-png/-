@@ -26,7 +26,7 @@ for clip in boss["animations"][4:]:
     assert clip["uuid"] == original["uuid"]
     assert clip["length"] == original["length"]
     for bone, animator in original["animators"].items():
-        imported = clip["animators"][bone]["keyframes"]
+        imported = clip["animators"][bone].get("keyframes", [])
         expected = sorted(animator.get("keyframes", []), key=lambda x: x["time"])
         assert [{k: v for k, v in item.items() if k != "uuid"} for item in imported] == [
             {k: v for k, v in item.items() if k != "uuid"} for item in expected
