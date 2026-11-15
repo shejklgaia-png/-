@@ -53,14 +53,15 @@ const HEAD_TRACK_STANDUP_START_FRACTION: float = 0.70
 const HEAD_TRACK_RISE_FOLLOW_WEIGHT: float = 0.60
 const HEAD_TRACK_RECOVERY_DEGREES_PER_SECOND: float = 48.0
 # Head yaw eases continuously from first overlap to zero speed at
-# 10cm of oriented-mesh penetration. A binary-search limit prevents
+# 20cm of oriented-mesh penetration. The knees begin folding earlier.
 # tunneling. A narrow release hysteresis prevents short-range flicker.
 const HEAD_LEG_ALLOWED_PENETRATION_METERS: float = (
     BittaranParts.HEAD_LEG_ALLOWED_PENETRATION_METERS)
 const HEAD_TRACK_COLLISION_FILTER_PER_SECOND: float = 7.0
 const HEAD_TRACK_COLLISION_RELEASE_PER_SECOND: float = 4.0
 const HEAD_TRACK_COLLISION_DEADBAND_METERS: float = 0.004
-const HEAD_TRACK_COLLISION_RELEASE_DEPTH_METERS: float = 0.082
+const HEAD_TRACK_COLLISION_BRAKE_START_METERS: float = 0.14
+const HEAD_TRACK_COLLISION_RELEASE_DEPTH_METERS: float = 0.17
 const HEAD_TRACK_COLLISION_STOP_SAFETY_METERS: float = 0.0005
 const HEAD_TRACK_COLLISION_SWEEP_STEPS: int = 8
 # Close targets can cross the nose's local +/-Z plane, making atan2
@@ -481,10 +482,11 @@ func _head_collision_motion_scale(current_depth: float,
         head_collision_filtered_depth = lerpf(
             head_collision_filtered_depth, observed, alpha)
     var u: float = clampf(
-        head_collision_filtered_depth /
-        HEAD_LEG_ALLOWED_PENETRATION_METERS, 0.0, 1.0)
+        (head_collision_filtered_depth - HEAD_TRACK_COLLISION_BRAKE_START_METERS)
+        / (HEAD_LEG_ALLOWED_PENETRATION_METERS
+            - HEAD_TRACK_COLLISION_BRAKE_START_METERS), 0.0, 1.0)
     var brake: float = 1.0 - u * u * (3.0 - 2.0 * u)
-    # Escaping an obstruction is possible even when already over 10cm.
+    # Escaping an obstruction is possible even when already over 20cm.
     # However, do not jump to 100% speed merely because the moving knee
     # changed the sampled contact by a few millimetres in one frame.
     var escaping: bool = next_depth < (
@@ -833,7 +835,7 @@ func _avoid_head_visual_leg_overlap(delta: float) -> void:
 ## The yaw/pitch limit prevents new rotation-based intrusion, but a knee
 ## can still move INTO an already stopped head, or a low chest can bring
 ## the face through an arm without either HEAD angle changing. Search
-## small WORLD-UP displacements only when actual mesh SAT exceeds 10cm.
+## small WORLD-UP displacements only when actual mesh SAT exceeds 20cm.
 ## Recompute from the same absolute neck baseline on every tick; never
 ## accumulate IK-style corrections in the HEAD joint's local origin.
 func _resolve_head_deep_leg_overlap() -> void:
@@ -933,7 +935,7 @@ func _aim_bittaran_head(delta: float) -> void:
         before_pitch_depth)
     var wanted: float = head_look_filtered_yaw
     # HEAD slows smoothly from first contact and cannot turn deeper
-    # into a 10cm overlap. Tracking away from the leg remains free.
+    # into a 20cm overlap. Tracking away from the leg remains free.
     var degrees_per_second: float = _head_recovery_turn_speed()
     var proposed_yaw: float = move_toward(
         boss_head_yaw, wanted * head_track_weight,
@@ -955,9 +957,10 @@ func _aim_bittaran_head(delta: float) -> void:
         base_pose, boss_head_yaw, next_yaw, current_depth)
     bittaran_head.quaternion = _head_oriented_local_pose(
         base_pose, boss_head_yaw, boss_head_pitch)
-    # Resolve pitched HEAD vs animated leg mesh clearance AFTER
-    # final collision-constrained yaw and BEFORE target_parts.sync().
-    _avoid_head_visual_leg_overlap(delta)
+    # Leg-first strategy: the knee solver already folds the supports
+    # outward/downward. Do NOT lift the head for small visual overlaps.
+    # Emergency lift is reserved solely for real >20cm penetration after
+    # the leg solver, when the hard physical envelope is exceeded.
     _resolve_head_deep_leg_overlap()
 
 
@@ -1215,10 +1218,11 @@ func _finalize_target_pose(delta: float) -> void:
             # Head follows SERA independently for all three attacks,
             # including SWEEP (which still disables BODY/swing aiming).
             _update_head_look_target(delta)
-            if bittaran_attack_frame.is_empty():
-                bittaran_foot_ik.call("steer_knees_for_head", delta,
-                    head_look_filtered_yaw * _head_knee_look_weight(),
-                    boss_head_yaw)
+            # Support legs yield to the head even during authored attacks.
+            # The IK solver protects the currently striking leg.
+            bittaran_foot_ik.call("steer_knees_for_head", delta,
+                head_look_filtered_yaw * _head_knee_look_weight(),
+                boss_head_yaw)
     _aim_bittaran_head(delta)
     if target_parts != null:
         target_parts.call("sync_bittaran_parts")
