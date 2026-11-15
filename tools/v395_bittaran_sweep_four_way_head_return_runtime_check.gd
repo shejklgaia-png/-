@@ -109,6 +109,7 @@ func _check_realtime_sweep(battle: Node3D) -> bool:
             _fail(id + " sweep not selectable")
             return false
         var seen_recovery: bool = false
+        var return_trace: Array = []
         for tick in range(285):
             # Avoid damaging SERA during the attack probe.
             player.global_position = boss.global_position + Vector3(
@@ -118,6 +119,20 @@ func _check_realtime_sweep(battle: Node3D) -> bool:
             if frame.is_empty():
                 break
             battle.call("_finalize_target_pose", DT)
+            if id == "leg_fr" and tick % 6 == 0 and float(
+                    frame.get("time", 0.0)) > 1.8:
+                var current_depths: Dictionary = (
+                    battle.get("target_parts") as Node3D).call(
+                        "get_head_leg_penetration_depths")
+                return_trace.append([
+                    snapped(float(frame.get("time", 0.0)), 0.01),
+                    snapped(rad_to_deg(float(
+                        battle.get("boss_head_yaw"))), 0.1),
+                    snapped(rad_to_deg(float(
+                        battle.get("head_return_safe_yaw_target"))), 0.1),
+                    bool(battle.call("_head_return_clearance_active")),
+                    snapped(float(current_depths.get("leg_fl", 0.0)), 0.01)
+                ])
             var leg: Dictionary = ik.get("legs")[
                 IK.LEG_PART_IDS.find(id)]
             var foot: Node3D = leg["foot"]
@@ -159,7 +174,7 @@ func _check_realtime_sweep(battle: Node3D) -> bool:
                             + str([return_elapsed, largest, worst_leg,
                                 yaw, battle.get(
                                     "head_return_safe_yaw_target"),
-                                depths]))
+                                depths, return_trace]))
                         return false
                 # Narrow return clearance is approached smoothly,
                 # while the absolute mechanical arm limit is immediate.
