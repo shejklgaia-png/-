@@ -559,6 +559,23 @@ func setup(model: Node3D) -> bool:
     advance_ik(0.0, "Idle")
     return true
 
+## World-space lower bound of the ACTUAL authored foot mesh, not the
+## initial sole contact point. A rotated foot can present another corner
+## below ground even when the captured sole-local coordinate is above it.
+func _foot_mesh_lowest_y(foot: Node3D) -> float:
+    var lowest: float = INF
+    for child in foot.get_children():
+        if child is MeshInstance3D:
+            var piece: MeshInstance3D = child as MeshInstance3D
+            if piece.mesh == null:
+                continue
+            var box: AABB = piece.mesh.get_aabb()
+            for corner in range(8):
+                lowest = minf(lowest,
+                    piece.to_global(box.get_endpoint(corner)).y)
+    return lowest
+
+
 func _sole_local_point(foot: Node3D) -> Vector3:
     var lowest: float = INF
     var corners: Array[Vector3] = []
@@ -1229,21 +1246,46 @@ func advance_ik(delta: float, motion: String) -> void:
                     var t: float = float(attack_pose.get("time", 0.0))
                     var end: float = float(attack_pose.get("windup", 0.7)) + (
                         float(attack_pose.get("strike", 1.0)))
-                    if t > end:
-                        # Blend from the real last authored foot position
-                        # back to the saved planted sole during recovery.
-                        var recover_t: float = _cubic((t - end) / maxf(
-                            float(attack_pose.get("recovery", 0.45)), 0.001))
-                        position = actual.lerp(leg["anchor"], recover_t)
-                        rotation = foot.global_basis.get_rotation_quaternion().slerp(
-                            leg["anchor_rotation"] as Quaternion, recover_t)
-                    else:
-                        position = actual
+                    var hold: float = float(attack_pose.get("hold", 0.0))
+                    var freeze_end: float = end + hold
+                    var authored_rotation: Quaternion = (
+                        foot.global_basis.get_rotation_quaternion())
+                    if t <= freeze_end:
+                        # Let the authored shoulder/knee/foot keys play,
+                        # correcting ONLY frames where a rotated foot's
+                        # visible geometry actually intersects the floor.
+                        # Sole-only checks miss the opposite long-edge
+                        # corner during a kick or lateral sweep.
+                        var bottom: float = _foot_mesh_lowest_y(foot)
+                        if bottom < FLOOR_Y - 0.001:
+                            for attempt in range(2):
+                                var required: float = maxf(0.0,
+                                    FLOOR_Y + 0.003 - bottom)
+                                if required <= 0.0001:
+                                    break
+                                var safe_goal: Vector3 = (
+                                    foot.to_global(leg["sole_local"])
+                                    + Vector3.UP * required)
+                                leg["last_error"] = _solve(
+                                    leg, safe_goal, authored_rotation)
+                                bottom = _foot_mesh_lowest_y(foot)
+                        position = foot.to_global(leg["sole_local"])
                         rotation = foot.global_basis.get_rotation_quaternion()
-                    if t <= end:
+                        leg["attack_exit_goal"] = position
+                        leg["attack_exit_rotation"] = rotation
                         leg["last_goal"] = position
                         leg["last_rotation"] = rotation
                         continue
+                    # After the exact 1.5s KICK hold, or immediately after
+                    # SWEEP's strike, blend from the LAST grounded pose,
+                    # not the newly resampled/rest-keyed pose (no jump).
+                    var recover_t: float = _cubic((t - freeze_end) / maxf(
+                        float(attack_pose.get("recovery", 0.60)), 0.001))
+                    position = (leg.get("attack_exit_goal",
+                        actual) as Vector3).lerp(leg["anchor"], recover_t)
+                    rotation = (leg.get("attack_exit_rotation",
+                        authored_rotation) as Quaternion).slerp(
+                        leg["anchor_rotation"] as Quaternion, recover_t)
                 else:
                     rotation = _attack_rotation(leg)
                     position = _attack_goal(leg, rotation)
