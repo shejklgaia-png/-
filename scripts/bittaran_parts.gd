@@ -27,9 +27,10 @@ const LOCK_VOLUME_EXPANSION: float = 1.15
 ## Bittaran SHIN-only AUTO/MANUAL selection volume: exactly twice the
 ## authored lower-leg mesh AABB, not the 3-bone leg or its physical collider.
 const SHIN_SELECTION_VOLUME_SCALE: float = 2.0
-# Shared WORLD-space permitted HEAD/LEG penetration: 10cm.
+# Shared WORLD-space permitted HEAD/LEG penetration: 20cm.
+# Prefer lowering/folding the interfering leg; head motion is a last resort.
 # Measured per oriented mesh element, not an AABB overlap volume.
-const HEAD_LEG_ALLOWED_PENETRATION_METERS: float = 0.10
+const HEAD_LEG_ALLOWED_PENETRATION_METERS: float = 0.20
 # A front/rear pair may overlap the same two horizontal lock rays.
 # Hold the selected left/right shin until SERA clearly crosses the center.
 const LATERAL_SHIN_LOCK_HYSTERESIS_METERS: float = 0.65
