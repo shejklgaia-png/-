@@ -65,10 +65,11 @@ func _run() -> void:
                 var foot: Node3D = ik.get("legs")[
                     IK.LEG_PART_IDS.find(id)]["foot"]
                 if t >= 0.83 and t <= 1.00 and not authored_checked:
-                    var original: Quaternion = rig.call(
-                        "_authored_rotation_for_leg", "stomp", id, 2, t)
-                    if foot.quaternion.angle_to(original) > 0.04:
-                        _fail(id + ": STOMP original foot key lost at windup")
+                    # v395: shoulder/knee remain authored, but the long
+                    # toe is deliberately erected before impact.
+                    if foot.global_basis.y.normalized().dot(
+                            Vector3.UP) < 0.995:
+                        _fail(id + ": STOMP toe horizontal during windup")
                         return
                     authored_checked = true
                 if bool(frame.get("impact", false)):
