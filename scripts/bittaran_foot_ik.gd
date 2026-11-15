@@ -1340,6 +1340,12 @@ func advance_ik(delta: float, motion: String) -> void:
         if upright_error_world <= POST_DOWN_UPRIGHT_TOLERANCE_WORLD_METERS:
             post_down_idle_remaining = maxf(0.0,
                 post_down_idle_remaining - maxf(delta, 0.0))
+    # Save the FINAL visual model transform, after authored chassis dips,
+    # fall recovery and contact correction. Recording the PRE-attack pose
+    # here previously treated a real 1.5m STOMP crouch as an arena
+    # teleport on the next tick and reset() erased the active attack pose.
+    last_actor_position = actor.global_position
+    last_actor_yaw = actor.global_rotation.y
 
 
 # Reuse final IK sole targets after the authored clip, grounding correction
