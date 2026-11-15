@@ -228,7 +228,11 @@ func legs_returning_to_stance() -> bool:
             float(attack_pose.get("windup", 0.0))
             + float(attack_pose.get("strike", 0.0))
             + float(attack_pose.get("hold", 0.0)))
-        if elapsed >= recovery_start:
+        # Begin vacating the head's swing sector BEFORE the foot
+        # retracts. A 0.45s lead at the ordinary 140deg/s neck cap can
+        # clear the complete 62deg arm envelope without a snap when the
+        # returning shin crosses in front of the neck.
+        if elapsed >= recovery_start - 0.45:
             return true
     return false
 
