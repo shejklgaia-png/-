@@ -139,20 +139,30 @@ func _check_realtime_sweep(battle: Node3D) -> bool:
                     float(frame.get("windup", 0.0))
                     + float(frame.get("strike", 0.0))
                     + float(frame.get("hold", 0.0)))
-                # Angle checks alone can miss a returning shin passing
-                # THROUGH the head with a neutral-facing yaw. Reject
-                # actual rendered-mesh penetration beyond 12cm.
+                # Compare only the visible forward nose against each
+                # actual leg mesh COMPONENT, not whole-HEAD attachment
+                # armor where the shoulders intentionally join BODY.
+                # Full-pose SAT can report nearly 1m at the built-in
+                # shoulder/neck junction with no face obstruction.
                 if return_elapsed > 0.48:
-                    var depths: Dictionary = (
-                        battle.get("target_parts") as Node3D).call(
-                        "get_head_leg_penetration_depths")
-                    var worst: float = 0.0
-                    for depth in depths.values():
-                        worst = maxf(worst, float(depth))
-                    if worst > 0.12:
-                        _fail(id + " SWEEP returning leg obstructs HEAD "
-                            + str([return_elapsed, worst, depths,
-                                yaw, battle.get(
+                    var parts: Node3D = battle.get("target_parts")
+                    var nose: AABB = parts.call("get_head_swing_aabb")
+                    var largest: float = 0.0
+                    var worst_leg: String = ""
+                    for test_leg in IK.LEG_PART_IDS:
+                        var components: Array[AABB] = parts.call(
+                            "get_leg_visual_mesh_boxes", test_leg)
+                        for box in components:
+                            if nose.intersects(box):
+                                var volume: float = nose.intersection(
+                                    box).get_volume()
+                                if volume > largest:
+                                    largest = volume
+                                    worst_leg = test_leg
+                    if largest > 0.035:
+                        _fail(id + " SWEEP nose obstructs returning limb "
+                            + str([return_elapsed, largest, worst_leg,
+                                yaw, nose, battle.get(
                                     "head_visual_clearance_lift_world")]))
                         return false
                 if return_elapsed > 0.48 and yaw > allowed + 0.018:
