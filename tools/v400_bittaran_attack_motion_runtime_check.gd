@@ -89,7 +89,12 @@ func _run() -> void:
         var foot: Node3D = leg["foot"]
         var hip_off: Vector3 = upper.global_position - boss.global_position
         var outward: Vector3 = Vector3(hip_off.x, 0.0, hip_off.z).normalized()
-        player.global_position = boss.global_position + outward * 3.6
+        # v404 amendment: the KICK now scales its reach to the aim
+        # distance, so the full-extension foot-orientation assertion
+        # below must be presented with a full-reach target (hip to
+        # player beyond the authored ~5.1m full-reach threshold).
+        # Close-range reach behaviour is covered by the v404 check.
+        player.global_position = boss.global_position + outward * 7.2
         player.global_position.y = 0.0
         if not bool(brain.call("force_start_with_stance", id, "kick")):
             _fail("unable to start " + id + "/kick")
@@ -162,7 +167,7 @@ func _run() -> void:
                 + str(min_clearance))
             return
         _settle(battle, 30)
-        player.global_position = boss.global_position + outward * 3.6
+        player.global_position = boss.global_position + outward * 7.2
         player.global_position.y = 0.0
         if not bool(brain.call("force_start_with_stance", id, "stomp")):
             _fail("unable to start " + id + "/stomp")
