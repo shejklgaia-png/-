@@ -30,6 +30,17 @@ const STEP_FORWARD_LEAD_METERS: float = 0.364
 ## retain the original 0.76m threshold and swing time.
 const STEP_APPROACH_TRIGGER_METERS: float = 0.988
 const STEP_COOLDOWN_SECONDS: float = 0.10
+# Locomotion weight shift (v401): while a diagonal pair is airborne the
+# chassis leans toward the planted pair's support centroid and sinks a
+# few centimetres, so the body reads as heavy instead of gliding at a
+# perfectly constant height. Purely additive on top of the sampled rig
+# pose, exactly like the attack chassis pose: the four world-anchored
+# soles are re-solved against their fixed positions afterwards, and
+# every term decays to zero when locomotion stops.
+const GAIT_SWAY_MAX_RADIANS: float = 0.040
+const GAIT_SWAY_RESPONSE_PER_SECOND: float = 5.0
+const GAIT_DIP_METERS: float = 0.040
+const GAIT_TOUCHDOWN_DIP_METERS: float = 0.020
 # A landing target must be the live foot placement beneath the turned
 # chassis. Do not alter the authored STEP_DURATION_SECONDS to catch up.
 const RECOVERY_FOOT_CATCHUP_THRESHOLD_METERS: float = 0.16
@@ -122,6 +133,11 @@ var last_actor_yaw: float = 0.0
 var stepping_pair: int = -1
 var preferred_pair: int = 0
 var cooldown: float = 0.0
+var gait_sway_roll: float = 0.0
+var gait_sway_pitch: float = 0.0
+var gait_dip: float = 0.0
+var gait_dip_pulse: float = 0.0
+var gait_prev_stepping: Array[bool] = [false, false, false, false]
 var rest_actor_local_y: float = 0.0
 var break_elapsed: float = -1.0
 var windup_elapsed: float = -1.0
@@ -938,6 +954,11 @@ func reset() -> void:
         chassis_bone.quaternion = rest_chassis_rotation
     break_elapsed = -1.0
     windup_elapsed = -1.0
+    gait_sway_roll = 0.0
+    gait_sway_pitch = 0.0
+    gait_dip = 0.0
+    gait_dip_pulse = 0.0
+    gait_prev_stepping = [false, false, false, false]
     post_down_idle_remaining = 0.0
     recovery_gait_started = false
     recovery_catchup_pending_pair = -1
@@ -1539,6 +1560,56 @@ func break_reaction_active() -> bool:
     # The original 2.5/6s down timer itself starts after the 0.6s windup.
     return windup_active() or down_pose_active()
 
+## Locomotion weight shift (v401). While a diagonal pair is airborne,
+## lean the chassis toward the planted pair's support centroid and sink
+## it slightly; add a short extra sink as each foot lands. Applied on
+## top of the freshly sampled rig pose (never accumulated), before the
+## chassis floor clamp and the foot IK, so planted soles stay locked.
+## All terms decay to exactly zero outside Approach/Turn.
+func _apply_gait_sway(delta: float, motion: String) -> void:
+    var active: bool = (motion == "Approach" or motion == "Turn") \
+        and not attack_stance_active and not attack_down_windup_active()
+    var desired_roll: float = 0.0
+    var desired_pitch: float = 0.0
+    var desired_dip: float = 0.0
+    if active and stepping_pair != -1:
+        # Carry the weight over the PLANTED pair's front foot: pair 0
+        # plants leg_fr (+X front), pair 1 plants leg_fl (-X front).
+        # Rotation about the forward (+Z) axis by a NEGATIVE angle tips
+        # the chassis top toward +X; rotation about +X tips it toward
+        # +Z (front). The roll therefore alternates with the diagonal
+        # pairs while the pitch stays gently forward under way.
+        var support_pair: int = 1 - stepping_pair
+        var front_sign: float = 1.0 if support_pair == 0 else -1.0
+        desired_roll = -front_sign * GAIT_SWAY_MAX_RADIANS * 0.85
+        desired_pitch = GAIT_SWAY_MAX_RADIANS * 0.45
+        desired_dip = GAIT_DIP_METERS
+    for i in range(legs.size()):
+        var stepping: bool = bool(legs[i]["stepping"])
+        if gait_prev_stepping[i] and not stepping and active:
+            gait_dip_pulse = GAIT_TOUCHDOWN_DIP_METERS
+        gait_prev_stepping[i] = stepping
+    gait_dip_pulse = maxf(0.0, gait_dip_pulse
+        - delta * GAIT_TOUCHDOWN_DIP_METERS * 3.0)
+    desired_dip += gait_dip_pulse
+    var blend: float = 1.0 - exp(
+        -GAIT_SWAY_RESPONSE_PER_SECOND * maxf(delta, 0.0))
+    gait_sway_roll = lerpf(gait_sway_roll, desired_roll, blend)
+    gait_sway_pitch = lerpf(gait_sway_pitch, desired_pitch, blend)
+    gait_dip = lerpf(gait_dip, desired_dip,
+        1.0 - exp(-7.0 * maxf(delta, 0.0)))
+    if chassis_bone == null:
+        return
+    if absf(gait_sway_roll) > 0.00001 or absf(gait_sway_pitch) > 0.00001:
+        chassis_bone.quaternion = (chassis_bone.quaternion
+            * Quaternion(Vector3.RIGHT, gait_sway_pitch)
+            * Quaternion(Vector3.BACK, gait_sway_roll)).normalized()
+    if gait_dip > 0.00001:
+        var scale_y: float = maxf(
+            absf(actor.get_parent().global_basis.get_scale().y), 0.001)
+        actor.position.y -= gait_dip / scale_y
+
+
 func advance_ik(delta: float, motion: String) -> void:
     if not ready or legs.size() != 4 or actor == null:
         return
@@ -1562,6 +1633,8 @@ func advance_ik(delta: float, motion: String) -> void:
         if bool(attack_pose.get("authored", false)) and actor.has_method(
                 "aim_authored_attack_leg"):
             actor.call("aim_authored_attack_leg", attack_pose, delta)
+    elif not break_reaction_active():
+        _apply_gait_sway(delta, motion)
     # Both authored KICK/SWEEP start-height calibration and leg-break
     # nose-dip can bury the actual chassis mesh. Enforce a real mesh
     # floor bound *after* every torso adjustment and *before* foot IK.

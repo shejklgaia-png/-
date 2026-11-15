@@ -128,11 +128,21 @@ func _check_broken_legs_remain_armed(battle: Node3D) -> bool:
         if not ready:
             _fail("boss never stood up after breaking " + id)
             return false
-        # Drive the REAL AI selector rather than force_start. Isolate the
-        # selected foot at zero horizontal distance, including broken ones.
+        # Drive the REAL AI selector rather than force_start. Present
+        # the v401 KICK situation for the selected foot: the player out
+        # beyond it along its radial line, still closest to that foot,
+        # including broken ones. (Pre-v401 the selector was a pure
+        # rotation and the player could simply stand on the sole.)
         candidates = battle.call("_bittaran_attack_candidates")
         var sole: Vector3 = candidates[id]
-        player.global_position = Vector3(sole.x, 0.0, sole.z)
+        var centroid := Vector3.ZERO
+        for other in candidates.values():
+            centroid += other as Vector3
+        centroid /= float(candidates.size())
+        var radial := Vector2(sole.x - centroid.x, sole.z - centroid.z)
+        var outward: Vector2 = radial.normalized() * 5.0
+        player.global_position = Vector3(
+            sole.x + outward.x, 0.0, sole.z + outward.y)
         brain.set("next_leg_index", ATTACKS.LEG_IDS.find(id))
         brain.set("next_kind_index", 1)
         brain.set("cooldown", 0.0)

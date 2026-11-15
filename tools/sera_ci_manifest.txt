@@ -366,3 +366,4 @@ gd tools/v397_bittaran_head30_rear_sweep_lift_runtime_check.gd
 gd tools/v398_bittaran_ik_neutral_stance_before_attack_runtime_check.gd
 gd tools/v399_bittaran_body_height_stability_runtime_check.gd
 gd tools/v400_bittaran_attack_motion_runtime_check.gd
+gd tools/v401_bittaran_weight_feel_runtime_check.gd

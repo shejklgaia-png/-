@@ -75,6 +75,26 @@ func _run() -> void:
             if not finished:
                 _fail(id + "/" + kind + " never completed")
                 return
+            # v401: at this point the boss may legitimately be walking
+            # toward the far-away player, and locomotion now carries an
+            # intentional gait dip/lean. Freeze the AI/director (skip
+            # _advance_target_motion) and let the IK settle, so the
+            # samples below measure only PERSISTENT attack-induced
+            # height error — the ratchet this check exists to catch.
+            # The ground-correction assertion is unaffected: a real
+            # ratchet leaves it at -1.337m per attack, settled or not.
+            # Settle = no pair stepping for 30 straight ticks (both
+            # pairs may need one last replant under the frozen chassis,
+            # ~0.58s each, before the gait terms can decay).
+            var settled_streak: int = 0
+            for settle in range(300):
+                battle.call("_finalize_target_pose", DT)
+                if int(ik.get("stepping_pair")) == -1:
+                    settled_streak += 1
+                    if settled_streak >= 30:
+                        break
+                else:
+                    settled_streak = 0
             completed += 1
             var correction: float = absf(float(
                 ik.get("ground_correction_world")))
