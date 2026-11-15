@@ -886,6 +886,12 @@ func _resolve_head_deep_leg_overlap() -> void:
 func _aim_bittaran_head(delta: float) -> void:
     if bittaran_head == null or player == null or target_hp <= 0:
         return
+    # Clamp persistent fields BEFORE any recovery / down branches, as
+    # well as at final quaternion output. No state may retain >30deg.
+    var yaw_cap: float = deg_to_rad(HEAD_TRACK_MAX_YAW_DEGREES)
+    boss_head_yaw = clampf(boss_head_yaw, -yaw_cap, yaw_cap)
+    head_look_filtered_yaw = clampf(
+        head_look_filtered_yaw, -yaw_cap, yaw_cap)
     # While lying down keep the head on its original bind orientation.
     # Once 70% of the ACTUAL eased rise is complete, softly fade in the
     # ordinary collision-aware look-at without a sudden yaw jump.
