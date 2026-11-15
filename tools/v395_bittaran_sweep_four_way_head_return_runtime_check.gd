@@ -141,7 +141,12 @@ func _check_realtime_sweep(battle: Node3D) -> bool:
                     + float(frame.get("hold", 0.0)))
                 if return_elapsed > 0.48 and yaw > allowed + 0.018:
                     _fail(id + " HEAD failed to clear returning sweep "
-                        + str([yaw, allowed, return_elapsed]))
+                        + str([yaw, allowed, return_elapsed,
+                            battle.call("_head_return_clearance_active"),
+                            battle.get("head_collision_blocked"),
+                            battle.get("head_collision_filtered_depth"),
+                            battle.get("head_visual_clearance_lift_world"),
+                            ik.get("attack_pose")]))
                     return false
                 # Narrow return clearance is approached smoothly,
                 # while the absolute mechanical arm limit is immediate.
