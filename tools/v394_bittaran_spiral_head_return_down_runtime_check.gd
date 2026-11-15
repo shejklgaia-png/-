@@ -123,8 +123,9 @@ func _check_interrupt(battle: Node3D, kind: String, id: String) -> bool:
     if not bool(hit.get("broken", false)):
         _fail(id + "/" + kind + " failed to break the shin")
         return false
-    if head.quaternion.angle_to(head_before) > 0.00001:
-        _fail("HEAD snapped on attack interruption")
+    if not head.quaternion.is_equal_approx(head_before):
+        _fail("HEAD snapped on attack interruption "
+            + str([head_before, head.quaternion]))
         return false
     if body.quaternion.angle_to(body_before) > 0.00001:
         _fail("BODY snapped before its 0.60s blend began")
