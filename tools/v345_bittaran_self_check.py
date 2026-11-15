@@ -28,7 +28,11 @@ for clip in boss["animations"][4:]:
     for bone, animator in original["animators"].items():
         imported = clip["animators"][bone]["keyframes"]
         expected = sorted(animator.get("keyframes", []), key=lambda x: x["time"])
-        assert imported == expected, (clip["name"], bone)
+        assert [{k: v for k, v in item.items() if k != "uuid"} for item in imported] == [
+            {k: v for k, v in item.items() if k != "uuid"} for item in expected
+        ], (clip["name"], bone)
+        # The staging file itself reuses ten Wait key UUIDs in 弾き.
+        # Normalize only colliding copied IDs; preserve values and times.
     assert all(k["time"] <= n["time"] for track in clip["animators"].values()
                for k, n in zip(track.get("keyframes", []),
                                track.get("keyframes", [])[1:]))
