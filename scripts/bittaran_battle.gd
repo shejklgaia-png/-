@@ -287,6 +287,8 @@ func _bittaran_player_overlap(box: AABB) -> bool:
 func _check_bittaran_attack_hit() -> void:
     if bittaran_attack_frame.is_empty() or bittaran_attacks == null             or target_parts == null or player == null or target_hp <= 0             or player_hp <= 0 or training_ko_remaining > 0.0:
         return
+    if bool(bittaran_attack_frame.get("stance_prepare", false)):
+        return
     var kind: String = str(bittaran_attack_frame.get("kind", ""))
     var leg_id: String = str(bittaran_attack_frame.get("id", ""))
     var is_impact: bool = bool(bittaran_attack_frame.get("impact", false))
@@ -1053,17 +1055,27 @@ func _advance_target_motion(delta: float) -> void:
     bittaran_attack_frame = (bittaran_attacks.call(
         "advance", delta, player.global_position,
         _bittaran_attack_candidates(), attack_permitted,
-        player.global_position + Vector3.UP * PLAYER_COLLISION_HEIGHT)
+        player.global_position + Vector3.UP * PLAYER_COLLISION_HEIGHT,
+        bittaran_foot_ik != null and bool(
+            bittaran_foot_ik.call("attack_stance_is_ready")))
         if bittaran_attacks != null else {})
     var attacking: bool = not bittaran_attack_frame.is_empty()
+    var preparing_stance: bool = bool(
+        bittaran_attack_frame.get("stance_prepare", false))
+    if bittaran_foot_ik != null and not preparing_stance and bool(
+            bittaran_foot_ik.get("attack_stance_active")):
+        # The first TRUE attack frame starts only AFTER all four feet
+        # finish their two diagonal IK replants. Release the staging
+        # metadata, keeping the new world-planted neutral anchors.
+        bittaran_foot_ik.call("clear_attack_stance")
     if bittaran_rig != null:
-        if attacking:
+        if attacking and not preparing_stance:
             bittaran_rig.call("start_authored_attack",
                 str(bittaran_attack_frame.get("kind", "")),
                 str(bittaran_attack_frame.get("id", "")))
         else:
             bittaran_rig.call("end_authored_attack")
-    if attacking:
+    if attacking and not preparing_stance:
         # Each attack tracks SERA while drawing back, then freezes the
         # attack heading on release; no mid-swing re-aim.
         # Unlike normal Turn, this yaw belongs solely to the BODY bone:
@@ -1211,6 +1223,14 @@ func _finalize_target_pose(delta: float) -> void:
     # visible shins to different positions later in the same frame.
     if bittaran_foot_ik != null and target != null and target_hp > 0:
         var attack_frame: Dictionary = bittaran_attack_frame.duplicate()
+        var preparing_stance: bool = bool(
+            attack_frame.get("stance_prepare", false))
+        if preparing_stance:
+            # First make the legs turn/step to their exact Wait contacts
+            # with two-bone IK, with no author timeline or attack hitbox.
+            bittaran_foot_ik.call("begin_attack_stance",
+                str(attack_frame.get("id", "")))
+            attack_frame.clear()
         if not attack_frame.is_empty() and bittaran_rig != null:
             bittaran_rig.call("apply_authored_attack_pose", attack_frame)
             attack_frame["authored"] = true
@@ -1245,7 +1265,8 @@ func _finalize_target_pose(delta: float) -> void:
     _check_bittaran_attack_hit()
     if bittaran_dirt_fx != null and bittaran_foot_ik != null:
         var contact: Vector3 = bittaran_foot_ik.call("attack_contact_world")
-        if bittaran_attack_frame.is_empty():
+        if bittaran_attack_frame.is_empty() or bool(
+                bittaran_attack_frame.get("stance_prepare", false)):
             bittaran_dirt_fx.call("advance_attack", {}, Vector3.ZERO,
                 Vector3.ZERO, delta)
             attack_contact_initialized = false
