@@ -1,7 +1,7 @@
 extends SceneTree
 ## v380: moving KNEE enters a stationary HEAD's clearance, not only
 ## the reverse. The actual yaw (already clamped by collision) must be
-## scanned, the swinging leg must not be skipped, and a 10cm rule is
+## scanned, the swinging leg must not be skipped, and a 20cm rule is
 ## shared by the head stop and leg pole. Sole target must be unchanged.
 const PARTS = preload("res://scripts/bittaran_parts.gd")
 const IK = preload("res://scripts/bittaran_foot_ik.gd")
@@ -19,9 +19,9 @@ class KneeInvadesHeadProbe extends Node3D:
     func get_head_leg_penetration_depth(id: String) -> float:
         if id != "leg_fl":
             return 0.0
-        # The moving knee initially penetrates 20cm. Gradually bending
-        # out by 45% reduces it below the strict 10cm limit.
-        return maxf(0.0, 0.20 - 0.31 *
+        # The moving knee initially penetrates 30cm. Its 13cm preferred
+        # clearance activates outward/downward folding ahead of 20cm.
+        return maxf(0.0, 0.30 - 0.31 *
             float(moving_leg.get("head_knee_bend", 0.0)))
 
 
@@ -37,20 +37,20 @@ func _run() -> void:
     # become available; avoid eager battle-script preloads at file scope.
     var boss_constants: Dictionary = (load(
         "res://scripts/bittaran_battle.gd") as GDScript).get_script_constant_map()
-    if absf(PARTS.HEAD_LEG_ALLOWED_PENETRATION_METERS - 0.10) > 0.00001 \
-            or absf(boss_constants["HEAD_LEG_ALLOWED_PENETRATION_METERS"] - 0.10) > 0.00001 \
-            or absf(IK.HEAD_KNEE_ALLOWED_PENETRATION_METERS - 0.10) > 0.00001:
-        _fail("HEAD and moving knee must share exactly 10cm")
+    if absf(PARTS.HEAD_LEG_ALLOWED_PENETRATION_METERS - 0.20) > 0.00001 \
+            or absf(boss_constants["HEAD_LEG_ALLOWED_PENETRATION_METERS"] - 0.20) > 0.00001 \
+            or absf(IK.HEAD_KNEE_ALLOWED_PENETRATION_METERS - 0.20) > 0.00001:
+        _fail("HEAD and moving knee must share exactly 20cm")
         return
-    if IK.HEAD_KNEE_MAX_BEND < 0.44 or (
-            IK.HEAD_KNEE_MAX_BEND > 0.46):
+    if IK.HEAD_KNEE_MAX_BEND < 0.69 or (
+            IK.HEAD_KNEE_MAX_BEND > 0.71):
         _fail("knee should flex moderately more than the old 30%")
         return
     if IK.HEAD_KNEE_SCAN_SECONDS > 0.051:
         _fail("knee did not react promptly to moving-leg intrusion")
         return
-    if boss_constants["HEAD_TRACK_COLLISION_RELEASE_DEPTH_METERS"] > 0.10:
-        _fail("head stop did not scale to 10cm")
+    if boss_constants["HEAD_TRACK_COLLISION_RELEASE_DEPTH_METERS"] > 0.20:
+        _fail("head stop did not scale to 20cm")
         return
     var battle: Node3D = load(
         "res://scenes/bittaran_battle.tscn").instantiate()
@@ -85,7 +85,7 @@ func _run() -> void:
     var knee_bent: Vector3 = (
         selected["lower"] as Node3D).global_position
     if knee_neutral.distance_to(knee_bent) <= 0.012:
-        _fail("45% pole did not move the knee")
+        _fail("70% pole did not move the knee")
         return
     if err_bent > 0.20:
         _fail("head clearance detached the foot from its contact")
@@ -108,7 +108,7 @@ func _run() -> void:
     # During SWING, the knee must choose an actual bend, even though
     # the HEAD's desired yaw is zero and did not cause the contact.
     var chosen: float = float(selected["head_knee_target"])
-    if chosen < 0.30 or chosen > IK.HEAD_KNEE_MAX_BEND + 0.00001:
+    if chosen < 0.40 or chosen > IK.HEAD_KNEE_MAX_BEND + 0.00001:
         _fail("swinging knee failed to fold around a stationary head: "
             + str(chosen))
         return
@@ -125,17 +125,17 @@ func _run() -> void:
     if not is_finite(depth_start):
         _fail("moving knee depth not measurable")
         return
-    # A 10cm inward depth must stop HEAD turning without a snap,
+    # A 20cm inward depth must stop HEAD turning without a snap,
     # and an outward motion must remain available.
     battle.set("head_collision_filtered_depth", 0.0)
     battle.set("head_collision_blocked", false)
     var stopped: float = float(battle.call(
-        "_head_collision_motion_scale", 0.10, 0.12, DT))
+        "_head_collision_motion_scale", 0.20, 0.22, DT))
     if stopped != 0.0:
-        _fail("head still turns deeper at 10cm")
+        _fail("head still turns deeper at 20cm")
         return
     var escape: float = float(battle.call(
-        "_head_collision_motion_scale", 0.15, 0.12, DT))
+        "_head_collision_motion_scale", 0.25, 0.18, DT))
     if escape < 0.39:
         _fail("head cannot retreat smoothly")
         return
@@ -143,7 +143,7 @@ func _run() -> void:
             or absf(IK.STEP_DURATION_SECONDS - 0.58) > 0.00001:
         _fail("unrelated stand-up or gait timing changed")
         return
-    print("GODOT_V380_BITTARAN_KNEE_HEAD_PASS: 10cm tolerance, "
-        + "45% knee bend, swinging-leg scan, same planted toe and "
-        + "10cm smooth head stop")
+    print("GODOT_V380_BITTARAN_KNEE_HEAD_PASS: 20cm tolerance, "
+        + "70% knee bend, swinging-leg scan, same planted toe and "
+        + "20cm smooth head stop")
     quit(0)
