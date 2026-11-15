@@ -170,11 +170,47 @@ func _check_realtime_sweep(battle: Node3D) -> bool:
                             largest = depth
                             worst_leg = test_leg
                     if largest > 0.135:
+                        var head: Node3D = battle.get("bittaran_head")
+                        var saved_pose: Quaternion = head.quaternion
+                        var saved_position: Vector3 = head.global_position
+                        var baseline: Quaternion = battle.call(
+                            "_head_level_local_base_pose")
+                        var right_axis: Vector3 = (
+                            head.get_parent() as Node3D).global_basis.x.normalized()
+                        var trials: Array = []
+                        var overall: Array = [INF, 0.0, 0.0, 0.0]
+                        for sideways in [-1.0, -0.50, 0.0, 0.50, 1.0]:
+                            var best_row: Array = [INF, sideways, 0.0, 0.0]
+                            for lift in [0.0, 0.6, 1.2]:
+                                head.global_position = saved_position + (
+                                    right_axis * float(sideways)
+                                    + Vector3.UP * float(lift))
+                                for yaw_test in [-60.0, -40.0, -20.0,
+                                        0.0, 25.0, 40.0, 60.0]:
+                                    head.quaternion = battle.call(
+                                        "_head_oriented_local_pose",
+                                        baseline, deg_to_rad(yaw_test),
+                                        float(battle.get("boss_head_pitch")))
+                                    var depth_row: Dictionary = parts.call(
+                                        "get_head_leg_penetration_depths")
+                                    var depth_worst: float = 0.0
+                                    for v in depth_row.values():
+                                        depth_worst = maxf(
+                                            depth_worst, float(v))
+                                    if depth_worst < float(best_row[0]):
+                                        best_row = [depth_worst, sideways,
+                                            lift, yaw_test]
+                                    if depth_worst < float(overall[0]):
+                                        overall = [depth_worst, sideways,
+                                            lift, yaw_test]
+                            trials.append(best_row)
+                        head.global_position = saved_position
+                        head.quaternion = saved_pose
                         _fail(id + " SWEEP front70 HEAD intersects returning limb "
                             + str([return_elapsed, largest, worst_leg,
                                 yaw, battle.get(
                                     "head_return_safe_yaw_target"),
-                                depths, return_trace]))
+                                depths, return_trace, trials, overall]))
                         return false
                 # Narrow return clearance is approached smoothly,
                 # while the absolute mechanical arm limit is immediate.
