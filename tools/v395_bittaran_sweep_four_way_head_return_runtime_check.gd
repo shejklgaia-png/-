@@ -227,5 +227,5 @@ func _run() -> void:
     print("GODOT_V395_SWEEP_HEAD_RETURN_PASS: four sweep limbs use "
         + "mirrored authored world-height arcs and body roll, "
         + "real attacks stay above floor, HEAD never violates "
-        + "normal or returning-leg absolute yaw/pitch limits")
+        + "mechanical yaw stop and smooth return-foot clearance goals")
     quit(0)
