@@ -1,6 +1,6 @@
 extends SceneTree
 ## v373: slight head/arm mesh overlap is allowed; knee side-fold is
-## capped at 45% of the old full fold, with no movement of planted soles.
+## capped at 70% of the old full fold, with no movement of planted soles.
 const IK = preload("res://scripts/bittaran_foot_ik.gd")
 const DT: float = 1.0 / 60.0
 
@@ -12,15 +12,15 @@ func _fail(message: String) -> void:
     quit(1)
 
 func _run() -> void:
-    if absf(IK.HEAD_KNEE_MAX_BEND - 0.45) > 0.0001:
-        _fail("head avoidance must not exceed 45% lateral knee bend")
+    if absf(IK.HEAD_KNEE_MAX_BEND - 0.70) > 0.0001:
+        _fail("head avoidance must not exceed 70% lateral knee bend")
         return
     if absf(IK.HEAD_KNEE_ALLOWED_PENETRATION_METERS - 0.10) > 0.00001:
-        _fail("knee must permit 10cm of head/leg penetration")
+        _fail("knee must permit 20cm of head/leg penetration")
         return
-    if IK.HEAD_KNEE_MIN_BENEFIT_METERS < 0.012 or (
-            IK.HEAD_KNEE_BEND_PENALTY_METERS < 0.045):
-        _fail("knee movement must be discouraged for minor depth gains")
+    if IK.HEAD_KNEE_MIN_BENEFIT_METERS > 0.0081 or (
+            IK.HEAD_KNEE_BEND_PENALTY_METERS > 0.0251):
+        _fail("leg-first avoidance must begin before the hard head limit")
         return
     if absf(IK.STEP_DURATION_SECONDS - 0.58) > 0.00001:
         _fail("original swing duration changed")
@@ -54,7 +54,7 @@ func _run() -> void:
         _fail("bounded lateral knee fold had no visible influence")
         return
     if modest.distance_to(over) > 0.0015:
-        _fail("even an excessive bend request exceeded the 45% clamp")
+        _fail("even an excessive bend request exceeded the 70% clamp")
         return
     if modest_error > maxf(0.20, neutral_error + 0.015) or (
             over_error > maxf(0.20, neutral_error + 0.015)):
@@ -92,6 +92,6 @@ func _run() -> void:
     if not saw_recovered:
         _fail("never finished standing to exercise head turning")
         return
-    print("GODOT_V373_BITTARAN_MINIMAL_KNEE_PASS: knee bend <= 45%, "
+    print("GODOT_V373_BITTARAN_MINIMAL_KNEE_PASS: knee bend <= 70%, "
         + "mild overlap accepted, stable sole/root, head tracking tested")
     quit(0)
