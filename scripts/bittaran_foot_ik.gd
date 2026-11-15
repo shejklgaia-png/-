@@ -253,6 +253,38 @@ func _apply_attack_chassis_pose() -> void:
         # The authored STOMP clip lifts its own limb; move the chassis
         # only slightly while the other three real soles stay fixed.
         actor.position.y -= 0.08 * weight / scale_y
+        var i: int = LEG_PART_IDS.find(str(attack_pose.get("id", "")))
+        if i >= 0 and i < legs.size():
+            var aim: Vector3 = attack_pose.get("stomp_aim", Vector3.INF)
+            var windup: float = float(attack_pose.get("windup", 1.25))
+            var strike: float = float(attack_pose.get("strike", 0.25))
+            if aim != Vector3.INF and t >= windup:
+                var leg: Dictionary = legs[i]
+                var hip: Vector3 = (leg["upper"] as Node3D).global_position
+                var knee: Vector3 = (leg["lower"] as Node3D).global_position
+                var foot: Node3D = leg["foot"]
+                var limb_length: float = hip.distance_to(knee) + (
+                    knee.distance_to(foot.global_position)) - IK_REACH_MARGIN_METERS
+                # Flattening the long authored toe at floor contact removes
+                # its former vertical 1.7m reach. Lower ONLY the chassis
+                # enough for the two-bone limb to physically hit the floor,
+                # while the other three soles remain world-planted in IK.
+                var foot_quat: Quaternion = _attack_rotation(leg)
+                var local_sole: Vector3 = (
+                    Basis(foot_quat).scaled(foot.global_basis.get_scale())
+                    * (leg["sole_local"] as Vector3))
+                var ankle_goal: Vector3 = Vector3(
+                    aim.x, FLOOR_Y, aim.z) - local_sole
+                var across: Vector3 = ankle_goal - hip
+                across.y = 0.0
+                var up_reach: float = sqrt(maxf(
+                    limb_length * limb_length - across.length_squared(), 0.0))
+                var shortage: float = maxf(
+                    hip.y - ankle_goal.y - up_reach, 0.0)
+                var lower: float = _cubic((t - windup) / maxf(strike, 0.001))
+                lower *= 1.0 - _cubic(
+                    (t - windup - strike) / maxf(recover, 0.001))
+                actor.position.y -= minf(shortage + 0.035, 2.2) * lower / scale_y
     # KICK/SWEEP crouch/roll are now entirely driven by the user-authored
     # BODY keyframe, reached over 0.70s. Never stack the old procedural
     # crouch/67-degree roll on top of the user's exact keyframed posture.
