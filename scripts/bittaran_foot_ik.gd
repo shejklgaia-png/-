@@ -1356,10 +1356,14 @@ func advance_ik(delta: float, motion: String) -> void:
             var support_foot: Node3D = leg["foot"]
             var support_error: Vector3 = position - support_foot.to_global(
                 leg["sole_local"] as Vector3)
-            if support_error.length_squared() < 0.15 * 0.15:
-                support_foot.global_position += support_error
-                leg["last_error"] = support_foot.to_global(
-                    leg["sole_local"] as Vector3).distance_to(position)
+            # A very low authored KICK/SWEEP torso can exceed even
+            # the full anatomical two-bone support reach. Prefer the
+            # guaranteed world-fixed visible sole to stepping/sliding
+            # it up to 40cm (or more) from its contact. This position
+            # is restored from the same fixed anchor every physics tick.
+            support_foot.global_position += support_error
+            leg["last_error"] = support_foot.to_global(
+                leg["sole_local"] as Vector3).distance_to(position)
         if attacking and attacking_this_leg and bool(
                 attack_pose.get("authored", false)) and str(
                 attack_pose.get("kind", "")) != "stomp":
