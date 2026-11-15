@@ -6,7 +6,7 @@ extends SceneTree
 const ATTACKS = preload("res://scripts/bittaran_attacks.gd")
 const IK = preload("res://scripts/bittaran_foot_ik.gd")
 const DT: float = 1.0 / 60.0
-const RETURN_YAW_DEGREES: float = 22.0
+const RETURN_YAW_DEGREES: float = 25.0
 const RETURN_PITCH_DEGREES: float = 12.0
 
 func _initialize() -> void:
