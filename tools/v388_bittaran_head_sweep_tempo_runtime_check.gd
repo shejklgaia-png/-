@@ -126,10 +126,20 @@ func _check_head_ownership(battle: Node3D) -> bool:
     var ik: RefCounted = battle.get("bittaran_foot_ik")
     ik.set("break_elapsed", 0.30)
     ik.set("windup_elapsed", -1.0)
-    battle.call("_aim_bittaran_head", DT)
+    var last_yaw: float = float(battle.get("boss_head_yaw"))
+    # A previously tracked neck must NOT snap to neutral as it falls.
+    # Re-centering is rate-limited by the same 140deg/s look budget.
+    for frame in range(30):
+        battle.call("_aim_bittaran_head", DT)
+        var current_yaw: float = float(battle.get("boss_head_yaw"))
+        if absf(current_yaw - last_yaw) > (
+                deg_to_rad(140.0) * DT + 0.0001):
+            _fail("head snapped to neutral on first down frame")
+            return false
+        last_yaw = current_yaw
     var rest: Quaternion = battle.get("boss_head_default_rotation")
     if head.quaternion.angle_to(rest) > 0.00001:
-        _fail("head tracked while lying down")
+        _fail("head failed to settle to neutral while lying down")
         return false
     ik.set("break_elapsed", -1.0)
     return true
