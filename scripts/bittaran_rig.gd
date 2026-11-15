@@ -13,6 +13,21 @@ const PALETTE = [
 var bones: Dictionary = {}
 var bind_rotations: Dictionary = {}
 var animations: Dictionary = {}
+var bone_uuid_by_name: Dictionary = {}
+var attack_entry_rotations: Dictionary = {}
+var active_authored_attack: String = ""
+var authored_leg_id: String = ""
+# The user authored one front-left limb. Retarget its rotational DELTAS
+# relative to Wait for each of the other three mechanically symmetric limbs.
+const ATTACK_NAMES: Dictionary = {
+    "stomp": "踏みつけ", "kick": "弾き", "sweep": "なぎ払い"
+}
+const ATTACK_LEG_BONES: Dictionary = {
+    "leg_fl": ["FrontLeg_L", "FrontLowerLeg_L", "FrontFoot_L"],
+    "leg_fr": ["FrontLeg_R", "FrontLowerLeg_R", "FrontFoot_R"],
+    "leg_rl": ["RearLeg_L", "RearLowerLeg_L", "RearFoot_L"],
+    "leg_rr": ["RearLeg_R", "RearLowerLeg_R", "RearFoot_R"]
+}
 var current_clip: String = "Idle"
 var elapsed: float = 0.0
 var blend_elapsed: float = BLEND_SECONDS
@@ -47,7 +62,9 @@ func _ready() -> void:
         animations[str(clip.get("name", ""))] = clip
     loading_ok = bones.size() == 14 and animations.has("Wait") and (
         animations.has("Idle") and animations.has("Turn")
-        and animations.has("Approach"))
+        and animations.has("Approach")
+        and animations.has("踏みつけ") and animations.has("弾き")
+        and animations.has("なぎ払い"))
     if not loading_ok:
         push_error("Bittaran: missing legs, feet or motion clips")
         return
@@ -78,6 +95,7 @@ func _add_entry(entry: Variant, parent: Node3D, parent_origin: Vector3,
         joint.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_ON
         parent.add_child(joint)
         bones[uid] = joint
+        bone_uuid_by_name[joint.name] = uid
         bind_rotations[uid] = joint.quaternion
         for child in entry.get("children", []):
             _add_entry(child, joint, origin, groups, elements)
@@ -203,6 +221,125 @@ func set_motion(clip_name: String, delta: float) -> void:
     elapsed += maxf(0.0, delta)
     blend_elapsed = minf(BLEND_SECONDS, blend_elapsed + maxf(0.0, delta))
     apply_pose(current_clip, elapsed)
+
+## Playback of user-authored attack keys, separate from procedural foot
+## contact IK. Only Body and the chosen attacking leg receive author data;
+## support legs continue to use their world-planted IK anchors.
+func start_authored_attack(kind: String, id: String) -> void:
+    if not loading_ok or not ATTACK_NAMES.has(kind) or (
+            not ATTACK_LEG_BONES.has(id)):
+        return
+    if active_authored_attack == kind and authored_leg_id == id:
+        return
+    active_authored_attack = kind
+    authored_leg_id = id
+    attack_entry_rotations.clear()
+    for uid in bones:
+        attack_entry_rotations[uid] = (bones[uid] as Node3D).quaternion
+
+
+func end_authored_attack() -> void:
+    active_authored_attack = ""
+    authored_leg_id = ""
+    attack_entry_rotations.clear()
+
+
+func _authored_key_rotation(clip_name: String,
+        bone_name: String, seconds: float) -> Quaternion:
+    var uid: String = str(bone_uuid_by_name.get(bone_name, ""))
+    if uid.is_empty() or not animations.has(clip_name):
+        return Quaternion.IDENTITY
+    var clip: Dictionary = animations[clip_name]
+    var tracks: Dictionary = clip.get("animators", {})
+    var track: Dictionary = tracks.get(uid, {})
+    var keys: Array = track.get("keyframes", [])
+    var bind: Quaternion = bind_rotations.get(uid, Quaternion.IDENTITY)
+    if keys.is_empty():
+        return bind
+    return (bind * _sample_rotation(keys, seconds)).normalized()
+
+
+func _mirror_author_delta(delta: Quaternion, target_id: String) -> Quaternion:
+    # Spatial reflections of an AXIAL rotation: S*R*S, det(S)=-1.
+    # Mirroring X swaps left/right; mirroring Z swaps fore/rear.
+    var q: Quaternion = delta
+    if target_id.ends_with("r"):
+        q = Quaternion(q.x, -q.y, -q.z, q.w)
+    if target_id.begins_with("leg_r"):
+        q = Quaternion(-q.x, -q.y, q.z, q.w)
+    return q.normalized()
+
+
+func _authored_rotation_for_leg(kind: String,
+        target_id: String, bone_slot: int, at: float) -> Quaternion:
+    var source_name: String = ATTACK_LEG_BONES["leg_fl"][bone_slot]
+    var dest_name: String = ATTACK_LEG_BONES[target_id][bone_slot]
+    var source_wait: Quaternion = _authored_key_rotation("Wait",
+        source_name, 0.0)
+    var dest_wait: Quaternion = _authored_key_rotation("Wait",
+        dest_name, 0.0)
+    var source_action: Quaternion = _authored_key_rotation(
+        str(ATTACK_NAMES[kind]), source_name, at)
+    var delta: Quaternion = (source_wait.inverse() * source_action).normalized()
+    return (dest_wait * _mirror_author_delta(delta, target_id)).normalized()
+
+
+func authored_clip_length(kind: String) -> float:
+    if not ATTACK_NAMES.has(kind):
+        return 0.0
+    var clip: Dictionary = animations.get(str(ATTACK_NAMES[kind]), {})
+    return float(clip.get("length", 0.0))
+
+
+func apply_authored_attack_pose(frame: Dictionary) -> void:
+    if frame.is_empty() or not loading_ok:
+        return
+    var kind: String = str(frame.get("kind", ""))
+    var id: String = str(frame.get("id", ""))
+    if not ATTACK_NAMES.has(kind) or not ATTACK_LEG_BONES.has(id):
+        return
+    if active_authored_attack != kind or authored_leg_id != id:
+        start_authored_attack(kind, id)
+    var seconds: float = float(frame.get("time", 0.0))
+    var windup: float = float(frame.get("windup", 1.0))
+    var strike: float = float(frame.get("strike", 0.2))
+    var recovery: float = float(frame.get("recovery", 0.5))
+    var preparation: float = 0.0 if kind == "stomp" else windup
+    var clip_time: float = clampf(seconds - preparation,
+        0.0, authored_clip_length(kind))
+    var blend_in: float = clampf(seconds /
+        maxf(0.24 if kind == "stomp" else preparation, 0.001), 0.0, 1.0)
+    blend_in = blend_in * blend_in * (3.0 - 2.0 * blend_in)
+    var retreat: float = clampf((seconds - windup - strike) /
+        maxf(recovery, 0.001), 0.0, 1.0)
+    var blend_out: float = 1.0 - retreat * retreat * (3.0 - 2.0 * retreat)
+    var weight: float = blend_in * blend_out
+    # The Body track is the LOW authored crouch at t=0 for KICK/SWEEP,
+    # reached over exactly 0.70s before those authored strikes play.
+    var slots: Array[String] = ["Body"]
+    for raw in ATTACK_LEG_BONES[id]:
+        slots.append(str(raw))
+    for bone_name in slots:
+        var uid: String = str(bone_uuid_by_name.get(bone_name, ""))
+        if uid.is_empty() or not bones.has(uid):
+            continue
+        var node: Node3D = bones[uid]
+        var target_rotation: Quaternion
+        if bone_name == "Body":
+            target_rotation = _authored_key_rotation(
+                str(ATTACK_NAMES[kind]), bone_name, clip_time)
+        else:
+            var bone_slot: int = slots.find(bone_name) - 1
+            target_rotation = _authored_rotation_for_leg(
+                kind, id, bone_slot, clip_time)
+        var entry: Quaternion = attack_entry_rotations.get(
+            uid, node.quaternion)
+        var rest: Quaternion = _authored_key_rotation("Wait", bone_name, 0.0)
+        # Smoothly leave the current Turn/Approach pose, and blend out
+        # toward neutral to hand control back to the existing Idle clip.
+        node.quaternion = entry.slerp(target_rotation, weight).slerp(
+            rest, 1.0 - blend_out).normalized()
+
 
 func bone_names() -> Array[String]:
     var result: Array[String] = []

@@ -350,3 +350,4 @@ gd tools/v381_bittaran_four_leg_attacks_runtime_check.gd
 gd tools/v382_bittaran_broken_leg_straight_attacks_runtime_check.gd
 gd tools/v383_bittaran_attack_aim_body_support_runtime_check.gd
 gd tools/v384_bittaran_stomp_overhead_runtime_check.gd
+gd tools/v385_bittaran_authored_attacks_dirt_runtime_check.gd

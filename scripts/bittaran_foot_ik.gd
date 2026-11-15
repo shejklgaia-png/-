@@ -250,29 +250,44 @@ func _apply_attack_chassis_pose() -> void:
     var scale_y: float = maxf(
         absf(actor.get_parent().global_basis.get_scale().y), 0.001)
     if kind == "stomp":
-        # Plant the other three legs while the striking foot rises.
+        # The authored STOMP clip lifts its own limb; move the chassis
+        # only slightly while the other three real soles stay fixed.
         actor.position.y -= 0.08 * weight / scale_y
-    elif kind == "kick":
-        # The sole stays in place during the full one-second knee tuck.
-        actor.position.y -= 0.34 * weight / scale_y
-    elif kind == "sweep":
         var i: int = LEG_PART_IDS.find(str(attack_pose.get("id", "")))
-        if i < 0:
-            return
-        var shoulder: Node3D = legs[i]["upper"]
-        var side_local: Vector3 = chassis_bone.to_local(shoulder.global_position)
-        var sign: float = 1.0 if side_local.x >= 0.0 else -1.0
-        # Roll toward the active shoulder; opposite legs support the chassis.
-        chassis_bone.quaternion = (chassis_bone.quaternion *
-            Quaternion(Vector3.BACK, -sign * deg_to_rad(67.0) * weight)).normalized()
-        # An additional vertical shift brings the attacking shoulder down
-        # to ground height. It is eased out with the same pose envelope.
-        var shoulder_shift: float = (
-            FLOOR_Y + 0.12 - shoulder.global_position.y)
-        # Compensate in BOTH directions: a long side-roll can put the
-        # shoulder below the floor, not only above it.
-        actor.position.y += clampf(
-            shoulder_shift, -1.85, 1.20) * weight / scale_y
+        if i >= 0 and i < legs.size():
+            var aim: Vector3 = attack_pose.get("stomp_aim", Vector3.INF)
+            var windup: float = float(attack_pose.get("windup", 1.25))
+            var strike: float = float(attack_pose.get("strike", 0.25))
+            if aim != Vector3.INF and t >= windup:
+                var leg: Dictionary = legs[i]
+                var hip: Vector3 = (leg["upper"] as Node3D).global_position
+                var knee: Vector3 = (leg["lower"] as Node3D).global_position
+                var foot: Node3D = leg["foot"]
+                var limb_length: float = hip.distance_to(knee) + (
+                    knee.distance_to(foot.global_position)) - IK_REACH_MARGIN_METERS
+                # Flattening the long authored toe at floor contact removes
+                # its former vertical 1.7m reach. Lower ONLY the chassis
+                # enough for the two-bone limb to physically hit the floor,
+                # while the other three soles remain world-planted in IK.
+                var foot_quat: Quaternion = _attack_rotation(leg)
+                var local_sole: Vector3 = (
+                    Basis(foot_quat).scaled(foot.global_basis.get_scale())
+                    * (leg["sole_local"] as Vector3))
+                var ankle_goal: Vector3 = Vector3(
+                    aim.x, FLOOR_Y, aim.z) - local_sole
+                var across: Vector3 = ankle_goal - hip
+                across.y = 0.0
+                var up_reach: float = sqrt(maxf(
+                    limb_length * limb_length - across.length_squared(), 0.0))
+                var shortage: float = maxf(
+                    hip.y - ankle_goal.y - up_reach, 0.0)
+                var lower: float = _cubic((t - windup) / maxf(strike, 0.001))
+                lower *= 1.0 - _cubic(
+                    (t - windup - strike) / maxf(recover, 0.001))
+                actor.position.y -= minf(shortage + 0.035, 2.2) * lower / scale_y
+    # KICK/SWEEP crouch/roll are now entirely driven by the user-authored
+    # BODY keyframe, reached over 0.70s. Never stack the old procedural
+    # crouch/67-degree roll on top of the user's exact keyframed posture.
 
 # Convert the attack direction to an exact two-bone reach in WORLD
 # metres. _solve() receives a sole position but solves the FOOT PIVOT;
@@ -321,10 +336,34 @@ func _attack_rotation(leg: Dictionary) -> Quaternion:
     var amount: float = _cubic(t / maxf(windup, 0.001)) * (
         1.0 - _cubic((t - windup - strike) / maxf(recovery, 0.001)))
     if str(attack_pose.get("kind", "")) == "stomp":
-        # The toe is vertical throughout the entire lift and downstroke.
-        # Ease back to its captured pose only after ground impact.
-        amount = 1.0 - _cubic(
+        # Keep the pointed toe vertical throughout the lift. As the
+        # actual strike reaches FLOOR height rotate it into a horizontal
+        # toe, not at the start of the downstroke or at attack spawn.
+        var target: Vector3 = attack_pose.get("stomp_aim", Vector3.INF)
+        var hip: Vector3 = (leg["upper"] as Node3D).global_position
+        var horizontal: Vector3 = target - hip
+        horizontal.y = 0.0
+        if target == Vector3.INF or horizontal.length_squared() < 0.0001:
+            horizontal = -actor.global_basis.z
+            horizontal.y = 0.0
+        var face: Vector3 = -horizontal.normalized()
+        var right: Vector3 = face.cross(Vector3.UP).normalized()
+        var tilted: Quaternion = Basis(
+            right, face, Vector3.UP).get_rotation_quaternion()
+        var contact: float = 0.0
+        if t >= windup:
+            var fall: float = _cubic(
+                (t - windup) / maxf(strike, 0.001))
+            var real_height: float = (leg["foot"] as Node3D).to_global(
+                leg["sole_local"] as Vector3).y
+            var nominal: float = lerpf(
+                maxf(target.y + 0.35, 1.05), FLOOR_Y, fall)
+            var height: float = minf(real_height, nominal)
+            contact = (1.0 - smoothstep(0.06, 0.32, height))
+        var toe: Quaternion = flat.slerp(tilted, contact)
+        var retract: float = _cubic(
             (t - windup - strike) / maxf(recovery, 0.001))
+        return toe.slerp(original, retract).normalized()
     return original.slerp(flat, amount).normalized()
 
 
@@ -640,6 +679,13 @@ func _solve(leg: Dictionary, sole_goal: Vector3, desired_rotation: Quaternion) -
     var sideways: float = sqrt(maxf(0.0,
         upper_length * upper_length - along * along))
     var pole: Vector3 = actor.global_basis * (leg["pole_local"] as Vector3)
+    if not attack_pose.is_empty() and bool(attack_pose.get("authored", false)) \
+            and str(attack_pose.get("kind", "")) == "stomp" \
+            and LEG_PART_IDS[legs.find(leg)] == str(attack_pose.get("id", "")):
+        # The animated front-left knee describes the intended bend plane.
+        # Keep that authored pole while IK moves the foot toward SERA's
+        # live head. This preserves the clip's keyframed windup silhouette.
+        pole = knee - hip
     pole -= direction * pole.dot(direction)
     if pole.length_squared() < 0.00001:
         pole = Vector3.UP - direction * direction.y
@@ -1134,8 +1180,34 @@ func advance_ik(delta: float, motion: String) -> void:
                 str(attack_pose.get("id", "")) == (
                     LEG_PART_IDS[legs.find(leg)]))
             if attacking_this_leg:
-                rotation = _attack_rotation(leg)
-                position = _attack_goal(leg, rotation)
+                if bool(attack_pose.get("authored", false)) and (
+                        str(attack_pose.get("kind", "")) != "stomp"):
+                    # The user's keyframes ARE the attacking limb pose:
+                    # solving its old procedural IK would erase them.
+                    var foot: Node3D = leg["foot"]
+                    var actual: Vector3 = foot.to_global(
+                        leg["sole_local"] as Vector3)
+                    var t: float = float(attack_pose.get("time", 0.0))
+                    var end: float = float(attack_pose.get("windup", 0.7)) + (
+                        float(attack_pose.get("strike", 1.0)))
+                    if t > end:
+                        # Blend from the real last authored foot position
+                        # back to the saved planted sole during recovery.
+                        var recover_t: float = _cubic((t - end) / maxf(
+                            float(attack_pose.get("recovery", 0.45)), 0.001))
+                        position = actual.lerp(leg["anchor"], recover_t)
+                        rotation = foot.global_basis.get_rotation_quaternion().slerp(
+                            leg["anchor_rotation"] as Quaternion, recover_t)
+                    else:
+                        position = actual
+                        rotation = foot.global_basis.get_rotation_quaternion()
+                    if t <= end:
+                        leg["last_goal"] = position
+                        leg["last_rotation"] = rotation
+                        continue
+                else:
+                    rotation = _attack_rotation(leg)
+                    position = _attack_goal(leg, rotation)
             else:
                 # No gait, foot replanting, or root yaw while attacking.
                 # A support foot interrupted midstep settles ONLY in Y;
@@ -1268,6 +1340,12 @@ func advance_ik(delta: float, motion: String) -> void:
         if upright_error_world <= POST_DOWN_UPRIGHT_TOLERANCE_WORLD_METERS:
             post_down_idle_remaining = maxf(0.0,
                 post_down_idle_remaining - maxf(delta, 0.0))
+    # Save the FINAL visual model transform, after authored chassis dips,
+    # fall recovery and contact correction. Recording the PRE-attack pose
+    # here previously treated a real 1.5m STOMP crouch as an arena
+    # teleport on the next tick and reset() erased the active attack pose.
+    last_actor_position = actor.global_position
+    last_actor_yaw = actor.global_rotation.y
 
 
 # Reuse final IK sole targets after the authored clip, grounding correction

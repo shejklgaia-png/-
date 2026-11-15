@@ -25,7 +25,7 @@ func _run() -> void:
     if rig == null or ik == null or brain == null or parts == null             or ring == null:
         _fail("real rig, attack controller, IK or shockwave missing")
         return
-    if ATTACKS.STOMP_WINDUP_SECONDS != 1.0             or ATTACKS.KICK_WINDUP_SECONDS != 1.0:
+    if ATTACKS.STOMP_WINDUP_SECONDS != 1.25             or ATTACKS.KICK_WINDUP_SECONDS != 0.70:
         _fail("one-second stomp/kick anticipation changed")
         return
     if not bool(rig.get("loading_ok")) or not bool(ik.get("ready")):
@@ -75,7 +75,7 @@ func _run() -> void:
                         foot.z - rest.z).length())
                 if kind == "stomp" and foot.y > rest.y + 0.40:
                     raised = true
-                if kind == "kick" and float(frame.get("time", 0.0)) < 0.90                         and foot.distance_to(rest) > 0.08:
+                if kind == "kick" and float(frame.get("time", 0.0)) < (ATTACKS.KICK_WINDUP_SECONDS - 0.05)                         and foot.distance_to(rest) > 0.08:
                     _fail("kick preview slid a planted foot: " + id)
                     return
                 if kind == "kick" and largest_shift > 0.20:
@@ -127,7 +127,9 @@ func _run() -> void:
     var impact_seen: bool = false
     var hero: CharacterBody3D = battle.get("player")
     var hp_before: float = float(battle.get("player_hp"))
-    for _tick in range(ceili(1.25 / DT)):
+    for _tick in range(ceili((
+            ATTACKS.STOMP_WINDUP_SECONDS + ATTACKS.STOMP_STRIKE_SECONDS
+            + 0.05) / DT)):
         var state: Dictionary = brain.call(
             "advance", DT, Vector3.ZERO, {}, true)
         ik.call("set_attack_pose", state)

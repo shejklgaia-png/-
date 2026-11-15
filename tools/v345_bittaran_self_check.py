@@ -16,16 +16,36 @@ assert boss["name"] == "ビットタラン"
 for key in ("groups", "elements", "outliner", "textures"):
     assert boss[key] == source[key], "Authored Bittaran rig changed: " + key
 assert len(boss["groups"]) == len(boss["elements"]) == 14
-assert [a["name"] for a in boss["animations"]] == ["Wait", "Idle", "Turn", "Approach"]
+assert [a["name"] for a in boss["animations"][:4]] == ["Wait", "Idle", "Turn", "Approach"]
+assert [a["name"] for a in boss["animations"][4:]] == ["なぎ払い", "弾き", "踏みつけ"]
+# The exact user-authored three clips were appended, never substituted for
+# the original four locomotion animations or the canonical Wait bind pose.
+staged = doc("models/storage/ボステスト (2) (2).bbmodel")
+for clip in boss["animations"][4:]:
+    original = next(a for a in staged["animations"] if a["name"] == clip["name"])
+    assert clip["uuid"] == original["uuid"]
+    assert clip["length"] == original["length"]
+    for bone, animator in original["animators"].items():
+        imported = clip["animators"][bone].get("keyframes", [])
+        expected = sorted(animator.get("keyframes", []), key=lambda x: x["time"])
+        assert [{k: v for k, v in item.items() if k != "uuid"} for item in imported] == [
+            {k: v for k, v in item.items() if k != "uuid"} for item in expected
+        ], (clip["name"], bone)
+        # The staging file itself reuses ten Wait key UUIDs in 弾き.
+        # Normalize only colliding copied IDs; preserve values and times.
+    assert all(k["time"] <= n["time"] for track in clip["animators"].values()
+               for k, n in zip(track.get("keyframes", []),
+                               track.get("keyframes", [])[1:]))
 assert boss["animations"][0] == source["animations"][0], "Authored Wait stance lost"
 group_ids = {g["uuid"] for g in boss["groups"]}
 all_ids = []
 for clip in boss["animations"]:
     assert set(clip["animators"]).issubset(group_ids)
-    for key in (k for tr in clip["animators"].values() for k in tr["keyframes"]):
+    for key in (k for tr in clip["animators"].values()
+                for k in tr.get("keyframes", [])):
         all_ids.append(key["uuid"])
 assert len(all_ids) == len(set(all_ids))
-for clip, duration in zip(boss["animations"][1:], (2.4, 1.8, 2.8)):
+for clip, duration in zip(boss["animations"][1:4], (2.4, 1.8, 2.8)):
     assert clip["loop"] == "loop"
     assert abs(clip["length"] - duration) < 1e-6
     assert len(clip["animators"]) == 10
