@@ -54,9 +54,9 @@ func _run() -> void:
             var span: float = 0.0
             match kind:
                 "stomp":
-                    span = ATTACKS.STOMP_WINDUP_SECONDS                         + ATTACKS.STOMP_STRIKE_SECONDS                         + ATTACKS.STOMP_RECOVERY_SECONDS
+                    span = ATTACKS.STOMP_WINDUP_SECONDS                         + ATTACKS.STOMP_STRIKE_SECONDS                         + ATTACKS.STOMP_POST_HIT_HOLD_SECONDS                         + ATTACKS.STOMP_RECOVERY_SECONDS
                 "kick":
-                    span = ATTACKS.KICK_WINDUP_SECONDS                         + ATTACKS.KICK_STRIKE_SECONDS                         + ATTACKS.KICK_RECOVERY_SECONDS
+                    span = ATTACKS.KICK_WINDUP_SECONDS                         + ATTACKS.KICK_STRIKE_SECONDS                         + ATTACKS.KICK_POST_HIT_HOLD_SECONDS                         + ATTACKS.KICK_RECOVERY_SECONDS
                 "sweep":
                     span = ATTACKS.SWEEP_WINDUP_SECONDS                         + ATTACKS.SWEEP_STRIKE_SECONDS                         + ATTACKS.SWEEP_RECOVERY_SECONDS
             var steps: int = ceili((span + 0.02) / DT)
