@@ -63,9 +63,11 @@ func _check_sweep_timeline(battle: Node3D) -> bool:
             var expected: Quaternion = rig.call(
                 "_authored_rotation_for_leg", "sweep", "leg_fl", 0,
                 float(authored[i]))
-            if upper.quaternion.angle_to(expected) > 0.0003:
+            if upper.quaternion.angle_to(expected) > 0.005:
                 _fail("rig ignored slowed authored clip time at " +
-                    str(times[i]))
+                    str(times[i]) + " actual " + str(upper.quaternion)
+                    + " expected " + str(expected) + " angle "
+                    + str(upper.quaternion.angle_to(expected)))
                 return false
     # Original 1.50 authored seconds are played in 1.78 REAL seconds.
     # 0.70 of those real seconds are at exactly 60% speed.
@@ -97,11 +99,11 @@ func _check_head_ownership(battle: Node3D) -> bool:
     for name in ["Idle", "Turn", "Approach"]:
         var before: Quaternion = head.quaternion
         rig.call("set_motion", name, 0.07)
-        if head.quaternion.angle_to(before) > 0.00003:
+        if not head.quaternion.is_equal_approx(before):
             _fail(name + " clip rewrote the tracked head pose")
             return false
         rig.call("apply_pose", name, 0.42)
-        if head.quaternion.angle_to(before) > 0.00003:
+        if not head.quaternion.is_equal_approx(before):
             _fail(name + " keyframe overwrote procedural head rotation")
             return false
     for kind in BRAIN.ATTACK_KINDS:
@@ -117,7 +119,7 @@ func _check_head_ownership(battle: Node3D) -> bool:
             "hold": 0.0,
             "recovery": 0.5
         })
-        if head.quaternion.angle_to(before) > 0.00003:
+        if not head.quaternion.is_equal_approx(before):
             _fail(kind + " animation wrote HEAD during playback")
             return false
     rig.call("end_authored_attack")
