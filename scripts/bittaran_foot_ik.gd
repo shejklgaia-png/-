@@ -1211,10 +1211,9 @@ func advance_ik(delta: float, motion: String) -> void:
     for leg in legs:
         var position: Vector3 = leg["anchor"]
         var rotation: Quaternion = leg["anchor_rotation"]
+        var attacking_this_leg: bool = (attacking and str(
+            attack_pose.get("id", "")) == LEG_PART_IDS[legs.find(leg)])
         if attacking:
-            var attacking_this_leg: bool = (
-                str(attack_pose.get("id", "")) == (
-                    LEG_PART_IDS[legs.find(leg)]))
             if attacking_this_leg:
                 var attack_kind: String = str(attack_pose.get("kind", ""))
                 var attack_t: float = float(attack_pose.get("time", 0.0))
