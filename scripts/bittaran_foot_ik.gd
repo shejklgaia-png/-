@@ -128,6 +128,9 @@ var break_chassis_pitch_radians: float = 0.0
 var head_knee_scan_elapsed: float = HEAD_KNEE_SCAN_SECONDS
 var head_knee_active: bool = false
 var attack_pose: Dictionary = {}
+# Nose-up pitch is an additive DOWN-anticipation tilt only. HEAD yaw is
+# always owned by battle.gd; the rig never plays/overwrites HEAD keys.
+var head_windup_pitch_degrees: float = 0.0
 # Calculated once from the authored t=0 contact pose when KICK/SWEEP
 # begins, then retained across the strike without resampling the floor.
 var initial_attack_contact_height_world: float = 0.0
@@ -1054,10 +1057,11 @@ func _advance_leg_break(delta: float) -> void:
         else:
             pitch_degrees = LEG_BREAK_WINDUP_HEAD_LIFT_DEGREES * (
                 1.0 - _cubic((progress - 0.80) / 0.20))
-        if head_bone != null:
-            head_bone.quaternion = (head_bone.quaternion *
-                Quaternion(Vector3.RIGHT,
-                deg_to_rad(pitch_degrees))).normalized()
+        head_windup_pitch_degrees = pitch_degrees
+        # Do not write HEAD rotation from IK: the live collision-aware
+        # player tracking controller composes this pitch with its yaw
+        # exactly once later in the SAME physics frame.
+
         # Reach forward with both forelimbs by extending their PLANTED sole
         # anchors, rather than raising toes or moving the whole robot upward.
         var reach: float = LEG_BREAK_FRONT_REACH_METERS * _cubic(
@@ -1076,6 +1080,7 @@ func _advance_leg_break(delta: float) -> void:
             _select_head_support_leg()
         return
 
+    head_windup_pitch_degrees = 0.0
     var amount: float = 0.0
     if break_elapsed >= 0.0 and break_leg_index >= 0:
         break_elapsed += maxf(0.0, delta)
