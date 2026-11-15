@@ -41,7 +41,8 @@ group_ids = {g["uuid"] for g in boss["groups"]}
 all_ids = []
 for clip in boss["animations"]:
     assert set(clip["animators"]).issubset(group_ids)
-    for key in (k for tr in clip["animators"].values() for k in tr["keyframes"]):
+    for key in (k for tr in clip["animators"].values()
+                for k in tr.get("keyframes", [])):
         all_ids.append(key["uuid"])
 assert len(all_ids) == len(set(all_ids))
 for clip, duration in zip(boss["animations"][1:4], (2.4, 1.8, 2.8)):
