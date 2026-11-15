@@ -1325,10 +1325,19 @@ func advance_ik(delta: float, motion: String) -> void:
                         # the original authored limb is free to swing.
                         var windup: float = float(
                             attack_pose.get("windup", 0.70))
-                        if t <= windup and t >= windup - 0.12 and (
+                        if t >= windup - 0.12 and (
+                                t <= windup + 0.12) and (
                                 bottom > FLOOR_Y + 0.004):
+                            # C1-continuous contact at the boundary:
+                            # real frame time can be windup + 1e-15
+                            # after 42 updates at 60Hz. Do not end
+                            # ground correction on an exact t<=windup
+                            # comparison or the start toe will float.
+                            # Ease out over 0.12s of the actual strike,
+                            # so the raw authored foot never jumps.
                             var contact_mix: float = _cubic(
-                                (t - (windup - 0.12)) / 0.12)
+                                (t - (windup - 0.12)) / 0.12) * (
+                                1.0 - _cubic((t - windup) / 0.12))
                             var lower: float = maxf(
                                 bottom - FLOOR_Y - 0.003, 0.0)
                             var ground_goal: Vector3 = (
@@ -1337,14 +1346,14 @@ func advance_ik(delta: float, motion: String) -> void:
                             leg["last_error"] = _solve(
                                 leg, ground_goal, authored_rotation)
                             bottom = _foot_mesh_lowest_y(foot)
-                            # A fully extended limb cannot always reach
-                            # the new ground contact after the chassis
-                            # collision lift. Guarantee the real mesh
-                            # foot touches without dragging the BODY down.
-                            if contact_mix >= 0.999 and (
-                                    bottom > FLOOR_Y + 0.003):
+                            # An overextended limb may still be unable
+                            # to reach the floor after the torso lift.
+                            # Apply a single visual end-effector ground
+                            # contact delta, using the same smooth weight.
+                            if bottom > FLOOR_Y + 0.003:
                                 foot.global_position += Vector3.DOWN * (
-                                    bottom - FLOOR_Y - 0.003)
+                                    (bottom - FLOOR_Y - 0.003)
+                                    * contact_mix)
                                 bottom = _foot_mesh_lowest_y(foot)
                         if bottom < FLOOR_Y - 0.001:
                             for attempt in range(2):
