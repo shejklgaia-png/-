@@ -354,3 +354,4 @@ gd tools/v385_bittaran_authored_attacks_dirt_runtime_check.gd
 gd tools/v386_bittaran_windup_ground_no_sweep_follow_runtime_check.gd
 gd tools/v387_bittaran_poststrike_hold_grounded_head_runtime_check.gd
 gd tools/v388_bittaran_head_sweep_tempo_runtime_check.gd
+gd tools/v389_bittaran_body_floor_down_interrupt_runtime_check.gd
