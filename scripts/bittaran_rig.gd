@@ -538,13 +538,15 @@ func _authored_rotation_for_leg(kind: String,
             _mirrored_chain_local_for_leg(
                 kind, target_id, bone_slot, at),
             kick_mirror_weight).normalized()
-    if kind == "kick" and kick_reach_factor < 1.0:
-        # v404: shorten the whole kick pose toward this leg's Wait
-        # stance. Applied here so the pose, the shoulder aim's
-        # sampled reference and the sole-height probe all see the
-        # same shortened leg.
-        mapped = dest_wait.slerp(
-            mapped, kick_reach_factor).normalized()
+    # v406: the KICK reach is NOT shortened here any more. The
+    # v404 pose slerp toward Wait rotated the extended leg down
+    # through the floor (leg mesh lowest -2.4m at factor 0.5), and
+    # the IK's whole-limb floor lift then hoisted the attacking
+    # hip by that amount for the whole strike/hold (device
+    # report: hip 2.66 -> 4.35m, leg dangling). The rig always
+    # returns the full authored pose; bittaran_foot_ik shortens
+    # the strike geometrically along the hip->foot ray instead,
+    # using kick_reach_factor below.
     return mapped
 
 
@@ -728,7 +730,9 @@ func apply_authored_attack_pose(frame: Dictionary) -> void:
     # distance from the attacking hip, so the foot lands near the
     # player instead of spearing metres past them and holding there
     # (device feedback on v403, front-right leg in front of the
-    # boss: foot 3.5m past the player, toe tip 5.2m past).
+    # boss: foot 3.5m past the player, toe tip 5.2m past). The
+    # factor is consumed by bittaran_foot_ik (v406 geometric
+    # shortening); the pose itself stays fully authored.
     kick_reach_factor = 1.0
     if kind == "kick":
         var aim: Vector3 = frame.get("aim", Vector3.INF)
