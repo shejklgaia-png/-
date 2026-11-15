@@ -31,8 +31,8 @@ const HEAD_ARM_RETURN_MIN_YAW_DEGREES: float = 40.0
 # When a limb replants or retracts, protect the ENTIRE future return
 # sweep, not merely the current frame's collision geometry.
 const HEAD_LEG_RETURN_SAFE_YAW_DEGREES: float = 22.0
-const HEAD_LEG_RETURN_YAW_SPEED_DEGREES_PER_SECOND: float = 420.0
-const HEAD_LEG_RETURN_PITCH_SPEED_DEGREES_PER_SECOND: float = 240.0
+const HEAD_LEG_RETURN_YAW_SPEED_DEGREES_PER_SECOND: float = 140.0
+const HEAD_LEG_RETURN_PITCH_SPEED_DEGREES_PER_SECOND: float = 140.0
 const HEAD_LEG_RETURN_SAFE_PITCH_DEGREES: float = 12.0
 const HEAD_TRACK_DEGREES_PER_SECOND: float = 140.0
 # HEAD looks down/up from its actual neck pivot: yaw first, then a LOCAL
@@ -465,12 +465,13 @@ func _head_return_clearance_active() -> bool:
 
 
 func _head_safe_yaw_limit() -> float:
-    var degrees: float = minf(
+    # The absolute mechanical stop applies in EVERY state. In contrast,
+    # the narrower RETURN goal is acquired at the same <=140deg/s head
+    # angular limit as ordinary tracking: snapping 62deg to 22deg on the
+    # first stepping frame causes a visible head jerk.
+    return deg_to_rad(minf(
         HEAD_TRACK_MAX_YAW_DEGREES,
-        head_arm_return_yaw_limit_degrees)
-    if _head_return_clearance_active():
-        degrees = minf(degrees, HEAD_LEG_RETURN_SAFE_YAW_DEGREES)
-    return deg_to_rad(degrees)
+        head_arm_return_yaw_limit_degrees))
 
 
 func _clamp_head_to_mechanical_limits() -> void:
@@ -480,11 +481,9 @@ func _clamp_head_to_mechanical_limits() -> void:
     head_look_filtered_yaw = clampf(
         head_look_filtered_yaw, -limit, limit)
     boss_head_yaw = clampf(boss_head_yaw, -limit, limit)
-    if _head_return_clearance_active():
-        var pitch_limit: float = deg_to_rad(
-            HEAD_LEG_RETURN_SAFE_PITCH_DEGREES)
-        boss_head_pitch = clampf(
-            boss_head_pitch, -pitch_limit, pitch_limit)
+    # No instant pitch snap to the extra return envelope. The normal
+    # collision solver and urgent neutral target provide a continuous
+    # angular retreat while a leg is moving home.
 
 
 func _head_penetration_depth(base_pose: Quaternion,
