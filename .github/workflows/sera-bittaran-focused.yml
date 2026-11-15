@@ -684,7 +684,8 @@ jobs:
               tools/v391_bittaran_*_runtime_check.gd \
               tools/v392_bittaran_*_runtime_check.gd \
               tools/v393_bittaran_*_runtime_check.gd \
-              tools/v394_bittaran_*_runtime_check.gd; do
+              tools/v394_bittaran_*_runtime_check.gd \
+              tools/v395_bittaran_*_runtime_check.gd; do
             echo "::group::$(basename "$check")"
             log="$RUNNER_TEMP/$(basename "$check").log"
             status=0
