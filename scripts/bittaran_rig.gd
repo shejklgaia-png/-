@@ -695,6 +695,47 @@ func initial_authored_sole_height(kind: String, id: String,
     return height
 
 
+## v407: sample ONE pure KICK chain (mirror weight 0 or 1) at a clip
+## time and report the attacking leg's sole position, foot rotation
+## and knee position in world space; the joints are restored before
+## returning. The foot IK blends the two chains in FOOT space
+## during the strike's mirror ramp: blending the joint rotations
+## themselves swings the foot over the top of the body like a whip
+## whenever the chains disagree (measured on leg_rl: the two folds'
+## soles sit 4.2m apart and the slerp arc peaks 1.96m above the
+## hip), because the shortest rotation between the two shoulder
+## orientations passes overhead. A straight foot-space blend keeps
+## the strike in its natural plane.
+func sample_authored_kick_sole(id: String, at: float,
+        mirror_weight: float, sole_local: Vector3) -> Dictionary:
+    if not loading_ok or not ATTACK_LEG_BONES.has(id):
+        return {}
+    var saved_mirror_weight: float = kick_mirror_weight
+    kick_mirror_weight = mirror_weight
+    var joints: Array[Node3D] = []
+    var saved: Array[Quaternion] = []
+    for name in ATTACK_LEG_BONES[id]:
+        var uid: String = str(bone_uuid_by_name.get(str(name), ""))
+        if uid.is_empty() or not bones.has(uid):
+            kick_mirror_weight = saved_mirror_weight
+            return {}
+        var joint: Node3D = bones[uid]
+        joints.append(joint)
+        saved.append(joint.quaternion)
+    for slot in range(3):
+        joints[slot].quaternion = _authored_rotation_for_leg(
+            "kick", id, slot, at)
+    var result: Dictionary = {
+        "sole": joints[2].to_global(sole_local),
+        "rotation": joints[2].global_basis.get_rotation_quaternion(),
+        "knee": joints[1].global_position,
+    }
+    for slot in range(3):
+        joints[slot].quaternion = saved[slot]
+    kick_mirror_weight = saved_mirror_weight
+    return result
+
+
 func apply_authored_attack_pose(frame: Dictionary) -> void:
     if frame.is_empty() or not loading_ok:
         return
