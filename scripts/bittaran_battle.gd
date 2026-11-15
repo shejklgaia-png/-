@@ -6,6 +6,7 @@ const BittaranAI = preload("res://scripts/bittaran_ai.gd")
 const BittaranFootIK = preload("res://scripts/bittaran_foot_ik.gd")
 const BittaranParts = preload("res://scripts/bittaran_parts.gd")
 const BittaranAttacks = preload("res://scripts/bittaran_attacks.gd")
+const BittaranDirtFX = preload("res://scripts/bittaran_dirt_fx.gd")
 const DOWN_CLEARANCE = preload("res://scripts/bittaran_down_clearance.gd")
 const CONTROLLER_AXIS = preload("res://scripts/bittaran_controller_axis.gd")
 const NAME_TEXT: String = "BITTARAN  /  ビットタラン"
@@ -80,6 +81,9 @@ var bittaran_attack_body_yaw: float = 0.0
 var bittaran_shockwave: MeshInstance3D
 var shockwave_elapsed: float = -1.0
 var shockwave_half_extents: Vector2 = Vector2.ONE
+var bittaran_dirt_fx: Node3D
+var last_attack_contact: Vector3 = Vector3.ZERO
+var attack_contact_initialized: bool = false
 
 func _ready() -> void:
     super._ready()
@@ -152,28 +156,49 @@ func _build_target() -> void:
     _build_bittaran_shockwave()
     _build_boss_death_particles()
 
+func _make_bittaran_broken_ring() -> ArrayMesh:
+    # Cracked grey annulus at FULL radius from the first frame. Do NOT
+    # scale up from the center. Leave several distinct missing wedges.
+    var tool := SurfaceTool.new()
+    tool.begin(Mesh.PRIMITIVE_TRIANGLES)
+    var pieces: int = 112
+    for i in range(pieces):
+        if (i >= 13 and i <= 20) or (i >= 50 and i <= 56) or (
+                i >= 86 and i <= 95):
+            continue
+        var a0: float = TAU * float(i) / float(pieces)
+        var a1: float = TAU * float(i + 1) / float(pieces)
+        var inner0: float = 0.66 + 0.035 * sin(a0 * 13.0)
+        var inner1: float = 0.66 + 0.035 * sin(a1 * 13.0)
+        var outer0: float = 1.0 + 0.042 * sin(a0 * 17.0)
+        var outer1: float = 1.0 + 0.042 * sin(a1 * 17.0)
+        var p0 := Vector3(cos(a0) * inner0, 0.0, sin(a0) * inner0)
+        var p1 := Vector3(cos(a0) * outer0, 0.0, sin(a0) * outer0)
+        var p2 := Vector3(cos(a1) * inner1, 0.0, sin(a1) * inner1)
+        var p3 := Vector3(cos(a1) * outer1, 0.0, sin(a1) * outer1)
+        for v in [p0, p1, p2, p1, p3, p2]:
+            tool.set_normal(Vector3.UP)
+            tool.add_vertex(v)
+    return tool.commit()
+
+
 func _build_bittaran_shockwave() -> void:
-    # Ground-centred annulus is WORLD-fixed after contact, not parented
-    # to a moving shin. Depth test remains enabled over opaque geometry.
     bittaran_shockwave = MeshInstance3D.new()
-    bittaran_shockwave.name = "BittaranStompShockwave"
-    var ring := TorusMesh.new()
-    ring.inner_radius = 0.83
-    ring.outer_radius = 1.0
-    ring.rings = 12
-    ring.ring_segments = 40
-    bittaran_shockwave.mesh = ring
-    var glow := StandardMaterial3D.new()
-    glow.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-    glow.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-    glow.albedo_color = Color(0.38, 0.84, 1.0, 0.70)
-    glow.emission_enabled = true
-    glow.emission = Color("#45bdff")
-    glow.emission_energy_multiplier = 2.0
-    glow.render_priority = RENDER_ORDER.DEPTH_TESTED_EMISSIVE
-    bittaran_shockwave.material_override = glow
+    bittaran_shockwave.name = "BittaranStompBrokenGreyRing"
+    bittaran_shockwave.mesh = _make_bittaran_broken_ring()
+    var earth := StandardMaterial3D.new()
+    earth.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+    earth.cull_mode = BaseMaterial3D.CULL_DISABLED
+    earth.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+    earth.albedo_color = Color(0.52, 0.52, 0.51, 0.70)
+    # Depth-tested scene material: never show the dust ring through SERA.
+    earth.render_priority = RENDER_ORDER.DEPTH_TESTED_EMISSIVE
+    bittaran_shockwave.material_override = earth
     bittaran_shockwave.visible = false
     add_child(bittaran_shockwave)
+    bittaran_dirt_fx = BittaranDirtFX.new()
+    bittaran_dirt_fx.name = "BittaranDirtFX"
+    add_child(bittaran_dirt_fx)
 
 
 func _emit_bittaran_shockwave(point: Vector3, half_size: Vector2) -> void:
@@ -183,9 +208,13 @@ func _emit_bittaran_shockwave(point: Vector3, half_size: Vector2) -> void:
     shockwave_half_extents = half_size
     bittaran_shockwave.global_position = Vector3(
         point.x, 0.055, point.z)
-    bittaran_shockwave.scale = Vector3(
-        half_size.x * 0.55, 0.45, half_size.y * 0.55)
+    # Exactly 1.5x the live shin width. A fixed full-size CIRCULAR
+    # broken ring fades in place instead of expanding out from its core.
+    var radius: float = maxf(half_size.x, half_size.y)
+    bittaran_shockwave.scale = Vector3(radius, 1.0, radius)
     bittaran_shockwave.visible = true
+    if bittaran_dirt_fx != null:
+        bittaran_dirt_fx.call("emit_stomp", point)
 
 
 func _tick_bittaran_shockwave(delta: float) -> void:
@@ -193,10 +222,7 @@ func _tick_bittaran_shockwave(delta: float) -> void:
         return
     shockwave_elapsed += maxf(delta, 0.0)
     var progress: float = clampf(shockwave_elapsed / 0.30, 0.0, 1.0)
-    bittaran_shockwave.scale = Vector3(
-        shockwave_half_extents.x * lerpf(0.55, 1.0, progress),
-        0.45,
-        shockwave_half_extents.y * lerpf(0.55, 1.0, progress))
+    # Only fade opacity. Never grow the ring from the impact center.
     var glow: StandardMaterial3D = (bittaran_shockwave.material_override as StandardMaterial3D)
     if glow != null:
         var fading: Color = glow.albedo_color
@@ -700,6 +726,13 @@ func _advance_target_motion(delta: float) -> void:
         player.global_position + Vector3.UP * PLAYER_COLLISION_HEIGHT)
         if bittaran_attacks != null else {})
     var attacking: bool = not bittaran_attack_frame.is_empty()
+    if bittaran_rig != null:
+        if attacking:
+            bittaran_rig.call("start_authored_attack",
+                str(bittaran_attack_frame.get("kind", "")),
+                str(bittaran_attack_frame.get("id", "")))
+        else:
+            bittaran_rig.call("end_authored_attack")
     if attacking:
         # Follow SERA only while drawing the leg back. The first strike
         # frame stores the final torso heading; no re-aim on the swing.
@@ -839,7 +872,11 @@ func _finalize_target_pose(delta: float) -> void:
     # Otherwise AUTO samples the reset animation pose, then IK moves the
     # visible shins to different positions later in the same frame.
     if bittaran_foot_ik != null and target != null and target_hp > 0:
-        bittaran_foot_ik.call("set_attack_pose", bittaran_attack_frame)
+        var attack_frame: Dictionary = bittaran_attack_frame.duplicate()
+        if not attack_frame.is_empty() and bittaran_rig != null:
+            bittaran_rig.call("apply_authored_attack_pose", attack_frame)
+            attack_frame["authored"] = true
+        bittaran_foot_ik.call("set_attack_pose", attack_frame)
         bittaran_foot_ik.call("advance_ik", delta, bittaran_motion)
         if bittaran_head != null and player != null:
             # Keep head aim live during attacks too; only the knee scan
@@ -854,6 +891,19 @@ func _finalize_target_pose(delta: float) -> void:
         target_parts.call("sync_bittaran_parts")
     _push_player_out_of_downed_body(delta)
     _check_bittaran_attack_hit()
+    if bittaran_dirt_fx != null and bittaran_foot_ik != null:
+        var contact: Vector3 = bittaran_foot_ik.call("attack_contact_world")
+        if bittaran_attack_frame.is_empty():
+            bittaran_dirt_fx.call("advance_attack", {}, Vector3.ZERO,
+                Vector3.ZERO, delta)
+            attack_contact_initialized = false
+        else:
+            var previous: Vector3 = (last_attack_contact
+                if attack_contact_initialized else contact)
+            bittaran_dirt_fx.call("advance_attack",
+                bittaran_attack_frame, contact, previous, delta)
+            last_attack_contact = contact
+            attack_contact_initialized = true
     _update_bittaran_lock_permissions()
 
 func _target_hit_aabb() -> AABB:
