@@ -496,12 +496,21 @@ func _update_head_look_target(delta: float) -> void:
     var raw_bearing: float = wrapf(
         atan2(toward.x, toward.z) - atan2(front.x, front.z),
         -PI, PI)
-    # For a player immediately behind the neck, preserve the prior
-    # turning side, not a +/-PI flip on centimetre-scale X crossings.
-    if toward.dot(front) < 0.0 and absf(
-            front.x * toward.z - front.z * toward.x) < (
-            HEAD_AIM_MIN_FORWARD_METERS):
-        raw_bearing = PI if head_look_filtered_yaw >= 0.0 else -PI
+    # Directly behind the neck, the true bearing flips +/-180deg when
+    # the player moves a few centimetres. Use the OLD safe positive
+    # forward denominator only in the near field, fading to the exact
+    # short-face bearing at normal distances. Preserve turn direction.
+    var right: Vector3 = Vector3(-front.z, 0.0, front.x).normalized()
+    var lateral: float = -right.dot(toward)
+    var ahead: float = front.dot(toward)
+    var near_bearing: float = atan2(lateral,
+        maxf(ahead, HEAD_AIM_MIN_FORWARD_METERS))
+    var near_weight: float = smoothstep(
+        HEAD_AIM_HOLD_RADIUS_METERS,
+        HEAD_AIM_NEAR_RADIUS_METERS, horizontal)
+    # Never interpolate the two +/-PI representatives directly.
+    raw_bearing = near_bearing + wrapf(
+        raw_bearing - near_bearing, -PI, PI) * near_weight
     var raw_yaw: float = clampf(raw_bearing,
         -deg_to_rad(HEAD_TRACK_MAX_YAW_DEGREES),
         deg_to_rad(HEAD_TRACK_MAX_YAW_DEGREES))
