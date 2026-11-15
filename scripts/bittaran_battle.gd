@@ -333,7 +333,7 @@ func _tick_bittaran_footfalls() -> void:
             if foot != null and camera.global_position.distance_to(
                     foot.global_position) <= 20.0:
                 _play_bittaran_thud(foot.global_position, 1.3, -13.0)
-                _add_impact_shake(0.008)
+                _add_impact_shake(0.030)
         footfall_prev_stepping[i] = stepping
 
 
@@ -352,10 +352,15 @@ func _emit_bittaran_shockwave(point: Vector3, half_size: Vector2) -> void:
     if bittaran_dirt_fx != null:
         bittaran_dirt_fx.call("emit_stomp", point)
     # The ground slam itself shakes the arena, hit or miss (v401).
+    # v402: the v401 strengths were calibrated blind and measured only
+    # ~5px of image displacement at fight distance (device feedback:
+    # imperceptible). Strengths are frustum-offset units; measured
+    # ~105px of displacement per unit at the battle camera, so the
+    # values below target roughly 35px near / 10px far for a stomp.
     if camera != null:
         var distance: float = camera.global_position.distance_to(point)
         _add_impact_shake(lerpf(
-            0.085, 0.015, clampf(distance / 26.0, 0.0, 1.0)))
+            0.34, 0.10, clampf(distance / 26.0, 0.0, 1.0)))
     _play_bittaran_thud(point, 1.0, -5.0)
 
 
@@ -437,10 +442,10 @@ func _check_bittaran_attack_hit() -> void:
     # A connected KICK/SWEEP lands with a smaller, sharper jolt than a
     # STOMP ground slam (whose shake fires with the shockwave) (v401).
     if kind == "kick":
-        _add_impact_shake(0.040)
+        _add_impact_shake(0.16)
         _play_bittaran_thud(player.global_position, 1.5, -10.0)
     elif kind == "sweep":
-        _add_impact_shake(0.050)
+        _add_impact_shake(0.19)
         _play_bittaran_thud(player.global_position, 1.25, -9.0)
     # Existing SERA guard, SH, HP, knockback and KO all remain authoritative.
     var damage_index: int = 2 if kind == "stomp" else (
