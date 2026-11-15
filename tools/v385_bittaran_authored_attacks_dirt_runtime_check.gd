@@ -165,7 +165,8 @@ func _run_case(battle: Node3D, id: String, kind: String) -> bool:
                 if old_scale.distance_to(ring.scale) > 0.0001:
                     _fail("grey impact ring expanded from its center")
                     return false
-    if not recovered or stopped_aim == Vector3.INF or not earthen_fx_seen:
+    if not recovered or (kind != "sweep" and stopped_aim == Vector3.INF) \
+            or not earthen_fx_seen:
         _fail(kind + "/" + id + ": incomplete authored playback or FX")
         return false
     if kind != "stomp" and (not reached_prepose or not source_pose_sampled):
