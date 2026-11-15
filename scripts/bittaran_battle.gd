@@ -657,8 +657,16 @@ func _update_head_vertical_follow(delta: float, follow: float) -> void:
         head_vertical_offset_world,
         lerpf(head_vertical_offset_world, wanted, alpha),
         HEAD_VERTICAL_MAX_SPEED_MPS * maxf(delta, 0.0))
+    if bittaran_foot_ik != null and bool(
+            bittaran_foot_ik.call("down_pose_active")) and follow <= 0.0:
+        head_visual_clearance_lift_world = move_toward(
+            head_visual_clearance_lift_world, 0.0,
+            HEAD_VISUAL_CLEARANCE_RELEASE_SPEED_MPS * maxf(delta, 0.0))
     bittaran_head.position = boss_head_rest_local_position
-    bittaran_head.global_position += Vector3.UP * head_vertical_offset_world
+    # Include the persistent visual-leg clearance BEFORE testing yaw
+    # collision, then only add an incremental new lift after final yaw.
+    bittaran_head.global_position += Vector3.UP * (
+        head_vertical_offset_world + head_visual_clearance_lift_world)
 
 
 ## A level (world-horizontal) head has a different swept AABB from
@@ -689,14 +697,18 @@ func _avoid_head_visual_leg_overlap(delta: float) -> void:
                 + 0.005)
     required = clampf(required, 0.0,
         HEAD_VISUAL_CLEARANCE_MAX_LIFT_METERS)
-    # The geometric test is run without last tick's lift. Preserve
-    # that lift during its slow return instead of snapping down.
-    head_visual_clearance_lift_world = maxf(
-        required, move_toward(head_visual_clearance_lift_world,
-        required, HEAD_VISUAL_CLEARANCE_RELEASE_SPEED_MPS * maxf(
-        delta, 0.0)))
+    # The previous collision lift has ALREADY been applied before yaw
+    # testing: otherwise the mesh penetration solver locks the head
+    # before it gets a chance to rise away from the visible shin.
+    # The remaining intersection requires EXTRA positive world Y.
+    var previous_lift: float = head_visual_clearance_lift_world
+    head_visual_clearance_lift_world = clampf(maxf(
+        previous_lift + required,
+        move_toward(previous_lift, 0.0,
+            HEAD_VISUAL_CLEARANCE_RELEASE_SPEED_MPS * maxf(delta, 0.0))),
+        0.0, HEAD_VISUAL_CLEARANCE_MAX_LIFT_METERS)
     bittaran_head.global_position += Vector3.UP * (
-        head_visual_clearance_lift_world)
+        head_visual_clearance_lift_world - previous_lift)
 
 
 func _aim_bittaran_head(delta: float) -> void:
