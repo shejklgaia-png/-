@@ -25,9 +25,32 @@ var authored_leg_id: String = ""
 # _authored_rotation_for_leg). Set by apply_authored_attack_pose from
 # the frame's phase timings; 0 outside a KICK strike/hold.
 var kick_mirror_weight: float = 0.0
+# v404: KICK pose blend toward Wait that shortens the extension for
+# close targets (see apply_authored_attack_pose). 1.0 = authored.
+var kick_reach_factor: float = 1.0
+
 # Rotational bearing adjustment is applied to the entire attacking leg.
 # Authored joint-local rotations are never stretched or rewritten.
 const ATTACK_LEG_AIM_MAX_DEGREES: float = 100.0
+# v404: fractions of the authored Body track's pitch/roll delta
+# kept for KICK/SWEEP (see _authored_body_rotation_for_attack).
+# The SWEEP keeps more pitch: its forward pitch is functional and
+# holds the sweeping ankle below hip height (v396); at 0.45 the
+# ankle rises above the hip mid-arc, at 0.60 it stays ~0.19m below.
+const ATTACK_BODY_PITCH_SCALE_KICK: float = 0.45
+const ATTACK_BODY_PITCH_SCALE_SWEEP: float = 0.60
+const ATTACK_BODY_ROLL_SCALE: float = 0.45
+# v404: KICK reach scaling. The authored kick always extends to its
+# full hip-to-foot length; a player 2m from the hip is speared
+# metres past and held there. The pose is blended toward Wait so
+# the foot lands near the aim point instead. Calibration measured
+# in-scene on the authored leg: hip-to-foot XZ at the extension
+# peak is about 2.30m at factor 0 and grows ~3.2m per factor
+# (4.5m at 0.7, then flattens), so the factor inverts that line.
+const KICK_REACH_BASE_METERS: float = 2.30
+const KICK_REACH_PER_FACTOR: float = 3.2
+const KICK_REACH_AIM_MARGIN_METERS: float = 0.4
+const KICK_REACH_MIN_FACTOR: float = 0.12
 const ATTACK_LEG_AIM_TURN_DEGREES_PER_SECOND: float = 300.0
 var attack_leg_aim_yaw: float = 0.0
 # Captured ACTUAL active combat pose becomes a six-tenths-second smooth
@@ -430,14 +453,26 @@ func _mirrored_chain_worlds(kind: String, target_id: String,
 ## are themselves rotated (crouched BODY, folded binds).
 func _mirrored_chain_local_for_leg(kind: String, target_id: String,
         bone_slot: int, at: float) -> Quaternion:
-    var body_local: Quaternion = _authored_body_rotation_for_attack(
-        kind, target_id, at)
-    var body_world: Quaternion = (
-        global_basis.get_rotation_quaternion() * body_local).normalized()
+    # v404: the mirrored target worlds stay anchored to the FULL
+    # Body pose (the pose the chain was authored against), while
+    # the conversion back to a local rotation uses the ACTUAL
+    # parent world — the damped Body for the shoulder — so the
+    # composed chain keeps its authored world orientation under
+    # the damped Body.
+    var full_world: Quaternion = (
+        global_basis.get_rotation_quaternion()
+        * _authored_body_full_rotation(kind, target_id, at)
+        ).normalized()
     var worlds: Array = _mirrored_chain_worlds(
-        kind, target_id, at, body_world)
-    var parent_world: Quaternion = body_world if bone_slot == 0 \
-        else (worlds[bone_slot - 1] as Quaternion)
+        kind, target_id, at, full_world)
+    var parent_world: Quaternion
+    if bone_slot == 0:
+        parent_world = (
+            global_basis.get_rotation_quaternion()
+            * _authored_body_rotation_for_attack(
+                kind, target_id, at)).normalized()
+    else:
+        parent_world = worlds[bone_slot - 1] as Quaternion
     return (parent_world.inverse()
         * (worlds[bone_slot] as Quaternion)).normalized()
 
@@ -472,15 +507,40 @@ func _authored_rotation_for_leg(kind: String,
     # the delta map for every joint: its limb is IK-driven to the
     # aim, and only its windup keys come from here.
     if kind == "sweep":
-        return _mirror_author_delta(source_action, target_id)
+        # v404: the absolute mirrored pose was authored against the
+        # full Body pose; compensate at the chain root for the
+        # damped Body (see _body_damp_compensation).
+        var sweep_mapped: Quaternion = _mirror_author_delta(
+            source_action, target_id)
+        if bone_slot == 0:
+            sweep_mapped = (_body_damp_compensation(
+                kind, target_id, at) * sweep_mapped).normalized()
+        return sweep_mapped
     var delta: Quaternion = (source_wait.inverse() * source_action).normalized()
     var mapped: Quaternion = (
         dest_wait * _mirror_author_delta(delta, target_id)).normalized()
+    if kind == "kick" and bone_slot == 0:
+        # v404: same compensation for the delta map, applied at the
+        # chain root BEFORE the world-mirror blend below. Both
+        # blend ends then produce the authored world orientation
+        # under the damped Body (the mirror side anchors its target
+        # worlds to the full Body pose, see
+        # _mirrored_chain_local_for_leg), so the blend stays on the
+        # authored path at every weight.
+        mapped = (_body_damp_compensation(kind, target_id, at)
+            * mapped).normalized()
     if kind == "kick" and bone_slot <= 1 and kick_mirror_weight > 0.0:
         mapped = mapped.slerp(
             _mirrored_chain_local_for_leg(
                 kind, target_id, bone_slot, at),
             kick_mirror_weight).normalized()
+    if kind == "kick" and kick_reach_factor < 1.0:
+        # v404: shorten the whole kick pose toward this leg's Wait
+        # stance. Applied here so the pose, the shoulder aim's
+        # sampled reference and the sole-height probe all see the
+        # same shortened leg.
+        mapped = dest_wait.slerp(
+            mapped, kick_reach_factor).normalized()
     return mapped
 
 
@@ -491,9 +551,77 @@ func _authored_body_rotation_for_attack(kind: String, id: String,
     # The asymmetrical SWEEP BODY roll is part of the left-front
     # attack pose. Reflect it together with the striking leg;
     # otherwise right-side soles are lifted metres above the left.
+    # v404: the damping is applied to the SOURCE pose BEFORE the
+    # mirror, so mirrored legs stay exact mirrors of the damped
+    # source (v396).
+    var target: Quaternion = _damp_body_source(kind, source)
+    if kind == "sweep":
+        target = _mirror_author_delta(target, id)
+    return target
+
+
+# v404: the shared KICK/SWEEP Body track pitches 34.4 degrees and
+# rolls 19.7 degrees from Wait at its peak, and the clips END at
+# that peak, so the pose is held fully twisted through the whole
+# 1.50s KICK hold; stacked with the 45-degree chest tracking yaw,
+# the torso reads as corkscrewing (device feedback on v403,
+# measured in-scene at pitch 33.5 / roll 21.1 degrees). Keep the
+# track's timing, direction and yaw, but damp its pitch/roll delta
+# from Wait: KICK pitch/roll to 45 percent, SWEEP pitch to 60
+# percent (its forward pitch holds the sweeping ankle below hip
+# height, v396; at 45 percent the ankle rises above the hip) and
+# roll to 45 percent. A heavy crouch and weight shift remain; the
+# excessive twist does not.
+func _damp_body_source(kind: String, source: Quaternion) -> Quaternion:
+    if kind != "kick" and kind != "sweep":
+        return source
+    var wait_body: Quaternion = _authored_key_rotation(
+        "Wait", "Body", 0.0)
+    var delta: Quaternion = (
+        wait_body.inverse() * source).normalized()
+    var e: Vector3 = delta.get_euler()
+    e.x *= ATTACK_BODY_PITCH_SCALE_KICK if kind == "kick" \
+        else ATTACK_BODY_PITCH_SCALE_SWEEP
+    e.z *= ATTACK_BODY_ROLL_SCALE
+    return (wait_body * Basis.from_euler(e)
+        .get_rotation_quaternion()).normalized()
+
+
+# v404: the attack Body rotation WITHOUT the pitch/roll damping
+# (source pose, mirrored for SWEEP): the reference the attacking
+# leg's locals were authored against.
+func _authored_body_full_rotation(kind: String, id: String,
+        at: float) -> Quaternion:
+    var source: Quaternion = _authored_key_rotation(
+        str(ATTACK_NAMES[kind]), "Body", at)
     if kind == "sweep":
         return _mirror_author_delta(source, id)
     return source
+
+
+# v404: B_damped^-1 * B_full for an attack Body pose. The attacking
+# leg's locals were authored against the FULL Body pose, so with
+# the Body damped their world orientation tilts by the removed
+# pitch (the v400 extension foot tilt went from 9 to 31 degrees and
+# the windup fold sole floated). _authored_rotation_for_leg
+# premultiplies the chain-root local of the delta-mapped and
+# absolute-mirrored families with this compensation, and the KICK
+# world-mirror family anchors its target worlds to the full pose
+# instead; both restore the chain's authored world orientation
+# while the torso itself stays damped. The shoulder aim samples
+# the same rotations, so the v403 direction correction is
+# unaffected.
+func _body_damp_compensation(kind: String, id: String,
+        at: float) -> Quaternion:
+    if kind != "kick" and kind != "sweep":
+        return Quaternion.IDENTITY
+    var source: Quaternion = _authored_key_rotation(
+        str(ATTACK_NAMES[kind]), "Body", at)
+    var full: Quaternion = _authored_body_full_rotation(kind, id, at)
+    var damped: Quaternion = _damp_body_source(kind, source)
+    if kind == "sweep":
+        damped = _mirror_author_delta(damped, id)
+    return (damped.inverse() * full).normalized()
 
 
 func authored_clip_length(kind: String) -> float:
@@ -519,6 +647,8 @@ func initial_authored_sole_height(kind: String, id: String,
     # delta map, never a leftover strike-phase mirror weight.
     var saved_mirror_weight: float = kick_mirror_weight
     kick_mirror_weight = 0.0
+    var saved_reach_factor: float = kick_reach_factor
+    kick_reach_factor = 1.0
     var saved: Dictionary = {}
     for name in tracked:
         var uid: String = str(bone_uuid_by_name.get(name, ""))
@@ -540,6 +670,7 @@ func initial_authored_sole_height(kind: String, id: String,
     for uid in saved:
         (bones[uid] as Node3D).quaternion = saved[uid]
     kick_mirror_weight = saved_mirror_weight
+    kick_reach_factor = saved_reach_factor
     return height
 
 
@@ -573,6 +704,27 @@ func apply_authored_attack_pose(frame: Dictionary) -> void:
         kick_mirror_weight = (
             (ramp_in * ramp_in * (3.0 - 2.0 * ramp_in))
             * (1.0 - ramp_out * ramp_out * (3.0 - 2.0 * ramp_out)))
+    # v404: shorten the KICK for close targets. The factor follows
+    # the (windup-tracked, then locked) aim point's horizontal
+    # distance from the attacking hip, so the foot lands near the
+    # player instead of spearing metres past them and holding there
+    # (device feedback on v403, front-right leg in front of the
+    # boss: foot 3.5m past the player, toe tip 5.2m past).
+    kick_reach_factor = 1.0
+    if kind == "kick":
+        var aim: Vector3 = frame.get("aim", Vector3.INF)
+        var hip_uid: String = str(bone_uuid_by_name.get(
+            str(ATTACK_LEG_BONES[id][0]), ""))
+        if aim != Vector3.INF and bones.has(hip_uid):
+            var hip_pos: Vector3 = (
+                bones[hip_uid] as Node3D).global_position
+            var flat: Vector2 = Vector2(
+                aim.x - hip_pos.x, aim.z - hip_pos.z)
+            kick_reach_factor = clampf(
+                (flat.length() + KICK_REACH_AIM_MARGIN_METERS
+                    - KICK_REACH_BASE_METERS)
+                / KICK_REACH_PER_FACTOR,
+                KICK_REACH_MIN_FACTOR, 1.0)
     var preparation: float = 0.0 if kind == "stomp" else windup
     var clip_time: float = clampf(
         float(frame.get("authored_time", seconds - preparation)),
@@ -607,6 +759,7 @@ func apply_authored_attack_pose(frame: Dictionary) -> void:
             var bone_slot: int = slots.find(bone_name) - 1
             target_rotation = _authored_rotation_for_leg(
                 kind, id, bone_slot, clip_time)
+
         var entry: Quaternion = attack_entry_rotations.get(
             uid, node.quaternion)
         var rest: Quaternion = _authored_key_rotation("Wait", bone_name, 0.0)

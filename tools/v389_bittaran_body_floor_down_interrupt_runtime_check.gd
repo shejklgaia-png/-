@@ -43,6 +43,12 @@ func _run_case(battle: Node3D, id: String, kind: String) -> bool:
         return false
     var active_frames: int = 0
     for tick in range(220):
+        # v404 amendment: keep the player alive across all 12 cases.
+        # Hits legitimately accumulate over the sequence (the boss
+        # closes in and connects), and a player KO cancels the attack
+        # mid-play, which this BODY-floor check never intended to
+        # depend on; its assertions do not involve player HP.
+        battle.set("player_hp", 9999.0)
         battle.call("_advance_target_motion", DT)
         var frame: Dictionary = battle.get("bittaran_attack_frame")
         if frame.is_empty():
@@ -64,6 +70,7 @@ func _run_case(battle: Node3D, id: String, kind: String) -> bool:
         _fail(id + "/" + kind + " failed to restart")
         return false
     for tick in range(52):
+        battle.set("player_hp", 9999.0)
         battle.call("_advance_target_motion", DT)
         battle.call("_finalize_target_pose", DT)
         if not _body_clear(ik, id + "/" + kind
