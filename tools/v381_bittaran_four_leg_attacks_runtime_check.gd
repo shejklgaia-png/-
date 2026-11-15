@@ -127,7 +127,9 @@ func _run() -> void:
     var impact_seen: bool = false
     var hero: CharacterBody3D = battle.get("player")
     var hp_before: float = float(battle.get("player_hp"))
-    for _tick in range(ceili(1.25 / DT)):
+    for _tick in range(ceili((
+            ATTACKS.STOMP_WINDUP_SECONDS + ATTACKS.STOMP_STRIKE_SECONDS
+            + 0.05) / DT)):
         var state: Dictionary = brain.call(
             "advance", DT, Vector3.ZERO, {}, true)
         ik.call("set_attack_pose", state)
