@@ -674,3 +674,27 @@ jobs:
             exit 1
           fi
           grep -q 'GODOT_V380_BITTARAN_KNEE_HEAD_PASS' "$log"
+
+      - name: Validate all authored Bittaran attacks and head regressions v381-v391
+        run: |
+          set -euo pipefail
+          godot="$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64"
+          for check in tools/v38[1-9]_bittaran_*_runtime_check.gd \
+              tools/v390_bittaran_*_runtime_check.gd \
+              tools/v391_bittaran_*_runtime_check.gd; do
+            echo "::group::$(basename "$check")"
+            log="$RUNNER_TEMP/$(basename "$check").log"
+            status=0
+            "$godot" --headless --path . --script "$check" > "$log" 2>&1 || status=$?
+            cat "$log"
+            if [ "$status" -ne 0 ] || grep -E \
+                'SCRIPT ERROR|Parse Error|Compile Error|ERROR: Failed to load|Invalid call' "$log"; then
+              echo "::error::Bittaran authored regression failed: $check"
+              exit 1
+            fi
+            grep -q '_PASS' "$log" || {
+              echo "::error::Missing pass marker from $check"
+              exit 1
+            }
+            echo "::endgroup::"
+          done
