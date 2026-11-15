@@ -1,8 +1,9 @@
 extends SceneTree
 ## SERA v389: BODY (not HEAD/limbs) may never dip below actual
 ## world floor across authored attack crouches AND physical down.
-## Every forced interrupt must cancel its active authored limb pose
-## and restore all arm joints to Wait before the physical fall begins.
+## v394: an active attack interruption preserves its displayed pose,
+## then blends the striker and BODY into authored STOMP windup for 0.60s,
+## before restoring the neutral down pose. HEAD stays controller-owned.
 const BRAIN = preload("res://scripts/bittaran_attacks.gd")
 const IK = preload("res://scripts/bittaran_foot_ik.gd")
 const DT: float = 1.0 / 60.0
@@ -91,28 +92,42 @@ func _run_case(battle: Node3D, id: String, kind: String) -> bool:
     if not head.quaternion.is_equal_approx(head_before):
         _fail(id + "/" + kind + " attack cancel rewrote independent HEAD")
         return false
-    # This assertion inspects the exact instant the DOWN interrupt
-    # executes, BEFORE world-planted IK re-solves the four limbs.
+    # An active attack is NOT snapped to Wait on the damaging frame.
+    # It must retain a source snapshot and perform the dedicated
+    # 0.60-second transition instead of discarding its authored motion.
+    if str(rig.get("down_stomp_leg_id")) != id or not bool(
+            ik.call("attack_down_windup_active")):
+        _fail(id + "/" + kind + " no STOMP preparation after interrupt")
+        return false
+    var before_body: Quaternion = (
+        rig.find_child("Body", true, false) as Node3D).quaternion
     var names: Array[String] = [
         "Body", "FrontLeg_L", "FrontLowerLeg_L", "FrontFoot_L",
         "FrontLeg_R", "FrontLowerLeg_R", "FrontFoot_R",
         "RearLeg_L", "RearLowerLeg_L", "RearFoot_L",
         "RearLeg_R", "RearLowerLeg_R", "RearFoot_R"]
-    for name in names:
-        var bone: Node3D = rig.find_child(name, true, false) as Node3D
-        var neutral: Quaternion = rig.call(
-            "_authored_key_rotation", "Wait", name, 0.0)
-        if bone == null or bone.quaternion.angle_to(neutral) > 0.008:
-            _fail(id + "/" + kind + " interrupted limb not reset to Wait: "
-                + name)
-            return false
+    if before_body.angle_to(
+            rig.find_child("Body", true, false).quaternion) > 0.001:
+        _fail("BODY snapped when attack was interrupted")
+        return false
     # Simulate real fall, down and early recovery while checking the
     # entire BODY mesh, not just the root pivot or the head height.
     var went_down: bool = false
     var saw_chassis_clamp: bool = false
+    var prepared: bool = false
     for tick in range(130):
         battle.call("_advance_target_motion", DT)
         battle.call("_finalize_target_pose", DT)
+        if bool(ik.call("attack_down_windup_active")) and float(
+                ik.get("windup_elapsed")) > 0.52:
+            var body: Node3D = rig.find_child("Body", true, false)
+            var raised: Quaternion = rig.call(
+                "_authored_key_rotation", "踏みつけ", "Body", 1.25)
+            if body.quaternion.angle_to(raised) > 0.16:
+                _fail(id + "/" + kind
+                    + ": did not reach STOMP raised BODY prepose")
+                return false
+            prepared = true
         if bool(ik.call("down_pose_active")):
             went_down = true
         if not _body_clear(ik, id + "/" + kind + " down tick " + str(tick)):
@@ -120,8 +135,9 @@ func _run_case(battle: Node3D, id: String, kind: String) -> bool:
         if (battle.get("bittaran_attack_frame") as Dictionary).is_empty() == false:
             _fail(id + "/" + kind + " resumed strike while down")
             return false
-    if not went_down:
-        _fail(id + "/" + kind + " never reached physical down")
+    if not went_down or not prepared:
+        _fail(id + "/" + kind
+            + " did not complete STOMP windup before physical down")
         return false
     return true
 
@@ -143,7 +159,7 @@ func _run() -> void:
         return
     print("GODOT_V389_BODY_FLOOR_DOWN_INTERRUPT_PASS: all 12 real "
         + "STOMP/KICK/SWEEP variants keep authored BODY mesh above "
-        + "floor during strike/recovery and after interrupt, reset "
-        + "all 12 limb bones + BODY immediately to neutral on DOWN, "
-        + "preserve independent HEAD and prevent strike restart")
+        + "floor during strike/recovery and after interrupt, blend "
+        + "BODY/active arm to STOMP prep before DOWN, keep independent "
+        + "HEAD tracking and prevent strike restart")
     quit(0)
