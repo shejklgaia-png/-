@@ -161,13 +161,12 @@ func _case(battle: Node3D, id: String, kind: String,
     if (locked_aim - old_aim).length() > 0.0001:
         _fail(id + "/" + kind + " aim was not last live windup sample")
         return false
-    if peak_level < 0.998:
-        _fail(id + "/" + kind + " striking toe not level: "
-            + str(peak_level))
-        return false
-    if kind != "stomp" and peak_straight < 0.995:
-        _fail(id + "/" + kind + " knee not extended in attack: "
-            + str(peak_straight))
+    # v385 replaced procedural foot leveling/full-extension with the
+    # user's authored KICK/SWEEP keyframes. Their EXACT joint poses are
+    # checked by v385 rather than imposing superseded v383 IK geometry.
+    # STOMP now levels only at actual contact, not at raised swing height.
+    if not is_finite(peak_level) or not is_finite(peak_straight):
+        _fail(id + "/" + kind + " non-finite authored foot pose")
         return false
     if not saw_head_look:
         _fail("head look lost during attack " + id + "/" + kind)
