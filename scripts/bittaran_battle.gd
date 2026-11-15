@@ -31,6 +31,8 @@ const HEAD_ARM_RETURN_MIN_YAW_DEGREES: float = 40.0
 # When a limb replants or retracts, protect the ENTIRE future return
 # sweep, not merely the current frame's collision geometry.
 const HEAD_LEG_RETURN_SAFE_YAW_DEGREES: float = 25.0
+const HEAD_RETURN_FACE_MAX_OVERLAP_VOLUME_M3: float = 0.030
+const HEAD_RETURN_RESCAN_SECONDS: float = 0.075
 const HEAD_LEG_RETURN_YAW_SPEED_DEGREES_PER_SECOND: float = 140.0
 const HEAD_LEG_RETURN_PITCH_SPEED_DEGREES_PER_SECOND: float = 140.0
 const HEAD_LEG_RETURN_SAFE_PITCH_DEGREES: float = 12.0
@@ -100,6 +102,9 @@ var boss_last_controller_axis: Vector2 = Vector2.UP
 var bittaran_head: Node3D
 var boss_head_yaw: float = 0.0
 var head_arm_return_yaw_limit_degrees: float = 65.0
+var head_return_safe_yaw_target: float = 0.0
+var head_return_scan_elapsed: float = HEAD_RETURN_RESCAN_SECONDS
+var head_return_was_active: bool = false
 var boss_head_pitch: float = 0.0
 var head_look_filtered_pitch: float = 0.0
 var boss_head_default_rotation: Quaternion = Quaternion.IDENTITY
@@ -484,6 +489,73 @@ func _clamp_head_to_mechanical_limits() -> void:
     # No instant pitch snap to the extra return envelope. The normal
     # collision solver and urgent neutral target provide a continuous
     # angular retreat while a leg is moving home.
+
+
+## The neutral forward HEAD bearing is NOT always the clear path.
+## A long support arm can lie directly in front of the nose while the
+## BODY is still yawing back from an authored SWEEP. Scan ACTUAL head
+## nose versus individually rendered upper/lower/foot pieces, excluding
+## the built-in neck/shoulder meshes outside the forward nose region.
+func _head_return_face_overlap(base_pose: Quaternion,
+        yaw: float, pitch: float) -> float:
+    if bittaran_head == null or target_parts == null:
+        return 0.0
+    bittaran_head.quaternion = _head_oriented_local_pose(
+        base_pose, yaw, pitch)
+    var nose: AABB = target_parts.call("get_head_swing_aabb")
+    if not nose.has_volume():
+        return 0.0
+    var overlap: float = 0.0
+    for id in ["leg_fl", "leg_fr", "leg_rl", "leg_rr"]:
+        var pieces: Array[AABB] = target_parts.call(
+            "get_leg_visual_mesh_boxes", id)
+        for piece in pieces:
+            if nose.intersects(piece):
+                overlap = maxf(overlap,
+                    nose.intersection(piece).get_volume())
+    return overlap
+
+
+## Prefer an ACTUALLY CLEAR angular corridor near the present head,
+## rather than forcing yaw=0 through the opposite stationary knee.
+## Recalculate every 75ms to track moving legs, retaining the last
+## target as a small anti-flicker preference.
+func _choose_head_return_clear_yaw(base_pose: Quaternion) -> float:
+    if bittaran_head == null:
+        return 0.0
+    var saved: Quaternion = bittaran_head.quaternion
+    var limit: float = _head_safe_yaw_limit()
+    var chosen: float = clampf(boss_head_yaw, -limit, limit)
+    var best_safe_score: float = INF
+    var best_fallback_score: float = INF
+    var safe_found: bool = false
+    var candidates: Array[float] = [
+        -60.0, -50.0, -45.0, -40.0, -30.0, -25.0, -15.0,
+        0.0, 15.0, 25.0, 30.0, 40.0, 45.0, 50.0, 60.0,
+        rad_to_deg(chosen),
+        rad_to_deg(head_return_safe_yaw_target)
+    ]
+    for degrees in candidates:
+        var yaw: float = clampf(deg_to_rad(degrees), -limit, limit)
+        var overlap: float = _head_return_face_overlap(
+            base_pose, yaw, boss_head_pitch)
+        var travel: float = absf(wrapf(yaw - boss_head_yaw, -PI, PI))
+        var hysteresis: float = absf(wrapf(
+            yaw - head_return_safe_yaw_target, -PI, PI))
+        var route_score: float = (travel + absf(yaw) * 0.08
+            + hysteresis * 0.10)
+        if overlap <= HEAD_RETURN_FACE_MAX_OVERLAP_VOLUME_M3:
+            if not safe_found or route_score < best_safe_score:
+                safe_found = true
+                best_safe_score = route_score
+                chosen = yaw
+        elif not safe_found:
+            var fallback: float = (overlap * 12.0 + route_score)
+            if fallback < best_fallback_score:
+                best_fallback_score = fallback
+                chosen = yaw
+    bittaran_head.quaternion = saved
+    return chosen
 
 
 func _head_penetration_depth(base_pose: Quaternion,
@@ -918,6 +990,10 @@ func _aim_bittaran_head(delta: float) -> void:
     # ordinary collision-aware look-at without a sudden yaw jump.
     var head_track_weight: float = _head_recovery_follow_weight()
     var returning: bool = _head_return_clearance_active()
+    if not returning:
+        head_return_scan_elapsed = HEAD_RETURN_RESCAN_SECONDS
+        head_return_safe_yaw_target = 0.0
+        head_return_was_active = false
     _clamp_head_to_mechanical_limits()
     if returning:
         # The camera/IK finalize path updates the look-target normally,
@@ -982,8 +1058,17 @@ func _aim_bittaran_head(delta: float) -> void:
     boss_head_pitch = _head_limit_pitch_to_10cm(
         base_pose, boss_head_pitch, proposed_pitch, boss_head_yaw,
         before_pitch_depth)
+    if returning:
+        head_return_scan_elapsed += maxf(delta, 0.0)
+        if not head_return_was_active or (
+                head_return_scan_elapsed >= HEAD_RETURN_RESCAN_SECONDS):
+            head_return_safe_yaw_target = _choose_head_return_clear_yaw(
+                base_pose)
+            head_return_scan_elapsed = 0.0
+            head_return_was_active = true
     var wanted: float = (
-        0.0 if returning else head_look_filtered_yaw)
+        head_return_safe_yaw_target if returning
+        else head_look_filtered_yaw)
     # HEAD slows smoothly from first contact and cannot turn deeper
     # into a 10cm overlap. Tracking away from the leg remains free.
     var degrees_per_second: float = (
@@ -1016,9 +1101,8 @@ func _aim_bittaran_head(delta: float) -> void:
     var returning_from_overlap: bool = (
         returning
         and current_depth >= HEAD_LEG_ALLOWED_PENETRATION_METERS
-        and absf(boss_head_yaw) > deg_to_rad(
-            HEAD_LEG_RETURN_SAFE_YAW_DEGREES)
-        and absf(proposed_yaw) < absf(boss_head_yaw) - 0.000001)
+        and absf(wrapf(proposed_yaw - wanted, -PI, PI)) <
+            absf(wrapf(boss_head_yaw - wanted, -PI, PI)) - 0.000001)
     if returning_from_overlap:
         boss_head_yaw = proposed_yaw
     else:
