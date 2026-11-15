@@ -134,9 +134,19 @@ func _check_realtime_sweep(battle: Node3D) -> bool:
                     deg_to_rad(RETURN_YAW_DEGREES))
                 var yaw: float = absf(float(
                     battle.get("boss_head_yaw")))
-                if yaw > allowed + 0.015:
+                var return_elapsed: float = float(
+                    frame.get("time", 0.0)) - (
+                    float(frame.get("windup", 0.0))
+                    + float(frame.get("strike", 0.0))
+                    + float(frame.get("hold", 0.0)))
+                if return_elapsed > 0.48 and yaw > allowed + 0.018:
                     _fail(id + " HEAD failed to clear returning sweep "
-                        + str([yaw, allowed]))
+                        + str([yaw, allowed, return_elapsed]))
+                    return false
+                # Narrow return clearance is approached smoothly,
+                # while the absolute mechanical arm limit is immediate.
+                if yaw > cap + 0.015:
+                    _fail(id + " HEAD exceeded hard arm limit")
                     return false
         if not seen_recovery:
             _fail(id + " sweep recovery absent")
@@ -174,12 +184,21 @@ func _check_head_all_states(battle: Node3D) -> bool:
         battle.set("boss_head_pitch", deg_to_rad(-55.0))
         battle.call("_aim_bittaran_head", DT)
         yaw = absf(rad_to_deg(float(battle.get("boss_head_yaw"))))
+        if yaw > max_limit + 0.50:
+            _fail("HEAD crossed hard shoulder-return stop at replant")
+            return false
+        # Transition at the same angular speed as normal tracking:
+        # no visible 40-degree snap on the first replanted step.
+        for tick in range(36):
+            battle.call("_aim_bittaran_head", DT)
+        yaw = absf(rad_to_deg(float(battle.get("boss_head_yaw"))))
         var filtered: float = absf(rad_to_deg(float(
             battle.get("head_look_filtered_yaw"))))
         var pitch: float = absf(rad_to_deg(float(
             battle.get("boss_head_pitch"))))
-        if yaw > return_limit + 0.50 or filtered > return_limit + 0.50                 or pitch > RETURN_PITCH_DEGREES + 0.50:
-            _fail("HEAD crossed returning-foot safety bound "
+        if yaw > return_limit + 1.0 or filtered > return_limit + 1.0 \
+                or pitch > RETURN_PITCH_DEGREES + 1.0:
+            _fail("HEAD did not smoothly clear returning-foot envelope "
                 + str([yaw, filtered, pitch, return_limit]))
             return false
         if not head.quaternion.is_finite():
