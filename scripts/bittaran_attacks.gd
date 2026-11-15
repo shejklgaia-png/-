@@ -4,17 +4,17 @@ extends RefCounted
 const LEG_IDS: Array[String] = ["leg_fl", "leg_fr", "leg_rl", "leg_rr"]
 const ATTACK_KINDS: Array[String] = ["stomp", "kick", "sweep"]
 const START_RANGE_METERS: float = 9.0
-const STOMP_WINDUP_SECONDS: float = 1.0
+const STOMP_WINDUP_SECONDS: float = 1.25
 # Head height is passed by the live combat controller. Standalone motion
 # probes use the same 1.85m player capsule as main.gd.
 const STOMP_PLAYER_HEAD_HEIGHT_METERS: float = 1.85
 const STOMP_TRACK_FILTER_PER_SECOND: float = 16.0
-const KICK_WINDUP_SECONDS: float = 1.0
-const SWEEP_WINDUP_SECONDS: float = 0.72
-const STOMP_STRIKE_SECONDS: float = 0.20
-const KICK_STRIKE_SECONDS: float = 0.19
-const SWEEP_STRIKE_SECONDS: float = 0.35
-const STOMP_RECOVERY_SECONDS: float = 0.48
+const KICK_WINDUP_SECONDS: float = 0.70
+const SWEEP_WINDUP_SECONDS: float = 0.70
+const STOMP_STRIKE_SECONDS: float = 0.25
+const KICK_STRIKE_SECONDS: float = 1.0
+const SWEEP_STRIKE_SECONDS: float = 1.5
+const STOMP_RECOVERY_SECONDS: float = 0.25
 const KICK_RECOVERY_SECONDS: float = 0.45
 const SWEEP_RECOVERY_SECONDS: float = 0.65
 const BETWEEN_ATTACKS_SECONDS: float = 1.35
@@ -156,6 +156,7 @@ func advance(delta: float, player_position: Vector3,
         "stomp_aim": stomp_aim if stomp_aim_valid else Vector3.INF,
         "aim": stomp_aim if stomp_aim_valid else Vector3.INF,
         "tracking": previous < windup,
+        "strike_start": previous < windup and elapsed >= windup,
         "windup": windup, "strike": strike, "recovery": recovery,
         "impact": kind == "stomp" and previous < windup + strike
             and elapsed >= windup + strike,
