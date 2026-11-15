@@ -206,6 +206,13 @@ func attack_contact_world() -> Vector3:
     var i: int = LEG_PART_IDS.find(str(attack_pose.get("id", "")))
     if i < 0 or i >= legs.size():
         return Vector3.ZERO
+    # A saturated two-bone IK limb can fall short of the requested head
+    # position. STOMP's impact/shockwave must use the VISIBLE real sole,
+    # not the unreachable requested point.
+    if str(attack_pose.get("kind", "")) == "stomp":
+        var leg: Dictionary = legs[i]
+        return (leg["foot"] as Node3D).to_global(
+            leg["sole_local"] as Vector3)
     return legs[i]["last_goal"]
 
 func _attack_weight() -> float:
@@ -294,9 +301,10 @@ func _straight_attack_goal(leg: Dictionary, world_direction: Vector3,
         max_reach - IK_REACH_MARGIN_METERS) + sole_offset)
 
 
-# Preserve the foot's captured yaw but level its UP axis on the
-# horizontal world plane. The sole remains horizontal during the strike,
-# then returns to its original yaw/pitch/roll during recovery.
+# The authored foot element extends along its LOCAL -Y axis:
+# keeping local +Y aligned with world UP points the toe VERTICALLY DOWN.
+# STOMP must keep this vertical toe while raising and falling, rather than
+# reusing the new KICK/SWEEP foot-leveling blend.
 func _attack_rotation(leg: Dictionary) -> Quaternion:
     var original: Quaternion = leg["anchor_rotation"]
     var forward: Vector3 = Basis(original).z
@@ -312,7 +320,33 @@ func _attack_rotation(leg: Dictionary) -> Quaternion:
     var recovery: float = float(attack_pose.get("recovery", 0.5))
     var amount: float = _cubic(t / maxf(windup, 0.001)) * (
         1.0 - _cubic((t - windup - strike) / maxf(recovery, 0.001)))
+    if str(attack_pose.get("kind", "")) == "stomp":
+        # The toe is vertical throughout the entire lift and downstroke.
+        # Ease back to its captured pose only after ground impact.
+        amount = 1.0 - _cubic(
+            (t - windup - strike) / maxf(recovery, 0.001))
     return original.slerp(flat, amount).normalized()
+
+
+# Use the real shoulder-knee-ankle segment lengths, foot scale and
+# sampled sole offset to limit only physically impossible STOMP targets.
+# A far target is approached by the actual reachable tip; the collision
+# and impact point are taken from the solved visible foot.
+func _reachable_stomp_goal(leg: Dictionary, goal: Vector3,
+        rotation: Quaternion) -> Vector3:
+    var hip: Vector3 = (leg["upper"] as Node3D).global_position
+    var knee: Vector3 = (leg["lower"] as Node3D).global_position
+    var foot: Node3D = leg["foot"]
+    var max_reach: float = (hip.distance_to(knee)
+        + knee.distance_to(foot.global_position)
+        - IK_REACH_MARGIN_METERS)
+    var sole_offset: Vector3 = Basis(rotation).scaled(
+        foot.global_basis.get_scale()) * (leg["sole_local"] as Vector3)
+    var ankle_goal: Vector3 = goal - sole_offset
+    var delta: Vector3 = ankle_goal - hip
+    if delta.length_squared() > max_reach * max_reach:
+        ankle_goal = hip + delta.normalized() * max_reach
+    return ankle_goal + sole_offset
 
 
 func _attack_goal(leg: Dictionary, desired_rotation: Quaternion) -> Vector3:
@@ -336,32 +370,29 @@ func _attack_goal(leg: Dictionary, desired_rotation: Quaternion) -> Vector3:
         outward = actor.global_basis.x
     outward = outward.normalized()
     if kind == "stomp":
-        var lift_ratio: float = _cubic(t / maxf(windup, 0.001))
-        var height: float = 1.05 * lift_ratio
-        if t > windup:
-            height = 1.05 * (1.0 - attack_progress)
-        goal.y += height
-        # Snapshot the player's ground position when the foot starts to
-        # rise. The follow-through is physical, not a teleport, and is
-        # capped to the limb's comfortable range.
+        # Lift THE WHOLE windup while following SERA's real head XZ.
+        # The sole/toe points straight down and reaches ABOVE the head
+        # before the first downstroke frame (never level with the floor).
         var aim: Vector3 = attack_pose.get("stomp_aim", Vector3.INF)
-        if aim != Vector3.INF:
-            var reach: Vector3 = aim - (leg["anchor"] as Vector3)
-            reach.y = 0.0
-            if reach.length() > 1.90:
-                reach = reach.normalized() * 1.90
-            var slide: float = _cubic(clampf(
-                (t / maxf(windup, 0.001) - 0.25) / 0.75, 0.0, 1.0))
-            var return_ratio: float = 1.0 - _cubic(
+        if aim == Vector3.INF:
+            aim = (leg["anchor"] as Vector3) + Vector3.UP * 1.85
+        var overhead: Vector3 = Vector3(
+            aim.x, maxf(aim.y + 0.35, goal.y + 1.05), aim.z)
+        var touchdown: Vector3 = Vector3(aim.x, FLOOR_Y, aim.z)
+        if t <= windup:
+            var lift: float = _cubic(t / maxf(windup, 0.001))
+            goal = goal.lerp(overhead, lift)
+        elif t <= windup + strike:
+            var downward: float = _cubic(
+                (t - windup) / maxf(strike, 0.001))
+            goal = overhead.lerp(touchdown, downward)
+        else:
+            var retract: float = _cubic(
                 (t - windup - strike) / maxf(recovery, 0.001))
-            goal += reach * slide * return_ratio
-            # The raised foot retracts from impact instead of scraping
-            # back across the ground during the short return step.
-            if t > windup + strike:
-                var recovery_t: float = clampf(
-                    (t - windup - strike) / maxf(recovery, 0.001),
-                    0.0, 1.0)
-                goal.y += 0.18 * sin(PI * recovery_t)
+            goal = touchdown.lerp(goal, retract)
+            # After contact, lift a little while retracting; no foot drag.
+            goal.y += 0.18 * sin(PI * retract)
+        goal = _reachable_stomp_goal(leg, goal, desired_rotation)
     elif kind == "kick":
         # Keep the foot planted while the knee folds inward for 1.0s.
         # On release, extend HIP-KNEE-ANKLE to the physical full reach,
