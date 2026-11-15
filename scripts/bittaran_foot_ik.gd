@@ -155,7 +155,7 @@ func set_attack_pose(pose: Dictionary) -> void:
                     legs[index]["sole_local"]))
                 if is_finite(first_height):
                     initial_attack_contact_height_world = clampf(
-                        FLOOR_Y - first_height, -2.50, 1.50)
+                        FLOOR_Y - first_height, -5.00, 3.00)
         # End the previous gait in its actual contact position; attack
         # telegraphs begin from the visible, not the cached old, sole.
         for leg in legs:
