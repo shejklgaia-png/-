@@ -605,19 +605,18 @@ func _aim_bittaran_head(delta: float) -> void:
             head_collision_blocked = false
             head_collision_release_elapsed = 0.0
             return
+    # Head ownership is independent of every animation track, gait
+    # crossfade, and the part-break nose-up windup. Compose the stable
+    # Wait neck pitch plus optional anticipation pitch + live target yaw
+    # as an ABSOLUTE quaternion (not an increment onto the prior yaw).
+    # Consequently no clip can reset or accumulate the head rotation.
+    var base_pose: Quaternion = boss_head_default_rotation
     if bittaran_foot_ik != null and bool(
             bittaran_foot_ik.call("windup_active")):
-        # Let the heavy nose-up throw lead the motion. Smoothly unwind the
-        # old yaw so the down phase meets neutral without a rotation snap.
-        var t: float = float(bittaran_foot_ik.call("windup_progress"))
-        var ease: float = t * t * (3.0 - 2.0 * t)
-        boss_head_yaw = boss_head_windup_start_yaw * (1.0 - ease)
-        bittaran_head.quaternion = (bittaran_head.quaternion *
-            Quaternion(Vector3.UP, boss_head_yaw)).normalized()
-        return
-    # Each authored animation reinitializes the HEAD joint before this
-    # post-IK step. Do not accumulate on its already turned quaternion.
-    var base_pose: Quaternion = bittaran_head.quaternion
+        var pitch: float = float(bittaran_foot_ik.get(
+            "head_windup_pitch_degrees"))
+        base_pose = (base_pose * Quaternion(
+            Vector3.RIGHT, deg_to_rad(pitch))).normalized()
     # The target was filtered once after IK this physics frame.
     # In particular, do NOT return at zero planar distance: that leaves
     # the animated bind pose on the HEAD for exactly one frame.
@@ -792,9 +791,9 @@ func _advance_target_motion(delta: float) -> void:
     target.rotation.y = float(result["yaw"])
     bittaran_motion = "Idle" if attacking else str(result["motion"])
     if bittaran_rig != null:
-        # The previous frame's HEAD has a procedural yaw applied after IK.
-        # Strip only that additive yaw from the next clip's blend source.
-        bittaran_rig.call("set_external_head_yaw", boss_head_yaw)
+        # The rig NEVER writes the Head quaternion while changing clips;
+        # current procedural yaw persists until the tracking controller's
+        # next collision-safe update at the end of this physics frame.
         bittaran_rig.call("set_motion", bittaran_motion, delta)
     if target_floor_mark != null:
         target_floor_mark.position = Vector3(
