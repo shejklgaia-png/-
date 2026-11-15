@@ -122,11 +122,11 @@ func _case(battle: Node3D, broken_ids: Array[String],
                 "_head_recovery_follow_weight"))
             if pose <= 0.70:
                 if follow > 0.000001 or (
-                        float(ik.get("break_elapsed")) >= 0.40
+                        float(ik.get("break_elapsed")) >= (85.0 / 140.0 + 2.0 * DT)
                         and absf(actual_head_yaw) > 0.00015):
                     # The last pre-down frame now tracks SERA. During
-                    # the first 0.4s of real down, the previous neck yaw
-                    # is smoothly re-centred (not new player tracking).
+                    # the first 85/140s of real down, the larger v391
+                    # 85deg neck yaw is smoothly recentered at <=140deg/s.
                     # Beyond this brief transition the unchanged
                     # 70%-pose follow gate remains strict.
                     _fail(label + ": head followed before 70% recovery "
