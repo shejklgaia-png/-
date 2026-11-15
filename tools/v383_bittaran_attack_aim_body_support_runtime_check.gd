@@ -155,15 +155,11 @@ func _case(battle: Node3D, id: String, kind: String,
     if not saw_real_blend or not reached_swing:
         _fail(id + "/" + kind + " lacked clip blend or strike transition")
         return false
-    if not moved_while_winding and kind != "sweep":
+    if not moved_while_winding:
         _fail(id + "/" + kind + " chest failed to track during anticipation")
         return false
-    if kind != "sweep" and (locked_aim - old_aim).length() > 0.0001:
+    if (locked_aim - old_aim).length() > 0.0001:
         _fail(id + "/" + kind + " aim was not last live windup sample")
-        return false
-    if kind == "sweep" and (moved_while_winding or absf(
-            locked_heading) > 0.0001):
-        _fail(id + "/sweep player tracking was not disabled")
         return false
     # v385 replaced procedural foot leveling/full-extension with the
     # user's authored KICK/SWEEP keyframes. Their EXACT joint poses are

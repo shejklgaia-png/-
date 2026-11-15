@@ -44,7 +44,7 @@ func _case(battle: Node3D, id: String, kind: String) -> bool:
     for tick in range(205):
         var x: float = 0.75 if tick < 14 else (
             -0.95 if tick < 30 else 1.60)
-        # Sweep must ignore ALL this moving target input, including head.
+        # All three attacks track the moving player through windup.
         player.global_position = boss.global_position + Vector3(
             x, 0.0, 7.7)
         battle.call("_advance_target_motion", DT)
@@ -52,17 +52,10 @@ func _case(battle: Node3D, id: String, kind: String) -> bool:
         if frame.is_empty():
             break
         var t: float = float(frame.get("time", 0.0))
-        if kind == "sweep":
-            if bool(frame.get("tracking", false)) or not bool(
-                    frame.get("player_tracking_disabled", false)):
-                _fail(id + ": SWEEP sampled player during windup")
-                return false
-            if float(frame.get("body_yaw", 0.0)) != 0.0:
-                _fail(id + ": SWEEP torso rotated toward player")
-                return false
-            if frame.get("aim", Vector3.INF) != Vector3.INF:
-                _fail(id + ": SWEEP still acquired moving target")
-                return false
+        if t < active_timing - 0.02 and not bool(
+                frame.get("tracking", false)):
+            _fail(id + "/" + kind + ": lost live windup target")
+            return false
         battle.call("_finalize_target_pose", DT)
         if tick == 0:
             for j in range(4):
@@ -87,11 +80,6 @@ func _case(battle: Node3D, id: String, kind: String) -> bool:
                     goal.z - anchored.z).length() > 0.0001:
                 _fail(kind + ": support world anchor moved " + key)
                 return false
-        if kind == "sweep":
-            # v387: the SWEEP torso/aim remains fixed, but the HEAD
-            # MUST independently track SERA just as in every other move.
-            # This check is now performed by the v387 live head test.
-            pass
         if kind != "stomp":
             var current_offset: float = float(
                 ik.get("initial_attack_contact_height_world"))
@@ -162,5 +150,5 @@ func _run() -> void:
     print("GODOT_V386_BITTARAN_WINDUP_GROUND_PASS: 4 STOMP authored "
         + "windups retain real shoulder/knee keys, 8 KICK/SWEEP "
         + "first-frame soles touch ground with one-time height offset, "
-        + "sweep torso/head/player aim disabled and all supports anchored")
+        + "all attacks track SERA during windup; supports anchored")
     quit(0)

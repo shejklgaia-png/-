@@ -19,7 +19,7 @@ const ATTACK_CHEST_MAX_YAW_DEGREES: float = 60.0
 const BOSS_FAR_SIDE_ENTER_METERS: float = 0.65
 const BOSS_FAR_SIDE_EXIT_METERS: float = -0.25
 const DOWN_ESCAPE_SPEED_MPS: float = 15.0
-const HEAD_TRACK_MAX_YAW_DEGREES: float = 48.0
+const HEAD_TRACK_MAX_YAW_DEGREES: float = 85.0
 const HEAD_TRACK_DEGREES_PER_SECOND: float = 140.0
 # The articulated HEAD stays level in world-space. SERA's vertical
 # motion is instead mirrored by an independent WORLD-UP telescoping
@@ -57,7 +57,7 @@ const HEAD_TRACK_COLLISION_SWEEP_STEPS: int = 8
 const HEAD_AIM_MIN_FORWARD_METERS: float = 0.70
 const HEAD_AIM_HOLD_RADIUS_METERS: float = 0.50
 const HEAD_AIM_NEAR_RADIUS_METERS: float = 2.20
-const HEAD_AIM_NEAR_FILTER_PER_SECOND: float = 3.6
+const HEAD_AIM_NEAR_FILTER_PER_SECOND: float = 2.8
 const HEAD_AIM_FAR_FILTER_PER_SECOND: float = 12.0
 const HEAD_AIM_NEAR_DEADBAND_DEGREES: float = 1.8
 # A depth change caused by one replanting knee cannot instantly release
@@ -481,10 +481,14 @@ func _update_head_look_target(delta: float) -> void:
     var horizontal: float = Vector2(toward.x, toward.z).length()
     if head_look_initialized and horizontal <= HEAD_AIM_HOLD_RADIUS_METERS:
         return
-    # A nonzero forward component eliminates the discontinuity directly
-    # under / slightly behind the head, while leaving far frontal aiming.
-    var forward: float = maxf(-toward.z, HEAD_AIM_MIN_FORWARD_METERS)
-    var raw_yaw: float = clampf(atan2(-toward.x, forward),
+    # The HEAD is longitudinal along local Z: the short front face is
+    # local -Z. Aim that actual nose axis, not a flattened fake bearing.
+    # Directly behind the pivot preserve the previous turning side to
+    # avoid sudden +/-PI flips as SERA crosses the centre by centimetres.
+    var raw_bearing: float = atan2(-toward.x, -toward.z)
+    if toward.z > 0.0 and absf(toward.x) < HEAD_AIM_MIN_FORWARD_METERS:
+        raw_bearing = PI if head_look_filtered_yaw >= 0.0 else -PI
+    var raw_yaw: float = clampf(raw_bearing,
         -deg_to_rad(HEAD_TRACK_MAX_YAW_DEGREES),
         deg_to_rad(HEAD_TRACK_MAX_YAW_DEGREES))
     if not head_look_initialized:
@@ -866,8 +870,8 @@ func _advance_target_motion(delta: float) -> void:
         else:
             bittaran_rig.call("end_authored_attack")
     if attacking:
-        # Follow SERA only while drawing the leg back. The first strike
-        # frame stores the final torso heading; no re-aim on the swing.
+        # Each attack tracks SERA while drawing back, then freezes the
+        # attack heading on release; no mid-swing re-aim.
         # Unlike normal Turn, this yaw belongs solely to the BODY bone:
         # target.root position and orientation never change in an attack.
         if bool(bittaran_attack_frame.get("tracking", false)):

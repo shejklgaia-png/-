@@ -1,3 +1,9 @@
+## 2026-11-15 — SERA v391: Bittaran attack aim, kick prepose and short-front head tracking
+- STOMP, KICK and SWEEP track the moving player during windup and freeze torso/leg aim for the authored strike. Root translation, root yaw and three support-foot world anchors remain fixed.
+- KICK/SWEEP aim their actual authored extended-foot reference by turning the entire attacking leg about its shoulder; source knee, ankle and animation keyframes remain unchanged. KICK windup no longer re-solves the planted knee for floor correction.
+- The Head uses its true local -Z short front edge to aim, with an 85-degree yaw cap, near-field filtering and the existing oriented-mesh collision constraint.
+- Superseded v383/v386/v387 sweep-no-tracking expectations updated; v391 added to the complete Godot CI manifest. Model data unchanged. Android visual/play-feel verification remains outstanding.
+
 # SERA v390 — 頭部水平姿勢とプレイヤー上下追尾／なぎ払い往路終盤0.2倍速（2026-11-15）
 
 - **HEAD水平・上下追尾**：胴体BODYの原本低姿勢／回転を継承するため頭部が傾く問題を解決。頭部の向きは、毎フレーム実WORLD軸上でBODY前方のXZ方向のみを取り出した水平クォータニオンを生成して、親BODYのpitch/rollを打ち消し、従来の独立した頭部プレイヤーヨー追尾を重ねる。頭のアニメーションキー再生やブレンドの上書きは再開しない。プレイヤーの初期立ち位置Yからの差を±0.65mに制限し、実WORLD UP方向への平行移動として頭の上下に反映。秒速1.4mの上限と8/sの指数補間でガタつきを抑える。BODY低姿勢中も頭のYと水平角度は独立して追尾。

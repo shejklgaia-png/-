@@ -174,9 +174,9 @@ func advance(delta: float, player_position: Vector3,
     # The raised STOMP foot follows the player's HEAD, not their
     # ground marker. Smooth the head target during the full 1.00s lift,
     # sample its last position at the swing boundary and then stop tracking.
-    # The other two attacks keep their existing aim contract unchanged:
-    # their authored clips are to be supplied separately.
-    if previous < windup and kind != "sweep":
+    # All three attacks track SERA through windup, then lock their aim.
+    # STOMP uses the player's head; KICK/SWEEP target the ground position.
+    if previous < windup:
         var next_aim: Vector3 = player_position
         if kind == "stomp":
             next_aim = (player_head_position
@@ -215,9 +215,9 @@ func advance(delta: float, player_position: Vector3,
         "authored_playback_speed": source_rate,
         "stomp_aim": stomp_aim if stomp_aim_valid else Vector3.INF,
         "aim": stomp_aim if stomp_aim_valid else Vector3.INF,
-        "tracking": kind != "sweep" and previous < windup,
+        "tracking": previous < windup,
         "strike_start": previous < windup and elapsed >= windup,
-        "player_tracking_disabled": kind == "sweep",
+        "player_tracking_disabled": false,
         "windup": windup, "strike": strike, "hold": hold,
         "recovery": recovery,
         "phase": ("windup" if elapsed < windup else

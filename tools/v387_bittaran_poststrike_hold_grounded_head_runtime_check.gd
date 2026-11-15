@@ -73,11 +73,10 @@ func _case(battle: Node3D, id: String, kind: String) -> bool:
                 recovery - expected_recovery) > 0.0001:
             _fail(id + "/" + kind + ": incorrect hold/recovery duration")
             return false
-        if kind == "sweep":
+        if kind == "sweep" and t >= windup + DT:
             if bool(frame.get("tracking", false)) or frame.get(
-                    "aim", Vector3.INF) != Vector3.INF or (
-                    absf(float(frame.get("body_yaw", 0.0))) > 0.0001):
-                _fail(id + ": SWEEP torso/strike still follows player")
+                    "aim", Vector3.INF) == Vector3.INF:
+                _fail(id + ": SWEEP retargeted after strike started")
                 return false
         # Animation must NOT reset the previous frame's actual look.
         # This is checked BEFORE battle's live head solver updates it.

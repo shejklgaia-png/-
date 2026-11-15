@@ -17,6 +17,11 @@ var bone_uuid_by_name: Dictionary = {}
 var attack_entry_rotations: Dictionary = {}
 var active_authored_attack: String = ""
 var authored_leg_id: String = ""
+# Rotational bearing adjustment is applied to the entire attacking leg.
+# Authored joint-local rotations are never stretched or rewritten.
+const ATTACK_LEG_AIM_MAX_DEGREES: float = 100.0
+const ATTACK_LEG_AIM_TURN_DEGREES_PER_SECOND: float = 300.0
+var attack_leg_aim_yaw: float = 0.0
 # The user authored one front-left limb. Retarget its rotational DELTAS
 # relative to Wait for each of the other three mechanically symmetric limbs.
 const ATTACK_NAMES: Dictionary = {
@@ -248,6 +253,7 @@ func start_authored_attack(kind: String, id: String) -> void:
     active_authored_attack = kind
     authored_leg_id = id
     attack_entry_rotations.clear()
+    attack_leg_aim_yaw = 0.0
     for uid in bones:
         attack_entry_rotations[uid] = (bones[uid] as Node3D).quaternion
 
@@ -255,6 +261,7 @@ func start_authored_attack(kind: String, id: String) -> void:
 func end_authored_attack() -> void:
     active_authored_attack = ""
     authored_leg_id = ""
+    attack_leg_aim_yaw = 0.0
     attack_entry_rotations.clear()
 
 
@@ -407,6 +414,70 @@ func apply_authored_attack_pose(frame: Dictionary) -> void:
         # toward neutral to hand control back to the existing Idle clip.
         node.quaternion = entry.slerp(target_rotation, weight).slerp(
             rest, 1.0 - blend_out).normalized()
+
+
+
+## Sample the actual authored extended strike pose at the CURRENT chest
+## heading, then rotate the ENTIRE attacking leg about its shoulder.
+## The knee/ankle's relative keyframed bends remain unchanged.
+func aim_authored_attack_leg(frame: Dictionary, delta: float) -> void:
+    var kind: String = str(frame.get("kind", ""))
+    var id: String = str(frame.get("id", ""))
+    if (kind != "kick" and kind != "sweep") or not ATTACK_LEG_BONES.has(id):
+        return
+    var aim: Vector3 = frame.get("aim", Vector3.INF)
+    if aim == Vector3.INF:
+        return
+    var joints: Array[Node3D] = []
+    var saved: Array[Quaternion] = []
+    for name in ATTACK_LEG_BONES[id]:
+        var joint: Node3D = find_child(str(name), true, false) as Node3D
+        if joint == null:
+            return
+        joints.append(joint)
+        saved.append(joint.quaternion)
+    # Do not aim from the folded KICK prepose: it points in a completely
+    # different direction to the real contact/extended-foot pose.
+    var reference_time: float = 0.625 if kind == "kick" else 0.50
+    for slot in range(3):
+        joints[slot].quaternion = _authored_rotation_for_leg(
+            kind, id, slot, reference_time)
+    var from_hip: Vector3 = (
+        joints[2].global_position - joints[0].global_position)
+    for slot in range(3):
+        joints[slot].quaternion = saved[slot]
+    var to_player: Vector3 = aim - joints[0].global_position
+    from_hip.y = 0.0
+    to_player.y = 0.0
+    if from_hip.length_squared() < 0.0001 or to_player.length_squared() < 0.0001:
+        return
+    # Only anticipation acquires a moving player. Retain the last
+    # correction throughout the strike and post-hit hold.
+    if bool(frame.get("tracking", false)):
+        var wanted: float = wrapf(
+            atan2(to_player.x, to_player.z)
+            - atan2(from_hip.x, from_hip.z), -PI, PI)
+        wanted = clampf(wanted,
+            -deg_to_rad(ATTACK_LEG_AIM_MAX_DEGREES),
+            deg_to_rad(ATTACK_LEG_AIM_MAX_DEGREES))
+        attack_leg_aim_yaw = move_toward(attack_leg_aim_yaw, wanted,
+            deg_to_rad(ATTACK_LEG_AIM_TURN_DEGREES_PER_SECOND)
+            * maxf(delta, 0.0))
+    var t: float = float(frame.get("time", 0.0))
+    var windup: float = float(frame.get("windup", 0.70))
+    var strike: float = float(frame.get("strike", 1.0))
+    var hold: float = float(frame.get("hold", 0.0))
+    var recovery: float = float(frame.get("recovery", 0.60))
+    var incoming: float = smoothstep(0.0, maxf(windup, 0.001), t)
+    var outgoing: float = 1.0 - smoothstep(
+        windup + strike + hold,
+        windup + strike + hold + maxf(recovery, 0.001), t)
+    var shoulder: Node3D = joints[0]
+    var old_basis: Basis = shoulder.global_basis
+    var turn: Basis = Basis(Quaternion(
+        Vector3.UP, attack_leg_aim_yaw * incoming * outgoing))
+    shoulder.global_basis = (
+        turn * old_basis.orthonormalized()).scaled(old_basis.get_scale())
 
 
 func bone_names() -> Array[String]:
