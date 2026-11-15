@@ -1469,14 +1469,14 @@ func advance_ik(delta: float, motion: String) -> void:
                     var foot: Node3D = leg["foot"]
                     var source_rotation: Quaternion = (
                         foot.global_basis.get_rotation_quaternion())
-                    var upright: Quaternion = (
+                    var vertical_toe_orientation: Quaternion = (
                         _stomp_vertical_foot_rotation(leg))
                     # Smoothly settle from the attack's entry pose, then
                     # keep a genuinely upright toe throughout anticipation.
                     var upright_weight: float = _cubic(
                         attack_t / 0.18)
                     var raised_rotation: Quaternion = (
-                        source_rotation.slerp(upright,
+                        source_rotation.slerp(vertical_toe_orientation,
                             upright_weight).normalized())
                     foot.global_basis = Basis(raised_rotation).scaled(
                         foot.global_basis.get_scale())
