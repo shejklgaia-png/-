@@ -83,11 +83,10 @@ func _run_case(battle: Node3D, id: String) -> bool:
             leg["sole_local"] as Vector3)
         var up_axis: Vector3 = foot.global_basis.y.normalized()
         if t > 0.32 and t < BRAIN.STOMP_WINDUP_SECONDS - 0.03:
-            # The original authored foot angle must survive anticipation.
-            var authored: Quaternion = rig.call(
-                "_authored_rotation_for_leg", "stomp", id, 2, t)
-            if foot.quaternion.angle_to(authored) > 0.03:
-                _fail(id + ": stomp windup foot key was overridden")
+            # v395: retain the shoulder/knee authored keys but keep the
+            # foot's longest Y axis vertical throughout the raised pose.
+            if up_axis.dot(Vector3.UP) < 0.995:
+                _fail(id + ": stomp toe laid horizontal during windup")
                 return false
         if t <= BRAIN.STOMP_WINDUP_SECONDS:
             raised_y = maxf(raised_y, actual.y)
