@@ -1,3 +1,9 @@
+## 2026-11-15 — SERA v392: Bittaran head look pitch, diagonal 45deg chest aim, authored STOMP toe
+- HEAD follows SERA by world-level yaw followed by a local pitch (no roll), replacing the v390 normal player-elevation neck translation. Down anticipation and mesh/leg clearance lifts remain.
+- On each attacking leg, the BODY tracks with a mirrored ±45deg offset from the player bearing during windup, freezes during the authored strike, and releases smoothly without rotating the root or moving planted support soles.
+- STOMP preserves authentic ankle/foot keys through its complete authored 1.25s windup. Only during the 0.25s strike does the toe gradually align local +Y to world-up so its short tip face meets the floor horizontally. At impact/hold the visible lowest toe vertex is clamped to the arena floor without distorting the source windup animation.
+- Superseded v384/v387/v390 regressions now verify source-foot windup, short-tip contact, no-roll HEAD pitch; add v392 real-Godot combo test and register in PR-focused/full CI. Blockbench source unchanged; Android visual confirmation outstanding.
+
 ## 2026-11-15 — SERA v391: Bittaran attack aim, kick prepose and short-front head tracking
 - STOMP, KICK and SWEEP track the moving player during windup and freeze torso/leg aim for the authored strike. Root translation, root yaw and three support-foot world anchors remain fixed.
 - KICK/SWEEP aim their actual authored extended-foot reference by turning the entire attacking leg about its shoulder; source knee, ankle and animation keyframes remain unchanged. KICK windup no longer re-solves the planted knee for floor correction.
