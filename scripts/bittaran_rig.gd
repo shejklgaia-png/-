@@ -68,7 +68,14 @@ func _ready() -> void:
     if not loading_ok:
         push_error("Bittaran: missing legs, feet or motion clips")
         return
+    # Initialize the HEAD's static neck pitch ONCE. Thereafter only
+    # battle.gd's live look controller owns this quaternion; playing a
+    # locomotion/attack clip must never overwrite even one frame of yaw.
     apply_pose("Wait", 0.0)
+    var head_uid: String = str(bone_uuid_by_name.get("Head", ""))
+    if bones.has(head_uid):
+        (bones[head_uid] as Node3D).quaternion = _authored_key_rotation(
+            "Wait", "Head", 0.0)
 
 func _v3(raw: Variant) -> Vector3:
     if raw is Array and raw.size() >= 3:
@@ -191,16 +198,18 @@ func apply_pose(clip_name: String, t: float) -> void:
     var tracks: Dictionary = clip.get("animators", {})
     for uid in bones.keys():
         var joint: Node3D = bones[uid]
-        var rotation: Quaternion = bind_rotations[uid]
         if joint.name == "Head":
-            # The HEAD does not play ANY keyed clip (Idle/Turn/Approach
-            # or an attack). It holds the user's Wait neck posture;
-            # battle.gd adds the live collision-safe SERA tracking yaw.
-            rotation = _authored_key_rotation("Wait", "Head", 0.0)
-        elif tracks.has(uid):
+            # NEVER write HEAD here. The tracking controller owns its
+            # rotation continuously across Idle, Turn, Approach, attack,
+            # and the 0.24s motion-crossfade frames. Reapplying Wait
+            # each tick previously erased the previous look at the
+            # animation update and produced a visible pose flicker.
+            continue
+        var rotation: Quaternion = bind_rotations[uid]
+        if tracks.has(uid):
             rotation = rotation * _sample_rotation(
                 tracks[uid].get("keyframes", []), sample_time)
-        if joint.name != "Head" and blend_elapsed < BLEND_SECONDS and blend_from.has(uid):
+        if blend_elapsed < BLEND_SECONDS and blend_from.has(uid):
             var amount: float = clampf(blend_elapsed / BLEND_SECONDS, 0.0, 1.0)
             rotation = (blend_from[uid] as Quaternion).slerp(rotation, amount)
         joint.quaternion = rotation.normalized()
@@ -217,9 +226,8 @@ func set_motion(clip_name: String, delta: float) -> void:
         for uid in bones.keys():
             var joint: Node3D = bones[uid]
             var source: Quaternion = joint.quaternion
-            if joint.name == "Head" and absf(external_head_yaw) > 0.000001:
-                source = (source * Quaternion(
-                    Vector3.UP, -external_head_yaw)).normalized()
+            if joint.name == "Head":
+                continue
             blend_from[uid] = source
         current_clip = clip_name
         elapsed = 0.0
@@ -347,7 +355,8 @@ func apply_authored_attack_pose(frame: Dictionary) -> void:
     var recovery: float = float(frame.get("recovery", 0.5))
     var hold: float = float(frame.get("hold", 0.0))
     var preparation: float = 0.0 if kind == "stomp" else windup
-    var clip_time: float = clampf(seconds - preparation,
+    var clip_time: float = clampf(
+        float(frame.get("authored_time", seconds - preparation)),
         0.0, authored_clip_length(kind))
     var blend_in: float = clampf(seconds /
         maxf(0.24 if kind == "stomp" else preparation, 0.001), 0.0, 1.0)
