@@ -995,8 +995,25 @@ func _aim_bittaran_head(delta: float) -> void:
     var motion_scale: float = _head_collision_motion_scale(
         current_depth, proposed_depth, delta)
     var next_yaw: float = lerpf(boss_head_yaw, proposed_yaw, motion_scale)
-    boss_head_yaw = _head_limit_yaw_to_30cm(
-        base_pose, boss_head_yaw, next_yaw, current_depth)
+    # A returning foot may already have entered the HEAD before the
+    # collision solver catches it (especially a long mirrored SWEEP).
+    # At >10cm the normal hard stop can TRAP the face sideways, even
+    # after the arm starts retracting. When turning toward the NEUTRAL
+    # forward direction, continue the *normal rate-limited* turn out:
+    # this cannot make the pre-existing collision become a permanent
+    # blocker. Never bypass the collision limit while TURNING TOWARD
+    # SERA, or when the head is not already embedded.
+    var returning_from_overlap: bool = (
+        returning
+        and current_depth >= HEAD_LEG_ALLOWED_PENETRATION_METERS
+        and absf(boss_head_yaw) > deg_to_rad(
+            HEAD_LEG_RETURN_SAFE_YAW_DEGREES)
+        and absf(proposed_yaw) < absf(boss_head_yaw) - 0.000001)
+    if returning_from_overlap:
+        boss_head_yaw = proposed_yaw
+    else:
+        boss_head_yaw = _head_limit_yaw_to_30cm(
+            base_pose, boss_head_yaw, next_yaw, current_depth)
     _clamp_head_to_mechanical_limits()
     bittaran_head.quaternion = _head_oriented_local_pose(
         base_pose, boss_head_yaw, boss_head_pitch)
