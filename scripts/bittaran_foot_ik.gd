@@ -169,6 +169,10 @@ func set_attack_pose(pose: Dictionary) -> void:
         # End the previous gait in its actual contact position; attack
         # telegraphs begin from the visible, not the cached old, sole.
         for leg in legs:
+            leg.erase("stomp_authored_windup_goal")
+            leg.erase("stomp_authored_windup_rotation")
+            leg.erase("stomp_impact_sole")
+            leg.erase("stomp_impact_rotation")
             # Capture the visible sole and orientation BEFORE cancelling
             # the Turn/Approach swing. Preserve its world XZ position and
             # ease any airborne toe down during the 0.24s clip crossfade.
@@ -192,6 +196,9 @@ func clear_attack_pose() -> void:
     initial_attack_contact_height_world = 0.0
     for leg in legs:
         leg.erase("stomp_authored_windup_goal")
+        leg.erase("stomp_authored_windup_rotation")
+        leg.erase("stomp_impact_sole")
+        leg.erase("stomp_impact_rotation")
         leg.erase("attack_exit_goal")
         leg.erase("attack_exit_rotation")
         leg.erase("attack_entry_goal")
@@ -247,6 +254,13 @@ func attack_contact_world() -> Vector3:
     # position. STOMP's impact/shockwave must use the VISIBLE real sole,
     # not the unreachable requested point.
     if str(attack_pose.get("kind", "")) == "stomp":
+        # The Wait-stance sole marker is on the SIDE of the long toe
+        # after the STOMP short end is made horizontal. Use the actual
+        # bottom face of the rendered striking foot for shockwave/hit.
+        var foot_box: AABB = attack_foot_aabb()
+        if foot_box.has_volume():
+            var center: Vector3 = foot_box.get_center()
+            return Vector3(center.x, foot_box.position.y, center.z)
         var leg: Dictionary = legs[i]
         return (leg["foot"] as Node3D).to_global(
             leg["sole_local"] as Vector3)
@@ -321,11 +335,11 @@ func _apply_attack_chassis_pose() -> void:
                 # enough for the two-bone limb to physically hit the floor,
                 # while the other three soles remain world-planted in IK.
                 var foot_quat: Quaternion = _attack_rotation(leg)
-                var local_sole: Vector3 = (
+                var tip_offset: Vector3 = (
                     Basis(foot_quat).scaled(foot.global_basis.get_scale())
-                    * (leg["sole_local"] as Vector3))
+                    * (leg["stomp_tip_local"] as Vector3))
                 var ankle_goal: Vector3 = Vector3(
-                    aim.x, FLOOR_Y, aim.z) - local_sole
+                    aim.x, FLOOR_Y, aim.z) - tip_offset
                 var across: Vector3 = ankle_goal - hip
                 across.y = 0.0
                 var up_reach: float = sqrt(maxf(
@@ -367,10 +381,10 @@ func _straight_attack_goal(leg: Dictionary, world_direction: Vector3,
         max_reach - IK_REACH_MARGIN_METERS) + sole_offset)
 
 
-# The authored foot element extends along its LOCAL -Y axis:
-# keeping local +Y aligned with world UP points the toe VERTICALLY DOWN.
-# STOMP must keep this vertical toe while raising and falling, rather than
-# reusing the new KICK/SWEEP foot-leveling blend.
+# The STOMP tip's short end FACE is perpendicular to local -Y. Its
+# short sides are horizontal only at contact when local +Y points UP.
+# Preserve the source foot keys during the entire authored windup;
+# pitch the toe toward the ground-normal during the 0.25s downstroke.
 func _attack_rotation(leg: Dictionary) -> Quaternion:
     var original: Quaternion = leg["anchor_rotation"]
     var forward: Vector3 = Basis(original).z
@@ -378,9 +392,8 @@ func _attack_rotation(leg: Dictionary) -> Quaternion:
     if forward.length_squared() < 0.000001:
         forward = actor.global_basis.z
         forward.y = 0.0
-    # On the authored foot mesh, local -Y is the LONG edge. Align local
-    # +Y with WORLD UP to keep that edge PERPENDICULAR to the arena floor
-    # at windup, contact, and for the entire 1.50s post-impact hold.
+    # Desired contact pose: local -Y (long toe) down, short end surface
+    # level with the arena. It is NOT forced onto the authored windup.
     var upright: Quaternion = Basis.looking_at(
         -forward.normalized(), Vector3.UP).get_rotation_quaternion()
     var t: float = float(attack_pose.get("time", 0.0))
@@ -391,7 +404,16 @@ func _attack_rotation(leg: Dictionary) -> Quaternion:
     var release: float = _cubic((t - windup - strike - hold) /
         maxf(recovery, 0.001))
     if str(attack_pose.get("kind", "")) == "stomp":
-        return upright.slerp(original, release).normalized()
+        var windup_source: Quaternion = leg.get(
+            "stomp_authored_windup_rotation",
+            (leg["foot"] as Node3D).global_basis.get_rotation_quaternion())
+        # The last genuine user key is the entry orientation. The actual
+        # strike rotates this same toe smoothly to its horizontal short
+        # tip; the shoulder/knee source keys are never overwritten here.
+        var touchdown: float = _cubic(
+            (t - windup) / maxf(strike, 0.001))
+        return windup_source.slerp(upright, touchdown).slerp(
+            original, release).normalized()
     var preparation: float = _cubic(t / maxf(windup, 0.001))
     return original.slerp(upright, preparation * (1.0 - release)).normalized()
 
@@ -445,6 +467,15 @@ func _attack_goal(leg: Dictionary, desired_rotation: Quaternion) -> Vector3:
         var overhead: Vector3 = Vector3(
             aim.x, maxf(aim.y + 0.35, goal.y + 1.05), aim.z)
         var touchdown: Vector3 = Vector3(aim.x, FLOOR_Y, aim.z)
+        # IK requests the WAIT sole position, not the contact point.
+        # Offset that solver goal by the actual short toe end's distance
+        # from the old sole marker in the *current* intended toe pose.
+        var toe: Node3D = leg["foot"]
+        var tip_minus_sole: Vector3 = (
+            Basis(desired_rotation).scaled(toe.global_basis.get_scale())
+            * ((leg["stomp_tip_local"] as Vector3)
+            - (leg["sole_local"] as Vector3)))
+        touchdown -= tip_minus_sole
         if t <= windup:
             var lift: float = _cubic(t / maxf(windup, 0.001))
             goal = goal.lerp(overhead, lift)
@@ -530,6 +561,7 @@ func setup(model: Node3D) -> bool:
         legs.append({
             "upper": upper, "lower": lower, "foot": foot,
             "sole_local": sole_local,
+            "stomp_tip_local": _stomp_tip_local_point(foot),
             "pole_local": actor.global_basis.inverse() * pole.normalized(),
             "rest_sole_local": actor.to_local(foot.to_global(sole_local)),
             "rest_foot_rotation_local": actor.global_basis.get_rotation_quaternion().inverse()
@@ -628,6 +660,34 @@ func _foot_mesh_lowest_y(foot: Node3D) -> float:
                 lowest = minf(lowest,
                     piece.to_global(box.get_endpoint(corner)).y)
     return lowest
+
+
+## Centre of the short end of the LONG toe. This is the -Y mesh
+## extremity in the foot joint's coordinates, regardless of Wait pose.
+func _stomp_tip_local_point(foot: Node3D) -> Vector3:
+    var lowest: float = INF
+    var vertices: Array[Vector3] = []
+    for child in foot.get_children():
+        if not child is MeshInstance3D:
+            continue
+        var piece: MeshInstance3D = child as MeshInstance3D
+        if piece.mesh == null:
+            continue
+        var bounds: AABB = piece.mesh.get_aabb()
+        for i in range(8):
+            var vertex: Vector3 = foot.to_local(
+                piece.to_global(bounds.get_endpoint(i)))
+            vertices.append(vertex)
+            lowest = minf(lowest, vertex.y)
+    if vertices.is_empty():
+        return Vector3.ZERO
+    var centre: Vector3 = Vector3.ZERO
+    var count: float = 0.0
+    for vertex in vertices:
+        if vertex.y <= lowest + 0.015:
+            centre += vertex
+            count += 1.0
+    return centre / maxf(count, 1.0)
 
 
 func _sole_local_point(foot: Node3D) -> Vector3:
@@ -1285,20 +1345,19 @@ func advance_ik(delta: float, motion: String) -> void:
                     attack_pose.get("windup", 1.25))
                 if bool(attack_pose.get("authored", false)) and (
                         attack_kind == "stomp") and attack_t <= attack_windup:
-                    # Critical: The USER's authored front-left attack
-                    # rotations (mirrored to 4 legs) own the WINDUP.
-                    # Running the 2-bone solver here had discarded the
-                    # entire keyframe motion, leaving a synthetic wobble.
-                    # Keep the authored hip/knee untouched, but point the
-                    # toe vertically until it reaches floor height.
+                    # Preserve all THREE authored leg joints during the
+                    # windup. Prematurely aligning the toe to world-up
+                    # erased the original sweep/lift shape. Capture the
+                    # real terminal keyframe as the downstroke's entry.
                     var foot: Node3D = leg["foot"]
-                    var foot_scale: Vector3 = foot.global_basis.get_scale()
-                    var desired: Quaternion = _attack_rotation(leg)
-                    foot.global_basis = Basis(desired).scaled(foot_scale)
+                    var authored_foot_rotation: Quaternion = (
+                        foot.global_basis.get_rotation_quaternion())
                     position = foot.to_global(leg["sole_local"] as Vector3)
                     leg["stomp_authored_windup_goal"] = position
+                    leg["stomp_authored_windup_rotation"] = (
+                        authored_foot_rotation)
                     leg["last_goal"] = position
-                    leg["last_rotation"] = desired
+                    leg["last_rotation"] = authored_foot_rotation
                     continue
                 if bool(attack_pose.get("authored", false)) and (
                         attack_kind != "stomp"):
@@ -1412,6 +1471,23 @@ func advance_ik(delta: float, motion: String) -> void:
                 else:
                     rotation = _attack_rotation(leg)
                     position = _attack_goal(leg, rotation)
+                    if attack_kind == "stomp":
+                        var t_stomp: float = float(attack_pose.get(
+                            "time", 0.0))
+                        var strike_at: float = float(attack_pose.get(
+                            "windup", 1.25)) + float(attack_pose.get(
+                            "strike", 0.25))
+                        var pause_end: float = strike_at + float(
+                            attack_pose.get("hold", 1.50))
+                        # Lock the ACTUAL reached tip and angle on the
+                        # first contact frame. Holding a nominally
+                        # unreachable sole=0 goal recalculates a new
+                        # joint chain each tick and visibly slides it.
+                        if t_stomp > strike_at + 0.001 and (
+                                t_stomp <= pause_end) and (
+                                leg.has("stomp_impact_sole")):
+                            position = leg["stomp_impact_sole"]
+                            rotation = leg["stomp_impact_rotation"]
             else:
                 # No gait, foot replanting, or root yaw while attacking.
                 # A support foot interrupted midstep settles ONLY in Y;
@@ -1460,6 +1536,41 @@ func advance_ik(delta: float, motion: String) -> void:
                 SUPPORT_FOOT_ROLL_DEGREES) * collapse) *
                 head_support_foot_rotation).normalized()
         leg["last_error"] = _solve(leg, position, rotation)
+        if attacking and attacking_this_leg and str(
+                attack_pose.get("kind", "")) == "stomp":
+            var stomp_t: float = float(attack_pose.get("time", 0.0))
+            var touchdown_t: float = float(attack_pose.get("windup", 1.25)) \
+                + float(attack_pose.get("strike", 0.25))
+            var hold_end_t: float = touchdown_t + float(
+                attack_pose.get("hold", 1.50))
+            if stomp_t >= touchdown_t - 0.002 and stomp_t <= hold_end_t:
+                # The collision contact belongs to the visible SHORT tip
+                # face, not a sole marker measured in the Wait foot pose.
+                # Correct a final reach error in IK, only at touchdown;
+                # preserve the authored descending limb path before it.
+                var stomp_foot: Node3D = leg["foot"]
+                var toe_bottom: float = _foot_mesh_lowest_y(stomp_foot)
+                for attempt in range(2):
+                    if absf(toe_bottom - FLOOR_Y) < 0.004:
+                        break
+                    var correction: float = clampf(
+                        FLOOR_Y + 0.002 - toe_bottom, -0.22, 0.22)
+                    leg["last_error"] = _solve(leg,
+                        stomp_foot.to_global(leg["sole_local"] as Vector3)
+                        + Vector3.UP * correction, rotation)
+                    toe_bottom = _foot_mesh_lowest_y(stomp_foot)
+                if absf(toe_bottom - FLOOR_Y) > 0.004:
+                    # At a saturated reach, move the tiny remainder at
+                    # the end effector rather than folding the knee or
+                    # driving the other three supports into the floor.
+                    stomp_foot.global_position.y += (
+                        FLOOR_Y + 0.002 - toe_bottom)
+                leg["last_goal"] = stomp_foot.to_global(
+                    leg["sole_local"] as Vector3)
+                if not leg.has("stomp_impact_sole"):
+                    leg["stomp_impact_sole"] = leg["last_goal"]
+                    leg["stomp_impact_rotation"] = (
+                        stomp_foot.global_basis.get_rotation_quaternion())
         if attacking and not attacking_this_leg:
             # Some BODY windup poses sit a few centimetres outside a
             # full-extension support knee's reachable sphere. Do not

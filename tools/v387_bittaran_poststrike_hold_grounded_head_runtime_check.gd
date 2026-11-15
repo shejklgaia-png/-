@@ -116,7 +116,8 @@ func _case(battle: Node3D, id: String, kind: String) -> bool:
             active["sole_local"] as Vector3)
         if kind == "stomp":
             if active_foot.global_basis.y.normalized().dot(
-                    Vector3.UP) < 0.998 and t <= windup + strike + hold:
+                    Vector3.UP) < 0.998 and t >= windup + strike - DT \
+                    and t <= windup + strike + hold:
                 _fail(id + ": long foot edge not perpendicular to ground")
                 return false
             if bool(frame.get("impact", false)):
@@ -192,7 +193,7 @@ func _run() -> void:
     if n != 12:
         _fail("did not execute all 12 attack/leg combinations")
         return
-    print("GODOT_V387_BITTARAN_POSTSTRIKE_PASS: 4x STOMP long axis vertical "
+    print("GODOT_V387_BITTARAN_POSTSTRIKE_PASS: STOMP toe vertical at hit "
         + "through impact and 1.5s hold; 4x KICK 1.5s hold; 4x SWEEP "
         + "slow no-hold return; all real foot bounds grounded and "
         + "HEAD continuously tracking through all attack phases")

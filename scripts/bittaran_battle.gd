@@ -15,16 +15,23 @@ const BOSS_DEATH_RESPAWN_SECONDS: float = 3.0
 # During attacks only the articulated chest can follow the player.
 # The boss root, gait and planted support-foot positions stay fixed.
 const ATTACK_CHEST_TURN_DEGREES_PER_SECOND: float = 100.0
-const ATTACK_CHEST_MAX_YAW_DEGREES: float = 60.0
+const ATTACK_CHEST_MAX_YAW_DEGREES: float = 140.0
+# The aiming chest faces 45 degrees ACROSS the attacking arm, not
+# straight at SERA. The signed side is mirrored for L/R limbs.
+const ATTACK_CHEST_ARM_OFFSET_DEGREES: float = 45.0
 const BOSS_FAR_SIDE_ENTER_METERS: float = 0.65
 const BOSS_FAR_SIDE_EXIT_METERS: float = -0.25
 const DOWN_ESCAPE_SPEED_MPS: float = 15.0
 const HEAD_TRACK_MAX_YAW_DEGREES: float = 85.0
 const HEAD_TRACK_DEGREES_PER_SECOND: float = 140.0
-# The articulated HEAD stays level in world-space. SERA's vertical
-# motion is instead mirrored by an independent WORLD-UP telescoping
-# shift of the actual head joint, with a smooth ±0.65m travel limit.
-const HEAD_VERTICAL_MAX_OFFSET_METERS: float = 0.65
+# HEAD looks down/up from its actual neck pivot: yaw first, then a LOCAL
+# pitch, never roll. Only the part-break anticipation and shin clearance
+# can translate it vertically. The player is followed through rotation.
+const HEAD_PITCH_MIN_DEGREES: float = -70.0
+const HEAD_PITCH_MAX_DEGREES: float = 35.0
+const HEAD_PITCH_TURN_DEGREES_PER_SECOND: float = 120.0
+const HEAD_PITCH_FILTER_PER_SECOND: float = 8.0
+const HEAD_PITCH_MIN_HORIZONTAL_METERS: float = 0.55
 const HEAD_VERTICAL_FILTER_PER_SECOND: float = 8.0
 const HEAD_VERTICAL_MAX_SPEED_MPS: float = 1.40
 # World-level HEAD is wider across planted shins than the old angled
@@ -60,6 +67,9 @@ const HEAD_AIM_NEAR_RADIUS_METERS: float = 2.20
 const HEAD_AIM_NEAR_FILTER_PER_SECOND: float = 2.8
 const HEAD_AIM_FAR_FILTER_PER_SECOND: float = 12.0
 const HEAD_AIM_NEAR_DEADBAND_DEGREES: float = 1.8
+# Bound near-field desired-yaw changes to 4deg per 60Hz physics tick
+# even when the player alternates rapidly behind the head pivot.
+const HEAD_AIM_NEAR_MAX_DEGREES_PER_SECOND: float = 240.0
 # A depth change caused by one replanting knee cannot instantly release
 # the 30cm stop. The latch releases only after a stable gap persists.
 const HEAD_TRACK_COLLISION_ESCAPE_MIN_SPEED_FACTOR: float = 0.40
@@ -78,6 +88,8 @@ var boss_far_side_screen_axis: bool = false
 var boss_last_controller_axis: Vector2 = Vector2.UP
 var bittaran_head: Node3D
 var boss_head_yaw: float = 0.0
+var boss_head_pitch: float = 0.0
+var head_look_filtered_pitch: float = 0.0
 var boss_head_default_rotation: Quaternion = Quaternion.IDENTITY
 var boss_head_rest_local_position: Vector3 = Vector3.ZERO
 var head_player_rest_world_y: float = 0.0
@@ -413,8 +425,8 @@ func _head_penetration_depth(base_pose: Quaternion,
         relative_yaw: float) -> float:
     if bittaran_head == null or target_parts == null:
         return 0.0
-    bittaran_head.quaternion = (base_pose *
-        Quaternion(Vector3.UP, relative_yaw)).normalized()
+    bittaran_head.quaternion = _head_oriented_local_pose(
+        base_pose, relative_yaw, boss_head_pitch)
     var depths: Dictionary = target_parts.call(
         "get_head_leg_penetration_depths")
     var deepest: float = 0.0
@@ -468,26 +480,40 @@ func _head_collision_motion_scale(current_depth: float,
 
 
 func _update_head_look_target(delta: float) -> void:
-    # One sample per physics frame feeds BOTH knee anticipation and
-    # final head tracking. At point-blank range the player can cross
-    # behind the nose by centimetres: raw atan2 would flip +/-48deg.
+    # Sample the true world-space bearing of the HEAD's short -Z nose
+    # face. BODY's authored roll/pitch must never corrupt yaw acquisition.
     if bittaran_head == null or player == null:
         return
     var parent_joint: Node3D = bittaran_head.get_parent() as Node3D
     if parent_joint == null:
         return
-    var toward: Vector3 = parent_joint.to_local(
-        player.global_position + Vector3.UP * 0.9) - bittaran_head.position
+    var target_point: Vector3 = player.global_position + Vector3.UP * 0.9
+    var toward: Vector3 = target_point - bittaran_head.global_position
+    var front: Vector3 = -parent_joint.global_basis.z
+    front.y = 0.0
+    if front.length_squared() <= 0.000001:
+        front = Vector3.FORWARD
     var horizontal: float = Vector2(toward.x, toward.z).length()
     if head_look_initialized and horizontal <= HEAD_AIM_HOLD_RADIUS_METERS:
         return
-    # The HEAD is longitudinal along local Z: the short front face is
-    # local -Z. Aim that actual nose axis, not a flattened fake bearing.
-    # Directly behind the pivot preserve the previous turning side to
-    # avoid sudden +/-PI flips as SERA crosses the centre by centimetres.
-    var raw_bearing: float = atan2(-toward.x, -toward.z)
-    if toward.z > 0.0 and absf(toward.x) < HEAD_AIM_MIN_FORWARD_METERS:
-        raw_bearing = PI if head_look_filtered_yaw >= 0.0 else -PI
+    var raw_bearing: float = wrapf(
+        atan2(toward.x, toward.z) - atan2(front.x, front.z),
+        -PI, PI)
+    # Directly behind the neck, the true bearing flips +/-180deg when
+    # the player moves a few centimetres. Use the OLD safe positive
+    # forward denominator only in the near field, fading to the exact
+    # short-face bearing at normal distances. Preserve turn direction.
+    var right: Vector3 = Vector3(-front.z, 0.0, front.x).normalized()
+    var lateral: float = -right.dot(toward)
+    var ahead: float = front.dot(toward)
+    var near_bearing: float = atan2(lateral,
+        maxf(ahead, HEAD_AIM_MIN_FORWARD_METERS))
+    var near_weight: float = smoothstep(
+        HEAD_AIM_HOLD_RADIUS_METERS,
+        HEAD_AIM_NEAR_RADIUS_METERS, horizontal)
+    # Never interpolate the two +/-PI representatives directly.
+    raw_bearing = near_bearing + wrapf(
+        raw_bearing - near_bearing, -PI, PI) * near_weight
     var raw_yaw: float = clampf(raw_bearing,
         -deg_to_rad(HEAD_TRACK_MAX_YAW_DEGREES),
         deg_to_rad(HEAD_TRACK_MAX_YAW_DEGREES))
@@ -506,11 +532,41 @@ func _update_head_look_target(delta: float) -> void:
     var speed: float = lerpf(HEAD_AIM_NEAR_FILTER_PER_SECOND,
         HEAD_AIM_FAR_FILTER_PER_SECOND, distance_weight)
     var alpha: float = 1.0 - exp(-speed * maxf(delta, 0.0))
+    var yaw_step: float = error * alpha
+    if horizontal < HEAD_AIM_NEAR_RADIUS_METERS:
+        var cap: float = deg_to_rad(
+            HEAD_AIM_NEAR_MAX_DEGREES_PER_SECOND) * maxf(delta, 0.0)
+        yaw_step = clampf(yaw_step, -cap, cap)
     head_look_filtered_yaw = clampf(
-        head_look_filtered_yaw + error * alpha,
+        head_look_filtered_yaw + yaw_step,
         -deg_to_rad(HEAD_TRACK_MAX_YAW_DEGREES),
         deg_to_rad(HEAD_TRACK_MAX_YAW_DEGREES))
 
+
+func _head_pitch_target(delta: float) -> void:
+    if bittaran_head == null or player == null:
+        return
+    var toward: Vector3 = (
+        player.global_position + Vector3.UP * 0.9
+        - bittaran_head.global_position)
+    var horizontal: float = maxf(Vector2(
+        toward.x, toward.z).length(), HEAD_PITCH_MIN_HORIZONTAL_METERS)
+    var desired: float = clampf(atan2(toward.y, horizontal),
+        deg_to_rad(HEAD_PITCH_MIN_DEGREES),
+        deg_to_rad(HEAD_PITCH_MAX_DEGREES))
+    var alpha: float = 1.0 - exp(
+        -HEAD_PITCH_FILTER_PER_SECOND * maxf(delta, 0.0))
+    head_look_filtered_pitch = lerpf(
+        head_look_filtered_pitch, desired, alpha)
+
+
+## Yaw about the LEVEL world-up axis FIRST, then pitch about the new
+## local right axis. No Euler reordering / arbitrary camera-style roll:
+## head's visible short -Z face points toward SERA at any BODY pitch.
+func _head_oriented_local_pose(base_pose: Quaternion,
+        yaw: float, pitch: float) -> Quaternion:
+    return (base_pose * Quaternion(Vector3.UP, yaw)
+        * Quaternion(Vector3.RIGHT, pitch)).normalized()
 
 func _head_limit_yaw_to_30cm(base_pose: Quaternion, from_yaw: float,
         candidate_yaw: float, current_depth: float) -> float:
@@ -615,10 +671,9 @@ func _head_knee_look_weight() -> float:
     return follow
 
 
-## Convert the current articulated BODY heading to a LEVEL world-space
-## head pose. Counter-rotate torso pitch/roll instead of replaying a
-## Head track. The live tracking yaw is applied on top of this pose;
-## target_parts' collision sweeps use the very same base quaternion.
+## World-level neutral reference for HEAD. BODY pitch/roll is removed
+## here; the yaw and independent down/up pitch are composed afterward
+## in this order. This leaves HEAD with zero artificial side roll.
 func _head_level_local_base_pose() -> Quaternion:
     if bittaran_head == null:
         return boss_head_default_rotation
@@ -636,22 +691,17 @@ func _head_level_local_base_pose() -> Quaternion:
     return (parent_world.inverse() * flat_world).normalized()
 
 
-## Absolute rather than cumulative: reset the joint's local reference
-## every frame, then add the filtered world-up travel. Moving the pivot,
-## not tilting it, keeps the head horizontal while following jumps and
-## other changes in SERA's elevation. During knockdown the travel returns
-## smoothly to zero; tracking is otherwise always active.
+## Absolute local reset prevents cumulative drift. Vertical shifting is
+## reserved for actual down-anticipation and visible shin clearance;
+## player elevation is tracked with head PITCH, not neck translation.
 func _update_head_vertical_follow(delta: float, follow: float) -> void:
     if bittaran_head == null or player == null:
         return
-    var wanted: float = clampf(
-        player.global_position.y - head_player_rest_world_y,
-        -HEAD_VERTICAL_MAX_OFFSET_METERS,
-        HEAD_VERTICAL_MAX_OFFSET_METERS) * follow
+    var wanted: float = 0.0
     if bittaran_foot_ik != null and bool(
             bittaran_foot_ik.call("windup_active")):
-        # Keep the old visible nose-up anticipation but raise the
-        # horizontal head instead of pitching the mesh.
+        # Preserve the existing knockdown anticipation height while
+        # normal tracking now rotates the actual head toward the player.
         var windup_degrees: float = float(bittaran_foot_ik.get(
             "head_windup_pitch_degrees"))
         wanted += windup_degrees * HEAD_WINDUP_LIFT_METERS_PER_DEGREE
@@ -673,11 +723,10 @@ func _update_head_vertical_follow(delta: float, follow: float) -> void:
         head_vertical_offset_world + head_visual_clearance_lift_world)
 
 
-## A level (world-horizontal) head has a different swept AABB from
-## the former tilted one. After live yaw, prevent the head's *rendered*
-## AABB crossing an actual visible shin. This extra clearance is upward
-## only; it never changes HEAD pitch, yaw ownership, IK foot anchors, or
-## player-follow height. Upward collision avoidance is immediate to
+## The pitched head's live collision AABB can overlap a shin. After
+## yaw/pitch, prevent the rendered mesh from crossing the visible leg.
+## This extra clearance is upward only; it never changes rotations,
+## IK foot anchors, or player aim. Upward avoidance is immediate to
 ## prevent tunnelling, but release is gradual to avoid a bobbing head.
 func _avoid_head_visual_leg_overlap(delta: float) -> void:
     if bittaran_head == null or target_parts == null:
@@ -733,17 +782,18 @@ func _aim_bittaran_head(delta: float) -> void:
             boss_head_yaw = move_toward(boss_head_yaw, 0.0,
                 deg_to_rad(HEAD_TRACK_DEGREES_PER_SECOND)
                 * maxf(delta, 0.0))
-            bittaran_head.quaternion = (
-                boss_head_default_rotation * Quaternion(
-                Vector3.UP, boss_head_yaw)).normalized()
+            boss_head_pitch = move_toward(boss_head_pitch, 0.0,
+                deg_to_rad(HEAD_PITCH_TURN_DEGREES_PER_SECOND)
+                * maxf(delta, 0.0))
+            bittaran_head.quaternion = _head_oriented_local_pose(
+                boss_head_default_rotation, boss_head_yaw, boss_head_pitch)
             head_collision_filtered_depth = 0.0
             head_collision_blocked = false
             head_collision_release_elapsed = 0.0
             return
-    # The head is horizontally level in WORLD space even while BODY
-    # pitches in crouch/turn/attack. The controller alone owns yaw.
-    # During the last 30% of physical rise, smoothly interpolate from
-    # the old neutral down pose to the level orientation; never snap.
+    # BODY may pitch or roll during an authored attack. The head stays
+    # free to PITCH down at SERA without inheriting that body's roll.
+    # Fade the stand-up reference in gradually; never snap on recovery.
     var base_pose: Quaternion = _head_level_local_base_pose()
     if bittaran_foot_ik != null and bool(
             bittaran_foot_ik.call("down_pose_active")):
@@ -751,11 +801,18 @@ func _aim_bittaran_head(delta: float) -> void:
             head_track_weight / HEAD_TRACK_RISE_FOLLOW_WEIGHT, 0.0, 1.0)
         base_pose = boss_head_default_rotation.slerp(
             base_pose, _head_smootherstep(level_mix))
-    # The target was filtered once after IK this physics frame.
-    # In particular, do NOT return at zero planar distance: that leaves
-    # the animated bind pose on the HEAD for exactly one frame.
+    # Yaw is sampled after IK; pitch uses the same visible joint pivot.
+    # Pitch is allowed at point blank even while yaw uses its deadband.
     if not head_look_initialized:
         _update_head_look_target(delta)
+    _head_pitch_target(delta)
+    var pitch_speed: float = (HEAD_PITCH_TURN_DEGREES_PER_SECOND
+        if head_track_weight >= 0.99
+        else HEAD_TRACK_RECOVERY_DEGREES_PER_SECOND)
+    boss_head_pitch = move_toward(boss_head_pitch,
+        head_look_filtered_pitch * head_track_weight,
+        deg_to_rad(pitch_speed) * maxf(delta, 0.0)
+        * head_track_weight)
     var wanted: float = head_look_filtered_yaw
     # HEAD slows smoothly from first contact and cannot turn deeper
     # into a 10cm overlap. Tracking away from the leg remains free.
@@ -778,9 +835,9 @@ func _aim_bittaran_head(delta: float) -> void:
     var next_yaw: float = lerpf(boss_head_yaw, proposed_yaw, motion_scale)
     boss_head_yaw = _head_limit_yaw_to_30cm(
         base_pose, boss_head_yaw, next_yaw, current_depth)
-    bittaran_head.quaternion = (base_pose *
-        Quaternion(Vector3.UP, boss_head_yaw)).normalized()
-    # Resolve world-horizontal HEAD vs animated leg mesh clearance AFTER
+    bittaran_head.quaternion = _head_oriented_local_pose(
+        base_pose, boss_head_yaw, boss_head_pitch)
+    # Resolve pitched HEAD vs animated leg mesh clearance AFTER
     # final collision-constrained yaw and BEFORE target_parts.sync().
     _avoid_head_visual_leg_overlap(delta)
 
@@ -878,9 +935,17 @@ func _advance_target_motion(delta: float) -> void:
             var player_offset: Vector3 = player.global_position - target.global_position
             player_offset.y = 0.0
             if player_offset.length_squared() > 0.0001:
+                # L limbs extend toward the model's +X after its 180deg
+                # import rotation; R limbs toward -X. Offset the CHEST
+                # by 45deg across the active attack arm. Its yaw owns
+                # target tracking; IK only keeps the other soles planted.
+                var side: float = (1.0 if str(bittaran_attack_frame.get(
+                    "id", "")).ends_with("l") else -1.0)
                 var desired: float = wrapf(
                     atan2(player_offset.x, player_offset.z)
-                    - target.rotation.y, -PI, PI)
+                    - target.rotation.y
+                    - side * deg_to_rad(
+                    ATTACK_CHEST_ARM_OFFSET_DEGREES), -PI, PI)
                 desired = clampf(desired,
                     -deg_to_rad(ATTACK_CHEST_MAX_YAW_DEGREES),
                     deg_to_rad(ATTACK_CHEST_MAX_YAW_DEGREES))
@@ -1131,6 +1196,8 @@ func _reset_target_after_respawn() -> void:
     boss_far_side_screen_axis = false
     boss_last_controller_axis = Vector2.UP
     boss_head_yaw = 0.0
+    boss_head_pitch = 0.0
+    head_look_filtered_pitch = 0.0
     boss_head_windup_start_yaw = 0.0
     head_neutral_overlap.clear()
     head_neutral_component_overlap.clear()

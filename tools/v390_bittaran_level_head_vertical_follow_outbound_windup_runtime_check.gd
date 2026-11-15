@@ -1,6 +1,6 @@
 extends SceneTree
-## v390 regression: real articulated BODY pitches while HEAD remains
-## world-horizontal and SERA's Y motion moves HEAD (not pitches it).
+## v390 tempo plus v392: HEAD pitches toward the player without side
+## roll despite an independently pitched/rolled articulated BODY.
 ## The authored outward swing spends its last 0.70 real seconds at 0.2x.
 const BRAIN = preload("res://scripts/bittaran_attacks.gd")
 const DT: float = 1.0 / 60.0
@@ -14,10 +14,12 @@ func _fail(reason: String) -> void:
     quit(1)
 
 
-func _is_level(head: Node3D, label: String) -> bool:
-    var vertical: Vector3 = head.global_basis.y.normalized()
-    if vertical.dot(Vector3.UP) < 0.9995:
-        _fail(label + ": HEAD is tilted, global up=" + str(vertical))
+func _roll_free(head: Node3D, label: String) -> bool:
+    # Pitch may now point DOWN, but the short-face left/right axis must
+    # stay horizontal. Pitch/yaw are composed without any accidental roll.
+    var right: Vector3 = head.global_basis.x.normalized()
+    if absf(right.y) > 0.025:
+        _fail(label + ": head acquired unwanted side roll: " + str(right))
         return false
     return true
 
@@ -29,71 +31,67 @@ func _check_head_height(battle: Node3D) -> bool:
     var player: CharacterBody3D = battle.get("player")
     var parent: Node3D = head.get_parent()
     var home: Vector3 = battle.get("boss_head_rest_local_position")
-    var original_y: float = float(battle.get("head_player_rest_world_y"))
     var base_world: Vector3 = parent.to_global(home)
-    for t in range(35):
-        battle.call("_advance_target_motion", DT)
-        battle.call("_finalize_target_pose", DT)
-        if not _is_level(head, "idle " + str(t)):
-            return false
-    var positions: Array[float] = []
-    var targets: Array[float] = [0.45, -0.35, 0.0]
-    for desired_height in targets:
-        player.global_position.y = original_y + desired_height
-        for i in range(95):
+    var forward: Vector3 = -parent.global_basis.z
+    forward.y = 0.0
+    forward = forward.normalized()
+    var offsets: Array[float] = []
+    for y_offset in [2.0, -2.0, 0.0]:
+        # These are neck-pivot-relative directions; player aim is at
+        # character centre (player root + 0.9m).
+        player.global_position = base_world + forward * 7.0 \
+            + Vector3.UP * (y_offset - 0.9)
+        for i in range(85):
             battle.call("_advance_target_motion", DT)
             battle.call("_finalize_target_pose", DT)
-            if not _is_level(head, "vertical tracking " + str(i)):
+            if not _roll_free(head, "head pitch " + str(i)):
                 return false
-        var offset: float = float(
-            battle.get("head_vertical_offset_world"))
-        if absf(offset - desired_height) > 0.025:
-            _fail("head Y did not follow player, got " + str(offset)
-                + " expected " + str(desired_height))
+        var pitch: float = float(battle.get("boss_head_pitch"))
+        if absf(pitch - atan2(y_offset, 7.0)) > 0.18:
+            _fail("HEAD did not look at vertical player position: "
+                + str([y_offset, pitch]))
             return false
-        var rest_world: Vector3 = parent.to_global(home)
-        var clearance: float = float(
-            battle.get("head_visual_clearance_lift_world"))
-        if absf(head.global_position.y - rest_world.y - offset -
-                clearance) > 0.005:
-            _fail("HEAD height/visual-shin clearance did not move on WORLD UP")
+        if absf(float(battle.get("head_vertical_offset_world"))) > 0.025:
+            _fail("HEAD translated instead of pitching toward player")
             return false
-        var delta: Vector3 = head.global_position - rest_world
-        if Vector2(delta.x, delta.z).length() > 0.005:
-            _fail("vertical tracking shifted HEAD horizontally")
+        var toward: Vector3 = (
+            player.global_position + Vector3.UP * 0.9
+            - head.global_position).normalized()
+        var nose: Vector3 = -head.global_basis.z.normalized()
+        if nose.dot(toward) < 0.70:
+            _fail("short front face did not aim at player elevation")
             return false
-        positions.append(offset)
-    if not (positions[0] > 0.40 and positions[1] < -0.30 and
-            absf(positions[2]) < 0.025):
-        _fail("head did not follow up, down, return in order")
+        offsets.append(pitch)
+    if not (offsets[0] > offsets[2] + 0.12 and
+            offsets[1] < offsets[2] - 0.12):
+        _fail("HEAD failed to pitch up/down distinctly " + str(offsets))
         return false
-    # Check the independent head controller while the BODY is in a
-    # low authored SWEEP pose and turns under the head.
+    # HEAD must remain roll-free during an authored SWEEP whose BODY
+    # pitches/rolls independently, with normal live yaw still active.
     battle.set("target_move_enabled", true)
     var brain: RefCounted = battle.get("bittaran_attacks")
     var torso: Node3D = battle.get("bittaran_rig").find_child(
         "Body", true, false) as Node3D
     if not bool(brain.call("force_start", "leg_fl", "sweep")):
-        _fail("cannot start sweep for head-level collision test")
+        _fail("cannot start sweep for head roll test")
         return false
     var saw_body_pitch: bool = false
     var saw_head_yaw: bool = false
     for tick in range(145):
         player.global_position = battle.get("target").global_position + (
-            Vector3(4.5 if tick < 55 else -4.5, original_y + 0.25, 7.0))
+            Vector3(4.5 if tick < 55 else -4.5, 0.25, 7.0))
         battle.call("_advance_target_motion", DT)
         battle.call("_finalize_target_pose", DT)
-        if not _is_level(head, "sweep " + str(tick)):
+        if not _roll_free(head, "sweep " + str(tick)):
             return false
         if absf(torso.global_basis.y.normalized().dot(Vector3.UP)) < 0.99:
             saw_body_pitch = true
         if absf(float(battle.get("boss_head_yaw"))) > 0.05:
             saw_head_yaw = true
     if not saw_body_pitch or not saw_head_yaw:
-        _fail("did not exercise pitched BODY and live yaw during sweep")
+        _fail("did not exercise pitched BODY and live HEAD yaw during sweep")
         return false
     return true
-
 
 func _check_outbound_tempo() -> bool:
     if absf(BRAIN.SWEEP_SLOW_SPEED - 0.2) > 0.000001 or absf(
@@ -143,9 +141,8 @@ func _run() -> void:
         return
     if not _check_outbound_tempo():
         return
-    print("GODOT_V390_HEAD_HEIGHT_SWEEP_WINDUP_PASS: upright/low-pose "
-        + "HEAD gravity-level, up/down ±0.45m SERA elevation follows "
-        + "without horizontal drift, yaw independent during authored "
-        + "sweep and outbound final 0.70s plays at 0.20x, source "
+    print("GODOT_V390_HEAD_HEIGHT_SWEEP_WINDUP_PASS: HEAD world yaw/pitch "
+        + "follows SERA elevation without side roll or neck translation; "
+        + "authored BODY roll and SWEEP final 0.70s at 0.20x; source "
         + "turnaround t=0.50 reached at wall t=1.06")
     quit(0)

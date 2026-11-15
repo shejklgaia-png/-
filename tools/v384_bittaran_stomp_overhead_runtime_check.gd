@@ -1,5 +1,5 @@
 extends SceneTree
-## v384: STOMP alone must raise the visible vertical-pointed sole ABOVE
+## v384/v392: STOMP raises the originally animated sole ABOVE
 ## SERA's head, follow the moving head until swing, then hit the ground.
 ## Other two authored attacks are deliberately not modified.
 const BRAIN = preload("res://scripts/bittaran_attacks.gd")
@@ -82,10 +82,13 @@ func _run_case(battle: Node3D, id: String) -> bool:
         var actual: Vector3 = foot.to_global(
             leg["sole_local"] as Vector3)
         var up_axis: Vector3 = foot.global_basis.y.normalized()
-        if t < BRAIN.STOMP_WINDUP_SECONDS - 0.03 \
-                and up_axis.dot(Vector3.UP) < 0.998:
-            _fail(id + ": foot toe no longer vertical " + str(up_axis))
-            return false
+        if t > 0.32 and t < BRAIN.STOMP_WINDUP_SECONDS - 0.03:
+            # The original authored foot angle must survive anticipation.
+            var authored: Quaternion = rig.call(
+                "_authored_rotation_for_leg", "stomp", id, 2, t)
+            if foot.quaternion.angle_to(authored) > 0.03:
+                _fail(id + ": stomp windup foot key was overridden")
+                return false
         if t <= BRAIN.STOMP_WINDUP_SECONDS:
             raised_y = maxf(raised_y, actual.y)
             if t >= 0.40 and t <= 0.47:
@@ -108,14 +111,19 @@ func _run_case(battle: Node3D, id: String) -> bool:
                 return false
         if bool(frame.get("impact", false)):
             impact_count += 1
-            at_impact = actual.y
+            # The visible short tip's bottom is the REAL impact point;
+            # the old Wait-pose sole marker sits along its long side.
+            var foot_box: AABB = ik.call("attack_foot_aabb")
+            at_impact = foot_box.position.y
             if up_axis.dot(Vector3.UP) < 0.998:
                 _fail(id + ": long edge tilted away from ground-normal at impact")
                 return false
             var fx_center: Vector3 = ik.call("attack_contact_world")
-            if fx_center.distance_to(actual) > 0.0002:
-                _fail(id + ": impact FX point did not use real sole "
-                    + str([fx_center, actual, ik.get("attack_pose")]))
+            var expected: Vector3 = Vector3(foot_box.get_center().x,
+                foot_box.position.y, foot_box.get_center().z)
+            if fx_center.distance_to(expected) > 0.0002:
+                _fail(id + ": impact FX point did not use real toe tip "
+                    + str([fx_center, expected, ik.get("attack_pose")]))
                 return false
     if not recovered or not saw_track or not aim_moved             or locked_aim == Vector3.INF:
         _fail(id + ": incomplete moving-head track / recovery")
@@ -147,7 +155,7 @@ func _run() -> void:
     for id in BRAIN.LEG_IDS:
         if not _run_case(battle, id):
             return
-    print("GODOT_V384_STOMP_OVERHEAD_PASS: four STOMP legs raise vertical "
-        + "toes above moving SERA head through whole windup, lock on "
+    print("GODOT_V384_STOMP_OVERHEAD_PASS: four STOMP legs preserve authored "
+        + "toe angles while raising above SERA head, lock on "
         + "strike, impact only once using real sole; supports stay fixed")
     quit(0)

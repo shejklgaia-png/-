@@ -382,6 +382,11 @@ func apply_authored_attack_pose(frame: Dictionary) -> void:
     var clip_time: float = clampf(
         float(frame.get("authored_time", seconds - preparation)),
         0.0, authored_clip_length(kind))
+    if kind == "stomp":
+        # Freeze the exact last strike key during its 1.50s hit pause.
+        # The authored t=1.75 source tail previously animated a knee
+        # under the planted toe. Recovery is the normal smooth blend.
+        clip_time = minf(clip_time, windup + strike)
     var blend_in: float = clampf(seconds /
         maxf(0.24 if kind == "stomp" else preparation, 0.001), 0.0, 1.0)
     blend_in = blend_in * blend_in * (3.0 - 2.0 * blend_in)
