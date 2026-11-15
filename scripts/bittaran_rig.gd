@@ -383,8 +383,29 @@ func _authored_rotation_for_leg(kind: String,
         dest_name, 0.0)
     var source_action: Quaternion = _authored_key_rotation(
         str(ATTACK_NAMES[kind]), source_name, at)
+    # SWEEP is an authored spatial path: all four anatomical limb pivots
+    # are reflected copies in BODY-local coordinates, but their WAIT
+    # rotations are NOT. In particular the rear WAIT knees have different
+    # base pitch/roll. Applying a mirrored WAIT delta to those bones pitches
+    # the entire sweeping limb upward. Mirror the absolute source pose for
+    # SWEEP, and let the existing blend-in/out connect it to each leg's
+    # own WAIT stance. Other attack types retain their original delta map.
+    if kind == "sweep":
+        return _mirror_author_delta(source_action, target_id)
     var delta: Quaternion = (source_wait.inverse() * source_action).normalized()
     return (dest_wait * _mirror_author_delta(delta, target_id)).normalized()
+
+
+func _authored_body_rotation_for_attack(kind: String, id: String,
+        at: float) -> Quaternion:
+    var source: Quaternion = _authored_key_rotation(
+        str(ATTACK_NAMES[kind]), "Body", at)
+    # The asymmetrical SWEEP BODY roll is part of the left-front
+    # attack pose. Reflect it together with the striking leg;
+    # otherwise right-side soles are lifted metres above the left.
+    if kind == "sweep":
+        return _mirror_author_delta(source, id)
+    return source
 
 
 func authored_clip_length(kind: String) -> float:
@@ -414,8 +435,8 @@ func initial_authored_sole_height(kind: String, id: String,
         var joint: Node3D = bones[uid]
         saved[uid] = joint.quaternion
         if name == "Body":
-            joint.quaternion = _authored_key_rotation(
-                str(ATTACK_NAMES[kind]), name, 0.0)
+            joint.quaternion = _authored_body_rotation_for_attack(
+                kind, id, 0.0)
         else:
             joint.quaternion = _authored_rotation_for_leg(
                 kind, id, tracked.find(name) - 1, 0.0)
@@ -471,8 +492,8 @@ func apply_authored_attack_pose(frame: Dictionary) -> void:
         var node: Node3D = bones[uid]
         var target_rotation: Quaternion
         if bone_name == "Body":
-            target_rotation = _authored_key_rotation(
-                str(ATTACK_NAMES[kind]), bone_name, clip_time)
+            target_rotation = _authored_body_rotation_for_attack(
+                kind, id, clip_time)
         else:
             var bone_slot: int = slots.find(bone_name) - 1
             target_rotation = _authored_rotation_for_leg(
