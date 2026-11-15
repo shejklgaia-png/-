@@ -35,6 +35,15 @@ const STOMP_RECOVERY_SECONDS: float = 0.55
 const KICK_RECOVERY_SECONDS: float = 0.60
 const SWEEP_RECOVERY_SECONDS: float = 1.40
 const BETWEEN_ATTACKS_SECONDS: float = 1.35
+# Situational technique selection (v401). Each kind has a clear job:
+# STOMP punishes a player standing right at a foot, KICK strikes a
+# player out beyond the foot along its radial line, SWEEP covers a
+# player off to the foot's side, where only a sideways arc reaches.
+# When no situation applies (or the situational kind would repeat the
+# previous attack), the historical rotation decides, so the fight
+# keeps its variety and never spams one kind.
+const STOMP_RANGE_METERS: float = 3.6
+const KICK_FRONT_DOT: float = 0.50
 # The leg-placement phase is outside every authored attack timeline.
 # Its actual duration is owned by the four-foot IK controller.
 # STOMP/KICK hold the final strike pose completely still for 1.5s.
@@ -48,6 +57,7 @@ var leg_id: String = ""
 var elapsed: float = 0.0
 var cooldown: float = 1.0
 var next_kind_index: int = 0
+var last_kind: String = ""
 var next_leg_index: int = 0
 var hit_consumed: bool = false
 var preparing_stance: bool = false
@@ -60,6 +70,7 @@ func reset() -> void:
     elapsed = 0.0
     cooldown = 1.0
     next_kind_index = 0
+    last_kind = ""
     next_leg_index = 0
     hit_consumed = false
     preparing_stance = false
@@ -165,6 +176,44 @@ func _choose_leg(player_position: Vector3, feet: Dictionary) -> String:
             best = id
     return best
 
+## Pick the technique for a newly selected leg (v401). See the
+## STOMP_RANGE_METERS constants: the situation decides first, the
+## rotation breaks ties and prevents immediate repeats.
+func _choose_kind(for_leg: String, player_position: Vector3,
+        feet: Dictionary) -> String:
+    var chosen: String = ATTACK_KINDS[next_kind_index]
+    if feet.has(for_leg):
+        var foot: Vector3 = feet[for_leg]
+        var centroid := Vector3.ZERO
+        var count: int = 0
+        for id in feet.keys():
+            centroid += feet[id] as Vector3
+            count += 1
+        if count > 0:
+            centroid /= float(count)
+            var radial := Vector2(
+                foot.x - centroid.x, foot.z - centroid.z)
+            var to_player := Vector2(
+                player_position.x - foot.x,
+                player_position.z - foot.z)
+            var distance: float = to_player.length()
+            var situational: String = ""
+            if distance <= STOMP_RANGE_METERS:
+                situational = "stomp"
+            elif radial.length() > 0.01 and distance > 0.01:
+                var dot: float = radial.normalized().dot(
+                    to_player / distance)
+                if dot >= KICK_FRONT_DOT:
+                    situational = "kick"
+                elif dot > -KICK_FRONT_DOT:
+                    situational = "sweep"
+            if not situational.is_empty() and situational != last_kind:
+                chosen = situational
+    last_kind = chosen
+    next_kind_index = (ATTACK_KINDS.find(chosen) + 1) % ATTACK_KINDS.size()
+    return chosen
+
+
 func advance(delta: float, player_position: Vector3,
         available_feet: Dictionary, permitted: bool,
         player_head_position: Vector3 = Vector3.INF,
@@ -182,10 +231,10 @@ func advance(delta: float, player_position: Vector3,
         var selected: String = _choose_leg(player_position, available_feet)
         if selected.is_empty():
             return {}
-        _start(selected, ATTACK_KINDS[next_kind_index], true)
+        _start(selected, _choose_kind(
+            selected, player_position, available_feet), true)
         stomp_aim = player_position
         stomp_aim_valid = false
-        next_kind_index = (next_kind_index + 1) % ATTACK_KINDS.size()
         next_leg_index = (LEG_IDS.find(selected) + 1) % LEG_IDS.size()
     if preparing_stance:
         if not stance_ready:

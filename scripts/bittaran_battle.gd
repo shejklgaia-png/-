@@ -118,6 +118,10 @@ var bittaran_shockwave: MeshInstance3D
 var shockwave_elapsed: float = -1.0
 var shockwave_half_extents: Vector2 = Vector2.ONE
 var bittaran_dirt_fx: Node3D
+var bittaran_thud_audio: AudioStreamPlayer
+var impact_shake_strength: float = 0.0
+var impact_shake_time: float = 0.0
+var footfall_prev_stepping: Array[bool] = [false, false, false, false]
 var last_attack_contact: Vector3 = Vector3.ZERO
 var attack_contact_initialized: bool = false
 
@@ -241,6 +245,96 @@ func _build_bittaran_shockwave() -> void:
     bittaran_dirt_fx = BittaranDirtFX.new()
     bittaran_dirt_fx.name = "BittaranDirtFX"
     add_child(bittaran_dirt_fx)
+    bittaran_thud_audio = AudioStreamPlayer.new()
+    bittaran_thud_audio.name = "BittaranThud"
+    bittaran_thud_audio.stream = _make_bittaran_thud()
+    bittaran_thud_audio.volume_db = -6.0
+    bittaran_thud_audio.max_polyphony = 3
+    add_child(bittaran_thud_audio)
+
+
+func _make_bittaran_thud() -> AudioStreamWAV:
+    # Original heavy ground thud for the boss (v401); 16-bit PCM
+    # generated once at startup, mirroring the mechanical-footstep
+    # synthesis in main.gd. No copyrighted sample, no runtime synth.
+    var rate: int = 22050
+    var frame_count: int = 8379  # 0.38 s
+    var samples := PackedByteArray()
+    samples.resize(frame_count * 2)
+    var seed: int = 41731
+    for i in range(frame_count):
+        var t: float = float(i) / float(rate)
+        seed = (seed * 1664525 + 1013904223) & 0x7fffffff
+        var noise: float = (float(seed % 65536) / 32768.0) - 1.0
+        var body: float = sin(TAU * (46.0 * t + 9.0 * t * t)) * exp(-t * 11.0)
+        var partial: float = sin(
+            TAU * (93.0 * t + 21.0 * t * t)) * exp(-t * 19.0)
+        var crunch: float = noise * exp(-t * 42.0)
+        var signal_level: float = clampf(
+            body * 0.72 + partial * 0.22 + crunch * 0.16, -0.96, 0.96)
+        samples.encode_s16(i * 2, roundi(signal_level * 32767.0))
+    var sound := AudioStreamWAV.new()
+    sound.mix_rate = rate
+    sound.format = AudioStreamWAV.FORMAT_16_BITS
+    sound.stereo = false
+    sound.data = samples
+    return sound
+
+
+## Impact camera feedback (v401). main.gd never touches the camera's
+## frustum offsets, so a decaying offset here cannot fight the normal
+## follow camera; it always settles back to exactly zero.
+func _add_impact_shake(strength: float) -> void:
+    impact_shake_strength = maxf(impact_shake_strength, strength)
+
+
+func _tick_impact_shake(delta: float) -> void:
+    if camera == null:
+        return
+    impact_shake_time += maxf(delta, 0.0)
+    if impact_shake_strength <= 0.0004:
+        impact_shake_strength = 0.0
+        if camera.h_offset != 0.0 or camera.v_offset != 0.0:
+            camera.h_offset = 0.0
+            camera.v_offset = 0.0
+        return
+    impact_shake_strength *= exp(-5.5 * maxf(delta, 0.0))
+    var t: float = impact_shake_time
+    var nx: float = sin(t * 43.7) * 0.62 + sin(t * 29.3 + 1.7) * 0.38
+    var ny: float = sin(t * 37.9 + 0.6) * 0.62 + sin(t * 24.1 + 2.9) * 0.38
+    camera.h_offset = nx * impact_shake_strength
+    camera.v_offset = ny * impact_shake_strength * 0.7
+
+
+func _play_bittaran_thud(point: Vector3, pitch: float,
+        base_volume_db: float) -> void:
+    if bittaran_thud_audio == null or camera == null:
+        return
+    var distance: float = camera.global_position.distance_to(point)
+    if distance > 30.0:
+        return
+    bittaran_thud_audio.pitch_scale = pitch
+    bittaran_thud_audio.volume_db = base_volume_db - clampf(
+        (distance - 6.0) * 0.55, 0.0, 12.0)
+    bittaran_thud_audio.play()
+
+
+func _tick_bittaran_footfalls() -> void:
+    if bittaran_foot_ik == null or camera == null:
+        return
+    var legs: Array = bittaran_foot_ik.get("legs")
+    if legs.size() != 4:
+        return
+    for i in range(legs.size()):
+        var leg: Dictionary = legs[i]
+        var stepping: bool = bool(leg["stepping"])
+        if footfall_prev_stepping[i] and not stepping:
+            var foot: Node3D = leg["foot"]
+            if foot != null and camera.global_position.distance_to(
+                    foot.global_position) <= 20.0:
+                _play_bittaran_thud(foot.global_position, 1.3, -13.0)
+                _add_impact_shake(0.008)
+        footfall_prev_stepping[i] = stepping
 
 
 func _emit_bittaran_shockwave(point: Vector3, half_size: Vector2) -> void:
@@ -257,6 +351,12 @@ func _emit_bittaran_shockwave(point: Vector3, half_size: Vector2) -> void:
     bittaran_shockwave.visible = true
     if bittaran_dirt_fx != null:
         bittaran_dirt_fx.call("emit_stomp", point)
+    # The ground slam itself shakes the arena, hit or miss (v401).
+    if camera != null:
+        var distance: float = camera.global_position.distance_to(point)
+        _add_impact_shake(lerpf(
+            0.085, 0.015, clampf(distance / 26.0, 0.0, 1.0)))
+    _play_bittaran_thud(point, 1.0, -5.0)
 
 
 func _tick_bittaran_shockwave(delta: float) -> void:
@@ -334,6 +434,14 @@ func _check_bittaran_attack_hit() -> void:
         direction = player.global_position - target.global_position
     if direction.length_squared() < 0.0001:
         direction = Vector3.FORWARD
+    # A connected KICK/SWEEP lands with a smaller, sharper jolt than a
+    # STOMP ground slam (whose shake fires with the shockwave) (v401).
+    if kind == "kick":
+        _add_impact_shake(0.040)
+        _play_bittaran_thud(player.global_position, 1.5, -10.0)
+    elif kind == "sweep":
+        _add_impact_shake(0.050)
+        _play_bittaran_thud(player.global_position, 1.25, -9.0)
     # Existing SERA guard, SH, HP, knockback and KO all remain authoritative.
     var damage_index: int = 2 if kind == "stomp" else (
         1 if kind == "kick" else 3)
@@ -1215,6 +1323,8 @@ func _physics_process(delta: float) -> void:
         player.position.y = 0.0
         passive_fall_velocity = 0.0
     _tick_bittaran_shockwave(delta)
+    _tick_impact_shake(delta)
+    _tick_bittaran_footfalls()
     _update_bittaran_lock_permissions()
 
 func _finalize_target_pose(delta: float) -> void:
