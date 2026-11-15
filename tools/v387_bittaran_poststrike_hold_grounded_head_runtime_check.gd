@@ -81,10 +81,14 @@ func _case(battle: Node3D, id: String, kind: String) -> bool:
                 return false
         # Animation must NOT reset the previous frame's actual look.
         # This is checked BEFORE battle's live head solver updates it.
-        if tick > 0 and neck.quaternion.angle_to(
-                previous_visual_head) > 0.00005:
+        # Quaternion.angle_to uses acos(dot) and can report a tiny
+        # nonzero angle for the SAME floating-point quaternion. Compare
+        # its actual four components, not an unstable 0.00005rad arc.
+        if tick > 0 and not neck.quaternion.is_equal_approx(
+                previous_visual_head):
             _fail(id + "/" + kind
-                + ": motion overwrote the continuously tracked HEAD")
+                + ": motion overwrote the continuously tracked HEAD "
+                + str([tick, neck.quaternion, previous_visual_head]))
             return false
         battle.call("_finalize_target_pose", DT)
         previous_visual_head = neck.quaternion
