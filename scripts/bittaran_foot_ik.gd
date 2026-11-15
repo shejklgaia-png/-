@@ -8,6 +8,12 @@ const FLOOR_Y: float = 0.0
 # A visible chassis plate must never intersect the arena when the
 # authored low attack pose or leg-break nose-dip lowers the rig.
 const BODY_MESH_FLOOR_CLEARANCE_METERS: float = 0.020
+# Only rear-leg SWEEP: the source's front-mounted sweep trajectory is
+# mirrored correctly, but a rear hip needs extra vertical clearance.
+# Pitch the visual BODY (never the root or planted soles) so its local
+# +Z/rear rises. Smoothly engage during the 0.70s preparation, hold during
+# the entire authored swing, and release throughout the 1.40s recovery.
+const REAR_SWEEP_BODY_LIFT_DEGREES: float = 8.0
 const STEP_TRIGGER_METERS: float = 0.76
 const STEP_DURATION_SECONDS: float = 0.58
 const STEP_HEIGHT_METERS: float = 0.34
@@ -325,6 +331,27 @@ func _apply_attack_chassis_pose() -> void:
     chassis_bone.quaternion = (Quaternion(
         Vector3.UP, body_yaw * yaw_release)
         * chassis_bone.quaternion).normalized()
+    if kind == "sweep" and str(attack_pose.get("id", "")).begins_with("leg_r"):
+        # The four SWEEP source keyframes and spatial reflections already
+        # agree. Only rear attacks require the BODY back to rise so the
+        # same source-limb path clears the arena. Rotate in the chest's
+        # LOCAL X after yaw: negative pitch raises its local +Z/rear
+        # without changing the original striking knee/toe quaternions.
+        var prepare_rear: float = maxf(
+            float(attack_pose.get("windup", 0.70)), 0.001)
+        var end_rear: float = (prepare_rear
+            + float(attack_pose.get("strike", 2.06))
+            + float(attack_pose.get("hold", 0.0)))
+        var recover_rear: float = maxf(
+            float(attack_pose.get("recovery", 1.40)), 0.001)
+        var rise: float = _cubic(t / prepare_rear)
+        var release: float = 1.0 - _cubic(
+            (t - end_rear) / recover_rear)
+        var rear_pitch: float = -deg_to_rad(
+            REAR_SWEEP_BODY_LIFT_DEGREES) * rise * release
+        chassis_bone.quaternion = (
+            chassis_bone.quaternion
+            * Quaternion(Vector3.RIGHT, rear_pitch)).normalized()
     var scale_y: float = maxf(
         absf(actor.get_parent().global_basis.get_scale().y), 0.001)
     if kind == "kick" or kind == "sweep":

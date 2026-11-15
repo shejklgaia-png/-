@@ -22,7 +22,7 @@ const ATTACK_CHEST_ARM_OFFSET_DEGREES: float = 45.0
 const BOSS_FAR_SIDE_ENTER_METERS: float = 0.65
 const BOSS_FAR_SIDE_EXIT_METERS: float = -0.25
 const DOWN_ESCAPE_SPEED_MPS: float = 15.0
-const HEAD_TRACK_MAX_YAW_DEGREES: float = 85.0
+const HEAD_TRACK_MAX_YAW_DEGREES: float = 30.0
 # The returned/neutral FRONT ARM pivots form a mechanical head-look
 # envelope, independent of whether the currently animated arm actually
 # intersects the head. Reserve clearance before the returning shoulder.
@@ -599,7 +599,14 @@ func _head_pitch_target(delta: float) -> void:
 ## head's visible short -Z face points toward SERA at any BODY pitch.
 func _head_oriented_local_pose(base_pose: Quaternion,
         yaw: float, pitch: float) -> Quaternion:
-    return (base_pose * Quaternion(Vector3.UP, yaw)
+    # A single physical 30deg envelope is authoritative in every state:
+    # Idle, Turn, authored attacks, interrupted attacks, down and standup.
+    # Clamp at the FINAL joint writer too, not just in the look target,
+    # so an inherited/recovery yaw can never exceed the limit.
+    var safe_yaw: float = clampf(yaw,
+        -deg_to_rad(HEAD_TRACK_MAX_YAW_DEGREES),
+        deg_to_rad(HEAD_TRACK_MAX_YAW_DEGREES))
+    return (base_pose * Quaternion(Vector3.UP, safe_yaw)
         * Quaternion(Vector3.RIGHT, pitch)).normalized()
 
 func _head_limit_yaw_to_30cm(base_pose: Quaternion, from_yaw: float,
@@ -879,6 +886,12 @@ func _resolve_head_deep_leg_overlap() -> void:
 func _aim_bittaran_head(delta: float) -> void:
     if bittaran_head == null or player == null or target_hp <= 0:
         return
+    # Clamp persistent fields BEFORE any recovery / down branches, as
+    # well as at final quaternion output. No state may retain >30deg.
+    var yaw_cap: float = deg_to_rad(HEAD_TRACK_MAX_YAW_DEGREES)
+    boss_head_yaw = clampf(boss_head_yaw, -yaw_cap, yaw_cap)
+    head_look_filtered_yaw = clampf(
+        head_look_filtered_yaw, -yaw_cap, yaw_cap)
     # While lying down keep the head on its original bind orientation.
     # Once 70% of the ACTUAL eased rise is complete, softly fade in the
     # ordinary collision-aware look-at without a sudden yaw jump.
@@ -953,8 +966,10 @@ func _aim_bittaran_head(delta: float) -> void:
     var motion_scale: float = _head_collision_motion_scale(
         current_depth, proposed_depth, delta)
     var next_yaw: float = lerpf(boss_head_yaw, proposed_yaw, motion_scale)
-    boss_head_yaw = _head_limit_yaw_to_30cm(
-        base_pose, boss_head_yaw, next_yaw, current_depth)
+    boss_head_yaw = clampf(_head_limit_yaw_to_30cm(
+        base_pose, boss_head_yaw, next_yaw, current_depth),
+        -deg_to_rad(HEAD_TRACK_MAX_YAW_DEGREES),
+        deg_to_rad(HEAD_TRACK_MAX_YAW_DEGREES))
     bittaran_head.quaternion = _head_oriented_local_pose(
         base_pose, boss_head_yaw, boss_head_pitch)
     # Leg-first strategy: the knee solver already folds the supports

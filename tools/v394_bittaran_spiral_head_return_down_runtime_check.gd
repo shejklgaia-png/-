@@ -77,8 +77,8 @@ func _check_head_arm_return(battle: Node3D) -> bool:
     battle.set("target_move_enabled", false)
     var limit: float = float(battle.get(
         "head_arm_return_yaw_limit_degrees"))
-    if limit > 82.0 or limit < 40.0:
-        _fail("return-arm-derived head yaw bound invalid " + str(limit))
+    if absf(limit - 30.0) > 0.05:
+        _fail("head yaw must be mechanically limited to 30deg: " + str(limit))
         return false
     var boss: Node3D = battle.get("target")
     var player: CharacterBody3D = battle.get("player")
@@ -92,7 +92,7 @@ func _check_head_arm_return(battle: Node3D) -> bool:
             battle.get("boss_head_yaw"))))
         var filtered: float = rad_to_deg(absf(float(
             battle.get("head_look_filtered_yaw"))))
-        if yaw > limit + 0.5 or filtered > limit + 0.5:
+        if yaw > 30.1 or filtered > 30.1:
             _fail("HEAD exceeded arm return envelope "
                 + str([side, yaw, filtered, limit]))
             return false
