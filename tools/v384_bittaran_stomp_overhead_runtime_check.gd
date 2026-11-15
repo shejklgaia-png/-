@@ -1,5 +1,5 @@
 extends SceneTree
-## v384: STOMP alone must raise the visible vertical-pointed sole ABOVE
+## v384/v392: STOMP raises the originally animated sole ABOVE
 ## SERA's head, follow the moving head until swing, then hit the ground.
 ## Other two authored attacks are deliberately not modified.
 const BRAIN = preload("res://scripts/bittaran_attacks.gd")
@@ -82,10 +82,13 @@ func _run_case(battle: Node3D, id: String) -> bool:
         var actual: Vector3 = foot.to_global(
             leg["sole_local"] as Vector3)
         var up_axis: Vector3 = foot.global_basis.y.normalized()
-        if t < BRAIN.STOMP_WINDUP_SECONDS - 0.03 \
-                and up_axis.dot(Vector3.UP) < 0.998:
-            _fail(id + ": foot toe no longer vertical " + str(up_axis))
-            return false
+        if t > 0.32 and t < BRAIN.STOMP_WINDUP_SECONDS - 0.03:
+            # The original authored foot angle must survive anticipation.
+            var authored: Quaternion = rig.call(
+                "_authored_rotation_for_leg", "stomp", id, 2, t)
+            if foot.quaternion.angle_to(authored) > 0.03:
+                _fail(id + ": stomp windup foot key was overridden")
+                return false
         if t <= BRAIN.STOMP_WINDUP_SECONDS:
             raised_y = maxf(raised_y, actual.y)
             if t >= 0.40 and t <= 0.47:
@@ -147,7 +150,7 @@ func _run() -> void:
     for id in BRAIN.LEG_IDS:
         if not _run_case(battle, id):
             return
-    print("GODOT_V384_STOMP_OVERHEAD_PASS: four STOMP legs raise vertical "
-        + "toes above moving SERA head through whole windup, lock on "
+    print("GODOT_V384_STOMP_OVERHEAD_PASS: four STOMP legs preserve authored "
+        + "toe angles while raising above SERA head, lock on 
         + "strike, impact only once using real sole; supports stay fixed")
     quit(0)
