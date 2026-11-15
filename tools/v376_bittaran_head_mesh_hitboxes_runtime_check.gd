@@ -98,6 +98,8 @@ func _run() -> void:
     head.quaternion = (original * Quaternion(
         Vector3.UP, deg_to_rad(35.0))).normalized()
     parts.call("sync_bittaran_parts")
+    # Physical bodies are updated with set_deferred, at the frame end.
+    await process_frame
     if not _check_head_box(parts):
         return
     var rotated_box: AABB = parts.call("get_head_swing_aabb")
