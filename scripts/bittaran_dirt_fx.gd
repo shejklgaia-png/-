@@ -139,15 +139,18 @@ func advance_attack(frame: Dictionary, point: Vector3,
     var strike: float = float(frame.get("strike", 1.0))
     var striking: bool = elapsed >= windup and elapsed <= windup + strike
     if kind == "stomp":
-        if bool(frame.get("impact", false)) and not stomped_this_attack:
-            emit_stomp(point)
-            stomped_this_attack = true
+        # Stomp ring + both particle bursts are issued together by
+        # _emit_bittaran_shockwave on its single real contact tick.
+        pass
     elif kind == "kick":
         if striking and not kicked_this_attack:
             var travel: Vector3 = point - previous_point
             travel.y = 0.0
-            emit_kick(point, travel)
-            kicked_this_attack = true
+            # Emit from the ground where the authored foot actually
+            # accelerates, toward the authored kick direction.
+            if travel.length_squared() > 0.0036 or elapsed > windup + 0.15:
+                emit_kick(point, travel)
+                kicked_this_attack = true
     elif kind == "sweep":
         if striking:
             trace_sweep(point, delta)
