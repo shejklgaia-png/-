@@ -258,6 +258,23 @@ func end_authored_attack() -> void:
     attack_entry_rotations.clear()
 
 
+## Attack interruption by a real leg-break knockdown. The battle
+## controller first captures the CURRENT world-space planted sole anchors,
+## then this resets all four articulated limbs and BODY to their genuine
+## neutral Wait pose. No lingering attack keys may reappear on the next
+## Idle/Turn/Approach frame. HEAD stays controller-owned throughout.
+func cancel_authored_attack_for_down() -> bool:
+    if active_authored_attack.is_empty():
+        return false
+    end_authored_attack()
+    blend_from.clear()
+    blend_elapsed = BLEND_SECONDS
+    current_clip = "Idle"
+    elapsed = 0.0
+    apply_pose("Wait", 0.0)
+    return true
+
+
 func _authored_key_rotation(clip_name: String,
         bone_name: String, seconds: float) -> Quaternion:
     var uid: String = str(bone_uuid_by_name.get(bone_name, ""))
