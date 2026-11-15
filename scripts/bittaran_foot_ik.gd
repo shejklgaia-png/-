@@ -1863,10 +1863,17 @@ func _head_knee_collision_cost(id: String, base_pose: Quaternion,
 
 
 func _scan_head_knee_targets(sweep_heads: Array[AABB],
-        base_pose: Quaternion, swept_poses: Array[Quaternion]) -> void:
+        base_pose: Quaternion, swept_poses: Array[Quaternion],
+        excluded_leg_id: String = "") -> void:
     var center: Vector2 = _head_knee_support_center_xz()
     for index in range(legs.size()):
         var leg: Dictionary = legs[index]
+        if LEG_PART_IDS[index] == excluded_leg_id:
+            # Source-authored attacking upper/knee/toe keys must not
+            # be re-solved by support-knee avoidance during SWEEP.
+            leg["head_knee_target"] = 0.0
+            leg["head_knee_bend"] = 0.0
+            continue
         var previous_target: float = float(leg["head_knee_target"])
         leg["head_knee_target"] = 0.0
         # Do not skip a SWINGING leg: its moving knee/upper segment can
@@ -1930,7 +1937,8 @@ func _scan_head_knee_targets(sweep_heads: Array[AABB],
 
 
 func steer_knees_for_head(delta: float, desired_head_yaw: float,
-        current_head_yaw: float = 0.0) -> void:
+        current_head_yaw: float = 0.0,
+        excluded_leg_id: String = "") -> void:
     if not ready or legs.size() != 4 or collision_parts == null \
             or head_bone == null or chassis_bone == null:
         return
@@ -1958,9 +1966,12 @@ func steer_knees_for_head(delta: float, desired_head_yaw: float,
             sweep_poses.append(pose)
             sweep_heads.append(collision_parts.call("get_head_swing_aabb"))
         head_bone.quaternion = head_pose
-        _scan_head_knee_targets(sweep_heads, head_pose, sweep_poses)
+        _scan_head_knee_targets(sweep_heads, head_pose, sweep_poses,
+            excluded_leg_id)
     var active: bool = false
     for leg in legs:
+        if excluded_leg_id == LEG_PART_IDS[legs.find(leg)]:
+            continue
         var before: float = float(leg["head_knee_bend"])
         var target: float = clampf(
             float(leg["head_knee_target"]), 0.0, HEAD_KNEE_MAX_BEND)
