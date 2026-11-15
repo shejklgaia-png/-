@@ -23,6 +23,14 @@ const RECOVERY_FOOT_CATCHUP_THRESHOLD_METERS: float = 0.16
 const MAX_TELEPORT_METERS: float = 1.50
 const MAX_YAW_SNAP_RADIANS: float = 1.4
 const IK_REACH_MARGIN_METERS: float = 0.002
+# When the chest turns beyond the planted foot's stance bearing, wrap
+# its knee pole around the hip-to-ankle axis to make a controlled HELIX,
+# instead of stretching one unchanging flat knee plane. Bone lengths and
+# exact world-planted soles remain owned by the ordinary two-bone IK.
+const SPIRAL_START_LAG_DEGREES: float = 8.0
+const SPIRAL_FULL_LAG_DEGREES: float = 75.0
+const SPIRAL_MAX_TWIST_DEGREES: float = 70.0
+const SPIRAL_TWIST_SPEED_DEGREES_PER_SECOND: float = 220.0
 # Fold the knees farther when THEY swing or replant into the head.
 # Keep the exact heel/sole target; increase the lateral pole only.
 const HEAD_KNEE_SCAN_SECONDS: float = 0.05
@@ -131,6 +139,9 @@ var break_chassis_pitch_radians: float = 0.0
 var head_knee_scan_elapsed: float = HEAD_KNEE_SCAN_SECONDS
 var head_knee_active: bool = false
 var attack_pose: Dictionary = {}
+# Attack-interrupted knockdown keeps the original head tracker active
+# and blends only the former attacking limb + chassis to STOMP prepose.
+var attack_down_windup_leg_id: String = ""
 # Nose-up pitch is an additive DOWN-anticipation tilt only. HEAD yaw is
 # always owned by battle.gd; the rig never plays/overwrites HEAD keys.
 var head_windup_pitch_degrees: float = 0.0
@@ -188,6 +199,18 @@ func set_attack_pose(pose: Dictionary) -> void:
     if pose.is_empty():
         initial_attack_contact_height_world = 0.0
     attack_pose = pose.duplicate()
+
+func begin_attack_down_windup(id: String) -> void:
+    attack_down_windup_leg_id = id
+
+
+func attack_down_windup_active() -> bool:
+    return not attack_down_windup_leg_id.is_empty() and windup_active()
+
+
+func clear_attack_down_windup() -> void:
+    attack_down_windup_leg_id = ""
+
 
 func clear_attack_pose() -> void:
     attack_pose.clear()
@@ -572,6 +595,7 @@ func setup(model: Node3D) -> bool:
             "rotation_from": Quaternion.IDENTITY, "rotation_to": Quaternion.IDENTITY,
             "swing_elapsed": 0.0, "stepping": false,
             "head_knee_bend": 0.0, "head_knee_target": 0.0,
+            "spiral_twist": 0.0,
             "last_goal": foot.to_global(sole_local),
             "last_rotation": foot.global_basis.get_rotation_quaternion()
         })
@@ -731,6 +755,7 @@ func reset() -> void:
     head_knee_scan_elapsed = HEAD_KNEE_SCAN_SECONDS
     head_knee_active = false
     attack_pose.clear()
+    attack_down_windup_leg_id = ""
     initial_attack_contact_height_world = 0.0
     front_anchor_rest.clear()
     front_extension_direction.clear()
@@ -754,6 +779,7 @@ func reset() -> void:
         leg["anchor_rotation"] = foot.global_basis.get_rotation_quaternion()
         leg["head_knee_bend"] = 0.0
         leg["head_knee_target"] = 0.0
+        leg["spiral_twist"] = 0.0
 
 func _home(leg: Dictionary, with_lead: bool) -> Vector3:
     var p: Vector3 = actor.to_global(leg["rest_sole_local"])
@@ -793,6 +819,42 @@ func _start_pair(pair_index: int, walking: bool) -> void:
         leg["swing_to"] = _home(leg, walking)
         leg["rotation_from"] = leg["anchor_rotation"]
         leg["rotation_to"] = _rotation_home(leg)
+
+
+## Compute each planted limb's rotational LAG against the BODY's current
+## neutral sole bearing. Unlike foot position interpolation, this only
+## changes the knee's bend plane, so the toe stays at its fixed anchor.
+func _update_spiral_legs(delta: float, active_attack: bool) -> void:
+    if actor == null or chassis_bone == null:
+        return
+    var down: bool = break_reaction_active()
+    for i in range(legs.size()):
+        var leg: Dictionary = legs[i]
+        var target_twist: float = 0.0
+        var active_limb: bool = active_attack and (
+            LEG_PART_IDS[i] == str(attack_pose.get("id", "")))
+        if not down and not bool(leg["stepping"]) and not active_limb:
+            var hip: Vector3 = (leg["upper"] as Node3D).global_position
+            var home_vector: Vector3 = _home(leg, false) - hip
+            var planted_vector: Vector3 = (leg["anchor"] as Vector3) - hip
+            home_vector.y = 0.0
+            planted_vector.y = 0.0
+            if home_vector.length_squared() > 0.01 and (
+                    planted_vector.length_squared() > 0.01):
+                home_vector = home_vector.normalized()
+                planted_vector = planted_vector.normalized()
+                var lag: float = atan2(
+                    home_vector.cross(planted_vector).y,
+                    home_vector.dot(planted_vector))
+                var amount: float = smoothstep(
+                    deg_to_rad(SPIRAL_START_LAG_DEGREES),
+                    deg_to_rad(SPIRAL_FULL_LAG_DEGREES), absf(lag))
+                target_twist = signf(lag) * deg_to_rad(
+                    SPIRAL_MAX_TWIST_DEGREES) * amount
+        leg["spiral_twist"] = move_toward(
+            float(leg.get("spiral_twist", 0.0)), target_twist,
+            deg_to_rad(SPIRAL_TWIST_SPEED_DEGREES_PER_SECOND)
+            * maxf(delta, 0.0))
 
 func _solve(leg: Dictionary, sole_goal: Vector3, desired_rotation: Quaternion) -> float:
     var upper: Node3D = leg["upper"]
@@ -891,6 +953,12 @@ func _solve(leg: Dictionary, sole_goal: Vector3, desired_rotation: Quaternion) -
             if inward.length_squared() > 0.00001:
                 pole = pole.slerp(inward.normalized(),
                     0.70 * _attack_weight()).normalized()
+    # Swing the middle joint around the actual hip/ankle axis as the
+    # grounded toe lags behind chest rotation: a helical, not planar,
+    # three-dimensional knee path. No pivot translation or bone scaling.
+    var spiral: float = float(leg.get("spiral_twist", 0.0))
+    if absf(spiral) > 0.000001 and not break_reaction_active():
+        pole = (Quaternion(direction, spiral) * pole).normalized()
     var knee_target: Vector3 = hip + direction * along + pole * sideways
     var end_target: Vector3 = hip + direction * distance
     _align(upper, knee - hip, knee_target - hip)
@@ -1167,6 +1235,10 @@ func _advance_leg_break(delta: float) -> void:
         else:
             pitch_degrees = LEG_BREAK_WINDUP_HEAD_LIFT_DEGREES * (
                 1.0 - _cubic((progress - 0.80) / 0.20))
+        # The attack-only interruption must not inject the normal
+        # nose-up/forward-reach telegraph into the HEAD's live look.
+        if not attack_down_windup_leg_id.is_empty():
+            pitch_degrees = 0.0
         head_windup_pitch_degrees = pitch_degrees
         # Do not write HEAD rotation from IK: the live collision-aware
         # player tracking controller composes this pitch with its yaw
@@ -1176,6 +1248,8 @@ func _advance_leg_break(delta: float) -> void:
         # anchors, rather than raising toes or moving the whole robot upward.
         var reach: float = LEG_BREAK_FRONT_REACH_METERS * _cubic(
             minf(progress / 0.72, 1.0))
+        if not attack_down_windup_leg_id.is_empty():
+            reach = 0.0
         for index in front_anchor_rest:
             var leg: Dictionary = legs[index]
             leg["anchor"] = (front_anchor_rest[index] as Vector3) + (
@@ -1183,6 +1257,7 @@ func _advance_leg_break(delta: float) -> void:
         actor.position.y = (rest_actor_local_y
             + ground_correction_world / parent_scale_y)
         if windup_elapsed >= LEG_BREAK_WINDUP_SECONDS:
+            attack_down_windup_leg_id = ""
             # The last windup frame is exactly neutral, so the original
             # head joint starts the falling animation without a rotation pop.
             windup_elapsed = -1.0
@@ -1299,6 +1374,7 @@ func advance_ik(delta: float, motion: String) -> void:
     # nose-dip can bury the actual chassis mesh. Enforce a real mesh
     # floor bound *after* every torso adjustment and *before* foot IK.
     _keep_chassis_above_ground()
+    _update_spiral_legs(delta, attacking)
     # During the physical stand-up, planted feet keep their world-space
     # anchors as the chassis turns toward SERA. Locomotion clips already
     # play on the rig, but the IK soles must NOT chase the torso until
@@ -1337,6 +1413,16 @@ func advance_ik(delta: float, motion: String) -> void:
         var rotation: Quaternion = leg["anchor_rotation"]
         var attacking_this_leg: bool = (attacking and str(
             attack_pose.get("id", "")) == LEG_PART_IDS[legs.find(leg)])
+        # The STOMP preparation for an interrupted attack is a real
+        # authored limb clip, not a planted-foot IK target. Its other
+        # three supports remain fixed while the former striker winds up.
+        if attack_down_windup_active() and LEG_PART_IDS[legs.find(leg)]                 == attack_down_windup_leg_id:
+            var windup_foot: Node3D = leg["foot"]
+            leg["last_goal"] = windup_foot.to_global(
+                leg["sole_local"] as Vector3)
+            leg["last_rotation"] = (
+                windup_foot.global_basis.get_rotation_quaternion())
+            continue
         if attacking:
             if attacking_this_leg:
                 var attack_kind: String = str(attack_pose.get("kind", ""))
