@@ -158,8 +158,12 @@ func _case(battle: Node3D, id: String, kind: String,
     if not moved_while_winding and kind != "sweep":
         _fail(id + "/" + kind + " chest failed to track during anticipation")
         return false
-    if (locked_aim - old_aim).length() > 0.0001:
+    if kind != "sweep" and (locked_aim - old_aim).length() > 0.0001:
         _fail(id + "/" + kind + " aim was not last live windup sample")
+        return false
+    if kind == "sweep" and (moved_while_winding or absf(
+            locked_heading) > 0.0001):
+        _fail(id + "/sweep player tracking was not disabled")
         return false
     # v385 replaced procedural foot leveling/full-extension with the
     # user's authored KICK/SWEEP keyframes. Their EXACT joint poses are
@@ -168,7 +172,7 @@ func _case(battle: Node3D, id: String, kind: String,
     if not is_finite(peak_level) or not is_finite(peak_straight):
         _fail(id + "/" + kind + " non-finite authored foot pose")
         return false
-    if not saw_head_look:
+    if not saw_head_look and kind != "sweep":
         _fail("head look lost during attack " + id + "/" + kind)
         return false
     return true
