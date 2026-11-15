@@ -361,6 +361,7 @@ func clear_attack_pose() -> void:
         leg.erase("attack_exit_lift_world")
         leg.erase("attack_entry_goal")
         leg.erase("authored_pole_active")
+        leg.erase("authored_pole_point")
 
 func available_attack_feet() -> Dictionary:
     var result: Dictionary = {}
@@ -1076,6 +1077,15 @@ func _update_spiral_legs(delta: float, active_attack: bool) -> void:
             deg_to_rad(SPIRAL_TWIST_SPEED_DEGREES_PER_SECOND)
             * maxf(delta, 0.0))
 
+## v407: rotate a world point around the vertical line through the
+## hip by an aim-yaw quaternion. The rig's aim post-multiplies the
+## attacking shoulder by exactly this rotation, so applying it to a
+## sampled (unaimed) sole/knee reproduces the aimed pose's point.
+func _aim_rotated(point: Vector3, hip: Vector3,
+        yaw_q: Quaternion) -> Vector3:
+    return hip + yaw_q * (point - hip)
+
+
 func _solve(leg: Dictionary, sole_goal: Vector3, desired_rotation: Quaternion) -> float:
     var upper: Node3D = leg["upper"]
     var lower: Node3D = leg["lower"]
@@ -1120,6 +1130,13 @@ func _solve(leg: Dictionary, sole_goal: Vector3, desired_rotation: Quaternion) -
         # v406: the same authored pole serves the KICK reach solve, so a
         # shortened strike bends exactly in the authored plane.
         pole = knee - hip
+        # v407: the KICK mirror-blend solve passes the blended knee
+        # position explicitly (the current knee belongs to the rig's
+        # joint-slerped pose, not to the foot-space blend).
+        var pole_point: Vector3 = leg.get(
+            "authored_pole_point", Vector3.ZERO)
+        if pole_point != Vector3.ZERO:
+            pole = pole_point - hip
     pole -= direction * pole.dot(direction)
     if pole.length_squared() < 0.00001:
         pole = Vector3.UP - direction * direction.y
@@ -1758,7 +1775,10 @@ func advance_ik(delta: float, motion: String) -> void:
                     # v406: the reach-solve pole flag is per-tick; the
                     # freeze branch below sets it only on ticks where
                     # the shortened KICK actually goes through _solve.
+                    # v407: authored_pole_point is the same for the
+                    # mirror-blend solve (ZERO = use the current knee).
                     leg["authored_pole_active"] = false
+                    leg["authored_pole_point"] = Vector3.ZERO
                     if t <= freeze_end:
                         # Let the authored shoulder/knee/foot keys play,
                         # correcting ONLY frames where a rotated foot's
@@ -1836,6 +1856,67 @@ func advance_ik(delta: float, motion: String) -> void:
                                 FLOOR_Y + 0.003 - bottom)
                         position = foot.to_global(leg["sole_local"])
                         rotation = foot.global_basis.get_rotation_quaternion()
+                        # v407: during the strike's mirror ramp, blend
+                        # the two KICK chains in FOOT space and solve,
+                        # instead of playing the rig's joint slerp:
+                        # the slerp arc between the two shoulder
+                        # orientations passes over the top of the
+                        # body whenever the chains disagree (rear
+                        # legs: folds 4.2m apart, arc peaking 1.96m
+                        # above the hip — the reported whip). The
+                        # goal is the straight lerp of the two pure
+                        # chains' soles with the aim yaw re-applied
+                        # (the samples are unaimed), the pole is the
+                        # blended knee, so at weight 0 and 1 the
+                        # solved pose equals the pure authored pose
+                        # and both window ends stay continuous.
+                        var solve_for_blend: bool = false
+                        var foot_ref: Vector3 = foot.global_position
+                        if attack_kind == "kick":
+                            var mirror_w: float = float(
+                                actor.get("kick_mirror_weight"))
+                            if mirror_w > 0.001 and mirror_w < 0.999:
+                                var sole_local_v: Vector3 = (
+                                    leg["sole_local"] as Vector3)
+                                var clip_t: float = float(
+                                    attack_pose.get("authored_time",
+                                        0.0))
+                                var s0: Dictionary = actor.call(
+                                    "sample_authored_kick_sole",
+                                    str(attack_pose.get("id", "")),
+                                    clip_t, 0.0, sole_local_v)
+                                var s1: Dictionary = actor.call(
+                                    "sample_authored_kick_sole",
+                                    str(attack_pose.get("id", "")),
+                                    clip_t, 1.0, sole_local_v)
+                                if not s0.is_empty() and (
+                                        not s1.is_empty()):
+                                    var hip_pos: Vector3 = (
+                                        leg["upper"] as Node3D
+                                        ).global_position
+                                    var aim_q: Quaternion = Quaternion(
+                                        Vector3.UP, float(actor.get(
+                                            "attack_leg_aim_yaw")))
+                                    var sole0: Vector3 = _aim_rotated(
+                                        s0["sole"], hip_pos, aim_q)
+                                    var sole1: Vector3 = _aim_rotated(
+                                        s1["sole"], hip_pos, aim_q)
+                                    var rot0: Quaternion = aim_q * (
+                                        s0["rotation"] as Quaternion)
+                                    var rot1: Quaternion = aim_q * (
+                                        s1["rotation"] as Quaternion)
+                                    position = sole0.lerp(
+                                        sole1, mirror_w)
+                                    rotation = rot0.slerp(
+                                        rot1, mirror_w)
+                                    leg["authored_pole_point"] = (
+                                        _aim_rotated(s0["knee"],
+                                            hip_pos, aim_q)).lerp(
+                                        _aim_rotated(s1["knee"],
+                                            hip_pos, aim_q), mirror_w)
+                                    foot_ref = position - Basis(
+                                        rotation) * sole_local_v
+                                    solve_for_blend = true
                         # v406: shorten an over-extended KICK along its
                         # own hip->foot ray and let _solve bend the
                         # knee in the authored plane (see _solve's
@@ -1857,7 +1938,7 @@ func advance_ik(delta: float, motion: String) -> void:
                                     leg["upper"] as Node3D
                                     ).global_position
                                 var ray: Vector3 = (
-                                    foot.global_position - hip_pos)
+                                    foot_ref - hip_pos)
                                 var ray_xz: float = Vector2(
                                     ray.x, ray.z).length()
                                 var target_xz: float = (
@@ -1867,13 +1948,13 @@ func advance_ik(delta: float, motion: String) -> void:
                                 if ray_xz > target_xz + 0.001:
                                     position += hip_pos + ray * (
                                         target_xz / ray_xz) \
-                                        - foot.global_position
+                                        - foot_ref
                                     solve_for_reach = true
                         leg["attack_exit_goal"] = position
                         leg["attack_exit_rotation"] = rotation
                         leg["last_goal"] = position
                         leg["last_rotation"] = rotation
-                        if not solve_for_reach:
+                        if not solve_for_reach and not solve_for_blend:
                             continue
                         leg["authored_pole_active"] = true
                     # After the exact 1.5s KICK hold, or immediately after
