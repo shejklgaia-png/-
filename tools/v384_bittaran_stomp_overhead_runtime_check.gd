@@ -76,7 +76,8 @@ func _run_case(battle: Node3D, id: String) -> bool:
         var actual: Vector3 = foot.to_global(
             leg["sole_local"] as Vector3)
         var up_axis: Vector3 = foot.global_basis.y.normalized()
-        if t <= BRAIN.STOMP_WINDUP_SECONDS + BRAIN.STOMP_STRIKE_SECONDS                 and up_axis.dot(Vector3.UP) < 0.998:
+        if t < BRAIN.STOMP_WINDUP_SECONDS - 0.03 \
+                and up_axis.dot(Vector3.UP) < 0.998:
             _fail(id + ": foot toe no longer vertical " + str(up_axis))
             return false
         if t <= BRAIN.STOMP_WINDUP_SECONDS:
@@ -102,6 +103,9 @@ func _run_case(battle: Node3D, id: String) -> bool:
         if bool(frame.get("impact", false)):
             impact_count += 1
             at_impact = actual.y
+            if absf(up_axis.dot(Vector3.UP)) > 0.35:
+                _fail(id + ": toe failed to level when hitting floor")
+                return false
             var fx_center: Vector3 = ik.call("attack_contact_world")
             if fx_center.distance_to(actual) > 0.0002:
                 _fail(id + ": impact FX point did not use real sole")
