@@ -31,7 +31,9 @@ const HEAD_ARM_RETURN_MIN_YAW_DEGREES: float = 40.0
 # When a limb replants or retracts, protect the ENTIRE future return
 # sweep, not merely the current frame's collision geometry.
 const HEAD_LEG_RETURN_SAFE_YAW_DEGREES: float = 25.0
-const HEAD_RETURN_FACE_MAX_OVERLAP_VOLUME_M3: float = 0.030
+# The returned-leg guard uses the SAME oriented 70%-front HEAD SAT depth
+# as combat collision. World-AABB overlap volume gives false positives.
+const HEAD_RETURN_FACE_MAX_PENETRATION_METERS: float = 0.10
 const HEAD_RETURN_RESCAN_SECONDS: float = 0.075
 const HEAD_LEG_RETURN_YAW_SPEED_DEGREES_PER_SECOND: float = 140.0
 const HEAD_LEG_RETURN_PITCH_SPEED_DEGREES_PER_SECOND: float = 140.0
@@ -497,26 +499,17 @@ func _clamp_head_to_mechanical_limits() -> void:
 ## nose versus individually rendered upper/lower/foot pieces, excluding
 ## the built-in neck/shoulder meshes outside the forward nose region.
 func _head_return_face_overlap(base_pose: Quaternion,
-        yaw: float, pitch: float,
-        cached_pieces: Array[AABB] = []) -> float:
+        yaw: float, pitch: float) -> float:
     if bittaran_head == null or target_parts == null:
         return 0.0
     bittaran_head.quaternion = _head_oriented_local_pose(
         base_pose, yaw, pitch)
-    var nose: AABB = target_parts.call("get_head_swing_aabb")
-    if not nose.has_volume():
-        return 0.0
-    var pieces: Array[AABB] = cached_pieces
-    if pieces.is_empty():
-        for id in ["leg_fl", "leg_fr", "leg_rl", "leg_rr"]:
-            pieces.append_array(target_parts.call(
-                "get_leg_visual_mesh_boxes", id))
-    var overlap: float = 0.0
-    for piece in pieces:
-        if nose.intersects(piece):
-            overlap = maxf(overlap,
-                nose.intersection(piece).get_volume())
-    return overlap
+    var depths: Dictionary = target_parts.call(
+        "get_head_leg_penetration_depths")
+    var deepest: float = 0.0
+    for depth in depths.values():
+        deepest = maxf(deepest, float(depth))
+    return deepest
 
 
 ## Prefer an ACTUALLY CLEAR angular corridor near the present head,
@@ -532,10 +525,6 @@ func _choose_head_return_clear_yaw(base_pose: Quaternion) -> float:
     var best_safe_score: float = INF
     var best_fallback_score: float = INF
     var safe_found: bool = false
-    var leg_pieces: Array[AABB] = []
-    for id in ["leg_fl", "leg_fr", "leg_rl", "leg_rr"]:
-        leg_pieces.append_array(target_parts.call(
-            "get_leg_visual_mesh_boxes", id))
     var candidates: Array[float] = [
         -60.0, -45.0, -40.0, -25.0, -15.0, 0.0, 15.0,
         25.0, 40.0, 45.0, 60.0,
@@ -545,7 +534,7 @@ func _choose_head_return_clear_yaw(base_pose: Quaternion) -> float:
     for degrees in candidates:
         var yaw: float = clampf(deg_to_rad(degrees), -limit, limit)
         var overlap: float = _head_return_face_overlap(
-            base_pose, yaw, boss_head_pitch, leg_pieces)
+            base_pose, yaw, boss_head_pitch)
         var travel: float = absf(wrapf(yaw - boss_head_yaw, -PI, PI))
         var hysteresis: float = absf(wrapf(
             yaw - head_return_safe_yaw_target, -PI, PI))
@@ -554,13 +543,13 @@ func _choose_head_return_clear_yaw(base_pose: Quaternion) -> float:
         # before rotating the head across the opposite side.
         var mid_yaw: float = lerp_angle(boss_head_yaw, yaw, 0.5)
         var corridor_overlap: float = _head_return_face_overlap(
-            base_pose, mid_yaw, boss_head_pitch, leg_pieces)
+            base_pose, mid_yaw, boss_head_pitch)
         var route_score: float = (travel * 0.35
             + absf(yaw) * 0.70
             + hysteresis * 0.10
             + maxf(0.0, corridor_overlap
-                - HEAD_RETURN_FACE_MAX_OVERLAP_VOLUME_M3) * 9.0)
-        if overlap <= HEAD_RETURN_FACE_MAX_OVERLAP_VOLUME_M3:
+                - HEAD_RETURN_FACE_MAX_PENETRATION_METERS) * 9.0)
+        if overlap <= HEAD_RETURN_FACE_MAX_PENETRATION_METERS:
             if not safe_found or route_score < best_safe_score:
                 safe_found = true
                 best_safe_score = route_score
