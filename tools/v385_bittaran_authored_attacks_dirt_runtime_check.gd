@@ -165,11 +165,11 @@ func _run_case(battle: Node3D, id: String, kind: String) -> bool:
                     BRAIN.STOMP_WINDUP_SECONDS + 0.015):
                 first_foot_y = real_sole.y
             if t > 0.34 and t < BRAIN.STOMP_WINDUP_SECONDS - 0.20:
-                # Original STOMP toe keys must survive the windup.
-                var original: Quaternion = rig.call(
-                    "_authored_rotation_for_leg", "stomp", id, 2, t)
-                if foot.quaternion.angle_to(original) > 0.045:
-                    _fail("stomp foot original windup was overwritten")
+                # v395 intentionally supersedes authored foot tilt:
+                # the longest rectangular toe axis must stay upright.
+                if foot.global_basis.y.normalized().dot(
+                        Vector3.UP) < 0.995:
+                    _fail("stomp toe did not stand vertically in windup")
                     return false
             if bool(frame.get("impact", false)):
                 impact_seen = true
