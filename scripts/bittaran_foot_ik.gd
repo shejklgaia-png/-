@@ -142,10 +142,15 @@ func set_attack_pose(pose: Dictionary) -> void:
         # End the previous gait in its actual contact position; attack
         # telegraphs begin from the visible, not the cached old, sole.
         for leg in legs:
+            # Capture the visible sole and orientation BEFORE cancelling
+            # the Turn/Approach swing. Preserve its world XZ position and
+            # ease any airborne toe down during the 0.24s clip crossfade.
+            leg["attack_entry_goal"] = leg["last_goal"]
             if bool(leg["stepping"]):
                 var world: Vector3 = leg["last_goal"]
                 world.y = FLOOR_Y
                 leg["anchor"] = world
+                leg["anchor_rotation"] = leg["last_rotation"]
                 leg["stepping"] = false
         stepping_pair = -1
         cooldown = STEP_COOLDOWN_SECONDS
@@ -220,6 +225,21 @@ func _apply_attack_chassis_pose() -> void:
         return
     var kind: String = str(attack_pose.get("kind", ""))
     var weight: float = _attack_weight()
+    # Rotate only the articulated BODY, not target/root or the whole rig.
+    # The head inherits this turn, and the four world-anchored soles are
+    # solved back against their fixed positions on every physics tick.
+    # Windup tracks the player; swing locks the sampled heading; recovery
+    # unwinds smoothly to the authored Idle torso pose.
+    var t: float = float(attack_pose.get("time", 0.0))
+    var swing_end: float = float(attack_pose.get("windup", 1.0)) + float(
+        attack_pose.get("strike", 0.2))
+    var recover: float = float(attack_pose.get("recovery", 0.5))
+    var yaw_release: float = 1.0 - _cubic(
+        (t - swing_end) / maxf(recover, 0.001))
+    var body_yaw: float = float(attack_pose.get("body_yaw", 0.0))
+    chassis_bone.quaternion = (Quaternion(
+        Vector3.UP, body_yaw * yaw_release)
+        * chassis_bone.quaternion).normalized()
     var scale_y: float = maxf(
         absf(actor.get_parent().global_basis.get_scale().y), 0.001)
     if kind == "stomp":
@@ -251,7 +271,8 @@ func _apply_attack_chassis_pose() -> void:
 # metres. _solve() receives a sole position but solves the FOOT PIVOT;
 # the sampled sole offset must be added back or a nominally extended
 # leg stays bent. Attack poses deliberately ignore the planted floor.
-func _straight_attack_goal(leg: Dictionary, world_direction: Vector3) -> Vector3:
+func _straight_attack_goal(leg: Dictionary, world_direction: Vector3,
+        desired_rotation: Quaternion) -> Vector3:
     var hip: Vector3 = (leg["upper"] as Node3D).global_position
     var knee: Vector3 = (leg["lower"] as Node3D).global_position
     var ankle: Vector3 = (leg["foot"] as Node3D).global_position
@@ -263,7 +284,7 @@ func _straight_attack_goal(leg: Dictionary, world_direction: Vector3) -> Vector3
         outward.y = 0.0
     outward = outward.normalized()
     var foot: Node3D = leg["foot"]
-    var target_foot_basis := Basis(leg["anchor_rotation"] as Quaternion)
+    var target_foot_basis := Basis(desired_rotation)
     var sole_offset: Vector3 = (
         target_foot_basis.scaled(foot.global_basis.get_scale())
         * (leg["sole_local"] as Vector3))
@@ -273,7 +294,28 @@ func _straight_attack_goal(leg: Dictionary, world_direction: Vector3) -> Vector3
         max_reach - IK_REACH_MARGIN_METERS) + sole_offset)
 
 
-func _attack_goal(leg: Dictionary) -> Vector3:
+# Preserve the foot's captured yaw but level its UP axis on the
+# horizontal world plane. The sole remains horizontal during the strike,
+# then returns to its original yaw/pitch/roll during recovery.
+func _attack_rotation(leg: Dictionary) -> Quaternion:
+    var original: Quaternion = leg["anchor_rotation"]
+    var forward: Vector3 = Basis(original).z
+    forward.y = 0.0
+    if forward.length_squared() < 0.000001:
+        forward = actor.global_basis.z
+        forward.y = 0.0
+    var flat: Quaternion = Basis.looking_at(
+        -forward.normalized(), Vector3.UP).get_rotation_quaternion()
+    var t: float = float(attack_pose.get("time", 0.0))
+    var windup: float = float(attack_pose.get("windup", 1.0))
+    var strike: float = float(attack_pose.get("strike", 0.2))
+    var recovery: float = float(attack_pose.get("recovery", 0.5))
+    var amount: float = _cubic(t / maxf(windup, 0.001)) * (
+        1.0 - _cubic((t - windup - strike) / maxf(recovery, 0.001)))
+    return original.slerp(flat, amount).normalized()
+
+
+func _attack_goal(leg: Dictionary, desired_rotation: Quaternion) -> Vector3:
     var goal: Vector3 = leg["anchor"]
     if attack_pose.is_empty() or str(attack_pose.get("id", "")) != (
             LEG_PART_IDS[legs.find(leg)]):
@@ -324,7 +366,8 @@ func _attack_goal(leg: Dictionary) -> Vector3:
         # Keep the foot planted while the knee folds inward for 1.0s.
         # On release, extend HIP-KNEE-ANKLE to the physical full reach,
         # even when the foot must leave the floor to form a straight leg.
-        var straight: Vector3 = _straight_attack_goal(leg, outward)
+        var straight: Vector3 = _straight_attack_goal(leg, outward,
+            desired_rotation)
         goal = goal.lerp(straight, attack_progress * finish)
     elif kind == "sweep":
         # The shoulder rolls close to the floor. Extend the attacking
@@ -339,9 +382,15 @@ func _attack_goal(leg: Dictionary) -> Vector3:
         var sweep_dir: Vector3 = (
             outward * cos(sweep_angle)
             + tangent * sin(sweep_angle)).normalized()
-        var straight: Vector3 = _straight_attack_goal(leg, sweep_dir)
+        var straight: Vector3 = _straight_attack_goal(leg, sweep_dir,
+            desired_rotation)
         goal = goal.lerp(straight, preparation * finish)
-    return goal
+    # Blend an in-flight locomotion foot into its new world-fixed attack
+    # anchor. This avoids an abrupt Y snap when cancelling Approach/Turn.
+    var from: Vector3 = leg.get("attack_entry_goal", goal)
+    var entry_alpha: float = _cubic(
+        t / maxf(minf(0.24, windup * 0.5), 0.001))
+    return from.lerp(goal, entry_alpha)
 
 func setup(model: Node3D) -> bool:
     actor = model
@@ -1048,9 +1097,22 @@ func advance_ik(delta: float, motion: String) -> void:
     var done: bool = true
     for leg in legs:
         var position: Vector3 = leg["anchor"]
-        if attacking:
-            position = _attack_goal(leg)
         var rotation: Quaternion = leg["anchor_rotation"]
+        if attacking:
+            var attacking_this_leg: bool = (
+                str(attack_pose.get("id", "")) == (
+                    LEG_PART_IDS[legs.find(leg)]))
+            if attacking_this_leg:
+                rotation = _attack_rotation(leg)
+                position = _attack_goal(leg, rotation)
+            else:
+                # No gait, foot replanting, or root yaw while attacking.
+                # A support foot interrupted midstep settles ONLY in Y;
+                # its frozen world X/Z contact must never drift.
+                var start: Vector3 = leg.get("attack_entry_goal", position)
+                var settle: float = _cubic(
+                    float(attack_pose.get("time", 0.0)) / 0.24)
+                position.y = lerpf(start.y, position.y, settle)
         if bool(leg["stepping"]):
             leg["swing_elapsed"] = minf(STEP_DURATION_SECONDS,
                 float(leg["swing_elapsed"]) + delta)
