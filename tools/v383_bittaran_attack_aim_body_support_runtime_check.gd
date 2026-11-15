@@ -172,7 +172,7 @@ func _case(battle: Node3D, id: String, kind: String,
     if not is_finite(peak_level) or not is_finite(peak_straight):
         _fail(id + "/" + kind + " non-finite authored foot pose")
         return false
-    if not saw_head_look and kind != "sweep":
+    if not saw_head_look:
         _fail("head look lost during attack " + id + "/" + kind)
         return false
     return true
