@@ -17,6 +17,13 @@ const REAR_SWEEP_BODY_LIFT_DEGREES: float = 8.0
 const STEP_TRIGGER_METERS: float = 0.76
 const STEP_DURATION_SECONDS: float = 0.58
 const STEP_HEIGHT_METERS: float = 0.34
+# Two IK-controlled diagonal replanting pairs before any attack begins.
+# The untouched diagonal remains planted during each move; the authored
+# windup/strike never starts until both pairs reach their Wait sole
+# positions AND orientations. This interval is outside attack playback.
+const ATTACK_STANCE_PAIR_SECONDS: float = 0.32
+const ATTACK_STANCE_STEP_HEIGHT_METERS: float = 0.12
+const ATTACK_STANCE_STEP_LIFT_DISTANCE_METERS: float = 0.35
 ## Approach feet land 1.30x farther ahead without speeding up the swing.
 const STEP_FORWARD_LEAD_METERS: float = 0.364
 ## Scale the translation threshold only while approaching. Turning feet
@@ -147,6 +154,10 @@ var break_chassis_pitch_radians: float = 0.0
 var head_knee_scan_elapsed: float = HEAD_KNEE_SCAN_SECONDS
 var head_knee_active: bool = false
 var attack_pose: Dictionary = {}
+var attack_stance_active: bool = false
+var attack_stance_ready: bool = false
+var attack_stance_leg_id: String = ""
+var attack_stance_elapsed: float = 0.0
 # Attack-interrupted knockdown keeps the original head tracker active
 # and blends only the former attacking limb + chassis to STOMP prepose.
 var attack_down_windup_leg_id: String = ""
@@ -156,6 +167,92 @@ var head_windup_pitch_degrees: float = 0.0
 # Calculated once from the authored t=0 contact pose when KICK/SWEEP
 # begins, then retained across the strike without resampling the floor.
 var initial_attack_contact_height_world: float = 0.0
+
+## Queue a separate neutral-stance return without changing the attack
+## timeline, root position/yaw, bone keys or the down/recovery state.
+## The standing legs use existing analytical two-bone _solve() IK.
+func begin_attack_stance(id: String) -> void:
+    if attack_stance_active or not ready or legs.size() != 4:
+        return
+    attack_stance_active = true
+    attack_stance_ready = false
+    attack_stance_leg_id = id
+    attack_stance_elapsed = 0.0
+    # Any ordinary Turn/Approach step is replaced by this pair-by-pair
+    # controlled replant. Preserve the actual visible ankle position
+    # when a gait is interrupted rather than jumping to cached anchors.
+    stepping_pair = -1
+    for leg in legs:
+        var foot: Node3D = leg["foot"]
+        leg["stance_from"] = foot.to_global(leg["sole_local"] as Vector3)
+        leg["stance_rotation_from"] = (
+            foot.global_basis.get_rotation_quaternion())
+        leg["stance_to"] = _home(leg, false)
+        leg["stance_rotation_to"] = _rotation_home(leg)
+        leg["stepping"] = false
+        leg["anchor"] = leg["stance_from"]
+        leg["anchor_rotation"] = leg["stance_rotation_from"]
+
+
+func attack_stance_is_ready() -> bool:
+    return attack_stance_active and attack_stance_ready
+
+
+func clear_attack_stance() -> void:
+    attack_stance_active = false
+    attack_stance_ready = false
+    attack_stance_leg_id = ""
+    attack_stance_elapsed = 0.0
+    for leg in legs:
+        for key in ["stance_from", "stance_rotation_from",
+                "stance_to", "stance_rotation_to"]:
+            leg.erase(key)
+
+
+func _advance_attack_stance(delta: float) -> void:
+    if not attack_stance_active or attack_stance_ready:
+        return
+    var pair_seconds: float = ATTACK_STANCE_PAIR_SECONDS
+    attack_stance_elapsed = minf(2.0 * pair_seconds,
+        attack_stance_elapsed + maxf(delta, 0.0))
+    # Existing LEG_PAIRS are [front-right, rear-left] and
+    # [front-left, rear-right]: true diagonal supports.
+    var pair: int = mini(1, int(attack_stance_elapsed / pair_seconds))
+    var pair_time: float = (attack_stance_elapsed -
+        float(pair) * pair_seconds)
+    var u: float = clampf(pair_time / pair_seconds, 0.0, 1.0)
+    var eased: float = u * u * (3.0 - 2.0 * u)
+    for i in range(legs.size()):
+        var leg: Dictionary = legs[i]
+        var from: Vector3 = leg["stance_from"]
+        var to: Vector3 = leg["stance_to"]
+        var from_rot: Quaternion = leg["stance_rotation_from"]
+        var to_rot: Quaternion = leg["stance_rotation_to"]
+        var leg_pair: int = 0 if LEG_PAIRS[0].has(i) else 1
+        if leg_pair < pair:
+            leg["anchor"] = to
+            leg["anchor_rotation"] = to_rot
+        elif leg_pair == pair:
+            var target: Vector3 = from.lerp(to, eased)
+            var distance: float = Vector2(
+                from.x - to.x, from.z - to.z).length()
+            var turn: float = from_rot.angle_to(to_rot)
+            var lift_weight: float = clampf(maxf(
+                distance / ATTACK_STANCE_STEP_LIFT_DISTANCE_METERS,
+                turn / deg_to_rad(35.0)), 0.0, 1.0)
+            target.y += sin(PI * u) * (
+                ATTACK_STANCE_STEP_HEIGHT_METERS * lift_weight)
+            leg["anchor"] = target
+            leg["anchor_rotation"] = from_rot.slerp(
+                to_rot, eased).normalized()
+        # The other diagonal remains planted at its original actual
+        # world-space sole during the moving diagonal's IK transition.
+    if attack_stance_elapsed >= 2.0 * pair_seconds - 0.000001:
+        for leg in legs:
+            leg["anchor"] = leg["stance_to"]
+            leg["anchor_rotation"] = leg["stance_rotation_to"]
+        attack_stance_ready = true
+
 
 func set_collision_parts(parts: Node3D) -> void:
     # Use the SAME authored collider AABBs that sync_bittaran_parts() places
@@ -222,6 +319,7 @@ func clear_attack_down_windup() -> void:
 
 func clear_attack_pose() -> void:
     attack_pose.clear()
+    clear_attack_stance()
     # Clear even when the attack is cancelled INSIDE a damage callback,
     # before the next normal set_attack_pose(empty) frame.
     initial_attack_contact_height_world = 0.0
@@ -784,6 +882,7 @@ func reset() -> void:
     head_knee_scan_elapsed = HEAD_KNEE_SCAN_SECONDS
     head_knee_active = false
     attack_pose.clear()
+    clear_attack_stance()
     attack_down_windup_leg_id = ""
     initial_attack_contact_height_world = 0.0
     front_anchor_rest.clear()
@@ -1391,6 +1490,7 @@ func advance_ik(delta: float, motion: String) -> void:
     last_actor_yaw = actor.global_rotation.y
     cooldown = maxf(0.0, cooldown - delta)
     _advance_leg_break(delta)
+    _advance_attack_stance(delta)
     var attacking: bool = not attack_pose.is_empty() and not break_reaction_active()
     if attacking:
         _apply_attack_chassis_pose()
