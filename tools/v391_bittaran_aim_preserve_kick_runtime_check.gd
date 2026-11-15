@@ -74,12 +74,37 @@ func _run() -> void:
                 battle.call("_finalize_target_pose", DT)
                 if kind == "kick" and not knee_checked and t >= (
                         windup - 0.012) and t <= windup + 0.002:
+                    # v408 amendment: compare the knee FOLD ANGLE
+                    # (hip-knee-ankle, world) instead of the knee's
+                    # local quaternion. The KICK now plays the
+                    # source trajectory through IK, so the knee's
+                    # local rotation is the solver's (its roll is
+                    # inherited through the shoulder), while the
+                    # fold angle is the quantity this assertion
+                    # exists to protect: no folding beyond the
+                    # authored prepose. The authored reference is
+                    # the rig's own trajectory sample at clip 0.
                     var leg: Dictionary = ik.get("legs")[
                         IK.LEG_PART_IDS.find(id)]
-                    var knee: Node3D = leg["lower"]
-                    var authored: Quaternion = rig.call(
-                        "_authored_rotation_for_leg", kind, id, 1, 0.0)
-                    if knee.quaternion.angle_to(authored) > 0.075:
+                    var hip_w: Vector3 = (
+                        leg["upper"] as Node3D).global_position
+                    var knee_w: Vector3 = (
+                        leg["lower"] as Node3D).global_position
+                    var ankle_w: Vector3 = (
+                        leg["foot"] as Node3D).global_position
+                    var played_fold: float = (hip_w - knee_w).angle_to(
+                        ankle_w - knee_w)
+                    var src: Dictionary = rig.call(
+                        "sample_authored_kick_source", id, 0.0,
+                        Vector3.ZERO)
+                    if src.is_empty():
+                        _fail(id + ": no trajectory sample")
+                        return
+                    var authored_fold: float = (
+                        hip_w - (src["knee"] as Vector3)).angle_to(
+                        (src["foot"] as Vector3)
+                        - (src["knee"] as Vector3))
+                    if absf(played_fold - authored_fold) > 0.09:
                         _fail(id + ": extra KICK knee folding in prepose")
                         return
                     knee_checked = true

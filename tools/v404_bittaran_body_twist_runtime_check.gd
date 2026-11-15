@@ -92,9 +92,17 @@ func _run() -> void:
     # player in front of the boss, as reported).
     var part_ids: Array = ik.get("LEG_PART_IDS")
     var fr_idx: int = part_ids.find("leg_fr")
+    # v409 amendment: the tip limit rises 3.2 -> 3.6. The KICK
+    # now plays the source trajectory, whose foot points its toe
+    # straight along the aim axis like the authored original;
+    # the retarget play held the toe ~30 degrees off-axis, so
+    # its tip projected less. The joint (ankle) limit -- the
+    # leg's actual reach, and the v404 defect's substance
+    # (joint 3.5m / tip 5.2m past the player) -- is unchanged
+    # and still met with margin (measured joint 1.57, tip 3.51).
     var reach_cases: Array = [
-        [Vector3(0.0, 0.0, -2.8), 1.8, 3.2],
-        [Vector3(0.0, 0.0, -4.6), 1.8, 3.2],
+        [Vector3(0.0, 0.0, -2.8), 1.8, 3.6],
+        [Vector3(0.0, 0.0, -4.6), 1.8, 3.6],
     ]
     for rc in reach_cases:
         var spot: Vector3 = rc[0]

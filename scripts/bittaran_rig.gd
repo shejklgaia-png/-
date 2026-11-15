@@ -36,6 +36,14 @@ var authored_contact_probe_active: bool = false
 # Rotational bearing adjustment is applied to the entire attacking leg.
 # Authored joint-local rotations are never stretched or rewritten.
 const ATTACK_LEG_AIM_MAX_DEGREES: float = 100.0
+# v409: the KICK plays a foot-space trajectory that IK re-solves,
+# so its bearing adjustment is not bounded by a physical shoulder
+# stop; the mirrored source direction sits up to ~93 degrees off
+# the aim for the rear legs (the source kick is strongly
+# diagonal), and the 100-degree clamp left 35-59 degrees of
+# residual direction error there. SWEEP keeps the 100-degree
+# clamp: its arc is a joint-space retarget.
+const ATTACK_LEG_AIM_MAX_DEGREES_KICK: float = 130.0
 # v404: fractions of the authored Body track's pitch/roll delta
 # kept for KICK/SWEEP (see _authored_body_rotation_for_attack).
 # The SWEEP keeps more pitch: its forward pitch is functional and
@@ -695,26 +703,64 @@ func initial_authored_sole_height(kind: String, id: String,
     return height
 
 
-## v407: sample ONE pure KICK chain (mirror weight 0 or 1) at a clip
-## time and report the attacking leg's sole position, foot rotation
-## and knee position in world space; the joints are restored before
-## returning. The foot IK blends the two chains in FOOT space
-## during the strike's mirror ramp: blending the joint rotations
-## themselves swings the foot over the top of the body like a whip
-## whenever the chains disagree (measured on leg_rl: the two folds'
-## soles sit 4.2m apart and the slerp arc peaks 1.96m above the
-## hip), because the shortest rotation between the two shoulder
-## orientations passes overhead. A straight foot-space blend keeps
-## the strike in its natural plane.
-func sample_authored_kick_sole(id: String, at: float,
-        mirror_weight: float, sole_local: Vector3) -> Dictionary:
+## v409: the contact height of the KICK trajectory the foot IK
+## actually plays for leg `id` (see sample_authored_kick_source):
+## the Body joint is set to the attack's own (damped) rotation —
+## the pose the live sampling runs under — the source trajectory
+## is sampled at clip time 0, and the attacking leg's sole point
+## height is returned. The IK's actor offset is calibrated to
+## this, so the reflected fold lands on the floor for every leg
+## (the per-leg delta folds sit up to 1.15m apart and are no
+## longer what is played). The fold's MESH grounding is finished
+## in the IK's trajectory block (its clearance compensation):
+## calibrating the offset itself to the mesh instead proved
+## state-sensitive enough to collapse the chassis at close
+## range (leg_fr min chassis y -0.01, measured).
+func kick_source_contact_height(id: String,
+        sole_local: Vector3) -> float:
+    if not loading_ok or not ATTACK_LEG_BONES.has(id):
+        return NAN
+    var body_uid: String = str(bone_uuid_by_name.get("Body", ""))
+    if body_uid.is_empty() or not bones.has(body_uid):
+        return NAN
+    var body_joint: Node3D = bones[body_uid]
+    var saved_body: Quaternion = body_joint.quaternion
+    body_joint.quaternion = _authored_body_rotation_for_attack(
+        "kick", id, 0.0)
+    var src: Dictionary = sample_authored_kick_source(
+        id, 0.0, sole_local)
+    body_joint.quaternion = saved_body
+    if src.is_empty():
+        return NAN
+    return (src["sole"] as Vector3).y
+
+
+## v409: sample the KICK's source leg (leg_fl) authored chain at
+## a clip time and reflect it across the rig's anatomical planes
+## for target leg `id`; returns the sole world position, the
+## foot's world rotation and the knee world position of the
+## ORIGINAL motion as the target leg should reproduce it; the
+## source joints are restored before returning. Joint-space
+## retargets (the delta map and the world-mirror chain) preserve
+## the source leg's orientations but not its foot trajectory on
+## each leg's own bind geometry — measured in-scene, leg_fr's
+## strike deviated from the mirrored source trajectory by up to
+## 1.75m mid-strike and 0.36m at hold, its windup fold by 1.2m —
+## so the foot IK now plays this reflected trajectory directly
+## for every leg (device request: reproduce the original motion,
+## the foot extending low along the ground, on all legs). The
+## reflection of a point p across the plane through the rig
+## origin with unit normal n is p - 2((p - origin) . n)n; the
+## rotation reflection reuses _reflect_world_rotation.
+func sample_authored_kick_source(id: String, at: float,
+        source_sole_local: Vector3) -> Dictionary:
     if not loading_ok or not ATTACK_LEG_BONES.has(id):
         return {}
     var saved_mirror_weight: float = kick_mirror_weight
-    kick_mirror_weight = mirror_weight
+    kick_mirror_weight = 0.0
     var joints: Array[Node3D] = []
     var saved: Array[Quaternion] = []
-    for name in ATTACK_LEG_BONES[id]:
+    for name in ATTACK_LEG_BONES["leg_fl"]:
         var uid: String = str(bone_uuid_by_name.get(str(name), ""))
         if uid.is_empty() or not bones.has(uid):
             kick_mirror_weight = saved_mirror_weight
@@ -722,18 +768,89 @@ func sample_authored_kick_sole(id: String, at: float,
         var joint: Node3D = bones[uid]
         joints.append(joint)
         saved.append(joint.quaternion)
+    # v409: sample under the authored Body track WITHOUT the
+    # battle's chest yaw. The IK post-multiplies the chest yaw
+    # (up to +-140 degrees for a rear leg tracking a player
+    # behind) onto this same Body bone every tick; a trajectory
+    # composed under it is spun by that yaw, and the aim then
+    # has to undo the spin on top of the mirror's own diagonal
+    # (leg_rl's demand passed even a 130-degree clamp, leaving
+    # 56 degrees of travel error). The trajectory is a
+    # hip-relative shape: composing it under the track-only
+    # Body and anchoring it at the live hip keeps the shape
+    # identical while the chest still carries the body.
+    var body_node: Node3D = joints[0].get_parent() as Node3D
+    var saved_body: Quaternion = Quaternion.IDENTITY
+    if body_node != null:
+        saved_body = body_node.quaternion
+        body_node.quaternion = _authored_body_rotation_for_attack(
+            "kick", id, at)
     for slot in range(3):
         joints[slot].quaternion = _authored_rotation_for_leg(
-            "kick", id, slot, at)
-    var result: Dictionary = {
-        "sole": joints[2].to_global(sole_local),
-        "rotation": joints[2].global_basis.get_rotation_quaternion(),
-        "knee": joints[1].global_position,
-    }
+            "kick", "leg_fl", slot, at)
+    var rotation: Quaternion = (
+        joints[2].global_basis.get_rotation_quaternion())
+    var knee: Vector3 = joints[1].global_position
+    var foot: Vector3 = joints[2].global_position
+    var sole: Vector3 = joints[2].to_global(source_sole_local)
+    var source_hip: Vector3 = joints[0].global_position
     for slot in range(3):
         joints[slot].quaternion = saved[slot]
+    if body_node != null:
+        body_node.quaternion = saved_body
     kick_mirror_weight = saved_mirror_weight
-    return result
+    # NOTE: leg_fl also goes through the transfer below (with an
+    # identity flip): the sampled points are composed in the
+    # track-only state, so they must be re-anchored at the LIVE
+    # target hip like every other leg's. Returning the raw
+    # sample for leg_fl left its goal offset by the chest yaw's
+    # displacement of the hip (fold radius 1.70 vs the source's
+    # 0.94, measured).
+    # Transfer the trajectory HIP-RELATIVELY: the rig is not
+    # front-back symmetric (rear hips sit lower and further back
+    # than the front pair), so reflecting positions across the
+    # rig's planes puts the rear goals metres from the rear hips'
+    # workspace. Express each sampled point relative to the
+    # source hip, mirror the relative vector in the rig frame,
+    # and place it at the target leg's own hip; the shape, the
+    # height profile above the hip and the reach are the source
+    # leg's, on the target leg's own skeleton. The foot ROTATION
+    # still plane-reflects (orientations mirror exactly, v400).
+    var target_hip: Vector3 = Vector3.INF
+    var target_uid: String = str(bone_uuid_by_name.get(
+        str(ATTACK_LEG_BONES[id][0]), ""))
+    if not target_uid.is_empty() and bones.has(target_uid):
+        target_hip = (bones[target_uid] as Node3D).global_position
+    if target_hip == Vector3.INF:
+        return {}
+    # v409: the points mirror in the rig-root frame (the boss's
+    # anatomical planes). The Body bone's own frame is bind-
+    # tilted ~28 degrees off them, so mirroring there crossed
+    # the trajectory (profile error ~1.4m, foot tilt 35.8
+    # degrees); the rig frame reproduced the source profile to
+    # 0.13m on leg_fr. The aim demand this leaves on the rear
+    # legs is handled by the wider KICK aim clamp in
+    # aim_authored_attack_leg.
+    var world: Basis = global_basis.orthonormalized()
+    var point_frame: Basis = world
+    var inv_point: Basis = point_frame.inverse()
+    var flip := Vector3(
+        -1.0 if id.ends_with("r") else 1.0, 1.0,
+        -1.0 if id.begins_with("leg_r") else 1.0)
+    var rel_knee: Vector3 = inv_point * (knee - source_hip)
+    var rel_foot: Vector3 = inv_point * (foot - source_hip)
+    var rel_sole: Vector3 = inv_point * (sole - source_hip)
+    knee = target_hip + point_frame * (rel_knee * flip)
+    foot = target_hip + point_frame * (rel_foot * flip)
+    sole = target_hip + point_frame * (rel_sole * flip)
+    if flip.x < 0.0:
+        rotation = _reflect_world_rotation(
+            rotation, world.x.normalized())
+    if flip.z < 0.0:
+        rotation = _reflect_world_rotation(
+            rotation, world.z.normalized())
+    return {"rotation": rotation, "knee": knee, "foot": foot,
+        "sole": sole}
 
 
 func apply_authored_attack_pose(frame: Dictionary) -> void:
@@ -887,13 +1004,31 @@ func aim_authored_attack_leg(frame: Dictionary, delta: float) -> void:
             # to 18 degrees on the right legs, which showed up as a
             # fixed direction error already at strike start.
             kick_mirror_weight = 1.0
-    for slot in range(3):
-        joints[slot].quaternion = _authored_rotation_for_leg(
-            kind, id, slot, reference_time)
-    var from_hip: Vector3 = (
-        joints[2].global_position - joints[0].global_position)
-    for slot in range(3):
-        joints[slot].quaternion = saved[slot]
+    var from_hip: Vector3
+    if kind == "kick":
+        # v409: the attacking leg plays the reflected source
+        # trajectory in foot space, so the reference direction is
+        # the trajectory's hip->foot direction, not the joint
+        # retarget's: the two differ by tens of degrees on
+        # non-source legs, and a yaw fitted to the retarget
+        # rotated the played trajectory far off the aim point
+        # (measured: metres of trajectory deviation). The aim
+        # point, clamp and slew are unchanged.
+        var traj: Dictionary = sample_authored_kick_source(
+            id, reference_time, Vector3.ZERO)
+        if traj.is_empty():
+            kick_mirror_weight = saved_mirror_weight
+            return
+        from_hip = (traj["foot"] as Vector3) \
+            - joints[0].global_position
+    else:
+        for slot in range(3):
+            joints[slot].quaternion = _authored_rotation_for_leg(
+                kind, id, slot, reference_time)
+        from_hip = (
+            joints[2].global_position - joints[0].global_position)
+        for slot in range(3):
+            joints[slot].quaternion = saved[slot]
     kick_mirror_weight = saved_mirror_weight
     var to_player: Vector3 = aim - joints[0].global_position
     from_hip.y = 0.0
@@ -912,9 +1047,12 @@ func aim_authored_attack_leg(frame: Dictionary, delta: float) -> void:
         var wanted: float = wrapf(
             atan2(to_player.x, to_player.z)
             - atan2(from_hip.x, from_hip.z), -PI, PI)
+        var max_degrees: float = (
+            ATTACK_LEG_AIM_MAX_DEGREES_KICK if kind == "kick"
+            else ATTACK_LEG_AIM_MAX_DEGREES)
         wanted = clampf(wanted,
-            -deg_to_rad(ATTACK_LEG_AIM_MAX_DEGREES),
-            deg_to_rad(ATTACK_LEG_AIM_MAX_DEGREES))
+            -deg_to_rad(max_degrees),
+            deg_to_rad(max_degrees))
         attack_leg_aim_yaw = move_toward(attack_leg_aim_yaw, wanted,
             deg_to_rad(ATTACK_LEG_AIM_TURN_DEGREES_PER_SECOND)
             * maxf(delta, 0.0))

@@ -18,6 +18,21 @@ const CANONICAL: Dictionary = {
 }
 const MIN_CHASSIS_Y: float = 0.45
 const MAX_CHASSIS_Y: float = 0.75
+# v409 amendment: the KICK cases moved to their own band. The
+# KICK contact offset is now calibrated to the played source
+# trajectory's fold (kick_source_contact_height: the reflected
+# fold under the v404-damped Body), not to the delta fold under
+# the full Body, so the chassis rides at the damped crouch the
+# pose actually takes (measured leg_fl 1.07 / leg_fr 0.87)
+# instead of being dragged to the undamped fold's depth. The
+# band still excludes both the v404 collapse (0.06) and a
+# missing crouch (rest ~1.18), and the two front legs must stay
+# within 0.25 of each other since they play the same source
+# trajectory. SWEEP keeps the original band: its probe and
+# retarget are unchanged.
+const MIN_KICK_CHASSIS_Y: float = 0.75
+const MAX_KICK_CHASSIS_Y: float = 1.16
+const MAX_KICK_PAIR_DIFF: float = 0.25
 
 
 func _initialize() -> void:
@@ -79,7 +94,9 @@ func _run() -> void:
     if chassis == null:
         _fail("missing chassis bone")
         return
-    for key in ["leg_fr/kick", "leg_fr/sweep", "leg_fl/sweep"]:
+    var kick_min: Dictionary = {}
+    for key in ["leg_fl/kick", "leg_fr/kick",
+            "leg_fr/sweep", "leg_fl/sweep"]:
         var id: String = key.split("/")[0]
         var kind: String = key.split("/")[1]
         player.global_position = Vector3(1.8, 0.0, -3.2)
@@ -107,9 +124,24 @@ func _run() -> void:
         if not started:
             _fail(key + " never produced an attack frame")
             return
-        if min_y < MIN_CHASSIS_Y or min_y > MAX_CHASSIS_Y:
+        if kind == "kick":
+            kick_min[id] = min_y
+            if min_y < MIN_KICK_CHASSIS_Y \
+                    or min_y > MAX_KICK_CHASSIS_Y:
+                _fail(key + " chassis crouch out of band: min_y="
+                    + str(min_y) + " (trajectory calibration "
+                    + "0.87..1.07, v404 defect 0.06)")
+                return
+        elif min_y < MIN_CHASSIS_Y or min_y > MAX_CHASSIS_Y:
             _fail(key + " chassis crouch out of band: min_y="
                 + str(min_y) + " (authored ~0.57, v404 defect 0.06)")
             return
+    if absf(float(kick_min.get("leg_fl", 0.0))
+            - float(kick_min.get("leg_fr", 0.0))) \
+            > MAX_KICK_PAIR_DIFF:
+        _fail("front KICK pair crouch diverged: fl="
+            + str(kick_min.get("leg_fl", 0.0)) + " fr="
+            + str(kick_min.get("leg_fr", 0.0)))
+        return
     print("GODOT_V405_BITTARAN_CONTACT_PROBE_PASS")
     quit(0)

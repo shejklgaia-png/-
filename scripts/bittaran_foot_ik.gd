@@ -300,9 +300,30 @@ func set_attack_pose(pose: Dictionary) -> void:
             var index: int = LEG_PART_IDS.find(attack_id)
             if index >= 0 and actor != null and actor.has_method(
                     "initial_authored_sole_height"):
-                var first_height: float = float(actor.call(
-                    "initial_authored_sole_height", kind, attack_id,
-                    legs[index]["sole_local"]))
+                # v409: for KICK the played pose is the reflected
+                # source trajectory, so the contact offset is
+                # calibrated to that trajectory's clip-0 sole for
+                # this leg, not to its delta fold (the folds sit
+                # up to 1.15m apart between legs). The kick probe
+                # reads the SOURCE leg's sole point on leg_fl's
+                # foot, so it takes leg_fl's sole_local; passing
+                # the attacker's own read a point up to 3.0m away
+                # on the wrong side of the source foot and pushed
+                # the whole trajectory that far under the floor
+                # (the post-solve clip guard then lifted the sole
+                # back by the penetration, flattening the fold).
+                var probe_sole: Vector3 = legs[index]["sole_local"]
+                var first_height: float = NAN
+                if kind == "kick":
+                    probe_sole = legs[LEG_PART_IDS.find(
+                        "leg_fl")]["sole_local"]
+                    first_height = float(actor.call(
+                        "kick_source_contact_height", attack_id,
+                        probe_sole))
+                else:
+                    first_height = float(actor.call(
+                        "initial_authored_sole_height", kind,
+                        attack_id, probe_sole))
                 if is_finite(first_height):
                     # All 4 retargeted limbs differ in actual pivot
                     # height. Limiting the measured displacement caused
@@ -362,6 +383,14 @@ func clear_attack_pose() -> void:
         leg.erase("attack_entry_goal")
         leg.erase("authored_pole_active")
         leg.erase("authored_pole_point")
+        leg.erase("kick_traj_entry_sole")
+        leg.erase("kick_traj_entry_rotation")
+        leg.erase("kick_traj_entry_knee")
+        leg.erase("kick_traj_entry_foot")
+        if leg.has("sole_local_saved"):
+            leg["sole_local"] = leg["sole_local_saved"]
+            leg.erase("sole_local_saved")
+            leg.erase("sole_local_traj")
 
 func available_attack_feet() -> Dictionary:
     var result: Dictionary = {}
@@ -1081,9 +1110,24 @@ func _update_spiral_legs(delta: float, active_attack: bool) -> void:
 ## hip by an aim-yaw quaternion. The rig's aim post-multiplies the
 ## attacking shoulder by exactly this rotation, so applying it to a
 ## sampled (unaimed) sole/knee reproduces the aimed pose's point.
+## v409: how far the foot mesh's lowest point hangs below the sole
+## point when the foot joint sits at `joint_pos` with rotation `rot`.
+## The foot node is restored before returning.
+func _trajectory_mesh_clearance(leg: Dictionary, joint_pos: Vector3,
+        rot: Quaternion, sole_pos: Vector3) -> float:
+    var foot: Node3D = leg["foot"]
+    var saved: Transform3D = foot.global_transform
+    foot.global_position = joint_pos
+    foot.global_basis = Basis(rot).scaled(saved.basis.get_scale())
+    var lowest: float = _foot_mesh_lowest_y(foot)
+    foot.global_transform = saved
+    return sole_pos.y - lowest
+
 func _aim_rotated(point: Vector3, hip: Vector3,
         yaw_q: Quaternion) -> Vector3:
     return hip + yaw_q * (point - hip)
+
+
 
 
 func _solve(leg: Dictionary, sole_goal: Vector3, desired_rotation: Quaternion) -> float:
@@ -1780,6 +1824,17 @@ func advance_ik(delta: float, motion: String) -> void:
                     leg["authored_pole_active"] = false
                     leg["authored_pole_point"] = Vector3.ZERO
                     if t <= freeze_end:
+                        # v409: for KICK the whole-limb lift below
+                        # corrects the joint retarget's floor
+                        # penetration; the played trajectory is
+                        # sampled from the unlifted hip and does not
+                        # penetrate, so the hip is restored before
+                        # the trajectory block and no lift is
+                        # recorded for the recovery.
+                        var kick_pre_lift_hip: Vector3 = Vector3.INF
+                        if attack_kind == "kick":
+                            kick_pre_lift_hip = (
+                                leg["upper"] as Node3D).global_position
                         # Let the authored shoulder/knee/foot keys play,
                         # correcting ONLY frames where a rotated foot's
                         # visible geometry actually intersects the floor.
@@ -1807,6 +1862,22 @@ func advance_ik(delta: float, motion: String) -> void:
                         # hip teleport 0.74m and a 49-degree shoulder
                         # snap on rear SWEEPs at that boundary).
                         leg["attack_exit_lift_world"] = lift_applied
+                        if attack_kind == "kick":
+                            (leg["upper"] as Node3D
+                                ).global_position = kick_pre_lift_hip
+                            leg["attack_exit_lift_world"] = 0.0
+                        # v409: for KICK, the two foot-node
+                        # translations below (toe contact, floor
+                        # lift) correct the joint retarget's pose;
+                        # they also change the knee->foot distance
+                        # _solve measures, which threw the played
+                        # trajectory off its goal by the clamp
+                        # amount (measured +1.25m at the fold).
+                        # The trajectory replaces that pose, so
+                        # restore the foot node before the reads.
+                        var kick_pre_clamp_foot: Vector3 = Vector3.INF
+                        if attack_kind == "kick":
+                            kick_pre_clamp_foot = foot.global_position
                         var bottom: float = _foot_mesh_lowest_y(foot)
                         # The BODY floor clamp can lift the authored
                         # low KICK/SWEEP preparation by several centimetres.
@@ -1854,69 +1925,221 @@ func advance_ik(delta: float, motion: String) -> void:
                             # before every new pose sample.
                             foot.global_position += Vector3.UP * (
                                 FLOOR_Y + 0.003 - bottom)
+                        if attack_kind == "kick":
+                            foot.global_position = kick_pre_clamp_foot
                         position = foot.to_global(leg["sole_local"])
                         rotation = foot.global_basis.get_rotation_quaternion()
-                        # v407: during the strike's mirror ramp, blend
-                        # the two KICK chains in FOOT space and solve,
-                        # instead of playing the rig's joint slerp:
-                        # the slerp arc between the two shoulder
-                        # orientations passes over the top of the
-                        # body whenever the chains disagree (rear
-                        # legs: folds 4.2m apart, arc peaking 1.96m
-                        # above the hip — the reported whip). The
-                        # goal is the straight lerp of the two pure
-                        # chains' soles with the aim yaw re-applied
-                        # (the samples are unaimed), the pole is the
-                        # blended knee, so at weight 0 and 1 the
-                        # solved pose equals the pure authored pose
-                        # and both window ends stay continuous.
-                        var solve_for_blend: bool = false
+                        # v409: for KICK, play the source leg's
+                        # reflected trajectory in foot space for
+                        # the whole attack (the rig's
+                        # sample_authored_kick_source): the goal
+                        # is the original motion's sole position,
+                        # foot rotation and knee, reflected for
+                        # this leg, with the aim yaw re-applied
+                        # around the hip. Joint-space retargets
+                        # preserve the source orientations but
+                        # not its foot trajectory on each leg's
+                        # own bind geometry (leg_fr deviated up
+                        # to 1.75m mid-strike, 0.36m at hold), so
+                        # the trajectory itself is what is
+                        # reproduced now (device request: the
+                        # original motion, foot extending low
+                        # along the ground, on every leg). During
+                        # the windup the goal blends from the
+                        # sole captured at attack entry to the
+                        # reflected fold, so the preparation
+                        # mirrors the original too. The v407
+                        # ramp blend and the v408 per-leg choice
+                        # are superseded: there are no longer two
+                        # chains to blend between.
+                        var solve_for_trajectory: bool = false
                         var foot_ref: Vector3 = foot.global_position
                         if attack_kind == "kick":
-                            var mirror_w: float = float(
-                                actor.get("kick_mirror_weight"))
-                            if mirror_w > 0.001 and mirror_w < 0.999:
-                                var sole_local_v: Vector3 = (
-                                    leg["sole_local"] as Vector3)
-                                var clip_t: float = float(
-                                    attack_pose.get("authored_time",
-                                        0.0))
-                                var s0: Dictionary = actor.call(
-                                    "sample_authored_kick_sole",
-                                    str(attack_pose.get("id", "")),
-                                    clip_t, 0.0, sole_local_v)
-                                var s1: Dictionary = actor.call(
-                                    "sample_authored_kick_sole",
-                                    str(attack_pose.get("id", "")),
-                                    clip_t, 1.0, sole_local_v)
-                                if not s0.is_empty() and (
-                                        not s1.is_empty()):
-                                    var hip_pos: Vector3 = (
-                                        leg["upper"] as Node3D
-                                        ).global_position
-                                    var aim_q: Quaternion = Quaternion(
-                                        Vector3.UP, float(actor.get(
-                                            "attack_leg_aim_yaw")))
-                                    var sole0: Vector3 = _aim_rotated(
-                                        s0["sole"], hip_pos, aim_q)
-                                    var sole1: Vector3 = _aim_rotated(
-                                        s1["sole"], hip_pos, aim_q)
-                                    var rot0: Quaternion = aim_q * (
-                                        s0["rotation"] as Quaternion)
-                                    var rot1: Quaternion = aim_q * (
-                                        s1["rotation"] as Quaternion)
-                                    position = sole0.lerp(
-                                        sole1, mirror_w)
-                                    rotation = rot0.slerp(
-                                        rot1, mirror_w)
-                                    leg["authored_pole_point"] = (
-                                        _aim_rotated(s0["knee"],
-                                            hip_pos, aim_q)).lerp(
-                                        _aim_rotated(s1["knee"],
-                                            hip_pos, aim_q), mirror_w)
-                                    foot_ref = position - Basis(
-                                        rotation) * sole_local_v
-                                    solve_for_blend = true
+                            var sole_local_v: Vector3 = (
+                                leg["sole_local"] as Vector3)
+                            var clip_t: float = clampf(float(
+                                attack_pose.get("authored_time",
+                                    0.0)), 0.0, 1.0)
+                            var src: Dictionary = actor.call(
+                                "sample_authored_kick_source",
+                                str(attack_pose.get("id", "")),
+                                clip_t, legs[LEG_PART_IDS.find(
+                                    "leg_fl")]["sole_local"])
+                            if not src.is_empty():
+                                var hip_pos: Vector3 = (
+                                    leg["upper"] as Node3D
+                                    ).global_position
+                                var aim_yaw: float = float(
+                                    actor.get("attack_leg_aim_yaw"))
+                                if t < attack_windup:
+                                    # The rig scales the shoulder
+                                    # yaw by the same smoothstep
+                                    # during the windup (its
+                                    # incoming factor); match it so
+                                    # the played trajectory is not
+                                    # over-rotated early.
+                                    aim_yaw *= smoothstep(
+                                        0.0, attack_windup, t)
+                                var aim_q: Quaternion = Quaternion(
+                                    Vector3.UP, aim_yaw)
+                                var goal_rot: Quaternion = aim_q * (
+                                    src["rotation"] as Quaternion)
+                                var goal_sole: Vector3 = _aim_rotated(
+                                    src["sole"] as Vector3,
+                                    hip_pos, aim_q)
+                                var goal_knee: Vector3 = _aim_rotated(
+                                    src["knee"] as Vector3,
+                                    hip_pos, aim_q)
+                                var goal_foot: Vector3 = _aim_rotated(
+                                    src["foot"] as Vector3,
+                                    hip_pos, aim_q)
+                                if t < attack_windup:
+                                    if not leg.has(
+                                            "kick_traj_entry_sole"):
+                                        leg["kick_traj_entry_sole"] = (
+                                            position)
+                                        leg[
+                                            "kick_traj_entry_rotation"
+                                            ] = rotation
+                                        leg["kick_traj_entry_knee"] = (
+                                            (leg["lower"] as Node3D
+                                            ).global_position)
+                                        leg["kick_traj_entry_foot"] = (
+                                            foot.global_position)
+                                    var bw: float = clampf(
+                                        t / attack_windup, 0.0, 1.0)
+                                    bw = bw * bw * (3.0 - 2.0 * bw)
+                                    goal_sole = (leg[
+                                        "kick_traj_entry_sole"]
+                                        as Vector3).lerp(goal_sole, bw)
+                                    goal_rot = (leg[
+                                        "kick_traj_entry_rotation"]
+                                        as Quaternion).slerp(
+                                            goal_rot, bw)
+                                    goal_knee = (leg[
+                                        "kick_traj_entry_knee"]
+                                        as Vector3).lerp(goal_knee, bw)
+                                    goal_foot = (leg[
+                                        "kick_traj_entry_foot"]
+                                        as Vector3).lerp(goal_foot, bw)
+                                # v409: the reflected foot frame is
+                                # not an exact mirror of the source
+                                # frame, so on the other legs a mesh
+                                # corner hangs lower below the sole
+                                # than the source's own corner does
+                                # (clip-0 fold clearance: fl 0.05 vs
+                                # fr 0.24, rear legs 0.37). Raise the
+                                # goal by the clearance difference so
+                                # the played mesh keeps the source's
+                                # own clearance instead of the
+                                # post-solve clip guard below lifting
+                                # the sole by the full penetration
+                                # (measured +0.37 on leg_fr's fold).
+                                var fl_index: int = (
+                                    LEG_PART_IDS.find("leg_fl"))
+                                var fl_sole_local: Vector3 = legs[
+                                    fl_index]["sole_local"]
+                                var src_fl: Dictionary = actor.call(
+                                    "sample_authored_kick_source",
+                                    "leg_fl", clip_t, fl_sole_local)
+                                if not src_fl.is_empty():
+                                    var leg_clear: float = (
+                                        _trajectory_mesh_clearance(
+                                            leg, goal_foot, goal_rot,
+                                            goal_sole))
+                                    var fl_clear: float = (
+                                        _trajectory_mesh_clearance(
+                                            legs[fl_index],
+                                            src_fl["foot"] as Vector3,
+                                            src_fl["rotation"]
+                                                as Quaternion,
+                                            src_fl["sole"] as Vector3))
+                                    var clear_diff: float = (
+                                        leg_clear - fl_clear)
+                                    var clear_dy: float = 0.0
+                                    if clear_diff > 0.0:
+                                        clear_dy = clear_diff
+                                    elif clear_diff < 0.0:
+                                        # The leg's mesh reaches
+                                        # less below its sole than
+                                        # the source's does, so
+                                        # its fold mesh floats
+                                        # (up to 0.93m on leg_rl).
+                                        # Lower the goal toward
+                                        # the floor by the
+                                        # difference, bounded by
+                                        # the mesh's headroom
+                                        # above the floor and
+                                        # faded out as the
+                                        # extension begins.
+                                        var headroom: float = maxf(
+                                            goal_sole.y
+                                            - leg_clear, 0.0)
+                                        var fold_w: float = 1.0 \
+                                            - smoothstep(
+                                                0.25, 0.45, clip_t)
+                                        clear_dy = -minf(
+                                            -clear_diff,
+                                            headroom) * fold_w
+                                    if clear_dy != 0.0:
+                                        # Shift the whole goal:
+                                        # the sole-point fitting
+                                        # below would absorb a
+                                        # sole-only shift without
+                                        # moving the ankle or the
+                                        # mesh at all.
+                                        goal_sole.y += clear_dy
+                                        goal_foot.y += clear_dy
+                                        goal_knee.y += clear_dy
+                                # v409: the plane-reflected rotation
+                                # does not act on this leg's own
+                                # sole_local the way it acts on the
+                                # source's: each foot's local frame
+                                # differs from the mirrored source
+                                # frame by a constant rotation
+                                # (measured offset error, constant
+                                # over the whole clip: fr 1.70m /
+                                # 49.2 deg, rl 1.44m / 41.2 deg,
+                                # rr 1.29m / 36.7 deg). _solve
+                                # derives the ankle target from
+                                # (goal sole - rotation * sole_local),
+                                # so the mismatch threw the ankle
+                                # metres off the transferred joint
+                                # and tripped the reach clamp at
+                                # extension, capping the played
+                                # reach. Bending the rotation to
+                                # fit tipped the rear feet (38.7
+                                # degrees at extension), so instead
+                                # hand _solve a per-tick sole point
+                                # that the reflected rotation maps
+                                # exactly onto the transferred
+                                # ankle->sole offset: the ankle
+                                # lands on the transferred joint
+                                # and the foot keeps the pure
+                                # reflected orientation (extension
+                                # tilt ~9 degrees, like the
+                                # source). The original sole_local
+                                # is restored when the freeze ends
+                                # (recovery branch, clear_attack_pose).
+                                var offset_want: Vector3 = (
+                                    goal_sole - goal_foot)
+                                if offset_want.length_squared() > 0.000001:
+                                    if not leg.has(
+                                            "sole_local_saved"):
+                                        leg["sole_local_saved"] = (
+                                            sole_local_v)
+                                    leg["sole_local"] = Basis(
+                                        goal_rot).inverse() \
+                                        * offset_want / maxf(foot
+                                            .global_basis
+                                            .get_scale().x, 0.001)
+                                    leg["sole_local_traj"] = (
+                                        leg["sole_local"])
+                                position = goal_sole
+                                rotation = goal_rot
+                                leg["authored_pole_point"] = goal_knee
+                                foot_ref = goal_foot
+                                solve_for_trajectory = true
                         # v406: shorten an over-extended KICK along its
                         # own hip->foot ray and let _solve bend the
                         # knee in the authored plane (see _solve's
@@ -1954,7 +2177,7 @@ func advance_ik(delta: float, motion: String) -> void:
                         leg["attack_exit_rotation"] = rotation
                         leg["last_goal"] = position
                         leg["last_rotation"] = rotation
-                        if not solve_for_reach and not solve_for_blend:
+                        if not solve_for_reach and not solve_for_trajectory:
                             continue
                         leg["authored_pole_active"] = true
                     # After the exact 1.5s KICK hold, or immediately after
@@ -1967,6 +2190,26 @@ func advance_ik(delta: float, motion: String) -> void:
                     rotation = (leg.get("attack_exit_rotation",
                         authored_rotation) as Quaternion).slerp(
                         leg["anchor_rotation"] as Quaternion, recover_t)
+                    # v409: the freeze branch solved the KICK
+                    # trajectory against a per-tick sole point
+                    # fitted to the reflected rotation; blend that
+                    # point back to the leg's real sole point over
+                    # the recovery so the ankle target stays
+                    # continuous across the handover (restoring it
+                    # in one tick would jump the ankle by the
+                    # frame mismatch, up to 1.7m on leg_fr).
+                    if leg.has("sole_local_saved"):
+                        var orig_sole: Vector3 = (
+                            leg["sole_local_saved"] as Vector3)
+                        var traj_sole: Vector3 = leg.get(
+                            "sole_local_traj", orig_sole)
+                        if recover_t >= 0.999:
+                            leg["sole_local"] = orig_sole
+                            leg.erase("sole_local_saved")
+                            leg.erase("sole_local_traj")
+                        else:
+                            leg["sole_local"] = traj_sole.lerp(
+                                orig_sole, recover_t)
                     # v402: decay the whole-limb floor lift over the
                     # blend instead of dropping it at the boundary.
                     # apply_pose restored the shoulder pivot to its
@@ -2112,16 +2355,48 @@ func advance_ik(delta: float, motion: String) -> void:
             var clip_foot: Node3D = leg["foot"]
             var clip_min: float = _foot_mesh_lowest_y(clip_foot)
             if clip_min < FLOOR_Y - 0.001:
+                # v409: during the KICK trajectory freeze, lift
+                # the HIP and the goal together instead of
+                # re-solving the sole upward. The source
+                # trajectory's toe scrapes the floor mid-
+                # extension (mesh up to ~0.9m under at the
+                # authored actor height); lifting only the sole
+                # bent that scrape into the hip-relative profile
+                # (ankle +0.9m), while lifting hip+goal keeps
+                # the profile exact and the mesh skimming the
+                # floor. The lift is recorded as the exit lift
+                # so the recovery decays it like the v402 one.
+                var kick_freeze: bool = str(
+                    attack_pose.get("kind", "")) == "kick" and (
+                    float(attack_pose.get("time", 0.0)) <= float(
+                        attack_pose.get("windup", 0.0)) + float(
+                        attack_pose.get("strike", 0.0)) + float(
+                        attack_pose.get("hold", 0.0)))
+                var guard_lift: float = 0.0
                 for retry in range(2):
                     var extra: float = maxf(
                         FLOOR_Y + 0.003 - clip_min, 0.0)
                     if extra < 0.0001:
                         break
-                    var safe: Vector3 = (
-                        clip_foot.to_global(leg["sole_local"] as Vector3)
-                        + Vector3.UP * extra)
-                    leg["last_error"] = _solve(leg, safe, rotation)
+                    if kick_freeze:
+                        (leg["upper"] as Node3D
+                            ).global_position += (
+                            Vector3.UP * extra)
+                        position += Vector3.UP * extra
+                        guard_lift += extra
+                        leg["last_error"] = _solve(
+                            leg, position, rotation)
+                    else:
+                        var safe: Vector3 = (
+                            clip_foot.to_global(
+                                leg["sole_local"] as Vector3)
+                            + Vector3.UP * extra)
+                        leg["last_error"] = _solve(
+                            leg, safe, rotation)
                     clip_min = _foot_mesh_lowest_y(clip_foot)
+                if kick_freeze and guard_lift > 0.0:
+                    leg["attack_exit_lift_world"] = guard_lift
+                    leg["attack_exit_goal"] = position
                 if clip_min < FLOOR_Y - 0.001:
                     clip_foot.global_position += Vector3.UP * (
                         FLOOR_Y + 0.003 - clip_min)
