@@ -53,8 +53,8 @@ func _case(battle: Node3D, id: String, kind: String) -> bool:
             break
         var t: float = float(frame.get("time", 0.0))
         if kind == "sweep":
-            if bool(frame.get("tracking", false)) or str(
-                    frame.get("player_tracking_disabled", "")) != "true":
+            if bool(frame.get("tracking", false)) or not bool(
+                    frame.get("player_tracking_disabled", false)):
                 _fail(id + ": SWEEP sampled player during windup")
                 return false
             if float(frame.get("body_yaw", 0.0)) != 0.0:
@@ -114,10 +114,6 @@ func _case(battle: Node3D, id: String, kind: String) -> bool:
                 smooth_drop = true
                 prior_body_y = step_y
         elif t >= 0.70 and t <= 0.76:
-            var names: Array = [
-                "FrontLeg_L", "FrontLowerLeg_L", "FrontFoot_L"]
-            var mapped: Array = (
-                rig.ATTACK_LEG_BONES[id])
             var upper: Node3D = leg["upper"]
             var lower: Node3D = leg["lower"]
             var expected_upper: Quaternion = rig.call(
