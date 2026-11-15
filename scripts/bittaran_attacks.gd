@@ -5,6 +5,10 @@ const LEG_IDS: Array[String] = ["leg_fl", "leg_fr", "leg_rl", "leg_rr"]
 const ATTACK_KINDS: Array[String] = ["stomp", "kick", "sweep"]
 const START_RANGE_METERS: float = 9.0
 const STOMP_WINDUP_SECONDS: float = 1.0
+# Head height is passed by the live combat controller. Standalone motion
+# probes use the same 1.85m player capsule as main.gd.
+const STOMP_PLAYER_HEAD_HEIGHT_METERS: float = 1.85
+const STOMP_TRACK_FILTER_PER_SECOND: float = 16.0
 const KICK_WINDUP_SECONDS: float = 1.0
 const SWEEP_WINDUP_SECONDS: float = 0.72
 const STOMP_STRIKE_SECONDS: float = 0.20
@@ -101,7 +105,8 @@ func _choose_leg(player_position: Vector3, feet: Dictionary) -> String:
     return best
 
 func advance(delta: float, player_position: Vector3,
-        available_feet: Dictionary, permitted: bool) -> Dictionary:
+        available_feet: Dictionary, permitted: bool,
+        player_head_position: Vector3 = Vector3.INF) -> Dictionary:
     if not permitted:
         if is_active():
             cancel()
@@ -117,16 +122,30 @@ func advance(delta: float, player_position: Vector3,
             return {}
         _start(selected, ATTACK_KINDS[next_kind_index])
         stomp_aim = player_position
-        stomp_aim_valid = true
+        stomp_aim_valid = false
         next_kind_index = (next_kind_index + 1) % ATTACK_KINDS.size()
         next_leg_index = (LEG_IDS.find(selected) + 1) % LEG_IDS.size()
     var previous: float = elapsed
     var windup: float = _windup()
-    # Keep tracking the live player throughout the entire anticipation.
-    # The last windup sample is captured on the strike boundary and then
-    # frozen for the swing and recovery (not when the attack begins).
+    # The raised STOMP foot follows the player's HEAD, not their
+    # ground marker. Smooth the head target during the full 1.00s lift,
+    # sample its last position at the swing boundary and then stop tracking.
+    # The other two attacks keep their existing aim contract unchanged:
+    # their authored clips are to be supplied separately.
     if previous < windup:
-        stomp_aim = player_position
+        var next_aim: Vector3 = player_position
+        if kind == "stomp":
+            next_aim = (player_head_position
+                if player_head_position != Vector3.INF else
+                player_position + Vector3.UP * STOMP_PLAYER_HEAD_HEIGHT_METERS)
+        if not stomp_aim_valid:
+            stomp_aim = next_aim
+        elif kind == "stomp":
+            var alpha: float = 1.0 - exp(
+                -STOMP_TRACK_FILTER_PER_SECOND * maxf(delta, 0.0))
+            stomp_aim = stomp_aim.lerp(next_aim, alpha)
+        else:
+            stomp_aim = next_aim
         stomp_aim_valid = true
     var strike: float = _strike()
     var recovery: float = _recovery()

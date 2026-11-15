@@ -696,7 +696,8 @@ func _advance_target_motion(delta: float) -> void:
         and down_remaining <= 0.0 and training_ko_remaining <= 0.0)
     bittaran_attack_frame = (bittaran_attacks.call(
         "advance", delta, player.global_position,
-        _bittaran_attack_candidates(), attack_permitted)
+        _bittaran_attack_candidates(), attack_permitted,
+        player.global_position + Vector3.UP * PLAYER_COLLISION_HEIGHT)
         if bittaran_attacks != null else {})
     var attacking: bool = not bittaran_attack_frame.is_empty()
     if attacking:
