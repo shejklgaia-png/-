@@ -171,6 +171,8 @@ func set_attack_pose(pose: Dictionary) -> void:
         for leg in legs:
             leg.erase("stomp_authored_windup_goal")
             leg.erase("stomp_authored_windup_rotation")
+            leg.erase("stomp_impact_sole")
+            leg.erase("stomp_impact_rotation")
             # Capture the visible sole and orientation BEFORE cancelling
             # the Turn/Approach swing. Preserve its world XZ position and
             # ease any airborne toe down during the 0.24s clip crossfade.
@@ -195,6 +197,8 @@ func clear_attack_pose() -> void:
     for leg in legs:
         leg.erase("stomp_authored_windup_goal")
         leg.erase("stomp_authored_windup_rotation")
+        leg.erase("stomp_impact_sole")
+        leg.erase("stomp_impact_rotation")
         leg.erase("attack_exit_goal")
         leg.erase("attack_exit_rotation")
         leg.erase("attack_entry_goal")
@@ -1429,6 +1433,23 @@ func advance_ik(delta: float, motion: String) -> void:
                 else:
                     rotation = _attack_rotation(leg)
                     position = _attack_goal(leg, rotation)
+                    if attack_kind == "stomp":
+                        var t_stomp: float = float(attack_pose.get(
+                            "time", 0.0))
+                        var strike_at: float = float(attack_pose.get(
+                            "windup", 1.25)) + float(attack_pose.get(
+                            "strike", 0.25))
+                        var pause_end: float = strike_at + float(
+                            attack_pose.get("hold", 1.50))
+                        # Lock the ACTUAL reached tip and angle on the
+                        # first contact frame. Holding a nominally
+                        # unreachable sole=0 goal recalculates a new
+                        # joint chain each tick and visibly slides it.
+                        if t_stomp > strike_at + 0.001 and (
+                                t_stomp <= pause_end) and (
+                                leg.has("stomp_impact_sole")):
+                            position = leg["stomp_impact_sole"]
+                            rotation = leg["stomp_impact_rotation"]
             else:
                 # No gait, foot replanting, or root yaw while attacking.
                 # A support foot interrupted midstep settles ONLY in Y;
@@ -1508,6 +1529,10 @@ func advance_ik(delta: float, motion: String) -> void:
                         FLOOR_Y + 0.002 - toe_bottom)
                 leg["last_goal"] = stomp_foot.to_global(
                     leg["sole_local"] as Vector3)
+                if not leg.has("stomp_impact_sole"):
+                    leg["stomp_impact_sole"] = leg["last_goal"]
+                    leg["stomp_impact_rotation"] = (
+                        stomp_foot.global_basis.get_rotation_quaternion())
         if attacking and not attacking_this_leg:
             # Some BODY windup poses sit a few centimetres outside a
             # full-extension support knee's reachable sphere. Do not
