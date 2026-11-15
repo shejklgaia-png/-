@@ -35,6 +35,13 @@ const HEAD_LEG_RETURN_SAFE_YAW_DEGREES: float = 25.0
 # as combat collision. World-AABB overlap volume gives false positives.
 const HEAD_RETURN_FACE_MAX_PENETRATION_METERS: float = 0.10
 const HEAD_RETURN_RESCAN_SECONDS: float = 0.075
+# Assist the yaw-only return with an unobtrusive neck-side slide when
+# the returning opposite SUPPORT leg occupies every reachable yaw. This
+# is world-space displacement measured along the BODY's local right axis.
+const HEAD_RETURN_SIDE_MAX_METERS: float = 1.20
+const HEAD_RETURN_SIDE_STEP_METERS: float = 0.50
+const HEAD_RETURN_SIDE_SPEED_MPS: float = 3.00
+const HEAD_RETURN_SIDE_RELEASE_MPS: float = 0.85
 const HEAD_LEG_RETURN_YAW_SPEED_DEGREES_PER_SECOND: float = 140.0
 const HEAD_LEG_RETURN_PITCH_SPEED_DEGREES_PER_SECOND: float = 140.0
 const HEAD_LEG_RETURN_SAFE_PITCH_DEGREES: float = 12.0
@@ -107,6 +114,8 @@ var head_arm_return_yaw_limit_degrees: float = 65.0
 var head_return_safe_yaw_target: float = 0.0
 var head_return_scan_elapsed: float = HEAD_RETURN_RESCAN_SECONDS
 var head_return_was_active: bool = false
+var head_return_side_offset_world: float = 0.0
+var head_return_side_goal_world: float = 0.0
 var boss_head_pitch: float = 0.0
 var head_look_filtered_pitch: float = 0.0
 var boss_head_default_rotation: Quaternion = Quaternion.IDENTITY
@@ -518,50 +527,65 @@ func _head_return_face_overlap(base_pose: Quaternion,
 ## target as a small anti-flicker preference.
 func _choose_head_return_clear_yaw(base_pose: Quaternion) -> float:
     if bittaran_head == null:
+        head_return_side_goal_world = 0.0
         return 0.0
-    var saved: Quaternion = bittaran_head.quaternion
+    var saved_rotation: Quaternion = bittaran_head.quaternion
+    var saved_position: Vector3 = bittaran_head.global_position
+    var parent: Node3D = bittaran_head.get_parent() as Node3D
+    var right_axis: Vector3 = parent.global_basis.x.normalized()
     var limit: float = _head_safe_yaw_limit()
-    var chosen: float = clampf(boss_head_yaw, -limit, limit)
+    var chosen_yaw: float = clampf(boss_head_yaw, -limit, limit)
+    var chosen_side: float = head_return_side_offset_world
     var best_safe_score: float = INF
     var best_fallback_score: float = INF
     var safe_found: bool = false
-    var candidates: Array[float] = [
-        -60.0, -45.0, -40.0, -25.0, -15.0, 0.0, 15.0,
-        25.0, 40.0, 45.0, 60.0,
-        rad_to_deg(chosen),
-        rad_to_deg(head_return_safe_yaw_target)
+    var candidate_yaws: Array[float] = [
+        -60.0, -45.0, -30.0, -20.0, 0.0, 20.0, 30.0,
+        45.0, 60.0, rad_to_deg(chosen_yaw),
+        rad_to_deg(head_return_safe_yaw_target)]
+    var candidate_sides: Array[float] = [
+        -1.0, -HEAD_RETURN_SIDE_STEP_METERS, 0.0,
+        HEAD_RETURN_SIDE_STEP_METERS, 1.0,
+        head_return_side_goal_world
     ]
-    for degrees in candidates:
-        var yaw: float = clampf(deg_to_rad(degrees), -limit, limit)
-        var overlap: float = _head_return_face_overlap(
-            base_pose, yaw, boss_head_pitch)
-        var travel: float = absf(wrapf(yaw - boss_head_yaw, -PI, PI))
-        var hysteresis: float = absf(wrapf(
-            yaw - head_return_safe_yaw_target, -PI, PI))
-        # Reject a "safe" end angle if the SHORTER route to it
-        # crosses the planted knee. Prefer nearby non-colliding paths
-        # before rotating the head across the opposite side.
-        var mid_yaw: float = lerp_angle(boss_head_yaw, yaw, 0.5)
-        var corridor_overlap: float = _head_return_face_overlap(
-            base_pose, mid_yaw, boss_head_pitch)
-        var route_score: float = (travel * 0.35
-            + absf(yaw) * 0.70
-            + hysteresis * 0.10
-            + maxf(0.0, corridor_overlap
-                - HEAD_RETURN_FACE_MAX_PENETRATION_METERS) * 9.0)
-        if overlap <= HEAD_RETURN_FACE_MAX_PENETRATION_METERS:
-            if not safe_found or route_score < best_safe_score:
-                safe_found = true
-                best_safe_score = route_score
-                chosen = yaw
-        elif not safe_found:
-            var fallback: float = (overlap * 12.0 + route_score)
-            if fallback < best_fallback_score:
-                best_fallback_score = fallback
-                chosen = yaw
-    bittaran_head.quaternion = saved
-    return chosen
-
+    for raw_side in candidate_sides:
+        var side: float = clampf(raw_side,
+            -HEAD_RETURN_SIDE_MAX_METERS,
+            HEAD_RETURN_SIDE_MAX_METERS)
+        bittaran_head.global_position = saved_position + (
+            right_axis * (side - head_return_side_offset_world))
+        for degrees in candidate_yaws:
+            var yaw: float = clampf(deg_to_rad(degrees), -limit, limit)
+            var depth: float = _head_return_face_overlap(
+                base_pose, yaw, boss_head_pitch)
+            var travel: float = absf(wrapf(
+                yaw - boss_head_yaw, -PI, PI))
+            var last_target: float = absf(wrapf(
+                yaw - head_return_safe_yaw_target, -PI, PI))
+            var side_travel: float = absf(
+                side - head_return_side_offset_world)
+            # Favor a small, near-current recovery if it is COLLISION
+            # FREE. Offset penalty prevents lateral "neck wagging"
+            # while the ordinary forward/neutral route remains clear.
+            var route_score: float = (travel * 0.26
+                + absf(yaw) * 0.10 + last_target * 0.045
+                + absf(side) * 0.28 + side_travel * 0.09)
+            if depth <= HEAD_RETURN_FACE_MAX_PENETRATION_METERS:
+                if not safe_found or route_score < best_safe_score:
+                    safe_found = true
+                    best_safe_score = route_score
+                    chosen_yaw = yaw
+                    chosen_side = side
+            elif not safe_found:
+                var fallback: float = (depth * 8.0 + route_score)
+                if fallback < best_fallback_score:
+                    best_fallback_score = fallback
+                    chosen_yaw = yaw
+                    chosen_side = side
+    bittaran_head.global_position = saved_position
+    bittaran_head.quaternion = saved_rotation
+    head_return_side_goal_world = chosen_side
+    return chosen_yaw
 
 func _head_penetration_depth(base_pose: Quaternion,
         relative_yaw: float, relative_pitch: float = NAN) -> float:
@@ -900,6 +924,14 @@ func _update_head_vertical_follow(delta: float, follow: float) -> void:
     # collision, then only add an incremental new lift after final yaw.
     bittaran_head.global_position += Vector3.UP * (
         head_vertical_offset_world + head_visual_clearance_lift_world)
+    # The returning front arm can force a short temporary neck-side
+    # displacement. Reset the authored neck pivot FIRST every frame,
+    # so the motion cannot accumulate translational drift.
+    var neck_parent: Node3D = bittaran_head.get_parent() as Node3D
+    if neck_parent != null and absf(head_return_side_offset_world) > 0.00001:
+        bittaran_head.global_position += (
+            neck_parent.global_basis.x.normalized()
+            * head_return_side_offset_world)
 
 
 ## The pitched head's live collision AABB can overlap a shin. After
@@ -998,7 +1030,13 @@ func _aim_bittaran_head(delta: float) -> void:
     if not returning:
         head_return_scan_elapsed = HEAD_RETURN_RESCAN_SECONDS
         head_return_safe_yaw_target = 0.0
+        head_return_side_goal_world = 0.0
         head_return_was_active = false
+        # A gradual release is important during the same frame that
+        # the last planted foot reaches HOME: no neck displacement snap.
+        head_return_side_offset_world = move_toward(
+            head_return_side_offset_world, 0.0,
+            HEAD_RETURN_SIDE_RELEASE_MPS * maxf(delta, 0.0))
     _clamp_head_to_mechanical_limits()
     if returning:
         # The camera/IK finalize path updates the look-target normally,
@@ -1071,6 +1109,17 @@ func _aim_bittaran_head(delta: float) -> void:
                 base_pose)
             head_return_scan_elapsed = 0.0
             head_return_was_active = true
+        var before_side: float = head_return_side_offset_world
+        head_return_side_offset_world = move_toward(
+            before_side, head_return_side_goal_world,
+            HEAD_RETURN_SIDE_SPEED_MPS * maxf(delta, 0.0))
+        var moved_side: float = (
+            head_return_side_offset_world - before_side)
+        if absf(moved_side) > 0.00001:
+            var joint_parent: Node3D = bittaran_head.get_parent() as Node3D
+            if joint_parent != null:
+                bittaran_head.global_position += (
+                    joint_parent.global_basis.x.normalized() * moved_side)
     var wanted: float = (
         head_return_safe_yaw_target if returning
         else head_look_filtered_yaw)
@@ -1515,6 +1564,10 @@ func _reset_target_after_respawn() -> void:
     boss_far_side_screen_axis = false
     boss_last_controller_axis = Vector2.UP
     boss_head_yaw = 0.0
+    head_return_side_offset_world = 0.0
+    head_return_side_goal_world = 0.0
+    head_return_was_active = false
+    head_return_scan_elapsed = HEAD_RETURN_RESCAN_SECONDS
     if bittaran_rig != null:
         bittaran_rig.call("clear_stomp_down_windup")
     boss_head_pitch = 0.0
