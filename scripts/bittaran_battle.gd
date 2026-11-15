@@ -67,6 +67,9 @@ const HEAD_AIM_NEAR_RADIUS_METERS: float = 2.20
 const HEAD_AIM_NEAR_FILTER_PER_SECOND: float = 2.8
 const HEAD_AIM_FAR_FILTER_PER_SECOND: float = 12.0
 const HEAD_AIM_NEAR_DEADBAND_DEGREES: float = 1.8
+# Bound near-field desired-yaw changes to 4deg per 60Hz physics tick
+# even when the player alternates rapidly behind the head pivot.
+const HEAD_AIM_NEAR_MAX_DEGREES_PER_SECOND: float = 240.0
 # A depth change caused by one replanting knee cannot instantly release
 # the 30cm stop. The latch releases only after a stable gap persists.
 const HEAD_TRACK_COLLISION_ESCAPE_MIN_SPEED_FACTOR: float = 0.40
@@ -529,8 +532,13 @@ func _update_head_look_target(delta: float) -> void:
     var speed: float = lerpf(HEAD_AIM_NEAR_FILTER_PER_SECOND,
         HEAD_AIM_FAR_FILTER_PER_SECOND, distance_weight)
     var alpha: float = 1.0 - exp(-speed * maxf(delta, 0.0))
+    var yaw_step: float = error * alpha
+    if horizontal < HEAD_AIM_NEAR_RADIUS_METERS:
+        var cap: float = deg_to_rad(
+            HEAD_AIM_NEAR_MAX_DEGREES_PER_SECOND) * maxf(delta, 0.0)
+        yaw_step = clampf(yaw_step, -cap, cap)
     head_look_filtered_yaw = clampf(
-        head_look_filtered_yaw + error * alpha,
+        head_look_filtered_yaw + yaw_step,
         -deg_to_rad(HEAD_TRACK_MAX_YAW_DEGREES),
         deg_to_rad(HEAD_TRACK_MAX_YAW_DEGREES))
 
