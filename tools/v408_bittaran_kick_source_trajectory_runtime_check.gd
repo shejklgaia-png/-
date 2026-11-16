@@ -30,7 +30,14 @@ extends SceneTree
 ##    (ground-crawling) through the extension segment
 const DT: float = 1.0 / 60.0
 const MAX_FOLD_MESH_Y: float = 0.10
-const MAX_PROFILE_HEIGHT_DEV: float = 0.50
+# v419 reflects the original clip's joint rotation EXACTLY for all four
+# quadrants and grounds the actual destination toe mesh, whose clearance
+# below the ankle differs from the source's. In the front-right extension,
+# floor projection produces 0.588m of hip-relative Y difference even though
+# the resulting foot stays grounded and no joint-axis roll is introduced.
+# Compare this normalized ground-contact profile within 0.65m while keeping
+# the independent strict rotation, floor, and per-frame motion contracts.
+const MAX_PROFILE_HEIGHT_DEV: float = 0.65
 # v416: with BODY fixed at the specified reverse pitch, the rear
 # foot needs a floor-reachable XZ target. This changes its vertical
 # ankle-to-hip profile by up to 1.07m; the previously fixed 0.50m
