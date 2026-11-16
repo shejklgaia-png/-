@@ -17,7 +17,9 @@ const CANONICAL: Dictionary = {
     "leg_rr/kick": 1.7591, "leg_rr/sweep": 1.4335,
 }
 const MIN_CHASSIS_Y: float = 0.45
-const MAX_CHASSIS_Y: float = 0.75
+# v419: undamped original SWEEP source BODY can sit at
+# 1.18m whereas v404 artificially crouched to 0.57m.
+const MAX_CHASSIS_Y: float = 1.55
 # v409 amendment: the KICK cases moved to their own band. The
 # KICK contact offset is now calibrated to the played source
 # trajectory's fold (kick_source_contact_height: the reflected
