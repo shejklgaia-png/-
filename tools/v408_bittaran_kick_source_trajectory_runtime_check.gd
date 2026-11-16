@@ -33,6 +33,14 @@ const MAX_FOLD_MESH_Y: float = 0.10
 const MAX_PROFILE_HEIGHT_DEV: float = 0.50
 const MAX_FADE_HEIGHT_DEV: float = 0.65
 const MAX_FOLD_HEIGHT_DEV: float = 1.00
+# v414: the rear BODY pitches the full opposite of Wait instead of
+# adding an 8-degree tail lift. The rear shoulder's vertical locus
+# therefore differs from the original FRONT leg's source reference.
+# Preserve a bounded profile difference; the independent foot-floor
+# and source motion checks continue to apply on all four legs.
+const REAR_FADE_HEIGHT_DEV: float = 1.20
+const REAR_FOLD_HEIGHT_DEV: float = 1.30
+const MAX_REAR_FRAME_STEP: float = 0.65
 const MIN_MESH_Y: float = -0.02
 const MAX_EXTENSION_MESH_Y: float = 0.30
 
@@ -62,7 +70,8 @@ func _run_kick(battle: Node3D, brain: RefCounted, ik: RefCounted,
         battle.call("_finalize_target_pose", DT)
     brain.call("force_start_with_stance", leg_id, "kick")
     var out: Dictionary = {"fold_mesh": INF, "profile": {},
-        "min_mesh": INF, "ext_mesh": INF}
+        "min_mesh": INF, "ext_mesh": INF, "max_frame_step": 0.0}
+    var previous_foot: Vector3 = Vector3.INF
     var started: bool = false
     var ticks: int = 0
     while ticks < 60 * 8:
@@ -82,6 +91,11 @@ func _run_kick(battle: Node3D, brain: RefCounted, ik: RefCounted,
         if phase == "windup":
             out["fold_mesh"] = mesh_y
         elif phase == "strike" or phase == "hold":
+            if previous_foot != Vector3.INF:
+                out["max_frame_step"] = maxf(
+                    float(out["max_frame_step"]),
+                    foot.global_position.distance_to(previous_foot))
+            previous_foot = foot.global_position
             var hip: Vector3 = upper.global_position
             var ct: float = clampf(float(
                 frame.get("authored_time", 0.0)), 0.0, 1.0)
@@ -151,12 +165,23 @@ func _run() -> void:
         if worst > MAX_PROFILE_HEIGHT_DEV:
             _fail(leg_id + " kick ankle height profile deviates "
                 + str(worst) + "m from the source leg")
-        if worst_fade > MAX_FADE_HEIGHT_DEV:
+        var fade_limit: float = (
+            REAR_FADE_HEIGHT_DEV
+            if leg_id.begins_with("leg_r") else MAX_FADE_HEIGHT_DEV)
+        var fold_limit: float = (
+            REAR_FOLD_HEIGHT_DEV
+            if leg_id.begins_with("leg_r") else MAX_FOLD_HEIGHT_DEV)
+        if worst_fade > fade_limit:
             _fail(leg_id + " kick ankle height profile deviates "
                 + str(worst_fade) + "m in the fade band")
-        if worst_fold > MAX_FOLD_HEIGHT_DEV:
+        if worst_fold > fold_limit:
             _fail(leg_id + " kick ankle height profile deviates "
                 + str(worst_fold) + "m on the fold segment")
+        if leg_id.begins_with("leg_r") and float(
+                r["max_frame_step"]) > MAX_REAR_FRAME_STEP:
+            _fail(leg_id + " kick ankle snapped during the rear "
+                + "fixed-height trajectory: "
+                + str(r["max_frame_step"]) + "m/frame")
     _report()
 
 
