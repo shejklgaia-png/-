@@ -794,7 +794,15 @@ func _attack_goal(leg: Dictionary, desired_rotation: Quaternion) -> Vector3:
             goal = return_from.lerp(goal, retract)
             # After contact, lift a little while retracting; no foot drag.
             goal.y += 0.18 * sin(PI * retract)
-        goal = _reachable_stomp_goal(leg, goal, desired_rotation)
+        # The captured rear contact was grounded by a small foot-only
+        # correction during hold. Clamping its return goal to the new
+        # shoulder's reach on the FIRST recovery frame would lift the toe
+        # about a metre instantly. Keep the exact saved contact/return
+        # goal and fade that temporary end-effector offset in the solver
+        # below; never move the BODY root to resolve it.
+        if not (_rear_attack_active()
+                and t > windup + strike + hold):
+            goal = _reachable_stomp_goal(leg, goal, desired_rotation)
     elif kind == "kick":
         # Legacy procedural fallback for tests that do not request the authored clip.
         # On release, extend HIP-KNEE-ANKLE to the physical full reach,
@@ -2674,6 +2682,25 @@ func advance_ik(delta: float, motion: String) -> void:
                 SUPPORT_FOOT_ROLL_DEGREES) * collapse) *
                 head_support_foot_rotation).normalized()
         leg["last_error"] = _solve(leg, position, rotation)
+        # v414: do not abandon the actually grounded end-effector at
+        # hold->recovery when the fixed-height, forward-pitched BODY puts
+        # the nominal contact just outside the two-bone reach sphere.
+        # This is the same toe-only contact correction already used in
+        # STOMP hold, now decaying with the return goal instead of
+        # snapping upward on the first recovery tick.
+        if attacking and attacking_this_leg and _rear_attack_active()                 and str(attack_pose.get("kind", "")) == "stomp":
+            var stomp_recovery_start: float = (
+                float(attack_pose.get("windup", 1.25))
+                + float(attack_pose.get("strike", 0.25))
+                + float(attack_pose.get("hold", 1.50)))
+            if attack_t > stomp_recovery_start:
+                var recovery_foot: Node3D = leg["foot"]
+                var foot_error: Vector3 = (
+                    position - recovery_foot.to_global(
+                        leg["sole_local"] as Vector3))
+                recovery_foot.global_position += foot_error
+                leg["last_goal"] = position
+                leg["last_error"] = 0.0
         if attacking and attacking_this_leg and str(
                 attack_pose.get("kind", "")) == "stomp":
             var stomp_t: float = float(attack_pose.get("time", 0.0))
