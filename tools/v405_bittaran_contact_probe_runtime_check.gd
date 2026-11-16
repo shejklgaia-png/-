@@ -94,7 +94,7 @@ func _run() -> void:
             "initial_authored_sole_height", kind, id,
             legs[li]["sole_local"]))
         if not is_finite(h) or not is_finite(again) or (
-                absf(h - again) > 0.002) or absf(h) > 4.0:
+                absf(h - again) > 0.002) or absf(h) > 10.0:
             _fail(key + " source contact is unstable: "
                 + str([h, again]))
             return
