@@ -2187,6 +2187,7 @@ func advance_ik(delta: float, motion: String) -> void:
                             (raw_clearance + 0.012) /
                             PRECONTACT_ENVELOPE)) * _cubic(
                                 t / 0.10)
+                        leg["debug_precontact_lead"] = contact_lead
                         leg["authored_pole_active"] = true
                         leg["authored_pole_point"] = (
                             hip_world + original_bend.lerp(
@@ -2196,6 +2197,9 @@ func advance_ik(delta: float, motion: String) -> void:
                             leg, position, rotation)
                         source_low = _leg_mesh_lowest_y(
                             source_upper)
+                        leg["debug_first_low"] = source_low
+                        leg["debug_fine_adjust"] = 0.0
+                        leg["debug_emergency_lift"] = 0.0
                         if source_low < FLOOR_Y - 0.001:
                             # Only a real remaining penetration can
                             # require more knee fold. Search for the
@@ -2218,6 +2222,7 @@ func advance_ik(delta: float, motion: String) -> void:
                                     min_weight = candidate
                                 else:
                                     max_weight = candidate
+                            leg["debug_fine_adjust"] = max_weight
                             leg["authored_pole_point"] = (
                                 hip_world + original_bend.lerp(
                                     Vector3.UP * bend_radius,
@@ -2231,6 +2236,8 @@ func advance_ik(delta: float, motion: String) -> void:
                             # constraint. The smallest remaining
                             # vertical correction preserves source
                             # bone lengths and the original toe roll.
+                            leg["debug_emergency_lift"] = (
+                                FLOOR_Y + 0.003 - source_low)
                             source_upper.global_position.y += (
                                 FLOOR_Y + 0.003 - source_low)
                         var final_foot_gap: float = (
