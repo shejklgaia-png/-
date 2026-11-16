@@ -36,7 +36,10 @@ const DT: float = 1.0 / 60.0
 const LEGS: Array[String] = ["leg_fl", "leg_fr", "leg_rl", "leg_rr"]
 const MIRROR_KEYS: Array[float] = [0.0, 0.125, 0.25, 0.36, 0.5,
 	0.75, 1.0, 1.25, 1.5]
-const MAX_KNEE_STEP: float = 0.09
+# v419: source-animated windup knee moves already in the
+# first frame instead of being frozen at Wait; check that no
+# per-tick jump exceeds 0.16m and still bound axial shin twist.
+const MAX_KNEE_STEP: float = 0.16
 const MAX_TWIST_STEP_DEGREES: float = 8.0
 const MAX_TWIST_TOTAL_DEGREES: float = 75.0
 const MAX_FRONT_HEAD_BEND: float = 0.05
