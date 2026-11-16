@@ -59,17 +59,9 @@ const ATTACK_LEG_AIM_MAX_DEGREES_KICK: float = 85.0
 const ATTACK_BODY_PITCH_SCALE_KICK: float = 0.45
 const ATTACK_BODY_PITCH_SCALE_SWEEP: float = 0.60
 const ATTACK_BODY_ROLL_SCALE: float = 0.45
-# v404: KICK reach scaling. The authored kick always extends to its
-# full hip-to-foot length; a player 2m from the hip is speared
-# metres past and held there. The pose is blended toward Wait so
-# the foot lands near the aim point instead. Calibration measured
-# in-scene on the authored leg: hip-to-foot XZ at the extension
-# peak is about 2.30m at factor 0 and grows ~3.2m per factor
-# (4.5m at 0.7, then flattens), so the factor inverts that line.
-const KICK_REACH_BASE_METERS: float = 2.30
-const KICK_REACH_PER_FACTOR: float = 3.2
-const KICK_REACH_AIM_MARGIN_METERS: float = 0.4
-const KICK_REACH_MIN_FACTOR: float = 0.12
+# v418: KICK's original Blockbench reach is never scaled by player
+# distance. Aim yaw only rotates the trajectory's direction; hit
+# detection, not a reach factor, decides whether it connects.
 const ATTACK_LEG_AIM_TURN_DEGREES_PER_SECOND: float = 300.0
 var attack_leg_aim_yaw: float = 0.0
 # Captured ACTUAL active combat pose becomes a six-tenths-second smooth
@@ -1091,29 +1083,11 @@ func apply_authored_attack_pose(frame: Dictionary) -> void:
         kick_mirror_weight = (
             (ramp_in * ramp_in * (3.0 - 2.0 * ramp_in))
             * (1.0 - ramp_out * ramp_out * (3.0 - 2.0 * ramp_out)))
-    # v404: shorten the KICK for close targets. The factor follows
-    # the (windup-tracked, then locked) aim point's horizontal
-    # distance from the attacking hip, so the foot lands near the
-    # player instead of spearing metres past them and holding there
-    # (device feedback on v403, front-right leg in front of the
-    # boss: foot 3.5m past the player, toe tip 5.2m past). The
-    # factor is consumed by bittaran_foot_ik (v406 geometric
-    # shortening); the pose itself stays fully authored.
+    # v418: KICK always uses the complete source-animated limb reach.
+    # Aim determines HORIZONTAL DIRECTION only, never the foot's
+    # distance. Do not scale or truncate the clip for a nearby/faraway
+    # player; the hit test may naturally miss when out of range.
     kick_reach_factor = 1.0
-    if kind == "kick":
-        var aim: Vector3 = frame.get("aim", Vector3.INF)
-        var hip_uid: String = str(bone_uuid_by_name.get(
-            str(ATTACK_LEG_BONES[id][0]), ""))
-        if aim != Vector3.INF and bones.has(hip_uid):
-            var hip_pos: Vector3 = (
-                bones[hip_uid] as Node3D).global_position
-            var flat: Vector2 = Vector2(
-                aim.x - hip_pos.x, aim.z - hip_pos.z)
-            kick_reach_factor = clampf(
-                (flat.length() + KICK_REACH_AIM_MARGIN_METERS
-                    - KICK_REACH_BASE_METERS)
-                / KICK_REACH_PER_FACTOR,
-                KICK_REACH_MIN_FACTOR, 1.0)
     var preparation: float = 0.0 if kind == "stomp" else windup
     var clip_time: float = clampf(
         float(frame.get("authored_time", seconds - preparation)),
