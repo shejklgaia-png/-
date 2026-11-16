@@ -15,7 +15,11 @@ extends SceneTree
 ## must stand perpendicular to the floor at impact.
 const ATTACKS = preload("res://scripts/bittaran_attacks.gd")
 const DT: float = 1.0 / 60.0
-const MAX_KICK_FOOT_TILT_DEGREES: float = 20.0
+# v419: the un-damped Blockbench toe extension itself pitches
+# roughly 22deg; this replaces the v404 damped-source 20deg cap.
+# Exact reflected toe world rotation is separately asserted by
+# the 288-joint v419 source key test.
+const MAX_KICK_FOOT_TILT_DEGREES: float = 30.0
 # v409 amendment: 0.10 -> 0.20. The trajectory KICK grounds its
 # fold through the source sole point plus a mesh-clearance
 # compensation; in forced geometries (boss not facing the

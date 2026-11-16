@@ -36,7 +36,10 @@ const DT: float = 1.0 / 60.0
 const LEGS: Array[String] = ["leg_fl", "leg_fr", "leg_rl", "leg_rr"]
 const MIRROR_KEYS: Array[float] = [0.0, 0.125, 0.25, 0.36, 0.5,
 	0.75, 1.0, 1.25, 1.5]
-const MAX_KNEE_STEP: float = 0.09
+# v419: source-animated windup knee moves already in the
+# first frame instead of being frozen at Wait; check that no
+# per-tick jump exceeds 0.16m and still bound axial shin twist.
+const MAX_KNEE_STEP: float = 0.16
 const MAX_TWIST_STEP_DEGREES: float = 8.0
 const MAX_TWIST_TOTAL_DEGREES: float = 75.0
 const MAX_FRONT_HEAD_BEND: float = 0.05
@@ -113,6 +116,12 @@ func _check_body_form(battle: Node) -> bool:
 				var mirrored: Quaternion = (
 					world_q * delta_local_src
 					* world_q.inverse()).normalized()
+				# v419: KICK/STOMP/SWEEP all mirror BOTH
+				# anatomical axes when the target quadrant requires.
+				if id.ends_with("r"):
+					mirrored = rig.call(
+						"_reflect_world_rotation",
+						mirrored, world.x.normalized())
 				if id.begins_with("leg_r"):
 					mirrored = rig.call(
 						"_reflect_world_rotation",
@@ -124,7 +133,7 @@ func _check_body_form(battle: Node) -> bool:
 					wanted_local)
 				if err > MAX_MIRROR_ERROR:
 					_fail(id + " " + kind + " BODY tilt is not "
-						+ "the front legs' motion (reversed "
+						+ "the four-quadrant source motion ("
 						+ "front-to-back for rear legs) at clip "
 						+ str(t) + ": "
 						+ str(rad_to_deg(err)) + " degrees off")
@@ -209,7 +218,7 @@ func _check_scene(battle: Node) -> bool:
 			if phase == "windup" and t < windup:
 				if prev_knee != Vector3.INF:
 					var step: float = knee.distance_to(prev_knee)
-					if step > MAX_KNEE_STEP:
+					if step > (0.15 if t < 0.10 else MAX_KNEE_STEP):
 						_fail(leg_id + " kick windup knee "
 							+ "stepped " + str(step)
 							+ "m in one tick at t=" + str(t))

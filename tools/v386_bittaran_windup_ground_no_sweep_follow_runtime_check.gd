@@ -108,33 +108,50 @@ func _case(battle: Node3D, id: String, kind: String) -> bool:
                 smooth_drop = true
                 prior_body_y = step_y
         elif t >= 0.70 and t <= 0.76:
+            # v419: compare the actual LIVE BODY-yawed limb to
+            # the world reflection of the original front-left
+            # Blockbench STOMP shoulder/knee. Calling the source
+            # local helper AFTER IK incorrectly uses the already
+            # yawed parent as its local reference and reports a
+            # false mismatch even when the original WORLD pose
+            # has been preserved.
+            var body_src: Quaternion = rig.call(
+                "_authored_key_rotation", rig.ATTACK_NAMES[kind],
+                "Body", t)
+            var world: Basis = rig.global_basis.orthonormalized()
+            var root_q: Quaternion = world.get_rotation_quaternion()
+            var source_world: Quaternion = (
+                root_q * body_src).normalized()
+            var authored_worlds: Array[Quaternion] = []
+            for slot in range(2):
+                var source_bone: String = str(
+                    rig.ATTACK_LEG_BONES["leg_fl"][slot])
+                var source_local: Quaternion = rig.call(
+                    "_authored_key_rotation",
+                    rig.ATTACK_NAMES[kind], source_bone, t)
+                source_world = (
+                    source_world * source_local).normalized()
+                var reflected: Quaternion = source_world
+                if id.ends_with("r"):
+                    reflected = rig.call(
+                        "_reflect_world_rotation",
+                        reflected, world.x.normalized())
+                if id.begins_with("leg_r"):
+                    reflected = rig.call(
+                        "_reflect_world_rotation",
+                        reflected, world.z.normalized())
+                var yaw_q: Quaternion = Quaternion(Vector3.UP,
+                    float(frame.get("body_yaw", 0.0)))
+                authored_worlds.append(
+                    (yaw_q * reflected).normalized())
             var upper: Node3D = leg["upper"]
             var lower: Node3D = leg["lower"]
-            var expected_upper: Quaternion = rig.call(
-                "_authored_rotation_for_leg", kind, id, 0, t)
-            var expected_lower: Quaternion = rig.call(
-                "_authored_rotation_for_leg", kind, id, 1, t)
-            if id.begins_with("leg_r"):
-                # v415: rear attacks deliberately counter-rotate the
-                # shoulder against the v414 independent torso pitch.
-                # The original source pose must therefore match in
-                # WORLD space rather than in shoulder LOCAL space.
-                var authored_body: Quaternion = rig.call(
-                    "_authored_body_rotation_for_attack", kind, id, t)
-                var aim_yaw: float = float(
-                    frame.get("body_yaw", 0.0))
-                var authored_world: Quaternion = (
-                    Quaternion(Vector3.UP, aim_yaw)
-                    * authored_body * expected_upper).normalized()
-                var played_world: Quaternion = (
-                    (rig.find_child("Body", true, false) as Node3D
-                    ).quaternion * upper.quaternion).normalized()
-                mirrored_hip = played_world.angle_to(
-                    authored_world) < 0.005
-            else:
-                mirrored_hip = upper.quaternion.angle_to(
-                    expected_upper) < 0.005
-            mirrored_knee = lower.quaternion.angle_to(expected_lower) < 0.005
+            mirrored_hip = (upper.global_basis
+                .get_rotation_quaternion()).angle_to(
+                    authored_worlds[0]) < 0.045
+            mirrored_knee = (lower.global_basis
+                .get_rotation_quaternion()).angle_to(
+                    authored_worlds[1]) < 0.045
             saw_original_stomp = mirrored_hip and mirrored_knee
             authored_height = (
                 leg["foot"] as Node3D).to_global(

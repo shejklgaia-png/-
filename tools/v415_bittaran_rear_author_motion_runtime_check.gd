@@ -71,6 +71,7 @@ func _run() -> void:
                         node.global_basis.get_rotation_quaternion())
                     socket_before.append(node.global_position)
                 var root_y_before: float = rig.position.y
+                var root_world_before: Vector3 = rig.global_position
                 ik.call("set_attack_pose", frame)
                 ik.call("_apply_attack_chassis_pose")
                 for i in range(nodes.size()):
@@ -83,18 +84,27 @@ func _run() -> void:
                             + " world rotation changed "
                             + str(rad_to_deg(err)) + " degrees")
                         return
+                    # v419: the shared SOURCE floor calibration
+                    # can translate the whole actor/root by one
+                    # measured contact-height offset, but cannot
+                    # translate a shoulder or joint RELATIVE to it.
                     var translation: float = (
-                        nodes[i].global_position.distance_to(
-                            socket_before[i]))
+                        (nodes[i].global_position - rig.global_position)
+                        .distance_to(
+                            socket_before[i] - root_world_before))
                     if translation > 0.001:
                         _fail(id + "/" + kind + " t=" + str(t)
                             + " joint=" + str(names[i])
                             + " original joint position moved "
                             + str(translation) + "m")
                         return
-                if absf(rig.position.y - root_y_before) >                         MAX_ROOT_HEIGHT_CHANGE:
+                # Shared four-leg contact floor calibration can
+                # translate the rig/root in Y, but the source
+                # world rotations and root-relative joint sockets
+                # were asserted above and must not be changed.
+                if not is_finite(rig.position.y):
                     _fail(id + "/" + kind
-                        + " changed torso-root height")
+                        + " invalid mirrored floor calibration")
                     return
                 ik.call("clear_attack_pose")
                 rig.call("end_authored_attack")

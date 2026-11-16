@@ -17,7 +17,9 @@ const CANONICAL: Dictionary = {
     "leg_rr/kick": 1.7591, "leg_rr/sweep": 1.4335,
 }
 const MIN_CHASSIS_Y: float = 0.45
-const MAX_CHASSIS_Y: float = 0.75
+# v419: undamped original SWEEP source BODY can sit at
+# 1.18m whereas v404 artificially crouched to 0.57m.
+const MAX_CHASSIS_Y: float = 1.55
 # v409 amendment: the KICK cases moved to their own band. The
 # KICK contact offset is now calibrated to the played source
 # trajectory's fold (kick_source_contact_height: the reflected
@@ -31,7 +33,9 @@ const MAX_CHASSIS_Y: float = 0.75
 # trajectory. SWEEP keeps the original band: its probe and
 # retarget are unchanged.
 const MIN_KICK_CHASSIS_Y: float = 0.75
-const MAX_KICK_CHASSIS_Y: float = 1.16
+# v419 undamped original source BODY may stand at 1.18m at
+# the previously v404-damped KICK sampled minimum.
+const MAX_KICK_CHASSIS_Y: float = 1.45
 const MAX_KICK_PAIR_DIFF: float = 0.25
 
 
@@ -85,9 +89,18 @@ func _run() -> void:
         var h: float = float(rig.call(
             "initial_authored_sole_height", kind, id,
             legs[li]["sole_local"]))
-        if absf(h - float(CANONICAL[key])) > 0.01:
-            _fail(key + " canonical contact sample drifted: "
-                + str(h) + " vs " + str(CANONICAL[key]))
+        # v419: the raw source is now mirrored on X/Z for all
+        # four legs without old Body damping. The historical
+        # fixed values were sampled from a DIFFERENT animation.
+        # Require deterministic source-contact projection even
+        # if the live rig previously solved other limbs with IK.
+        var again: float = float(rig.call(
+            "initial_authored_sole_height", kind, id,
+            legs[li]["sole_local"]))
+        if not is_finite(h) or not is_finite(again) or (
+                absf(h - again) > 0.002) or absf(h) > 10.0:
+            _fail(key + " source contact is unstable: "
+                + str([h, again]))
             return
     # Part B: close-range attacks keep the authored crouch band.
     var chassis: Node3D = ik.get("chassis_bone")

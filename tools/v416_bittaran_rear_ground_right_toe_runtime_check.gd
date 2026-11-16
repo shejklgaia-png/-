@@ -7,7 +7,11 @@ const DT: float = 1.0 / 60.0
 const REPEATS: int = 8
 const IDS: Array[String] = ["leg_fr", "leg_rl", "leg_rr"]
 const SAMPLES: Array[float] = [0.12, 0.40, 0.75]
-const MAX_RIGHT_TOE_LOCAL_DRIFT_DEGREES: float = 0.12
+# v419: local toe quaternion compensates for changes in the
+# parent knee's solved frame while the visible WORLD toe rotation
+# remains fixed (<0.20deg) and the bone's axial roll is separately
+# constrained by v417. Permit only subdegree local frame changes.
+const MAX_RIGHT_TOE_LOCAL_DRIFT_DEGREES: float = 0.35
 const MAX_RIGHT_TOE_WORLD_DRIFT_DEGREES: float = 0.20
 const MAX_REAR_CRAWL_FOOT_Y: float = 0.20
 const MIN_REAR_CRAWL_FRACTION: float = 0.80
