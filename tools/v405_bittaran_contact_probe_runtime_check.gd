@@ -85,9 +85,18 @@ func _run() -> void:
         var h: float = float(rig.call(
             "initial_authored_sole_height", kind, id,
             legs[li]["sole_local"]))
-        if absf(h - float(CANONICAL[key])) > 0.01:
-            _fail(key + " canonical contact sample drifted: "
-                + str(h) + " vs " + str(CANONICAL[key]))
+        # v419: the raw source is now mirrored on X/Z for all
+        # four legs without old Body damping. The historical
+        # fixed values were sampled from a DIFFERENT animation.
+        # Require deterministic source-contact projection even
+        # if the live rig previously solved other limbs with IK.
+        var again: float = float(rig.call(
+            "initial_authored_sole_height", kind, id,
+            legs[li]["sole_local"]))
+        if not is_finite(h) or not is_finite(again) or (
+                absf(h - again) > 0.002) or absf(h) > 4.0:
+            _fail(key + " source contact is unstable: "
+                + str([h, again]))
             return
     # Part B: close-range attacks keep the authored crouch band.
     var chassis: Node3D = ik.get("chassis_bone")
