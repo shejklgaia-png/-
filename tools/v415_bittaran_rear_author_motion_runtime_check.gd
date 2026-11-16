@@ -83,9 +83,15 @@ func _run() -> void:
                             + " world rotation changed "
                             + str(rad_to_deg(err)) + " degrees")
                         return
+                    # v419: the shared SOURCE floor calibration
+                    # can translate the whole actor/root by one
+                    # measured contact-height offset, but cannot
+                    # translate a shoulder or joint RELATIVE to it.
                     var translation: float = (
-                        nodes[i].global_position.distance_to(
-                            socket_before[i]))
+                        (nodes[i].global_position - rig.global_position)
+                        .distance_to(
+                            socket_before[i] - Vector3(
+                                0.0, root_y_before, 0.0)))
                     if translation > 0.001:
                         _fail(id + "/" + kind + " t=" + str(t)
                             + " joint=" + str(names[i])
