@@ -65,9 +65,11 @@ func _run() -> void:
                 }
                 rig.call("apply_authored_attack_pose", frame)
                 var world_before: Array[Quaternion] = []
+                var socket_before: Array[Vector3] = []
                 for node in nodes:
                     world_before.append(
                         node.global_basis.get_rotation_quaternion())
+                    socket_before.append(node.global_position)
                 var root_y_before: float = rig.position.y
                 ik.call("set_attack_pose", frame)
                 ik.call("_apply_attack_chassis_pose")
@@ -80,6 +82,15 @@ func _run() -> void:
                             + " joint=" + str(names[i])
                             + " world rotation changed "
                             + str(rad_to_deg(err)) + " degrees")
+                        return
+                    var translation: float = (
+                        nodes[i].global_position.distance_to(
+                            socket_before[i]))
+                    if translation > 0.001:
+                        _fail(id + "/" + kind + " t=" + str(t)
+                            + " joint=" + str(names[i])
+                            + " original joint position moved "
+                            + str(translation) + "m")
                         return
                 if absf(rig.position.y - root_y_before) >                         MAX_ROOT_HEIGHT_CHANGE:
                     _fail(id + "/" + kind
