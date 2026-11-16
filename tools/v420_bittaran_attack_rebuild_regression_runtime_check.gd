@@ -38,6 +38,7 @@ func _run() -> void:
         _fail("missing runtime scene")
         return
     var largest_knee_step: float = 0.0
+    var worst_knee_context: String = ""
     var largest_axis_error: float = 0.0
     var largest_toe_gap: float = 0.0
     var total: int = 0
@@ -83,9 +84,10 @@ func _run() -> void:
                     began = true
                     if phase == "windup":
                         if previous_knee != Vector3.INF:
-                            largest_knee_step = maxf(
-                                largest_knee_step, knee.global_position
-                                .distance_to(previous_knee))
+                            var jump: float = knee.global_position                                 .distance_to(previous_knee)
+                            if jump > largest_knee_step:
+                                largest_knee_step = jump
+                                worst_knee_context = id + "/" + kind                                     + " rep=" + str(rep) + " t="                                     + str(frame.get("time", 0.0))                                     + " from=" + str(previous_knee)                                     + " to=" + str(knee.global_position)                                     + " hip=" + str(upper.global_position)                                     + " foot=" + str(foot.global_position)                                     + " rootY=" + str(rig.position.y)
                         previous_knee = knee.global_position
                     else:
                         previous_knee = Vector3.INF
@@ -139,6 +141,7 @@ func _run() -> void:
                 total += 1
     print("V420_ATTACK_REBUILD_DIAG: cases=" + str(total)
         + " knee_step=" + str(largest_knee_step)
+        + " worst=" + worst_knee_context
         + " axis_error_deg=" + str(largest_axis_error)
         + " max_kick_mesh_y=" + str(largest_toe_gap))
     if largest_knee_step > MAX_WINDUP_KNEE_STEP:
