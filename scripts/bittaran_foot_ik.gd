@@ -2151,54 +2151,90 @@ func advance_ik(delta: float, motion: String) -> void:
                         # UP into free space. The original 3-joint
                         # world reflections were already applied by
                         # the rig before any floor-only IK.
+                        # Pre-empt contact BEFORE the mirrored lower leg
+                        # crosses the arena. v419's binary on/off test
+                        # changed the rear-left SWEEP knee by 1.213m in
+                        # one 60Hz frame at t=.3667. Solve the source
+                        # pose every frame through a broad clearance
+                        # envelope, smoothly transporting the knee pole
+                        # toward the upward, floor-safe bend plane.
+                        # This computation starts from THIS frame's
+                        # untouched source key; no last-frame IK pose
+                        # ever becomes the next source.
+                        var source_upper: Node3D = leg["upper"]
+                        var source_lower: Node3D = leg["lower"]
                         var source_low: float = _leg_mesh_lowest_y(
-                            leg["upper"] as Node3D)
-                        leg["windup_source_low_before"] = source_low
-                        leg["windup_hip_before"] = (leg["upper"] as Node3D).global_position
-                        leg["windup_lift_applied"] = 0.0
-                        if source_low < FLOOR_Y - 0.001:
-                            var source_upper: Node3D = leg["upper"]
-                            var source_lower: Node3D = leg["lower"]
-                            var hip_world: Vector3 = (
-                                source_upper.global_position)
-                            var original_bend: Vector3 = (
-                                source_lower.global_position
-                                - hip_world)
-                            var bend_radius: float = maxf(
-                                original_bend.length(), 0.3)
+                            source_upper)
+                        var hip_world: Vector3 = (
+                            source_upper.global_position)
+                        var original_bend: Vector3 = (
+                            source_lower.global_position - hip_world)
+                        var bend_radius: float = maxf(
+                            original_bend.length(), 0.3)
+                        var contact_lead: float = 0.0
+                        var raw_clearance: float = source_low
+                        const PRECONTACT_ENVELOPE: float = 0.55
+                        if raw_clearance < PRECONTACT_ENVELOPE:
+                            # Cubic smoothstep in clearance starts knee
+                            # correction before actual penetration. The
+                            # short time ramp keeps source frame zero
+                            # unmodified even at a low initial pose.
+                            contact_lead = (1.0 - _cubic(
+                                (raw_clearance + 0.012) /
+                                PRECONTACT_ENVELOPE)) * _cubic(
+                                    t / 0.10)
                             leg["authored_pole_active"] = true
-                            for bend_mix in [0.25, 0.50, 0.75, 1.0]:
+                            leg["authored_pole_point"] = (
+                                hip_world + original_bend.lerp(
+                                    Vector3.UP * bend_radius,
+                                    contact_lead))
+                            leg["last_error"] = _solve(
+                                leg, position, rotation)
+                            source_low = _leg_mesh_lowest_y(
+                                source_upper)
+                            if source_low < FLOOR_Y - 0.001:
+                                # Only a real remaining penetration can
+                                # require more knee fold. Search for the
+                                # smallest extra bend rather than jumping
+                                # directly to the full upright pole.
+                                var min_weight: float = contact_lead
+                                var max_weight: float = 1.0
+                                for correction_step in range(8):
+                                    var candidate: float = (
+                                        min_weight + max_weight) * 0.5
+                                    leg["authored_pole_point"] = (
+                                        hip_world + original_bend.lerp(
+                                            Vector3.UP * bend_radius,
+                                            candidate))
+                                    leg["last_error"] = _solve(
+                                        leg, position, rotation)
+                                    source_low = _leg_mesh_lowest_y(
+                                        source_upper)
+                                    if source_low < FLOOR_Y + 0.002:
+                                        min_weight = candidate
+                                    else:
+                                        max_weight = candidate
                                 leg["authored_pole_point"] = (
                                     hip_world + original_bend.lerp(
                                         Vector3.UP * bend_radius,
-                                        bend_mix))
+                                        max_weight))
                                 leg["last_error"] = _solve(
                                     leg, position, rotation)
                                 source_low = _leg_mesh_lowest_y(
                                     source_upper)
-                                if source_low >= FLOOR_Y + 0.002:
-                                    break
                             if source_low < FLOOR_Y - 0.001:
-                                # In a reach-limited posture no
-                                # knee pole can move the source shin
-                                # completely out of the arena.
-                                # Lift only the minimum residual
-                                # from the attacking limb while
-                                # retaining the exact foot quaternion.
-                                leg["windup_lift_applied"] = FLOOR_Y + 0.003 - source_low
+                                # An unreachable pose is a physical
+                                # constraint. The smallest remaining
+                                # vertical correction preserves source
+                                # bone lengths and the original toe roll.
                                 source_upper.global_position.y += (
                                     FLOOR_Y + 0.003 - source_low)
                             var final_foot_gap: float = (
                                 _foot_mesh_lowest_y(foot)
                                 - FLOOR_Y - 0.003)
-                            # This common final toe contact offset
-                            # is after all knee/limb solutions, so
-                            # the old last-moment whole-leg lift
-                            # cannot leave a hovering fold.
                             if final_foot_gap > 0.0:
                                 foot.global_position.y -= (
-                                    final_foot_gap
-                                    * contact_fraction)
+                                    final_foot_gap * contact_fraction)
                             leg["last_goal"] = foot.to_global(
                                 leg["sole_local"] as Vector3)
                             leg["attack_exit_goal"] = (
