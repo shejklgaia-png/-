@@ -1276,6 +1276,7 @@ func _ground_authored_strike_foot(leg: Dictionary) -> void:
         _foot_mesh_lowest_y(foot) - FLOOR_Y - 0.003)
     if remaining_gap > 0.005:
         foot.global_position.y -= remaining_gap * contact_weight
+    _reconcile_authored_contact_axis(leg)
     # Keep the cached target attached to the actual *achieved*
     # reflected end effector at an anatomical reach limit.
     # Caching an unattainable requested sole target makes the
@@ -1287,6 +1288,31 @@ func _ground_authored_strike_foot(leg: Dictionary) -> void:
     leg["last_error"] = 0.0
     leg["attack_exit_goal"] = achieved_goal
     leg["attack_exit_rotation"] = rotation
+
+
+# v419: the shared final floor guard can move the world toe a
+# small amount after solving its ankle target. Since that toe is
+# child of the shin, preserve the source-derived shin's anatomical
+# axis under the resulting new knee->ankle segment as well.
+# Reorient from the SAME per-tick original Blockbench axis, never
+# compound roll from a prior IK pass; hold the grounded toe's
+# world position/quaternion fixed during this bookkeeping.
+func _reconcile_authored_contact_axis(leg: Dictionary) -> void:
+    var source: Dictionary = leg.get(
+        "rear_kick_axis_source", {})
+    if source.is_empty():
+        return
+    var foot: Node3D = leg["foot"]
+    var lower: Node3D = leg["lower"]
+    var foot_world: Transform3D = foot.global_transform
+    var axis: Vector3 = (
+        foot_world.origin - lower.global_position)
+    if axis.length_squared() <= 0.0000001:
+        return
+    _align_from_authored_axis(
+        lower, source["lower_axis"], axis,
+        source["lower_rotation"])
+    foot.global_transform = foot_world
 
 
 func _solve(leg: Dictionary, sole_goal: Vector3, desired_rotation: Quaternion) -> float:
@@ -3070,6 +3096,7 @@ func advance_ik(delta: float, motion: String) -> void:
                     # amount, as for the windup keyed silhouette.
                     floor_upper.global_position.y += (
                         FLOOR_Y + 0.004 - floor_low)
+                _reconcile_authored_contact_axis(leg)
                 leg["last_goal"] = floor_foot.to_global(
                     leg["sole_local"] as Vector3)
                 leg["attack_exit_goal"] = leg["last_goal"]
