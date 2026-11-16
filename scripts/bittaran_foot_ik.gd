@@ -361,7 +361,7 @@ func set_attack_pose(pose: Dictionary) -> void:
                 var first_height: float = NAN
                 if kind == "kick":
                     probe_sole = legs[LEG_PART_IDS.find(
-                        "leg_fl")]["sole_local"]
+                        "leg_fl")]["source_sole_local"]
                     first_height = float(actor.call(
                         "kick_source_contact_height", attack_id,
                         probe_sole))
@@ -2290,7 +2290,7 @@ func advance_ik(delta: float, motion: String) -> void:
                                 "sample_authored_kick_source",
                                 str(attack_pose.get("id", "")),
                                 clip_t, legs[LEG_PART_IDS.find(
-                                    "leg_fl")]["sole_local"])
+                                    "leg_fl")]["source_sole_local"])
                             if not src.is_empty():
                                 var hip_pos: Vector3 = (
                                     leg["upper"] as Node3D
