@@ -372,6 +372,9 @@ func end_authored_attack() -> void:
     active_authored_attack = ""
     authored_leg_id = ""
     attack_leg_aim_yaw = 0.0
+    kick_mirror_weight = 0.0
+    kick_reach_factor = 1.0
+    authored_contact_probe_active = false
     attack_entry_rotations.clear()
 
 
