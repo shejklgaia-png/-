@@ -2153,6 +2153,9 @@ func advance_ik(delta: float, motion: String) -> void:
                         # the rig before any floor-only IK.
                         var source_low: float = _leg_mesh_lowest_y(
                             leg["upper"] as Node3D)
+                        leg["windup_source_low_before"] = source_low
+                        leg["windup_hip_before"] = (leg["upper"] as Node3D).global_position
+                        leg["windup_lift_applied"] = 0.0
                         if source_low < FLOOR_Y - 0.001:
                             var source_upper: Node3D = leg["upper"]
                             var source_lower: Node3D = leg["lower"]
@@ -2182,6 +2185,7 @@ func advance_ik(delta: float, motion: String) -> void:
                                 # Lift only the minimum residual
                                 # from the attacking limb while
                                 # retaining the exact foot quaternion.
+                                leg["windup_lift_applied"] = FLOOR_Y + 0.003 - source_low
                                 source_upper.global_position.y += (
                                     FLOOR_Y + 0.003 - source_low)
                             var final_foot_gap: float = (
