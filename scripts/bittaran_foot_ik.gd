@@ -8,18 +8,13 @@ const FLOOR_Y: float = 0.0
 # A visible chassis plate must never intersect the arena when the
 # authored low attack pose or leg-break nose-dip lowers the rig.
 const BODY_MESH_FLOOR_CLEARANCE_METERS: float = 0.020
-# Only rear-leg SWEEP: the source's front-mounted sweep trajectory is
-# mirrored correctly, but a rear hip needs extra vertical clearance.
-# Pitch the visual BODY (never the root or planted soles) so its local
-# +Z/rear rises. Smoothly engage during the 0.70s preparation, hold during
-# the entire authored swing, and release throughout the 1.40s recovery.
-const REAR_SWEEP_BODY_LIFT_DEGREES: float = 8.0
-# All rear-leg attacks now use the same rear-high counter-tilt.
-# Preserve the v397 constant for its existing sweep regression contract.
-const REAR_ATTACK_BODY_LIFT_DEGREES: float = REAR_SWEEP_BODY_LIFT_DEGREES
-# KICK's source-trajectory knee solve is more sensitive to hip rotation
-# than STOMP/SWEEP; a moderate extra tail lift preserves authored folding.
-const REAR_KICK_BODY_LIFT_DEGREES: float = 8.0
+# v414: Rear-leg attacks go from the authored Wait backward lean to an
+# equal-magnitude FORWARD lean at full strike/hold. Never stack a relative
+# 8-degree tail lift onto the authored BODY rotation. The Wait local-X
+# angle is measured from rest_chassis_rotation, so asset edits remain valid.
+# Only the pitch is replaced; authored yaw/roll, head aim and limb clips
+# retain their existing owners. Rear attacks never translate the visual
+# BODY/root vertically as a workaround for reaching a contact.
 const STEP_TRIGGER_METERS: float = 0.76
 const STEP_DURATION_SECONDS: float = 0.58
 const STEP_HEIGHT_METERS: float = 0.34
@@ -532,6 +527,13 @@ func _attack_weight() -> float:
         (t - windup - strike - hold) / maxf(recovery, 0.001))
     return incoming * outgoing
 
+func _rear_attack_active() -> bool:
+    return (not attack_pose.is_empty()
+        and str(attack_pose.get("id", "")).begins_with("leg_r")
+        and ["kick", "stomp", "sweep"].has(
+            str(attack_pose.get("kind", ""))))
+
+
 func _apply_attack_chassis_pose() -> void:
     if attack_pose.is_empty() or actor == null or chassis_bone == null:
         return
@@ -549,37 +551,25 @@ func _apply_attack_chassis_pose() -> void:
     var hold: float = float(attack_pose.get("hold", 0.0))
     var yaw_release: float = 1.0 - _cubic(
         (t - swing_end - hold) / maxf(recover, 0.001))
+    var rear_attack: bool = _rear_attack_active()
+    if rear_attack:
+        # A rear strike's FULL posture is the mirror of the neutral
+        # backward lean, not an additive tilt on top of authored keys.
+        # In the Wait-relative local X frame: +rest -> -rest, with the
+        # same exact magnitude. Existing keyed yaw/roll are retained.
+        # The attack weight is zero at both ends and unity at strike.
+        var neutral_pitch: float = rest_chassis_rotation.get_euler().x
+        var keyed_euler: Vector3 = chassis_bone.quaternion.get_euler()
+        keyed_euler.x = lerpf(neutral_pitch, -neutral_pitch, weight)
+        chassis_bone.quaternion = Basis.from_euler(
+            keyed_euler).get_rotation_quaternion().normalized()
     var body_yaw: float = float(attack_pose.get("body_yaw", 0.0))
     chassis_bone.quaternion = (Quaternion(
         Vector3.UP, body_yaw * yaw_release)
         * chassis_bone.quaternion).normalized()
-    if (kind == "kick" or kind == "stomp" or kind == "sweep") and (
-            str(attack_pose.get("id", "")).begins_with("leg_r")):
-        # Front attacks retain their existing forward-weighted authored
-        # tilt. Every rear attack (KICK/parry, STOMP and SWEEP) raises
-        # the tail by the same smooth local-X rear-high correction.
-        # The pose returns to zero during its authored recovery.
-        # This changes neither foot clips nor their planted anchors.
-        var prepare_rear: float = maxf(
-            float(attack_pose.get("windup", 0.70)), 0.001)
-        var end_rear: float = (prepare_rear
-            + float(attack_pose.get("strike", 2.06))
-            + float(attack_pose.get("hold", 0.0)))
-        var recover_rear: float = maxf(
-            float(attack_pose.get("recovery", 1.40)), 0.001)
-        var rise: float = _cubic(t / prepare_rear)
-        var release: float = 1.0 - _cubic(
-            (t - end_rear) / recover_rear)
-        var rear_lift: float = (
-            REAR_KICK_BODY_LIFT_DEGREES
-            if kind == "kick" else REAR_ATTACK_BODY_LIFT_DEGREES)
-        var rear_pitch: float = -deg_to_rad(rear_lift) * rise * release
-        chassis_bone.quaternion = (
-            chassis_bone.quaternion
-            * Quaternion(Vector3.RIGHT, rear_pitch)).normalized()
     var scale_y: float = maxf(
         absf(actor.get_parent().global_basis.get_scale().y), 0.001)
-    if kind == "kick" or kind == "sweep":
+    if not rear_attack and (kind == "kick" or kind == "sweep"):
         var prepare: float = float(attack_pose.get("windup", 0.70))
         var strike: float = float(attack_pose.get("strike", 1.0))
         var ease_in: float = _cubic(t / maxf(prepare, 0.001))
@@ -590,7 +580,7 @@ func _apply_attack_chassis_pose() -> void:
         # or following the moving attacking foot toward the ground.
         actor.position.y += initial_attack_contact_height_world * (
             ease_in * ease_out) / scale_y
-    if kind == "stomp":
+    if kind == "stomp" and not rear_attack:
         # STOMP now plants the entire long toe VERTICALLY, which gives
         # substantially more ground reach than the horizontal v386 toe.
         # The obsolete 8cm forced BODY dip pulled supporting feet off
@@ -935,6 +925,12 @@ func chassis_mesh_lowest_world_y() -> float:
 
 func _keep_chassis_above_ground() -> void:
     if actor == null or chassis_bone == null:
+        return
+    # Rear attacks are rotation-only by design. This floor guard
+    # previously lifted the entire BODY/root when a forward pitched
+    # rear attack brought its nose close to the floor. Preserve the
+    # exact standing Y and leave planted-foot geometry to IK instead.
+    if _rear_attack_active():
         return
     var bottom: float = chassis_mesh_lowest_world_y()
     if not is_finite(bottom):
