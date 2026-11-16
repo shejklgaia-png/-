@@ -98,11 +98,12 @@ func _check_rear_geometry(battle: Node3D) -> bool:
             if absf(float(sample["delta_y"])) > 0.00001:
                 _fail(id + ": BODY root moved vertically at " + str(at))
                 return false
+            # v419: _apply_attack_chassis_pose must leave the
+            # original mirrored BODY completely unchanged: no
+            # manufactured rear forward/backward pitch.
             var expected: float = float(sample["source_pitch"])
-            if id.begins_with("leg_r"):
-                expected = -wait_pitch if at > 0.5 and at < 3.0 else wait_pitch
             if absf(float(sample["pitch"]) - expected) > 0.0005:
-                _fail(id + ": torso pitch not the neutral mirror at "
+                _fail(id + ": unwanted procedural torso pitch at "
                     + str(at) + ": got "
                     + str(rad_to_deg(float(sample["pitch"])))
                     + ", expected " + str(rad_to_deg(expected)))
