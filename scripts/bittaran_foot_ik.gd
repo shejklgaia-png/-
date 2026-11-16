@@ -783,7 +783,15 @@ func _attack_goal(leg: Dictionary, desired_rotation: Quaternion) -> Vector3:
         else:
             var retract: float = _cubic(
                 (t - windup - strike - hold) / maxf(recovery, 0.001))
-            goal = touchdown.lerp(goal, retract)
+            # v414: the no-height-shift rear STOMP can reach the floor
+            # only through its actual solved/end-effector contact point,
+            # not the nominal head-target foot position. Begin recovery
+            # from the recorded visible impact sole to avoid a large
+            # hold->recovery teleport when the BODY pitches back.
+            var return_from: Vector3 = (
+                leg.get("stomp_impact_sole", touchdown)
+                if _rear_attack_active() else touchdown)
+            goal = return_from.lerp(goal, retract)
             # After contact, lift a little while retracting; no foot drag.
             goal.y += 0.18 * sin(PI * retract)
         goal = _reachable_stomp_goal(leg, goal, desired_rotation)
