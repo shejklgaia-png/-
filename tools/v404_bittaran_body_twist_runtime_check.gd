@@ -11,14 +11,10 @@ extends SceneTree
 ## and roll stay bounded during close-range attacks while a real
 ## crouch (pitch) is still present, i.e. the nuance is kept.
 ##
-## Second defect from the same feedback (the KICK itself, worst on
-## the front-right leg with the player in front of the boss): the
-## authored kick always extended to full length, so at close range
-## the foot speared 3.5m past the player (toe tip 5.2m) and held
-## there. The rig now blends the kick pose toward Wait by a reach
-## factor from the hip-to-aim distance. Part B asserts the foot no
-## longer lands metres past a close player, and still reaches a
-## mid-range player.
+## v418 supersedes v404's second contract: the player explicitly
+## requires KICK to play its FULL source reach independent of their
+## distance. Part B now verifies a nearby target is NOT used to trim
+## the animation, even though the toe may legitimately overshoot.
 const DT: float = 1.0 / 60.0
 const MAX_PITCH_DEGREES: float = 22.0
 const MAX_ROLL_DEGREES: float = 14.0
@@ -88,26 +84,20 @@ func _run() -> void:
             _fail("%s %s lost its crouch: peak pitch only %.1f deg "
                 % [leg_id, kind, max_pitch]
                 + "(minimum %.0f)" % MIN_PEAK_PITCH_DEGREES)
-    # Part B: KICK reach at close and mid range (front-right leg,
-    # player in front of the boss, as reported).
+    # Part B: a nearby player's position must NOT shorten the KICK.
+    # Keep the old close-range and mid-range cases, but the old
+    # "do not overshoot" assertion conflicts with v418's full
+    # source animation contract. A close contact is intentionally
+    # passed by the full-length limb; the attack hitbox determines
+    # whether the strike connects.
     var part_ids: Array = ik.get("LEG_PART_IDS")
     var fr_idx: int = part_ids.find("leg_fr")
-    # v409 amendment: the tip limit rises 3.2 -> 3.6. The KICK
-    # now plays the source trajectory, whose foot points its toe
-    # straight along the aim axis like the authored original;
-    # the retarget play held the toe ~30 degrees off-axis, so
-    # its tip projected less. The joint (ankle) limit -- the
-    # leg's actual reach, and the v404 defect's substance
-    # (joint 3.5m / tip 5.2m past the player) -- is unchanged
-    # and still met with margin (measured joint 1.57, tip 3.51).
     var reach_cases: Array = [
-        [Vector3(0.0, 0.0, -2.8), 1.8, 3.6],
-        [Vector3(0.0, 0.0, -4.6), 1.8, 3.6],
+        Vector3(0.0, 0.0, -2.8),
+        Vector3(0.0, 0.0, -4.6),
     ]
     for rc in reach_cases:
-        var spot: Vector3 = rc[0]
-        var max_joint_over: float = rc[1]
-        var max_tip_over: float = rc[2]
+        var spot: Vector3 = rc
         boss.global_position = Vector3.ZERO
         player.global_position = spot
         boss.rotation = Vector3(0.0, atan2(spot.x, spot.z), 0.0)
@@ -150,14 +140,13 @@ func _run() -> void:
                 var tip: Vector3 = foot.global_position \
                     + foot.global_basis * (toe_axis * 0.9715)
                 tip_over = (tip - player.global_position).dot(axis_dir)
-        if joint_over > max_joint_over:
-            _fail("leg_fr kick at %s overshot the player by %.2fm "
-                % [str(spot), joint_over]
-                + "along the aim axis (limit %.1f)" % max_joint_over)
-        if tip_over > max_tip_over:
-            _fail("leg_fr kick at %s toe overshot by %.2fm "
-                % [str(spot), tip_over]
-                + "(limit %.1f)" % max_tip_over)
+        if spot.z > -3.0 and joint_over < 2.0:
+            _fail("leg_fr source KICK was shortened by nearby "
+                + "player despite v418 full-range contract: "
+                + str(joint_over) + "m past the target")
+        if absf(float(battle.get("bittaran_rig")
+                .get("kick_reach_factor")) - 1.0) > 0.00001:
+            _fail("leg_fr source KICK was distance-scaled")
         if spot.z < -4.0 and joint_over < -1.2:
             _fail("leg_fr kick at %s fell short: joint ended %.2fm "
                 % [str(spot), joint_over]
