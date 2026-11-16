@@ -3200,7 +3200,14 @@ func advance_ik(delta: float, motion: String) -> void:
     # error in the persistent ground correction on every attack.
     # The preparation itself lands all four soles on exact Wait
     # contacts, so reconciliation safely resumes once it hands off.
-    if not attacking and not attack_stance_active and planted_count >= 2 and min_planted_height != INF             and absf(min_planted_height) > GROUND_HOVER_THRESHOLD_METERS:
+    # During the 0.60s attack-interruption-to-DOWN anticipation, only
+    # the physical BODY floor guard may move visual-root Y. Reconciling
+    # an active former striker's no-longer-planted sole here pulls the
+    # BODY 2-4cm through the arena after the guard already ran.
+    if not attacking and not attack_stance_active \
+            and not attack_down_windup_active() \
+            and planted_count >= 2 and min_planted_height != INF \
+            and absf(min_planted_height) > GROUND_HOVER_THRESHOLD_METERS:
         var correction: float = clampf(-min_planted_height,
             -GROUND_CORRECTION_MAX_PER_TICK_METERS,
             GROUND_CORRECTION_MAX_PER_TICK_METERS)
