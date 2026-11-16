@@ -83,6 +83,19 @@ func _run() -> void:
                         continue
                     began = true
                     if phase == "windup":
+                        if id == "leg_rl" and kind == "sweep"                                 and rep == 2 and float(
+                                frame.get("time", 0.0)) > 0.29                                 and float(frame.get("time", 0.0)) < 0.43:
+                            print("V420_WINDUP_PROBE t=" + str(
+                                frame.get("time", 0.0))
+                                + " raw_low=" + str(
+                                leg.get("windup_source_low_before", NAN))
+                                + " hip_raw=" + str(
+                                leg.get("windup_hip_before", Vector3.ZERO))
+                                + " lift=" + str(
+                                leg.get("windup_lift_applied", NAN))
+                                + " rendered_hip=" + str(
+                                upper.global_position)
+                                + " knee=" + str(knee.global_position))
                         if previous_knee != Vector3.INF:
                             var jump: float = knee.global_position                                 .distance_to(previous_knee)
                             if jump > largest_knee_step:
