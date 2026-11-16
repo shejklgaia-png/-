@@ -50,7 +50,9 @@ func _run() -> void:
         var leg: Dictionary = ik.get("legs")[leg_idx]
         var foot: Node3D = leg["foot"]
         var reference: Dictionary = {}
+        var time_reference: Dictionary = {}
         var trace: Array[String] = []
+        var geometry: Array[String] = []
         for rep in range(REPEATS):
             boss.global_transform = fixed_root
             player.global_position = fixed_player
@@ -66,6 +68,10 @@ func _run() -> void:
             var peak_toe_world: float = 0.0
             var finished: bool = false
             var started: bool = false
+            var biggest_time_local: float = 0.0
+            var biggest_time_world: float = 0.0
+            var biggest_time_at: float = 0.0
+            var checked_times: Dictionary = {}
             for tick in range(520):
                 battle.set("player_hp", 9999.0)
                 battle.call("_advance_target_motion", DT)
@@ -80,6 +86,31 @@ func _run() -> void:
                     continue
                 started = true
                 var phase: String = str(frame.get("phase", ""))
+                if id == "leg_fr" and phase != "stance":
+                    for requested in [0.25, 0.55, 0.71, 0.95, 1.2,
+                            1.5, 1.9, 2.8, 3.25, 3.50, 3.7]:
+                        var time_key: String = str(requested)
+                        var real_t: float = float(
+                            frame.get("time", -100.0))
+                        if checked_times.has(time_key) or                                 absf(real_t - float(requested)) >                                 DT * 0.52:
+                            continue
+                        checked_times[time_key] = true
+                        var rot_local: Quaternion = foot.quaternion
+                        var rot_world: Quaternion = (
+                            foot.global_basis.get_rotation_quaternion())
+                        if rep == 0:
+                            time_reference[time_key] = [rot_local, rot_world]
+                        elif time_reference.has(time_key):
+                            var source: Array = time_reference[time_key]
+                            var diff_local: float = rad_to_deg(
+                                rot_local.angle_to(source[0]))
+                            var diff_world: float = rad_to_deg(
+                                rot_world.angle_to(source[1]))
+                            if diff_local > biggest_time_local:
+                                biggest_time_local = diff_local
+                                biggest_time_at = real_t
+                            biggest_time_world = maxf(
+                                biggest_time_world, diff_world)
                 if phase != "strike" and phase != "hold":
                     continue
                 var clip_t: float = float(frame.get(
@@ -92,6 +123,28 @@ func _run() -> void:
                         crawl += 1
                     worst_height = maxf(worst_height, low)
                     lowest_height = minf(lowest_height, low)
+                    if rep == 0 and absf(clip_t - 0.48) < DT * 0.55:
+                        var hip_node: Node3D = leg["upper"]
+                        var knee_node: Node3D = leg["lower"]
+                        var knee_world: Vector3 = knee_node.global_position
+                        var toe_world: Vector3 = foot.global_position
+                        var hip_world: Vector3 = hip_node.global_position
+                        var foot_scale: Vector3 = (
+                            foot.global_basis.get_scale())
+                        var desired_foot_goal: Vector3 = (
+                            toe_world + Vector3.DOWN
+                            * maxf(low - 0.025, 0.0))
+                        var reach: float = hip_world.distance_to(
+                            knee_world) + knee_world.distance_to(toe_world)
+                        var needed: float = hip_world.distance_to(
+                            desired_foot_goal)
+                        geometry.append(id + " hipY="
+                            + str(snappedf(hip_world.y, 0.01))
+                            + " ankleY=" + str(snappedf(toe_world.y, 0.01))
+                            + " reach=" + str(snappedf(reach, 0.01))
+                            + " need=" + str(snappedf(needed, 0.01))
+                            + " floorGap=" + str(snappedf(low, 0.01))
+                            + " scale=" + str(foot_scale))
                 for target_t in SAMPLES:
                     var label: String = str(target_t)
                     if observed.has(label) or (
@@ -126,7 +179,11 @@ func _run() -> void:
                 peak_toe_world, 0.01)) + "deg,floor="
                 + str(snappedf(crawl_fraction, 0.01))
                 + ",highest=" + str(snappedf(worst_height, 0.01))
-                + ",lowest=" + str(snappedf(lowest_height, 0.01)))
+                + ",lowest=" + str(snappedf(lowest_height, 0.01))
+                + ",wind/recover-toe="
+                + str(snappedf(biggest_time_local, 0.01))
+                + "/" + str(snappedf(biggest_time_world, 0.01))
+                + "@" + str(snappedf(biggest_time_at, 0.01)))
             if id == "leg_fr" and (
                     peak_toe_local > MAX_RIGHT_TOE_LOCAL_DRIFT_DEGREES
                     or peak_toe_world > MAX_RIGHT_TOE_WORLD_DRIFT_DEGREES):
@@ -138,6 +195,8 @@ func _run() -> void:
                     + " crawl fraction " + str(crawl_fraction)
                     + " peak gap=" + str(worst_height))
         print("GODOT_V416_DIAG " + id + " " + " | ".join(trace))
+        print("GODOT_V416_GEOMETRY " + id + " "
+            + " | ".join(geometry))
     if not errors.is_empty():
         _fail(" | ".join(errors))
         return
