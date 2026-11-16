@@ -38,6 +38,8 @@ func _run() -> void:
     if rig == null or brain == null or ik == null or boss == null             or player == null:
         _fail("missing real battle components")
         return
+    var reports: Array[String] = []
+    var violations: int = 0
     for id in LEG_IDS:
         battle.call("_reset_target_after_respawn")
         battle.set("target_move_enabled", true)
@@ -57,6 +59,8 @@ func _run() -> void:
         var baseline_sole: Vector3 = Vector3.INF
         var ix: int = ik.LEG_PART_IDS.find(id)
         for rep in range(REPEAT):
+            var repeat_peak: float = 0.0
+            var repeat_peak_part: String = ""
             if not bool(brain.call("force_start_with_stance", id, "kick")):
                 _fail(id + " unable to start repeat " + str(rep))
                 return
@@ -105,16 +109,18 @@ func _run() -> void:
                             var limit: float = (
                                 MAX_REPEAT_FOOT_ANGLE_DEGREES
                                 if i == 3 else MAX_REPEAT_LOCAL_ANGLE_DEGREES)
+                            if err > repeat_peak:
+                                repeat_peak = err
+                                repeat_peak_part = str(i) + "@" + key
                             if err > limit:
-                                _fail(id + " repeat=" + str(rep)
-                                    + " source_t=" + key
-                                    + " bone=" + str(i)
-                                    + " drift=" + str(err) + " degrees")
-                                return
+                                violations += 1
             if not ended or seen.size() != CLIP_SAMPLES.size():
                 _fail(id + " repeat=" + str(rep)
                     + " incomplete kick / source samples=" + str(seen))
                 return
+            reports.append(id + "#" + str(rep)
+                + ": " + str(snappedf(repeat_peak, 0.01))
+                + "deg [" + repeat_peak_part + "]")
             var state: Dictionary = ik.get("legs")[ix]
             if state.has("sole_local_saved") or state.has(
                     "sole_local_traj") or state.has("authored_pole_point"):
@@ -128,6 +134,11 @@ func _run() -> void:
                 _fail(id + " contact sample drifted at repeat "
                     + str(rep))
                 return
+    if violations > 0:
+        _fail("repeat rotations exceeded unchanged-source contract ("
+            + str(violations) + " mismatched samples): "
+            + " | ".join(reports))
+        return
     print("GODOT_V415_BITTARAN_KICK_REPEAT_PASS: "
         + "4 legs x 6 consecutive real kick attacks")
     quit(0)
