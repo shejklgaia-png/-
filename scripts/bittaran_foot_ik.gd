@@ -572,6 +572,53 @@ func _apply_attack_chassis_pose() -> void:
     chassis_bone.quaternion = (
         Quaternion(Vector3.UP, body_yaw * yaw_release)
         * chassis_bone.quaternion).normalized()
+    # A STOMP must actually be reachable at the ground contact.
+    # Use the same geometric support-height correction for ALL
+    # four corners. There is no rear-specific pitch or foot-warp.
+    if str(attack_pose.get("kind", "")) == "stomp":
+        var i: int = LEG_PART_IDS.find(
+            str(attack_pose.get("id", "")))
+        var windup: float = float(attack_pose.get("windup", 1.25))
+        var strike: float = float(attack_pose.get("strike", 0.25))
+        var hold: float = float(attack_pose.get("hold", 1.50))
+        if i >= 0 and t >= windup:
+            var leg: Dictionary = legs[i]
+            var aim: Vector3 = attack_pose.get(
+                "stomp_aim", Vector3.INF)
+            if aim != Vector3.INF:
+                var hip: Vector3 = (
+                    leg["upper"] as Node3D).global_position
+                var knee: Vector3 = (
+                    leg["lower"] as Node3D).global_position
+                var foot: Node3D = leg["foot"]
+                var full_length: float = (
+                    hip.distance_to(knee)
+                    + knee.distance_to(foot.global_position)
+                    - IK_REACH_MARGIN_METERS)
+                var toe_rotation: Quaternion = _attack_rotation(leg)
+                var toe_offset: Vector3 = (
+                    Basis(toe_rotation).scaled(
+                        foot.global_basis.get_scale())
+                    * (leg["stomp_tip_local"] as Vector3))
+                var ankle_goal: Vector3 = Vector3(
+                    aim.x, FLOOR_Y, aim.z) - toe_offset
+                var lateral: Vector3 = ankle_goal - hip
+                lateral.y = 0.0
+                var vertical_reach: float = sqrt(maxf(
+                    full_length * full_length
+                    - lateral.length_squared(), 0.0))
+                var shortage: float = maxf(
+                    hip.y - ankle_goal.y - vertical_reach, 0.0)
+                var approach: float = _cubic(
+                    (t - windup) / maxf(strike, 0.001))
+                var depart: float = 1.0 - _cubic(
+                    (t - windup - strike - hold)
+                    / maxf(recovery, 0.001))
+                var scale_y: float = maxf(absf(
+                    actor.get_parent().global_basis.get_scale().y),
+                    0.001)
+                actor.position.y -= minf(
+                    shortage + 0.035, 2.2) * approach * depart / scale_y
 
 
 # v418: lower the BODY's attacking REAR CORNER, not the entire
@@ -946,8 +993,7 @@ func _attack_goal(leg: Dictionary, desired_rotation: Quaternion) -> Vector3:
             # from the recorded visible impact sole to avoid a large
             # hold->recovery teleport when the BODY pitches back.
             var return_from: Vector3 = (
-                leg.get("stomp_impact_sole", touchdown)
-                if _rear_attack_active() else touchdown)
+                leg.get("stomp_impact_sole", touchdown))
             goal = return_from.lerp(goal, retract)
             # After contact, lift a little while retracting; no foot drag.
             goal.y += 0.18 * sin(PI * retract)
@@ -957,8 +1003,7 @@ func _attack_goal(leg: Dictionary, desired_rotation: Quaternion) -> Vector3:
         # about a metre instantly. Keep the exact saved contact/return
         # goal and fade that temporary end-effector offset in the solver
         # below; never move the BODY root to resolve it.
-        if not (_rear_attack_active()
-                and t > windup + strike + hold):
+        if t <= windup + strike + hold:
             goal = _reachable_stomp_goal(leg, goal, desired_rotation)
     elif kind == "kick":
         # Legacy procedural fallback for tests that do not request the authored clip.
@@ -2500,7 +2545,7 @@ func advance_ik(delta: float, motion: String) -> void:
         # This is the same toe-only contact correction already used in
         # STOMP hold, now decaying with the return goal instead of
         # snapping upward on the first recovery tick.
-        if attacking and attacking_this_leg and _rear_attack_active()                 and str(attack_pose.get("kind", "")) == "stomp":
+        if attacking and attacking_this_leg and str(attack_pose.get("kind", "")) == "stomp":
             var stomp_recovery_start: float = (
                 float(attack_pose.get("windup", 1.25))
                 + float(attack_pose.get("strike", 0.25))
