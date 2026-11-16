@@ -157,6 +157,16 @@ func _run() -> void:
             if max_root_drift > MAX_ROOT_HEIGHT_DELTA:
                 _fail(id + "/" + kind + " moved entire rig root")
                 return
+            # This fixture deliberately places the KICK/STOMP
+            # contact beyond the default rear socket's unpitched
+            # floor-reachable Y. A legitimate reverse-foot solve
+            # MUST change the rear BODY corner, not just move a toe
+            # or silently leave the default pitch unchanged.
+            if (kind == "kick" or kind == "stomp") and (
+                    max_delta < MIN_CORNER_CORRECTION):
+                _fail(id + "/" + kind + " never adjusted its "
+                    + "rear attachment corner from foot contact")
+                return
             if max_delta > 0.01 and checked_socket <= 0:
                 _fail(id + "/" + kind
                     + " pitched BODY without a rear contact socket")
