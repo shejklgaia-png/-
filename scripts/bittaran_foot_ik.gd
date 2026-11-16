@@ -2308,11 +2308,12 @@ func advance_ik(delta: float, motion: String) -> void:
                         # point are the rig's entry snapshot under
                         # the turned Body, metres off the plant.
                         var src: Dictionary = actor.call(
-                            "sample_authored_sweep_pose",
+                            "sample_authored_sweep_source",
                             str(attack_pose.get("id", "")),
                             float(attack_pose.get(
                                 "authored_time", 0.0)),
-                            leg["sole_local"])
+                            legs[LEG_PART_IDS.find(
+                                "leg_fl")]["source_sole_local"])
                         if not src.is_empty():
                             var hip_pos: Vector3 = (
                                 leg["upper"] as Node3D).global_position
