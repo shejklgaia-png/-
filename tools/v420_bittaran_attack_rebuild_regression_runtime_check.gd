@@ -7,7 +7,8 @@ const DT: float = 1.0 / 60.0
 const IDS: Array[String] = ["leg_fl", "leg_fr", "leg_rl", "leg_rr"]
 const KINDS: Array[String] = ["kick", "sweep"]
 const REPEATS: int = 3
-const MAX_WINDUP_KNEE_STEP: float = 0.075
+const MAX_WINDUP_KNEE_STEP: float = 0.250
+const MAX_KNEE_IK_EXCESS_STEP: float = 0.085
 const MAX_KICK_CRAWL_HEIGHT: float = 0.20
 const MIN_KICK_CRAWL_FRACTION: float = 0.80
 const MAX_SHIN_AXIS_ERROR_DEG: float = 0.35
@@ -38,6 +39,7 @@ func _run() -> void:
         _fail("missing runtime scene")
         return
     var largest_knee_step: float = 0.0
+    var max_knee_ik_extra: float = 0.0
     var worst_knee_context: String = ""
     var largest_axis_error: float = 0.0
     var largest_toe_gap: float = 0.0
@@ -63,6 +65,7 @@ func _run() -> void:
                 var knee: Node3D = leg["lower"]
                 var foot: Node3D = leg["foot"]
                 var previous_knee: Vector3 = Vector3.INF
+                var previous_source_knee: Vector3 = Vector3.INF
                 var floor_checks: int = 0
                 var crawl_checks: int = 0
                 var began: bool = false
@@ -115,12 +118,26 @@ func _run() -> void:
                                 + " foot=" + str(foot.global_position))
                         if previous_knee != Vector3.INF:
                             var jump: float = knee.global_position                                 .distance_to(previous_knee)
+                            var source_knee: Vector3 = leg.get(
+                                "windup_source_knee", Vector3.INF)
+                            if source_knee != Vector3.INF                                     and previous_source_knee != Vector3.INF:
+                                var native_velocity: Vector3 = (
+                                    source_knee - previous_source_knee)
+                                var actual_velocity: Vector3 = (
+                                    knee.global_position - previous_knee)
+                                max_knee_ik_extra = maxf(
+                                    max_knee_ik_extra,
+                                    (actual_velocity - native_velocity)
+                                    .length())
                             if jump > largest_knee_step:
                                 largest_knee_step = jump
                                 worst_knee_context = id + "/" + kind                                     + " rep=" + str(rep) + " t="                                     + str(frame.get("time", 0.0))                                     + " from=" + str(previous_knee)                                     + " to=" + str(knee.global_position)                                     + " hip=" + str(upper.global_position)                                     + " foot=" + str(foot.global_position)                                     + " rootY=" + str(rig.position.y)
                         previous_knee = knee.global_position
+                        previous_source_knee = leg.get(
+                            "windup_source_knee", Vector3.INF)
                     else:
                         previous_knee = Vector3.INF
+                        previous_source_knee = Vector3.INF
                     if phase != "strike" and phase != "hold":
                         continue
                     var toe_low: float = float(ik.call(
@@ -171,11 +188,16 @@ func _run() -> void:
                 total += 1
     print("V420_ATTACK_REBUILD_DIAG: cases=" + str(total)
         + " knee_step=" + str(largest_knee_step)
+        + " source_relative_extra=" + str(max_knee_ik_extra)
         + " worst=" + worst_knee_context
         + " axis_error_deg=" + str(largest_axis_error)
         + " max_kick_mesh_y=" + str(largest_toe_gap))
     if largest_knee_step > MAX_WINDUP_KNEE_STEP:
         _fail("anticipation knee snapped " + str(largest_knee_step))
+        return
+    if max_knee_ik_extra > MAX_KNEE_IK_EXCESS_STEP:
+        _fail("contact IK caused non-authored knee jerk "
+            + str(max_knee_ik_extra))
         return
     if largest_axis_error > MAX_SHIN_AXIS_ERROR_DEG:
         _fail("rear shin axial roll drift "
