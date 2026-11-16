@@ -1234,6 +1234,77 @@ func _aim_rotated(point: Vector3, hip: Vector3,
     return hip + yaw_q * (point - hip)
 
 
+# v416: rear KICKs follow the original source trajectory, but the
+# independently forward-pitched chassis keeps its height. Even after
+# preserving the authored rear shoulder socket, the mirrored mid-strike
+# toe can hover 0.94m/1.19m above the arena: the copied source path
+# attempts to reach farther horizontally than the rear two-bone limb
+# can reach at the floor. Do not move BODY, distort toe rotation or
+# accumulate a new IK offset. Re-solve the original trajectory's sole
+# along the same world XZ bearing at the mesh-ground height, shortening
+# its horizontal radius ONLY by the minimum needed for anatomical
+# reach. Apply from clip 0.18, full at 0.32..0.62, and taper to zero
+# at clip 0.85 so the original hold/recovery handover stays smooth.
+func _ground_rear_kick_foot(leg: Dictionary) -> void:
+    if not _rear_attack_active() or str(
+            attack_pose.get("kind", "")) != "kick":
+        return
+    var t: float = float(attack_pose.get(
+        "time", 0.0))
+    var windup: float = float(attack_pose.get(
+        "windup", 0.70))
+    if t < windup:
+        return
+    var clip_t: float = float(attack_pose.get(
+        "authored_time", 0.0))
+    var contact_weight: float = (
+        _cubic((clip_t - 0.18) / 0.14)
+        * (1.0 - _cubic((clip_t - 0.62) / 0.23)))
+    if contact_weight <= 0.0001:
+        return
+    var upper: Node3D = leg["upper"]
+    var lower: Node3D = leg["lower"]
+    var foot: Node3D = leg["foot"]
+    var visible_low: float = _foot_mesh_lowest_y(foot)
+    var gap: float = maxf(0.0, visible_low - (FLOOR_Y + 0.025))
+    if gap <= 0.004:
+        return
+    var rotation: Quaternion = leg["last_rotation"]
+    var new_goal: Vector3 = (
+        leg["last_goal"] as Vector3) - Vector3.UP * (
+            gap * contact_weight)
+    var foot_offset: Vector3 = (
+        Basis(rotation).scaled(foot.global_basis.get_scale())
+        * (leg["sole_local"] as Vector3))
+    var hip: Vector3 = upper.global_position
+    var delta: Vector3 = new_goal - foot_offset - hip
+    # After the authored trajectory was mirrored to this limb,
+    # the knee and shin have EXACTLY these physical lengths.
+    # Respect them rather than letting _solve silently clamp the
+    # desired FLOOR goal, which leaves the ankle high again.
+    var reach: float = (
+        hip.distance_to(lower.global_position)
+        + lower.global_position.distance_to(foot.global_position)
+        - IK_REACH_MARGIN_METERS)
+    var horizontal: Vector2 = Vector2(delta.x, delta.z)
+    var allowed: float = sqrt(maxf(
+        reach * reach - delta.y * delta.y, 0.0))
+    if horizontal.length() > allowed and horizontal.length() > 0.0001:
+        var adjusted: Vector2 = (
+            horizontal.normalized() * maxf(0.0, allowed - 0.004))
+        new_goal.x += adjusted.x - horizontal.x
+        new_goal.z += adjusted.y - horizontal.y
+    # This second solve starts from the same authored key every
+    # frame (rig.apply_pose), uses a fresh source pole and only
+    # changes the attacking leg. The shoulder stays at its original
+    # Blockbench socket; BODY/root Y and supporting soles do not move.
+    leg["last_error"] = _solve(leg, new_goal, rotation)
+    # Preserve the final grounded goal for a continuous poststrike
+    # blend if the source timeline ever ends inside this window.
+    leg["attack_exit_goal"] = new_goal
+    leg["attack_exit_rotation"] = rotation
+
+
 
 
 func _solve(leg: Dictionary, sole_goal: Vector3, desired_rotation: Quaternion) -> float:
@@ -2872,6 +2943,9 @@ func advance_ik(delta: float, motion: String) -> void:
                         FLOOR_Y + 0.003 - clip_min)
                 leg["last_goal"] = clip_foot.to_global(
                     leg["sole_local"] as Vector3)
+        if attacking and attacking_this_leg and str(
+                attack_pose.get("kind", "")) == "kick":
+            _ground_rear_kick_foot(leg)
     if stepping_pair != -1 and done:
         stepping_pair = -1
         cooldown = STEP_COOLDOWN_SECONDS
