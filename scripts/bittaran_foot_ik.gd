@@ -48,6 +48,12 @@ const RECOVERY_FOOT_CATCHUP_THRESHOLD_METERS: float = 0.16
 const MAX_TELEPORT_METERS: float = 1.50
 const MAX_YAW_SNAP_RADIANS: float = 1.4
 const IK_REACH_MARGIN_METERS: float = 0.002
+# v418: the rear BODY corner pitches around the FRONT attachment edge
+# to make an authored attacking foot's FLOOR contact reachable. The
+# actor/root height is never changed; leg lengths stay physical.
+const REAR_CORNER_MAX_PITCH_RADIANS: float = 0.58
+const REAR_CORNER_MAX_SINK_METERS: float = 1.75
+const REAR_CORNER_MIN_SOURCE_CLEARANCE: float = 0.025
 # v406: KICK strike shortening, calibrated with bittaran_rig's
 # KICK_REACH_BASE_METERS / KICK_REACH_PER_FACTOR (the target
 # hip->foot XZ length is BASE + reach_factor * PER, i.e. the
@@ -180,6 +186,9 @@ var break_anchor: Vector3 = Vector3.ZERO
 var break_slide: Vector3 = Vector3.ZERO
 var chassis_bone: Node3D
 var rest_chassis_rotation: Quaternion = Quaternion.IDENTITY
+# Actual additive local X pitch after foot-contact inverse-reach.
+# Zero outside authored rear attacks and reset on cancellation.
+var rear_corner_pitch_delta: float = 0.0
 var head_mesh_for_height: MeshInstance3D
 var break_head_start_y: float = 0.0
 var collision_parts: Node3D
@@ -417,6 +426,7 @@ func clear_attack_pose() -> void:
     # Clear even when the attack is cancelled INSIDE a damage callback,
     # before the next normal set_attack_pose(empty) frame.
     initial_attack_contact_height_world = 0.0
+    rear_corner_pitch_delta = 0.0
     gait_sway_roll = 0.0
     gait_sway_pitch = 0.0
     gait_dip = 0.0
@@ -649,6 +659,210 @@ func _apply_attack_chassis_pose() -> void:
     # KICK/SWEEP crouch/roll are now entirely driven by the user-authored
     # BODY keyframe, reached over 0.70s. Never stack the old procedural
     # crouch/67-degree roll on top of the user's exact keyframed posture.
+
+# v418: lower the BODY's attacking REAR CORNER, not the entire
+# target/root and not a detached end effector. All rear attacks
+# determine the required socket Y from a ground-contact ankle target
+# and their actual two-link lengths. A limited local BODY pitch around
+# the world-height-fixed FRONT attachment edge moves BOTH rear BODY
+# corners naturally. The IK then re-solves the 3 other planted feet.
+# This operates on the fresh keyed original pose, not a previous
+# frame's IK; the attack shoulder's original WORLD rotation is restored
+# after the pitch to avoid introducing any extra axial roll.
+func _apply_rear_corner_pitch(delta_pitch: float,
+        reference_pitch: Quaternion, reference_position: Vector3,
+        front_corner_height: float, rear_index: int) -> float:
+    chassis_bone.quaternion = (
+        reference_pitch * Quaternion(Vector3.RIGHT, delta_pitch)
+        ).normalized()
+    chassis_bone.global_position = reference_position
+    var front_y: float = (
+        (legs[LEG_PART_IDS.find("leg_fl")]["upper"] as Node3D
+            ).global_position.y
+        + (legs[LEG_PART_IDS.find("leg_fr")]["upper"] as Node3D
+            ).global_position.y) * 0.5
+    chassis_bone.global_position.y += front_corner_height - front_y
+    return (legs[rear_index]["upper"] as Node3D).global_position.y
+
+
+func _adjust_rear_chassis_corner_to_contact() -> void:
+    if not _rear_attack_active() or not bool(
+            attack_pose.get("authored", false)) or chassis_bone == null:
+        return
+    var id: String = str(attack_pose.get("id", ""))
+    var kind: String = str(attack_pose.get("kind", ""))
+    var i: int = LEG_PART_IDS.find(id)
+    if i < 0:
+        return
+    var leg: Dictionary = legs[i]
+    var upper: Node3D = leg["upper"]
+    var lower: Node3D = leg["lower"]
+    var foot: Node3D = leg["foot"]
+    var t: float = float(attack_pose.get("time", 0.0))
+    var windup: float = float(attack_pose.get("windup", 0.7))
+    var strike: float = float(attack_pose.get("strike", 1.0))
+    var hold: float = float(attack_pose.get("hold", 0.0))
+    var recovery: float = maxf(float(
+        attack_pose.get("recovery", 0.6)), 0.001)
+    var clip_t: float = float(attack_pose.get("authored_time", 0.0))
+    var weight: float = 0.0
+    if kind == "kick":
+        # Contact follows the source clip's ground-crawling outbound
+        # section, not the player's distance and not the hold phase.
+        weight = (_cubic((clip_t - 0.18) / 0.14)
+            * (1.0 - _cubic((clip_t - 0.62) / 0.23)))
+        if t < windup:
+            weight = 0.0
+    elif kind == "sweep":
+        weight = (_cubic((t - windup) / 0.36)
+            * (1.0 - _cubic(
+                (t - windup - strike - hold) / recovery)))
+    elif kind == "stomp":
+        # Begin tipping the rear chassis while the foot moves down,
+        # keep the grounded impact pause, then restore in recovery.
+        weight = (_cubic((t - windup + 0.18) / (
+            0.18 + maxf(strike, 0.01)))
+            * (1.0 - _cubic(
+                (t - windup - strike - hold) / recovery)))
+    if weight <= 0.0001:
+        return
+
+    var hip: Vector3 = upper.global_position
+    var knee: Vector3 = lower.global_position
+    var ankle: Vector3 = foot.global_position
+    var ankle_contact: Vector3 = ankle
+    if kind == "kick" and actor.has_method(
+            "sample_authored_kick_source"):
+        var source: Dictionary = actor.call(
+            "sample_authored_kick_source", id,
+            clampf(clip_t, 0.0, 1.0),
+            legs[LEG_PART_IDS.find("leg_fl")][
+                "source_sole_local"])
+        if not source.is_empty():
+            var aim_q: Quaternion = Quaternion(Vector3.UP,
+                float(actor.get("attack_leg_aim_yaw")))
+            var source_foot: Vector3 = (
+                hip + aim_q * ((source["foot"] as Vector3) - hip))
+            var source_sole: Vector3 = (
+                hip + aim_q * ((source["sole"] as Vector3) - hip))
+            var source_rot: Quaternion = (
+                aim_q * (source["rotation"] as Quaternion)).normalized()
+            var clearance: float = _trajectory_mesh_clearance(
+                leg, source_foot, source_rot, source_sole)
+            ankle_contact = source_foot
+            ankle_contact.y += (
+                FLOOR_Y + REAR_CORNER_MIN_SOURCE_CLEARANCE
+                - (source_sole.y - clearance))
+    elif kind == "stomp":
+        var aim: Vector3 = attack_pose.get(
+            "stomp_aim", Vector3.INF)
+        if aim == Vector3.INF:
+            aim = leg["anchor"]
+        var foot_rot: Quaternion = leg["anchor_rotation"]
+        var forward: Vector3 = Basis(foot_rot).z
+        forward.y = 0.0
+        if forward.length_squared() < 0.000001:
+            forward = actor.global_basis.z
+            forward.y = 0.0
+        forward = forward.normalized()
+        var upright: Quaternion = Basis.looking_at(
+            -forward, Vector3.UP).get_rotation_quaternion()
+        var contact_rot: Quaternion = _stomp_contact_rotation(
+            leg, upright, forward)
+        var toe: Vector3 = (
+            Basis(contact_rot).scaled(foot.global_basis.get_scale())
+            * (leg["stomp_tip_local"] as Vector3))
+        ankle_contact = Vector3(
+            aim.x, FLOOR_Y + REAR_CORNER_MIN_SOURCE_CLEARANCE,
+            aim.z) - toe
+    else:
+        ankle_contact.y += (
+            FLOOR_Y + REAR_CORNER_MIN_SOURCE_CLEARANCE
+            - _foot_mesh_lowest_y(foot))
+
+    # Inverse two-link geometry: at the chosen actual floor contact,
+    # the rear torso's socket Y may be no higher than this limit.
+    # A player who stands far beyond the limb cannot increase its
+    # physical reach: horizontal travel still comes from the clip.
+    var physical_length: float = (
+        hip.distance_to(knee) + knee.distance_to(ankle)
+        - IK_REACH_MARGIN_METERS - 0.012)
+    var xz: Vector2 = Vector2(
+        ankle_contact.x - hip.x, ankle_contact.z - hip.z)
+    var max_socket_y: float = ankle_contact.y + sqrt(maxf(
+        physical_length * physical_length
+        - xz.length_squared(), 0.0))
+    var sink: float = minf(maxf(hip.y - max_socket_y, 0.0),
+        REAR_CORNER_MAX_SINK_METERS) * weight
+    if sink < 0.002:
+        return
+
+    var original_body_rotation: Quaternion = chassis_bone.quaternion
+    var original_body_pos: Vector3 = chassis_bone.global_position
+    var source_shoulder_rotation: Quaternion = (
+        upper.global_basis.get_rotation_quaternion())
+    var front_corner_y: float = (
+        (legs[LEG_PART_IDS.find("leg_fl")]["upper"] as Node3D
+            ).global_position.y
+        + (legs[LEG_PART_IDS.find("leg_fr")]["upper"] as Node3D
+            ).global_position.y) * 0.5
+
+    # Search BOTH signs in the BODY-local pitch axis: imported rigs
+    # can face an inverted world direction. Choose the sign that
+    # actually lowers the attacked rear corner at a fixed front edge.
+    var positive_y: float = _apply_rear_corner_pitch(
+        REAR_CORNER_MAX_PITCH_RADIANS,
+        original_body_rotation, original_body_pos, front_corner_y, i)
+    var negative_y: float = _apply_rear_corner_pitch(
+        -REAR_CORNER_MAX_PITCH_RADIANS,
+        original_body_rotation, original_body_pos, front_corner_y, i)
+    var sign: float = 1.0 if positive_y <= negative_y else -1.0
+    var terminal_y: float = minf(positive_y, negative_y)
+    var needed_y: float = hip.y - minf(
+        sink, maxf(hip.y - terminal_y, 0.0))
+    var low: float = 0.0
+    var high: float = REAR_CORNER_MAX_PITCH_RADIANS
+    for iteration in range(11):
+        var mid: float = (low + high) * 0.5
+        var actual_y: float = _apply_rear_corner_pitch(
+            sign * mid, original_body_rotation,
+            original_body_pos, front_corner_y, i)
+        if actual_y > needed_y:
+            low = mid
+        else:
+            high = mid
+    var chosen: float = sign * high
+    var final_y: float = _apply_rear_corner_pitch(
+        chosen, original_body_rotation,
+        original_body_pos, front_corner_y, i)
+    # If an extreme pitch could bury the BODY plate, fade the
+    # correction rather than moving the entire actor/root to hide it.
+    if chassis_mesh_lowest_world_y() < FLOOR_Y - 0.015:
+        var allowed: float = 0.0
+        var blocked: float = absf(chosen)
+        for retry in range(10):
+            var mid: float = (allowed + blocked) * 0.5
+            final_y = _apply_rear_corner_pitch(
+                sign * mid, original_body_rotation,
+                original_body_pos, front_corner_y, i)
+            if chassis_mesh_lowest_world_y() < FLOOR_Y - 0.015:
+                blocked = mid
+            else:
+                allowed = mid
+        chosen = sign * allowed
+        final_y = _apply_rear_corner_pitch(
+            chosen, original_body_rotation,
+            original_body_pos, front_corner_y, i)
+    rear_corner_pitch_delta = chosen
+    # Parent pitching must NOT add any axial rotation to the authored
+    # attacking shoulder. The new WORLD socket position stays on the
+    # corresponding lowered torso corner, unlike v416's detached
+    # fixed-in-world shoulder correction.
+    var current_scale: Vector3 = upper.global_basis.get_scale()
+    upper.global_basis = Basis(
+        source_shoulder_rotation).scaled(current_scale)
+    leg["rear_corner_socket_target_y"] = final_y
+
 
 # Convert the attack direction to an exact two-bone reach in WORLD
 # metres. _solve() receives a sole position but solves the FOOT PIVOT;
@@ -1099,6 +1313,7 @@ func reset() -> void:
     actor.position.y = rest_actor_local_y
     if chassis_bone != null:
         chassis_bone.quaternion = rest_chassis_rotation
+    rear_corner_pitch_delta = 0.0
     break_elapsed = -1.0
     windup_elapsed = -1.0
     gait_sway_roll = 0.0
@@ -1963,6 +2178,7 @@ func advance_ik(delta: float, motion: String) -> void:
     _advance_leg_break(delta)
     _advance_attack_stance(delta)
     var attacking: bool = not attack_pose.is_empty() and not break_reaction_active()
+    rear_corner_pitch_delta = 0.0
     if attacking:
         _apply_attack_chassis_pose()
         # The chest heading is now final. Steer only the attacking
@@ -1970,6 +2186,10 @@ func advance_ik(delta: float, motion: String) -> void:
         if bool(attack_pose.get("authored", false)) and actor.has_method(
                 "aim_authored_attack_leg"):
             actor.call("aim_authored_attack_leg", attack_pose, delta)
+        # Reconstruct the required REAR BODY CORNER elevation from
+        # the foot's real floor-contact goal BEFORE IK plants/supports.
+        # Keep the front attachment edge at its original world height.
+        _adjust_rear_chassis_corner_to_contact()
     elif not break_reaction_active():
         _apply_gait_sway(delta, motion)
     # Both authored KICK/SWEEP start-height calibration and leg-break
