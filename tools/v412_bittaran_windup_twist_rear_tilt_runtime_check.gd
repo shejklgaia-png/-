@@ -113,6 +113,12 @@ func _check_body_form(battle: Node) -> bool:
 				var mirrored: Quaternion = (
 					world_q * delta_local_src
 					* world_q.inverse()).normalized()
+				# v419: KICK/STOMP/SWEEP all mirror BOTH
+				# anatomical axes when the target quadrant requires.
+				if id.ends_with("r"):
+					mirrored = rig.call(
+						"_reflect_world_rotation",
+						mirrored, world.x.normalized())
 				if id.begins_with("leg_r"):
 					mirrored = rig.call(
 						"_reflect_world_rotation",
@@ -124,7 +130,7 @@ func _check_body_form(battle: Node) -> bool:
 					wanted_local)
 				if err > MAX_MIRROR_ERROR:
 					_fail(id + " " + kind + " BODY tilt is not "
-						+ "the front legs' motion (reversed "
+						+ "the four-quadrant source motion ("
 						+ "front-to-back for rear legs) at clip "
 						+ str(t) + ": "
 						+ str(rad_to_deg(err)) + " degrees off")
