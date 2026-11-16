@@ -16,8 +16,12 @@ extends SceneTree
 ## distance. Part B now verifies a nearby target is NOT used to trim
 ## the animation, even though the toe may legitimately overshoot.
 const DT: float = 1.0 / 60.0
-const MAX_PITCH_DEGREES: float = 22.0
-const MAX_ROLL_DEGREES: float = 14.0
+# v419: the user's request is the ORIGINAL complete BODY track.
+# No artificial damping. The original clip peaks near 34deg
+# pitch/20deg roll, so retain a bounded 45/28deg safety margin
+# against any newly introduced non-authored corkscrew.
+const MAX_PITCH_DEGREES: float = 45.0
+const MAX_ROLL_DEGREES: float = 28.0
 const MIN_PEAK_PITCH_DEGREES: float = 8.0
 
 var failures: Array[String] = []
