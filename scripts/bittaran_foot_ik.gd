@@ -54,12 +54,8 @@ const IK_REACH_MARGIN_METERS: float = 0.002
 const REAR_CORNER_MAX_PITCH_RADIANS: float = 0.58
 const REAR_CORNER_MAX_SINK_METERS: float = 1.75
 const REAR_CORNER_MIN_SOURCE_CLEARANCE: float = 0.025
-# v406: KICK strike shortening, calibrated with bittaran_rig's
-# KICK_REACH_BASE_METERS / KICK_REACH_PER_FACTOR (the target
-# hip->foot XZ length is BASE + reach_factor * PER, i.e. the
-# locked aim distance + the rig's aim margin when unclamped).
-const KICK_REACH_BASE_METERS: float = 2.30
-const KICK_REACH_PER_FACTOR: float = 3.2
+# v418: no player-distance KICK reach calibration. Only anatomical
+# limits and physical floor contacts may constrain the IK path.
 # v410: the KICK trajectory blends from the planted basic stance
 # (held through the windup) to the reflected source trajectory
 # over this first segment of the strike; the source clip holds
