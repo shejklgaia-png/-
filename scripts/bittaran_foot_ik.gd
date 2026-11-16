@@ -2426,6 +2426,49 @@ func advance_ik(delta: float, motion: String) -> void:
                                         goal_sole.y += clear_dy
                                         goal_foot.y += clear_dy
                                         goal_knee.y += clear_dy
+                                # v413: after clearing previous
+                                # attacks' fitted sole coordinates the rear
+                                # KICK's source retarget can demand an
+                                # ankle radius longer than its actual two
+                                # bones can take at the source knee angle.
+                                # The old, stale toe offset accidentally
+                                # concealed that mismatch. Keep the new
+                                # attack independent of older toes: during
+                                # the folded entry, shorten ONLY the ankle
+                                # radius to the physically attainable
+                                # distance for the authored knee fold.
+                                # The original far-reaching extension is
+                                # unaffected (the guard fades to zero).
+                                if str(attack_pose.get("id", "")
+                                        ).begins_with("leg_r"):
+                                    var knee_node: Node3D = leg["lower"]
+                                    var upper_len: float = hip_pos.distance_to(
+                                        knee_node.global_position)
+                                    var lower_len: float = (
+                                        knee_node.global_position
+                                        .distance_to(foot.global_position))
+                                    var source_fold: float = (
+                                        hip_pos - goal_knee).angle_to(
+                                            goal_foot - goal_knee)
+                                    var attainable: float = sqrt(maxf(
+                                        upper_len * upper_len
+                                        + lower_len * lower_len
+                                        - 2.0 * upper_len * lower_len
+                                        * cos(source_fold), 0.0))
+                                    var ray: Vector3 = goal_foot - hip_pos
+                                    var actual_radius: float = ray.length()
+                                    var fold_guard: float = (
+                                        smoothstep(0.05, 0.22, clip_t)
+                                        * (1.0 - smoothstep(
+                                            0.36, 0.55, clip_t)))
+                                    if actual_radius > attainable + 0.005                                             and fold_guard > 0.0:
+                                        var shorten: float = minf(
+                                            actual_radius - attainable,
+                                            0.75) * fold_guard
+                                        var shift: Vector3 = (
+                                            -ray / actual_radius) * shorten
+                                        goal_sole += shift
+                                        goal_foot += shift
                                 # v409: the plane-reflected rotation
                                 # does not act on this leg's own
                                 # sole_local the way it acts on the
