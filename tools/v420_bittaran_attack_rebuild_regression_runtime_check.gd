@@ -96,6 +96,23 @@ func _run() -> void:
                                 + " rendered_hip=" + str(
                                 upper.global_position)
                                 + " knee=" + str(knee.global_position))
+                        if id == "leg_fl" and kind == "sweep"                                 and rep == 0 and float(
+                                frame.get("time", 0.0)) > 0.28                                 and float(frame.get("time", 0.0)) < 0.45:
+                            print("V420_FL_SWEEP_PROBE t=" + str(
+                                frame.get("time", 0.0))
+                                + " raw=" + str(
+                                leg.get("windup_source_clearance", NAN))
+                                + " lead=" + str(
+                                leg.get("debug_precontact_lead", NAN))
+                                + " low_first=" + str(
+                                leg.get("debug_first_low", NAN))
+                                + " fine=" + str(
+                                leg.get("debug_fine_adjust", NAN))
+                                + " lift=" + str(
+                                leg.get("debug_emergency_lift", NAN))
+                                + " knee=" + str(knee.global_position)
+                                + " hip=" + str(upper.global_position)
+                                + " foot=" + str(foot.global_position))
                         if previous_knee != Vector3.INF:
                             var jump: float = knee.global_position                                 .distance_to(previous_knee)
                             if jump > largest_knee_step:
