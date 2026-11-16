@@ -1216,6 +1216,45 @@ func _ground_authored_strike_foot(leg: Dictionary) -> void:
         new_goal.x += adjusted.x - horizontal.x
         new_goal.z += adjusted.y - horizontal.y
     leg["last_error"] = _solve(leg, new_goal, rotation)
+    # When the reflected fold bends the shin down into the
+    # ground, moving its sole UP would simply leave the toe
+    # airborne (v419 rear SWEEP source frame 0). First search
+    # a safer KNEE bend plane, with the same world-space sole
+    # goal and original toe orientation. This changes neither
+    # the Body nor the upper/lower limb lengths. The reflected
+    # source pole is the starting point; only an actual mesh
+    # penetration allows this common knee-plane adjustment.
+    var original_pole: Vector3 = leg.get(
+        "authored_pole_point", lower.global_position)
+    var original_pole_active: bool = bool(
+        leg.get("authored_pole_active", false))
+    var initial_limb_low: float = _leg_mesh_lowest_y(upper)
+    if initial_limb_low < FLOOR_Y - 0.001:
+        var direction_to_knee: Vector3 = (
+            original_pole - hip)
+        var bend_radius: float = maxf(
+            direction_to_knee.length(), 0.3)
+        var cleared: bool = false
+        for pole_weight in [0.25, 0.50, 0.75, 1.0]:
+            leg["authored_pole_active"] = true
+            leg["authored_pole_point"] = hip + (
+                direction_to_knee.lerp(
+                    Vector3.UP * bend_radius,
+                    pole_weight))
+            leg["last_error"] = _solve(
+                leg, new_goal, rotation)
+            if _leg_mesh_lowest_y(upper) >= FLOOR_Y + 0.002:
+                cleared = true
+                break
+        if not cleared:
+            # Use the best grounded knee pose, not the original
+            # downward-folding pole. The existing limited final
+            # foot/limb clearance path still handles unreachable
+            # edge cases.
+            pass
+    else:
+        leg["authored_pole_active"] = original_pole_active
+        leg["authored_pole_point"] = original_pole
     for retry in range(3):
         var limb_low: float = _leg_mesh_lowest_y(upper)
         if limb_low >= FLOOR_Y + 0.002:
