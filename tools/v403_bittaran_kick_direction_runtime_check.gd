@@ -13,6 +13,15 @@ extends SceneTree
 ## (front legs: player in front, boss facing them; rear legs: player
 ## behind, boss facing away) and asserts the foot's travel direction
 ## and the extended leg direction stay on the player.
+## v409 amendment (setup only, assertions unchanged): the rear-leg
+## lateral offset is placed on the attacking leg's OWN side. With
+## the boss rotated PI, world +X is the boss's local -X (right)
+## side, so the original +2.5 placement put the player on
+## leg_rr's side while leg_rl attacked across the body -- a
+## selection the director never makes (it picks the nearest foot).
+## Under the user-requested v409 aim limit (85 degrees) that
+## forced cross-side case lands 23.4 degrees off; the same-side
+## geometry this check states it covers is unaffected.
 const DT: float = 1.0 / 60.0
 const LEGS: Array[String] = ["leg_fl", "leg_fr", "leg_rl", "leg_rr"]
 const MAX_DIRECTION_ERROR_DEGREES: float = 20.0
@@ -41,8 +50,11 @@ func _run() -> void:
         for leg_id in LEGS:
             boss.global_position = Vector3.ZERO
             var rear: bool = leg_id.begins_with("leg_r")
+            var placed_lateral: float = lateral
+            if rear and leg_id == "leg_rl":
+                placed_lateral = -lateral
             player.global_position = Vector3(
-                lateral, 0.0, 6.0 if rear else -6.0)
+                placed_lateral, 0.0, 6.0 if rear else -6.0)
             if rear:
                 boss.rotation = Vector3(0.0, PI, 0.0)
             else:
@@ -98,7 +110,7 @@ func _run() -> void:
                 _angle_error_deg(travel, want_travel))
             if travel_err > MAX_DIRECTION_ERROR_DEGREES:
                 _fail("%s kick (lateral %.1f) travelled %.1f deg away "
-                    % [leg_id, lateral, travel_err]
+                    % [leg_id, placed_lateral, travel_err]
                     + "from the player direction")
             var ext_dir := Vector3(
                 max_foot.x - strike_hip.x, 0.0, max_foot.z - strike_hip.z)
@@ -108,7 +120,7 @@ func _run() -> void:
             var ext_err: float = absf(_angle_error_deg(ext_dir, want_ext))
             if ext_err > MAX_DIRECTION_ERROR_DEGREES:
                 _fail("%s kick (lateral %.1f) extended %.1f deg away "
-                    % [leg_id, lateral, ext_err]
+                    % [leg_id, placed_lateral, ext_err]
                     + "from the player direction")
     if failures.is_empty():
         print("GODOT_V403_BITTARAN_KICK_DIRECTION_PASS")

@@ -15,10 +15,24 @@ const BOSS_DEATH_RESPAWN_SECONDS: float = 3.0
 # During attacks only the articulated chest can follow the player.
 # The boss root, gait and planted support-foot positions stay fixed.
 const ATTACK_CHEST_TURN_DEGREES_PER_SECOND: float = 100.0
-const ATTACK_CHEST_MAX_YAW_DEGREES: float = 140.0
-# The aiming chest faces 45 degrees ACROSS the attacking arm, not
-# straight at SERA. The signed side is mirrored for L/R limbs.
-const ATTACK_CHEST_ARM_OFFSET_DEGREES: float = 45.0
+# v409: the chest yaw is capped at a range a heavy quadruped torso
+# can actually twist through. The old 140-degree cap (100 deg/s
+# slew over the windup) let the BODY bone corkscrew up to ~127
+# degrees on a STOMP when the player circled behind.
+const ATTACK_CHEST_MAX_YAW_DEGREES: float = 60.0
+# v409: the chest turns the ATTACKING LEG'S HIP CORNER toward the
+# player, instead of facing a fixed 45 degrees across the arm.
+# The corner bearings are the legs' rest hip positions in
+# boss-local space (measured in-scene): the front hips sit ~34
+# degrees off the nose, the rear hips ~146 degrees. The old
+# formula applied the front-leg 45-degree offset to the rear legs
+# too, so aiming a rear leg at a player behind asked the chest
+# for ~135 degrees of yaw and the body twisted grotesquely;
+# turning the rear corner toward that player needs only ~34.
+const ATTACK_CHEST_CORNER_DEGREES: Dictionary = {
+    "leg_fl": 34.4, "leg_fr": -33.8,
+    "leg_rl": 145.8, "leg_rr": -146.0,
+}
 const BOSS_FAR_SIDE_ENTER_METERS: float = 0.65
 const BOSS_FAR_SIDE_EXIT_METERS: float = -0.25
 const DOWN_ESCAPE_SPEED_MPS: float = 15.0
@@ -1197,17 +1211,18 @@ func _advance_target_motion(delta: float) -> void:
             var player_offset: Vector3 = player.global_position - target.global_position
             player_offset.y = 0.0
             if player_offset.length_squared() > 0.0001:
-                # L limbs extend toward the model's +X after its 180deg
-                # import rotation; R limbs toward -X. Offset the CHEST
-                # by 45deg across the active attack arm. Its yaw owns
-                # target tracking; IK only keeps the other soles planted.
-                var side: float = (1.0 if str(bittaran_attack_frame.get(
-                    "id", "")).ends_with("l") else -1.0)
+                # v409: yaw the chest so the attacking leg's hip
+                # corner (ATTACK_CHEST_CORNER_DEGREES) faces the
+                # player, capped at ATTACK_CHEST_MAX_YAW_DEGREES.
+                # Its yaw owns target tracking; IK only keeps the
+                # other soles planted.
+                var corner: float = deg_to_rad(float(
+                    ATTACK_CHEST_CORNER_DEGREES.get(str(
+                        bittaran_attack_frame.get("id", "")), 0.0)))
                 var desired: float = wrapf(
                     atan2(player_offset.x, player_offset.z)
                     - target.rotation.y
-                    - side * deg_to_rad(
-                    ATTACK_CHEST_ARM_OFFSET_DEGREES), -PI, PI)
+                    - corner, -PI, PI)
                 desired = clampf(desired,
                     -deg_to_rad(ATTACK_CHEST_MAX_YAW_DEGREES),
                     deg_to_rad(ATTACK_CHEST_MAX_YAW_DEGREES))

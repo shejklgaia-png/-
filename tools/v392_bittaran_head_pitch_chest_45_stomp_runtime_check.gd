@@ -1,7 +1,16 @@
 extends SceneTree
-## v392: torso aims with a 45deg offset to the striking leg, HEAD
-## looks down without roll, and STOMP preserves authored toe keys
-## through windup before horizontal short-end ground contact.
+## v392: torso aims at the striking leg, HEAD looks down without
+## roll, and STOMP preserves authored toe keys through windup
+## before horizontal short-end ground contact.
+## v409 amendment (chest expectation only; the HEAD and STOMP
+## assertions are unchanged): the chest no longer faces a fixed
+## 45 degrees across the attacking arm -- that design twisted
+## the body grotesquely on rear-leg aims. Per the user's spec
+## change, the chest now turns the attacking leg's hip corner
+## toward the player, capped at 60 degrees. With the player dead
+## ahead (this check's setup) the expected windup-end yaw is the
+## leg's clamped corner bearing. The file name keeps its
+## historical "chest_45" label.
 const BRAIN = preload("res://scripts/bittaran_attacks.gd")
 const IK = preload("res://scripts/bittaran_foot_ik.gd")
 const DT: float = 1.0 / 60.0
@@ -33,8 +42,11 @@ func _run() -> void:
             if not bool(brain.call("force_start", id, kind)):
                 _fail(id + "/" + kind + " could not start")
                 return
-            var side: float = 1.0 if id.ends_with("l") else -1.0
-            var desired: float = -side * deg_to_rad(45.0)
+            var corner: float = deg_to_rad(float({
+                "leg_fl": 34.4, "leg_fr": -33.8,
+                "leg_rl": 145.8, "leg_rr": -146.0}[id]))
+            var desired: float = clampf(wrapf(-corner, -PI, PI),
+                -deg_to_rad(60.0), deg_to_rad(60.0))
             var angle_checked: bool = false
             var authored_checked: bool = kind != "stomp"
             var tip_contact_checked: bool = kind != "stomp"
@@ -51,8 +63,9 @@ func _run() -> void:
                         t >= windup - 0.035 and t < windup):
                     var chest: float = float(frame.get("body_yaw", 0.0))
                     if absf(wrapf(chest - desired, -PI, PI)) > deg_to_rad(9.0):
-                        _fail(id + "/" + kind + ": BODY is not 45deg "
-                            + "across the attacking arm: " + str(chest))
+                        _fail(id + "/" + kind + ": BODY did not turn "
+                            + "the hip corner to the player: "
+                            + str(chest))
                         return
                     angle_checked = true
                 battle.call("_finalize_target_pose", DT)

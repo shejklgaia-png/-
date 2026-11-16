@@ -35,15 +35,22 @@ var authored_contact_probe_active: bool = false
 
 # Rotational bearing adjustment is applied to the entire attacking leg.
 # Authored joint-local rotations are never stretched or rewritten.
-const ATTACK_LEG_AIM_MAX_DEGREES: float = 100.0
-# v409: the KICK plays a foot-space trajectory that IK re-solves,
-# so its bearing adjustment is not bounded by a physical shoulder
-# stop; the mirrored source direction sits up to ~93 degrees off
-# the aim for the rear legs (the source kick is strongly
-# diagonal), and the 100-degree clamp left 35-59 degrees of
-# residual direction error there. SWEEP keeps the 100-degree
-# clamp: its arc is a joint-space retarget.
-const ATTACK_LEG_AIM_MAX_DEGREES_KICK: float = 130.0
+const ATTACK_LEG_AIM_MAX_DEGREES: float = 75.0
+# v409: both aim clamps are now set to the largest bearing a leg
+# actually needs in the geometries the game selects, measured
+# in-scene. SWEEP aim peaked at ~53 degrees on the
+# front legs once the chest turns the hip corner toward the
+# player (v409 battle change); the rear-side cases that used to
+# demand ~88 degrees were compensating for the chest twisting
+# the wrong way and now sit far lower. The KICK plays a
+# foot-space trajectory that IK re-solves (v408), so its bearing
+# adjustment is not bounded by a physical shoulder stop, but it
+# gets the same treatment: same-side natural demand peaks at
+# ~71 degrees (rear leg, player dead behind), so the clamp is 85.
+# Forced cross-side cases (a rear leg aimed across the body)
+# saturate at the clamp and land somewhat off instead of
+# wrapping the leg around the body.
+const ATTACK_LEG_AIM_MAX_DEGREES_KICK: float = 85.0
 # v404: fractions of the authored Body track's pitch/roll delta
 # kept for KICK/SWEEP (see _authored_body_rotation_for_attack).
 # The SWEEP keeps more pitch: its forward pitch is functional and
