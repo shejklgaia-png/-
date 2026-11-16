@@ -71,6 +71,7 @@ func _run() -> void:
                         node.global_basis.get_rotation_quaternion())
                     socket_before.append(node.global_position)
                 var root_y_before: float = rig.position.y
+                var root_world_before: Vector3 = rig.global_position
                 ik.call("set_attack_pose", frame)
                 ik.call("_apply_attack_chassis_pose")
                 for i in range(nodes.size()):
@@ -90,8 +91,7 @@ func _run() -> void:
                     var translation: float = (
                         (nodes[i].global_position - rig.global_position)
                         .distance_to(
-                            socket_before[i] - Vector3(
-                                0.0, root_y_before, 0.0)))
+                            socket_before[i] - root_world_before))
                     if translation > 0.001:
                         _fail(id + "/" + kind + " t=" + str(t)
                             + " joint=" + str(names[i])
