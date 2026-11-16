@@ -574,8 +574,11 @@ func _apply_attack_chassis_pose() -> void:
         # The ground offset belongs to the mirrored source clip,
         # not a front/rear lean. Apply this SAME per-clip contact
         # calibration on all four attacking legs.
+        var into_pose: float = _cubic(
+            t / maxf(windup, 0.001))
         actor.position.y += (
-            initial_attack_contact_height_world * fade / scale_y)
+            initial_attack_contact_height_world * into_pose
+            * fade / scale_y)
 
 
 # Convert the attack direction to an exact two-bone reach in WORLD
@@ -2019,9 +2022,19 @@ func advance_ik(delta: float, motion: String) -> void:
                         var start_sole: Vector3 = (
                             foot.to_global(leg["sole_local"]))
                         var low_corner: float = _foot_mesh_lowest_y(foot)
-                        if low_corner < FLOOR_Y + 0.003:
-                            foot.global_position.y += (
-                                FLOOR_Y + 0.003 - low_corner)
+                        # v419: lower a floating source toe toward
+                        # the common world floor over the entire
+                        # 0.70s anticipation, and lift an already
+                        # buried mesh immediately. This acts ONLY
+                        # on the contact position, never on source
+                        # joint WORLD rotations or BODY pitch.
+                        var contact_fraction: float = _cubic(
+                            t / maxf(attack_windup, 0.001))
+                        var correction: float = (
+                            FLOOR_Y + 0.003 - low_corner)
+                        if correction < 0.0:
+                            correction *= contact_fraction
+                        foot.global_position.y += correction
                         position = foot.to_global(
                             leg["sole_local"] as Vector3)
                         rotation = foot.global_basis.get_rotation_quaternion()
@@ -2909,7 +2922,8 @@ func advance_ik(delta: float, motion: String) -> void:
         # guards may leave a shin corner 2-3cm below the floor.
         # Repair the actual WHOLE mesh, not just a sole marker;
         # preserve the authored foot's world-space orientation.
-        if attacking and attacking_this_leg:
+        if attacking and attacking_this_leg and bool(
+                attack_pose.get("authored", false)):
             var floor_upper: Node3D = leg["upper"]
             var floor_foot: Node3D = leg["foot"]
             var floor_low: float = _leg_mesh_lowest_y(floor_upper)
