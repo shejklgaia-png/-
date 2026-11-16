@@ -1573,9 +1573,21 @@ func _rebuilt_authored_attack_target(leg: Dictionary) -> Dictionary:
             - source_entry_clear)
         var foot_clear: float = _trajectory_mesh_clearance(
             leg, foot_goal, foot_rotation, sole_goal)
+        # The authored KICK is explicitly a grounded scraping
+        # strike. Sampled torso posture alone can put the toe 0.6m
+        # above the arena even though the original contact gesture
+        # is at floor level. Project the full outbound segment to
+        # the shared floor, then fade to the source's natural height
+        # through the last 0.23s. This is identical for all legs.
+        var source_shape_height: float = maxf(
+            source_low - source_entry_low, 0.0)
+        if kind == "kick":
+            source_shape_height *= _cubic(
+                (clip_t - 0.62) / 0.23)
         var normalized_sole: Vector3 = (
             BittaranAttackKinematics.normalized_ground_sole(
-                sole_goal, foot_clear, source_low,
+                sole_goal, foot_clear,
+                source_entry_low + source_shape_height,
                 source_entry_low, FLOOR_Y))
         var dy: float = normalized_sole.y - sole_goal.y
         sole_goal = normalized_sole
@@ -1619,7 +1631,7 @@ func _rebuilt_authored_attack_target(leg: Dictionary) -> Dictionary:
             leg, foot_goal, foot_rotation, sole_goal)
         var minimum_y: float = (
             FLOOR_Y + BittaranAttackKinematics.FLOOR_CLEARANCE_METERS
-            + maxf(source_low - source_entry_low, 0.0))
+            + source_shape_height)
         var after_low: float = sole_goal.y - actual_clear
         if after_low < minimum_y:
             var extra: float = minimum_y - after_low
