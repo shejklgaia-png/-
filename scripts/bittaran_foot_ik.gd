@@ -555,31 +555,41 @@ func _apply_attack_chassis_pose() -> void:
         (t - swing_end - hold) / maxf(recover, 0.001))
     var rear_attack: bool = _rear_attack_active()
     if rear_attack:
-        # v415: the BODY's independently specified 25° -> -25° pitch
-        # must not *also* rotate the attacking leg's authored animation.
-        # The retargeted leg was keyed against the original Body pose:
-        # snapshot that pose before the replacement and counter-rotate
-        # ONLY the attacking shoulder by (newBody^-1 * sourceBody).
-        # Its world-space upper/knee/foot rotations then exactly match
-        # the imported Blockbench motion; the hip's position still
-        # follows the pitched chassis and the planted legs retain IK.
-        # Compute this afresh each frame, never multiply the previous
-        # tick's correction into the newly keyed animation.
+        # v416: v415 counter-rotated the shoulder to retain the
+        # authored upper/lower/foot WORLD orientations, but it left
+        # the shoulder SOCKET POSITION parented to the newly pitched
+        # chassis. At constant root height the rear socket rose >1m,
+        # so the original hip-relative KICK trajectory hovered
+        # 0.84–2.81m over the floor (v416 live-scene evidence).
+        # Compensate the shoulder's translation too: the complete
+        # authored attacking-leg transform (including its socket)
+        # remains the same under v414's independent BODY pitch.
+        # The correction is derived from THIS frame's original keyed
+        # pose, never from last frame's IK-adjusted transforms.
         var original_body: Quaternion = chassis_bone.quaternion
         var neutral_pitch: float = rest_chassis_rotation.get_euler().x
         var keyed_euler: Vector3 = original_body.get_euler()
         keyed_euler.x = lerpf(neutral_pitch, -neutral_pitch, weight)
         var desired_body: Quaternion = Basis.from_euler(
             keyed_euler).get_rotation_quaternion().normalized()
-        chassis_bone.quaternion = desired_body
+        # Cache the original source socket BEFORE the BODY changes.
+        var source_shoulder: Node3D = null
+        var source_socket_world: Vector3 = Vector3.ZERO
         if bool(attack_pose.get("authored", false)):
-            var leg_id: String = str(attack_pose.get("id", ""))
-            var index: int = LEG_PART_IDS.find(leg_id)
+            var index: int = LEG_PART_IDS.find(
+                str(attack_pose.get("id", "")))
             if index >= 0 and index < legs.size():
-                var shoulder: Node3D = legs[index]["upper"]
-                shoulder.quaternion = (
-                    desired_body.inverse() * original_body
-                    * shoulder.quaternion).normalized()
+                source_shoulder = legs[index]["upper"]
+                source_socket_world = source_shoulder.global_position
+        chassis_bone.quaternion = desired_body
+        if source_shoulder != null:
+            source_shoulder.quaternion = (
+                desired_body.inverse() * original_body
+                * source_shoulder.quaternion).normalized()
+            # Translate at the anatomical SHOULDER, never the BODY root.
+            # The caller's chest aim yaw applies afterward, to both
+            # the original source socket and the source rotations.
+            source_shoulder.global_position = source_socket_world
     var body_yaw: float = float(attack_pose.get("body_yaw", 0.0))
     chassis_bone.quaternion = (Quaternion(
         Vector3.UP, body_yaw * yaw_release)
