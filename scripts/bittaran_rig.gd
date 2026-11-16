@@ -576,41 +576,72 @@ func _authored_body_rotation_for_attack(kind: String, id: String,
     # mirror, so mirrored legs stay exact mirrors of the damped
     # source (v396).
     # v410: the mirror itself is now the exact world-space
-    # reflection (_mirror_body_rotation_for_sweep); the old local
-    # component flip deviated from leg_fl's true mirror by up to
-    # 34 degrees on the single-flip legs (device request: re-mirror
-    # the sweep torso tilt cleanly from the left-front motion).
+    # reflection; the old local component flip deviated from
+    # leg_fl's true mirror by up to 34 degrees on the single-flip
+    # legs (device request: re-mirror the sweep torso tilt cleanly
+    # from the left-front motion).
+    # v411: what is mirrored is the Wait-relative MOTION (delta),
+    # not the absolute pose; see _mirror_body_delta_for_attack.
+    # SWEEP only: KICK keeps its unmirrored damped track. Its
+    # in-scene totals already sit in the front-leg band on every
+    # leg (30-70 degrees), and its trajectory sampler plus the
+    # reach/aim stack are calibrated against the unmirrored Body
+    # pose (v400-v409); mirroring KICK's delta measurably broke
+    # leg_fr's sampled trajectory (v400/v406/v408/v409 checks),
+    # so a KICK mirror would need its own dedicated retune.
     var target: Quaternion = _damp_body_source(kind, source)
     if kind == "sweep":
-        target = _mirror_body_rotation_for_sweep(target, id)
+        target = _mirror_body_delta_for_attack(target, id)
     return target
 
 
-## v410: mirror a (damped) leg_fl Body rotation for SWEEP in WORLD
-## space, exactly like the KICK chain (_mirrored_chain_worlds):
-## compose the rotation the Body has for leg_fl, reflect it across
-## the rig's anatomical planes and convert back to a local. The
-## component flip (_mirror_author_delta) conjugates the LOCAL
-## quaternion as if the reflection planes were coordinate planes
-## of the Body's own frame; that frame is tilted against the rig
-## planes, so single-flip legs (leg_fr, leg_rl) played a tilt up
-## to 34 degrees off leg_fl's true mirror, worst at clip t=0 where
-## the flip even tilts the near-Wait pose itself. The double-flip
-## leg (leg_rr) happened to agree and is unchanged in effect.
-func _mirror_body_rotation_for_sweep(local_rotation: Quaternion,
+## v411: mirror a (damped) leg_fl Body rotation's Wait-relative
+## MOTION for SWEEP: take the delta from the Wait pose into
+## world space, reflect THAT across the rig's left-right plane
+## and re-anchor it on the Wait pose. Reflection conjugation
+## preserves the rotation angle, so every leg plays leg_fl's
+## tilt motion at exactly leg_fl's magnitude, with only its
+## direction mirrored -- the same treatment the leg chains get
+## from their delta map (dest_wait * mirrored delta).
+## v410 mirrored the ABSOLUTE pose instead. That is the exact
+## mirror image of the pose, but the boss's rest pose is not
+## front-back symmetric (front hips sit higher than rear hips),
+## so the Wait-relative motion the rear legs actually played
+## was inflated: leg_rl's Body target delta measured 48 degrees
+## against leg_fl's 23, and stacked with the chest tracking yaw
+## it wound the torso to 94 degrees in-scene during leg_rl
+## sweeps (device report: rear-leg attacks twist abnormally,
+## worst in the windup). Mirroring the delta keeps the played
+## motion at 23 degrees on every leg.
+## The mirror is LEFT-RIGHT ONLY. Reflecting the delta across
+## the front-back plane as well was tried: it inverts the
+## crouch pitch for the rear legs, which drops the rear hip
+## ~0.6m; the sampled sweep pose then sits ~2.2m under the
+## floor and the strike entry's blended knee pole crosses the
+## hip->sole axis, snapping leg_rl's knee through the floor
+## for a tick (measured -0.214m). The torso's sweep motion is
+## a side-driven weight shift (crouch and roll over the
+## sweeping side), so the rear legs share their own side's
+## motion instead: leg_rl plays leg_fl's tilt verbatim and
+## leg_rr plays the left-right mirror, exactly like leg_fr.
+func _mirror_body_delta_for_attack(local_rotation: Quaternion,
         id: String) -> Quaternion:
-    if id == "leg_fl":
+    if not id.ends_with("r"):
+        # leg_fl is the source; leg_rl shares its side's motion.
         return local_rotation
+    var wait_body: Quaternion = _authored_key_rotation(
+        "Wait", "Body", 0.0)
+    var delta: Quaternion = (
+        wait_body.inverse() * local_rotation).normalized()
     var rig_q: Quaternion = global_basis.get_rotation_quaternion()
     var world: Basis = global_basis.orthonormalized()
-    var mirrored: Quaternion = (rig_q * local_rotation).normalized()
-    if id.ends_with("r"):
-        mirrored = _reflect_world_rotation(
-            mirrored, world.x.normalized())
-    if id.begins_with("leg_r"):
-        mirrored = _reflect_world_rotation(
-            mirrored, world.z.normalized())
-    return (rig_q.inverse() * mirrored).normalized()
+    var mirrored: Quaternion = (
+        rig_q * delta * rig_q.inverse()).normalized()
+    mirrored = _reflect_world_rotation(
+        mirrored, world.x.normalized())
+    var local_delta: Quaternion = (
+        rig_q.inverse() * mirrored * rig_q).normalized()
+    return (wait_body * local_delta).normalized()
 
 
 # v404: the shared KICK/SWEEP Body track pitches 34.4 degrees and
@@ -676,10 +707,13 @@ func _body_damp_compensation(kind: String, id: String,
     var full: Quaternion = _authored_body_full_rotation(kind, id, at)
     # v410: the played (damped) side is whatever
     # _authored_body_rotation_for_attack returns, so the SWEEP
-    # compensation absorbs the new world-space Body mirror exactly
+    # compensation absorbs the world-space Body mirror exactly
     # like it absorbed the v404 damping: the attacking leg's world
     # orientation stays the authored one (full pose), only the
     # torso's played tilt changes.
+    # v411: same for the SWEEP delta mirror: the compensation
+    # absorbs whatever the played side does, so the leg chains
+    # are unaffected by the mirror change.
     var damped: Quaternion = _authored_body_rotation_for_attack(
         kind, id, at)
     return (damped.inverse() * full).normalized()

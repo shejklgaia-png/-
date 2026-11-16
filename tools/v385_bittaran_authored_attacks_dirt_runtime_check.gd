@@ -2,6 +2,14 @@ extends SceneTree
 ## v385: all three USER-authored Blockbench clips must be reachable via
 ## the actual combat path. KICK/SWEEP 0.70s BODY prepose, all four limbs,
 ## world-planted supports, and real earth/debris FX for every attack.
+## v411 amendment: the BODY prepose reference is the rig's played
+## target (_authored_body_rotation_for_attack: damped since v404,
+## delta-mirrored for SWEEP since v411), not the raw clip rotation.
+## The raw key is leg_fl's unmirrored source; a correctly mirrored
+## rear leg plays a pose more than the 1.15 rad tolerance away from
+## it. The invariant is unchanged: at the strike the Body must have
+## moved >0.12 rad from its start pose toward the attack's intended
+## opening pose.
 const BRAIN = preload("res://scripts/bittaran_attacks.gd")
 const IK = preload("res://scripts/bittaran_foot_ik.gd")
 const BittaranRig = preload("res://scripts/bittaran_rig.gd")
@@ -130,7 +138,8 @@ func _run_case(battle: Node3D, id: String, kind: String) -> bool:
         if kind != "stomp":
             if absf(t - preview) <= DT:
                 var want: Quaternion = rig.call(
-                    "_authored_key_rotation", clip, "Body", 0.0)
+                    "_authored_body_rotation_for_attack",
+                    kind, id, 0.0)
                 delta_prepose = start_pose.angle_to(body.quaternion)
                 reached_prepose = delta_prepose > 0.12 and (
                     body.quaternion.angle_to(want) < 1.15)
