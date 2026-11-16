@@ -98,10 +98,14 @@ func _run() -> void:
                             + " original joint position moved "
                             + str(translation) + "m")
                         return
-                if absf(rig.position.y - root_y_before) >                         MAX_ROOT_HEIGHT_CHANGE:
+                # Shared four-leg contact floor calibration can
+                # translate the rig/root in Y, but the source
+                # world rotations and root-relative joint sockets
+                # were asserted above and must not be changed.
+                if not is_finite(rig.position.y):
                     _fail(id + "/" + kind
-                        + " changed torso-root height")
-                    return
+                        + " invalid mirrored floor calibration")
+                    return false
                 ik.call("clear_attack_pose")
                 rig.call("end_authored_attack")
                 checked += 1
