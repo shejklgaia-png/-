@@ -1092,13 +1092,30 @@ func aim_authored_attack_leg(frame: Dictionary, delta: float) -> void:
     var may_aim: bool = bool(frame.get("tracking", false)) or (
         kind == "kick" and t <= windup + strike + hold)
     if may_aim:
-        var wanted: float = wrapf(
+        var demand: float = (
             atan2(to_player.x, to_player.z)
-            - atan2(from_hip.x, from_hip.z), -PI, PI)
+            - atan2(from_hip.x, from_hip.z))
         var max_degrees: float = (
             ATTACK_LEG_AIM_MAX_DEGREES_KICK if kind == "kick"
             else ATTACK_LEG_AIM_MAX_DEGREES)
-        wanted = clampf(wanted,
+        # v423: unwrap the demand against the CURRENT yaw before
+        # clamping. When the demand sits near the +-180-degree seam
+        # (a rear leg whose player crossed to the front-opposite
+        # sector during the stance/windup, or any leg whose player
+        # crossed behind it mid-strike), the extending clip keeps
+        # rotating the reference direction across the seam, so the
+        # wrapped demand flips sign between ticks and the clamped
+        # target jumped from -85 to +85 degrees: the slew then
+        # dragged the whole kick 170 degrees around during the
+        # strike and hold (measured on leg_rl/leg_rr: hold sole
+        # error 6.43m, foot orientation error 170 degrees). Taking
+        # the representative nearest the current yaw keeps the
+        # slew continuous and on one side. In that unreachable
+        # geometry the residual miss is ~90 degrees on either
+        # side, but the kick no longer somersaults mid-strike.
+        var wanted: float = clampf(
+            attack_leg_aim_yaw + wrapf(
+                demand - attack_leg_aim_yaw, -PI, PI),
             -deg_to_rad(max_degrees),
             deg_to_rad(max_degrees))
         attack_leg_aim_yaw = move_toward(attack_leg_aim_yaw, wanted,
