@@ -141,33 +141,38 @@ func _run_case(battle: Node3D, id: String, kind: String) -> bool:
                     "_authored_body_rotation_for_attack",
                     kind, id, 0.0)
                 delta_prepose = start_pose.angle_to(body.quaternion)
-                if id.begins_with("leg_r"):
-                    # v414 intentionally supersedes the low authored
-                    # torso prepose on REAR attacks. Their BODY pitch
-                    # must be the exact opposite of neutral at release;
-                    # the source leg-keyframe playback remains checked
-                    # independently by source_pose_sampled below.
-                    var wait_pitch: float = (
-                        ik.get("rest_chassis_rotation") as Quaternion
-                        ).get_euler().x
-                    reached_prepose = delta_prepose > 0.12 and (
-                        absf(body.quaternion.get_euler().x
-                            + wait_pitch) < deg_to_rad(3.0))
-                else:
-                    reached_prepose = delta_prepose > 0.12 and (
-                        body.quaternion.angle_to(want) < 1.15)
+                # The rebuilt four-leg attack does not add a rear-only
+                # BODY pitch. The raw mirrored key is measured before
+                # the shared tracking yaw.
+                reached_prepose = delta_prepose > 0.12 and (
+                    body.quaternion.angle_to(want) < 1.15)
             if t >= preview + 0.30 and t <= preview + 0.35:
-                var joint_name: String = str(
-                    BittaranRig.ATTACK_LEG_BONES[id][0])
-                var joint: Node3D = rig.find_child(
-                    joint_name, true, false)
-                var source: Quaternion = rig.call(
-                    "_authored_rotation_for_leg",
-                    kind, id, 0, t - preview)
-                # Ground contact is now an IK correction after raw
-                # source playback; source verification above is primary.
-                source_pose_sampled = source_pose_sampled or (
-                    joint.quaternion.angle_to(source) < 0.05)
+                # The final result is an IK rotation, not the same
+                # LOCAL quaternion as the raw authored shoulder.
+                # Compare the actual FOOT WORLD orientation with the
+                # mirrored original source clip at the same frame.
+                var sample_func: String = (
+                    "sample_authored_kick_source" if kind == "kick"
+                    else "sample_authored_sweep_source")
+                var sole_fl: Vector3 = ik.get("legs")[0][
+                    "source_sole_local"]
+                var expected: Dictionary = rig.call(
+                    sample_func, id, float(
+                        frame.get("authored_time", t - preview)),
+                    sole_fl)
+                if not expected.is_empty():
+                    var yaw: Quaternion = Quaternion(
+                        Vector3.UP, float(
+                            rig.get("attack_leg_aim_yaw")))
+                    var wanted: Quaternion = (
+                        yaw * (expected["rotation"] as Quaternion)
+                        ).normalized()
+                    var actual: Quaternion = (
+                        (leg["foot"] as Node3D).global_basis
+                        .get_rotation_quaternion())
+                    source_pose_sampled = source_pose_sampled or (
+                        actual.angle_to(wanted) < 0.05 and
+                        bool(leg.get("unified_strike", false)))
             var contact: Vector3 = (leg["foot"] as Node3D).to_global(
                 leg["sole_local"] as Vector3)
             if contact.distance_to(goal) > 0.001 and t < strike_end:
