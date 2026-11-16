@@ -2184,10 +2184,15 @@ func advance_ik(delta: float, motion: String) -> void:
                         # correction before actual penetration. The
                         # short time ramp keeps source frame zero
                         # unmodified even at a low initial pose.
+                        # Linear time envelope gives the IK knee
+                        # enough frames to rise from the original
+                        # pose without a high-velocity first 0.1s
+                        # pulse. The clearance factor still controls
+                        # how much correction is anatomically needed.
                         contact_lead = (1.0 - _cubic(
                             (raw_clearance + 0.012) /
-                            PRECONTACT_ENVELOPE)) * _cubic(
-                                t / 0.10)
+                            PRECONTACT_ENVELOPE)) * clampf(
+                                t / 0.40, 0.0, 1.0)
                         leg["debug_precontact_lead"] = contact_lead
                         leg["authored_pole_active"] = true
                         leg["authored_pole_point"] = (
