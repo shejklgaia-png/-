@@ -1223,6 +1223,20 @@ func _ground_authored_strike_foot(leg: Dictionary) -> void:
         new_goal.y += maxf(
             FLOOR_Y + 0.005 - limb_low, 0.0)
         leg["last_error"] = _solve(leg, new_goal, rotation)
+    # A mirrored strike may still be outside the destination leg's
+    # two-link sphere after the exact same source orientation has
+    # been transported (v419 rear SWEEP at source clip zero:
+    # residual visible toe hover 0.48m). The anatomical _solve
+    # already shortened only the unreachable horizontal component.
+    # As a final, identical four-quadrant contact guard, lower ONLY
+    # the actual visible toe toward the floor by the residual gap,
+    # without adding an arbitrary torso pitch or rolling the foot.
+    # This is the minimal end-effector correction after exhausting
+    # the real two-link solve; the World toe orientation is unchanged.
+    var remaining_gap: float = maxf(0.0,
+        _foot_mesh_lowest_y(foot) - FLOOR_Y - 0.003)
+    if remaining_gap > 0.005:
+        foot.global_position.y -= remaining_gap * contact_weight
     # Keep the cached target attached to the actual *achieved*
     # reflected end effector at an anatomical reach limit.
     # Caching an unattainable requested sole target makes the
