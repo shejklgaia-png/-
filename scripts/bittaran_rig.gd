@@ -1053,6 +1053,46 @@ func sample_authored_sweep_pose(id: String, at: float,
     return result
 
 
+## Retarget a SINGLE front-left SWEEP authored trajectory into any
+## anatomical quadrant. The previous per-bone delta reflections did not
+## preserve the source's spatial knee/ankle shape on the rear rigs.
+## This sampler is pure: sample_authored_sweep_pose restores all touched
+## source transforms and the destination is never modified here.
+func sample_authored_sweep_source(id: String, at: float,
+        source_sole_local: Vector3) -> Dictionary:
+    if not ATTACK_LEG_BONES.has(id):
+        return {}
+    var sampled: Dictionary = sample_authored_sweep_pose(
+        "leg_fl", at, source_sole_local)
+    if sampled.is_empty():
+        return {}
+    var target_uid: String = str(bone_uuid_by_name.get(
+        str(ATTACK_LEG_BONES[id][0]), ""))
+    if not bones.has(target_uid):
+        return {}
+    var hip: Vector3 = (bones[target_uid] as Node3D).global_position
+    var src_hip: Vector3 = sampled["hip"]
+    var world: Basis = global_basis.orthonormalized()
+    var frame: Basis = world
+    var inv_frame: Basis = frame.inverse()
+    var sign_vec := Vector3(-1.0 if id.ends_with("r") else 1.0,
+        1.0, -1.0 if id.begins_with("leg_r") else 1.0)
+    var result: Dictionary = {"hip": hip}
+    for key in ["knee", "foot", "sole"]:
+        var local_delta: Vector3 = (
+            inv_frame * ((sampled[key] as Vector3) - src_hip))
+        result[key] = hip + frame * (local_delta * sign_vec)
+    var source_rotation: Quaternion = sampled["rotation"]
+    if id.ends_with("r"):
+        source_rotation = _reflect_world_rotation(
+            source_rotation, world.x.normalized())
+    if id.begins_with("leg_r"):
+        source_rotation = _reflect_world_rotation(
+            source_rotation, world.z.normalized())
+    result["rotation"] = source_rotation
+    return result
+
+
 func apply_authored_attack_pose(frame: Dictionary) -> void:
     if frame.is_empty() or not loading_ok:
         return
