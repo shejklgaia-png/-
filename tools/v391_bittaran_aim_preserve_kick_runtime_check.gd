@@ -73,7 +73,7 @@ func _run() -> void:
                     released = true
                 battle.call("_finalize_target_pose", DT)
                 if kind == "kick" and not knee_checked and t >= (
-                        windup - 0.012) and t <= windup + 0.002:
+                        windup + 0.27) and t <= windup + 0.34:
                     # v408 amendment: compare the knee FOLD ANGLE
                     # (hip-knee-ankle, world) instead of the knee's
                     # local quaternion. The KICK now plays the
@@ -82,8 +82,17 @@ func _run() -> void:
                     # inherited through the shoulder), while the
                     # fold angle is the quantity this assertion
                     # exists to protect: no folding beyond the
-                    # authored prepose. The authored reference is
-                    # the rig's own trajectory sample at clip 0.
+                    # authored prepose.
+                    # v410 amendment: the sample point moves from
+                    # the windup's end to just after the strike's
+                    # 0.25s entry blend, and the authored reference
+                    # is the trajectory sample at the SAME clip
+                    # time. Since v410 the windup keeps the
+                    # attacking leg planted at the basic stance
+                    # (device request), so the prepose fold forms
+                    # over the entry blend instead of during the
+                    # windup; the assertion and its 0.09 rad
+                    # threshold are unchanged.
                     var leg: Dictionary = ik.get("legs")[
                         IK.LEG_PART_IDS.find(id)]
                     var hip_w: Vector3 = (
@@ -95,7 +104,8 @@ func _run() -> void:
                     var played_fold: float = (hip_w - knee_w).angle_to(
                         ankle_w - knee_w)
                     var src: Dictionary = rig.call(
-                        "sample_authored_kick_source", id, 0.0,
+                        "sample_authored_kick_source", id,
+                        float(frame.get("authored_time", 0.0)),
                         Vector3.ZERO)
                     if src.is_empty():
                         _fail(id + ": no trajectory sample")

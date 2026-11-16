@@ -4,6 +4,14 @@ extends SceneTree
 ## intentionally different and may NOT be used as the sweep basis.
 ## During live SWEEP the IK floor correction must not rewrite knee
 ## or ankle keyframed rotations.
+## v410 amendment: the rotation-equality window starts after the
+## strike's 0.36s entry blend. Since v410 the windup keeps the
+## attacking leg planted at the basic stance (device request) and
+## the entry is an IK-solved blend from that stance to the authored
+## pose, so during the blend the knee/toe locals are the solver's
+## by design. After the blend the played pose is the authored pose
+## and the original assertion applies unchanged; the floor
+## penetration assertion still covers every tick, blend included.
 const BRAIN = preload("res://scripts/bittaran_attacks.gd")
 const IK = preload("res://scripts/bittaran_foot_ik.gd")
 const DT: float = 1.0 / 60.0
@@ -129,7 +137,7 @@ func _check_live_attacks(battle: Node3D) -> bool:
             var t: float = float(frame.get("time", 0.0))
             var start: float = float(frame.get("windup", 0.70))
             var end: float = start + float(frame.get("strike", 2.06))
-            if t > start + 0.05 and t < end - 0.05:
+            if t > start + 0.41 and t < end - 0.05:
                 var clip_time: float = float(frame.get("authored_time", 0.0))
                 var expected_knee: Quaternion = rig.call(
                     "_authored_rotation_for_leg", "sweep", id, 1, clip_time)

@@ -375,3 +375,4 @@ gd tools/v406_bittaran_kick_reach_solve_runtime_check.gd
 gd tools/v407_bittaran_kick_whip_runtime_check.gd
 gd tools/v408_bittaran_kick_source_trajectory_runtime_check.gd
 gd tools/v409_bittaran_guidance_limits_runtime_check.gd
+gd tools/v410_bittaran_windup_plant_sweep_mirror_runtime_check.gd
