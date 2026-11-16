@@ -2693,7 +2693,7 @@ func advance_ik(delta: float, motion: String) -> void:
                 float(attack_pose.get("windup", 1.25))
                 + float(attack_pose.get("strike", 0.25))
                 + float(attack_pose.get("hold", 1.50)))
-            if attack_t > stomp_recovery_start:
+            if float(attack_pose.get("time", 0.0)) > stomp_recovery_start:
                 var recovery_foot: Node3D = leg["foot"]
                 var foot_error: Vector3 = (
                     position - recovery_foot.to_global(
