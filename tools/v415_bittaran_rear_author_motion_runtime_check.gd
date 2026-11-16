@@ -105,7 +105,7 @@ func _run() -> void:
                 if not is_finite(rig.position.y):
                     _fail(id + "/" + kind
                         + " invalid mirrored floor calibration")
-                    return false
+                    return
                 ik.call("clear_attack_pose")
                 rig.call("end_authored_attack")
                 checked += 1
