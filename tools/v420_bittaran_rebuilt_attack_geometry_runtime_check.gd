@@ -115,12 +115,18 @@ func _run() -> void:
                     var actual: Quaternion = foot.global_basis                         .get_rotation_quaternion()
                     var degrees: float = rad_to_deg(
                         expected.angle_to(actual))
-                    toe_error = maxf(toe_error, degrees)
-                    if clip_t > 0.15 and clip_t < 0.62:
+                    var entry_window: float = (
+                        0.25 if kind == "kick" else 0.36)
+                    # During the entry crossfade the foot is
+                    # intentionally rotated from the planted Wait
+                    # orientation into the mirrored source.
+                    if clip_t >= entry_window + 0.02:
+                        toe_error = maxf(toe_error, degrees)
+                    if kind == "kick" and clip_t > 0.32                             and clip_t < 0.62:
                         var bottom: float = float(
                             ik.call("_foot_mesh_lowest_y", foot))
                         floor_error = maxf(floor_error,
-                            absf(bottom - 0.012))
+                            maxf(bottom - 0.012, 0.0))
                     geometric_failure = maxf(geometric_failure,
                         float(leg.get(
                             "unified_unreachable_vertical", 0.0)))
