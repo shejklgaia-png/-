@@ -452,7 +452,9 @@ func clear_attack_pose() -> void:
                 "unified_entry_rotation", "unified_traj_sole",
                 "unified_unreachable_vertical", "unified_horizontal_contraction",
                 "unified_geometry_violation", "unified_floor_gap",
-                "unified_limb_floor_error"]:
+                "unified_limb_floor_error", "unified_recovery_sole",
+                "unified_recovery_rotation", "unified_recovery_local",
+                "unified_recovery_pivot", "unified_recovery_last_alpha"]:
             leg.erase(transient)
         leg.erase("kick_traj_entry_sole")
         leg.erase("kick_traj_entry_rotation")
@@ -1538,7 +1540,8 @@ func _rebuilt_ground_contact_guard(leg: Dictionary,
         var correction: float = FLOOR_Y + 0.004 - foot_bottom
         sole.y += correction
         leg["last_error"] = _solve(leg, sole, rotation)
-        leg["attack_exit_goal"] = sole
+        # Recovery origin is immutable; a floor guard must not
+        # recursively move the following frame's interpolation start.
 
     var minimum: float = _leg_mesh_lowest_y(upper)
     if minimum >= FLOOR_Y - 0.001:
@@ -1762,19 +1765,35 @@ func _rebuilt_authored_attack_target(leg: Dictionary) -> Dictionary:
         leg["last_rotation"] = foot_rotation
         return {"position": sole_goal, "rotation": foot_rotation}
 
-    # Recovery begins at the last *visible* striker sole; do not
-    # reset an IK-fitted sole point in one tick (ankle teleport).
+    # Snapshot the ACTUAL visible contact and pivot at the first
+    # recovery tick. The last sampled authored goal can differ from
+    # the rendered foot after the final IK/floor correction; using it
+    # as the recovery origin produced a 1.37m single-frame warp.
+    if not leg.has("unified_recovery_sole"):
+        leg["unified_recovery_sole"] = foot.to_global(
+            leg["sole_local"] as Vector3)
+        leg["unified_recovery_rotation"] = (
+            foot.global_basis.get_rotation_quaternion())
+        leg["unified_recovery_local"] = leg["sole_local"]
+        leg["unified_recovery_pivot"] = foot.global_position
+        leg["unified_recovery_last_alpha"] = 0.0
     var alpha: float = _cubic((t - freeze_end) / recovery)
-    var position: Vector3 = (leg.get("attack_exit_goal",
-        _home(leg, false)) as Vector3).lerp(
-        leg["anchor"], alpha)
     var rotation: Quaternion = (
-        leg.get("attack_exit_rotation",
-            _rotation_home(leg)) as Quaternion).slerp(
+        leg["unified_recovery_rotation"] as Quaternion).slerp(
         leg["anchor_rotation"] as Quaternion, alpha).normalized()
-    var fitted: Vector3 = leg.get("unified_traj_sole",
-        original_sole)
+    var fitted: Vector3 = leg["unified_recovery_local"]
     leg["sole_local"] = fitted.lerp(original_sole, alpha)
+    # Keep the physical ankle's path continuous while its local sole
+    # marker changes: derive world sole from the interpolated pivot.
+    var start_pivot: Vector3 = leg["unified_recovery_pivot"]
+    var anchor_pivot: Vector3 = leg["anchor"] - (
+        Basis(leg["anchor_rotation"] as Quaternion).scaled(
+            foot.global_basis.get_scale()) * original_sole)
+    var desired_pivot: Vector3 = start_pivot.lerp(
+        anchor_pivot, alpha)
+    var position: Vector3 = desired_pivot + (
+        Basis(rotation).scaled(foot.global_basis.get_scale())
+        * (leg["sole_local"] as Vector3))
     if alpha >= 0.999:
         leg["sole_local"] = original_sole
         leg.erase("sole_local_saved")
