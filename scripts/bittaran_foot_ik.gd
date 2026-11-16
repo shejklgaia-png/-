@@ -17,6 +17,9 @@ const REAR_SWEEP_BODY_LIFT_DEGREES: float = 8.0
 # All rear-leg attacks now use the same rear-high counter-tilt.
 # Preserve the v397 constant for its existing sweep regression contract.
 const REAR_ATTACK_BODY_LIFT_DEGREES: float = REAR_SWEEP_BODY_LIFT_DEGREES
+# KICK's source-trajectory knee solve is more sensitive to hip rotation
+# than STOMP/SWEEP; a moderate extra tail lift preserves authored folding.
+const REAR_KICK_BODY_LIFT_DEGREES: float = 4.0
 const STEP_TRIGGER_METERS: float = 0.76
 const STEP_DURATION_SECONDS: float = 0.58
 const STEP_HEIGHT_METERS: float = 0.34
@@ -567,8 +570,10 @@ func _apply_attack_chassis_pose() -> void:
         var rise: float = _cubic(t / prepare_rear)
         var release: float = 1.0 - _cubic(
             (t - end_rear) / recover_rear)
-        var rear_pitch: float = -deg_to_rad(
-            REAR_ATTACK_BODY_LIFT_DEGREES) * rise * release
+        var rear_lift: float = (
+            REAR_KICK_BODY_LIFT_DEGREES
+            if kind == "kick" else REAR_ATTACK_BODY_LIFT_DEGREES)
+        var rear_pitch: float = -deg_to_rad(rear_lift) * rise * release
         chassis_bone.quaternion = (
             chassis_bone.quaternion
             * Quaternion(Vector3.RIGHT, rear_pitch)).normalized()
