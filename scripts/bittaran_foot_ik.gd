@@ -53,6 +53,23 @@ const IK_REACH_MARGIN_METERS: float = 0.002
 # locked aim distance + the rig's aim margin when unclamped).
 const KICK_REACH_BASE_METERS: float = 2.30
 const KICK_REACH_PER_FACTOR: float = 3.2
+# v410: the KICK trajectory blends from the planted basic stance
+# (held through the windup) to the reflected source trajectory
+# over this first segment of the strike; the source clip holds
+# its fold for roughly the first 0.25s of clip time, so the blend
+# completes inside that hold and the extension is purely authored.
+const KICK_TRAJECTORY_ENTRY_BLEND_SECONDS: float = 0.25
+# v410: the SWEEP strike entry blends from the planted basic
+# stance to the sampled authored pose over this window; it must
+# match the SWEEP leg blend-in ramp in bittaran_rig's
+# apply_authored_attack_pose (0.36s, the clip's full-speed
+# outbound lead-in), at whose end the solved pose meets the pure
+# authored pose the freeze branch takes over.
+const SWEEP_ENTRY_BLEND_SECONDS: float = 0.36
+# v410: extra whole-limb lift margin for the SWEEP entry blend,
+# enveloped by 4*bw*(1-bw) so it peaks mid-blend and vanishes at
+# the plant and at the freeze handover (see the entry branch).
+const SWEEP_ENTRY_LIFT_MARGIN_METERS: float = 0.06
 # When the chest turns beyond the planted foot's stance bearing, wrap
 # its knee pole around the hip-to-ankle axis to make a controlled HELIX,
 # instead of stretching one unchanging flat knee plane. Bone lengths and
@@ -291,6 +308,31 @@ func set_collision_parts(parts: Node3D) -> void:
 ## The attack director is the sole writer of this per-frame, deterministic pose.
 ## IK remains the only owner of foot goals, joint lengths and knee poles.
 func set_attack_pose(pose: Dictionary) -> void:
+    # v410: a restarted attack (the director force-started over a
+    # still-active one) never empties the pose, so the previous
+    # attack's recovery never runs and its fitted KICK sole point
+    # leaks into this attack: the contact probe below and the
+    # trajectory's clearance reference both read the SOURCE leg's
+    # sole point and would silently use the stale fit (measured:
+    # leg_rr's played fold shifted 0.12 rad across a sequence of
+    # interrupted attacks). Detect the restart (identity change
+    # or a rewound attack clock) and restore every fitted sole
+    # point before anything reads one.
+    if not pose.is_empty() and not attack_pose.is_empty():
+        var restarted: bool = (
+            str(pose.get("id", "")) != str(attack_pose.get("id", ""))
+            or str(pose.get("kind", ""))
+                != str(attack_pose.get("kind", ""))
+            or float(pose.get("time", 0.0))
+                < float(attack_pose.get("time", 0.0)) - 0.0001)
+        if restarted:
+            for leg in legs:
+                if leg.has("sole_local_saved"):
+                    leg["sole_local"] = leg["sole_local_saved"]
+                    leg.erase("sole_local_saved")
+                    leg.erase("sole_local_traj")
+                leg.erase("plant_goal")
+                leg.erase("plant_rotation")
     if attack_pose.is_empty() and not pose.is_empty() and legs.size() == 4:
         initial_attack_contact_height_world = 0.0
         var kind: String = str(pose.get("kind", ""))
@@ -387,6 +429,12 @@ func clear_attack_pose() -> void:
         leg.erase("kick_traj_entry_rotation")
         leg.erase("kick_traj_entry_knee")
         leg.erase("kick_traj_entry_foot")
+        leg.erase("sweep_entry_sole")
+        leg.erase("sweep_entry_rotation")
+        leg.erase("sweep_entry_knee")
+        leg.erase("sweep_entry_foot")
+        leg.erase("plant_goal")
+        leg.erase("plant_rotation")
         if leg.has("sole_local_saved"):
             leg["sole_local"] = leg["sole_local_saved"]
             leg.erase("sole_local_saved")
@@ -1273,6 +1321,15 @@ func _solve(leg: Dictionary, sole_goal: Vector3, desired_rotation: Quaternion) -
     # authored local rotation is preserved by leaving the mesh untouched.
     # Never silently reset the foot's 2x inherited scale to 1x.
     foot.global_basis = Basis(desired_rotation).scaled(foot_world_scale)
+    # v410: remember the SOLVED knee/ankle positions. The strike
+    # entry blends (KICK trajectory, SWEEP entry) capture their
+    # entry knee/ankle from these, never from the live joints:
+    # when advance_ik runs, the rig has already reset the joints
+    # to its entry snapshot under the current Body, which throws
+    # a captured knee metres sideways (measured 2.4m on leg_fl's
+    # sweep entry).
+    leg["last_knee"] = lower.global_position
+    leg["last_foot"] = foot.global_position
     return foot.to_global(leg["sole_local"]).distance_to(sole_goal)
 
 func _align(joint: Node3D, from_axis: Vector3, to_axis: Vector3) -> void:
@@ -1823,7 +1880,190 @@ func advance_ik(delta: float, motion: String) -> void:
                     # mirror-blend solve (ZERO = use the current knee).
                     leg["authored_pole_active"] = false
                     leg["authored_pole_point"] = Vector3.ZERO
-                    if t <= freeze_end:
+                    if t < attack_windup:
+                        # v410: during the preparation the striking
+                        # leg stays planted at the basic stance,
+                        # solved to its anchor exactly like the
+                        # supports (device request: when Bittaran
+                        # returns to the basic stance before an
+                        # attack, the attacking leg also returns to
+                        # the basic stance position). The authored
+                        # motion starts from this stance at the
+                        # strike: the rig blends the leg in over
+                        # the first part of the strike, and the KICK
+                        # trajectory blends from this planted entry.
+                        # The exit goal/rotation are pre-set to the
+                        # planted values so the recovery fallthrough
+                        # below (recover_t == 0 here) is a no-op.
+                        # The exit lift is zeroed for the same
+                        # reason: the fallthrough re-applies it to
+                        # the hip, and a previous attack's lift
+                        # would otherwise hoist the planted leg's
+                        # hip for the whole preparation (measured
+                        # +0.48m on leg_rr, snapping off at the
+                        # strike boundary). The freeze branch used
+                        # to overwrite it every windup tick before
+                        # the fallthrough; the plant must too.
+                        # The plant target is the leg's true home,
+                        # captured once per attack: the anchor
+                        # ROTATION can be a stale mid-step capture
+                        # (force-started attacks skip the stance
+                        # preparation that refreshes it), which
+                        # pitched leg_rr's planted foot ~14 degrees
+                        # and fed the clip guard a 0.49m lift every
+                        # windup tick. In real play the preparation
+                        # already set anchor == home, so this
+                        # changes nothing there.
+                        if not leg.has("plant_goal"):
+                            leg["plant_goal"] = _home(leg, false)
+                            leg["plant_rotation"] = _rotation_home(leg)
+                        position = leg["plant_goal"]
+                        rotation = leg["plant_rotation"]
+                        leg["attack_exit_goal"] = position
+                        leg["attack_exit_rotation"] = rotation
+                        leg["attack_exit_lift_world"] = 0.0
+                        leg["last_goal"] = position
+                        leg["last_rotation"] = rotation
+                    elif attack_kind == "sweep" and t < attack_windup \
+                            + SWEEP_ENTRY_BLEND_SECONDS:
+                        # v410: blend the SWEEP strike entry from
+                        # the planted stance to the authored pose
+                        # in position space (the KICK trajectory
+                        # pattern). The rig's leg is still slerping
+                        # from its entry locals, whose raw foot sits
+                        # metres under the floor under the fully
+                        # turned Body, so the freeze branch and its
+                        # floor lift cannot run on it yet; the goal
+                        # instead follows the SAMPLED authored pose
+                        # (sample_authored_sweep_pose), re-anchored
+                        # at the live hip and aim-rotated. Sole,
+                        # ankle and knee all blend (blending sole
+                        # and rotation alone swings the ankle on
+                        # the sole offset's ~2m arc and trips the
+                        # reach clamp), the sole point is fitted
+                        # per tick like the KICK trajectory's, and
+                        # the sampled pose's own floor deficit is
+                        # applied as the freeze branch's whole-limb
+                        # lift, scaled by the blend weight and
+                        # applied to hip and goals together, so
+                        # the hip height is continuous at the
+                        # handover. Entry knee/ankle come from the
+                        # last SOLVED positions (last_knee /
+                        # last_foot): the live joints at this
+                        # point are the rig's entry snapshot under
+                        # the turned Body, metres off the plant.
+                        var src: Dictionary = actor.call(
+                            "sample_authored_sweep_pose",
+                            str(attack_pose.get("id", "")),
+                            float(attack_pose.get(
+                                "authored_time", 0.0)),
+                            leg["sole_local"])
+                        if not src.is_empty():
+                            var hip_pos: Vector3 = (
+                                leg["upper"] as Node3D).global_position
+                            var aim_q: Quaternion = Quaternion(
+                                Vector3.UP, float(actor.get(
+                                    "attack_leg_aim_yaw")))
+                            var goal_sole: Vector3 = _aim_rotated(
+                                hip_pos + (src["sole"] as Vector3)
+                                    - (src["hip"] as Vector3),
+                                hip_pos, aim_q)
+                            var goal_foot: Vector3 = _aim_rotated(
+                                hip_pos + (src["foot"] as Vector3)
+                                    - (src["hip"] as Vector3),
+                                hip_pos, aim_q)
+                            var goal_knee: Vector3 = _aim_rotated(
+                                hip_pos + (src["knee"] as Vector3)
+                                    - (src["hip"] as Vector3),
+                                hip_pos, aim_q)
+                            var goal_rot: Quaternion = aim_q * (
+                                src["rotation"] as Quaternion)
+                            if not leg.has("sweep_entry_sole"):
+                                leg["sweep_entry_sole"] = leg.get(
+                                    "last_goal", position)
+                                leg["sweep_entry_rotation"] = leg.get(
+                                    "last_rotation", rotation)
+                                leg["sweep_entry_knee"] = leg.get(
+                                    "last_knee",
+                                    (leg["lower"] as Node3D
+                                    ).global_position)
+                                leg["sweep_entry_foot"] = leg.get(
+                                    "last_foot", foot.global_position)
+                            var bw: float = clampf(
+                                (t - attack_windup)
+                                / SWEEP_ENTRY_BLEND_SECONDS, 0.0, 1.0)
+                            bw = bw * bw * (3.0 - 2.0 * bw)
+                            position = (leg["sweep_entry_sole"]
+                                as Vector3).lerp(goal_sole, bw)
+                            goal_foot = (leg["sweep_entry_foot"]
+                                as Vector3).lerp(goal_foot, bw)
+                            rotation = (leg["sweep_entry_rotation"]
+                                as Quaternion).slerp(goal_rot, bw)
+                            leg["authored_pole_point"] = (
+                                leg["sweep_entry_knee"] as Vector3
+                                ).lerp(goal_knee, bw)
+                            leg["authored_pole_active"] = true
+                            var entry_lift: float = 0.0
+                            var src_bottom: float = float(
+                                src.get("mesh_lowest", INF))
+                            if src_bottom < FLOOR_Y - 0.001:
+                                entry_lift = (FLOOR_Y + 0.003
+                                    - src_bottom) * bw
+                            # Mid-blend the slerped foot rotation
+                            # traces its toe corner on an arc below
+                            # both endpoints' clearance (measured
+                            # -0.041 at clip 0.23 on leg_fl); add a
+                            # margin that peaks mid-blend and is
+                            # zero at both ends, so neither the
+                            # plant nor the freeze handover moves.
+                            entry_lift += (SWEEP_ENTRY_LIFT_MARGIN_METERS
+                                * 4.0 * bw * (1.0 - bw))
+                            if entry_lift > 0.0:
+                                # The goals carry the lift; the
+                                # HIP translation is applied once
+                                # by the recovery fallthrough below
+                                # (recover_t == 0 throughout the
+                                # entry), which re-applies
+                                # attack_exit_lift_world before the
+                                # loop-end _solve -- translating
+                                # the hip here as well would apply
+                                # the lift twice (measured: hip
+                                # hoisted ~1.4m by clip 0.25).
+                                position += Vector3.UP * entry_lift
+                                goal_foot += Vector3.UP * entry_lift
+                                leg["authored_pole_point"] = (
+                                    leg["authored_pole_point"]
+                                    as Vector3) + Vector3.UP * entry_lift
+                            var offset_want: Vector3 = (
+                                position - goal_foot)
+                            if offset_want.length_squared() > 0.000001:
+                                if not leg.has("sole_local_saved"):
+                                    leg["sole_local_saved"] = (
+                                        leg["sole_local"])
+                                leg["sole_local"] = Basis(
+                                    rotation).inverse() * offset_want \
+                                    / maxf(foot.global_basis
+                                        .get_scale().x, 0.001)
+                                leg["sole_local_traj"] = (
+                                    leg["sole_local"])
+                            if bw >= 0.999 and leg.has(
+                                    "sole_local_saved"):
+                                # At bw == 1 the fit IS the leg's
+                                # real sole point (the authored
+                                # pose satisfies it by construction),
+                                # so restoring here is seamless and
+                                # the freeze branch reads the real
+                                # point from the handover on.
+                                leg["sole_local"] = (
+                                    leg["sole_local_saved"])
+                                leg.erase("sole_local_saved")
+                                leg.erase("sole_local_traj")
+                            leg["attack_exit_goal"] = position
+                            leg["attack_exit_rotation"] = rotation
+                            leg["attack_exit_lift_world"] = entry_lift
+                            leg["last_goal"] = position
+                            leg["last_rotation"] = rotation
+                    elif t <= freeze_end:
                         # v409: for KICK the whole-limb lift below
                         # corrects the joint retarget's floor
                         # penetration; the played trajectory is
@@ -1944,11 +2184,12 @@ func advance_ik(delta: float, motion: String) -> void:
                         # the trajectory itself is what is
                         # reproduced now (device request: the
                         # original motion, foot extending low
-                        # along the ground, on every leg). During
-                        # the windup the goal blends from the
-                        # sole captured at attack entry to the
-                        # reflected fold, so the preparation
-                        # mirrors the original too. The v407
+                        # along the ground, on every leg). v410:
+                        # the goal blends from the planted basic
+                        # stance over the first 0.25s of the
+                        # strike (the clip's fold-hold segment);
+                        # during the windup the leg stays planted
+                        # (see the v410 plant branch above). The v407
                         # ramp blend and the v408 per-leg choice
                         # are superseded: there are no longer two
                         # chains to blend between.
@@ -1971,15 +2212,13 @@ func advance_ik(delta: float, motion: String) -> void:
                                     ).global_position
                                 var aim_yaw: float = float(
                                     actor.get("attack_leg_aim_yaw"))
-                                if t < attack_windup:
-                                    # The rig scales the shoulder
-                                    # yaw by the same smoothstep
-                                    # during the windup (its
-                                    # incoming factor); match it so
-                                    # the played trajectory is not
-                                    # over-rotated early.
-                                    aim_yaw *= smoothstep(
-                                        0.0, attack_windup, t)
+                                # v410: the trajectory starts at the
+                                # strike (the windup plants the leg),
+                                # when the rig's own aim factor has
+                                # reached 1.0, so the full yaw applies
+                                # from the first trajectory tick. The
+                                # old windup scaling is gone with the
+                                # windup entry blend it matched.
                                 var aim_q: Quaternion = Quaternion(
                                     Vector3.UP, aim_yaw)
                                 var goal_rot: Quaternion = aim_q * (
@@ -1993,21 +2232,39 @@ func advance_ik(delta: float, motion: String) -> void:
                                 var goal_foot: Vector3 = _aim_rotated(
                                     src["foot"] as Vector3,
                                     hip_pos, aim_q)
-                                if t < attack_windup:
-                                    if not leg.has(
-                                            "kick_traj_entry_sole"):
-                                        leg["kick_traj_entry_sole"] = (
-                                            position)
-                                        leg[
-                                            "kick_traj_entry_rotation"
-                                            ] = rotation
-                                        leg["kick_traj_entry_knee"] = (
+                                # v410: the entry is the planted
+                                # basic stance the windup held (the
+                                # last planted goal/rotation), not a
+                                # windup capture: the trajectory now
+                                # starts at the strike and blends
+                                # from the stance over the source
+                                # clip's fold-hold segment, so the
+                                # leg folds out of the basic stance
+                                # and then follows the pure
+                                # trajectory (the v409 comment above
+                                # describes the trajectory itself;
+                                # only its entry changed).
+                                if not leg.has(
+                                        "kick_traj_entry_sole"):
+                                    leg["kick_traj_entry_sole"] = (
+                                        leg.get("last_goal", position))
+                                    leg[
+                                        "kick_traj_entry_rotation"
+                                        ] = leg.get(
+                                            "last_rotation", rotation)
+                                    leg["kick_traj_entry_knee"] = (
+                                        leg.get("last_knee",
                                             (leg["lower"] as Node3D
-                                            ).global_position)
-                                        leg["kick_traj_entry_foot"] = (
-                                            foot.global_position)
+                                            ).global_position))
+                                    leg["kick_traj_entry_foot"] = (
+                                        leg.get("last_foot",
+                                            foot.global_position))
+                                if t < attack_windup + \
+                                        KICK_TRAJECTORY_ENTRY_BLEND_SECONDS:
                                     var bw: float = clampf(
-                                        t / attack_windup, 0.0, 1.0)
+                                        (t - attack_windup)
+                                        / KICK_TRAJECTORY_ENTRY_BLEND_SECONDS,
+                                        0.0, 1.0)
                                     bw = bw * bw * (3.0 - 2.0 * bw)
                                     goal_sole = (leg[
                                         "kick_traj_entry_sole"]
@@ -2353,7 +2610,21 @@ func advance_ik(delta: float, motion: String) -> void:
             # Check the full mesh AFTER recovery IK, not just during
             # the strike and post-hit hold.
             var clip_foot: Node3D = leg["foot"]
-            var clip_min: float = _foot_mesh_lowest_y(clip_foot)
+            # v410: during the SWEEP strike entry the played pose
+            # is an IK blend toward the authored pose, and the
+            # dipping point is a shin/toe corner of the whole
+            # limb, not just the foot; guard the whole limb's mesh
+            # there with the hip+goal lift strategy below.
+            var sweep_entry: bool = str(
+                attack_pose.get("kind", "")) == "sweep" and (
+                float(attack_pose.get("time", 0.0)) >= float(
+                    attack_pose.get("windup", 0.0))) and (
+                float(attack_pose.get("time", 0.0)) < float(
+                    attack_pose.get("windup", 0.0))
+                    + SWEEP_ENTRY_BLEND_SECONDS)
+            var clip_min: float = (
+                _leg_mesh_lowest_y(leg["upper"] as Node3D)
+                if sweep_entry else _foot_mesh_lowest_y(clip_foot))
             if clip_min < FLOOR_Y - 0.001:
                 # v409: during the KICK trajectory freeze, lift
                 # the HIP and the goal together instead of
@@ -2372,13 +2643,14 @@ func advance_ik(delta: float, motion: String) -> void:
                         attack_pose.get("windup", 0.0)) + float(
                         attack_pose.get("strike", 0.0)) + float(
                         attack_pose.get("hold", 0.0)))
+                var lift_strategy: bool = kick_freeze or sweep_entry
                 var guard_lift: float = 0.0
                 for retry in range(2):
                     var extra: float = maxf(
                         FLOOR_Y + 0.003 - clip_min, 0.0)
                     if extra < 0.0001:
                         break
-                    if kick_freeze:
+                    if lift_strategy:
                         (leg["upper"] as Node3D
                             ).global_position += (
                             Vector3.UP * extra)
@@ -2393,11 +2665,22 @@ func advance_ik(delta: float, motion: String) -> void:
                             + Vector3.UP * extra)
                         leg["last_error"] = _solve(
                             leg, safe, rotation)
-                    clip_min = _foot_mesh_lowest_y(clip_foot)
+                    clip_min = (
+                        _leg_mesh_lowest_y(leg["upper"] as Node3D)
+                        if sweep_entry else
+                        _foot_mesh_lowest_y(clip_foot))
                 if kick_freeze and guard_lift > 0.0:
                     leg["attack_exit_lift_world"] = guard_lift
                     leg["attack_exit_goal"] = position
-                if clip_min < FLOOR_Y - 0.001:
+                elif sweep_entry and guard_lift > 0.0:
+                    # Add to the entry branch's own lift (already
+                    # recorded this tick) so the recorded total
+                    # stays the hip's actual displacement.
+                    leg["attack_exit_lift_world"] = float(
+                        leg.get("attack_exit_lift_world", 0.0)) \
+                        + guard_lift
+                    leg["attack_exit_goal"] = position
+                if clip_min < FLOOR_Y - 0.001 and not sweep_entry:
                     clip_foot.global_position += Vector3.UP * (
                         FLOOR_Y + 0.003 - clip_min)
                 leg["last_goal"] = clip_foot.to_global(
