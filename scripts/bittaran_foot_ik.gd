@@ -553,16 +553,31 @@ func _apply_attack_chassis_pose() -> void:
         (t - swing_end - hold) / maxf(recover, 0.001))
     var rear_attack: bool = _rear_attack_active()
     if rear_attack:
-        # A rear strike's FULL posture is the mirror of the neutral
-        # backward lean, not an additive tilt on top of authored keys.
-        # In the Wait-relative local X frame: +rest -> -rest, with the
-        # same exact magnitude. Existing keyed yaw/roll are retained.
-        # The attack weight is zero at both ends and unity at strike.
+        # v415: the BODY's independently specified 25° -> -25° pitch
+        # must not *also* rotate the attacking leg's authored animation.
+        # The retargeted leg was keyed against the original Body pose:
+        # snapshot that pose before the replacement and counter-rotate
+        # ONLY the attacking shoulder by (newBody^-1 * sourceBody).
+        # Its world-space upper/knee/foot rotations then exactly match
+        # the imported Blockbench motion; the hip's position still
+        # follows the pitched chassis and the planted legs retain IK.
+        # Compute this afresh each frame, never multiply the previous
+        # tick's correction into the newly keyed animation.
+        var original_body: Quaternion = chassis_bone.quaternion
         var neutral_pitch: float = rest_chassis_rotation.get_euler().x
-        var keyed_euler: Vector3 = chassis_bone.quaternion.get_euler()
+        var keyed_euler: Vector3 = original_body.get_euler()
         keyed_euler.x = lerpf(neutral_pitch, -neutral_pitch, weight)
-        chassis_bone.quaternion = Basis.from_euler(
+        var desired_body: Quaternion = Basis.from_euler(
             keyed_euler).get_rotation_quaternion().normalized()
+        chassis_bone.quaternion = desired_body
+        if bool(attack_pose.get("authored", false)):
+            var leg_id: String = str(attack_pose.get("id", ""))
+            var index: int = LEG_PART_IDS.find(leg_id)
+            if index >= 0 and index < legs.size():
+                var shoulder: Node3D = legs[index]["upper"]
+                shoulder.quaternion = (
+                    desired_body.inverse() * original_body
+                    * shoulder.quaternion).normalized()
     var body_yaw: float = float(attack_pose.get("body_yaw", 0.0))
     chassis_bone.quaternion = (Quaternion(
         Vector3.UP, body_yaw * yaw_release)
