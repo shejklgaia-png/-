@@ -1223,7 +1223,16 @@ func _ground_authored_strike_foot(leg: Dictionary) -> void:
         new_goal.y += maxf(
             FLOOR_Y + 0.005 - limb_low, 0.0)
         leg["last_error"] = _solve(leg, new_goal, rotation)
-    leg["attack_exit_goal"] = new_goal
+    # Keep the cached target attached to the actual *achieved*
+    # reflected end effector at an anatomical reach limit.
+    # Caching an unattainable requested sole target makes the
+    # authored motion claim contact that the IK could not reach
+    # (v419 SWEEP in-scene source integration failure).
+    var achieved_goal: Vector3 = foot.to_global(
+        leg["sole_local"] as Vector3)
+    leg["last_goal"] = achieved_goal
+    leg["last_error"] = 0.0
+    leg["attack_exit_goal"] = achieved_goal
     leg["attack_exit_rotation"] = rotation
 
 
