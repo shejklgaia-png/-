@@ -8,18 +8,13 @@ const FLOOR_Y: float = 0.0
 # A visible chassis plate must never intersect the arena when the
 # authored low attack pose or leg-break nose-dip lowers the rig.
 const BODY_MESH_FLOOR_CLEARANCE_METERS: float = 0.020
-# Only rear-leg SWEEP: the source's front-mounted sweep trajectory is
-# mirrored correctly, but a rear hip needs extra vertical clearance.
-# Pitch the visual BODY (never the root or planted soles) so its local
-# +Z/rear rises. Smoothly engage during the 0.70s preparation, hold during
-# the entire authored swing, and release throughout the 1.40s recovery.
-const REAR_SWEEP_BODY_LIFT_DEGREES: float = 8.0
-# All rear-leg attacks now use the same rear-high counter-tilt.
-# Preserve the v397 constant for its existing sweep regression contract.
-const REAR_ATTACK_BODY_LIFT_DEGREES: float = REAR_SWEEP_BODY_LIFT_DEGREES
-# KICK's source-trajectory knee solve is more sensitive to hip rotation
-# than STOMP/SWEEP; a moderate extra tail lift preserves authored folding.
-const REAR_KICK_BODY_LIFT_DEGREES: float = 8.0
+# v414: Rear-leg attacks go from the authored Wait backward lean to an
+# equal-magnitude FORWARD lean at full strike/hold. Never stack a relative
+# 8-degree tail lift onto the authored BODY rotation. The Wait local-X
+# angle is measured from rest_chassis_rotation, so asset edits remain valid.
+# Only the pitch is replaced; authored yaw/roll, head aim and limb clips
+# retain their existing owners. Rear attacks never translate the visual
+# BODY/root vertically as a workaround for reaching a contact.
 const STEP_TRIGGER_METERS: float = 0.76
 const STEP_DURATION_SECONDS: float = 0.58
 const STEP_HEIGHT_METERS: float = 0.34
@@ -532,6 +527,13 @@ func _attack_weight() -> float:
         (t - windup - strike - hold) / maxf(recovery, 0.001))
     return incoming * outgoing
 
+func _rear_attack_active() -> bool:
+    return (not attack_pose.is_empty()
+        and str(attack_pose.get("id", "")).begins_with("leg_r")
+        and ["kick", "stomp", "sweep"].has(
+            str(attack_pose.get("kind", ""))))
+
+
 func _apply_attack_chassis_pose() -> void:
     if attack_pose.is_empty() or actor == null or chassis_bone == null:
         return
@@ -549,37 +551,25 @@ func _apply_attack_chassis_pose() -> void:
     var hold: float = float(attack_pose.get("hold", 0.0))
     var yaw_release: float = 1.0 - _cubic(
         (t - swing_end - hold) / maxf(recover, 0.001))
+    var rear_attack: bool = _rear_attack_active()
+    if rear_attack:
+        # A rear strike's FULL posture is the mirror of the neutral
+        # backward lean, not an additive tilt on top of authored keys.
+        # In the Wait-relative local X frame: +rest -> -rest, with the
+        # same exact magnitude. Existing keyed yaw/roll are retained.
+        # The attack weight is zero at both ends and unity at strike.
+        var neutral_pitch: float = rest_chassis_rotation.get_euler().x
+        var keyed_euler: Vector3 = chassis_bone.quaternion.get_euler()
+        keyed_euler.x = lerpf(neutral_pitch, -neutral_pitch, weight)
+        chassis_bone.quaternion = Basis.from_euler(
+            keyed_euler).get_rotation_quaternion().normalized()
     var body_yaw: float = float(attack_pose.get("body_yaw", 0.0))
     chassis_bone.quaternion = (Quaternion(
         Vector3.UP, body_yaw * yaw_release)
         * chassis_bone.quaternion).normalized()
-    if (kind == "kick" or kind == "stomp" or kind == "sweep") and (
-            str(attack_pose.get("id", "")).begins_with("leg_r")):
-        # Front attacks retain their existing forward-weighted authored
-        # tilt. Every rear attack (KICK/parry, STOMP and SWEEP) raises
-        # the tail by the same smooth local-X rear-high correction.
-        # The pose returns to zero during its authored recovery.
-        # This changes neither foot clips nor their planted anchors.
-        var prepare_rear: float = maxf(
-            float(attack_pose.get("windup", 0.70)), 0.001)
-        var end_rear: float = (prepare_rear
-            + float(attack_pose.get("strike", 2.06))
-            + float(attack_pose.get("hold", 0.0)))
-        var recover_rear: float = maxf(
-            float(attack_pose.get("recovery", 1.40)), 0.001)
-        var rise: float = _cubic(t / prepare_rear)
-        var release: float = 1.0 - _cubic(
-            (t - end_rear) / recover_rear)
-        var rear_lift: float = (
-            REAR_KICK_BODY_LIFT_DEGREES
-            if kind == "kick" else REAR_ATTACK_BODY_LIFT_DEGREES)
-        var rear_pitch: float = -deg_to_rad(rear_lift) * rise * release
-        chassis_bone.quaternion = (
-            chassis_bone.quaternion
-            * Quaternion(Vector3.RIGHT, rear_pitch)).normalized()
     var scale_y: float = maxf(
         absf(actor.get_parent().global_basis.get_scale().y), 0.001)
-    if kind == "kick" or kind == "sweep":
+    if not rear_attack and (kind == "kick" or kind == "sweep"):
         var prepare: float = float(attack_pose.get("windup", 0.70))
         var strike: float = float(attack_pose.get("strike", 1.0))
         var ease_in: float = _cubic(t / maxf(prepare, 0.001))
@@ -590,7 +580,7 @@ func _apply_attack_chassis_pose() -> void:
         # or following the moving attacking foot toward the ground.
         actor.position.y += initial_attack_contact_height_world * (
             ease_in * ease_out) / scale_y
-    if kind == "stomp":
+    if kind == "stomp" and not rear_attack:
         # STOMP now plants the entire long toe VERTICALLY, which gives
         # substantially more ground reach than the horizontal v386 toe.
         # The obsolete 8cm forced BODY dip pulled supporting feet off
@@ -793,10 +783,26 @@ func _attack_goal(leg: Dictionary, desired_rotation: Quaternion) -> Vector3:
         else:
             var retract: float = _cubic(
                 (t - windup - strike - hold) / maxf(recovery, 0.001))
-            goal = touchdown.lerp(goal, retract)
+            # v414: the no-height-shift rear STOMP can reach the floor
+            # only through its actual solved/end-effector contact point,
+            # not the nominal head-target foot position. Begin recovery
+            # from the recorded visible impact sole to avoid a large
+            # hold->recovery teleport when the BODY pitches back.
+            var return_from: Vector3 = (
+                leg.get("stomp_impact_sole", touchdown)
+                if _rear_attack_active() else touchdown)
+            goal = return_from.lerp(goal, retract)
             # After contact, lift a little while retracting; no foot drag.
             goal.y += 0.18 * sin(PI * retract)
-        goal = _reachable_stomp_goal(leg, goal, desired_rotation)
+        # The captured rear contact was grounded by a small foot-only
+        # correction during hold. Clamping its return goal to the new
+        # shoulder's reach on the FIRST recovery frame would lift the toe
+        # about a metre instantly. Keep the exact saved contact/return
+        # goal and fade that temporary end-effector offset in the solver
+        # below; never move the BODY root to resolve it.
+        if not (_rear_attack_active()
+                and t > windup + strike + hold):
+            goal = _reachable_stomp_goal(leg, goal, desired_rotation)
     elif kind == "kick":
         # Legacy procedural fallback for tests that do not request the authored clip.
         # On release, extend HIP-KNEE-ANKLE to the physical full reach,
@@ -935,6 +941,12 @@ func chassis_mesh_lowest_world_y() -> float:
 
 func _keep_chassis_above_ground() -> void:
     if actor == null or chassis_bone == null:
+        return
+    # Rear attacks are rotation-only by design. This floor guard
+    # previously lifted the entire BODY/root when a forward pitched
+    # rear attack brought its nose close to the floor. Preserve the
+    # exact standing Y and leave planted-foot geometry to IK instead.
+    if _rear_attack_active():
         return
     var bottom: float = chassis_mesh_lowest_world_y()
     if not is_finite(bottom):
@@ -2670,6 +2682,25 @@ func advance_ik(delta: float, motion: String) -> void:
                 SUPPORT_FOOT_ROLL_DEGREES) * collapse) *
                 head_support_foot_rotation).normalized()
         leg["last_error"] = _solve(leg, position, rotation)
+        # v414: do not abandon the actually grounded end-effector at
+        # hold->recovery when the fixed-height, forward-pitched BODY puts
+        # the nominal contact just outside the two-bone reach sphere.
+        # This is the same toe-only contact correction already used in
+        # STOMP hold, now decaying with the return goal instead of
+        # snapping upward on the first recovery tick.
+        if attacking and attacking_this_leg and _rear_attack_active()                 and str(attack_pose.get("kind", "")) == "stomp":
+            var stomp_recovery_start: float = (
+                float(attack_pose.get("windup", 1.25))
+                + float(attack_pose.get("strike", 0.25))
+                + float(attack_pose.get("hold", 1.50)))
+            if float(attack_pose.get("time", 0.0)) > stomp_recovery_start:
+                var recovery_foot: Node3D = leg["foot"]
+                var foot_error: Vector3 = (
+                    position - recovery_foot.to_global(
+                        leg["sole_local"] as Vector3))
+                recovery_foot.global_position += foot_error
+                leg["last_goal"] = position
+                leg["last_error"] = 0.0
         if attacking and attacking_this_leg and str(
                 attack_pose.get("kind", "")) == "stomp":
             var stomp_t: float = float(attack_pose.get("time", 0.0))

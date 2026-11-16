@@ -35,6 +35,11 @@ const MIRROR_KEYS: Array[float] = [0.0, 0.125, 0.25, 0.36, 0.5,
 const MAX_MIRROR_ERROR: float = 0.0175
 const MAX_MAGNITUDE_ERROR: float = 0.02
 const MAX_TWIST_DEGREES: float = 70.0
+# v414 replaces the rear 8° additive lean with a full reversal of
+# the authored 25° neutral pitch. That intentional pitch travel adds
+# ~4° to the global quaternion distance measured by this test; keep
+# the stricter limit for front legs and cap rear legs at 80°.
+const MAX_REAR_TWIST_DEGREES: float = 80.0
 const MIN_LEG_CLEARANCE: float = -0.02
 
 
@@ -184,7 +189,9 @@ func _check_scene(battle: Node) -> bool:
         if not finished:
             _fail(id + "/sweep: attack did not finish")
             return false
-        if max_twist > MAX_TWIST_DEGREES:
+        var twist_limit: float = (
+            MAX_REAR_TWIST_DEGREES if rear else MAX_TWIST_DEGREES)
+        if max_twist > twist_limit:
             _fail(id + "/sweep: torso wound to "
                 + str(max_twist) + " degrees from rest")
             return false
