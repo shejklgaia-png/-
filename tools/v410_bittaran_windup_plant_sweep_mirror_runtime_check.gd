@@ -33,6 +33,12 @@ extends SceneTree
 ## reflection inverted the crouch pitch, dropped the rear hip
 ## ~0.6m and snapped the entry knee through the floor). Part 2
 ## now asserts that delta form; Part 1 is unchanged.
+## v412 amendment: at the user's explicit request, rear
+## attacks now reverse the front legs' tilt front-to-back, so
+## Part 2's wanted form adds the front-back reflection for
+## the rear legs (the entry knee-snap it once caused is fixed
+## in v412 by blending the entry pole by direction). Part 1
+## is unchanged.
 const BRAIN = preload("res://scripts/bittaran_attacks.gd")
 const IK = preload("res://scripts/bittaran_foot_ik.gd")
 const DT: float = 1.0 / 60.0
@@ -188,17 +194,28 @@ func _check_sweep_body_mirror(battle: Node3D) -> bool:
         for id in LEGS:
             if id == "leg_fl":
                 continue
-            var wanted: Quaternion = source_delta
+            # v412: wanted is built in the rig's own frame
+            # (see the v411 check's note: reflecting the world
+            # delta errs ~7 degrees on the front-back plane
+            # because the Wait tilt does not commute with it).
+            var delta_local_src: Quaternion = (
+                wait_local.inverse() * source_local).normalized()
+            var mirrored: Quaternion = (
+                world_q * delta_local_src
+                * world_q.inverse()).normalized()
             if id.ends_with("r"):
-                wanted = rig.call("_reflect_world_rotation",
-                    wanted, world.x.normalized())
+                mirrored = rig.call("_reflect_world_rotation",
+                    mirrored, world.x.normalized())
+            if id.begins_with("leg_r"):
+                mirrored = rig.call("_reflect_world_rotation",
+                    mirrored, world.z.normalized())
+            var wanted_local: Quaternion = (wait_local
+                * (world_q.inverse() * mirrored * world_q)
+                .normalized()).normalized()
             var actual_local: Quaternion = rig.call(
                 "_authored_body_rotation_for_attack",
                 "sweep", id, t)
-            var actual_delta: Quaternion = (
-                (world_q * actual_local) * world_rest.inverse()
-                ).normalized()
-            var err: float = actual_delta.angle_to(wanted)
+            var err: float = actual_local.angle_to(wanted_local)
             if err > MAX_MIRROR_ERROR:
                 _fail(id + " sweep BODY tilt motion is not the "
                     + "clean mirror of leg_fl at clip " + str(t)

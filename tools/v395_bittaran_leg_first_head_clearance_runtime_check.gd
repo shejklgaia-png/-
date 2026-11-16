@@ -2,6 +2,17 @@ extends SceneTree
 ## v395: knees yield to the tracked head even during an authored attack.
 ## The actively striking limb keeps its original pose, the other three
 ## planted soles remain fixed, and 20cm is the common hard mesh-depth cap.
+## v412 amendment: the user explicitly asked that during front-leg
+## attacks the legs NOT avoid the head ("front legs must not dodge
+## the head during front-leg attacks"). That instruction supersedes
+## this check's fold-during-authored-attack expectation for the
+## front legs: phase 1 now asserts the front-left support knee
+## stays UNFOLDED through the authored leg_fr sweep (the v412
+## behaviour), while phase 2 asserts the same knee still folds
+## proactively once no attack is running, so the clearance
+## system's regression coverage is kept where it still applies.
+## The untouched-striker / head / planted-sole / no-head-lift
+## assertions are unchanged.
 const PARTS = preload("res://scripts/bittaran_parts.gd")
 const IK = preload("res://scripts/bittaran_foot_ik.gd")
 const DT: float = 1.0 / 60.0
@@ -97,10 +108,11 @@ func _run() -> void:
     var actual_bend: float = float(support["head_knee_bend"])
     var folded_knee: Node3D = support["lower"] as Node3D
     var moved: float = folded_knee.global_position.distance_to(bend_start)
-    ik.set("collision_parts", original_parts)
-    probe.queue_free()
-    if chosen < 0.35 or actual_bend < 0.25 or moved < 0.015:
-        _fail("support knee did not fold during authored sweep: "
+    # v412 phase 1: during the front-leg attack the front support
+    # knee must NOT fold to avoid the head (user instruction).
+    if chosen > 0.0001 or actual_bend > 0.0001:
+        _fail("support knee folded to avoid the head during "
+            + "authored front-leg sweep: "
             + str([chosen, actual_bend, moved]))
         return
     if striker.quaternion.angle_to(striker_rotation) > 0.0001:
@@ -116,7 +128,25 @@ func _run() -> void:
             "head_visual_clearance_lift_world")) - lift_before) > 0.00001:
         _fail("leg-first knee clearance lifted the head")
         return
-    print("GODOT_V395_LEG_FIRST_HEAD_PASS: 20cm depth, proactive "
-        + "support knee fold during authored attack, untouched striker, "
+    # v412 phase 2: with no attack running, the same knee must
+    # still fold proactively for the head (clearance intact).
+    brain.call("cancel")
+    ik.call("clear_attack_pose")
+    ik.set("head_knee_scan_elapsed", IK.HEAD_KNEE_SCAN_SECONDS)
+    for tick in range(16):
+        ik.call("steer_knees_for_head", DT, 0.0,
+            float(battle.get("boss_head_yaw")))
+    chosen = float(support["head_knee_target"])
+    actual_bend = float(support["head_knee_bend"])
+    moved = folded_knee.global_position.distance_to(bend_start)
+    ik.set("collision_parts", original_parts)
+    probe.queue_free()
+    if chosen < 0.35 or actual_bend < 0.25 or moved < 0.015:
+        _fail("support knee did not fold outside the attack: "
+            + str([chosen, actual_bend, moved]))
+        return
+    print("GODOT_V395_LEG_FIRST_HEAD_PASS: 20cm depth, no front "
+        + "support knee fold during authored front-leg attack, "
+        + "proactive fold outside attacks, untouched striker, "
         + "head yaw and planted sole")
     quit(0)

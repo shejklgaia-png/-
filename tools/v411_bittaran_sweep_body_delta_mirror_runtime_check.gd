@@ -20,6 +20,14 @@ extends SceneTree
 ## geometry (v410 leg_rl measured 94). Part 3 asserts the
 ## attacking limb's mesh never breaks the floor (the entry
 ## knee-snap regression).
+## v412 amendment: the user explicitly asked for rear attacks
+## to reverse the front legs' torso tilt front-to-back, so
+## Part 1's wanted form is now the full quadrant reflection
+## (right legs: left-right; rear legs: front-back as well).
+## The entry knee-snap that made v411 avoid the front-back
+## reflection is fixed at its root in v412 (the IK blends the
+## sweep entry pole by direction around the hip), and Part 3
+## still pins the floor clearance that regression produced.
 const DT: float = 1.0 / 60.0
 const LEGS: Array[String] = ["leg_fl", "leg_fr", "leg_rl", "leg_rr"]
 const MIRROR_KEYS: Array[float] = [0.0, 0.125, 0.25, 0.36, 0.5,
@@ -96,14 +104,33 @@ func _check_delta_form(battle: Node) -> bool:
                     + str(rad_to_deg(source_angle)) + " at clip "
                     + str(t))
                 return false
-            var wanted: Quaternion = source_delta
+            # v412: build the wanted rotation in the rig's own
+            # frame (conjugate the LOCAL delta by the rig
+            # rotation, reflect, conjugate back, re-anchor on
+            # Wait). Reflecting the world delta instead errs by
+            # ~7 degrees on the front-back plane, because the
+            # Wait pose's own tilt does not commute with that
+            # reflection (the left-right plane happened to
+            # commute, which is why the world form passed in
+            # v411).
+            var delta_local_src: Quaternion = (
+                wait_local.inverse() * source_local).normalized()
+            var mirrored: Quaternion = (
+                world_q * delta_local_src
+                * world_q.inverse()).normalized()
             if id.ends_with("r"):
-                wanted = rig.call("_reflect_world_rotation",
-                    wanted, world.x.normalized())
-            var err: float = actual_delta.angle_to(wanted)
+                mirrored = rig.call("_reflect_world_rotation",
+                    mirrored, world.x.normalized())
+            if id.begins_with("leg_r"):
+                mirrored = rig.call("_reflect_world_rotation",
+                    mirrored, world.z.normalized())
+            var wanted_local: Quaternion = (wait_local
+                * (world_q.inverse() * mirrored * world_q)
+                .normalized()).normalized()
+            var err: float = actual_local.angle_to(wanted_local)
             if err > MAX_MIRROR_ERROR:
                 _fail(id + " sweep BODY tilt motion is not the "
-                    + "clean side mirror of leg_fl at clip "
+                    + "clean quadrant mirror of leg_fl at clip "
                     + str(t) + ": " + str(rad_to_deg(err))
                     + " degrees off")
                 return false
