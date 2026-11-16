@@ -451,7 +451,8 @@ func clear_attack_pose() -> void:
                 "unified_entry_foot", "unified_entry_knee",
                 "unified_entry_rotation", "unified_traj_sole",
                 "unified_unreachable_vertical", "unified_horizontal_contraction",
-                "unified_geometry_violation", "unified_floor_gap"]:
+                "unified_geometry_violation", "unified_floor_gap",
+                "unified_limb_floor_error"]:
             leg.erase(transient)
         leg.erase("kick_traj_entry_sole")
         leg.erase("kick_traj_entry_rotation")
@@ -1502,6 +1503,70 @@ func _ground_rear_kick_foot(leg: Dictionary) -> void:
 ## The player may change yaw but never shorten the authored reach.
 ## No BODY pitch, accumulated fitted ankle calibration or delayed
 ## rear-only grounding is involved.
+## Rebuilt contact guard. The *same* IK target and authored foot
+## rotation are kept while the knee pole is changed only as far as
+## necessary to stop the physical shin/upper mesh from intersecting
+## the arena. The first candidate is always the untouched source pole.
+func _rebuilt_ground_contact_guard(leg: Dictionary,
+        sole: Vector3, rotation: Quaternion) -> void:
+    var upper: Node3D = leg["upper"]
+    var foot: Node3D = leg["foot"]
+    var foot_bottom: float = _foot_mesh_lowest_y(foot)
+    if foot_bottom < FLOOR_Y - 0.001:
+        # During recovery the source foot rotates to Wait; its lowest
+        # corner changes. Move the IK goal, never the mesh in isolation.
+        var correction: float = FLOOR_Y + 0.004 - foot_bottom
+        sole.y += correction
+        leg["last_error"] = _solve(leg, sole, rotation)
+        leg["attack_exit_goal"] = sole
+
+    var minimum: float = _leg_mesh_lowest_y(upper)
+    if minimum >= FLOOR_Y - 0.001:
+        return
+    var hip: Vector3 = upper.global_position
+    var knee: Vector3 = (leg["lower"] as Node3D).global_position
+    var ankle: Vector3 = foot.global_position
+    var axis: Vector3 = ankle - hip
+    if axis.length_squared() < 0.0001:
+        return
+    axis = axis.normalized()
+    var up: Vector3 = Vector3.UP - axis * axis.y
+    if up.length_squared() < 0.00001:
+        return
+    up = up.normalized()
+    var old_pole: Vector3 = leg.get(
+        "authored_pole_point", knee)
+    var desired_pole: Vector3 = hip + up * (
+        knee - hip).length()
+    var solved: bool = false
+    # Preserve as much authored bend as the arena permits.
+    var low_weight: float = 0.0
+    var high_weight: float = 1.0
+    for attempt in range(9):
+        var weight: float = (
+            high_weight if attempt == 0
+            else (low_weight + high_weight) * 0.5)
+        leg["authored_pole_active"] = true
+        leg["authored_pole_point"] = (
+            BittaranAttackKinematics.continuous_pole(
+                hip, old_pole, desired_pole, weight))
+        leg["last_error"] = _solve(leg, sole, rotation)
+        var clearance: float = _leg_mesh_lowest_y(upper)
+        if clearance >= FLOOR_Y - 0.001:
+            solved = true
+            high_weight = weight
+        else:
+            low_weight = weight
+    # Keep the minimal clear pose at the end of the search.
+    if solved:
+        leg["authored_pole_point"] = (
+            BittaranAttackKinematics.continuous_pole(
+                hip, old_pole, desired_pole, high_weight))
+        leg["last_error"] = _solve(leg, sole, rotation)
+    leg["unified_limb_floor_error"] = minf(
+        _leg_mesh_lowest_y(upper) - FLOOR_Y, 0.0)
+
+
 func _rebuilt_authored_attack_target(leg: Dictionary) -> Dictionary:
     var id: String = str(attack_pose.get("id", ""))
     var kind: String = str(attack_pose.get("kind", ""))
@@ -2549,6 +2614,8 @@ func advance_ik(delta: float, motion: String) -> void:
         leg["last_error"] = _solve(leg, position, rotation)
         if attacking and attacking_this_leg and bool(
                 leg.get("unified_authored_active", false)):
+            _rebuilt_ground_contact_guard(leg,
+                position, rotation)
             leg["unified_floor_gap"] = (
                 _foot_mesh_lowest_y(leg["foot"]) - FLOOR_Y)
         # v414: do not abandon the actually grounded end-effector at
