@@ -59,17 +59,9 @@ const ATTACK_LEG_AIM_MAX_DEGREES_KICK: float = 85.0
 const ATTACK_BODY_PITCH_SCALE_KICK: float = 0.45
 const ATTACK_BODY_PITCH_SCALE_SWEEP: float = 0.60
 const ATTACK_BODY_ROLL_SCALE: float = 0.45
-# v404: KICK reach scaling. The authored kick always extends to its
-# full hip-to-foot length; a player 2m from the hip is speared
-# metres past and held there. The pose is blended toward Wait so
-# the foot lands near the aim point instead. Calibration measured
-# in-scene on the authored leg: hip-to-foot XZ at the extension
-# peak is about 2.30m at factor 0 and grows ~3.2m per factor
-# (4.5m at 0.7, then flattens), so the factor inverts that line.
-const KICK_REACH_BASE_METERS: float = 2.30
-const KICK_REACH_PER_FACTOR: float = 3.2
-const KICK_REACH_AIM_MARGIN_METERS: float = 0.4
-const KICK_REACH_MIN_FACTOR: float = 0.12
+# v418: KICK's original Blockbench reach is never scaled by player
+# distance. Aim yaw only rotates the trajectory's direction; hit
+# detection, not a reach factor, decides whether it connects.
 const ATTACK_LEG_AIM_TURN_DEGREES_PER_SECOND: float = 300.0
 var attack_leg_aim_yaw: float = 0.0
 # Captured ACTUAL active combat pose becomes a six-tenths-second smooth
