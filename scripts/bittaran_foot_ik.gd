@@ -1299,6 +1299,20 @@ func _ground_rear_kick_foot(leg: Dictionary) -> void:
     # changes the attacking leg. The shoulder stays at its original
     # Blockbench socket; BODY/root Y and supporting soles do not move.
     leg["last_error"] = _solve(leg, new_goal, rotation)
+    # Some authored rear shin corners reach lower than the toe when
+    # the knee folds close to the floor (~7.7cm in the v410 fixture).
+    # Keep the entire visual limb outside the arena: raise ONLY this
+    # foot's IK contact goal as much as the exposed shin demands.
+    # This keeps the shoulder at its authored attachment point,
+    # avoids the old artificial whole-body/whole-hip lifts, and
+    # still leaves the toe scraping within 0.20m of the floor.
+    for retry in range(3):
+        var limb_low: float = _leg_mesh_lowest_y(upper)
+        if limb_low >= FLOOR_Y + 0.002:
+            break
+        new_goal.y += maxf(
+            FLOOR_Y + 0.005 - limb_low, 0.0)
+        leg["last_error"] = _solve(leg, new_goal, rotation)
     # Preserve the final grounded goal for a continuous poststrike
     # blend if the source timeline ever ends inside this window.
     leg["attack_exit_goal"] = new_goal
