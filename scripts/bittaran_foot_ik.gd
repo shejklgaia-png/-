@@ -577,9 +577,54 @@ func _apply_attack_chassis_pose() -> void:
         # calibration on all four attacking legs.
         var into_pose: float = _cubic(
             t / maxf(windup, 0.001))
-        actor.position.y += (
-            initial_attack_contact_height_world * into_pose
-            * fade / scale_y)
+        var offset_world: float = (
+            initial_attack_contact_height_world * into_pose * fade)
+        # v422: for REAR legs the constant sole calibration cannot
+        # keep the trajectory's premise. The source trajectory is
+        # transferred hip-relatively, but the reversed rear Body
+        # pitch levers the rear hip down independently of the sole,
+        # so a uniform Y translation leaves the attacking hip far
+        # below where the source hip sat (fold floated ~0.94m, the
+        # extended sole landed ~1.29m off). Align the attacking
+        # rear hip to the SOURCE hip's height at the same clip
+        # time instead, enveloped exactly like the calibration.
+        var attack_id: String = str(attack_pose.get("id", ""))
+        if attack_id.begins_with("leg_r"):
+            var aligned: float = _rear_hip_alignment_offset(
+                attack_id, kind)
+            if is_finite(aligned):
+                offset_world = aligned * into_pose * fade
+        actor.position.y += offset_world / scale_y
+
+
+# v422 helper for _apply_attack_chassis_pose: the actor-Y offset
+# (world metres, before the into/fade envelope) that places the
+# attacking rear hip at the height the SOURCE (leg_fl) hip has at
+# the same clip time. Both heights are measured relative to the
+# actor origin in the same tick, so the result is a pure
+# translation and cannot feed back on itself.
+func _rear_hip_alignment_offset(attack_id: String, kind: String) -> float:
+    var index: int = LEG_PART_IDS.find(attack_id)
+    if index < 0 or legs.size() != 4 or actor == null:
+        return NAN
+    var method: String = ("sample_authored_kick_source"
+        if kind == "kick" else "sample_authored_sweep_source")
+    if not actor.has_method(method):
+        return NAN
+    var clip_t: float = float(attack_pose.get("authored_time", 0.0))
+    if kind == "kick":
+        clip_t = clampf(clip_t, 0.0, 1.0)
+    var src: Dictionary = actor.call(method, attack_id, clip_t,
+        legs[LEG_PART_IDS.find("leg_fl")]["source_sole_local"])
+    if src.is_empty() or not src.has("hip"):
+        return NAN
+    var upper: Node3D = legs[index]["upper"]
+    if upper == null:
+        return NAN
+    var origin_y: float = actor.global_position.y
+    var source_hip_rel: float = (src["hip"] as Vector3).y - origin_y
+    var live_hip_rel: float = upper.global_position.y - origin_y
+    return source_hip_rel - live_hip_rel
 
 
 # Convert the attack direction to an exact two-bone reach in WORLD
