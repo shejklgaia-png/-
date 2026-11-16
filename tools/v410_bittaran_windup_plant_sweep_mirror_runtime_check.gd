@@ -23,6 +23,16 @@ extends SceneTree
 ## across the rig planes in world space, like the leg chains.
 ## Part 2 asserts the played Body world rotation equals the
 ## plane reflection of leg_fl's at sampled clip times.
+## v411 amendment: the mirror semantics changed. v410 reflected
+## the ABSOLUTE pose; because the rest pose is not front-back
+## symmetric, leg_rl's Wait-relative motion inflated to 48
+## degrees (leg_fl: 23) and the in-scene torso wound to 94
+## degrees. v411 mirrors the Wait-relative MOTION (delta),
+## left-right only: leg_rl shares leg_fl's delta verbatim and
+## leg_fr/leg_rr play its left-right reflection (the front-back
+## reflection inverted the crouch pitch, dropped the rear hip
+## ~0.6m and snapped the entry knee through the floor). Part 2
+## now asserts that delta form; Part 1 is unchanged.
 const BRAIN = preload("res://scripts/bittaran_attacks.gd")
 const IK = preload("res://scripts/bittaran_foot_ik.gd")
 const DT: float = 1.0 / 60.0
@@ -165,28 +175,33 @@ func _check_sweep_body_mirror(battle: Node3D) -> bool:
         return false
     var world: Basis = rig.global_basis.orthonormalized()
     var world_q: Quaternion = world.get_rotation_quaternion()
+    var wait_local: Quaternion = rig.call(
+        "_authored_key_rotation", "Wait", "Body", 0.0)
+    var world_rest: Quaternion = world_q * wait_local
     for t in MIRROR_KEYS:
         var source_local: Quaternion = rig.call(
             "_authored_body_rotation_for_attack",
             "sweep", "leg_fl", t)
-        var source_world: Quaternion = world_q * source_local
+        var source_delta: Quaternion = (
+            (world_q * source_local) * world_rest.inverse()
+            ).normalized()
         for id in LEGS:
             if id == "leg_fl":
                 continue
-            var wanted: Quaternion = source_world
+            var wanted: Quaternion = source_delta
             if id.ends_with("r"):
                 wanted = rig.call("_reflect_world_rotation",
                     wanted, world.x.normalized())
-            if id.begins_with("leg_r"):
-                wanted = rig.call("_reflect_world_rotation",
-                    wanted, world.z.normalized())
-            var actual: Quaternion = world_q * (rig.call(
+            var actual_local: Quaternion = rig.call(
                 "_authored_body_rotation_for_attack",
-                "sweep", id, t) as Quaternion)
-            var err: float = actual.angle_to(wanted)
+                "sweep", id, t)
+            var actual_delta: Quaternion = (
+                (world_q * actual_local) * world_rest.inverse()
+                ).normalized()
+            var err: float = actual_delta.angle_to(wanted)
             if err > MAX_MIRROR_ERROR:
-                _fail(id + " sweep BODY tilt is not the clean "
-                    + "mirror of leg_fl at clip " + str(t)
+                _fail(id + " sweep BODY tilt motion is not the "
+                    + "clean mirror of leg_fl at clip " + str(t)
                     + ": " + str(rad_to_deg(err)) + " degrees off")
                 return false
     return true
@@ -207,6 +222,6 @@ func _run() -> void:
     print("GODOT_V410_BITTARAN_PLANT_MIRROR_PASS: attacking leg "
         + "stays on its basic-stance contact through the whole "
         + "windup on all 8 KICK/SWEEP variants and still reaches; "
-        + "SWEEP body tilt is the exact plane mirror of leg_fl "
-        + "on every leg")
+        + "SWEEP body tilt motion is the exact left-right delta "
+        + "mirror of leg_fl on every leg (v411 semantics)")
     quit(0)
