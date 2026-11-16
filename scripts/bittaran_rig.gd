@@ -582,16 +582,24 @@ func _authored_body_rotation_for_attack(kind: String, id: String,
     # from the left-front motion).
     # v411: what is mirrored is the Wait-relative MOTION (delta),
     # not the absolute pose; see _mirror_body_delta_for_attack.
-    # SWEEP only: KICK keeps its unmirrored damped track. Its
-    # in-scene totals already sit in the front-leg band on every
-    # leg (30-70 degrees), and its trajectory sampler plus the
-    # reach/aim stack are calibrated against the unmirrored Body
-    # pose (v400-v409); mirroring KICK's delta measurably broke
-    # leg_fr's sampled trajectory (v400/v406/v408/v409 checks),
-    # so a KICK mirror would need its own dedicated retune.
+    # v412: the mirror planes follow the leg's quadrant. SWEEP
+    # mirrors left-right for the right legs and front-back for
+    # the rear legs, so a rear sweep plays the same-side front
+    # sweep's tilt reversed front-to-back (device request: rear
+    # attacks reverse the front legs' torso tilt front-to-back).
+    # KICK/STOMP front legs keep the unmirrored damped track --
+    # mirroring KICK left-right measurably broke leg_fr's
+    # sampled trajectory (v411 experiment; v400/v406/v408/v409
+    # checks) -- while their rear legs get the front-back
+    # reflection only, which the KICK trajectory sampler and
+    # contact probe read consistently through this same target.
     var target: Quaternion = _damp_body_source(kind, source)
     if kind == "sweep":
-        target = _mirror_body_delta_for_attack(target, id)
+        target = _mirror_body_delta_for_attack(target, id,
+            id.ends_with("r"), id.begins_with("leg_r"))
+    elif id.begins_with("leg_r"):
+        target = _mirror_body_delta_for_attack(target, id,
+            false, true)
     return target
 
 
@@ -613,21 +621,22 @@ func _authored_body_rotation_for_attack(kind: String, id: String,
 ## sweeps (device report: rear-leg attacks twist abnormally,
 ## worst in the windup). Mirroring the delta keeps the played
 ## motion at 23 degrees on every leg.
-## The mirror is LEFT-RIGHT ONLY. Reflecting the delta across
-## the front-back plane as well was tried: it inverts the
-## crouch pitch for the rear legs, which drops the rear hip
-## ~0.6m; the sampled sweep pose then sits ~2.2m under the
-## floor and the strike entry's blended knee pole crosses the
-## hip->sole axis, snapping leg_rl's knee through the floor
-## for a tick (measured -0.214m). The torso's sweep motion is
-## a side-driven weight shift (crouch and roll over the
-## sweeping side), so the rear legs share their own side's
-## motion instead: leg_rl plays leg_fl's tilt verbatim and
-## leg_rr plays the left-right mirror, exactly like leg_fr.
+## v412: the caller chooses the reflection planes by the leg's
+## quadrant (see _authored_body_rotation_for_attack). v411
+## shipped left-right only: reflecting the delta front-back as
+## well inverts the crouch pitch for the rear legs, which
+## drops the rear hip ~0.6m; the sampled sweep pose then sits
+## ~2.2m under the floor and the strike entry's blended knee
+## pole crossed the hip->sole axis, snapping leg_rl's knee
+## through the floor for a tick (measured -0.214m). The user
+## then explicitly asked for the front-back reversal on rear
+## attacks, so v412 reflects it and fixes the entry defect at
+## its root instead: bittaran_foot_ik now blends the entry
+## pole by direction around the hip, so the projected pole
+## can no longer cross the axis mid-blend.
 func _mirror_body_delta_for_attack(local_rotation: Quaternion,
-        id: String) -> Quaternion:
-    if not id.ends_with("r"):
-        # leg_fl is the source; leg_rl shares its side's motion.
+        id: String, mirror_x: bool, mirror_z: bool) -> Quaternion:
+    if not mirror_x and not mirror_z:
         return local_rotation
     var wait_body: Quaternion = _authored_key_rotation(
         "Wait", "Body", 0.0)
@@ -637,8 +646,12 @@ func _mirror_body_delta_for_attack(local_rotation: Quaternion,
     var world: Basis = global_basis.orthonormalized()
     var mirrored: Quaternion = (
         rig_q * delta * rig_q.inverse()).normalized()
-    mirrored = _reflect_world_rotation(
-        mirrored, world.x.normalized())
+    if mirror_x:
+        mirrored = _reflect_world_rotation(
+            mirrored, world.x.normalized())
+    if mirror_z:
+        mirrored = _reflect_world_rotation(
+            mirrored, world.z.normalized())
     var local_delta: Quaternion = (
         rig_q.inverse() * mirrored * rig_q).normalized()
     return (wait_body * local_delta).normalized()
@@ -792,6 +805,24 @@ func initial_authored_sole_height(kind: String, id: String,
 ## calibrating the offset itself to the mesh instead proved
 ## state-sensitive enough to collapse the chassis at close
 ## range (leg_fr min chassis y -0.01, measured).
+## v412: the Body pose the KICK trajectory sampler and the
+## contact probe sample under: the damped source track with NO
+## per-leg mirror. Rear KICKs play the front-back-reversed
+## Body tilt in-scene (device request), but the trajectory is
+## extracted from leg_fl's chain hip-relatively and re-anchored
+## at the live hip; sampling it under the reversed pose routes
+## the reversal through _body_damp_compensation, which rotates
+## the extracted chain at the shoulder and distorts it
+## (measured on leg_rl: ankle profile off by 1.68m, extension
+## foot tilt 41 degrees, trajectory goals pushed past the IK
+## reach clamp). The sampler keeps the front form; the played
+## chassis reversal still tilts the re-anchored leg assembly.
+func _authored_body_rotation_for_kick_sampling(at: float) -> Quaternion:
+    var source: Quaternion = _authored_key_rotation(
+        str(ATTACK_NAMES["kick"]), "Body", at)
+    return _damp_body_source("kick", source)
+
+
 func kick_source_contact_height(id: String,
         sole_local: Vector3) -> float:
     if not loading_ok or not ATTACK_LEG_BONES.has(id):
@@ -801,8 +832,8 @@ func kick_source_contact_height(id: String,
         return NAN
     var body_joint: Node3D = bones[body_uid]
     var saved_body: Quaternion = body_joint.quaternion
-    body_joint.quaternion = _authored_body_rotation_for_attack(
-        "kick", id, 0.0)
+    body_joint.quaternion = (
+        _authored_body_rotation_for_kick_sampling(0.0))
     var src: Dictionary = sample_authored_kick_source(
         id, 0.0, sole_local)
     body_joint.quaternion = saved_body
@@ -859,8 +890,8 @@ func sample_authored_kick_source(id: String, at: float,
     var saved_body: Quaternion = Quaternion.IDENTITY
     if body_node != null:
         saved_body = body_node.quaternion
-        body_node.quaternion = _authored_body_rotation_for_attack(
-            "kick", id, at)
+        body_node.quaternion = (
+            _authored_body_rotation_for_kick_sampling(at))
     for slot in range(3):
         joints[slot].quaternion = _authored_rotation_for_leg(
             "kick", "leg_fl", slot, at)
@@ -1238,10 +1269,30 @@ func aim_authored_attack_leg(frame: Dictionary, delta: float) -> void:
     var outgoing: float = 1.0 - smoothstep(
         windup + strike + hold,
         windup + strike + hold + maxf(recovery, 0.001), t)
+    # v412: while the leg is planted through the windup (v410), do
+    # not rotate its shoulder. The IK re-poses the leg from that
+    # rotated basis every tick and _solve's shortest-arc alignment
+    # inherits the roll, which accumulated into visible mesh
+    # twist over the windup (measured: leg_rr's shin rotated
+    # +105 degrees about its own axis during one windup, leg_fl's
+    # thigh built up ~43 degrees and dumped it in one tick when
+    # the bend plane flipped). The yaw VALUE above keeps slewing
+    # so the strike starts aimed; the application ramps in over
+    # the strike entry instead, over the same window the IK
+    # blends the entry (0.25s kick / 0.36s sweep), so the
+    # sweep's played pose yaws in with its entry rather than
+    # snapping at the strike's first tick.
+    var plant_ramp: float = 1.0
+    if t < windup:
+        plant_ramp = 0.0
+    else:
+        var entry_ramp: float = 0.25 if kind == "kick" else 0.36
+        plant_ramp = smoothstep(0.0, entry_ramp, t - windup)
     var shoulder: Node3D = joints[0]
     var old_basis: Basis = shoulder.global_basis
     var turn: Basis = Basis(Quaternion(
-        Vector3.UP, attack_leg_aim_yaw * incoming * outgoing))
+        Vector3.UP, attack_leg_aim_yaw * incoming * outgoing
+        * plant_ramp))
     shoulder.global_basis = (
         turn * old_basis.orthonormalized()).scaled(old_basis.get_scale())
 

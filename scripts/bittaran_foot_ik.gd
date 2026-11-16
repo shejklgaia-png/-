@@ -1275,8 +1275,17 @@ func _solve(leg: Dictionary, sole_goal: Vector3, desired_rotation: Quaternion) -
     # The planted-foot kick winds the knee inward without sliding the sole.
     # v406: skipped while the reach solve is bending this leg in its
     # authored plane; the block still shapes the recovery solves.
+    # v412: the wind now starts WITH the strike. Since v410 the leg
+    # stays planted at the basic stance for the whole windup, and
+    # winding the pinned leg's knee inward read as the preparation
+    # facing an abnormal direction (device report): the knee
+    # travelled at up to ~7 m/s with the sole fixed, and on leg_fl
+    # the slerped pole crossed the hip->sole axis mid-windup and
+    # flipped the bend plane (knee snap ~1.6m). The fold now forms
+    # over the strike entry like the rest of the authored motion.
     if not attack_pose.is_empty() and str(attack_pose.get("kind", "")) == "kick" \
-            and not bool(leg.get("authored_pole_active", false)):
+            and not bool(leg.get("authored_pole_active", false)) \
+            and float(attack_pose.get("time", 0.0)) >= float(attack_pose.get("windup", 0.0)):
         var active_index: int = LEG_PART_IDS.find(
             str(attack_pose.get("id", "")))
         if active_index >= 0 and leg["upper"] == legs[active_index]["upper"]:
@@ -1999,9 +2008,37 @@ func advance_ik(delta: float, motion: String) -> void:
                                 as Vector3).lerp(goal_foot, bw)
                             rotation = (leg["sweep_entry_rotation"]
                                 as Quaternion).slerp(goal_rot, bw)
-                            leg["authored_pole_point"] = (
-                                leg["sweep_entry_knee"] as Vector3
-                                ).lerp(goal_knee, bw)
+                            # v412: blend the pole point by
+                            # DIRECTION around the hip, not by
+                            # position. With the rear legs'
+                            # front-back-reversed Body tilt (v412),
+                            # the sampled knee can sit on the
+                            # opposite side of the hip->sole axis
+                            # from the planted knee; the straight
+                            # position lerp then passes through the
+                            # axis mid-blend and _solve's projected
+                            # pole flips the bend plane, snapping
+                            # the knee through the floor (measured
+                            # -0.214m on leg_rl in the v411
+                            # experiment). Slerping the direction
+                            # keeps the pole off the axis for the
+                            # whole blend.
+                            var entry_knee: Vector3 = (
+                                leg["sweep_entry_knee"] as Vector3)
+                            var e_dir: Vector3 = entry_knee - hip_pos
+                            var g_dir: Vector3 = goal_knee - hip_pos
+                            if e_dir.length() > 0.05 \
+                                    and g_dir.length() > 0.05:
+                                var mid_dir: Vector3 = \
+                                    e_dir.normalized().slerp(
+                                        g_dir.normalized(), bw)
+                                leg["authored_pole_point"] = \
+                                    hip_pos + mid_dir * lerpf(
+                                        e_dir.length(),
+                                        g_dir.length(), bw)
+                            else:
+                                leg["authored_pole_point"] = \
+                                    entry_knee.lerp(goal_knee, bw)
                             leg["authored_pole_active"] = true
                             var entry_lift: float = 0.0
                             var src_bottom: float = float(
@@ -2622,9 +2659,22 @@ func advance_ik(delta: float, motion: String) -> void:
                 float(attack_pose.get("time", 0.0)) < float(
                     attack_pose.get("windup", 0.0))
                     + SWEEP_ENTRY_BLEND_SECONDS)
+            var kick_freeze: bool = str(
+                attack_pose.get("kind", "")) == "kick" and (
+                float(attack_pose.get("time", 0.0)) <= float(
+                    attack_pose.get("windup", 0.0)) + float(
+                    attack_pose.get("strike", 0.0)) + float(
+                    attack_pose.get("hold", 0.0)))
+            # v412: during the KICK freeze the guard measures
+            # the WHOLE limb, not just the foot. The rear legs'
+            # front-back-reversed Body tilt (v412) drops the rear
+            # hip mid-strike, and leg_rl's shin corner dipped
+            # -0.054m under the floor while its foot stayed
+            # clear -- invisible to the foot-only measurement.
+            var whole_limb: bool = sweep_entry or kick_freeze
             var clip_min: float = (
                 _leg_mesh_lowest_y(leg["upper"] as Node3D)
-                if sweep_entry else _foot_mesh_lowest_y(clip_foot))
+                if whole_limb else _foot_mesh_lowest_y(clip_foot))
             if clip_min < FLOOR_Y - 0.001:
                 # v409: during the KICK trajectory freeze, lift
                 # the HIP and the goal together instead of
@@ -2637,12 +2687,6 @@ func advance_ik(delta: float, motion: String) -> void:
                 # the profile exact and the mesh skimming the
                 # floor. The lift is recorded as the exit lift
                 # so the recovery decays it like the v402 one.
-                var kick_freeze: bool = str(
-                    attack_pose.get("kind", "")) == "kick" and (
-                    float(attack_pose.get("time", 0.0)) <= float(
-                        attack_pose.get("windup", 0.0)) + float(
-                        attack_pose.get("strike", 0.0)) + float(
-                        attack_pose.get("hold", 0.0)))
                 var lift_strategy: bool = kick_freeze or sweep_entry
                 var guard_lift: float = 0.0
                 for retry in range(2):
@@ -2667,7 +2711,7 @@ func advance_ik(delta: float, motion: String) -> void:
                             leg, safe, rotation)
                     clip_min = (
                         _leg_mesh_lowest_y(leg["upper"] as Node3D)
-                        if sweep_entry else
+                        if whole_limb else
                         _foot_mesh_lowest_y(clip_foot))
                 if kick_freeze and guard_lift > 0.0:
                     leg["attack_exit_lift_world"] = guard_lift
@@ -2680,7 +2724,7 @@ func advance_ik(delta: float, motion: String) -> void:
                         leg.get("attack_exit_lift_world", 0.0)) \
                         + guard_lift
                     leg["attack_exit_goal"] = position
-                if clip_min < FLOOR_Y - 0.001 and not sweep_entry:
+                if clip_min < FLOOR_Y - 0.001 and not whole_limb:
                     clip_foot.global_position += Vector3.UP * (
                         FLOOR_Y + 0.003 - clip_min)
                 leg["last_goal"] = clip_foot.to_global(
@@ -2837,6 +2881,19 @@ func _scan_head_knee_targets(sweep_heads: Array[AABB],
         if not attack_pose.is_empty() and str(attack_pose.get("id", "")) == LEG_PART_IDS[index]:
             leg["head_knee_bend"] = 0.0
             continue
+        # v412: during any attack the FRONT legs never fold to avoid
+        # the head (device request). The head tracks the player
+        # through every attack, and a planted front knee folding up
+        # to 40 degrees to dodge it read as the leg shying away from
+        # the head mid-attack (measured: leg_fl bend reached the
+        # 0.70 cap during leg_rl/leg_rr kicks). The target stays
+        # zero for the whole attack, stance preparation included
+        # (the preparation is part of the attack sequence), and
+        # steer_knees_for_head zeroes the bend itself; locomotion
+        # and knockdown avoidance are unchanged.
+        if (not attack_pose.is_empty() or attack_stance_active) \
+                and LEG_PART_IDS[index].begins_with("leg_f"):
+            continue
         # Do not skip a SWINGING leg: its moving knee/upper segment can
         # run into an otherwise stationary head. _solve() below preserves
         # the current sole swing target and the authored swing duration.
@@ -2930,7 +2987,16 @@ func steer_knees_for_head(delta: float, desired_head_yaw: float,
         _scan_head_knee_targets(sweep_heads, head_pose, sweep_poses)
     var active: bool = false
     for leg in legs:
-        if not attack_pose.is_empty() and str(attack_pose.get("id", "")) == LEG_PART_IDS[legs.find(leg)]:
+        # v412: the attacking leg keeps its instant exemption.
+        # The FRONT legs' bends are not zeroed here: the scan
+        # gate (_scan_head_knee_targets) holds their target at
+        # zero from the stance preparation on, so any locomotion
+        # fold eases out over the preparation instead of popping
+        # in one tick, and none is left by the windup (device
+        # request: front legs must not avoid the head during
+        # attacks).
+        if not attack_pose.is_empty() and (
+                str(attack_pose.get("id", "")) == LEG_PART_IDS[legs.find(leg)]):
             leg["head_knee_bend"] = 0.0
             continue
         var before: float = float(leg["head_knee_bend"])
