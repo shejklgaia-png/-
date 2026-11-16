@@ -381,3 +381,4 @@ gd tools/v412_bittaran_windup_twist_rear_tilt_runtime_check.gd
 gd tools/v413_bittaran_rear_attack_reset_runtime_check.gd
 gd tools/v414_bittaran_rear_mirrored_pitch_fixed_height_runtime_check.gd
 gd tools/v415_bittaran_repeat_kick_drift_runtime_check.gd
+gd tools/v415_bittaran_rear_author_motion_runtime_check.gd
