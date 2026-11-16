@@ -2173,75 +2173,79 @@ func advance_ik(delta: float, motion: String) -> void:
                             original_bend.length(), 0.3)
                         var contact_lead: float = 0.0
                         var raw_clearance: float = source_low
+                        leg["windup_source_clearance"] = raw_clearance
                         const PRECONTACT_ENVELOPE: float = 0.55
-                        if raw_clearance < PRECONTACT_ENVELOPE:
-                            # Cubic smoothstep in clearance starts knee
-                            # correction before actual penetration. The
-                            # short time ramp keeps source frame zero
-                            # unmodified even at a low initial pose.
-                            contact_lead = (1.0 - _cubic(
-                                (raw_clearance + 0.012) /
-                                PRECONTACT_ENVELOPE)) * _cubic(
-                                    t / 0.10)
-                            leg["authored_pole_active"] = true
-                            leg["authored_pole_point"] = (
-                                hip_world + original_bend.lerp(
-                                    Vector3.UP * bend_radius,
-                                    contact_lead))
-                            leg["last_error"] = _solve(
-                                leg, position, rotation)
-                            source_low = _leg_mesh_lowest_y(
-                                source_upper)
-                            if source_low < FLOOR_Y - 0.001:
-                                # Only a real remaining penetration can
-                                # require more knee fold. Search for the
-                                # smallest extra bend rather than jumping
-                                # directly to the full upright pole.
-                                var min_weight: float = contact_lead
-                                var max_weight: float = 1.0
-                                for correction_step in range(8):
-                                    var candidate: float = (
-                                        min_weight + max_weight) * 0.5
-                                    leg["authored_pole_point"] = (
-                                        hip_world + original_bend.lerp(
-                                            Vector3.UP * bend_radius,
-                                            candidate))
-                                    leg["last_error"] = _solve(
-                                        leg, position, rotation)
-                                    source_low = _leg_mesh_lowest_y(
-                                        source_upper)
-                                    if source_low < FLOOR_Y + 0.002:
-                                        min_weight = candidate
-                                    else:
-                                        max_weight = candidate
+                        # Always solve the source frame, even before
+                        # contact lead becomes positive. A conditional
+                        # switch into IK as source_low crosses 55cm
+                        # would itself snap the knee on front sweeps.
+                        # Cubic smoothstep in clearance starts knee
+                        # correction before actual penetration. The
+                        # short time ramp keeps source frame zero
+                        # unmodified even at a low initial pose.
+                        contact_lead = (1.0 - _cubic(
+                            (raw_clearance + 0.012) /
+                            PRECONTACT_ENVELOPE)) * _cubic(
+                                t / 0.10)
+                        leg["authored_pole_active"] = true
+                        leg["authored_pole_point"] = (
+                            hip_world + original_bend.lerp(
+                                Vector3.UP * bend_radius,
+                                contact_lead))
+                        leg["last_error"] = _solve(
+                            leg, position, rotation)
+                        source_low = _leg_mesh_lowest_y(
+                            source_upper)
+                        if source_low < FLOOR_Y - 0.001:
+                            # Only a real remaining penetration can
+                            # require more knee fold. Search for the
+                            # smallest extra bend rather than jumping
+                            # directly to the full upright pole.
+                            var min_weight: float = contact_lead
+                            var max_weight: float = 1.0
+                            for correction_step in range(8):
+                                var candidate: float = (
+                                    min_weight + max_weight) * 0.5
                                 leg["authored_pole_point"] = (
                                     hip_world + original_bend.lerp(
                                         Vector3.UP * bend_radius,
-                                        max_weight))
+                                        candidate))
                                 leg["last_error"] = _solve(
                                     leg, position, rotation)
                                 source_low = _leg_mesh_lowest_y(
                                     source_upper)
-                            if source_low < FLOOR_Y - 0.001:
-                                # An unreachable pose is a physical
-                                # constraint. The smallest remaining
-                                # vertical correction preserves source
-                                # bone lengths and the original toe roll.
-                                source_upper.global_position.y += (
-                                    FLOOR_Y + 0.003 - source_low)
-                            var final_foot_gap: float = (
-                                _foot_mesh_lowest_y(foot)
-                                - FLOOR_Y - 0.003)
-                            if final_foot_gap > 0.0:
-                                foot.global_position.y -= (
-                                    final_foot_gap * contact_fraction)
-                            leg["last_goal"] = foot.to_global(
-                                leg["sole_local"] as Vector3)
-                            leg["attack_exit_goal"] = (
-                                leg["last_goal"])
-                            leg["last_knee"] = (
-                                source_lower.global_position)
-                            leg["last_foot"] = foot.global_position
+                                if source_low < FLOOR_Y + 0.002:
+                                    min_weight = candidate
+                                else:
+                                    max_weight = candidate
+                            leg["authored_pole_point"] = (
+                                hip_world + original_bend.lerp(
+                                    Vector3.UP * bend_radius,
+                                    max_weight))
+                            leg["last_error"] = _solve(
+                                leg, position, rotation)
+                            source_low = _leg_mesh_lowest_y(
+                                source_upper)
+                        if source_low < FLOOR_Y - 0.001:
+                            # An unreachable pose is a physical
+                            # constraint. The smallest remaining
+                            # vertical correction preserves source
+                            # bone lengths and the original toe roll.
+                            source_upper.global_position.y += (
+                                FLOOR_Y + 0.003 - source_low)
+                        var final_foot_gap: float = (
+                            _foot_mesh_lowest_y(foot)
+                            - FLOOR_Y - 0.003)
+                        if final_foot_gap > 0.0:
+                            foot.global_position.y -= (
+                                final_foot_gap * contact_fraction)
+                        leg["last_goal"] = foot.to_global(
+                            leg["sole_local"] as Vector3)
+                        leg["attack_exit_goal"] = (
+                            leg["last_goal"])
+                        leg["last_knee"] = (
+                            source_lower.global_position)
+                        leg["last_foot"] = foot.global_position
                         continue
                     if attack_kind == "sweep" and t < attack_windup \
                             + SWEEP_ENTRY_BLEND_SECONDS:
