@@ -54,6 +54,7 @@ on:
       - 'tools/v379_bittaran_*.gd'
       - 'tools/v380_bittaran_*.gd'
       - 'tools/v420_bittaran_attack_rebuild_regression_runtime_check.gd'
+      - 'tools/v421_bittaran_exact_mirrored_trajectory_runtime_check.gd'
       - 'tools/rebuild_bittaran_data.py'
       - 'scripts/command_nexus.gd'
       - 'project.godot'
@@ -675,6 +676,19 @@ jobs:
             exit 1
           fi
           grep -q 'GODOT_V380_BITTARAN_KNEE_HEAD_PASS' "$log"
+
+      - name: Verify v421 exact four-way source-space knee ankle sole mirroring
+        run: |
+          set -euo pipefail
+          log="$RUNNER_TEMP/bittaran-v421.log"
+          status=0
+          "$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" --headless --path . --script tools/v421_bittaran_exact_mirrored_trajectory_runtime_check.gd > "$log" 2>&1 || status=$?
+          cat "$log"
+          if [ "$status" -ne 0 ] || grep -E 'SCRIPT ERROR|Parse Error|Compile Error|Invalid call|V421_SOURCE_SPACE_MIRROR_FAIL' "$log"; then
+            echo "::error::Bittaran source-space mirroring validation failed"
+            exit 1
+          fi
+          grep -q 'GODOT_V421_SOURCE_SPACE_MIRROR_PASS' "$log"
 
       - name: Verify v420 repeat attack knee, toe crawl and source axial roll
         run: |

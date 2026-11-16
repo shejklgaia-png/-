@@ -755,9 +755,26 @@ func kick_source_contact_height(id: String,
 ## reflection of a point p across the plane through the rig
 ## origin with unit normal n is p - 2((p - origin) . n)n; the
 ## rotation reflection reuses _reflect_world_rotation.
+## Source-trajectory owner for ALL horizontal authored attacks.
+## Reflect the front-left chain in one rig-root space before translating
+## it to each destination hip. Bone rotations and positional trajectories
+## are transformed together: never mirror shoulder quaternions under
+## one frame and knee/ankle positions under another.
 func sample_authored_kick_source(id: String, at: float,
         source_sole_local: Vector3) -> Dictionary:
-    if not loading_ok or not ATTACK_LEG_BONES.has(id):
+    return _sample_authored_mirrored_source(
+        "kick", id, at, source_sole_local)
+
+
+func sample_authored_sweep_source(id: String, at: float,
+        source_sole_local: Vector3) -> Dictionary:
+    return _sample_authored_mirrored_source(
+        "sweep", id, at, source_sole_local)
+
+
+func _sample_authored_mirrored_source(kind: String, id: String,
+        at: float, source_sole_local: Vector3) -> Dictionary:
+    if not loading_ok or not ATTACK_NAMES.has(kind) or not ATTACK_LEG_BONES.has(id):
         return {}
     var saved_mirror_weight: float = kick_mirror_weight
     kick_mirror_weight = 0.0
@@ -794,17 +811,18 @@ func sample_authored_kick_source(id: String, at: float,
     var saved_body: Quaternion = Quaternion.IDENTITY
     if body_node != null:
         saved_body = body_node.quaternion
-        body_node.quaternion = (
-            _authored_body_rotation_for_kick_sampling(at))
+        body_node.quaternion = _authored_body_rotation_for_attack(
+            kind, "leg_fl", at)
     for slot in range(3):
         joints[slot].quaternion = _authored_rotation_for_leg(
-            "kick", "leg_fl", slot, at)
+            kind, "leg_fl", slot, at)
     var rotation: Quaternion = (
         joints[2].global_basis.get_rotation_quaternion())
     var knee: Vector3 = joints[1].global_position
     var foot: Vector3 = joints[2].global_position
     var sole: Vector3 = joints[2].to_global(source_sole_local)
     var source_hip: Vector3 = joints[0].global_position
+    var mesh_low: float = _subtree_mesh_lowest_y(joints[0])
     for slot in range(3):
         joints[slot].transform = saved[slot]
     if body_node != null:
@@ -861,7 +879,9 @@ func sample_authored_kick_source(id: String, at: float,
         rotation = _reflect_world_rotation(
             rotation, world.z.normalized())
     return {"rotation": rotation, "knee": knee, "foot": foot,
-        "sole": sole}
+        "sole": sole, "hip": target_hip,
+        "mesh_lowest": mesh_low + target_hip.y - source_hip.y,
+        "source_mesh_lowest": mesh_low}
 
 
 ## Lowest mesh corner under a joint subtree, measured exactly
@@ -898,44 +918,10 @@ func _subtree_mesh_lowest_y(joint: Node3D) -> float:
 ## the live hip by the caller.
 func sample_authored_sweep_pose(id: String, at: float,
         sole_local: Vector3) -> Dictionary:
-    if not loading_ok or not ATTACK_LEG_BONES.has(id):
-        return {}
-    var joints: Array[Node3D] = []
-    var saved: Array[Transform3D] = []
-    for name in ATTACK_LEG_BONES[id]:
-        var uid: String = str(bone_uuid_by_name.get(str(name), ""))
-        if uid.is_empty() or not bones.has(uid):
-            return {}
-        var joint: Node3D = bones[uid]
-        joints.append(joint)
-        saved.append(joint.transform)
-        joint.position = bind_positions[uid]
-    var body_node: Node3D = joints[0].get_parent() as Node3D
-    var saved_body: Quaternion = Quaternion.IDENTITY
-    if body_node != null:
-        saved_body = body_node.quaternion
-        body_node.quaternion = _authored_body_rotation_for_attack(
-            "sweep", id, at)
-    for slot in range(3):
-        joints[slot].quaternion = _authored_rotation_for_leg(
-            "sweep", id, slot, at)
-    var result: Dictionary = {
-        "rotation": joints[2].global_basis.get_rotation_quaternion(),
-        "knee": joints[1].global_position,
-        "foot": joints[2].global_position,
-        "sole": joints[2].to_global(sole_local),
-        "hip": joints[0].global_position,
-        # The sampled pose's own floor deficit basis: the IK's
-        # entry blend applies the freeze branch's whole-limb lift
-        # from this value, since the DISPLAYED leg during the
-        # entry is the entry snapshot, not this pose.
-        "mesh_lowest": _subtree_mesh_lowest_y(joints[0]),
-    }
-    for slot in range(3):
-        joints[slot].transform = saved[slot]
-    if body_node != null:
-        body_node.quaternion = saved_body
-    return result
+    # Legacy public name retained for the scene/fixture callers.
+    # Both SWEEP and KICK now use the same front-left source-space
+    # reflection including knee, ankle, sole and joint orientation.
+    return sample_authored_sweep_source(id, at, sole_local)
 
 
 func apply_authored_attack_pose(frame: Dictionary) -> void:
