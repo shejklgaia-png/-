@@ -36,6 +36,7 @@ func _run() -> void:
     var player: CharacterBody3D = battle.get("player")
     var brain: RefCounted = battle.get("bittaran_attacks")
     var chassis: Node3D = ik.get("chassis_bone")
+    var rig: Node3D = battle.get("bittaran_rig")
     var cases: Array = [
         ["leg_fr", "kick"], ["leg_fl", "kick"],
         ["leg_fr", "sweep"], ["leg_fl", "sweep"],
@@ -144,8 +145,8 @@ func _run() -> void:
             _fail("leg_fr source KICK was shortened by nearby "
                 + "player despite v418 full-range contract: "
                 + str(joint_over) + "m past the target")
-        if absf(float(battle.get("bittaran_rig")
-                .get("kick_reach_factor")) - 1.0) > 0.00001:
+        if absf(float(rig.get("kick_reach_factor"))
+                - 1.0) > 0.00001:
             _fail("leg_fr source KICK was distance-scaled")
         if spot.z < -4.0 and joint_over < -1.2:
             _fail("leg_fr kick at %s fell short: joint ended %.2fm "
