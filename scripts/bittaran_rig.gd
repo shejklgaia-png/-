@@ -1091,29 +1091,11 @@ func apply_authored_attack_pose(frame: Dictionary) -> void:
         kick_mirror_weight = (
             (ramp_in * ramp_in * (3.0 - 2.0 * ramp_in))
             * (1.0 - ramp_out * ramp_out * (3.0 - 2.0 * ramp_out)))
-    # v404: shorten the KICK for close targets. The factor follows
-    # the (windup-tracked, then locked) aim point's horizontal
-    # distance from the attacking hip, so the foot lands near the
-    # player instead of spearing metres past them and holding there
-    # (device feedback on v403, front-right leg in front of the
-    # boss: foot 3.5m past the player, toe tip 5.2m past). The
-    # factor is consumed by bittaran_foot_ik (v406 geometric
-    # shortening); the pose itself stays fully authored.
+    # v418: KICK always uses the complete source-animated limb reach.
+    # Aim determines HORIZONTAL DIRECTION only, never the foot's
+    # distance. Do not scale or truncate the clip for a nearby/faraway
+    # player; the hit test may naturally miss when out of range.
     kick_reach_factor = 1.0
-    if kind == "kick":
-        var aim: Vector3 = frame.get("aim", Vector3.INF)
-        var hip_uid: String = str(bone_uuid_by_name.get(
-            str(ATTACK_LEG_BONES[id][0]), ""))
-        if aim != Vector3.INF and bones.has(hip_uid):
-            var hip_pos: Vector3 = (
-                bones[hip_uid] as Node3D).global_position
-            var flat: Vector2 = Vector2(
-                aim.x - hip_pos.x, aim.z - hip_pos.z)
-            kick_reach_factor = clampf(
-                (flat.length() + KICK_REACH_AIM_MARGIN_METERS
-                    - KICK_REACH_BASE_METERS)
-                / KICK_REACH_PER_FACTOR,
-                KICK_REACH_MIN_FACTOR, 1.0)
     var preparation: float = 0.0 if kind == "stomp" else windup
     var clip_time: float = clampf(
         float(frame.get("authored_time", seconds - preparation)),
