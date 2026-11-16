@@ -59,17 +59,14 @@ func _check_rear_posture(rig: Node3D, ik: RefCounted) -> bool:
                 "body_yaw": 0.0, "stomp_aim": Vector3.INF
             })
             ik.call("_apply_attack_chassis_pose")
+            # v419: direct IK helper cannot inject forward/back
+            # lean for any attack, front or rear. Only the rig's
+            # original mirrored BODY clip owns that orientation.
             var expected: Quaternion = before
-            if id.begins_with("leg_r"):
-                var toward: float = smoothstep(0.0, 1.0, t / windup)
-                var euler: Vector3 = before.get_euler()
-                euler.x = lerpf(rest_pitch, -rest_pitch, toward)
-                expected = Basis.from_euler(
-                    euler).get_rotation_quaternion().normalized()
             var error: float = chassis.quaternion.angle_to(expected)
             if error > 0.0005:
                 _fail(kind + " " + id
-                    + " neutral-to-mirrored-pitch mismatch: "
+                    + " introduced non-authored pitch: "
                     + str(rad_to_deg(error)) + " degrees")
                 return false
             if absf(actor.position.y -
