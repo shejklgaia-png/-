@@ -53,6 +53,7 @@ on:
       - 'tools/v378_bittaran_*.gd'
       - 'tools/v379_bittaran_*.gd'
       - 'tools/v380_bittaran_*.gd'
+      - 'tools/v420_bittaran_attack_rebuild_regression_runtime_check.gd'
       - 'tools/rebuild_bittaran_data.py'
       - 'scripts/command_nexus.gd'
       - 'project.godot'
@@ -674,6 +675,19 @@ jobs:
             exit 1
           fi
           grep -q 'GODOT_V380_BITTARAN_KNEE_HEAD_PASS' "$log"
+
+      - name: Verify v420 repeat attack knee, toe crawl and source axial roll
+        run: |
+          set -euo pipefail
+          log="$RUNNER_TEMP/bittaran-v420.log"
+          status=0
+          "$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" --headless --path . --script tools/v420_bittaran_attack_rebuild_regression_runtime_check.gd > "$log" 2>&1 || status=$?
+          cat "$log"
+          if [ "$status" -ne 0 ] || grep -E 'SCRIPT ERROR|Parse Error|Compile Error|Invalid call|V420_ATTACK_REBUILD_FAIL' "$log"; then
+            echo "::error::Bittaran v420 attack rebuild regression failed"
+            exit 1
+          fi
+          grep -q 'GODOT_V420_ATTACK_REBUILD_PASS' "$log"
 
       - name: Validate all authored Bittaran attacks and head regressions v381-v398
         run: |
