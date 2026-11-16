@@ -436,6 +436,8 @@ func clear_attack_pose() -> void:
         leg.erase("attack_entry_goal")
         leg.erase("authored_pole_active")
         leg.erase("authored_pole_point")
+        leg.erase("rear_kick_axis_source")
+        leg.erase("rear_kick_axis_solved")
         leg.erase("kick_traj_entry_sole")
         leg.erase("kick_traj_entry_rotation")
         leg.erase("kick_traj_entry_knee")
@@ -1465,10 +1467,23 @@ func _solve(leg: Dictionary, sole_goal: Vector3, desired_rotation: Quaternion) -
         pole = (Quaternion(direction, spiral) * pole).normalized()
     var knee_target: Vector3 = hip + direction * along + pole * sideways
     var end_target: Vector3 = hip + direction * distance
-    _align(upper, knee - hip, knee_target - hip)
+    var source_axes: Dictionary = leg.get(
+        "rear_kick_axis_source", {})
+    if source_axes.is_empty():
+        _align(upper, knee - hip, knee_target - hip)
+    else:
+        _align_from_authored_axis(upper,
+            source_axes["upper_axis"], knee_target - hip,
+            source_axes["upper_rotation"])
     knee = lower.global_position
     end = foot.global_position
-    _align(lower, end - knee, end_target - knee)
+    if source_axes.is_empty():
+        _align(lower, end - knee, end_target - knee)
+    else:
+        _align_from_authored_axis(lower,
+            source_axes["lower_axis"], end_target - knee,
+            source_axes["lower_rotation"])
+        leg["rear_kick_axis_solved"] = true
     # Foot orientation is world-stable throughout stance. The foot mesh's
     # authored local rotation is preserved by leaving the mesh untouched.
     # Never silently reset the foot's 2x inherited scale to 1x.
@@ -1491,6 +1506,27 @@ func _align(joint: Node3D, from_axis: Vector3, to_axis: Vector3) -> void:
     var q := Quaternion(from_axis.normalized(), to_axis.normalized())
     var original_scale: Vector3 = joint.global_basis.get_scale()
     joint.global_basis = Basis((q * joint.global_basis.get_rotation_quaternion()).normalized()).scaled(original_scale)
+
+
+## v417: swing ONLY the authored limb's long axis toward the IK
+## segment. Its reference WORLD rotation is an absolute source-clip
+## quaternion captured before any solve in THIS frame. Unlike _align,
+## this function never composes on a previously corrected joint, so
+## the thigh/shin keep the Blockbench-authored axial roll regardless of
+## how many floor/reach solves this frame needs. Child offsets, bone
+## lengths and mesh scales are not modified.
+func _align_from_authored_axis(joint: Node3D,
+        authored_axis: Vector3, target_axis: Vector3,
+        authored_rotation: Quaternion) -> void:
+    if authored_axis.length_squared() <= 0.00000001 or (
+            target_axis.length_squared() <= 0.00000001):
+        return
+    var transport := Quaternion(
+        authored_axis.normalized(), target_axis.normalized())
+    var scale: Vector3 = joint.global_basis.get_scale()
+    joint.global_basis = Basis((
+        transport * authored_rotation).normalized()).scaled(scale)
+
 
 ## Stop gait, plant all four feet, then skid the broken shin along the floor.
 ## The body drops only on the visual IK rig; combat target never teleports.
@@ -1941,6 +1977,45 @@ func advance_ik(delta: float, motion: String) -> void:
     # floor bound *after* every torso adjustment and *before* foot IK.
     _keep_chassis_above_ground()
     _update_spiral_legs(delta, attacking)
+    # v417: capture an immutable, THIS-FRAME Blockbench-derived
+    # attacking rear-leg frame immediately after BODY pitch compensation
+    # and attack aiming, BEFORE any IK correction. A rear KICK can
+    # execute _solve up to five times in one physics tick (trajectory,
+    # floor guard, crawl reach, shin clearance). Each old _align
+    # post-multiplied a shortest-arc quaternion onto the PREVIOUS
+    # solved bone, transporting arbitrary axial roll between distinct
+    # target directions. That makes the rear shin spin around its
+    # own long axis. Every rear KICK solve now targets this SAME
+    # authored axis frame and never inherits earlier solves' roll.
+    for limb in legs:
+        limb.erase("rear_kick_axis_source")
+        limb.erase("rear_kick_axis_solved")
+    if attacking and bool(attack_pose.get("authored", false)) and (
+            str(attack_pose.get("kind", "")) == "kick") and (
+            str(attack_pose.get("id", "")).begins_with("leg_r")):
+        var index: int = LEG_PART_IDS.find(str(
+            attack_pose.get("id", "")))
+        if index >= 0:
+            var active_leg: Dictionary = legs[index]
+            var source_upper: Node3D = active_leg["upper"]
+            var source_lower: Node3D = active_leg["lower"]
+            var source_foot: Node3D = active_leg["foot"]
+            var axis_upper: Vector3 = (
+                source_lower.global_position
+                - source_upper.global_position)
+            var axis_lower: Vector3 = (
+                source_foot.global_position
+                - source_lower.global_position)
+            if axis_upper.length_squared() > 0.000001 and (
+                    axis_lower.length_squared() > 0.000001):
+                active_leg["rear_kick_axis_source"] = {
+                    "upper_axis": axis_upper.normalized(),
+                    "lower_axis": axis_lower.normalized(),
+                    "upper_rotation": source_upper.global_basis
+                        .get_rotation_quaternion(),
+                    "lower_rotation": source_lower.global_basis
+                        .get_rotation_quaternion(),
+                }
     # During the physical stand-up, planted feet keep their world-space
     # anchors as the chassis turns toward SERA. Locomotion clips already
     # play on the rig, but the IK soles must NOT chase the torso until
