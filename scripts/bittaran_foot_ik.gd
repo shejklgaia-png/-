@@ -573,6 +573,26 @@ func _apply_attack_chassis_pose() -> void:
     chassis_bone.quaternion = (
         Quaternion(Vector3.UP, body_yaw * yaw_release)
         * chassis_bone.quaternion).normalized()
+    # The authored low BODY prepose has one measured contact-height
+    # calibration per attack. Apply it uniformly to all four legs,
+    # without a rear-only pitch, and fade it to zero on recovery.
+    var kind: String = str(attack_pose.get("kind", ""))
+    if kind == "kick" or kind == "sweep":
+        var prep: float = maxf(
+            float(attack_pose.get("windup", 0.70)), 0.001)
+        var strike_time: float = float(
+            attack_pose.get("strike", 1.0))
+        var hold_time: float = float(
+            attack_pose.get("hold", 0.0))
+        var contact_weight: float = _cubic(t / prep) * (
+            1.0 - _cubic((
+                t - prep - strike_time - hold_time)
+                / recovery))
+        var parent_scale: float = maxf(absf(
+            actor.get_parent().global_basis.get_scale().y), 0.001)
+        actor.position.y += (
+            initial_attack_contact_height_world
+            * contact_weight / parent_scale)
     # A STOMP must actually be reachable at the ground contact.
     # Use the same geometric support-height correction for ALL
     # four corners. There is no rear-specific pitch or foot-warp.
