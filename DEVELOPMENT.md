@@ -1,3 +1,11 @@
+## 2026-11-16 — SERA v422: rear attacks align the attacking hip to the source hip height
+
+- Device feedback on the v419/v421 build: motion still looked wrong; the user localized it to the diagonal pair (front-right / rear-left) and proposed aligning the body's rear to the source leg's hip height for rear attacks instead of lowering the whole body evenly.
+- `bittaran_foot_ik.gd` `_apply_attack_chassis_pose`: for rear-leg (leg_rl/leg_rr) KICK/SWEEP, the constant clip-0 sole calibration (about -1.45m of uniform Y for the whole attack) is replaced by a per-tick alignment: the actor Y offset places the attacking hip at the height the SOURCE (leg_fl) hip has at the same clip time, sampled via the existing source sampler and enveloped with the same into/fade curves. Front legs and STOMP keep the previous calibration.
+- Measured in the symmetric corner-bearing geometry (played, aim-compensated, hip-relative sole vs the played leg_fl mirror): rear KICK windup deviation 2.84m -> 1.90m, strike 2.20m -> 1.39m, worst strike joint step 104deg/tick -> within 65deg/tick. New regression check `tools/v422_bittaran_rear_hip_alignment_runtime_check.gd` guards those bounds plus the front legs' exactness.
+- Deliberately unchanged, documented in README_v422_ja.md: at full extension the rear MESH sole still lands ~1.29m from the mirrored point (the fitted gameplay sole is exact); the rear feet's local frames are not mirror images of the front pair's, so ankle, foot orientation and mesh sole cannot all be exact at once — bending the foot to the fitted point was measured to cost a 33.7-degree extension tilt (source ~9 degrees) and is left as a design decision. The chain-played windup fold still hangs from the front-back reversed Body pitch (fold sole floats ~0.94m).
+- Android device visuals are not verified.
+
 ## 2026-11-16 — SERA v419: one Blockbench BODY+leg attack mirrored to all quadrants
 
 - Device request: mirror authored BODY + all three attack-leg joints by X/right and Z/rear for all KICK, SWEEP and STOMP, with all four positions exact at the FIRST attack frame; remove independently manufactured front/rear BODY leaning and unify ground corrections across limbs.
