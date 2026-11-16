@@ -1166,10 +1166,10 @@ func _aim_rotated(point: Vector3, hip: Vector3,
 # It operates on mirrored original sole/foot frames after their
 # authored IK solve, without adding any BODY pitch or extra
 # quadrant-specific model offset.
-func _ground_authored_kick_foot(leg: Dictionary) -> void:
+func _ground_authored_strike_foot(leg: Dictionary) -> void:
     if attack_pose.is_empty() or not bool(
-            attack_pose.get("authored", false)) or str(
-            attack_pose.get("kind", "")) != "kick":
+            attack_pose.get("authored", false)) or not (
+            ["kick", "sweep"].has(str(attack_pose.get("kind", "")))):
         return
     var t: float = float(attack_pose.get("time", 0.0))
     var windup: float = float(attack_pose.get("windup", 0.70))
@@ -1181,8 +1181,10 @@ func _ground_authored_kick_foot(leg: Dictionary) -> void:
     # The previous rear-only ramp waited until source t=0.18,
     # leaving newly mirrored rear soles floating up to 1.04m
     # at the windup/strike handover.
-    var contact_weight: float = (
-        1.0 - _cubic((clip_t - 0.62) / 0.23))
+    var contact_weight: float = 1.0 - _cubic(
+        (clip_t - 0.40) / 0.30 if str(
+            attack_pose.get("kind", "")) == "sweep"
+        else (clip_t - 0.62) / 0.23)
     if contact_weight <= 0.0001:
         return
     var upper: Node3D = leg["upper"]
@@ -2918,9 +2920,15 @@ func advance_ik(delta: float, motion: String) -> void:
                         FLOOR_Y + 0.003 - clip_min)
                 leg["last_goal"] = clip_foot.to_global(
                     leg["sole_local"] as Vector3)
-        if attacking and attacking_this_leg and str(
-                attack_pose.get("kind", "")) == "kick":
-            _ground_authored_kick_foot(leg)
+        if attacking and attacking_this_leg and (
+                ["kick", "sweep"].has(str(
+                    attack_pose.get("kind", "")))):
+            # v419: identical source-ground solve on EVERY leg
+            # and both horizontal strike families. The SWEEP's
+            # clip-zero reflected fold previously hovered 0.56m
+            # at the windup/strike boundary while the KICK was
+            # grounded by a different helper.
+            _ground_authored_strike_foot(leg)
         # Shared attacking-limb floor guard for all 4 quadrants
         # and all three moves. All previous phase-dependent IK
         # guards may leave a shin corner 2-3cm below the floor.
