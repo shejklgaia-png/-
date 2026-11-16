@@ -2186,7 +2186,7 @@ func advance_ik(delta: float, motion: String) -> void:
                         if not leg.has("windup_entry_clearance"):
                             leg["windup_entry_clearance"] = raw_clearance
                         var windup_contact_window: float = clampf(
-                            0.30 + maxf(float(
+                            0.315 + maxf(float(
                                 leg["windup_entry_clearance"]), 0.0) * 0.14,
                             0.32, 0.62)
                         # Always solve the source frame, even before
