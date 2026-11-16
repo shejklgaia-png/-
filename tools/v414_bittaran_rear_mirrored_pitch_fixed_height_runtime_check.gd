@@ -1,7 +1,10 @@
 extends SceneTree
 ## v414: Rear STOMP/KICK/SWEEP must pitch from the Wait backward
 ## lean to the SAME magnitude forward, with no change to visual-root Y.
-## The *live* battle loop, not only the direct helper, is exercised.
+## v418 adds *measured* BODY pitch for the rear joint's FOOT-CONTACT
+## height: subtract that per-frame pitch before checking the old
+## mirrored-angle invariant. The rear BODY CORNER may change height
+## while the rig/root does not. The live battle loop is exercised.
 const DT: float = 1.0 / 60.0
 const KINDS: Array[String] = ["stomp", "kick", "sweep"]
 const REAR_LEGS: Array[String] = ["leg_rl", "leg_rr"]
@@ -91,7 +94,14 @@ func _run() -> void:
                     (t - windup - strike - hold) / recovery)
                 var expect: float = lerpf(neutral_pitch, -neutral_pitch,
                     advance * retreat)
-                var error: float = absf(pitch - expect)
+                var contact_pitch: float = float(
+                    ik.get("rear_corner_pitch_delta"))
+                if absf(contact_pitch) > 0.60:
+                    _fail(id + "/" + kind
+                        + " contact-derived extra pitch unbounded")
+                    return
+                var source_pitch: float = pitch - contact_pitch
+                var error: float = absf(source_pitch - expect)
                 max_pitch_error = maxf(max_pitch_error, error)
                 if error > MAX_PITCH_ERROR:
                     _fail(id + "/" + kind + " expected pitch "
@@ -100,13 +110,13 @@ func _run() -> void:
                     return
                 if phase == "strike" and t > windup + 0.08:
                     strike_pitch_checked = true
-                    if absf(pitch + neutral_pitch) > MAX_PITCH_ERROR:
+                    if absf(source_pitch + neutral_pitch) > MAX_PITCH_ERROR:
                         _fail(id + "/" + kind
                             + " did not reach the full opposite lean")
                         return
                 if phase == "recovery" and t > (
                         windup + strike + hold + recovery * 0.90):
-                    if absf(pitch - neutral_pitch) > deg_to_rad(4.0):
+                    if absf(source_pitch - neutral_pitch) > deg_to_rad(4.0):
                         _fail(id + "/" + kind
                             + " failed to restore neutral pitch")
                         return
@@ -121,7 +131,8 @@ func _run() -> void:
         _fail("expected 6 rear attacks")
         return
     print("GODOT_V414_BITTARAN_REAR_MIRRORED_PITCH_PASS: "
-        + "6 real attacks, equal/opposite Wait pitch, fixed BODY Y")
+        + "6 attacks, source Wait pitch plus v418 foot-contact "
+        + "corner height calibration; fixed model/root Y")
     quit(0)
 
 
