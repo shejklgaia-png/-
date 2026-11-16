@@ -178,10 +178,41 @@ func _run_case(battle: Node3D, id: String, kind: String) -> bool:
                 first_foot_y = real_sole.y
             if t > 0.34 and t < BRAIN.STOMP_WINDUP_SECONDS - 0.20:
                 # Original STOMP toe keys must survive the windup.
-                var original: Quaternion = rig.call(
-                    "_authored_rotation_for_leg", "stomp", id, 2, t)
-                if foot.quaternion.angle_to(original) > 0.045:
-                    _fail("stomp foot original windup was overwritten")
+                # v419: source-to-target foot rotation is a
+                # WORLD reflection. The chest then adds its own
+                # tracking yaw; the local-to-parent quaternion is
+                # not the original source local under this yaw.
+                var world: Basis = rig.global_basis.orthonormalized()
+                var root_q: Quaternion = world.get_rotation_quaternion()
+                var src_body: Quaternion = rig.call(
+                    "_authored_key_rotation",
+                    BittaranRig.ATTACK_NAMES["stomp"],
+                    "Body", t)
+                var src_world: Quaternion = (
+                    root_q * src_body).normalized()
+                for slot in range(3):
+                    src_world = (src_world * (
+                        rig.call("_authored_key_rotation",
+                            BittaranRig.ATTACK_NAMES["stomp"],
+                            BittaranRig.ATTACK_LEG_BONES["leg_fl"][slot],
+                            t) as Quaternion)).normalized()
+                if id.ends_with("r"):
+                    src_world = rig.call(
+                        "_reflect_world_rotation",
+                        src_world, world.x.normalized())
+                if id.begins_with("leg_r"):
+                    src_world = rig.call(
+                        "_reflect_world_rotation",
+                        src_world, world.z.normalized())
+                var yaw_q: Quaternion = Quaternion(Vector3.UP,
+                    float(frame.get("body_yaw", 0.0)))
+                var wanted_world: Quaternion = (
+                    yaw_q * src_world).normalized()
+                var actual_world: Quaternion = (
+                    foot.global_basis.get_rotation_quaternion())
+                if actual_world.angle_to(wanted_world) > 0.045:
+                    _fail("stomp foot original mirrored windup "
+                        + "was overwritten: " + id)
                     return false
             if bool(frame.get("impact", false)):
                 impact_seen = true
