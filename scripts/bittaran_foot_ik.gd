@@ -2169,12 +2169,13 @@ func advance_ik(delta: float, motion: String) -> void:
                             source_upper.global_position)
                         var original_bend: Vector3 = (
                             source_lower.global_position - hip_world)
+                        leg["windup_source_knee"] = source_lower.global_position
                         var bend_radius: float = maxf(
                             original_bend.length(), 0.3)
                         var contact_lead: float = 0.0
                         var raw_clearance: float = source_low
                         leg["windup_source_clearance"] = raw_clearance
-                        const PRECONTACT_ENVELOPE: float = 0.55
+                        const PRECONTACT_ENVELOPE: float = 1.70
                         # Always solve the source frame, even before
                         # contact lead becomes positive. A conditional
                         # switch into IK as source_low crosses 55cm
