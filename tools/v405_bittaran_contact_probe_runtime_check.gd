@@ -31,7 +31,9 @@ const MAX_CHASSIS_Y: float = 0.75
 # trajectory. SWEEP keeps the original band: its probe and
 # retarget are unchanged.
 const MIN_KICK_CHASSIS_Y: float = 0.75
-const MAX_KICK_CHASSIS_Y: float = 1.16
+# v419 undamped original source BODY may stand at 1.18m at
+# the previously v404-damped KICK sampled minimum.
+const MAX_KICK_CHASSIS_Y: float = 1.45
 const MAX_KICK_PAIR_DIFF: float = 0.25
 
 
