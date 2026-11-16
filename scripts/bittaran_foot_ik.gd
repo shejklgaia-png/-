@@ -2010,50 +2010,33 @@ func advance_ik(delta: float, motion: String) -> void:
                     leg["authored_pole_active"] = false
                     leg["authored_pole_point"] = Vector3.ZERO
                     if t < attack_windup:
-                        # v410: during the preparation the striking
-                        # leg stays planted at the basic stance,
-                        # solved to its anchor exactly like the
-                        # supports (device request: when Bittaran
-                        # returns to the basic stance before an
-                        # attack, the attacking leg also returns to
-                        # the basic stance position). The authored
-                        # motion starts from this stance at the
-                        # strike: the rig blends the leg in over
-                        # the first part of the strike, and the KICK
-                        # trajectory blends from this planted entry.
-                        # The exit goal/rotation are pre-set to the
-                        # planted values so the recovery fallthrough
-                        # below (recover_t == 0 here) is a no-op.
-                        # The exit lift is zeroed for the same
-                        # reason: the fallthrough re-applies it to
-                        # the hip, and a previous attack's lift
-                        # would otherwise hoist the planted leg's
-                        # hip for the whole preparation (measured
-                        # +0.48m on leg_rr, snapping off at the
-                        # strike boundary). The freeze branch used
-                        # to overwrite it every windup tick before
-                        # the fallthrough; the plant must too.
-                        # The plant target is the leg's true home,
-                        # captured once per attack: the anchor
-                        # ROTATION can be a stale mid-step capture
-                        # (force-started attacks skip the stance
-                        # preparation that refreshes it), which
-                        # pitched leg_rr's planted foot ~14 degrees
-                        # and fed the clip guard a 0.49m lift every
-                        # windup tick. In real play the preparation
-                        # already set anchor == home, so this
-                        # changes nothing there.
-                        if not leg.has("plant_goal"):
-                            leg["plant_goal"] = _home(leg, false)
-                            leg["plant_rotation"] = _rotation_home(leg)
-                        position = leg["plant_goal"]
-                        rotation = leg["plant_rotation"]
+                        # v419: the attack begins with the actual
+                        # mirrored source key at clip t=0; DO NOT pin
+                        # this leg to the previous Wait/IK stance
+                        # throughout the 0.70s BODY anticipation.
+                        # Only a vertical mesh contact correction is
+                        # allowed. Three joint rotations, especially
+                        # their world-space mirror, stay identical
+                        # to the authored source from frame one.
+                        var start_sole: Vector3 = (
+                            foot.to_global(leg["sole_local"]))
+                        var low_corner: float = _foot_mesh_lowest_y(foot)
+                        if low_corner < FLOOR_Y + 0.003:
+                            foot.global_position.y += (
+                                FLOOR_Y + 0.003 - low_corner)
+                        position = foot.to_global(
+                            leg["sole_local"] as Vector3)
+                        rotation = foot.global_basis.get_rotation_quaternion()
                         leg["attack_exit_goal"] = position
                         leg["attack_exit_rotation"] = rotation
                         leg["attack_exit_lift_world"] = 0.0
                         leg["last_goal"] = position
                         leg["last_rotation"] = rotation
-                    elif attack_kind == "sweep" and t < attack_windup \
+                        leg["last_knee"] = (
+                            leg["lower"] as Node3D).global_position
+                        leg["last_foot"] = foot.global_position
+                        continue
+                    if attack_kind == "sweep" and t < attack_windup \
                             + SWEEP_ENTRY_BLEND_SECONDS:
                         # v410: blend the SWEEP strike entry from
                         # the planted stance to the authored pose
