@@ -378,3 +378,4 @@ gd tools/v409_bittaran_guidance_limits_runtime_check.gd
 gd tools/v410_bittaran_windup_plant_sweep_mirror_runtime_check.gd
 gd tools/v411_bittaran_sweep_body_delta_mirror_runtime_check.gd
 gd tools/v412_bittaran_windup_twist_rear_tilt_runtime_check.gd
+gd tools/v413_bittaran_rear_attack_reset_runtime_check.gd
