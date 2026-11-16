@@ -1,7 +1,8 @@
 extends SceneTree
-## v418: all KICKs use full authored reach regardless of player's
-## distance; rear KICK / SWEEP / STOMP invert floor contact to
-## rear BODY socket height, keeping front edge/root Y stable.
+## v419: legacy v418 tests updated for the user's new request.
+## All KICKs still use full original reach at near/far distances,
+## but there is NO rear-only BODY corner pitch or fixed rear root
+## constraint. Contact correction is owned by shared four-leg IK.
 const DT: float = 1.0 / 60.0
 const REAR_IDS: Array[String] = ["leg_rl", "leg_rr"]
 const KINDS: Array[String] = ["kick", "sweep", "stomp"]
@@ -75,8 +76,11 @@ func _run() -> void:
                         + " illegally shortened authored KICK to "
                         + str(rig.get("kick_reach_factor")))
                     return
-                if rear and absf(rig.position.y - root_y) > MAX_ROOT_HEIGHT_DELTA:
-                    _fail(id + " rear KICK changed the root height")
+                # v419: actor/root Y may use a shared, measured
+                # authored-source floor-contact correction. Never
+                # require the former rear-only fixed root height.
+                if not is_finite(rig.position.y):
+                    _fail(id + " non-finite shared floor height")
                     return
                 checked += 1
             if not finished or checked < 60:
@@ -126,19 +130,18 @@ func _run() -> void:
                 started = true
                 max_root_drift = maxf(max_root_drift,
                     absf(rig.position.y - start_root_y))
+                # v419: both the added rear-corner BODY pitch
+                # and its separate contact-height socket have
+                # been removed. Every quadrant is a pure source
+                # mirror; the shared IK handles floor contact.
                 var delta_pitch: float = absf(float(
                     ik.get("rear_corner_pitch_delta")))
                 max_delta = maxf(max_delta, delta_pitch)
-                if delta_pitch > 0.0005:
-                    changed_frames += 1
-                    if active_leg.has("rear_corner_socket_target_y"):
-                        checked_socket += 1
-                        var y: float = float(
-                            active_leg["rear_corner_socket_target_y"])
-                        if not is_finite(y):
-                            _fail(id + "/" + kind
-                                + " nonfinite solved rear corner")
-                            return
+                if delta_pitch > 0.0001 or active_leg.has(
+                        "rear_corner_socket_target_y"):
+                    _fail(id + "/" + kind
+                        + " retained special rear-corner pitch")
+                    return
                 var front_y: float = (
                     front_samples[0].global_position.y
                     + front_samples[1].global_position.y) * 0.5
@@ -154,22 +157,14 @@ func _run() -> void:
             if not ended:
                 _fail(id + "/" + kind + " did not finish")
                 return
-            if max_root_drift > MAX_ROOT_HEIGHT_DELTA:
-                _fail(id + "/" + kind + " moved entire rig root")
-                return
-            # This fixture deliberately places the KICK/STOMP
-            # contact beyond the default rear socket's unpitched
-            # floor-reachable Y. A legitimate reverse-foot solve
-            # MUST change the rear BODY corner, not just move a toe
-            # or silently leave the default pitch unchanged.
-            if (kind == "kick" or kind == "stomp") and (
-                    max_delta < MIN_CORNER_CORRECTION):
-                _fail(id + "/" + kind + " never adjusted its "
-                    + "rear attachment corner from foot contact")
-                return
-            if max_delta > 0.01 and checked_socket <= 0:
+            if not is_finite(max_root_drift) or (
+                    max_root_drift > 4.0):
                 _fail(id + "/" + kind
-                    + " pitched BODY without a rear contact socket")
+                    + " invalid common floor-contact displacement")
+                return
+            if max_delta > 0.0001:
+                _fail(id + "/" + kind
+                    + " procedural rear pitch was not removed")
                 return
             completed += 1
     print("GODOT_V418_REAR_CORNER_REPORT: "
