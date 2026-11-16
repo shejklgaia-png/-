@@ -869,7 +869,7 @@ func sample_authored_kick_source(id: String, at: float,
     var saved_mirror_weight: float = kick_mirror_weight
     kick_mirror_weight = 0.0
     var joints: Array[Node3D] = []
-    var saved: Array[Quaternion] = []
+    var saved: Array[Transform3D] = []
     for name in ATTACK_LEG_BONES["leg_fl"]:
         var uid: String = str(bone_uuid_by_name.get(str(name), ""))
         if uid.is_empty() or not bones.has(uid):
@@ -877,7 +877,15 @@ func sample_authored_kick_source(id: String, at: float,
             return {}
         var joint: Node3D = bones[uid]
         joints.append(joint)
-        saved.append(joint.quaternion)
+        saved.append(joint.transform)
+        # v415: the front-left SOURCE leg is also an IK support for
+        # the other three attacks. Earlier legs have already been
+        # solved in this very frame, and IK can translate their local
+        # pivots. Rotations-only restoration sampled a STRETCHED
+        # source skeleton; its foot trajectory then changed with every
+        # preceding kick/stance. Sample the immutable Blockbench bind
+        # positions and restore the complete live transform afterward.
+        joint.position = bind_positions[uid]
     # v409: sample under the authored Body track WITHOUT the
     # battle's chest yaw. The IK post-multiplies the chest yaw
     # (up to +-140 degrees for a rear leg tracking a player
@@ -905,7 +913,7 @@ func sample_authored_kick_source(id: String, at: float,
     var sole: Vector3 = joints[2].to_global(source_sole_local)
     var source_hip: Vector3 = joints[0].global_position
     for slot in range(3):
-        joints[slot].quaternion = saved[slot]
+        joints[slot].transform = saved[slot]
     if body_node != null:
         body_node.quaternion = saved_body
     kick_mirror_weight = saved_mirror_weight
@@ -1000,14 +1008,15 @@ func sample_authored_sweep_pose(id: String, at: float,
     if not loading_ok or not ATTACK_LEG_BONES.has(id):
         return {}
     var joints: Array[Node3D] = []
-    var saved: Array[Quaternion] = []
+    var saved: Array[Transform3D] = []
     for name in ATTACK_LEG_BONES[id]:
         var uid: String = str(bone_uuid_by_name.get(str(name), ""))
         if uid.is_empty() or not bones.has(uid):
             return {}
         var joint: Node3D = bones[uid]
         joints.append(joint)
-        saved.append(joint.quaternion)
+        saved.append(joint.transform)
+        joint.position = bind_positions[uid]
     var body_node: Node3D = joints[0].get_parent() as Node3D
     var saved_body: Quaternion = Quaternion.IDENTITY
     if body_node != null:
@@ -1030,7 +1039,7 @@ func sample_authored_sweep_pose(id: String, at: float,
         "mesh_lowest": _subtree_mesh_lowest_y(joints[0]),
     }
     for slot in range(3):
-        joints[slot].quaternion = saved[slot]
+        joints[slot].transform = saved[slot]
     if body_node != null:
         body_node.quaternion = saved_body
     return result
