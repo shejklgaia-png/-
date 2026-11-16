@@ -193,10 +193,18 @@ func _run() -> void:
                 + "@" + str(snappedf(biggest_time_at, 0.01)))
             if id == "leg_fr" and (
                     peak_toe_local > MAX_RIGHT_TOE_LOCAL_DRIFT_DEGREES
-                    or peak_toe_world > MAX_RIGHT_TOE_WORLD_DRIFT_DEGREES):
+                    or peak_toe_world > MAX_RIGHT_TOE_WORLD_DRIFT_DEGREES
+                    or biggest_time_local >
+                        MAX_RIGHT_TOE_LOCAL_DRIFT_DEGREES
+                    or biggest_time_world >
+                        MAX_RIGHT_TOE_WORLD_DRIFT_DEGREES):
                 errors.append(id + " rep=" + str(rep)
-                    + " local/world toe drift "
-                    + str(peak_toe_local) + "/" + str(peak_toe_world))
+                    + " source local/world toe drift "
+                    + str(peak_toe_local) + "/" + str(peak_toe_world)
+                    + "; complete phase local/world "
+                    + str(biggest_time_local) + "/"
+                    + str(biggest_time_world)
+                    + " at real t=" + str(biggest_time_at))
             if id.begins_with("leg_r") and crawl_fraction                     < MIN_REAR_CRAWL_FRACTION:
                 errors.append(id + " rep=" + str(rep)
                     + " crawl fraction " + str(crawl_fraction)
