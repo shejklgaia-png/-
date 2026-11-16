@@ -2203,8 +2203,15 @@ func advance_ik(delta: float, motion: String) -> void:
                         # near floor contact (original 11.6cm symptom).
                         # The actual mesh penetration check below still
                         # applies only the minimum extra correction.
-                        contact_lead = clampf(
+                        var lead_phase: float = clampf(
                             t / windup_contact_window, 0.0, 1.0)
+                        # Keep the same 0..1 duration and floor
+                        # target, but reduce the initial correction
+                        # velocity that added 10.8cm to one knee
+                        # frame over the source's own movement.
+                        # This avoids changing the author's BODY clip.
+                        contact_lead = lead_phase - (
+                            0.12 * sin(PI * lead_phase))
                         leg["debug_precontact_lead"] = contact_lead
                         leg["authored_pole_active"] = true
                         leg["authored_pole_point"] = (
