@@ -445,6 +445,7 @@ func clear_attack_pose() -> void:
         leg.erase("rear_kick_axis_source")
         leg.erase("rear_kick_axis_solved")
         leg.erase("rear_corner_socket_target_y")
+        leg.erase("windup_entry_clearance")
         leg.erase("kick_traj_entry_sole")
         leg.erase("kick_traj_entry_rotation")
         leg.erase("kick_traj_entry_knee")
@@ -2175,7 +2176,19 @@ func advance_ik(delta: float, motion: String) -> void:
                         var contact_lead: float = 0.0
                         var raw_clearance: float = source_low
                         leg["windup_source_clearance"] = raw_clearance
-                        const PRECONTACT_ENVELOPE: float = 1.70
+                        # Derive the knee transition duration from
+                        # this leg's ACTUAL first-frame floor clearance,
+                        # not a front/rear hard-coded correction. The
+                        # longer front limbs need more time to transition,
+                        # while a rear shin with a low rest socket begins
+                        # correcting earlier. Freeze this duration for
+                        # the entire attack to prevent velocity spikes.
+                        if not leg.has("windup_entry_clearance"):
+                            leg["windup_entry_clearance"] = raw_clearance
+                        var windup_contact_window: float = clampf(
+                            0.30 + maxf(float(
+                                leg["windup_entry_clearance"]), 0.0) * 0.14,
+                            0.32, 0.62)
                         # Always solve the source frame, even before
                         # contact lead becomes positive. A conditional
                         # switch into IK as source_low crosses 55cm
@@ -2184,15 +2197,14 @@ func advance_ik(delta: float, motion: String) -> void:
                         # correction before actual penetration. The
                         # short time ramp keeps source frame zero
                         # unmodified even at a low initial pose.
-                        # Linear time envelope gives the IK knee
-                        # enough frames to rise from the original
-                        # pose without a high-velocity first 0.1s
-                        # pulse. The clearance factor still controls
-                        # how much correction is anatomically needed.
-                        contact_lead = (1.0 - _cubic(
-                            (raw_clearance + 0.012) /
-                            PRECONTACT_ENVELOPE)) * clampf(
-                                t / 0.40, 0.0, 1.0)
+                        # Constant-speed knee-pole rotation preserves
+                        # the Blockbench start frame and avoids the
+                        # steep derivative of clearance-based smoothstep
+                        # near floor contact (original 11.6cm symptom).
+                        # The actual mesh penetration check below still
+                        # applies only the minimum extra correction.
+                        contact_lead = clampf(
+                            t / windup_contact_window, 0.0, 1.0)
                         leg["debug_precontact_lead"] = contact_lead
                         leg["authored_pole_active"] = true
                         leg["authored_pole_point"] = (
