@@ -52,23 +52,21 @@ func _check_head_pose_hard_cap(battle: Node3D) -> bool:
     return true
 
 
-func _rear_rise(battle: Node3D, id: String, t: float) -> float:
+## v414 supersedes the old "rear raises by at least 8°" contract:
+## rear attacks mirror the FULL neutral pitch and never change visual-root Y.
+func _rear_rise(battle: Node3D, id: String, t: float) -> Dictionary:
     battle.call("_reset_target_after_respawn")
     var rig: Node3D = battle.get("bittaran_rig")
     var ik: RefCounted = battle.get("bittaran_foot_ik")
     rig.call("apply_pose", "Wait", 0.0)
     var body: Node3D = rig.find_child("Body", true, false) as Node3D
-    var side: String = "R" if id.ends_with("r") else "L"
-    var front: Node3D = rig.find_child(
-        "FrontLeg_" + side, true, false) as Node3D
-    var rear: Node3D = rig.find_child(
-        "RearLeg_" + side, true, false) as Node3D
-    if body == null or front == null or rear == null:
-        _fail("missing BODY/front/rear shoulder geometry")
-        return NAN
+    if body == null:
+        _fail("missing BODY")
+        return {}
     body.quaternion = rig.call(
         "_authored_body_rotation_for_attack", "sweep", id, 0.5)
-    var before: float = rear.global_position.y - front.global_position.y
+    var original_pitch: float = body.quaternion.get_euler().x
+    var original_y: float = rig.position.y
     ik.set("attack_pose", {
         "kind": "sweep", "id": id, "time": t, "windup": 0.70,
         "strike": 2.06, "hold": 0.0, "recovery": 1.40,
@@ -76,37 +74,39 @@ func _rear_rise(battle: Node3D, id: String, t: float) -> float:
     })
     ik.set("initial_attack_contact_height_world", 0.0)
     ik.call("_apply_attack_chassis_pose")
-    var lifted: float = (rear.global_position.y -
-        front.global_position.y) - before
+    var result: Dictionary = {
+        "pitch": body.quaternion.get_euler().x,
+        "source_pitch": original_pitch,
+        "delta_y": rig.position.y - original_y
+    }
     ik.set("attack_pose", {})
-    return lifted
+    return result
 
 
 func _check_rear_geometry(battle: Node3D) -> bool:
-    if absf(IK.REAR_SWEEP_BODY_LIFT_DEGREES - 8.0) > 0.00001:
-        _fail("unexpected rear torso lift angle")
+    var ik: RefCounted = battle.get("bittaran_foot_ik")
+    var wait_pitch: float = (
+        ik.get("rest_chassis_rotation") as Quaternion).get_euler().x
+    if absf(wait_pitch) < deg_to_rad(10.0):
+        _fail("authored Wait torso pitch unexpectedly small")
         return false
     for id in IDS:
-        var start: float = _rear_rise(battle, id, 0.0)
-        var striking: float = _rear_rise(battle, id, 1.20)
-        var recovered: float = _rear_rise(battle, id, 4.16)
-        if not is_finite(start) or not is_finite(striking) or (
-                not is_finite(recovered)):
-            _fail(id + ": non-finite BODY motion")
-            return false
-        if absf(start) > 0.002 or absf(recovered) > 0.002:
-            _fail(id + ": BODY rear lift snapped at start/recovery: " +
-                str([start, recovered]))
-            return false
-        if id.begins_with("leg_r"):
-            if striking < 0.18:
-                _fail(id + ": rear torso was not raised enough: " +
-                    str(striking))
+        for at in [0.0, 1.20, 4.16]:
+            var sample: Dictionary = _rear_rise(battle, id, at)
+            if sample.is_empty():
                 return false
-        elif absf(striking) > 0.002:
-            _fail(id + ": front SWEEP incorrectly lifted BODY rear " +
-                str(striking))
-            return false
+            if absf(float(sample["delta_y"])) > 0.00001:
+                _fail(id + ": BODY root moved vertically at " + str(at))
+                return false
+            var expected: float = float(sample["source_pitch"])
+            if id.begins_with("leg_r"):
+                expected = -wait_pitch if at > 0.5 and at < 3.0 else wait_pitch
+            if absf(float(sample["pitch"]) - expected) > 0.0005:
+                _fail(id + ": torso pitch not the neutral mirror at "
+                    + str(at) + ": got "
+                    + str(rad_to_deg(float(sample["pitch"])))
+                    + ", expected " + str(rad_to_deg(expected)))
+                return false
     return true
 
 
