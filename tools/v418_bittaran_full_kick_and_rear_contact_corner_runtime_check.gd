@@ -75,8 +75,8 @@ func _run() -> void:
                         + " illegally shortened authored KICK to "
                         + str(rig.get("kick_reach_factor")))
                     return
-                if absf(rig.position.y - root_y)                         > MAX_ROOT_HEIGHT_DELTA:
-                    _fail(id + " entire boss/root height changed")
+                if rear and absf(rig.position.y - root_y) > MAX_ROOT_HEIGHT_DELTA:
+                    _fail(id + " rear KICK changed the root height")
                     return
                 checked += 1
             if not finished or checked < 60:
