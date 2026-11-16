@@ -141,21 +141,11 @@ func _run_case(battle: Node3D, id: String, kind: String) -> bool:
                     "_authored_body_rotation_for_attack",
                     kind, id, 0.0)
                 delta_prepose = start_pose.angle_to(body.quaternion)
-                if id.begins_with("leg_r"):
-                    # v414 intentionally supersedes the low authored
-                    # torso prepose on REAR attacks. Their BODY pitch
-                    # must be the exact opposite of neutral at release;
-                    # the source leg-keyframe playback remains checked
-                    # independently by source_pose_sampled below.
-                    var wait_pitch: float = (
-                        ik.get("rest_chassis_rotation") as Quaternion
-                        ).get_euler().x
-                    reached_prepose = delta_prepose > 0.12 and (
-                        absf(body.quaternion.get_euler().x
-                            + wait_pitch) < deg_to_rad(3.0))
-                else:
-                    reached_prepose = delta_prepose > 0.12 and (
-                        body.quaternion.angle_to(want) < 1.15)
+                # v419: no special rear 25deg tilt. Every leg has
+                # the same mirrored source BODY prepose; aim yaw may
+                # rotate it after the authored key has been played.
+                reached_prepose = delta_prepose > 0.12 and (
+                    body.quaternion.angle_to(want) < 1.15)
             if t >= preview + 0.30 and t <= preview + 0.35:
                 var joint_name: String = str(
                     BittaranRig.ATTACK_LEG_BONES[id][0])
