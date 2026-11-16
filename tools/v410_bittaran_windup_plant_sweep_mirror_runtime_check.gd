@@ -155,10 +155,15 @@ func _check_plant_and_reach(battle: Node3D) -> bool:
                 _fail(id + "/" + kind + " incomplete "
                     + str([finished, saw_windup]))
                 return false
-            if max_dxz > MAX_PLANT_DXZ or max_sole_y > MAX_PLANT_SOLE_Y:
+            # v419: the separate pre-attack stance still lands
+            # all four toes at Wait, but the FIRST authored attack
+            # frame already plays the exact mirrored source prepose.
+            # Do not demand that a source-animated limb stay frozen
+            # at Wait throughout the authored 0.70s preview.
+            if max_dxz < 0.15 or max_sole_y < -0.05:
                 _fail(id + "/" + kind
-                    + ": attacking leg left the basic stance "
-                    + "during the windup "
+                    + ": source attack did not start during "
+                    + "windup or had invalid floor contact "
                     + str([max_dxz, max_sole_y]))
                 return false
             if min_reach > MAX_REACH_DISTANCE:
@@ -237,8 +242,8 @@ func _run() -> void:
     if not _check_sweep_body_mirror(battle):
         return
     print("GODOT_V410_BITTARAN_PLANT_MIRROR_PASS: attacking leg "
-        + "stays on its basic-stance contact through the whole "
-        + "windup on all 8 KICK/SWEEP variants and still reaches; "
+        + "plays its mirrored source immediately during windup "
+        + "for all 8 KICK/SWEEP variants and still reaches; "
         + "SWEEP body tilt motion is the exact left-right delta "
         + "mirror of leg_fl on every leg (v411 semantics)")
     quit(0)
