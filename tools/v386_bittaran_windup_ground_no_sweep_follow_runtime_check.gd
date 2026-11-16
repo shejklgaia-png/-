@@ -114,7 +114,26 @@ func _case(battle: Node3D, id: String, kind: String) -> bool:
                 "_authored_rotation_for_leg", kind, id, 0, t)
             var expected_lower: Quaternion = rig.call(
                 "_authored_rotation_for_leg", kind, id, 1, t)
-            mirrored_hip = upper.quaternion.angle_to(expected_upper) < 0.005
+            if id.begins_with("leg_r"):
+                # v415: rear attacks deliberately counter-rotate the
+                # shoulder against the v414 independent torso pitch.
+                # The original source pose must therefore match in
+                # WORLD space rather than in shoulder LOCAL space.
+                var authored_body: Quaternion = rig.call(
+                    "_authored_body_rotation_for_attack", kind, id, t)
+                var aim_yaw: float = float(
+                    frame.get("body_yaw", 0.0))
+                var authored_world: Quaternion = (
+                    Quaternion(Vector3.UP, aim_yaw)
+                    * authored_body * expected_upper).normalized()
+                var played_world: Quaternion = (
+                    (rig.find_child("Body", true, false) as Node3D
+                    ).quaternion * upper.quaternion).normalized()
+                mirrored_hip = played_world.angle_to(
+                    authored_world) < 0.005
+            else:
+                mirrored_hip = upper.quaternion.angle_to(
+                    expected_upper) < 0.005
             mirrored_knee = lower.quaternion.angle_to(expected_lower) < 0.005
             saw_original_stomp = mirrored_hip and mirrored_knee
             authored_height = (

@@ -357,11 +357,11 @@ func set_attack_pose(pose: Dictionary) -> void:
                 # the whole trajectory that far under the floor
                 # (the post-solve clip guard then lifted the sole
                 # back by the penetration, flattening the fold).
-                var probe_sole: Vector3 = legs[index]["sole_local"]
+                var probe_sole: Vector3 = legs[index]["source_sole_local"]
                 var first_height: float = NAN
                 if kind == "kick":
                     probe_sole = legs[LEG_PART_IDS.find(
-                        "leg_fl")]["sole_local"]
+                        "leg_fl")]["source_sole_local"]
                     first_height = float(actor.call(
                         "kick_source_contact_height", attack_id,
                         probe_sole))
@@ -446,10 +446,12 @@ func clear_attack_pose() -> void:
         leg.erase("sweep_entry_foot")
         leg.erase("plant_goal")
         leg.erase("plant_rotation")
-        if leg.has("sole_local_saved"):
-            leg["sole_local"] = leg["sole_local_saved"]
-            leg.erase("sole_local_saved")
-            leg.erase("sole_local_traj")
+        # Each kick may temporarily fit a different sole point to
+        # mirror the author's ankle trajectory. The original contact
+        # must be the single source of truth for the next strike.
+        leg["sole_local"] = leg["source_sole_local"]
+        leg.erase("sole_local_saved")
+        leg.erase("sole_local_traj")
 
 func available_attack_feet() -> Dictionary:
     var result: Dictionary = {}
@@ -553,16 +555,31 @@ func _apply_attack_chassis_pose() -> void:
         (t - swing_end - hold) / maxf(recover, 0.001))
     var rear_attack: bool = _rear_attack_active()
     if rear_attack:
-        # A rear strike's FULL posture is the mirror of the neutral
-        # backward lean, not an additive tilt on top of authored keys.
-        # In the Wait-relative local X frame: +rest -> -rest, with the
-        # same exact magnitude. Existing keyed yaw/roll are retained.
-        # The attack weight is zero at both ends and unity at strike.
+        # v415: the BODY's independently specified 25° -> -25° pitch
+        # must not *also* rotate the attacking leg's authored animation.
+        # The retargeted leg was keyed against the original Body pose:
+        # snapshot that pose before the replacement and counter-rotate
+        # ONLY the attacking shoulder by (newBody^-1 * sourceBody).
+        # Its world-space upper/knee/foot rotations then exactly match
+        # the imported Blockbench motion; the hip's position still
+        # follows the pitched chassis and the planted legs retain IK.
+        # Compute this afresh each frame, never multiply the previous
+        # tick's correction into the newly keyed animation.
+        var original_body: Quaternion = chassis_bone.quaternion
         var neutral_pitch: float = rest_chassis_rotation.get_euler().x
-        var keyed_euler: Vector3 = chassis_bone.quaternion.get_euler()
+        var keyed_euler: Vector3 = original_body.get_euler()
         keyed_euler.x = lerpf(neutral_pitch, -neutral_pitch, weight)
-        chassis_bone.quaternion = Basis.from_euler(
+        var desired_body: Quaternion = Basis.from_euler(
             keyed_euler).get_rotation_quaternion().normalized()
+        chassis_bone.quaternion = desired_body
+        if bool(attack_pose.get("authored", false)):
+            var leg_id: String = str(attack_pose.get("id", ""))
+            var index: int = LEG_PART_IDS.find(leg_id)
+            if index >= 0 and index < legs.size():
+                var shoulder: Node3D = legs[index]["upper"]
+                shoulder.quaternion = (
+                    desired_body.inverse() * original_body
+                    * shoulder.quaternion).normalized()
     var body_yaw: float = float(attack_pose.get("body_yaw", 0.0))
     chassis_bone.quaternion = (Quaternion(
         Vector3.UP, body_yaw * yaw_release)
@@ -869,6 +886,7 @@ func setup(model: Node3D) -> bool:
         legs.append({
             "upper": upper, "lower": lower, "foot": foot,
             "sole_local": sole_local,
+            "source_sole_local": sole_local,
             "stomp_tip_local": _stomp_tip_local_point(foot),
             "toe_axis_local": _toe_axis_local_point(foot),
             "pole_local": actor.global_basis.inverse() * pole.normalized(),
@@ -2264,7 +2282,7 @@ func advance_ik(delta: float, motion: String) -> void:
                         var foot_ref: Vector3 = foot.global_position
                         if attack_kind == "kick":
                             var sole_local_v: Vector3 = (
-                                leg["sole_local"] as Vector3)
+                                leg["source_sole_local"] as Vector3)
                             var clip_t: float = clampf(float(
                                 attack_pose.get("authored_time",
                                     0.0)), 0.0, 1.0)
@@ -2272,7 +2290,7 @@ func advance_ik(delta: float, motion: String) -> void:
                                 "sample_authored_kick_source",
                                 str(attack_pose.get("id", "")),
                                 clip_t, legs[LEG_PART_IDS.find(
-                                    "leg_fl")]["sole_local"])
+                                    "leg_fl")]["source_sole_local"])
                             if not src.is_empty():
                                 var hip_pos: Vector3 = (
                                     leg["upper"] as Node3D
@@ -2362,7 +2380,7 @@ func advance_ik(delta: float, motion: String) -> void:
                                 var fl_index: int = (
                                     LEG_PART_IDS.find("leg_fl"))
                                 var fl_sole_local: Vector3 = legs[
-                                    fl_index]["sole_local"]
+                                    fl_index]["source_sole_local"]
                                 var src_fl: Dictionary = actor.call(
                                     "sample_authored_kick_source",
                                     "leg_fl", clip_t, fl_sole_local)
