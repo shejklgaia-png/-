@@ -1,6 +1,7 @@
 ## 2026-11-16 — SERA v413: rear-high posture on all Bittaran attacks and no attack-state leakage
 - Kept authored forward-leaning front-leg STOMP/KICK/SWEEP untouched. Extended the established rear SWEEP local-X 8° tail-lift across rear KICK (弾き) and STOMP, with the existing per-kind windup/recovery envelope; no Blockbench keyframes altered.
 - Root-cause fix for intermittent displaced KICK anticipation: normal `set_attack_pose({})` cleared only the contact-height offset, retaining per-leg exit-lift, fitted soles, source trajectory, plant goals and pole markers from the prior attack. It now calls `clear_attack_pose()`; forced restarts also call this full teardown. Also reset transient spiral/sway, and rig kick mirror/reach coefficients after completion. Keep independent world-floor/locomotion grounding correction intact.
+- Regression-driven calibration: a uniform additional 8° rear KICK tilt caused v391's authored knee-fold invariance test to fail for leg_rr at the start of the true trajectory. KICK extra tail lift is limited to 4° on top of its v412 already rear-reflected authored torso; STOMP/SWEEP retain 8°. v391 reports played/source fold angles for easier future diagnostics.
 - Regression: `tools/v413_bittaran_rear_attack_reset_runtime_check.gd` checks every attack/limb windup tilt and teardown for natural end and a forced leg switch. Existing v397/v410-v412 tests remain registered.
 - Android visual/interaction verification remains a separate device step.
 
