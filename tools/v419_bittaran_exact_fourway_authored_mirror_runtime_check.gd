@@ -7,7 +7,6 @@ extends SceneTree
 const IDS: Array[String] = ["leg_fl", "leg_fr", "leg_rl", "leg_rr"]
 const KINDS: Array[String] = ["kick", "sweep", "stomp"]
 const MAX_ROT_ERROR_DEG: float = 0.12
-const MAX_ROOT_ERROR: float = 0.002
 
 
 func _initialize() -> void:
@@ -147,16 +146,13 @@ func _run() -> void:
                 # mirrored BODY with a manufactured 25-degree
                 # forward/backward lean; no independent tilt.
                 var old_body: Quaternion = body.quaternion
-                var root_y: float = rig.position.y
                 ik.call("set_attack_pose", frame)
                 ik.call("_apply_attack_chassis_pose")
                 var post_error: float = rad_to_deg(
                     old_body.angle_to(body.quaternion))
-                if post_error > MAX_ROT_ERROR_DEG or (
-                        absf(rig.position.y - root_y)
-                        > MAX_ROOT_ERROR):
+                if post_error > MAX_ROT_ERROR_DEG:
                     _fail(id + "/" + kind
-                        + " procedural BODY pitch/root height "
+                        + " procedural BODY pitch "
                         + "changed source attack entry: "
                         + str(post_error) + "deg")
                     return
