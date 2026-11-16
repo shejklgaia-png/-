@@ -7,8 +7,8 @@ const DT: float = 1.0 / 60.0
 const REPEATS: int = 8
 const IDS: Array[String] = ["leg_fr", "leg_rl", "leg_rr"]
 const SAMPLES: Array[float] = [0.12, 0.40, 0.75]
-const MAX_RIGHT_TOE_LOCAL_DRIFT_DEGREES: float = 0.60
-const MAX_RIGHT_TOE_WORLD_DRIFT_DEGREES: float = 0.80
+const MAX_RIGHT_TOE_LOCAL_DRIFT_DEGREES: float = 0.12
+const MAX_RIGHT_TOE_WORLD_DRIFT_DEGREES: float = 0.20
 const MAX_REAR_CRAWL_FOOT_Y: float = 0.20
 const MIN_REAR_CRAWL_FRACTION: float = 0.80
 
@@ -43,8 +43,15 @@ func _run() -> void:
         var side: float = -1.0 if id.ends_with("l") else 1.0
         var z: float = 6.0 if id.begins_with("leg_r") else -6.0
         var fixed_root: Transform3D = boss.global_transform
+        # Right-front near-side target reproduces the player's
+        # close-range KICK reach and high chest-aim correction. The
+        # earlier far-range v415 fixture concealed toe bending after
+        # successive strikes.
+        var spot: Vector3 = (
+            Vector3(2.5, 0.0, -3.54) if id == "leg_fr"
+            else Vector3(1.5 * side, 0.0, z))
         var fixed_player: Vector3 = (
-            boss.global_position + Vector3(1.5 * side, 0.0, z))
+            boss.global_position + spot)
         player.global_position = fixed_player
         var leg_idx: int = ik.LEG_PART_IDS.find(id)
         var leg: Dictionary = ik.get("legs")[leg_idx]
