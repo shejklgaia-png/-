@@ -1070,7 +1070,8 @@ func reset() -> void:
     ground_correction_world = 0.0
     head_knee_scan_elapsed = HEAD_KNEE_SCAN_SECONDS
     head_knee_active = false
-    clear_attack_pose()
+    attack_pose.clear()
+    clear_attack_stance()
     attack_down_windup_leg_id = ""
     initial_attack_contact_height_world = 0.0
     front_anchor_rest.clear()
