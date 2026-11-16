@@ -55,10 +55,19 @@ func _run() -> void:
                 _fail(id + " missing joint " + str(name))
                 return
             chain.append(node)
+        # Freeze the *test's* root transform between repeats. The
+        # normal AI is permitted to turn briefly between natural
+        # attacks, which legitimately rotates joint-local IK angles.
+        # We want to detect attack-history-dependent TWIST at the
+        # same root, same player bearing and same source-clip frame.
+        var fixed_root: Transform3D = boss.global_transform
+        var fixed_player: Vector3 = player.global_position
         var baseline: Dictionary = {}
         var baseline_sole: Vector3 = Vector3.INF
         var ix: int = ik.LEG_PART_IDS.find(id)
         for rep in range(REPEAT):
+            boss.global_transform = fixed_root
+            player.global_position = fixed_player
             var repeat_peak: float = 0.0
             var repeat_peak_part: String = ""
             if not bool(brain.call("force_start_with_stance", id, "kick")):
