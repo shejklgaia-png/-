@@ -555,31 +555,41 @@ func _apply_attack_chassis_pose() -> void:
         (t - swing_end - hold) / maxf(recover, 0.001))
     var rear_attack: bool = _rear_attack_active()
     if rear_attack:
-        # v415: the BODY's independently specified 25° -> -25° pitch
-        # must not *also* rotate the attacking leg's authored animation.
-        # The retargeted leg was keyed against the original Body pose:
-        # snapshot that pose before the replacement and counter-rotate
-        # ONLY the attacking shoulder by (newBody^-1 * sourceBody).
-        # Its world-space upper/knee/foot rotations then exactly match
-        # the imported Blockbench motion; the hip's position still
-        # follows the pitched chassis and the planted legs retain IK.
-        # Compute this afresh each frame, never multiply the previous
-        # tick's correction into the newly keyed animation.
+        # v416: v415 counter-rotated the shoulder to retain the
+        # authored upper/lower/foot WORLD orientations, but it left
+        # the shoulder SOCKET POSITION parented to the newly pitched
+        # chassis. At constant root height the rear socket rose >1m,
+        # so the original hip-relative KICK trajectory hovered
+        # 0.84–2.81m over the floor (v416 live-scene evidence).
+        # Compensate the shoulder's translation too: the complete
+        # authored attacking-leg transform (including its socket)
+        # remains the same under v414's independent BODY pitch.
+        # The correction is derived from THIS frame's original keyed
+        # pose, never from last frame's IK-adjusted transforms.
         var original_body: Quaternion = chassis_bone.quaternion
         var neutral_pitch: float = rest_chassis_rotation.get_euler().x
         var keyed_euler: Vector3 = original_body.get_euler()
         keyed_euler.x = lerpf(neutral_pitch, -neutral_pitch, weight)
         var desired_body: Quaternion = Basis.from_euler(
             keyed_euler).get_rotation_quaternion().normalized()
-        chassis_bone.quaternion = desired_body
+        # Cache the original source socket BEFORE the BODY changes.
+        var source_shoulder: Node3D = null
+        var source_socket_world: Vector3 = Vector3.ZERO
         if bool(attack_pose.get("authored", false)):
-            var leg_id: String = str(attack_pose.get("id", ""))
-            var index: int = LEG_PART_IDS.find(leg_id)
+            var index: int = LEG_PART_IDS.find(
+                str(attack_pose.get("id", "")))
             if index >= 0 and index < legs.size():
-                var shoulder: Node3D = legs[index]["upper"]
-                shoulder.quaternion = (
-                    desired_body.inverse() * original_body
-                    * shoulder.quaternion).normalized()
+                source_shoulder = legs[index]["upper"]
+                source_socket_world = source_shoulder.global_position
+        chassis_bone.quaternion = desired_body
+        if source_shoulder != null:
+            source_shoulder.quaternion = (
+                desired_body.inverse() * original_body
+                * source_shoulder.quaternion).normalized()
+            # Translate at the anatomical SHOULDER, never the BODY root.
+            # The caller's chest aim yaw applies afterward, to both
+            # the original source socket and the source rotations.
+            source_shoulder.global_position = source_socket_world
     var body_yaw: float = float(attack_pose.get("body_yaw", 0.0))
     chassis_bone.quaternion = (Quaternion(
         Vector3.UP, body_yaw * yaw_release)
@@ -1222,6 +1232,91 @@ func _trajectory_mesh_clearance(leg: Dictionary, joint_pos: Vector3,
 func _aim_rotated(point: Vector3, hip: Vector3,
         yaw_q: Quaternion) -> Vector3:
     return hip + yaw_q * (point - hip)
+
+
+# v416: rear KICKs follow the original source trajectory, but the
+# independently forward-pitched chassis keeps its height. Even after
+# preserving the authored rear shoulder socket, the mirrored mid-strike
+# toe can hover 0.94m/1.19m above the arena: the copied source path
+# attempts to reach farther horizontally than the rear two-bone limb
+# can reach at the floor. Do not move BODY, distort toe rotation or
+# accumulate a new IK offset. Re-solve the original trajectory's sole
+# along the same world XZ bearing at the mesh-ground height, shortening
+# its horizontal radius ONLY by the minimum needed for anatomical
+# reach. Apply from clip 0.18, full at 0.32..0.62, and taper to zero
+# at clip 0.85 so the original hold/recovery handover stays smooth.
+func _ground_rear_kick_foot(leg: Dictionary) -> void:
+    if not _rear_attack_active() or str(
+            attack_pose.get("kind", "")) != "kick":
+        return
+    var t: float = float(attack_pose.get(
+        "time", 0.0))
+    var windup: float = float(attack_pose.get(
+        "windup", 0.70))
+    if t < windup:
+        return
+    var clip_t: float = float(attack_pose.get(
+        "authored_time", 0.0))
+    var contact_weight: float = (
+        _cubic((clip_t - 0.18) / 0.14)
+        * (1.0 - _cubic((clip_t - 0.62) / 0.23)))
+    if contact_weight <= 0.0001:
+        return
+    var upper: Node3D = leg["upper"]
+    var lower: Node3D = leg["lower"]
+    var foot: Node3D = leg["foot"]
+    var visible_low: float = _foot_mesh_lowest_y(foot)
+    var gap: float = maxf(0.0, visible_low - (FLOOR_Y + 0.025))
+    if gap <= 0.004:
+        return
+    var rotation: Quaternion = leg["last_rotation"]
+    var new_goal: Vector3 = (
+        leg["last_goal"] as Vector3) - Vector3.UP * (
+            gap * contact_weight)
+    var foot_offset: Vector3 = (
+        Basis(rotation).scaled(foot.global_basis.get_scale())
+        * (leg["sole_local"] as Vector3))
+    var hip: Vector3 = upper.global_position
+    var delta: Vector3 = new_goal - foot_offset - hip
+    # After the authored trajectory was mirrored to this limb,
+    # the knee and shin have EXACTLY these physical lengths.
+    # Respect them rather than letting _solve silently clamp the
+    # desired FLOOR goal, which leaves the ankle high again.
+    var reach: float = (
+        hip.distance_to(lower.global_position)
+        + lower.global_position.distance_to(foot.global_position)
+        - IK_REACH_MARGIN_METERS)
+    var horizontal: Vector2 = Vector2(delta.x, delta.z)
+    var allowed: float = sqrt(maxf(
+        reach * reach - delta.y * delta.y, 0.0))
+    if horizontal.length() > allowed and horizontal.length() > 0.0001:
+        var adjusted: Vector2 = (
+            horizontal.normalized() * maxf(0.0, allowed - 0.004))
+        new_goal.x += adjusted.x - horizontal.x
+        new_goal.z += adjusted.y - horizontal.y
+    # This second solve starts from the same authored key every
+    # frame (rig.apply_pose), uses a fresh source pole and only
+    # changes the attacking leg. The shoulder stays at its original
+    # Blockbench socket; BODY/root Y and supporting soles do not move.
+    leg["last_error"] = _solve(leg, new_goal, rotation)
+    # Some authored rear shin corners reach lower than the toe when
+    # the knee folds close to the floor (~7.7cm in the v410 fixture).
+    # Keep the entire visual limb outside the arena: raise ONLY this
+    # foot's IK contact goal as much as the exposed shin demands.
+    # This keeps the shoulder at its authored attachment point,
+    # avoids the old artificial whole-body/whole-hip lifts, and
+    # still leaves the toe scraping within 0.20m of the floor.
+    for retry in range(3):
+        var limb_low: float = _leg_mesh_lowest_y(upper)
+        if limb_low >= FLOOR_Y + 0.002:
+            break
+        new_goal.y += maxf(
+            FLOOR_Y + 0.005 - limb_low, 0.0)
+        leg["last_error"] = _solve(leg, new_goal, rotation)
+    # Preserve the final grounded goal for a continuous poststrike
+    # blend if the source timeline ever ends inside this window.
+    leg["attack_exit_goal"] = new_goal
+    leg["attack_exit_rotation"] = rotation
 
 
 
@@ -2862,6 +2957,9 @@ func advance_ik(delta: float, motion: String) -> void:
                         FLOOR_Y + 0.003 - clip_min)
                 leg["last_goal"] = clip_foot.to_global(
                     leg["sole_local"] as Vector3)
+        if attacking and attacking_this_leg and str(
+                attack_pose.get("kind", "")) == "kick":
+            _ground_rear_kick_foot(leg)
     if stepping_pair != -1 and done:
         stepping_pair = -1
         cooldown = STEP_COOLDOWN_SECONDS

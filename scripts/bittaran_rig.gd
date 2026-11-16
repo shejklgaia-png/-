@@ -317,7 +317,23 @@ func start_authored_attack(kind: String, id: String) -> void:
     attack_entry_rotations.clear()
     attack_leg_aim_yaw = 0.0
     for uid in bones:
-        attack_entry_rotations[uid] = (bones[uid] as Node3D).quaternion
+        var joint: Node3D = bones[uid]
+        # v416: a KICK starts only after both diagonal pairs have
+        # replanted the attacking toe at its immutable Wait anchor.
+        # The visible IK orientation from the PREVIOUS kick may
+        # nevertheless still be present in the shoulder/knee when
+        # the next clip's entry rotation is captured. Blending from
+        # that historically bent/twisted bone feeds a fraction of its
+        # axial twist back into each new KICK (repro: leg_fr toe local
+        # angle drifted another ~0.03-0.05° per repetition despite a
+        # stable WORLD toe). Blend from original Wait keyed locals
+        # instead, ONLY for the three joints of this KICK's active leg.
+        # STOMP and SWEEP keep their live-current pose transitions.
+        if kind == "kick" and ATTACK_LEG_BONES[id].has(joint.name):
+            attack_entry_rotations[uid] = _authored_key_rotation(
+                "Wait", joint.name, 0.0)
+        else:
+            attack_entry_rotations[uid] = joint.quaternion
 
 
 
