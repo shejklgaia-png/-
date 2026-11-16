@@ -19,7 +19,7 @@ const REAR_SWEEP_BODY_LIFT_DEGREES: float = 8.0
 const REAR_ATTACK_BODY_LIFT_DEGREES: float = REAR_SWEEP_BODY_LIFT_DEGREES
 # KICK's source-trajectory knee solve is more sensitive to hip rotation
 # than STOMP/SWEEP; a moderate extra tail lift preserves authored folding.
-const REAR_KICK_BODY_LIFT_DEGREES: float = 0.0
+const REAR_KICK_BODY_LIFT_DEGREES: float = 8.0
 const STEP_TRIGGER_METERS: float = 0.76
 const STEP_DURATION_SECONDS: float = 0.58
 const STEP_HEIGHT_METERS: float = 0.34
@@ -1070,8 +1070,7 @@ func reset() -> void:
     ground_correction_world = 0.0
     head_knee_scan_elapsed = HEAD_KNEE_SCAN_SECONDS
     head_knee_active = false
-    attack_pose.clear()
-    clear_attack_stance()
+    clear_attack_pose()
     attack_down_windup_leg_id = ""
     initial_attack_contact_height_world = 0.0
     front_anchor_rest.clear()
@@ -2395,6 +2394,27 @@ func advance_ik(delta: float, motion: String) -> void:
                                             -clear_diff,
                                             headroom) * fold_w
                                     if clear_dy != 0.0:
+                                        # v413: A rear KICK needs the whole
+                                        # limb's clearance, not a taller
+                                        # ankle-only target. Previously the
+                                        # toe correction raised its target
+                                        # above an unchanged hip, stretching
+                                        # the knee far beyond its source fold
+                                        # (~19 degrees with clean sole data).
+                                        # Keep hip and knee/ankle/sole targets
+                                        # in the same frame. The authored
+                                        # local shoulder pivot is restored on
+                                        # the next rig sample and the final
+                                        # lift decays in recovery.
+                                        if clear_dy > 0.0 and str(
+                                                attack_pose.get("id", "")
+                                                ).begins_with("leg_r"):
+                                            (leg["upper"] as Node3D
+                                                ).global_position += (
+                                                Vector3.UP * clear_dy)
+                                            hip_pos.y += clear_dy
+                                            leg["attack_exit_lift_world"] = (
+                                                clear_dy)
                                         # Shift the whole goal:
                                         # the sole-point fitting
                                         # below would absorb a
