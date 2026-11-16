@@ -2718,44 +2718,15 @@ func advance_ik(delta: float, motion: String) -> void:
                                 leg["authored_pole_point"] = goal_knee
                                 foot_ref = goal_foot
                                 solve_for_trajectory = true
-                        # v406: shorten an over-extended KICK along its
-                        # own hip->foot ray and let _solve bend the
-                        # knee in the authored plane (see _solve's
-                        # authored-pole override). The v404 pose
-                        # slerp rotated the leg through the floor and
-                        # the floor lift above then hoisted the hip
-                        # by up to 2.5m for the whole strike/hold.
-                        # Engages only once the authored extension
-                        # passes the target length, so the strike
-                        # path, direction and foot orientation stay
-                        # authored; at full reach it never engages.
-                        var solve_for_reach: bool = false
-                        if attack_kind == "kick" and (
-                                t >= attack_windup):
-                            var reach_factor: float = float(
-                                actor.get("kick_reach_factor"))
-                            if reach_factor < 0.999:
-                                var hip_pos: Vector3 = (
-                                    leg["upper"] as Node3D
-                                    ).global_position
-                                var ray: Vector3 = (
-                                    foot_ref - hip_pos)
-                                var ray_xz: float = Vector2(
-                                    ray.x, ray.z).length()
-                                var target_xz: float = (
-                                    KICK_REACH_BASE_METERS
-                                    + reach_factor
-                                    * KICK_REACH_PER_FACTOR)
-                                if ray_xz > target_xz + 0.001:
-                                    position += hip_pos + ray * (
-                                        target_xz / ray_xz) \
-                                        - foot_ref
-                                    solve_for_reach = true
+                        # v418: never trim a KICK trajectory to the
+                        # distance of SERA. The retargeted original
+                        # foot-space path (and any anatomical floor
+                        # clearance) is the sole source of strike reach.
                         leg["attack_exit_goal"] = position
                         leg["attack_exit_rotation"] = rotation
                         leg["last_goal"] = position
                         leg["last_rotation"] = rotation
-                        if not solve_for_reach and not solve_for_trajectory:
+                        if not solve_for_trajectory:
                             continue
                         leg["authored_pole_active"] = true
                     # After the exact 1.5s KICK hold, or immediately after
