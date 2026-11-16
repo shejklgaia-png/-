@@ -19,7 +19,7 @@ const REAR_SWEEP_BODY_LIFT_DEGREES: float = 8.0
 const REAR_ATTACK_BODY_LIFT_DEGREES: float = REAR_SWEEP_BODY_LIFT_DEGREES
 # KICK's source-trajectory knee solve is more sensitive to hip rotation
 # than STOMP/SWEEP; a moderate extra tail lift preserves authored folding.
-const REAR_KICK_BODY_LIFT_DEGREES: float = 4.0
+const REAR_KICK_BODY_LIFT_DEGREES: float = 0.0
 const STEP_TRIGGER_METERS: float = 0.76
 const STEP_DURATION_SECONDS: float = 0.58
 const STEP_HEIGHT_METERS: float = 0.34
