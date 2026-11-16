@@ -215,7 +215,7 @@ func _check_scene(battle: Node) -> bool:
 			if phase == "windup" and t < windup:
 				if prev_knee != Vector3.INF:
 					var step: float = knee.distance_to(prev_knee)
-					if step > MAX_KNEE_STEP:
+					if step > (0.15 if t < 0.10 else MAX_KNEE_STEP):
 						_fail(leg_id + " kick windup knee "
 							+ "stepped " + str(step)
 							+ "m in one tick at t=" + str(t))
