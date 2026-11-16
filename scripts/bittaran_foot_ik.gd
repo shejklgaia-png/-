@@ -1176,9 +1176,13 @@ func _ground_authored_kick_foot(leg: Dictionary) -> void:
     if t < windup:
         return
     var clip_t: float = float(attack_pose.get("authored_time", 0.0))
+    # v419: every mirrored foot must already be at its FLOOR
+    # contact at the first strike frame (source clip t=0).
+    # The previous rear-only ramp waited until source t=0.18,
+    # leaving newly mirrored rear soles floating up to 1.04m
+    # at the windup/strike handover.
     var contact_weight: float = (
-        _cubic((clip_t - 0.18) / 0.14)
-        * (1.0 - _cubic((clip_t - 0.62) / 0.23)))
+        1.0 - _cubic((clip_t - 0.62) / 0.23))
     if contact_weight <= 0.0001:
         return
     var upper: Node3D = leg["upper"]
