@@ -14,6 +14,12 @@ const BODY_MESH_FLOOR_CLEARANCE_METERS: float = 0.020
 # +Z/rear rises. Smoothly engage during the 0.70s preparation, hold during
 # the entire authored swing, and release throughout the 1.40s recovery.
 const REAR_SWEEP_BODY_LIFT_DEGREES: float = 8.0
+# All rear-leg attacks now use the same rear-high counter-tilt.
+# Preserve the v397 constant for its existing sweep regression contract.
+const REAR_ATTACK_BODY_LIFT_DEGREES: float = REAR_SWEEP_BODY_LIFT_DEGREES
+# KICK's source-trajectory knee solve is more sensitive to hip rotation
+# than STOMP/SWEEP; a moderate extra tail lift preserves authored folding.
+const REAR_KICK_BODY_LIFT_DEGREES: float = 8.0
 const STEP_TRIGGER_METERS: float = 0.76
 const STEP_DURATION_SECONDS: float = 0.58
 const STEP_HEIGHT_METERS: float = 0.34
@@ -318,6 +324,12 @@ func set_attack_pose(pose: Dictionary) -> void:
     # interrupted attacks). Detect the restart (identity change
     # or a rewound attack clock) and restore every fitted sole
     # point before anything reads one.
+    # A normal completed attack follows exactly the same teardown as
+    # interruption. Merely setting attack_pose={} left fitted sole,
+    # exit-lift and pole caches available to contaminate the next windup.
+    if pose.is_empty() and not attack_pose.is_empty():
+        clear_attack_pose()
+        return
     if not pose.is_empty() and not attack_pose.is_empty():
         var restarted: bool = (
             str(pose.get("id", "")) != str(attack_pose.get("id", ""))
@@ -326,13 +338,9 @@ func set_attack_pose(pose: Dictionary) -> void:
             or float(pose.get("time", 0.0))
                 < float(attack_pose.get("time", 0.0)) - 0.0001)
         if restarted:
-            for leg in legs:
-                if leg.has("sole_local_saved"):
-                    leg["sole_local"] = leg["sole_local_saved"]
-                    leg.erase("sole_local_saved")
-                    leg.erase("sole_local_traj")
-                leg.erase("plant_goal")
-                leg.erase("plant_rotation")
+            # Every attack (including forced restarts in tests) must
+            # start with untouched pivots, pole targets and height.
+            clear_attack_pose()
     if attack_pose.is_empty() and not pose.is_empty() and legs.size() == 4:
         initial_attack_contact_height_world = 0.0
         var kind: String = str(pose.get("kind", ""))
@@ -414,7 +422,15 @@ func clear_attack_pose() -> void:
     # Clear even when the attack is cancelled INSIDE a damage callback,
     # before the next normal set_attack_pose(empty) frame.
     initial_attack_contact_height_world = 0.0
+    gait_sway_roll = 0.0
+    gait_sway_pitch = 0.0
+    gait_dip = 0.0
+    gait_dip_pulse = 0.0
+    gait_prev_stepping = [false, false, false, false]
     for leg in legs:
+        # Spiral winding is a transient positional compensation, not
+        # a persistent limb calibration carried between attacks.
+        leg["spiral_twist"] = 0.0
         leg.erase("stomp_authored_windup_goal")
         leg.erase("stomp_authored_windup_rotation")
         leg.erase("stomp_impact_sole")
@@ -537,12 +553,13 @@ func _apply_attack_chassis_pose() -> void:
     chassis_bone.quaternion = (Quaternion(
         Vector3.UP, body_yaw * yaw_release)
         * chassis_bone.quaternion).normalized()
-    if kind == "sweep" and str(attack_pose.get("id", "")).begins_with("leg_r"):
-        # The four SWEEP source keyframes and spatial reflections already
-        # agree. Only rear attacks require the BODY back to rise so the
-        # same source-limb path clears the arena. Rotate in the chest's
-        # LOCAL X after yaw: negative pitch raises its local +Z/rear
-        # without changing the original striking knee/toe quaternions.
+    if (kind == "kick" or kind == "stomp" or kind == "sweep") and (
+            str(attack_pose.get("id", "")).begins_with("leg_r")):
+        # Front attacks retain their existing forward-weighted authored
+        # tilt. Every rear attack (KICK/parry, STOMP and SWEEP) raises
+        # the tail by the same smooth local-X rear-high correction.
+        # The pose returns to zero during its authored recovery.
+        # This changes neither foot clips nor their planted anchors.
         var prepare_rear: float = maxf(
             float(attack_pose.get("windup", 0.70)), 0.001)
         var end_rear: float = (prepare_rear
@@ -553,8 +570,10 @@ func _apply_attack_chassis_pose() -> void:
         var rise: float = _cubic(t / prepare_rear)
         var release: float = 1.0 - _cubic(
             (t - end_rear) / recover_rear)
-        var rear_pitch: float = -deg_to_rad(
-            REAR_SWEEP_BODY_LIFT_DEGREES) * rise * release
+        var rear_lift: float = (
+            REAR_KICK_BODY_LIFT_DEGREES
+            if kind == "kick" else REAR_ATTACK_BODY_LIFT_DEGREES)
+        var rear_pitch: float = -deg_to_rad(rear_lift) * rise * release
         chassis_bone.quaternion = (
             chassis_bone.quaternion
             * Quaternion(Vector3.RIGHT, rear_pitch)).normalized()
@@ -1051,8 +1070,7 @@ func reset() -> void:
     ground_correction_world = 0.0
     head_knee_scan_elapsed = HEAD_KNEE_SCAN_SECONDS
     head_knee_active = false
-    attack_pose.clear()
-    clear_attack_stance()
+    clear_attack_pose()
     attack_down_windup_leg_id = ""
     initial_attack_contact_height_world = 0.0
     front_anchor_rest.clear()
@@ -2376,6 +2394,29 @@ func advance_ik(delta: float, motion: String) -> void:
                                             -clear_diff,
                                             headroom) * fold_w
                                     if clear_dy != 0.0:
+                                        # v413: A rear KICK needs the whole
+                                        # limb's clearance, not a taller
+                                        # ankle-only target. Previously the
+                                        # toe correction raised its target
+                                        # above an unchanged hip, stretching
+                                        # the knee far beyond its source fold
+                                        # (~19 degrees with clean sole data).
+                                        # Keep hip and knee/ankle/sole targets
+                                        # in the same frame. The authored
+                                        # local shoulder pivot is restored on
+                                        # the next rig sample and the final
+                                        # lift decays in recovery.
+                                        if clear_dy > 0.0 and str(
+                                                attack_pose.get("id", "")
+                                                ).begins_with("leg_r"):
+                                            # The common recovery-tail
+                                            # fallthrough below moves the
+                                            # upper pivot exactly once.
+                                            # Do not also translate it
+                                            # here (that would double-lift).
+                                            hip_pos.y += clear_dy
+                                            leg["attack_exit_lift_world"] = (
+                                                clear_dy)
                                         # Shift the whole goal:
                                         # the sole-point fitting
                                         # below would absorb a
@@ -2385,6 +2426,49 @@ func advance_ik(delta: float, motion: String) -> void:
                                         goal_sole.y += clear_dy
                                         goal_foot.y += clear_dy
                                         goal_knee.y += clear_dy
+                                # v413: after clearing previous
+                                # attacks' fitted sole coordinates the rear
+                                # KICK's source retarget can demand an
+                                # ankle radius longer than its actual two
+                                # bones can take at the source knee angle.
+                                # The old, stale toe offset accidentally
+                                # concealed that mismatch. Keep the new
+                                # attack independent of older toes: during
+                                # the folded entry, shorten ONLY the ankle
+                                # radius to the physically attainable
+                                # distance for the authored knee fold.
+                                # The original far-reaching extension is
+                                # unaffected (the guard fades to zero).
+                                if str(attack_pose.get("id", "")
+                                        ).begins_with("leg_r"):
+                                    var knee_node: Node3D = leg["lower"]
+                                    var upper_len: float = hip_pos.distance_to(
+                                        knee_node.global_position)
+                                    var lower_len: float = (
+                                        knee_node.global_position
+                                        .distance_to(foot.global_position))
+                                    var source_fold: float = (
+                                        hip_pos - goal_knee).angle_to(
+                                            goal_foot - goal_knee)
+                                    var attainable: float = sqrt(maxf(
+                                        upper_len * upper_len
+                                        + lower_len * lower_len
+                                        - 2.0 * upper_len * lower_len
+                                        * cos(source_fold), 0.0))
+                                    var ray: Vector3 = goal_foot - hip_pos
+                                    var actual_radius: float = ray.length()
+                                    var fold_guard: float = (
+                                        smoothstep(0.05, 0.22, clip_t)
+                                        * (1.0 - smoothstep(
+                                            0.36, 0.55, clip_t)))
+                                    if actual_radius > attainable + 0.005                                             and fold_guard > 0.0:
+                                        var shorten: float = minf(
+                                            actual_radius - attainable,
+                                            0.75) * fold_guard
+                                        var shift: Vector3 = (
+                                            -ray / actual_radius) * shorten
+                                        goal_sole += shift
+                                        goal_foot += shift
                                 # v409: the plane-reflected rotation
                                 # does not act on this leg's own
                                 # sole_local the way it acts on the

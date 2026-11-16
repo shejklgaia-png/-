@@ -115,7 +115,12 @@ func _run() -> void:
                         (src["foot"] as Vector3)
                         - (src["knee"] as Vector3))
                     if absf(played_fold - authored_fold) > 0.09:
-                        _fail(id + ": extra KICK knee folding in prepose")
+                        _fail(id + ": extra KICK knee folding in prepose ("
+                            + "played=" + str(rad_to_deg(played_fold))
+                            + "deg, source=" + str(rad_to_deg(authored_fold))
+                            + "deg, error="
+                            + str(rad_to_deg(absf(played_fold - authored_fold)))
+                            + "deg)")
                         return
                     knee_checked = true
                 if kind != "stomp" and t > 0.36 and t < windup - 0.05:
