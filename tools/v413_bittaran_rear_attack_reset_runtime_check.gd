@@ -62,8 +62,11 @@ func _check_rear_posture(rig: Node3D, ik: RefCounted) -> bool:
             var expected: Quaternion = before
             if id.begins_with("leg_r"):
                 var rise: float = smoothstep(0.0, 1.0, t / windup)
+                var lift: float = (
+                    IK.REAR_KICK_BODY_LIFT_DEGREES
+                    if kind == "kick" else IK.REAR_ATTACK_BODY_LIFT_DEGREES)
                 expected = (before * Quaternion(Vector3.RIGHT,
-                    -rear_angle * rise)).normalized()
+                    -deg_to_rad(lift) * rise)).normalized()
             var error: float = chassis.quaternion.angle_to(expected)
             if error > 0.0005:
                 _fail(kind + " " + id + " rear-high posture mismatch: "
