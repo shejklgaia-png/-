@@ -2409,9 +2409,11 @@ func advance_ik(delta: float, motion: String) -> void:
                                         if clear_dy > 0.0 and str(
                                                 attack_pose.get("id", "")
                                                 ).begins_with("leg_r"):
-                                            (leg["upper"] as Node3D
-                                                ).global_position += (
-                                                Vector3.UP * clear_dy)
+                                            # The common recovery-tail
+                                            # fallthrough below moves the
+                                            # upper pivot exactly once.
+                                            # Do not also translate it
+                                            # here (that would double-lift).
                                             hip_pos.y += clear_dy
                                             leg["attack_exit_lift_world"] = (
                                                 clear_dy)
