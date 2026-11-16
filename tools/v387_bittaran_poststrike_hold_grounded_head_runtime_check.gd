@@ -165,7 +165,14 @@ func _case(battle: Node3D, id: String, kind: String) -> bool:
             recovery_seconds += DT
             if previous_sole != Vector3.INF and (
                     previous_sole.distance_to(sole) > 0.65):
-                _fail(id + "/" + kind + ": sudden recovery foot warp")
+                _fail(id + "/" + kind + ": sudden recovery foot warp at t="
+                    + str(t) + ", step=" + str(previous_sole.distance_to(sole))
+                    + ", previous=" + str(previous_sole)
+                    + ", current=" + str(sole)
+                    + ", goal=" + str(active.get("last_goal", Vector3.ZERO))
+                    + ", impact=" + str(active.get("stomp_impact_sole", Vector3.INF))
+                    + ", err=" + str(active.get("last_error", NAN))
+                    + ", body_y=" + str(rig.position.y))
                 return false
         if t >= windup + strike:
             elapsed_after_hit += DT
