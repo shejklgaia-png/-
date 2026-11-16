@@ -35,10 +35,10 @@ func _run() -> void:
 func _check_rear_posture(rig: Node3D, ik: RefCounted) -> bool:
     var chassis: Node3D = ik.get("chassis_bone")
     var actor: Node3D = ik.get("actor")
-    var rear_angle: float = deg_to_rad(
-        IK.REAR_ATTACK_BODY_LIFT_DEGREES)
-    if absf(rear_angle - deg_to_rad(8.0)) > 0.00001:
-        _fail("existing rear sweep 8-degree lift changed")
+    var rest_pitch: float = (
+        ik.get("rest_chassis_rotation") as Quaternion).get_euler().x
+    if absf(rad_to_deg(rest_pitch)) < 10.0:
+        _fail("authored Wait has no measurable backward pitch")
         return false
     for kind in KINDS:
         var windup: float = 1.25 if kind == "stomp" else 0.70
@@ -61,16 +61,21 @@ func _check_rear_posture(rig: Node3D, ik: RefCounted) -> bool:
             ik.call("_apply_attack_chassis_pose")
             var expected: Quaternion = before
             if id.begins_with("leg_r"):
-                var rise: float = smoothstep(0.0, 1.0, t / windup)
-                var lift: float = (
-                    IK.REAR_KICK_BODY_LIFT_DEGREES
-                    if kind == "kick" else IK.REAR_ATTACK_BODY_LIFT_DEGREES)
-                expected = (before * Quaternion(Vector3.RIGHT,
-                    -deg_to_rad(lift) * rise)).normalized()
+                var toward: float = smoothstep(0.0, 1.0, t / windup)
+                var euler: Vector3 = before.get_euler()
+                euler.x = lerpf(rest_pitch, -rest_pitch, toward)
+                expected = Basis.from_euler(
+                    euler).get_rotation_quaternion().normalized()
             var error: float = chassis.quaternion.angle_to(expected)
             if error > 0.0005:
-                _fail(kind + " " + id + " rear-high posture mismatch: "
+                _fail(kind + " " + id
+                    + " neutral-to-mirrored-pitch mismatch: "
                     + str(rad_to_deg(error)) + " degrees")
+                return false
+            if absf(actor.position.y -
+                    float(ik.get("rest_actor_local_y"))) > 0.00001:
+                _fail(kind + " " + id
+                    + " changed actor height in direct attack pose")
                 return false
     ik.call("clear_attack_pose")
     return true
