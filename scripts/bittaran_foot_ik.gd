@@ -2114,20 +2114,68 @@ func advance_ik(delta: float, motion: String) -> void:
                         leg["last_knee"] = (
                             leg["lower"] as Node3D).global_position
                         leg["last_foot"] = foot.global_position
-                        # v419: all authored KICK/SWEEP windups use
-                        # the same visible limb floor bound. Lift
-                        # the keyed limb as one rigid source pose,
-                        # without rotating its 3 mirrored joints.
+                        # v419: both front and rear KICK/SWEEP
+                        # have one identical WINDUP contact guard.
+                        # A source-reflected SHIN can penetrate
+                        # even when the toe is on the floor.
+                        # Lifting the whole attacking shoulder
+                        # left the rear source toe hovering 0.96m
+                        # on the LAST windup frame. Instead solve
+                        # the source toe contact with the knee bent
+                        # UP into free space. The original 3-joint
+                        # world reflections were already applied by
+                        # the rig before any floor-only IK.
                         var source_low: float = _leg_mesh_lowest_y(
                             leg["upper"] as Node3D)
                         if source_low < FLOOR_Y - 0.001:
-                            (leg["upper"] as Node3D
-                                ).global_position.y += (
-                                FLOOR_Y + 0.003 - source_low)
-                            leg["last_goal"] = (
-                                foot.to_global(
-                                    leg["sole_local"] as Vector3))
-                            leg["attack_exit_goal"] = leg["last_goal"]
+                            var source_upper: Node3D = leg["upper"]
+                            var source_lower: Node3D = leg["lower"]
+                            var hip_world: Vector3 = (
+                                source_upper.global_position)
+                            var original_bend: Vector3 = (
+                                source_lower.global_position
+                                - hip_world)
+                            var bend_radius: float = maxf(
+                                original_bend.length(), 0.3)
+                            leg["authored_pole_active"] = true
+                            for bend_mix in [0.25, 0.50, 0.75, 1.0]:
+                                leg["authored_pole_point"] = (
+                                    hip_world + original_bend.lerp(
+                                        Vector3.UP * bend_radius,
+                                        bend_mix))
+                                leg["last_error"] = _solve(
+                                    leg, position, rotation)
+                                source_low = _leg_mesh_lowest_y(
+                                    source_upper)
+                                if source_low >= FLOOR_Y + 0.002:
+                                    break
+                            if source_low < FLOOR_Y - 0.001:
+                                # In a reach-limited posture no
+                                # knee pole can move the source shin
+                                # completely out of the arena.
+                                # Lift only the minimum residual
+                                # from the attacking limb while
+                                # retaining the exact foot quaternion.
+                                source_upper.global_position.y += (
+                                    FLOOR_Y + 0.003 - source_low)
+                            var final_foot_gap: float = (
+                                _foot_mesh_lowest_y(foot)
+                                - FLOOR_Y - 0.003)
+                            # This common final toe contact offset
+                            # is after all knee/limb solutions, so
+                            # the old last-moment whole-leg lift
+                            # cannot leave a hovering fold.
+                            if final_foot_gap > 0.0:
+                                foot.global_position.y -= (
+                                    final_foot_gap
+                                    * contact_fraction)
+                            leg["last_goal"] = foot.to_global(
+                                leg["sole_local"] as Vector3)
+                            leg["attack_exit_goal"] = (
+                                leg["last_goal"])
+                            leg["last_knee"] = (
+                                source_lower.global_position)
+                            leg["last_foot"] = foot.global_position
                         continue
                     if attack_kind == "sweep" and t < attack_windup \
                             + SWEEP_ENTRY_BLEND_SECONDS:
