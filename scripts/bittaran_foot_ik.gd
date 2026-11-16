@@ -448,6 +448,7 @@ func clear_attack_pose() -> void:
         leg.erase("authored_pole_point")
         leg.erase("rear_kick_axis_source")
         leg.erase("rear_kick_axis_solved")
+        leg.erase("rear_corner_socket_target_y")
         leg.erase("kick_traj_entry_sole")
         leg.erase("kick_traj_entry_rotation")
         leg.erase("kick_traj_entry_knee")
@@ -2179,6 +2180,8 @@ func advance_ik(delta: float, motion: String) -> void:
     _advance_attack_stance(delta)
     var attacking: bool = not attack_pose.is_empty() and not break_reaction_active()
     rear_corner_pitch_delta = 0.0
+    for leg in legs:
+        leg.erase("rear_corner_socket_target_y")
     if attacking:
         _apply_attack_chassis_pose()
         # The chest heading is now final. Steer only the attacking
