@@ -1116,7 +1116,13 @@ func _advance_target_motion(delta: float) -> void:
     var attack_permitted: bool = (
         target_move_enabled and target_hp > 0 and player_hp > 0
         and not generic_damage_frozen and recovered
-        and down_remaining <= 0.0 and training_ko_remaining <= 0.0)
+        and down_remaining <= 0.0 and training_ko_remaining <= 0.0
+        and (bittaran_foot_ik == null or not bool(
+            bittaran_foot_ik.call("front_height_recovery_active"))))
+    var previous_front_attack: bool = (
+        not bittaran_attack_frame.is_empty()
+        and bool(bittaran_attack_frame.get("direct_front_test", false))
+        and not bool(bittaran_attack_frame.get("stance_prepare", false)))
     bittaran_attack_frame = (bittaran_attacks.call(
         "advance", delta, player.global_position,
         _bittaran_attack_candidates(), attack_permitted,
@@ -1125,6 +1131,17 @@ func _advance_target_motion(delta: float) -> void:
             bittaran_foot_ik.call("attack_stance_is_ready")))
         if bittaran_attacks != null else {})
     var attacking: bool = not bittaran_attack_frame.is_empty()
+    # On the LAST attack frame the director may already return {}; stage
+    # the leg-home/body-rise recovery before permitting any next gait.
+    var front_just_completed: bool = (
+        previous_front_attack and not attacking and attack_permitted)
+    var front_restoring: bool = (front_just_completed
+        or (bittaran_foot_ik != null and bool(
+            bittaran_foot_ik.call("front_height_recovery_active"))))
+    if previous_front_attack and not attacking and not attack_permitted             and bittaran_foot_ik != null:
+        # A KO, leg break, or disabled combat is interruption, not a
+        # normal recovery. It must discard all temporary height state.
+        bittaran_foot_ik.call("clear_attack_pose")
     if attacking and ["leg_fl", "leg_fr"].has(str(
             bittaran_attack_frame.get("id", ""))):
         bittaran_attack_frame["direct_front_test"] = true
@@ -1176,7 +1193,7 @@ func _advance_target_motion(delta: float) -> void:
     else:
         bittaran_attack_body_yaw = 0.0
     var frozen: bool = (
-        attacking or not target_move_enabled or target_hp <= 0
+        attacking or front_restoring or not target_move_enabled or target_hp <= 0
         or generic_damage_frozen
         or down_remaining > 0.0 or training_ko_remaining > 0.0
         or recovery_motion_locked)
@@ -1210,7 +1227,7 @@ func _advance_target_motion(delta: float) -> void:
             result["yaw"] = upright_yaw
     target.position = result["position"]
     target.rotation.y = float(result["yaw"])
-    bittaran_motion = "Idle" if attacking else str(result["motion"])
+    bittaran_motion = "Idle" if attacking or front_restoring else str(result["motion"])
     if bittaran_rig != null:
         # The rig NEVER writes the Head quaternion while changing clips;
         # current procedural yaw persists until the tracking controller's

@@ -145,6 +145,11 @@ const SUPPORT_FOOT_ROLL_DEGREES: float = 72.0
 const SUPPORT_HEAD_COLLISION_GAP_METERS: float = 0.015
 const SUPPORT_COLLISION_ITERATIONS: int = 12
 const LEG_PART_IDS: Array[String] = ["leg_fr", "leg_rl", "leg_fl", "leg_rr"]
+# v426: the attack ends with the leg returning BEFORE the chassis rises.
+const FRONT_STANCE_RETURN_SECONDS: float = 0.42
+const FRONT_BODY_RISE_SECONDS: float = 0.62
+const FRONT_BODY_LEVEL_WEIGHT: float = 0.68
+const FRONT_BODY_MAX_DROP_METERS: float = 1.10
 
 const LEG_NAMES: Array[String] = [
     "FrontLeg_R", "RearLeg_L", "FrontLeg_L", "RearLeg_R"
@@ -199,6 +204,14 @@ var break_chassis_pitch_radians: float = 0.0
 var head_knee_scan_elapsed: float = HEAD_KNEE_SCAN_SECONDS
 var head_knee_active: bool = false
 var attack_pose: Dictionary = {}
+# Every offset is relative to rest_actor_local_y + ground_correction_world/scale.
+# No attack/height correction is used as input to the following frame.
+var front_attack_drop_world: float = 0.0
+var front_return_active: bool = false
+var front_return_elapsed: float = 0.0
+var front_return_leg_id: String = ""
+var front_return_entry_sole: Vector3 = Vector3.ZERO
+var front_return_entry_rotation: Quaternion = Quaternion.IDENTITY
 var attack_stance_active: bool = false
 var attack_stance_ready: bool = false
 var attack_stance_leg_id: String = ""
@@ -328,7 +341,18 @@ func set_attack_pose(pose: Dictionary) -> void:
     # interruption. Merely setting attack_pose={} left fitted sole,
     # exit-lift and pole caches available to contaminate the next windup.
     if pose.is_empty() and not attack_pose.is_empty():
-        clear_attack_pose()
+        var ended_front: bool = bool(attack_pose.get("direct_front_test", false))
+        var old_id: String = str(attack_pose.get("id", ""))
+        if ended_front and LEG_PART_IDS.has(old_id):
+            front_return_leg_id = old_id
+            var finishing_leg: Dictionary = legs[LEG_PART_IDS.find(old_id)]
+            front_return_entry_sole = finishing_leg.get("last_goal",
+                finishing_leg["anchor"])
+            front_return_entry_rotation = finishing_leg.get(
+                "last_rotation", finishing_leg["anchor_rotation"])
+            front_return_elapsed = 0.0
+            front_return_active = true
+        clear_attack_pose(ended_front)
         return
     if not pose.is_empty() and not attack_pose.is_empty():
         var restarted: bool = (
@@ -342,6 +366,9 @@ func set_attack_pose(pose: Dictionary) -> void:
             # start with untouched pivots, pole targets and height.
             clear_attack_pose()
     if attack_pose.is_empty() and not pose.is_empty() and legs.size() == 4:
+        # A force-restarted attack may not have had a complete return phase.
+        # Drop the previous height/foot caches rather than reusing offsets.
+        _reset_front_height_state()
         initial_attack_contact_height_world = 0.0
         var kind: String = str(pose.get("kind", ""))
         if bool(pose.get("authored", false)) and not bool(
@@ -417,7 +444,22 @@ func clear_attack_down_windup() -> void:
     attack_down_windup_leg_id = ""
 
 
-func clear_attack_pose() -> void:
+func _reset_front_height_state() -> void:
+    front_attack_drop_world = 0.0
+    front_return_active = false
+    front_return_elapsed = 0.0
+    front_return_leg_id = ""
+    front_return_entry_sole = Vector3.ZERO
+    front_return_entry_rotation = Quaternion.IDENTITY
+
+
+func front_height_recovery_active() -> bool:
+    return front_return_active
+
+
+func clear_attack_pose(preserve_front_return: bool = false) -> void:
+    if not preserve_front_return:
+        _reset_front_height_state()
     attack_pose.clear()
     clear_attack_stance()
     # Clear even when the attack is cancelled INSIDE a damage callback,
@@ -450,6 +492,11 @@ func clear_attack_pose() -> void:
         leg.erase("front_ground_shoulder_shift")
         leg.erase("front_ground_shin_roll")
         leg.erase("front_ground_kick_shoulder_shift")
+        leg.erase("front_ground_foot_y")
+        leg.erase("front_ground_shin_y")
+        leg.erase("authored_pole_point")
+        leg.erase("front_ground_shin_roll")
+        leg.erase("front_ground_sweep_pole")
         leg.erase("windup_entry_clearance")
         leg.erase("kick_traj_entry_sole")
         leg.erase("kick_traj_entry_rotation")
@@ -1991,11 +2038,82 @@ func _apply_gait_sway(delta: float, motion: String) -> void:
 
 
 
-## v425: Ground the authored FRONT attack with existing two-link IK.
-## The foot world orientation remains the animation's original orientation,
-## while the knee is re-solved to put its real rendered mesh against the floor.
-## Every tick begins with fresh authored local rotations from the rig, so no
-## previous-frame contact correction can accumulate into the next keyframe.
+## v426: flatten the source BODY *partly* and lower the visual chassis
+## toward the authored toe's ground plane. The rig/leg source rotations
+## are freshly sampled before this call; _advance_leg_break has already
+## restored actor-Y from its canonical rest height this very tick.
+func _apply_front_attack_height(delta: float) -> void:
+    var kind: String = str(attack_pose.get("kind", ""))
+    var id: String = str(attack_pose.get("id", ""))
+    var index: int = LEG_PART_IDS.find(id)
+    if index < 0 or chassis_bone == null:
+        return
+    var frame_t: float = float(attack_pose.get("time", 0.0))
+    var windup: float = float(attack_pose.get("windup", 0.7))
+    var strike: float = float(attack_pose.get("strike", 1.0))
+    var hold: float = float(attack_pose.get("hold", 0.0))
+    var recovery: float = float(attack_pose.get("recovery", 0.6))
+    var retreat: float = _cubic(
+        (frame_t - windup - strike - hold) / maxf(recovery, 0.001))
+    var level_weight: float = (
+        FRONT_BODY_LEVEL_WEIGHT * (1.0 - retreat))
+    var source_body: Quaternion = chassis_bone.quaternion
+    var wait_body: Quaternion = rest_chassis_rotation
+    chassis_bone.quaternion = source_body.slerp(
+        wait_body, level_weight).normalized()
+    var foot: Node3D = legs[index]["foot"]
+    var toe_y: float = _foot_mesh_lowest_y(foot)
+    var body_y: float = chassis_mesh_lowest_world_y()
+    var available_drop: float = maxf(
+        body_y - FLOOR_Y - BODY_MESH_FLOOR_CLEARANCE_METERS, 0.0)
+    var needed_drop: float = maxf(toe_y - FLOOR_Y - 0.003, 0.0)
+    # Only the authored foot height determines the request. Never use
+    # a height after IK, since that would form a feedback loop.
+    var desired: float = -minf(
+        FRONT_BODY_MAX_DROP_METERS, minf(needed_drop, available_drop))
+    var blend: float = 1.0 - exp(-9.0 * maxf(delta, 0.0))
+    var candidate: float = lerpf(front_attack_drop_world, desired, blend)
+    # During a strike, lower when needed but do not pop back upward
+    # when the foot briefly lifts. Chassis rises only AFTER return.
+    front_attack_drop_world = minf(front_attack_drop_world, candidate)
+    var scale_y: float = maxf(
+        absf(actor.get_parent().global_basis.get_scale().y), 0.001)
+    actor.position.y += front_attack_drop_world / scale_y
+
+
+## Two-phase normal ending: first home the attacking leg while the BODY
+## remains low, then return BODY Y to its canonical rest height. Ending
+## an attack also releases the attack's forced toe contact immediately.
+func _advance_front_height_return(delta: float) -> void:
+    if not front_return_active or legs.size() != 4:
+        return
+    front_return_elapsed += maxf(delta, 0.0)
+    var index: int = LEG_PART_IDS.find(front_return_leg_id)
+    if index >= 0:
+        var leg: Dictionary = legs[index]
+        var p: float = _cubic(
+            front_return_elapsed / FRONT_STANCE_RETURN_SECONDS)
+        leg["anchor"] = front_return_entry_sole.lerp(
+            _home(leg, false), p)
+        leg["anchor_rotation"] = front_return_entry_rotation.slerp(
+            _rotation_home(leg), p).normalized()
+        leg["stepping"] = false
+    var rise: float = _cubic(
+        (front_return_elapsed - FRONT_STANCE_RETURN_SECONDS)
+        / FRONT_BODY_RISE_SECONDS)
+    var scale_y: float = maxf(
+        absf(actor.get_parent().global_basis.get_scale().y), 0.001)
+    actor.position.y += (front_attack_drop_world * (1.0 - rise)) / scale_y
+    if front_return_elapsed >= (
+            FRONT_STANCE_RETURN_SECONDS + FRONT_BODY_RISE_SECONDS):
+        # Exact ZERO on completion. Never carry the previous attack's
+        # fitted height, knee pole or contact caches into the next.
+        _reset_front_height_state()
+
+
+## Sweep shin: clearance only. DO NOT pull it down to touch the ground.
+## The toe uses full-mesh floor contact; shin IK is modified only when
+## the actual shin mesh would penetrate the floor in the source pose.
 func _ground_front_attack_leg(leg: Dictionary) -> void:
     var kind: String = str(attack_pose.get("kind", ""))
     var t: float = float(attack_pose.get("time", 0.0))
@@ -2006,54 +2124,47 @@ func _ground_front_attack_leg(leg: Dictionary) -> void:
     var upper: Node3D = leg["upper"]
     var lower: Node3D = leg["lower"]
     var foot: Node3D = leg["foot"]
-    var source_hip: Quaternion = upper.quaternion
-    var source_knee: Quaternion = lower.quaternion
-    var source_ankle: Quaternion = foot.quaternion
-    var source_knee_world: Vector3 = lower.global_position
-    var source_hip_world: Vector3 = upper.global_position
     var foot_rotation: Quaternion = foot.global_basis.get_rotation_quaternion()
-    var sole: Vector3 = foot.to_global(leg["sole_local"] as Vector3)
-    var foot_bottom: float = _foot_mesh_lowest_y(foot)
-    var shin_bottom: float = _foot_mesh_lowest_y(lower)
-    # Airborne windup is intentional. Prevent penetration without pulling a
-    # raised STOMP toe down prematurely. KICK/SWEEP are floor-bound once
-    # their strike phase starts. The SWEEP shin is also collision-protected.
-    var foot_delta: float = FLOOR_Y + 0.003 - foot_bottom
+    var source_hip_q: Quaternion = upper.quaternion
+    var source_knee_q: Quaternion = lower.quaternion
+    var source_ankle_q: Quaternion = foot.quaternion
+    var knee_world: Vector3 = lower.global_position
+    var hip_world: Vector3 = upper.global_position
+    var original_sole: Vector3 = foot.to_global(leg["sole_local"] as Vector3)
+    var source_toe: float = _foot_mesh_lowest_y(foot)
+    var source_shin: float = _foot_mesh_lowest_y(lower)
+    var desired_toe_delta: float = FLOOR_Y + 0.003 - source_toe
     if not contact_active:
-        foot_delta = maxf(0.0, foot_delta)
-    var must_solve: bool = absf(foot_delta) > 0.002
-    if kind == "sweep" and shin_bottom < FLOOR_Y - 0.002:
-        must_solve = true
-    if kind == "sweep" and contact_active:
-        must_solve = true
-    if not must_solve:
-        leg["last_goal"] = sole
+        # Stomp can deliberately raise its toe during anticipation.
+        desired_toe_delta = maxf(desired_toe_delta, 0.0)
+    var target: Vector3 = original_sole + Vector3.UP * desired_toe_delta
+    var needs_toe: bool = absf(desired_toe_delta) > 0.002
+    var avoid_shin: bool = (
+        kind == "sweep" and source_shin < FLOOR_Y - 0.003)
+    if not needs_toe and not avoid_shin:
+        leg["last_goal"] = original_sole
         leg["last_rotation"] = foot_rotation
-        leg["last_knee"] = source_knee_world
+        leg["last_knee"] = knee_world
         leg["last_foot"] = foot.global_position
-        leg["front_ground_foot_y"] = foot_bottom
-        leg["front_ground_shin_y"] = shin_bottom
+        leg["front_ground_foot_y"] = source_toe
+        leg["front_ground_shin_y"] = source_shin
         return
-    var goal: Vector3 = sole + Vector3.UP * foot_delta
-    # Maintain the authored bend plane as the default reach solution.
     leg["authored_pole_active"] = true
-    leg["authored_pole_point"] = source_knee_world
-    _solve(leg, goal, foot_rotation)
-    # A rotated foot mesh's actual lowest corner, not its initial bind sole,
-    # determines the final floor. Correct residual reach error when possible.
-    for iteration in range(2):
-        var error: float = FLOOR_Y + 0.003 - _foot_mesh_lowest_y(foot)
-        if absf(error) <= 0.002:
+    leg["authored_pole_point"] = knee_world
+    _solve(leg, target, foot_rotation)
+    for iteration in range(3):
+        var foot_error: float = FLOOR_Y + 0.003 - _foot_mesh_lowest_y(foot)
+        if not contact_active and foot_error < 0.0:
             break
-        goal.y += error
-        _solve(leg, goal, foot_rotation)
-    # SWEEP has TWO contact surfaces: shin and toe. A single floor-Y
-    # adjustment leaves the shin hovering. Use the free knee pole around
-    # the hip-to-ankle axis, preserving lengths and foot world rotation.
-    if kind == "sweep" and contact_active:
-        var bend: Vector3 = source_knee_world - source_hip_world
-        var bend_len: float = maxf(bend.length(), 0.10)
-        var reach: Vector3 = foot.global_position - source_hip_world
+        if absf(foot_error) < 0.002:
+            break
+        target.y += foot_error
+        _solve(leg, target, foot_rotation)
+    # Only if necessary, bend the knee around the two-link axis to stay
+    # OUT of the floor. Prefer the source orientation for all safe poses.
+    if kind == "sweep" and _foot_mesh_lowest_y(lower) < FLOOR_Y - 0.003:
+        var bend: Vector3 = knee_world - hip_world
+        var reach: Vector3 = foot.global_position - hip_world
         if reach.length_squared() < 0.0001:
             reach = Vector3.FORWARD
         reach = reach.normalized()
@@ -2064,157 +2175,85 @@ func _ground_front_attack_leg(leg: Dictionary) -> void:
             radial = Vector3.RIGHT
         radial = radial.normalized()
         var lateral: Vector3 = reach.cross(radial).normalized()
-        var best_angle: float = 0.0
-        var best_pole: Vector3 = source_knee_world
+        var best_pole: Vector3 = knee_world
         var best_score: float = INF
-        var previous_angle: float = float(leg.get(
-            "front_ground_sweep_pole", 0.0))
-        for step in range(24):
-            var angle: float = TAU * float(step) / 24.0
-            var pole: Vector3 = source_hip_world + (
-                radial * cos(angle) + lateral * sin(angle)) * bend_len
-            upper.quaternion = source_hip
-            lower.quaternion = source_knee
-            foot.quaternion = source_ankle
-            leg["authored_pole_point"] = pole
-            _solve(leg, goal, foot_rotation)
-            var lower_y: float = _foot_mesh_lowest_y(lower)
+        for step in range(25):
+            var angle: float = -PI + TAU * float(step) / 24.0
+            var trial: Vector3 = (hip_world + (
+                radial * cos(angle) + lateral * sin(angle))
+                * maxf(bend.length(), 0.1))
+            upper.quaternion = source_hip_q
+            lower.quaternion = source_knee_q
+            foot.quaternion = source_ankle_q
+            leg["authored_pole_point"] = trial
+            _solve(leg, target, foot_rotation)
+            var shin_y: float = _foot_mesh_lowest_y(lower)
             var toe_y: float = _foot_mesh_lowest_y(foot)
             var score: float = (
-                absf(lower_y - FLOOR_Y - 0.003)
-                + maxf(FLOOR_Y + 0.003 - lower_y, 0.0) * 12.0
-                + absf(toe_y - FLOOR_Y - 0.003) * 3.0
-                + absf(wrapf(angle, -PI, PI)) * 0.01
-                + absf(wrapf(angle - previous_angle, -PI, PI)) * 0.025)
+                maxf(FLOOR_Y + 0.003 - shin_y, 0.0) * 45.0
+                + maxf(FLOOR_Y + 0.003 - toe_y, 0.0) * 30.0
+                + absf(angle) * 0.08)
             if score < best_score:
                 best_score = score
-                best_pole = pole
-                best_angle = angle
-        upper.quaternion = source_hip
-        lower.quaternion = source_knee
-        foot.quaternion = source_ankle
+                best_pole = trial
+        upper.quaternion = source_hip_q
+        lower.quaternion = source_knee_q
+        foot.quaternion = source_ankle_q
         leg["authored_pole_point"] = best_pole
-        _solve(leg, goal, foot_rotation)
-        leg["front_ground_sweep_pole"] = best_angle
-        # If even a full-circle bend cannot ground the real shin, move
-        # the attacking shoulder only as much as necessary, then solve
-        # its foot back at the same world target. Bone lengths stay fixed.
-        # This is a final reach correction, not a per-frame accumulated
-        # offset: apply_pose restores all local joint positions next tick.
-        var shoulder_shift: float = 0.0
-        for attempt in range(6):
-            var residual: float = FLOOR_Y + 0.003 - _foot_mesh_lowest_y(lower)
-            if absf(residual) < 0.006:
+        _solve(leg, target, foot_rotation)
+        # Fallback: raise the ATTACKING shoulder, not the whole body,
+        # only for remaining shin penetration; do not lower a safe shin.
+        var clear_error: float = (
+            FLOOR_Y + 0.003 - _foot_mesh_lowest_y(lower))
+        if clear_error > 0.003:
+            upper.global_position.y += minf(clear_error, 0.30)
+            _solve(leg, target, foot_rotation)
+    # Resolve the toe after shin avoidance. There is no forced sole
+    # position once the authored attack frame ends and return starts.
+    if contact_active:
+        for iteration in range(4):
+            var foot_error: float = FLOOR_Y + 0.003 - _foot_mesh_lowest_y(foot)
+            if absf(foot_error) < 0.002:
                 break
-            var adjust: float = clampf(residual * 0.65, -0.30, 0.30)
-            var next_shift: float = clampf(
-                shoulder_shift + adjust, -0.85, 0.85)
-            adjust = next_shift - shoulder_shift
-            if absf(adjust) < 0.00001:
-                break
-            upper.global_position.y += adjust
-            shoulder_shift = next_shift
-            leg["authored_pole_point"] = best_pole + Vector3.UP * shoulder_shift
-            _solve(leg, goal, foot_rotation)
-        leg["front_ground_shoulder_shift"] = shoulder_shift
-        # The shin-side pole and shoulder adjustment can shift the final
-        # toe a few centimetres. Re-seat the toe after the shin solution,
-        # not before it, so both contacts use this exact output frame.
-        for correction in range(4):
-            var final_toe_error: float = (
-                FLOOR_Y + 0.003 - _foot_mesh_lowest_y(foot))
-            if absf(final_toe_error) < 0.002:
-                break
-            goal.y += final_toe_error
-            _solve(leg, goal, foot_rotation)
-    # The SWEEP shin is not a point contact: rotate its real mesh about
-    # the knee-to-ankle axis without shifting either joint or the toe.
-    # This axial degree of freedom can seat the broad lower-leg surface
-    # even when the knee-pole solution leaves its bottom slightly high.
-    if kind == "sweep" and contact_active:
+            target.y += foot_error
+            _solve(leg, target, foot_rotation)
+    # Final sweep clearance, AFTER the toe is reseated. A small
+    # source shin intrusion can reappear when the toe solve moves the
+    # pole; choose the minimum axial clearance roll. Never aim for
+    # touching the ground when the authored shin is already in the air.
+    if kind == "sweep" and _foot_mesh_lowest_y(lower) < FLOOR_Y - 0.003:
         var shin_axis: Vector3 = foot.global_position - lower.global_position
-        if shin_axis.length_squared() > 0.00001:
+        if shin_axis.length_squared() > 0.000001:
             shin_axis = shin_axis.normalized()
-            var base_shin_q: Quaternion = (
+            var base_shin: Quaternion = (
                 lower.global_basis.orthonormalized().get_rotation_quaternion())
             var shin_scale: Vector3 = lower.global_basis.get_scale()
             var toe_scale: Vector3 = foot.global_basis.get_scale()
-            var best_roll: float = 0.0
-            var best_roll_score: float = INF
-            var last_roll: float = float(leg.get(
-                "front_ground_shin_roll", 0.0))
-            for step in range(49):
-                var roll: float = -PI + TAU * float(step) / 48.0
+            var best_angle: float = 0.0
+            var best_penalty: float = INF
+            for index in range(33):
+                var angle: float = 0.035 * float(index - 16)
                 lower.global_basis = Basis(
-                    Quaternion(shin_axis, roll) * base_shin_q).scaled(shin_scale)
+                    Quaternion(shin_axis, angle) * base_shin).scaled(shin_scale)
                 foot.global_basis = Basis(foot_rotation).scaled(toe_scale)
-                var shin_height: float = _foot_mesh_lowest_y(lower)
-                var toe_height: float = _foot_mesh_lowest_y(foot)
-                var score: float = (
-                    absf(shin_height - FLOOR_Y - 0.003)
-                    + maxf(FLOOR_Y + 0.003 - shin_height, 0.0) * 12.0
-                    + absf(toe_height - FLOOR_Y - 0.003) * 5.0
-                    + absf(roll) * 0.003
-                    + absf(wrapf(roll - last_roll, -PI, PI)) * 0.003)
-                if score < best_roll_score:
-                    best_roll_score = score
-                    best_roll = roll
-            # Refine the best 7.5-degree step with sub-degree samples
-            # so visually grounded shin contact is not quantized.
-            var coarse_roll: float = best_roll
-            for substep in range(13):
-                var fine_roll: float = (coarse_roll
-                    + TAU / 48.0 * float(substep - 6) / 6.0)
-                lower.global_basis = Basis(
-                    Quaternion(shin_axis, fine_roll)
-                    * base_shin_q).scaled(shin_scale)
-                foot.global_basis = Basis(foot_rotation).scaled(toe_scale)
-                var fine_shin: float = _foot_mesh_lowest_y(lower)
-                var fine_toe: float = _foot_mesh_lowest_y(foot)
-                var fine_score: float = (
-                    absf(fine_shin - FLOOR_Y - 0.003)
-                    + maxf(FLOOR_Y + 0.003 - fine_shin, 0.0) * 12.0
-                    + absf(fine_toe - FLOOR_Y - 0.003) * 5.0
-                    + absf(fine_roll) * 0.003
-                    + absf(wrapf(fine_roll - last_roll, -PI, PI)) * 0.003)
-                if fine_score < best_roll_score:
-                    best_roll_score = fine_score
-                    best_roll = fine_roll
+                var intrusion: float = maxf(
+                    FLOOR_Y + 0.003 - _foot_mesh_lowest_y(lower), 0.0)
+                var penalty: float = intrusion * 100.0 + absf(angle) * 0.05
+                if penalty < best_penalty:
+                    best_penalty = penalty
+                    best_angle = angle
             lower.global_basis = Basis(
-                Quaternion(shin_axis, best_roll) * base_shin_q).scaled(shin_scale)
+                Quaternion(shin_axis, best_angle) * base_shin).scaled(shin_scale)
             foot.global_basis = Basis(foot_rotation).scaled(toe_scale)
-            leg["front_ground_shin_roll"] = best_roll
-    # A fully extended KICK can reach the two-bone limit slightly above
-    # the ground. Lower the attacking hip by the smallest required amount
-    # while re-solving the very same planted toe goal. This does not alter
-    # the Blockbench clip and cannot drift into the next authored sample.
-    if kind == "kick" and contact_active:
-        var kick_shoulder_offset: float = 0.0
-        for attempt in range(8):
-            var error: float = FLOOR_Y + 0.003 - _foot_mesh_lowest_y(foot)
-            if absf(error) <= 0.006:
-                break
-            goal.y += error
-            _solve(leg, goal, foot_rotation)
-            error = FLOOR_Y + 0.003 - _foot_mesh_lowest_y(foot)
-            if absf(error) <= 0.006:
-                break
-            var shift: float = clampf(error * 0.9, -0.08, 0.08)
-            shift = (clampf(
-                kick_shoulder_offset + shift, -0.28, 0.28)
-                - kick_shoulder_offset)
-            if absf(shift) <= 0.000001:
-                break
-            upper.global_position.y += shift
-            kick_shoulder_offset += shift
-            _solve(leg, goal, foot_rotation)
-        leg["front_ground_kick_shoulder_shift"] = kick_shoulder_offset
+    # Restore the unmodified toe orientation even when a shin avoidance
+    # rotation was necessary; world position and original source scale stay.
     leg["front_ground_foot_y"] = _foot_mesh_lowest_y(foot)
     leg["front_ground_shin_y"] = _foot_mesh_lowest_y(lower)
     leg["last_goal"] = foot.to_global(leg["sole_local"] as Vector3)
     leg["last_rotation"] = foot.global_basis.get_rotation_quaternion()
     leg["last_knee"] = lower.global_position
     leg["last_foot"] = foot.global_position
+
 
 func advance_ik(delta: float, motion: String) -> void:
     if not ready or legs.size() != 4 or actor == null:
@@ -2231,12 +2270,16 @@ func advance_ik(delta: float, motion: String) -> void:
     cooldown = maxf(0.0, cooldown - delta)
     _advance_leg_break(delta)
     _advance_attack_stance(delta)
+    if front_return_active:
+        _advance_front_height_return(delta)
     var attacking: bool = not attack_pose.is_empty() and not break_reaction_active()
     rear_corner_pitch_delta = 0.0
     for leg in legs:
         leg.erase("rear_corner_socket_target_y")
     if attacking:
-        if not bool(attack_pose.get("direct_front_test", false)):
+        if bool(attack_pose.get("direct_front_test", false)):
+            _apply_front_attack_height(delta)
+        else:
             _apply_attack_chassis_pose()
         # The chest heading is now final. Steer only the attacking
         # shoulder in WORLD Y, preserving source hip/knee/foot keys.
@@ -2245,7 +2288,7 @@ func advance_ik(delta: float, motion: String) -> void:
                 "aim_authored_attack_leg"):
             actor.call("aim_authored_attack_leg", attack_pose, delta)
         # v419: no rear-corner compensation; authored Body only.
-    elif not break_reaction_active():
+    elif not break_reaction_active() and not front_return_active:
         _apply_gait_sway(delta, motion)
     # Both authored KICK/SWEEP start-height calibration and leg-break
     # nose-dip can bury the actual chassis mesh. Enforce a real mesh
@@ -2298,7 +2341,7 @@ func advance_ik(delta: float, motion: String) -> void:
     # play on the rig, but the IK soles must NOT chase the torso until
     # the head/torso have completely risen and their support is released.
     var upright: bool = not break_reaction_active()
-    var active: bool = (motion == "Approach" or motion == "Turn") and upright and not attacking
+    var active: bool = (motion == "Approach" or motion == "Turn") and upright and not attacking and not front_return_active
     if active and stepping_pair == -1 and cooldown <= 0.0:
         var a: float = _pair_error(0, motion == "Approach")
         var b: float = _pair_error(1, motion == "Approach")
@@ -3489,6 +3532,7 @@ func advance_ik(delta: float, motion: String) -> void:
     # BODY 2-4cm through the arena after the guard already ran.
     if not attacking and not attack_stance_active \
             and not attack_down_windup_active() \
+            and not front_return_active \
             and planted_count >= 2 and min_planted_height != INF \
             and absf(min_planted_height) > GROUND_HOVER_THRESHOLD_METERS:
         var correction: float = clampf(-min_planted_height,
