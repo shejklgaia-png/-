@@ -1222,6 +1222,15 @@ func _sole_local_point(foot: Node3D) -> Vector3:
 func reset() -> void:
     if actor == null or legs.size() != 4:
         return
+    if source_ik_enabled:
+        # Respawn/reset must preserve the fixed v434 floor calibration.
+        # Legacy reset would re-tuck all legs and resurrect the old
+        # chassis-height/crouch corrections.
+        actor.position.y = rest_actor_local_y
+        if actor.has_method("apply_pose"):
+            actor.call("apply_pose", "Wait", 0.0)
+        initialize_source_ground_ik()
+        return
     actor.position.y = rest_actor_local_y
     if chassis_bone != null:
         chassis_bone.quaternion = rest_chassis_rotation
@@ -2655,8 +2664,9 @@ func _source_ik_advance_locomotion(delta: float, motion: String) -> void:
         for pair_index in range(2):
             for index in LEG_PAIRS[pair_index]:
                 var limb: Dictionary = legs[index]
-                var distance: float = (limb["anchor"] as Vector3
-                    ).distance_to(_source_ik_home(limb))
+                var anchored: Vector3 = limb["anchor"]
+                var distance: float = anchored.distance_to(
+                    _source_ik_home(limb))
                 errors[pair_index] = maxf(errors[pair_index], distance)
         if maxf(errors[0], errors[1]) > SOURCE_STEP_TRIGGER_METERS:
             var pick: int = source_ik_next_pair
@@ -2698,8 +2708,10 @@ func _source_ik_advance_locomotion(delta: float, motion: String) -> void:
             var destination: Vector3 = _source_ik_home(limb)
             goal = from_goal.lerp(destination, replant_ease)
             goal.y += 0.10 * sin(PI * replant_t)
-            rotation = (limb["source_ik_replant_rotation"] as Quaternion
-                ).slerp(_rotation_home(limb), replant_ease).normalized()
+            var from_rotation: Quaternion = (
+                limb["source_ik_replant_rotation"])
+            rotation = from_rotation.slerp(
+                _rotation_home(limb), replant_ease).normalized()
             if replant_t >= 1.0:
                 goal.y = FLOOR_Y
                 limb["anchor"] = goal
