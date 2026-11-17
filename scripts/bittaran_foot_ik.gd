@@ -2580,6 +2580,8 @@ const SOURCE_STEP_HEIGHT_METERS: float = 0.22
 const SOURCE_TELEPORT_DISTANCE_METERS: float = 2.5
 var source_ik_enabled: bool = false
 var source_ik_attacking_id: String = ""
+var source_ik_attacking_kind: String = ""
+var source_ik_last_attack_time: float = -1.0
 var source_ik_step_pair: int = -1
 var source_ik_next_pair: int = 0
 var source_ik_step_elapsed: float = 0.0
@@ -2596,6 +2598,8 @@ func initialize_source_ground_ik() -> bool:
         return false
     source_ik_enabled = true
     source_ik_attacking_id = ""
+    source_ik_attacking_kind = ""
+    source_ik_last_attack_time = -1.0
     source_ik_step_pair = -1
     source_ik_next_pair = 0
     source_ik_step_elapsed = 0.0
@@ -2735,8 +2739,13 @@ func _source_ik_advance_attack(frame: Dictionary) -> void:
     var attack_id: String = str(frame.get("id", ""))
     if not LEG_PART_IDS.has(attack_id):
         return
-    if source_ik_attacking_id != attack_id:
+    var attack_kind: String = str(frame.get("kind", ""))
+    var attack_time: float = float(frame.get("time", 0.0))
+    if source_ik_attacking_id != attack_id or (
+            source_ik_attacking_kind != attack_kind) or (
+            attack_time + 0.00001 < source_ik_last_attack_time):
         source_ik_attacking_id = attack_id
+        source_ik_attacking_kind = attack_kind
         source_ik_step_pair = -1
         source_ik_replant_id = ""
         for index in range(legs.size()):
@@ -2746,6 +2755,7 @@ func _source_ik_advance_attack(frame: Dictionary) -> void:
             planted.y = FLOOR_Y
             limb["source_ik_attack_anchor"] = planted
             limb["source_ik_attack_rotation"] = limb["last_rotation"]
+    source_ik_last_attack_time = attack_time
     source_ik_last_actor_position = actor.global_position
     for index in range(legs.size()):
         var limb: Dictionary = legs[index]
@@ -2798,6 +2808,8 @@ func advance_source_ground_ik(delta: float, motion: String,
             limb["anchor"] = _source_ik_home(limb)
             limb["anchor_rotation"] = _rotation_home(limb)
         source_ik_attacking_id = ""
+        source_ik_attacking_kind = ""
+        source_ik_last_attack_time = -1.0
     _source_ik_advance_locomotion(delta, motion)
 
 
