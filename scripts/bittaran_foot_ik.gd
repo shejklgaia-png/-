@@ -2618,6 +2618,11 @@ var source_ik_strike_contact_error_max: float = 0.0
 var source_ik_strike_floor_penetration_max: float = 0.0
 var source_ik_sweep_toe_retry_count: int = 0
 var source_ik_sweep_toe_residual_max: float = 0.0
+# v446: one world-space TOE TIP anchor throughout the BODY return,
+# followed by free 1.20s joint return from its last IK-corrected pose.
+var source_ik_body_toe_pin_count: int = 0
+var source_ik_body_toe_pin_error_max: float = 0.0
+var source_ik_body_toe_pin_drift_max: float = 0.0
 
 ## All 12 leg mesh parts in the imported Blockbench model are true
 ## 8-vertex cuboids. A rotating cuboid's minimum world Y is EXACTLY:
@@ -2722,12 +2727,16 @@ func _source_ik_contact_weight(frame: Dictionary) -> float:
 ## direction alignments plus the law-of-cosines. No root translation.
 func _source_ik_solve_striker(
         limb: Dictionary, sole_goal: Vector3,
-        desired_rotation: Quaternion) -> float:
+        desired_rotation: Quaternion,
+        contact_local: Vector3 = Vector3.INF,
+        knee_hint_world: Vector3 = Vector3.INF) -> float:
     var upper: Node3D = limb["upper"]
     var lower: Node3D = limb["lower"]
     var foot: Node3D = limb["foot"]
     var scale: Vector3 = foot.global_basis.get_scale()
     var sole_local: Vector3 = limb["source_sole_local"]
+    if contact_local != Vector3.INF:
+        sole_local = contact_local
     var wanted_ankle: Vector3 = (
         sole_goal - (Basis(desired_rotation).scaled(scale) * sole_local))
     var hip: Vector3 = upper.global_position
@@ -2750,7 +2759,12 @@ func _source_ik_solve_striker(
         0.0, upper_len * upper_len - along * along))
     # Preserve the authored leg's bending plane instead of following
     # the old gait pole, which can twist the shin in source attacks.
-    var pole: Vector3 = (knee - hip)
+    # Reuse the previous frame's grounded knee to avoid the joint
+    # folding/flipping as the BODY rises. Ordinary strikes still use
+    # their freshly authored knee from the source pose.
+    var pole: Vector3 = knee - hip
+    if knee_hint_world != Vector3.INF:
+        pole = knee_hint_world - hip
     pole -= direction * pole.dot(direction)
     if pole.length_squared() < 0.000001:
         pole = actor.global_basis.y
@@ -2770,6 +2784,86 @@ func _source_ik_solve_striker(
         expected_ankle - solved_knee)
     foot.global_basis = Basis(desired_rotation).scaled(scale)
     return foot.to_global(sole_local).distance_to(sole_goal)
+
+
+## v446: determine an actual FLOOR-CONTACT CORNER of the visible toe
+## at the last grounded strike/hold tick. Among the equally low
+## corners, prefer the distal one in the authored toe axis.
+## This function only runs ONCE at the recovery-body boundary.
+## The toe contact is stored in the FOOT joint's local coordinates,
+## so no mesh or joint pivot can ever be detached or translated alone.
+func _source_ik_begin_body_toe_pin(limb: Dictionary) -> void:
+    var foot: Node3D = limb["foot"]
+    var toe_record: Dictionary = limb.get(
+        "source_ik_sweep_toe_box", {})
+    if toe_record.is_empty():
+        return
+    var mesh: MeshInstance3D = toe_record["mesh"]
+    if mesh == null or mesh.mesh == null:
+        return
+    # Previous frame = last IK-grounded original attack pose, BEFORE
+    # the next tick resets joints to authoring and raises the BODY.
+    var foot_pose: Transform3D = limb.get(
+        "source_ik_last_foot_transform", foot.global_transform)
+    var knee_pose: Vector3 = limb.get(
+        "source_ik_last_knee_world",
+        (limb["lower"] as Node3D).global_position)
+    var toe_axis: Vector3 = limb["toe_axis_local"]
+    var box: AABB = mesh.mesh.get_aabb()
+    var chosen: Vector3 = limb["source_sole_local"]
+    var bottom: float = INF
+    var distal: float = -INF
+    for corner in range(8):
+        # Mesh is a direct Foot child. mesh.transform (local) does
+        # not depend on the root pose; only 8 points at transition.
+        var in_foot: Vector3 = (
+            mesh.transform * box.get_endpoint(corner))
+        var in_world: Vector3 = foot_pose * in_foot
+        var along: float = in_foot.dot(toe_axis)
+        if in_world.y < bottom - 0.002 or (
+                absf(in_world.y - bottom) <= 0.002 and
+                along > distal):
+            bottom = in_world.y
+            distal = along
+            chosen = in_foot
+    var anchor: Vector3 = foot_pose * chosen
+    anchor.y = FLOOR_Y + SWEEP_TOE_CLEARANCE_METERS
+    limb["source_ik_body_toe_pin_anchor"] = anchor
+    limb["source_ik_body_toe_pin_local"] = chosen
+    limb["source_ik_body_toe_pin_rotation"] = (
+        foot_pose.basis.get_rotation_quaternion())
+    limb["source_ik_body_toe_pin_knee"] = knee_pose
+    limb["source_ik_body_toe_pin_active"] = true
+
+
+## Pin the SAME visible toe-tip corner to WORLD Y=0 and the SAME XZ
+## through the complete BODY restoration. Only TWO skeletal rotations
+## are used. The foot's previous world rotation is also held fixed.
+## The active pole follows the previously solved knee, not the raw
+## Blockbench pose that is reset every frame; no bending-plane snaps.
+func _source_ik_pin_toe_during_body(limb: Dictionary) -> void:
+    if not bool(limb.get("source_ik_body_toe_pin_active", false)):
+        _source_ik_begin_body_toe_pin(limb)
+    if not bool(limb.get("source_ik_body_toe_pin_active", false)):
+        return
+    var target: Vector3 = limb["source_ik_body_toe_pin_anchor"]
+    var point_local: Vector3 = limb["source_ik_body_toe_pin_local"]
+    var foot_rotation: Quaternion = (
+        limb["source_ik_body_toe_pin_rotation"])
+    var prior_knee: Vector3 = limb["source_ik_body_toe_pin_knee"]
+    var error: float = _source_ik_solve_striker(
+        limb, target, foot_rotation, point_local, prior_knee)
+    limb["source_ik_body_toe_pin_knee"] = (
+        limb["lower"] as Node3D).global_position
+    limb["last_error"] = error
+    var toe_tip: Vector3 = (
+        limb["foot"] as Node3D).to_global(point_local)
+    var drift: float = toe_tip.distance_to(target)
+    source_ik_body_toe_pin_count += 1
+    source_ik_body_toe_pin_error_max = maxf(
+        source_ik_body_toe_pin_error_max, error)
+    source_ik_body_toe_pin_drift_max = maxf(
+        source_ik_body_toe_pin_drift_max, drift)
 
 
 ## Normally 1 two-bone solve per physics frame (sweep may retry once).
@@ -2878,9 +2972,15 @@ func initialize_source_ground_ik() -> bool:
     source_ik_strike_floor_penetration_max = 0.0
     source_ik_sweep_toe_retry_count = 0
     source_ik_sweep_toe_residual_max = 0.0
+    source_ik_body_toe_pin_count = 0
+    source_ik_body_toe_pin_error_max = 0.0
+    source_ik_body_toe_pin_drift_max = 0.0
     _source_ik_cache_attack_meshes()
     source_ik_last_actor_position = actor.global_position
     for limb in legs:
+        limb.erase("source_ik_body_toe_pin_active")
+        limb.erase("source_ik_last_foot_transform")
+        limb.erase("source_ik_last_knee_world")
         var foot: Node3D = limb["foot"]
         var sole: Vector3 = foot.to_global(
             limb["source_sole_local"] as Vector3)
@@ -3029,6 +3129,9 @@ func _source_ik_advance_attack(frame: Dictionary) -> void:
         for index in range(legs.size()):
             var limb: Dictionary = legs[index]
             limb["stepping"] = false
+            limb.erase("source_ik_body_toe_pin_active")
+            limb.erase("source_ik_last_foot_transform")
+            limb.erase("source_ik_last_knee_world")
             var planted: Vector3 = limb["last_goal"]
             planted.y = FLOOR_Y
             limb["source_ik_attack_anchor"] = planted
@@ -3039,9 +3142,17 @@ func _source_ik_advance_attack(frame: Dictionary) -> void:
         var limb: Dictionary = legs[index]
         var foot: Node3D = limb["foot"]
         if LEG_PART_IDS[index] == attack_id:
-            # v440: start from SOURCE pose and solve its two skeletal
-            # joints toward constant Y=0; never detach any mesh.
-            _source_ik_ground_attacking_limb(limb, frame)
+            var is_body_return: bool = (
+                str(frame.get("phase", "")) == "recovery" and
+                str(frame.get("recovery_stage", "")) == "body")
+            if is_body_return:
+                # v446: planted TOE TIP owns a fixed WORLD position.
+                # Never let the upward-moving BODY pull its foot away.
+                _source_ik_pin_toe_during_body(limb)
+            else:
+                # During original attack / slow final leg return keep
+                # v444's lightweight anti-penetration joint correction.
+                _source_ik_ground_attacking_limb(limb, frame)
             limb["last_goal"] = foot.to_global(
                 limb["source_sole_local"] as Vector3)
             limb["last_rotation"] = (
@@ -3049,7 +3160,12 @@ func _source_ik_advance_attack(frame: Dictionary) -> void:
             limb["last_knee"] = (
                 limb["lower"] as Node3D).global_position
             limb["last_foot"] = foot.global_position
-            # Keep the IK solver's real reach error for diagnostics.
+            # The frame after BODY recovery must inherit this solved
+            # pose BEFORE rig.apply_source_clip_exact() overwrites it.
+            limb["source_ik_last_foot_transform"] = foot.global_transform
+            limb["source_ik_last_knee_world"] = (
+                limb["lower"] as Node3D).global_position
+            # Keep the solver's actual reach error for diagnostics.
             continue
         var goal: Vector3 = limb["source_ik_attack_anchor"]
         goal.y = FLOOR_Y
