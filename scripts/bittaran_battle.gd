@@ -36,7 +36,7 @@ const ATTACK_CHEST_CORNER_DEGREES: Dictionary = {
 const BOSS_FAR_SIDE_ENTER_METERS: float = 0.65
 const BOSS_FAR_SIDE_EXIT_METERS: float = -0.25
 const DOWN_ESCAPE_SPEED_MPS: float = 15.0
-const HEAD_TRACK_MAX_YAW_DEGREES: float = 30.0
+const HEAD_TRACK_MAX_YAW_DEGREES: float = 90.0
 # The returned/neutral FRONT ARM pivots form a mechanical head-look
 # envelope, independent of whether the currently animated arm actually
 # intersects the head. Reserve clearance before the returning shoulder.
@@ -46,8 +46,8 @@ const HEAD_TRACK_DEGREES_PER_SECOND: float = 140.0
 # HEAD looks down/up from its actual neck pivot: yaw first, then a LOCAL
 # pitch, never roll. Only the part-break anticipation and shin clearance
 # can translate it vertically. The player is followed through rotation.
-const HEAD_PITCH_MIN_DEGREES: float = -70.0
-const HEAD_PITCH_MAX_DEGREES: float = 35.0
+const HEAD_PITCH_MIN_DEGREES: float = -90.0
+const HEAD_PITCH_MAX_DEGREES: float = 90.0
 const HEAD_PITCH_TURN_DEGREES_PER_SECOND: float = 120.0
 const HEAD_PITCH_FILTER_PER_SECOND: float = 8.0
 const HEAD_PITCH_MIN_HORIZONTAL_METERS: float = 0.55
@@ -477,7 +477,7 @@ func _bittaran_attack_candidates() -> Dictionary:
     # broken shins can still stomp, kick and sweep until the boss dies.
     # _advance_target_motion owns the actual down/rise/stun attack gate.
     var feet: Dictionary = bittaran_foot_ik.call("available_attack_feet")
-    for id in BittaranAttacks.LEG_IDS:
+    for id in ["leg_fl", "leg_fr"]:
         if feet.has(id):
             candidates[id] = feet[id]
     return candidates
@@ -1013,100 +1013,38 @@ func _resolve_head_deep_leg_overlap() -> void:
 
 
 func _aim_bittaran_head(delta: float) -> void:
+    # v424: independent 90-degree horizontal/vertical look-at.
+    # No head collision brake, knee-avoidance or stand-up tracking gate.
     if bittaran_head == null or player == null or target_hp <= 0:
         return
-    # Clamp persistent fields BEFORE any recovery / down branches, as
-    # well as at final quaternion output. No state may retain >30deg.
-    var yaw_cap: float = deg_to_rad(HEAD_TRACK_MAX_YAW_DEGREES)
-    boss_head_yaw = clampf(boss_head_yaw, -yaw_cap, yaw_cap)
-    head_look_filtered_yaw = clampf(
-        head_look_filtered_yaw, -yaw_cap, yaw_cap)
-    # While lying down keep the head on its original bind orientation.
-    # Once 70% of the ACTUAL eased rise is complete, softly fade in the
-    # ordinary collision-aware look-at without a sudden yaw jump.
-    var head_track_weight: float = _head_recovery_follow_weight()
-    _update_head_vertical_follow(delta, head_track_weight)
-    if bittaran_foot_ik != null and bool(
-            bittaran_foot_ik.call("down_pose_active")):
-        if head_track_weight <= 0.0:
-            # The previous windup NOW tracks SERA all the way to the
-            # instant of physical knockdown. Neutralize smoothly instead
-            # of snapping its nonzero yaw to zero on the first down
-            # frame; keep the normal 140deg/s hard angular-speed limit.
-            boss_head_yaw = move_toward(boss_head_yaw, 0.0,
-                deg_to_rad(HEAD_TRACK_DEGREES_PER_SECOND)
-                * maxf(delta, 0.0))
-            boss_head_pitch = move_toward(boss_head_pitch, 0.0,
-                deg_to_rad(HEAD_PITCH_TURN_DEGREES_PER_SECOND)
-                * maxf(delta, 0.0))
-            bittaran_head.quaternion = _head_oriented_local_pose(
-                boss_head_default_rotation, boss_head_yaw, boss_head_pitch)
-            head_collision_filtered_depth = 0.0
-            head_collision_blocked = false
-            head_collision_release_elapsed = 0.0
-            # A collapsing knee can still push through the face even
-            # while look-at is disabled for the physical down pose.
-            _resolve_head_deep_leg_overlap()
-            return
-    # BODY may pitch or roll during an authored attack. The head stays
-    # free to PITCH down at SERA without inheriting that body's roll.
-    # Fade the stand-up reference in gradually; never snap on recovery.
+    bittaran_head.position = boss_head_rest_local_position
     var base_pose: Quaternion = _head_level_local_base_pose()
-    if bittaran_foot_ik != null and bool(
-            bittaran_foot_ik.call("down_pose_active")):
-        var level_mix: float = clampf(
-            head_track_weight / HEAD_TRACK_RISE_FOLLOW_WEIGHT, 0.0, 1.0)
-        base_pose = boss_head_default_rotation.slerp(
-            base_pose, _head_smootherstep(level_mix))
-    # Yaw is sampled after IK; pitch uses the same visible joint pivot.
-    # Pitch is allowed at point blank even while yaw uses its deadband.
-    if not head_look_initialized:
-        _update_head_look_target(delta)
-    _head_pitch_target(delta)
-    var pitch_speed: float = (HEAD_PITCH_TURN_DEGREES_PER_SECOND
-        if head_track_weight >= 0.99
-        else HEAD_TRACK_RECOVERY_DEGREES_PER_SECOND)
-    var proposed_pitch: float = move_toward(boss_head_pitch,
-        head_look_filtered_pitch * head_track_weight,
-        deg_to_rad(pitch_speed) * maxf(delta, 0.0)
-        * head_track_weight)
-    var before_pitch_depth: float = _head_penetration_depth(
-        base_pose, boss_head_yaw, boss_head_pitch)
-    boss_head_pitch = _head_limit_pitch_to_10cm(
-        base_pose, boss_head_pitch, proposed_pitch, boss_head_yaw,
-        before_pitch_depth)
-    var wanted: float = head_look_filtered_yaw
-    # HEAD slows smoothly from first contact and cannot turn deeper
-    # into a 20cm overlap. Tracking away from the leg remains free.
-    var degrees_per_second: float = _head_recovery_turn_speed()
-    var proposed_yaw: float = move_toward(
-        boss_head_yaw, wanted * head_track_weight,
-        deg_to_rad(degrees_per_second) * maxf(delta, 0.0)
-        * head_track_weight)
-    # Predict on real rotated head/leg mesh elements in world METRES.
-    var current_depth: float = _head_penetration_depth(
-        base_pose, boss_head_yaw)
-    var proposed_depth: float = _head_penetration_depth(
-        base_pose, proposed_yaw)
-    # The diagnostic dictionaries report raw per-leg depth, in metres.
-    head_neutral_overlap = target_parts.call(
-        "get_head_leg_penetration_depths")
-    head_neutral_component_overlap = head_neutral_overlap.duplicate()
-    var motion_scale: float = _head_collision_motion_scale(
-        current_depth, proposed_depth, delta)
-    var next_yaw: float = lerpf(boss_head_yaw, proposed_yaw, motion_scale)
-    boss_head_yaw = clampf(_head_limit_yaw_to_30cm(
-        base_pose, boss_head_yaw, next_yaw, current_depth),
-        -deg_to_rad(HEAD_TRACK_MAX_YAW_DEGREES),
-        deg_to_rad(HEAD_TRACK_MAX_YAW_DEGREES))
+    var parent: Node3D = bittaran_head.get_parent() as Node3D
+    if parent == null:
+        return
+    var world_quat: Quaternion = (
+        parent.global_basis.orthonormalized().get_rotation_quaternion()
+        * base_pose).normalized()
+    var world_direction: Vector3 = (
+        player.global_position + Vector3.UP * 0.9
+        - bittaran_head.global_position)
+    if world_direction.length_squared() <= 0.000001:
+        return
+    var direction: Vector3 = Basis(world_quat).inverse() * world_direction
+    var horizontal: float = Vector2(direction.x, direction.z).length()
+    var desired_yaw: float = clampf(-atan2(direction.x, -direction.z),
+        -PI * 0.5, PI * 0.5)
+    var desired_pitch: float = clampf(atan2(direction.y,
+        maxf(horizontal, 0.00001)), -PI * 0.5, PI * 0.5)
+    boss_head_yaw = move_toward(boss_head_yaw, desired_yaw,
+        deg_to_rad(HEAD_TRACK_DEGREES_PER_SECOND) * maxf(delta, 0.0))
+    boss_head_pitch = move_toward(boss_head_pitch, desired_pitch,
+        deg_to_rad(HEAD_PITCH_TURN_DEGREES_PER_SECOND) * maxf(delta, 0.0))
+    head_look_filtered_yaw = boss_head_yaw
+    head_look_filtered_pitch = boss_head_pitch
+    head_look_initialized = true
     bittaran_head.quaternion = _head_oriented_local_pose(
         base_pose, boss_head_yaw, boss_head_pitch)
-    # Leg-first strategy: the knee solver already folds the supports
-    # outward/downward. Do NOT lift the head for small visual overlaps.
-    # Emergency lift is reserved solely for real >20cm penetration after
-    # the leg solver, when the hard physical envelope is exceeded.
-    _resolve_head_deep_leg_overlap()
-
 
 func _push_player_out_of_downed_body(delta: float) -> void:
     if player == null or target_parts == null or bittaran_foot_ik == null:
@@ -1187,6 +1125,9 @@ func _advance_target_motion(delta: float) -> void:
             bittaran_foot_ik.call("attack_stance_is_ready")))
         if bittaran_attacks != null else {})
     var attacking: bool = not bittaran_attack_frame.is_empty()
+    if attacking and ["leg_fl", "leg_fr"].has(str(
+            bittaran_attack_frame.get("id", ""))):
+        bittaran_attack_frame["direct_front_test"] = true
     var preparing_stance: bool = bool(
         bittaran_attack_frame.get("stance_prepare", false))
     if bittaran_foot_ik != null and not preparing_stance and bool(
@@ -1202,7 +1143,8 @@ func _advance_target_motion(delta: float) -> void:
                 str(bittaran_attack_frame.get("id", "")))
         else:
             bittaran_rig.call("end_authored_attack")
-    if attacking and not preparing_stance:
+    if attacking and not preparing_stance and not bool(
+            bittaran_attack_frame.get("direct_front_test", false)):
         # Each attack tracks SERA while drawing back, then freezes the
         # attack heading on release; no mid-swing re-aim.
         # Unlike normal Turn, this yaw belongs solely to the BODY bone:
@@ -1379,15 +1321,6 @@ func _finalize_target_pose(delta: float) -> void:
             bittaran_rig.call("clear_stomp_down_windup")
         bittaran_foot_ik.call("set_attack_pose", attack_frame)
         bittaran_foot_ik.call("advance_ik", delta, bittaran_motion)
-        if bittaran_head != null and player != null:
-            # Head follows SERA independently for all three attacks,
-            # including SWEEP (which still disables BODY/swing aiming).
-            _update_head_look_target(delta)
-            # Support legs yield to the head even during authored attacks.
-            # The IK solver protects the currently striking leg.
-            bittaran_foot_ik.call("steer_knees_for_head", delta,
-                head_look_filtered_yaw * _head_knee_look_weight(),
-                boss_head_yaw)
     _aim_bittaran_head(delta)
     if target_parts != null:
         target_parts.call("sync_bittaran_parts")
