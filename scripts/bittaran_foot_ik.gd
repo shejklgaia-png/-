@@ -2070,7 +2070,7 @@ func _apply_front_attack_height(delta: float) -> void:
     # Only the authored foot height determines the request. Never use
     # a height after IK, since that would form a feedback loop.
     var desired: float = -minf(
-        FRONT_BODY_MAX_DROP_METERS, needed_drop, available_drop)
+        FRONT_BODY_MAX_DROP_METERS, minf(needed_drop, available_drop))
     var blend: float = 1.0 - exp(-9.0 * maxf(delta, 0.0))
     var candidate: float = lerpf(front_attack_drop_world, desired, blend)
     # During a strike, lower when needed but do not pop back upward
