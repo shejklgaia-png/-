@@ -72,7 +72,7 @@ func _run() -> void:
             battle.call("_finalize_target_pose", DT)
             var t: float = float(frame.get("time", 0.0))
             var drop: float = float(foot_ik.get("front_attack_drop_world"))
-            if drop > 0.00001 or drop < -IK.FRONT_BODY_MAX_DROP_METERS - 0.001:
+            if drop > 0.00001 or drop < -IK.FRONT_SWEEP_MAX_DROP_METERS - 0.001:
                 _fail("BODY descent out of range")
                 return
             if last_drop - drop > (
