@@ -319,7 +319,9 @@ func _advance_original_only(delta: float, player_position: Vector3,
         phase_elapsed = elapsed - hold_end
         clip_time = length
         var body_seconds: float = source_body_return_seconds(kind)
-        if phase_elapsed < body_seconds:
+        # Keep the toe grounded on the LAST torso recovery frame too.
+        # Releasing at the exact equality created a one-frame float.
+        if phase_elapsed <= body_seconds + 0.000001:
             recovery_stage = "body"
         else:
             recovery_stage = "leg"
