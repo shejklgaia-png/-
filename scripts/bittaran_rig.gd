@@ -118,6 +118,13 @@ var source_return_leg_start_pose: Dictionary = {}
 # runs before the next frame and otherwise overwrites these with
 # ungrounded Idle poses, causing the visible Body->leg snap.
 var source_last_body_ik_solved_pose: Dictionary = {}
+# v451: capture the actual post-IK grounded pose on idle frames,
+# before set_motion(Idle) overwrites those skeletal joints.
+# Only rear authored attacks use this to avoid an entry-frame pop.
+var source_last_grounded_idle_pose: Dictionary = {}
+var source_rear_entry_start_pose: Dictionary = {}
+var source_rear_entry_id: String = ""
+var source_rear_entry_kind: String = ""
 # Procedural HEAD look yaw is not part of an authored blend source.
 var external_head_yaw: float = 0.0
 var loading_ok: bool = false
@@ -1254,6 +1261,25 @@ func _source_return_leg_to_wait(joint: Node3D,
         neutral_rotation, ease).normalized()
 
 
+## Capture an actual grounded skeletal pose at the end of a nonattack
+## frame. The next source attack can start from it without snapping to
+## the uncorrected Wait pose at its first entry tick.
+func remember_source_grounded_attack_entry() -> void:
+    if not loading_ok:
+        return
+    source_last_grounded_idle_pose.clear()
+    for uid in bones.keys():
+        var joint: Node3D = bones[uid]
+        if joint.name == "Head":
+            continue
+        source_last_grounded_idle_pose[uid] = {
+            "position": joint.position, "rotation": joint.quaternion
+        }
+    source_rear_entry_id = ""
+    source_rear_entry_kind = ""
+    source_rear_entry_start_pose.clear()
+
+
 func apply_original_attack_only(frame: Dictionary) -> void:
     if not loading_ok or frame.is_empty():
         return
@@ -1270,6 +1296,13 @@ func apply_original_attack_only(frame: Dictionary) -> void:
     var clip_t: float = float(frame.get("authored_time", 0.0))
     var phase: String = str(frame.get("phase", "strike"))
     var stage: String = str(frame.get("recovery_stage", ""))
+    if leg_id.begins_with("leg_r") and phase == "entry" and (
+            source_rear_entry_id != leg_id or
+            source_rear_entry_kind != kind):
+        source_rear_entry_id = leg_id
+        source_rear_entry_kind = kind
+        source_rear_entry_start_pose = (
+            source_last_grounded_idle_pose.duplicate(true))
     if phase != "recovery":
         source_return_leg_start_pose.clear()
         source_last_body_ik_solved_pose.clear()
@@ -1327,10 +1360,22 @@ func apply_original_attack_only(frame: Dictionary) -> void:
         var neutral_position: Vector3 = _authored_key_position(
             "Wait", joint.name, 0.0)
         if phase == "entry":
-            # Wait pose at entry=0 -> clip t=0 pose at entry end.
-            joint.position = neutral_position.lerp(
+            # On rear attacks start with the last actually grounded
+            # stance, not the unsolved Wait keys (rear foot differs by
+            # ~24cm). Fixed snapshot avoids a first-frame pose jump.
+            var entry_position: Vector3 = neutral_position
+            var entry_rotation: Quaternion = neutral
+            if leg_id.begins_with("leg_r"):
+                var saved_entry: Dictionary = (
+                    source_rear_entry_start_pose.get(uid, {}))
+                if not saved_entry.is_empty():
+                    entry_position = saved_entry.get(
+                        "position", neutral_position)
+                    entry_rotation = saved_entry.get(
+                        "rotation", neutral)
+            joint.position = entry_position.lerp(
                 from_position, entry_weight)
-            joint.quaternion = neutral.slerp(
+            joint.quaternion = entry_rotation.slerp(
                 from, entry_weight).normalized()
         elif phase == "recovery":
             if striking_joint_names.has(joint.name):
