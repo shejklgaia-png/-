@@ -195,6 +195,9 @@ func _start_neural_flow_bgm() -> void:
         return
     if music is AudioStreamOggVorbis:
         var ogg: AudioStreamOggVorbis = music
+        ogg.bpm = 174.0
+        ogg.bar_beats = 4
+        ogg.beat_count = 544  # 136 bars, 4 beats each.
         ogg.loop = true
         ogg.loop_offset = 0.0
     bittaran_bgm.stream = music
