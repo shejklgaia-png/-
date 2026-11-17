@@ -1,6 +1,7 @@
 extends Node3D
 ## Reusable procedural earth/dust impacts for the three authored boss moves.
 ## Particles have no collision; all damage is still owned by battle.gd.
+## Emission requires ground contact measured from the rendered foot mesh.
 const RENDER_ORDER = preload("res://scripts/render_order_policy.gd")
 const DUST_COLOR: Color = Color(0.48, 0.46, 0.43, 0.68)
 const EARTH_COLOR: Color = Color(0.35, 0.33, 0.30, 1.0)
@@ -125,7 +126,8 @@ func reset() -> void:
 
 
 func advance_attack(frame: Dictionary, point: Vector3,
-        previous_point: Vector3, delta: float) -> void:
+        previous_point: Vector3, delta: float,
+        foot_grounded: bool = false) -> void:
     var kind: String = str(frame.get("kind", ""))
     if kind != last_kind or frame.is_empty():
         end_sweep()
@@ -143,7 +145,7 @@ func advance_attack(frame: Dictionary, point: Vector3,
         # _emit_bittaran_shockwave on its single real contact tick.
         pass
     elif kind == "kick":
-        if striking and not kicked_this_attack:
+        if striking and foot_grounded and not kicked_this_attack:
             var travel: Vector3 = point - previous_point
             travel.y = 0.0
             # Emit from the ground where the authored foot actually
@@ -152,7 +154,9 @@ func advance_attack(frame: Dictionary, point: Vector3,
                 emit_kick(point, travel)
                 kicked_this_attack = true
     elif kind == "sweep":
-        if striking:
+        # Releasing the foot from the ground ends the active emitter
+        # immediately. Existing airborne particles can finish fading.
+        if striking and foot_grounded:
             trace_sweep(point, delta)
         else:
             end_sweep()
