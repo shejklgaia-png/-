@@ -3762,6 +3762,13 @@ func _source_ik_advance_attack(frame: Dictionary) -> void:
             _source_ik_toe_down_rotation(
                 limb, _rotation_home(limb)),
             support_wait_weight).normalized()
+    # On the terminal recovery frame the source rig cached a Wait
+    # pose BEFORE IK. Replace it now with the actually floor-planted
+    # four-leg skeletal pose, so the next Idle fade starts grounded.
+    if support_wait_weight >= 1.0 - 0.000001 and (
+            actor != null and actor.has_method(
+            "remember_grounded_source_wait_handoff")):
+        actor.call("remember_grounded_source_wait_handoff")
     # Handoff must run AFTER all IK and before battle.set_motion(Idle)
     # overwrites this frame's solved skeletal rotations. Otherwise
     # the arm starts recovery from ungrounded Idle and visibly snaps.
