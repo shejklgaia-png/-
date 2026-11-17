@@ -126,7 +126,9 @@ func _run() -> void:
         var frame_count: int = 0
         # Cover the complete timed attack, including 1.5s holding
         # and 0.42s leg / 0.62s body staged recovery.
-        for tick in range(120):
+        # v438 sweep at 0.60x lasts 6.19s including recovery.
+        # Allow every complete phase, with margin for frame rounding.
+        for tick in range(165):
             battle.call("_advance_target_motion", DT)
             var frame: Dictionary = battle.get("bittaran_attack_frame")
             if frame.is_empty():
