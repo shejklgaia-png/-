@@ -124,7 +124,9 @@ func _run() -> void:
             _fail("cannot start " + clip)
             return
         var frame_count: int = 0
-        for tick in range(47):
+        # Cover the complete timed attack, including 1.5s holding
+        # and 0.42s leg / 0.62s body staged recovery.
+        for tick in range(120):
             battle.call("_advance_target_motion", DT)
             var frame: Dictionary = battle.get("bittaran_attack_frame")
             if frame.is_empty():
