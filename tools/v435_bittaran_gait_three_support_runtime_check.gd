@@ -126,7 +126,7 @@ func _run() -> void:
         var frame_count: int = 0
         # Cover the complete timed attack, including 1.5s holding
         # and 0.42s leg / 0.62s body staged recovery.
-        # v438 sweep at 0.60x lasts 6.19s including recovery.
+        # v443 sweep lasts 6.60s including Body-then-leg recovery.
         # Allow every complete phase, with margin for frame rounding.
         for tick in range(165):
             battle.call("_advance_target_motion", DT)
