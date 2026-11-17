@@ -1179,6 +1179,41 @@ func _source_timed_smoothstep(seconds: float,
     return u * u * (3.0 - 2.0 * u)
 
 
+## v441: the actual Blockbench stomp windup has a fully raised foot
+## around source t=1.00..1.25. Reuse only the active three-joint
+## chain (upper, lower, toe) as a RETURN waypoint for ANY attack.
+## No additional mesh transforms, pivot offsets, or keyframe edits.
+const STOMP_RETURN_WINDUP_SAMPLE_SECONDS: float = 1.00
+const FRONT_ATTACK_LIMB_NAMES: Dictionary = {
+    "leg_fl": ["FrontLeg_L", "FrontLowerLeg_L", "FrontFoot_L"],
+    "leg_fr": ["FrontLeg_R", "FrontLowerLeg_R", "FrontFoot_R"]
+}
+
+
+func _source_return_via_stomp(leg_id: String, joint: Node3D,
+        source_rotation: Quaternion, source_position: Vector3,
+        neutral_rotation: Quaternion, neutral_position: Vector3,
+        t: float, lift_seconds: float, land_seconds: float) -> void:
+    var stomp_clip: String = (
+        "踏みつけ_R" if leg_id == "leg_fr" else "踏みつけ_L")
+    var lift_q: Quaternion = _authored_key_rotation(
+        stomp_clip, joint.name, STOMP_RETURN_WINDUP_SAMPLE_SECONDS)
+    var lift_position: Vector3 = _authored_key_position(
+        stomp_clip, joint.name, STOMP_RETURN_WINDUP_SAMPLE_SECONDS)
+    if t <= lift_seconds:
+        var rise: float = _source_timed_smoothstep(t, lift_seconds)
+        joint.position = source_position.lerp(lift_position, rise)
+        joint.quaternion = source_rotation.slerp(
+            lift_q, rise).normalized()
+    else:
+        var plant: float = _source_timed_smoothstep(
+            t - lift_seconds, land_seconds)
+        joint.position = lift_position.lerp(
+            neutral_position, plant)
+        joint.quaternion = lift_q.slerp(
+            neutral_rotation, plant).normalized()
+
+
 func apply_original_attack_only(frame: Dictionary) -> void:
     if not loading_ok or frame.is_empty():
         return
@@ -1208,6 +1243,12 @@ func apply_original_attack_only(frame: Dictionary) -> void:
     var body_return_seconds: float = float(
         frame.get("body_return_seconds", 0.62))
     var total_return: float = float(frame.get("recovery", 1.4))
+    var lift_seconds: float = float(
+        frame.get("leg_lift_seconds", 0.34))
+    var land_seconds: float = float(
+        frame.get("leg_land_seconds", 0.46))
+    var striking_joint_names: Array = FRONT_ATTACK_LIMB_NAMES.get(
+        leg_id, [])
     var entry_weight: float = _source_timed_smoothstep(
         transition, entry_seconds)
     var full_return_weight: float = _source_timed_smoothstep(
@@ -1233,10 +1274,19 @@ func apply_original_attack_only(frame: Dictionary) -> void:
             joint.quaternion = neutral.slerp(
                 from, entry_weight).normalized()
         elif phase == "recovery":
-            # Sweep: no hard pause; the whole original end pose
-            # eases toward neutral uniformly over 1.40s.
-            # Kick/Stomp: attacking arm + other limbs over .42s,
-            # then BODY height/orientation over the next .62s.
+            if striking_joint_names.has(joint.name):
+                # Every returning striker goes through the actual
+                # high leg lift from the matching left/right stomp
+                # windup, before being planted at its Wait rotation.
+                # Keep all three connected joints in the same phase.
+                _source_return_via_stomp(
+                    leg_id, joint, from, from_position,
+                    neutral, neutral_position, transition,
+                    lift_seconds, land_seconds)
+                continue
+            # Other parts keep their existing source->Wait recovery.
+            # Sweep Body blends over 1.40s; Kick/Stomp Body waits
+            # until the lifted striker has returned, then recovers.
             var weight: float = full_return_weight
             if kind != "sweep":
                 weight = (body_return_weight if joint.name == "Body"
