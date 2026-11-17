@@ -2115,6 +2115,16 @@ func _ground_front_attack_leg(leg: Dictionary) -> void:
             leg["authored_pole_point"] = best_pole + Vector3.UP * shoulder_shift
             _solve(leg, goal, foot_rotation)
         leg["front_ground_shoulder_shift"] = shoulder_shift
+        # The shin-side pole and shoulder adjustment can shift the final
+        # toe a few centimetres. Re-seat the toe after the shin solution,
+        # not before it, so both contacts use this exact output frame.
+        for correction in range(4):
+            var final_toe_error: float = (
+                FLOOR_Y + 0.003 - _foot_mesh_lowest_y(foot))
+            if absf(final_toe_error) < 0.002:
+                break
+            goal.y += final_toe_error
+            _solve(leg, goal, foot_rotation)
     leg["front_ground_foot_y"] = _foot_mesh_lowest_y(foot)
     leg["front_ground_shin_y"] = _foot_mesh_lowest_y(lower)
     leg["last_goal"] = foot.to_global(leg["sole_local"] as Vector3)
