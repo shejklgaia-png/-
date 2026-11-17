@@ -1168,6 +1168,17 @@ func apply_source_clip_exact(clip_name: String, seconds: float) -> void:
             * _sample_rotation(keys, t)).normalized()
 
 
+## Blend ONLY across clip boundaries. During the actual strike
+## apply_source_clip_exact remains pure Blockbench with its linear Euler
+## animation interpolation. Slerp here is for transition between two
+## separate posed clips, not for interpolation inside a source clip.
+func _source_timed_smoothstep(seconds: float,
+        total_seconds: float) -> float:
+    var u: float = clampf(
+        seconds / maxf(total_seconds, 0.000001), 0.0, 1.0)
+    return u * u * (3.0 - 2.0 * u)
+
+
 func apply_original_attack_only(frame: Dictionary) -> void:
     if not loading_ok or frame.is_empty():
         return
@@ -1178,8 +1189,66 @@ func apply_original_attack_only(frame: Dictionary) -> void:
     var clip_name: String = str(ATTACK_NAMES.get(kind, ""))
     if leg_id == "leg_fr":
         clip_name = ("踏みつけ_R" if kind == "stomp" else clip_name + "_R")
-    apply_source_clip_exact(clip_name,
-        float(frame.get("authored_time", 0.0)))
+    if not animations.has(clip_name):
+        return
+    var clip_t: float = float(frame.get("authored_time", 0.0))
+    apply_source_clip_exact(clip_name, clip_t)
+    if not bool(frame.get("source_timed_attack", false)):
+        # Keep the direct source mode usable by independent replay tests.
+        return
+    var phase: String = str(frame.get("phase", "strike"))
+    if phase == "strike" or phase == "hold":
+        # Source keys must stay 100% original through the strike/hold.
+        return
+    var transition: float = float(frame.get("phase_elapsed", 0.0))
+    var entry_seconds: float = float(
+        frame.get("entry_seconds", 0.32))
+    var leg_return_seconds: float = float(
+        frame.get("leg_return_seconds", 0.42))
+    var body_return_seconds: float = float(
+        frame.get("body_return_seconds", 0.62))
+    var total_return: float = float(frame.get("recovery", 1.4))
+    var entry_weight: float = _source_timed_smoothstep(
+        transition, entry_seconds)
+    var full_return_weight: float = _source_timed_smoothstep(
+        transition, total_return)
+    var limb_return_weight: float = _source_timed_smoothstep(
+        transition, leg_return_seconds)
+    var body_return_weight: float = _source_timed_smoothstep(
+        transition - leg_return_seconds, body_return_seconds)
+    var striker_bones: Array = ATTACK_LEG_BONES.get(leg_id, [])
+    for uid in bones.keys():
+        var joint: Node3D = bones[uid]
+        if joint.name == "Head":
+            continue
+        var from: Quaternion = joint.quaternion
+        var from_position: Vector3 = joint.position
+        var neutral: Quaternion = _authored_key_rotation(
+            "Wait", joint.name, 0.0)
+        var neutral_position: Vector3 = _authored_key_position(
+            "Wait", joint.name, 0.0)
+        if phase == "entry":
+            # Wait pose at entry=0 -> clip t=0 pose at entry end.
+            joint.position = neutral_position.lerp(
+                from_position, entry_weight)
+            joint.quaternion = neutral.slerp(
+                from, entry_weight).normalized()
+        elif phase == "recovery":
+            # Sweep: no hard pause; the whole original end pose
+            # eases toward neutral uniformly over 1.40s.
+            # Kick/Stomp: attacking arm + other limbs over .42s,
+            # then BODY height/orientation over the next .62s.
+            var weight: float = full_return_weight
+            if kind != "sweep":
+                weight = (body_return_weight if joint.name == "Body"
+                    else limb_return_weight)
+            joint.position = from_position.lerp(
+                neutral_position, weight)
+            joint.quaternion = from.slerp(
+                neutral, weight).normalized()
+
+
+
 
 
 func apply_authored_attack_pose(frame: Dictionary) -> void:
