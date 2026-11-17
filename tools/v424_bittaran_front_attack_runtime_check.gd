@@ -127,7 +127,8 @@ func _run() -> void:
         _fail("+90-degree vertical head aim failed: " + str(up))
         return
     player.global_position = boss_head.global_position + Vector3(0.0, -20.0, -0.01)
-    battle.call("_aim_bittaran_head", 1.0)
+    # With 120deg/s pitch tracking, +90 to -90 requires at least 1.5s.
+    battle.call("_aim_bittaran_head", 2.0)
     var down: float = float(battle.get("boss_head_pitch"))
     if down > -deg_to_rad(80.0) or down < -PI * 0.5 - 0.0001:
         _fail("-90-degree vertical head aim failed: " + str(down))
