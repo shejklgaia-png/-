@@ -120,16 +120,21 @@ func _run() -> void:
     var attacks_checked: int = 0
     var sweep_toe_frames: int = 0
     var sweep_toe_unreachable_frames: int = 0
+    var body_pin_frames: int = 0
+    var body_pin_unreachable_frames: int = 0
+    var worst_reachable_tip_drift: float = 0.0
+    var body_to_leg_transitions: int = 0
     for clip in ATTACKS.keys():
         var options: Array = ATTACKS[clip]
         if not bool(director.call("force_start", options[0], options[1])):
             _fail("cannot start " + clip)
             return
         var frame_count: int = 0
-        # Cover the complete timed attack, including 1.5s holding
-        # and 0.42s leg / 0.62s body staged recovery.
-        # v443 sweep lasts 6.60s including Body-then-leg recovery.
-        # Allow every complete phase, with margin for frame rounding.
+        var last_recovery_stage: String = ""
+        var previous_joint_rotations: Dictionary = {}
+        # v446: all six clips, including the FULL BODY->LEG recovery
+        # (sweep lasts 5.60s). The active toe tip must stay at ONE
+        # exact world XZ and at Y=0 while the torso returns.
         for tick in range(165):
             battle.call("_advance_target_motion", DT)
             var frame: Dictionary = battle.get("bittaran_attack_frame")
@@ -137,6 +142,63 @@ func _run() -> void:
                 break
             battle.call("_finalize_target_pose", DT)
             var t: float = float(frame.get("authored_time", 0.0))
+            var attack_index: int = LEG_IDS.find(str(options[0]))
+            var attack_limb: Dictionary = limbs[attack_index]
+            var phase: String = str(frame.get("phase", ""))
+            var stage: String = str(frame.get("recovery_stage", ""))
+            if phase == "recovery" and stage == "body":
+                if not bool(attack_limb.get(
+                        "source_ik_body_toe_pin_active", false)):
+                    _fail("body recovery lost toe world anchor " +
+                        str([clip, frame_count, t]))
+                    return
+                var anchor: Vector3 = (
+                    attack_limb["source_ik_body_toe_pin_anchor"])
+                var local_point: Vector3 = (
+                    attack_limb["source_ik_body_toe_pin_local"])
+                var active_foot: Node3D = attack_limb["foot"]
+                var actual: Vector3 = active_foot.to_global(local_point)
+                var drift: float = actual.distance_to(anchor)
+                var reach_error: float = float(
+                    attack_limb.get("last_error", 0.0))
+                if drift > 0.040 and reach_error < 0.040:
+                    _fail("reachable attacking toe drifted off floor " +
+                        str([clip, frame_count, actual, anchor,
+                        drift, reach_error]))
+                    return
+                if drift > 0.040:
+                    body_pin_unreachable_frames += 1
+                else:
+                    worst_reachable_tip_drift = maxf(
+                        worst_reachable_tip_drift, drift)
+                body_pin_frames += 1
+            if phase == "recovery" and stage == "leg" and (
+                    last_recovery_stage == "body"):
+                # The first unpinned tick must start at the physical
+                # IK-corrected source posture, not snap to Blockbench.
+                for bone_name in ([
+                        "FrontLeg_L", "FrontLowerLeg_L", "FrontFoot_L"]
+                        if str(options[0]) == "leg_fl" else [
+                        "FrontLeg_R", "FrontLowerLeg_R", "FrontFoot_R"]):
+                    var uid: String = str(bone_map.get(bone_name, ""))
+                    var bone: Node3D = nodes[uid]
+                    if previous_joint_rotations.has(bone_name):
+                        var angle: float = (
+                            previous_joint_rotations[bone_name]
+                            as Quaternion).angle_to(bone.quaternion)
+                        if angle > 0.50:
+                            _fail("arm snapped at Body->leg transition " +
+                                str([clip, bone_name, angle]))
+                            return
+                body_to_leg_transitions += 1
+            for bone_name in ([
+                    "FrontLeg_L", "FrontLowerLeg_L", "FrontFoot_L"]
+                    if str(options[0]) == "leg_fl" else [
+                    "FrontLeg_R", "FrontLowerLeg_R", "FrontFoot_R"]):
+                var id: String = str(bone_map.get(bone_name, ""))
+                previous_joint_rotations[bone_name] = (
+                    nodes[id] as Node3D).quaternion
+            last_recovery_stage = stage
             if str(options[1]) == "sweep":
                 var striker_index: int = LEG_IDS.find(
                     str(options[0]))
@@ -195,15 +257,19 @@ func _run() -> void:
                 _fail("attack IK moved model root")
                 return
             frame_count += 1
-        if frame_count < 19:
-            _fail("attack frames missing " + str([clip, frame_count]))
+        if frame_count < 19 or last_recovery_stage != "leg":
+            _fail("attack did not finish BODY->LEG recovery " +
+                str([clip, frame_count, last_recovery_stage]))
             return
         attacks_checked += 1
         battle.call("_advance_target_motion", DT)
         battle.call("_finalize_target_pose", DT)
     if attacks_checked != 6 or ground_contacts < 100 or (
-            sweep_toe_frames < 200):
-        _fail("not enough support or active-sweep toe samples")
+            sweep_toe_frames < 200) or body_pin_frames < 130 or (
+            body_to_leg_transitions != 6):
+        _fail("not enough toe pins, grounded supports, or transitions " +
+            str([attacks_checked, sweep_toe_frames, body_pin_frames,
+            body_to_leg_transitions]))
         return
     print("GODOT_V435_GAIT_SUPPORT_IK_PASS ",
         "gait_frames=", gait_samples, " source_attacks=", attacks_checked,
@@ -212,5 +278,9 @@ func _run() -> void:
         " sweep_toe_unreachable=", sweep_toe_unreachable_frames,
         " sweep_toe_ik_retries=",
         ik.get("source_ik_sweep_toe_retry_count"),
+        " body_pinned_frames=", body_pin_frames,
+        " body_pin_unreachable=", body_pin_unreachable_frames,
+        " Body_to_leg_transitions=", body_to_leg_transitions,
+        " worst_reachable_tip_drift=", worst_reachable_tip_drift,
         " unreachable=", ik.get("source_ik_unreachable_supports"))
     quit(0)
