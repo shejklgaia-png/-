@@ -470,11 +470,19 @@ func _check_bittaran_attack_hit() -> void:
         hit_window = (phase == "strike" and
             ["stomp", "kick", "sweep"].has(kind))
         if kind == "stomp":
-            # Rear stomp lands at source t=0.50, front stomp at 1.375.
-            # Never activate the lower-leg/foot boxes during anticipation.
-            var impact_start: float = (
-                0.50 if leg_id.begins_with("leg_r") else 1.375)
-            hit_window = hit_window and clip_time >= impact_start
+            if leg_id.begins_with("leg_r"):
+                # Source t=0.50 is its AERIAL APEX, not impact.
+                # The first grounded HOLD tick at t=1.0 is the safe
+                # fall-back if the final strike tick skipped t=1.0.
+                var landing_window: bool = (
+                    (phase == "strike" and clip_time >= 0.93) or (
+                    phase == "hold" and float(
+                    bittaran_attack_frame.get("phase_elapsed", 1.0))
+                    <= 0.12))
+                hit_window = landing_window and (
+                    _bittaran_striking_foot_grounded(leg_id))
+            else:
+                hit_window = hit_window and clip_time >= 1.375
     if not is_impact and not hit_window:
         return
     var contact: Vector3 = (
@@ -1436,6 +1444,11 @@ func _finalize_target_pose(delta: float) -> void:
         if bittaran_foot_ik != null and target != null and target_hp > 0:
             bittaran_foot_ik.call("advance_source_ground_ik",
                 delta, bittaran_motion, bittaran_attack_frame)
+        # Preserve actual post-IK bone locals for the NEXT rear attack.
+        # This capture happens only outside source attacks so the
+        # first entry pose stays fixed across all transition frames.
+        if bittaran_rig != null and bittaran_attack_frame.is_empty():
+            bittaran_rig.call("remember_source_grounded_attack_entry")
     else:
         if bittaran_foot_ik != null and target != null and target_hp > 0:
             var attack_frame: Dictionary = bittaran_attack_frame.duplicate()
@@ -1498,7 +1511,7 @@ func _finalize_target_pose(delta: float) -> void:
                         bittaran_attack_frame.get("phase", "")))) and (
                         float(bittaran_attack_frame.get(
                         "authored_time", 0.0)) >= (
-                        0.50 if leg_id.begins_with("leg_r") else 1.50)):
+                        0.93 if leg_id.begins_with("leg_r") else 1.50)):
                     # The old particles/ring/thud/shake require actual
                     # floor contact on the descending authored foot.
                     bittaran_dirt_fx.set("stomped_this_attack", true)
