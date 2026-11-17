@@ -150,6 +150,13 @@ const FRONT_STANCE_RETURN_SECONDS: float = 0.42
 const FRONT_BODY_RISE_SECONDS: float = 0.62
 const FRONT_BODY_LEVEL_WEIGHT: float = 0.68
 const FRONT_BODY_MAX_DROP_METERS: float = 1.10
+# Matched with BittaranRig.FRONT_SWEEP_ENTRY_SECONDS.
+const FRONT_SWEEP_ENTRY_SECONDS: float = 0.32
+const FRONT_SWEEP_TOUCH_HEIGHT_METERS: float = 0.035
+# Velocity-limited visual root motion keeps all shoulders moving with the
+# chassis and gives world-anchored elbows time to fold via two-link IK.
+const FRONT_BODY_DESCENT_SPEED_METERS_PER_SECOND: float = 2.0
+const FRONT_BODY_DESCENT_ACCEL_SECONDS: float = 0.40
 
 const LEG_NAMES: Array[String] = [
     "FrontLeg_R", "RearLeg_L", "FrontLeg_L", "RearLeg_R"
@@ -494,6 +501,8 @@ func clear_attack_pose(preserve_front_return: bool = false) -> void:
         leg.erase("front_ground_kick_shoulder_shift")
         leg.erase("front_ground_foot_y")
         leg.erase("front_ground_shin_y")
+        leg.erase("front_sweep_touchdown_time")
+        leg.erase("front_sweep_contact")
         leg.erase("authored_pole_point")
         leg.erase("front_ground_shin_roll")
         leg.erase("front_ground_sweep_pole")
@@ -2071,11 +2080,18 @@ func _apply_front_attack_height(delta: float) -> void:
     # a height after IK, since that would form a feedback loop.
     var desired: float = -minf(
         FRONT_BODY_MAX_DROP_METERS, minf(needed_drop, available_drop))
-    var blend: float = 1.0 - exp(-9.0 * maxf(delta, 0.0))
-    var candidate: float = lerpf(front_attack_drop_world, desired, blend)
-    # During a strike, lower when needed but do not pop back upward
-    # when the foot briefly lifts. Chassis rises only AFTER return.
-    front_attack_drop_world = minf(front_attack_drop_world, candidate)
+    # Never teleport the BODY down by ~40cm in a single physics frame.
+    # Instead the shoulders follow the parent chassis continuously, while
+    # the 3 supporting fore/rear arms keep their feet planted through IK.
+    var ramp: float = _cubic(
+        frame_t / FRONT_BODY_DESCENT_ACCEL_SECONDS)
+    var speed: float = lerpf(
+        0.25, FRONT_BODY_DESCENT_SPEED_METERS_PER_SECOND, ramp)
+    # During an attack lower only, and let the two-phase recovery
+    # restore the height. No previous IK-corrected foot is sampled here.
+    if desired < front_attack_drop_world:
+        front_attack_drop_world = move_toward(
+            front_attack_drop_world, desired, speed * maxf(delta, 0.0))
     var scale_y: float = maxf(
         absf(actor.get_parent().global_basis.get_scale().y), 0.001)
     actor.position.y += front_attack_drop_world / scale_y
@@ -2134,8 +2150,29 @@ func _ground_front_attack_leg(leg: Dictionary) -> void:
     var source_toe: float = _foot_mesh_lowest_y(foot)
     var source_shin: float = _foot_mesh_lowest_y(lower)
     var desired_toe_delta: float = FLOOR_Y + 0.003 - source_toe
-    if not contact_active:
-        # Stomp can deliberately raise its toe during anticipation.
+    if kind == "sweep":
+        contact_active = bool(leg.get("front_sweep_contact", false))
+        if not contact_active:
+            # Key zero is initially several metres off the floor.
+            # Instead of snapping its toe to Y=0, let the BODY descend
+            # and fold its shoulder/knee through a continuous IK reach.
+            # This is only the APPROACH trajectory, not planted contact.
+            # The reach starts AFTER the Wait->key0 crossfade and ends
+            # near the strike's onset. A new source pose is re-read on
+            # every tick, never using a prior IK-adjusted toe position.
+            var landing_fraction: float = _cubic(
+                (t - FRONT_SWEEP_ENTRY_SECONDS) / maxf(
+                    windup - FRONT_SWEEP_ENTRY_SECONDS, 0.01))
+            # A Wait/entry toe may initially be UNDER the arena. This
+            # is collision prevention, never a forced planted contact:
+            # always clear penetration, but approach a floating toe
+            # gradually rather than pulling it to Y=0 in one tick.
+            if desired_toe_delta < 0.0:
+                desired_toe_delta *= landing_fraction
+            else:
+                desired_toe_delta = maxf(desired_toe_delta, 0.0)
+    elif not contact_active:
+        # STOMP must remain airborne in its intentional anticipation.
         desired_toe_delta = maxf(desired_toe_delta, 0.0)
     var target: Vector3 = original_sole + Vector3.UP * desired_toe_delta
     var needs_toe: bool = absf(desired_toe_delta) > 0.002
@@ -2152,14 +2189,26 @@ func _ground_front_attack_leg(leg: Dictionary) -> void:
     leg["authored_pole_active"] = true
     leg["authored_pole_point"] = knee_world
     _solve(leg, target, foot_rotation)
-    for iteration in range(3):
-        var foot_error: float = FLOOR_Y + 0.003 - _foot_mesh_lowest_y(foot)
-        if not contact_active and foot_error < 0.0:
-            break
-        if absf(foot_error) < 0.002:
-            break
-        target.y += foot_error
-        _solve(leg, target, foot_rotation)
+    # The source-to-floor approach already owns the toe height for
+    # an airborne SWEEP. Do not snap it to the arena in this solver.
+    if kind != "sweep" or contact_active or desired_toe_delta > 0.0:
+        for iteration in range(3):
+            var foot_error: float = FLOOR_Y + 0.003 - _foot_mesh_lowest_y(foot)
+            if not contact_active and foot_error < 0.0:
+                break
+            if absf(foot_error) < 0.002:
+                break
+            target.y += foot_error
+            _solve(leg, target, foot_rotation)
+    if kind == "sweep" and not contact_active and (
+            t >= FRONT_SWEEP_ENTRY_SECONDS) and (
+            _foot_mesh_lowest_y(foot) <= (
+            FLOOR_Y + FRONT_SWEEP_TOUCH_HEIGHT_METERS)):
+        # Contact is triggered by the RENDERED toe, not by the attack
+        # timeline or a magic "windup finished" bit.
+        contact_active = true
+        leg["front_sweep_contact"] = true
+        leg["front_sweep_touchdown_time"] = t
     # Only if necessary, bend the knee around the two-link axis to stay
     # OUT of the floor. Prefer the source orientation for all safe poses.
     if kind == "sweep" and _foot_mesh_lowest_y(lower) < FLOOR_Y - 0.003:

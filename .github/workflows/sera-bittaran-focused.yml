@@ -104,6 +104,11 @@ jobs:
           set -euo pipefail
           "$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" --headless --path . --script tools/v426_bittaran_chassis_return_runtime_check.gd
 
+      - name: Verify sweep Wait-to-key0 blend, natural toe touchdown and supported BODY descent
+        run: |
+          set -euo pipefail
+          "$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" --headless --path . --script tools/v427_bittaran_sweep_entry_contact_runtime_check.gd
+
       - name: Test Bittaran full scene and actual movement in Godot
         run: |
           set -euo pipefail
