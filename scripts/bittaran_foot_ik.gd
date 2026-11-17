@@ -3498,7 +3498,12 @@ func _source_ik_advance_locomotion(delta: float, motion: String) -> void:
                     var corrected_sole: Vector3 = (
                         post_foot.to_global(
                             limb["sole_local"] as Vector3))
-                    limb["anchor"] = corrected_sole
+                    var planted_anchor: Vector3 = limb["anchor"]
+                    # Preserve the anchored XZ: correction is allowed
+                    # to update only contact HEIGHT. Otherwise tiny
+                    # IK residuals could accumulate into foot sliding.
+                    planted_anchor.y = corrected_sole.y
+                    limb["anchor"] = planted_anchor
             limb["source_ik_postattack_knee"] = (
                 post_lower.global_position)
             limb["source_ik_postattack_upper"] = (
