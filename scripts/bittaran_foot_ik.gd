@@ -2163,8 +2163,13 @@ func _ground_front_attack_leg(leg: Dictionary) -> void:
             var landing_fraction: float = _cubic(
                 (t - FRONT_SWEEP_ENTRY_SECONDS) / maxf(
                     windup - FRONT_SWEEP_ENTRY_SECONDS, 0.01))
-            desired_toe_delta *= landing_fraction
-            if t < FRONT_SWEEP_ENTRY_SECONDS:
+            # A Wait/entry toe may initially be UNDER the arena. This
+            # is collision prevention, never a forced planted contact:
+            # always clear penetration, but approach a floating toe
+            # gradually rather than pulling it to Y=0 in one tick.
+            if desired_toe_delta < 0.0:
+                desired_toe_delta *= landing_fraction
+            else:
                 desired_toe_delta = maxf(desired_toe_delta, 0.0)
     elif not contact_active:
         # STOMP must remain airborne in its intentional anticipation.
@@ -2186,7 +2191,7 @@ func _ground_front_attack_leg(leg: Dictionary) -> void:
     _solve(leg, target, foot_rotation)
     # The source-to-floor approach already owns the toe height for
     # an airborne SWEEP. Do not snap it to the arena in this solver.
-    if kind != "sweep" or contact_active:
+    if kind != "sweep" or contact_active or desired_toe_delta > 0.0:
         for iteration in range(3):
             var foot_error: float = FLOOR_Y + 0.003 - _foot_mesh_lowest_y(foot)
             if not contact_active and foot_error < 0.0:
