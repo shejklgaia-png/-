@@ -62,7 +62,10 @@ func _run() -> void:
                     if not frame.is_empty() and not bool(frame.get(
                             "stance_prepare", false)):
                         had_attack = true
-                        if drop > 0.0001 or drop < -1.101:
+                        var drop_limit: float = (
+                            IK.FRONT_SWEEP_MAX_DROP_METERS
+                            if kind == "sweep" else IK.FRONT_BODY_MAX_DROP_METERS)
+                        if drop > 0.0001 or drop < -drop_limit - 0.001:
                             _fail("attack BODY offset exceeded bounded range")
                             return
                         max_drop = maxf(max_drop, -drop)

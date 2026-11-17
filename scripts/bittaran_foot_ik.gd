@@ -150,6 +150,13 @@ const FRONT_STANCE_RETURN_SECONDS: float = 0.42
 const FRONT_BODY_RISE_SECONDS: float = 0.62
 const FRONT_BODY_LEVEL_WEIGHT: float = 0.68
 const FRONT_BODY_MAX_DROP_METERS: float = 1.10
+# Sweep alone crouches lower than KICK/STOMP (bounded by the real
+# underside of the BODY mesh, never by a fixed global root teleport).
+const FRONT_SWEEP_MAX_DROP_METERS: float = 1.70
+# A toe is horizontal when its actual long mesh axis, not its ankle's
+# arbitrary local Euler rotation, is parallel to the arena floor.
+const FRONT_SWEEP_FLAT_START_SECONDS: float = 0.32
+const FRONT_SWEEP_FLAT_END_SECONDS: float = 0.70
 # Matched with BittaranRig.FRONT_SWEEP_ENTRY_SECONDS.
 const FRONT_SWEEP_ENTRY_SECONDS: float = 0.32
 const FRONT_SWEEP_TOUCH_HEIGHT_METERS: float = 0.035
@@ -2078,8 +2085,15 @@ func _apply_front_attack_height(delta: float) -> void:
     var needed_drop: float = maxf(toe_y - FLOOR_Y - 0.003, 0.0)
     # Only the authored foot height determines the request. Never use
     # a height after IK, since that would form a feedback loop.
+    var drop_limit: float = (
+        FRONT_SWEEP_MAX_DROP_METERS if kind == "sweep"
+        else FRONT_BODY_MAX_DROP_METERS)
+    # During SWEEP the stance must remain low even after the toe has
+    # reached ground: an already-grounded toe must NOT cancel the crouch.
+    if kind == "sweep":
+        needed_drop = drop_limit
     var desired: float = -minf(
-        FRONT_BODY_MAX_DROP_METERS, minf(needed_drop, available_drop))
+        drop_limit, minf(needed_drop, available_drop))
     # Never teleport the BODY down by ~40cm in a single physics frame.
     # Instead the shoulders follow the parent chassis continuously, while
     # the 3 supporting fore/rear arms keep their feet planted through IK.
@@ -2127,6 +2141,37 @@ func _advance_front_height_return(delta: float) -> void:
         _reset_front_height_state()
 
 
+## v428: rotate the *rendered toe model's long axis* onto the floor.
+## The mesh is rotated +/-90 degrees in the imported Blockbench model;
+## foot.local x/y angles are NOT a reliable proxy for mesh horizontality.
+## Compute the true world toe axis from its own mesh centroid. Never read
+## the last frame's IK rotation: the rig resets the authored key every tick.
+func _sweep_flat_foot_rotation(foot: Node3D, id: String,
+        source_rotation: Quaternion, phase: float) -> Quaternion:
+    if phase <= 0.0:
+        return source_rotation
+    var local_axis: Vector3 = _toe_axis_local_point(foot)
+    if local_axis.length_squared() < 0.000001:
+        return source_rotation
+    var world_axis: Vector3 = (
+        Basis(source_rotation) * local_axis).normalized()
+    var flat: Vector3 = Vector3(world_axis.x, 0.0, world_axis.z)
+    if flat.length_squared() < 0.000001:
+        # A vertical toe has no horizontal heading of its own.
+        # Pick the outward direction of that same FRONT leg.
+        var outward: Vector3 = actor.global_basis.x
+        if id == "leg_fl":
+            outward = -outward
+        flat = Vector3(outward.x, 0.0, outward.z)
+    if flat.length_squared() < 0.000001:
+        flat = Vector3.RIGHT
+    flat = flat.normalized()
+    var target: Quaternion = (
+        Quaternion(world_axis, flat) * source_rotation).normalized()
+    var weight: float = _cubic(phase)
+    return source_rotation.slerp(target, weight).normalized()
+
+
 ## Sweep shin: clearance only. DO NOT pull it down to touch the ground.
 ## The toe uses full-mesh floor contact; shin IK is modified only when
 ## the actual shin mesh would penetrate the floor in the source pose.
@@ -2140,7 +2185,20 @@ func _ground_front_attack_leg(leg: Dictionary) -> void:
     var upper: Node3D = leg["upper"]
     var lower: Node3D = leg["lower"]
     var foot: Node3D = leg["foot"]
-    var foot_rotation: Quaternion = foot.global_basis.get_rotation_quaternion()
+    var original_foot_rotation: Quaternion = (
+        foot.global_basis.get_rotation_quaternion())
+    var foot_rotation: Quaternion = original_foot_rotation
+    if kind == "sweep":
+        # Key zero is entered first, then the toe is laid flat during
+        # the descending pre-strike. Preserve the toe's horizontal
+        # heading while keeping its long axis exactly world-horizontal.
+        var flat_phase: float = clampf(
+            (t - FRONT_SWEEP_FLAT_START_SECONDS) / maxf(
+            FRONT_SWEEP_FLAT_END_SECONDS - FRONT_SWEEP_FLAT_START_SECONDS,
+            0.001), 0.0, 1.0)
+        var id: String = str(attack_pose.get("id", ""))
+        foot_rotation = _sweep_flat_foot_rotation(
+            foot, id, foot_rotation, flat_phase)
     var source_hip_q: Quaternion = upper.quaternion
     var source_knee_q: Quaternion = lower.quaternion
     var source_ankle_q: Quaternion = foot.quaternion
@@ -2176,9 +2234,12 @@ func _ground_front_attack_leg(leg: Dictionary) -> void:
         desired_toe_delta = maxf(desired_toe_delta, 0.0)
     var target: Vector3 = original_sole + Vector3.UP * desired_toe_delta
     var needs_toe: bool = absf(desired_toe_delta) > 0.002
+    var needs_flat: bool = (
+        kind == "sweep" and original_foot_rotation.angle_to(
+        foot_rotation) > 0.003)
     var avoid_shin: bool = (
         kind == "sweep" and source_shin < FLOOR_Y - 0.003)
-    if not needs_toe and not avoid_shin:
+    if not needs_toe and not needs_flat and not avoid_shin:
         leg["last_goal"] = original_sole
         leg["last_rotation"] = foot_rotation
         leg["last_knee"] = knee_world
@@ -2199,6 +2260,16 @@ func _ground_front_attack_leg(leg: Dictionary) -> void:
             if absf(foot_error) < 0.002:
                 break
             target.y += foot_error
+            _solve(leg, target, foot_rotation)
+    elif kind == "sweep":
+        # While lifting the originally airborne toe into a horizontal
+        # attitude, clear actual mesh penetration but do NOT plant it.
+        for iteration in range(3):
+            var penetration: float = (
+                FLOOR_Y + 0.003 - _foot_mesh_lowest_y(foot))
+            if penetration <= 0.002:
+                break
+            target.y += penetration
             _solve(leg, target, foot_rotation)
     if kind == "sweep" and not contact_active and (
             t >= FRONT_SWEEP_ENTRY_SECONDS) and (
