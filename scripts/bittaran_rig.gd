@@ -1182,9 +1182,21 @@ func _source_timed_smoothstep(seconds: float,
     return u * u * (3.0 - 2.0 * u)
 
 
-## v443: source-derived three-joint chain recovers DIRECTLY to Wait
-## after the torso is neutral. This is a simple smoothstep over 1.20s:
-## no lifted stomp pose and no movement of separate mesh instances.
+## v445: C2-continuous return velocity profile for the attacking arm.
+## The quintic curve has zero angular/linear velocity AND acceleration
+## at both endpoints, unlike the previous cubic smoothstep whose
+## acceleration jumped at the start/finish.
+## Each joint uses the SAME scalar time to preserve a coherent chain.
+func _source_timed_smootherstep(seconds: float,
+        total_seconds: float) -> float:
+    var u: float = clampf(
+        seconds / maxf(total_seconds, 0.000001), 0.0, 1.0)
+    return u * u * u * (u * (u * 6.0 - 15.0) + 10.0)
+
+
+## v445: attacking 3-joint chain returns DIRECTLY to Wait using the
+## same quintic ease for upper/lower/foot, after torso recovery.
+## No lift pose, no disconnected meshes, no procedural per-joint lag.
 const FRONT_ATTACK_LIMB_NAMES: Dictionary = {
     "leg_fl": ["FrontLeg_L", "FrontLowerLeg_L", "FrontFoot_L"],
     "leg_fr": ["FrontLeg_R", "FrontLowerLeg_R", "FrontFoot_R"]
@@ -1195,7 +1207,7 @@ func _source_return_leg_to_wait(joint: Node3D,
         from_rotation: Quaternion, from_position: Vector3,
         neutral_rotation: Quaternion, neutral_position: Vector3,
         seconds: float, duration: float) -> void:
-    var ease: float = _source_timed_smoothstep(seconds, duration)
+    var ease: float = _source_timed_smootherstep(seconds, duration)
     joint.position = from_position.lerp(neutral_position, ease)
     joint.quaternion = from_rotation.slerp(
         neutral_rotation, ease).normalized()
@@ -1271,8 +1283,8 @@ func apply_original_attack_only(frame: Dictionary) -> void:
                 # While BODY returns, hold the source striking chain.
                 if transition <= body_return_seconds:
                     continue
-                # Only after BODY is neutral: smoothly restore each
-                # connected attacker joint directly to basic Wait.
+                # Only after BODY is neutral: return all attacker joints
+                # with one C2-smooth velocity profile toward basic Wait.
                 # The original IK-grounded final pose is the start.
                 var saved: Dictionary = (
                     source_return_leg_start_pose.get(joint.name, {}))
