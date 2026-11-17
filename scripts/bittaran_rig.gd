@@ -97,9 +97,9 @@ var blend_from: Dictionary = {}
 # the NEXT Blockbench source key; that would treat solver output as
 # authored animation and visibly wrench the limbs at gait changes.
 var source_ground_ik_active: bool = false
-# v442: the actual IK-grounded leg pose at the moment the BODY
-# returns to Wait is the start of the later raised-foot transition.
-var source_return_lift_start_pose: Dictionary = {}
+# v443: capture the IK-grounded limb right as BODY returns to Wait.
+# Afterward it glides directly to Wait. No intermediate windup pose.
+var source_return_leg_start_pose: Dictionary = {}
 # Procedural HEAD look yaw is not part of an authored blend source.
 var external_head_yaw: float = 0.0
 var loading_ok: bool = false
@@ -1182,40 +1182,23 @@ func _source_timed_smoothstep(seconds: float,
     return u * u * (3.0 - 2.0 * u)
 
 
-## v442: after BODY restoration use the real Blockbench stomp windup,
-## with its fully raised foot
-## around source t=1.00..1.25. Reuse only the active three-joint
-## chain (upper, lower, toe) as a RETURN waypoint for ANY attack.
-## No additional mesh transforms, pivot offsets, or keyframe edits.
-const STOMP_RETURN_WINDUP_SAMPLE_SECONDS: float = 1.00
+## v443: source-derived three-joint chain recovers DIRECTLY to Wait
+## after the torso is neutral. This is a simple smoothstep over 1.20s:
+## no lifted stomp pose and no movement of separate mesh instances.
 const FRONT_ATTACK_LIMB_NAMES: Dictionary = {
     "leg_fl": ["FrontLeg_L", "FrontLowerLeg_L", "FrontFoot_L"],
     "leg_fr": ["FrontLeg_R", "FrontLowerLeg_R", "FrontFoot_R"]
 }
 
 
-func _source_return_via_stomp(leg_id: String, joint: Node3D,
-        source_rotation: Quaternion, source_position: Vector3,
+func _source_return_leg_to_wait(joint: Node3D,
+        from_rotation: Quaternion, from_position: Vector3,
         neutral_rotation: Quaternion, neutral_position: Vector3,
-        t: float, lift_seconds: float, land_seconds: float) -> void:
-    var stomp_clip: String = (
-        "踏みつけ_R" if leg_id == "leg_fr" else "踏みつけ_L")
-    var lift_q: Quaternion = _authored_key_rotation(
-        stomp_clip, joint.name, STOMP_RETURN_WINDUP_SAMPLE_SECONDS)
-    var lift_position: Vector3 = _authored_key_position(
-        stomp_clip, joint.name, STOMP_RETURN_WINDUP_SAMPLE_SECONDS)
-    if t <= lift_seconds:
-        var rise: float = _source_timed_smoothstep(t, lift_seconds)
-        joint.position = source_position.lerp(lift_position, rise)
-        joint.quaternion = source_rotation.slerp(
-            lift_q, rise).normalized()
-    else:
-        var plant: float = _source_timed_smoothstep(
-            t - lift_seconds, land_seconds)
-        joint.position = lift_position.lerp(
-            neutral_position, plant)
-        joint.quaternion = lift_q.slerp(
-            neutral_rotation, plant).normalized()
+        seconds: float, duration: float) -> void:
+    var ease: float = _source_timed_smoothstep(seconds, duration)
+    joint.position = from_position.lerp(neutral_position, ease)
+    joint.quaternion = from_rotation.slerp(
+        neutral_rotation, ease).normalized()
 
 
 func apply_original_attack_only(frame: Dictionary) -> void:
@@ -1234,16 +1217,16 @@ func apply_original_attack_only(frame: Dictionary) -> void:
     var phase: String = str(frame.get("phase", "strike"))
     var stage: String = str(frame.get("recovery_stage", ""))
     if phase != "recovery":
-        source_return_lift_start_pose.clear()
-    elif stage != "body" and (
-            source_return_lift_start_pose.is_empty()):
+        source_return_leg_start_pose.clear()
+    elif stage == "leg" and (
+            source_return_leg_start_pose.is_empty()):
         # Sample previous IK-corrected pose BEFORE resetting source keys.
         for limb_name in FRONT_ATTACK_LIMB_NAMES.get(leg_id, []):
             var bone_uid: String = str(bone_uuid_by_name.get(limb_name, ""))
             if not bones.has(bone_uid):
                 continue
             var bone: Node3D = bones[bone_uid]
-            source_return_lift_start_pose[limb_name] = {
+            source_return_leg_start_pose[limb_name] = {
                 "position": bone.position,
                 "rotation": bone.quaternion
             }
@@ -1259,10 +1242,8 @@ func apply_original_attack_only(frame: Dictionary) -> void:
         frame.get("entry_seconds", 0.32))
     var body_return_seconds: float = float(
         frame.get("body_return_seconds", 0.62))
-    var lift_seconds: float = float(
-        frame.get("leg_lift_seconds", 0.34))
-    var land_seconds: float = float(
-        frame.get("leg_land_seconds", 0.46))
+    var leg_return_seconds: float = float(
+        frame.get("leg_return_seconds", 1.20))
     var striking_joint_names: Array = FRONT_ATTACK_LIMB_NAMES.get(
         leg_id, [])
     var entry_weight: float = _source_timed_smoothstep(
@@ -1287,26 +1268,25 @@ func apply_original_attack_only(frame: Dictionary) -> void:
                 from, entry_weight).normalized()
         elif phase == "recovery":
             if striking_joint_names.has(joint.name):
-                # 1) The source attacking limb remains in its end pose
-                # until the BODY is fully back in neutral.
+                # While BODY returns, hold the source striking chain.
                 if transition <= body_return_seconds:
                     continue
-                # 2) Lift with the SAME SIDE stomp windup at t=1.00.
-                # 3) Replant to the Wait pose. Three connected joints
-                # use the previous physically grounded starting pose.
+                # Only after BODY is neutral: smoothly restore each
+                # connected attacker joint directly to basic Wait.
+                # The original IK-grounded final pose is the start.
                 var saved: Dictionary = (
-                    source_return_lift_start_pose.get(joint.name, {}))
-                var lift_from_q: Quaternion = saved.get("rotation", from)
-                var lift_from_pos: Vector3 = saved.get(
+                    source_return_leg_start_pose.get(joint.name, {}))
+                var from_q: Quaternion = saved.get("rotation", from)
+                var from_pos: Vector3 = saved.get(
                     "position", from_position)
-                _source_return_via_stomp(
-                    leg_id, joint, lift_from_q, lift_from_pos,
+                _source_return_leg_to_wait(
+                    joint, from_q, from_pos,
                     neutral, neutral_position,
                     transition - body_return_seconds,
-                    lift_seconds, land_seconds)
+                    leg_return_seconds)
                 continue
-            # BODY and the other limbs return first and then remain
-            # motionless in Wait while the attacking leg lifts/lands.
+            # BODY and other limbs reach Wait first and stay there
+            # while the striking chain returns without any lift.
             joint.position = from_position.lerp(
                 neutral_position, body_return_weight)
             joint.quaternion = from.slerp(
