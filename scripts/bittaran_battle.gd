@@ -145,7 +145,7 @@ var bittaran_thud_audio: AudioStreamPlayer
 # v454: gapless 174-BPM audio provided by the creator. The Ogg source
 # must be included at this resource path for Android export; a user://
 # fallback permits listening without rebuilding during development.
-const BITTARAN_BGM_PATH: String = "res://assets/audio/neural_flow_loop.ogg"
+const BITTARAN_BGM_PATH: String = "res://assets/neural_flow_loop.ogg"
 const BITTARAN_BGM_USER_PATH: String = "user://neural_flow_loop.ogg"
 const BITTARAN_BGM_DURATION_SECONDS: float = 187.586207
 var bittaran_bgm: AudioStreamPlayer
