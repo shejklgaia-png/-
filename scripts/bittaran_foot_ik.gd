@@ -2591,7 +2591,8 @@ var source_ik_replant_elapsed: float = 0.0
 var source_ik_unreachable_supports: int = 0
 
 ## v440: fixed-plane Y=0 collision for the ACTIVE authored attacking limb.
-## Fast path: 3 cached oriented BOX bounds, 1 two-bone solve/frame.
+## Fast path: 3 cached BOX bounds generally; sweep tests its TOE
+## cuboid alone and uses 1 skeletal solve, with 1 optional retry.
 ## No raycasts, triangle collision, shape casts or terrain sampling.
 ## The original
 ## mesh vertices and joint-local pivots remain immutable. The ankle
@@ -2771,7 +2772,8 @@ func _source_ik_solve_striker(
     return foot.to_global(sole_local).distance_to(sole_goal)
 
 
-## One 2-bone solve per physics frame. All mesh/joint local positions
+## Normally 1 two-bone solve per physics frame (sweep may retry once).
+## All mesh/joint local positions
 ## and scales are immutable. The floor never changes from Y=0.
 func _source_ik_ground_attacking_limb(
         limb: Dictionary, frame: Dictionary) -> void:
