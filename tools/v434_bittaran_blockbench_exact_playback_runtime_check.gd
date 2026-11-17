@@ -162,7 +162,7 @@ func _run() -> void:
         _die("Boss dependencies not ready")
         return
     var initial_root_y: float = rig.position.y
-    var original_head: Node3D = rig.find_child("Head", true, false)
+    var original_head: Node3D = rig.find_child("Head", true, false) as Node3D
     var head_pose: Quaternion = original_head.quaternion
     var total: int = 0
     var disorder_count: int = 0
