@@ -3431,9 +3431,16 @@ func _source_ik_advance_locomotion(delta: float, motion: String) -> void:
         # during the first 0.24s ease the authored pose to vertical.
         # The world-fixed planted goal protects against foot sliding
         # as the BODY turns; joint IK absorbs the torso twist.
+        # During the mandatory four-foot return, only the lifted
+        # pair rotates toward toe-down over its swing interpolation.
+        # Keep the OTHER pair's last planted orientation unchanged
+        # until it actually lifts; otherwise toe_alpha=1 would
+        # rotate its foot abruptly on the first postattack tick.
+        var toe_down_weight: float = (
+            0.0 if source_ik_postattack_active else toe_alpha)
         rotation = rotation.slerp(
             _source_ik_toe_down_rotation(limb, rotation),
-            toe_alpha).normalized()
+            toe_down_weight).normalized()
         if source_ik_step_pair == -1 or not (
                 LEG_PAIRS[source_ik_step_pair].has(index)):
             if source_ik_replant_id != LEG_PART_IDS[index]:
@@ -3952,8 +3959,7 @@ func advance_source_ground_ik(delta: float, motion: String,
                         other_limb["sole_local"] as Vector3)
                     other_limb["anchor"] = current_sole
                     other_limb["anchor_rotation"] = (
-                        current_foot.global_basis
-                            .get_rotation_quaternion())
+                        current_foot.global_basis.get_rotation_quaternion())
                     other_limb["source_ik_postattack_knee"] = (
                         current_lower.global_position)
                     other_limb["source_ik_postattack_upper"] = (
