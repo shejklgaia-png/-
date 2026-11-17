@@ -777,6 +777,19 @@ func get_leg_visual_mesh_boxes(id: String) -> Array[AABB]:
     return boxes
 
 
+## Attack collision starts at the shin/lower limb and includes its foot.
+## Upper-arm, torso, head and camera/lock volumes are NEVER damaging
+## melee shapes, even if their broad mesh bounds cross the player.
+func get_leg_attack_mesh_boxes(id: String) -> Array[AABB]:
+    var boxes: Array[AABB] = []
+    if not installed or not SHIN_BONES.has(id):
+        return boxes
+    var lower: Node3D = bone_nodes.get(id, null) as Node3D
+    if lower != null:
+        _append_component_visual_boxes(lower, boxes)
+    return boxes
+
+
 func get_body_hit_aabb() -> AABB:
     return _bounds("")
 
