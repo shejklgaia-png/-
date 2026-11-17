@@ -118,6 +118,8 @@ func _run() -> void:
     var bone_map: Dictionary = rig.get("bone_uuid_by_name")
     var nodes: Dictionary = rig.get("bones")
     var attacks_checked: int = 0
+    var sweep_toe_frames: int = 0
+    var sweep_toe_unreachable_frames: int = 0
     for clip in ATTACKS.keys():
         var options: Array = ATTACKS[clip]
         if not bool(director.call("force_start", options[0], options[1])):
@@ -135,6 +137,25 @@ func _run() -> void:
                 break
             battle.call("_finalize_target_pose", DT)
             var t: float = float(frame.get("authored_time", 0.0))
+            if str(options[1]) == "sweep":
+                var striker_index: int = LEG_IDS.find(
+                    str(options[0]))
+                var striker: Dictionary = limbs[striker_index]
+                var toe_y: float = float(ik.call(
+                    "_source_ik_sweep_toe_lowest_world_y", striker))
+                if not is_finite(toe_y):
+                    _fail("no cached sweep toe cuboid " + clip)
+                    return
+                sweep_toe_frames += 1
+                if toe_y < -0.005:
+                    var reach_error: float = float(striker.get(
+                        "last_error", 0.0))
+                    if reach_error < 0.012:
+                        _fail("reachable sweep toe penetrates floor Y=0 " +
+                            str([clip, frame.get("phase"), t,
+                            toe_y, reach_error]))
+                        return
+                    sweep_toe_unreachable_frames += 1
             # Entry/recovery blend to Wait. Strike/hold MUST preserve
             # the Blockbench BODY key exactly, but v440 now permits
             # upper/lower striker joint rotations for floor collision.
@@ -180,11 +201,16 @@ func _run() -> void:
         attacks_checked += 1
         battle.call("_advance_target_motion", DT)
         battle.call("_finalize_target_pose", DT)
-    if attacks_checked != 6 or ground_contacts < 100:
-        _fail("not enough support contacts sampled")
+    if attacks_checked != 6 or ground_contacts < 100 or (
+            sweep_toe_frames < 200):
+        _fail("not enough support or active-sweep toe samples")
         return
     print("GODOT_V435_GAIT_SUPPORT_IK_PASS ",
         "gait_frames=", gait_samples, " source_attacks=", attacks_checked,
         " grounded_contacts=", ground_contacts,
+        " sweep_toe_frames=", sweep_toe_frames,
+        " sweep_toe_unreachable=", sweep_toe_unreachable_frames,
+        " sweep_toe_ik_retries=",
+        ik.get("source_ik_sweep_toe_retry_count"),
         " unreachable=", ik.get("source_ik_unreachable_supports"))
     quit(0)
