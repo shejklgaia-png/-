@@ -295,9 +295,22 @@ func apply_pose(clip_name: String, t: float) -> void:
             # frames; restore its exact authored LOCAL pivot before the
             # next clip sample to prevent permanent bone length drift.
             var position_offset: Vector3 = Vector3.ZERO
+            var position_keys: Array = []
             if tracks.has(uid):
+                position_keys = _channel_keys(
+                    tracks[uid].get("keyframes", []), "position")
                 position_offset = _sample_position(
                     tracks[uid].get("keyframes", []), sample_time)
+            # Locomotion clips predate the newly authored Wait Body Y
+            # anchor. Preserve the source Wait's neutral chassis height
+            # while walking, but NEVER use it in an authored attack clip.
+            if joint.name == "Body" and position_keys.is_empty() and (
+                    ["Idle", "Turn", "Approach"].has(clip_name)):
+                var wait_tracks: Dictionary = (
+                    animations["Wait"].get("animators", {}))
+                if wait_tracks.has(uid):
+                    position_offset = _sample_position(
+                        wait_tracks[uid].get("keyframes", []), 0.0)
             joint.position = (bind_positions[uid] as Vector3) + position_offset
         if joint.name == "Head":
             # NEVER write HEAD here. The tracking controller owns its
