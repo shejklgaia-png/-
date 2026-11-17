@@ -1434,6 +1434,23 @@ func apply_source_attack_aim(
             * source_rotation).scaled(upper_scale)
 
 
+## v460: the authored Wait snapshot is taken BEFORE the foot IK.
+## Replace its contents at the end of the same physics frame with
+## the actually rendered, floor-corrected four-leg pose. Otherwise
+## Wait->Idle starts from a floating pre-IK sample on the next tick.
+func remember_grounded_source_wait_handoff() -> void:
+    if not loading_ok or source_wait_to_idle_blend_from.is_empty():
+        return
+    for uid in source_wait_to_idle_blend_from.keys():
+        if not bones.has(uid):
+            continue
+        var joint: Node3D = bones[uid]
+        source_wait_to_idle_blend_from[uid] = {
+            "position": joint.position,
+            "rotation": joint.quaternion
+        }
+
+
 func apply_original_attack_only(frame: Dictionary) -> void:
     if not loading_ok or frame.is_empty():
         return
