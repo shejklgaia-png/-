@@ -337,8 +337,13 @@ func _make_bittaran_thud() -> AudioStreamWAV:
 ## Impact camera feedback (v401). main.gd never touches the camera's
 ## frustum offsets, so a decaying offset here cannot fight the normal
 ## follow camera; it always settles back to exactly zero.
+# v452: scale EVERY Bittaran vibration at its shared injection point.
+# This covers footsteps, impact rings, kicks, sweeps and damage feedback.
+const BITTARAN_SHAKE_MULTIPLIER: float = 1.5
+
 func _add_impact_shake(strength: float) -> void:
-    impact_shake_strength = maxf(impact_shake_strength, strength)
+    impact_shake_strength = maxf(
+        impact_shake_strength, strength * BITTARAN_SHAKE_MULTIPLIER)
 
 
 func _tick_impact_shake(delta: float) -> void:
@@ -1441,6 +1446,12 @@ func _finalize_target_pose(delta: float) -> void:
                     "original_attack_only", false))):
             bittaran_rig.call("apply_original_attack_only",
                 bittaran_attack_frame)
+            if player != null:
+                # Apply bounded BODY hip-corner and shoulder aim AFTER
+                # authored clip replay, BEFORE all three support IK solves.
+                # The authored rotations remain immutable source data.
+                bittaran_rig.call("apply_source_attack_aim",
+                    bittaran_attack_frame, player.global_position, delta)
         if bittaran_foot_ik != null and target != null and target_hp > 0:
             bittaran_foot_ik.call("advance_source_ground_ik",
                 delta, bittaran_motion, bittaran_attack_frame)
