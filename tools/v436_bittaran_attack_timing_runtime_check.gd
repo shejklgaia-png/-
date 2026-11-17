@@ -63,7 +63,8 @@ func _expected_phase_pose(rig: Node3D, name: String,
         var expected_q: Quaternion = original_q
         var expected_p: Vector3 = original_p
         if phase == "entry":
-            var w: float = _ease(phase_t / ENTRY)
+            var w: float = _ease(
+                phase_t / float(frame["entry_seconds"]))
             expected_q = neutral_q.slerp(original_q, w)
             expected_p = neutral_p.lerp(original_p, w)
         elif phase == "recovery":
@@ -89,61 +90,57 @@ func _run() -> void:
             and _same(DIRECTOR.SOURCE_BODY_RETURN_SECONDS, BODY_RETURN)):
         _die("entry or limb-then-Body timing changed")
         return
-    if not (_same(DIRECTOR.SWEEP_SLOW_SPEED, 0.2) and
-            _same(DIRECTOR.SWEEP_SLOW_REAL_SECONDS, 0.7)):
-        _die("slowdown specifications changed")
+    # v439: remove the v438 global 0.60x scalar entirely, and set
+    # only sweep's Wait -> original t=0 transition to exactly 1.00s.
+    if not (_same(DIRECTOR.SWEEP_ENTRY_SECONDS, 1.0)
+            and _same(DIRECTOR.source_entry_seconds("sweep"), 1.0)
+            and _same(DIRECTOR.source_entry_seconds("kick"), ENTRY)
+            and _same(DIRECTOR.source_entry_seconds("stomp"), ENTRY)
+            and _same(DIRECTOR.SWEEP_SLOW_SPEED, 0.2)
+            and _same(DIRECTOR.SWEEP_SLOW_REAL_SECONDS, 0.7)):
+        _die("v439 sweep-only 1s entry or 0.2x slowdown changed")
         return
     var slow_start: float = DIRECTOR.SWEEP_SLOW_START_CLIP_SECONDS
     var slow_end: float = DIRECTOR.SWEEP_OUTBOUND_END_REAL_SECONDS
     if not (_same(slow_start, 0.36) and _same(slow_end, 1.68)
             and _same(DIRECTOR.SWEEP_EARLY_REAL_SECONDS, 0.98)
-            and _same(ENTRY + slow_end, 2.0)):
-        _die("sweep outward stroke must end 2.0s after Wait")
+            and _same(1.0 + slow_end, 2.68)
+            and _same(DIRECTOR.source_play_seconds("sweep"), 2.68)
+            and _same(DIRECTOR.source_total_seconds("sweep"), 5.08)):
+        _die("sweep clock must be 1s entry + 0.98s lead + 0.70s slow")
         return
-    # v438 preserves the Hermite source curve and executes the entire
-    # authored sweep clock at 60% of the previous real-time rate.
-    if not (_same(DIRECTOR.SWEEP_PLAYBACK_RATE, 0.60)
-            and _same(DIRECTOR.source_play_seconds("sweep"),
-                2.68 / 0.60)
-            and _same(ENTRY + slow_end / 0.60, 3.12)
-            and _same(DIRECTOR.source_total_seconds("sweep"),
-                ENTRY + 2.68 / 0.60 + 1.40)):
-        _die("sweep authored clock must run at overall 0.60x")
-        return
-    # Base Hermite: t=.49 -> source .1555; t=.98 -> source .36.
-    # After overall 0.60x these landmarks occur later.
     for check in [[0.0, 0.0], [0.49, 0.1555],
             [0.98, 0.36], [1.33, 0.43],
             [1.68, 0.50], [2.68, 1.50]]:
         if not _same(float(DIRECTOR.sweep_clip_time_at(
                 float(check[0]))), float(check[1])):
-            _die("incorrect sweep clock mapping " + str(check))
+            _die("source clip time warped unexpectedly " + str(check))
+            return
+        if not _same(float(DIRECTOR.source_clip_time(
+                "sweep", float(check[0]))), float(check[1])):
+            _die("uniform sweep 0.6x was not removed " + str(check))
             return
     var epsilon: float = 0.0001
-    var rate: float = DIRECTOR.SWEEP_PLAYBACK_RATE
     for at in [0.0, 0.1, 0.3, 0.49, 0.7, 0.9, 0.98]:
-        var real_t: float = at / rate
-        var left_t: float = maxf(0.0, real_t - epsilon)
-        var right_t: float = minf(0.98 / rate, real_t + epsilon)
+        var left_t: float = maxf(0.0, at - epsilon)
+        var right_t: float = minf(0.98, at + epsilon)
         var slope: float = (
             DIRECTOR.source_clip_time("sweep", right_t)
             - DIRECTOR.source_clip_time("sweep", left_t)) / maxf(
                 right_t - left_t, 0.000001)
-        var speed: float = DIRECTOR.source_playback_speed(
-            "sweep", real_t)
+        var speed: float = DIRECTOR.source_playback_speed("sweep", at)
         if absf(slope - speed) > 0.001 or speed < 0.0:
-            _die("scaled sweep time/speed mismatch " + str(
-                [real_t, speed, slope]))
+            _die("v437 Hermite sweep curve lost continuity " + str(
+                [at, speed, slope]))
             return
-    # Time/speed curves stay continuous at the scaled 0.20x region.
-    # A prior 0.20x source speed becomes 0.12x after 0.60x scale.
     if not _same(DIRECTOR.source_playback_speed(
-            "sweep", 0.98 / rate), 0.12):
-        _die("scaled 0.12x slow starts discontinuously")
+            "sweep", 0.98), 0.20) or not _same(
+            DIRECTOR.source_playback_speed("sweep", 2.1), 1.0):
+        _die("sweep 0.2x/1.0x source speeds changed")
         return
     if not _same(DIRECTOR.sweep_clip_time_at(0.98), 0.36) or not (
             _same(DIRECTOR.sweep_clip_time_at(1.68), 0.5)):
-        _die("outward source keys jumped at a speed boundary")
+        _die("outward source key samples jumped")
         return
     if not _same(DIRECTOR.source_hold_seconds("stomp"), 1.5) or not (
             _same(DIRECTOR.source_hold_seconds("kick"), 1.5)
@@ -166,7 +163,9 @@ func _run() -> void:
             return
         var source_len: float = float(
             DIRECTOR.ORIGINAL_CLIP_LENGTHS[kind])
-        var play_end: float = ENTRY + float(
+        var attack_entry: float = float(
+            DIRECTOR.source_entry_seconds(kind))
+        var play_end: float = attack_entry + float(
             DIRECTOR.source_play_seconds(kind))
         var hold_end: float = play_end + float(
             DIRECTOR.source_hold_seconds(kind))
@@ -175,17 +174,17 @@ func _run() -> void:
         var ret: float = float(
             DIRECTOR.source_return_seconds(kind))
         var samples: Array[float] = [
-            0.0, ENTRY * 0.5, ENTRY,
-            ENTRY + 0.12, play_end,
+            0.0, attack_entry * 0.5, attack_entry,
+            attack_entry + 0.12, play_end,
             hold_end, hold_end + ret * 0.25,
             hold_end + ret * 0.50, hold_end + ret * 0.75,
             total
         ]
         if kind == "sweep":
-            samples.append(ENTRY + 0.49 / rate)
-            samples.append(ENTRY + 0.98 / rate)
-            samples.append(ENTRY + 1.33 / rate)
-            samples.append(ENTRY + 1.68 / rate)
+            samples.append(attack_entry + 0.49)
+            samples.append(attack_entry + 0.98)
+            samples.append(attack_entry + 1.33)
+            samples.append(attack_entry + 1.68)
         else:
             samples.append(play_end + 0.75)
             samples.append(hold_end + LEG_RETURN)
@@ -204,19 +203,19 @@ func _run() -> void:
                 return
             var clip_t: float = float(frame["authored_time"])
             var expected_t: float = (
-                0.0 if at < ENTRY else (
-                    DIRECTOR.source_clip_time(kind, at - ENTRY)
+                0.0 if at < attack_entry else (
+                    DIRECTOR.source_clip_time(kind, at - attack_entry)
                     if at < play_end else source_len))
             if not _same(clip_t, expected_t):
                 _die("authored source clock changed " +
                     str([name, at, clip_t, expected_t]))
                 return
             if kind == "sweep" and (
-                    at > ENTRY + DIRECTOR.SWEEP_EARLY_REAL_SECONDS / rate
+                    at > attack_entry + DIRECTOR.SWEEP_EARLY_REAL_SECONDS
                         + 0.00001) and (
-                    at < ENTRY + slow_end / rate - 0.00001):
-                if not _same(float(frame["authored_playback_speed"]), 0.12):
-                    _die("missing scaled sweep 0.12x at " + str(at))
+                    at < attack_entry + slow_end - 0.00001):
+                if not _same(float(frame["authored_playback_speed"]), 0.20):
+                    _die("sweep 0.20x slow missing " + str(at))
                     return
             if at >= play_end and not _same(
                     float(frame["authored_playback_speed"]), 0.0):
@@ -239,9 +238,9 @@ func _run() -> void:
     print("GODOT_V436_ATTACK_TIMING_PASS ",
         "six_clips=6 cases=", checked,
         " source_euler_keys=preserved",
-        " sweep_rate=0.60x",
-        " sweep_outbound_end=3.12sec",
-        " speed_ramp=Hermite_to_0.12x",
+        " sweep_entry=1.00sec",
+        " sweep_outbound_end=2.68sec",
+        " speed_ramp=Hermite_to_0.20x",
         " kick_stomp_hold=1.5sec",
         " limb_then_body_return=0.42+0.62sec")
     quit(0)
