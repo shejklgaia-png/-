@@ -2664,10 +2664,10 @@ func _source_ik_contact_weight(frame: Dictionary) -> float:
     if phase == "entry":
         return 0.0
     if phase == "recovery":
-        # v442: stage 1 BODY correction must keep the attacking leg
-        # in ground contact until the torso has completely recovered.
-        # Stages 2/3 deliberately release it to lift and place the
-        # foot. Negative-Y penetration protection remains active.
+        # v443: keep attack-leg contact as BODY returns to neutral.
+        # Afterward the limb interpolates directly to its Wait pose,
+        # with no forced raised-foot waypoint or ground attraction.
+        # Floor penetration avoidance remains enabled in both stages.
         return (1.0 if str(frame.get(
             "recovery_stage", "body")) == "body" else 0.0)
     if phase == "hold":
