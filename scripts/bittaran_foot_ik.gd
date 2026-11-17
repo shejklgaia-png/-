@@ -2598,6 +2598,13 @@ var source_ik_unreachable_supports: int = 0
 ## contact target is reached by rotating the upper/lower skeletal joints.
 ## The three siblings continue using their existing grounded IK solver.
 const SOURCE_STRIKE_FLOOR_EPSILON_METERS: float = 0.012
+# v444: the sweep must never bury its TOE mesh. For this single
+# attack, prioritize the real front-foot cuboid (not the lowest shin
+# box), keep 3mm world clearance, and do one optional IK correction
+# only when the first solve still leaves the toe under the flat floor.
+const SWEEP_TOE_CLEARANCE_METERS: float = 0.003
+const SWEEP_TOE_FLOOR_TOLERANCE_METERS: float = 0.002
+const SWEEP_TOE_RETRY_MAX_METERS: float = 0.60
 const SOURCE_STRIKE_CONTACT_RAMP_SECONDS: float = 0.13
 const SOURCE_STRIKE_MAX_CORRECTION_METERS: float = 1.70
 const SOURCE_STRIKE_MIN_SOURCE_SECONDS: Dictionary = {
@@ -2608,6 +2615,8 @@ const SOURCE_STRIKE_MIN_SOURCE_SECONDS: Dictionary = {
 var source_ik_strike_contact_count: int = 0
 var source_ik_strike_contact_error_max: float = 0.0
 var source_ik_strike_floor_penetration_max: float = 0.0
+var source_ik_sweep_toe_retry_count: int = 0
+var source_ik_sweep_toe_residual_max: float = 0.0
 
 ## All 12 leg mesh parts in the imported Blockbench model are true
 ## 8-vertex cuboids. A rotating cuboid's minimum world Y is EXACTLY:
@@ -2620,6 +2629,7 @@ func _source_ik_cache_attack_meshes() -> void:
     var all_meshes: Dictionary = actor.get("mesh_nodes_by_uuid")
     for limb in legs:
         var pieces: Array = []
+        var toe_box: Dictionary = {}
         for uid in all_meshes.keys():
             var piece: MeshInstance3D = all_meshes[uid]
             if piece == null or not is_instance_valid(piece) or (
@@ -2631,32 +2641,50 @@ func _source_ik_cache_attack_meshes() -> void:
                     parent_joint != limb["foot"]):
                 continue
             var box: AABB = piece.mesh.get_aabb()
-            pieces.append({
+            var record: Dictionary = {
                 "mesh": piece,
                 "center": box.get_center(),
                 "half": box.size * 0.5
-            })
+            }
+            pieces.append(record)
+            if parent_joint == limb["foot"]:
+                toe_box = record
         limb["source_ik_contact_meshes"] = pieces
+        # Exactly one cached foot cuboid. No mesh-name search,
+        # physics query, or vertex iteration during animation.
+        limb["source_ik_sweep_toe_box"] = toe_box
 
 
 ## Analytic support plane for the three ORIGINAL cuboids of this limb.
 ## Exactly matches checking every authored vertex on the flat Y=0
 ## floor, while avoiding all per-vertex world transforms.
+func _source_ik_box_lowest_world_y(record: Dictionary) -> float:
+    if record.is_empty():
+        return INF
+    var mesh: MeshInstance3D = record["mesh"]
+    var xform: Transform3D = mesh.global_transform
+    var half: Vector3 = record["half"]
+    var center: Vector3 = record["center"]
+    var center_y: float = (xform * center).y
+    var radius: float = (
+        absf(xform.basis.x.y) * half.x
+        + absf(xform.basis.y.y) * half.y
+        + absf(xform.basis.z.y) * half.z)
+    return center_y - radius
+
+
+func _source_ik_sweep_toe_lowest_world_y(limb: Dictionary) -> float:
+    var record: Dictionary = limb.get("source_ik_sweep_toe_box", {})
+    return _source_ik_box_lowest_world_y(record)
+
+
 func _source_ik_limb_lowest_world_y(limb: Dictionary) -> float:
     var lowest: float = INF
     var pieces: Array = limb.get("source_ik_contact_meshes", [])
     for record in pieces:
-        var mesh: MeshInstance3D = record["mesh"]
-        var xform: Transform3D = mesh.global_transform
-        var half: Vector3 = record["half"]
-        var center: Vector3 = record["center"]
-        var center_y: float = (xform * center).y
-        var radius: float = (
-            absf(xform.basis.x.y) * half.x
-            + absf(xform.basis.y.y) * half.y
-            + absf(xform.basis.z.y) * half.z)
-        lowest = minf(lowest, center_y - radius)
+        lowest = minf(lowest, _source_ik_box_lowest_world_y(record))
     return lowest
+
 
 func _source_ik_contact_weight(frame: Dictionary) -> float:
     var kind: String = str(frame.get("kind", ""))
@@ -2749,38 +2777,68 @@ func _source_ik_ground_attacking_limb(
         limb: Dictionary, frame: Dictionary) -> void:
     var foot: Node3D = limb["foot"]
     var lower: Node3D = limb["lower"]
-    var bottom: float = _source_ik_limb_lowest_world_y(limb)
+    var is_sweep: bool = str(frame.get("kind", "")) == "sweep"
+    # The generic contact solver uses all 3 boxes. For SWEEP the
+    # precise TOES take priority: lifting for a shin collision could
+    # leave the real foot cuboid underground after knee rotation.
+    # Single cached toe box, fixed plane Y=0; no ray/shape casts.
+    var bottom: float = (
+        _source_ik_sweep_toe_lowest_world_y(limb)
+        if is_sweep else _source_ik_limb_lowest_world_y(limb))
     if not is_finite(bottom):
         return
-    var penetration: float = maxf(FLOOR_Y - bottom, 0.0)
-    var desired_contact: float = _source_ik_contact_weight(frame)
-    var contact_weight: float = (
-        1.0 if penetration > SOURCE_STRIKE_FLOOR_EPSILON_METERS
-        else desired_contact)
-    if contact_weight <= 0.0001:
-        return
-    var height_error: float = FLOOR_Y - bottom
-    if absf(height_error) <= SOURCE_STRIKE_FLOOR_EPSILON_METERS:
-        return
+    var height_error: float = 0.0
+    var weight: float = 0.0
+    if is_sweep:
+        # Never pull an airborne foot down during its authored motion.
+        # Correct ONLY real geometric floor penetration, from entry to
+        # strike to body/leg recovery. A 3mm buffer avoids z-fighting.
+        if bottom >= FLOOR_Y - SWEEP_TOE_FLOOR_TOLERANCE_METERS:
+            return
+        height_error = FLOOR_Y + SWEEP_TOE_CLEARANCE_METERS - bottom
+        weight = 1.0
+    else:
+        var penetration: float = maxf(FLOOR_Y - bottom, 0.0)
+        var desired_contact: float = _source_ik_contact_weight(frame)
+        weight = (1.0 if penetration >
+            SOURCE_STRIKE_FLOOR_EPSILON_METERS else desired_contact)
+        if weight <= 0.0001:
+            return
+        height_error = FLOOR_Y - bottom
+        if absf(height_error) <= SOURCE_STRIKE_FLOOR_EPSILON_METERS:
+            return
     var sole: Vector3 = foot.to_global(
         limb["source_sole_local"] as Vector3)
     var goal: Vector3 = sole
-    goal.y += clampf(height_error * contact_weight,
+    goal.y += clampf(height_error * weight,
         -SOURCE_STRIKE_MAX_CORRECTION_METERS,
         SOURCE_STRIKE_MAX_CORRECTION_METERS)
     var foot_rotation: Quaternion = (
         foot.global_basis.get_rotation_quaternion())
-    # Minimal attack IK: two joint rotations, source knee-bend plane,
-    # fixed skeletal lengths. Never invoke legacy head/body logic.
+    # Adjust upper/lower skeletal rotations. The true toe mesh remains
+    # rigidly parented to its Foot joint; no direct mesh displacement.
     var error: float = _source_ik_solve_striker(
         limb, goal, foot_rotation)
     source_ik_strike_contact_count += 1
     source_ik_strike_contact_error_max = maxf(
         source_ik_strike_contact_error_max, error)
-    # Only measure the post-solve residual in debug builds. The
-    # production path performs 3 analytic box-floor checks and ONE IK
-    # solve, with no second contact query in the same physics tick.
-    if OS.is_debug_build():
+    if is_sweep:
+        var toe_after: float = _source_ik_sweep_toe_lowest_world_y(limb)
+        if toe_after < FLOOR_Y - SWEEP_TOE_FLOOR_TOLERANCE_METERS:
+            # One inexpensive correction ONLY if the first rotation
+            # moved the toe surface through the floor. No iteration
+            # in the normal path; the two-bone anatomy remains intact.
+            goal.y += clampf(
+                FLOOR_Y + SWEEP_TOE_CLEARANCE_METERS - toe_after,
+                0.0, SWEEP_TOE_RETRY_MAX_METERS)
+            error = _source_ik_solve_striker(
+                limb, goal, foot_rotation)
+            source_ik_sweep_toe_retry_count += 1
+            toe_after = _source_ik_sweep_toe_lowest_world_y(limb)
+        source_ik_sweep_toe_residual_max = maxf(
+            source_ik_sweep_toe_residual_max,
+            maxf(FLOOR_Y - toe_after, 0.0))
+    elif OS.is_debug_build():
         var residual: float = _source_ik_limb_lowest_world_y(limb)
         if is_finite(residual):
             source_ik_strike_floor_penetration_max = maxf(
@@ -2813,6 +2871,8 @@ func initialize_source_ground_ik() -> bool:
     source_ik_strike_contact_count = 0
     source_ik_strike_contact_error_max = 0.0
     source_ik_strike_floor_penetration_max = 0.0
+    source_ik_sweep_toe_retry_count = 0
+    source_ik_sweep_toe_residual_max = 0.0
     _source_ik_cache_attack_meshes()
     source_ik_last_actor_position = actor.global_position
     for limb in legs:
