@@ -94,6 +94,11 @@ jobs:
           set -euo pipefail
           "$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" --headless --path . --script tools/v424_bittaran_front_attack_runtime_check.gd
 
+      - name: Verify v425 real toe/shin grounding for all six front-leg attacks
+        run: |
+          set -euo pipefail
+          "$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" --headless --path . --script tools/v425_bittaran_attack_ground_runtime_check.gd
+
       - name: Test Bittaran full scene and actual movement in Godot
         run: |
           set -euo pipefail
