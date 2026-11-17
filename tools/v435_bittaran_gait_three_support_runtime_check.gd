@@ -131,21 +131,25 @@ func _run() -> void:
                 break
             battle.call("_finalize_target_pose", DT)
             var t: float = float(frame.get("authored_time", 0.0))
-            for bone_name in BONES[options[0]]:
-                var uid: String = str(bone_map.get(bone_name, ""))
-                if uid.is_empty():
-                    _fail("missing attacker joint " + bone_name)
-                    return
-                var joint: Node3D = nodes[uid]
-                var authored_rot: Quaternion = rig.call(
-                    "_authored_key_rotation", clip, bone_name, t)
-                var authored_pos: Vector3 = rig.call(
-                    "_authored_key_position", clip, bone_name, t)
-                if joint.quaternion.angle_to(authored_rot) > 0.002 or (
-                        joint.position.distance_to(authored_pos) > 0.0001):
-                    _fail("striker/Body source key changed " +
-                        str([clip, bone_name, t]))
-                    return
+            # Entry/recovery now intentionally interpolate Wait and
+            # source poses. Original strike/hold MUST still match every
+            # Blockbench joint key exactly, without IK on the striker.
+            if ["strike", "hold"].has(str(frame.get("phase", ""))):
+                for bone_name in BONES[options[0]]:
+                    var uid: String = str(bone_map.get(bone_name, ""))
+                    if uid.is_empty():
+                        _fail("missing attacker joint " + bone_name)
+                        return
+                    var joint: Node3D = nodes[uid]
+                    var authored_rot: Quaternion = rig.call(
+                        "_authored_key_rotation", clip, bone_name, t)
+                    var authored_pos: Vector3 = rig.call(
+                        "_authored_key_position", clip, bone_name, t)
+                    if joint.quaternion.angle_to(authored_rot) > 0.002 or (
+                            joint.position.distance_to(authored_pos) > 0.0001):
+                        _fail("striker/Body source key changed " +
+                            str([clip, bone_name, t]))
+                        return
             var supports: int = 0
             for i in range(limbs.size()):
                 if LEG_IDS[i] == options[0]:
