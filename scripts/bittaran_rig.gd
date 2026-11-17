@@ -4,9 +4,8 @@ extends Node3D
 const SOURCE_PATH: String = "res://models/bosses/Bittaran.bbmodel"
 const EMBEDDED = preload("res://assets/bittaran_data.gd")
 const GROUND_CONTACTS = preload("res://assets/bittaran_ground_contacts.gd")
-# All 18 mesh element UUIDs have independent contact windows.
-# These corrections translate only visuals, NEVER animated joints/pivots.
-const GROUND_SNAP_EPSILON_METERS: float = 0.001
+# Authored contact windows are diagnostic/reference data ONLY.
+# Rendering never moves individual meshes out of their skeleton hierarchy.
 const UNIT: float = 0.145
 const BLEND_SECONDS: float = 0.24
 const PALETTE = [
@@ -25,7 +24,7 @@ var bone_uuid_by_name: Dictionary = {}
 var mesh_nodes_by_uuid: Dictionary = {}
 var mesh_base_positions_by_uuid: Dictionary = {}
 var mesh_vertices_by_uuid: Dictionary = {}
-var ground_mesh_offsets_by_uuid: Dictionary = {}
+var ground_mesh_observations: Dictionary = {}
 var ground_last_clip: String = ""
 var ground_last_time: float = 0.0
 var attack_entry_rotations: Dictionary = {}
@@ -302,7 +301,6 @@ func _sample_rotation(keys: Array, t: float) -> Quaternion:
 func apply_pose(clip_name: String, t: float) -> void:
     if not animations.has(clip_name):
         return
-    _clear_ground_mesh_offsets()
     var clip: Dictionary = animations[clip_name]
     var duration: float = float(clip.get("length", 0.0))
     var sample_time: float = fposmod(t, duration) if duration > 0.0 else 0.0
@@ -479,17 +477,10 @@ func cancel_authored_attack_for_down() -> bool:
     return true
 
 
-## Revert the visual-only offsets before every authored/locomotion sample,
-## otherwise offsets from the previous tick would accumulate. IK joints are
-## never moved here, and original mesh rotation remains untouched.
-func _clear_ground_mesh_offsets() -> void:
-    for uid in mesh_nodes_by_uuid.keys():
-        var mesh: MeshInstance3D = mesh_nodes_by_uuid[uid]
-        if is_instance_valid(mesh):
-            mesh.position = mesh_base_positions_by_uuid[uid]
-    ground_mesh_offsets_by_uuid.clear()
-
-
+## Diagnostic only. The authored model has 18 separate mesh elements, but
+## every one MUST stay attached to its source joint. Contact intervals are
+## useful to identify the likely surface impact, not permission to move
+## an individual MeshInstance3D out of the joint hierarchy.
 func _ground_mesh_lowest_world_y(uid: String) -> float:
     if not mesh_nodes_by_uuid.has(uid):
         return INF
@@ -504,44 +495,35 @@ func _ground_mesh_lowest_world_y(uid: String) -> float:
     return lowest
 
 
-## Apply contact intervals baked from every authored Blockbench key and
-## 120Hz in-between samples. A mesh is snapped only during its authored
-## Y <= 0.025 interval; airborne meshes are left wholly uncorrected.
-## This is the LAST mesh-visual stage after leg IK and live head tracking.
-## Contact changes only mesh.global_position.y, not pivots, bone rotations,
-## Body/attack timelines, limb lengths, or the authored clip.
-func apply_blockbench_ground_contacts(clip_name: String, seconds: float) -> void:
-    _clear_ground_mesh_offsets()
+## Read-only per-mesh contact inspection. Do not translate any mesh,
+## joint, Body, HEAD or weapon in response to these measurements.
+## Grounding is exclusively performed by BittaranFootIK for SUPPORT legs,
+## with _keep_chassis_above_ground protecting ordinary locomotion.
+func inspect_blockbench_ground_contacts(clip_name: String,
+        seconds: float) -> Dictionary:
     ground_last_clip = clip_name
     ground_last_time = seconds
+    ground_mesh_observations.clear()
     var catalog: Dictionary = GROUND_CONTACTS.DATA.get("clips", {})
-    if not catalog.has(clip_name):
-        return
-    var record: Dictionary = catalog[clip_name]
-    var duration: float = float(record.get("length", 0.0))
-    var t: float = clampf(seconds, 0.0, duration)
-    var meshes: Dictionary = record.get("meshes", {})
-    for uid in meshes.keys():
-        if not mesh_nodes_by_uuid.has(uid):
-            continue
-        var active: bool = false
-        for window in meshes[uid]:
-            if t >= float(window[0]) - 0.00001 and (
-                    t <= float(window[1]) + 0.00001):
-                active = true
-                break
-        if not active:
-            continue
-        var mesh: MeshInstance3D = mesh_nodes_by_uuid[uid]
-        var bottom: float = _ground_mesh_lowest_world_y(str(uid))
-        if not is_finite(bottom):
-            continue
-        var distance: float = -bottom
-        if absf(distance) <= GROUND_SNAP_EPSILON_METERS:
-            ground_mesh_offsets_by_uuid[uid] = 0.0
-            continue
-        mesh.global_position += Vector3.UP * distance
-        ground_mesh_offsets_by_uuid[uid] = distance
+    var windows: Dictionary = {}
+    var t: float = seconds
+    if catalog.has(clip_name):
+        var record: Dictionary = catalog[clip_name]
+        t = clampf(seconds, 0.0, float(record.get("length", 0.0)))
+        windows = record.get("meshes", {})
+    for uid in mesh_nodes_by_uuid.keys():
+        var author_contact: bool = false
+        if windows.has(uid):
+            for window in windows[uid]:
+                if t >= float(window[0]) - 0.00001 and (
+                        t <= float(window[1]) + 0.00001):
+                    author_contact = true
+                    break
+        ground_mesh_observations[uid] = {
+            "authored_contact": author_contact,
+            "actual_lowest_world_y": _ground_mesh_lowest_world_y(str(uid))
+        }
+    return ground_mesh_observations.duplicate(true)
 
 
 func _authored_key_rotation(clip_name: String,
@@ -1141,7 +1123,6 @@ func _apply_front_test_attack(frame: Dictionary) -> void:
 func apply_original_attack_only(frame: Dictionary) -> void:
     if not loading_ok or frame.is_empty():
         return
-    _clear_ground_mesh_offsets()
     var leg_id: String = str(frame.get("id", ""))
     var kind: String = str(frame.get("kind", ""))
     if not ["leg_fl", "leg_fr"].has(leg_id):
