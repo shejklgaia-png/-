@@ -6,7 +6,9 @@ extends SceneTree
 const DIRECTOR = preload("res://scripts/bittaran_attacks.gd")
 const RIG = preload("res://scripts/bittaran_rig.gd")
 const ENTRY: float = 0.32
-const LEG_RETURN: float = 0.42
+const LIFT: float = 0.34
+const LAND: float = 0.46
+const LEG_RETURN: float = LIFT + LAND
 const BODY_RETURN: float = 0.62
 const JOINTS: Array[String] = [
     "Body",
@@ -68,14 +70,37 @@ func _expected_phase_pose(rig: Node3D, name: String,
             expected_q = neutral_q.slerp(original_q, w)
             expected_p = neutral_p.lerp(original_p, w)
         elif phase == "recovery":
-            var weight: float = _ease(phase_t / float(
-                frame["recovery"]))
-            if kind != "sweep":
-                weight = (_ease((phase_t - LEG_RETURN) / BODY_RETURN)
-                    if bone_name == "Body" else
-                    _ease(phase_t / LEG_RETURN))
-            expected_q = original_q.slerp(neutral_q, weight)
-            expected_p = original_p.lerp(neutral_p, weight)
+            var leg_id: String = str(frame.get("id", ""))
+            var suffix: String = "_R" if leg_id == "leg_fr" else "_L"
+            var attacking_bones: Array[String] = [
+                "FrontLeg" + suffix,
+                "FrontLowerLeg" + suffix,
+                "FrontFoot" + suffix
+            ]
+            if attacking_bones.has(bone_name):
+                var stomp_clip: String = (
+                    "踏みつけ_R" if leg_id == "leg_fr" else "踏みつけ_L")
+                var lift_q: Quaternion = rig.call(
+                    "_authored_key_rotation", stomp_clip, bone_name, 1.0)
+                var lift_p: Vector3 = rig.call(
+                    "_authored_key_position", stomp_clip, bone_name, 1.0)
+                if phase_t <= LIFT:
+                    var rise: float = _ease(phase_t / LIFT)
+                    expected_q = original_q.slerp(lift_q, rise)
+                    expected_p = original_p.lerp(lift_p, rise)
+                else:
+                    var plant: float = _ease((phase_t - LIFT) / LAND)
+                    expected_q = lift_q.slerp(neutral_q, plant)
+                    expected_p = lift_p.lerp(neutral_p, plant)
+            else:
+                var weight: float = _ease(phase_t / float(
+                    frame["recovery"]))
+                if kind != "sweep":
+                    weight = (_ease((phase_t - LEG_RETURN) / BODY_RETURN)
+                        if bone_name == "Body" else
+                        _ease(phase_t / LEG_RETURN))
+                expected_q = original_q.slerp(neutral_q, weight)
+                expected_p = original_p.lerp(neutral_p, weight)
         if joint.quaternion.angle_to(expected_q) > 0.001 or (
                 joint.position.distance_to(expected_p) > 0.0002):
             _die("incorrect pose " + str([
@@ -90,58 +115,32 @@ func _run() -> void:
             and _same(DIRECTOR.SOURCE_BODY_RETURN_SECONDS, BODY_RETURN)):
         _die("entry or limb-then-Body timing changed")
         return
-    # v439: remove the v438 global 0.60x scalar entirely, and set
-    # only sweep's Wait -> original t=0 transition to exactly 1.00s.
+    # v441: full sweep is 1.00x, no intermediate 0.20x slowdown.
     if not (_same(DIRECTOR.SWEEP_ENTRY_SECONDS, 1.0)
             and _same(DIRECTOR.source_entry_seconds("sweep"), 1.0)
             and _same(DIRECTOR.source_entry_seconds("kick"), ENTRY)
             and _same(DIRECTOR.source_entry_seconds("stomp"), ENTRY)
-            and _same(DIRECTOR.SWEEP_SLOW_SPEED, 0.2)
-            and _same(DIRECTOR.SWEEP_SLOW_REAL_SECONDS, 0.7)):
-        _die("v439 sweep-only 1s entry or 0.2x slowdown changed")
+            and _same(DIRECTOR.source_play_seconds("sweep"), 1.5)
+            and _same(DIRECTOR.source_total_seconds("sweep"), 3.9)
+            and _same(DIRECTOR.SOURCE_LEG_LIFT_SECONDS, LIFT)
+            and _same(DIRECTOR.SOURCE_LEG_LAND_SECONDS, LAND)
+            and _same(LEG_RETURN, 0.8)):
+        _die("v441 source sweep or return lift timing changed")
         return
-    var slow_start: float = DIRECTOR.SWEEP_SLOW_START_CLIP_SECONDS
-    var slow_end: float = DIRECTOR.SWEEP_OUTBOUND_END_REAL_SECONDS
-    if not (_same(slow_start, 0.36) and _same(slow_end, 1.68)
-            and _same(DIRECTOR.SWEEP_EARLY_REAL_SECONDS, 0.98)
-            and _same(1.0 + slow_end, 2.68)
-            and _same(DIRECTOR.source_play_seconds("sweep"), 2.68)
-            and _same(DIRECTOR.source_total_seconds("sweep"), 5.08)):
-        _die("sweep clock must be 1s entry + 0.98s lead + 0.70s slow")
-        return
-    for check in [[0.0, 0.0], [0.49, 0.1555],
-            [0.98, 0.36], [1.33, 0.43],
-            [1.68, 0.50], [2.68, 1.50]]:
-        if not _same(float(DIRECTOR.sweep_clip_time_at(
-                float(check[0]))), float(check[1])):
-            _die("source clip time warped unexpectedly " + str(check))
+    for t in [0.0, 0.125, 0.25, 0.36, 0.50,
+            0.75, 1.0, 1.25, 1.5]:
+        if not (_same(DIRECTOR.sweep_clip_time_at(t), t)
+                and _same(DIRECTOR.source_clip_time("sweep", t), t)
+                and _same(DIRECTOR.source_playback_speed(
+                    "sweep", t), 1.0)):
+            _die("sweep is no longer 1.0x at source t=" + str(t))
             return
-        if not _same(float(DIRECTOR.source_clip_time(
-                "sweep", float(check[0]))), float(check[1])):
-            _die("uniform sweep 0.6x was not removed " + str(check))
+    for kind in ["stomp", "kick"]:
+        if not _same(
+                DIRECTOR.source_return_seconds(kind), LEG_RETURN +
+                BODY_RETURN):
+            _die("lift-before-body recovery duration invalid " + kind)
             return
-    var epsilon: float = 0.0001
-    for at in [0.0, 0.1, 0.3, 0.49, 0.7, 0.9, 0.98]:
-        var left_t: float = maxf(0.0, at - epsilon)
-        var right_t: float = minf(0.98, at + epsilon)
-        var slope: float = (
-            DIRECTOR.source_clip_time("sweep", right_t)
-            - DIRECTOR.source_clip_time("sweep", left_t)) / maxf(
-                right_t - left_t, 0.000001)
-        var speed: float = DIRECTOR.source_playback_speed("sweep", at)
-        if absf(slope - speed) > 0.001 or speed < 0.0:
-            _die("v437 Hermite sweep curve lost continuity " + str(
-                [at, speed, slope]))
-            return
-    if not _same(DIRECTOR.source_playback_speed(
-            "sweep", 0.98), 0.20) or not _same(
-            DIRECTOR.source_playback_speed("sweep", 2.1), 1.0):
-        _die("sweep 0.2x/1.0x source speeds changed")
-        return
-    if not _same(DIRECTOR.sweep_clip_time_at(0.98), 0.36) or not (
-            _same(DIRECTOR.sweep_clip_time_at(1.68), 0.5)):
-        _die("outward source key samples jumped")
-        return
     if not _same(DIRECTOR.source_hold_seconds("stomp"), 1.5) or not (
             _same(DIRECTOR.source_hold_seconds("kick"), 1.5)
             and _same(DIRECTOR.source_hold_seconds("sweep"), 0.0)):
@@ -181,13 +180,17 @@ func _run() -> void:
             total
         ]
         if kind == "sweep":
-            samples.append(attack_entry + 0.49)
-            samples.append(attack_entry + 0.98)
-            samples.append(attack_entry + 1.33)
-            samples.append(attack_entry + 1.68)
+            samples.append(attack_entry + 0.25)
+            samples.append(attack_entry + 0.50)
+            samples.append(attack_entry + 1.00)
         else:
             samples.append(play_end + 0.75)
-            samples.append(hold_end + LEG_RETURN)
+        # Validate the actual stomp windup's high lift and the planted
+        # Wait pose exactly at both return waypoints, on both sides.
+        samples.append(hold_end + LIFT * 0.5)
+        samples.append(hold_end + LIFT)
+        samples.append(hold_end + LIFT + LAND * 0.5)
+        samples.append(hold_end + LEG_RETURN)
         samples.sort()
         var last: float = 0.0
         for at in samples:
@@ -210,12 +213,10 @@ func _run() -> void:
                 _die("authored source clock changed " +
                     str([name, at, clip_t, expected_t]))
                 return
-            if kind == "sweep" and (
-                    at > attack_entry + DIRECTOR.SWEEP_EARLY_REAL_SECONDS
-                        + 0.00001) and (
-                    at < attack_entry + slow_end - 0.00001):
-                if not _same(float(frame["authored_playback_speed"]), 0.20):
-                    _die("sweep 0.20x slow missing " + str(at))
+            if kind == "sweep" and at >= attack_entry and (
+                    at < play_end):
+                if not _same(float(frame["authored_playback_speed"]), 1.0):
+                    _die("sweep slowed unexpectedly at " + str(at))
                     return
             if at >= play_end and not _same(
                     float(frame["authored_playback_speed"]), 0.0):
@@ -239,8 +240,9 @@ func _run() -> void:
         "six_clips=6 cases=", checked,
         " source_euler_keys=preserved",
         " sweep_entry=1.00sec",
-        " sweep_outbound_end=2.68sec",
-        " speed_ramp=Hermite_to_0.20x",
+        " sweep_outbound_end=1.50sec",
+        " sweep_rate=1.0x_no_slow",
         " kick_stomp_hold=1.5sec",
-        " limb_then_body_return=0.42+0.62sec")
+        " limb_return=0.34s_lift+0.46s_plant",
+        " then_body_return=0.62sec")
     quit(0)
