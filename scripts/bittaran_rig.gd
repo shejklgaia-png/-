@@ -248,15 +248,31 @@ func _key_rotation(key: Dictionary) -> Quaternion:
     return _bb_rotation(Vector3(float(p.get("x", 0)), float(p.get("y", 0)),
         float(p.get("z", 0))))
 
-## Blockbench stores rotation and position keys in the SAME animator
-## array. Sampling them together misreads a Body position as rotation
-## (notably the new Wait/STOMP Y keys in the 17:21 source).
+## Blockbench animator arrays are NOT chronological. In the original
+## 17:21 asset KICK and STOMP append early keys after late keys. Sort
+## each channel independently before evaluating any sampled time.
+## Blockbench's linear rotation interpolates the EULER components,
+## including signed values past 180 degrees, not shortest-arc SLERP.
+func _key_time_ascending(a: Dictionary, b: Dictionary) -> bool:
+    return float(a.get("time", 0.0)) < float(b.get("time", 0.0))
+
+
 func _channel_keys(keys: Array, channel: String) -> Array:
     var selected: Array = []
     for key in keys:
         if str(key.get("channel", "rotation")) == channel:
             selected.append(key)
+    selected.sort_custom(_key_time_ascending)
     return selected
+
+
+func _key_rotation_euler(key: Dictionary) -> Vector3:
+    var points: Array = key.get("data_points", [])
+    if points.is_empty():
+        return Vector3.ZERO
+    var p: Dictionary = points[0]
+    return Vector3(float(p.get("x", 0.0)),
+        float(p.get("y", 0.0)), float(p.get("z", 0.0)))
 
 func _key_position(key: Dictionary) -> Vector3:
     var points: Array = key.get("data_points", [])
@@ -294,8 +310,13 @@ func _sample_rotation(keys: Array, t: float) -> Quaternion:
             var start: float = float(rotations[i - 1].get("time", 0))
             var alpha: float = clampf(
                 (t - start) / maxf(end - start, 0.0001), 0.0, 1.0)
-            return _key_rotation(rotations[i - 1]).slerp(
-                _key_rotation(rotations[i]), alpha)
+            # SLERP takes a shorter rotation path, which changes long
+            # Blockbench sweeps such as x=-10.9567 -> x=248.3667.
+            # Interpolate authored Euler components in their source units.
+            var euler: Vector3 = _key_rotation_euler(
+                rotations[i - 1]).lerp(_key_rotation_euler(rotations[i]),
+                    alpha)
+            return _bb_rotation(euler)
     return _key_rotation(rotations[rotations.size() - 1])
 
 func apply_pose(clip_name: String, t: float) -> void:
@@ -1114,12 +1135,33 @@ func _apply_front_test_attack(frame: Dictionary) -> void:
             neutral, 1.0 - out_weight).normalized()
 
 
-## v430: the ONLY game attack animation route. Sample every source
-## animator track at 1:1 original clip time, including Body and the
-## *other* three legs' authored still keys. Head remains owned by the
-## existing independent +/-90-degree live look controller.
-## Do not crossfade, mirror, aim, clamp to floor, flatten meshes or
-## inherit any former IK/global pivot from a previous attack frame.
+## v434 source-only renderer: exact Blockbench clip bone transforms.
+## No gait, IK, pose crossfade, procedural extra yaw, contact adjustment,
+## root height correction, or independent mesh translation. Source keys
+## are evaluated by channel, sorted by time, and rotation channels
+## interpolate EULER components before building the joint quaternion.
+func apply_source_clip_exact(clip_name: String, seconds: float) -> void:
+    if not loading_ok or not animations.has(clip_name):
+        return
+    var clip: Dictionary = animations[clip_name]
+    var t: float = clampf(seconds, 0.0, float(clip.get("length", 0.0)))
+    var tracks: Dictionary = clip.get("animators", {})
+    for uid in bones.keys():
+        var joint: Node3D = bones[uid]
+        if joint.name == "Head":
+            # The imported runtime Head consolidates three separate
+            # Blockbench head groups. Keep its Wait neutral transform.
+            # Live head tracking is disabled during the source-only stage.
+            continue
+        var keys: Array = (
+            tracks[uid].get("keyframes", []) if tracks.has(uid) else [])
+        joint.position = (bind_positions[uid] as Vector3) + (
+            _sample_position(keys, t))
+        joint.quaternion = (
+            (bind_rotations[uid] as Quaternion)
+            * _sample_rotation(keys, t)).normalized()
+
+
 func apply_original_attack_only(frame: Dictionary) -> void:
     if not loading_ok or frame.is_empty():
         return
@@ -1130,25 +1172,8 @@ func apply_original_attack_only(frame: Dictionary) -> void:
     var clip_name: String = str(ATTACK_NAMES.get(kind, ""))
     if leg_id == "leg_fr":
         clip_name = ("踏みつけ_R" if kind == "stomp" else clip_name + "_R")
-    if not animations.has(clip_name):
-        push_error("Bittaran original-only: no clip " + clip_name)
-        return
-    var clip: Dictionary = animations[clip_name]
-    var t: float = clampf(float(frame.get("authored_time", 0.0)),
-        0.0, float(clip.get("length", 0.0)))
-    var tracks: Dictionary = clip.get("animators", {})
-    for uid in bones.keys():
-        var joint: Node3D = bones[uid]
-        if joint.name == "Head":
-            continue
-        var keys: Array = (
-            tracks[uid].get("keyframes", []) if tracks.has(uid) else [])
-        joint.position = (bind_positions[uid] as Vector3) + (
-            _sample_position(keys, t))
-        var sampled: Quaternion = bind_rotations[uid]
-        if tracks.has(uid):
-            sampled = (sampled * _sample_rotation(keys, t)).normalized()
-        joint.quaternion = sampled.normalized()
+    apply_source_clip_exact(clip_name,
+        float(frame.get("authored_time", 0.0)))
 
 
 func apply_authored_attack_pose(frame: Dictionary) -> void:
