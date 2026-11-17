@@ -446,6 +446,8 @@ func clear_attack_pose() -> void:
         leg.erase("rear_kick_axis_source")
         leg.erase("rear_kick_axis_solved")
         leg.erase("rear_corner_socket_target_y")
+        leg.erase("front_ground_sweep_pole")
+        leg.erase("front_ground_shoulder_shift")
         leg.erase("windup_entry_clearance")
         leg.erase("kick_traj_entry_sole")
         leg.erase("kick_traj_entry_rotation")
@@ -2043,53 +2045,76 @@ func _ground_front_attack_leg(leg: Dictionary) -> void:
             break
         goal.y += error
         _solve(leg, goal, foot_rotation)
-    # SWEEP must slide its lower shin AND toe along the floor. Keep the
-    # toe's exact same goal and choose the nearest reachable knee-bend pole
-    # whose lower-leg mesh rests at the ground without going through it.
+    # SWEEP has TWO contact surfaces: shin and toe. A single floor-Y
+    # adjustment leaves the shin hovering. Use the free knee pole around
+    # the hip-to-ankle axis, preserving lengths and foot world rotation.
     if kind == "sweep" and contact_active:
         var bend: Vector3 = source_knee_world - source_hip_world
         var bend_len: float = maxf(bend.length(), 0.10)
+        var reach: Vector3 = foot.global_position - source_hip_world
+        if reach.length_squared() < 0.0001:
+            reach = Vector3.FORWARD
+        reach = reach.normalized()
+        var radial: Vector3 = bend - reach * bend.dot(reach)
+        if radial.length_squared() < 0.0001:
+            radial = Vector3.UP - reach * reach.y
+        if radial.length_squared() < 0.0001:
+            radial = Vector3.RIGHT
+        radial = radial.normalized()
+        var lateral: Vector3 = reach.cross(radial).normalized()
+        var best_angle: float = 0.0
         var best_pole: Vector3 = source_knee_world
         var best_score: float = INF
-        for side in [1.0, -1.0]:
-            for step in range(9):
-                var blend: float = float(step) / 8.0
-                var candidate: Vector3 = (source_hip_world + bend.lerp(
-                    Vector3.UP * bend_len * side, blend))
-                upper.quaternion = source_hip
-                lower.quaternion = source_knee
-                foot.quaternion = source_ankle
-                leg["authored_pole_point"] = candidate
-                _solve(leg, goal, foot_rotation)
-                var lower_y: float = _foot_mesh_lowest_y(lower)
-                var toe_y: float = _foot_mesh_lowest_y(foot)
-                var score: float = (
-                    absf(lower_y - FLOOR_Y - 0.003)
-                    + maxf(FLOOR_Y + 0.003 - lower_y, 0.0) * 12.0
-                    + absf(toe_y - FLOOR_Y - 0.003) * 3.0
-                    + blend * 0.012)
-                if score < best_score:
-                    best_score = score
-                    best_pole = candidate
+        var previous_angle: float = float(leg.get(
+            "front_ground_sweep_pole", 0.0))
+        for step in range(24):
+            var angle: float = TAU * float(step) / 24.0
+            var pole: Vector3 = source_hip_world + (
+                radial * cos(angle) + lateral * sin(angle)) * bend_len
+            upper.quaternion = source_hip
+            lower.quaternion = source_knee
+            foot.quaternion = source_ankle
+            leg["authored_pole_point"] = pole
+            _solve(leg, goal, foot_rotation)
+            var lower_y: float = _foot_mesh_lowest_y(lower)
+            var toe_y: float = _foot_mesh_lowest_y(foot)
+            var score: float = (
+                absf(lower_y - FLOOR_Y - 0.003)
+                + maxf(FLOOR_Y + 0.003 - lower_y, 0.0) * 12.0
+                + absf(toe_y - FLOOR_Y - 0.003) * 3.0
+                + absf(wrapf(angle, -PI, PI)) * 0.01
+                + absf(wrapf(angle - previous_angle, -PI, PI)) * 0.025)
+            if score < best_score:
+                best_score = score
+                best_pole = pole
+                best_angle = angle
         upper.quaternion = source_hip
         lower.quaternion = source_knee
         foot.quaternion = source_ankle
         leg["authored_pole_point"] = best_pole
         _solve(leg, goal, foot_rotation)
-        # The two meshes cannot always share an exact floor plane with
-        # the authored foot direction. Prefer floor safety over embedding
-        # the shin when the best reachable knee still penetrates slightly.
-        var shin_deficit: float = FLOOR_Y + 0.003 - _foot_mesh_lowest_y(lower)
-        if shin_deficit > 0.003:
-            # At the floor-limit only, lift the articulated attacking chain
-            # together (no shin/ankle stretching). Source pivots reset next
-            # frame; the other three support feet remain world-planted.
-            upper.global_position.y += shin_deficit
-            goal.y += shin_deficit
-            # Pull the toe back to the floor while preserving two-link reach.
-            var toe_deficit: float = FLOOR_Y + 0.003 - _foot_mesh_lowest_y(foot)
-            goal.y += toe_deficit
+        leg["front_ground_sweep_pole"] = best_angle
+        # If even a full-circle bend cannot ground the real shin, move
+        # the attacking shoulder only as much as necessary, then solve
+        # its foot back at the same world target. Bone lengths stay fixed.
+        # This is a final reach correction, not a per-frame accumulated
+        # offset: apply_pose restores all local joint positions next tick.
+        var shoulder_shift: float = 0.0
+        for attempt in range(6):
+            var residual: float = FLOOR_Y + 0.003 - _foot_mesh_lowest_y(lower)
+            if absf(residual) < 0.006:
+                break
+            var adjust: float = clampf(residual * 0.65, -0.30, 0.30)
+            var next_shift: float = clampf(
+                shoulder_shift + adjust, -0.85, 0.85)
+            adjust = next_shift - shoulder_shift
+            if absf(adjust) < 0.00001:
+                break
+            upper.global_position.y += adjust
+            shoulder_shift = next_shift
+            leg["authored_pole_point"] = best_pole + Vector3.UP * shoulder_shift
             _solve(leg, goal, foot_rotation)
+        leg["front_ground_shoulder_shift"] = shoulder_shift
     leg["front_ground_foot_y"] = _foot_mesh_lowest_y(foot)
     leg["front_ground_shin_y"] = _foot_mesh_lowest_y(lower)
     leg["last_goal"] = foot.to_global(leg["sole_local"] as Vector3)
