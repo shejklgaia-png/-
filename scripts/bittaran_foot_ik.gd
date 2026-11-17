@@ -2918,7 +2918,10 @@ func _source_ik_advance_locomotion(delta: float, motion: String) -> void:
             var from_goal: Vector3 = limb["source_ik_replant_from"]
             var destination: Vector3 = _source_ik_home(limb)
             goal = from_goal.lerp(destination, replant_ease)
-            goal.y += 0.10 * sin(PI * replant_t)
+            # v441: this foot has ALREADY lifted via stomp windup
+            # during the attack recovery. Do not add a second hop
+            # just because combat control has returned to gait IK.
+            goal.y = maxf(goal.y, FLOOR_Y)
             var from_rotation: Quaternion = (
                 limb["source_ik_replant_rotation"])
             rotation = from_rotation.slerp(
