@@ -2596,10 +2596,10 @@ var source_ik_replant_elapsed: float = 0.0
 # world-space foot coordinate. A small pole-only handoff then joins
 # the ordinary locomotion IK, without a second leg-replant animation.
 const SOURCE_LEG_HOME_HANDOFF_SECONDS: float = 0.30
-# v458: toward the end of the authored leg return, yield control of
-# the three LOCAL joints to the exact Blockbench Wait pose. Earlier
-# IK kept a displaced/rolled knee even at return t=1.
-const SOURCE_LEG_WAIT_RESTORE_BEGIN: float = 0.55
+# v459: interpolate IK influence throughout the full leg return.
+# A late restore gate caused an apparent pause, while supporting legs
+# switched straight from fixed-foot IK to Wait on just the final tick.
+# All four legs now share the continuous 0..1 recovery clock.
 const SOURCE_LEG_WAIT_LOCOMOTION_BLEND_SECONDS: float = 0.35
 var source_ik_wait_restored_id: String = ""
 var source_ik_wait_locomotion_blend: float = 0.0
@@ -3524,11 +3524,9 @@ func _source_ik_return_attacker_to_home(
     var error: float = _source_ik_solve_striker(
         limb, goal, rotation, limb["sole_local"], knee_hint)
     limb["source_ik_leg_return_knee"] = lower.global_position
-    var restore_t: float = clampf(
-        (u - SOURCE_LEG_WAIT_RESTORE_BEGIN)
-        / (1.0 - SOURCE_LEG_WAIT_RESTORE_BEGIN), 0.0, 1.0)
-    var restore_weight: float = restore_t * restore_t * restore_t * (
-        restore_t * (restore_t * 6.0 - 15.0) + 10.0)
+    # Release authored Wait rotations from the FIRST leg-return
+    # frame, never with a new late-timeline trigger or final snap.
+    var restore_weight: float = ease
     upper.quaternion = upper.quaternion.slerp(
         wait_upper, restore_weight).normalized()
     lower.quaternion = lower.quaternion.slerp(
@@ -3581,17 +3579,21 @@ func _source_ik_advance_attack(frame: Dictionary) -> void:
             limb["source_ik_attack_rotation"] = limb["last_rotation"]
     source_ik_last_attack_time = attack_time
     source_ik_last_actor_position = actor.global_position
-    # On the last recovery tick the authored rig has ALREADY
-    # completed its quintic Wait transition. Any support IK applied
-    # now would overwrite those authored upper/lower angles, leaving
-    # the knees in the splayed posture visible in the screenshot.
-    var final_wait_frame: bool = (
-        str(frame.get("phase", "")) == "recovery"
-        and str(frame.get("recovery_stage", "")) == "leg"
-        and float(frame.get("phase_elapsed", 0.0))
-            >= float(frame.get("body_return_seconds", 0.62))
-                + float(frame.get("leg_return_seconds", 1.20))
-                - 0.000001)
+    # The same C2-smooth recovery clock releases ALL THREE supports
+    # while the attacking leg returns. Leaving them pinned to the
+    # very last tick then dropping IK caused the visible pause/snap.
+    var support_wait_weight: float = 0.0
+    if str(frame.get("phase", "")) == "recovery" and (
+            str(frame.get("recovery_stage", "")) == "leg"):
+        var support_elapsed: float = maxf(
+            float(frame.get("phase_elapsed", 0.0))
+            - float(frame.get("body_return_seconds", 0.62)), 0.0)
+        var support_duration: float = maxf(
+            float(frame.get("leg_return_seconds", 1.20)), 0.001)
+        var support_t: float = clampf(
+            support_elapsed / support_duration, 0.0, 1.0)
+        support_wait_weight = support_t * support_t * support_t * (
+            support_t * (support_t * 6.0 - 15.0) + 10.0)
     for index in range(legs.size()):
         var limb: Dictionary = legs[index]
         var foot: Node3D = limb["foot"]
@@ -3625,18 +3627,29 @@ func _source_ik_advance_attack(frame: Dictionary) -> void:
                 limb["lower"] as Node3D).global_position
             # Keep the solver's actual reach error for diagnostics.
             continue
-        if final_wait_frame:
-            # Body and all three nonattacking legs have reached the
-            # exact Wait source keys. DO NOT apply a final support IK
-            # solve that would re-twist their bones.
+        # The rig has already sampled this frame's authored Wait
+        # transition. Save those three local joint angles BEFORE
+        # the support IK deforms them, then crossfade across the FULL
+        # 1.20s return (not at its last frame).
+        var support_upper: Node3D = limb["upper"]
+        var support_lower: Node3D = limb["lower"]
+        var neutral_upper: Quaternion = support_upper.quaternion
+        var neutral_lower: Quaternion = support_lower.quaternion
+        var neutral_foot: Quaternion = foot.quaternion
+        if support_wait_weight >= 1.0 - 0.000001:
+            # At t=1 leave all three joints at their exact authored
+            # Wait quaternion; the prior frames converged smoothly.
             limb["last_goal"] = foot.to_global(
                 limb["sole_local"] as Vector3)
             limb["last_rotation"] = (
                 foot.global_basis.get_rotation_quaternion())
-            limb["last_knee"] = (
-                limb["lower"] as Node3D).global_position
+            limb["last_knee"] = support_lower.global_position
             limb["last_foot"] = foot.global_position
             limb["last_error"] = 0.0
+            limb["anchor"] = _source_ik_home(limb)
+            limb["anchor_rotation"] = (
+                _source_ik_toe_down_rotation(
+                    limb, _rotation_home(limb)))
             continue
         var goal: Vector3 = limb["source_ik_attack_anchor"]
         goal.y = FLOOR_Y
@@ -3649,18 +3662,32 @@ func _source_ik_advance_attack(frame: Dictionary) -> void:
             "source_ik_support_knee_hint", Vector3.INF)
         var error: float = _source_ik_solve_striker(
             limb, goal, rotation, limb["sole_local"], knee_hint)
+        if support_wait_weight > 0.000001:
+            support_upper.quaternion = support_upper.quaternion.slerp(
+                neutral_upper, support_wait_weight).normalized()
+            support_lower.quaternion = support_lower.quaternion.slerp(
+                neutral_lower, support_wait_weight).normalized()
+            foot.quaternion = foot.quaternion.slerp(
+                neutral_foot, support_wait_weight).normalized()
+        # Cache the FINAL displayed bones, not the pre-blend IK knee.
         limb["source_ik_support_knee_hint"] = (
-            limb["lower"] as Node3D).global_position
-        limb["last_goal"] = foot.to_global(limb["sole_local"])
+            support_lower.global_position)
+        limb["last_goal"] = foot.to_global(
+            limb["sole_local"] as Vector3)
         limb["last_rotation"] = (
             foot.global_basis.get_rotation_quaternion())
-        limb["last_knee"] = limb["source_ik_support_knee_hint"]
+        limb["last_knee"] = support_lower.global_position
         limb["last_foot"] = foot.global_position
-        limb["last_error"] = error
+        limb["last_error"] = error * (
+            1.0 - support_wait_weight)
         if error > 0.035:
             source_ik_unreachable_supports += 1
-        limb["anchor"] = goal
-        limb["anchor_rotation"] = rotation
+        limb["anchor"] = goal.lerp(
+            _source_ik_home(limb), support_wait_weight)
+        limb["anchor_rotation"] = rotation.slerp(
+            _source_ik_toe_down_rotation(
+                limb, _rotation_home(limb)),
+            support_wait_weight).normalized()
     # Handoff must run AFTER all IK and before battle.set_motion(Idle)
     # overwrites this frame's solved skeletal rotations. Otherwise
     # the arm starts recovery from ungrounded Idle and visibly snaps.
