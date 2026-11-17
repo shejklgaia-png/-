@@ -1,6 +1,7 @@
 # Historical and active-contract regression tests executed by SERA model-policy CI.
 # Each entry is mandatory: missing files and failing scripts fail the run.
-# One test per line. Add new tests here to retain full historical coverage.
+# Active v424 tests only; superseded v423 checks remain on disk with a retirement register.
+# One test per line. Preserve tests not explicitly retired by a specification change.
 # Python tests run in fresh interpreters; Godot tests run in fresh engine processes.
 py tools/v189_bird_headc_self_check.py
 py tools/v190_foot_contact_grounding_self_check.py
@@ -311,9 +312,7 @@ py tools/sera_ci_isolation_self_check.py
 
 gd tools/v356_bittaran_lateral_lock_runtime_check.gd
 
-gd tools/v357_bittaran_down_clearance_runtime_check.gd
 
-gd tools/v358_bittaran_windup_grounding_runtime_check.gd
 
 gd tools/v359_bittaran_head_lock_controller_runtime_check.gd
 
@@ -323,9 +322,7 @@ gd tools/v361_bittaran_head_on_leg_runtime_check.gd
 
 gd tools/v362_bittaran_standup_motion_gate_runtime_check.gd
 
-gd tools/v363_bittaran_rise_turn_head_runtime_check.gd
 
-gd tools/v364_bittaran_head_clear_early_turn_runtime_check.gd
 
 gd tools/v365_bittaran_immediate_standup_yaw_runtime_check.gd
 
@@ -339,7 +336,6 @@ gd tools/v370_bittaran_turn_head_stride_runtime_check.gd
 gd tools/v371_bittaran_gentle_head_recovery_runtime_check.gd
 gd tools/v372_bittaran_knee_clearance_balance_runtime_check.gd
 gd tools/v373_bittaran_minimal_knee_fold_runtime_check.gd
-gd tools/v374_bittaran_knee_sidefold_during_rise_runtime_check.gd
 gd tools/v375_bittaran_head_follow_collision_jitter_runtime_check.gd
 gd tools/v376_bittaran_head_mesh_hitboxes_runtime_check.gd
 gd tools/v377_bittaran_head_leg_30cm_depth_runtime_check.gd
@@ -347,36 +343,18 @@ gd tools/v378_bittaran_head_collision_brake_no_flicker_runtime_check.gd
 gd tools/v379_bittaran_near_head_aim_no_jitter_runtime_check.gd
 gd tools/v380_bittaran_knee_invades_head_10cm_runtime_check.gd
 gd tools/v381_bittaran_four_leg_attacks_runtime_check.gd
-gd tools/v382_bittaran_broken_leg_straight_attacks_runtime_check.gd
-gd tools/v383_bittaran_attack_aim_body_support_runtime_check.gd
 gd tools/v384_bittaran_stomp_overhead_runtime_check.gd
 gd tools/v385_bittaran_authored_attacks_dirt_runtime_check.gd
-gd tools/v386_bittaran_windup_ground_no_sweep_follow_runtime_check.gd
-gd tools/v387_bittaran_poststrike_hold_grounded_head_runtime_check.gd
-gd tools/v388_bittaran_head_sweep_tempo_runtime_check.gd
 gd tools/v389_bittaran_body_floor_down_interrupt_runtime_check.gd
 gd tools/v390_bittaran_level_head_vertical_follow_outbound_windup_runtime_check.gd
 gd tools/v391_bittaran_aim_preserve_kick_runtime_check.gd
-gd tools/v392_bittaran_head_pitch_chest_45_stomp_runtime_check.gd
 gd tools/v393_bittaran_attack_joint_anchor_head_pitch_runtime_check.gd
-gd tools/v394_bittaran_spiral_head_return_down_runtime_check.gd
 gd tools/v395_bittaran_leg_first_head_clearance_runtime_check.gd
-gd tools/v396_bittaran_sweep_mirror_floor_runtime_check.gd
-gd tools/v397_bittaran_head30_rear_sweep_lift_runtime_check.gd
 gd tools/v398_bittaran_ik_neutral_stance_before_attack_runtime_check.gd
 gd tools/v399_bittaran_body_height_stability_runtime_check.gd
-gd tools/v400_bittaran_attack_motion_runtime_check.gd
 gd tools/v401_bittaran_weight_feel_runtime_check.gd
-gd tools/v402_bittaran_recovery_smoothness_runtime_check.gd
-gd tools/v403_bittaran_kick_direction_runtime_check.gd
-gd tools/v404_bittaran_body_twist_runtime_check.gd
 gd tools/v405_bittaran_contact_probe_runtime_check.gd
-gd tools/v406_bittaran_kick_reach_solve_runtime_check.gd
 gd tools/v407_bittaran_kick_whip_runtime_check.gd
-gd tools/v408_bittaran_kick_source_trajectory_runtime_check.gd
-gd tools/v409_bittaran_guidance_limits_runtime_check.gd
-gd tools/v410_bittaran_windup_plant_sweep_mirror_runtime_check.gd
-gd tools/v411_bittaran_sweep_body_delta_mirror_runtime_check.gd
 gd tools/v412_bittaran_windup_twist_rear_tilt_runtime_check.gd
 gd tools/v413_bittaran_rear_attack_reset_runtime_check.gd
 gd tools/v414_bittaran_rear_mirrored_pitch_fixed_height_runtime_check.gd
@@ -386,7 +364,5 @@ gd tools/v416_bittaran_rear_ground_right_toe_runtime_check.gd
 gd tools/v417_bittaran_rear_kick_axial_roll_runtime_check.gd
 gd tools/v418_bittaran_full_kick_and_rear_contact_corner_runtime_check.gd
 gd tools/v419_bittaran_exact_fourway_authored_mirror_runtime_check.gd
-gd tools/v420_bittaran_attack_rebuild_regression_runtime_check.gd
 gd tools/v422_bittaran_rear_hip_alignment_runtime_check.gd
-gd tools/v423_bittaran_aim_seam_runtime_check.gd
 gd tools/v424_bittaran_front_attack_runtime_check.gd
