@@ -11,6 +11,7 @@ on:
       - 'scenes/bittaran_battle.tscn'
       - 'tools/v434_bittaran_blockbench_exact_playback_runtime_check.gd'
       - 'tools/v435_bittaran_gait_three_support_runtime_check.gd'
+      - 'tools/v436_bittaran_attack_timing_runtime_check.gd'
       - '.github/workflows/sera-bittaran-original-replay.yml'
   pull_request:
     paths:
@@ -50,3 +51,7 @@ jobs:
         run: |
           set -euo pipefail
           "$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" --headless --path . --script tools/v435_bittaran_gait_three_support_runtime_check.gd
+      - name: Verify six attacks' transition timings, sweep slow-motion, holds and exact source keys
+        run: |
+          set -euo pipefail
+          "$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" --headless --path . --script tools/v436_bittaran_attack_timing_runtime_check.gd
