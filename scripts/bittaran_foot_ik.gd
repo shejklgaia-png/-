@@ -150,6 +150,13 @@ const FRONT_STANCE_RETURN_SECONDS: float = 0.42
 const FRONT_BODY_RISE_SECONDS: float = 0.62
 const FRONT_BODY_LEVEL_WEIGHT: float = 0.68
 const FRONT_BODY_MAX_DROP_METERS: float = 1.10
+# Matched with BittaranRig.FRONT_SWEEP_ENTRY_SECONDS.
+const FRONT_SWEEP_ENTRY_SECONDS: float = 0.32
+const FRONT_SWEEP_TOUCH_HEIGHT_METERS: float = 0.035
+# Velocity-limited visual root motion keeps all shoulders moving with the
+# chassis and gives world-anchored elbows time to fold via two-link IK.
+const FRONT_BODY_DESCENT_SPEED_METERS_PER_SECOND: float = 2.0
+const FRONT_BODY_DESCENT_ACCEL_SECONDS: float = 0.40
 
 const LEG_NAMES: Array[String] = [
     "FrontLeg_R", "RearLeg_L", "FrontLeg_L", "RearLeg_R"
@@ -494,6 +501,8 @@ func clear_attack_pose(preserve_front_return: bool = false) -> void:
         leg.erase("front_ground_kick_shoulder_shift")
         leg.erase("front_ground_foot_y")
         leg.erase("front_ground_shin_y")
+        leg.erase("front_sweep_touchdown_time")
+        leg.erase("front_sweep_contact")
         leg.erase("authored_pole_point")
         leg.erase("front_ground_shin_roll")
         leg.erase("front_ground_sweep_pole")
@@ -2071,11 +2080,18 @@ func _apply_front_attack_height(delta: float) -> void:
     # a height after IK, since that would form a feedback loop.
     var desired: float = -minf(
         FRONT_BODY_MAX_DROP_METERS, minf(needed_drop, available_drop))
-    var blend: float = 1.0 - exp(-9.0 * maxf(delta, 0.0))
-    var candidate: float = lerpf(front_attack_drop_world, desired, blend)
-    # During a strike, lower when needed but do not pop back upward
-    # when the foot briefly lifts. Chassis rises only AFTER return.
-    front_attack_drop_world = minf(front_attack_drop_world, candidate)
+    # Never teleport the BODY down by ~40cm in a single physics frame.
+    # Instead the shoulders follow the parent chassis continuously, while
+    # the 3 supporting fore/rear arms keep their feet planted through IK.
+    var ramp: float = _cubic(
+        frame_t / FRONT_BODY_DESCENT_ACCEL_SECONDS)
+    var speed: float = lerpf(
+        0.25, FRONT_BODY_DESCENT_SPEED_METERS_PER_SECOND, ramp)
+    # During an attack lower only, and let the two-phase recovery
+    # restore the height. No previous IK-corrected foot is sampled here.
+    if desired < front_attack_drop_world:
+        front_attack_drop_world = move_toward(
+            front_attack_drop_world, desired, speed * maxf(delta, 0.0))
     var scale_y: float = maxf(
         absf(actor.get_parent().global_basis.get_scale().y), 0.001)
     actor.position.y += front_attack_drop_world / scale_y
@@ -2133,6 +2149,18 @@ func _ground_front_attack_leg(leg: Dictionary) -> void:
     var original_sole: Vector3 = foot.to_global(leg["sole_local"] as Vector3)
     var source_toe: float = _foot_mesh_lowest_y(foot)
     var source_shin: float = _foot_mesh_lowest_y(lower)
+    if kind == "sweep":
+        # Until the source animation actually LOWERS its foot to the
+        # floor, do not pull an airborne sole down with attack contact.
+        # The entry blend must reach key 0 before the touchdown latch.
+        # The source toe comes from THIS frame's Blockbench pose after
+        # the chassis has descended and its shoulders followed it.
+        if not bool(leg.get("front_sweep_contact", false)) and (
+                t >= FRONT_SWEEP_ENTRY_SECONDS and
+                source_toe <= FLOOR_Y + FRONT_SWEEP_TOUCH_HEIGHT_METERS):
+            leg["front_sweep_contact"] = true
+            leg["front_sweep_touchdown_time"] = t
+        contact_active = bool(leg.get("front_sweep_contact", false))
     var desired_toe_delta: float = FLOOR_Y + 0.003 - source_toe
     if not contact_active:
         # Stomp can deliberately raise its toe during anticipation.

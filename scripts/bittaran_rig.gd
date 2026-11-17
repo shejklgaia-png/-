@@ -926,6 +926,11 @@ func sample_authored_sweep_pose(id: String, at: float,
 
 
 ## v424 front attack test: use the authored L/R track without procedural mirroring.
+## v427: Enter SWEEP key zero through the full Wait stance, never from
+## a previous IK-corrected pose. Time is independent of the author's
+## SWEEP play clock (which remains at key zero during windup).
+const FRONT_SWEEP_ENTRY_SECONDS: float = 0.32
+
 func _apply_front_test_attack(frame: Dictionary) -> void:
     var id: String = str(frame.get("id", ""))
     var kind: String = str(frame.get("kind", ""))
@@ -961,6 +966,14 @@ func _apply_front_test_attack(frame: Dictionary) -> void:
             clip_name, bone_name, at)
         var neutral: Quaternion = _authored_key_rotation(
             "Wait", bone_name, 0.0)
+        if kind == "sweep":
+            var entry_t: float = clampf(
+                attack_time / FRONT_SWEEP_ENTRY_SECONDS, 0.0, 1.0)
+            var entry_weight: float = (
+                entry_t * entry_t * (3.0 - 2.0 * entry_t))
+            # Wait -> authored key 0; only after the entry window does
+            # the attack director advance its authored SWEEP clip time.
+            pose = neutral.slerp(pose, entry_weight).normalized()
         (bones[uid] as Node3D).quaternion = pose.slerp(
             neutral, 1.0 - out_weight).normalized()
 
