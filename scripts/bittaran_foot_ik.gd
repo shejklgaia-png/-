@@ -3291,7 +3291,8 @@ func _source_ik_advance_locomotion(delta: float, motion: String) -> void:
     var can_step: bool = (motion == "Approach" or motion == "Turn")
     if can_step and source_ik_step_pair == -1 and (
             source_ik_replant_id.is_empty()) and (
-            source_ik_home_handoff_id.is_empty()):
+            source_ik_home_handoff_id.is_empty()) and (
+            source_ik_wait_restored_id.is_empty()):
         var errors: Array[float] = [0.0, 0.0]
         for pair_index in range(2):
             for index in LEG_PAIRS[pair_index]:
@@ -3377,7 +3378,54 @@ func _source_ik_advance_locomotion(delta: float, motion: String) -> void:
             if source_ik_replant_id != LEG_PART_IDS[index]:
                 limb["anchor_rotation"] = rotation
         var error: float = 0.0
-        if source_ik_home_handoff_id == LEG_PART_IDS[index]:
+        if source_ik_wait_restored_id == LEG_PART_IDS[index]:
+            # v458: Immediately after the source return, the rig has
+            # restored all 3 authored Wait joints. On IDLE, allowing
+            # the ordinary grounded IK to re-solve this leg would
+            # recreate the user's splayed-knee/end-of-return pose.
+            # Leave this limb at its authored Idle/Wait angles.
+            var neutral_upper: Node3D = limb["upper"]
+            var neutral_lower: Node3D = limb["lower"]
+            var neutral_foot: Node3D = limb["foot"]
+            if not can_step:
+                limb["last_goal"] = neutral_foot.to_global(
+                    limb["sole_local"] as Vector3)
+                limb["last_rotation"] = (
+                    neutral_foot.global_basis.get_rotation_quaternion())
+                limb["last_knee"] = neutral_lower.global_position
+                limb["last_foot"] = neutral_foot.global_position
+                limb["last_error"] = 0.0
+                continue
+            # If pursuit/turning resumes, introduce the usual gait
+            # solver over 0.35s; never activate it at full strength
+            # on the very next frame after an authored Wait finish.
+            var from_upper: Quaternion = neutral_upper.quaternion
+            var from_lower: Quaternion = neutral_lower.quaternion
+            var from_foot: Quaternion = neutral_foot.quaternion
+            source_ik_wait_locomotion_blend = minf(1.0,
+                source_ik_wait_locomotion_blend
+                + maxf(delta, 0.0)
+                / SOURCE_LEG_WAIT_LOCOMOTION_BLEND_SECONDS)
+            var alpha: float = source_ik_wait_locomotion_blend
+            var mix: float = alpha * alpha * (
+                3.0 - 2.0 * alpha)
+            error = _solve(limb, goal, rotation)
+            neutral_upper.quaternion = from_upper.slerp(
+                neutral_upper.quaternion, mix).normalized()
+            neutral_lower.quaternion = from_lower.slerp(
+                neutral_lower.quaternion, mix).normalized()
+            neutral_foot.quaternion = from_foot.slerp(
+                neutral_foot.quaternion, mix).normalized()
+            limb["last_goal"] = neutral_foot.to_global(
+                limb["sole_local"] as Vector3)
+            limb["last_rotation"] = (
+                neutral_foot.global_basis.get_rotation_quaternion())
+            limb["last_knee"] = neutral_lower.global_position
+            limb["last_foot"] = neutral_foot.global_position
+            if alpha >= 1.0 - 0.000001:
+                source_ik_wait_restored_id = ""
+                source_ik_wait_locomotion_blend = 0.0
+        elif source_ik_home_handoff_id == LEG_PART_IDS[index]:
             # Continue from the last source-IK knee, easing its bend
             # plane onto the normal Wait/gait knee pole while the TOE
             # remains exactly at its neutral planted coordinate.
@@ -3611,16 +3659,16 @@ func advance_source_ground_ik(delta: float, motion: String,
                 continue
             var limb: Dictionary = legs[index]
             if bool(limb.get("source_ik_leg_return_at_home", false)):
-                # The 1.20s attack leg return has ALREADY placed the
-                # toe at the basic Wait position and vertical angle.
-                # Never begin another .32s replant after this: that
-                # was the source of the visible end-of-return snap.
+                # Source rig has restored the THREE exact Wait joint
+                # rotations at t=1. Freeze that authored basic pose
+                # on Idle instead of immediately overriding it with
+                # a two-bone ground solver using the old knee pole.
                 source_ik_replant_id = ""
                 source_ik_replant_elapsed = 0.0
-                source_ik_home_handoff_id = former_id
+                source_ik_home_handoff_id = ""
                 source_ik_home_handoff_elapsed = 0.0
-                limb["source_ik_home_handoff_from_knee"] = (
-                    limb["last_knee"])
+                source_ik_wait_restored_id = former_id
+                source_ik_wait_locomotion_blend = 0.0
                 limb["anchor"] = _source_ik_home(limb)
                 limb["anchor_rotation"] = (
                     _source_ik_toe_down_rotation(
