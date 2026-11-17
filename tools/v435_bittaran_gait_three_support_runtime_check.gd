@@ -1,7 +1,7 @@
 extends SceneTree
-## v435: source clip owns BODY and chosen striker. New isolated
-## locomotion IK solves all 4 feet during Approach/Turn; strike IK
-## solves exactly the 3 other limbs, never a mesh or joint on striker.
+## v440: source animation owns BODY and supplies the striker's pose.
+## Locomotion IK controls four legs, and attack IK controls three planted
+## supports plus one lightweight, joint-only flat-floor striker contact.
 const BATTLE = preload("res://scripts/bittaran_battle.gd")
 const DT: float = 0.05
 const CONTACT_TOLERANCE_METERS: float = 0.065
@@ -14,8 +14,8 @@ const ATTACKS: Dictionary = {
     "踏みつけ_R": ["leg_fr", "stomp"],
 }
 const BONES: Dictionary = {
-    "leg_fl": ["Body", "FrontLeg_L", "FrontLowerLeg_L", "FrontFoot_L"],
-    "leg_fr": ["Body", "FrontLeg_R", "FrontLowerLeg_R", "FrontFoot_R"]
+    "leg_fl": ["Body"],
+    "leg_fr": ["Body"]
 }
 const LEG_IDS: Array[String] = ["leg_fr", "leg_rl", "leg_fl", "leg_rr"]
 
@@ -135,9 +135,9 @@ func _run() -> void:
                 break
             battle.call("_finalize_target_pose", DT)
             var t: float = float(frame.get("authored_time", 0.0))
-            # Entry/recovery now intentionally interpolate Wait and
-            # source poses. Original strike/hold MUST still match every
-            # Blockbench joint key exactly, without IK on the striker.
+            # Entry/recovery blend to Wait. Strike/hold MUST preserve
+            # the Blockbench BODY key exactly, but v440 now permits
+            # upper/lower striker joint rotations for floor collision.
             if ["strike", "hold"].has(str(frame.get("phase", ""))):
                 for bone_name in BONES[options[0]]:
                     var uid: String = str(bone_map.get(bone_name, ""))
