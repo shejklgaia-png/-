@@ -124,6 +124,8 @@ func _run() -> void:
     var body_pin_unreachable_frames: int = 0
     var worst_reachable_tip_drift: float = 0.0
     var body_to_leg_transitions: int = 0
+    var body_dragged_frames: int = 0
+    var max_body_drag: float = 0.0
     for clip in ATTACKS.keys():
         var options: Array = ATTACKS[clip]
         if not bool(director.call("force_start", options[0], options[1])):
@@ -132,9 +134,10 @@ func _run() -> void:
         var frame_count: int = 0
         var last_recovery_stage: String = ""
         var previous_joint_rotations: Dictionary = {}
-        # v446: all six clips, including the FULL BODY->LEG recovery
-        # (sweep lasts 5.60s). The active toe tip must stay at ONE
-        # exact world XZ and at Y=0 while the torso returns.
+        var previous_toe_anchor: Vector3 = Vector3.INF
+        # v447: pin the distal toe underside at Y=0 while the Body
+        # rises. If the joints lose reach, allow only an inward XZ
+        # floor slide toward the hip instead of lifting the toe.
         for tick in range(165):
             battle.call("_advance_target_motion", DT)
             var frame: Dictionary = battle.get("bittaran_attack_frame")
@@ -159,6 +162,37 @@ func _run() -> void:
                 var active_foot: Node3D = attack_limb["foot"]
                 var actual: Vector3 = active_foot.to_global(local_point)
                 var drift: float = actual.distance_to(anchor)
+                if absf(anchor.y - 0.003) > 0.0001:
+                    _fail("body rise toe anchor left ground Y=0 " +
+                        str([clip, frame_count, anchor]))
+                    return
+                if previous_toe_anchor != Vector3.INF:
+                    var move_xz: Vector2 = Vector2(
+                        anchor.x - previous_toe_anchor.x,
+                        anchor.z - previous_toe_anchor.z)
+                    if move_xz.length() > 0.0001:
+                        var hip: Vector3 = (
+                            attack_limb["upper"] as Node3D).global_position
+                        var tip_offset: Vector3 = (
+                            active_foot.global_basis * local_point)
+                        var effective_hip: Vector2 = Vector2(
+                            hip.x + tip_offset.x, hip.z + tip_offset.z)
+                        var before_distance: float = (
+                            Vector2(previous_toe_anchor.x,
+                                previous_toe_anchor.z)
+                            .distance_to(effective_hip))
+                        var after_distance: float = (
+                            Vector2(anchor.x, anchor.z)
+                            .distance_to(effective_hip))
+                        if after_distance > before_distance + 0.001:
+                            _fail("grounded toe slid AWAY from torso " +
+                                str([clip, frame_count, anchor,
+                                previous_toe_anchor]))
+                            return
+                        body_dragged_frames += 1
+                        max_body_drag = maxf(
+                            max_body_drag, move_xz.length())
+                previous_toe_anchor = anchor
                 var reach_error: float = float(
                     attack_limb.get("last_error", 0.0))
                 if drift > 0.040 and reach_error < 0.040:
@@ -295,5 +329,13 @@ func _run() -> void:
         " body_pin_unreachable=", body_pin_unreachable_frames,
         " Body_to_leg_transitions=", body_to_leg_transitions,
         " worst_reachable_tip_drift=", worst_reachable_tip_drift,
+        " inward_toe_drag_frames=", body_dragged_frames,
+        " max_inward_toe_drag_per_frame=", max_body_drag,
+        " toe_drag_total=", ik.get(
+            "source_ik_body_toe_drag_distance_max"),
+        " knee_influence=", ik.get(
+            "BODY_TOE_KNEE_POLE_INFLUENCE"),
+        " ankle_influence=", ik.get(
+            "BODY_TOE_WRIST_FLEX_INFLUENCE"),
         " unreachable=", ik.get("source_ik_unreachable_supports"))
     quit(0)
