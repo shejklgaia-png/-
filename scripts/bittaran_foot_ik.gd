@@ -2608,6 +2608,17 @@ const SWEEP_TOE_FLOOR_TOLERANCE_METERS: float = 0.002
 const SWEEP_TOE_RETRY_MAX_METERS: float = 0.60
 const SOURCE_STRIKE_CONTACT_RAMP_SECONDS: float = 0.13
 const SOURCE_STRIKE_MAX_CORRECTION_METERS: float = 1.70
+# v451: the authored rear stomp is still 3m ABOVE the floor at t=0.50.
+# Plant only at the end of the actual descent (t=0.93..1.0).
+const REAR_STOMP_DESCENT_CONTACT_BEGIN: float = 0.93
+const REAR_STOMP_DESCENT_RAMP_SECONDS: float = 0.07
+const REAR_STOMP_FOOT_PROXIMITY_METERS: float = 1.0
+# Rear sweep has a ~13cm near-floor tail. Land it gently during the
+# terminal 0.50..0.75 keys instead of snapping it down at BODY return.
+const REAR_SWEEP_SETTLE_START_SECONDS: float = 0.50
+const REAR_SWEEP_SETTLE_END_SECONDS: float = 0.75
+const REAR_SWEEP_NEAR_FLOOR_METERS: float = 0.18
+const REAR_BODY_TOE_DESCENT_SECONDS: float = 0.45
 const SOURCE_STRIKE_MIN_SOURCE_SECONDS: Dictionary = {
     "sweep": 0.1375,
     "kick": 0.0,
@@ -2722,13 +2733,15 @@ func _source_ik_contact_weight(frame: Dictionary) -> float:
     var source_t: float = float(frame.get("authored_time", 0.0))
     var begins: float = float(SOURCE_STRIKE_MIN_SOURCE_SECONDS.get(
         kind, 0.0))
-    # The rear STOMP's full clip is 1.0s. Its physical strike pose
-    # begins at source t=0.50 (front uses t=1.47083).
+    # Rear STOMP reaches its HIGHEST point at 0.50..0.833 and only
+    # descends to the floor over 0.833..1.0. The old 0.50 gate
+    # pulled an airborne foot toward Y=0 and visibly warped the rig.
+    var ramp: float = SOURCE_STRIKE_CONTACT_RAMP_SECONDS
     if kind == "stomp" and str(frame.get("id", "")).begins_with("leg_r"):
-        begins = 0.50
+        begins = REAR_STOMP_DESCENT_CONTACT_BEGIN
+        ramp = REAR_STOMP_DESCENT_RAMP_SECONDS
     var progress: float = clampf(
-        (source_t - begins) / SOURCE_STRIKE_CONTACT_RAMP_SECONDS,
-        0.0, 1.0)
+        (source_t - begins) / ramp, 0.0, 1.0)
     return progress * progress * (3.0 - 2.0 * progress)
 
 
@@ -2809,7 +2822,8 @@ func _source_ik_solve_striker(
 ## This function only runs ONCE at the recovery-body boundary.
 ## The toe contact is stored in the FOOT joint's local coordinates,
 ## so no mesh or joint pivot can ever be detached or translated alone.
-func _source_ik_begin_body_toe_pin(limb: Dictionary) -> void:
+func _source_ik_begin_body_toe_pin(
+        limb: Dictionary, frame: Dictionary) -> void:
     var foot: Node3D = limb["foot"]
     var toe_record: Dictionary = limb.get(
         "source_ik_sweep_toe_box", {})
@@ -2847,7 +2861,18 @@ func _source_ik_begin_body_toe_pin(limb: Dictionary) -> void:
             distal = along
             chosen = in_foot
     var anchor: Vector3 = foot_pose * chosen
-    anchor.y = FLOOR_Y + SWEEP_TOE_CLEARANCE_METERS
+    # For rear attacks the distal end is not necessarily the lowest
+    # corner of the foot. A hard Y=0 snap at this boundary can move it
+    # a long way in a single physics tick. Preserve its actual height
+    # and ease it to the floor during BODY return. Front is unchanged.
+    var rear: bool = str(frame.get("id", "")).begins_with("leg_r")
+    if rear:
+        anchor.y = maxf(anchor.y,
+            FLOOR_Y + SWEEP_TOE_CLEARANCE_METERS)
+    else:
+        anchor.y = FLOOR_Y + SWEEP_TOE_CLEARANCE_METERS
+    limb["source_ik_body_toe_pin_entry_y"] = anchor.y
+    limb["source_ik_body_toe_pin_rear"] = rear
     limb["source_ik_body_toe_pin_anchor"] = anchor
     limb["source_ik_body_toe_pin_local"] = chosen
     limb["source_ik_body_toe_pin_rotation"] = (
@@ -2898,15 +2923,26 @@ static func _source_ik_retract_to_reach(
 func _source_ik_pin_toe_during_body(
         limb: Dictionary, frame: Dictionary) -> void:
     if not bool(limb.get("source_ik_body_toe_pin_active", false)):
-        _source_ik_begin_body_toe_pin(limb)
+        _source_ik_begin_body_toe_pin(limb, frame)
     if not bool(limb.get("source_ik_body_toe_pin_active", false)):
         return
     var upper: Node3D = limb["upper"]
     var lower: Node3D = limb["lower"]
     var foot: Node3D = limb["foot"]
     var target: Vector3 = limb["source_ik_body_toe_pin_anchor"]
-    # Never move the underside tip vertically while it is dragged.
-    target.y = FLOOR_Y + SWEEP_TOE_CLEARANCE_METERS
+    # If a rear attack ends with a lifted distal toe, plant it over
+    # time. The XZ pin stays unchanged; only its vertical goal eases.
+    # Once planted the rest of BODY return is strictly on Y=0.003.
+    var planted_y: float = FLOOR_Y + SWEEP_TOE_CLEARANCE_METERS
+    if bool(limb.get("source_ik_body_toe_pin_rear", false)):
+        var t: float = clampf(
+            float(frame.get("phase_elapsed", 0.0))
+            / REAR_BODY_TOE_DESCENT_SECONDS, 0.0, 1.0)
+        var ease: float = t * t * t * (t * (t * 6.0 - 15.0) + 10.0)
+        planted_y = lerpf(float(limb.get(
+            "source_ik_body_toe_pin_entry_y", planted_y)),
+            planted_y, ease)
+    target.y = planted_y
     var point_local: Vector3 = limb["source_ik_body_toe_pin_local"]
     var base_rotation: Quaternion = (
         limb["source_ik_body_toe_pin_rotation"])
@@ -2971,7 +3007,7 @@ func _source_ik_pin_toe_during_body(
         # the BODY continues rising.
         source_ik_body_toe_drag_frames += 1
         target = reachable_toe
-        target.y = FLOOR_Y + SWEEP_TOE_CLEARANCE_METERS
+        target.y = planted_y
         limb["source_ik_body_toe_pin_anchor"] = target
     var home: Vector2 = limb["source_ik_body_toe_pin_start_xz"]
     var cumulative_slide: float = Vector2(
@@ -3005,7 +3041,12 @@ func _source_ik_ground_attacking_limb(
     limb["last_error"] = 0.0
     var foot: Node3D = limb["foot"]
     var lower: Node3D = limb["lower"]
-    var is_sweep: bool = str(frame.get("kind", "")) == "sweep"
+    var kind: String = str(frame.get("kind", ""))
+    var rear: bool = str(frame.get("id", "")).begins_with("leg_r")
+    var phase: String = str(frame.get("phase", ""))
+    var source_t: float = float(frame.get("authored_time", 0.0))
+    var is_sweep: bool = kind == "sweep"
+    var rear_stomp: bool = rear and kind == "stomp"
     # The generic contact solver uses all 3 boxes. For SWEEP the
     # precise TOES take priority: lifting for a shin collision could
     # leave the real foot cuboid underground after knee rotation.
@@ -3018,15 +3059,35 @@ func _source_ik_ground_attacking_limb(
     var height_error: float = 0.0
     var weight: float = 0.0
     if is_sweep:
-        # Never pull an airborne foot down during its authored motion.
-        # Correct ONLY real geometric floor penetration, from entry to
-        # strike to body/leg recovery. A 3mm buffer avoids z-fighting.
-        if bottom >= FLOOR_Y - SWEEP_TOE_FLOOR_TOLERANCE_METERS:
+        # All sweeps correct actual penetrations. The rear sweep may
+        # settle a small (<=18cm) airborne gap during its final 0.25s,
+        # making its next BODY recovery continuous. No early pull-down.
+        if bottom < FLOOR_Y - SWEEP_TOE_FLOOR_TOLERANCE_METERS:
+            height_error = FLOOR_Y + SWEEP_TOE_CLEARANCE_METERS - bottom
+            weight = 1.0
+        elif rear and phase == "strike" and (
+                source_t >= REAR_SWEEP_SETTLE_START_SECONDS) and (
+                bottom <= FLOOR_Y + REAR_SWEEP_NEAR_FLOOR_METERS):
+            var settle: float = clampf(
+                (source_t - REAR_SWEEP_SETTLE_START_SECONDS)
+                / (REAR_SWEEP_SETTLE_END_SECONDS
+                - REAR_SWEEP_SETTLE_START_SECONDS), 0.0, 1.0)
+            weight = settle * settle * (3.0 - 2.0 * settle)
+            height_error = FLOOR_Y + SWEEP_TOE_CLEARANCE_METERS - bottom
+        else:
             return
-        height_error = FLOOR_Y + SWEEP_TOE_CLEARANCE_METERS - bottom
-        weight = 1.0
     else:
         var penetration: float = maxf(FLOOR_Y - bottom, 0.0)
+        if rear_stomp and penetration <= SOURCE_STRIKE_FLOOR_EPSILON_METERS:
+            # 0.50 is the aerial apex; never attract this 3m-high foot.
+            # Geometric proximity AND descending source-time are both
+            # required. Support the grounded terminal HOLD normally.
+            if phase == "entry" or (
+                    phase == "strike" and (
+                    source_t < REAR_STOMP_DESCENT_CONTACT_BEGIN or
+                    bottom > FLOOR_Y
+                        + REAR_STOMP_FOOT_PROXIMITY_METERS)):
+                return
         var desired_contact: float = _source_ik_contact_weight(frame)
         weight = (1.0 if penetration >
             SOURCE_STRIKE_FLOOR_EPSILON_METERS else desired_contact)
@@ -3052,10 +3113,14 @@ func _source_ik_ground_attacking_limb(
         source_ik_strike_contact_error_max, error)
     if is_sweep:
         var toe_after: float = _source_ik_sweep_toe_lowest_world_y(limb)
-        if toe_after < FLOOR_Y - SWEEP_TOE_FLOOR_TOLERANCE_METERS:
-            # One inexpensive correction ONLY if the first rotation
-            # moved the toe surface through the floor. No iteration
-            # in the normal path; the two-bone anatomy remains intact.
+        # For the rear sweep an authored toe can reach 60cm below
+        # ground. Allow up to three bounded skeletal re-solves, each
+        # driven by the remaining geometric penetration (front: one).
+        # No toe mesh translation or animation key rewriting.
+        var retries: int = 3 if rear else 1
+        for correction in range(retries):
+            if toe_after >= FLOOR_Y - SWEEP_TOE_FLOOR_TOLERANCE_METERS:
+                break
             goal.y += clampf(
                 FLOOR_Y + SWEEP_TOE_CLEARANCE_METERS - toe_after,
                 0.0, SWEEP_TOE_RETRY_MAX_METERS)
