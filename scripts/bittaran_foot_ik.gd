@@ -3296,10 +3296,11 @@ func _source_ik_advance_locomotion(delta: float, motion: String) -> void:
             source_ik_wait_locomotion_blend
             + maxf(delta, 0.0)
             / SOURCE_LEG_WAIT_LOCOMOTION_BLEND_SECONDS)
+    # Walking may resume DURING the Wait->gait blending window.
+    # Do not impose another 0.35s fixed pause after a finished attack.
     if can_step and source_ik_step_pair == -1 and (
             source_ik_replant_id.is_empty()) and (
-            source_ik_home_handoff_id.is_empty()) and (
-            source_ik_wait_restored_id.is_empty()):
+            source_ik_home_handoff_id.is_empty()):
         var errors: Array[float] = [0.0, 0.0]
         for pair_index in range(2):
             for index in LEG_PAIRS[pair_index]:
