@@ -2590,6 +2590,146 @@ var source_ik_replant_id: String = ""
 var source_ik_replant_elapsed: float = 0.0
 var source_ik_unreachable_supports: int = 0
 
+## v440: collision for the ACTIVE authored attacking limb. The original
+## mesh vertices and joint-local pivots remain immutable. The ankle
+## contact target is reached by rotating the upper/lower skeletal joints.
+## The three siblings continue using their existing grounded IK solver.
+const SOURCE_STRIKE_FLOOR_EPSILON_METERS: float = 0.012
+const SOURCE_STRIKE_CONTACT_RAMP_SECONDS: float = 0.13
+const SOURCE_STRIKE_RELEASE_SECONDS: float = 0.26
+const SOURCE_STRIKE_MAX_CORRECTION_METERS: float = 1.70
+const SOURCE_STRIKE_REFINEMENT_PASSES: int = 3
+const SOURCE_STRIKE_MIN_SOURCE_SECONDS: Dictionary = {
+    "sweep": 0.1375,
+    "kick": 0.0,
+    "stomp": 1.47083
+}
+var source_ik_strike_contact_count: int = 0
+var source_ik_strike_contact_error_max: float = 0.0
+var source_ik_strike_floor_penetration_max: float = 0.0
+
+## Sample the ACTUAL imported Blockbench vertices (not their bounding
+## boxes, which overestimate floor penetration on rotated geometry).
+## Read-only: no vertex, mesh transform, or joint location is changed.
+## Only an upper, lower or foot CHILD mesh from this one limb qualifies.
+func _source_ik_limb_lowest_world_y(limb: Dictionary) -> float:
+    if actor == null:
+        return INF
+    var mesh_map: Dictionary = actor.get("mesh_nodes_by_uuid")
+    var vertices_map: Dictionary = actor.get("mesh_vertices_by_uuid")
+    var highest_priority: float = INF
+    for uid in mesh_map.keys():
+        var piece: MeshInstance3D = mesh_map[uid]
+        if piece == null or not is_instance_valid(piece):
+            continue
+        var parent_joint: Node = piece.get_parent()
+        if parent_joint != limb["upper"] and (
+                parent_joint != limb["lower"]) and (
+                parent_joint != limb["foot"]):
+            continue
+        var points: PackedVector3Array = vertices_map.get(
+            uid, PackedVector3Array())
+        for point in points:
+            highest_priority = minf(highest_priority,
+                piece.to_global(point).y)
+    return highest_priority
+
+
+func _source_ik_contact_weight(frame: Dictionary) -> float:
+    var kind: String = str(frame.get("kind", ""))
+    var phase: String = str(frame.get("phase", "strike"))
+    if phase == "entry":
+        return 0.0
+    if phase == "recovery":
+        var time: float = float(frame.get("phase_elapsed", 0.0))
+        var u: float = clampf(time / SOURCE_STRIKE_RELEASE_SECONDS,
+            0.0, 1.0)
+        return 1.0 - u * u * (3.0 - 2.0 * u)
+    if phase == "hold":
+        return 1.0
+    var source_t: float = float(frame.get("authored_time", 0.0))
+    var begins: float = float(SOURCE_STRIKE_MIN_SOURCE_SECONDS.get(
+        kind, 0.0))
+    var progress: float = clampf(
+        (source_t - begins) / SOURCE_STRIKE_CONTACT_RAMP_SECONDS,
+        0.0, 1.0)
+    return progress * progress * (3.0 - 2.0 * progress)
+
+
+## Apply a floor contact by ARTICULATING THE TWO SKELETAL JOINTS.
+## _solve only changes upper/lower global rotations and restores the
+## authored foot world orientation; it does not translate any mesh,
+## change pivot positions/lengths, or detach the foot from the shin.
+## Source sampling happens afresh before this method every physics tick.
+func _source_ik_ground_attacking_limb(
+        limb: Dictionary, frame: Dictionary) -> void:
+    var upper: Node3D = limb["upper"]
+    var lower: Node3D = limb["lower"]
+    var foot: Node3D = limb["foot"]
+    var bottom: float = _source_ik_limb_lowest_world_y(limb)
+    if not is_finite(bottom):
+        return
+    var source_weight: float = _source_ik_contact_weight(frame)
+    var penetration: float = maxf(FLOOR_Y - bottom, 0.0)
+    # Any penetrating authored pose receives immediate collision safety,
+    # even during a transition; otherwise approach the floor only inside
+    # the original source's foot/shin contact windows.
+    var weight: float = (
+        1.0 if penetration > SOURCE_STRIKE_FLOOR_EPSILON_METERS
+        else source_weight)
+    if weight <= 0.0001:
+        return
+    var deficit: float = FLOOR_Y - bottom
+    if absf(deficit) <= SOURCE_STRIKE_FLOOR_EPSILON_METERS:
+        return
+    var source_sole: Vector3 = foot.to_global(
+        limb["source_sole_local"] as Vector3)
+    var source_foot_rotation: Quaternion = (
+        foot.global_basis.get_rotation_quaternion())
+    var goal: Vector3 = source_sole
+    # Keep the authored knee bend plane, not the old fixed gait pole.
+    # The 2-bone solver preserves hip->knee and knee->ankle lengths.
+    limb["authored_pole_active"] = true
+    var correction: float = clampf(deficit * weight,
+        -SOURCE_STRIKE_MAX_CORRECTION_METERS,
+        SOURCE_STRIKE_MAX_CORRECTION_METERS)
+    goal.y += correction
+    var reach_error: float = _solve(limb, goal, source_foot_rotation)
+    var residual: float = _source_ik_limb_lowest_world_y(limb)
+    # Lower-shin surfaces can extend beyond the ankle/toe tip. Refine
+    # by moving the END-EFFECTOR through IK, not by moving the shin mesh.
+    # An absolute per-frame clamp prevents uncontrolled overcorrection.
+    for attempt in range(1, SOURCE_STRIKE_REFINEMENT_PASSES):
+        if not is_finite(residual) or (
+                absf(FLOOR_Y - residual) <= (
+                SOURCE_STRIKE_FLOOR_EPSILON_METERS)):
+            break
+        var adjust: float = clampf(
+            (FLOOR_Y - residual) * weight, -0.35, 0.35)
+        var total: float = clampf(
+            goal.y + adjust - source_sole.y,
+            -SOURCE_STRIKE_MAX_CORRECTION_METERS,
+            SOURCE_STRIKE_MAX_CORRECTION_METERS)
+        goal.y = source_sole.y + total
+        reach_error = _solve(limb, goal, source_foot_rotation)
+        residual = _source_ik_limb_lowest_world_y(limb)
+    limb.erase("authored_pole_active")
+    source_ik_strike_contact_count += 1
+    source_ik_strike_contact_error_max = maxf(
+        source_ik_strike_contact_error_max, reach_error)
+    if is_finite(residual):
+        source_ik_strike_floor_penetration_max = maxf(
+            source_ik_strike_floor_penetration_max,
+            maxf(FLOOR_Y - residual, 0.0))
+    limb["last_error"] = reach_error
+    limb["last_goal"] = foot.to_global(
+        limb["source_sole_local"] as Vector3)
+    limb["last_rotation"] = (
+        foot.global_basis.get_rotation_quaternion())
+    limb["last_knee"] = lower.global_position
+    limb["last_foot"] = foot.global_position
+
+
 ## Initialize AFTER the v434 single fixed Wait-ground placement.
 ## At this point the source joint chains are untouched, and all goals
 ## are captured from actual evaluated foot positions at ground Y=0.
@@ -2606,6 +2746,9 @@ func initialize_source_ground_ik() -> bool:
     source_ik_replant_id = ""
     source_ik_replant_elapsed = 0.0
     source_ik_unreachable_supports = 0
+    source_ik_strike_contact_count = 0
+    source_ik_strike_contact_error_max = 0.0
+    source_ik_strike_floor_penetration_max = 0.0
     source_ik_last_actor_position = actor.global_position
     for limb in legs:
         var foot: Node3D = limb["foot"]
@@ -2761,7 +2904,10 @@ func _source_ik_advance_attack(frame: Dictionary) -> void:
         var limb: Dictionary = legs[index]
         var foot: Node3D = limb["foot"]
         if LEG_PART_IDS[index] == attack_id:
-            # Do not solve, rotate, or translate the author's striker.
+            # v440: use the exact SOURCE pose as the IK starting point,
+            # then rotate only upper/lower joints to meet the floor.
+            # All the authored MeshInstance3D transforms remain attached.
+            _source_ik_ground_attacking_limb(limb, frame)
             limb["last_goal"] = foot.to_global(
                 limb["source_sole_local"] as Vector3)
             limb["last_rotation"] = (
