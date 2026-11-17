@@ -100,6 +100,11 @@ var source_ground_ik_active: bool = false
 # v443: capture the IK-grounded limb right as BODY returns to Wait.
 # Afterward it glides directly to Wait. No intermediate windup pose.
 var source_return_leg_start_pose: Dictionary = {}
+# v446: store actual IK-corrected limb locals AFTER the game's
+# final skeletal solver has run. BittaranBattle.set_motion("Idle")
+# runs before the next frame and otherwise overwrites these with
+# ungrounded Idle poses, causing the visible Body->leg snap.
+var source_last_body_ik_solved_pose: Dictionary = {}
 # Procedural HEAD look yaw is not part of an authored blend source.
 var external_head_yaw: float = 0.0
 var loading_ok: bool = false
@@ -1203,6 +1208,22 @@ const FRONT_ATTACK_LIMB_NAMES: Dictionary = {
 }
 
 
+## Called by source IK AFTER pinning the toe through Body rise.
+## The saved THREE skeletal joint transforms are the actual displayed
+## pose, not the next frame's Idle source keys; no mesh offset is saved.
+func remember_source_body_grounded_limb(leg_id: String) -> void:
+    source_last_body_ik_solved_pose.clear()
+    for limb_name in FRONT_ATTACK_LIMB_NAMES.get(leg_id, []):
+        var uid: String = str(bone_uuid_by_name.get(limb_name, ""))
+        if not bones.has(uid):
+            continue
+        var bone: Node3D = bones[uid]
+        source_last_body_ik_solved_pose[limb_name] = {
+            "position": bone.position,
+            "rotation": bone.quaternion
+        }
+
+
 func _source_return_leg_to_wait(joint: Node3D,
         from_rotation: Quaternion, from_position: Vector3,
         neutral_rotation: Quaternion, neutral_position: Vector3,
@@ -1230,11 +1251,23 @@ func apply_original_attack_only(frame: Dictionary) -> void:
     var stage: String = str(frame.get("recovery_stage", ""))
     if phase != "recovery":
         source_return_leg_start_pose.clear()
+        source_last_body_ik_solved_pose.clear()
     elif stage == "leg" and (
             source_return_leg_start_pose.is_empty()):
-        # Sample previous IK-corrected pose BEFORE resetting source keys.
+        # The physics loop calls set_motion(Idle) BEFORE source replay,
+        # which overwrites prior IK angles. Prefer the explicit pose
+        # captured at the END of the preceding body's grounded solve.
         for limb_name in FRONT_ATTACK_LIMB_NAMES.get(leg_id, []):
-            var bone_uid: String = str(bone_uuid_by_name.get(limb_name, ""))
+            var grounded: Dictionary = (
+                source_last_body_ik_solved_pose.get(limb_name, {}))
+            if not grounded.is_empty():
+                source_return_leg_start_pose[limb_name] = (
+                    grounded.duplicate())
+                continue
+            # Standalone source-clock tests with no IK still need the
+            # unmodified authored pose as a valid start.
+            var bone_uid: String = str(bone_uuid_by_name.get(
+                limb_name, ""))
             if not bones.has(bone_uid):
                 continue
             var bone: Node3D = bones[bone_uid]
