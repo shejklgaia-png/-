@@ -3,7 +3,7 @@ extends RefCounted
 ## Timings are in physics seconds, independent of the authored locomotion clip.
 const LEG_IDS: Array[String] = ["leg_fl", "leg_fr", "leg_rl", "leg_rr"]
 const ATTACK_KINDS: Array[String] = ["stomp", "kick", "sweep"]
-# v441: preserve the six original Blockbench source CLIPS and let only
+# v442: preserve the six original Blockbench source CLIPS and let only
 # a real-time attack director control entry, clip-speed warp, holding,
 # and post-attack return. No procedural attack aiming/rewriting.
 const ORIGINAL_ATTACK_ONLY: bool = true
@@ -208,10 +208,12 @@ func _choose_kind(for_leg: String, player_position: Vector3,
 
 
 ## Timed original playback, no mid-sweep slow.
-## Sweep entry 1.00s; others 0.32s. Kick/Stomp hold 1.50s.
-## Recovery reuses the stomp t=1.0 high-windup leg pose.
-## Limb rises 0.34s and returns to Wait 0.46s. Afterwards the
-## Kick/Stomp Body restores over 0.62s. Sweep BODY blends 1.40s.
+## Recovery has THREE strictly sequential phases:
+## (1) BODY and other supports return to Wait while the attacking leg
+##     stays at the source strike endpoint (SWEEP 1.40s, others 0.62s).
+## (2) attack leg rises to the stomp windup t=1.00 pose (0.34s).
+## (3) attack leg plants at its Wait joint pose (0.46s).
+## No limb lifting is allowed until the BODY is fully restored.
 static func source_entry_seconds(attack_kind: String) -> float:
     return (SWEEP_ENTRY_SECONDS if attack_kind == "sweep"
         else SOURCE_ENTRY_SECONDS)
@@ -229,10 +231,13 @@ static func source_hold_seconds(attack_kind: String) -> float:
     return 1.50
 
 
+static func source_body_return_seconds(attack_kind: String) -> float:
+    return (SWEEP_RECOVERY_SECONDS if attack_kind == "sweep"
+        else SOURCE_BODY_RETURN_SECONDS)
+
+
 static func source_return_seconds(attack_kind: String) -> float:
-    if attack_kind == "sweep":
-        return SWEEP_RECOVERY_SECONDS
-    return SOURCE_KICK_STOMP_RETURN_SECONDS
+    return source_body_return_seconds(attack_kind) + SOURCE_LEG_RETURN_SECONDS
 
 
 static func source_total_seconds(attack_kind: String) -> float:
@@ -289,10 +294,18 @@ func _advance_original_only(delta: float, player_position: Vector3,
     var clip_time: float = 0.0
     var speed: float = 0.0
     var phase_elapsed: float = elapsed
+    var recovery_stage: String = ""
     if elapsed >= hold_end:
         phase = "recovery"
         phase_elapsed = elapsed - hold_end
         clip_time = length
+        var body_seconds: float = source_body_return_seconds(kind)
+        if phase_elapsed < body_seconds:
+            recovery_stage = "body"
+        elif phase_elapsed < body_seconds + SOURCE_LEG_LIFT_SECONDS:
+            recovery_stage = "lift"
+        else:
+            recovery_stage = "plant"
     elif elapsed >= play_end:
         phase = "hold"
         phase_elapsed = elapsed - play_end
@@ -313,6 +326,7 @@ func _advance_original_only(delta: float, player_position: Vector3,
         "entry_seconds": entry_end,
         "phase_elapsed": phase_elapsed,
         "phase": phase,
+        "recovery_stage": recovery_stage,
         "windup": entry_end,
         "strike": source_play_seconds(kind),
         "hold": source_hold_seconds(kind),
@@ -320,7 +334,7 @@ func _advance_original_only(delta: float, player_position: Vector3,
         "leg_return_seconds": SOURCE_LEG_RETURN_SECONDS,
         "leg_lift_seconds": SOURCE_LEG_LIFT_SECONDS,
         "leg_land_seconds": SOURCE_LEG_LAND_SECONDS,
-        "body_return_seconds": SOURCE_BODY_RETURN_SECONDS,
+        "body_return_seconds": source_body_return_seconds(kind),
         "stance_prepare": false,
         "tracking": false,
         "hit_window": false,
