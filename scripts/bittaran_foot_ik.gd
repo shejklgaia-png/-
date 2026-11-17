@@ -2149,21 +2149,25 @@ func _ground_front_attack_leg(leg: Dictionary) -> void:
     var original_sole: Vector3 = foot.to_global(leg["sole_local"] as Vector3)
     var source_toe: float = _foot_mesh_lowest_y(foot)
     var source_shin: float = _foot_mesh_lowest_y(lower)
-    if kind == "sweep":
-        # Until the source animation actually LOWERS its foot to the
-        # floor, do not pull an airborne sole down with attack contact.
-        # The entry blend must reach key 0 before the touchdown latch.
-        # The source toe comes from THIS frame's Blockbench pose after
-        # the chassis has descended and its shoulders followed it.
-        if not bool(leg.get("front_sweep_contact", false)) and (
-                t >= FRONT_SWEEP_ENTRY_SECONDS and
-                source_toe <= FLOOR_Y + FRONT_SWEEP_TOUCH_HEIGHT_METERS):
-            leg["front_sweep_contact"] = true
-            leg["front_sweep_touchdown_time"] = t
-        contact_active = bool(leg.get("front_sweep_contact", false))
     var desired_toe_delta: float = FLOOR_Y + 0.003 - source_toe
-    if not contact_active:
-        # Stomp can deliberately raise its toe during anticipation.
+    if kind == "sweep":
+        contact_active = bool(leg.get("front_sweep_contact", false))
+        if not contact_active:
+            # Key zero is initially several metres off the floor.
+            # Instead of snapping its toe to Y=0, let the BODY descend
+            # and fold its shoulder/knee through a continuous IK reach.
+            # This is only the APPROACH trajectory, not planted contact.
+            # The reach starts AFTER the Wait->key0 crossfade and ends
+            # near the strike's onset. A new source pose is re-read on
+            # every tick, never using a prior IK-adjusted toe position.
+            var landing_fraction: float = _cubic(
+                (t - FRONT_SWEEP_ENTRY_SECONDS) / maxf(
+                    windup - FRONT_SWEEP_ENTRY_SECONDS, 0.01))
+            desired_toe_delta *= landing_fraction
+            if t < FRONT_SWEEP_ENTRY_SECONDS:
+                desired_toe_delta = maxf(desired_toe_delta, 0.0)
+    elif not contact_active:
+        # STOMP must remain airborne in its intentional anticipation.
         desired_toe_delta = maxf(desired_toe_delta, 0.0)
     var target: Vector3 = original_sole + Vector3.UP * desired_toe_delta
     var needs_toe: bool = absf(desired_toe_delta) > 0.002
@@ -2180,14 +2184,26 @@ func _ground_front_attack_leg(leg: Dictionary) -> void:
     leg["authored_pole_active"] = true
     leg["authored_pole_point"] = knee_world
     _solve(leg, target, foot_rotation)
-    for iteration in range(3):
-        var foot_error: float = FLOOR_Y + 0.003 - _foot_mesh_lowest_y(foot)
-        if not contact_active and foot_error < 0.0:
-            break
-        if absf(foot_error) < 0.002:
-            break
-        target.y += foot_error
-        _solve(leg, target, foot_rotation)
+    # The source-to-floor approach already owns the toe height for
+    # an airborne SWEEP. Do not snap it to the arena in this solver.
+    if kind != "sweep" or contact_active:
+        for iteration in range(3):
+            var foot_error: float = FLOOR_Y + 0.003 - _foot_mesh_lowest_y(foot)
+            if not contact_active and foot_error < 0.0:
+                break
+            if absf(foot_error) < 0.002:
+                break
+            target.y += foot_error
+            _solve(leg, target, foot_rotation)
+    if kind == "sweep" and not contact_active and (
+            t >= FRONT_SWEEP_ENTRY_SECONDS) and (
+            _foot_mesh_lowest_y(foot) <= (
+            FLOOR_Y + FRONT_SWEEP_TOUCH_HEIGHT_METERS)):
+        # Contact is triggered by the RENDERED toe, not by the attack
+        # timeline or a magic "windup finished" bit.
+        contact_active = true
+        leg["front_sweep_contact"] = true
+        leg["front_sweep_touchdown_time"] = t
     # Only if necessary, bend the knee around the two-link axis to stay
     # OUT of the floor. Prefer the source orientation for all safe poses.
     if kind == "sweep" and _foot_mesh_lowest_y(lower) < FLOOR_Y - 0.003:
