@@ -2618,11 +2618,24 @@ var source_ik_strike_contact_error_max: float = 0.0
 var source_ik_strike_floor_penetration_max: float = 0.0
 var source_ik_sweep_toe_retry_count: int = 0
 var source_ik_sweep_toe_residual_max: float = 0.0
-# v446: one world-space TOE TIP anchor throughout the BODY return,
-# followed by free 1.20s joint return from its last IK-corrected pose.
+# v447: toe tip stays on WORLD floor during BODY return; when the
+# leg would overextend, retract its XZ target toward the torso,
+# dragging on the floor. Knee owns most bending; wrist flex is subtle.
+# The subsequent 1.20s Wait return retains the physically solved pose.
 var source_ik_body_toe_pin_count: int = 0
 var source_ik_body_toe_pin_error_max: float = 0.0
 var source_ik_body_toe_pin_drift_max: float = 0.0
+var source_ik_body_toe_drag_distance_max: float = 0.0
+var source_ik_body_toe_drag_frames: int = 0
+var source_ik_body_toe_wrist_flex_max: float = 0.0
+# Relative kinematic contribution: knee drives 82% of the bending
+# continuity while wrist flex is capped at a modest 18% of the
+# available toe-down arc. The wrist only pitches when near full reach.
+const BODY_TOE_KNEE_POLE_INFLUENCE: float = 0.82
+const BODY_TOE_WRIST_FLEX_INFLUENCE: float = 0.18
+const BODY_TOE_REACH_MARGIN_METERS: float = 0.045
+const BODY_TOE_WRIST_PREFLEX_METERS: float = 0.25
+const BODY_TOE_WRIST_FLEX_RATE_PER_SECOND: float = 2.0
 
 ## All 12 leg mesh parts in the imported Blockbench model are true
 ## 8-vertex cuboids. A rotating cuboid's minimum world Y is EXACTLY:
@@ -2820,9 +2833,12 @@ func _source_ik_begin_body_toe_pin(limb: Dictionary) -> void:
             mesh.transform * box.get_endpoint(corner))
         var in_world: Vector3 = foot_pose * in_foot
         var along: float = in_foot.dot(toe_axis)
-        if in_world.y < bottom - 0.002 or (
-                absf(in_world.y - bottom) <= 0.002 and
-                along > distal):
+        # Select the distal END FACE first, then its underside.
+        # Picking the globally lowest corner can select the toe's
+        # *rear* end and produce a planted "wrist" with floating tip.
+        if along > distal + 0.002 or (
+                absf(along - distal) <= 0.002 and
+                in_world.y < bottom):
             bottom = in_world.y
             distal = along
             chosen = in_foot
@@ -2834,30 +2850,140 @@ func _source_ik_begin_body_toe_pin(limb: Dictionary) -> void:
         foot_pose.basis.get_rotation_quaternion())
     limb["source_ik_body_toe_pin_knee"] = knee_pose
     limb["source_ik_body_toe_pin_active"] = true
+    limb["source_ik_body_toe_pin_start_xz"] = Vector2(
+        anchor.x, anchor.z)
+    limb["source_ik_body_toe_pin_drag_length"] = 0.0
+    limb["source_ik_body_toe_pin_wrist_blend"] = 0.0
+    limb["source_ik_body_toe_pin_last_time"] = NAN
 
 
-## Pin the SAME visible toe-tip corner to WORLD Y=0 and the SAME XZ
-## through the complete BODY restoration. Only TWO skeletal rotations
-## are used. The foot's previous world rotation is also held fixed.
-## The active pole follows the previously solved knee, not the raw
-## Blockbench pose that is reset every frame; no bending-plane snaps.
-func _source_ik_pin_toe_during_body(limb: Dictionary) -> void:
+## Drag the toe on the constant Y=0 plane to the NEAREST reachable
+## horizontal point. In FOOT space a distal tip has a known offset from
+## the ankle; subtract it before constraining hip->ankle reach. This
+## solves the exact two-link max-reach circle intersection analytically:
+## planar_max = sqrt(max(link_reach² - vertical_gap², 0)).
+## It moves only the TOE GOAL, not any mesh or any skeletal pivot.
+static func _source_ik_retract_to_reach(
+        hip: Vector3, toe_goal: Vector3,
+        toe_offset_world: Vector3, max_reach: float) -> Vector3:
+    var desired_ankle: Vector3 = toe_goal - toe_offset_world
+    var vertical: float = desired_ankle.y - hip.y
+    var horizontal_max: float = sqrt(maxf(
+        max_reach * max_reach - vertical * vertical, 0.0))
+    var delta: Vector2 = Vector2(
+        desired_ankle.x - hip.x, desired_ankle.z - hip.z)
+    var planar_length: float = delta.length()
+    if planar_length <= horizontal_max:
+        return toe_goal
+    if planar_length <= 0.000001:
+        return toe_goal
+    var constrained: Vector2 = (
+        Vector2(hip.x, hip.z)
+        + delta * (horizontal_max / planar_length))
+    return Vector3(constrained.x + toe_offset_world.x,
+        toe_goal.y, constrained.y + toe_offset_world.z)
+
+
+## During BODY rise the distal TOE TIP remains 3mm above flat Y=0.
+## At first the XZ point stays fixed. When the two-link chain cannot
+## reach, it is drawn INWARD along the floor toward the effective hip,
+## rather than allowing the toe to float. The knee bend plane uses
+## 82% previous solved pose; the ankle only contributes a limited
+## 18% of a toe-down pivot when approaching full extension.
+## One law-of-cosines solve/frame. No raycast, mesh offset, or loop.
+func _source_ik_pin_toe_during_body(
+        limb: Dictionary, frame: Dictionary) -> void:
     if not bool(limb.get("source_ik_body_toe_pin_active", false)):
         _source_ik_begin_body_toe_pin(limb)
     if not bool(limb.get("source_ik_body_toe_pin_active", false)):
         return
+    var upper: Node3D = limb["upper"]
+    var lower: Node3D = limb["lower"]
+    var foot: Node3D = limb["foot"]
     var target: Vector3 = limb["source_ik_body_toe_pin_anchor"]
+    # Never move the underside tip vertically while it is dragged.
+    target.y = FLOOR_Y + SWEEP_TOE_CLEARANCE_METERS
     var point_local: Vector3 = limb["source_ik_body_toe_pin_local"]
-    var foot_rotation: Quaternion = (
+    var base_rotation: Quaternion = (
         limb["source_ik_body_toe_pin_rotation"])
+    var hip: Vector3 = upper.global_position
+    var knee: Vector3 = lower.global_position
+    var ankle: Vector3 = foot.global_position
+    var upper_len: float = hip.distance_to(knee)
+    var lower_len: float = knee.distance_to(ankle)
+    if upper_len <= 0.0001 or lower_len <= 0.0001:
+        return
+    var usable_reach: float = maxf(
+        upper_len + lower_len
+        - maxf(BODY_TOE_REACH_MARGIN_METERS,
+            IK_REACH_MARGIN_METERS * 2.0),
+        absf(upper_len - lower_len) + IK_REACH_MARGIN_METERS)
+    var foot_scale: Vector3 = foot.global_basis.get_scale()
+    var original_offset: Vector3 = (
+        Basis(base_rotation).scaled(foot_scale) * point_local)
+    var raw_ankle: Vector3 = target - original_offset
+    var original_reach: float = raw_ankle.distance_to(hip)
+    # Wrist flex begins BEFORE extension runs out, helping the joint
+    # remain anatomically plausible while the knee bends to reach.
+    var stress: float = clampf(
+        (original_reach - usable_reach
+            + BODY_TOE_WRIST_PREFLEX_METERS)
+        / BODY_TOE_WRIST_PREFLEX_METERS, 0.0, 1.0)
+    var tip_axis: Vector3 = original_offset
+    var requested_wrist: float = 0.0
+    var toe_down_rotation: Quaternion = base_rotation
+    if tip_axis.length_squared() > 0.000001:
+        var to_down: Quaternion = Quaternion(
+            tip_axis.normalized(), Vector3.DOWN)
+        toe_down_rotation = (to_down * base_rotation).normalized()
+        requested_wrist = stress * BODY_TOE_WRIST_FLEX_INFLUENCE
+    var time: float = float(frame.get("time", 0.0))
+    var last_time: float = float(limb.get(
+        "source_ik_body_toe_pin_last_time", NAN))
+    var elapsed: float = (
+        maxf(time - last_time, 0.0)
+        if is_finite(last_time) else 0.0)
+    var wrist_blend: float = float(limb.get(
+        "source_ik_body_toe_pin_wrist_blend", 0.0))
+    wrist_blend = move_toward(
+        wrist_blend, requested_wrist,
+        BODY_TOE_WRIST_FLEX_RATE_PER_SECOND * elapsed)
+    limb["source_ik_body_toe_pin_wrist_blend"] = wrist_blend
+    limb["source_ik_body_toe_pin_last_time"] = time
+    source_ik_body_toe_wrist_flex_max = maxf(
+        source_ik_body_toe_wrist_flex_max, wrist_blend)
+    var foot_rotation: Quaternion = (
+        base_rotation.slerp(toe_down_rotation, wrist_blend)
+        .normalized())
+    var toe_offset: Vector3 = (
+        Basis(foot_rotation).scaled(foot_scale) * point_local)
+    var reachable_toe: Vector3 = _source_ik_retract_to_reach(
+        hip, target, toe_offset, usable_reach)
+    var slide: float = Vector2(
+        reachable_toe.x - target.x,
+        reachable_toe.z - target.z).length()
+    if slide > 0.00001:
+        # Consume the shortening by dragging toward the torso.
+        # A previously retracted toe never jumps back outward while
+        # the BODY continues rising.
+        source_ik_body_toe_drag_frames += 1
+        target = reachable_toe
+        target.y = FLOOR_Y + SWEEP_TOE_CLEARANCE_METERS
+        limb["source_ik_body_toe_pin_anchor"] = target
+    var home: Vector2 = limb["source_ik_body_toe_pin_start_xz"]
+    var cumulative_slide: float = Vector2(
+        target.x - home.x, target.z - home.y).length()
+    limb["source_ik_body_toe_pin_drag_length"] = cumulative_slide
+    source_ik_body_toe_drag_distance_max = maxf(
+        source_ik_body_toe_drag_distance_max, cumulative_slide)
     var prior_knee: Vector3 = limb["source_ik_body_toe_pin_knee"]
+    var knee_hint: Vector3 = knee.lerp(
+        prior_knee, BODY_TOE_KNEE_POLE_INFLUENCE)
     var error: float = _source_ik_solve_striker(
-        limb, target, foot_rotation, point_local, prior_knee)
-    limb["source_ik_body_toe_pin_knee"] = (
-        limb["lower"] as Node3D).global_position
+        limb, target, foot_rotation, point_local, knee_hint)
+    limb["source_ik_body_toe_pin_knee"] = lower.global_position
     limb["last_error"] = error
-    var toe_tip: Vector3 = (
-        limb["foot"] as Node3D).to_global(point_local)
+    var toe_tip: Vector3 = foot.to_global(point_local)
     var drift: float = toe_tip.distance_to(target)
     source_ik_body_toe_pin_count += 1
     source_ik_body_toe_pin_error_max = maxf(
@@ -2975,6 +3101,9 @@ func initialize_source_ground_ik() -> bool:
     source_ik_body_toe_pin_count = 0
     source_ik_body_toe_pin_error_max = 0.0
     source_ik_body_toe_pin_drift_max = 0.0
+    source_ik_body_toe_drag_distance_max = 0.0
+    source_ik_body_toe_drag_frames = 0
+    source_ik_body_toe_wrist_flex_max = 0.0
     _source_ik_cache_attack_meshes()
     source_ik_last_actor_position = actor.global_position
     for limb in legs:
@@ -3148,7 +3277,7 @@ func _source_ik_advance_attack(frame: Dictionary) -> void:
             if is_body_return:
                 # v446: planted TOE TIP owns a fixed WORLD position.
                 # Never let the upward-moving BODY pull its foot away.
-                _source_ik_pin_toe_during_body(limb)
+                _source_ik_pin_toe_during_body(limb, frame)
             else:
                 # During original attack / slow final leg return keep
                 # v444's lightweight anti-penetration joint correction.
