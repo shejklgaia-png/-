@@ -3,6 +3,10 @@ extends Node3D
 ## looping IDLE/TURN/APPROACH clips. Player's SeraRig is never modified.
 const SOURCE_PATH: String = "res://models/bosses/Bittaran.bbmodel"
 const EMBEDDED = preload("res://assets/bittaran_data.gd")
+const GROUND_CONTACTS = preload("res://assets/bittaran_ground_contacts.gd")
+# All 18 mesh element UUIDs have independent contact windows.
+# These corrections translate only visuals, NEVER animated joints/pivots.
+const GROUND_SNAP_EPSILON_METERS: float = 0.001
 const UNIT: float = 0.145
 const BLEND_SECONDS: float = 0.24
 const PALETTE = [
@@ -18,6 +22,12 @@ var bind_rotations: Dictionary = {}
 var bind_positions: Dictionary = {}
 var animations: Dictionary = {}
 var bone_uuid_by_name: Dictionary = {}
+var mesh_nodes_by_uuid: Dictionary = {}
+var mesh_base_positions_by_uuid: Dictionary = {}
+var mesh_vertices_by_uuid: Dictionary = {}
+var ground_mesh_offsets_by_uuid: Dictionary = {}
+var ground_last_clip: String = ""
+var ground_last_time: float = 0.0
 var attack_entry_rotations: Dictionary = {}
 var active_authored_attack: String = ""
 var authored_leg_id: String = ""
@@ -169,6 +179,15 @@ func _add_entry(entry: Variant, parent: Node3D, parent_origin: Vector3,
         mesh.position = (_v3(element.get("origin", [0, 0, 0])) - parent_origin) * UNIT
         mesh.quaternion = _bb_rotation(_v3(element.get("rotation", [0, 0, 0])))
         parent.add_child(mesh)
+        # Use element UUID, not display name: several head meshes are
+        # all called "mesh". Track real imported local vertices to avoid
+        # false contacts caused by rotating AABB corners.
+        mesh_nodes_by_uuid[entry] = mesh
+        mesh_base_positions_by_uuid[entry] = mesh.position
+        var mesh_vertices := PackedVector3Array()
+        for raw_vertex in (element.get("vertices", {}) as Dictionary).values():
+            mesh_vertices.append(_v3(raw_vertex) * UNIT)
+        mesh_vertices_by_uuid[entry] = mesh_vertices
 
 func _make_mesh(element: Dictionary) -> MeshInstance3D:
     var verts: Dictionary = element.get("vertices", {})
@@ -283,6 +302,7 @@ func _sample_rotation(keys: Array, t: float) -> Quaternion:
 func apply_pose(clip_name: String, t: float) -> void:
     if not animations.has(clip_name):
         return
+    _clear_ground_mesh_offsets()
     var clip: Dictionary = animations[clip_name]
     var duration: float = float(clip.get("length", 0.0))
     var sample_time: float = fposmod(t, duration) if duration > 0.0 else 0.0
@@ -457,6 +477,71 @@ func cancel_authored_attack_for_down() -> bool:
     elapsed = 0.0
     apply_pose("Wait", 0.0)
     return true
+
+
+## Revert the visual-only offsets before every authored/locomotion sample,
+## otherwise offsets from the previous tick would accumulate. IK joints are
+## never moved here, and original mesh rotation remains untouched.
+func _clear_ground_mesh_offsets() -> void:
+    for uid in mesh_nodes_by_uuid.keys():
+        var mesh: MeshInstance3D = mesh_nodes_by_uuid[uid]
+        if is_instance_valid(mesh):
+            mesh.position = mesh_base_positions_by_uuid[uid]
+    ground_mesh_offsets_by_uuid.clear()
+
+
+func _ground_mesh_lowest_world_y(uid: String) -> float:
+    if not mesh_nodes_by_uuid.has(uid):
+        return INF
+    var mesh: MeshInstance3D = mesh_nodes_by_uuid[uid]
+    if not is_instance_valid(mesh):
+        return INF
+    var vertices: PackedVector3Array = mesh_vertices_by_uuid.get(
+        uid, PackedVector3Array())
+    var lowest: float = INF
+    for vertex in vertices:
+        lowest = minf(lowest, mesh.to_global(vertex).y)
+    return lowest
+
+
+## Apply contact intervals baked from every authored Blockbench key and
+## 120Hz in-between samples. A mesh is snapped only during its authored
+## Y <= 0.025 interval; airborne meshes are left wholly uncorrected.
+## This is the LAST mesh-visual stage after leg IK and live head tracking.
+## Contact changes only mesh.global_position.y, not pivots, bone rotations,
+## Body/attack timelines, limb lengths, or the authored clip.
+func apply_blockbench_ground_contacts(clip_name: String, seconds: float) -> void:
+    _clear_ground_mesh_offsets()
+    ground_last_clip = clip_name
+    ground_last_time = seconds
+    var catalog: Dictionary = GROUND_CONTACTS.DATA.get("clips", {})
+    if not catalog.has(clip_name):
+        return
+    var record: Dictionary = catalog[clip_name]
+    var duration: float = float(record.get("length", 0.0))
+    var t: float = clampf(seconds, 0.0, duration)
+    var meshes: Dictionary = record.get("meshes", {})
+    for uid in meshes.keys():
+        if not mesh_nodes_by_uuid.has(uid):
+            continue
+        var active: bool = false
+        for window in meshes[uid]:
+            if t >= float(window[0]) - 0.00001 and (
+                    t <= float(window[1]) + 0.00001):
+                active = true
+                break
+        if not active:
+            continue
+        var mesh: MeshInstance3D = mesh_nodes_by_uuid[uid]
+        var bottom: float = _ground_mesh_lowest_world_y(str(uid))
+        if not is_finite(bottom):
+            continue
+        var distance: float = -bottom
+        if absf(distance) <= GROUND_SNAP_EPSILON_METERS:
+            ground_mesh_offsets_by_uuid[uid] = 0.0
+            continue
+        mesh.global_position += Vector3.UP * distance
+        ground_mesh_offsets_by_uuid[uid] = distance
 
 
 func _authored_key_rotation(clip_name: String,
@@ -1056,6 +1141,7 @@ func _apply_front_test_attack(frame: Dictionary) -> void:
 func apply_original_attack_only(frame: Dictionary) -> void:
     if not loading_ok or frame.is_empty():
         return
+    _clear_ground_mesh_offsets()
     var leg_id: String = str(frame.get("id", ""))
     var kind: String = str(frame.get("kind", ""))
     if not ["leg_fl", "leg_fr"].has(leg_id):
