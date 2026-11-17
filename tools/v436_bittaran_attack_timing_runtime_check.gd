@@ -6,9 +6,7 @@ extends SceneTree
 const DIRECTOR = preload("res://scripts/bittaran_attacks.gd")
 const RIG = preload("res://scripts/bittaran_rig.gd")
 const ENTRY: float = 0.32
-const LIFT: float = 0.34
-const LAND: float = 0.46
-const LEG_RETURN: float = LIFT + LAND
+const LEG_RETURN: float = 1.20
 const BODY_RETURN: float = 0.62
 const JOINTS: Array[String] = [
     "Body",
@@ -80,30 +78,16 @@ func _expected_phase_pose(rig: Node3D, name: String,
                 "FrontFoot" + suffix
             ]
             if attacking_bones.has(bone_name):
+                # The attacking joint stays at its source endpoint
+                # while BODY returns; then goes directly to neutral.
                 if phase_t <= body_seconds:
-                    # Source limb cannot lift until Body reaches Wait.
                     expected_q = original_q
                     expected_p = original_p
                 else:
-                    var stomp_clip: String = (
-                        "踏みつけ_R" if leg_id == "leg_fr"
-                        else "踏みつけ_L")
-                    var lift_q: Quaternion = rig.call(
-                        "_authored_key_rotation", stomp_clip,
-                        bone_name, 1.0)
-                    var lift_p: Vector3 = rig.call(
-                        "_authored_key_position", stomp_clip,
-                        bone_name, 1.0)
-                    var leg_t: float = phase_t - body_seconds
-                    if leg_t <= LIFT:
-                        var rise: float = _ease(leg_t / LIFT)
-                        expected_q = original_q.slerp(lift_q, rise)
-                        expected_p = original_p.lerp(lift_p, rise)
-                    else:
-                        var plant: float = _ease(
-                            (leg_t - LIFT) / LAND)
-                        expected_q = lift_q.slerp(neutral_q, plant)
-                        expected_p = lift_p.lerp(neutral_p, plant)
+                    var weight: float = _ease(
+                        (phase_t - body_seconds) / LEG_RETURN)
+                    expected_q = original_q.slerp(neutral_q, weight)
+                    expected_p = original_p.lerp(neutral_p, weight)
             else:
                 var weight: float = _ease(phase_t / body_seconds)
                 expected_q = original_q.slerp(neutral_q, weight)
@@ -122,35 +106,48 @@ func _run() -> void:
             and _same(DIRECTOR.SOURCE_BODY_RETURN_SECONDS, BODY_RETURN)):
         _die("entry or limb-then-Body timing changed")
         return
-    # v441: full sweep is 1.00x, no intermediate 0.20x slowdown.
+    # v443: 1.00s entrance, whole outward sweep takes 2.00s,
+    # the turning source key t=.50 occurs at attack t=3.00.
+    # No localized mid-sweep slow segment and no stomp lift waypoint.
     if not (_same(DIRECTOR.SWEEP_ENTRY_SECONDS, 1.0)
             and _same(DIRECTOR.source_entry_seconds("sweep"), 1.0)
             and _same(DIRECTOR.source_entry_seconds("kick"), ENTRY)
             and _same(DIRECTOR.source_entry_seconds("stomp"), ENTRY)
-            and _same(DIRECTOR.source_play_seconds("sweep"), 1.5)
+            and _same(DIRECTOR.SWEEP_OUTBOUND_REAL_SECONDS, 2.0)
+            and _same(DIRECTOR.SWEEP_OUTBOUND_SPEED, 0.25)
+            and _same(DIRECTOR.SWEEP_OUTBOUND_TARGET_TOTAL_SECONDS, 3.0)
+            and _same(DIRECTOR.source_play_seconds("sweep"), 3.0)
             and _same(DIRECTOR.source_body_return_seconds("sweep"), 1.4)
             and _same(DIRECTOR.source_body_return_seconds("kick"), 0.62)
             and _same(DIRECTOR.source_body_return_seconds("stomp"), 0.62)
-            and _same(DIRECTOR.source_total_seconds("sweep"), 4.7)
-            and _same(DIRECTOR.SOURCE_LEG_LIFT_SECONDS, LIFT)
-            and _same(DIRECTOR.SOURCE_LEG_LAND_SECONDS, LAND)
-            and _same(LEG_RETURN, 0.8)):
-        _die("v442 body-first then lift/plant return timing changed")
+            and _same(DIRECTOR.source_total_seconds("sweep"), 6.6)
+            and _same(DIRECTOR.SOURCE_LEG_RETURN_SECONDS, LEG_RETURN)):
+        _die("v443 sweep outward or direct leg-return timings invalid")
         return
-    for t in [0.0, 0.125, 0.25, 0.36, 0.50,
-            0.75, 1.0, 1.25, 1.5]:
-        if not (_same(DIRECTOR.sweep_clip_time_at(t), t)
-                and _same(DIRECTOR.source_clip_time("sweep", t), t)
-                and _same(DIRECTOR.source_playback_speed(
-                    "sweep", t), 1.0)):
-            _die("sweep is no longer 1.0x at source t=" + str(t))
+    for pair in [[0.0, 0.0], [0.5, 0.125], [1.0, 0.25],
+            [1.5, 0.375], [2.0, 0.5], [2.25, 0.75],
+            [2.75, 1.25], [3.0, 1.5]]:
+        var time: float = float(pair[0])
+        var expected_source: float = float(pair[1])
+        if not (_same(DIRECTOR.sweep_clip_time_at(time),
+                expected_source)
+                and _same(DIRECTOR.source_clip_time("sweep", time),
+                    expected_source)):
+            _die("outbound 3.00s source clock incorrect " + str(pair))
+            return
+    for t in [0.0, 0.1, 0.5, 1.0, 1.5, 1.999, 2.0, 2.75]:
+        var expected_speed: float = (
+            0.25 if t < 2.0 else 1.0)
+        if not _same(DIRECTOR.source_playback_speed("sweep", t),
+                expected_speed):
+            _die("sweep outward/return rate incorrect " + str(t))
             return
     for kind in ["stomp", "kick", "sweep"]:
         if not _same(
                 DIRECTOR.source_return_seconds(kind),
-                DIRECTOR.source_body_return_seconds(kind) +
-                LEG_RETURN):
-            _die("body-first recovery duration invalid " + kind)
+                DIRECTOR.source_body_return_seconds(kind)
+                + LEG_RETURN):
+            _die("body-first direct leg return invalid " + kind)
             return
     if not _same(DIRECTOR.source_hold_seconds("stomp"), 1.5) or not (
             _same(DIRECTOR.source_hold_seconds("kick"), 1.5)
@@ -193,18 +190,19 @@ func _run() -> void:
             total
         ]
         if kind == "sweep":
-            samples.append(attack_entry + 0.25)
             samples.append(attack_entry + 0.50)
             samples.append(attack_entry + 1.00)
+            samples.append(attack_entry + 1.50)
+            samples.append(attack_entry + 2.00)
+            samples.append(attack_entry + 2.50)
         else:
             samples.append(play_end + 0.75)
-        # Stage 1 restores BODY; stage 2 may lift only afterwards.
-        # Confirm the matching stomp raised pose and Wait endpoint.
+        # BODY first, then smooth directly to Wait with no intermediary.
         samples.append(hold_end + body_seconds * 0.5)
         samples.append(hold_end + body_seconds)
-        samples.append(hold_end + body_seconds + LIFT * 0.5)
-        samples.append(hold_end + body_seconds + LIFT)
-        samples.append(hold_end + body_seconds + LIFT + LAND * 0.5)
+        samples.append(hold_end + body_seconds + LEG_RETURN * 0.25)
+        samples.append(hold_end + body_seconds + LEG_RETURN * 0.5)
+        samples.append(hold_end + body_seconds + LEG_RETURN * 0.75)
         samples.append(hold_end + body_seconds + LEG_RETURN)
         samples.sort()
         var last: float = 0.0
@@ -222,13 +220,10 @@ func _run() -> void:
             if str(frame.get("phase", "")) == "recovery":
                 var recovery_time: float = float(
                     frame["phase_elapsed"])
-                var expected_stage: String = "body"
-                if recovery_time >= body_seconds + LIFT:
-                    expected_stage = "plant"
-                elif recovery_time >= body_seconds:
-                    expected_stage = "lift"
+                var expected_stage: String = (
+                    "body" if recovery_time < body_seconds else "leg")
                 if str(frame.get("recovery_stage", "")) != expected_stage:
-                    _die("recovery order must be Body -> lift -> plant " +
+                    _die("recovery order must be Body -> direct Wait " +
                         str([name, recovery_time,
                         frame.get("recovery_stage"), expected_stage]))
                     return
@@ -243,8 +238,12 @@ func _run() -> void:
                 return
             if kind == "sweep" and at >= attack_entry and (
                     at < play_end):
-                if not _same(float(frame["authored_playback_speed"]), 1.0):
-                    _die("sweep slowed unexpectedly at " + str(at))
+                var t: float = at - attack_entry
+                var expected_speed: float = (
+                    0.25 if t < 2.0 else 1.0)
+                if not _same(float(frame["authored_playback_speed"]),
+                        expected_speed):
+                    _die("sweep source clock speed drift " + str(at))
                     return
             if at >= play_end and not _same(
                     float(frame["authored_playback_speed"]), 0.0):
@@ -268,10 +267,11 @@ func _run() -> void:
         "six_clips=6 cases=", checked,
         " source_euler_keys=preserved",
         " sweep_entry=1.00sec",
-        " sweep_outbound_end=1.50sec",
-        " sweep_rate=1.0x_no_slow",
+        " sweep_outbound_end=3.00sec",
+        " sweep_outbound_uniform_0.25x_no_mid_slow",
+        " sweep_return_speed=1.0x",
         " kick_stomp_hold=1.5sec",
-        " recovery_order=Body_then_lift_then_plant",
+        " recovery_order=Body_then_direct_Wait",
         " body=sweep_1.40s_or_kick_stomp_0.62s",
-        " leg_lift=0.34s_plant=0.46s")
+        " leg_return=1.20s")
     quit(0)
