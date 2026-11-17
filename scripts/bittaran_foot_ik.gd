@@ -3705,9 +3705,16 @@ func _source_ik_return_attacker_to_home(
         limb["source_ik_leg_return_at_home"] = false
     var duration: float = maxf(
         float(frame.get("leg_return_seconds", 1.20)), 0.001)
+    var parallel: bool = bool(
+        frame.get("parallel_recovery", false))
+    # v463: both the body and the returning toe use the same
+    # phase_elapsed origin in parallel mode. Sequential retains the
+    # old BODY-first offset without any change to its keyframe curve.
+    var start_delay: float = (
+        0.0 if parallel else float(
+            frame.get("body_return_seconds", 0.62)))
     var seconds: float = maxf(
-        float(frame.get("phase_elapsed", 0.0))
-        - float(frame.get("body_return_seconds", 0.62)), 0.0)
+        float(frame.get("phase_elapsed", 0.0)) - start_delay, 0.0)
     var u: float = clampf(seconds / duration, 0.0, 1.0)
     # Quintic easing: both position and velocity meet the starting
     # planted foot and the ending basic stance without a jerk.
@@ -3800,12 +3807,23 @@ func _source_ik_advance_attack(frame: Dictionary) -> void:
     # very last tick then dropping IK caused the visible pause/snap.
     var support_wait_weight: float = 0.0
     if str(frame.get("phase", "")) == "recovery" and (
-            str(frame.get("recovery_stage", "")) == "leg"):
+            ["leg", "parallel"].has(str(
+            frame.get("recovery_stage", "")))):
+        var simultaneous: bool = bool(
+            frame.get("parallel_recovery", false))
+        var recovery_delay: float = (
+            0.0 if simultaneous else float(
+                frame.get("body_return_seconds", 0.62)))
         var support_elapsed: float = maxf(
             float(frame.get("phase_elapsed", 0.0))
-            - float(frame.get("body_return_seconds", 0.62)), 0.0)
+            - recovery_delay, 0.0)
+        # Support feet transition to Wait over the WHOLE combined
+        # recovery period; unlike the attacking leg they must not
+        # snap when the shorter timeline finishes early.
         var support_duration: float = maxf(
-            float(frame.get("leg_return_seconds", 1.20)), 0.001)
+            float(frame.get("recovery", 1.20)) if simultaneous
+            else float(frame.get("leg_return_seconds", 1.20)),
+            0.001)
         var support_t: float = clampf(
             support_elapsed / support_duration, 0.0, 1.0)
         support_wait_weight = support_t * support_t * support_t * (
@@ -3822,9 +3840,12 @@ func _source_ik_advance_attack(frame: Dictionary) -> void:
                 # Never let the upward-moving BODY pull its foot away.
                 _source_ik_pin_toe_during_body(limb, frame)
             elif str(frame.get("phase", "")) == "recovery" and (
-                    str(frame.get("recovery_stage", "")) == "leg"):
-                # v457: target the baseline Wait foot WORLD coordinate.
-                # Solve the actual toe, not just the three joint angles.
+                    ["leg", "parallel"].has(str(
+                    frame.get("recovery_stage", "")))):
+                # v463: solve a continuously moving toe goal toward
+                # Wait while the BODY rises at the same time.
+                # At t=0 the goal is the PREVIOUS rendered foot world
+                # position. No hard switch to an ungrounded keyframe.
                 _source_ik_return_attacker_to_home(limb, frame)
             else:
                 # Strikes/holds retain the authored IK floor correction.
@@ -3919,13 +3940,18 @@ func _source_ik_advance_attack(frame: Dictionary) -> void:
             actor != null and actor.has_method(
             "remember_grounded_source_wait_handoff")):
         actor.call("remember_grounded_source_wait_handoff")
-    # Handoff must run AFTER all IK and before battle.set_motion(Idle)
-    # overwrites this frame's solved skeletal rotations. Otherwise
-    # the arm starts recovery from ungrounded Idle and visibly snaps.
-    if str(frame.get("phase", "")) == "recovery" and (
-            str(frame.get("recovery_stage", "")) == "body") and (
-            actor != null and actor.has_method(
-            "remember_source_body_grounded_limb")):
+    # Preserve the LAST displayed attack-leg joint locals for both
+    # recovery modes. In sequential mode BODY toe pinning is the
+    # source; parallel mode uses the last strike/hold frame, because
+    # BODY and toe return begin on the same physics tick.
+    var phase: String = str(frame.get("phase", ""))
+    var stage: String = str(frame.get("recovery_stage", ""))
+    var capture_return_start: bool = (
+        (phase == "recovery" and stage == "body") or (
+        bool(frame.get("parallel_recovery", false))
+        and ["strike", "hold"].has(phase)))
+    if capture_return_start and actor != null and (
+            actor.has_method("remember_source_body_grounded_limb")):
         actor.call("remember_source_body_grounded_limb", attack_id)
 
 
