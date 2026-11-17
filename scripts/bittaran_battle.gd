@@ -1349,7 +1349,8 @@ func _finalize_target_pose(delta: float) -> void:
     if bittaran_dirt_fx != null and bittaran_foot_ik != null:
         var contact: Vector3 = bittaran_foot_ik.call("attack_contact_world")
         if bittaran_attack_frame.is_empty() or bool(
-                bittaran_attack_frame.get("stance_prepare", false)):
+                bittaran_attack_frame.get("stance_prepare", false)) or bool(
+                bittaran_attack_frame.get("original_attack_only", false)):
             bittaran_dirt_fx.call("advance_attack", {}, Vector3.ZERO,
                 Vector3.ZERO, delta)
             attack_contact_initialized = false
