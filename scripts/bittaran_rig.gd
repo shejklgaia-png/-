@@ -230,18 +230,55 @@ func _key_rotation(key: Dictionary) -> Quaternion:
     return _bb_rotation(Vector3(float(p.get("x", 0)), float(p.get("y", 0)),
         float(p.get("z", 0))))
 
-func _sample_rotation(keys: Array, t: float) -> Quaternion:
-    if keys.is_empty():
-        return Quaternion.IDENTITY
-    if t <= float(keys[0].get("time", 0)):
-        return _key_rotation(keys[0])
-    for i in range(1, keys.size()):
-        var end: float = float(keys[i].get("time", 0))
+## Blockbench stores rotation and position keys in the SAME animator
+## array. Sampling them together misreads a Body position as rotation
+## (notably the new Wait/STOMP Y keys in the 17:21 source).
+func _channel_keys(keys: Array, channel: String) -> Array:
+    var selected: Array = []
+    for key in keys:
+        if str(key.get("channel", "rotation")) == channel:
+            selected.append(key)
+    return selected
+
+func _key_position(key: Dictionary) -> Vector3:
+    var points: Array = key.get("data_points", [])
+    if points.is_empty():
+        return Vector3.ZERO
+    var p: Dictionary = points[0]
+    return Vector3(float(p.get("x", 0)), float(p.get("y", 0)),
+        float(p.get("z", 0))) * UNIT
+
+func _sample_position(keys: Array, t: float) -> Vector3:
+    var positions: Array = _channel_keys(keys, "position")
+    if positions.is_empty():
+        return Vector3.ZERO
+    if t <= float(positions[0].get("time", 0)):
+        return _key_position(positions[0])
+    for i in range(1, positions.size()):
+        var end: float = float(positions[i].get("time", 0))
         if t <= end:
-            var start: float = float(keys[i - 1].get("time", 0))
-            var alpha: float = clampf((t - start) / maxf(end - start, 0.0001), 0.0, 1.0)
-            return _key_rotation(keys[i - 1]).slerp(_key_rotation(keys[i]), alpha)
-    return _key_rotation(keys[keys.size() - 1])
+            var start: float = float(positions[i - 1].get("time", 0))
+            var alpha: float = clampf(
+                (t - start) / maxf(end - start, 0.0001), 0.0, 1.0)
+            return _key_position(positions[i - 1]).lerp(
+                _key_position(positions[i]), alpha)
+    return _key_position(positions[positions.size() - 1])
+
+func _sample_rotation(keys: Array, t: float) -> Quaternion:
+    var rotations: Array = _channel_keys(keys, "rotation")
+    if rotations.is_empty():
+        return Quaternion.IDENTITY
+    if t <= float(rotations[0].get("time", 0)):
+        return _key_rotation(rotations[0])
+    for i in range(1, rotations.size()):
+        var end: float = float(rotations[i].get("time", 0))
+        if t <= end:
+            var start: float = float(rotations[i - 1].get("time", 0))
+            var alpha: float = clampf(
+                (t - start) / maxf(end - start, 0.0001), 0.0, 1.0)
+            return _key_rotation(rotations[i - 1]).slerp(
+                _key_rotation(rotations[i]), alpha)
+    return _key_rotation(rotations[rotations.size() - 1])
 
 func apply_pose(clip_name: String, t: float) -> void:
     if not animations.has(clip_name):
@@ -257,7 +294,11 @@ func apply_pose(clip_name: String, t: float) -> void:
             # was translated globally by IK near the floor in previous
             # frames; restore its exact authored LOCAL pivot before the
             # next clip sample to prevent permanent bone length drift.
-            joint.position = bind_positions[uid]
+            var position_offset: Vector3 = Vector3.ZERO
+            if tracks.has(uid):
+                position_offset = _sample_position(
+                    tracks[uid].get("keyframes", []), sample_time)
+            joint.position = (bind_positions[uid] as Vector3) + position_offset
         if joint.name == "Head":
             # NEVER write HEAD here. The tracking controller owns its
             # rotation continuously across Idle, Turn, Approach, attack,
@@ -418,6 +459,21 @@ func _authored_key_rotation(clip_name: String,
     if keys.is_empty():
         return bind
     return (bind * _sample_rotation(keys, seconds)).normalized()
+
+
+func _authored_key_position(clip_name: String,
+        bone_name: String, seconds: float) -> Vector3:
+    var uid: String = str(bone_uuid_by_name.get(bone_name, ""))
+    if uid.is_empty():
+        return Vector3.ZERO
+    var position: Vector3 = bind_positions.get(uid, Vector3.ZERO)
+    if not animations.has(clip_name):
+        return position
+    var clip: Dictionary = animations[clip_name]
+    var track: Dictionary = (clip.get("animators", {}) as Dictionary).get(
+        uid, {})
+    return position + _sample_position(
+        track.get("keyframes", []), seconds)
 
 
 func _mirror_author_delta(delta: Quaternion, target_id: String) -> Quaternion:
@@ -1005,11 +1061,13 @@ func apply_original_attack_only(frame: Dictionary) -> void:
         var joint: Node3D = bones[uid]
         if joint.name == "Head":
             continue
-        joint.position = bind_positions[uid]
+        var keys: Array = (
+            tracks[uid].get("keyframes", []) if tracks.has(uid) else [])
+        joint.position = (bind_positions[uid] as Vector3) + (
+            _sample_position(keys, t))
         var sampled: Quaternion = bind_rotations[uid]
         if tracks.has(uid):
-            sampled = (sampled * _sample_rotation(
-                tracks[uid].get("keyframes", []), t)).normalized()
+            sampled = (sampled * _sample_rotation(keys, t)).normalized()
         joint.quaternion = sampled.normalized()
 
 
