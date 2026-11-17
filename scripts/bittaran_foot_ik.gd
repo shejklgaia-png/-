@@ -2596,6 +2596,13 @@ var source_ik_replant_elapsed: float = 0.0
 # world-space foot coordinate. A small pole-only handoff then joins
 # the ordinary locomotion IK, without a second leg-replant animation.
 const SOURCE_LEG_HOME_HANDOFF_SECONDS: float = 0.30
+# v458: toward the end of the authored leg return, yield control of
+# the three LOCAL joints to the exact Blockbench Wait pose. Earlier
+# IK kept a displaced/rolled knee even at return t=1.
+const SOURCE_LEG_WAIT_RESTORE_BEGIN: float = 0.55
+const SOURCE_LEG_WAIT_LOCOMOTION_BLEND_SECONDS: float = 0.35
+var source_ik_wait_restored_id: String = ""
+var source_ik_wait_locomotion_blend: float = 0.0
 var source_ik_home_handoff_id: String = ""
 var source_ik_home_handoff_elapsed: float = 0.0
 var source_ik_unreachable_supports: int = 0
@@ -3170,6 +3177,8 @@ func initialize_source_ground_ik() -> bool:
     source_ik_step_elapsed = 0.0
     source_ik_replant_id = ""
     source_ik_replant_elapsed = 0.0
+    source_ik_wait_restored_id = ""
+    source_ik_wait_locomotion_blend = 0.0
     source_ik_home_handoff_id = ""
     source_ik_home_handoff_elapsed = 0.0
     source_ik_unreachable_supports = 0
@@ -3447,6 +3456,14 @@ func _source_ik_return_attacker_to_home(
     var from_goal: Vector3 = limb["source_ik_leg_return_from"]
     var neutral_goal: Vector3 = _source_ik_home(limb)
     var goal: Vector3 = from_goal.lerp(neutral_goal, ease)
+    # Rig.apply_original_attack_only() already produced the exact
+    # THREE-joint Wait-local interpolation for this frame. Save those
+    # rotations before the foot IK overrides them, then smoothly
+    # reduce the solver's influence over the final 45% of leg return.
+    var upper: Node3D = limb["upper"]
+    var wait_upper: Quaternion = upper.quaternion
+    var wait_lower: Quaternion = lower.quaternion
+    var wait_foot: Quaternion = foot.quaternion
     var start_rotation: Quaternion = (
         limb["source_ik_leg_return_rotation"])
     var neutral_rotation: Quaternion = (
@@ -3457,14 +3474,23 @@ func _source_ik_return_attacker_to_home(
     var error: float = _source_ik_solve_striker(
         limb, goal, rotation, limb["sole_local"], knee_hint)
     limb["source_ik_leg_return_knee"] = lower.global_position
-    limb["last_error"] = error
+    var restore_t: float = clampf(
+        (u - SOURCE_LEG_WAIT_RESTORE_BEGIN)
+        / (1.0 - SOURCE_LEG_WAIT_RESTORE_BEGIN), 0.0, 1.0)
+    var restore_weight: float = restore_t * restore_t * restore_t * (
+        restore_t * (restore_t * 6.0 - 15.0) + 10.0)
+    upper.quaternion = upper.quaternion.slerp(
+        wait_upper, restore_weight).normalized()
+    lower.quaternion = lower.quaternion.slerp(
+        wait_lower, restore_weight).normalized()
+    foot.quaternion = foot.quaternion.slerp(
+        wait_foot, restore_weight).normalized()
+    # At u=1 all three bone rotations AND their source positions are
+    # EXACTLY Wait. Never mark home using IK reach error alone: its
+    # target was a grounded toe while Wait also defines the knee angle.
     limb["source_ik_leg_return_at_home"] = (
-        u >= 1.0 - 0.000001 and is_finite(error)
-        and error <= 0.08)
-    # A leg that physically cannot reach the Wait end-effector
-    # must use the legacy safe replant rather than be marked homed.
-    # At the last frame both the toe goal and its angle coincide
-    # with the normal gait solver's neutral planted stance.
+        u >= 1.0 - 0.000001)
+    limb["last_error"] = error
 
 
 ## v440: preserve the authored Body and mesh attachment sampled by
@@ -3487,6 +3513,8 @@ func _source_ik_advance_attack(frame: Dictionary) -> void:
         source_ik_replant_id = ""
         source_ik_home_handoff_id = ""
         source_ik_home_handoff_elapsed = 0.0
+        source_ik_wait_restored_id = ""
+        source_ik_wait_locomotion_blend = 0.0
         for index in range(legs.size()):
             var limb: Dictionary = legs[index]
             limb["stepping"] = false
