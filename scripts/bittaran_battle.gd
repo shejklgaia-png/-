@@ -1348,6 +1348,45 @@ func _physics_process(delta: float) -> void:
     _tick_bittaran_footfalls()
     _update_bittaran_lock_permissions()
 
+## Read the actual authored striking foot after source replay + support IK.
+## The legacy attack_contact_world() is empty in source-only attacks because
+## that path does not set the old procedural attack_pose.
+func _bittaran_original_attack_contact(leg_id: String) -> Vector3:
+    if bittaran_foot_ik == null:
+        return Vector3.ZERO
+    var index: int = BittaranFootIK.LEG_PART_IDS.find(leg_id)
+    var legs: Array = bittaran_foot_ik.get("legs")
+    if index < 0 or index >= legs.size():
+        return Vector3.ZERO
+    var foot: Node3D = legs[index].get("foot", null) as Node3D
+    if foot == null:
+        return Vector3.ZERO
+    var first: bool = true
+    var low: Vector3 = Vector3.ZERO
+    var high: Vector3 = Vector3.ZERO
+    for child in foot.get_children():
+        if not child is MeshInstance3D:
+            continue
+        var mesh_node: MeshInstance3D = child as MeshInstance3D
+        if mesh_node.mesh == null:
+            continue
+        var bounds: AABB = mesh_node.mesh.get_aabb()
+        for vertex_index in range(8):
+            var vertex: Vector3 = mesh_node.to_global(
+                bounds.get_endpoint(vertex_index))
+            if first:
+                low = vertex
+                high = vertex
+                first = false
+            else:
+                low = low.min(vertex)
+                high = high.max(vertex)
+    if first:
+        return foot.global_position
+    return Vector3(
+        (low.x + high.x) * 0.5, low.y, (low.z + high.z) * 0.5)
+
+
 func _finalize_target_pose(delta: float) -> void:
     # v434 is a strict staging phase. Source animation runs on the 14-joint
     # hierarchy without ANY subsequent IK/head/body/contact correction.
@@ -1403,18 +1442,59 @@ func _finalize_target_pose(delta: float) -> void:
     _push_player_out_of_downed_body(delta)
     _check_bittaran_attack_hit()
     if bittaran_dirt_fx != null and bittaran_foot_ik != null:
-        var contact: Vector3 = bittaran_foot_ik.call("attack_contact_world")
+        var original: bool = bool(bittaran_attack_frame.get(
+            "original_attack_only", false))
         if bittaran_attack_frame.is_empty() or bool(
-                bittaran_attack_frame.get("stance_prepare", false)) or bool(
-                bittaran_attack_frame.get("original_attack_only", false)):
+                bittaran_attack_frame.get("stance_prepare", false)):
             bittaran_dirt_fx.call("advance_attack", {}, Vector3.ZERO,
                 Vector3.ZERO, delta)
             attack_contact_initialized = false
         else:
-            var previous: Vector3 = (last_attack_contact
-                if attack_contact_initialized else contact)
+            # Original replay has no legacy attack_pose. Sample the real
+            # striking foot mesh, never the default Vector3.ZERO contact.
+            var contact: Vector3 = (
+                _bittaran_original_attack_contact(str(
+                    bittaran_attack_frame.get("id", ""))) if original
+                else bittaran_foot_ik.call("attack_contact_world"))
+            var previous: Vector3 = (
+                last_attack_contact if attack_contact_initialized else contact)
+            var had_kick: bool = bool(bittaran_dirt_fx.get(
+                "kicked_this_attack"))
+            var had_sweep: bool = bool(bittaran_dirt_fx.get("sweep_active"))
             bittaran_dirt_fx.call("advance_attack",
                 bittaran_attack_frame, contact, previous, delta)
+            if original and target_hp > 0:
+                var kind: String = str(bittaran_attack_frame.get("kind", ""))
+                if kind == "stomp" and not bool(bittaran_dirt_fx.get(
+                        "stomped_this_attack")) and (
+                        ["strike", "hold"].has(str(
+                        bittaran_attack_frame.get("phase", "")))) and (
+                        float(bittaran_attack_frame.get(
+                        "authored_time", 0.0)) >= 1.50):
+                    # The original stomp foot drops at clip t=1.375..1.50.
+                    # Reuse the v401/v402 single contact ring, particles,
+                    # thud and distance-scaled camera shake once per attack.
+                    bittaran_dirt_fx.set("stomped_this_attack", true)
+                    if target_parts != null:
+                        var shin: AABB = target_parts.call(
+                            "get_part_aabb", str(bittaran_attack_frame.get(
+                            "id", "")))
+                        var half_size := Vector2(
+                            maxf(shin.size.x * 0.75, 0.01),
+                            maxf(shin.size.z * 0.75, 0.01))
+                        _emit_bittaran_shockwave(contact, half_size)
+                elif kind == "kick" and not had_kick and bool(
+                        bittaran_dirt_fx.get("kicked_this_attack")):
+                    # The old ground-kick particles and hit jolt now fire
+                    # on the actual authored foot's first outward motion.
+                    _add_impact_shake(0.16)
+                    _play_bittaran_thud(contact, 1.5, -10.0)
+                elif kind == "sweep" and not had_sweep and bool(
+                        bittaran_dirt_fx.get("sweep_active")):
+                    # The ground-scraping dust trail stays active only
+                    # during the source strike; the initial jolt is once.
+                    _add_impact_shake(0.19)
+                    _play_bittaran_thud(contact, 1.25, -9.0)
             last_attack_contact = contact
             attack_contact_initialized = true
     _update_bittaran_lock_permissions()
