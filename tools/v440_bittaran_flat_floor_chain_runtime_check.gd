@@ -40,6 +40,22 @@ func _brute_min_y(limb: Dictionary, rig: Node3D) -> float:
             lowest = minf(lowest, piece.to_global(pt).y)
     return lowest
 
+# Independent mesh-vertex reference for the sweep TOE only.
+func _brute_toe_min_y(limb: Dictionary, rig: Node3D) -> float:
+    var pieces: Dictionary = rig.get("mesh_nodes_by_uuid")
+    var vertices: Dictionary = rig.get("mesh_vertices_by_uuid")
+    var lowest: float = INF
+    for uid in pieces.keys():
+        var piece: MeshInstance3D = pieces[uid]
+        if piece.get_parent() != limb["foot"]:
+            continue
+        var points: PackedVector3Array = vertices.get(
+            uid, PackedVector3Array())
+        for point in points:
+            lowest = minf(lowest, piece.to_global(point).y)
+    return lowest
+
+
 func _joint_chain_lengths(limb: Dictionary) -> Vector2:
     var upper: Node3D = limb["upper"]
     var lower: Node3D = limb["lower"]
@@ -90,6 +106,10 @@ func _run() -> void:
     var contact_corrections: int = 0
     var verified_extrema: int = 0
     var max_residual_penetration: float = 0.0
+    var sweep_toe_samples: int = 0
+    var sweep_toe_reached: int = 0
+    var sweep_toe_unreachable: int = 0
+    var worst_sweep_toe_y: float = INF
     for name in SOURCE_CLIPS.keys():
         rig.call("apply_pose", "Wait", 0.0)
         if not bool(ik.call("initialize_source_ground_ik")):
@@ -108,6 +128,16 @@ func _run() -> void:
             var source_t: float = duration * float(i) / 60.0
             rig.call("apply_source_clip_exact", name, source_t)
             var before_bottom: float = _brute_min_y(attacker, rig)
+            if kind == "sweep":
+                var initial_toe_box: float = float(ik.call(
+                    "_source_ik_sweep_toe_lowest_world_y", attacker))
+                var initial_toe_verts: float = _brute_toe_min_y(
+                    attacker, rig)
+                if absf(initial_toe_box - initial_toe_verts) > 0.001:
+                    _fail("toe analytic cuboid is not geometrically exact " +
+                        str([name, source_t, initial_toe_box,
+                        initial_toe_verts]))
+                    return
             var length_before: Vector2 = (
                 _joint_chain_lengths(attacker))
             var before_local_positions: Dictionary = {}
@@ -144,6 +174,29 @@ func _run() -> void:
             if not is_finite(actual_bottom):
                 _fail("non-finite floor state " + name)
                 return
+            if kind == "sweep":
+                var toe_y: float = float(ik.call(
+                    "_source_ik_sweep_toe_lowest_world_y", attacker))
+                var vertex_y: float = _brute_toe_min_y(attacker, rig)
+                if absf(toe_y - vertex_y) > 0.001:
+                    _fail("sweep toe cuboid diverged from mesh vertices " +
+                        str([name, source_t, toe_y, vertex_y]))
+                    return
+                sweep_toe_samples += 1
+                worst_sweep_toe_y = minf(worst_sweep_toe_y, toe_y)
+                # Bone lengths have hard anatomical reach limits.
+                # An otherwise REACHABLE toe must never bury in Y=0;
+                # unreachable samples are diagnosed, not misreported.
+                if toe_y < -0.005:
+                    var error: float = float(attacker.get(
+                        "last_error", 0.0))
+                    if error < 0.012:
+                        _fail("reachable sweep toe buried underground " +
+                            str([name, source_t, toe_y, error]))
+                        return
+                    sweep_toe_unreachable += 1
+                else:
+                    sweep_toe_reached += 1
             max_residual_penetration = maxf(max_residual_penetration,
                 maxf(-actual_bottom, 0.0))
             var length_after: Vector2 = _joint_chain_lengths(attacker)
@@ -169,13 +222,19 @@ func _run() -> void:
                     return
             sample_count += 1
     if sample_count != 366 or verified_extrema != sample_count or (
-            contact_corrections == 0):
-        _fail("six original attacks not fully exercised " + str(
-            [sample_count, verified_extrema, contact_corrections]))
+            contact_corrections == 0) or sweep_toe_samples != 122:
+        _fail("six original attacks / both toe sweeps not checked " +
+            str([sample_count, verified_extrema, contact_corrections,
+            sweep_toe_samples]))
         return
     print("GODOT_V440_FLAT_FLOOR_CHAIN_PASS six_attacks=6 samples=",
         sample_count, " contacts=", contact_corrections,
         " max_unreachable_or_residual_floor_penetration=",
-        max_residual_penetration, " box_queries=3_per_frame",
-        " attack_solvers=1_max", " mesh_offsets=0", " pivot_offsets=0")
+        max_residual_penetration, " sweep_toe_samples=", sweep_toe_samples,
+        " sweep_toe_clear=", sweep_toe_reached,
+        " sweep_toe_unreachable=", sweep_toe_unreachable,
+        " worst_sweep_toe_y=", worst_sweep_toe_y,
+        " sweep_conditional_ik_retries=",
+        ik.get("source_ik_sweep_toe_retry_count"),
+        " mesh_offsets=0", " pivot_offsets=0")
     quit(0)
