@@ -125,6 +125,17 @@ var source_last_grounded_idle_pose: Dictionary = {}
 var source_rear_entry_start_pose: Dictionary = {}
 var source_rear_entry_id: String = ""
 var source_rear_entry_kind: String = ""
+# v452: source-only attacks steer the actual hip corner, not the root.
+# BODY aim and attack-shoulder additive yaw are sampled independently.
+const SOURCE_HIP_AIM_MAX_DEGREES: float = 20.0
+const SOURCE_SHOULDER_AIM_MAX_DEGREES: float = 30.0
+const SOURCE_SWEEP_AIM_MAX_DEGREES: float = 12.0
+const SOURCE_BODY_AIM_RATE_DEGREES: float = 100.0
+const SOURCE_SHOULDER_AIM_RATE_DEGREES: float = 150.0
+var source_aim_id: String = ""
+var source_aim_kind: String = ""
+var source_aim_body_yaw: float = 0.0
+var source_aim_shoulder_yaw: float = 0.0
 # Procedural HEAD look yaw is not part of an authored blend source.
 var external_head_yaw: float = 0.0
 var loading_ok: bool = false
@@ -1278,6 +1289,121 @@ func remember_source_grounded_attack_entry() -> void:
     source_rear_entry_id = ""
     source_rear_entry_kind = ""
     source_rear_entry_start_pose.clear()
+    source_aim_id = ""
+    source_aim_kind = ""
+    source_aim_body_yaw = 0.0
+    source_aim_shoulder_yaw = 0.0
+
+
+## Return a WORLD-Y yaw from the bone's current horizontal bearing
+## toward SERA. The signed cross product chooses the shortest yaw.
+static func _source_horizontal_aim_angle(
+        bearing: Vector3, destination: Vector3) -> float:
+    bearing.y = 0.0
+    destination.y = 0.0
+    if bearing.length_squared() <= 0.000001 or (
+            destination.length_squared() <= 0.000001):
+        return 0.0
+    bearing = bearing.normalized()
+    destination = destination.normalized()
+    return atan2(bearing.cross(destination).y,
+        bearing.dot(destination))
+
+
+## Add bounded WORLD-Y yaw on top of the untouched sampled clip.
+## 1. BODY (max 20 degrees) points the chosen hip socket at SERA.
+## 2. Attacking shoulder (max 30; sweep max 12) nudges its complete
+##    three-bone chain. All three supports are IK-solved AFTER this.
+## The root never turns or moves; source curves are not rewritten.
+func apply_source_attack_aim(
+        frame: Dictionary, player_position: Vector3,
+        delta: float) -> void:
+    if not loading_ok or frame.is_empty() or (
+            not bool(frame.get("original_attack_only", false))):
+        return
+    var leg_id: String = str(frame.get("id", ""))
+    var kind: String = str(frame.get("kind", ""))
+    if not ATTACK_LEG_BONES.has(leg_id):
+        return
+    var body_uid: String = str(bone_uuid_by_name.get("Body", ""))
+    var upper_name: String = str(ATTACK_LEG_BONES[leg_id][0])
+    var foot_name: String = str(ATTACK_LEG_BONES[leg_id][2])
+    var upper_uid: String = str(bone_uuid_by_name.get(upper_name, ""))
+    var foot_uid: String = str(bone_uuid_by_name.get(foot_name, ""))
+    if not bones.has(body_uid) or not bones.has(upper_uid) or (
+            not bones.has(foot_uid)):
+        return
+    var body: Node3D = bones[body_uid]
+    var shoulder: Node3D = bones[upper_uid]
+    var foot: Node3D = bones[foot_uid]
+    var phase: String = str(frame.get("phase", ""))
+    if source_aim_id != leg_id or source_aim_kind != kind:
+        source_aim_id = leg_id
+        source_aim_kind = kind
+        source_aim_body_yaw = 0.0
+        source_aim_shoulder_yaw = 0.0
+    # Only follow during the entry: the direction is locked through
+    # the actual source strike and held follow-through.
+    if phase == "entry":
+        var corner: Vector3 = shoulder.global_position - body.global_position
+        var to_player: Vector3 = player_position - body.global_position
+        var desired: float = clampf(
+            _source_horizontal_aim_angle(corner, to_player),
+            -deg_to_rad(SOURCE_HIP_AIM_MAX_DEGREES),
+            deg_to_rad(SOURCE_HIP_AIM_MAX_DEGREES))
+        source_aim_body_yaw = move_toward(
+            source_aim_body_yaw, desired,
+            deg_to_rad(SOURCE_BODY_AIM_RATE_DEGREES)
+                * maxf(delta, 0.0))
+    var body_weight: float = 1.0
+    var limb_weight: float = 1.0
+    if phase == "recovery":
+        var recovery: float = float(frame.get("phase_elapsed", 0.0))
+        var body_seconds: float = maxf(
+            float(frame.get("body_return_seconds", 0.62)), 0.001)
+        var limb_seconds: float = maxf(
+            float(frame.get("leg_return_seconds", 1.20)), 0.001)
+        var body_t: float = clampf(recovery / body_seconds, 0.0, 1.0)
+        body_weight = 1.0 - body_t * body_t * (
+            3.0 - 2.0 * body_t)
+        var limb_t: float = clampf(
+            (recovery - body_seconds) / limb_seconds, 0.0, 1.0)
+        limb_weight = 1.0 - limb_t * limb_t * limb_t * (
+            limb_t * (limb_t * 6.0 - 15.0) + 10.0)
+    var turn_body: float = source_aim_body_yaw * body_weight
+    if absf(turn_body) > 0.000001:
+        var scale: Vector3 = body.global_basis.get_scale()
+        var old: Quaternion = (
+            body.global_basis.get_rotation_quaternion())
+        body.global_basis = Basis(
+            Quaternion(Vector3.UP, turn_body) * old).scaled(scale)
+    if phase == "entry":
+        # Evaluate the foot's AUTHORED bearing after chest aiming.
+        # The shoulder correction itself is an additional yaw, never
+        # a replacement for the source joint rotation.
+        var toe_bearing: Vector3 = (
+            foot.global_position - shoulder.global_position)
+        var toe_to_player: Vector3 = (
+            player_position - shoulder.global_position)
+        var limit: float = (
+            SOURCE_SWEEP_AIM_MAX_DEGREES if kind == "sweep"
+            else SOURCE_SHOULDER_AIM_MAX_DEGREES)
+        var wanted: float = clampf(
+            _source_horizontal_aim_angle(toe_bearing, toe_to_player),
+            -deg_to_rad(limit), deg_to_rad(limit))
+        source_aim_shoulder_yaw = move_toward(
+            source_aim_shoulder_yaw, wanted,
+            deg_to_rad(SOURCE_SHOULDER_AIM_RATE_DEGREES)
+                * maxf(delta, 0.0))
+    var turn_shoulder: float = (
+        source_aim_shoulder_yaw * limb_weight)
+    if absf(turn_shoulder) > 0.000001:
+        var upper_scale: Vector3 = shoulder.global_basis.get_scale()
+        var source_rotation: Quaternion = (
+            shoulder.global_basis.get_rotation_quaternion())
+        shoulder.global_basis = Basis(
+            Quaternion(Vector3.UP, turn_shoulder)
+            * source_rotation).scaled(upper_scale)
 
 
 func apply_original_attack_only(frame: Dictionary) -> void:
