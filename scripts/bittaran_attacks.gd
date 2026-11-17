@@ -3,7 +3,7 @@ extends RefCounted
 ## Timings are in physics seconds, independent of the authored locomotion clip.
 const LEG_IDS: Array[String] = ["leg_fl", "leg_fr", "leg_rl", "leg_rr"]
 const ATTACK_KINDS: Array[String] = ["stomp", "kick", "sweep"]
-# v445: preserve the six original Blockbench source CLIPS and let only
+# v450: preserve authored front and rear Blockbench source clips and let only
 # a real-time attack director control entry, clip-speed warp, holding,
 # and post-attack return. No procedural attack aiming/rewriting.
 const ORIGINAL_ATTACK_ONLY: bool = true
@@ -18,6 +18,10 @@ const SOURCE_KICK_STOMP_RETURN_SECONDS: float = (
     SOURCE_LEG_RETURN_SECONDS + SOURCE_BODY_RETURN_SECONDS)
 const ORIGINAL_CLIP_LENGTHS: Dictionary = {
     "stomp": 1.75, "kick": 1.0, "sweep": 1.50
+}
+## The 22:13 source only has rear STOMP and SWEEP (not rear KICK).
+const REAR_CLIP_LENGTHS: Dictionary = {
+    "stomp": 1.0, "sweep": 0.75
 }
 const START_RANGE_METERS: float = 9.0
 const STOMP_WINDUP_SECONDS: float = 1.25
@@ -148,7 +152,8 @@ func _start(id: String, attack_kind: String,
 func force_start(id: String, attack_kind: String) -> bool:
     # Legacy deterministic clip tests start straight at authored t=0.
     # Actual AI selections always use _start(..., true) below.
-    if not LEG_IDS.has(id) or not ATTACK_KINDS.has(attack_kind):
+    if not LEG_IDS.has(id) or not ATTACK_KINDS.has(attack_kind) or (
+            id.begins_with("leg_r") and attack_kind == "kick"):
         return false
     _start(id, attack_kind, false)
     return true
@@ -156,7 +161,8 @@ func force_start(id: String, attack_kind: String) -> bool:
 
 func force_start_with_stance(id: String, attack_kind: String) -> bool:
     # Deterministic entry into the *actual* pre-attack IK stage.
-    if not LEG_IDS.has(id) or not ATTACK_KINDS.has(attack_kind):
+    if not LEG_IDS.has(id) or not ATTACK_KINDS.has(attack_kind) or (
+            id.begins_with("leg_r") and attack_kind == "kick"):
         return false
     _start(id, attack_kind, true)
     return true
@@ -188,7 +194,12 @@ func _choose_leg(player_position: Vector3, feet: Dictionary) -> String:
 ## rotation breaks ties and prevents immediate repeats.
 func _choose_kind(for_leg: String, player_position: Vector3,
         feet: Dictionary) -> String:
+    var allowed: Array[String] = (
+        ["stomp", "sweep"] if for_leg.begins_with("leg_r")
+        else ATTACK_KINDS)
     var chosen: String = ATTACK_KINDS[next_kind_index]
+    if not allowed.has(chosen):
+        chosen = "sweep" if last_kind == "stomp" else "stomp"
     if feet.has(for_leg):
         var foot: Vector3 = feet[for_leg]
         var centroid := Vector3.ZERO
@@ -214,8 +225,10 @@ func _choose_kind(for_leg: String, player_position: Vector3,
                     situational = "kick"
                 elif dot > -KICK_FRONT_DOT:
                     situational = "sweep"
-            if not situational.is_empty() and situational != last_kind:
+            if allowed.has(situational) and situational != last_kind:
                 chosen = situational
+    if for_leg.begins_with("leg_r") and chosen == last_kind:
+        chosen = "sweep" if chosen == "stomp" else "stomp"
     last_kind = chosen
     next_kind_index = (ATTACK_KINDS.find(chosen) + 1) % ATTACK_KINDS.size()
     return chosen
@@ -231,10 +244,22 @@ static func source_entry_seconds(attack_kind: String) -> float:
         else SOURCE_ENTRY_SECONDS)
 
 
-static func source_play_seconds(attack_kind: String) -> float:
-    if attack_kind == "sweep":
-        return SWEEP_STRIKE_SECONDS
+static func source_clip_length(attack_kind: String,
+        attack_id: String = "") -> float:
+    if attack_id.begins_with("leg_r"):
+        return float(REAR_CLIP_LENGTHS.get(attack_kind, 0.0))
     return float(ORIGINAL_CLIP_LENGTHS.get(attack_kind, 0.0))
+
+
+static func source_play_seconds(attack_kind: String,
+        attack_id: String = "") -> float:
+    var length: float = source_clip_length(attack_kind, attack_id)
+    if attack_kind == "sweep":
+        # Both sides slow their first 0.50 source seconds to half speed.
+        # The shorter rear sweep ends at clip t=0.75, not front t=1.50.
+        return SWEEP_OUTBOUND_REAL_SECONDS + maxf(
+            0.0, length - SWEEP_OUTBOUND_END_CLIP_SECONDS)
+    return length
 
 
 static func source_hold_seconds(attack_kind: String) -> float:
@@ -252,21 +277,22 @@ static func source_return_seconds(attack_kind: String) -> float:
     return source_body_return_seconds(attack_kind) + SOURCE_LEG_RETURN_SECONDS
 
 
-static func source_total_seconds(attack_kind: String) -> float:
+static func source_total_seconds(attack_kind: String,
+        attack_id: String = "") -> float:
     return (source_entry_seconds(attack_kind)
-        + source_play_seconds(attack_kind)
+        + source_play_seconds(attack_kind, attack_id)
         + source_hold_seconds(attack_kind)
         + source_return_seconds(attack_kind))
 
 
 static func source_clip_time(attack_kind: String,
-        real_attack_seconds: float) -> float:
+        real_attack_seconds: float, attack_id: String = "") -> float:
     var play_t: float = clampf(real_attack_seconds, 0.0,
-        source_play_seconds(attack_kind))
+        source_play_seconds(attack_kind, attack_id))
+    var length: float = source_clip_length(attack_kind, attack_id)
     if attack_kind == "sweep":
-        return sweep_clip_time_at(play_t)
-    return minf(play_t,
-        float(ORIGINAL_CLIP_LENGTHS.get(attack_kind, 0.0)))
+        return minf(sweep_clip_time_at(play_t), length)
+    return minf(play_t, length)
 
 
 static func source_playback_speed(attack_kind: String,
@@ -275,6 +301,7 @@ static func source_playback_speed(attack_kind: String,
             play_t < SWEEP_OUTBOUND_REAL_SECONDS):
         return SWEEP_OUTBOUND_SPEED
     return 1.0
+
 
 func _advance_original_only(delta: float, player_position: Vector3,
         available_feet: Dictionary, permitted: bool) -> Dictionary:
@@ -288,11 +315,12 @@ func _advance_original_only(delta: float, player_position: Vector3,
         cooldown = maxf(0.0, cooldown - maxf(delta, 0.0))
         if cooldown > 0.0:
             return {}
-        # The 17:21 source includes six attacks on FRONT legs only.
+        # All four physical legs participate. Rear attacks are limited to
+        # the two newly authored techniques; there is no invented rear kick.
         var authored_feet: Dictionary = {}
-        for front_id in ["leg_fl", "leg_fr"]:
-            if available_feet.has(front_id):
-                authored_feet[front_id] = available_feet[front_id]
+        for id in LEG_IDS:
+            if available_feet.has(id):
+                authored_feet[id] = available_feet[id]
         var selected: String = _choose_leg(player_position, authored_feet)
         if selected.is_empty():
             return {}
@@ -300,12 +328,12 @@ func _advance_original_only(delta: float, player_position: Vector3,
             selected, player_position, authored_feet), false)
         next_leg_index = (LEG_IDS.find(selected) + 1) % LEG_IDS.size()
     preparing_stance = false
-    var length: float = float(ORIGINAL_CLIP_LENGTHS.get(kind, 0.0))
+    var length: float = source_clip_length(kind, leg_id)
     if length <= 0.0:
         cancel()
         return {}
     var entry_end: float = source_entry_seconds(kind)
-    var play_end: float = entry_end + source_play_seconds(kind)
+    var play_end: float = entry_end + source_play_seconds(kind, leg_id)
     var hold_end: float = play_end + source_hold_seconds(kind)
     var total: float = hold_end + source_return_seconds(kind)
     elapsed = minf(total, elapsed + maxf(delta, 0.0))
@@ -332,7 +360,7 @@ func _advance_original_only(delta: float, player_position: Vector3,
     elif elapsed >= entry_end:
         phase = "strike"
         phase_elapsed = elapsed - entry_end
-        clip_time = source_clip_time(kind, phase_elapsed)
+        clip_time = source_clip_time(kind, phase_elapsed, leg_id)
         speed = source_playback_speed(kind, phase_elapsed)
     var frame: Dictionary = {
         "id": leg_id, "kind": kind,
@@ -347,7 +375,7 @@ func _advance_original_only(delta: float, player_position: Vector3,
         "phase": phase,
         "recovery_stage": recovery_stage,
         "windup": entry_end,
-        "strike": source_play_seconds(kind),
+        "strike": source_play_seconds(kind, leg_id),
         "hold": source_hold_seconds(kind),
         "recovery": source_return_seconds(kind),
         "leg_return_seconds": SOURCE_LEG_RETURN_SECONDS,
