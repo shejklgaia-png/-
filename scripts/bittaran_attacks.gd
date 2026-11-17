@@ -409,9 +409,7 @@ func advance(delta: float, player_position: Vector3,
         var wall_strike_t: float = clampf(
             authored_time, 0.0, SWEEP_STRIKE_SECONDS)
         authored_time = sweep_clip_time_at(wall_strike_t)
-        if wall_strike_t >= SWEEP_SLOW_START_CLIP_SECONDS and (
-                wall_strike_t < SWEEP_OUTBOUND_END_REAL_SECONDS):
-            source_rate = SWEEP_SLOW_SPEED
+        # v441: legacy timing path also has no sweep slow-motion.
     var result: Dictionary = {
         "kind": kind, "id": leg_id, "time": elapsed,
         "authored_time": authored_time,
