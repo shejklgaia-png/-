@@ -443,47 +443,60 @@ func _bittaran_player_overlap(box: AABB) -> bool:
 
 
 func _check_bittaran_attack_hit() -> void:
-    if bittaran_attack_frame.is_empty() or bittaran_attacks == null             or target_parts == null or player == null or target_hp <= 0             or player_hp <= 0 or training_ko_remaining > 0.0:
+    if bittaran_attack_frame.is_empty() or bittaran_attacks == null \
+            or target_parts == null or player == null or target_hp <= 0 \
+            or player_hp <= 0 or training_ko_remaining > 0.0:
         return
     if bool(bittaran_attack_frame.get("stance_prepare", false)):
         return
+    if bool(bittaran_attacks.get("hit_consumed")):
+        return
     var kind: String = str(bittaran_attack_frame.get("kind", ""))
     var leg_id: String = str(bittaran_attack_frame.get("id", ""))
+    if not BittaranFootIK.LEG_PART_IDS.has(leg_id):
+        return
+    var original: bool = bool(bittaran_attack_frame.get(
+        "original_attack_only", false))
     var is_impact: bool = bool(bittaran_attack_frame.get("impact", false))
     var hit_window: bool = bool(bittaran_attack_frame.get("hit_window", false))
+    if original:
+        # Source replay intentionally disables the old procedural hit flags.
+        # Re-enable damage ONLY during the authored strike; never during
+        # entry, post-hit hold, BODY return or gradual leg recovery.
+        var phase: String = str(bittaran_attack_frame.get("phase", ""))
+        var clip_time: float = float(bittaran_attack_frame.get(
+            "authored_time", 0.0))
+        is_impact = false
+        hit_window = (phase == "strike" and
+            ["stomp", "kick", "sweep"].has(kind))
+        if kind == "stomp":
+            # Do not damage players while the foot is still winding up.
+            hit_window = hit_window and clip_time >= 1.375
     if not is_impact and not hit_window:
         return
-    var contact: Vector3 = bittaran_foot_ik.call("attack_contact_world")
-    var struck: bool = false
-    if kind == "stomp" and is_impact:
-        # Exactly 1.5x the CURRENT shin's world-space XZ footprint.
-        # Foot contact and shockwave share this one impact physics tick.
+    var contact: Vector3 = (
+        _bittaran_original_attack_contact(leg_id) if original
+        else bittaran_foot_ik.call("attack_contact_world"))
+    if not original and kind == "stomp" and is_impact and (
+            _bittaran_striking_foot_grounded(leg_id)):
+        # The old impact still produces its ring and dust ONLY on actual
+        # foot-floor contact, independent of whether SERA is struck.
         var shin: AABB = target_parts.call("get_part_aabb", leg_id)
         var half_size := Vector2(
             maxf(shin.size.x * 0.75, 0.01),
             maxf(shin.size.z * 0.75, 0.01))
         _emit_bittaran_shockwave(contact, half_size)
-        var shock_box := AABB(
-            Vector3(contact.x - half_size.x, -0.05,
-                contact.z - half_size.y),
-            Vector3(half_size.x * 2.0, 1.75, half_size.y * 2.0))
-        # Both contact systems are evaluated on the SAME touchdown tick.
-        # A direct foot strike still hits at the edge of the blast volume.
-        var foot_box: AABB = bittaran_foot_ik.call("attack_foot_aabb")
-        struck = (_bittaran_player_overlap(shock_box)
-            or (foot_box.size.length_squared() > 0.000001
-                and _bittaran_player_overlap(foot_box.grow(0.06))))
-    elif hit_window:
-        # Use individual real visible mesh boxes: a whole-leg AABB
-        # would falsely hit through the empty gap inside a bent knee.
-        var boxes: Array = target_parts.call(
-            "get_leg_visual_mesh_boxes", leg_id)
-        for raw in boxes:
-            var box: AABB = raw
-            if _bittaran_player_overlap(box.grow(0.08)):
-                struck = true
-                break
-    if not struck or bool(bittaran_attacks.get("hit_consumed")):
+    # The ONLY attack collision volumes are rendered components below the
+    # knee joint: lower-leg mesh + its attached foot. No upper limb,
+    # torso, head, broad shin lock box or shockwave radius can deal damage.
+    var struck: bool = false
+    var boxes: Array = target_parts.call("get_leg_attack_mesh_boxes", leg_id)
+    for raw in boxes:
+        var box: AABB = raw
+        if box.has_volume() and _bittaran_player_overlap(box.grow(0.08)):
+            struck = true
+            break
+    if not struck:
         return
     bittaran_attacks.set("hit_consumed", true)
     var direction: Vector3 = player.global_position - contact
@@ -492,20 +505,17 @@ func _check_bittaran_attack_hit() -> void:
         direction = player.global_position - target.global_position
     if direction.length_squared() < 0.0001:
         direction = Vector3.FORWARD
-    # A connected KICK/SWEEP lands with a smaller, sharper jolt than a
-    # STOMP ground slam (whose shake fires with the shockwave) (v401).
     if kind == "kick":
         _add_impact_shake(0.16)
         _play_bittaran_thud(player.global_position, 1.5, -10.0)
     elif kind == "sweep":
         _add_impact_shake(0.19)
         _play_bittaran_thud(player.global_position, 1.25, -9.0)
-    # Existing SERA guard, SH, HP, knockback and KO all remain authoritative.
+    # SERA's existing guard/HP/knockback and KO logic remains authoritative.
     var damage_index: int = 2 if kind == "stomp" else (
         1 if kind == "kick" else 3)
     _on_enemy_projectile_hit(
         player.global_position, direction.normalized(), false, damage_index)
-
 
 func _bittaran_attack_candidates() -> Dictionary:
     var candidates: Dictionary = {}
@@ -1348,19 +1358,18 @@ func _physics_process(delta: float) -> void:
     _tick_bittaran_footfalls()
     _update_bittaran_lock_permissions()
 
-## Read the actual authored striking foot after source replay + support IK.
-## The legacy attack_contact_world() is empty in source-only attacks because
-## that path does not set the old procedural attack_pose.
-func _bittaran_original_attack_contact(leg_id: String) -> Vector3:
+## Read the actual world-space striking-foot mesh after source replay + IK.
+## The legacy procedural attack_pose stays empty during source replay.
+func _bittaran_attack_foot_bounds(leg_id: String) -> AABB:
     if bittaran_foot_ik == null:
-        return Vector3.ZERO
+        return AABB()
     var index: int = BittaranFootIK.LEG_PART_IDS.find(leg_id)
     var legs: Array = bittaran_foot_ik.get("legs")
     if index < 0 or index >= legs.size():
-        return Vector3.ZERO
+        return AABB()
     var foot: Node3D = legs[index].get("foot", null) as Node3D
     if foot == null:
-        return Vector3.ZERO
+        return AABB()
     var first: bool = true
     var low: Vector3 = Vector3.ZERO
     var high: Vector3 = Vector3.ZERO
@@ -1381,10 +1390,25 @@ func _bittaran_original_attack_contact(leg_id: String) -> Vector3:
             else:
                 low = low.min(vertex)
                 high = high.max(vertex)
-    if first:
-        return foot.global_position
-    return Vector3(
-        (low.x + high.x) * 0.5, low.y, (low.z + high.z) * 0.5)
+    return AABB() if first else AABB(low, high - low)
+
+
+func _bittaran_original_attack_contact(leg_id: String) -> Vector3:
+    var bounds: AABB = _bittaran_attack_foot_bounds(leg_id)
+    if not bounds.has_volume():
+        return Vector3.ZERO
+    var center: Vector3 = bounds.get_center()
+    return Vector3(center.x, bounds.position.y, center.z)
+
+
+func _bittaran_striking_foot_grounded(leg_id: String) -> bool:
+    var bounds: AABB = _bittaran_attack_foot_bounds(leg_id)
+    if not bounds.has_volume():
+        return false
+    # Godot's arena floor is Y=0. A mesh is contacting ground only when
+    # its actual rendered volume intersects the floor within 6 cm.
+    # A foot above the floor, or one entirely buried below it, emits none.
+    return (bounds.position.y <= 0.06 and bounds.end.y >= -0.02)
 
 
 func _finalize_target_pose(delta: float) -> void:
@@ -1447,14 +1471,15 @@ func _finalize_target_pose(delta: float) -> void:
         if bittaran_attack_frame.is_empty() or bool(
                 bittaran_attack_frame.get("stance_prepare", false)):
             bittaran_dirt_fx.call("advance_attack", {}, Vector3.ZERO,
-                Vector3.ZERO, delta)
+                Vector3.ZERO, delta, false)
             attack_contact_initialized = false
         else:
-            # Original replay has no legacy attack_pose. Sample the real
-            # striking foot mesh, never the default Vector3.ZERO contact.
+            var leg_id: String = str(bittaran_attack_frame.get("id", ""))
+            # Use the visible foot's real mesh bounds AFTER authored replay
+            # and IK, not the procedural floor target or attack timer.
+            var grounded: bool = _bittaran_striking_foot_grounded(leg_id)
             var contact: Vector3 = (
-                _bittaran_original_attack_contact(str(
-                    bittaran_attack_frame.get("id", ""))) if original
+                _bittaran_original_attack_contact(leg_id) if original
                 else bittaran_foot_ik.call("attack_contact_world"))
             var previous: Vector3 = (
                 last_attack_contact if attack_contact_initialized else contact)
@@ -1462,37 +1487,31 @@ func _finalize_target_pose(delta: float) -> void:
                 "kicked_this_attack"))
             var had_sweep: bool = bool(bittaran_dirt_fx.get("sweep_active"))
             bittaran_dirt_fx.call("advance_attack",
-                bittaran_attack_frame, contact, previous, delta)
+                bittaran_attack_frame, contact, previous, delta, grounded)
             if original and target_hp > 0:
                 var kind: String = str(bittaran_attack_frame.get("kind", ""))
-                if kind == "stomp" and not bool(bittaran_dirt_fx.get(
-                        "stomped_this_attack")) and (
+                if grounded and kind == "stomp" and not bool(
+                        bittaran_dirt_fx.get("stomped_this_attack")) and (
                         ["strike", "hold"].has(str(
                         bittaran_attack_frame.get("phase", "")))) and (
                         float(bittaran_attack_frame.get(
                         "authored_time", 0.0)) >= 1.50):
-                    # The original stomp foot drops at clip t=1.375..1.50.
-                    # Reuse the v401/v402 single contact ring, particles,
-                    # thud and distance-scaled camera shake once per attack.
+                    # The old particles/ring/thud/shake require actual
+                    # floor contact on the descending authored foot.
                     bittaran_dirt_fx.set("stomped_this_attack", true)
                     if target_parts != null:
                         var shin: AABB = target_parts.call(
-                            "get_part_aabb", str(bittaran_attack_frame.get(
-                            "id", "")))
+                            "get_part_aabb", leg_id)
                         var half_size := Vector2(
                             maxf(shin.size.x * 0.75, 0.01),
                             maxf(shin.size.z * 0.75, 0.01))
                         _emit_bittaran_shockwave(contact, half_size)
                 elif kind == "kick" and not had_kick and bool(
                         bittaran_dirt_fx.get("kicked_this_attack")):
-                    # The old ground-kick particles and hit jolt now fire
-                    # on the actual authored foot's first outward motion.
                     _add_impact_shake(0.16)
                     _play_bittaran_thud(contact, 1.5, -10.0)
                 elif kind == "sweep" and not had_sweep and bool(
                         bittaran_dirt_fx.get("sweep_active")):
-                    # The ground-scraping dust trail stays active only
-                    # during the source strike; the initial jolt is once.
                     _add_impact_shake(0.19)
                     _play_bittaran_thud(contact, 1.25, -9.0)
             last_attack_contact = contact
