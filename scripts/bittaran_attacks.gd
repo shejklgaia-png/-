@@ -10,6 +10,10 @@ const ORIGINAL_ATTACK_ONLY: bool = true
 # v462 TIMING EXPERIMENT: toggle ONE bool off to restore v461 timing.
 # All original durations and source animation keys remain unchanged.
 const TIMING_TEST_ENABLED: bool = true
+# v463: Independent, reversible experiment. true = chest and striker
+# recover simultaneously; false = the original body-then-leg order.
+# This does not change TIMING_TEST_ENABLED or its speed multipliers.
+const TEST_PARALLEL_BODY_LEG_RETURN: bool = true
 const TEST_ANTICIPATION_SPEED: float = 1.10
 const TEST_HOME_RETURN_SPEED: float = 1.25
 const TEST_NO_STOP_SECONDS: float = 0.0
@@ -331,6 +335,10 @@ static func source_leg_return_seconds() -> float:
 
 
 static func source_return_seconds(attack_kind: String) -> float:
+    if TEST_PARALLEL_BODY_LEG_RETURN:
+        # Start both motions together. Continue until BOTH finish.
+        return maxf(source_body_return_seconds(attack_kind),
+            source_leg_return_seconds())
     return (source_body_return_seconds(attack_kind)
         + source_leg_return_seconds())
 
@@ -431,12 +439,16 @@ func _advance_original_only(delta: float, player_position: Vector3,
         phase_elapsed = elapsed - hold_end
         clip_time = length
         var body_seconds: float = source_body_return_seconds(kind)
-        # Keep the toe grounded on the LAST torso recovery frame too.
-        # Releasing at the exact equality created a one-frame float.
-        if phase_elapsed <= body_seconds + 0.000001:
-            recovery_stage = "body"
+        if TEST_PARALLEL_BODY_LEG_RETURN:
+            # Both timelines use phase_elapsed starting at ZERO.
+            recovery_stage = "parallel"
         else:
-            recovery_stage = "leg"
+            # Legacy: keep the toe planted until the torso finishes,
+            # then run the leg return as a separate recovery stage.
+            if phase_elapsed <= body_seconds + 0.000001:
+                recovery_stage = "body"
+            else:
+                recovery_stage = "leg"
     elif elapsed >= play_end:
         phase = "hold"
         phase_elapsed = elapsed - play_end
@@ -458,6 +470,7 @@ func _advance_original_only(delta: float, player_position: Vector3,
         "phase_elapsed": phase_elapsed,
         "phase": phase,
         "recovery_stage": recovery_stage,
+        "parallel_recovery": TEST_PARALLEL_BODY_LEG_RETURN,
         "windup": entry_end,
         "strike": source_play_seconds(kind, leg_id),
         "hold": source_hold_seconds(kind),
