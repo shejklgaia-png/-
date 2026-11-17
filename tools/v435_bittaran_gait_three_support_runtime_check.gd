@@ -174,8 +174,10 @@ func _run() -> void:
                 body_pin_frames += 1
             if phase == "recovery" and stage == "leg" and (
                     last_recovery_stage == "body"):
-                # The first unpinned tick must start at the physical
-                # IK-corrected source posture, not snap to Blockbench.
+                # Validate the start pose was captured AFTER the
+                # preceding physics IK, not from the next Idle reset.
+                var captured: Dictionary = rig.get(
+                    "source_return_leg_start_pose")
                 for bone_name in ([
                         "FrontLeg_L", "FrontLowerLeg_L", "FrontFoot_L"]
                         if str(options[0]) == "leg_fl" else [
@@ -183,8 +185,18 @@ func _run() -> void:
                     var uid: String = str(bone_map.get(bone_name, ""))
                     var bone: Node3D = nodes[uid]
                     if previous_joint_rotations.has(bone_name):
+                        if not captured.has(bone_name):
+                            _fail("IK-grounded start not captured " +
+                                str([clip, bone_name]))
+                            return
                         var prev_q: Quaternion = (
                             previous_joint_rotations[bone_name])
+                        var captured_q: Quaternion = (
+                            captured[bone_name]["rotation"])
+                        if prev_q.angle_to(captured_q) > 0.001:
+                            _fail("recovery used Idle, not last IK pose " +
+                                str([clip, bone_name]))
+                            return
                         var angle: float = prev_q.angle_to(
                             bone.quaternion)
                         if angle > 0.50:
