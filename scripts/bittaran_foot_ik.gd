@@ -168,6 +168,10 @@ const FRONT_SWEEP_TOUCH_HEIGHT_METERS: float = 0.035
 # chassis and gives world-anchored elbows time to fold via two-link IK.
 const FRONT_BODY_DESCENT_SPEED_METERS_PER_SECOND: float = 2.0
 const FRONT_BODY_DESCENT_ACCEL_SECONDS: float = 0.40
+# A 0.7s SWEEP windup needs the connected chassis to finish lowering
+# before the strike; other attacks retain the original slower drop.
+const FRONT_SWEEP_DESCENT_SPEED_METERS_PER_SECOND: float = 3.8
+const FRONT_SWEEP_DESCENT_ACCEL_SECONDS: float = 0.25
 
 const LEG_NAMES: Array[String] = [
     "FrontLeg_R", "RearLeg_L", "FrontLeg_L", "RearLeg_R"
@@ -2130,10 +2134,14 @@ func _apply_front_attack_height(delta: float) -> void:
     # Never teleport the BODY down by ~40cm in a single physics frame.
     # Instead the shoulders follow the parent chassis continuously, while
     # the 3 supporting fore/rear arms keep their feet planted through IK.
-    var ramp: float = _cubic(
-        frame_t / FRONT_BODY_DESCENT_ACCEL_SECONDS)
-    var speed: float = lerpf(
-        0.25, FRONT_BODY_DESCENT_SPEED_METERS_PER_SECOND, ramp)
+    var acceleration_time: float = (
+        FRONT_SWEEP_DESCENT_ACCEL_SECONDS if kind == "sweep"
+        else FRONT_BODY_DESCENT_ACCEL_SECONDS)
+    var maximum_speed: float = (
+        FRONT_SWEEP_DESCENT_SPEED_METERS_PER_SECOND if kind == "sweep"
+        else FRONT_BODY_DESCENT_SPEED_METERS_PER_SECOND)
+    var ramp: float = _cubic(frame_t / acceleration_time)
+    var speed: float = lerpf(0.25, maximum_speed, ramp)
     # During an attack lower only, and let the two-phase recovery
     # restore the height. No previous IK-corrected foot is sampled here.
     if desired < front_attack_drop_world:
@@ -2377,11 +2385,16 @@ func _ground_connected_sweep(leg: Dictionary) -> void:
             lower.quaternion = original_lower
             foot.quaternion = original_foot
             _solve_connected_sweep(leg, goal, approach)
-            var intrusion: float = (
+            var floor_error: float = (
                 FLOOR_Y + 0.003 - _foot_mesh_lowest_y(foot))
-            if intrusion <= 0.003:
+            # In flight: do not pull the toe down to an artificial
+            # contact point; only prevent penetration. At full sweep
+            # reach: remove BOTH sinking and hovering error through
+            # the connected hinge solve (never detach the ankle).
+            if (absf(floor_error) <= 0.003 if approach >= 0.999
+                    else floor_error <= 0.003):
                 break
-            goal.y += intrusion
+            goal.y += floor_error
     else:
         leg["last_goal"] = original_sole
         leg["last_rotation"] = (
