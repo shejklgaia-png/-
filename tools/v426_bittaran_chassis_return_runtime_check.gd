@@ -51,7 +51,6 @@ func _run() -> void:
                     # Only sample the original source before IK; this is the
                     # baseline for measuring body leveling.
                     var body: Node3D = rig.find_child("Body", true, false)
-                    var original: Quaternion = body.quaternion
                     var wait: Quaternion = rig.call("_authored_key_rotation",
                         "Wait", "Body", 0.0)
                     battle.call("_finalize_target_pose", DT)
@@ -70,6 +69,16 @@ func _run() -> void:
                         # During the attack's strike interval, the BODY
                         # pose must be closer to its level Wait rotation.
                         if str(frame.get("phase", "")) == "strike":
+                            var clip_name: String = (
+                                "踏みつけ_L" if kind == "stomp" else
+                                ("弾き" if kind == "kick" else "なぎ払い"))
+                            if id == "leg_fr":
+                                clip_name = (
+                                    "踏みつけ_R" if kind == "stomp"
+                                    else clip_name + "_R")
+                            var original: Quaternion = rig.call(
+                                "_authored_key_rotation", clip_name, "Body",
+                                float(frame.get("authored_time", 0.0)))
                             var original_tilt: float = original.angle_to(wait)
                             var rendered_tilt: float = body.quaternion.angle_to(wait)
                             max_tilt_before = maxf(max_tilt_before, original_tilt)
