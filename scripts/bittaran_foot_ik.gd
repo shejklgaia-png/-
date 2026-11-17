@@ -2591,7 +2591,7 @@ var source_ik_replant_elapsed: float = 0.0
 var source_ik_unreachable_supports: int = 0
 
 ## v440: fixed-plane Y=0 collision for the ACTIVE authored attacking limb.
-## Fast path: cached 3 mesh pieces x 8 vertices, 1 two-bone solve/frame.
+## Fast path: 3 cached oriented BOX bounds, 1 two-bone solve/frame.
 ## No raycasts, triangle collision, shape casts or terrain sampling.
 ## The original
 ## mesh vertices and joint-local pivots remain immutable. The ankle
@@ -2610,45 +2610,53 @@ var source_ik_strike_contact_count: int = 0
 var source_ik_strike_contact_error_max: float = 0.0
 var source_ik_strike_floor_penetration_max: float = 0.0
 
-## Cache the exact source vertex geometry ONCE per setup. Each foot
-## consists of three 8-corner box meshes (thigh/shin/toe). Since ground
-## is a single infinite plane (Y=0), this is an exact and minimal
-## convex-box contact check: no physics query, raycast or grid sampling.
+## All 12 leg mesh parts in the imported Blockbench model are true
+## 8-vertex cuboids. A rotating cuboid's minimum world Y is EXACTLY:
+## transformed_center.y - dot(abs(world_Basis_Y_row), half_extents).
+## Cache 3 piece references and local bounds per limb ONCE at startup.
+## No raycast/physics mesh queries and NO 24-vertex loops per frame.
 func _source_ik_cache_attack_meshes() -> void:
     if actor == null:
         return
-    var source_meshes: Dictionary = actor.get("mesh_nodes_by_uuid")
-    var source_vertices: Dictionary = actor.get("mesh_vertices_by_uuid")
+    var all_meshes: Dictionary = actor.get("mesh_nodes_by_uuid")
     for limb in legs:
         var pieces: Array = []
-        for uid in source_meshes.keys():
-            var piece: MeshInstance3D = source_meshes[uid]
-            if piece == null or not is_instance_valid(piece):
+        for uid in all_meshes.keys():
+            var piece: MeshInstance3D = all_meshes[uid]
+            if piece == null or not is_instance_valid(piece) or (
+                    piece.mesh == null):
                 continue
             var parent_joint: Node = piece.get_parent()
             if parent_joint != limb["upper"] and (
                     parent_joint != limb["lower"]) and (
                     parent_joint != limb["foot"]):
                 continue
-            var points: PackedVector3Array = source_vertices.get(
-                uid, PackedVector3Array())
-            if not points.is_empty():
-                pieces.append({"mesh": piece, "points": points})
+            var box: AABB = piece.mesh.get_aabb()
+            pieces.append({
+                "mesh": piece,
+                "center": box.get_center(),
+                "half": box.size * 0.5
+            })
         limb["source_ik_contact_meshes"] = pieces
 
 
-## One rigid transform per piece and 8 local vertices per box.
-## Identical vertices to the rendered geometry; this samples all
-## connected limb meshes but never modifies any mesh transform.
+## Analytic support plane for the three ORIGINAL cuboids of this limb.
+## Exactly matches checking every authored vertex on the flat Y=0
+## floor, while avoiding all per-vertex world transforms.
 func _source_ik_limb_lowest_world_y(limb: Dictionary) -> float:
     var lowest: float = INF
     var pieces: Array = limb.get("source_ik_contact_meshes", [])
     for record in pieces:
         var mesh: MeshInstance3D = record["mesh"]
-        var transform: Transform3D = mesh.global_transform
-        var points: PackedVector3Array = record["points"]
-        for point in points:
-            lowest = minf(lowest, (transform * point).y)
+        var xform: Transform3D = mesh.global_transform
+        var half: Vector3 = record["half"]
+        var center: Vector3 = record["center"]
+        var center_y: float = (xform * center).y
+        var radius: float = (
+            absf(xform.basis.x.y) * half.x
+            + absf(xform.basis.y.y) * half.y
+            + absf(xform.basis.z.y) * half.z)
+        lowest = minf(lowest, center_y - radius)
     return lowest
 
 func _source_ik_contact_weight(frame: Dictionary) -> float:
@@ -2712,11 +2720,15 @@ func _source_ik_ground_attacking_limb(
     source_ik_strike_contact_count += 1
     source_ik_strike_contact_error_max = maxf(
         source_ik_strike_contact_error_max, error)
-    var residual: float = _source_ik_limb_lowest_world_y(limb)
-    if is_finite(residual):
-        source_ik_strike_floor_penetration_max = maxf(
-            source_ik_strike_floor_penetration_max,
-            maxf(FLOOR_Y - residual, 0.0))
+    # Only measure the post-solve residual in debug builds. The
+    # production path performs 3 analytic box-floor checks and ONE IK
+    # solve, with no second contact query in the same physics tick.
+    if OS.is_debug_build():
+        var residual: float = _source_ik_limb_lowest_world_y(limb)
+        if is_finite(residual):
+            source_ik_strike_floor_penetration_max = maxf(
+                source_ik_strike_floor_penetration_max,
+                maxf(FLOOR_Y - residual, 0.0))
     limb["last_error"] = error
     limb["last_goal"] = foot.to_global(
         limb["source_sole_local"] as Vector3)
