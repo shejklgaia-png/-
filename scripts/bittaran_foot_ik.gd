@@ -3176,6 +3176,14 @@ func _source_ik_advance_attack(frame: Dictionary) -> void:
             source_ik_unreachable_supports += 1
         limb["anchor"] = goal
         limb["anchor_rotation"] = rotation
+    # Handoff must run AFTER all IK and before battle.set_motion(Idle)
+    # overwrites this frame's solved skeletal rotations. Otherwise
+    # the arm starts recovery from ungrounded Idle and visibly snaps.
+    if str(frame.get("phase", "")) == "recovery" and (
+            str(frame.get("recovery_stage", "")) == "body") and (
+            actor != null and actor.has_method(
+            "remember_source_body_grounded_limb")):
+        actor.call("remember_source_body_grounded_limb", attack_id)
 
 
 func advance_source_ground_ik(delta: float, motion: String,
