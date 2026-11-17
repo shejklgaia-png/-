@@ -2685,6 +2685,63 @@ func _source_ik_contact_weight(frame: Dictionary) -> float:
 ## authored foot world orientation; it does not translate any mesh,
 ## change pivot positions/lengths, or detach the foot from the shin.
 ## Source sampling happens afresh before this method every physics tick.
+## Minimal analytic two-segment bone solver for the attacking leg.
+## The legacy _solve() also handles downed-head, pole twisting, combat
+## aiming, recovery and many other unused branches: keep those only for
+## the three supporting legs. This dedicated path does just two joint
+## direction alignments plus the law-of-cosines. No root translation.
+func _source_ik_solve_striker(
+        limb: Dictionary, sole_goal: Vector3,
+        desired_rotation: Quaternion) -> float:
+    var upper: Node3D = limb["upper"]
+    var lower: Node3D = limb["lower"]
+    var foot: Node3D = limb["foot"]
+    var scale: Vector3 = foot.global_basis.get_scale()
+    var sole_local: Vector3 = limb["source_sole_local"]
+    var wanted_ankle: Vector3 = (
+        sole_goal - (Basis(desired_rotation).scaled(scale) * sole_local))
+    var hip: Vector3 = upper.global_position
+    var knee: Vector3 = lower.global_position
+    var ankle: Vector3 = foot.global_position
+    var upper_len: float = hip.distance_to(knee)
+    var lower_len: float = knee.distance_to(ankle)
+    var target: Vector3 = wanted_ankle - hip
+    var actual: float = target.length()
+    if upper_len <= 0.0001 or lower_len <= 0.0001 or actual <= 0.0001:
+        return INF
+    var direction: Vector3 = target / actual
+    var reach: float = clampf(actual,
+        absf(upper_len - lower_len) + IK_REACH_MARGIN_METERS,
+        upper_len + lower_len - IK_REACH_MARGIN_METERS)
+    var along: float = (
+        upper_len * upper_len - lower_len * lower_len
+        + reach * reach) / (2.0 * reach)
+    var sideways: float = sqrt(maxf(
+        0.0, upper_len * upper_len - along * along))
+    # Preserve the authored leg's bending plane instead of following
+    # the old gait pole, which can twist the shin in source attacks.
+    var pole: Vector3 = (knee - hip)
+    pole -= direction * pole.dot(direction)
+    if pole.length_squared() < 0.000001:
+        pole = actor.global_basis.y
+        pole -= direction * pole.dot(direction)
+    if pole.length_squared() < 0.000001:
+        pole = actor.global_basis.x
+        pole -= direction * pole.dot(direction)
+    if pole.length_squared() < 0.000001:
+        return INF
+    var expected_knee: Vector3 = (
+        hip + direction * along + pole.normalized() * sideways)
+    var expected_ankle: Vector3 = hip + direction * reach
+    _align(upper, knee - hip, expected_knee - hip)
+    var solved_knee: Vector3 = lower.global_position
+    var solved_ankle: Vector3 = foot.global_position
+    _align(lower, solved_ankle - solved_knee,
+        expected_ankle - solved_knee)
+    foot.global_basis = Basis(desired_rotation).scaled(scale)
+    return foot.to_global(sole_local).distance_to(sole_goal)
+
+
 ## One 2-bone solve per physics frame. All mesh/joint local positions
 ## and scales are immutable. The floor never changes from Y=0.
 func _source_ik_ground_attacking_limb(
@@ -2712,11 +2769,10 @@ func _source_ik_ground_attacking_limb(
         SOURCE_STRIKE_MAX_CORRECTION_METERS)
     var foot_rotation: Quaternion = (
         foot.global_basis.get_rotation_quaternion())
-    # Allow the knee to bend in the ORIGINAL source plane; _solve
-    # rotates the upper/lower joints and preserves anatomical lengths.
-    limb["authored_pole_active"] = true
-    var error: float = _solve(limb, goal, foot_rotation)
-    limb.erase("authored_pole_active")
+    # Minimal attack IK: two joint rotations, source knee-bend plane,
+    # fixed skeletal lengths. Never invoke legacy head/body logic.
+    var error: float = _source_ik_solve_striker(
+        limb, goal, foot_rotation)
     source_ik_strike_contact_count += 1
     source_ik_strike_contact_error_max = maxf(
         source_ik_strike_contact_error_max, error)
