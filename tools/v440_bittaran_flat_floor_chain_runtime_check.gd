@@ -1,7 +1,7 @@
 extends SceneTree
 ## v440 low-cost contact check on a known flat Y=0 arena.
 ## Verify 3 exact Blockbench cuboids -> analytic floor extrema,
-## 1 joint-only attacker solve, 3 supporting IK legs, NO mesh offset,
+## 1 joint-only attacker solve (optional sweep retry), 3 supports,
 ## NO changed joint pivots/lengths, and source BODY unmodified.
 const BATTLE = preload("res://scripts/bittaran_battle.gd")
 const DT: float = 1.0 / 60.0
@@ -158,7 +158,7 @@ func _run() -> void:
             var new_count: int = int(
                 ik.get("source_ik_strike_contact_count"))
             if new_count < old_count or new_count - old_count > 1:
-                _fail("more than one striker IK solve/frame " +
+                _fail("more than one striker contact evaluation/frame " +
                     str([name, source_t, old_count, new_count]))
                 return
             if new_count > old_count:
