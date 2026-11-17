@@ -119,6 +119,11 @@ jobs:
           set -euo pipefail
           "$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" --headless --path . --script tools/v429_bittaran_shin_return_runtime_check.gd
 
+      - name: Verify v430 all six literal Blockbench attacks at source speed with no IK
+        run: |
+          set -euo pipefail
+          "$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" --headless --path . --script tools/v430_bittaran_original_only_runtime_check.gd
+
       - name: Test Bittaran full scene and actual movement in Godot
         run: |
           set -euo pipefail

@@ -978,8 +978,46 @@ func _apply_front_test_attack(frame: Dictionary) -> void:
             neutral, 1.0 - out_weight).normalized()
 
 
+## v430: the ONLY game attack animation route. Sample every source
+## animator track at 1:1 original clip time, including Body and the
+## *other* three legs' authored still keys. Head remains owned by the
+## existing independent +/-90-degree live look controller.
+## Do not crossfade, mirror, aim, clamp to floor, flatten meshes or
+## inherit any former IK/global pivot from a previous attack frame.
+func apply_original_attack_only(frame: Dictionary) -> void:
+    if not loading_ok or frame.is_empty():
+        return
+    var leg_id: String = str(frame.get("id", ""))
+    var kind: String = str(frame.get("kind", ""))
+    if not ["leg_fl", "leg_fr"].has(leg_id):
+        return
+    var clip_name: String = str(ATTACK_NAMES.get(kind, ""))
+    if leg_id == "leg_fr":
+        clip_name = ("踏みつけ_R" if kind == "stomp" else clip_name + "_R")
+    if not animations.has(clip_name):
+        push_error("Bittaran original-only: no clip " + clip_name)
+        return
+    var clip: Dictionary = animations[clip_name]
+    var t: float = clampf(float(frame.get("authored_time", 0.0)),
+        0.0, float(clip.get("length", 0.0)))
+    var tracks: Dictionary = clip.get("animators", {})
+    for uid in bones.keys():
+        var joint: Node3D = bones[uid]
+        if joint.name == "Head":
+            continue
+        joint.position = bind_positions[uid]
+        var sampled: Quaternion = bind_rotations[uid]
+        if tracks.has(uid):
+            sampled = (sampled * _sample_rotation(
+                tracks[uid].get("keyframes", []), t)).normalized()
+        joint.quaternion = sampled.normalized()
+
+
 func apply_authored_attack_pose(frame: Dictionary) -> void:
     if frame.is_empty() or not loading_ok:
+        return
+    if bool(frame.get("original_attack_only", false)):
+        apply_original_attack_only(frame)
         return
     if bool(frame.get("direct_front_test", false)):
         _apply_front_test_attack(frame)
