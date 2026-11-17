@@ -448,6 +448,7 @@ func clear_attack_pose() -> void:
         leg.erase("rear_corner_socket_target_y")
         leg.erase("front_ground_sweep_pole")
         leg.erase("front_ground_shoulder_shift")
+        leg.erase("front_ground_shin_roll")
         leg.erase("windup_entry_clearance")
         leg.erase("kick_traj_entry_sole")
         leg.erase("kick_traj_entry_rotation")
@@ -2125,6 +2126,42 @@ func _ground_front_attack_leg(leg: Dictionary) -> void:
                 break
             goal.y += final_toe_error
             _solve(leg, goal, foot_rotation)
+    # The SWEEP shin is not a point contact: rotate its real mesh about
+    # the knee-to-ankle axis without shifting either joint or the toe.
+    # This axial degree of freedom can seat the broad lower-leg surface
+    # even when the knee-pole solution leaves its bottom slightly high.
+    if kind == "sweep" and contact_active:
+        var shin_axis: Vector3 = foot.global_position - lower.global_position
+        if shin_axis.length_squared() > 0.00001:
+            shin_axis = shin_axis.normalized()
+            var base_shin_q: Quaternion = (
+                lower.global_basis.orthonormalized().get_rotation_quaternion())
+            var shin_scale: Vector3 = lower.global_basis.get_scale()
+            var toe_scale: Vector3 = foot.global_basis.get_scale()
+            var best_roll: float = 0.0
+            var best_roll_score: float = INF
+            var last_roll: float = float(leg.get(
+                "front_ground_shin_roll", 0.0))
+            for step in range(49):
+                var roll: float = -PI + TAU * float(step) / 48.0
+                lower.global_basis = Basis(
+                    Quaternion(shin_axis, roll) * base_shin_q).scaled(shin_scale)
+                foot.global_basis = Basis(foot_rotation).scaled(toe_scale)
+                var shin_height: float = _foot_mesh_lowest_y(lower)
+                var toe_height: float = _foot_mesh_lowest_y(foot)
+                var score: float = (
+                    absf(shin_height - FLOOR_Y - 0.003)
+                    + maxf(FLOOR_Y + 0.003 - shin_height, 0.0) * 12.0
+                    + absf(toe_height - FLOOR_Y - 0.003) * 5.0
+                    + absf(roll) * 0.015
+                    + absf(wrapf(roll - last_roll, -PI, PI)) * 0.02)
+                if score < best_roll_score:
+                    best_roll_score = score
+                    best_roll = roll
+            lower.global_basis = Basis(
+                Quaternion(shin_axis, best_roll) * base_shin_q).scaled(shin_scale)
+            foot.global_basis = Basis(foot_rotation).scaled(toe_scale)
+            leg["front_ground_shin_roll"] = best_roll
     leg["front_ground_foot_y"] = _foot_mesh_lowest_y(foot)
     leg["front_ground_shin_y"] = _foot_mesh_lowest_y(lower)
     leg["last_goal"] = foot.to_global(leg["sole_local"] as Vector3)
