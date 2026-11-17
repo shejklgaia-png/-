@@ -3371,6 +3371,18 @@ func _source_ik_advance_locomotion(delta: float, motion: String) -> void:
             rotation = rotation.slerp(flat, alpha).normalized()
             limb["anchor_rotation"] = rotation
         var error: float = _solve(limb, goal, rotation)
+        # During the 0.20s flattening transition the old Wait sole
+        # corner and the new level underside are different points.
+        # Resolve the actual rendered toe cuboid against Y=0 once,
+        # without moving its mesh or changing any joint length.
+        if goal.y <= FLOOR_Y + 0.004:
+            var lowest: float = _source_ik_sweep_toe_lowest_world_y(
+                limb)
+            if is_finite(lowest) and lowest < FLOOR_Y - 0.004:
+                var lifted: Vector3 = goal
+                lifted.y += clampf(FLOOR_Y + 0.003 - lowest,
+                    0.0, 0.90)
+                error = _solve(limb, lifted, rotation)
         limb["last_error"] = error
     if source_ik_step_pair >= 0 and step_t >= 1.0:
         source_ik_step_pair = -1
