@@ -1342,42 +1342,10 @@ func _finalize_target_pose(delta: float) -> void:
         bittaran_foot_ik.call("set_attack_pose", attack_frame)
         bittaran_foot_ik.call("advance_ik", delta, bittaran_motion)
     _aim_bittaran_head(delta)
-    # Final visual-only ground stage: classify every one of the 18 mesh
-    # elements by the authored contact windows, not by the current mesh
-    # height alone. Thus an airborne original key stays airborne even if
-    # its world-space mesh comes close to the arena.
-    if bittaran_rig != null and bittaran_foot_ik != null and target_hp > 0:
-        var contact_clip: String = str(bittaran_rig.get("current_clip"))
-        var contact_time: float = float(bittaran_rig.get("elapsed"))
-        if bool(bittaran_attack_frame.get("original_attack_only", false)):
-            var contact_kind: String = str(
-                bittaran_attack_frame.get("kind", ""))
-            var contact_leg: String = str(
-                bittaran_attack_frame.get("id", ""))
-            contact_clip = str(BittaranRig.ATTACK_NAMES.get(
-                contact_kind, ""))
-            if contact_leg == "leg_fr":
-                contact_clip = (
-                    "踏みつけ_R" if contact_kind == "stomp"
-                    else contact_clip + "_R")
-            contact_time = float(
-                bittaran_attack_frame.get("authored_time", 0.0))
-        elif bool(bittaran_foot_ik.call("down_pose_active")) or bool(
-                bittaran_foot_ik.call("attack_down_windup_active")):
-            # These are PROCEDURAL reactions, not a Blockbench clip.
-            # Do not incorrectly apply Idle contact windows to them.
-            contact_clip = ""
-        else:
-            var clips: Dictionary = bittaran_rig.get("animations")
-            if clips.has(contact_clip):
-                var length: float = float(
-                    clips[contact_clip].get("length", 0.0))
-                contact_time = (
-                    fposmod(contact_time, length)
-                    if length > 0.0 else 0.0)
-        if not contact_clip.is_empty():
-            bittaran_rig.call("apply_blockbench_ground_contacts",
-                contact_clip, contact_time)
+    # Never offset individual meshes after IK. Their relative placement is
+    # authored by Blockbench, and all 18 surfaces remain welded to their
+    # existing joint hierarchy. Supporting legs are grounded at the joint
+    # level by BittaranFootIK; active attack leg keeps original keys.
     if target_parts != null:
         target_parts.call("sync_bittaran_parts")
     _push_player_out_of_downed_body(delta)
