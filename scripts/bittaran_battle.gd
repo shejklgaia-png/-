@@ -549,14 +549,19 @@ func _check_bittaran_attack_hit() -> void:
             ["stomp", "kick", "sweep"].has(kind))
         if kind == "stomp":
             if leg_id.begins_with("leg_r"):
-                # Source t=0.50 is its AERIAL APEX, not impact.
-                # The first grounded HOLD tick at t=1.0 is the safe
-                # fall-back if the final strike tick skipped t=1.0.
+                # Source t=.50 is AERIAL apex, not impact. During
+                # v462's zero-hold test the physics step can skip
+                # the last STRIKE tick. Permit the first .10s of
+                # recovery only if the actual toe is grounded.
+                var initial_recovery: bool = (
+                    phase == "recovery" and float(
+                    bittaran_attack_frame.get("phase_elapsed", 1.0))
+                    <= 0.10)
                 var landing_window: bool = (
                     (phase == "strike" and clip_time >= 0.93) or (
                     phase == "hold" and float(
                     bittaran_attack_frame.get("phase_elapsed", 1.0))
-                    <= 0.12))
+                    <= 0.12) or initial_recovery)
                 hit_window = landing_window and (
                     _bittaran_striking_foot_grounded(leg_id))
             else:
@@ -1599,10 +1604,16 @@ func _finalize_target_pose(delta: float) -> void:
                 bittaran_attack_frame, contact, previous, delta, grounded)
             if original and target_hp > 0:
                 var kind: String = str(bittaran_attack_frame.get("kind", ""))
+                var phase: String = str(
+                    bittaran_attack_frame.get("phase", ""))
+                var first_recovery_contact: bool = (
+                    phase == "recovery" and float(
+                    bittaran_attack_frame.get("phase_elapsed", 1.0))
+                    <= 0.10)
                 if grounded and kind == "stomp" and not bool(
                         bittaran_dirt_fx.get("stomped_this_attack")) and (
-                        ["strike", "hold"].has(str(
-                        bittaran_attack_frame.get("phase", "")))) and (
+                        ["strike", "hold"].has(phase)
+                        or first_recovery_contact) and (
                         float(bittaran_attack_frame.get(
                         "authored_time", 0.0)) >= (
                         0.93 if leg_id.begins_with("leg_r") else 1.50)):
