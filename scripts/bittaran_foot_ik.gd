@@ -2788,7 +2788,12 @@ func advance_source_ground_ik(delta: float, motion: String,
             var limb: Dictionary = legs[index]
             if LEG_PART_IDS[index] != source_ik_replant_id:
                 continue
-            limb["source_ik_replant_from"] = limb["last_goal"]
+            var release_goal: Vector3 = limb["last_goal"]
+            # The source striker may finish slightly below Y=0.
+            # Never use a subterranean end-effector as the recovery
+            # starting goal: it would immediately bury the replanted toe.
+            release_goal.y = maxf(release_goal.y, FLOOR_Y)
+            limb["source_ik_replant_from"] = release_goal
             limb["source_ik_replant_rotation"] = limb["last_rotation"]
             limb["anchor"] = _source_ik_home(limb)
             limb["anchor_rotation"] = _rotation_home(limb)
