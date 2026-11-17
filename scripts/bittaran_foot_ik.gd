@@ -3373,7 +3373,8 @@ func _source_ik_advance_locomotion(delta: float, motion: String) -> void:
             # plane onto the normal Wait/gait knee pole while the TOE
             # remains exactly at its neutral planted coordinate.
             var handoff_t: float = clampf(
-                source_ik_home_handoff_elapsed
+                (source_ik_home_handoff_elapsed
+                    + maxf(delta, 0.0))
                 / SOURCE_LEG_HOME_HANDOFF_SECONDS, 0.0, 1.0)
             var knee_mix: float = handoff_t * handoff_t * (
                 3.0 - 2.0 * handoff_t)
@@ -3389,12 +3390,11 @@ func _source_ik_advance_locomotion(delta: float, motion: String) -> void:
                 gait_knee_pole, knee_mix)
             error = _source_ik_solve_striker(
                 limb, goal, rotation, limb["sole_local"], knee_hint)
-            limb["last_goal"] = (
-                limb["foot"] as Node3D).to_global(
+            var solved_foot: Node3D = limb["foot"]
+            limb["last_goal"] = solved_foot.to_global(
                 limb["sole_local"] as Vector3)
             limb["last_rotation"] = (
-                (limb["foot"] as Node3D).global_basis
-                    .get_rotation_quaternion())
+                solved_foot.global_basis.get_rotation_quaternion())
         else:
             error = _solve(limb, goal, rotation)
         limb["last_error"] = error
@@ -3459,7 +3459,10 @@ func _source_ik_return_attacker_to_home(
     limb["source_ik_leg_return_knee"] = lower.global_position
     limb["last_error"] = error
     limb["source_ik_leg_return_at_home"] = (
-        u >= 1.0 - 0.000001 and is_finite(error))
+        u >= 1.0 - 0.000001 and is_finite(error)
+        and error <= 0.08)
+    # A leg that physically cannot reach the Wait end-effector
+    # must use the legacy safe replant rather than be marked homed.
     # At the last frame both the toe goal and its angle coincide
     # with the normal gait solver's neutral planted stance.
 
