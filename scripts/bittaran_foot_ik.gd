@@ -160,8 +160,8 @@ const FRONT_BODY_MAX_DROP_METERS: float = 1.10
 const FRONT_SWEEP_MAX_DROP_METERS: float = 2.40
 # v430: no forced foot or shin rotations. Search for the BODY height
 # that flattens the connected toe while preserving its local ankle key.
-const FRONT_SWEEP_HEIGHT_SAMPLES: int = 7
-const FRONT_SWEEP_HEIGHT_SCAN_INTERVAL: float = 0.16
+const FRONT_SWEEP_HEIGHT_SAMPLES: int = 5
+const FRONT_SWEEP_HEIGHT_SCAN_INTERVAL: float = 0.38
 const FRONT_SWEEP_HEIGHT_SEARCH_START: float = 0.32
 # Matched with BittaranRig.FRONT_SWEEP_ENTRY_SECONDS.
 const FRONT_SWEEP_ENTRY_SECONDS: float = 0.32
