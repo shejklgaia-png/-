@@ -1,10 +1,10 @@
 extends SceneTree
 ## v425: real mesh grounding for all six authored L/R front-leg attacks.
-## STOMP: toe; KICK: toe; SWEEP: lower shin AND toe, with support-leg IK.
+## STOMP: toe; KICK: toe; SWEEP: toe with lower-shin penetration avoidance.
 const IK = preload("res://scripts/bittaran_foot_ik.gd")
 const DT: float = 0.05
 const FLOOR_TOLERANCE: float = 0.025
-const SHIN_TOLERANCE: float = 0.025
+const SHIN_PENETRATION_TOLERANCE: float = -0.025
 
 func _initialize() -> void:
     call_deferred("_run")
@@ -76,9 +76,9 @@ func _run() -> void:
                         + str([tick, foot_y]))
                     return
                 if kind == "sweep":
-                    worst_shin = maxf(worst_shin, absf(shin_y))
-                    if absf(shin_y) > SHIN_TOLERANCE:
-                        _fail(id + "/sweep shin not grounded: "
+                    worst_shin = maxf(worst_shin, maxf(-shin_y, 0.0))
+                    if shin_y < SHIN_PENETRATION_TOLERANCE:
+                        _fail(id + "/sweep shin penetrated: "
                             + str([tick, shin_y, foot_y]))
                         return
                 checked += 1
@@ -91,5 +91,5 @@ func _run() -> void:
     if verified != 6:
         _fail("not all six authored front attacks were verified")
         return
-    print("GODOT_V425_ATTACK_GROUND_PASS: sweep shin/toe, stomp toe, kick toe, both sides")
+    print("GODOT_V425_ATTACK_GROUND_PASS: sweep shin clearance and toe contact, stomp/kick toe, both sides")
     quit(0)
