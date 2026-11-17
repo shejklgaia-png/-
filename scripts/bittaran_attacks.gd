@@ -3,17 +3,16 @@ extends RefCounted
 ## Timings are in physics seconds, independent of the authored locomotion clip.
 const LEG_IDS: Array[String] = ["leg_fl", "leg_fr", "leg_rl", "leg_rr"]
 const ATTACK_KINDS: Array[String] = ["stomp", "kick", "sweep"]
-# v442: preserve the six original Blockbench source CLIPS and let only
+# v443: preserve the six original Blockbench source CLIPS and let only
 # a real-time attack director control entry, clip-speed warp, holding,
 # and post-attack return. No procedural attack aiming/rewriting.
 const ORIGINAL_ATTACK_ONLY: bool = true
 const SOURCE_ENTRY_SECONDS: float = 0.32
 # Sweep-only windup: wait pose -> original outward stroke begins at t=1s.
 const SWEEP_ENTRY_SECONDS: float = 1.00
-const SOURCE_LEG_LIFT_SECONDS: float = 0.34
-const SOURCE_LEG_LAND_SECONDS: float = 0.46
-const SOURCE_LEG_RETURN_SECONDS: float = (
-    SOURCE_LEG_LIFT_SECONDS + SOURCE_LEG_LAND_SECONDS)
+# Following BODY recovery, return the striking leg directly to Wait.
+# No stomp windup, lift waypoint, or artificial bounce.
+const SOURCE_LEG_RETURN_SECONDS: float = 1.20
 const SOURCE_BODY_RETURN_SECONDS: float = 0.62
 const SOURCE_KICK_STOMP_RETURN_SECONDS: float = (
     SOURCE_LEG_RETURN_SECONDS + SOURCE_BODY_RETURN_SECONDS)
@@ -30,11 +29,21 @@ const KICK_WINDUP_SECONDS: float = 0.70
 const SWEEP_WINDUP_SECONDS: float = 0.70
 const STOMP_STRIKE_SECONDS: float = 0.25
 const KICK_STRIKE_SECONDS: float = 1.0
-# v441: source sweep has no mid-animation slow-motion. Replay the
-# full source clip at 1.00x after its 1.00s entry transition.
+# v443: basic Wait -> authored sweep entry takes 1.00s; then stretch
+# the ENTIRE original outward stroke uniformly over 2.00s. The
+# original outbound turning key is t=0.50, reached at absolute 3.00s.
+# There is NO special mid-stroke slow-motion window. The return
+# portion t=0.50..1.50 keeps its original 1.00x source playback.
 const SWEEP_SOURCE_STRIKE_SECONDS: float = 1.50
 const SWEEP_OUTBOUND_END_CLIP_SECONDS: float = 0.50
-const SWEEP_STRIKE_SECONDS: float = SWEEP_SOURCE_STRIKE_SECONDS
+const SWEEP_OUTBOUND_TARGET_TOTAL_SECONDS: float = 3.00
+const SWEEP_OUTBOUND_REAL_SECONDS: float = (
+    SWEEP_OUTBOUND_TARGET_TOTAL_SECONDS - SWEEP_ENTRY_SECONDS)
+const SWEEP_OUTBOUND_SPEED: float = (
+    SWEEP_OUTBOUND_END_CLIP_SECONDS / SWEEP_OUTBOUND_REAL_SECONDS)
+const SWEEP_STRIKE_SECONDS: float = (
+    SWEEP_OUTBOUND_REAL_SECONDS +
+    SWEEP_SOURCE_STRIKE_SECONDS - SWEEP_OUTBOUND_END_CLIP_SECONDS)
 const STOMP_RECOVERY_SECONDS: float = 0.55
 const KICK_RECOVERY_SECONDS: float = 0.60
 const SWEEP_RECOVERY_SECONDS: float = 1.40
@@ -104,10 +113,16 @@ func _strike() -> float:
         "kick": return KICK_STRIKE_SECONDS
         _: return SWEEP_STRIKE_SECONDS
 
-## Direct Blockbench time: no interpolated slow or speed warp.
+## Piecewise affine authored time warp. No intermediate slow zone:
+## the FULL outward motion is .25x, the full return is normal 1x.
 static func sweep_clip_time_at(real_strike_seconds: float) -> float:
-    return clampf(real_strike_seconds,
-        0.0, SWEEP_SOURCE_STRIKE_SECONDS)
+    var t: float = clampf(real_strike_seconds,
+        0.0, SWEEP_STRIKE_SECONDS)
+    if t <= SWEEP_OUTBOUND_REAL_SECONDS:
+        return t * SWEEP_OUTBOUND_SPEED
+    return minf(SWEEP_SOURCE_STRIKE_SECONDS,
+        SWEEP_OUTBOUND_END_CLIP_SECONDS
+        + (t - SWEEP_OUTBOUND_REAL_SECONDS))
 
 func _hold() -> float:
     match kind:
@@ -207,13 +222,11 @@ func _choose_kind(for_leg: String, player_position: Vector3,
     return chosen
 
 
-## Timed original playback, no mid-sweep slow.
-## Recovery has THREE strictly sequential phases:
-## (1) BODY and other supports return to Wait while the attacking leg
-##     stays at the source strike endpoint (SWEEP 1.40s, others 0.62s).
-## (2) attack leg rises to the stomp windup t=1.00 pose (0.34s).
-## (3) attack leg plants at its Wait joint pose (0.46s).
-## No limb lifting is allowed until the BODY is fully restored.
+## v443: BODY goes to Wait FIRST (SWEEP 1.40s, others 0.62s).
+## THEN the attacking 3-joint chain goes directly to Wait over 1.20s.
+## No stomp-windup intermediate pose, leg lift, or secondary replant.
+## Sweep starts in Wait and reaches its outward endpoint at 3.00s
+## without any localized slow-motion segment.
 static func source_entry_seconds(attack_kind: String) -> float:
     return (SWEEP_ENTRY_SECONDS if attack_kind == "sweep"
         else SOURCE_ENTRY_SECONDS)
@@ -249,12 +262,19 @@ static func source_total_seconds(attack_kind: String) -> float:
 
 static func source_clip_time(attack_kind: String,
         real_attack_seconds: float) -> float:
-    return clampf(real_attack_seconds, 0.0,
+    var play_t: float = clampf(real_attack_seconds, 0.0,
+        source_play_seconds(attack_kind))
+    if attack_kind == "sweep":
+        return sweep_clip_time_at(play_t)
+    return minf(play_t,
         float(ORIGINAL_CLIP_LENGTHS.get(attack_kind, 0.0)))
 
 
-static func source_playback_speed(_attack_kind: String,
-        _play_t: float) -> float:
+static func source_playback_speed(attack_kind: String,
+        play_t: float) -> float:
+    if attack_kind == "sweep" and (
+            play_t < SWEEP_OUTBOUND_REAL_SECONDS):
+        return SWEEP_OUTBOUND_SPEED
     return 1.0
 
 func _advance_original_only(delta: float, player_position: Vector3,
@@ -302,10 +322,8 @@ func _advance_original_only(delta: float, player_position: Vector3,
         var body_seconds: float = source_body_return_seconds(kind)
         if phase_elapsed < body_seconds:
             recovery_stage = "body"
-        elif phase_elapsed < body_seconds + SOURCE_LEG_LIFT_SECONDS:
-            recovery_stage = "lift"
         else:
-            recovery_stage = "plant"
+            recovery_stage = "leg"
     elif elapsed >= play_end:
         phase = "hold"
         phase_elapsed = elapsed - play_end
@@ -332,8 +350,6 @@ func _advance_original_only(delta: float, player_position: Vector3,
         "hold": source_hold_seconds(kind),
         "recovery": source_return_seconds(kind),
         "leg_return_seconds": SOURCE_LEG_RETURN_SECONDS,
-        "leg_lift_seconds": SOURCE_LEG_LIFT_SECONDS,
-        "leg_land_seconds": SOURCE_LEG_LAND_SECONDS,
         "body_return_seconds": source_body_return_seconds(kind),
         "stance_prepare": false,
         "tracking": false,
@@ -423,7 +439,7 @@ func advance(delta: float, player_position: Vector3,
         var wall_strike_t: float = clampf(
             authored_time, 0.0, SWEEP_STRIKE_SECONDS)
         authored_time = sweep_clip_time_at(wall_strike_t)
-        # v441: legacy timing path also has no sweep slow-motion.
+        source_rate = source_playback_speed("sweep", wall_strike_t)
     var result: Dictionary = {
         "kind": kind, "id": leg_id, "time": elapsed,
         "authored_time": authored_time,
