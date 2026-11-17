@@ -122,6 +122,12 @@ var source_last_body_ik_solved_pose: Dictionary = {}
 # before set_motion(Idle) overwrites those skeletal joints.
 # Only rear authored attacks use this to avoid an entry-frame pop.
 var source_last_grounded_idle_pose: Dictionary = {}
+# v459: the return finishes at exact Wait, but the standard Idle clip
+# has an independent phase clock. Crossfade its FIRST 0.30s from the
+# final displayed Wait locals instead of sampling Idle immediately.
+const SOURCE_WAIT_TO_IDLE_BLEND_SECONDS: float = 0.30
+var source_wait_to_idle_blend_from: Dictionary = {}
+var source_wait_to_idle_blend_elapsed: float = 0.0
 var source_rear_entry_start_pose: Dictionary = {}
 var source_rear_entry_id: String = ""
 var source_rear_entry_kind: String = ""
@@ -433,6 +439,28 @@ func set_motion(clip_name: String, delta: float) -> void:
     elapsed += maxf(0.0, delta)
     blend_elapsed = minf(BLEND_SECONDS, blend_elapsed + maxf(0.0, delta))
     apply_pose(current_clip, elapsed)
+    if not source_wait_to_idle_blend_from.is_empty():
+        source_wait_to_idle_blend_elapsed = minf(
+            SOURCE_WAIT_TO_IDLE_BLEND_SECONDS,
+            source_wait_to_idle_blend_elapsed + maxf(delta, 0.0))
+        var blend: float = _source_timed_smoothstep(
+            source_wait_to_idle_blend_elapsed,
+            SOURCE_WAIT_TO_IDLE_BLEND_SECONDS)
+        for uid in source_wait_to_idle_blend_from.keys():
+            if not bones.has(uid):
+                continue
+            var joint: Node3D = bones[uid]
+            var saved: Dictionary = (
+                source_wait_to_idle_blend_from[uid])
+            joint.position = (
+                (saved["position"] as Vector3).lerp(
+                    joint.position, blend))
+            joint.quaternion = (
+                (saved["rotation"] as Quaternion).slerp(
+                    joint.quaternion, blend).normalized())
+        if source_wait_to_idle_blend_elapsed >= (
+                SOURCE_WAIT_TO_IDLE_BLEND_SECONDS - 0.000001):
+            source_wait_to_idle_blend_from.clear()
 
 ## Playback of user-authored attack keys, separate from procedural foot
 ## contact IK. Only Body and the chosen attacking leg receive author data;
@@ -1422,6 +1450,10 @@ func apply_original_attack_only(frame: Dictionary) -> void:
     var clip_t: float = float(frame.get("authored_time", 0.0))
     var phase: String = str(frame.get("phase", "strike"))
     var stage: String = str(frame.get("recovery_stage", ""))
+    if phase == "entry":
+        # Interrupted/next attack must not inherit a previous attack's
+        # end-of-return Idle bridge.
+        source_wait_to_idle_blend_from.clear()
     if leg_id.begins_with("leg_r") and phase == "entry" and (
             source_rear_entry_id != leg_id or
             source_rear_entry_kind != kind):
@@ -1528,8 +1560,22 @@ func apply_original_attack_only(frame: Dictionary) -> void:
                 neutral_position, body_return_weight)
             joint.quaternion = from.slerp(
                 neutral, body_return_weight).normalized()
-
-
+    if phase == "recovery" and stage == "leg" and (
+            transition >= body_return_seconds
+                + leg_return_seconds - 0.000001):
+        # Sample the exact terminal Wait AFTER all four local
+        # chains have converged. set_motion(Idle) runs BEFORE source
+        # playback, so cache this pose for the NEXT tick.
+        source_wait_to_idle_blend_from.clear()
+        source_wait_to_idle_blend_elapsed = 0.0
+        for uid in bones.keys():
+            var joint: Node3D = bones[uid]
+            if joint.name == "Head":
+                continue
+            source_wait_to_idle_blend_from[uid] = {
+                "position": joint.position,
+                "rotation": joint.quaternion
+            }
 
 
 
