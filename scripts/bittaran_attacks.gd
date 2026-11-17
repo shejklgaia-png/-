@@ -3,7 +3,7 @@ extends RefCounted
 ## Timings are in physics seconds, independent of the authored locomotion clip.
 const LEG_IDS: Array[String] = ["leg_fl", "leg_fr", "leg_rl", "leg_rr"]
 const ATTACK_KINDS: Array[String] = ["stomp", "kick", "sweep"]
-# v436: preserve the six original Blockbench source CLIPS and let only
+# v437: preserve the six original Blockbench source CLIPS and let only
 # a real-time attack director control entry, clip-speed warp, holding,
 # and post-attack return. No procedural attack aiming/rewriting.
 const ORIGINAL_ATTACK_ONLY: bool = true
@@ -25,24 +25,31 @@ const KICK_WINDUP_SECONDS: float = 0.70
 const SWEEP_WINDUP_SECONDS: float = 0.70
 const STOMP_STRIKE_SECONDS: float = 0.25
 const KICK_STRIKE_SECONDS: float = 1.0
-# The authored outward swing ends at source t=0.50. Slow the FINAL
-# 0.70 real seconds BEFORE that endpoint to 0.20x so the outgoing
-# motion visibly winds up. Return at normal speed immediately after
-# the turnaround. Original source keys are never changed.
+# v437: neutral Wait -> original outward sweep end (source t=0.50)
+# MUST consume 2.00 real seconds including the 0.32s entry.
+# Preserve the final 0.70s at 0.20x, but stretch the earlier .00-.36
+# of source animation to 0.98s with a monotonic cubic Hermite warp.
+# Start at zero source speed to meet the entry smoothstep; finish with
+# source speed exactly 0.20 to meet the slow block without a snap.
+# Source keys, attacking joints, return direction and post recovery
+# remain untouched.
 const SWEEP_SOURCE_STRIKE_SECONDS: float = 1.50
 const SWEEP_OUTBOUND_END_CLIP_SECONDS: float = 0.50
+const SWEEP_OUTBOUND_TARGET_TOTAL_SECONDS: float = 2.00
 const SWEEP_SLOW_SPEED: float = 0.20
 const SWEEP_SLOW_REAL_SECONDS: float = 0.70
 const SWEEP_SLOW_SOURCE_SECONDS: float = (
     SWEEP_SLOW_REAL_SECONDS * SWEEP_SLOW_SPEED)
 const SWEEP_SLOW_START_CLIP_SECONDS: float = (
     SWEEP_OUTBOUND_END_CLIP_SECONDS - SWEEP_SLOW_SOURCE_SECONDS)
+const SWEEP_EARLY_REAL_SECONDS: float = (
+    SWEEP_OUTBOUND_TARGET_TOTAL_SECONDS
+    - SOURCE_ENTRY_SECONDS - SWEEP_SLOW_REAL_SECONDS)
 const SWEEP_OUTBOUND_END_REAL_SECONDS: float = (
-    SWEEP_SLOW_START_CLIP_SECONDS + SWEEP_SLOW_REAL_SECONDS)
-const SWEEP_EXTRA_REAL_SECONDS: float = (
-    1.0 - SWEEP_SLOW_SPEED) * SWEEP_SLOW_REAL_SECONDS
+    SWEEP_EARLY_REAL_SECONDS + SWEEP_SLOW_REAL_SECONDS)
 const SWEEP_STRIKE_SECONDS: float = (
-    SWEEP_SOURCE_STRIKE_SECONDS + SWEEP_EXTRA_REAL_SECONDS)
+    SWEEP_OUTBOUND_END_REAL_SECONDS
+    + SWEEP_SOURCE_STRIKE_SECONDS - SWEEP_OUTBOUND_END_CLIP_SECONDS)
 const STOMP_RECOVERY_SECONDS: float = 0.55
 const KICK_RECOVERY_SECONDS: float = 0.60
 const SWEEP_RECOVERY_SECONDS: float = 1.40
@@ -112,17 +119,40 @@ func _strike() -> float:
         "kick": return KICK_STRIKE_SECONDS
         _: return SWEEP_STRIKE_SECONDS
 
-## SOURCE timeline: 0.00..0.36 at 1x -> 0.36..0.50 at 0.20x
-## over 0.70 REAL seconds -> 0.50..1.50 at 1x (return).
-## Keyframe t=0.50 is reached at REAL t=1.06, so the last 0.70s
-## of the OUTBOUND action plays slowly instead of slowing its return.
+## SOURCE timeline in seconds from end of the 0.32s entry:
+## 0.00..0.98 = cubic time-warp original clip 0.00..0.36;
+## 0.98..1.68 = constant 0.20x source 0.36..0.50;
+## 1.68..2.68 = 1.00x source return 0.50..1.50.
+## Total from neutral Wait to the OUTWARD turnaround = 2.00 seconds.
+static func _sweep_early_source_time(play_seconds: float) -> float:
+    var u: float = clampf(
+        play_seconds / SWEEP_EARLY_REAL_SECONDS, 0.0, 1.0)
+    # Cubic Hermite: p(0)=0, p'(0)=0; p(1)=.36,
+    # p'(1)=.20 * .98. Evaluating the source timeline (not Euler
+    # angles) preserves every original Blockbench key and its geometry.
+    var h01: float = -2.0 * u * u * u + 3.0 * u * u
+    var h11: float = u * u * u - u * u
+    return (SWEEP_SLOW_START_CLIP_SECONDS * h01
+        + SWEEP_EARLY_REAL_SECONDS * SWEEP_SLOW_SPEED * h11)
+
+
+static func _sweep_early_source_speed(play_seconds: float) -> float:
+    var u: float = clampf(
+        play_seconds / SWEEP_EARLY_REAL_SECONDS, 0.0, 1.0)
+    var slope: float = (
+        SWEEP_SLOW_START_CLIP_SECONDS * (6.0 * u - 6.0 * u * u)
+        + SWEEP_EARLY_REAL_SECONDS * SWEEP_SLOW_SPEED
+        * (3.0 * u * u - 2.0 * u))
+    return maxf(0.0, slope / SWEEP_EARLY_REAL_SECONDS)
+
+
 static func sweep_clip_time_at(real_strike_seconds: float) -> float:
     var t: float = maxf(real_strike_seconds, 0.0)
-    if t <= SWEEP_SLOW_START_CLIP_SECONDS:
-        return t
+    if t <= SWEEP_EARLY_REAL_SECONDS:
+        return _sweep_early_source_time(t)
     if t <= SWEEP_OUTBOUND_END_REAL_SECONDS:
         return SWEEP_SLOW_START_CLIP_SECONDS + (
-            t - SWEEP_SLOW_START_CLIP_SECONDS) * SWEEP_SLOW_SPEED
+            t - SWEEP_EARLY_REAL_SECONDS) * SWEEP_SLOW_SPEED
     return minf(SWEEP_SOURCE_STRIKE_SECONDS,
         SWEEP_OUTBOUND_END_CLIP_SECONDS
         + (t - SWEEP_OUTBOUND_END_REAL_SECONDS))
@@ -268,10 +298,12 @@ static func source_clip_time(attack_kind: String,
 
 static func source_playback_speed(attack_kind: String,
         play_t: float) -> float:
-    if attack_kind == "sweep" and (
-            play_t >= SWEEP_SLOW_START_CLIP_SECONDS - 0.000001 and (
-            play_t < SWEEP_OUTBOUND_END_REAL_SECONDS - 0.000001)):
-        return SWEEP_SLOW_SPEED
+    if attack_kind == "sweep":
+        if play_t <= SWEEP_EARLY_REAL_SECONDS:
+            return _sweep_early_source_speed(play_t)
+        if play_t < SWEEP_OUTBOUND_END_REAL_SECONDS:
+            return SWEEP_SLOW_SPEED
+        return 1.0
     return 1.0
 
 
