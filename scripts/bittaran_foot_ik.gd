@@ -984,7 +984,7 @@ func _attack_goal(leg: Dictionary, desired_rotation: Quaternion) -> Vector3:
         t / maxf(minf(0.24, windup * 0.5), 0.001))
     return from.lerp(goal, entry_alpha)
 
-func setup(model: Node3D) -> bool:
+func setup(model: Node3D, source_replay_only: bool = false) -> bool:
     actor = model
     legs.clear()
     ready = false
@@ -1045,7 +1045,12 @@ func setup(model: Node3D) -> bool:
     # actor.position is in the scaled target's local units, while contact
     # measurements and the requested crouch are in world metres.
     var parent_scale_y: float = maxf(absf(actor.get_parent().global_basis.get_scale().y), 0.001)
-    actor.position.y += (FLOOR_Y - average_sole_y - BODY_CROUCH_WORLD_METERS) / parent_scale_y
+    # During v434 source replay, DO NOT offset the root by the old
+    # auto-crouch/sole averaging formula. Even setup must be read-only
+    # with respect to the user's Blockbench bones and relative heights.
+    if not source_replay_only:
+        actor.position.y += (
+            FLOOR_Y - average_sole_y - BODY_CROUCH_WORLD_METERS) / parent_scale_y
     rest_actor_local_y = actor.position.y
     chassis_bone = actor.find_child("Body", true, false) as Node3D
     if chassis_bone == null:
@@ -1062,10 +1067,13 @@ func setup(model: Node3D) -> bool:
             break
     if head_mesh_for_height == null:
         return false
-    reset()
+    if not source_replay_only:
+        reset()
     ready = true
-    # Ensure soles are on the floor immediately, before the first physics tick.
-    advance_ik(0.0, "Idle")
+    # The verification stage deliberately skips all contact IK, including
+    # the old first-frame solve which otherwise changes source pose.
+    if not source_replay_only:
+        advance_ik(0.0, "Idle")
     return true
 
 ## World-space lower bound of the ACTUAL authored foot mesh, not the
