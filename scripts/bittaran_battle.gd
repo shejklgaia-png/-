@@ -11,6 +11,11 @@ const DOWN_CLEARANCE = preload("res://scripts/bittaran_down_clearance.gd")
 const CONTROLLER_AXIS = preload("res://scripts/bittaran_controller_axis.gd")
 const NAME_TEXT: String = "BITTARAN  /  ビットタラン"
 const BOSS_WORLD_SCALE: float = 2.0
+# v434: isolate the actual 17:21 Blockbench rotations and positions first.
+# No supporting-leg IK, pose-independent head tracking, contact snap,
+# pre-attack stance, or dynamic body height compensation in this mode.
+# Reintroduce support IK only after comparing source poses in Godot.
+const BLOCKBENCH_SOURCE_REPLAY_ONLY: bool = true
 const BOSS_DEATH_RESPAWN_SECONDS: float = 3.0
 # During attacks only the articulated chest can follow the player.
 # The boss root, gait and planted support-foot positions stay fixed.
@@ -183,7 +188,8 @@ func _build_target() -> void:
     # The authored head faces -Z; SERA's target-space forward is +Z.
     # Only the model turns 180 degrees here; AI owns the root yaw.
     bittaran_rig.rotation.y = PI
-    bittaran_rig.position.y = -1.12
+    bittaran_rig.position.y = (
+        0.0 if BLOCKBENCH_SOURCE_REPLAY_ONLY else -1.12)
     target.add_child(bittaran_rig)
     bittaran_head = bittaran_rig.find_child("Head", true, false) as Node3D
     if bittaran_head != null:
@@ -197,8 +203,27 @@ func _build_target() -> void:
     bittaran_ai = BittaranAI.new()
     bittaran_ai.call("reset")
     bittaran_foot_ik = BittaranFootIK.new()
-    if not bool(bittaran_foot_ik.call("setup", bittaran_rig)):
+    if not bool(bittaran_foot_ik.call("setup",
+            bittaran_rig, BLOCKBENCH_SOURCE_REPLAY_ONLY)):
         push_error("Bittaran: four-leg IK setup failed")
+    if BLOCKBENCH_SOURCE_REPLAY_ONLY:
+        # Calibrate just the single VISUAL ROOT to the authored Wait
+        # foot plane. This is a fixed initial placement (not IK).
+        # No per-animation / per-mesh offsets or torso poses are changed.
+        var min_wait_sole_y: float = INF
+        var meshes: Dictionary = bittaran_rig.get("mesh_nodes_by_uuid")
+        for uid in meshes.keys():
+            var piece: MeshInstance3D = meshes[uid]
+            if piece.name.begins_with("FrontFoot_") or (
+                    piece.name.begins_with("RearFoot_")):
+                min_wait_sole_y = minf(min_wait_sole_y, float(
+                    bittaran_rig.call("_ground_mesh_lowest_world_y",
+                        str(uid))))
+        if is_finite(min_wait_sole_y):
+            var root_parent_scale: float = maxf(absf(
+                target.global_basis.get_scale().y), 0.001)
+            bittaran_rig.position.y += (
+                -min_wait_sole_y / root_parent_scale)
     # The original training parts do not follow the mesh bones and their
     # collision boxes stay at old dummy positions. Use a named boss adapter.
     var old_parts: Node3D = target_parts
@@ -1310,42 +1335,42 @@ func _physics_process(delta: float) -> void:
     _update_bittaran_lock_permissions()
 
 func _finalize_target_pose(delta: float) -> void:
-    # main calls this after root motion/bob, before collision and AUTO.
-    # Otherwise AUTO samples the reset animation pose, then IK moves the
-    # visible shins to different positions later in the same frame.
-    if bittaran_foot_ik != null and target != null and target_hp > 0:
-        var attack_frame: Dictionary = bittaran_attack_frame.duplicate()
-        var preparing_stance: bool = bool(
-            attack_frame.get("stance_prepare", false))
-        if preparing_stance:
-            # First make the legs turn/step to their exact Wait contacts
-            # with two-bone IK, with no author timeline or attack hitbox.
-            bittaran_foot_ik.call("begin_attack_stance",
-                str(attack_frame.get("id", "")))
-            attack_frame.clear()
-        if not attack_frame.is_empty() and bittaran_rig != null:
-            bittaran_rig.call("apply_authored_attack_pose", attack_frame)
-            attack_frame["authored"] = true
-        elif bittaran_rig != null and bool(bittaran_foot_ik.call(
-                "attack_down_windup_active")):
-            # The current 0.60s transition is separate from the original
-            # attack timeline. Apply it after Idle sampling and BEFORE IK.
-            # The head joint is never a target of this blend.
-            var progress: float = clampf(
-                (float(bittaran_foot_ik.get("windup_elapsed"))
-                + maxf(delta, 0.0))
-                / BittaranFootIK.LEG_BREAK_WINDUP_SECONDS, 0.0, 1.0)
-            bittaran_rig.call("apply_stomp_down_windup", progress)
-        elif bittaran_rig != null and bool(bittaran_foot_ik.call(
-                "down_pose_active")):
-            bittaran_rig.call("clear_stomp_down_windup")
-        bittaran_foot_ik.call("set_attack_pose", attack_frame)
-        bittaran_foot_ik.call("advance_ik", delta, bittaran_motion)
-    _aim_bittaran_head(delta)
-    # Never offset individual meshes after IK. Their relative placement is
-    # authored by Blockbench, and all 18 surfaces remain welded to their
-    # existing joint hierarchy. Supporting legs are grounded at the joint
-    # level by BittaranFootIK; active attack leg keeps original keys.
+    # v434 is a strict staging phase. Source animation runs on the 14-joint
+    # hierarchy without ANY subsequent IK/head/body/contact correction.
+    # Physics collision and lock-part synchronization remain enabled.
+    if BLOCKBENCH_SOURCE_REPLAY_ONLY:
+        if bittaran_rig != null and not bittaran_attack_frame.is_empty() and (
+                bool(bittaran_attack_frame.get(
+                    "original_attack_only", false))):
+            bittaran_rig.call("apply_original_attack_only",
+                bittaran_attack_frame)
+    else:
+        if bittaran_foot_ik != null and target != null and target_hp > 0:
+            var attack_frame: Dictionary = bittaran_attack_frame.duplicate()
+            var preparing_stance: bool = bool(
+                attack_frame.get("stance_prepare", false))
+            if preparing_stance:
+                bittaran_foot_ik.call("begin_attack_stance",
+                    str(attack_frame.get("id", "")))
+                attack_frame.clear()
+            if not attack_frame.is_empty() and bittaran_rig != null:
+                bittaran_rig.call("apply_authored_attack_pose", attack_frame)
+                attack_frame["authored"] = true
+            elif bittaran_rig != null and bool(bittaran_foot_ik.call(
+                    "attack_down_windup_active")):
+                var progress: float = clampf(
+                    (float(bittaran_foot_ik.get("windup_elapsed"))
+                    + maxf(delta, 0.0))
+                    / BittaranFootIK.LEG_BREAK_WINDUP_SECONDS, 0.0, 1.0)
+                bittaran_rig.call("apply_stomp_down_windup", progress)
+            elif bittaran_rig != null and bool(bittaran_foot_ik.call(
+                    "down_pose_active")):
+                bittaran_rig.call("clear_stomp_down_windup")
+            bittaran_foot_ik.call("set_attack_pose", attack_frame)
+            bittaran_foot_ik.call("advance_ik", delta, bittaran_motion)
+        _aim_bittaran_head(delta)
+    # No mesh is individually moved in either branch. v433's intact
+    # parent-child hierarchy is kept unchanged.
     if target_parts != null:
         target_parts.call("sync_bittaran_parts")
     _push_player_out_of_downed_body(delta)
