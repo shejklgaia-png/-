@@ -1,5 +1,7 @@
 extends RefCounted
 const BittaranParts = preload("res://scripts/bittaran_parts.gd")
+# v462: read the ONE reversible source-timing experiment switch.
+const BittaranAttackTimings = preload("res://scripts/bittaran_attacks.gd")
 ## Analytical two-bone IK for four independent Bittaran legs.
 ## The authored Blockbench asset, joints, Wait pose and animation UUIDs are
 ## unchanged. The pose clips are evaluated first; grounded IK is layered last.
@@ -3323,9 +3325,12 @@ func _source_ik_advance_locomotion(delta: float, motion: String) -> void:
             limb["source_ik_toe_down_alpha"] = 1.0
             limb["sole_local"] = limb["stomp_tip_local"]
     var can_step: bool = (motion == "Approach" or motion == "Turn")
+    var postattack_handoff_seconds: float = (
+        SOURCE_POSTATTACK_GAIT_BLEND_SECONDS
+        / BittaranAttackTimings.source_return_speed())
     if source_ik_postattack_hold and can_step:
         source_ik_postattack_gait_elapsed = minf(
-            SOURCE_POSTATTACK_GAIT_BLEND_SECONDS,
+            postattack_handoff_seconds,
             source_ik_postattack_gait_elapsed + maxf(delta, 0.0))
     # v458: one shared fade-in for all four legs. Advancing the
     # counter inside the limb loop would run it 4x too quickly.
@@ -3363,11 +3368,17 @@ func _source_ik_advance_locomotion(delta: float, motion: String) -> void:
             if errors[1 - pick] > errors[pick] + 0.20:
                 pick = 1 - pick
             _source_ik_begin_pair(pick)
+    # v462: only the postattack reset gait is accelerated. Normal
+    # walking remains at its original 0.52s cadence and height.
+    var current_step_duration: float = SOURCE_STEP_DURATION_SECONDS
+    if source_ik_postattack_active:
+        current_step_duration /= (
+            BittaranAttackTimings.source_return_speed())
     if source_ik_step_pair >= 0:
-        source_ik_step_elapsed = minf(SOURCE_STEP_DURATION_SECONDS,
+        source_ik_step_elapsed = minf(current_step_duration,
             source_ik_step_elapsed + maxf(delta, 0.0))
     var step_t: float = clampf(
-        source_ik_step_elapsed / SOURCE_STEP_DURATION_SECONDS,
+        source_ik_step_elapsed / current_step_duration,
         0.0, 1.0)
     var eased: float = step_t * step_t * (3.0 - 2.0 * step_t)
     for index in range(legs.size()):
@@ -3469,8 +3480,7 @@ func _source_ik_advance_locomotion(delta: float, motion: String) -> void:
                     "source_ik_postattack_foot", post_foot.quaternion)
                 var handoff_t: float = clampf(
                     source_ik_postattack_gait_elapsed
-                    / SOURCE_POSTATTACK_GAIT_BLEND_SECONDS,
-                    0.0, 1.0)
+                    / postattack_handoff_seconds, 0.0, 1.0)
                 var handoff_weight: float = (
                     handoff_t * handoff_t * (3.0 - 2.0 * handoff_t))
                 error = _solve(limb, goal, rotation)
@@ -3605,7 +3615,7 @@ func _source_ik_advance_locomotion(delta: float, motion: String) -> void:
                 source_ik_postattack_gait_elapsed = 0.0
     if source_ik_postattack_hold and can_step and (
             source_ik_postattack_gait_elapsed >= (
-                SOURCE_POSTATTACK_GAIT_BLEND_SECONDS - 0.000001)):
+                postattack_handoff_seconds - 0.000001)):
         source_ik_postattack_hold = false
         source_ik_postattack_gait_elapsed = 0.0
     if not source_ik_replant_id.is_empty():
