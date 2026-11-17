@@ -15,7 +15,11 @@ const BOSS_WORLD_SCALE: float = 2.0
 # No supporting-leg IK, pose-independent head tracking, contact snap,
 # pre-attack stance, or dynamic body height compensation in this mode.
 # Reintroduce support IK only after comparing source poses in Godot.
-const BLOCKBENCH_SOURCE_REPLAY_ONLY: bool = true
+const BLOCKBENCH_SOURCE_REPLAY_ONLY: bool = false
+# v435: keep v434 source keys, but enable ONLY the isolated diagonal
+# locomotion IK and the three non-striking support limbs during attacks.
+# The original 4k-line legacy torso/chest compensation is not reenabled.
+const BLOCKBENCH_GAIT_SUPPORT_IK: bool = true
 const BOSS_DEATH_RESPAWN_SECONDS: float = 3.0
 # During attacks only the articulated chest can follow the player.
 # The boss root, gait and planted support-foot positions stay fixed.
@@ -189,7 +193,8 @@ func _build_target() -> void:
     # Only the model turns 180 degrees here; AI owns the root yaw.
     bittaran_rig.rotation.y = PI
     bittaran_rig.position.y = (
-        0.0 if BLOCKBENCH_SOURCE_REPLAY_ONLY else -1.12)
+        0.0 if BLOCKBENCH_SOURCE_REPLAY_ONLY or (
+            BLOCKBENCH_GAIT_SUPPORT_IK) else -1.12)
     target.add_child(bittaran_rig)
     bittaran_head = bittaran_rig.find_child("Head", true, false) as Node3D
     if bittaran_head != null:
@@ -203,10 +208,10 @@ func _build_target() -> void:
     bittaran_ai = BittaranAI.new()
     bittaran_ai.call("reset")
     bittaran_foot_ik = BittaranFootIK.new()
-    if not bool(bittaran_foot_ik.call("setup",
-            bittaran_rig, BLOCKBENCH_SOURCE_REPLAY_ONLY)):
+    if not bool(bittaran_foot_ik.call("setup", bittaran_rig,
+            BLOCKBENCH_SOURCE_REPLAY_ONLY or BLOCKBENCH_GAIT_SUPPORT_IK)):
         push_error("Bittaran: four-leg IK setup failed")
-    if BLOCKBENCH_SOURCE_REPLAY_ONLY:
+    if BLOCKBENCH_SOURCE_REPLAY_ONLY or BLOCKBENCH_GAIT_SUPPORT_IK:
         # Calibrate just the single VISUAL ROOT to the authored Wait
         # foot plane. This is a fixed initial placement (not IK).
         # No per-animation / per-mesh offsets or torso poses are changed.
@@ -224,6 +229,9 @@ func _build_target() -> void:
                 target.global_basis.get_scale().y), 0.001)
             bittaran_rig.position.y += (
                 -min_wait_sole_y / root_parent_scale)
+    if BLOCKBENCH_GAIT_SUPPORT_IK:
+        if not bool(bittaran_foot_ik.call("initialize_source_ground_ik")):
+            push_error("Bittaran: v435 simple skeletal IK setup failed")
     # The original training parts do not follow the mesh bones and their
     # collision boxes stay at old dummy positions. Use a named boss adapter.
     var old_parts: Node3D = target_parts
@@ -1344,6 +1352,19 @@ func _finalize_target_pose(delta: float) -> void:
                     "original_attack_only", false))):
             bittaran_rig.call("apply_original_attack_only",
                 bittaran_attack_frame)
+    elif BLOCKBENCH_GAIT_SUPPORT_IK:
+        # The source animation owns the BODY and all 4 joint chains first.
+        # Then apply IK ONLY to locomotion soles or to 3 support limbs.
+        # No mesh offsets, no chassis pitch/height/crouch corrections,
+        # and no legacy front-attack floor solver.
+        if bittaran_rig != null and not bittaran_attack_frame.is_empty() and (
+                bool(bittaran_attack_frame.get(
+                    "original_attack_only", false))):
+            bittaran_rig.call("apply_original_attack_only",
+                bittaran_attack_frame)
+        if bittaran_foot_ik != null and target != null and target_hp > 0:
+            bittaran_foot_ik.call("advance_source_ground_ik",
+                delta, bittaran_motion, bittaran_attack_frame)
     else:
         if bittaran_foot_ik != null and target != null and target_hp > 0:
             var attack_frame: Dictionary = bittaran_attack_frame.duplicate()
