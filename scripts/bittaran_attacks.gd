@@ -194,9 +194,9 @@ func _choose_leg(player_position: Vector3, feet: Dictionary) -> String:
 ## rotation breaks ties and prevents immediate repeats.
 func _choose_kind(for_leg: String, player_position: Vector3,
         feet: Dictionary) -> String:
-    var allowed: Array[String] = (
-        ["stomp", "sweep"] if for_leg.begins_with("leg_r")
-        else ATTACK_KINDS)
+    var allowed: Array[String] = ["stomp", "sweep"]
+    if not for_leg.begins_with("leg_r"):
+        allowed = ATTACK_KINDS
     var chosen: String = ATTACK_KINDS[next_kind_index]
     if not allowed.has(chosen):
         chosen = "sweep" if last_kind == "stomp" else "stomp"
