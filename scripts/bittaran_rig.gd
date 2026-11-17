@@ -97,6 +97,9 @@ var blend_from: Dictionary = {}
 # the NEXT Blockbench source key; that would treat solver output as
 # authored animation and visibly wrench the limbs at gait changes.
 var source_ground_ik_active: bool = false
+# v442: the actual IK-grounded leg pose at the moment the BODY
+# returns to Wait is the start of the later raised-foot transition.
+var source_return_lift_start_pose: Dictionary = {}
 # Procedural HEAD look yaw is not part of an authored blend source.
 var external_head_yaw: float = 0.0
 var loading_ok: bool = false
@@ -1179,7 +1182,8 @@ func _source_timed_smoothstep(seconds: float,
     return u * u * (3.0 - 2.0 * u)
 
 
-## v441: the actual Blockbench stomp windup has a fully raised foot
+## v442: after BODY restoration use the real Blockbench stomp windup,
+## with its fully raised foot
 ## around source t=1.00..1.25. Reuse only the active three-joint
 ## chain (upper, lower, toe) as a RETURN waypoint for ANY attack.
 ## No additional mesh transforms, pivot offsets, or keyframe edits.
@@ -1227,22 +1231,34 @@ func apply_original_attack_only(frame: Dictionary) -> void:
     if not animations.has(clip_name):
         return
     var clip_t: float = float(frame.get("authored_time", 0.0))
+    var phase: String = str(frame.get("phase", "strike"))
+    var stage: String = str(frame.get("recovery_stage", ""))
+    if phase != "recovery":
+        source_return_lift_start_pose.clear()
+    elif stage != "body" and (
+            source_return_lift_start_pose.is_empty()):
+        # Sample previous IK-corrected pose BEFORE resetting source keys.
+        for limb_name in FRONT_ATTACK_LIMB_NAMES.get(leg_id, []):
+            var bone_uid: String = str(bone_uuid_by_name.get(limb_name, ""))
+            if not bones.has(bone_uid):
+                continue
+            var bone: Node3D = bones[bone_uid]
+            source_return_lift_start_pose[limb_name] = {
+                "position": bone.position,
+                "rotation": bone.quaternion
+            }
     apply_source_clip_exact(clip_name, clip_t)
     if not bool(frame.get("source_timed_attack", false)):
         # Keep the direct source mode usable by independent replay tests.
         return
-    var phase: String = str(frame.get("phase", "strike"))
     if phase == "strike" or phase == "hold":
         # Source keys must stay 100% original through the strike/hold.
         return
     var transition: float = float(frame.get("phase_elapsed", 0.0))
     var entry_seconds: float = float(
         frame.get("entry_seconds", 0.32))
-    var leg_return_seconds: float = float(
-        frame.get("leg_return_seconds", 0.42))
     var body_return_seconds: float = float(
         frame.get("body_return_seconds", 0.62))
-    var total_return: float = float(frame.get("recovery", 1.4))
     var lift_seconds: float = float(
         frame.get("leg_lift_seconds", 0.34))
     var land_seconds: float = float(
@@ -1251,12 +1267,8 @@ func apply_original_attack_only(frame: Dictionary) -> void:
         leg_id, [])
     var entry_weight: float = _source_timed_smoothstep(
         transition, entry_seconds)
-    var full_return_weight: float = _source_timed_smoothstep(
-        transition, total_return)
-    var limb_return_weight: float = _source_timed_smoothstep(
-        transition, leg_return_seconds)
     var body_return_weight: float = _source_timed_smoothstep(
-        transition - leg_return_seconds, body_return_seconds)
+        transition, body_return_seconds)
     for uid in bones.keys():
         var joint: Node3D = bones[uid]
         if joint.name == "Head":
@@ -1275,26 +1287,30 @@ func apply_original_attack_only(frame: Dictionary) -> void:
                 from, entry_weight).normalized()
         elif phase == "recovery":
             if striking_joint_names.has(joint.name):
-                # Every returning striker goes through the actual
-                # high leg lift from the matching left/right stomp
-                # windup, before being planted at its Wait rotation.
-                # Keep all three connected joints in the same phase.
+                # 1) The source attacking limb remains in its end pose
+                # until the BODY is fully back in neutral.
+                if transition <= body_return_seconds:
+                    continue
+                # 2) Lift with the SAME SIDE stomp windup at t=1.00.
+                # 3) Replant to the Wait pose. Three connected joints
+                # use the previous physically grounded starting pose.
+                var saved: Dictionary = (
+                    source_return_lift_start_pose.get(joint.name, {}))
+                var lift_from_q: Quaternion = saved.get("rotation", from)
+                var lift_from_pos: Vector3 = saved.get(
+                    "position", from_position)
                 _source_return_via_stomp(
-                    leg_id, joint, from, from_position,
-                    neutral, neutral_position, transition,
+                    leg_id, joint, lift_from_q, lift_from_pos,
+                    neutral, neutral_position,
+                    transition - body_return_seconds,
                     lift_seconds, land_seconds)
                 continue
-            # Other parts keep their existing source->Wait recovery.
-            # Sweep Body blends over 1.40s; Kick/Stomp Body waits
-            # until the lifted striker has returned, then recovers.
-            var weight: float = full_return_weight
-            if kind != "sweep":
-                weight = (body_return_weight if joint.name == "Body"
-                    else limb_return_weight)
+            # BODY and the other limbs return first and then remain
+            # motionless in Wait while the attacking leg lifts/lands.
             joint.position = from_position.lerp(
-                neutral_position, weight)
+                neutral_position, body_return_weight)
             joint.quaternion = from.slerp(
-                neutral, weight).normalized()
+                neutral, body_return_weight).normalized()
 
 
 
