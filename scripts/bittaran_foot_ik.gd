@@ -2577,6 +2577,10 @@ func _ground_front_attack_leg(leg: Dictionary) -> void:
 const SOURCE_STEP_TRIGGER_METERS: float = 0.62
 const SOURCE_STEP_DURATION_SECONDS: float = 0.52
 const SOURCE_STEP_HEIGHT_METERS: float = 0.22
+# After source attack return, explicitly walk BOTH diagonal pairs to
+# the Wait footprint. This runs even if the boss is otherwise idle.
+const SOURCE_POSTATTACK_STEP_HEIGHT_METERS: float = 0.26
+const SOURCE_POSTATTACK_GAIT_BLEND_SECONDS: float = 0.35
 const SOURCE_TELEPORT_DISTANCE_METERS: float = 2.5
 # v454: planted/stepping gait feet point their SHORT distal end downward.
 # The long foot axis is vertical, unlike the removed horizontal-leveling.
@@ -2592,6 +2596,14 @@ var source_ik_step_elapsed: float = 0.0
 var source_ik_last_actor_position: Vector3 = Vector3.ZERO
 var source_ik_replant_id: String = ""
 var source_ik_replant_elapsed: float = 0.0
+# v461: mandatory pair-by-pair four-foot reset after each completed
+# attack. Pair order starts with the former striker's diagonal pair;
+# the other pair stays planted as the supports.
+var source_ik_postattack_active: bool = false
+var source_ik_postattack_hold: bool = false
+var source_ik_postattack_first_pair: int = 0
+var source_ik_postattack_pairs_done: int = 0
+var source_ik_postattack_gait_elapsed: float = 0.0
 # v457: the striker finishes its 1.20s return at the actual Wait
 # world-space foot coordinate. A small pole-only handoff then joins
 # the ordinary locomotion IK, without a second leg-replant animation.
@@ -3184,6 +3196,11 @@ func initialize_source_ground_ik() -> bool:
     source_ik_step_elapsed = 0.0
     source_ik_replant_id = ""
     source_ik_replant_elapsed = 0.0
+    source_ik_postattack_active = false
+    source_ik_postattack_hold = false
+    source_ik_postattack_first_pair = 0
+    source_ik_postattack_pairs_done = 0
+    source_ik_postattack_gait_elapsed = 0.0
     source_ik_wait_restored_id = ""
     source_ik_wait_locomotion_blend = 0.0
     source_ik_home_handoff_id = ""
@@ -3263,6 +3280,12 @@ func _source_ik_home(limb: Dictionary) -> Vector3:
     return point
 
 
+## The battle AI queries this before each tick to avoid starting a
+## fresh attack/torso translation until both pairs have replanted.
+func source_postattack_replant_active() -> bool:
+    return source_ik_postattack_active
+
+
 func _source_ik_begin_pair(pair_index: int) -> void:
     source_ik_step_pair = pair_index
     source_ik_next_pair = 1 - pair_index
@@ -3288,6 +3311,10 @@ func _source_ik_advance_locomotion(delta: float, motion: String) -> void:
         # Never interpolate a foot across a respawn/teleport. Resample
         # the new Wait/Idle placement, keeping the actor's Y unchanged.
         source_ik_step_pair = -1
+        source_ik_postattack_active = false
+        source_ik_postattack_hold = false
+        source_ik_postattack_pairs_done = 0
+        source_ik_postattack_gait_elapsed = 0.0
         for limb in legs:
             limb["stepping"] = false
             limb["anchor"] = _source_ik_home(limb)
@@ -3296,6 +3323,10 @@ func _source_ik_advance_locomotion(delta: float, motion: String) -> void:
             limb["source_ik_toe_down_alpha"] = 1.0
             limb["sole_local"] = limb["stomp_tip_local"]
     var can_step: bool = (motion == "Approach" or motion == "Turn")
+    if source_ik_postattack_hold and can_step:
+        source_ik_postattack_gait_elapsed = minf(
+            SOURCE_POSTATTACK_GAIT_BLEND_SECONDS,
+            source_ik_postattack_gait_elapsed + maxf(delta, 0.0))
     # v458: one shared fade-in for all four legs. Advancing the
     # counter inside the limb loop would run it 4x too quickly.
     if source_ik_wait_restored_id == "all" and can_step:
@@ -3303,9 +3334,20 @@ func _source_ik_advance_locomotion(delta: float, motion: String) -> void:
             source_ik_wait_locomotion_blend
             + maxf(delta, 0.0)
             / SOURCE_LEG_WAIT_LOCOMOTION_BLEND_SECONDS)
-    # Walking may resume DURING the Wait->gait blending window.
-    # Do not impose another 0.35s fixed pause after a finished attack.
-    if can_step and source_ik_step_pair == -1 and (
+    # v461: force both diagonal pairs regardless of how far a toe
+    # currently is from home. Each pair makes a real airborne arc,
+    # while the other two legs preserve their world-fixed toe anchors.
+    if source_ik_postattack_active and source_ik_step_pair == -1:
+        var requested_pair: int = (
+            source_ik_postattack_first_pair
+            if source_ik_postattack_pairs_done == 0
+            else 1 - source_ik_postattack_first_pair)
+        _source_ik_begin_pair(requested_pair)
+    # Ordinary locomotion never steals a pair while the mandatory
+    # post-attack four-leg return sequence is in progress.
+    elif can_step and source_ik_step_pair == -1 and (
+            not source_ik_postattack_active) and (
+            not source_ik_postattack_hold) and (
             source_ik_replant_id.is_empty()) and (
             source_ik_home_handoff_id.is_empty()):
         var errors: Array[float] = [0.0, 0.0]
@@ -3348,7 +3390,11 @@ func _source_ik_advance_locomotion(delta: float, motion: String) -> void:
             var start: Vector3 = limb["swing_from"]
             var destination: Vector3 = _source_ik_home(limb)
             goal = start.lerp(destination, eased)
-            goal.y += SOURCE_STEP_HEIGHT_METERS * sin(PI * step_t)
+            var lift_height: float = (
+                SOURCE_POSTATTACK_STEP_HEIGHT_METERS
+                if source_ik_postattack_active
+                else SOURCE_STEP_HEIGHT_METERS)
+            goal.y += lift_height * sin(PI * step_t)
             rotation = (limb["rotation_from"] as Quaternion).slerp(
                 _source_ik_toe_down_rotation(
                     limb, _rotation_home(limb)), eased).normalized()
@@ -3393,7 +3439,74 @@ func _source_ik_advance_locomotion(delta: float, motion: String) -> void:
             if source_ik_replant_id != LEG_PART_IDS[index]:
                 limb["anchor_rotation"] = rotation
         var error: float = 0.0
-        if source_ik_wait_restored_id == "all":
+        if source_ik_postattack_active or source_ik_postattack_hold:
+            # Keep the exact visible pose on the first postattack tick:
+            # the goal is captured from the displayed FOOT, and the
+            # knee pole from the previous post-IK frame. No new local
+            # pivot/mesh offsets. The other diagonal pair stays pinned.
+            var post_upper: Node3D = limb["upper"]
+            var post_lower: Node3D = limb["lower"]
+            var post_foot: Node3D = limb["foot"]
+            var previous_knee: Vector3 = limb.get(
+                "source_ik_postattack_knee",
+                post_lower.global_position)
+            if source_ik_postattack_hold and can_step:
+                # Once all four feet have reached home, hand off to
+                # ordinary gait over 0.35s rather than snapping from
+                # the source-only IK bend plane to the gait pole.
+                var prior_upper: Quaternion = limb.get(
+                    "source_ik_postattack_upper", post_upper.quaternion)
+                var prior_lower: Quaternion = limb.get(
+                    "source_ik_postattack_lower", post_lower.quaternion)
+                var prior_foot: Quaternion = limb.get(
+                    "source_ik_postattack_foot", post_foot.quaternion)
+                var handoff_t: float = clampf(
+                    source_ik_postattack_gait_elapsed
+                    / SOURCE_POSTATTACK_GAIT_BLEND_SECONDS,
+                    0.0, 1.0)
+                var handoff_weight: float = (
+                    handoff_t * handoff_t * (3.0 - 2.0 * handoff_t))
+                error = _solve(limb, goal, rotation)
+                post_upper.quaternion = prior_upper.slerp(
+                    post_upper.quaternion, handoff_weight).normalized()
+                post_lower.quaternion = prior_lower.slerp(
+                    post_lower.quaternion, handoff_weight).normalized()
+                post_foot.quaternion = prior_foot.slerp(
+                    post_foot.quaternion, handoff_weight).normalized()
+            else:
+                error = _source_ik_solve_striker(
+                    limb, goal, rotation,
+                    limb["sole_local"], previous_knee)
+                # Only grounded feet receive the geometric floor
+                # correction. Never pull an airborne swinging toe down.
+                var in_swing: bool = (
+                    source_ik_postattack_active
+                    and source_ik_step_pair >= 0
+                    and LEG_PAIRS[source_ik_step_pair].has(index)
+                    and step_t < 1.0 - 0.000001)
+                if not in_swing:
+                    _source_ik_settle_visible_foot(limb, 1.0)
+                    # Preserve the correction's actual final anchor
+                    # height, avoiding a snap on the following frame.
+                    var corrected_sole: Vector3 = (
+                        post_foot.to_global(
+                            limb["sole_local"] as Vector3))
+                    limb["anchor"] = corrected_sole
+            limb["source_ik_postattack_knee"] = (
+                post_lower.global_position)
+            limb["source_ik_postattack_upper"] = (
+                post_upper.quaternion)
+            limb["source_ik_postattack_lower"] = (
+                post_lower.quaternion)
+            limb["source_ik_postattack_foot"] = (
+                post_foot.quaternion)
+            limb["last_goal"] = post_foot.to_global(
+                limb["sole_local"] as Vector3)
+            limb["last_rotation"] = (
+                post_foot.global_basis.get_rotation_quaternion())
+            limb["last_knee"] = post_lower.global_position
+            limb["last_foot"] = post_foot.global_position
+        elif source_ik_wait_restored_id == "all":
             # v458: all FOUR limbs have returned to the authored
             # Wait skeleton. Preserve their Idle/Wait joint angles
             # instead of re-injecting twisted support IK poles.
@@ -3472,6 +3585,17 @@ func _source_ik_advance_locomotion(delta: float, motion: String) -> void:
     if source_ik_step_pair >= 0 and step_t >= 1.0:
         source_ik_step_pair = -1
         source_ik_step_elapsed = 0.0
+        if source_ik_postattack_active:
+            source_ik_postattack_pairs_done += 1
+            if source_ik_postattack_pairs_done >= 2:
+                source_ik_postattack_active = false
+                source_ik_postattack_hold = true
+                source_ik_postattack_gait_elapsed = 0.0
+    if source_ik_postattack_hold and can_step and (
+            source_ik_postattack_gait_elapsed >= (
+                SOURCE_POSTATTACK_GAIT_BLEND_SECONDS - 0.000001)):
+        source_ik_postattack_hold = false
+        source_ik_postattack_gait_elapsed = 0.0
     if not source_ik_replant_id.is_empty():
         source_ik_replant_elapsed += maxf(delta, 0.0)
         if source_ik_replant_elapsed >= 0.32:
@@ -3625,6 +3749,10 @@ func _source_ik_advance_attack(frame: Dictionary) -> void:
         source_ik_attacking_kind = attack_kind
         source_ik_step_pair = -1
         source_ik_replant_id = ""
+        source_ik_postattack_active = false
+        source_ik_postattack_hold = false
+        source_ik_postattack_pairs_done = 0
+        source_ik_postattack_gait_elapsed = 0.0
         source_ik_home_handoff_id = ""
         source_ik_home_handoff_elapsed = 0.0
         source_ik_wait_restored_id = ""
@@ -3801,17 +3929,40 @@ func advance_source_ground_ik(delta: float, motion: String,
                 source_ik_replant_elapsed = 0.0
                 source_ik_home_handoff_id = ""
                 source_ik_home_handoff_elapsed = 0.0
-                source_ik_wait_restored_id = "all"
+                source_ik_wait_restored_id = ""
                 source_ik_wait_locomotion_blend = 0.0
-                # Entire four-leg skeleton is back at the authored
-                # basic stance. Keep all four legs in that state until
-                # walking/turning resumes; gait IK then fades in.
+                source_ik_postattack_active = true
+                source_ik_postattack_hold = false
+                source_ik_postattack_pairs_done = 0
+                source_ik_postattack_gait_elapsed = 0.0
+                var attacker_index: int = LEG_PART_IDS.find(
+                    former_id)
+                source_ik_postattack_first_pair = (
+                    0 if LEG_PAIRS[0].has(attacker_index) else 1)
+                source_ik_step_pair = -1
+                source_ik_step_elapsed = 0.0
+                # Capture the last VISIBLE grounded pose (not the
+                # neutral source keys reloaded by set_motion). The
+                # first swing starts from these world-space points.
                 for other_limb in legs:
-                    other_limb["anchor"] = _source_ik_home(
-                        other_limb)
+                    var current_foot: Node3D = other_limb["foot"]
+                    var current_upper: Node3D = other_limb["upper"]
+                    var current_lower: Node3D = other_limb["lower"]
+                    var current_sole: Vector3 = current_foot.to_global(
+                        other_limb["sole_local"] as Vector3)
+                    other_limb["anchor"] = current_sole
                     other_limb["anchor_rotation"] = (
-                        _source_ik_toe_down_rotation(
-                            other_limb, _rotation_home(other_limb)))
+                        current_foot.global_basis
+                            .get_rotation_quaternion())
+                    other_limb["source_ik_postattack_knee"] = (
+                        current_lower.global_position)
+                    other_limb["source_ik_postattack_upper"] = (
+                        current_upper.quaternion)
+                    other_limb["source_ik_postattack_lower"] = (
+                        current_lower.quaternion)
+                    other_limb["source_ik_postattack_foot"] = (
+                        current_foot.quaternion)
+                    other_limb["source_ik_toe_down_alpha"] = 1.0
             else:
                 # Interrupted attacks still need an emergency replant.
                 # Begin from the actually rendered toe position.
