@@ -243,7 +243,8 @@ func _run() -> void:
                 var recovery_time: float = float(
                     frame["phase_elapsed"])
                 var expected_stage: String = (
-                    "body" if recovery_time < body_seconds else "leg")
+                    "body" if recovery_time <= body_seconds + 0.000001
+                    else "leg")
                 if str(frame.get("recovery_stage", "")) != expected_stage:
                     _die("recovery order must be Body -> direct Wait " +
                         str([name, recovery_time,
