@@ -230,6 +230,7 @@ func _build_target() -> void:
             bittaran_rig.position.y += (
                 -min_wait_sole_y / root_parent_scale)
     if BLOCKBENCH_GAIT_SUPPORT_IK:
+        bittaran_rig.set("source_ground_ik_active", true)
         # Save the fixed Blockbench-ground placement as the true respawn
         # height; setup(source_only=true) recorded the root BEFORE
         # the initial floor adjustment.
