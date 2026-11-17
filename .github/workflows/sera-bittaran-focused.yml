@@ -5,6 +5,7 @@ on:
     paths:
       - '.github/workflows/sera-bittaran-focused.yml'
       - 'models/bosses/**'
+      - 'models/storage/ビットタラン (1).bbmodel'
       - 'assets/bittaran_data.gd'
       - 'scripts/bittaran_*.gd'
       - 'scripts/sera_facing_angle_debug.gd'
@@ -90,12 +91,12 @@ jobs:
       - name: Import resources
         run: '"$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" --headless --editor --path . --import --quit'
       # v424-v429 authored attack corrections are deliberately OFF in
-      # v430 original-only mode. Their tests remain as historical scripts,
+      # v431 authored-striker + three-support IK mode. Old tests remain historical,
       # catalogued in tools/bittaran_v430_superseded_attack_tests.txt.
-      - name: Verify v430 all six literal Blockbench attacks at source speed with no IK
+      - name: Verify v431 Blockbench attacks with only three support legs grounded
         run: |
           set -euo pipefail
-          "$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" --headless --path . --script tools/v430_bittaran_original_only_runtime_check.gd
+          "$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" --headless --path . --script tools/v431_bittaran_three_support_runtime_check.gd
 
       - name: Test Bittaran full scene and actual movement in Godot
         run: |
