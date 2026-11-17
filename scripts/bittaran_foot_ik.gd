@@ -3281,7 +3281,8 @@ func _source_ik_advance_locomotion(delta: float, motion: String) -> void:
             limb["sole_local"] = limb["stomp_tip_local"]
     var can_step: bool = (motion == "Approach" or motion == "Turn")
     if can_step and source_ik_step_pair == -1 and (
-            source_ik_replant_id.is_empty()):
+            source_ik_replant_id.is_empty()) and (
+            source_ik_home_handoff_id.is_empty()):
         var errors: Array[float] = [0.0, 0.0]
         for pair_index in range(2):
             for index in LEG_PAIRS[pair_index]:
@@ -3366,7 +3367,36 @@ func _source_ik_advance_locomotion(delta: float, motion: String) -> void:
                 LEG_PAIRS[source_ik_step_pair].has(index)):
             if source_ik_replant_id != LEG_PART_IDS[index]:
                 limb["anchor_rotation"] = rotation
-        var error: float = _solve(limb, goal, rotation)
+        var error: float = 0.0
+        if source_ik_home_handoff_id == LEG_PART_IDS[index]:
+            # Continue from the last source-IK knee, easing its bend
+            # plane onto the normal Wait/gait knee pole while the TOE
+            # remains exactly at its neutral planted coordinate.
+            var handoff_t: float = clampf(
+                source_ik_home_handoff_elapsed
+                / SOURCE_LEG_HOME_HANDOFF_SECONDS, 0.0, 1.0)
+            var knee_mix: float = handoff_t * handoff_t * (
+                3.0 - 2.0 * handoff_t)
+            var hip: Vector3 = (
+                limb["upper"] as Node3D).global_position
+            var gait_knee_pole: Vector3 = (
+                hip + actor.global_basis
+                    * (limb["pole_local"] as Vector3))
+            var final_attack_knee: Vector3 = limb.get(
+                "source_ik_home_handoff_from_knee",
+                (limb["lower"] as Node3D).global_position)
+            var knee_hint: Vector3 = final_attack_knee.lerp(
+                gait_knee_pole, knee_mix)
+            error = _source_ik_solve_striker(
+                limb, goal, rotation, limb["sole_local"], knee_hint)
+            limb["last_goal"] = (
+                limb["foot"] as Node3D).to_global(
+                limb["sole_local"] as Vector3)
+            limb["last_rotation"] = (
+                (limb["foot"] as Node3D).global_basis
+                    .get_rotation_quaternion())
+        else:
+            error = _solve(limb, goal, rotation)
         limb["last_error"] = error
     if source_ik_step_pair >= 0 and step_t >= 1.0:
         source_ik_step_pair = -1
@@ -3376,6 +3406,12 @@ func _source_ik_advance_locomotion(delta: float, motion: String) -> void:
         if source_ik_replant_elapsed >= 0.32:
             source_ik_replant_id = ""
             source_ik_replant_elapsed = 0.0
+    if not source_ik_home_handoff_id.is_empty():
+        source_ik_home_handoff_elapsed += maxf(delta, 0.0)
+        if source_ik_home_handoff_elapsed >= (
+                SOURCE_LEG_HOME_HANDOFF_SECONDS):
+            source_ik_home_handoff_id = ""
+            source_ik_home_handoff_elapsed = 0.0
 
 
 ## Return the attacker's ACTUAL foot contact to its Wait-world
@@ -3538,28 +3574,43 @@ func advance_source_ground_ik(delta: float, motion: String,
         _source_ik_advance_attack(frame)
         return
     if not source_ik_attacking_id.is_empty():
-        # The active limb follows its last authored end-effector during
-        # the 0.32s replant. Do not snap it to a new gait anchor.
-        source_ik_replant_id = source_ik_attacking_id
-        source_ik_replant_elapsed = 0.0
+        var former_id: String = source_ik_attacking_id
         for index in range(legs.size()):
-            var limb: Dictionary = legs[index]
-            if LEG_PART_IDS[index] != source_ik_replant_id:
+            if LEG_PART_IDS[index] != former_id:
                 continue
-            # Replant from the currently rendered foot's actual
-            # GAIT sole, not the authored attack-only sole; otherwise
-            # switching to the level sole would move the ankle instantly.
-            var current_foot: Node3D = limb["foot"]
-            var release_goal: Vector3 = current_foot.to_global(
-                limb["sole_local"] as Vector3)
-            # The source striker may finish slightly below Y=0.
-            # Never use a subterranean end-effector as the recovery
-            # starting goal: it would immediately bury the replanted toe.
-            release_goal.y = maxf(release_goal.y, FLOOR_Y)
-            limb["source_ik_replant_from"] = release_goal
-            limb["source_ik_replant_rotation"] = limb["last_rotation"]
-            limb["anchor"] = _source_ik_home(limb)
-            limb["anchor_rotation"] = _rotation_home(limb)
+            var limb: Dictionary = legs[index]
+            if bool(limb.get("source_ik_leg_return_at_home", false)):
+                # The 1.20s attack leg return has ALREADY placed the
+                # toe at the basic Wait position and vertical angle.
+                # Never begin another .32s replant after this: that
+                # was the source of the visible end-of-return snap.
+                source_ik_replant_id = ""
+                source_ik_replant_elapsed = 0.0
+                source_ik_home_handoff_id = former_id
+                source_ik_home_handoff_elapsed = 0.0
+                limb["source_ik_home_handoff_from_knee"] = (
+                    limb["last_knee"])
+                limb["anchor"] = _source_ik_home(limb)
+                limb["anchor_rotation"] = (
+                    _source_ik_toe_down_rotation(
+                        limb, _rotation_home(limb)))
+            else:
+                # Interrupted attacks still need an emergency replant.
+                # Begin from the actually rendered toe position.
+                source_ik_replant_id = former_id
+                source_ik_replant_elapsed = 0.0
+                var current_foot: Node3D = limb["foot"]
+                var release_goal: Vector3 = current_foot.to_global(
+                    limb["sole_local"] as Vector3)
+                release_goal.y = maxf(release_goal.y, FLOOR_Y)
+                limb["source_ik_replant_from"] = release_goal
+                limb["source_ik_replant_rotation"] = limb["last_rotation"]
+                limb["anchor"] = _source_ik_home(limb)
+                limb["anchor_rotation"] = (
+                    _source_ik_toe_down_rotation(
+                        limb, _rotation_home(limb)))
+            limb.erase("source_ik_leg_return_initialized")
+            limb.erase("source_ik_leg_return_at_home")
         source_ik_attacking_id = ""
         source_ik_attacking_kind = ""
         source_ik_last_attack_time = -1.0
