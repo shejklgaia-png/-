@@ -148,6 +148,11 @@ const LEG_PART_IDS: Array[String] = ["leg_fr", "leg_rl", "leg_fl", "leg_rr"]
 # v426: the attack ends with the leg returning BEFORE the chassis rises.
 const FRONT_STANCE_RETURN_SECONDS: float = 0.42
 const FRONT_BODY_RISE_SECONDS: float = 0.62
+# v429: STOMP-inspired retreat. Swing the released toe UP and BACK to
+# its Wait stance, then restore chassis height in the existing 2nd phase.
+const FRONT_RETURN_LIFT_METERS: float = 0.65
+const FRONT_RETURN_STOMP_WINDUP_SAMPLE: float = 0.75
+const FRONT_RETURN_STOMP_ROTATION_WEIGHT: float = 0.70
 const FRONT_BODY_LEVEL_WEIGHT: float = 0.68
 const FRONT_BODY_MAX_DROP_METERS: float = 1.10
 # Sweep alone crouches lower than KICK/STOMP (bounded by the real
@@ -226,6 +231,8 @@ var front_return_elapsed: float = 0.0
 var front_return_leg_id: String = ""
 var front_return_entry_sole: Vector3 = Vector3.ZERO
 var front_return_entry_rotation: Quaternion = Quaternion.IDENTITY
+var front_return_raise_delta: Quaternion = Quaternion.IDENTITY
+var front_return_lift_world: float = 0.0
 var attack_stance_active: bool = false
 var attack_stance_ready: bool = false
 var attack_stance_leg_id: String = ""
@@ -364,6 +371,22 @@ func set_attack_pose(pose: Dictionary) -> void:
                 finishing_leg["anchor"])
             front_return_entry_rotation = finishing_leg.get(
                 "last_rotation", finishing_leg["anchor_rotation"])
+            # Derive the mid-air ankle attitude from THIS side's real
+            # STOMP windup; do not copy a mirrored fixed Euler angle.
+            front_return_raise_delta = Quaternion.IDENTITY
+            if actor != null and actor.has_method("_authored_key_rotation"):
+                var raise_bone: String = (
+                    "FrontFoot_L" if old_id == "leg_fl" else "FrontFoot_R")
+                var raise_clip: String = (
+                    "踏みつけ_L" if old_id == "leg_fl" else "踏みつけ_R")
+                var wait_q: Quaternion = actor.call(
+                    "_authored_key_rotation", "Wait", raise_bone, 0.0)
+                var stomp_q: Quaternion = actor.call(
+                    "_authored_key_rotation", raise_clip, raise_bone,
+                    FRONT_RETURN_STOMP_WINDUP_SAMPLE)
+                front_return_raise_delta = (
+                    wait_q.inverse() * stomp_q).normalized()
+            front_return_lift_world = 0.0
             front_return_elapsed = 0.0
             front_return_active = true
         clear_attack_pose(ended_front)
@@ -465,6 +488,8 @@ func _reset_front_height_state() -> void:
     front_return_leg_id = ""
     front_return_entry_sole = Vector3.ZERO
     front_return_entry_rotation = Quaternion.IDENTITY
+    front_return_raise_delta = Quaternion.IDENTITY
+    front_return_lift_world = 0.0
 
 
 func front_height_recovery_active() -> bool:
@@ -472,6 +497,7 @@ func front_height_recovery_active() -> bool:
 
 
 func clear_attack_pose(preserve_front_return: bool = false) -> void:
+    _restore_sweep_shin_meshes()
     if not preserve_front_return:
         _reset_front_height_state()
     attack_pose.clear()
@@ -2123,10 +2149,25 @@ func _advance_front_height_return(delta: float) -> void:
         var leg: Dictionary = legs[index]
         var p: float = _cubic(
             front_return_elapsed / FRONT_STANCE_RETURN_SECONDS)
-        leg["anchor"] = front_return_entry_sole.lerp(
-            _home(leg, false), p)
-        leg["anchor_rotation"] = front_return_entry_rotation.slerp(
-            _rotation_home(leg), p).normalized()
+        # First lift clear of the arena, then travel toward Wait and
+        # lower the toe onto its natural home sole. The STOMP windup
+        # key supplies the raised ankle pitch, but the return goal
+        # is always a standard two-link IK sole goal (not a copied leg).
+        var out_lift: float = 0.0
+        if front_return_elapsed < FRONT_STANCE_RETURN_SECONDS:
+            out_lift = (FRONT_RETURN_LIFT_METERS *
+                sin(PI * p))
+        front_return_lift_world = out_lift
+        leg["anchor"] = (front_return_entry_sole.lerp(
+            _home(leg, false), p) + Vector3.UP * out_lift)
+        var at_home: Quaternion = _rotation_home(leg)
+        var base_rotation: Quaternion = front_return_entry_rotation.slerp(
+            at_home, p).normalized()
+        var raise_blend: float = (
+            sin(PI * p) * FRONT_RETURN_STOMP_ROTATION_WEIGHT)
+        leg["anchor_rotation"] = base_rotation.slerp(
+            (base_rotation * front_return_raise_delta).normalized(),
+            raise_blend).normalized()
         leg["stepping"] = false
     var rise: float = _cubic(
         (front_return_elapsed - FRONT_STANCE_RETURN_SECONDS)
@@ -2170,6 +2211,87 @@ func _sweep_flat_foot_rotation(foot: Node3D, id: String,
         Quaternion(world_axis, flat) * source_rotation).normalized()
     var weight: float = _cubic(phase)
     return source_rotation.slerp(target, weight).normalized()
+
+
+## v429: LONGEST actual visible lower-leg mesh edge in joint-local
+## coordinates. Mesh vertices in this model are authored in local Y but
+## the Blockbench element is additionally rotated +/-90 around Z.
+## Using the ankle bone line or arbitrary Euler '0 degrees' is NOT the
+## same as checking whether the visible SHIN is horizontal.
+func _shin_long_axis_local(lower: Node3D) -> Vector3:
+    var longest: float = 0.0
+    var axis: Vector3 = Vector3.RIGHT
+    for child in lower.get_children():
+        if not child is MeshInstance3D:
+            continue
+        var piece: MeshInstance3D = child as MeshInstance3D
+        if piece.mesh == null:
+            continue
+        var size: Vector3 = piece.mesh.get_aabb().size
+        var basis: Basis = piece.transform.basis
+        var edges: Array[Vector3] = [
+            basis.x * size.x, basis.y * size.y, basis.z * size.z]
+        for edge in edges:
+            var length: float = edge.length_squared()
+            if length > longest:
+                longest = length
+                axis = edge.normalized()
+    return axis
+
+
+## Restore only mesh rotations before each authored sample is consumed.
+## Mesh nodes are children of the shin joint: moving the shin joint
+## itself and then restoring foot.global_transform would mutate the foot's
+## LOCAL PIVOT and introduce an accumulating long-term rig deformation.
+## Rotating the visible shin mesh here leaves ankle and IK pivots intact.
+func _restore_sweep_shin_meshes() -> void:
+    for limb in legs:
+        if not limb.has("front_sweep_shin_mesh_original"):
+            continue
+        var saved: Array = limb["front_sweep_shin_mesh_original"]
+        for entry in saved:
+            var piece: MeshInstance3D = entry["mesh"]
+            if is_instance_valid(piece):
+                piece.quaternion = entry["rotation"]
+        limb.erase("front_sweep_shin_mesh_original")
+
+
+## Align the SHIN MESH long edge to world XZ after joint IK has finished.
+## No joint position, bone pivot, ankle rotation or foot contact is changed.
+## Every correction is from the imported mesh orientation of THIS frame.
+func _flatten_sweep_shin(leg: Dictionary) -> void:
+    var lower: Node3D = leg["lower"]
+    var axis: Vector3 = _shin_long_axis_local(lower)
+    if axis.length_squared() < 0.000001:
+        return
+    var world_axis: Vector3 = (
+        lower.global_basis.orthonormalized() * axis).normalized()
+    var horizontal: Vector3 = Vector3(
+        world_axis.x, 0.0, world_axis.z)
+    if horizontal.length_squared() < 0.000001:
+        var foot: Node3D = leg["foot"]
+        var reach: Vector3 = foot.global_position - lower.global_position
+        horizontal = Vector3(reach.x, 0.0, reach.z)
+    if horizontal.length_squared() < 0.000001:
+        horizontal = Vector3.RIGHT
+    horizontal = horizontal.normalized()
+    var correction: Quaternion = Quaternion(
+        world_axis, horizontal).normalized()
+    var originals: Array[Dictionary] = []
+    for child in lower.get_children():
+        if not child is MeshInstance3D:
+            continue
+        var piece: MeshInstance3D = child as MeshInstance3D
+        if piece.mesh == null:
+            continue
+        originals.append({"mesh": piece, "rotation": piece.quaternion})
+        var before: Quaternion = (
+            piece.global_basis.orthonormalized().get_rotation_quaternion())
+        var size: Vector3 = piece.global_basis.get_scale()
+        piece.global_basis = Basis(
+            (correction * before).normalized()).scaled(size)
+    if not originals.is_empty():
+        leg["front_sweep_shin_mesh_original"] = originals
 
 
 ## Sweep shin: clearance only. DO NOT pull it down to touch the ground.
@@ -2365,8 +2487,12 @@ func _ground_front_attack_leg(leg: Dictionary) -> void:
             lower.global_basis = Basis(
                 Quaternion(shin_axis, best_angle) * base_shin).scaled(shin_scale)
             foot.global_basis = Basis(foot_rotation).scaled(toe_scale)
-    # Restore the unmodified toe orientation even when a shin avoidance
-    # rotation was necessary; world position and original source scale stay.
+    # The floor-avoiding shin is not necessarily horizontal. Flatten
+    # the real rendered shin mesh, independently of the toe's already
+    # solved world contact, on BOTH front sides. Preserve the ankle's
+    # global position/orientation across this visual bend.
+    if kind == "sweep":
+        _flatten_sweep_shin(leg)
     leg["front_ground_foot_y"] = _foot_mesh_lowest_y(foot)
     leg["front_ground_shin_y"] = _foot_mesh_lowest_y(lower)
     leg["last_goal"] = foot.to_global(leg["sole_local"] as Vector3)
@@ -2378,6 +2504,9 @@ func _ground_front_attack_leg(leg: Dictionary) -> void:
 func advance_ik(delta: float, motion: String) -> void:
     if not ready or legs.size() != 4 or actor == null:
         return
+    # Reapply the untouched imported shin mesh pose before any new
+    # authored frame/IK sample; never stack last frame's correction.
+    _restore_sweep_shin_meshes()
     # Reanchor only for an actual teleport or arena reset, not normal yaw or
     # a step; world-locked feet must stay locked as the torso moves above them.
     var displacement: float = actor.global_position.distance_to(last_actor_position)
