@@ -100,8 +100,18 @@ func _run() -> void:
             and _same(ENTRY + slow_end, 2.0)):
         _die("sweep outward stroke must end 2.0s after Wait")
         return
-    # Hermite ramp t=.49 -> original clip .1555; at .98 -> .36.
-    # Existing final slow .70s runs .36..50 and ends at total=2.00.
+    # v438 preserves the Hermite source curve and executes the entire
+    # authored sweep clock at 60% of the previous real-time rate.
+    if not (_same(DIRECTOR.SWEEP_PLAYBACK_RATE, 0.60)
+            and _same(DIRECTOR.source_play_seconds("sweep"),
+                2.68 / 0.60)
+            and _same(ENTRY + slow_end / 0.60, 3.12)
+            and _same(DIRECTOR.source_total_seconds("sweep"),
+                ENTRY + 2.68 / 0.60 + 1.40)):
+        _die("sweep authored clock must run at overall 0.60x")
+        return
+    # Base Hermite: t=.49 -> source .1555; t=.98 -> source .36.
+    # After overall 0.60x these landmarks occur later.
     for check in [[0.0, 0.0], [0.49, 0.1555],
             [0.98, 0.36], [1.33, 0.43],
             [1.68, 0.50], [2.68, 1.50]]:
@@ -110,23 +120,26 @@ func _run() -> void:
             _die("incorrect sweep clock mapping " + str(check))
             return
     var epsilon: float = 0.0001
+    var rate: float = DIRECTOR.SWEEP_PLAYBACK_RATE
     for at in [0.0, 0.1, 0.3, 0.49, 0.7, 0.9, 0.98]:
-        var left_t: float = maxf(0.0, at - epsilon)
-        var right_t: float = minf(0.98, at + epsilon)
+        var real_t: float = at / rate
+        var left_t: float = maxf(0.0, real_t - epsilon)
+        var right_t: float = minf(0.98 / rate, real_t + epsilon)
         var slope: float = (
-            DIRECTOR.sweep_clip_time_at(right_t)
-            - DIRECTOR.sweep_clip_time_at(left_t)) / maxf(
+            DIRECTOR.source_clip_time("sweep", right_t)
+            - DIRECTOR.source_clip_time("sweep", left_t)) / maxf(
                 right_t - left_t, 0.000001)
-        var speed: float = DIRECTOR.source_playback_speed("sweep", at)
+        var speed: float = DIRECTOR.source_playback_speed(
+            "sweep", real_t)
         if absf(slope - speed) > 0.001 or speed < 0.0:
-            _die("early sweep time/speed mismatch " + str(
-                [at, speed, slope]))
+            _die("scaled sweep time/speed mismatch " + str(
+                [real_t, speed, slope]))
             return
-    # The speed MUST connect to the constant 0.2x slow at 0.98s,
-    # and the source timeline must have no jump at either boundary.
+    # Time/speed curves stay continuous at the scaled 0.20x region.
+    # A prior 0.20x source speed becomes 0.12x after 0.60x scale.
     if not _same(DIRECTOR.source_playback_speed(
-            "sweep", 0.98), 0.20):
-        _die("0.2x slow starts discontinuously")
+            "sweep", 0.98 / rate), 0.12):
+        _die("scaled 0.12x slow starts discontinuously")
         return
     if not _same(DIRECTOR.sweep_clip_time_at(0.98), 0.36) or not (
             _same(DIRECTOR.sweep_clip_time_at(1.68), 0.5)):
@@ -169,10 +182,10 @@ func _run() -> void:
             total
         ]
         if kind == "sweep":
-            samples.append(ENTRY + 0.49)
-            samples.append(ENTRY + 0.98)
-            samples.append(ENTRY + 1.33)
-            samples.append(ENTRY + 1.68)
+            samples.append(ENTRY + 0.49 / rate)
+            samples.append(ENTRY + 0.98 / rate)
+            samples.append(ENTRY + 1.33 / rate)
+            samples.append(ENTRY + 1.68 / rate)
         else:
             samples.append(play_end + 0.75)
             samples.append(hold_end + LEG_RETURN)
@@ -199,11 +212,11 @@ func _run() -> void:
                     str([name, at, clip_t, expected_t]))
                 return
             if kind == "sweep" and (
-                    at > ENTRY + DIRECTOR.SWEEP_EARLY_REAL_SECONDS
+                    at > ENTRY + DIRECTOR.SWEEP_EARLY_REAL_SECONDS / rate
                         + 0.00001) and (
-                    at < ENTRY + slow_end - 0.00001):
-                if not _same(float(frame["authored_playback_speed"]), 0.2):
-                    _die("missing sweep 0.2x at " + str(at))
+                    at < ENTRY + slow_end / rate - 0.00001):
+                if not _same(float(frame["authored_playback_speed"]), 0.12):
+                    _die("missing scaled sweep 0.12x at " + str(at))
                     return
             if at >= play_end and not _same(
                     float(frame["authored_playback_speed"]), 0.0):
@@ -226,8 +239,9 @@ func _run() -> void:
     print("GODOT_V436_ATTACK_TIMING_PASS ",
         "six_clips=6 cases=", checked,
         " source_euler_keys=preserved",
-        " sweep_outbound_end=2.0sec",
-        " speed_ramp=Hermite_to_0.2x",
+        " sweep_rate=0.60x",
+        " sweep_outbound_end=3.12sec",
+        " speed_ramp=Hermite_to_0.12x",
         " kick_stomp_hold=1.5sec",
         " limb_then_body_return=0.42+0.62sec")
     quit(0)
