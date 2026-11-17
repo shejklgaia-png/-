@@ -449,6 +449,7 @@ func clear_attack_pose() -> void:
         leg.erase("front_ground_sweep_pole")
         leg.erase("front_ground_shoulder_shift")
         leg.erase("front_ground_shin_roll")
+        leg.erase("front_ground_kick_shoulder_shift")
         leg.erase("windup_entry_clearance")
         leg.erase("kick_traj_entry_sole")
         leg.erase("kick_traj_entry_rotation")
@@ -2153,15 +2154,61 @@ func _ground_front_attack_leg(leg: Dictionary) -> void:
                     absf(shin_height - FLOOR_Y - 0.003)
                     + maxf(FLOOR_Y + 0.003 - shin_height, 0.0) * 12.0
                     + absf(toe_height - FLOOR_Y - 0.003) * 5.0
-                    + absf(roll) * 0.015
-                    + absf(wrapf(roll - last_roll, -PI, PI)) * 0.02)
+                    + absf(roll) * 0.003
+                    + absf(wrapf(roll - last_roll, -PI, PI)) * 0.003)
                 if score < best_roll_score:
                     best_roll_score = score
                     best_roll = roll
+            # Refine the best 7.5-degree step with sub-degree samples
+            # so visually grounded shin contact is not quantized.
+            var coarse_roll: float = best_roll
+            for substep in range(13):
+                var fine_roll: float = (coarse_roll
+                    + TAU / 48.0 * float(substep - 6) / 6.0)
+                lower.global_basis = Basis(
+                    Quaternion(shin_axis, fine_roll)
+                    * base_shin_q).scaled(shin_scale)
+                foot.global_basis = Basis(foot_rotation).scaled(toe_scale)
+                var fine_shin: float = _foot_mesh_lowest_y(lower)
+                var fine_toe: float = _foot_mesh_lowest_y(foot)
+                var fine_score: float = (
+                    absf(fine_shin - FLOOR_Y - 0.003)
+                    + maxf(FLOOR_Y + 0.003 - fine_shin, 0.0) * 12.0
+                    + absf(fine_toe - FLOOR_Y - 0.003) * 5.0
+                    + absf(fine_roll) * 0.003
+                    + absf(wrapf(fine_roll - last_roll, -PI, PI)) * 0.003)
+                if fine_score < best_roll_score:
+                    best_roll_score = fine_score
+                    best_roll = fine_roll
             lower.global_basis = Basis(
                 Quaternion(shin_axis, best_roll) * base_shin_q).scaled(shin_scale)
             foot.global_basis = Basis(foot_rotation).scaled(toe_scale)
             leg["front_ground_shin_roll"] = best_roll
+    # A fully extended KICK can reach the two-bone limit slightly above
+    # the ground. Lower the attacking hip by the smallest required amount
+    # while re-solving the very same planted toe goal. This does not alter
+    # the Blockbench clip and cannot drift into the next authored sample.
+    if kind == "kick" and contact_active:
+        var kick_shoulder_offset: float = 0.0
+        for attempt in range(8):
+            var error: float = FLOOR_Y + 0.003 - _foot_mesh_lowest_y(foot)
+            if absf(error) <= 0.006:
+                break
+            goal.y += error
+            _solve(leg, goal, foot_rotation)
+            error = FLOOR_Y + 0.003 - _foot_mesh_lowest_y(foot)
+            if absf(error) <= 0.006:
+                break
+            var shift: float = clampf(error * 0.9, -0.08, 0.08)
+            shift = (clampf(
+                kick_shoulder_offset + shift, -0.28, 0.28)
+                - kick_shoulder_offset)
+            if absf(shift) <= 0.000001:
+                break
+            upper.global_position.y += shift
+            kick_shoulder_offset += shift
+            _solve(leg, goal, foot_rotation)
+        leg["front_ground_kick_shoulder_shift"] = kick_shoulder_offset
     leg["front_ground_foot_y"] = _foot_mesh_lowest_y(foot)
     leg["front_ground_shin_y"] = _foot_mesh_lowest_y(lower)
     leg["last_goal"] = foot.to_global(leg["sole_local"] as Vector3)

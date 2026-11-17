@@ -3,8 +3,8 @@ extends SceneTree
 ## STOMP: toe; KICK: toe; SWEEP: lower shin AND toe, with support-leg IK.
 const IK = preload("res://scripts/bittaran_foot_ik.gd")
 const DT: float = 0.05
-const FLOOR_TOLERANCE: float = 0.055
-const SHIN_TOLERANCE: float = 0.105
+const FLOOR_TOLERANCE: float = 0.025
+const SHIN_TOLERANCE: float = 0.025
 
 func _initialize() -> void:
     call_deferred("_run")
