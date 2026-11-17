@@ -2592,6 +2592,12 @@ var source_ik_step_elapsed: float = 0.0
 var source_ik_last_actor_position: Vector3 = Vector3.ZERO
 var source_ik_replant_id: String = ""
 var source_ik_replant_elapsed: float = 0.0
+# v457: the striker finishes its 1.20s return at the actual Wait
+# world-space foot coordinate. A small pole-only handoff then joins
+# the ordinary locomotion IK, without a second leg-replant animation.
+const SOURCE_LEG_HOME_HANDOFF_SECONDS: float = 0.30
+var source_ik_home_handoff_id: String = ""
+var source_ik_home_handoff_elapsed: float = 0.0
 var source_ik_unreachable_supports: int = 0
 
 ## v440: fixed-plane Y=0 collision for the ACTIVE authored attacking limb.
@@ -3164,6 +3170,8 @@ func initialize_source_ground_ik() -> bool:
     source_ik_step_elapsed = 0.0
     source_ik_replant_id = ""
     source_ik_replant_elapsed = 0.0
+    source_ik_home_handoff_id = ""
+    source_ik_home_handoff_elapsed = 0.0
     source_ik_unreachable_supports = 0
     source_ik_strike_contact_count = 0
     source_ik_strike_contact_error_max = 0.0
@@ -3182,6 +3190,9 @@ func initialize_source_ground_ik() -> bool:
         limb.erase("source_ik_body_toe_pin_active")
         limb.erase("source_ik_last_foot_transform")
         limb.erase("source_ik_last_knee_world")
+        limb.erase("source_ik_leg_return_initialized")
+        limb.erase("source_ik_leg_return_at_home")
+        limb.erase("source_ik_leg_return_knee")
         var foot: Node3D = limb["foot"]
         var sole: Vector3 = foot.to_global(
             limb["source_sole_local"] as Vector3)
@@ -3367,6 +3378,56 @@ func _source_ik_advance_locomotion(delta: float, motion: String) -> void:
             source_ik_replant_elapsed = 0.0
 
 
+## Return the attacker's ACTUAL foot contact to its Wait-world
+## coordinates over the existing authored leg-return interval. Unlike
+## a per-bone Wait slerp, this controls the visible END EFFECTOR in
+## world space, so the toe cannot finish at a displaced target.
+## Capture the previous post-IK transform, not this tick's resampled
+## authored clip (set_motion() has already overwritten that pose).
+func _source_ik_return_attacker_to_home(
+        limb: Dictionary, frame: Dictionary) -> void:
+    var foot: Node3D = limb["foot"]
+    var lower: Node3D = limb["lower"]
+    if not bool(limb.get("source_ik_leg_return_initialized", false)):
+        var prior: Transform3D = limb.get(
+            "source_ik_last_foot_transform", foot.global_transform)
+        limb["source_ik_leg_return_from"] = (
+            prior * (limb["sole_local"] as Vector3))
+        limb["source_ik_leg_return_rotation"] = (
+            prior.basis.get_rotation_quaternion())
+        limb["source_ik_leg_return_knee"] = limb.get(
+            "source_ik_last_knee_world", lower.global_position)
+        limb["source_ik_leg_return_initialized"] = true
+        limb["source_ik_leg_return_at_home"] = false
+    var duration: float = maxf(
+        float(frame.get("leg_return_seconds", 1.20)), 0.001)
+    var seconds: float = maxf(
+        float(frame.get("phase_elapsed", 0.0))
+        - float(frame.get("body_return_seconds", 0.62)), 0.0)
+    var u: float = clampf(seconds / duration, 0.0, 1.0)
+    # Quintic easing: both position and velocity meet the starting
+    # planted foot and the ending basic stance without a jerk.
+    var ease: float = u * u * u * (u * (u * 6.0 - 15.0) + 10.0)
+    var from_goal: Vector3 = limb["source_ik_leg_return_from"]
+    var neutral_goal: Vector3 = _source_ik_home(limb)
+    var goal: Vector3 = from_goal.lerp(neutral_goal, ease)
+    var start_rotation: Quaternion = (
+        limb["source_ik_leg_return_rotation"])
+    var neutral_rotation: Quaternion = (
+        _source_ik_toe_down_rotation(limb, _rotation_home(limb)))
+    var rotation: Quaternion = start_rotation.slerp(
+        neutral_rotation, ease).normalized()
+    var knee_hint: Vector3 = limb["source_ik_leg_return_knee"]
+    var error: float = _source_ik_solve_striker(
+        limb, goal, rotation, limb["sole_local"], knee_hint)
+    limb["source_ik_leg_return_knee"] = lower.global_position
+    limb["last_error"] = error
+    limb["source_ik_leg_return_at_home"] = (
+        u >= 1.0 - 0.000001 and is_finite(error))
+    # At the last frame both the toe goal and its angle coincide
+    # with the normal gait solver's neutral planted stance.
+
+
 ## v440: preserve the authored Body and mesh attachment sampled by
 ## apply_original_attack_only(). Solve 3 planted support limbs and ONE
 ## active attacking skeletal chain against a constant Y=0 floor plane.
@@ -3385,6 +3446,8 @@ func _source_ik_advance_attack(frame: Dictionary) -> void:
         source_ik_attacking_kind = attack_kind
         source_ik_step_pair = -1
         source_ik_replant_id = ""
+        source_ik_home_handoff_id = ""
+        source_ik_home_handoff_elapsed = 0.0
         for index in range(legs.size()):
             var limb: Dictionary = legs[index]
             limb["stepping"] = false
@@ -3392,6 +3455,9 @@ func _source_ik_advance_attack(frame: Dictionary) -> void:
             limb.erase("source_ik_last_foot_transform")
             limb.erase("source_ik_last_knee_world")
             limb.erase("source_ik_support_knee_hint")
+            limb.erase("source_ik_leg_return_initialized")
+            limb.erase("source_ik_leg_return_at_home")
+            limb.erase("source_ik_leg_return_knee")
             var planted: Vector3 = limb["last_goal"]
             planted.y = FLOOR_Y
             limb["source_ik_attack_anchor"] = planted
@@ -3409,9 +3475,13 @@ func _source_ik_advance_attack(frame: Dictionary) -> void:
                 # v446: planted TOE TIP owns a fixed WORLD position.
                 # Never let the upward-moving BODY pull its foot away.
                 _source_ik_pin_toe_during_body(limb, frame)
+            elif str(frame.get("phase", "")) == "recovery" and (
+                    str(frame.get("recovery_stage", "")) == "leg"):
+                # v457: target the baseline Wait foot WORLD coordinate.
+                # Solve the actual toe, not just the three joint angles.
+                _source_ik_return_attacker_to_home(limb, frame)
             else:
-                # During original attack / slow final leg return keep
-                # v444's lightweight anti-penetration joint correction.
+                # Strikes/holds retain the authored IK floor correction.
                 _source_ik_ground_attacking_limb(limb, frame)
             limb["last_goal"] = foot.to_global(
                 limb["source_sole_local"] as Vector3)
