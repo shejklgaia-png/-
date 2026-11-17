@@ -3,6 +3,7 @@ extends SceneTree
 ## Locomotion IK controls four legs, and attack IK controls three planted
 ## supports plus one lightweight, joint-only flat-floor striker contact.
 const BATTLE = preload("res://scripts/bittaran_battle.gd")
+const IK = preload("res://scripts/bittaran_foot_ik.gd")
 const DT: float = 0.05
 const CONTACT_TOLERANCE_METERS: float = 0.065
 const ATTACKS: Dictionary = {
@@ -335,9 +336,7 @@ func _run() -> void:
         " max_inward_toe_drag_per_frame=", max_body_drag,
         " toe_drag_total=", ik.get(
             "source_ik_body_toe_drag_distance_max"),
-        " knee_influence=", ik.get(
-            "BODY_TOE_KNEE_POLE_INFLUENCE"),
-        " ankle_influence=", ik.get(
-            "BODY_TOE_WRIST_FLEX_INFLUENCE"),
+        " knee_influence=", IK.BODY_TOE_KNEE_POLE_INFLUENCE,
+        " ankle_influence=", IK.BODY_TOE_WRIST_FLEX_INFLUENCE,
         " unreachable=", ik.get("source_ik_unreachable_supports"))
     quit(0)
