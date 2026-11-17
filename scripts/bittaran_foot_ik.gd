@@ -2217,6 +2217,36 @@ func _ground_front_attack_leg(leg: Dictionary) -> void:
                 break
             target.y += foot_error
             _solve(leg, target, foot_rotation)
+    # Final sweep clearance, AFTER the toe is reseated. A small
+    # source shin intrusion can reappear when the toe solve moves the
+    # pole; choose the minimum axial clearance roll. Never aim for
+    # touching the ground when the authored shin is already in the air.
+    if kind == "sweep" and _foot_mesh_lowest_y(lower) < FLOOR_Y - 0.003:
+        var shin_axis: Vector3 = foot.global_position - lower.global_position
+        if shin_axis.length_squared() > 0.000001:
+            shin_axis = shin_axis.normalized()
+            var base_shin: Quaternion = (
+                lower.global_basis.orthonormalized().get_rotation_quaternion())
+            var shin_scale: Vector3 = lower.global_basis.get_scale()
+            var toe_scale: Vector3 = foot.global_basis.get_scale()
+            var best_angle: float = 0.0
+            var best_penalty: float = INF
+            for index in range(33):
+                var angle: float = 0.035 * float(index - 16)
+                lower.global_basis = Basis(
+                    Quaternion(shin_axis, angle) * base_shin).scaled(shin_scale)
+                foot.global_basis = Basis(foot_rotation).scaled(toe_scale)
+                var intrusion: float = maxf(
+                    FLOOR_Y + 0.003 - _foot_mesh_lowest_y(lower), 0.0)
+                var penalty: float = intrusion * 100.0 + absf(angle) * 0.05
+                if penalty < best_penalty:
+                    best_penalty = penalty
+                    best_angle = angle
+            lower.global_basis = Basis(
+                Quaternion(shin_axis, best_angle) * base_shin).scaled(shin_scale)
+            foot.global_basis = Basis(foot_rotation).scaled(toe_scale)
+    # Restore the unmodified toe orientation even when a shin avoidance
+    # rotation was necessary; world position and original source scale stay.
     leg["front_ground_foot_y"] = _foot_mesh_lowest_y(foot)
     leg["front_ground_shin_y"] = _foot_mesh_lowest_y(lower)
     leg["last_goal"] = foot.to_global(leg["sole_local"] as Vector3)
