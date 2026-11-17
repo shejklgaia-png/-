@@ -89,35 +89,13 @@ jobs:
           chmod +x "$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64"
       - name: Import resources
         run: '"$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" --headless --editor --path . --import --quit'
-      - name: Verify new Bittaran front-leg clips and independent 90-degree head
+      # v424-v429 authored attack corrections are deliberately OFF in
+      # v430 original-only mode. Their tests remain as historical scripts,
+      # catalogued in tools/bittaran_v430_superseded_attack_tests.txt.
+      - name: Verify v430 all six literal Blockbench attacks at source speed with no IK
         run: |
           set -euo pipefail
-          "$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" --headless --path . --script tools/v424_bittaran_front_attack_runtime_check.gd
-
-      - name: Verify v425 real toe/shin grounding for all six front-leg attacks
-        run: |
-          set -euo pipefail
-          "$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" --headless --path . --script tools/v425_bittaran_attack_ground_runtime_check.gd
-
-      - name: Verify v426 chassis leveling and ordered leg-first height return
-        run: |
-          set -euo pipefail
-          "$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" --headless --path . --script tools/v426_bittaran_chassis_return_runtime_check.gd
-
-      - name: Verify sweep Wait-to-key0 blend, natural toe touchdown and supported BODY descent
-        run: |
-          set -euo pipefail
-          "$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" --headless --path . --script tools/v427_bittaran_sweep_entry_contact_runtime_check.gd
-
-      - name: Check the lower sweeping BODY and horizontally seated front-toe meshes
-        run: |
-          set -euo pipefail
-          "$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" --headless --path . --script tools/v428_bittaran_low_flat_sweep_runtime_check.gd
-
-      - name: Verify v429 horizontal shin mesh and STOMP-like raised return
-        run: |
-          set -euo pipefail
-          "$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" --headless --path . --script tools/v429_bittaran_shin_return_runtime_check.gd
+          "$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" --headless --path . --script tools/v430_bittaran_original_only_runtime_check.gd
 
       - name: Test Bittaran full scene and actual movement in Godot
         run: |

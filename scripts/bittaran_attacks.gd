@@ -3,6 +3,13 @@ extends RefCounted
 ## Timings are in physics seconds, independent of the authored locomotion clip.
 const LEG_IDS: Array[String] = ["leg_fl", "leg_fr", "leg_rl", "leg_rr"]
 const ATTACK_KINDS: Array[String] = ["stomp", "kick", "sweep"]
+# v430: the user has restarted animation testing from the six Blockbench
+# clips only. This mode has NO pre-stance, no time stretch, hold, blend,
+# procedural aim, hit or impact. Clip seconds equal real seconds.
+const ORIGINAL_ATTACK_ONLY: bool = true
+const ORIGINAL_CLIP_LENGTHS: Dictionary = {
+    "stomp": 1.75, "kick": 1.0, "sweep": 1.50
+}
 const START_RANGE_METERS: float = 9.0
 const STOMP_WINDUP_SECONDS: float = 1.25
 # Head height is passed by the live combat controller. Standalone motion
@@ -214,10 +221,60 @@ func _choose_kind(for_leg: String, player_position: Vector3,
     return chosen
 
 
+## Raw authoring mode: each original Blockbench clip starts immediately
+## and finishes at its exact source length. No hitboxes until the user's
+## next requested combat layer is reintroduced.
+func _advance_original_only(delta: float, player_position: Vector3,
+        available_feet: Dictionary, permitted: bool) -> Dictionary:
+    if not permitted:
+        if is_active():
+            cancel()
+        else:
+            cooldown = maxf(cooldown, BETWEEN_ATTACKS_SECONDS)
+        return {}
+    if not is_active():
+        cooldown = maxf(0.0, cooldown - maxf(delta, 0.0))
+        if cooldown > 0.0:
+            return {}
+        var selected: String = _choose_leg(player_position, available_feet)
+        if selected.is_empty():
+            return {}
+        _start(selected, _choose_kind(
+            selected, player_position, available_feet), false)
+        next_leg_index = (LEG_IDS.find(selected) + 1) % LEG_IDS.size()
+    preparing_stance = false
+    var length: float = float(ORIGINAL_CLIP_LENGTHS.get(kind, 0.0))
+    if length <= 0.0:
+        cancel()
+        return {}
+    elapsed = minf(length, elapsed + maxf(delta, 0.0))
+    var frame: Dictionary = {
+        "id": leg_id, "kind": kind,
+        "original_attack_only": true,
+        "direct_front_test": true,
+        "time": elapsed,
+        "authored_time": elapsed,
+        "authored_playback_speed": 1.0,
+        "windup": 0.0, "strike": length,
+        "hold": 0.0, "recovery": 0.0,
+        "phase": "strike",
+        "stance_prepare": false,
+        "tracking": false,
+        "hit_window": false,
+        "impact": false
+    }
+    if elapsed >= length:
+        cancel()
+    return frame
+
+
 func advance(delta: float, player_position: Vector3,
         available_feet: Dictionary, permitted: bool,
         player_head_position: Vector3 = Vector3.INF,
         stance_ready: bool = false) -> Dictionary:
+    if ORIGINAL_ATTACK_ONLY:
+        return _advance_original_only(delta, player_position,
+            available_feet, permitted)
     if not permitted:
         if is_active():
             cancel()

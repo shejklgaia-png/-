@@ -1122,6 +1122,7 @@ func _advance_target_motion(delta: float) -> void:
     var previous_front_attack: bool = (
         not bittaran_attack_frame.is_empty()
         and bool(bittaran_attack_frame.get("direct_front_test", false))
+        and not bool(bittaran_attack_frame.get("original_attack_only", false))
         and not bool(bittaran_attack_frame.get("stance_prepare", false)))
     bittaran_attack_frame = (bittaran_attacks.call(
         "advance", delta, player.global_position,
@@ -1154,11 +1155,13 @@ func _advance_target_motion(delta: float) -> void:
         # metadata, keeping the new world-planted neutral anchors.
         bittaran_foot_ik.call("clear_attack_stance")
     if bittaran_rig != null:
-        if attacking and not preparing_stance:
+        if attacking and not preparing_stance and not bool(
+                bittaran_attack_frame.get("original_attack_only", false)):
             bittaran_rig.call("start_authored_attack",
                 str(bittaran_attack_frame.get("kind", "")),
                 str(bittaran_attack_frame.get("id", "")))
         else:
+            # Original-only clips have no procedural start/end blend.
             bittaran_rig.call("end_authored_attack")
     if attacking and not preparing_stance and not bool(
             bittaran_attack_frame.get("direct_front_test", false)):
@@ -1346,7 +1349,8 @@ func _finalize_target_pose(delta: float) -> void:
     if bittaran_dirt_fx != null and bittaran_foot_ik != null:
         var contact: Vector3 = bittaran_foot_ik.call("attack_contact_world")
         if bittaran_attack_frame.is_empty() or bool(
-                bittaran_attack_frame.get("stance_prepare", false)):
+                bittaran_attack_frame.get("stance_prepare", false)) or bool(
+                bittaran_attack_frame.get("original_attack_only", false)):
             bittaran_dirt_fx.call("advance_attack", {}, Vector3.ZERO,
                 Vector3.ZERO, delta)
             attack_contact_initialized = false

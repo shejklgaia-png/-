@@ -1,0 +1,23 @@
+# Bittaran v430 — archived attack-specific regression tests
+# Superseded by the user's explicit request to restart with ORIGINAL
+# six Blockbench attack clips only at 1x. These files remain in the
+# repository unchanged, callable against historical v429 versions.
+# They are NOT evidence that old contact/return/impact behavior works
+# in v430. Active checks: tools/v430_bittaran_original_only_runtime_check.gd.
+# Current unaffected locomotion/head/part/down tests remain in manifest.
+gd tools/v381_bittaran_four_leg_attacks_runtime_check.gd
+gd tools/v385_bittaran_authored_attacks_dirt_runtime_check.gd
+gd tools/v389_bittaran_body_floor_down_interrupt_runtime_check.gd
+gd tools/v390_bittaran_level_head_vertical_follow_outbound_windup_runtime_check.gd
+gd tools/v395_bittaran_leg_first_head_clearance_runtime_check.gd
+gd tools/v398_bittaran_ik_neutral_stance_before_attack_runtime_check.gd
+gd tools/v401_bittaran_weight_feel_runtime_check.gd
+gd tools/v407_bittaran_kick_whip_runtime_check.gd
+gd tools/v412_bittaran_windup_twist_rear_tilt_runtime_check.gd
+gd tools/v417_bittaran_rear_kick_axial_roll_runtime_check.gd
+gd tools/v424_bittaran_front_attack_runtime_check.gd
+gd tools/v425_bittaran_attack_ground_runtime_check.gd
+gd tools/v426_bittaran_chassis_return_runtime_check.gd
+gd tools/v427_bittaran_sweep_entry_contact_runtime_check.gd
+gd tools/v428_bittaran_low_flat_sweep_runtime_check.gd
+gd tools/v429_bittaran_shin_return_runtime_check.gd

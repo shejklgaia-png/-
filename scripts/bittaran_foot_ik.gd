@@ -348,6 +348,34 @@ func set_collision_parts(parts: Node3D) -> void:
 ## The attack director is the sole writer of this per-frame, deterministic pose.
 ## IK remains the only owner of foot goals, joint lengths and knee poles.
 func set_attack_pose(pose: Dictionary) -> void:
+    # v430 original-only mode: the six Blockbench tracks completely own
+    # all attack joints. No stance preparation, contact correction, body
+    # height changes, knee solving or post-attack choreography is allowed.
+    if bool(pose.get("original_attack_only", false)):
+        if not bool(attack_pose.get("original_attack_only", false)) or (
+                str(pose.get("id", "")) != str(attack_pose.get("id", ""))
+                or str(pose.get("kind", "")) != str(attack_pose.get("kind", ""))
+                or float(pose.get("time", 0.0))
+                    < float(attack_pose.get("time", 0.0))):
+            clear_attack_pose()
+            stepping_pair = -1
+            _reset_front_height_state()
+            for limb in legs:
+                limb["stepping"] = false
+        attack_pose = pose.duplicate()
+        return
+    if pose.is_empty() and bool(attack_pose.get(
+            "original_attack_only", false)):
+        # Switch back to unchanged locomotion IK only AFTER the source
+        # clip has ended. Anchors are re-established for normal gait,
+        # not used to modify or retarget the authored attack itself.
+        clear_attack_pose()
+        stepping_pair = -1
+        for limb in legs:
+            limb["anchor"] = _home(limb, false)
+            limb["anchor_rotation"] = _rotation_home(limb)
+            limb["stepping"] = false
+        return
     # v410: a restarted attack (the director force-started over a
     # still-active one) never empties the pose, so the previous
     # attack's recovery never runs and its fitted KICK sole point
@@ -2507,6 +2535,22 @@ func advance_ik(delta: float, motion: String) -> void:
     # Reapply the untouched imported shin mesh pose before any new
     # authored frame/IK sample; never stack last frame's correction.
     _restore_sweep_shin_meshes()
+    if bool(attack_pose.get("original_attack_only", false)):
+        # Do not run even the regular planted-foot IK during a source
+        # attack. This guarantees the Body, ALL four legs, every ankle
+        # pivot and all mesh rotations are exactly the .bbmodel data.
+        _reset_front_height_state()
+        last_actor_position = actor.global_position
+        last_actor_yaw = actor.global_rotation.y
+        for limb in legs:
+            var source_foot: Node3D = limb["foot"]
+            limb["last_goal"] = source_foot.to_global(
+                limb["source_sole_local"] as Vector3)
+            limb["last_rotation"] = (
+                source_foot.global_basis.get_rotation_quaternion())
+            limb["last_knee"] = (limb["lower"] as Node3D).global_position
+            limb["last_foot"] = source_foot.global_position
+        return
     # Reanchor only for an actual teleport or arena reset, not normal yaw or
     # a step; world-locked feet must stay locked as the torso moves above them.
     var displacement: float = actor.global_position.distance_to(last_actor_position)
