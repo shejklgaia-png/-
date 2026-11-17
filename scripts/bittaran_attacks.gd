@@ -7,6 +7,12 @@ const ATTACK_KINDS: Array[String] = ["stomp", "kick", "sweep"]
 # a real-time attack director control entry, clip-speed warp, holding,
 # and post-attack return. No procedural attack aiming/rewriting.
 const ORIGINAL_ATTACK_ONLY: bool = true
+# v462 TIMING EXPERIMENT: toggle ONE bool off to restore v461 timing.
+# All original durations and source animation keys remain unchanged.
+const TIMING_TEST_ENABLED: bool = true
+const TEST_ANTICIPATION_SPEED: float = 1.10
+const TEST_HOME_RETURN_SPEED: float = 1.25
+const TEST_NO_STOP_SECONDS: float = 0.0
 const SOURCE_ENTRY_SECONDS: float = 0.32
 # Sweep-only windup: wait pose -> original outward stroke begins at t=1s.
 const SWEEP_ENTRY_SECONDS: float = 1.00
@@ -71,7 +77,7 @@ const SWEEP_POST_HIT_HOLD_SECONDS: float = 0.0
 var kind: String = ""
 var leg_id: String = ""
 var elapsed: float = 0.0
-var cooldown: float = 1.0
+var cooldown: float = 0.0 if TIMING_TEST_ENABLED else 1.0
 var next_kind_index: int = 0
 var last_kind: String = ""
 var next_leg_index: int = 0
@@ -84,7 +90,8 @@ func reset() -> void:
     kind = ""
     leg_id = ""
     elapsed = 0.0
-    cooldown = 1.0
+    cooldown = (TEST_NO_STOP_SECONDS
+        if TIMING_TEST_ENABLED else 1.0)
     next_kind_index = 0
     last_kind = ""
     next_leg_index = 0
@@ -96,7 +103,8 @@ func cancel() -> void:
     kind = ""
     leg_id = ""
     elapsed = 0.0
-    cooldown = BETWEEN_ATTACKS_SECONDS
+    cooldown = (TEST_NO_STOP_SECONDS
+        if TIMING_TEST_ENABLED else BETWEEN_ATTACKS_SECONDS)
     hit_consumed = false
     preparing_stance = false
     stomp_aim_valid = false
@@ -239,9 +247,48 @@ func _choose_kind(for_leg: String, player_position: Vector3,
 ## quintic acceleration / deceleration applied by bittaran_rig.gd.
 ## The sweep outward turnaround is 2.00s from attack start; no
 ## localized slow-motion and no intermediate leg-lift waypoint.
+## Shared with the 2-pair foot replant IK, also guarded by this switch.
+static func source_return_speed() -> float:
+    return TEST_HOME_RETURN_SPEED if TIMING_TEST_ENABLED else 1.0
+
+
+## Blockbench authored windup ends at the first real strike frame.
+## Early keys accelerate; later swing/hit source speed stays unchanged.
+static func source_authored_windup_clip_seconds(
+        attack_kind: String, attack_id: String = "") -> float:
+    match attack_kind:
+        "stomp":
+            return 0.833333 if attack_id.begins_with("leg_r") else 1.375
+        "kick":
+            return 0.458333
+        "sweep":
+            return 0.25
+    return 0.0
+
+
+static func source_original_windup_play_seconds(
+        attack_kind: String, attack_id: String = "") -> float:
+    var source_t: float = source_authored_windup_clip_seconds(
+        attack_kind, attack_id)
+    if attack_kind == "sweep":
+        return source_t / SWEEP_OUTBOUND_SPEED
+    return source_t
+
+
+static func source_anticipation_saved_seconds(
+        attack_kind: String, attack_id: String = "") -> float:
+    if not TIMING_TEST_ENABLED:
+        return 0.0
+    var original: float = source_original_windup_play_seconds(
+        attack_kind, attack_id)
+    return original * (1.0 - 1.0 / TEST_ANTICIPATION_SPEED)
+
+
 static func source_entry_seconds(attack_kind: String) -> float:
-    return (SWEEP_ENTRY_SECONDS if attack_kind == "sweep"
+    var base: float = (
+        SWEEP_ENTRY_SECONDS if attack_kind == "sweep"
         else SOURCE_ENTRY_SECONDS)
+    return base / TEST_ANTICIPATION_SPEED if TIMING_TEST_ENABLED else base
 
 
 static func source_clip_length(attack_kind: String,
@@ -254,27 +301,38 @@ static func source_clip_length(attack_kind: String,
 static func source_play_seconds(attack_kind: String,
         attack_id: String = "") -> float:
     var length: float = source_clip_length(attack_kind, attack_id)
+    var original: float = length
     if attack_kind == "sweep":
-        # Both sides slow their first 0.50 source seconds to half speed.
-        # The shorter rear sweep ends at clip t=0.75, not front t=1.50.
-        return SWEEP_OUTBOUND_REAL_SECONDS + maxf(
+        # Preserve 0.5x outbound apart from its first .25 source
+        # seconds. Rear sweep finishes at .75, not front 1.50.
+        original = SWEEP_OUTBOUND_REAL_SECONDS + maxf(
             0.0, length - SWEEP_OUTBOUND_END_CLIP_SECONDS)
-    return length
+    return original - source_anticipation_saved_seconds(
+        attack_kind, attack_id)
 
 
 static func source_hold_seconds(attack_kind: String) -> float:
+    if TIMING_TEST_ENABLED:
+        return TEST_NO_STOP_SECONDS
     if attack_kind == "sweep":
         return 0.0
     return 1.50
 
 
 static func source_body_return_seconds(attack_kind: String) -> float:
-    return (SWEEP_RECOVERY_SECONDS if attack_kind == "sweep"
+    var base: float = (
+        SWEEP_RECOVERY_SECONDS if attack_kind == "sweep"
         else SOURCE_BODY_RETURN_SECONDS)
+    return base / source_return_speed()
+
+
+static func source_leg_return_seconds() -> float:
+    return SOURCE_LEG_RETURN_SECONDS / source_return_speed()
 
 
 static func source_return_seconds(attack_kind: String) -> float:
-    return source_body_return_seconds(attack_kind) + SOURCE_LEG_RETURN_SECONDS
+    return (source_body_return_seconds(attack_kind)
+        + source_leg_return_seconds())
 
 
 static func source_total_seconds(attack_kind: String,
@@ -290,15 +348,39 @@ static func source_clip_time(attack_kind: String,
     var play_t: float = clampf(real_attack_seconds, 0.0,
         source_play_seconds(attack_kind, attack_id))
     var length: float = source_clip_length(attack_kind, attack_id)
+    if TIMING_TEST_ENABLED:
+        var windup: float = source_original_windup_play_seconds(
+            attack_kind, attack_id)
+        var faster_windup: float = windup / TEST_ANTICIPATION_SPEED
+        if play_t < faster_windup:
+            var base_speed: float = (
+                SWEEP_OUTBOUND_SPEED if attack_kind == "sweep"
+                else 1.0)
+            return minf(play_t * base_speed
+                * TEST_ANTICIPATION_SPEED, length)
+        # Skip only the saved windup time. The authored actual
+        # strike/outbound return retain their original source speeds.
+        play_t += windup - faster_windup
     if attack_kind == "sweep":
         return minf(sweep_clip_time_at(play_t), length)
     return minf(play_t, length)
 
 
 static func source_playback_speed(attack_kind: String,
-        play_t: float) -> float:
+        play_t: float, attack_id: String = "") -> float:
+    var source_t: float = play_t
+    if TIMING_TEST_ENABLED:
+        var windup: float = source_original_windup_play_seconds(
+            attack_kind, attack_id)
+        var faster_windup: float = windup / TEST_ANTICIPATION_SPEED
+        if play_t < faster_windup:
+            var base_speed: float = (
+                SWEEP_OUTBOUND_SPEED if attack_kind == "sweep"
+                else 1.0)
+            return base_speed * TEST_ANTICIPATION_SPEED
+        source_t += windup - faster_windup
     if attack_kind == "sweep" and (
-            play_t < SWEEP_OUTBOUND_REAL_SECONDS):
+            source_t < SWEEP_OUTBOUND_REAL_SECONDS):
         return SWEEP_OUTBOUND_SPEED
     return 1.0
 
@@ -309,7 +391,9 @@ func _advance_original_only(delta: float, player_position: Vector3,
         if is_active():
             cancel()
         else:
-            cooldown = maxf(cooldown, BETWEEN_ATTACKS_SECONDS)
+            cooldown = maxf(cooldown,
+                TEST_NO_STOP_SECONDS if TIMING_TEST_ENABLED
+                else BETWEEN_ATTACKS_SECONDS)
         return {}
     if not is_active():
         cooldown = maxf(0.0, cooldown - maxf(delta, 0.0))
@@ -361,7 +445,7 @@ func _advance_original_only(delta: float, player_position: Vector3,
         phase = "strike"
         phase_elapsed = elapsed - entry_end
         clip_time = source_clip_time(kind, phase_elapsed, leg_id)
-        speed = source_playback_speed(kind, phase_elapsed)
+        speed = source_playback_speed(kind, phase_elapsed, leg_id)
     var frame: Dictionary = {
         "id": leg_id, "kind": kind,
         "original_attack_only": true,
@@ -378,7 +462,7 @@ func _advance_original_only(delta: float, player_position: Vector3,
         "strike": source_play_seconds(kind, leg_id),
         "hold": source_hold_seconds(kind),
         "recovery": source_return_seconds(kind),
-        "leg_return_seconds": SOURCE_LEG_RETURN_SECONDS,
+        "leg_return_seconds": source_leg_return_seconds(),
         "body_return_seconds": source_body_return_seconds(kind),
         "stance_prepare": false,
         "tracking": false,
@@ -402,7 +486,9 @@ func advance(delta: float, player_position: Vector3,
         if is_active():
             cancel()
         else:
-            cooldown = maxf(cooldown, BETWEEN_ATTACKS_SECONDS)
+            cooldown = maxf(cooldown,
+                TEST_NO_STOP_SECONDS if TIMING_TEST_ENABLED
+                else BETWEEN_ATTACKS_SECONDS)
         return {}
     if not is_active():
         cooldown = maxf(0.0, cooldown - maxf(delta, 0.0))
