@@ -21,6 +21,8 @@ on:
       - 'scripts/bittaran_*.gd'
       - 'scenes/bittaran_battle.tscn'
       - 'tools/v434_bittaran_blockbench_exact_playback_runtime_check.gd'
+      - 'tools/v435_bittaran_gait_three_support_runtime_check.gd'
+      - 'tools/v436_bittaran_attack_timing_runtime_check.gd'
       - '.github/workflows/sera-bittaran-original-replay.yml'
   workflow_dispatch:
 
