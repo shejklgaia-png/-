@@ -47,7 +47,6 @@ func _run() -> void:
         clips[str(clip.get("name", ""))] = clip
     var bone_names: Dictionary = rig.get("bone_uuid_by_name")
     var bones: Dictionary = rig.get("bones")
-    var bind: Dictionary = rig.get("bind_positions")
     var loaded_clips: Dictionary = rig.get("animations")
     var support_legs: Array = ik.get("legs")
     if support_legs.size() != 4:
@@ -114,8 +113,11 @@ func _run() -> void:
                             _fail("attacking limb or Body was corrected: "
                                 + str([clip_name, bone_name, t]))
                             return
-                        if joint.position.distance_to(bind[uid]) > 0.0001:
-                            _fail("source pivot moved: " + str([clip_name, bone_name]))
+                        var authored_position: Vector3 = rig.call(
+                            "_authored_key_position", clip_name, bone_name, t)
+                        if joint.position.distance_to(authored_position) > 0.0001:
+                            _fail("authored position or pivot overwritten: "
+                                + str([clip_name, bone_name, t]))
                             return
                     var grounded: int = 0
                     for index in range(support_legs.size()):
