@@ -3,7 +3,7 @@ extends RefCounted
 ## Timings are in physics seconds, independent of the authored locomotion clip.
 const LEG_IDS: Array[String] = ["leg_fl", "leg_fr", "leg_rl", "leg_rr"]
 const ATTACK_KINDS: Array[String] = ["stomp", "kick", "sweep"]
-# v443: preserve the six original Blockbench source CLIPS and let only
+# v445: preserve the six original Blockbench source CLIPS and let only
 # a real-time attack director control entry, clip-speed warp, holding,
 # and post-attack return. No procedural attack aiming/rewriting.
 const ORIGINAL_ATTACK_ONLY: bool = true
@@ -29,14 +29,13 @@ const KICK_WINDUP_SECONDS: float = 0.70
 const SWEEP_WINDUP_SECONDS: float = 0.70
 const STOMP_STRIKE_SECONDS: float = 0.25
 const KICK_STRIKE_SECONDS: float = 1.0
-# v443: basic Wait -> authored sweep entry takes 1.00s; then stretch
-# the ENTIRE original outward stroke uniformly over 2.00s. The
-# original outbound turning key is t=0.50, reached at absolute 3.00s.
-# There is NO special mid-stroke slow-motion window. The return
-# portion t=0.50..1.50 keeps its original 1.00x source playback.
+# v445: Wait -> authored sweep start takes 1.00s; the FULL outward
+# stroke is 1.00s at a uniform 0.50x. The original turning key t=0.50
+# is therefore reached at 2.00s after attack start. The original
+# return t=0.50..1.50 stays 1.00x, no mid-outward slowdown segment.
 const SWEEP_SOURCE_STRIKE_SECONDS: float = 1.50
 const SWEEP_OUTBOUND_END_CLIP_SECONDS: float = 0.50
-const SWEEP_OUTBOUND_TARGET_TOTAL_SECONDS: float = 3.00
+const SWEEP_OUTBOUND_TARGET_TOTAL_SECONDS: float = 2.00
 const SWEEP_OUTBOUND_REAL_SECONDS: float = (
     SWEEP_OUTBOUND_TARGET_TOTAL_SECONDS - SWEEP_ENTRY_SECONDS)
 const SWEEP_OUTBOUND_SPEED: float = (
@@ -113,8 +112,8 @@ func _strike() -> float:
         "kick": return KICK_STRIKE_SECONDS
         _: return SWEEP_STRIKE_SECONDS
 
-## Piecewise affine authored time warp. No intermediate slow zone:
-## the FULL outward motion is .25x, the full return is normal 1x.
+## Piecewise affine source clock, with constant speed per whole stroke:
+## outward .50x from clip t=0 to .50; return 1.00x. No localized slow.
 static func sweep_clip_time_at(real_strike_seconds: float) -> float:
     var t: float = clampf(real_strike_seconds,
         0.0, SWEEP_STRIKE_SECONDS)
@@ -222,11 +221,11 @@ func _choose_kind(for_leg: String, player_position: Vector3,
     return chosen
 
 
-## v443: BODY goes to Wait FIRST (SWEEP 1.40s, others 0.62s).
-## THEN the attacking 3-joint chain goes directly to Wait over 1.20s.
-## No stomp-windup intermediate pose, leg lift, or secondary replant.
-## Sweep starts in Wait and reaches its outward endpoint at 3.00s
-## without any localized slow-motion segment.
+## v445: BODY returns first (sweep 1.40s, others 0.62s).
+## THEN the attacking chain eases directly to Wait in 1.20s, with
+## quintic acceleration / deceleration applied by bittaran_rig.gd.
+## The sweep outward turnaround is 2.00s from attack start; no
+## localized slow-motion and no intermediate leg-lift waypoint.
 static func source_entry_seconds(attack_kind: String) -> float:
     return (SWEEP_ENTRY_SECONDS if attack_kind == "sweep"
         else SOURCE_ENTRY_SECONDS)
