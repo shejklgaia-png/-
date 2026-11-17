@@ -98,10 +98,10 @@ jobs:
         run: |
           set -euo pipefail
           "$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" --headless --path . --script tools/v431_bittaran_three_support_runtime_check.gd
-      - name: Verify v432 all 18 Blockbench meshes at their exact ground-contact times
+      - name: Verify v433 all 18 meshes remain parented to joints; grounded support IK only
         run: |
           set -euo pipefail
-          "$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" --headless --path . --script tools/v432_bittaran_all_mesh_ground_runtime_check.gd
+          "$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" --headless --path . --script tools/v433_bittaran_skeleton_ground_runtime_check.gd
 
       - name: Test Bittaran full scene and actual movement in Godot
         run: |
