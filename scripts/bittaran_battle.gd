@@ -554,7 +554,8 @@ func _check_bittaran_attack_hit() -> void:
                 # the last STRIKE tick. Permit the first .10s of
                 # recovery only if the actual toe is grounded.
                 var initial_recovery: bool = (
-                    phase == "recovery" and float(
+                    BittaranAttacks.TIMING_TEST_ENABLED
+                    and phase == "recovery" and float(
                     bittaran_attack_frame.get("phase_elapsed", 1.0))
                     <= 0.10)
                 var landing_window: bool = (
@@ -1607,7 +1608,8 @@ func _finalize_target_pose(delta: float) -> void:
                 var phase: String = str(
                     bittaran_attack_frame.get("phase", ""))
                 var first_recovery_contact: bool = (
-                    phase == "recovery" and float(
+                    BittaranAttacks.TIMING_TEST_ENABLED
+                    and phase == "recovery" and float(
                     bittaran_attack_frame.get("phase_elapsed", 1.0))
                     <= 0.10)
                 if grounded and kind == "stomp" and not bool(
