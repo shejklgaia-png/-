@@ -1,66 +1,11 @@
-name: SERA Bittaran focused runtime
+name: SERA Bittaran legacy IK-focused runtime (manual)
+
+# v434 deliberately disables IK while verifying Blockbench animation.
+# These historical IK-based tests are retained for opt-in manual runs.
+# Active source-replay CI on push/PR is sera-bittaran-original-replay.yml.
 on:
-  pull_request:
-    types: [opened, synchronize, reopened]
-    paths:
-      - '.github/workflows/sera-bittaran-focused.yml'
-      - 'models/bosses/**'
-      - 'models/storage/ビットタラン (1).bbmodel'
-      - 'assets/bittaran_data.gd'
-      - 'assets/bittaran_ground_contacts.gd'
-      - 'scripts/bittaran_*.gd'
-      - 'scripts/sera_facing_angle_debug.gd'
-      - 'scenes/bittaran_battle.tscn'
-      - 'tools/v345_bittaran_*.py'
-      - 'tools/v345_bittaran_*.gd'
-      - 'tools/v346_bittaran_*.gd'
-      - 'tools/v346_bittaran_*.py'
-      - 'tools/v347_bittaran_*.py'
-      - 'tools/v347_bittaran_*.gd'
-      - 'tools/v348_bittaran_*.gd'
-      - 'tools/v348_bittaran_*.py'
-      - 'tools/v349_bittaran_*.py'
-      - 'tools/v349_bittaran_*.gd'
-      - 'tools/v350_bittaran_*.gd'
-      - 'tools/v350_bittaran_*.py'
-      - 'tools/v351_bittaran_*.gd'
-      - 'tools/v351_bittaran_*.py'
-      - 'tools/v352_bittaran_*.gd'
-      - 'tools/v352_bittaran_*.py'
-      - 'tools/v353_bittaran_*.gd'
-      - 'tools/v353_bittaran_*.py'
-      - 'tools/v354_bittaran_*.gd'
-      - 'tools/v356_bittaran_*.gd'
-      - 'tools/v357_bittaran_*.gd'
-      - 'tools/v358_bittaran_*.gd'
-      - 'tools/v359_bittaran_*.gd'
-      - 'tools/v360_bittaran_*.gd'
-      - 'tools/v361_bittaran_*.gd'
-      - 'tools/v362_bittaran_*.gd'
-      - 'tools/v363_bittaran_*.gd'
-      - 'tools/v364_bittaran_*.gd'
-      - 'tools/v365_bittaran_*.gd'
-      - 'tools/v366_bittaran_*.gd'
-      - 'tools/v367_bittaran_*.gd'
-      - 'tools/v368_bittaran_*.gd'
-      - 'tools/v369_bittaran_*.gd'
-      - 'tools/v370_bittaran_*.gd'
-      - 'tools/v371_bittaran_*.gd'
-      - 'tools/v372_bittaran_*.gd'
-      - 'tools/v373_bittaran_*.gd'
-      - 'tools/v374_bittaran_*.gd'
-      - 'tools/v375_bittaran_*.gd'
-      - 'tools/v376_bittaran_*.gd'
-      - 'tools/v377_bittaran_*.gd'
-      - 'tools/v378_bittaran_*.gd'
-      - 'tools/v379_bittaran_*.gd'
-      - 'tools/v380_bittaran_*.gd'
-      - 'tools/v420_bittaran_attack_rebuild_regression_runtime_check.gd'
-      - 'tools/v421_bittaran_exact_mirrored_trajectory_runtime_check.gd'
-      - 'tools/rebuild_bittaran_data.py'
-      - 'scripts/command_nexus.gd'
-      - 'project.godot'
   workflow_dispatch:
+
 jobs:
   bittaran:
     runs-on: ubuntu-latest
