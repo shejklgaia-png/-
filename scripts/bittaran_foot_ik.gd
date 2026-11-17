@@ -2578,6 +2578,10 @@ const SOURCE_STEP_TRIGGER_METERS: float = 0.62
 const SOURCE_STEP_DURATION_SECONDS: float = 0.52
 const SOURCE_STEP_HEIGHT_METERS: float = 0.22
 const SOURCE_TELEPORT_DISTANCE_METERS: float = 2.5
+# v454: planted/stepping gait feet point their SHORT distal end downward.
+# The long foot axis is vertical, unlike the removed horizontal-leveling.
+# Blend both joint rotation and sole point into the toe-tip contact.
+const SOURCE_GAIT_TOE_DOWN_BLEND_SECONDS: float = 0.24
 var source_ik_enabled: bool = false
 var source_ik_attacking_id: String = ""
 var source_ik_attacking_kind: String = ""
@@ -3184,9 +3188,11 @@ func initialize_source_ground_ik() -> bool:
         sole.y = FLOOR_Y
         var rotation: Quaternion = (
             foot.global_basis.get_rotation_quaternion())
-        # Walking uses the imported foot's actual authored orientation
-        # and original sole point. No automatic leveling.
+        # Preserve the actual Blockbench initial pose, then smoothly
+        # pivot the long toe down and change contact from sole to its
+        # short distal face, without detaching any mesh or joint.
         limb["sole_local"] = limb["source_sole_local"]
+        limb["source_ik_toe_down_alpha"] = 0.0
         limb["anchor"] = sole
         limb["last_goal"] = sole
         limb["anchor_rotation"] = rotation
@@ -3196,6 +3202,31 @@ func initialize_source_ground_ik() -> bool:
         limb["source_ik_attack_anchor"] = sole
         limb["source_ik_attack_rotation"] = rotation
     return true
+
+
+## Rotate the LONG axis of the foot (local +/-X for this
+## Blockbench model) to world DOWN. This plants the SHORT tip face on
+## Y=0, not the broad side of the foot. Preserve as much authored yaw
+## and twist as the shortest rotation permits. No mesh transform edits.
+func _source_ik_toe_down_rotation(
+        limb: Dictionary, pose: Quaternion) -> Quaternion:
+    var toe_axis: Vector3 = limb["toe_axis_local"]
+    var world_axis: Vector3 = Basis(pose) * toe_axis
+    if world_axis.length_squared() < 0.000001:
+        return pose
+    world_axis = world_axis.normalized()
+    var target_axis: Vector3 = Vector3.DOWN
+    var difference: Quaternion
+    if world_axis.dot(target_axis) < -0.999:
+        # 180-degree opposite vectors need a deterministic hinge.
+        var hinge: Vector3 = Basis(pose).z
+        hinge.y = 0.0
+        if hinge.length_squared() < 0.000001:
+            hinge = Vector3.RIGHT
+        difference = Quaternion(hinge.normalized(), PI)
+    else:
+        difference = Quaternion(world_axis, target_axis)
+    return (difference * pose).normalized()
 
 
 func _source_ik_home(limb: Dictionary) -> Vector3:
@@ -3215,7 +3246,8 @@ func _source_ik_begin_pair(pair_index: int) -> void:
         limb["swing_from"] = limb["anchor"]
         limb["swing_to"] = _source_ik_home(limb)
         limb["rotation_from"] = limb["anchor_rotation"]
-        limb["rotation_to"] = _rotation_home(limb)
+        limb["rotation_to"] = _source_ik_toe_down_rotation(
+            limb, _rotation_home(limb))
 
 
 ## Simple diagonal gait with 4 foot end effectors. Both stationary
@@ -3232,7 +3264,10 @@ func _source_ik_advance_locomotion(delta: float, motion: String) -> void:
         for limb in legs:
             limb["stepping"] = false
             limb["anchor"] = _source_ik_home(limb)
-            limb["anchor_rotation"] = _rotation_home(limb)
+            limb["anchor_rotation"] = _source_ik_toe_down_rotation(
+                limb, _rotation_home(limb))
+            limb["source_ik_toe_down_alpha"] = 1.0
+            limb["sole_local"] = limb["stomp_tip_local"]
     var can_step: bool = (motion == "Approach" or motion == "Turn")
     if can_step and source_ik_step_pair == -1 and (
             source_ik_replant_id.is_empty()):
@@ -3258,6 +3293,17 @@ func _source_ik_advance_locomotion(delta: float, motion: String) -> void:
     var eased: float = step_t * step_t * (3.0 - 2.0 * step_t)
     for index in range(legs.size()):
         var limb: Dictionary = legs[index]
+        # The two contact points belong to one rigid foot mesh.
+        # Interpolating them together with the rotation prevents the
+        # ankle from popping when the tip becomes the planted end.
+        var toe_alpha: float = minf(1.0,
+            float(limb.get("source_ik_toe_down_alpha", 0.0))
+            + maxf(delta, 0.0)
+                / SOURCE_GAIT_TOE_DOWN_BLEND_SECONDS)
+        limb["source_ik_toe_down_alpha"] = toe_alpha
+        limb["sole_local"] = (
+            (limb["source_sole_local"] as Vector3).lerp(
+                limb["stomp_tip_local"] as Vector3, toe_alpha))
         var goal: Vector3 = limb["anchor"]
         var rotation: Quaternion = limb["anchor_rotation"]
         if source_ik_step_pair >= 0 and (
@@ -3267,7 +3313,8 @@ func _source_ik_advance_locomotion(delta: float, motion: String) -> void:
             goal = start.lerp(destination, eased)
             goal.y += SOURCE_STEP_HEIGHT_METERS * sin(PI * step_t)
             rotation = (limb["rotation_from"] as Quaternion).slerp(
-                _rotation_home(limb), eased).normalized()
+                _source_ik_toe_down_rotation(
+                    limb, _rotation_home(limb)), eased).normalized()
             if step_t >= 1.0:
                 goal.y = FLOOR_Y
                 limb["stepping"] = false
@@ -3290,14 +3337,24 @@ func _source_ik_advance_locomotion(delta: float, motion: String) -> void:
             var from_rotation: Quaternion = (
                 limb["source_ik_replant_rotation"])
             rotation = from_rotation.slerp(
-                _rotation_home(limb), replant_ease).normalized()
+                _source_ik_toe_down_rotation(
+                    limb, _rotation_home(limb)),
+                replant_ease).normalized()
             if replant_t >= 1.0:
                 goal.y = FLOOR_Y
                 limb["anchor"] = goal
                 limb["anchor_rotation"] = rotation
-        # The planted foot retains its authored pitch and roll.
-        # A stationary world anchor still prevents sliding when
-        # the body rotates or the other feet are stepping.
+        # In swing and on replant keep the tip oriented downward;
+        # during the first 0.24s ease the authored pose to vertical.
+        # The world-fixed planted goal protects against foot sliding
+        # as the BODY turns; joint IK absorbs the torso twist.
+        rotation = rotation.slerp(
+            _source_ik_toe_down_rotation(limb, rotation),
+            toe_alpha).normalized()
+        if source_ik_step_pair == -1 or not (
+                LEG_PAIRS[source_ik_step_pair].has(index)):
+            if source_ik_replant_id != LEG_PART_IDS[index]:
+                limb["anchor_rotation"] = rotation
         var error: float = _solve(limb, goal, rotation)
         limb["last_error"] = error
     if source_ik_step_pair >= 0 and step_t >= 1.0:
