@@ -470,8 +470,11 @@ func _check_bittaran_attack_hit() -> void:
         hit_window = (phase == "strike" and
             ["stomp", "kick", "sweep"].has(kind))
         if kind == "stomp":
-            # Do not damage players while the foot is still winding up.
-            hit_window = hit_window and clip_time >= 1.375
+            # Rear stomp lands at source t=0.50, front stomp at 1.375.
+            # Never activate the lower-leg/foot boxes during anticipation.
+            var impact_start: float = (
+                0.50 if leg_id.begins_with("leg_r") else 1.375)
+            hit_window = hit_window and clip_time >= impact_start
     if not is_impact and not hit_window:
         return
     var contact: Vector3 = (
@@ -521,12 +524,11 @@ func _bittaran_attack_candidates() -> Dictionary:
     var candidates: Dictionary = {}
     if bittaran_foot_ik == null or target_parts == null:
         return candidates
-    # Part destruction damages the shin gauge but does not detach the
-    # articulated leg. All four feet remain available after knockdown:
-    # broken shins can still stomp, kick and sweep until the boss dies.
-    # _advance_target_motion owns the actual down/rise/stun attack gate.
+    # Preserve all four articulated legs even when their shin gauge breaks.
+    # Source director chooses 3 front techniques or 2 rear techniques;
+    # no rear kick is synthesized.
     var feet: Dictionary = bittaran_foot_ik.call("available_attack_feet")
-    for id in ["leg_fl", "leg_fr"]:
+    for id in BittaranFootIK.LEG_PART_IDS:
         if feet.has(id):
             candidates[id] = feet[id]
     return candidates
@@ -1495,7 +1497,8 @@ func _finalize_target_pose(delta: float) -> void:
                         ["strike", "hold"].has(str(
                         bittaran_attack_frame.get("phase", "")))) and (
                         float(bittaran_attack_frame.get(
-                        "authored_time", 0.0)) >= 1.50):
+                        "authored_time", 0.0)) >= (
+                        0.50 if leg_id.begins_with("leg_r") else 1.50)):
                     # The old particles/ring/thud/shake require actual
                     # floor contact on the descending authored foot.
                     bittaran_dirt_fx.set("stomped_this_attack", true)
