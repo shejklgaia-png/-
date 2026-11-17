@@ -2722,6 +2722,10 @@ func _source_ik_contact_weight(frame: Dictionary) -> float:
     var source_t: float = float(frame.get("authored_time", 0.0))
     var begins: float = float(SOURCE_STRIKE_MIN_SOURCE_SECONDS.get(
         kind, 0.0))
+    # The rear STOMP's full clip is 1.0s. Its physical strike pose
+    # begins at source t=0.50 (front uses t=1.47083).
+    if kind == "stomp" and str(frame.get("id", "")).begins_with("leg_r"):
+        begins = 0.50
     var progress: float = clampf(
         (source_t - begins) / SOURCE_STRIKE_CONTACT_RAMP_SECONDS,
         0.0, 1.0)
