@@ -142,6 +142,13 @@ var shockwave_elapsed: float = -1.0
 var shockwave_half_extents: Vector2 = Vector2.ONE
 var bittaran_dirt_fx: Node3D
 var bittaran_thud_audio: AudioStreamPlayer
+# v454: gapless 174-BPM audio provided by the creator. The Ogg source
+# must be included at this resource path for Android export; a user://
+# fallback permits listening without rebuilding during development.
+const BITTARAN_BGM_PATH: String = "res://assets/audio/neural_flow_loop.ogg"
+const BITTARAN_BGM_USER_PATH: String = "user://neural_flow_loop.ogg"
+const BITTARAN_BGM_DURATION_SECONDS: float = 187.586207
+var bittaran_bgm: AudioStreamPlayer
 var impact_shake_strength: float = 0.0
 var impact_shake_time: float = 0.0
 var footfall_prev_stepping: Array[bool] = [false, false, false, false]
@@ -150,6 +157,7 @@ var attack_contact_initialized: bool = false
 
 func _ready() -> void:
     super._ready()
+    _start_neural_flow_bgm()
     # Dedicated boss locomotion is not controlled by training-room settings.
     target_move_enabled = true
     if move_target_button != null:
@@ -162,6 +170,36 @@ func _ready() -> void:
     victory_label = _make_boss_label(layer, "BITTARAN DEFEATED", 176.0, 26)
     victory_label.visible = false
     _update_bittaran_lock_permissions()
+
+## Only Bittaran's battle scene owns this player: no training-room
+## BGM leakage. ResourceLoader loads Godot's imported Ogg on desktop
+## and Android. The user:// fallback loads a development-time Ogg
+## placed in the application's writable folder when the imported
+## asset has not yet been copied into the repository.
+func _start_neural_flow_bgm() -> void:
+    bittaran_bgm = AudioStreamPlayer.new()
+    bittaran_bgm.name = "NeuralFlowBGM"
+    bittaran_bgm.volume_db = -9.0
+    add_child(bittaran_bgm)
+    var music: AudioStream = null
+    if ResourceLoader.exists(BITTARAN_BGM_PATH):
+        music = load(BITTARAN_BGM_PATH) as AudioStream
+    elif FileAccess.file_exists(BITTARAN_BGM_USER_PATH):
+        music = AudioStreamOggVorbis.load_from_file(
+            BITTARAN_BGM_USER_PATH)
+    if music == null:
+        # Avoid a preload/compile error when the 3.6 MB Ogg file is
+        # distributed separately from the text-only GitHub patches.
+        push_warning("Bittaran: Neural Flow BGM is missing at "
+            + BITTARAN_BGM_PATH)
+        return
+    if music is AudioStreamOggVorbis:
+        var ogg: AudioStreamOggVorbis = music
+        ogg.loop = true
+        ogg.loop_offset = 0.0
+    bittaran_bgm.stream = music
+    bittaran_bgm.play()
+
 
 func _make_boss_label(parent: CanvasLayer, caption: String,
         y: float, font_size: int) -> Label:
