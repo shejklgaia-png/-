@@ -2562,6 +2562,228 @@ func _ground_front_attack_leg(leg: Dictionary) -> void:
     leg["last_foot"] = foot.global_position
 
 
+## v435: isolated IK state. Unlike legacy IK, this layer never
+## crouches/pitches the BODY, offsets the root, alters animation keys,
+## or touches the attacking limb. One diagonal swing pair at a time.
+const SOURCE_STEP_TRIGGER_METERS: float = 0.62
+const SOURCE_STEP_DURATION_SECONDS: float = 0.52
+const SOURCE_STEP_HEIGHT_METERS: float = 0.22
+const SOURCE_TELEPORT_DISTANCE_METERS: float = 2.5
+var source_ik_enabled: bool = false
+var source_ik_attacking_id: String = ""
+var source_ik_step_pair: int = -1
+var source_ik_next_pair: int = 0
+var source_ik_step_elapsed: float = 0.0
+var source_ik_last_actor_position: Vector3 = Vector3.ZERO
+var source_ik_replant_id: String = ""
+var source_ik_replant_elapsed: float = 0.0
+var source_ik_unreachable_supports: int = 0
+
+## Initialize AFTER the v434 single fixed Wait-ground placement.
+## At this point the source joint chains are untouched, and all goals
+## are captured from actual evaluated foot positions at ground Y=0.
+func initialize_source_ground_ik() -> bool:
+    if not ready or legs.size() != 4 or actor == null:
+        return false
+    source_ik_enabled = true
+    source_ik_attacking_id = ""
+    source_ik_step_pair = -1
+    source_ik_next_pair = 0
+    source_ik_step_elapsed = 0.0
+    source_ik_replant_id = ""
+    source_ik_replant_elapsed = 0.0
+    source_ik_unreachable_supports = 0
+    source_ik_last_actor_position = actor.global_position
+    for limb in legs:
+        var foot: Node3D = limb["foot"]
+        var sole: Vector3 = foot.to_global(
+            limb["source_sole_local"] as Vector3)
+        sole.y = FLOOR_Y
+        var rotation: Quaternion = (
+            foot.global_basis.get_rotation_quaternion())
+        limb["sole_local"] = limb["source_sole_local"]
+        limb["anchor"] = sole
+        limb["last_goal"] = sole
+        limb["anchor_rotation"] = rotation
+        limb["last_rotation"] = rotation
+        limb["stepping"] = false
+        limb["swing_elapsed"] = 0.0
+        limb["source_ik_attack_anchor"] = sole
+        limb["source_ik_attack_rotation"] = rotation
+    return true
+
+
+func _source_ik_home(limb: Dictionary) -> Vector3:
+    var point: Vector3 = actor.to_global(
+        limb["rest_sole_local"] as Vector3)
+    point.y = FLOOR_Y
+    return point
+
+
+func _source_ik_begin_pair(pair_index: int) -> void:
+    source_ik_step_pair = pair_index
+    source_ik_next_pair = 1 - pair_index
+    source_ik_step_elapsed = 0.0
+    for index in LEG_PAIRS[pair_index]:
+        var limb: Dictionary = legs[index]
+        limb["stepping"] = true
+        limb["swing_from"] = limb["anchor"]
+        limb["swing_to"] = _source_ik_home(limb)
+        limb["rotation_from"] = limb["anchor_rotation"]
+        limb["rotation_to"] = _rotation_home(limb)
+
+
+## Simple diagonal gait with 4 foot end effectors. Both stationary
+## feet remain pinned in world-space while the stepping diagonal rises;
+## the rig's authored Idle/Turn/Approach keys still own the torso.
+func _source_ik_advance_locomotion(delta: float, motion: String) -> void:
+    var movement: float = actor.global_position.distance_to(
+        source_ik_last_actor_position)
+    source_ik_last_actor_position = actor.global_position
+    if movement > SOURCE_TELEPORT_DISTANCE_METERS:
+        # Never interpolate a foot across a respawn/teleport. Resample
+        # the new Wait/Idle placement, keeping the actor's Y unchanged.
+        source_ik_step_pair = -1
+        for limb in legs:
+            limb["stepping"] = false
+            limb["anchor"] = _source_ik_home(limb)
+            limb["anchor_rotation"] = _rotation_home(limb)
+    var can_step: bool = (motion == "Approach" or motion == "Turn")
+    if can_step and source_ik_step_pair == -1 and (
+            source_ik_replant_id.is_empty()):
+        var errors: Array[float] = [0.0, 0.0]
+        for pair_index in range(2):
+            for index in LEG_PAIRS[pair_index]:
+                var limb: Dictionary = legs[index]
+                var distance: float = (limb["anchor"] as Vector3
+                    ).distance_to(_source_ik_home(limb))
+                errors[pair_index] = maxf(errors[pair_index], distance)
+        if maxf(errors[0], errors[1]) > SOURCE_STEP_TRIGGER_METERS:
+            var pick: int = source_ik_next_pair
+            if errors[1 - pick] > errors[pick] + 0.20:
+                pick = 1 - pick
+            _source_ik_begin_pair(pick)
+    if source_ik_step_pair >= 0:
+        source_ik_step_elapsed = minf(SOURCE_STEP_DURATION_SECONDS,
+            source_ik_step_elapsed + maxf(delta, 0.0))
+    var step_t: float = clampf(
+        source_ik_step_elapsed / SOURCE_STEP_DURATION_SECONDS,
+        0.0, 1.0)
+    var eased: float = step_t * step_t * (3.0 - 2.0 * step_t)
+    for index in range(legs.size()):
+        var limb: Dictionary = legs[index]
+        var goal: Vector3 = limb["anchor"]
+        var rotation: Quaternion = limb["anchor_rotation"]
+        if source_ik_step_pair >= 0 and (
+                LEG_PAIRS[source_ik_step_pair].has(index)):
+            var start: Vector3 = limb["swing_from"]
+            var destination: Vector3 = _source_ik_home(limb)
+            goal = start.lerp(destination, eased)
+            goal.y += SOURCE_STEP_HEIGHT_METERS * sin(PI * step_t)
+            rotation = (limb["rotation_from"] as Quaternion).slerp(
+                _rotation_home(limb), eased).normalized()
+            if step_t >= 1.0:
+                goal.y = FLOOR_Y
+                limb["stepping"] = false
+                limb["anchor"] = goal
+                limb["anchor_rotation"] = rotation
+        elif source_ik_replant_id == LEG_PART_IDS[index]:
+            # After a strike, return only the former attacking foot
+            # over several frames. The other three feet stay planted.
+            var replant_t: float = clampf(
+                source_ik_replant_elapsed / 0.32, 0.0, 1.0)
+            var replant_ease: float = (
+                replant_t * replant_t * (3.0 - 2.0 * replant_t))
+            var from_goal: Vector3 = limb["source_ik_replant_from"]
+            var destination: Vector3 = _source_ik_home(limb)
+            goal = from_goal.lerp(destination, replant_ease)
+            goal.y += 0.10 * sin(PI * replant_t)
+            rotation = (limb["source_ik_replant_rotation"] as Quaternion
+                ).slerp(_rotation_home(limb), replant_ease).normalized()
+            if replant_t >= 1.0:
+                goal.y = FLOOR_Y
+                limb["anchor"] = goal
+                limb["anchor_rotation"] = rotation
+        var error: float = _solve(limb, goal, rotation)
+        limb["last_error"] = error
+    if source_ik_step_pair >= 0 and step_t >= 1.0:
+        source_ik_step_pair = -1
+        source_ik_step_elapsed = 0.0
+    if not source_ik_replant_id.is_empty():
+        source_ik_replant_elapsed += maxf(delta, 0.0)
+        if source_ik_replant_elapsed >= 0.32:
+            source_ik_replant_id = ""
+            source_ik_replant_elapsed = 0.0
+
+
+## Preserve the exact Body and active attack chain sampled immediately
+## beforehand by apply_original_attack_only(). Only the THREE sibling
+## limb chains are allowed to rotate via the existing 2-bone solver.
+func _source_ik_advance_attack(frame: Dictionary) -> void:
+    var attack_id: String = str(frame.get("id", ""))
+    if not LEG_PART_IDS.has(attack_id):
+        return
+    if source_ik_attacking_id != attack_id:
+        source_ik_attacking_id = attack_id
+        source_ik_step_pair = -1
+        source_ik_replant_id = ""
+        for index in range(legs.size()):
+            var limb: Dictionary = legs[index]
+            limb["stepping"] = false
+            var planted: Vector3 = limb["last_goal"]
+            planted.y = FLOOR_Y
+            limb["source_ik_attack_anchor"] = planted
+            limb["source_ik_attack_rotation"] = limb["last_rotation"]
+    source_ik_last_actor_position = actor.global_position
+    for index in range(legs.size()):
+        var limb: Dictionary = legs[index]
+        var foot: Node3D = limb["foot"]
+        if LEG_PART_IDS[index] == attack_id:
+            # Do not solve, rotate, or translate the author's striker.
+            limb["last_goal"] = foot.to_global(
+                limb["source_sole_local"] as Vector3)
+            limb["last_rotation"] = (
+                foot.global_basis.get_rotation_quaternion())
+            limb["last_knee"] = (
+                limb["lower"] as Node3D).global_position
+            limb["last_foot"] = foot.global_position
+            limb["last_error"] = 0.0
+            continue
+        var goal: Vector3 = limb["source_ik_attack_anchor"]
+        goal.y = FLOOR_Y
+        var rotation: Quaternion = limb["source_ik_attack_rotation"]
+        var error: float = _solve(limb, goal, rotation)
+        limb["last_error"] = error
+        if error > 0.035:
+            source_ik_unreachable_supports += 1
+        limb["anchor"] = goal
+        limb["anchor_rotation"] = rotation
+
+
+func advance_source_ground_ik(delta: float, motion: String,
+        frame: Dictionary = {}) -> void:
+    if not source_ik_enabled:
+        return
+    if bool(frame.get("original_attack_only", false)):
+        _source_ik_advance_attack(frame)
+        return
+    if not source_ik_attacking_id.is_empty():
+        # The active limb follows its last authored end-effector during
+        # the 0.32s replant. Do not snap it to a new gait anchor.
+        source_ik_replant_id = source_ik_attacking_id
+        source_ik_replant_elapsed = 0.0
+        for index in range(legs.size()):
+            var limb: Dictionary = legs[index]
+            if LEG_PART_IDS[index] != source_ik_replant_id:
+                continue
+            limb["source_ik_replant_from"] = limb["last_goal"]
+            limb["source_ik_replant_rotation"] = limb["last_rotation"]
+            limb["anchor"] = _source_ik_home(limb)
+            limb["anchor_rotation"] = _rotation_home(limb)
+        source_ik_attacking_id = ""
+    _source_ik_advance_locomotion(delta, motion)
+
+
 func advance_ik(delta: float, motion: String) -> void:
     if not ready or legs.size() != 4 or actor == null:
         return
