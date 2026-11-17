@@ -3,10 +3,15 @@ extends RefCounted
 ## Timings are in physics seconds, independent of the authored locomotion clip.
 const LEG_IDS: Array[String] = ["leg_fl", "leg_fr", "leg_rl", "leg_rr"]
 const ATTACK_KINDS: Array[String] = ["stomp", "kick", "sweep"]
-# v430: the user has restarted animation testing from the six Blockbench
-# clips only. This mode has NO pre-stance, no time stretch, hold, blend,
-# procedural aim, hit or impact. Clip seconds equal real seconds.
+# v436: preserve the six original Blockbench source CLIPS and let only
+# a real-time attack director control entry, clip-speed warp, holding,
+# and post-attack return. No procedural attack aiming/rewriting.
 const ORIGINAL_ATTACK_ONLY: bool = true
+const SOURCE_ENTRY_SECONDS: float = 0.32
+const SOURCE_LEG_RETURN_SECONDS: float = 0.42
+const SOURCE_BODY_RETURN_SECONDS: float = 0.62
+const SOURCE_KICK_STOMP_RETURN_SECONDS: float = (
+    SOURCE_LEG_RETURN_SECONDS + SOURCE_BODY_RETURN_SECONDS)
 const ORIGINAL_CLIP_LENGTHS: Dictionary = {
     "stomp": 1.75, "kick": 1.0, "sweep": 1.50
 }
@@ -221,9 +226,55 @@ func _choose_kind(for_leg: String, player_position: Vector3,
     return chosen
 
 
-## Raw authoring mode: each original Blockbench clip starts immediately
-## and finishes at its exact source length. No hitboxes until the user's
-## next requested combat layer is reintroduced.
+## Real-time attack state with NON-DESTRUCTIVE source clip time warp.
+## Entry: Wait -> authored t=0. Strike: authored clip keys only, with
+## 0.20x slowdown for 0.70 real seconds BEFORE sweep t=0.50.
+## Kick/Stomp hold: freeze original last key 1.50 seconds.
+## Return: KICK/STOMP limb 0.42 then Body 0.62; SWEEP no hold and
+## all-body gradual return 1.40 seconds. The source keys never change.
+static func source_play_seconds(attack_kind: String) -> float:
+    if attack_kind == "sweep":
+        return SWEEP_STRIKE_SECONDS
+    return float(ORIGINAL_CLIP_LENGTHS.get(attack_kind, 0.0))
+
+
+static func source_hold_seconds(attack_kind: String) -> float:
+    if attack_kind == "sweep":
+        return 0.0
+    return 1.50
+
+
+static func source_return_seconds(attack_kind: String) -> float:
+    if attack_kind == "sweep":
+        return SWEEP_RECOVERY_SECONDS
+    return SOURCE_KICK_STOMP_RETURN_SECONDS
+
+
+static func source_total_seconds(attack_kind: String) -> float:
+    return (SOURCE_ENTRY_SECONDS + source_play_seconds(attack_kind)
+        + source_hold_seconds(attack_kind)
+        + source_return_seconds(attack_kind))
+
+
+static func source_clip_time(attack_kind: String,
+        real_attack_seconds: float) -> float:
+    var play_t: float = clampf(real_attack_seconds, 0.0,
+        source_play_seconds(attack_kind))
+    if attack_kind == "sweep":
+        return sweep_clip_time_at(play_t)
+    return minf(play_t,
+        float(ORIGINAL_CLIP_LENGTHS.get(attack_kind, 0.0)))
+
+
+static func source_playback_speed(attack_kind: String,
+        play_t: float) -> float:
+    if attack_kind == "sweep" and (
+            play_t >= SWEEP_SLOW_START_CLIP_SECONDS - 0.000001 and (
+            play_t < SWEEP_OUTBOUND_END_REAL_SECONDS - 0.000001)):
+        return SWEEP_SLOW_SPEED
+    return 1.0
+
+
 func _advance_original_only(delta: float, player_position: Vector3,
         available_feet: Dictionary, permitted: bool) -> Dictionary:
     if not permitted:
@@ -236,9 +287,7 @@ func _advance_original_only(delta: float, player_position: Vector3,
         cooldown = maxf(0.0, cooldown - maxf(delta, 0.0))
         if cooldown > 0.0:
             return {}
-        # Only six FRONT-leg source clips exist in the user's 17:21
-        # Blockbench file. Do not select rear legs and silently fall
-        # through apply_original_attack_only without an animation.
+        # The 17:21 source includes six attacks on FRONT legs only.
         var authored_feet: Dictionary = {}
         for front_id in ["leg_fl", "leg_fr"]:
             if available_feet.has(front_id):
@@ -254,26 +303,55 @@ func _advance_original_only(delta: float, player_position: Vector3,
     if length <= 0.0:
         cancel()
         return {}
-    elapsed = minf(length, elapsed + maxf(delta, 0.0))
+    var entry_end: float = SOURCE_ENTRY_SECONDS
+    var play_end: float = entry_end + source_play_seconds(kind)
+    var hold_end: float = play_end + source_hold_seconds(kind)
+    var total: float = hold_end + source_return_seconds(kind)
+    elapsed = minf(total, elapsed + maxf(delta, 0.0))
+    var phase: String = "entry"
+    var clip_time: float = 0.0
+    var speed: float = 0.0
+    var phase_elapsed: float = elapsed
+    if elapsed >= hold_end:
+        phase = "recovery"
+        phase_elapsed = elapsed - hold_end
+        clip_time = length
+    elif elapsed >= play_end:
+        phase = "hold"
+        phase_elapsed = elapsed - play_end
+        clip_time = length
+    elif elapsed >= entry_end:
+        phase = "strike"
+        phase_elapsed = elapsed - entry_end
+        clip_time = source_clip_time(kind, phase_elapsed)
+        speed = source_playback_speed(kind, phase_elapsed)
     var frame: Dictionary = {
         "id": leg_id, "kind": kind,
         "original_attack_only": true,
+        "source_timed_attack": true,
         "direct_front_test": true,
         "time": elapsed,
-        "authored_time": elapsed,
-        "authored_playback_speed": 1.0,
-        "windup": 0.0, "strike": length,
-        "hold": 0.0, "recovery": 0.0,
-        "phase": "strike",
+        "authored_time": clip_time,
+        "authored_playback_speed": speed,
+        "entry_seconds": SOURCE_ENTRY_SECONDS,
+        "phase_elapsed": phase_elapsed,
+        "phase": phase,
+        "windup": SOURCE_ENTRY_SECONDS,
+        "strike": source_play_seconds(kind),
+        "hold": source_hold_seconds(kind),
+        "recovery": source_return_seconds(kind),
+        "leg_return_seconds": SOURCE_LEG_RETURN_SECONDS,
+        "body_return_seconds": SOURCE_BODY_RETURN_SECONDS,
         "stance_prepare": false,
         "tracking": false,
         "hit_window": false,
         "impact": false
     }
-    if elapsed >= length:
+    # Return the exact terminal frame once (source->Wait at weight 1),
+    # then begin cooldown. No premature gait resampling at the boundary.
+    if elapsed >= total - 0.000001:
         cancel()
     return frame
-
 
 func advance(delta: float, player_position: Vector3,
         available_feet: Dictionary, permitted: bool,
