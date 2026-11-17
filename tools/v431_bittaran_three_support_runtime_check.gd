@@ -3,7 +3,7 @@ extends SceneTree
 ## Only the other three independent limbs may be IK-grounded.
 const DIRECTOR = preload("res://scripts/bittaran_attacks.gd")
 const DT: float = 0.05
-const GROUND_TOLERANCE: float = 0.08
+const GROUND_TOLERANCE: float = 0.025
 const SOURCE_PATH: String = "res://models/storage/ビットタラン (1).bbmodel"
 const ATTACK_BONES: Dictionary = {
     "leg_fl": ["FrontLeg_L", "FrontLowerLeg_L", "FrontFoot_L"],
