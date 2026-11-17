@@ -2578,9 +2578,6 @@ const SOURCE_STEP_TRIGGER_METERS: float = 0.62
 const SOURCE_STEP_DURATION_SECONDS: float = 0.52
 const SOURCE_STEP_HEIGHT_METERS: float = 0.22
 const SOURCE_TELEPORT_DISTANCE_METERS: float = 2.5
-# v452: all planted soles settle flat relative to the WORLD floor.
-# Short initial blend prevents a one-tick foot flip at first contact.
-const SOURCE_GAIT_FOOT_LEVEL_SECONDS: float = 0.20
 var source_ik_enabled: bool = false
 var source_ik_attacking_id: String = ""
 var source_ik_attacking_kind: String = ""
@@ -3187,11 +3184,9 @@ func initialize_source_ground_ik() -> bool:
         sole.y = FLOOR_Y
         var rotation: Quaternion = (
             foot.global_basis.get_rotation_quaternion())
-        var level: Quaternion = _source_ik_flat_foot_rotation(
-            limb, rotation)
-        limb["sole_local"] = _source_ik_flat_sole_local(limb, level)
-        limb["source_ik_level_alpha"] = 0.0
-        limb["source_ik_level_rotation"] = level
+        # Walking uses the imported foot's actual authored orientation
+        # and original sole point. No automatic leveling.
+        limb["sole_local"] = limb["source_sole_local"]
         limb["anchor"] = sole
         limb["last_goal"] = sole
         limb["anchor_rotation"] = rotation
@@ -3201,58 +3196,6 @@ func initialize_source_ground_ik() -> bool:
         limb["source_ik_attack_anchor"] = sole
         limb["source_ik_attack_rotation"] = rotation
     return true
-
-
-## The toe's long axis follows the foot joint's +/-X axis.
-## Flatten only the pitch/roll: retain its horizontal bearing while
-## making the local Y thickness normal parallel to world UP.
-## Plant in WORLD space, not in the BODY's rotating local frame.
-func _source_ik_flat_foot_rotation(
-        limb: Dictionary, pose: Quaternion) -> Quaternion:
-    var heading: Vector3 = Basis(pose).x
-    heading.y = 0.0
-    if heading.length_squared() < 0.0001:
-        heading = actor.global_basis.x
-        heading.y = 0.0
-    if heading.length_squared() < 0.0001:
-        heading = Vector3.RIGHT
-    heading = heading.normalized()
-    var side: Vector3 = heading.cross(Vector3.UP).normalized()
-    return Basis(heading, Vector3.UP, side).get_rotation_quaternion()
-
-
-## Determine the real underside point of the imported foot cuboid in
-## its LEVEL pose, independent of its tilted original Wait sole point.
-## All gait IK uses this fixed point; source attacks retain the exact
-## unmodified source_sole_local coordinate.
-func _source_ik_flat_sole_local(
-        limb: Dictionary, level: Quaternion) -> Vector3:
-    var foot: Node3D = limb["foot"]
-    var best: float = INF
-    var selected: Array[Vector3] = []
-    for child in foot.get_children():
-        if not child is MeshInstance3D:
-            continue
-        var piece: MeshInstance3D = child as MeshInstance3D
-        if piece.mesh == null:
-            continue
-        var box: AABB = piece.mesh.get_aabb()
-        for corner in range(8):
-            var local: Vector3 = piece.transform * (
-                box.get_endpoint(corner))
-            var y: float = (Basis(level) * local).y
-            if y < best - 0.001:
-                best = y
-                selected.clear()
-                selected.append(local)
-            elif absf(y - best) <= 0.001:
-                selected.append(local)
-    if selected.is_empty():
-        return limb["source_sole_local"]
-    var sole: Vector3 = Vector3.ZERO
-    for local in selected:
-        sole += local
-    return sole / float(selected.size())
 
 
 func _source_ik_home(limb: Dictionary) -> Vector3:
@@ -3272,8 +3215,7 @@ func _source_ik_begin_pair(pair_index: int) -> void:
         limb["swing_from"] = limb["anchor"]
         limb["swing_to"] = _source_ik_home(limb)
         limb["rotation_from"] = limb["anchor_rotation"]
-        limb["rotation_to"] = _source_ik_flat_foot_rotation(
-            limb, _rotation_home(limb))
+        limb["rotation_to"] = _rotation_home(limb)
 
 
 ## Simple diagonal gait with 4 foot end effectors. Both stationary
@@ -3290,9 +3232,7 @@ func _source_ik_advance_locomotion(delta: float, motion: String) -> void:
         for limb in legs:
             limb["stepping"] = false
             limb["anchor"] = _source_ik_home(limb)
-            limb["anchor_rotation"] = _source_ik_flat_foot_rotation(
-                limb, _rotation_home(limb))
-            limb["source_ik_level_alpha"] = 1.0
+            limb["anchor_rotation"] = _rotation_home(limb)
     var can_step: bool = (motion == "Approach" or motion == "Turn")
     if can_step and source_ik_step_pair == -1 and (
             source_ik_replant_id.is_empty()):
@@ -3327,8 +3267,7 @@ func _source_ik_advance_locomotion(delta: float, motion: String) -> void:
             goal = start.lerp(destination, eased)
             goal.y += SOURCE_STEP_HEIGHT_METERS * sin(PI * step_t)
             rotation = (limb["rotation_from"] as Quaternion).slerp(
-                _source_ik_flat_foot_rotation(
-                    limb, _rotation_home(limb)), eased).normalized()
+                _rotation_home(limb), eased).normalized()
             if step_t >= 1.0:
                 goal.y = FLOOR_Y
                 limb["stepping"] = false
@@ -3351,38 +3290,15 @@ func _source_ik_advance_locomotion(delta: float, motion: String) -> void:
             var from_rotation: Quaternion = (
                 limb["source_ik_replant_rotation"])
             rotation = from_rotation.slerp(
-                _source_ik_flat_foot_rotation(
-                    limb, _rotation_home(limb)),
-                replant_ease).normalized()
+                _rotation_home(limb), replant_ease).normalized()
             if replant_t >= 1.0:
                 goal.y = FLOOR_Y
                 limb["anchor"] = goal
                 limb["anchor_rotation"] = rotation
-        else:
-            # CONTACT: keep the planted foot's yaw fixed even while
-            # the BODY turns. Roll/pitch ease to the level target.
-            var alpha: float = clampf(
-                float(limb.get("source_ik_level_alpha", 0.0))
-                + maxf(delta, 0.0)
-                    / SOURCE_GAIT_FOOT_LEVEL_SECONDS, 0.0, 1.0)
-            limb["source_ik_level_alpha"] = alpha
-            var flat: Quaternion = _source_ik_flat_foot_rotation(
-                limb, rotation)
-            rotation = rotation.slerp(flat, alpha).normalized()
-            limb["anchor_rotation"] = rotation
+        # The planted foot retains its authored pitch and roll.
+        # A stationary world anchor still prevents sliding when
+        # the body rotates or the other feet are stepping.
         var error: float = _solve(limb, goal, rotation)
-        # During the 0.20s flattening transition the old Wait sole
-        # corner and the new level underside are different points.
-        # Resolve the actual rendered toe cuboid against Y=0 once,
-        # without moving its mesh or changing any joint length.
-        if goal.y <= FLOOR_Y + 0.004:
-            var lowest: float = _source_ik_sweep_toe_lowest_world_y(
-                limb)
-            if is_finite(lowest) and lowest < FLOOR_Y - 0.004:
-                var lifted: Vector3 = goal
-                lifted.y += clampf(FLOOR_Y + 0.003 - lowest,
-                    0.0, 0.90)
-                error = _solve(limb, lifted, rotation)
         limb["last_error"] = error
     if source_ik_step_pair >= 0 and step_t >= 1.0:
         source_ik_step_pair = -1
