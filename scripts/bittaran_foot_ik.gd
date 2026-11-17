@@ -2236,8 +2236,9 @@ func _solve_connected_sweep(leg: Dictionary,
         upper.quaternion = source_upper
         lower.quaternion = source_lower
         foot.quaternion = source_foot
-        var authored_world_ankle: Quaternion = foot.global_basis
-            .orthonormalized().get_rotation_quaternion()
+        var authored_world_ankle: Quaternion = (
+            foot.global_basis.orthonormalized()
+            .get_rotation_quaternion())
         _solve(leg, solve_goal, authored_world_ankle)
         # _solve normally locks foot GLOBAL quaternion for stance. Here,
         # restore the source LOCAL ankle quaternion instead: this is the
@@ -2250,8 +2251,9 @@ func _solve_connected_sweep(leg: Dictionary,
             break
         solve_goal += correction * 0.8
     leg["last_goal"] = foot.to_global(leg["sole_local"] as Vector3)
-    leg["last_rotation"] = foot.global_basis
-        .orthonormalized().get_rotation_quaternion()
+    leg["last_rotation"] = (
+        foot.global_basis.orthonormalized()
+        .get_rotation_quaternion())
     leg["last_knee"] = lower.global_position
     leg["last_foot"] = foot.global_position
 
@@ -2373,8 +2375,9 @@ func _ground_connected_sweep(leg: Dictionary) -> void:
             goal.y += intrusion
     else:
         leg["last_goal"] = original_sole
-        leg["last_rotation"] = foot.global_basis
-            .orthonormalized().get_rotation_quaternion()
+        leg["last_rotation"] = (
+            foot.global_basis.orthonormalized()
+            .get_rotation_quaternion())
         leg["last_knee"] = lower.global_position
         leg["last_foot"] = foot.global_position
     leg["front_ground_foot_y"] = _foot_mesh_lowest_y(foot)
@@ -2426,8 +2429,9 @@ func _ground_front_attack_leg(leg: Dictionary) -> void:
             goal.y += error
     leg["last_goal"] = foot.to_global(
         leg["sole_local"] as Vector3)
-    leg["last_rotation"] = foot.global_basis
-        .orthonormalized().get_rotation_quaternion()
+    leg["last_rotation"] = (
+        foot.global_basis.orthonormalized()
+        .get_rotation_quaternion())
     leg["last_knee"] = lower.global_position
     leg["last_foot"] = foot.global_position
 
