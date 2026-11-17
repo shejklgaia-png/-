@@ -177,13 +177,15 @@ func _run() -> void:
                             active_foot.global_basis * local_point)
                         var effective_hip: Vector2 = Vector2(
                             hip.x + tip_offset.x, hip.z + tip_offset.z)
+                        var before_toe_xz: Vector2 = Vector2(
+                            previous_toe_anchor.x,
+                            previous_toe_anchor.z)
+                        var after_toe_xz: Vector2 = Vector2(
+                            anchor.x, anchor.z)
                         var before_distance: float = (
-                            Vector2(previous_toe_anchor.x,
-                                previous_toe_anchor.z)
-                            .distance_to(effective_hip))
+                            before_toe_xz.distance_to(effective_hip))
                         var after_distance: float = (
-                            Vector2(anchor.x, anchor.z)
-                            .distance_to(effective_hip))
+                            after_toe_xz.distance_to(effective_hip))
                         if after_distance > before_distance + 0.001:
                             _fail("grounded toe slid AWAY from torso " +
                                 str([clip, frame_count, anchor,
