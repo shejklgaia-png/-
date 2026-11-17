@@ -236,11 +236,18 @@ func _advance_original_only(delta: float, player_position: Vector3,
         cooldown = maxf(0.0, cooldown - maxf(delta, 0.0))
         if cooldown > 0.0:
             return {}
-        var selected: String = _choose_leg(player_position, available_feet)
+        # Only six FRONT-leg source clips exist in the user's 17:21
+        # Blockbench file. Do not select rear legs and silently fall
+        # through apply_original_attack_only without an animation.
+        var authored_feet: Dictionary = {}
+        for front_id in ["leg_fl", "leg_fr"]:
+            if available_feet.has(front_id):
+                authored_feet[front_id] = available_feet[front_id]
+        var selected: String = _choose_leg(player_position, authored_feet)
         if selected.is_empty():
             return {}
         _start(selected, _choose_kind(
-            selected, player_position, available_feet), false)
+            selected, player_position, authored_feet), false)
         next_leg_index = (LEG_IDS.find(selected) + 1) % LEG_IDS.size()
     preparing_stance = false
     var length: float = float(ORIGINAL_CLIP_LENGTHS.get(kind, 0.0))
