@@ -160,8 +160,8 @@ const FRONT_BODY_MAX_DROP_METERS: float = 1.10
 const FRONT_SWEEP_MAX_DROP_METERS: float = 2.40
 # v430: no forced foot or shin rotations. Search for the BODY height
 # that flattens the connected toe while preserving its local ankle key.
-const FRONT_SWEEP_HEIGHT_SAMPLES: int = 9
-const FRONT_SWEEP_HEIGHT_REFINEMENTS: int = 3
+const FRONT_SWEEP_HEIGHT_SAMPLES: int = 7
+const FRONT_SWEEP_HEIGHT_SCAN_INTERVAL: float = 0.16
 const FRONT_SWEEP_HEIGHT_SEARCH_START: float = 0.32
 # Matched with BittaranRig.FRONT_SWEEP_ENTRY_SECONDS.
 const FRONT_SWEEP_ENTRY_SECONDS: float = 0.32
@@ -227,6 +227,8 @@ var attack_pose: Dictionary = {}
 # Every offset is relative to rest_actor_local_y + ground_correction_world/scale.
 # No attack/height correction is used as input to the following frame.
 var front_attack_drop_world: float = 0.0
+var front_sweep_cached_height: float = 0.0
+var front_sweep_last_scan: float = -INF
 var front_return_active: bool = false
 var front_return_elapsed: float = 0.0
 var front_return_leg_id: String = ""
@@ -484,6 +486,8 @@ func clear_attack_down_windup() -> void:
 
 func _reset_front_height_state() -> void:
     front_attack_drop_world = 0.0
+    front_sweep_cached_height = 0.0
+    front_sweep_last_scan = -INF
     front_return_active = false
     front_return_elapsed = 0.0
     front_return_leg_id = ""
@@ -2120,8 +2124,12 @@ func _apply_front_attack_height(delta: float) -> void:
     # This probe restores the source pose before the final render solve.
     if kind == "sweep" and frame_t >= (
             FRONT_SWEEP_HEIGHT_SEARCH_START):
-        needed_drop = _sweep_drop_from_connected_pose(
-            legs[index], minf(drop_limit, available_drop))
+        if frame_t - front_sweep_last_scan >= (
+                FRONT_SWEEP_HEIGHT_SCAN_INTERVAL):
+            front_sweep_cached_height = _sweep_drop_from_connected_pose(
+                legs[index], minf(drop_limit, available_drop))
+            front_sweep_last_scan = frame_t
+        needed_drop = front_sweep_cached_height
     elif kind == "sweep":
         needed_drop = 0.0
     var desired: float = -minf(
