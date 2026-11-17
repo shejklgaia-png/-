@@ -1250,9 +1250,16 @@ func _advance_target_motion(delta: float) -> void:
     var generic_damage_frozen: bool = (
         (stagger_remaining > 0.0 or part_break_remaining > 0.0)
         and not rising_after_break)
+    # v461: finish both diagonal pair steps before starting another
+    # attack or moving the chassis. Supports stay planted while the
+    # returning pair lifts and swings to its authored Wait footprint.
+    var postattack_replanting: bool = (
+        bittaran_foot_ik != null and bool(bittaran_foot_ik.call(
+            "source_postattack_replant_active")))
     var attack_permitted: bool = (
         target_move_enabled and target_hp > 0 and player_hp > 0
         and not generic_damage_frozen and recovered
+        and not postattack_replanting
         and down_remaining <= 0.0 and training_ko_remaining <= 0.0
         and (bittaran_foot_ik == null or not bool(
             bittaran_foot_ik.call("front_height_recovery_active"))))
@@ -1333,7 +1340,8 @@ func _advance_target_motion(delta: float) -> void:
     else:
         bittaran_attack_body_yaw = 0.0
     var frozen: bool = (
-        attacking or front_restoring or not target_move_enabled or target_hp <= 0
+        attacking or front_restoring or postattack_replanting
+        or not target_move_enabled or target_hp <= 0
         or generic_damage_frozen
         or down_remaining > 0.0 or training_ko_remaining > 0.0
         or recovery_motion_locked)
@@ -1367,7 +1375,9 @@ func _advance_target_motion(delta: float) -> void:
             result["yaw"] = upright_yaw
     target.position = result["position"]
     target.rotation.y = float(result["yaw"])
-    bittaran_motion = "Idle" if attacking or front_restoring else str(result["motion"])
+    bittaran_motion = (
+        "Idle" if attacking or front_restoring or postattack_replanting
+        else str(result["motion"]))
     if bittaran_rig != null:
         # The rig NEVER writes the Head quaternion while changing clips;
         # current procedural yaw persists until the tracking controller's
