@@ -95,9 +95,11 @@ func _run() -> void:
                             str([motion, tick, sole]))
                         return
                 else:
-                    if absf(sole.y) > CONTACT_TOLERANCE_METERS:
-                        _fail("planted gait foot not grounded " +
-                            str([motion, tick, sole]))
+                    var stance_anchor: Vector3 = limb["anchor"]
+                    if absf(sole.y) > CONTACT_TOLERANCE_METERS or (
+                            sole.distance_to(stance_anchor) > 0.09):
+                        _fail("planted gait foot drifted from world anchor " +
+                            str([motion, tick, sole, stance_anchor]))
                         return
                     ground_contacts += 1
             gait_samples += 1
@@ -149,9 +151,11 @@ func _run() -> void:
                 if LEG_IDS[i] == options[0]:
                     continue
                 var contact: Vector3 = _sole(limbs[i])
-                if absf(contact.y) > CONTACT_TOLERANCE_METERS:
-                    _fail("support foot lost ground " +
-                        str([clip, LEG_IDS[i], t, contact.y]))
+                var planted: Vector3 = limbs[i]["source_ik_attack_anchor"]
+                if absf(contact.y) > CONTACT_TOLERANCE_METERS or (
+                        contact.distance_to(planted) > 0.09):
+                    _fail("support foot drifted from planted anchor " +
+                        str([clip, LEG_IDS[i], t, contact, planted]))
                     return
                 supports += 1
                 ground_contacts += 1
