@@ -2664,11 +2664,12 @@ func _source_ik_contact_weight(frame: Dictionary) -> float:
     if phase == "entry":
         return 0.0
     if phase == "recovery":
-        # v441: the striker must LIFT off the ground using the
-        # matching Blockbench stomp windup as its return waypoint.
-        # No attractive floor contact during this airborne move;
-        # _source_ik_ground_attacking_limb still prevents penetration.
-        return 0.0
+        # v442: stage 1 BODY correction must keep the attacking leg
+        # in ground contact until the torso has completely recovered.
+        # Stages 2/3 deliberately release it to lift and place the
+        # foot. Negative-Y penetration protection remains active.
+        return (1.0 if str(frame.get(
+            "recovery_stage", "body")) == "body" else 0.0)
     if phase == "hold":
         return 1.0
     var source_t: float = float(frame.get("authored_time", 0.0))
