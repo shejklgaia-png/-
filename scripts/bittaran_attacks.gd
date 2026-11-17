@@ -3,7 +3,7 @@ extends RefCounted
 ## Timings are in physics seconds, independent of the authored locomotion clip.
 const LEG_IDS: Array[String] = ["leg_fl", "leg_fr", "leg_rl", "leg_rr"]
 const ATTACK_KINDS: Array[String] = ["stomp", "kick", "sweep"]
-# v437: preserve the six original Blockbench source CLIPS and let only
+# v438: preserve the six original Blockbench source CLIPS and let only
 # a real-time attack director control entry, clip-speed warp, holding,
 # and post-attack return. No procedural attack aiming/rewriting.
 const ORIGINAL_ATTACK_ONLY: bool = true
@@ -33,6 +33,10 @@ const KICK_STRIKE_SECONDS: float = 1.0
 # source speed exactly 0.20 to meet the slow block without a snap.
 # Source keys, attacking joints, return direction and post recovery
 # remain untouched.
+# Overall playback rate for the full authored sweep (outward and return).
+# This multiplies the existing v437 time-warp rather than discarding it.
+# Entry (Wait -> attack), recovery, and support-leg IK retain their times.
+const SWEEP_PLAYBACK_RATE: float = 0.60
 const SWEEP_SOURCE_STRIKE_SECONDS: float = 1.50
 const SWEEP_OUTBOUND_END_CLIP_SECONDS: float = 0.50
 const SWEEP_OUTBOUND_TARGET_TOTAL_SECONDS: float = 2.00
@@ -119,7 +123,9 @@ func _strike() -> float:
         "kick": return KICK_STRIKE_SECONDS
         _: return SWEEP_STRIKE_SECONDS
 
-## SOURCE timeline in seconds from end of the 0.32s entry:
+## BASE sweep source timeline in seconds from end of the 0.32s entry.
+## v438 executes this time-warp at SWEEP_PLAYBACK_RATE=0.60,
+## so every authored movement is 0.60x its prior speed:
 ## 0.00..0.98 = cubic time-warp original clip 0.00..0.36;
 ## 0.98..1.68 = constant 0.20x source 0.36..0.50;
 ## 1.68..2.68 = 1.00x source return 0.50..1.50.
@@ -257,14 +263,14 @@ func _choose_kind(for_leg: String, player_position: Vector3,
 
 
 ## Real-time attack state with NON-DESTRUCTIVE source clip time warp.
-## Entry: Wait -> authored t=0. Strike: authored clip keys only, with
-## 0.20x slowdown for 0.70 real seconds BEFORE sweep t=0.50.
+## Entry: Wait -> authored t=0. Strike: authored clip keys only; the
+## entire v437 sweep clock now runs at 0.60x, including its slow window.
 ## Kick/Stomp hold: freeze original last key 1.50 seconds.
 ## Return: KICK/STOMP limb 0.42 then Body 0.62; SWEEP no hold and
 ## all-body gradual return 1.40 seconds. The source keys never change.
 static func source_play_seconds(attack_kind: String) -> float:
     if attack_kind == "sweep":
-        return SWEEP_STRIKE_SECONDS
+        return SWEEP_STRIKE_SECONDS / SWEEP_PLAYBACK_RATE
     return float(ORIGINAL_CLIP_LENGTHS.get(attack_kind, 0.0))
 
 
@@ -291,7 +297,7 @@ static func source_clip_time(attack_kind: String,
     var play_t: float = clampf(real_attack_seconds, 0.0,
         source_play_seconds(attack_kind))
     if attack_kind == "sweep":
-        return sweep_clip_time_at(play_t)
+        return sweep_clip_time_at(play_t * SWEEP_PLAYBACK_RATE)
     return minf(play_t,
         float(ORIGINAL_CLIP_LENGTHS.get(attack_kind, 0.0)))
 
@@ -299,11 +305,13 @@ static func source_clip_time(attack_kind: String,
 static func source_playback_speed(attack_kind: String,
         play_t: float) -> float:
     if attack_kind == "sweep":
-        if play_t <= SWEEP_EARLY_REAL_SECONDS:
-            return _sweep_early_source_speed(play_t)
-        if play_t < SWEEP_OUTBOUND_END_REAL_SECONDS:
-            return SWEEP_SLOW_SPEED
-        return 1.0
+        var warped_t: float = play_t * SWEEP_PLAYBACK_RATE
+        if warped_t <= SWEEP_EARLY_REAL_SECONDS:
+            return (SWEEP_PLAYBACK_RATE *
+                _sweep_early_source_speed(warped_t))
+        if warped_t < SWEEP_OUTBOUND_END_REAL_SECONDS:
+            return SWEEP_PLAYBACK_RATE * SWEEP_SLOW_SPEED
+        return SWEEP_PLAYBACK_RATE
     return 1.0
 
 
