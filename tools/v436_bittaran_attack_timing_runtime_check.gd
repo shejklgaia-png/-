@@ -38,6 +38,11 @@ func _ease(progress: float) -> float:
     var t: float = clampf(progress, 0.0, 1.0)
     return t * t * (3.0 - 2.0 * t)
 
+
+func _smoother(progress: float) -> float:
+    var t: float = clampf(progress, 0.0, 1.0)
+    return t * t * t * (t * (t * 6.0 - 15.0) + 10.0)
+
 func _expected_phase_pose(rig: Node3D, name: String,
         frame: Dictionary) -> bool:
     var phase: String = str(frame["phase"])
@@ -84,7 +89,7 @@ func _expected_phase_pose(rig: Node3D, name: String,
                     expected_q = original_q
                     expected_p = original_p
                 else:
-                    var weight: float = _ease(
+                    var weight: float = _smoother(
                         (phase_t - body_seconds) / LEG_RETURN)
                     expected_q = original_q.slerp(neutral_q, weight)
                     expected_p = original_p.lerp(neutral_p, weight)
@@ -106,38 +111,38 @@ func _run() -> void:
             and _same(DIRECTOR.SOURCE_BODY_RETURN_SECONDS, BODY_RETURN)):
         _die("entry or limb-then-Body timing changed")
         return
-    # v443: 1.00s entrance, whole outward sweep takes 2.00s,
-    # the turning source key t=.50 occurs at attack t=3.00.
-    # No localized mid-sweep slow segment and no stomp lift waypoint.
+    # v445: 1.00s entry, full outward sweep takes exactly 1.00s
+    # at constant 0.50x; source turning key t=.50 at attack t=2.00.
+    # Recovery leg three-joint chain uses quintic smootherstep.
     if not (_same(DIRECTOR.SWEEP_ENTRY_SECONDS, 1.0)
             and _same(DIRECTOR.source_entry_seconds("sweep"), 1.0)
             and _same(DIRECTOR.source_entry_seconds("kick"), ENTRY)
             and _same(DIRECTOR.source_entry_seconds("stomp"), ENTRY)
-            and _same(DIRECTOR.SWEEP_OUTBOUND_REAL_SECONDS, 2.0)
-            and _same(DIRECTOR.SWEEP_OUTBOUND_SPEED, 0.25)
-            and _same(DIRECTOR.SWEEP_OUTBOUND_TARGET_TOTAL_SECONDS, 3.0)
-            and _same(DIRECTOR.source_play_seconds("sweep"), 3.0)
+            and _same(DIRECTOR.SWEEP_OUTBOUND_REAL_SECONDS, 1.0)
+            and _same(DIRECTOR.SWEEP_OUTBOUND_SPEED, 0.50)
+            and _same(DIRECTOR.SWEEP_OUTBOUND_TARGET_TOTAL_SECONDS, 2.0)
+            and _same(DIRECTOR.source_play_seconds("sweep"), 2.0)
             and _same(DIRECTOR.source_body_return_seconds("sweep"), 1.4)
             and _same(DIRECTOR.source_body_return_seconds("kick"), 0.62)
             and _same(DIRECTOR.source_body_return_seconds("stomp"), 0.62)
-            and _same(DIRECTOR.source_total_seconds("sweep"), 6.6)
+            and _same(DIRECTOR.source_total_seconds("sweep"), 5.6)
             and _same(DIRECTOR.SOURCE_LEG_RETURN_SECONDS, LEG_RETURN)):
-        _die("v443 sweep outward or direct leg-return timings invalid")
+        _die("v445 sweep 2s outward or eased leg return invalid")
         return
-    for pair in [[0.0, 0.0], [0.5, 0.125], [1.0, 0.25],
-            [1.5, 0.375], [2.0, 0.5], [2.25, 0.75],
-            [2.75, 1.25], [3.0, 1.5]]:
+    for pair in [[0.0, 0.0], [0.25, 0.125], [0.50, 0.25],
+            [0.75, 0.375], [1.0, 0.50], [1.25, 0.75],
+            [1.75, 1.25], [2.0, 1.5]]:
         var time: float = float(pair[0])
         var expected_source: float = float(pair[1])
         if not (_same(DIRECTOR.sweep_clip_time_at(time),
                 expected_source)
                 and _same(DIRECTOR.source_clip_time("sweep", time),
                     expected_source)):
-            _die("outbound 3.00s source clock incorrect " + str(pair))
+            _die("outbound 2.00s source clock incorrect " + str(pair))
             return
-    for t in [0.0, 0.1, 0.5, 1.0, 1.5, 1.999, 2.0, 2.75]:
+    for t in [0.0, 0.1, 0.5, 0.999, 1.0, 1.5, 2.0]:
         var expected_speed: float = (
-            0.25 if t < 2.0 else 1.0)
+            0.50 if t < 1.0 else 1.0)
         if not _same(DIRECTOR.source_playback_speed("sweep", t),
                 expected_speed):
             _die("sweep outward/return rate incorrect " + str(t))
@@ -148,6 +153,23 @@ func _run() -> void:
                 DIRECTOR.source_body_return_seconds(kind)
                 + LEG_RETURN):
             _die("body-first direct leg return invalid " + kind)
+            return
+    # 5th-order easing is monotonic and C2: both velocity and
+    # acceleration smoothly approach zero at the two boundaries.
+    var prior: float = -0.001
+    for i in range(1001):
+        var u: float = float(i) / 1000.0
+        var ease: float = _smoother(u)
+        if ease < prior - 0.000001 or ease < -0.000001 or (
+                ease > 1.000001):
+            _die("arm return easing non-monotonic at " + str(u))
+            return
+        prior = ease
+    for u in [0.001, 0.002, 0.998, 0.999]:
+        var slope: float = (
+            _smoother(u + 0.0001) - _smoother(u - 0.0001)) / 0.0002
+        if absf(slope) > 0.0002:
+            _die("arm return endpoint velocity is not smooth " + str(u))
             return
     if not _same(DIRECTOR.source_hold_seconds("stomp"), 1.5) or not (
             _same(DIRECTOR.source_hold_seconds("kick"), 1.5)
@@ -190,11 +212,11 @@ func _run() -> void:
             total
         ]
         if kind == "sweep":
+            samples.append(attack_entry + 0.25)
             samples.append(attack_entry + 0.50)
+            samples.append(attack_entry + 0.75)
             samples.append(attack_entry + 1.00)
             samples.append(attack_entry + 1.50)
-            samples.append(attack_entry + 2.00)
-            samples.append(attack_entry + 2.50)
         else:
             samples.append(play_end + 0.75)
         # BODY first, then smooth directly to Wait with no intermediary.
@@ -240,7 +262,7 @@ func _run() -> void:
                     at < play_end):
                 var t: float = at - attack_entry
                 var expected_speed: float = (
-                    0.25 if t < 2.0 else 1.0)
+                    0.50 if t < 1.0 else 1.0)
                 if not _same(float(frame["authored_playback_speed"]),
                         expected_speed):
                     _die("sweep source clock speed drift " + str(at))
@@ -267,11 +289,11 @@ func _run() -> void:
         "six_clips=6 cases=", checked,
         " source_euler_keys=preserved",
         " sweep_entry=1.00sec",
-        " sweep_outbound_end=3.00sec",
-        " sweep_outbound_uniform_0.25x_no_mid_slow",
+        " sweep_outbound_end=2.00sec",
+        " sweep_outbound_uniform_0.50x_no_mid_slow",
         " sweep_return_speed=1.0x",
         " kick_stomp_hold=1.5sec",
         " recovery_order=Body_then_direct_Wait",
         " body=sweep_1.40s_or_kick_stomp_0.62s",
-        " leg_return=1.20s")
+        " leg_return=1.20s_quintic_smootherstep")
     quit(0)
