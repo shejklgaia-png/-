@@ -2775,6 +2775,9 @@ func _source_ik_solve_striker(
 ## and scales are immutable. The floor never changes from Y=0.
 func _source_ik_ground_attacking_limb(
         limb: Dictionary, frame: Dictionary) -> void:
+    # Always reset per-frame reach status; do not reuse an error from
+    # a previous attack when this frame needs no correction.
+    limb["last_error"] = 0.0
     var foot: Node3D = limb["foot"]
     var lower: Node3D = limb["lower"]
     var is_sweep: bool = str(frame.get("kind", "")) == "sweep"
@@ -3044,7 +3047,7 @@ func _source_ik_advance_attack(frame: Dictionary) -> void:
             limb["last_knee"] = (
                 limb["lower"] as Node3D).global_position
             limb["last_foot"] = foot.global_position
-            limb["last_error"] = 0.0
+            # Keep the IK solver's real reach error for diagnostics.
             continue
         var goal: Vector3 = limb["source_ik_attack_anchor"]
         goal.y = FLOOR_Y
