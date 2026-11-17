@@ -3,14 +3,17 @@ extends RefCounted
 ## Timings are in physics seconds, independent of the authored locomotion clip.
 const LEG_IDS: Array[String] = ["leg_fl", "leg_fr", "leg_rl", "leg_rr"]
 const ATTACK_KINDS: Array[String] = ["stomp", "kick", "sweep"]
-# v439: preserve the six original Blockbench source CLIPS and let only
+# v441: preserve the six original Blockbench source CLIPS and let only
 # a real-time attack director control entry, clip-speed warp, holding,
 # and post-attack return. No procedural attack aiming/rewriting.
 const ORIGINAL_ATTACK_ONLY: bool = true
 const SOURCE_ENTRY_SECONDS: float = 0.32
 # Sweep-only windup: wait pose -> original outward stroke begins at t=1s.
 const SWEEP_ENTRY_SECONDS: float = 1.00
-const SOURCE_LEG_RETURN_SECONDS: float = 0.42
+const SOURCE_LEG_LIFT_SECONDS: float = 0.34
+const SOURCE_LEG_LAND_SECONDS: float = 0.46
+const SOURCE_LEG_RETURN_SECONDS: float = (
+    SOURCE_LEG_LIFT_SECONDS + SOURCE_LEG_LAND_SECONDS)
 const SOURCE_BODY_RETURN_SECONDS: float = 0.62
 const SOURCE_KICK_STOMP_RETURN_SECONDS: float = (
     SOURCE_LEG_RETURN_SECONDS + SOURCE_BODY_RETURN_SECONDS)
@@ -27,29 +30,11 @@ const KICK_WINDUP_SECONDS: float = 0.70
 const SWEEP_WINDUP_SECONDS: float = 0.70
 const STOMP_STRIKE_SECONDS: float = 0.25
 const KICK_STRIKE_SECONDS: float = 1.0
-# v439: the v438 uniform 0.60x rate is removed. Restore v437's
-# smooth Hermite curve (0..0.36 source over 0.98s), the original 0.70s
-# at 0.20x (source 0.36..0.50), and 1.00x for the return segment.
-# Only SWEEP's preliminary Wait -> attack t=0 transition is extended
-# to 1.00s; its actual outward clip begins AFTER this preparation.
-# Therefore the outward turnaround is now 1.00+0.98+0.70 = 2.68s.
+# v441: source sweep has no mid-animation slow-motion. Replay the
+# full source clip at 1.00x after its 1.00s entry transition.
 const SWEEP_SOURCE_STRIKE_SECONDS: float = 1.50
 const SWEEP_OUTBOUND_END_CLIP_SECONDS: float = 0.50
-const SWEEP_OUTBOUND_TARGET_TOTAL_SECONDS: float = 2.68
-const SWEEP_SLOW_SPEED: float = 0.20
-const SWEEP_SLOW_REAL_SECONDS: float = 0.70
-const SWEEP_SLOW_SOURCE_SECONDS: float = (
-    SWEEP_SLOW_REAL_SECONDS * SWEEP_SLOW_SPEED)
-const SWEEP_SLOW_START_CLIP_SECONDS: float = (
-    SWEEP_OUTBOUND_END_CLIP_SECONDS - SWEEP_SLOW_SOURCE_SECONDS)
-const SWEEP_EARLY_REAL_SECONDS: float = (
-    SWEEP_OUTBOUND_TARGET_TOTAL_SECONDS
-    - SWEEP_ENTRY_SECONDS - SWEEP_SLOW_REAL_SECONDS)
-const SWEEP_OUTBOUND_END_REAL_SECONDS: float = (
-    SWEEP_EARLY_REAL_SECONDS + SWEEP_SLOW_REAL_SECONDS)
-const SWEEP_STRIKE_SECONDS: float = (
-    SWEEP_OUTBOUND_END_REAL_SECONDS
-    + SWEEP_SOURCE_STRIKE_SECONDS - SWEEP_OUTBOUND_END_CLIP_SECONDS)
+const SWEEP_STRIKE_SECONDS: float = SWEEP_SOURCE_STRIKE_SECONDS
 const STOMP_RECOVERY_SECONDS: float = 0.55
 const KICK_RECOVERY_SECONDS: float = 0.60
 const SWEEP_RECOVERY_SECONDS: float = 1.40
@@ -119,45 +104,10 @@ func _strike() -> float:
         "kick": return KICK_STRIKE_SECONDS
         _: return SWEEP_STRIKE_SECONDS
 
-## Sweep source clock, after its independent 1.00s Wait->t0 entry:
-## Restore v437's original clip tempo (no uniform 0.60 multiplier):
-## 0.00..0.98 = cubic time-warp original clip 0.00..0.36;
-## 0.98..1.68 = constant 0.20x source 0.36..0.50;
-## 1.68..2.68 = 1.00x source return 0.50..1.50.
-## Total from neutral Wait to the OUTWARD turnaround = 2.68 seconds.
-static func _sweep_early_source_time(play_seconds: float) -> float:
-    var u: float = clampf(
-        play_seconds / SWEEP_EARLY_REAL_SECONDS, 0.0, 1.0)
-    # Cubic Hermite: p(0)=0, p'(0)=0; p(1)=.36,
-    # p'(1)=.20 * .98. Evaluating the source timeline (not Euler
-    # angles) preserves every original Blockbench key and its geometry.
-    var h01: float = -2.0 * u * u * u + 3.0 * u * u
-    var h11: float = u * u * u - u * u
-    return (SWEEP_SLOW_START_CLIP_SECONDS * h01
-        + SWEEP_EARLY_REAL_SECONDS * SWEEP_SLOW_SPEED * h11)
-
-
-static func _sweep_early_source_speed(play_seconds: float) -> float:
-    var u: float = clampf(
-        play_seconds / SWEEP_EARLY_REAL_SECONDS, 0.0, 1.0)
-    var slope: float = (
-        SWEEP_SLOW_START_CLIP_SECONDS * (6.0 * u - 6.0 * u * u)
-        + SWEEP_EARLY_REAL_SECONDS * SWEEP_SLOW_SPEED
-        * (3.0 * u * u - 2.0 * u))
-    return maxf(0.0, slope / SWEEP_EARLY_REAL_SECONDS)
-
-
+## Direct Blockbench time: no interpolated slow or speed warp.
 static func sweep_clip_time_at(real_strike_seconds: float) -> float:
-    var t: float = maxf(real_strike_seconds, 0.0)
-    if t <= SWEEP_EARLY_REAL_SECONDS:
-        return _sweep_early_source_time(t)
-    if t <= SWEEP_OUTBOUND_END_REAL_SECONDS:
-        return SWEEP_SLOW_START_CLIP_SECONDS + (
-            t - SWEEP_EARLY_REAL_SECONDS) * SWEEP_SLOW_SPEED
-    return minf(SWEEP_SOURCE_STRIKE_SECONDS,
-        SWEEP_OUTBOUND_END_CLIP_SECONDS
-        + (t - SWEEP_OUTBOUND_END_REAL_SECONDS))
-
+    return clampf(real_strike_seconds,
+        0.0, SWEEP_SOURCE_STRIKE_SECONDS)
 
 func _hold() -> float:
     match kind:
@@ -257,12 +207,11 @@ func _choose_kind(for_leg: String, player_position: Vector3,
     return chosen
 
 
-## Real-time attack state with NON-DESTRUCTIVE source clip time warp.
-## Entry: Wait -> authored t=0 (sweep 1.00s, other attacks 0.32s).
-## The original v437 sweep Hermite clock and 0.20x slow are restored.
-## Kick/Stomp hold: freeze original last key 1.50 seconds.
-## Return: KICK/STOMP limb 0.42 then Body 0.62; SWEEP no hold and
-## all-body gradual return 1.40 seconds. The source keys never change.
+## Timed original playback, no mid-sweep slow.
+## Sweep entry 1.00s; others 0.32s. Kick/Stomp hold 1.50s.
+## Recovery reuses the stomp t=1.0 high-windup leg pose.
+## Limb rises 0.34s and returns to Wait 0.46s. Afterwards the
+## Kick/Stomp Body restores over 0.62s. Sweep BODY blends 1.40s.
 static func source_entry_seconds(attack_kind: String) -> float:
     return (SWEEP_ENTRY_SECONDS if attack_kind == "sweep"
         else SOURCE_ENTRY_SECONDS)
@@ -295,24 +244,13 @@ static func source_total_seconds(attack_kind: String) -> float:
 
 static func source_clip_time(attack_kind: String,
         real_attack_seconds: float) -> float:
-    var play_t: float = clampf(real_attack_seconds, 0.0,
-        source_play_seconds(attack_kind))
-    if attack_kind == "sweep":
-        return sweep_clip_time_at(play_t)
-    return minf(play_t,
+    return clampf(real_attack_seconds, 0.0,
         float(ORIGINAL_CLIP_LENGTHS.get(attack_kind, 0.0)))
 
 
-static func source_playback_speed(attack_kind: String,
-        play_t: float) -> float:
-    if attack_kind == "sweep":
-        if play_t <= SWEEP_EARLY_REAL_SECONDS:
-            return _sweep_early_source_speed(play_t)
-        if play_t < SWEEP_OUTBOUND_END_REAL_SECONDS:
-            return SWEEP_SLOW_SPEED
-        return 1.0
+static func source_playback_speed(_attack_kind: String,
+        _play_t: float) -> float:
     return 1.0
-
 
 func _advance_original_only(delta: float, player_position: Vector3,
         available_feet: Dictionary, permitted: bool) -> Dictionary:
@@ -380,6 +318,8 @@ func _advance_original_only(delta: float, player_position: Vector3,
         "hold": source_hold_seconds(kind),
         "recovery": source_return_seconds(kind),
         "leg_return_seconds": SOURCE_LEG_RETURN_SECONDS,
+        "leg_lift_seconds": SOURCE_LEG_LIFT_SECONDS,
+        "leg_land_seconds": SOURCE_LEG_LAND_SECONDS,
         "body_return_seconds": SOURCE_BODY_RETURN_SECONDS,
         "stance_prepare": false,
         "tracking": false,
