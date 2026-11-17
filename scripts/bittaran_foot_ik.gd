@@ -2883,9 +2883,11 @@ func _source_ik_advance_locomotion(delta: float, motion: String) -> void:
             source_ik_replant_elapsed = 0.0
 
 
-## Preserve the exact Body and active attack chain sampled immediately
-## beforehand by apply_original_attack_only(). Only the THREE sibling
-## limb chains are allowed to rotate via the existing 2-bone solver.
+## v440: preserve the authored Body and mesh attachment sampled by
+## apply_original_attack_only(). Solve 3 planted support limbs and ONE
+## active attacking skeletal chain against a constant Y=0 floor plane.
+## The active foot's source orientation is preserved; no child mesh
+## can ever leave its own parent joint.
 func _source_ik_advance_attack(frame: Dictionary) -> void:
     var attack_id: String = str(frame.get("id", ""))
     if not LEG_PART_IDS.has(attack_id):
@@ -2912,9 +2914,8 @@ func _source_ik_advance_attack(frame: Dictionary) -> void:
         var limb: Dictionary = legs[index]
         var foot: Node3D = limb["foot"]
         if LEG_PART_IDS[index] == attack_id:
-            # v440: use the exact SOURCE pose as the IK starting point,
-            # then rotate only upper/lower joints to meet the floor.
-            # All the authored MeshInstance3D transforms remain attached.
+            # v440: start from SOURCE pose and solve its two skeletal
+            # joints toward constant Y=0; never detach any mesh.
             _source_ik_ground_attacking_limb(limb, frame)
             limb["last_goal"] = foot.to_global(
                 limb["source_sole_local"] as Vector3)
