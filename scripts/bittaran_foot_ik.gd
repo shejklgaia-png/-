@@ -2355,6 +2355,15 @@ func _ground_connected_sweep(leg: Dictionary) -> void:
     var approach: float = _cubic(
         (t - FRONT_SWEEP_HEIGHT_SEARCH_START) / maxf(
         windup - FRONT_SWEEP_HEIGHT_SEARCH_START, 0.01))
+    if source_bottom < FLOOR_Y - 0.002 and approach < 0.999:
+        # During Wait->key0, the authored toe can begin 36cm UNDER the
+        # arena. Floor clearance is a collision constraint, not forced
+        # horizontal contact: solve the CONNECTED hinge chain upward
+        # from its own current sole, while keeping the original local
+        # ankle and all pivots intact.
+        goal = original_sole + Vector3.UP * (
+            FLOOR_Y + 0.003 - source_bottom)
+        approach = 1.0
     if approach > 0.00001:
         # A toe that still grazes through the floor is corrected by a
         # new connected IK solve from the SAME authored frame. Do not
