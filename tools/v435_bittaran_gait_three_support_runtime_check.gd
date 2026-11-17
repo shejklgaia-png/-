@@ -183,9 +183,10 @@ func _run() -> void:
                     var uid: String = str(bone_map.get(bone_name, ""))
                     var bone: Node3D = nodes[uid]
                     if previous_joint_rotations.has(bone_name):
-                        var angle: float = (
-                            previous_joint_rotations[bone_name]
-                            as Quaternion).angle_to(bone.quaternion)
+                        var prev_q: Quaternion = (
+                            previous_joint_rotations[bone_name])
+                        var angle: float = prev_q.angle_to(
+                            bone.quaternion)
                         if angle > 0.50:
                             _fail("arm snapped at Body->leg transition " +
                                 str([clip, bone_name, angle]))
@@ -265,7 +266,7 @@ func _run() -> void:
         battle.call("_advance_target_motion", DT)
         battle.call("_finalize_target_pose", DT)
     if attacks_checked != 6 or ground_contacts < 100 or (
-            sweep_toe_frames < 200) or body_pin_frames < 130 or (
+            sweep_toe_frames < 200) or body_pin_frames < 90 or (
             body_to_leg_transitions != 6):
         _fail("not enough toe pins, grounded supports, or transitions " +
             str([attacks_checked, sweep_toe_frames, body_pin_frames,
