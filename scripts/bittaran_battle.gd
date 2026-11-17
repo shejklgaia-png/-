@@ -176,32 +176,64 @@ func _ready() -> void:
 ## and Android. The user:// fallback loads a development-time Ogg
 ## placed in the application's writable folder when the imported
 ## asset has not yet been copied into the repository.
+## Load the imported stream when possible. On Android a fresh Git
+## sync can leave an .ogg source present before the editor finishes
+## generating the .godot imported cache; load the raw Vorbis bytes
+## in that case instead of silently skipping music.
 func _start_neural_flow_bgm() -> void:
-    bittaran_bgm = AudioStreamPlayer.new()
-    bittaran_bgm.name = "NeuralFlowBGM"
-    bittaran_bgm.volume_db = -9.0
-    add_child(bittaran_bgm)
     var music: AudioStream = null
+    var loaded_via: String = ""
     if ResourceLoader.exists(BITTARAN_BGM_PATH):
-        music = load(BITTARAN_BGM_PATH) as AudioStream
-    elif FileAccess.file_exists(BITTARAN_BGM_USER_PATH):
+        music = ResourceLoader.load(BITTARAN_BGM_PATH) as AudioStream
+        if music != null:
+            loaded_via = "imported"
+    if music == null and FileAccess.file_exists(BITTARAN_BGM_PATH):
+        var ogg_bytes: PackedByteArray = FileAccess.get_file_as_bytes(
+            BITTARAN_BGM_PATH)
+        if ogg_bytes.size() > 0:
+            music = AudioStreamOggVorbis.load_from_buffer(ogg_bytes)
+            if music != null:
+                loaded_via = "direct-res"
+    if music == null and FileAccess.file_exists(
+            BITTARAN_BGM_USER_PATH):
         music = AudioStreamOggVorbis.load_from_file(
             BITTARAN_BGM_USER_PATH)
+        if music != null:
+            loaded_via = "user-fallback"
     if music == null:
-        # Avoid a preload/compile error when the 3.6 MB Ogg file is
-        # distributed separately from the text-only GitHub patches.
-        push_warning("Bittaran: Neural Flow BGM is missing at "
-            + BITTARAN_BGM_PATH)
+        push_error("SERA_BGM_MISSING: Cannot load Neural Flow at "
+            + BITTARAN_BGM_PATH + "; check Godot audio import")
         return
     if music is AudioStreamOggVorbis:
         var ogg: AudioStreamOggVorbis = music
         ogg.bpm = 174.0
         ogg.bar_beats = 4
-        ogg.beat_count = 544  # 136 bars, 4 beats each.
+        ogg.beat_count = 544
         ogg.loop = true
         ogg.loop_offset = 0.0
+    bittaran_bgm = AudioStreamPlayer.new()
+    bittaran_bgm.name = "NeuralFlowBGM"
+    bittaran_bgm.bus = "Master"
+    bittaran_bgm.volume_db = -5.0
     bittaran_bgm.stream = music
+    add_child(bittaran_bgm)
     bittaran_bgm.play()
+    print("SERA_BGM_STARTED: ", loaded_via,
+        " length=", music.get_length(),
+        " playing=", bittaran_bgm.playing)
+    # On some Android startup paths the first audio mixer tick occurs
+    # after _ready. Verify on the next idle step and retry once.
+    call_deferred("_verify_neural_flow_bgm")
+
+
+func _verify_neural_flow_bgm() -> void:
+    if bittaran_bgm == null or bittaran_bgm.stream == null:
+        return
+    if not bittaran_bgm.playing:
+        bittaran_bgm.play()
+    if not bittaran_bgm.playing:
+        push_error("SERA_BGM_PLAY_FAILED: Neural Flow stream loaded, "
+            + "but AudioStreamPlayer did not start")
 
 
 func _make_boss_label(parent: CanvasLayer, caption: String,
