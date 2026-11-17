@@ -93,6 +93,10 @@ var current_clip: String = "Idle"
 var elapsed: float = 0.0
 var blend_elapsed: float = BLEND_SECONDS
 var blend_from: Dictionary = {}
+# v435: never blend a previously IK-solved upper leg quaternion into
+# the NEXT Blockbench source key; that would treat solver output as
+# authored animation and visibly wrench the limbs at gait changes.
+var source_ground_ik_active: bool = false
 # Procedural HEAD look yaw is not part of an authored blend source.
 var external_head_yaw: float = 0.0
 var loading_ok: bool = false
@@ -376,15 +380,17 @@ func set_motion(clip_name: String, delta: float) -> void:
         return
     if current_clip != clip_name:
         blend_from.clear()
-        for uid in bones.keys():
-            var joint: Node3D = bones[uid]
-            var source: Quaternion = joint.quaternion
-            if joint.name == "Head":
-                continue
-            blend_from[uid] = source
+        if not source_ground_ik_active:
+            for uid in bones.keys():
+                var joint: Node3D = bones[uid]
+                var source: Quaternion = joint.quaternion
+                if joint.name == "Head":
+                    continue
+                blend_from[uid] = source
         current_clip = clip_name
         elapsed = 0.0
-        blend_elapsed = 0.0
+        blend_elapsed = (
+            BLEND_SECONDS if source_ground_ik_active else 0.0)
     elapsed += maxf(0.0, delta)
     blend_elapsed = minf(BLEND_SECONDS, blend_elapsed + maxf(0.0, delta))
     apply_pose(current_clip, elapsed)
