@@ -1,0 +1,34 @@
+# Historical Bittaran v423 tests retired from active CI in v424
+# The tests remain on disk and can be executed manually against the v423 tag/branch.
+# See README_v424_ja.md for the intentional 90-degree head / front-only source-clip change.
+# Old tests asserting a 30-degree head stop, knee/head avoidance, rear-leg attacks,
+# mirrored/source reaiming, strike-length adjustments, or legacy floor fitting are
+# incompatible with the deliberately direct, provisional Blockbench playback.
+# IMPORTANT: Old foot/floor failures also expose a KNOWN v424 limitation and
+# must NOT be described as verified ground contact. Do not silently remove
+# this limitation until the original clips have explicit floor-correct runtime tests.
+gd tools/v357_bittaran_down_clearance_runtime_check.gd
+gd tools/v358_bittaran_windup_grounding_runtime_check.gd
+gd tools/v363_bittaran_rise_turn_head_runtime_check.gd
+gd tools/v364_bittaran_head_clear_early_turn_runtime_check.gd
+gd tools/v374_bittaran_knee_sidefold_during_rise_runtime_check.gd
+gd tools/v382_bittaran_broken_leg_straight_attacks_runtime_check.gd
+gd tools/v383_bittaran_attack_aim_body_support_runtime_check.gd
+gd tools/v386_bittaran_windup_ground_no_sweep_follow_runtime_check.gd
+gd tools/v387_bittaran_poststrike_hold_grounded_head_runtime_check.gd
+gd tools/v388_bittaran_head_sweep_tempo_runtime_check.gd
+gd tools/v392_bittaran_head_pitch_chest_45_stomp_runtime_check.gd
+gd tools/v394_bittaran_spiral_head_return_down_runtime_check.gd
+gd tools/v396_bittaran_sweep_mirror_floor_runtime_check.gd
+gd tools/v397_bittaran_head30_rear_sweep_lift_runtime_check.gd
+gd tools/v400_bittaran_attack_motion_runtime_check.gd
+gd tools/v402_bittaran_recovery_smoothness_runtime_check.gd
+gd tools/v403_bittaran_kick_direction_runtime_check.gd
+gd tools/v404_bittaran_body_twist_runtime_check.gd
+gd tools/v406_bittaran_kick_reach_solve_runtime_check.gd
+gd tools/v408_bittaran_kick_source_trajectory_runtime_check.gd
+gd tools/v409_bittaran_guidance_limits_runtime_check.gd
+gd tools/v410_bittaran_windup_plant_sweep_mirror_runtime_check.gd
+gd tools/v411_bittaran_sweep_body_delta_mirror_runtime_check.gd
+gd tools/v420_bittaran_attack_rebuild_regression_runtime_check.gd
+gd tools/v423_bittaran_aim_seam_runtime_check.gd

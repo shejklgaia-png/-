@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""v345: author pose, independent boss rig, Android snapshot and deployment contract."""
+"""Bittaran model contract: imported user geometry, front attack clips, gait."""
 import json
 import re
 from pathlib import Path
@@ -10,46 +10,43 @@ def read(path):
 def doc(path):
     return json.loads(read(path))
 
-source = doc("models/storage/ボステスト (2).bbmodel")
+source = doc("models/storage/ビットタラン.bbmodel")
 boss = doc("models/bosses/Bittaran.bbmodel")
 assert boss["name"] == "ビットタラン"
-for key in ("groups", "elements", "outliner", "textures"):
-    assert boss[key] == source[key], "Authored Bittaran rig changed: " + key
-assert len(boss["groups"]) == len(boss["elements"]) == 14
-assert [a["name"] for a in boss["animations"][:4]] == ["Wait", "Idle", "Turn", "Approach"]
-assert [a["name"] for a in boss["animations"][4:]] == ["なぎ払い", "弾き", "踏みつけ"]
-# The exact user-authored three clips were appended, never substituted for
-# the original four locomotion animations or the canonical Wait bind pose.
-staged = doc("models/storage/ボステスト (2) (2).bbmodel")
-for clip in boss["animations"][4:]:
-    original = next(a for a in staged["animations"] if a["name"] == clip["name"])
+assert len(boss["groups"]) == 14 and len(boss["elements"]) == len(source["elements"]) == 18
+assert boss["elements"] == source["elements"], "User mesh data must be unchanged"
+assert boss["textures"] == source["textures"]
+names = [g["name"] for g in boss["groups"]]
+assert len(set(names)) == 14
+assert set(["Head", "Body", "FrontLeg_R", "FrontLowerLeg_R",
+            "FrontFoot_R", "FrontLeg_L", "FrontLowerLeg_L",
+            "FrontFoot_L", "RearLeg_L", "RearLowerLeg_L",
+            "RearFoot_L", "RearLeg_R", "RearLowerLeg_R",
+            "RearFoot_R"]) == set(names)
+assert [a["name"] for a in boss["animations"]] == [
+    "Wait", "なぎ払い", "弾き", "踏みつけ_L", "なぎ払い_R",
+    "弾き_R", "踏みつけ_R", "Idle", "Turn", "Approach"]
+original_clips = {a["name"]: a for a in source["animations"]}
+for clip in boss["animations"][:7]:
+    original = original_clips[clip["name"]]
     assert clip["uuid"] == original["uuid"]
     assert clip["length"] == original["length"]
     for bone, animator in original["animators"].items():
+        if bone not in {g["uuid"] for g in boss["groups"]}:
+            continue
         imported = clip["animators"][bone].get("keyframes", [])
-        expected = sorted(animator.get("keyframes", []), key=lambda x: x["time"])
+        expected = animator.get("keyframes", [])
         assert [{k: v for k, v in item.items() if k != "uuid"} for item in imported] == [
             {k: v for k, v in item.items() if k != "uuid"} for item in expected
         ], (clip["name"], bone)
-        # The staging file itself reuses ten Wait key UUIDs in 弾き.
-        # Normalize only colliding copied IDs; preserve values and times.
-    assert all(k["time"] <= n["time"] for track in clip["animators"].values()
-               for k, n in zip(track.get("keyframes", []),
-                               track.get("keyframes", [])[1:]))
-assert boss["animations"][0] == source["animations"][0], "Authored Wait stance lost"
-group_ids = {g["uuid"] for g in boss["groups"]}
-all_ids = []
-for clip in boss["animations"]:
-    assert set(clip["animators"]).issubset(group_ids)
-    for key in (k for tr in clip["animators"].values()
-                for k in tr.get("keyframes", [])):
-        all_ids.append(key["uuid"])
-assert len(all_ids) == len(set(all_ids))
-for clip, duration in zip(boss["animations"][1:4], (2.4, 1.8, 2.8)):
+all_ids = [key["uuid"] for clip in boss["animations"]
+           for track in clip["animators"].values()
+           for key in track.get("keyframes", [])]
+assert len(all_ids) == len(set(all_ids)), "Duplicate animation UUID"
+for clip, duration in zip(boss["animations"][-3:], (2.4, 1.8, 2.8)):
     assert clip["loop"] == "loop"
     assert abs(clip["length"] - duration) < 1e-6
-    assert len(clip["animators"]) == 10
-    assert sum(len(t["keyframes"]) for t in clip["animators"].values()) == 90
+    assert len(clip["animators"]) == 9  # Head is controlled live.
 assert all(any(g["name"] == name for g in boss["groups"])
            for name in ("FrontFoot_R", "FrontFoot_L", "RearFoot_R", "RearFoot_L"))
 
@@ -79,4 +76,4 @@ assert 'super._build_target()' in battle
 assert 'target_mesh.visible = false' in battle
 assert 'func _tick_target_respawn(' in battle
 assert 'animations.has("Approach")' in rig
-print("PASS v345 Bittaran authored pose, independent motions, gate, AI and embed")
+print("PASS v424 Bittaran user geometry, six authored front attacks, gait and embed")

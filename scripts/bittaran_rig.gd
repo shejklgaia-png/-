@@ -72,7 +72,7 @@ var down_stomp_entry_rotations: Dictionary = {}
 # The user authored one front-left limb. Retarget its rotational DELTAS
 # relative to Wait for each of the other three mechanically symmetric limbs.
 const ATTACK_NAMES: Dictionary = {
-    "stomp": "踏みつけ", "kick": "弾き", "sweep": "なぎ払い"
+    "stomp": "踏みつけ_L", "kick": "弾き", "sweep": "なぎ払い"
 }
 const ATTACK_LEG_BONES: Dictionary = {
     "leg_fl": ["FrontLeg_L", "FrontLowerLeg_L", "FrontFoot_L"],
@@ -115,8 +115,9 @@ func _ready() -> void:
     loading_ok = bones.size() == 14 and animations.has("Wait") and (
         animations.has("Idle") and animations.has("Turn")
         and animations.has("Approach")
-        and animations.has("踏みつけ") and animations.has("弾き")
-        and animations.has("なぎ払い"))
+        and animations.has("踏みつけ_L") and animations.has("弾き")
+        and animations.has("なぎ払い") and animations.has("踏みつけ_R")
+        and animations.has("弾き_R") and animations.has("なぎ払い_R"))
     if not loading_ok:
         push_error("Bittaran: missing legs, feet or motion clips")
         return
@@ -924,8 +925,51 @@ func sample_authored_sweep_pose(id: String, at: float,
     return sample_authored_sweep_source(id, at, sole_local)
 
 
+## v424 front attack test: use the authored L/R track without procedural mirroring.
+func _apply_front_test_attack(frame: Dictionary) -> void:
+    var id: String = str(frame.get("id", ""))
+    var kind: String = str(frame.get("kind", ""))
+    if not ["leg_fl", "leg_fr"].has(id):
+        return
+    var clip_name: String = str(ATTACK_NAMES.get(kind, ""))
+    if id == "leg_fr":
+        clip_name = ("踏みつけ_R" if kind == "stomp" else clip_name + "_R")
+    if not animations.has(clip_name):
+        push_error("Bittaran: missing front test clip " + clip_name)
+        return
+    var at: float = float(frame.get("authored_time", 0.0))
+    var attack_time: float = float(frame.get("time", 0.0))
+    var windup: float = float(frame.get("windup", 0.7))
+    var strike: float = float(frame.get("strike", 1.0))
+    var hold: float = float(frame.get("hold", 0.0))
+    var recovery: float = float(frame.get("recovery", 0.6))
+    if kind == "stomp":
+        at = minf(at, windup + strike)
+    at = clampf(at, 0.0, float(animations[clip_name].get("length", 0.0)))
+    var exit_time: float = clampf(
+        (attack_time - windup - strike - hold) / maxf(recovery, 0.001),
+        0.0, 1.0)
+    var out_weight: float = 1.0 - exit_time * exit_time * (3.0 - 2.0 * exit_time)
+    var targets: Array[String] = ["Body"]
+    for bone in ATTACK_LEG_BONES[id]:
+        targets.append(str(bone))
+    for bone_name in targets:
+        var uid: String = str(bone_uuid_by_name.get(bone_name, ""))
+        if uid.is_empty() or not bones.has(uid):
+            continue
+        var pose: Quaternion = _authored_key_rotation(
+            clip_name, bone_name, at)
+        var neutral: Quaternion = _authored_key_rotation(
+            "Wait", bone_name, 0.0)
+        (bones[uid] as Node3D).quaternion = pose.slerp(
+            neutral, 1.0 - out_weight).normalized()
+
+
 func apply_authored_attack_pose(frame: Dictionary) -> void:
     if frame.is_empty() or not loading_ok:
+        return
+    if bool(frame.get("direct_front_test", false)):
+        _apply_front_test_attack(frame)
         return
     var kind: String = str(frame.get("kind", ""))
     var id: String = str(frame.get("id", ""))

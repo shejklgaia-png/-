@@ -344,7 +344,8 @@ func set_attack_pose(pose: Dictionary) -> void:
     if attack_pose.is_empty() and not pose.is_empty() and legs.size() == 4:
         initial_attack_contact_height_world = 0.0
         var kind: String = str(pose.get("kind", ""))
-        if bool(pose.get("authored", false)) and (
+        if bool(pose.get("authored", false)) and not bool(
+                pose.get("direct_front_test", false)) and (
                 kind == "kick" or kind == "sweep"):
             var attack_id: String = str(pose.get("id", ""))
             var index: int = LEG_PART_IDS.find(attack_id)
@@ -2005,10 +2006,12 @@ func advance_ik(delta: float, motion: String) -> void:
     for leg in legs:
         leg.erase("rear_corner_socket_target_y")
     if attacking:
-        _apply_attack_chassis_pose()
+        if not bool(attack_pose.get("direct_front_test", false)):
+            _apply_attack_chassis_pose()
         # The chest heading is now final. Steer only the attacking
         # shoulder in WORLD Y, preserving source hip/knee/foot keys.
-        if bool(attack_pose.get("authored", false)) and actor.has_method(
+        if bool(attack_pose.get("authored", false)) and not bool(
+                attack_pose.get("direct_front_test", false)) and actor.has_method(
                 "aim_authored_attack_leg"):
             actor.call("aim_authored_attack_leg", attack_pose, delta)
         # v419: no rear-corner compensation; authored Body only.
@@ -2018,7 +2021,8 @@ func advance_ik(delta: float, motion: String) -> void:
     # nose-dip can bury the actual chassis mesh. Enforce a real mesh
     # floor bound *after* every torso adjustment and *before* foot IK.
     _keep_chassis_above_ground()
-    _update_spiral_legs(delta, attacking)
+    if not bool(attack_pose.get("direct_front_test", false)):
+        _update_spiral_legs(delta, attacking)
     # v419: one immutable Blockbench-derived per-frame KICK axis
     # reference for ALL legs, preserving authored axial orientation.
     # v417: capture an immutable, THIS-FRAME Blockbench-derived
@@ -2108,6 +2112,15 @@ func advance_ik(delta: float, motion: String) -> void:
                 windup_foot.global_basis.get_rotation_quaternion())
             continue
         if attacking:
+            if attacking_this_leg and bool(attack_pose.get("direct_front_test", false)):
+                # Preserve all three user-authored attacking-leg key tracks.
+                # Only the untouched support legs remain world-locked by IK.
+                var front_foot: Node3D = leg["foot"]
+                leg["last_goal"] = front_foot.to_global(leg["sole_local"] as Vector3)
+                leg["last_rotation"] = front_foot.global_basis.get_rotation_quaternion()
+                leg["last_knee"] = (leg["lower"] as Node3D).global_position
+                leg["last_foot"] = front_foot.global_position
+                continue
             if attacking_this_leg:
                 var attack_kind: String = str(attack_pose.get("kind", ""))
                 var attack_t: float = float(attack_pose.get("time", 0.0))
