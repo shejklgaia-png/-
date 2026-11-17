@@ -2952,9 +2952,8 @@ func _source_ik_pin_toe_during_body(
     limb["source_ik_body_toe_pin_last_time"] = time
     source_ik_body_toe_wrist_flex_max = maxf(
         source_ik_body_toe_wrist_flex_max, wrist_blend)
-    var foot_rotation: Quaternion = (
-        base_rotation.slerp(toe_down_rotation, wrist_blend)
-        .normalized())
+    var foot_rotation: Quaternion = base_rotation.slerp(
+        toe_down_rotation, wrist_blend).normalized()
     var toe_offset: Vector3 = (
         Basis(foot_rotation).scaled(foot_scale) * point_local)
     var reachable_toe: Vector3 = _source_ik_retract_to_reach(
