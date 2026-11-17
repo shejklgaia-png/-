@@ -389,3 +389,4 @@ gd tools/v419_bittaran_exact_fourway_authored_mirror_runtime_check.gd
 gd tools/v420_bittaran_attack_rebuild_regression_runtime_check.gd
 gd tools/v422_bittaran_rear_hip_alignment_runtime_check.gd
 gd tools/v423_bittaran_aim_seam_runtime_check.gd
+gd tools/v424_bittaran_front_attack_runtime_check.gd
