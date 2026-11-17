@@ -83,6 +83,19 @@ var down_stomp_entry_rotations: Dictionary = {}
 const ATTACK_NAMES: Dictionary = {
     "stomp": "踏みつけ_L", "kick": "弾き", "sweep": "なぎ払い"
 }
+## v450: authored source attack clips, including mirrored right rear attacks.
+## Rear legs have no authored KICK; do not synthesize that animation.
+const SOURCE_ATTACK_CLIPS: Dictionary = {
+    "leg_fl": {
+        "stomp": "踏みつけ_L", "kick": "弾き", "sweep": "なぎ払い"},
+    "leg_fr": {
+        "stomp": "踏みつけ_R", "kick": "弾き_R", "sweep": "なぎ払い_R"},
+    "leg_rl": {
+        "stomp": "後足踏みつけ_L", "sweep": "後足なぎ払い_L"},
+    "leg_rr": {
+        "stomp": "後足踏みつけ_R", "sweep": "後足なぎ払い_R"}
+}
+
 const ATTACK_LEG_BONES: Dictionary = {
     "leg_fl": ["FrontLeg_L", "FrontLowerLeg_L", "FrontFoot_L"],
     "leg_fr": ["FrontLeg_R", "FrontLowerLeg_R", "FrontFoot_R"],
@@ -1206,6 +1219,13 @@ const FRONT_ATTACK_LIMB_NAMES: Dictionary = {
     "leg_fl": ["FrontLeg_L", "FrontLowerLeg_L", "FrontFoot_L"],
     "leg_fr": ["FrontLeg_R", "FrontLowerLeg_R", "FrontFoot_R"]
 }
+## All four legs return from the last IK-solved pose after BODY recovery.
+const SOURCE_ATTACK_LIMB_NAMES: Dictionary = {
+    "leg_fl": ["FrontLeg_L", "FrontLowerLeg_L", "FrontFoot_L"],
+    "leg_fr": ["FrontLeg_R", "FrontLowerLeg_R", "FrontFoot_R"],
+    "leg_rl": ["RearLeg_L", "RearLowerLeg_L", "RearFoot_L"],
+    "leg_rr": ["RearLeg_R", "RearLowerLeg_R", "RearFoot_R"]
+}
 
 
 ## Called by source IK AFTER pinning the toe through Body rise.
@@ -1213,7 +1233,7 @@ const FRONT_ATTACK_LIMB_NAMES: Dictionary = {
 ## pose, not the next frame's Idle source keys; no mesh offset is saved.
 func remember_source_body_grounded_limb(leg_id: String) -> void:
     source_last_body_ik_solved_pose.clear()
-    for limb_name in FRONT_ATTACK_LIMB_NAMES.get(leg_id, []):
+    for limb_name in SOURCE_ATTACK_LIMB_NAMES.get(leg_id, []):
         var uid: String = str(bone_uuid_by_name.get(limb_name, ""))
         if not bones.has(uid):
             continue
@@ -1239,11 +1259,12 @@ func apply_original_attack_only(frame: Dictionary) -> void:
         return
     var leg_id: String = str(frame.get("id", ""))
     var kind: String = str(frame.get("kind", ""))
-    if not ["leg_fl", "leg_fr"].has(leg_id):
+    if not SOURCE_ATTACK_CLIPS.has(leg_id):
         return
-    var clip_name: String = str(ATTACK_NAMES.get(kind, ""))
-    if leg_id == "leg_fr":
-        clip_name = ("踏みつけ_R" if kind == "stomp" else clip_name + "_R")
+    var clips: Dictionary = SOURCE_ATTACK_CLIPS[leg_id]
+    var clip_name: String = str(clips.get(kind, ""))
+    if clip_name.is_empty():
+        return
     if not animations.has(clip_name):
         return
     var clip_t: float = float(frame.get("authored_time", 0.0))
@@ -1257,7 +1278,7 @@ func apply_original_attack_only(frame: Dictionary) -> void:
         # The physics loop calls set_motion(Idle) BEFORE source replay,
         # which overwrites prior IK angles. Prefer the explicit pose
         # captured at the END of the preceding body's grounded solve.
-        for limb_name in FRONT_ATTACK_LIMB_NAMES.get(leg_id, []):
+        for limb_name in SOURCE_ATTACK_LIMB_NAMES.get(leg_id, []):
             var grounded: Dictionary = (
                 source_last_body_ik_solved_pose.get(limb_name, {}))
             if not grounded.is_empty():
@@ -1289,7 +1310,7 @@ func apply_original_attack_only(frame: Dictionary) -> void:
         frame.get("body_return_seconds", 0.62))
     var leg_return_seconds: float = float(
         frame.get("leg_return_seconds", 1.20))
-    var striking_joint_names: Array = FRONT_ATTACK_LIMB_NAMES.get(
+    var striking_joint_names: Array = SOURCE_ATTACK_LIMB_NAMES.get(
         leg_id, [])
     var entry_weight: float = _source_timed_smoothstep(
         transition, entry_seconds)
