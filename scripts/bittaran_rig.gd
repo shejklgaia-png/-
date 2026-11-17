@@ -4,6 +4,9 @@ extends Node3D
 const SOURCE_PATH: String = "res://models/bosses/Bittaran.bbmodel"
 const EMBEDDED = preload("res://assets/bittaran_data.gd")
 const GROUND_CONTACTS = preload("res://assets/bittaran_ground_contacts.gd")
+# Shared source timing toggle; restoring the v461 preset also restores
+# the Wait->Idle handoff duration without a separate file edit.
+const BittaranAttackTimings = preload("res://scripts/bittaran_attacks.gd")
 # Authored contact windows are diagnostic/reference data ONLY.
 # Rendering never moves individual meshes out of their skeleton hierarchy.
 const UNIT: float = 0.145
@@ -440,12 +443,15 @@ func set_motion(clip_name: String, delta: float) -> void:
     blend_elapsed = minf(BLEND_SECONDS, blend_elapsed + maxf(0.0, delta))
     apply_pose(current_clip, elapsed)
     if not source_wait_to_idle_blend_from.is_empty():
+        var transition_seconds: float = (
+            SOURCE_WAIT_TO_IDLE_BLEND_SECONDS
+            / BittaranAttackTimings.source_return_speed())
         source_wait_to_idle_blend_elapsed = minf(
-            SOURCE_WAIT_TO_IDLE_BLEND_SECONDS,
+            transition_seconds,
             source_wait_to_idle_blend_elapsed + maxf(delta, 0.0))
         var blend: float = _source_timed_smoothstep(
             source_wait_to_idle_blend_elapsed,
-            SOURCE_WAIT_TO_IDLE_BLEND_SECONDS)
+            transition_seconds)
         for uid in source_wait_to_idle_blend_from.keys():
             if not bones.has(uid):
                 continue
@@ -459,7 +465,7 @@ func set_motion(clip_name: String, delta: float) -> void:
                 (saved["rotation"] as Quaternion).slerp(
                     joint.quaternion, blend).normalized())
         if source_wait_to_idle_blend_elapsed >= (
-                SOURCE_WAIT_TO_IDLE_BLEND_SECONDS - 0.000001):
+                transition_seconds - 0.000001):
             source_wait_to_idle_blend_from.clear()
 
 ## Playback of user-authored attack keys, separate from procedural foot
