@@ -157,11 +157,10 @@ const FRONT_BODY_LEVEL_WEIGHT: float = 0.68
 const FRONT_BODY_MAX_DROP_METERS: float = 1.10
 # Sweep alone crouches lower than KICK/STOMP (bounded by the real
 # underside of the BODY mesh, never by a fixed global root teleport).
-const FRONT_SWEEP_MAX_DROP_METERS: float = 1.70
-# A toe is horizontal when its actual long mesh axis, not its ankle's
-# arbitrary local Euler rotation, is parallel to the arena floor.
-const FRONT_SWEEP_FLAT_START_SECONDS: float = 0.32
-const FRONT_SWEEP_FLAT_END_SECONDS: float = 0.70
+const FRONT_SWEEP_MAX_DROP_METERS: float = 2.40
+# v430: no forced foot or shin rotations. Search for the BODY height
+# that flattens the connected toe while preserving its local ankle key.
+const FRONT_SWEEP_HEIGHT_SEARCH_START: float = 0.32
 # Matched with BittaranRig.FRONT_SWEEP_ENTRY_SECONDS.
 const FRONT_SWEEP_ENTRY_SECONDS: float = 0.32
 const FRONT_SWEEP_TOUCH_HEIGHT_METERS: float = 0.035
@@ -169,6 +168,10 @@ const FRONT_SWEEP_TOUCH_HEIGHT_METERS: float = 0.035
 # chassis and gives world-anchored elbows time to fold via two-link IK.
 const FRONT_BODY_DESCENT_SPEED_METERS_PER_SECOND: float = 2.0
 const FRONT_BODY_DESCENT_ACCEL_SECONDS: float = 0.40
+# A 0.7s SWEEP windup needs the connected chassis to finish lowering
+# before the strike; other attacks retain the original slower drop.
+const FRONT_SWEEP_DESCENT_SPEED_METERS_PER_SECOND: float = 3.8
+const FRONT_SWEEP_DESCENT_ACCEL_SECONDS: float = 0.25
 
 const LEG_NAMES: Array[String] = [
     "FrontLeg_R", "RearLeg_L", "FrontLeg_L", "RearLeg_R"
@@ -226,6 +229,7 @@ var attack_pose: Dictionary = {}
 # Every offset is relative to rest_actor_local_y + ground_correction_world/scale.
 # No attack/height correction is used as input to the following frame.
 var front_attack_drop_world: float = 0.0
+
 var front_return_active: bool = false
 var front_return_elapsed: float = 0.0
 var front_return_leg_id: String = ""
@@ -497,7 +501,6 @@ func front_height_recovery_active() -> bool:
 
 
 func clear_attack_pose(preserve_front_return: bool = false) -> void:
-    _restore_sweep_shin_meshes()
     if not preserve_front_return:
         _reset_front_height_state()
     attack_pose.clear()
@@ -536,6 +539,9 @@ func clear_attack_pose(preserve_front_return: bool = false) -> void:
         leg.erase("front_ground_shin_y")
         leg.erase("front_sweep_touchdown_time")
         leg.erase("front_sweep_contact")
+        leg.erase("front_sweep_tilt")
+        leg.erase("front_sweep_target_pole")
+        leg.erase("front_sweep_height_feasible")
         leg.erase("authored_pole_point")
         leg.erase("front_ground_shin_roll")
         leg.erase("front_ground_sweep_pole")
@@ -2114,19 +2120,28 @@ func _apply_front_attack_height(delta: float) -> void:
     var drop_limit: float = (
         FRONT_SWEEP_MAX_DROP_METERS if kind == "sweep"
         else FRONT_BODY_MAX_DROP_METERS)
-    # During SWEEP the stance must remain low even after the toe has
-    # reached ground: an already-grounded toe must NOT cancel the crouch.
-    if kind == "sweep":
-        needed_drop = drop_limit
+    # For sweep, choose the height from the original CONNECTED limb:
+    # toe horizontality emerges from shoulder/knee bending under gravity.
+    # This probe restores the source pose before the final render solve.
+    if kind == "sweep" and frame_t >= (
+            FRONT_SWEEP_HEIGHT_SEARCH_START):
+        needed_drop = _sweep_drop_from_connected_pose(
+            legs[index], minf(drop_limit, available_drop))
+    elif kind == "sweep":
+        needed_drop = 0.0
     var desired: float = -minf(
         drop_limit, minf(needed_drop, available_drop))
     # Never teleport the BODY down by ~40cm in a single physics frame.
     # Instead the shoulders follow the parent chassis continuously, while
     # the 3 supporting fore/rear arms keep their feet planted through IK.
-    var ramp: float = _cubic(
-        frame_t / FRONT_BODY_DESCENT_ACCEL_SECONDS)
-    var speed: float = lerpf(
-        0.25, FRONT_BODY_DESCENT_SPEED_METERS_PER_SECOND, ramp)
+    var acceleration_time: float = (
+        FRONT_SWEEP_DESCENT_ACCEL_SECONDS if kind == "sweep"
+        else FRONT_BODY_DESCENT_ACCEL_SECONDS)
+    var maximum_speed: float = (
+        FRONT_SWEEP_DESCENT_SPEED_METERS_PER_SECOND if kind == "sweep"
+        else FRONT_BODY_DESCENT_SPEED_METERS_PER_SECOND)
+    var ramp: float = _cubic(frame_t / acceleration_time)
+    var speed: float = lerpf(0.25, maximum_speed, ramp)
     # During an attack lower only, and let the two-phase recovery
     # restore the height. No previous IK-corrected foot is sampled here.
     if desired < front_attack_drop_world:
@@ -2182,123 +2197,231 @@ func _advance_front_height_return(delta: float) -> void:
         _reset_front_height_state()
 
 
-## v428: rotate the *rendered toe model's long axis* onto the floor.
-## The mesh is rotated +/-90 degrees in the imported Blockbench model;
-## foot.local x/y angles are NOT a reliable proxy for mesh horizontality.
-## Compute the true world toe axis from its own mesh centroid. Never read
-## the last frame's IK rotation: the rig resets the authored key every tick.
-func _sweep_flat_foot_rotation(foot: Node3D, id: String,
-        source_rotation: Quaternion, phase: float) -> Quaternion:
-    if phase <= 0.0:
-        return source_rotation
-    var local_axis: Vector3 = _toe_axis_local_point(foot)
-    if local_axis.length_squared() < 0.000001:
-        return source_rotation
-    var world_axis: Vector3 = (
-        Basis(source_rotation) * local_axis).normalized()
-    var flat: Vector3 = Vector3(world_axis.x, 0.0, world_axis.z)
-    if flat.length_squared() < 0.000001:
-        # A vertical toe has no horizontal heading of its own.
-        # Pick the outward direction of that same FRONT leg.
-        var outward: Vector3 = actor.global_basis.x
-        if id == "leg_fl":
-            outward = -outward
-        flat = Vector3(outward.x, 0.0, outward.z)
-    if flat.length_squared() < 0.000001:
-        flat = Vector3.RIGHT
-    flat = flat.normalized()
-    var target: Quaternion = (
-        Quaternion(world_axis, flat) * source_rotation).normalized()
-    var weight: float = _cubic(phase)
-    return source_rotation.slerp(target, weight).normalized()
-
-
-## v429: LONGEST actual visible lower-leg mesh edge in joint-local
-## coordinates. Mesh vertices in this model are authored in local Y but
-## the Blockbench element is additionally rotated +/-90 around Z.
-## Using the ankle bone line or arbitrary Euler '0 degrees' is NOT the
-## same as checking whether the visible SHIN is horizontal.
-func _shin_long_axis_local(lower: Node3D) -> Vector3:
-    var longest: float = 0.0
-    var axis: Vector3 = Vector3.RIGHT
-    for child in lower.get_children():
-        if not child is MeshInstance3D:
-            continue
-        var piece: MeshInstance3D = child as MeshInstance3D
-        if piece.mesh == null:
-            continue
-        var size: Vector3 = piece.mesh.get_aabb().size
-        var basis: Basis = piece.transform.basis
-        var edges: Array[Vector3] = [
-            basis.x * size.x, basis.y * size.y, basis.z * size.z]
-        for edge in edges:
-            var length: float = edge.length_squared()
-            if length > longest:
-                longest = length
-                axis = edge.normalized()
-    return axis
-
-
-## Restore only mesh rotations before each authored sample is consumed.
-## Mesh nodes are children of the shin joint: moving the shin joint
-## itself and then restoring foot.global_transform would mutate the foot's
-## LOCAL PIVOT and introduce an accumulating long-term rig deformation.
-## Rotating the visible shin mesh here leaves ankle and IK pivots intact.
-func _restore_sweep_shin_meshes() -> void:
-    for limb in legs:
-        if not limb.has("front_sweep_shin_mesh_original"):
-            continue
-        var saved: Array = limb["front_sweep_shin_mesh_original"]
-        for entry in saved:
-            var piece: MeshInstance3D = entry["mesh"]
-            if is_instance_valid(piece):
-                piece.quaternion = entry["rotation"]
-        limb.erase("front_sweep_shin_mesh_original")
-
-
-## Align the SHIN MESH long edge to world XZ after joint IK has finished.
-## No joint position, bone pivot, ankle rotation or foot contact is changed.
-## Every correction is from the imported mesh orientation of THIS frame.
-func _flatten_sweep_shin(leg: Dictionary) -> void:
+## v430: evaluate the physically CONNECTED two-link chain at a proposed
+## chassis drop. No mesh-only adjustment, direct joint/pivot translation,
+## end-effector global rotation lock, or axial-roll pole exploration.
+## Each solve begins from THIS frame's authored local joint rotations.
+## The ankle retains its authored LOCAL rotation, so its final world
+## orientation emerges from lowering the BODY and bending the upper/lower
+## links. Shoulder/knee axis transport uses the original source WORLD
+## axes for every pass; no rotation can accumulate within one frame.
+func _solve_connected_sweep(leg: Dictionary,
+        goal: Vector3, approach: float = 1.0) -> void:
+    var upper: Node3D = leg["upper"]
     var lower: Node3D = leg["lower"]
-    var axis: Vector3 = _shin_long_axis_local(lower)
-    if axis.length_squared() < 0.000001:
+    var foot: Node3D = leg["foot"]
+    var source_upper: Quaternion = upper.quaternion
+    var source_lower: Quaternion = lower.quaternion
+    var source_foot: Quaternion = foot.quaternion
+    var source_sole: Vector3 = foot.to_global(
+        leg["sole_local"] as Vector3)
+    var desired: Vector3 = source_sole.lerp(
+        goal, clampf(approach, 0.0, 1.0))
+    # The source basis and limb axes are defined once from the authored
+    # frame. They remain unchanged in all iterative IK retries.
+    var hip: Vector3 = upper.global_position
+    var knee: Vector3 = lower.global_position
+    var ankle: Vector3 = foot.global_position
+    var upper_axis: Vector3 = knee - hip
+    var lower_axis: Vector3 = ankle - knee
+    if upper_axis.length_squared() < 0.000001 or (
+            lower_axis.length_squared() < 0.000001):
         return
-    var world_axis: Vector3 = (
-        lower.global_basis.orthonormalized() * axis).normalized()
-    var horizontal: Vector3 = Vector3(
-        world_axis.x, 0.0, world_axis.z)
-    if horizontal.length_squared() < 0.000001:
-        var foot: Node3D = leg["foot"]
-        var reach: Vector3 = foot.global_position - lower.global_position
-        horizontal = Vector3(reach.x, 0.0, reach.z)
-    if horizontal.length_squared() < 0.000001:
-        horizontal = Vector3.RIGHT
-    horizontal = horizontal.normalized()
-    var correction: Quaternion = Quaternion(
-        world_axis, horizontal).normalized()
-    var originals: Array[Dictionary] = []
-    for child in lower.get_children():
+    leg["rear_kick_axis_source"] = {
+        "upper_axis": upper_axis.normalized(),
+        "lower_axis": lower_axis.normalized(),
+        "upper_rotation": upper.global_basis
+            .orthonormalized().get_rotation_quaternion(),
+        "lower_rotation": lower.global_basis
+            .orthonormalized().get_rotation_quaternion()
+    }
+    leg["authored_pole_active"] = true
+    leg["authored_pole_point"] = knee.lerp(
+        leg.get("front_sweep_target_pole", knee),
+        clampf(approach, 0.0, 1.0))
+    var solve_goal: Vector3 = desired
+    for attempt in range(4):
+        upper.quaternion = source_upper
+        lower.quaternion = source_lower
+        foot.quaternion = source_foot
+        var authored_world_ankle: Quaternion = (
+            foot.global_basis.orthonormalized()
+            .get_rotation_quaternion())
+        _solve(leg, solve_goal, authored_world_ankle)
+        # _solve normally locks foot GLOBAL quaternion for stance. Here,
+        # restore the source LOCAL ankle quaternion instead: this is the
+        # essential anatomical constraint for a hinged sweep limb.
+        foot.quaternion = source_foot
+        var achieved: Vector3 = foot.to_global(
+            leg["sole_local"] as Vector3)
+        var correction: Vector3 = desired - achieved
+        if correction.length_squared() < 0.000009:
+            break
+        solve_goal += correction * 0.8
+    leg["last_goal"] = foot.to_global(leg["sole_local"] as Vector3)
+    leg["last_rotation"] = (
+        foot.global_basis.orthonormalized()
+        .get_rotation_quaternion())
+    leg["last_knee"] = lower.global_position
+    leg["last_foot"] = foot.global_position
+
+
+## Analytic body-height fit. A pure root translation cannot change
+## a foot's angle. Here an unchanged LOCAL ankle quaternion is allowed
+## to turn in WORLD space only as the knee/shoulder hinges articulate.
+## Calculate the lower-link direction required for the toe's long edge
+## to approach horizontal, then obtain the required HIP height from the
+## exact two-link lengths. This does not rotate/translate ANY live joint.
+## Evaluation is O(1) and safe for 60Hz Android gameplay.
+func _sweep_drop_from_connected_pose(leg: Dictionary,
+        available: float) -> float:
+    var upper: Node3D = leg["upper"]
+    var lower: Node3D = leg["lower"]
+    var foot: Node3D = leg["foot"]
+    var hip: Vector3 = upper.global_position
+    var knee: Vector3 = lower.global_position
+    var ankle: Vector3 = foot.global_position
+    var thigh: float = hip.distance_to(knee)
+    var shin: float = knee.distance_to(ankle)
+    if thigh < 0.001 or shin < 0.001:
+        return 0.0
+    var toe_axis: Vector3 = (
+        foot.global_basis * _toe_axis_local_point(foot)).normalized()
+    var flat: Vector3 = Vector3(toe_axis.x, 0.0, toe_axis.z)
+    if flat.length_squared() < 0.000001:
+        var reach: Vector3 = ankle - knee
+        flat = Vector3(reach.x, 0.0, reach.z)
+    if flat.length_squared() < 0.000001:
+        flat = actor.global_basis.x
+        flat.y = 0.0
+    flat = flat.normalized()
+    # This quaternion is a DESIGN-TARGET for the connected limbs ONLY.
+    # It is never applied to a toe mesh, ankle joint or lower-leg joint.
+    var conceptual_bend: Quaternion = Quaternion(toe_axis, flat)
+    var target_foot_basis: Basis = Basis((
+        conceptual_bend * foot.global_basis
+        .orthonormalized().get_rotation_quaternion()).normalized()
+        ).scaled(foot.global_basis.get_scale())
+    # Find the actual rotated toe mesh's lowest point relative to ankle.
+    var foot_bottom_offset: float = INF
+    for child in foot.get_children():
         if not child is MeshInstance3D:
             continue
-        var piece: MeshInstance3D = child as MeshInstance3D
-        if piece.mesh == null:
+        var mesh_piece: MeshInstance3D = child as MeshInstance3D
+        if mesh_piece.mesh == null:
             continue
-        originals.append({"mesh": piece, "rotation": piece.quaternion})
-        var before: Quaternion = (
-            piece.global_basis.orthonormalized().get_rotation_quaternion())
-        var size: Vector3 = piece.global_basis.get_scale()
-        piece.global_basis = Basis(
-            (correction * before).normalized()).scaled(size)
-    if not originals.is_empty():
-        leg["front_sweep_shin_mesh_original"] = originals
+        var aabb: AABB = mesh_piece.mesh.get_aabb()
+        for corner in range(8):
+            var local_corner: Vector3 = (
+                mesh_piece.transform * aabb.get_endpoint(corner))
+            foot_bottom_offset = minf(
+                foot_bottom_offset, (target_foot_basis * local_corner).y)
+    if not is_finite(foot_bottom_offset):
+        return 0.0
+    var planned_ankle: Vector3 = Vector3(
+        ankle.x, FLOOR_Y + 0.003 - foot_bottom_offset, ankle.z)
+    var flat_lower: Vector3 = conceptual_bend * (ankle - knee)
+    var ideal_knee: Vector3 = planned_ankle - flat_lower
+    var dx: float = hip.x - ideal_knee.x
+    var dz: float = hip.z - ideal_knee.z
+    var horizontal_sq: float = dx * dx + dz * dz
+    var vertical_reach: float = sqrt(maxf(
+        thigh * thigh - horizontal_sq, 0.0))
+    var chosen_hip_y: float = ideal_knee.y + (
+        vertical_reach if hip.y >= knee.y else -vertical_reach)
+    var required_drop: float = clampf(
+        hip.y - chosen_hip_y, 0.0,
+        minf(FRONT_SWEEP_MAX_DROP_METERS, available))
+    # The authored pole is a HINGE hint, not a permitted twist axis.
+    # For unreachable horizontal XZ distance, the solver will select
+    # the closest reachable configuration without spinning the shin.
+    leg["front_sweep_target_pole"] = ideal_knee
+    leg["front_sweep_height_feasible"] = (
+        horizontal_sq <= thigh * thigh + 0.0001)
+    return required_drop
 
 
-## Sweep shin: clearance only. DO NOT pull it down to touch the ground.
-## The toe uses full-mesh floor contact; shin IK is modified only when
-## the actual shin mesh would penetrate the floor in the source pose.
+## Sweep contact follows a continuous, connected skeleton. The lower
+## leg and foot retain their imported meshes and local pivots, so the
+## entire leg geometry remains joined under BODY motion. The displayed
+## toe reaches the floor via shoulder/knee motion, *not* rotation lock.
+func _ground_connected_sweep(leg: Dictionary) -> void:
+    var foot: Node3D = leg["foot"]
+    var lower: Node3D = leg["lower"]
+    var t: float = float(attack_pose.get("time", 0.0))
+    var windup: float = float(attack_pose.get("windup", 0.7))
+    var original_sole: Vector3 = foot.to_global(
+        leg["sole_local"] as Vector3)
+    var source_bottom: float = _foot_mesh_lowest_y(foot)
+    var sole_offset: float = original_sole.y - source_bottom
+    var goal: Vector3 = Vector3(
+        original_sole.x, FLOOR_Y + 0.003 + sole_offset,
+        original_sole.z)
+    # Enter through the previously approved Wait->key0 transition.
+    # Only then shorten the distance to the ground. During the first
+    # frames no forced IK or contact is applied.
+    var approach: float = _cubic(
+        (t - FRONT_SWEEP_HEIGHT_SEARCH_START) / maxf(
+        windup - FRONT_SWEEP_HEIGHT_SEARCH_START, 0.01))
+    if source_bottom < FLOOR_Y - 0.002 and approach < 0.999:
+        # During Wait->key0, the authored toe can begin 36cm UNDER the
+        # arena. Floor clearance is a collision constraint, not forced
+        # horizontal contact: solve the CONNECTED hinge chain upward
+        # from its own current sole, while keeping the original local
+        # ankle and all pivots intact.
+        goal = original_sole + Vector3.UP * (
+            FLOOR_Y + 0.003 - source_bottom)
+        approach = 1.0
+    if approach > 0.00001:
+        # A toe that still grazes through the floor is corrected by a
+        # new connected IK solve from the SAME authored frame. Do not
+        # translate shoulder, knee or ankle pivots individually.
+        var upper: Node3D = leg["upper"]
+        var original_upper: Quaternion = upper.quaternion
+        var original_lower: Quaternion = lower.quaternion
+        var original_foot: Quaternion = foot.quaternion
+        for attempt in range(4):
+            upper.quaternion = original_upper
+            lower.quaternion = original_lower
+            foot.quaternion = original_foot
+            _solve_connected_sweep(leg, goal, approach)
+            var floor_error: float = (
+                FLOOR_Y + 0.003 - _foot_mesh_lowest_y(foot))
+            # In flight: do not pull the toe down to an artificial
+            # contact point; only prevent penetration. At full sweep
+            # reach: remove BOTH sinking and hovering error through
+            # the connected hinge solve (never detach the ankle).
+            if (absf(floor_error) <= 0.003 if approach >= 0.999
+                    else floor_error <= 0.003):
+                break
+            goal.y += floor_error
+    else:
+        leg["last_goal"] = original_sole
+        leg["last_rotation"] = (
+            foot.global_basis.orthonormalized()
+            .get_rotation_quaternion())
+        leg["last_knee"] = lower.global_position
+        leg["last_foot"] = foot.global_position
+    leg["front_ground_foot_y"] = _foot_mesh_lowest_y(foot)
+    leg["front_ground_shin_y"] = _foot_mesh_lowest_y(lower)
+    leg["front_sweep_tilt"] = absf((
+        foot.global_basis * _toe_axis_local_point(foot)
+        ).normalized().y)
+    if approach >= 0.999 and absf(
+            float(leg["front_ground_foot_y"])) < 0.036:
+        leg["front_sweep_contact"] = true
+        if not leg.has("front_sweep_touchdown_time"):
+            leg["front_sweep_touchdown_time"] = t
+    else:
+        leg["front_sweep_contact"] = false
+
+
+## Other front attacks keep their v429 toe contacts unchanged.
 func _ground_front_attack_leg(leg: Dictionary) -> void:
     var kind: String = str(attack_pose.get("kind", ""))
+    if kind == "sweep":
+        _ground_connected_sweep(leg)
+        return
     var t: float = float(attack_pose.get("time", 0.0))
     var windup: float = float(attack_pose.get("windup", 0.0))
     var strike: float = float(attack_pose.get("strike", 0.0))
@@ -2307,196 +2430,30 @@ func _ground_front_attack_leg(leg: Dictionary) -> void:
     var upper: Node3D = leg["upper"]
     var lower: Node3D = leg["lower"]
     var foot: Node3D = leg["foot"]
-    var original_foot_rotation: Quaternion = (
-        foot.global_basis.get_rotation_quaternion())
-    var foot_rotation: Quaternion = original_foot_rotation
-    if kind == "sweep":
-        # Key zero is entered first, then the toe is laid flat during
-        # the descending pre-strike. Preserve the toe's horizontal
-        # heading while keeping its long axis exactly world-horizontal.
-        var flat_phase: float = clampf(
-            (t - FRONT_SWEEP_FLAT_START_SECONDS) / maxf(
-            FRONT_SWEEP_FLAT_END_SECONDS - FRONT_SWEEP_FLAT_START_SECONDS,
-            0.001), 0.0, 1.0)
-        var id: String = str(attack_pose.get("id", ""))
-        foot_rotation = _sweep_flat_foot_rotation(
-            foot, id, foot_rotation, flat_phase)
-    var source_hip_q: Quaternion = upper.quaternion
-    var source_knee_q: Quaternion = lower.quaternion
-    var source_ankle_q: Quaternion = foot.quaternion
-    var knee_world: Vector3 = lower.global_position
-    var hip_world: Vector3 = upper.global_position
-    var original_sole: Vector3 = foot.to_global(leg["sole_local"] as Vector3)
+    var foot_rotation: Quaternion = (
+        foot.global_basis.orthonormalized().get_rotation_quaternion())
+    var original_sole: Vector3 = foot.to_global(
+        leg["sole_local"] as Vector3)
     var source_toe: float = _foot_mesh_lowest_y(foot)
-    var source_shin: float = _foot_mesh_lowest_y(lower)
-    var desired_toe_delta: float = FLOOR_Y + 0.003 - source_toe
-    if kind == "sweep":
-        contact_active = bool(leg.get("front_sweep_contact", false))
-        if not contact_active:
-            # Key zero is initially several metres off the floor.
-            # Instead of snapping its toe to Y=0, let the BODY descend
-            # and fold its shoulder/knee through a continuous IK reach.
-            # This is only the APPROACH trajectory, not planted contact.
-            # The reach starts AFTER the Wait->key0 crossfade and ends
-            # near the strike's onset. A new source pose is re-read on
-            # every tick, never using a prior IK-adjusted toe position.
-            var landing_fraction: float = _cubic(
-                (t - FRONT_SWEEP_ENTRY_SECONDS) / maxf(
-                    windup - FRONT_SWEEP_ENTRY_SECONDS, 0.01))
-            # A Wait/entry toe may initially be UNDER the arena. This
-            # is collision prevention, never a forced planted contact:
-            # always clear penetration, but approach a floating toe
-            # gradually rather than pulling it to Y=0 in one tick.
-            if desired_toe_delta < 0.0:
-                desired_toe_delta *= landing_fraction
-            else:
-                desired_toe_delta = maxf(desired_toe_delta, 0.0)
-    elif not contact_active:
-        # STOMP must remain airborne in its intentional anticipation.
-        desired_toe_delta = maxf(desired_toe_delta, 0.0)
-    var target: Vector3 = original_sole + Vector3.UP * desired_toe_delta
-    var needs_toe: bool = absf(desired_toe_delta) > 0.002
-    var needs_flat: bool = (
-        kind == "sweep" and original_foot_rotation.angle_to(
-        foot_rotation) > 0.003)
-    var avoid_shin: bool = (
-        kind == "sweep" and source_shin < FLOOR_Y - 0.003)
-    if not needs_toe and not needs_flat and not avoid_shin:
-        leg["last_goal"] = original_sole
-        leg["last_rotation"] = foot_rotation
-        leg["last_knee"] = knee_world
-        leg["last_foot"] = foot.global_position
-        leg["front_ground_foot_y"] = source_toe
-        leg["front_ground_shin_y"] = source_shin
-        return
-    leg["authored_pole_active"] = true
-    leg["authored_pole_point"] = knee_world
-    _solve(leg, target, foot_rotation)
-    # The source-to-floor approach already owns the toe height for
-    # an airborne SWEEP. Do not snap it to the arena in this solver.
-    if kind != "sweep" or contact_active or desired_toe_delta > 0.0:
-        for iteration in range(3):
-            var foot_error: float = FLOOR_Y + 0.003 - _foot_mesh_lowest_y(foot)
-            if not contact_active and foot_error < 0.0:
+    var delta_y: float = FLOOR_Y + 0.003 - source_toe
+    if not contact_active:
+        delta_y = maxf(delta_y, 0.0)
+    if absf(delta_y) > 0.002:
+        leg["authored_pole_active"] = true
+        leg["authored_pole_point"] = lower.global_position
+        var goal: Vector3 = original_sole + Vector3.UP * delta_y
+        for attempt in range(4):
+            _solve(leg, goal, foot_rotation)
+            var error: float = FLOOR_Y + 0.003 - _foot_mesh_lowest_y(foot)
+            if absf(error) < 0.002 or (
+                    not contact_active and error < 0.0):
                 break
-            if absf(foot_error) < 0.002:
-                break
-            target.y += foot_error
-            _solve(leg, target, foot_rotation)
-    elif kind == "sweep":
-        # While lifting the originally airborne toe into a horizontal
-        # attitude, clear actual mesh penetration but do NOT plant it.
-        for iteration in range(3):
-            var penetration: float = (
-                FLOOR_Y + 0.003 - _foot_mesh_lowest_y(foot))
-            if penetration <= 0.002:
-                break
-            target.y += penetration
-            _solve(leg, target, foot_rotation)
-    if kind == "sweep" and not contact_active and (
-            t >= FRONT_SWEEP_ENTRY_SECONDS) and (
-            _foot_mesh_lowest_y(foot) <= (
-            FLOOR_Y + FRONT_SWEEP_TOUCH_HEIGHT_METERS)):
-        # Contact is triggered by the RENDERED toe, not by the attack
-        # timeline or a magic "windup finished" bit.
-        contact_active = true
-        leg["front_sweep_contact"] = true
-        leg["front_sweep_touchdown_time"] = t
-    # Only if necessary, bend the knee around the two-link axis to stay
-    # OUT of the floor. Prefer the source orientation for all safe poses.
-    if kind == "sweep" and _foot_mesh_lowest_y(lower) < FLOOR_Y - 0.003:
-        var bend: Vector3 = knee_world - hip_world
-        var reach: Vector3 = foot.global_position - hip_world
-        if reach.length_squared() < 0.0001:
-            reach = Vector3.FORWARD
-        reach = reach.normalized()
-        var radial: Vector3 = bend - reach * bend.dot(reach)
-        if radial.length_squared() < 0.0001:
-            radial = Vector3.UP - reach * reach.y
-        if radial.length_squared() < 0.0001:
-            radial = Vector3.RIGHT
-        radial = radial.normalized()
-        var lateral: Vector3 = reach.cross(radial).normalized()
-        var best_pole: Vector3 = knee_world
-        var best_score: float = INF
-        for step in range(25):
-            var angle: float = -PI + TAU * float(step) / 24.0
-            var trial: Vector3 = (hip_world + (
-                radial * cos(angle) + lateral * sin(angle))
-                * maxf(bend.length(), 0.1))
-            upper.quaternion = source_hip_q
-            lower.quaternion = source_knee_q
-            foot.quaternion = source_ankle_q
-            leg["authored_pole_point"] = trial
-            _solve(leg, target, foot_rotation)
-            var shin_y: float = _foot_mesh_lowest_y(lower)
-            var toe_y: float = _foot_mesh_lowest_y(foot)
-            var score: float = (
-                maxf(FLOOR_Y + 0.003 - shin_y, 0.0) * 45.0
-                + maxf(FLOOR_Y + 0.003 - toe_y, 0.0) * 30.0
-                + absf(angle) * 0.08)
-            if score < best_score:
-                best_score = score
-                best_pole = trial
-        upper.quaternion = source_hip_q
-        lower.quaternion = source_knee_q
-        foot.quaternion = source_ankle_q
-        leg["authored_pole_point"] = best_pole
-        _solve(leg, target, foot_rotation)
-        # Fallback: raise the ATTACKING shoulder, not the whole body,
-        # only for remaining shin penetration; do not lower a safe shin.
-        var clear_error: float = (
-            FLOOR_Y + 0.003 - _foot_mesh_lowest_y(lower))
-        if clear_error > 0.003:
-            upper.global_position.y += minf(clear_error, 0.30)
-            _solve(leg, target, foot_rotation)
-    # Resolve the toe after shin avoidance. There is no forced sole
-    # position once the authored attack frame ends and return starts.
-    if contact_active:
-        for iteration in range(4):
-            var foot_error: float = FLOOR_Y + 0.003 - _foot_mesh_lowest_y(foot)
-            if absf(foot_error) < 0.002:
-                break
-            target.y += foot_error
-            _solve(leg, target, foot_rotation)
-    # Final sweep clearance, AFTER the toe is reseated. A small
-    # source shin intrusion can reappear when the toe solve moves the
-    # pole; choose the minimum axial clearance roll. Never aim for
-    # touching the ground when the authored shin is already in the air.
-    if kind == "sweep" and _foot_mesh_lowest_y(lower) < FLOOR_Y - 0.003:
-        var shin_axis: Vector3 = foot.global_position - lower.global_position
-        if shin_axis.length_squared() > 0.000001:
-            shin_axis = shin_axis.normalized()
-            var base_shin: Quaternion = (
-                lower.global_basis.orthonormalized().get_rotation_quaternion())
-            var shin_scale: Vector3 = lower.global_basis.get_scale()
-            var toe_scale: Vector3 = foot.global_basis.get_scale()
-            var best_angle: float = 0.0
-            var best_penalty: float = INF
-            for index in range(33):
-                var angle: float = 0.035 * float(index - 16)
-                lower.global_basis = Basis(
-                    Quaternion(shin_axis, angle) * base_shin).scaled(shin_scale)
-                foot.global_basis = Basis(foot_rotation).scaled(toe_scale)
-                var intrusion: float = maxf(
-                    FLOOR_Y + 0.003 - _foot_mesh_lowest_y(lower), 0.0)
-                var penalty: float = intrusion * 100.0 + absf(angle) * 0.05
-                if penalty < best_penalty:
-                    best_penalty = penalty
-                    best_angle = angle
-            lower.global_basis = Basis(
-                Quaternion(shin_axis, best_angle) * base_shin).scaled(shin_scale)
-            foot.global_basis = Basis(foot_rotation).scaled(toe_scale)
-    # The floor-avoiding shin is not necessarily horizontal. Flatten
-    # the real rendered shin mesh, independently of the toe's already
-    # solved world contact, on BOTH front sides. Preserve the ankle's
-    # global position/orientation across this visual bend.
-    if kind == "sweep":
-        _flatten_sweep_shin(leg)
-    leg["front_ground_foot_y"] = _foot_mesh_lowest_y(foot)
-    leg["front_ground_shin_y"] = _foot_mesh_lowest_y(lower)
-    leg["last_goal"] = foot.to_global(leg["sole_local"] as Vector3)
-    leg["last_rotation"] = foot.global_basis.get_rotation_quaternion()
+            goal.y += error
+    leg["last_goal"] = foot.to_global(
+        leg["sole_local"] as Vector3)
+    leg["last_rotation"] = (
+        foot.global_basis.orthonormalized()
+        .get_rotation_quaternion())
     leg["last_knee"] = lower.global_position
     leg["last_foot"] = foot.global_position
 
@@ -2504,9 +2461,6 @@ func _ground_front_attack_leg(leg: Dictionary) -> void:
 func advance_ik(delta: float, motion: String) -> void:
     if not ready or legs.size() != 4 or actor == null:
         return
-    # Reapply the untouched imported shin mesh pose before any new
-    # authored frame/IK sample; never stack last frame's correction.
-    _restore_sweep_shin_meshes()
     # Reanchor only for an actual teleport or arena reset, not normal yaw or
     # a step; world-locked feet must stay locked as the torso moves above them.
     var displacement: float = actor.global_position.distance_to(last_actor_position)

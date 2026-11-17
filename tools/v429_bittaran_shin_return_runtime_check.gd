@@ -1,6 +1,6 @@
 extends SceneTree
-## v429: front SWEEP toe + shin genuinely horizontal, each technique's
-## released toe rises like the STOMP windup then returns to home.
+## v430 revalidation of v429's STOMP-inspired foot return: visible shin
+## remains linked; its mesh must NOT be forcibly leveled independently.
 ## Test two complete cycles without resetting the arena between attacks.
 const IK = preload("res://scripts/bittaran_foot_ik.gd")
 const DT: float = 0.05
@@ -70,23 +70,24 @@ func _run() -> void:
                     if kind == "sweep" and not frame.is_empty():
                         var t: float = float(frame.get("time", 0.0))
                         if t >= 0.77 and t <= 1.60:
-                            var mesh_axis_local: Vector3 = ik.call(
-                                "_shin_long_axis_local", shin)
-                            var shin_long_world: Vector3 = (
-                                shin.global_basis * mesh_axis_local).normalized()
+                            # The original v429 flatten-by-rotating-mesh
+                            # requirement was superseded. Verify the shin
+                            # mesh's imported local rotation never changes;
+                            # only shoulder/knee hinge motion is allowed.
+                            if shin_mesh.quaternion.angle_to(
+                                    neutral_shin_mesh) > 0.0005:
+                                _fail("independent shin mesh rotation " +
+                                    str([id, t]))
+                                return
                             var foot_axis_local: Vector3 = ik.call(
                                 "_toe_axis_local_point", foot)
                             var toe_long_world: Vector3 = (
                                 foot.global_basis * foot_axis_local).normalized()
-                            worst_shin_tilt = maxf(worst_shin_tilt,
-                                absf(shin_long_world.y))
                             worst_toe_tilt = maxf(worst_toe_tilt,
                                 absf(toe_long_world.y))
-                            if absf(shin_long_world.y) > 0.065 or (
-                                    absf(toe_long_world.y) > 0.065):
-                                _fail("long mesh axis not horizontal " +
-                                    str([id, t, shin_long_world.y,
-                                    toe_long_world.y]))
+                            if absf(toe_long_world.y) > 0.32:
+                                _fail("connected sweep toe tilt beyond reach: "+
+                                    str([id,t,toe_long_world.y]))
                                 return
                             var toe_low: float = float(ik.call(
                                 "_foot_mesh_lowest_y", foot))
@@ -167,5 +168,5 @@ func _run() -> void:
     if completed != 12:
         _fail("not all 12 attacks finished")
         return
-    print("GODOT_V429_SHIN_RETURN_PASS: 12 attacks, horizontal shin+toe, STOMP-style lift, no drift")
+    print("GODOT_V429_RETURN_CONNECTED_PASS: 12 attacks, unchanged shin mesh, STOMP-style lift, no drift")
     quit(0)

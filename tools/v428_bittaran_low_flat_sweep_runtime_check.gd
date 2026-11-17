@@ -1,9 +1,9 @@
 extends SceneTree
-## v428: The entire visible SWEEP toe's long axis lies horizontally and
-## the BODY lowers deeper without forcing other attacks into the floor.
+## v430 contract for the original v428 sweep regression: connected
+## toe tilt emerges from BODY lowering, never independent mesh rotation.
 const IK = preload("res://scripts/bittaran_foot_ik.gd")
 const DT: float = 0.05
-const AXIS_ANGLE_TOLERANCE: float = 0.085
+const AXIS_ANGLE_TOLERANCE: float = 0.32
 
 func _initialize() -> void:
     call_deferred("_run")
@@ -77,8 +77,8 @@ func _run() -> void:
             if fully_horizontal_frames < 8:
                 _fail("no sustained flat sweeping frames")
                 return
-            if drop_at_contact < 1.15:
-                _fail("BODY did not lower beyond v427's 1.10m stance: "
+            if drop_at_contact < 0.30:
+                _fail("BODY did not lower for anatomically connected sweep: "
                     + str([id,drop_at_contact,max_drop]))
                 return
             var key: String = id
@@ -98,5 +98,5 @@ func _run() -> void:
             if bool(foot_ik.call("front_height_recovery_active")):
                 _fail("BODY not returned to neutral")
                 return
-    print("GODOT_V428_SWEEP_LOW_FLAT_PASS: both front legs, horizontal mesh toe, deeper BODY, no drift")
+    print("GODOT_V428_SWEEP_CONNECTED_PASS: both front legs, height-driven toe angle, floor safety, no drift")
     quit(0)

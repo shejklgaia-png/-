@@ -76,7 +76,7 @@ func _run() -> void:
                 _fail("BODY descent out of range")
                 return
             if last_drop - drop > (
-                    IK.FRONT_BODY_DESCENT_SPEED_METERS_PER_SECOND * DT + 0.003):
+                    IK.FRONT_SWEEP_DESCENT_SPEED_METERS_PER_SECOND * DT + 0.003):
                 _fail("BODY/arm drop teleported: " + str([t, last_drop, drop]))
                 return
             last_drop = drop

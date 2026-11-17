@@ -73,7 +73,12 @@ func _run() -> void:
                 worst_toe = maxf(worst_toe, absf(foot_y))
                 if absf(foot_y) > FLOOR_TOLERANCE:
                     _fail(id + "/" + kind + " toe not seated: "
-                        + str([tick, foot_y]))
+                        + str([tick, foot_y,
+                        "body_drop", foot_ik.get("front_attack_drop_world"),
+                        "toe_tilt", leg.get("front_sweep_tilt", NAN),
+                        "feasible", leg.get("front_sweep_height_feasible", null),
+                        "knee", lower.global_position,
+                        "hip", (leg["upper"] as Node3D).global_position]))
                     return
                 if kind == "sweep":
                     worst_shin = maxf(worst_shin, maxf(-shin_y, 0.0))
