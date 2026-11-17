@@ -1216,7 +1216,6 @@ func apply_original_attack_only(frame: Dictionary) -> void:
         transition, leg_return_seconds)
     var body_return_weight: float = _source_timed_smoothstep(
         transition - leg_return_seconds, body_return_seconds)
-    var striker_bones: Array = ATTACK_LEG_BONES.get(leg_id, [])
     for uid in bones.keys():
         var joint: Node3D = bones[uid]
         if joint.name == "Head":
