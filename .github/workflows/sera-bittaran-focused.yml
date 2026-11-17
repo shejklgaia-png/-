@@ -92,7 +92,9 @@ jobs:
       - name: Verify new Bittaran front-leg clips and independent 90-degree head
         run: |
           set -euo pipefail
-          "$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" --headless --path . --script tools/v424_bittaran_front_attack_runtime_check.gd
+          # Report runtime errors instead of letting headless SceneTree
+          # continue indefinitely when a deferred _run() aborts early.
+          timeout --signal=TERM --kill-after=5s 45s "$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" --headless --path . --script tools/v424_bittaran_front_attack_runtime_check.gd
 
       - name: Verify v425 real toe/shin grounding for all six front-leg attacks
         run: |
