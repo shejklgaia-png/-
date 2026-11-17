@@ -230,6 +230,11 @@ func _build_target() -> void:
             bittaran_rig.position.y += (
                 -min_wait_sole_y / root_parent_scale)
     if BLOCKBENCH_GAIT_SUPPORT_IK:
+        # Save the fixed Blockbench-ground placement as the true respawn
+        # height; setup(source_only=true) recorded the root BEFORE
+        # the initial floor adjustment.
+        bittaran_foot_ik.set(
+            "rest_actor_local_y", bittaran_rig.position.y)
         if not bool(bittaran_foot_ik.call("initialize_source_ground_ik")):
             push_error("Bittaran: v435 simple skeletal IK setup failed")
     # The original training parts do not follow the mesh bones and their
