@@ -3289,6 +3289,13 @@ func _source_ik_advance_locomotion(delta: float, motion: String) -> void:
             limb["source_ik_toe_down_alpha"] = 1.0
             limb["sole_local"] = limb["stomp_tip_local"]
     var can_step: bool = (motion == "Approach" or motion == "Turn")
+    # v458: one shared fade-in for all four legs. Advancing the
+    # counter inside the limb loop would run it 4x too quickly.
+    if source_ik_wait_restored_id == "all" and can_step:
+        source_ik_wait_locomotion_blend = minf(1.0,
+            source_ik_wait_locomotion_blend
+            + maxf(delta, 0.0)
+            / SOURCE_LEG_WAIT_LOCOMOTION_BLEND_SECONDS)
     if can_step and source_ik_step_pair == -1 and (
             source_ik_replant_id.is_empty()) and (
             source_ik_home_handoff_id.is_empty()) and (
@@ -3378,12 +3385,10 @@ func _source_ik_advance_locomotion(delta: float, motion: String) -> void:
             if source_ik_replant_id != LEG_PART_IDS[index]:
                 limb["anchor_rotation"] = rotation
         var error: float = 0.0
-        if source_ik_wait_restored_id == LEG_PART_IDS[index]:
-            # v458: Immediately after the source return, the rig has
-            # restored all 3 authored Wait joints. On IDLE, allowing
-            # the ordinary grounded IK to re-solve this leg would
-            # recreate the user's splayed-knee/end-of-return pose.
-            # Leave this limb at its authored Idle/Wait angles.
+        if source_ik_wait_restored_id == "all":
+            # v458: all FOUR limbs have returned to the authored
+            # Wait skeleton. Preserve their Idle/Wait joint angles
+            # instead of re-injecting twisted support IK poles.
             var neutral_upper: Node3D = limb["upper"]
             var neutral_lower: Node3D = limb["lower"]
             var neutral_foot: Node3D = limb["foot"]
@@ -3402,10 +3407,6 @@ func _source_ik_advance_locomotion(delta: float, motion: String) -> void:
             var from_upper: Quaternion = neutral_upper.quaternion
             var from_lower: Quaternion = neutral_lower.quaternion
             var from_foot: Quaternion = neutral_foot.quaternion
-            source_ik_wait_locomotion_blend = minf(1.0,
-                source_ik_wait_locomotion_blend
-                + maxf(delta, 0.0)
-                / SOURCE_LEG_WAIT_LOCOMOTION_BLEND_SECONDS)
             var alpha: float = source_ik_wait_locomotion_blend
             var mix: float = alpha * alpha * (
                 3.0 - 2.0 * alpha)
@@ -3422,9 +3423,6 @@ func _source_ik_advance_locomotion(delta: float, motion: String) -> void:
                 neutral_foot.global_basis.get_rotation_quaternion())
             limb["last_knee"] = neutral_lower.global_position
             limb["last_foot"] = neutral_foot.global_position
-            if alpha >= 1.0 - 0.000001:
-                source_ik_wait_restored_id = ""
-                source_ik_wait_locomotion_blend = 0.0
         elif source_ik_home_handoff_id == LEG_PART_IDS[index]:
             # Continue from the last source-IK knee, easing its bend
             # plane onto the normal Wait/gait knee pole while the TOE
@@ -3455,6 +3453,10 @@ func _source_ik_advance_locomotion(delta: float, motion: String) -> void:
         else:
             error = _solve(limb, goal, rotation)
         limb["last_error"] = error
+    if source_ik_wait_restored_id == "all" and (
+            source_ik_wait_locomotion_blend >= 1.0 - 0.000001):
+        source_ik_wait_restored_id = ""
+        source_ik_wait_locomotion_blend = 0.0
     if source_ik_step_pair >= 0 and step_t >= 1.0:
         source_ik_step_pair = -1
         source_ik_step_elapsed = 0.0
@@ -3579,6 +3581,17 @@ func _source_ik_advance_attack(frame: Dictionary) -> void:
             limb["source_ik_attack_rotation"] = limb["last_rotation"]
     source_ik_last_attack_time = attack_time
     source_ik_last_actor_position = actor.global_position
+    # On the last recovery tick the authored rig has ALREADY
+    # completed its quintic Wait transition. Any support IK applied
+    # now would overwrite those authored upper/lower angles, leaving
+    # the knees in the splayed posture visible in the screenshot.
+    var final_wait_frame: bool = (
+        str(frame.get("phase", "")) == "recovery"
+        and str(frame.get("recovery_stage", "")) == "leg"
+        and float(frame.get("phase_elapsed", 0.0))
+            >= float(frame.get("body_return_seconds", 0.62))
+                + float(frame.get("leg_return_seconds", 1.20))
+                - 0.000001)
     for index in range(legs.size()):
         var limb: Dictionary = legs[index]
         var foot: Node3D = limb["foot"]
@@ -3611,6 +3624,19 @@ func _source_ik_advance_attack(frame: Dictionary) -> void:
             limb["source_ik_last_knee_world"] = (
                 limb["lower"] as Node3D).global_position
             # Keep the solver's actual reach error for diagnostics.
+            continue
+        if final_wait_frame:
+            # Body and all three nonattacking legs have reached the
+            # exact Wait source keys. DO NOT apply a final support IK
+            # solve that would re-twist their bones.
+            limb["last_goal"] = foot.to_global(
+                limb["sole_local"] as Vector3)
+            limb["last_rotation"] = (
+                foot.global_basis.get_rotation_quaternion())
+            limb["last_knee"] = (
+                limb["lower"] as Node3D).global_position
+            limb["last_foot"] = foot.global_position
+            limb["last_error"] = 0.0
             continue
         var goal: Vector3 = limb["source_ik_attack_anchor"]
         goal.y = FLOOR_Y
@@ -3667,12 +3693,17 @@ func advance_source_ground_ik(delta: float, motion: String,
                 source_ik_replant_elapsed = 0.0
                 source_ik_home_handoff_id = ""
                 source_ik_home_handoff_elapsed = 0.0
-                source_ik_wait_restored_id = former_id
+                source_ik_wait_restored_id = "all"
                 source_ik_wait_locomotion_blend = 0.0
-                limb["anchor"] = _source_ik_home(limb)
-                limb["anchor_rotation"] = (
-                    _source_ik_toe_down_rotation(
-                        limb, _rotation_home(limb)))
+                # Entire four-leg skeleton is back at the authored
+                # basic stance. Keep all four legs in that state until
+                # walking/turning resumes; gait IK then fades in.
+                for other_limb in legs:
+                    other_limb["anchor"] = _source_ik_home(
+                        other_limb)
+                    other_limb["anchor_rotation"] = (
+                        _source_ik_toe_down_rotation(
+                            other_limb, _rotation_home(other_limb)))
             else:
                 # Interrupted attacks still need an emergency replant.
                 # Begin from the actually rendered toe position.
