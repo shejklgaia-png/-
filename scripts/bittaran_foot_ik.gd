@@ -2601,6 +2601,13 @@ const SOURCE_LEG_HOME_HANDOFF_SECONDS: float = 0.30
 # switched straight from fixed-foot IK to Wait on just the final tick.
 # All four legs now share the continuous 0..1 recovery clock.
 const SOURCE_LEG_WAIT_LOCOMOTION_BLEND_SECONDS: float = 0.35
+# v460: the source Wait pose itself leaves a visible gap below the
+# foot cuboid. Correct the REAL cuboid underside, not the old contact
+# point whose local coordinates can be different after toe rotation.
+# The correction is blended into recovery, never added in one tick.
+const SOURCE_WAIT_FOOT_CLEARANCE_METERS: float = 0.003
+const SOURCE_WAIT_GROUND_TOLERANCE_METERS: float = 0.004
+const SOURCE_WAIT_GROUND_MAX_SOLVE_METERS: float = 0.90
 var source_ik_wait_restored_id: String = ""
 var source_ik_wait_locomotion_blend: float = 0.0
 var source_ik_home_handoff_id: String = ""
@@ -3394,6 +3401,9 @@ func _source_ik_advance_locomotion(delta: float, motion: String) -> void:
             var neutral_lower: Node3D = limb["lower"]
             var neutral_foot: Node3D = limb["foot"]
             if not can_step:
+                # v460: preserve the basic Idle/Wait knee shape but
+                # do not leave the actual toe cuboid above the floor.
+                _source_ik_settle_visible_foot(limb, 1.0)
                 limb["last_goal"] = neutral_foot.to_global(
                     limb["sole_local"] as Vector3)
                 limb["last_rotation"] = (
@@ -3418,6 +3428,7 @@ func _source_ik_advance_locomotion(delta: float, motion: String) -> void:
                 neutral_lower.quaternion, mix).normalized()
             neutral_foot.quaternion = from_foot.slerp(
                 neutral_foot.quaternion, mix).normalized()
+            _source_ik_settle_visible_foot(limb, 1.0)
             limb["last_goal"] = neutral_foot.to_global(
                 limb["sole_local"] as Vector3)
             limb["last_rotation"] = (
@@ -3472,6 +3483,57 @@ func _source_ik_advance_locomotion(delta: float, motion: String) -> void:
                 SOURCE_LEG_HOME_HANDOFF_SECONDS):
             source_ik_home_handoff_id = ""
             source_ik_home_handoff_elapsed = 0.0
+
+
+## Correct the ACTUAL foot cuboid's lowest world-space point to
+## the constant plane Y=0. The original Wait angles alone are not
+## guaranteed to reach the floor (the authored pose can hover).
+##
+## Solve ONLY the two original skeletal joints, keep the foot's
+## current orientation, and use its pre-solve knee as the bend pole.
+## "strength" eases from 0 to 1 across source leg recovery; normal
+## postattack idle applies 1.0 to retain floor contact indefinitely.
+## No foot mesh transform/pivot adjustment and no extra idle snap.
+func _source_ik_settle_visible_foot(
+        limb: Dictionary, strength: float) -> void:
+    var influence: float = clampf(strength, 0.0, 1.0)
+    if influence <= 0.000001:
+        return
+    var lowest: float = _source_ik_sweep_toe_lowest_world_y(limb)
+    if not is_finite(lowest):
+        return
+    var gap: float = (
+        FLOOR_Y + SOURCE_WAIT_FOOT_CLEARANCE_METERS - lowest)
+    if absf(gap) <= SOURCE_WAIT_GROUND_TOLERANCE_METERS:
+        return
+    var foot: Node3D = limb["foot"]
+    var lower: Node3D = limb["lower"]
+    var contact_local: Vector3 = limb["sole_local"]
+    var desired_rotation: Quaternion = (
+        foot.global_basis.get_rotation_quaternion())
+    var goal: Vector3 = foot.to_global(contact_local)
+    goal.y += clampf(gap * influence,
+        -SOURCE_WAIT_GROUND_MAX_SOLVE_METERS,
+        SOURCE_WAIT_GROUND_MAX_SOLVE_METERS)
+    var knee_hint: Vector3 = lower.global_position
+    var error: float = _source_ik_solve_striker(
+        limb, goal, desired_rotation, contact_local, knee_hint)
+    # A single analytic solve is normally enough; run one bounded
+    # extra adjustment only at near-full influence if the visible
+    # cuboid bottom is still perceptibly off the plane.
+    if influence >= 0.999 and is_finite(error):
+        var remaining: float = (
+            FLOOR_Y + SOURCE_WAIT_FOOT_CLEARANCE_METERS
+            - _source_ik_sweep_toe_lowest_world_y(limb))
+        if is_finite(remaining) and (
+                absf(remaining) > SOURCE_WAIT_GROUND_TOLERANCE_METERS):
+            goal.y += clampf(remaining,
+                -SOURCE_WAIT_GROUND_MAX_SOLVE_METERS,
+                SOURCE_WAIT_GROUND_MAX_SOLVE_METERS)
+            error = _source_ik_solve_striker(
+                limb, goal, desired_rotation,
+                contact_local, lower.global_position)
+    limb["last_error"] = error
 
 
 ## Return the attacker's ACTUAL foot contact to its Wait-world
@@ -3534,6 +3596,9 @@ func _source_ik_return_attacker_to_home(
         wait_lower, restore_weight).normalized()
     foot.quaternion = foot.quaternion.slerp(
         wait_foot, restore_weight).normalized()
+    # Blend the visual toe-ground correction in parallel with Wait
+    # restoration; otherwise full Wait at t=1 is visibly airborne.
+    _source_ik_settle_visible_foot(limb, ease)
     # At u=1 all three bone rotations AND their source positions are
     # EXACTLY Wait. Never mark home using IK reach error alone: its
     # target was a grounded toe while Wait also defines the knee angle.
@@ -3646,7 +3711,13 @@ func _source_ik_advance_attack(frame: Dictionary) -> void:
                 foot.global_basis.get_rotation_quaternion())
             limb["last_knee"] = support_lower.global_position
             limb["last_foot"] = foot.global_position
-            limb["last_error"] = 0.0
+            _source_ik_settle_visible_foot(limb, 1.0)
+            limb["last_goal"] = foot.to_global(
+                limb["sole_local"] as Vector3)
+            limb["last_rotation"] = (
+                foot.global_basis.get_rotation_quaternion())
+            limb["last_knee"] = support_lower.global_position
+            limb["last_foot"] = foot.global_position
             limb["anchor"] = _source_ik_home(limb)
             limb["anchor_rotation"] = (
                 _source_ik_toe_down_rotation(
@@ -3670,6 +3741,8 @@ func _source_ik_advance_attack(frame: Dictionary) -> void:
                 neutral_lower, support_wait_weight).normalized()
             foot.quaternion = foot.quaternion.slerp(
                 neutral_foot, support_wait_weight).normalized()
+            _source_ik_settle_visible_foot(
+                limb, support_wait_weight)
         # Cache the FINAL displayed bones, not the pre-blend IK knee.
         limb["source_ik_support_knee_hint"] = (
             support_lower.global_position)
