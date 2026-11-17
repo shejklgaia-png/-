@@ -348,9 +348,9 @@ func set_collision_parts(parts: Node3D) -> void:
 ## The attack director is the sole writer of this per-frame, deterministic pose.
 ## IK remains the only owner of foot goals, joint lengths and knee poles.
 func set_attack_pose(pose: Dictionary) -> void:
-    # v430 original-only mode: the six Blockbench tracks completely own
-    # all attack joints. No stance preparation, contact correction, body
-    # height changes, knee solving or post-attack choreography is allowed.
+    # The author's attack clip owns the Body and attacking leg without
+    # any correction. The three other legs are independent grounded IK
+    # supports, captured once from the actual pre-attack contact goals.
     if bool(pose.get("original_attack_only", false)):
         if not bool(attack_pose.get("original_attack_only", false)) or (
                 str(pose.get("id", "")) != str(attack_pose.get("id", ""))
@@ -360,21 +360,46 @@ func set_attack_pose(pose: Dictionary) -> void:
             clear_attack_pose()
             stepping_pair = -1
             _reset_front_height_state()
-            for limb in legs:
+            for index in range(legs.size()):
+                var limb: Dictionary = legs[index]
                 limb["stepping"] = false
+                limb["spiral_twist"] = 0.0
+                var current_foot: Node3D = limb["foot"]
+                var contact: Vector3 = limb.get("last_goal",
+                    current_foot.to_global(limb["sole_local"] as Vector3))
+                contact.y = FLOOR_Y
+                limb["original_support_anchor"] = contact
+                limb["original_support_rotation"] = limb.get(
+                    "last_rotation",
+                    current_foot.global_basis.get_rotation_quaternion())
         attack_pose = pose.duplicate()
         return
     if pose.is_empty() and bool(attack_pose.get(
             "original_attack_only", false)):
-        # Switch back to unchanged locomotion IK only AFTER the source
-        # clip has ended. Anchors are re-established for normal gait,
-        # not used to modify or retarget the authored attack itself.
+        # Restore ordinary walking only after the clip ends. Preserve
+        # grounded support anchors rather than snapping them to a newly
+        # calculated home position on the first post-attack frame.
+        var last_attacker: String = str(attack_pose.get("id", ""))
         clear_attack_pose()
         stepping_pair = -1
-        for limb in legs:
-            limb["anchor"] = _home(limb, false)
-            limb["anchor_rotation"] = _rotation_home(limb)
+        for index in range(legs.size()):
+            var limb: Dictionary = legs[index]
             limb["stepping"] = false
+            if LEG_PART_IDS[index] != last_attacker:
+                limb["anchor"] = limb.get(
+                    "original_support_anchor", limb["last_goal"])
+                limb["anchor_rotation"] = limb.get(
+                    "original_support_rotation", limb["last_rotation"])
+            else:
+                var foot: Node3D = limb["foot"]
+                var landing: Vector3 = foot.to_global(
+                    limb["sole_local"] as Vector3)
+                landing.y = FLOOR_Y
+                limb["anchor"] = landing
+                limb["anchor_rotation"] = (
+                    foot.global_basis.get_rotation_quaternion())
+            limb.erase("original_support_anchor")
+            limb.erase("original_support_rotation")
         return
     # v410: a restarted attack (the director force-started over a
     # still-active one) never empties the pose, so the previous
@@ -2536,20 +2561,37 @@ func advance_ik(delta: float, motion: String) -> void:
     # authored frame/IK sample; never stack last frame's correction.
     _restore_sweep_shin_meshes()
     if bool(attack_pose.get("original_attack_only", false)):
-        # Do not run even the regular planted-foot IK during a source
-        # attack. This guarantees the Body, ALL four legs, every ankle
-        # pivot and all mesh rotations are exactly the .bbmodel data.
+        # The Body and chosen attacking leg retain every authored key.
+        # Re-solve ONLY the other three legs to their world-fixed ground
+        # contacts. Rotating a sibling leg never rotates the striker.
         _reset_front_height_state()
         last_actor_position = actor.global_position
         last_actor_yaw = actor.global_rotation.y
-        for limb in legs:
+        var attacking_id: String = str(attack_pose.get("id", ""))
+        for index in range(legs.size()):
+            var limb: Dictionary = legs[index]
             var source_foot: Node3D = limb["foot"]
-            limb["last_goal"] = source_foot.to_global(
-                limb["source_sole_local"] as Vector3)
-            limb["last_rotation"] = (
-                source_foot.global_basis.get_rotation_quaternion())
-            limb["last_knee"] = (limb["lower"] as Node3D).global_position
-            limb["last_foot"] = source_foot.global_position
+            if LEG_PART_IDS[index] == attacking_id:
+                # Never touch the active upper/lower/foot pivots, angles,
+                # scale, position, toe orientation or sampled clip clock.
+                limb["last_goal"] = source_foot.to_global(
+                    limb["source_sole_local"] as Vector3)
+                limb["last_rotation"] = (
+                    source_foot.global_basis.get_rotation_quaternion())
+                limb["last_knee"] = (
+                    limb["lower"] as Node3D).global_position
+                limb["last_foot"] = source_foot.global_position
+                limb["last_error"] = 0.0
+                continue
+            var planted: Vector3 = limb.get(
+                "original_support_anchor", limb["anchor"])
+            planted.y = FLOOR_Y
+            var stable_rotation: Quaternion = limb.get(
+                "original_support_rotation", limb["anchor_rotation"])
+            limb["last_error"] = _solve(
+                limb, planted, stable_rotation)
+            limb["anchor"] = planted
+            limb["anchor_rotation"] = stable_rotation
         return
     # Reanchor only for an actual teleport or arena reset, not normal yaw or
     # a step; world-locked feet must stay locked as the torso moves above them.
