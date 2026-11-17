@@ -97,8 +97,11 @@ func _run() -> void:
                         frame.get("direct_front_test", false)):
                     _fail("combat did not preserve L/R direct source: " + id + "/" + kind)
                     return
-                battle.call("_finalize_target_pose", 0.05)
+                # Compare the uncorrected authored source BEFORE the
+                # v425 ground IK is applied. Floor contact is allowed to
+                # change shoulder/knee angles but not the source data.
                 if tick == 18:
+                    boss_rig.call("apply_authored_attack_pose", frame)
                     var clip_name: String = (
                         "踏みつけ_L" if kind == "stomp" else (
                         "弾き" if kind == "kick" else "なぎ払い"))
@@ -116,6 +119,7 @@ func _run() -> void:
                                 + "/" + kind + "/" + name)
                             return
                     frame_seen = true
+                battle.call("_finalize_target_pose", 0.05)
             if not frame_seen:
                 _fail("actual combat clip was not sampled: " + id + "/" + kind)
                 return
