@@ -2633,7 +2633,7 @@ var source_ik_body_toe_wrist_flex_max: float = 0.0
 # available toe-down arc. The wrist only pitches when near full reach.
 const BODY_TOE_KNEE_POLE_INFLUENCE: float = 0.82
 const BODY_TOE_WRIST_FLEX_INFLUENCE: float = 0.18
-const BODY_TOE_REACH_MARGIN_METERS: float = 0.045
+const BODY_TOE_REACH_MARGIN_METERS: float = 0.080
 const BODY_TOE_WRIST_PREFLEX_METERS: float = 0.25
 const BODY_TOE_WRIST_FLEX_RATE_PER_SECOND: float = 2.0
 
