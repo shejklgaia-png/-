@@ -1400,8 +1400,11 @@ func apply_source_attack_aim(
         var body_t: float = clampf(recovery / body_seconds, 0.0, 1.0)
         body_weight = 1.0 - body_t * body_t * (
             3.0 - 2.0 * body_t)
+        var limb_delay: float = (
+            0.0 if bool(frame.get("parallel_recovery", false))
+            else body_seconds)
         var limb_t: float = clampf(
-            (recovery - body_seconds) / limb_seconds, 0.0, 1.0)
+            (recovery - limb_delay) / limb_seconds, 0.0, 1.0)
         limb_weight = 1.0 - limb_t * limb_t * limb_t * (
             limb_t * (limb_t * 6.0 - 15.0) + 10.0)
     var turn_body: float = source_aim_body_yaw * body_weight
@@ -1487,7 +1490,7 @@ func apply_original_attack_only(frame: Dictionary) -> void:
     if phase != "recovery":
         source_return_leg_start_pose.clear()
         source_last_body_ik_solved_pose.clear()
-    elif stage == "leg" and (
+    elif (stage == "leg" or stage == "parallel") and (
             source_return_leg_start_pose.is_empty()):
         # The physics loop calls set_motion(Idle) BEFORE source replay,
         # which overwrites prior IK angles. Prefer the explicit pose
@@ -1560,12 +1563,15 @@ func apply_original_attack_only(frame: Dictionary) -> void:
                 from, entry_weight).normalized()
         elif phase == "recovery":
             if striking_joint_names.has(joint.name):
-                # While BODY returns, hold the source striking chain.
-                if transition <= body_return_seconds:
+                # v463: in parallel mode the leg starts returning
+                # at the SAME instant as the body. Sequential mode
+                # retains its original planted-toe BODY stage.
+                var concurrent: bool = bool(
+                    frame.get("parallel_recovery", false))
+                if not concurrent and transition <= body_return_seconds:
                     continue
-                # Only after BODY is neutral: return all attacker joints
-                # with one C2-smooth velocity profile toward basic Wait.
-                # The original IK-grounded final pose is the start.
+                # Both paths use the last POST-IK, not the rest-sampled
+                # local pose at the attack-to-recovery boundary.
                 var saved: Dictionary = (
                     source_return_leg_start_pose.get(joint.name, {}))
                 var from_q: Quaternion = saved.get("rotation", from)
@@ -1574,7 +1580,8 @@ func apply_original_attack_only(frame: Dictionary) -> void:
                 _source_return_leg_to_wait(
                     joint, from_q, from_pos,
                     neutral, neutral_position,
-                    transition - body_return_seconds,
+                    (transition if concurrent
+                        else transition - body_return_seconds),
                     leg_return_seconds)
                 continue
             # BODY and other limbs reach Wait first and stay there
@@ -1583,9 +1590,13 @@ func apply_original_attack_only(frame: Dictionary) -> void:
                 neutral_position, body_return_weight)
             joint.quaternion = from.slerp(
                 neutral, body_return_weight).normalized()
-    if phase == "recovery" and stage == "leg" and (
-            transition >= body_return_seconds
-                + leg_return_seconds - 0.000001):
+    if phase == "recovery" and (
+            (stage == "parallel" and transition >= maxf(
+                body_return_seconds, leg_return_seconds)
+                - 0.000001)
+            or (stage == "leg" and transition >=
+                body_return_seconds + leg_return_seconds
+                - 0.000001)):
         # Sample the exact terminal Wait AFTER all four local
         # chains have converged. set_motion(Idle) runs BEFORE source
         # playback, so cache this pose for the NEXT tick.
