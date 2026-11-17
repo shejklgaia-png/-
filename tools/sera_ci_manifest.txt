@@ -350,3 +350,4 @@ gd tools/v418_bittaran_full_kick_and_rear_contact_corner_runtime_check.gd
 gd tools/v419_bittaran_exact_fourway_authored_mirror_runtime_check.gd
 gd tools/v434_bittaran_blockbench_exact_playback_runtime_check.gd
 gd tools/v435_bittaran_gait_three_support_runtime_check.gd
+gd tools/v436_bittaran_attack_timing_runtime_check.gd
