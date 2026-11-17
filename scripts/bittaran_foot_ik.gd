@@ -2599,7 +2599,6 @@ var source_ik_unreachable_supports: int = 0
 ## The three siblings continue using their existing grounded IK solver.
 const SOURCE_STRIKE_FLOOR_EPSILON_METERS: float = 0.012
 const SOURCE_STRIKE_CONTACT_RAMP_SECONDS: float = 0.13
-const SOURCE_STRIKE_RELEASE_SECONDS: float = 0.26
 const SOURCE_STRIKE_MAX_CORRECTION_METERS: float = 1.70
 const SOURCE_STRIKE_MIN_SOURCE_SECONDS: Dictionary = {
     "sweep": 0.1375,
@@ -2665,10 +2664,11 @@ func _source_ik_contact_weight(frame: Dictionary) -> float:
     if phase == "entry":
         return 0.0
     if phase == "recovery":
-        var time: float = float(frame.get("phase_elapsed", 0.0))
-        var u: float = clampf(time / SOURCE_STRIKE_RELEASE_SECONDS,
-            0.0, 1.0)
-        return 1.0 - u * u * (3.0 - 2.0 * u)
+        # v441: the striker must LIFT off the ground using the
+        # matching Blockbench stomp windup as its return waypoint.
+        # No attractive floor contact during this airborne move;
+        # _source_ik_ground_attacking_limb still prevents penetration.
+        return 0.0
     if phase == "hold":
         return 1.0
     var source_t: float = float(frame.get("authored_time", 0.0))
