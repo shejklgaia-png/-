@@ -1562,6 +1562,20 @@ func apply_original_attack_only(frame: Dictionary) -> void:
             joint.quaternion = entry_rotation.slerp(
                 from, entry_weight).normalized()
         elif phase == "recovery":
+            if bool(frame.get("authored_full_sweep", false)):
+                # Both the sweep stroke and the complete leg/chest return
+                # were already authored in Blockbench (front t=2.5,
+                # rear t=1.25). Do not replay the old independent
+                # BODY-then-leg or simultaneous-toe return here.
+                # Only bridge the terminal authored pose to neutral.
+                var settle: float = _source_timed_smootherstep(
+                    transition, maxf(float(
+                    frame.get("recovery", 0.20)), 0.001))
+                joint.position = from_position.lerp(
+                    neutral_position, settle)
+                joint.quaternion = from.slerp(
+                    neutral, settle).normalized()
+                continue
             if striking_joint_names.has(joint.name):
                 # v463: in parallel mode the leg starts returning
                 # at the SAME instant as the body. Sequential mode

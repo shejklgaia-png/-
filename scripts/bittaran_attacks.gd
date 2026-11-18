@@ -18,8 +18,9 @@ const TEST_ANTICIPATION_SPEED: float = 1.10
 const TEST_HOME_RETURN_SPEED: float = 1.25
 const TEST_NO_STOP_SECONDS: float = 0.0
 const SOURCE_ENTRY_SECONDS: float = 0.32
-# Sweep-only windup: wait pose -> original outward stroke begins at t=1s.
-const SWEEP_ENTRY_SECONDS: float = 1.00
+# The new authored sweep contains its own windup and complete toe return.
+# Keep only a short neutral-to-first-key transition before playback.
+const SWEEP_ENTRY_SECONDS: float = 0.32
 # Following BODY recovery, return the striking leg directly to Wait.
 # No stomp windup, lift waypoint, or artificial bounce.
 const SOURCE_LEG_RETURN_SECONDS: float = 1.20
@@ -27,11 +28,11 @@ const SOURCE_BODY_RETURN_SECONDS: float = 0.62
 const SOURCE_KICK_STOMP_RETURN_SECONDS: float = (
     SOURCE_LEG_RETURN_SECONDS + SOURCE_BODY_RETURN_SECONDS)
 const ORIGINAL_CLIP_LENGTHS: Dictionary = {
-    "stomp": 1.75, "kick": 1.0, "sweep": 1.50
+    "stomp": 1.75, "kick": 1.0, "sweep": 2.625
 }
 ## The 22:13 source only has rear STOMP and SWEEP (not rear KICK).
 const REAR_CLIP_LENGTHS: Dictionary = {
-    "stomp": 1.0, "sweep": 0.75
+    "stomp": 1.0, "sweep": 1.54167
 }
 const START_RANGE_METERS: float = 9.0
 const STOMP_WINDUP_SECONDS: float = 1.25
@@ -59,7 +60,9 @@ const SWEEP_STRIKE_SECONDS: float = (
     SWEEP_SOURCE_STRIKE_SECONDS - SWEEP_OUTBOUND_END_CLIP_SECONDS)
 const STOMP_RECOVERY_SECONDS: float = 0.55
 const KICK_RECOVERY_SECONDS: float = 0.60
-const SWEEP_RECOVERY_SECONDS: float = 1.40
+# The source file already finishes the foot and chest recovery.
+# This short handoff only bridges the displayed Wait/Idle contact pose.
+const SWEEP_RECOVERY_SECONDS: float = 0.25
 const BETWEEN_ATTACKS_SECONDS: float = 1.35
 # Attack-sector AI: evaluate the player in the boss ROOT's horizontal
 # coordinates, not relative to whichever foot was picked first.
@@ -285,8 +288,7 @@ static func source_original_windup_play_seconds(
         attack_kind: String, attack_id: String = "") -> float:
     var source_t: float = source_authored_windup_clip_seconds(
         attack_kind, attack_id)
-    if attack_kind == "sweep":
-        return source_t / SWEEP_OUTBOUND_SPEED
+    # The new sweep is sampled at EXACT Blockbench time, not 0.5x.
     return source_t
 
 
@@ -318,10 +320,7 @@ static func source_play_seconds(attack_kind: String,
     var length: float = source_clip_length(attack_kind, attack_id)
     var original: float = length
     if attack_kind == "sweep":
-        # Preserve 0.5x outbound apart from its first .25 source
-        # seconds. Rear sweep finishes at .75, not front 1.50.
-        original = SWEEP_OUTBOUND_REAL_SECONDS + maxf(
-            0.0, length - SWEEP_OUTBOUND_END_CLIP_SECONDS)
+        return length
     return original - source_anticipation_saved_seconds(
         attack_kind, attack_id)
 
@@ -341,7 +340,9 @@ static func source_body_return_seconds(attack_kind: String) -> float:
     return base / source_return_speed()
 
 
-static func source_leg_return_seconds() -> float:
+static func source_leg_return_seconds(attack_kind: String = "") -> float:
+    if attack_kind == "sweep":
+        return SWEEP_RECOVERY_SECONDS / source_return_speed()
     return SOURCE_LEG_RETURN_SECONDS / source_return_speed()
 
 
@@ -349,9 +350,9 @@ static func source_return_seconds(attack_kind: String) -> float:
     if TEST_PARALLEL_BODY_LEG_RETURN:
         # Start both motions together. Continue until BOTH finish.
         return maxf(source_body_return_seconds(attack_kind),
-            source_leg_return_seconds())
+            source_leg_return_seconds(attack_kind))
     return (source_body_return_seconds(attack_kind)
-        + source_leg_return_seconds())
+        + source_leg_return_seconds(attack_kind))
 
 
 static func source_total_seconds(attack_kind: String,
@@ -367,6 +368,9 @@ static func source_clip_time(attack_kind: String,
     var play_t: float = clampf(real_attack_seconds, 0.0,
         source_play_seconds(attack_kind, attack_id))
     var length: float = source_clip_length(attack_kind, attack_id)
+    # Do not remap internal windup, swing, or toe-return key timestamps.
+    if attack_kind == "sweep":
+        return minf(play_t, length)
     if TIMING_TEST_ENABLED:
         var windup: float = source_original_windup_play_seconds(
             attack_kind, attack_id)
@@ -387,6 +391,8 @@ static func source_clip_time(attack_kind: String,
 
 static func source_playback_speed(attack_kind: String,
         play_t: float, attack_id: String = "") -> float:
+    if attack_kind == "sweep":
+        return 1.0
     var source_t: float = play_t
     if TIMING_TEST_ENABLED:
         var windup: float = source_original_windup_play_seconds(
@@ -493,7 +499,8 @@ func _advance_original_only(delta: float, player_position: Vector3,
         "strike": source_play_seconds(kind, leg_id),
         "hold": source_hold_seconds(kind),
         "recovery": source_return_seconds(kind),
-        "leg_return_seconds": source_leg_return_seconds(),
+        "leg_return_seconds": source_leg_return_seconds(kind),
+        "authored_full_sweep": kind == "sweep",
         "body_return_seconds": source_body_return_seconds(kind),
         "stance_prepare": false,
         "tracking": false,

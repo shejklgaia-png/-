@@ -1,3 +1,11 @@
+## 2026-11-18 — SERA v448: ユーザー作成の前後なぎ払い全工程を四脚へ統合
+
+- ユーザーアップロードの `ビットタラン (1) (1) (1).bbmodel` を編集しない原本 `models/storage/ビットタラン_20261118_新なぎ払い.bbmodel` に保存し、前左 `なぎ払い_L` 2.625秒/73キー、後左 `後足なぎ払い_L` 1.54167秒/36キーを正本 `models/bosses/Bittaran.bbmodel` に移植。右前・右後は左右のボーンIDを交換し、回転Euler y/z反転・位置x反転で生成。原本に既存のWaitや弾き等と重複するキーUUIDが11個あるため、ゲーム統合側だけ新しいIDへ振り直し、原本そのものと回転/位置/時刻値は保持。
+- `assets/bittaran_data.gd` を新正本と一致させて更新。なぎ払いは従来の前半0.5倍速、別足戻しIKを通さず、振りかぶり・掃き・足戻しを原本時刻1倍速で全再生、終了後のWait/Idle接続のみ短い0.2秒の移行。
+- `scripts/bittaran_foot_ik.gd` は新なぎ払い中の攻撃脚を旧直線足戻し制御で再上書きしない。支え脚の短い最終復帰フェードは実接地点へIKで再拘束し、床を突き抜ける現象を抑止。
+- 追加テスト `tools/bittaran_uploaded_full_sweep_runtime_check.gd`：4脚の合計218キー、秒数・1倍速・Android埋め込み一致を実測。 `tools/bittaran_uploaded_sweep_battle_runtime_check.gd`：Godot戦闘シーン4脚310フレーム、支え脚接地誤差最大0.00121m、攻撃脚の足先地面貫通最大0.000002mで合格。
+- 既存のGodot全体テスト126件のうち20件は旧仕様・先行未解決項目のため不合格。Python182件は全合格。Android実機での画面確認は未実施。全体CIが合格するまで改善が必要。
+
 ## 2026-11-17 — SERA v423: leg aim yaw no longer somersaults across the +-180-degree seam
 
 - Device feedback on v422: the KICK angles of the front-right and rear-left legs still did not line up. A full-circle bearing sweep of played kicks (reflected comparison against played leg_fl, no aim compensation) found the catastrophic cells on the rear legs: leg_rl at player bearing 330 and leg_rr at bearing 30 deviated 6.43m at the sole with a 170-degree foot orientation error at hold; leg_rl at 300 and leg_rr at 60 showed 33-54-degree strike transients. All other bearings and the front legs matched their mirrors (front-right within ~1 degree everywhere).
