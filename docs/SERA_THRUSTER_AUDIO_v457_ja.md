@@ -11,16 +11,16 @@
 - `scripts/sera_thruster_audio.gd`, `scripts/main.gd`, `scripts/back_thruster_fx.gd`, `tools/sera_thruster_audio_runtime_check.gd` を変更。
 - Godotのトリガー信号は既存の`exhaust_on`と`acceleration_burst`を利用。移動・回避・攻撃の時間・当たり判定は変更しない。
 
-## 音声アセット登録待ち
+## 音声アセットをGitHubへ登録済み
 
-このPRには、音声のデコード済みOGGバイナリ2点がまだ含まれていません。生成済みファイルは会話のZIPに同梱しています。
+ユーザー提供音源から加工した以下2点を、GitHubのバイナリファイルとして追加済みです。
 
 | リポジトリ内の配置 | SHA256 |
 |---|---|
 | `assets/sera_thruster_01_loop.ogg` | `175a71e43e79ce2925703bf3103ae05279aea0896e964e0cc87f8a161060db44` |
 | `assets/sera_thruster_13_1_acceleration.ogg` | `cfb815665d324ab2da7a4b1ddb3c7d3d0241e3e749a531ad8527bc2c90f7e2bf` |
 
-**この2ファイルがGitHubに追加され、Godotの音声再生テストと既存CIが通るまではマージしません。** 書式やコンパイルエラーがないこともこの段階では未検証です。
+Godotの専用テストをCIへ登録し、音声読み込み・ループ・STEP/追尾での加速音重ね再生・減衰を検証します。Android実機の聴感・遅延は未確認です。
 
 ### 利用規約
 

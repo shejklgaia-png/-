@@ -1,3 +1,9 @@
+## 2026-11-18 — SERA v457: 01の継続噴射音と13-1の加速音を実装
+
+- ユーザー提供音源から4.90秒のクロスフェード済み01 OGGループと0.95秒の13-1 OGGを作成し、`assets/sera_thruster_01_loop.ogg`／`assets/sera_thruster_13_1_acceleration.ogg` に実バイナリを追加。
+- `scripts/sera_thruster_audio.gd`: BOOST中は01を連続ループ。STEP開始・追尾加速中に13-1を同時再生、追尾／STEP終了まで01は途切れない。スラスターOFF時は01を220msで振幅フェード。`scripts/back_thruster_fx.gd` も炎を同じ時間で減衰。
+- `tools/sera_thruster_audio_runtime_check.gd`: 4.90秒ループ、加速音重ね再生、ゲームのBOOST→STEP→追尾、停止フェードを実OGGで検証。既存攻撃・移動判定は変更しない。Androidでの聴感は別途確認。
+
 ## 2026-11-18 — SERA v456: なぎ払いFXを実脚モーションから事前構築
 
 - `tools/bittaran_sweep_fx_export_runtime_check.gd` で4脚の原本なぎ払いを実際の戦闘シーン＋足元IK込みで60fps再生し、実メッシュ最下点の接触XZ座標を収集。前脚は0.75〜1.25秒、後脚は0.25〜0.75秒の範囲を13点ずつのローカル空間時刻表に圧縮。 `scripts/bittaran_sweep_fx_baked_data.gd` としてリポジトリへ保存。Androidでは追加の骨格シミュレーションは実行しない。
