@@ -1436,7 +1436,8 @@ func _advance_target_motion(delta: float) -> void:
     # substitute the v365 Idle-only recovery yaw controller here.
     var result: Dictionary = bittaran_ai.call("advance", delta,
         target.position, target.rotation.y, player.position, frozen,
-        not enough_walk_steps or need_attack_variation)
+        not enough_walk_steps or need_attack_variation,
+        need_attack_variation)
     # During physical stand-up the CHEST always turns toward SERA at the
     # stationary 34deg/s turn rate, even when Approach would normally use
     # the slower moving-turn rate. The feet stay world-planted until upright.
@@ -1631,6 +1632,11 @@ func _finalize_target_pose(delta: float) -> void:
         # first entry pose stays fixed across all transition frames.
         if bittaran_rig != null and bittaran_attack_frame.is_empty():
             bittaran_rig.call("remember_source_grounded_attack_entry")
+        # The source-IK branch previously skipped live HEAD tracking;
+        # only the legacy solver's else branch called this. Restore
+        # player-facing head yaw/pitch with its existing collision and
+        # stand-up clearance limits on every active combat frame.
+        _aim_bittaran_head(delta)
     else:
         if bittaran_foot_ik != null and target != null and target_hp > 0:
             var attack_frame: Dictionary = bittaran_attack_frame.duplicate()

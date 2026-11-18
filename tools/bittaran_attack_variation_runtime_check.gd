@@ -61,7 +61,8 @@ func _run() -> void:
             _fail("same kind repeated " + str([expected, repeat]))
             return
         var forced_walk: Dictionary = movement.call(
-            "advance", 0.10, Vector3.ZERO, 0.0, player, false, true)
+            "advance", 0.10, Vector3.ZERO, 0.0, player, false, true,
+            true)
         if str(forced_walk.get("motion", "")) != "Approach" or (
                 (forced_walk["position"] as Vector3)
                 .distance_to(Vector3.ZERO) <= 0.000001):

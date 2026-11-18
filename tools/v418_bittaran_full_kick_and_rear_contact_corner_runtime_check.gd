@@ -5,7 +5,8 @@ extends SceneTree
 ## constraint. Contact correction is owned by shared four-leg IK.
 const DT: float = 1.0 / 60.0
 const REAR_IDS: Array[String] = ["leg_rl", "leg_rr"]
-const KINDS: Array[String] = ["kick", "sweep", "stomp"]
+# Rear KICK was deliberately removed from the authored clip catalog.
+const KINDS: Array[String] = ["sweep", "stomp"]
 const MAX_ROOT_HEIGHT_DELTA: float = 0.002
 const MAX_FRONT_SOCKET_DELTA: float = 0.04
 const MIN_CORNER_CORRECTION: float = deg_to_rad(0.20)
@@ -42,7 +43,7 @@ func _run() -> void:
         return
     var completed: int = 0
     var corner_report: Array[String] = []
-    for id in ["leg_fl", "leg_fr", "leg_rl", "leg_rr"]:
+    for id in ["leg_fl", "leg_fr"]:
         for distance in [2.5, 7.8]:
             battle.call("_reset_target_after_respawn")
             battle.set("target_move_enabled", true)
@@ -169,7 +170,7 @@ func _run() -> void:
             completed += 1
     print("GODOT_V418_REAR_CORNER_REPORT: "
         + " | ".join(corner_report))
-    if completed != 14:
+    if completed != 8:
         _fail("not all near/far KICKs and rear kinds checked")
         return
     print("GODOT_V418_FULL_KICK_REAR_CORNER_PASS")

@@ -35,10 +35,15 @@ func _run() -> void:
     if legs.size() != 4:
         _fail("required four IK limbs not loaded")
         return
+    # Source Wait has a real foot-mesh underside touching the floor,
+    # whereas sole_local initially refers to the elevated IK transition
+    # reference (~0.24m above the ground). Test visible geometry.
     for leg in legs:
-        var sole: Vector3 = (leg["foot"] as Node3D).to_global(leg["sole_local"])
-        if absf(sole.y) > 0.12:
-            _fail("initial pose sole is not grounded: " + str(sole))
+        var lowest: float = float(ik.call(
+            "_source_ik_limb_lowest_world_y", leg))
+        if not is_finite(lowest) or absf(lowest) > 0.12:
+            _fail("initial visible foot geometry is not grounded: "
+                + str(lowest))
             return
     # Move the *real* boss root and yaw as the AI does; every planted foot
     # must maintain its world-space anchor rather than follow the torso.
@@ -50,11 +55,11 @@ func _run() -> void:
         if frame < 145:
             target.position.z += 0.72 * DELTA
             model.call("set_motion", "Approach", DELTA)
-            ik.call("advance_ik", DELTA, "Approach")
+            ik.call("advance_source_ground_ik", DELTA, "Approach")
         else:
             target.rotation.y += deg_to_rad(34.0) * DELTA
             model.call("set_motion", "Turn", DELTA)
-            ik.call("advance_ik", DELTA, "Turn")
+            ik.call("advance_source_ground_ik", DELTA, "Turn")
         var planted: int = int(ik.call("planted_foot_count"))
         minimum_support = mini(minimum_support, planted)
         if planted < 4:
@@ -86,7 +91,7 @@ func _run() -> void:
     target.position = Vector3(0.0, 1.53, -8.0)
     target.rotation.y = 0.0
     model.call("apply_pose", "Wait", 0.0)
-    ik.call("advance_ik", DELTA, "Idle")
+    ik.call("advance_source_ground_ik", DELTA, "Idle")
     if float(ik.call("maximum_ground_error")) > MAX_ERROR_METERS:
         _fail("scene reset left IK anchored at previous location")
         return

@@ -136,6 +136,22 @@ func _run() -> void:
     var body_dragged_frames: int = 0
     var max_body_drag: float = 0.0
     for clip in ATTACKS.keys():
+        # Each authored source probe is an independent controlled
+        # encounter. v461 mandates two full diagonal replant steps
+        # after every attack, so forcing the next clip during that
+        # previous postattack handoff is correctly rejected by the
+        # live director. Reset the BOSS/IK as a real respawn does,
+        # then replay every attack in the active battle pipeline.
+        battle.call("_reset_target_after_respawn")
+        battle.set("target_move_enabled", true)
+        battle.set("stagger_remaining", 0.0)
+        battle.set("part_break_remaining", 0.0)
+        battle.set("down_remaining", 0.0)
+        rig.call("apply_pose", "Wait", 0.0)
+        if not bool(ik.call("initialize_source_ground_ik")):
+            _fail("source-IK reset failed before " + str(clip))
+            return
+        player.global_position = target.global_position + Vector3(0, 0, 7)
         var options: Array = ATTACKS[clip]
         if not bool(director.call("force_start", options[0], options[1])):
             _fail("cannot start " + clip)

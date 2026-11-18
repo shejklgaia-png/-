@@ -102,7 +102,7 @@ func _case(battle: Node3D, legs_to_break: Array[String],
                     _fail("Turn erroneously advanced forward")
                     return false
         battle.call("_finalize_target_pose", DT)
-        var stepping_pair: int = int(ik.get("stepping_pair"))
+        var stepping_pair: int = int(ik.get("source_ik_step_pair"))
         if first_rise:
             first_rise_frame = frame
             if not bool(ik.call("down_pose_active")):

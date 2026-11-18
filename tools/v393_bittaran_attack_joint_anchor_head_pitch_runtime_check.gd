@@ -20,6 +20,13 @@ func _anchor_error(rig: Node3D) -> float:
         var node: Node3D = bones[key]
         if node.name == "Head":
             continue
+        if node.name == "Body":
+            # BODY has a genuine Blockbench translation channel
+            # (Wait +6.9 source units and sweep crouch/recovery).
+            # Its local position is animated, not an IK pivot drift.
+            # The thirteen exact source channels are independently
+            # tested by v434 and the uploaded full-sweep test.
+            continue
         error = maxf(error, node.position.distance_to(bind[key]))
     return error
 
@@ -31,6 +38,9 @@ func _check_12_attack_pivots(battle: Node3D) -> bool:
     for cycle in range(2):
         for id in BRAIN.LEG_IDS:
             for kind in BRAIN.ATTACK_KINDS:
+                if id.begins_with("leg_r") and kind == "kick":
+                    # Only the front feet have authored KICK clips.
+                    continue
                 battle.call("_reset_target_after_respawn")
                 battle.set("target_move_enabled", true)
                 if not bool(brain.call("force_start", id, kind)):

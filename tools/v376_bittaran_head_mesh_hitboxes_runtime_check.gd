@@ -120,9 +120,16 @@ func _run() -> void:
     if absf(float(boss_constants["HEAD_TRACK_STANDUP_START_FRACTION"]) - 0.70) > 0.00001:
         _fail("head movement threshold changed unexpectedly")
         return
-    if absf(float(ik.get("break_duration")) - float(
+    # No break timeline is active until a real limb is damaged.
+    # Check its programmed duration AFTER starting the real reaction,
+    # not the uninitialized template value left by setup().
+    var head_y: float = (parts.call(
+        "get_part_aim_world", "head") as Vector3).y
+    ik.call("start_leg_break_slide", "leg_fl", head_y)
+    if not bool(ik.call("windup_active")) or absf(
+            float(ik.get("break_duration")) - float(
             ik.get("break_recover_start")) - 1.0) > 0.001:
-        _fail("boss stand-up timing changed")
+        _fail("boss stand-up timing changed after real shin break")
         return
     print("GODOT_V376_BITTARAN_HEAD_MESH_PASS: HEAD compound "
         + "convex colliders match the visible authored mesh pieces, "

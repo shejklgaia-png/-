@@ -47,6 +47,11 @@ func _run() -> void:
     var cases: Array = []
     for id in ATTACKS.LEG_IDS:
         for kind in ATTACKS.ATTACK_KINDS:
+            # The newer Bittaran source has no rear KICK animation.
+            # Its absence is explicitly enforced by the attack
+            # director; test all 10 authored combinations instead.
+            if id.begins_with("leg_r") and kind == "kick":
+                continue
             cases.append([id, kind])
     var completed: int = 0
     for round in range(2):
@@ -117,10 +122,10 @@ func _run() -> void:
                     _fail(id + "/" + kind + " left a planted sole at y="
                         + str(sole.y))
                     return
-    if completed != 24:
-        _fail("expected 24 completed attacks, got " + str(completed))
+    if completed != cases.size() * 2:
+        _fail("expected 20 completed legal attacks, got " + str(completed))
         return
-    print("GODOT_V399_BITTARAN_BODY_HEIGHT_PASS: 24 back-to-back "
+    print("GODOT_V399_BITTARAN_BODY_HEIGHT_PASS: 20 back-to-back "
         + "attacks, rig height / persistent ground correction / "
         + "planted soles return to neutral after every attack")
     quit(0)

@@ -119,7 +119,7 @@ func _check_break(battle: Node3D, id: String,
             elapsed_windup += DT
         if down_now:
             down_seen = true
-            var pair: int = int(ik.get("stepping_pair"))
+            var pair: int = int(ik.get("source_ik_step_pair"))
             if pair != -1:
                 _fail(id + ": foot attempted catching up while still down")
                 return false
@@ -141,17 +141,17 @@ func _check_break(battle: Node3D, id: String,
                     _fail(id + ": changed 1.0s/1.3s stand-up mid-encounter")
                     return false
             post_rise_frames += 1
-            if int(ik.get("stepping_pair")) >= 0:
+            if int(ik.get("source_ik_step_pair")) >= 0:
                 foot_started_after_rise = true
                 if first_pair < 0:
-                    first_pair = int(ik.get("stepping_pair"))
-                elif first_pair != int(ik.get("stepping_pair")):
+                    first_pair = int(ik.get("source_ik_step_pair"))
+                elif first_pair != int(ik.get("source_ik_step_pair")):
                     stepped_past_second_pair = true
                 for leg in ik.get("legs"):
                     if not bool(leg["stepping"]):
                         continue
                     var expected: Vector3 = ik.call(
-                        "_home", leg, chosen == "Approach")
+                        "_source_ik_home", leg)
                     var touchdown: Vector3 = leg["swing_to"]
                     if expected.distance_to(touchdown) > 0.0002:
                         _fail(id + ": landing target stopped tracking chassis")

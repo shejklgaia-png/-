@@ -6,10 +6,10 @@ extends SceneTree
 const BATTLE = preload("res://scripts/bittaran_battle.gd")
 const DT: float = 1.0 / 60.0
 const SOURCE_CLIPS: Dictionary = {
-    "なぎ払い": ["leg_fl", "sweep", 1.50],
+    "なぎ払い": ["leg_fl", "sweep", 2.625],
     "弾き": ["leg_fl", "kick", 1.00],
     "踏みつけ_L": ["leg_fl", "stomp", 1.75],
-    "なぎ払い_R": ["leg_fr", "sweep", 1.50],
+    "なぎ払い_R": ["leg_fr", "sweep", 2.625],
     "弾き_R": ["leg_fr", "kick", 1.00],
     "踏みつけ_R": ["leg_fr", "stomp", 1.75]
 }
@@ -213,12 +213,21 @@ func _run() -> void:
                     return
             for uid in mesh_nodes.keys():
                 var piece: MeshInstance3D = mesh_nodes[uid]
+                # Quaternion.angle_to can return ~0.0007rad even
+                # for identical float quaternions near the 0.0001rad
+                # threshold. Compare shortest quaternion CHORD distance
+                # instead to avoid false mesh-detachment diagnostics.
+                var initial_q: Quaternion = (
+                    mesh_local_rotations[uid] as Quaternion).normalized()
+                var actual_q: Quaternion = piece.quaternion.normalized()
+                var chord: float = minf(
+                    (actual_q - initial_q).length(),
+                    (actual_q + initial_q).length())
                 if piece.position.distance_to(
                         mesh_local_positions[uid]) > 0.00001 or (
-                        piece.quaternion.angle_to(
-                        mesh_local_rotations[uid]) > 0.0001):
+                        chord > 2.0 * sin(0.0001 * 0.25)):
                     _fail("individual mesh detached from skeleton " +
-                        str([name, source_t, piece.name]))
+                        str([name, source_t, piece.name, chord]))
                     return
             sample_count += 1
     if sample_count != 366 or verified_extrema != sample_count or (

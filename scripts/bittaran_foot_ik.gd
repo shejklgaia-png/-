@@ -1749,6 +1749,15 @@ func start_leg_break_slide(id: String, head_world_y: float,
     post_down_idle_remaining = 0.0
     recovery_gait_started = false
     recovery_catchup_pending_pair = -1
+    if source_ik_enabled:
+        # The current source-gait pair must STOP the moment a shin
+        # breaks; otherwise one diagonal can remain flagged as airborne
+        # through the entire collapse, then never start upright catchup.
+        source_ik_step_pair = -1
+        source_ik_step_elapsed = 0.0
+        source_ik_replant_id = ""
+        source_ik_postattack_active = false
+        source_ik_postattack_hold = false
     # A new collapse invalidates ALL previous avoidance goals; otherwise
     # the knees can snap back into the last standing turn on recovery.
     head_knee_scan_elapsed = HEAD_KNEE_SCAN_SECONDS
@@ -3281,6 +3290,23 @@ func initialize_source_ground_ik() -> bool:
         sole.y = FLOOR_Y
         var rotation: Quaternion = (
             foot.global_basis.get_rotation_quaternion())
+        # Fixed-root calibration plants only the LOWEST of the four
+        # original meshes. The other Wait toes can hover ~24cm above
+        # Y=0 because their authored rests differ. Ground each foot
+        # independently with the real 2-link skeleton ONCE during
+        # setup, preserving its mesh, pivots and anatomical lengths.
+        var bottom: float = _source_ik_limb_lowest_world_y(limb)
+        if is_finite(bottom) and absf(bottom - FLOOR_Y) > 0.0001:
+            var corrected: Vector3 = foot.to_global(
+                limb["source_sole_local"] as Vector3)
+            corrected.y += clampf(
+                FLOOR_Y - bottom, -0.30, 0.30)
+            _source_ik_solve_striker(limb, corrected, rotation)
+            sole = foot.to_global(
+                limb["source_sole_local"] as Vector3)
+            sole.y = FLOOR_Y
+            rotation = (
+                foot.global_basis.get_rotation_quaternion())
         # Preserve the actual Blockbench initial pose, then smoothly
         # pivot the long toe down and change contact from sole to its
         # short distal face, without detaching any mesh or joint.
@@ -3375,7 +3401,11 @@ func _source_ik_advance_locomotion(delta: float, motion: String) -> void:
                 limb, _rotation_home(limb))
             limb["source_ik_toe_down_alpha"] = 1.0
             limb["sole_local"] = limb["stomp_tip_local"]
-    var can_step: bool = (motion == "Approach" or motion == "Turn")
+    # While physically collapsed/standing, the chest may yaw, but the
+    # supporting toes must stay planted; the normal gait resumes once
+    # the neutral stand-up settle has actually completed.
+    var can_step: bool = (motion == "Approach" or motion == "Turn") and (
+        not break_reaction_active())
     var postattack_handoff_seconds: float = (
         SOURCE_POSTATTACK_GAIT_BLEND_SECONDS
         / BittaranAttackTimings.source_return_speed())
@@ -3414,7 +3444,22 @@ func _source_ik_advance_locomotion(delta: float, motion: String) -> void:
                 var distance: float = anchored.distance_to(
                     _source_ik_home(limb))
                 errors[pair_index] = maxf(errors[pair_index], distance)
-        if maxf(errors[0], errors[1]) > SOURCE_STEP_TRIGGER_METERS:
+        if not recovery_gait_started and (
+                post_down_idle_remaining > 0.0):
+            # First fully upright frame: immediately reposition the
+            # most displaced planted diagonal. Walking/turning during
+            # the physical rise leaves the original soles behind.
+            var first_pair: int = 0 if errors[0] >= errors[1] else 1
+            _source_ik_begin_pair(first_pair)
+            recovery_catchup_pending_pair = 1 - first_pair
+            recovery_gait_started = true
+        elif recovery_catchup_pending_pair >= 0:
+            # Always land BOTH diagonals after a knockdown. This is a
+            # genuine articulated footstep even when the second pair
+            # is within the ordinary distance-trigger threshold.
+            _source_ik_begin_pair(recovery_catchup_pending_pair)
+            recovery_catchup_pending_pair = -1
+        elif maxf(errors[0], errors[1]) > SOURCE_STEP_TRIGGER_METERS:
             var pick: int = source_ik_next_pair
             if errors[1 - pick] > errors[pick] + 0.20:
                 pick = 1 - pick
@@ -3451,6 +3496,10 @@ func _source_ik_advance_locomotion(delta: float, motion: String) -> void:
                 LEG_PAIRS[source_ik_step_pair].has(index)):
             var start: Vector3 = limb["swing_from"]
             var destination: Vector3 = _source_ik_home(limb)
+            # Retarget the real landing location as the torso turns or
+            # advances during recovery; do not land on a stale pose
+            # captured at the beginning of the 0.52s airborne arc.
+            limb["swing_to"] = destination
             goal = start.lerp(destination, eased)
             var lift_height: float = (
                 SOURCE_POSTATTACK_STEP_HEIGHT_METERS
@@ -4074,47 +4123,27 @@ func _source_ik_advance_attack(frame: Dictionary) -> void:
         var neutral_lower: Quaternion = support_lower.quaternion
         var neutral_foot: Quaternion = foot.quaternion
         if support_wait_weight >= 1.0 - 0.000001:
-            if bool(frame.get("authored_full_sweep", false)):
-                # At the end of the short clip-to-Idle bridge, the
-                # support tip must remain at its world-fixed anchor.
-                # Source Wait angles alone can shift it >30cm below
-                # ground. Re-solve the two real joints without moving
-                # the authored BODY, mesh offsets, or bone pivots.
-                var fixed_goal: Vector3 = limb["source_ik_attack_anchor"]
-                fixed_goal.y = FLOOR_Y
-                var desired: Quaternion = (
-                    foot.global_basis.get_rotation_quaternion())
-                var pinned_error: float = _source_ik_solve_striker(
-                    limb, fixed_goal, desired, limb["sole_local"],
-                    limb.get("source_ik_support_knee_hint", Vector3.INF))
-                limb["last_error"] = pinned_error
-                limb["last_goal"] = foot.to_global(
-                    limb["sole_local"] as Vector3)
-                limb["last_rotation"] = desired
-                limb["last_knee"] = support_lower.global_position
-                limb["last_foot"] = foot.global_position
-                limb["anchor"] = fixed_goal
-                limb["anchor_rotation"] = desired
-                continue
-            # At t=1 leave all three joints at their exact authored
-            # Wait quaternion; the prior frames converged smoothly.
+            # All authored attacks need the support tips to remain
+            # world-planted at the terminal Wait handoff. Previously
+            # only the revised SWEEP fixed the original KICK's
+            # 10cm underground toe after the Wait-angle blend.
+            # Re-solve the two real joints without moving BODY,
+            # meshes or pivots.
+            var fixed_goal: Vector3 = limb["source_ik_attack_anchor"]
+            fixed_goal.y = FLOOR_Y
+            var desired: Quaternion = (
+                foot.global_basis.get_rotation_quaternion())
+            var pinned_error: float = _source_ik_solve_striker(
+                limb, fixed_goal, desired, limb["sole_local"],
+                limb.get("source_ik_support_knee_hint", Vector3.INF))
+            limb["last_error"] = pinned_error
             limb["last_goal"] = foot.to_global(
                 limb["sole_local"] as Vector3)
-            limb["last_rotation"] = (
-                foot.global_basis.get_rotation_quaternion())
+            limb["last_rotation"] = desired
             limb["last_knee"] = support_lower.global_position
             limb["last_foot"] = foot.global_position
-            _source_ik_settle_visible_foot(limb, 1.0)
-            limb["last_goal"] = foot.to_global(
-                limb["sole_local"] as Vector3)
-            limb["last_rotation"] = (
-                foot.global_basis.get_rotation_quaternion())
-            limb["last_knee"] = support_lower.global_position
-            limb["last_foot"] = foot.global_position
-            limb["anchor"] = _source_ik_home(limb)
-            limb["anchor_rotation"] = (
-                _source_ik_toe_down_rotation(
-                    limb, _rotation_home(limb)))
+            limb["anchor"] = fixed_goal
+            limb["anchor_rotation"] = desired
             continue
         var goal: Vector3 = limb["source_ik_attack_anchor"]
         goal.y = FLOOR_Y
@@ -4134,18 +4163,14 @@ func _source_ik_advance_attack(frame: Dictionary) -> void:
                 neutral_lower, support_wait_weight).normalized()
             foot.quaternion = foot.quaternion.slerp(
                 neutral_foot, support_wait_weight).normalized()
-            if bool(frame.get("authored_full_sweep", false)):
-                # The old Wait-angle blend detaches support feet from
-                # their contact despite the first IK solve succeeding
-                # (v435: 38.6cm below floor with last_error ~0).
-                # Re-pin after the authored neutral blend using the
-                # current toe orientation and actual skeletal lengths.
-                error = _source_ik_solve_striker(
-                    limb, goal, foot.global_basis.get_rotation_quaternion(),
-                    limb["sole_local"], support_lower.global_position)
-            else:
-                _source_ik_settle_visible_foot(
-                    limb, support_wait_weight)
+            # The old Wait-angle blend detaches support feet for all
+            # KICK/STOMP/SWEEP source clips (v435 observed 10.4cm
+            # sink on KICK despite a near-zero pre-blend IK error).
+            # Re-pin after each neutral blend using current toe
+            # orientation and anatomical skeletal lengths.
+            error = _source_ik_solve_striker(
+                limb, goal, foot.global_basis.get_rotation_quaternion(),
+                limb["sole_local"], support_lower.global_position)
         # Cache the FINAL displayed bones, not the pre-blend IK knee.
         limb["source_ik_support_knee_hint"] = (
             support_lower.global_position)
@@ -4191,6 +4216,21 @@ func advance_source_ground_ik(delta: float, motion: String,
         frame: Dictionary = {}) -> void:
     if not source_ik_enabled:
         return
+    # Real boss combat uses source-ground IK, not legacy advance_ik().
+    # Previously the break/stand-up timer was advanced ONLY in advance_ik,
+    # so destroying a leg left the boss down indefinitely (v362-v376).
+    # Keep both solvers on the SAME physical break/recovery timeline.
+    if break_reaction_active():
+        _advance_leg_break(delta)
+    elif post_down_idle_remaining > 0.0 and head_support_leg_index < 0:
+        var parent_scale: float = maxf(
+            absf(actor.get_parent().global_basis.get_scale().y), 0.001)
+        var expected_y: float = (rest_actor_local_y
+            + ground_correction_world / parent_scale)
+        if absf(actor.position.y - expected_y) * parent_scale <= (
+                POST_DOWN_UPRIGHT_TOLERANCE_WORLD_METERS):
+            post_down_idle_remaining = maxf(0.0,
+                post_down_idle_remaining - maxf(delta, 0.0))
     if bool(frame.get("original_attack_only", false)):
         _source_ik_advance_attack(frame)
         return
