@@ -109,7 +109,9 @@ func update_audio(delta: float, exhaust_visible: bool,
         if load_retry_elapsed >= LOAD_RETRY_SECONDS:
             load_retry_elapsed = 0.0
             _refresh_streams()
-        if not sound_ready:
+        # Do not mute an already available 01 just because 13-1 has
+        # not yet arrived in the GitSync download (or vice versa).
+        if sustained.stream == null and acceleration.stream == null:
             return
     var target: float = 1.0 if exhaust_visible else 0.0
     var duration: float = (
@@ -119,7 +121,8 @@ func update_audio(delta: float, exhaust_visible: bool,
     sustained_gain = move_toward(
         sustained_gain, target,
         maxf(delta, 0.0) / maxf(duration, 0.001))
-    if exhaust_visible and not sustained.playing:
+    if exhaust_visible and sustained.stream != null and (
+            not sustained.playing):
         sustained.volume_db = SILENT_DB
         sustained.play()
         sustained_starts += 1
@@ -134,7 +137,8 @@ func update_audio(delta: float, exhaust_visible: bool,
     # STEP onset / melee target chase / bash tracking / follow-up lunge:
     # use the SAME existing gameplay acceleration edge as nozzle FX.
     # BOOST alone has no artificial launch pulse: only the steady 01.
-    if acceleration_burst and exhaust_visible:
+    if acceleration_burst and exhaust_visible and (
+            acceleration.stream != null):
         acceleration.play()
         acceleration_triggers += 1
 
