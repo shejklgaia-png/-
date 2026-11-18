@@ -16,7 +16,7 @@ const STOP_DISTANCE_METERS: float = 5.85
 const RESUME_DISTANCE_METERS: float = 6.40
 # v464: while the 3 completed walk steps are outstanding,
 # move rather than stand still at the former 7.8m stop radius.
-# Close = backstep, middle = sidestep around SERA, far = advance.
+# Close = orbit within 3m STOMP range, middle = sidestep, far = advance.
 const WALK_RETREAT_DISTANCE_METERS: float = 3.35
 const WALK_ORBIT_DISTANCE_METERS: float = 5.95
 const FACING_TOLERANCE_DEGREES: float = 5.0
@@ -107,7 +107,7 @@ func advance(delta: float, position: Vector3, yaw: float,
             # teleport or a forced clip outside its hit range.
             match last_attack_kind:
                 "sweep":
-                    # Approach until KICK (front 3-5m) or STOMP (<3m).
+                    # Approach until KICK (front 3.75-5.15m) or STOMP (<=3m).
                     direction = toward.normalized()
                 "kick", "stomp":
                     # Withdraw until SWEEP or KICK becomes legal.
@@ -116,11 +116,11 @@ func advance(delta: float, position: Vector3, yaw: float,
                     # Compatibility for generic movement requests.
                     var radial: Vector3 = toward.normalized()
                     direction = Vector3(-radial.z, 0.0, radial.x)
-        elif distance <= 2.85:
-            # v452: preserve STOMP range during the mandatory FIRST
+        elif distance <= 3.00:
+            # v452/v453: preserve STOMP range during the mandatory FIRST
             # three steps. Blindly backstepping from a close SERA
             # pushed Bittaran to ~3.35m before its first decision;
-            # the only legal close attack was then always KICK.
+            # STOMP was lost and medium-range moves took over.
             # Circle the player at the CURRENT radius instead of
             # translating away; the actual diagonal gait still
             # completes 3 steps and the true toe decides impact.

@@ -69,8 +69,10 @@ const BETWEEN_ATTACKS_SECONDS: float = 1.35
 # The STOMP is a close, all-side toe slam, KICK is a frontal thrust;
 # the four-leg SWEEP covers mid/far and lateral/rear flanks. Every
 # selection is also validated against the actual available foot.
-const STOMP_RANGE_METERS: float = 2.85
-const KICK_MIN_RANGE_METERS: float = 2.65
+const STOMP_RANGE_METERS: float = 3.00
+# v453: reserve KICK for a genuinely separated forward midrange target.
+# The short-to-mid gap belongs to grounded SWEEP, not close-range KICK.
+const KICK_MIN_RANGE_METERS: float = 3.75
 const KICK_RANGE_METERS: float = 5.15
 const KICK_HALF_ANGLE_DEGREES: float = 38.0
 const SWEEP_MIN_RANGE_METERS: float = 2.70
