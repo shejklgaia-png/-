@@ -354,3 +354,4 @@ gd tools/v436_bittaran_attack_timing_runtime_check.gd
 gd tools/v438_bittaran_boot_runtime_check.gd
 gd tools/v440_bittaran_flat_floor_chain_runtime_check.gd
 gd tools/v447_bittaran_toe_drag_reach_check.gd
+gd tools/v448_bittaran_stomp_gray_tempo_runtime_check.gd

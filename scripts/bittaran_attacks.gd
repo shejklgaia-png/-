@@ -17,6 +17,21 @@ const TEST_PARALLEL_BODY_LEG_RETURN: bool = true
 const TEST_ANTICIPATION_SPEED: float = 1.10
 const TEST_HOME_RETURN_SPEED: float = 1.25
 const TEST_NO_STOP_SECONDS: float = 0.0
+# v448: retime the original STOMP keys separately for front and rear legs.
+# The actual first apex is t=1.00(front) / t=.50(rear).
+# Identical held keys continue to 1.25/.83333; skip that inert plateau.
+const STOMP_FRONT_APEX_SOURCE_SECONDS: float = 1.00
+const STOMP_REAR_APEX_SOURCE_SECONDS: float = 0.50
+const STOMP_FRONT_DROP_START_SOURCE_SECONDS: float = 1.25
+const STOMP_REAR_DROP_START_SOURCE_SECONDS: float = 0.83333
+const STOMP_FRONT_LANDING_SOURCE_SECONDS: float = 1.50
+const STOMP_REAR_LANDING_SOURCE_SECONDS: float = 1.00
+const STOMP_FRONT_RAISE_SECONDS: float = 0.80
+const STOMP_REAR_RAISE_SECONDS: float = 0.50
+const STOMP_FRONT_DROP_SECONDS: float = 0.23
+const STOMP_REAR_DROP_SECONDS: float = 0.18
+# Keep the grounded contact pose completely motionless for a readable beat.
+const STOMP_CONTACT_STOP_SECONDS: float = 0.09
 const SOURCE_ENTRY_SECONDS: float = 0.32
 # Sweep-only windup: wait pose -> original outward stroke begins at t=1s.
 const SWEEP_ENTRY_SECONDS: float = 1.00
@@ -93,6 +108,7 @@ var hit_consumed: bool = false
 var preparing_stance: bool = false
 var stomp_aim: Vector3 = Vector3.ZERO
 var stomp_aim_valid: bool = false
+var stomp_landed_clip_time: float = -1.0
 
 func reset() -> void:
     kind = ""
@@ -106,6 +122,7 @@ func reset() -> void:
     hit_consumed = false
     preparing_stance = false
     stomp_aim_valid = false
+    stomp_landed_clip_time = -1.0
 
 func cancel() -> void:
     kind = ""
@@ -116,6 +133,7 @@ func cancel() -> void:
     hit_consumed = false
     preparing_stance = false
     stomp_aim_valid = false
+    stomp_landed_clip_time = -1.0
 
 func is_active() -> bool:
     return not kind.is_empty()
@@ -162,6 +180,7 @@ func _start(id: String, attack_kind: String,
     elapsed = 0.0
     hit_consumed = false
     stomp_aim_valid = false
+    stomp_landed_clip_time = -1.0
     preparing_stance = with_stance_preparation
 
 
@@ -299,8 +318,88 @@ static func source_clip_length(attack_kind: String,
     return float(ORIGINAL_CLIP_LENGTHS.get(attack_kind, 0.0))
 
 
+## A fast ease-out reaches the true authored apex with zero speed.
+## A slow-start, accelerating drop reaches the last physical contact key.
+## The unused front source tail (1.50..1.75) is stationary.
+static func stomp_apex_source_seconds(attack_id: String) -> float:
+    return (STOMP_REAR_APEX_SOURCE_SECONDS if attack_id.begins_with("leg_r")
+        else STOMP_FRONT_APEX_SOURCE_SECONDS)
+
+
+static func stomp_drop_start_source_seconds(attack_id: String) -> float:
+    return (STOMP_REAR_DROP_START_SOURCE_SECONDS
+        if attack_id.begins_with("leg_r")
+        else STOMP_FRONT_DROP_START_SOURCE_SECONDS)
+
+
+static func stomp_landing_source_seconds(attack_id: String) -> float:
+    return (STOMP_REAR_LANDING_SOURCE_SECONDS if attack_id.begins_with("leg_r")
+        else STOMP_FRONT_LANDING_SOURCE_SECONDS)
+
+
+static func stomp_raise_seconds(attack_id: String) -> float:
+    return (STOMP_REAR_RAISE_SECONDS if attack_id.begins_with("leg_r")
+        else STOMP_FRONT_RAISE_SECONDS)
+
+
+static func stomp_drop_seconds(attack_id: String) -> float:
+    return (STOMP_REAR_DROP_SECONDS if attack_id.begins_with("leg_r")
+        else STOMP_FRONT_DROP_SECONDS)
+
+
+static func stomp_warped_clip_time(seconds: float,
+        attack_id: String = "") -> float:
+    var lift: float = stomp_raise_seconds(attack_id)
+    var drop: float = stomp_drop_seconds(attack_id)
+    var apex: float = stomp_apex_source_seconds(attack_id)
+    var landing: float = stomp_landing_source_seconds(attack_id)
+    var t: float = clampf(seconds, 0.0, lift + drop)
+    if t <= lift:
+        var u: float = t / lift
+        return apex * (1.0 - (1.0 - u) * (1.0 - u))
+    var u: float = clampf((t - lift) / drop, 0.0, 1.0)
+    # Source keys between apex and drop-start are byte-identical;
+    # skipping this static hold produces no visible pose discontinuity.
+    var drop_start: float = stomp_drop_start_source_seconds(attack_id)
+    return drop_start + (landing - drop_start) * pow(u, 2.4)
+
+
+static func stomp_warped_playback_speed(seconds: float,
+        attack_id: String = "") -> float:
+    var lift: float = stomp_raise_seconds(attack_id)
+    var drop: float = stomp_drop_seconds(attack_id)
+    var t: float = maxf(seconds, 0.0)
+    if t < lift:
+        return (2.0 * stomp_apex_source_seconds(attack_id)
+            / lift * (1.0 - t / lift))
+    if t < lift + drop:
+        var u: float = clampf((t - lift) / drop, 0.0, 1.0)
+        return ((stomp_landing_source_seconds(attack_id)
+            - stomp_drop_start_source_seconds(attack_id))
+            * 2.4 * pow(u, 1.4) / drop)
+    return 0.0
+
+
+## The battle controller calls this only on actual descending foot contact.
+## A latched source timestamp holds the foot perfectly still until recovery.
+func register_stomp_contact(attack_id: String,
+        clip_seconds: float) -> bool:
+    if kind != "stomp" or leg_id != attack_id or (
+            stomp_landed_clip_time >= 0.0):
+        return false
+    var apex: float = stomp_apex_source_seconds(attack_id)
+    if clip_seconds <= apex:
+        return false
+    stomp_landed_clip_time = clampf(clip_seconds, apex,
+        stomp_landing_source_seconds(attack_id))
+    return true
+
+
 static func source_play_seconds(attack_kind: String,
         attack_id: String = "") -> float:
+    if attack_kind == "stomp":
+        return (stomp_raise_seconds(attack_id)
+            + stomp_drop_seconds(attack_id))
     var length: float = source_clip_length(attack_kind, attack_id)
     var original: float = length
     if attack_kind == "sweep":
@@ -313,6 +412,8 @@ static func source_play_seconds(attack_kind: String,
 
 
 static func source_hold_seconds(attack_kind: String) -> float:
+    if attack_kind == "stomp":
+        return STOMP_CONTACT_STOP_SECONDS
     if TIMING_TEST_ENABLED:
         return TEST_NO_STOP_SECONDS
     if attack_kind == "sweep":
@@ -353,6 +454,8 @@ static func source_clip_time(attack_kind: String,
     var play_t: float = clampf(real_attack_seconds, 0.0,
         source_play_seconds(attack_kind, attack_id))
     var length: float = source_clip_length(attack_kind, attack_id)
+    if attack_kind == "stomp":
+        return stomp_warped_clip_time(play_t, attack_id)
     if TIMING_TEST_ENABLED:
         var windup: float = source_original_windup_play_seconds(
             attack_kind, attack_id)
@@ -373,6 +476,8 @@ static func source_clip_time(attack_kind: String,
 
 static func source_playback_speed(attack_kind: String,
         play_t: float, attack_id: String = "") -> float:
+    if attack_kind == "stomp":
+        return stomp_warped_playback_speed(play_t, attack_id)
     var source_t: float = play_t
     if TIMING_TEST_ENABLED:
         var windup: float = source_original_windup_play_seconds(
@@ -455,6 +560,9 @@ func _advance_original_only(delta: float, player_position: Vector3,
         phase_elapsed = elapsed - entry_end
         clip_time = source_clip_time(kind, phase_elapsed, leg_id)
         speed = source_playback_speed(kind, phase_elapsed, leg_id)
+    if kind == "stomp" and stomp_landed_clip_time >= 0.0:
+        clip_time = stomp_landed_clip_time
+        speed = 0.0
     var frame: Dictionary = {
         "id": leg_id, "kind": kind,
         "original_attack_only": true,

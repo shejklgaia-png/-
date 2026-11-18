@@ -1695,11 +1695,22 @@ func _finalize_target_pose(delta: float) -> void:
                         ["strike", "hold"].has(phase)
                         or first_recovery_contact) and (
                         float(bittaran_attack_frame.get(
-                        "authored_time", 0.0)) >= (
-                        0.93 if leg_id.begins_with("leg_r") else 1.50)):
-                    # The old particles/ring/thud/shake require actual
-                    # floor contact on the descending authored foot.
+                        "authored_time", 0.0)) > (
+                        BittaranAttacks.stomp_apex_source_seconds(
+                        leg_id) + 0.001)):
+                    # Fire at the first physical ground contact on the
+                    # descending stroke, not at a delayed timer threshold.
+                    # Latch the exact source pose so the toe cannot keep
+                    # driving into the floor after the hit.
                     bittaran_dirt_fx.set("stomped_this_attack", true)
+                    if bittaran_attacks != null and bool(
+                            bittaran_attacks.call("register_stomp_contact",
+                            leg_id, float(bittaran_attack_frame.get(
+                            "authored_time", 0.0)))):
+                        bittaran_attack_frame["authored_time"] = float(
+                            bittaran_attacks.get("stomp_landed_clip_time"))
+                        bittaran_attack_frame[
+                            "authored_playback_speed"] = 0.0
                     if target_parts != null:
                         _emit_bittaran_shockwave(contact,
                             _bittaran_stomp_ground_half_extents(leg_id))
