@@ -10,10 +10,69 @@ func _fail(s: String) -> void:
     push_error("SOURCE_CONTACT_TIMELINE_FAIL " + s)
     quit(1)
 
+func _verify_stomp_footprint_hit(leg_id: String,
+        landing: Vector3) -> bool:
+    # Rebuild the same strike with the SAME entry-time target (18m).
+    # Once the authored aim locks, move SERA directly under the
+    # previously measured REAL landing foot, before the downward hit.
+    # This tests actual gameplay damage, not manually calling the
+    # footprint damage helper or inventing a broad shockwave.
+    var live: Node3D = load(
+        "res://scenes/bittaran_battle.tscn").instantiate()
+    root.add_child(live)
+    live.set_process(false)
+    live.set_physics_process(false)
+    live.set("player_hp", 9999.0)
+    var body: Node3D = live.get("target")
+    var player: CharacterBody3D = live.get("player")
+    var attacks: RefCounted = live.get("bittaran_attacks")
+    var fx: Node3D = live.get("bittaran_dirt_fx")
+    if body == null or player == null or attacks == null or fx == null:
+        _fail("wet stomp scenario could not initialize " + leg_id)
+        return false
+    player.global_position = body.global_position + Vector3(0, 0, 18)
+    if not bool(attacks.call("force_start", leg_id, "stomp")):
+        _fail("cannot start wet stomp " + leg_id)
+        return false
+    var hp_dropped: bool = false
+    var contact_count: int = 0
+    var old_pulse: bool = false
+    var pulse_time: float = INF
+    for tick in range(360):
+        live.call("_advance_target_motion", DT)
+        var frame: Dictionary = live.get("bittaran_attack_frame")
+        if frame.is_empty():
+            break
+        var t: float = float(frame.get("authored_time", 0.0))
+        if t > (1.32 if leg_id.begins_with("leg_f") else 0.86):
+            player.global_position = Vector3(
+                landing.x, 0.0, landing.z)
+        live.call("_finalize_target_pose", DT)
+        if float(live.get("player_hp")) < 9999.0:
+            hp_dropped = true
+        var pulse: bool = bool(fx.get("stomped_this_attack"))
+        if pulse and not old_pulse:
+            contact_count += 1
+            pulse_time = t
+        old_pulse = pulse
+    print("STOMP_WET_CONTACT id=", leg_id,
+        " expected_impact=", landing,
+        " pulse_count=", contact_count,
+        " pulse_t=", pulse_time,
+        " player_damaged=", hp_dropped)
+    live.queue_free()
+    if not hp_dropped or contact_count != 1:
+        _fail("real STOMP landing does not damage SERA once " +
+            str([leg_id, contact_count, pulse_time, landing]))
+        return false
+    return true
+
+
 func _run() -> void:
     for spec in [
             ["leg_fl", "sweep"], ["leg_rl", "sweep"],
-            ["leg_fl", "stomp"], ["leg_rl", "stomp"]]:
+            ["leg_fl", "stomp"], ["leg_fr", "stomp"],
+            ["leg_rl", "stomp"], ["leg_rr", "stomp"]]:
         var b: Node3D = load(
             "res://scenes/bittaran_battle.tscn").instantiate()
         root.add_child(b)
@@ -37,6 +96,7 @@ func _run() -> void:
         var prev_band: int = -1
         var first_ground: float = INF
         var first_stomp: float = INF
+        var actual_impact_point: Vector3 = Vector3.INF
         var impact_pulses: int = 0
         var was_stomped: bool = false
         for i in range(350):
@@ -66,6 +126,7 @@ func _run() -> void:
                     return
                 if first_stomp == INF:
                     first_stomp = t
+                    actual_impact_point = pos
             was_stomped = stomped_now
             var band: int = int(floor(t * 10.0 + 0.0001))
             if band != prev_band:
@@ -88,6 +149,9 @@ func _run() -> void:
                     absf(first_stomp - target_key) > 0.075):
                 _fail("single first-touch stomp event not replayed " +
                     str([spec,impact_pulses,first_stomp,target_key]))
+                return
+            if not _verify_stomp_footprint_hit(
+                    leg_id, actual_impact_point):
                 return
         print("CONTACT_SUMMARY id=",leg_id," kind=",kind,
             " first_ground=",first_ground,
