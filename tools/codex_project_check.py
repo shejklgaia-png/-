@@ -31,8 +31,7 @@ verify("Codex AGENTS instructions exist", (ROOT / "AGENTS.md").is_file())
 verify("Git cache exclusions exist", (ROOT / ".gitignore").is_file())
 
 project = (ROOT / "project.godot").read_text(encoding="utf-8")
-# The current SERA build intentionally boots into the Bittaran battle.
-# Both the battle and original launch menu are supported entry points.
+# Both main scenes are valid: active Bittaran arena or selectable menu.
 startup_scenes = [
     line.split('"')[1]
     for line in project.splitlines()
@@ -46,86 +45,6 @@ verify("startup scene path configured",
 verify("configured startup scene exists",
        len(startup_scenes) == 1 and
        (ROOT / startup_scenes[0].removeprefix("res://")).is_file())
-verify("startup scene exists", (ROOT / "scenes/launch_menu.tscn").is_file())
-verify("startup script exists", (ROOT / "scripts/launch_menu.gd").is_file())
-verify("command nexus scene exists", (ROOT / "scenes/command_nexus.tscn").is_file())
-verify("command nexus script exists", (ROOT / "scripts/command_nexus.gd").is_file())
-
-src = (ROOT / "assets/sera_source.json").read_bytes()
-try:
-    model = json.loads(src)
-except (ValueError, UnicodeDecodeError) as exc:
-    print(f"FAIL: invalid Sera JSON: {exc}")
-    sys.exit(1)
-# New equipment pivots and meshes may be appended without replacing A's 22 bones.
-# The v276 asset regression separately verifies exact Katana additions.
-verify("model retains 22 A bones", len([
-    g for g in model.get("groups", []) if not g.get("name", "").startswith("Katana")
-]) == 22)
-verify("model retains base 25 meshes", len(model.get("elements", [])) >= 25)
-anims = {a.get("name") for a in model.get("animations", [])}
-for clip in ("Wait_motion", "run_front_original", "Step_R", "Step_L", "Backstep", "Guard", "Melee2", "Melee3"):
-    verify(f"required animation exists: {clip}", clip in anims)
-verify("Guard has exactly one clip", sum(a.get("name") == "Guard" for a in model.get("animations", [])) == 1)
-
-embedded = (ROOT / "assets/sera_data.gd").read_text(encoding="utf-8")
-parts = re.findall(r'^\s+"([A-Za-z0-9+/=]+)",?$', embedded, re.MULTILINE)
-try:
-    decoded = base64.b64decode("".join(parts), validate=True) if parts else b""
-except ValueError:
-    decoded = b""
-verify("embedded Godot model equals source JSON bytes", bool(parts) and decoded == src)
-
-# Only inspect explicit resource strings for this SERA Godot project.
-# Other standalone Godot projects may coexist in subfolders (e.g. an
-# Android-synced racing prototype). Their res:// paths start at their own
-# project.godot, NOT at SERA's repository root. Never flag those paths as
-# missing SERA resources, and never change/delete the other project.
-nested_project_roots = tuple(sorted({
-    file.parent for file in ROOT.rglob("project.godot")
-    if file.parent != ROOT and ".godot" not in file.parts
-}))
-references: set[tuple[str, str]] = set()
-for ext in ("*.gd", "*.tscn", "*.tres", "*.gdshader", "*.godot"):
-    for file in ROOT.rglob(ext):
-        if ".godot" in file.parts or any(
-                project_root in file.parents for project_root in nested_project_roots):
-            continue
-        data = file.read_text(encoding="utf-8")
-        for path in re.findall(r"[\"'](res://[^\"'\r\n]+)[\"']", data):
-            if any(s in path for s in ("%", "{", "}", "$")):
-                continue  # constructed at runtime
-            references.add((str(file.relative_to(ROOT)), path))
-# Optional content is allowed only when an explicitly guarded asset has a
-# complete, committed runtime fallback. All other res:// literals stay required.
-optional_audio = ("scripts/stage_bgm.gd", "res://BGM/dennou_sector_seamless.ogg")
-for owner, uri in sorted(references):
-    target = ROOT / uri[len("res://"):]
-    if (owner, uri) == optional_audio and not target.is_file():
-        controller = (ROOT / owner).read_text(encoding="utf-8")
-        guarded = all(term in controller for term in (
-            'if FileAccess.file_exists(SECTOR_PATH):',
-            'AudioStreamOggVorbis.load_from_file(SECTOR_PATH)',
-            'AudioStreamOggVorbis.load_from_file(INTRO_PATH)',
-            'AudioStreamOggVorbis.load_from_file(LOOP_PATH)',
-            'push_warning("SERA BGM: Dennou Sector failed to decode;',
-        ))
-        verify(f"optional resource has verified legacy fallback: {owner} -> {uri}", guarded)
-    else:
-        verify(f"resource path exists: {owner} -> {uri}", target.is_file())
-
-print(f"Repository static checks: {checks - len(failures)}/{checks} passed; {len(references)} explicit resource paths inspected")
-if failures:
-    print("Note: checks are static only, and cannot validate engine parsing or Android gameplay.")
-    raise SystemExit(1)
-print("Godot/Android runtime NOT tested by this script.")
-, project, re.MULTILINE)
-verify("startup scene path configured",
-       startup_scene in (["res://scenes/launch_menu.tscn"],
-                         ["res://scenes/bittaran_battle.tscn"]))
-verify("configured startup scene exists",
-       len(startup_scene) == 1 and
-       (ROOT / startup_scene[0].removeprefix("res://")).is_file())
 verify("startup scene exists", (ROOT / "scenes/launch_menu.tscn").is_file())
 verify("startup script exists", (ROOT / "scripts/launch_menu.gd").is_file())
 verify("command nexus scene exists", (ROOT / "scenes/command_nexus.tscn").is_file())
