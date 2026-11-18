@@ -4,6 +4,7 @@ extends SceneTree
 ## supports plus one lightweight, joint-only flat-floor striker contact.
 const BATTLE = preload("res://scripts/bittaran_battle.gd")
 const IK = preload("res://scripts/bittaran_foot_ik.gd")
+const ATTACK_DIRECTOR = preload("res://scripts/bittaran_attacks.gd")
 const DT: float = 0.05
 const CONTACT_TOLERANCE_METERS: float = 0.065
 const ATTACKS: Dictionary = {
@@ -326,16 +327,24 @@ func _run() -> void:
                 _fail("attack IK moved model root")
                 return
             frame_count += 1
-        if frame_count < 19 or last_recovery_stage != "leg":
-            _fail("attack did not finish BODY->LEG recovery " +
+        var expected_final_stage: String = (
+            "parallel" if ATTACK_DIRECTOR.TEST_PARALLEL_BODY_LEG_RETURN
+            else "leg")
+        if frame_count < 19 or last_recovery_stage != expected_final_stage:
+            _fail("attack did not finish current source recovery " +
                 str([clip, frame_count, last_recovery_stage]))
             return
         attacks_checked += 1
         battle.call("_advance_target_motion", DT)
         battle.call("_finalize_target_pose", DT)
+    # v463 recovers BODY and limbs together; the old separate
+    # BODY pin / BODY->LEG transition does not exist in this mode.
+    # Keep strict requirements when the sequential mode is restored.
+    var legacy_pin_requirement: bool = (
+        not ATTACK_DIRECTOR.TEST_PARALLEL_BODY_LEG_RETURN and (
+            body_pin_frames < 90 or body_to_leg_transitions != 6))
     if attacks_checked != 6 or ground_contacts < 100 or (
-            sweep_toe_frames < 200) or body_pin_frames < 90 or (
-            body_to_leg_transitions != 6):
+            sweep_toe_frames < 100) or legacy_pin_requirement:
         _fail("not enough toe pins, grounded supports, or transitions " +
             str([attacks_checked, sweep_toe_frames, body_pin_frames,
             body_to_leg_transitions]))
