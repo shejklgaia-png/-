@@ -61,19 +61,18 @@ const STOMP_RECOVERY_SECONDS: float = 0.55
 const KICK_RECOVERY_SECONDS: float = 0.60
 const SWEEP_RECOVERY_SECONDS: float = 1.40
 const BETWEEN_ATTACKS_SECONDS: float = 1.35
-# Situational technique selection (v401). Each kind has a clear job:
-# STOMP punishes a player standing right at a foot, KICK strikes a
-# player out beyond the foot along its radial line, SWEEP covers a
-# player off to the foot's side, where only a sideways arc reaches.
-# When no situation applies (or the situational kind would repeat the
-# previous attack), the historical rotation decides, so the fight
-# keeps its variety and never spams one kind.
-const STOMP_RANGE_METERS: float = 3.6
-# v464: attack selection uses the ACTUAL player-to-active-foot
-# horizontal distance: close STOMP, middle KICK(front)/SWEEP(rear),
-# far SWEEP. No kick clip exists for either rear leg.
-const KICK_RANGE_METERS: float = 6.3
-const KICK_FRONT_DOT: float = 0.15
+# Attack-sector AI: evaluate the player in the boss ROOT's horizontal
+# coordinates, not relative to whichever foot was picked first.
+# Priority: STOMP at <=3m (including in front), KICK within the forward
+# +/-30 degree cone at <=5m, otherwise SWEEP in the wide +/-100 degree
+# cone. Outside these sectors Bittaran keeps walking/turning instead of
+# playing a clip that cannot reach. Angles are boss-local (0 = +Z).
+const STOMP_RANGE_METERS: float = 3.0
+const KICK_RANGE_METERS: float = 5.0
+const KICK_HALF_ANGLE_DEGREES: float = 30.0
+const SWEEP_HALF_ANGLE_DEGREES: float = 100.0
+# Maximum radius for the wide sweep stays at the existing 9m attack
+# acquisition limit (START_RANGE_METERS).
 # The leg-placement phase is outside every authored attack timeline.
 # Its actual duration is owned by the four-foot IK controller.
 # STOMP/KICK hold the final strike pose completely still for 1.5s.
@@ -183,7 +182,11 @@ func force_start_with_stance(id: String, attack_kind: String) -> bool:
     _start(id, attack_kind, true)
     return true
 
-func _choose_leg(player_position: Vector3, feet: Dictionary) -> String:
+## A front KICK must use an authored front leg. Rear legs have
+## STOMP/SWEEP assets only. For other attacks choose the closest real
+## foot, retaining the small round-robin tie bias.
+func _choose_leg(player_position: Vector3, feet: Dictionary,
+        attack_kind: String) -> String:
     var best: String = ""
     var best_score: float = INF
     for n in range(LEG_IDS.size()):
@@ -191,56 +194,44 @@ func _choose_leg(player_position: Vector3, feet: Dictionary) -> String:
         var id: String = LEG_IDS[index]
         if not feet.has(id):
             continue
+        if attack_kind == "kick" and id.begins_with("leg_r"):
+            continue
         var foot: Vector3 = feet[id]
         var horizontal: Vector2 = Vector2(
             foot.x - player_position.x, foot.z - player_position.z)
         var distance: float = horizontal.length()
         if distance > START_RANGE_METERS:
             continue
-        # Spatial relevance first, with a slight cyclic bias so the same
-        # limb does not monopolize the fight near the chassis midpoint.
         var score: float = distance + float(n) * 0.18
         if score < best_score:
             best_score = score
             best = id
     return best
 
-## Choose range-first using the ACTUAL horizontal foot-player
-## separation, never the original historical technique cycle.
-## Close: stomp. Medium: front-forward kick or side/rear sweep.
-## Far (inside 9m leg search): sweeping reach. The automatic
-## leg picker still rotates between suitable physical feet.
-func _choose_kind(for_leg: String, player_position: Vector3,
-        feet: Dictionary) -> String:
-    var chosen: String = "sweep"
-    if feet.has(for_leg):
-        var foot: Vector3 = feet[for_leg]
-        var radial := Vector2.ZERO
-        var centroid := Vector3.ZERO
-        for id in feet.keys():
-            centroid += feet[id] as Vector3
-        if feet.size() > 0:
-            centroid /= float(feet.size())
-        radial = Vector2(foot.x - centroid.x, foot.z - centroid.z)
-        var to_player := Vector2(
-            player_position.x - foot.x,
-            player_position.z - foot.z)
-        var distance: float = to_player.length()
-        if distance <= STOMP_RANGE_METERS:
-            chosen = "stomp"
-        elif distance <= KICK_RANGE_METERS and (
-                not for_leg.begins_with("leg_r")) and (
-                radial.length() > 0.01 and distance > 0.01) and (
-                radial.normalized().dot(to_player / distance)
-                    >= KICK_FRONT_DOT):
-            chosen = "kick"
-        else:
-            chosen = "sweep"
-    # Never fabricate a rear kick; the imported rear asset only
-    # contains STOMP/SWEEP. Range is authoritative even on repeats.
-    last_kind = chosen
-    next_kind_index = (ATTACK_KINDS.find(chosen) + 1) % ATTACK_KINDS.size()
-    return chosen
+
+## Attack choice is fixed once the pre-attack/clip starts; a moving
+## player cannot flip it midway through a windup.
+## Boss +Z is forward (the same yaw convention used by BittaranAI).
+func _choose_kind(player_position: Vector3, boss_position: Vector3,
+        boss_yaw: float) -> String:
+    var offset: Vector2 = Vector2(
+        player_position.x - boss_position.x,
+        player_position.z - boss_position.z)
+    var distance: float = offset.length()
+    if distance > START_RANGE_METERS:
+        return ""
+    # An overlapping target always gets the close-range move, even
+    # if it is also in the kick cone or has circled behind Bittaran.
+    if distance <= STOMP_RANGE_METERS:
+        return "stomp"
+    var angle_degrees: float = absf(rad_to_deg(wrapf(
+        atan2(offset.x, offset.y) - boss_yaw, -PI, PI)))
+    if distance <= KICK_RANGE_METERS and (
+            angle_degrees <= KICK_HALF_ANGLE_DEGREES):
+        return "kick"
+    if angle_degrees <= SWEEP_HALF_ANGLE_DEGREES:
+        return "sweep"
+    return ""
 
 
 ## v445: BODY returns first (sweep 1.40s, others 0.62s).
@@ -391,7 +382,8 @@ static func source_playback_speed(attack_kind: String,
 
 
 func _advance_original_only(delta: float, player_position: Vector3,
-        available_feet: Dictionary, permitted: bool) -> Dictionary:
+        available_feet: Dictionary, permitted: bool,
+        boss_position: Vector3, boss_yaw: float) -> Dictionary:
     if not permitted:
         if is_active():
             cancel()
@@ -410,11 +402,17 @@ func _advance_original_only(delta: float, player_position: Vector3,
         for id in LEG_IDS:
             if available_feet.has(id):
                 authored_feet[id] = available_feet[id]
-        var selected: String = _choose_leg(player_position, authored_feet)
+        var selected_kind: String = _choose_kind(
+            player_position, boss_position, boss_yaw)
+        if selected_kind.is_empty():
+            return {}
+        var selected: String = _choose_leg(
+            player_position, authored_feet, selected_kind)
         if selected.is_empty():
             return {}
-        _start(selected, _choose_kind(
-            selected, player_position, authored_feet), false)
+        _start(selected, selected_kind, false)
+        last_kind = selected_kind
+        next_kind_index = (ATTACK_KINDS.find(selected_kind) + 1) % ATTACK_KINDS.size()
         next_leg_index = (LEG_IDS.find(selected) + 1) % LEG_IDS.size()
     preparing_stance = false
     var length: float = source_clip_length(kind, leg_id)
@@ -488,10 +486,12 @@ func _advance_original_only(delta: float, player_position: Vector3,
 func advance(delta: float, player_position: Vector3,
         available_feet: Dictionary, permitted: bool,
         player_head_position: Vector3 = Vector3.INF,
-        stance_ready: bool = false) -> Dictionary:
+        stance_ready: bool = false,
+        boss_position: Vector3 = Vector3.ZERO,
+        boss_yaw: float = 0.0) -> Dictionary:
     if ORIGINAL_ATTACK_ONLY:
         return _advance_original_only(delta, player_position,
-            available_feet, permitted)
+            available_feet, permitted, boss_position, boss_yaw)
     if not permitted:
         if is_active():
             cancel()
@@ -504,11 +504,17 @@ func advance(delta: float, player_position: Vector3,
         cooldown = maxf(0.0, cooldown - maxf(delta, 0.0))
         if cooldown > 0.0:
             return {}
-        var selected: String = _choose_leg(player_position, available_feet)
+        var selected_kind: String = _choose_kind(
+            player_position, boss_position, boss_yaw)
+        if selected_kind.is_empty():
+            return {}
+        var selected: String = _choose_leg(
+            player_position, available_feet, selected_kind)
         if selected.is_empty():
             return {}
-        _start(selected, _choose_kind(
-            selected, player_position, available_feet), true)
+        _start(selected, selected_kind, true)
+        last_kind = selected_kind
+        next_kind_index = (ATTACK_KINDS.find(selected_kind) + 1) % ATTACK_KINDS.size()
         stomp_aim = player_position
         stomp_aim_valid = false
         next_leg_index = (LEG_IDS.find(selected) + 1) % LEG_IDS.size()
