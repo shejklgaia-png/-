@@ -1,7 +1,8 @@
 extends Node3D
 ## Reusable procedural earth/dust impacts for the three authored boss moves.
-## Particles have no collision; all damage is still owned by battle.gd.
-## Emission requires ground contact measured from the rendered foot mesh.
+## Soft powder uses CPU particles; stone/grit is a manually grounded
+## MultiMesh pool that removes each fragment on contact with Y=0.
+## All actual damage remains owned by battle.gd. FX is visual only.
 const RENDER_ORDER = preload("res://scripts/render_order_policy.gd")
 # v465: nuanced sandy-brown/grey impact dust; all three moves share
 # the same runtime-generated noise/alpha sprite (96x96), no asset PNG.
@@ -315,8 +316,11 @@ func _spawn_ground_debris(
                 0.0,
                 debris_rng.randf_range(-minf(box.z, 0.65),
                     minf(box.z, 0.65)))
+        # Rotating boxes can have a taller WORLD extent than their
+        # upright local Y half-size. Spawn outside the floor even at
+        # their widest orientation, then remove on descent contact.
         pos.y = maxf(pos.y,
-            DEBRIS_FLOOR_Y + half_size.y * size + 0.005)
+            DEBRIS_FLOOR_Y + half_size.length() * size + 0.006)
         var axis: Vector3 = Vector3(
             debris_rng.randf_range(-1.0, 1.0),
             debris_rng.randf_range(-1.0, 1.0),
