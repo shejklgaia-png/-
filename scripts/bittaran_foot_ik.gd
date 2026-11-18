@@ -1749,6 +1749,15 @@ func start_leg_break_slide(id: String, head_world_y: float,
     post_down_idle_remaining = 0.0
     recovery_gait_started = false
     recovery_catchup_pending_pair = -1
+    if source_ik_enabled:
+        # The current source-gait pair must STOP the moment a shin
+        # breaks; otherwise one diagonal can remain flagged as airborne
+        # through the entire collapse, then never start upright catchup.
+        source_ik_step_pair = -1
+        source_ik_step_elapsed = 0.0
+        source_ik_replant_id = ""
+        source_ik_postattack_active = false
+        source_ik_postattack_hold = false
     # A new collapse invalidates ALL previous avoidance goals; otherwise
     # the knees can snap back into the last standing turn on recovery.
     head_knee_scan_elapsed = HEAD_KNEE_SCAN_SECONDS
@@ -3281,6 +3290,23 @@ func initialize_source_ground_ik() -> bool:
         sole.y = FLOOR_Y
         var rotation: Quaternion = (
             foot.global_basis.get_rotation_quaternion())
+        # Fixed-root calibration plants only the LOWEST of the four
+        # original meshes. The other Wait toes can hover ~24cm above
+        # Y=0 because their authored rests differ. Ground each foot
+        # independently with the real 2-link skeleton ONCE during
+        # setup, preserving its mesh, pivots and anatomical lengths.
+        var bottom: float = _source_ik_limb_lowest_world_y(limb)
+        if is_finite(bottom) and absf(bottom - FLOOR_Y) > 0.0001:
+            var corrected: Vector3 = foot.to_global(
+                limb["source_sole_local"] as Vector3)
+            corrected.y += clampf(
+                FLOOR_Y - bottom, -0.30, 0.30)
+            _source_ik_solve_striker(limb, corrected, rotation)
+            sole = foot.to_global(
+                limb["source_sole_local"] as Vector3)
+            sole.y = FLOOR_Y
+            rotation = (
+                foot.global_basis.get_rotation_quaternion())
         # Preserve the actual Blockbench initial pose, then smoothly
         # pivot the long toe down and change contact from sole to its
         # short distal face, without detaching any mesh or joint.
@@ -3418,7 +3444,22 @@ func _source_ik_advance_locomotion(delta: float, motion: String) -> void:
                 var distance: float = anchored.distance_to(
                     _source_ik_home(limb))
                 errors[pair_index] = maxf(errors[pair_index], distance)
-        if maxf(errors[0], errors[1]) > SOURCE_STEP_TRIGGER_METERS:
+        if not recovery_gait_started and (
+                post_down_idle_remaining > 0.0):
+            # First fully upright frame: immediately reposition the
+            # most displaced planted diagonal. Walking/turning during
+            # the physical rise leaves the original soles behind.
+            var first_pair: int = 0 if errors[0] >= errors[1] else 1
+            _source_ik_begin_pair(first_pair)
+            recovery_catchup_pending_pair = 1 - first_pair
+            recovery_gait_started = true
+        elif recovery_catchup_pending_pair >= 0:
+            # Always land BOTH diagonals after a knockdown. This is a
+            # genuine articulated footstep even when the second pair
+            # is within the ordinary distance-trigger threshold.
+            _source_ik_begin_pair(recovery_catchup_pending_pair)
+            recovery_catchup_pending_pair = -1
+        elif maxf(errors[0], errors[1]) > SOURCE_STEP_TRIGGER_METERS:
             var pick: int = source_ik_next_pair
             if errors[1 - pick] > errors[pick] + 0.20:
                 pick = 1 - pick
