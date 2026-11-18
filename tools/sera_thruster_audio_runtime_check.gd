@@ -42,10 +42,10 @@ func _run() -> void:
     if sound.get("sustained_gain") != 0.0:
         _fail("initial sustained jet is audible")
         return
-    # v459: assert the original v457 mix, not the louder v458 gain.
+    # v461: verify both sound layers are -6.0206 dB below v460.
     if steady.volume_db > -75.0 or (
-            absf(burst.volume_db - (-3.0)) > 0.001):
-        _fail("v457 launch level must be restored")
+            absf(burst.volume_db - (-9.0206)) > 0.001):
+        _fail("13-1 acceleration must be half of v460 amplitude")
         return
     # Reproduce Android GitSync BEFORE Godot generates an import cache:
     # a raw Ogg living in user:// has no .import metadata at all.
@@ -90,7 +90,7 @@ func _run() -> void:
     for tick in range(18):
         sound.call("update_audio", DT, true, false)
     if not steady.playing or (
-            absf(steady.volume_db - (-12.5)) > 0.01) or (
+            absf(steady.volume_db - (-18.5206)) > 0.01) or (
             int(sound.get("sustained_starts")) != 1) or (
             int(sound.get("acceleration_triggers")) != 0):
         _fail("boost did not start 01-only loop")
@@ -161,8 +161,8 @@ func _run() -> void:
         _fail("BGM volume shifted on thruster end " +
             str(bgm.volume_db))
         return
-    print("GODOT_SERA_THRUSTER_AUDIO_ORIGINAL_MIX_PASS ",
-        "01=-12.5dB 13-1=-3.0dB BittaranBGM=-5.0dB ",
+    print("GODOT_SERA_THRUSTER_AUDIO_HALF_GAIN_PASS ",
+        "01=-18.5206dB 13-1=-9.0206dB BittaranBGM=-5.0dB ",
         "no_music_duck=true android_raw_ogg_fallback=true")
     print("GODOT_SERA_THRUSTER_AUDIO_RUNTIME_PASS ",
         "01_gapless_loop=4.9s continuous_boost_step_homing=true ",

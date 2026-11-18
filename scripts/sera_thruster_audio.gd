@@ -11,10 +11,10 @@ const CONTINUOUS_PATH: String = "res://assets/sera_thruster_01_loop.ogg"
 const ACCELERATION_PATH: String = "res://assets/sera_thruster_13_1_acceleration.ogg"
 const FADE_IN_SECONDS: float = 0.075
 const FADE_OUT_SECONDS: float = 0.22
-# Restore v457 authored mix; leave the Android raw-Ogg fallback and
-# the 0.22-second nozzle/audio fade logic unchanged.
-const SUSTAINED_VOLUME_DB: float = -12.5
-const ACCELERATION_VOLUME_DB: float = -3.0
+# v461: halve v460 amplitude for both sound layers; -6.0206 dB.
+# Existing playback, loop, fallbacks, and fade duration are unchanged.
+const SUSTAINED_VOLUME_DB: float = -18.5206
+const ACCELERATION_VOLUME_DB: float = -9.0206
 const LOAD_RETRY_SECONDS: float = 2.0
 const SILENT_DB: float = -80.0
 
