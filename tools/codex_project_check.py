@@ -31,9 +31,21 @@ verify("Codex AGENTS instructions exist", (ROOT / "AGENTS.md").is_file())
 verify("Git cache exclusions exist", (ROOT / ".gitignore").is_file())
 
 project = (ROOT / "project.godot").read_text(encoding="utf-8")
-# The Bittaran battle is the approved current startup scene; the
-# original launch menu remains available as a navigable scene.
-startup_scene = re.findall(r'^run/main_scene="([^"]+)"
+# The current SERA build intentionally boots into the Bittaran battle.
+# Both the battle and original launch menu are supported entry points.
+startup_scenes = [
+    line.split('"')[1]
+    for line in project.splitlines()
+    if line.startswith('run/main_scene="') and line.endswith('"')
+]
+verify("startup scene path configured",
+       len(startup_scenes) == 1 and
+       startup_scenes[0] in (
+           "res://scenes/launch_menu.tscn",
+           "res://scenes/bittaran_battle.tscn"))
+verify("configured startup scene exists",
+       len(startup_scenes) == 1 and
+       (ROOT / startup_scenes[0].removeprefix("res://")).is_file())
 verify("startup scene exists", (ROOT / "scenes/launch_menu.tscn").is_file())
 verify("startup script exists", (ROOT / "scripts/launch_menu.gd").is_file())
 verify("command nexus scene exists", (ROOT / "scenes/command_nexus.tscn").is_file())
