@@ -6,10 +6,10 @@ const ATTACKS = preload("res://scripts/bittaran_attacks.gd")
 const RIG = preload("res://scripts/bittaran_rig.gd")
 const DT: float = 1.0 / 60.0
 const CASES: Array = [
-    ["leg_fl", "sweep", "なぎ払い", "FrontLeg_L", 2.04167, 2.14167, 2.50],
-    ["leg_fr", "sweep", "なぎ払い_R", "FrontLeg_R", 2.04167, 2.14167, 2.50],
-    ["leg_rl", "sweep", "後足なぎ払い_L", "RearLeg_L", 0.875, 0.975, 1.25],
-    ["leg_rr", "sweep", "後足なぎ払い_R", "RearLeg_R", 0.875, 0.975, 1.25],
+    ["leg_fl", "sweep", "なぎ払い", "FrontLeg_L", 0.75, 0.75, 1.25],
+    ["leg_fr", "sweep", "なぎ払い_R", "FrontLeg_R", 0.75, 0.75, 1.25],
+    ["leg_rl", "sweep", "後足なぎ払い_L", "RearLeg_L", 0.25, 0.25, 0.75],
+    ["leg_rr", "sweep", "後足なぎ払い_R", "RearLeg_R", 0.25, 0.25, 0.75],
     ["leg_fl", "kick", "弾き", "FrontLeg_L", 0.25, 0.35, 0.75],
     ["leg_fr", "kick", "弾き_R", "FrontLeg_R", 0.25, 0.35, 0.75]
 ]
@@ -80,7 +80,7 @@ func _run() -> void:
         var hit_end: float = float(spec[6])
         if not _near(ATTACKS.source_hit_start_seconds(kind, id),
                 hit_begin):
-            _fail("wrong source + .10 seconds " + str(spec))
+            _fail("wrong source attack onset key " + str(spec))
             return
         if not animations.has(clip) or not names.has(bone):
             _fail("missing canonical clip/bone " + str(spec))
@@ -141,6 +141,7 @@ func _run() -> void:
         var hit_frames: int = 0
         var prevented_early_hit: bool = false
         var did_damage_inside_window: bool = false
+        var afterglow_contact_blocked: bool = false
         for frame_no in range(310):
             battle.call("_advance_target_motion", DT)
             var f: Dictionary = battle.get("bittaran_attack_frame")
@@ -174,7 +175,16 @@ func _run() -> void:
             var should_try_hit: bool = (
                 phase == "strike" and expected and
                 not did_damage_inside_window)
-            if (before_key_hit or should_try_hit) and (
+            # Deliberately RE-ARM the one-hit latch in the test only:
+            # even with a fresh hit budget the visibly grounded,
+            # slowed afterglow/return must NEVER apply damage.
+            var afterglow: bool = str(spec[1]) == "sweep" and (
+                phase == "strike") and (
+                clip_t >= float(spec[6]) + 0.06) and (
+                clip_t <= float(spec[6]) + 0.12)
+            if afterglow:
+                director.set("hit_consumed", false)
+            if (before_key_hit or should_try_hit or afterglow) and (
                     not bool(director.get("hit_consumed"))):
                 var mesh_boxes: Array = parts.call(
                     "get_leg_attack_mesh_boxes", str(spec[0]))
@@ -200,11 +210,20 @@ func _run() -> void:
                 elif should_try_hit and bool(director.get(
                         "hit_consumed")):
                     did_damage_inside_window = true
+                elif afterglow:
+                    if bool(director.get("hit_consumed")):
+                        _fail("damage during slowed afterglow " +
+                            str([spec, clip_t]))
+                        return
+                    afterglow_contact_blocked = true
         if hit_frames < 2 or not prevented_early_hit or (
-                not did_damage_inside_window):
+                not did_damage_inside_window) or (
+                str(spec[1]) == "sweep" and
+                not afterglow_contact_blocked):
             _fail("real collision did not obey keyframe window " +
                 str([spec, hit_frames, prevented_early_hit,
-                did_damage_inside_window]))
+                did_damage_inside_window,
+                afterglow_contact_blocked]))
             return
         if str(spec[1]) == "sweep" and touched == 0:
             _fail("returning sweep has no grounded hit frames " +
@@ -217,7 +236,8 @@ func _run() -> void:
             " window_frames=", hit_frames,
             " foot_grounded_frames=", touched,
             " actual_early_hit_blocked=", prevented_early_hit,
-            " actual_hit_inside_window=", did_damage_inside_window)
+            " actual_hit_inside_window=", did_damage_inside_window,
+            " afterglow_safe=", afterglow_contact_blocked)
         battle.queue_free()
     if total_windows < 50 or valid_ground_frames < 10:
         _fail("missing animated collision window samples")
