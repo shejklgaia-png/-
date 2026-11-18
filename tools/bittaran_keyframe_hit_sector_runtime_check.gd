@@ -26,7 +26,7 @@ func _near(a: float, b: float, tol: float = 0.00015) -> bool:
 
 func _polar(distance: float, degrees: float) -> Vector3:
     var a: float = deg_to_rad(degrees)
-    return Vector3(sinf(a) * distance, 0.0, cosf(a) * distance)
+    return Vector3(sin(a) * distance, 0.0, cos(a) * distance)
 
 func _run() -> void:
     var direct: RefCounted = ATTACKS.new()
