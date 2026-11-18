@@ -19,11 +19,10 @@ assert current_version >= 318
 
 release_name = re.compile(r"README_v([0-9]+)_ja\.md")
 root_releases = sorted(ROOT.glob("README_v*_ja.md"))
-# The working tree still contains v430-v446 release notes at root.
-# Check the current release authoritatively while preserving those historical
-# documents; a later separate migration can archive them without deleting data.
-assert root_releases, "Missing current release README"
-assert (ROOT / f"README_v{current_version}_ja.md") in root_releases
+# Only the current release README belongs at the repository root.
+# Older notes must be archived unchanged to avoid misleading version links.
+assert root_releases == [ROOT / f"README_v{current_version}_ja.md"], [
+    x.name for x in root_releases]
 assert all((found := release_name.fullmatch(file.name)) is not None and
            int(found.group(1)) <= current_version for file in root_releases), [
                x.name for x in root_releases]
@@ -44,6 +43,9 @@ assert len(versions) == len(set(versions))
 assert (archive / "README_legacy_ja.md").is_file()
 assert (archive / "README.md").is_file()
 assert (archive / "README_v317_ja.md").is_file()
+# Historical v430-v451 notes are retained byte-identically in the archive.
+for version in range(430, 452):
+    assert (archive / f"README_v{version}_ja.md").is_file()
 
 # Probe markers and a byte-identical trashed backup had no active roles.
 obsolete = (
