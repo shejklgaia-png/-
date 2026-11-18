@@ -1343,7 +1343,8 @@ func _advance_target_motion(delta: float) -> void:
         _bittaran_attack_candidates(), attack_permitted,
         player.global_position + Vector3.UP * PLAYER_COLLISION_HEIGHT,
         bittaran_foot_ik != null and bool(
-            bittaran_foot_ik.call("attack_stance_is_ready")))
+            bittaran_foot_ik.call("attack_stance_is_ready")),
+        target.global_position, target.rotation.y)
         if bittaran_attacks != null else {})
     var attacking: bool = not bittaran_attack_frame.is_empty()
     if attacking and not bittaran_was_attacking:
