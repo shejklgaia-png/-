@@ -7,6 +7,7 @@ const BittaranFootIK = preload("res://scripts/bittaran_foot_ik.gd")
 const BittaranParts = preload("res://scripts/bittaran_parts.gd")
 const BittaranAttacks = preload("res://scripts/bittaran_attacks.gd")
 const BittaranDirtFX = preload("res://scripts/bittaran_dirt_fx.gd")
+const BittaranSweepFXTrack = preload("res://scripts/bittaran_sweep_fx_track.gd")
 const DOWN_CLEARANCE = preload("res://scripts/bittaran_down_clearance.gd")
 const CONTROLLER_AXIS = preload("res://scripts/bittaran_controller_axis.gd")
 const NAME_TEXT: String = "BITTARAN  /  ビットタラン"
@@ -147,6 +148,7 @@ var bittaran_shockwave: MeshInstance3D
 var shockwave_elapsed: float = -1.0
 var shockwave_half_extents: Vector2 = Vector2.ONE
 var bittaran_dirt_fx: Node3D
+var bittaran_sweep_fx_baked: bool = false
 var bittaran_thud_audio: AudioStreamPlayer
 # v454: gapless 174-BPM audio provided by the creator. The Ogg source
 # must be included at this resource path for Android export; a user://
@@ -1762,6 +1764,21 @@ func _finalize_target_pose(delta: float) -> void:
     if bittaran_dirt_fx != null and bittaran_foot_ik != null:
         var original: bool = bool(bittaran_attack_frame.get(
             "original_attack_only", false))
+        # Prepare all four ORIGINAL source-clip toe trajectories during
+        # the FIRST SWEEP ENTRY (before any dust is ever emitted).
+        # The renderer then reads a fixed time->position table; it
+        # never chases IK foot jitter during the first ground scrape.
+        if not bittaran_sweep_fx_baked and original and (
+                str(bittaran_attack_frame.get("kind", "")) == "sweep"
+                and str(bittaran_attack_frame.get(
+                    "phase", "")) == "entry"):
+            var tracks: Dictionary = (
+                BittaranSweepFXTrack.bake_from_authored_clips(
+                    self, bittaran_rig, target))
+            if tracks.size() == BittaranAttacks.LEG_IDS.size():
+                bittaran_dirt_fx.call(
+                    "configure_prebaked_sweeps", tracks, target)
+                bittaran_sweep_fx_baked = true
         if bittaran_attack_frame.is_empty() or bool(
                 bittaran_attack_frame.get("stance_prepare", false)):
             bittaran_dirt_fx.call("advance_attack", {}, Vector3.ZERO,

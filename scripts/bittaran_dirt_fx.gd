@@ -4,6 +4,7 @@ extends Node3D
 ## MultiMesh pool that removes each fragment on contact with Y=0.
 ## All actual damage remains owned by battle.gd. FX is visual only.
 const RENDER_ORDER = preload("res://scripts/render_order_policy.gd")
+const SWEEP_TRACK = preload("res://scripts/bittaran_sweep_fx_track.gd")
 # v465: nuanced sandy-brown/grey impact dust; all three moves share
 # the same runtime-generated noise/alpha sprite (96x96), no asset PNG.
 # v454: grayscale, locally concentrated dust; the source foot's actual
@@ -56,6 +57,16 @@ var kick_chunks: CPUParticles3D
 var kick_grit: CPUParticles3D
 var sweep_dust: CPUParticles3D
 var sweep_dust_emitters: Array[CPUParticles3D] = []
+# Source-clip foot positions are sampled before an attack and stored in
+# boss local space. The runtime renderer only replays time-keyed points.
+var prebaked_sweep_tracks: Dictionary = {}
+var prebaked_sweep_owner: Node3D
+var prebaked_sweep_started: bool = false
+var prebaked_sweep_next_index: int = 0
+var prebaked_sweep_world_transform: Transform3D = Transform3D.IDENTITY
+var prebaked_sweep_anchor_offset: Vector3 = Vector3.ZERO
+var prebaked_sweep_last_point: Vector3 = Vector3.ZERO
+var prebaked_sweep_emissions: int = 0
 var sweep_emitter_cursor: int = 0
 # Never restart an emitter until EVERY particle from its previous burst
 # has finished its complete fade; this stops popping, teleporting and
@@ -702,6 +713,105 @@ func _burst_safe_sweep_cloud(point: Vector3, flow: Vector3) -> bool:
     return false
 
 
+## Called once at fight setup, before any SWEEP FX. The tracks are
+## an immutable 4-leg source-clip template. A clip is sampled at the
+## precise first-ground scrape key, not from IK's jittering per-frame toe.
+func configure_prebaked_sweeps(tracks: Dictionary, owner: Node3D) -> void:
+    prebaked_sweep_tracks = tracks
+    prebaked_sweep_owner = owner
+    prebaked_sweep_started = false
+    prebaked_sweep_next_index = 0
+
+
+func _prebaked_world_at(
+        track: Array, time: float) -> Vector3:
+    var local: Vector3 = SWEEP_TRACK.interpolate_local(track, time)
+    return prebaked_sweep_world_transform * local + (
+        prebaked_sweep_anchor_offset)
+
+
+## Plays a prepared SWEEP timeline in source keyframe time. The only
+## live foot measurement is a SINGLE offset when the toe first
+## reaches the ground. Every later puff has a precomputed position,
+## avoiding emitter teleporting, short-lived contact loss and jitters.
+func _advance_prebaked_sweep(
+        frame: Dictionary, contact: Vector3,
+        grounded: bool) -> void:
+    var id: String = str(frame.get("id", ""))
+    var track: Array = prebaked_sweep_tracks.get(id, [])
+    if track.is_empty() or prebaked_sweep_owner == null:
+        end_sweep()
+        return
+    var t: float = float(frame.get("authored_time", 0.0))
+    if not bool(frame.get("hit_window", false)) or (
+            str(frame.get("phase", "")) != "strike"):
+        end_sweep()
+        return
+    if not prebaked_sweep_started:
+        # Snap the WHOLE static path to one genuine post-IK ground
+        # contact. No future measurement can move this stored path.
+        if not grounded:
+            return
+        prebaked_sweep_started = true
+        prebaked_sweep_world_transform = (
+            prebaked_sweep_owner.global_transform)
+        prebaked_sweep_anchor_offset = Vector3.ZERO
+        var predicted: Vector3 = _prebaked_world_at(track, t)
+        prebaked_sweep_anchor_offset = Vector3(
+            contact.x - predicted.x, 0.0,
+            contact.z - predicted.z)
+        prebaked_sweep_last_point = Vector3(
+            contact.x, 0.055, contact.z)
+        prebaked_sweep_next_index = 0
+        while prebaked_sweep_next_index < track.size() and (
+                float(track[prebaked_sweep_next_index]["time"])
+                < t - 0.0005):
+            prebaked_sweep_next_index += 1
+        sweep_active = true
+        # Guaranteed first contact puff in the first grounded frame,
+        # even if physics did not land exactly on a baked sample key.
+        var nearby: int = mini(prebaked_sweep_next_index,
+            track.size() - 2)
+        var next_point: Vector3 = _prebaked_world_at(
+            track, float(track[nearby + 1]["time"]))
+        var first_dir: Vector3 = next_point - contact
+        first_dir.y = 0.0
+        if first_dir.length_squared() <= 0.00001:
+            first_dir = Vector3.RIGHT
+        sweep_last_direction = first_dir.normalized()
+        var initial_flow: Vector3 = (
+            sweep_last_direction * 1.55 + Vector3.UP * 0.26).normalized()
+        if _burst_safe_sweep_cloud(prebaked_sweep_last_point,
+                initial_flow):
+            _burst(sweep_chunks, prebaked_sweep_last_point, initial_flow)
+            sweep_burst_count += 1
+            prebaked_sweep_emissions += 1
+            last_sweep_fx_origin = prebaked_sweep_last_point
+    sweep_active = true
+    # Deterministic schedule independent of FPS, ground-gate jitter
+    # or whether SERA was hit. Multiple due samples are caught up.
+    while prebaked_sweep_next_index < track.size() and (
+            float(track[prebaked_sweep_next_index]["time"])
+            <= t + 0.001):
+        var row: Dictionary = track[prebaked_sweep_next_index]
+        var sample: Vector3 = _prebaked_world_at(
+            track, float(row["time"]))
+        sample.y = 0.055
+        var travel: Vector3 = sample - prebaked_sweep_last_point
+        travel.y = 0.0
+        if travel.length_squared() >= 0.00001:
+            sweep_last_direction = travel.normalized()
+        var flow: Vector3 = (
+            sweep_last_direction * 1.55 + Vector3.UP * 0.26).normalized()
+        if _burst_safe_sweep_cloud(sample, flow):
+            _burst(sweep_chunks, sample, flow)
+            sweep_burst_count += 1
+            prebaked_sweep_emissions += 1
+            last_sweep_fx_origin = sample
+        prebaked_sweep_last_point = sample
+        prebaked_sweep_next_index += 1
+
+
 func trace_sweep(point: Vector3, delta: float,
         stroke: Vector3 = Vector3.ZERO,
         time_already_advanced: bool = false) -> void:
@@ -763,6 +873,8 @@ func trace_sweep(point: Vector3, delta: float,
 
 func end_sweep() -> void:
     sweep_active = false
+    prebaked_sweep_started = false
+    prebaked_sweep_next_index = 0
     sweep_elapsed = 0.0
     sweep_track_valid = false
     sweep_wait_stable_frames = 0
@@ -773,6 +885,10 @@ func reset() -> void:
     end_sweep()
     sweep_elapsed = 0.0
     sweep_emitter_cursor = 0
+    prebaked_sweep_emissions = 0
+    prebaked_sweep_started = false
+    prebaked_sweep_next_index = 0
+    prebaked_sweep_anchor_offset = Vector3.ZERO
     sweep_fx_clock_seconds = 0.0
     sweep_reuse_while_alive = 0
     sweep_dropped_bursts = 0
@@ -857,14 +973,13 @@ func advance_attack(frame: Dictionary, point: Vector3,
                 emit_kick(point, outward)
                 kicked_this_attack = true
     elif kind == "sweep":
-        # Releasing the foot from the ground ends the active emitter
-        # immediately. Existing airborne particles can finish fading.
-        # Emit scraped soil only on the FIRST live grounded sweep
-        # stroke. The authored clip eases into a lingering stationary
-        # pose and then retracts the foot; those later phases are
-        # visuals only, with neither damage nor fresh dust ejection.
-        if striking and foot_grounded and bool(frame.get(
+        if prebaked_sweep_tracks.has(str(frame.get("id", ""))):
+            # Canonical 4-leg Blockbench source-time FX. No per-frame
+            # foot tracking or contact flicker after the first contact.
+            _advance_prebaked_sweep(frame, point, foot_grounded)
+        elif striking and foot_grounded and bool(frame.get(
                 "hit_window", false)):
+            # Legacy fallback for standalone procedural/test drivers.
             var sweep_travel: Vector3 = point - previous_point
             sweep_travel.y = 0.0
             trace_sweep(point, delta, sweep_travel, true)

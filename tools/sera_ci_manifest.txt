@@ -363,3 +363,4 @@ gd tools/bittaran_sweep_stomp_timeline_runtime_check.gd
 gd tools/bittaran_attack_distance_priority_runtime_check.gd
 gd tools/bittaran_ground_fx_rebuild_runtime_check.gd
 gd tools/bittaran_fx_continuity_runtime_check.gd
+gd tools/bittaran_sweep_prebaked_fx_runtime_check.gd

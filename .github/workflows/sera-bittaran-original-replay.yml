@@ -24,6 +24,7 @@ on:
       - 'tools/bittaran_attack_distance_priority_runtime_check.gd'
       - 'tools/bittaran_ground_fx_rebuild_runtime_check.gd'
       - 'tools/bittaran_fx_continuity_runtime_check.gd'
+      - 'tools/bittaran_sweep_prebaked_fx_runtime_check.gd'
       - '.github/workflows/sera-bittaran-original-replay.yml'
   pull_request:
     paths:
@@ -47,6 +48,7 @@ on:
       - 'tools/bittaran_attack_distance_priority_runtime_check.gd'
       - 'tools/bittaran_ground_fx_rebuild_runtime_check.gd'
       - 'tools/bittaran_fx_continuity_runtime_check.gd'
+      - 'tools/bittaran_sweep_prebaked_fx_runtime_check.gd'
       - '.github/workflows/sera-bittaran-original-replay.yml'
   workflow_dispatch:
 
@@ -85,6 +87,10 @@ jobs:
         run: |
           set -euo pipefail
           "$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" --headless --path . --script tools/bittaran_repeat_live_battle_runtime_check.gd
+      - name: Verify four prebaked Blockbench sweep trajectories and source-timed FX
+        run: |
+          set -euo pipefail
+          "$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" --headless --path . --script tools/bittaran_sweep_prebaked_fx_runtime_check.gd
       - name: Verify all four sweep, stomp and kick visual FX without restarts or missing clouds
         run: |
           set -euo pipefail
