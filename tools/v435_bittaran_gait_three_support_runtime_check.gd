@@ -289,7 +289,14 @@ func _run() -> void:
                         "_authored_key_rotation", clip, bone_name, t)
                     var authored_pos: Vector3 = rig.call(
                         "_authored_key_position", clip, bone_name, t)
-                    if joint.quaternion.angle_to(authored_rot) > 0.002 or (
+                    # v452 applies up to 20 degrees of world-Y chest
+                    # aiming on top of untouched authored source keys.
+                    # This is not a source keyframe mutation; v434 tests
+                    # exact independent replay without the battle aim.
+                    var allowed_rotation: float = (
+                        deg_to_rad(20.1) if bone_name == "Body"
+                        else 0.002)
+                    if joint.quaternion.angle_to(authored_rot) > allowed_rotation or (
                             joint.position.distance_to(authored_pos) > 0.0001):
                         _fail("striker/Body source key changed " +
                             str([clip, bone_name, t]))
