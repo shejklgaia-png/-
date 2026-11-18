@@ -1632,6 +1632,11 @@ func _finalize_target_pose(delta: float) -> void:
         # first entry pose stays fixed across all transition frames.
         if bittaran_rig != null and bittaran_attack_frame.is_empty():
             bittaran_rig.call("remember_source_grounded_attack_entry")
+        # The source-IK branch previously skipped live HEAD tracking;
+        # only the legacy solver's else branch called this. Restore
+        # player-facing head yaw/pitch with its existing collision and
+        # stand-up clearance limits on every active combat frame.
+        _aim_bittaran_head(delta)
     else:
         if bittaran_foot_ik != null and target != null and target_hp > 0:
             var attack_frame: Dictionary = bittaran_attack_frame.duplicate()
