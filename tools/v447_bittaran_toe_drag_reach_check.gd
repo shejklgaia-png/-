@@ -103,10 +103,10 @@ func _run() -> void:
             fraction * fraction * fraction *
             (fraction * (fraction * 6.0 - 15.0) + 10.0))
         var desired: Vector3 = drag_start.lerp(drag_home, eased)
-        var hip: Vector3 = Vector3(
+        var moving_hip: Vector3 = Vector3(
             0.3, 0.85 + 0.30 * fraction, 0.15)
         var straight: Vector3 = IK._source_ik_sweep_line_reach(
-            drag_start, drag_home, desired, hip, drag_offset,
+            drag_start, drag_home, desired, moving_hip, drag_offset,
             1.75, last_progress)
         if not is_finite(straight.x) or (
                 absf(straight.y - TOE_FLOOR) > 0.000001 or
