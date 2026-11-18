@@ -1662,16 +1662,21 @@ func _bittaran_ground_fx_contact(leg_id: String) -> Vector3:
             lowest = minf(lowest, vertex.y)
     if points.is_empty():
         return _bittaran_original_attack_contact(leg_id)
-    var total: Vector3 = Vector3.ZERO
-    var touching: int = 0
+    # A hard 8.5cm cutoff swaps discrete mesh corners as the toe
+    # rotates. That snaps the emitter from one side of the foot to
+    # another. Continuous soft-minimum weights preserve the ground
+    # contact without a discontinuous choice of bottom vertices.
+    var weighted: Vector3 = Vector3.ZERO
+    var weight_total: float = 0.0
     for vertex in points:
-        if vertex.y <= lowest + 0.085:
-            total += vertex
-            touching += 1
-    if touching == 0:
+        var height: float = maxf(vertex.y - lowest, 0.0)
+        var weight: float = exp(-minf(height / 0.12, 18.0))
+        weighted += vertex * weight
+        weight_total += weight
+    if weight_total <= 0.000001:
         return _bittaran_original_attack_contact(leg_id)
-    return Vector3(total.x / float(touching), lowest,
-        total.z / float(touching))
+    return Vector3(weighted.x / weight_total, lowest,
+        weighted.z / weight_total)
 
 
 func _bittaran_striking_foot_grounded(leg_id: String) -> bool:
@@ -1766,7 +1771,14 @@ func _finalize_target_pose(delta: float) -> void:
             var leg_id: String = str(bittaran_attack_frame.get("id", ""))
             # Use the visible foot's real mesh bounds AFTER authored replay
             # and IK, not the procedural floor target or attack timer.
+            # VFX-only tolerance: animated toes may hover a few
+            # centimetres above the floor between physics samples.
+            # Damage still uses the STRICT mesh contact check.
             var grounded: bool = _bittaran_striking_foot_grounded(leg_id)
+            if not grounded:
+                var fx_box: AABB = _bittaran_attack_foot_bounds(leg_id)
+                grounded = fx_box.has_volume() and (
+                    fx_box.position.y <= 0.12 and fx_box.end.y >= -0.05)
             var contact: Vector3 = (
                 _bittaran_ground_fx_contact(leg_id) if original
                 else bittaran_foot_ik.call("attack_contact_world"))
