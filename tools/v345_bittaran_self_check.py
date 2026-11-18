@@ -58,10 +58,24 @@ for clip in boss["animations"][:7]:
             assert extra[0]["data_points"] == [{
                 "x": "0", "y": "6.9" if clip["name"] == "Wait" else "5.4",
                 "z": "0"}]
-all_ids = [key["uuid"] for clip in boss["animations"]
-           for track in clip["animators"].values()
+# Blockbench source already reuses nine Wait-key UUIDs in the kick clip.
+# Keep imported IDs byte-identical to the user's source. Check no within-
+# clip collision, and permit cross-clip copies only for the known
+# originally authored Wait/Kick/RearSweep key provenance.
+ids_by_clip = {}
+for clip in boss["animations"]:
+    ids = [key["uuid"] for track in clip["animators"].values()
            for key in track.get("keyframes", [])]
-assert len(all_ids) == len(set(all_ids)), "Duplicate animation UUID"
+    assert len(ids) == len(set(ids)), ("Within-clip UUID collision", clip["name"])
+    ids_by_clip[clip["name"]] = set(ids)
+seen_ids = {}
+for clip_name, ids in ids_by_clip.items():
+    for uuid in ids:
+        seen_ids.setdefault(uuid, set()).add(clip_name)
+for uuid, owners in seen_ids.items():
+    if len(owners) > 1:
+        assert "Wait" in owners and owners.issubset({
+            "Wait", "弾き", "後足なぎ払い_L"}), (uuid, owners)
 clips_by_name = {a["name"]: a for a in boss["animations"]}
 for name, duration in (("Idle", 2.4), ("Turn", 1.8), ("Approach", 2.8)):
     clip = clips_by_name[name]
