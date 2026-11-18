@@ -4078,12 +4078,13 @@ func _source_ik_advance_attack(frame: Dictionary) -> void:
         var neutral_lower: Quaternion = support_lower.quaternion
         var neutral_foot: Quaternion = foot.quaternion
         if support_wait_weight >= 1.0 - 0.000001:
-            if bool(frame.get("authored_full_sweep", false)):
-                # At the end of the short clip-to-Idle bridge, the
-                # support tip must remain at its world-fixed anchor.
-                # Source Wait angles alone can shift it >30cm below
-                # ground. Re-solve the two real joints without moving
-                # the authored BODY, mesh offsets, or bone pivots.
+            if true:
+                # All authored attacks need the support tips to remain
+                # world-planted at the terminal Wait handoff. Previously
+                # only the revised SWEEP fixed the original KICK's
+                # 10cm underground toe after the Wait-angle blend.
+                # Re-solve the two real joints without moving BODY,
+                # meshes or pivots.
                 var fixed_goal: Vector3 = limb["source_ik_attack_anchor"]
                 fixed_goal.y = FLOOR_Y
                 var desired: Quaternion = (
@@ -4138,12 +4139,12 @@ func _source_ik_advance_attack(frame: Dictionary) -> void:
                 neutral_lower, support_wait_weight).normalized()
             foot.quaternion = foot.quaternion.slerp(
                 neutral_foot, support_wait_weight).normalized()
-            if bool(frame.get("authored_full_sweep", false)):
-                # The old Wait-angle blend detaches support feet from
-                # their contact despite the first IK solve succeeding
-                # (v435: 38.6cm below floor with last_error ~0).
-                # Re-pin after the authored neutral blend using the
-                # current toe orientation and actual skeletal lengths.
+            if true:
+                # The old Wait-angle blend detaches support feet for all
+                # KICK/STOMP/SWEEP source clips (v435 observed 10.4cm
+                # sink on KICK despite a near-zero pre-blend IK error).
+                # Re-pin after each neutral blend using current toe
+                # orientation and anatomical skeletal lengths.
                 error = _source_ik_solve_striker(
                     limb, goal, foot.global_basis.get_rotation_quaternion(),
                     limb["sole_local"], support_lower.global_position)
