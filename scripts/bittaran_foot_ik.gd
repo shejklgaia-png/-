@@ -2596,7 +2596,10 @@ const SOURCE_STEP_HEIGHT_METERS: float = 0.22
 # the Wait footprint. This runs even if the boss is otherwise idle.
 const SOURCE_POSTATTACK_STEP_HEIGHT_METERS: float = 0.26
 const SOURCE_POSTATTACK_GAIT_BLEND_SECONDS: float = 0.35
-const SOURCE_TELEPORT_DISTANCE_METERS: float = 2.5
+# Even a 1.5m single-frame displacement is far above the boss's
+# normal sub-1m/s gait. Detect short arena resets as teleports too,
+# so an old planted foot cannot be pulled across the entire scene.
+const SOURCE_TELEPORT_DISTANCE_METERS: float = 1.5
 # v454: planted/stepping gait feet point their SHORT distal end downward.
 # The long foot axis is vertical, unlike the removed horizontal-leveling.
 # Blend both joint rotation and sole point into the toe-tip contact.
