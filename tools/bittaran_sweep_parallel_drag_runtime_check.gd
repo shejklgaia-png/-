@@ -11,7 +11,8 @@ const CASES: Array = [
     ["leg_rr", "後足なぎ払い_R", 0.75, "RearFoot_R"]
 ]
 const RETURN_SECONDS: float = 1.20
-const FRAMES: int = 72
+const BODY_RETURN_SECONDS: float = 1.40
+const FRAMES: int = 84
 
 func _initialize() -> void:
     call_deferred("_run")
@@ -70,10 +71,10 @@ func _run() -> void:
                 "parallel_recovery": true,
                 "source_timed_attack": true,
                 "authored_time": clip_length,
-                "phase_elapsed": RETURN_SECONDS * u,
+                "phase_elapsed": BODY_RETURN_SECONDS * u,
                 "leg_return_seconds": RETURN_SECONDS,
-                "body_return_seconds": 1.40,
-                "time": 0.02 + RETURN_SECONDS * u
+                "body_return_seconds": BODY_RETURN_SECONDS,
+                "time": 0.02 + BODY_RETURN_SECONDS * u
             }
             rig.call("apply_original_attack_only", frame)
             ik.call("_source_ik_advance_attack", frame)
@@ -128,7 +129,8 @@ func _run() -> void:
             " lateral=", max_lateral,
             " max_shin_step_radians=", max_shin_jump,
             " toe_floor_penetration=", max_below_floor)
-        if max_lateral > 0.35 or max_shin_jump > 1.20:
+        if max_lateral > 0.005 or max_shin_jump > 0.15 or (
+                max_below_floor > 0.008):
             _fail("visual shin/toe return discontinuity: " + str(
                 [id, max_lateral, max_shin_jump]))
             return
