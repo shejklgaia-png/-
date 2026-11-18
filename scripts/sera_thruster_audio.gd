@@ -11,12 +11,10 @@ const CONTINUOUS_PATH: String = "res://assets/sera_thruster_01_loop.ogg"
 const ACCELERATION_PATH: String = "res://assets/sera_thruster_13_1_acceleration.ogg"
 const FADE_IN_SECONDS: float = 0.075
 const FADE_OUT_SECONDS: float = 0.22
-# The original jet is a broadband -15 dBFS RMS signal. At -12.5 dB
-# its effective RMS was ~-27.5 dBFS, masked by boss BGM at -5 dB.
-# These levels preserve ~4 dB true peak headroom for the Ogg.
-const SUSTAINED_VOLUME_DB: float = -3.0
-# Source 13-1 has only -10.8 dBFS peak; +6 dB remains unclipped.
-const ACCELERATION_VOLUME_DB: float = 6.0
+# Restore v457 authored mix; leave the Android raw-Ogg fallback and
+# the 0.22-second nozzle/audio fade logic unchanged.
+const SUSTAINED_VOLUME_DB: float = -12.5
+const ACCELERATION_VOLUME_DB: float = -3.0
 const LOAD_RETRY_SECONDS: float = 2.0
 const SILENT_DB: float = -80.0
 
