@@ -713,7 +713,12 @@ func advance_attack(frame: Dictionary, point: Vector3,
     elif kind == "sweep":
         # Releasing the foot from the ground ends the active emitter
         # immediately. Existing airborne particles can finish fading.
-        if striking and foot_grounded:
+        # Emit scraped soil only on the FIRST live grounded sweep
+        # stroke. The authored clip eases into a lingering stationary
+        # pose and then retracts the foot; those later phases are
+        # visuals only, with neither damage nor fresh dust ejection.
+        if striking and foot_grounded and bool(frame.get(
+                "hit_window", false)):
             var sweep_travel: Vector3 = point - previous_point
             sweep_travel.y = 0.0
             trace_sweep(point, delta, sweep_travel)
