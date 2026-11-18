@@ -1,3 +1,11 @@
+## 2026-11-18 — SERA v450: 攻撃モーションが初回で止まる実戦AIデッドロックを修正
+
+- 実際の自動戦闘を60Hzで4,500フレーム観測。プレイヤーが約6.8mで静止すると初回SWEEP後に歩数が131回まで進むにもかかわらず、二度目の攻撃が一度も始まらないことを再現。歩行ゲートは既にクリアしており、原因は同一攻撃禁止＋距離一定の周回移動が別の合法攻撃の射程へ到達できない点だった。
+- `scripts/bittaran_ai.gd`: 最後の攻撃がSWEEPなら距離を詰めてKICK/STOMPへ、最後がKICK/STOMPなら距離を広げてSWEEP/KICKへ。強制再生や攻撃判定範囲の緩和ではなく、現実の歩行で別の合法攻撃範囲を作る。攻撃前3歩、視野外での旋回、同一攻撃禁止を維持。
+- `scripts/bittaran_foot_ik.gd`: 全工程原本なぎ払いの終了で`source_ik_leg_return_at_home`を通知し、中断扱いで失われていた攻撃後の2対角脚の足戻しを復旧。`scripts/bittaran_battle.gd`: ソースモーションの終端→IK返却の1フレームを明示して、接地中の胴体位置を固定。
+- `tools/bittaran_repeat_live_battle_runtime_check.gd`: `force_start()`を呼ばず、プレイヤー静止で60Hzの実戦AI・原本再生・IK足戻し・再攻撃を連続検証。6.8m固定では修正後に SWEEP→KICK→SWEEP→KICK→SWEEP→KICK の6回連続を確認。1.65mからの追加ケースも含めてCIで検証。
+- Android実機でのプレイフィール、描画・FPSは未確認。Godotの重点・全体CIを基準に統合する。
+
 ## 2026-11-18 — SERA v449: 20件のBittaran回帰テスト失敗と実ゲームの起き上がり・接地制御を修復
 
 - Godot 126/126・Python 182/182の全件合格に向け、現行v448 source-ground IKの実装とlegacy検証前提を比較。単にテストを除外せず、物理的な不具合はゲーム側で修正した。

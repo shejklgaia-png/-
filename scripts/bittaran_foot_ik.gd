@@ -4080,6 +4080,16 @@ func _source_ik_advance_attack(frame: Dictionary) -> void:
                 if str(frame.get("phase", "")) == "recovery":
                     _source_ik_settle_visible_foot(
                         limb, support_wait_weight)
+                    # A full-length authored SWEEP already draws back
+                    # the attacker in its own clip. Mark the final
+                    # Wait handoff as a completed return, just like
+                    # STOMP/KICK's procedural return path. Otherwise
+                    # the empty frame follows the *interrupted* path
+                    # and skips both mandatory postattack gait pairs.
+                    limb["source_ik_leg_return_at_home"] = (
+                        float(frame.get("phase_elapsed", 0.0))
+                        >= float(frame.get("recovery", 0.25))
+                            - 0.000001)
             else:
                 var is_body_return: bool = (
                 str(frame.get("phase", "")) == "recovery" and

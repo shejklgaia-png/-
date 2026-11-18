@@ -1311,7 +1311,17 @@ func _advance_target_motion(delta: float) -> void:
     # v461: finish both diagonal pair steps before starting another
     # attack or moving the chassis. Supports stay planted while the
     # returning pair lifts and swings to its authored Wait footprint.
-    var postattack_replanting: bool = (
+    # The director returns a terminal source frame and immediately
+    # clears is_active(). On the very next tick source-IK has not yet
+    # been told to start its two diagonal replant steps. Freeze that
+    # one-frame handoff too, instead of walking the actor root while
+    # capture/replant anchors are being initialized.
+    var source_return_pending: bool = (
+        bittaran_foot_ik != null and bittaran_attacks != null
+        and not bool(bittaran_attacks.call("is_active"))
+        and not str(bittaran_foot_ik.get(
+            "source_ik_attacking_id")).is_empty())
+    var postattack_replanting: bool = source_return_pending or (
         bittaran_foot_ik != null and bool(bittaran_foot_ik.call(
             "source_postattack_replant_active")))
     var completed_gait_steps: int = (
@@ -1437,7 +1447,9 @@ func _advance_target_motion(delta: float) -> void:
     var result: Dictionary = bittaran_ai.call("advance", delta,
         target.position, target.rotation.y, player.position, frozen,
         not enough_walk_steps or need_attack_variation,
-        need_attack_variation)
+        need_attack_variation,
+        str(bittaran_attacks.get("last_kind"))
+            if bittaran_attacks != null else "")
     # During physical stand-up the CHEST always turns toward SERA at the
     # stationary 34deg/s turn rate, even when Approach would normally use
     # the slower moving-turn rate. The feet stay world-planted until upright.
