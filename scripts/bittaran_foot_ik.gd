@@ -3742,77 +3742,197 @@ func _source_ik_settle_visible_foot(
 ## world space, so the toe cannot finish at a displaced target.
 ## Capture the previous post-IK transform, not this tick's resampled
 ## authored clip (set_motion() has already overwritten that pose).
+## Find a reachable position ON the one straight start-to-home segment.
+## Unlike radial hip projection this never bends the toe's XZ track.
+## The previous progress prevents backward slides as the chest rises.
+static func _source_ik_sweep_line_reach(
+        from: Vector3, home: Vector3, desired: Vector3,
+        hip: Vector3, foot_offset: Vector3, max_reach: float,
+        minimum_progress: float = 0.0) -> Vector3:
+    var start: Vector2 = Vector2(from.x, from.z)
+    var direction: Vector2 = Vector2(
+        home.x - from.x, home.z - from.z)
+    var length_squared: float = direction.length_squared()
+    if length_squared <= 0.000001:
+        return desired
+    var wanted: Vector2 = Vector2(desired.x, desired.z)
+    var progress: float = maxf(clampf(
+        (wanted - start).dot(direction) / length_squared,
+        0.0, 1.0), minimum_progress)
+    # The ankle is the toe minus the current foot's contact offset.
+    var vertical: float = hip.y - (
+        desired.y - foot_offset.y)
+    var planar_radius_squared: float = (
+        max_reach * max_reach - vertical * vertical)
+    if planar_radius_squared > 0.0:
+        var center: Vector2 = Vector2(
+            hip.x + foot_offset.x, hip.z + foot_offset.z)
+        var projected: float = (
+            (center - start).dot(direction) / length_squared)
+        var nearest: Vector2 = start + direction * projected
+        var deviation_squared: float = (
+            center - nearest).length_squared()
+        if deviation_squared <= planar_radius_squared:
+            var half_width: float = sqrt(
+                (planar_radius_squared - deviation_squared)
+                / length_squared)
+            var earliest_reachable: float = projected - half_width
+            progress = maxf(progress, earliest_reachable)
+    progress = clampf(progress, 0.0, 1.0)
+    return Vector3(
+        start.x + direction.x * progress,
+        desired.y, start.y + direction.y * progress)
+
+
+## Recover the visible sweep TOE in a straight, floor-level drag while
+## maintaining the true upper/lower/foot joint chain. No late Wait-bone
+## slerp is allowed to undo the IK or roll the shin around its long axis.
+## KICK/STOMP preserve their established recovery implementation.
 func _source_ik_return_attacker_to_home(
         limb: Dictionary, frame: Dictionary) -> void:
-    var foot: Node3D = limb["foot"]
+    var upper: Node3D = limb["upper"]
     var lower: Node3D = limb["lower"]
+    var foot: Node3D = limb["foot"]
+    var sweep_drag: bool = (
+        str(frame.get("kind", "")) == "sweep")
     if not bool(limb.get("source_ik_leg_return_initialized", false)):
         var prior: Transform3D = limb.get(
             "source_ik_last_foot_transform", foot.global_transform)
-        limb["source_ik_leg_return_from"] = (
-            prior * (limb["sole_local"] as Vector3))
+        if sweep_drag:
+            # Use the real distal underside of the foot cuboid, rather
+            # than the gait sole marker at a different point on the toe.
+            _source_ik_begin_body_toe_pin(limb, frame)
+        var contact_local: Vector3 = limb["sole_local"]
+        if sweep_drag and bool(limb.get(
+                "source_ik_body_toe_pin_active", false)):
+            contact_local = limb["source_ik_body_toe_pin_local"]
+        limb["source_ik_leg_return_contact_local"] = contact_local
+        limb["source_ik_leg_return_from"] = prior * contact_local
         limb["source_ik_leg_return_rotation"] = (
             prior.basis.get_rotation_quaternion())
         limb["source_ik_leg_return_knee"] = limb.get(
             "source_ik_last_knee_world", lower.global_position)
+        limb["source_ik_leg_return_shin_rotation"] = limb.get(
+            "source_ik_last_lower_world_rotation",
+            lower.global_basis.get_rotation_quaternion())
+        limb["source_ik_leg_return_progress"] = 0.0
         limb["source_ik_leg_return_initialized"] = true
         limb["source_ik_leg_return_at_home"] = false
     var duration: float = maxf(
         float(frame.get("leg_return_seconds", 1.20)), 0.001)
     var parallel: bool = bool(
         frame.get("parallel_recovery", false))
-    # v463: both the body and the returning toe use the same
-    # phase_elapsed origin in parallel mode. Sequential retains the
-    # old BODY-first offset without any change to its keyframe curve.
     var start_delay: float = (
         0.0 if parallel else float(
             frame.get("body_return_seconds", 0.62)))
     var seconds: float = maxf(
         float(frame.get("phase_elapsed", 0.0)) - start_delay, 0.0)
     var u: float = clampf(seconds / duration, 0.0, 1.0)
-    # Quintic easing: both position and velocity meet the starting
-    # planted foot and the ending basic stance without a jerk.
     var ease: float = u * u * u * (u * (u * 6.0 - 15.0) + 10.0)
     var from_goal: Vector3 = limb["source_ik_leg_return_from"]
     var neutral_goal: Vector3 = _source_ik_home(limb)
-    var goal: Vector3 = from_goal.lerp(neutral_goal, ease)
-    # Rig.apply_original_attack_only() already produced the exact
-    # THREE-joint Wait-local interpolation for this frame. Save those
-    # rotations before the foot IK overrides them, then smoothly
-    # reduce the solver's influence over the final 45% of leg return.
-    var upper: Node3D = limb["upper"]
-    var wait_upper: Quaternion = upper.quaternion
-    var wait_lower: Quaternion = lower.quaternion
-    var wait_foot: Quaternion = foot.quaternion
     var start_rotation: Quaternion = (
         limb["source_ik_leg_return_rotation"])
     var neutral_rotation: Quaternion = (
         _source_ik_toe_down_rotation(limb, _rotation_home(limb)))
     var rotation: Quaternion = start_rotation.slerp(
         neutral_rotation, ease).normalized()
+    var contact_local: Vector3 = limb["source_ik_leg_return_contact_local"]
+    var goal: Vector3 = from_goal.lerp(neutral_goal, ease)
     var knee_hint: Vector3 = limb["source_ik_leg_return_knee"]
+    if sweep_drag:
+        # The rest-foot marker and the attacking tip are not the same
+        # local point. Keep the distal tip as the end-effector all the
+        # way to the neutral footprint.
+        var contact_offset: Vector3 = (
+            Basis(neutral_rotation).scaled(
+                foot.global_basis.get_scale())
+            * (contact_local - (limb["sole_local"] as Vector3)))
+        neutral_goal += contact_offset
+        goal = from_goal.lerp(neutral_goal, ease)
+        # A raised rear toe lands progressively; all remaining return
+        # is a straight XZ scrape at a constant 3mm floor clearance.
+        var floor_height: float = (
+            FLOOR_Y + SWEEP_TOE_CLEARANCE_METERS)
+        goal.y = lerpf(maxf(from_goal.y, floor_height),
+            floor_height, clampf(u / 0.25, 0.0, 1.0))
+        var foot_offset: Vector3 = (
+            Basis(rotation).scaled(foot.global_basis.get_scale())
+            * contact_local)
+        var upper_length: float = upper.global_position.distance_to(
+            lower.global_position)
+        var lower_length: float = lower.global_position.distance_to(
+            foot.global_position)
+        var reach: float = maxf(
+            upper_length + lower_length -
+                BODY_TOE_REACH_MARGIN_METERS,
+            absf(upper_length - lower_length) + IK_REACH_MARGIN_METERS)
+        goal = _source_ik_sweep_line_reach(
+            from_goal, neutral_goal, goal, upper.global_position,
+            foot_offset, reach, float(limb.get(
+            "source_ik_leg_return_progress", 0.0)))
+        var path: Vector2 = Vector2(
+            neutral_goal.x - from_goal.x,
+            neutral_goal.z - from_goal.z)
+        if path.length_squared() > 0.000001:
+            var traveled: Vector2 = Vector2(
+                goal.x - from_goal.x, goal.z - from_goal.z)
+            limb["source_ik_leg_return_progress"] = clampf(
+                traveled.dot(path) / path.length_squared(), 0.0, 1.0)
+        # The source sampler resets the lower joint to Wait each tick.
+        # Carry forward its last displayed WORLD rotation to preserve
+        # the shin's axial roll before the two-bone aiming solve.
+        var stable_shin: Quaternion = limb.get(
+            "source_ik_leg_return_shin_rotation",
+            lower.global_basis.get_rotation_quaternion())
+        lower.global_basis = Basis(stable_shin).scaled(
+            lower.global_basis.get_scale())
+        # Move the bend pole toward the neutral knee near the end,
+        # but never overwrite the contact-constrained IK quaternions.
+        var pole_blend: float = clampf(
+            (u - 0.72) / 0.28, 0.0, 1.0)
+        pole_blend = pole_blend * pole_blend * (
+            3.0 - 2.0 * pole_blend)
+        knee_hint = knee_hint.lerp(
+            lower.global_position, pole_blend)
+        var sweep_error: float = _source_ik_solve_striker(
+            limb, goal, rotation, contact_local, knee_hint)
+        # Re-aim without changing XZ when the rotating toe cuboid's
+        # lowest corner changes. Keep the entire mesh above the floor.
+        var visible_bottom: float = (
+            _source_ik_sweep_toe_lowest_world_y(limb))
+        if is_finite(visible_bottom) and (
+                visible_bottom < FLOOR_Y - SWEEP_TOE_FLOOR_TOLERANCE_METERS):
+            goal.y += clampf(
+                floor_height - visible_bottom, 0.0,
+                SWEEP_TOE_RETRY_MAX_METERS)
+            sweep_error = _source_ik_solve_striker(
+                limb, goal, rotation, contact_local,
+                lower.global_position)
+        limb["source_ik_leg_return_shin_rotation"] = (
+            lower.global_basis.get_rotation_quaternion())
+        limb["source_ik_leg_return_knee"] = lower.global_position
+        limb["source_ik_leg_return_at_home"] = (
+            u >= 1.0 - 0.000001)
+        limb["last_error"] = sweep_error
+        return
+    # STOMP/KICK retain their prior Wait-local handoff and settling.
+    var wait_upper: Quaternion = upper.quaternion
+    var wait_lower: Quaternion = lower.quaternion
+    var wait_foot: Quaternion = foot.quaternion
     var error: float = _source_ik_solve_striker(
-        limb, goal, rotation, limb["sole_local"], knee_hint)
+        limb, goal, rotation, contact_local, knee_hint)
     limb["source_ik_leg_return_knee"] = lower.global_position
-    # Release authored Wait rotations from the FIRST leg-return
-    # frame, never with a new late-timeline trigger or final snap.
-    var restore_weight: float = ease
     upper.quaternion = upper.quaternion.slerp(
-        wait_upper, restore_weight).normalized()
+        wait_upper, ease).normalized()
     lower.quaternion = lower.quaternion.slerp(
-        wait_lower, restore_weight).normalized()
+        wait_lower, ease).normalized()
     foot.quaternion = foot.quaternion.slerp(
-        wait_foot, restore_weight).normalized()
-    # Blend the visual toe-ground correction in parallel with Wait
-    # restoration; otherwise full Wait at t=1 is visibly airborne.
+        wait_foot, ease).normalized()
     _source_ik_settle_visible_foot(limb, ease)
-    # At u=1 all three bone rotations AND their source positions are
-    # EXACTLY Wait. Never mark home using IK reach error alone: its
-    # target was a grounded toe while Wait also defines the knee angle.
     limb["source_ik_leg_return_at_home"] = (
         u >= 1.0 - 0.000001)
     limb["last_error"] = error
-
 
 ## v440: preserve the authored Body and mesh attachment sampled by
 ## apply_original_attack_only(). Solve 3 planted support limbs and ONE
@@ -3846,6 +3966,7 @@ func _source_ik_advance_attack(frame: Dictionary) -> void:
             limb.erase("source_ik_body_toe_pin_active")
             limb.erase("source_ik_last_foot_transform")
             limb.erase("source_ik_last_knee_world")
+            limb.erase("source_ik_last_lower_world_rotation")
             limb.erase("source_ik_support_knee_hint")
             limb.erase("source_ik_leg_return_initialized")
             limb.erase("source_ik_leg_return_at_home")
@@ -3916,6 +4037,8 @@ func _source_ik_advance_attack(frame: Dictionary) -> void:
             limb["source_ik_last_foot_transform"] = foot.global_transform
             limb["source_ik_last_knee_world"] = (
                 limb["lower"] as Node3D).global_position
+            limb["source_ik_last_lower_world_rotation"] = (
+                limb["lower"] as Node3D).global_basis.get_rotation_quaternion()
             # Keep the solver's actual reach error for diagnostics.
             continue
         # The rig has already sampled this frame's authored Wait
