@@ -3318,6 +3318,9 @@ func initialize_source_ground_ik() -> bool:
         limb["source_ik_toe_down_alpha"] = 0.0
         limb["anchor"] = sole
         limb["last_goal"] = sole
+        # The previous airborne leg's IK residual is no longer valid
+        # after a teleport/reset; do not score it as planted-foot drift.
+        limb["last_error"] = 0.0
         limb["anchor_rotation"] = rotation
         limb["last_rotation"] = rotation
         limb["stepping"] = false
