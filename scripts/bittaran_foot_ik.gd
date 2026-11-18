@@ -4123,48 +4123,27 @@ func _source_ik_advance_attack(frame: Dictionary) -> void:
         var neutral_lower: Quaternion = support_lower.quaternion
         var neutral_foot: Quaternion = foot.quaternion
         if support_wait_weight >= 1.0 - 0.000001:
-            if true:
-                # All authored attacks need the support tips to remain
-                # world-planted at the terminal Wait handoff. Previously
-                # only the revised SWEEP fixed the original KICK's
-                # 10cm underground toe after the Wait-angle blend.
-                # Re-solve the two real joints without moving BODY,
-                # meshes or pivots.
-                var fixed_goal: Vector3 = limb["source_ik_attack_anchor"]
-                fixed_goal.y = FLOOR_Y
-                var desired: Quaternion = (
-                    foot.global_basis.get_rotation_quaternion())
-                var pinned_error: float = _source_ik_solve_striker(
-                    limb, fixed_goal, desired, limb["sole_local"],
-                    limb.get("source_ik_support_knee_hint", Vector3.INF))
-                limb["last_error"] = pinned_error
-                limb["last_goal"] = foot.to_global(
-                    limb["sole_local"] as Vector3)
-                limb["last_rotation"] = desired
-                limb["last_knee"] = support_lower.global_position
-                limb["last_foot"] = foot.global_position
-                limb["anchor"] = fixed_goal
-                limb["anchor_rotation"] = desired
-                continue
-            # At t=1 leave all three joints at their exact authored
-            # Wait quaternion; the prior frames converged smoothly.
+            # All authored attacks need the support tips to remain
+            # world-planted at the terminal Wait handoff. Previously
+            # only the revised SWEEP fixed the original KICK's
+            # 10cm underground toe after the Wait-angle blend.
+            # Re-solve the two real joints without moving BODY,
+            # meshes or pivots.
+            var fixed_goal: Vector3 = limb["source_ik_attack_anchor"]
+            fixed_goal.y = FLOOR_Y
+            var desired: Quaternion = (
+                foot.global_basis.get_rotation_quaternion())
+            var pinned_error: float = _source_ik_solve_striker(
+                limb, fixed_goal, desired, limb["sole_local"],
+                limb.get("source_ik_support_knee_hint", Vector3.INF))
+            limb["last_error"] = pinned_error
             limb["last_goal"] = foot.to_global(
                 limb["sole_local"] as Vector3)
-            limb["last_rotation"] = (
-                foot.global_basis.get_rotation_quaternion())
+            limb["last_rotation"] = desired
             limb["last_knee"] = support_lower.global_position
             limb["last_foot"] = foot.global_position
-            _source_ik_settle_visible_foot(limb, 1.0)
-            limb["last_goal"] = foot.to_global(
-                limb["sole_local"] as Vector3)
-            limb["last_rotation"] = (
-                foot.global_basis.get_rotation_quaternion())
-            limb["last_knee"] = support_lower.global_position
-            limb["last_foot"] = foot.global_position
-            limb["anchor"] = _source_ik_home(limb)
-            limb["anchor_rotation"] = (
-                _source_ik_toe_down_rotation(
-                    limb, _rotation_home(limb)))
+            limb["anchor"] = fixed_goal
+            limb["anchor_rotation"] = desired
             continue
         var goal: Vector3 = limb["source_ik_attack_anchor"]
         goal.y = FLOOR_Y
@@ -4184,18 +4163,14 @@ func _source_ik_advance_attack(frame: Dictionary) -> void:
                 neutral_lower, support_wait_weight).normalized()
             foot.quaternion = foot.quaternion.slerp(
                 neutral_foot, support_wait_weight).normalized()
-            if true:
-                # The old Wait-angle blend detaches support feet for all
-                # KICK/STOMP/SWEEP source clips (v435 observed 10.4cm
-                # sink on KICK despite a near-zero pre-blend IK error).
-                # Re-pin after each neutral blend using current toe
-                # orientation and anatomical skeletal lengths.
-                error = _source_ik_solve_striker(
-                    limb, goal, foot.global_basis.get_rotation_quaternion(),
-                    limb["sole_local"], support_lower.global_position)
-            else:
-                _source_ik_settle_visible_foot(
-                    limb, support_wait_weight)
+            # The old Wait-angle blend detaches support feet for all
+            # KICK/STOMP/SWEEP source clips (v435 observed 10.4cm
+            # sink on KICK despite a near-zero pre-blend IK error).
+            # Re-pin after each neutral blend using current toe
+            # orientation and anatomical skeletal lengths.
+            error = _source_ik_solve_striker(
+                limb, goal, foot.global_basis.get_rotation_quaternion(),
+                limb["sole_local"], support_lower.global_position)
         # Cache the FINAL displayed bones, not the pre-blend IK knee.
         limb["source_ik_support_knee_hint"] = (
             support_lower.global_position)
