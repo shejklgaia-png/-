@@ -6,7 +6,7 @@ extends SceneTree
 const DT: float = 1.0 / 60.0
 const LEG_IDS: Array[String] = ["leg_fl", "leg_fr", "leg_rl", "leg_rr"]
 const ONE_LEG: Array[String] = ["leg_fl"]
-const STEP_TIME: float = 0.58
+const STEP_TIME: float = 0.52
 const TURN_SPEED: float = deg_to_rad(34.0)
 
 func _initialize() -> void:
@@ -92,7 +92,7 @@ func _run_case(battle: Node3D, ids: Array[String],
                 return false
         battle.call("_finalize_target_pose", DT)
         var still_down: bool = bool(ik.call("down_pose_active"))
-        var pair: int = int(ik.get("stepping_pair"))
+        var pair: int = int(ik.get("source_ik_step_pair"))
         var all_legs: Array = ik.get("legs")
         if still_down:
             had_fallen = true
@@ -127,8 +127,7 @@ func _run_case(battle: Node3D, ids: Array[String],
                 if float(foot["swing_elapsed"]) > STEP_TIME + 0.00001:
                     _fail("gait speed changed while catching up")
                     return false
-                var expected: Vector3 = ik.call("_home",
-                    foot, chosen == "Approach")
+                var expected: Vector3 = ik.call("_source_ik_home", foot)
                 var actual: Vector3 = foot["swing_to"]
                 if actual.distance_to(expected) > 0.00005:
                     _fail("landing target did not follow live body stance: "
