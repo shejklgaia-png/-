@@ -109,6 +109,12 @@ var bittaran_rig: Node3D
 var bittaran_ai: RefCounted
 var bittaran_foot_ik: RefCounted
 var bittaran_motion: String = "Idle"
+# v464: never attack until three COMPLETED normal gait pair swings.
+# After each attack the next required step count is reset +3.
+# Postattack scripted replant pairs do not increment that counter.
+const BITTARAN_MIN_WALK_STEPS: int = 3
+var bittaran_walk_attack_step_gate: int = BITTARAN_MIN_WALK_STEPS
+var bittaran_was_attacking: bool = false
 var boss_name_label: Label
 var victory_label: Label
 var boss_death_particles: CPUParticles3D
@@ -1262,8 +1268,14 @@ func _advance_target_motion(delta: float) -> void:
     var postattack_replanting: bool = (
         bittaran_foot_ik != null and bool(bittaran_foot_ik.call(
             "source_postattack_replant_active")))
+    var completed_gait_steps: int = (
+        int(bittaran_foot_ik.call("source_completed_walk_steps"))
+        if bittaran_foot_ik != null else 0)
+    var enough_walk_steps: bool = (
+        completed_gait_steps >= bittaran_walk_attack_step_gate)
     var attack_permitted: bool = (
-        target_move_enabled and target_hp > 0 and player_hp > 0
+        enough_walk_steps
+        and target_move_enabled and target_hp > 0 and player_hp > 0
         and not generic_damage_frozen and recovered
         and not postattack_replanting
         and down_remaining <= 0.0 and training_ko_remaining <= 0.0
@@ -1282,6 +1294,12 @@ func _advance_target_motion(delta: float) -> void:
             bittaran_foot_ik.call("attack_stance_is_ready")))
         if bittaran_attacks != null else {})
     var attacking: bool = not bittaran_attack_frame.is_empty()
+    if attacking and not bittaran_was_attacking:
+        # The next attack must follow three NEW gait pair touchdowns,
+        # independently of postattack 4-foot reset/respawn.
+        bittaran_walk_attack_step_gate = (
+            completed_gait_steps + BITTARAN_MIN_WALK_STEPS)
+    bittaran_was_attacking = attacking
     # On the LAST attack frame the director may already return {}; stage
     # the leg-home/body-rise recovery before permitting any next gait.
     var front_just_completed: bool = (
@@ -1354,7 +1372,8 @@ func _advance_target_motion(delta: float) -> void:
     # Use the normal AI branch to choose Turn, Approach, or Idle. Do not
     # substitute the v365 Idle-only recovery yaw controller here.
     var result: Dictionary = bittaran_ai.call("advance", delta,
-        target.position, target.rotation.y, player.position, frozen)
+        target.position, target.rotation.y, player.position, frozen,
+        not enough_walk_steps)
     # During physical stand-up the CHEST always turns toward SERA at the
     # stationary 34deg/s turn rate, even when Approach would normally use
     # the slower moving-turn rate. The feet stay world-planted until upright.
@@ -1769,6 +1788,8 @@ func _reset_target_after_respawn() -> void:
         boss_death_particles.emitting = false
     if bittaran_ai != null:
         bittaran_ai.call("reset")
+    bittaran_walk_attack_step_gate = BITTARAN_MIN_WALK_STEPS
+    bittaran_was_attacking = false
     if bittaran_attacks != null:
         bittaran_attacks.call("reset")
     bittaran_attack_frame.clear()
