@@ -474,15 +474,62 @@ func _tick_bittaran_footfalls() -> void:
         footfall_prev_stepping[i] = stepping
 
 
-func _emit_bittaran_shockwave(point: Vector3, half_size: Vector2) -> void:
-    if bittaran_shockwave == null:
+## Footprint is computed from the LIVE rendered foot AABB after IK.
+## Both horizontal dimensions are exactly 1.5x the real foot size.
+## The original shin-wide hitbox must never define a ground slam.
+func _bittaran_stomp_ground_half_extents(leg_id: String) -> Vector2:
+    if target_parts == null:
+        return Vector2.ZERO
+    var foot_box: AABB = target_parts.call(
+        "get_leg_foot_world_aabb", leg_id)
+    if not foot_box.has_volume():
+        return Vector2.ZERO
+    return Vector2(foot_box.size.x, foot_box.size.z) * 0.75
+
+
+## A SINGLE immediate collision pulse at the grounded toe's actual
+## landing tick. Uses the 1.5x foot footprint (with the player's
+## normal capsule radius), never a lingering/rising shockwave hitbox.
+func _bittaran_stomp_ground_hit(
+        point: Vector3, half_extents: Vector2) -> void:
+    if player == null or bittaran_attacks == null or (
+            target_hp <= 0.0 or player_hp <= 0.0) or (
+            bool(bittaran_attacks.get("hit_consumed"))):
         return
+    if half_extents.x <= 0.0 or half_extents.y <= 0.0:
+        return
+    var delta: Vector2 = Vector2(
+        player.global_position.x - point.x,
+        player.global_position.z - point.z)
+    var capsule_radius: float = 0.40
+    if absf(delta.x) > half_extents.x + capsule_radius or (
+            absf(delta.y) > half_extents.y + capsule_radius):
+        return
+    # Resolve damage instantly on the impact frame, irrespective of
+    # the visible dust/ring animation which continues afterward.
+    bittaran_attacks.set("hit_consumed", true)
+    var direction: Vector3 = Vector3(delta.x, 0.0, delta.y)
+    if direction.length_squared() < 0.0001:
+        direction = player.global_position - target.global_position
+        direction.y = 0.0
+    if direction.length_squared() < 0.0001:
+        direction = Vector3.FORWARD
+    _on_enemy_projectile_hit(
+        player.global_position, direction.normalized(), false, 2)
+
+
+func _emit_bittaran_shockwave(point: Vector3, half_size: Vector2) -> void:
+    if bittaran_shockwave == null or (
+            half_size.x <= 0.0 or half_size.y <= 0.0):
+        return
+    # Damage is applied IMMEDIATELY on touchdown (one pulse).
+    _bittaran_stomp_ground_hit(point, half_size)
     shockwave_elapsed = 0.0
     shockwave_half_extents = half_size
     bittaran_shockwave.global_position = Vector3(
         point.x, 0.055, point.z)
-    # Exactly 1.5x the live shin width. A fixed full-size CIRCULAR
-    # broken ring fades in place instead of expanding out from its core.
+    # Live FOOT width x1.5, not shin width. The ring is cosmetic;
+    # its fade never drives the instant one-shot area damage.
     var radius: float = maxf(half_size.x, half_size.y)
     bittaran_shockwave.scale = Vector3(radius, 1.0, radius)
     bittaran_shockwave.visible = true
@@ -578,15 +625,14 @@ func _check_bittaran_attack_hit() -> void:
     var contact: Vector3 = (
         _bittaran_original_attack_contact(leg_id) if original
         else bittaran_foot_ik.call("attack_contact_world"))
-    if not original and kind == "stomp" and is_impact and (
-            _bittaran_striking_foot_grounded(leg_id)):
-        # The old impact still produces its ring and dust ONLY on actual
-        # foot-floor contact, independent of whether SERA is struck.
-        var shin: AABB = target_parts.call("get_part_aabb", leg_id)
-        var half_size := Vector2(
-            maxf(shin.size.x * 0.75, 0.01),
-            maxf(shin.size.z * 0.75, 0.01))
-        _emit_bittaran_shockwave(contact, half_size)
+    # Source and legacy stomps BOTH use the one-tick FLOOR pulse.
+    # A prelanding shin overlap can no longer deal stomp damage.
+    if kind == "stomp":
+        if not original and is_impact and (
+                _bittaran_striking_foot_grounded(leg_id)):
+            _emit_bittaran_shockwave(contact,
+                _bittaran_stomp_ground_half_extents(leg_id))
+        return
     # The ONLY attack collision volumes are rendered components below the
     # knee joint: lower-leg mesh + its attached foot. No upper limb,
     # torso, head, broad shin lock box or shockwave radius can deal damage.
@@ -1642,12 +1688,8 @@ func _finalize_target_pose(delta: float) -> void:
                     # floor contact on the descending authored foot.
                     bittaran_dirt_fx.set("stomped_this_attack", true)
                     if target_parts != null:
-                        var shin: AABB = target_parts.call(
-                            "get_part_aabb", leg_id)
-                        var half_size := Vector2(
-                            maxf(shin.size.x * 0.75, 0.01),
-                            maxf(shin.size.z * 0.75, 0.01))
-                        _emit_bittaran_shockwave(contact, half_size)
+                        _emit_bittaran_shockwave(contact,
+                            _bittaran_stomp_ground_half_extents(leg_id))
                 elif kind == "kick" and not had_kick and bool(
                         bittaran_dirt_fx.get("kicked_this_attack")):
                     _add_impact_shake(0.16)
