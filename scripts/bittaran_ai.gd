@@ -72,6 +72,18 @@ func advance(delta: float, position: Vector3, yaw: float,
     # v464: when the 3 real gait steps are still pending, choose a
     # movement suited to distance and keep animating full steps.
     if force_three_step_walk:
+        # The three-step requirement does not permit blind translation.
+        # When SERA is outside the 100-degree tracking cone, first
+        # turn on the spot at the normal stationary yaw rate. Walking
+        # away/sideways here caused fall/stand-up tests to enter
+        # Approach instead of Turn and made the boss strafe blindly.
+        if not in_view:
+            current_speed = 0.0
+            state["motion"] = "Turn"
+            state["yaw"] = yaw + clampf(angle,
+                -deg_to_rad(STATIONARY_TURN_DEG_PER_SEC) * delta,
+                deg_to_rad(STATIONARY_TURN_DEG_PER_SEC) * delta)
+            return state
         current_speed = move_toward(current_speed, APPROACH_SPEED_MPS,
             ACCELERATION_MPS2 * delta)
         var next_yaw: float = yaw + clampf(angle,
