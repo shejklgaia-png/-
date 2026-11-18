@@ -1,10 +1,12 @@
+# Post-merge workflow: full Python/Godot CI runs after updates reach main.
+# PR body acknowledgements are reviewed before merge; post-merge runs verify source integrity.
 # CI optimization: all original static/Godot cases are still executed;
 # test subprocesses remain isolated and full test failures are reported.
 # The test manifest is the authoritative inventory for both suites.
 name: SERA model workflow policy
 on:
-  pull_request:
-    types: [opened, synchronize, edited, reopened]
+  push:
+    branches: [main]
     paths:
       - '.github/workflows/sera-model-policy.yml'
       - 'AGENTS.md'
@@ -21,9 +23,10 @@ on:
       - 'shaders/**'
       - 'BGM/**'
       - 'project.godot'
+  workflow_dispatch:
 concurrency:
-  # A newer revision supersedes an older PR revision; do not waste Godot CI time.
-  group: sera-model-policy-${{ github.event.pull_request.number || github.ref }}
+  # A newer main revision supersedes the earlier post-merge verification run.
+  group: sera-model-policy-main
   cancel-in-progress: true
 jobs:
   model-policy:
@@ -34,12 +37,10 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Verify model guide and explicit review acknowledgement
-        env:
-          PR_BODY: ${{ github.event.pull_request.body }}
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-        run: python3 tools/model_policy_check.py --base "$BASE_SHA" --head "$HEAD_SHA"
+      - name: Verify model guide references and canonical model snapshots
+        run: |
+          python3 tools/model_policy_check.py
+          python3 tools/sera_model_build.py --check
       - name: Verify all registered historical Python regressions (batched, isolated, parallel)
         run: python3 tools/sera_ci_suite.py static --workers 4 --report-json "$RUNNER_TEMP/sera-static-results.json"
       # Earlier static regressions all passed while the Android side kick
@@ -83,8 +84,8 @@ jobs:
           retention-days: 14
       - name: Verify shared transparent render contract and new shaders
         env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          BASE_SHA: ${{ github.event.before }}
+          HEAD_SHA: ${{ github.sha }}
         run: python3 tools/render_policy_self_check.py
       - name: Verify base model, repository paths and development fast path
         run: |
