@@ -50,7 +50,8 @@ func advance_recovery_turn(delta: float, position: Vector3, yaw: float,
 
 func advance(delta: float, position: Vector3, yaw: float,
         player_position: Vector3, frozen: bool,
-        force_three_step_walk: bool = false) -> Dictionary:
+        force_three_step_walk: bool = false,
+        force_attack_variation: bool = false) -> Dictionary:
     var state := {"position": position, "yaw": yaw, "motion": "Idle"}
     if delta <= 0.0 or frozen:
         current_speed = 0.0
@@ -77,7 +78,7 @@ func advance(delta: float, position: Vector3, yaw: float,
         # turn on the spot at the normal stationary yaw rate. Walking
         # away/sideways here caused fall/stand-up tests to enter
         # Approach instead of Turn and made the boss strafe blindly.
-        if not in_view:
+        if not in_view and not force_attack_variation:
             current_speed = 0.0
             state["motion"] = "Turn"
             state["yaw"] = yaw + clampf(angle,
