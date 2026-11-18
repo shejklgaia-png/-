@@ -27,6 +27,14 @@ const HUD_LAYOUT = preload("res://scripts/sera_hud_layout.gd")
 const CLEAN_TRAINING_HUD = preload("res://scripts/sera_clean_training_hud.gd")
 const FACING_ANGLE_DEBUG = preload("res://scripts/sera_facing_angle_debug.gd")
 const DEV_DIAGNOSTICS = preload("res://scripts/dev_diagnostics.gd")
+# Resolve the existing Save autoload at runtime. SceneTree --script probes may
+# compile this scene before autoload singleton names are registered.
+@onready var _sera_save_service: Node = get_node_or_null("/root/SeraSave")
+
+func _record_sera_save(method: String, arguments: Array = []) -> void:
+    if is_instance_valid(_sera_save_service) and (
+            _sera_save_service.has_method(method)):
+        _sera_save_service.callv(method, arguments)
 ## v84: Authored 3-stage Swordeffect atlas, exact board placement.
 ## v83: Three-stage tap melee combo; cancel 2 authored frames after follow-through.
 ## v82: Close-range side-step camera bound by target-relative player/camera bearing.
@@ -1144,7 +1152,7 @@ func _on_enemy_projectile_hit(_world_position: Vector3, incoming_direction: Vect
             maxf(0.2, float(part_stats.get("guard_defense_mult", 1.0))))
         shield = maxf(0.0, shield - cost)
         shield_recovery_pause = 0.45
-        SeraSave.record_defensive_impact(true)
+        _record_sera_save("record_defensive_impact", [true])
         if shield <= 0.0:
             _set_guard(false)
             _begin_damage_reaction(incoming_direction)
@@ -1157,7 +1165,7 @@ func _on_enemy_projectile_hit(_world_position: Vector3, incoming_direction: Vect
         if rig != null and bool(rig.get("loading_ok")):
             rig.call("trigger_guard_reaction")
         return
-    SeraSave.record_defensive_impact(false)
+    _record_sera_save("record_defensive_impact", [false])
     _take_test_damage(incoming_damage)
     # Keep the preexisting projectile and area hit sound identities.
     projectile_hit_flash_remaining = PROJECTILE_HIT_FLASH_SECONDS
@@ -2236,8 +2244,8 @@ func _apply_target_part_damage(kind: String, raw_attack: int, raw_break: float,
     # Clamping the boss at 0 HP must never show 0 or a truncated last hit.
     var actual_damage: int = int(result["body_damage"])
     result["applied_damage"] = actual_damage
-    SeraSave.record_target_hit(kind, actual_damage,
-        hp_before_hit > 0 and target_hp == 0)
+    _record_sera_save("record_target_hit", [kind, actual_damage,
+        hp_before_hit > 0 and target_hp == 0])
     if hp_before_hit > 0 and target_hp == 0:
         target_respawn_remaining = TARGET_RESPAWN_SECONDS
     _refresh_hp_bar()
@@ -4803,8 +4811,8 @@ func _process(delta: float) -> void:
     camera_target_render_position = target.get_global_transform_interpolated().origin
     _update_lock_line_visuals()
     # Elapsed training time stays in the active profile until an explicit SAVE.
-    SeraSave.record_training_time(delta)
-    SeraSave.record_game_time(delta)
+    _record_sera_save("record_training_time", [delta])
+    _record_sera_save("record_game_time", [delta])
     _advance_projectile_hit_overlay(delta)
     # Rig clip is updated first (process_priority=-1). Sample the actual
     # striking sword BEFORE evaluating a hit, so the visual arc reaches its
