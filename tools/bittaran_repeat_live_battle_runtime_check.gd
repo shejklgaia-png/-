@@ -14,7 +14,7 @@ func _fail(message: String) -> void:
     push_error("BITTARAN_REPEAT_LIVE_FAIL: " + message)
     quit(1)
 
-func _run() -> void:
+func _run_scenario(start_distance: float, expected_first_kind: String) -> bool:
     var battle: Node3D = load(
         "res://scenes/bittaran_battle.tscn").instantiate()
     root.add_child(battle)
@@ -28,9 +28,9 @@ func _run() -> void:
     var ik: RefCounted = battle.get("bittaran_foot_ik")
     if boss == null or player == null or director == null or ik == null:
         _fail("battle dependencies not initialized")
-        return
+        return false
     boss.rotation.y = 0.0
-    player.global_position = boss.global_position + Vector3(0, 0, 6.8)
+    player.global_position = boss.global_position + Vector3(0, 0, start_distance)
     var starts: Array[String] = []
     var first_attack_completed: bool = false
     var postattack_replant_seen: bool = false
@@ -47,15 +47,20 @@ func _run() -> void:
         var active: bool = not frame.is_empty()
         if active and not previous_active:
             var kind: String = str(frame.get("kind", ""))
+            if starts.is_empty() and not expected_first_kind.is_empty() and (
+                    kind != expected_first_kind):
+                _fail("unexpected initial attack at " +
+                    str(start_distance) + "m: " + kind)
+                return false
             if not starts.is_empty() and starts[-1] == kind:
                 _fail("repeated same attack kind " + str(starts))
-                return
+                return false
             var completed: int = int(ik.call("source_completed_walk_steps"))
             var gate: int = previous_step_gate
             if not starts.is_empty() and completed < gate:
                 _fail("attack bypassed three new walk steps " +
                     str([completed, gate, starts]))
-                return
+                return false
             starts.append(kind)
             print("REPEAT_LIVE_ATTACK_START tick=", tick,
                 " kind=", kind, " step_count=", completed,
@@ -95,11 +100,23 @@ func _run() -> void:
                 max_gait, battle.get("bittaran_motion"),
                 ik.get("source_ik_postattack_active"),
                 ik.get("source_ik_postattack_hold")]))
+        return false
+    print("REPEAT_LIVE_SCENARIO_PASS start_distance=",
+        start_distance, " attacks=", ",".join(starts),
+        " max_gait_steps=", max_gait)
+    battle.queue_free()
+    return true
+
+func _run() -> void:
+    # Both the fixed-range SWEEP deadlock and very-close STOMP
+    # acquisition must lead to repeated legal attacks autonomously.
+    if not _run_scenario(6.8, "sweep"):
         return
-    print("GODOT_BITTARAN_REPEAT_LIVE_PASS: autonomous attacks=",
-        ",".join(starts),
+    if not _run_scenario(1.65, "stomp"):
+        return
+    print("GODOT_BITTARAN_REPEAT_LIVE_PASS stationary_scenarios=2",
+        " repeated_attacks=true",
         " three_new_steps_per_cycle=true",
         " postattack_two_pairs=true",
-        " same_kind_consecutive=false",
-        " fixed_player_stationary=true")
+        " same_kind_consecutive=false")
     quit(0)
