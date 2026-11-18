@@ -1,3 +1,12 @@
+## 2026-11-19 — SERA v460: 攻撃選択の距離判定を各足先の実位置に変更
+
+- 問題：`scripts/bittaran_attacks.gd` の `_choose_kind` がプレイヤーと胴体中心のXZ距離から踏みつけ（≤3m）／弾き（3.75〜5.15m）／なぎ払い（2.7〜7.1m）を選んでいた。その後最寄りの脚を選んでいたため、足先に近いのに踏みつけが選択されない場合や、選んだ脚が技の射程外である場合があった。
+- 修正：4脚をそれぞれ独立評価し、`player.global_position` と、IK更新後の実際の足先`foot.to_global(sole_local)`の**水平距離**で各攻撃の成立を判定。`_leg_can_reach` は脚ごとに踏みつけ≤3m、前脚のみ弾き3.75〜5.15mかつ±38°、なぎ払い2.7〜7.1m（前脚±115°、後脚±165°）を検証する。
+- 脚選択も足先→プレイヤーの実距離を最優先とし、ごく小さい同距離優先度のみ維持。存在しない後脚KICKの生成禁止、原本Blockbenchモーション、実当たり判定・IK・接地FXは変更しない。
+- `scripts/bittaran_battle.gd`: 従来の予定足場`available_attack_feet()`ではなく、実行時の足先ノードと`sole_local`から4脚のワールド座標を取得。繰り返し攻撃のブロック判定にも同じ4脚の位置を渡す。
+- v453テスト`tools/bittaran_attack_distance_priority_runtime_check.gd`を実足先基準の16境界ケース・リアル3歩攻撃に変更し、`tools/bittaran_attack_variation_runtime_check.gd`も同じ足先距離仕様へ更新。
+- 既存の「攻撃前に3歩歩く」「同じ攻撃種類を連続で使わない」ルール、既存の音量（01 -12.5dB／13-1 -3dB／BGM -5dB）はそのまま。
+
 ## 2026-11-19 — SERA v459: ユーザー指定で音量をv457へ戻す
 
 - `scripts/sera_thruster_audio.gd`: v458の音量増加を撤回し、01持続音を **-12.5 dB**、13-1加速音を **-3.0 dB** のv457設定へ戻す。

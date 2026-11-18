@@ -27,7 +27,7 @@ func _run() -> void:
     var director: RefCounted = ATTACKS.new()
     var movement: RefCounted = AI.new()
     var stomp_player: Vector3 = Vector3(0.0, 0.0, 2.0)
-    var kick_player: Vector3 = Vector3(0.0, 0.0, 4.0)
+    var kick_player: Vector3 = Vector3(0.0, 0.0, 5.0)
     var sweep_player: Vector3 = Vector3(6.0, 0.0, 0.0)
     var cases: Array = [
         [stomp_player, "stomp"],
@@ -40,7 +40,7 @@ func _run() -> void:
         var player: Vector3 = item[0]
         var expected: String = str(item[1])
         if bool(director.call(
-                "repeat_kind_blocked", player, Vector3.ZERO, 0.0)):
+                "repeat_kind_blocked", player, Vector3.ZERO, 0.0, FEET)):
             _fail("new sector must be available " + expected)
             return
         var attack: Dictionary = _try_attack(director, player)
@@ -53,7 +53,7 @@ func _run() -> void:
         # different feet cannot bypass the anti-repeat guarantee.
         director.call("cancel")
         if not bool(director.call(
-                "repeat_kind_blocked", player, Vector3.ZERO, 0.0)):
+                "repeat_kind_blocked", player, Vector3.ZERO, 0.0, FEET)):
             _fail("repeated kind was not blocked " + expected)
             return
         var repeat: Dictionary = _try_attack(director, player)
@@ -73,7 +73,7 @@ func _run() -> void:
         return
     director.call("reset")
     if bool(director.call("repeat_kind_blocked",
-            stomp_player, Vector3.ZERO, 0.0)):
+            stomp_player, Vector3.ZERO, 0.0, FEET)):
         _fail("new encounter retained previous attack history")
         return
     var first_after_reset: Dictionary = _try_attack(

@@ -2,6 +2,7 @@ extends SceneTree
 ## Contact diagnostics: compare the source-clock foot paths with real IK,
 ## grounded mesh geometry, and the contact FX/damage gate at 60Hz.
 const DT: float = 1.0 / 60.0
+const ATTACKS = preload("res://scripts/bittaran_attacks.gd")
 
 func _initialize() -> void:
     call_deferred("_run")
@@ -170,6 +171,7 @@ func _run() -> void:
         var player: CharacterBody3D = battle.get("player")
         player.global_position = boss.global_position + Vector3(0,0,distance)
         var kinds: Array[String] = []
+        var legal_foot_entries: int = 0
         var real_player_damage_events: int = 0
         var stomp_damage_events: int = 0
         for tick in range(1750):
@@ -179,6 +181,34 @@ func _run() -> void:
             if not f.is_empty() and str(f.get("phase",""))=="entry" and (
                     kinds.is_empty() or str(f.get("kind","")) != kinds[-1]):
                 kinds.append(str(f.get("kind","")))
+                # v460: BODY range is now irrelevant. Verify the actual
+                # selected LEG's own live post-IK sole is within reach
+                # at every automatic attack entry.
+                var feet: Dictionary = battle.call(
+                    "_bittaran_attack_candidates")
+                var id: String = str(f.get("id",""))
+                var kind: String = str(f.get("kind",""))
+                # Every attack snapshots the real physical sole at
+                # decision-time, BEFORE source/IK changes the displayed
+                # toe pose. Do not assert against the foot after replant.
+                var decision_foot: Vector3 = f.get(
+                    "selection_foot_world", Vector3.INF)
+                if not is_finite(decision_foot.x) or (
+                        not ATTACKS._leg_can_reach(
+                            kind, id, player.global_position,
+                            decision_foot, boss.rotation.y)):
+                    _fail("AI selected out-of-range striking sole " +
+                        str([distance, kind, id, decision_foot]))
+                    return
+                if feet.has(id):
+                    var current_foot: Vector3 = feet[id]
+                    var pose_shift: float = Vector2(
+                        current_foot.x - decision_foot.x,
+                        current_foot.z - decision_foot.z).length()
+                    if pose_shift > 0.40:
+                        print("SOURCE_ATTACK_ENTRY_IK_POSE_SHIFT leg=",
+                            id, " distance=", pose_shift)
+                legal_foot_entries += 1
                 print("CONTACT_AI_ATTACK distance=",distance," tick=",tick,
                     " kind=",f.get("kind")," leg=",f.get("id"),
                     " boss_distance=",boss.global_position.distance_to(
@@ -192,13 +222,13 @@ func _run() -> void:
                     " tick=",tick," source_kind=",f.get("kind"),
                     " source_t=",f.get("authored_time"),
                     " hp_after=",battle.get("player_hp"))
-        # With close-range 3-step orbit, all four placements MUST
-        # perform a genuine STOMP before deciding the next attack.
-        # Previously the mandatory step retreat put every case in
-        # KICK range, with zero STOMPs even after several full attacks.
-        if kinds.size() < 3 or kinds[0] != "stomp":
-            _fail("close stationary SERA never received STOMP " +
-                str([distance,kinds]))
+        # The player may be near the BODY but farther than 3m
+        # from EVERY articulated sole: SWEEP is then the only legal
+        # attack. Requiring the first attack to be STOMP would
+        # reintroduce the old torso-centered range bug.
+        if kinds.is_empty() or legal_foot_entries != kinds.size():
+            _fail("source AI never selected a legal physical foot " +
+                str([distance,kinds,legal_foot_entries]))
             return
         for k in range(1, kinds.size()):
             if kinds[k] == kinds[k-1]:
@@ -209,5 +239,5 @@ func _run() -> void:
             " hp_damage_events=",real_player_damage_events,
             " stomp_damage_events=",stomp_damage_events)
         battle.queue_free()
-    print("GODOT_SOURCE_CONTACT_TIMELINE_PASS first-ground-sweep=true stomp-landing-once=true four-close-STOMP=true")
+    print("GODOT_SOURCE_CONTACT_TIMELINE_PASS first-ground-sweep=true stomp-landing-once=true real-foot-range=true")
     quit(0)

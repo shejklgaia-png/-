@@ -700,15 +700,25 @@ func _check_bittaran_attack_hit() -> void:
 
 func _bittaran_attack_candidates() -> Dictionary:
     var candidates: Dictionary = {}
-    if bittaran_foot_ik == null or target_parts == null:
+    if bittaran_foot_ik == null or target_parts == null or (
+            not bool(bittaran_foot_ik.get("ready"))):
         return candidates
-    # Preserve all four articulated legs even when their shin gauge breaks.
-    # Source director chooses 3 front techniques or 2 rear techniques;
-    # no rear kick is synthesized.
-    var feet: Dictionary = bittaran_foot_ik.call("available_attack_feet")
-    for id in BittaranFootIK.LEG_PART_IDS:
-        if feet.has(id):
-            candidates[id] = feet[id]
+    # The old available_attack_feet() exposes IK's PLANNED anchors,
+    # not the actual rendered soles. At three gait touchdowns, some
+    # feet have not yet reached their stored anchor — using them
+    # would select an attack from a phantom position. Read each live
+    # articulated foot in world space after IK instead.
+    var legs: Array = bittaran_foot_ik.get("legs")
+    for i in range(mini(BittaranFootIK.LEG_PART_IDS.size(), legs.size())):
+        var leg: Dictionary = legs[i]
+        var foot: Node3D = leg.get("foot", null) as Node3D
+        if foot == null:
+            continue
+        var sole_local: Vector3 = leg.get(
+            "sole_local", Vector3.ZERO)
+        var world_sole: Vector3 = foot.to_global(sole_local)
+        if is_finite(world_sole.x) and is_finite(world_sole.z):
+            candidates[BittaranFootIK.LEG_PART_IDS[i]] = world_sole
     return candidates
 
 
@@ -1475,7 +1485,8 @@ func _advance_target_motion(delta: float) -> void:
         and bittaran_attacks != null
         and bool(bittaran_attacks.call(
             "repeat_kind_blocked", player.global_position,
-            target.global_position, target.rotation.y)))
+            target.global_position, target.rotation.y,
+            _bittaran_attack_candidates())))
     # Use the normal AI branch to choose Turn, Approach, or Idle. Do not
     # substitute the v365 Idle-only recovery yaw controller here.
     var result: Dictionary = bittaran_ai.call("advance", delta,

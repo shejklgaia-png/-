@@ -147,6 +147,9 @@ var hit_consumed: bool = false
 var preparing_stance: bool = false
 var stomp_aim: Vector3 = Vector3.ZERO
 var stomp_aim_valid: bool = false
+# Snapshot of the *post-IK physical sole* used for selection, before
+# the selected source animation/IK replant changes the displayed pose.
+var selected_foot_world: Vector3 = Vector3.INF
 
 func reset() -> void:
     kind = ""
@@ -160,6 +163,7 @@ func reset() -> void:
     hit_consumed = false
     preparing_stance = false
     stomp_aim_valid = false
+    selected_foot_world = Vector3.INF
 
 func cancel() -> void:
     kind = ""
@@ -170,6 +174,7 @@ func cancel() -> void:
     hit_consumed = false
     preparing_stance = false
     stomp_aim_valid = false
+    selected_foot_world = Vector3.INF
 
 func is_active() -> bool:
     return not kind.is_empty()
@@ -216,6 +221,7 @@ func _start(id: String, attack_kind: String,
     elapsed = 0.0
     hit_consumed = false
     stomp_aim_valid = false
+    selected_foot_world = Vector3.INF
     preparing_stance = with_stance_preparation
 
 
@@ -237,19 +243,45 @@ func force_start_with_stance(id: String, attack_kind: String) -> bool:
     _start(id, attack_kind, true)
     return true
 
-## A front KICK must use an authored front leg. Rear legs have
-## STOMP/SWEEP assets only. For other attacks choose the closest real
-## foot, retaining the small round-robin tie bias.
+## v460: All ATTACK DISTANCES are measured from each LIVE physical
+## foot sole to SERA on the XZ plane — never from the torso/root.
+## The body yaw gives only the heading of authored kick/sweep sectors.
+## Rear KICK has no Blockbench source and must never be fabricated.
+static func _leg_can_reach(attack_kind: String, id: String,
+        player_position: Vector3, foot_position: Vector3,
+        boss_yaw: float) -> bool:
+    if not LEG_IDS.has(id):
+        return false
+    var to_player: Vector2 = Vector2(
+        player_position.x - foot_position.x,
+        player_position.z - foot_position.z)
+    var distance: float = to_player.length()
+    if distance > START_RANGE_METERS:
+        return false
+    if attack_kind == "stomp":
+        return distance <= STOMP_RANGE_METERS
+    var angle_degrees: float = absf(rad_to_deg(wrapf(
+        atan2(to_player.x, to_player.y) - boss_yaw, -PI, PI)))
+    if attack_kind == "kick":
+        return id.begins_with("leg_f") and (
+            distance >= KICK_MIN_RANGE_METERS and
+            distance <= KICK_RANGE_METERS and
+            angle_degrees <= KICK_HALF_ANGLE_DEGREES)
+    if attack_kind == "sweep":
+        # Front: 230-degree total arc; rear: 330-degree total arc.
+        # A directly backward blind spot still requires TURN.
+        var limit: float = (
+            REAR_SWEEP_HALF_ANGLE_DEGREES if id.begins_with("leg_r")
+            else SWEEP_HALF_ANGLE_DEGREES)
+        return distance >= SWEEP_MIN_RANGE_METERS and (
+            distance <= SWEEP_RANGE_METERS and
+            angle_degrees <= limit)
+    return false
+
+
 func _choose_leg(player_position: Vector3, feet: Dictionary,
-        attack_kind: String, boss_position: Vector3 = Vector3.ZERO,
+        attack_kind: String, _boss_position: Vector3 = Vector3.ZERO,
         boss_yaw: float = 0.0) -> String:
-    var offset: Vector3 = player_position - boss_position
-    var bearing: float = wrapf(
-        atan2(offset.x, offset.z) - boss_yaw, -PI, PI)
-    var behind: bool = absf(rad_to_deg(bearing)) > 90.0
-    var rear_only: bool = (
-        attack_kind == "sweep" and absf(
-        rad_to_deg(bearing)) > SWEEP_HALF_ANGLE_DEGREES)
     var best: String = ""
     var best_score: float = INF
     for n in range(LEG_IDS.size()):
@@ -257,87 +289,55 @@ func _choose_leg(player_position: Vector3, feet: Dictionary,
         var id: String = LEG_IDS[index]
         if not feet.has(id):
             continue
-        var rear_leg: bool = id.begins_with("leg_r")
-        if attack_kind == "kick" and rear_leg:
-            continue
-        # A target outside the frontal 230-degree arc is attacked
-        # only by an authored REAR SWEEP. Never fake forward-leg
-        # reach behind the chest just to satisfy the AI selector.
-        if rear_only and not rear_leg:
-            continue
         var foot: Vector3 = feet[id]
-        var horizontal: Vector2 = Vector2(
-            foot.x - player_position.x, foot.z - player_position.z)
-        var distance: float = horizontal.length()
-        if distance > START_RANGE_METERS:
+        if not _leg_can_reach(attack_kind, id, player_position,
+                foot, boss_yaw):
             continue
-        # Anatomical proximity remains the dominant factor, with a
-        # modest front/rear bias that matches the player's actual
-        # bearing. Side preference naturally follows live foot XZ.
-        var score: float = distance + float(n) * 0.12
-        if rear_leg != behind:
-            score += 1.0
+        # Select the real closest legal foot, with only a centimetre-
+        # scale tie-break to distribute repeated symmetric actions.
+        var distance: float = Vector2(
+            foot.x - player_position.x,
+            foot.z - player_position.z).length()
+        var score: float = distance + float(n) * 0.015
         if score < best_score:
             best_score = score
             best = id
     return best
 
 
-## Attack choice is fixed once the pre-attack/clip starts; a moving
-## player cannot flip it midway through a windup.
-## Boss +Z is forward (the same yaw convention used by BittaranAI).
-func _choose_kind(player_position: Vector3, boss_position: Vector3,
+## Closest-to-sole attack selection, BEFORE an authored clip starts:
+## 1) any near foot -> STOMP, 2) separated frontal foot -> KICK,
+## 3) a legal front/rear foot -> SWEEP. If no leg has an attack in its
+## own sector/range, keep walking/turning instead of attacking from
+## the boss center or inventing hitbox reach.
+func _choose_kind(player_position: Vector3, feet: Dictionary,
         boss_yaw: float) -> String:
-    var offset: Vector2 = Vector2(
-        player_position.x - boss_position.x,
-        player_position.z - boss_position.z)
-    var distance: float = offset.length()
-    if distance > SWEEP_RANGE_METERS:
-        return ""
-    # No broad lateral collision is invented by the sector selector.
-    # STOMP hits very close targets with the closest physical leg,
-    # including the rear; the real toe mesh still decides damage.
-    if distance <= STOMP_RANGE_METERS:
-        return "stomp"
-    var angle_degrees: float = absf(rad_to_deg(wrapf(
-        atan2(offset.x, offset.y) - boss_yaw, -PI, PI)))
-    if distance >= KICK_MIN_RANGE_METERS and (
-            distance <= KICK_RANGE_METERS) and (
-            angle_degrees <= KICK_HALF_ANGLE_DEGREES):
-        return "kick"
-    # Side/diagonal/behind targets cannot trigger frontal KICK.
-    # The authored rear SWEEP permits larger rearward bearings,
-    # but the 15-degree blind spot directly behind requires TURN.
-    if distance >= SWEEP_MIN_RANGE_METERS:
-        if angle_degrees <= SWEEP_HALF_ANGLE_DEGREES:
-            return "sweep"
-        if angle_degrees <= REAR_SWEEP_HALF_ANGLE_DEGREES:
-            return "sweep"
+    for candidate in ATTACK_KINDS:
+        if not _choose_leg(player_position, feet, candidate,
+                Vector3.ZERO, boss_yaw).is_empty():
+            return candidate
     return ""
 
 
-## Never repeat the same attack TYPE twice in a row, even with another
-## leg. Do not force a physically invalid alternative: the movement AI
-## must change the range/bearing until a different authored move is legal.
-## Retain last_kind through normal completion and interruption; reset()
-## alone clears the combat history on a new boss encounter.
+## Maintain the existing non-repeat policy. A forbidden repetition
+## is handled by walking, never by selecting another leg illegally.
 func repeat_kind_blocked(player_position: Vector3,
-        boss_position: Vector3, boss_yaw: float) -> bool:
+        _boss_position: Vector3, boss_yaw: float,
+        feet: Dictionary = {}) -> bool:
     if is_active() or last_kind.is_empty():
         return false
     var candidate: String = _choose_kind(
-        player_position, boss_position, boss_yaw)
+        player_position, feet, boss_yaw)
     return not candidate.is_empty() and candidate == last_kind
 
 
 func _choose_nonrepeating_kind(player_position: Vector3,
-        boss_position: Vector3, boss_yaw: float) -> String:
+        feet: Dictionary, boss_yaw: float) -> String:
     var candidate: String = _choose_kind(
-        player_position, boss_position, boss_yaw)
+        player_position, feet, boss_yaw)
     if not candidate.is_empty() and candidate == last_kind:
         return ""
     return candidate
-
 
 ## v445: BODY returns first (sweep 1.40s, others 0.62s).
 ## THEN the attacking chain eases directly to Wait in 1.20s, with
@@ -511,7 +511,7 @@ func _advance_original_only(delta: float, player_position: Vector3,
             if available_feet.has(id):
                 authored_feet[id] = available_feet[id]
         var selected_kind: String = _choose_nonrepeating_kind(
-            player_position, boss_position, boss_yaw)
+            player_position, authored_feet, boss_yaw)
         if selected_kind.is_empty():
             return {}
         var selected: String = _choose_leg(
@@ -520,6 +520,7 @@ func _advance_original_only(delta: float, player_position: Vector3,
         if selected.is_empty():
             return {}
         _start(selected, selected_kind, false)
+        selected_foot_world = authored_feet[selected]
         last_kind = selected_kind
         next_kind_index = (ATTACK_KINDS.find(selected_kind) + 1) % ATTACK_KINDS.size()
         next_leg_index = (LEG_IDS.find(selected) + 1) % LEG_IDS.size()
@@ -564,6 +565,7 @@ func _advance_original_only(delta: float, player_position: Vector3,
         speed = source_playback_speed(kind, phase_elapsed, leg_id)
     var frame: Dictionary = {
         "id": leg_id, "kind": kind,
+        "selection_foot_world": selected_foot_world,
         "original_attack_only": true,
         "source_timed_attack": true,
         "direct_front_test": true,
@@ -617,7 +619,7 @@ func advance(delta: float, player_position: Vector3,
         if cooldown > 0.0:
             return {}
         var selected_kind: String = _choose_nonrepeating_kind(
-            player_position, boss_position, boss_yaw)
+            player_position, available_feet, boss_yaw)
         if selected_kind.is_empty():
             return {}
         var selected: String = _choose_leg(
@@ -626,6 +628,7 @@ func advance(delta: float, player_position: Vector3,
         if selected.is_empty():
             return {}
         _start(selected, selected_kind, true)
+        selected_foot_world = available_feet[selected]
         last_kind = selected_kind
         next_kind_index = (ATTACK_KINDS.find(selected_kind) + 1) % ATTACK_KINDS.size()
         stomp_aim = player_position
@@ -686,6 +689,7 @@ func advance(delta: float, player_position: Vector3,
         source_rate = source_playback_speed("sweep", wall_strike_t)
     var result: Dictionary = {
         "kind": kind, "id": leg_id, "time": elapsed,
+        "selection_foot_world": selected_foot_world,
         "authored_time": authored_time,
         "authored_playback_speed": source_rate,
         "stomp_aim": stomp_aim if stomp_aim_valid else Vector3.INF,
