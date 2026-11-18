@@ -14,4 +14,4 @@
 - 新規 `tools/bittaran_railgun_runtime_check.gd` をGodot CIマニフェストに登録し、周期、光球、照射、充填表示、砲台姿勢、既存14ボーン保持を検証します。
 - Android実機では照準の機体干渉、側面バーの視認性、半透明の描画・レーザーの厚み、ガード時の当たり判定を別途確認してください。
 
-過去のリリース: [v462](README_v462_ja.md)
+過去のリリース: [v462](docs/history/release_notes/README_v462_ja.md)
