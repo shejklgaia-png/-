@@ -1,13 +1,13 @@
 # SERA — coding agents (current operating rules)
 
-> **Authority:** latest instructions, GitHub `main`, `project.godot`, live code and `models/manifest.json`. Old README/AGENTS history is superseded by this file; see `docs/history/AGENTS_THROUGH_V316.md`.
+> **Authority:** current user instructions, `main`, `project.godot`, code, and `models/manifest.json`; old rules: `docs/history/AGENTS_THROUGH_V316.md`.
 
 ## Fast, safe work sequence
 1. Confirm latest `main` SHA, `project.godot` version, open PRs, and requested feature; never infer live state from old notes.
 2. Use `tools/sera_workplan.py --query <feature> --json` (or `--changed <path>`) to find sources and tests. Inspect real code; suggestions are heuristic.
 3. Make minimal, reviewed diffs on a short-lived branch. Preserve models and unrelated mechanics.
 4. Run focused checks while editing. **Merge first; run the full `tools/sera_ci_manifest.txt` Python/Godot CI suite on `main` afterward.** Focused checks never replace full CI.
-5. Before merge check conflicts, unsafe edits, source models, and diff. Never merge known destructive changes. After merge diagnose CI failures. **If CI fails, notify the user with the failure and continue investigating and fixing without requesting or waiting for the user's approval.** Fix the root cause, preserve approved gameplay/model behavior and test coverage, merge the targeted correction, then re-run/verify the full post-merge CI; repeat as needed. Never silence a genuine regression by deleting tests or weakening assertions. If a safe fix cannot be established, report the blocker explicitly rather than claim success; revert only when justified by an identified regression. Report pending/failed/passed accurately and provide fix commit/CI URLs. ChatGPT checks code, logs, numeric regressions. Human checks Android motion, touch, visuals, audio and feel.
+5. Before merge check conflicts, unsafe edits, model sources and diff; never merge known destructive changes. After merge, if CI fails, **report the failure and fix without user approval**. Identify the cause, preserve approved gameplay and test coverage, merge a minimal fix, then rerun full post-merge CI. Repeat if needed; never hide a regression by weakening tests. If blocked, report why. Give fix/CI URLs and accurate status. ChatGPT checks code, logs and numeric regressions; humans check Android motion, input, visuals, audio and feel.
 6. Log meaningful changes in `DEVELOPMENT.md`. Update versioned README and increment version only for user-requested gameplay changes.
 
 ## Current sources and constraints
