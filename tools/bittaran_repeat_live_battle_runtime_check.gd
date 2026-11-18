@@ -40,6 +40,8 @@ func _run() -> void:
     var max_gait: int = 0
     for tick in range(FRAMES):
         battle.set("player_hp", 99999.0)
+        var previous_step_gate: int = int(
+            battle.get("bittaran_walk_attack_step_gate"))
         battle.call("_advance_target_motion", DT)
         var frame: Dictionary = battle.get("bittaran_attack_frame")
         var active: bool = not frame.is_empty()
@@ -49,8 +51,7 @@ func _run() -> void:
                 _fail("repeated same attack kind " + str(starts))
                 return
             var completed: int = int(ik.call("source_completed_walk_steps"))
-            var gate: int = int(battle.get(
-                "bittaran_walk_attack_step_gate"))
+            var gate: int = previous_step_gate
             if not starts.is_empty() and completed < gate:
                 _fail("attack bypassed three new walk steps " +
                     str([completed, gate, starts]))
