@@ -519,11 +519,13 @@ func _bittaran_stomp_ground_hit(
 
 
 func _emit_bittaran_shockwave(point: Vector3, half_size: Vector2) -> void:
-    if bittaran_shockwave == null or (
-            half_size.x <= 0.0 or half_size.y <= 0.0):
+    if half_size.x <= 0.0 or half_size.y <= 0.0:
         return
-    # Damage is applied IMMEDIATELY on touchdown (one pulse).
+    # Physical damage is evaluated even if the optional shockwave
+    # visual is not instantiated. An FX node must never gate STOMP.
     _bittaran_stomp_ground_hit(point, half_size)
+    if bittaran_shockwave == null:
+        return
     shockwave_elapsed = 0.0
     shockwave_half_extents = half_size
     bittaran_shockwave.global_position = Vector3(
@@ -627,17 +629,31 @@ func _check_bittaran_attack_hit() -> void:
                 hit_window = landing_window and (
                     _bittaran_striking_foot_grounded(leg_id))
             else:
-                hit_window = hit_window and clip_time >= 1.375
+                # The front toe first descends from key t=1.25.
+                # It contacts the real floor around t=1.467,
+                # BEFORE the old late 1.50s cosmetic threshold.
+                var front_landing: bool = (
+                    (phase == "strike" and clip_time >= 1.375) or (
+                    phase == "hold" and float(
+                    bittaran_attack_frame.get("phase_elapsed", 1.0))
+                    <= 0.12))
+                hit_window = front_landing and (
+                    _bittaran_striking_foot_grounded(leg_id))
     if not is_impact and not hit_window:
         return
     var contact: Vector3 = (
         _bittaran_original_attack_contact(leg_id) if original
         else bittaran_foot_ik.call("attack_contact_world"))
-    # Source and legacy stomps BOTH use the one-tick FLOOR pulse.
-    # A prelanding shin overlap can no longer deal stomp damage.
+    # STOMP is a real ONE-SHOT grounded hit at first DESCENDING
+    # foot contact, not a side effect of its dust emitter and never
+    # a shin overlap. This path runs immediately after full source
+    # clip + support IK, before particles can animate/fade.
     if kind == "stomp":
-        if not original and is_impact and (
-                _bittaran_striking_foot_grounded(leg_id)):
+        if _bittaran_striking_foot_grounded(leg_id) and (
+                bittaran_dirt_fx == null or not bool(
+                bittaran_dirt_fx.get("stomped_this_attack"))):
+            if bittaran_dirt_fx != null:
+                bittaran_dirt_fx.set("stomped_this_attack", true)
             _emit_bittaran_shockwave(contact,
                 _bittaran_stomp_ground_half_extents(leg_id))
         return
@@ -1722,25 +1738,11 @@ func _finalize_target_pose(delta: float) -> void:
                 var kind: String = str(bittaran_attack_frame.get("kind", ""))
                 var phase: String = str(
                     bittaran_attack_frame.get("phase", ""))
-                var first_recovery_contact: bool = (
-                    BittaranAttacks.TIMING_TEST_ENABLED
-                    and phase == "recovery" and float(
-                    bittaran_attack_frame.get("phase_elapsed", 1.0))
-                    <= 0.10)
-                if grounded and kind == "stomp" and not bool(
-                        bittaran_dirt_fx.get("stomped_this_attack")) and (
-                        ["strike", "hold"].has(phase)
-                        or first_recovery_contact) and (
-                        float(bittaran_attack_frame.get(
-                        "authored_time", 0.0)) >= (
-                        0.93 if leg_id.begins_with("leg_r") else 1.50)):
-                    # The old particles/ring/thud/shake require actual
-                    # floor contact on the descending authored foot.
-                    bittaran_dirt_fx.set("stomped_this_attack", true)
-                    if target_parts != null:
-                        _emit_bittaran_shockwave(contact,
-                            _bittaran_stomp_ground_half_extents(leg_id))
-                elif kind == "kick" and not had_kick and bool(
+                # STOMP's gameplay/contact pulse is handled in
+                # _check_bittaran_attack_hit() at the first true floor
+                # contact. Never let FX update schedule a second or
+                # late impact during recovery/slow aftermath.
+                if kind == "kick" and not had_kick and bool(
                         bittaran_dirt_fx.get("kicked_this_attack")):
                     _add_impact_shake(0.16)
                     _play_bittaran_thud(contact, 1.5, -10.0)
