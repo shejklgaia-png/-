@@ -52,6 +52,7 @@ var kick_last_direction: Vector3 = Vector3.ZERO
 var sweep_last_direction: Vector3 = Vector3.ZERO
 var stomped_this_attack: bool = false
 var last_kind: String = ""
+var last_attack_elapsed: float = -1.0
 var rock_debris_renderer: MultiMeshInstance3D
 var grit_debris_renderer: MultiMeshInstance3D
 var rock_debris: Array[Dictionary] = []
@@ -644,6 +645,7 @@ func reset() -> void:
     sweep_last_direction = Vector3.ZERO
     stomped_this_attack = false
     last_kind = ""
+    last_attack_elapsed = -1.0
     rock_debris.clear()
     grit_debris.clear()
     if rock_debris_renderer != null:
@@ -663,16 +665,20 @@ func advance_attack(frame: Dictionary, point: Vector3,
         foot_grounded: bool = false,
         player_direction: Vector3 = Vector3.ZERO) -> void:
     var kind: String = str(frame.get("kind", ""))
-    if kind != last_kind or frame.is_empty():
+    var elapsed: float = float(frame.get("time", 0.0))
+    # Consecutive hits of the same kind also begin a fresh one-shot burst.
+    if kind != last_kind or frame.is_empty() or (
+            last_attack_elapsed >= 0.0
+            and elapsed < last_attack_elapsed - 0.001):
         end_sweep()
         kicked_this_attack = false
         kick_last_direction = Vector3.ZERO
         sweep_last_direction = Vector3.ZERO
         stomped_this_attack = false
         last_kind = kind
+    last_attack_elapsed = elapsed if not frame.is_empty() else -1.0
     if frame.is_empty():
         return
-    var elapsed: float = float(frame.get("time", 0.0))
     var windup: float = float(frame.get("windup", 0.7))
     var strike: float = float(frame.get("strike", 1.0))
     var striking: bool = elapsed >= windup and elapsed <= windup + strike
