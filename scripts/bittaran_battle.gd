@@ -1672,8 +1672,15 @@ func _finalize_target_pose(delta: float) -> void:
             var had_kick: bool = bool(bittaran_dirt_fx.get(
                 "kicked_this_attack"))
             var had_sweep: bool = bool(bittaran_dirt_fx.get("sweep_active"))
+            # The FX module prioritizes the measured horizontal
+            # foot travel. Only if there was no usable motion does it
+            # fall back to the direction of SERA from the contact.
+            var player_dir: Vector3 = (
+                player.global_position - contact
+                if player != null else Vector3.ZERO)
             bittaran_dirt_fx.call("advance_attack",
-                bittaran_attack_frame, contact, previous, delta, grounded)
+                bittaran_attack_frame, contact, previous, delta,
+                grounded, player_dir)
             if original and target_hp > 0:
                 var kind: String = str(bittaran_attack_frame.get("kind", ""))
                 var phase: String = str(
