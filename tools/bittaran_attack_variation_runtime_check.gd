@@ -53,7 +53,7 @@ func _run() -> void:
         # different feet cannot bypass the anti-repeat guarantee.
         director.call("cancel")
         if not bool(director.call(
-                "repeat_kind_blocked", player, Vector3.ZERO, 0.0)):
+                "repeat_kind_blocked", player, Vector3.ZERO, 0.0, FEET)):
             _fail("repeated kind was not blocked " + expected)
             return
         var repeat: Dictionary = _try_attack(director, player)
