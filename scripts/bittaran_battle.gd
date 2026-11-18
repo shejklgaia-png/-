@@ -591,15 +591,23 @@ func _check_bittaran_attack_hit() -> void:
     var is_impact: bool = bool(bittaran_attack_frame.get("impact", false))
     var hit_window: bool = bool(bittaran_attack_frame.get("hit_window", false))
     if original:
-        # Source replay intentionally disables the old procedural hit flags.
-        # Re-enable damage ONLY during the authored strike; never during
-        # entry, post-hit hold, BODY return or gradual leg recovery.
+        # The source attack director owns the actual Blockbench
+        # keyframe window. KICK starts .10s after the first extension
+        # key; the four SWEEPs start .10s after their grounded return
+        # begins, not while the leg is being raised or drawn back.
         var phase: String = str(bittaran_attack_frame.get("phase", ""))
         var clip_time: float = float(bittaran_attack_frame.get(
             "authored_time", 0.0))
         is_impact = false
-        hit_window = (phase == "strike" and
-            ["stomp", "kick", "sweep"].has(kind))
+        hit_window = (phase == "strike" and (
+            kind == "stomp" or bool(
+                bittaran_attack_frame.get("hit_window", false))))
+        if kind == "sweep":
+            # A returning sweep can damage only while its real foot
+            # mesh remains on the floor. An airborne toe, even at a
+            # valid source key, never creates an invisible hit area.
+            hit_window = hit_window and (
+                _bittaran_striking_foot_grounded(leg_id))
         if kind == "stomp":
             if leg_id.begins_with("leg_r"):
                 # Source t=.50 is AERIAL apex, not impact. During
