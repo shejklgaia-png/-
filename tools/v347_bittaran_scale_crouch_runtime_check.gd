@@ -56,8 +56,12 @@ func _run() -> void:
     var body_reference: Node3D = authored.find_child("Body", true, false) as Node3D
     var body_current: Node3D = rig.find_child("Body", true, false) as Node3D
     var chassis_drop: float = body_reference.global_position.y - body_current.global_position.y
-    if chassis_drop < 0.32 or chassis_drop > 0.36:
-        _fail("crouch height not applied in world metres: " + str(chassis_drop))
+    # The active source-ground mode no longer applies the retired
+    # fixed 0.34m procedural crouch. It preserves authored Wait BODY
+    # height and calibrates the root from real mesh underfaces.
+    if absf(chassis_drop) > 0.40:
+        _fail("source-root calibration displaced BODY by " +
+            str(chassis_drop) + "m")
         return
 
     var bigger_bends: int = 0
