@@ -1422,11 +1422,21 @@ func _advance_target_motion(delta: float) -> void:
         or generic_damage_frozen
         or down_remaining > 0.0 or training_ko_remaining > 0.0
         or recovery_motion_locked)
+    # If the only sector-valid attack would repeat the preceding kind,
+    # keep walking/orbiting/retreating until the next DIFFERENT authored
+    # strike is physically available. Never stand in range looping STOMP,
+    # KICK, or SWEEP; nor fake a sweep through the narrow KICK cone.
+    var need_attack_variation: bool = (
+        attack_permitted and not attacking
+        and bittaran_attacks != null
+        and bool(bittaran_attacks.call(
+            "repeat_kind_blocked", player.global_position,
+            target.global_position, target.rotation.y)))
     # Use the normal AI branch to choose Turn, Approach, or Idle. Do not
     # substitute the v365 Idle-only recovery yaw controller here.
     var result: Dictionary = bittaran_ai.call("advance", delta,
         target.position, target.rotation.y, player.position, frozen,
-        not enough_walk_steps)
+        not enough_walk_steps or need_attack_variation)
     # During physical stand-up the CHEST always turns toward SERA at the
     # stationary 34deg/s turn rate, even when Approach would normally use
     # the slower moving-turn rate. The feet stay world-planted until upright.

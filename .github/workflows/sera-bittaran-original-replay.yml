@@ -15,6 +15,7 @@ on:
       - 'tools/v438_bittaran_boot_runtime_check.gd'
       - 'tools/v440_bittaran_flat_floor_chain_runtime_check.gd'
       - 'tools/v447_bittaran_toe_drag_reach_check.gd'
+      - 'tools/bittaran_attack_variation_runtime_check.gd'
       - '.github/workflows/sera-bittaran-original-replay.yml'
   pull_request:
     paths:
@@ -29,6 +30,7 @@ on:
       - 'tools/v438_bittaran_boot_runtime_check.gd'
       - 'tools/v440_bittaran_flat_floor_chain_runtime_check.gd'
       - 'tools/v447_bittaran_toe_drag_reach_check.gd'
+      - 'tools/bittaran_attack_variation_runtime_check.gd'
       - '.github/workflows/sera-bittaran-original-replay.yml'
   workflow_dispatch:
 
@@ -51,6 +53,10 @@ jobs:
       - name: Import Godot resources
         run: |
           "$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" --headless --editor --path . --import --quit
+      - name: Verify Bittaran never repeats the same attack and repositions
+        run: |
+          set -euo pipefail
+          "$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" --headless --path . --script tools/bittaran_attack_variation_runtime_check.gd
       - name: Verify inward toe-floor drag reach projection in 4096 cases
         run: |
           set -euo pipefail

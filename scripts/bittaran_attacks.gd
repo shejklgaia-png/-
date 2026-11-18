@@ -234,6 +234,29 @@ func _choose_kind(player_position: Vector3, boss_position: Vector3,
     return ""
 
 
+## Never repeat the same attack TYPE twice in a row, even with another
+## leg. Do not force a physically invalid alternative: the movement AI
+## must change the range/bearing until a different authored move is legal.
+## Retain last_kind through normal completion and interruption; reset()
+## alone clears the combat history on a new boss encounter.
+func repeat_kind_blocked(player_position: Vector3,
+        boss_position: Vector3, boss_yaw: float) -> bool:
+    if is_active() or last_kind.is_empty():
+        return false
+    var candidate: String = _choose_kind(
+        player_position, boss_position, boss_yaw)
+    return not candidate.is_empty() and candidate == last_kind
+
+
+func _choose_nonrepeating_kind(player_position: Vector3,
+        boss_position: Vector3, boss_yaw: float) -> String:
+    var candidate: String = _choose_kind(
+        player_position, boss_position, boss_yaw)
+    if not candidate.is_empty() and candidate == last_kind:
+        return ""
+    return candidate
+
+
 ## v445: BODY returns first (sweep 1.40s, others 0.62s).
 ## THEN the attacking chain eases directly to Wait in 1.20s, with
 ## quintic acceleration / deceleration applied by bittaran_rig.gd.
@@ -402,7 +425,7 @@ func _advance_original_only(delta: float, player_position: Vector3,
         for id in LEG_IDS:
             if available_feet.has(id):
                 authored_feet[id] = available_feet[id]
-        var selected_kind: String = _choose_kind(
+        var selected_kind: String = _choose_nonrepeating_kind(
             player_position, boss_position, boss_yaw)
         if selected_kind.is_empty():
             return {}
@@ -504,7 +527,7 @@ func advance(delta: float, player_position: Vector3,
         cooldown = maxf(0.0, cooldown - maxf(delta, 0.0))
         if cooldown > 0.0:
             return {}
-        var selected_kind: String = _choose_kind(
+        var selected_kind: String = _choose_nonrepeating_kind(
             player_position, boss_position, boss_yaw)
         if selected_kind.is_empty():
             return {}
