@@ -3,6 +3,7 @@ extends SceneTree
 ## sampler). All four attacker limbs complete the original clip with
 ## the three supporting soles IK-pinned while the BODY crouches/rises.
 const BATTLE = preload("res://scripts/bittaran_battle.gd")
+const IK = preload("res://scripts/bittaran_foot_ik.gd")
 const IDS: Array[String] = ["leg_fl", "leg_fr", "leg_rl", "leg_rr"]
 const DT: float = 0.0333333333
 
@@ -74,7 +75,7 @@ func _run() -> void:
             for i in range(limbs.size()):
                 var limb: Dictionary = limbs[i]
                 var foot: Node3D = limb["foot"]
-                if str(limb.get("id", "")) == active_id:
+                if IK.LEG_PART_IDS[i] == active_id:
                     var lowest: float = ik.call(
                         "_source_ik_sweep_toe_lowest_world_y", limb)
                     if is_finite(lowest):
@@ -101,7 +102,7 @@ func _run() -> void:
                 if error > 0.105 or absf(contact.y) > 0.075:
                     _fail("support toe lost contact " + str([
                         active_id, step, clock, phase,
-                        str(limb.get("id","")), contact, anchor,
+                        IK.LEG_PART_IDS[i], contact, anchor,
                         error, limb.get("last_error", NAN)]))
                     return
             frames += 1
