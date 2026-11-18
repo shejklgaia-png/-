@@ -30,25 +30,30 @@ func _polar(distance: float, degrees: float) -> Vector3:
 
 func _run() -> void:
     var direct: RefCounted = ATTACKS.new()
+    # v460: each kind is evaluated from its own LEG'S sole, not the
+    # boss center. Single-foot probes isolate the original 11 sector
+    # boundaries without accidentally selecting another foot.
     for row in [
-            [2.0, 0.0, "stomp"],
-            [2.0, 155.0, "stomp"],
-            [4.0, 0.0, "kick"],
-            [4.0, 35.0, "kick"],
-            [4.0, 41.0, "sweep"],
-            [4.0, 85.0, "sweep"],
-            [5.6, 0.0, "sweep"],
-            [6.8, 80.0, "sweep"],
-            [5.8, 145.0, "sweep"],
-            [5.8, 176.0, ""],
-            [7.3, 0.0, ""]]:
+            [2.0, 0.0, "stomp", "leg_fr"],
+            [2.0, 155.0, "stomp", "leg_rr"],
+            [4.0, 0.0, "kick", "leg_fr"],
+            [4.0, 35.0, "kick", "leg_fr"],
+            [4.0, 41.0, "sweep", "leg_fr"],
+            [4.0, 85.0, "sweep", "leg_fr"],
+            [5.6, 0.0, "sweep", "leg_fr"],
+            [6.8, 80.0, "sweep", "leg_fr"],
+            [5.8, 145.0, "sweep", "leg_rr"],
+            [5.8, 176.0, "", "leg_rr"],
+            [7.3, 0.0, "", "leg_fr"]]:
+        var one_foot: Dictionary = {
+            str(row[3]): Vector3.ZERO}
         var actual: String = direct.call("_choose_kind",
-            _polar(float(row[0]), float(row[1])),
-            Vector3.ZERO, 0.0)
+            _polar(float(row[0]), float(row[1])), one_foot, 0.0)
         if actual != str(row[2]):
-            _fail("wrong position-based kind " + str([row, actual]))
+            _fail("wrong physical sole sector " + str([row, actual]))
             return
-    # New target-side and rear-leg selection must obey physical bones.
+    # Choose the closest eligible actual foot. Front legs have KICK,
+    # rear legs only SWEEP/STOMP as in the imported Blockbench asset.
     var feet: Dictionary = {
         "leg_fl": Vector3(-1.0, 0, 1.3),
         "leg_fr": Vector3(1.0, 0, 1.3),
@@ -56,15 +61,14 @@ func _run() -> void:
         "leg_rr": Vector3(1.0, 0, -1.3)
     }
     for data in [
-            [4.0, -34.0, "kick", "leg_fl"],
-            [4.0, 34.0, "kick", "leg_fr"],
-            [4.5, -147.0, "sweep", "leg_rl"],
-            [4.5, 147.0, "sweep", "leg_rr"]]:
+            [Vector3(-2.69, 0, 4.925), "kick", "leg_fl"],
+            [Vector3(2.69, 0, 4.925), "kick", "leg_fr"],
+            [Vector3(-3.58, 0, -4.986), "sweep", "leg_rl"],
+            [Vector3(3.58, 0, -4.986), "sweep", "leg_rr"]]:
         var selected: String = direct.call("_choose_leg",
-            _polar(float(data[0]), float(data[1])), feet,
-            str(data[2]), Vector3.ZERO, 0.0)
-        if selected != str(data[3]):
-            _fail("wrong 3D leg " + str([data, selected]))
+            data[0], feet, str(data[1]), Vector3.ZERO, 0.0)
+        if selected != str(data[2]):
+            _fail("wrong real-foot leg " + str([data, selected]))
             return
     var rig: Node3D = RIG.new()
     root.add_child(rig)
