@@ -64,18 +64,62 @@ const KICK_RECOVERY_SECONDS: float = 0.60
 # This short handoff only bridges the displayed Wait/Idle contact pose.
 const SWEEP_RECOVERY_SECONDS: float = 0.25
 const BETWEEN_ATTACKS_SECONDS: float = 1.35
-# Attack-sector AI: evaluate the player in the boss ROOT's horizontal
-# coordinates, not relative to whichever foot was picked first.
-# Priority: STOMP at <=3m (including in front), KICK within the forward
-# +/-30 degree cone at <=5m, otherwise SWEEP in the wide +/-100 degree
-# cone. Outside these sectors Bittaran keeps walking/turning instead of
-# playing a clip that cannot reach. Angles are boss-local (0 = +Z).
-const STOMP_RANGE_METERS: float = 3.0
-const KICK_RANGE_METERS: float = 5.0
-const KICK_HALF_ANGLE_DEGREES: float = 30.0
-const SWEEP_HALF_ANGLE_DEGREES: float = 100.0
-# Maximum radius for the wide sweep stays at the existing 9m attack
-# acquisition limit (START_RANGE_METERS).
+# v451: body-relative source clip reach sectors. Use the player's
+# horizontal distance and bearing, not a generic 9m square hitbox.
+# The STOMP is a close, all-side toe slam, KICK is a frontal thrust;
+# the four-leg SWEEP covers mid/far and lateral/rear flanks. Every
+# selection is also validated against the actual available foot.
+const STOMP_RANGE_METERS: float = 2.85
+const KICK_MIN_RANGE_METERS: float = 2.65
+const KICK_RANGE_METERS: float = 5.15
+const KICK_HALF_ANGLE_DEGREES: float = 38.0
+const SWEEP_MIN_RANGE_METERS: float = 2.70
+const SWEEP_RANGE_METERS: float = 7.10
+const SWEEP_HALF_ANGLE_DEGREES: float = 115.0
+const REAR_SWEEP_HALF_ANGLE_DEGREES: float = 165.0
+# SOURCE clip keyframes: the last stationary KICK key is t=.25;
+# first visible extension is .25->.458333. On revised SWEEP clips
+# the planted foot changes into its return at front t=2.04167 and
+# rear t=.875 (right-side variants are mirrored copies).
+const SOURCE_HIT_DELAY_SECONDS: float = 0.10
+const KICK_EXTENSION_START_KEY_SECONDS: float = 0.25
+const KICK_EXTENSION_END_KEY_SECONDS: float = 0.75
+const SWEEP_FRONT_RETURN_START_KEY_SECONDS: float = 2.04167
+const SWEEP_REAR_RETURN_START_KEY_SECONDS: float = 0.875
+const SWEEP_FRONT_CONTACT_END_KEY_SECONDS: float = 2.50
+const SWEEP_REAR_CONTACT_END_KEY_SECONDS: float = 1.25
+
+## The rendered LOWER-LEG and FOOT are still the only damage
+## geometry. These are motion-time gates, not substitute hitboxes.
+static func source_hit_start_seconds(attack_kind: String,
+        attack_id: String) -> float:
+    if attack_kind == "kick" and attack_id.begins_with("leg_f"):
+        return KICK_EXTENSION_START_KEY_SECONDS + SOURCE_HIT_DELAY_SECONDS
+    if attack_kind == "sweep":
+        return (SWEEP_REAR_RETURN_START_KEY_SECONDS
+            if attack_id.begins_with("leg_r")
+            else SWEEP_FRONT_RETURN_START_KEY_SECONDS) + SOURCE_HIT_DELAY_SECONDS
+    return INF
+
+
+static func source_hit_window(attack_kind: String, attack_id: String,
+        clip_time: float) -> bool:
+    var begin: float = source_hit_start_seconds(
+        attack_kind, attack_id)
+    if begin == INF or clip_time + 0.000001 < begin:
+        return false
+    var end: float = 0.0
+    match attack_kind:
+        "kick":
+            end = KICK_EXTENSION_END_KEY_SECONDS
+        "sweep":
+            end = (SWEEP_REAR_CONTACT_END_KEY_SECONDS
+                if attack_id.begins_with("leg_r")
+                else SWEEP_FRONT_CONTACT_END_KEY_SECONDS)
+        _:
+            return false
+    return clip_time <= end + 0.000001
+
 # The leg-placement phase is outside every authored attack timeline.
 # Its actual duration is owned by the four-foot IK controller.
 # STOMP/KICK hold the final strike pose completely still for 1.5s.
@@ -189,7 +233,15 @@ func force_start_with_stance(id: String, attack_kind: String) -> bool:
 ## STOMP/SWEEP assets only. For other attacks choose the closest real
 ## foot, retaining the small round-robin tie bias.
 func _choose_leg(player_position: Vector3, feet: Dictionary,
-        attack_kind: String) -> String:
+        attack_kind: String, boss_position: Vector3 = Vector3.ZERO,
+        boss_yaw: float = 0.0) -> String:
+    var offset: Vector3 = player_position - boss_position
+    var bearing: float = wrapf(
+        atan2(offset.x, offset.z) - boss_yaw, -PI, PI)
+    var behind: bool = absf(rad_to_deg(bearing)) > 90.0
+    var rear_only: bool = (
+        attack_kind == "sweep" and absf(
+        rad_to_deg(bearing)) > SWEEP_HALF_ANGLE_DEGREES)
     var best: String = ""
     var best_score: float = INF
     for n in range(LEG_IDS.size()):
@@ -197,7 +249,13 @@ func _choose_leg(player_position: Vector3, feet: Dictionary,
         var id: String = LEG_IDS[index]
         if not feet.has(id):
             continue
-        if attack_kind == "kick" and id.begins_with("leg_r"):
+        var rear_leg: bool = id.begins_with("leg_r")
+        if attack_kind == "kick" and rear_leg:
+            continue
+        # A target outside the frontal 230-degree arc is attacked
+        # only by an authored REAR SWEEP. Never fake forward-leg
+        # reach behind the chest just to satisfy the AI selector.
+        if rear_only and not rear_leg:
             continue
         var foot: Vector3 = feet[id]
         var horizontal: Vector2 = Vector2(
@@ -205,7 +263,12 @@ func _choose_leg(player_position: Vector3, feet: Dictionary,
         var distance: float = horizontal.length()
         if distance > START_RANGE_METERS:
             continue
-        var score: float = distance + float(n) * 0.18
+        # Anatomical proximity remains the dominant factor, with a
+        # modest front/rear bias that matches the player's actual
+        # bearing. Side preference naturally follows live foot XZ.
+        var score: float = distance + float(n) * 0.12
+        if rear_leg != behind:
+            score += 1.0
         if score < best_score:
             best_score = score
             best = id
@@ -221,19 +284,27 @@ func _choose_kind(player_position: Vector3, boss_position: Vector3,
         player_position.x - boss_position.x,
         player_position.z - boss_position.z)
     var distance: float = offset.length()
-    if distance > START_RANGE_METERS:
+    if distance > SWEEP_RANGE_METERS:
         return ""
-    # An overlapping target always gets the close-range move, even
-    # if it is also in the kick cone or has circled behind Bittaran.
+    # No broad lateral collision is invented by the sector selector.
+    # STOMP hits very close targets with the closest physical leg,
+    # including the rear; the real toe mesh still decides damage.
     if distance <= STOMP_RANGE_METERS:
         return "stomp"
     var angle_degrees: float = absf(rad_to_deg(wrapf(
         atan2(offset.x, offset.y) - boss_yaw, -PI, PI)))
-    if distance <= KICK_RANGE_METERS and (
+    if distance >= KICK_MIN_RANGE_METERS and (
+            distance <= KICK_RANGE_METERS) and (
             angle_degrees <= KICK_HALF_ANGLE_DEGREES):
         return "kick"
-    if angle_degrees <= SWEEP_HALF_ANGLE_DEGREES:
-        return "sweep"
+    # Side/diagonal/behind targets cannot trigger frontal KICK.
+    # The authored rear SWEEP permits larger rearward bearings,
+    # but the 15-degree blind spot directly behind requires TURN.
+    if distance >= SWEEP_MIN_RANGE_METERS:
+        if angle_degrees <= SWEEP_HALF_ANGLE_DEGREES:
+            return "sweep"
+        if angle_degrees <= REAR_SWEEP_HALF_ANGLE_DEGREES:
+            return "sweep"
     return ""
 
 
@@ -436,7 +507,8 @@ func _advance_original_only(delta: float, player_position: Vector3,
         if selected_kind.is_empty():
             return {}
         var selected: String = _choose_leg(
-            player_position, authored_feet, selected_kind)
+            player_position, authored_feet, selected_kind,
+            boss_position, boss_yaw)
         if selected.is_empty():
             return {}
         _start(selected, selected_kind, false)
@@ -504,7 +576,9 @@ func _advance_original_only(delta: float, player_position: Vector3,
         "body_return_seconds": source_body_return_seconds(kind),
         "stance_prepare": false,
         "tracking": false,
-        "hit_window": false,
+        "hit_window": phase == "strike" and source_hit_window(
+            kind, leg_id, clip_time),
+        "hit_start_seconds": source_hit_start_seconds(kind, leg_id),
         "impact": false
     }
     # Return the exact terminal frame once (source->Wait at weight 1),
@@ -539,7 +613,8 @@ func advance(delta: float, player_position: Vector3,
         if selected_kind.is_empty():
             return {}
         var selected: String = _choose_leg(
-            player_position, available_feet, selected_kind)
+            player_position, available_feet, selected_kind,
+            boss_position, boss_yaw)
         if selected.is_empty():
             return {}
         _start(selected, selected_kind, true)

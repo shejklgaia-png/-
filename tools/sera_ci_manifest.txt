@@ -358,3 +358,4 @@ gd tools/bittaran_attack_variation_runtime_check.gd
 gd tools/bittaran_uploaded_full_sweep_runtime_check.gd
 gd tools/bittaran_uploaded_sweep_battle_runtime_check.gd
 gd tools/bittaran_repeat_live_battle_runtime_check.gd
+gd tools/bittaran_keyframe_hit_sector_runtime_check.gd

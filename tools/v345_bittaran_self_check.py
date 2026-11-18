@@ -115,7 +115,13 @@ assert 'const APPROACH_SPEED_MPS: float = 0.936' in ai
 assert 'const ACCELERATION_MPS2: float = 0.78' in ai
 assert 'const STATIONARY_TURN_DEG_PER_SEC: float = 34.0' in ai
 assert 'const MOVING_TURN_DEG_PER_SEC: float = 22.0' in ai
-assert 'const STOP_DISTANCE_METERS: float = 7.8' in ai
+# v451: Bittaran must stop INSIDE its longest authored SWEEP range
+# rather than idling at the retired 7.8m beyond the new 7.10m reach.
+stop = float(re.search(r'const STOP_DISTANCE_METERS: float = ([0-9.]+)', ai).group(1))
+sweep_radius = float(re.search(
+    r'const SWEEP_RANGE_METERS: float = ([0-9.]+)',
+    read("scripts/bittaran_attacks.gd")).group(1))
+assert 4.5 < stop < sweep_radius
 assert 'func _tap_deployment_boss(' in nexus
 assert 'func _start_boss_scene(' in nexus
 assert 'res://scenes/bittaran_battle.tscn' in nexus

@@ -9,13 +9,16 @@ const ACCELERATION_MPS2: float = 0.78
 const STATIONARY_TURN_DEG_PER_SEC: float = 34.0
 const MOVING_TURN_DEG_PER_SEC: float = 22.0
 const TRACK_AT_REST_DEG_PER_SEC: float = 18.0
-const STOP_DISTANCE_METERS: float = 7.8
-const RESUME_DISTANCE_METERS: float = 8.6
+# v451: stop INSIDE the new 7.10m real attack-acquisition band.
+# At the old 7.8m stop distance, Bittaran could remain permanently
+# out of attack range even after all three required steps.
+const STOP_DISTANCE_METERS: float = 5.85
+const RESUME_DISTANCE_METERS: float = 6.40
 # v464: while the 3 completed walk steps are outstanding,
 # move rather than stand still at the former 7.8m stop radius.
 # Close = backstep, middle = sidestep around SERA, far = advance.
-const WALK_RETREAT_DISTANCE_METERS: float = 4.0
-const WALK_ORBIT_DISTANCE_METERS: float = 7.8
+const WALK_RETREAT_DISTANCE_METERS: float = 3.35
+const WALK_ORBIT_DISTANCE_METERS: float = 5.95
 const FACING_TOLERANCE_DEGREES: float = 5.0
 const VISION_HYSTERESIS_DEGREES: float = 3.0
 var current_speed: float = 0.0
