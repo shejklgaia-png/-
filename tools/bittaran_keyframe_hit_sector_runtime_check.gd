@@ -130,7 +130,7 @@ func _run() -> void:
         var safe_player: Vector3 = (
             target.global_position + Vector3(0, 0, 30.0))
         player.global_position = safe_player
-        var parts: RefCounted = battle.get("target_parts")
+        var parts: Node3D = battle.get("target_parts")
         if parts == null:
             _fail("missing live part hitboxes")
             return
