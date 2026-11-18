@@ -71,7 +71,7 @@ func _verify_pool_lifetime() -> bool:
         _fail("one-frame toe teleport created detached dust")
         return false
     var puffs_before: int = int(fx.get("sweep_burst_count"))
-    for k in range(3):
+    for k in range(8):
         fx.call("trace_sweep",
             first + Vector3(3.0 + float(k) * 0.05, 0, 0),
             DT, Vector3(0.05, 0, 0))
