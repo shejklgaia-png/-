@@ -116,9 +116,20 @@ func advance(delta: float, position: Vector3, yaw: float,
                     # Compatibility for generic movement requests.
                     var radial: Vector3 = toward.normalized()
                     direction = Vector3(-radial.z, 0.0, radial.x)
+        elif distance <= 2.85:
+            # v452: preserve STOMP range during the mandatory FIRST
+            # three steps. Blindly backstepping from a close SERA
+            # pushed Bittaran to ~3.35m before its first decision;
+            # the only legal close attack was then always KICK.
+            # Circle the player at the CURRENT radius instead of
+            # translating away; the actual diagonal gait still
+            # completes 3 steps and the true toe decides impact.
+            var close_radial: Vector3 = toward.normalized()
+            direction = Vector3(
+                -close_radial.z, 0.0, close_radial.x)
         elif distance < WALK_RETREAT_DISTANCE_METERS:
-            # Retreat while facing the player instead of pushing
-            # the attack foot through an overlapping character.
+            # Backstep from midrange only, not from a target still
+            # inside the legal short-range STOMP sector.
             direction = -toward.normalized()
         elif distance <= WALK_ORBIT_DISTANCE_METERS:
             # Orbit only while meeting the minimum-walk-step
