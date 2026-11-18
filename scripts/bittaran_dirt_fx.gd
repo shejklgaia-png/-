@@ -17,6 +17,11 @@ const ROLLING_SAND_PARTICLES: int = 34
 const FLOATING_FINES_PARTICLES: int = 26
 const ROCK_CHUNKS_PARTICLES: int = 22
 const FLYING_GRIT_PARTICLES: int = 35
+# v467: increase launch velocity and keep trajectory in a tight cone.
+# Keep the independent heavy soil, fine powder, sand and rock materials.
+const DUST_EJECTION_SPEED_MULTIPLIER: float = 1.70
+const DUST_EJECTION_SPREAD_MULTIPLIER: float = 0.50
+const DUST_EJECTION_GRAVITY_MULTIPLIER: float = 0.62
 
 var dust_sprite_mesh: QuadMesh
 var dense_soil_sprite_mesh: QuadMesh
@@ -37,6 +42,7 @@ var sweep_elapsed: float = 0.0
 var sweep_active: bool = false
 var kicked_this_attack: bool = false
 var kick_last_direction: Vector3 = Vector3.ZERO
+var sweep_last_direction: Vector3 = Vector3.ZERO
 var stomped_this_attack: bool = false
 var last_kind: String = ""
 
@@ -195,6 +201,23 @@ func _make_particles(name: String, dust: bool,
     return p
 
 
+## Faster, narrower launch is applied ONCE when emitters are
+## constructed (not every strike). Lower gravity/damping preserves
+## straight paths through the visible plume before particles settle.
+func _configure_fast_linear_ejection(p: CPUParticles3D) -> void:
+    p.initial_velocity_min *= DUST_EJECTION_SPEED_MULTIPLIER
+    p.initial_velocity_max *= DUST_EJECTION_SPEED_MULTIPLIER
+    p.spread = clampf(p.spread
+        * DUST_EJECTION_SPREAD_MULTIPLIER, 5.0, 32.0)
+    p.gravity *= DUST_EJECTION_GRAVITY_MULTIPLIER
+    if p.mesh == dust_sprite_mesh or (
+            p.mesh == dense_soil_sprite_mesh):
+        p.damping_min = 0.04
+        p.damping_max = 0.14
+    if p.one_shot:
+        p.explosiveness = 0.98
+
+
 func _ready() -> void:
     _build_dust_sprite()
     # Dense brown SOIL, translucent pale POWDER, lateral SAND,
@@ -319,10 +342,21 @@ func _ready() -> void:
 
     sweep_dust = _make_particles("SweepDustTrail", true, false, 34)
     sweep_dust.color = Color(0.66, 0.62, 0.56, 0.50)
-    sweep_dust.initial_velocity_max = 1.3
+    # The sweep should fling powder along the dragging toe, not
+    # release slow smoke vertically from the swept track.
+    sweep_dust.initial_velocity_min = 1.9
+    sweep_dust.initial_velocity_max = 3.1
+    sweep_dust.spread = 24.0
     sweep_dust.lifetime = 0.88
     sweep_chunks = _make_particles(
         "SweepScatteredEarth", false, true, 10)
+    # One-time shared tuning: stomp jets rise quickly, kick jets shoot
+    # straight forward, and sweep debris travels along the foot stroke.
+    for emitter in [stomp_core, stomp_dust, stomp_ground, stomp_fines,
+            stomp_chunks, stomp_grit, kick_forward_dust, kick_dust,
+            kick_trailing_dust, kick_chunks, kick_grit,
+            sweep_dust, sweep_chunks]:
+        _configure_fast_linear_ejection(emitter as CPUParticles3D)
 
 
 func _burst(p: CPUParticles3D, point: Vector3,
@@ -380,16 +414,26 @@ func emit_kick(point: Vector3, outward: Vector3) -> void:
     _burst(kick_trailing_dust, origin, residue)
 
 
-func trace_sweep(point: Vector3, delta: float) -> void:
+func trace_sweep(point: Vector3, delta: float,
+        stroke: Vector3 = Vector3.ZERO) -> void:
     sweep_active = true
-    var origin := Vector3(point.x, 0.05, point.z)
+    var origin: Vector3 = Vector3(point.x, 0.05, point.z)
+    var planar: Vector3 = Vector3(stroke.x, 0.0, stroke.z)
+    if planar.length_squared() >= 0.0001:
+        sweep_last_direction = planar.normalized()
+    if sweep_last_direction.length_squared() < 0.0001:
+        sweep_last_direction = Vector3.FORWARD
+    # Narrow, mostly horizontal jet follows the real sweep stroke.
+    var flow: Vector3 = (
+        sweep_last_direction * 1.85
+        + Vector3.UP * 0.18).normalized()
     sweep_dust.global_position = origin
-    sweep_dust.direction = Vector3.UP
+    sweep_dust.direction = flow
     sweep_dust.emitting = true
     sweep_elapsed += maxf(delta, 0.0)
     if sweep_elapsed >= SWEEP_EMISSION_INTERVAL:
         sweep_elapsed = fposmod(sweep_elapsed, SWEEP_EMISSION_INTERVAL)
-        _burst(sweep_chunks, origin, Vector3.UP)
+        _burst(sweep_chunks, origin, flow)
 
 
 func end_sweep() -> void:
@@ -403,6 +447,7 @@ func reset() -> void:
     sweep_elapsed = 0.0
     kicked_this_attack = false
     kick_last_direction = Vector3.ZERO
+    sweep_last_direction = Vector3.ZERO
     stomped_this_attack = false
     last_kind = ""
     for p in [stomp_core, stomp_dust, stomp_ground, stomp_fines,
@@ -422,6 +467,7 @@ func advance_attack(frame: Dictionary, point: Vector3,
         end_sweep()
         kicked_this_attack = false
         kick_last_direction = Vector3.ZERO
+        sweep_last_direction = Vector3.ZERO
         stomped_this_attack = false
         last_kind = kind
     if frame.is_empty():
@@ -468,6 +514,8 @@ func advance_attack(frame: Dictionary, point: Vector3,
         # Releasing the foot from the ground ends the active emitter
         # immediately. Existing airborne particles can finish fading.
         if striking and foot_grounded:
-            trace_sweep(point, delta)
+            var sweep_travel: Vector3 = point - previous_point
+            sweep_travel.y = 0.0
+            trace_sweep(point, delta, sweep_travel)
         else:
             end_sweep()
