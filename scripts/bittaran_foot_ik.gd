@@ -2595,6 +2595,9 @@ var source_ik_last_attack_time: float = -1.0
 var source_ik_step_pair: int = -1
 var source_ik_next_pair: int = 0
 var source_ik_step_elapsed: float = 0.0
+# v464: a completed NORMAL diagonal swing is one gait step.
+# The two reset-to-Wait pairs after attacks do NOT count.
+var source_ik_completed_walk_steps: int = 0
 var source_ik_last_actor_position: Vector3 = Vector3.ZERO
 var source_ik_replant_id: String = ""
 var source_ik_replant_elapsed: float = 0.0
@@ -3196,6 +3199,7 @@ func initialize_source_ground_ik() -> bool:
     source_ik_step_pair = -1
     source_ik_next_pair = 0
     source_ik_step_elapsed = 0.0
+    source_ik_completed_walk_steps = 0
     source_ik_replant_id = ""
     source_ik_replant_elapsed = 0.0
     source_ik_postattack_active = false
@@ -3286,6 +3290,10 @@ func _source_ik_home(limb: Dictionary) -> Vector3:
 ## fresh attack/torso translation until both pairs have replanted.
 func source_postattack_replant_active() -> bool:
     return source_ik_postattack_active
+
+
+func source_completed_walk_steps() -> int:
+    return source_ik_completed_walk_steps
 
 
 func _source_ik_begin_pair(pair_index: int) -> void:
@@ -3605,6 +3613,9 @@ func _source_ik_advance_locomotion(delta: float, motion: String) -> void:
         source_ik_wait_restored_id = ""
         source_ik_wait_locomotion_blend = 0.0
     if source_ik_step_pair >= 0 and step_t >= 1.0:
+        # Do not count attack recovery or a pair that never landed.
+        if not source_ik_postattack_active and can_step:
+            source_ik_completed_walk_steps += 1
         source_ik_step_pair = -1
         source_ik_step_elapsed = 0.0
         if source_ik_postattack_active:
