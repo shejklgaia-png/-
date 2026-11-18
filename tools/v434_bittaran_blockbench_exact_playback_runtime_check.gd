@@ -4,6 +4,7 @@ extends SceneTree
 ## the live Godot 13-bone source replay. IK must never alter source poses.
 const BATTLE = preload("res://scripts/bittaran_battle.gd")
 const SOURCE_PATH: String = "res://models/storage/ビットタラン (1).bbmodel"
+const NEW_SOURCE_PATH: String = "res://models/storage/ビットタラン_20261118_新なぎ払い.bbmodel"
 const UNIT: float = 0.145
 const ROTATION_TOLERANCE_RAD: float = 0.0003
 const POSITION_TOLERANCE_METERS: float = 0.00005
@@ -152,6 +153,22 @@ func _run() -> void:
         return
     var src: Dictionary = value
     var clips: Array = src.get("animations", [])
+    # The original 17:21 Blockbench keys remain authoritative for
+    # KICK/STOMP/Wait. Only sweeps are superseded by user-authored
+    # 18-Nov full animations, which include the entire return.
+    var newer: Variant = JSON.parse_string(
+        FileAccess.get_file_as_string(NEW_SOURCE_PATH))
+    if not newer is Dictionary:
+        _die("Cannot read revised source sweep model")
+        return
+    for i in range(clips.size()):
+        if str(clips[i].get("name", "")) == "なぎ払い":
+            for revised in (newer as Dictionary).get("animations", []):
+                if str(revised.get("name", "")) == "なぎ払い_L":
+                    var copy: Dictionary = revised.duplicate(true)
+                    copy["name"] = "なぎ払い"
+                    clips[i] = copy
+                    break
     if clips.size() != 7:
         _die("Expected the original Wait + six attacks")
         return
@@ -177,6 +194,11 @@ func _run() -> void:
     for clip in clips:
         var name: String = str(clip.get("name", ""))
         all_clips[name] = clip
+        if name == "なぎ払い_R":
+            # The right full sweep is a reflected LEFT clip, not a
+            # separate 17:21 source. The dedicated revised-source
+            # regression independently validates all mirrored keys.
+            continue
         var length: float = float(clip.get("length", 0.0))
         var key_times: Array[float] = [0.0, length]
         for animator in (clip.get("animators", {}) as Dictionary).values():
