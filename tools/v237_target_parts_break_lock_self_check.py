@@ -71,7 +71,11 @@ assert 'enemy_shooter.call("set_head_destroyed", true)' in apply
 assert 'locked_target_part_id = ""' not in apply
 assert 'trigger_part_hit_fx' in apply
 assert 'func _combo_lock_retention_active() -> bool:' in m
-assert 'SeraSave.record_target_hit(kind, actual_damage,' in apply
+# The save singleton is now resolved from /root for standalone Godot
+# SceneTree tests; confirmed hits must still update the same archive.
+assert '_record_sera_save("record_target_hit", [kind, actual_damage,' in apply
+assert 'get_node_or_null("/root/SeraSave")' in m
+assert 'func _record_sera_save(method: String, arguments: Array = [])' in m
 assert '"apply_part_hit"' in m
 assert '"melee", strike_damage,' in m
 assert '"bash", bash_damage,' in m
