@@ -15,9 +15,12 @@ const DUST_SPRITE_SIZE: int = 96
 # the short first sweep stroke, leaving isolated distant smoke blobs.
 # A small pooled series of dense world-space bursts fills that footprint.
 const SWEEP_EMISSION_INTERVAL: float = 0.045
-const SWEEP_CLOUD_POOL_SIZE: int = 10
+# 28 x 0.045s = 1.26s: exceeds the 1.12s particle lifetime.
+# The old ten-emitter pool restarted live smoke after ~0.45s.
+const SWEEP_CLOUD_POOL_SIZE: int = 28
 const SWEEP_CLOUD_PARTICLES: int = 36
-const SWEEP_MAX_TRACK_STEP_METERS: float = 0.42
+const SWEEP_MAX_TRACK_STEP_METERS: float = 0.32
+const SWEEP_REUSE_SAFETY_SECONDS: float = 0.09
 # v466: deliberately different physically readable dust/material layers.
 # Two tiny procedural sprites, no extra PNG or mobile shader pass.
 const DENSE_SOIL_PARTICLES: int = 62
@@ -54,6 +57,17 @@ var kick_grit: CPUParticles3D
 var sweep_dust: CPUParticles3D
 var sweep_dust_emitters: Array[CPUParticles3D] = []
 var sweep_emitter_cursor: int = 0
+# Never restart an emitter until EVERY particle from its previous burst
+# has finished its complete fade; this stops popping, teleporting and
+# missed one_shot cycles on real Android devices.
+var sweep_emitter_last_burst: Array[float] = []
+var sweep_fx_clock_seconds: float = 0.0
+var sweep_reuse_while_alive: int = 0
+var sweep_dropped_bursts: int = 0
+var sweep_discontinuities: int = 0
+var sweep_wait_stable_frames: int = 0
+var sweep_last_track_origin: Vector3 = Vector3.ZERO
+var sweep_track_valid: bool = false
 var sweep_burst_count: int = 0
 var last_sweep_fx_origin: Vector3 = Vector3.ZERO
 var sweep_chunks: CPUParticles3D
@@ -565,6 +579,7 @@ func _ready() -> void:
     # sweep trail visible. Moving a single continuous emitter left only
     # disconnected particles at the foot and far from its real path.
     sweep_dust_emitters.append(sweep_dust)
+    sweep_emitter_last_burst.append(-INF)
     for i in range(1, SWEEP_CLOUD_POOL_SIZE):
         var puff: CPUParticles3D = _make_particles(
             "SweepTrailPuff" + str(i), true, true,
@@ -581,6 +596,7 @@ func _ready() -> void:
         puff.emission_box_extents = Vector3(0.16, 0.015, 0.16)
         _configure_fast_linear_ejection(puff)
         sweep_dust_emitters.append(puff)
+        sweep_emitter_last_burst.append(-INF)
     # The original CPU emitters remain the parameter profiles for the
     # ground-contact MultiMesh debris pools, never duplicate draw calls.
 
@@ -656,24 +672,69 @@ func emit_kick(point: Vector3, outward: Vector3) -> void:
     _burst(kick_trailing_dust, origin, residue)
 
 
+## A one-shot emitter cannot be restarted while any old particles
+## remain on screen. Scan the pool for a finished slot instead of
+## recycling a live cloud at a suddenly different foot position.
+func _burst_safe_sweep_cloud(point: Vector3, flow: Vector3) -> bool:
+    var count: int = sweep_dust_emitters.size()
+    for trial in range(count):
+        var index: int = (sweep_emitter_cursor + trial) % count
+        var puff: CPUParticles3D = sweep_dust_emitters[index]
+        var last: float = sweep_emitter_last_burst[index]
+        if sweep_fx_clock_seconds - last < (
+                puff.lifetime + SWEEP_REUSE_SAFETY_SECONDS):
+            continue
+        # The emitter is now fully finished; restarting it cannot
+        # destroy visible dust from the previous source foot position.
+        _burst(puff, point, flow)
+        sweep_emitter_last_burst[index] = sweep_fx_clock_seconds
+        sweep_emitter_cursor = (index + 1) % count
+        return true
+    sweep_dropped_bursts += 1
+    return false
+
+
 func trace_sweep(point: Vector3, delta: float,
-        stroke: Vector3 = Vector3.ZERO) -> void:
+        stroke: Vector3 = Vector3.ZERO,
+        time_already_advanced: bool = false) -> void:
+    if not time_already_advanced:
+        sweep_fx_clock_seconds += maxf(delta, 0.0)
+    var raw_origin: Vector3 = Vector3(point.x, 0.055, point.z)
     var began: bool = not sweep_active
     sweep_active = true
-    var origin: Vector3 = Vector3(point.x, 0.055, point.z)
+    var origin: Vector3 = raw_origin
     var travel: Vector3 = Vector3(stroke.x, 0.0, stroke.z)
-    # Clamp abnormal inter-frame jumps: each puff belongs to the
-    # current toe stroke, never a teleport or previous pose.
-    if travel.length() > SWEEP_MAX_TRACK_STEP_METERS:
-        travel = travel.normalized() * SWEEP_MAX_TRACK_STEP_METERS
+    if not sweep_track_valid:
+        sweep_last_track_origin = origin
+        sweep_track_valid = true
+    else:
+        var delta_foot: Vector3 = (
+            raw_origin - sweep_last_track_origin)
+        if delta_foot.length() > SWEEP_MAX_TRACK_STEP_METERS:
+            # A sudden IK/anchor discontinuity is NOT a ground scrape.
+            # Re-acquire the current toe without connecting it to the
+            # previous puff or drawing a trail across empty floor.
+            sweep_discontinuities += 1
+            sweep_last_track_origin = raw_origin
+            sweep_wait_stable_frames = 2
+            sweep_elapsed = 0.0
+            return
+        # The weighted lowest-surface anchor already moves smoothly.
+        # A one-pole filter removes remaining sub-frame contact jitter.
+        origin = sweep_last_track_origin.lerp(raw_origin, 0.82)
+        travel = origin - sweep_last_track_origin
+        sweep_last_track_origin = origin
+    if sweep_wait_stable_frames > 0:
+        sweep_wait_stable_frames -= 1
+        return
     if travel.length_squared() >= 0.0001:
         sweep_last_direction = travel.normalized()
     if sweep_last_direction.length_squared() < 0.0001:
         sweep_last_direction = Vector3.FORWARD
     var flow: Vector3 = (
         sweep_last_direction * 1.55 + Vector3.UP * 0.26).normalized()
-    # The FIRST grounded source hit frame needs a full cloud immediately.
-    # Remaining frames stamp dense puffs along the actual toe drag.
+    # Start at first grounded hit frame, then stamp the short first
+    # scrape using deterministic source time (never wall-clock time).
     if began:
         sweep_elapsed = SWEEP_EMISSION_INTERVAL
     sweep_elapsed += clampf(delta, 0.0, 0.07)
@@ -684,12 +745,9 @@ func trace_sweep(point: Vector3, delta: float,
         var fraction: float = (
             float(bursts - i - 1) / float(maxi(bursts, 1)))
         var stamp: Vector3 = origin - travel * fraction
-        var cloud: CPUParticles3D = sweep_dust_emitters[
-            sweep_emitter_cursor]
-        sweep_emitter_cursor = (
-            sweep_emitter_cursor + 1) % SWEEP_CLOUD_POOL_SIZE
-        _burst(cloud, stamp, flow)
-        # Pebbles follow the SAME measured foot-floor patch.
+        if not _burst_safe_sweep_cloud(stamp, flow):
+            continue
+        # CPU-grounded gravel is kept in the same contact strip.
         _burst(sweep_chunks, stamp, flow)
         sweep_burst_count += 1
         last_sweep_fx_origin = stamp
@@ -698,14 +756,22 @@ func trace_sweep(point: Vector3, delta: float,
 func end_sweep() -> void:
     sweep_active = false
     sweep_elapsed = 0.0
-    # Do not switch off the previous one-shot particles here.
-    # They must remain world-planted and fade naturally after toe lift.
-
+    sweep_track_valid = false
+    sweep_wait_stable_frames = 0
+    # Previous puffs remain fixed in WORLD coordinates and fade out
+    # naturally. No emitter is reused until its own lifetime ends.
 
 func reset() -> void:
     end_sweep()
     sweep_elapsed = 0.0
     sweep_emitter_cursor = 0
+    sweep_fx_clock_seconds = 0.0
+    sweep_reuse_while_alive = 0
+    sweep_dropped_bursts = 0
+    sweep_discontinuities = 0
+    sweep_track_valid = false
+    sweep_last_track_origin = Vector3.ZERO
+    sweep_emitter_last_burst.fill(-INF)
     sweep_burst_count = 0
     last_sweep_fx_origin = Vector3.ZERO
     kicked_this_attack = false
@@ -733,6 +799,7 @@ func advance_attack(frame: Dictionary, point: Vector3,
         previous_point: Vector3, delta: float,
         foot_grounded: bool = false,
         player_direction: Vector3 = Vector3.ZERO) -> void:
+    sweep_fx_clock_seconds += maxf(delta, 0.0)
     var kind: String = str(frame.get("kind", ""))
     if kind != last_kind or frame.is_empty():
         end_sweep()
@@ -792,6 +859,6 @@ func advance_attack(frame: Dictionary, point: Vector3,
                 "hit_window", false)):
             var sweep_travel: Vector3 = point - previous_point
             sweep_travel.y = 0.0
-            trace_sweep(point, delta, sweep_travel)
+            trace_sweep(point, delta, sweep_travel, true)
         else:
             end_sweep()
