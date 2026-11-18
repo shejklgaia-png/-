@@ -3496,6 +3496,10 @@ func _source_ik_advance_locomotion(delta: float, motion: String) -> void:
                 LEG_PAIRS[source_ik_step_pair].has(index)):
             var start: Vector3 = limb["swing_from"]
             var destination: Vector3 = _source_ik_home(limb)
+            # Retarget the real landing location as the torso turns or
+            # advances during recovery; do not land on a stale pose
+            # captured at the beginning of the 0.52s airborne arc.
+            limb["swing_to"] = destination
             goal = start.lerp(destination, eased)
             var lift_height: float = (
                 SOURCE_POSTATTACK_STEP_HEIGHT_METERS
