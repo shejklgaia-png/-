@@ -3379,7 +3379,7 @@ func _source_ik_advance_locomotion(delta: float, motion: String) -> void:
     # supporting toes must stay planted; the normal gait resumes once
     # the neutral stand-up settle has actually completed.
     var can_step: bool = (motion == "Approach" or motion == "Turn") and (
-        not break_reaction_active()) and post_down_idle_remaining <= 0.0
+        not break_reaction_active())
     var postattack_handoff_seconds: float = (
         SOURCE_POSTATTACK_GAIT_BLEND_SECONDS
         / BittaranAttackTimings.source_return_speed())
