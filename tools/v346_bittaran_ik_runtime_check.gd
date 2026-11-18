@@ -92,21 +92,7 @@ func _run() -> void:
     target.rotation.y = 0.0
     model.call("apply_pose", "Wait", 0.0)
     ik.call("advance_source_ground_ik", DELTA, "Idle")
-    var reset_error: float = float(ik.call("maximum_ground_error"))
-    if reset_error > MAX_ERROR_METERS:
-        print("V346_RESET_DIAG actor=", model.global_position,
-            " previous=", ik.get("source_ik_last_actor_position"),
-            " enabled=", ik.get("source_ik_enabled"),
-            " pair=", ik.get("source_ik_step_pair"),
-            " reset_error=", reset_error)
-        for index in range(legs.size()):
-            var limb: Dictionary = legs[index]
-            var foot: Node3D = limb["foot"]
-            print("V346_RESET_LIMB ", index,
-                " error=", limb.get("last_error"),
-                " anchor=", limb.get("anchor"),
-                " sole=", foot.to_global(limb["sole_local"]),
-                " stepping=", limb["stepping"])
+    if float(ik.call("maximum_ground_error")) > MAX_ERROR_METERS:
         _fail("scene reset left IK anchored at previous location")
         return
     print("GODOT_V346_BITTARAN_IK_PASS: 4 legs, diagonal stance, foot locks, swing lift, reset, max_err="
