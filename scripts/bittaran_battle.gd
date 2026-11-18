@@ -518,7 +518,8 @@ func _bittaran_stomp_ground_hit(
         player.global_position, direction.normalized(), false, 2)
 
 
-func _emit_bittaran_shockwave(point: Vector3, half_size: Vector2) -> void:
+func _emit_bittaran_shockwave(point: Vector3, half_size: Vector2,
+        surface_fx_point: Vector3 = Vector3.INF) -> void:
     if half_size.x <= 0.0 or half_size.y <= 0.0:
         return
     # Physical damage is evaluated even if the optional shockwave
@@ -536,7 +537,13 @@ func _emit_bittaran_shockwave(point: Vector3, half_size: Vector2) -> void:
     bittaran_shockwave.scale = Vector3(radius, 1.0, radius)
     bittaran_shockwave.visible = true
     if bittaran_dirt_fx != null:
-        bittaran_dirt_fx.call("emit_stomp", point, half_size)
+        # Hit region and ground ring still use the real whole-foot box.
+        # Dense material must originate from the LOWEST visible toe
+        # surface rather than the center of its rotated long mesh.
+        var fx_origin: Vector3 = (
+            surface_fx_point if surface_fx_point != Vector3.INF
+            else point)
+        bittaran_dirt_fx.call("emit_stomp", fx_origin, half_size)
     # The ground slam itself shakes the arena, hit or miss (v401).
     # v402: the v401 strengths were calibrated blind and measured only
     # ~5px of image displacement at fight distance (device feedback:
@@ -655,7 +662,8 @@ func _check_bittaran_attack_hit() -> void:
             if bittaran_dirt_fx != null:
                 bittaran_dirt_fx.set("stomped_this_attack", true)
             _emit_bittaran_shockwave(contact,
-                _bittaran_stomp_ground_half_extents(leg_id))
+                _bittaran_stomp_ground_half_extents(leg_id),
+                _bittaran_ground_fx_contact(leg_id))
         return
     # The ONLY attack collision volumes are rendered components below the
     # knee joint: lower-leg mesh + its attached foot. No upper limb,
@@ -1624,6 +1632,48 @@ func _bittaran_original_attack_contact(leg_id: String) -> Vector3:
     return Vector3(center.x, bounds.position.y, center.z)
 
 
+## Sole FX anchor: sample the actual transformed mesh box corners on
+## the lowest 8.5cm strip, not the CENTER of the long tilted toe AABB.
+## Unlike collision, this changes only the visual emitter position.
+## It works for each mirrored leg after source playback and live IK.
+func _bittaran_ground_fx_contact(leg_id: String) -> Vector3:
+    var bounds: AABB = _bittaran_attack_foot_bounds(leg_id)
+    if not bounds.has_volume() or bittaran_foot_ik == null:
+        return _bittaran_original_attack_contact(leg_id)
+    var leg_index: int = BittaranFootIK.LEG_PART_IDS.find(leg_id)
+    var legs: Array = bittaran_foot_ik.get("legs")
+    if leg_index < 0 or leg_index >= legs.size():
+        return _bittaran_original_attack_contact(leg_id)
+    var foot: Node3D = legs[leg_index].get("foot", null) as Node3D
+    if foot == null:
+        return _bittaran_original_attack_contact(leg_id)
+    var points: Array[Vector3] = []
+    var lowest: float = INF
+    for child in foot.get_children():
+        if not child is MeshInstance3D:
+            continue
+        var piece: MeshInstance3D = child as MeshInstance3D
+        if piece.mesh == null:
+            continue
+        var box: AABB = piece.mesh.get_aabb()
+        for corner in range(8):
+            var vertex: Vector3 = piece.to_global(box.get_endpoint(corner))
+            points.append(vertex)
+            lowest = minf(lowest, vertex.y)
+    if points.is_empty():
+        return _bittaran_original_attack_contact(leg_id)
+    var total: Vector3 = Vector3.ZERO
+    var touching: int = 0
+    for vertex in points:
+        if vertex.y <= lowest + 0.085:
+            total += vertex
+            touching += 1
+    if touching == 0:
+        return _bittaran_original_attack_contact(leg_id)
+    return Vector3(total.x / float(touching), lowest,
+        total.z / float(touching))
+
+
 func _bittaran_striking_foot_grounded(leg_id: String) -> bool:
     var bounds: AABB = _bittaran_attack_foot_bounds(leg_id)
     if not bounds.has_volume():
@@ -1718,7 +1768,7 @@ func _finalize_target_pose(delta: float) -> void:
             # and IK, not the procedural floor target or attack timer.
             var grounded: bool = _bittaran_striking_foot_grounded(leg_id)
             var contact: Vector3 = (
-                _bittaran_original_attack_contact(leg_id) if original
+                _bittaran_ground_fx_contact(leg_id) if original
                 else bittaran_foot_ik.call("attack_contact_world"))
             var previous: Vector3 = (
                 last_attack_contact if attack_contact_initialized else contact)

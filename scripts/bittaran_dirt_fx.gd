@@ -6,16 +6,24 @@ extends Node3D
 const RENDER_ORDER = preload("res://scripts/render_order_policy.gd")
 # v465: nuanced sandy-brown/grey impact dust; all three moves share
 # the same runtime-generated noise/alpha sprite (96x96), no asset PNG.
-const DUST_COLOR: Color = Color(0.69, 0.63, 0.55, 0.72)
-const EARTH_COLOR: Color = Color(0.31, 0.28, 0.24, 1.0)
+# v454: grayscale, locally concentrated dust; the source foot's actual
+# grounded sole is the only FX origin, never a synthetic distant marker.
+const DUST_COLOR: Color = Color(0.69, 0.69, 0.69, 0.82)
+const EARTH_COLOR: Color = Color(0.31, 0.31, 0.31, 1.0)
 const DUST_SPRITE_SIZE: int = 96
-const SWEEP_EMISSION_INTERVAL: float = 0.075
+# A moving continuous emitter released only ~27 particles/sec during
+# the short first sweep stroke, leaving isolated distant smoke blobs.
+# A small pooled series of dense world-space bursts fills that footprint.
+const SWEEP_EMISSION_INTERVAL: float = 0.045
+const SWEEP_CLOUD_POOL_SIZE: int = 10
+const SWEEP_CLOUD_PARTICLES: int = 36
+const SWEEP_MAX_TRACK_STEP_METERS: float = 0.42
 # v466: deliberately different physically readable dust/material layers.
 # Two tiny procedural sprites, no extra PNG or mobile shader pass.
-const DENSE_SOIL_PARTICLES: int = 38
-const RISING_POWDER_PARTICLES: int = 54
-const ROLLING_SAND_PARTICLES: int = 34
-const FLOATING_FINES_PARTICLES: int = 26
+const DENSE_SOIL_PARTICLES: int = 62
+const RISING_POWDER_PARTICLES: int = 72
+const ROLLING_SAND_PARTICLES: int = 54
+const FLOATING_FINES_PARTICLES: int = 38
 const ROCK_CHUNKS_PARTICLES: int = 22
 const FLYING_GRIT_PARTICLES: int = 35
 # v467: increase launch velocity and keep trajectory in a tight cone.
@@ -44,6 +52,10 @@ var kick_trailing_dust: CPUParticles3D
 var kick_chunks: CPUParticles3D
 var kick_grit: CPUParticles3D
 var sweep_dust: CPUParticles3D
+var sweep_dust_emitters: Array[CPUParticles3D] = []
+var sweep_emitter_cursor: int = 0
+var sweep_burst_count: int = 0
+var last_sweep_fx_origin: Vector3 = Vector3.ZERO
 var sweep_chunks: CPUParticles3D
 var sweep_elapsed: float = 0.0
 var sweep_active: bool = false
@@ -102,7 +114,7 @@ func _build_dust_sprite() -> void:
                 0.90 + turbulence * 0.055 + fine * 0.04,
                 0.74, 0.99)
             atlas.set_pixel(x, y, Color(
-                tone, tone * 0.955, tone * 0.89, opacity))
+                tone, tone, tone, opacity))
             var clumps: float = noise.get_noise_2d(
                 float(x) + 319.0, float(y) + 178.0)
             var coarse_rim: float = 0.77 + clumps * 0.19
@@ -119,8 +131,8 @@ func _build_dust_sprite() -> void:
                 0.83 + clumps * 0.14 + fine * 0.04,
                 0.64, 0.98)
             dense_atlas.set_pixel(x, y, Color(
-                coarse_tone, coarse_tone * 0.96,
-                coarse_tone * 0.91, coarse_opacity))
+                coarse_tone, coarse_tone,
+                coarse_tone, coarse_opacity))
     var material := StandardMaterial3D.new()
     material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
     material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
@@ -209,9 +221,9 @@ func _make_particles(name: String, dust: bool,
             else Vector3(0.10, 0.065, 0.088))
         var stone := StandardMaterial3D.new()
         stone.albedo_color = (
-            Color(0.78, 0.66, 0.49, 1.0)
+            Color(0.67, 0.67, 0.67, 1.0)
             if substance == "grit"
-            else Color(0.39, 0.35, 0.31, 1.0))
+            else Color(0.36, 0.36, 0.36, 1.0))
         pebble.material = stone
         p.mesh = pebble
         p.scale_amount_min = 0.45
@@ -406,7 +418,7 @@ func _ready() -> void:
     # carry a different silhouette, tone, size, speed and gravity.
     stomp_core = _make_particles(
         "StompCompactSoil", true, true, DENSE_SOIL_PARTICLES, "soil")
-    stomp_core.color = Color(0.43, 0.34, 0.27, 0.96)
+    stomp_core.color = Color(0.42, 0.42, 0.42, 0.97)
     stomp_core.spread = 39.0
     stomp_core.initial_velocity_min = 0.75
     stomp_core.initial_velocity_max = 2.20
@@ -417,7 +429,7 @@ func _ready() -> void:
 
     stomp_dust = _make_particles(
         "StompRisingPowder", true, true, RISING_POWDER_PARTICLES)
-    stomp_dust.color = Color(0.79, 0.74, 0.68, 0.77)
+    stomp_dust.color = Color(0.75, 0.75, 0.75, 0.85)
     stomp_dust.spread = 31.0
     stomp_dust.initial_velocity_min = 2.15
     stomp_dust.initial_velocity_max = 4.90
@@ -429,7 +441,7 @@ func _ready() -> void:
     stomp_ground = _make_particles(
         "StompRollingSand", true, true, ROLLING_SAND_PARTICLES,
         "soil")
-    stomp_ground.color = Color(0.64, 0.54, 0.43, 0.83)
+    stomp_ground.color = Color(0.56, 0.56, 0.56, 0.89)
     stomp_ground.spread = 79.0
     stomp_ground.initial_velocity_min = 0.42
     stomp_ground.initial_velocity_max = 1.55
@@ -440,7 +452,7 @@ func _ready() -> void:
 
     stomp_fines = _make_particles(
         "StompSuspendedFines", true, true, FLOATING_FINES_PARTICLES)
-    stomp_fines.color = Color(0.87, 0.82, 0.77, 0.48)
+    stomp_fines.color = Color(0.86, 0.86, 0.86, 0.56)
     stomp_fines.spread = 49.0
     stomp_fines.initial_velocity_min = 0.60
     stomp_fines.initial_velocity_max = 2.35
@@ -471,8 +483,8 @@ func _ready() -> void:
 
     # Kick/flick: five distinct directionally ejected layers.
     kick_forward_dust = _make_particles(
-        "KickForwardSoilJet", true, true, 33, "soil")
-    kick_forward_dust.color = Color(0.43, 0.34, 0.27, 0.95)
+        "KickForwardSoilJet", true, true, 48, "soil")
+    kick_forward_dust.color = Color(0.38, 0.38, 0.38, 0.98)
     kick_forward_dust.spread = 18.0
     kick_forward_dust.initial_velocity_min = 3.5
     kick_forward_dust.initial_velocity_max = 6.0
@@ -482,8 +494,8 @@ func _ready() -> void:
     kick_forward_dust.scale_amount_max = 1.72
 
     kick_dust = _make_particles(
-        "KickFineForwardPowder", true, true, 35)
-    kick_dust.color = Color(0.81, 0.74, 0.67, 0.79)
+        "KickFineForwardPowder", true, true, 56)
+    kick_dust.color = Color(0.78, 0.78, 0.78, 0.84)
     kick_dust.spread = 25.0
     kick_dust.initial_velocity_min = 2.5
     kick_dust.initial_velocity_max = 5.0
@@ -493,8 +505,8 @@ func _ready() -> void:
     kick_dust.scale_amount_max = 1.44
 
     kick_trailing_dust = _make_particles(
-        "KickBackwardResidualDust", true, true, 18, "soil")
-    kick_trailing_dust.color = Color(0.55, 0.47, 0.39, 0.68)
+        "KickBackwardResidualDust", true, true, 32, "soil")
+    kick_trailing_dust.color = Color(0.53, 0.53, 0.53, 0.78)
     kick_trailing_dust.spread = 57.0
     kick_trailing_dust.initial_velocity_min = 0.45
     kick_trailing_dust.initial_velocity_max = 1.55
@@ -521,14 +533,19 @@ func _ready() -> void:
     kick_grit.lifetime = 0.59
     kick_grit.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
 
-    sweep_dust = _make_particles("SweepDustTrail", true, false, 34)
-    sweep_dust.color = Color(0.66, 0.62, 0.56, 0.50)
+    sweep_dust = _make_particles(
+        "SweepDustTrail", true, true, SWEEP_CLOUD_PARTICLES)
+    sweep_dust.color = Color(0.67, 0.67, 0.67, 0.73)
     # The sweep should fling powder along the dragging toe, not
     # release slow smoke vertically from the swept track.
-    sweep_dust.initial_velocity_min = 1.9
-    sweep_dust.initial_velocity_max = 3.1
-    sweep_dust.spread = 24.0
-    sweep_dust.lifetime = 1.25
+    sweep_dust.initial_velocity_min = 0.95
+    sweep_dust.initial_velocity_max = 1.80
+    sweep_dust.spread = 28.0
+    sweep_dust.lifetime = 1.12
+    sweep_dust.scale_amount_min = 0.68
+    sweep_dust.scale_amount_max = 1.26
+    sweep_dust.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
+    sweep_dust.emission_box_extents = Vector3(0.16, 0.015, 0.16)
     sweep_chunks = _make_particles(
         "SweepScatteredEarth", false, true, 10)
     # One-time shared tuning: stomp jets rise quickly, kick jets shoot
@@ -544,8 +561,28 @@ func _ready() -> void:
     grit_debris_renderer = _make_debris_renderer(
         "GritDebrisAtGround", stomp_grit.mesh,
         DEBRIS_GRIT_CAPACITY)
-    # The old CPU emitters remain as inexpensive parameter profiles,
-    # but all 3D BOX fragments are rendered through the two pools.
+    # Independent world-space one-shot emitters keep the FULL previous
+    # sweep trail visible. Moving a single continuous emitter left only
+    # disconnected particles at the foot and far from its real path.
+    sweep_dust_emitters.append(sweep_dust)
+    for i in range(1, SWEEP_CLOUD_POOL_SIZE):
+        var puff: CPUParticles3D = _make_particles(
+            "SweepTrailPuff" + str(i), true, true,
+            SWEEP_CLOUD_PARTICLES)
+        puff.color = sweep_dust.color
+        puff.spread = 28.0
+        puff.initial_velocity_min = 0.95
+        puff.initial_velocity_max = 1.80
+        puff.gravity = sweep_dust.gravity / DUST_EJECTION_GRAVITY_MULTIPLIER
+        puff.lifetime = 1.12
+        puff.scale_amount_min = 0.68
+        puff.scale_amount_max = 1.26
+        puff.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
+        puff.emission_box_extents = Vector3(0.16, 0.015, 0.16)
+        _configure_fast_linear_ejection(puff)
+        sweep_dust_emitters.append(puff)
+    # The original CPU emitters remain the parameter profiles for the
+    # ground-contact MultiMesh debris pools, never duplicate draw calls.
 
 
 func _burst(p: CPUParticles3D, point: Vector3,
@@ -555,7 +592,10 @@ func _burst(p: CPUParticles3D, point: Vector3,
         # individual fragments at the exact ground-contact instant.
         _spawn_ground_debris(p, point, direction)
         return
-    p.global_position = point
+    # All effect inputs are WORLD positions from the real post-IK toe.
+    # Emitters have local_coords=false: released particles must not move
+    # with the boss or the next foot pose.
+    p.global_position = Vector3(point.x, maxf(point.y, 0.025), point.z)
     p.direction = direction.normalized()
     p.restart()
     p.emitting = true
@@ -573,10 +613,10 @@ func emit_stomp(point: Vector3,
     # rolling dust covers the full foot-sized contact patch.
     for p in [stomp_core, stomp_dust, stomp_ground, stomp_fines]:
         p.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
-    stomp_core.emission_box_extents = spread * 0.51
+    stomp_core.emission_box_extents = spread * 0.61
     stomp_dust.emission_box_extents = spread * 0.83
-    stomp_ground.emission_box_extents = spread * 1.13
-    stomp_fines.emission_box_extents = spread * 0.76
+    stomp_ground.emission_box_extents = spread * 1.05
+    stomp_fines.emission_box_extents = spread * 0.80
     stomp_chunks.emission_box_extents = spread * 0.63
     stomp_grit.emission_box_extents = spread * 0.90
     for p in [stomp_core, stomp_dust, stomp_ground, stomp_fines,
@@ -600,7 +640,15 @@ func emit_kick(point: Vector3, outward: Vector3) -> void:
     var residue: Vector3 = (
         -forward * 0.22 + Vector3.UP * 0.52).normalized()
     var origin: Vector3 = Vector3(point.x, 0.04, point.z)
-    var ahead: Vector3 = origin + forward * 0.08
+    var ahead: Vector3 = origin + forward * 0.04
+    # Dense directional blast starts across the ACTUAL grounded toe
+    # contact patch instead of a detached distant jet.
+    for emitter in [
+            kick_forward_dust, kick_dust, kick_trailing_dust]:
+        emitter.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
+        emitter.emission_box_extents = Vector3(0.14, 0.02, 0.14)
+    kick_chunks.emission_box_extents = Vector3(0.12, 0.02, 0.12)
+    kick_grit.emission_box_extents = Vector3(0.12, 0.02, 0.12)
     _burst(kick_forward_dust, ahead, soil_jet)
     _burst(kick_dust, ahead, powder_jet)
     _burst(kick_chunks, ahead, debris_jet)
@@ -610,35 +658,56 @@ func emit_kick(point: Vector3, outward: Vector3) -> void:
 
 func trace_sweep(point: Vector3, delta: float,
         stroke: Vector3 = Vector3.ZERO) -> void:
+    var began: bool = not sweep_active
     sweep_active = true
-    var origin: Vector3 = Vector3(point.x, 0.05, point.z)
-    var planar: Vector3 = Vector3(stroke.x, 0.0, stroke.z)
-    if planar.length_squared() >= 0.0001:
-        sweep_last_direction = planar.normalized()
+    var origin: Vector3 = Vector3(point.x, 0.055, point.z)
+    var travel: Vector3 = Vector3(stroke.x, 0.0, stroke.z)
+    # Clamp abnormal inter-frame jumps: each puff belongs to the
+    # current toe stroke, never a teleport or previous pose.
+    if travel.length() > SWEEP_MAX_TRACK_STEP_METERS:
+        travel = travel.normalized() * SWEEP_MAX_TRACK_STEP_METERS
+    if travel.length_squared() >= 0.0001:
+        sweep_last_direction = travel.normalized()
     if sweep_last_direction.length_squared() < 0.0001:
         sweep_last_direction = Vector3.FORWARD
-    # Narrow, mostly horizontal jet follows the real sweep stroke.
     var flow: Vector3 = (
-        sweep_last_direction * 1.85
-        + Vector3.UP * 0.18).normalized()
-    sweep_dust.global_position = origin
-    sweep_dust.direction = flow
-    sweep_dust.emitting = true
-    sweep_elapsed += maxf(delta, 0.0)
-    if sweep_elapsed >= SWEEP_EMISSION_INTERVAL:
-        sweep_elapsed = fposmod(sweep_elapsed, SWEEP_EMISSION_INTERVAL)
-        _burst(sweep_chunks, origin, flow)
+        sweep_last_direction * 1.55 + Vector3.UP * 0.26).normalized()
+    # The FIRST grounded source hit frame needs a full cloud immediately.
+    # Remaining frames stamp dense puffs along the actual toe drag.
+    if began:
+        sweep_elapsed = SWEEP_EMISSION_INTERVAL
+    sweep_elapsed += clampf(delta, 0.0, 0.07)
+    var bursts: int = mini(3,
+        int(floor(sweep_elapsed / SWEEP_EMISSION_INTERVAL)))
+    for i in range(bursts):
+        sweep_elapsed -= SWEEP_EMISSION_INTERVAL
+        var fraction: float = (
+            float(bursts - i - 1) / float(maxi(bursts, 1)))
+        var stamp: Vector3 = origin - travel * fraction
+        var cloud: CPUParticles3D = sweep_dust_emitters[
+            sweep_emitter_cursor]
+        sweep_emitter_cursor = (
+            sweep_emitter_cursor + 1) % SWEEP_CLOUD_POOL_SIZE
+        _burst(cloud, stamp, flow)
+        # Pebbles follow the SAME measured foot-floor patch.
+        _burst(sweep_chunks, stamp, flow)
+        sweep_burst_count += 1
+        last_sweep_fx_origin = stamp
 
 
 func end_sweep() -> void:
     sweep_active = false
-    if sweep_dust != null:
-        sweep_dust.emitting = false
+    sweep_elapsed = 0.0
+    # Do not switch off the previous one-shot particles here.
+    # They must remain world-planted and fade naturally after toe lift.
 
 
 func reset() -> void:
     end_sweep()
     sweep_elapsed = 0.0
+    sweep_emitter_cursor = 0
+    sweep_burst_count = 0
+    last_sweep_fx_origin = Vector3.ZERO
     kicked_this_attack = false
     kick_last_direction = Vector3.ZERO
     sweep_last_direction = Vector3.ZERO
@@ -656,6 +725,8 @@ func reset() -> void:
             sweep_dust, sweep_chunks]:
         if p != null:
             p.emitting = false
+    for puff in sweep_dust_emitters:
+        puff.emitting = false
 
 
 func advance_attack(frame: Dictionary, point: Vector3,
