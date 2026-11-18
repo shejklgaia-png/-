@@ -188,12 +188,26 @@ func _run() -> void:
                     "_bittaran_attack_candidates")
                 var id: String = str(f.get("id",""))
                 var kind: String = str(f.get("kind",""))
-                if not feet.has(id) or not ATTACKS._leg_can_reach(
-                        kind, id, player.global_position,
-                        feet[id], boss.rotation.y):
-                    _fail("AI used a leg outside its own attack range " +
-                        str([distance, kind, id, feet]))
+                # Every attack snapshots the real physical sole at
+                # decision-time, BEFORE source/IK changes the displayed
+                # toe pose. Do not assert against the foot after replant.
+                var decision_foot: Vector3 = f.get(
+                    "selection_foot_world", Vector3.INF)
+                if not is_finite(decision_foot.x) or (
+                        not ATTACKS._leg_can_reach(
+                            kind, id, player.global_position,
+                            decision_foot, boss.rotation.y)):
+                    _fail("AI selected out-of-range striking sole " +
+                        str([distance, kind, id, decision_foot]))
                     return
+                if feet.has(id):
+                    var current_foot: Vector3 = feet[id]
+                    var pose_shift: float = Vector2(
+                        current_foot.x - decision_foot.x,
+                        current_foot.z - decision_foot.z).length()
+                    if pose_shift > 0.40:
+                        print("SOURCE_ATTACK_ENTRY_IK_POSE_SHIFT leg=",
+                            id, " distance=", pose_shift)
                 legal_foot_entries += 1
                 print("CONTACT_AI_ATTACK distance=",distance," tick=",tick,
                     " kind=",f.get("kind")," leg=",f.get("id"),

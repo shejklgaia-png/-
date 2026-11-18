@@ -118,9 +118,11 @@ func _verify_live_first(start_distance: float) -> bool:
         return false
     var id: String = str(frame.get("id", ""))
     var kind: String = str(frame.get("kind", ""))
-    var foot: Vector3 = feet.get(id, Vector3.INF)
-    var legal: bool = feet.has(id) and ATTACKS._leg_can_reach(
-        kind, id, player.global_position, foot, boss.rotation.y)
+    var foot: Vector3 = frame.get(
+        "selection_foot_world", Vector3.INF)
+    var legal: bool = is_finite(foot.x) and (
+        ATTACKS._leg_can_reach(
+            kind, id, player.global_position, foot, boss.rotation.y))
     print("DISTANCE_PRIORITY_LIVE start=", start_distance,
         " kind=", kind, " leg=", id, " walked=", walked,
         " toe_to_player=", Vector2(
