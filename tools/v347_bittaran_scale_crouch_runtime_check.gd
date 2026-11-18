@@ -80,6 +80,22 @@ func _run() -> void:
             var old_ankle: Node3D = authored.find_child(ankle_name, true, false) as Node3D
             var previous: float = _reach_ratio(old_upper, old_knee, old_ankle)
             var actual: float = _reach_ratio(upper, knee, ankle)
+            # Source-ground IK now plants feet by rotating the original
+            # anatomical two-link chains, NOT by forcing every knee to
+            # bend a fixed extra amount. The original limb segment
+            # lengths must remain unchanged by a grounded pose.
+            if absf(upper.global_position.distance_to(
+                    knee.global_position) - old_upper.global_position
+                    .distance_to(old_knee.global_position)) > 0.0005 or (
+                    absf(knee.global_position.distance_to(
+                    ankle.global_position) - old_knee.global_position
+                    .distance_to(old_ankle.global_position)) > 0.0005):
+                _fail("IK changed anatomical leg lengths: " + upper_name)
+                return
+            if actual >= 0.99 or actual <= 0.10:
+                _fail("leg hyperextended/folded into singularity: " +
+                    str([upper_name, actual]))
+                return
             ratio_before_sum += previous
             ratio_after_sum += actual
             if actual < previous - 0.005:
@@ -98,11 +114,15 @@ func _run() -> void:
         + " after=" + str(after_avg)
         + " increased=" + str(bigger_bends)
         + " chassis_drop=" + str(chassis_drop))
-    if bigger_bends != 4 or after_avg >= before_avg - 0.005:
-        _fail("new knees not measurably more folded")
+    # Earlier v347 demanded four extra-bent knees because that
+    # version imposed a fixed 0.34m chassis crouch. The authored
+    # v448 Wait rig intentionally does not use that override. Assert
+    # four close-to-authored, non-degenerate reach ratios instead.
+    if absf(after_avg - before_avg) > 0.08:
+        _fail("source-grounded joint shape departed from authored Wait")
         return
     if float(ik.call("maximum_ground_error")) > FLOOR_ERROR_LIMIT:
         _fail("scaled IK cannot plant toes")
         return
-    print("GODOT_V347_BITTARAN_PASS: 2x boss/collision, lower center, 4 deeper knees, grounded soles")
+    print("GODOT_V347_BITTARAN_PASS: 2x boss/collision, lower center, 4 anatomically fixed-length legs, grounded soles")
     quit(0)
