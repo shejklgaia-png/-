@@ -2585,14 +2585,21 @@ func _ground_front_attack_leg(leg: Dictionary) -> void:
 ## v435: isolated IK state. Unlike legacy IK, this layer never
 ## crouches/pitches the BODY, offsets the root, alters animation keys,
 ## or touches the attacking limb. One diagonal swing pair at a time.
-const SOURCE_STEP_TRIGGER_METERS: float = 0.62
+# Normal walking: wait for twice the former planted-foot travel
+# before each diagonal swing. The same IK landing, 0.52s cadence,
+# height and postattack replant rules remain unchanged.
+const SOURCE_WALK_STRIDE_SCALE: float = 2.0
+const SOURCE_STEP_TRIGGER_METERS: float = 0.62 * SOURCE_WALK_STRIDE_SCALE
 const SOURCE_STEP_DURATION_SECONDS: float = 0.52
 const SOURCE_STEP_HEIGHT_METERS: float = 0.22
 # After source attack return, explicitly walk BOTH diagonal pairs to
 # the Wait footprint. This runs even if the boss is otherwise idle.
 const SOURCE_POSTATTACK_STEP_HEIGHT_METERS: float = 0.26
 const SOURCE_POSTATTACK_GAIT_BLEND_SECONDS: float = 0.35
-const SOURCE_TELEPORT_DISTANCE_METERS: float = 2.5
+# Even a 1.5m single-frame displacement is far above the boss's
+# normal sub-1m/s gait. Detect short arena resets as teleports too,
+# so an old planted foot cannot be pulled across the entire scene.
+const SOURCE_TELEPORT_DISTANCE_METERS: float = 1.5
 # v454: planted/stepping gait feet point their SHORT distal end downward.
 # The long foot axis is vertical, unlike the removed horizontal-leveling.
 # Blend both joint rotation and sole point into the toe-tip contact.
@@ -3314,6 +3321,9 @@ func initialize_source_ground_ik() -> bool:
         limb["source_ik_toe_down_alpha"] = 0.0
         limb["anchor"] = sole
         limb["last_goal"] = sole
+        # The previous airborne leg's IK residual is no longer valid
+        # after a teleport/reset; do not score it as planted-foot drift.
+        limb["last_error"] = 0.0
         limb["anchor_rotation"] = rotation
         limb["last_rotation"] = rotation
         limb["stepping"] = false
@@ -3387,20 +3397,15 @@ func _source_ik_advance_locomotion(delta: float, motion: String) -> void:
         source_ik_last_actor_position)
     source_ik_last_actor_position = actor.global_position
     if movement > SOURCE_TELEPORT_DISTANCE_METERS:
-        # Never interpolate a foot across a respawn/teleport. Resample
-        # the new Wait/Idle placement, keeping the actor's Y unchanged.
-        source_ik_step_pair = -1
-        source_ik_postattack_active = false
-        source_ik_postattack_hold = false
-        source_ik_postattack_pairs_done = 0
-        source_ik_postattack_gait_elapsed = 0.0
-        for limb in legs:
-            limb["stepping"] = false
-            limb["anchor"] = _source_ik_home(limb)
-            limb["anchor_rotation"] = _source_ik_toe_down_rotation(
-                limb, _rotation_home(limb))
-            limb["source_ik_toe_down_alpha"] = 1.0
-            limb["sole_local"] = limb["stomp_tip_local"]
+        # A teleport invalidates not only the world-space anchors but
+        # also the previous swing's IK bends and reach-error cache.
+        # Rebuild the same four-foot neutral stance used at battle
+        # startup; assigning new anchors alone leaves strained joints
+        # from the longer gait and can fail the next ground solve.
+        if actor.has_method("apply_pose"):
+            actor.call("apply_pose", "Wait", 0.0)
+        initialize_source_ground_ik()
+        return
     # While physically collapsed/standing, the chest may yaw, but the
     # supporting toes must stay planted; the normal gait resumes once
     # the neutral stand-up settle has actually completed.
