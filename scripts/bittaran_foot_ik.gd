@@ -3375,7 +3375,11 @@ func _source_ik_advance_locomotion(delta: float, motion: String) -> void:
                 limb, _rotation_home(limb))
             limb["source_ik_toe_down_alpha"] = 1.0
             limb["sole_local"] = limb["stomp_tip_local"]
-    var can_step: bool = (motion == "Approach" or motion == "Turn")
+    # While physically collapsed/standing, the chest may yaw, but the
+    # supporting toes must stay planted; the normal gait resumes once
+    # the neutral stand-up settle has actually completed.
+    var can_step: bool = (motion == "Approach" or motion == "Turn") and (
+        not break_reaction_active()) and post_down_idle_remaining <= 0.0
     var postattack_handoff_seconds: float = (
         SOURCE_POSTATTACK_GAIT_BLEND_SECONDS
         / BittaranAttackTimings.source_return_speed())
@@ -4191,6 +4195,21 @@ func advance_source_ground_ik(delta: float, motion: String,
         frame: Dictionary = {}) -> void:
     if not source_ik_enabled:
         return
+    # Real boss combat uses source-ground IK, not legacy advance_ik().
+    # Previously the break/stand-up timer was advanced ONLY in advance_ik,
+    # so destroying a leg left the boss down indefinitely (v362-v376).
+    # Keep both solvers on the SAME physical break/recovery timeline.
+    if break_reaction_active():
+        _advance_leg_break(delta)
+    elif post_down_idle_remaining > 0.0 and head_support_leg_index < 0:
+        var parent_scale: float = maxf(
+            absf(actor.get_parent().global_basis.get_scale().y), 0.001)
+        var expected_y: float = (rest_actor_local_y
+            + ground_correction_world / parent_scale)
+        if absf(actor.position.y - expected_y) * parent_scale <= (
+                POST_DOWN_UPRIGHT_TOLERANCE_WORLD_METERS):
+            post_down_idle_remaining = maxf(0.0,
+                post_down_idle_remaining - maxf(delta, 0.0))
     if bool(frame.get("original_attack_only", false)):
         _source_ik_advance_attack(frame)
         return
