@@ -21,6 +21,7 @@ on:
       - 'tools/bittaran_attack_variation_runtime_check.gd'
       - 'tools/bittaran_keyframe_hit_sector_runtime_check.gd'
       - 'tools/bittaran_repeat_live_battle_runtime_check.gd'
+      - 'tools/bittaran_attack_distance_priority_runtime_check.gd'
       - '.github/workflows/sera-bittaran-original-replay.yml'
   pull_request:
     paths:
@@ -41,6 +42,7 @@ on:
       - 'tools/bittaran_attack_variation_runtime_check.gd'
       - 'tools/bittaran_keyframe_hit_sector_runtime_check.gd'
       - 'tools/bittaran_repeat_live_battle_runtime_check.gd'
+      - 'tools/bittaran_attack_distance_priority_runtime_check.gd'
       - '.github/workflows/sera-bittaran-original-replay.yml'
   workflow_dispatch:
 
@@ -79,6 +81,10 @@ jobs:
         run: |
           set -euo pipefail
           "$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" --headless --path . --script tools/bittaran_repeat_live_battle_runtime_check.gd
+      - name: Verify close STOMP and separated frontal KICK after three live walking steps
+        run: |
+          set -euo pipefail
+          "$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" --headless --path . --script tools/bittaran_attack_distance_priority_runtime_check.gd
       - name: Diagnose exact first-ground sweep trajectory, stomp contact and close-range attack selection
         run: |
           set -euo pipefail
