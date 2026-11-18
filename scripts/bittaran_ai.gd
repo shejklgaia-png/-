@@ -11,6 +11,11 @@ const MOVING_TURN_DEG_PER_SEC: float = 22.0
 const TRACK_AT_REST_DEG_PER_SEC: float = 18.0
 const STOP_DISTANCE_METERS: float = 7.8
 const RESUME_DISTANCE_METERS: float = 8.6
+# v464: while the 3 completed walk steps are outstanding,
+# move rather than stand still at the former 7.8m stop radius.
+# Close = backstep, middle = sidestep around SERA, far = advance.
+const WALK_RETREAT_DISTANCE_METERS: float = 4.0
+const WALK_ORBIT_DISTANCE_METERS: float = 7.8
 const FACING_TOLERANCE_DEGREES: float = 5.0
 const VISION_HYSTERESIS_DEGREES: float = 3.0
 var current_speed: float = 0.0
@@ -44,7 +49,8 @@ func advance_recovery_turn(delta: float, position: Vector3, yaw: float,
 
 
 func advance(delta: float, position: Vector3, yaw: float,
-        player_position: Vector3, frozen: bool) -> Dictionary:
+        player_position: Vector3, frozen: bool,
+        force_three_step_walk: bool = false) -> Dictionary:
     var state := {"position": position, "yaw": yaw, "motion": "Idle"}
     if delta <= 0.0 or frozen:
         current_speed = 0.0
@@ -63,6 +69,29 @@ func advance(delta: float, position: Vector3, yaw: float,
         in_view = abs_degrees <= VISION_HALF_DEGREES + VISION_HYSTERESIS_DEGREES
     else:
         in_view = abs_degrees <= VISION_HALF_DEGREES - VISION_HYSTERESIS_DEGREES
+    # v464: when the 3 real gait steps are still pending, choose a
+    # movement suited to distance and keep animating full steps.
+    if force_three_step_walk:
+        current_speed = move_toward(current_speed, APPROACH_SPEED_MPS,
+            ACCELERATION_MPS2 * delta)
+        var next_yaw: float = yaw + clampf(angle,
+            -deg_to_rad(MOVING_TURN_DEG_PER_SEC) * delta,
+            deg_to_rad(MOVING_TURN_DEG_PER_SEC) * delta)
+        var direction: Vector3 = Vector3(
+            sin(next_yaw), 0.0, cos(next_yaw))
+        if distance < WALK_RETREAT_DISTANCE_METERS:
+            # Retreat while facing the player instead of pushing
+            # the attack foot through an overlapping character.
+            direction = -toward.normalized()
+        elif distance <= WALK_ORBIT_DISTANCE_METERS:
+            # Orbit at a reachable distance instead of freezing when
+            # normal AI would stop before accumulating three steps.
+            var radial: Vector3 = toward.normalized()
+            direction = Vector3(-radial.z, 0.0, radial.x)
+        state["position"] = position + direction * current_speed * delta
+        state["yaw"] = next_yaw
+        state["motion"] = "Approach"
+        return state
     # Distance hysteresis prevents repeated foot lift at the stop boundary.
     if closing_in:
         closing_in = distance > STOP_DISTANCE_METERS
