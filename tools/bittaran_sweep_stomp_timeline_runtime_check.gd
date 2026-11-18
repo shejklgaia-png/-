@@ -2,6 +2,7 @@ extends SceneTree
 ## Contact diagnostics: compare the source-clock foot paths with real IK,
 ## grounded mesh geometry, and the contact FX/damage gate at 60Hz.
 const DT: float = 1.0 / 60.0
+const ATTACKS = preload("res://scripts/bittaran_attacks.gd")
 
 func _initialize() -> void:
     call_deferred("_run")
@@ -170,7 +171,6 @@ func _run() -> void:
         var player: CharacterBody3D = battle.get("player")
         player.global_position = boss.global_position + Vector3(0,0,distance)
         var kinds: Array[String] = []
-        var director = battle.get("bittaran_attacks")
         var legal_foot_entries: int = 0
         var real_player_damage_events: int = 0
         var stomp_damage_events: int = 0
@@ -188,7 +188,7 @@ func _run() -> void:
                     "_bittaran_attack_candidates")
                 var id: String = str(f.get("id",""))
                 var kind: String = str(f.get("kind",""))
-                if not feet.has(id) or not director._leg_can_reach(
+                if not feet.has(id) or not ATTACKS._leg_can_reach(
                         kind, id, player.global_position,
                         feet[id], boss.rotation.y):
                     _fail("AI used a leg outside its own attack range " +
