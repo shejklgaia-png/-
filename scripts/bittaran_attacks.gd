@@ -147,6 +147,9 @@ var hit_consumed: bool = false
 var preparing_stance: bool = false
 var stomp_aim: Vector3 = Vector3.ZERO
 var stomp_aim_valid: bool = false
+# Snapshot of the *post-IK physical sole* used for selection, before
+# the selected source animation/IK replant changes the displayed pose.
+var selected_foot_world: Vector3 = Vector3.INF
 
 func reset() -> void:
     kind = ""
@@ -160,6 +163,7 @@ func reset() -> void:
     hit_consumed = false
     preparing_stance = false
     stomp_aim_valid = false
+    selected_foot_world = Vector3.INF
 
 func cancel() -> void:
     kind = ""
@@ -170,6 +174,7 @@ func cancel() -> void:
     hit_consumed = false
     preparing_stance = false
     stomp_aim_valid = false
+    selected_foot_world = Vector3.INF
 
 func is_active() -> bool:
     return not kind.is_empty()
@@ -216,6 +221,7 @@ func _start(id: String, attack_kind: String,
     elapsed = 0.0
     hit_consumed = false
     stomp_aim_valid = false
+    selected_foot_world = Vector3.INF
     preparing_stance = with_stance_preparation
 
 
@@ -514,6 +520,7 @@ func _advance_original_only(delta: float, player_position: Vector3,
         if selected.is_empty():
             return {}
         _start(selected, selected_kind, false)
+        selected_foot_world = authored_feet[selected]
         last_kind = selected_kind
         next_kind_index = (ATTACK_KINDS.find(selected_kind) + 1) % ATTACK_KINDS.size()
         next_leg_index = (LEG_IDS.find(selected) + 1) % LEG_IDS.size()
@@ -558,6 +565,7 @@ func _advance_original_only(delta: float, player_position: Vector3,
         speed = source_playback_speed(kind, phase_elapsed, leg_id)
     var frame: Dictionary = {
         "id": leg_id, "kind": kind,
+        "selection_foot_world": selected_foot_world,
         "original_attack_only": true,
         "source_timed_attack": true,
         "direct_front_test": true,
@@ -620,6 +628,7 @@ func advance(delta: float, player_position: Vector3,
         if selected.is_empty():
             return {}
         _start(selected, selected_kind, true)
+        selected_foot_world = available_feet[selected]
         last_kind = selected_kind
         next_kind_index = (ATTACK_KINDS.find(selected_kind) + 1) % ATTACK_KINDS.size()
         stomp_aim = player_position
@@ -680,6 +689,7 @@ func advance(delta: float, player_position: Vector3,
         source_rate = source_playback_speed("sweep", wall_strike_t)
     var result: Dictionary = {
         "kind": kind, "id": leg_id, "time": elapsed,
+        "selection_foot_world": selected_foot_world,
         "authored_time": authored_time,
         "authored_playback_speed": source_rate,
         "stomp_aim": stomp_aim if stomp_aim_valid else Vector3.INF,
