@@ -3,12 +3,12 @@
 > **Authority:** latest instructions, GitHub `main`, `project.godot`, live code and `models/manifest.json`. Old README/AGENTS history is superseded by this file; see `docs/history/AGENTS_THROUGH_V316.md`.
 
 ## Fast, safe work sequence
-1. Check the latest `main` SHA, current version in `project.godot`, open PRs, and user-selected feature. Do **not** guess an implementation from version history.
-2. Run `python3 tools/sera_workplan.py --query <feature> --json` (or `--changed <path> ...`) to locate likely functions, model sources, dependencies, and registered tests. Review the actual referenced code and relevant current docs. The report is **heuristic**, not a proof of independence.
-3. Make a targeted diff on a short-lived branch, preserve unrelated mechanics and authoring sources. For GitHub-only work, batch related file reads and commit related edits together; avoid reviewing every historical README and generated snapshot.
-4. Run relevant focused checks while editing (`python3 tools/sera_workplan.py --query <feature> --execute` when available). Review source, model masters, and the diff before integration. **The complete `tools/sera_ci_manifest.txt` Python/Godot CI suite runs after changes are merged to `main`, not as a PR merge gate.** Focused checks do not replace the post-merge full suite.
-5. Check mergeability, conflicts, accidental changes, model-source integrity, and critical setup errors; create a PR and merge to `main` before full CI by default. **Never merge known destructive changes or unresolved conflicts.** After merge, observe both post-merge CI workflows and immediately diagnose any failures, fix via a follow-up merge, or revert if necessary. Do not claim CI passed while it is pending or failing. Report precisely what ran and what was not verified. Android touch/render/audio checks require human device execution; ChatGPT handles code, scripts, logs, and headless numeric regressions.
-6. Append concise dated details to `DEVELOPMENT.md` for meaningful changes. Create/update a versioned README for gameplay changes; increment SERA version **only for user-requested gameplay changes**, not development tooling.
+1. Confirm latest `main` SHA, `project.godot` version, open PRs, and requested feature; never infer live state from old notes.
+2. Use `tools/sera_workplan.py --query <feature> --json` (or `--changed <path>`) to find sources and tests. Inspect real code; suggestions are heuristic.
+3. Make minimal, reviewed diffs on a short-lived branch. Preserve models and unrelated mechanics.
+4. Run focused checks while editing. **Merge first; run the full `tools/sera_ci_manifest.txt` Python/Godot CI suite on `main` afterward.** Focused checks never replace full CI.
+5. Before merge check conflicts, unsafe edits, source models, and diff. Never merge known destructive changes. After merge diagnose CI failures, fix or revert promptly; report pending/failed/passed accurately. ChatGPT checks code, logs, numeric regressions. Human checks Android motion, touch, visuals, audio and feel.
+6. Log meaningful changes in `DEVELOPMENT.md`. Update versioned README and increment version only for user-requested gameplay changes.
 
 ## Current sources and constraints
 - Repository: `shejklgaia-png/-`. Root `project.godot` must be named exactly `SERA v<integer>`. Keep the Android portrait GL Compatibility renderer; no unsolicited engine upgrade or migration.
