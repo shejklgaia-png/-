@@ -4,10 +4,10 @@ extends Node3D
 ## MultiMesh pool that removes each fragment on contact with Y=0.
 ## All actual damage remains owned by battle.gd. FX is visual only.
 const RENDER_ORDER = preload("res://scripts/render_order_policy.gd")
-# v465: nuanced sandy-brown/grey impact dust; all three moves share
+# v448: neutral charcoal-to-silver impact dust; all three moves share
 # the same runtime-generated noise/alpha sprite (96x96), no asset PNG.
-const DUST_COLOR: Color = Color(0.69, 0.63, 0.55, 0.72)
-const EARTH_COLOR: Color = Color(0.31, 0.28, 0.24, 1.0)
+const DUST_COLOR: Color = Color(0.69, 0.69, 0.69, 0.72)
+const EARTH_COLOR: Color = Color(0.31, 0.31, 0.31, 1.0)
 const DUST_SPRITE_SIZE: int = 96
 const SWEEP_EMISSION_INTERVAL: float = 0.075
 # v466: deliberately different physically readable dust/material layers.
@@ -102,7 +102,7 @@ func _build_dust_sprite() -> void:
                 0.90 + turbulence * 0.055 + fine * 0.04,
                 0.74, 0.99)
             atlas.set_pixel(x, y, Color(
-                tone, tone * 0.955, tone * 0.89, opacity))
+                tone, tone, tone, opacity))
             var clumps: float = noise.get_noise_2d(
                 float(x) + 319.0, float(y) + 178.0)
             var coarse_rim: float = 0.77 + clumps * 0.19
@@ -119,8 +119,8 @@ func _build_dust_sprite() -> void:
                 0.83 + clumps * 0.14 + fine * 0.04,
                 0.64, 0.98)
             dense_atlas.set_pixel(x, y, Color(
-                coarse_tone, coarse_tone * 0.96,
-                coarse_tone * 0.91, coarse_opacity))
+                coarse_tone, coarse_tone,
+                coarse_tone, coarse_opacity))
     var material := StandardMaterial3D.new()
     material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
     material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
@@ -209,9 +209,9 @@ func _make_particles(name: String, dust: bool,
             else Vector3(0.10, 0.065, 0.088))
         var stone := StandardMaterial3D.new()
         stone.albedo_color = (
-            Color(0.78, 0.66, 0.49, 1.0)
+            Color(0.68, 0.68, 0.68, 1.0)
             if substance == "grit"
-            else Color(0.39, 0.35, 0.31, 1.0))
+            else Color(0.36, 0.36, 0.36, 1.0))
         pebble.material = stone
         p.mesh = pebble
         p.scale_amount_min = 0.45
@@ -401,12 +401,12 @@ func _process(delta: float) -> void:
 func _ready() -> void:
     debris_rng.randomize()
     _build_dust_sprite()
-    # Dense brown SOIL, translucent pale POWDER, lateral SAND,
+    # Dark charcoal SOIL, translucent silver POWDER, lateral ASH,
     # slowly suspended fines, big rocks and tiny fast grit each
     # carry a different silhouette, tone, size, speed and gravity.
     stomp_core = _make_particles(
         "StompCompactSoil", true, true, DENSE_SOIL_PARTICLES, "soil")
-    stomp_core.color = Color(0.43, 0.34, 0.27, 0.96)
+    stomp_core.color = Color(0.37, 0.37, 0.37, 0.96)
     stomp_core.spread = 39.0
     stomp_core.initial_velocity_min = 0.75
     stomp_core.initial_velocity_max = 2.20
@@ -417,7 +417,7 @@ func _ready() -> void:
 
     stomp_dust = _make_particles(
         "StompRisingPowder", true, true, RISING_POWDER_PARTICLES)
-    stomp_dust.color = Color(0.79, 0.74, 0.68, 0.77)
+    stomp_dust.color = Color(0.78, 0.78, 0.78, 0.77)
     stomp_dust.spread = 31.0
     stomp_dust.initial_velocity_min = 2.15
     stomp_dust.initial_velocity_max = 4.90
@@ -429,7 +429,7 @@ func _ready() -> void:
     stomp_ground = _make_particles(
         "StompRollingSand", true, true, ROLLING_SAND_PARTICLES,
         "soil")
-    stomp_ground.color = Color(0.64, 0.54, 0.43, 0.83)
+    stomp_ground.color = Color(0.56, 0.56, 0.56, 0.83)
     stomp_ground.spread = 79.0
     stomp_ground.initial_velocity_min = 0.42
     stomp_ground.initial_velocity_max = 1.55
@@ -440,7 +440,7 @@ func _ready() -> void:
 
     stomp_fines = _make_particles(
         "StompSuspendedFines", true, true, FLOATING_FINES_PARTICLES)
-    stomp_fines.color = Color(0.87, 0.82, 0.77, 0.48)
+    stomp_fines.color = Color(0.85, 0.85, 0.85, 0.48)
     stomp_fines.spread = 49.0
     stomp_fines.initial_velocity_min = 0.60
     stomp_fines.initial_velocity_max = 2.35
@@ -472,7 +472,7 @@ func _ready() -> void:
     # Kick/flick: five distinct directionally ejected layers.
     kick_forward_dust = _make_particles(
         "KickForwardSoilJet", true, true, 33, "soil")
-    kick_forward_dust.color = Color(0.43, 0.34, 0.27, 0.95)
+    kick_forward_dust.color = Color(0.37, 0.37, 0.37, 0.95)
     kick_forward_dust.spread = 18.0
     kick_forward_dust.initial_velocity_min = 3.5
     kick_forward_dust.initial_velocity_max = 6.0
@@ -483,7 +483,7 @@ func _ready() -> void:
 
     kick_dust = _make_particles(
         "KickFineForwardPowder", true, true, 35)
-    kick_dust.color = Color(0.81, 0.74, 0.67, 0.79)
+    kick_dust.color = Color(0.78, 0.78, 0.78, 0.79)
     kick_dust.spread = 25.0
     kick_dust.initial_velocity_min = 2.5
     kick_dust.initial_velocity_max = 5.0
@@ -494,7 +494,7 @@ func _ready() -> void:
 
     kick_trailing_dust = _make_particles(
         "KickBackwardResidualDust", true, true, 18, "soil")
-    kick_trailing_dust.color = Color(0.55, 0.47, 0.39, 0.68)
+    kick_trailing_dust.color = Color(0.49, 0.49, 0.49, 0.68)
     kick_trailing_dust.spread = 57.0
     kick_trailing_dust.initial_velocity_min = 0.45
     kick_trailing_dust.initial_velocity_max = 1.55
@@ -522,7 +522,7 @@ func _ready() -> void:
     kick_grit.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
 
     sweep_dust = _make_particles("SweepDustTrail", true, false, 34)
-    sweep_dust.color = Color(0.66, 0.62, 0.56, 0.50)
+    sweep_dust.color = Color(0.63, 0.63, 0.63, 0.50)
     # The sweep should fling powder along the dragging toe, not
     # release slow smoke vertically from the swept track.
     sweep_dust.initial_velocity_min = 1.9
