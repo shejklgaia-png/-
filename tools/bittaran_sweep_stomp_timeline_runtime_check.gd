@@ -106,6 +106,8 @@ func _run() -> void:
         var player: CharacterBody3D = battle.get("player")
         player.global_position = boss.global_position + Vector3(0,0,distance)
         var kinds: Array[String] = []
+        var real_player_damage_events: int = 0
+        var stomp_damage_events: int = 0
         for tick in range(1750):
             battle.set("player_hp", 99999.0)
             battle.call("_advance_target_motion",DT)
@@ -118,6 +120,14 @@ func _run() -> void:
                     " boss_distance=",boss.global_position.distance_to(
                     player.global_position))
             battle.call("_finalize_target_pose",DT)
+            if float(battle.get("player_hp")) < 99999.0:
+                real_player_damage_events += 1
+                if str(f.get("kind","")) == "stomp":
+                    stomp_damage_events += 1
+                print("CONTACT_AI_REAL_DAMAGE start=",distance,
+                    " tick=",tick," source_kind=",f.get("kind"),
+                    " source_t=",f.get("authored_time"),
+                    " hp_after=",battle.get("player_hp"))
         # With close-range 3-step orbit, all four placements MUST
         # perform a genuine STOMP before deciding the next attack.
         # Previously the mandatory step retreat put every case in
@@ -131,7 +141,9 @@ func _run() -> void:
                 _fail("repeated same attack after STOMP " + str(kinds))
                 return
         print("CONTACT_AI_SUMMARY start_distance=",distance,
-            " kind_history=",kinds)
+            " kind_history=",kinds,
+            " hp_damage_events=",real_player_damage_events,
+            " stomp_damage_events=",stomp_damage_events)
         battle.queue_free()
     print("GODOT_SOURCE_CONTACT_TIMELINE_PASS first-ground-sweep=true stomp-landing-once=true four-close-STOMP=true")
     quit(0)
