@@ -22,6 +22,12 @@ const FLYING_GRIT_PARTICLES: int = 35
 const DUST_EJECTION_SPEED_MULTIPLIER: float = 1.70
 const DUST_EJECTION_SPREAD_MULTIPLIER: float = 0.50
 const DUST_EJECTION_GRAVITY_MULTIPLIER: float = 0.62
+# v468: debris pieces use custom ground-aware MultiMesh simulation:
+# CPUParticles3D itself has no collision event on the GL renderer.
+const DEBRIS_FLOOR_Y: float = 0.0
+const DEBRIS_ROCK_CAPACITY: int = 128
+const DEBRIS_GRIT_CAPACITY: int = 144
+const DEBRIS_SAFETY_TIMEOUT_SECONDS: float = 6.0
 
 var dust_sprite_mesh: QuadMesh
 var dense_soil_sprite_mesh: QuadMesh
@@ -45,6 +51,11 @@ var kick_last_direction: Vector3 = Vector3.ZERO
 var sweep_last_direction: Vector3 = Vector3.ZERO
 var stomped_this_attack: bool = false
 var last_kind: String = ""
+var rock_debris_renderer: MultiMeshInstance3D
+var grit_debris_renderer: MultiMeshInstance3D
+var rock_debris: Array[Dictionary] = []
+var grit_debris: Array[Dictionary] = []
+var debris_rng: RandomNumberGenerator = RandomNumberGenerator.new()
 
 ## Generated ONCE at startup; 96^2 RGBA8 pixels (~36 KiB).
 ## Soft feathered outline, turbulent internal opacity and uneven rim
@@ -134,18 +145,27 @@ func _build_dust_sprite() -> void:
 ## StandardMaterial3D must opt into vertex color for this to render.
 func _make_dust_fade() -> Gradient:
     var ramp := Gradient.new()
-    ramp.set_color(0, Color(1.0, 1.0, 1.0, 0.08))
-    ramp.add_point(0.10, Color(1.0, 1.0, 1.0, 0.95))
-    ramp.add_point(0.40, Color(1.0, 1.0, 1.0, 0.70))
-    ramp.add_point(0.73, Color(1.0, 1.0, 1.0, 0.30))
+    # Continuous fade: the cloud forms at impact, retains opacity
+    # briefly, then loses density gradually while its sprite expands.
+    # No sharp 10%-age opacity jump and no last-frame popping.
+    ramp.set_color(0, Color(1.0, 1.0, 1.0, 0.80))
+    ramp.add_point(0.12, Color(1.0, 1.0, 1.0, 0.94))
+    ramp.add_point(0.34, Color(1.0, 1.0, 1.0, 0.80))
+    ramp.add_point(0.58, Color(1.0, 1.0, 1.0, 0.55))
+    ramp.add_point(0.80, Color(1.0, 1.0, 1.0, 0.24))
+    ramp.add_point(0.94, Color(1.0, 1.0, 1.0, 0.06))
     ramp.set_color(1, Color(1.0, 1.0, 1.0, 0.0))
     return ramp
 
 
 func _make_dust_scale() -> Curve:
     var growing := Curve.new()
-    growing.add_point(Vector2(0.0, 0.42))
-    growing.add_point(Vector2(0.42, 0.84))
+    # Size grows across the entire lifespan instead of suddenly
+    # ballooning in the first third of the emission.
+    growing.add_point(Vector2(0.0, 0.36))
+    growing.add_point(Vector2(0.28, 0.53))
+    growing.add_point(Vector2(0.58, 0.74))
+    growing.add_point(Vector2(0.83, 0.91))
     growing.add_point(Vector2(1.0, 1.0))
     return growing
 
@@ -212,8 +232,10 @@ func _configure_fast_linear_ejection(p: CPUParticles3D) -> void:
     p.gravity *= DUST_EJECTION_GRAVITY_MULTIPLIER
     if p.mesh == dust_sprite_mesh or (
             p.mesh == dense_soil_sprite_mesh):
-        p.damping_min = 0.04
-        p.damping_max = 0.14
+        # Fast initial v467 blast, then a gentle drifting cloud.
+        # Heavier particles (rocks) use separate ground physics.
+        p.damping_min = 1.10
+        p.damping_max = 1.85
     if p.one_shot:
         p.explosiveness = 0.98
 
@@ -230,7 +252,7 @@ func _ready() -> void:
     stomp_core.initial_velocity_min = 0.75
     stomp_core.initial_velocity_max = 2.20
     stomp_core.gravity = Vector3(0.0, -0.48, 0.0)
-    stomp_core.lifetime = 1.18
+    stomp_core.lifetime = 1.42
     stomp_core.scale_amount_min = 1.12
     stomp_core.scale_amount_max = 2.08
 
@@ -241,7 +263,7 @@ func _ready() -> void:
     stomp_dust.initial_velocity_min = 2.15
     stomp_dust.initial_velocity_max = 4.90
     stomp_dust.gravity = Vector3(0.0, -0.62, 0.0)
-    stomp_dust.lifetime = 1.42
+    stomp_dust.lifetime = 1.88
     stomp_dust.scale_amount_min = 0.72
     stomp_dust.scale_amount_max = 1.60
 
@@ -253,7 +275,7 @@ func _ready() -> void:
     stomp_ground.initial_velocity_min = 0.42
     stomp_ground.initial_velocity_max = 1.55
     stomp_ground.gravity = Vector3(0.0, -0.91, 0.0)
-    stomp_ground.lifetime = 1.02
+    stomp_ground.lifetime = 1.42
     stomp_ground.scale_amount_min = 0.65
     stomp_ground.scale_amount_max = 1.45
 
@@ -264,7 +286,7 @@ func _ready() -> void:
     stomp_fines.initial_velocity_min = 0.60
     stomp_fines.initial_velocity_max = 2.35
     stomp_fines.gravity = Vector3(0.0, -0.20, 0.0)
-    stomp_fines.lifetime = 1.85
+    stomp_fines.lifetime = 2.40
     stomp_fines.scale_amount_min = 0.38
     stomp_fines.scale_amount_max = 1.04
 
@@ -296,7 +318,7 @@ func _ready() -> void:
     kick_forward_dust.initial_velocity_min = 3.5
     kick_forward_dust.initial_velocity_max = 6.0
     kick_forward_dust.gravity = Vector3(0.0, -1.0, 0.0)
-    kick_forward_dust.lifetime = 1.07
+    kick_forward_dust.lifetime = 1.48
     kick_forward_dust.scale_amount_min = 0.75
     kick_forward_dust.scale_amount_max = 1.72
 
@@ -307,7 +329,7 @@ func _ready() -> void:
     kick_dust.initial_velocity_min = 2.5
     kick_dust.initial_velocity_max = 5.0
     kick_dust.gravity = Vector3(0.0, -0.50, 0.0)
-    kick_dust.lifetime = 1.37
+    kick_dust.lifetime = 1.95
     kick_dust.scale_amount_min = 0.65
     kick_dust.scale_amount_max = 1.44
 
@@ -318,7 +340,7 @@ func _ready() -> void:
     kick_trailing_dust.initial_velocity_min = 0.45
     kick_trailing_dust.initial_velocity_max = 1.55
     kick_trailing_dust.gravity = Vector3(0.0, -0.95, 0.0)
-    kick_trailing_dust.lifetime = 0.94
+    kick_trailing_dust.lifetime = 1.38
     kick_trailing_dust.scale_amount_min = 0.68
     kick_trailing_dust.scale_amount_max = 1.19
 
@@ -347,7 +369,7 @@ func _ready() -> void:
     sweep_dust.initial_velocity_min = 1.9
     sweep_dust.initial_velocity_max = 3.1
     sweep_dust.spread = 24.0
-    sweep_dust.lifetime = 0.88
+    sweep_dust.lifetime = 1.25
     sweep_chunks = _make_particles(
         "SweepScatteredEarth", false, true, 10)
     # One-time shared tuning: stomp jets rise quickly, kick jets shoot
