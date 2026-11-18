@@ -1965,6 +1965,10 @@ func _reset_target_after_respawn() -> void:
     bittaran_was_attacking = false
     if bittaran_attacks != null:
         bittaran_attacks.call("reset")
+    # Clear last encounter's world-fixed smoke and source-sweep
+    # play cursor. Immutable four-leg pre-baked templates stay loaded.
+    if bittaran_dirt_fx != null:
+        bittaran_dirt_fx.call("reset")
     bittaran_attack_frame.clear()
     bittaran_attack_body_yaw = 0.0
     shockwave_elapsed = -1.0

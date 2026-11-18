@@ -31,6 +31,9 @@ func _run() -> void:
     var checked: int = 0
     for id in ATTACKS.LEG_IDS:
         battle.call("_reset_target_after_respawn")
+        if int(fx.get("sweep_burst_count")) != 0:
+            _fail("old encounter's emitted sweep FX survived reset " + id)
+            return
         player.global_position = boss.global_position + Vector3(
             0.0, 0.0, 25.0)
         if not bool(director.call("force_start", id, "sweep")):
