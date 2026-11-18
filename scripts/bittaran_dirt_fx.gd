@@ -611,7 +611,15 @@ func _burst(p: CPUParticles3D, point: Vector3,
     # All effect inputs are WORLD positions from the real post-IK toe.
     # Emitters have local_coords=false: released particles must not move
     # with the boss or the next foot pose.
-    p.global_position = Vector3(point.x, maxf(point.y, 0.025), point.z)
+    # World contact is a floor XZ coordinate, but a BILLBOARD quad is
+    # centered vertically on the emitter. Starting it at Y=.025 puts
+    # half the grey sprite behind the floor's depth buffer: it flickers
+    # or disappears as its size changes. Lift only SOFT cloud centers,
+    # leaving rock/grit origin and ground impact physics untouched.
+    var sprite_center_height: float = (
+        0.22 if p.mesh is QuadMesh else 0.025)
+    p.global_position = Vector3(
+        point.x, maxf(point.y, sprite_center_height), point.z)
     p.direction = direction.normalized()
     p.restart()
     p.emitting = true
