@@ -32,6 +32,14 @@ assert [a["name"] for a in boss["animations"]] == [
     "後足なぎ払い_L", "後足なぎ払い_R"]
 original_clips = {a["name"]: a for a in source["animations"]}
 for clip in boss["animations"][:7]:
+    # The two new authored full-length sweeps supersede 17:21 source.
+    # Their every key and mirrored right counterpart are verified by
+    # tools/bittaran_uploaded_full_sweep_runtime_check.gd.
+    if clip["name"] in ("なぎ払い", "なぎ払い_R"):
+        assert abs(clip["length"] - 2.625) < 1e-6
+        assert sum(len(t.get("keyframes", [])) for t in
+                   clip["animators"].values()) == 73
+        continue
     original = original_clips[clip["name"]]
     assert clip["uuid"] == original["uuid"]
     assert clip["length"] == original["length"]
@@ -83,7 +91,7 @@ for name, duration in (("Idle", 2.4), ("Turn", 1.8), ("Approach", 2.8)):
     assert abs(clip["length"] - duration) < 1e-6
     assert len(clip["animators"]) == 9  # Head is controlled live.
 for name, duration in (("後足踏みつけ_L", 1.0), ("後足踏みつけ_R", 1.0),
-                       ("後足なぎ払い_L", 0.75), ("後足なぎ払い_R", 0.75)):
+                       ("後足なぎ払い_L", 1.54167), ("後足なぎ払い_R", 1.54167)):
     clip = clips_by_name[name]
     assert clip["loop"] == "once", name
     assert abs(clip["length"] - duration) < 1e-6, name
