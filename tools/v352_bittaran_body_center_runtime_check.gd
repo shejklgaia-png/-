@@ -110,7 +110,7 @@ func _run() -> void:
         target.position += Vector3(0.019, 0.04, 0.015)
         target.rotation.y += 0.003
         rig.call("set_motion", "Turn", dt)
-        ik.call("advance_ik", dt, "Turn")
+        ik.call("advance_source_ground_ik", dt, "Turn")
         parts.call("sync_bittaran_parts")
         var actual: Vector3 = (parts.call("get_body_hit_aabb") as AABB).get_center()
         var new_lines: PackedVector3Array = parts.call(
@@ -131,7 +131,7 @@ func _run() -> void:
     for step in range(250):
         var dt: float = 1.0 / 60.0
         rig.call("set_motion", "Idle", dt)
-        ik.call("advance_ik", dt, "Idle")
+        ik.call("advance_source_ground_ik", dt, "Idle")
         parts.call("sync_bittaran_parts")
         var fallen_body: Vector3 = (
             parts.call("get_body_hit_aabb") as AABB).get_center()
