@@ -355,3 +355,4 @@ gd tools/v438_bittaran_boot_runtime_check.gd
 gd tools/v440_bittaran_flat_floor_chain_runtime_check.gd
 gd tools/v447_bittaran_toe_drag_reach_check.gd
 gd tools/bittaran_attack_variation_runtime_check.gd
+gd tools/bittaran_uploaded_full_sweep_runtime_check.gd
