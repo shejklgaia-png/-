@@ -415,11 +415,13 @@ func reset() -> void:
 
 func advance_attack(frame: Dictionary, point: Vector3,
         previous_point: Vector3, delta: float,
-        foot_grounded: bool = false) -> void:
+        foot_grounded: bool = false,
+        player_direction: Vector3 = Vector3.ZERO) -> void:
     var kind: String = str(frame.get("kind", ""))
     if kind != last_kind or frame.is_empty():
         end_sweep()
         kicked_this_attack = false
+        kick_last_direction = Vector3.ZERO
         stomped_this_attack = false
         last_kind = kind
     if frame.is_empty():
@@ -433,13 +435,34 @@ func advance_attack(frame: Dictionary, point: Vector3,
         # _emit_bittaran_shockwave on its single real contact tick.
         pass
     elif kind == "kick":
+        var travel: Vector3 = point - previous_point
+        travel.y = 0.0
+        # Record the actual horizontal toe velocity during the STRIKE,
+        # even just BEFORE the foot touches the ground. The foot can
+        # momentarily stop on contact, so frame-local travel alone
+        # often points nowhere or gives a visually incorrect direction.
+        if striking and travel.length_squared() >= 0.0004:
+            var travel_heading: Vector3 = travel.normalized()
+            if kick_last_direction.length_squared() <= 0.0001:
+                kick_last_direction = travel_heading
+            else:
+                var filtered: Vector3 = kick_last_direction.lerp(
+                    travel_heading, 0.72)
+                if filtered.length_squared() > 0.0001:
+                    kick_last_direction = filtered.normalized()
+                else:
+                    kick_last_direction = travel_heading
         if striking and foot_grounded and not kicked_this_attack:
-            var travel: Vector3 = point - previous_point
-            travel.y = 0.0
-            # Emit from the ground where the authored foot actually
-            # accelerates, toward the authored kick direction.
-            if travel.length_squared() > 0.0036 or elapsed > windup + 0.15:
-                emit_kick(point, travel)
+            # Emit ONCE on grounded contact; no dust when the attack
+            # is swinging through the air. Give the contact a short
+            # .06s grace period if the foot barely moves in that tick.
+            if travel.length_squared() >= 0.0009 or (
+                    elapsed >= windup + 0.06):
+                var outward: Vector3 = kick_last_direction
+                if outward.length_squared() <= 0.0001:
+                    outward = Vector3(
+                        player_direction.x, 0.0, player_direction.z)
+                emit_kick(point, outward)
                 kicked_this_attack = true
     elif kind == "sweep":
         # Releasing the foot from the ground ends the active emitter
