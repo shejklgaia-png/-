@@ -240,7 +240,162 @@ func _configure_fast_linear_ejection(p: CPUParticles3D) -> void:
         p.explosiveness = 0.98
 
 
+## Two pooled MultiMesh draw calls for genuine ground-sensitive rock
+## fragments. This GL Compatibility-safe implementation is distinct
+## from the soft CPUParticles3D smoke: CPU particles have no floor
+## collision events, so their pebbles previously remained visible
+## below the floor until their arbitrary lifetime expired.
+func _make_debris_renderer(
+        title: String, mesh: Mesh, capacity: int) -> MultiMeshInstance3D:
+    var instances := MultiMesh.new()
+    instances.transform_format = MultiMesh.TRANSFORM_3D
+    instances.mesh = mesh
+    instances.instance_count = capacity
+    instances.visible_instance_count = 0
+    # Conservative shared bounds for the training arena. Instances
+    # are WORLD-space: no following a moving boss after launch.
+    instances.custom_aabb = AABB(
+        Vector3(-90.0, -5.0, -90.0),
+        Vector3(180.0, 55.0, 180.0))
+    var renderer := MultiMeshInstance3D.new()
+    renderer.name = title
+    renderer.multimesh = instances
+    renderer.top_level = true
+    add_child(renderer)
+    renderer.global_transform = Transform3D.IDENTITY
+    return renderer
+
+
+func _spawn_ground_debris(
+        emitter: CPUParticles3D, origin: Vector3,
+        direction: Vector3) -> void:
+    var fine: bool = (
+        emitter == stomp_grit or emitter == kick_grit)
+    var records: Array[Dictionary] = (
+        grit_debris if fine else rock_debris)
+    var cap: int = (
+        DEBRIS_GRIT_CAPACITY if fine else DEBRIS_ROCK_CAPACITY)
+    var heading: Vector3 = direction.normalized()
+    if heading.length_squared() <= 0.0001:
+        heading = Vector3.UP
+    var tangent: Vector3 = heading.cross(Vector3.UP)
+    if tangent.length_squared() <= 0.0001:
+        tangent = Vector3.RIGHT
+    tangent = tangent.normalized()
+    var binormal: Vector3 = heading.cross(tangent).normalized()
+    var max_cone: float = tan(
+        deg_to_rad(clampf(emitter.spread, 0.0, 60.0)))
+    var half_size: Vector3 = emitter.mesh.get_aabb().size * 0.5
+    var box: Vector3 = emitter.emission_box_extents
+    for i in range(emitter.amount):
+        # Oldest pieces may be culled if many sweeps happen in one
+        # second; every visible piece still disappears on contact.
+        if records.size() >= cap:
+            records.remove_at(0)
+        var angle: float = debris_rng.randf_range(-PI, PI)
+        var opening: float = sqrt(debris_rng.randf()) * max_cone
+        var deviation: Vector3 = (
+            tangent * cos(angle) + binormal * sin(angle))
+        var flight: Vector3 = (
+            heading + deviation * opening).normalized()
+        # Horizontal flicks retain a small positive lift so their
+        # leading pebbles have time to fly before falling.
+        flight.y = maxf(flight.y, 0.12)
+        flight = flight.normalized()
+        var speed: float = debris_rng.randf_range(
+            emitter.initial_velocity_min,
+            emitter.initial_velocity_max)
+        var size: float = debris_rng.randf_range(
+            emitter.scale_amount_min, emitter.scale_amount_max)
+        var pos: Vector3 = origin
+        if emitter.emission_shape == CPUParticles3D.EMISSION_SHAPE_BOX:
+            pos += Vector3(
+                debris_rng.randf_range(-minf(box.x, 0.65),
+                    minf(box.x, 0.65)),
+                0.0,
+                debris_rng.randf_range(-minf(box.z, 0.65),
+                    minf(box.z, 0.65)))
+        pos.y = maxf(pos.y,
+            DEBRIS_FLOOR_Y + half_size.y * size + 0.005)
+        var axis: Vector3 = Vector3(
+            debris_rng.randf_range(-1.0, 1.0),
+            debris_rng.randf_range(-1.0, 1.0),
+            debris_rng.randf_range(-1.0, 1.0)).normalized()
+        if axis.length_squared() <= 0.0001:
+            axis = Vector3.RIGHT
+        records.append({
+            "position": pos,
+            "velocity": flight * speed,
+            "gravity": emitter.gravity,
+            "rotation": Quaternion(axis,
+                debris_rng.randf_range(-PI, PI)),
+            "spin_axis": axis,
+            "spin_speed": debris_rng.randf_range(-7.0, 7.0),
+            "size": size,
+            "half_box": half_size,
+            "age": 0.0
+        })
+
+
+## Integrate the ballistic arc and remove a pebble in the FIRST
+## render frame its true rotated box underside contacts Y=0.
+## This includes the small grit and the fragments from sweeping.
+func _advance_ground_debris(
+        records: Array[Dictionary],
+        renderer: MultiMeshInstance3D, delta: float) -> void:
+    if renderer == null:
+        return
+    var dt: float = clampf(delta, 0.0, 0.10)
+    for i in range(records.size() - 1, -1, -1):
+        var record: Dictionary = records[i]
+        var velocity: Vector3 = record["velocity"]
+        var gravity: Vector3 = record["gravity"]
+        var pos: Vector3 = record["position"]
+        var next_velocity: Vector3 = velocity + gravity * dt
+        var next_pos: Vector3 = (
+            pos + velocity * dt + gravity * (0.5 * dt * dt))
+        var rotation: Quaternion = record["rotation"]
+        var axis: Vector3 = record["spin_axis"]
+        var angular: float = float(record["spin_speed"])
+        var next_rotation: Quaternion = (
+            Quaternion(axis, angular * dt) * rotation).normalized()
+        var scale: float = float(record["size"])
+        var basis: Basis = Basis(next_rotation).scaled(
+            Vector3.ONE * scale)
+        var half_box: Vector3 = record["half_box"]
+        var bottom_radius: float = (
+            absf(basis.x.y) * half_box.x
+            + absf(basis.y.y) * half_box.y
+            + absf(basis.z.y) * half_box.z)
+        var next_age: float = float(record["age"]) + dt
+        if (next_velocity.y <= 0.0 and (
+                next_pos.y - bottom_radius <= DEBRIS_FLOOR_Y)) or (
+                next_age >= DEBRIS_SAFETY_TIMEOUT_SECONDS):
+            records.remove_at(i)
+            continue
+        record["velocity"] = next_velocity
+        record["position"] = next_pos
+        record["rotation"] = next_rotation
+        record["age"] = next_age
+        records[i] = record
+    var multi: MultiMesh = renderer.multimesh
+    for i in range(records.size()):
+        var record: Dictionary = records[i]
+        var scale: float = float(record["size"])
+        var rotation: Quaternion = record["rotation"]
+        multi.set_instance_transform(i, Transform3D(
+            Basis(rotation).scaled(Vector3.ONE * scale),
+            record["position"]))
+    multi.visible_instance_count = records.size()
+
+
+func _process(delta: float) -> void:
+    _advance_ground_debris(rock_debris, rock_debris_renderer, delta)
+    _advance_ground_debris(grit_debris, grit_debris_renderer, delta)
+
+
 func _ready() -> void:
+    debris_rng.randomize()
     _build_dust_sprite()
     # Dense brown SOIL, translucent pale POWDER, lateral SAND,
     # slowly suspended fines, big rocks and tiny fast grit each
@@ -379,10 +534,23 @@ func _ready() -> void:
             kick_trailing_dust, kick_chunks, kick_grit,
             sweep_dust, sweep_chunks]:
         _configure_fast_linear_ejection(emitter as CPUParticles3D)
+    rock_debris_renderer = _make_debris_renderer(
+        "RockDebrisAtGround", stomp_chunks.mesh,
+        DEBRIS_ROCK_CAPACITY)
+    grit_debris_renderer = _make_debris_renderer(
+        "GritDebrisAtGround", stomp_grit.mesh,
+        DEBRIS_GRIT_CAPACITY)
+    # The old CPU emitters remain as inexpensive parameter profiles,
+    # but all 3D BOX fragments are rendered through the two pools.
 
 
 func _burst(p: CPUParticles3D, point: Vector3,
         direction: Vector3) -> void:
+    if p.mesh is BoxMesh:
+        # Avoid double rendering: CPU emitters cannot delete their
+        # individual fragments at the exact ground-contact instant.
+        _spawn_ground_debris(p, point, direction)
+        return
     p.global_position = point
     p.direction = direction.normalized()
     p.restart()
@@ -472,6 +640,12 @@ func reset() -> void:
     sweep_last_direction = Vector3.ZERO
     stomped_this_attack = false
     last_kind = ""
+    rock_debris.clear()
+    grit_debris.clear()
+    if rock_debris_renderer != null:
+        rock_debris_renderer.multimesh.visible_instance_count = 0
+    if grit_debris_renderer != null:
+        grit_debris_renderer.multimesh.visible_instance_count = 0
     for p in [stomp_core, stomp_dust, stomp_ground, stomp_fines,
             stomp_chunks, stomp_grit, kick_forward_dust, kick_dust,
             kick_trailing_dust, kick_chunks, kick_grit,
