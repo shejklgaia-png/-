@@ -38,6 +38,9 @@ func _check_12_attack_pivots(battle: Node3D) -> bool:
     for cycle in range(2):
         for id in BRAIN.LEG_IDS:
             for kind in BRAIN.ATTACK_KINDS:
+                if id.begins_with("leg_r") and kind == "kick":
+                    # Only the front feet have authored KICK clips.
+                    continue
                 battle.call("_reset_target_after_respawn")
                 battle.set("target_move_enabled", true)
                 if not bool(brain.call("force_start", id, kind)):
