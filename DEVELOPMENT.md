@@ -1,3 +1,12 @@
+## 2026-11-18 — SERA v456: なぎ払いFXを実脚モーションから事前構築
+
+- `tools/bittaran_sweep_fx_export_runtime_check.gd` で4脚の原本なぎ払いを実際の戦闘シーン＋足元IK込みで60fps再生し、実メッシュ最下点の接触XZ座標を収集。前脚は0.75〜1.25秒、後脚は0.25〜0.75秒の範囲を13点ずつのローカル空間時刻表に圧縮。 `scripts/bittaran_sweep_fx_baked_data.gd` としてリポジトリへ保存。Androidでは追加の骨格シミュレーションは実行しない。
+- `scripts/bittaran_battle.gd`: 最初のなぎ払い開始時、粉塵放出前のentry中に事前生成済みの4脚の発生点を一度ロード。実行時に原本を再生してシミュレーションを行わず、保存済み時刻表を使う。
+- `scripts/bittaran_dirt_fx.gd`: 発生開始時に実メッシュ床接地点で既定の軌跡を一度だけ平行移動して固定し、以後は`authored_time`に応じてタイムラインを再生する。途中から足先が浮いたりIK座標が揺れたりしても発生位置／個数が変わらない。長い足の振り戻しや攻撃の余韻ではFXを追加しない。
+- 28基の安全再利用CPUParticles3D、地面に接触して消える小石、実メッシュ当たり判定、踏みつけ／弾きのエフェクト、ダメージ判定・原本IKの仕様は維持。
+- `tools/bittaran_sweep_prebaked_fx_runtime_check.gd`: 4脚の事前生成データ・時間同期・実際の戦闘中の放出を検査。発生開始後に足先座標を100m飛ばしても粉塵が追従しないことを検査。 `tools/bittaran_sweep_fx_export_runtime_check.gd` で現行IKを再生した記録と固定軌跡の誤差を検査、`tools/bittaran_sweep_fx_baked_provenance_check.py` でBBMODEL Git Blob SHAと軌跡データの整合を検査。
+- Android実機の半透明描画・タッチ操作・端末FPSは未確認。
+
 ## 2026-11-18 — SERA v455: 実機動画に基づくビットタランVFXのチラつき・ジャンプ・発生漏れ修正
 
 - ユーザーの約19秒のAndroidゲーム録画で、地面の粉塵が突然現れて消える／離れた場所へ移る／攻撃で途切れる症状を確認。
