@@ -3391,20 +3391,15 @@ func _source_ik_advance_locomotion(delta: float, motion: String) -> void:
         source_ik_last_actor_position)
     source_ik_last_actor_position = actor.global_position
     if movement > SOURCE_TELEPORT_DISTANCE_METERS:
-        # Never interpolate a foot across a respawn/teleport. Resample
-        # the new Wait/Idle placement, keeping the actor's Y unchanged.
-        source_ik_step_pair = -1
-        source_ik_postattack_active = false
-        source_ik_postattack_hold = false
-        source_ik_postattack_pairs_done = 0
-        source_ik_postattack_gait_elapsed = 0.0
-        for limb in legs:
-            limb["stepping"] = false
-            limb["anchor"] = _source_ik_home(limb)
-            limb["anchor_rotation"] = _source_ik_toe_down_rotation(
-                limb, _rotation_home(limb))
-            limb["source_ik_toe_down_alpha"] = 1.0
-            limb["sole_local"] = limb["stomp_tip_local"]
+        # A teleport invalidates not only the world-space anchors but
+        # also the previous swing's IK bends and reach-error cache.
+        # Rebuild the same four-foot neutral stance used at battle
+        # startup; assigning new anchors alone leaves strained joints
+        # from the longer gait and can fail the next ground solve.
+        if actor.has_method("apply_pose"):
+            actor.call("apply_pose", "Wait", 0.0)
+        initialize_source_ground_ik()
+        return
     # While physically collapsed/standing, the chest may yaw, but the
     # supporting toes must stay planted; the normal gait resumes once
     # the neutral stand-up settle has actually completed.
