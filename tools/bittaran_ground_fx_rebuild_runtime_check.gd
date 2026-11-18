@@ -154,9 +154,15 @@ func _run() -> void:
             var foot: AABB = battle.call(
                 "_bittaran_attack_foot_bounds", "leg_fl")
             var emission: Vector3 = fx.get("last_sweep_fx_origin")
+            # A long source toe can have the actual ground corner
+            # almost a metre from its full rotated AABB center. Test
+            # the true world-space FOOT extents, not that fake center.
             if foot.has_volume() and (
-                    not _near_xz(emission, foot.get_center(), 0.85)):
-                _fail("live effect diverged from striking toe " +
+                    emission.x < foot.position.x - 0.20 or
+                    emission.x > foot.end.x + 0.20 or
+                    emission.z < foot.position.z - 0.20 or
+                    emission.z > foot.end.z + 0.20):
+                _fail("live effect outside striking toe footprint " +
                     str([emission, foot]))
                 return
     if live_pulses < 4:
