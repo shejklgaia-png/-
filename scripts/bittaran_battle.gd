@@ -534,7 +534,7 @@ func _emit_bittaran_shockwave(point: Vector3, half_size: Vector2) -> void:
     bittaran_shockwave.scale = Vector3(radius, 1.0, radius)
     bittaran_shockwave.visible = true
     if bittaran_dirt_fx != null:
-        bittaran_dirt_fx.call("emit_stomp", point)
+        bittaran_dirt_fx.call("emit_stomp", point, half_size)
     # The ground slam itself shakes the arena, hit or miss (v401).
     # v402: the v401 strengths were calibrated blind and measured only
     # ~5px of image displacement at fight distance (device feedback:
