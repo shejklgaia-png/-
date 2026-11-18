@@ -4020,24 +4020,32 @@ func _source_ik_advance_attack(frame: Dictionary) -> void:
         var limb: Dictionary = legs[index]
         var foot: Node3D = limb["foot"]
         if LEG_PART_IDS[index] == attack_id:
-            var is_body_return: bool = (
+            if bool(frame.get("authored_full_sweep", false)):
+                # Authored sweep already contains full windup, stroke,
+                # and leg retraction. Never redirect its toe along
+                # the legacy procedural return ray or overwrite its
+                # knee/shin quaternions with the previous strike pose.
+                # Preserve the original keyframes, with only skeletal
+                # ground corrections for genuine below-floor contact.
+                _source_ik_ground_attacking_limb(limb, frame)
+                if str(frame.get("phase", "")) == "recovery":
+                    _source_ik_settle_visible_foot(
+                        limb, support_wait_weight)
+            else:
+                var is_body_return: bool = (
                 str(frame.get("phase", "")) == "recovery" and
                 str(frame.get("recovery_stage", "")) == "body")
-            if is_body_return:
-                # v446: planted TOE TIP owns a fixed WORLD position.
-                # Never let the upward-moving BODY pull its foot away.
-                _source_ik_pin_toe_during_body(limb, frame)
-            elif str(frame.get("phase", "")) == "recovery" and (
-                    ["leg", "parallel"].has(str(
-                    frame.get("recovery_stage", "")))):
-                # v463: solve a continuously moving toe goal toward
-                # Wait while the BODY rises at the same time.
-                # At t=0 the goal is the PREVIOUS rendered foot world
-                # position. No hard switch to an ungrounded keyframe.
-                _source_ik_return_attacker_to_home(limb, frame)
-            else:
-                # Strikes/holds retain the authored IK floor correction.
-                _source_ik_ground_attacking_limb(limb, frame)
+                if is_body_return:
+                    # v446: planted TOE TIP owns a fixed WORLD position.
+                    # Never let the upward-moving BODY pull its foot away.
+                    _source_ik_pin_toe_during_body(limb, frame)
+                elif str(frame.get("phase", "")) == "recovery" and (
+                        ["leg", "parallel"].has(str(
+                        frame.get("recovery_stage", "")))):
+                    # Old split-clip path, retained for kick/stomp.
+                    _source_ik_return_attacker_to_home(limb, frame)
+                else:
+                    _source_ik_ground_attacking_limb(limb, frame)
             limb["last_goal"] = foot.to_global(
                 limb["source_sole_local"] as Vector3)
             limb["last_rotation"] = (
