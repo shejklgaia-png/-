@@ -87,6 +87,10 @@ jobs:
         run: |
           set -euo pipefail
           "$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" --headless --path . --script tools/bittaran_repeat_live_battle_runtime_check.gd
+      - name: Export actual post-IK foot trajectories to build immutable FX curves
+        run: |
+          set -euo pipefail
+          "$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" --headless --path . --script tools/bittaran_sweep_fx_export_runtime_check.gd
       - name: Verify four prebaked Blockbench sweep trajectories and source-timed FX
         run: |
           set -euo pipefail
