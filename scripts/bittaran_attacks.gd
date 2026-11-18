@@ -69,7 +69,11 @@ const BETWEEN_ATTACKS_SECONDS: float = 1.35
 # previous attack), the historical rotation decides, so the fight
 # keeps its variety and never spams one kind.
 const STOMP_RANGE_METERS: float = 3.6
-const KICK_FRONT_DOT: float = 0.50
+# v464: attack selection uses the ACTUAL player-to-active-foot
+# horizontal distance: close STOMP, middle KICK(front)/SWEEP(rear),
+# far SWEEP. No kick clip exists for either rear leg.
+const KICK_RANGE_METERS: float = 6.3
+const KICK_FRONT_DOT: float = 0.15
 # The leg-placement phase is outside every authored attack timeline.
 # Its actual duration is owned by the four-foot IK controller.
 # STOMP/KICK hold the final strike pose completely still for 1.5s.
@@ -201,46 +205,39 @@ func _choose_leg(player_position: Vector3, feet: Dictionary) -> String:
             best = id
     return best
 
-## Pick the technique for a newly selected leg (v401). See the
-## STOMP_RANGE_METERS constants: the situation decides first, the
-## rotation breaks ties and prevents immediate repeats.
+## Choose range-first using the ACTUAL horizontal foot-player
+## separation, never the original historical technique cycle.
+## Close: stomp. Medium: front-forward kick or side/rear sweep.
+## Far (inside 9m leg search): sweeping reach. The automatic
+## leg picker still rotates between suitable physical feet.
 func _choose_kind(for_leg: String, player_position: Vector3,
         feet: Dictionary) -> String:
-    var allowed: Array[String] = ["stomp", "sweep"]
-    if not for_leg.begins_with("leg_r"):
-        allowed = ATTACK_KINDS
-    var chosen: String = ATTACK_KINDS[next_kind_index]
-    if not allowed.has(chosen):
-        chosen = "sweep" if last_kind == "stomp" else "stomp"
+    var chosen: String = "sweep"
     if feet.has(for_leg):
         var foot: Vector3 = feet[for_leg]
+        var radial := Vector2.ZERO
         var centroid := Vector3.ZERO
-        var count: int = 0
         for id in feet.keys():
             centroid += feet[id] as Vector3
-            count += 1
-        if count > 0:
-            centroid /= float(count)
-            var radial := Vector2(
-                foot.x - centroid.x, foot.z - centroid.z)
-            var to_player := Vector2(
-                player_position.x - foot.x,
-                player_position.z - foot.z)
-            var distance: float = to_player.length()
-            var situational: String = ""
-            if distance <= STOMP_RANGE_METERS:
-                situational = "stomp"
-            elif radial.length() > 0.01 and distance > 0.01:
-                var dot: float = radial.normalized().dot(
-                    to_player / distance)
-                if dot >= KICK_FRONT_DOT:
-                    situational = "kick"
-                elif dot > -KICK_FRONT_DOT:
-                    situational = "sweep"
-            if allowed.has(situational) and situational != last_kind:
-                chosen = situational
-    if for_leg.begins_with("leg_r") and chosen == last_kind:
-        chosen = "sweep" if chosen == "stomp" else "stomp"
+        if feet.size() > 0:
+            centroid /= float(feet.size())
+        radial = Vector2(foot.x - centroid.x, foot.z - centroid.z)
+        var to_player := Vector2(
+            player_position.x - foot.x,
+            player_position.z - foot.z)
+        var distance: float = to_player.length()
+        if distance <= STOMP_RANGE_METERS:
+            chosen = "stomp"
+        elif distance <= KICK_RANGE_METERS and (
+                not for_leg.begins_with("leg_r")) and (
+                radial.length() > 0.01 and distance > 0.01) and (
+                radial.normalized().dot(to_player / distance)
+                    >= KICK_FRONT_DOT):
+            chosen = "kick"
+        else:
+            chosen = "sweep"
+    # Never fabricate a rear kick; the imported rear asset only
+    # contains STOMP/SWEEP. Range is authoritative even on repeats.
     last_kind = chosen
     next_kind_index = (ATTACK_KINDS.find(chosen) + 1) % ATTACK_KINDS.size()
     return chosen
