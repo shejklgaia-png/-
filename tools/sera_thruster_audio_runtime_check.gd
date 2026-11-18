@@ -42,8 +42,10 @@ func _run() -> void:
     if sound.get("sustained_gain") != 0.0:
         _fail("initial sustained jet is audible")
         return
-    if steady.volume_db > -75.0 or burst.volume_db < 3.0:
-        _fail("sfx initialization levels are inaudible or unbalanced")
+    # v459: assert the original v457 mix, not the louder v458 gain.
+    if steady.volume_db > -75.0 or (
+            absf(burst.volume_db - (-3.0)) > 0.001):
+        _fail("v457 launch level must be restored")
         return
     # Reproduce Android GitSync BEFORE Godot generates an import cache:
     # a raw Ogg living in user:// has no .import metadata at all.
@@ -88,7 +90,7 @@ func _run() -> void:
     for tick in range(18):
         sound.call("update_audio", DT, true, false)
     if not steady.playing or (
-            steady.volume_db < -6.0) or (
+            absf(steady.volume_db - (-12.5)) > 0.01) or (
             int(sound.get("sustained_starts")) != 1) or (
             int(sound.get("acceleration_triggers")) != 0):
         _fail("boost did not start 01-only loop")
@@ -132,8 +134,8 @@ func _run() -> void:
     if int(sound.get("sustained_starts")) != 2:
         _fail("new BOOST did not restart after silence")
         return
-    # Also check THE ACTUAL Bittaran battle BGM, which v457 mixed
-    # 7.5-15dB louder than the thruster on small phone speakers.
+    # Check the actual boss BGM stays at its ORIGINAL volume while
+    # the thruster and acceleration are simultaneously running.
     var battle: Node3D = load(
         "res://scenes/bittaran_battle.tscn").instantiate()
     root.add_child(battle)
@@ -148,28 +150,20 @@ func _run() -> void:
     for tick in range(30):
         jet.call("update_audio", DT, true, tick == 0)
         battle.call("_process", DT)
-    if not (bgm.volume_db < -9.5 and bgm.volume_db > -13.0):
-        _fail("strong boss BGM masks active thruster " +
+    if absf(bgm.volume_db - (-5.0)) > 0.001:
+        _fail("BGM must stay at original -5 dB during thruster use " +
             str(bgm.volume_db))
         return
-    var pre_release: float = bgm.volume_db
-    # Headless test drives the GAME clock manually; the audio mixer
-    # does not advance its real playback time between these calls.
-    # Model the 0.95-second acceleration clip finishing before the
-    # final BGM release, as it does on the actual Android device.
-    var launch_sound: AudioStreamPlayer = (
-        jet.get("acceleration") as AudioStreamPlayer)
-    launch_sound.stop()
     for tick in range(90):
         jet.call("update_audio", DT, false, false)
         battle.call("_process", DT)
-    if bgm.volume_db <= pre_release or (
-            absf(bgm.volume_db + 5.0) > 0.1):
-        _fail("Bittaran BGM did not restore after jet fade")
+    if absf(bgm.volume_db - (-5.0)) > 0.001:
+        _fail("BGM volume shifted on thruster end " +
+            str(bgm.volume_db))
         return
-    print("GODOT_SERA_THRUSTER_AUDIO_ANDROID_FALLBACK_PASS ",
-        "unimported_raw_ogg=true audible_levels=true ",
-        "boss_bgm_duck_release=true")
+    print("GODOT_SERA_THRUSTER_AUDIO_ORIGINAL_MIX_PASS ",
+        "01=-12.5dB 13-1=-3.0dB BittaranBGM=-5.0dB ",
+        "no_music_duck=true android_raw_ogg_fallback=true")
     print("GODOT_SERA_THRUSTER_AUDIO_RUNTIME_PASS ",
         "01_gapless_loop=4.9s continuous_boost_step_homing=true ",
         "13_1_step_and_tracking_onsets=true overlap=true ",

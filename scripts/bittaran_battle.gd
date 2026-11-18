@@ -156,12 +156,6 @@ var bittaran_thud_audio: AudioStreamPlayer
 const BITTARAN_BGM_PATH: String = "res://assets/neural_flow_loop.ogg"
 const BITTARAN_BGM_USER_PATH: String = "user://neural_flow_loop.ogg"
 const BITTARAN_BGM_DURATION_SECONDS: float = 187.586207
-const BITTARAN_BGM_BASE_VOLUME_DB: float = -5.0
-# Mild musical ducking makes 01/13-1 clearly audible on a phone
-# speaker, without muting the 174-BPM background track.
-const BITTARAN_THRUSTER_DUCK_DB: float = 7.0
-const BITTARAN_THRUSTER_DUCK_ATTACK_SECONDS: float = 0.10
-const BITTARAN_THRUSTER_DUCK_RELEASE_SECONDS: float = 0.32
 var bittaran_bgm: AudioStreamPlayer
 var impact_shake_strength: float = 0.0
 var impact_shake_time: float = 0.0
@@ -228,7 +222,7 @@ func _start_neural_flow_bgm() -> void:
     bittaran_bgm = AudioStreamPlayer.new()
     bittaran_bgm.name = "NeuralFlowBGM"
     bittaran_bgm.bus = "Master"
-    bittaran_bgm.volume_db = BITTARAN_BGM_BASE_VOLUME_DB
+    bittaran_bgm.volume_db = -5.0
     bittaran_bgm.stream = music
     add_child(bittaran_bgm)
     bittaran_bgm.play()
@@ -1988,27 +1982,6 @@ func _reset_target_after_respawn() -> void:
 
 func _process(delta: float) -> void:
     super._process(delta)
-    # Thruster and acceleration are user-facing SFX. The existing
-    # Neural Flow soundtrack at -5 dB masked 01 at -12.5 dB and
-    # the quiet source 13-1. Duck only THIS boss BGM, not game SFX,
-    # so other footstep/hit sounds and the jet remain unaffected.
-    if bittaran_bgm != null and thruster_audio != null:
-        var intensity: float = clampf(float(
-            thruster_audio.get("sustained_gain")), 0.0, 1.0)
-        var burst: AudioStreamPlayer = (
-            thruster_audio.get("acceleration") as AudioStreamPlayer)
-        if burst != null and burst.playing:
-            intensity = maxf(intensity, 0.9)
-        var desired_db: float = (BITTARAN_BGM_BASE_VOLUME_DB
-            - BITTARAN_THRUSTER_DUCK_DB * intensity)
-        var smoothing: float = (
-            BITTARAN_THRUSTER_DUCK_ATTACK_SECONDS
-            if desired_db < bittaran_bgm.volume_db
-            else BITTARAN_THRUSTER_DUCK_RELEASE_SECONDS)
-        var blend: float = 1.0 - exp(
-            -maxf(delta, 0.0) / smoothing)
-        bittaran_bgm.volume_db = lerpf(
-            bittaran_bgm.volume_db, desired_db, blend)
     if boss_death_elapsed >= 0.0 and target_parts != null:
         boss_death_elapsed += maxf(0.0, delta)
         target_parts.call("set_death_visual",
