@@ -123,8 +123,16 @@ func _compare_clip(rig: Node3D, source_clip: Dictionary,
             _die("wrong source position " + str([
                 label, clip_name, name, t, bone.position, expected_position]))
             return false
-        if bone.quaternion.angle_to(
-                expected_rotation) > ROTATION_TOLERANCE_RAD:
+        # Quaternion.angle_to loses precision near zero for 32-bit
+        # float components and can report a spurious >0.0003rad error
+        # even when the printed quaternions match. The shortest chord
+        # distance tests the SAME angular tolerance without acos.
+        var actual_q: Quaternion = bone.quaternion.normalized()
+        var expected_q: Quaternion = expected_rotation.normalized()
+        var chord: float = minf(
+            (actual_q - expected_q).length(),
+            (actual_q + expected_q).length())
+        if chord > 2.0 * sin(ROTATION_TOLERANCE_RAD * 0.25):
             _die("wrong source EULER rotation " + str([
                 label, clip_name, name, t, bone.quaternion,
                 expected_rotation]))

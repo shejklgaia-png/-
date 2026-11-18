@@ -11,7 +11,10 @@ project = read("project.godot")
 current = re.findall(r'^config/name="([^"]+)"$', project, re.M)
 assert len(current) == 1 and re.fullmatch(r"SERA v([1-9][0-9]*)", current[0])
 assert int(current[0].split("v")[1]) >= 198
-assert 'run/main_scene="res://scenes/launch_menu.tscn"' in project
+# The menu remains available; v447 deliberately boots straight into Bittaran.
+main_scene = re.findall(r'^run/main_scene="([^"]+)"$', project, re.M)
+assert main_scene in (["res://scenes/launch_menu.tscn"],
+                      ["res://scenes/bittaran_battle.tscn"]), main_scene
 for scene in ("launch_menu", "main", "command_nexus"):
     assert (ROOT / ("scenes/" + scene + ".tscn")).is_file()
 

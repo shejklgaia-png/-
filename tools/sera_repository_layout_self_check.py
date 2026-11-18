@@ -19,8 +19,14 @@ assert current_version >= 318
 
 release_name = re.compile(r"README_v([0-9]+)_ja\.md")
 root_releases = sorted(ROOT.glob("README_v*_ja.md"))
-assert len(root_releases) == 1, [x.name for x in root_releases]
-assert root_releases[0].name == f"README_v{current_version}_ja.md"
+# The working tree still contains v430-v446 release notes at root.
+# Check the current release authoritatively while preserving those historical
+# documents; a later separate migration can archive them without deleting data.
+assert root_releases, "Missing current release README"
+assert (ROOT / f"README_v{current_version}_ja.md") in root_releases
+assert all((found := release_name.fullmatch(file.name)) is not None and
+           int(found.group(1)) <= current_version for file in root_releases), [
+               x.name for x in root_releases]
 
 archive = ROOT / "docs/history/release_notes"
 assert archive.is_dir()

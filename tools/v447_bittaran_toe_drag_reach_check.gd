@@ -88,6 +88,46 @@ func _run() -> void:
     if dragged < 500:
         _fail("inward-slide scenarios under-tested " + str(dragged))
         return
+    # Active parallel-recovery sweep: a raised hip must retract the
+    # visible tip along exactly ONE segment, with no lateral bend or
+    # backwards step, regardless of how the reach sphere moves.
+    var drag_start: Vector3 = Vector3(2.2, TOE_FLOOR, 0.10)
+    var drag_home: Vector3 = Vector3(0.5, TOE_FLOOR, 0.10)
+    var drag_offset: Vector3 = Vector3(0.20, -0.25, 0.02)
+    var last_x: float = drag_start.x
+    var last_progress: float = 0.0
+    var straight_samples: int = 0
+    for i in range(129):
+        var fraction: float = float(i) / 128.0
+        var eased: float = (
+            fraction * fraction * fraction *
+            (fraction * (fraction * 6.0 - 15.0) + 10.0))
+        var desired: Vector3 = drag_start.lerp(drag_home, eased)
+        var moving_hip: Vector3 = Vector3(
+            0.3, 0.85 + 0.30 * fraction, 0.15)
+        var straight: Vector3 = IK._source_ik_sweep_line_reach(
+            drag_start, drag_home, desired, moving_hip, drag_offset,
+            1.75, last_progress)
+        if not is_finite(straight.x) or (
+                absf(straight.y - TOE_FLOOR) > 0.000001 or
+                absf(straight.z - drag_start.z) > 0.000001):
+            _fail("sweep toe left its straight grounded line " +
+                str([i, straight]))
+            return
+        if straight.x > last_x + 0.00001 or (
+                straight.x < drag_home.x - 0.00001):
+            _fail("sweep toe reversed or overshot home " +
+                str([i, last_x, straight.x]))
+            return
+        last_x = straight.x
+        last_progress = clampf(
+            (drag_start.x - straight.x)
+            / (drag_start.x - drag_home.x), 0.0, 1.0)
+        straight_samples += 1
+    if straight_samples != 129 or (
+            absf(last_x - drag_home.x) > 0.0001):
+        _fail("sweep toe did not finish straight home")
+        return
     print("GODOT_V447_TOE_DRAG_PASS samples=", sample_count,
         " dragged=", dragged,
         " fixed_plane_Y=0", " inward_XZ_only=true",
