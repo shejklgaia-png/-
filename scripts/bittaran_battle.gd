@@ -1436,7 +1436,8 @@ func _advance_target_motion(delta: float) -> void:
     # substitute the v365 Idle-only recovery yaw controller here.
     var result: Dictionary = bittaran_ai.call("advance", delta,
         target.position, target.rotation.y, player.position, frozen,
-        not enough_walk_steps or need_attack_variation)
+        not enough_walk_steps or need_attack_variation,
+        need_attack_variation)
     # During physical stand-up the CHEST always turns toward SERA at the
     # stationary 34deg/s turn rate, even when Approach would normally use
     # the slower moving-turn rate. The feet stay world-planted until upright.
