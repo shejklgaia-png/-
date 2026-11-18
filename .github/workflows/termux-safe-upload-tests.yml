@@ -1,14 +1,12 @@
 name: Termux safe upload regressions
 
 on:
-  pull_request:
-    paths:
-      - "tools/termux/**"
   push:
     branches:
       - main
     paths:
       - "tools/termux/**"
+  workflow_dispatch:
 
 permissions:
   contents: read
