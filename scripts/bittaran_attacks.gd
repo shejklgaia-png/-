@@ -233,7 +233,15 @@ func force_start_with_stance(id: String, attack_kind: String) -> bool:
 ## STOMP/SWEEP assets only. For other attacks choose the closest real
 ## foot, retaining the small round-robin tie bias.
 func _choose_leg(player_position: Vector3, feet: Dictionary,
-        attack_kind: String) -> String:
+        attack_kind: String, boss_position: Vector3 = Vector3.ZERO,
+        boss_yaw: float = 0.0) -> String:
+    var offset: Vector3 = player_position - boss_position
+    var bearing: float = wrapf(
+        atan2(offset.x, offset.z) - boss_yaw, -PI, PI)
+    var behind: bool = absf(rad_to_deg(bearing)) > 90.0
+    var rear_only: bool = (
+        attack_kind == "sweep" and absf(
+        rad_to_deg(bearing)) > SWEEP_HALF_ANGLE_DEGREES)
     var best: String = ""
     var best_score: float = INF
     for n in range(LEG_IDS.size()):
@@ -241,7 +249,13 @@ func _choose_leg(player_position: Vector3, feet: Dictionary,
         var id: String = LEG_IDS[index]
         if not feet.has(id):
             continue
-        if attack_kind == "kick" and id.begins_with("leg_r"):
+        var rear_leg: bool = id.begins_with("leg_r")
+        if attack_kind == "kick" and rear_leg:
+            continue
+        # A target outside the frontal 230-degree arc is attacked
+        # only by an authored REAR SWEEP. Never fake forward-leg
+        # reach behind the chest just to satisfy the AI selector.
+        if rear_only and not rear_leg:
             continue
         var foot: Vector3 = feet[id]
         var horizontal: Vector2 = Vector2(
@@ -249,7 +263,12 @@ func _choose_leg(player_position: Vector3, feet: Dictionary,
         var distance: float = horizontal.length()
         if distance > START_RANGE_METERS:
             continue
-        var score: float = distance + float(n) * 0.18
+        # Anatomical proximity remains the dominant factor, with a
+        # modest front/rear bias that matches the player's actual
+        # bearing. Side preference naturally follows live foot XZ.
+        var score: float = distance + float(n) * 0.12
+        if rear_leg != behind:
+            score += 1.0
         if score < best_score:
             best_score = score
             best = id
@@ -281,9 +300,11 @@ func _choose_kind(player_position: Vector3, boss_position: Vector3,
     # Side/diagonal/behind targets cannot trigger frontal KICK.
     # The authored rear SWEEP permits larger rearward bearings,
     # but the 15-degree blind spot directly behind requires TURN.
-    if distance >= SWEEP_MIN_RANGE_METERS and (
-            angle_degrees <= REAR_SWEEP_HALF_ANGLE_DEGREES):
-        return "sweep"
+    if distance >= SWEEP_MIN_RANGE_METERS:
+        if angle_degrees <= SWEEP_HALF_ANGLE_DEGREES:
+            return "sweep"
+        if angle_degrees <= REAR_SWEEP_HALF_ANGLE_DEGREES:
+            return "sweep"
     return ""
 
 
@@ -486,7 +507,8 @@ func _advance_original_only(delta: float, player_position: Vector3,
         if selected_kind.is_empty():
             return {}
         var selected: String = _choose_leg(
-            player_position, authored_feet, selected_kind)
+            player_position, authored_feet, selected_kind,
+            boss_position, boss_yaw)
         if selected.is_empty():
             return {}
         _start(selected, selected_kind, false)
@@ -591,7 +613,8 @@ func advance(delta: float, player_position: Vector3,
         if selected_kind.is_empty():
             return {}
         var selected: String = _choose_leg(
-            player_position, available_feet, selected_kind)
+            player_position, available_feet, selected_kind,
+            boss_position, boss_yaw)
         if selected.is_empty():
             return {}
         _start(selected, selected_kind, true)
