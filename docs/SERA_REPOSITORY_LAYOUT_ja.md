@@ -47,3 +47,11 @@
 - 変更履歴：日付付きで `DEVELOPMENT.md` を更新。古い履歴の数値は現行仕様に昇格させない。
 
 この規約はファイル名を機械的に統一することより、**実際の読み込み経路と編集原本を保護すること**を優先します。
+
+
+## 2026-11-18 実施した旧版ファイルの整理（v452）
+
+- `README_v430_ja.md`〜`README_v451_ja.md` の22件を `docs/history/release_notes/` へ**同一blob SHAのまま移動**。ルートに残る版別READMEは現行の `README_v452_ja.md` のみ。
+- 内容が0バイトで読み込めない `models/storage/ビットタラン_20261117_085854_861.bbmodel` を削除。動作中のモデル正本 `models/bosses/Bittaran.bbmodel` とアップロード原本 `models/storage/ビットタラン_20261118_新なぎ払い.bbmodel` は維持。
+- `tools/sera_repository_layout_self_check.py` で現行版だけがルートにあることと、v430〜v451の履歴が保持されることを検査。
+- その他のBlockbench原本・旧モデル・`*.import`・CI検証資産は、参照の有無が断定できないため削除しない。
