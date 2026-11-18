@@ -6,8 +6,8 @@
 1. Check the latest `main` SHA, current version in `project.godot`, open PRs, and user-selected feature. Do **not** guess an implementation from version history.
 2. Run `python3 tools/sera_workplan.py --query <feature> --json` (or `--changed <path> ...`) to locate likely functions, model sources, dependencies, and registered tests. Review the actual referenced code and relevant current docs. The report is **heuristic**, not a proof of independence.
 3. Make a targeted diff on a short-lived branch, preserve unrelated mechanics and authoring sources. For GitHub-only work, batch related file reads and commit related edits together; avoid reviewing every historical README and generated snapshot.
-4. Run focused checks while editing (`python3 tools/sera_workplan.py --query <feature> --execute` when available), then **the entire** `tools/sera_ci_manifest.txt` suite through PR CI. Never substitute focused checks for full CI.
-5. Review the diff, check CI success and mergeability; create a PR and merge to `main` by default. **Do not merge on failure, conflict or unexplained changes.** Report precisely what ran and what was not verified. Android touch/render/audio checks require actual device execution.
+4. Run relevant focused checks while editing (`python3 tools/sera_workplan.py --query <feature> --execute` when available). Review source, model masters, and the diff before integration. **The complete `tools/sera_ci_manifest.txt` Python/Godot CI suite runs after changes are merged to `main`, not as a PR merge gate.** Focused checks do not replace the post-merge full suite.
+5. Check mergeability, conflicts, accidental changes, model-source integrity, and critical setup errors; create a PR and merge to `main` before full CI by default. **Never merge known destructive changes or unresolved conflicts.** After merge, observe both post-merge CI workflows and immediately diagnose any failures, fix via a follow-up merge, or revert if necessary. Do not claim CI passed while it is pending or failing. Report precisely what ran and what was not verified. Android touch/render/audio checks require human device execution; ChatGPT handles code, scripts, logs, and headless numeric regressions.
 6. Append concise dated details to `DEVELOPMENT.md` for meaningful changes. Create/update a versioned README for gameplay changes; increment SERA version **only for user-requested gameplay changes**, not development tooling.
 
 ## Current sources and constraints
@@ -23,7 +23,7 @@
 - No secrets, signing keys, credentials, arbitrary dependencies, or unwarranted deletion of user models. If source is ambiguous, inspect hierarchy/Pivot before assigning a bone.
 
 ## Staged model intake
-For new `strage`/`storage` uploads, follow `docs/SERA_INCOMING_MODEL_INTAKE_ja.md`: merge canonical clips and Swordeffect, rebuild, fully test, then delete only unreferenced staging files.
+For new `strage`/`storage` uploads, follow `docs/SERA_INCOMING_MODEL_INTAKE_ja.md`: merge canonical clips and Swordeffect, rebuild, review and merge, run full post-merge CI, then delete only unreferenced staging files.
 
 ## Quick commands
 ```sh
@@ -31,7 +31,7 @@ python3 tools/sera_workplan.py --query step --json     # focused edit plan
 python3 tools/sera_workplan.py --query katana --execute # local registered Python tests only
 python3 tools/sera_quick_check.py                       # core static checks
 python3 tools/sera_ci_suite.py static --workers 4      # FULL registered Python suite
-# GitHub PR CI runs the FULL Godot suite, in isolated processes.
+# GitHub main push CI runs the FULL Godot suite after merge, in isolated processes.
 ```
 
 Historical instructions and v102–v292 decisions remain available at `docs/history/AGENTS_THROUGH_V316.md`; their superseded numeric values, model paths and design drafts must not override the current code.
@@ -41,7 +41,7 @@ Historical instructions and v102–v292 decisions remain available at `docs/hist
 - Existing touch controller areas and ordinary game logic must not be changed for diagnostic instrumentation.
 
 ## v317 main.gd split contracts
-Keep `main.gd` live state, inputs, collisions, scene effects, HUD priority and tick ordering. Extract presentation/math only without changing numeric thresholds. Require full PR CI; verify Android visuals separately.
+Keep `main.gd` live state, inputs, collisions, scene effects, HUD priority and tick ordering. Extract presentation/math only without changing numeric thresholds. Require full post-merge main CI; verify Android visuals separately.
 
 - **Gesture/locomotion:** `sera_input_gestures.gd`, `sera_movement_math.gd` own pure input and XZ transforms. Main owns touch, player and camera.
 - **Lock:** `sera_lock_management.gd` owns paired-ray AUTO, manual screen-X wrap, facing and reticle geometry; main owns modes, combo lock and buttons. BODY ID is `""`; no delayed acquisition.
