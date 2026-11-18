@@ -1319,8 +1319,14 @@ func _advance_target_motion(delta: float) -> void:
         if bittaran_foot_ik != null else 0)
     var enough_walk_steps: bool = (
         completed_gait_steps >= bittaran_walk_attack_step_gate)
+    # Once a legal attack begins its 3-step gate immediately rolls
+    # forward for NEXT time. Keep the current source animation active
+    # throughout strike/recovery rather than cancelling it next tick.
+    var current_attack_active: bool = (
+        bittaran_attacks != null
+        and bool(bittaran_attacks.call("is_active")))
     var attack_permitted: bool = (
-        enough_walk_steps
+        (enough_walk_steps or current_attack_active)
         and target_move_enabled and target_hp > 0 and player_hp > 0
         and not generic_damage_frozen and recovered
         and not postattack_replanting
