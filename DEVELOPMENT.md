@@ -1,3 +1,11 @@
+## 2026-11-18 — SERA v448: grayscale ground debris and contact-clamped STOMP tempo
+
+- All three attack FX paths now use neutral grayscale vertex and emitter colors (dense charcoal soil, medium cloud, pale airborne fines and separate gray debris); both generated dust alpha sprites also use equal RGB channels. Existing GL depth, ejection velocities, gradual fading and floor-disappearing stones remain unchanged.
+- The original front STOMP is retimed using raised-foot apex at source 1.25s / landing 1.50s: 0.80s quadratic ease-out rise, then 0.23s accelerating descent. Rear STOMP keys use apex 0.83333s / landing 1.00s: 0.50s rise, 0.18s descent. The old front source tail is static and skipped. Source Blockbench keys, joint mapping and authored poses are not edited.
+- Physical ground contact during the descending source stroke latches the exact last rendered source frame, stops playback velocity immediately, and holds for 0.09s before the existing parallel body/leg recovery. This avoids following the clip below the touched floor.
+- The FX lifecycle now detects attack-time resets so repeat STOMP of the same kind emits its own ground impact rather than inheriting the previous one-shot state.
+- Added dedicated Godot runtime regression tools/v448_bittaran_stomp_gray_tempo_runtime_check.gd and included it in tools/sera_ci_manifest.txt. Godot binaries are not available locally; PR CI and Android/visual verification are still required.
+
 ## 2026-11-17 — SERA v423: leg aim yaw no longer somersaults across the +-180-degree seam
 
 - Device feedback on v422: the KICK angles of the front-right and rear-left legs still did not line up. A full-circle bearing sweep of played kicks (reflected comparison against played leg_fl, no aim compensation) found the catastrophic cells on the rear legs: leg_rl at player bearing 330 and leg_rr at bearing 30 deviated 6.43m at the sole with a 170-degree foot orientation error at hold; leg_rl at 300 and leg_rr at 60 showed 33-54-degree strike transients. All other bearings and the front legs matched their mirrors (front-right within ~1 degree everywhere).
