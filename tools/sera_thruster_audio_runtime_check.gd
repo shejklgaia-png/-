@@ -138,6 +138,13 @@ func _run() -> void:
             str(bgm.volume_db))
         return
     var pre_release: float = bgm.volume_db
+    # Headless test drives the GAME clock manually; the audio mixer
+    # does not advance its real playback time between these calls.
+    # Model the 0.95-second acceleration clip finishing before the
+    # final BGM release, as it does on the actual Android device.
+    var launch_sound: AudioStreamPlayer = (
+        jet.get("acceleration") as AudioStreamPlayer)
+    launch_sound.stop()
     for tick in range(90):
         jet.call("update_audio", DT, false, false)
         battle.call("_process", DT)
