@@ -409,7 +409,10 @@ func set_exhaust(enabled: bool, world_exhaust_direction: Vector3,
         outer_material.set_shader_parameter("melee_sustain", 0.0)
         inner_material.set_shader_parameter("melee_sustain", 0.0)
         return
-    visible = true
+    # With enabled=true this is equivalent to 'visible = true', while
+    # the disabled branch ABOVE remains visible for its full fade.
+    # Preserve the original v206+ active-nozzle contract and draw order.
+    visible = enabled
     var sustain_target: float = 1.0 if melee_sustain else 0.0
     melee_sustain_amount = lerpf(melee_sustain_amount, sustain_target,
         1.0 - exp(-maxf(delta, 0.0) / MELEE_SUSTAIN_RESPONSE_SECONDS))
