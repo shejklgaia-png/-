@@ -35,6 +35,9 @@ const BURST_TOTAL_SECONDS: float = BURST_RISE_SECONDS + BURST_FALL_SECONDS
 # During normal melee, make the *ordinary* narrow jet long enough to clear
 # SERA's animated back/arms; do not fire the 15x acceleration burst again.
 const MELEE_SUSTAIN_RESPONSE_SECONDS: float = 0.06
+# v457: nozzle flames fade out alongside the exhaust sound instead of
+# instantly disappearing on the first inactive physics tick.
+const EXHAUST_FADE_OUT_SECONDS: float = 0.22
 # v223: a world-fixed, camera-facing ribbon behind each moving nozzle.
 # Past vertices never inherit the animated Chest/nozzle transform.
 const RIBBON_LIFETIME_SECONDS: float = 0.34
@@ -391,9 +394,14 @@ func set_exhaust(enabled: bool, world_exhaust_direction: Vector3,
     # A world-space wake must be updated even after the jet turns off,
     # otherwise the last ribbon would remain frozen instead of fading.
     _update_ribbon_trail(enabled, delta)
-    visible = enabled
     if not enabled:
-        current_strength = 0.0
+        # Keep the existing 3D flame geometry visible until strength
+        # reaches zero. Never issue a new wake or acceleration flare.
+        current_strength = move_toward(current_strength, 0.0,
+            maxf(delta, 0.0) / EXHAUST_FADE_OUT_SECONDS)
+        visible = current_strength > 0.001
+        outer_material.set_shader_parameter("strength", current_strength)
+        inner_material.set_shader_parameter("strength", current_strength)
         melee_sustain_amount = 0.0
         burst_elapsed = BURST_TOTAL_SECONDS
         outer_material.set_shader_parameter("burst", 0.0)
@@ -401,6 +409,7 @@ func set_exhaust(enabled: bool, world_exhaust_direction: Vector3,
         outer_material.set_shader_parameter("melee_sustain", 0.0)
         inner_material.set_shader_parameter("melee_sustain", 0.0)
         return
+    visible = true
     var sustain_target: float = 1.0 if melee_sustain else 0.0
     melee_sustain_amount = lerpf(melee_sustain_amount, sustain_target,
         1.0 - exp(-maxf(delta, 0.0) / MELEE_SUSTAIN_RESPONSE_SECONDS))

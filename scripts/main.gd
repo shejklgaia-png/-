@@ -21,6 +21,7 @@ const PHYSICS_FRAME = preload("res://scripts/sera_physics_frame_rules.gd")
 const MOTION_DIRECTION = preload("res://scripts/sera_motion_direction.gd")
 const NOZZLE_STEERING = preload("res://scripts/sera_nozzle_steering.gd")
 const THRUSTER_PRESENTATION = preload("res://scripts/sera_thruster_presentation.gd")
+const THRUSTER_AUDIO = preload("res://scripts/sera_thruster_audio.gd")
 const COMBAT_HUD_TEXT = preload("res://scripts/sera_combat_hud_text.gd")
 const NUMERIC_HUD = preload("res://scripts/sera_numeric_hud.gd")
 const HUD_LAYOUT = preload("res://scripts/sera_hud_layout.gd")
@@ -484,6 +485,7 @@ var boost_pose_grace_remaining: float = 0.0
 # One persistent helper owns the last commanded nozzle direction and
 # backstroke/left-sector values during visual BOOST hold.
 var thruster_presentation = THRUSTER_PRESENTATION.new()
+var thruster_audio: Node
 var gesture_active: bool = false
 var gesture_suppressed_from_damage: bool = false
 var gesture_suppressed_from_landing: bool = false
@@ -2034,6 +2036,11 @@ func _make_mechanical_footstep() -> AudioStreamWAV:
     return sound
 
 func _build_hit_effects() -> void:
+    # One persistent audio owner for 01 sustain and 13-1 launch. Gameplay
+    # and rig FX are the source of truth for activation, not animation tags.
+    thruster_audio = THRUSTER_AUDIO.new()
+    thruster_audio.name = "SeraThrusterAudio"
+    add_child(thruster_audio)
     footstep_audio = AudioStreamPlayer.new()
     footstep_audio.name = "GroundFootContact"
     footstep_audio.stream = _make_mechanical_footstep()
@@ -4411,6 +4418,8 @@ func _physics_process(delta: float) -> void:
     _update_equipped_collision_height()
     _tick_training_ko(delta)
     if training_ko_remaining > 0.0:
+        if thruster_audio != null:
+            thruster_audio.call("update_audio", delta, false, false)
         if state_label != null:
             state_label.text = "SERA KO / RESTART %.1fs" % training_ko_remaining
         _tick_resources(delta)
@@ -4714,6 +4723,12 @@ func _physics_process(delta: float) -> void:
         direction_of_exhaust, delta, backstroke_weight, left_sector_world,
         acceleration_burst, normal_attack_exhaust,
         boost_pose_exhaust, running, boost_exhaust)
+    # Keep 01 continuous across BOOST, full STEP and all homing attacks.
+    # Only the existing one-frame acceleration flare triggers 13-1,
+    # including STEP, melee pursuit, bash and follow-up pursuit.
+    if thruster_audio != null:
+        thruster_audio.call("update_audio", delta, exhaust_on,
+            acceleration_burst)
     _update_melee_lock_marker()  # Update after player movement and auto-approach.
     # The idle HUD shows lateral step speed; equipment changes still refresh it.
     if not step_active and step_status_label != null:
