@@ -53,6 +53,16 @@ func _meshes_unchanged(rig: Node3D, label: String) -> bool:
     return true
 
 func _run() -> void:
+    # The active source-IK locomotion must double only its nominal
+    # foot-replant travel, preserving the original step animation.
+    if absf(IK.SOURCE_WALK_STRIDE_SCALE - 2.0) > 0.000001 or (
+            absf(IK.SOURCE_STEP_TRIGGER_METERS - 1.24) > 0.000001):
+        _fail("normal diagonal walking stride must be twice the baseline")
+        return
+    if absf(IK.SOURCE_STEP_DURATION_SECONDS - 0.52) > 0.000001 or (
+            absf(IK.SOURCE_STEP_HEIGHT_METERS - 0.22) > 0.000001):
+        _fail("double stride must retain normal gait timing and lift")
+        return
     if BATTLE.BLOCKBENCH_SOURCE_REPLAY_ONLY or not (
             BATTLE.BLOCKBENCH_GAIT_SUPPORT_IK):
         _fail("v435 isolated IK must be enabled in battle")
