@@ -62,8 +62,24 @@ func _make_particles(name: String, dust: bool,
 
 
 func _ready() -> void:
-    stomp_dust = _make_particles("StompRisingDust", true, true, 36)
-    stomp_chunks = _make_particles("StompEarthChunks", false, true, 30)
+    stomp_dust = _make_particles("StompRisingDust", true, true, 64)
+    stomp_chunks = _make_particles("StompEarthChunks", false, true, 36)
+    # v464: the stomp creates an upward DUST COLUMN at the instant
+    # the actual foot lands. Wide lazy sideways smoke looked like a
+    # floor puff rather than a heavy upward eruption.
+    stomp_dust.direction = Vector3.UP
+    stomp_dust.spread = 22.0
+    stomp_dust.initial_velocity_min = 3.4
+    stomp_dust.initial_velocity_max = 6.8
+    stomp_dust.gravity = Vector3(0.0, -1.1, 0.0)
+    stomp_dust.lifetime = 1.15
+    stomp_dust.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
+    stomp_chunks.direction = Vector3.UP
+    stomp_chunks.spread = 38.0
+    stomp_chunks.initial_velocity_min = 3.2
+    stomp_chunks.initial_velocity_max = 6.4
+    stomp_chunks.gravity = Vector3(0.0, -8.0, 0.0)
+    stomp_chunks.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
     kick_dust = _make_particles("KickGroundDust", true, true, 22)
     kick_chunks = _make_particles("KickEjectedDirt", false, true, 34)
     sweep_dust = _make_particles("SweepDustTrail", true, false, 50)
@@ -78,8 +94,16 @@ func _burst(p: CPUParticles3D, point: Vector3,
     p.emitting = true
 
 
-func emit_stomp(point: Vector3) -> void:
+func emit_stomp(point: Vector3,
+        half_extents: Vector2 = Vector2(0.35, 0.35)) -> void:
     var origin := Vector3(point.x, 0.04, point.z)
+    # The plume starts under the 1.5x foot-wide impact patch,
+    # then rises into the air. Particle gravity brings it down later.
+    var spread: Vector3 = Vector3(
+        maxf(half_extents.x, 0.05), 0.03,
+        maxf(half_extents.y, 0.05))
+    stomp_dust.emission_box_extents = spread
+    stomp_chunks.emission_box_extents = spread * 0.60
     _burst(stomp_dust, origin, Vector3.UP)
     _burst(stomp_chunks, origin, Vector3.UP)
 
