@@ -23,9 +23,13 @@ assert set(["Head", "Body", "FrontLeg_R", "FrontLowerLeg_R",
             "FrontFoot_L", "RearLeg_L", "RearLowerLeg_L",
             "RearFoot_L", "RearLeg_R", "RearLowerLeg_R",
             "RearFoot_R"]) == set(names)
+# Seven original front clips, three authored locomotion clips, plus
+# four independently authored rear clips added after the v345 snapshot.
 assert [a["name"] for a in boss["animations"]] == [
     "Wait", "なぎ払い", "弾き", "踏みつけ_L", "なぎ払い_R",
-    "弾き_R", "踏みつけ_R", "Idle", "Turn", "Approach"]
+    "弾き_R", "踏みつけ_R", "Idle", "Turn", "Approach",
+    "後足踏みつけ_L", "後足踏みつけ_R",
+    "後足なぎ払い_L", "後足なぎ払い_R"]
 original_clips = {a["name"]: a for a in source["animations"]}
 for clip in boss["animations"][:7]:
     original = original_clips[clip["name"]]
@@ -43,10 +47,18 @@ all_ids = [key["uuid"] for clip in boss["animations"]
            for track in clip["animators"].values()
            for key in track.get("keyframes", [])]
 assert len(all_ids) == len(set(all_ids)), "Duplicate animation UUID"
-for clip, duration in zip(boss["animations"][-3:], (2.4, 1.8, 2.8)):
+clips_by_name = {a["name"]: a for a in boss["animations"]}
+for name, duration in (("Idle", 2.4), ("Turn", 1.8), ("Approach", 2.8)):
+    clip = clips_by_name[name]
     assert clip["loop"] == "loop"
     assert abs(clip["length"] - duration) < 1e-6
     assert len(clip["animators"]) == 9  # Head is controlled live.
+for name, duration in (("後足踏みつけ_L", 1.0), ("後足踏みつけ_R", 1.0),
+                       ("後足なぎ払い_L", 0.75), ("後足なぎ払い_R", 0.75)):
+    clip = clips_by_name[name]
+    assert clip["loop"] == "once", name
+    assert abs(clip["length"] - duration) < 1e-6, name
+    assert len(clip["animators"]) == 13, name
 assert all(any(g["name"] == name for g in boss["groups"])
            for name in ("FrontFoot_R", "FrontFoot_L", "RearFoot_R", "RearFoot_L"))
 
