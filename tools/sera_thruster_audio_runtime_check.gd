@@ -69,6 +69,21 @@ func _run() -> void:
         return
     DirAccess.remove_absolute(
         ProjectSettings.globalize_path(no_import_path))
+    # A partial GitSync transfer can bring 01 before 13-1. It must
+    # still play the continuous jet while re-trying the other file.
+    var saved_burst_stream: AudioStream = burst.stream
+    burst.stream = null
+    sound.set("sound_ready", false)
+    sound.call("update_audio", DT, true, false)
+    if not steady.playing or int(sound.get(
+            "sustained_starts")) != 1:
+        _fail("01 is muted when only 13-1 has not synced yet")
+        return
+    steady.stop()
+    burst.stream = saved_burst_stream
+    sound.set("sound_ready", true)
+    sound.set("sustained_gain", 0.0)
+    sound.set("sustained_starts", 0)
     # BOOST: 01 only; repeated frames must never retrigger 13-1.
     for tick in range(18):
         sound.call("update_audio", DT, true, false)
