@@ -310,7 +310,12 @@ func _run() -> void:
                 if absf(contact.y) > CONTACT_TOLERANCE_METERS or (
                         contact.distance_to(planted) > 0.09):
                     _fail("support foot drifted from planted anchor " +
-                        str([clip, LEG_IDS[i], t, contact, planted]))
+                        str([clip, LEG_IDS[i], t, contact, planted,
+                            "phase", phase, "stage", stage,
+                            "error", limbs[i].get("last_error", NAN),
+                            "hip", (limbs[i]["upper"] as Node3D).global_position,
+                            "knee", (limbs[i]["lower"] as Node3D).global_position,
+                            "ankle", (limbs[i]["foot"] as Node3D).global_position]))
                     return
                 supports += 1
                 ground_contacts += 1
