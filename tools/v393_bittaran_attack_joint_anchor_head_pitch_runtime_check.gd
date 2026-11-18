@@ -20,6 +20,13 @@ func _anchor_error(rig: Node3D) -> float:
         var node: Node3D = bones[key]
         if node.name == "Head":
             continue
+        if node.name == "Body":
+            # BODY has a genuine Blockbench translation channel
+            # (Wait +6.9 source units and sweep crouch/recovery).
+            # Its local position is animated, not an IK pivot drift.
+            # The thirteen exact source channels are independently
+            # tested by v434 and the uploaded full-sweep test.
+            continue
         error = maxf(error, node.position.distance_to(bind[key]))
     return error
 
