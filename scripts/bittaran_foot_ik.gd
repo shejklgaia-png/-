@@ -2923,6 +2923,13 @@ func _source_ik_begin_body_toe_pin(
     limb["source_ik_body_toe_pin_start_xz"] = Vector2(
         anchor.x, anchor.z)
     limb["source_ik_body_toe_pin_drag_length"] = 0.0
+    # Lock the horizontal drag axis at the first recovery frame.
+    var pull: Vector2 = Vector2(
+        (limb["upper"] as Node3D).global_position.x - anchor.x,
+        (limb["upper"] as Node3D).global_position.z - anchor.z)
+    limb["source_ik_body_toe_pin_pull_direction"] = (
+        pull.normalized() if pull.length_squared() > 0.000001
+        else Vector2.ZERO)
     limb["source_ik_body_toe_pin_wrist_blend"] = 0.0
     limb["source_ik_body_toe_pin_last_time"] = NAN
 
@@ -3037,8 +3044,44 @@ func _source_ik_pin_toe_during_body(
         toe_down_rotation, wrist_blend).normalized()
     var toe_offset: Vector3 = (
         Basis(foot_rotation).scaled(foot_scale) * point_local)
+    # Pull strictly along the entry axis rather than following the
+    # moving hip's radial direction (which bends the toe path sideways).
     var reachable_toe: Vector3 = _source_ik_retract_to_reach(
         hip, target, toe_offset, usable_reach)
+    var pull_direction: Vector2 = limb.get(
+        "source_ik_body_toe_pin_pull_direction", Vector2.ZERO)
+    if pull_direction.length_squared() > 0.000001:
+        var origin_xz: Vector2 = limb["source_ik_body_toe_pin_start_xz"]
+        var current_xz: Vector2 = Vector2(target.x, target.z)
+        var current_progress: float = maxf(
+            (current_xz - origin_xz).dot(pull_direction), 0.0)
+        var hip_xz: Vector2 = Vector2(hip.x, hip.z)
+        var end_progress: float = maxf(
+            (hip_xz - origin_xz).dot(pull_direction), current_progress)
+        # Search forward on the fixed straight line for the first
+        # reachable ankle; never reverse an earlier drag.
+        var low: float = current_progress
+        var high: float = end_progress
+        var end_toe: Vector3 = Vector3(
+            origin_xz.x + pull_direction.x * high,
+            target.y, origin_xz.y + pull_direction.y * high)
+        if (end_toe - toe_offset).distance_to(hip) <= usable_reach:
+            for step in range(18):
+                var mid: float = (low + high) * 0.5
+                var candidate: Vector3 = Vector3(
+                    origin_xz.x + pull_direction.x * mid,
+                    target.y, origin_xz.y + pull_direction.y * mid)
+                if (candidate - toe_offset).distance_to(hip) <= usable_reach:
+                    high = mid
+                else:
+                    low = mid
+            reachable_toe = Vector3(
+                origin_xz.x + pull_direction.x * high,
+                target.y, origin_xz.y + pull_direction.y * high)
+        else:
+            # Do not introduce a sideways snap if the straight path
+            # cannot be reached by the current two-link geometry.
+            reachable_toe = target
     var slide: float = Vector2(
         reachable_toe.x - target.x,
         reachable_toe.z - target.z).length()
