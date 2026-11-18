@@ -14,6 +14,12 @@ const LEG_ROOT_BONES: Dictionary = {
     "leg_rl": "RearLeg_L",
     "leg_rr": "RearLeg_R"
 }
+# Exact last articulated joint: use these visible meshes rather than
+# the oversized shin camera/selection/combined-leg AABB for ground slam.
+const FOOT_BONES: Dictionary = {
+    "leg_fl": "FrontFoot_L", "leg_fr": "FrontFoot_R",
+    "leg_rl": "RearFoot_L", "leg_rr": "RearFoot_R"
+}
 const SHIN_LABELS: Dictionary = {
     "leg_fl": "FRONT LEFT SHIN", "leg_fr": "FRONT RIGHT SHIN",
     "leg_rl": "REAR LEFT SHIN", "leg_rr": "REAR RIGHT SHIN"
@@ -775,6 +781,25 @@ func get_leg_visual_mesh_boxes(id: String) -> Array[AABB]:
     if root_leg != null:
         _append_component_visual_boxes(root_leg, boxes)
     return boxes
+
+
+## Bounds of the actual rendered foot mesh, after authored
+## animation and ground IK. Excludes lower/upper shin and lock boxes.
+func get_leg_foot_world_aabb(id: String) -> AABB:
+    if not installed or not FOOT_BONES.has(id):
+        return AABB()
+    var bone: Node3D = boss_model.find_child(
+        str(FOOT_BONES[id]), true, false) as Node3D
+    if bone == null:
+        return AABB()
+    var boxes: Array[AABB] = []
+    _append_component_visual_boxes(bone, boxes)
+    if boxes.is_empty():
+        return AABB()
+    var bounds: AABB = boxes[0]
+    for i in range(1, boxes.size()):
+        bounds = bounds.merge(boxes[i])
+    return bounds
 
 
 ## Attack collision starts at the shin/lower limb and includes its foot.
