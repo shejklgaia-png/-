@@ -99,7 +99,7 @@ func _run() -> void:
         _fail("beam fired early during the post-flash gap")
         return
     # Exactly ten seconds modulo period begins the real two-second beam.
-    gun.call("advance", 0.02, player_origin, true)
+    gun.call("advance", 0.03, player_origin, true)
     if not core.visible or not halo.visible:
         _fail("laser failed to start on ten-second boundary")
         return
