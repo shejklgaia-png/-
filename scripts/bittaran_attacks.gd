@@ -77,17 +77,21 @@ const SWEEP_MIN_RANGE_METERS: float = 2.70
 const SWEEP_RANGE_METERS: float = 7.10
 const SWEEP_HALF_ANGLE_DEGREES: float = 115.0
 const REAR_SWEEP_HALF_ANGLE_DEGREES: float = 165.0
-# SOURCE clip keyframes: the last stationary KICK key is t=.25;
-# first visible extension is .25->.458333. On revised SWEEP clips
-# the planted foot changes into its return at front t=2.04167 and
-# rear t=.875 (right-side variants are mirrored copies).
+# v452: Source-authoritative impact intervals, verified against the
+# visible toe's world XZ path and floor contact in the REAL battle.
+# KICK still starts 0.10s AFTER the extension begins at t=.25.
+# SWEEP must damage on the FIRST front-to-back planted stroke, NOT
+# on the later return: front toe reaches floor ~.78 and travels from
+# +Z=3.7 to 1.7 until 1.25; rear moves from +Z~0 to -2.6
+# between .25 and .75. Both slow/turn after these keys. During that
+# slow aftermath and the complete reset there is NO damage.
 const SOURCE_HIT_DELAY_SECONDS: float = 0.10
 const KICK_EXTENSION_START_KEY_SECONDS: float = 0.25
 const KICK_EXTENSION_END_KEY_SECONDS: float = 0.75
-const SWEEP_FRONT_RETURN_START_KEY_SECONDS: float = 2.04167
-const SWEEP_REAR_RETURN_START_KEY_SECONDS: float = 0.875
-const SWEEP_FRONT_CONTACT_END_KEY_SECONDS: float = 2.50
-const SWEEP_REAR_CONTACT_END_KEY_SECONDS: float = 1.25
+const SWEEP_FRONT_FIRST_STROKE_START_KEY_SECONDS: float = 0.75
+const SWEEP_REAR_FIRST_STROKE_START_KEY_SECONDS: float = 0.25
+const SWEEP_FRONT_FIRST_STROKE_END_KEY_SECONDS: float = 1.25
+const SWEEP_REAR_FIRST_STROKE_END_KEY_SECONDS: float = 0.75
 
 ## The rendered LOWER-LEG and FOOT are still the only damage
 ## geometry. These are motion-time gates, not substitute hitboxes.
@@ -96,9 +100,11 @@ static func source_hit_start_seconds(attack_kind: String,
     if attack_kind == "kick" and attack_id.begins_with("leg_f"):
         return KICK_EXTENSION_START_KEY_SECONDS + SOURCE_HIT_DELAY_SECONDS
     if attack_kind == "sweep":
-        return (SWEEP_REAR_RETURN_START_KEY_SECONDS
+        # The visual contact test is applied AFTER sampling the real
+        # skeletal mesh; no artificial extra .10s on this first scrape.
+        return (SWEEP_REAR_FIRST_STROKE_START_KEY_SECONDS
             if attack_id.begins_with("leg_r")
-            else SWEEP_FRONT_RETURN_START_KEY_SECONDS) + SOURCE_HIT_DELAY_SECONDS
+            else SWEEP_FRONT_FIRST_STROKE_START_KEY_SECONDS)
     return INF
 
 
@@ -113,9 +119,9 @@ static func source_hit_window(attack_kind: String, attack_id: String,
         "kick":
             end = KICK_EXTENSION_END_KEY_SECONDS
         "sweep":
-            end = (SWEEP_REAR_CONTACT_END_KEY_SECONDS
+            end = (SWEEP_REAR_FIRST_STROKE_END_KEY_SECONDS
                 if attack_id.begins_with("leg_r")
-                else SWEEP_FRONT_CONTACT_END_KEY_SECONDS)
+                else SWEEP_FRONT_FIRST_STROKE_END_KEY_SECONDS)
         _:
             return false
     return clip_time <= end + 0.000001
