@@ -171,10 +171,11 @@ func _ready() -> void:
 
     stomp_ground = _make_particles("StompRollingDust", true, true, 26)
     stomp_ground.color = Color(0.65, 0.59, 0.52, 0.54)
-    stomp_ground.spread = 80.0
-    stomp_ground.initial_velocity_min = 1.0
-    stomp_ground.initial_velocity_max = 2.9
-    stomp_ground.gravity = Vector3(0.0, -0.32, 0.0)
+    stomp_ground.spread = 85.0
+    stomp_ground.initial_velocity_min = 0.35
+    stomp_ground.initial_velocity_max = 1.40
+    # This layer stays low rather than looking like a second plume.
+    stomp_ground.gravity = Vector3(0.0, -0.85, 0.0)
     stomp_ground.lifetime = 1.18
     stomp_ground.scale_amount_min = 0.85
     stomp_ground.scale_amount_max = 1.85
