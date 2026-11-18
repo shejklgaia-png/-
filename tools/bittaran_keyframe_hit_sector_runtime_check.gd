@@ -125,12 +125,22 @@ func _run() -> void:
         if director == null or target == null or player == null:
             _fail("live scene not initialized")
             return
-        player.global_position = target.global_position + Vector3(0,0,6)
+        # Keep the player away from real damage until we deliberately
+        # overlap a rendered attack mesh to test actual hit consumption.
+        var safe_player: Vector3 = (
+            target.global_position + Vector3(0, 0, 30.0))
+        player.global_position = safe_player
+        var parts: RefCounted = battle.get("target_parts")
+        if parts == null:
+            _fail("missing live part hitboxes")
+            return
         if not director.call("force_start", str(spec[0]), str(spec[1])):
             _fail("cannot force " + str(spec))
             return
         var touched: int = 0
         var hit_frames: int = 0
+        var prevented_early_hit: bool = false
+        var did_damage_inside_window: bool = false
         for frame_no in range(310):
             battle.call("_advance_target_motion", DT)
             var f: Dictionary = battle.get("bittaran_attack_frame")
@@ -151,8 +161,50 @@ func _run() -> void:
                         "_bittaran_striking_foot_grounded",
                         str(spec[0]))):
                     touched += 1
-        if hit_frames < 2:
-            _fail("real clip never reaches collision window " + str(spec))
+            # In addition to the director's metadata, exercise the
+            # *actual* game damage code with a grounded player whose
+            # capsule overlaps the currently rendered lower shin/foot.
+            # Before the authored key+.10s mark, overlapping cannot
+            # consume a hit. During the legal contact range it must.
+            var clip_t: float = float(f.get("authored_time", -1.0))
+            var phase: String = str(f.get("phase", ""))
+            var before_key_hit: bool = phase == "strike" and (
+                clip_t >= float(spec[5]) - 0.080) and (
+                clip_t < float(spec[5]) - 0.015)
+            var should_try_hit: bool = (
+                phase == "strike" and expected and
+                not did_damage_inside_window)
+            if (before_key_hit or should_try_hit) and (
+                    not bool(director.get("hit_consumed"))):
+                var mesh_boxes: Array = parts.call(
+                    "get_leg_attack_mesh_boxes", str(spec[0]))
+                for raw_box in mesh_boxes:
+                    var box: AABB = raw_box
+                    if not box.has_volume():
+                        continue
+                    # The player's normal floor-level capsule, not a
+                    # synthetic enlarged collision box.
+                    var center: Vector3 = box.get_center()
+                    player.global_position = Vector3(
+                        center.x, 0.0, center.z)
+                    battle.call("_check_bittaran_attack_hit")
+                    player.global_position = safe_player
+                    if bool(director.get("hit_consumed")):
+                        break
+                if before_key_hit:
+                    if bool(director.get("hit_consumed")):
+                        _fail("damage before authored extension/return "
+                            + str([spec, clip_t]))
+                        return
+                    prevented_early_hit = true
+                elif should_try_hit and bool(director.get(
+                        "hit_consumed")):
+                    did_damage_inside_window = true
+        if hit_frames < 2 or not prevented_early_hit or (
+                not did_damage_inside_window):
+            _fail("real collision did not obey keyframe window " +
+                str([spec, hit_frames, prevented_early_hit,
+                did_damage_inside_window]))
             return
         if str(spec[1]) == "sweep" and touched == 0:
             _fail("returning sweep has no grounded hit frames " +
@@ -163,7 +215,9 @@ func _run() -> void:
         print("SOURCE_HIT_GEOMETRY_PASS ", spec[0], "/", spec[1],
             " source_start=", spec[5], " source_end=", spec[6],
             " window_frames=", hit_frames,
-            " foot_grounded_frames=", touched)
+            " foot_grounded_frames=", touched,
+            " actual_early_hit_blocked=", prevented_early_hit,
+            " actual_hit_inside_window=", did_damage_inside_window)
         battle.queue_free()
     if total_windows < 50 or valid_ground_frames < 10:
         _fail("missing animated collision window samples")
