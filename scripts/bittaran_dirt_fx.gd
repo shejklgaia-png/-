@@ -9,19 +9,34 @@ const DUST_COLOR: Color = Color(0.69, 0.63, 0.55, 0.72)
 const EARTH_COLOR: Color = Color(0.31, 0.28, 0.24, 1.0)
 const DUST_SPRITE_SIZE: int = 96
 const SWEEP_EMISSION_INTERVAL: float = 0.075
+# v466: deliberately different physically readable dust/material layers.
+# Two tiny procedural sprites, no extra PNG or mobile shader pass.
+const DENSE_SOIL_PARTICLES: int = 38
+const RISING_POWDER_PARTICLES: int = 54
+const ROLLING_SAND_PARTICLES: int = 34
+const FLOATING_FINES_PARTICLES: int = 26
+const ROCK_CHUNKS_PARTICLES: int = 22
+const FLYING_GRIT_PARTICLES: int = 35
 
 var dust_sprite_mesh: QuadMesh
+var dense_soil_sprite_mesh: QuadMesh
 var stomp_core: CPUParticles3D
 var stomp_dust: CPUParticles3D
 var stomp_ground: CPUParticles3D
+var stomp_fines: CPUParticles3D
 var stomp_chunks: CPUParticles3D
+var stomp_grit: CPUParticles3D
 var kick_dust: CPUParticles3D
+var kick_forward_dust: CPUParticles3D
+var kick_trailing_dust: CPUParticles3D
 var kick_chunks: CPUParticles3D
+var kick_grit: CPUParticles3D
 var sweep_dust: CPUParticles3D
 var sweep_chunks: CPUParticles3D
 var sweep_elapsed: float = 0.0
 var sweep_active: bool = false
 var kicked_this_attack: bool = false
+var kick_last_direction: Vector3 = Vector3.ZERO
 var stomped_this_attack: bool = false
 var last_kind: String = ""
 
@@ -37,6 +52,10 @@ func _build_dust_sprite() -> void:
     noise.fractal_octaves = 3
     noise.frequency = 0.048
     var atlas: Image = Image.create(
+        DUST_SPRITE_SIZE, DUST_SPRITE_SIZE, false, Image.FORMAT_RGBA8)
+    # Independent high-density, jagged soil-cloud texture. It has a
+    # more compact/opaque body than the airy powder sprite.
+    var dense_atlas: Image = Image.create(
         DUST_SPRITE_SIZE, DUST_SPRITE_SIZE, false, Image.FORMAT_RGBA8)
     var radius_denominator: float = float(DUST_SPRITE_SIZE) * 0.5
     for y in range(DUST_SPRITE_SIZE):
@@ -66,6 +85,24 @@ func _build_dust_sprite() -> void:
                 0.74, 0.99)
             atlas.set_pixel(x, y, Color(
                 tone, tone * 0.955, tone * 0.89, opacity))
+            var clumps: float = noise.get_noise_2d(
+                float(x) + 319.0, float(y) + 178.0)
+            var coarse_rim: float = 0.77 + clumps * 0.19
+            var coarse_feather: float = clampf(
+                (coarse_rim - distance) / 0.23, 0.0, 1.0)
+            coarse_feather = coarse_feather * coarse_feather * (
+                3.0 - 2.0 * coarse_feather)
+            var coarse_density: float = clampf(
+                0.86 + clumps * 0.21 + fine * 0.15,
+                0.49, 1.0)
+            var coarse_opacity: float = coarse_feather * (
+                0.73 + heart * 0.22) * coarse_density
+            var coarse_tone: float = clampf(
+                0.83 + clumps * 0.14 + fine * 0.04,
+                0.64, 0.98)
+            dense_atlas.set_pixel(x, y, Color(
+                coarse_tone, coarse_tone * 0.96,
+                coarse_tone * 0.91, coarse_opacity))
     var material := StandardMaterial3D.new()
     material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
     material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
@@ -78,6 +115,13 @@ func _build_dust_sprite() -> void:
     dust_sprite_mesh = QuadMesh.new()
     dust_sprite_mesh.size = Vector2(0.78, 0.78)
     dust_sprite_mesh.material = material
+    var dense_material: StandardMaterial3D = (
+        material.duplicate() as StandardMaterial3D)
+    dense_material.albedo_texture = ImageTexture.create_from_image(
+        dense_atlas)
+    dense_soil_sprite_mesh = QuadMesh.new()
+    dense_soil_sprite_mesh.size = Vector2(0.90, 0.90)
+    dense_soil_sprite_mesh.material = dense_material
 
 
 ## The alpha fade is on per-particle vertex color. The shared
@@ -101,7 +145,8 @@ func _make_dust_scale() -> Curve:
 
 
 func _make_particles(name: String, dust: bool,
-        one_shot: bool, count: int) -> CPUParticles3D:
+        one_shot: bool, count: int,
+        substance: String = "") -> CPUParticles3D:
     var p := CPUParticles3D.new()
     p.name = name
     p.one_shot = one_shot
@@ -119,7 +164,8 @@ func _make_particles(name: String, dust: bool,
     p.initial_velocity_max = 2.5 if dust else 4.2
     p.color = DUST_COLOR if dust else EARTH_COLOR
     if dust:
-        p.mesh = dust_sprite_mesh
+        p.mesh = (dense_soil_sprite_mesh
+            if substance == "soil" else dust_sprite_mesh)
         p.color_ramp = _make_dust_fade()
         p.scale_amount_curve = _make_dust_scale()
         p.scale_amount_min = 0.80
@@ -130,9 +176,15 @@ func _make_particles(name: String, dust: bool,
         p.angular_velocity_max = 28.0
     else:
         var pebble := BoxMesh.new()
-        pebble.size = Vector3(0.07, 0.04, 0.065)
+        pebble.size = (
+            Vector3(0.030, 0.022, 0.038)
+            if substance == "grit"
+            else Vector3(0.10, 0.065, 0.088))
         var stone := StandardMaterial3D.new()
-        stone.albedo_color = Color(0.70, 0.66, 0.61, 1.0)
+        stone.albedo_color = (
+            Color(0.78, 0.66, 0.49, 1.0)
+            if substance == "grit"
+            else Color(0.39, 0.35, 0.31, 1.0))
         pebble.material = stone
         p.mesh = pebble
         p.scale_amount_min = 0.45
@@ -145,56 +197,132 @@ func _make_particles(name: String, dust: bool,
 
 func _ready() -> void:
     _build_dust_sprite()
-    # 4 inexpensive layers: darker heart, airborne turbulent haze,
-    # low rolling dust and a few genuinely 3D grit pieces.
-    # About 110 tiny quad/box particles at the most intense frame;
-    # no full-screen translucent image or 3D smoke simulation.
-    stomp_core = _make_particles("StompCompactDust", true, true, 25)
-    stomp_core.color = Color(0.49, 0.42, 0.36, 0.81)
-    stomp_core.spread = 44.0
+    # Dense brown SOIL, translucent pale POWDER, lateral SAND,
+    # slowly suspended fines, big rocks and tiny fast grit each
+    # carry a different silhouette, tone, size, speed and gravity.
+    stomp_core = _make_particles(
+        "StompCompactSoil", true, true, DENSE_SOIL_PARTICLES, "soil")
+    stomp_core.color = Color(0.43, 0.34, 0.27, 0.96)
+    stomp_core.spread = 39.0
     stomp_core.initial_velocity_min = 0.75
-    stomp_core.initial_velocity_max = 2.15
-    stomp_core.gravity = Vector3(0.0, -0.42, 0.0)
-    stomp_core.lifetime = 1.0
-    stomp_core.scale_amount_min = 1.0
-    stomp_core.scale_amount_max = 1.9
+    stomp_core.initial_velocity_max = 2.20
+    stomp_core.gravity = Vector3(0.0, -0.48, 0.0)
+    stomp_core.lifetime = 1.18
+    stomp_core.scale_amount_min = 1.12
+    stomp_core.scale_amount_max = 2.08
 
-    stomp_dust = _make_particles("StompRisingDust", true, true, 42)
-    stomp_dust.color = Color(0.73, 0.68, 0.61, 0.67)
-    stomp_dust.spread = 30.0
-    stomp_dust.initial_velocity_min = 2.0
-    stomp_dust.initial_velocity_max = 4.7
-    stomp_dust.gravity = Vector3(0.0, -0.70, 0.0)
-    stomp_dust.lifetime = 1.30
-    stomp_dust.scale_amount_min = 0.70
-    stomp_dust.scale_amount_max = 1.48
+    stomp_dust = _make_particles(
+        "StompRisingPowder", true, true, RISING_POWDER_PARTICLES)
+    stomp_dust.color = Color(0.79, 0.74, 0.68, 0.77)
+    stomp_dust.spread = 31.0
+    stomp_dust.initial_velocity_min = 2.15
+    stomp_dust.initial_velocity_max = 4.90
+    stomp_dust.gravity = Vector3(0.0, -0.62, 0.0)
+    stomp_dust.lifetime = 1.42
+    stomp_dust.scale_amount_min = 0.72
+    stomp_dust.scale_amount_max = 1.60
 
-    stomp_ground = _make_particles("StompRollingDust", true, true, 26)
-    stomp_ground.color = Color(0.65, 0.59, 0.52, 0.54)
-    stomp_ground.spread = 85.0
-    stomp_ground.initial_velocity_min = 0.35
-    stomp_ground.initial_velocity_max = 1.40
-    # This layer stays low rather than looking like a second plume.
-    stomp_ground.gravity = Vector3(0.0, -0.85, 0.0)
-    stomp_ground.lifetime = 1.18
-    stomp_ground.scale_amount_min = 0.85
-    stomp_ground.scale_amount_max = 1.85
+    stomp_ground = _make_particles(
+        "StompRollingSand", true, true, ROLLING_SAND_PARTICLES,
+        "soil")
+    stomp_ground.color = Color(0.64, 0.54, 0.43, 0.83)
+    stomp_ground.spread = 79.0
+    stomp_ground.initial_velocity_min = 0.42
+    stomp_ground.initial_velocity_max = 1.55
+    stomp_ground.gravity = Vector3(0.0, -0.91, 0.0)
+    stomp_ground.lifetime = 1.02
+    stomp_ground.scale_amount_min = 0.65
+    stomp_ground.scale_amount_max = 1.45
 
-    stomp_chunks = _make_particles("StompEarthChunks", false, true, 19)
-    stomp_chunks.spread = 42.0
-    stomp_chunks.initial_velocity_min = 2.2
-    stomp_chunks.initial_velocity_max = 4.8
+    stomp_fines = _make_particles(
+        "StompSuspendedFines", true, true, FLOATING_FINES_PARTICLES)
+    stomp_fines.color = Color(0.87, 0.82, 0.77, 0.48)
+    stomp_fines.spread = 49.0
+    stomp_fines.initial_velocity_min = 0.60
+    stomp_fines.initial_velocity_max = 2.35
+    stomp_fines.gravity = Vector3(0.0, -0.20, 0.0)
+    stomp_fines.lifetime = 1.85
+    stomp_fines.scale_amount_min = 0.38
+    stomp_fines.scale_amount_max = 1.04
+
+    stomp_chunks = _make_particles(
+        "StompDarkRockFragments", false, true,
+        ROCK_CHUNKS_PARTICLES)
+    stomp_chunks.spread = 43.0
+    stomp_chunks.initial_velocity_min = 2.10
+    stomp_chunks.initial_velocity_max = 4.80
     stomp_chunks.gravity = Vector3(0.0, -9.2, 0.0)
-    stomp_chunks.lifetime = 0.75
+    stomp_chunks.lifetime = 0.79
     stomp_chunks.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
 
-    kick_dust = _make_particles("KickGroundDust", true, true, 19)
-    kick_chunks = _make_particles("KickEjectedDirt", false, true, 22)
+    stomp_grit = _make_particles(
+        "StompFlyingSandGrit", false, true,
+        FLYING_GRIT_PARTICLES, "grit")
+    stomp_grit.spread = 62.0
+    stomp_grit.initial_velocity_min = 2.80
+    stomp_grit.initial_velocity_max = 5.60
+    stomp_grit.gravity = Vector3(0.0, -11.3, 0.0)
+    stomp_grit.lifetime = 0.55
+    stomp_grit.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
+
+    # Kick/flick: five distinct directionally ejected layers.
+    kick_forward_dust = _make_particles(
+        "KickForwardSoilJet", true, true, 33, "soil")
+    kick_forward_dust.color = Color(0.43, 0.34, 0.27, 0.95)
+    kick_forward_dust.spread = 18.0
+    kick_forward_dust.initial_velocity_min = 3.5
+    kick_forward_dust.initial_velocity_max = 6.0
+    kick_forward_dust.gravity = Vector3(0.0, -1.0, 0.0)
+    kick_forward_dust.lifetime = 1.07
+    kick_forward_dust.scale_amount_min = 0.75
+    kick_forward_dust.scale_amount_max = 1.72
+
+    kick_dust = _make_particles(
+        "KickFineForwardPowder", true, true, 35)
+    kick_dust.color = Color(0.81, 0.74, 0.67, 0.79)
+    kick_dust.spread = 25.0
+    kick_dust.initial_velocity_min = 2.5
+    kick_dust.initial_velocity_max = 5.0
+    kick_dust.gravity = Vector3(0.0, -0.50, 0.0)
+    kick_dust.lifetime = 1.37
+    kick_dust.scale_amount_min = 0.65
+    kick_dust.scale_amount_max = 1.44
+
+    kick_trailing_dust = _make_particles(
+        "KickBackwardResidualDust", true, true, 18, "soil")
+    kick_trailing_dust.color = Color(0.55, 0.47, 0.39, 0.68)
+    kick_trailing_dust.spread = 57.0
+    kick_trailing_dust.initial_velocity_min = 0.45
+    kick_trailing_dust.initial_velocity_max = 1.55
+    kick_trailing_dust.gravity = Vector3(0.0, -0.95, 0.0)
+    kick_trailing_dust.lifetime = 0.94
+    kick_trailing_dust.scale_amount_min = 0.68
+    kick_trailing_dust.scale_amount_max = 1.19
+
+    kick_chunks = _make_particles(
+        "KickForwardRockFragments", false, true, 22)
+    kick_chunks.spread = 17.0
+    kick_chunks.initial_velocity_min = 3.55
+    kick_chunks.initial_velocity_max = 6.45
+    kick_chunks.gravity = Vector3(0.0, -9.4, 0.0)
+    kick_chunks.lifetime = 0.80
+    kick_chunks.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
+
+    kick_grit = _make_particles(
+        "KickDirectionalFineGrit", false, true, 34, "grit")
+    kick_grit.spread = 15.0
+    kick_grit.initial_velocity_min = 4.00
+    kick_grit.initial_velocity_max = 6.90
+    kick_grit.gravity = Vector3(0.0, -11.0, 0.0)
+    kick_grit.lifetime = 0.59
+    kick_grit.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
+
     sweep_dust = _make_particles("SweepDustTrail", true, false, 34)
     sweep_dust.color = Color(0.66, 0.62, 0.56, 0.50)
     sweep_dust.initial_velocity_max = 1.3
     sweep_dust.lifetime = 0.88
-    sweep_chunks = _make_particles("SweepScatteredEarth", false, true, 10)
+    sweep_chunks = _make_particles(
+        "SweepScatteredEarth", false, true, 10)
 
 
 func _burst(p: CPUParticles3D, point: Vector3,
@@ -215,28 +343,41 @@ func emit_stomp(point: Vector3,
         maxf(half_extents.y, 0.05))
     # Dense core is tight, the high plume is moderately spread and
     # rolling dust covers the full foot-sized contact patch.
-    stomp_core.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
-    stomp_dust.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
-    stomp_ground.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
-    stomp_core.emission_box_extents = spread * 0.50
-    stomp_dust.emission_box_extents = spread * 0.82
-    stomp_ground.emission_box_extents = spread * 1.12
-    stomp_chunks.emission_box_extents = spread * 0.64
-    _burst(stomp_core, origin, Vector3.UP)
-    _burst(stomp_dust, origin, Vector3.UP)
-    _burst(stomp_ground, origin, Vector3.UP)
-    _burst(stomp_chunks, origin, Vector3.UP)
+    for p in [stomp_core, stomp_dust, stomp_ground, stomp_fines]:
+        p.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
+    stomp_core.emission_box_extents = spread * 0.51
+    stomp_dust.emission_box_extents = spread * 0.83
+    stomp_ground.emission_box_extents = spread * 1.13
+    stomp_fines.emission_box_extents = spread * 0.76
+    stomp_chunks.emission_box_extents = spread * 0.63
+    stomp_grit.emission_box_extents = spread * 0.90
+    for p in [stomp_core, stomp_dust, stomp_ground, stomp_fines,
+            stomp_chunks, stomp_grit]:
+        _burst(p, origin, Vector3.UP)
 
 
 func emit_kick(point: Vector3, outward: Vector3) -> void:
     var planar: Vector3 = Vector3(outward.x, 0.0, outward.z)
-    if planar.length_squared() < 0.000001:
+    if planar.length_squared() <= 0.000001:
         planar = Vector3.FORWARD
-    var flow: Vector3 = (planar.normalized() * 1.35
-        + Vector3.UP * 0.38).normalized()
-    var origin := Vector3(point.x, 0.04, point.z)
-    _burst(kick_dust, origin, flow)
-    _burst(kick_chunks, origin, flow)
+    var forward: Vector3 = planar.normalized()
+    # The material jet is biased decisively along the actual flick
+    # direction; rock/grit has a tighter cone and ballistic gravity.
+    var soil_jet: Vector3 = (
+        forward * 1.90 + Vector3.UP * 0.27).normalized()
+    var powder_jet: Vector3 = (
+        forward * 1.32 + Vector3.UP * 0.53).normalized()
+    var debris_jet: Vector3 = (
+        forward * 1.76 + Vector3.UP * 0.39).normalized()
+    var residue: Vector3 = (
+        -forward * 0.22 + Vector3.UP * 0.52).normalized()
+    var origin: Vector3 = Vector3(point.x, 0.04, point.z)
+    var ahead: Vector3 = origin + forward * 0.08
+    _burst(kick_forward_dust, ahead, soil_jet)
+    _burst(kick_dust, ahead, powder_jet)
+    _burst(kick_chunks, ahead, debris_jet)
+    _burst(kick_grit, ahead, debris_jet)
+    _burst(kick_trailing_dust, origin, residue)
 
 
 func trace_sweep(point: Vector3, delta: float) -> void:
@@ -261,10 +402,13 @@ func reset() -> void:
     end_sweep()
     sweep_elapsed = 0.0
     kicked_this_attack = false
+    kick_last_direction = Vector3.ZERO
     stomped_this_attack = false
     last_kind = ""
-    for p in [stomp_core, stomp_dust, stomp_ground, stomp_chunks,
-            kick_dust, kick_chunks, sweep_dust, sweep_chunks]:
+    for p in [stomp_core, stomp_dust, stomp_ground, stomp_fines,
+            stomp_chunks, stomp_grit, kick_forward_dust, kick_dust,
+            kick_trailing_dust, kick_chunks, kick_grit,
+            sweep_dust, sweep_chunks]:
         if p != null:
             p.emitting = false
 
