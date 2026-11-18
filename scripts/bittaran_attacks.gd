@@ -18,8 +18,12 @@ const TEST_ANTICIPATION_SPEED: float = 1.10
 const TEST_HOME_RETURN_SPEED: float = 1.25
 const TEST_NO_STOP_SECONDS: float = 0.0
 # v448: retime the original STOMP keys separately for front and rear legs.
-const STOMP_FRONT_APEX_SOURCE_SECONDS: float = 1.25
-const STOMP_REAR_APEX_SOURCE_SECONDS: float = 0.83333
+# The actual first apex is t=1.00(front) / t=.50(rear).
+# Identical held keys continue to 1.25/.83333; skip that inert plateau.
+const STOMP_FRONT_APEX_SOURCE_SECONDS: float = 1.00
+const STOMP_REAR_APEX_SOURCE_SECONDS: float = 0.50
+const STOMP_FRONT_DROP_START_SOURCE_SECONDS: float = 1.25
+const STOMP_REAR_DROP_START_SOURCE_SECONDS: float = 0.83333
 const STOMP_FRONT_LANDING_SOURCE_SECONDS: float = 1.50
 const STOMP_REAR_LANDING_SOURCE_SECONDS: float = 1.00
 const STOMP_FRONT_RAISE_SECONDS: float = 0.80
@@ -322,6 +326,12 @@ static func stomp_apex_source_seconds(attack_id: String) -> float:
         else STOMP_FRONT_APEX_SOURCE_SECONDS)
 
 
+static func stomp_drop_start_source_seconds(attack_id: String) -> float:
+    return (STOMP_REAR_DROP_START_SOURCE_SECONDS
+        if attack_id.begins_with("leg_r")
+        else STOMP_FRONT_DROP_START_SOURCE_SECONDS)
+
+
 static func stomp_landing_source_seconds(attack_id: String) -> float:
     return (STOMP_REAR_LANDING_SOURCE_SECONDS if attack_id.begins_with("leg_r")
         else STOMP_FRONT_LANDING_SOURCE_SECONDS)
@@ -348,7 +358,10 @@ static func stomp_warped_clip_time(seconds: float,
         var u: float = t / lift
         return apex * (1.0 - (1.0 - u) * (1.0 - u))
     var u: float = clampf((t - lift) / drop, 0.0, 1.0)
-    return apex + (landing - apex) * pow(u, 2.4)
+    # Source keys between apex and drop-start are byte-identical;
+    # skipping this static hold produces no visible pose discontinuity.
+    var drop_start: float = stomp_drop_start_source_seconds(attack_id)
+    return drop_start + (landing - drop_start) * pow(u, 2.4)
 
 
 static func stomp_warped_playback_speed(seconds: float,
@@ -362,7 +375,7 @@ static func stomp_warped_playback_speed(seconds: float,
     if t < lift + drop:
         var u: float = clampf((t - lift) / drop, 0.0, 1.0)
         return ((stomp_landing_source_seconds(attack_id)
-            - stomp_apex_source_seconds(attack_id))
+            - stomp_drop_start_source_seconds(attack_id))
             * 2.4 * pow(u, 1.4) / drop)
     return 0.0
 
