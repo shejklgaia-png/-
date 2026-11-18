@@ -22,7 +22,9 @@ func _run() -> void:
         return
     var steady: AudioStreamPlayer = sound.get("sustained")
     var burst: AudioStreamPlayer = sound.get("acceleration")
-    if steady == null or burst == null or (
+    if not bool(sound.get("sound_ready")) or (
+            int(sound.get("load_attempts")) != 1) or (
+            steady == null or burst == null) or (
             not steady.stream is AudioStreamOggVorbis) or (
             not burst.stream is AudioStreamOggVorbis):
         _fail("supplied 01/13-1 Ogg streams not loaded")
@@ -40,10 +42,53 @@ func _run() -> void:
     if sound.get("sustained_gain") != 0.0:
         _fail("initial sustained jet is audible")
         return
+    if steady.volume_db > -75.0 or burst.volume_db < 3.0:
+        _fail("sfx initialization levels are inaudible or unbalanced")
+        return
+    # Reproduce Android GitSync BEFORE Godot generates an import cache:
+    # a raw Ogg living in user:// has no .import metadata at all.
+    var src_path: String = "res://assets/sera_thruster_01_loop.ogg"
+    var raw_bytes: PackedByteArray = FileAccess.get_file_as_bytes(src_path)
+    if raw_bytes.is_empty():
+        _fail("missing physical Ogg asset; APK cannot reproduce audio")
+        return
+    var no_import_path: String = (
+        "user://SERA_v458_unimported_thruster_source.ogg")
+    var writable: FileAccess = FileAccess.open(
+        no_import_path, FileAccess.WRITE)
+    if writable == null:
+        _fail("cannot construct Android raw-Ogg source fixture")
+        return
+    writable.store_buffer(raw_bytes)
+    writable.close()
+    var directly_loaded: AudioStreamOggVorbis = sound.call(
+        "_load_ogg", no_import_path) as AudioStreamOggVorbis
+    if directly_loaded == null or (
+            absf(directly_loaded.get_length() - 4.9) > 0.08):
+        _fail("Android unimported raw Ogg did not decode")
+        return
+    DirAccess.remove_absolute(
+        ProjectSettings.globalize_path(no_import_path))
+    # A partial GitSync transfer can bring 01 before 13-1. It must
+    # still play the continuous jet while re-trying the other file.
+    var saved_burst_stream: AudioStream = burst.stream
+    burst.stream = null
+    sound.set("sound_ready", false)
+    sound.call("update_audio", DT, true, false)
+    if not steady.playing or int(sound.get(
+            "sustained_starts")) != 1:
+        _fail("01 is muted when only 13-1 has not synced yet")
+        return
+    steady.stop()
+    burst.stream = saved_burst_stream
+    sound.set("sound_ready", true)
+    sound.set("sustained_gain", 0.0)
+    sound.set("sustained_starts", 0)
     # BOOST: 01 only; repeated frames must never retrigger 13-1.
     for tick in range(18):
         sound.call("update_audio", DT, true, false)
     if not steady.playing or (
+            steady.volume_db < -6.0) or (
             int(sound.get("sustained_starts")) != 1) or (
             int(sound.get("acceleration_triggers")) != 0):
         _fail("boost did not start 01-only loop")
@@ -87,6 +132,44 @@ func _run() -> void:
     if int(sound.get("sustained_starts")) != 2:
         _fail("new BOOST did not restart after silence")
         return
+    # Also check THE ACTUAL Bittaran battle BGM, which v457 mixed
+    # 7.5-15dB louder than the thruster on small phone speakers.
+    var battle: Node3D = load(
+        "res://scenes/bittaran_battle.tscn").instantiate()
+    root.add_child(battle)
+    battle.set_process(false)
+    battle.set_physics_process(false)
+    var bgm: AudioStreamPlayer = (
+        battle.get("bittaran_bgm") as AudioStreamPlayer)
+    var jet: Node = battle.get("thruster_audio")
+    if bgm == null or jet == null or not bool(jet.get("sound_ready")):
+        _fail("Bittaran battle cannot load thruster under BGM")
+        return
+    for tick in range(30):
+        jet.call("update_audio", DT, true, tick == 0)
+        battle.call("_process", DT)
+    if not (bgm.volume_db < -9.5 and bgm.volume_db > -13.0):
+        _fail("strong boss BGM masks active thruster " +
+            str(bgm.volume_db))
+        return
+    var pre_release: float = bgm.volume_db
+    # Headless test drives the GAME clock manually; the audio mixer
+    # does not advance its real playback time between these calls.
+    # Model the 0.95-second acceleration clip finishing before the
+    # final BGM release, as it does on the actual Android device.
+    var launch_sound: AudioStreamPlayer = (
+        jet.get("acceleration") as AudioStreamPlayer)
+    launch_sound.stop()
+    for tick in range(90):
+        jet.call("update_audio", DT, false, false)
+        battle.call("_process", DT)
+    if bgm.volume_db <= pre_release or (
+            absf(bgm.volume_db + 5.0) > 0.1):
+        _fail("Bittaran BGM did not restore after jet fade")
+        return
+    print("GODOT_SERA_THRUSTER_AUDIO_ANDROID_FALLBACK_PASS ",
+        "unimported_raw_ogg=true audible_levels=true ",
+        "boss_bgm_duck_release=true")
     print("GODOT_SERA_THRUSTER_AUDIO_RUNTIME_PASS ",
         "01_gapless_loop=4.9s continuous_boost_step_homing=true ",
         "13_1_step_and_tracking_onsets=true overlap=true ",

@@ -1,3 +1,12 @@
+## 2026-11-18 — SERA v458: Androidでスラスター音が聞こえない不具合修正
+
+- v457の01・13-1は両方ともGitHub mainに実音源が存在するが、静的`preload("res://assets/*.ogg")`がAndroidのGit同期直後の未インポートOGGを利用できない可能性がある。
+- `scripts/sera_thruster_audio.gd`: 実行時にResourceLoaderのインポート済みストリームを試し、無い場合は`FileAccess.get_file_as_bytes`と`AudioStreamOggVorbis.load_from_buffer`で直接デコード。アプリ可書込領域`user://`のOGGにも対応。同期後にインポートが遅れたときは2秒ごとに再読み込みし、取得経路をログに出す。音源欠損でもシーン全体のロードを中断しない。
+- 既存の持続01ループ／ステップ時と追尾加速時の13-1重ね再生／220msのスラスター音フェードアウトを保持。実際の音源01のRMS約-15dBFS、13-1のRMS約-27dBFSに合わせ、持続プレイヤーを-12.5→-3.0dB、加速音を-3.0→+6.0dBへ調整。ピークは両音ともクリップしない目標。
+- `scripts/bittaran_battle.gd`: ボスBGMの-5dBが粉塵音と加速音をマスキングしていたため、スラスター／加速中のみ最大7dBの軽いサイドチェーンダッキングを適用。立ち上がり0.10秒・戻り0.32秒の滑らかな遷移で音楽は止めない。
+- `tools/sera_thruster_audio_runtime_check.gd`: インポート無しのuser:// OGG直接デコード、実音源、プレイヤー音量、01と13-1の重ね再生、ボスBGMのダッキングと復帰をテスト。
+- Godot headlessは音声デコード／ノードの再生状態を検証できるが、Android実機の音量・外部出力・古いAPKへの即時反映は検証できない。GitHubマージのみでは既存のAPKは更新されない。
+
 ## 2026-11-18 — SERA v457: 01の継続噴射音と13-1の加速音を実装
 
 - ユーザー提供音源から4.90秒のクロスフェード済み01 OGGループと0.95秒の13-1 OGGを作成し、`assets/sera_thruster_01_loop.ogg`／`assets/sera_thruster_13_1_acceleration.ogg` に実バイナリを追加。
