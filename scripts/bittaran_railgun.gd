@@ -1,0 +1,286 @@
+extends Node3D
+## Bittaran's dorsal railgun. Its azimuth/elevation and ten-second fire
+## clock are separate from locomotion, leg attacks, source clips and HEAD.
+## The Body bone transports the mount; no animation ever writes these pivots.
+const RENDER_ORDER = preload("res://scripts/render_order_policy.gd")
+
+const PERIOD_SECONDS: float = 10.0
+const BEAM_SECONDS: float = 2.0
+const POST_FIRE_HOLD_SECONDS: float = 0.4
+const RETURN_SECONDS: float = 0.8
+const CHARGE_START: float = BEAM_SECONDS + POST_FIRE_HOLD_SECONDS + RETURN_SECONDS
+const FLASH_START: float = 9.6
+const FLASH_END: float = 9.8
+const FLASH_SHRINK_SECONDS: float = FLASH_END - FLASH_START
+const TRACK_YAW_SPEED: float = 120.0
+const TRACK_PITCH_SPEED: float = 100.0
+const TRACK_FILTER_PER_SECOND: float = 6.0
+const MAX_BEAM_RANGE_METERS: float = 45.0
+const BEAM_RADIUS_METERS: float = 0.70
+const PLAYER_HIT_RADIUS_METERS: float = 0.48
+const BEAM_DAMAGE_TICK_SECONDS: float = 0.5
+const MUZZLE_LOCAL_Z: float = -1.53
+# Two authored rails, not the body, pedestal, head or either leg.
+# Original mesh UUIDs, geometry, materials and Blockbench source are retained.
+const RAIL_MESH_UUIDS = [
+    "2ce4b10f-8a6d-72de-8b79-763d67e41b78",
+    "3e2ee103-881b-8bc0-edc1-ea9e396268e9",
+]
+
+enum Phase { BEAM, HOLD, RETURN, CHARGE, FLASH, PRE_FIRE }
+var elevation: Node3D
+var outer_beam: MeshInstance3D
+var inner_beam: MeshInstance3D
+var muzzle_flash: MeshInstance3D
+var charge_materials: Array[StandardMaterial3D] = []
+var elapsed: float = CHARGE_START
+var last_phase: int = Phase.CHARGE
+var return_yaw_origin: float = 0.0
+var return_pitch_origin: float = 0.0
+var hit_cooldown: float = 0.0
+var ready_to_fire: bool = false
+
+func setup(rig: Node3D) -> bool:
+    var body: Node3D = rig.find_child("Body", true, false) as Node3D
+    if body == null or get_parent() != body:
+        push_error("Bittaran railgun must be a child of the animated Body bone")
+        return false
+    var model_meshes: Dictionary = rig.get("mesh_nodes_by_uuid")
+    for uid in RAIL_MESH_UUIDS:
+        if not model_meshes.has(uid) or not is_instance_valid(model_meshes[uid]):
+            push_error("Bittaran railgun: authored barrel is missing: " + uid)
+            return false
+    # Pivot is the measured neutral center of the two imported long rails.
+    # The rig's Body origin is [0.3,3.7,-1.4] in Blockbench coordinates.
+    position = Vector3(-0.0435, 2.493, -0.4205)
+    physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_ON
+    elevation = Node3D.new()
+    elevation.name = "RailgunElevation"
+    elevation.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_ON
+    add_child(elevation)
+    # Preserve the authored mesh's WORLD transform while changing its parent.
+    # The animated Body is still the base; only the two rails pitch and turn.
+    for uid in RAIL_MESH_UUIDS:
+        var rail: MeshInstance3D = model_meshes[uid] as MeshInstance3D
+        rail.reparent(elevation, true)
+    _build_charge_boxes()
+    _build_beam()
+    _build_muzzle_flash()
+    reset()
+    ready_to_fire = true
+    return true
+
+func _metal_box(parent: Node3D, node_name: String, box_size: Vector3,
+        offset: Vector3, mat: StandardMaterial3D) -> MeshInstance3D:
+    var mesh := BoxMesh.new()
+    mesh.size = box_size
+    var part := MeshInstance3D.new()
+    part.name = node_name
+    part.mesh = mesh
+    part.position = offset
+    part.material_override = mat
+    part.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+    parent.add_child(part)
+    return part
+
+func _build_charge_boxes() -> void:
+    var case_material := StandardMaterial3D.new()
+    case_material.albedo_color = Color("#394a62")
+    case_material.metallic = 0.55
+    case_material.roughness = 0.36
+    for side in [-1, 1]:
+        var suffix: String = "L" if side < 0 else "R"
+        _metal_box(elevation, "RailgunSideBox_" + suffix,
+            Vector3(0.13, 0.26, 0.76), Vector3(float(side) * 0.33, 0.02, -0.24),
+            case_material)
+        for segment in range(3):
+            var glow := StandardMaterial3D.new()
+            glow.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+            glow.emission_enabled = true
+            glow.render_priority = RENDER_ORDER.DEPTH_TESTED_EMISSIVE
+            charge_materials.append(glow)
+            _metal_box(elevation, "ChargeBar_%s_%d" % [suffix, segment + 1],
+                Vector3(0.018, 0.062, 0.16),
+                Vector3(float(side) * 0.406, 0.055,
+                    0.0 - float(segment) * 0.23), glow)
+
+func _beam_material(color: Color, energy: float) -> StandardMaterial3D:
+    var mat := StandardMaterial3D.new()
+    mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+    mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+    mat.albedo_color = color
+    mat.emission_enabled = true
+    mat.emission = Color("#b9f3ff")
+    mat.emission_energy_multiplier = energy
+    mat.render_priority = RENDER_ORDER.DEPTH_TESTED_EMISSIVE
+    # StandardMaterial3D keeps depth testing enabled: the weapon cannot
+    # shine through Bittaran's armor or SERA.
+    return mat
+
+func _cylinder_beam(node_name: String, radius: float,
+        mat: StandardMaterial3D) -> MeshInstance3D:
+    var shape := CylinderMesh.new()
+    shape.top_radius = radius
+    shape.bottom_radius = radius
+    shape.height = 1.0
+    shape.radial_segments = 12
+    var part := MeshInstance3D.new()
+    part.name = node_name
+    part.mesh = shape
+    part.material_override = mat
+    part.rotation.x = -PI * 0.5
+    part.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+    part.visible = false
+    elevation.add_child(part)
+    return part
+
+func _build_beam() -> void:
+    outer_beam = _cylinder_beam("RailgunLaserHalo", 0.35,
+        _beam_material(Color(0.23, 0.75, 1.0, 0.32), 2.6))
+    inner_beam = _cylinder_beam("RailgunLaserCore", 0.20,
+        _beam_material(Color(0.94, 0.98, 1.0, 0.94), 3.6))
+    # The Bittaran target root is scaled x2; convert desired WORLD range
+    # back to the muzzle's local length, without doubling beam range.
+    var local_length: float = (
+        MAX_BEAM_RANGE_METERS / maxf(elevation.global_basis.z.length(), 0.01))
+    for part in [outer_beam, inner_beam]:
+        part.scale = Vector3(1.0, local_length, 1.0)
+        part.position.z = MUZZLE_LOCAL_Z - local_length * 0.5
+
+func _build_muzzle_flash() -> void:
+    var sphere := SphereMesh.new()
+    sphere.radius = 0.58
+    sphere.height = 1.16
+    sphere.radial_segments = 16
+    sphere.rings = 8
+    muzzle_flash = MeshInstance3D.new()
+    muzzle_flash.name = "RailgunMuzzleFlash"
+    muzzle_flash.mesh = sphere
+    muzzle_flash.position.z = MUZZLE_LOCAL_Z
+    muzzle_flash.material_override = _beam_material(
+        Color(0.79, 0.96, 1.0, 0.90), 4.5)
+    muzzle_flash.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+    muzzle_flash.visible = false
+    elevation.add_child(muzzle_flash)
+
+func reset() -> void:
+    elapsed = CHARGE_START
+    last_phase = Phase.CHARGE
+    return_yaw_origin = 0.0
+    return_pitch_origin = 0.0
+    hit_cooldown = 0.0
+    rotation.y = 0.0
+    if elevation != null:
+        elevation.rotation.x = 0.0
+    if outer_beam != null:
+        outer_beam.visible = false
+    if inner_beam != null:
+        inner_beam.visible = false
+    if muzzle_flash != null:
+        muzzle_flash.visible = false
+    _show_charge(0.0)
+
+func _phase_at(t: float) -> int:
+    if t < BEAM_SECONDS:
+        return Phase.BEAM
+    if t < BEAM_SECONDS + POST_FIRE_HOLD_SECONDS:
+        return Phase.HOLD
+    if t < CHARGE_START:
+        return Phase.RETURN
+    if t < FLASH_START:
+        return Phase.CHARGE
+    if t < FLASH_END:
+        return Phase.FLASH
+    return Phase.PRE_FIRE
+
+func _track_player(delta: float, player_world: Vector3) -> void:
+    # Convert the WORLD target into the animated Body's CURRENT local frame.
+    # Yaw and pitch remain separate from all four attack-leg source clips.
+    var to_player: Vector3 = get_parent().to_local(
+        player_world + Vector3.UP * 0.92) - position
+    if to_player.length_squared() <= 0.0001:
+        return
+    var target_yaw: float = atan2(-to_player.x, -to_player.z)
+    var flat: float = Vector2(to_player.x, to_player.z).length()
+    var target_pitch: float = atan2(to_player.y, maxf(flat, 0.12))
+    var eased: float = 1.0 - exp(-TRACK_FILTER_PER_SECOND * delta)
+    var yaw_step: float = angle_difference(rotation.y, target_yaw) * eased
+    rotation.y += clampf(yaw_step,
+        -deg_to_rad(TRACK_YAW_SPEED) * delta,
+        deg_to_rad(TRACK_YAW_SPEED) * delta)
+    var pitch_step: float = (target_pitch - elevation.rotation.x) * eased
+    elevation.rotation.x = clampf(elevation.rotation.x + clampf(pitch_step,
+        -deg_to_rad(TRACK_PITCH_SPEED) * delta,
+        deg_to_rad(TRACK_PITCH_SPEED) * delta),
+        deg_to_rad(-80.0), deg_to_rad(80.0))
+
+func _show_charge(progress: float) -> void:
+    for index in range(charge_materials.size()):
+        var lit: float = clampf(progress * 3.0 - float(index % 3), 0.0, 1.0)
+        var mat: StandardMaterial3D = charge_materials[index]
+        mat.albedo_color = Color("#223449").lerp(Color("#c8faff"), lit)
+        mat.emission = Color("#182d47").lerp(Color("#a8eeff"), lit)
+        mat.emission_energy_multiplier = 0.22 + lit * 3.8
+
+func _beam_overlaps_player(player_world: Vector3) -> bool:
+    var origin: Vector3 = elevation.to_global(
+        Vector3(0.0, 0.0, MUZZLE_LOCAL_Z))
+    var forward: Vector3 = -elevation.global_basis.z.normalized()
+    var toward: Vector3 = player_world + Vector3.UP * 0.92 - origin
+    var along: float = toward.dot(forward)
+    if along < 0.0 or along > MAX_BEAM_RANGE_METERS:
+        return false
+    var closest: Vector3 = origin + forward * along
+    var distance_squared: float = (
+        (player_world + Vector3.UP * 0.92 - closest).length_squared())
+    return distance_squared <= pow(
+        BEAM_RADIUS_METERS + PLAYER_HIT_RADIUS_METERS, 2.0)
+
+## True only on a damage pulse; the battle scene owns the existing
+## player guard/HP/knockback response. Target KO/respawn calls reset().
+func advance(delta: float, player_world: Vector3, active: bool) -> bool:
+    if not ready_to_fire or not active:
+        reset()
+        return false
+    var step: float = maxf(delta, 0.0)
+    elapsed = fposmod(elapsed + step, PERIOD_SECONDS)
+    hit_cooldown = maxf(0.0, hit_cooldown - step)
+    var phase: int = _phase_at(elapsed)
+    if phase == Phase.RETURN and last_phase != Phase.RETURN:
+        return_yaw_origin = rotation.y
+        return_pitch_origin = elevation.rotation.x
+    if phase == Phase.RETURN:
+        var ratio: float = clampf(
+            (elapsed - BEAM_SECONDS - POST_FIRE_HOLD_SECONDS)
+            / RETURN_SECONDS, 0.0, 1.0)
+        var smooth: float = ratio * ratio * (3.0 - 2.0 * ratio)
+        rotation.y = lerp_angle(return_yaw_origin, 0.0, smooth)
+        elevation.rotation.x = lerpf(return_pitch_origin, 0.0, smooth)
+    elif phase == Phase.CHARGE or phase == Phase.FLASH or (
+            phase == Phase.PRE_FIRE or phase == Phase.BEAM):
+        # Tracking begins on the first CHARGE tick and continues even
+        # throughout the full two-second beam sweep.
+        _track_player(step, player_world)
+    # Hold the FINAL firing orientation for 0.4 seconds before easing
+    # back to the original angle. The next charge reactivates tracking.
+    _show_charge(clampf(
+        (elapsed - CHARGE_START) / (FLASH_START - CHARGE_START),
+        0.0, 1.0) if phase == Phase.CHARGE or (
+            phase == Phase.FLASH or phase == Phase.PRE_FIRE) else 0.0)
+    var firing: bool = phase == Phase.BEAM
+    outer_beam.visible = firing
+    inner_beam.visible = firing
+    if phase == Phase.FLASH:
+        var shrink: float = clampf(
+            (elapsed - FLASH_START) / FLASH_SHRINK_SECONDS, 0.0, 1.0)
+        var ease: float = shrink * shrink * (3.0 - 2.0 * shrink)
+        muzzle_flash.scale = Vector3.ONE * maxf(0.01, 1.0 - ease)
+        muzzle_flash.visible = true
+    else:
+        muzzle_flash.visible = false
+    last_phase = phase
+    if firing and hit_cooldown <= 0.0 and (
+            _beam_overlaps_player(player_world)):
+        hit_cooldown = BEAM_DAMAGE_TICK_SECONDS
+        return true
+    return false
