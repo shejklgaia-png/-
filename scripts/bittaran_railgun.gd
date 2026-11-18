@@ -60,9 +60,14 @@ func setup(rig: Node3D) -> bool:
     add_child(elevation)
     # Preserve the authored mesh's WORLD transform while changing its parent.
     # The animated Body is still the base; only the two rails pitch and turn.
+    var mesh_bind_positions: Dictionary = rig.get("mesh_base_positions_by_uuid")
     for uid in RAIL_MESH_UUIDS:
         var rail: MeshInstance3D = model_meshes[uid] as MeshInstance3D
         rail.reparent(elevation, true)
+        # Diagnostic and skeleton regression checks measure neutral LOCAL
+        # placement against this runtime parent, not the historical Body.
+        mesh_bind_positions[uid] = rail.position
+    rig.set("mesh_base_positions_by_uuid", mesh_bind_positions)
     _build_charge_boxes()
     _build_beam()
     _build_muzzle_flash()
