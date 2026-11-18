@@ -37,6 +37,8 @@ func _run() -> void:
         var prev_band: int = -1
         var first_ground: float = INF
         var first_stomp: float = INF
+        var impact_pulses: int = 0
+        var was_stomped: bool = false
         for i in range(350):
             b.call("_advance_target_motion", DT)
             var frame: Dictionary = b.get("bittaran_attack_frame")
@@ -54,8 +56,17 @@ func _run() -> void:
             var grounded: bool = b.call("_bittaran_striking_foot_grounded",leg_id)
             if first_ground == INF and grounded:
                 first_ground = t
-            if first_stomp == INF and bool(fx.get("stomped_this_attack")):
-                first_stomp = t
+            var stomped_now: bool = bool(
+                fx.get("stomped_this_attack"))
+            if stomped_now and not was_stomped:
+                impact_pulses += 1
+                if not grounded:
+                    _fail("stomp impact emitted above floor " +
+                        str([spec,t,bounds.position.y]))
+                    return
+                if first_stomp == INF:
+                    first_stomp = t
+            was_stomped = stomped_now
             var band: int = int(floor(t * 10.0 + 0.0001))
             if band != prev_band:
                 print("CONTACT_TRACE id=",leg_id," kind=",kind,
@@ -70,9 +81,18 @@ func _run() -> void:
                     " hp=",b.get("player_hp"))
                 prev_band=band
             last = pos
+        if kind == "stomp":
+            var target_key: float = 1.467 if leg_id.begins_with(
+                "leg_f") else 0.985
+            if impact_pulses != 1 or not is_finite(first_stomp) or (
+                    absf(first_stomp - target_key) > 0.075):
+                _fail("single first-touch stomp event not replayed " +
+                    str([spec,impact_pulses,first_stomp,target_key]))
+                return
         print("CONTACT_SUMMARY id=",leg_id," kind=",kind,
             " first_ground=",first_ground,
-            " stompFX=",first_stomp)
+            " stompFX=",first_stomp,
+            " impact_pulses=",impact_pulses)
         b.queue_free()
     # Observe real boss decision behavior for close player.
     for distance in [0.9,1.65,2.4,2.75]:
@@ -98,8 +118,20 @@ func _run() -> void:
                     " boss_distance=",boss.global_position.distance_to(
                     player.global_position))
             battle.call("_finalize_target_pose",DT)
+        # With close-range 3-step orbit, all four placements MUST
+        # perform a genuine STOMP before deciding the next attack.
+        # Previously the mandatory step retreat put every case in
+        # KICK range, with zero STOMPs even after several full attacks.
+        if kinds.size() < 3 or kinds[0] != "stomp":
+            _fail("close stationary SERA never received STOMP " +
+                str([distance,kinds]))
+            return
+        for k in range(1, kinds.size()):
+            if kinds[k] == kinds[k-1]:
+                _fail("repeated same attack after STOMP " + str(kinds))
+                return
         print("CONTACT_AI_SUMMARY start_distance=",distance,
             " kind_history=",kinds)
         battle.queue_free()
-    print("GODOT_SOURCE_CONTACT_TIMELINE_DIAGNOSTIC_PASS")
+    print("GODOT_SOURCE_CONTACT_TIMELINE_PASS first-ground-sweep=true stomp-landing-once=true four-close-STOMP=true")
     quit(0)
