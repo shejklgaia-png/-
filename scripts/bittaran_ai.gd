@@ -51,7 +51,8 @@ func advance_recovery_turn(delta: float, position: Vector3, yaw: float,
 func advance(delta: float, position: Vector3, yaw: float,
         player_position: Vector3, frozen: bool,
         force_three_step_walk: bool = false,
-        force_attack_variation: bool = false) -> Dictionary:
+        force_attack_variation: bool = false,
+        last_attack_kind: String = "") -> Dictionary:
     var state := {"position": position, "yaw": yaw, "motion": "Idle"}
     if delta <= 0.0 or frozen:
         current_speed = 0.0
@@ -92,13 +93,34 @@ func advance(delta: float, position: Vector3, yaw: float,
             deg_to_rad(MOVING_TURN_DEG_PER_SEC) * delta)
         var direction: Vector3 = Vector3(
             sin(next_yaw), 0.0, cos(next_yaw))
-        if distance < WALK_RETREAT_DISTANCE_METERS:
+        if force_attack_variation:
+            # A repeat-blocked attack cannot become legal merely by
+            # circling SERA at a fixed radius. The previous AI orbited
+            # at ~6.8m forever after SWEEP: walk steps accumulated
+            # (131 steps in the live regression) but the next attack
+            # remained SWEEP, which the nonrepeat rule rejects.
+            # Move THROUGH the sector boundary into a different valid
+            # attack. All distances are ordinary movement, never a
+            # teleport or a forced clip outside its hit range.
+            match last_attack_kind:
+                "sweep":
+                    # Approach until KICK (front 3-5m) or STOMP (<3m).
+                    direction = toward.normalized()
+                "kick", "stomp":
+                    # Withdraw until SWEEP or KICK becomes legal.
+                    direction = -toward.normalized()
+                _:
+                    # Compatibility for generic movement requests.
+                    var radial: Vector3 = toward.normalized()
+                    direction = Vector3(-radial.z, 0.0, radial.x)
+        elif distance < WALK_RETREAT_DISTANCE_METERS:
             # Retreat while facing the player instead of pushing
             # the attack foot through an overlapping character.
             direction = -toward.normalized()
         elif distance <= WALK_ORBIT_DISTANCE_METERS:
-            # Orbit at a reachable distance instead of freezing when
-            # normal AI would stop before accumulating three steps.
+            # Orbit only while meeting the minimum-walk-step
+            # requirement; once an attack type is repeat-blocked,
+            # deliberate radial movement changes its legal sector.
             var radial: Vector3 = toward.normalized()
             direction = Vector3(-radial.z, 0.0, radial.x)
         state["position"] = position + direction * current_speed * delta
