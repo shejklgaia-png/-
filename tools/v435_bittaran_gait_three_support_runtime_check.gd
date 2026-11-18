@@ -29,6 +29,13 @@ func _fail(message: String) -> void:
 
 func _sole(limb: Dictionary) -> Vector3:
     var foot: Node3D = limb["foot"]
+    # The live gait transitions its contact point from source_sole to
+    # the distal toe over 0.24s; checking source_sole after this blend
+    # measures an unrelated point ~13cm away from the planted contact.
+    return foot.to_global(limb["sole_local"] as Vector3)
+
+func _attack_sole(limb: Dictionary) -> Vector3:
+    var foot: Node3D = limb["foot"]
     return foot.to_global(limb["source_sole_local"] as Vector3)
 
 func _meshes_unchanged(rig: Node3D, label: String) -> bool:
@@ -291,7 +298,7 @@ func _run() -> void:
             for i in range(limbs.size()):
                 if LEG_IDS[i] == options[0]:
                     continue
-                var contact: Vector3 = _sole(limbs[i])
+                var contact: Vector3 = _attack_sole(limbs[i])
                 var planted: Vector3 = limbs[i]["source_ik_attack_anchor"]
                 if absf(contact.y) > CONTACT_TOLERANCE_METERS or (
                         contact.distance_to(planted) > 0.09):
