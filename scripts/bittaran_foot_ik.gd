@@ -2585,7 +2585,11 @@ func _ground_front_attack_leg(leg: Dictionary) -> void:
 ## v435: isolated IK state. Unlike legacy IK, this layer never
 ## crouches/pitches the BODY, offsets the root, alters animation keys,
 ## or touches the attacking limb. One diagonal swing pair at a time.
-const SOURCE_STEP_TRIGGER_METERS: float = 0.62
+# Normal walking: wait for twice the former planted-foot travel
+# before each diagonal swing. The same IK landing, 0.52s cadence,
+# height and postattack replant rules remain unchanged.
+const SOURCE_WALK_STRIDE_SCALE: float = 2.0
+const SOURCE_STEP_TRIGGER_METERS: float = 0.62 * SOURCE_WALK_STRIDE_SCALE
 const SOURCE_STEP_DURATION_SECONDS: float = 0.52
 const SOURCE_STEP_HEIGHT_METERS: float = 0.22
 # After source attack return, explicitly walk BOTH diagonal pairs to
