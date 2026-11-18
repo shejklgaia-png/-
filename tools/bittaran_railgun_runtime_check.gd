@@ -35,7 +35,7 @@ func _run() -> void:
         _fail("ten-second launch/two-second beam contract changed")
         return
     var body: Node3D = rig.find_child("Body", true, false) as Node3D
-    var elevation: Node3D = gun.get_node("RailgunElevation")
+    var elevation: Node3D = gun.get_node("RailgunElevation") as Node3D
     if gun.get_parent() != body or elevation == null:
         _fail("railgun is not an independent Body-mounted yaw/pitch pair")
         return
@@ -94,7 +94,7 @@ func _run() -> void:
     if flash.visible or core.visible:
         _fail("the flash must be gone before a 0.2-second dark gap")
         return
-    gun.call("advance", 0.19, player_origin, true)
+    gun.call("advance", 0.17, player_origin, true)
     if core.visible:
         _fail("beam fired early during the post-flash gap")
         return
@@ -106,7 +106,7 @@ func _run() -> void:
     if (core.material_override as BaseMaterial3D).no_depth_test:
         _fail("beam illegally renders through opaque armor")
         return
-    gun.call("advance", 1.91, player_origin, true)
+    gun.call("advance", 2.01, player_origin, true)
     if core.visible:
         _fail("beam exceeded the two-second duration")
         return
