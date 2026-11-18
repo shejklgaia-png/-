@@ -40,9 +40,24 @@ for clip in boss["animations"][:7]:
             continue
         imported = clip["animators"][bone].get("keyframes", [])
         expected = animator.get("keyframes", [])
-        assert [{k: v for k, v in item.items() if k != "uuid"} for item in imported] == [
-            {k: v for k, v in item.items() if k != "uuid"} for item in expected
-        ], (clip["name"], bone)
+        normalized = lambda keys: [
+            {k: v for k, v in item.items() if k != "uuid"}
+            for item in keys]
+        # Existing authored rotation keys remain byte-equivalent; the
+        # intentional ground-correction BODY position key is appended
+        # only to Wait and the two STOMP clips.
+        assert normalized(imported[:len(expected)]) == normalized(expected), (
+            clip["name"], bone)
+        extra = imported[len(expected):]
+        if extra:
+            assert bone == next(g["uuid"] for g in boss["groups"]
+                                if g["name"] == "Body"), (clip["name"], bone)
+            assert clip["name"] in ("Wait", "踏みつけ_L", "踏みつけ_R")
+            assert len(extra) == 1 and extra[0]["channel"] == "position"
+            assert extra[0]["time"] == 0
+            assert extra[0]["data_points"] == [{
+                "x": "0", "y": "6.9" if clip["name"] == "Wait" else "5.4",
+                "z": "0"}]
 all_ids = [key["uuid"] for clip in boss["animations"]
            for track in clip["animators"].values()
            for key in track.get("keyframes", [])]
