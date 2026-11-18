@@ -149,8 +149,10 @@ func _run() -> void:
         if frame.is_empty():
             break
         battle.call("_finalize_target_pose", DT)
-        live_pulses = int(fx.get("sweep_burst_count"))
-        if live_pulses > 0:
+        var current_pulses: int = int(fx.get("sweep_burst_count"))
+        # Check position only WHEN a new puff spawns. Completed puffs
+        # deliberately stay fixed in world space while the toe returns.
+        if current_pulses > live_pulses:
             var foot: AABB = battle.call(
                 "_bittaran_attack_foot_bounds", "leg_fl")
             var emission: Vector3 = fx.get("last_sweep_fx_origin")
@@ -162,9 +164,10 @@ func _run() -> void:
                     emission.x > foot.end.x + 0.20 or
                     emission.z < foot.position.z - 0.20 or
                     emission.z > foot.end.z + 0.20):
-                _fail("live effect outside striking toe footprint " +
+                _fail("new live puff outside striking toe footprint " +
                     str([emission, foot]))
                 return
+        live_pulses = current_pulses
     if live_pulses < 4:
         _fail("real authored ground sweep had sparse/no effects " +
             str(live_pulses))
