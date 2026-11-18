@@ -7,6 +7,7 @@ const BittaranFootIK = preload("res://scripts/bittaran_foot_ik.gd")
 const BittaranParts = preload("res://scripts/bittaran_parts.gd")
 const BittaranAttacks = preload("res://scripts/bittaran_attacks.gd")
 const BittaranDirtFX = preload("res://scripts/bittaran_dirt_fx.gd")
+const BittaranRailgun = preload("res://scripts/bittaran_railgun.gd")
 const BittaranSweepFXTrack = preload("res://scripts/bittaran_sweep_fx_track.gd")
 const DOWN_CLEARANCE = preload("res://scripts/bittaran_down_clearance.gd")
 const CONTROLLER_AXIS = preload("res://scripts/bittaran_controller_axis.gd")
@@ -107,6 +108,7 @@ const HEAD_TRACK_COLLISION_ESCAPE_GUARD_METERS: float = 0.008
 const HEAD_TRACK_COLLISION_RELEASE_HOLD_SECONDS: float = 0.12
 
 var bittaran_rig: Node3D
+var bittaran_railgun: Node3D
 var bittaran_ai: RefCounted
 var bittaran_foot_ik: RefCounted
 var bittaran_motion: String = "Idle"
@@ -277,6 +279,16 @@ func _build_target() -> void:
         0.0 if BLOCKBENCH_SOURCE_REPLAY_ONLY or (
             BLOCKBENCH_GAIT_SUPPORT_IK) else -1.12)
     target.add_child(bittaran_rig)
+    # The authored rails become independent azimuth/elevation children of
+    # Body; neither leg replay, support IK nor HEAD owns their transform.
+    var railgun_body: Node3D = bittaran_rig.find_child(
+        "Body", true, false) as Node3D
+    if railgun_body != null:
+        bittaran_railgun = BittaranRailgun.new()
+        bittaran_railgun.name = "IndependentDorsalRailgun"
+        railgun_body.add_child(bittaran_railgun)
+        if not bool(bittaran_railgun.call("setup", bittaran_rig)):
+            push_error("Bittaran: railgun setup failed")
     bittaran_head = bittaran_rig.find_child("Head", true, false) as Node3D
     if bittaran_head != null:
         boss_head_default_rotation = bittaran_head.quaternion
@@ -1598,9 +1610,26 @@ func _physics_process(delta: float) -> void:
         player.position.y = 0.0
         passive_fall_velocity = 0.0
     _tick_bittaran_shockwave(delta)
+    _tick_bittaran_railgun(delta)
     _tick_impact_shake(delta)
     _tick_bittaran_footfalls()
     _update_bittaran_lock_permissions()
+
+func _tick_bittaran_railgun(delta: float) -> void:
+    if bittaran_railgun == null or player == null:
+        return
+    var active: bool = (target_hp > 0 and player_hp > 0
+        and training_ko_remaining <= 0.0)
+    if bool(bittaran_railgun.call("advance", delta,
+            player.global_position, active)):
+        # The independent laser uses the SAME guard, shield, HP, damage
+        # reaction and KO pipeline as established Bittaran attacks.
+        var incoming: Vector3 = (
+            player.global_position - bittaran_railgun.global_position)
+        if incoming.length_squared() < 0.000001:
+            incoming = Vector3.FORWARD
+        _on_enemy_projectile_hit(player.global_position,
+            incoming.normalized(), true, 0)
 
 ## Read the actual world-space striking-foot mesh after source replay + IK.
 ## The legacy procedural attack_pose stays empty during source replay.
@@ -1951,6 +1980,8 @@ func _reset_target_after_respawn() -> void:
     boss_head_yaw = 0.0
     if bittaran_rig != null:
         bittaran_rig.call("clear_stomp_down_windup")
+    if bittaran_railgun != null:
+        bittaran_railgun.call("reset")
     boss_head_pitch = 0.0
     head_look_filtered_pitch = 0.0
     boss_head_windup_start_yaw = 0.0
