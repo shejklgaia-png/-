@@ -3812,6 +3812,9 @@ func _source_ik_return_attacker_to_home(
             prior.basis.get_rotation_quaternion())
         limb["source_ik_leg_return_knee"] = limb.get(
             "source_ik_last_knee_world", lower.global_position)
+        limb["source_ik_leg_return_upper_rotation"] = limb.get(
+            "source_ik_last_upper_world_rotation",
+            upper.global_basis.get_rotation_quaternion())
         limb["source_ik_leg_return_shin_rotation"] = limb.get(
             "source_ik_last_lower_world_rotation",
             lower.global_basis.get_rotation_quaternion())
@@ -3882,9 +3885,16 @@ func _source_ik_return_attacker_to_home(
         # The source sampler resets the lower joint to Wait each tick.
         # Carry forward its last displayed WORLD rotation to preserve
         # the shin's axial roll before the two-bone aiming solve.
+        var stable_upper: Quaternion = limb.get(
+            "source_ik_leg_return_upper_rotation",
+            upper.global_basis.get_rotation_quaternion())
         var stable_shin: Quaternion = limb.get(
             "source_ik_leg_return_shin_rotation",
             lower.global_basis.get_rotation_quaternion())
+        # Restore shoulder first, then shin in WORLD space. The authored
+        # Wait sampler would otherwise swing the knee away before IK.
+        upper.global_basis = Basis(stable_upper).scaled(
+            upper.global_basis.get_scale())
         lower.global_basis = Basis(stable_shin).scaled(
             lower.global_basis.get_scale())
         # Move the bend pole toward the neutral knee near the end,
@@ -3909,6 +3919,8 @@ func _source_ik_return_attacker_to_home(
             sweep_error = _source_ik_solve_striker(
                 limb, goal, rotation, contact_local,
                 lower.global_position)
+        limb["source_ik_leg_return_upper_rotation"] = (
+            upper.global_basis.get_rotation_quaternion())
         limb["source_ik_leg_return_shin_rotation"] = (
             lower.global_basis.get_rotation_quaternion())
         limb["source_ik_leg_return_knee"] = lower.global_position
@@ -3966,6 +3978,7 @@ func _source_ik_advance_attack(frame: Dictionary) -> void:
             limb.erase("source_ik_body_toe_pin_active")
             limb.erase("source_ik_last_foot_transform")
             limb.erase("source_ik_last_knee_world")
+            limb.erase("source_ik_last_upper_world_rotation")
             limb.erase("source_ik_last_lower_world_rotation")
             limb.erase("source_ik_support_knee_hint")
             limb.erase("source_ik_leg_return_initialized")
@@ -4037,6 +4050,8 @@ func _source_ik_advance_attack(frame: Dictionary) -> void:
             limb["source_ik_last_foot_transform"] = foot.global_transform
             limb["source_ik_last_knee_world"] = (
                 limb["lower"] as Node3D).global_position
+            limb["source_ik_last_upper_world_rotation"] = (
+                limb["upper"] as Node3D).global_basis.get_rotation_quaternion()
             limb["source_ik_last_lower_world_rotation"] = (
                 limb["lower"] as Node3D).global_basis.get_rotation_quaternion()
             # Keep the solver's actual reach error for diagnostics.
