@@ -130,7 +130,7 @@ func _run() -> void:
     if not flash.visible or core.visible:
         _fail("sphere must remain visible until laser launch")
         return
-    gun.call("advance", 0.02, side_target, true)
+    gun.call("advance", 0.022, side_target, true)
     if flash.visible or not core.visible or not halo.visible:
         _fail("laser must replace the 2s sphere at the shot boundary")
         return
