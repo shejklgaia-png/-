@@ -84,6 +84,39 @@ func _run() -> void:
         return
     profile.set("active_slot", slot_before)
     profile.set("active_data", data_before)
+    # Persist a real stock change and reload it, but NEVER overwrite an
+    # existing user profile when someone runs this test on their phone.
+    # The CI runner has isolated user:// storage and should enter this branch.
+    if profile.call("get_slot", 3).is_empty():
+        if not bool(profile.call("create_data", 3)):
+            _fail("cannot create isolated save fixture")
+            return
+        if not bool(profile.call("award_materials", {"organic_low": 4})):
+            _fail("valid earned materials could not be stored")
+            return
+        if bool(profile.call("award_materials", {"alloy_fake": 9})):
+            _fail("invalid material was awarded")
+            return
+        if not bool(profile.call("convert_material", "organic", 0, 1, 2)):
+            _fail("failed to save an exact low to mid conversion")
+            return
+        if not bool(profile.call("load_data", 3)):
+            _fail("material profile could not be reloaded")
+            return
+        var saved: Dictionary = profile.call("get_material_inventory")
+        if int(saved.get("organic_low", -1)) != 0 or (
+                int(saved.get("organic_mid", -1)) != 2):
+            _fail("material quantities were lost after profile reload")
+            return
+        if bool(profile.call("convert_material", "organic", 1, 1, 2)):
+            _fail("overspending was accepted during persistent conversion")
+            return
+        if not bool(profile.call("delete_data", 3)):
+            _fail("test profile cannot be removed")
+            return
+        profile.set("active_slot", slot_before)
+        profile.set("active_data", data_before)
+        profile.call("_write_index", slot_before)
     var scene: PackedScene = load("res://scenes/base_exploration.tscn")
     var hub: Node3D = scene.instantiate()
     root.add_child(hub)
