@@ -64,14 +64,16 @@ func _setup_world() -> void:
 func _vec(values: Array) -> Vector3:
     return Vector3(float(values[0]), float(values[1]), float(values[2]))
 
-func _add_module(name: String, at: Vector3, yaw: float = 0.0, factor: float = 1.0) -> void:
+func _add_module(name: String, at: Vector3, yaw: float = 0.0,
+        factor: float = 1.0, height_factor: float = 1.0) -> void:
     if not Modules.MODULES.has(name):
         push_error("Missing base Blockbench module: " + name)
         return
     var facing := Basis(Vector3.UP, yaw)
     for item in Modules.MODULES[name]:
-        var low: Vector3 = _vec(item[1]) * Modules.UNIT * factor
-        var high: Vector3 = _vec(item[2]) * Modules.UNIT * factor
+        var stretch := Vector3(1.0, height_factor, 1.0)
+        var low: Vector3 = _vec(item[1]) * Modules.UNIT * factor * stretch
+        var high: Vector3 = _vec(item[2]) * Modules.UNIT * factor * stretch
         var rot: Vector3 = _vec(item[4]) * (PI / 180.0)
         var basis: Basis = (facing * Basis.from_euler(rot)).scaled_local(high - low)
         var pose := Transform3D(basis, at + facing * ((low + high) * 0.5))
@@ -92,13 +94,18 @@ func _material(index: int) -> StandardMaterial3D:
         mat.emission_energy_multiplier = 1.4
     return mat
 
+func _gate_facing_yaw() -> float:
+    var toward_stage: Vector3 = Vector3(0.0, 0.0, -4.75) - Vector3(4.0, 0.02, -10.48)
+    return atan2(toward_stage.x, toward_stage.z)
+
 func _build_hangar() -> void:
     # Preserve the actual authored Blockbench dimensions and placement used by NEXUS.
     _add_module("hangar_shell", Vector3.ZERO)
     _add_module("maintenance_pad", Vector3(0.0, 0.0, -4.75))
     _add_module("maintenance_canopy", Vector3(0.0, 8.0, -8.95))
-    _add_module("deployment_gate", Vector3(4.00, 0.02, -10.48), PI, 1.20)
-    _add_module("system_mezzanine", Vector3(-4.00, 0.0, -6.55))
+    _add_module("deployment_gate", Vector3(4.00, 0.02, -10.48),
+        _gate_facing_yaw(), 1.20, 1.25)
+    _add_module("archive_mezzanine", Vector3(-4.00, 0.0, -6.55))
     _add_module("data_bank", Vector3(-4.00, 2.19, -8.95))
     _add_module("kiosk", Vector3(-1.95, 0.0, 1.30), deg_to_rad(36.0))
     _add_module("kiosk", Vector3(1.95, 0.0, 1.30), deg_to_rad(-36.0))

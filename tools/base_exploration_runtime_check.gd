@@ -43,7 +43,7 @@ func _run() -> void:
     if actor.position.x > 6.0 or actor.position.z > 10.0:
         _fail("base boundary escaped")
         return
-    if actor.position.y != 0.08:
+    if absf(actor.position.y - 0.08) > 0.00001:
         _fail("player changed height during planar movement")
         return
     print("SERA_BASE_EXPLORATION_RUNTIME_PASS")
