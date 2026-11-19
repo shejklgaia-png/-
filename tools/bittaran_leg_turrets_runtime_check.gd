@@ -236,6 +236,17 @@ func _run() -> void:
             direction.normalized()) < 0.995:
         _fail("long projectile MUST point in its actual shot velocity direction")
         return
+    # Visual capsule starts just ahead of the muzzle, but the logical
+    # hit sweep must STILL originate at the original muzzle position.
+    # Do not silently shift the collision path by half the new bolt length.
+    var original_muzzle: Vector3 = aim_pivot.to_global(TURRETS.MUZZLE_LOCAL)
+    if not first_shot.has("collision_position") or (
+            (first_shot["collision_position"] as Vector3).distance_to(
+                original_muzzle) > 0.001 or
+            (first_shot["position"] as Vector3).distance_to(
+                original_muzzle + direction * (TURRETS.PROJECTILE_LENGTH_METERS * 0.5)) > 0.001):
+        _fail("laser visual may start ahead but collision must remain on old muzzle path")
+        return
     if direction.normalized().dot(
             -aim_pivot.global_basis.z.normalized()) < 0.999 or (
             flash.global_position.distance_to(
