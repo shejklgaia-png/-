@@ -24,7 +24,7 @@ func _run() -> void:
         _fail("maintenance partner absent")
         return
     var names: Dictionary = {}
-    for station in base.get("STATIONS"):
+    for station in base.get_script().get_script_constant_map()["STATIONS"]:
         names[station["focus"]] = true
         var marker: Vector2 = station["at"]
         actor.position = Vector3(marker.x, 0.08, marker.y)
