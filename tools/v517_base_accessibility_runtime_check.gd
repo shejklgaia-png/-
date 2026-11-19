@@ -35,6 +35,14 @@ func _run() -> void:
     if btn.text.contains("›") or resources.text.contains("▸"):
         _fail("decorative arrows returned in shortcuts")
         return
+    await process_frame
+    var viewport_rect := Rect2(Vector2.ZERO, hub.get_viewport().get_visible_rect().size)
+    for shortcut in [btn, resources, warehouse]:
+        if not shortcut.is_visible_in_tree() or (
+                not viewport_rect.has_point(shortcut.get_global_rect().get_center())) or (
+                not bool(hub.call("_quick_bar_hit", shortcut.get_global_rect().get_center()))):
+            _fail("shortcut not visible and tappable on base screen: " + shortcut.name)
+            return
     # A fresh runtime with no selected profile must still show the catalog.
     save.set("active_slot", 0)
     save.set("active_data", {})
@@ -50,6 +58,12 @@ func _run() -> void:
                 icon.texture.get_width() <= 0):
             _fail("unrenderable craft icon: " + str(blueprint))
             return
+    await process_frame
+    var first_icon: TextureRect = actions.get_node("PrototypeIcon_H01/Icon") as TextureRect
+    if not first_icon.is_visible_in_tree() or (
+            not viewport_rect.has_point(first_icon.get_global_rect().get_center())):
+        _fail("first craft icon does not appear in visible modal")
+        return
     var open_slot: int = 0
     for slot in range(1, 4):
         if save.call("get_slot", slot).is_empty():
@@ -117,5 +131,11 @@ func _run() -> void:
         if icon == null or icon.texture == null:
             _fail("material icon missing in visible warehouse: " + str(material_id))
             return
+    await process_frame
+    var first_material: TextureRect = actions.get_node("MaterialIcon_scrap_low/Icon") as TextureRect
+    if not first_material.is_visible_in_tree() or (
+            not viewport_rect.has_point(first_material.get_global_rect().get_center())):
+        _fail("first warehouse material icon does not appear in visible modal")
+        return
     print("SERA_V517_UI_RUNTIME_PASS: direct actions, 19 icons, sample stock, save and duplicates")
     quit(0)
