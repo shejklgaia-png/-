@@ -1,5 +1,5 @@
 extends SceneTree
-## v501: fivefold muzzle cross, foreground overlay on every shot,
+## v503: four-second single laser-streak shots and genuinely illuminating
 ## preserved attack/downtime gates, and an intact independent railgun.
 const TURRETS = preload("res://scripts/bittaran_leg_turrets.gd")
 const RAILGUN = preload("res://scripts/bittaran_railgun.gd")
@@ -44,8 +44,8 @@ func _run() -> void:
             mounts.size() != 1 or anchors.size() != 1 or
             offsets.size() != 1 or pivots.size() != 1 or
             not belly.has_volume() or
-            absf(TURRETS.SHOT_INTERVAL_SECONDS - 1.2) > 0.001):
-        _fail("exactly ONE central belly cannon and unchanged 1.2s cadence required")
+            absf(TURRETS.SHOT_INTERVAL_SECONDS - 4.0) > 0.001):
+        _fail("exactly ONE central belly cannon and 4-second cadence required")
         return
     var id: String = TURRETS.TURRET_IDS[0]
     var mount: Node3D = mounts[id]
@@ -158,6 +158,45 @@ func _run() -> void:
             halo_mat.render_priority != RENDER_ORDER.CHARACTER_FOREGROUND):
         _fail("foreground cross must reuse the registered depthless overlay pass")
         return
+    # A visible cross alone is insufficient: require a real dynamic
+    # OmniLight, plus a soft radial flare texture that fades to transparent.
+    var burst_light: OmniLight3D = mount.get_node_or_null(
+        "TurretAim/MuzzleCrossFlash/MuzzleBurstLight") as OmniLight3D
+    var radiance: MeshInstance3D = mount.get_node_or_null(
+        "TurretAim/MuzzleCrossFlash/RadialRadiance") as MeshInstance3D
+    if burst_light == null or radiance == null or (
+            burst_light.visible or burst_light.light_energy > 0.001 or
+            burst_light.omni_range < 3.0 or burst_light.shadow_enabled or
+            not radiance.mesh is QuadMesh):
+        _fail("flash needs a hidden real light and a radial luminous gradient")
+        return
+    var radiance_material: StandardMaterial3D = (
+        radiance.material_override as StandardMaterial3D)
+    if radiance_material == null or (
+            not radiance_material.albedo_texture is GradientTexture2D or
+            not radiance_material.emission_enabled or
+            radiance_material.no_depth_test == false or
+            radiance_material.transparency != BaseMaterial3D.TRANSPARENCY_ALPHA or
+            radiance_material.billboard_mode != BaseMaterial3D.BILLBOARD_ENABLED):
+        _fail("radial light must fade softly and remain camera-facing")
+        return
+    var radial_texture: GradientTexture2D = (
+        radiance_material.albedo_texture as GradientTexture2D)
+    if radial_texture.fill != GradientTexture2D.FILL_RADIAL or (
+            radial_texture.width < 64 or radial_texture.height < 64 or
+            radial_texture.gradient == null):
+        _fail("a radial gradient, not an opaque sheet, must create the glow")
+        return
+    # New single laser-like shot: visibly longer than its narrow radius.
+    var shot_core: CapsuleMesh = turret.get("projectile_mesh")
+    var shot_halo: CapsuleMesh = turret.get("projectile_halo_mesh")
+    if shot_core == null or shot_halo == null or (
+            shot_core.height < 1.35 or shot_core.radius > 0.09 or
+            shot_halo.height <= shot_core.height or
+            shot_halo.radius <= shot_core.radius or
+            shot_core.height / shot_core.radius < 15.0):
+        _fail("ball projectile must become one long, slim glowing laser bolt")
+        return
     var old_body: Transform3D = body.transform
     body.position += Vector3(0.10, 0.12, -0.07)
     body.rotate_x(0.09)
@@ -169,8 +208,8 @@ func _run() -> void:
         return
     body.transform = old_body
     turret.call("advance", 0.0, player.global_position, false)
-    if flash.visible:
-        _fail("knockdown/disabled must hide flash")
+    if flash.visible or burst_light.visible:
+        _fail("knockdown/disabled must hide flash and real illumination")
         return
     # Active single turret follows the player, not a four-way ranking.
     var target: Vector3 = player.global_position + Vector3(1.3, 0.0, 0.6)
@@ -178,33 +217,79 @@ func _run() -> void:
     if str(turret.get("last_aimed_turret")) != id or (
             int(turret.get("shots_fired")) != 1 or
             str(turret.get("last_fired_turret")) != id or
-            not flash.visible):
-        _fail("single turret must aim, fire immediately and show cross pulse")
+            not flash.visible or not burst_light.visible or
+            burst_light.light_energy < 5.0):
+        _fail("single turret must fire immediately with a real light pulse")
         return
     var first_shot: Dictionary = (turret.get("projectiles") as Array)[0]
     var direction: Vector3 = first_shot["direction"]
+    var bolt_node: MeshInstance3D = first_shot["node"] as MeshInstance3D
+    var bolt_glow: MeshInstance3D = bolt_node.get_node_or_null(
+        "LaserStreakHalo") as MeshInstance3D
+    if bolt_node == null or not bolt_node.mesh is CapsuleMesh or (
+            bolt_glow == null or not bolt_glow.mesh is CapsuleMesh or
+            not bolt_glow.material_override is StandardMaterial3D or
+            (bolt_glow.material_override as StandardMaterial3D).no_depth_test):
+        _fail("laser projectile needs one narrow core and depth-tested glow")
+        return
+    if bolt_node.global_basis.y.normalized().dot(
+            direction.normalized()) < 0.995:
+        _fail("long projectile MUST point in its actual shot velocity direction")
+        return
+    # Visual capsule starts just ahead of the muzzle, but the logical
+    # hit sweep must STILL originate at the original muzzle position.
+    # Do not silently shift the collision path by half the new bolt length.
+    var original_muzzle: Vector3 = aim_pivot.to_global(TURRETS.MUZZLE_LOCAL)
+    if not first_shot.has("collision_position"):
+        _fail("laser needs a separate original-muzzle collision anchor")
+        return
+    var collision_start: Vector3 = first_shot["collision_position"]
+    var visual_start: Vector3 = first_shot["position"]
+    if collision_start.distance_to(original_muzzle) > 0.001 or (
+            visual_start.distance_to(
+                original_muzzle + direction * (
+                    TURRETS.PROJECTILE_LENGTH_METERS * 0.5)) > 0.001):
+        _fail("laser visual may start ahead but collision must remain on old muzzle path")
+        return
     if direction.normalized().dot(
             -aim_pivot.global_basis.z.normalized()) < 0.999 or (
             flash.global_position.distance_to(
                 aim_pivot.to_global(flash.position)) > 0.001):
         _fail("cross flash must be attached to the actual firing muzzle")
         return
-    turret.call("advance", TURRETS.FLASH_DURATION_SECONDS + 0.025, target, true)
-    if flash.visible or int(turret.get("shots_fired")) != 1:
-        _fail("cross pulse must disappear quickly without an extra shot")
+    # Illumination must dynamically decay instead of merely toggling
+    # one static cross mesh on/off.
+    var initial_energy: float = burst_light.light_energy
+    turret.call("advance", TURRETS.FLASH_DURATION_SECONDS * 0.5, target, true)
+    if not flash.visible or not burst_light.visible or (
+            burst_light.light_energy >= initial_energy or
+            burst_light.light_energy < 0.05):
+        _fail("real muzzle light should fade continuously while the cross shrinks")
         return
-    turret.call("advance", 0.70, target, true)
+    turret.call("advance", TURRETS.FLASH_DURATION_SECONDS * 0.5 + 0.02, target, true)
+    if flash.visible or burst_light.visible or (
+            burst_light.light_energy > 0.001 or
+            int(turret.get("shots_fired")) != 1):
+        _fail("cross and actual illumination must disappear after a brief pulse")
+        return
+    turret.call("advance", 3.50, target, true)
     if int(turret.get("shots_fired")) != 1:
-        _fail("single cannon shot too early")
+        _fail("4-second laser cannon fired too early at 3.64 seconds")
         return
-    turret.call("advance", 0.42, target, true)
-    if int(turret.get("shots_fired")) != 2 or not flash.visible:
-        _fail("second shot must recreate its own cross pulse after the interval")
+    turret.call("advance", 0.34, target, true)
+    if int(turret.get("shots_fired")) != 1:
+        _fail("4-second cannon emitted an early second shot")
+        return
+    turret.call("advance", 0.03, target, true)
+    if int(turret.get("shots_fired")) != 2 or (
+            not flash.visible or not burst_light.visible):
+        _fail("second laser shot must pulse the cross and scene lighting at 4 seconds")
         return
     # Active attack cancels projectiles, new fire, aim and flash.
     scene.set("bittaran_attack_frame", {"kind": "stomp", "phase": "strike"})
     scene.call("_tick_bittaran_leg_turrets", DT)
-    if flash.visible or not (turret.get("projectiles") as Array).is_empty() or (
+    if flash.visible or burst_light.visible or (
+            not (turret.get("projectiles") as Array).is_empty() or
             str(turret.get("last_aimed_turret")) != ""):
         _fail("attack must immediately cancel flash/aim/projectiles")
         return
@@ -215,7 +300,8 @@ func _run() -> void:
     gun.set("elapsed", RAILGUN.BEAM_START + 0.1)
     scene.call("_tick_bittaran_leg_turrets", DT)
     scene.call("_tick_bittaran_railgun", DT)
-    if flash.visible or not (turret.get("projectiles") as Array).is_empty() or (
+    if flash.visible or burst_light.visible or (
+            not (turret.get("projectiles") as Array).is_empty() or
             str(turret.get("last_aimed_turret")) != "") or (
             float(gun.get("elapsed")) != 0.0) or (
             (gun.get("inner_beam") as MeshInstance3D).visible):
@@ -225,7 +311,8 @@ func _run() -> void:
     ik.set("break_elapsed", 1.0)
     scene.call("_tick_bittaran_leg_turrets", DT)
     scene.call("_tick_bittaran_railgun", DT)
-    if flash.visible or int(turret.get("shots_fired")) != 0 or (
+    if flash.visible or burst_light.visible or (
+            int(turret.get("shots_fired")) != 0) or (
             float(gun.get("elapsed")) != 0.0):
         _fail("fallen pose must keep turret and dorsal laser off")
         return

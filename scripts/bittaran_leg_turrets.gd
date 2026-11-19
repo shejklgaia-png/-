@@ -1,16 +1,18 @@
 extends Node3D
 ## One substantial underbelly cannon: seated half-dome and independent
 ## swiveling barrel. Authored model, animations, IK and railgun are untouched.
-## A large, camera-facing foreground cross flashes ahead of the muzzle on EACH shot.
+## A luminous, short-lived cross and an actual muzzle light fire once with each laser bolt.
 const RENDER_ORDER = preload("res://scripts/render_order_policy.gd")
 const TURRET_IDS: Array[String] = ["belly_main"]
 const BODY_BONE: String = "Body"
 const BELLY_MESH: String = "body_mesh"
-const SHOT_INTERVAL_SECONDS: float = 1.2
+const SHOT_INTERVAL_SECONDS: float = 4.0
 const FLASH_DURATION_SECONDS: float = 0.12
 const FLASH_LENGTH_METERS: float = 3.10
 const FLASH_FORWARD_METERS: float = 0.20
 const SHOT_SPEED_MPS: float = 17.0
+const PROJECTILE_LENGTH_METERS: float = 1.50
+const BURST_LIGHT_ENERGY: float = 10.0
 const PROJECTILE_LIFETIME_SECONDS: float = 3.0
 const PROJECTILE_HIT_RADIUS_METERS: float = 0.62
 const MUZZLE_LOCAL: Vector3 = Vector3(0.0, 0.0, -0.81)
@@ -30,9 +32,12 @@ var time_until_shot: float = 0.0
 var shots_fired: int = 0
 var last_fired_turret: String = ""
 var last_aimed_turret: String = ""
-var projectile_mesh: SphereMesh
+var projectile_mesh: CapsuleMesh
+var projectile_halo_mesh: CapsuleMesh
 var projectile_material: StandardMaterial3D
+var projectile_halo_material: StandardMaterial3D
 var muzzle_cross_flash: Node3D
+var muzzle_burst_light: OmniLight3D
 var flash_time_remaining: float = 0.0
 
 func setup(rig: Node3D) -> bool:
@@ -52,12 +57,34 @@ func setup(rig: Node3D) -> bool:
     muzzle_glow.emission_enabled = true
     muzzle_glow.emission = Color("#51baff")
     muzzle_glow.emission_energy_multiplier = 2.0
-    projectile_material = muzzle_glow
-    projectile_mesh = SphereMesh.new()
-    projectile_mesh.radius = 0.12
-    projectile_mesh.height = 0.24
-    projectile_mesh.radial_segments = 10
-    projectile_mesh.rings = 5
+    # Single moving 1.5m laser dart, NOT a sustained beam or round orb.
+    # A bright slender capsule has a larger additive, depth-tested halo.
+    projectile_material = StandardMaterial3D.new()
+    projectile_material.albedo_color = Color("#e2fcff")
+    projectile_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+    projectile_material.emission_enabled = true
+    projectile_material.emission = Color("#90e9ff")
+    projectile_material.emission_energy_multiplier = 5.5
+    projectile_mesh = CapsuleMesh.new()
+    projectile_mesh.radius = 0.065
+    projectile_mesh.height = PROJECTILE_LENGTH_METERS
+    projectile_mesh.radial_segments = 12
+    projectile_mesh.rings = 4
+    projectile_halo_material = StandardMaterial3D.new()
+    projectile_halo_material.albedo_color = Color(0.2, 0.68, 1.0, 0.23)
+    projectile_halo_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+    projectile_halo_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+    projectile_halo_material.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+    projectile_halo_material.no_depth_test = false
+    projectile_halo_material.emission_enabled = true
+    projectile_halo_material.emission = Color("#66caff")
+    projectile_halo_material.emission_energy_multiplier = 3.2
+    projectile_halo_material.render_priority = RENDER_ORDER.DEPTH_TESTED_EMISSIVE
+    projectile_halo_mesh = CapsuleMesh.new()
+    projectile_halo_mesh.radius = 0.16
+    projectile_halo_mesh.height = PROJECTILE_LENGTH_METERS + 0.20
+    projectile_halo_mesh.radial_segments = 12
+    projectile_halo_mesh.rings = 4
     var body: Node3D = rig.find_child(BODY_BONE, true, false) as Node3D
     if body == null:
         push_error("Bittaran belly turret missing Body joint")
@@ -228,6 +255,54 @@ func setup(rig: Node3D) -> bool:
         center_glint.material_override = cross_material
         center_glint.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
         cross.add_child(center_glint)
+        # A radial alpha gradient actually looks like a luminous bloom,
+        # instead of merely drawing a flat opaque cross shape. This is
+        # procedurally generated (no texture asset / external download).
+        var radiance_gradient := Gradient.new()
+        radiance_gradient.set_color(0, Color(1.0, 1.0, 1.0, 0.98))
+        radiance_gradient.set_color(1, Color(0.05, 0.32, 1.0, 0.0))
+        radiance_gradient.add_point(0.16, Color(0.68, 0.90, 1.0, 0.74))
+        radiance_gradient.add_point(0.50, Color(0.18, 0.52, 1.0, 0.16))
+        var radiance_texture := GradientTexture2D.new()
+        radiance_texture.width = 128
+        radiance_texture.height = 128
+        radiance_texture.fill = GradientTexture2D.FILL_RADIAL
+        radiance_texture.fill_from = Vector2(0.5, 0.5)
+        radiance_texture.fill_to = Vector2(1.0, 0.5)
+        radiance_texture.gradient = radiance_gradient
+        var radiance_material := StandardMaterial3D.new()
+        radiance_material.albedo_color = Color(1.0, 1.0, 1.0, 0.85)
+        radiance_material.albedo_texture = radiance_texture
+        radiance_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+        radiance_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+        radiance_material.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+        radiance_material.no_depth_test = true
+        radiance_material.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+        radiance_material.emission_enabled = true
+        radiance_material.emission = Color("#8de8ff")
+        radiance_material.emission_energy_multiplier = 4.5
+        radiance_material.render_priority = RENDER_ORDER.CHARACTER_FOREGROUND
+        var radiance_mesh := QuadMesh.new()
+        radiance_mesh.size = Vector2(4.8, 4.8)
+        var radiance := MeshInstance3D.new()
+        radiance.name = "RadialRadiance"
+        radiance.mesh = radiance_mesh
+        radiance.material_override = radiance_material
+        radiance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+        # Slightly behind the crossing rods to avoid hiding the white core.
+        radiance.position.z = 0.04
+        cross.add_child(radiance)
+        # Actual dynamic light reaching nearby Bittaran armor and floor.
+        # No shadows for the Android GL Compatibility lighting budget.
+        var burst_light := OmniLight3D.new()
+        burst_light.name = "MuzzleBurstLight"
+        burst_light.light_color = Color("#9be6ff")
+        burst_light.omni_range = 4.5
+        burst_light.light_energy = 0.0
+        burst_light.shadow_enabled = false
+        burst_light.visible = false
+        cross.add_child(burst_light)
+        muzzle_burst_light = burst_light
         mounts[id] = mount
     _sync_mounts()
     reset()
@@ -249,15 +324,23 @@ func reset() -> void:
     if muzzle_cross_flash != null:
         muzzle_cross_flash.visible = false
         muzzle_cross_flash.scale = Vector3.ONE
+    if muzzle_burst_light != null:
+        muzzle_burst_light.light_energy = 0.0
+        muzzle_burst_light.visible = false
 
 func _advance_muzzle_cross(delta: float) -> void:
     if muzzle_cross_flash == null or flash_time_remaining <= 0.0:
         return
     flash_time_remaining = maxf(flash_time_remaining - maxf(delta, 0.0), 0.0)
+    var fraction: float = flash_time_remaining / FLASH_DURATION_SECONDS
     muzzle_cross_flash.visible = flash_time_remaining > 0.0
+    if muzzle_burst_light != null:
+        muzzle_burst_light.light_energy = (
+            BURST_LIGHT_ENERGY * fraction * fraction)
+        muzzle_burst_light.visible = flash_time_remaining > 0.0
     if flash_time_remaining > 0.0:
-        var fraction: float = flash_time_remaining / FLASH_DURATION_SECONDS
-        muzzle_cross_flash.scale = Vector3.ONE * (0.38 + fraction * 0.62)
+        # A very fast, physically visible contraction after the ignition.
+        muzzle_cross_flash.scale = Vector3.ONE * (0.45 + fraction * 0.55)
 
 func _sort_volley_by_distance(player_world: Vector3) -> void:
     volley_order = TURRET_IDS.duplicate()
@@ -339,16 +422,38 @@ func _fire_next(player_world: Vector3) -> void:
     if muzzle_cross_flash != null:
         muzzle_cross_flash.scale = Vector3.ONE
         muzzle_cross_flash.visible = true
+    if muzzle_burst_light != null:
+        muzzle_burst_light.light_energy = BURST_LIGHT_ENERGY
+        muzzle_burst_light.visible = true
     var bolt := MeshInstance3D.new()
     bolt.name = "BellyCannonShot_" + id
     bolt.mesh = projectile_mesh
     bolt.material_override = projectile_material
     bolt.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+    var halo := MeshInstance3D.new()
+    halo.name = "LaserStreakHalo"
+    halo.mesh = projectile_halo_mesh
+    halo.material_override = projectile_halo_material
+    halo.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+    bolt.add_child(halo)
     add_child(bolt)
-    bolt.global_position = origin
+    # CapsuleMesh is along local +Y; rotate it into the shot direction.
+    # The leading tip exits the muzzle first, while the trailing end
+    # touches the muzzle on the emission frame.
+    var shot_up: Vector3 = (
+        Vector3.FORWARD if absf(direction.dot(Vector3.UP)) > 0.98
+        else Vector3.UP)
+    bolt.global_basis = (
+        Basis.looking_at(direction, shot_up)
+        * Basis(Vector3.RIGHT, -PI * 0.5))
+    var shot_center: Vector3 = (
+        origin + direction * (PROJECTILE_LENGTH_METERS * 0.5))
+    bolt.global_position = shot_center
     projectiles.append({
         "node": bolt,
-        "position": origin,
+        "position": shot_center,
+        # Preserve the old logical shot path through the physical muzzle.
+        "collision_position": origin,
         "direction": direction,
         "age": 0.0
     })
@@ -362,12 +467,15 @@ func _advance_projectiles(delta: float, player_world: Vector3) -> Array[Vector3]
     for i in range(projectiles.size() - 1, -1, -1):
         var bullet: Dictionary = projectiles[i]
         var old_position: Vector3 = bullet["position"]
+        var collision_position: Vector3 = bullet["collision_position"]
         var direction: Vector3 = bullet["direction"]
-        var destination: Vector3 = old_position + direction * (
-            SHOT_SPEED_MPS * delta)
-        var travel: Vector3 = destination - old_position
-        var closest: Vector3 = old_position + travel * clampf(
-            (player_center - old_position).dot(travel) / maxf(
+        var travel: Vector3 = direction * (SHOT_SPEED_MPS * delta)
+        var destination: Vector3 = old_position + travel
+        # The long visual streak is half a length ahead of its muzzle.
+        # Its swept damage segment uses the original muzzle-origin path,
+        # preserving the existing hit/knockback behavior independently.
+        var closest: Vector3 = collision_position + travel * clampf(
+            (player_center - collision_position).dot(travel) / maxf(
                 travel.length_squared(), 0.000001), 0.0, 1.0)
         var hit: bool = closest.distance_squared_to(player_center) <= (
             PROJECTILE_HIT_RADIUS_METERS * PROJECTILE_HIT_RADIUS_METERS)
@@ -381,6 +489,7 @@ func _advance_projectiles(delta: float, player_world: Vector3) -> Array[Vector3]
                 impacts.append(direction)
         else:
             bullet["position"] = destination
+            bullet["collision_position"] = collision_position + travel
             bullet["age"] = age
             (bullet["node"] as Node3D).global_position = destination
             projectiles[i] = bullet
