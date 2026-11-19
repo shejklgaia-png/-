@@ -1599,6 +1599,122 @@ func _acquire_stable_camera_part(delta: float,
     auto_lock_pending_elapsed = 0.0
 
 
+# v464: camera fit is computed from EVERY rendered Bittaran mesh, not the
+# smaller training-dummy frame. Preserve margin for animated legs and cannon.
+const BITTARAN_FRAME_WORLD_PADDING: float = 0.42
+
+func _bittaran_model_world_bounds() -> AABB:
+    if bittaran_rig == null:
+        return AABB()
+    var meshes: Dictionary = bittaran_rig.get("mesh_nodes_by_uuid")
+    var found: bool = false
+    var result := AABB()
+    # These are all 18 imported source meshes, including the mobile
+    # head, four real articulated legs/feet and the two dorsal rails.
+    for raw in meshes.values():
+        var part: MeshInstance3D = raw as MeshInstance3D
+        if part == null or not is_instance_valid(part) or part.mesh == null:
+            continue
+        var box: AABB = part.get_aabb()
+        for x in [box.position.x, box.end.x]:
+            for y in [box.position.y, box.end.y]:
+                for z in [box.position.z, box.end.z]:
+                    var point: Vector3 = part.to_global(Vector3(x, y, z))
+                    if not found:
+                        result = AABB(point, Vector3.ZERO)
+                        found = true
+                    else:
+                        result = result.expand(point)
+    # Also keep the newly added side charge boxes visible at any barrel
+    # rotation. Exclude the laser itself: its 45m ray should not zoom out.
+    if bittaran_railgun != null:
+        for side in ["L", "R"]:
+            var box_part: MeshInstance3D = bittaran_railgun.find_child(
+                "RailgunSideBox_" + side, true, false) as MeshInstance3D
+            if box_part == null or box_part.mesh == null:
+                continue
+            var side_bounds: AABB = box_part.get_aabb()
+            for x in [side_bounds.position.x, side_bounds.end.x]:
+                for y in [side_bounds.position.y, side_bounds.end.y]:
+                    for z in [side_bounds.position.z, side_bounds.end.z]:
+                        var point: Vector3 = box_part.to_global(
+                            Vector3(x, y, z))
+                        if not found:
+                            result = AABB(point, Vector3.ZERO)
+                            found = true
+                        else:
+                            result = result.expand(point)
+    return result.grow(BITTARAN_FRAME_WORLD_PADDING) if found else AABB()
+
+
+func _bittaran_camera_bounds_corners() -> Array[Vector3]:
+    var bounds: AABB = _bittaran_model_world_bounds()
+    var corners: Array[Vector3] = []
+    if not bounds.has_volume():
+        return corners
+    for x in [bounds.position.x, bounds.end.x]:
+        for y in [bounds.position.y, bounds.end.y]:
+            for z in [bounds.position.z, bounds.end.z]:
+                corners.append(Vector3(x, y, z))
+    return corners
+
+
+func _minimum_boost_camera_radius() -> float:
+    # Retain SERA's player/lock safety margins, then fit the actual entire
+    # moving boss at every view heading and during BOOST as well.
+    var safe_radius: float = super._minimum_boost_camera_radius()
+    if camera == null:
+        return safe_radius
+    var corners: Array[Vector3] = _bittaran_camera_bounds_corners()
+    if corners.is_empty():
+        return safe_radius
+    var viewport_size: Vector2 = get_viewport().get_visible_rect().size
+    if viewport_size.x <= 0.0 or viewport_size.y <= 0.0:
+        return safe_radius
+    var aspect: float = viewport_size.x / viewport_size.y
+    var tan_v: float = tan(deg_to_rad(camera.fov) * 0.5)
+    var tan_h: float = tan_v * aspect
+    if camera.keep_aspect == Camera3D.KEEP_WIDTH:
+        tan_h = tan(deg_to_rad(camera.fov) * 0.5)
+        tan_v = tan_h / aspect
+    var right: Vector3 = camera.global_basis.x.normalized()
+    var up: Vector3 = camera.global_basis.y.normalized()
+    var outward: Vector3 = Vector3(
+        sin(camera_yaw), CAMERA_ELEVATION_RATIO, cos(camera_yaw))
+    var radial_scale: float = outward.length()
+    outward /= radial_scale
+    # Use the SAME focus and elevation as main.gd's _place_camera().
+    var focus := Vector3(camera_focus_follow_xz.x,
+        TARGET_BASE_HEIGHT - CAMERA_FOCUS_DROP, camera_focus_follow_xz.y)
+    for point in corners:
+        safe_radius = maxf(safe_radius, _camera_radius_for_safe_point(
+            point, focus, right, up, outward, radial_scale, tan_h, tan_v,
+            TARGET_FRAME_MARGIN_X, TARGET_FRAME_MARGIN_Y,
+            TARGET_FRAME_BOTTOM))
+    return safe_radius
+
+
+func _target_fully_in_frame() -> bool:
+    # Called by inherited fit/binary-search and release code. Never
+    # substitute the training cube's smaller static ±2.35m corner set.
+    if camera == null:
+        return true
+    var viewport_size: Vector2 = get_viewport().get_visible_rect().size
+    if viewport_size.x <= 0.0 or viewport_size.y <= 0.0:
+        return true
+    for point in _bittaran_camera_bounds_corners():
+        if camera.is_position_behind(point):
+            return false
+        var screen_pos: Vector2 = camera.unproject_position(point)
+        if screen_pos.x < viewport_size.x * TARGET_FRAME_MARGIN_X or (
+                screen_pos.x > viewport_size.x * (
+                1.0 - TARGET_FRAME_MARGIN_X)):
+            return false
+        if screen_pos.y < viewport_size.y * TARGET_FRAME_MARGIN_Y or (
+                screen_pos.y > viewport_size.y * TARGET_FRAME_BOTTOM):
+            return false
+    return true
+
 func _physics_process(delta: float) -> void:
     # Provide the policy *before* base AUTO/MANUAL selection, then refresh
     # after IK finishes its fall/recovery tick. Do not allow a one-frame leak.
