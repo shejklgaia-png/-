@@ -1,3 +1,11 @@
+## 2026-11-19 — SERA v495: 本体旋回に伴うレールガンの見かけの追尾加算を修正
+- **CI事前確認**：main v494、`.github/workflows/sera-model-policy.yml`、`tools/sera_ci_manifest.txt`、`docs/SERA_ACTIVE_CI_POLICY_ja.md`、`tools/bittaran_world_yaw_independence_runtime_check.gd`、`tools/bittaran_railgun_runtime_check.gd`、`tools/bittaran_full_frame_level_gun_runtime_check.gd`を確認。WORLD Yawと速度上限の既存条件は保持。
+- **原因調査**：レールガンの砲身Yawは既にワールド独立でしたが、ボスルート／BODY骨旋回で砲台の位置が変わる物理フレームに、追尾目標角度・地表射線距離を前フレームの取付位置で計算し、最後に取付位置を更新していたため、余計な照準補正が発生し得た。
+- **実装前にCI更新**：既存登録済み実GodotワールドYawテストへ、同一ワールド方位上のターゲットを最新の本体取付位置から指定し、ルートの連続正逆旋回、BODY骨Yawの正逆変化でも砲台制御Yaw・実際のレンダリングYaw・原本砲身メッシュの方位が変わらない回帰検査を追加。既存テストの期待値は弱めない。
+- **実装**：`scripts/bittaran_railgun.gd`の`advance()`先頭で最新のBODY取付位置を同期してから`_desired_player_world_angles`と地表射線ずれを計算。相対Yaw＋本体Yawの足し戻しを追尾モーターから撤廃。元の相対角度診断用`_desired_player_angles`は保持。
+- **不変条件**：0〜1.5m追尾補間、最大速度RUN＜追尾＜BOOST、照射0.85倍、14/s・16/s応答、10秒充填、青球体、照射2秒、復帰0.7秒、上部接続軸の本体Yaw同期、威力60%、モデル／エフェクト／音声／IK／セーブを変更しない。
+- **検証**：mainマージ後に全Python/Godot CIの結果を確認。Android実機では本体が旋回しながら照射する際、レーザーの余計な回転・瞬間的加速がないか、BOOSTで振り切れるかを別途確認。
+
 ## 2026-11-19 — SERA v494: レールガン照射の追尾距離を短縮
 - **CI事前確認**：main v493、共通CIワークフロー、`tools/sera_ci_manifest.txt`、`docs/SERA_ACTIVE_CI_POLICY_ja.md`、既存の`tools/bittaran_railgun_runtime_check.gd`、`tools/bittaran_world_yaw_independence_runtime_check.gd`、`tools/bittaran_full_frame_level_gun_runtime_check.gd`を確認。既存のRUN＜追尾＜BOOSTの最大速度上限、青球体の縮小時0.7倍、レーザー接触、世界Yaw分離は不変条件。
 - **先行CI更新**：本体修正前に登録済み実Godotレールガン検査を更新。照射中だけ0.85倍基準・0〜1.5mのsmoothstep加速・14/s照準応答・1.5m以遠の最大速度据置、RUNの横移動時の射線誤差0.8m未満、BOOSTで離脱可能、装備5/8/30mでRUN＜追尾＜BOOSTを検査。既存テストの無関係な検証は維持し、manifest変更なし。
