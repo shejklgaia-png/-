@@ -14,4 +14,4 @@
 - 本体実装に先立ち`tools/base_facilities_self_check.py`と`tools/base_facilities_runtime_check.gd`を作成・CI登録。新規テストは7設備の3Dノードと画面タップ、モーダル開閉、既存NEXUS保持を検査。
 - 既存のNEXUS画面遷移、CRATE移動、セラの一時非表示、グリッド床、戦闘を保護するCIの期待値は変更しない。全CIはmainマージ後に実行し、Android実機で可読性・タップ誤操作を別途確認。
 
-前バージョン：[v501](README_v501_ja.md)
+前バージョン：[v501](docs/history/release_notes/README_v501_ja.md)
