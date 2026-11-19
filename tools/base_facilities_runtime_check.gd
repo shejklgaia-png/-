@@ -42,10 +42,11 @@ func _run() -> void:
         var footprint: Vector3 = (foundation.mesh as BoxMesh).size
         for earlier in foundations:
             var other: Vector3 = (earlier.mesh as BoxMesh).size
+            var other_node: Node3D = earlier.get_parent() as Node3D
             var dx: float = absf(machine.global_position.x -
-                earlier.get_parent().global_position.x)
+                other_node.global_position.x)
             var dz: float = absf(machine.global_position.z -
-                earlier.get_parent().global_position.z)
+                other_node.global_position.z)
             if dx < (footprint.x + other.x) * 0.5 + 0.30 and (
                     dz < (footprint.z + other.z) * 0.5 + 0.30):
                 _fail("two physical facilities are crowded together: " + name)
