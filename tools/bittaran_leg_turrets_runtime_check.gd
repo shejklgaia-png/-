@@ -84,7 +84,7 @@ func _run() -> void:
         var dome: MeshInstance3D = mount.get_node_or_null(
             "TurretHemisphere") as MeshInstance3D
         var barrel: MeshInstance3D = mount.get_node_or_null(
-            "TurretBarrel") as MeshInstance3D
+            "TurretAim/TurretBarrel") as MeshInstance3D
         if dome == null or barrel == null or not (
                 dome.mesh is SphereMesh) or not (
                 dome.mesh as SphereMesh).is_hemisphere or (
