@@ -89,6 +89,7 @@ func _run() -> void:
     # The sphere MUST be visible continuously during the complete 2s
     # prefire window. Pursuit accelerates smoothly over those SAME 2s.
     if not _near(GUN.FLASH_SECONDS, 2.0) or not _near(
+            GUN.FLASH_SHRINK_SECONDS, 1.0) or not _near(
             GUN.TRACK_EASE_IN_SECONDS, 2.0) or not _near(
             GUN.TRACK_START_SECONDS, 8.0):
         _fail("prefire sphere and eased acquisition must each last 2s")
@@ -117,16 +118,24 @@ func _run() -> void:
         _fail("muzzle sphere must grow smoothly at the beginning")
         return
     var grown_scale: float = flash.scale.x
-    gun.call("advance", 1.34, side_target, true)
+    # Sphere holds full size until 9.0s, exactly one second before launch.
+    gun.call("advance", 0.759, side_target, true)
     if not flash.visible or absf(flash.scale.x - grown_scale) > 0.02:
-        _fail("blue sphere must remain visible and charged mid-way")
+        _fail("blue sphere must remain full-sized until 1s before firing")
         return
-    gun.call("advance", 0.31, side_target, true)
-    if not flash.visible or flash.scale.x >= grown_scale:
-        _fail("sphere must shrink near the END of its 2s charge")
+    # One second of smoothstep shrink: at the midpoint (9.5s)
+    # its diameter/scale is one half the starting value.
+    gun.call("advance", 0.5, side_target, true)
+    if not flash.visible or absf(flash.scale.x - grown_scale * 0.5) > 0.04:
+        _fail("sphere must be half-sized after 0.5s of 1s shrink")
         return
-    # Still glowing at 9.991s; beam only begins at the 10s boundary.
-    gun.call("advance", 0.088, side_target, true)
+    var midpoint_scale: float = flash.scale.x
+    gun.call("advance", 0.4, side_target, true)
+    if not flash.visible or flash.scale.x >= midpoint_scale * 0.25:
+        _fail("sphere must shrink smoothly over full final second")
+        return
+    # Still glowing at 9.989s; beam only begins at the 10s boundary.
+    gun.call("advance", 0.089, side_target, true)
     if not flash.visible or core.visible:
         _fail("sphere must remain visible until laser launch")
         return
@@ -252,7 +261,8 @@ func _run() -> void:
         _fail("boss respawn left the old beam visible")
         return
     print("GODOT_BITTARAN_RAILGUN_PASS 10s_interval=true 2s_beam=true ",
-        "2s_blue_sphere=true 2s_ease_in=true 0.4s_postfire_hold=true ",
+        "2s_blue_sphere=true 1s_orb_shrink=true 2s_ease_in=true ",
+        "0.4s_postfire_hold=true ",
         "prefire_fast_lock=true first_frame_exact_aim=true ",
         "boost_outpaces_beam=true neutral_until_fully_charged=true ",
         "smooth_independent_yaw_pitch=true 3_charge_bars_per_side=true")
