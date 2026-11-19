@@ -63,16 +63,28 @@ func _run() -> void:
     # Body must remain at their original local animation pose.
     var forward_target: Vector3 = elevation.to_global(Vector3(0.0, 0.0, -9.0))
     var player_origin: Vector3 = forward_target - Vector3.UP * 0.92
-    # Force an off-axis target to ensure the independent barrel actually aims.
+    # A changing lateral player may NEVER move the gun until all three
+    # charge lamps are full. Keep the rig-relative neutral yaw AND pitch.
     var side_target: Vector3 = forward_target + Vector3(4.0, 0.0, 0.0)
     gun.call("reset")
     for i in range(120):
-        gun.call("advance", DT, side_target, true)
-    if absf(float(gun.get("aim_yaw"))) < deg_to_rad(5.0):
-        _fail("barrel did not turn toward a lateral player")
+        var player_target: Vector3 = (
+            side_target if i % 2 == 0 else side_target + Vector3(0, 4, 0))
+        gun.call("advance", DT, player_target, true)
+    if absf(float(gun.get("aim_yaw"))) > 0.00001 or (
+            absf(elevation.rotation.x) > 0.00001):
+        _fail("unfinished charge moved gun away from its neutral angle")
         return
     if body.quaternion.angle_to(body_before) > 0.00001:
-        _fail("aiming modified authored Body rotation")
+        _fail("charging modified authored Body rotation")
+        return
+    # A full 3/3 charge begins acquisition during the flash. Only the
+    # completed charge is allowed to break neutral.
+    gun.set("elapsed", GUN.TRACK_START_SECONDS)
+    for i in range(48):
+        gun.call("advance", DT, side_target, true)
+    if absf(float(gun.get("aim_yaw"))) < deg_to_rad(2.0):
+        _fail("fully charged railgun did not acquire the lateral target")
         return
     # Time boundaries are measured relative to a FIRE at t=0,10,20...
     # Prepare the last flash quarter-second without waiting through 7s.
@@ -120,13 +132,48 @@ func _run() -> void:
             absf(elevation.rotation.x) > deg_to_rad(1.0)):
         _fail("barrel did not ease back to its neutral angle")
         return
-    # New charge starts tracking once more and advances all three lamps.
+    # Charging light progresses while BOTH axes stay parked at rest.
     gun.call("advance", 3.2, side_target, true)
-    if absf(float(gun.get("aim_yaw"))) < deg_to_rad(3.0):
-        _fail("new charge did not restart smooth target tracking")
+    if absf(float(gun.get("aim_yaw"))) > 0.00001 or (
+            absf(elevation.rotation.x) > 0.00001):
+        _fail("railgun turned before full charge in next firing cycle")
         return
     if (bars[0] as StandardMaterial3D).emission_energy_multiplier <= 0.22:
         _fail("charge progression did not light its first segment")
+        return
+    # Standard booster speed is ~6.09375 m/s. At 8m that is ~43.6deg/s,
+    # faster than the 24deg/s yaw cap. During one second of tangential
+    # boosting, the aim MUST fall behind by a clearly dodgeable margin.
+    var boost_speed: float = 6.09375
+    var boost_radius: float = 8.0
+    var reference_forward: Vector3 = -gun.global_basis.z.normalized()
+    var reference_right: Vector3 = gun.global_basis.x.normalized()
+    var pivot_world: Vector3 = gun.global_position
+    gun.call("reset")
+    gun.set("elapsed", GUN.TRACK_START_SECONDS)
+    for i in range(120):
+        var t: float = float(i + 1) * DT
+        var travel_angle: float = boost_speed / boost_radius * t
+        var boost_target: Vector3 = pivot_world + (
+            reference_forward * cos(travel_angle)
+            + reference_right * sin(travel_angle)) * boost_radius
+        gun.call("advance", DT, boost_target - Vector3.UP * 0.92, true)
+    var tracking_degrees: float = absf(
+        rad_to_deg(float(gun.get("aim_yaw"))))
+    var boost_degrees: float = rad_to_deg(boost_speed / boost_radius)
+    if tracking_degrees < 1.0 or (
+            tracking_degrees > GUN.TRACK_YAW_SPEED + 0.2) or (
+            boost_degrees - tracking_degrees < 14.0):
+        _fail("boost must outrun turret tracking: boost="
+            + str(boost_degrees) + "deg aim=" + str(tracking_degrees) + "deg")
+        return
+    # Pitch is rate-limited independently, with no instant target snap.
+    gun.call("reset")
+    gun.set("elapsed", GUN.TRACK_START_SECONDS)
+    gun.call("advance", 0.1, pivot_world + Vector3(0.0, 10.0, 8.0), true)
+    if absf(rad_to_deg(elevation.rotation.x)) > (
+            GUN.TRACK_PITCH_SPEED * 0.1 + 0.05):
+        _fail("barrel pitch exceeded its 18deg/s rate cap")
         return
     gun.call("reset")
     if core.visible or halo.visible or flash.visible:
@@ -134,5 +181,6 @@ func _run() -> void:
         return
     print("GODOT_BITTARAN_RAILGUN_PASS 10s_interval=true 2s_beam=true ",
         "0.2s_prefire_gap=true 0.4s_postfire_hold=true ",
+        "boost_outpaces_turret=true neutral_until_fully_charged=true ",
         "smooth_independent_yaw_pitch=true 3_charge_bars_per_side=true")
     quit(0)
