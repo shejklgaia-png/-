@@ -366,6 +366,10 @@ func is_menu_open() -> bool:
     return modal != null and modal.visible
 
 func _clear_actions() -> void:
+    # New pages always start at the top, even if the previous one was scrolled.
+    var scroll: ScrollContainer = modal_actions.get_parent() as ScrollContainer
+    if scroll != null:
+        scroll.scroll_vertical = 0
     for child in modal_actions.get_children():
         modal_actions.remove_child(child)
         child.queue_free()
