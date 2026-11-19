@@ -7,10 +7,10 @@ const RENDER_ORDER = preload("res://scripts/render_order_policy.gd")
 const RailgunFX = preload("res://scripts/bittaran_railgun_fx.gd")
 
 # Hold neutral throughout the first 10 seconds of filling the charge lamps.
-# The BLUE SPHERE (t=10..12) marks the actual charge: start one eased,
-# speed-unrestricted acquisition, keeping it until the sphere disappears.
-# At laser firing (t=12), use 70% of the former chase speed until the
-# player's ground offset exceeds 0.5m; then accelerate to match movement.
+# The BLUE SPHERE (t=10..12) starts with one eased, unrestricted acquisition.
+# At sphere SHRINK (t=11) reduce to the same 0.7x capped speed as the beam.
+# At laser firing (t=12), accelerate toward the player's real movement
+# speed only after ground-ray separation exceeds 1.5m.
 # Return to the neutral pose during the 0.7s after the 2s beam.
 const WAIT_SECONDS: float = 10.0
 const FLASH_SECONDS: float = 2.0
@@ -23,8 +23,9 @@ const RETURN_SECONDS: float = 0.7
 const PERIOD_SECONDS: float = BEAM_END + RETURN_SECONDS
 const FLASH_GROW_SECONDS: float = 0.2
 const FLASH_SHRINK_SECONDS: float = 1.0
-# Fast charge acquisition starts ONCE at the blue sphere appearance (t=10).
-# The instantaneous target solve after the ramp has no speed ceiling.
+const FLASH_SHRINK_START: float = FLASH_END - FLASH_SHRINK_SECONDS
+# Fast charge acquisition starts ONCE at blue-sphere appearance (t=10),
+# then switches to capped 0.7x when the actual shrink starts (t=11).
 # The 10s fill is stationary; slow firing track and neutral return remain.
 const TRACK_BLEND_SECONDS: float = 0.7
 const TRACK_EASE_IN_SECONDS: float = TRACK_BLEND_SECONDS
@@ -32,7 +33,7 @@ const TRACK_START_SECONDS: float = FLASH_START
 const CHARGE_TRACK_FILTER_PER_SECOND: float = 30.0
 const TRACK_FILTER_PER_SECOND: float = 10.0
 const BEAM_TRACK_SPEED_MULTIPLIER: float = 0.70
-const BEAM_GROUND_GAP_METERS: float = 0.50
+const BEAM_GROUND_GAP_METERS: float = 1.50
 # Smooth catch-up of the real target-motion speed, without an artificial
 # maximum hit count or a fixed high-speed turret turn limit.
 const BEAM_CATCHUP_RESPONSE_PER_SECOND: float = 16.0
@@ -312,7 +313,7 @@ func _tracking_turn_rate(player_world: Vector3,
         boost_speed_mps: float = BOOST_REFERENCE_SPEED_MPS,
         run_speed_mps: float = RUN_REFERENCE_SPEED_MPS) -> float:
     # The pre-v478 tracking speed used for the laser baseline.
-    # Firing uses 0.7x except when the beam's ground offset >0.5m.
+    # Firing uses 0.7x except when the beam's ground offset >1.5m.
     # Use the actual part stats so upgrades do not break the contract.
     var to_player: Vector3 = player_world + Vector3.UP * 0.92 - global_position
     var flat: float = Vector2(to_player.x, to_player.z).length()
@@ -362,7 +363,7 @@ func _beam_turn_rate(delta: float, player_world: Vector3,
     var target_rate: float = baseline
     if gap > BEAM_GROUND_GAP_METERS:
         # Follow at least the player's current tangential/world speed,
-        # with extra catch-up proportional to overshoot beyond 0.5m.
+        # with extra catch-up proportional to overshoot beyond 1.5m.
         # No artificial cap on a fast player; 2s beam limits total time.
         var horizontal_distance: float = maxf(1.0, Vector2(
             player_world.x - global_position.x,
@@ -385,12 +386,18 @@ func _track_player(delta: float, player_world: Vector3,
         acquisition_weight: float = 1.0,
         boost_speed_mps: float = BOOST_REFERENCE_SPEED_MPS,
         run_speed_mps: float = RUN_REFERENCE_SPEED_MPS,
-        fast_charge_tracking: bool = false) -> void:
+        fast_charge_tracking: bool = false,
+        live_beam_tracking: bool = true) -> void:
     var desired: Vector2 = _desired_player_angles(player_world)
     var angular_rate: float = _tracking_turn_rate(
         player_world, boost_speed_mps, run_speed_mps)
     if not fast_charge_tracking:
-        angular_rate = _beam_turn_rate(delta, player_world, angular_rate)
+        if live_beam_tracking:
+            angular_rate = _beam_turn_rate(delta, player_world, angular_rate)
+        else:
+            # The sphere is shrinking but the laser is not firing:
+            # use the 0.7x firing baseline WITHOUT ground-gap catch-up.
+            angular_rate *= BEAM_TRACK_SPEED_MULTIPLIER
     var weight: float = clampf(acquisition_weight, 0.0, 1.0)
     var eased: float = 1.0 - exp(-TRACK_FILTER_PER_SECOND * delta)
 
@@ -449,8 +456,8 @@ func _beam_overlaps_player(player_world: Vector3) -> bool:
     return distance_squared <= pow(
         BEAM_RADIUS_METERS + PLAYER_HIT_RADIUS_METERS, 2.0)
 
-## True only for the FIRST physically registered hit in this laser shot.
-## Subsequent beam intersections must not damage or restart knockback.
+## True for any real beam overlap when its 0.20s repeat-hit timer permits.
+## There is no per-shot maximum hit count.
 func advance(delta: float, player_world: Vector3, active: bool,
         boost_speed_mps: float = BOOST_REFERENCE_SPEED_MPS,
         run_speed_mps: float = RUN_REFERENCE_SPEED_MPS) -> bool:
@@ -478,12 +485,19 @@ func advance(delta: float, player_world: Vector3, active: bool,
         aim_yaw = 0.0
         elevation.rotation.x = 0.0
     elif phase == Phase.FLASH:
-        # Blue-sphere charge: acquire once with smooth acceleration and
-        # unlimited angular speed, including during sphere shrink.
-        _track_player(step, player_world, _prefire_ease(elapsed),
-            boost_speed_mps, run_speed_mps, true)
+        if elapsed < FLASH_SHRINK_START:
+            # The sphere is still growing/full: unlimited tracking after
+            # its initial 0.7s smooth acquisition.
+            _track_player(step, player_world, _prefire_ease(elapsed),
+                boost_speed_mps, run_speed_mps, true)
+        else:
+            # Shrink begins at t=11: immediately cap the slew at the
+            # same 0.7x baseline used by the firing beam. Do NOT run
+            # laser ground-gap catch-up before laser emission.
+            _track_player(step, player_world, 1.0,
+                boost_speed_mps, run_speed_mps, false, false)
     elif phase == Phase.BEAM:
-        # Firing begins at 0.7x former pursuit; >0.5m ground separation
+        # Firing continues at 0.7x; >1.5m ground separation
         # accelerates to match the player's travel, then slows back down.
         _track_player(step, player_world, 1.0,
             boost_speed_mps, run_speed_mps)
