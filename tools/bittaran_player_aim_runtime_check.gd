@@ -142,7 +142,9 @@ func _run() -> void:
             " max_body_shift=", max_body_offset,
             " frozen_tick=", lock_frame,
             " stomp_ik=", saw_ik)
-        battle.queue_free()
+        # Each scene owns large GPU/particle resources. Dispose NOW
+        # instead of deferring all ten instances until SceneTree idle.
+        battle.free()
     print("BITTARAN_PLAYER_AIM_PASS all_10_attacks=true ",
         " body_shift_le_1m=true body_yaw_30deg=true ",
         " shoulder_yaw_30deg=true stomp_ik_frozen=true ",
