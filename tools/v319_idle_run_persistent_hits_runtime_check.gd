@@ -92,7 +92,13 @@ func _run() -> void:
     var before_respawn: float = float(game.get("target_respawn_remaining"))
     var second: Dictionary = game.call("_apply_target_part_damage",
         "bash", 26, 90.0, 0.0, 0.0)
-    if int(second["applied_damage"]) != damage \
+    # v510: the first lethal hit is mitigated by the live predictive shield.
+    # Once the target is KO, the shield stops protecting it. Subsequent
+    # physical hits keep their full base power; a fixed equality with the
+    # shielded lethal hit would wrongly require mitigation on a dead target.
+    var unshielded_head_damage: int = roundi(26.0 * (1.0 - 0.20))
+    if int(second["applied_damage"]) != unshielded_head_damage \
+            or int(second["applied_damage"]) <= damage \
             or int(game.get("target_hp")) != 0 \
             or float(parts.call("get_part_integrity", "head")) != 0.0 \
             or bool(second["broken"]):
