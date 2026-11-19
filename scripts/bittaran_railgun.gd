@@ -459,8 +459,7 @@ func _level_mount() -> void:
         # the chassis' horizontal heading. Blend only after return, when
         # independent world-yaw reacquisition is already completed.
         var body_pose: Quaternion = (
-            mount_body.global_basis.orthonormalized()
-            .get_rotation_quaternion())
+            mount_body.global_basis.orthonormalized().get_rotation_quaternion())
         pose = stabilized.slerp(body_pose, idle_pose_blend)
     elif phase == Phase.FLASH and (
             elapsed < FLASH_START + TRACK_BLEND_SECONDS):
@@ -686,9 +685,10 @@ func advance(delta: float, player_world: Vector3, active: bool,
         # into the turret's independent tracked yaw.
         var neutral_pose: Quaternion = Quaternion(
             Vector3.UP, _neutral_world_yaw())
+        var idle_world_pose: Quaternion = (
+            global_basis.orthonormalized().get_rotation_quaternion())
         charge_entry_pose_offset = (
-            neutral_pose.inverse() * global_basis.orthonormalized()
-            .get_rotation_quaternion()).normalized()
+            neutral_pose.inverse() * idle_world_pose).normalized()
         idle_pose_blend = 0.0
     if phase == Phase.RETURN and last_phase != Phase.RETURN:
         # Keep the FIRST post-beam orientation and neutral destination in
