@@ -30,8 +30,9 @@ func _run() -> void:
         return
     # New location: underside of the BODY, NOT any lower or upper leg.
     var body: Node3D = rig.find_child("Body", true, false) as Node3D
-    var body_mesh: MeshInstance3D = body.get_node_or_null(
-        "body_mesh") as MeshInstance3D if body != null else null
+    var body_mesh: MeshInstance3D = null
+    if body != null:
+        body_mesh = body.get_node_or_null("body_mesh") as MeshInstance3D
     var mounts: Dictionary = turrets.get("mounts")
     var anchors: Dictionary = turrets.get("anchors")
     var mount_offsets: Dictionary = turrets.get("mount_offsets")
