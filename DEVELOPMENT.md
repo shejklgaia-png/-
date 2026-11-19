@@ -3,6 +3,7 @@
 - **事前確認**：main v506、`AGENTS.md`、`.github/workflows/sera-model-policy.yml`、`tools/sera_ci_manifest.txt`、`docs/SERA_ACTIVE_CI_POLICY_ja.md`、現行`scripts/bittaran_railgun.gd`、`tools/bittaran_railgun_runtime_check.gd`、`tools/bittaran_world_yaw_independence_runtime_check.gd`、`tools/bittaran_full_frame_level_gun_runtime_check.gd`、`tools/bittaran_chassis_axis_runtime_check.gd`、背部エネルギーFXと実戦統合部を確認。
 - **発見**：追尾球体が出て0.7秒の追尾入りが終了した瞬間、`weight<1.0`専用の高応答フィルターから`weight==1.0`の即時目標一致へ切り替わる段差。60Hzで2.54倍／120Hzで4.52倍の一フレーム旋回量スパイク。胴体姿勢が縦になるタイミングと重なって見かけ上の加速になる。
 - **ロールの符号も別途検査**：Python/scipy 3Dクォータニオン計算でGodotの`Vector3.BACK=(0,0,1)`を正しく適用した結果、v506の符号に異常なし。不要な符号変更は撤回し実装へ加えない。
+- **追加の独立Python CI検査**：`tools/bittaran_railgun_charge_continuity_self_check.py`を追加・`tools/sera_ci_manifest.txt`へ登録。30/60/120/240Hzの時間ステップ不変性、重み0.999999→1.0の連続性、コード上の即時100%旋回分岐がないことを検証。
 - **CIを本体変更より先に改訂**：`tools/bittaran_railgun_runtime_check.gd`のFLASH終了直前0.0004s即時スナップ期待値を、承認済みの30/s高速指数フィルターを毎フレーム適用する条件に変更。さらに60/120Hzの重み0.999999→1.0での同じ角度誤差に対する旋回量差が2%以内であることを保護。各段階の開始・終了時刻、縮小後の0.7倍、BEAMの0.85〜1.0倍、距離補正の1.5m、RUN/BOOSTの実戦比較、胴体/脚IK、FX、ダウンとヒット間隔の既存検査は維持。
 - **実装**：`scripts/bittaran_railgun.gd`の`fast_charge_tracking`分岐で`actual = angle_error * charge_response`を常時適用。チャージ0.7秒で高応答となっても方向へ瞬間スナップせず、フレームレートに関係なく連続した指数応答を維持。固定角速度制限は追加しない。
 - **数学的な外部検査**：30/60/120/240Hzにおいて旧仕様の最大段差1.58/2.54/4.52/8.51倍、新仕様はどのフレームレートでも1.000001倍未満（重み0.999999と1.0の比較）。
