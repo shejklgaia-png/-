@@ -55,7 +55,7 @@ func _run() -> void:
             _fail("Android back must go from recipe page to family list")
             return
         facility.call("_select_conversion_family", "organic")
-        hub.call("_on_android_back")
+        hub.get_window().go_back_requested.emit()
         if str(facility.get("page")) != "families":
             _fail("window back did not return from converter recipe")
             return
@@ -106,12 +106,12 @@ func _run() -> void:
         return
     nexus.call("_select_target", "SYSTEM")
     await create_timer(0.26).timeout
-    nexus.call("_on_android_back")
+    nexus.call("_input", _back_key())
     await create_timer(0.26).timeout
     if not str(nexus.get("focused_target")).is_empty():
         _fail("Android back did not return NEXUS to overview")
         return
-    nexus.call("_on_android_back")
+    nexus.get_window().go_back_requested.emit()
     await process_frame
     await process_frame
     if current_scene == null or current_scene.name != "BaseExploration":
