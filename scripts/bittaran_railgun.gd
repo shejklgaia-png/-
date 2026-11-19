@@ -62,6 +62,10 @@ var last_phase: int = Phase.WAIT
 var return_yaw_origin: float = 0.0
 var return_pitch_origin: float = 0.0
 var hit_cooldown: float = 0.0
+# Once a visible beam touches SERA, keep delivering the remaining 0.5s
+# damage pulses throughout THIS 2s shot, even if impact recoil displaces
+# SERA outside the narrow visual ray. Reset on beam end / next cycle / KO.
+var beam_hit_latched: bool = false
 var ready_to_fire: bool = false
 var mount_body: Node3D
 var mount_rig: Node3D
@@ -210,6 +214,7 @@ func reset() -> void:
     return_yaw_origin = 0.0
     return_pitch_origin = 0.0
     hit_cooldown = 0.0
+    beam_hit_latched = false
     aim_yaw = 0.0
     tracking_world_initialized = false
     tracked_world_yaw = 0.0
@@ -353,8 +358,8 @@ func _beam_overlaps_player(player_world: Vector3) -> bool:
     return distance_squared <= pow(
         BEAM_RADIUS_METERS + PLAYER_HIT_RADIUS_METERS, 2.0)
 
-## True only on a damage pulse. The battle scene applies HP/guard without
-## laser-hit knockback so that BOOST remains usable during the entire beam.
+## True on each beam damage pulse. First contact is geometric; afterward
+## the player is locked into the remaining full-hit volley until beam end.
 func advance(delta: float, player_world: Vector3, active: bool,
         boost_speed_mps: float = BOOST_REFERENCE_SPEED_MPS,
         run_speed_mps: float = RUN_REFERENCE_SPEED_MPS) -> bool:
@@ -365,6 +370,10 @@ func advance(delta: float, player_world: Vector3, active: bool,
     elapsed = fposmod(elapsed + step, PERIOD_SECONDS)
     hit_cooldown = maxf(0.0, hit_cooldown - step)
     var phase: int = _phase_at(elapsed)
+    if phase != Phase.BEAM:
+        # A combo belongs only to the beam that originally made contact.
+        # A BOOST that dodges the NEXT beam must not inherit this latch.
+        beam_hit_latched = false
     if phase == Phase.RETURN and last_phase != Phase.RETURN:
         # Start return on the FIRST frame after beam ends (no hold).
         return_yaw_origin = aim_yaw
@@ -423,9 +432,11 @@ func advance(delta: float, player_world: Vector3, active: bool,
         inner_beam.scale.z = inner_beam.scale.x
     last_phase = phase
     if firing and hit_cooldown <= 0.0 and (
-            _beam_overlaps_player(player_world)):
-        # No invisible grace/delay. The ray's actual position decides
-        # whether the player is hit from its FIRST visible frame.
+            beam_hit_latched or _beam_overlaps_player(player_world)):
+        # First pulse requires genuine world-space beam overlap. Once
+        # confirmed, recoil cannot cancel remaining pulses, even if it
+        # carries the player off-axis; the latch expires with the beam.
+        beam_hit_latched = true
         hit_cooldown = BEAM_DAMAGE_TICK_SECONDS
         return true
     return false
