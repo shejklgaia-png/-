@@ -743,8 +743,9 @@ func _advance_prebaked_sweep(
         end_sweep()
         return
     var t: float = float(frame.get("authored_time", 0.0))
-    # Visual ground-scrape trail has its own authored 0.5s source path;
-    # gameplay damage can end earlier without erasing existing clouds.
+    # Visual ground-scrape trail uses its own original source-time
+    # range, fully independent of v482's explicit front/rear damage
+    # windows. Never shorten, extend or restart dirt due to hit timing.
     if not bool(frame.get("sweep_fx_window",
             frame.get("hit_window", false))) or (
             str(frame.get("phase", "")) != "strike"):
