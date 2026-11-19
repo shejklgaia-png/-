@@ -1,7 +1,8 @@
 extends Node3D
 ## Bittaran's dorsal railgun. Its azimuth/elevation and ten-second fire
 ## clock are separate from locomotion, leg attacks, source clips and HEAD.
-## The Body bone transports the mount; no animation ever writes these pivots.
+## The Body bone transports the mount; its pitch/roll never tilts the gun.
+## WORLD yaw plus WORLD-relative elevation are the only allowed rotations.
 const RENDER_ORDER = preload("res://scripts/render_order_policy.gd")
 
 const PERIOD_SECONDS: float = 10.0
@@ -39,12 +40,17 @@ var return_yaw_origin: float = 0.0
 var return_pitch_origin: float = 0.0
 var hit_cooldown: float = 0.0
 var ready_to_fire: bool = false
+var mount_body: Node3D
+var mount_rig: Node3D
+var aim_yaw: float = 0.0
 
 func setup(rig: Node3D) -> bool:
     var body: Node3D = rig.find_child("Body", true, false) as Node3D
     if body == null or get_parent() != body:
         push_error("Bittaran railgun must be a child of the animated Body bone")
         return false
+    mount_body = body
+    mount_rig = rig
     var model_meshes: Dictionary = rig.get("mesh_nodes_by_uuid")
     for uid in RAIL_MESH_UUIDS:
         if not model_meshes.has(uid) or not is_instance_valid(model_meshes[uid]):
@@ -174,7 +180,7 @@ func reset() -> void:
     return_yaw_origin = 0.0
     return_pitch_origin = 0.0
     hit_cooldown = 0.0
-    rotation.y = 0.0
+    aim_yaw = 0.0
     if elevation != null:
         elevation.rotation.x = 0.0
     if outer_beam != null:
@@ -184,6 +190,7 @@ func reset() -> void:
     if muzzle_flash != null:
         muzzle_flash.visible = false
     _show_charge(0.0)
+    _level_mount()
 
 func _phase_at(t: float) -> int:
     if t < BEAM_SECONDS:
@@ -198,19 +205,45 @@ func _phase_at(t: float) -> int:
         return Phase.FLASH
     return Phase.PRE_FIRE
 
+func _neutral_world_yaw() -> float:
+    # The authored rig faces -Z at rest. Use only its horizontal heading,
+    # never the animated Body bone's pitch or roll.
+    if mount_rig == null:
+        return 0.0
+    var forward: Vector3 = -mount_rig.global_basis.z
+    forward.y = 0.0
+    if forward.length_squared() < 0.000001:
+        return 0.0
+    return atan2(-forward.x, -forward.z)
+
+
+func _level_mount() -> void:
+    if mount_body == null:
+        return
+    # The gun is still POSITIONALLY attached to Body (including animated
+    # recoil/height), but its world orientation has exactly zero roll/pitch.
+    # Reapply after each authored pose/IK tick to cancel inherited tilt.
+    var scale_world: Vector3 = mount_body.global_basis.get_scale()
+    global_basis = Basis(
+        Quaternion(Vector3.UP, _neutral_world_yaw() + aim_yaw)
+    ).scaled(scale_world)
+
+
 func _track_player(delta: float, player_world: Vector3) -> void:
-    # Convert the WORLD target into the animated Body's CURRENT local frame.
-    # Yaw and pitch remain separate from all four attack-leg source clips.
-    var to_player: Vector3 = get_parent().to_local(
-        player_world + Vector3.UP * 0.92) - position
+    # WORLD-UP target tracking avoids Body-space yaw/pitch cross-coupling.
+    # This prevents a rolling barrel when the chassis pitches or leans.
+    var to_player: Vector3 = (
+        player_world + Vector3.UP * 0.92 - global_position)
     if to_player.length_squared() <= 0.0001:
         return
-    var target_yaw: float = atan2(-to_player.x, -to_player.z)
+    var desired_world_yaw: float = atan2(-to_player.x, -to_player.z)
+    var target_yaw: float = angle_difference(
+        _neutral_world_yaw(), desired_world_yaw)
     var flat: float = Vector2(to_player.x, to_player.z).length()
     var target_pitch: float = atan2(to_player.y, maxf(flat, 0.12))
     var eased: float = 1.0 - exp(-TRACK_FILTER_PER_SECOND * delta)
-    var yaw_step: float = angle_difference(rotation.y, target_yaw) * eased
-    rotation.y += clampf(yaw_step,
+    var yaw_step: float = angle_difference(aim_yaw, target_yaw) * eased
+    aim_yaw += clampf(yaw_step,
         -deg_to_rad(TRACK_YAW_SPEED) * delta,
         deg_to_rad(TRACK_YAW_SPEED) * delta)
     var pitch_step: float = (target_pitch - elevation.rotation.x) * eased
@@ -252,14 +285,14 @@ func advance(delta: float, player_world: Vector3, active: bool) -> bool:
     hit_cooldown = maxf(0.0, hit_cooldown - step)
     var phase: int = _phase_at(elapsed)
     if phase == Phase.RETURN and last_phase != Phase.RETURN:
-        return_yaw_origin = rotation.y
+        return_yaw_origin = aim_yaw
         return_pitch_origin = elevation.rotation.x
     if phase == Phase.RETURN:
         var ratio: float = clampf(
             (elapsed - BEAM_SECONDS - POST_FIRE_HOLD_SECONDS)
             / RETURN_SECONDS, 0.0, 1.0)
         var smooth: float = ratio * ratio * (3.0 - 2.0 * ratio)
-        rotation.y = lerp_angle(return_yaw_origin, 0.0, smooth)
+        aim_yaw = lerp_angle(return_yaw_origin, 0.0, smooth)
         elevation.rotation.x = lerpf(return_pitch_origin, 0.0, smooth)
     elif phase == Phase.CHARGE or phase == Phase.FLASH or (
             phase == Phase.PRE_FIRE or phase == Phase.BEAM):
@@ -272,6 +305,7 @@ func advance(delta: float, player_world: Vector3, active: bool) -> bool:
         (elapsed - CHARGE_START) / (FLASH_START - CHARGE_START),
         0.0, 1.0) if phase == Phase.CHARGE or (
             phase == Phase.FLASH or phase == Phase.PRE_FIRE) else 0.0)
+    _level_mount()
     var firing: bool = phase == Phase.BEAM
     outer_beam.visible = firing
     inner_beam.visible = firing

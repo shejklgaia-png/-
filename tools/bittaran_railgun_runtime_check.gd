@@ -68,7 +68,7 @@ func _run() -> void:
     gun.call("reset")
     for i in range(120):
         gun.call("advance", DT, side_target, true)
-    if absf(gun.rotation.y) < deg_to_rad(5.0):
+    if absf(float(gun.get("aim_yaw"))) < deg_to_rad(5.0):
         _fail("barrel did not turn toward a lateral player")
         return
     if body.quaternion.angle_to(body_before) > 0.00001:
@@ -110,19 +110,19 @@ func _run() -> void:
     if core.visible:
         _fail("beam exceeded the two-second duration")
         return
-    var aim_at_end: float = gun.rotation.y
+    var aim_at_end: float = float(gun.get("aim_yaw"))
     gun.call("advance", 0.25, player_origin, true)
-    if absf(angle_difference(aim_at_end, gun.rotation.y)) > 0.0001:
+    if absf(angle_difference(aim_at_end, float(gun.get("aim_yaw")))) > 0.0001:
         _fail("postfire hold changed the target angle before 0.4s")
         return
     gun.call("advance", 0.78, player_origin, true)
-    if absf(gun.rotation.y) > deg_to_rad(1.0) or (
+    if absf(float(gun.get("aim_yaw"))) > deg_to_rad(1.0) or (
             absf(elevation.rotation.x) > deg_to_rad(1.0)):
         _fail("barrel did not ease back to its neutral angle")
         return
     # New charge starts tracking once more and advances all three lamps.
     gun.call("advance", 3.2, side_target, true)
-    if absf(gun.rotation.y) < deg_to_rad(3.0):
+    if absf(float(gun.get("aim_yaw"))) < deg_to_rad(3.0):
         _fail("new charge did not restart smooth target tracking")
         return
     if (bars[0] as StandardMaterial3D).emission_energy_multiplier <= 0.22:
