@@ -44,9 +44,9 @@ func _run() -> void:
         var saw_baked_path: bool = false
         var no_live_chase: bool = false
         var finish: float = (
-            ATTACKS.SWEEP_REAR_FIRST_STROKE_END_KEY_SECONDS
+            ATTACKS.SWEEP_REAR_FX_FIRST_STROKE_END_KEY_SECONDS
             if id.begins_with("leg_r")
-            else ATTACKS.SWEEP_FRONT_FIRST_STROKE_END_KEY_SECONDS)
+            else ATTACKS.SWEEP_FRONT_FX_FIRST_STROKE_END_KEY_SECONDS)
         for tick in range(250):
             battle.call("_advance_target_motion", DT)
             var frame: Dictionary = battle.get("bittaran_attack_frame")
