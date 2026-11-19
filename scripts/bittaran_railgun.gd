@@ -460,9 +460,10 @@ func _sync_mount_position() -> void:
 func _level_mount() -> void:
     if mount_body == null:
         return
-    # The gun is still POSITIONALLY attached to Body (including animated
-    # recoil/height), but its world orientation has exactly zero roll/pitch.
-    # Reapply after each authored pose/IK tick to cancel inherited tilt.
+    # The visible pivot remains POSITIONALLY attached to animated Body,
+    # but world yaw/pitch is owned by the independent tracking motor.
+    # The brief charge-entry roll is a visual correction about the firing
+    # axis and cannot change its world direction.
     var scale_world: Vector3 = mount_body.global_basis.get_scale()
     var chassis_yaw: float = _neutral_world_yaw()
     # The top-level gun does not inherit the Body transform; resample
@@ -557,11 +558,9 @@ func _tracking_turn_rate(player_world: Vector3,
 
 
 func _ground_ray_gap(player_world: Vector3) -> float:
-    # The laser's visible axis projected to ground Y=0 at the player's
-    # forward depth; do not mistake player height for a horizontal miss.
-    # This also handles a nearly horizontal ray without distant-ground
-    # intersection false positives.
-    # The approved gap is HORIZONTAL miss distance from the yaw ray.
+    # The approved catch-up gap is the 2D horizontal miss distance
+    # between player and the motor's yaw-only ray. A real pitched beam
+    # remains responsible for hit overlap, NOT speed calculation.
     # Never use a pitching/tilting barrel's projected direction here:
     # near-vertical elevation shrinks its XZ projection and spuriously
     # raises the catch-up speed even when player position stays fixed.
