@@ -16,6 +16,9 @@ const PROJECTILE_HIT_RADIUS_METERS: float = 0.62
 const MUZZLE_LOCAL: Vector3 = Vector3(0.0, 0.0, -0.56)
 
 var mounts: Dictionary = {}
+# The hemisphere is attached to the shin; only its barrel can swivel.
+var aim_pivots: Dictionary = {}
+var mount_rest_bases: Dictionary = {}
 var anchors: Dictionary = {}
 # One bind-local point computed from each authored lower-leg armor AABB.
 var mount_offsets: Dictionary = {}
@@ -26,6 +29,7 @@ var volley_index: int = 0
 var time_until_shot: float = 0.0
 var shots_fired: int = 0
 var last_fired_leg: String = ""
+var last_aimed_leg: String = ""
 var projectile_mesh: SphereMesh
 var projectile_material: StandardMaterial3D
 
@@ -68,13 +72,19 @@ func setup(rig: Node3D) -> bool:
         var center: Vector3 = armor_bounds.get_center()
         var left_right: float = -1.0 if id.ends_with("l") else 1.0
         var front_back: float = -1.0 if id.begins_with("leg_f") else 1.0
-        # Sink the dome center INSIDE the upper-outer shin shell.
-        # A hemisphere and barrel project from the armor; the pivot does
-        # not float in space or sit on the high upper-leg joint.
+        # The mount origin is the HEMISPHERE FLAT BASE, not its center.
+        # Seat that plane on the outside (+/-X) shin surface with a
+        # 0..3.5cm inset so there is no visible light gap or floating dome.
+        var attachment_inset: float = minf(0.035, armor_bounds.size.x * 0.08)
         mount_offsets[id] = center + Vector3(
-            left_right * armor_bounds.size.x * 0.23,
-            armor_bounds.size.y * 0.32,
-            front_back * armor_bounds.size.z * 0.36)
+            left_right * (armor_bounds.size.x * 0.5 - attachment_inset),
+            armor_bounds.size.y * 0.18,
+            front_back * armor_bounds.size.z * 0.15)
+        # Local +Y of the hemisphere is the OUTWARD surface normal.
+        # Its flat XZ base rests against the shin; local -Z is the
+        # default barrel-forward direction, tangent to the armor.
+        mount_rest_bases[id] = Basis.looking_at(
+            Vector3(0.0, 0.0, front_back), Vector3(left_right, 0.0, 0.0))
         var mount := Node3D.new()
         mount.name = "LegCannon_" + id
         # Keep the visual mount outside the authored shin subtree.
@@ -85,15 +95,26 @@ func setup(rig: Node3D) -> bool:
         anchors[id] = shin
         var hemisphere := SphereMesh.new()
         hemisphere.radius = 0.29
-        hemisphere.height = 0.58
+        # A regular hemisphere needs height == radius (Godot SphereMesh).
+        hemisphere.height = hemisphere.radius
         hemisphere.is_hemisphere = true
         hemisphere.radial_segments = 12
         hemisphere.rings = 6
         var dome := MeshInstance3D.new()
         dome.name = "TurretHemisphere"
         dome.mesh = hemisphere
+        # Godot's primitive origin may be centered differently from the
+        # flat equator; align its lowest/flat ring exactly with mount Y=0.
+        dome.position.y = -hemisphere.get_aabb().position.y
         dome.material_override = armor
         mount.add_child(dome)
+        # Keep the connected dome FIXED to the armor. Only the barrel
+        # assembly below rotates toward the player on the nearest leg.
+        var aim_pivot := Node3D.new()
+        aim_pivot.name = "TurretAim"
+        aim_pivot.position.y = hemisphere.radius * 0.68
+        mount.add_child(aim_pivot)
+        aim_pivots[id] = aim_pivot
         var tube := CylinderMesh.new()
         tube.top_radius = 0.072
         tube.bottom_radius = 0.105
@@ -105,7 +126,7 @@ func setup(rig: Node3D) -> bool:
         barrel.rotation.x = -PI * 0.5
         barrel.position.z = -0.31
         barrel.material_override = barrel_metal
-        mount.add_child(barrel)
+        aim_pivot.add_child(barrel)
         var ring_mesh := CylinderMesh.new()
         ring_mesh.top_radius = 0.11
         ring_mesh.bottom_radius = 0.11
@@ -117,7 +138,7 @@ func setup(rig: Node3D) -> bool:
         ring.rotation.x = -PI * 0.5
         ring.position.z = -0.55
         ring.material_override = muzzle_glow
-        mount.add_child(ring)
+        aim_pivot.add_child(ring)
         mounts[id] = mount
     _sync_mounts()
     reset()
@@ -134,6 +155,7 @@ func reset() -> void:
     time_until_shot = 0.0
     shots_fired = 0
     last_fired_leg = ""
+    last_aimed_leg = ""
 
 func _sort_volley_by_distance(player_world: Vector3) -> void:
     volley_order = LEG_IDS.duplicate()
@@ -173,34 +195,46 @@ func _sync_mounts() -> void:
         var shin: Node3D = anchors[id]
         var mount: Node3D = mounts[id]
         mount.global_position = shin.to_global(mount_offsets[id])
-        # While idle/disabled, the cannon rests with the rotating shin.
-        # Active aim rotates the turret in world space after the skin
-        # attachment point has been refreshed.
-        mount.global_basis = shin.global_basis.orthonormalized()
+        mount.global_basis = (
+            shin.global_basis * (mount_rest_bases[id] as Basis)).orthonormalized()
+        # Non-nearest barrels point in a fixed local resting direction.
+        # The dome never follows the player's look direction.
+        (aim_pivots[id] as Node3D).basis = Basis.IDENTITY
 
-func _aim_cannons(player_world: Vector3) -> void:
-    _sync_mounts()
-    var aim: Vector3 = player_world + Vector3.UP * 0.90
+func _aim_nearest(player_world: Vector3) -> void:
+    var closest_id: String = ""
+    var closest_distance_sq: float = INF
     for id in LEG_IDS:
         var mount: Node3D = mounts[id]
-        var to_target: Vector3 = aim - mount.global_position
-        if to_target.length_squared() < 0.001:
-            continue
-        var up: Vector3 = (
-            Vector3.FORWARD if absf(to_target.normalized().dot(Vector3.UP)) > 0.98
-            else Vector3.UP)
-        mount.look_at(aim, up)
+        var distance_sq: float = mount.global_position.distance_squared_to(player_world)
+        if distance_sq < closest_distance_sq:
+            closest_id = id
+            closest_distance_sq = distance_sq
+    last_aimed_leg = closest_id
+    if closest_id.is_empty():
+        return
+    var pivot: Node3D = aim_pivots[closest_id]
+    var aim: Vector3 = player_world + Vector3.UP * 0.90
+    var to_target: Vector3 = aim - pivot.global_position
+    if to_target.length_squared() < 0.001:
+        return
+    var up: Vector3 = (
+        Vector3.FORWARD if absf(to_target.normalized().dot(Vector3.UP)) > 0.98
+        else Vector3.UP)
+    # Only this barrel tracks; the other three remain aligned to their
+    # animated lower legs, and every hemisphere base stays seated.
+    pivot.look_at(aim, up)
 
 func _fire_next(player_world: Vector3) -> void:
     if volley_index == 0:
         _sort_volley_by_distance(player_world)
     var id: String = volley_order[volley_index]
-    var mount: Node3D = mounts[id]
-    var origin: Vector3 = mount.to_global(MUZZLE_LOCAL)
-    var toward: Vector3 = player_world + Vector3.UP * 0.90 - origin
-    var direction: Vector3 = (
-        toward.normalized() if toward.length_squared() > 0.00001
-        else -mount.global_basis.z.normalized())
+    var pivot: Node3D = aim_pivots[id]
+    var origin: Vector3 = pivot.to_global(MUZZLE_LOCAL)
+    # Do not silently steer bullets through an un-aimed barrel. The old
+    # near-to-far volley remains, but projectile travel now matches the
+    # muzzle direction of each visible gun.
+    var direction: Vector3 = -pivot.global_basis.z.normalized()
     var bolt := MeshInstance3D.new()
     bolt.name = "LegCannonShot_" + id
     bolt.mesh = projectile_mesh
@@ -261,7 +295,7 @@ func advance(delta: float, player_world: Vector3, active: bool) -> Array[Vector3
         reset()
         return impacts
     var step: float = maxf(delta, 0.0)
-    _aim_cannons(player_world)
+    _aim_nearest(player_world)
     impacts = _advance_projectiles(step, player_world)
     time_until_shot -= step
     if time_until_shot <= 0.0:
