@@ -671,20 +671,15 @@ func _check_bittaran_attack_hit() -> void:
     var is_impact: bool = bool(bittaran_attack_frame.get("impact", false))
     var hit_window: bool = bool(bittaran_attack_frame.get("hit_window", false))
     if original:
-        # The source attack director owns the actual Blockbench
-        # keyframe window. KICK starts .10s after the first extension
-        # key; the four SWEEPs start .10s after their grounded return
-        # begins, not while the leg is being raised or drawn back.
+        # The attack director owns the user-specified exact source
+        # clip window. All four SWEEPs check their real LOWER LEG + FOOT
+        # mesh even when the sole has not yet planted: v482 begins
+        # at front 0.67s / rear 0.17s, earlier than first ground contact.
+        # Grounding is an independent condition for dirt VFX only.
         var phase: String = str(bittaran_attack_frame.get("phase", ""))
-        var clip_time: float = float(bittaran_attack_frame.get(
-            "authored_time", 0.0))
         is_impact = false
         hit_window = (phase == "strike" and bool(
             bittaran_attack_frame.get("hit_window", false)))
-        if kind == "sweep":
-            # During a returning sweep the visible foot must be planted.
-            hit_window = hit_window and (
-                _bittaran_striking_foot_grounded(leg_id))
     if not is_impact and not hit_window:
         return
     var contact: Vector3 = (
