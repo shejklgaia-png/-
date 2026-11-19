@@ -1,23 +1,24 @@
 extends Node3D
-## Four belly-mounted cannons. No turret is attached to or inherits any
-## leg bone; the original Bittaran rig/IK/attacks/railgun are untouched.
-## The nearest barrel aims; all four retain one shared firing clock.
-const TURRET_IDS: Array[String] = [
-    "belly_fl", "belly_fr", "belly_rl", "belly_rr"]
+## One substantial underbelly cannon: seated half-dome and independent
+## swiveling barrel. Authored model, animations, IK and railgun are untouched.
+## A brief emissive cross flashes at the real muzzle on EACH shot.
+const RENDER_ORDER = preload("res://scripts/render_order_policy.gd")
+const TURRET_IDS: Array[String] = ["belly_main"]
 const BODY_BONE: String = "Body"
 const BELLY_MESH: String = "body_mesh"
 const SHOT_INTERVAL_SECONDS: float = 1.2
+const FLASH_DURATION_SECONDS: float = 0.085
 const SHOT_SPEED_MPS: float = 17.0
 const PROJECTILE_LIFETIME_SECONDS: float = 3.0
 const PROJECTILE_HIT_RADIUS_METERS: float = 0.62
-const MUZZLE_LOCAL: Vector3 = Vector3(0.0, 0.0, -0.56)
+const MUZZLE_LOCAL: Vector3 = Vector3(0.0, 0.0, -0.81)
 
 var mounts: Dictionary = {}
 # The hemisphere's flat base is fixed to the belly; only its barrel swivels.
 var aim_pivots: Dictionary = {}
 var mount_rest_bases: Dictionary = {}
 var anchors: Dictionary = {}
-# Four 2x2 corners measured in the original torso mesh's own body space.
+# One centered attachment measured from the original torso mesh.
 var mount_offsets: Dictionary = {}
 var belly_bounds: AABB = AABB()
 var projectiles: Array[Dictionary] = []
@@ -29,6 +30,8 @@ var last_fired_turret: String = ""
 var last_aimed_turret: String = ""
 var projectile_mesh: SphereMesh
 var projectile_material: StandardMaterial3D
+var muzzle_cross_flash: Node3D
+var flash_time_remaining: float = 0.0
 
 func setup(rig: Node3D) -> bool:
     if rig == null:
@@ -67,16 +70,12 @@ func setup(rig: Node3D) -> bool:
     var belly_center: Vector3 = belly_bounds.get_center()
     var belly_inset: float = minf(0.018, belly_bounds.size.y * 0.04)
     for id in TURRET_IDS:
-        var left_right: float = -1.0 if id.ends_with("l") else 1.0
-        var front_back: float = -1.0 if id.begins_with("belly_f") else 1.0
-        # Two rows x two columns completely beneath the belly; shrink
-        # dome radius to 24cm to avoid either side poking outside torso.
-        # The flat equator/base is 0..1.8cm INSIDE the underside, not
-        # the dome center. This prevents a visible gap during animation.
+        # One larger cannon, at the TRUE BODY-local underside center.
+        # The hemisphere's flat base sinks just inside the original armor.
         mount_offsets[id] = Vector3(
-            belly_center.x + left_right * belly_bounds.size.x * 0.247,
+            belly_center.x,
             belly_bounds.position.y + belly_inset,
-            belly_center.z + front_back * belly_bounds.size.z * 0.28)
+            belly_center.z)
         # Local +Y hemisphere axis = body DOWN, normal to belly.
         mount_rest_bases[id] = Basis.looking_at(Vector3.FORWARD, Vector3.DOWN)
         var mount := Node3D.new()
@@ -87,7 +86,7 @@ func setup(rig: Node3D) -> bool:
         add_child(mount)
         anchors[id] = body
         var hemisphere := SphereMesh.new()
-        hemisphere.radius = 0.24
+        hemisphere.radius = 0.36
         # A regular hemisphere needs height == radius (Godot SphereMesh).
         hemisphere.height = hemisphere.radius
         hemisphere.is_hemisphere = true
@@ -101,37 +100,102 @@ func setup(rig: Node3D) -> bool:
         dome.position.y = -hemisphere.get_aabb().position.y
         dome.material_override = armor
         mount.add_child(dome)
-        # Keep the connected dome FIXED to the belly armor. Only the
-        # nearest barrel assembly rotates toward the player.
+        # Layered armor skirt around the hemisphere's fixed base makes
+        # the SINGLE cannon look heavier; it never swivels off the belly.
+        var base_collar_mesh := CylinderMesh.new()
+        base_collar_mesh.top_radius = 0.43
+        base_collar_mesh.bottom_radius = 0.43
+        base_collar_mesh.height = 0.10
+        base_collar_mesh.radial_segments = 16
+        var base_collar := MeshInstance3D.new()
+        base_collar.name = "TurretBaseCollar"
+        base_collar.mesh = base_collar_mesh
+        base_collar.position.y = 0.045
+        base_collar.material_override = barrel_metal
+        mount.add_child(base_collar)
+        # The connected dome is FIXED to the belly armor. Only the
+        # main barrel assembly below rotates toward the player.
         var aim_pivot := Node3D.new()
         aim_pivot.name = "TurretAim"
         aim_pivot.position.y = hemisphere.radius * 0.68
         mount.add_child(aim_pivot)
         aim_pivots[id] = aim_pivot
         var tube := CylinderMesh.new()
-        tube.top_radius = 0.072
-        tube.bottom_radius = 0.105
-        tube.height = 0.44
-        tube.radial_segments = 10
+        tube.top_radius = 0.12
+        tube.bottom_radius = 0.15
+        tube.height = 0.68
+        tube.radial_segments = 16
         var barrel := MeshInstance3D.new()
         barrel.name = "TurretBarrel"
         barrel.mesh = tube
         barrel.rotation.x = -PI * 0.5
-        barrel.position.z = -0.31
+        barrel.position.z = -0.45
         barrel.material_override = barrel_metal
         aim_pivot.add_child(barrel)
+        # Thick armored sleeve behind the muzzle gives the single
+        # cannon a substantial silhouette without extra firing points.
+        var sleeve_mesh := CylinderMesh.new()
+        sleeve_mesh.top_radius = 0.205
+        sleeve_mesh.bottom_radius = 0.225
+        sleeve_mesh.height = 0.31
+        sleeve_mesh.radial_segments = 16
+        var sleeve := MeshInstance3D.new()
+        sleeve.name = "BarrelSleeve"
+        sleeve.mesh = sleeve_mesh
+        sleeve.rotation.x = -PI * 0.5
+        sleeve.position.z = -0.27
+        sleeve.material_override = armor
+        aim_pivot.add_child(sleeve)
         var ring_mesh := CylinderMesh.new()
-        ring_mesh.top_radius = 0.11
-        ring_mesh.bottom_radius = 0.11
-        ring_mesh.height = 0.055
-        ring_mesh.radial_segments = 10
+        ring_mesh.top_radius = 0.17
+        ring_mesh.bottom_radius = 0.17
+        ring_mesh.height = 0.085
+        ring_mesh.radial_segments = 16
         var ring := MeshInstance3D.new()
         ring.name = "TurretMuzzle"
         ring.mesh = ring_mesh
         ring.rotation.x = -PI * 0.5
-        ring.position.z = -0.55
+        ring.position.z = -0.785
         ring.material_override = muzzle_glow
         aim_pivot.add_child(ring)
+        # Two orthogonal emissive bars, plus an intense small center.
+        # This is attached to the aim pivot, so no visual gap opens
+        # when the player or Bittaran moves on the firing frame.
+        var cross := Node3D.new()
+        cross.name = "MuzzleCrossFlash"
+        cross.position = MUZZLE_LOCAL
+        cross.visible = false
+        aim_pivot.add_child(cross)
+        muzzle_cross_flash = cross
+        var cross_material := StandardMaterial3D.new()
+        cross_material.albedo_color = Color("#c5f5ff")
+        cross_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+        cross_material.emission_enabled = true
+        cross_material.emission = Color("#74d9ff")
+        cross_material.emission_energy_multiplier = 5.0
+        cross_material.render_priority = RENDER_ORDER.DEPTH_TESTED_EMISSIVE
+        for horizontal in [true, false]:
+            var bar_shape := BoxMesh.new()
+            bar_shape.size = (
+                Vector3(0.62, 0.047, 0.025) if horizontal
+                else Vector3(0.047, 0.62, 0.025))
+            var bar := MeshInstance3D.new()
+            bar.name = "CrossHorizontal" if horizontal else "CrossVertical"
+            bar.mesh = bar_shape
+            bar.material_override = cross_material
+            bar.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+            cross.add_child(bar)
+        var center_shape := SphereMesh.new()
+        center_shape.radius = 0.105
+        center_shape.height = 0.21
+        center_shape.radial_segments = 10
+        center_shape.rings = 5
+        var center_glint := MeshInstance3D.new()
+        center_glint.name = "CrossCore"
+        center_glint.mesh = center_shape
+        center_glint.material_override = cross_material
+        center_glint.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+        cross.add_child(center_glint)
         mounts[id] = mount
     _sync_mounts()
     reset()
@@ -149,6 +213,19 @@ func reset() -> void:
     shots_fired = 0
     last_fired_turret = ""
     last_aimed_turret = ""
+    flash_time_remaining = 0.0
+    if muzzle_cross_flash != null:
+        muzzle_cross_flash.visible = false
+        muzzle_cross_flash.scale = Vector3.ONE
+
+func _advance_muzzle_cross(delta: float) -> void:
+    if muzzle_cross_flash == null or flash_time_remaining <= 0.0:
+        return
+    flash_time_remaining = maxf(flash_time_remaining - maxf(delta, 0.0), 0.0)
+    muzzle_cross_flash.visible = flash_time_remaining > 0.0
+    if flash_time_remaining > 0.0:
+        var fraction: float = flash_time_remaining / FLASH_DURATION_SECONDS
+        muzzle_cross_flash.scale = Vector3.ONE * (0.38 + fraction * 0.62)
 
 func _sort_volley_by_distance(player_world: Vector3) -> void:
     volley_order = TURRET_IDS.duplicate()
@@ -212,8 +289,7 @@ func _aim_nearest(player_world: Vector3) -> void:
     var up: Vector3 = (
         Vector3.FORWARD if absf(to_target.normalized().dot(Vector3.UP)) > 0.98
         else Vector3.UP)
-    # Only this barrel tracks; the other three remain aligned to their
-    # animated belly, and every hemisphere base stays seated on the belly.
+    # Only one barrel exists. Its dome stays fixed to the belly.
     pivot.look_at(aim, up)
 
 func _fire_next(player_world: Vector3) -> void:
@@ -226,6 +302,11 @@ func _fire_next(player_world: Vector3) -> void:
     # near-to-far volley remains, but projectile travel now matches the
     # muzzle direction of each visible gun.
     var direction: Vector3 = -pivot.global_basis.z.normalized()
+    # The bright cross must appear on the very same firing tick.
+    flash_time_remaining = FLASH_DURATION_SECONDS
+    if muzzle_cross_flash != null:
+        muzzle_cross_flash.scale = Vector3.ONE
+        muzzle_cross_flash.visible = true
     var bolt := MeshInstance3D.new()
     bolt.name = "BellyCannonShot_" + id
     bolt.mesh = projectile_mesh
@@ -287,6 +368,7 @@ func advance(delta: float, player_world: Vector3, active: bool) -> Array[Vector3
         return impacts
     var step: float = maxf(delta, 0.0)
     _aim_nearest(player_world)
+    _advance_muzzle_cross(step)
     impacts = _advance_projectiles(step, player_world)
     time_until_shot -= step
     if time_until_shot <= 0.0:
