@@ -30,9 +30,9 @@ assert "material.blend_mode = BaseMaterial3D.BLEND_MODE_MIX" in fx
 assert "material.blend_mode = BaseMaterial3D.BLEND_MODE_ADD" not in fx
 assert "static func contact_opacity(progress: float) -> float:" in fx
 assert "static func contact_core_flash(progress: float) -> float:" in fx
-assert "const CRACK_EXTEND_SECONDS: float = 0.13" in fx
-assert "const CRACK_FADE_END_SECONDS: float = 0.32" in fx
-assert "const IMPACT_SECONDS: float = 0.44" in fx
+assert "const CRACK_EXTEND_SECONDS: float = 0.065" in fx
+assert "const CRACK_FADE_END_SECONDS: float = 0.16" in fx
+assert "const IMPACT_SECONDS: float = 0.60" in fx
 assert "const FRACTURE_SECONDS: float = 0.65" in fx
 assert "func state_color(ratio: float)" in fx
 assert "AudioStreamWAV.new()" in fx
@@ -44,7 +44,7 @@ assert "const FRACTURE_REACH_START_PX: float = 90.0" in fx
 assert "const FRACTURE_REACH_END_PX: float = 470.0" in fx
 assert "const BURST_RADIUS_MAX_PX: float = 470.0" in fx
 assert "const MIN_VISUAL_SCALE: float = 0.85" in fx
-assert "const IMPACT_SECONDS: float = 0.44" in fx
+assert "const IMPACT_SECONDS: float = 0.60" in fx
 assert "const FRACTURE_SECONDS: float = 0.65" in fx
 # The only visible indicator remains the localized FX; no secondary HP overlay.
 assert "func contact_radius_px(progress: float) -> float:" in fx

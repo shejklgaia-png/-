@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""v515: intact shield is a solid membrane; only shatter leaves a center hole."""
+"""v515-v516: intact shield center is solid; only broken shield may have an opening."""
 from pathlib import Path
 import re
 
@@ -13,16 +13,16 @@ ordinary = fx.split("func _draw_impact(", 1)[1].split("func _redraw(", 1)[0]
 shatter = fx.split("func _fracture(", 1)[1].split("static func contact_radius_px(", 1)[0]
 # An opaque colored *disc* occupies the impact center for the entire visible
 # life of an intact membrane; the white contact flash may fade independently.
-assert "_ring(center, 0.0, radius * 0.20, core, core, depth)" in ordinary
-assert "membrane_center_color(tone, opacity, flash)" in ordinary
+assert "_octagon_disc(center, core_radius, core, depth)" in ordinary
+assert "membrane_center_color(tone, inner_alpha, flash)" in ordinary
 assert "core.a = 0.94 * opacity" in fx
 assert "tone.lerp(Color.WHITE, 0.38 * flash)" in fx
 # Only on break may an expanding hole be opened. Neither crack nor shards
 # change the intact shield drawing or punch a hole through the HP bar.
-assert "var hole_radius: float = radius * lerpf(0.14, 0.23, burst)" in shatter
-assert "_ring(center, hole_radius, radius * 0.27," in shatter
-assert "_ring(center, 0.0" not in shatter
-assert "func _fracture(" in fx and "if burst > 0.0:" in shatter
+assert "var shard_data: Array = entry[\"shards\"]" in shatter
+assert "_draw_glass_shard(center, depth, shard, t, scale)" in shatter
+assert "_octagon_disc(center" not in shatter
+assert "func _fracture(" in fx and "GLASS_SHARD_COUNT" in fx
 assert "SHIELD_IMPACT" in fx and "material.no_depth_test = false" in fx
 assert '"res://scripts/enemy_shield_hit_fx.gd"' in main
 for path in (
