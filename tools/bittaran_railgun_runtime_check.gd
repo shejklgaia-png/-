@@ -488,8 +488,11 @@ func _run() -> void:
     scene.set("movement_boost_active", true)
     gun.call("reset")
     gun.set("elapsed", GUN.BEAM_START - DT * 0.5)
-    player.global_position = elevation.to_global(
-        Vector3(0.0, 0.0, -9.0)) - Vector3.UP * 0.92
+    # The first beam frame is world-stabilized, while WAIT can be
+    # tilted along with Body. Place the player on the FIRING axis.
+    player.global_position = gun.global_position + Basis(Quaternion(
+        Vector3.UP, float(gun.call("_neutral_world_yaw")))).scaled(
+        gun.global_basis.get_scale()) * Vector3(0.0, 0.0, -9.0) - Vector3.UP * 0.92
     var first_hp: float = float(scene.get("player_hp"))
     scene.call("_tick_bittaran_railgun", DT)
     var hp_after_first: float = float(scene.get("player_hp"))
@@ -544,8 +547,11 @@ func _run() -> void:
     scene.set("damage_reaction_active", false)
     gun.call("reset")
     gun.set("elapsed", GUN.BEAM_START - DT * 0.5)
-    player.global_position = elevation.to_global(
-        Vector3(0.0, 0.0, -9.0)) - Vector3.UP * 0.92
+    # The first beam frame is world-stabilized, while WAIT can be
+    # tilted along with Body. Place the player on the FIRING axis.
+    player.global_position = gun.global_position + Basis(Quaternion(
+        Vector3.UP, float(gun.call("_neutral_world_yaw")))).scaled(
+        gun.global_basis.get_scale()) * Vector3(0.0, 0.0, -9.0) - Vector3.UP * 0.92
     scene.call("_tick_bittaran_railgun", DT)
     var expected_laser_guard_cost: float = (
         23.0 *
