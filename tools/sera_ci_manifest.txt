@@ -394,3 +394,7 @@ gd tools/v510_predictive_shield_runtime_check.gd
 # v515: solid membrane on intact hits; opening only on shatter.
 py tools/v515_shield_membrane_self_check.py
 gd tools/v515_shield_membrane_runtime_check.gd
+
+# v516: six sequential hard-edged octagons and glass fracture, no radial blur.
+py tools/v516_octagonal_shield_self_check.py
+gd tools/v516_octagonal_shield_runtime_check.gd
