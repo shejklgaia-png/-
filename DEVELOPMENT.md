@@ -1,3 +1,10 @@
+## 2026-11-19 — SERA v483: レールガン上側接続軸の本体Yaw同期
+
+- **CI事前点検**：`.github/workflows/sera-model-policy.yml` と `tools/sera_ci_manifest.txt`、現行`docs/SERA_ACTIVE_CI_POLICY_ja.md`を確認。既存の`bittaran_railgun_runtime_check.gd`（10秒充填／追尾／ビーム等）、`bittaran_full_frame_level_gun_runtime_check.gd`（胴体傾斜と砲身の水平保持）、`v433`／`v434`（18メッシュと原本姿勢）を不変条件として維持。変更すべき既存数値期待値なし。
+- **テスト先行**：新規`tools/bittaran_chassis_axis_runtime_check.gd`を先に作成し、`tools/sera_ci_manifest.txt`へ登録。実メッシュUUIDの親子関係、複数Yawでの完全同期、Body Pitch/Rollからの分離、砲身の独立した照準Yaw、原点の保持を検査。
+- **実装**：`scripts/bittaran_railgun.gd`でBlockbench原本の上側の縦軸メッシュ`4b184c7d-480e-cd99-3dca-596928ffd5cd`を、`Body`配下の新規`RailgunChassisAxis`へ再親子付け。縦軸は本体の世界水平Yawに同期し、取付位置はBodyに従うが、胴体傾き・砲身独立照準Yawには回転しない。台座・砲身・足・14ボーン・原本モデル・キーフレーム・攻撃判定の変更なし。
+- **統合後**：`main`上のフルPython/Godot CIによる確認、およびAndroid実機での軸と砲身の接続・旋回時の見た目の確認を区別して報告。
+
 ## 2026-11-19 — SERA v482: なぎ払いの足先・下肢当たり判定を指定時刻へ
 
 - `scripts/bittaran_attacks.gd`：旧「横薙ぎ停止フレーム0.5秒前で終了」から**ユーザーの明示した原本クリップ時刻**へ変更。前足左右の判定は**0.67〜1.38秒**、後足左右は**0.17〜0.63秒**。モーションのキーフレームやクリップ速度は変更せず、従来の`source_hit_window`とライブフレーム`hit_window`に直接反映。

@@ -68,7 +68,10 @@ const BEAM_RADIUS_METERS: float = 0.70
 const PLAYER_HIT_RADIUS_METERS: float = 0.48
 const MUZZLE_LOCAL_Z: float = -1.53
 # Two authored rails, not the body, pedestal, head or either leg.
+# The separate upper vertical shaft turns with the CHASSIS yaw, never with
+# the barrel's independent world-space targeting yaw.
 # Original mesh UUIDs, geometry, materials and Blockbench source are retained.
+const CHASSIS_AXIS_MESH_UUID: String = "4b184c7d-480e-cd99-3dca-596928ffd5cd"
 const RAIL_MESH_UUIDS = [
     "2ce4b10f-8a6d-72de-8b79-763d67e41b78",
     "3e2ee103-881b-8bc0-edc1-ea9e396268e9",
@@ -105,6 +108,7 @@ var beam_ground_point: Vector3 = Vector3.ZERO
 var ready_to_fire: bool = false
 var mount_body: Node3D
 var mount_rig: Node3D
+var chassis_axis: Node3D
 var aim_yaw: float = 0.0
 var tracked_world_yaw: float = 0.0
 var tracking_world_initialized: bool = false
@@ -129,9 +133,29 @@ func setup(rig: Node3D) -> bool:
     elevation.name = "RailgunElevation"
     elevation.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_ON
     add_child(elevation)
-    # Preserve the authored mesh's WORLD transform while changing its parent.
-    # The animated Body is still the base; only the two rails pitch and turn.
+    # The tall original shaft above the pedestal is NOT an aiming barrel.
+    # Its pivot stays attached to the authored Body position, but faces only
+    # the boss chassis' horizontal heading, even during Body pitch/roll.
+    # This prevents aim_yaw from twisting the shaft away from the chassis.
     var mesh_bind_positions: Dictionary = rig.get("mesh_base_positions_by_uuid")
+    var shaft: MeshInstance3D = model_meshes.get(
+        CHASSIS_AXIS_MESH_UUID) as MeshInstance3D
+    if shaft == null or shaft.get_parent() != mount_body:
+        push_error("Bittaran railgun: upper connection shaft is missing")
+        return false
+    chassis_axis = Node3D.new()
+    chassis_axis.name = "RailgunChassisAxis"
+    chassis_axis.physics_interpolation_mode = (
+        Node.PHYSICS_INTERPOLATION_MODE_ON)
+    chassis_axis.position = shaft.position
+    mount_body.add_child(chassis_axis)
+    shaft.reparent(chassis_axis, false)
+    shaft.position = Vector3.ZERO
+    shaft.quaternion = Quaternion.IDENTITY
+    mesh_bind_positions[CHASSIS_AXIS_MESH_UUID] = shaft.position
+
+    # Preserve both actual rail meshes' WORLD transforms when reparenting:
+    # only the twin barrels pitch and aim; the shaft tracks the chassis.
     for uid in RAIL_MESH_UUIDS:
         var rail: MeshInstance3D = model_meshes[uid] as MeshInstance3D
         rail.reparent(elevation, true)
@@ -391,8 +415,15 @@ func _level_mount() -> void:
     # recoil/height), but its world orientation has exactly zero roll/pitch.
     # Reapply after each authored pose/IK tick to cancel inherited tilt.
     var scale_world: Vector3 = mount_body.global_basis.get_scale()
+    var chassis_yaw: float = _neutral_world_yaw()
+    if chassis_axis != null:
+        # Orientation only. Its position remains on the animated Body,
+        # while the connector receives neither Body lean nor turret yaw.
+        chassis_axis.global_basis = Basis(
+            Quaternion(Vector3.UP, chassis_yaw)
+        ).scaled(scale_world)
     global_basis = Basis(
-        Quaternion(Vector3.UP, _neutral_world_yaw() + aim_yaw)
+        Quaternion(Vector3.UP, chassis_yaw + aim_yaw)
     ).scaled(scale_world)
 
 
