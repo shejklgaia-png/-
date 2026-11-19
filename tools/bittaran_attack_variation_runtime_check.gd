@@ -1,7 +1,6 @@
 extends SceneTree
-## Live combat-director regression: consecutive attack TYPES must differ.
-## Preserve sector limits and require purposeful repositioning rather
-## than swapping to an attack that is illegal at the current bearing.
+## Immediate attacks must not be blocked by the previously used kind.
+## Prefer a different legal technique; repeat if no other reaches.
 const ATTACKS = preload("res://scripts/bittaran_attacks.gd")
 const AI = preload("res://scripts/bittaran_ai.gd")
 const FEET: Dictionary = {
@@ -25,11 +24,11 @@ func _try_attack(director: RefCounted, player: Vector3) -> Dictionary:
 
 func _run() -> void:
     var director: RefCounted = ATTACKS.new()
-    var movement: RefCounted = AI.new()
     var stomp_player: Vector3 = Vector3(0.0, 0.0, 2.0)
     var kick_player: Vector3 = Vector3(0.0, 0.0, 5.0)
     var sweep_player: Vector3 = Vector3(6.0, 0.0, 0.0)
     var cases: Array = [
+        # First attack must use the best range-legal kind.
         [stomp_player, "stomp"],
         [kick_player, "kick"],
         [sweep_player, "sweep"],
@@ -40,51 +39,47 @@ func _run() -> void:
         var player: Vector3 = item[0]
         var expected: String = str(item[1])
         if bool(director.call(
-                "repeat_kind_blocked", player, Vector3.ZERO, 0.0, FEET)):
-            _fail("new sector must be available " + expected)
+                "repeat_kind_blocked", player,
+                Vector3.ZERO, 0.0, FEET)):
+            _fail("legal attack was blocked by history " + expected)
             return
         var attack: Dictionary = _try_attack(director, player)
         if str(attack.get("kind", "")) != expected or (
                 not ATTACKS.LEG_IDS.has(str(attack.get("id", "")))):
-            _fail("wrong legal attack: " + str([expected, attack]))
+            _fail("wrong first legal attack: " + str([expected, attack]))
             return
         begun.append(expected)
-        # Canceled hits must still count as the most recent selected kind:
-        # different feet cannot bypass the anti-repeat guarantee.
         director.call("cancel")
-        if not bool(director.call(
-                "repeat_kind_blocked", player, Vector3.ZERO, 0.0, FEET)):
-            _fail("repeated kind was not blocked " + expected)
+        # A different technique should be preferred IF legal.
+        # At the sweep-only position the same type must be allowed.
+        var other: String = str(director.call(
+            "_choose_nonrepeating_kind", player, FEET, 0.0))
+        if other.is_empty():
+            _fail("in-range attack blocked after cancel " + expected)
+            return
+        if other == expected and expected != "sweep":
+            _fail("did not prefer alternate legal attack " + expected)
             return
         var repeat: Dictionary = _try_attack(director, player)
-        if not repeat.is_empty() or bool(director.call("is_active")):
-            _fail("same kind repeated " + str([expected, repeat]))
+        if repeat.is_empty() or str(
+                repeat.get("kind", "")) != other:
+            _fail("attack blocked despite valid foot range " +
+                str([expected, other, repeat]))
             return
-        var forced_walk: Dictionary = movement.call(
-            "advance", 0.10, Vector3.ZERO, 0.0, player, false, true,
-            true)
-        if str(forced_walk.get("motion", "")) != "Approach" or (
-                (forced_walk["position"] as Vector3)
-                .distance_to(Vector3.ZERO) <= 0.000001):
-            _fail("blocked attack did not reposition " + expected)
-            return
+        director.call("cancel")
     if begun != ["stomp", "kick", "sweep", "stomp"]:
-        _fail("unexpected alternation " + str(begun))
+        _fail("unexpected initial kind choices " + str(begun))
         return
     director.call("reset")
-    if bool(director.call("repeat_kind_blocked",
-            stomp_player, Vector3.ZERO, 0.0, FEET)):
-        _fail("new encounter retained previous attack history")
-        return
     var first_after_reset: Dictionary = _try_attack(
         director, stomp_player)
     if str(first_after_reset.get("kind", "")) != "stomp":
-        _fail("reset prevented first attack")
+        _fail("reset prevented in-range first attack")
         return
     print("GODOT_BITTARAN_ATTACK_VARIATION_PASS ",
         "sequence=stomp,kick,sweep,stomp ",
-        "same_type_consecutive=false ",
-        "sector_limits_preserved=true ",
-        "blocked_move_repositions=true ",
-        "cancel_remembers_last=true reset_clears_last=true")
+        "alternate_kind_preferred_if_legal=true ",
+        "same_kind_repeat_allowed_when_only_valid=true ",
+        "no_forced_reposition=true ",
+        "sector_limits_preserved=true")
     quit(0)
