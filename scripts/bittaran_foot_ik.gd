@@ -2684,8 +2684,15 @@ const SOURCE_STRIKE_MIN_SOURCE_SECONDS: Dictionary = {
 # Locked horizontal toe-target displacement for the inverse-solved
 # STOMP raise. This is NEVER refreshed once descent begins.
 const STOMP_AIM_IK_MAX_HORIZONTAL_METERS: float = 1.15
-const STOMP_AIM_IK_RESPONSE_PER_SECOND: float = 14.0
+# The whole lower limb follows the UPWARD-rotating upper joint as a
+# rigid child, preserving its authored relative knee quaternion.
+# No arm-length extension is used to guide the airborne stroke.
+const STOMP_AIM_UPPER_MAX_DEGREES: float = 26.0
+const STOMP_AIM_UPPER_RATE_DEGREES_PER_SECOND: float = 75.0
+const STOMP_AIM_UPPER_CANDIDATE_STEP_DEGREES: float = 2.0
+const STOMP_AIM_UPPER_KNEE_RISE_PREFERENCE: float = 0.12
 var source_ik_stomp_target_offset: Vector3 = Vector3.ZERO
+var source_ik_stomp_upper_pitch_radians: float = 0.0
 var source_ik_stomp_aim_leg: String = ""
 var source_ik_strike_contact_count: int = 0
 var source_ik_strike_contact_error_max: float = 0.0
@@ -3137,15 +3144,15 @@ func _source_ik_pin_toe_during_body(
         source_ik_body_toe_pin_drift_max, drift)
 
 
-## Normally 1 two-bone solve per physics frame (sweep may retry once).
-## All mesh/joint local positions
-## and scales are immutable. The floor never changes from Y=0.
-## Inverse-position the original two-segment attacking limb while its
-## authored Y profile is RAISING. BODY/shoulder point at SERA first;
-## the remaining horizontal miss is corrected with a bounded two-bone
-## solve, keeping the original foot world orientation and knee bend pole.
-## The offset is frozen at the FIRST downward motion and travels
-## unchanged through the strike. No foot mesh offsets or joint stretches.
+## The STOMP first aims by the BODY (XZ <=1m, yaw <=30) and
+## SHOULDER (yaw <=30). This helper only starts AFTER those primary
+## moves have settled. The airborne toe is steered by lifting the
+## UPPER limb, rotating the entire knee/shin/foot chain as one rigid
+## subtree. Thus the lower limb's local joint angle is unchanged.
+## We search a small, positive (UPWARD) pitch arc for the angle that
+## most reduces the remaining horizontal miss, favouring a raised knee.
+## No extra telescoping, full-chain reach solve, or shin twisting.
+## Pitch is frozen as soon as the source foot begins descending.
 func _source_ik_aim_stomp_raising_limb(
         limb: Dictionary, frame: Dictionary) -> void:
     if str(frame.get("kind", "")) != "stomp" or (
@@ -3153,42 +3160,102 @@ func _source_ik_aim_stomp_raising_limb(
         return
     if actor == null:
         return
-    var foot: Node3D = limb["foot"]
+    var upper: Node3D = limb["upper"]
     var lower: Node3D = limb["lower"]
+    var foot: Node3D = limb["foot"]
     var sole_local: Vector3 = limb["source_sole_local"]
-    var authored_sole: Vector3 = foot.to_global(sole_local)
+    var source_sole: Vector3 = foot.to_global(sole_local)
+    var old_foot_rotation: Quaternion = (
+        foot.global_basis.get_rotation_quaternion())
+    var old_foot_scale: Vector3 = foot.global_basis.get_scale()
     var descending: bool = bool(actor.get(
         "source_aim_stomp_descent_started"))
-    if not descending and str(frame.get("phase", "")) == "strike":
+    var tracking: bool = (
+        str(frame.get("phase", "")) == "strike"
+        and not descending)
+    if tracking and bool(actor.get("source_aim_primary_settled")):
         var player_goal: Vector3 = actor.get(
             "source_aim_stomp_player_position")
-        var horizontal: Vector3 = (
-            player_goal - authored_sole)
-        horizontal.y = 0.0
-        horizontal = horizontal.limit_length(
+        var miss: Vector3 = player_goal - source_sole
+        miss.y = 0.0
+        source_ik_stomp_target_offset = miss.limit_length(
             STOMP_AIM_IK_MAX_HORIZONTAL_METERS)
-        var clip_time: float = float(frame.get("authored_time", 0.0))
-        var raise_end: float = maxf(
-            BittaranAttackTimings.source_authored_windup_clip_seconds(
-                "stomp", str(frame.get("id", ""))), 0.001)
-        # Ramp after lift starts; no first-frame sole teleport.
-        var progress: float = clampf(
-            clip_time / (raise_end * 0.72), 0.0, 1.0)
-        var weight: float = progress * progress * (3.0 - 2.0 * progress)
-        var blend: float = 1.0 - exp(
-            -STOMP_AIM_IK_RESPONSE_PER_SECOND / 60.0)
-        source_ik_stomp_target_offset = (
-            source_ik_stomp_target_offset.lerp(
-                horizontal * weight, blend))
-    if source_ik_stomp_target_offset.length_squared() < 0.000001:
+        # Use the ACTUAL hip->toe direction, not a guessed axis from
+        # front-left Blockbench axes. This works for all four limbs.
+        var hip: Vector3 = upper.global_position
+        var hip_to_foot: Vector3 = foot.global_position - hip
+        var lift_axis: Vector3 = hip_to_foot.cross(Vector3.UP)
+        lift_axis.y = 0.0
+        if lift_axis.length_squared() >= 0.000001:
+            lift_axis = lift_axis.normalized()
+            var foot_offset: Vector3 = source_sole - foot.global_position
+            var hip_to_knee: Vector3 = lower.global_position - hip
+            var initial_error: float = (
+                Vector2(source_sole.x - player_goal.x,
+                    source_sole.z - player_goal.z).length_squared())
+            var best_score: float = initial_error
+            var best_angle: float = 0.0
+            # Sample positions analytically: the lower link is rigid
+            # under a pure upper-joint pitch, so its OWN local angle
+            # remains identical at every candidate.
+            for step in range(1, 14):
+                var degrees: float = (
+                    float(step) * STOMP_AIM_UPPER_CANDIDATE_STEP_DEGREES)
+                var sample_angle: float = deg_to_rad(minf(
+                    degrees, STOMP_AIM_UPPER_MAX_DEGREES))
+                var turn := Quaternion(lift_axis, sample_angle)
+                var candidate_knee: Vector3 = hip + turn * hip_to_knee
+                var knee_rise: float = (
+                    candidate_knee.y - lower.global_position.y)
+                if knee_rise <= 0.0001:
+                    continue
+                var candidate_sole: Vector3 = (
+                    hip + turn * hip_to_foot + foot_offset)
+                var dx: float = candidate_sole.x - player_goal.x
+                var dz: float = candidate_sole.z - player_goal.z
+                var score: float = (
+                    dx * dx + dz * dz -
+                    STOMP_AIM_UPPER_KNEE_RISE_PREFERENCE * knee_rise)
+                if score < best_score:
+                    best_score = score
+                    best_angle = sample_angle
+            # Do not let an upper-arm correction begin before BODY
+            # translation and shoulder aiming have done their job.
+            var clip_time: float = float(frame.get("authored_time", 0.0))
+            var lift_end: float = maxf(
+                BittaranAttackTimings.source_authored_windup_clip_seconds(
+                    "stomp", str(frame.get("id", ""))), 0.001)
+            var u: float = clampf(
+                clip_time / (lift_end * 0.72), 0.0, 1.0)
+            var ease: float = u * u * (3.0 - 2.0 * u)
+            source_ik_stomp_upper_pitch_radians = move_toward(
+                source_ik_stomp_upper_pitch_radians,
+                best_angle * ease,
+                deg_to_rad(STOMP_AIM_UPPER_RATE_DEGREES_PER_SECOND)
+                    / 60.0)
+
+    # No secondary solve at all during the climb: this preserves
+    # lower.quaternion exactly as sampled from Blockbench. Applying
+    # the LOCKED pitch through descent preserves swing continuity.
+    if source_ik_stomp_upper_pitch_radians <= 0.000001:
         return
-    var desired: Vector3 = authored_sole + (
-        source_ik_stomp_target_offset)
-    desired.y = authored_sole.y
-    var rotation: Quaternion = (
-        foot.global_basis.get_rotation_quaternion())
-    _source_ik_solve_striker(limb, desired, rotation,
-        sole_local, lower.global_position)
+    var hip_to_toe: Vector3 = (
+        foot.global_position - upper.global_position)
+    var pitch_axis: Vector3 = hip_to_toe.cross(Vector3.UP)
+    pitch_axis.y = 0.0
+    if pitch_axis.length_squared() < 0.000001:
+        return
+    var upper_scale: Vector3 = upper.global_basis.get_scale()
+    var old_upper_rotation: Quaternion = (
+        upper.global_basis.get_rotation_quaternion())
+    var lift := Quaternion(pitch_axis.normalized(),
+        source_ik_stomp_upper_pitch_radians)
+    upper.global_basis = Basis(
+        lift * old_upper_rotation).scaled(upper_scale)
+    # Maintain the author's toe orientation. The foot/ankle can
+    # compensate while the LOWER relative rotation never changes.
+    foot.global_basis = Basis(
+        old_foot_rotation).scaled(old_foot_scale)
 
 
 func _source_ik_ground_attacking_limb(
@@ -4076,6 +4143,7 @@ func _source_ik_advance_attack(frame: Dictionary) -> void:
         source_ik_attacking_id = attack_id
         source_ik_attacking_kind = attack_kind
         source_ik_stomp_target_offset = Vector3.ZERO
+        source_ik_stomp_upper_pitch_radians = 0.0
         source_ik_stomp_aim_leg = attack_id
         source_ik_step_pair = -1
         source_ik_replant_id = ""
