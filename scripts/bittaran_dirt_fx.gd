@@ -1,5 +1,5 @@
 extends Node3D
-## Reusable procedural earth/dust impacts for the three authored boss moves.
+## Reusable procedural earth/dust impacts for the boss's attacks and footsteps.
 ## Soft powder uses CPU particles; stone/grit is a manually grounded
 ## MultiMesh pool that removes each fragment on contact with Y=0.
 ## All actual damage remains owned by battle.gd. FX is visual only.
@@ -41,6 +41,12 @@ const DEBRIS_FLOOR_Y: float = 0.0
 const DEBRIS_ROCK_CAPACITY: int = 128
 const DEBRIS_GRIT_CAPACITY: int = 144
 const DEBRIS_SAFETY_TIMEOUT_SECONDS: float = 6.0
+# Walking contacts are restrained compared with authored attack impacts.
+# Eight independent pairs preserve both diagonals' puffs in world space.
+const WALK_PUFF_POOL_SIZE: int = 8
+const WALK_CORE_PARTICLES: int = 16
+const WALK_FINE_PARTICLES: int = 14
+const WALK_GRIT_PARTICLES: int = 5
 
 var dust_sprite_mesh: QuadMesh
 var dense_soil_sprite_mesh: QuadMesh
@@ -93,6 +99,12 @@ var rock_debris_renderer: MultiMeshInstance3D
 var grit_debris_renderer: MultiMeshInstance3D
 var rock_debris: Array[Dictionary] = []
 var grit_debris: Array[Dictionary] = []
+var walk_cloud_slots: Array[Dictionary] = []
+var walk_grit: CPUParticles3D
+var walk_cloud_cursor: int = 0
+var walk_fx_clock_seconds: float = 0.0
+var walk_burst_count: int = 0
+var last_walk_fx_origin: Vector3 = Vector3.ZERO
 var debris_rng: RandomNumberGenerator = RandomNumberGenerator.new()
 
 ## Generated ONCE at startup; 96^2 RGBA8 pixels (~36 KiB).
@@ -308,7 +320,8 @@ func _spawn_ground_debris(
         emitter: CPUParticles3D, origin: Vector3,
         direction: Vector3) -> void:
     var fine: bool = (
-        emitter == stomp_grit or emitter == kick_grit)
+        emitter == stomp_grit or emitter == kick_grit
+        or emitter == walk_grit)
     var records: Array[Dictionary] = (
         grit_debris if fine else rock_debris)
     var cap: int = (
@@ -431,6 +444,7 @@ func _advance_ground_debris(
 
 
 func _process(delta: float) -> void:
+    walk_fx_clock_seconds += maxf(delta, 0.0)
     _advance_ground_debris(rock_debris, rock_debris_renderer, delta)
     _advance_ground_debris(grit_debris, grit_debris_renderer, delta)
 
@@ -610,6 +624,49 @@ func _ready() -> void:
         sweep_emitter_last_burst.append(-INF)
     # The original CPU emitters remain the parameter profiles for the
     # ground-contact MultiMesh debris pools, never duplicate draw calls.
+    # Two subtle, separate dust materials per planted toe: a low soil
+    # ring followed by a short soft-powder plume. Pairs are pooled so
+    # the simultaneous diagonal footsteps never steal each other's FX.
+    for i in range(WALK_PUFF_POOL_SIZE):
+        var core: CPUParticles3D = _make_particles(
+            "WalkLowSoil" + str(i), true, true,
+            WALK_CORE_PARTICLES, "soil")
+        core.color = Color(0.52, 0.52, 0.52, 0.68)
+        core.spread = 78.0
+        core.initial_velocity_min = 0.24
+        core.initial_velocity_max = 0.90
+        core.gravity = Vector3(0.0, -0.78, 0.0)
+        core.lifetime = 0.78
+        core.scale_amount_min = 0.48
+        core.scale_amount_max = 0.98
+        core.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
+        var fines: CPUParticles3D = _make_particles(
+            "WalkSoftPowder" + str(i), true, true,
+            WALK_FINE_PARTICLES)
+        fines.color = Color(0.76, 0.76, 0.76, 0.52)
+        fines.spread = 51.0
+        fines.initial_velocity_min = 0.48
+        fines.initial_velocity_max = 1.38
+        fines.gravity = Vector3(0.0, -0.43, 0.0)
+        fines.lifetime = 1.06
+        fines.scale_amount_min = 0.38
+        fines.scale_amount_max = 0.87
+        fines.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
+        walk_cloud_slots.append({
+            "core": core, "fines": fines, "last_time": -INF
+        })
+    # A debris-only profile reuses the existing contact-aware grit
+    # MultiMesh, avoiding extra CPU stone particles or draw calls.
+    walk_grit = _make_particles(
+        "WalkGroundGritProfile", false, true,
+        WALK_GRIT_PARTICLES, "grit")
+    walk_grit.spread = 50.0
+    walk_grit.initial_velocity_min = 1.10
+    walk_grit.initial_velocity_max = 2.40
+    walk_grit.gravity = Vector3(0.0, -10.0, 0.0)
+    walk_grit.scale_amount_min = 0.45
+    walk_grit.scale_amount_max = 0.80
+    walk_grit.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
 
 
 func _burst(p: CPUParticles3D, point: Vector3,
@@ -634,6 +691,46 @@ func _burst(p: CPUParticles3D, point: Vector3,
     p.direction = direction.normalized()
     p.restart()
     p.emitting = true
+
+
+## Visual-only event for a real stepping -> planted transition.
+## Each burst is assigned a fresh world-space slot so the second foot
+## of a diagonal pair cannot teleport the first foot's cloud.
+func emit_footstep(point: Vector3,
+        half_extents: Vector2 = Vector2(0.20, 0.20)) -> bool:
+    if walk_cloud_slots.is_empty() or walk_grit == null:
+        return false
+    var free_index: int = -1
+    for attempt in range(walk_cloud_slots.size()):
+        var index: int = (
+            walk_cloud_cursor + attempt) % walk_cloud_slots.size()
+        var slot: Dictionary = walk_cloud_slots[index]
+        var core: CPUParticles3D = slot["core"]
+        var fines: CPUParticles3D = slot["fines"]
+        if (walk_fx_clock_seconds - float(slot["last_time"])
+                >= maxf(core.lifetime, fines.lifetime) + 0.08):
+            free_index = index
+            break
+    if free_index == -1:
+        return false
+    var selected: Dictionary = walk_cloud_slots[free_index]
+    selected["last_time"] = walk_fx_clock_seconds
+    walk_cloud_cursor = (free_index + 1) % walk_cloud_slots.size()
+    var core: CPUParticles3D = selected["core"]
+    var fines: CPUParticles3D = selected["fines"]
+    var origin: Vector3 = Vector3(point.x, 0.04, point.z)
+    var spread: Vector3 = Vector3(
+        clampf(half_extents.x, 0.08, 0.28), 0.014,
+        clampf(half_extents.y, 0.08, 0.28))
+    core.emission_box_extents = spread * 0.90
+    fines.emission_box_extents = spread * 0.76
+    walk_grit.emission_box_extents = spread * 0.62
+    _burst(core, origin, Vector3.UP)
+    _burst(fines, origin, Vector3.UP)
+    _burst(walk_grit, origin, Vector3.UP)
+    walk_burst_count += 1
+    last_walk_fx_origin = origin
+    return true
 
 
 func emit_stomp(point: Vector3,
@@ -910,6 +1007,14 @@ func reset() -> void:
     prebaked_sweep_next_index = 0
     prebaked_sweep_anchor_offset = Vector3.ZERO
     sweep_fx_clock_seconds = 0.0
+    walk_fx_clock_seconds = 0.0
+    walk_cloud_cursor = 0
+    walk_burst_count = 0
+    last_walk_fx_origin = Vector3.ZERO
+    for slot in walk_cloud_slots:
+        slot["last_time"] = -INF
+        (slot["core"] as CPUParticles3D).emitting = false
+        (slot["fines"] as CPUParticles3D).emitting = false
     sweep_reuse_while_alive = 0
     sweep_dropped_bursts = 0
     sweep_discontinuities = 0
