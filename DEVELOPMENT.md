@@ -3361,3 +3361,11 @@
 - `scripts/bittaran_railgun.gd`で**初回のビーム実接触1回のみ当たり**を受け付ける`beam_hit_registered`へ変更。継続照射中に再び接触してもダメージ無し、ビーム終了／次回で状態リセット。2秒照射は中断しない。
 - `scripts/bittaran_battle.gd`の強制被弾保持削除、初回命中時の通常HP・ガード・物理ノックバックは保持。`scripts/main.gd`のレーザー専用ロックを撤去しDamageknockの通常回復を復元。
 - `tools/bittaran_railgun_runtime_check.gd`で初回実接触・照射中の追撃0・射線外から再接触しても追撃0・次回発射のリセット・ガード・ノックバックを検査。10秒充填・球体2秒・照射2秒・戻り0.7秒・追尾および電撃VFXは不変。
+
+
+## SERA v501 — 俯瞰拠点LABO・資源設備（2026-11-19）
+- v500を起点に、NEXUSの重複なしでLABOと個別資源設備6つを拠点3Dフィールド上に追加。
+- NEXUSを右へ移設。中心通路とCRATEの巡回を確保し、スマホの俯瞰カメラに全設備が映る配置。
+- タップの投影AABB判定、画面内モーダル、LABO研究の分類、発電機ローター演出、設備ラベルを追加。
+- ボス報酬量や加工レシピは未確定のため資源収支は未実装。既存NEXUSと一時的なセラ非表示は維持。
+- 実装前に追加したCI：base_facilities_self_check.py / base_facilities_runtime_check.gd（manifest登録）。既存のbase_explorationテストは不変。
