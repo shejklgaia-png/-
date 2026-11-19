@@ -291,17 +291,111 @@ func _run() -> void:
         _fail("equipment-adjusted tracking rate is not RUN < aim < BOOST")
         return
 
-    # Laser damages HP/guard, but never interrupts SERA's active BOOST.
+    # First real contact should latch the entire remainder of the
+    # 2-second beam (up to four hits at 0.5s spacing), despite displacement
+    # by the normal 1.2m physical knockback. No initial contact means
+    # BOOST can still avoid the laser altogether.
+    gun.call("reset")
+    gun.set("elapsed", GUN.BEAM_START - DT * 0.5)
+    var no_contact: Vector3 = front + Vector3(25.0, 0.0, 0.0)
+    if bool(gun.call("advance", DT, no_contact, true)) or (
+            bool(gun.get("beam_hit_latched"))):
+        _fail("unhit BOOST must never inherit a previous beam combo")
+        return
+    gun.call("reset")
+    gun.set("elapsed", GUN.BEAM_START - DT * 0.5)
+    var first_contact: bool = bool(gun.call("advance", DT, front, true))
+    if not first_contact or not bool(gun.get("beam_hit_latched")):
+        _fail("first physical laser overlap must latch the full-hit combo")
+        return
+    var recoil_off_axis: Vector3 = front + Vector3(25.0, 0.0, 0.0)
+    for pulse in range(3):
+        if bool(gun.call("_beam_overlaps_player", recoil_off_axis)):
+            _fail("off-axis target must be OUTSIDE the real beam geometry")
+            return
+        if not bool(gun.call("advance", 0.50, recoil_off_axis, true)):
+            _fail("latched laser missed post-knockback pulse "
+                + str(pulse + 2))
+            return
+    if not core.visible:
+        _fail("laser vanished during full-hit combo")
+        return
+    if bool(gun.call("advance", 0.51, recoil_off_axis, true)) or (
+            bool(gun.get("beam_hit_latched"))) or core.visible:
+        _fail("beam end must stop damage and clear combo latch")
+        return
+    # A second beam without genuine collision must remain dodgeable.
+    gun.set("elapsed", GUN.BEAM_START - DT * 0.5)
+    if bool(gun.call("advance", DT, recoil_off_axis, true)) or (
+            bool(gun.get("beam_hit_latched"))):
+        _fail("beam combo leaked into the NEXT laser attack")
+        return
+
+    # End-to-end battle pipeline: start with an actual ray overlap.
+    # It MUST trigger standard physical Damageknock and hold that state
+    # until beam end, while damage ticks continue after moving SERA
+    # outside the ray. Do not restart the same animation on every pulse.
     scene.set("player_hp", 800.0)
-    scene.set("movement_boost_active", true)
+    scene.set("training_ko_remaining", 0.0)
+    scene.set("guard_active", false)
+    scene.set("guard_break_remaining", 0.0)
+    scene.set("down_remaining", 0.0)
     scene.set("damage_reaction_active", false)
-    var hp_before: float = float(scene.get("player_hp"))
-    scene.call("_on_enemy_projectile_hit",
-        player.global_position, Vector3.FORWARD, true, 0, true)
-    if float(scene.get("player_hp")) >= hp_before or (
-            bool(scene.get("damage_reaction_active"))) or (
-            not bool(scene.get("movement_boost_active"))):
-        _fail("laser hit must damage HP without canceling BOOST")
+    scene.set("laser_full_hit_lock_active", false)
+    scene.set("movement_boost_active", true)
+    gun.call("reset")
+    gun.set("elapsed", GUN.BEAM_START - DT * 0.5)
+    player.global_position = elevation.to_global(
+        Vector3(0.0, 0.0, -9.0)) - Vector3.UP * 0.92
+    var first_hp: float = float(scene.get("player_hp"))
+    scene.call("_tick_bittaran_railgun", DT)
+    if float(scene.get("player_hp")) >= first_hp or (
+            not bool(scene.get("damage_reaction_active"))) or (
+            not bool(scene.get("laser_full_hit_lock_active"))) or (
+            not bool(gun.get("beam_hit_latched"))):
+        _fail("first laser hit must cause real recoil and lock full volley")
+        return
+    var recoil_start: Vector3 = player.global_position
+    scene.call("_advance_damage_knockback", 0.12)
+    if player.global_position.distance_to(recoil_start) < 0.03 or (
+            float(scene.get("damage_knockback_elapsed")) < 0.10):
+        _fail("laser hit must create physical 1.2m Damageknock travel")
+        return
+
+    var later_hp: float = float(scene.get("player_hp"))
+    player.global_position += Vector3(25.0, 0.0, 0.0)
+    for i in range(3):
+        scene.call("_tick_bittaran_railgun", 0.50)
+        var now_hp: float = float(scene.get("player_hp"))
+        if now_hp >= later_hp or (
+                not bool(scene.get("laser_full_hit_lock_active"))) or (
+                not bool(scene.get("damage_reaction_active"))):
+            _fail("latched full-hit pulse did not damage SERA in recoil "
+                + str(i + 2))
+            return
+        later_hp = now_hp
+    scene.call("_tick_bittaran_railgun", 0.51)
+    if bool(scene.get("laser_full_hit_lock_active")) or (
+            bool(gun.get("beam_hit_latched"))) or core.visible:
+        _fail("full-hit knockback lock failed to release at beam end")
+        return
+
+    # Guard still consumes shield before HP; blocking laser does not
+    # apply unguarded physical knockback until shield breaks.
+    scene.set("player_hp", 800.0)
+    scene.set("shield", 100.0)
+    scene.set("guard_active", true)
+    scene.set("damage_reaction_active", false)
+    scene.set("laser_full_hit_lock_active", false)
+    gun.call("reset")
+    gun.set("elapsed", GUN.BEAM_START - DT * 0.5)
+    player.global_position = elevation.to_global(
+        Vector3(0.0, 0.0, -9.0)) - Vector3.UP * 0.92
+    scene.call("_tick_bittaran_railgun", DT)
+    if float(scene.get("shield")) >= 100.0 or (
+            float(scene.get("player_hp")) < 800.0) or (
+            bool(scene.get("damage_reaction_active"))):
+        _fail("guarded laser must drain shield before applying knockback")
         return
 
     # On player KO the beam keeps its full authored firing duration.
@@ -326,6 +420,8 @@ func _run() -> void:
         "zero_prefire_hold=true zero_damage_arm_delay=true ",
         "run_trackable_boost_escapes_at_8m_and_30m=true ",
         "world_yaw_limited=true equipment_aware=true ",
-        "nonstaggering_laser_damage=true laser_persists_after_hit=true ",
+        "first_hit_real_knockback=true 4x_full_hit_pulses=true ",
+        "recoil_beam_latch_clears_at_end=true guard_still_blocks=true ",
+        "unhit_boost_remains_dodgeable=true laser_persists_after_hit=true ",
         "blue_rim_lightning_plasma_preserved=true source_rig_unchanged=true")
     quit(0)
