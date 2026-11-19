@@ -3,6 +3,7 @@ extends SceneTree
 ## and movement now START with the physical stand-up, not afterwards.
 ## Exercise BOTH short (2.42s) and four-leg (5.88s) knockdowns with the
 ## actual scene, boss AI, rig clips, collision IK, and release timer.
+const AI = preload("res://scripts/bittaran_ai.gd")
 const DT: float = 1.0 / 60.0
 const LEG_IDS: Array[String] = ["leg_fl", "leg_fr", "leg_rl", "leg_rr"]
 const SINGLE_LEG_IDS: Array[String] = ["leg_fl"]
@@ -98,7 +99,7 @@ func _check_case(battle: Node3D, expected_motion: String,
                 return false
             var yaw_step: float = absf(wrapf(
                 target.rotation.y - original_yaw, -PI, PI))
-            var max_step: float = (deg_to_rad(34.0) * DT if turn_enabled else 0.0)
+            var max_step: float = (deg_to_rad(AI.STATIONARY_TURN_DEG_PER_SEC) * DT if turn_enabled else 0.0)
             if yaw_step > max_step + 0.00005:
                 _fail("recovery root yaw exceeded normal turn speed: "
                     + str(yaw_step) + " max=" + str(max_step))

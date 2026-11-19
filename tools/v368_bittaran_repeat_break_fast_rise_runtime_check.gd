@@ -3,6 +3,7 @@ extends SceneTree
 ## without boss respawn or artificial clearing of part-break stun.
 ## Each break must reproduce anticipation, fall, 1.0s/1.3s stand-up, chest
 ## yaw / Approach, world-planted soles and post-upright foot catch-up.
+const AI = preload("res://scripts/bittaran_ai.gd")
 const DT: float = 1.0 / 60.0
 const IDS: Array[String] = ["leg_fl", "leg_fr", "leg_rl", "leg_rr"]
 const RISE_SINGLE: float = 1.0
@@ -102,8 +103,8 @@ func _check_break(battle: Node3D, id: String,
                 _fail(id + ": no " + requested + " clip on recurring rise "
                     + str(frame) + " state=" + chosen)
                 return false
-            if yaw_change > deg_to_rad(34.0) * DT + SMALL:
-                _fail(id + ": chassis turned faster than the 34deg/s cap")
+            if yaw_change > deg_to_rad(AI.STATIONARY_TURN_DEG_PER_SEC) * DT + SMALL:
+                _fail(id + ": chassis turned faster than the 68deg/s cap")
                 return false
             if requested == "Approach" and moved <= 0.000001:
                 _fail(id + ": Approach stopped on second/later destruction")

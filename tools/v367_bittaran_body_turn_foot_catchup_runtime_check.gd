@@ -1,13 +1,14 @@
 extends SceneTree
-## v367: while standing up the chassis looks toward SERA at 34deg/s,
+## v478: while standing up the chassis looks toward SERA at 68deg/s,
 ## world-locked IK soles do not begin gait. On the first upright frame
 ## the most displaced diagonal steps, its landing target continuously
 ## follows the latest body stance without changing STEP_DURATION_SECONDS.
+const AI = preload("res://scripts/bittaran_ai.gd")
 const DT: float = 1.0 / 60.0
 const LEG_IDS: Array[String] = ["leg_fl", "leg_fr", "leg_rl", "leg_rr"]
 const ONE_LEG: Array[String] = ["leg_fl"]
 const STEP_TIME: float = 0.52
-const TURN_SPEED: float = deg_to_rad(34.0)
+const TURN_SPEED: float = deg_to_rad(AI.STATIONARY_TURN_DEG_PER_SEC)
 
 func _initialize() -> void:
     call_deferred("_run")
@@ -29,7 +30,7 @@ func _run_case(battle: Node3D, ids: Array[String],
     var rig: Node3D = battle.get("bittaran_rig")
     boss.rotation.y = 0.0
     # Approach must still have nonzero yaw error: in v366 it would use
-    # 22deg/s, but v367 must aim the chassis at 34deg/s while rising.
+    # 44deg/s, but the chassis now aims at 68deg/s while rising.
     player.global_position = boss.global_position + (
         Vector3(27.0, 0, 0) if requested == "Turn"
         else Vector3(15.0, 0, 26.0))
@@ -80,7 +81,7 @@ func _run_case(battle: Node3D, ids: Array[String],
                 return false
             if requested == "Approach" and yaw_step > 0.00003:
                 # At nonzero target yaw error, Approach must turn exactly at
-                # 34 deg/s (not the normal moving 22 deg/s).
+                # 68 deg/s (not the normal moving 44 deg/s).
                 if absf(yaw_step - TURN_SPEED * DT) > 0.00008:
                     _fail("Approach rise used foot/moving-turn speed")
                     return false
@@ -166,6 +167,6 @@ func _run() -> void:
             if not _run_case(battle, broken, motion):
                 return
     print("GODOT_V367_BITTARAN_FOOT_CATCHUP_PASS: chassis turns at "
-        + "34deg/s while rising, planted feet follow only after upright "
+        + "68deg/s while rising, planted feet follow only after upright "
         + "via live landing positions at original 0.58s step duration")
     quit(0)
