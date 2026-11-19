@@ -8,6 +8,7 @@ const BittaranParts = preload("res://scripts/bittaran_parts.gd")
 const BittaranAttacks = preload("res://scripts/bittaran_attacks.gd")
 const BittaranDirtFX = preload("res://scripts/bittaran_dirt_fx.gd")
 const BittaranRailgun = preload("res://scripts/bittaran_railgun.gd")
+const BittaranLegTurrets = preload("res://scripts/bittaran_leg_turrets.gd")
 const BittaranSweepFXTrack = preload("res://scripts/bittaran_sweep_fx_track.gd")
 const DOWN_CLEARANCE = preload("res://scripts/bittaran_down_clearance.gd")
 const CONTROLLER_AXIS = preload("res://scripts/bittaran_controller_axis.gd")
@@ -115,6 +116,7 @@ const HEAD_TRACK_COLLISION_RELEASE_HOLD_SECONDS: float = 0.12
 
 var bittaran_rig: Node3D
 var bittaran_railgun: Node3D
+var bittaran_leg_turrets: Node3D
 var bittaran_ai: RefCounted
 var bittaran_foot_ik: RefCounted
 var bittaran_motion: String = "Idle"
@@ -366,6 +368,13 @@ func _build_target() -> void:
     if bittaran_railgun != null:
         bittaran_railgun.call("_level_mount")
     bittaran_attacks = BittaranAttacks.new()
+    # Mount the new small weapons to the actual animated upper-leg joints.
+    # No authored Blockbench mesh, pivot, foot IK or railgun is replaced.
+    bittaran_leg_turrets = BittaranLegTurrets.new()
+    bittaran_leg_turrets.name = "FourLegTurrets"
+    add_child(bittaran_leg_turrets)
+    if not bool(bittaran_leg_turrets.call("setup", bittaran_rig)):
+        push_error("Bittaran: four leg cannon setup failed")
     _build_bittaran_shockwave()
     _build_boss_death_particles()
 
@@ -1795,10 +1804,39 @@ func _physics_process(delta: float) -> void:
         passive_fall_velocity = 0.0
     _tick_bittaran_shockwave(delta)
     _tick_bittaran_railgun(delta)
+    _tick_bittaran_leg_turrets(delta)
     _tick_bittaran_footfalls()
     _tick_bittaran_sweep_shake(delta)
     _tick_impact_shake(delta)
     _update_bittaran_lock_permissions()
+
+func _bittaran_weapons_downed() -> bool:
+    # From the first break windup, throughout the fallen/stand-up pose.
+    # Do not permit a single charged beam frame on the break-hit tick.
+    return bittaran_foot_ik != null and bool(
+        bittaran_foot_ik.call("break_reaction_active"))
+
+func _tick_bittaran_leg_turrets(delta: float) -> void:
+    if bittaran_leg_turrets == null or player == null:
+        return
+    # A single attack locks ALL four secondary guns (including stance
+    # preparation); fallen/KO states immediately cancel in-flight bolts.
+    var attack_playing: bool = not bittaran_attack_frame.is_empty() or (
+        bittaran_attacks != null and bool(bittaran_attacks.call("is_active")))
+    var active: bool = (
+        target_hp > 0.0 and player_hp > 0.0 and
+        training_ko_remaining <= 0.0 and not attack_playing and
+        not _bittaran_weapons_downed())
+    var impacts: Array[Vector3] = bittaran_leg_turrets.call(
+        "advance", delta, player.global_position, active)
+    if not active:
+        return
+    for direction in impacts:
+        if player_hp <= 0.0:
+            break
+        # Apply existing guard, shield, hit reaction and knockback rules.
+        _on_enemy_projectile_hit(player.global_position,
+            direction, true, 0, false, 0.28)
 
 func _tick_bittaran_railgun(delta: float) -> void:
     if bittaran_railgun == null or player == null:
@@ -1807,7 +1845,8 @@ func _tick_bittaran_railgun(delta: float) -> void:
     # illumination; the railgun owns a frame-rate-independent contact timer.
     # Normal Damageknock cannot restart mid-animation (main.gd contract).
     # On player KO the beam VFX persists until its authored endpoint.
-    var active: bool = target_hp > 0.0
+    var active: bool = target_hp > 0.0 and (
+        not _bittaran_weapons_downed())
     var boost_speed_mps: float = (
         float(part_stats.get("boost_speed", 6.09375)) *
         float(part_stats.get("boost_speed_mult", 1.0)))
@@ -2189,6 +2228,8 @@ func _reset_target_after_respawn() -> void:
         bittaran_rig.call("clear_stomp_down_windup")
     if bittaran_railgun != null:
         bittaran_railgun.call("reset")
+    if bittaran_leg_turrets != null:
+        bittaran_leg_turrets.call("reset")
     boss_head_pitch = 0.0
     head_look_filtered_pitch = 0.0
     boss_head_windup_start_yaw = 0.0
