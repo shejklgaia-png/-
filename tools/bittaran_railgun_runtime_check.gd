@@ -733,6 +733,19 @@ func _run() -> void:
     if motor_deg > turn_cap * DT + 0.08:
         _fail("upright Body posture bypassed the capped motor turn budget")
         return
+    # Pure barrel ELEVATION must not silently increase the ground-ray
+    # catch-up command. Ray gap is measured in yaw-only horizontal space,
+    # not along a shrinking projection of an almost vertical barrel.
+    var original_test_pitch: float = elevation.rotation.x
+    var horizontal_gap: float = float(gun.call(
+        "_ground_ray_gap", stable_target))
+    elevation.rotation.x = deg_to_rad(78.0)
+    var high_pitch_gap: float = float(gun.call(
+        "_ground_ray_gap", stable_target))
+    elevation.rotation.x = original_test_pitch
+    if not _near(horizontal_gap, high_pitch_gap, 0.0005):
+        _fail("railgun elevation/vertical tilt incorrectly accelerates gap catch-up")
+        return
     body.transform = stored_body_transform
     gun.call("reset")
 
