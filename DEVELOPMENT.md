@@ -3136,3 +3136,10 @@
 - 新ファイル`scripts/bittaran_railgun_fx.gd`、`shaders/bittaran_railgun_rim.gdshader`、`shaders/bittaran_railgun_flow.gdshader`。共通の深度テスト付き描画優先度を使用し、砲台Pitch空間に付着させることで独立2軸・モデル原本を保持。
 - 事前追尾Yaw 900→720°/s・Pitch 720→576°/s（0.8倍）、照射時Yaw 24→21.6°/s・Pitch 18→16.2°/s（0.9倍）。10秒周期、2秒球体と1秒収縮、2秒イーズイン、完全捕捉後0.5秒発射待機、2秒レーザーとブースト回避は維持。
 - `tools/bittaran_railgun_runtime_check.gd`で効果表示・稲妻メッシュ・GPU shader/描画ルール・追尾速度・リセット時の消灯を検証。視覚表現の最終判断はAndroid実機。
+
+
+## v471 — 発射前・発射中の追尾角速度を両方0.7倍に（2026-11-19）
+
+- ビットタランのレールガン発射前の角速度をYaw720→504°/秒、Pitch576→403.2°/秒、レーザー照射中をYaw21.6→15.12°/秒、Pitch16.2→11.34°/秒へ変更。
+- 2秒イーズイン・0.5秒完全追尾待機・発射時点のプレイヤー完全捕捉・10秒周期・2秒照射・ブースト回避、青縁球体と稲妻のv470視覚処理およびモデル原本・IKは維持。
+- `tools/bittaran_railgun_runtime_check.gd`の数値契約に旧v470の70%を明示し、現行環境で全件CIを検証。
