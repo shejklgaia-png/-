@@ -6,10 +6,11 @@ extends Node3D
 const RENDER_ORDER = preload("res://scripts/render_order_policy.gd")
 const RailgunFX = preload("res://scripts/bittaran_railgun_fx.gd")
 
-# The first ten seconds ONLY fill charge lamps. Turret aim stays neutral.
-# The blue sphere then starts immediately WITH tracking at 10 seconds.
-# Beam follows directly at 12s; NO hold/no hit-arming delay; after 2s
-# of firing the cannon returns smoothly to neutral in precisely 0.7s.
+# Track the player once per charge cycle from the start of charging.
+# The 0.7s eased-in acquisition is speed-unrestricted; keep that precise
+# tracking until the blue sphere finishes shrinking at the 12s beam start.
+# Only the firing beam uses the existing RUN/BOOST-aware angular limit.
+# After 2s of firing, return smoothly to neutral in precisely 0.7s.
 const WAIT_SECONDS: float = 10.0
 const FLASH_SECONDS: float = 2.0
 const FLASH_START: float = WAIT_SECONDS
@@ -21,11 +22,13 @@ const RETURN_SECONDS: float = 0.7
 const PERIOD_SECONDS: float = BEAM_END + RETURN_SECONDS
 const FLASH_GROW_SECONDS: float = 0.2
 const FLASH_SHRINK_SECONDS: float = 1.0
-# Smoothly blend neutral -> tracking for 0.7s, and tracking -> neutral
-# for 0.7s AFTER the beam; tracking never changes modes mid-attack.
+# Charge acquisition begins once at t=0 with a 0.7s smooth acceleration.
+# The instantaneous target solve AFTER the ramp has no speed ceiling.
+# After firing, the existing slow tracking and 0.7s neutral return remain.
 const TRACK_BLEND_SECONDS: float = 0.7
 const TRACK_EASE_IN_SECONDS: float = TRACK_BLEND_SECONDS
-const TRACK_START_SECONDS: float = FLASH_START
+const TRACK_START_SECONDS: float = 0.0
+const CHARGE_TRACK_FILTER_PER_SECOND: float = 30.0
 const TRACK_FILTER_PER_SECOND: float = 10.0
 # 1x RUN should not outpace the continuous tracking slew, but 1.5x
 # BOOST must. Interpolate the equipment's actual RUN and BOOST speeds.
@@ -278,8 +281,8 @@ func _desired_player_angles(player_world: Vector3) -> Vector2:
 
 
 func _prefire_ease(t: float) -> float:
-    # Exactly 0.7s of smoothstep weight from neutral as the sphere starts.
-    # Once entered, the very SAME tracking code lasts through beam end.
+    # Charge begins tracking with eased acceleration. The acquisition
+    # ramp happens only once per charge cycle, never at sphere/beam changes.
     var ratio: float = clampf(
         (t - TRACK_START_SECONDS) / TRACK_EASE_IN_SECONDS, 0.0, 1.0)
     return ratio * ratio * (3.0 - 2.0 * ratio)
@@ -304,7 +307,8 @@ func _tracking_turn_rate(player_world: Vector3,
 func _track_player(delta: float, player_world: Vector3,
         acquisition_weight: float = 1.0,
         boost_speed_mps: float = BOOST_REFERENCE_SPEED_MPS,
-        run_speed_mps: float = RUN_REFERENCE_SPEED_MPS) -> void:
+        run_speed_mps: float = RUN_REFERENCE_SPEED_MPS,
+        fast_charge_tracking: bool = false) -> void:
     var desired: Vector2 = _desired_player_angles(player_world)
     var angular_rate: float = _tracking_turn_rate(
         player_world, boost_speed_mps, run_speed_mps)
@@ -323,10 +327,21 @@ func _track_player(delta: float, player_world: Vector3,
         desired.y - elevation.rotation.x)
     # Constrain COMBINED yaw+pitch, not each independently, so diagonal
     # rotation cannot exceed the speed a BOOSTing player can escape.
-    var requested: Vector2 = angle_error * eased
-    var allowed_radians: float = deg_to_rad(
-        angular_rate * weight) * delta
-    var actual: Vector2 = requested.limit_length(allowed_radians)
+    var actual: Vector2
+    if fast_charge_tracking:
+        # Pre-fire: no fixed angular cap, including against BOOST. Ramp up
+        # responsiveness smoothly, then match the live target on every
+        # frame, regardless of the player's angular speed or direction.
+        var charge_response: float = 1.0 - exp(
+            -CHARGE_TRACK_FILTER_PER_SECOND * delta * weight)
+        actual = angle_error * (charge_response if weight < 1.0 else 1.0)
+    else:
+        # Once the beam appears, preserve the previous RUN-vs-BOOST
+        # pursuit speed. A root rotation cannot circumvent this cap.
+        var requested: Vector2 = angle_error * eased
+        var allowed_radians: float = deg_to_rad(
+            angular_rate * weight) * delta
+        actual = requested.limit_length(allowed_radians)
     tracked_world_yaw += actual.x
     aim_yaw = angle_difference(neutral_yaw, tracked_world_yaw)
     elevation.rotation.x = clampf(
@@ -374,16 +389,16 @@ func advance(delta: float, player_world: Vector3, active: bool,
         # Start return on the FIRST frame after beam ends (no hold).
         return_yaw_origin = aim_yaw
         return_pitch_origin = elevation.rotation.x
-    if phase == Phase.WAIT:
-        tracking_world_initialized = false
-        aim_yaw = 0.0
-        elevation.rotation.x = 0.0
-    elif phase == Phase.FLASH or phase == Phase.BEAM:
-        # No delay/pause or target snap. From t=10 through t=14 use
-        # one steady, equipment-aware turn controller; first 0.7s
-        # gently blends neutral into that tracking.
-        _track_player(step, player_world, _prefire_ease(elapsed)
-            if phase == Phase.FLASH else 1.0,
+    if phase == Phase.WAIT or phase == Phase.FLASH:
+        # One speed-unrestricted acquisition from charge start until
+        # the sphere is fully gone. Neither t=10 nor sphere shrink
+        # restarts the eased entry or lowers the tracking rate.
+        _track_player(step, player_world, _prefire_ease(elapsed),
+            boost_speed_mps, run_speed_mps, true)
+    elif phase == Phase.BEAM:
+        # Only while firing: return immediately to the existing angular
+        # slew limit so BOOST can outrun the active laser.
+        _track_player(step, player_world, 1.0,
             boost_speed_mps, run_speed_mps)
     elif phase == Phase.RETURN:
         tracking_world_initialized = false
@@ -392,7 +407,7 @@ func advance(delta: float, player_world: Vector3, active: bool,
         var smooth: float = ratio * ratio * (3.0 - 2.0 * ratio)
         aim_yaw = lerp_angle(return_yaw_origin, 0.0, smooth)
         elevation.rotation.x = lerpf(return_pitch_origin, 0.0, smooth)
-    # All three charge bars fill across the entire 10s stationary wait
+    # All three charge bars fill over the 10s tracking charge
     # and stay full during the 2s blue orb. Fire directly after the orb.
     _show_charge(clampf(elapsed / WAIT_SECONDS, 0.0, 1.0)
         if phase == Phase.WAIT or phase == Phase.FLASH else 0.0)
