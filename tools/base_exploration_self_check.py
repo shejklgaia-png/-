@@ -16,6 +16,8 @@ assert 'res://scripts/base_exploration.gd' in scene
 assert 'extends Node3D' in base
 assert 'res://assets/base_command_modules.gd' in base
 assert 'res://scripts/sera_rig.gd' in base
+assert '_add_module("archive_mezzanine"' in base
+assert '_gate_facing_yaw()' in base
 assert 'func _move_player(' in base
 assert 'func _nearest_station(' in base
 assert 'InputEventScreenTouch' in base and 'InputEventScreenDrag' in base
