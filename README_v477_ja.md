@@ -15,4 +15,4 @@
 - `tools/bittaran_railgun_runtime_check.gd`：チャージ直後の非スナップ、0.7秒の照準取得、チャージ中の急なプレイヤー移動への追従、球体表示・縮小中の高速追尾、発射直後からの通常速度上限、RUN/BOOSTの照射曝露差、2秒照射・1ヒット・復帰と次サイクルを確認するテストを更新しました。
 - Android実機での見た目・回避操作については別途確認が必要です。
 
-前バージョン：[v476](README_v476_ja.md)
+前バージョン：[v476](docs/history/release_notes/README_v476_ja.md)
