@@ -1,3 +1,4 @@
+// RENDER_POLICY: DEPTH_TESTED_EMISSIVE; depth_test=on
 shader_type spatial;
 render_mode unshaded, blend_mix, cull_disabled, depth_draw_never;
 
