@@ -86,46 +86,53 @@ func _run() -> void:
     if absf(float(gun.get("aim_yaw"))) < deg_to_rad(2.0):
         _fail("fully charged railgun did not acquire the lateral target")
         return
-    # Time boundaries are measured relative to a FIRE at t=0,10,20...
-    # Prepare the last flash quarter-second without waiting through 7s.
+    # The sphere MUST be visible continuously during the complete 2s
+    # prefire window. Pursuit accelerates smoothly over those SAME 2s.
+    if not _near(GUN.FLASH_SECONDS, 2.0) or not _near(
+            GUN.TRACK_EASE_IN_SECONDS, 2.0) or not _near(
+            GUN.TRACK_START_SECONDS, 8.0):
+        _fail("prefire sphere and eased acquisition must each last 2s")
+        return
+    if absf(float(gun.call("_prefire_ease", 8.0))) > 0.00001 or (
+            not _near(float(gun.call("_prefire_ease", 9.0)), 0.5)) or (
+            not _near(float(gun.call("_prefire_ease", 10.0)), 1.0)):
+        _fail("2s tracking ease-in is not smoothstep 0 -> .5 -> 1")
+        return
     gun.call("reset")
-    gun.set("elapsed", 9.63)
-    gun.call("advance", 0.01, player_origin, true)
+    gun.set("elapsed", GUN.TRACK_START_SECONDS - 0.02)
+    gun.call("advance", 0.01, side_target, true)
     var flash: MeshInstance3D = gun.get("muzzle_flash")
     var core: MeshInstance3D = gun.get("inner_beam")
     var halo: MeshInstance3D = gun.get("outer_beam")
+    if flash.visible or core.visible or halo.visible:
+        _fail("sphere appeared before the charge reached three full bars")
+        return
+    gun.call("advance", 0.011, side_target, true)
     if not flash.visible or core.visible or halo.visible:
-        _fail("blue-white flash must precede the laser")
+        _fail("sphere must appear exactly at t=8s before laser")
         return
-    # Full charge must start the spherical glow and fast acquisition
-    # TOGETHER. The gun was neutral a moment earlier; verify real motion.
-    gun.call("reset")
-    gun.set("elapsed", GUN.TRACK_START_SECONDS)
-    gun.call("advance", DT, side_target, true)
-    if not flash.visible or absf(float(gun.get("aim_yaw"))) <= deg_to_rad(0.5):
-        _fail("spherical charge must coincide with fast player acquisition")
+    var initial_scale: float = flash.scale.x
+    gun.call("advance", 0.24, side_target, true)
+    if not flash.visible or flash.scale.x <= initial_scale:
+        _fail("muzzle sphere must grow smoothly at the beginning")
         return
-    # Now run the original visual timeline from the same prefire instant.
-    gun.call("reset")
-    gun.set("elapsed", 9.63)
-    gun.call("advance", 0.01, player_origin, true)
-    var first_scale: float = flash.scale.x
-    gun.call("advance", 0.13, player_origin, true)
-    if flash.scale.x >= first_scale:
-        _fail("muzzle flash did not shrink smoothly")
+    var grown_scale: float = flash.scale.x
+    gun.call("advance", 1.34, side_target, true)
+    if not flash.visible or absf(flash.scale.x - grown_scale) > 0.02:
+        _fail("blue sphere must remain visible and charged mid-way")
         return
-    gun.call("advance", 0.04, player_origin, true)
-    if flash.visible or core.visible:
-        _fail("the flash must be gone before a 0.2-second dark gap")
+    gun.call("advance", 0.31, side_target, true)
+    if not flash.visible or flash.scale.x >= grown_scale:
+        _fail("sphere must shrink near the END of its 2s charge")
         return
-    gun.call("advance", 0.17, player_origin, true)
-    if core.visible:
-        _fail("beam fired early during the post-flash gap")
+    # Still glowing at 9.991s; beam only begins at the 10s boundary.
+    gun.call("advance", 0.088, side_target, true)
+    if not flash.visible or core.visible:
+        _fail("sphere must remain visible until laser launch")
         return
-    # Exactly ten seconds modulo period begins the real two-second beam.
-    gun.call("advance", 0.03, player_origin, true)
-    if not core.visible or not halo.visible:
-        _fail("laser failed to start on ten-second boundary")
+    gun.call("advance", 0.022, side_target, true)
+    if flash.visible or not core.visible or not halo.visible:
+        _fail("laser must replace the 2s sphere at the shot boundary")
         return
     if (core.material_override as BaseMaterial3D).no_depth_test:
         _fail("beam illegally renders through opaque armor")
@@ -139,7 +146,9 @@ func _run() -> void:
     if absf(angle_difference(aim_at_end, float(gun.get("aim_yaw")))) > 0.0001:
         _fail("postfire hold changed the target angle before 0.4s")
         return
-    gun.call("advance", 0.78, player_origin, true)
+    # Sample near the END of the existing 0.8s return: the new test
+    # entered the beam with a significant off-axis aim, unlike v466.
+    gun.call("advance", 0.93, player_origin, true)
     if absf(float(gun.get("aim_yaw"))) > deg_to_rad(1.0) or (
             absf(elevation.rotation.x) > deg_to_rad(1.0)):
         _fail("barrel did not ease back to its neutral angle")
@@ -162,14 +171,14 @@ func _run() -> void:
     var reference_right: Vector3 = gun.global_basis.x.normalized()
     var pivot_world: Vector3 = gun.global_position
     gun.call("reset")
-    # Tiny epsilon makes the 48th 120Hz step unambiguously the beam start.
+    # 240 physics frames of prefire, followed by 120 beam frames.
     gun.set("elapsed", GUN.TRACK_START_SECONDS + 0.0001)
     var aim_at_fire: float = 0.0
     var target_at_fire: float = 0.0
     var first_prefire_delta: float = 0.0
     var last_target: Vector3 = Vector3.ZERO
-    # 0.4s of pre-fire tracking, followed by 1s during beam.
-    for i in range(168):
+    # 2.0s of smoothly accelerating prefire + 1.0s dodgeable beam.
+    for i in range(360):
         var t: float = float(i + 1) * DT
         var travel_angle: float = boost_speed / boost_radius * t
         var boost_target: Vector3 = pivot_world + (
@@ -181,7 +190,7 @@ func _run() -> void:
         if i == 0:
             first_prefire_delta = absf(rad_to_deg(angle_difference(
                 before_step, float(gun.get("aim_yaw")))))
-        if i == 47:
+        if i == 239:
             aim_at_fire = float(gun.get("aim_yaw"))
             var target_direction: Vector2 = gun.call(
                 "_desired_player_angles", last_target)
@@ -209,7 +218,7 @@ func _run() -> void:
     var large_angle_target: Vector3 = pivot_world + (
         reference_forward * cos(deg_to_rad(115.0))
         + reference_right * sin(deg_to_rad(115.0))) * boost_radius
-    for i in range(47):
+    for i in range(239):
         gun.call("advance", DT, large_angle_target - Vector3.UP * 0.92, true)
     var before_fire_angles: Vector2 = gun.call(
         "_desired_player_angles", large_angle_target - Vector3.UP * 0.92)
@@ -243,7 +252,7 @@ func _run() -> void:
         _fail("boss respawn left the old beam visible")
         return
     print("GODOT_BITTARAN_RAILGUN_PASS 10s_interval=true 2s_beam=true ",
-        "0.2s_prefire_gap=true 0.4s_postfire_hold=true ",
+        "2s_blue_sphere=true 2s_ease_in=true 0.4s_postfire_hold=true ",
         "prefire_fast_lock=true first_frame_exact_aim=true ",
         "boost_outpaces_beam=true neutral_until_fully_charged=true ",
         "smooth_independent_yaw_pitch=true 3_charge_bars_per_side=true")
