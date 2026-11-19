@@ -1,3 +1,13 @@
+## 2026-11-19 — SERA v506: レールガン本体姿勢由来の追尾加速を排除
+- **依頼**：ビットタランの胴体が縦姿勢になると追尾が加速する現象と、その他本体姿勢に依存する追尾速度要因を修正。
+- **事前確認**：main v505、`AGENTS.md`、`.github/workflows/sera-model-policy.yml`、`tools/sera_ci_manifest.txt`、`docs/SERA_ACTIVE_CI_POLICY_ja.md`、`docs/MODEL_PART_WORKFLOW_ja.md`、`docs/RENDER_PIPELINE_POLICY_ja.md`、`scripts/bittaran_railgun.gd`の全追尾経路、`scripts/bittaran_battle.gd`の姿勢処理順／キャラクター速度入力、既存登録`tools/bittaran_railgun_runtime_check.gd`を確認。
+- **CIテスト先行変更**：本体実装より先に登録済みGodotテストへ、傾斜／ロールしたBodyのWAIT→FLASH切替（t=10、10.35、10.70）時にターゲット不動なら砲身世界向きが勝手に変化しないこと、BEAM中Bodyを大きく起こしても同じプレイヤー位置なら角速度基準と地表偏差が不変、0秒刻みで本体の傾きに追尾回転が加算されないこと、78°の砲身俯仰角変化だけでは0～1.5m水平追い付き加速が変化しないことを追加。旧テストが保持する各段階の倍率と時間は変更せず。
+- **原因**：待機Body姿勢のyaw/pitchが球体出現時の`charge_entry_pose_offset`として0.7sで戻され、モーター世界yaw/pitchとは別に砲身を追加回転。さらに`_tracking_turn_rate`の距離にモーションに引きずられる実マウント位置を使用、`_ground_ray_gap`の距離には前フレームの`elevation.global_basis`（Body由来の変化と上下俯仰を含む）を使用し、垂直になるほどXZ投影が縮んで速度の追い付き補正が増える経路があった。
+- **実装**：照準開始時に実砲身方向をワールドモーターのyaw/pitchへ移し、0.7秒の姿勢復帰で**ロールのみ**を砲身方向不変な座標系にて減衰。`_tracking_speed_anchor_world()`でBodyアニメーションとIKでは動かないリグ固定の取り付け基準を用いて距離から角速度を算出。レーザー追い付き偏差はその基準位置と**世界yawのみの水平レイ**で求め、ピッチや前フレーム姿勢の速度加算を排除。
+- **承認仕様の維持**：球体出現前10秒待機、球体出現後の高応答追尾、11秒以降の縮小中0.7倍上限、12～14秒照射の0.85～1.0倍（水平偏差0～1.5m）、RUNより速くBOOSTなら逃げられる角速度、14～14.7秒の復帰と姿勢、レールガンエフェクト／音、ヒット間隔／ガード／ノックバック／原本モデル・脚IK／腹下別砲台の挙動は不変。
+- **検査区分**：本PRの差分と登録済みGodotテストの整合確認後にmainへ統合。フルPython/Godot CIはmainで実行するワークフローに従う。Android実機の姿勢移行・射撃挙動／視認性は別途検証。
+- **並行版との整合**：作業中に拠点画面のv505が先にmainへマージされたため、v505のNEXUS/LABO/CRATEレイアウトと既存CIをベースとするv506ブランチで変更を再実施。レールガン・対応テスト・関連文書以外は触れない。
+
 ## 2026-11-19 — SERA v503: 腹下砲台4秒間隔・レーザー形単発弾・実照明付き銃口閃光
 - **ユーザー依頼**：射撃間隔4秒、球弾を細長い単発レーザー状にする。十字が表示だけで光っているように見えない問題を解消する。
 - **事前確認**：mainの実際の現行版v502と`project.godot`、`AGENTS.md`、`.github/workflows/sera-model-policy.yml`、`tools/sera_ci_manifest.txt`、`docs/SERA_ACTIVE_CI_POLICY_ja.md`、`docs/MODEL_PART_WORKFLOW_ja.md`、`docs/RENDER_PIPELINE_POLICY_ja.md`、`tools/render_policy_self_check.py`、砲台の実装と登録済み`tools/bittaran_leg_turrets_runtime_check.gd`を確認。
