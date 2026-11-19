@@ -447,10 +447,6 @@ var enemy_debug_ui: Control
 var projectile_hit_overlay: ColorRect
 var projectile_hit_flash_remaining: float = 0.0
 var damage_reaction_active: bool = false
-# Bittaran railgun ONLY: once the beam lands, retain its normal damage
-# reaction until the visible beam ends so the remaining volley cannot be
-# escaped between 0.5s damage pulses. Other attacks leave this false.
-var laser_full_hit_lock_active: bool = false
 var guard_active: bool = false
 var keyboard_guard_held: bool = false
 var damage_knockback_elapsed: float = 0.0
@@ -828,7 +824,6 @@ func _take_test_damage(raw: float) -> void:
 
 func _begin_training_ko() -> void:
     # Training-only recovery. Hold the exact final Damageknock keyframe.
-    laser_full_hit_lock_active = false
     training_ko_remaining = TRAINING_KO_RECOVERY
     _refresh_player_hp_bar()
     if guard_active:
@@ -881,7 +876,6 @@ func _tick_training_ko(delta: float) -> void:
     guard_break_hits = 0
     down_remaining = 0.0
     damage_reaction_active = false
-    laser_full_hit_lock_active = false
     damage_knockback_elapsed = 0.0
     damage_knockback_direction = Vector3.ZERO
     if rig != null:
@@ -4501,7 +4495,7 @@ func _physics_process(delta: float) -> void:
         guard_break_remaining = COMBAT_TIMERS.remaining_after_delta(guard_break_remaining, delta)
     if damage_reaction_active:
         _advance_damage_knockback(delta)
-        if guard_break_remaining <= 0.0 and down_remaining <= 0.0 and (not laser_full_hit_lock_active) and damage_knockback_elapsed >= DAMAGE_KNOCKBACK_DURATION * float(part_stats.get("damage_time_mult", 1.0)) and rig != null and bool(rig.call("damage_finished")):
+        if guard_break_remaining <= 0.0 and down_remaining <= 0.0 and damage_knockback_elapsed >= DAMAGE_KNOCKBACK_DURATION * float(part_stats.get("damage_time_mult", 1.0)) and rig != null and bool(rig.call("damage_finished")):
             damage_reaction_active = false
             damage_knockback_direction = Vector3.ZERO
             rig.call("finish_damage", gesture_active and direction_input.length_squared() > 0.000001)
