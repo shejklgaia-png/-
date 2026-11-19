@@ -3,6 +3,7 @@ extends SceneTree
 ## Aimed lift may alter UPPER pitch only. LOWER local quaternion must
 ## be identical to its authored source key for all four limbs.
 const IK = preload("res://scripts/bittaran_foot_ik.gd")
+const RIG = preload("res://scripts/bittaran_rig.gd")
 const TIMING = preload("res://scripts/bittaran_attacks.gd")
 const IDS: Array[String] = ["leg_fl", "leg_fr", "leg_rl", "leg_rr"]
 
@@ -34,7 +35,7 @@ func _run() -> void:
         var lower: Node3D = limb["lower"]
         var foot: Node3D = limb["foot"]
         var clip: String = str(
-            rig.SOURCE_ATTACK_CLIPS[id]["stomp"])
+            RIG.SOURCE_ATTACK_CLIPS[id]["stomp"])
         var t: float = TIMING.source_authored_windup_clip_seconds(
             "stomp", id) * 0.62
         rig.call("apply_source_clip_exact", clip, t)
