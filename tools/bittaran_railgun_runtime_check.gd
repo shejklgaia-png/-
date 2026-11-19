@@ -507,7 +507,16 @@ func _run() -> void:
             float(gun.call("_neutral_world_yaw"))))
         var initial_heading: Vector3 = -neutral_axis.z.normalized()
         var center: Vector3 = gun.global_position
-        gun.set("elapsed", GUN.BEAM_START + 0.05)
+        # The live firing beam is preceded by 2s of acquisition and sphere
+        # shrink. Starting directly at BEAM skips that 0.7s world-aim entry,
+        # leaving an artificial initial angular error even for a player
+        # standing on the neutral axis. Simulate the real prefire to isolate
+        # how well RUN/BOOST escape *during* the laser.
+        var initial_player: Vector3 = center + initial_heading * 10.0
+        initial_player.y = 0.0
+        gun.set("elapsed", GUN.FLASH_START)
+        for prefire_frame in range(int(round(GUN.FLASH_SECONDS / DT))):
+            gun.call("advance", DT, initial_player, true)
         for frame in range(180):
             var theta: float = player_speed * float(frame) * DT / 10.0
             var player_at: Vector3 = center + (
