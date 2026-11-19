@@ -8,12 +8,9 @@ const RailgunFX = preload("res://scripts/bittaran_railgun_fx.gd")
 
 const PERIOD_SECONDS: float = 10.0
 const BEAM_SECONDS: float = 2.0
-# The first laser frame locks onto the player EXACTLY, so applying
-# damage on that very same frame makes an otherwise slow sweep impossible
-# to avoid: the guaranteed hit also cancels BOOST via damage reaction.
-# Show the full beam immediately, but arm its hit test only after SERA
-# has had a short chance to move sideways/STEP out of the new ray.
-const BEAM_DAMAGE_ARM_SECONDS: float = 0.40
+# The laser is visible immediately, while its 0.65s arming window
+# permits a touch-confirmed/accelerating BOOST to exit the initial ray.
+const BEAM_DAMAGE_ARM_SECONDS: float = 0.65
 const POST_FIRE_HOLD_SECONDS: float = 0.4
 const RETURN_SECONDS: float = 0.8
 const CHARGE_START: float = BEAM_SECONDS + POST_FIRE_HOLD_SECONDS + RETURN_SECONDS
@@ -26,20 +23,21 @@ const FLASH_START: float = PERIOD_SECONDS - (
 const FLASH_END: float = FLASH_START + FLASH_SECONDS
 const FLASH_GROW_SECONDS: float = 0.2
 const FLASH_SHRINK_SECONDS: float = 1.0
-const TRACK_EASE_IN_SECONDS: float = FLASH_SECONDS
-# Deliberately slower than the standard 6.09375 m/s boost crossing a
-# ~8 m radius (43.6 degrees/s). A boost strafe can outrun the beam.
-# The two-second spherical charge also eases target acquisition from a
-# stationary neutral mount. Before fire it can still catch a boosting SERA;
-# only the active laser is deliberately slow enough to dodge.
-const PRE_FIRE_YAW_SPEED: float = 504.0
-const PRE_FIRE_PITCH_SPEED: float = 403.2
-const PRE_FIRE_FILTER_PER_SECOND: float = 24.0
+# Start one continuous, smooth turret tracking phase as soon as charge
+# begins, not when the blue orb appears. No speed mode switch or snap
+# at full charge, lock-hold or BEAM.
+const TRACK_EASE_IN_SECONDS: float = 2.0
 const TRACK_YAW_SPEED: float = 15.12
 const TRACK_PITCH_SPEED: float = 11.34
 const TRACK_FILTER_PER_SECOND: float = 6.0
-# All three charge lamps are full at FLASH_START; only THEN may aim.
-const TRACK_START_SECONDS: float = FLASH_START
+const PRE_FIRE_YAW_SPEED: float = TRACK_YAW_SPEED
+const PRE_FIRE_PITCH_SPEED: float = TRACK_PITCH_SPEED
+const PRE_FIRE_FILTER_PER_SECOND: float = TRACK_FILTER_PER_SECOND
+const BOOST_REFERENCE_SPEED_MPS: float = 6.09375
+# At ANY distance keep target slew beneath half of SERA's actual BOOST
+# angular speed; fixed deg/s caps alone fail at long range.
+const BOOST_TURN_FRACTION: float = 0.50
+const TRACK_START_SECONDS: float = CHARGE_START
 const MAX_BEAM_RANGE_METERS: float = 45.0
 const BEAM_RADIUS_METERS: float = 0.70
 const PLAYER_HIT_RADIUS_METERS: float = 0.48
@@ -69,6 +67,8 @@ var ready_to_fire: bool = false
 var mount_body: Node3D
 var mount_rig: Node3D
 var aim_yaw: float = 0.0
+var tracked_world_yaw: float = 0.0
+var tracking_world_initialized: bool = false
 
 func setup(rig: Node3D) -> bool:
     var body: Node3D = rig.find_child("Body", true, false) as Node3D
@@ -212,6 +212,8 @@ func reset() -> void:
     return_pitch_origin = 0.0
     hit_cooldown = 0.0
     aim_yaw = 0.0
+    tracking_world_initialized = false
+    tracked_world_yaw = 0.0
     if elevation != null:
         elevation.rotation.x = 0.0
     if outer_beam != null:
@@ -279,45 +281,57 @@ func _desired_player_angles(player_world: Vector3) -> Vector2:
 
 
 func _prefire_ease(t: float) -> float:
-    # 2s of smoothstep from ZERO angular velocity to full catch-up speed.
-    # No sudden jump as the blue spherical glow first appears.
+    # Continuous 2s smoothstep from initial CHARGE, then full allowed
+    # (still boost-evadable) rate through FLASH, LOCK_HOLD and BEAM.
     var ratio: float = clampf(
         (t - TRACK_START_SECONDS) / TRACK_EASE_IN_SECONDS, 0.0, 1.0)
     return ratio * ratio * (3.0 - 2.0 * ratio)
 
 
+func _boost_safe_turn_rate(player_world: Vector3,
+        boost_speed_mps: float = BOOST_REFERENCE_SPEED_MPS) -> float:
+    # Convert real world-space transverse BOOST displacement into the
+    # maximum angular rate a dodging SERA can make from this cannon.
+    var to_player: Vector3 = player_world + Vector3.UP * 0.92 - global_position
+    var planar_distance: float = Vector2(to_player.x, to_player.z).length()
+    var radius: float = maxf(planar_distance, 1.0)
+    return rad_to_deg(maxf(0.0, boost_speed_mps) / radius) * (
+        BOOST_TURN_FRACTION)
+
+
 func _track_player(delta: float, player_world: Vector3,
-        fast_acquisition: bool = false, acquisition_weight: float = 1.0) -> void:
+        acquisition_weight: float = 1.0,
+        boost_speed_mps: float = BOOST_REFERENCE_SPEED_MPS) -> void:
     var desired: Vector2 = _desired_player_angles(player_world)
-    var yaw_rate: float = (
-        PRE_FIRE_YAW_SPEED if fast_acquisition else TRACK_YAW_SPEED)
-    var pitch_rate: float = (
-        PRE_FIRE_PITCH_SPEED if fast_acquisition else TRACK_PITCH_SPEED)
-    var filter_rate: float = (
-        PRE_FIRE_FILTER_PER_SECOND if fast_acquisition
-        else TRACK_FILTER_PER_SECOND)
+    var rate_limit: float = _boost_safe_turn_rate(
+        player_world, boost_speed_mps)
+    var yaw_rate: float = minf(TRACK_YAW_SPEED, rate_limit)
+    var pitch_rate: float = minf(TRACK_PITCH_SPEED, rate_limit)
     var weight: float = clampf(acquisition_weight, 0.0, 1.0)
-    var eased: float = 1.0 - exp(-filter_rate * delta * weight)
-    var yaw_step: float = angle_difference(aim_yaw, desired.x) * eased
-    aim_yaw += clampf(yaw_step,
+    var eased: float = 1.0 - exp(-TRACK_FILTER_PER_SECOND * delta * weight)
+
+    # Measure rotation in WORLD space: if Bittaran itself turns, applying
+    # the cap to the *relative* yaw lets the body rotate the cannon for
+    # free, potentially faster than BOOST. Keep the world aim independent
+    # from changing Body/root yaw for the entire charge-to-beam phase.
+    var neutral_yaw: float = _neutral_world_yaw()
+    if not tracking_world_initialized:
+        tracked_world_yaw = neutral_yaw + aim_yaw
+        tracking_world_initialized = true
+    var desired_world_yaw: float = neutral_yaw + desired.x
+    var world_step: float = angle_difference(
+        tracked_world_yaw, desired_world_yaw) * eased
+    tracked_world_yaw += clampf(world_step,
         -deg_to_rad(yaw_rate * weight) * delta,
         deg_to_rad(yaw_rate * weight) * delta)
+    aim_yaw = angle_difference(neutral_yaw, tracked_world_yaw)
+
     var pitch_step: float = (desired.y - elevation.rotation.x) * eased
     elevation.rotation.x = clampf(
         elevation.rotation.x + clampf(pitch_step,
             -deg_to_rad(pitch_rate * weight) * delta,
             deg_to_rad(pitch_rate * weight) * delta),
         deg_to_rad(-80.0), deg_to_rad(80.0))
-
-
-func _lock_player_at_fire(player_world: Vector3) -> void:
-    # The charge phase already brought the cannon to the predicted target
-    # smoothly. Resolve remaining sub-frame angular error at the shot
-    # boundary so the FIRST laser sample points exactly at the real SERA,
-    # including last-moment BOOST motion. Never call this again in BEAM.
-    var target: Vector2 = _desired_player_angles(player_world)
-    aim_yaw = target.x
-    elevation.rotation.x = target.y
 
 func _show_charge(progress: float) -> void:
     for index in range(charge_materials.size()):
@@ -341,9 +355,10 @@ func _beam_overlaps_player(player_world: Vector3) -> bool:
     return distance_squared <= pow(
         BEAM_RADIUS_METERS + PLAYER_HIT_RADIUS_METERS, 2.0)
 
-## True only on a damage pulse; the battle scene owns the existing
-## player guard/HP/knockback response. Target KO/respawn calls reset().
-func advance(delta: float, player_world: Vector3, active: bool) -> bool:
+## True only on a damage pulse. The battle scene applies HP/guard without
+## laser-hit knockback so that BOOST remains usable during the entire beam.
+func advance(delta: float, player_world: Vector3, active: bool,
+        boost_speed_mps: float = BOOST_REFERENCE_SPEED_MPS) -> bool:
     if not ready_to_fire or not active:
         reset()
         return false
@@ -355,36 +370,20 @@ func advance(delta: float, player_world: Vector3, active: bool) -> bool:
         return_yaw_origin = aim_yaw
         return_pitch_origin = elevation.rotation.x
     if phase == Phase.RETURN:
+        tracking_world_initialized = false
         var ratio: float = clampf(
             (elapsed - BEAM_SECONDS - POST_FIRE_HOLD_SECONDS)
             / RETURN_SECONDS, 0.0, 1.0)
         var smooth: float = ratio * ratio * (3.0 - 2.0 * ratio)
         aim_yaw = lerp_angle(return_yaw_origin, 0.0, smooth)
         elevation.rotation.x = lerpf(return_pitch_origin, 0.0, smooth)
-    elif phase == Phase.CHARGE:
-        # Unfilled charge bars mean no player acquisition. Keep the gun
-        # exactly at the rig-relative neutral angle despite target motion.
-        aim_yaw = 0.0
-        elevation.rotation.x = 0.0
-    elif phase == Phase.FLASH:
-        # Blue sphere and gradual tracking last the full 2s. The sphere
-        # shrinks for its final 1s, then vanishes before the lock pause.
-        _track_player(step, player_world, true, _prefire_ease(elapsed))
-    elif phase == Phase.LOCK_HOLD:
-        # The target has been acquired; delay firing for a visible 0.5s.
-        # Keep the turret actively aligned to a BOOSTing player rather
-        # than freezing on an outdated position during that pause.
-        if last_phase != Phase.LOCK_HOLD:
-            _lock_player_at_fire(player_world)
-        else:
-            _track_player(step, player_world, true)
-    elif phase == Phase.BEAM:
-        if last_phase != Phase.BEAM:
-            # Match the live player position precisely on the FIRST beam
-            # frame. Afterwards the aim is intentionally dodgeable.
-            _lock_player_at_fire(player_world)
-        else:
-            _track_player(step, player_world)
+    elif phase == Phase.CHARGE or phase == Phase.FLASH or (
+            phase == Phase.LOCK_HOLD) or phase == Phase.BEAM:
+        # One uninterrupted, world-locked, boost-evadable aim controller
+        # through CHARGE -> blue FLASH -> 0.5s LOCK_HOLD -> BEAM.
+        # No instantaneous relock or tracking-speed jump at transitions.
+        _track_player(step, player_world, _prefire_ease(elapsed)
+            if phase == Phase.CHARGE else 1.0, boost_speed_mps)
     # Hold the FINAL firing orientation for 0.4 seconds after firing,
     # ease home over 0.8 seconds, then remain neutral while recharging.
     _show_charge(clampf(
