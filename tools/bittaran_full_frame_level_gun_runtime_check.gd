@@ -76,9 +76,9 @@ func _run() -> void:
             * Quaternion(Vector3.FORWARD, deg_to_rad(lean.y))
             * saved_body_pose).normalized()
         gun.call("reset")
+        var side: Vector3 = (
+            gun.global_position + Vector3(6.0, 2.0, -6.0))
         for i in range(120):
-            var side: Vector3 = (
-                gun.global_position + Vector3(6.0, 2.0, -6.0))
             gun.call("advance", DT, side, true)
         var level_up: Vector3 = gun.global_basis.y.normalized()
         if level_up.distance_to(Vector3.UP) > 0.0001:
