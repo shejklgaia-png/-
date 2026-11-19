@@ -340,6 +340,56 @@ func _run() -> void:
             GUN.TRACK_PITCH_SPEED * 0.1 + 0.05):
         _fail("barrel pitch exceeded its 18deg/s BEAM rate cap")
         return
+    # v472: A fire-frame perfect target lock is intentionally preserved,
+    # but damage on the SAME frame made every laser an unavoidable first
+    # hit and immediately triggered movement-locking damage reactions.
+    # Require a visible, damage-free startup interval.
+    if not _near(GUN.BEAM_DAMAGE_ARM_SECONDS, 0.4):
+        _fail("laser must allow a 0.40s avoidance interval after firing")
+        return
+    gun.call("reset")
+    gun.set("elapsed", GUN.PERIOD_SECONDS - DT * 0.5)
+    var hit_on_launch: bool = bool(gun.call(
+        "advance", DT, player_origin, true))
+    if hit_on_launch or not core.visible or (
+            not bool(gun.call("_beam_overlaps_player", player_origin))):
+        _fail("visual laser must launch and aim perfectly WITHOUT instant hit")
+        return
+    var premature_hit: bool = bool(gun.call(
+        "advance", GUN.BEAM_DAMAGE_ARM_SECONDS - 0.04,
+        player_origin, true))
+    if premature_hit or not core.visible:
+        _fail("damage must stay disarmed during the first 0.4s")
+        return
+    var stationary_hit: bool = bool(gun.call(
+        "advance", 0.05, player_origin, true))
+    if not stationary_hit:
+        _fail("stationary SERA must still be hit once the beam is armed")
+        return
+    # A true side BOOST (6.09375 m/s) must escape a laser that starts
+    # exactly on the player. Test actual beam hit geometry over the WHOLE
+    # 2s window, rather than just checking the slow rotation constant.
+    gun.call("reset")
+    var base_forward: Vector3 = -gun.global_basis.z.normalized()
+    var base_right: Vector3 = gun.global_basis.x.normalized()
+    var muzzle_world: Vector3 = elevation.to_global(
+        Vector3(0.0, 0.0, GUN.MUZZLE_LOCAL_Z))
+    var lateral_origin: Vector3 = muzzle_world + (
+        base_forward * 8.0) - Vector3.UP * 0.92
+    gun.set("elapsed", GUN.PERIOD_SECONDS - DT * 0.5)
+    if bool(gun.call("advance", DT, lateral_origin, true)):
+        _fail("lateral BOOST scenario hit on first laser frame")
+        return
+    # Cover the late beam too (1.92s), not only the opening 1.4s.
+    for frame in range(230):
+        var seconds: float = float(frame + 1) * DT
+        var running_target: Vector3 = lateral_origin + (
+            base_right * 6.09375 * seconds)
+        if bool(gun.call("advance", DT, running_target, true)):
+            _fail("6.09375m/s lateral BOOST cannot avoid laser at t="
+                + str(seconds))
+            return
+    # Model and VFX still hide correctly after the beam ends/KO reset.
     gun.call("reset")
     if core.visible or halo.visible or flash.visible or rim.visible or (
             orb_arcs.visible) or plasma.visible or beam_arcs.visible:
@@ -351,6 +401,8 @@ func _run() -> void:
         "prefire_fast_lock=true first_frame_exact_aim=true ",
         "blue_fresnel_flicker=true branching_electric_arcs=true ",
         "travelling_plasma_beam=true prefire_and_beam_0.7x_v470=true ",
+        "no_unavoidable_first_hit=true 0.4s_arming_grace=true ",
+        "live_boost_6.09375mps_escapes_laser=true ",
         "boost_outpaces_beam=true neutral_until_fully_charged=true ",
         "smooth_independent_yaw_pitch=true 3_charge_bars_per_side=true")
     quit(0)

@@ -8,6 +8,12 @@ const RailgunFX = preload("res://scripts/bittaran_railgun_fx.gd")
 
 const PERIOD_SECONDS: float = 10.0
 const BEAM_SECONDS: float = 2.0
+# The first laser frame locks onto the player EXACTLY, so applying
+# damage on that very same frame makes an otherwise slow sweep impossible
+# to avoid: the guaranteed hit also cancels BOOST via damage reaction.
+# Show the full beam immediately, but arm its hit test only after SERA
+# has had a short chance to move sideways/STEP out of the new ray.
+const BEAM_DAMAGE_ARM_SECONDS: float = 0.40
 const POST_FIRE_HOLD_SECONDS: float = 0.4
 const RETURN_SECONDS: float = 0.8
 const CHARGE_START: float = BEAM_SECONDS + POST_FIRE_HOLD_SECONDS + RETURN_SECONDS
@@ -417,8 +423,11 @@ func advance(delta: float, player_world: Vector3, active: bool) -> bool:
         inner_beam.scale.x = 1.0 + 0.035 * sin(elapsed * 57.0)
         inner_beam.scale.z = inner_beam.scale.x
     last_phase = phase
-    if firing and hit_cooldown <= 0.0 and (
-            _beam_overlaps_player(player_world)):
+    if firing and elapsed >= BEAM_DAMAGE_ARM_SECONDS and (
+            hit_cooldown <= 0.0) and _beam_overlaps_player(player_world):
+        # The launch frame is never an unavoidable registered hit. After
+        # the startup grace, damage still uses the original narrow
+        # world-space beam/player intersection and 0.5s repeat cadence.
         hit_cooldown = BEAM_DAMAGE_TICK_SECONDS
         return true
     return false
