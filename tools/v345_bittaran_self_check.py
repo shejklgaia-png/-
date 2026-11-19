@@ -111,10 +111,12 @@ battle = read("scripts/bittaran_battle.gd")
 scene = read("scenes/bittaran_battle.tscn")
 assert 'const VISION_TOTAL_DEGREES: float = 100.0' in ai
 assert 'const VISION_HALF_DEGREES: float = 50.0' in ai
-assert 'const APPROACH_SPEED_MPS: float = 0.936' in ai
-assert 'const ACCELERATION_MPS2: float = 0.78' in ai
-assert 'const STATIONARY_TURN_DEG_PER_SEC: float = 34.0' in ai
-assert 'const MOVING_TURN_DEG_PER_SEC: float = 22.0' in ai
+assert 'const APPROACH_SPEED_MPS: float = 1.872' in ai
+assert 'const ACCELERATION_MPS2: float = 1.56' in ai
+assert 'const STATIONARY_TURN_DEG_PER_SEC: float = 68.0' in ai
+assert 'const MOVING_TURN_DEG_PER_SEC: float = 44.0' in ai
+# v478 doubles the old gait velocity and all three root-yaw rates.
+assert 'const TRACK_AT_REST_DEG_PER_SEC: float = 36.0' in ai
 # v451: Bittaran must stop INSIDE its longest authored SWEEP range
 # rather than idling at the retired 7.8m beyond the new 7.10m reach.
 stop = float(re.search(r'const STOP_DISTANCE_METERS: float = ([0-9.]+)', ai).group(1))
