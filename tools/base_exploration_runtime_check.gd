@@ -47,12 +47,13 @@ func _run() -> void:
     for child in tiled_floor.get_children():
         if not child.name.begins_with("GridPlateBatch_"):
             continue
-        if not child is MultiMeshInstance3D or child.multimesh == null:
+        var grid_node: MultiMeshInstance3D = child as MultiMeshInstance3D
+        if grid_node == null or grid_node.multimesh == null:
             _fail("grid batch is missing instanced geometry")
             return
-        var batch: MultiMesh = child.multimesh
+        var batch: MultiMesh = grid_node.multimesh
         var grid_mesh: BoxMesh = batch.mesh as BoxMesh
-        if grid_mesh == null or child.material_override == null:
+        if grid_mesh == null or grid_node.material_override == null:
             _fail("visible colored grid geometry/material missing")
             return
         grid_batches += 1
