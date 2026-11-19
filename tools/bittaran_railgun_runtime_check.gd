@@ -655,6 +655,100 @@ func _run() -> void:
         _fail("boss/encounter reset did not clear old energy VFX")
         return
 
+    # v505: animated Body becomes upright during targeting. The return
+    # from WAIT's tilted pose MUST NOT add a second aiming rotation on
+    # top of the motor. The outgoing barrel stays on the same world ray
+    # when the player holds perfectly still on its original axis.
+    var stored_body_transform: Transform3D = body.transform
+    body.quaternion = (baseline_body
+        * Quaternion(Vector3.RIGHT, 0.63)
+        * Quaternion(Vector3.BACK, 0.41)).normalized()
+    gun.call("reset")
+    var original_forward: Vector3 = -elevation.global_basis.z.normalized()
+    var original_target: Vector3 = (
+        gun.global_position + original_forward * 25.0 - Vector3.UP * 0.92)
+    gun.call("advance", GUN.WAIT_SECONDS - 0.001, original_target, true)
+    var wait_forward: Vector3 = -elevation.global_basis.z.normalized()
+    gun.call("advance", 0.002, original_target, true)
+    var charge_start_forward: Vector3 = -elevation.global_basis.z.normalized()
+    if rad_to_deg(acos(clampf(wait_forward.dot(charge_start_forward),
+            -1.0, 1.0))) > 1.0:
+        _fail("entering sphere charge snapped the tilted Body gun's world aim")
+        return
+    gun.call("advance", 0.35, original_target, true)
+    var charge_middle_forward: Vector3 = -elevation.global_basis.z.normalized()
+    if rad_to_deg(acos(clampf(wait_forward.dot(charge_middle_forward),
+            -1.0, 1.0))) > 1.0:
+        _fail("tilted-to-upright pose blend added uncommanded tracking velocity")
+        return
+    gun.call("advance", 0.35, original_target, true)
+    var charge_end_forward: Vector3 = -elevation.global_basis.z.normalized()
+    if rad_to_deg(acos(clampf(wait_forward.dot(charge_end_forward),
+            -1.0, 1.0))) > 1.0:
+        _fail("pose completion accelerated aiming even without target motion")
+        return
+
+    # During the live beam, the approved 0..1.5m gap and RUN<rate<BOOST
+    # speed law depend on player distance and the MOTOR world ray only.
+    # Pose-induced translation of the animated Body cannot increase them.
+    body.transform = stored_body_transform
+    gun.call("reset")
+    gun.set("elapsed", GUN.BEAM_START + 0.35)
+    var stable_target: Vector3 = (
+        gun.global_position + Vector3(4.0, -0.92, -22.0))
+    gun.call("advance", 0.0, stable_target, true)
+    var speed_before_tilt: float = float(gun.call(
+        "_tracking_turn_rate", stable_target))
+    var gap_before_tilt: float = float(gun.call(
+        "_ground_ray_gap", stable_target))
+    var yaw_before_tilt: float = float(gun.get("tracked_world_yaw"))
+    var forward_before_tilt: Vector3 = -elevation.global_basis.z.normalized()
+    var mount_before_tilt: Vector3 = gun.global_position
+    body.quaternion = (baseline_body
+        * Quaternion(Vector3.RIGHT, 0.87)
+        * Quaternion(Vector3.BACK, -0.57)).normalized()
+    gun.call("advance", 0.0, stable_target, true)
+    var speed_after_tilt: float = float(gun.call(
+        "_tracking_turn_rate", stable_target))
+    var gap_after_tilt: float = float(gun.call(
+        "_ground_ray_gap", stable_target))
+    var forward_after_tilt: Vector3 = -elevation.global_basis.z.normalized()
+    if gun.global_position.distance_to(mount_before_tilt) < 0.02:
+        _fail("tilt test did not move the actual animated mount")
+        return
+    if not _near(speed_before_tilt, speed_after_tilt, 0.0005) or (
+            not _near(gap_before_tilt, gap_after_tilt, 0.0005)):
+        _fail("animated Body tilt changed the railgun motor tracking speed")
+        return
+    if rad_to_deg(acos(clampf(forward_before_tilt.dot(forward_after_tilt),
+            -1.0, 1.0))) > 0.02 or (
+            absf(angle_difference(
+                yaw_before_tilt, float(gun.get("tracked_world_yaw")))) > 0.0001):
+        _fail("zero-delta Body tilt rotated the live world-space railgun")
+        return
+    gun.call("advance", DT, stable_target, true)
+    var motor_deg: float = absf(rad_to_deg(angle_difference(
+        yaw_before_tilt, float(gun.get("tracked_world_yaw")))))
+    var turn_cap: float = float(gun.get("beam_turn_rate_deg_per_sec"))
+    if motor_deg > turn_cap * DT + 0.08:
+        _fail("upright Body posture bypassed the capped motor turn budget")
+        return
+    # Pure barrel ELEVATION must not silently increase the ground-ray
+    # catch-up command. Ray gap is measured in yaw-only horizontal space,
+    # not along a shrinking projection of an almost vertical barrel.
+    var original_test_pitch: float = elevation.rotation.x
+    var horizontal_gap: float = float(gun.call(
+        "_ground_ray_gap", stable_target))
+    elevation.rotation.x = deg_to_rad(78.0)
+    var high_pitch_gap: float = float(gun.call(
+        "_ground_ray_gap", stable_target))
+    elevation.rotation.x = original_test_pitch
+    if not _near(horizontal_gap, high_pitch_gap, 0.0005):
+        _fail("railgun elevation/vertical tilt incorrectly accelerates gap catch-up")
+        return
+    body.transform = stored_body_transform
+    gun.call("reset")
+
     print("GODOT_BITTARAN_RAILGUN_PASS 10s_stationary_fill=true ",
         "fast_charge_only_before_shrink=true shrink_t11_slow_0_7x=true ",
         "direct_2s_beam_from_t12=true ",
