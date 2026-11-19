@@ -91,12 +91,14 @@ func _run() -> void:
     if not _near(GUN.FLASH_SECONDS, 2.0) or not _near(
             GUN.FLASH_SHRINK_SECONDS, 1.0) or not _near(
             GUN.TRACK_EASE_IN_SECONDS, 2.0) or not _near(
-            GUN.TRACK_START_SECONDS, 8.0):
-        _fail("prefire sphere and eased acquisition must each last 2s")
+            GUN.FINAL_LOCK_HOLD_SECONDS, 0.5) or not _near(
+            GUN.TRACK_START_SECONDS, 7.5) or not _near(
+            GUN.FLASH_END, 9.5):
+        _fail("2s sphere + 2s ease-in + 0.5s acquired hold must fit 10s")
         return
-    if absf(float(gun.call("_prefire_ease", 8.0))) > 0.00001 or (
-            not _near(float(gun.call("_prefire_ease", 9.0)), 0.5)) or (
-            not _near(float(gun.call("_prefire_ease", 10.0)), 1.0)):
+    if absf(float(gun.call("_prefire_ease", 7.5))) > 0.00001 or (
+            not _near(float(gun.call("_prefire_ease", 8.5)), 0.5)) or (
+            not _near(float(gun.call("_prefire_ease", 9.5)), 1.0)):
         _fail("2s tracking ease-in is not smoothstep 0 -> .5 -> 1")
         return
     gun.call("reset")
@@ -110,7 +112,7 @@ func _run() -> void:
         return
     gun.call("advance", 0.011, side_target, true)
     if not flash.visible or core.visible or halo.visible:
-        _fail("sphere must appear exactly at t=8s before laser")
+        _fail("sphere must appear exactly at t=7.5s before laser")
         return
     var initial_scale: float = flash.scale.x
     gun.call("advance", 0.24, side_target, true)
@@ -118,10 +120,10 @@ func _run() -> void:
         _fail("muzzle sphere must grow smoothly at the beginning")
         return
     var grown_scale: float = flash.scale.x
-    # Sphere holds full size until 9.0s, exactly one second before launch.
+    # Sphere stays full until 8.5s: one second before sphere finishes.
     gun.call("advance", 0.759, side_target, true)
     if not flash.visible or absf(flash.scale.x - grown_scale) > 0.02:
-        _fail("blue sphere must remain full-sized until 1s before firing")
+        _fail("blue sphere must remain full-sized until final 1s shrink")
         return
     # One second of smoothstep shrink: at the midpoint (9.5s)
     # its diameter/scale is one half the starting value.
@@ -134,14 +136,36 @@ func _run() -> void:
     if not flash.visible or flash.scale.x >= midpoint_scale * 0.25:
         _fail("sphere must shrink smoothly over full final second")
         return
-    # Still glowing at 9.989s; beam only begins at the 10s boundary.
+    # Sphere finishes at 9.5s; the next 0.5s is a FULLY ACQUIRED
+    # firing delay, with neither blue sphere nor active laser.
     gun.call("advance", 0.089, side_target, true)
     if not flash.visible or core.visible:
-        _fail("sphere must remain visible until laser launch")
+        _fail("sphere must remain visible for its full 2s duration")
         return
     gun.call("advance", 0.022, side_target, true)
-    if flash.visible or not core.visible or not halo.visible:
-        _fail("laser must replace the 2s sphere at the shot boundary")
+    if flash.visible or core.visible or halo.visible:
+        _fail("fully acquired 0.5s pause must begin before beam")
+        return
+    var acquired: Vector2 = gun.call("_desired_player_angles", side_target)
+    if absf(angle_difference(float(gun.get("aim_yaw")), acquired.x)) > (
+            0.00001) or absf(elevation.rotation.x - acquired.y) > 0.00001:
+        _fail("turret must already be fully locked when 0.5s delay starts")
+        return
+    if (bars[2] as StandardMaterial3D).emission_energy_multiplier < 4.0:
+        _fail("third charge bar must remain lit during full-lock delay")
+        return
+    # The gun must KEEP TRACKING during the pause, including a target move.
+    var delayed_target: Vector3 = side_target + Vector3(3.0, 0.0, 1.0)
+    gun.call("advance", 0.45, delayed_target, true)
+    var maintained: Vector2 = gun.call("_desired_player_angles", delayed_target)
+    if core.visible or flash.visible or absf(rad_to_deg(
+            angle_difference(float(gun.get("aim_yaw")), maintained.x))) > 1.0:
+        _fail("full-lock pause must keep pace with moving player, no laser")
+        return
+    # Exactly ten seconds modulo period begins the real two-second beam.
+    gun.call("advance", 0.055, delayed_target, true)
+    if not core.visible or not halo.visible:
+        _fail("laser started before/after 0.5s fully acquired delay")
         return
     if (core.material_override as BaseMaterial3D).no_depth_test:
         _fail("beam illegally renders through opaque armor")
@@ -180,14 +204,14 @@ func _run() -> void:
     var reference_right: Vector3 = gun.global_basis.x.normalized()
     var pivot_world: Vector3 = gun.global_position
     gun.call("reset")
-    # 240 physics frames of prefire, followed by 120 beam frames.
+    # 240 prefire + 60 locked-pause frames, then 120 beam frames.
     gun.set("elapsed", GUN.TRACK_START_SECONDS + 0.0001)
     var aim_at_fire: float = 0.0
     var target_at_fire: float = 0.0
     var first_prefire_delta: float = 0.0
     var last_target: Vector3 = Vector3.ZERO
-    # 2.0s of smoothly accelerating prefire + 1.0s dodgeable beam.
-    for i in range(360):
+    # 2s eased pursuit + 0.5s full-lock delay + 1s dodgeable beam.
+    for i in range(420):
         var t: float = float(i + 1) * DT
         var travel_angle: float = boost_speed / boost_radius * t
         var boost_target: Vector3 = pivot_world + (
@@ -199,7 +223,7 @@ func _run() -> void:
         if i == 0:
             first_prefire_delta = absf(rad_to_deg(angle_difference(
                 before_step, float(gun.get("aim_yaw")))))
-        if i == 239:
+        if i == 299:
             aim_at_fire = float(gun.get("aim_yaw"))
             var target_direction: Vector2 = gun.call(
                 "_desired_player_angles", last_target)
@@ -227,7 +251,7 @@ func _run() -> void:
     var large_angle_target: Vector3 = pivot_world + (
         reference_forward * cos(deg_to_rad(115.0))
         + reference_right * sin(deg_to_rad(115.0))) * boost_radius
-    for i in range(239):
+    for i in range(299):
         gun.call("advance", DT, large_angle_target - Vector3.UP * 0.92, true)
     var before_fire_angles: Vector2 = gun.call(
         "_desired_player_angles", large_angle_target - Vector3.UP * 0.92)
@@ -262,7 +286,7 @@ func _run() -> void:
         return
     print("GODOT_BITTARAN_RAILGUN_PASS 10s_interval=true 2s_beam=true ",
         "2s_blue_sphere=true 1s_orb_shrink=true 2s_ease_in=true ",
-        "0.4s_postfire_hold=true ",
+        "0.5s_locked_prefire_delay=true 0.4s_postfire_hold=true ",
         "prefire_fast_lock=true first_frame_exact_aim=true ",
         "boost_outpaces_beam=true neutral_until_fully_charged=true ",
         "smooth_independent_yaw_pitch=true 3_charge_bars_per_side=true")
