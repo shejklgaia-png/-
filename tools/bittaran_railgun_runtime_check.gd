@@ -322,9 +322,13 @@ func _run() -> void:
         _fail("new turret implementation modified original Body pose")
         return
 
-    # The baseline is still 0.7x on the projected beam axis. Offset
-    # distance 0..2.5m continuously blends to full catch-up (smoothstep),
-    # not a sudden acceleration when crossing a threshold.
+    # The beam begins at 0.7x chase rate and smoothly ramps to 1.0x
+    # over 0..2.5m. The 2.5m boundary is a HARD SPEED PLATEAU, not
+    # unlimited distance/velocity catch-up: RUN must be caught, BOOST
+    # must always outrun the turret in lateral motion.
+    if not _near(GUN.CHASE_SPEED_BLEND, 0.65, 0.0001):
+        _fail("approved chase rate must remain between RUN and BOOST")
+        return
     if not _near(float(gun.call("_beam_catchup_weight", 0.0)),
             0.0, 0.0001) or (
             not _near(float(gun.call("_beam_catchup_weight", 0.625)),
@@ -334,38 +338,40 @@ func _run() -> void:
             not _near(float(gun.call("_beam_catchup_weight", 1.875)),
                 0.84375, 0.0001)) or (
             not _near(float(gun.call("_beam_catchup_weight", 2.5)),
-                1.0, 0.0001)) or (
-            not _near(float(gun.call("_beam_catchup_weight", 4.0)),
                 1.0, 0.0001)):
-        _fail("0..2.5m smoothstep acceleration weight is not continuous")
+        _fail("0..2.5m smoothstep tracking blend changed")
         return
     var baseline_test: float = 20.0
-    var baseline_target: float = float(gun.call(
-        "_beam_target_turn_rate", 0.0, baseline_test, 10.0, 10.0))
-    var quarter_target: float = float(gun.call(
-        "_beam_target_turn_rate", 0.625, baseline_test, 10.0, 10.0))
-    var mid_target: float = float(gun.call(
-        "_beam_target_turn_rate", 1.25, baseline_test, 10.0, 10.0))
-    var three_quarter_target: float = float(gun.call(
-        "_beam_target_turn_rate", 1.875, baseline_test, 10.0, 10.0))
-    var full_target: float = float(gun.call(
-        "_beam_target_turn_rate", 2.5, baseline_test, 10.0, 10.0))
-    if not _near(baseline_target, baseline_test, 0.0001) or not (
-            baseline_target < quarter_target and
-            quarter_target < mid_target and
-            mid_target < three_quarter_target and
-            three_quarter_target < full_target):
-        _fail("beam turn rate must grow smoothly across the entire 0..2.5m")
-        return
-    var just_before: float = float(gun.call(
-        "_beam_target_turn_rate", 2.49, baseline_test, 10.0, 10.0))
-    var just_after: float = float(gun.call(
-        "_beam_target_turn_rate", 2.51, baseline_test, 10.0, 10.0))
-    if absf(full_target - just_before) > 0.20 or (
-            absf(just_after - full_target) > 0.20):
-        _fail("crossing 2.5m introduced a discontinuous acceleration spike")
-        return
-
+    var full_test: float = baseline_test / 0.70
+    var samples := [
+        Vector2(0.0, 0.0), Vector2(0.625, 0.15625),
+        Vector2(1.25, 0.5), Vector2(1.875, 0.84375),
+        Vector2(2.5, 1.0), Vector2(4.0, 1.0),
+        Vector2(10.0, 1.0), Vector2(100.0, 1.0)]
+    for sample in samples:
+        var actual_rate: float = float(gun.call("_beam_target_turn_rate",
+            sample.x, baseline_test, full_test))
+        var expected_rate: float = lerpf(baseline_test,
+            full_test, sample.y)
+        if not _near(actual_rate, expected_rate, 0.0001):
+            _fail("laser turn rate is not a capped 0..2.5m smoothstep")
+            return
+        if actual_rate > full_test + 0.0001:
+            _fail("beam rate exceeded the chase plateau beyond 2.5m")
+            return
+    for distance in [5.0, 8.0, 30.0]:
+        var run_rate: float = rad_to_deg(
+            GUN.RUN_REFERENCE_SPEED_MPS / distance)
+        var boost_rate: float = rad_to_deg(
+            GUN.BOOST_REFERENCE_SPEED_MPS / distance)
+        var full_rate: float = rad_to_deg(
+            GUN.CHASE_SPEED_MPS / distance)
+        var allowed: float = float(gun.call("_beam_target_turn_rate",
+            8.0, full_rate * 0.70, full_rate))
+        if not (run_rate < allowed and allowed < boost_rate):
+            _fail("RUN must lose ground but BOOST must escape the beam at " +
+                str(distance) + "m")
+            return
     gun.call("reset")
     gun.set("elapsed", GUN.BEAM_START + 0.10)
     var beam_origin: Vector3 = elevation.to_global(
@@ -380,8 +386,8 @@ func _run() -> void:
             not _near(slowed_rate, normal_rate * 0.7, 0.05)):
         _fail("laser on-axis follow speed must remain at 0.7x baseline")
         return
-    # A fast 1m sidestep now enables PARTIAL catch-up, but never the
-    # full 2.5m multiplier. It is not a flat 0.7x interval.
+    # A fast 1m sidestep enables PARTIAL capped chase, with a smooth
+    # transition to the 2.5m plateau. It is not a flat 0.7x interval.
     var near_gap_target: Vector3 = on_axis + Vector3(1.0, 0.0, 0.0)
     gun.call("advance", DT, near_gap_target, true)
     var near_gap: float = float(gun.get("beam_ground_gap_meters"))
@@ -394,9 +400,13 @@ func _run() -> void:
     for frame in range(12):
         lateral.x += 0.30
         gun.call("advance", DT, lateral, true)
+    var lateral_max_rate: float = float(gun.call(
+        "_tracking_turn_rate", lateral))
     if float(gun.get("beam_ground_gap_meters")) <= 2.5 or (
             float(gun.get("beam_turn_rate_deg_per_sec")) <=
-                slowed_rate + 5.0):
+                slowed_rate + 5.0) or (
+            float(gun.get("beam_turn_rate_deg_per_sec")) >
+                lateral_max_rate + 0.0001):
         _fail("laser must reach full catch-up after 2.5m separation")
         return
     gun.call("reset")
@@ -466,7 +476,7 @@ func _run() -> void:
         _fail("boss body rotation bypassed the live laser turn-rate cap")
         return
 
-    # Equipped SERA stats govern the actual pursuit rate; 30m still sits
+    # Equipped SERA stats govern the capped pursuit rate; 30m still sits
     # strictly between RUN and BOOST in angular space.
     var far: Vector3 = gun.global_position + (
         -gun.global_basis.z.normalized() * 30.0) - Vector3.UP * 0.92
@@ -601,7 +611,7 @@ func _run() -> void:
         "0.7s_smooth_sphere_entry=true 0.7s_immediate_return=true ",
         "zero_prefire_hold=true zero_damage_arm_delay=true ",
         "beam_0_7x_baseline=true ground_gap_2_5m_eased_follow=true ",
-        "player_velocity_catchup=true laser_60pct_power=true ",
+         "run_catches_boost_escapes=true plateau_2_5m=true laser_60pct_power=true ",
         "normal_projectiles_unchanged=true unlimited_repeat_hits=true ",
         "repeat_hit_0_2s=true physical_knockback_preserved=true ",
         "double_boss_move_and_turn=true guard_still_blocks=true ",
