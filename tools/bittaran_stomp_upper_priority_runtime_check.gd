@@ -23,7 +23,7 @@ func _run() -> void:
     battle.set_process(false)
     battle.set_physics_process(false)
     var rig: Node3D = battle.get("bittaran_rig")
-    var controller: Node3D = battle.get("bittaran_foot_ik")
+    var controller: RefCounted = battle.get("bittaran_foot_ik")
     if rig == null or controller == null:
         _fail("missing actual Bittaran joints")
         return
