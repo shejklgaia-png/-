@@ -1996,6 +1996,9 @@ func _finalize_target_pose(delta: float) -> void:
                 bittaran_attack_frame["sweep_aim_yaw"] = float(
                     bittaran_rig.get("source_aim_body_yaw")) + float(
                     bittaran_rig.get("source_aim_shoulder_yaw"))
+                # The player-aimed foot no longer lies on the baked
+                # baseline: place each timed puff on the LIVE toe.
+                bittaran_attack_frame["sweep_player_tracked"] = true
             bittaran_dirt_fx.call("advance_attack",
                 bittaran_attack_frame, contact, previous, delta,
                 grounded, player_dir)
