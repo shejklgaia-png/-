@@ -1,3 +1,11 @@
+## 2026-11-19 — SERA v499: 脚外側砲台4基の撤去と胴体腹側への移設
+- **ユーザー指定**：脚外側に付いていた砲台を削除し、腹の下へ接続。特段の発射数変更指示はないため、4基／近距離順／1.2秒間隔／最寄り1基追尾／攻撃・ダウン時の射撃停止という直前の承認仕様を保持。
+- **更新前の調査**：`main` v498、`AGENTS.md`、`.github/workflows/sera-model-policy.yml`、`tools/sera_ci_manifest.txt`、`docs/SERA_ACTIVE_CI_POLICY_ja.md`、登録済み`tools/bittaran_leg_turrets_runtime_check.gd`、Bittaran Blockbench原本の`Body/body_mesh`（下部の実メッシュ）と4本脚のBody子階層を確認。`docs/MODEL_PART_WORKFLOW_ja.md`と`docs/RENDER_PIPELINE_POLICY_ja.md`も確認。
+- **CI先行変更**：実装前に従来の下肢ボーン4基の外向き接続期待値を撤廃。新規にBodyボーンへの全4基接続、底面の上下0～2.5cm埋込、下向き法線、2×2位置、胴体外形からのはみ出し禁止、Bodyの位置・角度変化に対する追従をチェックするよう登録済みGodotテストを更新。追尾/距離順/弾道/1.2秒/攻撃・ダウン停止の検査は保持。
+- **実装**：`bittaran_leg_turrets.gd`の下肢骨参照を全て削除。原本`Body/body_mesh`の3D頂点AABBをBodyローカル座標に変換し、腹下面の前後左右2×2に`BellyCannon_*`を配置。正半球の底面を腹下面内側へ最大1.8cm埋込、半径0.24mへ縮小、ローカル+Yを下向きに固定。砲身は別`TurretAim`ピボットで最寄り1基のみ追尾。下肢IK/本体アニメには触れず、戦闘シーンのノード名も`FourBellyTurrets`に更新。
+- **不変条件**：4基の射撃間隔、選択・追尾方法、弾速、ダウン中レーザー停止、原本`models/bosses/Bittaran.bbmodel`/キーフレーム/IK/ヒットボックス/操作等を保持。
+- **検証**：`main`マージ後のGitHub ActionsフルCIはプッシュ時に起動。Android実機の見た目、砲身の干渉、ダウン時の床接触は自動CIと別に検査する。
+
 ## 2026-11-19 — SERA v498: 半球底面接合と最寄り1基のみの砲塔追尾
 - **新仕様**：4基の半球の平面底面を各下肢の外側装甲へ密着固定。プレイヤーに最も近い砲塔1基のみ継続追尾、ダウン中は追尾停止。
 - **着手前CI・骨格調査**：`AGENTS.md`、`tools/sera_ci_manifest.txt`、`docs/SERA_ACTIVE_CI_POLICY_ja.md`、`.github/workflows/sera-model-policy.yml`、Bittaran 4本下肢骨の原本、既存の登録済み`bittaran_leg_turrets_runtime_check.gd`と戦闘状態ゲートを確認。原本頂点/キーフレームは維持。
