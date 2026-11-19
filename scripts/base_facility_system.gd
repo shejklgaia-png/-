@@ -31,6 +31,7 @@ var conversion_mode: int = 0
 var conversion_family: String = "scrap"
 var conversion_batches: int = 1
 var conversion_notice: String = ""
+var page: String = ""
 var generator_rotor: Node3D
 
 func _ready() -> void:
@@ -296,26 +297,45 @@ func attach_hud(hud: Control) -> void:
     var body := VBoxContainer.new()
     body.add_theme_constant_override("separation", 15)
     padding.add_child(body)
+    var header_row := HBoxContainer.new()
+    header_row.name = "FacilityHeaderRow"
+    header_row.add_theme_constant_override("separation", 8)
+    body.add_child(header_row)
+    # Decorative cue. Back is available through the bottom button, outside
+    # taps and the Android system gesture, even when this glyph is offscreen.
+    var back_appearance := Label.new()
+    back_appearance.name = "BackAppearance"
+    back_appearance.text = "‹"
+    back_appearance.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    back_appearance.add_theme_font_size_override("font_size", 28)
+    back_appearance.add_theme_color_override("font_color", Color("#a5e9ff"))
+    header_row.add_child(back_appearance)
     modal_title = Label.new()
-    modal_title.add_theme_font_size_override("font_size", 28)
+    modal_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+    modal_title.add_theme_font_size_override("font_size", 25)
     modal_title.add_theme_color_override("font_color", Color("#b8f0ff"))
-    body.add_child(modal_title)
+    header_row.add_child(modal_title)
     modal_body = Label.new()
     modal_body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
     modal_body.add_theme_font_size_override("font_size", 18)
     modal_body.add_theme_color_override("font_color", Color("#dce9ee"))
     body.add_child(modal_body)
+    # Scrollable actions prevent menus with four material families from
+    # overflowing a compact Android portrait viewport.
+    var actions_scroll := ScrollContainer.new()
+    actions_scroll.name = "FacilityActionsScroll"
+    actions_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+    actions_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+    body.add_child(actions_scroll)
     modal_actions = VBoxContainer.new()
+    modal_actions.size_flags_horizontal = Control.SIZE_EXPAND_FILL
     modal_actions.add_theme_constant_override("separation", 12)
-    body.add_child(modal_actions)
-    var spacer := Control.new()
-    spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
-    body.add_child(spacer)
+    actions_scroll.add_child(modal_actions)
     var close_button := Button.new()
     close_button.name = "CloseFacility"
-    close_button.text = "閉じる"
+    close_button.text = "戻る"
     close_button.custom_minimum_size.y = 58.0
-    close_button.pressed.connect(close_menu)
+    close_button.pressed.connect(navigate_back)
     body.add_child(close_button)
 
 func update_tags(camera: Camera3D) -> void:
@@ -363,6 +383,7 @@ func open_facility(key: String) -> void:
     if modal == null or spec.is_empty():
         return
     active_key = key
+    page = "home"
     modal_title.text = str(spec["name"])
     modal.visible = true
     _clear_actions()
@@ -411,13 +432,35 @@ func _show_conversion(direction: int) -> void:
     conversion_mode = direction
     conversion_notice = ""
     conversion_batches = 1
-    _render_conversion()
+    page = "families"
+    _render_family_page()
 
-func _conversion_family_changed(selected: int) -> void:
-    if selected >= 0 and selected < BaseMaterials.FAMILY_IDS.size():
-        conversion_family = str(BaseMaterials.FAMILY_IDS[selected])
-        conversion_notice = ""
-        _render_conversion()
+func _render_family_page() -> void:
+    _clear_actions()
+    modal_title.text = (
+        "精製装置｜素材の選択" if conversion_mode == 1
+        else "分解装置｜素材の選択")
+    modal_body.text = (
+        "ランクを上げる素材系統を選択してください。"
+        if conversion_mode == 1
+        else "ランクを下げる素材系統を選択してください。")
+    for family in BaseMaterials.FAMILY_IDS:
+        var button := Button.new()
+        button.name = "FamilyChoice_" + str(family)
+        button.text = str(BaseMaterials.FAMILY_NAMES[family]) + "  ›"
+        button.custom_minimum_size.y = 62.0
+        button.add_theme_font_size_override("font_size", 20)
+        button.pressed.connect(_select_conversion_family.bind(str(family)))
+        modal_actions.add_child(button)
+
+func _select_conversion_family(family: String) -> void:
+    if not BaseMaterials.FAMILY_IDS.has(family) or page != "families":
+        return
+    conversion_family = family
+    conversion_batches = 1
+    conversion_notice = ""
+    page = "conversion"
+    _render_conversion()
 
 func _conversion_batches_changed(delta: int) -> void:
     conversion_batches = clampi(conversion_batches + delta, 1, 99)
@@ -436,8 +479,8 @@ func _perform_conversion(from_rank: int) -> void:
 func _render_conversion() -> void:
     _clear_actions()
     modal_title.text = (
-        "精製装置｜ランクを上げる" if conversion_mode == 1
-        else "分解装置｜ランクを下げる")
+        "精製｜" if conversion_mode == 1
+        else "分解｜") + str(BaseMaterials.FAMILY_NAMES[conversion_family])
     var stock: Dictionary = SeraSave.get_material_inventory()
     var lines: Array[String] = [
         "同じ素材系統内でのみ変換できます。\n製作の必要素材は固定で、他ランクでは代替できません。",
@@ -452,16 +495,6 @@ func _render_conversion() -> void:
     if not conversion_notice.is_empty():
         lines.append(conversion_notice)
     modal_body.text = "\n".join(lines)
-
-    var picker := OptionButton.new()
-    picker.name = "MaterialFamily"
-    picker.custom_minimum_size.y = 60.0
-    picker.add_theme_font_size_override("font_size", 19)
-    for family in BaseMaterials.FAMILY_IDS:
-        picker.add_item(str(BaseMaterials.FAMILY_NAMES[family]))
-    picker.select(BaseMaterials.FAMILY_IDS.find(conversion_family))
-    picker.item_selected.connect(_conversion_family_changed)
-    modal_actions.add_child(picker)
 
     var amount_row := HBoxContainer.new()
     amount_row.name = "ConversionAmount"
@@ -509,20 +542,47 @@ func _render_conversion() -> void:
         modal_actions.add_child(button)
 
 func _show_detail(detail: String) -> void:
-    if modal_body != null:
-        modal_body.text = detail
+    if modal_body == null or active_key.is_empty():
+        return
+    page = "detail"
+    modal_title.text = str(_spec_for(active_key)["name"]) + "｜詳細"
+    _clear_actions()
+    modal_body.text = detail
+
+func navigate_back() -> void:
+    if not is_menu_open():
+        return
+    match page:
+        "conversion":
+            page = "families"
+            conversion_notice = ""
+            _render_family_page()
+        "detail":
+            open_facility(active_key)
+        _:
+            close_menu()
 
 func close_menu() -> void:
     if modal != null:
         modal.visible = false
     active_key = ""
+    page = ""
+
+func _input(event: InputEvent) -> void:
+    if not is_menu_open():
+        return
+    if event.is_action_pressed("ui_cancel") or (
+            event is InputEventKey and event.pressed and not event.echo
+            and event.keycode in [KEY_BACK, KEY_ESCAPE]):
+        navigate_back()
+        get_viewport().set_input_as_handled()
 
 func _on_shade_input(event: InputEvent) -> void:
     if event is InputEventScreenTouch and event.pressed:
-        close_menu()
+        navigate_back()
         get_viewport().set_input_as_handled()
     elif event is InputEventMouseButton and event.pressed             and event.button_index == MOUSE_BUTTON_LEFT:
-        close_menu()
+        navigate_back()
         get_viewport().set_input_as_handled()
 
 func _process(delta: float) -> void:
