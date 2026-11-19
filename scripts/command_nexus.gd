@@ -5,6 +5,8 @@ const Modules = preload("res://assets/base_command_modules.gd")
 const SeraRig = preload("res://scripts/sera_rig.gd")
 const VersionIndicator = preload("res://scripts/version_indicator.gd")
 const TrainingDefaults = preload("res://scripts/training_defaults.gd")
+const IconAtlas = preload("res://scripts/sera_item_icons.gd")
+const PrototypeCatalog = preload("res://scripts/sera_prototype_catalog.gd")
 const CONTROL_SETTINGS_FILE: String = "user://sera_settings.cfg"
 const NexusSelectionOutline = preload("res://scripts/nexus_selection_outline.gd")
 const CUSTOMIZE_GLOW_SHADER = preload("res://shaders/nexus_customize_radial_glow.gdshader")
@@ -1025,8 +1027,15 @@ func _create_equipment_controls() -> void:
         set_label.add_theme_font_size_override("font_size", 23)
         set_label.add_theme_color_override("font_color", Color("#dcfaff"))
         row.add_child(set_label)
+        var item_icon := TextureRect.new()
+        item_icon.name = "CraftedEquipmentIcon_" + slot
+        item_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        item_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+        item_icon.visible = false
+        row.add_child(item_icon)
         customize_equipment_rows[slot] = {
-            "panel": row, "name": name_label, "value": set_label
+            "panel": row, "name": name_label, "value": set_label,
+            "equipped_icon": item_icon
         }
     _refresh_equipment_controls()
 
@@ -1048,8 +1057,13 @@ func _layout_equipment_controls() -> void:
         name_label.position = Vector2(12.0, 4.0)
         name_label.size = Vector2(row.size.x - 24.0, row.size.y * 0.40)
         var value_label: Label = row_data["value"]
-        value_label.position = Vector2(8.0, row.size.y * 0.40)
-        value_label.size = Vector2(row.size.x - 16.0, row.size.y * 0.56)
+        var item_icon: TextureRect = row_data["equipped_icon"]
+        var icon_size: float = minf(47.0, row.size.y - 6.0)
+        item_icon.position = Vector2(5.0, (row.size.y - icon_size) * 0.5)
+        item_icon.size = Vector2(icon_size, icon_size)
+        value_label.position = Vector2(icon_size + 6.0, row.size.y * 0.40)
+        value_label.size = Vector2(
+            maxf(20.0, row.size.x - icon_size - 13.0), row.size.y * 0.56)
 
 func _refresh_equipment_controls() -> void:
     for slot in CUSTOMIZE_SLOTS:
@@ -1066,6 +1080,8 @@ func _refresh_equipment_controls() -> void:
         var row_data: Dictionary = customize_equipment_rows[slot]
         var row: Panel = row_data["panel"]
         var label: Label = row_data["value"]
+        var icon: TextureRect = row_data["equipped_icon"]
+        icon.visible = false
         if not blocker.is_empty():
             # v291: the other hand is physically occupied by a two-hand
             # weapon. Keep the row as non-clickable grey UI and show its
@@ -1081,8 +1097,18 @@ func _refresh_equipment_controls() -> void:
             variant_label = "BIRD"
         elif slot == "legs" and current_set == "D":
             variant_label = "NEW"
-        label.text = "<   %s  %s   >" % [current_set, variant_label] \
-            if options.size() > 1 else current_set
+        var equipped_prototype: String = SeraSave.get_equipped_prototype(slot)
+        if not equipped_prototype.is_empty():
+            var blueprint: String = equipped_prototype.get_slice("-", 0)
+            icon.texture = IconAtlas.equipment_icon(blueprint)
+            icon.visible = icon.texture != null
+            label.text = "< %s >" % PrototypeCatalog.display_instance(
+                equipped_prototype)
+            label.add_theme_font_size_override("font_size", 13)
+        else:
+            label.text = "<   %s  %s   >" % [current_set, variant_label] \
+                if options.size() > 1 else current_set
+            label.add_theme_font_size_override("font_size", 23)
 
 
 func _tap_equipment_control(point: Vector2) -> bool:
@@ -1102,13 +1128,39 @@ func _tap_equipment_control(point: Vector2) -> bool:
         if not blocker.is_empty():
             return true
         var choices: Array = sera_display_rig.call("get_equipment_options", slot)
-        if choices.size() < 2:
+        var selectable: Array[String] = []
+        for value in choices:
+            selectable.append("set:" + str(value))
+        for crafted in SeraSave.get_owned_prototypes(slot):
+            selectable.append("crafted:" + str(crafted["uid"]))
+        if selectable.size() < 2:
             return true
-        var current_set: String = str(sera_display_rig.call("get_equipment_selection", slot))
-        var index: int = maxi(0, choices.find(current_set))
+        var current_set: String = str(sera_display_rig.call(
+            "get_equipment_selection", slot))
+        var active_uid: String = SeraSave.get_equipped_prototype(slot)
+        var current_choice: String = ("crafted:" + active_uid
+            if not active_uid.is_empty() else "set:" + current_set)
+        var index: int = maxi(0, selectable.find(current_choice))
         var direction: int = -1 if local.x < row.position.x + row.size.x * 0.45 else 1
-        var next_index: int = posmod(index + direction, choices.size())
-        if bool(sera_display_rig.call("set_equipment_selection", slot, choices[next_index])):
+        var next_index: int = posmod(index + direction, selectable.size())
+        var choice: String = selectable[next_index]
+        var updated: bool = false
+        if choice.begins_with("crafted:"):
+            var uid: String = choice.trim_prefix("crafted:")
+            var blueprint: String = uid.get_slice("-", 0)
+            var catalog_entry: Dictionary = PrototypeCatalog.spec(blueprint)
+            var rig_set: String = str(catalog_entry.get("rig_set", "A"))
+            # A rig is a provisional stand-in. Never pretend the icon has
+            # a new authored mesh, or change the world-space hitboxes.
+            if bool(sera_display_rig.call("set_equipment_selection", slot, rig_set)):
+                updated = SeraSave.equip_prototype(slot, uid)
+        else:
+            var target_set: String = choice.trim_prefix("set:")
+            if bool(sera_display_rig.call("set_equipment_selection", slot, target_set)):
+                var current_proto: String = SeraSave.get_equipped_prototype(slot)
+                updated = current_proto.is_empty() or (
+                    SeraSave.clear_equipped_prototype(slot))
+        if updated:
             _refresh_equipment_controls()
             if slot == "legs" or slot == "arms":
                 _fit_nexus_arms_to_lower_body()
