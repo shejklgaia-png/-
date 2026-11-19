@@ -372,10 +372,12 @@ func _run() -> void:
     var after_world_yaw: float = float(
         gun.get("tracked_world_yaw"))
     rig.rotation.y = saved_root_yaw
-    var cap: float = float(gun.call("_tracking_turn_rate", side))
+    # Firing uses the live 0.7x / >0.5m catch-up rate, not the old
+    # unscaled constant. World-root rotation may NEVER add extra yaw.
+    var cap: float = float(gun.get("beam_turn_rate_deg_per_sec"))
     if absf(rad_to_deg(angle_difference(
             before_world_yaw, after_world_yaw))) > (cap * DT + 0.08):
-        _fail("boss body rotation bypassed the absolute yaw cap")
+        _fail("boss body rotation bypassed the live laser turn-rate cap")
         return
 
     # Equipped SERA stats govern the actual pursuit rate; 30m still sits
