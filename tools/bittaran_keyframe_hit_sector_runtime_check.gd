@@ -6,10 +6,10 @@ const ATTACKS = preload("res://scripts/bittaran_attacks.gd")
 const RIG = preload("res://scripts/bittaran_rig.gd")
 const DT: float = 1.0 / 60.0
 const CASES: Array = [
-    ["leg_fl", "sweep", "なぎ払い", "FrontLeg_L", 0.75, 0.75, 1.00],
-    ["leg_fr", "sweep", "なぎ払い_R", "FrontLeg_R", 0.75, 0.75, 1.00],
-    ["leg_rl", "sweep", "後足なぎ払い_L", "RearLeg_L", 0.25, 0.25, 0.375],
-    ["leg_rr", "sweep", "後足なぎ払い_R", "RearLeg_R", 0.25, 0.25, 0.375],
+    ["leg_fl", "sweep", "なぎ払い", "FrontLeg_L", 0.75, 0.75, 1.50],
+    ["leg_fr", "sweep", "なぎ払い_R", "FrontLeg_R", 0.75, 0.75, 1.50],
+    ["leg_rl", "sweep", "後足なぎ払い_L", "RearLeg_L", 0.25, 0.25, 0.75],
+    ["leg_rr", "sweep", "後足なぎ払い_R", "RearLeg_R", 0.25, 0.25, 0.75],
     ["leg_fl", "kick", "弾き", "FrontLeg_L", 0.25, 0.35, 0.75],
     ["leg_fr", "kick", "弾き_R", "FrontLeg_R", 0.25, 0.35, 0.75]
 ]
@@ -122,10 +122,20 @@ func _run() -> void:
                 _fail("sweep stop pose not present in uploaded Blockbench clip "
                     + str([clip, bone, stop_key]))
                 return
-            # The stop itself and all of the last 0.5s cannot collide.
+            # The final half-second lead-up to the real stopped pose
+            # may never damage, while the independently baked dust
+            # remains active until its original first-stroke FX endpoint.
             if ATTACKS.source_hit_window(kind, id, stop_key - 0.001) or (
                     ATTACKS.source_hit_window(kind, id, stop_key)):
                 _fail("sweep collider still active inside stop lead time")
+                return
+            var fx_end: float = (
+                ATTACKS.SWEEP_REAR_FX_FIRST_STROKE_END_KEY_SECONDS
+                if id.begins_with("leg_r")
+                else ATTACKS.SWEEP_FRONT_FX_FIRST_STROKE_END_KEY_SECONDS)
+            if not ATTACKS.source_sweep_fx_window(id, fx_end) or (
+                    ATTACKS.source_sweep_fx_window(id, fx_end + 0.01)):
+                _fail("original dirt FX stroke shortened with damage window")
                 return
         for t in [start_key - 0.001, hit_begin - 0.004,
                 hit_begin, hit_begin + 0.017,
