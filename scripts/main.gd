@@ -1134,13 +1134,18 @@ func _build_enemy_shooter() -> void:
 
 func _on_enemy_projectile_hit(_world_position: Vector3, incoming_direction: Vector3,
         is_bullet: bool, attack_type: int,
-        non_staggering: bool = false) -> void:
+        non_staggering: bool = false,
+        damage_multiplier: float = 1.0) -> void:
     if down_remaining > 0.0 or training_ko_remaining > 0.0:
         return
     # The attack subtype is captured when the projectile or area is created.
     # Changing the debug selection cannot change damage on an attack in flight.
     var attack_index: int = clampi(attack_type, 0, ENEMY_ATTACK_HP_DAMAGE.size() - 1)
-    var incoming_damage: float = float(ENEMY_ATTACK_HP_DAMAGE[attack_index])
+    # Default 1.0 preserves every previous projectile/area attack.
+    # Boss-specific beam power may change without nerfing training shots.
+    var power: float = maxf(damage_multiplier, 0.0)
+    var incoming_damage: float = (
+        float(ENEMY_ATTACK_HP_DAMAGE[attack_index]) * power)
     if guard_break_remaining > 0.0:
         _take_test_damage(incoming_damage)
         if training_ko_remaining > 0.0 or non_staggering:
@@ -1152,7 +1157,7 @@ func _on_enemy_projectile_hit(_world_position: Vector3, incoming_direction: Vect
             _begin_test_down()
         return
     if guard_active:
-        var cost: float = float(ENEMY_ATTACK_SHIELD_COST[attack_index]) * (
+        var cost: float = float(ENEMY_ATTACK_SHIELD_COST[attack_index]) * power * (
             float(part_stats.get("guard_cost_mult", 1.0)) /
             maxf(0.2, float(part_stats.get("guard_defense_mult", 1.0))))
         shield = maxf(0.0, shield - cost)
