@@ -1,3 +1,10 @@
+## 2026-11-19 — v489 屋外拠点メニューとNEXUS建物の分離
+- 事前にmain・既存PR・`AGENTS.md`・現行CI manifest・NEXUS/BASEシーンを確認。旧「拠点から5種類のNEXUSサブメニューへ直接遷移」を仕様変更として特定し、旧テストの該当条件を先に更新。
+- 屋外の継ぎ接ぎ金属床と独立NEXUS建物を配置。CRATEは拠点の安全な地点を自律巡回。SERAは拠点内のみ従来のスティック歩行を維持。
+- Nexus建物の実投影面をタップして既存の固定式NEXUSメニューへ移動。NEXUSのEXIT TO BASEは選択中メニューからも利用でき、屋外拠点へ戻る。
+- ゲーム起動シーンを拠点に変更。ボス戦はNEXUS出撃メニューからアクセス可能。元のモデル・アニメーション・戦闘・セーブスキーマは変更しない。
+- 静的テストと実Godot基礎テストを新仕様へ先行更新し、独立した実Godot往復テストを追加。mainマージ後に全CIを実行する。
+
 ## 2026-11-19 — SERA v488: なぎ払いの画面振動を攻撃判定の実時刻に完全同期
 
 - **CI先行確認**：現行v487、`.github/workflows/sera-model-policy.yml`、`tools/sera_ci_manifest.txt`、`docs/SERA_ACTIVE_CI_POLICY_ja.md`、`tools/bittaran_camera_shake_runtime_check.gd`、`tools/bittaran_keyframe_hit_sector_runtime_check.gd`、`scripts/bittaran_attacks.gd`の`source_hit_window`を確認。旧v486の「strikeなら継続」という振動テスト期待値が新しい仕様と衝突。前足の原本時刻0.67〜1.38s、後足0.17〜0.63sはユーザー既存承認の不変条件。

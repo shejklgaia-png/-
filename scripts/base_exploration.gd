@@ -1,19 +1,17 @@
 extends Node3D
-## Explorable portrait base. The established Command Nexus continues to own
-## equipment, save data, deployment, training and archive menus.
+## Outdoor portrait base hub; CRATE wanders independently and NEXUS is a tappable building.
 const Modules = preload("res://assets/base_command_modules.gd")
 const SeraRig = preload("res://scripts/sera_rig.gd")
 const NEXUS_SCENE: String = "res://scenes/command_nexus.tscn"
 const WALK_SPEED: float = 3.2
 const PLAYER_Y: float = 0.08
 const JOYSTICK_RADIUS: float = 76.0
-const INTERACT_RADIUS: float = 1.8
-const STATIONS = [
-    {"name": "CRATE / WORKSHOP", "focus": "CUSTOMIZE", "at": Vector2(-2.55, -4.65)},
-    {"name": "TRAINING ROOM", "focus": "TRAINING", "at": Vector2(2.10, 2.80)},
-    {"name": "SYSTEM", "focus": "SYSTEM", "at": Vector2(-2.10, 2.80)},
-    {"name": "DATA ARCHIVE", "focus": "DATA ARCHIVE", "at": Vector2(-4.40, -7.50)},
-    {"name": "DEPLOYMENT", "focus": "DEPLOYMENT", "at": Vector2(4.35, -8.60)}
+const NEXUS_BUILDING_ORIGIN: Vector3 = Vector3(0.0, 0.0, -7.4)
+const CRATE_SPEED: float = 0.95
+const CRATE_WAYPOINTS = [
+    Vector2(-3.8, 2.6), Vector2(-4.2, 0.6), Vector2(-2.8, 0.0),
+    Vector2(1.6, 0.5), Vector2(3.7, 2.8), Vector2(1.6, 4.4),
+    Vector2(-2.5, 4.2)
 ]
 
 var player: Node3D
@@ -24,10 +22,12 @@ var hud_title: Label
 var hint: Label
 var stick_outer: Panel
 var stick_knob: Panel
-var interact_panel: Panel
-var interact_label: Label
-var nexus_panel: Panel
-var nexus_label: Label
+var nexus_building: Node3D
+var nexus_tag: Label
+var nexus_touch_id: int = -1
+var nexus_touch_start: Vector2 = Vector2.ZERO
+var crate_waypoint: int = 0
+var crate_wait: float = 0.0
 var touch_id: int = -1
 var joystick: Vector2 = Vector2.ZERO
 var mouse_steering: bool = false
@@ -39,12 +39,13 @@ var batches: Dictionary = {}
 func _ready() -> void:
     _setup_world()
     _build_hangar()
+    _build_nexus_building()
     _create_salvage()
     _create_player()
     _create_crate()
     _create_camera()
     _create_hud()
-    SeraSave.mark_location("NEXUS")
+    SeraSave.mark_location("BASE")
 
 func _setup_world() -> void:
     var world := WorldEnvironment.new()
@@ -99,16 +100,23 @@ func _gate_facing_yaw() -> float:
     return atan2(toward_stage.x, toward_stage.z)
 
 func _build_hangar() -> void:
-    # Preserve the actual authored Blockbench dimensions and placement used by NEXUS.
-    _add_module("hangar_shell", Vector3.ZERO)
-    _add_module("maintenance_pad", Vector3(0.0, 0.0, -4.75))
-    _add_module("maintenance_canopy", Vector3(0.0, 8.0, -8.95))
-    _add_module("deployment_gate", Vector3(4.00, 0.02, -10.48),
-        _gate_facing_yaw(), 1.20, 1.25)
-    _add_module("archive_mezzanine", Vector3(-4.00, 0.0, -6.55))
-    _add_module("data_bank", Vector3(-4.00, 2.19, -8.95))
-    _add_module("kiosk", Vector3(-1.95, 0.0, 1.30), deg_to_rad(36.0))
-    _add_module("kiosk", Vector3(1.95, 0.0, 1.30), deg_to_rad(-36.0))
+    # Exterior base: the enclosed Blockbench hangar remains inside the NEXUS menu.
+    var floor := Node3D.new()
+    floor.name = "PatchworkSteelFloor"
+    add_child(floor)
+    var tints := [
+        Color("#3b4758"), Color("#4d5765"), Color("#323f50"),
+        Color("#586171"), Color("#465162"), Color("#3f4a5d")
+    ]
+    for x in range(-2, 3):
+        for z in range(-3, 4):
+            var idx: int = posmod(x * 11 + z * 7, tints.size())
+            _box(floor, "SalvagedPlate_%d_%d" % [x, z],
+                Vector3(float(x) * 3.0, -0.18, float(z) * 3.0),
+                Vector3(2.94, 0.30, 2.94), tints[idx])
+    _add_module("maintenance_pad", Vector3(-4.25, 0.0, -1.8), 0.0, 0.72)
+    _add_module("kiosk", Vector3(4.25, 0.0, 1.2), 0.0, 0.85)
+    _add_module("data_bank", Vector3(5.0, 0.0, -3.0), 0.0, 0.52)
     var cube := BoxMesh.new()
     cube.size = Vector3.ONE
     for palette_index in batches.keys():
@@ -125,6 +133,38 @@ func _build_hangar() -> void:
         draw.material_override = _material(int(palette_index))
         draw.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
         add_child(draw)
+
+func _build_nexus_building() -> void:
+    # Projection-based hit testing uses these real 3D extents.
+    nexus_building = Node3D.new()
+    nexus_building.name = "NEXUSBuilding"
+    nexus_building.position = NEXUS_BUILDING_ORIGIN
+    add_child(nexus_building)
+    _box(nexus_building, "Foundation", Vector3(0, 0.23, 0),
+        Vector3(6.4, 0.46, 5.4), Color("#293644"))
+    _box(nexus_building, "Hall", Vector3(0, 2.30, -0.10),
+        Vector3(5.80, 4.10, 4.95), Color("#596679"))
+    _box(nexus_building, "ReinforcedRoof", Vector3(0, 4.48, -0.10),
+        Vector3(6.25, 0.34, 5.25), Color("#253746"))
+    _box(nexus_building, "EntryFrame", Vector3(0, 1.47, 2.44),
+        Vector3(2.52, 2.92, 0.26), Color("#263748"))
+    _box(nexus_building, "SealedGate", Vector3(0, 1.33, 2.61),
+        Vector3(1.85, 2.48, 0.12), Color("#0c2230"))
+    _box(nexus_building, "EntryLight", Vector3(0, 2.81, 2.64),
+        Vector3(2.12, 0.13, 0.16), Color("#3cc9ea"))
+    for side in [-1.0, 1.0]:
+        _box(nexus_building, "SupportPillar", Vector3(side * 2.55, 2.25, 2.50),
+            Vector3(0.40, 4.48, 0.38), Color("#29394b"))
+        _box(nexus_building, "RoofVent", Vector3(side * 1.76, 4.76, -0.85),
+            Vector3(0.94, 0.42, 1.12), Color("#384958"))
+    var sign := Label3D.new()
+    sign.name = "NEXUSBuildingSign"
+    sign.text = "N E X U S"
+    sign.font_size = 104
+    sign.pixel_size = 0.0062
+    sign.modulate = Color("#bdeefa")
+    sign.position = Vector3(0.0, 3.50, 2.69)
+    nexus_building.add_child(sign)
 
 func _box(parent: Node3D, name: String, at: Vector3, size: Vector3, tint: Color) -> MeshInstance3D:
     var mesh := BoxMesh.new()
@@ -201,6 +241,47 @@ func _create_crate() -> void:
     _box(crate, "RearToolBin", Vector3(0, 0.70, 0.34),
         Vector3(0.56, 0.25, 0.27), Color("#505e71"))
 
+func _update_crate(delta: float) -> void:
+    if crate == null or delta <= 0.0:
+        return
+    if crate_wait > 0.0:
+        crate_wait = maxf(0.0, crate_wait - delta)
+        return
+    var goal: Vector2 = CRATE_WAYPOINTS[crate_waypoint]
+    var current := Vector2(crate.position.x, crate.position.z)
+    var offset: Vector2 = goal - current
+    if offset.length() < 0.06:
+        crate_waypoint = (crate_waypoint + 1) % CRATE_WAYPOINTS.size()
+        crate_wait = 0.85
+        return
+    var direction: Vector2 = offset.normalized()
+    var step: float = minf(CRATE_SPEED * delta, offset.length())
+    crate.position = Vector3(current.x + direction.x * step, 0.06,
+        current.y + direction.y * step)
+    crate.rotation.y = lerp_angle(crate.rotation.y,
+        atan2(-direction.x, -direction.y), minf(1.0, delta * 7.0))
+
+func _nexus_screen_rect() -> Rect2:
+    if cam == null or nexus_building == null:
+        return Rect2()
+    var low := Vector2(INF, INF)
+    var high := Vector2(-INF, -INF)
+    for x in [-3.25, 3.25]:
+        for y in [0.0, 4.9]:
+            for z in [-2.8, 2.8]:
+                var vertex: Vector3 = nexus_building.to_global(Vector3(x, y, z))
+                if cam.is_position_behind(vertex):
+                    continue
+                var pixel: Vector2 = cam.unproject_position(vertex)
+                low = Vector2(minf(low.x, pixel.x), minf(low.y, pixel.y))
+                high = Vector2(maxf(high.x, pixel.x), maxf(high.y, pixel.y))
+    if not is_finite(low.x) or not is_finite(high.x):
+        return Rect2()
+    return Rect2(low, high - low).grow(12.0)
+
+func _nexus_hit(point: Vector2) -> bool:
+    return _nexus_screen_rect().has_point(point)
+
 func _create_camera() -> void:
     cam = Camera3D.new()
     cam.name = "BaseOverheadCamera"
@@ -243,13 +324,12 @@ func _create_hud() -> void:
     layer.add_child(hud)
     hud.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
     hud_title = _label(hud, "SERA / BASE", 25)
-    hint = _label(hud, "設備に近づくと操作できます", 19)
+    hint = _label(hud, "NEXUSの建物をタップして施設へ", 19)
+    nexus_tag = _label(hud, "N E X U S  ▸", 20)
+    nexus_tag.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    nexus_tag.add_theme_color_override("font_color", Color("#8be4ff"))
     stick_outer = _panel(hud, "MoveStickOuter")
     stick_knob = _panel(hud, "MoveStickKnob")
-    interact_panel = _panel(hud, "Interact")
-    interact_label = _label(interact_panel, "開く", 24)
-    nexus_panel = _panel(hud, "OpenNexus")
-    nexus_label = _label(nexus_panel, "NEXUS", 19)
     hud.resized.connect(_layout_hud)
     _layout_hud()
 
@@ -258,26 +338,26 @@ func _layout_hud() -> void:
         return
     var view: Vector2 = hud.size
     hud_title.position = Vector2(18, 18)
-    hud_title.size = Vector2(view.x * 0.55, 42)
-    nexus_panel.position = Vector2(view.x - 136, 18)
-    nexus_panel.size = Vector2(120, 54)
-    nexus_label.position = Vector2.ZERO
-    nexus_label.size = nexus_panel.size
-    nexus_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-    nexus_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-    hint.position = Vector2(18, 78)
+    hud_title.size = Vector2(view.x * 0.52, 42)
+    hint.position = Vector2(18, 72)
     hint.size = Vector2(view.x - 36, 38)
-    hint.add_theme_font_size_override("font_size", 17 if view.x < 600.0 else 19)
+    hint.add_theme_font_size_override("font_size", 16 if view.x < 600.0 else 19)
     stick_outer.position = Vector2(view.x - 180, view.y - 194)
     stick_outer.size = Vector2(164, 164)
     stick_knob.size = Vector2(72, 72)
     _update_stick_visual()
-    interact_panel.position = Vector2(18, view.y - 122)
-    interact_panel.size = Vector2(142, 76)
-    interact_label.position = Vector2.ZERO
-    interact_label.size = interact_panel.size
-    interact_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-    interact_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+    _update_nexus_tag()
+
+func _update_nexus_tag() -> void:
+    if cam == null or nexus_building == null or nexus_tag == null:
+        return
+    var point: Vector3 = nexus_building.global_position + Vector3(0, 5.1, 0)
+    nexus_tag.visible = not cam.is_position_behind(point)
+    if not nexus_tag.visible:
+        return
+    var pixel: Vector2 = cam.unproject_position(point)
+    nexus_tag.position = pixel - Vector2(105.0, 18.0)
+    nexus_tag.size = Vector2(210.0, 38.0)
 
 func _stick_center() -> Vector2:
     return stick_outer.position + stick_outer.size * 0.5
@@ -298,29 +378,32 @@ func _input(event: InputEvent) -> void:
         return
     if event is InputEventScreenTouch:
         if event.pressed:
-            if _hit(nexus_panel, event.position):
-                _open_nexus("")
-            elif interact_panel.visible and _hit(interact_panel, event.position):
-                _interact()
+            if _nexus_hit(event.position):
+                nexus_touch_id = event.index
+                nexus_touch_start = event.position
             elif _hit(stick_outer, event.position) and touch_id == -1:
                 touch_id = event.index
                 _set_stick(event.position)
             else:
                 return
+        elif event.index == nexus_touch_id:
+            nexus_touch_id = -1
+            if nexus_touch_start.distance_to(event.position) <= 22.0 and _nexus_hit(event.position):
+                _enter_nexus()
         elif event.index == touch_id:
             touch_id = -1
             joystick = Vector2.ZERO
             _update_stick_visual()
+        else:
+            return
         get_viewport().set_input_as_handled()
     elif event is InputEventScreenDrag and event.index == touch_id:
         _set_stick(event.position)
         get_viewport().set_input_as_handled()
     elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
         if event.pressed:
-            if _hit(nexus_panel, event.position):
-                _open_nexus("")
-            elif interact_panel.visible and _hit(interact_panel, event.position):
-                _interact()
+            if _nexus_hit(event.position):
+                _enter_nexus()
             elif _hit(stick_outer, event.position):
                 mouse_steering = true
                 _set_stick(event.position)
@@ -334,29 +417,13 @@ func _input(event: InputEvent) -> void:
     elif event is InputEventMouseMotion and mouse_steering:
         _set_stick(event.position)
         get_viewport().set_input_as_handled()
-    elif event.is_action_pressed("ui_accept"):
-        _interact()
-    elif event.is_action_pressed("ui_cancel"):
-        _open_nexus("")
-
-func _nearest_station() -> Dictionary:
-    if player == null:
-        return {}
-    var here := Vector2(player.position.x, player.position.z)
-    var found: Dictionary = {}
-    var shortest: float = INTERACT_RADIUS
-    for station in STATIONS:
-        var distance: float = here.distance_to(station["at"])
-        if distance <= shortest:
-            found = station
-            shortest = distance
-    return found
 
 func _walkable(pos: Vector3) -> bool:
-    # Outer walls and the solid central service plinth must not be crossed.
     if absf(pos.x) > 6.0 or pos.z < -10.0 or pos.z > 10.0:
         return false
-    return Vector2(pos.x, pos.z + 4.75).length() >= 1.75
+    if absf(pos.x) < 3.45 and pos.z < -4.35:
+        return false
+    return Vector2(pos.x + 4.25, pos.z + 1.8).length() > 1.10
 
 func _move_player(direction: Vector2, delta: float) -> void:
     if player == null or direction.length_squared() < 0.000001:
@@ -393,33 +460,21 @@ func _process(delta: float) -> void:
         player.rotation.y = lerp_angle(player.rotation.y, yaw, minf(1.0, delta * 11.0))
     if rig != null:
         rig.call("set_moving", moving, false, Vector2(0, 1), false)
-    if crate != null:
-        crate.position.y = 0.06 + sin(elapsed * 1.6) * 0.012
+    _update_crate(delta)
     if cam != null:
-        var offset := Vector3(player.position.x * 0.18, 19.6, 13.3 + player.position.z * 0.12)
+        var offset := Vector3(player.position.x * 0.18, 19.6,
+            13.3 + player.position.z * 0.12)
         cam.position = cam.position.lerp(offset, minf(1.0, delta * 2.5))
         cam.look_at(Vector3(player.position.x * 0.18, 0.0,
             -2.2 + player.position.z * 0.12), Vector3.UP)
-    var station: Dictionary = _nearest_station()
-    interact_panel.visible = not station.is_empty()
-    if station.is_empty():
-        hint.text = "設備に近づくと操作できます"
-    else:
-        hint.text = str(station["name"]) + "  /  操作可能"
+    _update_nexus_tag()
 
-func _interact() -> void:
-    var station: Dictionary = _nearest_station()
-    if station.is_empty():
-        return
-    _open_nexus(str(station["focus"]))
-
-func _open_nexus(focus: String) -> void:
+func _enter_nexus() -> void:
     if scene_changing:
         return
     scene_changing = true
-    SeraSave.requested_nexus_target = focus
+    SeraSave.requested_nexus_target = ""
     var error: Error = get_tree().change_scene_to_file(NEXUS_SCENE)
     if error != OK:
         scene_changing = false
-        SeraSave.requested_nexus_target = ""
-        push_error("SERA base -> NEXUS scene load failed (%d)" % error)
+        push_error("SERA BASE -> NEXUS scene load failed (%d)" % error)
