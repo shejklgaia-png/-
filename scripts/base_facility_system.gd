@@ -355,7 +355,7 @@ func update_tags(camera: Camera3D) -> void:
                 clampf(point.x - label_width * 0.5, 8.0,
                     maxf(8.0, viewport.x - label_width - 8.0)),
                 clampf(point.y - 22.0, 110.0,
-                    maxf(110.0, viewport.y - 48.0)))
+                    maxf(110.0, viewport.y - 130.0)))
 
 func is_menu_open() -> bool:
     return modal != null and modal.visible
@@ -432,9 +432,12 @@ func open_facility(key: String) -> void:
             modal_body.text = "建設端末\nフィールド上の設備や床・通路を管理します。"
             _add_action("拠点の発展", "施設を一棟に集約せず、資源・生産・発展設備をフィールド上に独立配置します。\n配置変更と建設コストは今後実装します。")
 
-func _claim_trial_materials() -> void:
+func _claim_trial_materials(return_to_catalog: bool = false) -> void:
     var granted: bool = SeraSave.claim_trial_materials()
-    open_facility("LABO")
+    if return_to_catalog:
+        _show_prototype_catalog()
+    else:
+        open_facility("LABO")
     modal_body.text += ("\n全12種類の試作素材を各6個受け取りました。"
         if granted else "\n受け取り済み、またはセーブデータがありません。")
 
@@ -533,6 +536,15 @@ func _show_prototype_catalog() -> void:
             modal_body.text += "\nセーブの空きがありません。NEXUSで既存データを読み込んでください。"
     if not prototype_notice.is_empty():
         modal_body.text += "\n" + prototype_notice
+    if SeraSave.active_slot > 0 and not bool(
+            SeraSave.get_active_data().get("trial_materials_claimed", false)):
+        var trial := Button.new()
+        trial.name = "ClaimTrialMaterialsCatalog"
+        trial.text = "試作用素材を受け取る"
+        trial.icon = IconAtlas.material_icon("scrap_mid")
+        trial.custom_minimum_size.y = 62.0
+        trial.pressed.connect(_claim_trial_materials.bind(true))
+        modal_actions.add_child(trial)
     for bp in PrototypeCatalog.ORDER:
         var entry: Dictionary = PrototypeCatalog.spec(str(bp))
         var row := HBoxContainer.new()
