@@ -15,7 +15,7 @@ const HUB_SERA_CONTROLS_ENABLED: bool = false
 const WALK_SPEED: float = 3.2
 const PLAYER_Y: float = 0.08
 const JOYSTICK_RADIUS: float = 76.0
-const NEXUS_BUILDING_ORIGIN: Vector3 = Vector3(2.0, 0.0, -7.4)
+const NEXUS_BUILDING_ORIGIN: Vector3 = Vector3(4.10, 0.0, -12.10)
 const CRATE_SPEED: float = 0.95
 const CRATE_WAYPOINTS = [
     Vector2(-1.55, -2.85), Vector2(-1.40, 0.75), Vector2(-1.30, 2.35),
@@ -510,14 +510,12 @@ func _input(event: InputEvent) -> void:
 func _walkable(pos: Vector3) -> bool:
     if absf(pos.x) > 6.0 or pos.z < -10.0 or pos.z > 10.0:
         return false
-    # Preserve the existing NEXUS solid footprint after its lateral move.
-    if absf(pos.x - NEXUS_BUILDING_ORIGIN.x) < 3.45 and pos.z < -4.35:
-        return false
-    if absf(pos.x + 4.45) < 2.30 and pos.z < -5.20:
+    # Use each building's live footprint so the walkway stays accurate
+    # when the layout is redistributed across the larger portrait field.
+    if absf(pos.x - NEXUS_BUILDING_ORIGIN.x) < 3.45 and (
+            absf(pos.z - NEXUS_BUILDING_ORIGIN.z) < 2.95):
         return false
     for spec in BaseFacilities.FACILITY_SPECS:
-        if str(spec["id"]) == "LABO":
-            continue
         var at: Vector3 = spec["at"]
         var size: Vector3 = spec["size"]
         if absf(pos.x - at.x) < size.x * 0.5 + 0.25 \
