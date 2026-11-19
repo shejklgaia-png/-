@@ -10,11 +10,13 @@ const BEAM_SECONDS: float = 2.0
 const POST_FIRE_HOLD_SECONDS: float = 0.4
 const RETURN_SECONDS: float = 0.8
 const CHARGE_START: float = BEAM_SECONDS + POST_FIRE_HOLD_SECONDS + RETURN_SECONDS
-# Keep the entire final two seconds as a visible blue muzzle sphere.
-# The cannon smoothly ramps its acquisition rate across this same window.
+# Full charge: two seconds of spherical aiming + a 0.5s confirmed
+# target-acquired pause. Start the sphere earlier to retain 10s fire rate.
+const FINAL_LOCK_HOLD_SECONDS: float = 0.5
 const FLASH_SECONDS: float = 2.0
-const FLASH_START: float = PERIOD_SECONDS - FLASH_SECONDS
-const FLASH_END: float = PERIOD_SECONDS
+const FLASH_START: float = PERIOD_SECONDS - (
+    FLASH_SECONDS + FINAL_LOCK_HOLD_SECONDS)
+const FLASH_END: float = FLASH_START + FLASH_SECONDS
 const FLASH_GROW_SECONDS: float = 0.2
 const FLASH_SHRINK_SECONDS: float = 1.0
 const TRACK_EASE_IN_SECONDS: float = FLASH_SECONDS
@@ -43,7 +45,7 @@ const RAIL_MESH_UUIDS = [
     "3e2ee103-881b-8bc0-edc1-ea9e396268e9",
 ]
 
-enum Phase { BEAM, HOLD, RETURN, CHARGE, FLASH }
+enum Phase { BEAM, HOLD, RETURN, CHARGE, FLASH, LOCK_HOLD }
 var elevation: Node3D
 var outer_beam: MeshInstance3D
 var inner_beam: MeshInstance3D
@@ -216,7 +218,9 @@ func _phase_at(t: float) -> int:
         return Phase.RETURN
     if t < FLASH_START:
         return Phase.CHARGE
-    return Phase.FLASH
+    if t < FLASH_END:
+        return Phase.FLASH
+    return Phase.LOCK_HOLD
 
 func _neutral_world_yaw() -> float:
     # The authored rig faces -Z at rest. Use only its horizontal heading,
@@ -347,10 +351,17 @@ func advance(delta: float, player_world: Vector3, active: bool) -> bool:
         aim_yaw = 0.0
         elevation.rotation.x = 0.0
     elif phase == Phase.FLASH:
-        # At the full third charge bar, begin the 2-second blue sphere
-        # AND ease in pursuit over all 2 seconds. There is no dark gap:
-        # the flash vanishes exactly when the laser begins.
+        # Blue sphere and gradual tracking last the full 2s. The sphere
+        # shrinks for its final 1s, then vanishes before the lock pause.
         _track_player(step, player_world, true, _prefire_ease(elapsed))
+    elif phase == Phase.LOCK_HOLD:
+        # The target has been acquired; delay firing for a visible 0.5s.
+        # Keep the turret actively aligned to a BOOSTing player rather
+        # than freezing on an outdated position during that pause.
+        if last_phase != Phase.LOCK_HOLD:
+            _lock_player_at_fire(player_world)
+        else:
+            _track_player(step, player_world, true)
     elif phase == Phase.BEAM:
         if last_phase != Phase.BEAM:
             # Match the live player position precisely on the FIRST beam
@@ -362,15 +373,16 @@ func advance(delta: float, player_world: Vector3, active: bool) -> bool:
     # ease home over 0.8 seconds, then remain neutral while recharging.
     _show_charge(clampf(
         (elapsed - CHARGE_START) / (FLASH_START - CHARGE_START),
-        0.0, 1.0) if phase == Phase.CHARGE or phase == Phase.FLASH else 0.0)
+        0.0, 1.0) if phase == Phase.CHARGE or (
+            phase == Phase.FLASH or phase == Phase.LOCK_HOLD) else 0.0)
     _level_mount()
     var firing: bool = phase == Phase.BEAM
     outer_beam.visible = firing
     inner_beam.visible = firing
     if phase == Phase.FLASH:
-        # Remain visible for the full two-second charge, rising softly
-        # during the first 0.2s, holding until the halfway point and
-        # shrinking smoothly over the FINAL full second before firing.
+        # Remain visible for the 2s charge, rising during the first
+        # 0.2s and shrinking over the last 1s. The resulting 0.5s
+        # pause occurs AFTER this sphere disappears, BEFORE the beam.
         var age: float = elapsed - FLASH_START
         var grow: float = clampf(age / FLASH_GROW_SECONDS, 0.0, 1.0)
         var grow_eased: float = grow * grow * (3.0 - 2.0 * grow)
