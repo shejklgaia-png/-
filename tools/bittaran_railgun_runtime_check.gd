@@ -76,6 +76,43 @@ func _run() -> void:
         _fail("only BOOST should outpace the turret by speed")
         return
 
+    # Verify full, real AI motion outcomes instead of constants alone.
+    var ai: RefCounted = AI.new()
+    var far_player := Vector3(0.0, 0.0, 50.0)
+    var walk1: Dictionary = ai.call("advance", 1.0,
+        Vector3.ZERO, 0.0, far_player, false)
+    if str(walk1["motion"]) != "Approach" or (
+            not _near((walk1["position"] as Vector3).z, 1.56, 0.001)):
+        _fail("Bittaran acceleration or actual first-second travel not doubled")
+        return
+    var walk2: Dictionary = ai.call("advance", 1.0,
+        walk1["position"], float(walk1["yaw"]), far_player, false)
+    if not _near((walk2["position"] as Vector3).z -
+            (walk1["position"] as Vector3).z, 1.872, 0.001):
+        _fail("Bittaran full actual approach travel must be 1.872m/s")
+        return
+    ai.call("reset")
+    var turn: Dictionary = ai.call("advance", 1.0,
+        Vector3.ZERO, 0.0, Vector3(50.0, 0.0, 0.0), false)
+    if str(turn["motion"]) != "Turn" or (
+            not _near(rad_to_deg(float(turn["yaw"])), 68.0, 0.01)):
+        _fail("stationary Bittaran root must physically turn 68 deg/sec")
+        return
+    ai.call("reset")
+    var moving: Dictionary = ai.call("advance", 0.1,
+        Vector3.ZERO, 0.0, Vector3(10.0, 0.0, 30.0), false)
+    if str(moving["motion"]) != "Approach" or (
+            not _near(rad_to_deg(float(moving["yaw"])), 4.4, 0.02)):
+        _fail("Bittaran walking turn must physically use 44 deg/sec")
+        return
+    ai.call("reset")
+    var near_turn: Dictionary = ai.call("advance", 0.1,
+        Vector3.ZERO, 0.0, Vector3(2.0, 0.0, 4.0), false)
+    if str(near_turn["motion"]) != "Turn" or (
+            not _near(rad_to_deg(float(near_turn["yaw"])), 3.6, 0.02)):
+        _fail("Bittaran near-idle yaw must physically turn 36 deg/sec")
+        return
+
     var elevation: Node3D = gun.get_node(
         "RailgunElevation") as Node3D
     var body: Node3D = rig.find_child(
