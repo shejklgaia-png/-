@@ -1,3 +1,11 @@
+## 2026-11-19 — SERA v501: 銃口十字の縦横5倍・前面描画・発光強化
+- **依頼**：「十字はもっと長く、長さを5倍くらいで手前に描画、目立たせて」。対象はビットタラン腹下中央の単砲台。弾速・追尾・攻撃などは変更しない。
+- **先行CI確認**：`AGENTS.md`、`.github/workflows/sera-model-policy.yml`、`tools/sera_ci_manifest.txt`、`docs/SERA_ACTIVE_CI_POLICY_ja.md`、`tools/bittaran_leg_turrets_runtime_check.gd`、`tools/render_policy_self_check.py`、`scripts/render_order_policy.gd`、`docs/RENDER_PIPELINE_POLICY_ja.md`、`docs/MODEL_PART_WORKFLOW_ja.md`を確認。
+- **本体改修前にテスト変更**：登録済み実Godot検査に縦横3.10m（旧0.62mの5倍±0.06）、芯太さ0.11m以上、二重の青いグローバー、実銃口より15～30cm前方、`no_depth_test`・透過・加算・カメラ向き・登録済み前面ロール126、持続0.11～0.15秒を追加。既存の単砲台・追尾・発射/消灯タイミング・1.2秒間隔・ダウン時背部レーザー停止等は保持。
+- **実装**：`scripts/bittaran_leg_turrets.gd`の十字棒を縦横0.62→3.10m、芯の幅0.047→0.135m、青い外側ハロー幅0.42m、中心発光球半径0.105→0.17m。銃口前方0.20mに移し、`TRANSPARENCY_ALPHA`＋`BLEND_MODE_ADD`＋`no_depth_test=true`＋`BILLBOARD_ENABLED`＋`RENDER_ORDER.CHARACTER_FOREGROUND`を芯/ハローへ設定。瞬間の発光強度と読みやすさを改善し、時間0.085→0.12秒。機体原本・砲身・弾道・ヒットボックスは無変更。
+- **描画例外**：前面描画を行うのは発射時の十字のみ。`docs/RENDER_PIPELINE_POLICY_ja.md`に例外を明記。役割126を再利用し、`render_order_policy.gd`の定数値は変えない。通常の3D材質や透過エフェクトの深度検査は維持。
+- **残る確認**：マージ後`main`でフルPython/Godot CI、Androidでの十字の明るさ・画面占有/見切れ・発射時の動作と追尾を別途確認。
+
 ## 2026-11-19 — SERA v500: 腹下砲台1基へ統合、重装甲化・発射十字フラッシュ
 - **依頼仕様**：腹部の4基を1基にまとめ、少し立派な見た目、発射の瞬間に十字発光。原本Bittaran骨格や脚IK、その他攻撃系は不変。
 - **事前確認**：現行main v499、`AGENTS.md`、`.github/workflows/sera-model-policy.yml`、`tools/sera_ci_manifest.txt`、`docs/SERA_ACTIVE_CI_POLICY_ja.md`、`docs/MODEL_PART_WORKFLOW_ja.md`、`docs/RENDER_PIPELINE_POLICY_ja.md`、`scripts/bittaran_leg_turrets.gd`と関連登録済みテストを確認。
