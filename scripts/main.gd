@@ -2015,6 +2015,30 @@ func _on_foot_contact(side: String) -> void:
     footstep_audio.pitch_scale = 0.96 if side == "L" else 1.03
     footstep_audio.play()
 
+# v480: user's metallic impact used ONLY at actual visual sole contacts.
+# Raw Ogg loading also works on Android when GitSync precedes Godot import.
+const PLAYER_FOOTSTEP_SFX_PATH: String = "res://assets/sera_player_footstep_v480.ogg"
+
+func _load_player_footstep_stream() -> AudioStream:
+    var sound: AudioStreamOggVorbis = null
+    if ResourceLoader.exists(PLAYER_FOOTSTEP_SFX_PATH):
+        sound = ResourceLoader.load(PLAYER_FOOTSTEP_SFX_PATH) as AudioStreamOggVorbis
+    if sound == null and FileAccess.file_exists(PLAYER_FOOTSTEP_SFX_PATH):
+        var raw: PackedByteArray = FileAccess.get_file_as_bytes(
+            PLAYER_FOOTSTEP_SFX_PATH)
+        if not raw.is_empty():
+            sound = AudioStreamOggVorbis.load_from_buffer(raw)
+    if sound == null:
+        var user_path: String = "user://" + PLAYER_FOOTSTEP_SFX_PATH.get_file()
+        if FileAccess.file_exists(user_path):
+            sound = AudioStreamOggVorbis.load_from_file(user_path)
+    if sound != null:
+        sound.loop = false
+        return sound
+    push_warning("SERA_FOOTSTEP_SFX_MISSING: " + PLAYER_FOOTSTEP_SFX_PATH)
+    return _make_mechanical_footstep()
+
+
 func _make_mechanical_footstep() -> AudioStreamWAV:
     # Original short metallic sole impact; 16-bit PCM generated once at startup.
     # No copyrighted sound sample and no continuous CPU audio synthesizer.
@@ -2047,8 +2071,8 @@ func _build_hit_effects() -> void:
     add_child(thruster_audio)
     footstep_audio = AudioStreamPlayer.new()
     footstep_audio.name = "GroundFootContact"
-    footstep_audio.stream = _make_mechanical_footstep()
-    footstep_audio.volume_db = -11.0
+    footstep_audio.stream = _load_player_footstep_stream()
+    footstep_audio.volume_db = -8.0
     footstep_audio.max_polyphony = 3
     add_child(footstep_audio)
     # v95: All three confirmed combo hits use the same decoded user-provided sound.

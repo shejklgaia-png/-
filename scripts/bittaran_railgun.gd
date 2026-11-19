@@ -6,6 +6,18 @@ extends Node3D
 const RENDER_ORDER = preload("res://scripts/render_order_policy.gd")
 const RailgunFX = preload("res://scripts/bittaran_railgun_fx.gd")
 
+# v480: Creator-supplied sounds. The sustained laser is a seamless,
+# offline crossfaded body of sen_mi_b_saberu, never a new burst per frame.
+const CHARGE_AUDIO_PATH: String = "res://assets/bittaran_charge_v480.ogg"
+const LASER_ATTACK_AUDIO_PATH: String = "res://assets/bittaran_laser_attack_v480.ogg"
+const LASER_LOOP_AUDIO_PATH: String = "res://assets/bittaran_laser_sustain_loop_v480.ogg"
+const LASER_LOOP_FADE_IN_SECONDS: float = 0.08
+const LASER_LOOP_FADE_OUT_SECONDS: float = 0.14
+const LASER_LOOP_VOLUME_DB: float = -11.0
+const LASER_ATTACK_VOLUME_DB: float = -7.0
+const CHARGE_VOLUME_DB: float = -5.0
+const SILENT_AUDIO_DB: float = -80.0
+
 # Hold neutral throughout the first 10 seconds of filling the charge lamps.
 # The BLUE SPHERE (t=10..12) starts with one eased, unrestricted acquisition.
 # At sphere SHRINK (t=11) reduce to the same 0.7x capped speed as the beam.
@@ -68,6 +80,13 @@ var outer_beam: MeshInstance3D
 var inner_beam: MeshInstance3D
 var muzzle_flash: MeshInstance3D
 var energy_fx: Node3D
+var charge_audio: AudioStreamPlayer
+var laser_attack_audio: AudioStreamPlayer
+var laser_loop_audio: AudioStreamPlayer
+var laser_loop_gain: float = 0.0
+var laser_loop_starts: int = 0
+var laser_attack_starts: int = 0
+var charge_starts: int = 0
 var beam_local_length: float = 1.0
 var charge_materials: Array[StandardMaterial3D] = []
 var elapsed: float = 0.0
@@ -127,6 +146,7 @@ func setup(rig: Node3D) -> bool:
     energy_fx.name = "RailgunEnergyFX"
     elevation.add_child(energy_fx)
     energy_fx.call("setup", MUZZLE_LOCAL_Z, beam_local_length)
+    _build_railgun_audio()
     reset()
     ready_to_fire = true
     return true
@@ -225,7 +245,98 @@ func _build_muzzle_flash() -> void:
     muzzle_flash.visible = false
     elevation.add_child(muzzle_flash)
 
+# Imported Ogg is preferred, but a GitSynced raw source can be decoded
+# before Godot has created the .godot import cache on Android.
+func _load_railgun_ogg(path: String) -> AudioStreamOggVorbis:
+    var stream: AudioStreamOggVorbis = null
+    if ResourceLoader.exists(path):
+        stream = ResourceLoader.load(path) as AudioStreamOggVorbis
+    if stream == null and FileAccess.file_exists(path):
+        var source_bytes: PackedByteArray = FileAccess.get_file_as_bytes(path)
+        if not source_bytes.is_empty():
+            stream = AudioStreamOggVorbis.load_from_buffer(source_bytes)
+    if stream == null:
+        var alternate: String = "user://" + path.get_file()
+        if FileAccess.file_exists(alternate):
+            stream = AudioStreamOggVorbis.load_from_file(alternate)
+    if stream == null:
+        push_warning("BITTARAN_RAILGUN_SFX_MISSING: " + path)
+    return stream
+
+
+func _build_railgun_audio() -> void:
+    charge_audio = AudioStreamPlayer.new()
+    charge_audio.name = "BittaranSphereChargeSound"
+    charge_audio.stream = _load_railgun_ogg(CHARGE_AUDIO_PATH)
+    charge_audio.volume_db = CHARGE_VOLUME_DB
+    charge_audio.max_polyphony = 1
+    add_child(charge_audio)
+    laser_attack_audio = AudioStreamPlayer.new()
+    laser_attack_audio.name = "BittaranLaserAttackSound"
+    laser_attack_audio.stream = _load_railgun_ogg(LASER_ATTACK_AUDIO_PATH)
+    laser_attack_audio.volume_db = LASER_ATTACK_VOLUME_DB
+    laser_attack_audio.max_polyphony = 1
+    add_child(laser_attack_audio)
+    laser_loop_audio = AudioStreamPlayer.new()
+    laser_loop_audio.name = "BittaranLaserSustainLoop"
+    laser_loop_audio.stream = _load_railgun_ogg(LASER_LOOP_AUDIO_PATH)
+    laser_loop_audio.volume_db = SILENT_AUDIO_DB
+    laser_loop_audio.max_polyphony = 1
+    if laser_loop_audio.stream is AudioStreamOggVorbis:
+        var loop_source: AudioStreamOggVorbis = laser_loop_audio.stream
+        loop_source.loop = true
+        loop_source.loop_offset = 0.0
+    add_child(laser_loop_audio)
+
+
+func _tick_railgun_audio(delta: float, phase: int) -> void:
+    if charge_audio == null or laser_attack_audio == null or (
+            laser_loop_audio == null):
+        return
+    # Only the actual BLUE SPHERE starts the charge clip. The lamp fill
+    # does not play it and sphere shrink does not trigger it again.
+    if phase == Phase.FLASH and last_phase != Phase.FLASH and (
+            charge_audio.stream != null):
+        charge_audio.play()
+        charge_starts += 1
+    elif phase != Phase.FLASH and charge_audio.playing:
+        charge_audio.stop()
+
+    if phase == Phase.BEAM and last_phase != Phase.BEAM:
+        if laser_attack_audio.stream != null:
+            laser_attack_audio.play()
+            laser_attack_starts += 1
+        if laser_loop_audio.stream != null:
+            laser_loop_audio.volume_db = SILENT_AUDIO_DB
+            laser_loop_audio.play()
+            laser_loop_starts += 1
+        laser_loop_gain = 0.0
+    if phase != Phase.BEAM and laser_attack_audio.playing:
+        laser_attack_audio.stop()
+    if laser_loop_audio.playing:
+        var active: bool = phase == Phase.BEAM
+        laser_loop_gain = move_toward(
+            laser_loop_gain, (1.0 if active else 0.0),
+            maxf(delta, 0.0) / (
+                LASER_LOOP_FADE_IN_SECONDS if active
+                else LASER_LOOP_FADE_OUT_SECONDS))
+        laser_loop_audio.volume_db = (
+            LASER_LOOP_VOLUME_DB +
+            linear_to_db(maxf(laser_loop_gain, 0.0001)))
+        if not active and laser_loop_gain <= 0.00001:
+            laser_loop_audio.stop()
+            laser_loop_audio.volume_db = SILENT_AUDIO_DB
+
+
 func reset() -> void:
+    if charge_audio != null:
+        charge_audio.stop()
+    if laser_attack_audio != null:
+        laser_attack_audio.stop()
+    if laser_loop_audio != null:
+        laser_loop_audio.stop()
+        laser_loop_audio.volume_db = SILENT_AUDIO_DB
+    laser_loop_gain = 0.0
     elapsed = 0.0
     last_phase = Phase.WAIT
     return_yaw_origin = 0.0
@@ -542,6 +653,7 @@ func advance(delta: float, player_world: Vector3, active: bool,
         outer_beam.scale.z = pulse
         inner_beam.scale.x = 1.0 + 0.035 * sin(elapsed * 57.0)
         inner_beam.scale.z = inner_beam.scale.x
+    _tick_railgun_audio(step, phase)
     last_phase = phase
     if firing and beam_hit_cooldown <= 0.0 and (
             _beam_overlaps_player(player_world)):
