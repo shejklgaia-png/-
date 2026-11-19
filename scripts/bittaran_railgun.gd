@@ -663,12 +663,14 @@ func _track_player(delta: float, player_world: Vector3,
     # rotation cannot exceed the speed a BOOSTing player can escape.
     var actual: Vector2
     if fast_charge_tracking:
-        # Pre-fire: no fixed angular cap, including against BOOST. Ramp up
-        # responsiveness smoothly, then match the live target on every
-        # frame, regardless of the player's angular speed or direction.
+        # Blue-orb acquisition has a high, frame-rate-independent response
+        # but NO hard angular slew cap. Crucially, at the 0.7s entry end,
+        # weight=1 must NOT turn into an instantaneous rotation: the old
+        # branch made one frame 2.5x faster at 60Hz / 4.5x at 120Hz.
+        # Keep one continuous exponential filter on BOTH sides of 1.0.
         var charge_response: float = 1.0 - exp(
-            -CHARGE_TRACK_FILTER_PER_SECOND * delta * weight)
-        actual = angle_error * (charge_response if weight < 1.0 else 1.0)
+            -CHARGE_TRACK_FILTER_PER_SECOND * maxf(delta, 0.0) * weight)
+        actual = angle_error * charge_response
     else:
         # Once the beam appears, preserve the previous RUN-vs-BOOST
         # pursuit speed. A root rotation cannot circumvent this cap.

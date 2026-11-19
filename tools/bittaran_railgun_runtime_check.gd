@@ -225,17 +225,27 @@ func _run() -> void:
             absf(elevation.rotation.x - charge_target.y) > deg_to_rad(0.05)):
         _fail("charge must acquire player before sphere begins shrinking")
         return
-    # Just BEFORE the t=11 shrink boundary, full-speed acquisition must
-    # still snap to an abruptly moving player without an angular cap.
+    # Just BEFORE t=11, an abrupt player sidestep must be chased by
+    # high-response ACQUISITION, not snapped in one sub-frame. The old
+    # weight>=1.0 shortcut bypassed the smoothing filter and made the
+    # turret accelerate 4.5x on exactly the 0.7s boundary at 120Hz.
     var shrink_target: Vector3 = front + Vector3(25.0, 4.0, 0.0)
-    gun.call("advance", 0.0004, shrink_target, true)
+    var jump_before: float = float(gun.get("tracked_world_yaw"))
     var pre_shrink_angles: Vector2 = gun.call(
-        "_desired_player_angles", shrink_target)
-    if absf(angle_difference(float(gun.get("aim_yaw")),
-            pre_shrink_angles.x)) > deg_to_rad(0.05):
-        _fail("unrestricted aim stopped BEFORE blue-sphere shrink began")
-        return
+        "_desired_player_world_angles", shrink_target)
+    gun.call("advance", 0.0004, shrink_target, true)
     var pre_shrink_yaw: float = float(gun.get("tracked_world_yaw"))
+    var jumped_radians: float = absf(angle_difference(
+        jump_before, pre_shrink_yaw))
+    var error_radians: float = absf(angle_difference(
+        jump_before, pre_shrink_angles.x))
+    var filtered_fraction: float = 1.0 - exp(
+        -GUN.CHARGE_TRACK_FILTER_PER_SECOND * 0.0004)
+    if error_radians < 0.1 or (
+            jumped_radians > error_radians * filtered_fraction * 1.1) or (
+            jumped_radians < error_radians * filtered_fraction * 0.9):
+        _fail("uncapped charge chase must retain finite frame-rate-independent smoothing")
+        return
     # Cross t=11 with a suddenly different target: the first shrink frame
     # must start the 0.7x limit, with no extra unbounded acquisition tick.
     gun.call("advance", 0.0008, side, true)
@@ -747,6 +757,43 @@ func _run() -> void:
         _fail("railgun elevation/vertical tilt incorrectly accelerates gap catch-up")
         return
     body.transform = stored_body_transform
+    gun.call("reset")
+
+    # v507 independent discontinuity regression: crossing the original
+    # acquisition-weight=1 threshold may NOT jump from a 30/s filter to
+    # full instantaneous tracking. This must hold at 60Hz and 120Hz.
+    for frame_dt in [1.0 / 60.0, 1.0 / 120.0]:
+        gun.call("reset")
+        var base_heading: float = float(gun.call("_neutral_world_yaw"))
+        var off_axis_target: Vector3 = (
+            gun.global_position +
+            Basis(Quaternion(Vector3.UP, base_heading +
+                deg_to_rad(35.0))) * Vector3(0.0, -0.92, -14.0))
+        var target_heading: Vector2 = gun.call(
+            "_desired_player_world_angles", off_axis_target)
+        var whole_error: float = absf(angle_difference(
+            base_heading, target_heading.x))
+        gun.call("_track_player", frame_dt, off_axis_target,
+            0.999999, GUN.BOOST_REFERENCE_SPEED_MPS,
+            GUN.RUN_REFERENCE_SPEED_MPS, true, false)
+        var below_full: float = absf(angle_difference(
+            base_heading, float(gun.get("tracked_world_yaw"))))
+        gun.call("reset")
+        gun.call("_track_player", frame_dt, off_axis_target,
+            1.0, GUN.BOOST_REFERENCE_SPEED_MPS,
+            GUN.RUN_REFERENCE_SPEED_MPS, true, false)
+        var at_full: float = absf(angle_difference(
+            base_heading, float(gun.get("tracked_world_yaw"))))
+        var expected_frac: float = 1.0 - exp(
+            -GUN.CHARGE_TRACK_FILTER_PER_SECOND * frame_dt)
+        if whole_error < deg_to_rad(20.0) or (
+                absf(at_full - whole_error * expected_frac) >
+                deg_to_rad(0.02)) or (
+                at_full > below_full * 1.02) or (
+                at_full < below_full * 0.98):
+            _fail("charge gain=1 frame must remain smooth at " +
+                str(roundf(1.0 / frame_dt)) + "Hz; no 0.7s speed spike")
+            return
     gun.call("reset")
 
     print("GODOT_BITTARAN_RAILGUN_PASS 10s_stationary_fill=true ",
