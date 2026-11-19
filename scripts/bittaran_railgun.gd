@@ -9,7 +9,8 @@ const RailgunFX = preload("res://scripts/bittaran_railgun_fx.gd")
 # Hold neutral throughout the first 10 seconds of filling the charge lamps.
 # The BLUE SPHERE (t=10..12) marks the actual charge: start one eased,
 # speed-unrestricted acquisition, keeping it until the sphere disappears.
-# At laser firing (t=12) restore the original RUN/BOOST tracking cap.
+# At laser firing (t=12), use 70% of the former chase speed until the
+# player's ground offset exceeds 0.5m; then accelerate to match movement.
 # Return to the neutral pose during the 0.7s after the 2s beam.
 const WAIT_SECONDS: float = 10.0
 const FLASH_SECONDS: float = 2.0
@@ -30,6 +31,15 @@ const TRACK_EASE_IN_SECONDS: float = TRACK_BLEND_SECONDS
 const TRACK_START_SECONDS: float = FLASH_START
 const CHARGE_TRACK_FILTER_PER_SECOND: float = 30.0
 const TRACK_FILTER_PER_SECOND: float = 10.0
+const BEAM_TRACK_SPEED_MULTIPLIER: float = 0.70
+const BEAM_GROUND_GAP_METERS: float = 0.50
+# Smooth catch-up of the real target-motion speed, without an artificial
+# maximum hit count or a fixed high-speed turret turn limit.
+const BEAM_CATCHUP_RESPONSE_PER_SECOND: float = 16.0
+const BEAM_GAP_RECOVERY_MPS: float = 3.0
+# Repeated contact may damage for the duration of a beam. Per-contact
+# cooldown prevents one hit on every physics frame at 30/60/120Hz.
+const BEAM_HIT_INTERVAL_SECONDS: float = 0.20
 # 1x RUN should not outpace the continuous tracking slew, but 1.5x
 # BOOST must. Interpolate the equipment's actual RUN and BOOST speeds.
 # Converting linear speed to angular speed using distance retains that
@@ -63,10 +73,15 @@ var elapsed: float = 0.0
 var last_phase: int = Phase.WAIT
 var return_yaw_origin: float = 0.0
 var return_pitch_origin: float = 0.0
-# Exactly one registered damage event per visible laser shot. A real
-# beam/player overlap is required for that one event; further overlaps
-# while the laser remains visible must never cause follow-up hits.
-var beam_hit_registered: bool = false
+# Laser damage can repeat while there is real overlap, with no hit-count cap.
+var beam_hit_cooldown: float = 0.0
+# Continuous beam pursuit tracks a player's horizontal travel speed and
+# interpolates its own angular rate when they leave the projected ground ray.
+var beam_turn_rate_deg_per_sec: float = 0.0
+var previous_player_world: Vector3 = Vector3.ZERO
+var previous_player_initialized: bool = false
+var beam_ground_gap_meters: float = 0.0
+var beam_ground_point: Vector3 = Vector3.ZERO
 var ready_to_fire: bool = false
 var mount_body: Node3D
 var mount_rig: Node3D
@@ -214,7 +229,12 @@ func reset() -> void:
     last_phase = Phase.WAIT
     return_yaw_origin = 0.0
     return_pitch_origin = 0.0
-    beam_hit_registered = false
+    beam_hit_cooldown = 0.0
+    beam_turn_rate_deg_per_sec = 0.0
+    previous_player_world = Vector3.ZERO
+    previous_player_initialized = false
+    beam_ground_gap_meters = 0.0
+    beam_ground_point = Vector3.ZERO
     aim_yaw = 0.0
     tracking_world_initialized = false
     tracked_world_yaw = 0.0
@@ -291,8 +311,8 @@ func _prefire_ease(t: float) -> float:
 func _tracking_turn_rate(player_world: Vector3,
         boost_speed_mps: float = BOOST_REFERENCE_SPEED_MPS,
         run_speed_mps: float = RUN_REFERENCE_SPEED_MPS) -> float:
-    # The same speed rule applies to sphere and beam. A RUN-speed orbit
-    # must remain trackable; a sustained BOOST-speed orbit must escape.
+    # The pre-v478 tracking speed used for the laser baseline.
+    # Firing uses 0.7x except when the beam's ground offset >0.5m.
     # Use the actual part stats so upgrades do not break the contract.
     var to_player: Vector3 = player_world + Vector3.UP * 0.92 - global_position
     var flat: float = Vector2(to_player.x, to_player.z).length()
@@ -304,6 +324,63 @@ func _tracking_turn_rate(player_world: Vector3,
     return rad_to_deg(chase_mps / radius)
 
 
+func _ground_ray_gap(player_world: Vector3) -> float:
+    # The laser's visible axis projected to ground Y=0 at the player's
+    # forward depth; do not mistake player height for a horizontal miss.
+    # This also handles a nearly horizontal ray without distant-ground
+    # intersection false positives.
+    var origin: Vector3 = elevation.to_global(
+        Vector3(0.0, 0.0, MUZZLE_LOCAL_Z))
+    var forward: Vector3 = -elevation.global_basis.z.normalized()
+    var ground_forward := Vector2(forward.x, forward.z)
+    var ground_to_player := Vector2(
+        player_world.x - origin.x, player_world.z - origin.z)
+    var flat_squared: float = ground_forward.length_squared()
+    var depth: float = 0.0
+    if flat_squared > 0.00001:
+        depth = clampf(ground_to_player.dot(ground_forward) /
+            flat_squared, 0.0, MAX_BEAM_RANGE_METERS)
+    var on_ray: Vector2 = Vector2(origin.x, origin.z) + (
+        ground_forward * depth)
+    beam_ground_point = Vector3(on_ray.x, 0.0, on_ray.y)
+    beam_ground_gap_meters = ground_to_player.distance_to(
+        on_ray - Vector2(origin.x, origin.z))
+    return beam_ground_gap_meters
+
+
+func _beam_turn_rate(delta: float, player_world: Vector3,
+        base_rate: float) -> float:
+    var baseline: float = base_rate * BEAM_TRACK_SPEED_MULTIPLIER
+    var player_velocity := Vector2.ZERO
+    if previous_player_initialized and delta > 0.000001:
+        player_velocity = Vector2(
+            player_world.x - previous_player_world.x,
+            player_world.z - previous_player_world.z) / delta
+    previous_player_world = player_world
+    previous_player_initialized = true
+    var gap: float = _ground_ray_gap(player_world)
+    var target_rate: float = baseline
+    if gap > BEAM_GROUND_GAP_METERS:
+        # Follow at least the player's current tangential/world speed,
+        # with extra catch-up proportional to overshoot beyond 0.5m.
+        # No artificial cap on a fast player; 2s beam limits total time.
+        var horizontal_distance: float = maxf(1.0, Vector2(
+            player_world.x - global_position.x,
+            player_world.z - global_position.z).length())
+        var correction_mps: float = (
+            gap - BEAM_GROUND_GAP_METERS) * BEAM_GAP_RECOVERY_MPS
+        target_rate = maxf(baseline,
+            rad_to_deg((player_velocity.length() +
+                correction_mps) / horizontal_distance))
+    if beam_turn_rate_deg_per_sec <= 0.0:
+        beam_turn_rate_deg_per_sec = baseline
+    var blend: float = 1.0 - exp(
+        -BEAM_CATCHUP_RESPONSE_PER_SECOND * maxf(delta, 0.0))
+    beam_turn_rate_deg_per_sec = lerpf(
+        beam_turn_rate_deg_per_sec, target_rate, blend)
+    return beam_turn_rate_deg_per_sec
+
+
 func _track_player(delta: float, player_world: Vector3,
         acquisition_weight: float = 1.0,
         boost_speed_mps: float = BOOST_REFERENCE_SPEED_MPS,
@@ -312,6 +389,8 @@ func _track_player(delta: float, player_world: Vector3,
     var desired: Vector2 = _desired_player_angles(player_world)
     var angular_rate: float = _tracking_turn_rate(
         player_world, boost_speed_mps, run_speed_mps)
+    if not fast_charge_tracking:
+        angular_rate = _beam_turn_rate(delta, player_world, angular_rate)
     var weight: float = clampf(acquisition_weight, 0.0, 1.0)
     var eased: float = 1.0 - exp(-TRACK_FILTER_PER_SECOND * delta)
 
@@ -382,9 +461,13 @@ func advance(delta: float, player_world: Vector3, active: bool,
     elapsed = fposmod(elapsed + step, PERIOD_SECONDS)
     var phase: int = _phase_at(elapsed)
     if phase != Phase.BEAM:
-        # Re-arm only after the current beam actually ends. A new shot
-        # needs a fresh physical collision to cause its one hit.
-        beam_hit_registered = false
+        # The next shot begins with a fresh per-contact interval and speed.
+        beam_hit_cooldown = 0.0
+        beam_turn_rate_deg_per_sec = 0.0
+        previous_player_initialized = false
+        beam_ground_gap_meters = 0.0
+    else:
+        beam_hit_cooldown = maxf(0.0, beam_hit_cooldown - step)
     if phase == Phase.RETURN and last_phase != Phase.RETURN:
         # Start return on the FIRST frame after beam ends (no hold).
         return_yaw_origin = aim_yaw
@@ -400,8 +483,8 @@ func advance(delta: float, player_world: Vector3, active: bool,
         _track_player(step, player_world, _prefire_ease(elapsed),
             boost_speed_mps, run_speed_mps, true)
     elif phase == Phase.BEAM:
-        # Only while firing: return immediately to the existing angular
-        # slew limit so BOOST can outrun the active laser.
+        # Firing begins at 0.7x former pursuit; >0.5m ground separation
+        # accelerates to match the player's travel, then slows back down.
         _track_player(step, player_world, 1.0,
             boost_speed_mps, run_speed_mps)
     elif phase == Phase.RETURN:
@@ -446,10 +529,10 @@ func advance(delta: float, player_world: Vector3, active: bool,
         inner_beam.scale.x = 1.0 + 0.035 * sin(elapsed * 57.0)
         inner_beam.scale.z = inner_beam.scale.x
     last_phase = phase
-    if firing and not beam_hit_registered and (
+    if firing and beam_hit_cooldown <= 0.0 and (
             _beam_overlaps_player(player_world)):
-        # The FIRST real overlap causes knockback. All later samples in
-        # this same 2-second beam are ignored (even if it intersects again).
-        beam_hit_registered = true
+        # No maximum count per beam: contact may hit repeatedly if SERA
+        # remains in or re-enters the beam after the next pulse interval.
+        beam_hit_cooldown = BEAM_HIT_INTERVAL_SECONDS
         return true
     return false

@@ -3,12 +3,14 @@ extends RefCounted
 ## Blockbench model is rotated 180 degrees to face SERA.
 const VISION_TOTAL_DEGREES: float = 100.0
 const VISION_HALF_DEGREES: float = 50.0
-## 1.30x approach travel speed, with the authored gait cadence unchanged.
-const APPROACH_SPEED_MPS: float = 0.936
-const ACCELERATION_MPS2: float = 0.78
-const STATIONARY_TURN_DEG_PER_SEC: float = 34.0
-const MOVING_TURN_DEG_PER_SEC: float = 22.0
-const TRACK_AT_REST_DEG_PER_SEC: float = 18.0
+## v478: double Bittaran's movement and all three locomotion turn speeds.
+## Double acceleration as well to preserve the time to reach full speed.
+## Foot IK source cadence / animation speed stays authored.
+const APPROACH_SPEED_MPS: float = 1.872
+const ACCELERATION_MPS2: float = 1.56
+const STATIONARY_TURN_DEG_PER_SEC: float = 68.0
+const MOVING_TURN_DEG_PER_SEC: float = 44.0
+const TRACK_AT_REST_DEG_PER_SEC: float = 36.0
 # v451: stop INSIDE the new 7.10m real attack-acquisition band.
 # At the old 7.8m stop distance, Bittaran could remain permanently
 # out of attack range even after all three required steps.
