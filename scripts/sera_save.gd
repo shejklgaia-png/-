@@ -150,7 +150,7 @@ func record_game_time(delta: float) -> void:
     active_data["play_seconds"] = float(active_data.get("play_seconds", 0.0)) + delta
 
 func mark_location(location: String) -> void:
-    if active_slot > 0 and (location == "NEXUS" or location == "TRAINING"):
+    if active_slot > 0 and location in ["BASE", "NEXUS", "TRAINING"]:
         active_data["last_location"] = location
 
 func record_target_hit(kind: String, damage: int, destroyed: bool) -> void:

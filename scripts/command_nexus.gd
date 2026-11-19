@@ -181,7 +181,7 @@ func _ready() -> void:
     _module("maintenance_pad", Vector3(0.0, 0.0, -4.75))
     _module("maintenance_canopy", Vector3(0.0, 8.0, -8.95))
     _module("deployment_gate", GATE_ORIGIN, _gate_facing_yaw(), 1.20, 1.25)
-    _module("system_mezzanine", Vector3(-4.00, 0.0, -6.55))
+    _module("archive_mezzanine", Vector3(-4.00, 0.0, -6.55))
     _module("data_bank", Vector3(-4.00, 2.19, -8.95))
     _module("kiosk", Vector3(-1.95, 0.0, 1.30), deg_to_rad(36.0))
     _module("kiosk", Vector3(1.95, 0.0, 1.30), deg_to_rad(-36.0))
@@ -795,12 +795,12 @@ func _hud() -> void:
     _create_system_controls()
     _create_archive_records()
     explore_panel = Panel.new()
-    explore_panel.name = "ExploreBase"
+    explore_panel.name = "ExitToBase"
     explore_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
     explore_panel.add_theme_stylebox_override("panel", _menu_style())
     hud.add_child(explore_panel)
     explore_label = Label.new()
-    explore_label.text = "EXPLORE BASE"
+    explore_label.text = "EXIT TO BASE"
     explore_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
     explore_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
     explore_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1666,7 +1666,7 @@ func _layout_hud() -> void:
     explore_panel.size = Vector2(minf(190.0, view.x * 0.43), 66.0)
     explore_label.position = Vector2.ZERO
     explore_label.size = explore_panel.size
-    explore_panel.visible = focused_target.is_empty() and not in_transition
+    explore_panel.visible = true
     # Bottom right, outside the destination action menu even on shorter screens.
     back_panel.position = Vector2(view.x - margin - 62.0, view.y - margin - 62.0)
     back_panel.size = Vector2(62.0, 62.0)
@@ -2378,6 +2378,13 @@ func _polygon_area(poly: PackedVector2Array) -> float:
 # Raw touch support intentionally does not change the training scene's global
 # Input.emulate_mouse_from_touch=false setting. PC mouse taps also work.
 func _input(event: InputEvent) -> void:
+    if focused_target.is_empty() and not in_transition and (
+            event.is_action_pressed("ui_cancel")
+            or (event is InputEventKey and event.pressed
+                and event.keycode in [KEY_BACK, KEY_ESCAPE])):
+        _enter_base()
+        get_viewport().set_input_as_handled()
+        return
     if not focused_target.is_empty() and (
             event.is_action_pressed("ui_cancel")
             or (event is InputEventKey and event.pressed
@@ -2422,6 +2429,11 @@ func _input(event: InputEvent) -> void:
         get_viewport().set_input_as_handled()
 
 func _tap_at(point: Vector2) -> void:
+    # Exit is available from the NEXUS overview AND from any focused menu.
+    if explore_panel.visible and Rect2(
+            explore_panel.position, explore_panel.size).has_point(point):
+        _enter_base()
+        return
     if not focused_target.is_empty():
         if Rect2(back_panel.position, back_panel.size).has_point(point):
             if focused_target != "SYSTEM" or not _cancel_system_confirmation():
@@ -2442,10 +2454,6 @@ func _tap_at(point: Vector2) -> void:
             else:
                 _tap_training_control(point)
         return
-    if explore_panel.visible and Rect2(
-            explore_panel.position, explore_panel.size).has_point(point):
-        _enter_base()
-        return
     var polys: Dictionary = outline.get("polygons")
     # Front terminals win if the projections overlap a distant module.
     for candidate in ["TRAINING", "SYSTEM", "CUSTOMIZE", "DATA ARCHIVE", "DEPLOYMENT"]:
@@ -2464,8 +2472,10 @@ func _tap_at(point: Vector2) -> void:
                 return
 
 func _enter_base() -> void:
-    if not focused_target.is_empty() or in_transition:
+    if in_transition:
         return
+    # No walkable NEXUS scene; exit straight back to the exterior base hub.
+    SeraSave.requested_nexus_target = ""
     var err: Error = get_tree().change_scene_to_file(BASE_SCENE)
     if err != OK:
         push_error("NEXUS base exploration scene load failed (%d)" % err)
@@ -2486,7 +2496,6 @@ func _select_target(target_name: String) -> void:
     if in_transition or not focus_views.has(target_name):
         return
     focused_target = target_name
-    explore_panel.visible = false
     # Show the bright contour in the initial press event, before camera tween.
     outline.set("active_target", target_name)
     _update_projected_silhouettes()
