@@ -2681,6 +2681,12 @@ const SOURCE_STRIKE_MIN_SOURCE_SECONDS: Dictionary = {
     "kick": 0.0,
     "stomp": 1.47083
 }
+# Locked horizontal toe-target displacement for the inverse-solved
+# STOMP raise. This is NEVER refreshed once descent begins.
+const STOMP_AIM_IK_MAX_HORIZONTAL_METERS: float = 1.15
+const STOMP_AIM_IK_RESPONSE_PER_SECOND: float = 14.0
+var source_ik_stomp_target_offset: Vector3 = Vector3.ZERO
+var source_ik_stomp_aim_leg: String = ""
 var source_ik_strike_contact_count: int = 0
 var source_ik_strike_contact_error_max: float = 0.0
 var source_ik_strike_floor_penetration_max: float = 0.0
@@ -3134,6 +3140,57 @@ func _source_ik_pin_toe_during_body(
 ## Normally 1 two-bone solve per physics frame (sweep may retry once).
 ## All mesh/joint local positions
 ## and scales are immutable. The floor never changes from Y=0.
+## Inverse-position the original two-segment attacking limb while its
+## authored Y profile is RAISING. BODY/shoulder point at SERA first;
+## the remaining horizontal miss is corrected with a bounded two-bone
+## solve, keeping the original foot world orientation and knee bend pole.
+## The offset is frozen at the FIRST downward motion and travels
+## unchanged through the strike. No foot mesh offsets or joint stretches.
+func _source_ik_aim_stomp_raising_limb(
+        limb: Dictionary, frame: Dictionary) -> void:
+    if str(frame.get("kind", "")) != "stomp" or (
+            not ["strike", "hold"].has(str(frame.get("phase", "")))):
+        return
+    if actor == null:
+        return
+    var foot: Node3D = limb["foot"]
+    var lower: Node3D = limb["lower"]
+    var sole_local: Vector3 = limb["source_sole_local"]
+    var authored_sole: Vector3 = foot.to_global(sole_local)
+    var descending: bool = bool(actor.get(
+        "source_aim_stomp_descent_started"))
+    if not descending and str(frame.get("phase", "")) == "strike":
+        var player_goal: Vector3 = actor.get(
+            "source_aim_stomp_player_position")
+        var horizontal: Vector3 = (
+            player_goal - authored_sole)
+        horizontal.y = 0.0
+        horizontal = horizontal.limit_length(
+            STOMP_AIM_IK_MAX_HORIZONTAL_METERS)
+        var clip_time: float = float(frame.get("authored_time", 0.0))
+        var raise_end: float = maxf(
+            BittaranAttackTimings.source_authored_windup_clip_seconds(
+                "stomp", str(frame.get("id", ""))), 0.001)
+        # Ramp after lift starts; no first-frame sole teleport.
+        var progress: float = clampf(
+            clip_time / (raise_end * 0.72), 0.0, 1.0)
+        var weight: float = progress * progress * (3.0 - 2.0 * progress)
+        var blend: float = 1.0 - exp(
+            -STOMP_AIM_IK_RESPONSE_PER_SECOND / 60.0)
+        source_ik_stomp_target_offset = (
+            source_ik_stomp_target_offset.lerp(
+                horizontal * weight, blend))
+    if source_ik_stomp_target_offset.length_squared() < 0.000001:
+        return
+    var desired: Vector3 = authored_sole + (
+        source_ik_stomp_target_offset)
+    desired.y = authored_sole.y
+    var rotation: Quaternion = (
+        foot.global_basis.get_rotation_quaternion())
+    _source_ik_solve_striker(limb, desired, rotation,
+        sole_local, lower.global_position)
+
+
 func _source_ik_ground_attacking_limb(
         limb: Dictionary, frame: Dictionary) -> void:
     # Always reset per-frame reach status; do not reuse an error from
@@ -3142,6 +3199,8 @@ func _source_ik_ground_attacking_limb(
     var foot: Node3D = limb["foot"]
     var lower: Node3D = limb["lower"]
     var kind: String = str(frame.get("kind", ""))
+    if kind == "stomp":
+        _source_ik_aim_stomp_raising_limb(limb, frame)
     var rear: bool = str(frame.get("id", "")).begins_with("leg_r")
     var phase: String = str(frame.get("phase", ""))
     var source_t: float = float(frame.get("authored_time", 0.0))
@@ -4016,6 +4075,8 @@ func _source_ik_advance_attack(frame: Dictionary) -> void:
             attack_time + 0.00001 < source_ik_last_attack_time):
         source_ik_attacking_id = attack_id
         source_ik_attacking_kind = attack_kind
+        source_ik_stomp_target_offset = Vector3.ZERO
+        source_ik_stomp_aim_leg = attack_id
         source_ik_step_pair = -1
         source_ik_replant_id = ""
         source_ik_postattack_active = false
