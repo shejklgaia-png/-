@@ -22,6 +22,21 @@ func _run() -> void:
     if sera == null or cam == null or crate == null or building == null or not cam.current:
         _fail("overworld actor, roaming CRATE, building, or camera missing")
         return
+    # v492: the base is a CRATE/NEXUS menu for now. SERA and its touch
+    # stick must be absent from the visible scene, and input must not move it.
+    if sera.visible or sera.get_node_or_null("SeraRig") != null:
+        _fail("SERA is still shown or its hidden hub rig is being loaded")
+        return
+    var stick: Panel = hub.get("stick_outer") as Panel
+    var knob: Panel = hub.get("stick_knob") as Panel
+    if stick == null or knob == null or stick.visible or knob.visible:
+        _fail("base movement controller is still visible")
+        return
+    var frozen_position: Vector3 = sera.position
+    hub.call("_move_player", Vector2(1.0, 1.0), 5.0)
+    if sera.position.distance_to(frozen_position) > 0.0001:
+        _fail("hidden SERA still moves via base movement controls")
+        return
     # v490: a continuous ground surface covers ALL four screen corners even
     # as the camera follows SERA to each reachable edge of the outdoor hub.
     var ground: MeshInstance3D = hub.get_node_or_null(
@@ -123,13 +138,14 @@ func _run() -> void:
     if absf(crate.position.y - 0.06) > 0.00001:
         _fail("CRATE left its planar travel height")
         return
-    sera.position = Vector3(0, 0.08, 8)
-    hub.call("_move_player", Vector2(1, 1), 50.0)
-    if sera.position.x > 6.0 or sera.position.z > 10.0:
-        _fail("overworld SERA escaped floor bounds")
+    # Even when the actor/controller is disabled, keep the outdoor
+    # navigation collision contract ready for future re-enabling.
+    if bool(hub.call("_walkable", Vector3(7.0, 0.08, 0.0))) \
+            or bool(hub.call("_walkable", Vector3(0.0, 0.08, -7.4))):
+        _fail("base boundaries or solid NEXUS building were removed")
         return
-    if absf(sera.position.y - 0.08) > 0.00001:
-        _fail("SERA left planar travel height")
+    if not bool(hub.call("_walkable", Vector3(0.0, 0.08, 5.6))):
+        _fail("base spawn became unwalkable")
         return
     print("SERA_BASE_HUB_RUNTIME_PASS")
     quit(0)
