@@ -3,6 +3,7 @@ extends Node3D
 ## Visual-only: never changes beam range, player damage or boss rig bones.
 ## One ImmediateMesh surface per effect; rebuild at <= 20 Hz for Android.
 
+const RENDER_ORDER = preload("res://scripts/render_order_policy.gd")
 const RIM_SHADER = preload("res://shaders/bittaran_railgun_rim.gdshader")
 const FLOW_SHADER = preload("res://shaders/bittaran_railgun_flow.gdshader")
 const ARC_INTERVAL: float = 0.055
@@ -33,6 +34,7 @@ func _glow_material() -> StandardMaterial3D:
     mat.emission_enabled = true
     mat.emission = Color(0.34, 0.76, 1.0)
     mat.emission_energy_multiplier = 5.0
+    mat.render_priority = RENDER_ORDER.DEPTH_TESTED_EMISSIVE
     return mat
 
 
@@ -57,6 +59,7 @@ func setup(muzzle_local_z: float, local_beam_length: float) -> void:
     rim_shape.rings = 12
     var rim_mat := ShaderMaterial.new()
     rim_mat.shader = RIM_SHADER
+    rim_mat.render_priority = RENDER_ORDER.DEPTH_TESTED_EMISSIVE
     orb_rim = _part("RailgunElectricBlueRim", rim_shape, rim_mat)
     orb_rim.position.z = muzzle_z
 
@@ -71,6 +74,7 @@ func setup(muzzle_local_z: float, local_beam_length: float) -> void:
     flow_shape.radial_segments = 16
     var flow_mat := ShaderMaterial.new()
     flow_mat.shader = FLOW_SHADER
+    flow_mat.render_priority = RENDER_ORDER.DEPTH_TESTED_EMISSIVE
     beam_flow = _part("RailgunTravelingPlasma", flow_shape, flow_mat)
     beam_flow.rotation.x = -PI * 0.5
     beam_flow.scale = Vector3(1.0, beam_length, 1.0)
