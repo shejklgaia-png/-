@@ -1,7 +1,7 @@
 extends SceneTree
 ## Live regression: 10s stationary filling, then smooth uncapped tracking
 ## once during blue-sphere growth/full, then 0.7x capped tracking at
-## t=11 sphere shrink and t=12 laser, with 0-2.5m eased catch-up,
+## t=11 sphere shrink and t=12 laser, with 0-1.5m tighter eased follow,
 ## multi-hit damage
 ## (no hit-count cap), doubled boss movement and 0.7s neutral return.
 const GUN = preload("res://scripts/bittaran_railgun.gd")
@@ -646,8 +646,8 @@ func _run() -> void:
         "direct_2s_beam_from_t12=true ",
         "0.7s_smooth_sphere_entry=true 0.7s_immediate_return=true ",
         "zero_prefire_hold=true zero_damage_arm_delay=true ",
-        "beam_0_7x_baseline=true ground_gap_2_5m_eased_follow=true ",
-         "run_catches_boost_escapes=true plateau_2_5m=true laser_60pct_power=true ",
+        "beam_0_85x_baseline=true ground_gap_1_5m_tight_follow=true ",
+         "run_close_boost_escapes=true plateau_1_5m=true laser_60pct_power=true ",
         "normal_projectiles_unchanged=true unlimited_repeat_hits=true ",
         "repeat_hit_0_2s=true physical_knockback_preserved=true ",
         "double_boss_move_and_turn=true guard_still_blocks=true ",
