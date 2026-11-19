@@ -1,7 +1,8 @@
 extends SceneTree
 ## Live regression: 10s stationary filling, then smooth uncapped tracking
-## once during the 2s blue sphere (including shrink), then capped beam
-## tracking at 0.7x plus ground-distance catch-up, multi-hit damage
+## once during blue-sphere growth/full, then 0.7x capped tracking at
+## t=11 sphere shrink and t=12 laser, with >1.5m live-beam catch-up,
+## multi-hit damage
 ## (no hit-count cap), doubled boss movement and 0.7s neutral return.
 const GUN = preload("res://scripts/bittaran_railgun.gd")
 const AI = preload("res://scripts/bittaran_ai.gd")
@@ -49,6 +50,7 @@ func _run() -> void:
         return
     if not _near(GUN.TRACK_BLEND_SECONDS, 0.7) or (
             not _near(GUN.FLASH_SHRINK_SECONDS, 1.0)) or (
+            not _near(GUN.FLASH_SHRINK_START, 11.0)) or (
             not _near(GUN.FLASH_GROW_SECONDS, 0.2)):
         _fail("0.7s aim entry and 1.0s sphere shrink timing changed")
         return
@@ -57,9 +59,9 @@ func _run() -> void:
         _fail("fast aim must begin only when the sphere charge begins")
         return
     if not _near(GUN.BEAM_TRACK_SPEED_MULTIPLIER, 0.70) or (
-            not _near(GUN.BEAM_GROUND_GAP_METERS, 0.50)) or (
+            not _near(GUN.BEAM_GROUND_GAP_METERS, 1.50)) or (
             not _near(GUN.BEAM_HIT_INTERVAL_SECONDS, 0.20)):
-        _fail("beam 0.7x, 0.5m ground catch-up and repeat pulse interval changed")
+        _fail("beam 0.7x, 1.5m ground catch-up and repeat pulse interval changed")
         return
     if not _near(AI.APPROACH_SPEED_MPS, 1.872) or (
             not _near(AI.ACCELERATION_MPS2, 1.56)) or (
@@ -210,32 +212,54 @@ func _run() -> void:
             absf(elevation.rotation.x - charge_target.y) > deg_to_rad(0.05)):
         _fail("charge must acquire player before sphere begins shrinking")
         return
+    # Just BEFORE the t=11 shrink boundary, full-speed acquisition must
+    # still snap to an abruptly moving player without an angular cap.
     var shrink_target: Vector3 = front + Vector3(25.0, 4.0, 0.0)
-    gun.call("advance", 0.5, shrink_target, true)
+    gun.call("advance", 0.0004, shrink_target, true)
+    var pre_shrink_angles: Vector2 = gun.call(
+        "_desired_player_angles", shrink_target)
+    if absf(angle_difference(float(gun.get("aim_yaw")),
+            pre_shrink_angles.x)) > deg_to_rad(0.05):
+        _fail("unrestricted aim stopped BEFORE blue-sphere shrink began")
+        return
+    var pre_shrink_yaw: float = float(gun.get("tracked_world_yaw"))
+    # Cross t=11 with a suddenly different target: the first shrink frame
+    # must start the 0.7x limit, with no extra unbounded acquisition tick.
+    gun.call("advance", 0.0008, side, true)
+    var shrink_start_limit: float = float(gun.call(
+        "_tracking_turn_rate", side)) * GUN.BEAM_TRACK_SPEED_MULTIPLIER
+    var shrink_start_step: float = absf(rad_to_deg(angle_difference(
+        pre_shrink_yaw, float(gun.get("tracked_world_yaw")))))
+    if shrink_start_step > shrink_start_limit * 0.0008 + 0.01 or (
+            not sphere.visible):
+        _fail("shrinking sphere did not immediately lower tracking to 0.7x")
+        return
+    var shrink_mid_start_yaw: float = float(gun.get("tracked_world_yaw"))
+    gun.call("advance", 0.5, side, true)
     if not sphere.visible or not _near(
             sphere.scale.x, full_scale * 0.5, 0.04):
         _fail("sphere must shrink over its last entire second")
         return
-    var shrink_angles: Vector2 = gun.call(
-        "_desired_player_angles", shrink_target)
-    if absf(angle_difference(float(gun.get("aim_yaw")),
-            shrink_angles.x)) > deg_to_rad(0.05) or (
-            absf(elevation.rotation.x - shrink_angles.y) > deg_to_rad(0.05)):
-        _fail("uncapped tracking must continue through sphere shrink")
+    var shrink_mid_change: float = absf(rad_to_deg(angle_difference(
+        shrink_mid_start_yaw, float(gun.get("tracked_world_yaw")))))
+    if shrink_mid_change > shrink_start_limit * 0.5 + 0.06 or (
+            float(gun.get("beam_turn_rate_deg_per_sec")) > 0.0001):
+        _fail("shrinking sphere bypassed 0.7x or activated beam-only catch-up")
         return
-    var before_beam: float = float(gun.get("tracked_world_yaw"))
-    # Keep the target fixed through the last sphere frame, then move
-    # abruptly at the first beam frame. Only beam-time turning is allowed.
-    gun.call("advance", 0.499, shrink_target, true)
-    var last_sphere_angles: Vector2 = gun.call(
-        "_desired_player_angles", shrink_target)
+    # Large late target movement still cannot restore pre-shrink unlimited
+    # tracking. The outgoing beam picks up the same capped yaw seamlessly.
+    var before_last_shrink: float = float(gun.get("tracked_world_yaw"))
+    gun.call("advance", 0.498, shrink_target, true)
+    var last_shrink_limit: float = float(gun.call(
+        "_tracking_turn_rate", shrink_target)) * GUN.BEAM_TRACK_SPEED_MULTIPLIER
+    var last_shrink_step: float = absf(rad_to_deg(angle_difference(
+        before_last_shrink, float(gun.get("tracked_world_yaw")))))
     if not sphere.visible or (
-            absf(angle_difference(float(gun.get("aim_yaw")),
-                last_sphere_angles.x)) > deg_to_rad(0.05)):
-        _fail("uncapped tracking ended before the sphere disappeared")
+            last_shrink_step > last_shrink_limit * 0.498 + 0.07):
+        _fail("blue sphere shrink must stay capped until laser emission")
         return
     var beam_target: Vector3 = side + Vector3(5.0, 0, 0)
-    before_beam = float(gun.get("tracked_world_yaw"))
+    var before_beam: float = float(gun.get("tracked_world_yaw"))
     gun.call("advance", 0.003, beam_target, true)
     if sphere.visible or not core.visible or not halo.visible or (
             not plasma.visible) or (not beam_arcs.visible):
@@ -288,7 +312,7 @@ func _run() -> void:
         return
 
     # At the beam start, on-axis tracking is 70% of the old speed.
-    # When the projected ground-ray gap exceeds 0.5m, accelerate
+    # When the projected ground-ray gap exceeds 1.5m, accelerate
     # toward the measured player travel speed (without a hard cap).
     gun.call("reset")
     gun.set("elapsed", GUN.BEAM_START + 0.10)
@@ -300,18 +324,28 @@ func _run() -> void:
     gun.call("advance", DT, on_axis, true)
     var normal_rate: float = float(gun.call("_tracking_turn_rate", on_axis))
     var slowed_rate: float = float(gun.get("beam_turn_rate_deg_per_sec"))
-    if float(gun.get("beam_ground_gap_meters")) > 0.50 or (
+    if float(gun.get("beam_ground_gap_meters")) > 1.50 or (
             not _near(slowed_rate, normal_rate * 0.7, 0.05)):
-        _fail("laser normal follow speed must be 0.7x within the 0.5m trace")
+        _fail("laser normal follow speed must be 0.7x within the 1.5m trace")
         return
-    var lateral: Vector3 = on_axis
+    # Even a fast 1m sidestep must NOT turn on catch-up: the switch is
+    # explicitly at 1.5m, not the previous 0.5m threshold.
+    var near_gap_target: Vector3 = on_axis + Vector3(1.0, 0.0, 0.0)
+    gun.call("advance", DT, near_gap_target, true)
+    var near_gap: float = float(gun.get("beam_ground_gap_meters"))
+    if near_gap >= GUN.BEAM_GROUND_GAP_METERS or (
+            float(gun.get("beam_turn_rate_deg_per_sec")) >
+                slowed_rate + 0.5):
+        _fail("laser accelerated inside the new 1.5m ground-gap radius")
+        return
+    var lateral: Vector3 = near_gap_target
     for frame in range(12):
         lateral.x += 0.30
         gun.call("advance", DT, lateral, true)
-    if float(gun.get("beam_ground_gap_meters")) <= 0.50 or (
+    if float(gun.get("beam_ground_gap_meters")) <= 1.50 or (
             float(gun.get("beam_turn_rate_deg_per_sec")) <=
                 slowed_rate + 5.0):
-        _fail("laser did not accelerate to follow a moving target >0.5m away")
+        _fail("laser did not accelerate to follow a moving target >1.5m away")
         return
     gun.call("reset")
     gun.set("elapsed", GUN.BEAM_START + 0.10)
@@ -479,10 +513,11 @@ func _run() -> void:
         return
 
     print("GODOT_BITTARAN_RAILGUN_PASS 10s_stationary_fill=true ",
-        "unrestricted_sphere_charge_aim=true direct_2s_beam_from_t12=true ",
+        "fast_charge_only_before_shrink=true shrink_t11_slow_0_7x=true ",
+        "direct_2s_beam_from_t12=true ",
         "0.7s_smooth_sphere_entry=true 0.7s_immediate_return=true ",
         "zero_prefire_hold=true zero_damage_arm_delay=true ",
-        "beam_0_7x_baseline=true ground_gap_0_5m_follow=true ",
+        "beam_0_7x_baseline=true ground_gap_1_5m_follow=true ",
         "player_velocity_catchup=true unlimited_repeat_hits=true ",
         "repeat_hit_0_2s=true physical_knockback_preserved=true ",
         "double_boss_move_and_turn=true guard_still_blocks=true ",
