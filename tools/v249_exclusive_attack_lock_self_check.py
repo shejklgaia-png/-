@@ -48,7 +48,9 @@ assert 'if _distance_to_attack_target_surface(next_position) <= reach:' in homin
 bash=function("_check_bash_contact(","_register_bash_hit(")
 assert "if _distance_to_attack_target_surface(player.position) <= BASH_REACH:" in bash
 damage=function("_apply_target_part_damage(","_register_strike_hit(")
-assert '"apply_part_hit", locked_target_part_id, raw_attack, raw_break)' in damage
+# v510: retain exclusive locked-part targeting, while shielding HP power only.
+assert '"apply_part_hit", locked_target_part_id, shielded_attack, raw_break)' in damage
+assert 'enemy_predictive_shield.apply_hit(float(raw_attack), false)' in damage
 assert 'locked_target_part_id = ""' not in damage
 assert '"trigger_part_hit_fx"' in damage
 assert "not manual_part_lock_active or locked_part_broken" in main
