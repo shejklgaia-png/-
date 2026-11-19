@@ -487,6 +487,40 @@ func _run() -> void:
         _fail("equipment-adjusted tracking rate is not RUN < aim < BOOST")
         return
 
+    # Live pursuit, not constants alone: move a player tangentially around
+    # the turret for 1.5s at equipped RUN and BOOST speeds. RUN must enter
+    # the visible beam width, while BOOST opens a clear lateral gap.
+    var lateral_run_gap: float = 0.0
+    var lateral_boost_gap: float = 0.0
+    for player_speed in [GUN.RUN_REFERENCE_SPEED_MPS,
+            GUN.BOOST_REFERENCE_SPEED_MPS]:
+        gun.call("reset")
+        var neutral_axis: Basis = Basis(Quaternion(Vector3.UP,
+            float(gun.call("_neutral_world_yaw"))))
+        var initial_heading: Vector3 = -neutral_axis.z.normalized()
+        var center: Vector3 = gun.global_position
+        gun.set("elapsed", GUN.BEAM_START + 0.05)
+        for frame in range(180):
+            var theta: float = player_speed * float(frame) * DT / 10.0
+            var player_at: Vector3 = center + (
+                initial_heading.rotated(Vector3.UP, theta) * 10.0)
+            player_at.y = 0.0
+            gun.call("advance", DT, player_at, true)
+        var final_gap: float = float(gun.get("beam_ground_gap_meters"))
+        if player_speed == GUN.RUN_REFERENCE_SPEED_MPS:
+            lateral_run_gap = final_gap
+        else:
+            lateral_boost_gap = final_gap
+    if lateral_run_gap >= (
+            GUN.BEAM_RADIUS_METERS + GUN.PLAYER_HIT_RADIUS_METERS) or (
+            lateral_boost_gap <= lateral_run_gap + 0.5) or (
+            lateral_boost_gap <= GUN.BEAM_RADIUS_METERS +
+                GUN.PLAYER_HIT_RADIUS_METERS):
+        _fail("1.5s live lateral pursuit must catch RUN but lose BOOST: " +
+            str(lateral_run_gap) + "m vs " +
+            str(lateral_boost_gap) + "m")
+        return
+
     # In the real battle, a second overlap damages HP again. Ongoing
     # Damageknock animation and knockback vector are NOT restarted.
     scene.set("player_hp", 800.0)
