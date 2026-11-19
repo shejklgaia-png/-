@@ -92,8 +92,18 @@ const KICK_EXTENSION_START_KEY_SECONDS: float = 0.25
 const KICK_EXTENSION_END_KEY_SECONDS: float = 0.75
 const SWEEP_FRONT_FIRST_STROKE_START_KEY_SECONDS: float = 0.75
 const SWEEP_REAR_FIRST_STROKE_START_KEY_SECONDS: float = 0.25
-const SWEEP_FRONT_FIRST_STROKE_END_KEY_SECONDS: float = 1.25
-const SWEEP_REAR_FIRST_STROKE_END_KEY_SECONDS: float = 0.75
+# v481: the first lateral sweep's stop/turnover poses in the
+# ORIGINAL Blockbench joint tracks: front t=1.500, rear t=0.875.
+# Damage must cease HALF A SECOND BEFORE those source poses; never
+# extend a still-visible collider into the stopped/returning follow-through.
+# These values are source animation seconds (1x in active source replay).
+const SWEEP_HIT_END_BEFORE_STOP_SECONDS: float = 0.50
+const SWEEP_FRONT_SWING_STOP_KEY_SECONDS: float = 1.50
+const SWEEP_REAR_SWING_STOP_KEY_SECONDS: float = 0.875
+const SWEEP_FRONT_FIRST_STROKE_END_KEY_SECONDS: float = (
+    SWEEP_FRONT_SWING_STOP_KEY_SECONDS - SWEEP_HIT_END_BEFORE_STOP_SECONDS)
+const SWEEP_REAR_FIRST_STROKE_END_KEY_SECONDS: float = (
+    SWEEP_REAR_SWING_STOP_KEY_SECONDS - SWEEP_HIT_END_BEFORE_STOP_SECONDS)
 
 ## The rendered LOWER-LEG and FOOT are still the only damage
 ## geometry. These are motion-time gates, not substitute hitboxes.
