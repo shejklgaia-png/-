@@ -755,6 +755,14 @@ func _advance_prebaked_sweep(
         prebaked_sweep_started = true
         prebaked_sweep_world_transform = (
             prebaked_sweep_owner.global_transform)
+        # A tracked sweep is a rotated instance of the author's arc,
+        # not the baked rest-facing arc. Lock the combined horizontal
+        # BODY/shoulder yaw at first contact; the arc then remains
+        # immutable for the whole grounded strike.
+        var yaw: float = float(frame.get("sweep_aim_yaw", 0.0))
+        prebaked_sweep_world_transform.basis = (
+            Basis(Quaternion(Vector3.UP, yaw))
+            * prebaked_sweep_world_transform.basis)
         prebaked_sweep_anchor_offset = Vector3.ZERO
         var predicted: Vector3 = _prebaked_world_at(track, t)
         prebaked_sweep_anchor_offset = Vector3(
