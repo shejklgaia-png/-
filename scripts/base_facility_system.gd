@@ -398,15 +398,16 @@ func open_facility(key: String) -> void:
     match key:
         "LABO":
             modal_body.text = "研究開発の統合施設です。\nOS＝機能拡充 / Shell＝性能向上。"
-            _add_action("Shell開発", "装備の製作・レアリティ昇格・性能開発を担当します。\n装備レベル制はありません。")
+            # The working Shell development entry opens the real prototype catalog.
+            # Rarity research remains a future feature, not a fake craft action.
+            var shell_button := Button.new()
+            shell_button.name = "OpenPrototypeCatalog"
+            shell_button.text = "Shell開発｜試作装備の製作（7種類）  ›"
+            shell_button.custom_minimum_size.y = 74.0
+            shell_button.pressed.connect(_show_prototype_catalog)
+            modal_actions.add_child(shell_button)
             _add_action("OS開発", "新しいアクションや操作・照準などの機能を解放します。\nジャスト系の機能は採用しません。")
             _add_action("追加効果スロット研究", "装備レアリティごとの上限内で、LABO研究によりスロット枠を解放します。\n装着と交換はNEXUSのアセンブルで行います。")
-            var craft_button := Button.new()
-            craft_button.name = "OpenPrototypeCatalog"
-            craft_button.text = "試作装備の製作（7種類）  ›"
-            craft_button.custom_minimum_size.y = 74.0
-            craft_button.pressed.connect(_show_prototype_catalog)
-            modal_actions.add_child(craft_button)
         "SCRAP_COLLECTOR":
             modal_body.text = "回収機\nフィールドの廃材を回収する設備です。"
             _add_action("回収設備の情報", "スクラップの収集設備です。報酬量と回収方法は経済設計が確定してから接続します。")
@@ -470,7 +471,7 @@ func _show_inventory() -> void:
     for item in items:
         var bp: String = str(item["blueprint"])
         _add_item_tile(IconAtlas.equipment_icon(bp),
-            PrototypeCatalog.display_name(bp) + "　" + str(item["uid"]),
+            PrototypeCatalog.display_instance(str(item["uid"])),
             "WarehouseItem_" + str(item["uid"]))
     if SeraSave.active_slot == 0:
         modal_body.text += "\n※先にNEXUSでセーブデータを作成してください。"
@@ -503,6 +504,17 @@ func _show_prototype_catalog() -> void:
         button.add_theme_font_size_override("font_size", 17)
         button.pressed.connect(_select_prototype.bind(str(bp)))
         row.add_child(button)
+        var owned_count: int = 0
+        for item in SeraSave.get_owned_prototypes(str(entry["slot"])):
+            if str(item["blueprint"]) == str(bp):
+                owned_count += 1
+        var count_label := Label.new()
+        count_label.name = "PrototypeOwnedCount_" + str(bp)
+        count_label.text = "所持 %d" % owned_count
+        count_label.custom_minimum_size.x = 53.0
+        count_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+        count_label.add_theme_font_size_override("font_size", 13)
+        row.add_child(count_label)
 
 func _select_prototype(blueprint: String) -> void:
     if not PrototypeCatalog.valid(blueprint):
@@ -517,7 +529,7 @@ func _craft_selected_prototype() -> void:
     if uid.is_empty():
         prototype_notice = "製作できません。NEXUSでセーブデータを選択してください。"
     else:
-        prototype_notice = "保管庫に登録：%s" % uid
+        prototype_notice = "保管庫に登録：%s" % PrototypeCatalog.display_instance(uid)
     _render_prototype_detail()
 
 func _render_prototype_detail() -> void:
@@ -671,10 +683,12 @@ func _render_conversion() -> void:
         input_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
         flow.add_child(input_icon)
         var consume := Label.new()
-        consume.name = "Consumed"
-        consume.text = "×" + str(plan["input_count"])
+        consume.name = "SourceRank"
+        consume.text = "%s ×%s\n所持 %s" % [
+            ["低", "中", "高"][rank], str(plan["input_count"]),
+            str(stock[source_id])]
         consume.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-        consume.add_theme_font_size_override("font_size", 16)
+        consume.add_theme_font_size_override("font_size", 14)
         flow.add_child(consume)
         var arrow := Label.new()
         arrow.text = "→"
@@ -688,10 +702,12 @@ func _render_conversion() -> void:
         output_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
         flow.add_child(output_icon)
         var gained := Label.new()
-        gained.name = "Received"
-        gained.text = "×" + str(plan["output_count"])
+        gained.name = "TargetRank"
+        gained.text = "%s ×%s\n所持 %s" % [
+            ["低", "中", "高"][rank + conversion_mode],
+            str(plan["output_count"]), str(stock[target_id])]
         gained.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-        gained.add_theme_font_size_override("font_size", 16)
+        gained.add_theme_font_size_override("font_size", 14)
         flow.add_child(gained)
         var button := Button.new()
         button.name = "ConvertRank_" + str(rank)
