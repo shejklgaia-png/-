@@ -371,7 +371,7 @@ func _build_target() -> void:
     # Mount the new small weapons to the actual animated upper-leg joints.
     # No authored Blockbench mesh, pivot, foot IK or railgun is replaced.
     bittaran_leg_turrets = BittaranLegTurrets.new()
-    bittaran_leg_turrets.name = "FourBellyTurrets"
+    bittaran_leg_turrets.name = "BellyMainCannon"
     add_child(bittaran_leg_turrets)
     if not bool(bittaran_leg_turrets.call("setup", bittaran_rig)):
         push_error("Bittaran: four leg cannon setup failed")
