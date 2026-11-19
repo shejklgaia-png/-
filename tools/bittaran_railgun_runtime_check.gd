@@ -448,7 +448,7 @@ func _run() -> void:
     var parts: Dictionary = scene.get("part_stats")
     var defense: float = clampf(float(parts.get("defense", 0.16)), 0.0, 0.90)
     var expected_laser_hp: float = (
-        float(scene.ENEMY_ATTACK_HP_DAMAGE[0]) *
+        18.0 *
         BATTLE.LASER_DAMAGE_MULTIPLIER * (1.0 - defense))
     if not _near(first_hp - hp_after_first, expected_laser_hp, 0.005) or (
             not bool(scene.get("damage_reaction_active"))):
@@ -500,7 +500,7 @@ func _run() -> void:
         Vector3(0.0, 0.0, -9.0)) - Vector3.UP * 0.92
     scene.call("_tick_bittaran_railgun", DT)
     var expected_laser_guard_cost: float = (
-        float(scene.ENEMY_ATTACK_SHIELD_COST[0]) *
+        23.0 *
         BATTLE.LASER_DAMAGE_MULTIPLIER *
         float(parts.get("guard_cost_mult", 1.0)) /
         maxf(0.2, float(parts.get("guard_defense_mult", 1.0))))
@@ -519,7 +519,7 @@ func _run() -> void:
     scene.call("_on_enemy_projectile_hit",
         player.global_position, Vector3.FORWARD, true, 0, true)
     var expected_unscaled_hp: float = (
-        float(scene.ENEMY_ATTACK_HP_DAMAGE[0]) * (1.0 - defense))
+        18.0 * (1.0 - defense))
     if not _near(800.0 - float(scene.get("player_hp")),
             expected_unscaled_hp, 0.005):
         _fail("non-laser projectile damage was incorrectly reduced")
