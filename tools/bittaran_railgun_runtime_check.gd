@@ -208,9 +208,10 @@ func _run() -> void:
     if not immediate_hit or not core.visible:
         _fail("laser hit detection must be immediate on first beam frame")
         return
-    gun.call("advance", 0.75, front, true)
-    if not core.visible:
-        _fail("a successful laser hit must not terminate the beam")
+    if bool(gun.call("advance", 0.75, front, true)) or (
+            not core.visible) or (
+            not bool(gun.get("beam_hit_registered"))):
+        _fail("laser must remain visible but NEVER damage twice")
         return
 
     # At 8m and 30m, track RUN persistently but let faster BOOST escape.
@@ -222,11 +223,13 @@ func _run() -> void:
     var base_right: Vector3 = gun.global_basis.x.normalized()
     for radius in [8.0, 30.0]:
         var hits: Array[int] = []
+        var contact_frames: Array[int] = []
         for movement_speed in [
                 GUN.RUN_REFERENCE_SPEED_MPS, GUN.BOOST_REFERENCE_SPEED_MPS]:
             gun.call("reset")
             gun.set("elapsed", GUN.FLASH_START)
             var beam_hits: int = 0
+            var overlapping_frames: int = 0
             var visible_beam_frames: int = 0
             for i in range(478):
                 var t: float = float(i + 1) * DT
@@ -243,6 +246,8 @@ func _run() -> void:
                     beam_hits += 1
                 if core.visible:
                     visible_beam_frames += 1
+                    if bool(gun.call("_beam_overlaps_player", subject)):
+                        overlapping_frames += 1
                 if was_tracking and core.visible:
                     var turn: float = absf(rad_to_deg(
                         angle_difference(world_before,
@@ -256,9 +261,15 @@ func _run() -> void:
                 _fail("full 2s laser was not visible during orbit test")
                 return
             hits.append(beam_hits)
-        if hits[0] < 2 or hits[1] >= hits[0]:
-            _fail("RUN must remain trackable, BOOST must escape at "
-                + str(radius) + "m: hitCounts=" + str(hits))
+            contact_frames.append(overlapping_frames)
+        # RUN remains much more exposed to the beam than BOOST. Whether
+        # it intersects once or for many frames, this shot deals no more
+        # than ONE damage event to either player.
+        if hits[0] != 1 or hits[1] > 1 or (
+                contact_frames[0] <= contact_frames[1]):
+            _fail("RUN/BOOST exposure and single-hit contract at "
+                + str(radius) + "m: hits=" + str(hits)
+                + " overlapFrames=" + str(contact_frames))
             return
 
     # Even a 90-degree boss root turn cannot instantly drag the
@@ -291,57 +302,57 @@ func _run() -> void:
         _fail("equipment-adjusted tracking rate is not RUN < aim < BOOST")
         return
 
-    # First real contact should latch the entire remainder of the
-    # 2-second beam (up to four hits at 0.5s spacing), despite displacement
-    # by the normal 1.2m physical knockback. No initial contact means
-    # BOOST can still avoid the laser altogether.
+    # A shot can register exactly ONE true geometrical hit, including
+    # after repeated overlaps or if SERA returns to the ray after recoil.
+    # A later shot may hit again, but only with fresh real contact.
     gun.call("reset")
     gun.set("elapsed", GUN.BEAM_START - DT * 0.5)
     var no_contact: Vector3 = front + Vector3(25.0, 0.0, 0.0)
     if bool(gun.call("advance", DT, no_contact, true)) or (
-            bool(gun.get("beam_hit_latched"))):
-        _fail("unhit BOOST must never inherit a previous beam combo")
+            bool(gun.get("beam_hit_registered"))):
+        _fail("BOOST outside the ray must not be hit")
         return
-    gun.call("reset")
-    gun.set("elapsed", GUN.BEAM_START - DT * 0.5)
-    var first_contact: bool = bool(gun.call("advance", DT, front, true))
-    if not first_contact or not bool(gun.get("beam_hit_latched")):
-        _fail("first physical laser overlap must latch the full-hit combo")
+    # Even after the beam has begun, the FIRST late contact counts.
+    if not bool(gun.call("advance", 0.25, front, true)) or (
+            not bool(gun.get("beam_hit_registered"))):
+        _fail("late first real contact must register exactly once")
         return
     var recoil_off_axis: Vector3 = front + Vector3(25.0, 0.0, 0.0)
-    for pulse in range(3):
-        if bool(gun.call("_beam_overlaps_player", recoil_off_axis)):
-            _fail("off-axis target must be OUTSIDE the real beam geometry")
-            return
-        if not bool(gun.call("advance", 0.50, recoil_off_axis, true)):
-            _fail("latched laser missed post-knockback pulse "
-                + str(pulse + 2))
-            return
-    if not core.visible:
-        _fail("laser vanished during full-hit combo")
+    if bool(gun.call("_beam_overlaps_player", recoil_off_axis)):
+        _fail("test recoil target must not overlap the beam")
         return
-    if bool(gun.call("advance", 0.51, recoil_off_axis, true)) or (
-            bool(gun.get("beam_hit_latched"))) or core.visible:
-        _fail("beam end must stop damage and clear combo latch")
+    if bool(gun.call("advance", 0.30, recoil_off_axis, true)):
+        _fail("shot must not deal a follow-up hit after recoil")
         return
-    # A second beam without genuine collision must remain dodgeable.
+    if bool(gun.call("advance", 0.30, front, true)):
+        _fail("re-entering the original beam must NOT cause another hit")
+        return
+    if bool(gun.call("advance", 0.30, front, true)) or (
+            not core.visible):
+        _fail("remaining visible laser must do zero follow-up damage")
+        return
+    if bool(gun.call("advance", 1.0, front, true)) or (
+            bool(gun.get("beam_hit_registered"))) or core.visible:
+        _fail("beam end must clear single-hit flag and hide the laser")
+        return
     gun.set("elapsed", GUN.BEAM_START - DT * 0.5)
-    if bool(gun.call("advance", DT, recoil_off_axis, true)) or (
-            bool(gun.get("beam_hit_latched"))):
-        _fail("beam combo leaked into the NEXT laser attack")
+    if bool(gun.call("advance", DT, no_contact, true)) or (
+            bool(gun.get("beam_hit_registered"))):
+        _fail("previous shot hit leaked into a fresh missed beam")
+        return
+    if not bool(gun.call("advance", 0.25, front, true)):
+        _fail("next beam must be able to hit once on new contact")
         return
 
-    # End-to-end battle pipeline: start with an actual ray overlap.
-    # It MUST trigger standard physical Damageknock and hold that state
-    # until beam end, while damage ticks continue after moving SERA
-    # outside the ray. Do not restart the same animation on every pulse.
+    # Real scene integration: the first hit triggers normal Damageknock
+    # with physical displacement, but subsequent overlaps DO NOT drain
+    # HP again. Unlike v475, no full-beam hitstun hold is installed.
     scene.set("player_hp", 800.0)
     scene.set("training_ko_remaining", 0.0)
     scene.set("guard_active", false)
     scene.set("guard_break_remaining", 0.0)
     scene.set("down_remaining", 0.0)
     scene.set("damage_reaction_active", false)
-    scene.set("laser_full_hit_lock_active", false)
     scene.set("movement_boost_active", true)
     gun.call("reset")
     gun.set("elapsed", GUN.BEAM_START - DT * 0.5)
@@ -349,35 +360,35 @@ func _run() -> void:
         Vector3(0.0, 0.0, -9.0)) - Vector3.UP * 0.92
     var first_hp: float = float(scene.get("player_hp"))
     scene.call("_tick_bittaran_railgun", DT)
-    if float(scene.get("player_hp")) >= first_hp or (
+    var hp_after_first: float = float(scene.get("player_hp"))
+    if hp_after_first >= first_hp or (
             not bool(scene.get("damage_reaction_active"))) or (
-            not bool(scene.get("laser_full_hit_lock_active"))) or (
-            not bool(gun.get("beam_hit_latched"))):
-        _fail("first laser hit must cause real recoil and lock full volley")
+            not bool(gun.get("beam_hit_registered"))):
+        _fail("initial hit must deal HP damage and cause normal recoil")
         return
     var recoil_start: Vector3 = player.global_position
     scene.call("_advance_damage_knockback", 0.12)
     if player.global_position.distance_to(recoil_start) < 0.03 or (
             float(scene.get("damage_knockback_elapsed")) < 0.10):
-        _fail("laser hit must create physical 1.2m Damageknock travel")
+        _fail("initial laser contact must cause physical Damageknock")
         return
 
-    var later_hp: float = float(scene.get("player_hp"))
+    # Even while still being tracked by the turret, a second pulse must
+    # not be emitted. Ensure actual HP remains unchanged in battle.
     player.global_position += Vector3(25.0, 0.0, 0.0)
-    for i in range(3):
-        scene.call("_tick_bittaran_railgun", 0.50)
-        var now_hp: float = float(scene.get("player_hp"))
-        if now_hp >= later_hp or (
-                not bool(scene.get("laser_full_hit_lock_active"))) or (
-                not bool(scene.get("damage_reaction_active"))):
-            _fail("latched full-hit pulse did not damage SERA in recoil "
-                + str(i + 2))
-            return
-        later_hp = now_hp
-    scene.call("_tick_bittaran_railgun", 0.51)
-    if bool(scene.get("laser_full_hit_lock_active")) or (
-            bool(gun.get("beam_hit_latched"))) or core.visible:
-        _fail("full-hit knockback lock failed to release at beam end")
+    scene.call("_tick_bittaran_railgun", 0.50)
+    if not _near(float(scene.get("player_hp")), hp_after_first):
+        _fail("laser dealt post-knockback follow-up HP damage")
+        return
+    player.global_position = elevation.to_global(
+        Vector3(0.0, 0.0, -9.0)) - Vector3.UP * 0.92
+    scene.call("_tick_bittaran_railgun", 0.50)
+    if not _near(float(scene.get("player_hp")), hp_after_first):
+        _fail("a repeat crossing of beam caused second HP damage")
+        return
+    scene.call("_tick_bittaran_railgun", 1.01)
+    if bool(gun.get("beam_hit_registered")) or core.visible:
+        _fail("hit record survived after the beam ended")
         return
 
     # Guard still consumes shield before HP; blocking laser does not
@@ -386,7 +397,6 @@ func _run() -> void:
     scene.set("shield", 100.0)
     scene.set("guard_active", true)
     scene.set("damage_reaction_active", false)
-    scene.set("laser_full_hit_lock_active", false)
     gun.call("reset")
     gun.set("elapsed", GUN.BEAM_START - DT * 0.5)
     player.global_position = elevation.to_global(
@@ -420,8 +430,9 @@ func _run() -> void:
         "zero_prefire_hold=true zero_damage_arm_delay=true ",
         "run_trackable_boost_escapes_at_8m_and_30m=true ",
         "world_yaw_limited=true equipment_aware=true ",
-        "first_hit_real_knockback=true 4x_full_hit_pulses=true ",
-        "recoil_beam_latch_clears_at_end=true guard_still_blocks=true ",
+        "first_hit_real_knockback=true one_hit_only_per_beam=true ",
+        "no_followup_damage=true normal_recoil_recovers=true ",
+        "hit_resets_next_beam=true guard_still_blocks=true ",
         "unhit_boost_remains_dodgeable=true laser_persists_after_hit=true ",
         "blue_rim_lightning_plasma_preserved=true source_rig_unchanged=true")
     quit(0)
