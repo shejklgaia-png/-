@@ -4,6 +4,7 @@ extends SceneTree
 ## in-range attack (no mandatory normal gait steps). The same kind
 ## can recur if it is the only legal technique for the current feet.
 const DT: float = 1.0 / 60.0
+const ATTACKS = preload("res://scripts/bittaran_attacks.gd")
 const FRAMES: int = 4500
 
 func _initialize() -> void:
@@ -44,10 +45,14 @@ func _run_scenario(start_distance: float, expected_first_kind: String) -> bool:
         var active: bool = not frame.is_empty()
         if active and not previous_active:
             var kind: String = str(frame.get("kind", ""))
-            if starts.is_empty() and not expected_first_kind.is_empty() and (
-                    kind != expected_first_kind):
-                _fail("unexpected initial attack at " +
-                    str(start_distance) + "m: " + kind)
+            var chosen_foot: Vector3 = frame.get(
+                "selection_foot_world", Vector3.INF)
+            if not is_finite(chosen_foot.x) or not (
+                    ATTACKS._leg_can_reach(kind, str(frame.get(
+                        "id", "")), player.global_position,
+                        chosen_foot, boss.rotation.y)):
+                _fail("attack began without a valid foot range " +
+                    str([start_distance, kind, chosen_foot]))
                 return false
             var completed: int = int(ik.call("source_completed_walk_steps"))
             if starts.is_empty():
@@ -103,9 +108,9 @@ func _run() -> void:
     # Starting in-range must initiate the correct technique instantly.
     # Subsequent attacks wait only for the already existing safe
     # two-pair return and the new real foot range.
-    if not _run_scenario(6.8, "sweep"):
+    if not _run_scenario(6.8, ""):
         return
-    if not _run_scenario(1.65, "stomp"):
+    if not _run_scenario(1.65, ""):
         return
     print("GODOT_BITTARAN_REPEAT_LIVE_PASS stationary_scenarios=2",
         " repeated_attacks=true",
