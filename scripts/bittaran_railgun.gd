@@ -4,6 +4,7 @@ extends Node3D
 ## The Body bone transports the mount; its pitch/roll never tilts the gun.
 ## WORLD yaw plus WORLD-relative elevation are the only allowed rotations.
 const RENDER_ORDER = preload("res://scripts/render_order_policy.gd")
+const RailgunFX = preload("res://scripts/bittaran_railgun_fx.gd")
 
 const PERIOD_SECONDS: float = 10.0
 const BEAM_SECONDS: float = 2.0
@@ -25,11 +26,11 @@ const TRACK_EASE_IN_SECONDS: float = FLASH_SECONDS
 # The two-second spherical charge also eases target acquisition from a
 # stationary neutral mount. Before fire it can still catch a boosting SERA;
 # only the active laser is deliberately slow enough to dodge.
-const PRE_FIRE_YAW_SPEED: float = 900.0
-const PRE_FIRE_PITCH_SPEED: float = 720.0
+const PRE_FIRE_YAW_SPEED: float = 720.0
+const PRE_FIRE_PITCH_SPEED: float = 576.0
 const PRE_FIRE_FILTER_PER_SECOND: float = 24.0
-const TRACK_YAW_SPEED: float = 24.0
-const TRACK_PITCH_SPEED: float = 18.0
+const TRACK_YAW_SPEED: float = 21.6
+const TRACK_PITCH_SPEED: float = 16.2
 const TRACK_FILTER_PER_SECOND: float = 6.0
 # All three charge lamps are full at FLASH_START; only THEN may aim.
 const TRACK_START_SECONDS: float = FLASH_START
@@ -50,6 +51,8 @@ var elevation: Node3D
 var outer_beam: MeshInstance3D
 var inner_beam: MeshInstance3D
 var muzzle_flash: MeshInstance3D
+var energy_fx: Node3D
+var beam_local_length: float = 1.0
 var charge_materials: Array[StandardMaterial3D] = []
 var elapsed: float = CHARGE_START
 var last_phase: int = Phase.CHARGE
@@ -94,6 +97,10 @@ func setup(rig: Node3D) -> bool:
     _build_charge_boxes()
     _build_beam()
     _build_muzzle_flash()
+    energy_fx = RailgunFX.new()
+    energy_fx.name = "RailgunEnergyFX"
+    elevation.add_child(energy_fx)
+    energy_fx.call("setup", MUZZLE_LOCAL_Z, beam_local_length)
     reset()
     ready_to_fire = true
     return true
@@ -171,6 +178,7 @@ func _build_beam() -> void:
     # back to the muzzle's local length, without doubling beam range.
     var local_length: float = (
         MAX_BEAM_RANGE_METERS / maxf(elevation.global_basis.z.length(), 0.01))
+    beam_local_length = local_length
     for part in [outer_beam, inner_beam]:
         part.scale = Vector3(1.0, local_length, 1.0)
         part.position.z = MUZZLE_LOCAL_Z - local_length * 0.5
@@ -207,6 +215,8 @@ func reset() -> void:
     if muzzle_flash != null:
         muzzle_flash.visible = false
     _show_charge(0.0)
+    if energy_fx != null:
+        energy_fx.call("reset_fx")
     _level_mount()
 
 func _phase_at(t: float) -> int:
@@ -395,6 +405,17 @@ func advance(delta: float, player_world: Vector3, active: bool) -> bool:
         muzzle_flash.visible = true
     else:
         muzzle_flash.visible = false
+    # Only the visual FX layer pulses; collision, beam axis and authored
+    # Blockbench rail mesh remain intact. Reset hides every extra effect.
+    if energy_fx != null:
+        energy_fx.call("tick", elapsed, phase == Phase.FLASH,
+            firing, muzzle_flash.scale.x)
+    if firing:
+        var pulse: float = 1.0 + 0.07 * sin(elapsed * 43.0)
+        outer_beam.scale.x = pulse
+        outer_beam.scale.z = pulse
+        inner_beam.scale.x = 1.0 + 0.035 * sin(elapsed * 57.0)
+        inner_beam.scale.z = inner_beam.scale.x
     last_phase = phase
     if firing and hit_cooldown <= 0.0 and (
             _beam_overlaps_player(player_world)):
