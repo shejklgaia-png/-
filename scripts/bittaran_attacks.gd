@@ -92,14 +92,19 @@ const KICK_EXTENSION_START_KEY_SECONDS: float = 0.25
 const KICK_EXTENSION_END_KEY_SECONDS: float = 0.75
 const SWEEP_FRONT_FIRST_STROKE_START_KEY_SECONDS: float = 0.75
 const SWEEP_REAR_FIRST_STROKE_START_KEY_SECONDS: float = 0.25
-# v481: the first lateral sweep's stop/turnover poses in the
-# ORIGINAL Blockbench joint tracks: front t=1.500, rear t=0.875.
-# Damage must cease HALF A SECOND BEFORE those source poses; never
-# extend a still-visible collider into the stopped/returning follow-through.
-# These values are source animation seconds (1x in active source replay).
+# v481: use the FINAL fully stopped original source pose, rather than
+# the early mid-swing rotation keys. Front source joints have the last
+# held sweep pose at 2.00, rear joints land on their final still pose
+# at 1.25. 0.5s BEFORE that pose is the final damage-capable time.
+# Earlier stop candidates (front 1.50 / rear 0.875) eliminated legal
+# physical contact from the mirrored right-front attack in real Godot.
 const SWEEP_HIT_END_BEFORE_STOP_SECONDS: float = 0.50
-const SWEEP_FRONT_SWING_STOP_KEY_SECONDS: float = 1.50
-const SWEEP_REAR_SWING_STOP_KEY_SECONDS: float = 0.875
+const SWEEP_FRONT_SWING_STOP_KEY_SECONDS: float = 2.00
+const SWEEP_REAR_SWING_STOP_KEY_SECONDS: float = 1.25
+# The original floor-scrape clouds have a separately authored duration.
+# NEVER shorten the particle path just because the damaging window ends.
+const SWEEP_FRONT_FX_FIRST_STROKE_END_KEY_SECONDS: float = 1.25
+const SWEEP_REAR_FX_FIRST_STROKE_END_KEY_SECONDS: float = 0.75
 const SWEEP_FRONT_FIRST_STROKE_END_KEY_SECONDS: float = (
     SWEEP_FRONT_SWING_STOP_KEY_SECONDS - SWEEP_HIT_END_BEFORE_STOP_SECONDS)
 const SWEEP_REAR_FIRST_STROKE_END_KEY_SECONDS: float = (
@@ -107,6 +112,16 @@ const SWEEP_REAR_FIRST_STROKE_END_KEY_SECONDS: float = (
 
 ## The rendered LOWER-LEG and FOOT are still the only damage
 ## geometry. These are motion-time gates, not substitute hitboxes.
+
+static func source_sweep_fx_window(attack_id: String,
+        clip_time: float) -> bool:
+    var begin: float = source_hit_start_seconds("sweep", attack_id)
+    var end: float = (
+        SWEEP_REAR_FX_FIRST_STROKE_END_KEY_SECONDS
+        if attack_id.begins_with("leg_r")
+        else SWEEP_FRONT_FX_FIRST_STROKE_END_KEY_SECONDS)
+    return clip_time >= begin - 0.000001 and (
+        clip_time <= end + 0.000001)
 static func source_hit_start_seconds(attack_kind: String,
         attack_id: String) -> float:
     if attack_kind == "kick" and attack_id.begins_with("leg_f"):
@@ -601,6 +616,10 @@ func _advance_original_only(delta: float, player_position: Vector3,
         "tracking": false,
         "hit_window": phase == "strike" and source_hit_window(
             kind, leg_id, clip_time),
+        # FX are source-baked to the FULL original floor-scrape path.
+        # Keep those clouds independent from player-damage hit windows.
+        "sweep_fx_window": phase == "strike" and kind == "sweep" and (
+            source_sweep_fx_window(leg_id, clip_time)),
         "hit_start_seconds": source_hit_start_seconds(kind, leg_id),
         "impact": false
     }
