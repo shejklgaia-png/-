@@ -159,8 +159,15 @@ func _run() -> void:
         return
 
     var baseline_body: Quaternion = body.quaternion
-    var front: Vector3 = elevation.to_global(
-        Vector3(0.0, 0.0, -9.0)) - Vector3.UP * 0.92
+    # WAIT may follow animated Body pitch/roll. The beam begins from a
+    # stabilized world-Y turret, so use that neutral axis for contact tests
+    # instead of assuming the idle barrel is already horizontally level.
+    var neutral_heading: Basis = Basis(Quaternion(
+        Vector3.UP, float(gun.call("_neutral_world_yaw")))).scaled(
+        gun.global_basis.get_scale())
+    var front: Vector3 = (
+        gun.global_position + neutral_heading * Vector3(0.0, 0.0, -9.0)
+        - Vector3.UP * 0.92)
     var side: Vector3 = front + Vector3(8.0, 2.0, 0.0)
     gun.call("reset")
     gun.call("advance", 5.0, side, true)
