@@ -452,6 +452,8 @@ func _fire_next(player_world: Vector3) -> void:
     projectiles.append({
         "node": bolt,
         "position": shot_center,
+        # Preserve the old logical shot path through the physical muzzle.
+        "collision_position": origin,
         "direction": direction,
         "age": 0.0
     })
@@ -465,12 +467,15 @@ func _advance_projectiles(delta: float, player_world: Vector3) -> Array[Vector3]
     for i in range(projectiles.size() - 1, -1, -1):
         var bullet: Dictionary = projectiles[i]
         var old_position: Vector3 = bullet["position"]
+        var collision_position: Vector3 = bullet["collision_position"]
         var direction: Vector3 = bullet["direction"]
-        var destination: Vector3 = old_position + direction * (
-            SHOT_SPEED_MPS * delta)
-        var travel: Vector3 = destination - old_position
-        var closest: Vector3 = old_position + travel * clampf(
-            (player_center - old_position).dot(travel) / maxf(
+        var travel: Vector3 = direction * (SHOT_SPEED_MPS * delta)
+        var destination: Vector3 = old_position + travel
+        # The long visual streak is half a length ahead of its muzzle.
+        # Its swept damage segment uses the original muzzle-origin path,
+        # preserving the existing hit/knockback behavior independently.
+        var closest: Vector3 = collision_position + travel * clampf(
+            (player_center - collision_position).dot(travel) / maxf(
                 travel.length_squared(), 0.000001), 0.0, 1.0)
         var hit: bool = closest.distance_squared_to(player_center) <= (
             PROJECTILE_HIT_RADIUS_METERS * PROJECTILE_HIT_RADIUS_METERS)
@@ -484,6 +489,7 @@ func _advance_projectiles(delta: float, player_world: Vector3) -> Array[Vector3]
                 impacts.append(direction)
         else:
             bullet["position"] = destination
+            bullet["collision_position"] = collision_position + travel
             bullet["age"] = age
             (bullet["node"] as Node3D).global_position = destination
             projectiles[i] = bullet
