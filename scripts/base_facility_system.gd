@@ -1,5 +1,7 @@
 extends Node3D
 const BaseMaterials = preload("res://scripts/sera_base_materials.gd")
+const IconAtlas = preload("res://scripts/sera_item_icons.gd")
+const PrototypeCatalog = preload("res://scripts/sera_prototype_catalog.gd")
 ## Base field architecture: LABO is one building; resources, power and construction
 ## are independent physical machines. NEXUS remains in the parent scene.
 const FACILITY_SPECS = [
@@ -27,6 +29,8 @@ var modal_title: Label
 var modal_body: Label
 var modal_actions: VBoxContainer
 var active_key: String = ""
+var selected_prototype: String = ""
+var prototype_notice: String = ""
 var conversion_mode: int = 0
 var conversion_family: String = "scrap"
 var conversion_batches: int = 1
@@ -397,6 +401,12 @@ func open_facility(key: String) -> void:
             _add_action("Shell開発", "装備の製作・レアリティ昇格・性能開発を担当します。\n装備レベル制はありません。")
             _add_action("OS開発", "新しいアクションや操作・照準などの機能を解放します。\nジャスト系の機能は採用しません。")
             _add_action("追加効果スロット研究", "装備レアリティごとの上限内で、LABO研究によりスロット枠を解放します。\n装着と交換はNEXUSのアセンブルで行います。")
+            var craft_button := Button.new()
+            craft_button.name = "OpenPrototypeCatalog"
+            craft_button.text = "試作装備の製作（7種類）  ›"
+            craft_button.custom_minimum_size.y = 74.0
+            craft_button.pressed.connect(_show_prototype_catalog)
+            modal_actions.add_child(craft_button)
         "SCRAP_COLLECTOR":
             modal_body.text = "回収機\nフィールドの廃材を回収する設備です。"
             _add_action("回収設備の情報", "スクラップの収集設備です。報酬量と回収方法は経済設計が確定してから接続します。")
@@ -413,24 +423,125 @@ func open_facility(key: String) -> void:
             modal_body.text = "建設端末\nフィールド上の設備や床・通路を管理します。"
             _add_action("拠点の発展", "施設を一棟に集約せず、資源・生産・発展設備をフィールド上に独立配置します。\n配置変更と建設コストは今後実装します。")
 
+func _add_item_tile(icon: Texture2D, title: String,
+        key: String, parent: VBoxContainer = null) -> void:
+    # The 19 real matte icons all resolve from one atlas; no placeholder art.
+    if parent == null:
+        parent = modal_actions
+    var row := HBoxContainer.new()
+    row.name = key
+    row.custom_minimum_size.y = 60.0
+    row.add_theme_constant_override("separation", 12)
+    parent.add_child(row)
+    var art := TextureRect.new()
+    art.name = "Icon"
+    art.texture = icon
+    art.custom_minimum_size = Vector2(58, 58)
+    art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+    art.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    row.add_child(art)
+    var text := Label.new()
+    text.name = "Caption"
+    text.text = title
+    text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+    text.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+    text.add_theme_font_size_override("font_size", 16)
+    text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+    row.add_child(text)
+
 func _show_inventory() -> void:
+    page = "inventory"
     _clear_actions()
+    modal_title.text = "資材保管庫｜所持品"
+    modal_body.text = "基本素材12種類と製作した試作装備"
     var inventory: Dictionary = SeraSave.get_material_inventory()
-    var lines: PackedStringArray = [
-        "基本素材｜指定ランクの素材だけが製作レシピに使用できます。"
-    ]
     for family in BaseMaterials.FAMILY_IDS:
-        var row: String = str(BaseMaterials.FAMILY_NAMES[family]) + "："
-        var chunks: PackedStringArray = []
         for tier in BaseMaterials.TIERS:
             var id: String = str(family) + "_" + str(tier)
-            chunks.append(str(BaseMaterials.display_name(id)) +
-                " ×" + str(inventory[id]))
-        row += " / ".join(chunks)
-        lines.append(row)
-    modal_body.text = "\n".join(lines)
+            _add_item_tile(IconAtlas.material_icon(id),
+                "%s　×%s" % [BaseMaterials.display_name(id), str(inventory[id])],
+                "MaterialIcon_" + id)
+    var items: Array = SeraSave.get_owned_prototypes()
+    var heading := Label.new()
+    heading.name = "CraftedStockHeader"
+    heading.text = "── 製作した試作装備：%d件 ──" % items.size()
+    heading.add_theme_font_size_override("font_size", 18)
+    modal_actions.add_child(heading)
+    for item in items:
+        var bp: String = str(item["blueprint"])
+        _add_item_tile(IconAtlas.equipment_icon(bp),
+            PrototypeCatalog.display_name(bp) + "　" + str(item["uid"]),
+            "WarehouseItem_" + str(item["uid"]))
     if SeraSave.active_slot == 0:
-        modal_body.text += "\n※セーブスロット未選択のため所持品はありません。"
+        modal_body.text += "\n※先にNEXUSでセーブデータを作成してください。"
+
+func _show_prototype_catalog() -> void:
+    page = "prototypes"
+    _clear_actions()
+    modal_title.text = "LABO｜試作装備"
+    modal_body.text = (
+        "7種類の試作装備を製作できます。素材消費はありません（操作検証用）。"
+        + "\n完成品は資材保管庫に保存され、NEXUSのカスタマイズから選択できます。")
+    for bp in PrototypeCatalog.ORDER:
+        var entry: Dictionary = PrototypeCatalog.spec(str(bp))
+        var row := HBoxContainer.new()
+        row.name = "PrototypeIcon_" + str(bp)
+        row.custom_minimum_size.y = 76.0
+        modal_actions.add_child(row)
+        var icon := TextureRect.new()
+        icon.name = "Icon"
+        icon.texture = IconAtlas.equipment_icon(str(bp))
+        icon.custom_minimum_size = Vector2(67, 67)
+        icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+        icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        row.add_child(icon)
+        var button := Button.new()
+        button.name = "Choose_" + str(bp)
+        button.text = PrototypeCatalog.display_name(str(bp)) + "  ›"
+        button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+        button.custom_minimum_size.y = 66.0
+        button.add_theme_font_size_override("font_size", 17)
+        button.pressed.connect(_select_prototype.bind(str(bp)))
+        row.add_child(button)
+
+func _select_prototype(blueprint: String) -> void:
+    if not PrototypeCatalog.valid(blueprint):
+        return
+    selected_prototype = blueprint
+    prototype_notice = ""
+    page = "prototype_detail"
+    _render_prototype_detail()
+
+func _craft_selected_prototype() -> void:
+    var uid: String = SeraSave.craft_prototype(selected_prototype)
+    if uid.is_empty():
+        prototype_notice = "製作できません。NEXUSでセーブデータを選択してください。"
+    else:
+        prototype_notice = "保管庫に登録：%s" % uid
+    _render_prototype_detail()
+
+func _render_prototype_detail() -> void:
+    _clear_actions()
+    var spec: Dictionary = PrototypeCatalog.spec(selected_prototype)
+    if spec.is_empty():
+        navigate_back()
+        return
+    modal_title.text = "LABO｜" + PrototypeCatalog.display_name(selected_prototype)
+    modal_body.text = "%s\n対象スロット：%s\n試作のため素材消費なし。" % [
+        spec["description"], spec["slot"]]
+    modal_body.text += "\n3D表示は現行のAモデルを使用します。"
+    if not prototype_notice.is_empty():
+        modal_body.text += "\n" + prototype_notice
+    _add_item_tile(IconAtlas.equipment_icon(selected_prototype),
+        PrototypeCatalog.display_name(selected_prototype),
+        "PrototypePreview_" + selected_prototype)
+    var make := Button.new()
+    make.name = "CraftPrototype"
+    make.text = "試作装備を1個製作して倉庫に登録"
+    make.custom_minimum_size.y = 74.0
+    make.disabled = SeraSave.active_slot == 0
+    make.pressed.connect(_craft_selected_prototype)
+    modal_actions.add_child(make)
 
 func _show_conversion(direction: int) -> void:
     conversion_mode = direction
@@ -445,17 +556,31 @@ func _render_family_page() -> void:
         "精製装置｜素材の選択" if conversion_mode == 1
         else "分解装置｜素材の選択")
     modal_body.text = (
-        "ランクを上げる素材系統を選択してください。"
-        if conversion_mode == 1
-        else "ランクを下げる素材系統を選択してください。")
+        "素材を選んでランクアップしてください。"
+        if conversion_mode == 1 else "素材を選んでランクダウンしてください。")
     for family in BaseMaterials.FAMILY_IDS:
-        var button := Button.new()
-        button.name = "FamilyChoice_" + str(family)
-        button.text = str(BaseMaterials.FAMILY_NAMES[family]) + "  ›"
-        button.custom_minimum_size.y = 62.0
-        button.add_theme_font_size_override("font_size", 20)
-        button.pressed.connect(_select_conversion_family.bind(str(family)))
-        modal_actions.add_child(button)
+        var row := HBoxContainer.new()
+        row.name = "FamilyChoice_" + str(family)
+        row.custom_minimum_size.y = 82.0
+        row.add_theme_constant_override("separation", 2)
+        modal_actions.add_child(row)
+        for tier in BaseMaterials.TIERS:
+            var id: String = str(family) + "_" + str(tier)
+            var icon := TextureRect.new()
+            icon.name = "FamilyTier_" + id
+            icon.texture = IconAtlas.material_icon(id)
+            icon.custom_minimum_size = Vector2(49, 62)
+            icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+            icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+            row.add_child(icon)
+        var open_button := Button.new()
+        open_button.name = "Open_" + str(family)
+        open_button.text = str(BaseMaterials.FAMILY_NAMES[family]) + "  ›"
+        open_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+        open_button.custom_minimum_size.y = 68.0
+        open_button.add_theme_font_size_override("font_size", 18)
+        open_button.pressed.connect(_select_conversion_family.bind(str(family)))
+        row.add_child(open_button)
 
 func _select_conversion_family(family: String) -> void:
     if not BaseMaterials.FAMILY_IDS.has(family) or page != "families":
@@ -533,13 +658,48 @@ func _render_conversion() -> void:
             conversion_family, rank, conversion_mode, conversion_batches)
         var source_id: String = str(plan["input_id"])
         var target_id: String = str(plan["output_id"])
+        # Icon + amount -> arrow -> icon + amount, directly above the action.
+        var flow := HBoxContainer.new()
+        flow.name = "ConvertInputIcon_" + str(rank)
+        flow.custom_minimum_size.y = 71.0
+        flow.add_theme_constant_override("separation", 6)
+        modal_actions.add_child(flow)
+        var input_icon := TextureRect.new()
+        input_icon.name = "Input"
+        input_icon.texture = IconAtlas.material_icon(source_id)
+        input_icon.custom_minimum_size = Vector2(61, 61)
+        input_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+        flow.add_child(input_icon)
+        var consume := Label.new()
+        consume.name = "Consumed"
+        consume.text = "×" + str(plan["input_count"])
+        consume.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+        consume.add_theme_font_size_override("font_size", 16)
+        flow.add_child(consume)
+        var arrow := Label.new()
+        arrow.text = "→"
+        arrow.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+        arrow.add_theme_font_size_override("font_size", 23)
+        flow.add_child(arrow)
+        var output_icon := TextureRect.new()
+        output_icon.name = "Output"
+        output_icon.texture = IconAtlas.material_icon(target_id)
+        output_icon.custom_minimum_size = Vector2(61, 61)
+        output_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+        flow.add_child(output_icon)
+        var gained := Label.new()
+        gained.name = "Received"
+        gained.text = "×" + str(plan["output_count"])
+        gained.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+        gained.add_theme_font_size_override("font_size", 16)
+        flow.add_child(gained)
         var button := Button.new()
         button.name = "ConvertRank_" + str(rank)
-        button.text = "%s ×%d → %s ×%d" % [
-            BaseMaterials.display_name(source_id), int(plan["input_count"]),
-            BaseMaterials.display_name(target_id), int(plan["output_count"])]
+        button.text = "%s → %s　／ 実行" % [
+            BaseMaterials.display_name(source_id),
+            BaseMaterials.display_name(target_id)]
         button.custom_minimum_size.y = 66.0
-        button.add_theme_font_size_override("font_size", 18)
+        button.add_theme_font_size_override("font_size", 16)
         button.disabled = not SeraSave.can_convert_material(
             conversion_family, rank, conversion_mode, conversion_batches)
         button.pressed.connect(_perform_conversion.bind(rank))
@@ -562,6 +722,11 @@ func navigate_back() -> void:
             conversion_notice = ""
             _render_family_page()
         "detail":
+            open_facility(active_key)
+        "prototype_detail":
+            prototype_notice = ""
+            _show_prototype_catalog()
+        "prototypes":
             open_facility(active_key)
         _:
             close_menu()

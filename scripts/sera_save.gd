@@ -6,6 +6,7 @@ const INDEX_PATH: String = ARCHIVE_DIR + "/index.json"
 const EQUIPMENT_SLOTS = ["head", "torso", "legs", "arms", "booster", "weapon_r", "weapon_l"]
 const SCHEMA_VERSION: int = 2
 const BaseMaterials = preload("res://scripts/sera_base_materials.gd")
+const PrototypeCatalog = preload("res://scripts/sera_prototype_catalog.gd")
 
 var active_slot: int = 0
 var active_data: Dictionary = {}
@@ -66,6 +67,13 @@ func _read_slot(slot: int) -> Dictionary:
     # v508 adds an optional inventory without invalidating old profile files.
     data["materials"] = BaseMaterials.sanitize_inventory(
         data.get("materials", {}))
+    # Optional v511 crafted inventory: preserve legacy schema v2 and gear.
+    data["crafted_items"] = _sanitize_crafted_items(
+        data.get("crafted_items", []))
+    data["craft_serials"] = _sanitize_craft_serials(
+        data.get("craft_serials", {}), data["crafted_items"])
+    data["equipped_crafted"] = _sanitize_crafted_selection(
+        data.get("equipped_crafted", {}), data["crafted_items"])
     return data
 
 func _sanitize_equipment(candidate: Variant, legacy: bool = false) -> Dictionary:
@@ -87,6 +95,52 @@ func _sanitize_equipment(candidate: Variant, legacy: bool = false) -> Dictionary
         elif old_legs == "C" or old_feet == "C":
             clean["legs"] = "D"
     return clean
+
+func _sanitize_crafted_items(raw: Variant) -> Array:
+    var clean: Array = []
+    var found: Dictionary = {}
+    if not (raw is Array):
+        return clean
+    for item in raw:
+        if not (item is Dictionary):
+            continue
+        var blueprint: String = str(item.get("blueprint", ""))
+        var uid: String = str(item.get("uid", ""))
+        if not PrototypeCatalog.valid(blueprint) or (
+                not uid.begins_with(blueprint + "-")):
+            continue
+        var suffix: String = uid.substr(blueprint.length() + 1)
+        if not suffix.is_valid_int() or int(suffix) <= 0 or (
+                found.has(uid)):
+            continue
+        found[uid] = true
+        clean.append({"uid": uid, "blueprint": blueprint,
+            "slot": str(PrototypeCatalog.spec(blueprint)["slot"])})
+    return clean
+
+func _sanitize_craft_serials(raw: Variant, items: Array) -> Dictionary:
+    var serials: Dictionary = {}
+    for blueprint in PrototypeCatalog.ORDER:
+        serials[blueprint] = maxi(0, int(raw.get(blueprint, 0))) \
+            if raw is Dictionary else 0
+    for item in items:
+        var bp: String = str(item["blueprint"])
+        var uid: String = str(item["uid"])
+        serials[bp] = maxi(int(serials[bp]),
+            int(uid.substr(bp.length() + 1)))
+    return serials
+
+func _sanitize_crafted_selection(raw: Variant, items: Array) -> Dictionary:
+    var selected: Dictionary = {}
+    if not (raw is Dictionary):
+        return selected
+    for slot in EQUIPMENT_SLOTS:
+        var uid: String = str(raw.get(slot, ""))
+        for item in items:
+            if str(item["uid"]) == uid and str(item["slot"]) == slot:
+                selected[slot] = uid
+                break
+    return selected
 
 func _default_stats() -> Dictionary:
     return {
@@ -134,7 +188,9 @@ func _new_document(slot: int) -> Dictionary:
         "last_location": "NEXUS", "tutorial_completed": false,
         "training_visited": false, "play_seconds": 0.0,
         "stats": _default_stats(), "equipment": gear,
-        "materials": BaseMaterials.empty_inventory()
+        "materials": BaseMaterials.empty_inventory(),
+        "crafted_items": [], "craft_serials": {},
+        "equipped_crafted": {}
     }
 
 func get_slot(slot: int) -> Dictionary:
@@ -193,6 +249,94 @@ func award_materials(rewards: Dictionary) -> bool:
         inventory[material_id] = int(inventory[material_id]) + int(amount)
     var updated: Dictionary = active_data.duplicate(true)
     updated["materials"] = inventory
+    updated["updated_at"] = _timestamp()
+    if not _write_json(_slot_path(active_slot), updated):
+        return false
+    active_data = updated
+    return true
+
+func get_owned_prototypes(slot: String = "") -> Array:
+    var all_items: Array = _sanitize_crafted_items(
+        active_data.get("crafted_items", []))
+    if slot.is_empty():
+        return all_items.duplicate(true)
+    var result: Array = []
+    for item in all_items:
+        if str(item["slot"]) == slot:
+            result.append(item.duplicate(true))
+    return result
+
+func get_equipped_prototype(slot: String) -> String:
+    if not EQUIPMENT_SLOTS.has(slot):
+        return ""
+    var chosen: Dictionary = _sanitize_crafted_selection(
+        active_data.get("equipped_crafted", {}), get_owned_prototypes())
+    return str(chosen.get(slot, ""))
+
+func craft_prototype(blueprint: String) -> String:
+    # v511 is a testing-only, clearly marked no-material-cost craft. This
+    # never grants materials or invents permanent economic recipes.
+    if not _valid_slot(active_slot) or active_data.is_empty() or (
+            not PrototypeCatalog.valid(blueprint)):
+        return ""
+    var items: Array = get_owned_prototypes()
+    var serials: Dictionary = _sanitize_craft_serials(
+        active_data.get("craft_serials", {}), items)
+    var number: int = int(serials.get(blueprint, 0)) + 1
+    if number <= 0 or number >= 2147483647:
+        return ""
+    var uid: String = "%s-%04d" % [blueprint, number]
+    for item in items:
+        if str(item["uid"]) == uid:
+            return ""
+    items.append({"uid": uid, "blueprint": blueprint,
+        "slot": str(PrototypeCatalog.spec(blueprint)["slot"])})
+    serials[blueprint] = number
+    var updated: Dictionary = active_data.duplicate(true)
+    updated["crafted_items"] = items
+    updated["craft_serials"] = serials
+    updated["updated_at"] = _timestamp()
+    if not _write_json(_slot_path(active_slot), updated):
+        return ""
+    active_data = updated
+    return uid
+
+func equip_prototype(slot: String, uid: String) -> bool:
+    if not _valid_slot(active_slot) or active_data.is_empty() or (
+            not EQUIPMENT_SLOTS.has(slot)):
+        return false
+    var owned: Array = get_owned_prototypes(slot)
+    if not owned.any(func(item: Dictionary) -> bool:
+            return str(item["uid"]) == uid):
+        return false
+    var updated: Dictionary = active_data.duplicate(true)
+    var equipped: Dictionary = _sanitize_crafted_selection(
+        updated.get("equipped_crafted", {}), get_owned_prototypes())
+    equipped[slot] = uid
+    updated["equipped_crafted"] = equipped
+    # Until a unique authored 3D part exists, use its declared real rig set.
+    # Persist the same selection for NEXUS and for the playable SERA rig.
+    var blueprint: String = uid.get_slice("-", 0)
+    var rig_set: String = str(PrototypeCatalog.spec(blueprint).get("rig_set", "A"))
+    var gear: Dictionary = _sanitize_equipment(updated.get("equipment", {}))
+    gear[slot] = rig_set
+    updated["equipment"] = gear
+    updated["updated_at"] = _timestamp()
+    if not _write_json(_slot_path(active_slot), updated):
+        return false
+    active_data = updated
+    working_equipment[slot] = rig_set
+    return true
+
+func clear_equipped_prototype(slot: String) -> bool:
+    if not _valid_slot(active_slot) or active_data.is_empty() or (
+            not EQUIPMENT_SLOTS.has(slot)):
+        return false
+    var updated: Dictionary = active_data.duplicate(true)
+    var equipped: Dictionary = _sanitize_crafted_selection(
+        updated.get("equipped_crafted", {}), get_owned_prototypes())
+    equipped.erase(slot)
+    updated["equipped_crafted"] = equipped
     updated["updated_at"] = _timestamp()
     if not _write_json(_slot_path(active_slot), updated):
         return false
@@ -273,6 +417,12 @@ func save_data(slot: int, equipment: Dictionary) -> bool:
     current["equipment"] = _sanitize_equipment(equipment)
     current["materials"] = BaseMaterials.sanitize_inventory(
         current.get("materials", {}))
+    current["crafted_items"] = _sanitize_crafted_items(
+        current.get("crafted_items", []))
+    current["craft_serials"] = _sanitize_craft_serials(
+        current.get("craft_serials", {}), current["crafted_items"])
+    current["equipped_crafted"] = _sanitize_crafted_selection(
+        current.get("equipped_crafted", {}), current["crafted_items"])
     if not _write_json(_slot_path(slot), current):
         return false
     if not _write_index(slot):
