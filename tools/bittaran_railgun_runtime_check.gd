@@ -1,7 +1,7 @@
 extends SceneTree
 ## Live regression: 10s stationary filling, then smooth uncapped tracking
 ## once during blue-sphere growth/full, then 0.7x capped tracking at
-## t=11 sphere shrink and t=12 laser, with >1.5m live-beam catch-up,
+## t=11 sphere shrink and t=12 laser, with 0-2.5m eased catch-up,
 ## multi-hit damage
 ## (no hit-count cap), doubled boss movement and 0.7s neutral return.
 const GUN = preload("res://scripts/bittaran_railgun.gd")
@@ -60,9 +60,9 @@ func _run() -> void:
         _fail("fast aim must begin only when the sphere charge begins")
         return
     if not _near(GUN.BEAM_TRACK_SPEED_MULTIPLIER, 0.70) or (
-            not _near(GUN.BEAM_GROUND_GAP_METERS, 1.50)) or (
+            not _near(GUN.BEAM_GROUND_GAP_METERS, 2.50)) or (
             not _near(GUN.BEAM_HIT_INTERVAL_SECONDS, 0.20)):
-        _fail("beam 0.7x, 1.5m ground catch-up and repeat pulse interval changed")
+        _fail("beam 0.7x, 0..2.5m eased ground catch-up and repeat pulse interval changed")
         return
     if not _near(BATTLE.LASER_DAMAGE_MULTIPLIER, 0.60, 0.0001):
         _fail("only Bittaran laser must have 60% attack strength")
@@ -315,9 +315,50 @@ func _run() -> void:
         _fail("new turret implementation modified original Body pose")
         return
 
-    # At the beam start, on-axis tracking is 70% of the old speed.
-    # When the projected ground-ray gap exceeds 1.5m, accelerate
-    # toward the measured player travel speed (without a hard cap).
+    # The baseline is still 0.7x on the projected beam axis. Offset
+    # distance 0..2.5m continuously blends to full catch-up (smoothstep),
+    # not a sudden acceleration when crossing a threshold.
+    if not _near(float(gun.call("_beam_catchup_weight", 0.0)),
+            0.0, 0.0001) or (
+            not _near(float(gun.call("_beam_catchup_weight", 0.625)),
+                0.15625, 0.0001)) or (
+            not _near(float(gun.call("_beam_catchup_weight", 1.25)),
+                0.5, 0.0001)) or (
+            not _near(float(gun.call("_beam_catchup_weight", 1.875)),
+                0.84375, 0.0001)) or (
+            not _near(float(gun.call("_beam_catchup_weight", 2.5)),
+                1.0, 0.0001)) or (
+            not _near(float(gun.call("_beam_catchup_weight", 4.0)),
+                1.0, 0.0001)):
+        _fail("0..2.5m smoothstep acceleration weight is not continuous")
+        return
+    var baseline_test: float = 20.0
+    var baseline_target: float = float(gun.call(
+        "_beam_target_turn_rate", 0.0, baseline_test, 10.0, 10.0))
+    var quarter_target: float = float(gun.call(
+        "_beam_target_turn_rate", 0.625, baseline_test, 10.0, 10.0))
+    var mid_target: float = float(gun.call(
+        "_beam_target_turn_rate", 1.25, baseline_test, 10.0, 10.0))
+    var three_quarter_target: float = float(gun.call(
+        "_beam_target_turn_rate", 1.875, baseline_test, 10.0, 10.0))
+    var full_target: float = float(gun.call(
+        "_beam_target_turn_rate", 2.5, baseline_test, 10.0, 10.0))
+    if not _near(baseline_target, baseline_test, 0.0001) or not (
+            baseline_target < quarter_target and
+            quarter_target < mid_target and
+            mid_target < three_quarter_target and
+            three_quarter_target < full_target):
+        _fail("beam turn rate must grow smoothly across the entire 0..2.5m")
+        return
+    var just_before: float = float(gun.call(
+        "_beam_target_turn_rate", 2.49, baseline_test, 10.0, 10.0))
+    var just_after: float = float(gun.call(
+        "_beam_target_turn_rate", 2.51, baseline_test, 10.0, 10.0))
+    if absf(full_target - just_before) > 0.20 or (
+            absf(just_after - full_target) > 0.20):
+        _fail("crossing 2.5m introduced a discontinuous acceleration spike")
+        return
+
     gun.call("reset")
     gun.set("elapsed", GUN.BEAM_START + 0.10)
     var beam_origin: Vector3 = elevation.to_global(
@@ -328,35 +369,35 @@ func _run() -> void:
     gun.call("advance", DT, on_axis, true)
     var normal_rate: float = float(gun.call("_tracking_turn_rate", on_axis))
     var slowed_rate: float = float(gun.get("beam_turn_rate_deg_per_sec"))
-    if float(gun.get("beam_ground_gap_meters")) > 1.50 or (
+    if float(gun.get("beam_ground_gap_meters")) > 0.05 or (
             not _near(slowed_rate, normal_rate * 0.7, 0.05)):
-        _fail("laser normal follow speed must be 0.7x within the 1.5m trace")
+        _fail("laser on-axis follow speed must remain at 0.7x baseline")
         return
-    # Even a fast 1m sidestep must NOT turn on catch-up: the switch is
-    # explicitly at 1.5m, not the previous 0.5m threshold.
+    # A fast 1m sidestep now enables PARTIAL catch-up, but never the
+    # full 2.5m multiplier. It is not a flat 0.7x interval.
     var near_gap_target: Vector3 = on_axis + Vector3(1.0, 0.0, 0.0)
     gun.call("advance", DT, near_gap_target, true)
     var near_gap: float = float(gun.get("beam_ground_gap_meters"))
     if near_gap >= GUN.BEAM_GROUND_GAP_METERS or (
-            float(gun.get("beam_turn_rate_deg_per_sec")) >
-                slowed_rate + 0.5):
-        _fail("laser accelerated inside the new 1.5m ground-gap radius")
+            float(gun.get("beam_turn_rate_deg_per_sec")) <=
+                slowed_rate + 0.05):
+        _fail("laser must partially accelerate at 1m instead of step at 2.5m")
         return
     var lateral: Vector3 = near_gap_target
     for frame in range(12):
         lateral.x += 0.30
         gun.call("advance", DT, lateral, true)
-    if float(gun.get("beam_ground_gap_meters")) <= 1.50 or (
+    if float(gun.get("beam_ground_gap_meters")) <= 2.5 or (
             float(gun.get("beam_turn_rate_deg_per_sec")) <=
                 slowed_rate + 5.0):
-        _fail("laser did not accelerate to follow a moving target >1.5m away")
+        _fail("laser must reach full catch-up after 2.5m separation")
         return
     gun.call("reset")
     gun.set("elapsed", GUN.BEAM_START + 0.10)
     gun.call("advance", DT, on_axis, true)
     gun.call("advance", DT, on_axis + Vector3(2, 0, 0), true)
     if float(gun.get("beam_turn_rate_deg_per_sec")) <= slowed_rate:
-        _fail("laser did not adapt to faster actual player displacement")
+        _fail("laser did not adapt smoothly to actual player displacement")
         return
 
     # Every genuine overlap may hit again after the time-based interval.
@@ -410,7 +451,7 @@ func _run() -> void:
     var after_world_yaw: float = float(
         gun.get("tracked_world_yaw"))
     rig.rotation.y = saved_root_yaw
-    # Firing uses the live 0.7x / >0.5m catch-up rate, not the old
+    # Firing uses the live 0.7x / 0..2.5m catch-up blend, not the old
     # unscaled constant. World-root rotation may NEVER add extra yaw.
     var cap: float = float(gun.get("beam_turn_rate_deg_per_sec"))
     if absf(rad_to_deg(angle_difference(
@@ -546,7 +587,7 @@ func _run() -> void:
         "direct_2s_beam_from_t12=true ",
         "0.7s_smooth_sphere_entry=true 0.7s_immediate_return=true ",
         "zero_prefire_hold=true zero_damage_arm_delay=true ",
-        "beam_0_7x_baseline=true ground_gap_1_5m_follow=true ",
+        "beam_0_7x_baseline=true ground_gap_2_5m_eased_follow=true ",
         "player_velocity_catchup=true laser_60pct_power=true ",
         "normal_projectiles_unchanged=true unlimited_repeat_hits=true ",
         "repeat_hit_0_2s=true physical_knockback_preserved=true ",
