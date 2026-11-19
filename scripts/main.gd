@@ -4501,7 +4501,7 @@ func _physics_process(delta: float) -> void:
         guard_break_remaining = COMBAT_TIMERS.remaining_after_delta(guard_break_remaining, delta)
     if damage_reaction_active:
         _advance_damage_knockback(delta)
-        if not laser_full_hit_lock_active and guard_break_remaining <= 0.0 and down_remaining <= 0.0 and damage_knockback_elapsed >= DAMAGE_KNOCKBACK_DURATION * float(part_stats.get("damage_time_mult", 1.0)) and rig != null and bool(rig.call("damage_finished")):
+        if guard_break_remaining <= 0.0 and down_remaining <= 0.0 and (not laser_full_hit_lock_active) and damage_knockback_elapsed >= DAMAGE_KNOCKBACK_DURATION * float(part_stats.get("damage_time_mult", 1.0)) and rig != null and bool(rig.call("damage_finished")):
             damage_reaction_active = false
             damage_knockback_direction = Vector3.ZERO
             rig.call("finish_damage", gesture_active and direction_input.length_squared() > 0.000001)
