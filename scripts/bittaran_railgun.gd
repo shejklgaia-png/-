@@ -16,7 +16,7 @@ const FLASH_SECONDS: float = 2.0
 const FLASH_START: float = PERIOD_SECONDS - FLASH_SECONDS
 const FLASH_END: float = PERIOD_SECONDS
 const FLASH_GROW_SECONDS: float = 0.2
-const FLASH_SHRINK_SECONDS: float = 0.2
+const FLASH_SHRINK_SECONDS: float = 1.0
 const TRACK_EASE_IN_SECONDS: float = FLASH_SECONDS
 # Deliberately slower than the standard 6.09375 m/s boost crossing a
 # ~8 m radius (43.6 degrees/s). A boost strafe can outrun the beam.
@@ -368,8 +368,9 @@ func advance(delta: float, player_world: Vector3, active: bool) -> bool:
     outer_beam.visible = firing
     inner_beam.visible = firing
     if phase == Phase.FLASH:
-        # Remain visible for the complete two-second charge, rising softly
-        # over 0.2s, glowing steadily, then shrinking in the last 0.2s.
+        # Remain visible for the full two-second charge, rising softly
+        # during the first 0.2s, holding until the halfway point and
+        # shrinking smoothly over the FINAL full second before firing.
         var age: float = elapsed - FLASH_START
         var grow: float = clampf(age / FLASH_GROW_SECONDS, 0.0, 1.0)
         var grow_eased: float = grow * grow * (3.0 - 2.0 * grow)
