@@ -1715,10 +1715,10 @@ func _physics_process(delta: float) -> void:
 func _tick_bittaran_railgun(delta: float) -> void:
     if bittaran_railgun == null or player == null:
         return
-    # The beam may damage SERA just ONCE per shot. Genuine first contact
-    # triggers the normal knockback reaction, but the remaining beam has
-    # no follow-up damage or forced hitstun. Unhit BOOST is still dodgeable.
-    # Player KO leaves the current beam VFX visible until its natural end.
+    # Repeated overlapping beam pulses may damage SERA throughout the 2s
+    # illumination; the railgun owns a frame-rate-independent contact timer.
+    # Normal Damageknock cannot restart mid-animation (main.gd contract).
+    # On player KO the beam VFX persists until its authored endpoint.
     var active: bool = target_hp > 0.0
     var boost_speed_mps: float = (
         float(part_stats.get("boost_speed", 6.09375)) *
@@ -1733,8 +1733,8 @@ func _tick_bittaran_railgun(delta: float) -> void:
             player.global_position - bittaran_railgun.global_position)
         if incoming.length_squared() < 0.000001:
             incoming = Vector3.FORWARD
-        # Keep normal guard/shield/HP and 1.2m physical knockback.
-        # The gun guarantees there is no second damage event this shot.
+        # Keep normal guard/shield/HP and physical knockback; no cap on
+        # the number of real contacts in a single beam.
         _on_enemy_projectile_hit(player.global_position,
             incoming.normalized(), true, 0)
 
