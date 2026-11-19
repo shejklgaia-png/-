@@ -106,12 +106,7 @@ func _sanitize_crafted_items(raw: Variant) -> Array:
             continue
         var blueprint: String = str(item.get("blueprint", ""))
         var uid: String = str(item.get("uid", ""))
-        if not PrototypeCatalog.valid(blueprint) or (
-                not uid.begins_with(blueprint + "-")):
-            continue
-        var suffix: String = uid.substr(blueprint.length() + 1)
-        if not suffix.is_valid_int() or int(suffix) <= 0 or (
-                found.has(uid)):
+        if not PrototypeCatalog.valid_uid(uid, blueprint) or found.has(uid):
             continue
         found[uid] = true
         clean.append({"uid": uid, "blueprint": blueprint,
@@ -283,9 +278,9 @@ func craft_prototype(blueprint: String) -> String:
     var serials: Dictionary = _sanitize_craft_serials(
         active_data.get("craft_serials", {}), items)
     var number: int = int(serials.get(blueprint, 0)) + 1
-    if number <= 0 or number >= 2147483647:
+    var uid: String = PrototypeCatalog.uid_for(blueprint, number)
+    if uid.is_empty():
         return ""
-    var uid: String = "%s-%04d" % [blueprint, number]
     for item in items:
         if str(item["uid"]) == uid:
             return ""
