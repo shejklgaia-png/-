@@ -62,6 +62,7 @@ func setup(muzzle_local_z: float, local_beam_length: float) -> void:
 
     orb_mesh = ImmediateMesh.new()
     orb_arcs = _part("RailgunOrbLightning", orb_mesh, _glow_material())
+    orb_arcs.position.z = muzzle_z
 
     var flow_shape := CylinderMesh.new()
     flow_shape.top_radius = 0.275
@@ -131,7 +132,7 @@ func _orb_position(index: int, j: int, seed: int) -> Vector3:
     return Vector3(
         radius * sin(theta) * cos(phi),
         radius * cos(theta),
-        muzzle_z + radius * sin(theta) * sin(phi))
+        radius * sin(theta) * sin(phi))
 
 
 func _rebuild_orb(seed: int) -> void:
