@@ -1,7 +1,7 @@
 ## 2026-11-19 — SERA v496: 四脚砲台・攻撃中停止・ダウン中全武装停止
 - **CI事前確認**：現行v495、`.github/workflows/sera-model-policy.yml`、`tools/sera_ci_manifest.txt`、`docs/SERA_ACTIVE_CI_POLICY_ja.md`、`tools/bittaran_railgun_runtime_check.gd`、`tools/bittaran_world_yaw_independence_runtime_check.gd`、Bittaran実シーン攻撃／ダウン検査を確認。
 - **本体変更より先に検証追加**：`tools/bittaran_leg_turrets_runtime_check.gd`を追加・manifestへ登録。各脚の実関節と半球＋筒、1.2秒共通発射間隔、最短距離脚からの一巡射撃、攻撃中の停止、ダウン予備動作／ダウン姿勢の砲台＆既存レーザー停止を独立した期待値から確認。旧レールガン追尾・接触テストは維持。
-- **追加実装**：`scripts/bittaran_leg_turrets.gd`で実際の前後4本の上肢骨に砲台を追従配置。17m/sの光弾を発射し、命中時は既存のガード／シールド／HP／ノックバック経路へ28%ダメージ。全砲台共通1.2秒の射撃インターバルで距離順に巡回（次の一巡で順番再計算）。
+- **追加実装**：`scripts/bittaran_leg_turrets.gd`で実際の前後4本の上肢骨をワールド座標で追従する砲台を別ノードとして配置。IKが再帰的に調べる脚メッシュへ砲台形状を混入させない。17m/sの光弾を発射し、命中時は既存のガード／シールド／HP／ノックバック経路へ28%ダメージ。全砲台共通1.2秒の射撃インターバルで距離順に巡回（次の一巡で順番再計算）。
 - **停止処理**：`bittaran_battle.gd`で攻撃準備／攻撃中は四脚砲台を停止・弾を消去。部位破壊予備動作～物理ダウン／起き上がり中は両武装を即停止。既存レールガンは`advance(active=false)`のリセットを使用し青球／レーザー／音を消す。再起動時は射撃待ちを最初から開始。
 - **不変条件**：本体モデル原本、IK、脚攻撃モーション、背部レールガンの追尾速度と既存10+2+2+0.7秒シーケンス、既存HitboxとNEXUSのルールは維持。
 - **検証・実機**：GitHub mainへのマージ後に登録CI全件を実施。Godot実機では四砲身の表示／足への追従、距離順、射撃の視認性、停止直後のレーザーの消灯と再開を要確認。
