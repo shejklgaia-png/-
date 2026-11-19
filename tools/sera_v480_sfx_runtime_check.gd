@@ -104,7 +104,7 @@ func _run() -> void:
             loop.get_playback_position() + 0.02 < start_position):
         _fail("continuous laser playback restarted during active emission")
         return
-    gun.call("advance", 1.535, target, true)
+    gun.call("advance", 1.57, target, true)
     if not loop.playing or float(
             audio.get("laser_fade_remaining")) <= 0.0:
         _fail("laser loop must fade on emission end, not hard-stop")
