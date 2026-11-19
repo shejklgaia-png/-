@@ -2015,6 +2015,28 @@ func _on_foot_contact(side: String) -> void:
     footstep_audio.pitch_scale = 0.96 if side == "L" else 1.03
     footstep_audio.play()
 
+func _load_player_footstep_audio() -> AudioStream:
+    # The supplied metal-impact sample replaces the synthetic footstep.
+    # Android can open a raw synced Ogg before .godot import completes.
+    const FOOTSTEP_PATH: String = "res://assets/sera_player_footstep_v480.ogg"
+    if ResourceLoader.exists(FOOTSTEP_PATH):
+        var stream: AudioStream = ResourceLoader.load(
+            FOOTSTEP_PATH) as AudioStream
+        if stream != null:
+            return stream
+    if FileAccess.file_exists(FOOTSTEP_PATH):
+        var bytes: PackedByteArray = FileAccess.get_file_as_bytes(
+            FOOTSTEP_PATH)
+        if not bytes.is_empty():
+            var ogg: AudioStreamOggVorbis = (
+                AudioStreamOggVorbis.load_from_buffer(bytes))
+            if ogg != null:
+                return ogg
+    push_error("SERA_FOOTSTEP_SFX_MISSING: "
+        + "player-supplied impact Ogg unavailable; check Android GitSync")
+    return _make_mechanical_footstep()
+
+
 func _make_mechanical_footstep() -> AudioStreamWAV:
     # Original short metallic sole impact; 16-bit PCM generated once at startup.
     # No copyrighted sound sample and no continuous CPU audio synthesizer.
@@ -2047,8 +2069,8 @@ func _build_hit_effects() -> void:
     add_child(thruster_audio)
     footstep_audio = AudioStreamPlayer.new()
     footstep_audio.name = "GroundFootContact"
-    footstep_audio.stream = _make_mechanical_footstep()
-    footstep_audio.volume_db = -11.0
+    footstep_audio.stream = _load_player_footstep_audio()
+    footstep_audio.volume_db = -7.0
     footstep_audio.max_polyphony = 3
     add_child(footstep_audio)
     # v95: All three confirmed combo hits use the same decoded user-provided sound.
