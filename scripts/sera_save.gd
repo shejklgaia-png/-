@@ -5,6 +5,7 @@ const ARCHIVE_DIR: String = "user://sera_archive"
 const INDEX_PATH: String = ARCHIVE_DIR + "/index.json"
 const EQUIPMENT_SLOTS = ["head", "torso", "legs", "arms", "booster", "weapon_r", "weapon_l"]
 const SCHEMA_VERSION: int = 2
+const BaseMaterials = preload("res://scripts/sera_base_materials.gd")
 
 var active_slot: int = 0
 var active_data: Dictionary = {}
@@ -62,6 +63,9 @@ func _read_slot(slot: int) -> Dictionary:
     data["training_visited"] = bool(data.get("training_visited",
         float(data["training_seconds"]) > 0.0))
     data["stats"] = _sanitize_stats(data.get("stats", {}))
+    # v508 adds an optional inventory without invalidating old profile files.
+    data["materials"] = BaseMaterials.sanitize_inventory(
+        data.get("materials", {}))
     return data
 
 func _sanitize_equipment(candidate: Variant, legacy: bool = false) -> Dictionary:
@@ -129,7 +133,8 @@ func _new_document(slot: int) -> Dictionary:
         "created_at": now, "updated_at": now, "training_seconds": 0.0,
         "last_location": "NEXUS", "tutorial_completed": false,
         "training_visited": false, "play_seconds": 0.0,
-        "stats": _default_stats(), "equipment": gear
+        "stats": _default_stats(), "equipment": gear,
+        "materials": BaseMaterials.empty_inventory()
     }
 
 func get_slot(slot: int) -> Dictionary:
@@ -140,6 +145,59 @@ func get_active_data() -> Dictionary:
 
 func get_working_equipment() -> Dictionary:
     return working_equipment.duplicate(true)
+
+func get_material_inventory() -> Dictionary:
+    # A missing legacy field is treated as an empty bag, never free supplies.
+    return BaseMaterials.sanitize_inventory(active_data.get("materials", {}))
+
+func can_convert_material(family: String, rank: int,
+        direction: int, batches: int = 1) -> bool:
+    if active_slot <= 0:
+        return false
+    var conversion: Dictionary = BaseMaterials.convert(
+        get_material_inventory(), family, rank, direction, batches)
+    return bool(conversion.get("ok", false))
+
+func convert_material(family: String, rank: int,
+        direction: int, batches: int = 1) -> bool:
+    # Atomic transaction: reject an empty slot, invalid recipe, shortage or
+    # failed file write without mutating in-memory resources. Save first.
+    if not _valid_slot(active_slot) or active_data.is_empty():
+        return false
+    var conversion: Dictionary = BaseMaterials.convert(
+        get_material_inventory(), family, rank, direction, batches)
+    if not bool(conversion.get("ok", false)):
+        return false
+    var updated: Dictionary = active_data.duplicate(true)
+    updated["materials"] = conversion["inventory"]
+    updated["updated_at"] = _timestamp()
+    if not _write_json(_slot_path(active_slot), updated):
+        return false
+    active_data = updated
+    return true
+
+func award_materials(rewards: Dictionary) -> bool:
+    # Explicit future boss-reward integration point; does not mint rewards
+    # on a timer, at boot or from tapping equipment. Quality IDs are fixed.
+    if not _valid_slot(active_slot) or active_data.is_empty() or rewards.is_empty():
+        return false
+    var inventory: Dictionary = get_material_inventory()
+    for raw_id in rewards.keys():
+        var material_id: String = str(raw_id)
+        var amount: Variant = rewards[raw_id]
+        if not BaseMaterials.MATERIAL_NAMES.has(material_id) or (
+                not (amount is int)) or amount <= 0:
+            return false
+        if int(inventory[material_id]) > 2147483647 - int(amount):
+            return false
+        inventory[material_id] = int(inventory[material_id]) + int(amount)
+    var updated: Dictionary = active_data.duplicate(true)
+    updated["materials"] = inventory
+    updated["updated_at"] = _timestamp()
+    if not _write_json(_slot_path(active_slot), updated):
+        return false
+    active_data = updated
+    return true
 
 func get_active_stats() -> Dictionary:
     return _sanitize_stats(active_data.get("stats", {}))
@@ -213,6 +271,8 @@ func save_data(slot: int, equipment: Dictionary) -> bool:
     current["slot"] = slot
     current["updated_at"] = _timestamp()
     current["equipment"] = _sanitize_equipment(equipment)
+    current["materials"] = BaseMaterials.sanitize_inventory(
+        current.get("materials", {}))
     if not _write_json(_slot_path(slot), current):
         return false
     if not _write_index(slot):

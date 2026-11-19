@@ -1,4 +1,5 @@
 extends Node3D
+const BaseMaterials = preload("res://scripts/sera_base_materials.gd")
 ## Base field architecture: LABO is one building; resources, power and construction
 ## are independent physical machines. NEXUS remains in the parent scene.
 const FACILITY_SPECS = [
@@ -6,9 +7,9 @@ const FACILITY_SPECS = [
         "size": Vector3(4.25, 4.1, 4.35), "subtitle": "Shell / OS / スロット開発"},
     {"id": "SCRAP_COLLECTOR", "name": "回収機", "at": Vector3(-5.10, 0.0, 7.00),
         "size": Vector3(2.35, 2.55, 2.25), "subtitle": "スクラップ収集"},
-    {"id": "SMELTER", "name": "精製炉", "at": Vector3(-5.40, 0.0, -4.70),
+    {"id": "SMELTER", "name": "精製装置", "at": Vector3(-5.40, 0.0, -4.70),
         "size": Vector3(2.40, 2.85, 2.40), "subtitle": "素材の精製"},
-    {"id": "RECYCLER", "name": "リサイクラー", "at": Vector3(5.30, 0.0, -3.50),
+    {"id": "RECYCLER", "name": "分解装置", "at": Vector3(5.30, 0.0, -3.50),
         "size": Vector3(2.45, 2.55, 2.35), "subtitle": "不要素材の分解"},
     {"id": "GENERATOR", "name": "発電機", "at": Vector3(4.70, 0.0, 6.30),
         "size": Vector3(2.40, 3.10, 2.25), "subtitle": "拠点電力"},
@@ -26,6 +27,10 @@ var modal_title: Label
 var modal_body: Label
 var modal_actions: VBoxContainer
 var active_key: String = ""
+var conversion_mode: int = 0
+var conversion_family: String = "scrap"
+var conversion_batches: int = 1
+var conversion_notice: String = ""
 var generator_rotor: Node3D
 
 func _ready() -> void:
@@ -371,20 +376,137 @@ func open_facility(key: String) -> void:
             modal_body.text = "回収機\nフィールドの廃材を回収する設備です。"
             _add_action("回収設備の情報", "スクラップの収集設備です。報酬量と回収方法は経済設計が確定してから接続します。")
         "SMELTER":
-            modal_body.text = "精製炉\n基礎資源を装備・建築用の素材に加工します。"
-            _add_action("精製工程", "素材の変換比率と製作時間は未確定です。仮の消費や生産を発生させません。")
+            _show_conversion(1)
         "RECYCLER":
-            modal_body.text = "リサイクラー\n不要になった資材・パーツを分解する設備です。"
-            _add_action("分解工程", "装備・資材の再利用を担当します。確定前の装備を消費する処理は追加しません。")
+            _show_conversion(-1)
         "GENERATOR":
             modal_body.text = "発電機\n生産設備と拠点施設に電力を供給します。"
             _add_action("稼働状況", "発電機は稼働演出中です。電力容量・消費量は今後のバランス設計で確定します。")
         "STORAGE":
-            modal_body.text = "資材保管庫\n戦闘報酬と設備で得た資材の集積場所です。"
-            _add_action("保管の仕組み", "資材の種類・上限が確定した時点で所持数と連動させます。")
+            _show_inventory()
         "BUILD_TERMINAL":
             modal_body.text = "建設端末\nフィールド上の設備や床・通路を管理します。"
             _add_action("拠点の発展", "施設を一棟に集約せず、資源・生産・発展設備をフィールド上に独立配置します。\n配置変更と建設コストは今後実装します。")
+
+func _show_inventory() -> void:
+    _clear_actions()
+    var inventory: Dictionary = SeraSave.get_material_inventory()
+    var lines: PackedStringArray = [
+        "基本素材｜指定ランクの素材だけが製作レシピに使用できます。"
+    ]
+    for family in BaseMaterials.FAMILY_IDS:
+        var row: String = str(BaseMaterials.FAMILY_NAMES[family]) + "："
+        var chunks: PackedStringArray = []
+        for tier in BaseMaterials.TIERS:
+            var id: String = str(family) + "_" + str(tier)
+            chunks.append(str(BaseMaterials.display_name(id)) +
+                " ×" + str(inventory[id]))
+        row += " / ".join(chunks)
+        lines.append(row)
+    modal_body.text = "\n".join(lines)
+    if SeraSave.active_slot == 0:
+        modal_body.text += "\n※セーブスロット未選択のため所持品はありません。"
+
+func _show_conversion(direction: int) -> void:
+    conversion_mode = direction
+    conversion_notice = ""
+    conversion_batches = 1
+    _render_conversion()
+
+func _conversion_family_changed(selected: int) -> void:
+    if selected >= 0 and selected < BaseMaterials.FAMILY_IDS.size():
+        conversion_family = str(BaseMaterials.FAMILY_IDS[selected])
+        conversion_notice = ""
+        _render_conversion()
+
+func _conversion_batches_changed(delta: int) -> void:
+    conversion_batches = clampi(conversion_batches + delta, 1, 99)
+    conversion_notice = ""
+    _render_conversion()
+
+func _perform_conversion(from_rank: int) -> void:
+    if not SeraSave.convert_material(
+            conversion_family, from_rank, conversion_mode,
+            conversion_batches):
+        conversion_notice = "素材不足、レシピ不一致、または保存不可のため中止しました。"
+    else:
+        conversion_notice = "変換完了：所持素材とセーブデータを更新しました。"
+    _render_conversion()
+
+func _render_conversion() -> void:
+    _clear_actions()
+    modal_title.text = (
+        "精製装置｜ランクを上げる" if conversion_mode == 1
+        else "分解装置｜ランクを下げる")
+    var stock: Dictionary = SeraSave.get_material_inventory()
+    var lines: Array[String] = [
+        "同じ素材系統内でのみ変換できます。\n製作の必要素材は固定で、他ランクでは代替できません。",
+        "変換比率（暫定）：低2→中1→高（精製） / 上1→下2（分解）"
+    ]
+    for tier in BaseMaterials.TIERS:
+        var material_id: String = conversion_family + "_" + str(tier)
+        lines.append(BaseMaterials.display_name(material_id) +
+            "： " + str(stock[material_id]) + "個")
+    if SeraSave.active_slot == 0:
+        lines.append("先にNEXUSでセーブスロットを作成・選択してください。")
+    if not conversion_notice.is_empty():
+        lines.append(conversion_notice)
+    modal_body.text = "\n".join(lines)
+
+    var picker := OptionButton.new()
+    picker.name = "MaterialFamily"
+    picker.custom_minimum_size.y = 60.0
+    picker.add_theme_font_size_override("font_size", 19)
+    for family in BaseMaterials.FAMILY_IDS:
+        picker.add_item(str(BaseMaterials.FAMILY_NAMES[family]))
+    picker.select(BaseMaterials.FAMILY_IDS.find(conversion_family))
+    picker.item_selected.connect(_conversion_family_changed)
+    modal_actions.add_child(picker)
+
+    var amount_row := HBoxContainer.new()
+    amount_row.name = "ConversionAmount"
+    amount_row.add_theme_constant_override("separation", 12)
+    modal_actions.add_child(amount_row)
+    var less := Button.new()
+    less.name = "DecreaseBatch"
+    less.text = "−"
+    less.custom_minimum_size = Vector2(70, 58)
+    less.disabled = conversion_batches <= 1
+    less.pressed.connect(_conversion_batches_changed.bind(-1))
+    amount_row.add_child(less)
+    var count := Label.new()
+    count.name = "BatchCount"
+    count.text = "実行回数：%d" % conversion_batches
+    count.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    count.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+    count.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+    count.add_theme_font_size_override("font_size", 19)
+    amount_row.add_child(count)
+    var more := Button.new()
+    more.name = "IncreaseBatch"
+    more.text = "+"
+    more.custom_minimum_size = Vector2(70, 58)
+    more.disabled = conversion_batches >= 99
+    more.pressed.connect(_conversion_batches_changed.bind(1))
+    amount_row.add_child(more)
+
+    var ranks: Array = [0, 1] if conversion_mode == 1 else [2, 1]
+    for rank in ranks:
+        var plan: Dictionary = BaseMaterials.recipe(
+            conversion_family, rank, conversion_mode, conversion_batches)
+        var source_id: String = str(plan["input_id"])
+        var target_id: String = str(plan["output_id"])
+        var button := Button.new()
+        button.name = "ConvertRank_" + str(rank)
+        button.text = "%s ×%d → %s ×%d" % [
+            BaseMaterials.display_name(source_id), int(plan["input_count"]),
+            BaseMaterials.display_name(target_id), int(plan["output_count"])]
+        button.custom_minimum_size.y = 66.0
+        button.add_theme_font_size_override("font_size", 18)
+        button.disabled = not SeraSave.can_convert_material(
+            conversion_family, rank, conversion_mode, conversion_batches)
+        button.pressed.connect(_perform_conversion.bind(rank))
+        modal_actions.add_child(button)
 
 func _show_detail(detail: String) -> void:
     if modal_body != null:
