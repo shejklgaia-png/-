@@ -157,7 +157,8 @@ func _run() -> void:
         return
     var first_shot: Dictionary = (turrets.get("projectiles") as Array)[0]
     var fired_aim: Node3D = aim_pivots[ordered[0]]
-    if (first_shot["direction"] as Vector3).normalized().dot(
+    var shot_direction: Vector3 = first_shot["direction"]
+    if shot_direction.normalized().dot(
             (-fired_aim.global_basis.z).normalized()) < 0.999:
         _fail("each projectile must leave ALONG the visible gun barrel")
         return
