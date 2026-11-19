@@ -2,6 +2,7 @@ extends Node3D
 ## Outdoor portrait base hub; CRATE wanders independently and NEXUS is a tappable building.
 const Modules = preload("res://assets/base_command_modules.gd")
 const SeraRig = preload("res://scripts/sera_rig.gd")
+const VersionIndicator = preload("res://scripts/version_indicator.gd")
 const NEXUS_SCENE: String = "res://scenes/command_nexus.tscn"
 const WALK_SPEED: float = 3.2
 const PLAYER_Y: float = 0.08
@@ -330,6 +331,7 @@ func _create_hud() -> void:
     nexus_tag.add_theme_color_override("font_color", Color("#8be4ff"))
     stick_outer = _panel(hud, "MoveStickOuter")
     stick_knob = _panel(hud, "MoveStickKnob")
+    VersionIndicator.attach(hud)
     hud.resized.connect(_layout_hud)
     _layout_hud()
 
