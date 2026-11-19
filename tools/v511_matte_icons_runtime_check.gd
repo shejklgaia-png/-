@@ -36,17 +36,17 @@ func _run() -> void:
             return
     var used_regions: Dictionary = {}
     for material_id in Materials.all_ids():
-        var icon: AtlasTexture = IconAtlas.material_icon(str(material_id)) as AtlasTexture
-        if icon == null or used_regions.has(str(icon.region)):
+        var material_icon_atlas: AtlasTexture = IconAtlas.material_icon(str(material_id)) as AtlasTexture
+        if material_icon_atlas == null or used_regions.has(str(material_icon_atlas.region)):
             _fail("duplicate or missing material atlas region: " + str(material_id))
             return
-        used_regions[str(icon.region)] = true
+        used_regions[str(material_icon_atlas.region)] = true
     for blueprint in Catalog.PROTOTYPES.keys():
-        var icon: AtlasTexture = IconAtlas.equipment_icon(str(blueprint)) as AtlasTexture
-        if icon == null or used_regions.has(str(icon.region)):
+        var equipment_icon_atlas: AtlasTexture = IconAtlas.equipment_icon(str(blueprint)) as AtlasTexture
+        if equipment_icon_atlas == null or used_regions.has(str(equipment_icon_atlas.region)):
             _fail("duplicate or missing equipment atlas region: " + str(blueprint))
             return
-        used_regions[str(icon.region)] = true
+        used_regions[str(equipment_icon_atlas.region)] = true
     if used_regions.size() != 19 or Catalog.uid_for("H01", 1) != "H01-0001" or (
             not Catalog.valid_uid("H01-0001", "H01")) or (
             Catalog.valid_uid("H01-1", "H01")) or (
