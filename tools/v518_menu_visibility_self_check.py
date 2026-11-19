@@ -12,5 +12,9 @@ for marker in ("FacilitySectionTabs", "TabCraft", "TabMaterials", "TabWarehouse"
     assert marker in facility, "Missing persistent navigation: " + marker
 assert 'actions_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED' in facility
 assert 'button.toggle_mode = true' in facility
+runtime = (p / "tools/v518_menu_visibility_runtime_check.gd").read_text(encoding="utf-8")
+assert 'root.push_input(down, false)' in runtime
+assert 'root.push_input(up, false)' in runtime
+assert '.pressed.emit()' not in runtime, "v518 must exercise actual viewport GUI"
 assert "gd tools/v518_menu_visibility_runtime_check.gd" in manifest
 print("SERA_V518_MENU_VISIBILITY_STATIC_PASS")
