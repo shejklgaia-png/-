@@ -60,8 +60,8 @@ func _run() -> void:
         _fail("fast aim must begin only when the sphere charge begins")
         return
     if not _near(GUN.BEAM_TRACK_SPEED_MULTIPLIER, 0.70) or (
-            not _near(GUN.BEAM_ON_AXIS_SPEED_MULTIPLIER, 0.85) or (
-            not _near(GUN.BEAM_AIM_FILTER_PER_SECOND, 14.0) or (
+            not _near(GUN.BEAM_ON_AXIS_SPEED_MULTIPLIER, 0.85)) or (
+            not _near(GUN.BEAM_AIM_FILTER_PER_SECOND, 14.0)) or (
             not _near(GUN.BEAM_GROUND_GAP_METERS, 1.50)) or (
             not _near(GUN.BEAM_HIT_INTERVAL_SECONDS, 0.20)):
         _fail("beam 0.85x near-axis, 0..1.5m faster aim, cap and repeat interval changed")
