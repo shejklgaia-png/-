@@ -476,7 +476,7 @@ func _tracking_turn_rate(player_world: Vector3,
         boost_speed_mps: float = BOOST_REFERENCE_SPEED_MPS,
         run_speed_mps: float = RUN_REFERENCE_SPEED_MPS) -> float:
     # The pre-v478 tracking speed used for the laser baseline.
-    # Firing uses 0.7x except when the beam's ground offset >1.5m.
+    # During the beam, ground-ray offset 0..2.5m eases in extra tracking.
     # Use the actual part stats so upgrades do not break the contract.
     var to_player: Vector3 = player_world + Vector3.UP * 0.92 - global_position
     var flat: float = Vector2(to_player.x, to_player.z).length()
