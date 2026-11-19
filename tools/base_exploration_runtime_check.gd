@@ -42,8 +42,10 @@ func _run() -> void:
     var max_x: float = -INF
     var min_z: float = INF
     var max_z: float = -INF
-    var plate_half_x: float = 0.0
-    var plate_half_z: float = 0.0
+    # Headless Godot's dummy RenderingServer does not round-trip GPU-backed
+    # per-instance transforms (all read back as Vector3.ZERO). Verify the
+    # renderer's explicit conservative culling AABB instead, alongside count,
+    # color materials and the source-side coordinate placement assertions.
     for child in tiled_floor.get_children():
         if not child.name.begins_with("GridPlateBatch_"):
             continue
@@ -58,18 +60,21 @@ func _run() -> void:
             return
         grid_batches += 1
         grid_tiles += batch.instance_count
-        plate_half_x = grid_mesh.size.x * 0.5
-        plate_half_z = grid_mesh.size.z * 0.5
-        for cell_index in range(batch.instance_count):
-            var tile: Vector3 = batch.get_instance_transform(cell_index).origin
-            min_x = minf(min_x, tile.x)
-            max_x = maxf(max_x, tile.x)
-            min_z = minf(min_z, tile.z)
-            max_z = maxf(max_z, tile.z)
+        if absf(grid_mesh.size.x - 2.94) > 0.01 or absf(grid_mesh.size.z - 2.94) > 0.01:
+            _fail("grid has lost its authored 2.94m square plates")
+            return
+        var region: AABB = batch.custom_aabb
+        if region.size.x <= 0.0 or region.size.z <= 0.0:
+            _fail("instanced grid has no explicit broad culling bounds")
+            return
+        min_x = minf(min_x, region.position.x)
+        max_x = maxf(max_x, region.end.x)
+        min_z = minf(min_z, region.position.z)
+        max_z = maxf(max_z, region.end.z)
     if grid_batches != 6 or grid_tiles < 7225:
         _fail("full-screen GRID was not batched into six colored multimeshes")
         return
-    if min_x > -126.0 or max_x < 126.0 or min_z > -126.0 or max_z < 126.0:
+    if min_x > -127.0 or max_x < 127.0 or min_z > -127.0 or max_z < 127.0:
         _fail("grid extents did not expand around entire viewport: x[%.3f, %.3f], z[%.3f, %.3f], batches=%d, tiles=%d" %
             [min_x, max_x, min_z, max_z, grid_batches, grid_tiles])
         return
@@ -95,8 +100,8 @@ func _run() -> void:
                         [px, pz, str(screen)])
                     return
                 # Do not accept a plain ungridded background under the camera.
-                if hit.x < min_x - plate_half_x or hit.x > max_x + plate_half_x \
-                        or hit.z < min_z - plate_half_z or hit.z > max_z + plate_half_z:
+                if hit.x < min_x or hit.x > max_x \
+                        or hit.z < min_z or hit.z > max_z:
                     _fail("GRID itself ends inside viewport at player (%.1f, %.1f)" %
                         [px, pz])
                     return
