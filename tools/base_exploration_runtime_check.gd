@@ -70,7 +70,8 @@ func _run() -> void:
         _fail("full-screen GRID was not batched into six colored multimeshes")
         return
     if min_x > -126.0 or max_x < 126.0 or min_z > -126.0 or max_z < 126.0:
-        _fail("grid extents did not expand around entire viewport")
+        _fail("grid extents did not expand around entire viewport: x[%.3f, %.3f], z[%.3f, %.3f], batches=%d, tiles=%d" %
+            [min_x, max_x, min_z, max_z, grid_batches, grid_tiles])
         return
     var view: Vector2 = cam.get_viewport().get_visible_rect().size
     if view.x < 1.0 or view.y < 1.0:
