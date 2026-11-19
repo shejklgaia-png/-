@@ -152,7 +152,10 @@ var bittaran_attack_body_yaw: float = 0.0
 var bittaran_shockwave: MeshInstance3D
 var shockwave_elapsed: float = -1.0
 var shockwave_half_extents: Vector2 = Vector2.ONE
-var bittaran_stomp_follow_fx: MeshInstance3D
+# Measured from the actual final-rendered toe on every authored frame.
+var stomp_follow_initial_y: float = -INF
+var stomp_follow_apex_y: float = -INF
+var stomp_follow_apex_passed: bool = false
 var stomp_follow_previous_box: AABB = AABB()
 var stomp_follow_previous_valid: bool = false
 var stomp_follow_leg: String = ""
@@ -357,53 +360,11 @@ func _build_target() -> void:
     _build_bittaran_shockwave()
     _build_boss_death_particles()
 
-func _make_bittaran_broken_ring() -> ArrayMesh:
-    # An interrupted RECTANGULAR rim, exactly matching the live
-    # 1.5x toe-footprint proportions (front/rear and left/right).
-    var tool := SurfaceTool.new()
-    tool.begin(Mesh.PRIMITIVE_TRIANGLES)
-    var pieces: int = 112
-    for i in range(pieces):
-        if (i >= 13 and i <= 20) or (i >= 50 and i <= 56) or (
-                i >= 86 and i <= 95):
-            continue
-        var a0: float = TAU * float(i) / float(pieces)
-        var a1: float = TAU * float(i + 1) / float(pieces)
-        var dir0 := Vector2(cos(a0), sin(a0))
-        var dir1 := Vector2(cos(a1), sin(a1))
-        var edge0: Vector2 = dir0 / maxf(
-            maxf(absf(dir0.x), absf(dir0.y)), 0.0001)
-        var edge1: Vector2 = dir1 / maxf(
-            maxf(absf(dir1.x), absf(dir1.y)), 0.0001)
-        var inner0: float = 0.73 + 0.02 * sin(a0 * 13.0)
-        var inner1: float = 0.73 + 0.02 * sin(a1 * 13.0)
-        var outer0: float = 1.0 + 0.016 * sin(a0 * 17.0)
-        var outer1: float = 1.0 + 0.016 * sin(a1 * 17.0)
-        var p0 := Vector3(edge0.x * inner0, 0.0, edge0.y * inner0)
-        var p1 := Vector3(edge0.x * outer0, 0.0, edge0.y * outer0)
-        var p2 := Vector3(edge1.x * inner1, 0.0, edge1.y * inner1)
-        var p3 := Vector3(edge1.x * outer1, 0.0, edge1.y * outer1)
-        for v in [p0, p1, p2, p1, p3, p2]:
-            tool.set_normal(Vector3.UP)
-            tool.add_vertex(v)
-    return tool.commit()
-
-
 func _build_bittaran_shockwave() -> void:
-    bittaran_shockwave = MeshInstance3D.new()
-    bittaran_shockwave.name = "BittaranStompBrokenGreyRing"
-    bittaran_shockwave.mesh = _make_bittaran_broken_ring()
-    var earth := StandardMaterial3D.new()
-    earth.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-    earth.cull_mode = BaseMaterial3D.CULL_DISABLED
-    earth.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-    earth.albedo_color = Color(0.52, 0.52, 0.51, 0.70)
-    # Depth-tested scene material: never show the dust ring through SERA.
-    earth.render_priority = RENDER_ORDER.DEPTH_TESTED_EMISSIVE
-    bittaran_shockwave.material_override = earth
-    bittaran_shockwave.visible = false
-    add_child(bittaran_shockwave)
-    _build_bittaran_stomp_follow_fx()
+    # The square volume and square ground rim are intentionally REMOVED.
+    # Keep the real toe-follow hitbox invisible; touchdown still creates
+    # natural particles, a thud, and camera feedback.
+    bittaran_shockwave = null
     bittaran_dirt_fx = BittaranDirtFX.new()
     bittaran_dirt_fx.name = "BittaranDirtFX"
     add_child(bittaran_dirt_fx)
@@ -413,26 +374,6 @@ func _build_bittaran_shockwave() -> void:
     bittaran_thud_audio.volume_db = -6.0
     bittaran_thud_audio.max_polyphony = 3
     add_child(bittaran_thud_audio)
-
-
-func _build_bittaran_stomp_follow_fx() -> void:
-    # A restrained, depth-tested grey volume follows the exact SAME
-    # world-space AABB used for airborne collision. Ground debris is
-    # emitted separately ONLY when the toe actually touches the floor.
-    bittaran_stomp_follow_fx = MeshInstance3D.new()
-    bittaran_stomp_follow_fx.name = "BittaranStompFollowingFootVolume"
-    var cube := BoxMesh.new()
-    cube.size = Vector3.ONE
-    bittaran_stomp_follow_fx.mesh = cube
-    var highlight := StandardMaterial3D.new()
-    highlight.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-    highlight.cull_mode = BaseMaterial3D.CULL_DISABLED
-    highlight.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-    highlight.albedo_color = Color(0.59, 0.59, 0.61, 0.11)
-    highlight.render_priority = RENDER_ORDER.DEPTH_TESTED_EMISSIVE
-    bittaran_stomp_follow_fx.material_override = highlight
-    bittaran_stomp_follow_fx.visible = false
-    add_child(bittaran_stomp_follow_fx)
 
 
 func _make_bittaran_thud() -> AudioStreamWAV:
@@ -554,7 +495,7 @@ func _bittaran_stomp_follow_hit(box: AABB) -> void:
         return
     if not _bittaran_player_overlap(box):
         return
-    # One hit per attack, EVEN if contact happens during the windup.
+    # One hit per attack, ONLY after the foot has passed its real apex.
     # The preceding frame is merged with this one to avoid tunneling
     # on a fast downward swing. Damage never depends on an FX emitter.
     bittaran_attacks.set("hit_consumed", true)
@@ -575,8 +516,9 @@ func _reset_bittaran_stomp_follow() -> void:
     stomp_follow_leg = ""
     stomp_follow_time = -1.0
     stomp_follow_landed = false
-    if bittaran_stomp_follow_fx != null:
-        bittaran_stomp_follow_fx.visible = false
+    stomp_follow_initial_y = -INF
+    stomp_follow_apex_y = -INF
+    stomp_follow_apex_passed = false
 
 
 func _update_bittaran_stomp_follow() -> void:
@@ -591,27 +533,53 @@ func _update_bittaran_stomp_follow() -> void:
         return
     var attack_time: float = float(bittaran_attack_frame.get("time", 0.0))
     if stomp_follow_leg != leg_id or attack_time < stomp_follow_time - 0.001:
-        stomp_follow_landed = false
-        stomp_follow_previous_valid = false
+        _reset_bittaran_stomp_follow()
     stomp_follow_leg = leg_id
     stomp_follow_time = attack_time
     var phase: String = str(bittaran_attack_frame.get("phase", ""))
     var moving: bool = (phase == "entry" or phase == "windup" or
         phase == "strike")
+    var original: bool = bool(bittaran_attack_frame.get(
+        "original_attack_only", false))
+    var clip_time: float = float(bittaran_attack_frame.get(
+        "authored_time", 0.0))
+    var mesh_box: AABB = _bittaran_attack_foot_bounds(leg_id)
     var foot_box: AABB = _bittaran_stomp_follow_box(leg_id)
-    if not foot_box.has_volume():
-        if bittaran_stomp_follow_fx != null:
-            bittaran_stomp_follow_fx.visible = false
+    if not foot_box.has_volume() or not mesh_box.has_volume():
         stomp_follow_previous_valid = false
         return
 
-    # Follow BOTH front and rear toes throughout the anticipation and
-    # descending stroke, not just at the instant of floor contact.
-    if moving and not stomp_follow_landed:
-        if bittaran_stomp_follow_fx != null:
-            bittaran_stomp_follow_fx.global_position = foot_box.get_center()
-            bittaran_stomp_follow_fx.scale = foot_box.size
-            bittaran_stomp_follow_fx.visible = true
+    # Start sampling the RENDERED toe only once authored playback begins.
+    # A planted foot in the initial entry pose must never arm the hit.
+    # On first true descent (>6 cm below its measured maximum) the foot
+    # has already finished raising to the highest point. Rear/front
+    # source clips reach their apex at different times, so the clock is
+    # merely an early-noise guard; actual Y reversal drives the gate.
+    if phase == "strike" or phase == "windup":
+        var height: float = mesh_box.position.y
+        if stomp_follow_initial_y == -INF:
+            stomp_follow_initial_y = height
+            stomp_follow_apex_y = height
+        stomp_follow_apex_y = maxf(stomp_follow_apex_y, height)
+        var rose_enough: bool = (
+            stomp_follow_apex_y >= stomp_follow_initial_y + 0.25)
+        var source_ready: bool = (not original or clip_time >= (
+            0.40 if leg_id.begins_with("leg_r") else 0.75))
+        if rose_enough and source_ready and (
+                stomp_follow_apex_y - height >= 0.06):
+            stomp_follow_apex_passed = true
+    elif (phase == "hold" or phase == "recovery") and (
+            stomp_follow_apex_y >= stomp_follow_initial_y + 0.25):
+        # An unusually low frame rate may skip the first descending
+        # physics sample; an already-finished authored stroke is safe.
+        stomp_follow_apex_passed = true
+
+    # Completely INVISIBLE collision volume. While the foot is rising
+    # the player is safe even if standing inside its 1.5x footprint.
+    # Once the measured peak is behind us, follow the foot all the
+    # way to first floor contact. Sweep previous->current only AFTER
+    # arming, so ascending-only positions cannot deal phantom damage.
+    if moving and stomp_follow_apex_passed and not stomp_follow_landed:
         var collision_box: AABB = foot_box
         if stomp_follow_previous_valid:
             collision_box = collision_box.merge(stomp_follow_previous_box)
@@ -620,16 +588,9 @@ func _update_bittaran_stomp_follow() -> void:
         stomp_follow_previous_valid = true
     else:
         stomp_follow_previous_valid = false
-        if bittaran_stomp_follow_fx != null:
-            bittaran_stomp_follow_fx.visible = false
 
-    # A planted toe at t=0 is NOT a landing: it must first finish the
-    # authored raise/downstroke. The thresholds refer to ORIGINAL source
-    # clip time, so faster anticipation never shifts the floor event.
-    var original: bool = bool(bittaran_attack_frame.get(
-        "original_attack_only", false))
-    var clip_time: float = float(bittaran_attack_frame.get(
-        "authored_time", 0.0))
+    # Ground FX remains a ONE-SHOT even if SERA was already struck
+    # by the descending foot. Never spawn particles from the apex.
     var descent_key: float = (
         0.93 if leg_id.begins_with("leg_r") else 1.375)
     var landing_possible: bool = (
@@ -637,14 +598,10 @@ func _update_bittaran_stomp_follow() -> void:
             not original or clip_time >= descent_key))
         or phase == "hold" or (phase == "recovery" and
             float(bittaran_attack_frame.get("phase_elapsed", 1.0)) <= 0.12))
-    if not stomp_follow_landed and landing_possible and (
-            _bittaran_striking_foot_grounded(leg_id)):
+    if not stomp_follow_landed and stomp_follow_apex_passed and (
+            landing_possible and _bittaran_striking_foot_grounded(leg_id)):
         stomp_follow_landed = true
         stomp_follow_previous_valid = false
-        if bittaran_stomp_follow_fx != null:
-            bittaran_stomp_follow_fx.visible = false
-        # At touchdown only, square broken rim + dust burst come from
-        # the REAL toe mesh, even if windup already hit the player.
         _emit_bittaran_shockwave(
             _bittaran_original_attack_contact(leg_id) if original
                 else bittaran_foot_ik.call("attack_contact_world"),
@@ -658,22 +615,10 @@ func _emit_bittaran_shockwave(point: Vector3, half_size: Vector2,
         surface_fx_point: Vector3 = Vector3.INF) -> void:
     if half_size.x <= 0.0 or half_size.y <= 0.0:
         return
-    # Damage is already evaluated by the moving 3D toe prism. This
-    # is strictly the ground-contact visual; it NEVER inflicts a second hit.
-    if bittaran_shockwave == null:
-        return
-    shockwave_elapsed = 0.0
-    shockwave_half_extents = half_size
-    bittaran_shockwave.global_position = Vector3(
-        point.x, 0.055, point.z)
-    # The broken SQUARE perimeter matches the collision footprint.
-    # No circle or maximum-radius inflation beyond the actual 1.5x toe.
-    bittaran_shockwave.scale = Vector3(half_size.x, 1.0, half_size.y)
-    bittaran_shockwave.visible = true
+    # The following volume stays invisible; the square ground rim is
+    # removed as well. Only the natural ground-contact dust remains.
+    # Damage is owned by the airborne/descending collision above.
     if bittaran_dirt_fx != null:
-        # Hit region and ground ring still use the real whole-foot box.
-        # Dense material must originate from the LOWEST visible toe
-        # surface rather than the center of its rotated long mesh.
         var fx_origin: Vector3 = (
             surface_fx_point if surface_fx_point != Vector3.INF
             else point)
@@ -691,20 +636,9 @@ func _emit_bittaran_shockwave(point: Vector3, half_size: Vector2,
     _play_bittaran_thud(point, 1.0, -5.0)
 
 
-func _tick_bittaran_shockwave(delta: float) -> void:
-    if shockwave_elapsed < 0.0 or bittaran_shockwave == null:
-        return
-    shockwave_elapsed += maxf(delta, 0.0)
-    var progress: float = clampf(shockwave_elapsed / 0.30, 0.0, 1.0)
-    # Only fade opacity. Never grow the ring from the impact center.
-    var glow: StandardMaterial3D = (bittaran_shockwave.material_override as StandardMaterial3D)
-    if glow != null:
-        var fading: Color = glow.albedo_color
-        fading.a = 0.70 * (1.0 - progress)
-        glow.albedo_color = fading
-    if progress >= 1.0:
-        shockwave_elapsed = -1.0
-        bittaran_shockwave.visible = false
+func _tick_bittaran_shockwave(_delta: float) -> void:
+    # Compatibility entry point only. No square shockwave is rendered.
+    pass
 
 
 func _bittaran_player_overlap(box: AABB) -> bool:
