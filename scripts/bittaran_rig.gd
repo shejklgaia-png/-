@@ -136,15 +136,24 @@ var source_rear_entry_id: String = ""
 var source_rear_entry_kind: String = ""
 # v452: source-only attacks steer the actual hip corner, not the root.
 # BODY aim and attack-shoulder additive yaw are sampled independently.
-const SOURCE_HIP_AIM_MAX_DEGREES: float = 20.0
+const SOURCE_HIP_AIM_MAX_DEGREES: float = 30.0
 const SOURCE_SHOULDER_AIM_MAX_DEGREES: float = 30.0
-const SOURCE_SWEEP_AIM_MAX_DEGREES: float = 12.0
 const SOURCE_BODY_AIM_RATE_DEGREES: float = 100.0
 const SOURCE_SHOULDER_AIM_RATE_DEGREES: float = 150.0
+const SOURCE_BODY_AIM_TRANSLATION_MAX: float = 1.0
+const SOURCE_BODY_AIM_TRANSLATION_SPEED: float = 2.5
+const SOURCE_STOMP_APEX_DROP_METERS: float = 0.035
+const SOURCE_STOMP_MIN_LIFT_METERS: float = 0.20
 var source_aim_id: String = ""
 var source_aim_kind: String = ""
 var source_aim_body_yaw: float = 0.0
 var source_aim_shoulder_yaw: float = 0.0
+var source_aim_body_offset: Vector3 = Vector3.ZERO
+var source_aim_future_hip_local: Vector3 = Vector3.ZERO
+var source_aim_stomp_initial_height: float = -INF
+var source_aim_stomp_apex_height: float = -INF
+var source_aim_stomp_descent_started: bool = false
+var source_aim_stomp_player_position: Vector3 = Vector3.ZERO
 # Procedural HEAD look yaw is not part of an authored blend source.
 var external_head_yaw: float = 0.0
 var loading_ok: bool = false
@@ -1327,6 +1336,11 @@ func remember_source_grounded_attack_entry() -> void:
     source_aim_kind = ""
     source_aim_body_yaw = 0.0
     source_aim_shoulder_yaw = 0.0
+    source_aim_body_offset = Vector3.ZERO
+    source_aim_future_hip_local = Vector3.ZERO
+    source_aim_stomp_initial_height = -INF
+    source_aim_stomp_apex_height = -INF
+    source_aim_stomp_descent_started = false
 
 
 ## Return a WORLD-Y yaw from the bone's current horizontal bearing
@@ -1344,11 +1358,39 @@ static func _source_horizontal_aim_angle(
         bearing.dot(destination))
 
 
-## Add bounded WORLD-Y yaw on top of the untouched sampled clip.
-## 1. BODY (max 20 degrees) points the chosen hip socket at SERA.
-## 2. Attacking shoulder (max 30; sweep max 12) nudges its complete
-##    three-bone chain. All three supports are IK-solved AFTER this.
-## The root never turns or moves; source curves are not rewritten.
+## Compute the strike-bearing waypoint from the AUTHOR's future pose.
+## For a SWEEP, this is the MIDDLE of the first damaging floor arc
+## (never the currently raised foot). For a KICK, the extending toe.
+## Cache the offset in boss-root coordinates so moving the BODY does
+## not drag the aiming waypoint or feed corrections back into itself.
+func _source_attack_waypoint_offset(kind: String,
+        leg_id: String, shoulder: Node3D,
+        foot: Node3D) -> Vector3:
+    var waypoint_t: float = 0.0
+    match kind:
+        "sweep":
+            waypoint_t = (0.50 if leg_id.begins_with("leg_r")
+                else 1.0)
+        "kick":
+            waypoint_t = 0.65
+        _:
+            return global_basis.inverse() * (
+                foot.global_position - shoulder.global_position)
+    var sample: Dictionary = _sample_authored_mirrored_source(
+        kind, leg_id, waypoint_t, Vector3.ZERO)
+    if sample.is_empty():
+        return global_basis.inverse() * (
+            foot.global_position - shoulder.global_position)
+    return global_basis.inverse() * (
+        (sample["foot"] as Vector3) - (sample["hip"] as Vector3))
+
+
+## Source-accurate animation remains intact. Only its final 3D pose is
+## aimed: BODY can translate horizontally <=1m and yaw <=30 degrees,
+## the attacking SHOULDER can yaw <=30 degrees about WORLD UP. Applying
+## one yaw at the upper joint preserves all child hinge connections;
+## no axial bone twist or isolated mesh rotation is introduced.
+## The other three toes are replanted by source-ground IK afterwards.
 func apply_source_attack_aim(
         frame: Dictionary, player_position: Vector3,
         delta: float) -> void:
@@ -1371,24 +1413,81 @@ func apply_source_attack_aim(
     var shoulder: Node3D = bones[upper_uid]
     var foot: Node3D = bones[foot_uid]
     var phase: String = str(frame.get("phase", ""))
-    if source_aim_id != leg_id or source_aim_kind != kind:
+    var source_t: float = float(frame.get("authored_time", 0.0))
+    if source_aim_id != leg_id or source_aim_kind != kind or (
+            float(frame.get("time", 0.0)) <= 0.0):
         source_aim_id = leg_id
         source_aim_kind = kind
         source_aim_body_yaw = 0.0
         source_aim_shoulder_yaw = 0.0
-    # Only follow during the entry: the direction is locked through
-    # the actual source strike and held follow-through.
-    if phase == "entry":
-        var corner: Vector3 = shoulder.global_position - body.global_position
-        var to_player: Vector3 = player_position - body.global_position
-        var desired: float = clampf(
-            _source_horizontal_aim_angle(corner, to_player),
+        source_aim_body_offset = Vector3.ZERO
+        source_aim_stomp_initial_height = -INF
+        source_aim_stomp_apex_height = -INF
+        source_aim_stomp_descent_started = false
+        source_aim_stomp_player_position = player_position
+        source_aim_future_hip_local = _source_attack_waypoint_offset(
+            kind, leg_id, shoulder, foot)
+
+    # Track STOMP continuously throughout the raised anticipation,
+    # including the source clip's long leg lift. The first REAL
+    # downward reversal locks all four steering axes immediately.
+    # Front and rear are measured independently; no one-size-fits-all
+    # timer is used to decide the stomp's maximum height.
+    if kind == "stomp" and phase == "strike":
+        var height: float = foot.global_position.y
+        if source_aim_stomp_initial_height == -INF:
+            source_aim_stomp_initial_height = height
+            source_aim_stomp_apex_height = height
+        source_aim_stomp_apex_height = maxf(
+            source_aim_stomp_apex_height, height)
+        if source_aim_stomp_apex_height >= (
+                source_aim_stomp_initial_height
+                + SOURCE_STOMP_MIN_LIFT_METERS) and (
+                source_aim_stomp_apex_height - height
+                    >= SOURCE_STOMP_APEX_DROP_METERS):
+            source_aim_stomp_descent_started = true
+    var tracking: bool = phase == "entry" or phase == "strike"
+    if kind == "stomp":
+        tracking = tracking and not source_aim_stomp_descent_started
+    elif kind == "sweep":
+        tracking = tracking and source_t < (
+            BittaranAttackTimings.SWEEP_REAR_FIRST_STROKE_START_KEY_SECONDS
+            if leg_id.begins_with("leg_r") else
+            BittaranAttackTimings.SWEEP_FRONT_FIRST_STROKE_START_KEY_SECONDS)
+    elif kind == "kick":
+        tracking = tracking and source_t < (
+            BittaranAttackTimings.KICK_EXTENSION_START_KEY_SECONDS)
+
+    if tracking:
+        var hip_corner: Vector3 = (
+            shoulder.global_position - body.global_position)
+        var toward: Vector3 = player_position - body.global_position
+        var yaw_goal: float = clampf(
+            _source_horizontal_aim_angle(hip_corner, toward),
             -deg_to_rad(SOURCE_HIP_AIM_MAX_DEGREES),
             deg_to_rad(SOURCE_HIP_AIM_MAX_DEGREES))
         source_aim_body_yaw = move_toward(
-            source_aim_body_yaw, desired,
+            source_aim_body_yaw, yaw_goal,
             deg_to_rad(SOURCE_BODY_AIM_RATE_DEGREES)
                 * maxf(delta, 0.0))
+        # Move the chest, NOT the actor root. The projected aiming
+        # waypoint is the floor-sweep midpoint for SWEEP.
+        var future_bearing: Vector3 = (
+            Quaternion(Vector3.UP, source_aim_body_yaw)
+            * (global_basis * source_aim_future_hip_local))
+        var predicted: Vector3 = shoulder.global_position + future_bearing
+        var needed: Vector3 = player_position - predicted
+        needed.y = 0.0
+        var desired_offset: Vector3 = needed.limit_length(
+            SOURCE_BODY_AIM_TRANSLATION_MAX)
+        source_aim_body_offset = source_aim_body_offset.move_toward(
+            desired_offset, SOURCE_BODY_AIM_TRANSLATION_SPEED
+                * maxf(delta, 0.0))
+        if kind == "stomp":
+            source_aim_stomp_player_position = player_position
+
+    # BODY translation is strictly XZ. The source keyframed Y position
+    # and its pitch/roll are untouched, as are the 3 support anchors.
     var body_weight: float = 1.0
     var limb_weight: float = 1.0
     if phase == "recovery":
@@ -1407,40 +1506,46 @@ func apply_source_attack_aim(
             (recovery - limb_delay) / limb_seconds, 0.0, 1.0)
         limb_weight = 1.0 - limb_t * limb_t * limb_t * (
             limb_t * (limb_t * 6.0 - 15.0) + 10.0)
+    var body_shift: Vector3 = source_aim_body_offset * body_weight
+    body_shift.y = 0.0
+    body.global_position += body_shift
     var turn_body: float = source_aim_body_yaw * body_weight
     if absf(turn_body) > 0.000001:
-        var scale: Vector3 = body.global_basis.get_scale()
-        var old: Quaternion = (
+        var body_scale: Vector3 = body.global_basis.get_scale()
+        var body_old: Quaternion = (
             body.global_basis.get_rotation_quaternion())
         body.global_basis = Basis(
-            Quaternion(Vector3.UP, turn_body) * old).scaled(scale)
-    if phase == "entry":
-        # Evaluate the foot's AUTHORED bearing after chest aiming.
-        # The shoulder correction itself is an additional yaw, never
-        # a replacement for the source joint rotation.
-        var toe_bearing: Vector3 = (
-            foot.global_position - shoulder.global_position)
-        var toe_to_player: Vector3 = (
+            Quaternion(Vector3.UP, turn_body) * body_old).scaled(
+                body_scale)
+
+    if tracking:
+        # Aim the WHOLE strike path, not the currently raised toe.
+        # For SWEEP the cached future target is the first grounded
+        # stroke's MIDPOINT; steering the current toe would make the
+        # arc miss on one side. STOMP/KICK use the same path-bearing
+        # orientation before their separate collision/IK logic.
+        var path_bearing: Vector3 = (
+            Quaternion(Vector3.UP, turn_body)
+            * (global_basis * source_aim_future_hip_local))
+        var toward_player: Vector3 = (
             player_position - shoulder.global_position)
-        var limit: float = (
-            SOURCE_SWEEP_AIM_MAX_DEGREES if kind == "sweep"
-            else SOURCE_SHOULDER_AIM_MAX_DEGREES)
-        var wanted: float = clampf(
-            _source_horizontal_aim_angle(toe_bearing, toe_to_player),
-            -deg_to_rad(limit), deg_to_rad(limit))
+        var shoulder_goal: float = clampf(
+            _source_horizontal_aim_angle(path_bearing, toward_player),
+            -deg_to_rad(SOURCE_SHOULDER_AIM_MAX_DEGREES),
+            deg_to_rad(SOURCE_SHOULDER_AIM_MAX_DEGREES))
         source_aim_shoulder_yaw = move_toward(
-            source_aim_shoulder_yaw, wanted,
+            source_aim_shoulder_yaw, shoulder_goal,
             deg_to_rad(SOURCE_SHOULDER_AIM_RATE_DEGREES)
                 * maxf(delta, 0.0))
     var turn_shoulder: float = (
         source_aim_shoulder_yaw * limb_weight)
     if absf(turn_shoulder) > 0.000001:
         var upper_scale: Vector3 = shoulder.global_basis.get_scale()
-        var source_rotation: Quaternion = (
+        var shoulder_old: Quaternion = (
             shoulder.global_basis.get_rotation_quaternion())
         shoulder.global_basis = Basis(
             Quaternion(Vector3.UP, turn_shoulder)
-            * source_rotation).scaled(upper_scale)
+            * shoulder_old).scaled(upper_scale)
 
 
 ## v460: the authored Wait snapshot is taken BEFORE the foot IK.
