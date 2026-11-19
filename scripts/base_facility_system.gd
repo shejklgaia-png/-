@@ -2,19 +2,19 @@ extends Node3D
 ## Base field architecture: LABO is one building; resources, power and construction
 ## are independent physical machines. NEXUS remains in the parent scene.
 const FACILITY_SPECS = [
-    {"id": "LABO", "name": "LABO", "at": Vector3(-4.45, 0.0, -7.45),
+    {"id": "LABO", "name": "LABO", "at": Vector3(-4.90, 0.0, -14.40),
         "size": Vector3(4.25, 4.1, 4.35), "subtitle": "Shell / OS / スロット開発"},
-    {"id": "SCRAP_COLLECTOR", "name": "回収機", "at": Vector3(-4.45, 0.0, 2.65),
+    {"id": "SCRAP_COLLECTOR", "name": "回収機", "at": Vector3(-5.10, 0.0, 7.00),
         "size": Vector3(2.35, 2.55, 2.25), "subtitle": "スクラップ収集"},
-    {"id": "SMELTER", "name": "精製炉", "at": Vector3(-0.10, 0.0, -1.10),
+    {"id": "SMELTER", "name": "精製炉", "at": Vector3(-5.40, 0.0, -4.70),
         "size": Vector3(2.40, 2.85, 2.40), "subtitle": "素材の精製"},
-    {"id": "RECYCLER", "name": "リサイクラー", "at": Vector3(4.55, 0.0, -1.35),
+    {"id": "RECYCLER", "name": "リサイクラー", "at": Vector3(5.30, 0.0, -3.50),
         "size": Vector3(2.45, 2.55, 2.35), "subtitle": "不要素材の分解"},
-    {"id": "GENERATOR", "name": "発電機", "at": Vector3(4.55, 0.0, 3.55),
+    {"id": "GENERATOR", "name": "発電機", "at": Vector3(4.70, 0.0, 6.30),
         "size": Vector3(2.40, 3.10, 2.25), "subtitle": "拠点電力"},
-    {"id": "STORAGE", "name": "資材保管庫", "at": Vector3(-4.35, 0.0, -1.45),
+    {"id": "STORAGE", "name": "資材保管庫", "at": Vector3(-5.00, 0.0, 0.60),
         "size": Vector3(2.45, 2.15, 2.30), "subtitle": "資源の保管"},
-    {"id": "BUILD_TERMINAL", "name": "建設端末", "at": Vector3(0.10, 0.0, 4.05),
+    {"id": "BUILD_TERMINAL", "name": "建設端末", "at": Vector3(0.20, 0.0, 8.00),
         "size": Vector3(2.10, 2.55, 2.10), "subtitle": "拠点の建設・拡張"}
 ]
 
@@ -326,8 +326,16 @@ func update_tags(camera: Camera3D) -> void:
         tag.visible = not camera.is_position_behind(vertex)
         if tag.visible:
             var point: Vector2 = camera.unproject_position(vertex)
-            tag.position = point - Vector2(115, 22)
-            tag.size = Vector2(230, 40)
+            # Outer facilities approach the portrait view edges. Keep labels
+            # readable without moving their physical touch targets inward.
+            var viewport: Vector2 = camera.get_viewport().get_visible_rect().size
+            var label_width: float = minf(190.0, maxf(80.0, viewport.x - 16.0))
+            tag.size = Vector2(label_width, 40.0)
+            tag.position = Vector2(
+                clampf(point.x - label_width * 0.5, 8.0,
+                    maxf(8.0, viewport.x - label_width - 8.0)),
+                clampf(point.y - 22.0, 110.0,
+                    maxf(110.0, viewport.y - 48.0)))
 
 func is_menu_open() -> bool:
     return modal != null and modal.visible
