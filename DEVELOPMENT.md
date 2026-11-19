@@ -1,3 +1,10 @@
+## 2026-11-19 — SERA v493: レールガンの追尾速度をRUN＜追尾＜BOOSTに制限
+- **事前確認**：`project.godot` v492、`.github/workflows/sera-model-policy.yml`、`tools/sera_ci_manifest.txt`、`docs/SERA_ACTIVE_CI_POLICY_ja.md`、既存`tools/bittaran_railgun_runtime_check.gd`、`tools/bittaran_world_yaw_independence_runtime_check.gd`、`tools/bittaran_full_frame_level_gun_runtime_check.gd`を確認。変更対象はレーザー照射中の無制限な距離・速度由来加速のみ。
+- **先行CI更新**：本体コードを変更する前に既存登録済み`bittaran_railgun_runtime_check.gd`の追尾補間期待値を更新。0/0.625/1.25/1.875/2.5mでのsmoothstep、2.5m超の速度プラトー、5/8/30mでRUN＜追尾＜BOOSTを独立した定数から検査。さらに実シーンで標準RUN/BOOSTの1.5秒円周横移動時のレーザー追従差を検査。新規CIファイルとmanifest追加は不要。
+- **実装**：0〜2.5mでは0.7倍から最大1.0倍まで速度補間。2.5mを超えても角速度は最大CHASE値で固定。瞬間プレイヤー速度と距離に比例した無制限加速を削除。時間補間16/s・照準補間10/sを維持し、現在速度にも距離別の上限を適用して瞬間位置変更で超過しないようにした。
+- **不変条件**：0〜10秒充填中の非追尾、青球体の10〜11秒事前高速照準、11〜12秒の0.7倍追尾、12〜14秒の照射、14〜14.7秒復帰、本体Yawと砲身の独立、軸同期、威力60%、0.2秒再ヒット、元のモデルとエフェクトを維持。
+- **CI**：PRマージ後のmainフルCI（静的・Godot）で検証。失敗は分類し修正。Android実機ではRUNの被追尾とBOOSTでの横回避の操作感、近距離時の旋回速度を別途確認。
+
 ## 2026-11-19 — v492 拠点メニューのSERA・移動コントローラーを一時非表示
 - 開発開始前にCI manifest・ワークフロー・拠点静的/実Godot/NEXUS往復テストを確認。新仕様に抵触する「拠点SERAの移動検査」を先に更新し、非表示・入力無効・リグ読み込み回避を先に検証条件へ追加。
 - `HUB_SERA_CONTROLS_ENABLED = false`の1か所のフラグで拠点SERA表示・リグ生成・移動スティック表示とSERA移動処理を停止。復旧時にコードを削り戻す必要なし。
