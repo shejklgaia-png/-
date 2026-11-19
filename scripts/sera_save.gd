@@ -9,6 +9,8 @@ const SCHEMA_VERSION: int = 2
 var active_slot: int = 0
 var active_data: Dictionary = {}
 var working_equipment: Dictionary = {}
+# Transient route request; never written to profile JSON.
+var requested_nexus_target: String = ""
 
 func _ready() -> void:
     var err: Error = DirAccess.make_dir_recursive_absolute(
