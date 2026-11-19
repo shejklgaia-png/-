@@ -173,6 +173,9 @@ var bittaran_bgm: AudioStreamPlayer
 var impact_shake_strength: float = 0.0
 var impact_shake_time: float = 0.0
 var impact_shake_decay_rate: float = 11.0
+# Keep SWEEP in a separate channel, so its shake can end EXACTLY
+# with the authoritative hitbox instead of leaking through exponential decay.
+var sweep_shake_strength: float = 0.0
 var sweep_shake_interval_remaining: float = 0.0
 var footfall_prev_stepping: Array[bool] = [false, false, false, false]
 var last_attack_contact: Vector3 = Vector3.ZERO
@@ -440,8 +443,11 @@ func _add_bittaran_attack_shake(kind: String, point: Vector3) -> void:
             # One instantaneous, heavy jerk which dies more quickly.
             _add_impact_shake(0.38, 20.0)
         "sweep":
-            # Medium tremors while the striking foot sweeps the ground.
-            _add_impact_shake(0.16, 11.5)
+            # The source hitbox (front 0.67-1.38s / rear 0.17-0.63s)
+            # is the ONLY allowed vibration window, including FX triggers.
+            if _sweep_hit_window_active():
+                sweep_shake_strength = maxf(sweep_shake_strength,
+                    0.16 * BITTARAN_SHAKE_MULTIPLIER)
 
 
 func _footfall_shake_factor(point: Vector3) -> float:
@@ -456,15 +462,23 @@ func _footfall_shake_factor(point: Vector3) -> float:
     return 1.0 - t * t * (3.0 - 2.0 * t)
 
 
-func _tick_bittaran_sweep_shake(delta: float) -> void:
-    # A repeating rumble during the authored STRIKE, even after its
-    # first collision. No tremor during anticipation or lingering recovery.
-    var sweeping: bool = target_hp > 0.0 and player_hp > 0.0 and (
+func _sweep_hit_window_active() -> bool:
+    # The attack director derives hit_window from canonical source keys.
+    # It stays true after a successful single hit, until the authored
+    # foot/lower-leg collision window actually closes.
+    return target_hp > 0.0 and player_hp > 0.0 and (
         str(bittaran_attack_frame.get("kind", "")) == "sweep") and (
         str(bittaran_attack_frame.get("phase", "")) == "strike") and (
+        bool(bittaran_attack_frame.get("hit_window", false))) and (
         not bool(bittaran_attack_frame.get("stance_prepare", false)))
-    if not sweeping:
+
+
+func _tick_bittaran_sweep_shake(delta: float) -> void:
+    if not _sweep_hit_window_active():
+        # Hard cutoff when the damage collider is no longer active.
+        # The separate generic channel preserves walking/stomp/kick shake.
         sweep_shake_interval_remaining = 0.0
+        sweep_shake_strength = 0.0
         return
     sweep_shake_interval_remaining -= maxf(delta, 0.0)
     if sweep_shake_interval_remaining <= 0.0:
@@ -476,18 +490,26 @@ func _tick_impact_shake(delta: float) -> void:
     if camera == null:
         return
     impact_shake_time += maxf(delta, 0.0)
-    if impact_shake_strength <= 0.0004:
+    # Only the repeating sweep channel is forcibly cleared at hitbox end.
+    # All unrelated impulses retain their own preexisting decay.
+    if not _sweep_hit_window_active():
+        sweep_shake_strength = 0.0
+    if impact_shake_strength <= 0.0004 and sweep_shake_strength <= 0.0004:
         impact_shake_strength = 0.0
+        sweep_shake_strength = 0.0
         if camera.h_offset != 0.0 or camera.v_offset != 0.0:
             camera.h_offset = 0.0
             camera.v_offset = 0.0
         return
-    impact_shake_strength *= exp(-impact_shake_decay_rate * maxf(delta, 0.0))
+    var dt: float = maxf(delta, 0.0)
+    impact_shake_strength *= exp(-impact_shake_decay_rate * dt)
+    sweep_shake_strength *= exp(-11.5 * dt)
+    var amplitude: float = maxf(impact_shake_strength, sweep_shake_strength)
     var t: float = impact_shake_time
     var nx: float = sin(t * 43.7) * 0.62 + sin(t * 29.3 + 1.7) * 0.38
     var ny: float = sin(t * 37.9 + 0.6) * 0.62 + sin(t * 24.1 + 2.9) * 0.38
-    camera.h_offset = nx * impact_shake_strength * BITTARAN_SHAKE_HORIZONTAL_WEIGHT
-    camera.v_offset = ny * impact_shake_strength * BITTARAN_SHAKE_VERTICAL_WEIGHT
+    camera.h_offset = nx * amplitude * BITTARAN_SHAKE_HORIZONTAL_WEIGHT
+    camera.v_offset = ny * amplitude * BITTARAN_SHAKE_VERTICAL_WEIGHT
 
 
 func _play_bittaran_thud(point: Vector3, pitch: float,

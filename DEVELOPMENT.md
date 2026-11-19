@@ -1,3 +1,11 @@
+## 2026-11-19 — SERA v488: なぎ払いの画面振動を攻撃判定の実時刻に完全同期
+
+- **CI先行確認**：現行v487、`.github/workflows/sera-model-policy.yml`、`tools/sera_ci_manifest.txt`、`docs/SERA_ACTIVE_CI_POLICY_ja.md`、`tools/bittaran_camera_shake_runtime_check.gd`、`tools/bittaran_keyframe_hit_sector_runtime_check.gd`、`scripts/bittaran_attacks.gd`の`source_hit_window`を確認。旧v486の「strikeなら継続」という振動テスト期待値が新しい仕様と衝突。前足の原本時刻0.67〜1.38s、後足0.17〜0.63sはユーザー既存承認の不変条件。
+- **テストを先に更新**：`tools/bittaran_camera_shake_runtime_check.gd`で旧「strikeだけ」の条件を撤廃せず拡張し、4脚の前/後・左右すべてで開始直前／開始／途中／終了／終了後の`source_hit_window`同期、命中済みでも時間内の継続、時間外に振動しないことと残留振動・カメラオフセット即時ゼロ、FX注入での判定外発生禁止を先行規定。新規CIファイルの追加は不要（既存登録テストを更新）。
+- **実装**：`scripts/bittaran_battle.gd`に`_sweep_hit_window_active`を追加し、directorの`hit_window`（原本キー由来）と`phase=strike`で、定期的な振動と接触/FX由来のなぎ払い振動の双方をゲート。なぎ払い専用`sweep_shake_strength`を独立し、判定窓終了時に即時ゼロへ。踏みつけ・弾き・歩行の共通振動と元の減衰は保持する。
+- **保持**：既存の攻撃接触、原本クリップ、判定時間、地面FX/土埃の別タイムライン、1攻撃1ヒット、IK、レールガン、拠点、音声、距離減衰は変更しない。
+- **実機**：Android端末で判定開始に合わせた連続振動、後足の早い停止、揺れの終了時に画面が元の位置に戻ることを別途確認。フルCIはmainへのマージ後に実行。
+
 ## 2026-11-19 — v487 拠点探索画面（自由歩行の第1段階）
 - 作業前に`AGENTS.md`、`tools/sera_ci_manifest.txt`、`docs/SERA_ACTIVE_CI_POLICY_ja.md`、既存NEXUS、SeraRig、モデル描画規約を確認。既存NEXUSの展示・装備・SYSTEM・TRAININGと戦闘の契約は不変。
 - 新規仕様に対応する静的検査と実Godot検査を先行追加し、CI manifestへ登録。既存数値期待値の変更は不要。
