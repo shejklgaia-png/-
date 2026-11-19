@@ -25,6 +25,15 @@ assert "const SHIELD_IMPACT: int = 115" in order
 assert "material.render_priority = RENDER_ORDER.SHIELD_IMPACT" in fx
 assert "material.no_depth_test = false" in fx
 assert "material.vertex_color_use_as_albedo = true" in fx
+# v512: alpha compositing preserves the saturated cyan/yellow/red state colors.
+assert "material.blend_mode = BaseMaterial3D.BLEND_MODE_MIX" in fx
+assert "material.blend_mode = BaseMaterial3D.BLEND_MODE_ADD" not in fx
+assert "static func contact_opacity(progress: float) -> float:" in fx
+assert "static func contact_core_flash(progress: float) -> float:" in fx
+assert "const CRACK_EXTEND_SECONDS: float = 0.13" in fx
+assert "const CRACK_FADE_END_SECONDS: float = 0.32" in fx
+assert "const IMPACT_SECONDS: float = 0.44" in fx
+assert "const FRACTURE_SECONDS: float = 0.65" in fx
 assert "func state_color(ratio: float)" in fx
 assert "AudioStreamWAV.new()" in fx
 # v511: the shield must be visibly in front of armor even at oblique hit angles.
