@@ -10,14 +10,19 @@ const BEAM_SECONDS: float = 2.0
 const POST_FIRE_HOLD_SECONDS: float = 0.4
 const RETURN_SECONDS: float = 0.8
 const CHARGE_START: float = BEAM_SECONDS + POST_FIRE_HOLD_SECONDS + RETURN_SECONDS
-const FLASH_START: float = 9.6
-const FLASH_END: float = 9.8
-const FLASH_SHRINK_SECONDS: float = FLASH_END - FLASH_START
+# Keep the entire final two seconds as a visible blue muzzle sphere.
+# The cannon smoothly ramps its acquisition rate across this same window.
+const FLASH_SECONDS: float = 2.0
+const FLASH_START: float = PERIOD_SECONDS - FLASH_SECONDS
+const FLASH_END: float = PERIOD_SECONDS
+const FLASH_GROW_SECONDS: float = 0.2
+const FLASH_SHRINK_SECONDS: float = 0.2
+const TRACK_EASE_IN_SECONDS: float = FLASH_SECONDS
 # Deliberately slower than the standard 6.09375 m/s boost crossing a
 # ~8 m radius (43.6 degrees/s). A boost strafe can outrun the beam.
-# The final 0.4s charge/flash stage must capture even a boosting SERA
-# from any initial heading. Apply fast, smoothly filtered acquisition only
-# BEFORE laser onset. Switch to dodgeable tracking AFTER the shot begins.
+# The two-second spherical charge also eases target acquisition from a
+# stationary neutral mount. Before fire it can still catch a boosting SERA;
+# only the active laser is deliberately slow enough to dodge.
 const PRE_FIRE_YAW_SPEED: float = 900.0
 const PRE_FIRE_PITCH_SPEED: float = 720.0
 const PRE_FIRE_FILTER_PER_SECOND: float = 24.0
@@ -38,7 +43,7 @@ const RAIL_MESH_UUIDS = [
     "3e2ee103-881b-8bc0-edc1-ea9e396268e9",
 ]
 
-enum Phase { BEAM, HOLD, RETURN, CHARGE, FLASH, PRE_FIRE }
+enum Phase { BEAM, HOLD, RETURN, CHARGE, FLASH }
 var elevation: Node3D
 var outer_beam: MeshInstance3D
 var inner_beam: MeshInstance3D
@@ -211,9 +216,7 @@ func _phase_at(t: float) -> int:
         return Phase.RETURN
     if t < FLASH_START:
         return Phase.CHARGE
-    if t < FLASH_END:
-        return Phase.FLASH
-    return Phase.PRE_FIRE
+    return Phase.FLASH
 
 func _neutral_world_yaw() -> float:
     # The authored rig faces -Z at rest. Use only its horizontal heading,
@@ -255,8 +258,16 @@ func _desired_player_angles(player_world: Vector3) -> Vector2:
     return Vector2(relative_yaw, pitch)
 
 
+func _prefire_ease(t: float) -> float:
+    # 2s of smoothstep from ZERO angular velocity to full catch-up speed.
+    # No sudden jump as the blue spherical glow first appears.
+    var ratio: float = clampf(
+        (t - TRACK_START_SECONDS) / TRACK_EASE_IN_SECONDS, 0.0, 1.0)
+    return ratio * ratio * (3.0 - 2.0 * ratio)
+
+
 func _track_player(delta: float, player_world: Vector3,
-        fast_acquisition: bool = false) -> void:
+        fast_acquisition: bool = false, acquisition_weight: float = 1.0) -> void:
     var desired: Vector2 = _desired_player_angles(player_world)
     var yaw_rate: float = (
         PRE_FIRE_YAW_SPEED if fast_acquisition else TRACK_YAW_SPEED)
@@ -265,16 +276,17 @@ func _track_player(delta: float, player_world: Vector3,
     var filter_rate: float = (
         PRE_FIRE_FILTER_PER_SECOND if fast_acquisition
         else TRACK_FILTER_PER_SECOND)
-    var eased: float = 1.0 - exp(-filter_rate * delta)
+    var weight: float = clampf(acquisition_weight, 0.0, 1.0)
+    var eased: float = 1.0 - exp(-filter_rate * delta * weight)
     var yaw_step: float = angle_difference(aim_yaw, desired.x) * eased
     aim_yaw += clampf(yaw_step,
-        -deg_to_rad(yaw_rate) * delta,
-        deg_to_rad(yaw_rate) * delta)
+        -deg_to_rad(yaw_rate * weight) * delta,
+        deg_to_rad(yaw_rate * weight) * delta)
     var pitch_step: float = (desired.y - elevation.rotation.x) * eased
     elevation.rotation.x = clampf(
         elevation.rotation.x + clampf(pitch_step,
-            -deg_to_rad(pitch_rate) * delta,
-            deg_to_rad(pitch_rate) * delta),
+            -deg_to_rad(pitch_rate * weight) * delta,
+            deg_to_rad(pitch_rate * weight) * delta),
         deg_to_rad(-80.0), deg_to_rad(80.0))
 
 
@@ -334,11 +346,11 @@ func advance(delta: float, player_world: Vector3, active: bool) -> bool:
         # exactly at the rig-relative neutral angle despite target motion.
         aim_yaw = 0.0
         elevation.rotation.x = 0.0
-    elif phase == Phase.FLASH or phase == Phase.PRE_FIRE:
-        # Full charge starts the blue-white spherical flash AND rapid,
-        # eased acquisition. Continue tracking throughout the .2s dark
-        # interval, so the cannon has a full .4s to capture a boosting SERA.
-        _track_player(step, player_world, true)
+    elif phase == Phase.FLASH:
+        # At the full third charge bar, begin the 2-second blue sphere
+        # AND ease in pursuit over all 2 seconds. There is no dark gap:
+        # the flash vanishes exactly when the laser begins.
+        _track_player(step, player_world, true, _prefire_ease(elapsed))
     elif phase == Phase.BEAM:
         if last_phase != Phase.BEAM:
             # Match the live player position precisely on the FIRST beam
@@ -350,17 +362,23 @@ func advance(delta: float, player_world: Vector3, active: bool) -> bool:
     # ease home over 0.8 seconds, then remain neutral while recharging.
     _show_charge(clampf(
         (elapsed - CHARGE_START) / (FLASH_START - CHARGE_START),
-        0.0, 1.0) if phase == Phase.CHARGE or (
-            phase == Phase.FLASH or phase == Phase.PRE_FIRE) else 0.0)
+        0.0, 1.0) if phase == Phase.CHARGE or phase == Phase.FLASH else 0.0)
     _level_mount()
     var firing: bool = phase == Phase.BEAM
     outer_beam.visible = firing
     inner_beam.visible = firing
     if phase == Phase.FLASH:
+        # Remain visible for the complete two-second charge, rising softly
+        # over 0.2s, glowing steadily, then shrinking in the last 0.2s.
+        var age: float = elapsed - FLASH_START
+        var grow: float = clampf(age / FLASH_GROW_SECONDS, 0.0, 1.0)
+        var grow_eased: float = grow * grow * (3.0 - 2.0 * grow)
+        var end_remaining: float = FLASH_END - elapsed
         var shrink: float = clampf(
-            (elapsed - FLASH_START) / FLASH_SHRINK_SECONDS, 0.0, 1.0)
-        var ease: float = shrink * shrink * (3.0 - 2.0 * shrink)
-        muzzle_flash.scale = Vector3.ONE * maxf(0.01, 1.0 - ease)
+            end_remaining / FLASH_SHRINK_SECONDS, 0.0, 1.0)
+        var shrink_eased: float = shrink * shrink * (3.0 - 2.0 * shrink)
+        muzzle_flash.scale = Vector3.ONE * maxf(
+            0.01, (0.18 + 0.82 * grow_eased) * shrink_eased)
         muzzle_flash.visible = true
     else:
         muzzle_flash.visible = false
