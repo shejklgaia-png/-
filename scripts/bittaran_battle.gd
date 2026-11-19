@@ -1988,6 +1988,14 @@ func _finalize_target_pose(delta: float) -> void:
             var player_dir: Vector3 = (
                 player.global_position - contact
                 if player != null else Vector3.ZERO)
+            if original and bittaran_rig != null and str(
+                    bittaran_attack_frame.get("kind", "")) == "sweep":
+                # Reorient the baked source sweep ARC to its actual
+                # frozen BODY+shoulder yaw. It cannot keep following
+                # the untouched authored track after player aiming.
+                bittaran_attack_frame["sweep_aim_yaw"] = float(
+                    bittaran_rig.get("source_aim_body_yaw")) + float(
+                    bittaran_rig.get("source_aim_shoulder_yaw"))
             bittaran_dirt_fx.call("advance_attack",
                 bittaran_attack_frame, contact, previous, delta,
                 grounded, player_dir)
