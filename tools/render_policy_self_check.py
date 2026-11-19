@@ -32,6 +32,7 @@ expected = {
     "SLASH_VOLUME": 100,
     "SLASH_SURFACE": 105,
     "SLASH_PARTICLES": 110,
+    "SHIELD_IMPACT": 115,
     "HIT_SPARKS": 120,
     "CHARACTER_FOREGROUND": 126,
     "DEPTH_TESTED_EMISSIVE": 127,
@@ -53,6 +54,7 @@ owners = {
     "scripts/sera_rig.gd": ("AFTERIMAGE", "CHARACTER_FOREGROUND"),
     "scripts/sword_trail.gd": ("SLASH_VOLUME", "SLASH_SURFACE", "SLASH_PARTICLES"),
     "scripts/hit_burst.gd": ("HIT_SPARKS",),
+    "scripts/enemy_shield_hit_fx.gd": ("SHIELD_IMPACT",),
     "scripts/back_thruster_fx.gd": ("DEPTH_TESTED_EMISSIVE",),
 }
 for file, roles in owners.items():
@@ -146,7 +148,7 @@ if base and head:
                 f"{rel_path}: new transparent shader lacks RENDER_POLICY contract"
             )
 
-print("PASS v226: seven transparent layer roles centrally defined and ordered")
+print("PASS v510: eight transparent layer roles centrally defined and ordered")
 print(f"PASS: {all_assignments} runtime priority assignments use the contract")
 print("PASS: declared shader depth contracts and new transparent shader guard")
 print("Godot parsing, Android depth/sorting, and actual motion visibility remain unverified")
