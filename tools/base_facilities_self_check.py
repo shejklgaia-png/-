@@ -10,7 +10,7 @@ assert 'res://scripts/base_facility_system.gd' in base
 assert 'const HUB_SERA_CONTROLS_ENABLED: bool = false' in base
 assert 'func _nexus_hit(' in base and 'func _enter_nexus(' in base
 assert 'func _build_nexus_building(' in base
-assert 'func _input(' in base and 'key_at(' in base
+assert 'func _input(' in base and 'call("key_at",' in base
 assert 'func _create_hud(' in base and 'attach_hud(' in base
 # These are independent places on the outdoor 3D field, NOT NEXUS submenus.
 for key in ("LABO", "SCRAP_COLLECTOR", "SMELTER", "RECYCLER",
