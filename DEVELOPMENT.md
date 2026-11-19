@@ -1,3 +1,11 @@
+## 2026-11-19 — SERA v481: レーザー威力60%・横薙ぎ終了0.5秒前で当たり判定終了
+
+- `scripts/main.gd`の既存`_on_enemy_projectile_hit`へ末尾の任意引数`damage_multiplier:float=1.0`を追加。通常攻撃のHP／シールド消費は1.0を維持。シールド・防御補正・KO／反動の従来処理は改変せず、指定した攻撃の威力だけを調整。
+- `scripts/bittaran_battle.gd`の背部レーザー命中時のみ`LASER_DAMAGE_MULTIPLIER=0.60`を指定し、旧基準HP18→10.8、ガード消費23→13.8（実際のダメージは装備による防御・ガード補正あり）。0.2秒ごとの多段ヒット／無制限ヒット数・1.5m追尾境界は維持。
+- `scripts/bittaran_attacks.gd`：なぎ払いの原本Blockbench横薙ぎ停止・折返しの関節キーを前脚t=1.50s、後脚t=0.875sとして、`SWEEP_HIT_END_BEFORE_STOP_SECONDS=0.50`を引いた時刻で接触判定を終了。前脚は元の0.75〜1.25sから**0.75〜1.00s**へ、後脚は元の0.25〜0.75sから**0.25〜0.375s**へ短縮。左右の4本共通。モーション原本・判定開始・足先と下肢の実コリジョン・1攻撃1ヒットは変更なし。
+- `tools/bittaran_railgun_runtime_check.gd`に実戦のレーザーHP・ガードダメージ60%、通常弾威力100%、リアルなノックバックとビーム連続命中を検証するアサーション追加。`tools/bittaran_keyframe_hit_sector_runtime_check.gd`に実Blockbench停止キーから0.50秒早い判定の終了と、終了後の足先接触でもヒットしない回帰を追加。
+- Android実機での回避・当たり判定感と音量はheadless CIでは検証不可。
+
 ## 2026-11-19 — SERA v480: ユーザー提供音源3種をSERA足音・チャージ・レーザー照射へ組み込み
 
 - `ロボットを殴る2.mp3`由来の`assets/sera_player_footstep_v480.ogg`を、`scripts/main.gd`の既存`_on_foot_contact(side)`シグナルに接続。左右接地の際にそれぞれ0.96/1.03ピッチで再生。空中では鳴らさず、既存の合成接地音は未同期時のフォールバックに限定。足音の実効長0.53秒。
