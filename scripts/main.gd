@@ -1133,7 +1133,8 @@ func _build_enemy_shooter() -> void:
     add_child(enemy_shooter)
 
 func _on_enemy_projectile_hit(_world_position: Vector3, incoming_direction: Vector3,
-        is_bullet: bool, attack_type: int) -> void:
+        is_bullet: bool, attack_type: int,
+        non_staggering: bool = false) -> void:
     if down_remaining > 0.0 or training_ko_remaining > 0.0:
         return
     # The attack subtype is captured when the projectile or area is created.
@@ -1142,7 +1143,9 @@ func _on_enemy_projectile_hit(_world_position: Vector3, incoming_direction: Vect
     var incoming_damage: float = float(ENEMY_ATTACK_HP_DAMAGE[attack_index])
     if guard_break_remaining > 0.0:
         _take_test_damage(incoming_damage)
-        if training_ko_remaining > 0.0:
+        if training_ko_remaining > 0.0 or non_staggering:
+            # Beam damage should not knock SERA down or interrupt BOOST;
+            # other enemy projectiles still use the ordinary hit reaction.
             return
         guard_break_hits += 1
         if guard_break_hits >= int(part_stats.get("down_hits", 3)):
@@ -1157,7 +1160,8 @@ func _on_enemy_projectile_hit(_world_position: Vector3, incoming_direction: Vect
         _record_sera_save("record_defensive_impact", [true])
         if shield <= 0.0:
             _set_guard(false)
-            _begin_damage_reaction(incoming_direction)
+            if not non_staggering:
+                _begin_damage_reaction(incoming_direction)
             guard_break_remaining = 2.25
             guard_break_hits = 0
             return
@@ -1176,7 +1180,7 @@ func _on_enemy_projectile_hit(_world_position: Vector3, incoming_direction: Vect
     var damage_sound: AudioStreamPlayer = player_bullet_hit_audio if is_bullet else player_hit_audio
     if is_instance_valid(damage_sound) and damage_sound.stream != null:
         damage_sound.play()
-    if training_ko_remaining <= 0.0:
+    if training_ko_remaining <= 0.0 and not non_staggering:
         _begin_damage_reaction(incoming_direction)
 
 func _begin_damage_reaction(incoming_direction: Vector3) -> void:
