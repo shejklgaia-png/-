@@ -79,43 +79,36 @@ const SWEEP_MIN_RANGE_METERS: float = 2.70
 const SWEEP_RANGE_METERS: float = 7.10
 const SWEEP_HALF_ANGLE_DEGREES: float = 115.0
 const REAR_SWEEP_HALF_ANGLE_DEGREES: float = 165.0
-# v452: Source-authoritative impact intervals, verified against the
-# visible toe's world XZ path and floor contact in the REAL battle.
-# KICK still starts 0.10s AFTER the extension begins at t=.25.
-# SWEEP must damage on the FIRST front-to-back planted stroke, NOT
-# on the later return: front toe reaches floor ~.78 and travels from
-# +Z=3.7 to 1.7 until 1.25; rear moves from +Z~0 to -2.6
-# between .25 and .75. Both slow/turn after these keys. During that
-# slow aftermath and the complete reset there is NO damage.
+# v482: exact collision windows are user-authored SOURCE-CLIP seconds.
+# Hit geometry is the rendered lower-leg AND foot mesh, both front and rear,
+# left and right. Never derive these intervals from joint-stop guesses.
+# Kick timing and damage remain unchanged.
 const SOURCE_HIT_DELAY_SECONDS: float = 0.10
 const KICK_EXTENSION_START_KEY_SECONDS: float = 0.25
 const KICK_EXTENSION_END_KEY_SECONDS: float = 0.75
+const SWEEP_FRONT_HIT_START_SECONDS: float = 0.67
+const SWEEP_FRONT_HIT_END_SECONDS: float = 1.38
+const SWEEP_REAR_HIT_START_SECONDS: float = 0.17
+const SWEEP_REAR_HIT_END_SECONDS: float = 0.63
+# The independent visual dirt trail follows the ORIGINAL first stroke:
+# before v482, FX were authored over 0.75..1.25 (front) / 0.25..0.75
+# (rear). Keep source-time FX unchanged when changing damage windows.
 const SWEEP_FRONT_FIRST_STROKE_START_KEY_SECONDS: float = 0.75
 const SWEEP_REAR_FIRST_STROKE_START_KEY_SECONDS: float = 0.25
-# v481: use the FINAL fully stopped original source pose, rather than
-# the early mid-swing rotation keys. Front source joints have the last
-# held sweep pose at 2.00, rear joints land on their final still pose
-# at 1.25. 0.5s BEFORE that pose is the final damage-capable time.
-# Earlier stop candidates (front 1.50 / rear 0.875) eliminated legal
-# physical contact from the mirrored right-front attack in real Godot.
-const SWEEP_HIT_END_BEFORE_STOP_SECONDS: float = 0.50
-const SWEEP_FRONT_SWING_STOP_KEY_SECONDS: float = 2.00
-const SWEEP_REAR_SWING_STOP_KEY_SECONDS: float = 1.25
-# The original floor-scrape clouds have a separately authored duration.
-# NEVER shorten the particle path just because the damaging window ends.
 const SWEEP_FRONT_FX_FIRST_STROKE_END_KEY_SECONDS: float = 1.25
 const SWEEP_REAR_FX_FIRST_STROKE_END_KEY_SECONDS: float = 0.75
-const SWEEP_FRONT_FIRST_STROKE_END_KEY_SECONDS: float = (
-    SWEEP_FRONT_SWING_STOP_KEY_SECONDS - SWEEP_HIT_END_BEFORE_STOP_SECONDS)
-const SWEEP_REAR_FIRST_STROKE_END_KEY_SECONDS: float = (
-    SWEEP_REAR_SWING_STOP_KEY_SECONDS - SWEEP_HIT_END_BEFORE_STOP_SECONDS)
 
 ## The rendered LOWER-LEG and FOOT are still the only damage
 ## geometry. These are motion-time gates, not substitute hitboxes.
 
 static func source_sweep_fx_window(attack_id: String,
         clip_time: float) -> bool:
-    var begin: float = source_hit_start_seconds("sweep", attack_id)
+    # Use the baked FX's OWN first grounded stroke, not the new, earlier
+    # collision onset (which can precede foot-ground contact).
+    var begin: float = (
+        SWEEP_REAR_FIRST_STROKE_START_KEY_SECONDS
+        if attack_id.begins_with("leg_r")
+        else SWEEP_FRONT_FIRST_STROKE_START_KEY_SECONDS)
     var end: float = (
         SWEEP_REAR_FX_FIRST_STROKE_END_KEY_SECONDS
         if attack_id.begins_with("leg_r")
@@ -127,11 +120,11 @@ static func source_hit_start_seconds(attack_kind: String,
     if attack_kind == "kick" and attack_id.begins_with("leg_f"):
         return KICK_EXTENSION_START_KEY_SECONDS + SOURCE_HIT_DELAY_SECONDS
     if attack_kind == "sweep":
-        # The visual contact test is applied AFTER sampling the real
-        # skeletal mesh; no artificial extra .10s on this first scrape.
-        return (SWEEP_REAR_FIRST_STROKE_START_KEY_SECONDS
+        # Both foot and lower-leg colliders begin at the exact requested
+        # source timestamp, even if the sole has not yet reached ground.
+        return (SWEEP_REAR_HIT_START_SECONDS
             if attack_id.begins_with("leg_r")
-            else SWEEP_FRONT_FIRST_STROKE_START_KEY_SECONDS)
+            else SWEEP_FRONT_HIT_START_SECONDS)
     return INF
 
 
@@ -146,9 +139,9 @@ static func source_hit_window(attack_kind: String, attack_id: String,
         "kick":
             end = KICK_EXTENSION_END_KEY_SECONDS
         "sweep":
-            end = (SWEEP_REAR_FIRST_STROKE_END_KEY_SECONDS
+            end = (SWEEP_REAR_HIT_END_SECONDS
                 if attack_id.begins_with("leg_r")
-                else SWEEP_FRONT_FIRST_STROKE_END_KEY_SECONDS)
+                else SWEEP_FRONT_HIT_END_SECONDS)
         _:
             return false
     return clip_time <= end + 0.000001
