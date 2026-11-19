@@ -12,6 +12,9 @@ const BittaranSweepFXTrack = preload("res://scripts/bittaran_sweep_fx_track.gd")
 const DOWN_CLEARANCE = preload("res://scripts/bittaran_down_clearance.gd")
 const CONTROLLER_AXIS = preload("res://scripts/bittaran_controller_axis.gd")
 const NAME_TEXT: String = "BITTARAN  /  ビットタラン"
+# v481: ONLY the dorsal laser uses 60% of its previous per-contact
+# HP AND guard depletion; foot attacks and training weapons stay unchanged.
+const LASER_DAMAGE_MULTIPLIER: float = 0.60
 const BOSS_WORLD_SCALE: float = 2.0
 # Live 3D stomp volume: 1.5x both horizontal dimensions of the rendered toe.
 const STOMP_FOLLOW_WIDTH_MULTIPLIER: float = 1.50
@@ -1736,7 +1739,7 @@ func _tick_bittaran_railgun(delta: float) -> void:
         # Keep normal guard/shield/HP and physical knockback; no cap on
         # the number of real contacts in a single beam.
         _on_enemy_projectile_hit(player.global_position,
-            incoming.normalized(), true, 0)
+            incoming.normalized(), true, 0, false, LASER_DAMAGE_MULTIPLIER)
 
 ## Read the actual world-space striking-foot mesh after source replay + IK.
 ## The legacy procedural attack_pose stays empty during source replay.

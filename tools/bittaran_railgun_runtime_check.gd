@@ -6,6 +6,7 @@ extends SceneTree
 ## (no hit-count cap), doubled boss movement and 0.7s neutral return.
 const GUN = preload("res://scripts/bittaran_railgun.gd")
 const AI = preload("res://scripts/bittaran_ai.gd")
+const BATTLE = preload("res://scripts/bittaran_battle.gd")
 const DT: float = 1.0 / 120.0
 
 
@@ -62,6 +63,9 @@ func _run() -> void:
             not _near(GUN.BEAM_GROUND_GAP_METERS, 1.50)) or (
             not _near(GUN.BEAM_HIT_INTERVAL_SECONDS, 0.20)):
         _fail("beam 0.7x, 1.5m ground catch-up and repeat pulse interval changed")
+        return
+    if not _near(BATTLE.LASER_DAMAGE_MULTIPLIER, 0.60, 0.0001):
+        _fail("only Bittaran laser must have 60% attack strength")
         return
     if not _near(AI.APPROACH_SPEED_MPS, 1.872) or (
             not _near(AI.ACCELERATION_MPS2, 1.56)) or (
@@ -441,9 +445,14 @@ func _run() -> void:
     var first_hp: float = float(scene.get("player_hp"))
     scene.call("_tick_bittaran_railgun", DT)
     var hp_after_first: float = float(scene.get("player_hp"))
-    if hp_after_first >= first_hp or (
+    var parts: Dictionary = scene.get("part_stats")
+    var defense: float = clampf(float(parts.get("defense", 0.16)), 0.0, 0.90)
+    var expected_laser_hp: float = (
+        18.0 *
+        BATTLE.LASER_DAMAGE_MULTIPLIER * (1.0 - defense))
+    if not _near(first_hp - hp_after_first, expected_laser_hp, 0.005) or (
             not bool(scene.get("damage_reaction_active"))):
-        _fail("initial laser contact must damage and cause normal recoil")
+        _fail("laser must deal precisely 60% of old HP damage, keeping recoil")
         return
     var recoil_start: Vector3 = player.global_position
     scene.call("_advance_damage_knockback", 0.12)
@@ -490,10 +499,30 @@ func _run() -> void:
     player.global_position = elevation.to_global(
         Vector3(0.0, 0.0, -9.0)) - Vector3.UP * 0.92
     scene.call("_tick_bittaran_railgun", DT)
-    if float(scene.get("shield")) >= 100.0 or (
+    var expected_laser_guard_cost: float = (
+        23.0 *
+        BATTLE.LASER_DAMAGE_MULTIPLIER *
+        float(parts.get("guard_cost_mult", 1.0)) /
+        maxf(0.2, float(parts.get("guard_defense_mult", 1.0))))
+    if not _near(100.0 - float(scene.get("shield")),
+            expected_laser_guard_cost, 0.005) or (
             float(scene.get("player_hp")) < 800.0) or (
             bool(scene.get("damage_reaction_active"))):
-        _fail("guarded laser must drain shield before applying knockback")
+        _fail("guarded laser must cost exactly 60%, preserve HP and recoil")
+        return
+
+    # Normal bullets still use their original 100% power. This proves
+    # v481 changes only the laser, NOT global attack-type 0 gameplay.
+    scene.set("guard_active", false)
+    scene.set("player_hp", 800.0)
+    scene.set("training_ko_remaining", 0.0)
+    scene.call("_on_enemy_projectile_hit",
+        player.global_position, Vector3.FORWARD, true, 0, true)
+    var expected_unscaled_hp: float = (
+        18.0 * (1.0 - defense))
+    if not _near(800.0 - float(scene.get("player_hp")),
+            expected_unscaled_hp, 0.005):
+        _fail("non-laser projectile damage was incorrectly reduced")
         return
 
     # On player KO the beam keeps its full authored firing duration.
@@ -518,7 +547,8 @@ func _run() -> void:
         "0.7s_smooth_sphere_entry=true 0.7s_immediate_return=true ",
         "zero_prefire_hold=true zero_damage_arm_delay=true ",
         "beam_0_7x_baseline=true ground_gap_1_5m_follow=true ",
-        "player_velocity_catchup=true unlimited_repeat_hits=true ",
+        "player_velocity_catchup=true laser_60pct_power=true ",
+        "normal_projectiles_unchanged=true unlimited_repeat_hits=true ",
         "repeat_hit_0_2s=true physical_knockback_preserved=true ",
         "double_boss_move_and_turn=true guard_still_blocks=true ",
         "laser_persists_after_hit=true ",

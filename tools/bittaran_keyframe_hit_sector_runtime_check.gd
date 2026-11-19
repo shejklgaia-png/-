@@ -6,10 +6,10 @@ const ATTACKS = preload("res://scripts/bittaran_attacks.gd")
 const RIG = preload("res://scripts/bittaran_rig.gd")
 const DT: float = 1.0 / 60.0
 const CASES: Array = [
-    ["leg_fl", "sweep", "なぎ払い", "FrontLeg_L", 0.75, 0.75, 1.25],
-    ["leg_fr", "sweep", "なぎ払い_R", "FrontLeg_R", 0.75, 0.75, 1.25],
-    ["leg_rl", "sweep", "後足なぎ払い_L", "RearLeg_L", 0.25, 0.25, 0.75],
-    ["leg_rr", "sweep", "後足なぎ払い_R", "RearLeg_R", 0.25, 0.25, 0.75],
+    ["leg_fl", "sweep", "なぎ払い", "FrontLeg_L", 0.75, 0.75, 1.00],
+    ["leg_fr", "sweep", "なぎ払い_R", "FrontLeg_R", 0.75, 0.75, 1.00],
+    ["leg_rl", "sweep", "後足なぎ払い_L", "RearLeg_L", 0.25, 0.25, 0.375],
+    ["leg_rr", "sweep", "後足なぎ払い_R", "RearLeg_R", 0.25, 0.25, 0.375],
     ["leg_fl", "kick", "弾き", "FrontLeg_L", 0.25, 0.35, 0.75],
     ["leg_fr", "kick", "弾き_R", "FrontLeg_R", 0.25, 0.35, 0.75]
 ]
@@ -101,6 +101,32 @@ func _run() -> void:
             _fail("timing does not originate from a real Blockbench key "
                 + str(spec))
             return
+        if kind == "sweep":
+            # v481: verify the source stop pose, not just a magic fixed
+            # hit-window length. Four real Blockbench limb rotation tracks
+            # carry this stop key; the collision ends 0.5s beforehand.
+            var stop_key: float = (
+                ATTACKS.SWEEP_REAR_SWING_STOP_KEY_SECONDS
+                if id.begins_with("leg_r")
+                else ATTACKS.SWEEP_FRONT_SWING_STOP_KEY_SECONDS)
+            if not _near(stop_key - hit_end,
+                    ATTACKS.SWEEP_HIT_END_BEFORE_STOP_SECONDS, 0.00001):
+                _fail("sweep hit-end is not 0.5s before stop " + str(spec))
+                return
+            var stop_exists: bool = false
+            for key in animator.get("keyframes", []):
+                if str(key.get("channel", "")) == "rotation" and (
+                        _near(float(key.get("time", -1.0)), stop_key)):
+                    stop_exists = true
+            if not stop_exists:
+                _fail("sweep stop pose not present in uploaded Blockbench clip "
+                    + str([clip, bone, stop_key]))
+                return
+            # The stop itself and all of the last 0.5s cannot collide.
+            if ATTACKS.source_hit_window(kind, id, stop_key - 0.001) or (
+                    ATTACKS.source_hit_window(kind, id, stop_key)):
+                _fail("sweep collider still active inside stop lead time")
+                return
         for t in [start_key - 0.001, hit_begin - 0.004,
                 hit_begin, hit_begin + 0.017,
                 hit_end - 0.008, hit_end + 0.008]:
