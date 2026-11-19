@@ -3,6 +3,7 @@ extends SceneTree
 ## Validate asset presence/import, visual sole contacts, charge phase,
 ## one-time laser onset, seamless sustain loop and smooth shot-end fade.
 const GUN = preload("res://scripts/bittaran_railgun.gd")
+const FOOTSTEP_SOURCE_PATH: String = "res://assets/sera_player_footstep_v480.ogg"
 const DT: float = 1.0 / 60.0
 
 
@@ -31,7 +32,7 @@ func _run() -> void:
     if player == null or footstep == null or gun == null:
         _fail("live boss battle missing audio owners")
         return
-    var foot_path: String = scene.PLAYER_FOOTSTEP_SFX_PATH
+    var foot_path: String = FOOTSTEP_SOURCE_PATH
     if not FileAccess.file_exists(foot_path) or (
             not footstep.stream is AudioStreamOggVorbis) or (
             not _near(footstep.stream.get_length(), 0.53, 0.08)):
@@ -121,7 +122,12 @@ func _run() -> void:
             float(gun.get("laser_loop_gain")) < 0.99):
         _fail("laser sustained layer restarted or did not reach normal volume")
         return
-    gun.call("advance", 1.5, src, true)
+    gun.call("advance", 1.498, src, true)
+    if not sustain.playing or (
+            int(gun.get("laser_loop_starts")) != sustain_count + 1):
+        _fail("laser sustain failed to loop through the complete beam")
+        return
+    gun.call("advance", 0.002, src, true)
     if not sustain.playing or (
             float(gun.get("laser_loop_gain")) >= 0.99):
         _fail("laser sustain did not enter smooth fade on beam end")
