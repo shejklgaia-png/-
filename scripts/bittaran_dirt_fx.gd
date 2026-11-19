@@ -804,6 +804,14 @@ func _advance_prebaked_sweep(
         var row: Dictionary = track[prebaked_sweep_next_index]
         var sample: Vector3 = _prebaked_world_at(
             track, float(row["time"]))
+        if bool(frame.get("sweep_player_tracked", false)):
+            # The player-guided BODY/SHOULDER changes the entire
+            # actual foot arc. A rigidly rotated unsteered source
+            # curve can drift >1m. Keep its deterministic emission
+            # timing but use the CURRENT post-IK toe position for
+            # every new particle cloud. Clouds already spawned are
+            # world-space and do not chase the limb.
+            sample = contact
         sample.y = 0.055
         var travel: Vector3 = sample - prebaked_sweep_last_point
         travel.y = 0.0
