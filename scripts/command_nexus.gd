@@ -23,6 +23,8 @@ var focused_target: String = ""
 var in_transition: bool = false
 var back_panel: Panel
 var back_arrow: Label
+var explore_panel: Panel
+var explore_label: Label
 var focus_panel: Panel
 var focus_header: Panel
 var focus_title: Label
@@ -135,6 +137,7 @@ const NEXUS_ARM_CLEARANCE: float = 0.018
 const CUSTOMIZE_DRAG_FULL_TURN: float = TAU
 
 const CAMERA_TRANSITION_SECONDS: float = 0.18
+const BASE_SCENE: String = "res://scenes/base_exploration.tscn"
 const TRAINING_SCENE: String = "res://scenes/main.tscn"
 const BITTARAN_SCENE: String = "res://scenes/bittaran_battle.tscn"
 const BOSS_ENTRIES = [{"name": "ビットタラン  /  BITTARAN", "scene": BITTARAN_SCENE}]
@@ -191,6 +194,10 @@ func _ready() -> void:
     _wall_mark()
     _hud()
     SeraSave.mark_location("NEXUS")
+    var route: String = SeraSave.requested_nexus_target
+    SeraSave.requested_nexus_target = ""
+    if focus_views.has(route):
+        call_deferred("_select_target", route)
 
 func _process(delta: float) -> void:
     SeraSave.record_game_time(delta)
@@ -787,6 +794,19 @@ func _hud() -> void:
     _create_deployment_controls()
     _create_system_controls()
     _create_archive_records()
+    explore_panel = Panel.new()
+    explore_panel.name = "ExploreBase"
+    explore_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    explore_panel.add_theme_stylebox_override("panel", _menu_style())
+    hud.add_child(explore_panel)
+    explore_label = Label.new()
+    explore_label.text = "EXPLORE BASE"
+    explore_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    explore_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+    explore_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    explore_label.add_theme_font_size_override("font_size", 19)
+    explore_label.add_theme_color_override("font_color", Color("#ddfaff"))
+    explore_panel.add_child(explore_label)
     VersionIndicator.attach(hud)
     hud.resized.connect(_layout_hud)
     _layout_hud()
@@ -1641,6 +1661,12 @@ func _layout_hud() -> void:
         return
     var view := hud.size
     var margin := maxf(16.0, view.x * 0.04)
+    # Dedicated raw-touch hit area: GUI mouse emulation remains off.
+    explore_panel.position = Vector2(margin, view.y - margin - 66.0)
+    explore_panel.size = Vector2(minf(190.0, view.x * 0.43), 66.0)
+    explore_label.position = Vector2.ZERO
+    explore_label.size = explore_panel.size
+    explore_panel.visible = focused_target.is_empty() and not in_transition
     # Bottom right, outside the destination action menu even on shorter screens.
     back_panel.position = Vector2(view.x - margin - 62.0, view.y - margin - 62.0)
     back_panel.size = Vector2(62.0, 62.0)
@@ -2416,6 +2442,10 @@ func _tap_at(point: Vector2) -> void:
             else:
                 _tap_training_control(point)
         return
+    if explore_panel.visible and Rect2(
+            explore_panel.position, explore_panel.size).has_point(point):
+        _enter_base()
+        return
     var polys: Dictionary = outline.get("polygons")
     # Front terminals win if the projections overlap a distant module.
     for candidate in ["TRAINING", "SYSTEM", "CUSTOMIZE", "DATA ARCHIVE", "DEPLOYMENT"]:
@@ -2433,6 +2463,13 @@ func _tap_at(point: Vector2) -> void:
                 _select_target(candidate)
                 return
 
+func _enter_base() -> void:
+    if not focused_target.is_empty() or in_transition:
+        return
+    var err: Error = get_tree().change_scene_to_file(BASE_SCENE)
+    if err != OK:
+        push_error("NEXUS base exploration scene load failed (%d)" % err)
+
 func _polygon_bounds(poly: PackedVector2Array) -> Rect2:
     var left := poly[0].x
     var right := poly[0].x
@@ -2449,6 +2486,7 @@ func _select_target(target_name: String) -> void:
     if in_transition or not focus_views.has(target_name):
         return
     focused_target = target_name
+    explore_panel.visible = false
     # Show the bright contour in the initial press event, before camera tween.
     outline.set("active_target", target_name)
     _update_projected_silhouettes()
@@ -2550,6 +2588,7 @@ func _overview_arrived() -> void:
             return
         _restore_customization_preview()
     in_transition = false
+    explore_panel.visible = true
     focused_target = ""
     outline.set("hide_customize_preview_outline", false)
     _update_projected_silhouettes()
