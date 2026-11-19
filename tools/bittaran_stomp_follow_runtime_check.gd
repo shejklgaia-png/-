@@ -50,20 +50,8 @@ func _run() -> void:
             var phase: String = str(frame.get("phase", ""))
             var source_time: float = float(
                 frame.get("authored_time", 0.0))
-            var raw_before: AABB = battle.call(
-                "_bittaran_attack_foot_bounds", leg_id)
-            var lift_end: float = (
-                0.77 if leg_id.begins_with("leg_r") else 1.26)
-            if phase == "strike" and source_time > 0.25 \
-                    and source_time < lift_end \
-                    and raw_before.has_volume() \
-                    and raw_before.position.y > 0.15:
-                saw_airborne = true
-                if not hit_before_ground:
-                    # Place the full height of SERA's live capsule inside
-                    # the AIRBORNE foot, without calling the hit helper.
-                    var c: Vector3 = raw_before.get_center()
-                    player.global_position = Vector3(c.x, c.y - 0.80, c.z)
+            # _advance_target_motion resets the pre-IK source pose.
+            # Sample the foot only AFTER _finalize_target_pose.
             battle.call("_finalize_target_pose", DT)
             var raw: AABB = battle.call(
                 "_bittaran_attack_foot_bounds", leg_id)
@@ -72,6 +60,19 @@ func _run() -> void:
             if not raw.has_volume() or not box.has_volume():
                 _fail("toe bounds missing " + leg_id)
                 return
+            var lift_end: float = (
+                0.77 if leg_id.begins_with("leg_r") else 1.26)
+            if phase == "strike" and source_time > 0.25 \
+                    and source_time < lift_end and raw.position.y > 0.15:
+                saw_airborne = true
+                if not hit_before_ground:
+                    # Insert SERA into the ACTUAL airborne volume, then
+                    # rerun that frame's tracker after the teleport.
+                    # This verifies the exact combat damage path without
+                    # calling the hit helper or fabricating an FX pulse.
+                    var c: Vector3 = box.get_center()
+                    player.global_position = Vector3(c.x, c.y - 0.80, c.z)
+                    battle.call("_update_bittaran_stomp_follow")
             if absf(box.size.x - raw.size.x * 1.5) > 0.005 \
                     or absf(box.size.z - raw.size.z * 1.5) > 0.005:
                 _fail("not exactly 1.5x live toe width " + leg_id)
