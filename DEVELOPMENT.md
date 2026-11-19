@@ -1,3 +1,10 @@
+## 2026-11-20 — SERA v516: 6層八角形の予測シールドとガラス破片への変更
+- **依頼**：厚い八角形の囲いを内側から放射状に6個展開。外周ほど透明度を上げ、空間的なぼかしを全面撤去。出現0.2秒＋維持0.2秒＋消失0.2秒。破壊時は大きいランダムガラス破片と、左右端が透明になる高速な横稲妻。
+- **着手時調査**：main v515、AGENTS、tools/sera_ci_manifest.txt、docs/SERA_ACTIVE_CI_POLICY_ja.md、tools/v510_predictive_shield_*、tools/v515_shield_membrane_*、docs/RENDER_PIPELINE_POLICY_ja.md、scripts/enemy_shield_hit_fx.gd、直前の成功GitHub Actionsを確認。変更する検査＝円形グラデーション／0.44秒／遅い稲妻、維持する検査＝中心充填・破壊時空洞・防御数値・ボス/テストターゲット・描画優先・LABO。
+- **テスト先行改訂**：実装前にv510の古い固定秒数期待値とv515の旧円形リング期待値を新しい仕様へ更新し、v516_octagonal_shield_self_check.py、v516_octagonal_shield_runtime_check.gdを作成してCIマニフェストへ登録。8辺×6輪の実ImmediateMesh頂点/アルファ、各輪の0.2秒内の段階出現、0.2秒維持/0.2秒消灯、シャープな均一アルファ、14片のガラス破片、短く先端が透明になる亀裂とSEを検査。既存検査は削除・スキップなし。
+- **実装**：命中エフェクトを6つの厚い正八角形フレームに変更し、中心の小八角形を従来どおり埋める。外周ほど層単位で透過率を高め、ぼかしと旧円形グラデーションを使用しない。ガラスの大きな乱数形状14片は破壊ヒット発生時に生成し、一貫した速度・角速度で外側へ散らす。横稲妻は伸長0.065秒・終端0.16秒、外側端のアルファを0へ補間。シールド数値・部位/攻撃判定・HPバー・破壊SEは維持。
+- **検証**：mainへマージした後、登録済みPython/GodotフルCIを実行。AndroidのGL Compatibilityで輪郭の8辺・段階出現・大きなガラス片の透明度・SEの気持ちよさを目視確認。
+
 ## 2026-11-20 — SERA v515 post-merge CI補修：LABOの旧画面遷移テストを現行機能に対応
 - **検査結果**：main v515のCIラン44633849609でPython191/191件成功、Godot149/150件成功。v515のシールド膜専用実Godotテストは成功。唯一の失敗は v509以来のtools/base_page_navigation_runtime_check.gdで、LABOのShell開発を従来の情報ページ(detail)と誤って期待した旧テスト。
 - **現行仕様の確認**：v514でShell開発はOpenPrototypeCatalogから7種の試作装備一覧(prototypes)→選択した個体の詳細(prototype_detail)→一覧→LABO home→閉じる、と画面構成が意図的に変わった。scripts/base_facility_system.gdと既存のv511アイコン/製作実行テストに一致。
