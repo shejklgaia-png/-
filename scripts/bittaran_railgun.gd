@@ -2,8 +2,9 @@ extends Node3D
 ## Bittaran's dorsal railgun. Its 10-second stationary fill and separate
 ## sphere/beam/return are independent of locomotion, source clips and HEAD.
 ## Untracked WAIT follows the animated Body's full pose (yaw, pitch, roll).
-## During sphere acquisition and beam tracking, barrel yaw and elevation
-## operate in WORLD space so turning the chassis never adds to aim speed.
+## During acquisition and beam tracking, actual barrel direction is motor
+## world-space yaw/pitch ONLY: chassis tilt, charge-entry roll and animated
+## mount translation cannot add to tracking speed or the beam catch-up cap.
 const RENDER_ORDER = preload("res://scripts/render_order_policy.gd")
 const RailgunFX = preload("res://scripts/bittaran_railgun_fx.gd")
 
@@ -128,7 +129,12 @@ var aim_yaw: float = 0.0
 var tracked_world_yaw: float = 0.0
 var tracking_world_initialized: bool = false
 var idle_pose_blend: float = 1.0
+# Only a roll about the CURRENT firing direction may be unwound. Never
+# blend the pre-charge Body pitch/yaw on top of tracked motor angles.
 var charge_entry_pose_offset: Quaternion = Quaternion.IDENTITY
+# Bind reference ignores animation/IK/recoil Body tilt. It is used ONLY
+# to decide angular slew speed, never for visible gun position/damage.
+var tracking_anchor_rig_local: Vector3 = Vector3.ZERO
 
 func setup(rig: Node3D) -> bool:
     var body: Node3D = rig.find_child("Body", true, false) as Node3D
@@ -145,6 +151,7 @@ func setup(rig: Node3D) -> bool:
     # Pivot is the measured neutral center of the two imported long rails.
     # The rig's Body origin is [0.3,3.7,-1.4] in Blockbench coordinates.
     position = MOUNT_LOCAL_OFFSET
+    tracking_anchor_rig_local = rig.to_local(global_position)
     # A child under the turning chassis can inherit yaw between physics
     # updates even when its tracked WORLD yaw is compensated every tick.
     # Keep the Body parent for ownership, but decouple the world transform.
@@ -433,6 +440,14 @@ func _neutral_world_yaw() -> float:
     return atan2(-forward.x, -forward.z)
 
 
+# Fixed root-relative reference for pursuit speed and beam-gap control.
+# The visible barrel still remains attached to the CURRENT Body bone.
+func _tracking_speed_anchor_world() -> Vector3:
+    if mount_rig == null:
+        return global_position
+    return mount_rig.to_global(tracking_anchor_rig_local)
+
+
 func _sync_mount_position() -> void:
     # The chassis and authored BODY bones are finalized before the railgun
     # ticks. Update the pivot BEFORE calculating the desired world heading:
@@ -472,13 +487,16 @@ func _level_mount() -> void:
         pose = stabilized.slerp(body_pose, idle_pose_blend)
     elif phase == Phase.FLASH and (
             elapsed < FLASH_START + TRACK_BLEND_SECONDS):
-        # The pose offset was captured ONCE at the instant guidance began.
-        # New chassis turns cannot add to the railgun motor's world yaw.
+        # Unwind ONLY ROLL about the barrel's OWN axis. Previous versions
+        # also unwound Body yaw/pitch here, which visibly added angular
+        # velocity on top of the motor when the chassis stood upright.
         var ratio: float = clampf(
             (elapsed - FLASH_START) / TRACK_BLEND_SECONDS, 0.0, 1.0)
         var eased: float = ratio * ratio * (3.0 - 2.0 * ratio)
-        pose = stabilized * charge_entry_pose_offset.slerp(
-            Quaternion.IDENTITY, eased)
+        var pitch: float = elevation.rotation.x
+        var pitch_basis: Quaternion = Quaternion(Vector3.RIGHT, pitch)
+        pose = (stabilized * pitch_basis * charge_entry_pose_offset.slerp(
+            Quaternion.IDENTITY, eased) * pitch_basis.inverse()).normalized()
     global_basis = Basis(pose.normalized()).scaled(scale_world)
 
 
@@ -524,7 +542,11 @@ func _tracking_turn_rate(player_world: Vector3,
     # The pre-v478 tracking speed used for the laser baseline.
     # During the beam, ground-ray offset 0..1.5m eases toward this cap.
     # Use the actual part stats so upgrades do not break the contract.
-    var to_player: Vector3 = player_world + Vector3.UP * 0.92 - global_position
+    # Do not divide pursuit speed by the animated Body mount distance.
+    # As Body goes from tilted to upright, the real mount travels in an
+    # arc; that movement must NOT increase the tracking motor's speed.
+    var to_player: Vector3 = (
+        player_world + Vector3.UP * 0.92 - _tracking_speed_anchor_world())
     var flat: float = Vector2(to_player.x, to_player.z).length()
     var radius: float = maxf(flat, 1.0)
     var run_mps: float = maxf(run_speed_mps, 0.0)
@@ -539,10 +561,23 @@ func _ground_ray_gap(player_world: Vector3) -> float:
     # forward depth; do not mistake player height for a horizontal miss.
     # This also handles a nearly horizontal ray without distant-ground
     # intersection false positives.
-    var origin: Vector3 = elevation.to_global(
-        Vector3(0.0, 0.0, MUZZLE_LOCAL_Z))
-    var forward: Vector3 = -elevation.global_basis.z.normalized()
-    var ground_forward := Vector2(forward.x, forward.z)
+    # The approved gap is HORIZONTAL miss distance from the yaw ray.
+    # Never use a pitching/tilting barrel's projected direction here:
+    # near-vertical elevation shrinks its XZ projection and spuriously
+    # raises the catch-up speed even when player position stays fixed.
+    # Use only the MOTOR world yaw and the unanimated rig anchor.
+    var world_yaw: float = (
+        tracked_world_yaw if tracking_world_initialized
+        else _neutral_world_yaw())
+    var yaw_basis: Basis = Basis(Quaternion(Vector3.UP, world_yaw))
+    var root_scale: Vector3 = (
+        mount_rig.global_basis.get_scale()
+        if mount_rig != null else Vector3.ONE)
+    var origin: Vector3 = (
+        _tracking_speed_anchor_world() +
+        yaw_basis.scaled(root_scale) * Vector3(0.0, 0.0, MUZZLE_LOCAL_Z))
+    var yaw_forward: Vector3 = -yaw_basis.z.normalized()
+    var ground_forward := Vector2(yaw_forward.x, yaw_forward.z)
     var ground_to_player := Vector2(
         player_world.x - origin.x, player_world.z - origin.z)
     var flat_squared: float = ground_forward.length_squared()
@@ -692,15 +727,33 @@ func advance(delta: float, player_world: Vector3, active: bool,
     else:
         beam_hit_cooldown = maxf(0.0, beam_hit_cooldown - step)
     if phase == Phase.FLASH and last_phase == Phase.WAIT:
-        # Freeze the idle Body-to-world orientation at acquisition start.
-        # This is a visual pose unwind, never live chassis rotation mixed
-        # into the turret's independent tracked yaw.
-        var neutral_pose: Quaternion = Quaternion(
-            Vector3.UP, _neutral_world_yaw())
-        var idle_world_pose: Quaternion = (
-            global_basis.orthonormalized().get_rotation_quaternion())
-        charge_entry_pose_offset = (
-            neutral_pose.inverse() * idle_world_pose).normalized()
+        # Transfer the ACTUAL pre-charge barrel's forward direction into
+        # world-space motor yaw/pitch. This prevents the old Body-to-upright
+        # interpolation from turning the muzzle a second time.
+        var entry_pose: Quaternion = (
+            elevation.global_basis.orthonormalized().get_rotation_quaternion())
+        var entry_forward: Vector3 = (
+            -(Basis(entry_pose).z)).normalized()
+        var entry_flat: float = Vector2(
+            entry_forward.x, entry_forward.z).length()
+        tracked_world_yaw = (
+            atan2(-entry_forward.x, -entry_forward.z)
+            if entry_flat > 0.0001 else _neutral_world_yaw())
+        tracking_world_initialized = true
+        elevation.rotation.x = clampf(
+            atan2(entry_forward.y, maxf(entry_flat, 0.0001)),
+            deg_to_rad(-80.0), deg_to_rad(80.0))
+        aim_yaw = angle_difference(_neutral_world_yaw(), tracked_world_yaw)
+        # Separate the one remaining ROLL from yaw+pitch. Its 0.7s
+        # unwind is around local -Z, so it CANNOT steer the world ray.
+        var forward_pose: Quaternion = (
+            Quaternion(Vector3.UP, tracked_world_yaw)
+            * Quaternion(Vector3.RIGHT, elevation.rotation.x))
+        var roll_only: Quaternion = (
+            forward_pose.inverse() * entry_pose).normalized()
+        var roll_right: Vector3 = Basis(roll_only).x.normalized()
+        var roll_radians: float = atan2(roll_right.y, roll_right.x)
+        charge_entry_pose_offset = Quaternion(Vector3.BACK, roll_radians)
         idle_pose_blend = 0.0
     if phase == Phase.RETURN and last_phase != Phase.RETURN:
         # Keep the FIRST post-beam orientation and neutral destination in
