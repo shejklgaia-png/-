@@ -1,3 +1,10 @@
+## 2026-11-20 — SERA v512: 敵予測シールドを高彩度・鋭い表示に
+- **要望**：「もっと色を強く、キレのある表示にして」。v511の拡大サイズは維持し、色が白く流れる表現と長いぼんやりした残光を修正。
+- **事前CI調査**：main v511とCI成功ラン44628658454、`AGENTS.md`、`docs/SERA_ACTIVE_CI_POLICY_ja.md`、`tools/sera_ci_manifest.txt`、`tools/v510_predictive_shield_self_check.py`、`tools/v510_predictive_shield_runtime_check.gd`、`scripts/render_order_policy.gd`、`docs/RENDER_PIPELINE_POLICY_ja.md`と既存本体コードを確認。
+- **先行テスト改訂**：本体変更前に`v510_predictive_shield_runtime_check.gd`の色期待値を鮮やかな青`007AFF`、黄`FFE100`、赤`FF2140`に修正。初撃不透明度、急な減衰、白芯消灯、亀裂の成長・消灯時間、`BLEND_MODE_MIX`の実シーン材質を追加確認。`v510_predictive_shield_self_check.py`にも透明合成の新規不変条件と時間曲線を追加。旧テストは削除しない。
+- **実装**：シールド専用半透明材質を加算合成から通常アルファ合成へ変更。中心白光は短時間に限定し、鮮やかな外周リングと色面のメリハリを強化。横の破壊亀裂を0.13秒で広げ、約0.32秒で消す。放射状の青白い破裂には強い輪郭を追加。大きさ・深度・位置・SE・防御計算・HP表示・ビットタランモーションは不変。
+- **検査**：mainへのマージ後、Python/Godot全登録CIとレンダーポリシーチェックを確認。Android実機の色・発光の読みやすさ・残光のキレ・部位位置の遮蔽は視覚確認が必要。
+
 ## 2026-11-20 — SERA v511: 敵シールド防御光・亀裂・破裂を実機向けに大幅拡大
 - **ユーザー検証**：v510のシールドが「ほぼ見えない」。シールドを大きく、はっきり見えるようにする。HPバー上の演出を復活させず、命中部位にのみ表示。
 - **変更前CI確認**：v510 mainのPython/Godot検査成功（GitHub Actions 44627028157）、`AGENTS.md`、現行`tools/sera_ci_manifest.txt`、`tools/v510_predictive_shield_runtime_check.gd`、`tools/v510_predictive_shield_self_check.py`、`tools/render_policy_self_check.py`、`docs/RENDER_PIPELINE_POLICY_ja.md`、`scripts/enemy_shield_hit_fx.gd`を確認。
