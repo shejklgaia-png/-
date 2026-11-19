@@ -561,23 +561,23 @@ func _ground_ray_gap(player_world: Vector3) -> float:
     # forward depth; do not mistake player height for a horizontal miss.
     # This also handles a nearly horizontal ray without distant-ground
     # intersection false positives.
-    # Use the MOTOR's current world aim and stable root-bound origin,
-    # not elevation.global_basis from the previous pose/physics frame.
-    # This avoids stale 0..1.5m gap samples and Body-tilt speed spikes.
+    # The approved gap is HORIZONTAL miss distance from the yaw ray.
+    # Never use a pitching/tilting barrel's projected direction here:
+    # near-vertical elevation shrinks its XZ projection and spuriously
+    # raises the catch-up speed even when player position stays fixed.
+    # Use only the MOTOR world yaw and the unanimated rig anchor.
     var world_yaw: float = (
         tracked_world_yaw if tracking_world_initialized
         else _neutral_world_yaw())
-    var motor_basis: Basis = Basis(
-        Quaternion(Vector3.UP, world_yaw) *
-        Quaternion(Vector3.RIGHT, elevation.rotation.x))
+    var yaw_basis: Basis = Basis(Quaternion(Vector3.UP, world_yaw))
     var root_scale: Vector3 = (
         mount_rig.global_basis.get_scale()
         if mount_rig != null else Vector3.ONE)
     var origin: Vector3 = (
         _tracking_speed_anchor_world() +
-        motor_basis.scaled(root_scale) * Vector3(0.0, 0.0, MUZZLE_LOCAL_Z))
-    var forward: Vector3 = -motor_basis.z.normalized()
-    var ground_forward := Vector2(forward.x, forward.z)
+        yaw_basis.scaled(root_scale) * Vector3(0.0, 0.0, MUZZLE_LOCAL_Z))
+    var yaw_forward: Vector3 = -yaw_basis.z.normalized()
+    var ground_forward := Vector2(yaw_forward.x, yaw_forward.z)
     var ground_to_player := Vector2(
         player_world.x - origin.x, player_world.z - origin.z)
     var flat_squared: float = ground_forward.length_squared()
