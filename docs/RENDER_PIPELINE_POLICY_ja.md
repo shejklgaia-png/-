@@ -22,6 +22,7 @@
 | `SLASH_VOLUME` | 100 | 斬撃ボリューム | OFF（現行演出） |
 | `SLASH_SURFACE` | 105 | 斬撃メイン弧 | OFF（現行演出） |
 | `SLASH_PARTICLES` | 110 | 斬撃微粒子 | OFF（現行演出） |
+| `SHIELD_IMPACT` | 115 | 命中部位のシールド防御光・亀裂・放射状破壊 | ON（装甲/地面に遮られる） |
 | `HIT_SPARKS` | 120 | 命中時の四角い火花 | ON（機体・標的に遮られる） |
 | `CHARACTER_FOREGROUND` | 126 | 意図的な前面演出（旧セラ前面コピーは無効、v501の発射時十字フラッシュは有効） | OFF（例外的な演出のみ） |
 | `DEPTH_TESTED_EMISSIVE` | 127 | ノズル噴射・帯状軌跡などの発光 | **ON** |
@@ -84,3 +85,4 @@ CIは、共通優先度の参照、既存描画順、主要シェーダーの深
 - 銃口に連動する`OmniLight3D`は**実際の3D照明**として発射瞬間だけ有効にする。光量10→0まで0.12秒以内に二乗減衰。Android GL Compatibilityに配慮し`shadow_enabled=false`。常時点灯や毎弾新規Lightノード作成はしない。
 - 細長い飛翔弾は`CapsuleMesh`の芯＋一体の半透明外光で**単発**とする。砲弾側は`DEPTH_TESTED_EMISSIVE`（127）を使い、`no_depth_test=false`でモデル・地面を透過しない。前面深度無視は短時間の銃口フラッシュに限定する。
 - 発射時間/形状の変化は既存`tools/bittaran_leg_turrets_runtime_check.gd`で実Godot CIチェックする。発光が視覚的に十分自然かはAndroid実機映像で検証する。
+\n\n## v510：敵の予測シールド防御と破壊の描画\n\n- 敵本体の不透明面より前、通常ヒットスパークより後ろに描画する**独立した深度付き半透明3Dパス**として `SHIELD_IMPACT=115` を追加。描画順と深度テストは独立した契約。\n- カメラ正対の放射状頂点アルファグラデーションを、実際の衝突点の深度からカメラ側へ0.032mオフセットして描画。スパークの0.06mオフセットより奥に置き、部位ごとの接触を維持。\n- 通常時は残SP比率100〜60%青、59〜30%黄、29%以下赤。縁は透明。SPを0へ落とす最後のヒットのみ、中心から左右へ伸びる青白い稲妻の亀裂と、短命な放射状の青白い拡散光および破壊SEを発生。独立したHP/シールドゲージは追加しない。\n- 本体のシールド計算は`scripts/enemy_predictive_shield.gd`、描画とSEは`scripts/enemy_shield_hit_fx.gd`。共通`main.gd`の命中処理をビットタランが継承し、部位/モデルの既存HitFlashや火花は改変しない。\n- `SHIELD_IMPACT`と`HIT_SPARKS`の深度と描画順は`tools/render_policy_self_check.py`およびv510の実Godotテストで確認。Android GL Compatibilityでの色・透明度・機体との重なり・SEの聞こえ方は別途確認。\n
