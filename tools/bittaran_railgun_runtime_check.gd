@@ -34,6 +34,12 @@ func _run() -> void:
             not _near(GUN.BEAM_SECONDS, 2.0)):
         _fail("ten-second launch/two-second beam contract changed")
         return
+    if not _near(GUN.PRE_FIRE_YAW_SPEED, 720.0) or not _near(
+            GUN.PRE_FIRE_PITCH_SPEED, 576.0) or not _near(
+            GUN.TRACK_YAW_SPEED, 21.6) or not _near(
+            GUN.TRACK_PITCH_SPEED, 16.2):
+        _fail("prefire 0.8x and beam 0.9x turn-speed contract changed")
+        return
     var body: Node3D = rig.find_child("Body", true, false) as Node3D
     var elevation: Node3D = gun.get_node("RailgunElevation") as Node3D
     if gun.get_parent() != body or elevation == null:
@@ -57,6 +63,43 @@ func _run() -> void:
     var bars: Array = gun.get("charge_materials")
     if bars.size() != 6:
         _fail("expected three emissive charge bars on each flank")
+        return
+    var fx: Node3D = gun.get("energy_fx") as Node3D
+    if fx == null or fx.get_parent() != elevation:
+        _fail("railgun energy FX must follow the independent pitch axis")
+        return
+    var rim: MeshInstance3D = fx.get_node(
+        "RailgunElectricBlueRim") as MeshInstance3D
+    var orb_arcs: MeshInstance3D = fx.get_node(
+        "RailgunOrbLightning") as MeshInstance3D
+    var plasma: MeshInstance3D = fx.get_node(
+        "RailgunTravelingPlasma") as MeshInstance3D
+    var beam_arcs: MeshInstance3D = fx.get_node(
+        "RailgunBeamLightning") as MeshInstance3D
+    if rim == null or orb_arcs == null or plasma == null or (
+            beam_arcs == null):
+        _fail("blue sphere rim / electric arcs / flowing beam layers missing")
+        return
+    if not (rim.material_override is ShaderMaterial) or (
+            not (plasma.material_override is ShaderMaterial)):
+        _fail("sphere rim and beam must have procedural shader materials")
+        return
+    var rim_shader: Shader = (
+        rim.material_override as ShaderMaterial).shader
+    var plasma_shader: Shader = (
+        plasma.material_override as ShaderMaterial).shader
+    if not rim_shader.code.contains("NORMAL") or (
+            not rim_shader.code.contains("VIEW")) or (
+            not rim_shader.code.contains("TIME")) or (
+            not plasma_shader.code.contains("UV.y")) or (
+            not plasma_shader.code.contains("TIME")):
+        _fail("Fresnel blue flicker or travelling plasma shader is missing")
+        return
+    if rim_shader.code.contains("depth_test_disabled") or (
+            plasma_shader.code.contains("depth_test_disabled")) or (
+            (orb_arcs.material_override as BaseMaterial3D).no_depth_test) or (
+            (beam_arcs.material_override as BaseMaterial3D).no_depth_test):
+        _fail("energy effect must obey armor and player depth occlusion")
         return
     var body_before: Quaternion = body.quaternion
     # A PLAYER in the gun's forward cone should be hit, while legs and
@@ -114,6 +157,11 @@ func _run() -> void:
     if not flash.visible or core.visible or halo.visible:
         _fail("sphere must appear exactly at t=7.5s before laser")
         return
+    if not rim.visible or not orb_arcs.visible or (
+            plasma.visible or beam_arcs.visible) or (
+            (orb_arcs.mesh as ImmediateMesh).get_surface_count() == 0):
+        _fail("blue rim and crackling sphere arcs must accompany charge")
+        return
     var initial_scale: float = flash.scale.x
     gun.call("advance", 0.24, side_target, true)
     if not flash.visible or flash.scale.x <= initial_scale:
@@ -146,6 +194,9 @@ func _run() -> void:
     if flash.visible or core.visible or halo.visible:
         _fail("fully acquired 0.5s pause must begin before beam")
         return
+    if rim.visible or orb_arcs.visible or plasma.visible or beam_arcs.visible:
+        _fail("all blue energy effects must stop during acquired firing hold")
+        return
     var acquired: Vector2 = gun.call("_desired_player_angles", side_target)
     if absf(angle_difference(float(gun.get("aim_yaw")), acquired.x)) > (
             0.00001) or absf(elevation.rotation.x - acquired.y) > 0.00001:
@@ -166,6 +217,14 @@ func _run() -> void:
     gun.call("advance", 0.055, delayed_target, true)
     if not core.visible or not halo.visible:
         _fail("laser started before/after 0.5s fully acquired delay")
+        return
+    if rim.visible or orb_arcs.visible or (
+            not plasma.visible) or (not beam_arcs.visible) or (
+            (beam_arcs.mesh as ImmediateMesh).get_surface_count() == 0):
+        _fail("laser must add streaming blue plasma and jagged electricity")
+        return
+    if plasma.scale.y < 1.0 or (beam_arcs.get_parent() != fx):
+        _fail("beam flow geometry must cover the authored 45m laser axis")
         return
     if (core.material_override as BaseMaterial3D).no_depth_test:
         _fail("beam illegally renders through opaque armor")
@@ -281,13 +340,16 @@ func _run() -> void:
         _fail("barrel pitch exceeded its 18deg/s BEAM rate cap")
         return
     gun.call("reset")
-    if core.visible or halo.visible or flash.visible:
-        _fail("boss respawn left the old beam visible")
+    if core.visible or halo.visible or flash.visible or rim.visible or (
+            orb_arcs.visible) or plasma.visible or beam_arcs.visible:
+        _fail("boss respawn left old beam or electric FX visible")
         return
     print("GODOT_BITTARAN_RAILGUN_PASS 10s_interval=true 2s_beam=true ",
         "2s_blue_sphere=true 1s_orb_shrink=true 2s_ease_in=true ",
         "0.5s_locked_prefire_delay=true 0.4s_postfire_hold=true ",
         "prefire_fast_lock=true first_frame_exact_aim=true ",
+        "blue_fresnel_flicker=true branching_electric_arcs=true ",
+        "travelling_plasma_beam=true prefire_0.8x_beam_0.9x=true ",
         "boost_outpaces_beam=true neutral_until_fully_charged=true ",
         "smooth_independent_yaw_pitch=true 3_charge_bars_per_side=true")
     quit(0)
