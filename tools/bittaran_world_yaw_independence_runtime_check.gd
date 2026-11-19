@@ -77,6 +77,76 @@ func _run() -> void:
             _fail("world-level turret pivot did not follow the Body mount")
             return
 
+    # Regression: on a real moving chassis the mount POSITION changes
+    # before the aiming tick. If the target is directly along the current
+    # world-space barrel ray from the NEW mount position, the barrel must
+    # not turn at all. Using the PREVIOUS physics frame's mount produces a
+    # phantom yaw correction that looks like added chassis angular speed.
+    var saved_rig_yaw: float = rig.rotation.y
+    var saved_body_pose: Quaternion = body.quaternion
+    rig.rotation.y = 0.0
+    gun.call("reset")
+    gun.set("elapsed", GUN.BEAM_START + 0.4)
+    var initial_heading: float = float(gun.call("_neutral_world_yaw"))
+    var initial_target: Vector3 = (
+        gun.global_position + Basis(Quaternion(Vector3.UP,
+        initial_heading)) * Vector3(0.0, 0.0, -12.0)
+        - Vector3.UP * 0.92)
+    gun.call("advance", DT, initial_target, true)
+    var held_world_yaw: float = float(gun.get("tracked_world_yaw"))
+    var rail_meshes: Dictionary = rig.get("mesh_nodes_by_uuid")
+    var first_barrel: MeshInstance3D = rail_meshes.get(
+        GUN.RAIL_MESH_UUIDS[0]) as MeshInstance3D
+    if first_barrel == null:
+        _fail("source barrel mesh missing for world-space regression")
+        return
+    var held_mesh_forward: Vector3 = (
+        -first_barrel.global_basis.z.normalized())
+    for turn in [0.65, -0.90, 1.15, -1.25, 0.35]:
+        rig.rotation.y += turn
+        # The animated Body moves the mount even if the player stays
+        # directly along the held world heading from the current pivot.
+        var actual_mount: Vector3 = body.to_global(GUN.MOUNT_LOCAL_OFFSET)
+        var aligned_target: Vector3 = (
+            actual_mount + Basis(Quaternion(Vector3.UP,
+            held_world_yaw)) * Vector3(0.0, 0.0, -12.0)
+            - Vector3.UP * 0.92)
+        gun.call("advance", DT, aligned_target, true)
+        if gun.global_position.distance_to(actual_mount) > 0.0005:
+            _fail("chassis rotation did not update the live turret mount")
+            return
+        if not _same_heading(
+                float(gun.get("tracked_world_yaw")), held_world_yaw, 0.0002):
+            _fail("stale mount position added a phantom tracking yaw")
+            return
+        if not _same_heading(_world_yaw(gun), held_world_yaw, 0.0002):
+            _fail("rendered turret yaw inherited the chassis rotation")
+            return
+        var barrel_forward: Vector3 = (
+            -first_barrel.global_basis.z.normalized())
+        if barrel_forward.distance_to(held_mesh_forward) > 0.0005:
+            _fail("actual barrel mesh followed chassis yaw during BEAM")
+            return
+    # Authored BODY bone rotations must also not inject a tracking delta.
+    for turn in [0.8, -1.4, 0.6]:
+        body.rotation.y += turn
+        var current_mount: Vector3 = body.to_global(GUN.MOUNT_LOCAL_OFFSET)
+        var aligned_target: Vector3 = (
+            current_mount + Basis(Quaternion(Vector3.UP,
+            held_world_yaw)) * Vector3(0.0, 0.0, -12.0)
+            - Vector3.UP * 0.92)
+        gun.call("advance", DT, aligned_target, true)
+        if not _same_heading(
+                float(gun.get("tracked_world_yaw")), held_world_yaw, 0.0002):
+            _fail("animated BODY pivot movement altered world aim")
+            return
+        if not _same_heading(_world_yaw(gun), held_world_yaw, 0.0002):
+            _fail("animated BODY turn added to the visible barrel rotation")
+            return
+    body.quaternion = saved_body_pose
+    rig.rotation.y = saved_rig_yaw
+    gun.call("reset")
+
     # The post-beam return must use a frozen world-space start/neutral
     # heading: blending a relative yaw to 0 adds the chassis turn rate.
     gun.call("reset")
