@@ -1,6 +1,7 @@
 extends SceneTree
-## Live Godot regression for the user-approved 10s stationary charge,
-## immediate 2s orb+tracking, immediate 2s beam, and 0.7s return.
+## Live Godot regression for 10s charge with one smoothly entering,
+## speed-unrestricted prefire track through the 2s orb, followed by the
+## original RUN/BOOST-limited 2s beam and 0.7s return.
 ## Enforce actual RUN-vs-BOOST hit outcomes, not just a numeric speed cap.
 const GUN = preload("res://scripts/bittaran_railgun.gd")
 const DT: float = 1.0 / 120.0
@@ -34,8 +35,8 @@ func _run() -> void:
         _fail("live Bittaran battle railgun failed setup")
         return
 
-    # One complete cycle: 10s standing charge, 2s blue orb and tracking,
-    # 2s immediate laser, 0.7s neutral return, then repeat.
+    # One complete cycle: 10s tracking charge, 2s blue orb still tracking,
+    # 2s speed-limited laser, 0.7s neutral return, then reacquire once.
     if not _near(GUN.WAIT_SECONDS, 10.0) or (
             not _near(GUN.FLASH_START, 10.0)) or (
             not _near(GUN.FLASH_END, 12.0)) or (
@@ -49,6 +50,10 @@ func _run() -> void:
             not _near(GUN.FLASH_SHRINK_SECONDS, 1.0)) or (
             not _near(GUN.FLASH_GROW_SECONDS, 0.2)):
         _fail("0.7s aim entry and 1.0s sphere shrink timing changed")
+        return
+    if not _near(GUN.TRACK_START_SECONDS, 0.0) or (
+            GUN.CHARGE_TRACK_FILTER_PER_SECOND < 20.0):
+        _fail("prefire tracking must begin with charge, unrestricted after ramp")
         return
     if not _near(float(GUN.CHASE_SPEED_MPS), 5.3828125, 0.01):
         _fail("default chase must be strictly faster than RUN, slower than BOOST")
@@ -102,27 +107,51 @@ func _run() -> void:
         Vector3(0.0, 0.0, -9.0)) - Vector3.UP * 0.92
     var side: Vector3 = front + Vector3(8.0, 2.0, 0.0)
     gun.call("reset")
-    gun.call("advance", 5.0, side, true)
-    if absf(float(gun.get("aim_yaw"))) > 0.00001 or (
-            absf(elevation.rotation.x) > 0.00001) or sphere.visible or (
-            core.visible) or (
-            bool(gun.get("tracking_world_initialized"))):
-        _fail("turret chased BEFORE ten seconds of charging")
+    if not _near(float(gun.call("_prefire_ease", 0.0)), 0.0) or (
+            not _near(float(gun.call("_prefire_ease", 0.35)), 0.5)) or (
+            not _near(float(gun.call("_prefire_ease", 0.70)), 1.0)):
+        _fail("one prefire entry must smoothstep from charge start over 0.7s")
+        return
+    gun.call("advance", DT, side, true)
+    var first_step_yaw: float = absf(float(gun.get("aim_yaw")))
+    if first_step_yaw >= deg_to_rad(1.0) or (
+            not bool(gun.get("tracking_world_initialized"))) or (
+            sphere.visible) or core.visible:
+        _fail("charge acquisition must begin without a first-frame snap")
+        return
+    for i in range(83):
+        gun.call("advance", DT, side, true)
+    var charge_target: Vector2 = gun.call("_desired_player_angles", side)
+    if absf(angle_difference(float(gun.get("aim_yaw")),
+            charge_target.x)) > deg_to_rad(0.5) or (
+            absf(elevation.rotation.x - charge_target.y) > deg_to_rad(0.5)):
+        _fail("turret must finish smooth acquisition during the first 0.7s")
+        return
+    gun.call("advance", 4.3, side, true)
+    if not _near(float(gun.get("elapsed")), 5.0, 0.001):
+        _fail("tracking altered the 10s charge duration")
         return
     if (bars[0] as StandardMaterial3D).emission_energy_multiplier <= 0.22 or (
             (bars[2] as StandardMaterial3D).emission_energy_multiplier > 0.25):
-        _fail("charge bars must fill across the stationary ten seconds")
+        _fail("charge bars must fill across the ten seconds")
         return
-    gun.call("advance", 4.999, side + Vector3(0, 5, 0), true)
-    if absf(float(gun.get("aim_yaw"))) > 0.00001 or sphere.visible:
-        _fail("gun must still be parked at t=9.999s")
-        return
-    if not _near(float(gun.call("_prefire_ease", 10.0)), 0.0) or (
-            not _near(float(gun.call("_prefire_ease", 10.35)), 0.5)) or (
-            not _near(float(gun.call("_prefire_ease", 10.70)), 1.0)):
-        _fail("tracking entrance must be smoothstep across exactly 0.7s")
+    # Faster than BOOST / abrupt heading reversal: unrestricted charging
+    # aim matches the current target exactly, with NO prefire speed limit.
+    var fast_target: Vector3 = front + Vector3(-15.0, 7.0, 0.0)
+    gun.call("advance", 4.999, fast_target, true)
+    var fast_angles: Vector2 = gun.call("_desired_player_angles", fast_target)
+    if sphere.visible or core.visible or (
+            absf(angle_difference(float(gun.get("aim_yaw")),
+                fast_angles.x)) > deg_to_rad(0.05)) or (
+            absf(elevation.rotation.x - fast_angles.y) > deg_to_rad(0.05)):
+        _fail("high-speed target must be followed during charge up to t=10")
         return
     gun.call("advance", 0.002, side, true)
+    var flash_angles: Vector2 = gun.call("_desired_player_angles", side)
+    if absf(angle_difference(float(gun.get("aim_yaw")),
+            flash_angles.x)) > deg_to_rad(0.05):
+        _fail("sphere appearance incorrectly restarted or capped tracking")
+        return
     if not sphere.visible or core.visible or halo.visible or (
             not rim.visible) or (not orb_arcs.visible) or (
             plasma.visible) or (
@@ -142,10 +171,18 @@ func _run() -> void:
     if not sphere.visible or not _near(sphere.scale.x, full_scale, 0.03):
         _fail("sphere must stay full until 1s before firing")
         return
-    gun.call("advance", 0.5, side, true)
+    var shrink_target: Vector3 = front + Vector3(25.0, 4.0, 0.0)
+    gun.call("advance", 0.5, shrink_target, true)
     if not sphere.visible or not _near(
             sphere.scale.x, full_scale * 0.5, 0.04):
         _fail("sphere must shrink over its last entire second")
+        return
+    var shrink_angles: Vector2 = gun.call(
+        "_desired_player_angles", shrink_target)
+    if absf(angle_difference(float(gun.get("aim_yaw")),
+            shrink_angles.x)) > deg_to_rad(0.05) or (
+            absf(elevation.rotation.x - shrink_angles.y) > deg_to_rad(0.05)):
+        _fail("uncapped tracking must continue through sphere shrink")
         return
     var before_beam: float = float(gun.get("tracked_world_yaw"))
     gun.call("advance", 0.502, side + Vector3(5.0, 0, 0), true)
@@ -190,10 +227,12 @@ func _run() -> void:
         _fail("turret did not return to neutral after 0.7s")
         return
     gun.call("advance", 1.0, side, true)
-    if absf(float(gun.get("aim_yaw"))) > 0.00001 or (
-            absf(elevation.rotation.x) > 0.00001) or (
-            bool(gun.get("tracking_world_initialized"))):
-        _fail("the next stationary ten-second charge was not reset")
+    var next_target: Vector2 = gun.call("_desired_player_angles", side)
+    if not bool(gun.get("tracking_world_initialized")) or (
+            absf(angle_difference(float(gun.get("aim_yaw")),
+                next_target.x)) > deg_to_rad(0.05)) or (
+            absf(elevation.rotation.x - next_target.y) > deg_to_rad(0.05)):
+        _fail("the next charge cycle did not reacquire the target")
         return
     if body.quaternion.angle_to(baseline_body) > 0.00001:
         _fail("new turret implementation modified original Body pose")
@@ -215,8 +254,9 @@ func _run() -> void:
         return
 
     # At 8m and 30m, track RUN persistently but let faster BOOST escape.
-    # Both orbit movements start when the blue sphere appears at t=10,
-    # then continue through the entire 2s attack. Assert actual collision
+    # Both orbit movements start when the blue sphere appears at t=10;
+    # high-speed tracking keeps alignment until the laser starts, then
+    # the normal firing cap must preserve the exposure difference. Assert
     # differences, not only constants.
     var center: Vector3 = gun.global_position
     var base_forward: Vector3 = -gun.global_basis.z.normalized()
@@ -275,7 +315,7 @@ func _run() -> void:
     # Even a 90-degree boss root turn cannot instantly drag the
     # world-space gun toward a target while the laser is tracking.
     gun.call("reset")
-    gun.set("elapsed", GUN.FLASH_START + 0.9)
+    gun.set("elapsed", GUN.BEAM_START + 0.9)
     gun.call("advance", DT, side, true)
     var before_world_yaw: float = float(
         gun.get("tracked_world_yaw"))
@@ -424,9 +464,9 @@ func _run() -> void:
         _fail("boss/encounter reset did not clear old energy VFX")
         return
 
-    print("GODOT_BITTARAN_RAILGUN_PASS 10s_stationary_charge=true ",
-        "2s_orb_track_from_t10=true direct_2s_beam_from_t12=true ",
-        "0.7s_blend_in=true 0.7s_immediate_return=true ",
+    print("GODOT_BITTARAN_RAILGUN_PASS 10s_tracking_charge=true ",
+        "unrestricted_charge_and_orb_aim=true direct_2s_beam_from_t12=true ",
+        "0.7s_smooth_charge_entry=true 0.7s_immediate_return=true ",
         "zero_prefire_hold=true zero_damage_arm_delay=true ",
         "run_trackable_boost_escapes_at_8m_and_30m=true ",
         "world_yaw_limited=true equipment_aware=true ",
