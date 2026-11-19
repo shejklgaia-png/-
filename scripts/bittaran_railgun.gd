@@ -1,16 +1,16 @@
 extends Node3D
-## Bittaran's dorsal railgun. Its 10-second idle charge and separate
+## Bittaran's dorsal railgun. Its 10-second stationary fill and separate
 ## sphere/beam/return are independent of locomotion, source clips and HEAD.
 ## The Body bone transports the mount; its pitch/roll never tilts the gun.
 ## WORLD yaw plus WORLD-relative elevation are the only allowed rotations.
 const RENDER_ORDER = preload("res://scripts/render_order_policy.gd")
 const RailgunFX = preload("res://scripts/bittaran_railgun_fx.gd")
 
-# Track the player once per charge cycle from the start of charging.
-# The 0.7s eased-in acquisition is speed-unrestricted; keep that precise
-# tracking until the blue sphere finishes shrinking at the 12s beam start.
-# Only the firing beam uses the existing RUN/BOOST-aware angular limit.
-# After 2s of firing, return smoothly to neutral in precisely 0.7s.
+# Hold neutral throughout the first 10 seconds of filling the charge lamps.
+# The BLUE SPHERE (t=10..12) marks the actual charge: start one eased,
+# speed-unrestricted acquisition, keeping it until the sphere disappears.
+# At laser firing (t=12) restore the original RUN/BOOST tracking cap.
+# Return to the neutral pose during the 0.7s after the 2s beam.
 const WAIT_SECONDS: float = 10.0
 const FLASH_SECONDS: float = 2.0
 const FLASH_START: float = WAIT_SECONDS
@@ -22,12 +22,12 @@ const RETURN_SECONDS: float = 0.7
 const PERIOD_SECONDS: float = BEAM_END + RETURN_SECONDS
 const FLASH_GROW_SECONDS: float = 0.2
 const FLASH_SHRINK_SECONDS: float = 1.0
-# Charge acquisition begins once at t=0 with a 0.7s smooth acceleration.
-# The instantaneous target solve AFTER the ramp has no speed ceiling.
-# After firing, the existing slow tracking and 0.7s neutral return remain.
+# Fast charge acquisition starts ONCE at the blue sphere appearance (t=10).
+# The instantaneous target solve after the ramp has no speed ceiling.
+# The 10s fill is stationary; slow firing track and neutral return remain.
 const TRACK_BLEND_SECONDS: float = 0.7
 const TRACK_EASE_IN_SECONDS: float = TRACK_BLEND_SECONDS
-const TRACK_START_SECONDS: float = 0.0
+const TRACK_START_SECONDS: float = FLASH_START
 const CHARGE_TRACK_FILTER_PER_SECOND: float = 30.0
 const TRACK_FILTER_PER_SECOND: float = 10.0
 # 1x RUN should not outpace the continuous tracking slew, but 1.5x
@@ -281,8 +281,8 @@ func _desired_player_angles(player_world: Vector3) -> Vector2:
 
 
 func _prefire_ease(t: float) -> float:
-    # Charge begins tracking with eased acceleration. The acquisition
-    # ramp happens only once per charge cycle, never at sphere/beam changes.
+    # Acquisition begins with the blue sphere, not during the 10s fill.
+    # Ease in only once; never restart when the sphere starts shrinking.
     var ratio: float = clampf(
         (t - TRACK_START_SECONDS) / TRACK_EASE_IN_SECONDS, 0.0, 1.0)
     return ratio * ratio * (3.0 - 2.0 * ratio)
@@ -389,10 +389,14 @@ func advance(delta: float, player_world: Vector3, active: bool,
         # Start return on the FIRST frame after beam ends (no hold).
         return_yaw_origin = aim_yaw
         return_pitch_origin = elevation.rotation.x
-    if phase == Phase.WAIT or phase == Phase.FLASH:
-        # One speed-unrestricted acquisition from charge start until
-        # the sphere is fully gone. Neither t=10 nor sphere shrink
-        # restarts the eased entry or lowers the tracking rate.
+    if phase == Phase.WAIT:
+        # The 10s filling period does not aim at the player.
+        tracking_world_initialized = false
+        aim_yaw = 0.0
+        elevation.rotation.x = 0.0
+    elif phase == Phase.FLASH:
+        # Blue-sphere charge: acquire once with smooth acceleration and
+        # unlimited angular speed, including during sphere shrink.
         _track_player(step, player_world, _prefire_ease(elapsed),
             boost_speed_mps, run_speed_mps, true)
     elif phase == Phase.BEAM:
@@ -407,8 +411,8 @@ func advance(delta: float, player_world: Vector3, active: bool,
         var smooth: float = ratio * ratio * (3.0 - 2.0 * ratio)
         aim_yaw = lerp_angle(return_yaw_origin, 0.0, smooth)
         elevation.rotation.x = lerpf(return_pitch_origin, 0.0, smooth)
-    # All three charge bars fill over the 10s tracking charge
-    # and stay full during the 2s blue orb. Fire directly after the orb.
+    # Charge lamps fill while the gun is stationary for 10s;
+    # they remain full during the 2s tracking orb.
     _show_charge(clampf(elapsed / WAIT_SECONDS, 0.0, 1.0)
         if phase == Phase.WAIT or phase == Phase.FLASH else 0.0)
     _level_mount()
