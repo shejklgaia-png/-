@@ -1,3 +1,13 @@
+## 2026-11-20 — SERA v507: 追加検査で発見した0.7秒の追尾スパイク解消
+- **指示**：ビットタラン背部レールガンv506のさらなる検査。既存CI/実装の追尾経路を再点検し、姿勢由来以外の加速を探索。
+- **事前確認**：main v506、`AGENTS.md`、`.github/workflows/sera-model-policy.yml`、`tools/sera_ci_manifest.txt`、`docs/SERA_ACTIVE_CI_POLICY_ja.md`、現行`scripts/bittaran_railgun.gd`、`tools/bittaran_railgun_runtime_check.gd`、`tools/bittaran_world_yaw_independence_runtime_check.gd`、`tools/bittaran_full_frame_level_gun_runtime_check.gd`、`tools/bittaran_chassis_axis_runtime_check.gd`、背部エネルギーFXと実戦統合部を確認。
+- **発見**：追尾球体が出て0.7秒の追尾入りが終了した瞬間、`weight<1.0`専用の高応答フィルターから`weight==1.0`の即時目標一致へ切り替わる段差。60Hzで2.54倍／120Hzで4.52倍の一フレーム旋回量スパイク。胴体姿勢が縦になるタイミングと重なって見かけ上の加速になる。
+- **ロールの符号も別途検査**：Python/scipy 3Dクォータニオン計算でGodotの`Vector3.BACK=(0,0,1)`を正しく適用した結果、v506の符号に異常なし。不要な符号変更は撤回し実装へ加えない。
+- **CIを本体変更より先に改訂**：`tools/bittaran_railgun_runtime_check.gd`のFLASH終了直前0.0004s即時スナップ期待値を、承認済みの30/s高速指数フィルターを毎フレーム適用する条件に変更。さらに60/120Hzの重み0.999999→1.0での同じ角度誤差に対する旋回量差が2%以内であることを保護。各段階の開始・終了時刻、縮小後の0.7倍、BEAMの0.85〜1.0倍、距離補正の1.5m、RUN/BOOSTの実戦比較、胴体/脚IK、FX、ダウンとヒット間隔の既存検査は維持。
+- **実装**：`scripts/bittaran_railgun.gd`の`fast_charge_tracking`分岐で`actual = angle_error * charge_response`を常時適用。チャージ0.7秒で高応答となっても方向へ瞬間スナップせず、フレームレートに関係なく連続した指数応答を維持。固定角速度制限は追加しない。
+- **数学的な外部検査**：30/60/120/240Hzにおいて旧仕様の最大段差1.58/2.54/4.52/8.51倍、新仕様はどのフレームレートでも1.000001倍未満（重み0.999999と1.0の比較）。
+- **残る検査**：マージ後mainで登録済みフルPython/Godot CI、Android実機で0.7秒追尾入り境界のフレーム加速とビットタランの起き上がり、球体縮小・ビーム追尾を確認。Godot環境がない作業コンテナでは実エンジンテスト実行不可。結果を誤って成功として報告しない。
+
 ## 2026-11-19 — SERA v506: レールガン本体姿勢由来の追尾加速を排除
 - **依頼**：ビットタランの胴体が縦姿勢になると追尾が加速する現象と、その他本体姿勢に依存する追尾速度要因を修正。
 - **事前確認**：main v505、`AGENTS.md`、`.github/workflows/sera-model-policy.yml`、`tools/sera_ci_manifest.txt`、`docs/SERA_ACTIVE_CI_POLICY_ja.md`、`docs/MODEL_PART_WORKFLOW_ja.md`、`docs/RENDER_PIPELINE_POLICY_ja.md`、`scripts/bittaran_railgun.gd`の全追尾経路、`scripts/bittaran_battle.gd`の姿勢処理順／キャラクター速度入力、既存登録`tools/bittaran_railgun_runtime_check.gd`を確認。
