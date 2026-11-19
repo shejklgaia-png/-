@@ -380,7 +380,8 @@ func _run() -> void:
     if bool(gun.call("advance", DT, lateral_origin, true)):
         _fail("lateral BOOST scenario hit on first laser frame")
         return
-    for frame in range(168):
+    # Cover the late beam too (1.92s), not only the opening 1.4s.
+    for frame in range(230):
         var seconds: float = float(frame + 1) * DT
         var running_target: Vector3 = lateral_origin + (
             base_right * 6.09375 * seconds)
