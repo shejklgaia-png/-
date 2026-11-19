@@ -27,7 +27,18 @@ assert "material.no_depth_test = false" in fx
 assert "material.vertex_color_use_as_albedo = true" in fx
 assert "func state_color(ratio: float)" in fx
 assert "AudioStreamWAV.new()" in fx
-assert "SHIELD_SURFACE_OFFSET: float = 0.032" in fx
+# v511: the shield must be visibly in front of armor even at oblique hit angles.
+assert "SHIELD_SURFACE_OFFSET: float = 0.14" in fx
+assert "const CONTACT_RADIUS_START_PX: float = 100.0" in fx
+assert "const CONTACT_RADIUS_END_PX: float = 260.0" in fx
+assert "const FRACTURE_REACH_START_PX: float = 90.0" in fx
+assert "const FRACTURE_REACH_END_PX: float = 470.0" in fx
+assert "const BURST_RADIUS_MAX_PX: float = 470.0" in fx
+assert "const MIN_VISUAL_SCALE: float = 0.85" in fx
+assert "const IMPACT_SECONDS: float = 0.44" in fx
+assert "const FRACTURE_SECONDS: float = 0.65" in fx
+# The only visible indicator remains the localized FX; no secondary HP overlay.
+assert "func contact_radius_px(progress: float) -> float:" in fx
 assert "const FRONT_OFFSET: float = 0.06" in read("scripts/hit_burst.gd")
 # No shield paint or second HP meter; do not make HP loss unreadable.
 assert "enemy_predictive_shield" not in read("scripts/sera_numeric_hud.gd")

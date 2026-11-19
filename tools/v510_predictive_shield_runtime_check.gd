@@ -46,6 +46,19 @@ func _run() -> void:
         if not FX.state_color(float(case[0])).is_equal_approx(case[1]):
             _fail("color threshold mismatched at " + str(case[0]))
             return
+    # v511: explicit visibility contract measured at 720px reference viewport.
+    # Starting disc should already occupy ~200px diameter at full scale;
+    # it expands to ~520px across, with a >900px horizontal shield crack.
+    if not _near(FX.contact_radius_px(0.0), 100.0) or (
+            not _near(FX.contact_radius_px(1.0), 260.0)) or (
+            not _near(FX.FRACTURE_REACH_END_PX, 470.0)) or (
+            not _near(FX.BURST_RADIUS_MAX_PX, 470.0)) or (
+            FX.MIN_VISUAL_SCALE < 0.85) or (
+            FX.SHIELD_SURFACE_OFFSET <= 0.06) or (
+            FX.IMPACT_SECONDS < 0.42) or (
+            FX.FRACTURE_SECONDS < 0.60):
+        _fail("v511 shield remains too small, too brief, or depth-clipped")
+        return
     for path in ["res://scenes/main.tscn", "res://scenes/bittaran_battle.tscn"]:
         var packed: PackedScene = load(path)
         if packed == null:
