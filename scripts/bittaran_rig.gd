@@ -1470,15 +1470,42 @@ func apply_source_attack_aim(
             source_aim_body_yaw, yaw_goal,
             deg_to_rad(SOURCE_BODY_AIM_RATE_DEGREES)
                 * maxf(delta, 0.0))
-        # Move the chest, NOT the actor root. The projected aiming
-        # waypoint is the floor-sweep midpoint for SWEEP.
-        var future_bearing: Vector3 = (
-            Quaternion(Vector3.UP, source_aim_body_yaw)
-            * (global_basis * source_aim_future_hip_local))
-        var predicted: Vector3 = shoulder.global_position + future_bearing
-        var needed: Vector3 = player_position - predicted
-        needed.y = 0.0
-        var desired_offset: Vector3 = needed.limit_length(
+        # First steer the HIP socket; then face the attack arc with
+        # the SHOULDER. Only after both limited rotations are chosen
+        # does the BODY translate to consume the remaining miss.
+        # The STOMP uses the current rising toe position, whereas
+        # SWEEP uses the FIRST ground-stroke midpoint.
+        var chest_turn := Quaternion(Vector3.UP, source_aim_body_yaw)
+        var hip_from_chest: Vector3 = (
+            shoulder.global_position - body.global_position)
+        var predicted_hip: Vector3 = (
+            body.global_position + chest_turn * hip_from_chest)
+        var forward_path: Vector3 = (
+            global_basis * source_aim_future_hip_local)
+        if kind == "stomp":
+            forward_path = (
+                foot.global_position - shoulder.global_position)
+        var chest_path: Vector3 = chest_turn * forward_path
+        var wanted_shoulder: float = clampf(
+            _source_horizontal_aim_angle(chest_path,
+                player_position - predicted_hip),
+            -deg_to_rad(SOURCE_SHOULDER_AIM_MAX_DEGREES),
+            deg_to_rad(SOURCE_SHOULDER_AIM_MAX_DEGREES))
+        source_aim_shoulder_yaw = move_toward(
+            source_aim_shoulder_yaw, wanted_shoulder,
+            deg_to_rad(SOURCE_SHOULDER_AIM_RATE_DEGREES)
+                * maxf(delta, 0.0))
+        var shoulder_turn := Quaternion(
+            Vector3.UP, source_aim_shoulder_yaw)
+        var predicted_toe: Vector3 = (
+            predicted_hip + shoulder_turn * chest_path)
+        # Prefer full movement of the BODY (<=1m) over changing any
+        # knee/shin angle. The actor root and support-foot anchors
+        # are untouched; their IK solve comes after this stage.
+        var remaining: Vector3 = (
+            player_position - predicted_toe)
+        remaining.y = 0.0
+        var desired_offset: Vector3 = remaining.limit_length(
             SOURCE_BODY_AIM_TRANSLATION_MAX)
         source_aim_body_offset = source_aim_body_offset.move_toward(
             desired_offset, SOURCE_BODY_AIM_TRANSLATION_SPEED
@@ -1518,25 +1545,9 @@ func apply_source_attack_aim(
             Quaternion(Vector3.UP, turn_body) * body_old).scaled(
                 body_scale)
 
-    if tracking:
-        # Aim the WHOLE strike path, not the currently raised toe.
-        # For SWEEP the cached future target is the first grounded
-        # stroke's MIDPOINT; steering the current toe would make the
-        # arc miss on one side. STOMP/KICK use the same path-bearing
-        # orientation before their separate collision/IK logic.
-        var path_bearing: Vector3 = (
-            Quaternion(Vector3.UP, turn_body)
-            * (global_basis * source_aim_future_hip_local))
-        var toward_player: Vector3 = (
-            player_position - shoulder.global_position)
-        var shoulder_goal: float = clampf(
-            _source_horizontal_aim_angle(path_bearing, toward_player),
-            -deg_to_rad(SOURCE_SHOULDER_AIM_MAX_DEGREES),
-            deg_to_rad(SOURCE_SHOULDER_AIM_MAX_DEGREES))
-        source_aim_shoulder_yaw = move_toward(
-            source_aim_shoulder_yaw, shoulder_goal,
-            deg_to_rad(SOURCE_SHOULDER_AIM_RATE_DEGREES)
-                * maxf(delta, 0.0))
+    # The shoulder yaw was determined BEFORE chest displacement
+    # using the original future strike path. Applying it now avoids
+    # a second steer pass that would override BODY-first priority.
     var turn_shoulder: float = (
         source_aim_shoulder_yaw * limb_weight)
     if absf(turn_shoulder) > 0.000001:
