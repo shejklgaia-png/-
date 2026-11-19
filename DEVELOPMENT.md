@@ -1,3 +1,10 @@
+## 2026-11-19 — SERA v485: レーザー追尾加速の0〜2.5m連続補間
+
+- **事前CI確認**：`project.godot` v484、`.github/workflows/sera-model-policy.yml`、`tools/sera_ci_manifest.txt`、`docs/SERA_ACTIVE_CI_POLICY_ja.md`、`tools/bittaran_railgun_runtime_check.gd`、`tools/bittaran_world_yaw_independence_runtime_check.gd`を確認。旧期待値「1.5m以下は0.7倍固定／1.5m超で急加速」は今回の新仕様と衝突する。照射前の高速追尾→縮小時0.7倍制限、レーザー照射2秒・無制限再命中・威力60%・本体回転の分離は不変。
+- **テスト先行変更**：`tools/bittaran_railgun_runtime_check.gd`の1.5m旧期待値を実装前に2.5mへ更新。0・0.625・1.25・1.875・2.5mのsmoothstep係数(0, 0.15625, 0.5, 0.84375, 1)を独立して固定し、回転速度の単調増加、2.49/2.50/2.51mの継ぎ目連続性、0mで従来0.7倍、実際のレーザー追尾で1m部分加速・2.5m超の全量加速を追加検証。その他の旧テストは削除・緩和しない。
+- **実装**：`scripts/bittaran_railgun.gd`で射線地表投影からの水平ずれを`gap`とし、`smoothstep(clamp(gap/2.5,0,1))`を加速追従速度に適用。0mでは基準角速度の0.7倍を維持。2.5mでプレイヤー移動速度+距離補正の追従速度を100%適用。距離補正は0mで0、2.5mで3m/sと連続的に伸び、それ以遠でも状況に応じて増加（追尾角速度に固定上限なし）。既存の追尾速度時間平滑化16/sは維持。
+- **影響なし**：本体・縦接続軸の旋回分離、砲身のワールド空間角速度、レーザーの2秒照射・接触判定・0.2秒再ヒット・60%威力、モーション・FX・音声、10秒充填・青球体縮小11秒と復帰0.7秒。CI全件はmainマージ後、Androidの避けやすさは実機で別途確認。
+
 ## 2026-11-19 — SERA v484: レールガン砲身Yawと本体Yawの速度合算を除去
 
 - **事前CI確認**：現行 `SERA v483` と `.github/workflows/sera-model-policy.yml`、`tools/sera_ci_manifest.txt`、`docs/SERA_ACTIVE_CI_POLICY_ja.md`、`tools/bittaran_railgun_runtime_check.gd`、`tools/bittaran_full_frame_level_gun_runtime_check.gd`、`tools/bittaran_chassis_axis_runtime_check.gd`を確認。10秒充填・青球体2秒・レーザー2秒・0.7秒復帰・追尾0.7倍と1.5m補正、接続軸の本体Yaw同期は維持。
