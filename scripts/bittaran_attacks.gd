@@ -319,25 +319,28 @@ func _choose_kind(player_position: Vector3, feet: Dictionary,
     return ""
 
 
-## Maintain the existing non-repeat policy. A forbidden repetition
-## is handled by walking, never by selecting another leg illegally.
-func repeat_kind_blocked(player_position: Vector3,
-        _boss_position: Vector3, boss_yaw: float,
-        feet: Dictionary = {}) -> bool:
-    if is_active() or last_kind.is_empty():
-        return false
-    var candidate: String = _choose_kind(
-        player_position, feet, boss_yaw)
-    return not candidate.is_empty() and candidate == last_kind
+## Prefer a different LEGAL technique when one is available,
+## but never require walking just to avoid repeating the last one.
+## A same-kind attack is valid if that is the only move whose real
+## foot range/sector reaches the player this frame.
+func repeat_kind_blocked(_player_position: Vector3,
+        _boss_position: Vector3, _boss_yaw: float,
+        _feet: Dictionary = {}) -> bool:
+    return false
 
 
 func _choose_nonrepeating_kind(player_position: Vector3,
         feet: Dictionary, boss_yaw: float) -> String:
-    var candidate: String = _choose_kind(
-        player_position, feet, boss_yaw)
-    if not candidate.is_empty() and candidate == last_kind:
-        return ""
-    return candidate
+    var fallback: String = ""
+    for candidate in ATTACK_KINDS:
+        if _choose_leg(player_position, feet, candidate,
+                Vector3.ZERO, boss_yaw).is_empty():
+            continue
+        if fallback.is_empty():
+            fallback = candidate
+        if candidate != last_kind:
+            return candidate
+    return fallback
 
 ## v445: BODY returns first (sweep 1.40s, others 0.62s).
 ## THEN the attacking chain eases directly to Wait in 1.20s, with
