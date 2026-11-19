@@ -1,3 +1,10 @@
+## 2026-11-20 — SERA v514: 予測シールドを中心の埋まった膜と破壊時だけの空洞へ
+- **ユーザー要望**：通常は膜を叩くので中心は消えない。シールドが剥がれた時のみ中心を空洞にしてよい。全体をよりキレのあるデザインへ変更。
+- **着手時確認**：main v513、project.godot、AGENTS.md、tools/sera_ci_manifest.txt、docs/SERA_ACTIVE_CI_POLICY_ja.md、tools/v510_predictive_shield_self_check.py、tools/v510_predictive_shield_runtime_check.gd、docs/RENDER_PIPELINE_POLICY_ja.md、scripts/enemy_shield_hit_fx.gdとGitHub Actionsを調査。変更する条件はヒット中心の充填/破壊穴/破片、維持条件は防御数値・HPバーと層順・色閾値・Bittaran/テストターゲットの共通導線。
+- **実装前CI追加**：tools/v514_shield_membrane_self_check.pyとtools/v514_shield_membrane_runtime_check.gdを作成しtools/sera_ci_manifest.txtへ先に登録。実際のImmediateMesh頂点色と投影座標を検査し、膜中心が命中後も不透明度0.5以上で埋まり、破壊時の中央に色付き描画が残らないことを保証する。
+- **実装**：scripts/enemy_shield_hit_fx.gdの通常命中中心を半径20%まで均一な彩色膜とし、半径34〜65%は面状の反応、73〜82%は鋭い縁、最外周は透明。破壊時だけ内径14〜23%の空洞を形成し、10方向の鋭い破片を放射状に配置。横亀裂と青白い破裂SEを保持。
+- **検証運用**：mainへマージ後全Python/Godot回帰テスト、描画順・モデル原本チェックを実行。Android GL Compatibilityの膜・破裂リングの実際の色/重なり/迫力は別途目視検証。
+
 ## 2026-11-20 — SERA v512: 敵予測シールドを高彩度・鋭い表示に
 - **要望**：「もっと色を強く、キレのある表示にして」。v511の拡大サイズは維持し、色が白く流れる表現と長いぼんやりした残光を修正。
 - **事前CI調査**：main v511とCI成功ラン44628658454、`AGENTS.md`、`docs/SERA_ACTIVE_CI_POLICY_ja.md`、`tools/sera_ci_manifest.txt`、`tools/v510_predictive_shield_self_check.py`、`tools/v510_predictive_shield_runtime_check.gd`、`scripts/render_order_policy.gd`、`docs/RENDER_PIPELINE_POLICY_ja.md`と既存本体コードを確認。
