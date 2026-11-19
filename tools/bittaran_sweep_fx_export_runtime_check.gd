@@ -39,7 +39,12 @@ func _run() -> void:
             _fail("missing source clip " + id)
             return
         var rows: Array = []
-        var begin: float = ATTACKS.source_hit_start_seconds("sweep", id)
+        # FX export must use the ORIGINAL grounded first-stroke clock,
+        # not v482's earlier damaging lower-leg / foot contact window.
+        var begin: float = (
+            ATTACKS.SWEEP_REAR_FIRST_STROKE_START_KEY_SECONDS
+            if id.begins_with("leg_r")
+            else ATTACKS.SWEEP_FRONT_FIRST_STROKE_START_KEY_SECONDS)
         var end: float = (
             ATTACKS.SWEEP_REAR_FX_FIRST_STROKE_END_KEY_SECONDS
             if id.begins_with("leg_r")
