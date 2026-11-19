@@ -37,15 +37,27 @@ func _run() -> void:
         _fail("95% ranged mitigation / 7 SP ranged chip")
         return
     for case in [
-        [1.0, Color("27bafa")],
-        [0.60, Color("27bafa")],
-        [0.59, Color("ffda40")],
-        [0.30, Color("ffda40")],
-        [0.29, Color("ff4e4e")],
+        [1.0, Color("007aff")],
+        [0.60, Color("007aff")],
+        [0.59, Color("ffe100")],
+        [0.30, Color("ffe100")],
+        [0.29, Color("ff2140")],
     ]:
         if not FX.state_color(float(case[0])).is_equal_approx(case[1]):
             _fail("color threshold mismatched at " + str(case[0]))
             return
+    # v512: full-saturation contact color, immediate strong hit and rapid
+    # release (not a washed-out additive fog covering the boss).
+    if FX.contact_opacity(0.0) < 0.85 or (
+            FX.contact_opacity(0.06) < 0.99) or (
+            FX.contact_opacity(0.40) > 0.75) or (
+            FX.contact_opacity(0.80) > 0.01) or (
+            FX.contact_core_flash(0.0) < 0.99) or (
+            FX.contact_core_flash(0.30) > 0.01) or (
+            FX.CRACK_EXTEND_SECONDS > 0.14) or (
+            FX.CRACK_FADE_END_SECONDS > 0.34):
+        _fail("v512 shield must have high-saturation punch and rapid cutoff")
+        return
     # v511: explicit visibility contract measured at 720px reference viewport.
     # Starting disc should already occupy ~200px diameter at full scale;
     # it expands to ~520px across, with a >900px horizontal shield crack.
@@ -76,7 +88,8 @@ func _run() -> void:
             _fail("shared enemy shield scene wiring absent " + path)
             return
         var mat: StandardMaterial3D = fx.get("material")
-        if mat == null or mat.render_priority != 115 or mat.no_depth_test:
+        if mat == null or mat.render_priority != 115 or mat.no_depth_test or (
+                mat.blend_mode != BaseMaterial3D.BLEND_MODE_MIX):
             _fail("shield is not depth-tested behind the hit sparks")
             return
         var hp_before: int = int(game.get("target_hp"))
