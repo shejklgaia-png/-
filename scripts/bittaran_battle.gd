@@ -1734,18 +1734,25 @@ func _physics_process(delta: float) -> void:
 func _tick_bittaran_railgun(delta: float) -> void:
     if bittaran_railgun == null or player == null:
         return
-    var active: bool = (target_hp > 0 and player_hp > 0
-        and training_ko_remaining <= 0.0)
-    if bool(bittaran_railgun.call("advance", delta,
-            player.global_position, active)):
-        # The independent laser uses the SAME guard, shield, HP, damage
-        # reaction and KO pipeline as established Bittaran attacks.
+    # An ordinary beam hit must not stop the cannon or cancel the
+    # player's BOOST/STEP. On player KO keep the VISUAL beam and slow
+    # pursuit running until its natural two-second end, but apply no
+    # further damage. Boss death still disables the gun.
+    var active: bool = target_hp > 0.0
+    var boost_speed_mps: float = (
+        float(part_stats.get("boost_speed", 6.09375)) *
+        float(part_stats.get("boost_speed_mult", 1.0)))
+    var laser_pulse: bool = bool(bittaran_railgun.call(
+        "advance", delta, player.global_position, active, boost_speed_mps))
+    if laser_pulse and player_hp > 0.0 and training_ko_remaining <= 0.0:
         var incoming: Vector3 = (
             player.global_position - bittaran_railgun.global_position)
         if incoming.length_squared() < 0.000001:
             incoming = Vector3.FORWARD
+        # Same HP/shield/guard costs, without normal bullet knockback:
+        # continuous BOOST stays available, including after being hit.
         _on_enemy_projectile_hit(player.global_position,
-            incoming.normalized(), true, 0)
+            incoming.normalized(), true, 0, true)
 
 ## Read the actual world-space striking-foot mesh after source replay + IK.
 ## The legacy procedural attack_pose stays empty during source replay.
