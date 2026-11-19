@@ -1,3 +1,10 @@
+## 2026-11-20 — SERA v511: 敵シールド防御光・亀裂・破裂を実機向けに大幅拡大
+- **ユーザー検証**：v510のシールドが「ほぼ見えない」。シールドを大きく、はっきり見えるようにする。HPバー上の演出を復活させず、命中部位にのみ表示。
+- **変更前CI確認**：v510 mainのPython/Godot検査成功（GitHub Actions 44627028157）、`AGENTS.md`、現行`tools/sera_ci_manifest.txt`、`tools/v510_predictive_shield_runtime_check.gd`、`tools/v510_predictive_shield_self_check.py`、`tools/render_policy_self_check.py`、`docs/RENDER_PIPELINE_POLICY_ja.md`、`scripts/enemy_shield_hit_fx.gd`を確認。
+- **先行テスト更新**：既存のv510テストに通常防御光半径100→260px、横亀裂最大470px、拡散半径470px、最小表示倍率0.85、装甲前方0.14m以上、効果時間0.44/0.65秒の検証を追加。旧HPバー・軽減率・回復・部位/ロック・描画順の不変条件は保持。
+- **描画修正**：`enemy_shield_hit_fx.gd`の通常防御光を広く、中心白寄り+色帯を高輝度化。透明な外周は維持。亀裂の左右伸長・幅・光度および青白い破裂半径を大きくし、効果時間も延長。レンダー優先度115・深度テストONのまま接触表面から0.14m前へオフセット。
+- **検証**：mainへのマージ後に全Python/Godot CIを実行。Android縦画面ではBODY/四脚/頭、近接・遠距離カメラ、連撃・低SP・破壊SEの大きさと視認性を人間が最終確認。
+
 ## 2026-11-20 — SERA v510: 敵予測シールドの接触演出・亀裂・破壊SE（テストターゲット/ビットタラン）
 - **依頼**：HPバー上の青い光はHP減少の印象が弱まるため撤回。攻撃が防御された面に、縁が透明な放射状青/黄/赤エフェクトを火花と本体の間に発生。剥がした瞬間は横一線の青白い電撃亀裂→放射状の青白い破裂とSE。対象はトレーニングターゲットとビットタラン。
 - **事前CI調査**：main v509、`AGENTS.md`、`docs/SERA_ACTIVE_CI_POLICY_ja.md`、`tools/sera_ci_manifest.txt`、`tools/v250_target_hp_self_check.py`、`tools/v302_leg_center_part_fx_runtime_check.gd`、`tools/render_policy_self_check.py`、`docs/RENDER_PIPELINE_POLICY_ja.md`、`.github/workflows/sera-model-policy.yml`を確認。変更する期待値は透明描画のレイヤー役割数(7→8)、新規で防御軽減/回復/色・破壊演出。変更しない既存テストは対象HP・部位ごとのダメージ/HitFlash・Bittaran攻撃/IK/連続ヒット・モデル、主人公SH・既存HUD。
