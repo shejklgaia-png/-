@@ -1,3 +1,13 @@
+## 2026-11-19 — SERA v480: ユーザー提供音源3種をSERA足音・チャージ・レーザー照射へ組み込み
+
+- `ロボットを殴る2.mp3`由来の`assets/sera_player_footstep_v480.ogg`を、`scripts/main.gd`の既存`_on_foot_contact(side)`シグナルに接続。左右接地の際にそれぞれ0.96/1.03ピッチで再生。空中では鳴らさず、既存の合成接地音は未同期時のフォールバックに限定。足音の実効長0.53秒。
+- `重力魔法2.mp3`由来の`assets/bittaran_charge_v480.ogg`を青い球体発生10秒で1回再生。10秒間の充填中は無音、11秒の縮小では再起動せず、12秒の発射時に停止。チャージ時間の2秒に調整。
+- `sen_mi_b_saberu.mp3`を`assets/bittaran_laser_attack_v480.ogg`（発射瞬間に1回）と`assets/bittaran_laser_sustain_loop_v480.ogg`（照射中ギャップレス反復）へ加工。持続区間の波形を端でオーバーラップ／クロスフェード。12秒開始・14秒終了に実砲台制御を連動。0.08秒立ち上げ、0.14秒減衰、途中再起動はしない。
+- `scripts/bittaran_railgun.gd`へ音声の専用`AudioStreamPlayer`3層とAndroid raw-Ogg読み込みフォールバック、死亡／リセット時の停止を追加。レーザー軌道追従（逸脱1.5m超で加速）、青球体縮小11秒からの追尾減速、レーザーダメージ多段ヒット0.2秒間隔は変更なし。
+- **音源4ファイルをバイナリGit blobとして格納。** GitHub側のblob SHAとローカルの`git hash-object`結果を4点すべて照合し、一致を確認。
+- `tools/sera_footstep_railgun_audio_runtime_check.gd`を`tools/sera_ci_manifest.txt`に登録。実シーンの接地イベント、Ogg原本の読み込み、チャージ・射撃の位相／停止、レーザー2秒維持、終了時フェードを検証。
+- Android実機の足音タイミングと連続レーザーの体感音量はheadless CIでは確認不可。
+
 ## 2026-11-19 — SERA v479: 青球体縮小開始で砲台減速、照射地点1.5m超で追尾加速
 
 - **11秒を境界にする。** 青球体の縮小開始 = `FLASH_END - FLASH_SHRINK_SECONDS` (=11.0s)。球体発生10秒から縮小開始直前までは0.7秒加速導入後の速度無制限追尾。縮小開始から12秒の発射までの1秒間は旧追尾速度の**0.7倍に制限**。球体の縮小は開始と同時に実行、球体モデルやFXは保持。
