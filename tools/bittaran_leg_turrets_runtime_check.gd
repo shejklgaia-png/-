@@ -129,8 +129,8 @@ func _run() -> void:
             not flash.visible):
         _fail("single turret must aim, fire immediately and show cross pulse")
         return
-    var direction: Vector3 = (
-        (turret.get("projectiles") as Array)[0] as Dictionary)["direction"]
+    var first_shot: Dictionary = (turret.get("projectiles") as Array)[0]
+    var direction: Vector3 = first_shot["direction"]
     if direction.normalized().dot(
             -aim_pivot.global_basis.z.normalized()) < 0.999 or (
             flash.global_position.distance_to(
@@ -141,11 +141,11 @@ func _run() -> void:
     if flash.visible or int(turret.get("shots_fired")) != 1:
         _fail("cross pulse must disappear quickly without an extra shot")
         return
-    turret.call("advance", 1.02, target, true)
+    turret.call("advance", 0.70, target, true)
     if int(turret.get("shots_fired")) != 1:
         _fail("single cannon shot too early")
         return
-    turret.call("advance", 0.17, target, true)
+    turret.call("advance", 0.42, target, true)
     if int(turret.get("shots_fired")) != 2 or not flash.visible:
         _fail("second shot must recreate its own cross pulse after the interval")
         return
