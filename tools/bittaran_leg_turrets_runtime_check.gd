@@ -106,6 +106,12 @@ func _run() -> void:
             flash.position.distance_to(TURRETS.MUZZLE_LOCAL) > 0.0001):
         _fail("cross-shaped muzzle flash must be hidden, centered and brief")
         return
+    var glow: StandardMaterial3D = fx_h.material_override as StandardMaterial3D
+    if glow == null or not glow.emission_enabled or (
+            glow.emission_energy_multiplier < 2.0 or
+            fx_v.material_override != glow):
+        _fail("both arms of the cross must actually emit light")
+        return
     var old_body: Transform3D = body.transform
     body.position += Vector3(0.10, 0.12, -0.07)
     body.rotate_x(0.09)
