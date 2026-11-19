@@ -75,6 +75,13 @@ func _run() -> void:
             turrets.get("last_fired_leg")) != ordered[1]:
         _fail("second shot must come from next-nearest leg")
         return
+    for index in range(2, 5):
+        turrets.call("advance", TURRETS.SHOT_INTERVAL_SECONDS,
+            player.global_position, true)
+        if int(turrets.get("shots_fired")) != index + 1 or str(
+                turrets.get("last_fired_leg")) != ordered[index % 4]:
+            _fail("all four legs must fire once in nearest-first order, then restart")
+            return
     scene.set("bittaran_attack_frame", {"kind": "stomp", "phase": "strike"})
     scene.call("_tick_bittaran_leg_turrets", DT)
     if not (turrets.get("projectiles") as Array).is_empty():
