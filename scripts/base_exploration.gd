@@ -3,6 +3,7 @@ extends Node3D
 const Modules = preload("res://assets/base_command_modules.gd")
 const SeraRig = preload("res://scripts/sera_rig.gd")
 const VersionIndicator = preload("res://scripts/version_indicator.gd")
+const BaseFacilities = preload("res://scripts/base_facility_system.gd")
 const NEXUS_SCENE: String = "res://scenes/command_nexus.tscn"
 # Fill nearly the entire 256 m continuous ground with actual visible
 # 3D grid plates, leaving no ungridded view at the extreme camera positions.
@@ -14,12 +15,11 @@ const HUB_SERA_CONTROLS_ENABLED: bool = false
 const WALK_SPEED: float = 3.2
 const PLAYER_Y: float = 0.08
 const JOYSTICK_RADIUS: float = 76.0
-const NEXUS_BUILDING_ORIGIN: Vector3 = Vector3(0.0, 0.0, -7.4)
+const NEXUS_BUILDING_ORIGIN: Vector3 = Vector3(2.0, 0.0, -7.4)
 const CRATE_SPEED: float = 0.95
 const CRATE_WAYPOINTS = [
-    Vector2(-3.8, 2.6), Vector2(-4.2, 0.6), Vector2(-2.8, 0.0),
-    Vector2(1.6, 0.5), Vector2(3.7, 2.8), Vector2(1.6, 4.4),
-    Vector2(-2.5, 4.2)
+    Vector2(-1.55, -2.85), Vector2(-1.40, 0.75), Vector2(-1.30, 2.35),
+    Vector2(1.45, 2.35), Vector2(1.35, 0.55), Vector2(1.45, -2.85)
 ]
 
 var player: Node3D
@@ -43,11 +43,16 @@ var scene_changing: bool = false
 var elapsed: float = 0.0
 var crate: Node3D
 var batches: Dictionary = {}
+var facility_system: Node3D
+var facility_touch_id: int = -1
+var facility_touch_key: String = ""
+var facility_touch_start: Vector2 = Vector2.ZERO
 
 func _ready() -> void:
     _setup_world()
     _build_hangar()
     _build_nexus_building()
+    _build_field_facilities()
     _create_salvage()
     _create_player()
     _create_crate()
@@ -161,9 +166,10 @@ func _build_hangar() -> void:
     _box(floor, "ContinuousGround", Vector3(0.0, -0.21, 0.0),
         Vector3(256.0, 0.30, 256.0), Color("#323f50"))
     _create_grid_plates(floor)
-    _add_module("maintenance_pad", Vector3(-4.25, 0.0, -1.8), 0.0, 0.72)
-    _add_module("kiosk", Vector3(4.25, 0.0, 1.2), 0.0, 0.85)
-    _add_module("data_bank", Vector3(5.0, 0.0, -3.0), 0.0, 0.52)
+    # Keep legacy decorative models away from interactive equipment footprints.
+    _add_module("maintenance_pad", Vector3(-8.5, 0.0, -1.8), 0.0, 0.72)
+    _add_module("kiosk", Vector3(8.6, 0.0, 1.2), 0.0, 0.85)
+    _add_module("data_bank", Vector3(8.8, 0.0, -3.0), 0.0, 0.52)
     var cube := BoxMesh.new()
     cube.size = Vector3.ONE
     for palette_index in batches.keys():
@@ -213,6 +219,11 @@ func _build_nexus_building() -> void:
     sign.position = Vector3(0.0, 3.50, 2.69)
     nexus_building.add_child(sign)
 
+func _build_field_facilities() -> void:
+    facility_system = BaseFacilities.new()
+    facility_system.name = "BaseFacilities"
+    add_child(facility_system)
+
 func _box(parent: Node3D, name: String, at: Vector3, size: Vector3, tint: Color) -> MeshInstance3D:
     var mesh := BoxMesh.new()
     mesh.size = size
@@ -231,9 +242,9 @@ func _box(parent: Node3D, name: String, at: Vector3, size: Vector3, tint: Color)
 func _create_salvage() -> void:
     # Deliberate small props leave a clear central walkable lane.
     var lots := [
-        Vector3(-5.85, 0.0, 5.3), Vector3(-5.70, 0.0, -0.7),
-        Vector3(5.70, 0.0, 5.7), Vector3(5.85, 0.0, -1.5),
-        Vector3(-5.75, 0.0, -10.5), Vector3(5.70, 0.0, -5.6)
+        Vector3(-8.45, 0.0, 5.3), Vector3(-8.15, 0.0, -0.7),
+        Vector3(8.30, 0.0, 5.7), Vector3(8.35, 0.0, -1.5),
+        Vector3(-8.15, 0.0, -10.5), Vector3(8.20, 0.0, -5.6)
     ]
     for i in range(lots.size()):
         var pile := Node3D.new()
@@ -376,7 +387,7 @@ func _create_hud() -> void:
     layer.add_child(hud)
     hud.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
     hud_title = _label(hud, "BASE", 25)
-    hint = _label(hud, "NEXUSの建物をタップして施設へ", 19)
+    hint = _label(hud, "建物・設備をタップして操作", 19)
     nexus_tag = _label(hud, "N E X U S  ▸", 20)
     nexus_tag.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
     nexus_tag.add_theme_color_override("font_color", Color("#8be4ff"))
@@ -385,6 +396,7 @@ func _create_hud() -> void:
     stick_outer.visible = HUB_SERA_CONTROLS_ENABLED
     stick_knob.visible = HUB_SERA_CONTROLS_ENABLED
     VersionIndicator.attach(hud)
+    facility_system.call("attach_hud", hud)
     hud.resized.connect(_layout_hud)
     _layout_hud()
 
@@ -402,6 +414,7 @@ func _layout_hud() -> void:
     stick_knob.size = Vector2(72, 72)
     _update_stick_visual()
     _update_nexus_tag()
+    facility_system.call("update_tags", cam)
 
 func _update_nexus_tag() -> void:
     if cam == null or nexus_building == null or nexus_tag == null:
@@ -431,20 +444,37 @@ func _hit(panel: Panel, at: Vector2) -> bool:
 func _input(event: InputEvent) -> void:
     if scene_changing or hud == null:
         return
+    # An open field-device panel owns its own GUI input; do not route clicks
+    # behind it to NEXUS, other machines, or the dormant joystick.
+    if facility_system != null and bool(facility_system.call("is_menu_open")):
+        return
     if event is InputEventScreenTouch:
         if event.pressed:
             if _nexus_hit(event.position):
                 nexus_touch_id = event.index
                 nexus_touch_start = event.position
-            elif HUB_SERA_CONTROLS_ENABLED and _hit(stick_outer, event.position) and touch_id == -1:
-                touch_id = event.index
-                _set_stick(event.position)
             else:
-                return
+                var key: String = str(facility_system.call("key_at", cam, event.position))
+                if not key.is_empty():
+                    facility_touch_id = event.index
+                    facility_touch_key = key
+                    facility_touch_start = event.position
+                elif HUB_SERA_CONTROLS_ENABLED and _hit(stick_outer, event.position) and touch_id == -1:
+                    touch_id = event.index
+                    _set_stick(event.position)
+                else:
+                    return
         elif event.index == nexus_touch_id:
             nexus_touch_id = -1
             if nexus_touch_start.distance_to(event.position) <= 22.0 and _nexus_hit(event.position):
                 _enter_nexus()
+        elif event.index == facility_touch_id:
+            facility_touch_id = -1
+            var key: String = facility_touch_key
+            facility_touch_key = ""
+            if facility_touch_start.distance_to(event.position) <= 22.0 \
+                    and str(facility_system.call("key_at", cam, event.position)) == key:
+                facility_system.call("open_facility", key)
         elif event.index == touch_id:
             touch_id = -1
             joystick = Vector2.ZERO
@@ -459,11 +489,15 @@ func _input(event: InputEvent) -> void:
         if event.pressed:
             if _nexus_hit(event.position):
                 _enter_nexus()
-            elif HUB_SERA_CONTROLS_ENABLED and _hit(stick_outer, event.position):
-                mouse_steering = true
-                _set_stick(event.position)
             else:
-                return
+                var key: String = str(facility_system.call("key_at", cam, event.position))
+                if not key.is_empty():
+                    facility_system.call("open_facility", key)
+                elif HUB_SERA_CONTROLS_ENABLED and _hit(stick_outer, event.position):
+                    mouse_steering = true
+                    _set_stick(event.position)
+                else:
+                    return
         else:
             mouse_steering = false
             joystick = Vector2.ZERO
@@ -476,9 +510,20 @@ func _input(event: InputEvent) -> void:
 func _walkable(pos: Vector3) -> bool:
     if absf(pos.x) > 6.0 or pos.z < -10.0 or pos.z > 10.0:
         return false
-    if absf(pos.x) < 3.45 and pos.z < -4.35:
+    # Preserve the existing NEXUS solid footprint after its lateral move.
+    if absf(pos.x - NEXUS_BUILDING_ORIGIN.x) < 3.45 and pos.z < -4.35:
         return false
-    return Vector2(pos.x + 4.25, pos.z + 1.8).length() > 1.10
+    if absf(pos.x + 4.45) < 2.30 and pos.z < -5.20:
+        return false
+    for spec in BaseFacilities.FACILITY_SPECS:
+        if str(spec["id"]) == "LABO":
+            continue
+        var at: Vector3 = spec["at"]
+        var size: Vector3 = spec["size"]
+        if absf(pos.x - at.x) < size.x * 0.5 + 0.25 \
+                and absf(pos.z - at.z) < size.z * 0.5 + 0.25:
+            return false
+    return true
 
 func _move_player(direction: Vector2, delta: float) -> void:
     if not HUB_SERA_CONTROLS_ENABLED or player == null or direction.length_squared() < 0.000001:
@@ -524,6 +569,7 @@ func _process(delta: float) -> void:
         cam.look_at(Vector3(player.position.x * 0.18, 0.0,
             -2.2 + player.position.z * 0.12), Vector3.UP)
     _update_nexus_tag()
+    facility_system.call("update_tags", cam)
 
 func _enter_nexus() -> void:
     if scene_changing:
