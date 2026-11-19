@@ -16,6 +16,7 @@ const PROJECTILE_HIT_RADIUS_METERS: float = 0.62
 const MUZZLE_LOCAL: Vector3 = Vector3(0.0, 0.0, -0.56)
 
 var mounts: Dictionary = {}
+var anchors: Dictionary = {}
 var projectiles: Array[Dictionary] = []
 var volley_order: Array[String] = []
 var volley_index: int = 0
@@ -55,10 +56,13 @@ func setup(rig: Node3D) -> bool:
             return false
         var mount := Node3D.new()
         mount.name = "LegCannon_" + id
-        # Mount on each animated hip, clear of the toe/IK hit volumes.
-        mount.position = Vector3(0.0, 0.28, 0.0)
+        # Never insert new mesh children into the authored leg subtree.
+        # IK measures EVERY descendant mesh AABB to find its floor, so
+        # the visible gun is a sibling and follows the actual joint world
+        # transform at the end of each physics-frame pose update.
         mount.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_ON
-        leg.add_child(mount)
+        add_child(mount)
+        anchors[id] = leg
         var hemisphere := SphereMesh.new()
         hemisphere.radius = 0.29
         hemisphere.height = 0.29
@@ -95,6 +99,7 @@ func setup(rig: Node3D) -> bool:
         ring.material_override = muzzle_glow
         mount.add_child(ring)
         mounts[id] = mount
+    _sync_mounts()
     reset()
     return mounts.size() == LEG_IDS.size()
 
@@ -122,7 +127,14 @@ func _sort_volley_by_distance(player_world: Vector3) -> void:
                 volley_order[i] = volley_order[j]
                 volley_order[j] = swap
 
+func _sync_mounts() -> void:
+    for id in LEG_IDS:
+        var leg: Node3D = anchors[id]
+        var mount: Node3D = mounts[id]
+        mount.global_position = leg.to_global(Vector3(0.0, 0.28, 0.0))
+
 func _aim_cannons(player_world: Vector3) -> void:
+    _sync_mounts()
     var aim: Vector3 = player_world + Vector3.UP * 0.90
     for id in LEG_IDS:
         var mount: Node3D = mounts[id]
