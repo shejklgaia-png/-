@@ -67,6 +67,7 @@ func _read_slot(slot: int) -> Dictionary:
     # v508 adds an optional inventory without invalidating old profile files.
     data["materials"] = BaseMaterials.sanitize_inventory(
         data.get("materials", {}))
+    data["trial_materials_claimed"] = bool(data.get("trial_materials_claimed", false))
     # Optional v511 crafted inventory: preserve legacy schema v2 and gear.
     data["crafted_items"] = _sanitize_crafted_items(
         data.get("crafted_items", []))
@@ -184,6 +185,7 @@ func _new_document(slot: int) -> Dictionary:
         "training_visited": false, "play_seconds": 0.0,
         "stats": _default_stats(), "equipment": gear,
         "materials": BaseMaterials.empty_inventory(),
+        "trial_materials_claimed": false,
         "crafted_items": [], "craft_serials": {},
         "equipped_crafted": {}
     }
@@ -200,6 +202,27 @@ func get_working_equipment() -> Dictionary:
 func get_material_inventory() -> Dictionary:
     # A missing legacy field is treated as an empty bag, never free supplies.
     return BaseMaterials.sanitize_inventory(active_data.get("materials", {}))
+
+
+func claim_trial_materials() -> bool:
+    # Optional, explicit one-time test stock for exercising refinement UI.
+    # Separate from real boss drops, and never repeated within this profile.
+    if not _valid_slot(active_slot) or active_data.is_empty() or (
+            bool(active_data.get("trial_materials_claimed", false))):
+        return false
+    var stock: Dictionary = get_material_inventory()
+    for material_id in BaseMaterials.all_ids():
+        if int(stock[material_id]) > 2147483641:
+            return false
+        stock[material_id] = int(stock[material_id]) + 6
+    var updated: Dictionary = active_data.duplicate(true)
+    updated["materials"] = stock
+    updated["trial_materials_claimed"] = true
+    updated["updated_at"] = _timestamp()
+    if not _write_json(_slot_path(active_slot), updated):
+        return false
+    active_data = updated
+    return true
 
 func can_convert_material(family: String, rank: int,
         direction: int, batches: int = 1) -> bool:
