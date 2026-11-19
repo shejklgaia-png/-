@@ -31,7 +31,7 @@ verify("Codex AGENTS instructions exist", (ROOT / "AGENTS.md").is_file())
 verify("Git cache exclusions exist", (ROOT / ".gitignore").is_file())
 
 project = (ROOT / "project.godot").read_text(encoding="utf-8")
-# Both main scenes are valid: active Bittaran arena or selectable menu.
+# Active boot choices include the approved outdoor base hub, historical battle or selector.
 startup_scenes = [
     line.split('"')[1]
     for line in project.splitlines()
@@ -41,7 +41,8 @@ verify("startup scene path configured",
        len(startup_scenes) == 1 and
        startup_scenes[0] in (
            "res://scenes/launch_menu.tscn",
-           "res://scenes/bittaran_battle.tscn"))
+           "res://scenes/bittaran_battle.tscn",
+           "res://scenes/base_exploration.tscn"))
 verify("configured startup scene exists",
        len(startup_scenes) == 1 and
        (ROOT / startup_scenes[0].removeprefix("res://")).is_file())
