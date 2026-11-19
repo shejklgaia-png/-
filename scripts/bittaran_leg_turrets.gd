@@ -101,8 +101,8 @@ func setup(rig: Node3D) -> bool:
         dome.position.y = -hemisphere.get_aabb().position.y
         dome.material_override = armor
         mount.add_child(dome)
-        # Keep the connected dome FIXED to the armor. Only the barrel
-        # assembly below rotates toward the player on the nearest leg.
+        # Keep the connected dome FIXED to the belly armor. Only the
+        # nearest barrel assembly rotates toward the player.
         var aim_pivot := Node3D.new()
         aim_pivot.name = "TurretAim"
         aim_pivot.position.y = hemisphere.radius * 0.68
