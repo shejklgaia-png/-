@@ -26,6 +26,7 @@ on:
       - 'tools/v447_bittaran_toe_drag_reach_check.gd'
       - 'tools/bittaran_attack_variation_runtime_check.gd'
       - 'tools/bittaran_keyframe_hit_sector_runtime_check.gd'
+      - 'tools/bittaran_stomp_follow_runtime_check.gd'
       - 'tools/bittaran_repeat_live_battle_runtime_check.gd'
       - 'tools/bittaran_attack_distance_priority_runtime_check.gd'
       - 'tools/bittaran_ground_fx_rebuild_runtime_check.gd'
@@ -97,6 +98,10 @@ jobs:
         run: |
           set -euo pipefail
           "$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" --headless --path . --script tools/bittaran_sweep_stomp_timeline_runtime_check.gd
+      - name: Verify all four front/rear STOMPs follow the 1.5x toe box, strike in air once, and burst only on contact
+        run: |
+          set -euo pipefail
+          "$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" --headless --path . --script tools/bittaran_stomp_follow_runtime_check.gd
       - name: Verify keyframe-accurate KICK/SWEEP hit windows, real floor contact and positional attack selection
         run: |
           set -euo pipefail
