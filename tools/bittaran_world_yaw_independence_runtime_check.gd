@@ -122,8 +122,9 @@ func _run() -> void:
         if not _same_heading(_world_yaw(gun), held_world_yaw, 0.0002):
             _fail("rendered turret yaw inherited the chassis rotation")
             return
-        if (-first_barrel.global_basis.z.normalized()
-                ).distance_to(held_mesh_forward) > 0.0005:
+        var barrel_forward: Vector3 = (
+            -first_barrel.global_basis.z.normalized())
+        if barrel_forward.distance_to(held_mesh_forward) > 0.0005:
             _fail("actual barrel mesh followed chassis yaw during BEAM")
             return
     # Authored BODY bone rotations must also not inject a tracking delta.
