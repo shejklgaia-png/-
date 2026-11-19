@@ -34,6 +34,25 @@ func _run() -> void:
         if not _real_icon(IconAtlas.equipment_icon(str(id))):
             _fail("empty craftable image: " + str(id))
             return
+    var used_regions: Dictionary = {}
+    for material_id in Materials.all_ids():
+        var icon: AtlasTexture = IconAtlas.material_icon(str(material_id)) as AtlasTexture
+        if icon == null or used_regions.has(str(icon.region)):
+            _fail("duplicate or missing material atlas region: " + str(material_id))
+            return
+        used_regions[str(icon.region)] = true
+    for blueprint in Catalog.PROTOTYPES.keys():
+        var icon: AtlasTexture = IconAtlas.equipment_icon(str(blueprint)) as AtlasTexture
+        if icon == null or used_regions.has(str(icon.region)):
+            _fail("duplicate or missing equipment atlas region: " + str(blueprint))
+            return
+        used_regions[str(icon.region)] = true
+    if used_regions.size() != 19 or Catalog.uid_for("H01", 1) != "H01-0001" or (
+            not Catalog.valid_uid("H01-0001", "H01")) or (
+            Catalog.valid_uid("H01-1", "H01")) or (
+            Catalog.valid_uid("T01-0001", "H01")):
+        _fail("unique icons or canonical item UID contract failed")
+        return
     var profile: Node = root.get_node_or_null("SeraSave")
     if profile == null:
         _fail("SeraSave missing")
@@ -56,6 +75,10 @@ func _run() -> void:
         if name1 != "H01-0001" or name2 != "H01-0002":
             _fail("duplicate-proof sequential names failed: " + name1 + "/" + name2)
             return
+        var torso_name: String = profile.call("craft_prototype", "T01")
+        if torso_name != "T01-0001":
+            _fail("per-blueprint sequence failed: " + torso_name)
+            return
         if profile.call("craft_prototype", "NOT_A_BLUEPRINT") != "":
             _fail("invalid craft ID should not create inventory")
             return
@@ -74,6 +97,10 @@ func _run() -> void:
         var owned: Array = profile.call("get_owned_prototypes", "head")
         if owned.size() != 2 or owned[0]["uid"] == owned[1]["uid"]:
             _fail("inventory did not persist unique item copies")
+            return
+        if profile.call("get_owned_prototypes", "torso").size() != 1 or (
+                Catalog.display_instance(name2).find(name2) == -1):
+            _fail("per-slot storage or unique display name missing")
             return
         if profile.call("craft_prototype", "H01") != "H01-0003":
             _fail("serial not monotonic after profile reload")
