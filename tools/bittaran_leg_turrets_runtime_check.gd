@@ -29,14 +29,16 @@ func _run() -> void:
         _fail("unexpected weapon controller")
         return
     var mounts: Dictionary = turrets.get("mounts")
-    if mounts.size() != 4 or absf(TURRETS.SHOT_INTERVAL_SECONDS - 1.2) > 0.001:
+    var anchors: Dictionary = turrets.get("anchors")
+    if mounts.size() != 4 or anchors.size() != 4 or absf(TURRETS.SHOT_INTERVAL_SECONDS - 1.2) > 0.001:
         _fail("four independent mounts and shared 1.2s cadence required")
         return
     for id in TURRETS.LEG_IDS:
         var mount: Node3D = mounts.get(id) as Node3D
-        if mount == null or mount.get_parent() != rig.find_child(
-                str(TURRETS.LEG_BONES[id]), true, false):
-            _fail("turret must be bound to its own animated upper leg: " + id)
+        if mount == null or mount.get_parent() != turrets or (
+                anchors[id] != rig.find_child(
+                    str(TURRETS.LEG_BONES[id]), true, false)):
+            _fail("turret must follow the corresponding upper leg without becoming an IK mesh: " + id)
             return
         var dome: MeshInstance3D = mount.get_node_or_null(
             "TurretHemisphere") as MeshInstance3D
