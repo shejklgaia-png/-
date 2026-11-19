@@ -103,7 +103,7 @@ jobs:
       - name: Check four real STOMP skeletons aim only after torso/shoulder steering and keep lower joint angle fixed during upper lift
         run: |
           set -euo pipefail
-          "$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" --headless --path . --script tools/bittaran_stomp_upper_priority_runtime_check.gd
+          timeout --signal=TERM --kill-after=3s 25s "$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" --headless --path . --script tools/bittaran_stomp_upper_priority_runtime_check.gd
       - name: Verify all four front/rear STOMPs follow the 1.5x toe box, strike in air once, and burst only on contact
         run: |
           set -euo pipefail
