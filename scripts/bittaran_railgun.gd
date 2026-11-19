@@ -21,10 +21,10 @@ const SILENT_AUDIO_DB: float = -80.0
 
 # Hold neutral throughout the first 10 seconds of filling the charge lamps.
 # The BLUE SPHERE (t=10..12) starts with one eased, unrestricted acquisition.
-# At sphere SHRINK (t=11) reduce to the same 0.7x capped speed as the beam.
-# At laser firing (t=12), increase from 0.7x to 1.0x of the fixed
-# RUN<chase<BOOST rate across 0..2.5m of ground-ray separation.
-# Beyond 2.5m NEVER increase the turn rate: BOOST must outrun the beam.
+# At sphere SHRINK (t=11) use 0.7x capped pursuit without beam acceleration.
+# At laser firing (t=12), start near-axis at 0.85x and increase up to
+# 1.0x fixed RUN<chase<BOOST speed across only 0..1.5m ray separation.
+# Beyond 1.5m NEVER increase the turn rate: BOOST can still escape.
 # Return to the neutral pose during the 0.7s after the 2s beam.
 const WAIT_SECONDS: float = 10.0
 const FLASH_SECONDS: float = 2.0
@@ -46,11 +46,15 @@ const TRACK_EASE_IN_SECONDS: float = TRACK_BLEND_SECONDS
 const TRACK_START_SECONDS: float = FLASH_START
 const CHARGE_TRACK_FILTER_PER_SECOND: float = 30.0
 const TRACK_FILTER_PER_SECOND: float = 10.0
+# During the laser only, narrow the angular lag (keep the prefire unchanged).
+const BEAM_AIM_FILTER_PER_SECOND: float = 14.0
+# Sphere shrinking stays at its previous 0.7x; the fired beam starts at 0.85x.
 const BEAM_TRACK_SPEED_MULTIPLIER: float = 0.70
-const BEAM_GROUND_GAP_METERS: float = 2.50
-# 0..2.5m smoothstep blends the 0.7x firing rate to the full chase rate.
+const BEAM_ON_AXIS_SPEED_MULTIPLIER: float = 0.85
+const BEAM_GROUND_GAP_METERS: float = 1.50
+# 0..1.5m smoothstep blends the 0.85x firing rate to the full chase rate.
 # The chase rate is always bounded between equipment RUN and BOOST speeds.
-# Beyond 2.5m, there is no extra acceleration or velocity-derived spike.
+# Beyond 1.5m, there is no extra acceleration or velocity-derived spike.
 const BEAM_CATCHUP_RESPONSE_PER_SECOND: float = 16.0
 # Repeated contact may damage for the duration of a beam. Per-contact
 # cooldown prevents one hit on every physics frame at 30/60/120Hz.
@@ -497,7 +501,7 @@ func _tracking_turn_rate(player_world: Vector3,
         boost_speed_mps: float = BOOST_REFERENCE_SPEED_MPS,
         run_speed_mps: float = RUN_REFERENCE_SPEED_MPS) -> float:
     # The pre-v478 tracking speed used for the laser baseline.
-    # During the beam, ground-ray offset 0..2.5m eases toward this cap.
+    # During the beam, ground-ray offset 0..1.5m eases toward this cap.
     # Use the actual part stats so upgrades do not break the contract.
     var to_player: Vector3 = player_world + Vector3.UP * 0.92 - global_position
     var flat: float = Vector2(to_player.x, to_player.z).length()
@@ -534,8 +538,8 @@ func _ground_ray_gap(player_world: Vector3) -> float:
 
 
 func _beam_catchup_weight(gap_meters: float) -> float:
-    # 0m = baseline 0.7x; 2.5m = full velocity+gap catch-up.
-    # Smoothstep has zero slope at both ends, avoiding a 2.5m snap.
+    # 0m = beam 0.85x; 1.5m = full bounded RUN<chase<BOOST tracking.
+    # Smoothstep has zero slope at both ends, avoiding a 1.5m snap.
     var t: float = clampf(
         gap_meters / BEAM_GROUND_GAP_METERS, 0.0, 1.0)
     return t * t * (3.0 - 2.0 * t)
@@ -543,7 +547,7 @@ func _beam_catchup_weight(gap_meters: float) -> float:
 
 func _beam_target_turn_rate(gap_meters: float, baseline: float,
         full_rate: float) -> float:
-    # At 2.5m the motor reaches its fixed chase speed; it NEVER increases
+    # At 1.5m the motor reaches its fixed chase speed; it NEVER increases
     # beyond that threshold, even for instant teleports or a fast BOOST.
     # The selected chase speed is strictly between RUN and BOOST, so
     # RUN eventually enters the beam but BOOST can outrun it laterally.
@@ -553,7 +557,7 @@ func _beam_target_turn_rate(gap_meters: float, baseline: float,
 
 func _beam_turn_rate(delta: float, player_world: Vector3,
         base_rate: float) -> float:
-    var baseline: float = base_rate * BEAM_TRACK_SPEED_MULTIPLIER
+    var baseline: float = base_rate * BEAM_ON_AXIS_SPEED_MULTIPLIER
     var gap: float = _ground_ray_gap(player_world)
     var target_rate: float = _beam_target_turn_rate(
         gap, baseline, base_rate)
@@ -585,7 +589,11 @@ func _track_player(delta: float, player_world: Vector3,
             # use the 0.7x firing baseline WITHOUT ground-gap catch-up.
             angular_rate *= BEAM_TRACK_SPEED_MULTIPLIER
     var weight: float = clampf(acquisition_weight, 0.0, 1.0)
-    var eased: float = 1.0 - exp(-TRACK_FILTER_PER_SECOND * delta)
+    var aim_filter: float = (
+        BEAM_AIM_FILTER_PER_SECOND
+        if live_beam_tracking and not fast_charge_tracking
+        else TRACK_FILTER_PER_SECOND)
+    var eased: float = 1.0 - exp(-aim_filter * delta)
 
     # Keep the turret yaw WORLD-locked even as the animated boss changes
     # heading; a body turn may not bypass the booster-based speed cap.
@@ -715,8 +723,8 @@ func advance(delta: float, player_world: Vector3, active: bool,
             _track_player(step, player_world, 1.0,
                 boost_speed_mps, run_speed_mps, false, false)
     elif phase == Phase.BEAM:
-        # Firing begins at 0.7x on-axis. The 0..2.5m smoothstep
-        # blends up to the fixed RUN<chase<BOOST cap; above 2.5m it plateaus.
+        # Firing begins at 0.85x on-axis. The 0..1.5m smoothstep
+        # blends up to the same fixed RUN<chase<BOOST cap, then plateaus.
         _track_player(step, player_world, 1.0,
             boost_speed_mps, run_speed_mps)
     elif phase == Phase.RETURN:

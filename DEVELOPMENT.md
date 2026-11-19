@@ -1,3 +1,10 @@
+## 2026-11-19 — SERA v494: レールガン照射の追尾距離を短縮
+- **CI事前確認**：main v493、共通CIワークフロー、`tools/sera_ci_manifest.txt`、`docs/SERA_ACTIVE_CI_POLICY_ja.md`、既存の`tools/bittaran_railgun_runtime_check.gd`、`tools/bittaran_world_yaw_independence_runtime_check.gd`、`tools/bittaran_full_frame_level_gun_runtime_check.gd`を確認。既存のRUN＜追尾＜BOOSTの最大速度上限、青球体の縮小時0.7倍、レーザー接触、世界Yaw分離は不変条件。
+- **先行CI更新**：本体修正前に登録済み実Godotレールガン検査を更新。照射中だけ0.85倍基準・0〜1.5mのsmoothstep加速・14/s照準応答・1.5m以遠の最大速度据置、RUNの横移動時の射線誤差0.8m未満、BOOSTで離脱可能、装備5/8/30mでRUN＜追尾＜BOOSTを検査。既存テストの無関係な検証は維持し、manifest変更なし。
+- **実装**：照射中に限り射線上の最小追尾係数を0.70→0.85倍、加速補間の最大距離を2.5→1.5m、照準角度応答を10/s→14/sへ変更。最大角速度に用いる装備RUN/BOOST間の補間比率0.65はそのまま。速度命令の16/s時間補間、実角速度の制限を保持し、BOOSTで回避可能な速度差は変えない。
+- **変更しないもの**：10〜11秒の青球体高速追尾と11〜12秒の球体縮小時0.7倍、12〜14秒のレーザー照射、14〜14.7秒の復帰、ダメージ、ノックバック、原本モデル／アニメーション／IK／FX／音、レールガン本体の独立Yaw。
+- **検証**：マージ後mainで全Python/Godot CI。Android実機ではより近くに追うレーザーとBOOST回避の両立を別確認。
+
 ## 2026-11-19 — SERA v493: レールガンの追尾速度をRUN＜追尾＜BOOSTに制限
 - **事前確認**：`project.godot` v492、`.github/workflows/sera-model-policy.yml`、`tools/sera_ci_manifest.txt`、`docs/SERA_ACTIVE_CI_POLICY_ja.md`、既存`tools/bittaran_railgun_runtime_check.gd`、`tools/bittaran_world_yaw_independence_runtime_check.gd`、`tools/bittaran_full_frame_level_gun_runtime_check.gd`を確認。変更対象はレーザー照射中の無制限な距離・速度由来加速のみ。
 - **先行CI更新**：本体コードを変更する前に既存登録済み`bittaran_railgun_runtime_check.gd`の追尾補間期待値を更新。0/0.625/1.25/1.875/2.5mでのsmoothstep、2.5m超の速度プラトー、5/8/30mでRUN＜追尾＜BOOSTを独立した定数から検査。さらに実シーンで標準RUN/BOOSTの1.5秒円周横移動時のレーザー追従差を検査。新規CIファイルとmanifest追加は不要。
