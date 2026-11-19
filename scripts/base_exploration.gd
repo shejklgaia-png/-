@@ -105,6 +105,11 @@ func _build_hangar() -> void:
     var floor := Node3D.new()
     floor.name = "PatchworkSteelFloor"
     add_child(floor)
+    # One continuous opaque ground mesh remains beneath the decorative plates.
+    # A 256 m span covers the extreme portrait-camera frustum and all follow
+    # positions, without instancing thousands of distant tiles on Android.
+    _box(floor, "ContinuousGround", Vector3(0.0, -0.21, 0.0),
+        Vector3(256.0, 0.30, 256.0), Color("#323f50"))
     var tints := [
         Color("#3b4758"), Color("#4d5765"), Color("#323f50"),
         Color("#586171"), Color("#465162"), Color("#3f4a5d")
