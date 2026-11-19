@@ -2,11 +2,19 @@ extends Node3D
 ## Contact-local radial predictive shield: armor < shield < regular hit sparks.
 ## The gradient is vertex alpha (no imported texture, no HP bar overlay).
 const RENDER_ORDER = preload("res://scripts/render_order_policy.gd")
-const SHIELD_SURFACE_OFFSET: float = 0.032
-const IMPACT_SECONDS: float = 0.28
-const FRACTURE_SECONDS: float = 0.44
+# Separate from opaque armor, while still sorting below HIT_SPARKS.
+# The larger camera-facing surface needs more clearance at grazing angles.
+const SHIELD_SURFACE_OFFSET: float = 0.14
+const IMPACT_SECONDS: float = 0.44
+const FRACTURE_SECONDS: float = 0.65
+const CONTACT_RADIUS_START_PX: float = 100.0
+const CONTACT_RADIUS_END_PX: float = 260.0
+const FRACTURE_REACH_START_PX: float = 90.0
+const FRACTURE_REACH_END_PX: float = 470.0
+const BURST_RADIUS_MAX_PX: float = 470.0
+const MIN_VISUAL_SCALE: float = 0.85
 const MAX_SIMULTANEOUS: int = 5
-const SEGMENTS: int = 28
+const SEGMENTS: int = 40
 
 var view_camera: Camera3D
 var mesh: ImmediateMesh
@@ -140,46 +148,55 @@ func _beam(a: Vector2, b: Vector2, half_width: float,
     _tri(a - normal, b + normal, a + normal, tint, tint, tint, depth)
 
 func _fracture(center: Vector2, depth: float, t: float, scale: float) -> void:
-    # A horizontal crack branches from the center in BOTH directions.
-    # A bright thin central line is surrounded by a soft blue-white glow.
-    var unfold: float = clampf(t / 0.16, 0.0, 1.0)
-    var line_fade: float = clampf((0.27 - t) / 0.11, 0.0, 1.0)
-    var reach: float = (35.0 + 145.0 * unfold) * scale
+    # V511: the shield fractures horizontally across much of a phone screen.
+    # Both halves grow from the impact, with two luminous widths to read at 60Hz.
+    var unfold: float = clampf(t / 0.20, 0.0, 1.0)
+    var line_fade: float = clampf((0.44 - t) / 0.20, 0.0, 1.0)
+    var reach: float = lerpf(
+        FRACTURE_REACH_START_PX, FRACTURE_REACH_END_PX, unfold) * scale
     for sign_dir in [-1.0, 1.0]:
         var previous: Vector2 = center
         for i in range(1, 9):
             var f: float = float(i) / 8.0
-            var jitter: float = sin(float(i) * 2.47 + sign_dir * 1.6) * 4.5
+            var jitter: float = sin(float(i) * 2.47 + sign_dir * 1.6) * 10.5
             var current: Vector2 = center + Vector2(
                 sign_dir * reach * f, jitter * scale * f)
-            var glow := Color(0.27, 0.83, 1.0, 0.18 * line_fade)
-            var core := Color(0.86, 0.97, 1.0, 0.92 * line_fade)
-            _beam(previous, current, 5.0 * scale, glow, depth)
-            _beam(previous, current, 1.0 * scale, core, depth - 0.001)
+            var glow := Color(0.25, 0.84, 1.0, 0.48 * line_fade)
+            var core := Color(0.91, 0.98, 1.0, 1.0 * line_fade)
+            _beam(previous, current, 13.0 * scale, glow, depth)
+            _beam(previous, current, 2.6 * scale, core, depth - 0.001)
             previous = current
-    # After the crack, the shield bursts outward in a radial gradient,
-    # leaving no opaque disk edge or lingering solid shell.
-    var burst: float = clampf((t - 0.045) / 0.33, 0.0, 1.0)
+    # The first crack kicks off a large, airy blue-white radial shock wave.
+    # Transparent outer edges keep the underlying body readable.
+    var burst: float = clampf((t - 0.045) / 0.54, 0.0, 1.0)
     if burst > 0.0:
-        var power: float = pow(1.0 - burst, 1.7)
-        var radius: float = (12.0 + 174.0 * burst) * scale
+        var power: float = pow(1.0 - burst, 0.9)
+        var radius: float = lerpf(24.0, BURST_RADIUS_MAX_PX, burst) * scale
         _ring(center, 0.0, radius * 0.22,
-            Color(0.93, 0.99, 1.0, 0.68 * power),
-            Color(0.40, 0.88, 1.0, 0.32 * power), depth)
+            Color(0.95, 0.99, 1.0, 0.95 * power),
+            Color(0.46, 0.90, 1.0, 0.62 * power), depth)
         _ring(center, radius * 0.22, radius,
-            Color(0.40, 0.88, 1.0, 0.32 * power),
+            Color(0.46, 0.90, 1.0, 0.62 * power),
             Color(0.12, 0.69, 1.0, 0.0), depth)
+
+static func contact_radius_px(progress: float) -> float:
+    return lerpf(CONTACT_RADIUS_START_PX, CONTACT_RADIUS_END_PX,
+        clampf(progress, 0.0, 1.0))
 
 func _draw_impact(center: Vector2, depth: float, t: float,
         duration: float, tone: Color, scale: float) -> void:
     var progress: float = clampf(t / duration, 0.0, 1.0)
-    var opacity: float = pow(1.0 - progress, 1.3)
-    var radius: float = (27.0 + 47.0 * progress) * scale
-    var bright := Color(tone.r, tone.g, tone.b, 0.63 * opacity)
-    var faint := Color(tone.r, tone.g, tone.b, 0.26 * opacity)
+    # Larger, brighter and visible for longer without changing enemy HP bars.
+    var opacity: float = pow(1.0 - progress, 0.72)
+    var radius: float = contact_radius_px(progress) * scale
+    var bright: Color = tone.lerp(Color.WHITE, 0.60)
+    bright.a = 0.96 * opacity
+    var mid := Color(tone.r, tone.g, tone.b, 0.76 * opacity)
+    var glow := Color(tone.r, tone.g, tone.b, 0.40 * opacity)
     var clear := Color(tone.r, tone.g, tone.b, 0.0)
-    _ring(center, 0.0, radius * 0.28, bright, faint, depth)
-    _ring(center, radius * 0.28, radius, faint, clear, depth)
+    _ring(center, 0.0, radius * 0.20, bright, mid, depth)
+    _ring(center, radius * 0.20, radius * 0.55, mid, glow, depth)
+    _ring(center, radius * 0.55, radius, glow, clear, depth)
 
 func _redraw() -> void:
     if mesh == null:
@@ -199,7 +216,8 @@ func _redraw() -> void:
         var center: Vector2 = view_camera.unproject_position(world_hit)
         var high: Vector2 = view_camera.unproject_position(world_hit + Vector3.UP)
         var low: Vector2 = view_camera.unproject_position(world_hit - Vector3.UP)
-        var scale: float = clampf(high.distance_to(low) / 270.0, 0.58, 1.65)
+        var scale: float = clampf(
+            high.distance_to(low) / 270.0, MIN_VISUAL_SCALE, 1.55)
         var age: float = float(entry["elapsed"])
         if bool(entry["broken"]):
             _fracture(center, depth, age, scale)
