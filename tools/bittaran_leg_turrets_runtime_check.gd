@@ -1,5 +1,5 @@
 extends SceneTree
-## v498: seated hemisphere bases, ONE nearest live tracker, same shared fire
+## v499: four belly-mounted bases, ONE nearest tracker, same shared fire
 ## interval, and both weapon systems stop during attacks and knockdown.
 const TURRETS = preload("res://scripts/bittaran_leg_turrets.gd")
 const RAILGUN = preload("res://scripts/bittaran_railgun.gd")
@@ -28,59 +28,42 @@ func _run() -> void:
     if turrets.get_script() != TURRETS or gun.get_script() != RAILGUN:
         _fail("unexpected weapon controller")
         return
+    # New location: underside of the BODY, NOT any lower or upper leg.
+    var body: Node3D = rig.find_child("Body", true, false) as Node3D
+    var body_mesh: MeshInstance3D = body.get_node_or_null(
+        "body_mesh") as MeshInstance3D if body != null else null
     var mounts: Dictionary = turrets.get("mounts")
     var anchors: Dictionary = turrets.get("anchors")
     var mount_offsets: Dictionary = turrets.get("mount_offsets")
-    var lower_bounds: Dictionary = turrets.get("lower_bounds")
+    var belly_bounds: AABB = turrets.get("belly_bounds")
     var aim_pivots: Dictionary = turrets.get("aim_pivots")
-    if mounts.size() != 4 or anchors.size() != 4 or (
-            mount_offsets.size() != 4 or lower_bounds.size() != 4 or
-            aim_pivots.size() != 4 or
-            absf(TURRETS.SHOT_INTERVAL_SECONDS - 1.2) > 0.001):
-        _fail("four independent mounts and shared 1.2s cadence required")
+    if body == null or body_mesh == null or mounts.size() != 4 or (
+            anchors.size() != 4 or mount_offsets.size() != 4
+            or aim_pivots.size() != 4 or not belly_bounds.has_volume()
+            or absf(TURRETS.SHOT_INTERVAL_SECONDS - 1.2) > 0.001):
+        _fail("four complete belly-mounted cannons and 1.2s cadence required")
         return
-    for id in TURRETS.LEG_IDS:
+    var original_body: Transform3D = body.transform
+    for id in TURRETS.TURRET_IDS:
         var mount: Node3D = mounts.get(id) as Node3D
-        if mount == null or mount.get_parent() != turrets or (
-                anchors[id] != rig.find_child(
-                    str(TURRETS.LOWER_LEG_BONES[id]), true, false)):
-            _fail("turret must track the animated LOWER leg, outside the IK mesh hierarchy: " + id)
+        if mount == null or not mount.name.begins_with("BellyCannon_") or (
+                mount.get_parent() != turrets or anchors[id] != body):
+            _fail("remove ALL old leg-mounted cannons and anchor only to Body: " + id)
             return
-        var bound: AABB = lower_bounds[id]
         var offset: Vector3 = mount_offsets[id]
-        var side_x: float = -1.0 if id.ends_with("l") else 1.0
-        var face_z: float = -1.0 if id.begins_with("leg_f") else 1.0
-        var center: Vector3 = bound.get_center()
-        # The dome center must sit INSIDE the real authored shin armor,
-        # toward its outward X/Z quadrant and upper face, not hover at
-        # an arbitrary upper-leg pivot or outside the moving mesh.
-        var outer_surface_x: float = center.x + side_x * bound.size.x * 0.5
-        # Mount the hemisphere's FLAT BASE at the OUTSIDE shin armor,
-        # with a small anti-gap embed; no buried sphere center.
-        var inset: float = outer_surface_x - offset.x
-        if side_x < 0.0:
-            inset = offset.x - outer_surface_x
-        if not bound.has_point(offset) or (
-                inset < -0.001 or inset > 0.04
-                or offset.y - center.y < bound.size.y * 0.12
-                or (offset.z - center.z) * face_z < bound.size.z * 0.10):
-            _fail("dome must be seated against the outer lower-leg armor: " + id)
+        var side: float = -1.0 if id.ends_with("l") else 1.0
+        var front: float = -1.0 if id.begins_with("belly_f") else 1.0
+        var center: Vector3 = belly_bounds.get_center()
+        var bottom: float = belly_bounds.position.y
+        # This is the flat base, which is INSIDE the original belly
+        # surface at <= 2.5 cm, facing DOWN. No guns on leg outer faces.
+        if not belly_bounds.has_point(offset) or (
+                offset.y - bottom < -0.001 or
+                offset.y - bottom > 0.0251 or
+                (offset.x - center.x) * side < belly_bounds.size.x * 0.18 or
+                (offset.z - center.z) * front < belly_bounds.size.z * 0.15):
+            _fail("base must connect to the belly underside in a 2x2 layout: " + id)
             return
-        if mount.global_position.distance_to((
-                anchors[id] as Node3D).to_global(offset)) > 0.001:
-            _fail("lower-leg dome not at its actual animated armor position: " + id)
-            return
-        # Even when shot emission is disabled by an attack or knockdown,
-        # the cosmetic mount must continue to follow the shin animation.
-        var shin: Node3D = anchors[id]
-        var old_position: Vector3 = shin.position
-        shin.position += Vector3(0.04, 0.11, 0.03)
-        turrets.call("advance", 0.0, player.global_position, false)
-        if mount.global_position.distance_to(shin.to_global(offset)) > 0.001:
-            _fail("inactive gun visually floats when its lower leg moves: " + id)
-            return
-        shin.position = old_position
-        turrets.call("advance", 0.0, player.global_position, false)
         var dome: MeshInstance3D = mount.get_node_or_null(
             "TurretHemisphere") as MeshInstance3D
         var barrel: MeshInstance3D = mount.get_node_or_null(
@@ -89,30 +72,53 @@ func _run() -> void:
                 dome.mesh is SphereMesh) or not (
                 dome.mesh as SphereMesh).is_hemisphere or (
                 not barrel.mesh is CylinderMesh):
-            _fail("each turret must render a hemisphere and tube: " + id)
+            _fail("keep a dome and barrel on each belly cannon: " + id)
             return
         var hemi: SphereMesh = dome.mesh as SphereMesh
         if absf(hemi.height - hemi.radius) > 0.001 or (
                 absf(dome.position.y + hemi.get_aabb().position.y) > 0.001):
-            _fail("regular hemisphere flat base must touch the mount origin: " + id)
+            _fail("hemisphere flat base must touch belly attachment plane: " + id)
             return
-        var facing_out: Vector3 = (
-            (anchors[id] as Node3D).global_basis * Vector3(side_x, 0.0, 0.0)).normalized()
-        if mount.global_basis.y.normalized().dot(facing_out) < 0.995:
-            _fail("hemisphere BASE normal must face outside the lower leg: " + id)
+        # All four circles must fit beneath the torso, not at the flank.
+        if absf(offset.x - center.x) + hemi.radius > (
+                belly_bounds.size.x * 0.5 + 0.012) or (
+                absf(offset.z - center.z) + hemi.radius >
+                    belly_bounds.size.z * 0.5 + 0.012):
+            _fail("belly cannon projects past the outer torso footprint: " + id)
+            return
+        if mount.global_basis.y.normalized().dot(
+                -body.global_basis.y.normalized()) < 0.995:
+            _fail("flat base normal must point DOWN from torso: " + id)
+            return
+        if mount.global_position.distance_to(body.to_global(offset)) > 0.001:
+            _fail("belly cannon does not track exact body-local point: " + id)
             return
         var pivot: Node3D = aim_pivots[id]
         if pivot == null or pivot.get_parent() != mount or (
                 barrel.get_parent() != pivot):
-            _fail("aim pivot must move only the barrel, not the seated dome: " + id)
+            _fail("only barrel may swivel, belly dome must stay attached: " + id)
             return
+    # Attacks and knockdown cancel firing/aiming but NOT attachment.
+    body.position += Vector3(0.13, 0.08, -0.12)
+    body.rotate_x(0.07)
+    turrets.call("advance", 0.0, player.global_position, false)
+    for id in TURRETS.TURRET_IDS:
+        var mount: Node3D = mounts[id]
+        if mount.global_position.distance_to(
+                body.to_global(mount_offsets[id])) > 0.001 or (
+                mount.global_basis.y.normalized().dot(
+                    -body.global_basis.y.normalized()) < 0.995):
+            _fail("belly turret must follow torso translation and pitch when down: " + id)
+            return
+    body.transform = original_body
+    turrets.call("advance", 0.0, player.global_position, false)
     # Only whichever turret is currently nearest can continuously aim.
     # On nearest change the old turret must return to its fixed resting
     # orientation and the hemisphere's seated transform must not rotate.
-    for chosen in ["leg_fl", "leg_rr"]:
+    for chosen in ["belly_fl", "belly_rr"]:
         var probe: Vector3 = (mounts[chosen] as Node3D).global_position
         turrets.call("advance", 0.0, probe, true)
-        if str(turrets.get("last_aimed_leg")) != chosen:
+        if str(turrets.get("last_aimed_turret")) != chosen:
             _fail("only the dynamically closest cannon may track: " + chosen)
             return
         var active_pivot: Node3D = aim_pivots[chosen]
@@ -123,23 +129,23 @@ func _run() -> void:
                     delta_to_target.normalized()) < 0.99):
             _fail("nearest barrel is not aimed at the player: " + chosen)
             return
-        for other in TURRETS.LEG_IDS:
+        for other in TURRETS.TURRET_IDS:
             if other == chosen:
                 continue
             var idle_pivot: Node3D = aim_pivots[other]
             if not idle_pivot.basis.is_equal_approx(Basis.IDENTITY):
                 _fail("non-nearest cannon must not aim at the player: " + other)
                 return
-    var down_probe: Vector3 = (mounts["leg_rr"] as Node3D).global_position
+    var down_probe: Vector3 = (mounts["belly_rr"] as Node3D).global_position
     turrets.call("advance", 0.0, down_probe + Vector3(3.0, 0.0, 0.0), false)
-    if str(turrets.get("last_aimed_leg")) != "":
+    if str(turrets.get("last_aimed_turret")) != "":
         _fail("knockdown must disable all active target tracking")
         return
-    for other in TURRETS.LEG_IDS:
+    for other in TURRETS.TURRET_IDS:
         if not (aim_pivots[other] as Node3D).basis.is_equal_approx(Basis.IDENTITY):
             _fail("downed cannon must be parked without tracking: " + other)
             return
-    var ordered: Array[String] = TURRETS.LEG_IDS.duplicate()
+    var ordered: Array[String] = TURRETS.TURRET_IDS.duplicate()
     for i in range(ordered.size()):
         for j in range(i + 1, ordered.size()):
             var a: Node3D = mounts[ordered[i]]
@@ -152,8 +158,8 @@ func _run() -> void:
     turrets.call("reset")
     turrets.call("advance", DT, player.global_position, true)
     if int(turrets.get("shots_fired")) != 1 or str(
-            turrets.get("last_fired_leg")) != ordered[0]:
-        _fail("first projectile must leave the nearest leg")
+            turrets.get("last_fired_turret")) != ordered[0]:
+        _fail("first projectile must leave the nearest belly turret")
         return
     var first_shot: Dictionary = (turrets.get("projectiles") as Array)[0]
     var fired_aim: Node3D = aim_pivots[ordered[0]]
@@ -168,15 +174,15 @@ func _run() -> void:
         return
     turrets.call("advance", 0.25, player.global_position, true)
     if int(turrets.get("shots_fired")) != 2 or str(
-            turrets.get("last_fired_leg")) != ordered[1]:
-        _fail("second shot must come from next-nearest leg")
+            turrets.get("last_fired_turret")) != ordered[1]:
+        _fail("second shot must come from next-nearest belly turret")
         return
     for index in range(2, 5):
         turrets.call("advance", TURRETS.SHOT_INTERVAL_SECONDS,
             player.global_position, true)
         if int(turrets.get("shots_fired")) != index + 1 or str(
-                turrets.get("last_fired_leg")) != ordered[index % 4]:
-            _fail("all four legs must fire once in nearest-first order, then restart")
+                turrets.get("last_fired_turret")) != ordered[index % 4]:
+            _fail("all four belly turrets must fire once in nearest-first order, then restart")
             return
     scene.set("bittaran_attack_frame", {"kind": "stomp", "phase": "strike"})
     scene.call("_tick_bittaran_leg_turrets", DT)
@@ -192,7 +198,7 @@ func _run() -> void:
     scene.call("_tick_bittaran_railgun", DT)
     if not (turrets.get("projectiles") as Array).is_empty() or (
             int(turrets.get("shots_fired")) != 0):
-        _fail("knockdown anticipation must cancel leg fire")
+        _fail("knockdown anticipation must cancel belly turret fire")
         return
     if float(gun.get("elapsed")) != 0.0 or (
             gun.get("inner_beam") as MeshInstance3D).visible or (
