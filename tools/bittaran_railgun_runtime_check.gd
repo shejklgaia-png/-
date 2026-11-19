@@ -60,9 +60,11 @@ func _run() -> void:
         _fail("fast aim must begin only when the sphere charge begins")
         return
     if not _near(GUN.BEAM_TRACK_SPEED_MULTIPLIER, 0.70) or (
-            not _near(GUN.BEAM_GROUND_GAP_METERS, 2.50)) or (
+            not _near(GUN.BEAM_ON_AXIS_SPEED_MULTIPLIER, 0.85) or (
+            not _near(GUN.BEAM_AIM_FILTER_PER_SECOND, 14.0) or (
+            not _near(GUN.BEAM_GROUND_GAP_METERS, 1.50)) or (
             not _near(GUN.BEAM_HIT_INTERVAL_SECONDS, 0.20)):
-        _fail("beam 0.7x, 0..2.5m eased ground catch-up and repeat pulse interval changed")
+        _fail("beam 0.85x near-axis, 0..1.5m faster aim, cap and repeat interval changed")
         return
     if not _near(BATTLE.LASER_DAMAGE_MULTIPLIER, 0.60, 0.0001):
         _fail("only Bittaran laser must have 60% attack strength")
@@ -322,8 +324,8 @@ func _run() -> void:
         _fail("new turret implementation modified original Body pose")
         return
 
-    # The beam begins at 0.7x chase rate and smoothly ramps to 1.0x
-    # over 0..2.5m. The 2.5m boundary is a HARD SPEED PLATEAU, not
+    # The beam begins at 0.85x chase rate and smoothly ramps to 1.0x
+    # over 0..1.5m. The 1.5m boundary is a HARD SPEED PLATEAU, not
     # unlimited distance/velocity catch-up: RUN must be caught, BOOST
     # must always outrun the turret in lateral motion.
     if not _near(GUN.CHASE_SPEED_BLEND, 0.65, 0.0001):
@@ -331,22 +333,22 @@ func _run() -> void:
         return
     if not _near(float(gun.call("_beam_catchup_weight", 0.0)),
             0.0, 0.0001) or (
-            not _near(float(gun.call("_beam_catchup_weight", 0.625)),
+            not _near(float(gun.call("_beam_catchup_weight", 0.375)),
                 0.15625, 0.0001)) or (
-            not _near(float(gun.call("_beam_catchup_weight", 1.25)),
+            not _near(float(gun.call("_beam_catchup_weight", 0.75)),
                 0.5, 0.0001)) or (
-            not _near(float(gun.call("_beam_catchup_weight", 1.875)),
+            not _near(float(gun.call("_beam_catchup_weight", 1.125)),
                 0.84375, 0.0001)) or (
-            not _near(float(gun.call("_beam_catchup_weight", 2.5)),
+            not _near(float(gun.call("_beam_catchup_weight", 1.5)),
                 1.0, 0.0001)):
-        _fail("0..2.5m smoothstep tracking blend changed")
+        _fail("0..1.5m smoothstep tracking blend changed")
         return
     var baseline_test: float = 20.0
-    var full_test: float = baseline_test / 0.70
+    var full_test: float = baseline_test / 0.85
     var samples := [
-        Vector2(0.0, 0.0), Vector2(0.625, 0.15625),
-        Vector2(1.25, 0.5), Vector2(1.875, 0.84375),
-        Vector2(2.5, 1.0), Vector2(4.0, 1.0),
+        Vector2(0.0, 0.0), Vector2(0.375, 0.15625),
+        Vector2(0.75, 0.5), Vector2(1.125, 0.84375),
+        Vector2(1.5, 1.0), Vector2(4.0, 1.0),
         Vector2(10.0, 1.0), Vector2(100.0, 1.0)]
     for sample in samples:
         var actual_rate: float = float(gun.call("_beam_target_turn_rate",
@@ -354,10 +356,10 @@ func _run() -> void:
         var expected_rate: float = lerpf(baseline_test,
             full_test, sample.y)
         if not _near(actual_rate, expected_rate, 0.0001):
-            _fail("laser turn rate is not a capped 0..2.5m smoothstep")
+            _fail("laser turn rate is not a capped 0..1.5m smoothstep")
             return
         if actual_rate > full_test + 0.0001:
-            _fail("beam rate exceeded the chase plateau beyond 2.5m")
+            _fail("beam rate exceeded the chase plateau beyond 1.5m")
             return
     for distance in [5.0, 8.0, 30.0]:
         var run_rate: float = rad_to_deg(
@@ -367,7 +369,7 @@ func _run() -> void:
         var full_rate: float = rad_to_deg(
             GUN.CHASE_SPEED_MPS / distance)
         var allowed: float = float(gun.call("_beam_target_turn_rate",
-            8.0, full_rate * 0.70, full_rate))
+            8.0, full_rate * 0.85, full_rate))
         if not (run_rate < allowed and allowed < boost_rate):
             _fail("RUN must lose ground but BOOST must escape the beam at " +
                 str(distance) + "m")
@@ -383,18 +385,18 @@ func _run() -> void:
     var normal_rate: float = float(gun.call("_tracking_turn_rate", on_axis))
     var slowed_rate: float = float(gun.get("beam_turn_rate_deg_per_sec"))
     if float(gun.get("beam_ground_gap_meters")) > 0.05 or (
-            not _near(slowed_rate, normal_rate * 0.7, 0.05)):
-        _fail("laser on-axis follow speed must remain at 0.7x baseline")
+            not _near(slowed_rate, normal_rate * 0.85, 0.05)):
+        _fail("laser on-axis follow speed must start at 0.85x baseline")
         return
-    # A fast 1m sidestep enables PARTIAL capped chase, with a smooth
-    # transition to the 2.5m plateau. It is not a flat 0.7x interval.
+    # A fast 1m sidestep enables stronger PARTIAL capped chase, with a
+    # smooth transition to the 1.5m plateau. It is not a flat 0.85x interval.
     var near_gap_target: Vector3 = on_axis + Vector3(1.0, 0.0, 0.0)
     gun.call("advance", DT, near_gap_target, true)
     var near_gap: float = float(gun.get("beam_ground_gap_meters"))
     if near_gap >= GUN.BEAM_GROUND_GAP_METERS or (
             float(gun.get("beam_turn_rate_deg_per_sec")) <=
                 slowed_rate + 0.05):
-        _fail("laser must partially accelerate at 1m instead of step at 2.5m")
+        _fail("laser must partially accelerate at 1m instead of step at 1.5m")
         return
     var lateral: Vector3 = near_gap_target
     for frame in range(12):
@@ -402,12 +404,12 @@ func _run() -> void:
         gun.call("advance", DT, lateral, true)
     var lateral_max_rate: float = float(gun.call(
         "_tracking_turn_rate", lateral))
-    if float(gun.get("beam_ground_gap_meters")) <= 2.5 or (
+    if float(gun.get("beam_ground_gap_meters")) <= 1.5 or (
             float(gun.get("beam_turn_rate_deg_per_sec")) <=
                 slowed_rate + 5.0) or (
             float(gun.get("beam_turn_rate_deg_per_sec")) >
                 lateral_max_rate + 0.0001):
-        _fail("laser must reach full catch-up after 2.5m separation")
+        _fail("laser must reach full capped chase after 1.5m separation")
         return
     gun.call("reset")
     gun.set("elapsed", GUN.BEAM_START + 0.10)
@@ -468,7 +470,7 @@ func _run() -> void:
     var after_world_yaw: float = float(
         gun.get("tracked_world_yaw"))
     rig.rotation.y = saved_root_yaw
-    # Firing uses the live 0.7x / 0..2.5m catch-up blend, not the old
+    # Firing uses the live 0.85x / 0..1.5m catch-up blend, not the old
     # unscaled constant. World-root rotation may NEVER add extra yaw.
     var cap: float = float(gun.get("beam_turn_rate_deg_per_sec"))
     if absf(rad_to_deg(angle_difference(
@@ -488,8 +490,9 @@ func _run() -> void:
         return
 
     # Live pursuit, not constants alone: move a player tangentially around
-    # the turret for 1.5s at equipped RUN and BOOST speeds. RUN must enter
-    # the visible beam width, while BOOST opens a clear lateral gap.
+    # the turret for 1.5s at equipped RUN and BOOST speeds. RUN should
+    # remain tightly under the beam (under 0.8m); BOOST still opens a
+    # clear lateral gap. This is a tighter condition than v493.
     var lateral_run_gap: float = 0.0
     var lateral_boost_gap: float = 0.0
     for player_speed in [GUN.RUN_REFERENCE_SPEED_MPS,
@@ -511,12 +514,11 @@ func _run() -> void:
             lateral_run_gap = final_gap
         else:
             lateral_boost_gap = final_gap
-    if lateral_run_gap >= (
-            GUN.BEAM_RADIUS_METERS + GUN.PLAYER_HIT_RADIUS_METERS) or (
+    if lateral_run_gap >= 0.8 or (
             lateral_boost_gap <= lateral_run_gap + 0.5) or (
             lateral_boost_gap <= GUN.BEAM_RADIUS_METERS +
                 GUN.PLAYER_HIT_RADIUS_METERS):
-        _fail("1.5s live lateral pursuit must catch RUN but lose BOOST: " +
+        _fail("1.5s live lateral pursuit must closely track RUN but lose BOOST: " +
             str(lateral_run_gap) + "m vs " +
             str(lateral_boost_gap) + "m")
         return
