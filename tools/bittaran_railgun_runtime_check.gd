@@ -243,12 +243,14 @@ func _run() -> void:
     if absf(angle_difference(aim_at_end, float(gun.get("aim_yaw")))) > 0.0001:
         _fail("postfire hold changed the target angle before 0.4s")
         return
-    # Sample near the END of the existing 0.8s return: the new test
-    # entered the beam with a significant off-axis aim, unlike v466.
-    gun.call("advance", 0.93, player_origin, true)
+    # Sample BEFORE the return->CHARGE boundary at 3.2s: after 3.2s
+    # the NEW requirement is continuous slow tracking, not neutral.
+    # A t=3.206s sample (old +0.93s) wrongly asserted a parked gun
+    # AFTER charge has already started.
+    gun.call("advance", 0.92, player_origin, true)
     if absf(float(gun.get("aim_yaw"))) > deg_to_rad(1.0) or (
             absf(elevation.rotation.x) > deg_to_rad(1.0)):
-        _fail("barrel did not ease back to its neutral angle")
+        _fail("barrel did not ease back to neutral BEFORE charge begins")
         return
     # On the next cycle the cannon follows the player during CHARGE,
     # and the light bars still progress independently of the tracking.
