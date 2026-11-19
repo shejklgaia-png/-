@@ -355,6 +355,11 @@ func _build_target() -> void:
     # The shared physical HEAD/leg AABBs form a self-contact constraint
     # on down. Godot cannot collide sibling shapes on one AnimatableBody3D.
     bittaran_foot_ik.call("set_collision_parts", target_parts)
+    # The railgun now has an independent WORLD transform. The authored
+    # floor/IK calibration above moves the rig AFTER gun.setup(), so sync
+    # its pivot here before the first beam/contact/camera query.
+    if bittaran_railgun != null:
+        bittaran_railgun.call("_level_mount")
     bittaran_attacks = BittaranAttacks.new()
     _build_bittaran_shockwave()
     _build_boss_death_particles()
