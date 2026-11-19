@@ -2,7 +2,7 @@ extends Node3D
 ## Base field architecture: LABO is one building; resources, power and construction
 ## are independent physical machines. NEXUS remains in the parent scene.
 const FACILITY_SPECS = [
-    {"id": "LABO", "name": "LABO", "at": Vector3(-4.90, 0.0, -14.40),
+    {"id": "LABO", "name": "LABO", "at": Vector3(0.00, 0.0, -2.20),
         "size": Vector3(4.25, 4.1, 4.35), "subtitle": "Shell / OS / スロット開発"},
     {"id": "SCRAP_COLLECTOR", "name": "回収機", "at": Vector3(-5.10, 0.0, 7.00),
         "size": Vector3(2.35, 2.55, 2.25), "subtitle": "スクラップ収集"},
