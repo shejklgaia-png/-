@@ -176,6 +176,8 @@ const PANEL_LAYOUTS: Dictionary = {
 }
 
 func _ready() -> void:
+    # Godot 4 Android Back is a Window go-back request when auto-quit is off.
+    get_window().go_back_requested.connect(_on_android_back)
     _environment()
     _module("hangar_shell", Vector3.ZERO)
     _module("maintenance_pad", Vector3(0.0, 0.0, -4.75))
@@ -2377,20 +2379,22 @@ func _polygon_area(poly: PackedVector2Array) -> float:
 
 # Raw touch support intentionally does not change the training scene's global
 # Input.emulate_mouse_from_touch=false setting. PC mouse taps also work.
-func _input(event: InputEvent) -> void:
-    if focused_target.is_empty() and not in_transition and (
-            event.is_action_pressed("ui_cancel")
-            or (event is InputEventKey and event.pressed
-                and event.keycode in [KEY_BACK, KEY_ESCAPE])):
-        _enter_base()
-        get_viewport().set_input_as_handled()
+func _on_android_back() -> void:
+    _navigate_back()
+
+func _navigate_back() -> void:
+    if in_transition:
         return
-    if not focused_target.is_empty() and (
-            event.is_action_pressed("ui_cancel")
-            or (event is InputEventKey and event.pressed
-                and event.keycode in [KEY_BACK, KEY_ESCAPE])):
-        if focused_target != "SYSTEM" or not _cancel_system_confirmation():
-            _return_to_overview()
+    if focused_target.is_empty():
+        _enter_base()
+    elif focused_target != "SYSTEM" or not _cancel_system_confirmation():
+        _return_to_overview()
+
+func _input(event: InputEvent) -> void:
+    if event.is_action_pressed("ui_cancel") or (
+            event is InputEventKey and event.pressed and not event.echo
+            and event.keycode in [KEY_BACK, KEY_ESCAPE]):
+        _navigate_back()
         get_viewport().set_input_as_handled()
         return
     if in_transition:
@@ -2435,10 +2439,22 @@ func _tap_at(point: Vector2) -> void:
         _enter_base()
         return
     if not focused_target.is_empty():
+        # The back button on this 3D-focused screen is a visual cue; callers
+        # can always use the actual device gesture or tap the space outside
+        # the opened panel. Explicit back-area taps also remain accessible.
         if Rect2(back_panel.position, back_panel.size).has_point(point):
-            if focused_target != "SYSTEM" or not _cancel_system_confirmation():
-                _return_to_overview()
-        elif focused_target == "SYSTEM" and focus_panel.visible:
+            _navigate_back()
+            return
+        var in_focused: bool = focus_panel.visible and Rect2(
+            focus_panel.position, focus_panel.size).has_point(point)
+        var in_customize: bool = focused_target == "CUSTOMIZE" and (
+            customize_right_panel.visible and Rect2(
+                customize_right_panel.position, customize_right_panel.size
+            ).has_point(point))
+        if not in_focused and not in_customize:
+            _navigate_back()
+            return
+        if focused_target == "SYSTEM" and focus_panel.visible:
             _tap_system_control(point)
         elif focused_target == "DATA ARCHIVE" and focus_panel.visible:
             _tap_archive_record(point)
@@ -2470,6 +2486,9 @@ func _tap_at(point: Vector2) -> void:
             if _polygon_bounds(poly).grow(9.0).has_point(point):
                 _select_target(candidate)
                 return
+    # Overview has no nested menu. A tap on non-selectable surroundings
+    # returns to the outdoor base, matching the Android Back hierarchy.
+    _navigate_back()
 
 func _enter_base() -> void:
     if in_transition:
