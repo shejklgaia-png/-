@@ -1,6 +1,6 @@
 extends SceneTree
 ## v370: after stand-up, REAL mesh components must block head penetration
-## through Turn and Approach; 1.30x stride, unchanged 0.58s foot cycle.
+## through Turn and Approach; doubled AI travel, original 1.30x foot stride.
 const AI = preload("res://scripts/bittaran_ai.gd")
 const IK = preload("res://scripts/bittaran_foot_ik.gd")
 const DT: float = 1.0 / 60.0
@@ -16,9 +16,9 @@ func _fail(message: String) -> void:
     quit(1)
 
 func _speed_and_stride(battle: Node3D) -> bool:
-    if absf(AI.APPROACH_SPEED_MPS - 0.936) > 0.000001 or absf(
-            AI.ACCELERATION_MPS2 - 0.78) > 0.000001:
-        _fail("Approach movement/acceleration is not exactly 1.30x")
+    if absf(AI.APPROACH_SPEED_MPS - 1.872) > 0.000001 or absf(
+            AI.ACCELERATION_MPS2 - 1.56) > 0.000001:
+        _fail("Approach movement/acceleration is not doubled in v478")
         return false
     if absf(IK.STEP_DURATION_SECONDS - 0.58) > 0.000001 or absf(
             IK.STEP_COOLDOWN_SECONDS - 0.10) > 0.000001 or absf(
@@ -44,8 +44,8 @@ func _speed_and_stride(battle: Node3D) -> bool:
             Vector3(0.0, 0.0, -50.0), 0.0,
             Vector3(0.0, 0.0, 50.0), false)
     if str(state["motion"]) != "Approach" or absf(
-            float(brain.get("current_speed")) - 0.936) > 0.0001:
-        _fail("actual approach velocity did not reach 1.30x")
+            float(brain.get("current_speed")) - 1.872) > 0.0001:
+        _fail("actual approach velocity did not reach doubled speed")
         return false
     return true
 
