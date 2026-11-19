@@ -34,11 +34,12 @@ func _run() -> void:
             not _near(GUN.BEAM_SECONDS, 2.0)):
         _fail("ten-second launch/two-second beam contract changed")
         return
-    if not _near(GUN.PRE_FIRE_YAW_SPEED, 720.0) or not _near(
-            GUN.PRE_FIRE_PITCH_SPEED, 576.0) or not _near(
-            GUN.TRACK_YAW_SPEED, 21.6) or not _near(
-            GUN.TRACK_PITCH_SPEED, 16.2):
-        _fail("prefire 0.8x and beam 0.9x turn-speed contract changed")
+    # Both phases are now exactly 70% of the v470 settings.
+    if not _near(GUN.PRE_FIRE_YAW_SPEED, 720.0 * 0.7) or not _near(
+            GUN.PRE_FIRE_PITCH_SPEED, 576.0 * 0.7) or not _near(
+            GUN.TRACK_YAW_SPEED, 21.6 * 0.7) or not _near(
+            GUN.TRACK_PITCH_SPEED, 16.2 * 0.7):
+        _fail("prefire and firing aim speed must both be 0.7x v470")
         return
     var body: Node3D = rig.find_child("Body", true, false) as Node3D
     var elevation: Node3D = gun.get_node("RailgunElevation") as Node3D
@@ -349,7 +350,7 @@ func _run() -> void:
         "0.5s_locked_prefire_delay=true 0.4s_postfire_hold=true ",
         "prefire_fast_lock=true first_frame_exact_aim=true ",
         "blue_fresnel_flicker=true branching_electric_arcs=true ",
-        "travelling_plasma_beam=true prefire_0.8x_beam_0.9x=true ",
+        "travelling_plasma_beam=true prefire_and_beam_0.7x_v470=true ",
         "boost_outpaces_beam=true neutral_until_fully_charged=true ",
         "smooth_independent_yaw_pitch=true 3_charge_bars_per_side=true")
     quit(0)
