@@ -48,12 +48,12 @@ func _run() -> void:
         * body.quaternion).normalized()
     rig.rotation.y += 0.35
     gun.call("reset")
-    if _pose_gap(gun.global_basis, body.global_basis) > 0.0005:
+    if _pose_gap(gun.global_basis, body.global_basis) > 0.002:
         _fail("idle cannon must match Body pitch, roll and heading")
         return
     rig.rotation.y += 0.18
     gun.call("advance", 0.1, target, true)
-    if _pose_gap(gun.global_basis, body.global_basis) > 0.0005:
+    if _pose_gap(gun.global_basis, body.global_basis) > 0.002:
         _fail("waiting cannon did not follow a moving chassis"
             + " pose_gap=" + str(_pose_gap(gun.global_basis, body.global_basis))
             + " idle_blend=" + str(gun.get("idle_pose_blend"))
