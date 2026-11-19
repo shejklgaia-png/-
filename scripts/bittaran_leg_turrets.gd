@@ -1,13 +1,15 @@
 extends Node3D
 ## One substantial underbelly cannon: seated half-dome and independent
 ## swiveling barrel. Authored model, animations, IK and railgun are untouched.
-## A brief emissive cross flashes at the real muzzle on EACH shot.
+## A large, camera-facing foreground cross flashes ahead of the muzzle on EACH shot.
 const RENDER_ORDER = preload("res://scripts/render_order_policy.gd")
 const TURRET_IDS: Array[String] = ["belly_main"]
 const BODY_BONE: String = "Body"
 const BELLY_MESH: String = "body_mesh"
 const SHOT_INTERVAL_SECONDS: float = 1.2
-const FLASH_DURATION_SECONDS: float = 0.085
+const FLASH_DURATION_SECONDS: float = 0.12
+const FLASH_LENGTH_METERS: float = 3.10
+const FLASH_FORWARD_METERS: float = 0.20
 const SHOT_SPEED_MPS: float = 17.0
 const PROJECTILE_LIFETIME_SECONDS: float = 3.0
 const PROJECTILE_HIT_RADIUS_METERS: float = 0.62
@@ -158,38 +160,68 @@ func setup(rig: Node3D) -> bool:
         ring.position.z = -0.785
         ring.material_override = muzzle_glow
         aim_pivot.add_child(ring)
-        # Two orthogonal emissive bars, plus an intense small center.
-        # This is attached to the aim pivot, so no visual gap opens
-        # when the player or Bittaran moves on the firing frame.
+        # Render fivefold-length CROSS in the foreground, 20cm IN FRONT
+        # of the actual muzzle. Transparent add + no_depth_test means
+        # Bittaran's belly / legs cannot unexpectedly hide the flash.
+        # Billboard-facing bars stay a legible + from the player's camera.
         var cross := Node3D.new()
         cross.name = "MuzzleCrossFlash"
-        cross.position = MUZZLE_LOCAL
+        cross.position = MUZZLE_LOCAL + Vector3(0.0, 0.0, -FLASH_FORWARD_METERS)
         cross.visible = false
         aim_pivot.add_child(cross)
         muzzle_cross_flash = cross
         var cross_material := StandardMaterial3D.new()
-        cross_material.albedo_color = Color("#c5f5ff")
+        cross_material.albedo_color = Color(0.94, 0.99, 1.0, 0.92)
+        cross_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+        cross_material.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+        cross_material.no_depth_test = true
+        cross_material.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
         cross_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
         cross_material.emission_enabled = true
-        cross_material.emission = Color("#74d9ff")
-        cross_material.emission_energy_multiplier = 5.0
-        cross_material.render_priority = RENDER_ORDER.DEPTH_TESTED_EMISSIVE
+        cross_material.emission = Color("#9deaff")
+        cross_material.emission_energy_multiplier = 8.0
+        # Explicit foreground pass, not the depth-tested thruster pass.
+        cross_material.render_priority = RENDER_ORDER.CHARACTER_FOREGROUND
+        var halo_material := StandardMaterial3D.new()
+        halo_material.albedo_color = Color(0.21, 0.73, 1.0, 0.38)
+        halo_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+        halo_material.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+        halo_material.no_depth_test = true
+        halo_material.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+        halo_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+        halo_material.emission_enabled = true
+        halo_material.emission = Color("#51baff")
+        halo_material.emission_energy_multiplier = 3.5
+        halo_material.render_priority = RENDER_ORDER.CHARACTER_FOREGROUND
         for horizontal in [true, false]:
             var bar_shape := BoxMesh.new()
             bar_shape.size = (
-                Vector3(0.62, 0.047, 0.025) if horizontal
-                else Vector3(0.047, 0.62, 0.025))
+                Vector3(FLASH_LENGTH_METERS, 0.135, 0.026) if horizontal
+                else Vector3(0.135, FLASH_LENGTH_METERS, 0.026))
             var bar := MeshInstance3D.new()
             bar.name = "CrossHorizontal" if horizontal else "CrossVertical"
             bar.mesh = bar_shape
             bar.material_override = cross_material
             bar.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
             cross.add_child(bar)
+            var halo_shape := BoxMesh.new()
+            halo_shape.size = (
+                Vector3(FLASH_LENGTH_METERS, 0.42, 0.016) if horizontal
+                else Vector3(0.42, FLASH_LENGTH_METERS, 0.016))
+            var halo := MeshInstance3D.new()
+            halo.name = "GlowHorizontal" if horizontal else "GlowVertical"
+            halo.mesh = halo_shape
+            halo.material_override = halo_material
+            halo.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+            # Core draws in front of the wide glow even for coincident
+            # parts; each pass is emissive and screen-facing.
+            halo.position.z = 0.025
+            cross.add_child(halo)
         var center_shape := SphereMesh.new()
-        center_shape.radius = 0.105
-        center_shape.height = 0.21
-        center_shape.radial_segments = 10
-        center_shape.rings = 5
+        center_shape.radius = 0.17
+        center_shape.height = 0.34
+        center_shape.radial_segments = 12
+        center_shape.rings = 6
         var center_glint := MeshInstance3D.new()
         center_glint.name = "CrossCore"
         center_glint.mesh = center_shape
@@ -257,8 +289,8 @@ func _measure_belly_armor(body: Node3D) -> AABB:
     return bounds
 
 func _sync_mounts() -> void:
-    # The body is the SINGLE physical parent for all four underside
-    # cannons. They must follow its final world-space pose even when
+    # The body is the SINGLE physical anchor for the main belly cannon.
+    # It follows the final body pose even when
     # attack/KO/down has suspended aiming and firing.
     for id in TURRET_IDS:
         var body: Node3D = anchors[id]
