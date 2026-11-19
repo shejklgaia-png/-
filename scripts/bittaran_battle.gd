@@ -115,12 +115,8 @@ var bittaran_railgun: Node3D
 var bittaran_ai: RefCounted
 var bittaran_foot_ik: RefCounted
 var bittaran_motion: String = "Idle"
-# v464: never attack until three COMPLETED normal gait pair swings.
-# After each attack the next required step count is reset +3.
-# Postattack scripted replant pairs do not increment that counter.
-const BITTARAN_MIN_WALK_STEPS: int = 3
-var bittaran_walk_attack_step_gate: int = BITTARAN_MIN_WALK_STEPS
-var bittaran_was_attacking: bool = false
+# Attack immediately when an actual foot can reach SERA.
+# Safety/attack-recovery locks still apply; no gait-step quota.
 var boss_name_label: Label
 var victory_label: Label
 var boss_death_particles: CPUParticles3D
@@ -1391,20 +1387,11 @@ func _advance_target_motion(delta: float) -> void:
     var postattack_replanting: bool = source_return_pending or (
         bittaran_foot_ik != null and bool(bittaran_foot_ik.call(
             "source_postattack_replant_active")))
-    var completed_gait_steps: int = (
-        int(bittaran_foot_ik.call("source_completed_walk_steps"))
-        if bittaran_foot_ik != null else 0)
-    var enough_walk_steps: bool = (
-        completed_gait_steps >= bittaran_walk_attack_step_gate)
-    # Once a legal attack begins its 3-step gate immediately rolls
-    # forward for NEXT time. Keep the current source animation active
-    # throughout strike/recovery rather than cancelling it next tick.
-    var current_attack_active: bool = (
-        bittaran_attacks != null
-        and bool(bittaran_attacks.call("is_active")))
+    # A valid real toe-to-SERA range authorizes a new attack on THIS
+    # frame. The attack director owns the exact foot/sector test; do
+    # not delay it for walking, and never interrupt an active strike.
     var attack_permitted: bool = (
-        (enough_walk_steps or current_attack_active)
-        and target_move_enabled and target_hp > 0 and player_hp > 0
+        target_move_enabled and target_hp > 0 and player_hp > 0
         and not generic_damage_frozen and recovered
         and not postattack_replanting
         and down_remaining <= 0.0 and training_ko_remaining <= 0.0
@@ -1424,12 +1411,6 @@ func _advance_target_motion(delta: float) -> void:
         target.global_position, target.rotation.y)
         if bittaran_attacks != null else {})
     var attacking: bool = not bittaran_attack_frame.is_empty()
-    if attacking and not bittaran_was_attacking:
-        # The next attack must follow three NEW gait pair touchdowns,
-        # independently of postattack 4-foot reset/respawn.
-        bittaran_walk_attack_step_gate = (
-            completed_gait_steps + BITTARAN_MIN_WALK_STEPS)
-    bittaran_was_attacking = attacking
     # On the LAST attack frame the director may already return {}; stage
     # the leg-home/body-rise recovery before permitting any next gait.
     var front_just_completed: bool = (
@@ -1499,23 +1480,12 @@ func _advance_target_motion(delta: float) -> void:
         or generic_damage_frozen
         or down_remaining > 0.0 or training_ko_remaining > 0.0
         or recovery_motion_locked)
-    # If the only sector-valid attack would repeat the preceding kind,
-    # keep walking/orbiting/retreating until the next DIFFERENT authored
-    # strike is physically available. Never stand in range looping STOMP,
-    # KICK, or SWEEP; nor fake a sweep through the narrow KICK cone.
-    var need_attack_variation: bool = (
-        attack_permitted and not attacking
-        and bittaran_attacks != null
-        and bool(bittaran_attacks.call(
-            "repeat_kind_blocked", player.global_position,
-            target.global_position, target.rotation.y,
-            _bittaran_attack_candidates())))
-    # Use the normal AI branch to choose Turn, Approach, or Idle. Do not
-    # substitute the v365 Idle-only recovery yaw controller here.
+    # Normal pursuit happens only when no foot has a legal attack:
+    # no forced three-step orbit and no retreat to force a different
+    # attack type. The source director handles range and variation.
     var result: Dictionary = bittaran_ai.call("advance", delta,
         target.position, target.rotation.y, player.position, frozen,
-        not enough_walk_steps or need_attack_variation,
-        need_attack_variation,
+        false, false,
         str(bittaran_attacks.get("last_kind"))
             if bittaran_attacks != null else "")
     # During physical stand-up the CHEST always turns toward SERA at the
@@ -2152,8 +2122,6 @@ func _reset_target_after_respawn() -> void:
         boss_death_particles.emitting = false
     if bittaran_ai != null:
         bittaran_ai.call("reset")
-    bittaran_walk_attack_step_gate = BITTARAN_MIN_WALK_STEPS
-    bittaran_was_attacking = false
     if bittaran_attacks != null:
         bittaran_attacks.call("reset")
     # Clear last encounter's world-fixed smoke and source-sweep
