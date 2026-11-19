@@ -21,4 +21,4 @@
 - 既存のHPバー、部位/ダウン、攻撃判定、ビットタラン脚IKと銃台演出は変更しない。実際の描画・音の気持ちよさはAndroid実機で検証が必要。
 - 全Python/Godot CIはPRマージ後のmainで実行する運用。結果はGitHub Actionsで確認し、失敗時は修正する。
 
-前バージョン：[v509](README_v509_ja.md)
+前バージョン：[v509](docs/history/release_notes/README_v509_ja.md)
