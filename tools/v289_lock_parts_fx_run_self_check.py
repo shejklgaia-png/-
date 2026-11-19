@@ -20,7 +20,9 @@ for name in ("combat_state != CombatState.IDLE","side_kick_active",
              "_combo_followup_input_window_open()"):
     assert name in hold,name
 damage=section(main,"func _apply_target_part_damage(","func _register_strike_hit(")
-assert '"apply_part_hit", locked_target_part_id, raw_attack, raw_break' in damage
+# v510: the locked part and its independent break strength are unchanged.
+assert '"apply_part_hit", locked_target_part_id, shielded_attack, raw_break' in damage
+assert 'enemy_predictive_shield.apply_hit(float(raw_attack), false)' in damage
 assert '"trigger_part_hit_fx"' in damage
 assert 'locked_target_part_id = ""' not in damage
 assert 'part_break_remaining = maxf(part_break_remaining, 1.0)' in damage
