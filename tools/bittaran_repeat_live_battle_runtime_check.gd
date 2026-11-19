@@ -1,9 +1,8 @@
 extends SceneTree
 ## Actual autonomous Bittaran battle (not force_start): verify that
-## source attack -> two diagonal replants -> three NEW walk steps ->
-## different next attack -> subsequent attack runs indefinitely.
-## Fixed SERA at 6.8m reproduces a sweep-only deadlock if the AI
-## orbits forever without deliberately changing the attack radius.
+## source attack -> two diagonal safety replants -> next immediate
+## in-range attack (no mandatory normal gait steps). The same kind
+## can recur if it is the only legal technique for the current feet.
 const DT: float = 1.0 / 60.0
 const FRAMES: int = 4500
 
@@ -34,14 +33,12 @@ func _run_scenario(start_distance: float, expected_first_kind: String) -> bool:
     var starts: Array[String] = []
     var first_attack_completed: bool = false
     var postattack_replant_seen: bool = false
-    var minimum_three_steps_met: bool = false
+    var first_attack_immediate: bool = false
     var previous_active: bool = false
     var previous_gait: int = 0
     var max_gait: int = 0
     for tick in range(FRAMES):
         battle.set("player_hp", 99999.0)
-        var previous_step_gate: int = int(
-            battle.get("bittaran_walk_attack_step_gate"))
         battle.call("_advance_target_motion", DT)
         var frame: Dictionary = battle.get("bittaran_attack_frame")
         var active: bool = not frame.is_empty()
@@ -52,15 +49,13 @@ func _run_scenario(start_distance: float, expected_first_kind: String) -> bool:
                 _fail("unexpected initial attack at " +
                     str(start_distance) + "m: " + kind)
                 return false
-            if not starts.is_empty() and starts[-1] == kind:
-                _fail("repeated same attack kind " + str(starts))
-                return false
             var completed: int = int(ik.call("source_completed_walk_steps"))
-            var gate: int = previous_step_gate
-            if not starts.is_empty() and completed < gate:
-                _fail("attack bypassed three new walk steps " +
-                    str([completed, gate, starts]))
-                return false
+            if starts.is_empty():
+                first_attack_immediate = (completed == 0 and tick <= 1)
+                if not first_attack_immediate:
+                    _fail("first in-range attack was delayed by walking " +
+                        str([start_distance, tick, completed]))
+                    return false
             starts.append(kind)
             print("REPEAT_LIVE_ATTACK_START tick=", tick,
                 " kind=", kind, " step_count=", completed,
@@ -75,28 +70,25 @@ func _run_scenario(start_distance: float, expected_first_kind: String) -> bool:
         var walk_steps: int = int(ik.call(
             "source_completed_walk_steps"))
         max_gait = maxi(max_gait, walk_steps)
-        if first_attack_completed and walk_steps >= 6:
-            minimum_three_steps_met = true
         if tick % 300 == 0:
             print("REPEAT_LIVE_STATE ", tick,
                 " attacks=", starts,
                 " phase=", str(frame.get("phase", "-")),
                 " motion=", battle.get("bittaran_motion"),
                 " steps=", walk_steps,
-                " gate=", battle.get("bittaran_walk_attack_step_gate"),
                 " postactive=", ik.get("source_ik_postattack_active"),
                 " posthold=", ik.get("source_ik_postattack_hold"),
                 " stepping_pair=", ik.get("source_ik_step_pair"),
                 " boss_distance=", boss.global_position.distance_to(
                     player.global_position),
                 " blocked_kind=", director.get("last_kind"))
-        if starts.size() >= 3 and tick > 2200:
+        if starts.size() >= 3 and tick > 1100:
             break
     if starts.size() < 3 or not first_attack_completed or (
-            not postattack_replant_seen) or not minimum_three_steps_met:
+            not postattack_replant_seen) or not first_attack_immediate:
         _fail("only " + str(starts.size()) + " attacks / " +
             str([starts, first_attack_completed,
-                postattack_replant_seen, minimum_three_steps_met,
+                postattack_replant_seen, first_attack_immediate,
                 max_gait, battle.get("bittaran_motion"),
                 ik.get("source_ik_postattack_active"),
                 ik.get("source_ik_postattack_hold")]))
@@ -108,18 +100,16 @@ func _run_scenario(start_distance: float, expected_first_kind: String) -> bool:
     return true
 
 func _run() -> void:
-    # Both a fixed-range SWEEP encounter and close-range encounter
-    # must lead to repeated legal attacks autonomously. In the
-    # close-range case, the required first three walk steps can
-    # legitimately move the boss from STOMP into KICK range before
-    # the first attack, so the starting type is intentionally flexible.
+    # Starting in-range must initiate the correct technique instantly.
+    # Subsequent attacks wait only for the already existing safe
+    # two-pair return and the new real foot range.
     if not _run_scenario(6.8, "sweep"):
         return
-    if not _run_scenario(1.65, ""):
+    if not _run_scenario(1.65, "stomp"):
         return
     print("GODOT_BITTARAN_REPEAT_LIVE_PASS stationary_scenarios=2",
         " repeated_attacks=true",
-        " three_new_steps_per_cycle=true",
+        " first_attack_zero_steps=true",
         " postattack_two_pairs=true",
-        " same_kind_consecutive=false")
+        " repeat_when_only_legal=true")
     quit(0)
