@@ -124,6 +124,11 @@ func _run() -> void:
                     _fail("stomp IK chased after release " + id)
                     return
                 saw_frozen = true
+                # Only a few post-release frames are needed to prove
+                # the director froze all steering axes. Avoid a long
+                # full-body physics replay for each of the ten cases.
+                if tick - lock_frame >= 6:
+                    break
         var future: Vector3 = rig.get("source_aim_future_hip_local")
         if not saw_track or not saw_lock or not saw_frozen \
                 or not moved_player or max_body_offset > 1.001 \
