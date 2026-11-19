@@ -1,5 +1,5 @@
 extends SceneTree
-## v497: lower-leg-mounted cannons fire nearest-first at a shared
+## v498: seated hemisphere bases, ONE nearest live tracker, same shared fire
 ## interval, and both weapon systems stop during attacks and knockdown.
 const TURRETS = preload("res://scripts/bittaran_leg_turrets.gd")
 const RAILGUN = preload("res://scripts/bittaran_railgun.gd")
@@ -32,8 +32,10 @@ func _run() -> void:
     var anchors: Dictionary = turrets.get("anchors")
     var mount_offsets: Dictionary = turrets.get("mount_offsets")
     var lower_bounds: Dictionary = turrets.get("lower_bounds")
+    var aim_pivots: Dictionary = turrets.get("aim_pivots")
     if mounts.size() != 4 or anchors.size() != 4 or (
             mount_offsets.size() != 4 or lower_bounds.size() != 4 or
+            aim_pivots.size() != 4 or
             absf(TURRETS.SHOT_INTERVAL_SECONDS - 1.2) > 0.001):
         _fail("four independent mounts and shared 1.2s cadence required")
         return
@@ -52,8 +54,14 @@ func _run() -> void:
         # The dome center must sit INSIDE the real authored shin armor,
         # toward its outward X/Z quadrant and upper face, not hover at
         # an arbitrary upper-leg pivot or outside the moving mesh.
+        var outer_surface_x: float = center.x + side_x * bound.size.x * 0.5
+        # Mount the hemisphere's FLAT BASE at the OUTSIDE shin armor,
+        # with a small anti-gap embed; no buried sphere center.
+        var inset: float = outer_surface_x - offset.x
+        if side_x < 0.0:
+            inset = offset.x - outer_surface_x
         if not bound.has_point(offset) or (
-                (offset.x - center.x) * side_x < bound.size.x * 0.10
+                inset < -0.001 or inset > 0.04
                 or offset.y - center.y < bound.size.y * 0.12
                 or (offset.z - center.z) * face_z < bound.size.z * 0.10):
             _fail("dome must be seated against the outer lower-leg armor: " + id)
@@ -83,6 +91,54 @@ func _run() -> void:
                 not barrel.mesh is CylinderMesh):
             _fail("each turret must render a hemisphere and tube: " + id)
             return
+        var hemi: SphereMesh = dome.mesh as SphereMesh
+        if absf(hemi.height - hemi.radius) > 0.001 or (
+                absf(dome.position.y + hemi.get_aabb().position.y) > 0.001):
+            _fail("regular hemisphere flat base must touch the mount origin: " + id)
+            return
+        var facing_out: Vector3 = (
+            (anchors[id] as Node3D).global_basis * Vector3(side_x, 0.0, 0.0)).normalized()
+        if mount.global_basis.y.normalized().dot(facing_out) < 0.995:
+            _fail("hemisphere BASE normal must face outside the lower leg: " + id)
+            return
+        var pivot: Node3D = aim_pivots[id]
+        if pivot == null or pivot.get_parent() != mount or (
+                barrel.get_parent() != pivot):
+            _fail("aim pivot must move only the barrel, not the seated dome: " + id)
+            return
+    # Only whichever turret is currently nearest can continuously aim.
+    # On nearest change the old turret must return to its fixed resting
+    # orientation and the hemisphere's seated transform must not rotate.
+    for chosen in ["leg_fl", "leg_rr"]:
+        var probe: Vector3 = (mounts[chosen] as Node3D).global_position
+        turrets.call("advance", 0.0, probe, true)
+        if str(turrets.get("last_aimed_leg")) != chosen:
+            _fail("only the dynamically closest cannon may track: " + chosen)
+            return
+        var active_pivot: Node3D = aim_pivots[chosen]
+        var target: Vector3 = probe + Vector3.UP * 0.90
+        var delta_to_target: Vector3 = target - active_pivot.global_position
+        if delta_to_target.length_squared() > 0.0001 and (
+                (-active_pivot.global_basis.z).normalized().dot(
+                    delta_to_target.normalized()) < 0.99):
+            _fail("nearest barrel is not aimed at the player: " + chosen)
+            return
+        for other in TURRETS.LEG_IDS:
+            if other == chosen:
+                continue
+            var idle_pivot: Node3D = aim_pivots[other]
+            if not idle_pivot.basis.is_equal_approx(Basis.IDENTITY):
+                _fail("non-nearest cannon must not aim at the player: " + other)
+                return
+    var down_probe: Vector3 = (mounts["leg_rr"] as Node3D).global_position
+    turrets.call("advance", 0.0, down_probe + Vector3(3.0, 0.0, 0.0), false)
+    if str(turrets.get("last_aimed_leg")) != "":
+        _fail("knockdown must disable all active target tracking")
+        return
+    for other in TURRETS.LEG_IDS:
+        if not (aim_pivots[other] as Node3D).basis.is_equal_approx(Basis.IDENTITY):
+            _fail("downed cannon must be parked without tracking: " + other)
+            return
     var ordered: Array[String] = TURRETS.LEG_IDS.duplicate()
     for i in range(ordered.size()):
         for j in range(i + 1, ordered.size()):
@@ -98,6 +154,12 @@ func _run() -> void:
     if int(turrets.get("shots_fired")) != 1 or str(
             turrets.get("last_fired_leg")) != ordered[0]:
         _fail("first projectile must leave the nearest leg")
+        return
+    var first_shot: Dictionary = (turrets.get("projectiles") as Array)[0]
+    var fired_aim: Node3D = aim_pivots[ordered[0]]
+    if (first_shot["direction"] as Vector3).normalized().dot(
+            (-fired_aim.global_basis.z).normalized()) < 0.999:
+        _fail("each projectile must leave ALONG the visible gun barrel")
         return
     turrets.call("advance", 1.0, player.global_position, true)
     if int(turrets.get("shots_fired")) != 1:
