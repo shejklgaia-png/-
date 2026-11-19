@@ -1,8 +1,9 @@
 extends Node3D
 ## Bittaran's dorsal railgun. Its 10-second stationary fill and separate
 ## sphere/beam/return are independent of locomotion, source clips and HEAD.
-## The Body bone transports the mount; its pitch/roll never tilts the gun.
-## WORLD yaw plus WORLD-relative elevation are the only allowed rotations.
+## Untracked WAIT follows the animated Body's full pose (yaw, pitch, roll).
+## During sphere acquisition and beam tracking, barrel yaw and elevation
+## operate in WORLD space so turning the chassis never adds to aim speed.
 const RENDER_ORDER = preload("res://scripts/render_order_policy.gd")
 const RailgunFX = preload("res://scripts/bittaran_railgun_fx.gd")
 
@@ -74,6 +75,9 @@ const MOUNT_LOCAL_OFFSET: Vector3 = Vector3(-0.0435, 2.493, -0.4205)
 # Only the idle rejoin after a moving-chassis return uses this cap.
 # It must not snap the turret or affect the active beam tracking speed.
 const PARK_REACQUIRE_DEG_PER_SECOND: float = 180.0
+# Rejoin the latest Body attitude smoothly after the world-locked return.
+# The same 0.7s eases away a FROZEN idle-pose offset when aiming begins.
+const IDLE_POSE_REJOIN_SECONDS: float = 0.7
 # Two authored rails, not the body, pedestal, head or either leg.
 # The separate upper vertical shaft turns with the CHASSIS yaw, never with
 # the barrel's independent world-space targeting yaw.
@@ -121,6 +125,8 @@ var chassis_axis: Node3D
 var aim_yaw: float = 0.0
 var tracked_world_yaw: float = 0.0
 var tracking_world_initialized: bool = false
+var idle_pose_blend: float = 1.0
+var charge_entry_pose_offset: Quaternion = Quaternion.IDENTITY
 
 func setup(rig: Node3D) -> bool:
     var body: Node3D = rig.find_child("Body", true, false) as Node3D
@@ -391,6 +397,8 @@ func reset() -> void:
     aim_yaw = 0.0
     tracking_world_initialized = false
     tracked_world_yaw = 0.0
+    idle_pose_blend = 1.0
+    charge_entry_pose_offset = Quaternion.IDENTITY
     if elevation != null:
         elevation.rotation.x = 0.0
     if outer_beam != null:
@@ -443,9 +451,27 @@ func _level_mount() -> void:
         ).scaled(scale_world)
     var world_yaw: float = (
         tracked_world_yaw if tracking_world_initialized else chassis_yaw)
-    global_basis = Basis(
-        Quaternion(Vector3.UP, world_yaw)
-    ).scaled(scale_world)
+    var stabilized: Quaternion = Quaternion(Vector3.UP, world_yaw)
+    var pose: Quaternion = stabilized
+    var phase: int = _phase_at(elapsed)
+    if phase == Phase.WAIT and idle_pose_blend > 0.0:
+        # At rest, the entire cannon rides the animated BODY, not just
+        # the chassis' horizontal heading. Blend only after return, when
+        # independent world-yaw reacquisition is already completed.
+        var body_pose: Quaternion = (
+            mount_body.global_basis.orthonormalized()
+            .get_rotation_quaternion())
+        pose = stabilized.slerp(body_pose, idle_pose_blend)
+    elif phase == Phase.FLASH and (
+            elapsed < FLASH_START + TRACK_BLEND_SECONDS):
+        # The pose offset was captured ONCE at the instant guidance began.
+        # New chassis turns cannot add to the railgun motor's world yaw.
+        var ratio: float = clampf(
+            (elapsed - FLASH_START) / TRACK_BLEND_SECONDS, 0.0, 1.0)
+        var eased: float = ratio * ratio * (3.0 - 2.0 * ratio)
+        pose = stabilized * charge_entry_pose_offset.slerp(
+            Quaternion.IDENTITY, eased)
+    global_basis = Basis(pose.normalized()).scaled(scale_world)
 
 
 func _desired_player_angles(player_world: Vector3) -> Vector2:
@@ -654,6 +680,16 @@ func advance(delta: float, player_world: Vector3, active: bool,
         beam_ground_gap_meters = 0.0
     else:
         beam_hit_cooldown = maxf(0.0, beam_hit_cooldown - step)
+    if phase == Phase.FLASH and last_phase == Phase.WAIT:
+        # Freeze the idle Body-to-world orientation at acquisition start.
+        # This is a visual pose unwind, never live chassis rotation mixed
+        # into the turret's independent tracked yaw.
+        var neutral_pose: Quaternion = Quaternion(
+            Vector3.UP, _neutral_world_yaw())
+        charge_entry_pose_offset = (
+            neutral_pose.inverse() * global_basis.orthonormalized()
+            .get_rotation_quaternion()).normalized()
+        idle_pose_blend = 0.0
     if phase == Phase.RETURN and last_phase != Phase.RETURN:
         # Keep the FIRST post-beam orientation and neutral destination in
         # WORLD space. Returning relative yaw to zero would add/subtract
@@ -680,6 +716,10 @@ func advance(delta: float, player_world: Vector3, active: bool,
                 aim_yaw = 0.0
         else:
             aim_yaw = 0.0
+        if not tracking_world_initialized:
+            idle_pose_blend = move_toward(
+                idle_pose_blend, 1.0,
+                step / IDLE_POSE_REJOIN_SECONDS)
         elevation.rotation.x = 0.0
     elif phase == Phase.FLASH:
         if elapsed < FLASH_SHRINK_START:
