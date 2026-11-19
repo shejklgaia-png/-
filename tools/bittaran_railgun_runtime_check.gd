@@ -352,69 +352,109 @@ func _run() -> void:
             far_rate >= GUN.TRACK_YAW_SPEED):
         _fail("long-range aim is too fast for a real BOOST dodge")
         return
-    # v472: A fire-frame perfect target lock is intentionally preserved,
-    # but damage on the SAME frame made every laser an unavoidable first
-    # hit and immediately triggered movement-locking damage reactions.
-    # Require a visible, damage-free startup interval.
-    if not _near(GUN.BEAM_DAMAGE_ARM_SECONDS, 0.4):
-        _fail("laser must allow a 0.40s avoidance interval after firing")
+    # The laser is visible immediately but cannot damage in the first
+    # 0.65s, giving time for actual BOOST input confirmation/acceleration.
+    if not _near(GUN.BEAM_DAMAGE_ARM_SECONDS, 0.65):
+        _fail("laser must allow 0.65s for a real input-triggered BOOST")
         return
     gun.call("reset")
+    var neutral_forward: Vector3 = -gun.global_basis.z.normalized()
+    var neutral_right: Vector3 = gun.global_basis.x.normalized()
+    var muzzle_world: Vector3 = elevation.to_global(
+        Vector3(0.0, 0.0, GUN.MUZZLE_LOCAL_Z))
+    var center_target: Vector3 = muzzle_world + (
+        neutral_forward * 8.0) - Vector3.UP * 0.92
     gun.set("elapsed", GUN.PERIOD_SECONDS - DT * 0.5)
     var hit_on_launch: bool = bool(gun.call(
-        "advance", DT, player_origin, true))
+        "advance", DT, center_target, true))
     if hit_on_launch or not core.visible or (
-            not bool(gun.call("_beam_overlaps_player", player_origin))):
-        _fail("visual laser must launch and aim perfectly WITHOUT instant hit")
+            not bool(gun.call("_beam_overlaps_player", center_target))):
+        _fail("visible launch must start without immediate damage")
         return
     var premature_hit: bool = bool(gun.call(
         "advance", GUN.BEAM_DAMAGE_ARM_SECONDS - 0.04,
-        player_origin, true))
+        center_target, true))
     if premature_hit or not core.visible:
-        _fail("damage must stay disarmed during the first 0.4s")
+        _fail("laser cannot damage during startup grace")
         return
     var stationary_hit: bool = bool(gun.call(
-        "advance", 0.05, player_origin, true))
-    if not stationary_hit:
-        _fail("stationary SERA must still be hit once the beam is armed")
+        "advance", 0.055, center_target, true))
+    if not stationary_hit or not core.visible:
+        _fail("armed beam must still damage stationary SERA and stay visible")
         return
-    # A true side BOOST (6.09375 m/s) must escape a laser that starts
-    # exactly on the player. Test actual beam hit geometry over the WHOLE
-    # 2s window, rather than just checking the slow rotation constant.
-    gun.call("reset")
-    var base_forward: Vector3 = -gun.global_basis.z.normalized()
-    var base_right: Vector3 = gun.global_basis.x.normalized()
-    var muzzle_world: Vector3 = elevation.to_global(
-        Vector3(0.0, 0.0, GUN.MUZZLE_LOCAL_Z))
-    var lateral_origin: Vector3 = muzzle_world + (
-        base_forward * 8.0) - Vector3.UP * 0.92
-    gun.set("elapsed", GUN.PERIOD_SECONDS - DT * 0.5)
-    if bool(gun.call("advance", DT, lateral_origin, true)):
-        _fail("lateral BOOST scenario hit on first laser frame")
+    gun.call("advance", 0.12, center_target, true)
+    if not core.visible:
+        _fail("an actual damage pulse stopped the laser before 2s")
         return
-    # Cover the late beam too (1.92s), not only the opening 1.4s.
-    for frame in range(230):
-        var seconds: float = float(frame + 1) * DT
-        var running_target: Vector3 = lateral_origin + (
-            base_right * 6.09375 * seconds)
-        if bool(gun.call("advance", DT, running_target, true)):
-            _fail("6.09375m/s lateral BOOST cannot avoid laser at t="
-                + str(seconds))
+
+    # Test real base RUN->BOOST input/acceleration (0.10s confirm,
+    # 0.20s smoothstep ramp). At both 8m and 30m, starting lateral
+    # movement at the actual BEAM first frame must avoid EVERY damage
+    # pulse until the 2-second beam finishes, not only the first sample.
+    for radius in [8.0, 30.0]:
+        gun.call("reset")
+        var origin: Vector3 = (
+            elevation.to_global(Vector3(0.0, 0.0, GUN.MUZZLE_LOCAL_Z))
+            + -gun.global_basis.z.normalized() * float(radius)
+            - Vector3.UP * 0.92)
+        var right: Vector3 = gun.global_basis.x.normalized()
+        gun.set("elapsed", GUN.PERIOD_SECONDS - DT * 0.5)
+        if bool(gun.call("advance", DT, origin, true)):
+            _fail("startup beam caused immediate unavoidable hit")
             return
-    # Model and VFX still hide correctly after the beam ends/KO reset.
+        var displacement: float = 0.0
+        for frame in range(230):
+            var time: float = float(frame + 1) * DT
+            var ramp: float = clampf(
+                (time - 0.10) / 0.20, 0.0, 1.0)
+            var eased: float = ramp * ramp * (3.0 - 2.0 * ramp)
+            var speed: float = lerpf(
+                4.0625, boost_speed, eased)
+            displacement += speed * DT
+            var boosted_player: Vector3 = origin + right * displacement
+            if bool(gun.call("advance", DT, boosted_player, true)):
+                _fail("actual RUN->BOOST could not escape at radius="
+                    + str(radius) + " time=" + str(time))
+                return
+
+    # Laser hits retain HP/shield effects without initiating the inherited
+    # DAMAGEKNOCK state that previously canceled ongoing BOOST/STEP.
+    scene.set("player_hp", 800.0)
+    scene.set("movement_boost_active", true)
+    scene.set("damage_reaction_active", false)
+    var hp_before: float = float(scene.get("player_hp"))
+    scene.call("_on_enemy_projectile_hit",
+        player.global_position, Vector3.FORWARD, true, 0, true)
+    if float(scene.get("player_hp")) >= hp_before or (
+            bool(scene.get("damage_reaction_active"))) or (
+            not bool(scene.get("movement_boost_active"))):
+        _fail("a laser hit must damage HP without stopping active BOOST")
+        return
+
+    # SERA KO must not turn the whole visible BEAM off: its natural
+    # remaining exposure time belongs to the boss's attack cycle.
+    gun.call("reset")
+    gun.set("elapsed", 0.80)
+    scene.set("player_hp", 0.0)
+    scene.set("training_ko_remaining", 1.0)
+    scene.call("_tick_bittaran_railgun", DT)
+    if not core.visible or not halo.visible:
+        _fail("player KO interrupted a laser that was still firing")
+        return
+
     gun.call("reset")
     if core.visible or halo.visible or flash.visible or rim.visible or (
             orb_arcs.visible) or plasma.visible or beam_arcs.visible:
         _fail("boss respawn left old beam or electric FX visible")
         return
     print("GODOT_BITTARAN_RAILGUN_PASS 10s_interval=true 2s_beam=true ",
-        "2s_blue_sphere=true 1s_orb_shrink=true 2s_ease_in=true ",
-        "0.5s_locked_prefire_delay=true 0.4s_postfire_hold=true ",
-        "prefire_fast_lock=true first_frame_exact_aim=true ",
+        "2s_blue_sphere=true 1s_orb_shrink=true 2s_charge_ease=true ",
+        "0.5s_targeting_hold=true 0.4s_postfire_hold=true ",
+        "no_aim_snap_on_launch=true charge_to_beam_world_tracking=true ",
+        "moving_boss_cannot_bypass_turn_cap=true ",
         "blue_fresnel_flicker=true branching_electric_arcs=true ",
-        "travelling_plasma_beam=true prefire_and_beam_0.7x_v470=true ",
-        "no_unavoidable_first_hit=true 0.4s_arming_grace=true ",
-        "live_boost_6.09375mps_escapes_laser=true ",
-        "boost_outpaces_beam=true neutral_until_fully_charged=true ",
+        "travelling_plasma_beam=true 35pct_real_boost_angular_cap=true ",
+        "0.65s_arming_grace=true 8m_and_30m_boost_evasion=true ",
+        "laser_hit_does_not_interrupt_boost=true beam_survives_player_KO=true ",
         "smooth_independent_yaw_pitch=true 3_charge_bars_per_side=true")
     quit(0)
