@@ -54,6 +54,8 @@ var facility_touch_key: String = ""
 var facility_touch_start: Vector2 = Vector2.ZERO
 
 func _ready() -> void:
+    # Android system gesture must navigate the open field menu, not quit.
+    get_window().go_back_requested.connect(_on_android_back)
     _setup_world()
     _build_hangar()
     _build_nexus_building()
@@ -445,6 +447,10 @@ func _set_stick(pixel: Vector2) -> void:
 
 func _hit(panel: Panel, at: Vector2) -> bool:
     return panel != null and Rect2(panel.position, panel.size).has_point(at)
+
+func _on_android_back() -> void:
+    if facility_system != null and bool(facility_system.call("is_menu_open")):
+        facility_system.call("navigate_back")
 
 func _input(event: InputEvent) -> void:
     if scene_changing or hud == null:
