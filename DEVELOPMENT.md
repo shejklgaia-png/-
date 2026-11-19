@@ -1,3 +1,10 @@
+## 2026-11-20 — SERA v514: LABO素材/試作装備アイコン、製作個体命名、倉庫・アセンブル導線
+- **依頼**：全素材の固有アイコンと変換表示、LABOの仮装備製作、製作品アイコン、倉庫保存/カスタマイズ反映、複数個製作のUID衝突防止。
+- **現状/事前CI**：main v513では19個のマットアイコン、試作7設計図、倉庫・装着が実装済み。AGENTS.md、v511アイコン静的・Godot検査、素材変換の静的・Godot検査、共通CI manifest、main push後の全CIワークフローを確認。
+- **本体より先に改訂したテスト**：v511静的テストに正規UID生成/検証、所持数、表示名、変換元/先ランクUIを追加。v511 Godotテストに19領域の衝突防止、正規UIDと別設計図の連番、装備個体名とスロット保存を追加。旧テストを削除・弱化しない。
+- **実装**：Shell開発を実製作カタログに直結して重複メニューを解消。各試作の所持数と素材変換ランク・実行数・所持数を明示。倉庫の表示名をNEXUSと同じ「名称＋正規UID」に統一。セーブに保存したUIDを厳密検証し、重複を除外。試作は無償/Aモデルを維持し、性能・追加効果・素材消費は架空実装しない。
+- **残り**：mainマージ後のフルPython/Godot CI、実機縦画面での視認性・入力テスト。詳細は `docs/LABO_CRAFTING_CONTRACT_ja.md`。
+
 ## 2026-11-20 — SERA v512: 敵予測シールドを高彩度・鋭い表示に
 - **要望**：「もっと色を強く、キレのある表示にして」。v511の拡大サイズは維持し、色が白く流れる表現と長いぼんやりした残光を修正。
 - **事前CI調査**：main v511とCI成功ラン44628658454、`AGENTS.md`、`docs/SERA_ACTIVE_CI_POLICY_ja.md`、`tools/sera_ci_manifest.txt`、`tools/v510_predictive_shield_self_check.py`、`tools/v510_predictive_shield_runtime_check.gd`、`scripts/render_order_policy.gd`、`docs/RENDER_PIPELINE_POLICY_ja.md`と既存本体コードを確認。
