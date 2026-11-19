@@ -1,3 +1,12 @@
+## 2026-11-19 — SERA v503: 腹下砲台4秒間隔・レーザー形単発弾・実照明付き銃口閃光
+- **ユーザー依頼**：射撃間隔4秒、球弾を細長い単発レーザー状にする。十字が表示だけで光っているように見えない問題を解消する。
+- **事前確認**：mainの実際の現行版v502と`project.godot`、`AGENTS.md`、`.github/workflows/sera-model-policy.yml`、`tools/sera_ci_manifest.txt`、`docs/SERA_ACTIVE_CI_POLICY_ja.md`、`docs/MODEL_PART_WORKFLOW_ja.md`、`docs/RENDER_PIPELINE_POLICY_ja.md`、`tools/render_policy_self_check.py`、砲台の実装と登録済み`tools/bittaran_leg_turrets_runtime_check.gd`を確認。
+- **CIテスト先行更新**：本体編集より前に登録済みGodot回帰テストの1.2s期待値を4.0sへ変更。4秒まで再発射せず4秒経過で1発、細い長手方向CapsuleMeshと飛翔方向の一致、球弾の撤廃、一体の発光ハローの深度保持、OmniLightの発射時10以上相当の点灯・半周期で減衰・短時間消灯・攻撃中/ダウン中消灯、RadialGradientの存在を追加。腹下1基/3.10m十字/1発単位/追尾と弾道一致/攻撃/ダウン停止/背部レールガン停止は保持。
+- **実装**：`scripts/bittaran_leg_turrets.gd`の`SHOT_INTERVAL_SECONDS`を4.0に変更。全弾を長さ1.50m/半径0.065mの細長いCapsuleMeshに変更し、一体の半透明青いCapsuleMeshハローを追加。弾の長軸をワールドの発射方向へ一致させ、銃口から一発ずつ前進。既存の17m/s・3秒寿命・被弾判定を維持。
+- **発光改善**：十字の芯や既存の青いハローに加え、透明な円形グラデーション`RadialRadiance`を前面加算表示。銃口に従属する`MuzzleBurstLight`（OmniLight3D、光量10、範囲4.5m、影なし）を発砲時点灯し、0.12秒で二乗減衰して消灯。連続光源生成は行わず既存の1基を再利用し、攻撃/ダウンで即消灯。
+- **描画・安全**：銃口十字・放射光輪のみ一時的な前面表示。飛翔弾の発光は深度テストONとし3D遮蔽維持。元Bittaran.bbmodel、歩行・脚IK・攻撃、ダメージ・ガード、背部レールガンは変更なし。
+- **残る検査**：mainへマージ後のフルPython/Godot CI。Android GL Compatibilityでの実際の明滅・照射感・十字の強さ・レーザー弾の視認性は実機テストが必要。
+
 ## 2026-11-19 — SERA v501: 銃口十字の縦横5倍・前面描画・発光強化
 - **依頼**：「十字はもっと長く、長さを5倍くらいで手前に描画、目立たせて」。対象はビットタラン腹下中央の単砲台。弾速・追尾・攻撃などは変更しない。
 - **先行CI確認**：`AGENTS.md`、`.github/workflows/sera-model-policy.yml`、`tools/sera_ci_manifest.txt`、`docs/SERA_ACTIVE_CI_POLICY_ja.md`、`tools/bittaran_leg_turrets_runtime_check.gd`、`tools/render_policy_self_check.py`、`scripts/render_order_policy.gd`、`docs/RENDER_PIPELINE_POLICY_ja.md`、`docs/MODEL_PART_WORKFLOW_ja.md`を確認。
