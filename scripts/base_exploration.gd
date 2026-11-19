@@ -8,6 +8,9 @@ const NEXUS_SCENE: String = "res://scenes/command_nexus.tscn"
 # 3D grid plates, leaving no ungridded view at the extreme camera positions.
 const PLATE_GRID_RADIUS_CELLS: int = 42
 const PLATE_GRID_STEP: float = 3.0
+# Re-enable this single flag when base SERA/joystick play is needed again.
+# This only changes the outdoor base; NEXUS previews and combat are intact.
+const HUB_SERA_CONTROLS_ENABLED: bool = false
 const WALK_SPEED: float = 3.2
 const PLAYER_Y: float = 0.08
 const JOYSTICK_RADIUS: float = 76.0
@@ -249,6 +252,11 @@ func _create_player() -> void:
     player.name = "SERA"
     player.position = Vector3(0.0, PLAYER_Y, 5.6)
     add_child(player)
+    player.visible = HUB_SERA_CONTROLS_ENABLED
+    if not HUB_SERA_CONTROLS_ENABLED:
+        # Preserve the invisible anchor for the camera but avoid loading the
+        # expensive character rig into this menu scene.
+        return
     rig = SeraRig.new()
     rig.name = "SeraRig"
     rig.scale = Vector3.ONE * 1.15
@@ -367,13 +375,15 @@ func _create_hud() -> void:
     hud.mouse_filter = Control.MOUSE_FILTER_IGNORE
     layer.add_child(hud)
     hud.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-    hud_title = _label(hud, "SERA / BASE", 25)
+    hud_title = _label(hud, "BASE", 25)
     hint = _label(hud, "NEXUSの建物をタップして施設へ", 19)
     nexus_tag = _label(hud, "N E X U S  ▸", 20)
     nexus_tag.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
     nexus_tag.add_theme_color_override("font_color", Color("#8be4ff"))
     stick_outer = _panel(hud, "MoveStickOuter")
     stick_knob = _panel(hud, "MoveStickKnob")
+    stick_outer.visible = HUB_SERA_CONTROLS_ENABLED
+    stick_knob.visible = HUB_SERA_CONTROLS_ENABLED
     VersionIndicator.attach(hud)
     hud.resized.connect(_layout_hud)
     _layout_hud()
@@ -426,7 +436,7 @@ func _input(event: InputEvent) -> void:
             if _nexus_hit(event.position):
                 nexus_touch_id = event.index
                 nexus_touch_start = event.position
-            elif _hit(stick_outer, event.position) and touch_id == -1:
+            elif HUB_SERA_CONTROLS_ENABLED and _hit(stick_outer, event.position) and touch_id == -1:
                 touch_id = event.index
                 _set_stick(event.position)
             else:
@@ -442,14 +452,14 @@ func _input(event: InputEvent) -> void:
         else:
             return
         get_viewport().set_input_as_handled()
-    elif event is InputEventScreenDrag and event.index == touch_id:
+    elif event is InputEventScreenDrag and HUB_SERA_CONTROLS_ENABLED and event.index == touch_id:
         _set_stick(event.position)
         get_viewport().set_input_as_handled()
     elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
         if event.pressed:
             if _nexus_hit(event.position):
                 _enter_nexus()
-            elif _hit(stick_outer, event.position):
+            elif HUB_SERA_CONTROLS_ENABLED and _hit(stick_outer, event.position):
                 mouse_steering = true
                 _set_stick(event.position)
             else:
@@ -459,7 +469,7 @@ func _input(event: InputEvent) -> void:
             joystick = Vector2.ZERO
             _update_stick_visual()
         get_viewport().set_input_as_handled()
-    elif event is InputEventMouseMotion and mouse_steering:
+    elif event is InputEventMouseMotion and HUB_SERA_CONTROLS_ENABLED and mouse_steering:
         _set_stick(event.position)
         get_viewport().set_input_as_handled()
 
@@ -471,7 +481,7 @@ func _walkable(pos: Vector3) -> bool:
     return Vector2(pos.x + 4.25, pos.z + 1.8).length() > 1.10
 
 func _move_player(direction: Vector2, delta: float) -> void:
-    if player == null or direction.length_squared() < 0.000001:
+    if not HUB_SERA_CONTROLS_ENABLED or player == null or direction.length_squared() < 0.000001:
         return
     var move: Vector2 = direction.limit_length(1.0) * WALK_SPEED * maxf(delta, 0.0)
     var pos: Vector3 = player.position
@@ -492,19 +502,20 @@ func _process(delta: float) -> void:
         return
     elapsed += delta
     SeraSave.record_game_time(delta)
-    var direction: Vector2 = joystick
-    var keys := Vector2(
-        Input.get_action_strength("ui_right") - Input.get_action_strength("ui_left"),
-        Input.get_action_strength("ui_down") - Input.get_action_strength("ui_up"))
-    if keys.length_squared() > 0.0001:
-        direction = keys.limit_length(1.0)
-    _move_player(direction, delta)
-    var moving: bool = direction.length_squared() > 0.0001
-    if moving:
-        var yaw: float = atan2(-direction.x, -direction.y)
-        player.rotation.y = lerp_angle(player.rotation.y, yaw, minf(1.0, delta * 11.0))
-    if rig != null:
-        rig.call("set_moving", moving, false, Vector2(0, 1), false)
+    if HUB_SERA_CONTROLS_ENABLED:
+        var direction: Vector2 = joystick
+        var keys := Vector2(
+            Input.get_action_strength("ui_right") - Input.get_action_strength("ui_left"),
+            Input.get_action_strength("ui_down") - Input.get_action_strength("ui_up"))
+        if keys.length_squared() > 0.0001:
+            direction = keys.limit_length(1.0)
+        _move_player(direction, delta)
+        var moving: bool = direction.length_squared() > 0.0001
+        if moving:
+            var yaw: float = atan2(-direction.x, -direction.y)
+            player.rotation.y = lerp_angle(player.rotation.y, yaw, minf(1.0, delta * 11.0))
+        if rig != null:
+            rig.call("set_moving", moving, false, Vector2(0, 1), false)
     _update_crate(delta)
     if cam != null:
         var offset := Vector3(player.position.x * 0.18, 19.6,

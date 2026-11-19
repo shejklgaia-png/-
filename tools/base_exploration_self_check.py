@@ -15,7 +15,16 @@ save = read("scripts/sera_save.gd")
 assert 'res://scripts/base_exploration.gd' in scene
 assert 'extends Node3D' in base
 assert 'res://scripts/sera_rig.gd' in base
-assert 'func _move_player(' in base, "Overworld SERA movement must stay available"
+# v492: reversible base-only display toggle; leave NEXUS and battle rigs untouched.
+assert 'const HUB_SERA_CONTROLS_ENABLED: bool = false' in base
+assert 'player.visible = HUB_SERA_CONTROLS_ENABLED' in base
+assert 'if not HUB_SERA_CONTROLS_ENABLED:' in base
+assert 'stick_outer.visible = HUB_SERA_CONTROLS_ENABLED' in base
+assert 'stick_knob.visible = HUB_SERA_CONTROLS_ENABLED' in base
+assert 'func _move_player(' in base, "Retain dormant movement implementation for restoration"
+assert 'if HUB_SERA_CONTROLS_ENABLED:' in base
+assert 'func _update_crate(' in base
+assert 'func _enter_nexus(' in base
 # v491: the visible colored GRID itself must cover the view, not just the dark underlay.
 assert 'func _create_grid_plates(' in base
 assert 'GridPlateBatch_' in base
