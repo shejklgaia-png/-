@@ -73,9 +73,11 @@ func _run() -> void:
         if modal.visible:
             _fail("device menu cannot close: " + name)
             return
-    if min_screen.x > 0.24 or max_screen.x < 0.76 or (
-            min_screen.y > 0.33 or max_screen.y < 0.73):
-        _fail("hub facilities do not occupy the full portrait screen: " +
+    # The top tier is NEXUS itself (outside BaseFacilities), so the
+    # machines must span both sides and the lower tier. Combined vertical
+    # coverage is verified below using the actual NEXUS 3D projection.
+    if min_screen.x > 0.24 or max_screen.x < 0.76 or max_screen.y < 0.73:
+        _fail("outer facilities do not span the screen sides and lower edge: " +
             str(min_screen) + " - " + str(max_screen))
         return
     machines.call("update_tags", camera)
@@ -106,6 +108,11 @@ func _run() -> void:
     # raw coordinates: require the hierarchy to be visible on the 720x1280
     # projected Android screen.
     var nexus_uv: Vector2 = nexus_spot / view
+    # The full visual footprint still reaches the upper and lower parts of
+    # the screen: NEXUS now owns the upper band, resources own the lower.
+    if minf(min_screen.y, nexus_uv.y) > 0.33 or max_screen.y < 0.73:
+        _fail("NEXUS and peripheral equipment do not cover the full screen")
+        return
     var labo: Node3D = machines.get_node_or_null("LABO") as Node3D
     if labo == null:
         _fail("central LABO is absent")
