@@ -1,3 +1,10 @@
+## 2026-11-19 — v486 拠点探索画面（自由歩行の第1段階）
+- 作業前に`AGENTS.md`、`tools/sera_ci_manifest.txt`、`docs/SERA_ACTIVE_CI_POLICY_ja.md`、既存NEXUS、SeraRig、モデル描画規約を確認。既存NEXUSの展示・装備・SYSTEM・TRAININGと戦闘の契約は不変。
+- 新規仕様に対応する静的検査と実Godot検査を先行追加し、CI manifestへ登録。既存数値期待値の変更は不要。
+- 実Blockbench格納庫モジュールのMultiMesh描画、端末、廃材、SERA実モデル、仮CRATE、俯瞰カメラ、片手スティック、設備接近とNEXUSメニュー遷移を追加。
+- NEXUSの全体画面に「EXPLORE BASE」を追加し、保存済み装備を探索モデルにも反映。プロフィールデータには新規保存項目を増やさない。
+- マージ後はmainのCI結果とAndroidでの実操作を別々に報告する。
+
 ## 2026-11-19 — SERA v485: レーザー追尾加速の0〜2.5m連続補間
 
 - **事前CI確認**：`project.godot` v484、`.github/workflows/sera-model-policy.yml`、`tools/sera_ci_manifest.txt`、`docs/SERA_ACTIVE_CI_POLICY_ja.md`、`tools/bittaran_railgun_runtime_check.gd`、`tools/bittaran_world_yaw_independence_runtime_check.gd`を確認。旧期待値「1.5m以下は0.7倍固定／1.5m超で急加速」は今回の新仕様と衝突する。照射前の高速追尾→縮小時0.7倍制限、レーザー照射2秒・無制限再命中・威力60%・本体回転の分離は不変。
