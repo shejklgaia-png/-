@@ -11,11 +11,12 @@ project = read("project.godot")
 current = re.findall(r'^config/name="([^"]+)"$', project, re.M)
 assert len(current) == 1 and re.fullmatch(r"SERA v([1-9][0-9]*)", current[0])
 assert int(current[0].split("v")[1]) >= 198
-# The menu remains available; v447 deliberately boots straight into Bittaran.
+# v489 intentionally boots the exterior base hub, while legacy selectors and combat scenes remain accessible.
 main_scene = re.findall(r'^run/main_scene="([^"]+)"$', project, re.M)
 assert main_scene in (["res://scenes/launch_menu.tscn"],
-                      ["res://scenes/bittaran_battle.tscn"]), main_scene
-for scene in ("launch_menu", "main", "command_nexus"):
+                      ["res://scenes/bittaran_battle.tscn"],
+                      ["res://scenes/base_exploration.tscn"]), main_scene
+for scene in ("launch_menu", "main", "command_nexus", "base_exploration"):
     assert (ROOT / ("scenes/" + scene + ".tscn")).is_file()
 
 widget = read("scripts/version_indicator.gd")
@@ -34,6 +35,7 @@ assert "v198" not in widget
 screens = {
     "selection": ("scripts/launch_menu.gd", "VersionIndicator.attach(self)"),
     "nexus": ("scripts/command_nexus.gd", "VersionIndicator.attach(hud)"),
+    "base": ("scripts/base_exploration.gd", "VersionIndicator.attach(hud)"),
 }
 for name, (path, call) in screens.items():
     contents = read(path)
