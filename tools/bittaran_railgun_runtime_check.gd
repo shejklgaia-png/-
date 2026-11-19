@@ -404,12 +404,17 @@ func _run() -> void:
         gun.call("advance", DT, lateral, true)
     var lateral_max_rate: float = float(gun.call(
         "_tracking_turn_rate", lateral))
-    if float(gun.get("beam_ground_gap_meters")) <= 1.5 or (
-            float(gun.get("beam_turn_rate_deg_per_sec")) <=
-                slowed_rate + 5.0) or (
-            float(gun.get("beam_turn_rate_deg_per_sec")) >
-                lateral_max_rate + 0.0001):
-        _fail("laser must reach full capped chase after 1.5m separation")
+    var lateral_command: float = float(gun.get("beam_turn_rate_deg_per_sec"))
+    # The permitted angular rate is SPEED / CURRENT DISTANCE. As the player
+    # sidesteps from 10m to ~11m away the full angular cap decreases; it
+    # cannot exceed the *earlier* on-axis command by a fixed +5deg/s.
+    # Preserve the independent 1.5m plateau, real overshoot and BOOST bounds:
+    # after twelve 120Hz frames at the larger gap, motor response 16/s
+    # must approach at least 95% of the contemporaneous full cap.
+    if float(gun.get("beam_ground_gap_meters")) <= GUN.BEAM_GROUND_GAP_METERS or (
+            lateral_command < lateral_max_rate * 0.95) or (
+            lateral_command > lateral_max_rate + 0.0001):
+        _fail("laser did not approach its current-distance capped chase rate after 1.5m gap")
         return
     gun.call("reset")
     gun.set("elapsed", GUN.BEAM_START + 0.10)
