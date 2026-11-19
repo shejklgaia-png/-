@@ -11,6 +11,24 @@ func _visible_button(button: Button, view: Rect2) -> bool:
     var rect: Rect2 = button.get_global_rect()
     return not button.disabled and rect.size.x >= 80.0 and (
         rect.size.y >= 42.0 and view.has_point(rect.get_center()))
+func _tap_button(button: Button) -> void:
+    # Inject a real viewport mouse press+release, not signal.emit().
+    # This exercises CanvasLayer coordinates, Control picking and occlusion.
+    var center: Vector2 = button.get_global_rect().get_center()
+    var down := InputEventMouseButton.new()
+    down.button_index = MOUSE_BUTTON_LEFT
+    down.pressed = true
+    down.position = center
+    down.global_position = center
+    root.push_input(down, false)
+    var up := InputEventMouseButton.new()
+    up.button_index = MOUSE_BUTTON_LEFT
+    up.pressed = false
+    up.position = center
+    up.global_position = center
+    root.push_input(up, false)
+    await process_frame
+
 func _run() -> void:
     var packed: PackedScene = load("res://scenes/base_exploration.tscn")
     var hub: Node3D = packed.instantiate()
@@ -29,7 +47,7 @@ func _run() -> void:
         if not _visible_button(shortcut, viewport):
             _fail("base navigation is not visible/clickable: " + id)
             return
-    (quick.get_node("QuickCraft") as Button).pressed.emit()
+    await _tap_button(quick.get_node("QuickCraft") as Button)
     await process_frame
     if str(facilities.get("page")) != "prototypes":
         _fail("craft shortcut must open actual seven-item catalog")
@@ -48,13 +66,13 @@ func _run() -> void:
     if not _visible_button(first, viewport):
         _fail("first equipment item cannot be selected on screen")
         return
-    first.pressed.emit()
+    await _tap_button(first)
     await process_frame
     var craft: Button = (facilities.get("modal_actions") as VBoxContainer).get_node("CraftPrototype") as Button
     if not craft.is_visible_in_tree() or not viewport.has_point(craft.get_global_rect().get_center()):
         _fail("craft action is outside visible portrait dialog")
         return
-    (tabs.get_node("TabMaterials") as Button).pressed.emit()
+    await _tap_button(tabs.get_node("TabMaterials") as Button)
     await process_frame
     if str(facilities.get("page")) != "families":
         _fail("materials tab did not open material family choices")
@@ -63,7 +81,7 @@ func _run() -> void:
     if not _visible_button(family, viewport):
         _fail("first material family cannot be picked")
         return
-    family.pressed.emit()
+    await _tap_button(family)
     await process_frame
     if str(facilities.get("page")) != "conversion":
         _fail("material family did not open conversion actions")
@@ -72,7 +90,7 @@ func _run() -> void:
     if converter == null or not converter.is_visible_in_tree() or not viewport.has_point(converter.get_global_rect().get_center()):
         _fail("first conversion action is not in initial view")
         return
-    (tabs.get_node("TabWarehouse") as Button).pressed.emit()
+    await _tap_button(tabs.get_node("TabWarehouse") as Button)
     await process_frame
     if str(facilities.get("page")) != "inventory":
         _fail("warehouse tab did not open inventory")
@@ -83,7 +101,7 @@ func _run() -> void:
             not viewport.has_point(first_material.get_global_rect().get_center()))):
         _fail("first warehouse material icon not visible")
         return
-    (tabs.get_node("TabCraft") as Button).pressed.emit()
+    await _tap_button(tabs.get_node("TabCraft") as Button)
     if str(facilities.get("page")) != "prototypes":
         _fail("catalog cannot be reopened from warehouse")
         return
