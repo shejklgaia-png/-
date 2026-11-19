@@ -65,7 +65,7 @@ func setup(rig: Node3D) -> bool:
         anchors[id] = leg
         var hemisphere := SphereMesh.new()
         hemisphere.radius = 0.29
-        hemisphere.height = 0.29
+        hemisphere.height = 0.58
         hemisphere.is_hemisphere = true
         hemisphere.radial_segments = 12
         hemisphere.rings = 6
