@@ -26,7 +26,7 @@ for target in ('CUSTOMIZE', 'TRAINING', 'SYSTEM', 'DATA ARCHIVE', 'DEPLOYMENT'):
     assert '"focus": "' + target + '"' in base
 assert 'const BASE_SCENE: String = "res://scenes/base_exploration.tscn"' in nexus
 assert 'SeraSave.requested_nexus_target' in nexus
-assert 'SeraSave.requested_nexus_target' in save
+assert 'var requested_nexus_target: String = ""' in save
 assert 'pointing/emulate_mouse_from_touch=false' in project
 assert 'run/main_scene="res://scenes/bittaran_battle.tscn"' in project
 print("SERA_BASE_EXPLORATION_STATIC_PASS")
