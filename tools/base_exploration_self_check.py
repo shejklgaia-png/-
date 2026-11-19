@@ -16,6 +16,12 @@ assert 'res://scripts/base_exploration.gd' in scene
 assert 'extends Node3D' in base
 assert 'res://scripts/sera_rig.gd' in base
 assert 'func _move_player(' in base, "Overworld SERA movement must stay available"
+# v491: the visible colored GRID itself must cover the view, not just the dark underlay.
+assert 'func _create_grid_plates(' in base
+assert 'GridPlateBatch_' in base
+assert 'PLATE_GRID_RADIUS_CELLS' in base
+assert '_box(floor, "SalvagedPlate_' not in base, "thousands of individual MeshInstances are too slow"
+assert 'ContinuousGround' in base
 assert 'func _create_crate(' in base
 assert 'func _update_crate(' in base, "CRATE must wander autonomously in overworld"
 assert 'CRATE_WAYPOINTS' in base

@@ -33,6 +33,45 @@ func _run() -> void:
     var half_x: float = ground_box.size.x * 0.5
     var half_z: float = ground_box.size.z * 0.5
     var ground_top: float = ground.global_position.y + ground_box.size.y * 0.5
+    # v491: check the visible, multicolored 3D GRID plates (not just v490's
+    # uniform continuous ground). Batching avoids thousands of draw calls.
+    var tiled_floor: Node3D = hub.get_node("PatchworkSteelFloor") as Node3D
+    var grid_batches: int = 0
+    var grid_tiles: int = 0
+    var min_x: float = INF
+    var max_x: float = -INF
+    var min_z: float = INF
+    var max_z: float = -INF
+    var plate_half_x: float = 0.0
+    var plate_half_z: float = 0.0
+    for child in tiled_floor.get_children():
+        if not child.name.begins_with("GridPlateBatch_"):
+            continue
+        var grid_node: MultiMeshInstance3D = child as MultiMeshInstance3D
+        if grid_node == null or grid_node.multimesh == null:
+            _fail("grid batch is missing instanced geometry")
+            return
+        var batch: MultiMesh = grid_node.multimesh
+        var grid_mesh: BoxMesh = batch.mesh as BoxMesh
+        if grid_mesh == null or grid_node.material_override == null:
+            _fail("visible colored grid geometry/material missing")
+            return
+        grid_batches += 1
+        grid_tiles += batch.instance_count
+        plate_half_x = grid_mesh.size.x * 0.5
+        plate_half_z = grid_mesh.size.z * 0.5
+        for cell_index in range(batch.instance_count):
+            var tile: Vector3 = batch.get_instance_transform(cell_index).origin
+            min_x = minf(min_x, tile.x)
+            max_x = maxf(max_x, tile.x)
+            min_z = minf(min_z, tile.z)
+            max_z = maxf(max_z, tile.z)
+    if grid_batches != 6 or grid_tiles < 7225:
+        _fail("full-screen GRID was not batched into six colored multimeshes")
+        return
+    if min_x > -126.0 or max_x < 126.0 or min_z > -126.0 or max_z < 126.0:
+        _fail("grid extents did not expand around entire viewport")
+        return
     var view: Vector2 = cam.get_viewport().get_visible_rect().size
     if view.x < 1.0 or view.y < 1.0:
         _fail("camera viewport invalid")
@@ -53,6 +92,12 @@ func _run() -> void:
                 if t <= 0.0 or absf(hit.x) >= half_x or absf(hit.z) >= half_z:
                     _fail("ground ends inside viewport at player (%.1f, %.1f) / screen %s" %
                         [px, pz, str(screen)])
+                    return
+                # Do not accept a plain ungridded background under the camera.
+                if hit.x < min_x - plate_half_x or hit.x > max_x + plate_half_x \
+                        or hit.z < min_z - plate_half_z or hit.z > max_z + plate_half_z:
+                    _fail("GRID itself ends inside viewport at player (%.1f, %.1f)" %
+                        [px, pz])
                     return
     cam.position = Vector3(0, 19.6, 13.3)
     cam.look_at(Vector3(0, 0, -2.2), Vector3.UP)

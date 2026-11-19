@@ -4,6 +4,10 @@ const Modules = preload("res://assets/base_command_modules.gd")
 const SeraRig = preload("res://scripts/sera_rig.gd")
 const VersionIndicator = preload("res://scripts/version_indicator.gd")
 const NEXUS_SCENE: String = "res://scenes/command_nexus.tscn"
+# Fill nearly the entire 256 m continuous ground with actual visible
+# 3D grid plates, leaving no ungridded view at the extreme camera positions.
+const PLATE_GRID_RADIUS_CELLS: int = 42
+const PLATE_GRID_STEP: float = 3.0
 const WALK_SPEED: float = 3.2
 const PLAYER_Y: float = 0.08
 const JOYSTICK_RADIUS: float = 76.0
@@ -100,26 +104,54 @@ func _gate_facing_yaw() -> float:
     var toward_stage: Vector3 = Vector3(0.0, 0.0, -4.75) - Vector3(4.0, 0.02, -10.48)
     return atan2(toward_stage.x, toward_stage.z)
 
+func _create_grid_plates(floor: Node3D) -> void:
+    # Six colored MultiMeshes preserve the old 2.94 m patchwork panels and
+    # narrow exposed seams. Expanding 35 individual MeshInstances to 7,225
+    # would create excessive Android scene nodes and draw calls.
+    var tints := [
+        Color("#3b4758"), Color("#4d5765"), Color("#323f50"),
+        Color("#586171"), Color("#465162"), Color("#3f4a5d")
+    ]
+    var plate_mesh := BoxMesh.new()
+    plate_mesh.size = Vector3(2.94, 0.30, 2.94)
+    var grouped: Array = []
+    for index in range(tints.size()):
+        grouped.append([])
+    for x in range(-PLATE_GRID_RADIUS_CELLS, PLATE_GRID_RADIUS_CELLS + 1):
+        for z in range(-PLATE_GRID_RADIUS_CELLS, PLATE_GRID_RADIUS_CELLS + 1):
+            var palette_index: int = posmod(x * 11 + z * 7, tints.size())
+            (grouped[palette_index] as Array).append(
+                Transform3D(Basis.IDENTITY,
+                    Vector3(float(x) * PLATE_GRID_STEP, -0.18,
+                        float(z) * PLATE_GRID_STEP)))
+    for palette_index in range(tints.size()):
+        var poses: Array = grouped[palette_index]
+        var multi := MultiMesh.new()
+        multi.transform_format = MultiMesh.TRANSFORM_3D
+        multi.mesh = plate_mesh
+        multi.instance_count = poses.size()
+        for index in range(poses.size()):
+            multi.set_instance_transform(index, poses[index])
+        var draw := MultiMeshInstance3D.new()
+        draw.name = "GridPlateBatch_%02d" % palette_index
+        draw.multimesh = multi
+        var mat := StandardMaterial3D.new()
+        mat.albedo_color = tints[palette_index]
+        mat.metallic = 0.25
+        mat.roughness = 0.70
+        draw.material_override = mat
+        draw.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+        floor.add_child(draw)
+
 func _build_hangar() -> void:
     # Exterior base: the enclosed Blockbench hangar remains inside the NEXUS menu.
     var floor := Node3D.new()
     floor.name = "PatchworkSteelFloor"
     add_child(floor)
-    # One continuous opaque ground mesh remains beneath the decorative plates.
-    # A 256 m span covers the extreme portrait-camera frustum and all follow
-    # positions, without instancing thousands of distant tiles on Android.
+    # The dark one-piece ground remains visible only in the 0.06 m seams.
     _box(floor, "ContinuousGround", Vector3(0.0, -0.21, 0.0),
         Vector3(256.0, 0.30, 256.0), Color("#323f50"))
-    var tints := [
-        Color("#3b4758"), Color("#4d5765"), Color("#323f50"),
-        Color("#586171"), Color("#465162"), Color("#3f4a5d")
-    ]
-    for x in range(-2, 3):
-        for z in range(-3, 4):
-            var idx: int = posmod(x * 11 + z * 7, tints.size())
-            _box(floor, "SalvagedPlate_%d_%d" % [x, z],
-                Vector3(float(x) * 3.0, -0.18, float(z) * 3.0),
-                Vector3(2.94, 0.30, 2.94), tints[idx])
+    _create_grid_plates(floor)
     _add_module("maintenance_pad", Vector3(-4.25, 0.0, -1.8), 0.0, 0.72)
     _add_module("kiosk", Vector3(4.25, 0.0, 1.2), 0.0, 0.85)
     _add_module("data_bank", Vector3(5.0, 0.0, -3.0), 0.0, 0.52)
