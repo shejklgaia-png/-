@@ -316,16 +316,31 @@ func _run() -> void:
                         "_authored_key_rotation", clip, bone_name, t)
                     var authored_pos: Vector3 = rig.call(
                         "_authored_key_position", clip, bone_name, t)
-                    # v452 applies up to 20 degrees of world-Y chest
-                    # aiming on top of untouched authored source keys.
-                    # This is not a source keyframe mutation; v434 tests
-                    # exact independent replay without the battle aim.
+                    # Player aiming is an ADDITIVE pose stage, not a
+                    # Blockbench source-key change. BODY now translates
+                    # <=1m on XZ and adds <=30deg world yaw; the strict
+                    # independent source replay is still covered by
+                    # v434. Validate the new permitted envelope here.
                     var allowed_rotation: float = (
-                        deg_to_rad(20.1) if bone_name == "Body"
+                        deg_to_rad(30.1) if bone_name == "Body"
                         else 0.002)
-                    if joint.quaternion.angle_to(authored_rot) > allowed_rotation or (
-                            joint.position.distance_to(authored_pos) > 0.0001):
-                        _fail("striker/Body source key changed " +
+                    if joint.quaternion.angle_to(authored_rot) > allowed_rotation:
+                        _fail("source BODY yaw exceeds allowed aim " +
+                            str([clip, bone_name, t]))
+                        return
+                    if bone_name == "Body":
+                        var unsteered_world: Vector3 = (
+                            joint.get_parent() as Node3D).to_global(
+                                authored_pos)
+                        var delta_world: Vector3 = (
+                            joint.global_position - unsteered_world)
+                        if delta_world.length() > 1.01 or (
+                                absf(delta_world.y) > 0.002):
+                            _fail("source BODY moved beyond 1m XZ " +
+                                str([clip, t, delta_world]))
+                            return
+                    elif joint.position.distance_to(authored_pos) > 0.0001:
+                        _fail("striker joint position changed " +
                             str([clip, bone_name, t]))
                         return
             var supports: int = 0
