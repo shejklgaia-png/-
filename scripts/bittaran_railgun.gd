@@ -40,7 +40,6 @@ const CHASE_SPEED_MPS: float = (RUN_REFERENCE_SPEED_MPS
 const MAX_BEAM_RANGE_METERS: float = 45.0
 const BEAM_RADIUS_METERS: float = 0.70
 const PLAYER_HIT_RADIUS_METERS: float = 0.48
-const BEAM_DAMAGE_TICK_SECONDS: float = 0.5
 const MUZZLE_LOCAL_Z: float = -1.53
 # Two authored rails, not the body, pedestal, head or either leg.
 # Original mesh UUIDs, geometry, materials and Blockbench source are retained.
@@ -61,11 +60,10 @@ var elapsed: float = 0.0
 var last_phase: int = Phase.WAIT
 var return_yaw_origin: float = 0.0
 var return_pitch_origin: float = 0.0
-var hit_cooldown: float = 0.0
-# Once a visible beam touches SERA, keep delivering the remaining 0.5s
-# damage pulses throughout THIS 2s shot, even if impact recoil displaces
-# SERA outside the narrow visual ray. Reset on beam end / next cycle / KO.
-var beam_hit_latched: bool = false
+# Exactly one registered damage event per visible laser shot. A real
+# beam/player overlap is required for that one event; further overlaps
+# while the laser remains visible must never cause follow-up hits.
+var beam_hit_registered: bool = false
 var ready_to_fire: bool = false
 var mount_body: Node3D
 var mount_rig: Node3D
@@ -213,8 +211,7 @@ func reset() -> void:
     last_phase = Phase.WAIT
     return_yaw_origin = 0.0
     return_pitch_origin = 0.0
-    hit_cooldown = 0.0
-    beam_hit_latched = false
+    beam_hit_registered = false
     aim_yaw = 0.0
     tracking_world_initialized = false
     tracked_world_yaw = 0.0
@@ -358,8 +355,8 @@ func _beam_overlaps_player(player_world: Vector3) -> bool:
     return distance_squared <= pow(
         BEAM_RADIUS_METERS + PLAYER_HIT_RADIUS_METERS, 2.0)
 
-## True on each beam damage pulse. First contact is geometric; afterward
-## the player is locked into the remaining full-hit volley until beam end.
+## True only for the FIRST physically registered hit in this laser shot.
+## Subsequent beam intersections must not damage or restart knockback.
 func advance(delta: float, player_world: Vector3, active: bool,
         boost_speed_mps: float = BOOST_REFERENCE_SPEED_MPS,
         run_speed_mps: float = RUN_REFERENCE_SPEED_MPS) -> bool:
@@ -368,12 +365,11 @@ func advance(delta: float, player_world: Vector3, active: bool,
         return false
     var step: float = maxf(delta, 0.0)
     elapsed = fposmod(elapsed + step, PERIOD_SECONDS)
-    hit_cooldown = maxf(0.0, hit_cooldown - step)
     var phase: int = _phase_at(elapsed)
     if phase != Phase.BEAM:
-        # A combo belongs only to the beam that originally made contact.
-        # A BOOST that dodges the NEXT beam must not inherit this latch.
-        beam_hit_latched = false
+        # Re-arm only after the current beam actually ends. A new shot
+        # needs a fresh physical collision to cause its one hit.
+        beam_hit_registered = false
     if phase == Phase.RETURN and last_phase != Phase.RETURN:
         # Start return on the FIRST frame after beam ends (no hold).
         return_yaw_origin = aim_yaw
@@ -431,12 +427,10 @@ func advance(delta: float, player_world: Vector3, active: bool,
         inner_beam.scale.x = 1.0 + 0.035 * sin(elapsed * 57.0)
         inner_beam.scale.z = inner_beam.scale.x
     last_phase = phase
-    if firing and hit_cooldown <= 0.0 and (
-            beam_hit_latched or _beam_overlaps_player(player_world)):
-        # First pulse requires genuine world-space beam overlap. Once
-        # confirmed, recoil cannot cancel remaining pulses, even if it
-        # carries the player off-axis; the latch expires with the beam.
-        beam_hit_latched = true
-        hit_cooldown = BEAM_DAMAGE_TICK_SECONDS
+    if firing and not beam_hit_registered and (
+            _beam_overlaps_player(player_world)):
+        # The FIRST real overlap causes knockback. All later samples in
+        # this same 2-second beam are ignored (even if it intersects again).
+        beam_hit_registered = true
         return true
     return false

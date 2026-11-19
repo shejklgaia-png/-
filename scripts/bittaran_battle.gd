@@ -1734,11 +1734,10 @@ func _physics_process(delta: float) -> void:
 func _tick_bittaran_railgun(delta: float) -> void:
     if bittaran_railgun == null or player == null:
         return
-    # The first beam hit starts the STANDARD physical Damageknock.
-    # Keep SERA in that reaction until the whole two-second beam finishes,
-    # so each subsequent 0.5s pulse lands even if knockback moves the
-    # capsule away. An untouched laser remains dodgeable by BOOST.
-    # Player KO keeps beam visuals active but suppresses further damage.
+    # The beam may damage SERA just ONCE per shot. Genuine first contact
+    # triggers the normal knockback reaction, but the remaining beam has
+    # no follow-up damage or forced hitstun. Unhit BOOST is still dodgeable.
+    # Player KO leaves the current beam VFX visible until its natural end.
     var active: bool = target_hp > 0.0
     var boost_speed_mps: float = (
         float(part_stats.get("boost_speed", 6.09375)) *
@@ -1748,23 +1747,15 @@ func _tick_bittaran_railgun(delta: float) -> void:
     var laser_pulse: bool = bool(bittaran_railgun.call(
         "advance", delta, player.global_position, active,
         boost_speed_mps, run_speed_mps))
-    # Clearing the beam latch also releases the forced damage pose.
-    # Beam timing, targeting and the 0.7s neutral return stay unchanged.
-    if not active or not bool(bittaran_railgun.get("beam_hit_latched")):
-        laser_full_hit_lock_active = false
     if laser_pulse and player_hp > 0.0 and training_ko_remaining <= 0.0:
         var incoming: Vector3 = (
             player.global_position - bittaran_railgun.global_position)
         if incoming.length_squared() < 0.000001:
             incoming = Vector3.FORWARD
-        # Normal guard/shield/HP behavior and the actual 1.2m physical
-        # knockback are restored for this laser. Repeated beam ticks
-        # cannot restart Damageknock, but its existing pose remains held.
+        # Keep normal guard/shield/HP and 1.2m physical knockback.
+        # The gun guarantees there is no second damage event this shot.
         _on_enemy_projectile_hit(player.global_position,
             incoming.normalized(), true, 0)
-        if player_hp > 0.0 and training_ko_remaining <= 0.0 and (
-                damage_reaction_active):
-            laser_full_hit_lock_active = true
 
 ## Read the actual world-space striking-foot mesh after source replay + IK.
 ## The legacy procedural attack_pose stays empty during source replay.
