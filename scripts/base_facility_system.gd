@@ -28,6 +28,8 @@ var modal_panel: PanelContainer
 var modal_title: Label
 var modal_body: Label
 var modal_actions: VBoxContainer
+var actions_scroll: ScrollContainer
+var section_tabs: HBoxContainer
 var active_key: String = ""
 var selected_prototype: String = ""
 var prototype_notice: String = ""
@@ -282,10 +284,10 @@ func attach_hud(hud: Control) -> void:
     modal.add_child(shade)
     modal_panel = PanelContainer.new()
     modal_panel.name = "FacilitySheet"
-    modal_panel.anchor_left = 0.07
-    modal_panel.anchor_top = 0.17
-    modal_panel.anchor_right = 0.93
-    modal_panel.anchor_bottom = 0.83
+    modal_panel.anchor_left = 0.04
+    modal_panel.anchor_top = 0.08
+    modal_panel.anchor_right = 0.96
+    modal_panel.anchor_bottom = 0.92
     modal_panel.mouse_filter = Control.MOUSE_FILTER_STOP
     var style := StyleBoxFlat.new()
     style.bg_color = Color("#132435")
@@ -295,11 +297,13 @@ func attach_hud(hud: Control) -> void:
     modal_panel.add_theme_stylebox_override("panel", style)
     modal.add_child(modal_panel)
     var padding := MarginContainer.new()
+    padding.name = "FacilityPadding"
     for side in ["left", "right", "top", "bottom"]:
-        padding.add_theme_constant_override("margin_" + side, 20)
+        padding.add_theme_constant_override("margin_" + side, 12)
     modal_panel.add_child(padding)
     var body := VBoxContainer.new()
-    body.add_theme_constant_override("separation", 15)
+    body.name = "FacilityContent"
+    body.add_theme_constant_override("separation", 9)
     padding.add_child(body)
     var header_row := HBoxContainer.new()
     header_row.name = "FacilityHeaderRow"
@@ -307,17 +311,49 @@ func attach_hud(hud: Control) -> void:
     body.add_child(header_row)
     modal_title = Label.new()
     modal_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-    modal_title.add_theme_font_size_override("font_size", 25)
+    modal_title.add_theme_font_size_override("font_size", 23)
     modal_title.add_theme_color_override("font_color", Color("#b8f0ff"))
     header_row.add_child(modal_title)
+    # Persistent, non-scrolling tabs remain accessible in every sub-page.
+    section_tabs = HBoxContainer.new()
+    section_tabs.name = "FacilitySectionTabs"
+    section_tabs.add_theme_constant_override("separation", 5)
+    body.add_child(section_tabs)
+    for entry in [
+        {"id": "TabCraft", "label": "装備製作", "target": "craft"},
+        {"id": "TabMaterials", "label": "素材変換", "target": "materials"},
+        {"id": "TabWarehouse", "label": "倉庫", "target": "warehouse"}
+    ]:
+        var button := Button.new()
+        button.name = str(entry["id"])
+        button.text = str(entry["label"])
+        button.toggle_mode = true
+        button.custom_minimum_size.y = 58.0
+        button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+        button.add_theme_font_size_override("font_size", 17)
+        button.add_theme_color_override("font_color", Color("#f4fbff"))
+        var inactive := StyleBoxFlat.new()
+        inactive.bg_color = Color("#26394b")
+        inactive.border_color = Color("#516d7d")
+        inactive.set_border_width_all(1)
+        inactive.set_corner_radius_all(7)
+        button.add_theme_stylebox_override("normal", inactive)
+        var active: StyleBoxFlat = inactive.duplicate()
+        active.bg_color = Color("#145e74")
+        active.border_color = Color("#99edff")
+        active.set_border_width_all(2)
+        button.add_theme_stylebox_override("pressed", active)
+        button.add_theme_stylebox_override("hover", active)
+        button.pressed.connect(_switch_section.bind(str(entry["target"])))
+        section_tabs.add_child(button)
     modal_body = Label.new()
     modal_body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-    modal_body.add_theme_font_size_override("font_size", 18)
+    modal_body.add_theme_font_size_override("font_size", 16)
     modal_body.add_theme_color_override("font_color", Color("#dce9ee"))
     body.add_child(modal_body)
     # Scrollable actions prevent menus with four material families from
     # overflowing a compact Android portrait viewport.
-    var actions_scroll := ScrollContainer.new()
+    actions_scroll = ScrollContainer.new()
     actions_scroll.name = "FacilityActionsScroll"
     actions_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
     actions_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
@@ -362,9 +398,8 @@ func is_menu_open() -> bool:
 
 func _clear_actions() -> void:
     # New pages always start at the top, even if the previous one was scrolled.
-    var scroll: ScrollContainer = modal_actions.get_parent() as ScrollContainer
-    if scroll != null:
-        scroll.scroll_vertical = 0
+    if actions_scroll != null:
+        actions_scroll.scroll_vertical = 0
     for child in modal_actions.get_children():
         modal_actions.remove_child(child)
         child.queue_free()
@@ -376,6 +411,33 @@ func _add_action(label: String, detail: String) -> void:
     button.add_theme_font_size_override("font_size", 19)
     button.pressed.connect(_show_detail.bind(detail))
     modal_actions.add_child(button)
+
+func _switch_section(target: String) -> void:
+    match target:
+        "craft":
+            open_facility("LABO")
+            _show_prototype_catalog()
+        "materials":
+            open_facility("SMELTER")
+        "warehouse":
+            open_facility("STORAGE")
+
+
+func _sync_section_tabs() -> void:
+    if section_tabs == null:
+        return
+    var current: String = ""
+    match active_key:
+        "LABO":
+            current = "TabCraft"
+        "SMELTER", "RECYCLER":
+            current = "TabMaterials"
+        "STORAGE":
+            current = "TabWarehouse"
+    for child in section_tabs.get_children():
+        if child is Button:
+            (child as Button).button_pressed = child.name == current
+
 
 func open_facility(key: String) -> void:
     var spec: Dictionary = _spec_for(key)
@@ -431,6 +493,7 @@ func open_facility(key: String) -> void:
         "BUILD_TERMINAL":
             modal_body.text = "建設端末\nフィールド上の設備や床・通路を管理します。"
             _add_action("拠点の発展", "施設を一棟に集約せず、資源・生産・発展設備をフィールド上に独立配置します。\n配置変更と建設コストは今後実装します。")
+    _sync_section_tabs()
 
 func _claim_trial_materials(return_to_catalog: bool = false) -> void:
     var granted: bool = SeraSave.claim_trial_materials()
@@ -489,7 +552,7 @@ func _show_inventory() -> void:
     page = "inventory"
     _clear_actions()
     modal_title.text = "資材保管庫"
-    modal_body.text = "素材12種類と製作した装備を確認できます。"
+    modal_body.text = "素材12種類と製作した装備の一覧です。下にスクロールできます。"
     var inventory: Dictionary = SeraSave.get_material_inventory()
     for family in BaseMaterials.FAMILY_IDS:
         for tier in BaseMaterials.TIERS:
@@ -516,7 +579,7 @@ func _show_prototype_catalog() -> void:
     _clear_actions()
     modal_title.text = "試作装備の製作"
     modal_body.text = (
-        "7種類から選択できます。試作は素材消費なし。"
+        "7種類から選択してください。試作は素材消費なし。"
         + "\n完成品は倉庫に登録され、NEXUSで装備できます。")
     if SeraSave.active_slot == 0:
         modal_body.text += "\n製作するにはセーブデータが必要です。"
@@ -606,9 +669,7 @@ func _render_prototype_detail() -> void:
     modal_body.text += "\n3D表示は現行のAモデルを使用します。"
     if not prototype_notice.is_empty():
         modal_body.text += "\n" + prototype_notice
-    _add_item_tile(IconAtlas.equipment_icon(selected_prototype),
-        str(spec["name"]),
-        "PrototypePreview_" + selected_prototype)
+    # The craft action is above the icon so it cannot be hidden below the fold.
     var make := Button.new()
     make.name = "CraftPrototype"
     make.text = "製作して倉庫に登録"
@@ -616,6 +677,9 @@ func _render_prototype_detail() -> void:
     make.disabled = SeraSave.active_slot == 0
     make.pressed.connect(_craft_selected_prototype)
     modal_actions.add_child(make)
+    _add_item_tile(IconAtlas.equipment_icon(selected_prototype),
+        str(spec["name"]),
+        "PrototypePreview_" + selected_prototype)
 
 func _show_conversion(direction: int) -> void:
     conversion_mode = direction
@@ -685,14 +749,12 @@ func _render_conversion() -> void:
         "精製 " if conversion_mode == 1
         else "分解 ") + str(BaseMaterials.FAMILY_NAMES[conversion_family])
     var stock: Dictionary = SeraSave.get_material_inventory()
+    # Counts are displayed alongside each actual input/output icon below.
+    # Avoid a large repeated explanation pushing the action buttons off-screen.
     var lines: Array[String] = [
-        "同じ素材系統内でのみ変換できます。\n製作の必要素材は固定で、他ランクでは代替できません。",
-        "変換比率（暫定）：低2→中1→高（精製） / 上1→下2（分解）"
+        "素材のランクと所持数を確認して変換してください。",
+        "精製：低2→中1→高 / 分解：上1→下2（暫定）"
     ]
-    for tier in BaseMaterials.TIERS:
-        var material_id: String = conversion_family + "_" + str(tier)
-        lines.append(BaseMaterials.display_name(material_id) +
-            "： " + str(stock[material_id]) + "個")
     if SeraSave.active_slot == 0:
         lines.append("先にNEXUSでセーブスロットを作成・選択してください。")
     if not conversion_notice.is_empty():

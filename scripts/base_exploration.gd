@@ -394,6 +394,8 @@ func _create_hud() -> void:
     hud.mouse_filter = Control.MOUSE_FILTER_IGNORE
     layer.add_child(hud)
     hud.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+    # CanvasLayer is not a Control: size explicitly from the real viewport.
+    hud.size = get_viewport().get_visible_rect().size
     hud_title = _label(hud, "BASE", 25)
     hint = _label(hud, "建物をタップ、または下のメニューから操作", 19)
     nexus_tag = _label(hud, "NEXUS", 20)
@@ -402,6 +404,7 @@ func _create_hud() -> void:
     quick_bar = HBoxContainer.new()
     quick_bar.name = "BaseQuickActions"
     quick_bar.add_theme_constant_override("separation", 8)
+    quick_bar.mouse_filter = Control.MOUSE_FILTER_STOP
     hud.add_child(quick_bar)
     for entry in [
         {"name": "QuickCraft", "title": "装備製作", "target": "craft"},
@@ -412,8 +415,19 @@ func _create_hud() -> void:
         button.name = str(entry["name"])
         button.text = str(entry["title"])
         button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-        button.custom_minimum_size.y = 64.0
-        button.add_theme_font_size_override("font_size", 17)
+        button.custom_minimum_size.y = 70.0
+        button.add_theme_font_size_override("font_size", 19)
+        button.add_theme_color_override("font_color", Color.WHITE)
+        var normal := StyleBoxFlat.new()
+        normal.bg_color = Color("#16495a")
+        normal.border_color = Color("#8eeaff")
+        normal.set_border_width_all(2)
+        normal.set_corner_radius_all(10)
+        button.add_theme_stylebox_override("normal", normal)
+        var hover: StyleBoxFlat = normal.duplicate()
+        hover.bg_color = Color("#25758e")
+        button.add_theme_stylebox_override("hover", hover)
+        button.add_theme_stylebox_override("pressed", hover)
         button.pressed.connect(_quick_open.bind(str(entry["target"])))
         quick_bar.add_child(button)
     stick_outer = _panel(hud, "MoveStickOuter")
@@ -434,8 +448,8 @@ func _layout_hud() -> void:
     hint.position = Vector2(18, 72)
     hint.size = Vector2(view.x - 36, 38)
     hint.add_theme_font_size_override("font_size", 16 if view.x < 600.0 else 19)
-    quick_bar.position = Vector2(14.0, maxf(150.0, view.y - 83.0))
-    quick_bar.size = Vector2(maxf(220.0, view.x - 28.0), 66.0)
+    quick_bar.position = Vector2(14.0, maxf(150.0, view.y - 96.0))
+    quick_bar.size = Vector2(maxf(220.0, view.x - 28.0), 76.0)
     stick_outer.position = Vector2(view.x - 180, view.y - 194)
     stick_outer.size = Vector2(164, 164)
     stick_knob.size = Vector2(72, 72)
@@ -457,14 +471,8 @@ func _update_nexus_tag() -> void:
 func _quick_open(target: String) -> void:
     if scene_changing or facility_system == null:
         return
-    match target:
-        "craft":
-            facility_system.call("open_facility", "LABO")
-            facility_system.call("_show_prototype_catalog")
-        "materials":
-            facility_system.call("open_facility", "SMELTER")
-        "warehouse":
-            facility_system.call("open_facility", "STORAGE")
+    # A single entry point for both the base shortcuts and in-modal tabs.
+    facility_system.call("_switch_section", target)
 
 
 func _quick_bar_hit(point: Vector2) -> bool:
