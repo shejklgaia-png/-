@@ -1,3 +1,10 @@
+## 2026-11-19 — SERA v486: ビットタランの縦振動を種類別に強化
+
+- **CI事前確認**：現行v485、`.github/workflows/sera-model-policy.yml`、`tools/sera_ci_manifest.txt`、`docs/SERA_ACTIVE_CI_POLICY_ja.md`、既存の`v345` Bittaranリグ/モデル・`v435`歩行/IK・`bittaran_ground_fx_rebuild_runtime_check.gd`・`bittaran_keyframe_hit_sector_runtime_check.gd`を確認。旧振動の固定期待値を持つ登録済みテストはなく、旧攻撃/カメラ不変条件は維持。
+- **先行CI追加**：実装前に`tools/bittaran_camera_shake_runtime_check.gd`を新規作成して`tools/sera_ci_manifest.txt`へ登録。足先とプレイヤーの水平距離0m=1/5m=0.5/10m以上=0、垂直距離からの独立、単調減衰、踏みつけ大・急収束、弾き一瞬大、なぎ払い中揺れの再発生と回復後停止、上下振動優位、0オフセット復帰を独立した新仕様で検証する。
+- **実装**：`scripts/bittaran_battle.gd`の共通フラストラムシェイクを、衝撃種別ごとに強度と指数減衰を切り替える実装へ。水平方向0.60、上下1.55。踏みつけは接地時に0.44→0.17（視距離26m補間）・減衰13.5/s、弾きは強度0.38・減衰20/s、なぎ払いは攻撃中0.14秒ごとに強度0.16・減衰11.5/s。歩行は実足接地時に0.20×smoothstep距離係数・減衰10.5/s。いずれも既存共通倍率1.5を通し、他の演出やモデルを変更しない。
+- **操作感確認**：Android実機で振動の最大幅・短さ、なぎ払いの連続性、足元強め／10m消失、カメラのセンタリングを確認。全Python/Godot CIはmainマージ後に実施し、自動検査結果と実機検査を区別する。
+
 ## 2026-11-19 — SERA v485: レーザー追尾加速の0〜2.5m連続補間
 
 - **事前CI確認**：`project.godot` v484、`.github/workflows/sera-model-policy.yml`、`tools/sera_ci_manifest.txt`、`docs/SERA_ACTIVE_CI_POLICY_ja.md`、`tools/bittaran_railgun_runtime_check.gd`、`tools/bittaran_world_yaw_independence_runtime_check.gd`を確認。旧期待値「1.5m以下は0.7倍固定／1.5m超で急加速」は今回の新仕様と衝突する。照射前の高速追尾→縮小時0.7倍制限、レーザー照射2秒・無制限再命中・威力60%・本体回転の分離は不変。
