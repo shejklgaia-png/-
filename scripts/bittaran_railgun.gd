@@ -433,6 +433,15 @@ func _neutral_world_yaw() -> float:
     return atan2(-forward.x, -forward.z)
 
 
+func _sync_mount_position() -> void:
+    # The chassis and authored BODY bones are finalized before the railgun
+    # ticks. Update the pivot BEFORE calculating the desired world heading:
+    # sampling the last frame's pivot creates a phantom chassis-dependent
+    # aim correction even when the motor itself is world-locked.
+    if mount_body != null:
+        global_position = mount_body.to_global(MOUNT_LOCAL_OFFSET)
+
+
 func _level_mount() -> void:
     if mount_body == null:
         return
@@ -443,7 +452,7 @@ func _level_mount() -> void:
     var chassis_yaw: float = _neutral_world_yaw()
     # The top-level gun does not inherit the Body transform; resample
     # only its attachment POSITION after every authored/IK pose tick.
-    global_position = mount_body.to_global(MOUNT_LOCAL_OFFSET)
+    _sync_mount_position()
     if chassis_axis != null:
         # The original upper shaft follows the chassis, not gun targeting.
         chassis_axis.global_basis = Basis(
@@ -473,20 +482,32 @@ func _level_mount() -> void:
     global_basis = Basis(pose.normalized()).scaled(scale_world)
 
 
-func _desired_player_angles(player_world: Vector3) -> Vector2:
-    # World-UP heading remains independent of the animated Body pitch/roll.
+func _desired_player_world_angles(player_world: Vector3) -> Vector2:
+    # The motor target is an ABSOLUTE world heading. Do not derive it by
+    # adding the chassis yaw to a local yaw offset: that cancellation is
+    # mathematically equivalent in normal cases, but unnecessarily couples
+    # the targeting path to a turning chassis.
     var to_player: Vector3 = (
         player_world + Vector3.UP * 0.92 - global_position)
     if to_player.length_squared() <= 0.0001:
-        return Vector2(aim_yaw, elevation.rotation.x)
+        return Vector2(
+            tracked_world_yaw if tracking_world_initialized
+            else _neutral_world_yaw() + aim_yaw,
+            elevation.rotation.x)
     var desired_world_yaw: float = atan2(-to_player.x, -to_player.z)
-    var relative_yaw: float = angle_difference(
-        _neutral_world_yaw(), desired_world_yaw)
     var flat: float = Vector2(to_player.x, to_player.z).length()
     var pitch: float = clampf(
         atan2(to_player.y, maxf(flat, 0.12)),
         deg_to_rad(-80.0), deg_to_rad(80.0))
-    return Vector2(relative_yaw, pitch)
+    return Vector2(desired_world_yaw, pitch)
+
+
+func _desired_player_angles(player_world: Vector3) -> Vector2:
+    # Compatibility for diagnostics that report yaw relative to the chassis.
+    # The motor itself uses _desired_player_world_angles exclusively.
+    var world_angles: Vector2 = _desired_player_world_angles(player_world)
+    return Vector2(angle_difference(
+        _neutral_world_yaw(), world_angles.x), world_angles.y)
 
 
 func _prefire_ease(t: float) -> float:
@@ -578,7 +599,7 @@ func _track_player(delta: float, player_world: Vector3,
         run_speed_mps: float = RUN_REFERENCE_SPEED_MPS,
         fast_charge_tracking: bool = false,
         live_beam_tracking: bool = true) -> void:
-    var desired: Vector2 = _desired_player_angles(player_world)
+    var desired: Vector2 = _desired_player_world_angles(player_world)
     var angular_rate: float = _tracking_turn_rate(
         player_world, boost_speed_mps, run_speed_mps)
     if not fast_charge_tracking:
@@ -601,9 +622,8 @@ func _track_player(delta: float, player_world: Vector3,
     if not tracking_world_initialized:
         tracked_world_yaw = neutral_yaw + aim_yaw
         tracking_world_initialized = true
-    var desired_world_yaw: float = neutral_yaw + desired.x
     var angle_error := Vector2(
-        angle_difference(tracked_world_yaw, desired_world_yaw),
+        angle_difference(tracked_world_yaw, desired.x),
         desired.y - elevation.rotation.x)
     # Constrain COMBINED yaw+pitch, not each independently, so diagonal
     # rotation cannot exceed the speed a BOOSTing player can escape.
@@ -658,6 +678,9 @@ func advance(delta: float, player_world: Vector3, active: bool,
     if not ready_to_fire or not active:
         reset()
         return false
+    # After the boss pose/IK tick, use the CURRENT mount for both pursuit
+    # and ray-gap calculations, not the previous physics-frame position.
+    _sync_mount_position()
     var step: float = maxf(delta, 0.0)
     elapsed = fposmod(elapsed + step, PERIOD_SECONDS)
     var phase: int = _phase_at(elapsed)
