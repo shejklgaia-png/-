@@ -13,6 +13,7 @@
 ## CIテストの先行更新
 - 変更前に`project.godot`現行v506、`AGENTS.md`、`.github/workflows/sera-model-policy.yml`、`tools/sera_ci_manifest.txt`、`docs/SERA_ACTIVE_CI_POLICY_ja.md`、`tools/bittaran_railgun_runtime_check.gd`に加え、`tools/bittaran_world_yaw_independence_runtime_check.gd`、`tools/bittaran_full_frame_level_gun_runtime_check.gd`、`tools/bittaran_chassis_axis_runtime_check.gd`を確認。
 - **ゲーム本体編集より前**に既存登録の`tools/bittaran_railgun_runtime_check.gd`の「球体縮小直前なら0.0004秒で任意角度にスナップする」期待値を、新仕様の30/sフィルターが常時動作する条件に変更。高速な旋回応答は保護。
-- 新たに充填開始後0.7秒の閾値を**60/120Hz**で跨ぎ、`acquisition_weight=0.999999`→`1.0`の回転量比が2%以内で連続する検査を追加。従来の1.2秒等他武装、RUN/BOOSTの速度帯、レーザー2秒、球体縮小時0.7x、ダウン停止、ヒット判定等は変更なし。
+- 新たに充填開始後0.7秒の閾値を**60/120Hz**で跨ぎ、`acquisition_weight=0.999999`→`1.0`の回転量比が2%以内で連続する検査を追加。
+- さらに独立したPython数理検査`tools/bittaran_railgun_charge_continuity_self_check.py`を新設。30/60/120/240Hzの応答係数、フレームレート不変性、追尾コードの即時スナップ分岐がないことを検査し、`tools/sera_ci_manifest.txt`に登録。従来の1.2秒等他武装、RUN/BOOSTの速度帯、レーザー2秒、球体縮小時0.7x、ダウン停止、ヒット判定等は変更なし。
 - GitHub ActionsのフルPython/Godot CIはmainマージ後に動作する設定。数式の外部再計算を30/60/120/240Hzで実施。Android実機の視覚的なスパイク消失は別検証。
 前バージョン：[v506](docs/history/release_notes/README_v506_ja.md)
