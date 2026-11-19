@@ -240,11 +240,15 @@ func _run() -> void:
     # hit sweep must STILL originate at the original muzzle position.
     # Do not silently shift the collision path by half the new bolt length.
     var original_muzzle: Vector3 = aim_pivot.to_global(TURRETS.MUZZLE_LOCAL)
-    if not first_shot.has("collision_position") or (
-            (first_shot["collision_position"] as Vector3).distance_to(
-                original_muzzle) > 0.001 or
-            (first_shot["position"] as Vector3).distance_to(
-                original_muzzle + direction * (TURRETS.PROJECTILE_LENGTH_METERS * 0.5)) > 0.001):
+    if not first_shot.has("collision_position"):
+        _fail("laser needs a separate original-muzzle collision anchor")
+        return
+    var collision_start: Vector3 = first_shot["collision_position"]
+    var visual_start: Vector3 = first_shot["position"]
+    if collision_start.distance_to(original_muzzle) > 0.001 or (
+            visual_start.distance_to(
+                original_muzzle + direction * (
+                    TURRETS.PROJECTILE_LENGTH_METERS * 0.5)) > 0.001):
         _fail("laser visual may start ahead but collision must remain on old muzzle path")
         return
     if direction.normalized().dot(
