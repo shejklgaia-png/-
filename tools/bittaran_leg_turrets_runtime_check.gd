@@ -1,8 +1,9 @@
 extends SceneTree
-## v500: one ornate belly cannon, a visible muzzle-cross pulse on each shot,
+## v501: fivefold muzzle cross, foreground overlay on every shot,
 ## preserved attack/downtime gates, and an intact independent railgun.
 const TURRETS = preload("res://scripts/bittaran_leg_turrets.gd")
 const RAILGUN = preload("res://scripts/bittaran_railgun.gd")
+const RENDER_ORDER = preload("res://scripts/render_order_policy.gd")
 const DT: float = 1.0 / 60.0
 
 func _initialize() -> void:
@@ -97,20 +98,65 @@ func _run() -> void:
         "TurretAim/MuzzleCrossFlash/CrossHorizontal") as MeshInstance3D
     var fx_v: MeshInstance3D = mount.get_node_or_null(
         "TurretAim/MuzzleCrossFlash/CrossVertical") as MeshInstance3D
+    var glow_h: MeshInstance3D = mount.get_node_or_null(
+        "TurretAim/MuzzleCrossFlash/GlowHorizontal") as MeshInstance3D
+    var glow_v: MeshInstance3D = mount.get_node_or_null(
+        "TurretAim/MuzzleCrossFlash/GlowVertical") as MeshInstance3D
     if flash == null or fx_h == null or fx_v == null or (
+            glow_h == null or glow_v == null or
             not fx_h.mesh is BoxMesh or not fx_v.mesh is BoxMesh or
-            (fx_h.mesh as BoxMesh).size.x < 0.40 or
-            (fx_v.mesh as BoxMesh).size.y < 0.40 or
-            flash.visible or TURRETS.FLASH_DURATION_SECONDS <= 0.0 or
-            TURRETS.FLASH_DURATION_SECONDS > 0.15 or
-            flash.position.distance_to(TURRETS.MUZZLE_LOCAL) > 0.0001):
-        _fail("cross-shaped muzzle flash must be hidden, centered and brief")
+            not glow_h.mesh is BoxMesh or not glow_v.mesh is BoxMesh):
+        _fail("large cross needs solid horizontal/vertical bars AND soft glow bars")
         return
-    var glow: StandardMaterial3D = fx_h.material_override as StandardMaterial3D
-    if glow == null or not glow.emission_enabled or (
-            glow.emission_energy_multiplier < 2.0 or
-            fx_v.material_override != glow):
-        _fail("both arms of the cross must actually emit light")
+    # The approved v500 bar was 0.62m long; the v501 request is ~5x
+    # (3.10m) in BOTH axes. A narrow hairline is not visually sufficient.
+    var horizontal: Vector3 = (fx_h.mesh as BoxMesh).size
+    var vertical: Vector3 = (fx_v.mesh as BoxMesh).size
+    var halo_horizontal: Vector3 = (glow_h.mesh as BoxMesh).size
+    var halo_vertical: Vector3 = (glow_v.mesh as BoxMesh).size
+    if absf(horizontal.x - 3.10) > 0.06 or (
+            absf(vertical.y - 3.10) > 0.06 or
+            horizontal.y < 0.11 or vertical.x < 0.11 or
+            halo_horizontal.x < horizontal.x or
+            halo_vertical.y < vertical.y or
+            halo_horizontal.y < horizontal.y * 2.0 or
+            halo_vertical.x < vertical.x * 2.0):
+        _fail("v501 muzzle cross must be fivefold longer, thicker and haloed")
+        return
+    # The flash is placed visibly in front of the PHYSICAL muzzle.
+    # The separate no-depth-test transparent pass draws over 3D occluders
+    # even when Bittaran's body would otherwise hide it.
+    if flash.visible or (
+            absf(flash.position.x - TURRETS.MUZZLE_LOCAL.x) > 0.0001 or
+            absf(flash.position.y - TURRETS.MUZZLE_LOCAL.y) > 0.0001 or
+            flash.position.z > TURRETS.MUZZLE_LOCAL.z - 0.15 or
+            flash.position.z < TURRETS.MUZZLE_LOCAL.z - 0.30 or
+            TURRETS.FLASH_DURATION_SECONDS < 0.11 or
+            TURRETS.FLASH_DURATION_SECONDS > 0.15):
+        _fail("large cross must glow ahead of muzzle for a readable brief pulse")
+        return
+    var core_mat: StandardMaterial3D = fx_h.material_override as StandardMaterial3D
+    var halo_mat: StandardMaterial3D = glow_h.material_override as StandardMaterial3D
+    if core_mat == null or halo_mat == null:
+        _fail("both bright core and soft aura need materials")
+        return
+    if fx_v.material_override != core_mat or (
+            glow_v.material_override != halo_mat or
+            not core_mat.emission_enabled or
+            core_mat.emission_energy_multiplier < 7.0 or
+            not halo_mat.emission_enabled or
+            core_mat.transparency != BaseMaterial3D.TRANSPARENCY_ALPHA or
+            halo_mat.transparency != BaseMaterial3D.TRANSPARENCY_ALPHA or
+            not core_mat.no_depth_test or not halo_mat.no_depth_test or
+            core_mat.blend_mode != BaseMaterial3D.BLEND_MODE_ADD or
+            halo_mat.blend_mode != BaseMaterial3D.BLEND_MODE_ADD or
+            core_mat.billboard_mode != BaseMaterial3D.BILLBOARD_ENABLED or
+            halo_mat.billboard_mode != BaseMaterial3D.BILLBOARD_ENABLED):
+        _fail("foreground cross needs bright additive billboard materials without depth testing")
+        return
+    if core_mat.render_priority != RENDER_ORDER.CHARACTER_FOREGROUND or (
+            halo_mat.render_priority != RENDER_ORDER.CHARACTER_FOREGROUND):
+        _fail("foreground cross must reuse the registered depthless overlay pass")
         return
     var old_body: Transform3D = body.transform
     body.position += Vector3(0.10, 0.12, -0.07)
@@ -140,7 +186,7 @@ func _run() -> void:
     if direction.normalized().dot(
             -aim_pivot.global_basis.z.normalized()) < 0.999 or (
             flash.global_position.distance_to(
-                aim_pivot.to_global(TURRETS.MUZZLE_LOCAL)) > 0.001):
+                aim_pivot.to_global(flash.position)) > 0.001):
         _fail("cross flash must be attached to the actual firing muzzle")
         return
     turret.call("advance", TURRETS.FLASH_DURATION_SECONDS + 0.025, target, true)
