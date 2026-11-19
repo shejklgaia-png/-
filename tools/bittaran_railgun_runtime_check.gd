@@ -146,7 +146,9 @@ func _run() -> void:
     if absf(angle_difference(aim_at_end, float(gun.get("aim_yaw")))) > 0.0001:
         _fail("postfire hold changed the target angle before 0.4s")
         return
-    gun.call("advance", 0.78, player_origin, true)
+    # Sample near the END of the existing 0.8s return: the new test
+    # entered the beam with a significant off-axis aim, unlike v466.
+    gun.call("advance", 0.93, player_origin, true)
     if absf(float(gun.get("aim_yaw"))) > deg_to_rad(1.0) or (
             absf(elevation.rotation.x) > deg_to_rad(1.0)):
         _fail("barrel did not ease back to its neutral angle")
