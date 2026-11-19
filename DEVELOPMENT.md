@@ -3430,3 +3430,14 @@
 - **設備**：既設の精製炉/リサイクラーをそれぞれ専用「精製装置」「分解装置」に更新し、素材系統選択・変換回数・必要数・所持数・実行のUIを接続。資材保管庫から12種の在庫も確認可能。NEXUS/LABO、拠点の建物位置・CRATE巡回・バトル/モデルは変更なし。
 - **未接続**：ボス撃破報酬への素材追加、LABOの実際の製作レシピ、電力消費と製作時間は未確定のため追加せず。新規プレイヤーは初期所持数0。
 - **検証**：全Python/Godot CIはmainマージ後に実行。Android実機で画面表示とタップ感の確認が必要。
+
+
+## 2026-11-20 — SERA v509: 素材プルダウン廃止と統一戻る操作
+- **依頼**：精製・分解の素材選択をプルダウンではなく別ページの一覧とし、拠点施設・NEXUS共通で戻るボタン、画面外タップ、Androidのシステム戻るを階層移動として扱う。戻る矢印は見た目のみでもよい。
+- **CI事前確認**：v508 main・AGENTS・sera_ci_manifest・base_material_conversion_runtime_check・base_nexus_navigation_runtime_check・command_nexusの_existing_入力・SERA_ACTIVE_CI_POLICYを確認。GoogleではなくGodot公式4.7ドキュメントでAndroidのQuit On Go Back既定ONとWindow.go_back_requestedを確認。
+- **先行テスト**：本体修正前にbase_page_navigation_self_check.pyとbase_page_navigation_runtime_check.gdを作成・manifestへ登録。プルダウン廃止、4系統の一覧ページ、変換詳細、施設外側タップとKEY_BACK/Window.go_back_requested各一段階移動、LABOの詳細戻り、NEXUSのSYSTEM集中表示→概要→拠点を検証。
+- **実装**：base_facility_systemのOptionButtonを廃止して素材選択画面（4つの大きなタップボタン）と選択素材のランク変換画面に分離。施設の詳細説明も独立したページにし、下部戻るボタン・画面外タップ・PC Escape/Android Backを同じnavigate_backへ統合。施設メニューはスクロール可能なアクション領域を配置、戻る矢印は装飾でタップ判定を必要としない。
+- **NEXUS**：以前のBackとEXIT TO BASE、各端末の機能は保持。フォーカスメニューの外をタップすると概要へ、概要画面の端末外をタップすると拠点へ戻る。SYSTEMで保存/削除の確認中は一段戻って確認を解除する。Android Window.go_back_requestedでも同じ操作。
+- **Android設定**：project.godotのapplication/config/quit_on_go_back=false。Androidデバイスが戻る操作でアプリを即時終了する既定動作を無効化。
+- **不変条件**：基本素材12種、同系統のランク変換比率、セーブ/資源収支、LABO/NEXUS/CRATE配置、戦闘・モデル/モーションには変更なし。
+- **検証**：mainマージ後に既存全Python/Godot CI、実機ではAndroidジェスチャー・タップの可読性・挙動を確認。
