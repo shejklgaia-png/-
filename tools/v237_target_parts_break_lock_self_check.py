@@ -61,7 +61,11 @@ assert 'func _part_hit_surface(id: String, hit: Vector3) -> Vector3:' in m
 
 apply = m.split("func _apply_target_part_damage(", 1)[1].split(
     "func _register_strike_hit(", 1)[0]
-assert 'target_parts.call(\n            "apply_part_hit", locked_target_part_id, raw_attack, raw_break)' in apply
+# v510: shield reduces the incoming HP attack; the selected limb and the
+# independent raw_break value remain exactly as before.
+assert 'target_parts.call(\n            "apply_part_hit", locked_target_part_id, shielded_attack, raw_break)' in apply
+assert 'enemy_predictive_shield.apply_hit(float(raw_attack), false)' in apply
+assert 'float(last_shield_impact["damage_multiplier"])' in apply
 assert 'target_hp = maxi(0, target_hp - int(result["body_damage"]))' in apply
 assert '_register_test_hit(weak_stagger, extension)' in apply
 assert 'part_break_remaining = maxf(part_break_remaining, 1.0)' in apply
