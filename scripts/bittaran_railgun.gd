@@ -15,6 +15,12 @@ const FLASH_END: float = 9.8
 const FLASH_SHRINK_SECONDS: float = FLASH_END - FLASH_START
 # Deliberately slower than the standard 6.09375 m/s boost crossing a
 # ~8 m radius (43.6 degrees/s). A boost strafe can outrun the beam.
+# The final 0.4s charge/flash stage must capture even a boosting SERA
+# from any initial heading. Apply fast, smoothly filtered acquisition only
+# BEFORE laser onset. Switch to dodgeable tracking AFTER the shot begins.
+const PRE_FIRE_YAW_SPEED: float = 900.0
+const PRE_FIRE_PITCH_SPEED: float = 720.0
+const PRE_FIRE_FILTER_PER_SECOND: float = 24.0
 const TRACK_YAW_SPEED: float = 24.0
 const TRACK_PITCH_SPEED: float = 18.0
 const TRACK_FILTER_PER_SECOND: float = 6.0
@@ -233,28 +239,53 @@ func _level_mount() -> void:
     ).scaled(scale_world)
 
 
-func _track_player(delta: float, player_world: Vector3) -> void:
-    # WORLD-UP target tracking avoids Body-space yaw/pitch cross-coupling.
-    # This prevents a rolling barrel when the chassis pitches or leans.
+func _desired_player_angles(player_world: Vector3) -> Vector2:
+    # World-UP heading remains independent of the animated Body pitch/roll.
     var to_player: Vector3 = (
         player_world + Vector3.UP * 0.92 - global_position)
     if to_player.length_squared() <= 0.0001:
-        return
+        return Vector2(aim_yaw, elevation.rotation.x)
     var desired_world_yaw: float = atan2(-to_player.x, -to_player.z)
-    var target_yaw: float = angle_difference(
+    var relative_yaw: float = angle_difference(
         _neutral_world_yaw(), desired_world_yaw)
     var flat: float = Vector2(to_player.x, to_player.z).length()
-    var target_pitch: float = atan2(to_player.y, maxf(flat, 0.12))
-    var eased: float = 1.0 - exp(-TRACK_FILTER_PER_SECOND * delta)
-    var yaw_step: float = angle_difference(aim_yaw, target_yaw) * eased
-    aim_yaw += clampf(yaw_step,
-        -deg_to_rad(TRACK_YAW_SPEED) * delta,
-        deg_to_rad(TRACK_YAW_SPEED) * delta)
-    var pitch_step: float = (target_pitch - elevation.rotation.x) * eased
-    elevation.rotation.x = clampf(elevation.rotation.x + clampf(pitch_step,
-        -deg_to_rad(TRACK_PITCH_SPEED) * delta,
-        deg_to_rad(TRACK_PITCH_SPEED) * delta),
+    var pitch: float = clampf(
+        atan2(to_player.y, maxf(flat, 0.12)),
         deg_to_rad(-80.0), deg_to_rad(80.0))
+    return Vector2(relative_yaw, pitch)
+
+
+func _track_player(delta: float, player_world: Vector3,
+        fast_acquisition: bool = false) -> void:
+    var desired: Vector2 = _desired_player_angles(player_world)
+    var yaw_rate: float = (
+        PRE_FIRE_YAW_SPEED if fast_acquisition else TRACK_YAW_SPEED)
+    var pitch_rate: float = (
+        PRE_FIRE_PITCH_SPEED if fast_acquisition else TRACK_PITCH_SPEED)
+    var filter_rate: float = (
+        PRE_FIRE_FILTER_PER_SECOND if fast_acquisition
+        else TRACK_FILTER_PER_SECOND)
+    var eased: float = 1.0 - exp(-filter_rate * delta)
+    var yaw_step: float = angle_difference(aim_yaw, desired.x) * eased
+    aim_yaw += clampf(yaw_step,
+        -deg_to_rad(yaw_rate) * delta,
+        deg_to_rad(yaw_rate) * delta)
+    var pitch_step: float = (desired.y - elevation.rotation.x) * eased
+    elevation.rotation.x = clampf(
+        elevation.rotation.x + clampf(pitch_step,
+            -deg_to_rad(pitch_rate) * delta,
+            deg_to_rad(pitch_rate) * delta),
+        deg_to_rad(-80.0), deg_to_rad(80.0))
+
+
+func _lock_player_at_fire(player_world: Vector3) -> void:
+    # The charge phase already brought the cannon to the predicted target
+    # smoothly. Resolve remaining sub-frame angular error at the shot
+    # boundary so the FIRST laser sample points exactly at the real SERA,
+    # including last-moment BOOST motion. Never call this again in BEAM.
+    var target: Vector2 = _desired_player_angles(player_world)
+    aim_yaw = target.x
+    elevation.rotation.x = target.y
 
 func _show_charge(progress: float) -> void:
     for index in range(charge_materials.size()):
@@ -303,12 +334,18 @@ func advance(delta: float, player_world: Vector3, active: bool) -> bool:
         # exactly at the rig-relative neutral angle despite target motion.
         aim_yaw = 0.0
         elevation.rotation.x = 0.0
-    elif phase == Phase.FLASH or phase == Phase.PRE_FIRE or (
-            phase == Phase.BEAM):
-        # Begin the deliberately SLOW aim only once charge is complete
-        # (first pre-fire flash); preserve that speed limit for the whole
-        # two-second laser sweep. Fast boost strafes can escape the beam.
-        _track_player(step, player_world)
+    elif phase == Phase.FLASH or phase == Phase.PRE_FIRE:
+        # Full charge starts the blue-white spherical flash AND rapid,
+        # eased acquisition. Continue tracking throughout the .2s dark
+        # interval, so the cannon has a full .4s to capture a boosting SERA.
+        _track_player(step, player_world, true)
+    elif phase == Phase.BEAM:
+        if last_phase != Phase.BEAM:
+            # Match the live player position precisely on the FIRST beam
+            # frame. Afterwards the aim is intentionally dodgeable.
+            _lock_player_at_fire(player_world)
+        else:
+            _track_player(step, player_world)
     # Hold the FINAL firing orientation for 0.4 seconds after firing,
     # ease home over 0.8 seconds, then remain neutral while recharging.
     _show_charge(clampf(
