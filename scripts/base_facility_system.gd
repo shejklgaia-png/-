@@ -260,7 +260,7 @@ func attach_hud(hud: Control) -> void:
     for spec in FACILITY_SPECS:
         var tag := Label.new()
         tag.name = "FieldTag_" + str(spec["id"])
-        tag.text = str(spec["name"]) + "  ▸"
+        tag.text = str(spec["name"])
         tag.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
         tag.add_theme_font_size_override("font_size", 17)
         tag.add_theme_color_override("font_color", Color("#a5ecf7"))
@@ -305,15 +305,6 @@ func attach_hud(hud: Control) -> void:
     header_row.name = "FacilityHeaderRow"
     header_row.add_theme_constant_override("separation", 8)
     body.add_child(header_row)
-    # Decorative cue. Back is available through the bottom button, outside
-    # taps and the Android system gesture, even when this glyph is offscreen.
-    var back_appearance := Label.new()
-    back_appearance.name = "BackAppearance"
-    back_appearance.text = "‹"
-    back_appearance.mouse_filter = Control.MOUSE_FILTER_IGNORE
-    back_appearance.add_theme_font_size_override("font_size", 28)
-    back_appearance.add_theme_color_override("font_color", Color("#a5e9ff"))
-    header_row.add_child(back_appearance)
     modal_title = Label.new()
     modal_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
     modal_title.add_theme_font_size_override("font_size", 25)
@@ -364,7 +355,7 @@ func update_tags(camera: Camera3D) -> void:
                 clampf(point.x - label_width * 0.5, 8.0,
                     maxf(8.0, viewport.x - label_width - 8.0)),
                 clampf(point.y - 22.0, 110.0,
-                    maxf(110.0, viewport.y - 48.0)))
+                    maxf(110.0, viewport.y - 130.0)))
 
 func is_menu_open() -> bool:
     return modal != null and modal.visible
@@ -402,15 +393,32 @@ func open_facility(key: String) -> void:
             # Rarity research remains a future feature, not a fake craft action.
             var shell_button := Button.new()
             shell_button.name = "OpenPrototypeCatalog"
-            shell_button.text = "Shell開発｜試作装備の製作（7種類）  ›"
+            shell_button.text = "試作装備を製作"
+            shell_button.icon = IconAtlas.equipment_icon("H01")
             shell_button.custom_minimum_size.y = 74.0
             shell_button.pressed.connect(_show_prototype_catalog)
             modal_actions.add_child(shell_button)
+            var trial_button := Button.new()
+            trial_button.name = "ClaimTrialMaterials"
+            trial_button.text = "試作素材を受け取る"
+            trial_button.icon = IconAtlas.material_icon("scrap_mid")
+            trial_button.custom_minimum_size.y = 66.0
+            trial_button.disabled = SeraSave.active_slot <= 0 or (
+                bool(SeraSave.get_active_data().get("trial_materials_claimed", false)))
+            trial_button.pressed.connect(_claim_trial_materials)
+            modal_actions.add_child(trial_button)
             _add_action("OS開発", "新しいアクションや操作・照準などの機能を解放します。\nジャスト系の機能は採用しません。")
             _add_action("追加効果スロット研究", "装備レアリティごとの上限内で、LABO研究によりスロット枠を解放します。\n装着と交換はNEXUSのアセンブルで行います。")
         "SCRAP_COLLECTOR":
-            modal_body.text = "回収機\nフィールドの廃材を回収する設備です。"
-            _add_action("回収設備の情報", "スクラップの収集設備です。報酬量と回収方法は経済設計が確定してから接続します。")
+            modal_body.text = "回収機\n現在の所持素材は倉庫で確認できます。"
+            var stock_button := Button.new()
+            stock_button.name = "OpenMaterialInventory"
+            stock_button.text = "素材一覧を表示"
+            stock_button.icon = IconAtlas.material_icon("scrap_low")
+            stock_button.custom_minimum_size.y = 66.0
+            stock_button.pressed.connect(open_facility.bind("STORAGE"))
+            modal_actions.add_child(stock_button)
+            _add_action("回収設備の情報", "将来の実際の素材回収機能です。試作用素材はLABOから一度だけ受け取れます。")
         "SMELTER":
             _show_conversion(1)
         "RECYCLER":
@@ -423,6 +431,33 @@ func open_facility(key: String) -> void:
         "BUILD_TERMINAL":
             modal_body.text = "建設端末\nフィールド上の設備や床・通路を管理します。"
             _add_action("拠点の発展", "施設を一棟に集約せず、資源・生産・発展設備をフィールド上に独立配置します。\n配置変更と建設コストは今後実装します。")
+
+func _claim_trial_materials(return_to_catalog: bool = false) -> void:
+    var granted: bool = SeraSave.claim_trial_materials()
+    if return_to_catalog:
+        _show_prototype_catalog()
+    else:
+        open_facility("LABO")
+    modal_body.text += ("\n全12種類の試作素材を各6個受け取りました。"
+        if granted else "\n受け取り済み、またはセーブデータがありません。")
+
+
+func _create_trial_profile() -> void:
+    # Never overwrite existing saves, including an inactive legacy slot.
+    if SeraSave.active_slot > 0:
+        return
+    for slot in range(1, SeraSave.SLOT_COUNT + 1):
+        if SeraSave.get_slot(slot).is_empty():
+            if SeraSave.create_data(slot):
+                prototype_notice = "セーブスロット%dを作成しました。" % slot
+                _show_prototype_catalog()
+            else:
+                prototype_notice = "保存に失敗しました。"
+                _show_prototype_catalog()
+            return
+    prototype_notice = "セーブスロットが満杯です。NEXUSから既存データを読み込んでください。"
+    _show_prototype_catalog()
+
 
 func _add_item_tile(icon: Texture2D, title: String,
         key: String, parent: VBoxContainer = null) -> void:
@@ -453,19 +488,19 @@ func _add_item_tile(icon: Texture2D, title: String,
 func _show_inventory() -> void:
     page = "inventory"
     _clear_actions()
-    modal_title.text = "資材保管庫｜所持品"
-    modal_body.text = "基本素材12種類と製作した試作装備"
+    modal_title.text = "資材保管庫"
+    modal_body.text = "素材12種類と製作した装備を確認できます。"
     var inventory: Dictionary = SeraSave.get_material_inventory()
     for family in BaseMaterials.FAMILY_IDS:
         for tier in BaseMaterials.TIERS:
             var id: String = str(family) + "_" + str(tier)
             _add_item_tile(IconAtlas.material_icon(id),
-                "%s　×%s" % [BaseMaterials.display_name(id), str(inventory[id])],
+                "%s  %s個" % [BaseMaterials.display_name(id), str(inventory[id])],
                 "MaterialIcon_" + id)
     var items: Array = SeraSave.get_owned_prototypes()
     var heading := Label.new()
     heading.name = "CraftedStockHeader"
-    heading.text = "── 製作した試作装備：%d件 ──" % items.size()
+    heading.text = "製作済み装備  %d個" % items.size()
     heading.add_theme_font_size_override("font_size", 18)
     modal_actions.add_child(heading)
     for item in items:
@@ -479,10 +514,37 @@ func _show_inventory() -> void:
 func _show_prototype_catalog() -> void:
     page = "prototypes"
     _clear_actions()
-    modal_title.text = "LABO｜試作装備"
+    modal_title.text = "試作装備の製作"
     modal_body.text = (
-        "7種類の試作装備を製作できます。素材消費はありません（操作検証用）。"
-        + "\n完成品は資材保管庫に保存され、NEXUSのカスタマイズから選択できます。")
+        "7種類から選択できます。試作は素材消費なし。"
+        + "\n完成品は倉庫に登録され、NEXUSで装備できます。")
+    if SeraSave.active_slot == 0:
+        modal_body.text += "\n製作するにはセーブデータが必要です。"
+        var available_slot: int = 0
+        for slot in range(1, SeraSave.SLOT_COUNT + 1):
+            if SeraSave.get_slot(slot).is_empty():
+                available_slot = slot
+                break
+        if available_slot > 0:
+            var start := Button.new()
+            start.name = "CreateTrialProfile"
+            start.text = "セーブを新規作成して製作を始める"
+            start.custom_minimum_size.y = 65.0
+            start.pressed.connect(_create_trial_profile)
+            modal_actions.add_child(start)
+        else:
+            modal_body.text += "\nセーブの空きがありません。NEXUSで既存データを読み込んでください。"
+    if not prototype_notice.is_empty():
+        modal_body.text += "\n" + prototype_notice
+    if SeraSave.active_slot > 0 and not bool(
+            SeraSave.get_active_data().get("trial_materials_claimed", false)):
+        var trial := Button.new()
+        trial.name = "ClaimTrialMaterialsCatalog"
+        trial.text = "試作用素材を受け取る"
+        trial.icon = IconAtlas.material_icon("scrap_mid")
+        trial.custom_minimum_size.y = 62.0
+        trial.pressed.connect(_claim_trial_materials.bind(true))
+        modal_actions.add_child(trial)
     for bp in PrototypeCatalog.ORDER:
         var entry: Dictionary = PrototypeCatalog.spec(str(bp))
         var row := HBoxContainer.new()
@@ -498,7 +560,7 @@ func _show_prototype_catalog() -> void:
         row.add_child(icon)
         var button := Button.new()
         button.name = "Choose_" + str(bp)
-        button.text = PrototypeCatalog.display_name(str(bp)) + "  ›"
+        button.text = str(entry["name"])
         button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
         button.custom_minimum_size.y = 66.0
         button.add_theme_font_size_override("font_size", 17)
@@ -538,18 +600,18 @@ func _render_prototype_detail() -> void:
     if spec.is_empty():
         navigate_back()
         return
-    modal_title.text = "LABO｜" + PrototypeCatalog.display_name(selected_prototype)
+    modal_title.text = str(spec["name"])
     modal_body.text = "%s\n対象スロット：%s\n試作のため素材消費なし。" % [
         spec["description"], spec["slot"]]
     modal_body.text += "\n3D表示は現行のAモデルを使用します。"
     if not prototype_notice.is_empty():
         modal_body.text += "\n" + prototype_notice
     _add_item_tile(IconAtlas.equipment_icon(selected_prototype),
-        PrototypeCatalog.display_name(selected_prototype),
+        str(spec["name"]),
         "PrototypePreview_" + selected_prototype)
     var make := Button.new()
     make.name = "CraftPrototype"
-    make.text = "試作装備を1個製作して倉庫に登録"
+    make.text = "製作して倉庫に登録"
     make.custom_minimum_size.y = 74.0
     make.disabled = SeraSave.active_slot == 0
     make.pressed.connect(_craft_selected_prototype)
@@ -565,8 +627,8 @@ func _show_conversion(direction: int) -> void:
 func _render_family_page() -> void:
     _clear_actions()
     modal_title.text = (
-        "精製装置｜素材の選択" if conversion_mode == 1
-        else "分解装置｜素材の選択")
+        "精製する素材" if conversion_mode == 1
+        else "分解する素材")
     modal_body.text = (
         "素材を選んでランクアップしてください。"
         if conversion_mode == 1 else "素材を選んでランクダウンしてください。")
@@ -587,7 +649,7 @@ func _render_family_page() -> void:
             row.add_child(icon)
         var open_button := Button.new()
         open_button.name = "Open_" + str(family)
-        open_button.text = str(BaseMaterials.FAMILY_NAMES[family]) + "  ›"
+        open_button.text = str(BaseMaterials.FAMILY_NAMES[family])
         open_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
         open_button.custom_minimum_size.y = 68.0
         open_button.add_theme_font_size_override("font_size", 18)
@@ -620,8 +682,8 @@ func _perform_conversion(from_rank: int) -> void:
 func _render_conversion() -> void:
     _clear_actions()
     modal_title.text = (
-        "精製｜" if conversion_mode == 1
-        else "分解｜") + str(BaseMaterials.FAMILY_NAMES[conversion_family])
+        "精製 " if conversion_mode == 1
+        else "分解 ") + str(BaseMaterials.FAMILY_NAMES[conversion_family])
     var stock: Dictionary = SeraSave.get_material_inventory()
     var lines: Array[String] = [
         "同じ素材系統内でのみ変換できます。\n製作の必要素材は固定で、他ランクでは代替できません。",
@@ -711,7 +773,7 @@ func _render_conversion() -> void:
         flow.add_child(gained)
         var button := Button.new()
         button.name = "ConvertRank_" + str(rank)
-        button.text = "%s → %s　／ 実行" % [
+        button.text = "%s から %sへ変換" % [
             BaseMaterials.display_name(source_id),
             BaseMaterials.display_name(target_id)]
         button.custom_minimum_size.y = 66.0
@@ -725,7 +787,7 @@ func _show_detail(detail: String) -> void:
     if modal_body == null or active_key.is_empty():
         return
     page = "detail"
-    modal_title.text = str(_spec_for(active_key)["name"]) + "｜詳細"
+    modal_title.text = str(_spec_for(active_key)["name"]) + "の説明"
     _clear_actions()
     modal_body.text = detail
 

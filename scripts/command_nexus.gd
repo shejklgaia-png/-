@@ -1102,11 +1102,11 @@ func _refresh_equipment_controls() -> void:
             var blueprint: String = equipped_prototype.get_slice("-", 0)
             icon.texture = IconAtlas.equipment_icon(blueprint)
             icon.visible = icon.texture != null
-            label.text = "< %s >" % PrototypeCatalog.display_instance(
+            label.text = PrototypeCatalog.display_instance(
                 equipped_prototype)
             label.add_theme_font_size_override("font_size", 13)
         else:
-            label.text = "<   %s  %s   >" % [current_set, variant_label] \
+            label.text = "%s  %s" % [current_set, variant_label] \
                 if options.size() > 1 else current_set
             label.add_theme_font_size_override("font_size", 23)
 
