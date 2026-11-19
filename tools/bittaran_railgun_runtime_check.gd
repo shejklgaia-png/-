@@ -259,90 +259,98 @@ func _run() -> void:
     if (bars[0] as StandardMaterial3D).emission_energy_multiplier <= 0.22:
         _fail("charge progression did not light its first segment")
         return
-    # A boosted SERA may turn ~43.6deg/s around the gun at 8m. The gun
-    # must CATCH that motion before firing, then fall behind only AFTER
-    # the laser begins. Test both transitions in a single live 10s cycle.
-    var boost_speed: float = 6.09375
+    # Follow actual 6.09375m/s SERA around the boss throughout the
+    # CHARGE -> FLASH -> LOCK_HOLD -> BEAM timeline. At no transition may
+    # the cannon turn faster than its v471 slow angular cap.
+    var boost_speed: float = GUN.BOOST_REFERENCE_SPEED_MPS
     var boost_radius: float = 8.0
     var reference_forward: Vector3 = -gun.global_basis.z.normalized()
     var reference_right: Vector3 = gun.global_basis.x.normalized()
     var pivot_world: Vector3 = gun.global_position
     gun.call("reset")
-    # 240 prefire + 60 locked-pause frames, then 120 beam frames.
-    gun.set("elapsed", GUN.TRACK_START_SECONDS + 0.0001)
-    var aim_at_fire: float = 0.0
-    var target_at_fire: float = 0.0
-    var first_prefire_delta: float = 0.0
-    var last_target: Vector3 = Vector3.ZERO
-    # 2s eased pursuit + 0.5s full-lock delay + 1s dodgeable beam.
-    for i in range(420):
+    var tracked_beam_frames: int = 0
+    var saw_flash: bool = false
+    var saw_hold: bool = false
+    var saw_charge: bool = false
+    for i in range(1040):
         var t: float = float(i + 1) * DT
         var travel_angle: float = boost_speed / boost_radius * t
-        var boost_target: Vector3 = pivot_world + (
+        var orbit_target: Vector3 = pivot_world + (
             reference_forward * cos(travel_angle)
             + reference_right * sin(travel_angle)) * boost_radius
-        last_target = boost_target - Vector3.UP * 0.92
-        var before_step: float = float(gun.get("aim_yaw"))
-        gun.call("advance", DT, last_target, true)
-        if i == 0:
-            first_prefire_delta = absf(rad_to_deg(angle_difference(
-                before_step, float(gun.get("aim_yaw")))))
-        if i == 299:
-            aim_at_fire = float(gun.get("aim_yaw"))
-            var target_direction: Vector2 = gun.call(
-                "_desired_player_angles", last_target)
-            target_at_fire = target_direction.x
-            if not core.visible or absf(
-                    rad_to_deg(angle_difference(aim_at_fire, target_at_fire))) > 0.01:
-                _fail("first beam frame did not lock fully onto boosting SERA")
+        var last_angle: float = float(gun.get("tracked_world_yaw"))
+        var already_tracking: bool = bool(
+            gun.get("tracking_world_initialized"))
+        gun.call("advance", DT, orbit_target - Vector3.UP * 0.92,
+            true, boost_speed)
+        var current_angle: float = float(gun.get("tracked_world_yaw"))
+        if already_tracking:
+            var yaw_change: float = absf(rad_to_deg(angle_difference(
+                last_angle, current_angle)))
+            if yaw_change > GUN.TRACK_YAW_SPEED * DT + 0.08:
+                _fail("continuous charge-to-beam slew snapped at t="
+                    + str(t) + " by " + str(yaw_change) + "deg")
                 return
-    if first_prefire_delta > GUN.PRE_FIRE_YAW_SPEED * DT + 0.02:
-        _fail("fast prefire pursuit violated its smooth turn speed bound")
+        var phase_id: int = int(gun.call(
+            "_phase_at", float(gun.get("elapsed"))))
+        if phase_id == GUN.Phase.CHARGE:
+            saw_charge = true
+        elif phase_id == GUN.Phase.FLASH:
+            saw_flash = true
+        elif phase_id == GUN.Phase.LOCK_HOLD:
+            saw_hold = true
+        elif phase_id == GUN.Phase.BEAM:
+            tracked_beam_frames += 1
+            if not bool(gun.get("tracking_world_initialized")):
+                _fail("charge-to-fire tracking state was cleared")
+                return
+    if not saw_charge or not saw_flash or not saw_hold or (
+            tracked_beam_frames < 100):
+        _fail("one uninterrupted 10s cycle skipped charge/flash/hold/beam")
         return
-    var aim_after_beam_second: float = float(gun.get("aim_yaw"))
-    var beam_turned: float = absf(rad_to_deg(
-        angle_difference(aim_at_fire, aim_after_beam_second)))
-    var boost_turned: float = rad_to_deg(boost_speed / boost_radius)
-    if beam_turned > GUN.TRACK_YAW_SPEED + 0.15 or (
-            beam_turned < 1.0) or (boost_turned - beam_turned < 14.0):
-        _fail("beam chase must be slower than BOOST: beam="
-            + str(beam_turned) + "deg boost=" + str(boost_turned) + "deg")
-        return
-    # The final fire-frame lock must work for a large off-axis aim too,
-    # not only the nearly neutral motion path checked above.
+
+    # With a wide last-moment target change the gun must NOT snap to
+    # SERA on either the 9.5s hold boundary or the 10.0s beam boundary.
     gun.call("reset")
-    gun.set("elapsed", GUN.TRACK_START_SECONDS + 0.0001)
-    var large_angle_target: Vector3 = pivot_world + (
-        reference_forward * cos(deg_to_rad(115.0))
-        + reference_right * sin(deg_to_rad(115.0))) * boost_radius
-    for i in range(299):
-        gun.call("advance", DT, large_angle_target - Vector3.UP * 0.92, true)
-    var before_fire_angles: Vector2 = gun.call(
-        "_desired_player_angles", large_angle_target - Vector3.UP * 0.92)
-    if absf(rad_to_deg(angle_difference(
-            float(gun.get("aim_yaw")), before_fire_angles.x))) > 2.0:
-        _fail("spherical prefire acquisition cannot reach a distant heading")
+    gun.set("elapsed", GUN.PERIOD_SECONDS - 0.010)
+    var wide_target: Vector3 = pivot_world + (
+        reference_right * boost_radius) - Vector3.UP * 0.92
+    gun.call("advance", 0.005, wide_target, true)
+    var yaw_before_launch: float = float(gun.get("tracked_world_yaw"))
+    gun.call("advance", 0.010, wide_target, true)
+    var yaw_after_launch: float = float(gun.get("tracked_world_yaw"))
+    if not core.visible or absf(rad_to_deg(angle_difference(
+            yaw_before_launch, yaw_after_launch))) > (
+            GUN.TRACK_YAW_SPEED * 0.010 + 0.08):
+        _fail("beam launch must keep aim without a perfect-lock snap")
         return
-    # Change player heading at the actual firing instant. The first
-    # laser frame must correct any remaining partial-frame target error.
-    var last_motion_target: Vector3 = large_angle_target + Vector3(0, 1.0, -0.3)
-    gun.call("advance", DT, last_motion_target - Vector3.UP * 0.92, true)
-    var fire_angles: Vector2 = gun.call(
-        "_desired_player_angles", last_motion_target - Vector3.UP * 0.92)
-    if absf(angle_difference(float(gun.get("aim_yaw")), fire_angles.x)) > (
-            0.00001) or absf(elevation.rotation.x - fire_angles.y) > 0.00001:
-        _fail("turret must exactly track moving player when laser fires")
+
+    # The same WORLD angular cap also applies when Bittaran rotates.
+    gun.call("reset")
+    gun.set("elapsed", GUN.FLASH_START)
+    gun.call("advance", DT, wide_target, true)
+    var world_before_body_turn: float = float(gun.get("tracked_world_yaw"))
+    var rig_old_yaw: float = rig.rotation.y
+    rig.rotation.y += deg_to_rad(70.0)
+    gun.call("advance", DT, wide_target, true)
+    var world_after_body_turn: float = float(gun.get("tracked_world_yaw"))
+    rig.rotation.y = rig_old_yaw
+    if absf(rad_to_deg(angle_difference(world_before_body_turn,
+            world_after_body_turn))) > (GUN.TRACK_YAW_SPEED * DT + 0.08):
+        _fail("boss body rotation bypassed the slow world-space aim cap")
         return
-    if not core.visible:
-        _fail("laser must fire after exact prefire target lock")
-        return
-    # During the beam, BOTH yaw and pitch are independently restricted.
-    var before_slow_pitch: float = elevation.rotation.x
-    gun.call("advance", 0.1,
-        pivot_world + Vector3(0.0, 10.0, 8.0), true)
-    if absf(rad_to_deg(elevation.rotation.x - before_slow_pitch)) > (
-            GUN.TRACK_PITCH_SPEED * 0.1 + 0.05):
-        _fail("barrel pitch exceeded its 18deg/s BEAM rate cap")
+
+    # At long distances the fixed 15.12deg/s cap is too fast against
+    # a BOOST's small apparent angular rate. Distance-adaptive tracking
+    # must stay at <=35% of actual BOOST angular speed.
+    gun.call("reset")
+    var far_target: Vector3 = gun.global_position + (
+        -gun.global_basis.z.normalized() * 30.0) - Vector3.UP * 0.92
+    var far_rate: float = float(gun.call(
+        "_boost_safe_turn_rate", far_target, boost_speed))
+    if far_rate > rad_to_deg(boost_speed / 30.0) * 0.36 or (
+            far_rate >= GUN.TRACK_YAW_SPEED):
+        _fail("long-range aim is too fast for a real BOOST dodge")
         return
     # v472: A fire-frame perfect target lock is intentionally preserved,
     # but damage on the SAME frame made every laser an unavoidable first
