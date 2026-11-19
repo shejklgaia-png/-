@@ -391,12 +391,12 @@ func open_facility(key: String) -> void:
 func _show_inventory() -> void:
     _clear_actions()
     var inventory: Dictionary = SeraSave.get_material_inventory()
-    var lines: Array[String] = [
+    var lines: PackedStringArray = [
         "基本素材｜指定ランクの素材だけが製作レシピに使用できます。"
     ]
     for family in BaseMaterials.FAMILY_IDS:
         var row: String = str(BaseMaterials.FAMILY_NAMES[family]) + "："
-        var chunks: Array[String] = []
+        var chunks: PackedStringArray = []
         for tier in BaseMaterials.TIERS:
             var id: String = str(family) + "_" + str(tier)
             chunks.append(str(BaseMaterials.display_name(id)) +
