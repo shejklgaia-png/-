@@ -106,17 +106,37 @@ func _run() -> void:
         _fail("return speed summed with chassis rotation")
         return
 
-    # If the chassis moved during return, the new WAIT phase must
-    # rejoin it at a world-space capped speed, without a snap.
+    # WAIT is now allowed to inherit the animated Body's entire attitude.
+    # Preserve the 180-deg/s cap for its WORLD-space motor, then verify
+    # that posture rejoining uses a bounded blend instead of a snap.
     gun.call("advance", 0.20, target, true)
-    var end_return_yaw: float = _world_yaw(gun)
+    var end_return_tracked: float = float(gun.get("tracked_world_yaw"))
+    var pre_blend: float = float(gun.get("idle_pose_blend"))
     gun.call("advance", 0.07, target, true)
-    var wait_change: float = absf(rad_to_deg(angle_difference(
-        end_return_yaw, _world_yaw(gun))))
-    if wait_change > GUN.PARK_REACQUIRE_DEG_PER_SECOND * 0.07 + 0.08:
-        _fail("return-to-WAIT transition snapped to the moving chassis")
+    var tracked_delta: float = absf(rad_to_deg(angle_difference(
+        end_return_tracked, float(gun.get("tracked_world_yaw")))))
+    if tracked_delta > GUN.PARK_REACQUIRE_DEG_PER_SECOND * 0.07 + 0.08:
+        _fail("idle world motor exceeded its post-beam rejoin rate")
+        return
+    var blend: float = float(gun.get("idle_pose_blend"))
+    if blend < pre_blend - 0.0001 or blend > (
+            pre_blend + 0.07 / GUN.IDLE_POSE_REJOIN_SECONDS + 0.0001):
+        _fail("idle Body pose blend advanced too quickly")
+        return
+    var base_yaw: float = (
+        float(gun.get("tracked_world_yaw")) if bool(
+            gun.get("tracking_world_initialized"))
+        else float(gun.call("_neutral_world_yaw")))
+    var leveled: Quaternion = Quaternion(Vector3.UP, base_yaw)
+    var body_pose: Quaternion = (
+        body.global_basis.orthonormalized().get_rotation_quaternion())
+    var expected: Quaternion = leveled.slerp(body_pose, blend)
+    var actual: Quaternion = (
+        gun.global_basis.orthonormalized().get_rotation_quaternion())
+    if actual.angle_to(expected) > 0.003:
+        _fail("return-to-WAIT did not smoothly interpolate to current Body")
         return
     print("GODOT_BITTARAN_WORLD_YAW_PASS ",
         "tracking_isolated=true return_world_locked=true ",
-        "mount_follows_body=true wait_rejoin_capped=true")
+        "mount_follows_body=true wait_body_rejoin_smooth=true")
     quit(0)
