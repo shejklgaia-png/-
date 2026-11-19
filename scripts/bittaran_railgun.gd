@@ -36,7 +36,7 @@ const PRE_FIRE_FILTER_PER_SECOND: float = TRACK_FILTER_PER_SECOND
 const BOOST_REFERENCE_SPEED_MPS: float = 6.09375
 # At ANY distance keep target slew beneath half of SERA's actual BOOST
 # angular speed; fixed deg/s caps alone fail at long range.
-const BOOST_TURN_FRACTION: float = 0.50
+const BOOST_TURN_FRACTION: float = 0.35
 const TRACK_START_SECONDS: float = CHARGE_START
 const MAX_BEAM_RANGE_METERS: float = 45.0
 const BEAM_RADIUS_METERS: float = 0.70
