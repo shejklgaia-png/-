@@ -2,6 +2,7 @@
 
 - **事前CI確認**：現行 `SERA v483` と `.github/workflows/sera-model-policy.yml`、`tools/sera_ci_manifest.txt`、`docs/SERA_ACTIVE_CI_POLICY_ja.md`、`tools/bittaran_railgun_runtime_check.gd`、`tools/bittaran_full_frame_level_gun_runtime_check.gd`、`tools/bittaran_chassis_axis_runtime_check.gd`を確認。10秒充填・青球体2秒・レーザー2秒・0.7秒復帰・追尾0.7倍と1.5m補正、接続軸の本体Yaw同期は維持。
 - **テスト先行更新**：新規 `tools/bittaran_world_yaw_independence_runtime_check.gd` を先に作成してCIマニフェストへ登録。物理更新の前後での本体Yaw変化、青球体追尾／レーザー追尾の砲身の実ワールドYaw、照射後0.7秒の復帰、復帰終了時の急な回転加算防止、Bodyへの位置追従を検査。既存テストの数値を緩和・削除せず、不変条件は維持。
+- **v484マージ後CI修正**：既存`tools/bittaran_railgun_runtime_check.gd`の実レーザー初回接触検査が失敗。新規ワールド変換砲身は`setup()`後に本体の接地位置を調整しても初期フレームだけ追従しなかったため、`_build_target()`の原本接地補正完了直後に`_level_mount()`で初期ワールド位置を同期。新規世界Yawテストにも初期位置一致を先に追加。既存のレーザー初回当たり判定を緩めず、物理更新前の表示位置も修正。
 - **原因と修正**：従来の砲身は `Body` の子であるため更新間に親Yawを継承し、復帰時も親Yaw+相対Yaw補間で見かけの回転速度が増減していた。`scripts/bittaran_railgun.gd` の砲身をワールド変換 `top_level` とし、取付位置のみBodyの現位置に追従。追尾中と復帰中の砲身向きは独立の世界水平Yawで計算。復帰中の本体旋回を砲身へ加算せず、復帰後に本体Yawとの差があれば独立の最大180°/sの補間で接続、急なスナップを回避。元の縦接続軸 `RailgunChassisAxis` は従来どおり本体Yawのみに同期。
 - Blockbenchモデル・原本メッシュ・関節/攻撃/ダメージ/レーザーFX/音源を変更せず、Android実機で本体旋回しながらの追尾／戻りの見え方を別途確認。フルCIは従来どおり `main` マージ後に実施する。
 
