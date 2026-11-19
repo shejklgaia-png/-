@@ -4,6 +4,7 @@ extends RefCounted
 ## Current preview equipment uses existing real rig "A" until a new matching
 ## Blockbench model is authored. Do not imply these images are 3D mesh assets.
 const ORDER = ["H01", "T01", "A01", "L01", "B01", "WR01", "WL01"]
+const MAX_SERIAL: int = 2147483646
 const PROTOTYPES = {
     "H01": {"name": "スカウトバイザー", "slot": "head",
         "rig_set": "A", "description": "偵察用の試作頭部装備"},
@@ -33,8 +34,30 @@ static func display_name(id: String) -> String:
         return ""
     return id + " " + str(record["name"])
 
-static func display_instance(uid: String) -> String:
-    var prefix: String = uid.get_slice("-", 0)
-    if not valid(prefix):
+## Canonical, per-save-profile item identity: BLUEPRINT-0001, -0002, ...
+## Blueprint IDs are fixed even when translated display names change.
+## Serial numbers are never reused, including after future item dismantling.
+static func uid_for(blueprint: String, serial: int) -> String:
+    if not valid(blueprint) or serial <= 0 or serial > MAX_SERIAL:
         return ""
-    return display_name(prefix) + " #" + uid.get_slice("-", 1)
+    return "%s-%04d" % [blueprint, serial]
+
+
+static func valid_uid(uid: String, expected_blueprint: String = "") -> bool:
+    var blueprint: String = uid.get_slice("-", 0)
+    if not valid(blueprint) or (
+            not expected_blueprint.is_empty() and expected_blueprint != blueprint):
+        return false
+    if not uid.begins_with(blueprint + "-"):
+        return false
+    var number_text: String = uid.substr(blueprint.length() + 1)
+    if not number_text.is_valid_int():
+        return false
+    return uid == uid_for(blueprint, int(number_text))
+
+
+static func display_instance(uid: String) -> String:
+    if not valid_uid(uid):
+        return ""
+    var blueprint: String = uid.get_slice("-", 0)
+    return str(PROTOTYPES[blueprint]["name"]) + "  " + uid
