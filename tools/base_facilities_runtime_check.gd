@@ -113,6 +113,12 @@ func _run() -> void:
     var labo_spot: Vector2 = camera.unproject_position(
         labo.global_position + Vector3(0.0, 1.0, 0.0))
     var labo_uv: Vector2 = labo_spot / view
+    if bool(hub.call("_nexus_hit", labo_spot)):
+        _fail("NEXUS tap volume covers the central LABO")
+        return
+    if str(machines.call("key_at", camera, nexus_spot)) != "":
+        _fail("device tap volume covers the upper NEXUS")
+        return
     if absf(nexus_uv.x - 0.5) > 0.14 or (
             nexus_uv.y > 0.33 or nexus_uv.y < 0.12):
         _fail("NEXUS is not at the upper center: " + str(nexus_uv))
