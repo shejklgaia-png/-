@@ -84,6 +84,13 @@ func _check_break(battle: Node3D, id: String,
         var was_rising: bool = before_down and will_rise
         var before_yaw: float = boss.rotation.y
         var before_pos: Vector3 = boss.position
+        # At 2x turn speed a fixed +X target enters the 100-degree FOV
+        # mid-standup. Keep the requested target on the actual lateral
+        # side to verify TURN on every rising frame instead of accidentally
+        # switching into a legal forward Approach.
+        if requested == "Turn":
+            player.global_position = (
+                boss.global_position + boss.global_basis.x.normalized() * 28.0)
         battle.call("_advance_target_motion", DT)
         var chosen: String = str(battle.get("bittaran_motion"))
         var playing: String = str(rig.get("current_clip"))
