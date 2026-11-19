@@ -41,6 +41,14 @@ func _run() -> void:
         _fail("gun must stay logically under Body but rotate in world space")
         return
 
+    # Initial Wait-pose floor alignment occurs after the gun's setup.
+    # Its top-level transform must be re-synced BEFORE the first physics
+    # frame, otherwise an early beam target or camera probe is displaced.
+    if gun.global_position.distance_to(
+            body.to_global(GUN.MOUNT_LOCAL_OFFSET)) > 0.0005:
+        _fail("initial world mount was left at the pre-calibration position")
+        return
+
     # Both the free charge acquisition and the speed-limited live laser
     # must remain world-locked at the instant the chassis rotates. Old
     # parent-relative mounting fails this check BEFORE advance() is called.
