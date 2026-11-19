@@ -1,3 +1,11 @@
+## 2026-11-20 — SERA v517: 装備製作/素材アイコンが実機で見つからない問題の修正
+- **報告**：素材・装備アイコンが見えない、製作メニューの入口がない、無駄な記号が項目名に付く。
+- **原因確認**：本体には全12素材・全7試作アイコンが登録されているが、拠点の建物を探して開く必要がある。新規セーブは全素材0個で入手経路がなく、試作製作ボタンも有効なセーブがないと無効。装飾記号（▸・›・‹・< >）が複数の画面に混在。
+- **事前に確認したCI**：model-policy main push、`tools/sera_ci_manifest.txt`、`base_facilities_runtime_check.gd`、`base_material_conversion_runtime_check.gd`、`base_page_navigation_runtime_check.gd`、`v511_matte_icons_runtime_check.gd`。
+- **先行テスト追加**：`v517_base_accessibility_self_check.py` / `v517_base_accessibility_runtime_check.gd`を本体変更前に作成・登録。固定3ボタン、各一覧アイコン、未登録プロファイルからの空きスロット作成、製作個体の倉庫登録、12素材を各6個補充、二重受領禁止・保存を検査。
+- **実装**：拠点の装備製作・素材変換・倉庫の固定ボタン、LABOの実製作、空きセーブの安全な作成、1回限りの明示的試作素材補充。各アイテム名の装飾記号を削除し、NEXUSの装備名も整理。既存の装備UID、アイコンアトラス、モデル、戦闘を変更しない。
+- **検査**：マージ後mainの登録済み全Python/Godot CIで確認。Android実機のボタン配置・表示は別途必要。
+
 ## 2026-11-20 — SERA v516: 6層八角形の予測シールドとガラス破片への変更
 - **依頼**：厚い八角形の囲いを内側から放射状に6個展開。外周ほど透明度を上げ、空間的なぼかしを全面撤去。出現0.2秒＋維持0.2秒＋消失0.2秒。破壊時は大きいランダムガラス破片と、左右端が透明になる高速な横稲妻。
 - **着手時調査**：main v515、AGENTS、tools/sera_ci_manifest.txt、docs/SERA_ACTIVE_CI_POLICY_ja.md、tools/v510_predictive_shield_*、tools/v515_shield_membrane_*、docs/RENDER_PIPELINE_POLICY_ja.md、scripts/enemy_shield_hit_fx.gd、直前の成功GitHub Actionsを確認。変更する検査＝円形グラデーション／0.44秒／遅い稲妻、維持する検査＝中心充填・破壊時空洞・防御数値・ボス/テストターゲット・描画優先・LABO。
