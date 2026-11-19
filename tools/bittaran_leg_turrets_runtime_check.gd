@@ -1,5 +1,5 @@
 extends SceneTree
-## v496: independent four-leg cannons fire nearest-first at a shared
+## v497: lower-leg-mounted cannons fire nearest-first at a shared
 ## interval, and both weapon systems stop during attacks and knockdown.
 const TURRETS = preload("res://scripts/bittaran_leg_turrets.gd")
 const RAILGUN = preload("res://scripts/bittaran_railgun.gd")
@@ -30,16 +30,49 @@ func _run() -> void:
         return
     var mounts: Dictionary = turrets.get("mounts")
     var anchors: Dictionary = turrets.get("anchors")
-    if mounts.size() != 4 or anchors.size() != 4 or absf(TURRETS.SHOT_INTERVAL_SECONDS - 1.2) > 0.001:
+    var mount_offsets: Dictionary = turrets.get("mount_offsets")
+    var lower_bounds: Dictionary = turrets.get("lower_bounds")
+    if mounts.size() != 4 or anchors.size() != 4 or (
+            mount_offsets.size() != 4 or lower_bounds.size() != 4 or
+            absf(TURRETS.SHOT_INTERVAL_SECONDS - 1.2) > 0.001):
         _fail("four independent mounts and shared 1.2s cadence required")
         return
     for id in TURRETS.LEG_IDS:
         var mount: Node3D = mounts.get(id) as Node3D
         if mount == null or mount.get_parent() != turrets or (
                 anchors[id] != rig.find_child(
-                    str(TURRETS.LEG_BONES[id]), true, false)):
-            _fail("turret must follow the corresponding upper leg without becoming an IK mesh: " + id)
+                    str(TURRETS.LOWER_LEG_BONES[id]), true, false)):
+            _fail("turret must track the animated LOWER leg, outside the IK mesh hierarchy: " + id)
             return
+        var bound: AABB = lower_bounds[id]
+        var offset: Vector3 = mount_offsets[id]
+        var side_x: float = -1.0 if id.ends_with("l") else 1.0
+        var face_z: float = -1.0 if id.begins_with("leg_f") else 1.0
+        var center: Vector3 = bound.get_center()
+        # The dome center must sit INSIDE the real authored shin armor,
+        # toward its outward X/Z quadrant and upper face, not hover at
+        # an arbitrary upper-leg pivot or outside the moving mesh.
+        if not bound.has_point(offset) or (
+                (offset.x - center.x) * side_x < bound.size.x * 0.10
+                or offset.y - center.y < bound.size.y * 0.12
+                or (offset.z - center.z) * face_z < bound.size.z * 0.10):
+            _fail("dome must be seated against the outer lower-leg armor: " + id)
+            return
+        if mount.global_position.distance_to((
+                anchors[id] as Node3D).to_global(offset)) > 0.001:
+            _fail("lower-leg dome not at its actual animated armor position: " + id)
+            return
+        # Even when shot emission is disabled by an attack or knockdown,
+        # the cosmetic mount must continue to follow the shin animation.
+        var shin: Node3D = anchors[id]
+        var old_position: Vector3 = shin.position
+        shin.position += Vector3(0.04, 0.11, 0.03)
+        turrets.call("advance", 0.0, player.global_position, false)
+        if mount.global_position.distance_to(shin.to_global(offset)) > 0.001:
+            _fail("inactive gun visually floats when its lower leg moves: " + id)
+            return
+        shin.position = old_position
+        turrets.call("advance", 0.0, player.global_position, false)
         var dome: MeshInstance3D = mount.get_node_or_null(
             "TurretHemisphere") as MeshInstance3D
         var barrel: MeshInstance3D = mount.get_node_or_null(

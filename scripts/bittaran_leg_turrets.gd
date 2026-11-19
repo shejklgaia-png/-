@@ -3,11 +3,11 @@ extends Node3D
 ## attack clips and the independent dorsal railgun remain untouched.
 ## All four share ONE firing clock and shoot nearest leg first per volley.
 const LEG_IDS: Array[String] = ["leg_fl", "leg_fr", "leg_rl", "leg_rr"]
-const LEG_BONES: Dictionary = {
-    "leg_fl": "FrontLeg_L",
-    "leg_fr": "FrontLeg_R",
-    "leg_rl": "RearLeg_L",
-    "leg_rr": "RearLeg_R",
+const LOWER_LEG_BONES: Dictionary = {
+    "leg_fl": "FrontLowerLeg_L",
+    "leg_fr": "FrontLowerLeg_R",
+    "leg_rl": "RearLowerLeg_L",
+    "leg_rr": "RearLowerLeg_R",
 }
 const SHOT_INTERVAL_SECONDS: float = 1.2
 const SHOT_SPEED_MPS: float = 17.0
@@ -17,6 +17,9 @@ const MUZZLE_LOCAL: Vector3 = Vector3(0.0, 0.0, -0.56)
 
 var mounts: Dictionary = {}
 var anchors: Dictionary = {}
+# One bind-local point computed from each authored lower-leg armor AABB.
+var mount_offsets: Dictionary = {}
+var lower_bounds: Dictionary = {}
 var projectiles: Array[Dictionary] = []
 var volley_order: Array[String] = []
 var volley_index: int = 0
@@ -50,19 +53,36 @@ func setup(rig: Node3D) -> bool:
     projectile_mesh.radial_segments = 10
     projectile_mesh.rings = 5
     for id in LEG_IDS:
-        var leg: Node3D = rig.find_child(str(LEG_BONES[id]), true, false) as Node3D
-        if leg == null:
-            push_error("Bittaran leg turret missing joint: " + id)
+        var shin: Node3D = rig.find_child(
+            str(LOWER_LEG_BONES[id]), true, false) as Node3D
+        if shin == null:
+            push_error("Bittaran lower leg turret missing joint: " + id)
             return false
+        # Scan only the ORIGINAL mesh immediately under this shin.
+        # Nothing from the added cosmetic turret enters the IK AABB scan.
+        var armor_bounds: AABB = _measure_shin_armor(shin)
+        if not armor_bounds.has_volume():
+            push_error("Bittaran lower leg turret missing armor: " + id)
+            return false
+        lower_bounds[id] = armor_bounds
+        var center: Vector3 = armor_bounds.get_center()
+        var left_right: float = -1.0 if id.ends_with("l") else 1.0
+        var front_back: float = -1.0 if id.begins_with("leg_f") else 1.0
+        # Sink the dome center INSIDE the upper-outer shin shell.
+        # A hemisphere and barrel project from the armor; the pivot does
+        # not float in space or sit on the high upper-leg joint.
+        mount_offsets[id] = center + Vector3(
+            left_right * armor_bounds.size.x * 0.23,
+            armor_bounds.size.y * 0.32,
+            front_back * armor_bounds.size.z * 0.36)
         var mount := Node3D.new()
         mount.name = "LegCannon_" + id
-        # Never insert new mesh children into the authored leg subtree.
-        # IK measures EVERY descendant mesh AABB to find its floor, so
-        # the visible gun is a sibling and follows the actual joint world
-        # transform at the end of each physics-frame pose update.
+        # Keep the visual mount outside the authored shin subtree.
+        # Existing IK measures descendant meshes, so an extra mesh as a
+        # shin child would corrupt ground contact and collision data.
         mount.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_ON
         add_child(mount)
-        anchors[id] = leg
+        anchors[id] = shin
         var hemisphere := SphereMesh.new()
         hemisphere.radius = 0.29
         hemisphere.height = 0.58
@@ -127,11 +147,36 @@ func _sort_volley_by_distance(player_world: Vector3) -> void:
                 volley_order[i] = volley_order[j]
                 volley_order[j] = swap
 
+## Read real imported mesh points in shin-local coordinates. AABB centers
+## remain invariant through IK/animations because vertices are bind-local.
+func _measure_shin_armor(shin: Node3D) -> AABB:
+    var bounds := AABB()
+    var found: bool = false
+    for child in shin.get_children():
+        if not child is MeshInstance3D:
+            continue
+        var part: MeshInstance3D = child as MeshInstance3D
+        if part.mesh == null:
+            continue
+        var box: AABB = part.mesh.get_aabb()
+        for i in range(8):
+            var point: Vector3 = part.transform * box.get_endpoint(i)
+            if not found:
+                bounds = AABB(point, Vector3.ZERO)
+                found = true
+            else:
+                bounds = bounds.expand(point)
+    return bounds
+
 func _sync_mounts() -> void:
     for id in LEG_IDS:
-        var leg: Node3D = anchors[id]
+        var shin: Node3D = anchors[id]
         var mount: Node3D = mounts[id]
-        mount.global_position = leg.to_global(Vector3(0.0, 0.28, 0.0))
+        mount.global_position = shin.to_global(mount_offsets[id])
+        # While idle/disabled, the cannon rests with the rotating shin.
+        # Active aim rotates the turret in world space after the skin
+        # attachment point has been refreshed.
+        mount.global_basis = shin.global_basis.orthonormalized()
 
 func _aim_cannons(player_world: Vector3) -> void:
     _sync_mounts()
@@ -207,7 +252,12 @@ func _advance_projectiles(delta: float, player_world: Vector3) -> Array[Vector3]
 ## Called after authored animation and IK have settled for this physics tick.
 func advance(delta: float, player_world: Vector3, active: bool) -> Array[Vector3]:
     var impacts: Array[Vector3] = []
-    if not active or mounts.size() != LEG_IDS.size():
+    if mounts.size() != LEG_IDS.size():
+        return impacts
+    # Pose update MUST continue during stomp/sweep/kick and down, even
+    # though all firing and in-flight bullets are cancelled then.
+    _sync_mounts()
+    if not active:
         reset()
         return impacts
     var step: float = maxf(delta, 0.0)
