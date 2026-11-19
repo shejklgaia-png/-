@@ -71,14 +71,37 @@ func _run() -> void:
             return
     facility.call("open_facility", "LABO")
     var actions: VBoxContainer = facility.get("modal_actions") as VBoxContainer
-    var shell: Button = actions.get_child(0) as Button
+    var shell: Button = actions.get_node_or_null("OpenPrototypeCatalog") as Button
+    if shell == null:
+        _fail("LABO must offer working Shell development catalog")
+        return
     shell.pressed.emit()
-    if str(facility.get("page")) != "detail":
-        _fail("LABO information must open an independent page")
+    # v514: Shell development is a real equipment catalog, not the old
+    # informational detail page. Keep the one-step-per-back contract.
+    if str(facility.get("page")) != "prototypes":
+        _fail("LABO Shell development must open the independent prototype catalog")
+        return
+    actions = facility.get("modal_actions") as VBoxContainer
+    for bp in ["H01", "T01", "A01", "L01", "B01", "WR01", "WL01"]:
+        if actions.get_node_or_null("PrototypeIcon_" + bp) == null:
+            _fail("LABO prototype catalog has missing entry: " + bp)
+            return
+    var row: HBoxContainer = actions.get_node_or_null("PrototypeIcon_H01") as HBoxContainer
+    var choose: Button = row.get_node_or_null("Choose_H01") as Button
+    if choose == null:
+        _fail("LABO prototype item must be selectable")
+        return
+    choose.pressed.emit()
+    if str(facility.get("page")) != "prototype_detail":
+        _fail("LABO prototype item must open its own detail page")
+        return
+    facility.call("navigate_back")
+    if str(facility.get("page")) != "prototypes":
+        _fail("LABO prototype detail back must return to the catalog")
         return
     facility.call("navigate_back")
     if str(facility.get("page")) != "home":
-        _fail("LABO detail back must restore its menu")
+        _fail("LABO catalog back must restore the main facility menu")
         return
     facility.call("navigate_back")
     if bool(facility.call("is_menu_open")):

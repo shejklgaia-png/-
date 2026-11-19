@@ -1,3 +1,9 @@
+## 2026-11-20 — SERA v515 post-merge CI補修：LABOの旧画面遷移テストを現行機能に対応
+- **検査結果**：main v515のCIラン44633849609でPython191/191件成功、Godot149/150件成功。v515のシールド膜専用実Godotテストは成功。唯一の失敗は v509以来のtools/base_page_navigation_runtime_check.gdで、LABOのShell開発を従来の情報ページ(detail)と誤って期待した旧テスト。
+- **現行仕様の確認**：v514でShell開発はOpenPrototypeCatalogから7種の試作装備一覧(prototypes)→選択した個体の詳細(prototype_detail)→一覧→LABO home→閉じる、と画面構成が意図的に変わった。scripts/base_facility_system.gdと既存のv511アイコン/製作実行テストに一致。
+- **修正**：実装を改変せず旧テストだけを、Shellメニューボタン、7種の一覧アイコン、詳細ページ、戻る操作を1階層ずつ検査する内容へ更新。既存の精製・分解画面、Android戻る、NEXUS、シールド/戦闘回帰テストは保持。
+- **再検証**：mainへこのCIテスト補修をマージ後、Python/Godot全CIを再実行する。Android実機の色/膜/裂け目の見た目は別途確認。
+
 ## 2026-11-20 — SERA v515: 予測シールドを中心の埋まった膜と破壊時だけの空洞へ
 - **ユーザー要望**：通常は膜を叩くので中心は消えない。シールドが剥がれた時のみ中心を空洞にしてよい。全体をよりキレのあるデザインへ変更。
 - **着手時確認**：main v514、project.godot、AGENTS.md、tools/sera_ci_manifest.txt、docs/SERA_ACTIVE_CI_POLICY_ja.md、tools/v510_predictive_shield_self_check.py、tools/v510_predictive_shield_runtime_check.gd、docs/RENDER_PIPELINE_POLICY_ja.md、scripts/enemy_shield_hit_fx.gdとGitHub Actionsを調査。変更する条件はヒット中心の充填/破壊穴/破片、維持条件は防御数値・HPバーと層順・色閾値・Bittaran/テストターゲットの共通導線。
