@@ -536,12 +536,27 @@ func _tick_bittaran_footfalls() -> void:
         var stepping: bool = bool(leg["stepping"])
         if footfall_prev_stepping[i] and not stepping:
             var foot: Node3D = leg["foot"]
-            if foot != null and bittaran_attack_frame.is_empty():
-                _play_bittaran_thud(foot.global_position, 1.3, -13.0)
-                var footfall_factor: float = _footfall_shake_factor(
-                    foot.global_position)
+            # Only a finished locomotion step creates walking FX.
+            # Interruptions by an attack/death must not manufacture a
+            # landing plume. Both feet of a diagonal can fire together.
+            var walking: bool = (
+                bittaran_motion == "Approach" or bittaran_motion == "Turn")
+            if (foot != null and target_hp > 0.0 and walking
+                    and bittaran_attack_frame.is_empty()):
+                var leg_id: String = BittaranFootIK.LEG_PART_IDS[i]
+                var contact: Vector3 = _bittaran_ground_fx_contact(leg_id)
+                _play_bittaran_thud(contact, 1.3, -13.0)
+                var footfall_factor: float = _footfall_shake_factor(contact)
                 if footfall_factor > 0.0:
                     _add_impact_shake(0.20 * footfall_factor, 10.5)
+                if bittaran_dirt_fx != null:
+                    var bounds: AABB = _bittaran_attack_foot_bounds(leg_id)
+                    if bounds.has_volume():
+                        var footprint: Vector2 = Vector2(
+                            clampf(bounds.size.x * 0.30, 0.10, 0.27),
+                            clampf(bounds.size.z * 0.30, 0.10, 0.27))
+                        bittaran_dirt_fx.call(
+                            "emit_footstep", contact, footprint)
         footfall_prev_stepping[i] = stepping
 
 
