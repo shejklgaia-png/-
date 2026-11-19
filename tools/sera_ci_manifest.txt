@@ -390,3 +390,7 @@ gd tools/bittaran_footstep_fx_runtime_check.gd
 # v510: shield state, 3D impact ordering and both enemy scenes.
 py tools/v510_predictive_shield_self_check.py
 gd tools/v510_predictive_shield_runtime_check.gd
+
+# v514: intact membrane has a solid filled center; shatter alone opens a hole.
+py tools/v514_shield_membrane_self_check.py
+gd tools/v514_shield_membrane_runtime_check.gd
