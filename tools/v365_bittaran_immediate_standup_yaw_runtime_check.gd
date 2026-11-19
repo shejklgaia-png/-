@@ -1,9 +1,10 @@
 extends SceneTree
 ## v365: the boss must neither turn during the fallen hold nor ease yaw
 ## speed into stand-up. Root yaw starts on the exact frame the physical
-## IK chassis begins rising, already at ordinary 34 deg/s.
+## IK chassis begins rising, at the current doubled 68 deg/s.
+const AI = preload("res://scripts/bittaran_ai.gd")
 const DT: float = 1.0 / 60.0
-const NORMAL_YAW_STEP: float = deg_to_rad(34.0) * DT
+const NORMAL_YAW_STEP: float = deg_to_rad(AI.STATIONARY_TURN_DEG_PER_SEC) * DT
 const ONE_LEG: Array[String] = ["leg_fl"]
 const FOUR_LEGS: Array[String] = ["leg_fl", "leg_fr", "leg_rl", "leg_rr"]
 
@@ -142,5 +143,5 @@ func _run() -> void:
     if not _run_case(battle, FOUR_LEGS, "four-leg 6.0s"):
         return
     print("GODOT_V365_BITTARAN_YAW_START_PASS: Turn clip starts exactly "
-        + "with chassis stand-up at full 34deg/s, no interpolation")
+        + "with chassis stand-up at full 68deg/s, no interpolation")
     quit(0)
