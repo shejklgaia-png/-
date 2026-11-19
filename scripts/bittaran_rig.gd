@@ -154,6 +154,9 @@ var source_aim_stomp_initial_height: float = -INF
 var source_aim_stomp_apex_height: float = -INF
 var source_aim_stomp_descent_started: bool = false
 var source_aim_stomp_player_position: Vector3 = Vector3.ZERO
+# The raising-leg IK can start only AFTER chest travel and both
+# available yaw joints have consumed their permitted aiming range.
+var source_aim_primary_settled: bool = false
 # Procedural HEAD look yaw is not part of an authored blend source.
 var external_head_yaw: float = 0.0
 var loading_ok: bool = false
@@ -1341,6 +1344,7 @@ func remember_source_grounded_attack_entry() -> void:
     source_aim_stomp_initial_height = -INF
     source_aim_stomp_apex_height = -INF
     source_aim_stomp_descent_started = false
+    source_aim_primary_settled = false
 
 
 ## Return a WORLD-Y yaw from the bone's current horizontal bearing
@@ -1424,6 +1428,7 @@ func apply_source_attack_aim(
         source_aim_stomp_initial_height = -INF
         source_aim_stomp_apex_height = -INF
         source_aim_stomp_descent_started = false
+        source_aim_primary_settled = false
         source_aim_stomp_player_position = player_position
         source_aim_future_hip_local = _source_attack_waypoint_offset(
             kind, leg_id, shoulder, foot)
@@ -1510,6 +1515,17 @@ func apply_source_attack_aim(
         source_aim_body_offset = source_aim_body_offset.move_toward(
             desired_offset, SOURCE_BODY_AIM_TRANSLATION_SPEED
                 * maxf(delta, 0.0))
+        # Explicit steering priority: no extra upper-arm reach while
+        # BODY translation, BODY yaw, or shoulder yaw is still moving
+        # toward the player's current position. Saturated ±30deg / 1m
+        # limits count as settled once the clamped targets are reached.
+        source_aim_primary_settled = (
+            absf(yaw_goal - source_aim_body_yaw)
+                <= deg_to_rad(1.5)
+            and absf(wanted_shoulder - source_aim_shoulder_yaw)
+                <= deg_to_rad(1.5)
+            and source_aim_body_offset.distance_to(desired_offset)
+                <= 0.035)
         if kind == "stomp":
             source_aim_stomp_player_position = player_position
 
