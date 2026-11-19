@@ -5,6 +5,7 @@ extends Node3D
 ## WORLD yaw plus WORLD-relative elevation are the only allowed rotations.
 const RENDER_ORDER = preload("res://scripts/render_order_policy.gd")
 const RailgunFX = preload("res://scripts/bittaran_railgun_fx.gd")
+const RailgunAudio = preload("res://scripts/bittaran_railgun_audio.gd")
 
 # Hold neutral throughout the first 10 seconds of filling the charge lamps.
 # The BLUE SPHERE (t=10..12) starts with one eased, unrestricted acquisition.
@@ -68,6 +69,7 @@ var outer_beam: MeshInstance3D
 var inner_beam: MeshInstance3D
 var muzzle_flash: MeshInstance3D
 var energy_fx: Node3D
+var railgun_audio: Node
 var beam_local_length: float = 1.0
 var charge_materials: Array[StandardMaterial3D] = []
 var elapsed: float = 0.0
@@ -127,6 +129,10 @@ func setup(rig: Node3D) -> bool:
     energy_fx.name = "RailgunEnergyFX"
     elevation.add_child(energy_fx)
     energy_fx.call("setup", MUZZLE_LOCAL_Z, beam_local_length)
+    railgun_audio = RailgunAudio.new()
+    railgun_audio.name = "RailgunAudio"
+    add_child(railgun_audio)
+    railgun_audio.call("setup")
     reset()
     ready_to_fire = true
     return true
@@ -250,6 +256,8 @@ func reset() -> void:
     _show_charge(0.0)
     if energy_fx != null:
         energy_fx.call("reset_fx")
+    if railgun_audio != null:
+        railgun_audio.call("reset")
     _level_mount()
 
 func _phase_at(t: float) -> int:
@@ -542,6 +550,8 @@ func advance(delta: float, player_world: Vector3, active: bool,
         outer_beam.scale.z = pulse
         inner_beam.scale.x = 1.0 + 0.035 * sin(elapsed * 57.0)
         inner_beam.scale.z = inner_beam.scale.x
+    if railgun_audio != null:
+        railgun_audio.call("tick", step, phase == Phase.FLASH, firing)
     last_phase = phase
     if firing and beam_hit_cooldown <= 0.0 and (
             _beam_overlaps_player(player_world)):
