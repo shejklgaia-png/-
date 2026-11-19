@@ -140,8 +140,11 @@ func _run() -> void:
         return
     # Even when the actor/controller is disabled, keep the outdoor
     # navigation collision contract ready for future re-enabling.
+    # The NEXUS may move within the field; its actual entrance must remain
+    # solid even after repositioning. Do not freeze a historic world coordinate.
+    var nexus_entrance: Vector3 = building.global_position + Vector3(0.0, 0.08, 2.5)
     if bool(hub.call("_walkable", Vector3(7.0, 0.08, 0.0))) \
-            or bool(hub.call("_walkable", Vector3(0.0, 0.08, -7.4))):
+            or bool(hub.call("_walkable", nexus_entrance)):
         _fail("base boundaries or solid NEXUS building were removed")
         return
     if not bool(hub.call("_walkable", Vector3(0.0, 0.08, 5.6))):
