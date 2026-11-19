@@ -114,6 +114,7 @@ func _create_grid_plates(floor: Node3D) -> void:
     ]
     var plate_mesh := BoxMesh.new()
     plate_mesh.size = Vector3(2.94, 0.30, 2.94)
+    var grid_extent: float = float(PLATE_GRID_RADIUS_CELLS) * PLATE_GRID_STEP + 1.47
     var grouped: Array = []
     for index in range(tints.size()):
         grouped.append([])
@@ -129,6 +130,11 @@ func _create_grid_plates(floor: Node3D) -> void:
         var multi := MultiMesh.new()
         multi.transform_format = MultiMesh.TRANSFORM_3D
         multi.mesh = plate_mesh
+        # Under a headless dummy renderer the GPU transform buffer cannot be
+        # read back. Explicit bounds also make wide instances safe to cull.
+        multi.custom_aabb = AABB(
+            Vector3(-grid_extent, -0.40, -grid_extent),
+            Vector3(grid_extent * 2.0, 0.80, grid_extent * 2.0))
         multi.instance_count = poses.size()
         for index in range(poses.size()):
             multi.set_instance_transform(index, poses[index])
