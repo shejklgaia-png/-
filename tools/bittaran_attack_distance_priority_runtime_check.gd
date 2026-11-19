@@ -1,7 +1,7 @@
 extends SceneTree
 ## v460: source attack TYPE and STRIKING LEG use the same current
 ## post-IK physical sole on the XZ ground plane, never boss center.
-## Validate synthetic feet and real walking-gated attacks.
+## Validate synthetic feet and immediate real attacks without a gait quota.
 const ATTACKS = preload("res://scripts/bittaran_attacks.gd")
 const AI = preload("res://scripts/bittaran_ai.gd")
 const DT: float = 1.0 / 60.0
@@ -102,19 +102,21 @@ func _verify_live_first(start_distance: float) -> bool:
     player.global_position = boss.global_position + Vector3(
         0.0, 0.0, start_distance)
     var frame: Dictionary = {}
-    var walked: int = 0
+    var walked: int = -1
+    var first_tick: int = -1
     var feet: Dictionary = {}
-    for tick in range(1700):
+    for tick in range(120):
         scene.set("player_hp", 99999.0)
         scene.call("_advance_target_motion", DT)
         frame = scene.get("bittaran_attack_frame")
         if not frame.is_empty() and str(frame.get("phase", "")) == "entry":
             walked = int(ik.call("source_completed_walk_steps"))
+            first_tick = tick
             feet = scene.call("_bittaran_attack_candidates")
             break
         scene.call("_finalize_target_pose", DT)
     if frame.is_empty():
-        _fail("attack not selected after gait from " + str(start_distance))
+        _fail("in-range attack not selected immediately from " + str(start_distance))
         return false
     var id: String = str(frame.get("id", ""))
     var kind: String = str(frame.get("kind", ""))
@@ -125,13 +127,14 @@ func _verify_live_first(start_distance: float) -> bool:
             kind, id, player.global_position, foot, boss.rotation.y))
     print("DISTANCE_PRIORITY_LIVE start=", start_distance,
         " kind=", kind, " leg=", id, " walked=", walked,
+        " first_tick=", first_tick,
         " toe_to_player=", Vector2(
             player.global_position.x - foot.x,
             player.global_position.z - foot.z).length())
     scene.queue_free()
-    if walked < 3 or not legal:
-        _fail("attack launched from illegal toe range " + str(
-            [start_distance, kind, id, walked, foot]))
+    if walked != 0 or first_tick > 1 or not legal:
+        _fail("in-range attack did not begin before walking " + str(
+            [start_distance, kind, id, walked, first_tick, foot]))
         return false
     return true
 
@@ -149,6 +152,6 @@ func _run() -> void:
         return
     print("GODOT_BITTARAN_FOOT_DISTANCE_PRIORITY_PASS ",
         "attack_range_from_each_real_sole=true ",
-        "3_walk_steps_before_attack=true ",
+        "immediate_with_zero_walk_steps=true ",
         "front_only_kick=true no_body_distance=true")
     quit(0)
