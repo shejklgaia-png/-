@@ -73,12 +73,34 @@ func _run() -> void:
     var actions: VBoxContainer = facility.get("modal_actions") as VBoxContainer
     var shell: Button = actions.get_child(0) as Button
     shell.pressed.emit()
-    if str(facility.get("page")) != "detail":
-        _fail("LABO information must open an independent page")
+    if str(facility.get("page")) != "prototypes":
+        _fail("Shell development must open the prototype catalog")
+        return
+    actions = facility.get("modal_actions") as VBoxContainer
+    if actions.get_node_or_null("PrototypeIcon_H01") == null:
+        _fail("LABO catalog must expose equipment and its icon")
+        return
+    facility.call("_select_prototype", "H01")
+    if str(facility.get("page")) != "prototype_detail":
+        _fail("LABO prototype must open its craft detail")
+        return
+    facility.call("navigate_back")
+    if str(facility.get("page")) != "prototypes":
+        _fail("LABO craft detail back must return to the catalog")
         return
     facility.call("navigate_back")
     if str(facility.get("page")) != "home":
-        _fail("LABO detail back must restore its menu")
+        _fail("LABO catalog back must restore its menu")
+        return
+    actions = facility.get("modal_actions") as VBoxContainer
+    var os_development: Button = actions.get_child(1) as Button
+    os_development.pressed.emit()
+    if str(facility.get("page")) != "detail":
+        _fail("OS development information must keep its separate page")
+        return
+    facility.call("navigate_back")
+    if str(facility.get("page")) != "home":
+        _fail("LABO information back must restore the menu")
         return
     facility.call("navigate_back")
     if bool(facility.call("is_menu_open")):
