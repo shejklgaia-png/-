@@ -67,6 +67,12 @@ const MAX_BEAM_RANGE_METERS: float = 45.0
 const BEAM_RADIUS_METERS: float = 0.70
 const PLAYER_HIT_RADIUS_METERS: float = 0.48
 const MUZZLE_LOCAL_Z: float = -1.53
+# The authored barrel pivot is measured in the animated Body's coordinates.
+# Keep its POSITION attached while its rotation lives in WORLD space.
+const MOUNT_LOCAL_OFFSET: Vector3 = Vector3(-0.0435, 2.493, -0.4205)
+# Only the idle rejoin after a moving-chassis return uses this cap.
+# It must not snap the turret or affect the active beam tracking speed.
+const PARK_REACQUIRE_DEG_PER_SECOND: float = 180.0
 # Two authored rails, not the body, pedestal, head or either leg.
 # The separate upper vertical shaft turns with the CHASSIS yaw, never with
 # the barrel's independent world-space targeting yaw.
@@ -96,6 +102,8 @@ var elapsed: float = 0.0
 var last_phase: int = Phase.WAIT
 var return_yaw_origin: float = 0.0
 var return_pitch_origin: float = 0.0
+var return_world_yaw_origin: float = 0.0
+var return_neutral_world_yaw: float = 0.0
 # Laser damage can repeat while there is real overlap, with no hit-count cap.
 var beam_hit_cooldown: float = 0.0
 # Continuous beam pursuit tracks a player's horizontal travel speed and
@@ -127,7 +135,13 @@ func setup(rig: Node3D) -> bool:
             return false
     # Pivot is the measured neutral center of the two imported long rails.
     # The rig's Body origin is [0.3,3.7,-1.4] in Blockbench coordinates.
-    position = Vector3(-0.0435, 2.493, -0.4205)
+    position = MOUNT_LOCAL_OFFSET
+    # A child under the turning chassis can inherit yaw between physics
+    # updates even when its tracked WORLD yaw is compensated every tick.
+    # Keep the Body parent for ownership, but decouple the world transform.
+    var original_world_mount: Transform3D = global_transform
+    top_level = true
+    global_transform = original_world_mount
     physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_ON
     elevation = Node3D.new()
     elevation.name = "RailgunElevation"
@@ -365,6 +379,8 @@ func reset() -> void:
     last_phase = Phase.WAIT
     return_yaw_origin = 0.0
     return_pitch_origin = 0.0
+    return_world_yaw_origin = 0.0
+    return_neutral_world_yaw = 0.0
     beam_hit_cooldown = 0.0
     beam_turn_rate_deg_per_sec = 0.0
     previous_player_world = Vector3.ZERO
@@ -416,14 +432,18 @@ func _level_mount() -> void:
     # Reapply after each authored pose/IK tick to cancel inherited tilt.
     var scale_world: Vector3 = mount_body.global_basis.get_scale()
     var chassis_yaw: float = _neutral_world_yaw()
+    # The top-level gun does not inherit the Body transform; resample
+    # only its attachment POSITION after every authored/IK pose tick.
+    global_position = mount_body.to_global(MOUNT_LOCAL_OFFSET)
     if chassis_axis != null:
-        # Orientation only. Its position remains on the animated Body,
-        # while the connector receives neither Body lean nor turret yaw.
+        # The original upper shaft follows the chassis, not gun targeting.
         chassis_axis.global_basis = Basis(
             Quaternion(Vector3.UP, chassis_yaw)
         ).scaled(scale_world)
+    var world_yaw: float = (
+        tracked_world_yaw if tracking_world_initialized else chassis_yaw)
     global_basis = Basis(
-        Quaternion(Vector3.UP, chassis_yaw + aim_yaw)
+        Quaternion(Vector3.UP, world_yaw)
     ).scaled(scale_world)
 
 
@@ -618,13 +638,31 @@ func advance(delta: float, player_world: Vector3, active: bool,
     else:
         beam_hit_cooldown = maxf(0.0, beam_hit_cooldown - step)
     if phase == Phase.RETURN and last_phase != Phase.RETURN:
-        # Start return on the FIRST frame after beam ends (no hold).
+        # Keep the FIRST post-beam orientation and neutral destination in
+        # WORLD space. Returning relative yaw to zero would add/subtract
+        # chassis rotation on every frame (and create a speed spike).
         return_yaw_origin = aim_yaw
         return_pitch_origin = elevation.rotation.x
+        return_world_yaw_origin = (
+            tracked_world_yaw if tracking_world_initialized
+            else _neutral_world_yaw() + aim_yaw)
+        return_neutral_world_yaw = _neutral_world_yaw()
+        tracking_world_initialized = true
     if phase == Phase.WAIT:
-        # The 10s filling period does not aim at the player.
-        tracking_world_initialized = false
-        aim_yaw = 0.0
+        # Once the world-space return has ended, smoothly rejoin a chassis
+        # that turned during the 0.7s release. Never snap at the cycle
+        # boundary, nor add its rotation to the independent turret motor.
+        if tracking_world_initialized:
+            var neutral_yaw: float = _neutral_world_yaw()
+            tracked_world_yaw = rotate_toward(
+                tracked_world_yaw, neutral_yaw,
+                deg_to_rad(PARK_REACQUIRE_DEG_PER_SECOND) * step)
+            aim_yaw = angle_difference(neutral_yaw, tracked_world_yaw)
+            if absf(aim_yaw) <= 0.0005:
+                tracking_world_initialized = false
+                aim_yaw = 0.0
+        else:
+            aim_yaw = 0.0
         elevation.rotation.x = 0.0
     elif phase == Phase.FLASH:
         if elapsed < FLASH_SHRINK_START:
@@ -644,11 +682,14 @@ func advance(delta: float, player_world: Vector3, active: bool,
         _track_player(step, player_world, 1.0,
             boost_speed_mps, run_speed_mps)
     elif phase == Phase.RETURN:
-        tracking_world_initialized = false
         var ratio: float = clampf(
             (elapsed - BEAM_END) / RETURN_SECONDS, 0.0, 1.0)
         var smooth: float = ratio * ratio * (3.0 - 2.0 * ratio)
-        aim_yaw = lerp_angle(return_yaw_origin, 0.0, smooth)
+        tracked_world_yaw = lerp_angle(
+            return_world_yaw_origin, return_neutral_world_yaw, smooth)
+        # aim_yaw remains diagnostic/local; it does not drive gun rotation.
+        aim_yaw = angle_difference(
+            _neutral_world_yaw(), tracked_world_yaw)
         elevation.rotation.x = lerpf(return_pitch_origin, 0.0, smooth)
     # Charge lamps fill while the gun is stationary for 10s;
     # they remain full during the 2s tracking orb.
