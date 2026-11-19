@@ -195,8 +195,8 @@ func _sync_mounts() -> void:
         var shin: Node3D = anchors[id]
         var mount: Node3D = mounts[id]
         mount.global_position = shin.to_global(mount_offsets[id])
-        mount.global_basis = (
-            shin.global_basis * (mount_rest_bases[id] as Basis)).orthonormalized()
+        var rest_basis: Basis = mount_rest_bases[id]
+        mount.global_basis = (shin.global_basis * rest_basis).orthonormalized()
         # Non-nearest barrels point in a fixed local resting direction.
         # The dome never follows the player's look direction.
         (aim_pivots[id] as Node3D).basis = Basis.IDENTITY
