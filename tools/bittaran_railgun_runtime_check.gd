@@ -223,7 +223,7 @@ func _run() -> void:
             (beam_arcs.mesh as ImmediateMesh).get_surface_count() == 0):
         _fail("laser must add streaming blue plasma and jagged electricity")
         return
-    if plasma.scale.y < 1.0 or (beam_arcs.get_parent() != elevation):
+    if plasma.scale.y < 1.0 or (beam_arcs.get_parent() != fx):
         _fail("beam flow geometry must cover the authored 45m laser axis")
         return
     if (core.material_override as BaseMaterial3D).no_depth_test:
