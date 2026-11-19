@@ -19,6 +19,8 @@ assert 'func _move_player(' in base, "Overworld SERA movement must stay availabl
 # v491: the visible colored GRID itself must cover the view, not just the dark underlay.
 assert 'func _create_grid_plates(' in base
 assert 'GridPlateBatch_' in base
+assert 'multi.set_instance_transform(index, poses[index])' in base, "grid placement must be submitted to renderer"
+assert 'multi.custom_aabb' in base, "Godot instanced-grid culling needs full world extents"
 assert 'PLATE_GRID_RADIUS_CELLS' in base
 assert '_box(floor, "SalvagedPlate_' not in base, "thousands of individual MeshInstances are too slow"
 assert 'ContinuousGround' in base
