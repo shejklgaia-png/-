@@ -100,5 +100,76 @@ func _run() -> void:
     if not bool(hub.call("_nexus_hit", nexus_spot)):
         _fail("NEXUS entrance is no longer pickable")
         return
+    # v505 contract (defined before implementation): NEXUS takes the upper
+    # center; LABO is the center anchor; all six machines form a surrounding
+    # ring, keeping the lower build terminal accessible. Do not check only
+    # raw coordinates: require the hierarchy to be visible on the 720x1280
+    # projected Android screen.
+    var nexus_uv: Vector2 = nexus_spot / view
+    var labo: Node3D = machines.get_node_or_null("LABO") as Node3D
+    if labo == null:
+        _fail("central LABO is absent")
+        return
+    var labo_spot: Vector2 = camera.unproject_position(
+        labo.global_position + Vector3(0.0, 1.0, 0.0))
+    var labo_uv: Vector2 = labo_spot / view
+    if absf(nexus_uv.x - 0.5) > 0.14 or (
+            nexus_uv.y > 0.33 or nexus_uv.y < 0.12):
+        _fail("NEXUS is not at the upper center: " + str(nexus_uv))
+        return
+    if absf(labo_uv.x - 0.5) > 0.12 or (
+            labo_uv.y < 0.36 or labo_uv.y > 0.63):
+        _fail("LABO is not central: " + str(labo_uv))
+        return
+    if labo_uv.y - nexus_uv.y < 0.16:
+        _fail("NEXUS and LABO do not have a clear screen-space separation")
+        return
+    var left_count: int = 0
+    var right_count: int = 0
+    var bottom_count: int = 0
+    for key in names:
+        if key == "LABO":
+            continue
+        var field_node: Node3D = machines.get_node(key) as Node3D
+        var device_uv: Vector2 = camera.unproject_position(
+            field_node.global_position + Vector3(0.0, 1.0, 0.0)) / view
+        # Every other device must stay outside the center LABO zone,
+        # or be clearly underneath it (the lower construction terminal).
+        if absf(device_uv.x - 0.5) < 0.19 and device_uv.y < 0.71:
+            _fail("outer device occupies the center LABO zone: " + key)
+            return
+        if device_uv.x <= 0.31:
+            left_count += 1
+        elif device_uv.x >= 0.69:
+            right_count += 1
+        if device_uv.y >= 0.72:
+            bottom_count += 1
+    if left_count < 2 or right_count < 2 or bottom_count < 1:
+        _fail("resources do not surround the central LABO on both sides")
+        return
+    # CRATE must orbit the new center instead of walking through the LABO
+    # foundation. Validate every segment, including the loop's closing edge.
+    # Read the production route without duplicating its waypoints in the test.
+    var route: Array = hub.get_script().get_script_constant_map().get("CRATE_WAYPOINTS", [])
+    var start_crate: Node3D = hub.get_node("CRATE") as Node3D
+    if start_crate == null or route.size() < 4:
+        _fail("CRATE center-avoidance route is missing")
+        return
+    var route_origin := Vector2(start_crate.position.x, start_crate.position.z)
+    var from: Vector2 = route_origin
+    for goal in route:
+        var to: Vector2 = goal
+        for sample_index in range(17):
+            var progress: float = float(sample_index) / 16.0
+            var point: Vector2 = from.lerp(to, progress)
+            if not bool(hub.call("_walkable", Vector3(point.x, 0.08, point.y))):
+                _fail("CRATE crosses a building on its patrol")
+                return
+        from = to
+    for sample_index in range(17):
+        var point: Vector2 = from.lerp(route[0], float(sample_index) / 16.0)
+        if not bool(hub.call("_walkable", Vector3(point.x, 0.08, point.y))):
+            _fail("CRATE closing patrol route crosses a building")
+            return
     print("SERA_BASE_FACILITIES_RUNTIME_PASS")
     quit(0)
