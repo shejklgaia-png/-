@@ -162,7 +162,8 @@ func _run() -> void:
     var reference_right: Vector3 = gun.global_basis.x.normalized()
     var pivot_world: Vector3 = gun.global_position
     gun.call("reset")
-    gun.set("elapsed", GUN.TRACK_START_SECONDS)
+    # Tiny epsilon makes the 48th 120Hz step unambiguously the beam start.
+    gun.set("elapsed", GUN.TRACK_START_SECONDS + 0.0001)
     var aim_at_fire: float = 0.0
     var target_at_fire: float = 0.0
     var first_prefire_delta: float = 0.0
@@ -182,8 +183,9 @@ func _run() -> void:
                 before_step, float(gun.get("aim_yaw")))))
         if i == 47:
             aim_at_fire = float(gun.get("aim_yaw"))
-            target_at_fire = float(
-                (gun.call("_desired_player_angles", last_target) as Vector2).x)
+            var target_direction: Vector2 = gun.call(
+                "_desired_player_angles", last_target)
+            target_at_fire = target_direction.x
             if not core.visible or absf(
                     rad_to_deg(angle_difference(aim_at_fire, target_at_fire))) > 0.01:
                 _fail("first beam frame did not lock fully onto boosting SERA")
@@ -203,7 +205,7 @@ func _run() -> void:
     # The final fire-frame lock must work for a large off-axis aim too,
     # not only the nearly neutral motion path checked above.
     gun.call("reset")
-    gun.set("elapsed", GUN.TRACK_START_SECONDS)
+    gun.set("elapsed", GUN.TRACK_START_SECONDS + 0.0001)
     var large_angle_target: Vector3 = pivot_world + (
         reference_forward * cos(deg_to_rad(115.0))
         + reference_right * sin(deg_to_rad(115.0))) * boost_radius
