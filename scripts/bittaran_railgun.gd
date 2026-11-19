@@ -26,11 +26,11 @@ const TRACK_EASE_IN_SECONDS: float = FLASH_SECONDS
 # The two-second spherical charge also eases target acquisition from a
 # stationary neutral mount. Before fire it can still catch a boosting SERA;
 # only the active laser is deliberately slow enough to dodge.
-const PRE_FIRE_YAW_SPEED: float = 720.0
-const PRE_FIRE_PITCH_SPEED: float = 576.0
+const PRE_FIRE_YAW_SPEED: float = 504.0
+const PRE_FIRE_PITCH_SPEED: float = 403.2
 const PRE_FIRE_FILTER_PER_SECOND: float = 24.0
-const TRACK_YAW_SPEED: float = 21.6
-const TRACK_PITCH_SPEED: float = 16.2
+const TRACK_YAW_SPEED: float = 15.12
+const TRACK_PITCH_SPEED: float = 11.34
 const TRACK_FILTER_PER_SECOND: float = 6.0
 # All three charge lamps are full at FLASH_START; only THEN may aim.
 const TRACK_START_SECONDS: float = FLASH_START
