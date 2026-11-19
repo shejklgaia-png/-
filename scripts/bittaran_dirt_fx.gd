@@ -743,7 +743,10 @@ func _advance_prebaked_sweep(
         end_sweep()
         return
     var t: float = float(frame.get("authored_time", 0.0))
-    if not bool(frame.get("hit_window", false)) or (
+    # Visual ground-scrape trail has its own authored 0.5s source path;
+    # gameplay damage can end earlier without erasing existing clouds.
+    if not bool(frame.get("sweep_fx_window",
+            frame.get("hit_window", false))) or (
             str(frame.get("phase", "")) != "strike"):
         end_sweep()
         return
@@ -994,7 +997,7 @@ func advance_attack(frame: Dictionary, point: Vector3,
             # foot tracking or contact flicker after the first contact.
             _advance_prebaked_sweep(frame, point, foot_grounded)
         elif striking and foot_grounded and bool(frame.get(
-                "hit_window", false)):
+                "sweep_fx_window", frame.get("hit_window", false))):
             # Legacy fallback for standalone procedural/test drivers.
             var sweep_travel: Vector3 = point - previous_point
             sweep_travel.y = 0.0
