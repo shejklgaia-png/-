@@ -1,3 +1,11 @@
+## 2026-11-19 — SERA v500: 腹下砲台1基へ統合、重装甲化・発射十字フラッシュ
+- **依頼仕様**：腹部の4基を1基にまとめ、少し立派な見た目、発射の瞬間に十字発光。原本Bittaran骨格や脚IK、その他攻撃系は不変。
+- **事前確認**：現行main v499、`AGENTS.md`、`.github/workflows/sera-model-policy.yml`、`tools/sera_ci_manifest.txt`、`docs/SERA_ACTIVE_CI_POLICY_ja.md`、`docs/MODEL_PART_WORKFLOW_ja.md`、`docs/RENDER_PIPELINE_POLICY_ja.md`、`scripts/bittaran_leg_turrets.gd`と関連登録済みテストを確認。
+- **テストを本体より先に更新**：`tools/bittaran_leg_turrets_runtime_check.gd`の「4基/2×2/近い順4回」期待値を**腹下中央1基**へ変更。半球半径0.33m以上・砲身長0.60m以上・接続ベース・装甲カラー/砲身スリーブの存在、十字の横棒/縦棒・銃口座標・発射時の点灯・短時間消灯・再射撃時再点灯を検査。従来の固定1.2秒間隔、銃口弾道一致、胴体追従、攻撃中射撃停止、ダウン時射撃/追尾/背部レーザー停止は保持。
+- **実装**：`TURRET_IDS=["belly_main"]`に一本化し、腹部`Body/body_mesh`下面中央へ固定。半球半径0.24→0.36m、基部直径0.86mの装甲カラー・長さ0.68mの砲身・大型スリーブ/銃口。銃口のローカル`MUZZLE_LOCAL`へ青白い横/縦発光バー＋光球を設置し、発射と同じフレームに0.085秒点灯。停止/ダウン/リセット時には光を即消灯。`render_order_policy.gd`の深度付き発光優先度を適用し、GL Compatibilityの不透明本体を透過しない。
+- **不変条件**：攻撃・ダウン時の禁止ゲート、最短間隔1.2秒、既存の17m/s光弾/命中/ガード、砲身実向きへの発射、モデル原本・モーション・接地IK、背部レールガンを保持。
+- **検証**：main統合後のGitHub Actions全Python/Godot CI、Android実機における腹部への密着／床との干渉／発光の見え方は別区分で確認。
+
 ## 2026-11-19 — SERA v499: 脚外側砲台4基の撤去と胴体腹側への移設
 - **ユーザー指定**：脚外側に付いていた砲台を削除し、腹の下へ接続。特段の発射数変更指示はないため、4基／近距離順／1.2秒間隔／最寄り1基追尾／攻撃・ダウン時の射撃停止という直前の承認仕様を保持。
 - **更新前の調査**：`main` v498、`AGENTS.md`、`.github/workflows/sera-model-policy.yml`、`tools/sera_ci_manifest.txt`、`docs/SERA_ACTIVE_CI_POLICY_ja.md`、登録済み`tools/bittaran_leg_turrets_runtime_check.gd`、Bittaran Blockbench原本の`Body/body_mesh`（下部の実メッシュ）と4本脚のBody子階層を確認。`docs/MODEL_PART_WORKFLOW_ja.md`と`docs/RENDER_PIPELINE_POLICY_ja.md`も確認。
