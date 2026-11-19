@@ -172,6 +172,8 @@ const BITTARAN_BGM_DURATION_SECONDS: float = 187.586207
 var bittaran_bgm: AudioStreamPlayer
 var impact_shake_strength: float = 0.0
 var impact_shake_time: float = 0.0
+var impact_shake_decay_rate: float = 11.0
+var sweep_shake_interval_remaining: float = 0.0
 var footfall_prev_stepping: Array[bool] = [false, false, false, false]
 var last_attack_contact: Vector3 = Vector3.ZERO
 var attack_contact_initialized: bool = false
@@ -408,16 +410,66 @@ func _make_bittaran_thud() -> AudioStreamWAV:
     return sound
 
 
-## Impact camera feedback (v401). main.gd never touches the camera's
-## frustum offsets, so a decaying offset here cannot fight the normal
-## follow camera; it always settles back to exactly zero.
-# v452: scale EVERY Bittaran vibration at its shared injection point.
-# This covers footsteps, impact rings, kicks, sweeps and damage feedback.
+## Impact camera feedback. main.gd does not modify frustum offsets.
+## v486: strongly vertical oscillation with independent impulse damping;
+## every effect resolves to exactly zero and does not drift the follow camera.
 const BITTARAN_SHAKE_MULTIPLIER: float = 1.5
+const BITTARAN_SHAKE_VERTICAL_WEIGHT: float = 1.55
+const BITTARAN_SHAKE_HORIZONTAL_WEIGHT: float = 0.60
+const BITTARAN_FOOTFALL_SHAKE_RADIUS_METERS: float = 10.0
+const BITTARAN_SWEEP_SHAKE_INTERVAL_SECONDS: float = 0.14
 
-func _add_impact_shake(strength: float) -> void:
-    impact_shake_strength = maxf(
-        impact_shake_strength, strength * BITTARAN_SHAKE_MULTIPLIER)
+func _add_impact_shake(strength: float,
+        decay_rate: float = 11.0) -> void:
+    var amplitude: float = maxf(strength, 0.0) * BITTARAN_SHAKE_MULTIPLIER
+    if amplitude > impact_shake_strength:
+        impact_shake_strength = amplitude
+        impact_shake_decay_rate = maxf(decay_rate, 0.1)
+
+
+func _add_bittaran_attack_shake(kind: String, point: Vector3) -> void:
+    match kind:
+        "stomp":
+            # A forceful earth strike, including misses, with a short tail.
+            var distance: float = (
+                camera.global_position.distance_to(point)
+                if camera != null else 0.0)
+            _add_impact_shake(lerpf(0.44, 0.17,
+                clampf(distance / 26.0, 0.0, 1.0)), 13.5)
+        "kick":
+            # One instantaneous, heavy jerk which dies more quickly.
+            _add_impact_shake(0.38, 20.0)
+        "sweep":
+            # Medium tremors while the striking foot sweeps the ground.
+            _add_impact_shake(0.16, 11.5)
+
+
+func _footfall_shake_factor(point: Vector3) -> float:
+    if player == null:
+        return 0.0
+    # Distance from SERA to the ACTUAL foot landing on the ground:
+    # the elevated camera would mismeasure close footsteps.
+    var offset := Vector2(point.x - player.global_position.x,
+        point.z - player.global_position.z)
+    var t: float = clampf(offset.length() /
+        BITTARAN_FOOTFALL_SHAKE_RADIUS_METERS, 0.0, 1.0)
+    return 1.0 - t * t * (3.0 - 2.0 * t)
+
+
+func _tick_bittaran_sweep_shake(delta: float) -> void:
+    # A repeating rumble during the authored STRIKE, even after its
+    # first collision. No tremor during anticipation or lingering recovery.
+    var sweeping: bool = target_hp > 0.0 and player_hp > 0.0 and (
+        str(bittaran_attack_frame.get("kind", "")) == "sweep") and (
+        str(bittaran_attack_frame.get("phase", "")) == "strike") and (
+        not bool(bittaran_attack_frame.get("stance_prepare", false)))
+    if not sweeping:
+        sweep_shake_interval_remaining = 0.0
+        return
+    sweep_shake_interval_remaining -= maxf(delta, 0.0)
+    if sweep_shake_interval_remaining <= 0.0:
+        _add_bittaran_attack_shake("sweep", Vector3.ZERO)
+        sweep_shake_interval_remaining = BITTARAN_SWEEP_SHAKE_INTERVAL_SECONDS
 
 
 func _tick_impact_shake(delta: float) -> void:
@@ -430,12 +482,12 @@ func _tick_impact_shake(delta: float) -> void:
             camera.h_offset = 0.0
             camera.v_offset = 0.0
         return
-    impact_shake_strength *= exp(-5.5 * maxf(delta, 0.0))
+    impact_shake_strength *= exp(-impact_shake_decay_rate * maxf(delta, 0.0))
     var t: float = impact_shake_time
     var nx: float = sin(t * 43.7) * 0.62 + sin(t * 29.3 + 1.7) * 0.38
     var ny: float = sin(t * 37.9 + 0.6) * 0.62 + sin(t * 24.1 + 2.9) * 0.38
-    camera.h_offset = nx * impact_shake_strength
-    camera.v_offset = ny * impact_shake_strength * 0.7
+    camera.h_offset = nx * impact_shake_strength * BITTARAN_SHAKE_HORIZONTAL_WEIGHT
+    camera.v_offset = ny * impact_shake_strength * BITTARAN_SHAKE_VERTICAL_WEIGHT
 
 
 func _play_bittaran_thud(point: Vector3, pitch: float,
@@ -462,10 +514,12 @@ func _tick_bittaran_footfalls() -> void:
         var stepping: bool = bool(leg["stepping"])
         if footfall_prev_stepping[i] and not stepping:
             var foot: Node3D = leg["foot"]
-            if foot != null and camera.global_position.distance_to(
-                    foot.global_position) <= 20.0:
+            if foot != null and bittaran_attack_frame.is_empty():
                 _play_bittaran_thud(foot.global_position, 1.3, -13.0)
-                _add_impact_shake(0.030)
+                var footfall_factor: float = _footfall_shake_factor(
+                    foot.global_position)
+                if footfall_factor > 0.0:
+                    _add_impact_shake(0.20 * footfall_factor, 10.5)
         footfall_prev_stepping[i] = stepping
 
 
@@ -627,16 +681,9 @@ func _emit_bittaran_shockwave(point: Vector3, half_size: Vector2,
             surface_fx_point if surface_fx_point != Vector3.INF
             else point)
         bittaran_dirt_fx.call("emit_stomp", fx_origin, half_size)
-    # The ground slam itself shakes the arena, hit or miss (v401).
-    # v402: the v401 strengths were calibrated blind and measured only
-    # ~5px of image displacement at fight distance (device feedback:
-    # imperceptible). Strengths are frustum-offset units; measured
-    # ~105px of displacement per unit at the battle camera, so the
-    # values below target roughly 35px near / 10px far for a stomp.
-    if camera != null:
-        var distance: float = camera.global_position.distance_to(point)
-        _add_impact_shake(lerpf(
-            0.34, 0.10, clampf(distance / 26.0, 0.0, 1.0)))
+    # The actual foot contacting ground causes one large, quickly
+    # converging shake whether or not SERA was hit.
+    _add_bittaran_attack_shake("stomp", point)
     _play_bittaran_thud(point, 1.0, -5.0)
 
 
@@ -710,10 +757,10 @@ func _check_bittaran_attack_hit() -> void:
     if direction.length_squared() < 0.0001:
         direction = Vector3.FORWARD
     if kind == "kick":
-        _add_impact_shake(0.16)
+        _add_bittaran_attack_shake("kick", contact)
         _play_bittaran_thud(player.global_position, 1.5, -10.0)
     elif kind == "sweep":
-        _add_impact_shake(0.19)
+        _add_bittaran_attack_shake("sweep", contact)
         _play_bittaran_thud(player.global_position, 1.25, -9.0)
     # SERA's existing guard/HP/knockback and KO logic remains authoritative.
     var damage_index: int = 1 if kind == "kick" else 3
@@ -1711,8 +1758,9 @@ func _physics_process(delta: float) -> void:
         passive_fall_velocity = 0.0
     _tick_bittaran_shockwave(delta)
     _tick_bittaran_railgun(delta)
-    _tick_impact_shake(delta)
     _tick_bittaran_footfalls()
+    _tick_bittaran_sweep_shake(delta)
+    _tick_impact_shake(delta)
     _update_bittaran_lock_permissions()
 
 func _tick_bittaran_railgun(delta: float) -> void:
@@ -1985,11 +2033,11 @@ func _finalize_target_pose(delta: float) -> void:
                 # late impact during recovery/slow aftermath.
                 if kind == "kick" and not had_kick and bool(
                         bittaran_dirt_fx.get("kicked_this_attack")):
-                    _add_impact_shake(0.16)
+                    _add_bittaran_attack_shake("kick", contact)
                     _play_bittaran_thud(contact, 1.5, -10.0)
                 elif kind == "sweep" and not had_sweep and bool(
                         bittaran_dirt_fx.get("sweep_active")):
-                    _add_impact_shake(0.19)
+                    _add_bittaran_attack_shake("sweep", contact)
                     _play_bittaran_thud(contact, 1.25, -9.0)
             last_attack_contact = contact
             attack_contact_initialized = true

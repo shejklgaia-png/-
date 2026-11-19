@@ -371,3 +371,4 @@ gd tools/bittaran_railgun_runtime_check.gd
 gd tools/bittaran_full_frame_level_gun_runtime_check.gd
 gd tools/bittaran_chassis_axis_runtime_check.gd
 gd tools/bittaran_world_yaw_independence_runtime_check.gd
+gd tools/bittaran_camera_shake_runtime_check.gd
