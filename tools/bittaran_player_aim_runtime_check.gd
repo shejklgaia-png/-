@@ -21,15 +21,18 @@ func _fail(msg: String) -> void:
 
 
 func _run() -> void:
+    # One arena instance for all techniques. Reset its real boss state
+    # between cases; don't allocate ten entire battle/audio/FX scenes.
+    var battle: Node3D = load(
+        "res://scenes/bittaran_battle.tscn").instantiate()
+    root.add_child(battle)
+    battle.set_process(false)
+    battle.set_physics_process(false)
     for item in CASES:
+        battle.call("_reset_target_after_respawn")
+        battle.set("player_hp", 100000.0)
         var id: String = str(item[0])
         var kind: String = str(item[1])
-        var battle: Node3D = load(
-            "res://scenes/bittaran_battle.tscn").instantiate()
-        root.add_child(battle)
-        battle.set_process(false)
-        battle.set_physics_process(false)
-        battle.set("player_hp", 100000.0)
         var player: CharacterBody3D = battle.get("player")
         var boss: Node3D = battle.get("target")
         var rig: Node3D = battle.get("bittaran_rig")
@@ -142,9 +145,7 @@ func _run() -> void:
             " max_body_shift=", max_body_offset,
             " frozen_tick=", lock_frame,
             " stomp_ik=", saw_ik)
-        # Each scene owns large GPU/particle resources. Dispose NOW
-        # instead of deferring all ten instances until SceneTree idle.
-        battle.free()
+    battle.free()
     print("BITTARAN_PLAYER_AIM_PASS all_10_attacks=true ",
         " body_shift_le_1m=true body_yaw_30deg=true ",
         " shoulder_yaw_30deg=true stomp_ik_frozen=true ",
