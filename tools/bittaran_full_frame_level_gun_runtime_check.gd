@@ -76,6 +76,8 @@ func _run() -> void:
             * Quaternion(Vector3.FORWARD, deg_to_rad(lean.y))
             * saved_body_pose).normalized()
         gun.call("reset")
+        # v465 only allows aim once all three charge bars are full.
+        gun.set("elapsed", GUN.TRACK_START_SECONDS)
         var side: Vector3 = (
             gun.global_position + Vector3(6.0, 2.0, -6.0))
         for i in range(120):
