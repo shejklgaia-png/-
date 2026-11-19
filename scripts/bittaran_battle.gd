@@ -1742,8 +1742,11 @@ func _tick_bittaran_railgun(delta: float) -> void:
     var boost_speed_mps: float = (
         float(part_stats.get("boost_speed", 6.09375)) *
         float(part_stats.get("boost_speed_mult", 1.0)))
+    var run_speed_mps: float = float(
+        part_stats.get("run_speed", 4.0625))
     var laser_pulse: bool = bool(bittaran_railgun.call(
-        "advance", delta, player.global_position, active, boost_speed_mps))
+        "advance", delta, player.global_position, active,
+        boost_speed_mps, run_speed_mps))
     if laser_pulse and player_hp > 0.0 and training_ko_remaining <= 0.0:
         var incoming: Vector3 = (
             player.global_position - bittaran_railgun.global_position)

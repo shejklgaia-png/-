@@ -76,7 +76,7 @@ func _run() -> void:
             * Quaternion(Vector3.FORWARD, deg_to_rad(lean.y))
             * saved_body_pose).normalized()
         gun.call("reset")
-        # v465 only allows aim once all three charge bars are full.
+        # v474 only starts aiming after the full ten-second stationary charge.
         gun.set("elapsed", GUN.TRACK_START_SECONDS)
         var side: Vector3 = (
             gun.global_position + Vector3(6.0, 2.0, -6.0))
@@ -97,7 +97,7 @@ func _run() -> void:
         if absf(float(gun.get("aim_yaw"))) < deg_to_rad(1.0):
             _fail("world-space horizontal target tracking stopped")
             return
-        gun.set("elapsed", GUN.BEAM_SECONDS + 0.45)
+        gun.set("elapsed", GUN.BEAM_END + 0.10)
         gun.call("advance", 0.01, side, true)
         if gun.global_basis.y.normalized().distance_to(
                 Vector3.UP) > 0.0001:
