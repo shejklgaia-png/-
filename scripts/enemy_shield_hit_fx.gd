@@ -180,13 +180,32 @@ func _fracture(center: Vector2, depth: float, t: float, scale: float) -> void:
         var blue := Color(0.05, 0.65, 1.0, 0.45 * power)
         var ring_peak := Color(0.12, 0.85, 1.0, 0.94 * power)
         var clear := Color(0.12, 0.85, 1.0, 0.0)
-        _ring(center, 0.0, radius * 0.20, icy, blue, depth)
-        _ring(center, radius * 0.20, radius * 0.70,
+        # The shield is actually torn: never paint the center of the
+        # shattered membrane. The opening expands with the shock wave.
+        var hole_radius: float = radius * lerpf(0.14, 0.23, burst)
+        _ring(center, hole_radius, radius * 0.27,
+            icy, blue, depth)
+        _ring(center, radius * 0.27, radius * 0.68,
             blue, blue, depth)
-        _ring(center, radius * 0.70, radius * 0.85,
+        _ring(center, radius * 0.68, radius * 0.78,
             blue, ring_peak, depth)
-        _ring(center, radius * 0.85, radius,
+        _ring(center, radius * 0.78, radius * 0.87,
+            ring_peak, ring_peak, depth)
+        _ring(center, radius * 0.87, radius,
             ring_peak, clear, depth)
+        # A few hard triangular ruptures add a crisp, mechanical silhouette
+        # rather than a diffuse circular cloud. All start outside the hole.
+        var shard := Color(0.86, 0.99, 1.0, 0.76 * power)
+        for i in range(10):
+            var theta: float = TAU * (float(i) + 0.26) / 10.0
+            var axis := Vector2(cos(theta), sin(theta))
+            var tangent := Vector2(-axis.y, axis.x)
+            var root_point: Vector2 = center + axis * radius * 0.76
+            var tip: Vector2 = center + axis * radius * (
+                1.02 + 0.12 * absf(sin(float(i) * 2.17)))
+            _tri(root_point - tangent * radius * 0.018, tip,
+                root_point + tangent * radius * 0.018,
+                shard, clear, shard, depth)
 
 static func contact_radius_px(progress: float) -> float:
     return lerpf(CONTACT_RADIUS_START_PX, CONTACT_RADIUS_END_PX,
@@ -203,25 +222,36 @@ static func contact_core_flash(progress: float) -> float:
     # Brief pale spark only at the center: the rest must remain saturated.
     return 1.0 - smoothstep(0.01, 0.24, clampf(progress, 0.0, 1.0))
 
+static func membrane_center_color(
+        tone: Color, opacity: float, flash: float) -> Color:
+    # A shield is a filled protective *membrane*, never a donut on impact.
+    # The quick white contact highlight is optional; the dense colored face
+    # persists until the entire impact fades together.
+    var core: Color = tone.lerp(Color.WHITE, 0.38 * flash)
+    core.a = 0.94 * opacity
+    return core
+
 func _draw_impact(center: Vector2, depth: float, t: float,
         duration: float, tone: Color, scale: float) -> void:
     var progress: float = clampf(t / duration, 0.0, 1.0)
     var opacity: float = contact_opacity(progress)
     var flash: float = contact_core_flash(progress)
     var radius: float = contact_radius_px(progress) * scale
-    var core: Color = tone.lerp(Color.WHITE, 0.72 * flash)
-    core.a = (0.44 + 0.54 * flash) * opacity
-    var inner := Color(tone.r, tone.g, tone.b, 0.49 * opacity)
-    var field := Color(tone.r, tone.g, tone.b, 0.39 * opacity)
-    var rim := Color(tone.r, tone.g, tone.b, 0.96 * opacity)
+    var core: Color = membrane_center_color(tone, opacity, flash)
+    var inner := Color(tone.r, tone.g, tone.b, 0.76 * opacity)
+    var field := Color(tone.r, tone.g, tone.b, 0.52 * opacity)
+    var rim := Color(tone.r, tone.g, tone.b, 0.98 * opacity)
+    var edge := Color(tone.r, tone.g, tone.b, 0.42 * opacity)
     var clear := Color(tone.r, tone.g, tone.b, 0.0)
-    # Large translucent colored field, followed by a high-contrast saturated
-    # ring with a short transparent fade. No washed-out additive white disk.
-    _ring(center, 0.0, radius * 0.11, core, inner, depth)
-    _ring(center, radius * 0.11, radius * 0.51, inner, field, depth)
-    _ring(center, radius * 0.51, radius * 0.67, field, rim, depth)
-    _ring(center, radius * 0.67, radius * 0.81, rim, rim, depth)
-    _ring(center, radius * 0.81, radius, rim, clear, depth)
+    # No transparent center: a flat, saturated core is surrounded by a
+    # taut membrane, narrow high-contrast perimeter and transparent edge.
+    _ring(center, 0.0, radius * 0.20, core, core, depth)
+    _ring(center, radius * 0.20, radius * 0.34, core, inner, depth)
+    _ring(center, radius * 0.34, radius * 0.65, inner, field, depth)
+    _ring(center, radius * 0.65, radius * 0.73, field, rim, depth)
+    _ring(center, radius * 0.73, radius * 0.82, rim, rim, depth)
+    _ring(center, radius * 0.82, radius * 0.90, rim, edge, depth)
+    _ring(center, radius * 0.90, radius, edge, clear, depth)
 
 func _redraw() -> void:
     if mesh == null:
