@@ -342,8 +342,12 @@ func _run() -> void:
     if bool(gun.call("advance", 0.21, no_contact, true)):
         _fail("a missed laser must not deal any contact damage")
         return
-    if not bool(gun.call("advance", 0.21, front, true)):
-        _fail("laser reentry must cause another contact in the SAME shot")
+    # Returning to the PREVIOUS world coordinate is not re-entering a
+    # tracking beam; move onto the CURRENT live laser axis instead.
+    var current_beam_contact: Vector3 = elevation.to_global(
+        Vector3(0.0, 0.0, -9.0)) - Vector3.UP * 0.92
+    if not bool(gun.call("advance", 0.21, current_beam_contact, true)):
+        _fail("live-beam reentry must allow another hit in the SAME shot")
         return
     gun.call("advance", 0.50, front, true)
     if core.visible or float(gun.get("beam_hit_cooldown")) > 0.0:
@@ -426,6 +430,8 @@ func _run() -> void:
     if not _near(float(scene.get("player_hp")), hp_after_second):
         _fail("laser repeat pulse damaged a player off its beam")
         return
+    # Re-enter the live beam's MOVING axis, not the original launch
+    # bearing from before the boss chased the off-axis target.
     player.global_position = elevation.to_global(
         Vector3(0.0, 0.0, -9.0)) - Vector3.UP * 0.92
     scene.call("_tick_bittaran_railgun", 0.21)
