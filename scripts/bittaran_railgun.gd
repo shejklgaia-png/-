@@ -13,9 +13,13 @@ const CHARGE_START: float = BEAM_SECONDS + POST_FIRE_HOLD_SECONDS + RETURN_SECON
 const FLASH_START: float = 9.6
 const FLASH_END: float = 9.8
 const FLASH_SHRINK_SECONDS: float = FLASH_END - FLASH_START
-const TRACK_YAW_SPEED: float = 120.0
-const TRACK_PITCH_SPEED: float = 100.0
+# Deliberately slower than the standard 6.09375 m/s boost crossing a
+# ~8 m radius (43.6 degrees/s). A boost strafe can outrun the beam.
+const TRACK_YAW_SPEED: float = 24.0
+const TRACK_PITCH_SPEED: float = 18.0
 const TRACK_FILTER_PER_SECOND: float = 6.0
+# All three charge lamps are full at FLASH_START; only THEN may aim.
+const TRACK_START_SECONDS: float = FLASH_START
 const MAX_BEAM_RANGE_METERS: float = 45.0
 const BEAM_RADIUS_METERS: float = 0.70
 const PLAYER_HIT_RADIUS_METERS: float = 0.48
@@ -294,13 +298,19 @@ func advance(delta: float, player_world: Vector3, active: bool) -> bool:
         var smooth: float = ratio * ratio * (3.0 - 2.0 * ratio)
         aim_yaw = lerp_angle(return_yaw_origin, 0.0, smooth)
         elevation.rotation.x = lerpf(return_pitch_origin, 0.0, smooth)
-    elif phase == Phase.CHARGE or phase == Phase.FLASH or (
-            phase == Phase.PRE_FIRE or phase == Phase.BEAM):
-        # Tracking begins on the first CHARGE tick and continues even
-        # throughout the full two-second beam sweep.
+    elif phase == Phase.CHARGE:
+        # Unfilled charge bars mean no player acquisition. Keep the gun
+        # exactly at the rig-relative neutral angle despite target motion.
+        aim_yaw = 0.0
+        elevation.rotation.x = 0.0
+    elif phase == Phase.FLASH or phase == Phase.PRE_FIRE or (
+            phase == Phase.BEAM):
+        # Begin the deliberately SLOW aim only once charge is complete
+        # (first pre-fire flash); preserve that speed limit for the whole
+        # two-second laser sweep. Fast boost strafes can escape the beam.
         _track_player(step, player_world)
-    # Hold the FINAL firing orientation for 0.4 seconds before easing
-    # back to the original angle. The next charge reactivates tracking.
+    # Hold the FINAL firing orientation for 0.4 seconds after firing,
+    # ease home over 0.8 seconds, then remain neutral while recharging.
     _show_charge(clampf(
         (elapsed - CHARGE_START) / (FLASH_START - CHARGE_START),
         0.0, 1.0) if phase == Phase.CHARGE or (
