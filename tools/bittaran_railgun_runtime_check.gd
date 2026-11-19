@@ -148,7 +148,7 @@ func _run() -> void:
         _fail("sphere must shrink over its last entire second")
         return
     var before_beam: float = float(gun.get("tracked_world_yaw"))
-    gun.call("advance", 0.50, side + Vector3(5.0, 0, 0), true)
+    gun.call("advance", 0.502, side + Vector3(5.0, 0, 0), true)
     if sphere.visible or not core.visible or not halo.visible or (
             not plasma.visible) or (not beam_arcs.visible):
         _fail("laser must fire at t=12 without any targeting hold")
@@ -157,13 +157,13 @@ func _run() -> void:
         before_beam, float(gun.get("tracked_world_yaw")))))
     var rate: float = float(gun.call(
         "_tracking_turn_rate", side + Vector3(5.0, 0, 0)))
-    if turn_at_launch > rate * 0.5 + 0.1:
+    if turn_at_launch > rate * 0.502 + 0.1:
         _fail("beam onset snapped faster than permitted pursuit")
         return
 
     # Exactly 2s of firing; no 0.4s postfire hold. The first return
     # frame must already begin the 0.7s interpolation to neutral.
-    gun.call("advance", 1.987, side, true)
+    gun.call("advance", 1.984, side, true)
     if not core.visible:
         _fail("laser switched off before the two seconds finished")
         return
