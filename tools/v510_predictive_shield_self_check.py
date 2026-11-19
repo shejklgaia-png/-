@@ -1,0 +1,37 @@
+#!/usr/bin/env python3
+"""v510: predictive shield is a contact effect, never an HP bar overlay."""
+from pathlib import Path
+ROOT = Path(__file__).resolve().parents[1]
+read = lambda p: (ROOT / p).read_text(encoding="utf-8")
+main = read("scripts/main.gd")
+boss = read("scripts/bittaran_battle.gd")
+shield = read("scripts/enemy_predictive_shield.gd")
+fx = read("scripts/enemy_shield_hit_fx.gd")
+order = read("scripts/render_order_policy.gd")
+assert "const MAX_SP: float = 100.0" in shield
+assert "const MELEE_REDUCTION: float = 0.25" in shield
+assert "const RANGED_REDUCTION: float = 0.95" in shield
+assert "const REGEN_DELAY: float = 4.0" in shield
+assert "const REGEN_PER_SECOND: float = 20.0" in shield
+assert "const ENEMY_SHIELD_SCRIPT = preload(" in main
+assert "const ENEMY_SHIELD_FX_SCRIPT = preload(" in main
+assert "enemy_predictive_shield.apply_hit(" in main
+assert "shield_hit_fx.call(\"start_impact\"" in main
+assert "shield_hit_fx.call(\"advance\"" in main
+assert "enemy_predictive_shield.reset()" in main
+assert "super._apply_target_part_damage(" in boss
+assert "super._build_hit_effects()" not in boss  # inherited _build_hit_effects in _ready
+assert "const SHIELD_IMPACT: int = 115" in order
+assert "material.render_priority = RENDER_ORDER.SHIELD_IMPACT" in fx
+assert "material.no_depth_test = false" in fx
+assert "material.vertex_color_use_as_albedo = true" in fx
+assert "func state_color(ratio: float)" in fx
+assert "AudioStreamWAV.new()" in fx
+assert "SHIELD_SURFACE_OFFSET: float = 0.032" in fx
+assert "const FRONT_OFFSET: float = 0.06" in read("scripts/hit_burst.gd")
+# No shield paint or second HP meter; do not make HP loss unreadable.
+assert "enemy_predictive_shield" not in read("scripts/sera_numeric_hud.gd")
+assert "shield_hit_fx" not in read("scripts/sera_numeric_hud.gd")
+assert "shield_hit_fx" not in read("scripts/sera_clean_training_hud.gd")
+assert "shield_hit_fx" not in read("scripts/combat_vitals.gd")
+print("PASS v510 shield: contract, 3D depth layer, shared training/Bittaran FX, no HP overlay")

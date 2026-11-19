@@ -1,3 +1,11 @@
+## 2026-11-20 — SERA v510: 敵予測シールドの接触演出・亀裂・破壊SE（テストターゲット/ビットタラン）
+- **依頼**：HPバー上の青い光はHP減少の印象が弱まるため撤回。攻撃が防御された面に、縁が透明な放射状青/黄/赤エフェクトを火花と本体の間に発生。剥がした瞬間は横一線の青白い電撃亀裂→放射状の青白い破裂とSE。対象はトレーニングターゲットとビットタラン。
+- **事前CI調査**：main v509、`AGENTS.md`、`docs/SERA_ACTIVE_CI_POLICY_ja.md`、`tools/sera_ci_manifest.txt`、`tools/v250_target_hp_self_check.py`、`tools/v302_leg_center_part_fx_runtime_check.gd`、`tools/render_policy_self_check.py`、`docs/RENDER_PIPELINE_POLICY_ja.md`、`.github/workflows/sera-model-policy.yml`を確認。変更する期待値は透明描画のレイヤー役割数(7→8)、新規で防御軽減/回復/色・破壊演出。変更しない既存テストは対象HP・部位ごとのダメージ/HitFlash・Bittaran攻撃/IK/連続ヒット・モデル、主人公SH・既存HUD。
+- **CI先行更新**：本体編集前に`v510_predictive_shield_self_check.py`、`v510_predictive_shield_runtime_check.gd`を作成・マニフェスト登録。既存`render_policy_self_check.py`に`SHIELD_IMPACT=115`と新スクリプトのレンダーロールを追加し、旧7ロール固定の期待値を承認した8ロールへ変更。
+- **実装**：`enemy_predictive_shield.gd`で100SP、近接最大25%/射撃最大95%軽減、ヒットごとのSP消費、4秒ディレイと毎秒20SP回復。ダメージの攻撃補正だけを共通命中処理に挿入し、部位破壊量は従来通り。`enemy_shield_hit_fx.gd`で部位接触面の半透明放射状グラデーション（青≥60%、黄≥30%、赤<30%）、青白い横方向の亀裂と放射状の破裂、PCM生成の短い電撃・破裂SE。モデルと旧火花は保持。
+- **継承対象**：`main.gd`で描画・衝突・部位HP・復活リセットを共通実装し、ビットタランは既存の`super._apply_target_part_damage`と`super._ready`により再利用。体力バー自体にはシールド光を重ねない。
+- **残る検証**：mainマージ後の全Python/Godot CIの実行結果と失敗項目を確認・修正。Android実機で色閾値、ヒット部位への描画位置、青白い亀裂→破裂、SEの音量・質感・他エフェクトとの重なりを検証。
+
 ## 2026-11-20 — SERA v507: 追加検査で発見した0.7秒の追尾スパイク解消
 - **指示**：ビットタラン背部レールガンv506のさらなる検査。既存CI/実装の追尾経路を再点検し、姿勢由来以外の加速を探索。
 - **事前確認**：main v506、`AGENTS.md`、`.github/workflows/sera-model-policy.yml`、`tools/sera_ci_manifest.txt`、`docs/SERA_ACTIVE_CI_POLICY_ja.md`、現行`scripts/bittaran_railgun.gd`、`tools/bittaran_railgun_runtime_check.gd`、`tools/bittaran_world_yaw_independence_runtime_check.gd`、`tools/bittaran_full_frame_level_gun_runtime_check.gd`、`tools/bittaran_chassis_axis_runtime_check.gd`、背部エネルギーFXと実戦統合部を確認。

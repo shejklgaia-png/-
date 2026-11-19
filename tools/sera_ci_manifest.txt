@@ -384,3 +384,7 @@ gd tools/bittaran_chassis_axis_runtime_check.gd
 gd tools/bittaran_world_yaw_independence_runtime_check.gd
 gd tools/bittaran_camera_shake_runtime_check.gd
 gd tools/bittaran_footstep_fx_runtime_check.gd
+
+# v510: shield state, 3D impact ordering and both enemy scenes.
+py tools/v510_predictive_shield_self_check.py
+gd tools/v510_predictive_shield_runtime_check.gd

@@ -348,6 +348,8 @@ const TRAINING_KO_RECOVERY: float = 2.5
 const UI_SCRIPT = preload("res://scripts/touch_overlay.gd")
 const SWORD_TRAIL_SCRIPT = preload("res://scripts/sword_trail.gd")
 const HIT_BURST_SCRIPT = preload("res://scripts/hit_burst.gd")
+const ENEMY_SHIELD_SCRIPT = preload("res://scripts/enemy_predictive_shield.gd")
+const ENEMY_SHIELD_FX_SCRIPT = preload("res://scripts/enemy_shield_hit_fx.gd")
 const ENEMY_SHOOTER_SCRIPT = preload("res://scripts/enemy_shooter.gd")
 const ENEMY_DEBUG_SCRIPT = preload("res://scripts/enemy_debug_ui.gd")
 const PROJECTILE_HIT_FLASH_SECONDS: float = 0.22
@@ -611,6 +613,9 @@ var player_collision_shape: CollisionShape3D
 var collision_height_extension: float = 0.0
 var sword_trail: Node3D
 var target_hp: int = TARGET_MAX_HP
+var enemy_predictive_shield: RefCounted = ENEMY_SHIELD_SCRIPT.new()
+var shield_hit_fx: Node3D
+var last_shield_impact: Dictionary = {}
 var hit_stop_remaining: float = 0.0
 var hit_flash_remaining: float = 0.0
 var target_respawn_remaining: float = 0.0
@@ -2118,6 +2123,13 @@ func _build_hit_effects() -> void:
     player_hit_audio.max_polyphony = 3
     add_child(player_hit_audio)
 
+    # Screen-facing but depth-tested shield contact glow renders in the gap
+    # between solid armor and the later HIT_SPARKS transparent pass.
+    shield_hit_fx = ENEMY_SHIELD_FX_SCRIPT.new()
+    shield_hit_fx.name = "EnemyPredictiveShieldContactFX"
+    add_child(shield_hit_fx)
+    shield_hit_fx.set("view_camera", camera)
+
     # No Sprite3D/black-alpha impact tiles: sparks are depth-tested triangles.
     # The separate sword crescent uses an alpha-masked additive mesh shader.
     hit_burst = HIT_BURST_SCRIPT.new()
@@ -2251,9 +2263,15 @@ func _apply_target_part_damage(kind: String, raw_attack: int, raw_break: float,
     var result: Dictionary = {
         "body_damage": 0, "part_damage": 0.0, "broken": false
     }
+    var shielded_attack: int = raw_attack
+    last_shield_impact.clear()
+    if target_parts != null and hp_before_hit > 0:
+        last_shield_impact = enemy_predictive_shield.apply_hit(float(raw_attack), false)
+        shielded_attack = maxi(1, roundi(float(raw_attack) * (
+            float(last_shield_impact["damage_multiplier"]))))
     if target_parts != null:
         result = target_parts.call(
-            "apply_part_hit", locked_target_part_id, raw_attack, raw_break)
+            "apply_part_hit", locked_target_part_id, shielded_attack, raw_break)
         # Every strike/Bash/kick hit now animates the struck module too,
         # including a part just destroyed or already broken in this combo.
         target_parts.call("trigger_part_hit_fx",
@@ -2367,6 +2385,7 @@ func _visible_hit_surface(hit: Vector3) -> Vector3:
     return visible
 
 func _spawn_sparks(world_hit: Vector3) -> void:
+    _spawn_shield_impact(world_hit)
     if hit_burst == null:
         return
     var current_blade: PackedVector3Array = rig.call("get_blade_world_segment")
@@ -2378,6 +2397,13 @@ func _spawn_sparks(world_hit: Vector3) -> void:
         var blade_axis: Vector3 = current_blade[1] - current_blade[0]
         sweep = blade_axis.cross((target.global_position - player.global_position).normalized())
     hit_burst.call("start_burst", world_hit, sweep)
+
+func _spawn_shield_impact(world_hit: Vector3) -> void:
+    if shield_hit_fx != null and not last_shield_impact.is_empty():
+        shield_hit_fx.call("start_impact", world_hit,
+            float(last_shield_impact["ratio_after"]),
+            bool(last_shield_impact["broken"]))
+    last_shield_impact.clear()
 
 # v344: retain the previous damage label instead of overwriting it when
 # multiple body/part hits project into approximately the same screen area.
@@ -2457,6 +2483,8 @@ func _advance_hit_fx(delta: float) -> void:
         target_parts.call("advance_part_hit_fx", delta)
     if hit_burst != null:
         hit_burst.call("advance", delta)
+    if shield_hit_fx != null:
+        shield_hit_fx.call("advance", delta)
     if damage_popup_remaining > 0.0:
         damage_popup_remaining = COMBAT_TIMERS.remaining_after_delta(
             damage_popup_remaining, delta)
@@ -2515,6 +2543,10 @@ func _reset_target_after_respawn() -> void:
     # Shared by timer expiration and training KO recovery. Reset each
     # part, lock-selection cache, ranged enemy head state and boss HUD ONCE.
     target_hp = TARGET_MAX_HP
+    enemy_predictive_shield.reset()
+    last_shield_impact.clear()
+    if shield_hit_fx != null:
+        shield_hit_fx.call("reset")
     target_respawn_remaining = 0.0
     if target_parts != null:
         target_parts.call("reset_parts")
@@ -4092,6 +4124,7 @@ func _register_bash_hit() -> void:
         var shield_force: Vector3 = target.global_position - player.global_position
         shield_force.y = 0.0
         hit_burst.call("start_burst", impact_origin, shield_force.normalized())
+    _spawn_shield_impact(impact_origin)
 
 func _update_melee_lock_marker() -> void:
     # Match the *same* distance rule used to stop the melee approach.
@@ -4448,6 +4481,8 @@ func _finalize_target_pose(_delta: float) -> void:
 
 
 func _physics_process(delta: float) -> void:
+    if target_hp > 0:
+        enemy_predictive_shield.advance(delta)
     _update_equipped_collision_height()
     _tick_training_ko(delta)
     if training_ko_remaining > 0.0:
