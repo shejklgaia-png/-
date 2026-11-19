@@ -1,3 +1,10 @@
+## 2026-11-19 — SERA v497: 浮く四脚砲台を下肢装甲の外側へ密着修正
+- **実機報告**：添付動画で四脚砲台が浮き、原本下肢装甲に接合していない。元v496は`FrontLeg_`／`RearLeg_`上肢骨を起点に`(0,0.28,0)`を固定オフセットとし、射撃停止中に見た目の位置更新も止まる問題。
+- **事前CI確認・テスト先行**：main v496、現行CIマニフェスト、登録済み`bittaran_leg_turrets_runtime_check.gd`、Bittaranモデルの14ボーン/18メッシュ、骨の親子関係、`docs/SERA_ACTIVE_CI_POLICY_ja.md`を確認。実装より先に既存テストの固定位置期待値を上肢→下肢へ更新し、実下肢AABBの内側で外面・上面に寄せた位置と、非射撃中にも下肢の動きへ追従する保証を追加。既存の間隔／距離順／停止検査は維持。
+- **実装**：`scripts/bittaran_leg_turrets.gd`の各追従先を`FrontLowerLeg_L/R`と`RearLowerLeg_L/R`に変更。原本メッシュの頂点AABBをBoneローカルへ変換して下肢装甲のサイズと外側・上部の埋込位置を自動算出。IKの子孫メッシュ計測を保護するため、砲台は脚骨の子ではなく独立ノード。最終IK後の下肢ワールド姿勢に毎フレーム同期する（攻撃/ダウンで発砲禁止中も見た目は追従）。
+- **不変条件**：砲台4基、半球＋筒、射撃間隔1.2秒、最短距離順、弾速17m/s、攻撃モーション中停止、レーザーのダウン中停止、原本モデル/アニメーション/IK、被弾処理は不変。
+- **検証**：マージ後mainでフルCI。Android実機では下肢装甲への接合／各モーション／ダウン中の追従を確認する。新しいModel原本ファイルの生成・変更はなし。
+
 ## 2026-11-19 — SERA v496: 四脚砲台・攻撃中停止・ダウン中全武装停止
 - **CI事前確認**：現行v495、`.github/workflows/sera-model-policy.yml`、`tools/sera_ci_manifest.txt`、`docs/SERA_ACTIVE_CI_POLICY_ja.md`、`tools/bittaran_railgun_runtime_check.gd`、`tools/bittaran_world_yaw_independence_runtime_check.gd`、Bittaran実シーン攻撃／ダウン検査を確認。
 - **本体変更より先に検証追加**：`tools/bittaran_leg_turrets_runtime_check.gd`を追加・manifestへ登録。各脚の実関節と半球＋筒、1.2秒共通発射間隔、最短距離脚からの一巡射撃、攻撃中の停止、ダウン予備動作／ダウン姿勢の砲台＆既存レーザー停止を独立した期待値から確認。旧レールガン追尾・接触テストは維持。
