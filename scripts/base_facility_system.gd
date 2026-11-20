@@ -1220,31 +1220,71 @@ func _show_prototype_catalog() -> void:
         trial.custom_minimum_size.y = 62.0
         trial.pressed.connect(_claim_trial_materials.bind(true))
         modal_actions.add_child(trial)
-    var grid := _new_grid("PrototypeGrid")
+    var tab_scroll := ScrollContainer.new()
+    tab_scroll.name = "CraftSlotScroll"
+    tab_scroll.custom_minimum_size.y = 57
+    tab_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+    tab_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+    modal_actions.add_child(tab_scroll)
+    var slot_tabs := HBoxContainer.new()
+    slot_tabs.add_theme_constant_override("separation", 6)
+    tab_scroll.add_child(slot_tabs)
+    var group := ButtonGroup.new()
+    for slot in SeraSave.EQUIPMENT_SLOTS:
+        var b := Button.new()
+        b.name = "CraftSlot_" + str(slot)
+        b.text = _warehouse_slot_name(str(slot))
+        b.toggle_mode = true
+        b.button_group = group
+        b.button_pressed = craft_slot == str(slot)
+        b.custom_minimum_size = Vector2(86, 48)
+        b.pressed.connect(_select_craft_slot.bind(str(slot)))
+        slot_tabs.add_child(b)
+    var grid := _new_grid("PrototypeGrid", 1)
+    var first_id: String = ""
     for bp in PrototypeCatalog.ORDER:
         var id: String = str(bp)
         var entry: Dictionary = PrototypeCatalog.spec(id)
-        if diagnostic_button.visible:
-            _diag_step("craft " + id + " saved items")
-        if diagnostic_button.visible:
-            _diag_step("craft " + id + " icon")
-        if diagnostic_button.visible:
-            _diag_step("craft " + id + " slot")
+        if str(entry.get("slot", "")) != craft_slot:
+            continue
+        if first_id.is_empty():
+            first_id = id
         var card: Button = _new_slot(grid, "PrototypeIcon_" + id,
             null, str(entry["name"]),
-            "製作対象",
+            LaboStats.baseline(id).replace("\n", " / "),
             _select_prototype.bind(id), "Choose_" + id) as Button
         _queue_card_icon(card, id, true)
     _finish_grid(grid)
+    if not first_id.is_empty():
+        var baseline := Label.new()
+        baseline.name = "PrototypeBaseStats"
+        baseline.text = LaboStats.baseline(first_id)
+        baseline.add_theme_font_size_override("font_size", 15)
+        baseline.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+        item_layer.add_child(baseline)
+    _configure_page_scroll(135 if modal_actions.get_child_count() > 1 else 65)
     _sync_section_tabs()
+
+func _select_craft_slot(slot: String) -> void:
+    if not SeraSave.EQUIPMENT_SLOTS.has(slot):
+        return
+    craft_slot = slot
+    _show_prototype_catalog()
 
 func _select_prototype(blueprint: String) -> void:
     if not PrototypeCatalog.valid(blueprint):
         return
     selected_prototype = blueprint
-    prototype_notice = ""
-    page = "prototype_detail"
-    _render_prototype_detail()
+    _confirm_selected_prototype()
+
+func _confirm_selected_prototype() -> void:
+    var spec: Dictionary = PrototypeCatalog.spec(selected_prototype)
+    if spec.is_empty():
+        return
+    _request_confirmation("作成しますか？",
+        "%s\n%s\n製作後、倉庫に保存します。" % [
+            str(spec["name"]), LaboStats.baseline(selected_prototype)],
+        _craft_selected_prototype)
 
 func _craft_selected_prototype() -> void:
     var uid: String = SeraSave.craft_prototype(selected_prototype)
@@ -1252,7 +1292,7 @@ func _craft_selected_prototype() -> void:
         prototype_notice = "製作できません。セーブデータとハンガー容量（上限999）を確認してください。"
     else:
         prototype_notice = "保管庫に登録：%s" % PrototypeCatalog.display_instance(uid)
-    _render_prototype_detail()
+    _show_prototype_catalog()
 
 func _render_prototype_detail() -> void:
     _clear_actions()
@@ -1263,6 +1303,7 @@ func _render_prototype_detail() -> void:
     modal_title.text = str(spec["name"])
     modal_body.text = "%s\n対象スロット：%s\n試作のため素材消費なし。" % [
         spec["description"], spec["slot"]]
+    modal_body.text += "\n" + LaboStats.baseline(selected_prototype)
     modal_body.text += "\n3D表示は現行のAモデルを使用します。"
     if not prototype_notice.is_empty():
         modal_body.text += "\n" + prototype_notice
@@ -1272,11 +1313,12 @@ func _render_prototype_detail() -> void:
     make.text = "製作して倉庫に登録"
     make.custom_minimum_size.y = 74.0
     make.disabled = SeraSave.active_slot == 0
-    make.pressed.connect(_craft_selected_prototype)
+    make.pressed.connect(_confirm_selected_prototype)
     modal_actions.add_child(make)
     _add_item_tile(IconAtlas.equipment_icon(selected_prototype),
         str(spec["name"]),
         "PrototypePreview_" + selected_prototype)
+    _configure_page_scroll(0, true)
 
 func _show_conversion(direction: int) -> void:
     conversion_mode = direction
