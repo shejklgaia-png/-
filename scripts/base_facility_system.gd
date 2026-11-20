@@ -303,8 +303,24 @@ func key_at(camera: Camera3D, pixel: Vector2) -> String:
 # Fit the largest readable Japanese glyphs into the existing touch targets.
 # Seven part tabs stay one row; no ScrollContainer or per-frame allocation.
 func _nav_font_size() -> int:
+    # The top edge uses full uppercase Latin labels; reserve extra tracking
+    # space instead of sizing for the old four-character Japanese text.
     var width: float = get_viewport().get_visible_rect().size.x
-    return clampi(int((width * 0.92 / 3.0 - 22.0) / 4.0), 19, 23)
+    return 19 if width < 540.0 else 21 if width < 720.0 else 22
+
+
+func _layout_section_tabs() -> void:
+    if section_tabs == null:
+        return
+    # Not inside the modal panel's VBox: the tabs are actually flush with
+    # the screen's upper-left edge, hanging over the 3D header background.
+    var available: float = get_viewport().get_visible_rect().size.x
+    section_tabs.position = Vector2.ZERO
+    section_tabs.size = Vector2(maxf(1.0, minf(540.0, available - 8.0)),
+        LABO_NAV_HEIGHT + 20.0)
+    for child in section_tabs.get_children():
+        if child is Button:
+            (child as Button).add_theme_font_size_override("font_size", _nav_font_size())
 
 func _slot_font_size() -> int:
     var width: float = get_viewport().get_visible_rect().size.x
@@ -407,33 +423,62 @@ func attach_hud(hud: Control) -> void:
     diagnostic_button.tooltip_text = "Android版Godotの一覧表示を診断"
     diagnostic_button.pressed.connect(_diag_toggle)
     header_row.add_child(diagnostic_button)
-    # Persistent, non-scrolling tabs remain accessible in every sub-page.
+    # Three fixed, lightweight native Buttons attach to the ACTUAL viewport
+    # top-left, separate from the 3D/header/content VBox. The selected tongue
+    # hangs 18px lower; the unselected tongues remain short and restrained.
     section_tabs = HBoxContainer.new()
     section_tabs.name = "FacilitySectionTabs"
+    section_tabs.mouse_filter = Control.MOUSE_FILTER_PASS
+    section_tabs.theme = LaboSkin.common_theme()
     section_tabs.add_theme_constant_override("separation", 4)
-    body.add_child(section_tabs)
+    section_tabs.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
+    modal.add_child(section_tabs)
     var section_group := ButtonGroup.new()
     for entry in [
-        {"id": "TabCraft", "label": "装備製作", "target": "craft"},
-        {"id": "TabMaterials", "label": "素材変換", "target": "materials"},
-        {"id": "TabWarehouse", "label": "倉庫", "target": "warehouse"}
+        {"id": "TabCraft", "label": "EQUIPMENT", "serial": "01", "target": "craft"},
+        {"id": "TabMaterials", "label": "REFINERY", "serial": "02", "target": "materials"},
+        {"id": "TabWarehouse", "label": "STORAGE", "serial": "03", "target": "warehouse"}
     ]:
         var button: Button = LaboSectionTabScene.instantiate() as Button
         button.name = str(entry["id"])
         button.text = str(entry["label"])
         button.toggle_mode = true
         button.button_group = section_group
-        button.custom_minimum_size.y = LABO_NAV_HEIGHT
+        button.mouse_filter = Control.MOUSE_FILTER_STOP
+        button.custom_minimum_size = Vector2(0.0, LABO_NAV_HEIGHT)
         button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+        button.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
+        button.alignment = HORIZONTAL_ALIGNMENT_CENTER
         button.add_theme_font_size_override("font_size", _nav_font_size())
-        button.add_theme_font_override("font", LaboSkin.title_font())
+        button.add_theme_font_override("font", LaboSkin.data_font())
         button.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-        button.add_theme_color_override("font_color", Color("#f4fbff"))
-        # Rounded blue-grey styles are inherited from FacilitySheet.theme.
+        button.add_theme_color_override("font_color", Color("#b4cbd5"))
+        button.add_theme_color_override("font_pressed_color", Color("#e9fcff"))
+        button.add_theme_color_override("font_hover_color", Color("#effbff"))
+        button.add_theme_color_override("font_hover_pressed_color", Color("#effbff"))
+        button.add_theme_stylebox_override("normal", LaboSkin.hanging_tab_style("normal"))
+        button.add_theme_stylebox_override("hover", LaboSkin.hanging_tab_style("hover"))
+        button.add_theme_stylebox_override("pressed", LaboSkin.hanging_tab_style("selected"))
+        button.add_theme_stylebox_override("hover_pressed", LaboSkin.hanging_tab_style("selected"))
+        button.add_theme_stylebox_override("focus", LaboSkin.hanging_tab_style("normal"))
+        button.add_theme_stylebox_override("disabled", LaboSkin.hanging_tab_style("disabled"))
+        # Tiny etched terminal address above the main label, not a separate
+        # touchable layer. All three serial labels are allocated only once.
+        var serial := Label.new()
+        serial.name = "TabSerial"
+        serial.text = str(entry["serial"])
+        serial.position = Vector2(13.0, 5.0)
+        serial.size = Vector2(34.0, 17.0)
+        serial.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        serial.add_theme_font_override("font", LaboSkin.data_font())
+        serial.add_theme_font_size_override("font_size", 11)
+        serial.add_theme_color_override("font_color", Color("#819ca9"))
+        button.add_child(serial)
         button.pressed.connect(_switch_section.bind(str(entry["target"])))
         section_tabs.add_child(button)
-    # Reference hierarchy: 3D scene -> three navigation tabs -> section heading.
-    body.move_child(section_tabs, header_row.get_index())
+    _layout_section_tabs()
+    get_viewport().size_changed.connect(_layout_section_tabs)
+    # The 3D viewport retains its own fixed 30% height in the body below.
     modal_body = Label.new()
     modal_body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
     modal_body.add_theme_font_size_override("font_size", 19)
@@ -836,7 +881,11 @@ func _sync_section_tabs() -> void:
             current = "TabWarehouse"
     for child in section_tabs.get_children():
         if child is Button:
-            (child as Button).button_pressed = child.name == current
+            var button: Button = child as Button
+            var selected: bool = button.name == current
+            button.button_pressed = selected
+            button.custom_minimum_size.y = (
+                LABO_NAV_HEIGHT + 18.0 if selected else LABO_NAV_HEIGHT)
 
 
 func open_facility(key: String) -> void:
