@@ -1,5 +1,5 @@
 extends SceneTree
-## Missing imported WebP must not prevent any of the 7/12/12 native cards.
+## Missing imported WebP must not hide native craft/conversion and virtual warehouse cells.
 const Icons = preload("res://scripts/sera_item_icons.gd")
 
 func _initialize() -> void:
@@ -23,6 +23,28 @@ func _expect(fac: Node, target: String, count: int, first_name: String) -> bool:
     await process_frame
     await process_frame
     var layer: Control = fac.get("item_layer") as Control
+    if target == "warehouse":
+        var list: ScrollContainer = layer.find_child("WarehouseMaterials", true, false) as ScrollContainer
+        if list == null or int(list.get("columns")) != 3 or (
+                (list.get("entries") as Array).size() != count):
+            _fail("virtual materials list lost entries without imported WebP")
+            return false
+        var pool: Array = list.get("pool")
+        if pool.is_empty() or pool.size() > 32:
+            _fail("virtual missing-image card pool must stay bounded")
+            return false
+        var first_virtual: Button = pool[0] as Button
+        if first_virtual == null or not first_virtual.is_visible_in_tree() or (
+                (first_virtual.get_node("ItemTitle") as Label).text.is_empty()):
+            _fail("virtual card lost text without WebP import")
+            return false
+        if (first_virtual.get_node("ItemArt") as TextureRect).texture != null:
+            _fail("missing source unexpectedly resolved in virtual material card")
+            return false
+        if first_virtual.get_theme_stylebox("normal") is not StyleBoxTexture:
+            _fail("missing-image material card needs cut-corner outline")
+            return false
+        return true
     var first: Button = layer.find_child(first_name, true, false) as Button
     if first == null or not first.is_visible_in_tree() or first.text.is_empty():
         _fail("missing native labelled slot without an image: " + first_name)

@@ -162,7 +162,7 @@ func _run() -> void:
         return
     fac.call("_switch_section", "warehouse")
     await process_frame
-    if not _check_flow(fac, "WarehouseMaterials", "MaterialIcon_scrap_low", 12):
+    if not _check_virtual(fac, "WarehouseMaterials", 12, 3):
         return
     store.set("active_slot", original_slot)
     store.set("active_data", original_data)
