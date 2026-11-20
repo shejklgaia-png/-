@@ -3,58 +3,40 @@ extends RefCounted
 static var _cache: Dictionary = {}
 static var _card_cache: Dictionary = {}
 static var _tab_cache: Dictionary = {}
-static var _ui_font: Font
-static var _title_font: Font
-static var _data_font: Font
+static var _ui_font: SystemFont
+static var _title_font: SystemFont
+static var _data_font: SystemFont
 
-## On Android the system's Japanese sans and digital Latin faces are used.
-## GitHub Actions software GL can stall during fontconfig CJK loading:
-## use Godot's already-loaded built-in font there only. UI dimensions, color
-## and text size remain identical in both paths.
-static func ui_font() -> Font:
+## Device fonts only: the first installed face is used, then Godot's
+## built-in CJK fallback. No shipped font asset, network request or glyph atlas.
+static func ui_font() -> SystemFont:
     if _ui_font == null:
-        if OS.has_environment("GITHUB_ACTIONS"):
-            _ui_font = ThemeDB.fallback_font
-        else:
-            var system_font := SystemFont.new()
-            system_font.font_names = PackedStringArray([
-                "Noto Sans JP", "Noto Sans CJK JP", "M PLUS 1p",
-                "Hiragino Kaku Gothic ProN", "Yu Gothic", "sans-serif"])
-            system_font.font_weight = 550
-            system_font.allow_system_fallback = true
-            _ui_font = system_font
+        _ui_font = SystemFont.new()
+        _ui_font.font_names = PackedStringArray([
+            "Noto Sans JP", "Noto Sans CJK JP", "M PLUS 1p",
+            "Hiragino Kaku Gothic ProN", "Yu Gothic", "sans-serif"])
+        _ui_font.font_weight = 550
+        _ui_font.allow_system_fallback = true
     return _ui_font
 
-static func title_font() -> Font:
+static func title_font() -> SystemFont:
     if _title_font == null:
-        if OS.has_environment("GITHUB_ACTIONS"):
-            var bold := FontVariation.new()
-            bold.base_font = ui_font()
-            bold.variation_embolden = 0.65
-            _title_font = bold
-        else:
-            var system_font := SystemFont.new()
-            system_font.font_names = PackedStringArray([
-                "Noto Sans JP", "Noto Sans CJK JP", "M PLUS 1p",
-                "Hiragino Kaku Gothic ProN", "Yu Gothic", "sans-serif"])
-            system_font.font_weight = 700
-            system_font.allow_system_fallback = true
-            _title_font = system_font
+        _title_font = SystemFont.new()
+        _title_font.font_names = ui_font().font_names
+        _title_font.font_weight = 700
+        _title_font.allow_system_fallback = true
     return _title_font
 
-static func data_font() -> Font:
+static func data_font() -> SystemFont:
     if _data_font == null:
-        if OS.has_environment("GITHUB_ACTIONS"):
-            _data_font = ThemeDB.fallback_font
-        else:
-            var system_font := SystemFont.new()
-            system_font.font_names = PackedStringArray([
-                "Roboto Mono", "JetBrains Mono", "Noto Sans Mono CJK JP",
-                "M PLUS 1 Code", "monospace"])
-            system_font.font_weight = 550
-            system_font.allow_system_fallback = true
-            _data_font = system_font
+        _data_font = SystemFont.new()
+        _data_font.font_names = PackedStringArray([
+            "Roboto Mono", "JetBrains Mono", "Noto Sans Mono CJK JP",
+            "M PLUS 1 Code", "monospace"])
+        _data_font.font_weight = 550
+        _data_font.allow_system_fallback = true
     return _data_font
+
 
 static func style(kind: String = "normal") -> StyleBoxFlat:
     if _cache.has(kind):
