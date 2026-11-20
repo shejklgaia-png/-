@@ -10,6 +10,13 @@ var _finger_index: int = -1
 var _finger_origin: Vector2 = Vector2.ZERO
 var _start_scroll: float = 0.0
 var _drag_consumed: bool = false
+var touch_scroll_enabled: bool = true
+
+
+func set_touch_scroll_enabled(enabled: bool) -> void:
+    touch_scroll_enabled = enabled
+    if not enabled:
+        _finger_index = -1
 
 
 func touch_drag_consumed() -> bool:
@@ -19,7 +26,7 @@ func touch_drag_consumed() -> bool:
 
 
 func _input(event: InputEvent) -> void:
-    if not is_visible_in_tree():
+    if not touch_scroll_enabled or not is_visible_in_tree():
         _finger_index = -1
         return
     if event is InputEventScreenTouch:
