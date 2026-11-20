@@ -5,6 +5,17 @@ func _initialize() -> void:
 func _fail(why: String) -> void:
     push_error("SERA_V524_LAYOUT_TABS_FAIL: " + why)
     quit(1)
+func _actual_row_count(grid: VBoxContainer) -> int:
+    # Craft cards and the passive preview now share one scrollable grid.
+    # Count only interactive native HBox rows, not the preview panel.
+    if grid == null:
+        return 0
+    var total: int = 0
+    for child in grid.get_children():
+        if child is HBoxContainer:
+            total += 1
+    return total
+
 func _selected_count(tabs: HBoxContainer) -> int:
     var total: int = 0
     for child in tabs.get_children():
@@ -30,7 +41,7 @@ func _check_flow(fac: Node3D, page_name: String, first_card: String, expected: i
         return false
     var grid: VBoxContainer = layer.find_child(page_name, true, false) as VBoxContainer
     var columns: int = 1 if page_name == "PrototypeGrid" else 3
-    if grid == null or grid.get_child_count() != ceili(float(expected)/float(columns)):
+    if grid == null or _actual_row_count(grid) != ceili(float(expected)/float(columns)):
         _fail("missing card rows for " + page_name)
         return false
     var card: Button = grid.find_child(first_card, true, false) as Button
