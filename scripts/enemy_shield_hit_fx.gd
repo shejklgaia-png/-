@@ -8,6 +8,9 @@ const SHIELD_SURFACE_OFFSET: float = 0.14
 # Six concentric thick-edged octagonal fields, not blurred circles.
 const FRAME_COUNT: int = 6
 const FRAME_SIDES: int = 8
+# Slightly wider horizontal silhouette for all six intact frames + center.
+# No camera or world scale changes: this affects screen-facing octagons only.
+const OCTAGON_HORIZONTAL_STRETCH: float = 1.15
 const EXPAND_SECONDS: float = 0.20
 const HOLD_SECONDS: float = 0.20
 const FADE_SECONDS: float = 0.20
@@ -139,7 +142,7 @@ func _tri(a: Vector2, b: Vector2, c: Vector2,
 
 static func _octagon_direction(index: int) -> Vector2:
     var angle: float = TAU * float(index) / float(FRAME_SIDES) + PI / 8.0
-    return Vector2(cos(angle), sin(angle))
+    return Vector2(cos(angle) * OCTAGON_HORIZONTAL_STRETCH, sin(angle))
 
 func _octagon_disc(center: Vector2, radius: float,
         color: Color, depth: float) -> void:

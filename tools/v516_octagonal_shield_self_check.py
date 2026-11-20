@@ -8,6 +8,10 @@ s = read("scripts/enemy_shield_hit_fx.gd")
 t = read("tools/sera_ci_manifest.txt")
 assert "const FRAME_COUNT: int = 6" in s
 assert "const FRAME_SIDES: int = 8" in s
+# v519: widen ONLY the intact octagon frames and filled center, not impacts.
+assert "const OCTAGON_HORIZONTAL_STRETCH: float = 1.15" in s
+assert "cos(angle) * OCTAGON_HORIZONTAL_STRETCH" in s
+assert "return Vector2(cos(angle) * OCTAGON_HORIZONTAL_STRETCH, sin(angle))" in s
 assert "const EXPAND_SECONDS: float = 0.20" in s
 assert "const HOLD_SECONDS: float = 0.20" in s
 assert "const FADE_SECONDS: float = 0.20" in s
