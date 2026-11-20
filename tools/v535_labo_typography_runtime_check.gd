@@ -27,11 +27,11 @@ func _run() -> void:
     await process_frame
     var tabs: HBoxContainer = fac.get("section_tabs") as HBoxContainer
     var title: Label = fac.get("modal_title") as Label
-    var body: VBoxContainer = tabs.get_parent() as VBoxContainer
     var header: HBoxContainer = title.get_parent() as HBoxContainer
-    if tabs.get_index() >= header.get_index() or (
-            header.find_child("SectionHeaderAccent", true, false) == null):
-        _fail("reference layout must show tabs before accented section heading")
+    if tabs.get_parent() != fac.get("modal") or (
+            header.find_child("SectionHeaderAccent", true, false) == null) or (
+            tabs.get_global_rect().position.x > 1.0):
+        _fail("hanging section tabs must stay top-left above the panel heading")
         return
     if not _need_font(title, 26, "section title"):
         return
