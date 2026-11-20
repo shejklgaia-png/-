@@ -9,8 +9,7 @@ func _fail(reason: String) -> void:
     push_error("SERA_V522_NATIVE_CARD_FAIL: " + reason)
     quit(1)
 func _actual_row_count(grid: VBoxContainer) -> int:
-    # Craft cards and the passive preview now share one scrollable grid.
-    # Count only interactive native HBox rows, not the preview panel.
+    # Count only the twenty native craft rows.
     if grid == null:
         return 0
     var total: int = 0
@@ -31,8 +30,6 @@ func _verify_grid(cards: Control, name: String, ids: Array, prefix: String, clic
         _fail("native row count does not match current slot-bar grid: " + name)
         return false
     for row in grid.get_children():
-        if name == "PrototypeGrid" and row.name == "PrototypeBasePreview":
-            continue
         if not row is HBoxContainer:
             _fail("grid row is not a known-working native HBoxContainer")
             return false

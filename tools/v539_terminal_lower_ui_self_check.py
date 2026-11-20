@@ -14,7 +14,7 @@ assert 'static var _segment_cache:' in skin
 assert 'func _add_terminal_notice(' in ui
 assert 'card.get_node("CardContent/Row/ItemArt")' in ui
 assert 'UnitSerial' in ui and 'TierRail' in ui
-assert 'PrototypeBasePreview' in ui and 'PrototypeBaseArt' in ui
+assert 'PrototypeBasePreview' not in ui and 'PrototypeBaseArt' not in ui
 assert 'WarehouseCategoryTabs' in ui and 'CraftSlotTabs' in ui and 'WarehouseHangerTabs' in ui
 assert 'ConvertInputIcon_' in ui and 'ConvertOutputIcon_' in ui
 assert 'EmptySlotLabel' in warehouse and 'ItemEffects' in warehouse

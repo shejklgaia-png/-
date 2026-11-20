@@ -16,13 +16,14 @@ for token in ("static func ui_font(", "static func title_font(",
 for token in ('modal.add_child(section_tabs)', 'SectionHeaderAccent',
               'func _slot_font_size(', 'func _nav_font_size(',
               'LaboSkin.title_font()', 'LaboSkin.data_font()',
-              '"PrototypeBasePreview"', '"PrototypeBaseArt"',
+              'CRAFT_CATALOG_SLOTS: int = 20',
               'LABO_NAV_HEIGHT: float = 64.0',
               'LABO_SLOT_HEIGHT: float = 58.0',
               'LABO_BACK_HEIGHT: float = 66.0',
               'LABO_CRAFT_CARD_HEIGHT: float = 160.0',
               'MATERIAL_CARD_HEIGHT: float = 108.0'):
     assert token in fac,token
+assert 'PrototypeBasePreview' not in fac and 'PrototypeBaseArt' not in fac
 assert 'section_tabs.position = Vector2.ZERO' in fac
 assert 'body.get_child_index(' not in fac, "Node.get_index() is required by Godot 4.7"
 assert 'font_size = 19' in mat

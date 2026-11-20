@@ -8,8 +8,7 @@ func _fail(msg: String) -> void:
     quit(1)
 
 func _actual_row_count(grid: VBoxContainer) -> int:
-    # Craft cards and the passive preview now share one scrollable grid.
-    # Count only interactive native HBox rows, not the preview panel.
+    # Only active and locked craft rows remain in the scrollable catalog.
     if grid == null:
         return 0
     var total: int = 0
@@ -25,16 +24,14 @@ func _verify(fac: Node, grid_name: String, expected: int, fillers: int) -> bool:
     if grid == null or _actual_row_count(grid) != ceili(float(expected)/float(columns)):
         _fail("grid missing or wrong row count: " + grid_name)
         return false
-    if grid_name == "PrototypeGrid" and not grid.has_node("PrototypeBasePreview"):
-        _fail("craft preview must stay in the scrollable flow")
+    if grid_name == "PrototypeGrid" and grid.has_node("PrototypeBasePreview"):
+        _fail("retired detailed craft preview reappeared")
         return false
     var seen: int = 0
     var spare: int = 0
     var first_width: float = -1.0
     var last_width: float = -1.0
     for row in grid.get_children():
-        if grid_name == "PrototypeGrid" and row.name == "PrototypeBasePreview":
-            continue
         if not row is HBoxContainer or row.get_child_count() != columns:
             _fail("row must retain three equal-width cells: " + grid_name)
             return false
