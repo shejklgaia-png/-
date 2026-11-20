@@ -51,8 +51,8 @@ func _run() -> void:
     await process_frame
     diag_toggle.pressed.emit()
     fac.call("_diag_update")
-    if not diag_label.text.contains("created 12/12"):
-        _fail("warehouse diagnostic card count wrong")
+    if not diag_label.text.contains("virtual 12 items"):
+        _fail("warehouse diagnostic must report twelve virtual material entries")
         return
     print("SERA_ANDROID_EDITOR_CARD_DIAG_RUNTIME_PASS: live renderer/engine and counts in the actual menu")
     quit(0)
