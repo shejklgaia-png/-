@@ -7,8 +7,8 @@ const Icons = preload("res://scripts/sera_item_icons.gd")
 const Affixes = preload("res://scripts/sera_craft_affixes.gd")
 const LaboSkin = preload("res://scripts/sera_labo_round_skin.gd")
 const GAP: float = 8.0
-const CARD_HEIGHT_EQUIPMENT: float = 156.0
-const CARD_HEIGHT_MATERIALS: float = 96.0
+const CARD_HEIGHT_EQUIPMENT: float = 180.0
+const CARD_HEIGHT_MATERIALS: float = 120.0
 const MAX_POOL_CARDS: int = 32
 var entries: Array = []
 var columns: int = 2
@@ -16,7 +16,7 @@ var mode: String = "equipment"
 var virtual_slots: int = 2
 var pool: Array = []
 var canvas: Control
-var _row_pitch: float = 164.0
+var _row_pitch: float = 188.0
 var _card_width: float = 200.0
 var _first_row: int = -1
 var _font: Font
@@ -26,7 +26,7 @@ func _ready() -> void:
     name = "WarehouseVirtualGrid"
     size_flags_horizontal = Control.SIZE_EXPAND_FILL
     size_flags_vertical = Control.SIZE_EXPAND_FILL
-    custom_minimum_size.y = 168.0
+    custom_minimum_size.y = 184.0
     horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
     vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
     mouse_filter = Control.MOUSE_FILTER_STOP
@@ -104,7 +104,7 @@ func _make_card() -> Button:
     title.mouse_filter = Control.MOUSE_FILTER_IGNORE
     title.add_theme_color_override("font_color", Color("#f4faff"))
     title.add_theme_font_override("font", _font)
-    title.add_theme_font_size_override("font_size", 12)
+    title.add_theme_font_size_override("font_size", 14)
     title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
     title.clip_text = true
     card.add_child(title)
@@ -113,7 +113,7 @@ func _make_card() -> Button:
     effects.mouse_filter = Control.MOUSE_FILTER_IGNORE
     effects.add_theme_color_override("font_color", Color("#ecf5fc"))
     effects.add_theme_font_override("font", _font)
-    effects.add_theme_font_size_override("font_size", 11)
+    effects.add_theme_font_size_override("font_size", 12)
     effects.autowrap_mode = TextServer.AUTOWRAP_OFF
     effects.clip_text = true
     card.add_child(effects)
@@ -168,16 +168,16 @@ func _bind_card(card: Button, index: int) -> void:
     # Fit a perfect square inside the card even in a narrow Android layout.
     # Always reserve space for the label and clip the final display rectangle.
     var side: float = maxf(1.0, minf(
-        62.0 if mode == "materials" else 74.0,
+        72.0 if mode == "materials" else 86.0,
         minf(_card_height() - 14.0, _card_width - 42.0)))
     art.position = Vector2(7.0, (_card_height() - side) * 0.5)
     art.size = Vector2(side, side)
     var text_left: float = art.position.x + side + 7.0
     var text_width: float = maxf(1.0, _card_width - text_left - 6.0)
-    title.position = Vector2(text_left, 8.0 if mode == "equipment" else 21.0)
-    title.size = Vector2(text_width, 34.0 if mode == "equipment" else 38.0)
-    effects.position = Vector2(text_left, 43.0 if mode == "equipment" else 61.0)
-    effects.size = Vector2(text_width, _card_height() - (48.0 if mode == "equipment" else 62.0))
+    title.position = Vector2(text_left, 10.0 if mode == "equipment" else 16.0)
+    title.size = Vector2(text_width, 44.0 if mode == "equipment" else 55.0)
+    effects.position = Vector2(text_left, 56.0 if mode == "equipment" else 79.0)
+    effects.size = Vector2(text_width, _card_height() - (61.0 if mode == "equipment" else 81.0))
     title.visible = not blank
     effects.visible = not blank
     art.visible = not blank
@@ -189,7 +189,7 @@ func _bind_card(card: Button, index: int) -> void:
         var id: String = str(entry.get("id", ""))
         title.text = str(entry.get("name", ""))
         effects.text = "所持 " + str(entry.get("count", 0))
-        art.texture = Icons.material_icon_sized(id, 58)
+        art.texture = Icons.material_icon_sized(id, 64)
         art.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
     else:
         var blueprint: String = str(entry.get("blueprint", ""))

@@ -52,7 +52,7 @@ func _run() -> void:
         if not _assert_card(card):
             return
         var art: TextureRect = card.find_child("ItemArt", true, false) as TextureRect
-        if art.size.x > 58.0 or card.size.y > 93.0:
+        if art.size.x > 68.0 or card.size.y > 117.0:
             _fail("material cards exceed the reference density")
             return
     fac.call("_select_conversion_family", "alloy")
