@@ -778,19 +778,20 @@ func _ready() -> void:
     world.name = "Environment"
     var environment := Environment.new()
     environment.background_mode = Environment.BG_COLOR
-    environment.background_color = Color("#111f2d")
+    environment.background_color = Color("#101e2b")
     environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-    environment.ambient_light_color = Color("#b4d0dc")
-    environment.ambient_light_energy = 0.67
+    environment.ambient_light_color = Color("#b9cbd3")
+    environment.ambient_light_energy = 0.72
     world.environment = environment
     add_child(world)
-    var light := DirectionalLight3D.new()
-    light.name = "IndustrialKeyLight"
-    light.rotation_degrees = Vector3(-45.0, 22.0, -14.0)
-    light.light_energy = 1.15
-    light.shadow_enabled = false
-    add_child(light)
-    # Independent scenery roots (only the active one is rendered).
+    var sun := DirectionalLight3D.new()
+    sun.name = "SofterIndustrialKeyLight"
+    sun.rotation_degrees = Vector3(-43.0, 28.0, -8.0)
+    sun.light_energy = 1.23
+    sun.shadow_enabled = false
+    add_child(sun)
+    # Build each entirely independent room. Large photographic obstructions
+    # from the previous close-up experiment are intentionally NOT instantiated.
     _build_printer()
     _build_print_room()
     _build_terminal()
@@ -799,23 +800,21 @@ func _ready() -> void:
     _build_warehouse()
     _build_warehouse_room()
     _build_crate()
-    _build_printer_closeup()
-    _build_refinery_closeup()
-    _build_warehouse_closeup()
     warehouse_scanner = Node3D.new()
     warehouse_scanner.name = "TravelingInventoryScanner"
-    warehouse_scanner.position = Vector3(0.28, 1.12, -0.40)
+    warehouse_scanner.position = Vector3(1.53, 1.10, -0.86)
     warehouse_group.add_child(warehouse_scanner)
     _block(warehouse_scanner, "ScanHead", Vector3.ZERO,
-        Vector3(0.19, 0.10, 0.33), Color("#4ce0e9"), true)
+        Vector3(0.16, 0.10, 0.24), Color("#50b6cd"), true)
     hero_camera = Camera3D.new()
     hero_camera.name = "HeroCamera"
     add_child(hero_camera)
     hero_camera.current = true
+    hero_camera.near = 0.10
+    hero_camera.far = 75.0
     set_section(current_section)
 
 func set_section(section: String) -> void:
-    # Refining and disassembly are different tabs of the material room.
     current_section = section if section in ["LABO", "SMELTER", "RECYCLER", "STORAGE"] else "LABO"
     printer_group.visible = current_section == "LABO"
     converter_group.visible = current_section in ["SMELTER", "RECYCLER"]
@@ -825,40 +824,35 @@ func set_section(section: String) -> void:
     crate_head.rotation = Vector3.ZERO
     crate_arm.rotation = Vector3.ZERO
     crate_left_arm.rotation = Vector3.ZERO
+    crate.scale = Vector3.ONE
     match current_section:
         "LABO":
-            crate.position = Vector3(1.20, 0, 0.60)
-            crate.rotation.y = 2.55
+            # Reference Scene A: large printer occupies left, CRATE mid-right,
+            # touch terminal right edge. Gentle low three-quarter viewpoint.
+            crate.position = Vector3(1.70, 0.0, 0.55)
+            crate.rotation.y = 2.26
             work_state = "print_to_terminal"
-            # Low-right, upward-looking diagonal frame: foreground printer,
-            # middle ground CRATE and rear suspended service bridge.
-            # Main printer, terminal and working CRATE must be fully readable;
-            # only peripheral loader and overhead rig are intentionally cropped.
-            hero_camera.position = Vector3(0.65, 1.65, 4.80)
-            hero_camera.fov = 53.0
-            hero_camera.look_at(Vector3(-0.35, 1.60, -0.30), Vector3.UP)
+            hero_camera.position = Vector3(0.10, 1.75, 5.85)
+            hero_camera.fov = 49.0
+            hero_camera.look_at(Vector3(-0.30, 1.80, -0.70), Vector3.UP)
         "SMELTER", "RECYCLER":
-            crate.position = Vector3(1.60, 0, 0.85)
-            crate.rotation.y = 2.80
+            # Reference Scene B: amber / cyan / violet refinery left-to-right,
+            # all four input bins in the foreground, CRATE on right.
+            crate.position = Vector3(3.00, 0.0, 0.45)
+            crate.rotation.y = 2.34
             work_state = "refinery_audit"
-            # High-left downward three-quarter shot along the diagonal
-            # procession of three staggered refinery chambers.
-            # All three refinery vats stay recognizable, with the large manifold
-            # and overhead pipes cropped around the perimeter.
-            hero_camera.position = Vector3(-1.45, 2.15, 4.85)
-            hero_camera.fov = 55.0
-            hero_camera.look_at(Vector3(-0.30, 1.55, -1.25), Vector3.UP)
+            hero_camera.position = Vector3(-0.15, 1.75, 6.00)
+            hero_camera.fov = 50.0
+            hero_camera.look_at(Vector3(-0.10, 1.85, -0.95), Vector3.UP)
         "STORAGE":
-            crate.position = Vector3(0.55, 0, -0.55)
-            crate.rotation.y = 2.95
+            # Reference Scene C: eye-level storage aisle with tall rack banks,
+            # center-left CRATE, inventory monitor beyond to the right.
+            crate.position = Vector3(0.05, 0.0, 0.85)
+            crate.rotation.y = -2.87
             work_state = "storage_scan"
-            # Elevated aisle-wide camera, opposite the refinery's left-side
-            # vantage: near-left rack and distant right bank make deep parallax.
-            # Both rack banks remain visible; only near tower, pallets and hoist
-            # extend beyond the frame. CRATE is midground, not foreground.
-            hero_camera.position = Vector3(0.55, 2.30, 4.80)
-            hero_camera.fov = 55.0
-            hero_camera.look_at(Vector3(0.00, 1.75, -1.40), Vector3.UP)
+            hero_camera.position = Vector3(0.10, 1.75, 5.75)
+            hero_camera.fov = 51.0
+            hero_camera.look_at(Vector3(0.00, 1.85, -1.05), Vector3.UP)
 
 func _move_to(goal: Vector3, delta: float) -> bool:
     var planar := Vector3(goal.x, crate.position.y, goal.z)
@@ -891,78 +885,78 @@ func _process(delta: float) -> void:
             _animate_inventory(delta)
 
 func _animate_manufacturing(delta: float) -> void:
-    # Print head and part grow on the manufacturing page only.
-    printer_nozzle.position.x = -2.30 + 0.54 * sin(clock * 1.9)
-    printer_nozzle.position.z = 0.28 + 0.24 * cos(clock * 1.13)
-    printed_part.scale.y = 0.78 + 0.15 * sin(clock * 0.37)
+    # Printer nozzle moves in the local, scaled printer frame.
+    printer_nozzle.position.x = 0.13 + 0.24*sin(clock*1.8)
+    printer_nozzle.position.z = 0.24 + 0.13*cos(clock*1.2)
+    printed_part.scale.y = 0.92 + 0.06*sin(clock*0.4)
     match work_state:
         "print_to_terminal":
-            if _move_to(Vector3(1.50, 0, -0.35), delta):
+            if _move_to(Vector3(2.60, 0, 0.24), delta):
                 _enter("print_inspect_terminal")
         "print_inspect_terminal":
-            crate.rotation.y = lerp_angle(crate.rotation.y, -2.85, minf(delta*2.0, 1.0))
-            crate_head.rotation.x = lerpf(crate_head.rotation.x, 0.23, minf(delta*3.0, 1.0))
-            crate_arm.rotation.x = -0.38 + 0.06*sin(clock*3.5)
+            crate.rotation.y = lerp_angle(crate.rotation.y, 2.10, minf(delta*2.0, 1.0))
+            crate_head.rotation.x = lerpf(crate_head.rotation.x, 0.17, minf(delta*3.0, 1.0))
+            crate_arm.rotation.x = -0.30 + 0.06*sin(clock*2.2)
             if state_time > 3.1:
                 _enter("print_to_machine")
         "print_to_machine":
-            if _move_to(Vector3(-0.58, 0, 1.39), delta):
+            if _move_to(Vector3(1.32, 0, 0.42), delta):
                 _enter("print_inspect_shell")
         "print_inspect_shell":
-            crate_head.rotation.x = lerpf(crate_head.rotation.x, -0.18, minf(delta*3.0, 1.0))
-            crate_left_arm.rotation.x = 0.16*sin(clock*2.0)
-            if state_time > 2.5:
+            crate.rotation.y = lerp_angle(crate.rotation.y, 2.65, minf(delta*2.5, 1.0))
+            crate_head.rotation.x = lerpf(crate_head.rotation.x, -0.13, minf(delta*3.0, 1.0))
+            crate_left_arm.rotation.x = 0.12*sin(clock*1.8)
+            if state_time > 2.6:
                 _enter("print_to_terminal")
 
 func _animate_refinery(delta: float) -> void:
-    # Refinery alone: rotating feedstock in each colored processing chamber.
+    # Low amplitude rotation/pulsing inside chambers; caps and columns are fixed.
     for i in range(converter_crystals.size()):
         var rotor: Node3D = converter_crystals[i]
-        rotor.rotation.y = clock * (0.26 + float(i)*0.12)
-        rotor.position.y = 1.25 + 0.065*sin(clock*1.6 + float(i)*1.3)
+        rotor.rotation.y = clock*(0.16 + float(i)*0.10)
+        rotor.position.y = 1.05 + 0.028*sin(clock*1.65 + float(i))
     match work_state:
         "refinery_audit":
-            crate.rotation.y = lerp_angle(crate.rotation.y, 2.45, minf(delta*2.3, 1.0))
-            crate_head.rotation.y = 0.17*sin(clock*1.1)
-            crate_arm.rotation.x = -0.25 + 0.19*sin(clock*2.1)
+            crate.rotation.y = lerp_angle(crate.rotation.y, 2.40, minf(delta*2.0, 1.0))
+            crate_head.rotation.y = 0.13*sin(clock*0.8)
+            crate_arm.rotation.x = -0.21 + 0.12*sin(clock*1.8)
             if state_time > 3.5:
                 _enter("refinery_to_samples")
         "refinery_to_samples":
-            if _move_to(Vector3(1.07, 0, 1.50), delta):
+            if _move_to(Vector3(2.47, 0, 0.62), delta):
                 _enter("refinery_sort")
         "refinery_sort":
-            crate_head.rotation.x = lerpf(crate_head.rotation.x, 0.27, minf(delta*3.0, 1.0))
-            crate_left_arm.rotation.x = -0.28 + 0.31*sin(clock*2.7)
-            if state_time > 2.7:
+            crate_head.rotation.x = lerpf(crate_head.rotation.x, 0.26, minf(delta*3.0, 1.0))
+            crate_left_arm.rotation.x = -0.24 + 0.18*sin(clock*2.4)
+            if state_time > 2.9:
                 _enter("refinery_return")
         "refinery_return":
-            if _move_to(Vector3(1.60, 0, 0.85), delta):
+            if _move_to(Vector3(3.0, 0, 0.45), delta):
                 _enter("refinery_audit")
 
 func _animate_inventory(delta: float) -> void:
-    # Warehouse alone: rail scanner sweeps, robot checks bins and logs stock.
-    warehouse_scanner.position.x = 0.28 + 0.46*sin(clock*1.8)
-    warehouse_scanner.rotation.y = 0.22*sin(clock*1.2)
+    # Warehouse robot remains at aisle center rather than driving into a rack.
+    warehouse_scanner.position.x = 1.53 + 0.12*sin(clock*1.5)
+    warehouse_scanner.rotation.y = 0.08*sin(clock*0.8)
     match work_state:
         "storage_scan":
-            crate_head.rotation.y = 0.25*sin(clock*0.95)
+            crate_head.rotation.y = 0.18*sin(clock*0.8)
             crate_arm.rotation.x = -0.12
-            if state_time > 2.2:
+            if state_time > 2.6:
                 _enter("storage_go_left")
         "storage_go_left":
-            if _move_to(Vector3(-0.52, 0, -0.72), delta):
+            if _move_to(Vector3(-0.68, 0, 0.72), delta):
                 _enter("storage_get_bin")
         "storage_get_bin":
-            crate_left_arm.rotation.x = -0.26 + 0.24*sin(clock*2.3)
-            crate_arm.rotation.x = -0.29 + 0.20*sin(clock*2.3 + 0.75)
-            crate_head.rotation.x = lerpf(crate_head.rotation.x, -0.23, minf(delta*3.0, 1.0))
-            if state_time > 2.8:
+            crate_left_arm.rotation.x = -0.24 + 0.14*sin(clock*2.1)
+            crate_head.rotation.x = lerpf(crate_head.rotation.x, -0.15, minf(delta*3.0, 1.0))
+            if state_time > 2.2:
                 _enter("storage_go_terminal")
         "storage_go_terminal":
-            if _move_to(Vector3(0.55, 0, -0.55), delta):
+            if _move_to(Vector3(0.47, 0, 0.58), delta):
                 _enter("storage_log_stock")
         "storage_log_stock":
-            crate_head.rotation.x = lerpf(crate_head.rotation.x, 0.20, minf(delta*3.0, 1.0))
-            crate_arm.rotation.x = -0.18 + 0.07*sin(clock*3.0)
+            crate_head.rotation.x = lerpf(crate_head.rotation.x, 0.18, minf(delta*3.0, 1.0))
+            crate_arm.rotation.x = -0.16 + 0.05*sin(clock*2.5)
             if state_time > 2.5:
                 _enter("storage_scan")
