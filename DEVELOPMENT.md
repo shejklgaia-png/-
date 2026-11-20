@@ -1,3 +1,11 @@
+## 2026-11-20 — LABO v535初期化エラーの根本修正
+
+- 実Godot 4.7.2ソフトウェアGLの出力ログを確認：attach_hud()でVBoxContainer.get_child_index(header_row)を呼び出していたが、GodotのNodeにはそのメソッドがなく、res://scripts/base_facility_system.gd の初期化が途中停止していた。結果、モーダル内のノードがnullとなり、スクリーンショット検査が完了しなかった。正しいNode.get_index()を使い、body.move_child(section_tabs, header_row.get_index())へ修正。
+- 調査途中のフォント処理・3D看板に対する推測は根本原因ではなかった。GitHub ActionsのみGodot内蔵フォントへ切り替える暫定処理（PR #498）、3D看板の発光プレート代替（PR #497）を撤回し、参考画面に近いNoto Sans JP系文字・Roboto Mono数字・3D PRINTER/SERAの3D看板を復元。
+- v535静的CIに「get_child_index()を使わずNode.get_index()を使うこと」を追加し、既存の実Godot UI初期化・操作・描画検査は維持。
+
+---
+
 ## 2026-11-20 — LABO v535描画検証のフォントフォールバック
 
 - 参考画像に合わせたUIテキストのフォントサイズ・ボタン寸法・太字タイトルは維持。AndroidではNoto Sans JP系システムフォントとRoboto Mono系数字フォントを利用。
