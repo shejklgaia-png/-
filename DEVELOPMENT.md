@@ -3589,3 +3589,11 @@
 - `base_facility_system.gd`：カードを先に生成し、アイコンと動的StyleBoxTextureの適用はdeferredへ。画像がなくても文字・枠・操作を確保。診断欄に `icon source` を追加。保存/素材/装備仕様は不変。
 - 事前確認：`sera_ci_manifest.txt`, `docs/SERA_ACTIVE_CI_POLICY_ja.md`, v511, v522〜v524, v526診断、`.github/workflows/sera-model-policy.yml`。旧期待値の変更なし。新規 `v527_android_icon_resilience_self_check.py` / `v527_android_icon_resilience_runtime_check.gd` を**本体改修前に登録**し、Raw WebP復号とテクスチャ不在での7/12/12枠を回帰検査。
 - 検証：マージ後mainの全登録Python/Godot CIとLinux実描画検査を実施。Android実機のエディター表示は別途確認が必要。
+
+
+## SERA v527軽量LABO UI整理（2026-11-20）
+- 実機v527でWebPソース直接読み込みの成功（`icon source: source-webp`）、素材・倉庫各12枚の描画を確認。今後の低負荷化では正常表示を優先し、カード・WebP・装備保存コードに変更を加えない。
+- LABOホームを「装備製作」選択扱いにしない。試作製作画面と詳細でのみ製作タブを選択し、戻るとホームはタブ未選択にする。これにより新しいタブや画面を増やさず、既存研究アクセスを残す。
+- 「診断」は初期非表示、ヘッダー5回タップ（1.7秒以内）でトグル。ゲーム開始時は診断の定期更新・描画を行わない。新しいTimer/スクロールノードは無し。表示済み12件と所持品の9件ページ分割をそのまま使う。
+- CI事前確認：`tools/sera_ci_manifest.txt`、`docs/SERA_ACTIVE_CI_POLICY_ja.md`、`v524_layout_tabs_runtime_check.gd`、`android_editor_card_diagnostic_* `、`base_page_navigation_*`、`v527_android_icon_resilience_*`。旧テストの期待値変更は不要。新しい静的/Godot UI回帰を本体更新前にCI登録済。
+- mainへマージ後全登録Python/Godotと実描画・リポジトリ整合性を検査。Android実機は別途確認。
