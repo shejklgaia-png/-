@@ -553,10 +553,20 @@ func attach_hud(hud: Control) -> void:
     accept_button.pressed.connect(_accept_confirmation)
     confirm_buttons.add_child(accept_button)
 
+func _set_labo_scroll_input_enabled(enabled: bool) -> void:
+    if actions_scroll != null and actions_scroll.has_method("set_touch_scroll_enabled"):
+        actions_scroll.call("set_touch_scroll_enabled", enabled)
+    if item_layer != null:
+        for child in item_layer.get_children():
+            if child.has_method("set_touch_scroll_enabled"):
+                child.call("set_touch_scroll_enabled", enabled)
+
+
 func _request_confirmation(title: String, detail: String, action: Callable) -> void:
     if confirmation_overlay == null or not action.is_valid():
         return
     pending_confirmation = action
+    _set_labo_scroll_input_enabled(false)
     confirmation_title.text = title
     confirmation_text.text = detail
     confirmation_overlay.visible = true
@@ -564,6 +574,7 @@ func _request_confirmation(title: String, detail: String, action: Callable) -> v
 
 func _dismiss_confirmation() -> void:
     pending_confirmation = Callable()
+    _set_labo_scroll_input_enabled(true)
     if confirmation_overlay != null:
         confirmation_overlay.visible = false
 
