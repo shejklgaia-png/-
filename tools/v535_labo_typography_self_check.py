@@ -28,7 +28,7 @@ assert 'section_tabs.position = Vector2.ZERO' in fac
 assert 'body.get_child_index(' not in fac, "Node.get_index() is required by Godot 4.7"
 assert 'font_size = 19' in mat
 assert 'font_size = 21' in equip
-assert 'LaboSkin.ui_font()' in wh and 'LaboSkin.data_font()' in wh
+assert 'LaboSkin.ui_font()' in wh and 'LaboSkin.tracked_data_font()' in wh
 assert '"CraftSlotScroll"' not in fac and '"WarehouseHangerScroll"' not in fac
 assert 'py tools/v535_labo_typography_self_check.py' in manifest
 assert 'gd tools/v535_labo_typography_runtime_check.gd' in manifest
