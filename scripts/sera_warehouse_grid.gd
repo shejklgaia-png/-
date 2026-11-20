@@ -217,7 +217,9 @@ func _bind_card(card: Button, index: int) -> void:
         art.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
     else:
         var blueprint: String = str(entry.get("blueprint", ""))
-        title.text = str(entry.get("name", "")) + "\n" + str(entry.get("uid", ""))
+        var mark: String = ("★ " if bool(entry.get("favorite", false)) else
+            "× " if bool(entry.get("junk", false)) else "")
+        title.text = mark + str(entry.get("name", "")) + "\n" + str(entry.get("uid", ""))
         effects.text = Affixes.describe(entry.get("affixes", []))
         art.texture = Icons.equipment_icon(blueprint)
         art.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
