@@ -2,7 +2,7 @@ extends Node3D
 const BaseMaterials = preload("res://scripts/sera_base_materials.gd")
 const IconAtlas = preload("res://scripts/sera_item_icons.gd")
 const PrototypeCatalog = preload("res://scripts/sera_prototype_catalog.gd")
-const ChamferSlot = preload("res://scripts/sera_chamfer_slot.gd")
+const ChamferSkin = preload("res://scripts/sera_chamfer_skin.gd")
 ## Base field architecture: LABO is one building; resources, power and construction
 ## are independent physical machines. NEXUS remains in the parent scene.
 const FACILITY_SPECS = [
@@ -526,13 +526,16 @@ func _create_trial_profile() -> void:
     _show_prototype_catalog()
 
 
-func _new_grid(grid_name: String, columns: int = 3) -> GridContainer:
-    var grid := GridContainer.new()
+func _new_grid(grid_name: String, columns: int = 3) -> VBoxContainer:
+    # HBoxContainer + native Button is the same renderer path as the tabs
+    # verified visible on the user's Android screen. Avoid the previous custom
+    # PanelContainer and GridContainer combination that rendered as a blank area.
+    var grid := VBoxContainer.new()
     grid.name = grid_name
-    grid.columns = columns
     grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-    grid.add_theme_constant_override("h_separation", 7)
-    grid.add_theme_constant_override("v_separation", 7)
+    grid.add_theme_constant_override("separation", 7)
+    grid.set_meta("card_columns", columns)
+    grid.set_meta("card_count", 0)
     modal_actions.add_child(grid)
     return grid
 
@@ -540,66 +543,62 @@ func _new_grid(grid_name: String, columns: int = 3) -> GridContainer:
 func _new_slot(parent: Control, key: String, icon: Texture2D,
         title: String, info: String, action: Callable = Callable(),
         action_name: String = "") -> Control:
-    var card := ChamferSlot.new()
+    var columns: int = int(parent.get_meta("card_columns", 3))
+    var index: int = int(parent.get_meta("card_count", 0))
+    var col: int = index % columns
+    var row: HBoxContainer
+    if col == 0:
+        row = HBoxContainer.new()
+        row.name = "CardRow_%d" % (index / columns)
+        row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+        row.add_theme_constant_override("separation", 7)
+        parent.add_child(row)
+        # Fill unoccupied positions, so the last row uses the same column
+        # widths instead of stretching its final entry across the sheet.
+        for i in range(columns):
+            var spacer := Control.new()
+            spacer.name = "CardSpacer_%d" % i
+            spacer.custom_minimum_size.x = 108.0
+            spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+            spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+            row.add_child(spacer)
+    else:
+        row = parent.get_child(parent.get_child_count() - 1) as HBoxContainer
+    var spacer_node: Control = row.get_child(col) as Control
+    row.remove_child(spacer_node)
+    spacer_node.queue_free()
+    var card := Button.new()
     card.name = key
+    card.icon = icon
+    card.text = title + "\n" + info
+    card.tooltip_text = title + " / " + info
     card.custom_minimum_size = Vector2(108, 122)
     card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-    parent.add_child(card)
-    var pad := MarginContainer.new()
-    pad.name = "SlotPadding"
-    for side in ["left", "right", "top", "bottom"]:
-        pad.add_theme_constant_override("margin_" + side, 6)
-    card.add_child(pad)
-    var content := VBoxContainer.new()
-    content.name = "SlotContent"
-    content.add_theme_constant_override("separation", 2)
-    pad.add_child(content)
-    var image := TextureRect.new()
-    image.name = "Icon"
-    image.texture = icon
-    image.custom_minimum_size = Vector2(43, 43)
-    image.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-    image.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-    image.mouse_filter = Control.MOUSE_FILTER_IGNORE
-    content.add_child(image)
-    # All artwork and labels are visual-only. A separate transparent Button is
-    # drawn LAST and fills the entire card; touching the image, title, status
-    # or padding activates the same callback exactly once.
-    pad.mouse_filter = Control.MOUSE_FILTER_IGNORE
-    content.mouse_filter = Control.MOUSE_FILTER_IGNORE
-    var heading := Label.new()
-    heading.name = "SlotTitle"
-    heading.text = title
-    heading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-    heading.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-    heading.mouse_filter = Control.MOUSE_FILTER_IGNORE
-    heading.custom_minimum_size.y = 44 if action.is_valid() else 0
-    heading.add_theme_font_size_override("font_size", 13)
-    heading.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-    content.add_child(heading)
-    var quantity := Label.new()
-    quantity.name = "SlotQuantity"
-    quantity.text = info
-    quantity.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-    quantity.mouse_filter = Control.MOUSE_FILTER_IGNORE
-    quantity.add_theme_font_size_override("font_size", 12)
-    quantity.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-    content.add_child(quantity)
+    card.mouse_filter = Control.MOUSE_FILTER_STOP
+    card.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+    card.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+    card.alignment = HORIZONTAL_ALIGNMENT_CENTER
+    card.icon_alignment = HORIZONTAL_ALIGNMENT_LEFT
+    card.vertical_icon_alignment = VERTICAL_ALIGNMENT_CENTER
+    card.add_theme_font_size_override("font_size", 13)
+    card.add_theme_color_override("font_color", Color("#ecf9ff"))
+    card.add_theme_color_override("font_disabled_color", Color("#ecf9ff"))
+    card.add_theme_color_override("icon_disabled_color", Color.WHITE)
+    card.add_theme_stylebox_override("normal", ChamferSkin.style(
+        Color("#203747"), Color("#59c6da")))
+    card.add_theme_stylebox_override("hover", ChamferSkin.style(
+        Color("#2b586a"), Color("#91f0ff")))
+    card.add_theme_stylebox_override("pressed", ChamferSkin.style(
+        Color("#145e74"), Color("#b8f6ff")))
+    card.add_theme_stylebox_override("disabled", ChamferSkin.style(
+        Color("#203747"), Color("#59c6da")))
+    card.disabled = not action.is_valid()
     if action.is_valid():
-        var choose := Button.new()
-        choose.name = action_name if not action_name.is_empty() else "Select"
-        choose.text = ""
-        choose.tooltip_text = title + " / " + info
-        choose.focus_mode = Control.FOCUS_ALL
-        choose.mouse_filter = Control.MOUSE_FILTER_STOP
-        choose.add_theme_stylebox_override("normal", StyleBoxEmpty.new())
-        for state in ["hover", "pressed", "hover_pressed", "disabled"]:
-            choose.add_theme_stylebox_override(state, StyleBoxEmpty.new())
-        choose.pressed.connect(action)
-        # Direct child of PanelContainer: its layout covers the whole card,
-        # unlike the previous 44px text-only child of SlotContent.
-        card.add_child(choose)
-        choose.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+        card.pressed.connect(action)
+        card.set_meta("action_id", action_name)
+    row.add_child(card)
+    row.move_child(card, col)
+    parent.set_meta("card_count", index + 1)
     return card
 
 
@@ -680,7 +679,9 @@ func _show_warehouse_equipment() -> void:
             uid.name = "LastCraftedUID"
             uid.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
             uid.add_theme_font_size_override("font_size", 11)
-            (card.find_child("SlotContent", true, false) as VBoxContainer).add_child(uid)
+            card.text += "
+" + str(owned[owned.size() - 1]["uid"])
+            uid.queue_free()
 
 
 func _show_owned_items(blueprint: String, item_page: int = 0) -> void:
@@ -836,7 +837,8 @@ func _render_family_page() -> void:
                 caption.text = str(BaseMaterials.FAMILY_NAMES[family])
                 caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
                 caption.add_theme_font_size_override("font_size", 11)
-                (card.find_child("SlotContent", true, false) as VBoxContainer).add_child(caption)
+                card.tooltip_text = str(BaseMaterials.FAMILY_NAMES[family])
+                caption.queue_free()
 
 func _select_conversion_family(family: String) -> void:
     if not BaseMaterials.FAMILY_IDS.has(family) or page != "families":
