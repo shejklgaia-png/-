@@ -82,6 +82,8 @@ func _run() -> void:
     fac.call("_switch_section", "warehouse")
     await process_frame
     await process_frame
+    fac.call("_show_inventory", "materials")
+    await process_frame
     var list: ScrollContainer = (fac.get("item_layer") as Control).find_child(
         "WarehouseMaterials", true, false) as ScrollContainer
     if list == null or (list.get("entries") as Array).size() != 12 or (
