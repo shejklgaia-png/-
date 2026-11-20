@@ -3,7 +3,48 @@ extends RefCounted
 ## Single WebP sprite atlas: 4 columns x 5 rows, each image cell 72px square.
 ## Rows 0-2: 12 material icons (family -> low,mid,high).
 ## Rows 3-4: H01,T01,A01,L01 / B01,WR01,WL01 / final empty cell.
-const ATLAS: Texture2D = preload("res://assets/ui/sera_matte_icon_atlas.webp")
+const ATLAS_PATH: String = "res://assets/ui/sera_matte_icon_atlas.webp"
+# In Android Godot Editor a Git-synced source WebP may exist while the editor's
+# transient .godot/imported cache does not. Do not preload the imported texture:
+# it couples script parsing and every card to successful editor import.
+static var _atlas_loaded: bool = false
+static var _atlas_texture_cache: Texture2D = null
+static var _atlas_method: String = "not loaded"
+
+static func _decode_webp_source(path: String) -> Texture2D:
+    if not FileAccess.file_exists(path):
+        return null
+    var bytes: PackedByteArray = FileAccess.get_file_as_bytes(path)
+    if bytes.is_empty():
+        return null
+    var source_image := Image.new()
+    if source_image.load_webp_from_buffer(bytes) != OK:
+        return null
+    if source_image.get_width() != 288 or source_image.get_height() != 360:
+        return null
+    return ImageTexture.create_from_image(source_image)
+
+static func _atlas_texture() -> Texture2D:
+    if _atlas_loaded:
+        return _atlas_texture_cache
+    _atlas_loaded = true
+    # Prefer the normal imported texture in APKs. Android editor can fall back
+    # to decoding the tracked WebP bytes without using its import cache.
+    if ResourceLoader.exists(ATLAS_PATH):
+        var source: Resource = ResourceLoader.load(ATLAS_PATH, "Texture2D")
+        if source is Texture2D:
+            _atlas_texture_cache = source as Texture2D
+            _atlas_method = "imported"
+    if _atlas_texture_cache == null:
+        _atlas_texture_cache = _decode_webp_source(ATLAS_PATH)
+        _atlas_method = "source-webp" if _atlas_texture_cache != null else "unavailable"
+    return _atlas_texture_cache
+
+static func atlas_status() -> String:
+    _atlas_texture()
+    return "%s, source=%s" % [
+        _atlas_method, "YES" if FileAccess.file_exists(ATLAS_PATH) else "NO"]
+
 const CELL: int = 72
 const COLUMNS: int = 4
 const MATERIAL_INDICES = {
@@ -18,10 +59,13 @@ const EQUIPMENT_INDICES = {
 }
 
 static func _frame(index: int) -> Texture2D:
-    if index < 0 or index > 18 or ATLAS == null:
+    if index < 0 or index > 18:
+        return null
+    var source: Texture2D = _atlas_texture()
+    if source == null:
         return null
     var icon := AtlasTexture.new()
-    icon.atlas = ATLAS
+    icon.atlas = source
     icon.region = Rect2(
         float(index % COLUMNS) * CELL, float(index / COLUMNS) * CELL,
         CELL, CELL)
