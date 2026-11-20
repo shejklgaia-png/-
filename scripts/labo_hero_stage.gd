@@ -1,8 +1,10 @@
 extends Node3D
 const LaboSkin = preload("res://scripts/sera_labo_round_skin.gd")
 const CrateModel = preload("res://scripts/sera_crate_model.gd")
-## Shared LABO / converter / warehouse hero. Real low-poly 3D, no imported image.
-## All parts are generated once; no physics, navigation or per-frame allocations.
+## Three independently built portrait-game LABO preview stages. Geometry and
+## camera placement follow the three panoramic Scene A / B / C user references.
+## Only the CRATE model is shared with the outdoor base; no generic room reuse.
+## Retain tiny SubViewport and instanced static cargo for Android performance.
 var crate: Node3D
 var crate_head: Node3D
 var crate_arm: Node3D
@@ -587,8 +589,9 @@ func _build_warehouse() -> void:
             else "WarehouseRightStockLabels"
         inventory_plate.position = Vector3(-0.72, 0, 0.45)
         bay.add_child(inventory_plate)
-        var ids: Array[String] = (["A01","H02","H01"] if side < 0
-            else ["A02","B02","B01"])
+        var ids: Array[String] = ["A01", "H02", "H01"]
+        if side > 0:
+            ids = ["A02", "B02", "B01"]
         for j in range(3):
             var label_y: float = 1.17 + float(j)*1.04
             _block(inventory_plate, "LargeStockCodePlate",
@@ -608,170 +611,6 @@ func _build_warehouse() -> void:
             Vector3(1.20, 0.08, 0.98), Color("#788f9b"))
     _block(warehouse_group, "AmberCargoAtRear", Vector3(3.10, 0.31, -3.60),
         Vector3(0.88, 0.55, 0.72), Color("#b58e4d"))
-
-func _build_printer_closeup() -> void:
-    var loader := Node3D.new()
-    loader.name = "PrinterForegroundLoader"
-    loader.position = Vector3(-3.45, 0, 1.80)
-    loader.rotation.y = -0.15
-    printer_group.add_child(loader)
-    _block(loader, "HydraulicLoaderBase", Vector3(0, 0.21, 0.05),
-        Vector3(2.05, 0.43, 1.42), Color("#3b5364"))
-    _block(loader, "CradleDeck", Vector3(0, 0.48, -0.13),
-        Vector3(1.79, 0.13, 1.05), Color("#849aa7"))
-    for side in [-1.0, 1.0]:
-        _block(loader, "LoaderArm", Vector3(side*0.86, 0.86, -0.22),
-            Vector3(0.20, 0.83, 0.28), Color("#526c7b"))
-        _block(loader, "HydraulicPiston", Vector3(side*0.84, 0.96, -0.42),
-            Vector3(0.09, 0.66, 0.10), Color("#b4c5c9"))
-        _block(loader, "ClampJaw", Vector3(side*0.74, 1.19, -0.28),
-            Vector3(0.23, 0.18, 0.39), Color("#99aeba"))
-    _block(loader, "LifterStatus", Vector3(0, 0.44, 0.81),
-        Vector3(1.35, 0.07, 0.035), Color("#dfb455"), true)
-    var harness := Node3D.new()
-    harness.name = "PrinterHangingHarness"
-    harness.position = Vector3(-2.25, 3.78, 0.40)
-    harness.rotation.y = 0.21
-    printer_group.add_child(harness)
-    _block(harness, "GantryCrossCasing", Vector3(0, 0.13, 0),
-        Vector3(4.55, 0.50, 0.76), Color("#334c5c"))
-    _block(harness, "HangingDriveMotor", Vector3(-1.38, -0.53, 0.10),
-        Vector3(0.79, 1.07, 0.64), Color("#536e7e"))
-    _block(harness, "CableCarriage", Vector3(0.65, -0.39, 0.17),
-        Vector3(0.59, 0.60, 0.62), Color("#778e9d"))
-    var cable_points: Array[Vector3] = []
-    for i in range(6):
-        cable_points.append(Vector3(-1.54 + float(i)*0.58, -0.09, 0.45))
-    _instances(harness, "OverheadCableRibs", cable_points,
-        Vector3(0.055, 0.54, 0.065), Color("#9bb1bc"))
-    _block(harness, "InspectionStrip", Vector3(0.3, -0.16, 0.41),
-        Vector3(2.8, 0.048, 0.036), Color("#59c1d8"), true)
-    var parts_rack := Node3D.new()
-    parts_rack.name = "PrinterStackedComponents"
-    parts_rack.position = Vector3(3.48, 0, -1.55)
-    parts_rack.rotation.y = 0.43
-    printer_group.add_child(parts_rack)
-    for row in range(3):
-        _block(parts_rack, "AssemblyShelf",
-            Vector3(0, 0.40+float(row)*0.69, -0.06),
-            Vector3(1.65, 0.11, 0.76), Color("#657f8b"))
-    var cartridges: Array[Vector3] = []
-    for row in range(3):
-        for col in range(3):
-            cartridges.append(Vector3(-0.48+float(col)*0.47,
-                0.57+float(row)*0.69, -0.05))
-    _instances(parts_rack, "ArmorToolCartridges", cartridges,
-        Vector3(0.30, 0.22, 0.44), Color("#a0b2ba"))
-    _block(printer_group, "NearSideStructuralBeam", Vector3(-3.97, 2.1, 1.88),
-        Vector3(0.48, 4.27, 0.83), Color("#465f70"))
-
-func _build_refinery_closeup() -> void:
-    # A partly off-screen intake manifold frames the nearest tank from below.
-    var manifold := Node3D.new()
-    manifold.name = "RefineryForegroundManifold"
-    manifold.position = Vector3(-4.10, 0.0, 0.60)
-    manifold.rotation.y = -0.28
-    converter_group.add_child(manifold)
-    _block(manifold, "ManifoldHousing", Vector3(0, 0.42, 0),
-        Vector3(1.32, 0.83, 1.36), Color("#516f7c"))
-    _block(manifold, "ManifoldLargePipe", Vector3(0.12, 1.18, 0.20),
-        Vector3(0.56, 1.85, 0.66), Color("#657f8c"))
-    _block(manifold, "ManifoldPipeCollar", Vector3(0.12, 2.17, 0.20),
-        Vector3(0.82, 0.23, 0.80), Color("#95a9b0"))
-    for k in range(3):
-        _block(manifold, "ManifoldValve",
-            Vector3(-0.38+float(k)*0.39, 0.85, 0.73),
-            Vector3(0.27, 0.38, 0.13), Color("#b68b53"))
-    var upper := Node3D.new()
-    upper.name = "RefineryHangingPipes"
-    upper.position = Vector3(-0.30, 4.10, -1.25)
-    upper.rotation.y = 0.32
-    converter_group.add_child(upper)
-    for i in range(3):
-        _block(upper, "SlopingPrimaryFeed",
-            Vector3(-1.65+float(i)*1.04, 0.05, 0),
-            Vector3(0.22, 0.25, 3.65), Color("#6c8b9a"))
-        _block(upper, "DropNeck",
-            Vector3(-1.65+float(i)*1.04, -0.53, -0.33),
-            Vector3(0.28, 1.18, 0.25), Color("#8da3ad"))
-        _block(upper, "PipeAmberGauge",
-            Vector3(-1.65+float(i)*1.04, -0.70, 0.28),
-            Vector3(0.12, 0.22, 0.03),
-            Color("#e9b760") if i == 0 else Color("#60b9d8"), true)
-    _block(upper, "BroadPressureHousing", Vector3(-0.5, 0.50, -0.24),
-        Vector3(4.6, 0.65, 0.88), Color("#3d5767"))
-    var casks := Node3D.new()
-    casks.name = "RefinerySampleCasks"
-    casks.position = Vector3(2.80, 0.0, 1.73)
-    casks.rotation.y = 0.45
-    converter_group.add_child(casks)
-    _block(casks, "SampleDolly", Vector3(0, 0.23, 0),
-        Vector3(2.10, 0.34, 1.13), Color("#476472"))
-    var sample_points: Array[Vector3] = []
-    for row in range(2):
-        for col in range(4):
-            sample_points.append(Vector3(-0.76+float(col)*0.48,
-                0.61, -0.22+float(row)*0.45))
-    _instances(casks, "LoadedSampleIngots", sample_points,
-        Vector3(0.36, 0.43, 0.30), Color("#879ba9"))
-    _block(converter_group, "RefineryNearSidePipeline",
-        Vector3(3.48, 1.97, 0.97),
-        Vector3(0.32, 3.99, 0.45), Color("#405d6f"))
-
-func _build_warehouse_closeup() -> void:
-    # The near rack continues off the right edge, its full top and side unseen.
-    var extension := Node3D.new()
-    extension.name = "WarehouseNearRackExtension"
-    extension.position = Vector3(3.45, 0, 1.07)
-    extension.rotation.y = 0.27
-    warehouse_group.add_child(extension)
-    _block(extension, "NearTowerBack", Vector3(0, 2.50, -0.48),
-        Vector3(2.45, 4.94, 0.29), Color("#253f50"))
-    for edge in [-1.0, 1.0]:
-        _block(extension, "NearTowerCorner", Vector3(edge*1.20, 2.65, 0.02),
-            Vector3(0.16, 5.37, 0.15), Color("#8a9eaa"))
-    var crates: Array[Vector3] = []
-    for row in range(6):
-        _block(extension, "NearTowerShelf",
-            Vector3(0, 0.32+float(row)*0.74, 0),
-            Vector3(2.59, 0.10, 0.83), Color("#718897"))
-        for col in range(3):
-            crates.append(Vector3(-0.77+float(col)*0.75,
-                0.59+float(row)*0.74, 0))
-    _instances(extension, "NearTowerPackedBins", crates,
-        Vector3(0.60, 0.46, 0.54), Color("#637b89"))
-    var pallets := Node3D.new()
-    pallets.name = "WarehouseForegroundPallets"
-    pallets.position = Vector3(-1.47, 0, 2.28)
-    pallets.rotation.y = -0.27
-    warehouse_group.add_child(pallets)
-    _block(pallets, "PalletBase", Vector3(0, 0.12, 0),
-        Vector3(2.85, 0.23, 1.32), Color("#506572"))
-    var packed: Array[Vector3] = []
-    for row in range(2):
-        for col in range(4):
-            packed.append(Vector3(-1.05+float(col)*0.67,
-                0.57+float(row)*0.74, 0))
-    _instances(pallets, "CratePalletStacks", packed,
-        Vector3(0.56, 0.65, 0.82), Color("#8699a4"))
-    for side in [-1.0, 1.0]:
-        _block(pallets, "PalletSafetyGuard",
-            Vector3(side*1.42, 0.75, 0),
-            Vector3(0.10, 1.44, 1.18), Color("#4a6071"))
-    var hoist := Node3D.new()
-    hoist.name = "WarehouseLargeOverheadHoist"
-    hoist.position = Vector3(-0.25, 4.02, 0.50)
-    hoist.rotation.y = -0.38
-    warehouse_group.add_child(hoist)
-    _block(hoist, "CeilingBridge", Vector3.ZERO,
-        Vector3(5.40, 0.46, 0.86), Color("#394f60"))
-    _block(hoist, "HangingHoistCarriage", Vector3(1.55, -0.65, 0),
-        Vector3(0.73, 0.93, 0.72), Color("#6f8996"))
-    _block(hoist, "WinchCable", Vector3(1.55, -1.54, 0),
-        Vector3(0.08, 0.84, 0.09), Color("#a3b7c2"))
-    _block(warehouse_group, "DeepAisleBulkContainers",
-        Vector3(-0.63, 0.73, -3.64),
-        Vector3(1.28, 1.44, 0.98), Color("#4c6675"))
 
 func _ready() -> void:
     var world := WorldEnvironment.new()
