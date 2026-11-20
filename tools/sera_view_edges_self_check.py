@@ -24,7 +24,11 @@ assert "depth_test_disabled" not in shader
 assert "CAMERA_POSITION_WORLD" in shader and "VIEWPORT_SIZE" in shader
 assert "CUSTOM0" in shader and "PROJECTION_MATRIX" in shader
 assert "discard;" in shader
-assert "ALPHA =" not in shader
+# Ink must be in the transparent pass (AFTER opaque armor), but still
+# participate in normal depth testing. Otherwise draw-order can erase lines.
+assert "ALPHA = 1.0;" in shader
+assert "RENDER_ORDER.DEPTH_TESTED_EMISSIVE" in script
+assert 'const RENDER_ORDER = preload("res://scripts/render_order_policy.gd")' in script
 assert "py tools/sera_view_edges_self_check.py" in manifest
 assert "gd tools/sera_view_edges_runtime_check.gd" in manifest
 print("SERA_VIEW_EDGES_STATIC_PASS")
