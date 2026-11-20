@@ -422,3 +422,5 @@ py tools/v527_android_icon_resilience_self_check.py
 gd tools/v527_android_icon_resilience_runtime_check.gd
 py tools/labo_lightweight_ui_self_check.py
 gd tools/labo_lightweight_ui_runtime_check.gd
+py tools/labo_minimal_allocation_self_check.py
+gd tools/labo_minimal_allocation_runtime_check.gd
