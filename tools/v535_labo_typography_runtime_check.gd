@@ -1,5 +1,5 @@
 extends SceneTree
-const Skin = preload("res://scripts/sera_labo_round_skin.gd")
+const LaboTypeface = preload("res://scripts/sera_labo_round_skin.gd")
 func _initialize() -> void:
     call_deferred("_run")
 func _fail(message: String) -> void:
@@ -11,10 +11,10 @@ func _need_font(control: Control, size: int, label: String) -> bool:
         return false
     return true
 func _run() -> void:
-    var theme: Theme = Skin.common_theme()
+    var theme: Theme = LaboTypeface.common_theme()
     if theme.default_font == null or theme.default_font_size < 18 or (
-            not Skin.ui_font() is SystemFont) or (
-            not Skin.data_font() is SystemFont):
+            not LaboTypeface.ui_font() is SystemFont) or (
+            not LaboTypeface.data_font() is SystemFont):
         _fail("lightweight Japanese UI / digital-data font is not configured")
         return
     var hub: Node3D = load("res://scenes/base_exploration.tscn").instantiate()
