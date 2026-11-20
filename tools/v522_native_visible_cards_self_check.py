@@ -19,4 +19,6 @@ assert '"FacilityActionsArea"' in ui
 assert 'StyleBoxTexture.new()' in skin and 'ImageTexture.create_from_image(' in skin
 assert 'set_texture_margin' in skin and 'Image.FORMAT_RGBA8' in skin
 assert "gd tools/v522_native_cards_runtime_check.gd" in manifest
+assert "xvfb-run" in (root/".github/workflows/sera-model-policy.yml").read_text(encoding="utf-8")
+assert "v522_visible_card_pixels_runtime_check.gd" in (root/".github/workflows/sera-model-policy.yml").read_text(encoding="utf-8")
 print("SERA_V522_NATIVE_VISIBLE_CARDS_STATIC_PASS")

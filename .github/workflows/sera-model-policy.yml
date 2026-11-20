@@ -67,6 +67,30 @@ jobs:
             sera-godot472-${{ runner.os }}-
       - name: Import SERA resources in real Godot 4.7.2
         run: '"$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" --headless --editor --path . --import --quit'
+      # Headless tests verify nodes and coordinates, but cannot prove Android
+      # card pixels exist. Exercise the actual software OpenGL framebuffer.
+      - name: Verify actual facility card pixels in a virtual display
+        env:
+          SERA_UI_RENDER_DIR: ${{ runner.temp }}/sera-ui-render
+        run: |
+          set -euo pipefail
+          mkdir -p "$SERA_UI_RENDER_DIR"
+          if ! command -v xvfb-run >/dev/null; then
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq xvfb
+          fi
+          xvfb-run -a -s '-screen 0 720x1280x24' \
+            "$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" \
+            --path . --rendering-method gl_compatibility \
+            --script tools/v522_visible_card_pixels_runtime_check.gd
+      - name: Upload actual software-rendered facility screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sera-native-facility-card-pixels
+          path: ${{ runner.temp }}/sera-ui-render/*.png
+          if-no-files-found: warn
+          retention-days: 14
       - name: Verify all registered real-Godot regressions (isolated, parallel)
         env:
           SERA_GODOT_BIN: ${{ runner.temp }}/godot/Godot_v4.7.2-stable_linux.x86_64
