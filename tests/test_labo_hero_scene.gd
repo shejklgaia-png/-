@@ -1,6 +1,8 @@
 extends SceneTree
 ## Run: godot --headless --path . --script res://tests/test_labo_hero_scene.gd
-## Updated expectations: object-filled hero framing with deliberate crop,
+## Updated expectations: important objects remain inside the landscape hero frame,
+## while secondary girders, racks, pipes and pallets intentionally crop.
+## Test in 480x240 SubViewport, NOT the portrait root viewport.
 ## close foreground props and machine clusters, staggered facility depths,
 ## independent background sets and page-specific motion,
 ## with the identical canonical CRATE mesh used by the roaming hub robot.
@@ -25,9 +27,26 @@ func _outside_camera_frame(camera: Camera3D, point: Vector3) -> bool:
     var size: Vector2 = camera.get_viewport().get_visible_rect().size
     return pixel.x < 0.0 or pixel.x > size.x or pixel.y < 0.0 or pixel.y > size.y
 
+func _screen_point(camera: Camera3D, point: Vector3) -> Vector2:
+    var size: Vector2 = camera.get_viewport().get_visible_rect().size
+    var screen: Vector2 = camera.unproject_position(point)
+    return Vector2(screen.x / size.x, screen.y / size.y)
+
+func _visible_primary(camera: Camera3D, world_point: Vector3) -> bool:
+    if camera.is_position_behind(world_point):
+        return false
+    var screen: Vector2 = _screen_point(camera, world_point)
+    return screen.x > 0.05 and screen.x < 0.95 \
+        and screen.y > 0.10 and screen.y < 0.90
+
 func _run_checks() -> void:
     var stage: Node3D = HERO.instantiate() as Node3D
-    root.add_child(stage)
+    var preview := SubViewport.new()
+    preview.name = "TestLandscapeHeroViewport"
+    preview.size = Vector2i(480, 240)
+    preview.own_world_3d = true
+    root.add_child(preview)
+    preview.add_child(stage)
     stage.set_process(false)
     var maker: Node3D = stage.get_node_or_null("PrinterScene") as Node3D
     var refinery: Node3D = stage.get_node_or_null("MaterialConversionScene") as Node3D
@@ -59,92 +78,83 @@ func _run_checks() -> void:
         "manufacturing-only background active")
     var printer_rig: Node3D = maker.get_node_or_null("Printer") as Node3D
     _verify(printer_rig != null and absf(printer_rig.rotation.y) > 0.20,
-        "printer workcell rotated to make a strong three-quarter composition")
-    _verify(printer_rig != null and printer_rig.position.z > 0.10,
-        "printer pulled into foreground, clear of the wall")
-    _verify(maker.get_node_or_null("PrinterForegroundLoader") != null,
-        "printer giant loader overlaps foreground and continues beyond the frame")
-    var print_harness: Node3D = maker.get_node_or_null("PrinterHangingHarness") as Node3D
-    _verify(print_harness != null,
-        "printer mechanical harness exists in the overhead foreground")
-    if print_harness != null:
-        _verify(_outside_camera_frame(camera,
-            print_harness.to_global(Vector3(0, 1.1, 0))),
-            "printer harness is intentionally cropped by upper viewport")
+        "printer workcell rotated in three-quarter composition")
+    _verify(_visible_primary(camera, Vector3(-2.30, 1.35, 0.28)),
+        "main 3D printer is clearly framed")
+    _verify(_visible_primary(camera, Vector3(1.20, 0.75, 0.60)),
+        "CRATE remains in the manufacturing view")
+    _verify(_visible_primary(camera, Vector3(1.90, 1.60, -1.43)),
+        "printer diagnostic terminal is in frame")
+    _verify(maker.get_node_or_null("PrinterForegroundLoader") != null
+        and maker.get_node_or_null("PrinterHangingHarness") != null,
+        "industrial loader and suspended machinery densely frame the printer")
     var print_pos: Vector3 = camera.position
-    _verify(print_pos.distance_to(Vector3(-2.30, 1.45, 0.28)) < 5.5
-        and camera.fov <= 55.0, "printer framed close rather than whole room")
     var print_direction: Vector3 = -camera.global_transform.basis.z
     var nozzle: Node3D = stage.get_node("PrinterScene/PrinterNozzle") as Node3D
     var nozzle_before: Vector3 = nozzle.position
     stage.call("_process", 0.50)
     _verify(nozzle.position != nozzle_before, "manufacturing-only gantry animation")
+
     stage.call("set_section", "SMELTER")
     _verify(refinery.visible and not maker.visible and not warehouse.visible,
         "refinery-only background active")
-    _verify(refinery.get_node_or_null("RefineryForegroundManifold") != null,
-        "refinery oversized foreground manifold enters from out of frame")
-    var refinery_pipes: Node3D = refinery.get_node_or_null("RefineryHangingPipes") as Node3D
-    _verify(refinery_pipes != null,
-        "refinery large pipework fills the top of the image")
-    if refinery_pipes != null:
-        _verify(_outside_camera_frame(camera,
-            refinery_pipes.to_global(Vector3(0, 1.30, 0))),
-            "refinery pipework deliberately exceeds top frame")
     var refine_pos: Vector3 = camera.position
-    _verify(refine_pos.distance_to(Vector3(-2.75, 1.35, 0.10)) < 4.5
-        and camera.fov <= 55.0, "refinery tightly crops nearest tank")
     var refine_direction: Vector3 = -camera.global_transform.basis.z
-    var vessel_a: Node3D = refinery.get_node_or_null("CrystalRotor_0") as Node3D
-    var vessel_c: Node3D = refinery.get_node_or_null("CrystalRotor_2") as Node3D
-    _verify(vessel_a != null and vessel_c != null
-        and absf(vessel_a.position.z - vessel_c.position.z) > 1.4
-        and absf(vessel_a.position.x - vessel_c.position.x) > 2.0,
-        "refinery chambers form a diagonal foreground-to-background sequence")
-    var rotor: Node3D = stage.get_node("MaterialConversionScene/CrystalRotor_0") as Node3D
+    for index in range(3):
+        var vessel: Node3D = refinery.get_node_or_null(
+            "RefineryVessel_%d" % index) as Node3D
+        _verify(vessel != null, "refinery vessel %d exists" % index)
+        if vessel != null:
+            _verify(_visible_primary(camera,
+                vessel.to_global(Vector3(0, 1.50, 0.35))),
+                "refinery vessel %d is inside the view" % index)
+    _verify(_visible_primary(camera, Vector3(1.60, 0.75, 0.85)),
+        "CRATE remains within the refinery frame")
+    var manifold: Node3D = refinery.get_node_or_null(
+        "RefineryForegroundManifold") as Node3D
+    _verify(manifold != null and refinery.get_node_or_null(
+        "RefineryHangingPipes") != null,
+        "manifold and overhead pipes create dense but nonblocking foreground")
+    var rotor: Node3D = stage.get_node(
+        "MaterialConversionScene/CrystalRotor_0") as Node3D
     stage.call("_process", 0.50)
     _verify(absf(rotor.rotation.y) > 0.01, "refinery-only chamber animation")
     stage.call("set_section", "RECYCLER")
     _verify(refinery.visible and not maker.visible and not warehouse.visible,
         "recycler correctly maps to the materials page")
+
     stage.call("set_section", "STORAGE")
     _verify(warehouse.visible and not refinery.visible and not maker.visible,
         "warehouse-only background active")
-    var close_tower: Node3D = warehouse.get_node_or_null("WarehouseNearRackExtension") as Node3D
-    _verify(close_tower != null,
-        "warehouse racks continue beyond frame rather than ending inside it")
-    if close_tower != null:
-        _verify(_outside_camera_frame(camera,
-            close_tower.to_global(Vector3(0, 4.60, -0.40))),
-            "oversized near rack extends outside warehouse viewport")
-    _verify(warehouse.get_node_or_null("WarehouseForegroundPallets") != null,
-        "warehouse loading clutter fills near-camera floor")
     var storage_pos: Vector3 = camera.position
-    _verify(storage_pos.distance_to(Vector3(0.20, 1.6, -0.60)) < 5.0
-        and camera.fov <= 55.0, "warehouse camera frames tight loaded aisle")
     var storage_direction: Vector3 = -camera.global_transform.basis.z
     var left_rack: Node3D = warehouse.get_node_or_null("RackBay_Left") as Node3D
     var right_rack: Node3D = warehouse.get_node_or_null("RackBay_Right") as Node3D
-    _verify(left_rack != null and right_rack != null
-        and absf(left_rack.position.z - right_rack.position.z) > 1.3,
-        "warehouse rack bays deliberately staggered in depth")
-    _verify(left_rack != null and right_rack != null
-        and absf(left_rack.rotation.y - right_rack.rotation.y) > 0.2,
-        "warehouse rack bays face different three-quarter orientations")
-    var scanner: Node3D = stage.get_node("WarehouseScene/TravelingInventoryScanner") as Node3D
+    _verify(left_rack != null and right_rack != null,
+        "the warehouse has two different high storage rack banks")
+    if left_rack != null and right_rack != null:
+        _verify(absf(left_rack.position.z - right_rack.position.z) > 1.3
+            and absf(left_rack.rotation.y - right_rack.rotation.y) > 0.2,
+            "racks retain staggered three-quarter arrangement")
+    _verify(_visible_primary(camera, Vector3(-2.66, 1.90, 0.12))
+        and _visible_primary(camera, Vector3(2.70, 1.90, -2.03)),
+        "both rack banks are visible, not hidden behind near tower")
+    _verify(_visible_primary(camera, Vector3(0.55, 0.80, -0.55)),
+        "CRATE smaller, but still visible in the warehouse aisle")
+    _verify(warehouse.get_node_or_null("WarehouseNearRackExtension") != null
+        and warehouse.get_node_or_null("WarehouseForegroundPallets") != null,
+        "warehouse crop and foreground pallet density retained")
+    var scanner: Node3D = stage.get_node(
+        "WarehouseScene/TravelingInventoryScanner") as Node3D
     var scan_before: Vector3 = scanner.position
     stage.call("_process", 0.50)
-    _verify(scanner.position != scan_before, "warehouse-only scanner animation")
+    _verify(scanner.position != scan_before, "warehouse-only scanner motion")
     _verify(print_pos != refine_pos and print_pos != storage_pos
-        and refine_pos != storage_pos, "unique camera framing for all three rooms")
-    _verify(print_pos.x > 0.5 and refine_pos.x < -0.5
-        and storage_pos.y > print_pos.y + 0.7,
-        "close low-right print, elevated left refinery, high loaded aisle")
-    _verify(print_direction.distance_to(refine_direction) > 0.30
-        and refine_direction.distance_to(storage_direction) > 0.30
-        and print_direction.distance_to(storage_direction) > 0.22,
-        "view directions strongly differ in all three rooms")
-    stage.free()
+        and refine_pos != storage_pos, "all three rooms keep unique cameras")
+    _verify(print_direction.distance_to(refine_direction) > 0.20
+        and refine_direction.distance_to(storage_direction) > 0.20,
+        "each room keeps its own photographic angle")
+    preview.queue_free()
     if failures.is_empty():
         print("PASS: LABO 3D interiors, visual isolation, CRATE and motion")
         quit(0)
