@@ -1,6 +1,6 @@
 extends SceneTree
-## Measured real Godot ImmediateMesh triangles: six eight-sided uniform-alpha
-## octagon frames; no soft radial gradient; fast edge-tapered crack and shards.
+## Measured real Godot ImmediateMesh triangles: six seamless eight-sided uniform-alpha
+## octagon bands; no soft radial gradient; fast edge-tapered crack and shards.
 const FX = preload("res://scripts/enemy_shield_hit_fx.gd")
 
 func _initialize() -> void:
@@ -67,7 +67,7 @@ func _run() -> void:
     var vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
     var colors: PackedColorArray = arrays[Mesh.ARRAY_COLOR]
     # 8 triangles for filled innermost octagon (24 vertices) and
-    # 6 frames x 8 sides x 2 triangles x 3 vertices = 288.
+    # 6 gapless octagon bands x 8 sides x 2 triangles x 3 vertices = 288.
     if vertices.size() != 312 or colors.size() != 312:
         _fail("expected six eight-sided thick frames and a solid center: " +
             str(vertices.size()))
@@ -90,8 +90,8 @@ func _run() -> void:
         _fail("the shield octagons must be exactly ~15% wider, height unchanged: " +
             str(max_x / maxf(max_y, 1.0)))
         return
-    if center_alpha < 0.70 or outer_radius < 180.0:
-        _fail("solid central octagon missing or six frames too small")
+    if center_alpha < 0.70 or outer_radius < 45.0 or outer_radius > 150.0:
+        _fail("solid core missing or 30%-size octagon scale outside the expected range")
         return
     # Every corner vertex shares a flat alpha with its neighboring vertices
     # in the frame, rather than being a blurred radial wedge.

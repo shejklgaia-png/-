@@ -20,6 +20,9 @@ assert "const CRACK_EXTEND_SECONDS: float = 0.065" in s
 assert "const CRACK_FADE_END_SECONDS: float = 0.16" in s
 assert "const GLASS_SHARD_COUNT: int = 14" in s
 assert "func _octagon_frame(" in s and "func _octagon_disc(" in s
+assert "func _frame_outer_radius(" in s
+assert "var inner_radius: float" in s
+assert "const VISUAL_SIZE_MULTIPLIER: float = 0.30" in s
 assert "func _draw_glass_shard(" in s
 assert "static func frame_alpha(" in s
 assert "static func visible_frame_count(" in s

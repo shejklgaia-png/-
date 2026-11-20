@@ -59,9 +59,10 @@ func _run() -> void:
         _fail("v512 shield must have high-saturation punch and rapid cutoff")
         return
     # v511: explicit visibility contract measured at 720px reference viewport.
-    # Starting disc should already occupy ~200px diameter at full scale;
-    # it expands to ~520px across, with a >900px horizontal shield crack.
-    if not _near(FX.contact_radius_px(0.0), 100.0) or (
+    # v511 reference radii remain unchanged; v524 scales the entire rendered
+    # shield down to 30% of those values in the shared FX drawing path.
+    if not _near(FX.VISUAL_SIZE_MULTIPLIER, 0.30) or (
+            not _near(FX.contact_radius_px(0.0), 100.0)) or (
             not _near(FX.contact_radius_px(1.0), 260.0)) or (
             not _near(FX.FRACTURE_REACH_END_PX, 470.0)) or (
             not _near(FX.BURST_RADIUS_MAX_PX, 470.0)) or (
@@ -69,7 +70,7 @@ func _run() -> void:
             FX.SHIELD_SURFACE_OFFSET <= 0.06) or (
             FX.IMPACT_SECONDS < 0.42) or (
             FX.FRACTURE_SECONDS < 0.60):
-        _fail("v511 shield remains too small, too brief, or depth-clipped")
+        _fail("shield radius reference, visual scale, duration or depth layer changed")
         return
     for path in ["res://scenes/main.tscn", "res://scenes/bittaran_battle.tscn"]:
         var packed: PackedScene = load(path)
