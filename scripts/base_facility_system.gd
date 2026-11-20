@@ -313,6 +313,12 @@ func _nav_font_size() -> int:
     return 20 if width < 540.0 else 23 if width < 720.0 else 24
 
 
+func _section_label_font_size(button: Button) -> int:
+    # EQUIPMENT is the longest navigation word. Keep it readable without
+    # ellipsis; the other two tabs retain their stronger large-label scale.
+    return mini(20, _nav_font_size()) if button.name == "TabCraft" else _nav_font_size()
+
+
 func _layout_section_tabs() -> void:
     if section_tabs == null:
         return
@@ -324,7 +330,10 @@ func _layout_section_tabs() -> void:
         LABO_NAV_HEIGHT + 20.0)
     for child in section_tabs.get_children():
         if child is Button:
-            (child as Button).add_theme_font_size_override("font_size", _nav_font_size())
+            var tab: Button = child as Button
+            if tab.name == "TabCraft":
+                tab.text = "EQUIP" if available < 540.0 else "EQUIPMENT"
+            tab.add_theme_font_size_override("font_size", _section_label_font_size(tab))
 
 func _slot_font_size() -> int:
     var width: float = get_viewport().get_visible_rect().size.x
@@ -1027,7 +1036,7 @@ func _sync_section_tabs() -> void:
             var button: Button = child as Button
             var selected: bool = button.name == current
             button.button_pressed = selected
-            button.add_theme_font_size_override("font_size", _nav_font_size())
+            button.add_theme_font_size_override("font_size", _section_label_font_size(button))
             var selected_mark: ColorRect = button.get_node_or_null("SelectedTabMark") as ColorRect
             if selected_mark != null:
                 selected_mark.visible = selected
