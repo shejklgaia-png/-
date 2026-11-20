@@ -11,14 +11,16 @@ func _verify(fac: Node, grid_name: String, expected: int, fillers: int) -> bool:
     var layer: VBoxContainer = fac.get("item_layer") as VBoxContainer
     var grid: VBoxContainer = layer.find_child(grid_name, true, false) as VBoxContainer
     var columns: int = 1 if grid_name == "PrototypeGrid" else 3
-    if grid == null or grid.get_child_count() != ceili(float(expected)/float(columns)):
+    var rows: Array = [] if grid == null else grid.get_children().filter(
+        func(child: Node) -> bool: return child is HBoxContainer)
+    if grid == null or rows.size() != ceili(float(expected)/float(columns)):
         _fail("grid missing or wrong row count: " + grid_name)
         return false
     var seen: int = 0
     var spare: int = 0
     var first_width: float = -1.0
     var last_width: float = -1.0
-    for row in grid.get_children():
+    for row in rows:
         if not row is HBoxContainer or row.get_child_count() != columns:
             _fail("row must retain three equal-width cells: " + grid_name)
             return false
