@@ -58,10 +58,15 @@ func _run() -> void:
         _fail("existing recipe grid was removed")
         return
     fac.call("_select_prototype", "H01")
-    if not craft.button_pressed:
-        _fail("craft detail should keep the craft tab selected")
+    if not craft.button_pressed or (
+            not (fac.get("confirmation_overlay") as Control).visible):
+        _fail("craft confirmation should preserve the craft tab")
         return
-    fac.call("navigate_back")
+    fac.call("navigate_back") # cancel confirmation without executing craft
+    if (fac.get("confirmation_overlay") as Control).visible or (
+            str(fac.get("page")) != "prototypes"):
+        _fail("Back must dismiss confirmation and keep the recipe list")
+        return
     fac.call("navigate_back")
     if str(fac.get("page")) != "home" or _selected(tabs) != 0:
         _fail("return to LABO home must clear the craft tab selection")
