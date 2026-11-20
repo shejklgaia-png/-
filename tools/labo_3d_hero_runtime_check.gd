@@ -67,9 +67,13 @@ func _run() -> void:
     await process_frame
     var disabled_card: Button = (fac.get("item_layer") as Control).find_child(
         "MaterialIcon_scrap_low", true, false) as Button
-    var disabled_style: StyleBoxFlat = disabled_card.get_theme_stylebox("disabled") as StyleBoxFlat
-    if disabled_style == null or disabled_style.border_color.g - disabled_style.border_color.r < 0.11:
-        _fail("read-only warehouse material card outline lacks visible cyan-grey contrast")
+    if disabled_card == null or not disabled_card.is_visible_in_tree():
+        _fail("native virtual material card must be visible")
+        return
+    var disabled_style: StyleBoxTexture = disabled_card.get_theme_stylebox("disabled") as StyleBoxTexture
+    if disabled_style == null or disabled_style.texture == null or (
+            (disabled_card.get_node("ItemArt") as TextureRect).texture == null):
+        _fail("read-only material needs four cut corners, contrast border, and real icon")
         return
     fac.call("_switch_section", "craft")
     await process_frame

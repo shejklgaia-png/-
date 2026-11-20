@@ -101,7 +101,8 @@ func _run() -> void:
         _fail("warehouse tab did not open inventory")
         return
     var first_material: Button = (facilities.get("item_layer") as Control).find_child("MaterialIcon_scrap_low", true, false) as Button
-    if first_material == null or first_material.icon == null or (
+    if first_material == null or (
+            (first_material.get_node("ItemArt") as TextureRect).texture == null) or (
             not first_material.is_visible_in_tree() or (
             not viewport.has_point(first_material.get_global_rect().get_center()))):
         _fail("first warehouse material icon not visible")

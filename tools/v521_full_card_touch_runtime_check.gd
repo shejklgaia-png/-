@@ -65,12 +65,26 @@ func _run() -> void:
         return
     (actions.find_child("WarehouseEquipmentTab", true, false) as Button).pressed.emit()
     await process_frame
-    var item: Button = (fac.get("item_layer") as Control).find_child("WarehouseBlueprint_H01", true, false) as Button
-    if not _check_card(item):
+    var save: Node = root.get_node("SeraSave")
+    var original_slot: int = int(save.get("active_slot"))
+    var original_data: Dictionary = save.get("active_data").duplicate(true)
+    save.set("active_slot", 1)
+    save.set("active_data", {"crafted_items": [
+        {"uid": "H01-0001", "blueprint": "H01", "slot": "head"}],
+        "craft_serials": {"H01": 1}, "materials": {}})
+    fac.call("_show_inventory", "equipment")
+    await process_frame
+    var item: Button = (fac.get("item_layer") as Control).find_child(
+        "WarehouseItem_H01-0001", true, false) as Button
+    if item == null or item.disabled or (
+            (item.get_node("ItemArt") as TextureRect).texture == null):
+        _fail("visible equipment item does not show its actual icon")
         return
     await _tap(item.get_global_rect().get_center())
-    if str(fac.get("page")) != "warehouse_owned":
-        _fail("warehouse equipment card touch failed")
+    if str(fac.get("page")) != "warehouse_item":
+        _fail("warehouse instance click did not open its own details")
         return
+    save.set("active_slot", original_slot)
+    save.set("active_data", original_data)
     print("SERA_V521_FULL_CARD_TOUCH_RUNTIME_PASS: full native card touch at artwork, text, padding")
     quit(0)

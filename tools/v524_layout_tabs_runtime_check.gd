@@ -49,6 +49,29 @@ func _check_flow(fac: Node3D, page_name: String, first_card: String, expected: i
         _fail("card list overlaps close button")
         return false
     return true
+func _check_virtual(fac: Node3D, title: String, count: int, cols: int) -> bool:
+    var w: ScrollContainer = (fac.get("item_layer") as Control).find_child(title, true, false) as ScrollContainer
+    if w == null or not w.is_visible_in_tree() or int(w.get("columns")) != cols:
+        _fail("missing visible warehouse virtual list: " + title)
+        return false
+    var entries: Array = w.get("entries")
+    var pool: Array = w.get("pool")
+    if entries.size() != count or pool.is_empty() or pool.size() > 32:
+        _fail("wrong virtual warehouse entries/pool: " + title)
+        return false
+    var card: Button = pool[0] as Button
+    if card == null or not card.is_visible_in_tree() or (
+            card.get_theme_stylebox("normal") is not StyleBoxTexture):
+        _fail("warehouse native button/chamfer style missing: " + title)
+        return false
+    var art: TextureRect = card.get_node("ItemArt") as TextureRect
+    if count > 0 and (art == null or art.texture == null):
+        _fail("warehouse first icon is not drawable: " + title)
+        return false
+    if count == 0 and int(w.get("virtual_slots")) != 2:
+        _fail("empty hanger must show a pair of slots")
+        return false
+    return true
 func _run() -> void:
     var hub: Node3D = load("res://scenes/base_exploration.tscn").instantiate()
     root.add_child(hub)
@@ -82,7 +105,7 @@ func _run() -> void:
     if _selected_count(tabs) != 1 or not warehouse.button_pressed:
         _fail("warehouse section tab is not exclusive")
         return
-    if not _check_flow(fac, "WarehouseMaterials", "MaterialIcon_scrap_low", 12):
+    if not _check_virtual(fac, "WarehouseMaterials", 12, 3):
         return
     var actions: VBoxContainer = fac.get("modal_actions") as VBoxContainer
     var mat_tab: Button = actions.find_child("WarehouseMaterialsTab", true, false) as Button
@@ -100,7 +123,7 @@ func _run() -> void:
             mat_tab.button_pressed or not gear_tab.button_pressed):
         _fail("warehouse category tabs are both selected")
         return
-    if not _check_flow(fac, "WarehouseEquipment", "WarehouseBlueprint_H01", 7):
+    if not _check_virtual(fac, "WarehouseEquipment", 0, 2):
         return
     craft.pressed.emit()
     await process_frame
@@ -130,8 +153,8 @@ func _run() -> void:
         return
     var owned: Button = (fac.get("item_layer") as Control).find_child(
         "PrototypeIcon_H01", true, false) as Button
-    if owned == null or not owned.text.contains("1"):
-        _fail("an existing saved item did not display its ownership count")
+    if owned == null or owned.text.contains("所持"):
+        _fail("craft catalog must not aggregate counts of existing items")
         return
     fac.call("_switch_section", "materials")
     await process_frame
