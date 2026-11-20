@@ -1,4 +1,5 @@
 extends Node3D
+const LaboSkin = preload("res://scripts/sera_labo_round_skin.gd")
 ## Shared LABO / converter / warehouse hero. Real low-poly 3D, no imported image.
 ## All parts are generated once; no physics, navigation or per-frame allocations.
 var crate: Node3D
@@ -43,6 +44,21 @@ func _block(parent: Node3D, label: String, point: Vector3,
     parent.add_child(part)
     return part
 
+# The concept art uses restrained illuminated industrial signage, not flat
+# UI sprites. These labels live in the same low-resolution 3D stage.
+func _sign(parent: Node3D, caption: String, at: Vector3,
+        size: int = 42) -> Label3D:
+    var label := Label3D.new()
+    label.name = "IndustrialSign_" + caption.replace(" ", "_")
+    label.text = caption
+    label.font = LaboSkin.title_font()
+    label.font_size = size
+    label.pixel_size = 0.0035
+    label.modulate = Color("#ddf8ff")
+    label.position = at
+    parent.add_child(label)
+    return label
+
 func _build_room() -> void:
     _block(self, "Floor", Vector3(0, -0.15, -0.6),
         Vector3(8.2, 0.26, 6.0), Color("#273949"))
@@ -67,6 +83,19 @@ func _build_room() -> void:
             Vector3(0.92, 0.055, 0.045), Color("#4a9eb1"), true)
     _block(self, "AirVent", Vector3(-1.2, 2.55, -3.2),
         Vector3(0.95, 0.42, 0.12), Color("#344755"))
+    # Additional architectural depth like the reference 3D laboratory.
+    for z in [-2.65, -1.25, 0.15]:
+        _block(self, "CeilingRail", Vector3(0, 4.05, z),
+            Vector3(8.0, 0.15, 0.16), Color("#304b5c"))
+    for x in [-2.6, 0.0, 2.6]:
+        _block(self, "CoolWhiteCeilingLight", Vector3(x, 4.02, -1.20),
+            Vector3(0.63, 0.035, 0.18), Color("#d0f6ff"), true)
+    for i in range(4):
+        _block(self, "CautionStripe", Vector3(-3.45 + float(i)*0.19, 0.015, 2.1),
+            Vector3(0.10, 0.013, 0.48), Color("#cd9e42"))
+    _block(self, "BacklitCompanyPanel", Vector3(2.65, 2.60, -3.30),
+        Vector3(1.55, 0.78, 0.075), Color("#172d3c"))
+    _sign(self, "SERA", Vector3(2.65, 2.54, -3.22), 62)
 
 func _build_printer() -> void:
     printer_group = Node3D.new()
@@ -130,6 +159,10 @@ func _build_printer() -> void:
             Vector3(0.10, 0.05, 0.04), Color("#e3af42"), true)
     _block(pivot, "BedGlow", Vector3(0, 0.52, 0.50),
         Vector3(1.20, 0.035, 0.05), Color("#2395af"), true)
+    _sign(pivot, "3D PRINTER", Vector3(0, 2.32, 0.99), 37)
+    for i in range(4):
+        _block(pivot, "HazardAmber", Vector3(-0.70 + float(i)*0.17, 0.16, 0.82),
+            Vector3(0.105, 0.06, 0.025), Color("#dfac45"), true)
 
 func _build_terminal() -> void:
     _block(self, "TerminalColumn", Vector3(2.24, 0.62, -0.35),
@@ -150,6 +183,8 @@ func _build_terminal() -> void:
             Vector3(0.59 - row * 0.04, 0.025, 0.008), Color("#45b1d2"), true)
     _block(screen, "ReadoutModel", Vector3(0.39, 0.01, 0.07),
         Vector3(0.26, 0.36, 0.008), Color("#6cd9f0"), true)
+    _block(screen, "ScreenCorner", Vector3(0.49, -0.27, 0.073),
+        Vector3(0.11, 0.035, 0.012), Color("#68d5e5"), true)
 
 func _build_crate() -> void:
     crate = Node3D.new()
@@ -256,6 +291,9 @@ func _build_converter() -> void:
             Vector3(0.72, 0.24, 0.06), Color("#21495d"))
         _block(converter_group, "Readout", Vector3(x, 0.42, -0.57),
             Vector3(0.47, 0.03, 0.015), glows[i], true)
+    for i in range(3):
+        _sign(converter_group, "REF %d" % (i+1),
+            Vector3(-3.05 + float(i)*1.50, 2.48, -0.90), 25)
     _block(converter_group, "ServiceBench", Vector3(0, 0.29, 0.42),
         Vector3(4.9, 0.35, 0.76), Color("#435b6b"))
     for j in range(6):
@@ -289,6 +327,10 @@ func _build_warehouse() -> void:
         for edge in [-1.12, 1.12]:
             _block(warehouse_group, "RackPost", Vector3(x+edge, 1.66, -2.04),
                 Vector3(0.11, 3.40, 0.12), Color("#7793a0"))
+    _sign(warehouse_group, "H01",
+        Vector3(-2.65, 3.20, -2.08), 40)
+    _sign(warehouse_group, "B01",
+        Vector3(2.65, 3.20, -2.08), 40)
     _block(warehouse_group, "SortingTable", Vector3(0.13, 0.51, 0.06),
         Vector3(1.25, 0.28, 0.84), Color("#465e6d"))
     _block(warehouse_group, "ScanningPanel", Vector3(0.13, 0.70, 0.10),
