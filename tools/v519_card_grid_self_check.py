@@ -8,7 +8,7 @@ ui=get("scripts/base_facility_system.gd")
 slot=get("scripts/sera_labo_round_skin.gd")
 manifest=get("tools/sera_ci_manifest.txt")
 assert "BaseQuickActions" not in hub
-assert "ScrollContainer.new()" in ui, "LABO pages must support vertical scrolling"
+assert "LaboTouchScroll.new()" in ui, "LABO pages must support vertical scrolling"
 assert '"FacilityActionsArea"' in ui
 assert 'const LaboSkin = preload("res://scripts/sera_labo_round_skin.gd")' in ui
 assert 'var grid := VBoxContainer.new()' in ui and 'row = HBoxContainer.new()' in ui
