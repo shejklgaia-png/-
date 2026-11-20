@@ -1,5 +1,5 @@
 extends SceneTree
-## LABO reference composition regression test, 480x240 landscape crop.
+## LABO reference composition + cinematic three-quarter camera regression, 480x240.
 ## Source: user's Scene A / B / C upper-row artwork.
 ## Run: godot --headless --path . --script res://tests/test_labo_hero_scene.gd
 ## Update composition criteria before implementing visual changes.
@@ -25,6 +25,14 @@ func _visible(camera: Camera3D, point: Vector3) -> bool:
         return false
     var p: Vector2 = _project(camera, point)
     return p.x > 0.03 and p.x < 0.97 and p.y > 0.08 and p.y < 0.95
+
+func _yaw_degrees(camera: Camera3D) -> float:
+    var forward: Vector3 = -camera.global_transform.basis.z
+    return rad_to_deg(atan2(forward.x, -forward.z))
+
+func _camera_pitch_degrees(camera: Camera3D) -> float:
+    var forward: Vector3 = -camera.global_transform.basis.z
+    return rad_to_deg(asin(clampf(forward.y, -1.0, 1.0)))
 
 func _check() -> void:
     var viewport := SubViewport.new()
@@ -53,6 +61,10 @@ func _check() -> void:
     # Reference A: large 3D printer on left; CRATE at right-middle,
     # diagnostic terminal right; no giant foreground loader or steep angle.
     stage.call("set_section", "LABO")
+    _expect(_yaw_degrees(camera) < -18.0 and _yaw_degrees(camera) > -36.0,
+        "A: strong right-hand three-quarter view instead of flat frontal camera")
+    _expect(_camera_pitch_degrees(camera) > 3.0,
+        "A: camera looks upward slightly, highlighting printer gantry")
     var printer: Node3D = maker.get_node_or_null("Printer") as Node3D
     var terminal: Node3D = maker.get_node_or_null("PrinterInspectionStation") as Node3D
     _expect(printer != null and terminal != null, "A: printer and console roots")
@@ -81,6 +93,10 @@ func _check() -> void:
     # Reference B: orange/blue/purple tall tanks left-center in that order;
     # feedstock trays foreground; CRATE on right, wall monitor far right.
     stage.call("set_section", "SMELTER")
+    _expect(_yaw_degrees(camera) > 18.0 and _yaw_degrees(camera) < 38.0,
+        "B: left-hand three-quarter view exposes vat spacing and side surfaces")
+    _expect(_camera_pitch_degrees(camera) < -9.0,
+        "B: raised camera looks down to show material bins and vat contents")
     var last_x: float = -1.0
     for index in range(3):
         var tank: Node3D = refinery.get_node_or_null(
@@ -109,6 +125,10 @@ func _check() -> void:
     # Reference C: left H01/H02/A01 racks, right B01/B02/A02 racks,
     # central CRATE and angled monitor. Eye-level aisle, not bird's-eye view.
     stage.call("set_section", "STORAGE")
+    _expect(_yaw_degrees(camera) < -18.0 and _yaw_degrees(camera) > -38.0,
+        "C: right-hand aisle vanishing point, visible side walls of racks")
+    _expect(_camera_pitch_degrees(camera) < -4.0,
+        "C: moderately raised viewpoint shows stocked shelving and floor")
     var left: Node3D = store.get_node_or_null("RackBay_Left") as Node3D
     var right: Node3D = store.get_node_or_null("RackBay_Right") as Node3D
     var monitor: Node3D = store.get_node_or_null("WarehouseInventoryMonitor") as Node3D
@@ -125,8 +145,8 @@ func _check() -> void:
     _expect(store.has_node("RackBay_Left/WarehouseLeftStockLabels")
         and store.has_node("RackBay_Right/WarehouseRightStockLabels"),
         "C: H01/H02/A01 and B01/B02/A02 labels")
-    _expect(camera.position.y < 2.5,
-        "C: camera stays near eye level, without steep downward tilt")
+    _expect(camera.position.y < 3.2,
+        "C: elevated but not bird's-eye view")
     _expect(maker.visible == false and refinery.visible == false and store.visible,
         "C: only storage environment visible")
     viewport.queue_free()
