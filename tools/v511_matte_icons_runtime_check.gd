@@ -151,14 +151,18 @@ func _run() -> void:
     facilities.call("open_facility", "SMELTER")
     facilities.call("_select_conversion_family", "organic")
     actions = facilities.get("modal_actions") as VBoxContainer
-    if actions.get_node_or_null("ConvertInputIcon_0") == null:
-        _fail("converter lacks input icon")
+    var conversion: Button = actions.find_child("ConvertRank_0", true, false) as Button
+    if conversion == null or conversion.icon == null or (
+            conversion.get_node_or_null("ConvertOutputIcon_0") == null):
+        _fail("converter must show source and destination icon")
         return
     facilities.call("open_facility", "LABO")
     facilities.call("_show_prototype_catalog")
     actions = facilities.get("modal_actions") as VBoxContainer
     for id in Catalog.PROTOTYPES.keys():
-        if (facilities.get("item_layer") as Control).find_child("PrototypeIcon_" + str(id), true, false) == null:
+        facilities.call("_select_craft_slot", str(Catalog.spec(str(id))["slot"]))
+        if (facilities.get("item_layer") as Control).find_child(
+                "PrototypeIcon_" + str(id), true, false) == null:
             _fail("LABO blueprint is missing icon: " + str(id))
             return
     print("SERA_MATTE_ICON_RUNTIME_PASS: every icon, crafting, unique naming, warehouse, customization registry")
