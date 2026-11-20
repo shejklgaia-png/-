@@ -3597,3 +3597,12 @@
 - 「診断」は初期非表示、ヘッダー5回タップ（1.7秒以内）でトグル。ゲーム開始時は診断の定期更新・描画を行わない。新しいTimer/スクロールノードは無し。表示済み12件と所持品の9件ページ分割をそのまま使う。
 - CI事前確認：`tools/sera_ci_manifest.txt`、`docs/SERA_ACTIVE_CI_POLICY_ja.md`、`v524_layout_tabs_runtime_check.gd`、`android_editor_card_diagnostic_* `、`base_page_navigation_*`、`v527_android_icon_resilience_*`。旧テストの期待値変更は不要。新しい静的/Godot UI回帰を本体更新前にCI登録済。
 - mainへマージ後全登録Python/Godotと実描画・リポジトリ整合性を検査。Android実機は別途確認。
+
+
+## SERA v527 — LABO表示の割当最小化（2026-11-20）
+- 最新mainの `tools/sera_ci_manifest.txt`・`docs/SERA_ACTIVE_CI_POLICY_ja.md` とv511/v517/v519/v521/v522/v523/v524/v527のカード・画像・タップ・画面描画の回帰、開発者診断のテストを**実装前**に確認。新しい `labo_minimal_allocation_self_check.py`、`labo_minimal_allocation_runtime_check.gd` を実装前に追加しCI登録。旧期待値は変更していない。
+- `_switch_section("craft")` は一旦生成したLABOホームのアクション4つを破棄せず、直接製作カタログを構築する。戻る遷移、研究施設入口は変更しない。
+- `_new_slot` は3個の仮Controlを全行に作って置換する方式を廃止し、ネイティブButtonを直接行へ追加する。完成した一覧の**最後の不足列のみ** `_finish_grid` で空白のControlを必要数追加。7件なら2個、12件なら0個。最終列幅・欠けた四隅・タップ範囲を維持し、GridContainer/ScrollContainerへの置換や永続カードプールはしない。
+- 通常時には `_diag_step` の記録と呼び出し元の文字列連結を実行しない。タイトル5連打で診断モードを表示すればチェックポイントは引き続き使用できる。表示件数の診断カウンタは引き続き保持。
+- WebPのソース復号フォールバック、AtlasTexture、画像・Skinキャッシュ、セーブ・素材交換・製作品個体IDは変更しない。実メモリ/CPU負荷の最小値はAndroid端末上でのプロファイラー比較を必要とする。
+- mainへのマージ後は既存全Python/Godot CI・Linux実描画・モデル整合性を必ず確認し、Android端末の見た目/操作は別に評価する。
