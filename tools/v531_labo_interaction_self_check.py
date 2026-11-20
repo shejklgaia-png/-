@@ -11,12 +11,13 @@ manifest = (p/"tools/sera_ci_manifest.txt").read_text(encoding="utf-8")
 for anchor in ('actions_scroll = ScrollContainer.new()',
                'scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO',
                '_new_grid("PrototypeGrid", 1)',
-               'var tab_scroll := ScrollContainer.new()',
+               'var slot_tabs := HBoxContainer.new()',
                'func _request_confirmation(',
                '_confirm_selected_prototype()', '_confirm_conversion.bind(rank)',
                'var amount := SpinBox.new()', 'func _confirm_bulk_junk_deletion(',
                'func _mark_warehouse_item(', 'LaboStats.total_formula('):
     assert anchor in ui, anchor
+assert '"CraftSlotScroll"' not in ui, "all seven fixed part tabs must fit without horizontal scrolling"
 for anchor in ('func set_prototype_mark(', 'func delete_junk_prototypes(',
                'func count_junk_prototypes(', 'not equipped.values().has',
                'updated["crafted_items"] = kept',
