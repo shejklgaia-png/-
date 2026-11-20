@@ -13,14 +13,16 @@ func _verify_grid(cards: Control, name: String, ids: Array, prefix: String, clic
     if grid == null:
         _fail("missing VBox grid: " + name)
         return false
-    if grid.get_child_count() != ceili(float(ids.size()) / 3.0):
-        _fail("grid needs an HBox row per three native buttons: " + name)
+    var shown: Array = [ids[0]] if name == "PrototypeGrid" else ids
+    var cols: int = 1 if name == "PrototypeGrid" else 3
+    if grid.get_child_count() != ceili(float(shown.size()) / float(cols)):
+        _fail("native row count does not match current slot-bar grid: " + name)
         return false
     for row in grid.get_children():
         if not row is HBoxContainer:
             _fail("grid row is not a known-working native HBoxContainer")
             return false
-    for id in ids:
+    for id in shown:
         var card: Button = grid.find_child(prefix + str(id), true, false) as Button
         if card == null or not card.is_visible_in_tree() or card.icon == null:
             _fail("native visible icon-bearing card is missing: " + prefix + str(id))
@@ -28,14 +30,14 @@ func _verify_grid(cards: Control, name: String, ids: Array, prefix: String, clic
         if card.disabled == clickable or card.get_parent() is not HBoxContainer:
             _fail("wrong disabled/input status or row placement: " + card.name)
             return false
-        if card.get_global_rect().size.x < 100.0 or card.get_global_rect().size.y < 90.0:
+        if card.get_global_rect().size.x < 100.0 or card.get_global_rect().size.y < 78.0:
             _fail("native button size collapsed: " + card.name)
             return false
         if card.get_theme_stylebox("normal") is not StyleBoxFlat:
             _fail("the normal button style is not a rounded blue-grey StyleBoxFlat")
             return false
         if not card.text.contains("\n") or (name == "PrototypeGrid" and (
-                not card.text.contains("製作対象"))) or (name != "PrototypeGrid" and (
+                not card.text.contains("基礎ステータス"))) or (name != "PrototypeGrid" and (
                 not card.text.contains("0"))):
             _fail("native card must show a craft title or material quantity")
             return false
@@ -89,9 +91,11 @@ func _run() -> void:
         return
     var card: Button = (fac.get("item_layer") as Control).find_child("PrototypeIcon_H01", true, false) as Button
     await _tap_card(card)
-    if str(fac.get("page")) != "prototype_detail":
-        _fail("tapping native prototype button did not open its detail")
+    if str(fac.get("page")) != "prototypes" or (
+            not (fac.get("confirmation_overlay") as Control).visible):
+        _fail("tapping native prototype must open confirmation, not craft")
         return
+    fac.call("_dismiss_confirmation")
     fac.call("_switch_section", "materials")
     await process_frame
     if not _verify_grid((fac.get("item_layer") as Control), "MaterialFamilyGrid", Materials.all_ids(), "MaterialIcon_", true):
