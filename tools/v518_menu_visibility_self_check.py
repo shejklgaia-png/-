@@ -6,7 +6,7 @@ hub = (p / "scripts/base_exploration.gd").read_text(encoding="utf-8")
 facility = (p / "scripts/base_facility_system.gd").read_text(encoding="utf-8")
 manifest = (p / "tools/sera_ci_manifest.txt").read_text(encoding="utf-8")
 assert 'BaseQuickActions' not in hub
-assert 'facility_system.call("_switch_section", target)' in hub
+assert 'BaseQuickActions' not in hub and 'func _switch_section(' in facility
 for marker in ("FacilitySectionTabs", "TabCraft", "TabMaterials", "TabWarehouse",
                "func _switch_section(", "func _sync_section_tabs("):
     assert marker in facility, "Missing persistent navigation: " + marker

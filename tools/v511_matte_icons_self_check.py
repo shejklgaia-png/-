@@ -18,7 +18,8 @@ assert "PrototypeCatalog.uid_for(" in save and "PrototypeCatalog.valid_uid(" in 
 assert "func equip_prototype(" in save
 assert "func _show_prototype_catalog(" in ui and "func _show_inventory(" in ui
 assert "MaterialIcon_" in ui and "PrototypeIcon_" in ui and "ConvertInputIcon" in ui
-assert "PrototypeOwnedCount_" in ui and "SourceRank" in ui and "TargetRank" in ui
+assert '"SlotQuantity"' in ui and "PrototypeIcon_" in ui and "WarehouseBlueprint_" in ui
+assert "SourceRank" in ui and "TargetRank" in ui
 assert "PrototypeCatalog.display_instance(" in ui
 assert "func _tap_equipment_control(" in nexus and "equipped_prototype" in nexus
 assert "gd tools/v511_matte_icons_runtime_check.gd" in (
