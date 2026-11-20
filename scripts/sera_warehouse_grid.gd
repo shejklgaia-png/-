@@ -200,8 +200,13 @@ func _bind_card(card: Button, index: int) -> void:
 
     if mode == "materials":
         var id: String = str(entry.get("id", ""))
-        var tier: int = 0 if id.ends_with("_low") else 1 if id.ends_with("_mid") else 2
-        marker.color = [Color("#617c88"), Color("#71a6ad"), Color("#8bd6df")][tier]
+        var tier: int = 0
+        if id.ends_with("_mid"):
+            tier = 1
+        elif id.ends_with("_high"):
+            tier = 2
+        marker.color = (Color("#617c88") if tier == 0 else
+            Color("#71a6ad") if tier == 1 else Color("#8bd6df"))
         art.texture = Icons.material_icon(id)
         art.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
         var compact: bool = _card_width < 244.0
@@ -241,10 +246,10 @@ func _bind_card(card: Button, index: int) -> void:
         marker.color = Color("#4b8799")
         art.texture = Icons.equipment_icon(str(entry.get("blueprint", "")))
         art.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
-        var side: float = minf(82.0, minf(_card_width * 0.36, 86.0))
+        var equipment_side: float = minf(82.0, minf(_card_width * 0.36, 86.0))
         art.position = Vector2(12.0, 10.0)
-        art.size = Vector2(side, side)
-        var text_left: float = art.position.x + side + 10.0
+        art.size = Vector2(equipment_side, equipment_side)
+        var text_left: float = art.position.x + equipment_side + 10.0
         var text_width: float = maxf(1.0, _card_width - text_left - 9.0)
         meta.position = Vector2(text_left, 11.0)
         meta.size = Vector2(text_width, 19.0)
