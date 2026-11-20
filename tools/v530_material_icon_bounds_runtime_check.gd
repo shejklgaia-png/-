@@ -94,6 +94,7 @@ func _run() -> void:
     await process_frame
     var fac: Node3D = hub.get_node("BaseFacilities") as Node3D
     fac.call("open_facility", "STORAGE")
+    fac.call("_show_inventory", "materials")
     await process_frame
     await process_frame
     var w: ScrollContainer = (fac.get("item_layer") as Control).find_child(
