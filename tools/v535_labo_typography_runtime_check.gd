@@ -13,8 +13,8 @@ func _need_font(control: Control, size: int, label: String) -> bool:
 func _run() -> void:
     var theme: Theme = Skin.common_theme()
     if theme.default_font == null or theme.default_font_size < 18 or (
-            not Skin.ui_font() is Font) or (
-            not Skin.data_font() is Font):
+            not Skin.ui_font() is SystemFont) or (
+            not Skin.data_font() is SystemFont):
         _fail("lightweight Japanese UI / digital-data font is not configured")
         return
     var hub: Node3D = load("res://scenes/base_exploration.tscn").instantiate()
