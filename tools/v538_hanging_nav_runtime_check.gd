@@ -1,6 +1,6 @@
 extends SceneTree
 ## v538: the actual live UI must use left-edge hanging tabs with readable English.
-const Skin = preload("res://scripts/sera_labo_round_skin.gd")
+const TabSkin = preload("res://scripts/sera_labo_round_skin.gd")
 func _initialize() -> void:
     call_deferred("_run")
 func _fail(why: String) -> void:
@@ -60,7 +60,7 @@ func _check_tabs(fac: Node3D, selected: String, title: String) -> bool:
     return true
 
 func _run() -> void:
-    if Skin.hanging_tab_style("selected") == Skin.hanging_tab_style("normal"):
+    if TabSkin.hanging_tab_style("selected") == TabSkin.hanging_tab_style("normal"):
         _fail("selected and inactive tabs share the same artwork")
         return
     var hub: Node3D = load("res://scenes/base_exploration.tscn").instantiate()
