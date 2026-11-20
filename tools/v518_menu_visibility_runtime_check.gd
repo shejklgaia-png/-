@@ -44,10 +44,18 @@ func _run() -> void:
         _fail("old bottom bar is still present")
         return
     facilities.call("open_facility", "LABO")
-    await _tap_button((facilities.get("section_tabs") as HBoxContainer).get_node("TabCraft") as Button)
+    # Wait for Control sorting after opening a formerly hidden modal.
+    # A touch at the pre-layout rect does not represent a user-visible tap.
+    await process_frame
+    await process_frame
+    var craft_tab: Button = (facilities.get("section_tabs") as HBoxContainer).get_node("TabCraft") as Button
+    if not _visible_button(craft_tab, viewport):
+        _fail("craft section tab has not been laid out on screen")
+        return
+    await _tap_button(craft_tab)
     await process_frame
     if str(facilities.get("page")) != "prototypes":
-        _fail("craft shortcut must open actual seven-item catalog")
+        _fail("craft tab tap must open actual seven-item catalog")
         return
     var tabs: HBoxContainer = facilities.get("section_tabs") as HBoxContainer
     if tabs == null or tabs.name != "FacilitySectionTabs":
