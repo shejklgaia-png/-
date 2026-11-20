@@ -24,6 +24,7 @@ assert 'grid.add_child(preview)' in ui, "craft preview must scroll with catalog"
 assert 'pressed.connect(_invoke_scroll_action.bind(' in ui, "drag must not trigger item action"
 assert 'extends "res://scripts/sera_labo_touch_scroll.gd"' in warehouse
 assert 'if touch_drag_consumed():' in warehouse
+assert "set_touch_scroll_enabled" in scroll and "_set_labo_scroll_input_enabled" in ui
 assert "py tools/v537_labo_touch_scroll_self_check.py" in manifest
 assert "gd tools/v537_labo_touch_scroll_runtime_check.gd" in manifest
 print("SERA_V537_LABO_TOUCH_SCROLL_STATIC_PASS")
