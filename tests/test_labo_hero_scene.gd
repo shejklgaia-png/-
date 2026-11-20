@@ -61,7 +61,7 @@ func _check() -> void:
     # Reference A: large 3D printer on left; CRATE at right-middle,
     # diagnostic terminal right; no giant foreground loader or steep angle.
     stage.call("set_section", "LABO")
-    _expect(_yaw_degrees(camera) < -18.0 and _yaw_degrees(camera) > -36.0,
+    _expect(_yaw_degrees(camera) < -24.0 and _yaw_degrees(camera) > -36.0,
         "A: strong right-hand three-quarter view instead of flat frontal camera")
     _expect(_camera_pitch_degrees(camera) > 3.0,
         "A: camera looks upward slightly, highlighting printer gantry")
@@ -93,7 +93,7 @@ func _check() -> void:
     # Reference B: orange/blue/purple tall tanks left-center in that order;
     # feedstock trays foreground; CRATE on right, wall monitor far right.
     stage.call("set_section", "SMELTER")
-    _expect(_yaw_degrees(camera) > 18.0 and _yaw_degrees(camera) < 38.0,
+    _expect(_yaw_degrees(camera) > 24.0 and _yaw_degrees(camera) < 38.0,
         "B: left-hand three-quarter view exposes vat spacing and side surfaces")
     _expect(_camera_pitch_degrees(camera) < -9.0,
         "B: raised camera looks down to show material bins and vat contents")
@@ -125,7 +125,7 @@ func _check() -> void:
     # Reference C: left H01/H02/A01 racks, right B01/B02/A02 racks,
     # central CRATE and angled monitor. Eye-level aisle, not bird's-eye view.
     stage.call("set_section", "STORAGE")
-    _expect(_yaw_degrees(camera) < -18.0 and _yaw_degrees(camera) > -38.0,
+    _expect(_yaw_degrees(camera) < -24.0 and _yaw_degrees(camera) > -38.0,
         "C: right-hand aisle vanishing point, visible side walls of racks")
     _expect(_camera_pitch_degrees(camera) < -4.0,
         "C: moderately raised viewpoint shows stocked shelving and floor")
