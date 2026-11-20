@@ -47,10 +47,10 @@ func _run() -> void:
     for family in ["scrap", "alloy", "electronics", "organic"]:
         for tier in ["low", "mid", "high"]:
             materials.append({"id": family+"_"+tier, "name": family, "count": 0})
-    w.call("configure", materials, 3, "materials")
+    w.call("configure", materials, 2, "materials")
     await process_frame
-    if int(w.get("columns")) != 3 or int(w.get("virtual_slots")) != 12:
-        _fail("materials must be four rows of three")
+    if int(w.get("columns")) != 2 or int(w.get("virtual_slots")) != 12:
+        _fail("materials must be six rows of two")
         return
     var save: Node = root.get_node_or_null("SeraSave")
     if save == null:

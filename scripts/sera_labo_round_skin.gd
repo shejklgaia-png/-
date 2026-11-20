@@ -39,37 +39,39 @@ static func data_font() -> SystemFont:
 
 
 static func style(kind: String = "normal") -> StyleBoxFlat:
+    # Matte terminal controls: use a slim active underline, not a glowing
+    # filled cyan rectangle. Shared by navigation, category, and Back.
     if _cache.has(kind):
         return _cache[kind] as StyleBoxFlat
     var result := StyleBoxFlat.new()
+    result.bg_color = Color("#12232e")
+    result.border_color = Color("#29414d")
     match kind:
         "card":
-            result.bg_color = Color("#0c2737")
-            result.border_color = Color("#3b8aa1")
+            result.bg_color = Color("#111e28")
+            result.border_color = Color("#314752")
         "card_hover", "hover":
-            result.bg_color = Color("#134255")
-            result.border_color = Color("#72d9e6")
+            result.bg_color = Color("#1a313c")
+            result.border_color = Color("#507d88")
         "card_pressed", "pressed", "hover_pressed":
-            result.bg_color = Color("#126476")
-            result.border_color = Color("#9bffff")
+            result.bg_color = Color("#193540")
+            result.border_color = Color("#62cbd6")
         "disabled":
-            result.bg_color = Color("#142b39")
-            result.border_color = Color("#40798a")
+            result.bg_color = Color("#101b25")
+            result.border_color = Color("#243945")
         _:
-            result.bg_color = Color("#102a3b")
-            result.border_color = Color("#4d778d")
+            pass
     result.set_corner_radius_all(5)
+    result.set_border_width_all(1)
     if kind in ["card_pressed", "pressed", "hover_pressed"]:
-        result.shadow_color = Color(0.10, 0.92, 0.98, 0.40)
-        result.shadow_size = 5
-    result.set_border_width_all(2 if kind in ["card_pressed", "pressed", "hover_pressed"] else 1)
-    result.content_margin_left = 9.0
-    result.content_margin_right = 9.0
+        result.border_width_bottom = 3
+    result.shadow_size = 0
+    result.content_margin_left = 12.0
+    result.content_margin_right = 12.0
     result.content_margin_top = 6.0
     result.content_margin_bottom = 6.0
     _cache[kind] = result
     return result
-
 
 ## All three LABO pages use the exact same chamfered card silhouette. The
 ## 32x32 atlas is generated once per state; no pixel work during list scroll.
@@ -77,27 +79,27 @@ static func card_style(kind: String = "normal") -> StyleBoxTexture:
     if _card_cache.has(kind):
         return _card_cache[kind] as StyleBoxTexture
     var image := Image.create(32, 32, false, Image.FORMAT_RGBA8)
-    var fill := Color("#0b2230")
-    var edge := Color("#468da4")
+    var fill := Color("#101e28")
+    var edge := Color("#304853")
     match kind:
         "hover":
-            fill = Color("#123d4d")
-            edge = Color("#73dbe8")
+            fill = Color("#182f3b")
+            edge = Color("#4c8795")
         "pressed", "selected":
-            fill = Color("#0d5366")
-            edge = Color("#a2faff")
+            fill = Color("#19343e")
+            edge = Color("#69c1cb")
         "disabled":
-            fill = Color("#102732")
-            edge = Color("#4b7b87")
+            fill = Color("#111c25")
+            edge = Color("#293c46")
     for y in range(32):
         for x in range(32):
             var corner_distance: int = mini(
                 mini(x + y, 31 - x + y),
                 mini(x + 31 - y, 62 - x - y))
-            if corner_distance < 7:
+            if corner_distance < 6:
                 image.set_pixel(x, y, Color.TRANSPARENT)
             elif (x <= 1 or x >= 30 or y <= 1 or y >= 30
-                    or corner_distance < 10):
+                    or corner_distance < 8):
                 image.set_pixel(x, y, edge)
             else:
                 image.set_pixel(x, y, fill)
