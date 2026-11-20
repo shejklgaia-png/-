@@ -44,7 +44,7 @@ func _run() -> void:
     if raw == null or raw.get_size() != Vector2(288, 360):
         _fail("raw source WebP fallback cannot decode the 4x5 icon atlas")
         return
-    if Icons._decode_webp_source("res://assets/ui/no_such_icon.webp") != null:
+    if Icons._decode_webp_source(atlas_path + ".missing") != null:
         _fail("missing image source must return null, not abort GDScript")
         return
     # Force the exact resource-unavailable branch of the icon getter.
