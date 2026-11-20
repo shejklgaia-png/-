@@ -1,51 +1,47 @@
 extends SceneTree
-## Real on-screen viewport and parent clip tests for visible item grids.
+## v519 frame+icons contract, rendered as native HBox/Button rows since v522.
 const Materials = preload("res://scripts/sera_base_materials.gd")
 const Catalog = preload("res://scripts/sera_prototype_catalog.gd")
-const ChamferSlot = preload("res://scripts/sera_chamfer_slot.gd")
+const Skin = preload("res://scripts/sera_chamfer_skin.gd")
 func _initialize() -> void:
     call_deferred("_run")
 func _fail(msg: String) -> void:
     push_error("SERA_V519_GRID_FAIL: " + msg)
     quit(1)
 func _check_grid(actions: VBoxContainer, area: Control, name: String, ids: Array, prefix: String) -> bool:
-    var grid: GridContainer = actions.find_child(name, true, false) as GridContainer
-    if grid == null or grid.columns != 3:
-        _fail("grid missing or not three columns: " + name)
+    var grid: VBoxContainer = actions.find_child(name, true, false) as VBoxContainer
+    if grid == null or grid.get_child_count() != ceili(float(ids.size()) / 3.0):
+        _fail("missing three-wide row grid: " + name)
         return false
     for id in ids:
-        var card: Control = grid.find_child(prefix + str(id), true, false) as Control
-        if card == null or not (card is ChamferSlot) or not card.is_visible_in_tree():
-            _fail("unrendered slot: " + prefix + str(id))
+        var card: Button = grid.find_child(prefix + str(id), true, false) as Button
+        if card == null or not card.is_visible_in_tree() or card.icon == null:
+            _fail("missing native card and real icon: " + prefix + str(id))
             return false
         var rect: Rect2 = card.get_global_rect()
         if rect.size.x < 45.0 or rect.size.y < 42.0 or (
                 not area.get_global_rect().has_point(rect.get_center())):
-            _fail("slot is clipped or has zero area: " + prefix + str(id))
+            _fail("card is clipped or not laid out: " + card.name)
             return false
-        var picture: TextureRect = card.find_child("Icon", true, false) as TextureRect
-        if picture == null or picture.texture == null:
-            _fail("missing icon on slot: " + str(id))
+        if not card.get_theme_stylebox("normal") is StyleBoxTexture:
+            _fail("corner-cut style missing: " + card.name)
             return false
-        var corners: PackedVector2Array = card.call("_border_points", Vector2(100, 100))
-        if corners.size() != 9 or corners[0].x <= 0.0 or corners[0].y != 0.0:
-            _fail("frame corners are not chamfered")
-            return false
+    var frame: StyleBoxTexture = Skin.style(Color("#203747"), Color("#59c6da"))
+    var img: Image = frame.texture.get_image()
+    if img == null or img.get_pixel(0, 0).a > 0.05:
+        _fail("four corner cuts have become opaque")
+        return false
     return true
 func _run() -> void:
-    var scene: PackedScene = load("res://scenes/base_exploration.tscn")
-    var hub: Node3D = scene.instantiate()
+    var hub: Node3D = load("res://scenes/base_exploration.tscn").instantiate()
     root.add_child(hub)
     await process_frame
     await process_frame
     if hub.has_node("BaseHUDLayer/BaseHUD/BaseQuickActions"):
-        _fail("redundant bottom buttons still shown")
+        _fail("redundant base menu returned")
         return
     var facility: Node3D = hub.get_node("BaseFacilities") as Node3D
     var area: Control = facility.get("actions_area") as Control
-    if area == null:
-        _fail("persistent content area missing")
-        return
     var actions: VBoxContainer = facility.get("modal_actions") as VBoxContainer
     facility.call("_switch_section", "craft")
     await process_frame
@@ -59,19 +55,14 @@ func _run() -> void:
     await process_frame
     if not _check_grid(actions, area, "WarehouseMaterials", Materials.all_ids(), "MaterialIcon_"):
         return
-    var tab: Button = actions.find_child("WarehouseEquipmentTab", true, false) as Button
-    if tab == null:
-        _fail("warehouse equipment section not available")
-        return
-    tab.pressed.emit()
+    (actions.find_child("WarehouseEquipmentTab", true, false) as Button).pressed.emit()
     await process_frame
     if not _check_grid(actions, area, "WarehouseEquipment", Catalog.ORDER, "WarehouseBlueprint_"):
         return
     for bp in Catalog.ORDER:
-        var card: Control = actions.find_child("WarehouseBlueprint_" + str(bp), true, false) as Control
-        var label: Label = card.find_child("SlotQuantity", true, false) as Label
-        if label == null or not label.text.contains("0"):
-            _fail("empty equipment slot must show count zero")
+        var card: Button = actions.find_child("WarehouseBlueprint_" + str(bp), true, false) as Button
+        if not card.text.contains("0"):
+            _fail("empty category must show owned count zero")
             return
-    print("SERA_V519_CARD_GRID_RUNTIME_PASS: three visible grids, icons, notched empty slots, no bottom bar")
+    print("SERA_V519_CARD_GRID_RUNTIME_PASS: 7/12/12/7 native cards with notched frames")
     quit(0)

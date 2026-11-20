@@ -67,7 +67,7 @@ func _run() -> void:
             _fail("section tab hidden or too small: " + id)
             return
     var actions: VBoxContainer = facilities.get("modal_actions") as VBoxContainer
-    var first: Button = actions.find_child("Choose_H01", true, false) as Button
+    var first: Button = actions.find_child("PrototypeIcon_H01", true, false) as Button
     if not _visible_button(first, viewport):
         _fail("first equipment item cannot be selected on screen")
         return
@@ -82,7 +82,7 @@ func _run() -> void:
     if str(facilities.get("page")) != "families":
         _fail("materials tab did not open material family choices")
         return
-    var family: Button = (facilities.get("modal_actions") as VBoxContainer).find_child("Open_scrap", true, false) as Button
+    var family: Button = (facilities.get("modal_actions") as VBoxContainer).find_child("MaterialIcon_scrap_low", true, false) as Button
     if not _visible_button(family, viewport):
         _fail("first material family cannot be picked")
         return
@@ -100,8 +100,8 @@ func _run() -> void:
     if str(facilities.get("page")) != "inventory":
         _fail("warehouse tab did not open inventory")
         return
-    var first_material: TextureRect = (facilities.get("modal_actions") as VBoxContainer).find_child("MaterialIcon_scrap_low", true, false).find_child("Icon", true, false) as TextureRect
-    if first_material == null or first_material.texture == null or (
+    var first_material: Button = (facilities.get("modal_actions") as VBoxContainer).find_child("MaterialIcon_scrap_low", true, false) as Button
+    if first_material == null or first_material.icon == null or (
             not first_material.is_visible_in_tree() or (
             not viewport.has_point(first_material.get_global_rect().get_center()))):
         _fail("first warehouse material icon not visible")

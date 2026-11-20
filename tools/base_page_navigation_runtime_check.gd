@@ -86,8 +86,7 @@ func _run() -> void:
         if actions.find_child("PrototypeIcon_" + bp, true, false) == null:
             _fail("LABO prototype catalog has missing entry: " + bp)
             return
-    var row: Control = actions.find_child("PrototypeIcon_H01", true, false) as Control
-    var choose: Button = row.find_child("Choose_H01", true, false) as Button
+    var choose: Button = actions.find_child("PrototypeIcon_H01", true, false) as Button
     if choose == null:
         _fail("LABO prototype item must be selectable")
         return

@@ -36,14 +36,12 @@ func _run() -> void:
         return
     var actions: VBoxContainer = facility.get("modal_actions") as VBoxContainer
     for blueprint in CATALOG.ORDER:
-        var row: Control = actions.find_child("PrototypeIcon_" + str(blueprint), true, false) as Control
-        var icon: TextureRect = row.find_child("Icon", true, false) as TextureRect if row != null else null
-        if icon == null or icon.texture == null or (
-                icon.texture.get_width() <= 0):
+        var row: Button = actions.find_child("PrototypeIcon_" + str(blueprint), true, false) as Button
+        if row == null or row.icon == null or row.icon.get_width() <= 0:
             _fail("unrenderable craft icon: " + str(blueprint))
             return
     await process_frame
-    var first_icon: TextureRect = actions.find_child("PrototypeIcon_H01", true, false).find_child("Icon", true, false) as TextureRect
+    var first_icon: Button = actions.find_child("PrototypeIcon_H01", true, false) as Button
     if not first_icon.is_visible_in_tree() or (
             not viewport_rect.has_point(first_icon.get_global_rect().get_center())):
         _fail("first craft icon does not appear in visible modal")
@@ -110,13 +108,12 @@ func _run() -> void:
         return
     actions = facility.get("modal_actions") as VBoxContainer
     for material_id in MAT.all_ids():
-        var row: Control = actions.find_child("MaterialIcon_" + str(material_id), true, false) as Control
-        var icon: TextureRect = row.find_child("Icon", true, false) as TextureRect if row != null else null
-        if icon == null or icon.texture == null:
+        var row: Button = actions.find_child("MaterialIcon_" + str(material_id), true, false) as Button
+        if row == null or row.icon == null:
             _fail("material icon missing in visible warehouse: " + str(material_id))
             return
     await process_frame
-    var first_material: TextureRect = actions.find_child("MaterialIcon_scrap_low", true, false).find_child("Icon", true, false) as TextureRect
+    var first_material: Button = actions.find_child("MaterialIcon_scrap_low", true, false) as Button
     if not first_material.is_visible_in_tree() or (
             not viewport_rect.has_point(first_material.get_global_rect().get_center())):
         _fail("first warehouse material icon does not appear in visible modal")
