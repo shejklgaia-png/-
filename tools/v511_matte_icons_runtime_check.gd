@@ -121,10 +121,23 @@ func _run() -> void:
         return
     facilities.call("open_facility", "STORAGE")
     var actions: VBoxContainer = facilities.get("modal_actions") as VBoxContainer
+    var warehouse: ScrollContainer = (facilities.get("item_layer") as Control).find_child(
+        "WarehouseMaterials", true, false) as ScrollContainer
+    if warehouse == null or (warehouse.get("entries") as Array).size() != 12:
+        _fail("twelve material entries missing from warehouse virtual list")
+        return
     for material_id in Materials.all_ids():
-        if (facilities.get("item_layer") as Control).find_child("MaterialIcon_" + str(material_id), true, false) == null:
-            _fail("missing warehouse material icon: " + str(material_id))
+        var exists: bool = false
+        for entry in warehouse.get("entries"):
+            if str(entry.get("id", "")) == str(material_id):
+                exists = true
+                break
+        if not exists:
+            _fail("missing material from virtual list: " + str(material_id))
             return
+    if (warehouse.get("pool") as Array).is_empty():
+        _fail("no visible material cards were created")
+        return
     facilities.call("open_facility", "SMELTER")
     facilities.call("_select_conversion_family", "organic")
     actions = facilities.get("modal_actions") as VBoxContainer
