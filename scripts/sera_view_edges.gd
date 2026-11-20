@@ -96,7 +96,10 @@ static func _position_key(p: Vector3) -> String:
 static func _extract_edges(mesh: Mesh) -> Array:
     var by_key: Dictionary = {}
     for surface in range(mesh.get_surface_count()):
-        if mesh.surface_get_primitive_type(surface) != Mesh.PRIMITIVE_TRIANGLES:
+        # PrimitiveMesh (BoxMesh, SphereMesh, etc.) already uses triangles
+        # but does not implement ArrayMesh.surface_get_primitive_type().
+        if mesh is ArrayMesh and (
+                (mesh as ArrayMesh).surface_get_primitive_type(surface) != Mesh.PRIMITIVE_TRIANGLES):
             continue
         var arrays: Array = mesh.surface_get_arrays(surface)
         var vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
