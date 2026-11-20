@@ -59,43 +59,128 @@ func _sign(parent: Node3D, caption: String, at: Vector3,
     parent.add_child(label)
     return label
 
-func _build_room() -> void:
-    _block(self, "Floor", Vector3(0, -0.15, -0.6),
+func _build_print_room() -> void:
+    _block(printer_group, "Floor", Vector3(0, -0.15, -0.6),
         Vector3(8.2, 0.26, 6.0), Color("#273949"))
-    _block(self, "BackWall", Vector3(0, 2.18, -3.45),
+    _block(printer_group, "BackWall", Vector3(0, 2.18, -3.45),
         Vector3(8.2, 4.6, 0.20), Color("#1b2e3f"))
     for x in [-3.7, 0.0, 3.7]:
-        _block(self, "StructuralColumn", Vector3(x, 2.1, -3.1),
+        _block(printer_group, "StructuralColumn", Vector3(x, 2.1, -3.1),
             Vector3(0.20, 4.2, 0.24), Color("#425c6c"))
     for y in [1.05, 2.8, 4.0]:
-        _block(self, "WallBeam", Vector3(0, y, -3.18),
+        _block(printer_group, "WallBeam", Vector3(0, y, -3.18),
             Vector3(8.0, 0.12, 0.18), Color("#3c5a6c"))
     for x in [-3.0, -1.3, 0.4, 2.1, 3.4]:
-        _block(self, "FloorLine", Vector3(x, -0.01, -0.6),
+        _block(printer_group, "FloorLine", Vector3(x, -0.01, -0.6),
             Vector3(0.018, 0.012, 5.7), Color("#3b798d"), true)
     for x in [-2.95, 0.0, 2.95]:
-        _block(self, "OverheadLight", Vector3(x, 3.95, -2.35),
+        _block(printer_group, "OverheadLight", Vector3(x, 3.95, -2.35),
             Vector3(0.95, 0.06, 0.16), Color("#6dc3d6"), true)
-    _block(self, "RearEquipmentRack", Vector3(0.35, 1.05, -3.0),
+    _block(printer_group, "RearEquipmentRack", Vector3(0.35, 1.05, -3.0),
         Vector3(1.22, 1.9, 0.55), Color("#354b5a"))
     for y in [0.65, 1.45, 2.05]:
-        _block(self, "EquipmentRackLight", Vector3(0.35, y, -2.70),
+        _block(printer_group, "EquipmentRackLight", Vector3(0.35, y, -2.70),
             Vector3(0.92, 0.055, 0.045), Color("#4a9eb1"), true)
-    _block(self, "AirVent", Vector3(-1.2, 2.55, -3.2),
+    _block(printer_group, "AirVent", Vector3(-1.2, 2.55, -3.2),
         Vector3(0.95, 0.42, 0.12), Color("#344755"))
+    # Entirely printer-owned industrial hall: no common geometry on other tabs.
+    _block(printer_group, "PrinterLeftWall", Vector3(-4.25, 2.15, -0.75),
+        Vector3(0.18, 4.50, 6.35), Color("#263d4e"))
+    _block(printer_group, "PrinterGantryOverhang", Vector3(-2.20, 3.75, -0.65),
+        Vector3(3.95, 0.21, 2.75), Color("#394f61"))
+    _block(printer_group, "PrinterFloorSafetyLine", Vector3(-1.92, 0.017, 1.88),
+        Vector3(3.5, 0.018, 0.10), Color("#d9a94e"))
     # Additional architectural depth like the reference 3D laboratory.
     for z in [-2.65, -1.25, 0.15]:
-        _block(self, "CeilingRail", Vector3(0, 4.05, z),
+        _block(printer_group, "CeilingRail", Vector3(0, 4.05, z),
             Vector3(8.0, 0.15, 0.16), Color("#304b5c"))
     for x in [-2.6, 0.0, 2.6]:
-        _block(self, "CoolWhiteCeilingLight", Vector3(x, 4.02, -1.20),
+        _block(printer_group, "CoolWhiteCeilingLight", Vector3(x, 4.02, -1.20),
             Vector3(0.63, 0.035, 0.18), Color("#d0f6ff"), true)
     for i in range(4):
-        _block(self, "CautionStripe", Vector3(-3.45 + float(i)*0.19, 0.015, 2.1),
+        _block(printer_group, "CautionStripe", Vector3(-3.45 + float(i)*0.19, 0.015, 2.1),
             Vector3(0.10, 0.013, 0.48), Color("#cd9e42"))
-    _block(self, "BacklitCompanyPanel", Vector3(2.65, 2.60, -3.30),
+    _block(printer_group, "BacklitCompanyPanel", Vector3(2.65, 2.60, -3.30),
         Vector3(1.55, 0.78, 0.075), Color("#172d3c"))
-    _sign(self, "SERA", Vector3(2.65, 2.54, -3.22), 62)
+    _sign(printer_group, "SERA", Vector3(2.65, 2.54, -3.22), 62)
+
+# Material conversion room: separate bulkhead, tall processing pipework and
+# side catwalk; no printer hall or warehouse architecture is reused.
+func _build_conversion_room() -> void:
+    var room: Node3D = converter_group
+    _block(room, "RefineryFloor", Vector3(0, -0.17, -0.7),
+        Vector3(10.2, 0.30, 7.8), Color("#2b414f"))
+    _block(room, "RefineryBackBulkhead", Vector3(0, 2.35, -4.50),
+        Vector3(10.1, 4.9, 0.19), Color("#172b3a"))
+    _block(room, "RefineryLeftWall", Vector3(-5.05, 2.25, -1.0),
+        Vector3(0.2, 4.6, 7.5), Color("#364957"))
+    _block(room, "RefineryCatwalk", Vector3(0, 3.28, -3.58),
+        Vector3(9.8, 0.17, 0.80), Color("#546d7c"))
+    for x in [-4.6, -2.75, -0.9, 0.95, 2.80, 4.55]:
+        _block(room, "RefineryUpright", Vector3(x, 2.3, -4.38),
+            Vector3(0.14, 4.6, 0.18), Color("#657d8b"))
+        _block(room, "RefineryOverheadPipe", Vector3(x, 3.65, -3.28),
+            Vector3(0.12, 0.65, 0.12), Color("#ad813c"))
+    for z in [-3.8, -2.2, 0.4, 2.35]:
+        _block(room, "RefineryCeilingTruss", Vector3(0, 4.50, z),
+            Vector3(9.9, 0.14, 0.16), Color("#455d6c"))
+    for x in [-3.2, 0.0, 2.95]:
+        _block(room, "RefineryColdCeilingLamp", Vector3(x, 4.40, -1.7),
+            Vector3(0.9, 0.05, 0.18), Color("#d6eff3"), true)
+    _block(room, "ConverterRightConsole", Vector3(3.05, 1.28, -1.3),
+        Vector3(1.40, 0.95, 0.14), Color("#607b89"))
+    _block(room, "ConverterRightDisplay", Vector3(3.05, 1.29, -1.22),
+        Vector3(1.22, 0.80, 0.015), Color("#175268"))
+    for i in range(3):
+        _block(room, "ConverterGauge", Vector3(2.71+float(i)*0.34, 1.26, -1.195),
+            Vector3(0.16, 0.22+float(i)*0.12, 0.012),
+            Color("#5fc4da") if i != 0 else Color("#ebad50"), true)
+    for step in range(4):
+        _block(room, "RefineryRightStair",
+            Vector3(4.18, 0.16+float(step)*0.20, -1.75-float(step)*0.38),
+            Vector3(1.03, 0.10, 0.48), Color("#698390"))
+    _block(room, "SampleSortingBench", Vector3(1.8, 0.46, 0.45),
+        Vector3(1.55, 0.27, 0.80), Color("#526b79"))
+    _sign(room, "REFINERY", Vector3(2.8, 3.75, -4.14), 34)
+
+# Storage room: receding central aisle, twin rack banks and high ceiling.
+# It has no refinery pipes, chamber effects or printer gantry.
+func _build_warehouse_room() -> void:
+    var room: Node3D = warehouse_group
+    _block(room, "StorageAisleFloor", Vector3(0, -0.18, -0.7),
+        Vector3(10.9, 0.31, 8.45), Color("#304655"))
+    _block(room, "StorageRearWall", Vector3(0, 2.30, -4.78),
+        Vector3(10.9, 4.82, 0.24), Color("#1c3545"))
+    _block(room, "StorageShutter", Vector3(0.10, 1.65, -4.61),
+        Vector3(1.85, 3.08, 0.075), Color("#445f70"))
+    for row in range(7):
+        _block(room, "ShutterRib", Vector3(0.1, 0.30+float(row)*0.41, -4.55),
+            Vector3(1.8, 0.05, 0.025), Color("#859aa6"))
+    for side in [-1, 1]:
+        _block(room, "StorageAisleSide", Vector3(float(side)*5.30, 2.25, -0.65),
+            Vector3(0.20, 4.7, 8.45), Color("#2e4352"))
+        _block(room, "StorageAisleGuide", Vector3(float(side)*1.25, 0.013, -0.45),
+            Vector3(0.05, 0.015, 6.5), Color("#6a8c9b"))
+    for z in [-4.1, -2.0, 0.2, 2.30]:
+        _block(room, "StorageRoofRib", Vector3(0, 4.55, z),
+            Vector3(10.5, 0.18, 0.18), Color("#496373"))
+    for x in [-3.55, 0.0, 3.55]:
+        _block(room, "AisleCeilingLight", Vector3(x, 4.42, -1.45),
+            Vector3(1.15, 0.045, 0.21), Color("#d9f4fb"), true)
+    for z in [-3.20, -2.02, -0.84]:
+        _block(room, "LeftPalletStack", Vector3(-4.50, 0.45, z),
+            Vector3(0.83, 0.80, 0.92), Color("#596f7c"))
+    _block(room, "StockControlMonitor", Vector3(0.85, 2.20, -4.47),
+        Vector3(1.46, 1.1, 0.095), Color("#536f7e"))
+    _block(room, "StockControlDisplay", Vector3(0.85, 2.20, -4.41),
+        Vector3(1.31, 0.94, 0.016), Color("#194a5d"))
+    for i in range(4):
+        _block(room, "InventoryStatusBar", Vector3(0.55, 2.51-float(i)*0.19, -4.395),
+            Vector3(0.60, 0.04, 0.015), Color("#5ebacb"), true)
+    _block(room, "SorterScannerRail", Vector3(0.13, 1.10, 0.10),
+        Vector3(1.30, 0.075, 0.07), Color("#748f9a"))
+    _sign(room, "H02", Vector3(-2.65, 2.60, -1.89), 28)
+    _sign(room, "B02", Vector3(2.65, 2.60, -1.89), 28)
 
 func _build_printer() -> void:
     printer_group = Node3D.new()
@@ -165,15 +250,15 @@ func _build_printer() -> void:
             Vector3(0.105, 0.06, 0.025), Color("#dfac45"), true)
 
 func _build_terminal() -> void:
-    _block(self, "TerminalColumn", Vector3(2.24, 0.62, -0.35),
+    _block(printer_group, "TerminalColumn", Vector3(2.24, 0.62, -0.35),
         Vector3(0.38, 1.12, 0.36), Color("#486476"))
-    _block(self, "TerminalConsole", Vector3(2.24, 1.06, -0.2),
+    _block(printer_group, "TerminalConsole", Vector3(2.24, 1.06, -0.2),
         Vector3(1.27, 0.18, 0.87), Color("#486476"))
     var screen := Node3D.new()
     screen.name = "TerminalScreen"
     screen.position = Vector3(2.24, 1.60, -0.65)
     screen.rotation.x = -0.22
-    add_child(screen)
+    printer_group.add_child(screen)
     _block(screen, "DisplayBack", Vector3.ZERO,
         Vector3(1.38, 0.91, 0.08), Color("#425e6c"))
     _block(screen, "DisplayGlass", Vector3(0, 0, 0.055),
