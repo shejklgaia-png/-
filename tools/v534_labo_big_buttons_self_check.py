@@ -17,8 +17,8 @@ for anchor in ("LABO_NAV_HEIGHT", "LABO_SLOT_HEIGHT", "LABO_BACK_HEIGHT",
 assert '"CraftSlotScroll"' not in ui and '"WarehouseHangerScroll"' not in ui
 assert "CARD_HEIGHT_MATERIALS: float = 120.0" in warehouse
 assert "CARD_HEIGHT_EQUIPMENT: float = 180.0" in warehouse
-assert "theme_override_font_sizes/font_size = 16" in material
-assert "theme_override_font_sizes/font_size = 18" in equipment
+assert "theme_override_font_sizes/font_size = 19" in material
+assert "theme_override_font_sizes/font_size = 21" in equipment
 assert "gd tools/v534_labo_big_buttons_runtime_check.gd" in manifest
 assert "py tools/v534_labo_big_buttons_self_check.py" in manifest
 print("SERA_V534_LABO_BIG_BUTTONS_STATIC_PASS")

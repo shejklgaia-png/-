@@ -299,6 +299,26 @@ func key_at(camera: Camera3D, pixel: Vector2) -> String:
             nearest = key
     return nearest
 
+# Fit the largest readable Japanese glyphs into the existing touch targets.
+# Seven part tabs stay one row; no ScrollContainer or per-frame allocation.
+func _nav_font_size() -> int:
+    var width: float = get_viewport().get_visible_rect().size.x
+    return clampi(int((width * 0.92 / 3.0 - 22.0) / 4.0), 19, 23)
+
+func _slot_font_size() -> int:
+    var width: float = get_viewport().get_visible_rect().size.x
+    var per_tab: float = (width * 0.92 - 16.0) / 7.0
+    var glyphs: float = 1.0 if width < 520.0 else 2.0
+    return clampi(int((per_tab - 16.0) / glyphs), 17, 22)
+
+func _material_card_font_size() -> int:
+    var width: float = get_viewport().get_visible_rect().size.x
+    return 19 if width >= 590.0 else 17 if width >= 460.0 else 15
+
+func _material_icon_side() -> float:
+    var width: float = get_viewport().get_visible_rect().size.x
+    return 62.0 if width >= 590.0 else 48.0 if width >= 460.0 else 32.0
+
 func attach_hud(hud: Control) -> void:
     for spec in FACILITY_SPECS:
         var tag := Label.new()
@@ -361,11 +381,18 @@ func attach_hud(hud: Control) -> void:
     body.add_child(hero_host)
     var header_row := HBoxContainer.new()
     header_row.name = "FacilityHeaderRow"
-    header_row.add_theme_constant_override("separation", 8)
+    header_row.add_theme_constant_override("separation", 10)
     body.add_child(header_row)
+    var header_accent := ColorRect.new()
+    header_accent.name = "SectionHeaderAccent"
+    header_accent.color = Color("#4ce7ed")
+    header_accent.custom_minimum_size = Vector2(5, 27)
+    header_accent.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    header_row.add_child(header_accent)
     modal_title = Label.new()
     modal_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-    modal_title.add_theme_font_size_override("font_size", 23)
+    modal_title.add_theme_font_size_override("font_size", 27)
+    modal_title.add_theme_font_override("font", LaboSkin.title_font())
     modal_title.add_theme_color_override("font_color", Color("#f1faff"))
     modal_title.mouse_filter = Control.MOUSE_FILTER_STOP
     modal_title.gui_input.connect(_on_modal_title_input)
@@ -397,14 +424,18 @@ func attach_hud(hud: Control) -> void:
         button.button_group = section_group
         button.custom_minimum_size.y = LABO_NAV_HEIGHT
         button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-        button.add_theme_font_size_override("font_size", 18)
+        button.add_theme_font_size_override("font_size", _nav_font_size())
+        button.add_theme_font_override("font", LaboSkin.title_font())
+        button.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
         button.add_theme_color_override("font_color", Color("#f4fbff"))
         # Rounded blue-grey styles are inherited from FacilitySheet.theme.
         button.pressed.connect(_switch_section.bind(str(entry["target"])))
         section_tabs.add_child(button)
+    # Reference hierarchy: 3D scene -> three navigation tabs -> section heading.
+    body.move_child(section_tabs, body.get_child_index(header_row))
     modal_body = Label.new()
     modal_body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-    modal_body.add_theme_font_size_override("font_size", 15)
+    modal_body.add_theme_font_size_override("font_size", 18)
     modal_body.add_theme_color_override("font_color", Color("#bdd4df"))
     body.add_child(modal_body)
     diagnostic_readout = Label.new()
@@ -453,7 +484,8 @@ func attach_hud(hud: Control) -> void:
     close_button.name = "CloseFacility"
     close_button.text = "戻る"
     close_button.custom_minimum_size.y = LABO_BACK_HEIGHT
-    close_button.add_theme_font_size_override("font_size", 19)
+    close_button.add_theme_font_size_override("font_size", 23)
+    close_button.add_theme_font_override("font", LaboSkin.title_font())
     close_button.pressed.connect(navigate_back)
     body.add_child(close_button)
     # Own full-screen confirmation layer; does not depend on Android popup
@@ -486,7 +518,8 @@ func attach_hud(hud: Control) -> void:
     confirmation_title.name = "LaboConfirmTitle"
     confirmation_title.text = "作成しますか？"
     confirmation_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-    confirmation_title.add_theme_font_size_override("font_size", 24)
+    confirmation_title.add_theme_font_size_override("font_size", 27)
+    confirmation_title.add_theme_font_override("font", LaboSkin.title_font())
     confirm_vbox.add_child(confirmation_title)
     confirmation_text = Label.new()
     confirmation_text.name = "LaboConfirmDescription"
@@ -494,7 +527,7 @@ func attach_hud(hud: Control) -> void:
     confirmation_text.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
     confirmation_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
     confirmation_text.size_flags_vertical = Control.SIZE_EXPAND_FILL
-    confirmation_text.add_theme_font_size_override("font_size", 18)
+    confirmation_text.add_theme_font_size_override("font_size", 20)
     confirm_vbox.add_child(confirmation_text)
     var confirm_buttons := HBoxContainer.new()
     confirm_buttons.add_theme_constant_override("separation", 8)
@@ -503,7 +536,8 @@ func attach_hud(hud: Control) -> void:
     cancel_button.name = "LaboConfirmCancel"
     cancel_button.text = "キャンセル"
     cancel_button.custom_minimum_size.y = LABO_CONFIRM_HEIGHT
-    cancel_button.add_theme_font_size_override("font_size", 19)
+    cancel_button.add_theme_font_size_override("font_size", 22)
+    cancel_button.add_theme_font_override("font", LaboSkin.title_font())
     cancel_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
     cancel_button.pressed.connect(_dismiss_confirmation)
     confirm_buttons.add_child(cancel_button)
@@ -511,7 +545,8 @@ func attach_hud(hud: Control) -> void:
     accept_button.name = "LaboConfirmAccept"
     accept_button.text = "作成"
     accept_button.custom_minimum_size.y = LABO_CONFIRM_HEIGHT
-    accept_button.add_theme_font_size_override("font_size", 19)
+    accept_button.add_theme_font_size_override("font_size", 22)
+    accept_button.add_theme_font_override("font", LaboSkin.title_font())
     accept_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
     accept_button.pressed.connect(_accept_confirmation)
     confirm_buttons.add_child(accept_button)
@@ -742,7 +777,7 @@ func _add_action(label: String, detail: String) -> void:
     var button := Button.new()
     button.text = label
     button.custom_minimum_size.y = 88.0
-    button.add_theme_font_size_override("font_size", 20)
+    button.add_theme_font_size_override("font_size", 22)
     button.pressed.connect(_show_detail.bind(detail))
     modal_actions.add_child(button)
 
@@ -989,6 +1024,18 @@ func _new_slot(parent: Control, key: String, icon: Texture2D,
     var info_label: Label = card.get_node(
         "CardContent/Row/TextStack/ItemInfo") as Label
     title_label.text = title
+    title_label.add_theme_font_override("font", LaboSkin.title_font())
+    if material_choice:
+        var side: float = _material_icon_side()
+        art.custom_minimum_size = Vector2(side, side)
+        title_label.add_theme_font_size_override(
+            "font_size", _material_card_font_size())
+        info_label.add_theme_font_size_override(
+            "font_size", maxi(14, _material_card_font_size() - 3))
+    else:
+        title_label.add_theme_font_size_override("font_size", 21)
+        info_label.add_theme_font_size_override("font_size", 17)
+        info_label.add_theme_font_override("font", LaboSkin.data_font())
     info_label.text = (info if material_choice else
         info.replace("基礎ステータス（現行Aセット参照） / ", "基礎："))
     row.add_child(card)
@@ -1025,7 +1072,7 @@ func _add_item_tile(icon: Texture2D, title: String,
     caption.text = title
     caption.size_flags_horizontal = Control.SIZE_EXPAND_FILL
     caption.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-    caption.add_theme_font_size_override("font_size", 17)
+    caption.add_theme_font_size_override("font_size", 20)
     row.add_child(caption)
 
 
@@ -1052,7 +1099,8 @@ func _show_inventory(section: String = "materials") -> void:
         button.button_group = warehouse_group
         button.button_pressed = section == str(choice["key"])
         button.custom_minimum_size.y = 59.0
-        button.add_theme_font_size_override("font_size", 18)
+        button.add_theme_font_size_override("font_size", 22)
+        button.add_theme_font_override("font", LaboSkin.title_font())
         button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
         button.pressed.connect(_show_inventory.bind(str(choice["key"])))
         switcher.add_child(button)
@@ -1088,7 +1136,8 @@ func _show_inventory(section: String = "materials") -> void:
             tab.tooltip_text = _warehouse_slot_name(slot)
             tab.custom_minimum_size = Vector2(0, LABO_SLOT_HEIGHT)
             tab.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-            tab.add_theme_font_size_override("font_size", 15)
+            tab.add_theme_font_size_override("font_size", _slot_font_size())
+            tab.add_theme_font_override("font", LaboSkin.title_font())
             tab.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
             tab.toggle_mode = true
             tab.button_group = hanger_group
@@ -1102,7 +1151,7 @@ func _show_inventory(section: String = "materials") -> void:
         var junk_count: int = SeraSave.count_junk_prototypes(warehouse_slot)
         junk_button.text = "不用品を一括削除 (%d)" % junk_count
         junk_button.custom_minimum_size.y = 66
-        junk_button.add_theme_font_size_override("font_size", 17)
+        junk_button.add_theme_font_size_override("font_size", 20)
         junk_button.disabled = junk_count == 0
         junk_button.pressed.connect(_confirm_bulk_junk_deletion)
         modal_actions.add_child(junk_button)
@@ -1186,7 +1235,8 @@ func _show_warehouse_item_detail(uid: String) -> void:
         var breakdown := Label.new()
         breakdown.name = "WarehouseStatsBreakdown"
         breakdown.text = LaboStats.total_formula(blueprint, item.get("affixes", []))
-        breakdown.add_theme_font_size_override("font_size", 17)
+        breakdown.add_theme_font_size_override("font_size", 19)
+        breakdown.add_theme_font_override("font", LaboSkin.data_font())
         breakdown.add_theme_color_override("font_color", Color("#eff8ff"))
         breakdown.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
         modal_actions.add_child(breakdown)
@@ -1196,7 +1246,7 @@ func _show_warehouse_item_detail(uid: String) -> void:
         favorite.name = "WarehouseFavoriteToggle"
         favorite.text = "★ お気に入り解除" if bool(item.get("favorite", false)) else "☆ お気に入りにする"
         favorite.custom_minimum_size.y = 70
-        favorite.add_theme_font_size_override("font_size", 18)
+        favorite.add_theme_font_size_override("font_size", 21)
         favorite.pressed.connect(_mark_warehouse_item.bind(uid, "favorite",
             not bool(item.get("favorite", false))))
         modal_actions.add_child(favorite)
@@ -1204,7 +1254,7 @@ func _show_warehouse_item_detail(uid: String) -> void:
         junk.name = "WarehouseJunkToggle"
         junk.text = "不用品指定を解除" if bool(item.get("junk", false)) else "不用品に指定"
         junk.custom_minimum_size.y = 70
-        junk.add_theme_font_size_override("font_size", 18)
+        junk.add_theme_font_size_override("font_size", 21)
         junk.pressed.connect(_mark_warehouse_item.bind(uid, "junk",
             not bool(item.get("junk", false))))
         modal_actions.add_child(junk)
@@ -1250,7 +1300,7 @@ func _show_prototype_catalog() -> void:
             start.name = "CreateTrialProfile"
             start.text = "セーブを新規作成して製作を始める"
             start.custom_minimum_size.y = 78.0
-            start.add_theme_font_size_override("font_size", 17)
+            start.add_theme_font_size_override("font_size", 20)
             start.pressed.connect(_create_trial_profile)
             modal_actions.add_child(start)
         else:
@@ -1276,7 +1326,8 @@ func _show_prototype_catalog() -> void:
         b.button_pressed = craft_slot == str(slot)
         b.custom_minimum_size = Vector2(0, LABO_SLOT_HEIGHT)
         b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-        b.add_theme_font_size_override("font_size", 15)
+        b.add_theme_font_size_override("font_size", _slot_font_size())
+        b.add_theme_font_override("font", LaboSkin.title_font())
         b.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
         b.pressed.connect(_select_craft_slot.bind(str(slot)))
         slot_tabs.add_child(b)
@@ -1296,12 +1347,50 @@ func _show_prototype_catalog() -> void:
         _queue_card_icon(card, id, true)
     _finish_grid(grid)
     if not first_id.is_empty():
+        # Reference image shows an equipment preview directly under the list,
+        # framed like a catalog detail. Keep it passive (no extra click targets).
+        var preview := PanelContainer.new()
+        preview.name = "PrototypeBasePreview"
+        preview.custom_minimum_size.y = 137.0
+        preview.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+        preview.add_theme_stylebox_override("panel", LaboSkin.card_style("normal"))
+        item_layer.add_child(preview)
+        var preview_padding := MarginContainer.new()
+        preview_padding.add_theme_constant_override("margin_left", 12)
+        preview_padding.add_theme_constant_override("margin_right", 12)
+        preview_padding.add_theme_constant_override("margin_top", 10)
+        preview_padding.add_theme_constant_override("margin_bottom", 10)
+        preview.add_child(preview_padding)
+        var preview_row := HBoxContainer.new()
+        preview_row.add_theme_constant_override("separation", 14)
+        preview_padding.add_child(preview_row)
+        var preview_art := TextureRect.new()
+        preview_art.name = "PrototypeBaseArt"
+        preview_art.texture = IconAtlas.equipment_icon(first_id)
+        preview_art.custom_minimum_size = Vector2(100, 100)
+        preview_art.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+        preview_art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+        preview_art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+        preview_art.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        preview_row.add_child(preview_art)
+        var preview_text := VBoxContainer.new()
+        preview_text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+        preview_row.add_child(preview_text)
+        var preview_name := Label.new()
+        preview_name.name = "PrototypeBaseName"
+        preview_name.text = str(PrototypeCatalog.spec(first_id).get("name", ""))
+        preview_name.add_theme_font_override("font", LaboSkin.title_font())
+        preview_name.add_theme_font_size_override("font_size", 21)
+        preview_name.add_theme_color_override("font_color", Color("#f4ffff"))
+        preview_text.add_child(preview_name)
         var baseline := Label.new()
         baseline.name = "PrototypeBaseStats"
         baseline.text = LaboStats.baseline(first_id)
-        baseline.add_theme_font_size_override("font_size", 17)
+        baseline.add_theme_font_size_override("font_size", 18)
+        baseline.add_theme_font_override("font", LaboSkin.data_font())
+        baseline.add_theme_color_override("font_color", Color("#c6eaf7"))
         baseline.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-        item_layer.add_child(baseline)
+        preview_text.add_child(baseline)
     _configure_page_scroll(158 if modal_actions.get_child_count() > 1 else 82)
     _sync_section_tabs()
 
@@ -1352,7 +1441,7 @@ func _render_prototype_detail() -> void:
     make.name = "CraftPrototype"
     make.text = "製作して倉庫に登録"
     make.custom_minimum_size.y = 88.0
-    make.add_theme_font_size_override("font_size", 18)
+    make.add_theme_font_size_override("font_size", 21)
     make.disabled = SeraSave.active_slot == 0
     make.pressed.connect(_confirm_selected_prototype)
     modal_actions.add_child(make)
@@ -1490,10 +1579,14 @@ func _render_conversion() -> void:
         source_icon.custom_minimum_size = Vector2(54, 54)
         var recipe_title: Label = bar.get_node(
             "CardContent/Row/TextStack/ItemTitle") as Label
+        recipe_title.add_theme_font_override("font", LaboSkin.title_font())
+        recipe_title.add_theme_font_size_override("font_size", 19)
         recipe_title.text = "%s ×%d" % [
             BaseMaterials.display_name(source_id), int(plan["input_count"])]
         var recipe_info: Label = bar.get_node(
             "CardContent/Row/TextStack/ItemInfo") as Label
+        recipe_info.add_theme_font_size_override("font_size", 17)
+        recipe_info.add_theme_font_override("font", LaboSkin.data_font())
         recipe_info.text = "≫ %s ×%d" % [
             BaseMaterials.display_name(target_id), int(plan["output_count"])]
         recipe_info.add_theme_color_override("font_color", Color("#81f0f5"))
@@ -1521,7 +1614,7 @@ func _render_conversion() -> void:
         amount.value = conversion_batches
         amount.rounded = true
         amount.custom_minimum_size = Vector2(92, 72)
-        amount.add_theme_font_size_override("font_size", 19)
+        amount.add_theme_font_size_override("font_size", 22)
         amount.tooltip_text = "変換回数"
         amount.value_changed.connect(_conversion_batches_set)
         row.add_child(amount)
