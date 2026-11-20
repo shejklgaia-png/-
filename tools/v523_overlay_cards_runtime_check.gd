@@ -36,7 +36,8 @@ func _verify(fac: Node3D, key: String, prefix: String, count: int) -> bool:
             first.get_global_rect().get_center()):
         _fail("first overlay card is outside facility sheet")
         return false
-    if first.get_global_rect().position.y <= (
+    if (fac.get("modal_body") as Control).visible and (
+            first.get_global_rect().position.y <=
             (fac.get("modal_body") as Control).get_global_rect().end.y):
         _fail("overlay card is overlapping description text")
         return false
@@ -84,6 +85,7 @@ func _run() -> void:
     await process_frame
     await process_frame
     fac.call("_show_inventory", "materials")
+    await process_frame
     if not _check_virtual(fac, "WarehouseMaterials", 12, 2):
         return
     var actions: VBoxContainer = fac.get("modal_actions") as VBoxContainer
