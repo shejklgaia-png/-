@@ -10,7 +10,7 @@ assert 'card.mouse_filter = Control.MOUSE_FILTER_STOP' in ui
 assert 'card.pressed.connect(action)' in ui
 assert 'card.icon = icon' in ui
 assert 'card.text = title + "\\n" + info' in ui
-assert 'card.add_theme_stylebox_override("normal", ChamferSkin.style(' in ui
+assert 'card.add_theme_stylebox_override("normal", LaboSkin.style(' in ui
 assert "GridContainer.new()" not in ui
 assert 'card.add_child(choose)' not in ui, "no hidden overlaid child button"
 for text in ('_select_prototype.bind(id)', '_select_conversion_family.bind(str(family))', '_show_owned_items.bind(id, 0)'):
