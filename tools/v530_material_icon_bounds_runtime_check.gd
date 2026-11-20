@@ -94,23 +94,34 @@ func _run() -> void:
     for id in Materials.all_ids():
         var button: Button = (fac.get("item_layer") as Control).find_child(
             "MaterialIcon_" + str(id), true, false) as Button
-        if button == null or not button.clip_contents or button.icon == null:
-            _fail("material native button not clipped: " + str(id))
+        if button == null or not button.clip_contents or button.icon != null:
+            _fail("material native root must clip without drawing Button.icon: " + str(id))
             return
-        if button.icon.get_width() != button.icon.get_height():
-            _fail("native material icon is stretched: " + str(id))
+        var art: TextureRect = button.find_child("ItemArt", true, false) as TextureRect
+        if art == null or art.texture == null or not art.clip_contents or (
+                art.stretch_mode != TextureRect.STRETCH_KEEP_ASPECT_CENTERED):
+            _fail("material TextureRect missing/uncropped: " + str(id))
+            return
+        if art.texture.get_width() != art.texture.get_height() or (
+                not button.get_global_rect().grow(1).encloses(art.get_global_rect())):
+            _fail("material thumbnail outside native card: " + str(id))
             return
     fac.call("open_facility", "SMELTER")
     fac.call("_select_conversion_family", "organic")
     await process_frame
     var actions: VBoxContainer = fac.get("modal_actions") as VBoxContainer
-    for flow in actions.get_children():
-        if str(flow.name).begins_with("ConvertInputIcon_"):
-            for part in ["Input", "Output"]:
-                var art: TextureRect = flow.get_node_or_null(part) as TextureRect
-                if art == null or not art.clip_contents or (
-                        art.stretch_mode != TextureRect.STRETCH_KEEP_ASPECT_CENTERED):
-                    _fail("conversion icon not clipped and proportional: " + part)
-                    return
+    for rank in [0, 1]:
+        var button: Button = actions.find_child(
+            "ConvertRank_" + str(rank), true, false) as Button
+        if button == null:
+            _fail("conversion row absent: " + str(rank))
+            return
+        for part in ["ConvertInputIcon_", "ConvertOutputIcon_"]:
+            var art: TextureRect = button.find_child(
+                part + str(rank), true, false) as TextureRect
+            if art == null or not art.clip_contents or (
+                    art.stretch_mode != TextureRect.STRETCH_KEEP_ASPECT_CENTERED):
+                _fail("conversion icon not clipped and proportional: " + part)
+                return
     print("SERA_V530_MATERIAL_ICON_BOUNDS_RUNTIME_PASS")
     quit(0)
