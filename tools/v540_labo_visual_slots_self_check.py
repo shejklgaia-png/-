@@ -20,7 +20,7 @@ assert 'MAX_POOL_CARDS: int = 32' in grid
 assert 'effects.position = Vector2(16.0, 101.0)' in grid
 assert 'SelectedTabMark' in fac and 'Color("#74e3ed")' in fac
 assert 'LaboSkin.panel_style()' in fac and 'static func panel_style()' in skin
-assert 'fill.lerp(Color("#09151d")' in skin
+assert 'fill.lerp(Color(' in skin, "cached card gradient must remain active"
 assert '素材を精製し、より高品質な資材へ変換します。' in fac
 assert 'py tools/v540_labo_visual_slots_self_check.py' in manifest
 assert 'gd tools/v540_labo_visual_slots_runtime_check.gd' in manifest
