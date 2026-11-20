@@ -36,8 +36,8 @@ assert "MaterialIcon_" in ui and "PrototypeIcon_" in ui
 assert "ConvertRank_" in ui and "ConvertOutputIcon_" in ui, "source Button icon and output preview must exist"
 assert 'card.text = title + "\\n" + info' in ui and "PrototypeIcon_" in ui and "WarehouseItem_" in (ui + (ROOT/"scripts/sera_warehouse_grid.gd").read_text(encoding="utf-8"))
 assert "BaseMaterials.recipe(" in ui
-assert "bar.icon = IconAtlas.material_icon(source_id)" in ui
-assert "output_icon.texture = IconAtlas.material_icon(target_id)" in ui
+assert "bar.icon = IconAtlas.material_icon_sized(source_id, 48)" in ui
+assert "output_icon.texture = IconAtlas.material_icon_sized(target_id, 44)" in ui
 assert "PrototypeCatalog.display_instance(" in ui
 assert "func _tap_equipment_control(" in nexus and "equipped_prototype" in nexus
 assert "gd tools/v511_matte_icons_runtime_check.gd" in (

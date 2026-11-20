@@ -156,6 +156,29 @@ static func material_icon(material_id: String) -> Texture2D:
         return null
     return _material_frame(int(MATERIAL_INDICES[material_id]))
 
+# Keep the original alpha-backed 72px textures intact, but cache small
+# nearest-neighbor copies for short native Button rows. This is necessary
+# because Godot 4.7's Button has no "icon_max_width" property.
+static var _material_sized_cache: Dictionary = {}
+
+static func material_icon_sized(material_id: String, size: int) -> Texture2D:
+    if size < 1 or size > CELL:
+        return null
+    var key: String = material_id + ":" + str(size)
+    if _material_sized_cache.has(key):
+        return _material_sized_cache[key] as Texture2D
+    var source: Texture2D = material_icon(material_id)
+    if source == null:
+        return null
+    var pixels: Image = source.get_image()
+    if pixels == null:
+        return source
+    if pixels.get_width() != size or pixels.get_height() != size:
+        pixels.resize(size, size, Image.INTERPOLATE_NEAREST)
+    var tile: Texture2D = ImageTexture.create_from_image(pixels)
+    _material_sized_cache[key] = tile
+    return tile
+
 static func equipment_icon(blueprint_id: String) -> Texture2D:
     if not EQUIPMENT_INDICES.has(blueprint_id):
         return null

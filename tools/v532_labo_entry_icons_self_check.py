@@ -10,14 +10,18 @@ assert '"OpenPrototypeCatalog"' not in ui
 assert '"ClaimTrialMaterialsCatalog"' not in ui
 assert '"ClaimTrialMaterials"' not in ui
 assert '"WarehouseHangerTabs"' in ui
-assert '"WarehouseHangerScroll"' in ui
+assert '"CraftSlotTabs"' in ui
+assert '"WarehouseHangerTabs"' in ui
+assert '"CraftSlotScroll"' not in ui and '"WarehouseHangerScroll"' not in ui
 assert '"WarehouseHangerSelector"' not in ui
 assert 'OptionButton.new()' not in ui
-assert 'ButtonGroup.new()' in ui and 'scroll.horizontal_scroll_mode' in ui
+assert 'ButtonGroup.new()' in ui and 'Control.SIZE_EXPAND_FILL' in ui
+assert 'func _slot_tab_caption(' in ui
 assert 'MATERIAL_CARD_HEIGHT' in ui
 assert 'MATERIAL_ICON_WIDTH' in ui
 assert 'card.expand_icon = true' in ui
-assert 'card.icon_max_width = ' in ui
+assert 'material_icon_sized(' in ui
+assert 'icon_max_width' not in ui
 assert 'card.vertical_icon_alignment = VERTICAL_ALIGNMENT_CENTER' in ui
 assert 'py tools/v532_labo_entry_icons_self_check.py' in ci
 assert 'gd tools/v532_labo_entry_icons_runtime_check.gd' in ci
