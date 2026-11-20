@@ -20,7 +20,8 @@ for anchor in (
 assert 'const LaboTouchScroll = preload("res://scripts/sera_labo_touch_scroll.gd")' in ui
 assert 'actions_scroll = LaboTouchScroll.new()' in ui
 assert 'var scroll := LaboTouchScroll.new()' in ui
-assert 'grid.add_child(preview)' in ui, "craft preview must scroll with catalog"
+assert 'PrototypeBasePreview' not in ui, "retired craft detail must stay removed"
+assert 'var grid := _new_grid("PrototypeGrid", 1)' in ui, "craft cards must remain scrollable"
 assert 'pressed.connect(_invoke_scroll_action.bind(' in ui, "drag must not trigger item action"
 assert 'extends "res://scripts/sera_labo_touch_scroll.gd"' in warehouse
 assert 'if touch_drag_consumed():' in warehouse
