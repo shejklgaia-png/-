@@ -8,13 +8,23 @@ static var _panel_cache: StyleBoxTexture
 ## Portable fonts bundled with SERA; NEVER depend on Android SystemFont.
 ## Original complete, licensed OFL fonts are vendored in assets/fonts/.
 const JP_FONT_PATH: String = "res://assets/fonts/NotoSansJP-VF.woff2"
+## All Japanese title, interaction and numeric roles have their own shipped face.
+const JP_TITLE_FONT_PATH: String = "res://assets/fonts/MPLUS2-VF.woff2"
+const JP_STATS_FONT_PATH: String = "res://assets/fonts/MPLUS1Code-VF.woff2"
+const JP_UI_FONT_PATH: String = "res://assets/fonts/IBMPlexSansJP-Medium.woff2"
+const JP_CONTROL_FONT_PATH: String = "res://assets/fonts/IBMPlexSansJP-Bold.woff2"
 const NAV_FONT_PATH: String = "res://assets/fonts/Rajdhani-Bold.woff2"
 const DATA_FONT_PATH: String = "res://assets/fonts/IBMPlexMono-Medium.woff2"
 static var _jp_source: FontFile
+static var _jp_title_source: FontFile
+static var _jp_stats_source: FontFile
+static var _jp_ui_source: FontFile
+static var _jp_control_source: FontFile
 static var _nav_source: FontFile
 static var _data_source: FontFile
 static var _ui_font: FontVariation
 static var _title_font: FontVariation
+static var _equipment_font: FontVariation
 static var _control_font: FontVariation
 static var _stats_font: FontVariation
 static var _display_font: FontFile
@@ -118,27 +128,70 @@ static func _jp_weight(weight: int) -> FontVariation:
     return result
 
 
+## All native Japanese faces load via the Android-tested RAW_BYTES path.
+## For color and silhouette coherence, headings and equipment names share
+## M PLUS 2; Japanese actions use IBM Plex Sans JP; numbers/stats use
+## M PLUS 1 Code. The fonts are cached, never instantiated per card.
+static func _title_face() -> FontFile:
+    if _jp_title_source == null:
+        _jp_title_source = _load_bundled_font(JP_TITLE_FONT_PATH, 0x88C5)
+    return _jp_title_source
+
+
+static func _stats_face() -> FontFile:
+    if _jp_stats_source == null:
+        _jp_stats_source = _load_bundled_font(JP_STATS_FONT_PATH, 0x65E5)
+    return _jp_stats_source
+
+
+static func _ui_face() -> FontFile:
+    if _jp_ui_source == null:
+        _jp_ui_source = _load_bundled_font(JP_UI_FONT_PATH, 0x88C5)
+    return _jp_ui_source
+
+
+static func _control_face() -> FontFile:
+    if _jp_control_source == null:
+        _jp_control_source = _load_bundled_font(JP_CONTROL_FONT_PATH, 0x88C5)
+    return _jp_control_source
+
+
+static func _variation_from_face(face: FontFile, weight: int = 0) -> FontVariation:
+    var variation := FontVariation.new()
+    variation.base_font = face
+    if weight > 0:
+        var ts: TextServer = TextServerManager.get_primary_interface()
+        variation.variation_opentype = {ts.name_to_tag("wght"): weight}
+    return variation
+
+
 static func ui_font() -> FontVariation:
     if _ui_font == null:
-        _ui_font = _jp_weight(550)
+        _ui_font = _variation_from_face(_ui_face())
     return _ui_font
 
 
 static func title_font() -> FontVariation:
     if _title_font == null:
-        _title_font = _jp_weight(700)
+        _title_font = _variation_from_face(_title_face(), 800)
     return _title_font
+
+
+static func equipment_font() -> FontVariation:
+    if _equipment_font == null:
+        _equipment_font = _variation_from_face(_title_face(), 700)
+    return _equipment_font
 
 
 static func control_font() -> FontVariation:
     if _control_font == null:
-        _control_font = _jp_weight(650)
+        _control_font = _variation_from_face(_control_face())
     return _control_font
 
 
 static func stats_font() -> FontVariation:
     if _stats_font == null:
-        _stats_font = _jp_weight(580)
+        _stats_font = _variation_from_face(_stats_face(), 550)
     return _stats_font
 
 

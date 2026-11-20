@@ -29,22 +29,21 @@ func _run() -> void:
         return
     var ts: TextServer = TextServerManager.get_primary_interface()
     var tag: int = ts.name_to_tag("wght")
-    if int(jp.variation_opentype.get(tag, 0)) != 550 or (
-            int(bold.variation_opentype.get(tag, 0)) != 700) or (
-            int(control.variation_opentype.get(tag, 0)) != 650) or (
-            int(stats.variation_opentype.get(tag, 0)) != 580):
+    if int(bold.variation_opentype.get(tag, 0)) != 800 or (
+            int(stats.variation_opentype.get(tag, 0)) != 550):
         _fail("bundled JP weight axes not applied")
         return
-    if bold.base_font != jpfile or control.base_font != jpfile or (
-            stats.base_font != jpfile):
-        _fail("Japanese roles do not share one cached complete WOFF2")
+    if bold.base_font == jpfile or control.base_font == jpfile or (
+            stats.base_font == jpfile) or (
+            bold.base_font == stats.base_font):
+        _fail("distinct Japanese roles must reference different bundled faces")
         return
     if jpfile.get_rids().is_empty() or latin.get_rids().is_empty() or (
             mono.get_rids().is_empty()):
         _fail("bundled fonts could not create actual TextServer RID")
         return
     var name: String = ts.font_get_name(jpfile.get_rids()[0])
-    if not name.to_lower().contains("noto"):
+    if not name.to_lower().contains("plex"):
         _fail("TextServer loaded unexpected Japanese font: " + name)
         return
     var hub: Node3D = load("res://scenes/base_exploration.tscn").instantiate()

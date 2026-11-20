@@ -32,6 +32,8 @@ func _run() -> void:
     var title: FontVariation = LaboFontSkin.title_font()
     var nav: FontFile = LaboFontSkin.display_font()
     var mono: FontFile = LaboFontSkin.data_font()
+    var control: FontVariation = LaboFontSkin.control_font()
+    var stats: FontVariation = LaboFontSkin.stats_font()
     if jp.base_font == null or not jp.has_char(0x65E5) or (
             not jp.has_char(0x6F22)) or (
             title.base_font != jp.base_font) or (

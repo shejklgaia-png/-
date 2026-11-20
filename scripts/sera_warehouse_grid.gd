@@ -117,7 +117,7 @@ func _make_card() -> Button:
     title.mouse_filter = Control.MOUSE_FILTER_IGNORE
     title.add_theme_color_override("font_color", Color("#ecf5f6"))
     title.add_theme_font_override("font", (
-        LaboSkin.control_font() if mode == "materials" else LaboSkin.title_font()))
+        LaboSkin.control_font() if mode == "materials" else LaboSkin.equipment_font()))
     title.add_theme_font_size_override("font_size", 20)
     title.autowrap_mode = TextServer.AUTOWRAP_OFF
     title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS

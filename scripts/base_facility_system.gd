@@ -948,7 +948,10 @@ func _font_diag_create() -> void:
         rows.add_child(role)
         var sample := Label.new()
         sample.name = "FontSample_" + str(entry["id"]).replace(" ", "_")
-        sample.text = "装備 精製 倉庫 日本語 漢字 / Aa 0123456789"
+        # Latin-only fonts legitimately lack JP glyphs; avoid tofu squares.
+        sample.text = ("装備 精製 倉庫 日本語 漢字 / Aa 0123456789"
+            if str(entry["id"]).begins_with("JP ") else
+            "Aa 0123456789  UNIT / H01  SYSTEM ONLINE")
         sample.add_theme_font_override("font", entry["font"] as Font)
         sample.add_theme_font_size_override("font_size", 21)
         sample.add_theme_color_override("font_color", Color("#ffffff"))
@@ -1420,7 +1423,7 @@ func _new_slot(parent: Control, key: String, icon: Texture2D,
     title_label.add_theme_font_override("font", (
         LaboSkin.control_font() if material_choice else
         LaboSkin.tracked_display_font() if key.begins_with("LockedCraftSlot_") else
-        LaboSkin.title_font()))
+        LaboSkin.equipment_font()))
     info_label.add_theme_font_override("font", (
         LaboSkin.tracked_data_font() if key.begins_with("LockedCraftSlot_") else
         LaboSkin.stats_font()))

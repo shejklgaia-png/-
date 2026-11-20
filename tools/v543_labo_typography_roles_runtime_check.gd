@@ -36,12 +36,12 @@ func _run() -> void:
         return
     var tag: int = TextServerManager.get_primary_interface().name_to_tag("wght")
     if (not reading.base_font is FontFile or
-            title_font.base_font != reading.base_font or
-            control_font.base_font != reading.base_font or
-            stats_font.base_font != reading.base_font or
-            int(title_font.variation_opentype.get(tag, 0)) != 700 or
-            int(control_font.variation_opentype.get(tag, 0)) != 650 or
-            int(stats_font.variation_opentype.get(tag, 0)) != 580 or
+            title_font.base_font == reading.base_font or
+            control_font.base_font == reading.base_font or
+            stats_font.base_font == reading.base_font or
+            int(title_font.variation_opentype.get(tag, 0)) != 800 or
+            int(LaboTypefaceRoles.equipment_font().variation_opentype.get(tag, 0)) != 700 or
+            int(stats_font.variation_opentype.get(tag, 0)) != 550 or
             not reading.has_char(0x65E5) or
             not reading.has_char(0x6F22) or
             not condensed.has_char(0x41) or
@@ -83,7 +83,7 @@ func _run() -> void:
         _fail("craft has no equipment card or locked position")
         return
     if not _has_font(standard.find_child("ItemTitle", true, false) as Label,
-            title_font, "equipment name"):
+            LaboTypefaceRoles.equipment_font(), "equipment name"):
         return
     if not _has_font(standard.find_child("ItemInfo", true, false) as Label,
             stats_font, "mixed Japanese status line"):

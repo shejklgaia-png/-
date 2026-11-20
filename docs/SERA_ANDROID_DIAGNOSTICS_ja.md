@@ -43,3 +43,9 @@
 - FONT診断には全6役割のembedded OK/FAILED、available RAW/IMPORTED、load route、Glyph、TextServer RIDを表示。期待値はJP系 RAW_BYTES、glyph Y/Y/Y/Y、TextServerがNoto Sans JPです。
 - 3書体FontFileを共有キャッシュし、日本語4ウェイトのFontVariationで共有します。倉庫999仮想枠（最大32枚）と装備製作20枠は維持。
 - CIはGodotの--import実行前にraw文字・RIDを検査し、通常の自動回帰検査でも確認。
+
+## v548：フォント割り当て診断（混合表示）
+- LAB見出しを5回タップ→FONTで7役割（JP BODY/TITLE/EQUIPMENT/CONTROL/STATS、LATIN NAV、MONO ID）の実際の書体見本を表示する。
+- 期待される画面上の書体：TITLE/EQUIPMENT = M PLUS 2、BODY/CONTROL = IBM Plex Sans JP、STATS = M PLUS 1 Code、LATIN NAV = Rajdhani、MONO ID = IBM Plex Mono。
+- FONT画面のembeddedは各役割に応じた独立したファイル名になり、RAW_BYTES / PASSとなる。コード用2書体には日本語がないので英字見本だけを表示する。
+- 仮にOpen Sansになる、四角が出る、書体差が見えない場合は端末からFONT診断ログを送って原因切り分けする。

@@ -9,6 +9,7 @@ static func roles() -> Array[Dictionary]:
     return [
         {"id": "JP BODY", "font": LaboSkin.ui_font()},
         {"id": "JP TITLE", "font": LaboSkin.title_font()},
+        {"id": "JP EQUIPMENT", "font": LaboSkin.equipment_font()},
         {"id": "JP CONTROL", "font": LaboSkin.control_font()},
         {"id": "JP STATS", "font": LaboSkin.stats_font()},
         {"id": "LATIN NAV", "font": LaboSkin.tracked_display_font()},
@@ -35,9 +36,19 @@ static func _embedded_face(font: Font) -> FontFile:
 
 
 static func _asset_path(role_id: String) -> String:
-    if role_id.begins_with("JP "):
-        return LaboSkin.JP_FONT_PATH
-    return LaboSkin.NAV_FONT_PATH if role_id == "LATIN NAV" else LaboSkin.DATA_FONT_PATH
+    match role_id:
+        "JP TITLE", "JP EQUIPMENT":
+            return LaboSkin.JP_TITLE_FONT_PATH
+        "JP BODY":
+            return LaboSkin.JP_UI_FONT_PATH
+        "JP CONTROL":
+            return LaboSkin.JP_CONTROL_FONT_PATH
+        "JP STATS":
+            return LaboSkin.JP_STATS_FONT_PATH
+        "LATIN NAV":
+            return LaboSkin.NAV_FONT_PATH
+        _:
+            return LaboSkin.DATA_FONT_PATH
 
 
 static func _check_char(font: Font, codepoint: int) -> String:
@@ -75,7 +86,7 @@ static func _path_result(name: String, weight: int) -> String:
 
 static func report() -> String:
     var lines: PackedStringArray = []
-    lines.append("SERA FONT DIAG v547 / LOAD ROUTE CHECK")
+    lines.append("SERA FONT DIAG v548 / MIXED FONTS")
     lines.append("Godot: " + str(Engine.get_version_info().get("string", "?")))
     lines.append("Platform: " + OS.get_name())
     lines.append("Locale: " + OS.get_locale())
@@ -142,6 +153,7 @@ static func report() -> String:
             _check_char(font, 0x30AB))
     lines.append("---")
     lines.append("Expected JP glyphs: Y/Y/Y/Y for all JP roles.")
+    lines.append("Roles: TITLE/EQUIPMENT=M PLUS 2; BODY/CONTROL=IBM Plex JP; STATS=M PLUS 1 Code")
     lines.append("Latin/mono faces may legitimately lack Japanese glyphs.")
     lines.append("Inspect LIVE SAMPLES for actual rendered differences.")
     return "\n".join(lines)

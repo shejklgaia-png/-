@@ -35,7 +35,7 @@ func _run() -> void:
         _fail("font diagnostic panel could not be opened")
         return
     var report: String = output.text
-    for token in ["SERA FONT DIAG v547", "Platform:", "Locale:", "Display:",
+    for token in ["SERA FONT DIAG v548", "Platform:", "Locale:", "Display:",
             "System font families:", "embedded:", "JAPANESE FONT: PASS",
             "available: RAW=", "load route: RAW_BYTES",
             "TextServer primary RID:", "glyph A/JPN/kanji/kana:",
@@ -53,8 +53,8 @@ func _run() -> void:
     for item: Node in samples.get_children():
         if item.name.begins_with("FontSample_"):
             sample_count += 1
-    if sample_count != 6:
-        _fail("expected six on-device typography sample rows")
+    if sample_count != 7:
+        _fail("expected seven on-device typography sample rows")
         return
     var refresh: Button = panel.find_child("FontDiagRefresh", true, false) as Button
     var copy: Button = panel.find_child("FontDiagCopy", true, false) as Button
