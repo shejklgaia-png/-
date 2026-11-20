@@ -92,9 +92,31 @@ func _build_print_room() -> void:
         Vector3(0.18, 4.50, 6.35), Color("#263d4e"))
     _block(printer_group, "PrinterGantryOverhang", Vector3(-2.20, 3.75, -0.65),
         Vector3(3.95, 0.21, 2.75), Color("#394f61"))
-    _block(printer_group, "PrinterFloorSafetyLine", Vector3(-1.92, 0.017, 1.88),
+    _block(printer_group, "PrinterFloorSafetyLine", Vector3(-2.24, 0.017, 2.01),
         Vector3(3.5, 0.018, 0.10), Color("#d9a94e"))
-    # Additional architectural depth like the reference 3D laboratory.
+    # Asymmetric suspended service walkway: architectural diagonals converge
+    # on the foreground printer rather than mirroring the opposite wall.
+    var upper_walkway := Node3D.new()
+    upper_walkway.name = "PrinterHighServiceBridge"
+    upper_walkway.position = Vector3(1.14, 3.52, -2.60)
+    upper_walkway.rotation.y = -0.36
+    printer_group.add_child(upper_walkway)
+    _block(upper_walkway, "BridgeDeck", Vector3.ZERO,
+        Vector3(3.65, 0.11, 0.84), Color("#425a6a"))
+    _block(upper_walkway, "OpenSideGuard", Vector3(0, 0.48, 0.38),
+        Vector3(3.66, 0.06, 0.07), Color("#7898a7"))
+    for k in range(5):
+        _block(upper_walkway, "BridgeBaluster",
+            Vector3(-1.53 + float(k)*0.77, 0.23, 0.38),
+            Vector3(0.045, 0.46, 0.05), Color("#708594"))
+    # Distinct front/right close-up structure introduces foreground parallax.
+    _block(printer_group, "RightMaintenancePedestal", Vector3(3.35, 0.45, 1.35),
+        Vector3(0.92, 0.90, 1.03), Color("#415767"))
+    _block(printer_group, "RightMaintenanceLight", Vector3(3.35, 0.87, 1.90),
+        Vector3(0.55, 0.07, 0.05), Color("#c1a04d"), true)
+    _block(printer_group, "RightWallPipe", Vector3(3.63, 2.83, -2.84),
+        Vector3(0.11, 1.95, 0.18), Color("#8a9daa"))
+    # Framing beams belong only to the printing hall.
     for z in [-2.65, -1.25, 0.15]:
         _block(printer_group, "CeilingRail", Vector3(0, 4.05, z),
             Vector3(8.0, 0.15, 0.16), Color("#304b5c"))
@@ -181,7 +203,7 @@ func _build_warehouse_room() -> void:
     for i in range(4):
         _block(room, "InventoryStatusBar", Vector3(0.55, 2.51-float(i)*0.19, -4.395),
             Vector3(0.60, 0.04, 0.015), Color("#5ebacb"), true)
-    _block(room, "SorterScannerRail", Vector3(0.13, 1.10, 0.10),
+    _block(room, "SorterScannerRail", Vector3(0.28, 1.10, -0.40),
         Vector3(1.30, 0.075, 0.07), Color("#748f9a"))
     _sign(room, "H02", Vector3(-2.65, 2.60, -1.89), 28)
     _sign(room, "B02", Vector3(2.65, 2.60, -1.89), 28)
@@ -195,7 +217,8 @@ func _build_printer() -> void:
     var light := Color("#5abce4")
     var pivot := Node3D.new()
     pivot.name = "Printer"
-    pivot.position = Vector3(-1.96, 0, -0.40)
+    pivot.position = Vector3(-2.30, 0, 0.28)
+    pivot.rotation.y = 0.37 # Three-quarter gantry, not a square-on elevation.
     printer_group.add_child(pivot)
     _block(pivot, "Platform", Vector3(0, 0.29, 0),
         Vector3(2.10, 0.40, 1.60), dark)
@@ -220,7 +243,8 @@ func _build_printer() -> void:
             Vector3(0.08, 0.065, 0.05), light, true)
     printer_nozzle = Node3D.new()
     printer_nozzle.name = "PrinterNozzle"
-    printer_nozzle.position = Vector3(-1.96, 1.73, -0.40)
+    printer_nozzle.position = Vector3(-2.30, 1.73, 0.28)
+    printer_nozzle.rotation.y = pivot.rotation.y
     printer_group.add_child(printer_nozzle)
     _block(printer_nozzle, "ToolHead", Vector3(0, 0, 0),
         Vector3(0.43, 0.38, 0.42), Color("#92a8b7"))
@@ -228,7 +252,8 @@ func _build_printer() -> void:
         Vector3(0.10, 0.20, 0.10), light, true)
     printed_part = Node3D.new()
     printed_part.name = "PrintedPart"
-    printed_part.position = Vector3(-1.96, 0.70, -0.40)
+    printed_part.position = Vector3(-2.30, 0.70, 0.28)
+    printed_part.rotation.y = pivot.rotation.y
     printer_group.add_child(printed_part)
     _block(printed_part, "ArmorShell", Vector3.ZERO,
         Vector3(0.95, 0.38, 0.57), Color("#94aec1"))
@@ -236,7 +261,7 @@ func _build_printer() -> void:
         Vector3(0.43, 0.13, 0.35), Color("#3b718d"))
     _block(printed_part, "PrintEdge", Vector3(0, -0.22, 0.31),
         Vector3(0.95, 0.065, 0.035), light, true)
-    # The reference shows a broad enclosed gantry and a solid helmet shell.
+    # An imposing enclosed gantry and a solid manufactured helmet shell.
     _block(pivot, "GantrySideArmorL", Vector3(-1.08, 1.43, 0),
         Vector3(0.16, 2.14, 1.65), Color("#526b7c"))
     _block(pivot, "GantrySideArmorR", Vector3(1.08, 1.43, 0),
@@ -254,22 +279,31 @@ func _build_printer() -> void:
             Vector3(0.105, 0.06, 0.025), Color("#dfac45"), true)
 
 func _build_terminal() -> void:
-    _block(printer_group, "TerminalColumn", Vector3(2.24, 0.62, -0.35),
+    # The inspection console is turned toward the oblique camera and set
+    # deeper than the printer rather than forming a flat parallel row.
+    var console := Node3D.new()
+    console.name = "PrinterInspectionStation"
+    console.position = Vector3(1.90, 0.0, -1.43)
+    console.rotation.y = 0.43
+    printer_group.add_child(console)
+    _block(console, "TerminalColumn", Vector3(0, 0.62, 0),
         Vector3(0.38, 1.12, 0.36), Color("#486476"))
-    _block(printer_group, "TerminalConsole", Vector3(2.24, 1.06, -0.2),
+    _block(console, "TerminalConsole", Vector3(0, 1.06, 0.16),
         Vector3(1.27, 0.18, 0.87), Color("#486476"))
     var screen := Node3D.new()
     screen.name = "TerminalScreen"
-    screen.position = Vector3(2.24, 1.60, -0.65)
+    screen.position = Vector3(0, 1.62, -0.27)
     screen.rotation.x = -0.22
-    printer_group.add_child(screen)
+    console.add_child(screen)
     _block(screen, "DisplayBack", Vector3.ZERO,
         Vector3(1.38, 0.91, 0.08), Color("#425e6c"))
     _block(screen, "DisplayGlass", Vector3(0, 0, 0.055),
         Vector3(1.22, 0.76, 0.022), Color("#183a4f"))
     for row in range(4):
-        _block(screen, "ReadoutLine", Vector3(-0.22, 0.26 - row * 0.16, 0.07),
-            Vector3(0.59 - row * 0.04, 0.025, 0.008), Color("#45b1d2"), true)
+        _block(screen, "ReadoutLine",
+            Vector3(-0.22, 0.26 - float(row)*0.16, 0.07),
+            Vector3(0.59 - float(row)*0.04, 0.025, 0.008),
+            Color("#45b1d2"), true)
     _block(screen, "ReadoutModel", Vector3(0.39, 0.01, 0.07),
         Vector3(0.26, 0.36, 0.008), Color("#6cd9f0"), true)
     _block(screen, "ScreenCorner", Vector3(0.49, -0.27, 0.073),
@@ -302,29 +336,41 @@ func _build_converter() -> void:
     converter_group = Node3D.new()
     converter_group.name = "MaterialConversionScene"
     add_child(converter_group)
-    _block(converter_group, "MachineBackplane", Vector3(-1.50, 1.25, -2.85),
-        Vector3(4.95, 2.75, 0.36), Color("#2f4656"))
     var glows: Array[Color] = [
         Color("#edac49"), Color("#56b8e0"), Color("#aa80d7")]
+    # Three LARGE tanks step diagonally away from the left foreground.
+    # Tank internals remain consistent; the placement is NOT a straight row.
+    var stations: Array[Vector2] = [
+        Vector2(-2.75, 0.10),
+        Vector2(-0.91, -1.22),
+        Vector2(0.90, -2.50)]
+    _block(converter_group, "RefineryBackingMachinery",
+        Vector3(-0.70, 1.35, -3.49),
+        Vector3(6.15, 2.65, 0.29), Color("#294354"))
     for i in range(3):
-        var x: float = -3.05 + float(i) * 1.50
-        _cylinder(converter_group, "ChamberBase", Vector3(x, 0.45, -1.52),
+        var x: float = stations[i].x
+        var z: float = stations[i].y
+        var station := Node3D.new()
+        station.name = "RefineryVessel_%d" % i
+        station.position = Vector3(x, 0, z)
+        # Face toward the high left-side service camera.
+        station.rotation.y = -0.14
+        converter_group.add_child(station)
+        _cylinder(station, "ChamberBase", Vector3(0, 0.45, 0),
             0.62, 0.40, Color("#354a59"))
-        _cylinder(converter_group, "ChamberBody", Vector3(x, 1.35, -1.52),
+        _cylinder(station, "ChamberBody", Vector3(0, 1.35, 0),
             0.53, 1.52, Color("#344c5e"))
-        # Open front of the opaque chamber, so the emissive contents remain
-        # visible without costly refractive glass/transparency passes.
-        _block(converter_group, "ChamberWindow", Vector3(x, 1.33, -0.98),
-            Vector3(0.75, 1.03, 0.08), Color("#132c3c"))
-        _cylinder(converter_group, "ChamberRoof", Vector3(x, 2.22, -1.52),
+        _block(station, "ChamberWindow", Vector3(0, 1.33, 0.54),
+            Vector3(0.75, 1.03, 0.075), Color("#132c3c"))
+        _cylinder(station, "ChamberRoof", Vector3(0, 2.22, 0),
             0.65, 0.20, Color("#6e8795"))
-        _cylinder(converter_group, "RingTop", Vector3(x, 2.03, -1.52),
+        _cylinder(station, "RingTop", Vector3(0, 2.03, 0),
             0.56, 0.07, glows[i], true)
-        _cylinder(converter_group, "RingLower", Vector3(x, 0.70, -1.52),
+        _cylinder(station, "RingLower", Vector3(0, 0.70, 0),
             0.56, 0.07, glows[i], true)
         var rotor := Node3D.new()
         rotor.name = "CrystalRotor_" + str(i)
-        rotor.position = Vector3(x, 1.25, -0.87)
+        rotor.position = Vector3(x, 1.25, z + 0.68)
         converter_group.add_child(rotor)
         converter_crystals.append(rotor)
         for j in range(5):
@@ -338,64 +384,93 @@ func _build_converter() -> void:
             crystal.mesh = gem
             crystal.material_override = _paint(glows[i], j == 0)
             crystal.position = Vector3(
-                0.21 * cos(float(j) * 2.5),
-                -0.23 + float(j % 3) * 0.20,
-                0.11 * sin(float(j) * 2.5))
+                0.21*cos(float(j)*2.5),
+                -0.23+float(j % 3)*0.20,
+                0.11*sin(float(j)*2.5))
             rotor.add_child(crystal)
-        # A pipe joint and illuminated status stripe identify each station.
-        _block(converter_group, "PipeUpright", Vector3(x, 2.70, -2.75),
-            Vector3(0.15, 0.92, 0.13), Color("#718897"))
-        _block(converter_group, "StatusScreen", Vector3(x, 0.40, -0.62),
-            Vector3(0.72, 0.24, 0.06), Color("#21495d"))
-        _block(converter_group, "Readout", Vector3(x, 0.42, -0.57),
-            Vector3(0.47, 0.03, 0.015), glows[i], true)
-    for i in range(3):
-        _sign(converter_group, "REF %d" % (i+1),
-            Vector3(-3.05 + float(i)*1.50, 2.48, -0.90), 25)
-    _block(converter_group, "ServiceBench", Vector3(0, 0.29, 0.42),
-        Vector3(4.9, 0.35, 0.76), Color("#435b6b"))
+        _block(station, "FeedPipe", Vector3(-0.22, 2.72, -0.78),
+            Vector3(0.17, 0.95, 0.14), Color("#7d929e"))
+        _block(station, "StatusScreen", Vector3(0, 0.40, 0.90),
+            Vector3(0.76, 0.25, 0.065), Color("#21495d"))
+        _block(station, "Readout", Vector3(0, 0.42, 0.95),
+            Vector3(0.50, 0.03, 0.015), glows[i], true)
+        _sign(station, "REF %d" % (i+1),
+            Vector3(0, 2.52, 0.72), 28)
+    # Far-side raised operator platform adds a second architectural plane.
+    var catwalk := Node3D.new()
+    catwalk.name = "OverheadObliqueRefineryBridge"
+    catwalk.position = Vector3(1.15, 3.24, -3.18)
+    catwalk.rotation.y = -0.34
+    converter_group.add_child(catwalk)
+    _block(catwalk, "Walkway", Vector3.ZERO,
+        Vector3(3.55, 0.15, 0.75), Color("#68808e"))
+    _block(catwalk, "SafetyRail", Vector3(0, 0.46, 0.37),
+        Vector3(3.5, 0.07, 0.05), Color("#aec1c8"))
+    for k in range(5):
+        _block(catwalk, "CatwalkBaluster",
+            Vector3(-1.48+float(k)*0.74, 0.23, 0.37),
+            Vector3(0.05, 0.44, 0.05), Color("#8ca8b5"))
+    # Sample sorting occupies the open right foreground, NOT in front of tank 1.
+    _block(converter_group, "SampleExchangeBench", Vector3(1.60, 0.29, 0.73),
+        Vector3(2.65, 0.35, 0.72), Color("#445f6e"))
     for j in range(6):
-        var box_x: float = -2.65 + float(j) * 0.49
-        _block(converter_group, "SortedMaterials", Vector3(box_x, 0.54, 0.46),
-            Vector3(0.27, 0.20, 0.23), glows[int(j/2)])
+        var box_x: float = 0.59 + float(j)*0.40
+        _block(converter_group, "SortedMaterials",
+            Vector3(box_x, 0.54, 0.75),
+            Vector3(0.24, 0.20, 0.23), glows[int(j / 2)])
 
 func _build_warehouse() -> void:
     warehouse_group = Node3D.new()
     warehouse_group.name = "WarehouseScene"
     add_child(warehouse_group)
-    # Industrial shelving in depth; small solid bins are instanced geometry,
-    # never separate UI controls, and stay under one hundred static meshes.
+    # Two rack banks have very different distances from camera. Their
+    # individually turned faces create a receding, asymmetric warehouse aisle.
     for side in [-1, 1]:
-        var x: float = float(side) * 2.65
-        _block(warehouse_group, "RackBack", Vector3(x, 1.67, -2.45),
-            Vector3(2.15, 3.15, 0.16), Color("#253d4c"))
+        var bay := Node3D.new()
+        bay.name = "RackBay_Left" if side < 0 else "RackBay_Right"
+        bay.position = (Vector3(-2.66, 0.0, 0.12) if side < 0
+            else Vector3(2.70, 0.0, -2.03))
+        bay.rotation.y = -0.31 if side < 0 else 0.16
+        warehouse_group.add_child(bay)
+        _block(bay, "RackBack", Vector3(0, 1.67, -0.26),
+            Vector3(2.18, 3.18, 0.16), Color("#253d4c"))
         for col in range(3):
             for row in range(4):
-                var box_x: float = x - 0.68 + float(col) * 0.67
-                var box_y: float = 0.59 + float(row) * 0.67
-                _block(warehouse_group, "StorageBin", Vector3(box_x, box_y, -2.23),
+                var box_x: float = -0.68 + float(col)*0.67
+                var box_y: float = 0.59 + float(row)*0.67
+                _block(bay, "StorageBin", Vector3(box_x, box_y, -0.02),
                     Vector3(0.53, 0.45, 0.40), Color("#536c7b"))
-                _block(warehouse_group, "BinID", Vector3(box_x, box_y+0.10, -1.99),
+                _block(bay, "BinID", Vector3(box_x, box_y+0.10, 0.20),
                     Vector3(0.36, 0.08, 0.02), Color("#a9ccd9"))
-                _block(warehouse_group, "BinHandle", Vector3(box_x, box_y-0.12, -1.99),
+                _block(bay, "BinHandle", Vector3(box_x, box_y-0.12, 0.20),
                     Vector3(0.17, 0.04, 0.025), Color("#253c4e"))
         for row in range(5):
-            _block(warehouse_group, "ShelfBar", Vector3(x, 0.26+float(row)*0.67, -2.08),
+            _block(bay, "ShelfBar", Vector3(0, 0.26+float(row)*0.67, 0.09),
                 Vector3(2.25, 0.09, 0.52), Color("#718b98"))
         for edge in [-1.12, 1.12]:
-            _block(warehouse_group, "RackPost", Vector3(x+edge, 1.66, -2.04),
+            _block(bay, "RackPost", Vector3(edge, 1.66, 0.07),
                 Vector3(0.11, 3.40, 0.12), Color("#7793a0"))
-    _sign(warehouse_group, "H01",
-        Vector3(-2.65, 3.20, -2.08), 40)
-    _sign(warehouse_group, "B01",
-        Vector3(2.65, 3.20, -2.08), 40)
-    _block(warehouse_group, "SortingTable", Vector3(0.13, 0.51, 0.06),
+        _sign(bay, "H01" if side < 0 else "B01",
+            Vector3(0, 3.20, 0.16), 42)
+    # Off-center inventory processing table establishes a distinct third layer.
+    _block(warehouse_group, "SortingTable", Vector3(0.28, 0.51, -0.41),
         Vector3(1.25, 0.28, 0.84), Color("#465e6d"))
-    _block(warehouse_group, "ScanningPanel", Vector3(0.13, 0.70, 0.10),
+    _block(warehouse_group, "ScanningPanel", Vector3(0.28, 0.70, -0.37),
         Vector3(1.05, 0.07, 0.67), Color("#23495d"))
     for col in range(4):
-        _block(warehouse_group, "SortingReadout", Vector3(-0.25+float(col)*0.25, 0.75, 0.05),
+        _block(warehouse_group, "SortingReadout",
+            Vector3(-0.10+float(col)*0.25, 0.75, -0.40),
             Vector3(0.13, 0.02, 0.44), Color("#56b6d3"), true)
+    # Small foreground crane at an angle, not a parallel rack row.
+    var overhead_rail := Node3D.new()
+    overhead_rail.name = "WarehouseConveyorOverhead"
+    overhead_rail.position = Vector3(0.80, 3.90, -1.05)
+    overhead_rail.rotation.y = 0.36
+    warehouse_group.add_child(overhead_rail)
+    _block(overhead_rail, "ConveyorRail", Vector3.ZERO,
+        Vector3(3.45, 0.22, 0.24), Color("#6c8491"))
+    _block(overhead_rail, "ConveyorLuminousStrip", Vector3(0, -0.14, 0.10),
+        Vector3(3.35, 0.045, 0.04), Color("#6cc2d8"), true)
 
 func _ready() -> void:
     var world := WorldEnvironment.new()
@@ -425,7 +500,7 @@ func _ready() -> void:
     _build_crate()
     warehouse_scanner = Node3D.new()
     warehouse_scanner.name = "TravelingInventoryScanner"
-    warehouse_scanner.position = Vector3(0.1, 1.12, 0.10)
+    warehouse_scanner.position = Vector3(0.28, 1.12, -0.40)
     warehouse_group.add_child(warehouse_scanner)
     _block(warehouse_scanner, "ScanHead", Vector3.ZERO,
         Vector3(0.19, 0.10, 0.33), Color("#4ce0e9"), true)
@@ -448,26 +523,32 @@ func set_section(section: String) -> void:
     crate_left_arm.rotation = Vector3.ZERO
     match current_section:
         "LABO":
-            crate.position = Vector3(1.25, 0, 0.96)
+            crate.position = Vector3(1.20, 0, 1.25)
             crate.rotation.y = 2.55
             work_state = "print_to_terminal"
-            hero_camera.position = Vector3(0.30, 1.40, 6.95)
-            hero_camera.fov = 52.0
-            hero_camera.look_at(Vector3(-0.2, 1.86, -0.95), Vector3.UP)
+            # Low-right, upward-looking diagonal frame: foreground printer,
+            # middle ground CRATE and rear suspended service bridge.
+            hero_camera.position = Vector3(4.45, 1.10, 6.05)
+            hero_camera.fov = 62.0
+            hero_camera.look_at(Vector3(-0.75, 1.88, -0.87), Vector3.UP)
         "SMELTER", "RECYCLER":
-            crate.position = Vector3(1.84, 0, 0.66)
+            crate.position = Vector3(2.18, 0, 0.78)
             crate.rotation.y = 2.80
             work_state = "refinery_audit"
-            hero_camera.position = Vector3(0.50, 1.49, 7.1)
-            hero_camera.fov = 52.0
-            hero_camera.look_at(Vector3(-0.17, 1.83, -1.15), Vector3.UP)
+            # High-left downward three-quarter shot along the diagonal
+            # procession of three staggered refinery chambers.
+            hero_camera.position = Vector3(-4.50, 3.70, 5.15)
+            hero_camera.fov = 61.0
+            hero_camera.look_at(Vector3(-0.70, 1.46, -1.22), Vector3.UP)
         "STORAGE":
-            crate.position = Vector3(0.82, 0, 0.55)
+            crate.position = Vector3(0.70, 0, 0.72)
             crate.rotation.y = 2.95
             work_state = "storage_scan"
-            hero_camera.position = Vector3(-0.25, 1.52, 7.3)
-            hero_camera.fov = 52.0
-            hero_camera.look_at(Vector3(0.05, 1.93, -1.27), Vector3.UP)
+            # Elevated aisle-wide camera, opposite the refinery's left-side
+            # vantage: near-left rack and distant right bank make deep parallax.
+            hero_camera.position = Vector3(4.20, 3.10, 5.40)
+            hero_camera.fov = 63.0
+            hero_camera.look_at(Vector3(-0.30, 1.72, -1.50), Vector3.UP)
 
 func _move_to(goal: Vector3, delta: float) -> bool:
     var planar := Vector3(goal.x, crate.position.y, goal.z)
@@ -501,12 +582,12 @@ func _process(delta: float) -> void:
 
 func _animate_manufacturing(delta: float) -> void:
     # Print head and part grow on the manufacturing page only.
-    printer_nozzle.position.x = -1.96 + 0.54 * sin(clock * 1.9)
-    printer_nozzle.position.z = -0.40 + 0.24 * cos(clock * 1.13)
+    printer_nozzle.position.x = -2.30 + 0.54 * sin(clock * 1.9)
+    printer_nozzle.position.z = 0.28 + 0.24 * cos(clock * 1.13)
     printed_part.scale.y = 0.78 + 0.15 * sin(clock * 0.37)
     match work_state:
         "print_to_terminal":
-            if _move_to(Vector3(1.75, 0, 0.61), delta):
+            if _move_to(Vector3(1.50, 0, -0.35), delta):
                 _enter("print_inspect_terminal")
         "print_inspect_terminal":
             crate.rotation.y = lerp_angle(crate.rotation.y, -2.85, minf(delta*2.0, 1.0))
@@ -515,7 +596,7 @@ func _animate_manufacturing(delta: float) -> void:
             if state_time > 3.1:
                 _enter("print_to_machine")
         "print_to_machine":
-            if _move_to(Vector3(-0.62, 0, 0.96), delta):
+            if _move_to(Vector3(-0.58, 0, 1.39), delta):
                 _enter("print_inspect_shell")
         "print_inspect_shell":
             crate_head.rotation.x = lerpf(crate_head.rotation.x, -0.18, minf(delta*3.0, 1.0))
@@ -537,7 +618,7 @@ func _animate_refinery(delta: float) -> void:
             if state_time > 3.5:
                 _enter("refinery_to_samples")
         "refinery_to_samples":
-            if _move_to(Vector3(0.5, 0, 0.79), delta):
+            if _move_to(Vector3(1.07, 0, 1.50), delta):
                 _enter("refinery_sort")
         "refinery_sort":
             crate_head.rotation.x = lerpf(crate_head.rotation.x, 0.27, minf(delta*3.0, 1.0))
@@ -545,12 +626,12 @@ func _animate_refinery(delta: float) -> void:
             if state_time > 2.7:
                 _enter("refinery_return")
         "refinery_return":
-            if _move_to(Vector3(1.84, 0, 0.66), delta):
+            if _move_to(Vector3(2.18, 0, 0.78), delta):
                 _enter("refinery_audit")
 
 func _animate_inventory(delta: float) -> void:
     # Warehouse alone: rail scanner sweeps, robot checks bins and logs stock.
-    warehouse_scanner.position.x = 0.12 + 0.46*sin(clock*1.8)
+    warehouse_scanner.position.x = 0.28 + 0.46*sin(clock*1.8)
     warehouse_scanner.rotation.y = 0.22*sin(clock*1.2)
     match work_state:
         "storage_scan":
@@ -559,7 +640,7 @@ func _animate_inventory(delta: float) -> void:
             if state_time > 2.2:
                 _enter("storage_go_left")
         "storage_go_left":
-            if _move_to(Vector3(-1.02, 0, 0.51), delta):
+            if _move_to(Vector3(-0.94, 0, 1.18), delta):
                 _enter("storage_get_bin")
         "storage_get_bin":
             crate_left_arm.rotation.x = -0.26 + 0.24*sin(clock*2.3)
@@ -568,7 +649,7 @@ func _animate_inventory(delta: float) -> void:
             if state_time > 2.8:
                 _enter("storage_go_terminal")
         "storage_go_terminal":
-            if _move_to(Vector3(0.82, 0, 0.55), delta):
+            if _move_to(Vector3(0.70, 0, 0.72), delta):
                 _enter("storage_log_stock")
         "storage_log_stock":
             crate_head.rotation.x = lerpf(crate_head.rotation.x, 0.20, minf(delta*3.0, 1.0))
