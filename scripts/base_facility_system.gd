@@ -566,7 +566,7 @@ func _new_slot(parent: Control, key: String, icon: Texture2D,
         var choose := Button.new()
         choose.name = action_name if not action_name.is_empty() else "Select"
         choose.text = title
-        choose.custom_minimum_size.y = 28
+        # Ensure a practical touch target even in three-column prototype grids.\n        choose.custom_minimum_size.y = 44
         choose.add_theme_font_size_override("font_size", 13)
         choose.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
         choose.pressed.connect(action)
