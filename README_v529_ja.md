@@ -19,4 +19,4 @@
 - UID連番・原子的保存・既存のスキーマ2形式と旧装備データは維持します。
 - [実装仕様書](docs/SERA_WAREHOUSE_UI_AND_CRAFT_AFFIXES_ja.md) / [開発ルール](AGENTS.md)
 
-旧版：[SERA v528](README_v528_ja.md)
+旧版：[SERA v528](docs/history/release_notes/README_v528_ja.md)
