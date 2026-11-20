@@ -1479,7 +1479,7 @@ func _delete_warehouse_junk() -> void:
 func _show_prototype_catalog() -> void:
     page = "prototypes"
     _clear_actions()
-    _diag_begin("craft", PrototypeCatalog.ORDER.size())
+    _diag_begin("craft", CRAFT_CATALOG_SLOTS)
     modal_title.text = "装備製作"
     modal_body.text = "部位と装備を選択してください。完成品は倉庫に登録されます。"
     if SeraSave.active_slot == 0:

@@ -26,7 +26,8 @@ func _verify_grid(cards: Control, name: String, ids: Array, prefix: String, clic
         return false
     var shown: Array = [ids[0]] if name == "PrototypeGrid" else ids
     var cols: int = 1 if name == "PrototypeGrid" else 3
-    if _actual_row_count(grid) != ceili(float(shown.size()) / float(cols)):
+    var expected_rows: int = 20 if name == "PrototypeGrid" else ceili(float(shown.size()) / float(cols))
+    if _actual_row_count(grid) != expected_rows:
         _fail("native row count does not match current slot-bar grid: " + name)
         return false
     for row in grid.get_children():
@@ -84,8 +85,8 @@ func _verify_warehouse(fac: Node3D, grid_name: String, count: int, cols: int) ->
     if count > 0 and ((pool[0] as Button).get_node("ItemArt") as TextureRect).texture == null:
         _fail("first warehouse image not ready")
         return false
-    if count == 0 and int(list.get("virtual_slots")) != 2:
-        _fail("empty hanger has no two blank boxes")
+    if count == 0 and int(list.get("virtual_slots")) != 999:
+        _fail("empty hanger must expose 999 virtual boxes")
         return false
     return true
 func _run() -> void:

@@ -67,7 +67,7 @@ func _run() -> void:
     fac.call("_switch_section", "craft")
     await process_frame
     await process_frame
-    if not _verify(fac, "PrototypeGrid", 1, 0):
+    if not _verify(fac, "PrototypeGrid", 20, 0):
         return
     var diag_before: String = str(fac.get("diag_stage"))
     fac.call("_diag_step", "disabled-test-probe")
@@ -97,9 +97,9 @@ func _run() -> void:
     list = (fac.get("item_layer") as Control).find_child(
         "WarehouseEquipment", true, false) as ScrollContainer
     if list == null or (list.get("entries") as Array).size() != 0 or (
-            int(list.get("virtual_slots")) != 2) or (
+            int(list.get("virtual_slots")) != 999) or (
             (list.get("pool") as Array).size() > 32):
-        _fail("empty hanger must show two reusable native blank cards")
+        _fail("empty hanger must expose 999 virtual slots in a bounded pool")
         return
     # Debugger can still record the exact checkpoint when explicitly enabled.
     var title: Label = fac.get("modal_title") as Label

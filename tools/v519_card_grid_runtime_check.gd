@@ -23,7 +23,8 @@ func _check_grid(cards: Control, area: Control, name: String, ids: Array, prefix
     var grid: VBoxContainer = cards.find_child(name, true, false) as VBoxContainer
     var shown: Array = [ids[0]] if name == "PrototypeGrid" else ids
     var columns: int = 1 if name == "PrototypeGrid" else 3
-    if grid == null or _actual_row_count(grid) != ceili(float(shown.size()) / float(columns)):
+    var expected_rows: int = 20 if name == "PrototypeGrid" else ceili(float(shown.size()) / float(columns))
+    if grid == null or _actual_row_count(grid) != expected_rows:
         _fail("missing expected bar/card rows: " + name)
         return false
     for id in shown:
@@ -64,8 +65,8 @@ func _check_virtual(fac: Node3D, title: String, count: int, cols: int) -> bool:
     if count > 0 and (art == null or art.texture == null):
         _fail("warehouse first icon is not drawable: " + title)
         return false
-    if count == 0 and int(w.get("virtual_slots")) != 2:
-        _fail("empty hanger must show a pair of slots")
+    if count == 0 and int(w.get("virtual_slots")) != 999:
+        _fail("empty hanger must expose 999 virtual slots")
         return false
     return true
 func _run() -> void:

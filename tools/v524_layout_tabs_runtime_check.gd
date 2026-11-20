@@ -83,8 +83,8 @@ func _check_virtual(fac: Node3D, title: String, count: int, cols: int) -> bool:
     if count > 0 and (art == null or art.texture == null):
         _fail("warehouse first icon is not drawable: " + title)
         return false
-    if count == 0 and int(w.get("virtual_slots")) != 2:
-        _fail("empty hanger must show a pair of slots")
+    if count == 0 and int(w.get("virtual_slots")) != 999:
+        _fail("empty hanger must expose 999 virtual slots")
         return false
     return true
 func _run() -> void:
@@ -106,7 +106,7 @@ func _run() -> void:
     if _selected_count(tabs) != 1 or not craft.button_pressed:
         _fail("craft is not the only selected tab")
         return
-    if not _check_flow(fac, "PrototypeGrid", "PrototypeIcon_H01", 1):
+    if not _check_flow(fac, "PrototypeGrid", "PrototypeIcon_H01", 20):
         return
     materials.pressed.emit()
     await process_frame
@@ -166,7 +166,7 @@ func _run() -> void:
     })
     fac.call("_switch_section", "craft")
     await process_frame
-    if not _check_flow(fac, "PrototypeGrid", "PrototypeIcon_H01", 1):
+    if not _check_flow(fac, "PrototypeGrid", "PrototypeIcon_H01", 20):
         return
     var owned: Button = (fac.get("item_layer") as Control).find_child(
         "PrototypeIcon_H01", true, false) as Button

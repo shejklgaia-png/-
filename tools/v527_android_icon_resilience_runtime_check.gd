@@ -95,7 +95,7 @@ func _run() -> void:
     await process_frame
     await process_frame
     var fac: Node = hub.get_node("BaseFacilities")
-    if not await _expect(fac, "craft", 1, "PrototypeIcon_H01"):
+    if not await _expect(fac, "craft", 20, "PrototypeIcon_H01"):
         return
     if not await _expect(fac, "materials", 12, "MaterialIcon_scrap_low"):
         return
