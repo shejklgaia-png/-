@@ -19,10 +19,10 @@ assert 'ButtonGroup.new()' in ui and 'Control.SIZE_EXPAND_FILL' in ui
 assert 'func _slot_tab_caption(' in ui
 assert 'MATERIAL_CARD_HEIGHT' in ui
 assert 'MATERIAL_ICON_WIDTH' in ui
-assert 'card.expand_icon = true' in ui
+assert 'card.icon = null' in ui and 'art.clip_contents = true' in ui
 assert 'material_icon_sized(' in ui
 assert 'icon_max_width' not in ui
-assert 'card.vertical_icon_alignment = VERTICAL_ALIGNMENT_CENTER' in ui
+assert 'CanvasItem.TEXTURE_FILTER_NEAREST' in ui and 'LaboSkin.card_style(' in ui
 assert 'py tools/v532_labo_entry_icons_self_check.py' in ci
 assert 'gd tools/v532_labo_entry_icons_runtime_check.gd' in ci
 print("SERA_V532_LABO_ENTRY_ICONS_STATIC_PASS")
