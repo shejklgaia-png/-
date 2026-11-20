@@ -52,6 +52,8 @@ var diag_expected: int = 0
 var diag_created: int = 0
 var diag_icon_count: int = 0
 var diag_update_timer: float = 0.0
+var diag_header_taps: int = 0
+var diag_last_header_tap_ms: int = 0
 
 func _ready() -> void:
     name = "BaseFacilities"
@@ -326,10 +328,13 @@ func attach_hud(hud: Control) -> void:
     modal_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
     modal_title.add_theme_font_size_override("font_size", 23)
     modal_title.add_theme_color_override("font_color", Color("#b8f0ff"))
+    modal_title.mouse_filter = Control.MOUSE_FILTER_STOP
+    modal_title.gui_input.connect(_on_modal_title_input)
     header_row.add_child(modal_title)
     diagnostic_button = Button.new()
     diagnostic_button.name = "UIDiagnosticToggle"
     diagnostic_button.text = "診断"
+    diagnostic_button.visible = false
     diagnostic_button.custom_minimum_size = Vector2(65.0, 39.0)
     diagnostic_button.add_theme_font_size_override("font_size", 14)
     diagnostic_button.tooltip_text = "Android版Godotの一覧表示を診断"
@@ -463,6 +468,28 @@ func _diag_toggle() -> void:
     _diag_update()
 
 
+func _on_modal_title_input(event: InputEvent) -> void:
+    # An optional debug control without a new panel, timer or idle polling:
+    # tap the modal title five times quickly. Normal gameplay has no debug UI.
+    var title_tapped: bool = (event is InputEventScreenTouch and event.pressed) or (
+        event is InputEventMouseButton and event.pressed
+        and event.button_index == MOUSE_BUTTON_LEFT)
+    if not title_tapped:
+        return
+    var now_ms: int = Time.get_ticks_msec()
+    if now_ms - diag_last_header_tap_ms > 1700:
+        diag_header_taps = 0
+    diag_last_header_tap_ms = now_ms
+    diag_header_taps += 1
+    if diag_header_taps >= 5:
+        diag_header_taps = 0
+        diagnostic_button.visible = not diagnostic_button.visible
+        if not diagnostic_button.visible:
+            diagnostic_readout.visible = false
+            diag_update_timer = 0.0
+    get_viewport().set_input_as_handled()
+
+
 func _diag_update() -> void:
     if diagnostic_readout == null or not diagnostic_readout.visible:
         return
@@ -545,7 +572,8 @@ func _sync_section_tabs() -> void:
     var current: String = ""
     match active_key:
         "LABO":
-            current = "TabCraft"
+            if page in ["prototypes", "prototype_detail"]:
+                current = "TabCraft"
         "SMELTER", "RECYCLER":
             current = "TabMaterials"
         "STORAGE":
@@ -932,6 +960,7 @@ func _show_prototype_catalog() -> void:
             "未作成 0" if owned_count == 0 else "所持 %d" % owned_count,
             _select_prototype.bind(id), "Choose_" + id) as Button
         _queue_card_icon(card, id, true)
+    _sync_section_tabs()
 
 func _select_prototype(blueprint: String) -> void:
     if not PrototypeCatalog.valid(blueprint):
