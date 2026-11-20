@@ -37,7 +37,7 @@ func _run() -> void:
             _fail("dropdown returned in converter main page")
             return
         for family in ["scrap", "alloy", "electronics", "organic"]:
-            if actions.find_child("FamilyChoice_" + family, true, false) == null:
+            if actions.find_child("MaterialIcon_" + family + "_low", true, false) == null:
                 _fail("family choice absent: " + family)
                 return
         facility.call("_select_conversion_family", "alloy")
