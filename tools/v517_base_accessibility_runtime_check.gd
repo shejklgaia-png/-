@@ -31,6 +31,9 @@ func _run() -> void:
     save.set("active_slot", 0)
     save.set("active_data", {})
     facility.call("_switch_section", "craft")
+    # v527 creates every native card before icon loading. The deferred icon
+    # binding must finish before asserting art, without relaxing the assertion.
+    await process_frame
     if str(facility.get("page")) != "prototypes":
         _fail("quick craft did not open LABO recipes")
         return
@@ -103,6 +106,8 @@ func _run() -> void:
         _fail("materials shortcut must open conversion")
         return
     facility.call("_switch_section", "warehouse")
+    # Preserve the exact 12-icon requirement after deferred binding settles.
+    await process_frame
     if str(facility.get("page")) != "inventory":
         _fail("warehouse shortcut did not open storage")
         return
