@@ -10,7 +10,7 @@ manifest = (root/"tools/sera_ci_manifest.txt").read_text(encoding="utf-8")
 assert 'const ChamferSkin = preload("res://scripts/sera_chamfer_skin.gd")' in ui
 assert 'var card := Button.new()' in ui, "use native Button, not scripted PanelContainer"
 assert 'card.icon = icon' in ui and 'card.text = title + "\\n" + info' in ui
-assert 'var row := HBoxContainer.new()' in ui and 'var grid := VBoxContainer.new()' in ui
+assert 'row = HBoxContainer.new()' in ui and 'var grid := VBoxContainer.new()' in ui
 assert 'GridContainer.new()' not in ui
 assert 'ChamferSlot.new()' not in ui
 assert 'card.add_theme_stylebox_override("normal", ChamferSkin.style(' in ui
