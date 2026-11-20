@@ -7,7 +7,10 @@ nexus=(root/"scripts/command_nexus.gd").read_text(encoding="utf-8")
 manifest=(root/"tools/sera_ci_manifest.txt").read_text(encoding="utf-8")
 project=(root/"project.godot").read_text(encoding="utf-8")
 hub=(root/"scripts/base_exploration.gd").read_text(encoding="utf-8")
-assert "OptionButton.new()" not in facility, "No material selection dropdown"
+# Only material conversion must remain card-based. The warehouse's equipment
+# hanger picker is independently allowed to use an OptionButton.
+conversion=facility.split("func _render_family_page(",1)[1].split("\nfunc ",1)[0]
+assert "OptionButton.new()" not in conversion, "No material conversion dropdown"
 assert "func _render_family_page(" in facility
 assert "func _select_conversion_family(" in facility
 assert "func navigate_back(" in facility
