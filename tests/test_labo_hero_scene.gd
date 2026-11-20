@@ -16,6 +16,15 @@ func _verify(ok: bool, label: String) -> void:
         failures.append(label)
         push_error("LABO visual contract failed: " + label)
 
+# Test actual projected image boundaries, not merely nearby camera positions.
+# Oversized scenery must continue outside the SubViewport on every LABO page.
+func _outside_camera_frame(camera: Camera3D, point: Vector3) -> bool:
+    if camera.is_position_behind(point):
+        return false
+    var pixel: Vector2 = camera.unproject_position(point)
+    var size: Vector2 = camera.get_viewport().get_visible_rect().size
+    return pixel.x < 0.0 or pixel.x > size.x or pixel.y < 0.0 or pixel.y > size.y
+
 func _run_checks() -> void:
     var stage: Node3D = HERO.instantiate() as Node3D
     root.add_child(stage)
@@ -55,8 +64,13 @@ func _run_checks() -> void:
         "printer pulled into foreground, clear of the wall")
     _verify(maker.get_node_or_null("PrinterForegroundLoader") != null,
         "printer giant loader overlaps foreground and continues beyond the frame")
-    _verify(maker.get_node_or_null("PrinterHangingHarness") != null,
-        "printer mechanical harness extends beyond top edge")
+    var print_harness: Node3D = maker.get_node_or_null("PrinterHangingHarness") as Node3D
+    _verify(print_harness != null,
+        "printer mechanical harness exists in the overhead foreground")
+    if print_harness != null:
+        _verify(_outside_camera_frame(camera,
+            print_harness.to_global(Vector3(0, 1.1, 0))),
+            "printer harness is intentionally cropped by upper viewport")
     var print_pos: Vector3 = camera.position
     _verify(print_pos.distance_to(Vector3(-2.30, 1.45, 0.28)) < 5.5
         and camera.fov <= 55.0, "printer framed close rather than whole room")
@@ -70,8 +84,13 @@ func _run_checks() -> void:
         "refinery-only background active")
     _verify(refinery.get_node_or_null("RefineryForegroundManifold") != null,
         "refinery oversized foreground manifold enters from out of frame")
-    _verify(refinery.get_node_or_null("RefineryHangingPipes") != null,
+    var refinery_pipes: Node3D = refinery.get_node_or_null("RefineryHangingPipes") as Node3D
+    _verify(refinery_pipes != null,
         "refinery large pipework fills the top of the image")
+    if refinery_pipes != null:
+        _verify(_outside_camera_frame(camera,
+            refinery_pipes.to_global(Vector3(0, 1.30, 0))),
+            "refinery pipework deliberately exceeds top frame")
     var refine_pos: Vector3 = camera.position
     _verify(refine_pos.distance_to(Vector3(-2.75, 1.35, 0.10)) < 4.5
         and camera.fov <= 55.0, "refinery tightly crops nearest tank")
@@ -91,8 +110,13 @@ func _run_checks() -> void:
     stage.call("set_section", "STORAGE")
     _verify(warehouse.visible and not refinery.visible and not maker.visible,
         "warehouse-only background active")
-    _verify(warehouse.get_node_or_null("WarehouseNearRackExtension") != null,
+    var close_tower: Node3D = warehouse.get_node_or_null("WarehouseNearRackExtension") as Node3D
+    _verify(close_tower != null,
         "warehouse racks continue beyond frame rather than ending inside it")
+    if close_tower != null:
+        _verify(_outside_camera_frame(camera,
+            close_tower.to_global(Vector3(1.10, 5.30, 0))),
+            "oversized near rack extends outside warehouse viewport")
     _verify(warehouse.get_node_or_null("WarehouseForegroundPallets") != null,
         "warehouse loading clutter fills near-camera floor")
     var storage_pos: Vector3 = camera.position
