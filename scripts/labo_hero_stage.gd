@@ -180,7 +180,21 @@ func _build_conversion_room() -> void:
         Vector3(1.72, 1.26, 0.14), Color("#5b7989"))
     _block(recycle, "RecycleDisplay", Vector3(0, 0, 0.085),
         Vector3(1.49, 1.03, 0.035), Color("#134155"))
-    _sign(recycle, "REUSE", Vector3(0, -0.06, 0.115), 65)
+    # Reference shows a bright triangular recycling pictogram.
+    # Build it from three short 3D bars instead of a flat UI decal.
+    var triangle_points: Array[Vector2] = [
+        Vector2(-0.43, -0.31), Vector2(0.43, -0.31),
+        Vector2(0, 0.39)]
+    for i in range(3):
+        var p1: Vector2 = triangle_points[i]
+        var p2: Vector2 = triangle_points[(i+1)%3]
+        var center: Vector2 = (p1+p2)*0.5
+        var stroke: MeshInstance3D = _block(recycle, "RecyclingTriangleEdge",
+            Vector3(center.x, center.y, 0.116),
+            Vector3(p1.distance_to(p2), 0.07, 0.024),
+            Color("#66e7e6"), true)
+        stroke.rotation.z = (p2-p1).angle()
+    _sign(recycle, "RECYCLE", Vector3(0, -0.47, 0.114), 25)
     for step in range(7):
         _block(room, "RefineryStairRiser",
             Vector3(4.48, 0.21+float(step)*0.34, -0.5-float(step)*0.48),
@@ -263,7 +277,7 @@ func _build_printer() -> void:
     var pivot := Node3D.new()
     pivot.name = "Printer"
     pivot.position = Vector3(-2.23, 0, -0.76)
-    pivot.scale = Vector3(1.62, 1.30, 1.23)
+    pivot.scale = Vector3(1.94, 1.36, 1.23)
     pivot.rotation.y = 0.09
     printer_group.add_child(pivot)
     var metal := Color("#6e8290")
