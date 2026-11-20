@@ -674,15 +674,7 @@ func _show_warehouse_equipment() -> void:
             IconAtlas.equipment_icon(id), str(spec["name"]), qty,
             _show_owned_items.bind(id, 0), "ShowOwned_" + id)
         if not owned.is_empty():
-            var uid := Label.new()
-            uid.text = str(owned[owned.size() - 1]["uid"])
-            uid.name = "LastCraftedUID"
-            uid.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-            uid.add_theme_font_size_override("font_size", 11)
-            card.text += "
-" + str(owned[owned.size() - 1]["uid"])
-            uid.queue_free()
-
+            card.text += "\n" + str(owned[owned.size() - 1]["uid"])
 
 func _show_owned_items(blueprint: String, item_page: int = 0) -> void:
     if not PrototypeCatalog.valid(blueprint):
@@ -832,13 +824,7 @@ func _render_family_page() -> void:
                 "所持 %d" % int(inventory[id]),
                 _select_conversion_family.bind(str(family)), button_name)
             if str(tier) == "low":
-                var caption := Label.new()
-                caption.name = "FamilyChoice_" + str(family)
-                caption.text = str(BaseMaterials.FAMILY_NAMES[family])
-                caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-                caption.add_theme_font_size_override("font_size", 11)
                 card.tooltip_text = str(BaseMaterials.FAMILY_NAMES[family])
-                caption.queue_free()
 
 func _select_conversion_family(family: String) -> void:
     if not BaseMaterials.FAMILY_IDS.has(family) or page != "families":
