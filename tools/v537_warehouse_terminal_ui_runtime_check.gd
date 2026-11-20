@@ -24,6 +24,7 @@ func _run() -> void:
         _fail("storage must land on equipment")
         return
     fac.call("_show_inventory", "materials")
+    await process_frame
     var grid: ScrollContainer = (fac.get("item_layer") as Control).find_child(
         "WarehouseMaterials", true, false) as ScrollContainer
     if grid == null or int(grid.get("columns")) != 2 or (
