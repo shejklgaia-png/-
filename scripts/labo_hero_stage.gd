@@ -553,7 +553,7 @@ func _build_refinery_closeup() -> void:
     # A partly off-screen intake manifold frames the nearest tank from below.
     var manifold := Node3D.new()
     manifold.name = "RefineryForegroundManifold"
-    manifold.position = Vector3(-3.36, 0.0, 1.55)
+    manifold.position = Vector3(-2.80, 0.0, 0.90)
     manifold.rotation.y = -0.28
     converter_group.add_child(manifold)
     _block(manifold, "ManifoldHousing", Vector3(0, 0.42, 0),
@@ -711,7 +711,7 @@ func set_section(section: String) -> void:
     crate_left_arm.rotation = Vector3.ZERO
     match current_section:
         "LABO":
-            crate.position = Vector3(1.20, 0, 1.25)
+            crate.position = Vector3(1.20, 0, 0.60)
             crate.rotation.y = 2.55
             work_state = "print_to_terminal"
             # Low-right, upward-looking diagonal frame: foreground printer,
@@ -733,7 +733,7 @@ func set_section(section: String) -> void:
             hero_camera.fov = 53.0
             hero_camera.look_at(Vector3(-0.30, 1.50, -1.00), Vector3.UP)
         "STORAGE":
-            crate.position = Vector3(0.70, 0, 0.72)
+            crate.position = Vector3(0.70, 0, 0.27)
             crate.rotation.y = 2.95
             work_state = "storage_scan"
             # Elevated aisle-wide camera, opposite the refinery's left-side
@@ -843,7 +843,7 @@ func _animate_inventory(delta: float) -> void:
             if state_time > 2.8:
                 _enter("storage_go_terminal")
         "storage_go_terminal":
-            if _move_to(Vector3(0.70, 0, 0.72), delta):
+            if _move_to(Vector3(0.70, 0, 0.27), delta):
                 _enter("storage_log_stock")
         "storage_log_stock":
             crate_head.rotation.x = lerpf(crate_head.rotation.x, 0.20, minf(delta*3.0, 1.0))
