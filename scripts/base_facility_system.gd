@@ -1405,6 +1405,8 @@ func _show_warehouse_item_detail(uid: String) -> void:
         breakdown.add_theme_color_override("font_color", Color("#eff8ff"))
         breakdown.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
         modal_actions.add_child(breakdown)
+        if not warehouse_notice.is_empty():
+            _add_terminal_notice(warehouse_notice)
         _add_item_tile(IconAtlas.equipment_icon(blueprint),
             str(spec["name"]) + "  " + uid, "WarehouseDetail_" + uid)
         var favorite := Button.new()
@@ -1412,6 +1414,7 @@ func _show_warehouse_item_detail(uid: String) -> void:
         favorite.text = "★ お気に入り解除" if bool(item.get("favorite", false)) else "☆ お気に入りにする"
         favorite.custom_minimum_size.y = 70
         favorite.add_theme_font_size_override("font_size", 21)
+        _style_terminal_segment(favorite)
         favorite.pressed.connect(_invoke_scroll_action.bind(
             _mark_warehouse_item.bind(uid, "favorite",
                 not bool(item.get("favorite", false))), actions_scroll))
@@ -1421,6 +1424,7 @@ func _show_warehouse_item_detail(uid: String) -> void:
         junk.text = "不用品指定を解除" if bool(item.get("junk", false)) else "不用品に指定"
         junk.custom_minimum_size.y = 70
         junk.add_theme_font_size_override("font_size", 21)
+        _style_terminal_segment(junk)
         junk.pressed.connect(_invoke_scroll_action.bind(
             _mark_warehouse_item.bind(uid, "junk",
                 not bool(item.get("junk", false))), actions_scroll))
@@ -1473,8 +1477,10 @@ func _show_prototype_catalog() -> void:
             modal_actions.add_child(start)
         else:
             modal_body.text += "\nセーブの空きがありません。NEXUSで既存データを読み込んでください。"
+            _add_terminal_notice("セーブの空きがありません。NEXUSでデータを読み込んでください。")
     if not prototype_notice.is_empty():
         modal_body.text += "\n" + prototype_notice
+        _add_terminal_notice(prototype_notice)
     # Identical fixed-width seven-tab layout for craft and warehouse.
     # Short localized labels preserve tap targets without sideways scrolling.
     var slot_tabs := HBoxContainer.new()
@@ -1621,6 +1627,7 @@ func _render_prototype_detail() -> void:
     make.custom_minimum_size.y = 88.0
     make.add_theme_font_size_override("font_size", 21)
     make.disabled = SeraSave.active_slot == 0
+    _style_terminal_segment(make)
     make.pressed.connect(_invoke_scroll_action.bind(
         _confirm_selected_prototype, actions_scroll))
     modal_actions.add_child(make)
@@ -1722,6 +1729,9 @@ func _render_conversion() -> void:
         lines.append("製作にはセーブデータが必要です。")
     if not conversion_notice.is_empty():
         lines.append(conversion_notice)
+        _add_terminal_notice(conversion_notice)
+    elif SeraSave.active_slot == 0:
+        _add_terminal_notice("セーブデータを選択してください。")
     modal_body.text = "\n".join(lines)
     var ranks: Array = [0, 1] if conversion_mode == 1 else [2, 1]
     for rank in ranks:
