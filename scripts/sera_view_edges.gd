@@ -100,7 +100,11 @@ static func _extract_edges(mesh: Mesh) -> Array:
             continue
         var arrays: Array = mesh.surface_get_arrays(surface)
         var vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
-        var indices: PackedInt32Array = arrays[Mesh.ARRAY_INDEX]
+        # Non-indexed mesh surfaces return null for ARRAY_INDEX, not an empty
+        # PackedInt32Array. Avoid typed Nil assignment and use vertex order.
+        var indices := PackedInt32Array()
+        if arrays[Mesh.ARRAY_INDEX] is PackedInt32Array:
+            indices = arrays[Mesh.ARRAY_INDEX]
         var indexed: bool = not indices.is_empty()
         var count: int = indices.size() if indexed else vertices.size()
         for first in range(0, count - 2, 3):
