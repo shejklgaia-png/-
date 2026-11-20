@@ -69,5 +69,27 @@ func _run() -> void:
     fac.call("_switch_section", "warehouse")
     if not await _capture(fac, "warehouse", "MaterialIcon_scrap_low"):
         return
-    print("SERA_V522_CARD_PIXEL_RENDER_PASS: real pixels in LABO, refiner and warehouse")
+    # The Android user's v523 screenshots show an existing selected save:
+    # there is no "create a save" prompt. Previous pixel snapshots only
+    # covered an empty fresh profile, so exercise the populated branch too.
+    var original_slot: int = SeraSave.active_slot
+    var original_data: Dictionary = SeraSave.get_active_data()
+    SeraSave.active_slot = 1
+    SeraSave.active_data = {
+        "trial_materials_claimed": true,
+        "crafted_items": [{"uid": "H01-0001", "blueprint": "H01", "slot": "head"}],
+        "materials": {}, "craft_serials": {"H01": 1}
+    }
+    fac.call("_switch_section", "craft")
+    if not await _capture(fac, "craft_existing_save", "PrototypeIcon_H01"):
+        return
+    fac.call("_switch_section", "materials")
+    if not await _capture(fac, "materials_existing_save", "MaterialIcon_scrap_low"):
+        return
+    fac.call("_switch_section", "warehouse")
+    if not await _capture(fac, "warehouse_existing_save", "MaterialIcon_scrap_low"):
+        return
+    SeraSave.active_slot = original_slot
+    SeraSave.active_data = original_data
+    print("SERA_V522_CARD_PIXEL_RENDER_PASS: fresh and existing save pixels in all three sections")
     quit(0)
