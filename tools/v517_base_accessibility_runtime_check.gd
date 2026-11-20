@@ -112,14 +112,17 @@ func _run() -> void:
         _fail("warehouse shortcut did not open storage")
         return
     actions = facility.get("modal_actions") as VBoxContainer
-    for material_id in MAT.all_ids():
-        var row: Button = (facility.get("item_layer") as Control).find_child("MaterialIcon_" + str(material_id), true, false) as Button
-        if row == null or row.icon == null:
-            _fail("material icon missing in visible warehouse: " + str(material_id))
-            return
+    var warehouse: ScrollContainer = (facility.get("item_layer") as Control).find_child(
+        "WarehouseMaterials", true, false) as ScrollContainer
+    if warehouse == null or int(warehouse.get("columns")) != 3 or (
+            (warehouse.get("entries") as Array).size() != MAT.all_ids().size()):
+        _fail("warehouse must retain all twelve materials in the virtual list")
+        return
     await process_frame
     var first_material: Button = (facility.get("item_layer") as Control).find_child("MaterialIcon_scrap_low", true, false) as Button
-    if not first_material.is_visible_in_tree() or (
+    if first_material == null or (
+            (first_material.get_node("ItemArt") as TextureRect).texture == null) or (
+            not first_material.is_visible_in_tree()) or (
             not viewport_rect.has_point(first_material.get_global_rect().get_center())):
         _fail("first warehouse material icon does not appear in visible modal")
         return
