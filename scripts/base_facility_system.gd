@@ -1142,9 +1142,15 @@ func _show_warehouse_item_detail(uid: String) -> void:
         page = "warehouse_item"
         _clear_actions()
         modal_title.text = str(spec["name"])
-        modal_body.text = "%s\n%s\n%s" % [
-            uid, _warehouse_slot_name(warehouse_slot),
-            LaboStats.total_formula(blueprint, item.get("affixes", []))]
+        modal_body.text = "%s / %s" % [
+            uid, _warehouse_slot_name(warehouse_slot)]
+        var breakdown := Label.new()
+        breakdown.name = "WarehouseStatsBreakdown"
+        breakdown.text = LaboStats.total_formula(blueprint, item.get("affixes", []))
+        breakdown.add_theme_font_size_override("font_size", 15)
+        breakdown.add_theme_color_override("font_color", Color("#eff8ff"))
+        breakdown.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+        modal_actions.add_child(breakdown)
         _add_item_tile(IconAtlas.equipment_icon(blueprint),
             str(spec["name"]) + "  " + uid, "WarehouseDetail_" + uid)
         var favorite := Button.new()
