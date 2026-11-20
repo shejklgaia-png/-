@@ -1,0 +1,121 @@
+name: Build SERA Game APK
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/sera-game-android-apk.yml'
+      - 'export_presets.cfg'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sera-standalone-android-debug
+  cancel-in-progress: true
+
+jobs:
+  game-apk:
+    name: Export signed SERA ARM64 debug APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install Android SDK for prebuilt Godot APK templates
+        uses: android-actions/setup-android@v4
+        with:
+          packages: 'platform-tools'
+      - name: Install platform and build tools
+        run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+      - name: Set up SERA game Android export
+        id: app
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/sera_android_apk_build_self_check.py
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          p=Path("project.godot")
+          s=p.read_text(encoding="utf-8")
+          m=re.search(r'^config/name="SERA v(\d+)"$',s,re.M)
+          if m is None:
+              raise SystemExit("SERA version not detected")
+          version=m.group(1)
+          cfg=Path("export_presets.cfg")
+          contents=cfg.read_text(encoding="utf-8")
+          contents=re.sub(r'^version/code=\d+$',f"version/code={version}",contents,flags=re.M)
+          contents=re.sub(r'^version/name="[^"]*"$',f'version/name="{version}"',contents,flags=re.M)
+          cfg.write_text(contents,encoding="utf-8")
+          # Android exports require this, but do not alter the tracked project.
+          if 'textures/vram_compression/import_etc2_astc=true' not in s:
+              s=s.replace('[rendering]','[rendering]\n\ntextures/vram_compression/import_etc2_astc=true',1)
+              p.write_text(s,encoding="utf-8")
+          with open("/tmp/sera-apk-version","w") as target: target.write(version)
+          print("Exporting SERA v"+version+" (Android ARM64)")
+          PY
+          echo "version=$(cat /tmp/sera-apk-version)" >> "$GITHUB_OUTPUT"
+      - name: Cache consistent SERA game debug signing key
+        uses: actions/cache@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: sera-game-android-debug-signing-v1
+      - name: Generate debug signing key when missing
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/.android"
+          if [[ ! -s "$HOME/.android/debug.keystore" ]]; then
+            keytool -genkeypair -noprompt \
+              -keystore "$HOME/.android/debug.keystore" \
+              -alias androiddebugkey \
+              -storepass android \
+              -keypass android \
+              -dname "CN=Android Debug,O=Android,C=US" \
+              -keyalg RSA -keysize 2048 -validity 10000
+          fi
+      - name: Export Godot 4.7.2 SERA Android game
+        id: export
+        uses: firebelley/godot-export@v8.0.0
+        env:
+          GODOT_ANDROID_KEYSTORE_DEBUG_PATH: /home/runner/.android/debug.keystore
+          GODOT_ANDROID_KEYSTORE_DEBUG_USER: androiddebugkey
+          GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD: android
+        with:
+          godot_executable_download_url: https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip
+          godot_export_templates_download_url: https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/Godot_v4.7.2-stable_export_templates.tpz
+          relative_project_path: ./
+          presets_to_export: Android
+          export_debug: true
+          cache: true
+      - name: Verify actual standalone game APK and signature
+        shell: bash
+        env:
+          BUILD_DIR: ${{ steps.export.outputs.build_directory }}
+        run: |
+          set -euo pipefail
+          apk="$(find "$BUILD_DIR" -type f -name '*.apk' -print -quit)"
+          if [[ -z "$apk" ]] || [[ ! -s "$apk" ]]; then
+            echo "::error::Godot did not produce a standalone Android APK"
+            exit 1
+          fi
+          unzip -tq "$apk" >/dev/null
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$apk"
+          badging="$("$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$apk")"
+          echo "$badging" | grep -E "^package: name='org\.shejklgaia\.sera'"
+          echo "$badging" | grep -E "^native-code:.*'arm64-v8a'"
+          mkdir -p dist
+          cp "$apk" "dist/SERA-v${{ steps.app.outputs.version }}-debug-arm64.apk"
+          sha256sum "dist/"*.apk
+      - name: Upload installable SERA game APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: SERA-Game-Android-APK
+          path: dist/SERA-v${{ steps.app.outputs.version }}-debug-arm64.apk
+          if-no-files-found: error
+          retention-days: 14

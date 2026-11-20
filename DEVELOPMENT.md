@@ -1,3 +1,10 @@
+## 2026-11-20 — SERA本体のDebug APK配布パイプライン
+- **依頼**：「Apkください」：ゲーム本体をAndroidスマートフォンに直接インストールできるAPKとして提供。既存のSERA Loader APKではありません。
+- **事前検査**：`tools/sera_ci_manifest.txt`、model-policyワークフロー、Loader用ビルドワークフロー、ゲームの`project.godot`、リリースREADMEルールを確認。ゲームプレイの仕様値・バージョン表記は変更しない。
+- **テスト先行**：`tools/sera_android_apk_build_self_check.py`を本体設定前に登録。ARM64・署名・独立パッケージ・Godot4.7.2の一致を検証。
+- **実装**：ルートに`export_presets.cfg`を新設。`.github/workflows/sera-game-android-apk.yml`でSDK/Java、Godot本体と公式テンプレート、Android署名鍵キャッシュ、Debug export、APK署名とパッケージの実検査、Artifact公開を追加。発行物は`SERA-Game-Android-APK`。
+- **使用上の注意**：Godotエディターのuser://と独立APKのuser://は別データ領域。GitSyncでソースを更新してもインストール済APKの内容は更新されない。実機操作・描画は最終確認が必要。
+
 ## 2026-11-20 — SERA v524：Androidの空白カードと2つのタブ同時選択の修正
 - **証拠**：ユーザーのv523実機画像でLABO一覧空白、装備製作と素材変換の2タブが同時に選択色になることを確認。別画面のv522/523 Linux描画検査では本件を見逃した。
 - **原因**：タブは独立toggle_modeでButtonGroup未設定だった。空白カードの確定原因は不明だが、全画面のitem_layerに対する毎フレームの手動座標・サイズ更新はAndroidで表示が安定しない疑いがあり廃止。

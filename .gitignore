@@ -15,3 +15,8 @@ SYNC_PROBE_*.txt
 # Android/Blockbench may leave these 'trashed' duplicates during uploads.
 models/storage/.trashed-*
 # Tracked *.import files are NOT cache clutter: retain UID remaps.
+
+# Android APK build outputs and private signing material.
+build/apk/
+dist/
+*.keystore
