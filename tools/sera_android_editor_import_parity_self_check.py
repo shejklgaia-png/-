@@ -11,7 +11,7 @@ assert render, "Godot rendering section missing"
 assert "renderer/rendering_method=\"gl_compatibility\"" in render
 assert "textures/vram_compression/import_etc2_astc=true" in render, \
     "Android editor needs ETC2/ASTC imports in tracked project.godot"
-assert "if 'textures/vram_compression/import_etc2_astc=true' not in s" not in workflow, \
+assert "s=s.replace('[rendering]'" not in workflow and "p.write_text(s,encoding" not in workflow, \
     "APK workflow must not quietly patch a different project setting"
 assert "textures/vram_compression/import_etc2_astc=true" in workflow, \
     "APK workflow must check that Android import configuration is committed"
