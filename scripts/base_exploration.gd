@@ -394,8 +394,7 @@ func _create_hud() -> void:
     hud.mouse_filter = Control.MOUSE_FILTER_IGNORE
     layer.add_child(hud)
     hud.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-    # CanvasLayer is not a Control: size explicitly from the real viewport.
-    hud.size = get_viewport().get_visible_rect().size
+    # PRESET_FULL_RECT follows viewport size; manual size conflicts with anchors.
     hud_title = _label(hud, "BASE", 25)
     hint = _label(hud, "建物をタップ、または下のメニューから操作", 19)
     nexus_tag = _label(hud, "NEXUS", 20)
