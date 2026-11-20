@@ -9,6 +9,8 @@ boss = (root / "scripts/bittaran_rig.gd").read_text(encoding="utf-8")
 target = (root / "scripts/main.gd").read_text(encoding="utf-8")
 manifest = (root / "tools/sera_ci_manifest.txt").read_text(encoding="utf-8")
 assert "const CREASE_DEGREES: float = 80.0" in script
+assert '_ink_material.set_shader_parameter("stroke_px", 3.0)' in script
+assert "uniform float stroke_px : hint_range(0.5, 4.0) = 3.0;" in shader
 assert "cos(deg_to_rad(CREASE_DEGREES))" in script
 assert "Mesh.PRIMITIVE_TRIANGLES" in script
 assert "var adjacent := Color(" in script, "SurfaceTool.set_custom() needs a Color, not Vector4"
