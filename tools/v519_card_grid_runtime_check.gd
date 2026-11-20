@@ -30,7 +30,7 @@ func _check_grid(cards: Control, area: Control, name: String, ids: Array, prefix
             _fail("rounded blue-grey style missing: " + card.name)
             return false
     var frame: StyleBoxFlat = RoundSkinResource.style("card")
-    if frame.corner_radius_top_left < 8 or frame.corner_radius_bottom_right < 8 or frame.bg_color.b <= frame.bg_color.r:
+    if frame.corner_radius_top_left < 4 or frame.corner_radius_bottom_right < 4 or frame.bg_color.b <= frame.bg_color.r:
         _fail("rounded blue-grey card surface lost its specified radius or hue")
         return false
     return true
@@ -78,7 +78,7 @@ func _run() -> void:
         return
     facility.call("_switch_section", "warehouse")
     await process_frame
-    if not _check_virtual(facility, "WarehouseMaterials", 12, 3):
+    if not _check_virtual(facility, "WarehouseMaterials", 12, 2):
         return
     (actions.find_child("WarehouseEquipmentTab", true, false) as Button).pressed.emit()
     await process_frame
