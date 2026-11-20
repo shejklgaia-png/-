@@ -3582,3 +3582,10 @@
 - 通常防御、亀裂、破片の画面上の寸法・飛散距離を一律30%へ縮小。描画の深度オフセット0.14m・優先度115・SP・当たり判定には変更なし。
 - 14枚の破片は同一の単色にし、初期位置・角度・速度・大きさ・ポリゴン形状を命中時に一度だけランダム化。外側へ減速・透明化する。
 - 先にv510/v516期待値を更新し、新規v525静的/実Godotチェックにて隣接頂点一致・縮小率・減速・単色を検査。v524の拠点UI修正を保持。
+
+## SERA v527 / Android Godot エディターのLABOリスト表示修正（2026-11-20）
+- 実機v526診断：Android Godot 4.7.2、アクティブslot=3、`atlas: MISSING`。装備製作 `created 0/7 / starting craft`、素材変換・倉庫 `created 0/12 / scrap_low icon`。APKでは表示するため、単純なButtonレイアウト崩れではなく最初の画像取得前後でカード作成が中断する事象として調査（GDScriptエラー原文は未取得）。
+- `sera_item_icons.gd`：Androidエディターでimported画像が存在しない状態を想定し、静的preloadを避け、ResourceLoader→ソースWebP直接復号の順に遅延ロード。AtlasTexture領域は既存の19枠を保持。
+- `base_facility_system.gd`：カードを先に生成し、アイコンと動的StyleBoxTextureの適用はdeferredへ。画像がなくても文字・枠・操作を確保。診断欄に `icon source` を追加。保存/素材/装備仕様は不変。
+- 事前確認：`sera_ci_manifest.txt`, `docs/SERA_ACTIVE_CI_POLICY_ja.md`, v511, v522〜v524, v526診断、`.github/workflows/sera-model-policy.yml`。旧期待値の変更なし。新規 `v527_android_icon_resilience_self_check.py` / `v527_android_icon_resilience_runtime_check.gd` を**本体改修前に登録**し、Raw WebP復号とテクスチャ不在での7/12/12枠を回帰検査。
+- 検証：マージ後mainの全登録Python/Godot CIとLinux実描画検査を実施。Android実機のエディター表示は別途確認が必要。

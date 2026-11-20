@@ -507,7 +507,8 @@ func _diag_update() -> void:
         + "atlas: %s | rows %d | viewport: %dx%d\n" % [
             "OK" if atlas_present else "MISSING", row_count,
             int(viewport.x), int(viewport.y)]
-        + "first: " + first_rect)
+        + "first: " + first_rect + "\n"
+        + "icon source: " + IconAtlas.atlas_status())
 
 func _clear_actions() -> void:
     # No ScrollContainer: rebuild the actual grid on each tab transition.
@@ -571,14 +572,14 @@ func open_facility(key: String) -> void:
             var shell_button := Button.new()
             shell_button.name = "OpenPrototypeCatalog"
             shell_button.text = "試作装備を製作"
-            shell_button.icon = IconAtlas.equipment_icon("H01")
+            _queue_card_icon(shell_button, "H01", true)
             shell_button.custom_minimum_size.y = 74.0
             shell_button.pressed.connect(_show_prototype_catalog)
             modal_actions.add_child(shell_button)
             var trial_button := Button.new()
             trial_button.name = "ClaimTrialMaterials"
             trial_button.text = "試作素材を受け取る"
-            trial_button.icon = IconAtlas.material_icon("scrap_mid")
+            _queue_card_icon(trial_button, "scrap_mid")
             trial_button.custom_minimum_size.y = 66.0
             trial_button.disabled = SeraSave.active_slot <= 0 or (
                 bool(SeraSave.get_active_data().get("trial_materials_claimed", false)))
@@ -591,7 +592,7 @@ func open_facility(key: String) -> void:
             var stock_button := Button.new()
             stock_button.name = "OpenMaterialInventory"
             stock_button.text = "素材一覧を表示"
-            stock_button.icon = IconAtlas.material_icon("scrap_low")
+            _queue_card_icon(stock_button, "scrap_low")
             stock_button.custom_minimum_size.y = 66.0
             stock_button.pressed.connect(open_facility.bind("STORAGE"))
             modal_actions.add_child(stock_button)
@@ -635,6 +636,43 @@ func _create_trial_profile() -> void:
             return
     prototype_notice = "セーブスロットが満杯です。NEXUSから既存データを読み込んでください。"
     _show_prototype_catalog()
+
+
+func _apply_card_skin(card: Button) -> void:
+    if not is_instance_valid(card) or card.is_queued_for_deletion() or (
+            not card.is_inside_tree()):
+        return
+    _diag_step("skin " + card.name + " normal")
+    card.add_theme_stylebox_override("normal", ChamferSkin.style(
+        Color("#203747"), Color("#59c6da")))
+    card.add_theme_stylebox_override("hover", ChamferSkin.style(
+        Color("#2b586a"), Color("#91f0ff")))
+    card.add_theme_stylebox_override("pressed", ChamferSkin.style(
+        Color("#145e74"), Color("#b8f6ff")))
+    card.add_theme_stylebox_override("disabled", ChamferSkin.style(
+        Color("#203747"), Color("#59c6da")))
+    _diag_step("skin " + card.name + " ready")
+
+
+func _queue_card_icon(card: Button, item_id: String, equipment: bool = false) -> void:
+    # Cards and their hit areas exist before any import-dependent icon load.
+    # A failed editor texture import cannot abort the entire 7/12-card loop.
+    call_deferred("_apply_card_icon", card, item_id, equipment)
+
+
+func _apply_card_icon(card: Button, item_id: String, equipment: bool = false) -> void:
+    if not is_instance_valid(card) or card.is_queued_for_deletion() or (
+            not card.is_inside_tree()):
+        return
+    _diag_step("icon " + item_id + " loading")
+    var texture: Texture2D = (IconAtlas.equipment_icon(item_id)
+        if equipment else IconAtlas.material_icon(item_id))
+    if texture != null:
+        card.icon = texture
+        diag_icon_count += 1
+        _diag_step("icon " + item_id + " ready")
+    else:
+        _diag_step("icon " + item_id + " unavailable (card retained)")
 
 
 func _new_grid(grid_name: String, columns: int = 3) -> VBoxContainer:
@@ -706,15 +744,9 @@ func _new_slot(parent: Control, key: String, icon: Texture2D,
     row.move_child(card, col)
     parent.set_meta("card_count", index + 1)
     diag_created += 1
-    _diag_step("skin " + key + " normal")
-    card.add_theme_stylebox_override("normal", ChamferSkin.style(
-        Color("#203747"), Color("#59c6da")))
-    card.add_theme_stylebox_override("hover", ChamferSkin.style(
-        Color("#2b586a"), Color("#91f0ff")))
-    card.add_theme_stylebox_override("pressed", ChamferSkin.style(
-        Color("#145e74"), Color("#b8f6ff")))
-    card.add_theme_stylebox_override("disabled", ChamferSkin.style(
-        Color("#203747"), Color("#59c6da")))
+    # Deferring procedural ImageTexture/StyleBox creation also guarantees
+    # that a renderer failure cannot interrupt the remaining item list.
+    call_deferred("_apply_card_skin", card)
     card.disabled = not action.is_valid()
     if action.is_valid():
         card.pressed.connect(action)
@@ -779,11 +811,11 @@ func _show_inventory(section: String = "materials") -> void:
             for tier in BaseMaterials.TIERS:
                 var id: String = str(family) + "_" + str(tier)
                 _diag_step("warehouse " + id + " icon")
-                var icon: Texture2D = IconAtlas.material_icon(id)
                 _diag_step("warehouse " + id + " slot")
-                _new_slot(grid, "MaterialIcon_" + id,
-                    icon, BaseMaterials.display_name(id),
-                    "所持 %d" % int(inventory[id]))
+                var card: Button = _new_slot(grid, "MaterialIcon_" + id,
+                    null, BaseMaterials.display_name(id),
+                    "所持 %d" % int(inventory[id])) as Button
+                _queue_card_icon(card, id)
     else:
         _show_warehouse_equipment()
 
@@ -800,11 +832,11 @@ func _show_warehouse_equipment() -> void:
                 owned.append(item)
         var qty: String = "未所持 0" if owned.is_empty() else "所持 %d" % owned.size()
         _diag_step("warehouse gear " + id + " icon")
-        var icon: Texture2D = IconAtlas.equipment_icon(id)
         _diag_step("warehouse gear " + id + " slot")
         var card: Control = _new_slot(grid, "WarehouseBlueprint_" + id,
-            icon, str(spec["name"]), qty,
+            null, str(spec["name"]), qty,
             _show_owned_items.bind(id, 0), "ShowOwned_" + id)
+        _queue_card_icon(card as Button, id, true)
         if not owned.is_empty():
             card.text += "\n" + str(owned[owned.size() - 1]["uid"])
 
@@ -827,10 +859,16 @@ func _show_owned_items(blueprint: String, item_page: int = 0) -> void:
     for i in range(start, mini(start + 9, found.size())):
         var uid: String = str(found[i]["uid"])
         _new_slot(grid, "WarehouseItem_" + uid,
-            IconAtlas.equipment_icon(blueprint), str(spec["name"]), uid)
+            null, str(spec["name"]), uid)
+        _queue_card_icon(
+            grid.find_child("WarehouseItem_" + uid, true, false) as Button,
+            blueprint, true)
     if found.is_empty():
         _new_slot(grid, "WarehouseItemEmpty",
-            IconAtlas.equipment_icon(blueprint), str(spec["name"]), "未所持 0")
+            null, str(spec["name"]), "未所持 0")
+        _queue_card_icon(
+            grid.find_child("WarehouseItemEmpty", true, false) as Button,
+            blueprint, true)
     if start > 0:
         var previous := Button.new()
         previous.text = "前の9件"
@@ -874,7 +912,7 @@ func _show_prototype_catalog() -> void:
         var trial := Button.new()
         trial.name = "ClaimTrialMaterialsCatalog"
         trial.text = "試作用素材を受け取る"
-        trial.icon = IconAtlas.material_icon("scrap_mid")
+        _queue_card_icon(trial, "scrap_mid")
         trial.custom_minimum_size.y = 62.0
         trial.pressed.connect(_claim_trial_materials.bind(true))
         modal_actions.add_child(trial)
@@ -888,12 +926,12 @@ func _show_prototype_catalog() -> void:
             if str(item["blueprint"]) == id:
                 owned_count += 1
         _diag_step("craft " + id + " icon")
-        var icon: Texture2D = IconAtlas.equipment_icon(id)
         _diag_step("craft " + id + " slot")
-        _new_slot(grid, "PrototypeIcon_" + id,
-            icon, str(entry["name"]),
+        var card: Button = _new_slot(grid, "PrototypeIcon_" + id,
+            null, str(entry["name"]),
             "未作成 0" if owned_count == 0 else "所持 %d" % owned_count,
-            _select_prototype.bind(id), "Choose_" + id)
+            _select_prototype.bind(id), "Choose_" + id) as Button
+        _queue_card_icon(card, id, true)
 
 func _select_prototype(blueprint: String) -> void:
     if not PrototypeCatalog.valid(blueprint):
@@ -959,12 +997,12 @@ func _render_family_page() -> void:
             var id: String = str(family) + "_" + str(tier)
             var button_name: String = "Open_" + str(family) if str(tier) == "low" else "Open_" + id
             _diag_step("materials " + id + " icon")
-            var icon: Texture2D = IconAtlas.material_icon(id)
             _diag_step("materials " + id + " slot")
             var card: Control = _new_slot(grid, "MaterialIcon_" + id,
-                icon, BaseMaterials.display_name(id),
+                null, BaseMaterials.display_name(id),
                 "所持 %d" % int(inventory[id]),
                 _select_conversion_family.bind(str(family)), button_name)
+            _queue_card_icon(card as Button, id)
             if str(tier) == "low":
                 card.tooltip_text = str(BaseMaterials.FAMILY_NAMES[family])
 
