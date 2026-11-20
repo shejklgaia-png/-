@@ -35,6 +35,12 @@ func _run() -> void:
         return
     if not _need_font(title, 26, "section title"):
         return
+    var preview: PanelContainer = (fac.get("item_layer") as Control).find_child(
+        "PrototypeBasePreview", true, false) as PanelContainer
+    if preview == null or preview.custom_minimum_size.y < 130.0 or (
+            preview.find_child("PrototypeBaseArt", true, false) == null):
+        _fail("reference-style equipment preview missing")
+        return
     for name in ["TabCraft", "TabMaterials", "TabWarehouse"]:
         if not _need_font(tabs.get_node(name) as Button, 19, name):
             return
