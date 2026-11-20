@@ -22,6 +22,22 @@ func _run() -> void:
         _fail("LABO must land on the already-selected equipment crafting tab")
         return
     var actions: VBoxContainer = fac.get("modal_actions") as VBoxContainer
+    var craft_tabs: HBoxContainer = actions.find_child(
+        "CraftSlotTabs", true, false) as HBoxContainer
+    if craft_tabs == null or craft_tabs.get_child_count() != 7 or (
+            actions.find_child("CraftSlotScroll", true, false) != null) or (
+            craft_tabs.size.x > actions.size.x + 1.0):
+        _fail("all seven equipment craft tabs must fit one row, no scroll")
+        return
+    for slot in ["head", "torso", "legs", "arms", "booster", "weapon_r", "weapon_l"]:
+        var tab: Button = craft_tabs.get_node_or_null("CraftSlot_" + slot) as Button
+        if tab == null or not tab.is_visible_in_tree() or (
+                tab.size_flags_horizontal != Control.SIZE_EXPAND_FILL):
+            _fail("missing/responsive craft tab: " + slot)
+            return
+        if tab.get_global_rect().end.x > craft_tabs.get_global_rect().end.x + 1.0:
+            _fail("craft tab exceeds row boundary: " + slot)
+            return
     var unwanted: Array[String] = [
         "OpenPrototypeCatalog", "ClaimTrialMaterials", "ClaimTrialMaterialsCatalog"]
     for name in unwanted:
