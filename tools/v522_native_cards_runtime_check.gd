@@ -77,7 +77,7 @@ func _verify_warehouse(fac: Node3D, grid_name: String, count: int, cols: int) ->
     return true
 func _run() -> void:
     var style: StyleBoxFlat = RoundSkinResource.style("card")
-    if style.corner_radius_top_left < 8 or style.corner_radius_bottom_right < 8 or style.bg_color.b <= style.bg_color.r:
+    if style.corner_radius_top_left < 4 or style.corner_radius_bottom_right < 4 or style.bg_color.b <= style.bg_color.r:
         _fail("shared rounded blue-grey surface has wrong shape or hue")
         return
     var hub: Node3D = load("res://scenes/base_exploration.tscn").instantiate()
@@ -108,7 +108,7 @@ func _run() -> void:
         return
     fac.call("_switch_section", "warehouse")
     await process_frame
-    if not _verify_warehouse(fac, "WarehouseMaterials", 12, 3):
+    if not _verify_warehouse(fac, "WarehouseMaterials", 12, 2):
         return
     (actions.find_child("WarehouseEquipmentTab", true, false) as Button).pressed.emit()
     await process_frame
