@@ -1,0 +1,46 @@
+name: SERA v546 pin open fonts into project
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/sera-vendor-font-assets.yml'
+      - 'tools/vendor_sera_fonts.py'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: sera-vendor-font-assets
+  cancel-in-progress: false
+jobs:
+  vendor:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+      - name: Install pinned font compressor
+        run: python3 -m pip install --disable-pip-version-check --user 'fonttools[woff]==4.60.1' 'brotli==1.1.0'
+      - name: Download licensed Google Fonts with verified SHA and convert to WOFF2
+        run: python3 tools/vendor_sera_fonts.py
+      - name: Assert font binaries and license notices are present
+        run: |
+          test -s assets/fonts/NotoSansJP-VF.woff2
+          test -s assets/fonts/Rajdhani-Bold.woff2
+          test -s assets/fonts/IBMPlexMono-Medium.woff2
+          test -s assets/fonts/OFL-NotoSansJP.txt
+          test -s assets/fonts/OFL-Rajdhani.txt
+          test -s assets/fonts/OFL-IBMPlexMono.txt
+          du -h assets/fonts/*.woff2
+      - name: Commit bundled font assets
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add assets/fonts/
+          if git diff --cached --quiet; then
+            echo "Fonts already pinned and up to date"
+          else
+            git commit -m "SERA v546: vendor SIL OFL fonts for consistent Android typography"
+            git push origin HEAD:main
+          fi
