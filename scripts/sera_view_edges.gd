@@ -95,6 +95,7 @@ static func _position_key(p: Vector3) -> String:
 
 static func _extract_edges(mesh: Mesh) -> Array:
     var by_key: Dictionary = {}
+    var triangle_seen: Dictionary = {}
     for surface in range(mesh.get_surface_count()):
         # PrimitiveMesh (BoxMesh, SphereMesh, etc.) already uses triangles
         # but does not implement ArrayMesh.surface_get_primitive_type().
@@ -123,6 +124,12 @@ static func _extract_edges(mesh: Mesh) -> Array:
             if normal.length_squared() < 0.000000001:
                 continue
             normal = normal.normalized()
+            var triangle_points := PackedStringArray([
+                _position_key(a), _position_key(b), _position_key(c)])
+            triangle_points.sort()
+            var triangle_id: String = "|".join(triangle_points)
+            var duplicate_triangle: bool = triangle_seen.has(triangle_id)
+            triangle_seen[triangle_id] = true
             for endpoints in [[a, b], [b, c], [c, a]]:
                 var start: Vector3 = endpoints[0]
                 var finish: Vector3 = endpoints[1]
@@ -132,9 +139,13 @@ static func _extract_edges(mesh: Mesh) -> Array:
                     continue
                 var key: String = ka + "|" + kb if ka < kb else kb + "|" + ka
                 if not by_key.has(key):
-                    by_key[key] = {"a": start, "b": finish, "face_a": normal}
+                    by_key[key] = {"a": start, "b": finish, "face_a": normal,
+                        "count": 1, "duplicate_triangle": duplicate_triangle}
                 else:
                     var edge: Dictionary = by_key[key]
+                    edge["count"] = int(edge.get("count", 1)) + 1
+                    if duplicate_triangle:
+                        edge["duplicate_triangle"] = true
                     if not edge.has("face_b"):
                         edge["face_b"] = normal
                     elif edge["face_a"].dot(normal) < edge["face_a"].dot(edge["face_b"]):
@@ -148,7 +159,13 @@ static func _extract_edges(mesh: Mesh) -> Array:
             var cosine: float = clampf(edge["face_a"].dot(edge["face_b"]), -1.0, 1.0)
             # Internal triangulation seams and near-coplanar faces are never inked.
             if cosine >= 0.99999:
-                continue
+                # An exactly duplicated triangle has the same three edges
+                # twice. Its perimeter remains a silhouette, unlike a
+                # coplanar triangulation seam between distinct triangles.
+                # Three or more coincident edge uses remain an internal seam.
+                if (not bool(edge.get("duplicate_triangle", false)) or
+                        int(edge.get("count", 0)) != 2):
+                    continue
             edge["crease"] = cosine <= crease_cosine + 0.000001
         else:
             edge["crease"] = false
