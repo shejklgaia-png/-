@@ -52,6 +52,24 @@ func _tap_card(card: Button) -> void:
     up.position=point
     root.push_input(up, true)
     await process_frame
+func _verify_warehouse(fac: Node3D, grid_name: String, count: int, cols: int) -> bool:
+    var list: ScrollContainer = (fac.get("item_layer") as Control).find_child(grid_name, true, false) as ScrollContainer
+    if list == null or not list.is_visible_in_tree() or (
+            int(list.get("columns")) != cols or (list.get("entries") as Array).size() != count):
+        _fail("virtual warehouse has wrong structure: " + grid_name)
+        return false
+    var pool: Array = list.get("pool")
+    if pool.is_empty() or pool.size() > 32 or (
+            (pool[0] as Button).get_theme_stylebox("normal") is not StyleBoxTexture):
+        _fail("virtual warehouse must reuse visible native chamfer buttons")
+        return false
+    if count > 0 and ((pool[0] as Button).get_node("ItemArt") as TextureRect).texture == null:
+        _fail("first warehouse image not ready")
+        return false
+    if count == 0 and int(list.get("virtual_slots")) != 2:
+        _fail("empty hanger has no two blank boxes")
+        return false
+    return true
 func _run() -> void:
     var style: StyleBoxFlat = RoundSkinResource.style("card")
     if style.corner_radius_top_left < 8 or style.corner_radius_bottom_right < 8 or style.bg_color.b <= style.bg_color.r:
@@ -83,16 +101,32 @@ func _run() -> void:
         return
     fac.call("_switch_section", "warehouse")
     await process_frame
-    if not _verify_grid((fac.get("item_layer") as Control), "WarehouseMaterials", Materials.all_ids(), "MaterialIcon_", false):
+    if not _verify_warehouse(fac, "WarehouseMaterials", 12, 3):
         return
     (actions.find_child("WarehouseEquipmentTab", true, false) as Button).pressed.emit()
     await process_frame
-    if not _verify_grid((fac.get("item_layer") as Control), "WarehouseEquipment", Catalog.ORDER, "WarehouseBlueprint_", true):
+    if not _verify_warehouse(fac, "WarehouseEquipment", 0, 2):
         return
-    card = (fac.get("item_layer") as Control).find_child("WarehouseBlueprint_H01", true, false) as Button
+    var save: Node = root.get_node("SeraSave")
+    var original_slot: int = int(save.get("active_slot"))
+    var original_data: Dictionary = save.get("active_data").duplicate(true)
+    save.set("active_slot", 1)
+    save.set("active_data", {"crafted_items": [
+        {"uid": "H01-0001", "blueprint": "H01", "slot": "head"}],
+        "craft_serials": {"H01": 1}, "materials": {}})
+    fac.call("_show_inventory", "equipment")
+    await process_frame
+    if not _verify_warehouse(fac, "WarehouseEquipment", 1, 2):
+        return
+    card = (fac.get("item_layer") as Control).find_child("WarehouseItem_H01-0001", true, false) as Button
+    if card == null or card.disabled or card.get_node("ItemArt") == null:
+        _fail("crafted instance not present in warehouse")
+        return
     await _tap_card(card)
-    if str(fac.get("page")) != "warehouse_owned":
-        _fail("native warehouse card did not open instance list")
+    if str(fac.get("page")) != "warehouse_item":
+        _fail("warehouse item touch did not open UID-specific details")
         return
+    save.set("active_slot", original_slot)
+    save.set("active_data", original_data)
     print("SERA_V522_NATIVE_CARDS_RUNTIME_PASS: native icons/text, rounded blue-grey skins, four sections and real touches")
     quit(0)
