@@ -21,10 +21,11 @@ for token in ('static func roles() -> Array[Dictionary]:',
               'OS.get_system_font_path(', 'OS.get_system_font_path_for_text(',
               'TextServerManager.get_primary_interface()',
               'font.get_rids()', 'server.font_get_name(rid)', 'font.has_char(',
-              'SERA FONT DIAG v546'):
+              'SERA FONT DIAG v547'):
     assert token in diag, token
 assert "SeraFontDiag.report()" not in ui.split("func _process(delta: float) -> void:")[-1]
 assert 'embedded:' in diag and 'JAPANESE FONT: PASS' in diag
+assert 'available: RAW=' in diag and 'load route: ' in diag
 assert '_embedded_face(font: Font) -> FontFile' in diag
 assert 'py tools/v545_labo_font_diagnostic_self_check.py' in ci
 assert 'gd tools/v545_labo_font_diagnostic_runtime_check.gd' in ci

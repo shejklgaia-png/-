@@ -75,7 +75,7 @@ static func _path_result(name: String, weight: int) -> String:
 
 static func report() -> String:
     var lines: PackedStringArray = []
-    lines.append("SERA FONT DIAG v546 / EMBEDDED FONT CHECK")
+    lines.append("SERA FONT DIAG v547 / LOAD ROUTE CHECK")
     lines.append("Godot: " + str(Engine.get_version_info().get("string", "?")))
     lines.append("Platform: " + OS.get_name())
     lines.append("Locale: " + OS.get_locale())
@@ -91,7 +91,7 @@ static func report() -> String:
             break
     lines.append("Named families: " +
         (", ".join(matched) if not matched.is_empty() else "(none listed)"))
-    lines.append("Font mode: bundled WOFF2, independent of Android names")
+    lines.append("Font mode: bundled WOFF2 / RAW_BYTES > IMPORTED_RESOURCE")
     lines.append("Note: has_char does NOT prove visible pixels.")
     lines.append("---")
     for entry: Dictionary in roles():
@@ -100,10 +100,14 @@ static func report() -> String:
         var base: SystemFont = _base_system(font)
         var embedded: FontFile = _embedded_face(font)
         lines.append(name + " | " + font.get_class())
+        var asset: String = _asset_path(name)
+        var direct_path: String = ("YES" if FileAccess.file_exists(asset) else "NO")
+        var import_path: String = ("YES" if ResourceLoader.exists(asset) else "NO")
+        lines.append("  embedded: " + asset.get_file() +
+            " / " + ("OK" if embedded != null else "FAILED"))
+        lines.append("  available: RAW=" + direct_path + " / IMPORTED=" + import_path)
+        lines.append("  load route: " + LaboSkin.font_load_status(asset))
         if embedded != null:
-            var asset: String = _asset_path(name)
-            var status: String = "OK" if ResourceLoader.exists(asset) else "MISSING"
-            lines.append("  embedded: " + asset.get_file() + " / " + status)
             lines.append("  file glyphs A/JPN/kanji/kana: " +
                 _check_char(embedded, 0x41) + "/" +
                 _check_char(embedded, 0x65E5) + "/" +
@@ -112,6 +116,10 @@ static func report() -> String:
             if name.begins_with("JP ") and embedded.has_char(0x65E5):
                 lines.append("  JAPANESE FONT: PASS")
             elif name.begins_with("JP "):
+                lines.append("  JAPANESE FONT: FAIL")
+        if embedded == null:
+            lines.append("  FONT BASE: MISSING (default Open Sans may be used)")
+            if name.begins_with("JP "):
                 lines.append("  JAPANESE FONT: FAIL")
         if base != null:
             var requested: String = _requested_font_name(base)

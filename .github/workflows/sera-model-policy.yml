@@ -65,6 +65,11 @@ jobs:
           # Recover the last compatible cache even after a game version bump.
           restore-keys: |
             sera-godot472-${{ runner.os }}-
+      # Verify font reading directly from project sources BEFORE Godot import.
+      - name: Verify bundled fonts load with no Godot import cache
+        run: |
+          "$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" \
+            --headless --path . --script tools/v547_font_raw_loader_runtime_check.gd
       - name: Import SERA resources in real Godot 4.7.2
         run: '"$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" --headless --editor --path . --import --quit'
       # Headless tests verify nodes and coordinates, but cannot prove Android

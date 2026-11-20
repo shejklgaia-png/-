@@ -23,22 +23,87 @@ static var _tracked_display: FontVariation
 static var _tracked_data: FontVariation
 
 
+## Record exactly which font load path succeeded on the running device.
+## A Godot Android editor often has raw res:// files before its .godot import
+## cache is regenerated; an exported PCK can instead use imported resources.
+static var _font_load_status: Dictionary = {}
+
+
+static func font_load_status(path: String) -> String:
+    return str(_font_load_status.get(path, "NOT_ATTEMPTED"))
+
+
+static func _font_from_raw(path: String, required_glyph: int) -> FontFile:
+    if not FileAccess.file_exists(path):
+        return null
+    var bytes: PackedByteArray = FileAccess.get_file_as_bytes(path)
+    # TrueType/OTF and WOFF2 are both allowed by FontFile.data.
+    if bytes.size() < 100:
+        return null
+    var signature: String = bytes.slice(0, 4).get_string_from_ascii()
+    if signature != "wOF2" and signature != "OTTO":
+        # TrueType starts with the binary 00 01 00 00 signature.
+        if not (bytes[0] == 0 and bytes[1] == 1 and
+                bytes[2] == 0 and bytes[3] == 0):
+            return null
+    var face := FontFile.new()
+    face.data = bytes
+    face.allow_system_fallback = false
+    if not face.has_char(required_glyph):
+        return null
+    return face
+
+
+static func _load_bundled_font(path: String, required_glyph: int) -> FontFile:
+    var raw_exists: bool = FileAccess.file_exists(path)
+    var imported_exists: bool = ResourceLoader.exists(path)
+    var font: FontFile = null
+    var method: String = "FAILED"
+    # Prefer raw bytes: works in Android project editors even if .import is
+    # stale or missing. Assets are loaded once, not every frame/card.
+    if raw_exists:
+        font = _font_from_raw(path, required_glyph)
+        if font != null:
+            method = "RAW_BYTES"
+    # Exported APKs may only contain the engine's converted font resource.
+    if font == null and imported_exists:
+        var imported: Resource = ResourceLoader.load(path)
+        if imported is FontFile:
+            var candidate: FontFile = imported as FontFile
+            candidate.allow_system_fallback = false
+            if candidate.has_char(required_glyph):
+                font = candidate
+                method = "IMPORTED_RESOURCE"
+    var details: String = ("%s / raw=%s / imported=%s / glyph=%s" % [
+        method,
+        "YES" if raw_exists else "NO",
+        "YES" if imported_exists else "NO",
+        "YES" if font != null and font.has_char(required_glyph) else "NO"
+    ])
+    _font_load_status[path] = details
+    if font == null:
+        push_error("SERA_FONT_LOAD_FAILED: " + path + " / " + details)
+    else:
+        print("SERA_FONT_LOAD_OK: " + path + " / " + details)
+    return font
+
+
 static func _jp_face() -> FontFile:
     if _jp_source == null:
-        _jp_source = load(JP_FONT_PATH) as FontFile
+        _jp_source = _load_bundled_font(JP_FONT_PATH, 0x65E5)
     return _jp_source
 
 
 static func display_font() -> FontFile:
     if _display_font == null:
-        _nav_source = load(NAV_FONT_PATH) as FontFile
+        _nav_source = _load_bundled_font(NAV_FONT_PATH, 0x41)
         _display_font = _nav_source
     return _display_font
 
 
 static func data_font() -> FontFile:
     if _data_font == null:
-        _data_source = load(DATA_FONT_PATH) as FontFile
+        _data_source = _load_bundled_font(DATA_FONT_PATH, 0x41)
         _data_font = _data_source
     return _data_font
 

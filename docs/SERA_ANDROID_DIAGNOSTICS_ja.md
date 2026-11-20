@@ -35,3 +35,11 @@
 - 期待値：Font modeが bundled WOFF2、JP BODY/TITLE/CONTROL/STATS の embedded が NotoSansJP-VF.woff2 / OK、JAPANESE FONT: PASS、glyph A/JPN/kanji/kana が Y/Y/Y/Y です。
 - TextServer primary RIDにはNoto Sans JP系の書体名が出る想定です。LATIN NAVはRajdhani、MONO IDはIBM Plex Monoを表示します。
 - 4つのJP行がRobotoのままなら旧バージョンが実行されているか、Androidへのエクスポートにフォントデータが含まれていません。Godotのエクスポート設定や .godot/imported のリソース読込を確認します。
+
+## v547：Android実機でOpen Sansへ戻る問題の対策
+- v546実機診断で全6書体のTextServer RIDがOpen Sans SemiBold、embedded項目がなく、日本語glyphがY/N/N/Nと判明。FontFileへの読み込みに失敗していた状態を確認。
+- v547から、元WOFF2をFileAccessで直接読み、FontFile.dataへ設定するRAW_BYTES経路を優先。日本語（U+65E5）または英字（U+0041）の存在を検証し、失敗時は従来のResourceLoaderでIMPORTED_RESOURCE経路を試します。
+- Godot Androidエディタ内でGit同期後、.godot/importedが未完成でもrawのres://assets/fonts/を読めれば描画できます。APKへのraw同梱をexport_presets.cfgで明示しました。
+- FONT診断には全6役割のembedded OK/FAILED、available RAW/IMPORTED、load route、Glyph、TextServer RIDを表示。期待値はJP系 RAW_BYTES、glyph Y/Y/Y/Y、TextServerがNoto Sans JPです。
+- 3書体FontFileを共有キャッシュし、日本語4ウェイトのFontVariationで共有します。倉庫999仮想枠（最大32枚）と装備製作20枠は維持。
+- CIはGodotの--import実行前にraw文字・RIDを検査し、通常の自動回帰検査でも確認。
