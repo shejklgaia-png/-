@@ -3717,3 +3717,11 @@
 - UIを共通の低解像度3D SubViewport（初回のみ生成、共有、閉じると停止）＋下段の既存NativeButton UIとし、上部の高さを表示領域の30%に固定。LABO/精製装置/分解装置/倉庫の全画面で同じ研究室を維持。
 - `scripts/sera_labo_round_skin.gd` の StyleBoxFlat 共通Themeを全Button/カードに適用。四隅欠けは角丸へ変更。Androidで表示実績のあるVBox/HBox/native ButtonとWebPソース画像復号を変更しない。
 - mainにマージ後、全CI・画面ピクセル検証を実施。実機描画の品質/操作感/負荷はAndroidで別途確認。
+
+## 2026-11-20 — LABO縦スクロールの指ドラッグ修正
+- **対象**：装備製作、素材変換、倉庫（素材・装備）の縦スクロール。Androidでスクロール領域内のカードから指をドラッグしても移動しない問題。
+- **事前CI確認**：`tools/sera_ci_manifest.txt`、`docs/SERA_ACTIVE_CI_POLICY_ja.md`、`.github/workflows/sera-model-policy.yml`、v519/v521/v529/v531〜v535および旧LABO検査。全体CIは現行ルールどおりmainマージ後。
+- **テスト**：v537のPython静的検査・Godot実行検査を先行作成しmanifestへ登録。旧テストの`ScrollContainer.new()`固定文字列だけを、新しい派生スクロールの生成条件へ修正。操作仕様や素材列数の期待値は変更しない。
+- **実装**：新しい`sera_labo_touch_scroll.gd`で、`emulate_mouse_from_touch=false`のままスクロール領域内のScreenTouch/ScreenDragを受け、10pxを超える縦ジェスチャーからスクロールする。Buttonタップとドラッグを分離し、ドラッグ解放で製作・倉庫操作が誤発火しないようにした。確認ダイアログ表示中は背後のスクロールを停止。製作カタログの下段プレビューをスクロール内容へ移動。
+- **不変条件**：タブ・戻る・確認操作、倉庫999個の可視セルプール、素材/装備レイアウト、戦闘のタッチ設定・モデル・保存データは維持。
+- **残る確認**：Godot実行/全CIの結果とAndroid実機でのドラッグ追従・タップ誤発火の目視確認を別々に報告。
