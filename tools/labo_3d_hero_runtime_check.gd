@@ -78,9 +78,9 @@ func _run() -> void:
     fac.call("_switch_section", "craft")
     await process_frame
     var craft_tab: Button = (fac.get("section_tabs") as HBoxContainer).get_node("TabCraft") as Button
-    var normal_style: StyleBoxFlat = craft_tab.get_theme_stylebox("normal") as StyleBoxFlat
-    if normal_style == null or normal_style.corner_radius_top_left < 4:
-        _fail("all LABO navigation buttons need rounded blue-grey native styles")
+    var normal_style: StyleBoxTexture = craft_tab.get_theme_stylebox("normal") as StyleBoxTexture
+    if normal_style == null or normal_style.texture == null:
+        _fail("LABO navigation needs visible alpha-backed hanging tab frames")
         return
     var card: Button = (fac.get("item_layer") as Control).find_child(
         "PrototypeIcon_H01", true, false) as Button
