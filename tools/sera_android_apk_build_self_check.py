@@ -6,7 +6,7 @@ ROOT = Path(__file__).resolve().parents[1]
 project = (ROOT / "project.godot").read_text(encoding="utf-8")
 preset = (ROOT / "export_presets.cfg").read_text(encoding="utf-8")
 workflow = (ROOT / ".github/workflows/sera-game-android-apk.yml").read_text(encoding="utf-8")
-assert re.search(r'^config/name="SERA v\d+", project, re.M)
+assert re.search(r'^config/name="SERA v\d+"$', project, re.M)
 for text in ['name="Android"', 'platform="Android"', 'runnable=true',
              'gradle_build/use_gradle_build=false',
              'architectures/arm64-v8a=true',
