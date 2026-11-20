@@ -15,7 +15,7 @@ assert 'func claim_trial_materials(' in save
 assert 'trial_materials_claimed' in save
 assert 'func _claim_trial_materials(' in facility
 assert 'IconAtlas.material_icon(' in facility and 'IconAtlas.equipment_icon(' in facility
-assert '試作装備を製作' in facility
+assert '試作装備の製作' in facility
 assert 'func _create_hud(' in hub
 assert 'label.text = PrototypeCatalog.display_instance(' in nexus
 assert '  ›' not in facility and '  ▸' not in facility
