@@ -1073,7 +1073,16 @@ func _show_inventory(section: String = "materials") -> void:
         modal_actions.add_child(selector)
         grid.name = "WarehouseEquipment"
         grid.entry_pressed.connect(_on_warehouse_entry_pressed)
+        var junk_button := Button.new()
+        junk_button.name = "BulkDeleteJunk"
+        var junk_count: int = SeraSave.count_junk_prototypes(warehouse_slot)
+        junk_button.text = "不用品を一括削除 (%d)" % junk_count
+        junk_button.custom_minimum_size.y = 53
+        junk_button.disabled = junk_count == 0
+        junk_button.pressed.connect(_confirm_bulk_junk_deletion)
+        modal_actions.add_child(junk_button)
         _show_warehouse_equipment(grid)
+    _configure_page_scroll(93 if section == "materials" else 176)
     _sync_section_tabs()
 
 func _warehouse_slot_name(slot: String) -> String:
@@ -1107,9 +1116,13 @@ func _show_warehouse_equipment(grid: Control = null) -> void:
             continue
         entries.append({"uid": str(item.get("uid", "")),
             "blueprint": blueprint, "name": str(spec["name"]),
-            "affixes": item.get("affixes", [])})
+            "affixes": item.get("affixes", []),
+            "favorite": bool(item.get("favorite", false)),
+            "junk": bool(item.get("junk", false))})
     modal_body.text = "%s ハンガー  %d / 999" % [
         _warehouse_slot_name(warehouse_slot), owned.size()]
+    if not warehouse_notice.is_empty():
+        modal_body.text += "\n" + warehouse_notice
     grid.call("configure", entries, 2, "equipment")
 
 func _on_warehouse_entry_pressed(item: Dictionary) -> void:
@@ -1131,10 +1144,46 @@ func _show_warehouse_item_detail(uid: String) -> void:
         modal_title.text = str(spec["name"])
         modal_body.text = "%s\n%s\n%s" % [
             uid, _warehouse_slot_name(warehouse_slot),
-            Affixes.describe(item.get("affixes", []))]
+            LaboStats.total_formula(blueprint, item.get("affixes", []))]
         _add_item_tile(IconAtlas.equipment_icon(blueprint),
             str(spec["name"]) + "  " + uid, "WarehouseDetail_" + uid)
+        var favorite := Button.new()
+        favorite.name = "WarehouseFavoriteToggle"
+        favorite.text = "★ お気に入り解除" if bool(item.get("favorite", false)) else "☆ お気に入りにする"
+        favorite.custom_minimum_size.y = 54
+        favorite.pressed.connect(_mark_warehouse_item.bind(uid, "favorite",
+            not bool(item.get("favorite", false))))
+        modal_actions.add_child(favorite)
+        var junk := Button.new()
+        junk.name = "WarehouseJunkToggle"
+        junk.text = "不用品指定を解除" if bool(item.get("junk", false)) else "不用品に指定"
+        junk.custom_minimum_size.y = 54
+        junk.pressed.connect(_mark_warehouse_item.bind(uid, "junk",
+            not bool(item.get("junk", false))))
+        modal_actions.add_child(junk)
+        _configure_page_scroll(0, true)
         return
+
+func _mark_warehouse_item(uid: String, mark: String, enabled: bool) -> void:
+    warehouse_notice = (
+        "分類を保存しました。" if SeraSave.set_prototype_mark(uid, mark, enabled)
+        else "分類を保存できませんでした。")
+    _show_warehouse_item_detail(uid)
+
+func _confirm_bulk_junk_deletion() -> void:
+    var count: int = SeraSave.count_junk_prototypes(warehouse_slot)
+    if count <= 0:
+        return
+    _request_confirmation("削除しますか？",
+        "%sの不用品 %d 件を削除します。\nお気に入りと装備中の個体は削除しません。\nこの操作は取り消せません。" % [
+            _warehouse_slot_name(warehouse_slot), count],
+        _delete_warehouse_junk)
+
+func _delete_warehouse_junk() -> void:
+    var count: int = SeraSave.delete_junk_prototypes(warehouse_slot)
+    warehouse_notice = ("%d 件を削除しました。" % count if count > 0
+        else "削除対象なし、または保存に失敗しました。")
+    _show_inventory("equipment")
 
 func _show_prototype_catalog() -> void:
     page = "prototypes"
