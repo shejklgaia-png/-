@@ -44,6 +44,8 @@ var facility_tags: Dictionary = {}
 var modal: Control
 var modal_panel: PanelContainer
 var terminal_code: Label
+var module_caption: Label
+var module_status: Label
 var modal_title: Label
 var modal_body: Label
 var modal_actions: VBoxContainer
@@ -400,8 +402,8 @@ func attach_hud(hud: Control) -> void:
     body.add_child(header_row)
     var header_accent := ColorRect.new()
     header_accent.name = "SectionHeaderAccent"
-    header_accent.color = Color("#62cbd6")
-    header_accent.custom_minimum_size = Vector2(3, 28)
+    header_accent.color = Color("#9cf0ed")
+    header_accent.custom_minimum_size = Vector2(5, 32)
     header_accent.mouse_filter = Control.MOUSE_FILTER_IGNORE
     header_row.add_child(header_accent)
     modal_title = Label.new()
@@ -419,8 +421,38 @@ func attach_hud(hud: Control) -> void:
     terminal_code.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
     terminal_code.add_theme_font_override("font", LaboSkin.data_font())
     terminal_code.add_theme_font_size_override("font_size", 12)
-    terminal_code.add_theme_color_override("font_color", Color("#7dabb8"))
+    terminal_code.add_theme_color_override("font_color", Color("#9bd5db"))
     header_row.add_child(terminal_code)
+    # Compact instrument strip underneath the main title; one-time UI nodes.
+    var module_strip := HBoxContainer.new()
+    module_strip.name = "FacilityModuleStrip"
+    module_strip.custom_minimum_size.y = 24.0
+    module_strip.add_theme_constant_override("separation", 8)
+    body.add_child(module_strip)
+    var module_rail := ColorRect.new()
+    module_rail.name = "ModuleSignalRail"
+    module_rail.color = Color("#8cece8")
+    module_rail.custom_minimum_size = Vector2(24.0, 2.0)
+    module_rail.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+    module_rail.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    module_strip.add_child(module_rail)
+    module_caption = Label.new()
+    module_caption.name = "ModuleCaption"
+    module_caption.text = "01 / SHELL FABRICATION"
+    module_caption.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+    module_caption.add_theme_font_override("font", LaboSkin.data_font())
+    module_caption.add_theme_font_size_override("font_size", 12)
+    module_caption.add_theme_color_override("font_color", Color("#9dcbd4"))
+    module_caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    module_strip.add_child(module_caption)
+    module_status = Label.new()
+    module_status.name = "ModuleStatus"
+    module_status.text = "SYSTEM / ONLINE"
+    module_status.add_theme_font_override("font", LaboSkin.data_font())
+    module_status.add_theme_font_size_override("font_size", 11)
+    module_status.add_theme_color_override("font_color", Color("#80cfd2"))
+    module_status.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    module_strip.add_child(module_status)
     diagnostic_button = Button.new()
     diagnostic_button.name = "UIDiagnosticToggle"
     diagnostic_button.text = "診断"
@@ -437,7 +469,7 @@ func attach_hud(hud: Control) -> void:
     section_tabs.name = "FacilitySectionTabs"
     section_tabs.mouse_filter = Control.MOUSE_FILTER_PASS
     section_tabs.theme = LaboSkin.common_theme()
-    section_tabs.add_theme_constant_override("separation", 4)
+    section_tabs.add_theme_constant_override("separation", 3)
     section_tabs.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
     modal.add_child(section_tabs)
     var section_group := ButtonGroup.new()
@@ -479,13 +511,13 @@ func attach_hud(hud: Control) -> void:
         serial.mouse_filter = Control.MOUSE_FILTER_IGNORE
         serial.add_theme_font_override("font", LaboSkin.data_font())
         serial.add_theme_font_size_override("font_size", 11)
-        serial.add_theme_color_override("font_color", Color("#819ca9"))
+        serial.add_theme_color_override("font_color", Color("#adced6"))
         button.add_child(serial)
         var selected_mark := ColorRect.new()
         selected_mark.name = "SelectedTabMark"
         selected_mark.color = Color("#74e3ed")
         selected_mark.position = Vector2(5.0, 9.0)
-        selected_mark.size = Vector2(7.0, 7.0)
+        selected_mark.size = Vector2(8.0, 8.0)
         selected_mark.visible = false
         selected_mark.mouse_filter = Control.MOUSE_FILTER_IGNORE
         button.add_child(selected_mark)
@@ -498,7 +530,7 @@ func attach_hud(hud: Control) -> void:
     modal_body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
     modal_body.add_theme_font_size_override("font_size", 19)
     modal_body.add_theme_font_override("font", LaboSkin.ui_font())
-    modal_body.add_theme_color_override("font_color", Color("#92abb7"))
+    modal_body.add_theme_color_override("font_color", Color("#a9cbd3"))
     body.add_child(modal_body)
     # Keep text values for diagnostics, but remove gray instruction prose from
     # the LABO panel without disturbing the existing controller structure.
@@ -553,6 +585,23 @@ func attach_hud(hud: Control) -> void:
     close_button.add_theme_font_override("font", LaboSkin.title_font())
     close_button.alignment = HORIZONTAL_ALIGNMENT_LEFT
     _style_terminal_segment(close_button)
+    var exit_tag := Label.new()
+    exit_tag.name = "ExitKey"
+    exit_tag.text = "EXIT / BACK"
+    exit_tag.anchor_left = 1.0
+    exit_tag.anchor_right = 1.0
+    exit_tag.anchor_top = 0.5
+    exit_tag.anchor_bottom = 0.5
+    exit_tag.offset_left = -132.0
+    exit_tag.offset_right = -15.0
+    exit_tag.offset_top = -10.0
+    exit_tag.offset_bottom = 10.0
+    exit_tag.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+    exit_tag.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    exit_tag.add_theme_font_override("font", LaboSkin.data_font())
+    exit_tag.add_theme_font_size_override("font_size", 12)
+    exit_tag.add_theme_color_override("font_color", Color("#82b9c4"))
+    close_button.add_child(exit_tag)
     close_button.pressed.connect(navigate_back)
     body.add_child(close_button)
     # Own full-screen confirmation layer; does not depend on Android popup
@@ -868,14 +917,14 @@ func _style_terminal_segment(button: Button) -> void:
     button.add_theme_stylebox_override("hover_pressed", LaboSkin.terminal_segment_style("selected"))
     button.add_theme_stylebox_override("disabled", LaboSkin.terminal_segment_style("disabled"))
     button.add_theme_stylebox_override("focus", LaboSkin.terminal_segment_style("normal"))
-    button.add_theme_color_override("font_color", Color("#c3d5dd"))
+    button.add_theme_color_override("font_color", Color("#c9e6ea"))
     button.add_theme_color_override("font_pressed_color", Color("#f1fcff"))
     button.add_theme_color_override("font_hover_pressed_color", Color("#f1fcff"))
     button.add_theme_color_override("font_hover_color", Color("#f1fcff"))
     if button.toggle_mode:
         var selected_mark := ColorRect.new()
         selected_mark.name = "SelectedTabMark"
-        selected_mark.color = Color("#74e3ed")
+        selected_mark.color = Color("#9bf1ed")
         selected_mark.position = Vector2(6.0, 6.0)
         selected_mark.size = Vector2(6.0, 6.0)
         selected_mark.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -951,6 +1000,22 @@ func _sync_section_tabs() -> void:
             _:
                 terminal_code.text = ""
         terminal_code.visible = get_viewport().get_visible_rect().size.x >= 460.0
+    if module_caption != null:
+        match current:
+            "TabCraft":
+                module_caption.text = "01 / SHELL FABRICATION"
+            "TabMaterials":
+                module_caption.text = "02 / MATERIAL REFINERY"
+            "TabWarehouse":
+                module_caption.text = ("03 / MATERIAL MANIFEST"
+                    if warehouse_section == "materials" else "03 / EQUIPMENT ARCHIVE")
+            _:
+                module_caption.text = "SERA / FIELD TERMINAL"
+    if module_status != null:
+        module_status.text = ("READY / 20 SLOTS" if current == "TabCraft" else
+            "REFINE / ONLINE" if current == "TabMaterials" else
+            "STORAGE / ONLINE" if current == "TabWarehouse" else
+            "SYSTEM / ONLINE")
     for child in section_tabs.get_children():
         if child is Button:
             var button: Button = child as Button
@@ -1182,7 +1247,8 @@ func _new_slot(parent: Control, key: String, icon: Texture2D,
         info_label.add_theme_font_size_override(
             "font_size", maxi(14, _material_card_font_size() - 3))
     else:
-        title_label.add_theme_font_size_override("font_size", 21)
+        title_label.add_theme_font_size_override("font_size",
+            23 if get_viewport().get_visible_rect().size.x >= 500.0 else 21)
         info_label.add_theme_font_size_override("font_size", 17)
         info_label.add_theme_font_override("font", LaboSkin.data_font())
         if key.begins_with("LockedCraftSlot_"):
@@ -1203,6 +1269,22 @@ func _new_slot(parent: Control, key: String, icon: Texture2D,
         tier_rail.size = Vector2(3.0, MATERIAL_CARD_HEIGHT - 36.0)
         tier_rail.mouse_filter = Control.MOUSE_FILTER_IGNORE
         card.add_child(tier_rail)
+        var grade_tag := Label.new()
+        grade_tag.name = "MaterialGradeTag"
+        grade_tag.text = ("R1" if key.ends_with("_low") else
+            "R2" if key.ends_with("_mid") else "R3")
+        grade_tag.anchor_left = 1.0
+        grade_tag.anchor_right = 1.0
+        grade_tag.offset_left = -35.0
+        grade_tag.offset_right = -9.0
+        grade_tag.offset_top = 1.0
+        grade_tag.offset_bottom = 14.0
+        grade_tag.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+        grade_tag.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        grade_tag.add_theme_font_override("font", LaboSkin.data_font())
+        grade_tag.add_theme_font_size_override("font_size", 10)
+        grade_tag.add_theme_color_override("font_color", Color("#90cbd3"))
+        card.add_child(grade_tag)
     else:
         var serial := Label.new()
         serial.name = "UnitSerial"
@@ -1219,8 +1301,34 @@ func _new_slot(parent: Control, key: String, icon: Texture2D,
         serial.mouse_filter = Control.MOUSE_FILTER_IGNORE
         serial.add_theme_font_override("font", LaboSkin.data_font())
         serial.add_theme_font_size_override("font_size", 11)
-        serial.add_theme_color_override("font_color", Color("#759aa7"))
+        serial.add_theme_color_override("font_color", Color("#a5c8d3"))
         card.add_child(serial)
+        var locked: bool = key.begins_with("LockedCraftSlot_")
+        var edge := ColorRect.new()
+        edge.name = "CardSignalRail"
+        edge.color = Color("#3b5a66") if locked else Color("#90eeea")
+        edge.position = Vector2(3.0, 23.0)
+        edge.size = Vector2(4.0, LABO_CRAFT_CARD_HEIGHT - 46.0)
+        edge.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        card.add_child(edge)
+        var footer := Label.new()
+        footer.name = "CardSystemState"
+        footer.text = "ACCESS / LOCKED" if locked else "SCHEMATIC / AVAILABLE"
+        footer.anchor_left = 1.0
+        footer.anchor_right = 1.0
+        footer.anchor_top = 1.0
+        footer.anchor_bottom = 1.0
+        footer.offset_left = -226.0
+        footer.offset_right = -15.0
+        footer.offset_top = -27.0
+        footer.offset_bottom = -8.0
+        footer.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+        footer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        footer.add_theme_font_override("font", LaboSkin.data_font())
+        footer.add_theme_font_size_override("font_size", 11)
+        footer.add_theme_color_override("font_color",
+            Color("#5a7c89") if locked else Color("#80d9db"))
+        card.add_child(footer)
     # Styles and artwork are deferred until all native Buttons exist.
     call_deferred("_apply_card_skin", card)
     card.disabled = not action.is_valid()

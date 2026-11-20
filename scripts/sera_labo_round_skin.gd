@@ -46,18 +46,18 @@ static func style(kind: String = "normal") -> StyleBoxFlat:
     if _cache.has(kind):
         return _cache[kind] as StyleBoxFlat
     var result := StyleBoxFlat.new()
-    result.bg_color = Color("#12232e")
-    result.border_color = Color("#29414d")
+    result.bg_color = Color("#112631")
+    result.border_color = Color("#345566")
     match kind:
         "card":
-            result.bg_color = Color("#111e28")
-            result.border_color = Color("#314752")
+            result.bg_color = Color("#142936")
+            result.border_color = Color("#456473")
         "card_hover", "hover":
-            result.bg_color = Color("#1a313c")
-            result.border_color = Color("#507d88")
+            result.bg_color = Color("#244352")
+            result.border_color = Color("#69a7b6")
         "card_pressed", "pressed", "hover_pressed":
-            result.bg_color = Color("#193540")
-            result.border_color = Color("#62cbd6")
+            result.bg_color = Color("#1a4652")
+            result.border_color = Color("#8bf0ee")
         "disabled":
             result.bg_color = Color("#101b25")
             result.border_color = Color("#243945")
@@ -82,21 +82,20 @@ static func terminal_segment_style(kind: String = "normal") -> StyleBoxFlat:
     if _segment_cache.has(kind):
         return _segment_cache[kind] as StyleBoxFlat
     var panel := StyleBoxFlat.new()
-    panel.bg_color = Color("#101d27")
-    panel.border_color = Color("#2b4551")
+    panel.bg_color = Color("#142b38")
+    panel.border_color = Color("#3a6272")
     panel.set_border_width_all(1)
     match kind:
         "selected", "pressed", "hover_pressed":
-            panel.bg_color = Color("#17303c")
-            panel.border_color = Color("#537d8a")
+            panel.bg_color = Color("#204553")
+            panel.border_color = Color("#87e2e9")
             panel.border_width_bottom = 3
-            panel.border_color = Color("#72bcca")
         "hover":
-            panel.bg_color = Color("#172b36")
-            panel.border_color = Color("#4e7582")
+            panel.bg_color = Color("#1b3948")
+            panel.border_color = Color("#6594a2")
         "disabled":
-            panel.bg_color = Color("#0e1721")
-            panel.border_color = Color("#283944")
+            panel.bg_color = Color("#101e28")
+            panel.border_color = Color("#334653")
         "destructive":
             panel.bg_color = Color("#251d27")
             panel.border_color = Color("#73505d")
@@ -120,9 +119,9 @@ static func panel_style() -> StyleBoxTexture:
     if _panel_cache != null:
         return _panel_cache
     var img := Image.create(32, 64, false, Image.FORMAT_RGBA8)
-    var top := Color("#102734")
-    var bottom := Color("#08131e")
-    var border := Color("#294653")
+    var top := Color("#133442")
+    var bottom := Color("#080f1c")
+    var border := Color("#456878")
     for y in range(64):
         var fill: Color = top.lerp(bottom, float(y) / 63.0)
         for x in range(32):
@@ -133,6 +132,10 @@ static func panel_style() -> StyleBoxTexture:
                 img.set_pixel(x, y, Color.TRANSPARENT)
             elif x == 0 or x == 31 or y == 0 or y == 63 or corner_distance < 6:
                 img.set_pixel(x, y, border)
+            elif x == 2 and y > 11 and y < 51:
+                img.set_pixel(x, y, Color("#274d60"))
+            elif y % 13 == 0:
+                img.set_pixel(x, y, fill.lightened(0.035))
             else:
                 img.set_pixel(x, y, fill)
     var result := StyleBoxTexture.new()
@@ -146,18 +149,18 @@ static func hanging_tab_style(kind: String = "normal") -> StyleBoxTexture:
     if _tab_cache.has(kind):
         return _tab_cache[kind] as StyleBoxTexture
     var image := Image.create(64, 64, false, Image.FORMAT_RGBA8)
-    var fill := Color("#14222d")
-    var rim := Color("#425666")
-    var lip := Color("#536e7b")
+    var fill := Color("#142a39")
+    var rim := Color("#557482")
+    var lip := Color("#628e9c")
     match kind:
         "selected":
-            fill = Color("#1d3542")
-            rim = Color("#5fb7c7")
-            lip = Color("#83e4ee")
+            fill = Color("#214959")
+            rim = Color("#82dae2")
+            lip = Color("#9cf6f2")
         "hover":
-            fill = Color("#1b303d")
-            rim = Color("#698d9c")
-            lip = Color("#80b8c7")
+            fill = Color("#1d394a")
+            rim = Color("#79a7b4")
+            lip = Color("#94d9df")
         "disabled":
             fill = Color("#101a23")
             rim = Color("#293c49")
@@ -177,6 +180,10 @@ static func hanging_tab_style(kind: String = "normal") -> StyleBoxTexture:
                 surface = rim
             if y >= 61:
                 surface = lip
+            if y == 2 and x > 17 and x < 52:
+                surface = Color("#6db0bc") if kind != "selected" else Color("#b0fbf5")
+            if x >= 54 and x <= 56 and y >= 13 and y < 30:
+                surface = Color("#344f62") if kind != "selected" else Color("#75ced8")
             # Restrained cold-steel seam near the top rather than a full glow.
             if y == 4 and x >= 10 and x < 54:
                 surface = Color("#304d5c") if kind != "selected" else Color("#4e7888")
@@ -193,18 +200,18 @@ static func card_style(kind: String = "normal") -> StyleBoxTexture:
     if _card_cache.has(kind):
         return _card_cache[kind] as StyleBoxTexture
     var image := Image.create(32, 32, false, Image.FORMAT_RGBA8)
-    var fill := Color("#101e28")
-    var edge := Color("#304853")
+    var fill := Color("#142f3b")
+    var edge := Color("#466775")
     match kind:
         "hover":
-            fill = Color("#182f3b")
-            edge = Color("#4c8795")
+            fill = Color("#214554")
+            edge = Color("#75b9c4")
         "pressed", "selected":
-            fill = Color("#19343e")
-            edge = Color("#69c1cb")
+            fill = Color("#205262")
+            edge = Color("#9bf5ef")
         "disabled":
-            fill = Color("#111c25")
-            edge = Color("#293c46")
+            fill = Color("#10202a")
+            edge = Color("#34505e")
     for y in range(32):
         for x in range(32):
             var corner_distance: int = mini(
@@ -215,9 +222,15 @@ static func card_style(kind: String = "normal") -> StyleBoxTexture:
             elif (x <= 1 or x >= 30 or y <= 1 or y >= 30
                     or corner_distance < 8):
                 image.set_pixel(x, y, edge)
+            elif y == 3 and x >= 10 and x <= 21:
+                image.set_pixel(x, y, edge.lightened(0.24))
+            elif x == 3 and y >= 13 and y <= 23:
+                image.set_pixel(x, y, edge)
+            elif x >= 26 and y >= 4 and y <= 6:
+                image.set_pixel(x, y, Color("#273e4d"))
             else:
-                image.set_pixel(x, y, fill.lerp(Color("#09151d"),
-                    0.24 * float(y) / 31.0))
+                image.set_pixel(x, y, fill.lerp(Color("#09121e"),
+                    0.46 * float(y) / 31.0))
     var result := StyleBoxTexture.new()
     result.texture = ImageTexture.create_from_image(image)
     result.set_texture_margin_all(10.0)

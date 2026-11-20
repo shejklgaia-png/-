@@ -110,7 +110,7 @@ func _make_card() -> Button:
     meta.clip_text = true
     meta.add_theme_font_override("font", LaboSkin.data_font())
     meta.add_theme_font_size_override("font_size", 11)
-    meta.add_theme_color_override("font_color", Color("#849eaa"))
+    meta.add_theme_color_override("font_color", Color("#9abfcb"))
     card.add_child(meta)
     var title := Label.new()
     title.name = "ItemTitle"
@@ -125,7 +125,7 @@ func _make_card() -> Button:
     var effects := Label.new()
     effects.name = "ItemEffects"
     effects.mouse_filter = Control.MOUSE_FILTER_IGNORE
-    effects.add_theme_color_override("font_color", Color("#afd2d8"))
+    effects.add_theme_color_override("font_color", Color("#bbdbe0"))
     effects.add_theme_font_override("font", LaboSkin.data_font())
     effects.add_theme_font_size_override("font_size", 16)
     effects.autowrap_mode = TextServer.AUTOWRAP_OFF
@@ -138,7 +138,7 @@ func _make_card() -> Button:
     card.add_child(rule)
     var top_trace := ColorRect.new()
     top_trace.name = "TopTrace"
-    top_trace.color = Color("#567f8d")
+    top_trace.color = Color("#83b9c3")
     top_trace.mouse_filter = Control.MOUSE_FILTER_IGNORE
     card.add_child(top_trace)
     var empty := Label.new()
@@ -148,9 +148,25 @@ func _make_card() -> Button:
     empty.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
     empty.add_theme_font_override("font", LaboSkin.data_font())
     empty.add_theme_font_size_override("font_size", 15)
-    empty.add_theme_color_override("font_color", Color("#53717e"))
+    empty.add_theme_color_override("font_color", Color("#7697a4"))
     empty.mouse_filter = Control.MOUSE_FILTER_IGNORE
     card.add_child(empty)
+    # A viewport-recycled address plate makes empty hangers feel like real slots.
+    var slot_address := Label.new()
+    slot_address.name = "SlotAddress"
+    slot_address.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    slot_address.add_theme_font_override("font", LaboSkin.data_font())
+    slot_address.add_theme_font_size_override("font_size", 11)
+    slot_address.add_theme_color_override("font_color", Color("#708f9d"))
+    slot_address.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+    card.add_child(slot_address)
+    var empty_beacon := ColorRect.new()
+    empty_beacon.name = "EmptyBeacon"
+    empty_beacon.color = Color("#4c8f9a")
+    empty_beacon.size = Vector2(6.0, 6.0)
+    empty_beacon.position = Vector2(15.0, 14.0)
+    empty_beacon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    card.add_child(empty_beacon)
     card.pressed.connect(_card_pressed.bind(card))
     pool.append(card)
     return card
@@ -206,6 +222,13 @@ func _bind_card(card: Button, index: int) -> void:
     var empty: Label = card.get_node("EmptySlotLabel") as Label
     var divider: ColorRect = card.get_node("DetailDivider") as ColorRect
     var trace: ColorRect = card.get_node("TopTrace") as ColorRect
+    var slot_address: Label = card.get_node("SlotAddress") as Label
+    var empty_beacon: ColorRect = card.get_node("EmptyBeacon") as ColorRect
+    slot_address.visible = blank and mode == "equipment"
+    slot_address.text = "SLOT %03d / 999" % (index + 1)
+    slot_address.position = Vector2(maxf(8.0, _card_width - 152.0), 11.0)
+    slot_address.size = Vector2(minf(139.0, _card_width - 14.0), 18.0)
+    empty_beacon.visible = blank and mode == "equipment"
     empty.visible = blank
     empty.position = Vector2(10.0, 12.0)
     empty.size = Vector2(maxf(10.0, _card_width - 20.0), _card_height() - 24.0)
@@ -279,8 +302,8 @@ func _bind_card(card: Button, index: int) -> void:
         effects.text = "所持  %d" % int(entry.get("count", 0))
         effects.add_theme_font_size_override("font_size", 16)
     else:
-        marker.color = Color("#4b8799")
-        trace.color = Color("#70a3b1")
+        marker.color = Color("#68bec8")
+        trace.color = Color("#a2e3e7")
         art.texture = Icons.equipment_icon(str(entry.get("blueprint", "")))
         art.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
         var equipment_side: float = minf(82.0, minf(_card_width * 0.36, 86.0))

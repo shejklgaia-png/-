@@ -12,6 +12,8 @@ gd tools/base_facilities_runtime_check.gd
 gd tools/base_material_conversion_runtime_check.gd
 gd tools/base_page_navigation_runtime_check.gd
 gd tools/v511_matte_icons_runtime_check.gd
+py tools/v542_labo_premium_ui_self_check.py
+gd tools/v542_labo_premium_ui_runtime_check.gd
 py tools/v541_craft_detail_removed_self_check.py
 gd tools/v541_craft_detail_removed_runtime_check.gd
 py tools/v540_labo_visual_slots_self_check.py
