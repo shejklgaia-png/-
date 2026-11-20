@@ -55,7 +55,7 @@ func _expect(fac: Node, target: String, count: int, first_name: String) -> bool:
     if first.icon != null:
         _fail("simulated missing atlas unexpectedly loaded an icon")
         return false
-    if first.get_theme_stylebox("normal") is not StyleBoxFlat:
+    if first.get_theme_stylebox("normal") is not StyleBoxTexture:
         _fail("rounded frame must remain visible when icon source is missing")
         return false
     return true
