@@ -4,6 +4,7 @@ const Modules = preload("res://assets/base_command_modules.gd")
 const SeraRig = preload("res://scripts/sera_rig.gd")
 const VersionIndicator = preload("res://scripts/version_indicator.gd")
 const BaseFacilities = preload("res://scripts/base_facility_system.gd")
+const CrateModel = preload("res://scripts/sera_crate_model.gd")
 const NEXUS_SCENE: String = "res://scenes/command_nexus.tscn"
 # Fill nearly the entire 256 m continuous ground with actual visible
 # 3D grid plates, leaving no ungridded view at the extreme camera positions.
@@ -288,28 +289,12 @@ func _create_player() -> void:
             rig.call("set_equipment_selection", part, str(gear[part]))
 
 func _create_crate() -> void:
-    # Temporary low-poly CRATE: tracked chassis, visor and three-finger hands;
-    # no human face/emoji. It will be replaced by its canonical Blockbench model.
-    crate = Node3D.new()
-    crate.name = "CRATE"
+    # Canonical robot: same geometry, proportions and materials as the LABO
+    # close-up. Keep the outdoor path-following motion independent.
+    crate = CrateModel.create_model()
     crate.position = Vector3(-3.05, 0.06, -3.25)
     crate.rotation.y = -0.5
     add_child(crate)
-    _box(crate, "Chassis", Vector3(0, 0.37, 0), Vector3(0.90, 0.50, 0.68), Color("#657487"))
-    for side in [-1.0, 1.0]:
-        _box(crate, "Track", Vector3(side * 0.48, 0.24, 0),
-            Vector3(0.23, 0.32, 0.83), Color("#202a34"))
-        _box(crate, "Manipulator", Vector3(side * 0.52, 0.62, -0.15),
-            Vector3(0.15, 0.14, 0.50), Color("#a5afbd"))
-        for finger in [-1.0, 0.0, 1.0]:
-            _box(crate, "Finger", Vector3(side * 0.52 + finger * 0.10, 0.60, -0.47),
-                Vector3(0.085, 0.09, 0.18), Color("#ccd3d9"))
-    _box(crate, "VisorHousing", Vector3(0, 0.71, -0.25),
-        Vector3(0.70, 0.28, 0.18), Color("#111b29"))
-    _box(crate, "VisorGlass", Vector3(0, 0.71, -0.35),
-        Vector3(0.59, 0.16, 0.035), Color("#4cc3db"))
-    _box(crate, "RearToolBin", Vector3(0, 0.70, 0.34),
-        Vector3(0.56, 0.25, 0.27), Color("#505e71"))
 
 func _update_crate(delta: float) -> void:
     if crate == null or delta <= 0.0:
