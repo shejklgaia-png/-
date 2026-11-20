@@ -11,6 +11,11 @@ const MATERIAL_COLUMNS: int = 3
 const MATERIAL_ROWS: int = 4
 static var _material_atlas_loaded: bool = false
 static var _material_texture_cache: Texture2D = null
+# GPU atlas subregions can sample adjacent rows in the Android renderer.
+# Decode/crop once and cache twelve genuinely independent, square textures.
+static var _material_frame_cache: Dictionary = {}
+static var _material_source_image: Image = null
+static var _material_source_attempted: bool = false
 static var _material_method: String = "not loaded"
 # In Android Godot Editor a Git-synced source WebP may exist while the editor's
 # transient .godot/imported cache does not. Do not preload the imported texture:
@@ -67,7 +72,7 @@ static func _material_atlas_texture() -> Texture2D:
 
 static func atlas_status() -> String:
     _atlas_texture()
-    _material_atlas_texture()
+    _material_source()
     return "equipment=%s (%s), materials=%s (%s)" % [
         _atlas_method, "YES" if FileAccess.file_exists(ATLAS_PATH) else "NO",
         _material_method, "YES" if FileAccess.file_exists(MATERIAL_ATLAS_PATH) else "NO"]
@@ -99,19 +104,51 @@ static func _frame(index: int) -> Texture2D:
     icon.filter_clip = true
     return icon
 
+static func _material_source() -> Image:
+    if _material_source_attempted:
+        return _material_source_image
+    _material_source_attempted = true
+    # The source file preserves the precise 72px tile pixels even before
+    # Godot's Android editor builds its transient imported-resource cache.
+    if FileAccess.file_exists(MATERIAL_ATLAS_PATH):
+        var bytes: PackedByteArray = FileAccess.get_file_as_bytes(MATERIAL_ATLAS_PATH)
+        if not bytes.is_empty():
+            var decoded := Image.new()
+            if decoded.load_webp_from_buffer(bytes) == OK and (
+                    decoded.get_width() == 216 and decoded.get_height() == 288):
+                _material_source_image = decoded
+                _material_method = "source-webp-independent-tiles"
+                return _material_source_image
+    # APKs may ship the imported texture without the original WebP bytes.
+    var imported: Texture2D = _material_atlas_texture()
+    if imported != null:
+        var decoded_import: Image = imported.get_image()
+        if decoded_import != null:
+            if decoded_import.is_compressed() and decoded_import.decompress() != OK:
+                return null
+            if decoded_import.get_width() == 216 and decoded_import.get_height() == 288:
+                _material_source_image = decoded_import
+                _material_method = "imported-independent-tiles"
+    return _material_source_image
+
 static func _material_frame(index: int) -> Texture2D:
     if index < 0 or index >= MATERIAL_COLUMNS * MATERIAL_ROWS:
         return null
-    var source: Texture2D = _material_atlas_texture()
+    if _material_frame_cache.has(index):
+        return _material_frame_cache[index] as Texture2D
+    var source: Image = _material_source()
     if source == null:
         return null
-    var icon := AtlasTexture.new()
-    icon.atlas = source
-    icon.region = Rect2(
-        float(index % MATERIAL_COLUMNS) * CELL,
-        float(index / MATERIAL_COLUMNS) * CELL,
-        CELL, CELL)
-    icon.filter_clip = true
+    # An actual 72x72 pixel crop, NOT a UV view of the 3x4 source atlas.
+    # Adjacent sprite pixels can never appear, even with hardware filtering.
+    var tile: Image = source.get_region(Rect2i(
+        (index % MATERIAL_COLUMNS) * CELL,
+        int(index / MATERIAL_COLUMNS) * CELL,
+        CELL, CELL))
+    if tile == null or tile.get_width() != CELL or tile.get_height() != CELL:
+        return null
+    var icon: Texture2D = ImageTexture.create_from_image(tile)
+    _material_frame_cache[index] = icon
     return icon
 
 static func material_icon(material_id: String) -> Texture2D:

@@ -834,6 +834,9 @@ func _new_slot(parent: Control, key: String, icon: Texture2D,
     # after the full list is built, rather than creating/discarding fillers.
     var card := Button.new()
     card.name = key
+    # Native Button is still used for Android visibility and tap accuracy.
+    # Prevent any art from drawing outside its actual card rectangle.
+    card.clip_contents = true
     card.icon = icon
     if icon != null:
         diag_icon_count += 1
@@ -879,6 +882,7 @@ func _add_item_tile(icon: Texture2D, title: String,
     parent.add_child(row)
     var art := TextureRect.new()
     art.name = "Icon"
+    art.clip_contents = true
     art.texture = icon
     art.custom_minimum_size = Vector2(58, 58)
     art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
@@ -1220,6 +1224,7 @@ func _render_conversion() -> void:
         modal_actions.add_child(flow)
         var input_icon := TextureRect.new()
         input_icon.name = "Input"
+        input_icon.clip_contents = true
         input_icon.texture = IconAtlas.material_icon(source_id)
         input_icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
         input_icon.custom_minimum_size = Vector2(61, 61)
@@ -1240,6 +1245,7 @@ func _render_conversion() -> void:
         flow.add_child(arrow)
         var output_icon := TextureRect.new()
         output_icon.name = "Output"
+        output_icon.clip_contents = true
         output_icon.texture = IconAtlas.material_icon(target_id)
         output_icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
         output_icon.custom_minimum_size = Vector2(61, 61)

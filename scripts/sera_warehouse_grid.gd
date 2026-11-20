@@ -120,6 +120,7 @@ func _make_card() -> Button:
     var art := TextureRect.new()
     art.name = "ItemArt"
     art.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    art.clip_contents = true
     art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
     art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
     card.add_child(art)
@@ -189,10 +190,13 @@ func _bind_card(card: Button, index: int) -> void:
     var art: TextureRect = card.get_node("ItemArt") as TextureRect
     var title: Label = card.get_node("ItemTitle") as Label
     var effects: Label = card.get_node("ItemEffects") as Label
-    var side: float = _card_height() - 14.0
-    art.position = Vector2(7.0, 7.0)
+    # Fit a perfect square inside the card even in a narrow Android layout.
+    # Always reserve space for the label and clip the final display rectangle.
+    var side: float = maxf(1.0, minf(_card_height() - 14.0,
+        _card_width - 14.0 - 24.0))
+    art.position = Vector2(7.0, (_card_height() - side) * 0.5)
     art.size = Vector2(side, side)
-    var text_left: float = side + 14.0
+    var text_left: float = art.position.x + side + 7.0
     var text_width: float = maxf(1.0, _card_width - text_left - 6.0)
     title.position = Vector2(text_left, 6.0)
     title.size = Vector2(text_width, 34.0 if mode == "equipment" else 86.0)
