@@ -15,7 +15,8 @@ const LABO_NAV_HEIGHT: float = 64.0
 const LABO_SLOT_HEIGHT: float = 58.0
 const LABO_BACK_HEIGHT: float = 66.0
 const LABO_CONFIRM_HEIGHT: float = 70.0
-const LABO_CRAFT_CARD_HEIGHT: float = 108.0
+const LABO_CRAFT_CARD_HEIGHT: float = 160.0
+const CRAFT_CATALOG_SLOTS: int = 20
 const LABO_CONVERSION_HEIGHT: float = 84.0
 const MATERIAL_CARD_HEIGHT: float = 108.0
 const MATERIAL_ICON_WIDTH: int = 54
@@ -368,12 +369,8 @@ func attach_hud(hud: Control) -> void:
     modal_panel.anchor_right = 0.975
     modal_panel.anchor_bottom = 0.945
     modal_panel.mouse_filter = Control.MOUSE_FILTER_STOP
-    var style := StyleBoxFlat.new()
-    style.bg_color = Color("#0b1924")
-    style.border_color = Color("#294653")
-    style.set_border_width_all(1)
-    style.set_corner_radius_all(5)
-    modal_panel.add_theme_stylebox_override("panel", style)
+    # Cached gradient texture, no per-frame shader cost.
+    modal_panel.add_theme_stylebox_override("panel", LaboSkin.panel_style())
     # A single common rounded native Button theme covers tabs, choices,
     # warehouse categories, conversion actions and Back without extra nodes.
     modal_panel.theme = LaboSkin.common_theme()
@@ -484,6 +481,14 @@ func attach_hud(hud: Control) -> void:
         serial.add_theme_font_size_override("font_size", 11)
         serial.add_theme_color_override("font_color", Color("#819ca9"))
         button.add_child(serial)
+        var selected_mark := ColorRect.new()
+        selected_mark.name = "SelectedTabMark"
+        selected_mark.color = Color("#74e3ed")
+        selected_mark.position = Vector2(5.0, 9.0)
+        selected_mark.size = Vector2(7.0, 7.0)
+        selected_mark.visible = false
+        selected_mark.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        button.add_child(selected_mark)
         button.pressed.connect(_switch_section.bind(str(entry["target"])))
         section_tabs.add_child(button)
     _layout_section_tabs()
@@ -867,6 +872,17 @@ func _style_terminal_segment(button: Button) -> void:
     button.add_theme_color_override("font_pressed_color", Color("#f1fcff"))
     button.add_theme_color_override("font_hover_pressed_color", Color("#f1fcff"))
     button.add_theme_color_override("font_hover_color", Color("#f1fcff"))
+    if button.toggle_mode:
+        var selected_mark := ColorRect.new()
+        selected_mark.name = "SelectedTabMark"
+        selected_mark.color = Color("#74e3ed")
+        selected_mark.position = Vector2(6.0, 6.0)
+        selected_mark.size = Vector2(6.0, 6.0)
+        selected_mark.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        selected_mark.visible = button.button_pressed
+        button.add_child(selected_mark)
+        button.toggled.connect(func(pressed: bool) -> void:
+            selected_mark.visible = pressed)
 
 
 func _add_terminal_notice(message: String) -> void:
@@ -928,7 +944,7 @@ func _sync_section_tabs() -> void:
             "LABO":
                 terminal_code.text = "ASSEMBLY / " + craft_slot.to_upper()
             "SMELTER", "RECYCLER":
-                terminal_code.text = "MATERIAL / 12"
+                terminal_code.text = "MATERIAL"
             "STORAGE":
                 terminal_code.text = ("ARCHIVE / 12" if warehouse_section == "materials"
                     else "HANGAR / %03d" % SeraSave.get_owned_prototypes(warehouse_slot).size())
@@ -940,6 +956,9 @@ func _sync_section_tabs() -> void:
             var button: Button = child as Button
             var selected: bool = button.name == current
             button.button_pressed = selected
+            var selected_mark: ColorRect = button.get_node_or_null("SelectedTabMark") as ColorRect
+            if selected_mark != null:
+                selected_mark.visible = selected
             button.custom_minimum_size.y = (
                 LABO_NAV_HEIGHT + 18.0 if selected else LABO_NAV_HEIGHT)
 
@@ -1166,6 +1185,9 @@ func _new_slot(parent: Control, key: String, icon: Texture2D,
         title_label.add_theme_font_size_override("font_size", 21)
         info_label.add_theme_font_size_override("font_size", 17)
         info_label.add_theme_font_override("font", LaboSkin.data_font())
+        if key.begins_with("LockedCraftSlot_"):
+            art.visible = false
+            art.custom_minimum_size = Vector2.ZERO
     info_label.text = (info if material_choice else
         info.replace("基礎ステータス（現行Aセット参照） / ", "基礎："))
     row.add_child(card)
@@ -1176,8 +1198,7 @@ func _new_slot(parent: Control, key: String, icon: Texture2D,
     if material_choice:
         var tier_rail := ColorRect.new()
         tier_rail.name = "TierRail"
-        tier_rail.color = (Color("#657c8b") if key.ends_with("_low") else
-            Color("#83a5b2") if key.ends_with("_mid") else Color("#8fd5df"))
+        tier_rail.color = Color("#79b6c2")
         tier_rail.position = Vector2(3.0, 18.0)
         tier_rail.size = Vector2(3.0, MATERIAL_CARD_HEIGHT - 36.0)
         tier_rail.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1185,7 +1206,9 @@ func _new_slot(parent: Control, key: String, icon: Texture2D,
     else:
         var serial := Label.new()
         serial.name = "UnitSerial"
-        serial.text = "UNIT / " + key.trim_prefix("PrototypeIcon_")
+        serial.text = ("SLOT / " + key.trim_prefix("LockedCraftSlot_")
+            if key.begins_with("LockedCraftSlot_") else
+            "UNIT / " + key.trim_prefix("PrototypeIcon_"))
         serial.anchor_left = 1.0
         serial.anchor_right = 1.0
         serial.offset_left = -128.0
@@ -1521,7 +1544,6 @@ func _show_prototype_catalog() -> void:
             LaboStats.baseline(id).replace("\n", " / "),
             _select_prototype.bind(id), "Choose_" + id) as Button
         _queue_card_icon(card, id, true)
-    _finish_grid(grid)
     if not first_id.is_empty():
         # Reference image shows an equipment preview directly under the list,
         # framed like a catalog detail. Keep it passive (no extra click targets).
@@ -1575,6 +1597,13 @@ func _show_prototype_catalog() -> void:
         baseline.add_theme_color_override("font_color", Color("#c6eaf7"))
         baseline.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
         preview_text.add_child(baseline)
+    # Each part has twenty positions; unknown blueprints remain locked.
+    for slot_number in range(int(grid.get_meta("card_count", 0)) + 1,
+            CRAFT_CATALOG_SLOTS + 1):
+        _new_slot(grid, "LockedCraftSlot_%02d" % slot_number,
+            null, "—  LOCKED SLOT  —",
+            "POSITION %02d  /  UNAVAILABLE" % slot_number)
+    _finish_grid(grid)
     _configure_page_scroll(158 if modal_actions.get_child_count() > 1 else 82)
     _sync_section_tabs()
 
@@ -1650,8 +1679,9 @@ func _render_family_page() -> void:
         "精製する素材" if conversion_mode == 1
         else "分解する素材")
     modal_body.text = (
-        "素材を選んでランクアップしてください。"
-        if conversion_mode == 1 else "素材を選んでランクダウンしてください。")
+        "素材を精製し、より高品質な資材へ変換します。"
+        if conversion_mode == 1 else "素材を分解し、低ランクの資材へ戻します。")
+    modal_body.visible = conversion_mode == 1
     if diagnostic_button.visible:
         _diag_step("materials inventory load")
     var inventory: Dictionary = SeraSave.get_material_inventory()
@@ -1732,7 +1762,9 @@ func _render_conversion() -> void:
         _add_terminal_notice(conversion_notice)
     elif SeraSave.active_slot == 0:
         _add_terminal_notice("セーブデータを選択してください。")
-    modal_body.text = "\n".join(lines)
+    modal_body.text = ("素材を精製してより高品質な資材へ変換します。"
+        if conversion_mode == 1 else "\n".join(lines))
+    modal_body.visible = conversion_mode == 1
     var ranks: Array = [0, 1] if conversion_mode == 1 else [2, 1]
     for rank in ranks:
         var plan: Dictionary = BaseMaterials.recipe(

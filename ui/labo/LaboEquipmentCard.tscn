@@ -24,7 +24,7 @@ theme_override_constants/separation = 14
 
 [node name="ItemArt" type="TextureRect" parent="CardContent/Row"]
 clip_contents = true
-custom_minimum_size = Vector2(74, 74)
+custom_minimum_size = Vector2(96, 96)
 layout_mode = 2
 size_flags_vertical = 4
 mouse_filter = 2

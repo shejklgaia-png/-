@@ -4,6 +4,7 @@ static var _cache: Dictionary = {}
 static var _card_cache: Dictionary = {}
 static var _tab_cache: Dictionary = {}
 static var _segment_cache: Dictionary = {}
+static var _panel_cache: StyleBoxTexture
 static var _ui_font: SystemFont
 static var _title_font: SystemFont
 static var _data_font: SystemFont
@@ -115,6 +116,32 @@ static func terminal_segment_style(kind: String = "normal") -> StyleBoxFlat:
 ## Alpha-backed trapezoid tabs hang from the viewport top edge. The image and
 ## its nine-patch corners are generated once per state; there are no per-frame
 ## drawing calls, overlays, glow shaders or blur passes.
+static func panel_style() -> StyleBoxTexture:
+    if _panel_cache != null:
+        return _panel_cache
+    var img := Image.create(32, 64, false, Image.FORMAT_RGBA8)
+    var top := Color("#102734")
+    var bottom := Color("#08131e")
+    var border := Color("#294653")
+    for y in range(64):
+        var fill: Color = top.lerp(bottom, float(y) / 63.0)
+        for x in range(32):
+            var corner_distance: int = mini(
+                mini(x + y, 31 - x + y),
+                mini(x + 63 - y, 94 - x - y))
+            if corner_distance < 4:
+                img.set_pixel(x, y, Color.TRANSPARENT)
+            elif x == 0 or x == 31 or y == 0 or y == 63 or corner_distance < 6:
+                img.set_pixel(x, y, border)
+            else:
+                img.set_pixel(x, y, fill)
+    var result := StyleBoxTexture.new()
+    result.texture = ImageTexture.create_from_image(img)
+    result.set_texture_margin_all(6.0)
+    _panel_cache = result
+    return result
+
+
 static func hanging_tab_style(kind: String = "normal") -> StyleBoxTexture:
     if _tab_cache.has(kind):
         return _tab_cache[kind] as StyleBoxTexture
@@ -144,7 +171,8 @@ static func hanging_tab_style(kind: String = "normal") -> StyleBoxTexture:
             if x < inset or x >= 64 - inset:
                 image.set_pixel(x, y, Color.TRANSPARENT)
                 continue
-            var surface: Color = fill
+            var surface: Color = fill.lerp(Color("#0a1924"),
+                0.15 * float(y) / 63.0)
             if x <= inset + 1 or x >= 62 - inset or y == 0:
                 surface = rim
             if y >= 61:
@@ -188,7 +216,8 @@ static func card_style(kind: String = "normal") -> StyleBoxTexture:
                     or corner_distance < 8):
                 image.set_pixel(x, y, edge)
             else:
-                image.set_pixel(x, y, fill)
+                image.set_pixel(x, y, fill.lerp(Color("#09151d"),
+                    0.24 * float(y) / 31.0))
     var result := StyleBoxTexture.new()
     result.texture = ImageTexture.create_from_image(image)
     result.set_texture_margin_all(10.0)

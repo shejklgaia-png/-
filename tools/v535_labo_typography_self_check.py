@@ -20,7 +20,7 @@ for token in ('modal.add_child(section_tabs)', 'SectionHeaderAccent',
               'LABO_NAV_HEIGHT: float = 64.0',
               'LABO_SLOT_HEIGHT: float = 58.0',
               'LABO_BACK_HEIGHT: float = 66.0',
-              'LABO_CRAFT_CARD_HEIGHT: float = 108.0',
+              'LABO_CRAFT_CARD_HEIGHT: float = 160.0',
               'MATERIAL_CARD_HEIGHT: float = 108.0'):
     assert token in fac,token
 assert 'section_tabs.position = Vector2.ZERO' in fac

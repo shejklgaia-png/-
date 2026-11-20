@@ -13,7 +13,7 @@ assert 'theme.default_font = ui_font()' in skin
 assert 'LaboSkin.title_font()' in ui and 'LaboSkin.data_font()' in ui
 assert 'modal_body.add_theme_font_size_override("font_size", 19)' in ui
 for token in ("LABO_NAV_HEIGHT: float = 64.0", "LABO_SLOT_HEIGHT: float = 58.0",
-              "LABO_BACK_HEIGHT: float = 66.0", "LABO_CRAFT_CARD_HEIGHT: float = 108.0"):
+              "LABO_BACK_HEIGHT: float = 66.0", "LABO_CRAFT_CARD_HEIGHT: float = 160.0"):
     assert token in ui, token
 assert 'text_overrun_behavior = 3' in scene
 print("SERA_V536_LABO_REFERENCE_STYLE_PASS")

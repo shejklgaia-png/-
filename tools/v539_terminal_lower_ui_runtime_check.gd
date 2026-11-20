@@ -78,8 +78,9 @@ func _run() -> void:
     fac.call("_switch_section", "materials")
     await process_frame
     await process_frame
-    if (fac.get("modal_body") as Label).visible:
-        _fail("gray explanation reappeared on refinery")
+    var refinery_note: Label = fac.get("modal_body") as Label
+    if not refinery_note.visible or refinery_note.text.find("精製") < 0:
+        _fail("refinery description does not explain material refining")
         return
     card = (fac.get("item_layer") as Control).find_child(
         "MaterialIcon_scrap_low", true, false) as Button

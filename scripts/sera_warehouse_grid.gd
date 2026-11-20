@@ -44,7 +44,9 @@ func configure(data: Array, new_columns: int, new_mode: String) -> void:
     entries = data.duplicate(true)
     columns = 3 if new_columns == 3 else 2
     mode = "materials" if new_mode == "materials" else "equipment"
-    virtual_slots = maxi(columns, ceili(float(entries.size()) / float(columns)) * columns)
+    # The 999-capacity hanger is virtual; only on-screen cards are pooled.
+    virtual_slots = (999 if mode == "equipment" else
+        maxi(columns, ceili(float(entries.size()) / float(columns)) * columns))
     _row_pitch = _card_height() + GAP
     _first_row = -1
     if is_inside_tree():
@@ -239,8 +241,7 @@ func _bind_card(card: Button, index: int) -> void:
             tier = 1
         elif id.ends_with("_high"):
             tier = 2
-        marker.color = (Color("#617c88") if tier == 0 else
-            Color("#71a6ad") if tier == 1 else Color("#8bd6df"))
+        marker.color = Color("#79b6c2")
         trace.color = marker.color
         art.texture = Icons.material_icon(id)
         art.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
@@ -293,8 +294,8 @@ func _bind_card(card: Button, index: int) -> void:
         title.size = Vector2(text_width, 49.0)
         title.add_theme_font_size_override("font_size", 18)
         title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-        effects.position = Vector2(14.0, 101.0)
-        effects.size = Vector2(_card_width - 27.0, _card_height() - 106.0)
+        effects.position = Vector2(16.0, 101.0)
+        effects.size = Vector2(_card_width - 29.0, _card_height() - 106.0)
         effects.add_theme_font_size_override("font_size", 13)
         effects.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
         var mark: String = ("★ " if bool(entry.get("favorite", false)) else

@@ -40,8 +40,8 @@ func _run() -> void:
         return
     w.call("configure", [], 2, "equipment")
     await process_frame
-    if int(w.get("virtual_slots")) != 2:
-        _fail("empty category must show two placeholder cards")
+    if int(w.get("virtual_slots")) != 999:
+        _fail("empty category must expose all 999 virtual hanger positions")
         return
     var materials: Array = []
     for family in ["scrap", "alloy", "electronics", "organic"]:
