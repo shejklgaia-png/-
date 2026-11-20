@@ -3606,3 +3606,12 @@
 - 通常時には `_diag_step` の記録と呼び出し元の文字列連結を実行しない。タイトル5連打で診断モードを表示すればチェックポイントは引き続き使用できる。表示件数の診断カウンタは引き続き保持。
 - WebPのソース復号フォールバック、AtlasTexture、画像・Skinキャッシュ、セーブ・素材交換・製作品個体IDは変更しない。実メモリ/CPU負荷の最小値はAndroid端末上でのプロファイラー比較を必要とする。
 - mainへのマージ後は既存全Python/Godot CI・Linux実描画・モデル整合性を必ず確認し、Android端末の見た目/操作は別に評価する。
+
+
+## SERA v528（2026-11-20）— LABO共通3Dヒーローと角丸青灰UI
+- 依頼：LABO上30%は常時3Dの煽り視点研究室。3Dプリンターが稼働し、クレートが自走で端末の内容をチェックする。素材変換・倉庫にも共通適用、全選択UIは角丸ブルーグレー。
+- 現行main・project.godot・AGENTS・登録済CI（v519/v521/v522/v523/v524/v527/軽量LABO/Android診断）とrender policyを事前確認。既存の四隅欠けフレームテストだけ新規仕様に沿って先に更新し、7/12件・画像/タップ/保存は維持。新規3D/UIテスト2件を実装前に登録。
+- 新規シーン `scenes/labo_hero_stage.tscn` と `scripts/labo_hero_stage.gd` に軽量ローポリ研究室・造形機・端末・キャタピラ式クレートを配置し、移動・端末チェック・印刷機観察のFSM、プリンター可動パーツを実装。
+- UIを共通の低解像度3D SubViewport（初回のみ生成、共有、閉じると停止）＋下段の既存NativeButton UIとし、上部の高さを表示領域の30%に固定。LABO/精製装置/分解装置/倉庫の全画面で同じ研究室を維持。
+- `scripts/sera_labo_round_skin.gd` の StyleBoxFlat 共通Themeを全Button/カードに適用。四隅欠けは角丸へ変更。Androidで表示実績のあるVBox/HBox/native ButtonとWebPソース画像復号を変更しない。
+- mainにマージ後、全CI・画面ピクセル検証を実施。実機描画の品質/操作感/負荷はAndroidで別途確認。
