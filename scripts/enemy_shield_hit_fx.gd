@@ -11,6 +11,8 @@ const FRAME_SIDES: int = 8
 # Slightly wider horizontal silhouette for all six intact frames + center.
 # No camera or world scale changes: this affects screen-facing octagons only.
 const OCTAGON_HORIZONTAL_STRETCH: float = 1.15
+# Keep the world/camera scale and depth unchanged; shrink every FX primitive.
+const VISUAL_SIZE_MULTIPLIER: float = 0.30
 const EXPAND_SECONDS: float = 0.20
 const HOLD_SECONDS: float = 0.20
 const FADE_SECONDS: float = 0.20
@@ -20,6 +22,7 @@ const FRACTURE_SECONDS: float = 0.65
 const CRACK_EXTEND_SECONDS: float = 0.065
 const CRACK_FADE_END_SECONDS: float = 0.16
 const GLASS_SHARD_COUNT: int = 14
+const GLASS_SHARD_COLOR: Color = Color("7ddaff")
 const CONTACT_RADIUS_START_PX: float = 100.0
 const CONTACT_RADIUS_END_PX: float = 260.0
 const FRACTURE_REACH_START_PX: float = 90.0
@@ -152,20 +155,27 @@ func _octagon_disc(center: Vector2, radius: float,
         var b: Vector2 = center + _octagon_direction((i + 1) % FRAME_SIDES) * radius
         _tri(center, a, b, color, color, color, depth)
 
-func _octagon_frame(center: Vector2, radius: float, thickness: float,
+func _octagon_frame(center: Vector2, radius: float, inner_radius: float,
         color: Color, depth: float) -> void:
-    # Exactly 8 flat sides, uniform alpha across the entire thick polygon
-    # perimeter. No gradient, feathered mask or blurred outer edges.
-    var inner_radius: float = maxf(1.0, radius - thickness)
+    # Tessellate the *entire* band. Its inner vertices exactly match the
+    # previous octagon's outer vertices, including during staggered expansion.
+    var inner: float = clampf(inner_radius, 0.0, radius)
     for i in range(FRAME_SIDES):
         var va: Vector2 = _octagon_direction(i)
         var vb: Vector2 = _octagon_direction((i + 1) % FRAME_SIDES)
-        var ia: Vector2 = center + va * inner_radius
-        var ib: Vector2 = center + vb * inner_radius
+        var ia: Vector2 = center + va * inner
+        var ib: Vector2 = center + vb * inner
         var oa: Vector2 = center + va * radius
         var ob: Vector2 = center + vb * radius
         _tri(ia, oa, ob, color, color, color, depth)
         _tri(ia, ob, ib, color, color, color, depth)
+
+static func _frame_outer_radius(outer_radius: float, index: int, t: float) -> float:
+    var delay: float = float(index) * EXPAND_SECONDS / float(FRAME_COUNT)
+    var emerge: float = smoothstep(0.0, 1.0,
+        clampf((t - delay) * float(FRAME_COUNT) / EXPAND_SECONDS, 0.0, 1.0))
+    return outer_radius * float(index + 1) / float(FRAME_COUNT) * (
+        lerpf(0.82, 1.0, emerge))
 
 static func visible_frame_count(t: float) -> int:
     if t < 0.0 or t >= IMPACT_SECONDS:
@@ -215,23 +225,22 @@ func _draw_impact(center: Vector2, depth: float, t: float,
     var outer_radius: float = contact_radius_px(
         clampf(t / EXPAND_SECONDS, 0.0, 1.0)) * scale
     var inner_alpha: float = frame_alpha(0, t)
+    var core_radius: float = _frame_outer_radius(outer_radius, 0, t) * 0.55
     if inner_alpha > 0.0:
         var flash: float = contact_core_flash(t / duration)
         var core: Color = membrane_center_color(tone, inner_alpha, flash)
-        var core_radius: float = outer_radius / float(FRAME_COUNT) * 0.55
         _octagon_disc(center, core_radius, core, depth)
     for i in range(FRAME_COUNT):
         var alpha: float = frame_alpha(i, t)
         if alpha <= 0.0:
             continue
-        var delay: float = float(i) * EXPAND_SECONDS / float(FRAME_COUNT)
-        var emerge: float = smoothstep(0.0, 1.0,
-            clampf((t - delay) * float(FRAME_COUNT) / EXPAND_SECONDS, 0.0, 1.0))
-        var radius: float = outer_radius * (
-            float(i + 1) / float(FRAME_COUNT)) * lerpf(0.82, 1.0, emerge)
-        var thickness: float = (12.0 + float(i) * 1.7) * scale
+        var radius: float = _frame_outer_radius(outer_radius, i, t)
+        # No independent frame thickness: every ring begins where the
+        # previous ring ends. The center and all six layers stay gapless.
+        var inner_radius: float = (core_radius if i == 0 else
+            _frame_outer_radius(outer_radius, i - 1, t))
         var frame_color := Color(tone.r, tone.g, tone.b, alpha)
-        _octagon_frame(center, radius, thickness, frame_color, depth)
+        _octagon_frame(center, radius, inner_radius, frame_color, depth)
 
 static func crack_tip_opacity(progress: float) -> float:
     return 1.0 - smoothstep(0.68, 1.0, clampf(progress, 0.0, 1.0))
@@ -253,41 +262,63 @@ func _make_glass_shards() -> Array:
     rng.randomize()
     var result: Array = []
     for i in range(GLASS_SHARD_COUNT):
+        # Scatter location, direction, velocity, dimensions and silhouette
+        # are sampled once per hit, not again on every animated redraw.
+        var angle: float = rng.randf_range(0.0, TAU)
+        var spawn_angle: float = angle + rng.randf_range(-0.65, 0.65)
         result.append({
-            "angle": TAU * (float(i) + rng.randf_range(-0.34, 0.34)) /
-                float(GLASS_SHARD_COUNT),
-            "speed": rng.randf_range(0.82, 1.42),
+            "spawn": Vector2(cos(spawn_angle), sin(spawn_angle)) *
+                rng.randf_range(3.0, 22.0),
+            "angle": angle,
+            "speed": rng.randf_range(0.75, 1.55),
             "spin": rng.randf_range(-2.7, 2.7),
             "length": rng.randf_range(55.0, 110.0),
             "width": rng.randf_range(30.0, 68.0),
-            "tilt": rng.randf_range(-0.4, 0.4),
+            "tilt": rng.randf_range(-0.6, 0.6),
+            "notch": rng.randf_range(0.18, 0.40),
+            "tip_bias": rng.randf_range(-0.38, 0.38),
         })
     return result
 
+static func shard_distance_px(t: float, speed: float) -> float:
+    # Integrated linearly slowing speed: displacement increases while its
+    # derivative falls to zero. No acceleration near disappearance.
+    var travel: float = clampf(t / FRACTURE_SECONDS, 0.0, 1.0)
+    return 260.0 * maxf(0.0, speed) * (1.0 - pow(1.0 - travel, 2.0))
+
 func _draw_glass_shard(center: Vector2, depth: float, shard: Dictionary,
         t: float, scale: float) -> void:
-    var decay: float = 1.0 - smoothstep(0.35, 0.62, t)
+    var decay: float = 1.0 - smoothstep(0.27, 0.62, t)
     if decay <= 0.0:
         return
     var angle: float = float(shard["angle"])
-    var travel: float = clampf(t / 0.52, 0.0, 1.0)
-    var displacement: float = (
-        44.0 + 270.0 * pow(travel, 0.76)) * float(shard["speed"]) * scale
-    var center_piece: Vector2 = center + Vector2(cos(angle), sin(angle)) * displacement
+    var direction: Vector2 = Vector2(cos(angle), sin(angle))
+    var spawn: Vector2 = shard["spawn"]
+    var center_piece: Vector2 = center + (
+        spawn + direction * shard_distance_px(t, float(shard["speed"]))) * scale
     var rotation: float = angle + float(shard["tilt"]) + float(shard["spin"]) * t
     var axis: Vector2 = Vector2(cos(rotation), sin(rotation))
     var side: Vector2 = Vector2(-axis.y, axis.x)
     var length: float = float(shard["length"]) * scale
     var width: float = float(shard["width"]) * scale
-    # Two large hard-edged triangular facets form a single glass-like shard.
-    var a: Vector2 = center_piece - axis * (length * 0.46) - side * (width * 0.20)
-    var b: Vector2 = center_piece - axis * (length * 0.11) + side * (width * 0.56)
-    var c: Vector2 = center_piece + axis * (length * 0.56) + side * (width * 0.08)
-    var d: Vector2 = center_piece + axis * (length * 0.05) - side * (width * 0.50)
-    var bright := Color(0.76, 0.96, 1.0, 0.88 * decay)
-    var cyan := Color(0.10, 0.77, 1.0, 0.76 * decay)
-    _tri(a, b, c, bright, bright, bright, depth)
-    _tri(a, c, d, cyan, cyan, cyan, depth)
+    var notch: float = float(shard["notch"])
+    var tip_bias: float = float(shard["tip_bias"])
+    var a: Vector2 = center_piece - axis * (length * 0.46) - side * (
+        width * (0.16 + notch * 0.16))
+    var b: Vector2 = center_piece - axis * (
+        length * (0.12 + tip_bias * 0.16)) + side * (
+        width * (0.40 + notch * 0.25))
+    var c: Vector2 = center_piece + axis * (
+        length * (0.50 + tip_bias * 0.10)) + side * (
+        width * (0.04 + tip_bias * 0.24))
+    var d: Vector2 = center_piece + axis * (
+        length * (0.02 - notch * 0.11)) - side * (
+        width * (0.34 + notch * 0.18))
+    # Both triangles use the same flat tint, without facet highlights.
+    var tint: Color = GLASS_SHARD_COLOR
+    tint.a *= decay
+    _tri(a, b, c, tint, tint, tint, depth)
+    _tri(a, c, d, tint, tint, tint, depth)
 
 func _fracture(center: Vector2, depth: float, t: float,
         scale: float, entry: Dictionary) -> void:
@@ -340,7 +371,7 @@ func _redraw() -> void:
         var high: Vector2 = view_camera.unproject_position(world_hit + Vector3.UP)
         var low: Vector2 = view_camera.unproject_position(world_hit - Vector3.UP)
         var scale: float = clampf(
-            high.distance_to(low) / 270.0, MIN_VISUAL_SCALE, 1.55)
+            high.distance_to(low) / 270.0, MIN_VISUAL_SCALE, 1.55) * VISUAL_SIZE_MULTIPLIER
         var age: float = float(entry["elapsed"])
         if bool(entry["broken"]):
             _fracture(center, depth, age, scale, entry)
