@@ -453,16 +453,25 @@ func _build_warehouse() -> void:
         warehouse_group.add_child(bay)
         _block(bay, "RackBack", Vector3(0, 1.67, -0.26),
             Vector3(2.18, 3.18, 0.16), Color("#253d4c"))
+        var barcode_lights: Array[Vector3] = []
+        var stock_tags: Array[Vector3] = []
+        var bin_palette: Array[Color] = [
+            Color("#708592"), Color("#5c7181"), Color("#7e8588")]
         for col in range(3):
             for row in range(4):
                 var box_x: float = -0.68 + float(col)*0.67
                 var box_y: float = 0.59 + float(row)*0.67
                 _block(bay, "StorageBin", Vector3(box_x, box_y, -0.02),
-                    Vector3(0.53, 0.45, 0.40), Color("#536c7b"))
-                _block(bay, "BinID", Vector3(box_x, box_y+0.10, 0.20),
-                    Vector3(0.36, 0.08, 0.02), Color("#a9ccd9"))
-                _block(bay, "BinHandle", Vector3(box_x, box_y-0.12, 0.20),
-                    Vector3(0.17, 0.04, 0.025), Color("#253c4e"))
+                    Vector3(0.56, 0.49, 0.47),
+                    bin_palette[(col + row + (1 if side > 0 else 0)) % 3])
+                _block(bay, "BinHandle", Vector3(box_x, box_y-0.12, 0.24),
+                    Vector3(0.19, 0.055, 0.025), Color("#253c4e"))
+                barcode_lights.append(Vector3(box_x, box_y+0.11, 0.237))
+                stock_tags.append(Vector3(box_x-0.18, box_y-0.18, 0.24))
+        _instances(bay, "StockBarcodePlates", barcode_lights,
+            Vector3(0.33, 0.085, 0.028), Color("#a7bec9"))
+        _instances(bay, "RackStockMarkers", stock_tags,
+            Vector3(0.07, 0.045, 0.03), Color("#4eb8c8"))
         for row in range(5):
             _block(bay, "ShelfBar", Vector3(0, 0.26+float(row)*0.67, 0.09),
                 Vector3(2.25, 0.09, 0.52), Color("#718b98"))
@@ -472,6 +481,18 @@ func _build_warehouse() -> void:
         _sign(bay, "H01" if side < 0 else "B01",
             Vector3(0, 3.20, 0.16), 42)
     # Off-center inventory processing table establishes a distinct third layer.
+    # Loaded cartons at the end of the aisle fill the otherwise empty
+    # background, without blocking the inventory monitor or midground CRATE.
+    var back_cargo: Array[Vector3] = []
+    for row in range(3):
+        for col in range(4):
+            back_cargo.append(Vector3(-3.97 + float(col)*0.56,
+                0.55 + float(row)*0.66, -3.70))
+    _instances(warehouse_group, "DeepPackedWarehouseCartons", back_cargo,
+        Vector3(0.48, 0.54, 0.49), Color("#688190"))
+    _block(warehouse_group, "BackCargoSupportShelf",
+        Vector3(-3.04, 0.33, -3.78),
+        Vector3(2.65, 0.10, 0.76), Color("#8da2a9"))
     _block(warehouse_group, "SortingTable", Vector3(0.28, 0.51, -0.41),
         Vector3(1.25, 0.28, 0.84), Color("#465e6d"))
     _block(warehouse_group, "ScanningPanel", Vector3(0.28, 0.70, -0.37),
