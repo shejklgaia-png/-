@@ -411,169 +411,204 @@ func _cylinder(parent: Node3D, label: String, point: Vector3,
     parent.add_child(node)
     return node
 
+# B: three processing vats left-to-right in amber, cyan, and violet.
+# They remain visible as complete tall machines in the reference frame.
 func _build_converter() -> void:
     converter_group = Node3D.new()
     converter_group.name = "MaterialConversionScene"
     add_child(converter_group)
-    var glows: Array[Color] = [
-        Color("#edac49"), Color("#56b8e0"), Color("#aa80d7")]
-    # Three LARGE tanks step diagonally away from the left foreground.
-    # Tank internals remain consistent; the placement is NOT a straight row.
-    var stations: Array[Vector2] = [
-        Vector2(-2.75, 0.10),
-        Vector2(-0.91, -1.22),
-        Vector2(0.90, -2.50)]
-    _block(converter_group, "RefineryBackingMachinery",
-        Vector3(-0.70, 1.35, -3.49),
-        Vector3(6.15, 2.65, 0.29), Color("#294354"))
+    var colors: Array[Color] = [
+        Color("#ffa83c"), Color("#4ebcfc"), Color("#b36bea")]
+    var locations: Array[Vector3] = [
+        Vector3(-2.65, 0, -0.35),
+        Vector3(-0.15, 0, -1.05),
+        Vector3(1.70, 0, -1.60)]
     for i in range(3):
-        var x: float = stations[i].x
-        var z: float = stations[i].y
         var station := Node3D.new()
         station.name = "RefineryVessel_%d" % i
-        station.position = Vector3(x, 0, z)
-        # Face toward the high left-side service camera.
-        station.rotation.y = -0.14
+        station.position = locations[i]
         converter_group.add_child(station)
-        _cylinder(station, "ChamberBase", Vector3(0, 0.45, 0),
-            0.62, 0.40, Color("#354a59"))
-        _cylinder(station, "ChamberBody", Vector3(0, 1.35, 0),
-            0.53, 1.52, Color("#344c5e"))
-        _block(station, "ChamberWindow", Vector3(0, 1.33, 0.54),
-            Vector3(0.75, 1.03, 0.075), Color("#132c3c"))
-        _cylinder(station, "ChamberRoof", Vector3(0, 2.22, 0),
-            0.65, 0.20, Color("#6e8795"))
-        _cylinder(station, "RingTop", Vector3(0, 2.03, 0),
-            0.56, 0.07, glows[i], true)
-        _cylinder(station, "RingLower", Vector3(0, 0.70, 0),
-            0.56, 0.07, glows[i], true)
+        # Transparent sleeve with metal end rings and active material inside.
+        _cylinder(station, "VesselBase", Vector3(0, 0.47, 0),
+            0.75, 0.50, Color("#566d78"))
+        _cylinder(station, "LowerSealingRim", Vector3(0, 0.76, 0),
+            0.77, 0.13, Color("#81959e"))
+        _cylinder(station, "UpperSealingRim", Vector3(0, 2.36, 0),
+            0.79, 0.14, Color("#91a6ae"))
+        _cylinder(station, "TankRoof", Vector3(0, 2.59, 0),
+            0.72, 0.36, Color("#526e7e"))
+        _cylinder(station, "TallPipeCoupling", Vector3(0, 2.92, 0),
+            0.30, 0.34, Color("#9ab2bc"))
+        _cylinder(station, "FeedPipeCrown", Vector3(0, 3.26, 0),
+            0.13, 0.46, Color("#586f7c"))
+        for side in [-1.0, 1.0]:
+            _block(station, "VerticalSupport",
+                Vector3(side*0.62, 1.54, 0.0),
+                Vector3(0.11, 1.52, 0.14), Color("#678291"))
+        # Glass cylinder uses alpha blending, but does not hide the modelled
+        # amber/blue/violet feedstock.
+        var sleeve_mesh := CylinderMesh.new()
+        sleeve_mesh.top_radius = 0.69
+        sleeve_mesh.bottom_radius = 0.69
+        sleeve_mesh.height = 1.48
+        sleeve_mesh.radial_segments = 18
+        var glass := StandardMaterial3D.new()
+        glass.albedo_color = Color(colors[i].r, colors[i].g, colors[i].b, 0.12)
+        glass.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+        glass.metallic = 0.1
+        glass.roughness = 0.3
+        glass.cull_mode = BaseMaterial3D.CULL_DISABLED
+        var tank_window := MeshInstance3D.new()
+        tank_window.name = "RefineryTransparentChamber"
+        tank_window.mesh = sleeve_mesh
+        tank_window.material_override = glass
+        tank_window.position = Vector3(0, 1.54, 0)
+        station.add_child(tank_window)
+        _cylinder(station, "TopProcessingNeon", Vector3(0, 2.21, 0),
+            0.72, 0.045, colors[i], true)
+        _cylinder(station, "LowerProcessingNeon", Vector3(0, 0.82, 0),
+            0.71, 0.045, colors[i], true)
         var rotor := Node3D.new()
         rotor.name = "CrystalRotor_" + str(i)
-        rotor.position = Vector3(x, 1.25, z + 0.68)
-        converter_group.add_child(rotor)
+        rotor.position = Vector3(0, 1.05, 0)
+        station.add_child(rotor)
         converter_crystals.append(rotor)
-        for j in range(5):
-            var gem := SphereMesh.new()
-            gem.radius = 0.19 if j % 2 == 0 else 0.14
-            gem.height = gem.radius * 2.0
-            gem.radial_segments = 6
-            gem.rings = 3
-            var crystal := MeshInstance3D.new()
-            crystal.name = "ConverterCrystal"
-            crystal.mesh = gem
-            crystal.material_override = _paint(glows[i], j == 0)
-            crystal.position = Vector3(
-                0.21*cos(float(j)*2.5),
-                -0.23+float(j % 3)*0.20,
-                0.11*sin(float(j)*2.5))
-            rotor.add_child(crystal)
-        _block(station, "FeedPipe", Vector3(-0.22, 2.72, -0.78),
-            Vector3(0.17, 0.95, 0.14), Color("#7d929e"))
-        _block(station, "StatusScreen", Vector3(0, 0.40, 0.90),
-            Vector3(0.76, 0.25, 0.065), Color("#21495d"))
-        _block(station, "Readout", Vector3(0, 0.42, 0.95),
-            Vector3(0.50, 0.03, 0.015), glows[i], true)
-        _sign(station, "REF %d" % (i+1),
-            Vector3(0, 2.52, 0.72), 28)
-    # Far-side raised operator platform adds a second architectural plane.
-    var catwalk := Node3D.new()
-    catwalk.name = "OverheadObliqueRefineryBridge"
-    catwalk.position = Vector3(1.15, 3.24, -3.18)
-    catwalk.rotation.y = -0.34
-    converter_group.add_child(catwalk)
-    _block(catwalk, "Walkway", Vector3.ZERO,
-        Vector3(3.55, 0.15, 0.75), Color("#68808e"))
-    _block(catwalk, "SafetyRail", Vector3(0, 0.46, 0.37),
-        Vector3(3.5, 0.07, 0.05), Color("#aec1c8"))
-    for k in range(5):
-        _block(catwalk, "CatwalkBaluster",
-            Vector3(-1.48+float(k)*0.74, 0.23, 0.37),
-            Vector3(0.05, 0.44, 0.05), Color("#8ca8b5"))
-    # Sample sorting occupies the open right foreground, NOT in front of tank 1.
-    _block(converter_group, "SampleExchangeBench", Vector3(1.60, 0.29, 0.73),
-        Vector3(2.65, 0.35, 0.72), Color("#445f6e"))
-    for j in range(6):
-        var box_x: float = 0.59 + float(j)*0.40
-        _block(converter_group, "SortedMaterials",
-            Vector3(box_x, 0.54, 0.75),
-            Vector3(0.24, 0.20, 0.23), glows[int(j / 2)])
+        for j in range(10):
+            var p := SphereMesh.new()
+            p.radius = 0.19 if j % 3 == 0 else 0.15
+            p.height = p.radius * 2.0
+            p.radial_segments = 7
+            p.rings = 4
+            var ore := MeshInstance3D.new()
+            ore.name = "HeatedFeedstock"
+            ore.mesh = p
+            ore.material_override = _paint(colors[i], j % 4 == 0)
+            ore.position = Vector3(
+                float((j % 3)-1)*0.32,
+                float(int(j / 3))*0.26,
+                (float(j % 2)-0.5)*0.38)
+            rotor.add_child(ore)
+        _block(station, "TankServicePanel", Vector3(0, 0.46, 0.78),
+            Vector3(0.59, 0.19, 0.10), Color("#294959"))
+        _block(station, "TankServiceIndicator", Vector3(0, 0.47, 0.84),
+            Vector3(0.37, 0.04, 0.018), colors[i], true)
+    var trays := Node3D.new()
+    trays.name = "RefineryFeedstockTrays"
+    trays.position = Vector3(-0.50, 0, 1.66)
+    converter_group.add_child(trays)
+    # The reference has FOUR material-filled open trays in the foreground.
+    for i in range(4):
+        var x: float = -2.65 + float(i)*1.41
+        _block(trays, "IndustrialMaterialBin",
+            Vector3(x, 0.30, 0), Vector3(1.22, 0.41, 0.82),
+            Color("#4a6473"))
+        _block(trays, "BinInnerDarkSurface",
+            Vector3(x, 0.52, -0.03), Vector3(1.08, 0.02, 0.68),
+            Color("#253e4b"))
+        for corner in [-1.0, 1.0]:
+            _block(trays, "BinRim",
+                Vector3(x+corner*0.59, 0.53, 0),
+                Vector3(0.055, 0.09, 0.87), Color("#92a5ad"))
+        var sample_positions: Array[Vector3] = []
+        for row in range(2):
+            for col in range(3):
+                sample_positions.append(Vector3(
+                    x-0.37+float(col)*0.36,
+                    0.65+float((col+row)%2)*0.08,
+                    -0.24+float(row)*0.40))
+        _instances(trays, "MaterialSampleBatch_%d" % i,
+            sample_positions, Vector3(0.27, 0.23, 0.27),
+            colors[i] if i != 2 else Color("#a6b5c3"))
+        _block(trays, "MaterialLabelPlate", Vector3(x, 0.25, 0.435),
+            Vector3(0.44, 0.075, 0.018), Color("#b49a63"))
+    # Separate control consoles on the left edge and between the first tanks.
+    for idx in range(2):
+        var controller := Node3D.new()
+        controller.name = "RefineryControlTerminal_%d" % idx
+        controller.position = (Vector3(-4.20, 0, 0.55) if idx == 0
+            else Vector3(-1.52, 0, 0.72))
+        controller.rotation.y = -0.19
+        converter_group.add_child(controller)
+        _block(controller, "PanelSupport", Vector3(0, 0.62, 0),
+            Vector3(0.34, 1.20, 0.39), Color("#445c6c"))
+        var display := Node3D.new()
+        display.name = "PanelScreen"
+        display.position = Vector3(0, 1.38, 0.08)
+        display.rotation.x = -0.18
+        controller.add_child(display)
+        _block(display, "PanelMetalFrame", Vector3.ZERO,
+            Vector3(0.85, 0.58, 0.12), Color("#a2b7c0"))
+        _block(display, "PanelGlass", Vector3(0, 0, 0.078),
+            Vector3(0.72, 0.44, 0.02), Color("#225970"))
+        for k in range(3):
+            _block(display, "LinePlot",
+                Vector3(-0.19, 0.15-float(k)*0.11, 0.095),
+                Vector3(0.28, 0.027, 0.01), Color("#70cfe0"), true)
 
+# C: loaded racks face the central aisle, with two different banks and
+# individually readable H01/H02/A01 and B01/B02/A02 storage IDs.
 func _build_warehouse() -> void:
     warehouse_group = Node3D.new()
     warehouse_group.name = "WarehouseScene"
     add_child(warehouse_group)
-    # Two rack banks have very different distances from camera. Their
-    # individually turned faces create a receding, asymmetric warehouse aisle.
+    var color_main := Color("#617a88")
     for side in [-1, 1]:
         var bay := Node3D.new()
         bay.name = "RackBay_Left" if side < 0 else "RackBay_Right"
-        bay.position = (Vector3(-2.66, 0.0, 0.12) if side < 0
-            else Vector3(2.70, 0.0, -2.03))
-        bay.rotation.y = -0.31 if side < 0 else 0.16
+        bay.position = (Vector3(-3.55, 0, -1.25) if side < 0
+            else Vector3(3.65, 0, -1.55))
+        bay.rotation.y = -0.10 if side < 0 else 0.12
         warehouse_group.add_child(bay)
-        _block(bay, "RackBack", Vector3(0, 1.67, -0.26),
-            Vector3(2.18, 3.18, 0.16), Color("#253d4c"))
-        var barcode_lights: Array[Vector3] = []
-        var stock_tags: Array[Vector3] = []
-        var bin_palette: Array[Color] = [
-            Color("#708592"), Color("#5c7181"), Color("#7e8588")]
-        for col in range(3):
-            for row in range(4):
-                var box_x: float = -0.68 + float(col)*0.67
-                var box_y: float = 0.59 + float(row)*0.67
-                _block(bay, "StorageBin", Vector3(box_x, box_y, -0.02),
-                    Vector3(0.56, 0.49, 0.47),
-                    bin_palette[(col + row + (1 if side > 0 else 0)) % 3])
-                _block(bay, "BinHandle", Vector3(box_x, box_y-0.12, 0.24),
-                    Vector3(0.19, 0.055, 0.025), Color("#253c4e"))
-                barcode_lights.append(Vector3(box_x, box_y+0.11, 0.237))
-                stock_tags.append(Vector3(box_x-0.18, box_y-0.18, 0.24))
-        _instances(bay, "StockBarcodePlates", barcode_lights,
-            Vector3(0.33, 0.085, 0.028), Color("#a7bec9"))
-        _instances(bay, "RackStockMarkers", stock_tags,
-            Vector3(0.07, 0.045, 0.03), Color("#4eb8c8"))
-        for row in range(5):
-            _block(bay, "ShelfBar", Vector3(0, 0.26+float(row)*0.67, 0.09),
-                Vector3(2.25, 0.09, 0.52), Color("#718b98"))
-        for edge in [-1.12, 1.12]:
-            _block(bay, "RackPost", Vector3(edge, 1.66, 0.07),
-                Vector3(0.11, 3.40, 0.12), Color("#7793a0"))
-        _sign(bay, "H01" if side < 0 else "B01",
-            Vector3(0, 3.20, 0.16), 42)
-    # Off-center inventory processing table establishes a distinct third layer.
-    # Loaded cartons at the end of the aisle fill the otherwise empty
-    # background, without blocking the inventory monitor or midground CRATE.
-    var back_cargo: Array[Vector3] = []
-    for row in range(3):
-        for col in range(4):
-            back_cargo.append(Vector3(-3.97 + float(col)*0.56,
-                0.55 + float(row)*0.66, -3.70))
-    _instances(warehouse_group, "DeepPackedWarehouseCartons", back_cargo,
-        Vector3(0.48, 0.54, 0.49), Color("#688190"))
-    _block(warehouse_group, "BackCargoSupportShelf",
-        Vector3(-3.04, 0.33, -3.78),
-        Vector3(2.65, 0.10, 0.76), Color("#8da2a9"))
-    _block(warehouse_group, "SortingTable", Vector3(0.28, 0.51, -0.41),
-        Vector3(1.25, 0.28, 0.84), Color("#465e6d"))
-    _block(warehouse_group, "ScanningPanel", Vector3(0.28, 0.70, -0.37),
-        Vector3(1.05, 0.07, 0.67), Color("#23495d"))
-    for col in range(4):
-        _block(warehouse_group, "SortingReadout",
-            Vector3(-0.10+float(col)*0.25, 0.75, -0.40),
-            Vector3(0.13, 0.02, 0.44), Color("#56b6d3"), true)
-    # Small foreground crane at an angle, not a parallel rack row.
-    var overhead_rail := Node3D.new()
-    overhead_rail.name = "WarehouseConveyorOverhead"
-    overhead_rail.position = Vector3(0.80, 3.90, -1.05)
-    overhead_rail.rotation.y = 0.36
-    warehouse_group.add_child(overhead_rail)
-    _block(overhead_rail, "ConveyorRail", Vector3.ZERO,
-        Vector3(3.45, 0.22, 0.24), Color("#6c8491"))
-    _block(overhead_rail, "ConveyorLuminousStrip", Vector3(0, -0.14, 0.10),
-        Vector3(3.35, 0.045, 0.04), Color("#6cc2d8"), true)
+        _block(bay, "StorageBackplate", Vector3(0, 2.32, -0.46),
+            Vector3(2.72, 4.62, 0.17), Color("#2b4454"))
+        for edge in [-1.34, 1.34]:
+            _block(bay, "TallRackPost", Vector3(edge, 2.38, 0),
+                Vector3(0.14, 4.75, 0.21), Color("#91a1ac"))
+        for shelf in range(4):
+            _block(bay, "VerticalTierBeam",
+                Vector3(0, 0.40+float(shelf)*1.03, 0.27),
+                Vector3(2.70, 0.10, 0.72), Color("#718996"))
+        var bin_positions: Array[Vector3] = []
+        for row in range(3):
+            for col in range(3):
+                bin_positions.append(Vector3(-0.82+float(col)*0.82,
+                    0.76+float(row)*1.03, -0.01))
+        _instances(bay, "FullStockCartons", bin_positions,
+            Vector3(0.67, 0.65, 0.56), Color("#71818c"))
+        var stockstrips: Array[Vector3] = []
+        for row in range(3):
+            for col in range(3):
+                stockstrips.append(Vector3(-0.82+float(col)*0.82,
+                    0.96+float(row)*1.03, 0.285))
+        _instances(bay, "CartonAmberHandles", stockstrips,
+            Vector3(0.30, 0.055, 0.027), Color("#cba35d"))
+        var inventory_plate := Node3D.new()
+        inventory_plate.name = "WarehouseLeftStockLabels" if side < 0 \
+            else "WarehouseRightStockLabels"
+        inventory_plate.position = Vector3(-0.72, 0, 0.45)
+        bay.add_child(inventory_plate)
+        var ids: Array[String] = (["A01","H02","H01"] if side < 0
+            else ["A02","B02","B01"])
+        for j in range(3):
+            var label_y: float = 1.17 + float(j)*1.04
+            _block(inventory_plate, "LargeStockCodePlate",
+                Vector3(0, label_y, 0), Vector3(1.15, 0.64, 0.07),
+                Color("#435b6b"))
+            _sign(inventory_plate, ids[j],
+                Vector3(0, label_y-0.08, 0.061), 94)
+            _block(inventory_plate, "AmberShelfMarker",
+                Vector3(0.43, label_y+0.37, 0.042),
+                Vector3(0.18, 0.05, 0.028), Color("#d09a43"), true)
+    for side in [-1.0, 1.0]:
+        _block(warehouse_group, "PeripheralHeavyCrate",
+            Vector3(side*5.55, 0.46, 1.84),
+            Vector3(1.32, 0.88, 1.06), color_main)
+        _block(warehouse_group, "CrateTopPlate",
+            Vector3(side*5.55, 0.91, 1.84),
+            Vector3(1.20, 0.08, 0.98), Color("#788f9b"))
+    _block(warehouse_group, "AmberCargoAtRear", Vector3(3.10, 0.31, -3.60),
+        Vector3(0.88, 0.55, 0.72), Color("#b58e4d"))
 
-# These heavy props sit between the camera and workshop and are intentionally
-# larger than the visible crop. The room perimeter is NOT a composition target.
 func _build_printer_closeup() -> void:
     var loader := Node3D.new()
     loader.name = "PrinterForegroundLoader"
