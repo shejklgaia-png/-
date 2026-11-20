@@ -14,7 +14,7 @@ compatibility/default_parent_skeleton_in_mesh_instance_3d=true
 
 [application]
 
-config/name="SERA v525"
+config/name="SERA v526"
 quit_on_go_back=false
 run/main_scene="res://scenes/base_exploration.tscn"
 config/features=PackedStringArray("4.7", "GL Compatibility")
