@@ -115,7 +115,7 @@ func _run_checks() -> void:
         "warehouse racks continue beyond frame rather than ending inside it")
     if close_tower != null:
         _verify(_outside_camera_frame(camera,
-            close_tower.to_global(Vector3(1.10, 5.30, 0))),
+            close_tower.to_global(Vector3(0, 4.60, -0.40))),
             "oversized near rack extends outside warehouse viewport")
     _verify(warehouse.get_node_or_null("WarehouseForegroundPallets") != null,
         "warehouse loading clutter fills near-camera floor")
