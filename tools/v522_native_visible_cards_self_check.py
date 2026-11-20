@@ -8,12 +8,12 @@ ui = (root/"scripts/base_facility_system.gd").read_text(encoding="utf-8")
 skin = (root/"scripts/sera_labo_round_skin.gd").read_text(encoding="utf-8")
 manifest = (root/"tools/sera_ci_manifest.txt").read_text(encoding="utf-8")
 assert 'const LaboSkin = preload("res://scripts/sera_labo_round_skin.gd")' in ui
-assert 'var card := Button.new()' in ui, "use native Button, not scripted PanelContainer"
-assert 'card.icon = icon' in ui and 'card.text = title + "\\n" + info' in ui
+assert 'LaboMaterialCardScene.instantiate()' in ui and 'LaboEquipmentCardScene.instantiate()' in ui, "use native Button roots from reusable card scenes"
+assert 'card.text = title + "\\n" + info' in ui and 'card.get_node("CardContent/Row/ItemArt")' in ui
 assert 'row = HBoxContainer.new()' in ui and 'var grid := VBoxContainer.new()' in ui
 assert 'GridContainer.new()' not in ui
 assert 'ChamferSlot.new()' not in ui
-assert 'card.add_theme_stylebox_override("normal", LaboSkin.style(' in ui
+assert 'card.add_theme_stylebox_override("normal", LaboSkin.card_style(' in ui
 assert 'card.pressed.connect(action)' in ui
 assert '"FacilityActionsArea"' in ui
 assert 'StyleBoxFlat.new()' in skin and 'set_corner_radius_all(' in skin
