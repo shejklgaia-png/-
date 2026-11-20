@@ -29,6 +29,7 @@ var modal_panel: PanelContainer
 var modal_title: Label
 var modal_body: Label
 var modal_actions: VBoxContainer
+var item_layer: Control
 var actions_area: PanelContainer
 var warehouse_section: String = "materials"
 var owned_blueprint: String = ""
@@ -374,6 +375,15 @@ func attach_hud(hud: Control) -> void:
     close_button.custom_minimum_size.y = 58.0
     close_button.pressed.connect(navigate_back)
     body.add_child(close_button)
+    # Direct sibling to the working modal sheet. Android renders the header
+    # tabs but repeatedly omits nested item grids; separate their canvas
+    # hierarchy from the PanelContainer altogether.
+    item_layer = Control.new()
+    item_layer.name = "FacilityItemLayer"
+    item_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+    item_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    item_layer.z_index = 5
+    modal.add_child(item_layer)
 
 func update_tags(camera: Camera3D) -> void:
     if camera == null:
@@ -407,6 +417,10 @@ func _clear_actions() -> void:
     for child in modal_actions.get_children():
         modal_actions.remove_child(child)
         child.queue_free()
+    if item_layer != null:
+        for child in item_layer.get_children():
+            item_layer.remove_child(child)
+            child.queue_free()
 
 func _add_action(label: String, detail: String) -> void:
     var button := Button.new()
@@ -536,7 +550,7 @@ func _new_grid(grid_name: String, columns: int = 3) -> VBoxContainer:
     grid.add_theme_constant_override("separation", 7)
     grid.set_meta("card_columns", columns)
     grid.set_meta("card_count", 0)
-    modal_actions.add_child(grid)
+    item_layer.add_child(grid)
     return grid
 
 
@@ -1002,6 +1016,31 @@ func _on_shade_input(event: InputEvent) -> void:
         navigate_back()
         get_viewport().set_input_as_handled()
 
+func _position_item_grid() -> void:
+    if not is_menu_open() or item_layer == null or item_layer.get_child_count() == 0:
+        return
+    var grid: VBoxContainer = item_layer.get_child(0) as VBoxContainer
+    if grid == null:
+        return
+    var sheet: Rect2 = modal_panel.get_global_rect()
+    # Keep cards beneath the last visible control inside the facility sheet:
+    # profile creation and the two warehouse category tabs remain functional.
+    var top: float = modal_body.get_global_rect().end.y + 10.0
+    for child in modal_actions.get_children():
+        if child is Control and child.visible:
+            top = maxf(top, (child as Control).get_global_rect().end.y + 8.0)
+    var bottom: float = sheet.end.y - 94.0
+    if top >= bottom:
+        return
+    var layer_position: Vector2 = item_layer.get_global_rect().position
+    grid.position = Vector2(sheet.position.x + 12.0 - layer_position.x,
+        top - layer_position.y)
+    grid.size = Vector2(sheet.size.x - 24.0,
+        mini(grid.get_combined_minimum_size().y, bottom - top))
+
+
 func _process(delta: float) -> void:
+    if item_layer != null and item_layer.get_child_count() > 0:
+        _position_item_grid()
     if generator_rotor != null:
         generator_rotor.rotate_y(delta * 0.95)
