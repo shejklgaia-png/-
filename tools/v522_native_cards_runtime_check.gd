@@ -24,7 +24,8 @@ func _verify_grid(cards: Control, name: String, ids: Array, prefix: String, clic
             return false
     for id in shown:
         var card: Button = grid.find_child(prefix + str(id), true, false) as Button
-        if card == null or not card.is_visible_in_tree() or card.icon == null:
+        if card == null or not card.is_visible_in_tree() or (
+                (card.find_child("ItemArt", true, false) as TextureRect).texture == null):
             _fail("native visible icon-bearing card is missing: " + prefix + str(id))
             return false
         if card.disabled == clickable or card.get_parent() is not HBoxContainer:
@@ -33,7 +34,7 @@ func _verify_grid(cards: Control, name: String, ids: Array, prefix: String, clic
         if card.get_global_rect().size.x < 100.0 or card.get_global_rect().size.y < 78.0:
             _fail("native button size collapsed: " + card.name)
             return false
-        if card.get_theme_stylebox("normal") is not StyleBoxFlat:
+        if card.get_theme_stylebox("normal") is not StyleBoxTexture:
             _fail("the normal button style is not a rounded blue-grey StyleBoxFlat")
             return false
         if not card.text.contains("\n") or (name == "PrototypeGrid" and (
