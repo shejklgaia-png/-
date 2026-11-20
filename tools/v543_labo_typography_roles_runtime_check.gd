@@ -100,7 +100,7 @@ func _run() -> void:
     layer = fac.get("item_layer") as Control
     var material: Button = layer.find_child("MaterialIcon_scrap_low", true, false) as Button
     if not _has_font(material.find_child("ItemTitle", true, false) as Label,
-            control_font, "material name"):
+            reading, "material name"):
         return
     if not _has_font(material.find_child("ItemInfo", true, false) as Label,
             stats_font, "material quantity"):
@@ -113,7 +113,7 @@ func _run() -> void:
     actions = fac.get("modal_actions") as VBoxContainer
     var conversion: Button = actions.find_child("ConvertRank_0", true, false) as Button
     if conversion == null or not _has_font(conversion.find_child(
-            "ItemInfo", true, false) as Label, stats_font, "refinery output"):
+            "ItemInfo", true, false) as Label, reading, "refinery output"):
         return
     fac.call("_switch_section", "warehouse")
     await process_frame
