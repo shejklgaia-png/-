@@ -1,0 +1,93 @@
+extends SceneTree
+## On-demand native Button creation: no temporary fillers, no retained card pool.
+func _initialize() -> void:
+    call_deferred("_run")
+
+func _fail(msg: String) -> void:
+    push_error("SERA_LABO_MINIMAL_ALLOCATION_FAIL: " + msg)
+    quit(1)
+
+func _verify(fac: Node, grid_name: String, expected: int, fillers: int) -> bool:
+    var layer: VBoxContainer = fac.get("item_layer") as VBoxContainer
+    var grid: VBoxContainer = layer.find_child(grid_name, true, false) as VBoxContainer
+    if grid == null or grid.get_child_count() != ceili(float(expected)/3.0):
+        _fail("grid missing or wrong row count: " + grid_name)
+        return false
+    var seen: int = 0
+    var spare: int = 0
+    var first_width: float = -1.0
+    var last_width: float = -1.0
+    for row in grid.get_children():
+        if not row is HBoxContainer or row.get_child_count() != 3:
+            _fail("row must retain three equal-width cells: " + grid_name)
+            return false
+        for child in row.get_children():
+            if child is Button:
+                var card: Button = child as Button
+                if not card.is_visible_in_tree() or card.get_theme_stylebox("normal") is not StyleBoxTexture:
+                    _fail("native corner-cut card disappeared: " + card.name)
+                    return false
+                seen += 1
+                if first_width < 0:
+                    first_width = card.size.x
+                last_width = card.size.x
+            else:
+                spare += 1
+    if seen != expected or spare != fillers:
+        _fail("unnecessary permanent fillers or missing cards: "+grid_name+" "+str(seen)+"/"+str(spare))
+        return false
+    if absf(first_width-last_width) > 1.5:
+        _fail("incomplete last row stretches instead of matching regular card width")
+        return false
+    return true
+
+func _run() -> void:
+    var hub: Node3D = load("res://scenes/base_exploration.tscn").instantiate()
+    root.add_child(hub)
+    await process_frame
+    await process_frame
+    var fac: Node = hub.get_node("BaseFacilities")
+    fac.call("_switch_section", "craft")
+    await process_frame
+    await process_frame
+    if not _verify(fac, "PrototypeGrid", 7, 2):
+        return
+    var diag_before: String = str(fac.get("diag_stage"))
+    fac.call("_diag_step", "disabled-test-probe")
+    if str(fac.get("diag_stage")) != diag_before:
+        _fail("closed developer mode must not record per-card diagnostic stages")
+        return
+    fac.call("_switch_section", "materials")
+    await process_frame
+    await process_frame
+    if not _verify(fac, "MaterialFamilyGrid", 12, 0):
+        return
+    fac.call("_switch_section", "warehouse")
+    await process_frame
+    await process_frame
+    if not _verify(fac, "WarehouseMaterials", 12, 0):
+        return
+    var actions: VBoxContainer = fac.get("modal_actions") as VBoxContainer
+    (actions.get_node("WarehouseCategoryTabs/WarehouseEquipmentTab") as Button).pressed.emit()
+    await process_frame
+    await process_frame
+    if not _verify(fac, "WarehouseEquipment", 7, 2):
+        return
+    fac.call("_show_owned_items", "H01", 0)
+    await process_frame
+    await process_frame
+    if not _verify(fac, "OwnedEquipmentGrid", 1, 2):
+        return
+    # Debugger can still record the exact checkpoint when explicitly enabled.
+    var title: Label = fac.get("modal_title") as Label
+    var tap := InputEventMouseButton.new()
+    tap.button_index = MOUSE_BUTTON_LEFT
+    tap.pressed = true
+    for i in range(5):
+        title.gui_input.emit(tap)
+    fac.call("_diag_step", "enabled-test-probe")
+    if str(fac.get("diag_stage")) != "enabled-test-probe":
+        _fail("developer mode lost its error-tracing functionality")
+        return
+    print("SERA_LABO_MINIMAL_ALLOCATION_RUNTIME_PASS: 7/12/12/7+owned native cards, only end-row filler, debug on-demand")
+    quit(0)
