@@ -110,14 +110,20 @@ func _run() -> void:
     # Existing Android saves, unlike CI fresh profiles, skip the save-create
     # action entirely. Verify that exact branch: already claimed materials,
     # a valid crafted item, and an active save slot.
-    var original_slot: int = SeraSave.active_slot
-    var original_data: Dictionary = SeraSave.get_active_data()
-    SeraSave.active_slot = 1
-    SeraSave.active_data = {
+    # Scripts run with SceneTree rather than a project main scene:
+    # access project autoload by its actual root node, not a GDScript global.
+    var store: Node = root.get_node_or_null("SeraSave")
+    if store == null:
+        _fail("SeraSave autoload is missing in Godot test process")
+        return
+    var original_slot: int = int(store.get("active_slot"))
+    var original_data: Dictionary = store.call("get_active_data")
+    store.set("active_slot", 1)
+    store.set("active_data", {
         "trial_materials_claimed": true,
         "crafted_items": [{"uid": "H01-0001", "blueprint": "H01", "slot": "head"}],
         "materials": {}, "craft_serials": {"H01": 1}
-    }
+    })
     fac.call("_switch_section", "craft")
     await process_frame
     if not _check_flow(fac, "PrototypeGrid", "PrototypeIcon_H01", 7):
@@ -135,7 +141,7 @@ func _run() -> void:
     await process_frame
     if not _check_flow(fac, "WarehouseMaterials", "MaterialIcon_scrap_low", 12):
         return
-    SeraSave.active_slot = original_slot
-    SeraSave.active_data = original_data
+    store.set("active_slot", original_slot)
+    store.set("active_data", original_data)
     print("SERA_V524_LAYOUT_TABS_RUNTIME_PASS: exclusive tabs and native flow, both empty and existing saves")
     quit(0)
