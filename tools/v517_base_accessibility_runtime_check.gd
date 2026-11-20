@@ -82,11 +82,14 @@ func _run() -> void:
             _fail("trial equipment not saved to warehouse")
             return
         facility.call("open_facility", "LABO")
-        var collect: Button = (facility.get("modal_actions") as VBoxContainer).get_node_or_null("ClaimTrialMaterials") as Button
-        if collect == null:
-            _fail("material trial action missing from LABO")
+        if (facility.get("modal_actions") as VBoxContainer).find_child(
+                "ClaimTrialMaterialsCatalog", true, false) != null:
+            _fail("trial-material reward must not appear in LABO")
             return
-        collect.pressed.emit()
+        # Legacy API is retained for save compatibility; no longer a UI entry.
+        if not bool(save.call("claim_trial_materials")):
+            _fail("legacy trial reward persistence API is broken")
+            return
         var stock: Dictionary = save.call("get_material_inventory")
         for id in MAT.all_ids():
             if int(stock.get(id, 0)) < 6:

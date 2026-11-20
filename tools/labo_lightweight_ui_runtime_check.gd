@@ -25,11 +25,11 @@ func _run() -> void:
     var debug: Button = fac.get("diagnostic_button") as Button
     var readout: Label = fac.get("diagnostic_readout") as Label
     var title: Label = fac.get("modal_title") as Label
-    if debug.visible or readout.visible or str(fac.get("page")) != "home":
-        _fail("normal LABO home must have no diagnostic UI")
+    if debug.visible or readout.visible or str(fac.get("page")) != "prototypes":
+        _fail("normal LABO craft landing must have no diagnostic UI")
         return
-    if _selected(tabs) != 0:
-        _fail("LABO research home must not falsely select the craft tab")
+    if _selected(tabs) != 1 or not craft.button_pressed:
+        _fail("LABO must open directly on the selected craft tab")
         return
     var mouse := InputEventMouseButton.new()
     mouse.pressed = true
@@ -68,8 +68,8 @@ func _run() -> void:
         _fail("Back must dismiss confirmation and keep the recipe list")
         return
     fac.call("navigate_back")
-    if str(fac.get("page")) != "home" or _selected(tabs) != 0:
-        _fail("return to LABO home must clear the craft tab selection")
+    if bool(fac.call("is_menu_open")):
+        _fail("Back from the craft catalog must close LABO")
         return
     fac.call("_switch_section", "materials")
     await process_frame
