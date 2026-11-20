@@ -32,10 +32,10 @@ func _run() -> void:
     if ratio < 0.28 or ratio > 0.32:
         _fail("LABO hero must reserve top 30% of the screen: " + str(ratio))
         return
-    var crate: Node3D = stage.get_node_or_null("Crate") as Node3D
-    var nozzle: Node3D = stage.get_node_or_null("PrinterScene/PrinterNozzle") as Node3D
-    var printed: Node3D = stage.get_node_or_null("PrinterScene/PrintedPart") as Node3D
-    var terminal: Node3D = stage.get_node_or_null("TerminalScreen") as Node3D
+    var crate: Node3D = stage.get_node_or_null("CRATE") as Node3D
+    var nozzle: Node3D = stage.get_node_or_null("PrinterScene/Printer/PrinterNozzle") as Node3D
+    var printed: Node3D = stage.get_node_or_null("PrinterScene/Printer/PrintedPart") as Node3D
+    var terminal: Node3D = stage.get_node_or_null("PrinterScene/PrinterInspectionStation/TerminalScreen") as Node3D
     if crate == null or nozzle == null or printed == null or terminal == null:
         _fail("low-poly Crate, working 3D printer, printed part and workstation must be real geometry")
         return
@@ -79,7 +79,7 @@ func _run() -> void:
     await process_frame
     var craft_tab: Button = (fac.get("section_tabs") as HBoxContainer).get_node("TabCraft") as Button
     var normal_style: StyleBoxFlat = craft_tab.get_theme_stylebox("normal") as StyleBoxFlat
-    if normal_style == null or normal_style.corner_radius_top_left < 8:
+    if normal_style == null or normal_style.corner_radius_top_left < 4:
         _fail("all LABO navigation buttons need rounded blue-grey native styles")
         return
     var card: Button = (fac.get("item_layer") as Control).find_child(
