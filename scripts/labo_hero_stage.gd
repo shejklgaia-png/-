@@ -382,7 +382,7 @@ func _build_printer() -> void:
 func _build_terminal() -> void:
     var console := Node3D.new()
     console.name = "PrinterInspectionStation"
-    console.position = Vector3(3.45, 0, -0.80)
+    console.position = Vector3(4.03, 0, -0.80)
     console.rotation.y = -0.18
     printer_group.add_child(console)
     _block(console, "TerminalPlinth", Vector3(0, 0.65, 0),
@@ -682,7 +682,7 @@ func set_section(section: String) -> void:
         "LABO":
             # Reference Scene A: large printer occupies left, CRATE mid-right,
             # touch terminal right edge. Gentle low three-quarter viewpoint.
-            crate.position = Vector3(1.70, 0.0, 0.55)
+            crate.position = Vector3(1.96, 0.0, 0.55)
             crate.rotation.y = 2.26
             work_state = "print_to_terminal"
             hero_camera.position = Vector3(0.10, 1.75, 5.85)
