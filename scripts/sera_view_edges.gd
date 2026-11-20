@@ -6,6 +6,7 @@ const CREASE_DEGREES: float = 80.0
 const SCAN_INTERVAL: float = 0.75
 const MAX_EDGES_PER_MESH: int = 8000
 const INK_SHADER = preload("res://shaders/sera_view_edges.gdshader")
+const RENDER_ORDER = preload("res://scripts/render_order_policy.gd")
 const INK_NAME: String = "SeraEdgeInk"
 
 var _scan_remaining: float = 0.0
@@ -15,6 +16,8 @@ var _ink_material: ShaderMaterial
 func _ready() -> void:
     _ink_material = ShaderMaterial.new()
     _ink_material.shader = INK_SHADER
+    # Transparent pass runs after opaque armor; depth testing remains enabled.
+    _ink_material.render_priority = RENDER_ORDER.DEPTH_TESTED_EMISSIVE
     _ink_material.set_shader_parameter("ink_color", Color("#17212f"))
     _ink_material.set_shader_parameter("stroke_px", 1.6)
     _sync_meshes()
