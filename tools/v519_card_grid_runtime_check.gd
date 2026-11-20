@@ -89,6 +89,7 @@ func _run() -> void:
         return
     facility.call("_switch_section", "warehouse")
     await process_frame
+    facility.call("_show_inventory", "materials")
     if not _check_virtual(facility, "WarehouseMaterials", 12, 2):
         return
     (actions.find_child("WarehouseEquipmentTab", true, false) as Button).pressed.emit()
