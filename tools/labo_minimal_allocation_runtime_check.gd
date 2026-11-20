@@ -25,7 +25,7 @@ func _verify(fac: Node, grid_name: String, expected: int, fillers: int) -> bool:
         for child in row.get_children():
             if child is Button:
                 var card: Button = child as Button
-                if not card.is_visible_in_tree() or card.get_theme_stylebox("normal") is not StyleBoxFlat:
+                if not card.is_visible_in_tree() or card.get_theme_stylebox("normal") is not StyleBoxTexture:
                     _fail("native rounded card disappeared: " + card.name)
                     return false
                 seen += 1
