@@ -1,14 +1,14 @@
 extends SceneTree
 ## SERA v542: all three pages preserve native controls and technical accents.
-const Skin = preload("res://scripts/sera_labo_round_skin.gd")
+const LaboVisualSkin = preload("res://scripts/sera_labo_round_skin.gd")
 func _initialize() -> void:
     call_deferred("_run")
 func _fail(why: String) -> void:
     push_error("SERA_V542_LABO_PREMIUM_UI_FAIL: " + why)
     quit(1)
 func _run() -> void:
-    if Skin.panel_style() != Skin.panel_style() or (
-            Skin.card_style("normal") != Skin.card_style("normal")):
+    if LaboVisualSkin.panel_style() != LaboVisualSkin.panel_style() or (
+            LaboVisualSkin.card_style("normal") != LaboVisualSkin.card_style("normal")):
         _fail("shared gradients are not cached")
         return
     var hub: Node3D = load("res://scenes/base_exploration.tscn").instantiate()
