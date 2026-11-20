@@ -19,7 +19,7 @@ func _ready() -> void:
     # Transparent pass runs after opaque armor; depth testing remains enabled.
     _ink_material.render_priority = RENDER_ORDER.DEPTH_TESTED_EMISSIVE
     _ink_material.set_shader_parameter("ink_color", Color("#17212f"))
-    _ink_material.set_shader_parameter("stroke_px", 1.6)
+    _ink_material.set_shader_parameter("stroke_px", 3.0)
     _sync_meshes()
     set_process(true)
 
