@@ -33,8 +33,8 @@ func _run() -> void:
         _fail("LABO hero must reserve top 30% of the screen: " + str(ratio))
         return
     var crate: Node3D = stage.get_node_or_null("Crate") as Node3D
-    var nozzle: Node3D = stage.get_node_or_null("PrinterNozzle") as Node3D
-    var printed: Node3D = stage.get_node_or_null("PrintedPart") as Node3D
+    var nozzle: Node3D = stage.get_node_or_null("PrinterScene/PrinterNozzle") as Node3D
+    var printed: Node3D = stage.get_node_or_null("PrinterScene/PrintedPart") as Node3D
     var terminal: Node3D = stage.get_node_or_null("TerminalScreen") as Node3D
     if crate == null or nozzle == null or printed == null or terminal == null:
         _fail("low-poly Crate, working 3D printer, printed part and workstation must be real geometry")
