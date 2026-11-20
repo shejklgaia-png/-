@@ -13,7 +13,7 @@ assert '"affixes"' in store
 assert 'var warehouse_slot: String = "head"' in ui
 assert 'const WarehouseGrid = preload("res://scripts/sera_warehouse_grid.gd")' in ui
 assert 'grid.call("configure", entries, 2, "equipment")' in ui
-assert 'grid.configure(entries, 3, "materials")' in ui
+assert 'grid.configure(entries, 2, "materials")' in ui
 assert 'owned_count' not in ui.split("func _show_prototype_catalog() -> void:",1)[1].split("func _select_prototype(",1)[0]
 assert 'signal entry_pressed' in grid
 assert 'get_v_scroll_bar().value_changed.connect' in grid
