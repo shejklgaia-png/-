@@ -22,7 +22,7 @@ func _check_flow(fac: Node3D, page_name: String, first_card: String, expected: i
     if not (content.get_child(content.get_child_count()-1) is Button):
         _fail("close button must follow cards and expandable spacer")
         return false
-    if content.get_child_index(actions) >= content.get_child_index(layer):
+    if actions.get_index() >= layer.get_index():
         _fail("control actions must be before the visible item list")
         return false
     if layer.get_child_count() != 1:
