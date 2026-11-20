@@ -49,7 +49,7 @@ static func style(kind: String = "normal") -> StyleBoxFlat:
         "card_hover", "hover":
             result.bg_color = Color("#134255")
             result.border_color = Color("#72d9e6")
-        "card_pressed", "pressed":
+        "card_pressed", "pressed", "hover_pressed":
             result.bg_color = Color("#126476")
             result.border_color = Color("#9bffff")
         "disabled":
@@ -58,11 +58,11 @@ static func style(kind: String = "normal") -> StyleBoxFlat:
         _:
             result.bg_color = Color("#102a3b")
             result.border_color = Color("#4d778d")
-    result.set_corner_radius_all(8)
-    if kind in ["card_pressed", "pressed"]:
-        result.shadow_color = Color(0.10, 0.82, 0.88, 0.32)
-        result.shadow_size = 4
-    result.set_border_width_all(2 if kind in ["card_pressed", "pressed"] else 1)
+    result.set_corner_radius_all(5)
+    if kind in ["card_pressed", "pressed", "hover_pressed"]:
+        result.shadow_color = Color(0.10, 0.92, 0.98, 0.40)
+        result.shadow_size = 5
+    result.set_border_width_all(2 if kind in ["card_pressed", "pressed", "hover_pressed"] else 1)
     result.content_margin_left = 9.0
     result.content_margin_right = 9.0
     result.content_margin_top = 6.0
@@ -109,7 +109,7 @@ static func card_style(kind: String = "normal") -> StyleBoxTexture:
 
 static func common_theme() -> Theme:
     var theme := Theme.new()
-    for state in ["normal", "hover", "pressed", "disabled", "focus"]:
+    for state in ["normal", "hover", "pressed", "hover_pressed", "disabled", "focus"]:
         theme.set_stylebox(state, "Button", style("normal" if state == "focus" else state))
     theme.default_font = ui_font()
     theme.default_font_size = 18
@@ -124,4 +124,6 @@ static func common_theme() -> Theme:
     theme.set_color("font_color", "Label", Color("#e9f7fc"))
     theme.set_color("font_color", "LineEdit", Color("#f5fcff"))
     theme.set_stylebox("pressed", "Button", style("pressed"))
+    theme.set_stylebox("hover_pressed", "Button", style("hover_pressed"))
+    theme.set_color("font_hover_pressed_color", "Button", Color.WHITE)
     return theme

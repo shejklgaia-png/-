@@ -393,7 +393,7 @@ func attach_hud(hud: Control) -> void:
     modal_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
     modal_title.add_theme_font_size_override("font_size", 27)
     modal_title.add_theme_font_override("font", LaboSkin.title_font())
-    modal_title.add_theme_color_override("font_color", Color("#f1faff"))
+    modal_title.add_theme_color_override("font_color", Color("#f7fcff"))
     modal_title.mouse_filter = Control.MOUSE_FILTER_STOP
     modal_title.gui_input.connect(_on_modal_title_input)
     header_row.add_child(modal_title)
@@ -435,8 +435,9 @@ func attach_hud(hud: Control) -> void:
     body.move_child(section_tabs, header_row.get_index())
     modal_body = Label.new()
     modal_body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-    modal_body.add_theme_font_size_override("font_size", 18)
-    modal_body.add_theme_color_override("font_color", Color("#bdd4df"))
+    modal_body.add_theme_font_size_override("font_size", 19)
+    modal_body.add_theme_font_override("font", LaboSkin.ui_font())
+    modal_body.add_theme_color_override("font_color", Color("#d0e4ed"))
     body.add_child(modal_body)
     diagnostic_readout = Label.new()
     diagnostic_readout.name = "UIDiagnosticReadout"
@@ -1072,7 +1073,8 @@ func _add_item_tile(icon: Texture2D, title: String,
     caption.text = title
     caption.size_flags_horizontal = Control.SIZE_EXPAND_FILL
     caption.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-    caption.add_theme_font_size_override("font_size", 20)
+    caption.add_theme_font_size_override("font_size", 21)
+    caption.add_theme_font_override("font", LaboSkin.title_font())
     row.add_child(caption)
 
 
@@ -1585,7 +1587,7 @@ func _render_conversion() -> void:
             BaseMaterials.display_name(source_id), int(plan["input_count"])]
         var recipe_info: Label = bar.get_node(
             "CardContent/Row/TextStack/ItemInfo") as Label
-        recipe_info.add_theme_font_size_override("font_size", 17)
+        recipe_info.add_theme_font_size_override("font_size", 19)
         recipe_info.add_theme_font_override("font", LaboSkin.data_font())
         recipe_info.text = "≫ %s ×%d" % [
             BaseMaterials.display_name(target_id), int(plan["output_count"])]
@@ -1614,7 +1616,8 @@ func _render_conversion() -> void:
         amount.value = conversion_batches
         amount.rounded = true
         amount.custom_minimum_size = Vector2(92, 72)
-        amount.add_theme_font_size_override("font_size", 22)
+        amount.add_theme_font_size_override("font_size", 23)
+        amount.add_theme_font_override("font", LaboSkin.data_font())
         amount.tooltip_text = "変換回数"
         amount.value_changed.connect(_conversion_batches_set)
         row.add_child(amount)

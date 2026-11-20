@@ -440,3 +440,4 @@ py tools/labo_minimal_allocation_self_check.py
 gd tools/labo_minimal_allocation_runtime_check.gd
 py tools/labo_3d_hero_self_check.py
 gd tools/labo_3d_hero_runtime_check.gd
+py tools/v536_labo_reference_style_self_check.py
