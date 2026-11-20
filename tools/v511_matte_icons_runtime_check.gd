@@ -131,6 +131,8 @@ func _run() -> void:
     await process_frame
     await process_frame
     var actions: VBoxContainer = facilities.get("modal_actions") as VBoxContainer
+    facilities.call("_show_inventory", "materials")
+    await process_frame
     var warehouse: ScrollContainer = (facilities.get("item_layer") as Control).find_child(
         "WarehouseMaterials", true, false) as ScrollContainer
     if warehouse == null or (warehouse.get("entries") as Array).size() != 12:
