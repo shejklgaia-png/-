@@ -18,7 +18,9 @@ assert 'owned_count' not in ui.split("func _show_prototype_catalog() -> void:",1
 assert 'signal entry_pressed' in grid
 assert 'get_v_scroll_bar().value_changed.connect' in grid
 assert 'var card := Button.new()' in grid
-assert 'StyleBoxTexture.new()' in grid
+assert 'return LaboSkin.card_style(kind)' in grid
+skin = source("scripts/sera_labo_round_skin.gd")
+assert 'StyleBoxTexture.new()' in skin
 assert 'func _refresh_visible(' in grid
 assert 'const EFFECT_IDS' in affixes and 'static func roll_five(' in affixes
 assert 'py tools/v529_warehouse_affixes_self_check.py' in manifest
