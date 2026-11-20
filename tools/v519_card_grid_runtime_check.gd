@@ -8,11 +8,22 @@ func _initialize() -> void:
 func _fail(msg: String) -> void:
     push_error("SERA_V519_GRID_FAIL: " + msg)
     quit(1)
+func _actual_row_count(grid: VBoxContainer) -> int:
+    # Craft cards and the passive preview now share one scrollable grid.
+    # Count only interactive native HBox rows, not the preview panel.
+    if grid == null:
+        return 0
+    var total: int = 0
+    for child in grid.get_children():
+        if child is HBoxContainer:
+            total += 1
+    return total
+
 func _check_grid(cards: Control, area: Control, name: String, ids: Array, prefix: String) -> bool:
     var grid: VBoxContainer = cards.find_child(name, true, false) as VBoxContainer
     var shown: Array = [ids[0]] if name == "PrototypeGrid" else ids
     var columns: int = 1 if name == "PrototypeGrid" else 3
-    if grid == null or grid.get_child_count() != ceili(float(shown.size()) / float(columns)):
+    if grid == null or _actual_row_count(grid) != ceili(float(shown.size()) / float(columns)):
         _fail("missing expected bar/card rows: " + name)
         return false
     for id in shown:
