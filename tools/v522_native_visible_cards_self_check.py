@@ -14,7 +14,10 @@ assert 'row = HBoxContainer.new()' in ui and 'var grid := VBoxContainer.new()' i
 assert 'GridContainer.new()' not in ui
 assert 'ChamferSlot.new()' not in ui
 assert 'card.add_theme_stylebox_override("normal", LaboSkin.card_style(' in ui
-assert 'card.pressed.connect(action)' in ui
+assert 'card.pressed.connect(_invoke_scroll_action.bind(' in ui
+assert 'action, parent.get_parent() as ScrollContainer' in ui
+assert 'func _invoke_scroll_action(action: Callable, scroll: ScrollContainer) -> void:' in ui
+assert 'bool(scroll.call("touch_drag_consumed"))' in ui, "dragged card must not execute press"
 assert '"FacilityActionsArea"' in ui
 assert 'StyleBoxFlat.new()' in skin and 'set_corner_radius_all(' in skin
 assert 'bg_color' in skin and 'border_color' in skin
