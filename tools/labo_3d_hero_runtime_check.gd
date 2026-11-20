@@ -61,8 +61,8 @@ func _run() -> void:
         if not host.visible or stage.get_instance_id() != first_id:
             _fail("3D stage was re-created when tabs changed: " + section)
             return
-    var normal_style: StyleBoxFlat = (fac.get("section_tabs") as HBoxContainer).get_node(
-        "TabCraft").get_theme_stylebox("normal") as StyleBoxFlat
+    var craft_tab: Button = (fac.get("section_tabs") as HBoxContainer).get_node("TabCraft") as Button
+    var normal_style: StyleBoxFlat = craft_tab.get_theme_stylebox("normal") as StyleBoxFlat
     if normal_style == null or normal_style.corner_radius_top_left < 8:
         _fail("all LABO navigation buttons need rounded blue-grey native styles")
         return
