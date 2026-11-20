@@ -25,6 +25,7 @@ func _expect(fac: Node, target: String, count: int, first_name: String) -> bool:
     var layer: Control = fac.get("item_layer") as Control
     if target == "warehouse":
         fac.call("_show_inventory", "materials")
+        await process_frame
         var list: ScrollContainer = layer.find_child("WarehouseMaterials", true, false) as ScrollContainer
         if list == null or int(list.get("columns")) != 2 or (
                 (list.get("entries") as Array).size() != count):
