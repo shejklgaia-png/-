@@ -58,7 +58,7 @@ static func style(kind: String = "normal") -> StyleBoxFlat:
         _:
             result.bg_color = Color("#102a3b")
             result.border_color = Color("#4d778d")
-    result.set_corner_radius_all(5)
+    result.set_corner_radius_all(8)
     if kind in ["card_pressed", "pressed"]:
         result.shadow_color = Color(0.10, 0.82, 0.88, 0.32)
         result.shadow_size = 4
