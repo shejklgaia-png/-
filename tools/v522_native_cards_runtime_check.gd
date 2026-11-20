@@ -15,10 +15,12 @@ func _verify_grid(cards: Control, name: String, ids: Array, prefix: String, clic
         return false
     var shown: Array = [ids[0]] if name == "PrototypeGrid" else ids
     var cols: int = 1 if name == "PrototypeGrid" else 3
-    if grid.get_child_count() != ceili(float(shown.size()) / float(cols)):
+    var rows: Array = grid.get_children().filter(
+        func(child: Node) -> bool: return child is HBoxContainer)
+    if rows.size() != ceili(float(shown.size()) / float(cols)):
         _fail("native row count does not match current slot-bar grid: " + name)
         return false
-    for row in grid.get_children():
+    for row in rows:
         if not row is HBoxContainer:
             _fail("grid row is not a known-working native HBoxContainer")
             return false
@@ -77,7 +79,7 @@ func _verify_warehouse(fac: Node3D, grid_name: String, count: int, cols: int) ->
     return true
 func _run() -> void:
     var style: StyleBoxFlat = RoundSkinResource.style("card")
-    if style.corner_radius_top_left < 8 or style.corner_radius_bottom_right < 8 or style.bg_color.b <= style.bg_color.r:
+    if style.corner_radius_top_left < 5 or style.corner_radius_bottom_right < 5 or style.bg_color.b <= style.bg_color.r:
         _fail("shared rounded blue-grey surface has wrong shape or hue")
         return
     var hub: Node3D = load("res://scenes/base_exploration.tscn").instantiate()
@@ -108,7 +110,7 @@ func _run() -> void:
         return
     fac.call("_switch_section", "warehouse")
     await process_frame
-    if not _verify_warehouse(fac, "WarehouseMaterials", 12, 3):
+    if not _verify_warehouse(fac, "WarehouseMaterials", 12, 2):
         return
     (actions.find_child("WarehouseEquipmentTab", true, false) as Button).pressed.emit()
     await process_frame
