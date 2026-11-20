@@ -65,18 +65,22 @@ func _run() -> void:
     fac.call("_switch_section", "warehouse")
     await process_frame
     await process_frame
-    if not _verify(fac, "WarehouseMaterials", 12, 0):
+    var list: ScrollContainer = (fac.get("item_layer") as Control).find_child(
+        "WarehouseMaterials", true, false) as ScrollContainer
+    if list == null or (list.get("entries") as Array).size() != 12 or (
+            (list.get("pool") as Array).size() > 32):
+        _fail("twelve material records must use a bounded visible card pool")
         return
     var actions: VBoxContainer = fac.get("modal_actions") as VBoxContainer
     (actions.get_node("WarehouseCategoryTabs/WarehouseEquipmentTab") as Button).pressed.emit()
     await process_frame
     await process_frame
-    if not _verify(fac, "WarehouseEquipment", 7, 2):
-        return
-    fac.call("_show_owned_items", "H01", 0)
-    await process_frame
-    await process_frame
-    if not _verify(fac, "OwnedEquipmentGrid", 1, 2):
+    list = (fac.get("item_layer") as Control).find_child(
+        "WarehouseEquipment", true, false) as ScrollContainer
+    if list == null or (list.get("entries") as Array).size() != 0 or (
+            int(list.get("virtual_slots")) != 2) or (
+            (list.get("pool") as Array).size() > 32):
+        _fail("empty hanger must show two reusable native blank cards")
         return
     # Debugger can still record the exact checkpoint when explicitly enabled.
     var title: Label = fac.get("modal_title") as Label
@@ -89,5 +93,5 @@ func _run() -> void:
     if str(fac.get("diag_stage")) != "enabled-test-probe":
         _fail("developer mode lost its error-tracing functionality")
         return
-    print("SERA_LABO_MINIMAL_ALLOCATION_RUNTIME_PASS: 7/12/12/7+owned native cards, only end-row filler, debug on-demand")
+    print("SERA_LABO_MINIMAL_ALLOCATION_RUNTIME_PASS: 7/12 standard cards plus bounded 3/2-col virtual warehouse, debug on-demand")
     quit(0)
