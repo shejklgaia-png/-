@@ -122,7 +122,7 @@ func _run() -> void:
     facilities.call("open_facility", "STORAGE")
     var actions: VBoxContainer = facilities.get("modal_actions") as VBoxContainer
     for material_id in Materials.all_ids():
-        if actions.find_child("MaterialIcon_" + str(material_id), true, false) == null:
+        if (facilities.get("item_layer") as Control).find_child("MaterialIcon_" + str(material_id), true, false) == null:
             _fail("missing warehouse material icon: " + str(material_id))
             return
     facilities.call("open_facility", "SMELTER")
@@ -135,7 +135,7 @@ func _run() -> void:
     facilities.call("_show_prototype_catalog")
     actions = facilities.get("modal_actions") as VBoxContainer
     for id in Catalog.PROTOTYPES.keys():
-        if actions.find_child("PrototypeIcon_" + str(id), true, false) == null:
+        if (facilities.get("item_layer") as Control).find_child("PrototypeIcon_" + str(id), true, false) == null:
             _fail("LABO blueprint is missing icon: " + str(id))
             return
     print("SERA_MATTE_ICON_RUNTIME_PASS: every icon, crafting, unique naming, warehouse, customization registry")

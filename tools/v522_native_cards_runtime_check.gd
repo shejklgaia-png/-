@@ -8,8 +8,8 @@ func _initialize() -> void:
 func _fail(reason: String) -> void:
     push_error("SERA_V522_NATIVE_CARD_FAIL: " + reason)
     quit(1)
-func _verify_grid(actions: VBoxContainer, name: String, ids: Array, prefix: String, clickable: bool) -> bool:
-    var grid: VBoxContainer = actions.find_child(name, true, false) as VBoxContainer
+func _verify_grid(cards: Control, name: String, ids: Array, prefix: String, clickable: bool) -> bool:
+    var grid: VBoxContainer = cards.find_child(name, true, false) as VBoxContainer
     if grid == null:
         _fail("missing VBox grid: " + name)
         return false
@@ -68,31 +68,31 @@ func _run() -> void:
     var actions: VBoxContainer = fac.get("modal_actions") as VBoxContainer
     fac.call("_switch_section", "craft")
     await process_frame
-    if not _verify_grid(actions, "PrototypeGrid", Catalog.ORDER, "PrototypeIcon_", true):
+    if not _verify_grid((fac.get("item_layer") as Control), "PrototypeGrid", Catalog.ORDER, "PrototypeIcon_", true):
         return
-    var card: Button = actions.find_child("PrototypeIcon_H01", true, false) as Button
+    var card: Button = (fac.get("item_layer") as Control).find_child("PrototypeIcon_H01", true, false) as Button
     await _tap_card(card)
     if str(fac.get("page")) != "prototype_detail":
         _fail("tapping native prototype button did not open its detail")
         return
     fac.call("_switch_section", "materials")
     await process_frame
-    if not _verify_grid(actions, "MaterialFamilyGrid", Materials.all_ids(), "MaterialIcon_", true):
+    if not _verify_grid((fac.get("item_layer") as Control), "MaterialFamilyGrid", Materials.all_ids(), "MaterialIcon_", true):
         return
-    card = actions.find_child("MaterialIcon_scrap_low", true, false) as Button
+    card = (fac.get("item_layer") as Control).find_child("MaterialIcon_scrap_low", true, false) as Button
     await _tap_card(card)
     if str(fac.get("page")) != "conversion":
         _fail("tapping a native material button did not open conversion")
         return
     fac.call("_switch_section", "warehouse")
     await process_frame
-    if not _verify_grid(actions, "WarehouseMaterials", Materials.all_ids(), "MaterialIcon_", false):
+    if not _verify_grid((fac.get("item_layer") as Control), "WarehouseMaterials", Materials.all_ids(), "MaterialIcon_", false):
         return
     (actions.find_child("WarehouseEquipmentTab", true, false) as Button).pressed.emit()
     await process_frame
-    if not _verify_grid(actions, "WarehouseEquipment", Catalog.ORDER, "WarehouseBlueprint_", true):
+    if not _verify_grid((fac.get("item_layer") as Control), "WarehouseEquipment", Catalog.ORDER, "WarehouseBlueprint_", true):
         return
-    card = actions.find_child("WarehouseBlueprint_H01", true, false) as Button
+    card = (fac.get("item_layer") as Control).find_child("WarehouseBlueprint_H01", true, false) as Button
     await _tap_card(card)
     if str(fac.get("page")) != "warehouse_owned":
         _fail("native warehouse card did not open instance list")

@@ -8,8 +8,8 @@ func _initialize() -> void:
 func _fail(msg: String) -> void:
     push_error("SERA_V519_GRID_FAIL: " + msg)
     quit(1)
-func _check_grid(actions: VBoxContainer, area: Control, name: String, ids: Array, prefix: String) -> bool:
-    var grid: VBoxContainer = actions.find_child(name, true, false) as VBoxContainer
+func _check_grid(cards: Control, area: Control, name: String, ids: Array, prefix: String) -> bool:
+    var grid: VBoxContainer = cards.find_child(name, true, false) as VBoxContainer
     if grid == null or grid.get_child_count() != ceili(float(ids.size()) / 3.0):
         _fail("missing three-wide row grid: " + name)
         return false
@@ -45,22 +45,22 @@ func _run() -> void:
     var actions: VBoxContainer = facility.get("modal_actions") as VBoxContainer
     facility.call("_switch_section", "craft")
     await process_frame
-    if not _check_grid(actions, area, "PrototypeGrid", Catalog.ORDER, "PrototypeIcon_"):
+    if not _check_grid((facility.get("item_layer") as Control), area, "PrototypeGrid", Catalog.ORDER, "PrototypeIcon_"):
         return
     facility.call("_switch_section", "materials")
     await process_frame
-    if not _check_grid(actions, area, "MaterialFamilyGrid", Materials.all_ids(), "MaterialIcon_"):
+    if not _check_grid((facility.get("item_layer") as Control), area, "MaterialFamilyGrid", Materials.all_ids(), "MaterialIcon_"):
         return
     facility.call("_switch_section", "warehouse")
     await process_frame
-    if not _check_grid(actions, area, "WarehouseMaterials", Materials.all_ids(), "MaterialIcon_"):
+    if not _check_grid((facility.get("item_layer") as Control), area, "WarehouseMaterials", Materials.all_ids(), "MaterialIcon_"):
         return
     (actions.find_child("WarehouseEquipmentTab", true, false) as Button).pressed.emit()
     await process_frame
-    if not _check_grid(actions, area, "WarehouseEquipment", Catalog.ORDER, "WarehouseBlueprint_"):
+    if not _check_grid((facility.get("item_layer") as Control), area, "WarehouseEquipment", Catalog.ORDER, "WarehouseBlueprint_"):
         return
     for bp in Catalog.ORDER:
-        var card: Button = actions.find_child("WarehouseBlueprint_" + str(bp), true, false) as Button
+        var card: Button = (facility.get("item_layer") as Control).find_child("WarehouseBlueprint_" + str(bp), true, false) as Button
         if not card.text.contains("0"):
             _fail("empty category must show owned count zero")
             return

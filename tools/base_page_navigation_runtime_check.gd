@@ -37,7 +37,7 @@ func _run() -> void:
             _fail("dropdown returned in converter main page")
             return
         for family in ["scrap", "alloy", "electronics", "organic"]:
-            if actions.find_child("MaterialIcon_" + family + "_low", true, false) == null:
+            if (facility.get("item_layer") as Control).find_child("MaterialIcon_" + family + "_low", true, false) == null:
                 _fail("family choice absent: " + family)
                 return
         facility.call("_select_conversion_family", "alloy")
@@ -83,10 +83,10 @@ func _run() -> void:
         return
     actions = facility.get("modal_actions") as VBoxContainer
     for bp in ["H01", "T01", "A01", "L01", "B01", "WR01", "WL01"]:
-        if actions.find_child("PrototypeIcon_" + bp, true, false) == null:
+        if (facility.get("item_layer") as Control).find_child("PrototypeIcon_" + bp, true, false) == null:
             _fail("LABO prototype catalog has missing entry: " + bp)
             return
-    var choose: Button = actions.find_child("PrototypeIcon_H01", true, false) as Button
+    var choose: Button = (facility.get("item_layer") as Control).find_child("PrototypeIcon_H01", true, false) as Button
     if choose == null:
         _fail("LABO prototype item must be selectable")
         return

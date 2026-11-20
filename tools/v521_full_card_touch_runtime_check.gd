@@ -40,7 +40,7 @@ func _run() -> void:
     for anchor in [Vector2(0.18,0.25), Vector2(0.54,0.57), Vector2(0.81,0.81)]:
         fac.call("_switch_section", "craft")
         await process_frame
-        var card: Button = actions.find_child("PrototypeIcon_H01", true, false) as Button
+        var card: Button = (fac.get("item_layer") as Control).find_child("PrototypeIcon_H01", true, false) as Button
         if not _check_card(card):
             return
         var rect: Rect2 = card.get_global_rect()
@@ -50,7 +50,7 @@ func _run() -> void:
             return
     fac.call("_switch_section", "materials")
     await process_frame
-    var material: Button = actions.find_child("MaterialIcon_scrap_low", true, false) as Button
+    var material: Button = (fac.get("item_layer") as Control).find_child("MaterialIcon_scrap_low", true, false) as Button
     if not _check_card(material):
         return
     await _tap(material.get_global_rect().get_center())
@@ -59,13 +59,13 @@ func _run() -> void:
         return
     fac.call("_switch_section", "warehouse")
     await process_frame
-    var read_only: Button = actions.find_child("MaterialIcon_scrap_low", true, false) as Button
+    var read_only: Button = (fac.get("item_layer") as Control).find_child("MaterialIcon_scrap_low", true, false) as Button
     if read_only == null or not read_only.disabled:
         _fail("warehouse materials must remain read-only")
         return
     (actions.find_child("WarehouseEquipmentTab", true, false) as Button).pressed.emit()
     await process_frame
-    var item: Button = actions.find_child("WarehouseBlueprint_H01", true, false) as Button
+    var item: Button = (fac.get("item_layer") as Control).find_child("WarehouseBlueprint_H01", true, false) as Button
     if not _check_card(item):
         return
     await _tap(item.get_global_rect().get_center())
