@@ -36,17 +36,15 @@ func _run() -> void:
     await process_frame
     var viewport: Rect2 = Rect2(Vector2.ZERO, hub.get_viewport().get_visible_rect().size)
     var hud: Control = hub.get_node("BaseHUDLayer/BaseHUD") as Control
-    var quick: HBoxContainer = hud.get_node("BaseQuickActions") as HBoxContainer
     var facilities: Node3D = hub.get_node("BaseFacilities") as Node3D
     if hud.size.x < viewport.size.x - 1.0 or hud.size.y < viewport.size.y - 1.0:
         _fail("HUD size is not tied to actual viewport")
         return
-    for id in ["QuickCraft", "QuickMaterials", "QuickWarehouse"]:
-        var shortcut: Button = quick.get_node_or_null(id) as Button
-        if not _visible_button(shortcut, viewport):
-            _fail("base navigation is not visible/clickable: " + id)
-            return
-    await _tap_button(quick.get_node("QuickCraft") as Button)
+    if hud.has_node("BaseQuickActions"):
+        _fail("old bottom bar is still present")
+        return
+    facilities.call("open_facility", "LABO")
+    await _tap_button((facilities.get("section_tabs") as HBoxContainer).get_node("TabCraft") as Button)
     await process_frame
     if str(facilities.get("page")) != "prototypes":
         _fail("craft shortcut must open actual seven-item catalog")
@@ -61,7 +59,7 @@ func _run() -> void:
             _fail("section tab hidden or too small: " + id)
             return
     var actions: VBoxContainer = facilities.get("modal_actions") as VBoxContainer
-    var first: Button = actions.get_node("PrototypeIcon_H01/Choose_H01") as Button
+    var first: Button = actions.find_child("Choose_H01", true, false) as Button
     if not _visible_button(first, viewport):
         _fail("first equipment item cannot be selected on screen")
         return
@@ -76,7 +74,7 @@ func _run() -> void:
     if str(facilities.get("page")) != "families":
         _fail("materials tab did not open material family choices")
         return
-    var family: Button = (facilities.get("modal_actions") as VBoxContainer).get_node("FamilyChoice_scrap/Open_scrap") as Button
+    var family: Button = (facilities.get("modal_actions") as VBoxContainer).find_child("Open_scrap", true, false) as Button
     if not _visible_button(family, viewport):
         _fail("first material family cannot be picked")
         return
@@ -85,7 +83,7 @@ func _run() -> void:
     if str(facilities.get("page")) != "conversion":
         _fail("material family did not open conversion actions")
         return
-    var converter: Button = (facilities.get("modal_actions") as VBoxContainer).get_node_or_null("ConvertRank_0") as Button
+    var converter: Button = (facilities.get("modal_actions") as VBoxContainer).find_child("ConvertRank_0", true, false) as Button
     if converter == null or not converter.is_visible_in_tree() or not viewport.has_point(converter.get_global_rect().get_center()):
         _fail("first conversion action is not in initial view")
         return
@@ -94,7 +92,7 @@ func _run() -> void:
     if str(facilities.get("page")) != "inventory":
         _fail("warehouse tab did not open inventory")
         return
-    var first_material: TextureRect = (facilities.get("modal_actions") as VBoxContainer).get_node_or_null("MaterialIcon_scrap_low/Icon") as TextureRect
+    var first_material: TextureRect = (facilities.get("modal_actions") as VBoxContainer).find_child("MaterialIcon_scrap_low", true, false).find_child("Icon", true, false) as TextureRect
     if first_material == null or first_material.texture == null or (
             not first_material.is_visible_in_tree() or (
             not viewport.has_point(first_material.get_global_rect().get_center()))):
