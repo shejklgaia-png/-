@@ -1490,6 +1490,9 @@ func _show_detail(detail: String) -> void:
 func navigate_back() -> void:
     if not is_menu_open():
         return
+    if confirmation_overlay != null and confirmation_overlay.visible:
+        _dismiss_confirmation()
+        return
     match page:
         "conversion":
             page = "families"
