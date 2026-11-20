@@ -562,30 +562,44 @@ func _new_slot(parent: Control, key: String, icon: Texture2D,
     image.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
     image.mouse_filter = Control.MOUSE_FILTER_IGNORE
     content.add_child(image)
-    if action.is_valid():
-        var choose := Button.new()
-        choose.name = action_name if not action_name.is_empty() else "Select"
-        choose.text = title
-        choose.custom_minimum_size.y = 44
-        choose.add_theme_font_size_override("font_size", 13)
-        choose.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-        choose.pressed.connect(action)
-        content.add_child(choose)
-    else:
-        var heading := Label.new()
-        heading.name = "SlotTitle"
-        heading.text = title
-        heading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-        heading.add_theme_font_size_override("font_size", 13)
-        heading.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-        content.add_child(heading)
+    # All artwork and labels are visual-only. A separate transparent Button is
+    # drawn LAST and fills the entire card; touching the image, title, status
+    # or padding activates the same callback exactly once.
+    pad.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    content.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    var heading := Label.new()
+    heading.name = "SlotTitle"
+    heading.text = title
+    heading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    heading.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+    heading.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    heading.custom_minimum_size.y = 44 if action.is_valid() else 0
+    heading.add_theme_font_size_override("font_size", 13)
+    heading.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+    content.add_child(heading)
     var quantity := Label.new()
     quantity.name = "SlotQuantity"
     quantity.text = info
     quantity.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    quantity.mouse_filter = Control.MOUSE_FILTER_IGNORE
     quantity.add_theme_font_size_override("font_size", 12)
     quantity.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
     content.add_child(quantity)
+    if action.is_valid():
+        var choose := Button.new()
+        choose.name = action_name if not action_name.is_empty() else "Select"
+        choose.text = ""
+        choose.tooltip_text = title + " / " + info
+        choose.focus_mode = Control.FOCUS_ALL
+        choose.mouse_filter = Control.MOUSE_FILTER_STOP
+        choose.add_theme_stylebox_override("normal", StyleBoxEmpty.new())
+        for state in ["hover", "pressed", "hover_pressed", "disabled"]:
+            choose.add_theme_stylebox_override(state, StyleBoxEmpty.new())
+        choose.pressed.connect(action)
+        # Direct child of PanelContainer: its layout covers the whole card,
+        # unlike the previous 44px text-only child of SlotContent.
+        card.add_child(choose)
+        choose.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
     return card
 
 
