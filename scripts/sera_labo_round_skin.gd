@@ -2,6 +2,41 @@ extends RefCounted
 ## Four matching blue-grey rounded button states. Shared across all LABO pages.
 static var _cache: Dictionary = {}
 static var _card_cache: Dictionary = {}
+static var _tab_cache: Dictionary = {}
+static var _ui_font: SystemFont
+static var _title_font: SystemFont
+static var _data_font: SystemFont
+
+## Device fonts only: the first installed face is used, then Godot's
+## built-in CJK fallback. No shipped font asset, network request or glyph atlas.
+static func ui_font() -> SystemFont:
+    if _ui_font == null:
+        _ui_font = SystemFont.new()
+        _ui_font.font_names = PackedStringArray([
+            "Noto Sans JP", "Noto Sans CJK JP", "M PLUS 1p",
+            "Hiragino Kaku Gothic ProN", "Yu Gothic", "sans-serif"])
+        _ui_font.font_weight = 550
+        _ui_font.allow_system_fallback = true
+    return _ui_font
+
+static func title_font() -> SystemFont:
+    if _title_font == null:
+        _title_font = SystemFont.new()
+        _title_font.font_names = ui_font().font_names
+        _title_font.font_weight = 700
+        _title_font.allow_system_fallback = true
+    return _title_font
+
+static func data_font() -> SystemFont:
+    if _data_font == null:
+        _data_font = SystemFont.new()
+        _data_font.font_names = PackedStringArray([
+            "Roboto Mono", "JetBrains Mono", "Noto Sans Mono CJK JP",
+            "M PLUS 1 Code", "monospace"])
+        _data_font.font_weight = 550
+        _data_font.allow_system_fallback = true
+    return _data_font
+
 
 static func style(kind: String = "normal") -> StyleBoxFlat:
     if _cache.has(kind):
@@ -23,7 +58,10 @@ static func style(kind: String = "normal") -> StyleBoxFlat:
         _:
             result.bg_color = Color("#102a3b")
             result.border_color = Color("#4d778d")
-    result.set_corner_radius_all(8)
+    result.set_corner_radius_all(5)
+    if kind in ["card_pressed", "pressed"]:
+        result.shadow_color = Color(0.10, 0.82, 0.88, 0.32)
+        result.shadow_size = 4
     result.set_border_width_all(2 if kind in ["card_pressed", "pressed"] else 1)
     result.content_margin_left = 9.0
     result.content_margin_right = 9.0
@@ -73,8 +111,17 @@ static func common_theme() -> Theme:
     var theme := Theme.new()
     for state in ["normal", "hover", "pressed", "disabled", "focus"]:
         theme.set_stylebox(state, "Button", style("normal" if state == "focus" else state))
-    theme.set_color("font_color", "Button", Color("#edf7ff"))
+    theme.default_font = ui_font()
+    theme.default_font_size = 18
+    theme.set_font("font", "Button", ui_font())
+    theme.set_font("font", "Label", ui_font())
+    theme.set_font("font", "SpinBox", data_font())
+    theme.set_font("font", "LineEdit", data_font())
+    theme.set_color("font_color", "Button", Color("#f1faff"))
     theme.set_color("font_disabled_color", "Button", Color("#cad9e5"))
     theme.set_color("font_pressed_color", "Button", Color.WHITE)
     theme.set_color("font_hover_color", "Button", Color.WHITE)
+    theme.set_color("font_color", "Label", Color("#e9f7fc"))
+    theme.set_color("font_color", "LineEdit", Color("#f5fcff"))
+    theme.set_stylebox("pressed", "Button", style("pressed"))
     return theme
