@@ -72,5 +72,14 @@ func _run() -> void:
         _fail("downward finger drag did not scroll up")
         return
     scroll.call("_input", _touch(1, false, point + Vector2(0, 60)))
+    var after_down_drag: int = scroll.scroll_vertical
+    scroll.call("set_touch_scroll_enabled", false)
+    scroll.call("_input", _touch(2, true, point))
+    scroll.call("_input", _drag(2, point + Vector2(0, -80), Vector2(0, -80)))
+    if scroll.scroll_vertical != after_down_drag:
+        _fail("covered background list scrolled through a confirmation dialog")
+        return
+    scroll.call("_input", _touch(2, false, point + Vector2(0, -80)))
+    scroll.call("set_touch_scroll_enabled", true)
     print("SERA_V537_LABO_TOUCH_SCROLL_RUNTIME_PASS")
     quit(0)
