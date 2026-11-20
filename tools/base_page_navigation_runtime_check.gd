@@ -71,13 +71,10 @@ func _run() -> void:
             return
     facility.call("open_facility", "LABO")
     var actions: VBoxContainer = facility.get("modal_actions") as VBoxContainer
-    var shell: Button = actions.get_node_or_null("OpenPrototypeCatalog") as Button
-    if shell == null:
-        _fail("LABO must offer working Shell development catalog")
+    if actions.get_node_or_null("OpenPrototypeCatalog") != null:
+        _fail("LABO must not open a redundant home menu")
         return
-    shell.pressed.emit()
-    # v514: Shell development is a real equipment catalog, not the old
-    # informational detail page. Keep the one-step-per-back contract.
+    # LABO opens the equipment catalog directly; Back closes it.
     if str(facility.get("page")) != "prototypes":
         _fail("LABO Shell development must open the independent prototype catalog")
         return
@@ -106,12 +103,8 @@ func _run() -> void:
         _fail("LABO confirmation Back must return to catalog without crafting")
         return
     facility.call("navigate_back")
-    if str(facility.get("page")) != "home":
-        _fail("LABO catalog back must restore the main facility menu")
-        return
-    facility.call("navigate_back")
     if bool(facility.call("is_menu_open")):
-        _fail("LABO home back must close its modal")
+        _fail("LABO catalog Back must close without returning to a home page")
         return
 
     hub.call("_enter_nexus")
