@@ -82,6 +82,11 @@ func _check() -> void:
             "A: terminal placed on far right beyond CRATE")
         _expect(_visible(camera, printer.to_global(Vector3(0, 2.8, 0))),
             "A: large printer upper frame remains visible")
+        _expect(_visible(camera, printer.to_global(Vector3(-1.38, 2.83, 0)))
+            and _visible(camera, printer.to_global(Vector3(1.38, 2.83, 0))),
+            "A: both outer printer roof corners stay visible at the new angle")
+        _expect(_visible(camera, terminal.to_global(Vector3(0, 1.91, 0))),
+            "A: terminal screen stays fully inside the right edge")
     _expect(not maker.has_node("PrinterForegroundLoader")
         and not maker.has_node("PrinterHangingHarness"),
         "A: remove oversized foreground obstruction")
@@ -145,6 +150,20 @@ func _check() -> void:
     _expect(store.has_node("RackBay_Left/WarehouseLeftStockLabels")
         and store.has_node("RackBay_Right/WarehouseRightStockLabels"),
         "C: H01/H02/A01 and B01/B02/A02 labels")
+    if left != null and right != null:
+        var left_codes: Node3D = left.get_node_or_null(
+            "WarehouseLeftStockLabels") as Node3D
+        var right_codes: Node3D = right.get_node_or_null(
+            "WarehouseRightStockLabels") as Node3D
+        if left_codes != null and right_codes != null:
+            _expect(_visible(camera,
+                left_codes.to_global(Vector3(0, 3.25, 0)))
+                and _visible(camera,
+                right_codes.to_global(Vector3(0, 3.25, 0))),
+                "C: upper rack labels remain visible from side-view")
+    if monitor != null:
+        _expect(_visible(camera, monitor.to_global(Vector3.ZERO)),
+            "C: far monitor stays visible between rack banks")
     _expect(camera.position.y < 3.2,
         "C: elevated but not bird's-eye view")
     _expect(maker.visible == false and refinery.visible == false and store.visible,
