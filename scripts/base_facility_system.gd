@@ -456,8 +456,10 @@ func _diag_begin(section: String, expected: int) -> void:
 
 
 func _diag_step(stage: String) -> void:
-    # Written BEFORE potentially failing Android resource/graphics operations.
-    # A failed GDScript function can leave the last checkpoint readable.
+    # Keep the diagnostic probe fully idle unless the developer enables it.
+    if not diagnostic_button.visible:
+        return
+    # Written before potentially failing resource/graphics operations.
     diag_stage = stage
 
 
@@ -558,7 +560,12 @@ func _add_action(label: String, detail: String) -> void:
 func _switch_section(target: String) -> void:
     match target:
         "craft":
-            open_facility("LABO")
+            # Avoid constructing and immediately discarding the four LABO-home
+            # action buttons (and their deferred icons) on every craft tap.
+            if modal == null:
+                return
+            active_key = "LABO"
+            modal.visible = true
             _show_prototype_catalog()
         "materials":
             open_facility("SMELTER")
@@ -670,7 +677,8 @@ func _apply_card_skin(card: Button) -> void:
     if not is_instance_valid(card) or card.is_queued_for_deletion() or (
             not card.is_inside_tree()):
         return
-    _diag_step("skin " + card.name + " normal")
+    if diagnostic_button.visible:
+        _diag_step("skin " + card.name + " normal")
     card.add_theme_stylebox_override("normal", ChamferSkin.style(
         Color("#203747"), Color("#59c6da")))
     card.add_theme_stylebox_override("hover", ChamferSkin.style(
@@ -679,7 +687,8 @@ func _apply_card_skin(card: Button) -> void:
         Color("#145e74"), Color("#b8f6ff")))
     card.add_theme_stylebox_override("disabled", ChamferSkin.style(
         Color("#203747"), Color("#59c6da")))
-    _diag_step("skin " + card.name + " ready")
+    if diagnostic_button.visible:
+        _diag_step("skin " + card.name + " ready")
 
 
 func _queue_card_icon(card: Button, item_id: String, equipment: bool = false) -> void:
@@ -692,15 +701,18 @@ func _apply_card_icon(card: Button, item_id: String, equipment: bool = false) ->
     if not is_instance_valid(card) or card.is_queued_for_deletion() or (
             not card.is_inside_tree()):
         return
-    _diag_step("icon " + item_id + " loading")
+    if diagnostic_button.visible:
+        _diag_step("icon " + item_id + " loading")
     var texture: Texture2D = (IconAtlas.equipment_icon(item_id)
         if equipment else IconAtlas.material_icon(item_id))
     if texture != null:
         card.icon = texture
         diag_icon_count += 1
-        _diag_step("icon " + item_id + " ready")
+        if diagnostic_button.visible:
+            _diag_step("icon " + item_id + " ready")
     else:
-        _diag_step("icon " + item_id + " unavailable (card retained)")
+        if diagnostic_button.visible:
+            _diag_step("icon " + item_id + " unavailable (card retained)")
 
 
 func _new_grid(grid_name: String, columns: int = 3) -> VBoxContainer:
@@ -714,14 +726,33 @@ func _new_grid(grid_name: String, columns: int = 3) -> VBoxContainer:
     grid.set_meta("card_columns", columns)
     grid.set_meta("card_count", 0)
     item_layer.add_child(grid)
-    _diag_step("grid " + grid_name + " ready")
+    if diagnostic_button.visible:
+        _diag_step("grid " + grid_name + " ready")
     return grid
+
+
+func _finish_grid(grid: VBoxContainer) -> void:
+    # Only an incomplete last row needs spacers. No temporary allocation or
+    # remove_child/queue_free is required during native Button construction.
+    var count: int = int(grid.get_meta("card_count", 0))
+    var columns: int = int(grid.get_meta("card_columns", 3))
+    if count == 0 or count % columns == 0:
+        return
+    var last_row: HBoxContainer = grid.get_child(grid.get_child_count() - 1) as HBoxContainer
+    for col in range(count % columns, columns):
+        var spacer := Control.new()
+        spacer.name = "CardSpacer_%d" % col
+        spacer.custom_minimum_size.x = 108.0
+        spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+        spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        last_row.add_child(spacer)
 
 
 func _new_slot(parent: Control, key: String, icon: Texture2D,
         title: String, info: String, action: Callable = Callable(),
         action_name: String = "") -> Control:
-    _diag_step("slot " + key + " start")
+    if diagnostic_button.visible:
+        _diag_step("slot " + key + " start")
     var columns: int = int(parent.get_meta("card_columns", 3))
     var index: int = int(parent.get_meta("card_count", 0))
     var col: int = index % columns
@@ -732,20 +763,10 @@ func _new_slot(parent: Control, key: String, icon: Texture2D,
         row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
         row.add_theme_constant_override("separation", 7)
         parent.add_child(row)
-        # Fill unoccupied positions, so the last row uses the same column
-        # widths instead of stretching its final entry across the sheet.
-        for i in range(columns):
-            var spacer := Control.new()
-            spacer.name = "CardSpacer_%d" % i
-            spacer.custom_minimum_size.x = 108.0
-            spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-            spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
-            row.add_child(spacer)
     else:
         row = parent.get_child(parent.get_child_count() - 1) as HBoxContainer
-    var spacer_node: Control = row.get_child(col) as Control
-    row.remove_child(spacer_node)
-    spacer_node.queue_free()
+    # Create only the native card. The unfinished final row is padded once
+    # after the full list is built, rather than creating/discarding fillers.
     var card := Button.new()
     card.name = key
     card.icon = icon
@@ -769,7 +790,6 @@ func _new_slot(parent: Control, key: String, icon: Texture2D,
     # procedural skin. If skin creation fails in Android editor, the default
     # native Button and title will still be present for inspection.
     row.add_child(card)
-    row.move_child(card, col)
     parent.set_meta("card_count", index + 1)
     diag_created += 1
     # Deferring procedural ImageTexture/StyleBox creation also guarantees
@@ -779,7 +799,8 @@ func _new_slot(parent: Control, key: String, icon: Texture2D,
     if action.is_valid():
         card.pressed.connect(action)
         card.set_meta("action_id", action_name)
-    _diag_step("slot " + key + " complete")
+    if diagnostic_button.visible:
+        _diag_step("slot " + key + " complete")
     return card
 
 
@@ -833,17 +854,21 @@ func _show_inventory(section: String = "materials") -> void:
         switcher.add_child(button)
     if section == "materials":
         var grid := _new_grid("WarehouseMaterials")
-        _diag_step("warehouse inventory load")
+        if diagnostic_button.visible:
+            _diag_step("warehouse inventory load")
         var inventory: Dictionary = SeraSave.get_material_inventory()
         for family in BaseMaterials.FAMILY_IDS:
             for tier in BaseMaterials.TIERS:
                 var id: String = str(family) + "_" + str(tier)
-                _diag_step("warehouse " + id + " icon")
-                _diag_step("warehouse " + id + " slot")
+                if diagnostic_button.visible:
+                    _diag_step("warehouse " + id + " icon")
+                if diagnostic_button.visible:
+                    _diag_step("warehouse " + id + " slot")
                 var card: Button = _new_slot(grid, "MaterialIcon_" + id,
                     null, BaseMaterials.display_name(id),
                     "所持 %d" % int(inventory[id])) as Button
                 _queue_card_icon(card, id)
+        _finish_grid(grid)
     else:
         _show_warehouse_equipment()
 
@@ -853,20 +878,24 @@ func _show_warehouse_equipment() -> void:
     for bp in PrototypeCatalog.ORDER:
         var id: String = str(bp)
         var spec: Dictionary = PrototypeCatalog.spec(id)
-        _diag_step("warehouse gear " + id + " inventory")
+        if diagnostic_button.visible:
+            _diag_step("warehouse gear " + id + " inventory")
         var owned: Array = []
         for item in SeraSave.get_owned_prototypes(str(spec["slot"])):
             if str(item["blueprint"]) == id:
                 owned.append(item)
         var qty: String = "未所持 0" if owned.is_empty() else "所持 %d" % owned.size()
-        _diag_step("warehouse gear " + id + " icon")
-        _diag_step("warehouse gear " + id + " slot")
+        if diagnostic_button.visible:
+            _diag_step("warehouse gear " + id + " icon")
+        if diagnostic_button.visible:
+            _diag_step("warehouse gear " + id + " slot")
         var card: Control = _new_slot(grid, "WarehouseBlueprint_" + id,
             null, str(spec["name"]), qty,
             _show_owned_items.bind(id, 0), "ShowOwned_" + id)
         _queue_card_icon(card as Button, id, true)
         if not owned.is_empty():
             card.text += "\n" + str(owned[owned.size() - 1]["uid"])
+    _finish_grid(grid)
 
 func _show_owned_items(blueprint: String, item_page: int = 0) -> void:
     if not PrototypeCatalog.valid(blueprint):
@@ -897,6 +926,7 @@ func _show_owned_items(blueprint: String, item_page: int = 0) -> void:
         _queue_card_icon(
             grid.find_child("WarehouseItemEmpty", true, false) as Button,
             blueprint, true)
+    _finish_grid(grid)
     if start > 0:
         var previous := Button.new()
         previous.text = "前の9件"
@@ -948,18 +978,22 @@ func _show_prototype_catalog() -> void:
     for bp in PrototypeCatalog.ORDER:
         var id: String = str(bp)
         var entry: Dictionary = PrototypeCatalog.spec(id)
-        _diag_step("craft " + id + " saved items")
+        if diagnostic_button.visible:
+            _diag_step("craft " + id + " saved items")
         var owned_count: int = 0
         for item in SeraSave.get_owned_prototypes(str(entry["slot"])):
             if str(item["blueprint"]) == id:
                 owned_count += 1
-        _diag_step("craft " + id + " icon")
-        _diag_step("craft " + id + " slot")
+        if diagnostic_button.visible:
+            _diag_step("craft " + id + " icon")
+        if diagnostic_button.visible:
+            _diag_step("craft " + id + " slot")
         var card: Button = _new_slot(grid, "PrototypeIcon_" + id,
             null, str(entry["name"]),
             "未作成 0" if owned_count == 0 else "所持 %d" % owned_count,
             _select_prototype.bind(id), "Choose_" + id) as Button
         _queue_card_icon(card, id, true)
+    _finish_grid(grid)
     _sync_section_tabs()
 
 func _select_prototype(blueprint: String) -> void:
@@ -1018,15 +1052,18 @@ func _render_family_page() -> void:
     modal_body.text = (
         "素材を選んでランクアップしてください。"
         if conversion_mode == 1 else "素材を選んでランクダウンしてください。")
-    _diag_step("materials inventory load")
+    if diagnostic_button.visible:
+        _diag_step("materials inventory load")
     var inventory: Dictionary = SeraSave.get_material_inventory()
     var grid := _new_grid("MaterialFamilyGrid")
     for family in BaseMaterials.FAMILY_IDS:
         for tier in BaseMaterials.TIERS:
             var id: String = str(family) + "_" + str(tier)
             var button_name: String = "Open_" + str(family) if str(tier) == "low" else "Open_" + id
-            _diag_step("materials " + id + " icon")
-            _diag_step("materials " + id + " slot")
+            if diagnostic_button.visible:
+                _diag_step("materials " + id + " icon")
+            if diagnostic_button.visible:
+                _diag_step("materials " + id + " slot")
             var card: Control = _new_slot(grid, "MaterialIcon_" + id,
                 null, BaseMaterials.display_name(id),
                 "所持 %d" % int(inventory[id]),
@@ -1034,6 +1071,7 @@ func _render_family_page() -> void:
             _queue_card_icon(card as Button, id)
             if str(tier) == "low":
                 card.tooltip_text = str(BaseMaterials.FAMILY_NAMES[family])
+    _finish_grid(grid)
 
 func _select_conversion_family(family: String) -> void:
     if not BaseMaterials.FAMILY_IDS.has(family) or page != "families":
