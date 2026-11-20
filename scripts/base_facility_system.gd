@@ -732,6 +732,7 @@ func _add_action(label: String, detail: String) -> void:
     modal_actions.add_child(button)
 
 func _switch_section(target: String) -> void:
+    _dismiss_confirmation()
     match target:
         "craft":
             # Avoid constructing and immediately discarding the four LABO-home
@@ -769,6 +770,7 @@ func open_facility(key: String) -> void:
     var spec: Dictionary = _spec_for(key)
     if modal == null or spec.is_empty():
         return
+    _dismiss_confirmation()
     active_key = key
     page = "home"
     modal_title.text = str(spec["name"])
@@ -1197,7 +1199,7 @@ func _show_prototype_catalog() -> void:
     _diag_begin("craft", PrototypeCatalog.ORDER.size())
     modal_title.text = "試作装備の製作"
     modal_body.text = (
-        "7種類から選択してください。試作は素材消費なし。"
+        "部位を選び、横長のバーをタップしてください。試作は素材消費なし。"
         + "\n完成品は倉庫に登録され、NEXUSで装備できます。")
     if SeraSave.active_slot == 0:
         modal_body.text += "\n製作するにはセーブデータが必要です。"
