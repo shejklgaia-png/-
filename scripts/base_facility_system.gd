@@ -44,6 +44,14 @@ var conversion_batches: int = 1
 var conversion_notice: String = ""
 var page: String = ""
 var generator_rotor: Node3D
+var diagnostic_button: Button
+var diagnostic_readout: Label
+var diag_section: String = ""
+var diag_stage: String = "initial"
+var diag_expected: int = 0
+var diag_created: int = 0
+var diag_icon_count: int = 0
+var diag_update_timer: float = 0.0
 
 func _ready() -> void:
     name = "BaseFacilities"
@@ -319,6 +327,14 @@ func attach_hud(hud: Control) -> void:
     modal_title.add_theme_font_size_override("font_size", 23)
     modal_title.add_theme_color_override("font_color", Color("#b8f0ff"))
     header_row.add_child(modal_title)
+    diagnostic_button = Button.new()
+    diagnostic_button.name = "UIDiagnosticToggle"
+    diagnostic_button.text = "診断"
+    diagnostic_button.custom_minimum_size = Vector2(65.0, 39.0)
+    diagnostic_button.add_theme_font_size_override("font_size", 14)
+    diagnostic_button.tooltip_text = "Android版Godotの一覧表示を診断"
+    diagnostic_button.pressed.connect(_diag_toggle)
+    header_row.add_child(diagnostic_button)
     # Persistent, non-scrolling tabs remain accessible in every sub-page.
     section_tabs = HBoxContainer.new()
     section_tabs.name = "FacilitySectionTabs"
@@ -358,6 +374,14 @@ func attach_hud(hud: Control) -> void:
     modal_body.add_theme_font_size_override("font_size", 16)
     modal_body.add_theme_color_override("font_color", Color("#dce9ee"))
     body.add_child(modal_body)
+    diagnostic_readout = Label.new()
+    diagnostic_readout.name = "UIDiagnosticReadout"
+    diagnostic_readout.visible = false
+    diagnostic_readout.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+    diagnostic_readout.add_theme_font_size_override("font_size", 12)
+    diagnostic_readout.add_theme_color_override("font_color", Color("#fff0ae"))
+    diagnostic_readout.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    body.add_child(diagnostic_readout)
     # Keep non-grid buttons immediately below the header and above the cards.
     # A vertical EXPAND here consumed the rest of the sheet on Android.
     actions_area = PanelContainer.new()
@@ -416,6 +440,74 @@ func update_tags(camera: Camera3D) -> void:
 
 func is_menu_open() -> bool:
     return modal != null and modal.visible
+
+
+func _diag_begin(section: String, expected: int) -> void:
+    diag_section = section
+    diag_expected = expected
+    diag_created = 0
+    diag_icon_count = 0
+    diag_stage = "starting " + section
+
+
+func _diag_step(stage: String) -> void:
+    # Written BEFORE potentially failing Android resource/graphics operations.
+    # A failed GDScript function can leave the last checkpoint readable.
+    diag_stage = stage
+
+
+func _diag_toggle() -> void:
+    if diagnostic_readout == null:
+        return
+    diagnostic_readout.visible = not diagnostic_readout.visible
+    _diag_update()
+
+
+func _diag_update() -> void:
+    if diagnostic_readout == null or not diagnostic_readout.visible:
+        return
+    var version_info: Dictionary = Engine.get_version_info()
+    var engine_version: String = str(version_info.get("string", "unknown"))
+    var viewport: Vector2 = get_viewport().get_visible_rect().size
+    var atlas_present: bool = ResourceLoader.exists("res://assets/ui/sera_matte_icon_atlas.webp")
+    var card_count: int = 0
+    var visible_count: int = 0
+    var real_icons: int = 0
+    var first_card: Button = null
+    var row_count: int = 0
+    if item_layer != null:
+        for grid_node in item_layer.get_children():
+            if grid_node is not Control:
+                continue
+            row_count += grid_node.get_child_count()
+            for row_node in grid_node.get_children():
+                for child in row_node.get_children():
+                    if child is Button:
+                        var card: Button = child as Button
+                        card_count += 1
+                        if card.is_visible_in_tree():
+                            visible_count += 1
+                        if card.icon != null:
+                            real_icons += 1
+                        if first_card == null:
+                            first_card = card
+    var first_rect: String = "none"
+    if first_card != null:
+        var rect: Rect2 = first_card.get_global_rect()
+        first_rect = "(%d,%d) %dx%d" % [
+            int(rect.position.x), int(rect.position.y),
+            int(rect.size.x), int(rect.size.y)]
+    diagnostic_readout.text = (
+        "Godot %s / %s | save=%d\n" % [engine_version, OS.get_name(),
+            SeraSave.active_slot]
+        + "section: %s | stage: %s\n" % [diag_section, diag_stage]
+        + "created %d/%d | icons %d | slots: %d visible %d, art %d\n" % [
+            diag_created, diag_expected, diag_icon_count,
+            card_count, visible_count, real_icons]
+        + "atlas: %s | rows %d | viewport: %dx%d\n" % [
+            "OK" if atlas_present else "MISSING", row_count,
+            int(viewport.x), int(viewport.y)]
+        + "first: " + first_rect)
 
 func _clear_actions() -> void:
     # No ScrollContainer: rebuild the actual grid on each tab transition.
@@ -556,12 +648,14 @@ func _new_grid(grid_name: String, columns: int = 3) -> VBoxContainer:
     grid.set_meta("card_columns", columns)
     grid.set_meta("card_count", 0)
     item_layer.add_child(grid)
+    _diag_step("grid " + grid_name + " ready")
     return grid
 
 
 func _new_slot(parent: Control, key: String, icon: Texture2D,
         title: String, info: String, action: Callable = Callable(),
         action_name: String = "") -> Control:
+    _diag_step("slot " + key + " start")
     var columns: int = int(parent.get_meta("card_columns", 3))
     var index: int = int(parent.get_meta("card_count", 0))
     var col: int = index % columns
@@ -589,6 +683,8 @@ func _new_slot(parent: Control, key: String, icon: Texture2D,
     var card := Button.new()
     card.name = key
     card.icon = icon
+    if icon != null:
+        diag_icon_count += 1
     card.text = title + "\n" + info
     card.tooltip_text = title + " / " + info
     card.custom_minimum_size = Vector2(108, 122)
@@ -603,6 +699,14 @@ func _new_slot(parent: Control, key: String, icon: Texture2D,
     card.add_theme_color_override("font_color", Color("#ecf9ff"))
     card.add_theme_color_override("font_disabled_color", Color("#ecf9ff"))
     card.add_theme_color_override("icon_disabled_color", Color.WHITE)
+    # Put the native Button in the visible tree BEFORE applying the optional
+    # procedural skin. If skin creation fails in Android editor, the default
+    # native Button and title will still be present for inspection.
+    row.add_child(card)
+    row.move_child(card, col)
+    parent.set_meta("card_count", index + 1)
+    diag_created += 1
+    _diag_step("skin " + key + " normal")
     card.add_theme_stylebox_override("normal", ChamferSkin.style(
         Color("#203747"), Color("#59c6da")))
     card.add_theme_stylebox_override("hover", ChamferSkin.style(
@@ -615,9 +719,7 @@ func _new_slot(parent: Control, key: String, icon: Texture2D,
     if action.is_valid():
         card.pressed.connect(action)
         card.set_meta("action_id", action_name)
-    row.add_child(card)
-    row.move_child(card, col)
-    parent.set_meta("card_count", index + 1)
+    _diag_step("slot " + key + " complete")
     return card
 
 
@@ -648,6 +750,7 @@ func _show_inventory(section: String = "materials") -> void:
     warehouse_section = section
     page = "inventory"
     _clear_actions()
+    _diag_begin("warehouse " + section, 12 if section == "materials" else 7)
     modal_title.text = "資材保管庫"
     modal_body.text = "未所持も枠付きで表示します。"
     var switcher := HBoxContainer.new()
@@ -670,12 +773,16 @@ func _show_inventory(section: String = "materials") -> void:
         switcher.add_child(button)
     if section == "materials":
         var grid := _new_grid("WarehouseMaterials")
+        _diag_step("warehouse inventory load")
         var inventory: Dictionary = SeraSave.get_material_inventory()
         for family in BaseMaterials.FAMILY_IDS:
             for tier in BaseMaterials.TIERS:
                 var id: String = str(family) + "_" + str(tier)
+                _diag_step("warehouse " + id + " icon")
+                var icon: Texture2D = IconAtlas.material_icon(id)
+                _diag_step("warehouse " + id + " slot")
                 _new_slot(grid, "MaterialIcon_" + id,
-                    IconAtlas.material_icon(id), BaseMaterials.display_name(id),
+                    icon, BaseMaterials.display_name(id),
                     "所持 %d" % int(inventory[id]))
     else:
         _show_warehouse_equipment()
@@ -686,13 +793,17 @@ func _show_warehouse_equipment() -> void:
     for bp in PrototypeCatalog.ORDER:
         var id: String = str(bp)
         var spec: Dictionary = PrototypeCatalog.spec(id)
+        _diag_step("warehouse gear " + id + " inventory")
         var owned: Array = []
         for item in SeraSave.get_owned_prototypes(str(spec["slot"])):
             if str(item["blueprint"]) == id:
                 owned.append(item)
         var qty: String = "未所持 0" if owned.is_empty() else "所持 %d" % owned.size()
+        _diag_step("warehouse gear " + id + " icon")
+        var icon: Texture2D = IconAtlas.equipment_icon(id)
+        _diag_step("warehouse gear " + id + " slot")
         var card: Control = _new_slot(grid, "WarehouseBlueprint_" + id,
-            IconAtlas.equipment_icon(id), str(spec["name"]), qty,
+            icon, str(spec["name"]), qty,
             _show_owned_items.bind(id, 0), "ShowOwned_" + id)
         if not owned.is_empty():
             card.text += "\n" + str(owned[owned.size() - 1]["uid"])
@@ -735,6 +846,7 @@ func _show_owned_items(blueprint: String, item_page: int = 0) -> void:
 func _show_prototype_catalog() -> void:
     page = "prototypes"
     _clear_actions()
+    _diag_begin("craft", PrototypeCatalog.ORDER.size())
     modal_title.text = "試作装備の製作"
     modal_body.text = (
         "7種類から選択してください。試作は素材消費なし。"
@@ -770,12 +882,16 @@ func _show_prototype_catalog() -> void:
     for bp in PrototypeCatalog.ORDER:
         var id: String = str(bp)
         var entry: Dictionary = PrototypeCatalog.spec(id)
+        _diag_step("craft " + id + " saved items")
         var owned_count: int = 0
         for item in SeraSave.get_owned_prototypes(str(entry["slot"])):
             if str(item["blueprint"]) == id:
                 owned_count += 1
+        _diag_step("craft " + id + " icon")
+        var icon: Texture2D = IconAtlas.equipment_icon(id)
+        _diag_step("craft " + id + " slot")
         _new_slot(grid, "PrototypeIcon_" + id,
-            IconAtlas.equipment_icon(id), str(entry["name"]),
+            icon, str(entry["name"]),
             "未作成 0" if owned_count == 0 else "所持 %d" % owned_count,
             _select_prototype.bind(id), "Choose_" + id)
 
@@ -828,20 +944,25 @@ func _show_conversion(direction: int) -> void:
 
 func _render_family_page() -> void:
     _clear_actions()
+    _diag_begin("materials", BaseMaterials.all_ids().size())
     modal_title.text = (
         "精製する素材" if conversion_mode == 1
         else "分解する素材")
     modal_body.text = (
         "素材を選んでランクアップしてください。"
         if conversion_mode == 1 else "素材を選んでランクダウンしてください。")
+    _diag_step("materials inventory load")
     var inventory: Dictionary = SeraSave.get_material_inventory()
     var grid := _new_grid("MaterialFamilyGrid")
     for family in BaseMaterials.FAMILY_IDS:
         for tier in BaseMaterials.TIERS:
             var id: String = str(family) + "_" + str(tier)
             var button_name: String = "Open_" + str(family) if str(tier) == "low" else "Open_" + id
+            _diag_step("materials " + id + " icon")
+            var icon: Texture2D = IconAtlas.material_icon(id)
+            _diag_step("materials " + id + " slot")
             var card: Control = _new_slot(grid, "MaterialIcon_" + id,
-                IconAtlas.material_icon(id), BaseMaterials.display_name(id),
+                icon, BaseMaterials.display_name(id),
                 "所持 %d" % int(inventory[id]),
                 _select_conversion_family.bind(str(family)), button_name)
             if str(tier) == "low":
@@ -1024,5 +1145,10 @@ func _on_shade_input(event: InputEvent) -> void:
         get_viewport().set_input_as_handled()
 
 func _process(delta: float) -> void:
+    if diagnostic_readout != null and diagnostic_readout.visible:
+        diag_update_timer += delta
+        if diag_update_timer >= 0.35:
+            diag_update_timer = 0.0
+            _diag_update()
     if generator_rotor != null:
         generator_rotor.rotate_y(delta * 0.95)
