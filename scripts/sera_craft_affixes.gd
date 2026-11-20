@@ -39,7 +39,13 @@ static func valid(raw: Variant) -> bool:
         var value: Variant = effect.get("value", 0)
         if not EFFECT_NAMES.has(effect_id) or seen.has(effect_id):
             return false
-        if not (value is int) or int(value) < MIN_PERCENT or int(value) > MAX_PERCENT:
+        # JSON.parse_string may return an integral-looking value as float.
+        # Accept only lossless, in-range integers; reject fractional/corrupt data.
+        if not (value is int or value is float):
+            return false
+        if int(value) < MIN_PERCENT or int(value) > MAX_PERCENT or (
+                not is_equal_approx(float(value), float(int(value)))):
+            return false
             return false
         seen[effect_id] = true
     return true
