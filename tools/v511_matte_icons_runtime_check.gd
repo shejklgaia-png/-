@@ -37,16 +37,18 @@ func _run() -> void:
     var used_regions: Dictionary = {}
     for material_id in Materials.all_ids():
         var material_icon_atlas: AtlasTexture = IconAtlas.material_icon(str(material_id)) as AtlasTexture
-        if material_icon_atlas == null or used_regions.has(str(material_icon_atlas.region)):
+        var key: String = str(material_icon_atlas.atlas.get_instance_id()) + ":" + str(material_icon_atlas.region) if material_icon_atlas != null else ""
+        if material_icon_atlas == null or used_regions.has(key):
             _fail("duplicate or missing material atlas region: " + str(material_id))
             return
-        used_regions[str(material_icon_atlas.region)] = true
+        used_regions[key] = true
     for blueprint in Catalog.PROTOTYPES.keys():
         var equipment_icon_atlas: AtlasTexture = IconAtlas.equipment_icon(str(blueprint)) as AtlasTexture
-        if equipment_icon_atlas == null or used_regions.has(str(equipment_icon_atlas.region)):
+        var key: String = str(equipment_icon_atlas.atlas.get_instance_id()) + ":" + str(equipment_icon_atlas.region) if equipment_icon_atlas != null else ""
+        if equipment_icon_atlas == null or used_regions.has(key):
             _fail("duplicate or missing equipment atlas region: " + str(blueprint))
             return
-        used_regions[str(equipment_icon_atlas.region)] = true
+        used_regions[key] = true
     if used_regions.size() != 19 or Catalog.uid_for("H01", 1) != "H01-0001" or (
             not Catalog.valid_uid("H01-0001", "H01")) or (
             Catalog.valid_uid("H01-1", "H01")) or (
