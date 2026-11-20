@@ -30,7 +30,8 @@ func _check_flow(fac: Node3D, page_name: String, first_card: String, expected: i
         return false
     var grid: VBoxContainer = layer.find_child(page_name, true, false) as VBoxContainer
     var columns: int = 1 if page_name == "PrototypeGrid" else 3
-    if grid == null or grid.get_child_count() != ceili(float(expected)/float(columns)):
+    if grid == null or grid.get_children().filter(
+            func(child: Node) -> bool: return child is HBoxContainer).size() != ceili(float(expected)/float(columns)):
         _fail("missing card rows for " + page_name)
         return false
     var card: Button = grid.find_child(first_card, true, false) as Button
