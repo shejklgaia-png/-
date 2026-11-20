@@ -1171,6 +1171,33 @@ func _new_slot(parent: Control, key: String, icon: Texture2D,
     row.add_child(card)
     parent.set_meta("card_count", index + 1)
     diag_created += 1
+    # Small overlay accents distinguish purpose and quality without using
+    # per-frame shaders or stealing touches from the native card.
+    if material_choice:
+        var tier_rail := ColorRect.new()
+        tier_rail.name = "TierRail"
+        tier_rail.color = (Color("#657c8b") if key.ends_with("_low") else
+            Color("#83a5b2") if key.ends_with("_mid") else Color("#8fd5df"))
+        tier_rail.position = Vector2(3.0, 18.0)
+        tier_rail.size = Vector2(3.0, MATERIAL_CARD_HEIGHT - 36.0)
+        tier_rail.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        card.add_child(tier_rail)
+    else:
+        var serial := Label.new()
+        serial.name = "UnitSerial"
+        serial.text = "UNIT / " + key.trim_prefix("PrototypeIcon_")
+        serial.anchor_left = 1.0
+        serial.anchor_right = 1.0
+        serial.offset_left = -128.0
+        serial.offset_right = -10.0
+        serial.offset_top = 3.0
+        serial.offset_bottom = 19.0
+        serial.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+        serial.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        serial.add_theme_font_override("font", LaboSkin.data_font())
+        serial.add_theme_font_size_override("font_size", 11)
+        serial.add_theme_color_override("font_color", Color("#759aa7"))
+        card.add_child(serial)
     # Styles and artwork are deferred until all native Buttons exist.
     call_deferred("_apply_card_skin", card)
     card.disabled = not action.is_valid()
@@ -1221,8 +1248,8 @@ func _show_inventory(section: String = "equipment") -> void:
     modal_actions.add_child(switcher)
     var warehouse_group := ButtonGroup.new()
     for choice in [
-        {"key": "materials", "name": "WarehouseMaterialsTab", "caption": "素材"},
-        {"key": "equipment", "name": "WarehouseEquipmentTab", "caption": "装備"}
+        {"key": "equipment", "name": "WarehouseEquipmentTab", "caption": "装備 / GEAR"},
+        {"key": "materials", "name": "WarehouseMaterialsTab", "caption": "素材 / MATERIAL"}
     ]:
         var button: Button = LaboSectionTabScene.instantiate() as Button
         button.name = str(choice["name"])
@@ -1231,9 +1258,10 @@ func _show_inventory(section: String = "equipment") -> void:
         button.button_group = warehouse_group
         button.button_pressed = section == str(choice["key"])
         button.custom_minimum_size.y = 59.0
-        button.add_theme_font_size_override("font_size", 22)
+        button.add_theme_font_size_override("font_size", 19)
         button.add_theme_font_override("font", LaboSkin.title_font())
         button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+        _style_terminal_segment(button)
         button.pressed.connect(_invoke_scroll_action.bind(
             _show_inventory.bind(str(choice["key"])), actions_scroll))
         switcher.add_child(button)
@@ -1275,6 +1303,7 @@ func _show_inventory(section: String = "equipment") -> void:
             tab.toggle_mode = true
             tab.button_group = hanger_group
             tab.button_pressed = warehouse_slot == slot
+            _style_terminal_segment(tab)
             tab.pressed.connect(_invoke_scroll_action.bind(
                 _select_warehouse_slot.bind(slot_index), actions_scroll))
             hanger.add_child(tab)
@@ -1283,15 +1312,16 @@ func _show_inventory(section: String = "equipment") -> void:
         var junk_button := Button.new()
         junk_button.name = "BulkDeleteJunk"
         var junk_count: int = SeraSave.count_junk_prototypes(warehouse_slot)
-        junk_button.text = "不用品を一括削除 (%d)" % junk_count
-        junk_button.custom_minimum_size.y = 66
+        junk_button.text = "PURGE / 不用品一括削除 (%d)" % junk_count
+        junk_button.custom_minimum_size.y = 56
         junk_button.add_theme_font_size_override("font_size", 20)
         junk_button.disabled = junk_count == 0
+        _style_terminal_segment(junk_button)
         junk_button.pressed.connect(_invoke_scroll_action.bind(
             _confirm_bulk_junk_deletion, actions_scroll))
         modal_actions.add_child(junk_button)
         _show_warehouse_equipment(grid)
-    _configure_page_scroll(80 if section == "materials" else 210)
+    _configure_page_scroll(80 if section == "materials" else 170)
     _sync_section_tabs()
 
 func _slot_tab_caption(slot: String) -> String:
@@ -1462,6 +1492,7 @@ func _show_prototype_catalog() -> void:
         b.toggle_mode = true
         b.button_group = group
         b.button_pressed = craft_slot == str(slot)
+        _style_terminal_segment(b)
         b.custom_minimum_size = Vector2(0, LABO_SLOT_HEIGHT)
         b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
         b.add_theme_font_size_override("font_size", _slot_font_size())
@@ -1506,7 +1537,7 @@ func _show_prototype_catalog() -> void:
         var preview_art := TextureRect.new()
         preview_art.name = "PrototypeBaseArt"
         preview_art.texture = IconAtlas.equipment_icon(first_id)
-        preview_art.custom_minimum_size = Vector2(100, 100)
+        preview_art.custom_minimum_size = Vector2(88, 88)
         preview_art.size_flags_vertical = Control.SIZE_SHRINK_CENTER
         preview_art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
         preview_art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
@@ -1515,6 +1546,14 @@ func _show_prototype_catalog() -> void:
         var preview_text := VBoxContainer.new()
         preview_text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
         preview_row.add_child(preview_text)
+        var preview_code := Label.new()
+        preview_code.name = "PrototypeBaseCode"
+        preview_code.text = "BASE SPECIFICATION / " + first_id
+        preview_code.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        preview_code.add_theme_font_override("font", LaboSkin.data_font())
+        preview_code.add_theme_font_size_override("font_size", 12)
+        preview_code.add_theme_color_override("font_color", Color("#88b8c4"))
+        preview_text.add_child(preview_code)
         var preview_name := Label.new()
         preview_name.name = "PrototypeBaseName"
         preview_name.text = str(PrototypeCatalog.spec(first_id).get("name", ""))
@@ -1701,6 +1740,13 @@ func _render_conversion() -> void:
         # independent clipped TextureRects rather than Button.icon.
         var bar: Button = LaboMaterialCardScene.instantiate() as Button
         bar.name = "ConvertRank_" + str(rank)
+        var conversion_rail := ColorRect.new()
+        conversion_rail.name = "ConversionFlowRail"
+        conversion_rail.color = Color("#73b8c4")
+        conversion_rail.position = Vector2(3.0, 13.0)
+        conversion_rail.size = Vector2(3.0, LABO_CONVERSION_HEIGHT - 26.0)
+        conversion_rail.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        bar.add_child(conversion_rail)
         bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
         bar.custom_minimum_size.y = LABO_CONVERSION_HEIGHT
         bar.clip_contents = true
@@ -1757,6 +1803,8 @@ func _render_conversion() -> void:
         amount.custom_minimum_size = Vector2(92, 72)
         amount.add_theme_font_size_override("font_size", 23)
         amount.add_theme_font_override("font", LaboSkin.data_font())
+        amount.add_theme_stylebox_override("normal", LaboSkin.terminal_segment_style("normal"))
+        amount.add_theme_stylebox_override("focus", LaboSkin.terminal_segment_style("selected"))
         amount.tooltip_text = "変換回数"
         amount.value_changed.connect(_conversion_batches_set)
         row.add_child(amount)
