@@ -88,6 +88,8 @@ func _run_checks() -> void:
     _verify(maker.get_node_or_null("PrinterForegroundLoader") != null
         and maker.get_node_or_null("PrinterHangingHarness") != null,
         "industrial loader and suspended machinery densely frame the printer")
+    _verify(_outside_camera_frame(camera, Vector3(-4.60, 0.80, 1.80)),
+        "peripheral workshop loader remains cropped at frame edge")
     var print_pos: Vector3 = camera.position
     var print_direction: Vector3 = -camera.global_transform.basis.z
     var nozzle: Node3D = stage.get_node("PrinterScene/PrinterNozzle") as Node3D
@@ -115,6 +117,8 @@ func _run_checks() -> void:
     _verify(manifold != null and refinery.get_node_or_null(
         "RefineryHangingPipes") != null,
         "manifold and overhead pipes create dense but nonblocking foreground")
+    _verify(_outside_camera_frame(camera, Vector3(-5.10, 1.30, 0.60)),
+        "side of refinery manifold continues off the visible frame")
     var rotor: Node3D = stage.get_node(
         "MaterialConversionScene/CrystalRotor_0") as Node3D
     stage.call("_process", 0.50)
@@ -144,6 +148,10 @@ func _run_checks() -> void:
     _verify(warehouse.get_node_or_null("WarehouseNearRackExtension") != null
         and warehouse.get_node_or_null("WarehouseForegroundPallets") != null,
         "warehouse crop and foreground pallet density retained")
+    _verify(_outside_camera_frame(camera, Vector3(3.45, 5.30, 1.07)),
+        "warehouse foreground tower exceeds top/right camera bounds")
+    _verify(warehouse.get_node_or_null("DeepPackedWarehouseCartons") != null,
+        "warehouse background is stocked rather than an empty back wall")
     var scanner: Node3D = stage.get_node(
         "WarehouseScene/TravelingInventoryScanner") as Node3D
     var scan_before: Vector3 = scanner.position
