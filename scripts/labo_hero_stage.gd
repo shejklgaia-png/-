@@ -1,10 +1,14 @@
 extends Node3D
 const LaboSkin = preload("res://scripts/sera_labo_round_skin.gd")
+const CrateModel = preload("res://scripts/sera_crate_model.gd")
 ## Shared LABO / converter / warehouse hero. Real low-poly 3D, no imported image.
 ## All parts are generated once; no physics, navigation or per-frame allocations.
 var crate: Node3D
 var crate_head: Node3D
 var crate_arm: Node3D
+var crate_left_arm: Node3D
+var hero_camera: Camera3D
+var warehouse_scanner: Node3D
 var printer_nozzle: Node3D
 var printed_part: Node3D
 var work_state: String = "walk_to_terminal"
@@ -272,43 +276,12 @@ func _build_terminal() -> void:
         Vector3(0.11, 0.035, 0.012), Color("#68d5e5"), true)
 
 func _build_crate() -> void:
-    crate = Node3D.new()
-    crate.name = "Crate"
-    crate.position = Vector3(-0.78, 0, 0.97)
+    # Exact same factory and mesh as the roaming robot in the base.
+    crate = CrateModel.create_model()
     add_child(crate)
-    for x in [-0.37, 0.37]:
-        _block(crate, "Track", Vector3(x, 0.24, 0),
-            Vector3(0.30, 0.40, 1.05), Color("#202c37"))
-        _block(crate, "TrackPanel", Vector3(x * 1.18, 0.33, 0),
-            Vector3(0.04, 0.26, 0.84), Color("#547185"))
-        for z in [-0.33, 0.0, 0.33]:
-            _block(crate, "TrackTread", Vector3(x, 0.045, z),
-                Vector3(0.31, 0.06, 0.16), Color("#455b6a"))
-    _block(crate, "Chassis", Vector3(0, 0.50, 0),
-        Vector3(0.88, 0.37, 0.85), Color("#8b9fae"))
-    _block(crate, "ChassisTrim", Vector3(0, 0.59, 0.44),
-        Vector3(0.68, 0.11, 0.06), Color("#3999b9"), true)
-    crate_head = Node3D.new()
-    crate_head.name = "HeadPivot"
-    crate_head.position = Vector3(0, 0.83, -0.08)
-    crate.add_child(crate_head)
-    _block(crate_head, "Helmet", Vector3(0, 0, 0),
-        Vector3(0.86, 0.43, 0.64), Color("#acb9c4"))
-    _block(crate_head, "Visor", Vector3(0, 0.035, 0.335),
-        Vector3(0.66, 0.11, 0.045), Color("#46d5e7"), true)
-    _block(crate_head, "VisorRim", Vector3(0, 0.14, 0.33),
-        Vector3(0.77, 0.04, 0.05), Color("#425769"))
-    crate_arm = Node3D.new()
-    crate_arm.name = "ArmPivot"
-    crate_arm.position = Vector3(0.37, 0.61, 0.02)
-    crate.add_child(crate_arm)
-    _block(crate_arm, "UpperArm", Vector3(0.20, 0.04, 0.15),
-        Vector3(0.38, 0.13, 0.16), Color("#7994a6"))
-    _block(crate_arm, "Forearm", Vector3(0.38, 0.04, 0.32),
-        Vector3(0.13, 0.12, 0.36), Color("#adbdca"))
-    for i in range(3):
-        _block(crate_arm, "ManipulatorFinger", Vector3(0.40 + (i - 1)*0.09, 0.035, 0.56),
-            Vector3(0.06, 0.085, 0.18), Color("#8da9ba"))
+    crate_head = crate.get_node("HeadPivot") as Node3D
+    crate_arm = crate.get_node("RightArmPivot") as Node3D
+    crate_left_arm = crate.get_node("LeftArmPivot") as Node3D
 
 func _cylinder(parent: Node3D, label: String, point: Vector3,
         radius: float, height: float, tint: Color, glow: bool = false) -> MeshInstance3D:
@@ -429,41 +402,72 @@ func _ready() -> void:
     world.name = "Environment"
     var environment := Environment.new()
     environment.background_mode = Environment.BG_COLOR
-    environment.background_color = Color("#101d2c")
+    environment.background_color = Color("#111f2d")
     environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-    environment.ambient_light_color = Color("#a5c7df")
-    environment.ambient_light_energy = 0.52
+    environment.ambient_light_color = Color("#b4d0dc")
+    environment.ambient_light_energy = 0.67
     world.environment = environment
     add_child(world)
     var light := DirectionalLight3D.new()
-    light.name = "AreaKeyLight"
+    light.name = "IndustrialKeyLight"
     light.rotation_degrees = Vector3(-45.0, 22.0, -14.0)
     light.light_energy = 1.15
     light.shadow_enabled = false
     add_child(light)
-    _build_room()
+    # Independent scenery roots (only the active one is rendered).
     _build_printer()
-    _build_converter()
-    _build_warehouse()
+    _build_print_room()
     _build_terminal()
+    _build_converter()
+    _build_conversion_room()
+    _build_warehouse()
+    _build_warehouse_room()
     _build_crate()
+    warehouse_scanner = Node3D.new()
+    warehouse_scanner.name = "TravelingInventoryScanner"
+    warehouse_scanner.position = Vector3(0.1, 1.12, 0.10)
+    warehouse_group.add_child(warehouse_scanner)
+    _block(warehouse_scanner, "ScanHead", Vector3.ZERO,
+        Vector3(0.19, 0.10, 0.33), Color("#4ce0e9"), true)
+    hero_camera = Camera3D.new()
+    hero_camera.name = "HeroCamera"
+    add_child(hero_camera)
+    hero_camera.current = true
     set_section(current_section)
-    var camera := Camera3D.new()
-    camera.name = "HeroCamera"
-    camera.position = Vector3(0.25, 1.42, 6.20)
-    camera.fov = 55.0
-    add_child(camera)
-    camera.look_at(Vector3(0, 1.65, -0.55), Vector3.UP)
-    camera.current = true
 
 func set_section(section: String) -> void:
-    current_section = section
-    if printer_group != null:
-        printer_group.visible = section == "LABO"
-    if converter_group != null:
-        converter_group.visible = section in ["SMELTER", "RECYCLER"]
-    if warehouse_group != null:
-        warehouse_group.visible = section == "STORAGE"
+    # Refining and disassembly are different tabs of the material room.
+    current_section = section if section in ["LABO", "SMELTER", "RECYCLER", "STORAGE"] else "LABO"
+    printer_group.visible = current_section == "LABO"
+    converter_group.visible = current_section in ["SMELTER", "RECYCLER"]
+    warehouse_group.visible = current_section == "STORAGE"
+    clock = 0.0
+    state_time = 0.0
+    crate_head.rotation = Vector3.ZERO
+    crate_arm.rotation = Vector3.ZERO
+    crate_left_arm.rotation = Vector3.ZERO
+    match current_section:
+        "LABO":
+            crate.position = Vector3(1.25, 0, 0.96)
+            crate.rotation.y = 2.55
+            work_state = "print_to_terminal"
+            hero_camera.position = Vector3(0.30, 1.40, 6.95)
+            hero_camera.fov = 52.0
+            hero_camera.look_at(Vector3(-0.2, 1.86, -0.95), Vector3.UP)
+        "SMELTER", "RECYCLER":
+            crate.position = Vector3(1.84, 0, 0.66)
+            crate.rotation.y = 2.80
+            work_state = "refinery_audit"
+            hero_camera.position = Vector3(0.50, 1.49, 7.1)
+            hero_camera.fov = 52.0
+            hero_camera.look_at(Vector3(-0.17, 1.83, -1.15), Vector3.UP)
+        "STORAGE":
+            crate.position = Vector3(0.82, 0, 0.55)
+            crate.rotation.y = 2.95
+            work_state = "storage_scan"
+            hero_camera.position = Vector3(-0.25, 1.52, 7.3)
+            hero_camera.fov = 52.0
+            hero_camera.look_at(Vector3(0.05, 1.93, -1.27), Vector3.UP)
 
 func _move_to(goal: Vector3, delta: float) -> bool:
     var planar := Vector3(goal.x, crate.position.y, goal.z)
@@ -471,11 +475,13 @@ func _move_to(goal: Vector3, delta: float) -> bool:
     if diff.length() <= 0.07:
         crate.position = planar
         return true
-    crate.position = crate.position.move_toward(planar, minf(1.05*delta, 0.26))
-    var desired_yaw: float = atan2(diff.x, diff.z)
-    crate.rotation.y = lerp_angle(crate.rotation.y, desired_yaw, minf(1.0, 2.5*delta))
-    crate_head.rotation.x = lerpf(crate_head.rotation.x, 0.0, minf(1.0, 4.0*delta))
+    crate.position = crate.position.move_toward(planar, minf(0.95*delta, 0.23))
+    # CRATE's unified model faces -Z.
+    var desired_yaw: float = atan2(-diff.x, -diff.z)
+    crate.rotation.y = lerp_angle(crate.rotation.y, desired_yaw, minf(1.0, 2.8*delta))
+    crate_head.rotation.x = lerpf(crate_head.rotation.x, 0.0, minf(1.0, 3.5*delta))
     crate_arm.rotation.x = lerpf(crate_arm.rotation.x, 0.0, minf(1.0, 3.0*delta))
+    crate_left_arm.rotation.x = lerpf(crate_left_arm.rotation.x, 0.0, minf(1.0, 3.0*delta))
     return false
 
 func _enter(state: String) -> void:
