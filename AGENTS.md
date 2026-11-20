@@ -20,6 +20,16 @@
 6. CI失敗時は「更新漏れの旧仕様テスト／新実装の不具合／環境問題」を切り分ける。必要な修正と再実行を承認待ちなしで進め、修正不能なら原因を報告する。実機の操作感・動き・表示・音は自動CI合格とは分けて確認する。
 7. 完了報告に **事前確認したCI項目、先行更新したテスト（理由と変更点）、新規テスト、CI結果、残る実機確認事項** を明記する。
 
+## 装備ハンガー容量・大量所持UI（ユーザー確定仕様）
+- **倉庫の装備カテゴリごとに、独立したハンガーを設け、1ハンガーの収納上限を999個とする。** 999個は装備種類数ではなく、保管中の装備個体数の上限。同種装備を複数製作・保管でき、各個体は1個として数える。
+- カテゴリAが999個でもカテゴリBの残容量を消費しない。カテゴリ間で上限を共用しない。装備カテゴリの具体的な分類は現行ゲーム仕様に従い、ここで新設・再分類しない。
+- 装備種類や累計製作数を999に制限しない。**該当カテゴリの保管個体数が999個に達した状態では、そのハンガーへ新たに収納する操作（収納を伴う製作を含む）を成立させない。** 既存装備の上書き・無言の破棄・他カテゴリへの自動退避は禁止。上限時はUIに満杯を明示する。装備中アイテムの保管枠への計上など、未確定の境界条件を推測で確定しない。
+- ハンガー容量表示はカテゴリ別の `現在数 / 999` とし、追加・移動・廃棄後に該当カテゴリの表示だけ更新する。0個でも空枠のデザインを維持する既存UIルールを壊さない。
+- **大量所持でも軽量なUIを最優先する。** 収納数に比例してControl/Nodeを生成しない。画面内に見えるセルと必要最小限の余白だけを扱う仮想化（または固定数の再利用）を基本とする。Godotでは単一／少数のControlの`_draw()`による直接描画、座標に基づくタップ判定、`queue_redraw()`によるイベント駆動の差分更新を優先し、`_process()`で毎フレーム全装備を再構築しない。
+- 装備定義・モデル・アイコン／テクスチャは種類ごとに共有し、装備個体はIDと個体差・装着モジュール等の必要情報を保持する。装備個体数に比例した同一画像・同一モデルの複製や、装備1個ごとのノード常駐を避ける。
+- 999個／カテゴリという現行上限に対し、根拠なく大規模DBや複雑なストリーミング基盤を導入しない。まず既存データ構造と最小限の索引・遅延処理で実装し、必要なら実機計測で改善する。保存時には追加した装備が消えない整合性・復旧性を守る。
+- **実装時の検証:** 更新前に既存CI・期待値を確認し、明確に変わる容量条件のテストを先に更新する。少なくともカテゴリ別0/998/999個、999→1000個目の拒否、他カテゴリ独立、重複装備、追加・削除後の表示同期、スクロール中の表示／入力対応、セーブ／ロードの保持を確認する。軽量性はGodotでノード数・フレーム時間・メモリを計測し、Android実機で操作感を別途確認する。UI実装を伴わない今回の指示書更新だけで実装済み・性能達成と報告しない。
+
 ## Current sources and constraints
 - Repository: `shejklgaia-png/-`. Root `project.godot` must be named exactly `SERA v<integer>`. Keep the Android portrait GL Compatibility renderer; no unsolicited engine upgrade or migration.
 - **Models:** consult `models/manifest.json` and `docs/SERA_MODEL_SOURCES_ja.md`. Canonical editable sources are `models/core/Standard.bbmodel`, `BirdLeg.bbmodel`, `Katana.bbmodel`, `Equipment.bbmodel`, plus `models/storage/Head_C.bbmodel` and `LowerBody_D.bbmodel`. Older model copies are historical fixtures. `assets/sera_source.json` and embedded `assets/sera_*.gd` are **generated**, rebuild via `tools/rebuild_*_data.py`, not manual edits.
