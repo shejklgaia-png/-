@@ -17,13 +17,25 @@ func _check_image(source: Image, index: int, icon: Texture2D) -> bool:
         _fail("material crop cannot be read: " + str(index))
         return false
     var origin: Vector2i = Vector2i(index % 3 * 72, int(index / 3) * 72)
+    # New transparent 72x72 sprites must have at least two clear pixels
+    # on every edge, so even tiny scaled cards cannot sample their neighbour.
+    var opaque_count: int = 0
     for y in range(72):
         for x in range(72):
             var expected: Color = source.get_pixel(origin.x + x, origin.y + y)
+            if expected.a > 0.10:
+                opaque_count += 1
+            if (x < 2 or x >= 70 or y < 2 or y >= 70) and expected.a > 0.0:
+                _fail("nontransparent material tile border: " + str(index)
+                    + " at " + str(Vector2i(x, y)))
+                return false
             if actual.get_pixel(x, y) != expected:
                 _fail("sprite pixels leak from neighbouring cell: " + str(index)
                     + " at " + str(Vector2i(x, y)))
                 return false
+    if opaque_count < 100:
+        _fail("material icon is unexpectedly empty: " + str(index))
+        return false
     return true
 
 func _check_material_grid(grid: ScrollContainer) -> bool:
