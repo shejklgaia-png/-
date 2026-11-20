@@ -119,6 +119,7 @@ func _run() -> void:
     if _selected_count(tabs) != 1 or not warehouse.button_pressed:
         _fail("warehouse section tab is not exclusive")
         return
+    fac.call("_show_inventory", "materials")
     if not _check_virtual(fac, "WarehouseMaterials", 12, 2):
         return
     var actions: VBoxContainer = fac.get("modal_actions") as VBoxContainer
@@ -176,6 +177,7 @@ func _run() -> void:
         return
     fac.call("_switch_section", "warehouse")
     await process_frame
+    fac.call("_show_inventory", "materials")
     if not _check_virtual(fac, "WarehouseMaterials", 12, 2):
         return
     store.set("active_slot", original_slot)
