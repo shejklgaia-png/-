@@ -24,7 +24,7 @@ for token in (
 assert skin.index("font = _font_from_raw(path, required_glyph)") < skin.index(
     "ResourceLoader.load(path)"), "raw bytes must be attempted before importer"
 for token in (
-    'SERA FONT DIAG v547 / LOAD ROUTE CHECK',
+    'SERA FONT DIAG v548 / MIXED FONTS',
     'available: RAW=',
     'load route: ',
     'FONT BASE: MISSING',
