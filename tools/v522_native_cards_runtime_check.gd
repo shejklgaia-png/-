@@ -121,6 +121,7 @@ func _run() -> void:
         return
     fac.call("_switch_section", "warehouse")
     await process_frame
+    fac.call("_show_inventory", "materials")
     if not _verify_warehouse(fac, "WarehouseMaterials", 12, 2):
         return
     (actions.find_child("WarehouseEquipmentTab", true, false) as Button).pressed.emit()
