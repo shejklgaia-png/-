@@ -167,7 +167,7 @@ static func _build_overlay(mesh: Mesh) -> ArrayMesh:
         var ink_flag: float = 1.0 if bool(edge["crease"]) else 0.0
         var color := Color(face_a.x * 0.5 + 0.5, face_a.y * 0.5 + 0.5,
             face_a.z * 0.5 + 0.5, ink_flag)
-        var adjacent := Vector4(face_b.x, face_b.y, face_b.z,
+        var adjacent := Color(face_b.x, face_b.y, face_b.z,
             1.0 if edge.has("face_b") else 0.0)
         for vertex in [[a, -1.0], [b, -1.0], [b, 1.0],
                 [a, -1.0], [b, 1.0], [a, 1.0]]:

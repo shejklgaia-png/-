@@ -11,6 +11,7 @@ manifest = (root / "tools/sera_ci_manifest.txt").read_text(encoding="utf-8")
 assert "const CREASE_DEGREES: float = 80.0" in script
 assert "cos(deg_to_rad(CREASE_DEGREES))" in script
 assert "Mesh.PRIMITIVE_TRIANGLES" in script
+assert "var adjacent := Color(" in script, "SurfaceTool.set_custom() needs a Color, not Vector4"
 assert "_extract_edges" in script and "_build_overlay" in script
 assert "edge[\"face_b\"]" in script
 assert "mesh.get_surface_count()" in script
