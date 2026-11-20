@@ -4,6 +4,7 @@ extends Node3D
 const SOURCE_PATH: String = "res://models/bosses/Bittaran.bbmodel"
 const EMBEDDED = preload("res://assets/bittaran_data.gd")
 const GROUND_CONTACTS = preload("res://assets/bittaran_ground_contacts.gd")
+const OUTLINE_SCRIPT = preload("res://scripts/sera_view_edges.gd")
 # Shared source timing toggle; restoring the v461 preset also restores
 # the Wait->Idle handoff duration without a separate file edit.
 const BittaranAttackTimings = preload("res://scripts/bittaran_attacks.gd")
@@ -202,6 +203,10 @@ func _ready() -> void:
     if bones.has(head_uid):
         (bones[head_uid] as Node3D).quaternion = _authored_key_rotation(
             "Wait", "Head", 0.0)
+    # Mesh-local ink inherits each articulated leg/head transform and visibility.
+    var ink := OUTLINE_SCRIPT.new()
+    ink.name = "ViewEdges"
+    add_child(ink)
 
 func _v3(raw: Variant) -> Vector3:
     if raw is Array and raw.size() >= 3:
