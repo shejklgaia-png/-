@@ -491,30 +491,87 @@ func _enter(state: String) -> void:
 func _process(delta: float) -> void:
     clock += delta
     state_time += delta
-    # The printer keeps fabricating while the lab is visible.
-    printer_nozzle.position.x = -1.96 + 0.55 * sin(clock * 1.9)
-    printer_nozzle.position.z = -0.40 + 0.23 * cos(clock * 1.13)
-    printed_part.scale.y = 0.72 + 0.18 * sin(clock * 0.37)
-    if current_section in ["SMELTER", "RECYCLER"]:
-        for index in range(converter_crystals.size()):
-            var crystal: Node3D = converter_crystals[index]
-            crystal.rotation.y = clock * (0.18 + float(index)*0.08)
-            crystal.position.y = 1.25 + 0.075 * sin(clock * 1.7 + float(index))
+    match current_section:
+        "LABO":
+            _animate_manufacturing(delta)
+        "SMELTER", "RECYCLER":
+            _animate_refinery(delta)
+        "STORAGE":
+            _animate_inventory(delta)
+
+func _animate_manufacturing(delta: float) -> void:
+    # Print head and part grow on the manufacturing page only.
+    printer_nozzle.position.x = -1.96 + 0.54 * sin(clock * 1.9)
+    printer_nozzle.position.z = -0.40 + 0.24 * cos(clock * 1.13)
+    printed_part.scale.y = 0.78 + 0.15 * sin(clock * 0.37)
     match work_state:
-        "walk_to_terminal":
-            if _move_to(Vector3(1.18, 0, 0.65), delta):
-                _enter("inspect_terminal")
-        "inspect_terminal":
-            crate_head.rotation.x = lerpf(crate_head.rotation.x, 0.24, minf(delta*3.0, 1.0))
-            crate_arm.rotation.x = lerpf(crate_arm.rotation.x, -0.55, minf(delta*3.0, 1.0))
-            crate_arm.rotation.y = 0.12 * sin(clock * 2.5)
-            if state_time > 3.2:
-                _enter("walk_to_printer")
-        "walk_to_printer":
-            if _move_to(Vector3(-0.88, 0, 0.85), delta):
-                _enter("inspect_printer")
-        "inspect_printer":
-            crate_head.rotation.x = lerpf(crate_head.rotation.x, -0.16, minf(delta*3.0, 1.0))
-            crate_arm.rotation.x = lerpf(crate_arm.rotation.x, -0.12, minf(delta*3.0, 1.0))
-            if state_time > 2.3:
-                _enter("walk_to_terminal")
+        "print_to_terminal":
+            if _move_to(Vector3(1.75, 0, 0.61), delta):
+                _enter("print_inspect_terminal")
+        "print_inspect_terminal":
+            crate.rotation.y = lerp_angle(crate.rotation.y, -2.85, minf(delta*2.0, 1.0))
+            crate_head.rotation.x = lerpf(crate_head.rotation.x, 0.23, minf(delta*3.0, 1.0))
+            crate_arm.rotation.x = -0.38 + 0.06*sin(clock*3.5)
+            if state_time > 3.1:
+                _enter("print_to_machine")
+        "print_to_machine":
+            if _move_to(Vector3(-0.62, 0, 0.96), delta):
+                _enter("print_inspect_shell")
+        "print_inspect_shell":
+            crate_head.rotation.x = lerpf(crate_head.rotation.x, -0.18, minf(delta*3.0, 1.0))
+            crate_left_arm.rotation.x = 0.16*sin(clock*2.0)
+            if state_time > 2.5:
+                _enter("print_to_terminal")
+
+func _animate_refinery(delta: float) -> void:
+    # Refinery alone: rotating feedstock in each colored processing chamber.
+    for i in range(converter_crystals.size()):
+        var rotor: Node3D = converter_crystals[i]
+        rotor.rotation.y = clock * (0.26 + float(i)*0.12)
+        rotor.position.y = 1.25 + 0.065*sin(clock*1.6 + float(i)*1.3)
+    match work_state:
+        "refinery_audit":
+            crate.rotation.y = lerp_angle(crate.rotation.y, 2.45, minf(delta*2.3, 1.0))
+            crate_head.rotation.y = 0.17*sin(clock*1.1)
+            crate_arm.rotation.x = -0.25 + 0.19*sin(clock*2.1)
+            if state_time > 3.5:
+                _enter("refinery_to_samples")
+        "refinery_to_samples":
+            if _move_to(Vector3(0.5, 0, 0.79), delta):
+                _enter("refinery_sort")
+        "refinery_sort":
+            crate_head.rotation.x = lerpf(crate_head.rotation.x, 0.27, minf(delta*3.0, 1.0))
+            crate_left_arm.rotation.x = -0.28 + 0.31*sin(clock*2.7)
+            if state_time > 2.7:
+                _enter("refinery_return")
+        "refinery_return":
+            if _move_to(Vector3(1.84, 0, 0.66), delta):
+                _enter("refinery_audit")
+
+func _animate_inventory(delta: float) -> void:
+    # Warehouse alone: rail scanner sweeps, robot checks bins and logs stock.
+    warehouse_scanner.position.x = 0.12 + 0.46*sin(clock*1.8)
+    warehouse_scanner.rotation.y = 0.22*sin(clock*1.2)
+    match work_state:
+        "storage_scan":
+            crate_head.rotation.y = 0.25*sin(clock*0.95)
+            crate_arm.rotation.x = -0.12
+            if state_time > 2.2:
+                _enter("storage_go_left")
+        "storage_go_left":
+            if _move_to(Vector3(-1.02, 0, 0.51), delta):
+                _enter("storage_get_bin")
+        "storage_get_bin":
+            crate_left_arm.rotation.x = -0.26 + 0.24*sin(clock*2.3)
+            crate_arm.rotation.x = -0.29 + 0.20*sin(clock*2.3 + 0.75)
+            crate_head.rotation.x = lerpf(crate_head.rotation.x, -0.23, minf(delta*3.0, 1.0))
+            if state_time > 2.8:
+                _enter("storage_go_terminal")
+        "storage_go_terminal":
+            if _move_to(Vector3(0.82, 0, 0.55), delta):
+                _enter("storage_log_stock")
+        "storage_log_stock":
+            crate_head.rotation.x = lerpf(crate_head.rotation.x, 0.20, minf(delta*3.0, 1.0))
+            crate_arm.rotation.x = -0.18 + 0.07*sin(clock*3.0)
+            if state_time > 2.5:
+                _enter("storage_scan")
