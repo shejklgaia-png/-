@@ -125,7 +125,7 @@ func _run() -> void:
     actions = facility.get("modal_actions") as VBoxContainer
     var warehouse: ScrollContainer = (facility.get("item_layer") as Control).find_child(
         "WarehouseMaterials", true, false) as ScrollContainer
-    if warehouse == null or int(warehouse.get("columns")) != 3 or (
+    if warehouse == null or int(warehouse.get("columns")) != 2 or (
             (warehouse.get("entries") as Array).size() != MAT.all_ids().size()):
         _fail("warehouse must retain all twelve materials in the virtual list")
         return
