@@ -1,0 +1,48 @@
+name: SERA v548 vendor mixed UI typography
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/sera-vendor-typography.yml'
+      - 'tools/vendor_sera_typography.py'
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: sera-vendor-typography
+  cancel-in-progress: false
+jobs:
+  vendor:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+      - name: Install WOFF2 font tooling
+        run: python3 -m pip install --disable-pip-version-check --user 'fonttools[woff]==4.60.1' 'brotli==1.1.0'
+      - name: Fetch and verify official OFL source fonts
+        run: python3 tools/vendor_sera_typography.py
+      - name: Verify assets and licenses
+        run: |
+          set -euo pipefail
+          for name in MPLUS2-VF MPLUS1Code-VF IBMPlexSansJP-Medium IBMPlexSansJP-Bold; do
+            test -s "assets/fonts/$name.woff2"
+          done
+          for name in OFL-MPLUS2 OFL-MPLUS1Code OFL-IBMPlexSansJP; do
+            test -s "assets/fonts/$name.txt"
+          done
+          du -h assets/fonts/*.woff2
+      - name: Commit and push vendored fonts
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add assets/fonts/
+          if git diff --cached --quiet; then
+            echo "Bundled typography already current"
+          else
+            git commit -m "SERA v548: vendor licensed Japanese typography fonts"
+            git pull --rebase origin main
+            git push origin HEAD:main
+          fi
