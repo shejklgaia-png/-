@@ -92,7 +92,12 @@ func _run() -> void:
         return
     gear_tab.pressed.emit()
     await process_frame
-    if mat_tab.button_pressed or not gear_tab.button_pressed:
+    # _show_inventory destroys/rebuilds category buttons every switch.
+    # Re-query the newly created controls before checking their state.
+    mat_tab = actions.find_child("WarehouseMaterialsTab", true, false) as Button
+    gear_tab = actions.find_child("WarehouseEquipmentTab", true, false) as Button
+    if mat_tab == null or gear_tab == null or (
+            mat_tab.button_pressed or not gear_tab.button_pressed):
         _fail("warehouse category tabs are both selected")
         return
     if not _check_flow(fac, "WarehouseEquipment", "WarehouseBlueprint_H01", 7):
