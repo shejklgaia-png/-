@@ -3,6 +3,7 @@ extends RefCounted
 static var _cache: Dictionary = {}
 static var _card_cache: Dictionary = {}
 static var _tab_cache: Dictionary = {}
+static var _segment_cache: Dictionary = {}
 static var _ui_font: SystemFont
 static var _title_font: SystemFont
 static var _data_font: SystemFont
@@ -73,6 +74,43 @@ static func style(kind: String = "normal") -> StyleBoxFlat:
     _cache[kind] = result
     return result
 
+
+## Compact, matte segmented controls for the LOWER console, kept separate
+## from the hanging navigation. A single narrow cyan rail marks selection.
+static func terminal_segment_style(kind: String = "normal") -> StyleBoxFlat:
+    if _segment_cache.has(kind):
+        return _segment_cache[kind] as StyleBoxFlat
+    var panel := StyleBoxFlat.new()
+    panel.bg_color = Color("#101d27")
+    panel.border_color = Color("#2b4551")
+    panel.set_border_width_all(1)
+    match kind:
+        "selected", "pressed", "hover_pressed":
+            panel.bg_color = Color("#17303c")
+            panel.border_color = Color("#537d8a")
+            panel.border_width_bottom = 3
+            panel.border_color = Color("#72bcca")
+        "hover":
+            panel.bg_color = Color("#172b36")
+            panel.border_color = Color("#4e7582")
+        "disabled":
+            panel.bg_color = Color("#0e1721")
+            panel.border_color = Color("#283944")
+        "destructive":
+            panel.bg_color = Color("#251d27")
+            panel.border_color = Color("#73505d")
+        _:
+            pass
+    panel.set_corner_radius_all(3)
+    panel.corner_radius_top_left = 1
+    panel.corner_radius_top_right = 1
+    panel.shadow_size = 0
+    panel.content_margin_left = 8.0
+    panel.content_margin_right = 8.0
+    panel.content_margin_top = 7.0
+    panel.content_margin_bottom = 7.0
+    _segment_cache[kind] = panel
+    return panel
 
 ## Alpha-backed trapezoid tabs hang from the viewport top edge. The image and
 ## its nine-patch corners are generated once per state; there are no per-frame
