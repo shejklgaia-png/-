@@ -5,9 +5,10 @@ extends ScrollContainer
 signal entry_pressed(entry: Dictionary)
 const Icons = preload("res://scripts/sera_item_icons.gd")
 const Affixes = preload("res://scripts/sera_craft_affixes.gd")
+const LaboSkin = preload("res://scripts/sera_labo_round_skin.gd")
 const GAP: float = 8.0
 const CARD_HEIGHT_EQUIPMENT: float = 156.0
-const CARD_HEIGHT_MATERIALS: float = 108.0
+const CARD_HEIGHT_MATERIALS: float = 96.0
 const MAX_POOL_CARDS: int = 32
 var entries: Array = []
 var columns: int = 2
@@ -76,37 +77,10 @@ func _relayout() -> void:
     _refresh_visible(true)
 
 func _skin(kind: String) -> StyleBoxTexture:
-    if _skin_cache.has(kind):
-        return _skin_cache[kind] as StyleBoxTexture
-    var image: Image = Image.create(32, 32, false, Image.FORMAT_RGBA8)
-    var background: Color = Color("#142430")
-    var border: Color = Color("#65bed2")
-    if kind == "pressed":
-        background = Color("#29495c")
-        border = Color("#dbf5ff")
-    elif kind == "hover":
-        background = Color("#203c50")
-        border = Color("#9fcbdc")
-    elif kind == "disabled":
-        border = Color("#65bed2")
-    for y in range(32):
-        for x in range(32):
-            var a: int = x + y
-            var b: int = (31 - x) + y
-            var c: int = x + (31 - y)
-            var d: int = (31 - x) + (31 - y)
-            var nearest: int = mini(mini(a, b), mini(c, d))
-            if nearest < 7:
-                image.set_pixel(x, y, Color.TRANSPARENT)
-            elif x <= 1 or x >= 30 or y <= 1 or y >= 30 or nearest <= 9:
-                image.set_pixel(x, y, border)
-            else:
-                image.set_pixel(x, y, background)
-    var box := StyleBoxTexture.new()
-    box.texture = ImageTexture.create_from_image(image)
-    box.set_texture_margin_all(10.0)
-    _skin_cache[kind] = box
-    return box
+    # One shared matte navy/cyan four-corner frame across craft, conversion,
+    # warehouse materials, equipment and their blank placeholder cells.
+    return LaboSkin.card_style(kind)
+
 
 func _make_card() -> Button:
     var card := Button.new()
@@ -122,6 +96,7 @@ func _make_card() -> Button:
     art.mouse_filter = Control.MOUSE_FILTER_IGNORE
     art.clip_contents = true
     art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+    art.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
     art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
     card.add_child(art)
     var title := Label.new()
@@ -138,7 +113,7 @@ func _make_card() -> Button:
     effects.mouse_filter = Control.MOUSE_FILTER_IGNORE
     effects.add_theme_color_override("font_color", Color("#ecf5fc"))
     effects.add_theme_font_override("font", _font)
-    effects.add_theme_font_size_override("font_size", 12)
+    effects.add_theme_font_size_override("font_size", 11)
     effects.autowrap_mode = TextServer.AUTOWRAP_OFF
     effects.clip_text = true
     card.add_child(effects)
@@ -192,18 +167,19 @@ func _bind_card(card: Button, index: int) -> void:
     var effects: Label = card.get_node("ItemEffects") as Label
     # Fit a perfect square inside the card even in a narrow Android layout.
     # Always reserve space for the label and clip the final display rectangle.
-    var side: float = maxf(1.0, minf(_card_height() - 14.0,
-        _card_width - 14.0 - 24.0))
+    var side: float = maxf(1.0, minf(
+        62.0 if mode == "materials" else 74.0,
+        minf(_card_height() - 14.0, _card_width - 42.0)))
     art.position = Vector2(7.0, (_card_height() - side) * 0.5)
     art.size = Vector2(side, side)
     var text_left: float = art.position.x + side + 7.0
     var text_width: float = maxf(1.0, _card_width - text_left - 6.0)
-    title.position = Vector2(text_left, 6.0)
-    title.size = Vector2(text_width, 34.0 if mode == "equipment" else 86.0)
-    effects.position = Vector2(text_left, 42.0)
-    effects.size = Vector2(text_width, _card_height() - 47.0)
+    title.position = Vector2(text_left, 8.0 if mode == "equipment" else 21.0)
+    title.size = Vector2(text_width, 34.0 if mode == "equipment" else 38.0)
+    effects.position = Vector2(text_left, 43.0 if mode == "equipment" else 61.0)
+    effects.size = Vector2(text_width, _card_height() - (48.0 if mode == "equipment" else 62.0))
     title.visible = not blank
-    effects.visible = not blank and mode == "equipment"
+    effects.visible = not blank
     art.visible = not blank
     if blank:
         art.texture = null
@@ -211,9 +187,9 @@ func _bind_card(card: Button, index: int) -> void:
         effects.text = ""
     elif mode == "materials":
         var id: String = str(entry.get("id", ""))
-        title.text = str(entry.get("name", "")) + "\n所持 " + str(entry.get("count", 0))
-        effects.text = ""
-        art.texture = Icons.material_icon(id)
+        title.text = str(entry.get("name", ""))
+        effects.text = "所持 " + str(entry.get("count", 0))
+        art.texture = Icons.material_icon_sized(id, 58)
         art.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
     else:
         var blueprint: String = str(entry.get("blueprint", ""))

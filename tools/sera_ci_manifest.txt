@@ -27,6 +27,8 @@ gd tools/v522_native_cards_runtime_check.gd
 py tools/v523_overlay_cards_self_check.py
 gd tools/v523_overlay_cards_runtime_check.gd
 py tools/v524_layout_tabs_self_check.py
+py tools/v533_labo_visual_self_check.py
+gd tools/v533_labo_visual_runtime_check.gd
 py tools/v532_labo_entry_icons_self_check.py
 gd tools/v532_labo_entry_icons_runtime_check.gd
 py tools/v531_labo_interaction_self_check.py

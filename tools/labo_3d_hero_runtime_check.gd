@@ -84,7 +84,7 @@ func _run() -> void:
         return
     var card: Button = (fac.get("item_layer") as Control).find_child(
         "PrototypeIcon_H01", true, false) as Button
-    if card == null or card.get_theme_stylebox("normal") is not StyleBoxFlat:
+    if card == null or card.get_theme_stylebox("normal") is not StyleBoxTexture:
         _fail("craft cards must be rounded and retain native Android buttons")
         return
     fac.call("close_menu")

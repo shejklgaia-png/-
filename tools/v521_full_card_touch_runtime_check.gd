@@ -22,7 +22,8 @@ func _check_card(card: Button) -> bool:
     if card == null or not card.is_visible_in_tree() or card.disabled:
         _fail("card must be an enabled native Button")
         return false
-    if card.icon == null or not card.text.contains("\n"):
+    if (card.find_child("ItemArt", true, false) as TextureRect).texture == null or (
+            not card.text.contains("\n")):
         _fail("card must natively render art, name and quantity")
         return false
     var rect: Rect2 = card.get_global_rect()

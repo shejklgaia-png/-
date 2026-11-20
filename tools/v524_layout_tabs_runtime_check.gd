@@ -34,7 +34,8 @@ func _check_flow(fac: Node3D, page_name: String, first_card: String, expected: i
         _fail("missing card rows for " + page_name)
         return false
     var card: Button = grid.find_child(first_card, true, false) as Button
-    if card == null or not card.is_visible_in_tree() or card.icon == null:
+    if card == null or not card.is_visible_in_tree() or (
+            (card.find_child("ItemArt", true, false) as TextureRect).texture == null):
         _fail("first item missing from live layout: " + first_card)
         return false
     var back: Button = content.find_child("CloseFacility", false, false) as Button

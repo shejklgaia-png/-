@@ -44,7 +44,7 @@ func _run() -> void:
         await process_frame
         var row: Button = (facility.get("item_layer") as Control).find_child(
             "PrototypeIcon_" + str(blueprint), true, false) as Button
-        if row == null or row.icon == null or row.icon.get_width() <= 0:
+        if row == null or (row.find_child("ItemArt", true, false) as TextureRect).texture == null:
             _fail("unrenderable craft icon: " + str(blueprint))
             return
     facility.call("_select_craft_slot", "head")

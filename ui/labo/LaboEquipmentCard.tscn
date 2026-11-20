@@ -1,0 +1,52 @@
+[gd_scene format=3]
+
+[node name="LaboEquipmentCard" type="Button"]
+clip_contents = true
+focus_mode = 0
+
+[node name="CardContent" type="MarginContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 5
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 5
+
+[node name="Row" type="HBoxContainer" parent="CardContent"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_constants/separation = 11
+
+[node name="ItemArt" type="TextureRect" parent="CardContent/Row"]
+custom_minimum_size = Vector2(60, 60)
+layout_mode = 2
+size_flags_vertical = 4
+mouse_filter = 2
+texture_filter = 0
+expand_mode = 1
+stretch_mode = 5
+
+[node name="TextStack" type="VBoxContainer" parent="CardContent/Row"]
+layout_mode = 2
+size_flags_horizontal = 3
+mouse_filter = 2
+alignment = 1
+theme_override_constants/separation = 4
+
+[node name="ItemTitle" type="Label" parent="CardContent/Row/TextStack"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.96, 0.99, 1, 1)
+theme_override_font_sizes/font_size = 16
+
+[node name="ItemInfo" type="Label" parent="CardContent/Row/TextStack"]
+layout_mode = 2
+mouse_filter = 2
+theme_override_colors/font_color = Color(0.62, 0.82, 0.88, 1)
+theme_override_font_sizes/font_size = 12
+autowrap_mode = 3
