@@ -351,7 +351,38 @@ func _material_card_font_size() -> int:
 
 func _material_icon_side() -> float:
     var width: float = get_viewport().get_visible_rect().size.x
-    return 62.0 if width >= 590.0 else 48.0 if width >= 460.0 else 32.0
+    # Reserve enough width for full single-line Japanese resource names.
+    return 46.0 if width >= 590.0 else 40.0 if width >= 460.0 else 30.0
+
+
+func _fit_material_title(card: Button) -> void:
+    # Called on layout/viewport changes only, not every frame. Measuring the
+    # actual bundled font avoids manual abbreviations and ellipsis on phones.
+    if not is_instance_valid(card) or not card.is_inside_tree() or (
+            card.is_queued_for_deletion()):
+        return
+    var title: Label = card.get_node_or_null(
+        "CardContent/Row/TextStack/ItemTitle") as Label
+    var art_dock: MarginContainer = card.get_node_or_null(
+        "CardContent/Row/MaterialArtOffset") as MarginContainer
+    if title == null or art_dock == null:
+        return
+    var row: HBoxContainer = art_dock.get_parent() as HBoxContainer
+    var outer: MarginContainer = row.get_parent() as MarginContainer
+    var available: float = minf(title.size.x,
+        card.size.x - float(outer.get_theme_constant("margin_left")) -
+        float(outer.get_theme_constant("margin_right")) -
+        art_dock.get_combined_minimum_size().x -
+        float(row.get_theme_constant("separation")))
+    if available < 20.0:
+        return
+    var face: Font = title.get_theme_font("font")
+    var chosen: int = _material_card_font_size()
+    while chosen > 12 and face.get_string_size(
+            title.text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, chosen).x > available - 1.0:
+        chosen -= 1
+    title.add_theme_font_size_override("font_size", chosen)
+
 
 func attach_hud(hud: Control) -> void:
     for spec in FACILITY_SPECS:
@@ -1428,8 +1459,27 @@ func _new_slot(parent: Control, key: String, icon: Texture2D,
         LaboSkin.tracked_data_font() if key.begins_with("LockedCraftSlot_") else
         LaboSkin.stats_font()))
     if material_choice:
-        var side: float = _material_icon_side()
-        art.custom_minimum_size = Vector2(side, side)
+        # Slight left/down shift, without stretching or clipping pixel art.
+        # This wrapper is only allocated for the twelve refinery tiles.
+        var material_row: HBoxContainer = art.get_parent() as HBoxContainer
+        var material_padding: MarginContainer = material_row.get_parent() as MarginContainer
+        material_padding.add_theme_constant_override("margin_left", 6)
+        material_padding.add_theme_constant_override("margin_right", 5)
+        material_row.add_theme_constant_override("separation", 4)
+        var art_dock := MarginContainer.new()
+        art_dock.name = "MaterialArtOffset"
+        art_dock.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        art_dock.add_theme_constant_override("margin_top", 7)
+        material_row.add_child(art_dock)
+        material_row.move_child(art_dock, 0)
+        art.reparent(art_dock, false)
+        art.custom_minimum_size = Vector2(_material_icon_side(), _material_icon_side())
+        art.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+        title_label.autowrap_mode = TextServer.AUTOWRAP_OFF
+        title_label.max_lines_visible = 1
+        title_label.clip_text = true
+        title_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+        title_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
         title_label.add_theme_font_size_override(
             "font_size", _material_card_font_size())
         info_label.add_theme_font_size_override(
@@ -1455,6 +1505,9 @@ func _new_slot(parent: Control, key: String, icon: Texture2D,
     info_label.text = (info if material_choice else
         info.replace("基礎ステータス（現行Aセット参照） / ", "基礎："))
     row.add_child(card)
+    if material_choice:
+        card.resized.connect(_fit_material_title.bind(card))
+        call_deferred("_fit_material_title", card)
     parent.set_meta("card_count", index + 1)
     diag_created += 1
     # Small overlay accents distinguish purpose and quality without using
@@ -1731,7 +1784,9 @@ func _show_warehouse_item_detail(uid: String) -> void:
         breakdown.name = "WarehouseStatsBreakdown"
         breakdown.text = LaboStats.total_formula(blueprint, item.get("affixes", []))
         breakdown.add_theme_font_size_override("font_size", 19)
-        breakdown.add_theme_font_override("font", LaboSkin.data_font())
+        # The breakdown combines Japanese labels and numbers; Latin-only
+        # IBM Plex Mono displayed tofu squares for the Japanese glyphs.
+        breakdown.add_theme_font_override("font", LaboSkin.stats_font())
         breakdown.add_theme_color_override("font_color", Color("#eff8ff"))
         breakdown.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
         modal_actions.add_child(breakdown)
