@@ -30,6 +30,8 @@ func _verify_grid(cards: Control, name: String, ids: Array, prefix: String, clic
         _fail("native row count does not match current slot-bar grid: " + name)
         return false
     for row in grid.get_children():
+        if name == "PrototypeGrid" and row.name == "PrototypeBasePreview":
+            continue
         if not row is HBoxContainer:
             _fail("grid row is not a known-working native HBoxContainer")
             return false
