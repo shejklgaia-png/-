@@ -31,10 +31,7 @@ func _ready() -> void:
     vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
     mouse_filter = Control.MOUSE_FILTER_STOP
     clip_contents = true
-    _font = SystemFont.new()
-    (_font as SystemFont).font_names = PackedStringArray([
-        "M PLUS 1 Code", "Noto Sans Mono CJK JP", "Noto Sans JP", "monospace"
-    ])
+    _font = LaboSkin.ui_font()
     canvas = Control.new()
     canvas.name = "VirtualCanvas"
     canvas.mouse_filter = Control.MOUSE_FILTER_PASS
@@ -102,8 +99,8 @@ func _make_card() -> Button:
     var title := Label.new()
     title.name = "ItemTitle"
     title.mouse_filter = Control.MOUSE_FILTER_IGNORE
-    title.add_theme_color_override("font_color", Color("#f4faff"))
-    title.add_theme_font_override("font", _font)
+    title.add_theme_color_override("font_color", Color("#f4fdff"))
+    title.add_theme_font_override("font", LaboSkin.title_font())
     title.add_theme_font_size_override("font_size", 14)
     title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
     title.clip_text = true
@@ -111,8 +108,8 @@ func _make_card() -> Button:
     var effects := Label.new()
     effects.name = "ItemEffects"
     effects.mouse_filter = Control.MOUSE_FILTER_IGNORE
-    effects.add_theme_color_override("font_color", Color("#ecf5fc"))
-    effects.add_theme_font_override("font", _font)
+    effects.add_theme_color_override("font_color", Color("#92dbea"))
+    effects.add_theme_font_override("font", LaboSkin.data_font())
     effects.add_theme_font_size_override("font_size", 12)
     effects.autowrap_mode = TextServer.AUTOWRAP_OFF
     effects.clip_text = true
@@ -169,7 +166,13 @@ func _bind_card(card: Button, index: int) -> void:
     # Always reserve space for the label and clip the final display rectangle.
     var side: float = maxf(1.0, minf(
         72.0 if mode == "materials" else 86.0,
-        minf(_card_height() - 14.0, _card_width - 42.0)))
+        minf(_card_height() - 14.0, _card_width * 0.38)))
+    # Responsive: 3-column labels get room even on a narrow Android screen.
+    title.add_theme_font_size_override("font_size", clampi(
+        int(_card_width / (11.0 if mode == "materials" else 14.0)),
+        15, 19 if mode == "materials" else 21))
+    effects.add_theme_font_size_override("font_size", clampi(
+        int(_card_width / 14.0), 13, 16))
     art.position = Vector2(7.0, (_card_height() - side) * 0.5)
     art.size = Vector2(side, side)
     var text_left: float = art.position.x + side + 7.0
