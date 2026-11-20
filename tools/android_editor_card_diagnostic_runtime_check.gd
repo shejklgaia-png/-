@@ -49,6 +49,8 @@ func _run() -> void:
     diag_toggle.pressed.emit()
     fac.call("_switch_section", "warehouse")
     await process_frame
+    fac.call("_show_inventory", "materials")
+    await process_frame
     diag_toggle.pressed.emit()
     fac.call("_diag_update")
     if not diag_label.text.contains("virtual 12 items"):
