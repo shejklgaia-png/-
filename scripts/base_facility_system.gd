@@ -592,7 +592,8 @@ func _new_slot(parent: Control, key: String, icon: Texture2D,
         choose.tooltip_text = title + " / " + info
         choose.focus_mode = Control.FOCUS_ALL
         choose.mouse_filter = Control.MOUSE_FILTER_STOP
-        for state in ["normal", "hover", "pressed", "hover_pressed", "disabled"]:
+        choose.add_theme_stylebox_override("normal", StyleBoxEmpty.new())
+        for state in ["hover", "pressed", "hover_pressed", "disabled"]:
             choose.add_theme_stylebox_override(state, StyleBoxEmpty.new())
         choose.pressed.connect(action)
         # Direct child of PanelContainer: its layout covers the whole card,
