@@ -71,6 +71,8 @@ var conversion_mode: int = 0
 var conversion_family: String = "scrap"
 var conversion_batches: int = 1
 var conversion_notice: String = ""
+# All twelve material names and the recipe's source/target names use one size.
+var _uniform_material_name_size: int = 16
 var page: String = ""
 var generator_rotor: Node3D
 var diagnostic_button: Button
@@ -355,33 +357,52 @@ func _material_icon_side() -> float:
     return 46.0 if width >= 590.0 else 40.0 if width >= 460.0 else 30.0
 
 
-func _fit_material_title(card: Button) -> void:
-    # Called on layout/viewport changes only, not every frame. Measuring the
-    # actual bundled font avoids manual abbreviations and ellipsis on phones.
-    if not is_instance_valid(card) or not card.is_inside_tree() or (
-            card.is_queued_for_deletion()):
+func _fit_material_titles(grid: VBoxContainer) -> void:
+    # Measure the longest of all twelve names against the narrowest live card.
+    # Apply ONE shared font size, not a different size to each material.
+    # Runs only after layout changes; no work is performed each frame.
+    if not is_instance_valid(grid) or grid.is_queued_for_deletion() or (
+            not grid.is_inside_tree()):
         return
-    var title: Label = card.get_node_or_null(
-        "CardContent/Row/TextStack/ItemTitle") as Label
-    var art_dock: MarginContainer = card.get_node_or_null(
-        "CardContent/Row/MaterialArtOffset") as MarginContainer
-    if title == null or art_dock == null:
-        return
-    var row: HBoxContainer = art_dock.get_parent() as HBoxContainer
-    var outer: MarginContainer = row.get_parent() as MarginContainer
-    var available: float = minf(title.size.x,
-        card.size.x - float(outer.get_theme_constant("margin_left")) -
-        float(outer.get_theme_constant("margin_right")) -
-        art_dock.get_combined_minimum_size().x -
-        float(row.get_theme_constant("separation")))
-    if available < 20.0:
-        return
-    var face: Font = title.get_theme_font("font")
+    var titles: Array[Label] = []
+    var minimum_width: float = INF
+    for material_id in BaseMaterials.all_ids():
+        var card: Button = grid.find_child(
+            "MaterialIcon_" + str(material_id), true, false) as Button
+        if card == null:
+            return
+        var label: Label = card.get_node_or_null(
+            "CardContent/Row/TextStack/ItemTitle") as Label
+        var art_dock: MarginContainer = card.get_node_or_null(
+            "CardContent/Row/MaterialArtOffset") as MarginContainer
+        if label == null or art_dock == null:
+            return
+        var row: HBoxContainer = art_dock.get_parent() as HBoxContainer
+        var outer: MarginContainer = row.get_parent() as MarginContainer
+        var available: float = minf(label.size.x,
+            card.size.x - float(outer.get_theme_constant("margin_left")) -
+            float(outer.get_theme_constant("margin_right")) -
+            art_dock.get_combined_minimum_size().x -
+            float(row.get_theme_constant("separation")))
+        if available < 20.0:
+            return
+        titles.append(label)
+        minimum_width = minf(minimum_width, available)
+    var font: Font = LaboSkin.ui_font()
     var chosen: int = _material_card_font_size()
-    while chosen > 12 and face.get_string_size(
-            title.text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, chosen).x > available - 1.0:
+    while chosen > 10:
+        var fits_every_name: bool = true
+        for label in titles:
+            if font.get_string_size(label.text,
+                    HORIZONTAL_ALIGNMENT_LEFT, -1.0, chosen).x > minimum_width - 1.0:
+                fits_every_name = false
+                break
+        if fits_every_name:
+            break
         chosen -= 1
-    title.add_theme_font_size_override("font_size", chosen)
+    _uniform_material_name_size = chosen
+    for label in titles:
+        label.add_theme_font_size_override("font_size", chosen)
 
 
 func attach_hud(hud: Control) -> void:
@@ -1386,6 +1407,10 @@ func _finish_grid(grid: VBoxContainer) -> void:
     # remove_child/queue_free is required during native Button construction.
     var count: int = int(grid.get_meta("card_count", 0))
     var columns: int = int(grid.get_meta("card_columns", 3))
+    if grid.name == "MaterialFamilyGrid":
+        # A single deferred resize callback keeps every title identical.
+        grid.resized.connect(_fit_material_titles.bind(grid), CONNECT_DEFERRED)
+        call_deferred("_fit_material_titles", grid)
     if count == 0 or count % columns == 0:
         return
     var last_row: HBoxContainer = grid.get_child(grid.get_child_count() - 1) as HBoxContainer
@@ -1452,7 +1477,7 @@ func _new_slot(parent: Control, key: String, icon: Texture2D,
     # Japanese names share one cohesive face; Latin-only locked slots are
     # intentionally condensed while Japanese stats never use a mono fallback.
     title_label.add_theme_font_override("font", (
-        LaboSkin.control_font() if material_choice else
+        LaboSkin.ui_font() if material_choice else
         LaboSkin.tracked_display_font() if key.begins_with("LockedCraftSlot_") else
         LaboSkin.equipment_font()))
     info_label.add_theme_font_override("font", (
@@ -1505,9 +1530,6 @@ func _new_slot(parent: Control, key: String, icon: Texture2D,
     info_label.text = (info if material_choice else
         info.replace("基礎ステータス（現行Aセット参照） / ", "基礎："))
     row.add_child(card)
-    if material_choice:
-        card.resized.connect(_fit_material_title.bind(card))
-        call_deferred("_fit_material_title", card)
     parent.set_meta("card_count", index + 1)
     diag_created += 1
     # Small overlay accents distinguish purpose and quality without using
@@ -2114,14 +2136,21 @@ func _render_conversion() -> void:
         source_icon.custom_minimum_size = Vector2(54, 54)
         var recipe_title: Label = bar.get_node(
             "CardContent/Row/TextStack/ItemTitle") as Label
-        recipe_title.add_theme_font_override("font", LaboSkin.control_font())
-        recipe_title.add_theme_font_size_override("font_size", 19)
+        # Match all twelve catalog names: one Japanese medium face and size.
+        recipe_title.add_theme_font_override("font", LaboSkin.ui_font())
+        recipe_title.add_theme_font_size_override(
+            "font_size", _uniform_material_name_size)
+        recipe_title.autowrap_mode = TextServer.AUTOWRAP_OFF
+        recipe_title.max_lines_visible = 1
         recipe_title.text = "%s ×%d" % [
             BaseMaterials.display_name(source_id), int(plan["input_count"])]
         var recipe_info: Label = bar.get_node(
             "CardContent/Row/TextStack/ItemInfo") as Label
-        recipe_info.add_theme_font_size_override("font_size", 19)
-        recipe_info.add_theme_font_override("font", LaboSkin.stats_font())
+        recipe_info.add_theme_font_size_override(
+            "font_size", _uniform_material_name_size)
+        recipe_info.add_theme_font_override("font", LaboSkin.ui_font())
+        recipe_info.autowrap_mode = TextServer.AUTOWRAP_OFF
+        recipe_info.max_lines_visible = 1
         recipe_info.text = "≫ %s ×%d" % [
             BaseMaterials.display_name(target_id), int(plan["output_count"])]
         recipe_info.add_theme_color_override("font_color", Color("#81f0f5"))

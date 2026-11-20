@@ -24,6 +24,7 @@ func _run() -> void:
     if catalog == null or int(catalog.get_meta("card_count", 0)) != 12:
         _fail("refinery must retain 12 three-column material cards")
         return
+    var shared_size: int = -1
     for id in Materials.all_ids():
         var card: Button = catalog.find_child(
             "MaterialIcon_" + str(id), true, false) as Button
@@ -41,6 +42,15 @@ func _run() -> void:
                 title.max_lines_visible != 1) or title.text != Materials.display_name(id):
             _fail("Japanese material title was modified or wraps: " + str(id))
             return
+        if title.get_theme_font("font") != Typeface.ui_font():
+            _fail("refinery material name is not IBM Plex Sans JP Medium: " + str(id))
+            return
+        var current_size: int = title.get_theme_font_size("font_size")
+        if shared_size < 0:
+            shared_size = current_size
+        elif current_size != shared_size:
+            _fail("refinery material names use different sizes: " + str(id))
+            return
         var face: Font = title.get_theme_font("font")
         var text_width: float = face.get_string_size(
             title.text, HORIZONTAL_ALIGNMENT_LEFT, -1.0,
@@ -57,6 +67,24 @@ func _run() -> void:
         if art.texture == null or art.size.x <= 0.0 or (
                 absf(art.size.x - art.size.y) > 0.01):
             _fail("material icon is missing or not square: " + str(id))
+            return
+    fac.call("_select_conversion_family", "organic")
+    await process_frame
+    var actions: Control = fac.get("modal_actions") as Control
+    for rank in [0, 1]:
+        var bar: Button = actions.find_child(
+            "ConvertRank_" + str(rank), true, false) as Button
+        if bar == null:
+            _fail("refinery conversion bar missing")
+            return
+        var source: Label = bar.find_child("ItemTitle", true, false) as Label
+        var target: Label = bar.find_child("ItemInfo", true, false) as Label
+        if source == null or target == null or (
+                source.get_theme_font("font") != Typeface.ui_font()) or (
+                target.get_theme_font("font") != Typeface.ui_font()) or (
+                source.get_theme_font_size("font_size") != shared_size) or (
+                target.get_theme_font_size("font_size") != shared_size):
+            _fail("conversion source/target names do not use uniform medium font")
             return
     var save: Node = root.get_node_or_null("SeraSave")
     if save == null:
@@ -87,10 +115,10 @@ func _run() -> void:
     var readable: bool = font == Typeface.stats_font()
     for codepoint: int in [0x6700, 0x5927, 0x9632, 0x5FA1]:
         readable = readable and font.has_char(codepoint)
-    var controls: Control = fac.get("modal_actions") as Control
-    var favorite: Button = controls.find_child(
+    var detail_controls: Control = fac.get("modal_actions") as Control
+    var favorite: Button = detail_controls.find_child(
         "WarehouseFavoriteToggle", true, false) as Button
-    var junk: Button = controls.find_child("WarehouseJunkToggle", true, false) as Button
+    var junk: Button = detail_controls.find_child("WarehouseJunkToggle", true, false) as Button
     readable = readable and favorite != null and junk != null
     save.set("active_slot", prev_slot)
     save.set("active_data", prev_data)

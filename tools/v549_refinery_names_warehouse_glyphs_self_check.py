@@ -6,9 +6,9 @@ fac=(root/"scripts/base_facility_system.gd").read_text(encoding="utf-8")
 skin=(root/"scripts/sera_labo_round_skin.gd").read_text(encoding="utf-8")
 manifest=(root/"tools/sera_ci_manifest.txt").read_text(encoding="utf-8")
 for token in (
-    "func _fit_material_title(card: Button) -> void:",
-    'card.resized.connect(_fit_material_title.bind(card))',
-    'call_deferred("_fit_material_title", card)',
+    "func _fit_material_titles(grid: VBoxContainer) -> void:",
+    'grid.resized.connect(_fit_material_titles.bind(grid), CONNECT_DEFERRED)',
+    'call_deferred("_fit_material_titles", grid)',
     'art_dock.name = "MaterialArtOffset"',
     'art_dock.add_theme_constant_override("margin_top", 7)',
     'material_padding.add_theme_constant_override("margin_left", 6)',

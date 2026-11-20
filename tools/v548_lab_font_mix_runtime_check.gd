@@ -95,7 +95,7 @@ func _run() -> void:
     content = fac.get("item_layer") as Control
     var material: Button = content.find_child("MaterialIcon_scrap_low",true,false) as Button
     if material == null or (
-            (material.find_child("ItemTitle",true,false) as Label).get_theme_font("font") != control) or (
+            (material.find_child("ItemTitle",true,false) as Label).get_theme_font("font") != body) or (
             (material.find_child("ItemInfo",true,false) as Label).get_theme_font("font") != stat):
         _fail("refinery item font assignments regressed")
         return

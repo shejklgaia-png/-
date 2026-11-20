@@ -80,7 +80,7 @@ func _run() -> void:
     var material: Button = (fac.get("item_layer") as Control).find_child(
         "MaterialIcon_scrap_low", true, false) as Button
     if not _need_font(material.find_child(
-            "ItemTitle", true, false) as Label, 17, "material card title"):
+            "ItemTitle", true, false) as Label, 11, "material card title"):
         return
     fac.call("_select_conversion_family", "alloy")
     await process_frame
