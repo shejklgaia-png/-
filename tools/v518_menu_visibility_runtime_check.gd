@@ -12,21 +12,20 @@ func _visible_button(button: Button, view: Rect2) -> bool:
     return not button.disabled and rect.size.x >= 80.0 and (
         rect.size.y >= 42.0 and view.has_point(rect.get_center()))
 func _tap_button(button: Button) -> void:
-    # Inject a real viewport mouse press+release, not signal.emit().
-    # This exercises CanvasLayer coordinates, Control picking and occlusion.
+    # Send native touchscreen events. Headless synthetic mouse clicks have a
+    # known Godot 4.4+ native-Window hover regression; Android uses touch.
     var center: Vector2 = button.get_global_rect().get_center()
-    var down := InputEventMouseButton.new()
-    down.button_index = MOUSE_BUTTON_LEFT
+    var down := InputEventScreenTouch.new()
+    down.index = 0
     down.pressed = true
     down.position = center
-    down.global_position = center
-    root.push_input(down, false)
-    var up := InputEventMouseButton.new()
-    up.button_index = MOUSE_BUTTON_LEFT
+    root.push_input(down, true)
+    await process_frame
+    var up := InputEventScreenTouch.new()
+    up.index = 0
     up.pressed = false
     up.position = center
-    up.global_position = center
-    root.push_input(up, false)
+    root.push_input(up, true)
     await process_frame
 
 func _run() -> void:
