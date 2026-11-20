@@ -73,6 +73,54 @@ static func style(kind: String = "normal") -> StyleBoxFlat:
     _cache[kind] = result
     return result
 
+
+## Alpha-backed trapezoid tabs hang from the viewport top edge. The image and
+## its nine-patch corners are generated once per state; there are no per-frame
+## drawing calls, overlays, glow shaders or blur passes.
+static func hanging_tab_style(kind: String = "normal") -> StyleBoxTexture:
+    if _tab_cache.has(kind):
+        return _tab_cache[kind] as StyleBoxTexture
+    var image := Image.create(64, 64, false, Image.FORMAT_RGBA8)
+    var fill := Color("#14222d")
+    var rim := Color("#425666")
+    var lip := Color("#536e7b")
+    match kind:
+        "selected":
+            fill = Color("#1d3542")
+            rim = Color("#5fb7c7")
+            lip = Color("#83e4ee")
+        "hover":
+            fill = Color("#1b303d")
+            rim = Color("#698d9c")
+            lip = Color("#80b8c7")
+        "disabled":
+            fill = Color("#101a23")
+            rim = Color("#293c49")
+            lip = Color("#344c59")
+        _:
+            pass
+    for y in range(64):
+        # The bottom 16px taper inwards like a metal panel hanging downward.
+        var inset: int = maxi(0, mini(8, int((y - 47) / 2.0)))
+        for x in range(64):
+            if x < inset or x >= 64 - inset:
+                image.set_pixel(x, y, Color.TRANSPARENT)
+                continue
+            var surface: Color = fill
+            if x <= inset + 1 or x >= 62 - inset or y == 0:
+                surface = rim
+            if y >= 61:
+                surface = lip
+            # Restrained cold-steel seam near the top rather than a full glow.
+            if y == 4 and x >= 10 and x < 54:
+                surface = Color("#304d5c") if kind != "selected" else Color("#4e7888")
+            image.set_pixel(x, y, surface)
+    var stylebox := StyleBoxTexture.new()
+    stylebox.texture = ImageTexture.create_from_image(image)
+    stylebox.set_texture_margin_all(16.0)
+    _tab_cache[kind] = stylebox
+    return stylebox
+
 ## All three LABO pages use the exact same chamfered card silhouette. The
 ## 32x32 atlas is generated once per state; no pixel work during list scroll.
 static func card_style(kind: String = "normal") -> StyleBoxTexture:
