@@ -338,23 +338,23 @@ func attach_hud(hud: Control) -> void:
     hud.add_child(modal)
     var shade := ColorRect.new()
     shade.name = "DismissShade"
-    shade.color = Color(0.0, 0.015, 0.035, 0.82)
+    shade.color = Color(0.006, 0.015, 0.026, 0.86)
     shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
     shade.mouse_filter = Control.MOUSE_FILTER_STOP
     shade.gui_input.connect(_on_shade_input)
     modal.add_child(shade)
     modal_panel = PanelContainer.new()
     modal_panel.name = "FacilitySheet"
-    modal_panel.anchor_left = 0.04
-    modal_panel.anchor_top = 0.08
-    modal_panel.anchor_right = 0.96
-    modal_panel.anchor_bottom = 0.92
+    modal_panel.anchor_left = 0.025
+    modal_panel.anchor_top = 0.055
+    modal_panel.anchor_right = 0.975
+    modal_panel.anchor_bottom = 0.945
     modal_panel.mouse_filter = Control.MOUSE_FILTER_STOP
     var style := StyleBoxFlat.new()
-    style.bg_color = Color("#091e2d")
-    style.border_color = Color("#487f91")
-    style.set_border_width_all(2)
-    style.set_corner_radius_all(7)
+    style.bg_color = Color("#0b1924")
+    style.border_color = Color("#294653")
+    style.set_border_width_all(1)
+    style.set_corner_radius_all(5)
     modal_panel.add_theme_stylebox_override("panel", style)
     # A single common rounded native Button theme covers tabs, choices,
     # warehouse categories, conversion actions and Back without extra nodes.
@@ -363,11 +363,11 @@ func attach_hud(hud: Control) -> void:
     var padding := MarginContainer.new()
     padding.name = "FacilityPadding"
     for side in ["left", "right", "top", "bottom"]:
-        padding.add_theme_constant_override("margin_" + side, 8)
+        padding.add_theme_constant_override("margin_" + side, 12)
     modal_panel.add_child(padding)
     var body := VBoxContainer.new()
     body.name = "FacilityContent"
-    body.add_theme_constant_override("separation", 8)
+    body.add_theme_constant_override("separation", 10)
     padding.add_child(body)
     # 30% of the visible portrait viewport. The actual 3D stage is created
     # lazily once and shared by LABO / SMELTER / RECYCLER / STORAGE.
@@ -385,15 +385,15 @@ func attach_hud(hud: Control) -> void:
     body.add_child(header_row)
     var header_accent := ColorRect.new()
     header_accent.name = "SectionHeaderAccent"
-    header_accent.color = Color("#4ce7ed")
-    header_accent.custom_minimum_size = Vector2(5, 27)
+    header_accent.color = Color("#62cbd6")
+    header_accent.custom_minimum_size = Vector2(3, 28)
     header_accent.mouse_filter = Control.MOUSE_FILTER_IGNORE
     header_row.add_child(header_accent)
     modal_title = Label.new()
     modal_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
     modal_title.add_theme_font_size_override("font_size", 27)
     modal_title.add_theme_font_override("font", LaboSkin.title_font())
-    modal_title.add_theme_color_override("font_color", Color("#f7fcff"))
+    modal_title.add_theme_color_override("font_color", Color("#f2f8f9"))
     modal_title.mouse_filter = Control.MOUSE_FILTER_STOP
     modal_title.gui_input.connect(_on_modal_title_input)
     header_row.add_child(modal_title)
@@ -437,7 +437,7 @@ func attach_hud(hud: Control) -> void:
     modal_body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
     modal_body.add_theme_font_size_override("font_size", 19)
     modal_body.add_theme_font_override("font", LaboSkin.ui_font())
-    modal_body.add_theme_color_override("font_color", Color("#d0e4ed"))
+    modal_body.add_theme_color_override("font_color", Color("#92abb7"))
     body.add_child(modal_body)
     diagnostic_readout = Label.new()
     diagnostic_readout.name = "UIDiagnosticReadout"
@@ -483,7 +483,7 @@ func attach_hud(hud: Control) -> void:
     body.add_child(expand_spacer)
     var close_button := Button.new()
     close_button.name = "CloseFacility"
-    close_button.text = "戻る"
+    close_button.text = "‹   戻る"
     close_button.custom_minimum_size.y = LABO_BACK_HEIGHT
     close_button.add_theme_font_size_override("font_size", 23)
     close_button.add_theme_font_override("font", LaboSkin.title_font())
@@ -1084,8 +1084,8 @@ func _show_inventory(section: String = "materials") -> void:
     _clear_actions()
     _diag_begin("warehouse " + section, 12 if section == "materials" else 2)
     modal_title.text = "倉庫"
-    modal_body.text = ("素材一覧  |  同系統3種類を横並び" if section == "materials"
-        else "装備一覧  |  基礎＋追加特性")
+    modal_body.text = ("MATERIAL ARCHIVE   /   12種類の素材" if section == "materials"
+        else "EQUIPMENT ARCHIVE   /   装備と追加特性")
     var switcher := HBoxContainer.new()
     switcher.name = "WarehouseCategoryTabs"
     modal_actions.add_child(switcher)
@@ -1119,7 +1119,7 @@ func _show_inventory(section: String = "materials") -> void:
                 entries.append({"id": id, "name": BaseMaterials.display_name(id),
                     "count": int(stock[id])})
         grid.name = "WarehouseMaterials"
-        grid.configure(entries, 3, "materials")
+        grid.configure(entries, 2, "materials")
     else:
         # Seven fixed tabs. The entire hanger stays visible without a
         # horizontal ScrollContainer, even when Android has a narrow viewport.
