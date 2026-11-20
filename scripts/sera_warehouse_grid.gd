@@ -129,6 +129,26 @@ func _make_card() -> Button:
     effects.autowrap_mode = TextServer.AUTOWRAP_OFF
     effects.clip_text = true
     card.add_child(effects)
+    var rule := ColorRect.new()
+    rule.name = "DetailDivider"
+    rule.color = Color("#31505c")
+    rule.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    card.add_child(rule)
+    var top_trace := ColorRect.new()
+    top_trace.name = "TopTrace"
+    top_trace.color = Color("#567f8d")
+    top_trace.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    card.add_child(top_trace)
+    var empty := Label.new()
+    empty.name = "EmptySlotLabel"
+    empty.text = "—  EMPTY HANGER  —"
+    empty.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    empty.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+    empty.add_theme_font_override("font", LaboSkin.data_font())
+    empty.add_theme_font_size_override("font_size", 15)
+    empty.add_theme_color_override("font_color", Color("#53717e"))
+    empty.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    card.add_child(empty)
     card.pressed.connect(_card_pressed.bind(card))
     pool.append(card)
     return card
@@ -181,6 +201,18 @@ func _bind_card(card: Button, index: int) -> void:
     var meta: Label = card.get_node("ItemMeta") as Label
     var title: Label = card.get_node("ItemTitle") as Label
     var effects: Label = card.get_node("ItemEffects") as Label
+    var empty: Label = card.get_node("EmptySlotLabel") as Label
+    var divider: ColorRect = card.get_node("DetailDivider") as ColorRect
+    var trace: ColorRect = card.get_node("TopTrace") as ColorRect
+    empty.visible = blank
+    empty.position = Vector2(10.0, 12.0)
+    empty.size = Vector2(maxf(10.0, _card_width - 20.0), _card_height() - 24.0)
+    divider.visible = not blank and mode == "equipment"
+    divider.position = Vector2(14.0, 96.0)
+    divider.size = Vector2(maxf(10.0, _card_width - 28.0), 1.0)
+    trace.visible = not blank
+    trace.position = Vector2(13.0, 2.0)
+    trace.size = Vector2(minf(52.0, _card_width * 0.34), 2.0)
     art.visible = not blank
     marker.visible = not blank
     meta.visible = not blank
@@ -209,6 +241,7 @@ func _bind_card(card: Button, index: int) -> void:
             tier = 2
         marker.color = (Color("#617c88") if tier == 0 else
             Color("#71a6ad") if tier == 1 else Color("#8bd6df"))
+        trace.color = marker.color
         art.texture = Icons.material_icon(id)
         art.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
         var compact: bool = _card_width < 244.0
@@ -240,12 +273,13 @@ func _bind_card(card: Button, index: int) -> void:
                 clampi(int(_card_width / 16.0), 16, 19))
             effects.position = Vector2(text_left, 82.0)
             effects.size = Vector2(text_width, 26.0)
-        meta.text = "MATERIAL  /  %02d" % (tier + 1)
+        meta.text = "MATERIAL / GRADE %02d" % (tier + 1)
         title.text = str(entry.get("name", ""))
         effects.text = "所持  %d" % int(entry.get("count", 0))
         effects.add_theme_font_size_override("font_size", 16)
     else:
         marker.color = Color("#4b8799")
+        trace.color = Color("#70a3b1")
         art.texture = Icons.equipment_icon(str(entry.get("blueprint", "")))
         art.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
         var equipment_side: float = minf(82.0, minf(_card_width * 0.36, 86.0))
@@ -265,6 +299,6 @@ func _bind_card(card: Button, index: int) -> void:
         effects.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
         var mark: String = ("★ " if bool(entry.get("favorite", false)) else
             "× " if bool(entry.get("junk", false)) else "")
-        meta.text = str(entry.get("uid", ""))
+        meta.text = "GEAR / " + str(entry.get("uid", ""))
         title.text = mark + str(entry.get("name", ""))
         effects.text = Affixes.describe(entry.get("affixes", []))
