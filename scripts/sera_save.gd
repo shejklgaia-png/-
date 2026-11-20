@@ -5,8 +5,10 @@ const ARCHIVE_DIR: String = "user://sera_archive"
 const INDEX_PATH: String = ARCHIVE_DIR + "/index.json"
 const EQUIPMENT_SLOTS = ["head", "torso", "legs", "arms", "booster", "weapon_r", "weapon_l"]
 const SCHEMA_VERSION: int = 2
+const HANGER_LIMIT: int = 999
 const BaseMaterials = preload("res://scripts/sera_base_materials.gd")
 const PrototypeCatalog = preload("res://scripts/sera_prototype_catalog.gd")
+const Affixes = preload("res://scripts/sera_craft_affixes.gd")
 
 var active_slot: int = 0
 var active_data: Dictionary = {}
@@ -110,8 +112,12 @@ func _sanitize_crafted_items(raw: Variant) -> Array:
         if not PrototypeCatalog.valid_uid(uid, blueprint) or found.has(uid):
             continue
         found[uid] = true
-        clean.append({"uid": uid, "blueprint": blueprint,
-            "slot": str(PrototypeCatalog.spec(blueprint)["slot"])})
+        var cleaned: Dictionary = {"uid": uid, "blueprint": blueprint,
+            "slot": str(PrototypeCatalog.spec(blueprint)["slot"])}
+        # Preserve validated new affixes; never randomly change older saves.
+        # Legacy items without affixes keep an empty array and their original UID.
+        cleaned["affixes"] = Affixes.sanitize(item.get("affixes", []))
+        clean.append(cleaned)
     return clean
 
 func _sanitize_craft_serials(raw: Variant, items: Array) -> Dictionary:
@@ -298,6 +304,13 @@ func craft_prototype(blueprint: String) -> String:
             not PrototypeCatalog.valid(blueprint)):
         return ""
     var items: Array = get_owned_prototypes()
+    var slot_name: String = str(PrototypeCatalog.spec(blueprint)["slot"])
+    var hanger_count: int = 0
+    for item in items:
+        if str(item.get("slot", "")) == slot_name:
+            hanger_count += 1
+    if hanger_count >= HANGER_LIMIT:
+        return ""  # No UID / affixes minted when the category is full.
     var serials: Dictionary = _sanitize_craft_serials(
         active_data.get("craft_serials", {}), items)
     var number: int = int(serials.get(blueprint, 0)) + 1
@@ -307,8 +320,11 @@ func craft_prototype(blueprint: String) -> String:
     for item in items:
         if str(item["uid"]) == uid:
             return ""
+    var rolled_affixes: Array = Affixes.roll_five()
+    if not Affixes.valid(rolled_affixes):
+        return ""
     items.append({"uid": uid, "blueprint": blueprint,
-        "slot": str(PrototypeCatalog.spec(blueprint)["slot"])})
+        "slot": slot_name, "affixes": rolled_affixes})
     serials[blueprint] = number
     var updated: Dictionary = active_data.duplicate(true)
     updated["crafted_items"] = items
