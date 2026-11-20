@@ -21,6 +21,7 @@ assert 'static func material_icon(' in icons and 'static func equipment_icon(' i
 # blank, clipped-corner framed cards visible even without the WebP.
 assert 'func _queue_card_icon(' in ui and 'func _apply_card_icon(' in ui
 assert 'call_deferred("_apply_card_icon"' in ui
+assert 'func _apply_card_skin(' in ui and 'call_deferred("_apply_card_skin"' in ui
 assert 'row.add_child(card)' in ui and 'card.text = title + "\\n" + info' in ui
 for premature in (
     'var icon: Texture2D = IconAtlas.material_icon(id)',
