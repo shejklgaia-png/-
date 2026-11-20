@@ -107,5 +107,35 @@ func _run() -> void:
     if _selected_count(tabs) != 1 or not craft.button_pressed:
         _fail("switching back to craft leaves two tabs highlighted")
         return
-    print("SERA_V524_LAYOUT_TABS_RUNTIME_PASS: exclusive tabs, body-native card rows, proper top and bottom")
+    # Existing Android saves, unlike CI fresh profiles, skip the save-create
+    # action entirely. Verify that exact branch: already claimed materials,
+    # a valid crafted item, and an active save slot.
+    var original_slot: int = SeraSave.active_slot
+    var original_data: Dictionary = SeraSave.get_active_data()
+    SeraSave.active_slot = 1
+    SeraSave.active_data = {
+        "trial_materials_claimed": true,
+        "crafted_items": [{"uid": "H01-0001", "blueprint": "H01", "slot": "head"}],
+        "materials": {}, "craft_serials": {"H01": 1}
+    }
+    fac.call("_switch_section", "craft")
+    await process_frame
+    if not _check_flow(fac, "PrototypeGrid", "PrototypeIcon_H01", 7):
+        return
+    var owned: Button = (fac.get("item_layer") as Control).find_child(
+        "PrototypeIcon_H01", true, false) as Button
+    if owned == null or not owned.text.contains("1"):
+        _fail("an existing saved item did not display its ownership count")
+        return
+    fac.call("_switch_section", "materials")
+    await process_frame
+    if not _check_flow(fac, "MaterialFamilyGrid", "MaterialIcon_scrap_low", 12):
+        return
+    fac.call("_switch_section", "warehouse")
+    await process_frame
+    if not _check_flow(fac, "WarehouseMaterials", "MaterialIcon_scrap_low", 12):
+        return
+    SeraSave.active_slot = original_slot
+    SeraSave.active_data = original_data
+    print("SERA_V524_LAYOUT_TABS_RUNTIME_PASS: exclusive tabs and native flow, both empty and existing saves")
     quit(0)
