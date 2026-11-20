@@ -1,4 +1,5 @@
 extends Node3D
+const LaboSkin = preload("res://scripts/sera_labo_round_skin.gd")
 ## Shared LABO / converter / warehouse hero. Real low-poly 3D, no imported image.
 ## All parts are generated once; no physics, navigation or per-frame allocations.
 var crate: Node3D
@@ -46,23 +47,17 @@ func _block(parent: Node3D, label: String, point: Vector3,
 # The concept art uses restrained illuminated industrial signage, not flat
 # UI sprites. These labels live in the same low-resolution 3D stage.
 func _sign(parent: Node3D, caption: String, at: Vector3,
-        size: int = 42) -> Node3D:
-    # Draw an emissive sign-like readout from static boxes. Label3D+SystemFont
-    # can stall Linux software OpenGL when the entire scene is rasterized for
-    # CI screenshots. Keep the industrial silhouette with no glyph atlas cost.
-    var group := Node3D.new()
-    group.name = "IndustrialSign_" + caption.replace(" ", "_")
-    group.position = at
-    parent.add_child(group)
-    var plate_width: float = 1.24 if size >= 36 else 0.60
-    _block(group, "ReadoutPlate", Vector3.ZERO,
-        Vector3(plate_width, 0.28, 0.035), Color("#153448"))
-    for i in range(mini(caption.length(), 5)):
-        _block(group, "ReadoutSegment", Vector3(
-            -plate_width*0.32 + float(i)*plate_width*0.155, 0.01, 0.03),
-            Vector3(plate_width*0.085, 0.045, 0.01),
-            Color("#8be4f3"), true)
-    return group
+        size: int = 42) -> Label3D:
+    var label := Label3D.new()
+    label.name = "IndustrialSign_" + caption.replace(" ", "_")
+    label.text = caption
+    label.font = LaboSkin.title_font()
+    label.font_size = size
+    label.pixel_size = 0.0035
+    label.modulate = Color("#ddf8ff")
+    label.position = at
+    parent.add_child(label)
+    return label
 
 func _build_room() -> void:
     _block(self, "Floor", Vector3(0, -0.15, -0.6),
