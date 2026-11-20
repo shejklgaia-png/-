@@ -19,7 +19,7 @@ assert 'signal entry_pressed' in grid
 assert 'get_v_scroll_bar().value_changed.connect' in grid
 assert 'var card := Button.new()' in grid
 assert 'return LaboSkin.card_style(kind)' in grid
-skin = source("scripts/sera_labo_round_skin.gd")
+skin = (p/"scripts/sera_labo_round_skin.gd").read_text(encoding="utf-8")
 assert 'StyleBoxTexture.new()' in skin
 assert 'func _refresh_visible(' in grid
 assert 'const EFFECT_IDS' in affixes and 'static func roll_five(' in affixes
