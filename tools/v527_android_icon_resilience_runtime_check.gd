@@ -83,6 +83,11 @@ func _run() -> void:
     Icons._atlas_texture_cache = null
     Icons._material_atlas_loaded = true
     Icons._material_texture_cache = null
+    # v530 adds a decoded-source cache plus one ImageTexture per material.
+    # Disable every cache to reproduce truly missing source + import state.
+    Icons._material_source_attempted = true
+    Icons._material_source_image = null
+    Icons._material_frame_cache.clear()
     var hub: Node3D = load("res://scenes/base_exploration.tscn").instantiate()
     root.add_child(hub)
     await process_frame
@@ -98,6 +103,9 @@ func _run() -> void:
     Icons._atlas_texture_cache = null
     Icons._material_atlas_loaded = false
     Icons._material_texture_cache = null
+    Icons._material_source_attempted = false
+    Icons._material_source_image = null
+    Icons._material_frame_cache.clear()
     if Icons.material_icon("scrap_low") == null or Icons.equipment_icon("H01") == null:
         _fail("icon lookup failed after recovering normal atlas loading")
         return
