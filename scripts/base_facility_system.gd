@@ -864,6 +864,7 @@ func _font_diag_create() -> void:
     font_diag_overlay.name = "FontDiagnosticOverlay"
     font_diag_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
     font_diag_overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+    font_diag_overlay.visible = false
     modal.add_child(font_diag_overlay)
     var dim := ColorRect.new()
     dim.name = "FontDiagnosticShade"
