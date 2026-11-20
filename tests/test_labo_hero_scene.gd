@@ -73,7 +73,7 @@ func _check() -> void:
     _expect(not maker.has_node("PrinterForegroundLoader")
         and not maker.has_node("PrinterHangingHarness"),
         "A: remove oversized foreground obstruction")
-    var nozzle: Node3D = maker.get_node_or_null("PrinterNozzle") as Node3D
+    var nozzle: Node3D = maker.get_node_or_null("Printer/PrinterNozzle") as Node3D
     var nozzle_before: Vector3 = nozzle.position
     stage.call("_process", 0.5)
     _expect(nozzle.position != nozzle_before, "A: print motion preserved")
@@ -101,7 +101,7 @@ func _check() -> void:
     _expect(_project(camera, robot.to_global(Vector3(0, 0.65, 0))).x > last_x,
         "B: CRATE located right of vats")
     stage.call("_process", 0.5)
-    _expect(stage.get_node("MaterialConversionScene/CrystalRotor_0").rotation.y > 0.01,
+    _expect(stage.get_node("MaterialConversionScene/RefineryVessel_0/CrystalRotor_0").rotation.y > 0.01,
         "B: raw material processing animation preserved")
     stage.call("set_section", "RECYCLER")
     _expect(refinery.visible, "B: recycler uses same refining page")
@@ -122,8 +122,8 @@ func _check() -> void:
             "C: CRATE stands between left and right rack banks")
         _expect(left_p.x > 0.05 and right_p.x < 0.95,
             "C: both storage rack banks recognizable")
-    _expect(store.has_node("WarehouseLeftStockLabels")
-        and store.has_node("WarehouseRightStockLabels"),
+    _expect(store.has_node("RackBay_Left/WarehouseLeftStockLabels")
+        and store.has_node("RackBay_Right/WarehouseRightStockLabels"),
         "C: H01/H02/A01 and B01/B02/A02 labels")
     _expect(camera.position.y < 2.5,
         "C: camera stays near eye level, without steep downward tilt")
