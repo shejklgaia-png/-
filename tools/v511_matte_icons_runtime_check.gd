@@ -152,8 +152,9 @@ func _run() -> void:
     facilities.call("_select_conversion_family", "organic")
     actions = facilities.get("modal_actions") as VBoxContainer
     var conversion: Button = actions.find_child("ConvertRank_0", true, false) as Button
-    if conversion == null or conversion.icon == null or (
-            conversion.get_node_or_null("ConvertOutputIcon_0") == null):
+    if conversion == null or (
+            (conversion.find_child("ConvertInputIcon_0", true, false) as TextureRect).texture == null) or (
+            (conversion.find_child("ConvertOutputIcon_0", true, false) as TextureRect).texture == null):
         _fail("converter must show source and destination icon")
         return
     facilities.call("open_facility", "LABO")
