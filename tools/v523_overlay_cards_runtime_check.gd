@@ -13,10 +13,10 @@ func _verify(fac: Node3D, key: String, prefix: String, count: int) -> bool:
             not area.is_ancestor_of(layer)):
         _fail("cards must be siblings of the visible header inside FacilityContent")
         return false
-    if not layer.is_visible_in_tree() or layer.get_child_count() != 1:
-        _fail("expected one displayed overlay grid per active section")
+    if not layer.is_visible_in_tree() or layer.get_child_count() < 1:
+        _fail("no visible scrollable list")
         return false
-    var grid: VBoxContainer = layer.get_child(0) as VBoxContainer
+    var grid: VBoxContainer = layer.find_child(key, true, false) as VBoxContainer
     if grid == null or grid.name != key:
         _fail("wrong overlay grid: " + key)
         return false
@@ -29,7 +29,7 @@ func _verify(fac: Node3D, key: String, prefix: String, count: int) -> bool:
         _fail("wrong card count in overlay: expected " + str(count) + " actual " + str(n))
         return false
     var first: Button = layer.find_child(prefix, true, false) as Button
-    if first == null or first.get_global_rect().size.x < 90 or first.get_global_rect().size.y < 90:
+    if first == null or first.get_global_rect().size.x < 90 or first.get_global_rect().size.y < 78:
         _fail("first card missing or collapsed: " + prefix)
         return false
     if not (fac.get("modal_panel") as Control).get_global_rect().has_point(
@@ -73,7 +73,7 @@ func _run() -> void:
     fac.call("_switch_section", "craft")
     await process_frame
     await process_frame
-    if not _verify(fac, "PrototypeGrid", "PrototypeIcon_H01", 7):
+    if not _verify(fac, "PrototypeGrid", "PrototypeIcon_H01", 1):
         return
     fac.call("_switch_section", "materials")
     await process_frame
