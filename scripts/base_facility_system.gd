@@ -3,6 +3,8 @@ const BaseMaterials = preload("res://scripts/sera_base_materials.gd")
 const IconAtlas = preload("res://scripts/sera_item_icons.gd")
 const PrototypeCatalog = preload("res://scripts/sera_prototype_catalog.gd")
 const LaboSkin = preload("res://scripts/sera_labo_round_skin.gd")
+const WarehouseGrid = preload("res://scripts/sera_warehouse_grid.gd")
+const Affixes = preload("res://scripts/sera_craft_affixes.gd")
 ## Base field architecture: LABO is one building; resources, power and construction
 ## are independent physical machines. NEXUS remains in the parent scene.
 const FACILITY_SPECS = [
@@ -32,6 +34,7 @@ var modal_actions: VBoxContainer
 var item_layer: Control
 var actions_area: PanelContainer
 var warehouse_section: String = "materials"
+var warehouse_slot: String = "head"
 var owned_blueprint: String = ""
 var owned_page: int = 0
 var section_tabs: HBoxContainer
@@ -410,12 +413,13 @@ func attach_hud(hud: Control) -> void:
     item_layer = VBoxContainer.new()
     item_layer.name = "FacilityItemLayer"
     item_layer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+    item_layer.size_flags_vertical = Control.SIZE_EXPAND_FILL
     item_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
     body.add_child(item_layer)
     var expand_spacer := Control.new()
     expand_spacer.name = "FacilityRemainingSpace"
     expand_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
-    expand_spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
+    expand_spacer.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
     body.add_child(expand_spacer)
     var close_button := Button.new()
     close_button.name = "CloseFacility"
@@ -870,16 +874,17 @@ func _show_inventory(section: String = "materials") -> void:
     warehouse_section = section
     page = "inventory"
     _clear_actions()
-    _diag_begin("warehouse " + section, 12 if section == "materials" else 7)
+    _diag_begin("warehouse " + section, 12 if section == "materials" else 2)
     modal_title.text = "資材保管庫"
-    modal_body.text = "未所持も枠付きで表示します。"
+    modal_body.text = ("素材は同系統3種類を横並びで表示します。" if section == "materials"
+        else "装備個体ごとの追加性能を表示します。")
     var switcher := HBoxContainer.new()
     switcher.name = "WarehouseCategoryTabs"
     modal_actions.add_child(switcher)
     var warehouse_group := ButtonGroup.new()
     for choice in [
-        {"key": "materials", "name": "WarehouseMaterialsTab", "caption": "素材12種"},
-        {"key": "equipment", "name": "WarehouseEquipmentTab", "caption": "装備7種"}
+        {"key": "materials", "name": "WarehouseMaterialsTab", "caption": "素材"},
+        {"key": "equipment", "name": "WarehouseEquipmentTab", "caption": "装備"}
     ]:
         var button := Button.new()
         button.name = str(choice["name"])
@@ -887,96 +892,99 @@ func _show_inventory(section: String = "materials") -> void:
         button.toggle_mode = true
         button.button_group = warehouse_group
         button.button_pressed = section == str(choice["key"])
-        button.custom_minimum_size.y = 47
+        button.custom_minimum_size.y = 47.0
         button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
         button.pressed.connect(_show_inventory.bind(str(choice["key"])))
         switcher.add_child(button)
+    var grid := WarehouseGrid.new()
+    item_layer.add_child(grid)
+    grid.size_flags_vertical = Control.SIZE_EXPAND_FILL
     if section == "materials":
-        var grid := _new_grid("WarehouseMaterials")
-        if diagnostic_button.visible:
-            _diag_step("warehouse inventory load")
-        var inventory: Dictionary = SeraSave.get_material_inventory()
+        var stock: Dictionary = SeraSave.get_material_inventory()
+        var entries: Array = []
+        # Four families, each with low/mid/high in a single row.
         for family in BaseMaterials.FAMILY_IDS:
             for tier in BaseMaterials.TIERS:
                 var id: String = str(family) + "_" + str(tier)
-                if diagnostic_button.visible:
-                    _diag_step("warehouse " + id + " icon")
-                if diagnostic_button.visible:
-                    _diag_step("warehouse " + id + " slot")
-                var card: Button = _new_slot(grid, "MaterialIcon_" + id,
-                    null, BaseMaterials.display_name(id),
-                    "所持 %d" % int(inventory[id])) as Button
-                _queue_card_icon(card, id)
-        _finish_grid(grid)
+                entries.append({"id": id, "name": BaseMaterials.display_name(id),
+                    "count": int(stock[id])})
+        grid.name = "WarehouseMaterials"
+        grid.configure(entries, 3, "materials")
     else:
-        _show_warehouse_equipment()
+        var selector := OptionButton.new()
+        selector.name = "WarehouseHangerSelector"
+        selector.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+        selector.custom_minimum_size.y = 46.0
+        for slot in SeraSave.EQUIPMENT_SLOTS:
+            selector.add_item(_warehouse_slot_name(str(slot)))
+        var chosen_index: int = SeraSave.EQUIPMENT_SLOTS.find(warehouse_slot)
+        selector.select(maxi(chosen_index, 0))
+        selector.item_selected.connect(_select_warehouse_slot)
+        modal_actions.add_child(selector)
+        grid.name = "WarehouseEquipment"
+        grid.entry_pressed.connect(_on_warehouse_entry_pressed)
+        _show_warehouse_equipment(grid)
+    _sync_section_tabs()
 
+func _warehouse_slot_name(slot: String) -> String:
+    match slot:
+        "head": return "頭部"
+        "torso": return "胴体"
+        "arms": return "腕部"
+        "legs": return "脚部"
+        "booster": return "ブースター"
+        "weapon_r": return "右手武器"
+        "weapon_l": return "左手武器"
+    return slot
 
-func _show_warehouse_equipment() -> void:
-    var grid := _new_grid("WarehouseEquipment")
-    for bp in PrototypeCatalog.ORDER:
-        var id: String = str(bp)
-        var spec: Dictionary = PrototypeCatalog.spec(id)
-        if diagnostic_button.visible:
-            _diag_step("warehouse gear " + id + " inventory")
-        var owned: Array = []
-        for item in SeraSave.get_owned_prototypes(str(spec["slot"])):
-            if str(item["blueprint"]) == id:
-                owned.append(item)
-        var qty: String = "未所持 0" if owned.is_empty() else "所持 %d" % owned.size()
-        if diagnostic_button.visible:
-            _diag_step("warehouse gear " + id + " icon")
-        if diagnostic_button.visible:
-            _diag_step("warehouse gear " + id + " slot")
-        var card: Control = _new_slot(grid, "WarehouseBlueprint_" + id,
-            null, str(spec["name"]), qty,
-            _show_owned_items.bind(id, 0), "ShowOwned_" + id)
-        _queue_card_icon(card as Button, id, true)
-        if not owned.is_empty():
-            card.text += "\n" + str(owned[owned.size() - 1]["uid"])
-    _finish_grid(grid)
-
-func _show_owned_items(blueprint: String, item_page: int = 0) -> void:
-    if not PrototypeCatalog.valid(blueprint):
+func _select_warehouse_slot(index: int) -> void:
+    if index < 0 or index >= SeraSave.EQUIPMENT_SLOTS.size():
         return
-    owned_blueprint = blueprint
-    owned_page = maxi(item_page, 0)
-    page = "warehouse_owned"
-    _clear_actions()
-    var spec: Dictionary = PrototypeCatalog.spec(blueprint)
-    modal_title.text = str(spec["name"]) + "の所持品"
-    var found: Array = []
-    for item in SeraSave.get_owned_prototypes(str(spec["slot"])):
-        if str(item["blueprint"]) == blueprint:
-            found.append(item)
-    modal_body.text = "個体IDで区別します。所持 %d個" % found.size()
-    var grid := _new_grid("OwnedEquipmentGrid")
-    var start: int = owned_page * 9
-    for i in range(start, mini(start + 9, found.size())):
-        var uid: String = str(found[i]["uid"])
-        _new_slot(grid, "WarehouseItem_" + uid,
-            null, str(spec["name"]), uid)
-        _queue_card_icon(
-            grid.find_child("WarehouseItem_" + uid, true, false) as Button,
-            blueprint, true)
-    if found.is_empty():
-        _new_slot(grid, "WarehouseItemEmpty",
-            null, str(spec["name"]), "未所持 0")
-        _queue_card_icon(
-            grid.find_child("WarehouseItemEmpty", true, false) as Button,
-            blueprint, true)
-    _finish_grid(grid)
-    if start > 0:
-        var previous := Button.new()
-        previous.text = "前の9件"
-        previous.pressed.connect(_show_owned_items.bind(blueprint, owned_page - 1))
-        modal_actions.add_child(previous)
-    if start + 9 < found.size():
-        var next := Button.new()
-        next.text = "次の9件"
-        next.pressed.connect(_show_owned_items.bind(blueprint, owned_page + 1))
-        modal_actions.add_child(next)
+    warehouse_slot = str(SeraSave.EQUIPMENT_SLOTS[index])
+    _show_inventory("equipment")
 
+func _show_warehouse_equipment(grid: Control = null) -> void:
+    if grid == null:
+        grid = item_layer.find_child("WarehouseEquipment", false, false)
+    if grid == null:
+        return
+    var entries: Array = []
+    var owned: Array = SeraSave.get_owned_prototypes(warehouse_slot)
+    for item in owned:
+        var blueprint: String = str(item.get("blueprint", ""))
+        var spec: Dictionary = PrototypeCatalog.spec(blueprint)
+        if spec.is_empty():
+            continue
+        entries.append({"uid": str(item.get("uid", "")),
+            "blueprint": blueprint, "name": str(spec["name"]),
+            "affixes": item.get("affixes", [])})
+    modal_body.text = "%s ハンガー  %d / 999" % [
+        _warehouse_slot_name(warehouse_slot), owned.size()]
+    grid.call("configure", entries, 2, "equipment")
+
+func _on_warehouse_entry_pressed(item: Dictionary) -> void:
+    if warehouse_section != "equipment":
+        return
+    _show_warehouse_item_detail(str(item.get("uid", "")))
+
+func _show_warehouse_item_detail(uid: String) -> void:
+    var owned: Array = SeraSave.get_owned_prototypes(warehouse_slot)
+    for item in owned:
+        if str(item.get("uid", "")) != uid:
+            continue
+        var blueprint: String = str(item.get("blueprint", ""))
+        var spec: Dictionary = PrototypeCatalog.spec(blueprint)
+        if spec.is_empty():
+            return
+        page = "warehouse_item"
+        _clear_actions()
+        modal_title.text = str(spec["name"])
+        modal_body.text = "%s\n%s\n%s" % [
+            uid, _warehouse_slot_name(warehouse_slot),
+            Affixes.describe(item.get("affixes", []))]
+        _add_item_tile(IconAtlas.equipment_icon(blueprint),
+            str(spec["name"]) + "  " + uid, "WarehouseDetail_" + uid)
+        return
 
 func _show_prototype_catalog() -> void:
     page = "prototypes"
@@ -1019,17 +1027,13 @@ func _show_prototype_catalog() -> void:
         var entry: Dictionary = PrototypeCatalog.spec(id)
         if diagnostic_button.visible:
             _diag_step("craft " + id + " saved items")
-        var owned_count: int = 0
-        for item in SeraSave.get_owned_prototypes(str(entry["slot"])):
-            if str(item["blueprint"]) == id:
-                owned_count += 1
         if diagnostic_button.visible:
             _diag_step("craft " + id + " icon")
         if diagnostic_button.visible:
             _diag_step("craft " + id + " slot")
         var card: Button = _new_slot(grid, "PrototypeIcon_" + id,
             null, str(entry["name"]),
-            "未作成 0" if owned_count == 0 else "所持 %d" % owned_count,
+            "製作対象",
             _select_prototype.bind(id), "Choose_" + id) as Button
         _queue_card_icon(card, id, true)
     _finish_grid(grid)
@@ -1046,7 +1050,7 @@ func _select_prototype(blueprint: String) -> void:
 func _craft_selected_prototype() -> void:
     var uid: String = SeraSave.craft_prototype(selected_prototype)
     if uid.is_empty():
-        prototype_notice = "製作できません。NEXUSでセーブデータを選択してください。"
+        prototype_notice = "製作できません。セーブデータとハンガー容量（上限999）を確認してください。"
     else:
         prototype_notice = "保管庫に登録：%s" % PrototypeCatalog.display_instance(uid)
     _render_prototype_detail()
@@ -1260,7 +1264,7 @@ func navigate_back() -> void:
             _show_prototype_catalog()
         "prototypes":
             open_facility(active_key)
-        "warehouse_owned":
+        "warehouse_item":
             _show_inventory("equipment")
         _:
             close_menu()
