@@ -74,11 +74,22 @@ func _run() -> void:
         return
     var center_alpha: float = 0.0
     var outer_radius: float = 0.0
+    # v519: the same 6 rings and central panel become 15% wider in screen
+    # space, with unchanged height, thickness count and elapsed time.
+    var max_x: float = 0.0
+    var max_y: float = 0.0
     for i in range(vertices.size()):
         var d: float = camera.unproject_position(vertices[i]).distance_to(center)
         if d < 0.5:
             center_alpha = maxf(center_alpha, colors[i].a)
         outer_radius = maxf(outer_radius, d)
+        var screen_pos: Vector2 = camera.unproject_position(vertices[i])
+        max_x = maxf(max_x, absf(screen_pos.x - center.x))
+        max_y = maxf(max_y, absf(screen_pos.y - center.y))
+    if max_y < 1.0 or absf(max_x / max_y - 1.15) > 0.015:
+        _fail("the shield octagons must be exactly ~15% wider, height unchanged: " +
+            str(max_x / maxf(max_y, 1.0)))
+        return
     if center_alpha < 0.70 or outer_radius < 180.0:
         _fail("solid central octagon missing or six frames too small")
         return
