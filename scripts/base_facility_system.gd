@@ -5,6 +5,7 @@ const PrototypeCatalog = preload("res://scripts/sera_prototype_catalog.gd")
 const LaboSkin = preload("res://scripts/sera_labo_round_skin.gd")
 const WarehouseGrid = preload("res://scripts/sera_warehouse_grid.gd")
 const Affixes = preload("res://scripts/sera_craft_affixes.gd")
+const LaboStats = preload("res://scripts/sera_labo_stats.gd")
 ## Base field architecture: LABO is one building; resources, power and construction
 ## are independent physical machines. NEXUS remains in the parent scene.
 const FACILITY_SPECS = [
@@ -33,6 +34,13 @@ var modal_body: Label
 var modal_actions: VBoxContainer
 var item_layer: Control
 var actions_area: PanelContainer
+var actions_scroll: ScrollContainer
+var pending_confirmation: Callable = Callable()
+var confirmation_overlay: Control
+var confirmation_text: Label
+var confirmation_title: Label
+var craft_slot: String = "head"
+var warehouse_notice: String = ""
 var warehouse_section: String = "materials"
 var warehouse_slot: String = "head"
 var owned_blueprint: String = ""
@@ -406,7 +414,15 @@ func attach_hud(hud: Control) -> void:
     modal_actions.size_flags_horizontal = Control.SIZE_EXPAND_FILL
     modal_actions.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
     modal_actions.add_theme_constant_override("separation", 8)
-    actions_area.add_child(modal_actions)
+    actions_scroll = ScrollContainer.new()
+    actions_scroll.name = "FacilityActionScroll"
+    actions_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+    actions_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+    actions_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+    actions_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+    actions_scroll.mouse_filter = Control.MOUSE_FILTER_STOP
+    actions_area.add_child(actions_scroll)
+    actions_scroll.add_child(modal_actions)
     # The *same* VBoxContainer renders the known-working header tabs and
     # native item cards. No full-screen overlay, no manual pixel coordinates,
     # no nested scroll clipping. The container owns the sizing on Android.
@@ -427,6 +443,99 @@ func attach_hud(hud: Control) -> void:
     close_button.custom_minimum_size.y = 58.0
     close_button.pressed.connect(navigate_back)
     body.add_child(close_button)
+    # Own full-screen confirmation layer; does not depend on Android popup
+    # window support. It is deliberately outside the scrolling content.
+    confirmation_overlay = Control.new()
+    confirmation_overlay.name = "LaboConfirmation"
+    confirmation_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+    confirmation_overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+    confirmation_overlay.visible = false
+    modal.add_child(confirmation_overlay)
+    var confirm_shade := ColorRect.new()
+    confirm_shade.color = Color(0.01, 0.025, 0.045, 0.86)
+    confirm_shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+    confirm_shade.mouse_filter = Control.MOUSE_FILTER_STOP
+    confirm_shade.gui_input.connect(_on_confirmation_shade_input)
+    confirmation_overlay.add_child(confirm_shade)
+    var confirm_panel := PanelContainer.new()
+    confirm_panel.name = "LaboConfirmPanel"
+    confirm_panel.anchor_left = 0.09
+    confirm_panel.anchor_right = 0.91
+    confirm_panel.anchor_top = 0.33
+    confirm_panel.anchor_bottom = 0.67
+    confirm_panel.mouse_filter = Control.MOUSE_FILTER_STOP
+    confirm_panel.theme = LaboSkin.common_theme()
+    confirmation_overlay.add_child(confirm_panel)
+    var confirm_vbox := VBoxContainer.new()
+    confirm_vbox.add_theme_constant_override("separation", 13)
+    confirm_panel.add_child(confirm_vbox)
+    confirmation_title = Label.new()
+    confirmation_title.name = "LaboConfirmTitle"
+    confirmation_title.text = "作成しますか？"
+    confirmation_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    confirmation_title.add_theme_font_size_override("font_size", 22)
+    confirm_vbox.add_child(confirmation_title)
+    confirmation_text = Label.new()
+    confirmation_text.name = "LaboConfirmDescription"
+    confirmation_text.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    confirmation_text.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+    confirmation_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+    confirmation_text.size_flags_vertical = Control.SIZE_EXPAND_FILL
+    confirmation_text.add_theme_font_size_override("font_size", 17)
+    confirm_vbox.add_child(confirmation_text)
+    var confirm_buttons := HBoxContainer.new()
+    confirm_buttons.add_theme_constant_override("separation", 8)
+    confirm_vbox.add_child(confirm_buttons)
+    var cancel_button := Button.new()
+    cancel_button.name = "LaboConfirmCancel"
+    cancel_button.text = "キャンセル"
+    cancel_button.custom_minimum_size.y = 56
+    cancel_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+    cancel_button.pressed.connect(_dismiss_confirmation)
+    confirm_buttons.add_child(cancel_button)
+    var accept_button := Button.new()
+    accept_button.name = "LaboConfirmAccept"
+    accept_button.text = "作成"
+    accept_button.custom_minimum_size.y = 56
+    accept_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+    accept_button.pressed.connect(_accept_confirmation)
+    confirm_buttons.add_child(accept_button)
+
+func _request_confirmation(title: String, detail: String, action: Callable) -> void:
+    if confirmation_overlay == null or not action.is_valid():
+        return
+    pending_confirmation = action
+    confirmation_title.text = title
+    confirmation_text.text = detail
+    confirmation_overlay.visible = true
+    confirmation_overlay.move_to_front()
+
+func _dismiss_confirmation() -> void:
+    pending_confirmation = Callable()
+    if confirmation_overlay != null:
+        confirmation_overlay.visible = false
+
+func _accept_confirmation() -> void:
+    var action: Callable = pending_confirmation
+    _dismiss_confirmation()
+    if action.is_valid():
+        action.call()
+
+func _on_confirmation_shade_input(event: InputEvent) -> void:
+    if (event is InputEventScreenTouch and event.pressed) or (
+            event is InputEventMouseButton and event.pressed and
+            event.button_index == MOUSE_BUTTON_LEFT):
+        _dismiss_confirmation()
+
+func _configure_page_scroll(action_height: float = 0.0,
+        action_expand: bool = false) -> void:
+    if actions_area == null:
+        return
+    actions_area.size_flags_vertical = (
+        Control.SIZE_EXPAND_FILL if action_expand else Control.SIZE_SHRINK_BEGIN)
+    actions_scroll.custom_minimum_size.y = action_height
+    actions_scroll.scroll_vertical = 0
+    item_layer.visible = not action_expand
 
 func update_tags(camera: Camera3D) -> void:
     if camera == null:
@@ -604,7 +713,8 @@ func _diag_update() -> void:
         + "icon source: " + IconAtlas.atlas_status())
 
 func _clear_actions() -> void:
-    # No ScrollContainer: rebuild the actual grid on each tab transition.
+    # Rebuild only on tab changes; ScrollContainers reuse native Button rendering.
+    _configure_page_scroll()
     for child in modal_actions.get_children():
         modal_actions.remove_child(child)
         child.queue_free()
@@ -622,6 +732,7 @@ func _add_action(label: String, detail: String) -> void:
     modal_actions.add_child(button)
 
 func _switch_section(target: String) -> void:
+    _dismiss_confirmation()
     match target:
         "craft":
             # Avoid constructing and immediately discarding the four LABO-home
@@ -659,6 +770,7 @@ func open_facility(key: String) -> void:
     var spec: Dictionary = _spec_for(key)
     if modal == null or spec.is_empty():
         return
+    _dismiss_confirmation()
     active_key = key
     page = "home"
     modal_title.text = str(spec["name"])
@@ -710,6 +822,8 @@ func open_facility(key: String) -> void:
         "BUILD_TERMINAL":
             modal_body.text = "建設端末\nフィールド上の設備や床・通路を管理します。"
             _add_action("拠点の発展", "施設を一棟に集約せず、資源・生産・発展設備をフィールド上に独立配置します。\n配置変更と建設コストは今後実装します。")
+    if page == "home":
+        _configure_page_scroll(0, true)
     _sync_section_tabs()
 
 func _claim_trial_materials(return_to_catalog: bool = false) -> void:
@@ -790,7 +904,18 @@ func _new_grid(grid_name: String, columns: int = 3) -> VBoxContainer:
     grid.add_theme_constant_override("separation", 7)
     grid.set_meta("card_columns", columns)
     grid.set_meta("card_count", 0)
-    item_layer.add_child(grid)
+    if grid_name in ["PrototypeGrid", "MaterialFamilyGrid"]:
+        var scroll := ScrollContainer.new()
+        scroll.name = grid_name + "Scroll"
+        scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+        scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+        scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+        scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+        scroll.mouse_filter = Control.MOUSE_FILTER_STOP
+        item_layer.add_child(scroll)
+        scroll.add_child(grid)
+    else:
+        item_layer.add_child(grid)
     if diagnostic_button.visible:
         _diag_step("grid " + grid_name + " ready")
     return grid
@@ -842,12 +967,13 @@ func _new_slot(parent: Control, key: String, icon: Texture2D,
         diag_icon_count += 1
     card.text = title + "\n" + info
     card.tooltip_text = title + " / " + info
-    card.custom_minimum_size = Vector2(108, 100)
+    card.custom_minimum_size = Vector2(108, 86 if columns == 1 else 100)
     card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
     card.mouse_filter = Control.MOUSE_FILTER_STOP
     card.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
     card.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-    card.alignment = HORIZONTAL_ALIGNMENT_CENTER
+    card.alignment = (
+        HORIZONTAL_ALIGNMENT_LEFT if columns == 1 else HORIZONTAL_ALIGNMENT_CENTER)
     card.icon_alignment = HORIZONTAL_ALIGNMENT_LEFT
     card.vertical_icon_alignment = VERTICAL_ALIGNMENT_CENTER
     card.add_theme_font_size_override("font_size", 13)
@@ -949,7 +1075,16 @@ func _show_inventory(section: String = "materials") -> void:
         modal_actions.add_child(selector)
         grid.name = "WarehouseEquipment"
         grid.entry_pressed.connect(_on_warehouse_entry_pressed)
+        var junk_button := Button.new()
+        junk_button.name = "BulkDeleteJunk"
+        var junk_count: int = SeraSave.count_junk_prototypes(warehouse_slot)
+        junk_button.text = "不用品を一括削除 (%d)" % junk_count
+        junk_button.custom_minimum_size.y = 53
+        junk_button.disabled = junk_count == 0
+        junk_button.pressed.connect(_confirm_bulk_junk_deletion)
+        modal_actions.add_child(junk_button)
         _show_warehouse_equipment(grid)
+    _configure_page_scroll(93 if section == "materials" else 176)
     _sync_section_tabs()
 
 func _warehouse_slot_name(slot: String) -> String:
@@ -983,9 +1118,13 @@ func _show_warehouse_equipment(grid: Control = null) -> void:
             continue
         entries.append({"uid": str(item.get("uid", "")),
             "blueprint": blueprint, "name": str(spec["name"]),
-            "affixes": item.get("affixes", [])})
+            "affixes": item.get("affixes", []),
+            "favorite": bool(item.get("favorite", false)),
+            "junk": bool(item.get("junk", false))})
     modal_body.text = "%s ハンガー  %d / 999" % [
         _warehouse_slot_name(warehouse_slot), owned.size()]
+    if not warehouse_notice.is_empty():
+        modal_body.text += "\n" + warehouse_notice
     grid.call("configure", entries, 2, "equipment")
 
 func _on_warehouse_entry_pressed(item: Dictionary) -> void:
@@ -1005,12 +1144,54 @@ func _show_warehouse_item_detail(uid: String) -> void:
         page = "warehouse_item"
         _clear_actions()
         modal_title.text = str(spec["name"])
-        modal_body.text = "%s\n%s\n%s" % [
-            uid, _warehouse_slot_name(warehouse_slot),
-            Affixes.describe(item.get("affixes", []))]
+        modal_body.text = "%s / %s" % [
+            uid, _warehouse_slot_name(warehouse_slot)]
+        var breakdown := Label.new()
+        breakdown.name = "WarehouseStatsBreakdown"
+        breakdown.text = LaboStats.total_formula(blueprint, item.get("affixes", []))
+        breakdown.add_theme_font_size_override("font_size", 15)
+        breakdown.add_theme_color_override("font_color", Color("#eff8ff"))
+        breakdown.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+        modal_actions.add_child(breakdown)
         _add_item_tile(IconAtlas.equipment_icon(blueprint),
             str(spec["name"]) + "  " + uid, "WarehouseDetail_" + uid)
+        var favorite := Button.new()
+        favorite.name = "WarehouseFavoriteToggle"
+        favorite.text = "★ お気に入り解除" if bool(item.get("favorite", false)) else "☆ お気に入りにする"
+        favorite.custom_minimum_size.y = 54
+        favorite.pressed.connect(_mark_warehouse_item.bind(uid, "favorite",
+            not bool(item.get("favorite", false))))
+        modal_actions.add_child(favorite)
+        var junk := Button.new()
+        junk.name = "WarehouseJunkToggle"
+        junk.text = "不用品指定を解除" if bool(item.get("junk", false)) else "不用品に指定"
+        junk.custom_minimum_size.y = 54
+        junk.pressed.connect(_mark_warehouse_item.bind(uid, "junk",
+            not bool(item.get("junk", false))))
+        modal_actions.add_child(junk)
+        _configure_page_scroll(0, true)
         return
+
+func _mark_warehouse_item(uid: String, mark: String, enabled: bool) -> void:
+    warehouse_notice = (
+        "分類を保存しました。" if SeraSave.set_prototype_mark(uid, mark, enabled)
+        else "分類を保存できませんでした。")
+    _show_warehouse_item_detail(uid)
+
+func _confirm_bulk_junk_deletion() -> void:
+    var count: int = SeraSave.count_junk_prototypes(warehouse_slot)
+    if count <= 0:
+        return
+    _request_confirmation("削除しますか？",
+        "%sの不用品 %d 件を削除します。\nお気に入りと装備中の個体は削除しません。\nこの操作は取り消せません。" % [
+            _warehouse_slot_name(warehouse_slot), count],
+        _delete_warehouse_junk)
+
+func _delete_warehouse_junk() -> void:
+    var count: int = SeraSave.delete_junk_prototypes(warehouse_slot)
+    warehouse_notice = ("%d 件を削除しました。" % count if count > 0
+        else "削除対象なし、または保存に失敗しました。")
+    _show_inventory("equipment")
 
 func _show_prototype_catalog() -> void:
     page = "prototypes"
@@ -1018,7 +1199,7 @@ func _show_prototype_catalog() -> void:
     _diag_begin("craft", PrototypeCatalog.ORDER.size())
     modal_title.text = "試作装備の製作"
     modal_body.text = (
-        "7種類から選択してください。試作は素材消費なし。"
+        "部位を選び、横長のバーをタップしてください。試作は素材消費なし。"
         + "\n完成品は倉庫に登録され、NEXUSで装備できます。")
     if SeraSave.active_slot == 0:
         modal_body.text += "\n製作するにはセーブデータが必要です。"
@@ -1047,31 +1228,71 @@ func _show_prototype_catalog() -> void:
         trial.custom_minimum_size.y = 62.0
         trial.pressed.connect(_claim_trial_materials.bind(true))
         modal_actions.add_child(trial)
-    var grid := _new_grid("PrototypeGrid")
+    var tab_scroll := ScrollContainer.new()
+    tab_scroll.name = "CraftSlotScroll"
+    tab_scroll.custom_minimum_size.y = 57
+    tab_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+    tab_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+    modal_actions.add_child(tab_scroll)
+    var slot_tabs := HBoxContainer.new()
+    slot_tabs.add_theme_constant_override("separation", 6)
+    tab_scroll.add_child(slot_tabs)
+    var group := ButtonGroup.new()
+    for slot in SeraSave.EQUIPMENT_SLOTS:
+        var b := Button.new()
+        b.name = "CraftSlot_" + str(slot)
+        b.text = _warehouse_slot_name(str(slot))
+        b.toggle_mode = true
+        b.button_group = group
+        b.button_pressed = craft_slot == str(slot)
+        b.custom_minimum_size = Vector2(86, 48)
+        b.pressed.connect(_select_craft_slot.bind(str(slot)))
+        slot_tabs.add_child(b)
+    var grid := _new_grid("PrototypeGrid", 1)
+    var first_id: String = ""
     for bp in PrototypeCatalog.ORDER:
         var id: String = str(bp)
         var entry: Dictionary = PrototypeCatalog.spec(id)
-        if diagnostic_button.visible:
-            _diag_step("craft " + id + " saved items")
-        if diagnostic_button.visible:
-            _diag_step("craft " + id + " icon")
-        if diagnostic_button.visible:
-            _diag_step("craft " + id + " slot")
+        if str(entry.get("slot", "")) != craft_slot:
+            continue
+        if first_id.is_empty():
+            first_id = id
         var card: Button = _new_slot(grid, "PrototypeIcon_" + id,
             null, str(entry["name"]),
-            "製作対象",
+            LaboStats.baseline(id).replace("\n", " / "),
             _select_prototype.bind(id), "Choose_" + id) as Button
         _queue_card_icon(card, id, true)
     _finish_grid(grid)
+    if not first_id.is_empty():
+        var baseline := Label.new()
+        baseline.name = "PrototypeBaseStats"
+        baseline.text = LaboStats.baseline(first_id)
+        baseline.add_theme_font_size_override("font_size", 15)
+        baseline.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+        item_layer.add_child(baseline)
+    _configure_page_scroll(135 if modal_actions.get_child_count() > 1 else 65)
     _sync_section_tabs()
+
+func _select_craft_slot(slot: String) -> void:
+    if not SeraSave.EQUIPMENT_SLOTS.has(slot):
+        return
+    craft_slot = slot
+    _show_prototype_catalog()
 
 func _select_prototype(blueprint: String) -> void:
     if not PrototypeCatalog.valid(blueprint):
         return
     selected_prototype = blueprint
-    prototype_notice = ""
-    page = "prototype_detail"
-    _render_prototype_detail()
+    _confirm_selected_prototype()
+
+func _confirm_selected_prototype() -> void:
+    var spec: Dictionary = PrototypeCatalog.spec(selected_prototype)
+    if spec.is_empty():
+        return
+    _request_confirmation("作成しますか？",
+        "%s\n%s\n製作後、倉庫に保存します。" % [
+            str(spec["name"]), LaboStats.baseline(selected_prototype)],
+        _craft_selected_prototype)
 
 func _craft_selected_prototype() -> void:
     var uid: String = SeraSave.craft_prototype(selected_prototype)
@@ -1079,7 +1300,7 @@ func _craft_selected_prototype() -> void:
         prototype_notice = "製作できません。セーブデータとハンガー容量（上限999）を確認してください。"
     else:
         prototype_notice = "保管庫に登録：%s" % PrototypeCatalog.display_instance(uid)
-    _render_prototype_detail()
+    _show_prototype_catalog()
 
 func _render_prototype_detail() -> void:
     _clear_actions()
@@ -1090,6 +1311,7 @@ func _render_prototype_detail() -> void:
     modal_title.text = str(spec["name"])
     modal_body.text = "%s\n対象スロット：%s\n試作のため素材消費なし。" % [
         spec["description"], spec["slot"]]
+    modal_body.text += "\n" + LaboStats.baseline(selected_prototype)
     modal_body.text += "\n3D表示は現行のAモデルを使用します。"
     if not prototype_notice.is_empty():
         modal_body.text += "\n" + prototype_notice
@@ -1099,11 +1321,12 @@ func _render_prototype_detail() -> void:
     make.text = "製作して倉庫に登録"
     make.custom_minimum_size.y = 74.0
     make.disabled = SeraSave.active_slot == 0
-    make.pressed.connect(_craft_selected_prototype)
+    make.pressed.connect(_confirm_selected_prototype)
     modal_actions.add_child(make)
     _add_item_tile(IconAtlas.equipment_icon(selected_prototype),
         str(spec["name"]),
         "PrototypePreview_" + selected_prototype)
+    _configure_page_scroll(0, true)
 
 func _show_conversion(direction: int) -> void:
     conversion_mode = direction
@@ -1152,7 +1375,7 @@ func _select_conversion_family(family: String) -> void:
     _render_conversion()
 
 func _conversion_batches_changed(delta: int) -> void:
-    conversion_batches = clampi(conversion_batches + delta, 1, 99)
+    conversion_batches = clampi(conversion_batches + delta, 1, BaseMaterials.MAX_BATCHES)
     conversion_notice = ""
     _render_conversion()
 
@@ -1165,111 +1388,96 @@ func _perform_conversion(from_rank: int) -> void:
         conversion_notice = "変換完了：所持素材とセーブデータを更新しました。"
     _render_conversion()
 
+func _conversion_batches_set(value: float) -> void:
+    conversion_batches = clampi(int(value), 1, BaseMaterials.MAX_BATCHES)
+    conversion_notice = ""
+    _render_conversion()
+
+func _confirm_conversion(from_rank: int) -> void:
+    var plan: Dictionary = BaseMaterials.recipe(
+        conversion_family, from_rank, conversion_mode, conversion_batches)
+    if plan.is_empty() or not SeraSave.can_convert_material(
+            conversion_family, from_rank, conversion_mode, conversion_batches):
+        return
+    _request_confirmation("作成しますか？",
+        "%s ×%d → %s ×%d\n変換回数：%d" % [
+            BaseMaterials.display_name(str(plan["input_id"])),
+            int(plan["input_count"]),
+            BaseMaterials.display_name(str(plan["output_id"])),
+            int(plan["output_count"]), conversion_batches],
+        _perform_conversion.bind(from_rank))
+
 func _render_conversion() -> void:
     _clear_actions()
-    modal_title.text = (
-        "精製 " if conversion_mode == 1
+    page = "conversion"
+    modal_title.text = ("精製 " if conversion_mode == 1
         else "分解 ") + str(BaseMaterials.FAMILY_NAMES[conversion_family])
     var stock: Dictionary = SeraSave.get_material_inventory()
-    # Counts are displayed alongside each actual input/output icon below.
-    # Avoid a large repeated explanation pushing the action buttons off-screen.
-    var lines: Array[String] = [
-        "素材のランクと所持数を確認して変換してください。",
-        "精製：低2→中1→高 / 分解：上1→下2（暫定）"
+    var lines: PackedStringArray = [
+        "変換数を指定し、横長のバーをタップすると確認画面が開きます。",
+        "精製：低2→中1→高 / 分解：高1→中2→低（暫定）"
     ]
     if SeraSave.active_slot == 0:
-        lines.append("先にNEXUSでセーブスロットを作成・選択してください。")
+        lines.append("製作にはセーブデータが必要です。")
     if not conversion_notice.is_empty():
         lines.append(conversion_notice)
     modal_body.text = "\n".join(lines)
-
-    var amount_row := HBoxContainer.new()
-    amount_row.name = "ConversionAmount"
-    amount_row.add_theme_constant_override("separation", 12)
-    modal_actions.add_child(amount_row)
-    var less := Button.new()
-    less.name = "DecreaseBatch"
-    less.text = "−"
-    less.custom_minimum_size = Vector2(70, 58)
-    less.disabled = conversion_batches <= 1
-    less.pressed.connect(_conversion_batches_changed.bind(-1))
-    amount_row.add_child(less)
-    var count := Label.new()
-    count.name = "BatchCount"
-    count.text = "実行回数：%d" % conversion_batches
-    count.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-    count.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-    count.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-    count.add_theme_font_size_override("font_size", 19)
-    amount_row.add_child(count)
-    var more := Button.new()
-    more.name = "IncreaseBatch"
-    more.text = "+"
-    more.custom_minimum_size = Vector2(70, 58)
-    more.disabled = conversion_batches >= 99
-    more.pressed.connect(_conversion_batches_changed.bind(1))
-    amount_row.add_child(more)
-
     var ranks: Array = [0, 1] if conversion_mode == 1 else [2, 1]
     for rank in ranks:
         var plan: Dictionary = BaseMaterials.recipe(
             conversion_family, rank, conversion_mode, conversion_batches)
+        if plan.is_empty():
+            continue
         var source_id: String = str(plan["input_id"])
         var target_id: String = str(plan["output_id"])
-        # Icon + amount -> arrow -> icon + amount, directly above the action.
-        var flow := HBoxContainer.new()
-        flow.name = "ConvertInputIcon_" + str(rank)
-        flow.custom_minimum_size.y = 71.0
-        flow.add_theme_constant_override("separation", 6)
-        modal_actions.add_child(flow)
-        var input_icon := TextureRect.new()
-        input_icon.name = "Input"
-        input_icon.clip_contents = true
-        input_icon.texture = IconAtlas.material_icon(source_id)
-        input_icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-        input_icon.custom_minimum_size = Vector2(61, 61)
-        input_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-        flow.add_child(input_icon)
-        var consume := Label.new()
-        consume.name = "SourceRank"
-        consume.text = "%s ×%s\n所持 %s" % [
-            ["低", "中", "高"][rank], str(plan["input_count"]),
-            str(stock[source_id])]
-        consume.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-        consume.add_theme_font_size_override("font_size", 14)
-        flow.add_child(consume)
-        var arrow := Label.new()
-        arrow.text = "→"
-        arrow.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-        arrow.add_theme_font_size_override("font_size", 23)
-        flow.add_child(arrow)
+        var row := HBoxContainer.new()
+        row.name = "ConversionRow_" + str(rank)
+        row.custom_minimum_size.y = 82
+        row.add_theme_constant_override("separation", 7)
+        modal_actions.add_child(row)
+        var bar := Button.new()
+        bar.name = "ConvertRank_" + str(rank)
+        bar.icon = IconAtlas.material_icon(source_id)
+        bar.icon_alignment = HORIZONTAL_ALIGNMENT_LEFT
+        bar.vertical_icon_alignment = VERTICAL_ALIGNMENT_CENTER
+        bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+        bar.custom_minimum_size.y = 78
+        bar.clip_contents = true
+        bar.alignment = HORIZONTAL_ALIGNMENT_CENTER
+        bar.add_theme_font_size_override("font_size", 14)
+        bar.text = "%s ×%d  »  %s ×%d" % [
+            BaseMaterials.display_name(source_id), int(plan["input_count"]),
+            BaseMaterials.display_name(target_id), int(plan["output_count"])]
+        bar.disabled = not SeraSave.can_convert_material(
+            conversion_family, rank, conversion_mode, conversion_batches)
+        bar.pressed.connect(_confirm_conversion.bind(rank))
+        row.add_child(bar)
+        # Second icon is a visual child only; native Button remains full tap area.
         var output_icon := TextureRect.new()
-        output_icon.name = "Output"
-        output_icon.clip_contents = true
+        output_icon.name = "ConvertOutputIcon_" + str(rank)
         output_icon.texture = IconAtlas.material_icon(target_id)
         output_icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-        output_icon.custom_minimum_size = Vector2(61, 61)
+        output_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        output_icon.clip_contents = true
+        output_icon.set_anchors_and_offsets_preset(Control.PRESET_CENTER_RIGHT)
+        output_icon.offset_left = -54
+        output_icon.offset_right = -7
+        output_icon.offset_top = -24
+        output_icon.offset_bottom = 24
         output_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-        flow.add_child(output_icon)
-        var gained := Label.new()
-        gained.name = "TargetRank"
-        gained.text = "%s ×%s\n所持 %s" % [
-            ["低", "中", "高"][rank + conversion_mode],
-            str(plan["output_count"]), str(stock[target_id])]
-        gained.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-        gained.add_theme_font_size_override("font_size", 14)
-        flow.add_child(gained)
-        var button := Button.new()
-        button.name = "ConvertRank_" + str(rank)
-        button.text = "%s から %sへ変換" % [
-            BaseMaterials.display_name(source_id),
-            BaseMaterials.display_name(target_id)]
-        button.custom_minimum_size.y = 66.0
-        button.add_theme_font_size_override("font_size", 16)
-        button.disabled = not SeraSave.can_convert_material(
-            conversion_family, rank, conversion_mode, conversion_batches)
-        button.pressed.connect(_perform_conversion.bind(rank))
-        modal_actions.add_child(button)
+        bar.add_child(output_icon)
+        var amount := SpinBox.new()
+        amount.name = "ConversionCount_" + str(rank)
+        amount.min_value = 1
+        amount.max_value = BaseMaterials.MAX_BATCHES
+        amount.step = 1
+        amount.value = conversion_batches
+        amount.rounded = true
+        amount.custom_minimum_size = Vector2(84, 66)
+        amount.tooltip_text = "変換回数"
+        amount.value_changed.connect(_conversion_batches_set)
+        row.add_child(amount)
+    _configure_page_scroll(0, true)
 
 func _show_detail(detail: String) -> void:
     if modal_body == null or active_key.is_empty():
@@ -1281,6 +1489,9 @@ func _show_detail(detail: String) -> void:
 
 func navigate_back() -> void:
     if not is_menu_open():
+        return
+    if confirmation_overlay != null and confirmation_overlay.visible:
+        _dismiss_confirmation()
         return
     match page:
         "conversion":
@@ -1300,6 +1511,7 @@ func navigate_back() -> void:
             close_menu()
 
 func close_menu() -> void:
+    _dismiss_confirmation()
     _set_labo_hero(false)
     if modal != null:
         modal.visible = false
@@ -1312,7 +1524,10 @@ func _input(event: InputEvent) -> void:
     if event.is_action_pressed("ui_cancel") or (
             event is InputEventKey and event.pressed and not event.echo
             and event.keycode in [KEY_BACK, KEY_ESCAPE]):
-        navigate_back()
+        if confirmation_overlay != null and confirmation_overlay.visible:
+            _dismiss_confirmation()
+        else:
+            navigate_back()
         get_viewport().set_input_as_handled()
 
 func _on_shade_input(event: InputEvent) -> void:

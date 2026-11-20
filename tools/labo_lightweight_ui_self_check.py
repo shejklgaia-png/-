@@ -15,7 +15,7 @@ assert 'func _show_prototype_catalog(' in ui
 assert 'body.add_child(item_layer)' in ui
 assert 'var grid := VBoxContainer.new()' in ui
 assert 'func _queue_card_icon(' in ui
-assert 'ScrollContainer.new()' not in ui
+assert 'ScrollContainer.new()' in ui, "native scroll is required in LABO"
 assert 'py tools/labo_lightweight_ui_self_check.py' in manifest
 assert 'gd tools/labo_lightweight_ui_runtime_check.gd' in manifest
 print("SERA_LABO_LIGHTWEIGHT_UI_STATIC_PASS")

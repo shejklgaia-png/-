@@ -82,21 +82,28 @@ func _run() -> void:
         _fail("LABO Shell development must open the independent prototype catalog")
         return
     actions = facility.get("modal_actions") as VBoxContainer
+    const Catalog = preload("res://scripts/sera_prototype_catalog.gd")
     for bp in ["H01", "T01", "A01", "L01", "B01", "WR01", "WL01"]:
-        if (facility.get("item_layer") as Control).find_child("PrototypeIcon_" + bp, true, false) == null:
-            _fail("LABO prototype catalog has missing entry: " + bp)
+        var spec: Dictionary = Catalog.spec(bp)
+        facility.call("_select_craft_slot", str(spec["slot"]))
+        if (facility.get("item_layer") as Control).find_child(
+                "PrototypeIcon_" + bp, true, false) == null:
+            _fail("LABO slot catalog has missing entry: " + bp)
             return
+    facility.call("_select_craft_slot", "head")
     var choose: Button = (facility.get("item_layer") as Control).find_child("PrototypeIcon_H01", true, false) as Button
     if choose == null:
         _fail("LABO prototype item must be selectable")
         return
     choose.pressed.emit()
-    if str(facility.get("page")) != "prototype_detail":
-        _fail("LABO prototype item must open its own detail page")
+    if str(facility.get("page")) != "prototypes" or (
+            not (facility.get("confirmation_overlay") as Control).visible):
+        _fail("LABO prototype must open confirmation, not mint immediately")
         return
     facility.call("navigate_back")
-    if str(facility.get("page")) != "prototypes":
-        _fail("LABO prototype detail back must return to the catalog")
+    if (facility.get("confirmation_overlay") as Control).visible or (
+            str(facility.get("page")) != "prototypes"):
+        _fail("LABO confirmation Back must return to catalog without crafting")
         return
     facility.call("navigate_back")
     if str(facility.get("page")) != "home":

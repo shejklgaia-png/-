@@ -55,7 +55,7 @@ func _run() -> void:
     await _tap_button(craft_tab)
     await process_frame
     if str(facilities.get("page")) != "prototypes":
-        _fail("craft tab tap must open actual seven-item catalog")
+        _fail("craft tab tap must open the slot-based catalog")
         return
     var tabs: HBoxContainer = facilities.get("section_tabs") as HBoxContainer
     if tabs == null or tabs.name != "FacilitySectionTabs":
@@ -73,10 +73,15 @@ func _run() -> void:
         return
     await _tap_button(first)
     await process_frame
-    var craft: Button = (facilities.get("modal_actions") as VBoxContainer).get_node("CraftPrototype") as Button
-    if not craft.is_visible_in_tree() or not viewport.has_point(craft.get_global_rect().get_center()):
-        _fail("craft action is outside visible portrait dialog")
+    var overlay: Control = facilities.get("confirmation_overlay") as Control
+    if str(facilities.get("page")) != "prototypes" or not overlay.visible:
+        _fail("craft tap must open a confirmation before minting")
         return
+    var craft: Button = overlay.find_child("LaboConfirmAccept", true, false) as Button
+    if not craft.is_visible_in_tree() or not viewport.has_point(craft.get_global_rect().get_center()):
+        _fail("confirm action is outside visible portrait dialog")
+        return
+    facilities.call("_dismiss_confirmation")
     await _tap_button(tabs.get_node("TabMaterials") as Button)
     await process_frame
     if str(facilities.get("page")) != "families":

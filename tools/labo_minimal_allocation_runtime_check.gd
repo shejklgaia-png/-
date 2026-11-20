@@ -10,7 +10,8 @@ func _fail(msg: String) -> void:
 func _verify(fac: Node, grid_name: String, expected: int, fillers: int) -> bool:
     var layer: VBoxContainer = fac.get("item_layer") as VBoxContainer
     var grid: VBoxContainer = layer.find_child(grid_name, true, false) as VBoxContainer
-    if grid == null or grid.get_child_count() != ceili(float(expected)/3.0):
+    var columns: int = 1 if grid_name == "PrototypeGrid" else 3
+    if grid == null or grid.get_child_count() != ceili(float(expected)/float(columns)):
         _fail("grid missing or wrong row count: " + grid_name)
         return false
     var seen: int = 0
@@ -18,7 +19,7 @@ func _verify(fac: Node, grid_name: String, expected: int, fillers: int) -> bool:
     var first_width: float = -1.0
     var last_width: float = -1.0
     for row in grid.get_children():
-        if not row is HBoxContainer or row.get_child_count() != 3:
+        if not row is HBoxContainer or row.get_child_count() != columns:
             _fail("row must retain three equal-width cells: " + grid_name)
             return false
         for child in row.get_children():
@@ -50,7 +51,7 @@ func _run() -> void:
     fac.call("_switch_section", "craft")
     await process_frame
     await process_frame
-    if not _verify(fac, "PrototypeGrid", 7, 2):
+    if not _verify(fac, "PrototypeGrid", 1, 0):
         return
     var diag_before: String = str(fac.get("diag_stage"))
     fac.call("_diag_step", "disabled-test-probe")

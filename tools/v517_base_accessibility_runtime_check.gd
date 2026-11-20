@@ -39,10 +39,16 @@ func _run() -> void:
         return
     var actions: VBoxContainer = facility.get("modal_actions") as VBoxContainer
     for blueprint in CATALOG.ORDER:
-        var row: Button = (facility.get("item_layer") as Control).find_child("PrototypeIcon_" + str(blueprint), true, false) as Button
+        var spec: Dictionary = CATALOG.spec(str(blueprint))
+        facility.call("_select_craft_slot", str(spec["slot"]))
+        await process_frame
+        var row: Button = (facility.get("item_layer") as Control).find_child(
+            "PrototypeIcon_" + str(blueprint), true, false) as Button
         if row == null or row.icon == null or row.icon.get_width() <= 0:
             _fail("unrenderable craft icon: " + str(blueprint))
             return
+    facility.call("_select_craft_slot", "head")
+    await process_frame
     await process_frame
     var first_icon: Button = (facility.get("item_layer") as Control).find_child("PrototypeIcon_H01", true, false) as Button
     if not first_icon.is_visible_in_tree() or (
@@ -64,12 +70,14 @@ func _run() -> void:
             _fail("sample save was not activated")
             return
         facility.call("_select_prototype", "H01")
-        actions = facility.get("modal_actions") as VBoxContainer
-        var make: Button = actions.get_node_or_null("CraftPrototype") as Button
-        if make == null or make.disabled:
-            _fail("craft action hidden or disabled on active profile")
+        var confirm: Control = facility.get("confirmation_overlay") as Control
+        if not confirm.visible:
+            _fail("craft confirmation hidden on active profile")
             return
-        make.pressed.emit()
+        if (save.call("get_owned_prototypes", "head") as Array).size() != 0:
+            _fail("craft wrote an item before confirmation")
+            return
+        facility.call("_accept_confirmation")
         if save.call("get_owned_prototypes", "head").size() != 1:
             _fail("trial equipment not saved to warehouse")
             return

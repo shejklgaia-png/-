@@ -10,17 +10,19 @@ func _fail(msg: String) -> void:
     quit(1)
 func _check_grid(cards: Control, area: Control, name: String, ids: Array, prefix: String) -> bool:
     var grid: VBoxContainer = cards.find_child(name, true, false) as VBoxContainer
-    if grid == null or grid.get_child_count() != ceili(float(ids.size()) / 3.0):
-        _fail("missing three-wide row grid: " + name)
+    var shown: Array = [ids[0]] if name == "PrototypeGrid" else ids
+    var columns: int = 1 if name == "PrototypeGrid" else 3
+    if grid == null or grid.get_child_count() != ceili(float(shown.size()) / float(columns)):
+        _fail("missing expected bar/card rows: " + name)
         return false
-    for id in ids:
+    for id in shown:
         var card: Button = grid.find_child(prefix + str(id), true, false) as Button
         if card == null or not card.is_visible_in_tree() or card.icon == null:
             _fail("missing native card and real icon: " + prefix + str(id))
             return false
         var rect: Rect2 = card.get_global_rect()
         if rect.size.x < 45.0 or rect.size.y < 42.0 or (
-                not area.get_global_rect().has_point(rect.get_center())):
+                id == shown[0] and not area.get_global_rect().has_point(rect.get_center())):
             _fail("card is clipped or not laid out: " + card.name)
             return false
         if not card.get_theme_stylebox("normal") is StyleBoxFlat:

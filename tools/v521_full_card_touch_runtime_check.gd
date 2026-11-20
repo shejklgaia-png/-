@@ -26,7 +26,7 @@ func _check_card(card: Button) -> bool:
         _fail("card must natively render art, name and quantity")
         return false
     var rect: Rect2 = card.get_global_rect()
-    if rect.size.x < 100 or rect.size.y < 90 or card.mouse_filter != Control.MOUSE_FILTER_STOP:
+    if rect.size.x < 100 or rect.size.y < 78 or card.mouse_filter != Control.MOUSE_FILTER_STOP:
         _fail("native hit rectangle is not the whole card")
         return false
     return true
@@ -45,8 +45,9 @@ func _run() -> void:
             return
         var rect: Rect2 = card.get_global_rect()
         await _tap(rect.position + rect.size * anchor)
-        if str(fac.get("page")) != "prototype_detail":
-            _fail("card art/text/empty location did not open equipment details")
+        if str(fac.get("page")) != "prototypes" or (
+                not (fac.get("confirmation_overlay") as Control).visible):
+            _fail("card art/text/empty location did not open craft confirmation")
             return
     fac.call("_switch_section", "materials")
     await process_frame

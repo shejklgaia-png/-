@@ -10,6 +10,10 @@ var work_state: String = "walk_to_terminal"
 var state_time: float = 0.0
 var clock: float = 0.0
 var current_section: String = "LABO"
+var printer_group: Node3D
+var converter_group: Node3D
+var warehouse_group: Node3D
+var converter_crystals: Array[Node3D] = []
 var _materials: Dictionary = {}
 
 func _paint(tint: Color, emissive: bool = false) -> StandardMaterial3D:
@@ -65,13 +69,16 @@ func _build_room() -> void:
         Vector3(0.95, 0.42, 0.12), Color("#344755"))
 
 func _build_printer() -> void:
+    printer_group = Node3D.new()
+    printer_group.name = "PrinterScene"
+    add_child(printer_group)
     var steel := Color("#657887")
     var dark := Color("#314757")
     var light := Color("#5abce4")
     var pivot := Node3D.new()
     pivot.name = "Printer"
     pivot.position = Vector3(-1.96, 0, -0.40)
-    add_child(pivot)
+    printer_group.add_child(pivot)
     _block(pivot, "Platform", Vector3(0, 0.29, 0),
         Vector3(2.10, 0.40, 1.60), dark)
     _block(pivot, "BuildPlate", Vector3(0, 0.51, 0),
@@ -96,7 +103,7 @@ func _build_printer() -> void:
     printer_nozzle = Node3D.new()
     printer_nozzle.name = "PrinterNozzle"
     printer_nozzle.position = Vector3(-1.96, 1.73, -0.40)
-    add_child(printer_nozzle)
+    printer_group.add_child(printer_nozzle)
     _block(printer_nozzle, "ToolHead", Vector3(0, 0, 0),
         Vector3(0.43, 0.38, 0.42), Color("#92a8b7"))
     _block(printer_nozzle, "Extruder", Vector3(0, -0.29, 0),
@@ -104,13 +111,25 @@ func _build_printer() -> void:
     printed_part = Node3D.new()
     printed_part.name = "PrintedPart"
     printed_part.position = Vector3(-1.96, 0.70, -0.40)
-    add_child(printed_part)
+    printer_group.add_child(printed_part)
     _block(printed_part, "ArmorShell", Vector3.ZERO,
         Vector3(0.95, 0.38, 0.57), Color("#94aec1"))
     _block(printed_part, "ArmorCutout", Vector3(0.0, 0.23, 0),
         Vector3(0.43, 0.13, 0.35), Color("#3b718d"))
     _block(printed_part, "PrintEdge", Vector3(0, -0.22, 0.31),
         Vector3(0.95, 0.065, 0.035), light, true)
+    # The reference shows a broad enclosed gantry and a solid helmet shell.
+    _block(pivot, "GantrySideArmorL", Vector3(-1.08, 1.43, 0),
+        Vector3(0.16, 2.14, 1.65), Color("#526b7c"))
+    _block(pivot, "GantrySideArmorR", Vector3(1.08, 1.43, 0),
+        Vector3(0.16, 2.14, 1.65), Color("#526b7c"))
+    _block(pivot, "CeilingCasing", Vector3(0, 2.55, 0),
+        Vector3(2.38, 0.23, 1.74), Color("#405868"))
+    for x in [-0.54, -0.36, -0.18]:
+        _block(pivot, "StatusPip", Vector3(x, 2.39, 0.91),
+            Vector3(0.10, 0.05, 0.04), Color("#e3af42"), true)
+    _block(pivot, "BedGlow", Vector3(0, 0.52, 0.50),
+        Vector3(1.20, 0.035, 0.05), Color("#2395af"), true)
 
 func _build_terminal() -> void:
     _block(self, "TerminalColumn", Vector3(2.24, 0.62, -0.35),
@@ -171,6 +190,113 @@ func _build_crate() -> void:
         _block(crate_arm, "ManipulatorFinger", Vector3(0.40 + (i - 1)*0.09, 0.035, 0.56),
             Vector3(0.06, 0.085, 0.18), Color("#8da9ba"))
 
+func _cylinder(parent: Node3D, label: String, point: Vector3,
+        radius: float, height: float, tint: Color, glow: bool = false) -> MeshInstance3D:
+    var mesh := CylinderMesh.new()
+    mesh.top_radius = radius
+    mesh.bottom_radius = radius
+    mesh.height = height
+    mesh.radial_segments = 12
+    var node := MeshInstance3D.new()
+    node.name = label
+    node.mesh = mesh
+    node.material_override = _paint(tint, glow)
+    node.position = point
+    parent.add_child(node)
+    return node
+
+func _build_converter() -> void:
+    converter_group = Node3D.new()
+    converter_group.name = "MaterialConversionScene"
+    add_child(converter_group)
+    _block(converter_group, "MachineBackplane", Vector3(-1.50, 1.25, -2.85),
+        Vector3(4.95, 2.75, 0.36), Color("#2f4656"))
+    var glows: Array[Color] = [
+        Color("#edac49"), Color("#56b8e0"), Color("#aa80d7")]
+    for i in range(3):
+        var x: float = -3.05 + float(i) * 1.50
+        _cylinder(converter_group, "ChamberBase", Vector3(x, 0.45, -1.52),
+            0.62, 0.40, Color("#354a59"))
+        _cylinder(converter_group, "ChamberBody", Vector3(x, 1.35, -1.52),
+            0.53, 1.52, Color("#344c5e"))
+        # Open front of the opaque chamber, so the emissive contents remain
+        # visible without costly refractive glass/transparency passes.
+        _block(converter_group, "ChamberWindow", Vector3(x, 1.33, -0.98),
+            Vector3(0.75, 1.03, 0.08), Color("#132c3c"))
+        _cylinder(converter_group, "ChamberRoof", Vector3(x, 2.22, -1.52),
+            0.65, 0.20, Color("#6e8795"))
+        _cylinder(converter_group, "RingTop", Vector3(x, 2.03, -1.52),
+            0.56, 0.07, glows[i], true)
+        _cylinder(converter_group, "RingLower", Vector3(x, 0.70, -1.52),
+            0.56, 0.07, glows[i], true)
+        var rotor := Node3D.new()
+        rotor.name = "CrystalRotor_" + str(i)
+        rotor.position = Vector3(x, 1.25, -0.87)
+        converter_group.add_child(rotor)
+        converter_crystals.append(rotor)
+        for j in range(5):
+            var gem := SphereMesh.new()
+            gem.radius = 0.19 if j % 2 == 0 else 0.14
+            gem.height = gem.radius * 2.0
+            gem.radial_segments = 6
+            gem.rings = 3
+            var crystal := MeshInstance3D.new()
+            crystal.name = "ConverterCrystal"
+            crystal.mesh = gem
+            crystal.material_override = _paint(glows[i], j == 0)
+            crystal.position = Vector3(
+                0.21 * cos(float(j) * 2.5),
+                -0.23 + float(j % 3) * 0.20,
+                0.11 * sin(float(j) * 2.5))
+            rotor.add_child(crystal)
+        # A pipe joint and illuminated status stripe identify each station.
+        _block(converter_group, "PipeUpright", Vector3(x, 2.70, -2.75),
+            Vector3(0.15, 0.92, 0.13), Color("#718897"))
+        _block(converter_group, "StatusScreen", Vector3(x, 0.40, -0.62),
+            Vector3(0.72, 0.24, 0.06), Color("#21495d"))
+        _block(converter_group, "Readout", Vector3(x, 0.42, -0.57),
+            Vector3(0.47, 0.03, 0.015), glows[i], true)
+    _block(converter_group, "ServiceBench", Vector3(0, 0.29, 0.42),
+        Vector3(4.9, 0.35, 0.76), Color("#435b6b"))
+    for j in range(6):
+        var box_x: float = -2.65 + float(j) * 0.49
+        _block(converter_group, "SortedMaterials", Vector3(box_x, 0.54, 0.46),
+            Vector3(0.27, 0.20, 0.23), glows[int(j/2)])
+
+func _build_warehouse() -> void:
+    warehouse_group = Node3D.new()
+    warehouse_group.name = "WarehouseScene"
+    add_child(warehouse_group)
+    # Industrial shelving in depth; small solid bins are instanced geometry,
+    # never separate UI controls, and stay under one hundred static meshes.
+    for side in [-1, 1]:
+        var x: float = float(side) * 2.65
+        _block(warehouse_group, "RackBack", Vector3(x, 1.67, -2.45),
+            Vector3(2.15, 3.15, 0.16), Color("#253d4c"))
+        for col in range(3):
+            for row in range(4):
+                var box_x: float = x - 0.68 + float(col) * 0.67
+                var box_y: float = 0.59 + float(row) * 0.67
+                _block(warehouse_group, "StorageBin", Vector3(box_x, box_y, -2.23),
+                    Vector3(0.53, 0.45, 0.40), Color("#536c7b"))
+                _block(warehouse_group, "BinID", Vector3(box_x, box_y+0.10, -1.99),
+                    Vector3(0.36, 0.08, 0.02), Color("#a9ccd9"))
+                _block(warehouse_group, "BinHandle", Vector3(box_x, box_y-0.12, -1.99),
+                    Vector3(0.17, 0.04, 0.025), Color("#253c4e"))
+        for row in range(5):
+            _block(warehouse_group, "ShelfBar", Vector3(x, 0.26+float(row)*0.67, -2.08),
+                Vector3(2.25, 0.09, 0.52), Color("#718b98"))
+        for edge in [-1.12, 1.12]:
+            _block(warehouse_group, "RackPost", Vector3(x+edge, 1.66, -2.04),
+                Vector3(0.11, 3.40, 0.12), Color("#7793a0"))
+    _block(warehouse_group, "SortingTable", Vector3(0.13, 0.51, 0.06),
+        Vector3(1.25, 0.28, 0.84), Color("#465e6d"))
+    _block(warehouse_group, "ScanningPanel", Vector3(0.13, 0.70, 0.10),
+        Vector3(1.05, 0.07, 0.67), Color("#23495d"))
+    for col in range(4):
+        _block(warehouse_group, "SortingReadout", Vector3(-0.25+float(col)*0.25, 0.75, 0.05),
+            Vector3(0.13, 0.02, 0.44), Color("#56b6d3"), true)
+
 func _ready() -> void:
     var world := WorldEnvironment.new()
     world.name = "Environment"
@@ -190,8 +316,11 @@ func _ready() -> void:
     add_child(light)
     _build_room()
     _build_printer()
+    _build_converter()
+    _build_warehouse()
     _build_terminal()
     _build_crate()
+    set_section(current_section)
     var camera := Camera3D.new()
     camera.name = "HeroCamera"
     camera.position = Vector3(0.25, 1.42, 6.20)
@@ -202,6 +331,12 @@ func _ready() -> void:
 
 func set_section(section: String) -> void:
     current_section = section
+    if printer_group != null:
+        printer_group.visible = section == "LABO"
+    if converter_group != null:
+        converter_group.visible = section in ["SMELTER", "RECYCLER"]
+    if warehouse_group != null:
+        warehouse_group.visible = section == "STORAGE"
 
 func _move_to(goal: Vector3, delta: float) -> bool:
     var planar := Vector3(goal.x, crate.position.y, goal.z)
@@ -227,6 +362,11 @@ func _process(delta: float) -> void:
     printer_nozzle.position.x = -1.96 + 0.55 * sin(clock * 1.9)
     printer_nozzle.position.z = -0.40 + 0.23 * cos(clock * 1.13)
     printed_part.scale.y = 0.72 + 0.18 * sin(clock * 0.37)
+    if current_section in ["SMELTER", "RECYCLER"]:
+        for index in range(converter_crystals.size()):
+            var crystal: Node3D = converter_crystals[index]
+            crystal.rotation.y = clock * (0.18 + float(index)*0.08)
+            crystal.position.y = 1.25 + 0.075 * sin(clock * 1.7 + float(index))
     match work_state:
         "walk_to_terminal":
             if _move_to(Vector3(1.18, 0, 0.65), delta):

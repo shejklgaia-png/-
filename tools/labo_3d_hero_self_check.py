@@ -22,7 +22,7 @@ assert 'set_corner_radius_all(' in skin
 assert 'LaboSkin.style("card")' in ui
 assert 'card.mouse_filter = Control.MOUSE_FILTER_STOP' in ui
 assert 'card.text = title + "\\n" + info' in ui
-assert 'ScrollContainer.new()' not in ui, "keep Android-tested native layout"
+assert 'ScrollContainer.new()' in ui, "native scroll is required in LABO", "keep Android-tested native layout"
 assert 'func _process(delta: float)' in stage and 'move_toward(' in stage
 assert '"Crate"' in stage and '"PrinterNozzle"' in stage
 assert '"TerminalScreen"' in stage and '"PrintedPart"' in stage
