@@ -1485,6 +1485,7 @@ func _render_conversion() -> void:
         output_icon.name = "ConvertOutputIcon_" + str(rank)
         output_icon.texture = IconAtlas.material_icon_sized(target_id, 44)
         output_icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+        output_icon.clip_contents = true
         output_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
         output_icon.custom_minimum_size = Vector2(44, 44)
         output_icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
