@@ -1347,14 +1347,50 @@ func _show_prototype_catalog() -> void:
         _queue_card_icon(card, id, true)
     _finish_grid(grid)
     if not first_id.is_empty():
+        # Reference image shows an equipment preview directly under the list,
+        # framed like a catalog detail. Keep it passive (no extra click targets).
+        var preview := PanelContainer.new()
+        preview.name = "PrototypeBasePreview"
+        preview.custom_minimum_size.y = 137.0
+        preview.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+        preview.add_theme_stylebox_override("panel", LaboSkin.card_style("normal"))
+        item_layer.add_child(preview)
+        var preview_padding := MarginContainer.new()
+        preview_padding.add_theme_constant_override("margin_left", 12)
+        preview_padding.add_theme_constant_override("margin_right", 12)
+        preview_padding.add_theme_constant_override("margin_top", 10)
+        preview_padding.add_theme_constant_override("margin_bottom", 10)
+        preview.add_child(preview_padding)
+        var preview_row := HBoxContainer.new()
+        preview_row.add_theme_constant_override("separation", 14)
+        preview_padding.add_child(preview_row)
+        var preview_art := TextureRect.new()
+        preview_art.name = "PrototypeBaseArt"
+        preview_art.texture = IconAtlas.equipment_icon(first_id)
+        preview_art.custom_minimum_size = Vector2(100, 100)
+        preview_art.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+        preview_art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+        preview_art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+        preview_art.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        preview_row.add_child(preview_art)
+        var preview_text := VBoxContainer.new()
+        preview_text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+        preview_row.add_child(preview_text)
+        var preview_name := Label.new()
+        preview_name.name = "PrototypeBaseName"
+        preview_name.text = str(PrototypeCatalog.spec(first_id).get("name", ""))
+        preview_name.add_theme_font_override("font", LaboSkin.title_font())
+        preview_name.add_theme_font_size_override("font_size", 21)
+        preview_name.add_theme_color_override("font_color", Color("#f4ffff"))
+        preview_text.add_child(preview_name)
         var baseline := Label.new()
         baseline.name = "PrototypeBaseStats"
         baseline.text = LaboStats.baseline(first_id)
-        baseline.add_theme_font_size_override("font_size", 19)
+        baseline.add_theme_font_size_override("font_size", 18)
         baseline.add_theme_font_override("font", LaboSkin.data_font())
-        baseline.add_theme_color_override("font_color", Color("#d6faff"))
+        baseline.add_theme_color_override("font_color", Color("#c6eaf7"))
         baseline.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-        item_layer.add_child(baseline)
+        preview_text.add_child(baseline)
     _configure_page_scroll(158 if modal_actions.get_child_count() > 1 else 82)
     _sync_section_tabs()
 
