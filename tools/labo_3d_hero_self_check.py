@@ -19,7 +19,7 @@ for section in ('"LABO"', '"SMELTER"', '"RECYCLER"', '"STORAGE"'):
     assert section in ui
 assert 'const LaboSkin = preload(' in ui and 'StyleBoxFlat' in skin
 assert 'set_corner_radius_all(' in skin
-assert 'LaboSkin.style("card")' in ui
+assert 'LaboSkin.card_style("normal")' in ui
 assert 'card.mouse_filter = Control.MOUSE_FILTER_STOP' in ui
 assert 'card.text = title + "\\n" + info' in ui
 assert 'ScrollContainer.new()' in ui, "LABO must have scrollable native layout"
