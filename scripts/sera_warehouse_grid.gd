@@ -80,7 +80,7 @@ func _skin(kind: String) -> StyleBoxTexture:
         return _skin_cache[kind] as StyleBoxTexture
     var image: Image = Image.create(32, 32, false, Image.FORMAT_RGBA8)
     var background: Color = Color("#142430")
-    var border: Color = Color("#819dad")
+    var border: Color = Color("#65bed2")
     if kind == "pressed":
         background = Color("#29495c")
         border = Color("#dbf5ff")
@@ -88,7 +88,7 @@ func _skin(kind: String) -> StyleBoxTexture:
         background = Color("#203c50")
         border = Color("#9fcbdc")
     elif kind == "disabled":
-        border = Color("#526b79")
+        border = Color("#65bed2")
     for y in range(32):
         for x in range(32):
             var a: int = x + y
