@@ -7,7 +7,8 @@ ci = (root/"tools/sera_ci_manifest.txt").read_text(encoding="utf-8")
 assert "func _new_slot(" in ui and "if action.is_valid():" in ui
 assert 'LaboMaterialCardScene.instantiate()' in ui and 'LaboEquipmentCardScene.instantiate()' in ui
 assert 'card.mouse_filter = Control.MOUSE_FILTER_STOP' in ui
-assert 'card.pressed.connect(action)' in ui
+assert 'card.pressed.connect(_invoke_scroll_action.bind(' in ui
+assert 'func _invoke_scroll_action(action: Callable, scroll: ScrollContainer)' in ui
 assert 'card.icon = null' in ui and 'art.texture = icon' in ui
 assert 'card.text = title + "\\n" + info' in ui
 assert 'card.add_theme_stylebox_override("normal", LaboSkin.card_style(' in ui
