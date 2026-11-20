@@ -108,12 +108,13 @@ func _run() -> void:
     for material_id in Materials.all_ids():
         var card: Button = grid.find_child(
             "MaterialIcon_" + str(material_id), true, false) as Button
-        if card == null or card.icon == null or not card.is_visible_in_tree():
+        if card == null or not card.is_visible_in_tree() or (
+                (card.find_child("ItemArt", true, false) as TextureRect).texture == null):
             _fail("material icon missing: " + str(material_id))
             return
         if card.custom_minimum_size.y > 92.0 or (
                 card.custom_minimum_size.y < 78.0) or (
-                not card.expand_icon) or card.icon.get_width() > 54 or (
+                (card.find_child("ItemArt", true, false) as TextureRect).size.x > 57.0 or (
                 card.vertical_icon_alignment != VERTICAL_ALIGNMENT_CENTER):
             _fail("material icon is not bounded/centered in shorter card")
             return
