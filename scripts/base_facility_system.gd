@@ -6,6 +6,8 @@ const LaboSkin = preload("res://scripts/sera_labo_round_skin.gd")
 const WarehouseGrid = preload("res://scripts/sera_warehouse_grid.gd")
 const Affixes = preload("res://scripts/sera_craft_affixes.gd")
 const LaboStats = preload("res://scripts/sera_labo_stats.gd")
+const MATERIAL_CARD_HEIGHT: float = 86.0
+const MATERIAL_ICON_WIDTH: int = 54
 ## Base field architecture: LABO is one building; resources, power and construction
 ## are independent physical machines. NEXUS remains in the parent scene.
 const FACILITY_SPECS = [
@@ -776,30 +778,13 @@ func open_facility(key: String) -> void:
     modal_title.text = str(spec["name"])
     modal.visible = true
     _set_labo_hero(key in ["LABO", "SMELTER", "RECYCLER", "STORAGE"], key)
+    # LABO has no separate landing menu: the first frame is the craft list.
+    # Bypass home-action allocation and retain the three persistent nav tabs.
+    if key == "LABO":
+        _show_prototype_catalog()
+        return
     _clear_actions()
     match key:
-        "LABO":
-            modal_body.text = "研究開発の統合施設です。\nOS＝機能拡充 / Shell＝性能向上。"
-            # The working Shell development entry opens the real prototype catalog.
-            # Rarity research remains a future feature, not a fake craft action.
-            var shell_button := Button.new()
-            shell_button.name = "OpenPrototypeCatalog"
-            shell_button.text = "試作装備を製作"
-            _queue_card_icon(shell_button, "H01", true)
-            shell_button.custom_minimum_size.y = 74.0
-            shell_button.pressed.connect(_show_prototype_catalog)
-            modal_actions.add_child(shell_button)
-            var trial_button := Button.new()
-            trial_button.name = "ClaimTrialMaterials"
-            trial_button.text = "試作素材を受け取る"
-            _queue_card_icon(trial_button, "scrap_mid")
-            trial_button.custom_minimum_size.y = 74.0
-            trial_button.disabled = SeraSave.active_slot <= 0 or (
-                bool(SeraSave.get_active_data().get("trial_materials_claimed", false)))
-            trial_button.pressed.connect(_claim_trial_materials)
-            modal_actions.add_child(trial_button)
-            _add_action("OS開発", "新しいアクションや操作・照準などの機能を解放します。\nジャスト系の機能は採用しません。")
-            _add_action("追加効果スロット研究", "装備レアリティごとの上限内で、LABO研究によりスロット枠を解放します。\n装着と交換はNEXUSのアセンブルで行います。")
         "SCRAP_COLLECTOR":
             modal_body.text = "回収機\n現在の所持素材は倉庫で確認できます。"
             var stock_button := Button.new()
@@ -809,7 +794,7 @@ func open_facility(key: String) -> void:
             stock_button.custom_minimum_size.y = 66.0
             stock_button.pressed.connect(open_facility.bind("STORAGE"))
             modal_actions.add_child(stock_button)
-            _add_action("回収設備の情報", "将来の実際の素材回収機能です。試作用素材はLABOから一度だけ受け取れます。")
+            _add_action("回収設備の情報", "将来の実際の素材回収機能です。素材は所持データから確認できます。")
         "SMELTER":
             _show_conversion(1)
         "RECYCLER":
@@ -967,7 +952,14 @@ func _new_slot(parent: Control, key: String, icon: Texture2D,
         diag_icon_count += 1
     card.text = title + "\n" + info
     card.tooltip_text = title + " / " + info
-    card.custom_minimum_size = Vector2(108, 86 if columns == 1 else 100)
+    var material_choice: bool = key.begins_with("MaterialIcon_") and (
+        parent.name == "MaterialFamilyGrid")
+    card.custom_minimum_size = Vector2(108,
+        MATERIAL_CARD_HEIGHT if material_choice else (86 if columns == 1 else 100))
+    # Android native Button can otherwise draw full 72px material artwork
+    # beyond the text/layout rect, producing tiny adjacent-row fragments.
+    card.expand_icon = true
+    card.icon_max_width = MATERIAL_ICON_WIDTH if material_choice else 62
     card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
     card.mouse_filter = Control.MOUSE_FILTER_STOP
     card.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -976,6 +968,7 @@ func _new_slot(parent: Control, key: String, icon: Texture2D,
         HORIZONTAL_ALIGNMENT_LEFT if columns == 1 else HORIZONTAL_ALIGNMENT_CENTER)
     card.icon_alignment = HORIZONTAL_ALIGNMENT_LEFT
     card.vertical_icon_alignment = VERTICAL_ALIGNMENT_CENTER
+    card.add_theme_constant_override("h_separation", 7)
     card.add_theme_font_size_override("font_size", 13)
     card.add_theme_color_override("font_color", Color("#ecf9ff"))
     card.add_theme_color_override("font_disabled_color", Color("#ecf9ff"))
@@ -1063,16 +1056,33 @@ func _show_inventory(section: String = "materials") -> void:
         grid.name = "WarehouseMaterials"
         grid.configure(entries, 3, "materials")
     else:
-        var selector := OptionButton.new()
-        selector.name = "WarehouseHangerSelector"
-        selector.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-        selector.custom_minimum_size.y = 46.0
-        for slot in SeraSave.EQUIPMENT_SLOTS:
-            selector.add_item(_warehouse_slot_name(str(slot)))
-        var chosen_index: int = SeraSave.EQUIPMENT_SLOTS.find(warehouse_slot)
-        selector.select(maxi(chosen_index, 0))
-        selector.item_selected.connect(_select_warehouse_slot)
-        modal_actions.add_child(selector)
+        # Reuse the craft slot interaction instead of Android OptionButton.
+        # Seven compact native Buttons are horizontally swipeable on phones.
+        var scroll := ScrollContainer.new()
+        scroll.name = "WarehouseHangerScroll"
+        scroll.custom_minimum_size.y = 57.0
+        scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+        scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+        scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+        modal_actions.add_child(scroll)
+        var hanger := HBoxContainer.new()
+        hanger.name = "WarehouseHangerTabs"
+        hanger.add_theme_constant_override("separation", 6)
+        scroll.add_child(hanger)
+        var hanger_group := ButtonGroup.new()
+        for slot_index in range(SeraSave.EQUIPMENT_SLOTS.size()):
+            var slot: String = str(SeraSave.EQUIPMENT_SLOTS[slot_index])
+            var tab := Button.new()
+            tab.name = "HangerSlot_" + slot
+            tab.text = _warehouse_slot_name(slot)
+            tab.custom_minimum_size = Vector2(87, 48)
+            tab.toggle_mode = true
+            tab.button_group = hanger_group
+            tab.button_pressed = warehouse_slot == slot
+            tab.pressed.connect(_select_warehouse_slot.bind(slot_index))
+            hanger.add_child(tab)
+            if warehouse_slot == slot:
+                scroll.call_deferred("ensure_control_visible", tab)
         grid.name = "WarehouseEquipment"
         grid.entry_pressed.connect(_on_warehouse_entry_pressed)
         var junk_button := Button.new()
@@ -1219,15 +1229,6 @@ func _show_prototype_catalog() -> void:
             modal_body.text += "\nセーブの空きがありません。NEXUSで既存データを読み込んでください。"
     if not prototype_notice.is_empty():
         modal_body.text += "\n" + prototype_notice
-    if SeraSave.active_slot > 0 and not bool(
-            SeraSave.get_active_data().get("trial_materials_claimed", false)):
-        var trial := Button.new()
-        trial.name = "ClaimTrialMaterialsCatalog"
-        trial.text = "試作用素材を受け取る"
-        _queue_card_icon(trial, "scrap_mid")
-        trial.custom_minimum_size.y = 62.0
-        trial.pressed.connect(_claim_trial_materials.bind(true))
-        modal_actions.add_child(trial)
     var tab_scroll := ScrollContainer.new()
     tab_scroll.name = "CraftSlotScroll"
     tab_scroll.custom_minimum_size.y = 57
@@ -1432,7 +1433,7 @@ func _render_conversion() -> void:
         var target_id: String = str(plan["output_id"])
         var row := HBoxContainer.new()
         row.name = "ConversionRow_" + str(rank)
-        row.custom_minimum_size.y = 82
+        row.custom_minimum_size.y = 70
         row.add_theme_constant_override("separation", 7)
         modal_actions.add_child(row)
         var bar := Button.new()
@@ -1441,7 +1442,9 @@ func _render_conversion() -> void:
         bar.icon_alignment = HORIZONTAL_ALIGNMENT_LEFT
         bar.vertical_icon_alignment = VERTICAL_ALIGNMENT_CENTER
         bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-        bar.custom_minimum_size.y = 78
+        bar.custom_minimum_size.y = 66
+        bar.expand_icon = true
+        bar.icon_max_width = 48
         bar.clip_contents = true
         bar.alignment = HORIZONTAL_ALIGNMENT_CENTER
         bar.add_theme_font_size_override("font_size", 14)
@@ -1460,10 +1463,10 @@ func _render_conversion() -> void:
         output_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
         output_icon.clip_contents = true
         output_icon.set_anchors_and_offsets_preset(Control.PRESET_CENTER_RIGHT)
-        output_icon.offset_left = -54
-        output_icon.offset_right = -7
-        output_icon.offset_top = -24
-        output_icon.offset_bottom = 24
+        output_icon.offset_left = -49
+        output_icon.offset_right = -5
+        output_icon.offset_top = -22
+        output_icon.offset_bottom = 22
         output_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
         bar.add_child(output_icon)
         var amount := SpinBox.new()
@@ -1473,7 +1476,7 @@ func _render_conversion() -> void:
         amount.step = 1
         amount.value = conversion_batches
         amount.rounded = true
-        amount.custom_minimum_size = Vector2(84, 66)
+        amount.custom_minimum_size = Vector2(80, 58)
         amount.tooltip_text = "変換回数"
         amount.value_changed.connect(_conversion_batches_set)
         row.add_child(amount)
@@ -1504,7 +1507,7 @@ func navigate_back() -> void:
             prototype_notice = ""
             _show_prototype_catalog()
         "prototypes":
-            open_facility(active_key)
+            close_menu()
         "warehouse_item":
             _show_inventory("equipment")
         _:
