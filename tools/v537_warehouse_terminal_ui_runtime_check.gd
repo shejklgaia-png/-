@@ -19,6 +19,11 @@ func _run() -> void:
     fac.call("open_facility", "STORAGE")
     await process_frame
     await process_frame
+    # Equipment is the default; material archive remains reachable by tab.
+    if str(fac.get("warehouse_section")) != "equipment":
+        _fail("storage must land on equipment")
+        return
+    fac.call("_show_inventory", "materials")
     var grid: ScrollContainer = (fac.get("item_layer") as Control).find_child(
         "WarehouseMaterials", true, false) as ScrollContainer
     if grid == null or int(grid.get("columns")) != 2 or (
