@@ -2,7 +2,7 @@ extends SceneTree
 ## v519 frame+icons contract, rendered as native HBox/Button rows since v522.
 const Materials = preload("res://scripts/sera_base_materials.gd")
 const Catalog = preload("res://scripts/sera_prototype_catalog.gd")
-const Skin = preload("res://scripts/sera_chamfer_skin.gd")
+const ChamferSkinResource = preload("res://scripts/sera_chamfer_skin.gd")
 func _initialize() -> void:
     call_deferred("_run")
 func _fail(msg: String) -> void:
@@ -26,7 +26,7 @@ func _check_grid(actions: VBoxContainer, area: Control, name: String, ids: Array
         if not card.get_theme_stylebox("normal") is StyleBoxTexture:
             _fail("corner-cut style missing: " + card.name)
             return false
-    var frame: StyleBoxTexture = Skin.style(Color("#203747"), Color("#59c6da"))
+    var frame: StyleBoxTexture = ChamferSkinResource.style(Color("#203747"), Color("#59c6da"))
     var img: Image = frame.texture.get_image()
     if img == null or img.get_pixel(0, 0).a > 0.05:
         _fail("four corner cuts have become opaque")

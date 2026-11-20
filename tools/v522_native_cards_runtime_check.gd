@@ -2,7 +2,7 @@ extends SceneTree
 ## Cards must be native visible Godot buttons, not nested custom PanelContainers.
 const Materials = preload("res://scripts/sera_base_materials.gd")
 const Catalog = preload("res://scripts/sera_prototype_catalog.gd")
-const Skin = preload("res://scripts/sera_chamfer_skin.gd")
+const ChamferSkinResource = preload("res://scripts/sera_chamfer_skin.gd")
 func _initialize() -> void:
     call_deferred("_run")
 func _fail(reason: String) -> void:
@@ -53,7 +53,7 @@ func _tap_card(card: Button) -> void:
     root.push_input(up, true)
     await process_frame
 func _run() -> void:
-    var style: StyleBoxTexture = Skin.style(Color("#203747"), Color("#59c6da"))
+    var style: StyleBoxTexture = ChamferSkinResource.style(Color("#203747"), Color("#59c6da"))
     var pixels: Image = (style.texture as Texture2D).get_image()
     if pixels == null or pixels.get_pixel(0,0).a > 0.05 or (
             pixels.get_pixel(24,0).a < 0.9) or (
