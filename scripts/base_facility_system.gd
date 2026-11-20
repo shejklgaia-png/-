@@ -6,6 +6,9 @@ const LaboSkin = preload("res://scripts/sera_labo_round_skin.gd")
 const WarehouseGrid = preload("res://scripts/sera_warehouse_grid.gd")
 const Affixes = preload("res://scripts/sera_craft_affixes.gd")
 const LaboStats = preload("res://scripts/sera_labo_stats.gd")
+const LaboMaterialCardScene = preload("res://ui/labo/LaboMaterialCard.tscn")
+const LaboEquipmentCardScene = preload("res://ui/labo/LaboEquipmentCard.tscn")
+const LaboSectionTabScene = preload("res://ui/labo/LaboSectionTab.tscn")
 const MATERIAL_CARD_HEIGHT: float = 86.0
 const MATERIAL_ICON_WIDTH: int = 54
 ## Base field architecture: LABO is one building; resources, power and construction
@@ -321,10 +324,10 @@ func attach_hud(hud: Control) -> void:
     modal_panel.anchor_bottom = 0.92
     modal_panel.mouse_filter = Control.MOUSE_FILTER_STOP
     var style := StyleBoxFlat.new()
-    style.bg_color = Color("#203345")
-    style.border_color = Color("#678fa2")
+    style.bg_color = Color("#091e2d")
+    style.border_color = Color("#487f91")
     style.set_border_width_all(2)
-    style.set_corner_radius_all(14)
+    style.set_corner_radius_all(7)
     modal_panel.add_theme_stylebox_override("panel", style)
     # A single common rounded native Button theme covers tabs, choices,
     # warehouse categories, conversion actions and Back without extra nodes.
@@ -333,11 +336,11 @@ func attach_hud(hud: Control) -> void:
     var padding := MarginContainer.new()
     padding.name = "FacilityPadding"
     for side in ["left", "right", "top", "bottom"]:
-        padding.add_theme_constant_override("margin_" + side, 12)
+        padding.add_theme_constant_override("margin_" + side, 8)
     modal_panel.add_child(padding)
     var body := VBoxContainer.new()
     body.name = "FacilityContent"
-    body.add_theme_constant_override("separation", 9)
+    body.add_theme_constant_override("separation", 7)
     padding.add_child(body)
     # 30% of the visible portrait viewport. The actual 3D stage is created
     # lazily once and shared by LABO / SMELTER / RECYCLER / STORAGE.
@@ -355,8 +358,8 @@ func attach_hud(hud: Control) -> void:
     body.add_child(header_row)
     modal_title = Label.new()
     modal_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-    modal_title.add_theme_font_size_override("font_size", 23)
-    modal_title.add_theme_color_override("font_color", Color("#b8f0ff"))
+    modal_title.add_theme_font_size_override("font_size", 21)
+    modal_title.add_theme_color_override("font_color", Color("#f1faff"))
     modal_title.mouse_filter = Control.MOUSE_FILTER_STOP
     modal_title.gui_input.connect(_on_modal_title_input)
     header_row.add_child(modal_title)
@@ -372,7 +375,7 @@ func attach_hud(hud: Control) -> void:
     # Persistent, non-scrolling tabs remain accessible in every sub-page.
     section_tabs = HBoxContainer.new()
     section_tabs.name = "FacilitySectionTabs"
-    section_tabs.add_theme_constant_override("separation", 5)
+    section_tabs.add_theme_constant_override("separation", 4)
     body.add_child(section_tabs)
     var section_group := ButtonGroup.new()
     for entry in [
@@ -380,22 +383,22 @@ func attach_hud(hud: Control) -> void:
         {"id": "TabMaterials", "label": "素材変換", "target": "materials"},
         {"id": "TabWarehouse", "label": "倉庫", "target": "warehouse"}
     ]:
-        var button := Button.new()
+        var button: Button = LaboSectionTabScene.instantiate() as Button
         button.name = str(entry["id"])
         button.text = str(entry["label"])
         button.toggle_mode = true
         button.button_group = section_group
-        button.custom_minimum_size.y = 58.0
+        button.custom_minimum_size.y = 50.0
         button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-        button.add_theme_font_size_override("font_size", 17)
+        button.add_theme_font_size_override("font_size", 16)
         button.add_theme_color_override("font_color", Color("#f4fbff"))
         # Rounded blue-grey styles are inherited from FacilitySheet.theme.
         button.pressed.connect(_switch_section.bind(str(entry["target"])))
         section_tabs.add_child(button)
     modal_body = Label.new()
     modal_body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-    modal_body.add_theme_font_size_override("font_size", 16)
-    modal_body.add_theme_color_override("font_color", Color("#dce9ee"))
+    modal_body.add_theme_font_size_override("font_size", 14)
+    modal_body.add_theme_color_override("font_color", Color("#bdd4df"))
     body.add_child(modal_body)
     diagnostic_readout = Label.new()
     diagnostic_readout.name = "UIDiagnosticReadout"
@@ -415,7 +418,7 @@ func attach_hud(hud: Control) -> void:
     modal_actions = VBoxContainer.new()
     modal_actions.size_flags_horizontal = Control.SIZE_EXPAND_FILL
     modal_actions.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-    modal_actions.add_theme_constant_override("separation", 8)
+    modal_actions.add_theme_constant_override("separation", 7)
     actions_scroll = ScrollContainer.new()
     actions_scroll.name = "FacilityActionScroll"
     actions_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -442,7 +445,7 @@ func attach_hud(hud: Control) -> void:
     var close_button := Button.new()
     close_button.name = "CloseFacility"
     close_button.text = "戻る"
-    close_button.custom_minimum_size.y = 58.0
+    close_button.custom_minimum_size.y = 48.0
     close_button.pressed.connect(navigate_back)
     body.add_child(close_button)
     # Own full-screen confirmation layer; does not depend on Android popup
@@ -844,10 +847,10 @@ func _apply_card_skin(card: Button) -> void:
         return
     if diagnostic_button.visible:
         _diag_step("skin " + card.name + " normal")
-    card.add_theme_stylebox_override("normal", LaboSkin.style("card"))
-    card.add_theme_stylebox_override("hover", LaboSkin.style("card_hover"))
-    card.add_theme_stylebox_override("pressed", LaboSkin.style("card_pressed"))
-    card.add_theme_stylebox_override("disabled", LaboSkin.style("disabled"))
+    card.add_theme_stylebox_override("normal", LaboSkin.card_style("normal"))
+    card.add_theme_stylebox_override("hover", LaboSkin.card_style("hover"))
+    card.add_theme_stylebox_override("pressed", LaboSkin.card_style("pressed"))
+    card.add_theme_stylebox_override("disabled", LaboSkin.card_style("disabled"))
     if diagnostic_button.visible:
         _diag_step("skin " + card.name + " ready")
 
@@ -865,19 +868,20 @@ func _apply_card_icon(card: Button, item_id: String, equipment: bool = false) ->
     if diagnostic_button.visible:
         _diag_step("icon " + item_id + " loading")
     var texture: Texture2D = (IconAtlas.equipment_icon(item_id)
-        if equipment else (IconAtlas.material_icon_sized(item_id, MATERIAL_ICON_WIDTH)
-        if card.name.begins_with("MaterialIcon_") else IconAtlas.material_icon(item_id)))
-    if texture != null:
-        card.icon = texture
-        card.texture_filter = (
-            CanvasItem.TEXTURE_FILTER_LINEAR if equipment
+        if equipment else IconAtlas.material_icon(item_id))
+    # Native root Button receives input and background, not the bitmap.
+    # The independent, clipped TextureRect is guaranteed to fit the card.
+    var art: TextureRect = card.find_child("ItemArt", true, false) as TextureRect
+    if art != null:
+        art.texture = texture
+        art.texture_filter = (CanvasItem.TEXTURE_FILTER_LINEAR if equipment
             else CanvasItem.TEXTURE_FILTER_NEAREST)
+    if texture != null:
         diag_icon_count += 1
         if diagnostic_button.visible:
             _diag_step("icon " + item_id + " ready")
-    else:
-        if diagnostic_button.visible:
-            _diag_step("icon " + item_id + " unavailable (card retained)")
+    elif diagnostic_button.visible:
+        _diag_step("icon " + item_id + " unavailable (card retained)")
 
 
 func _new_grid(grid_name: String, columns: int = 3) -> VBoxContainer:
@@ -935,52 +939,52 @@ func _new_slot(parent: Control, key: String, icon: Texture2D,
     var row: HBoxContainer
     if col == 0:
         row = HBoxContainer.new()
-        row.name = "CardRow_%d" % (index / columns)
+        row.name = "CardRow_%d" % int(index / columns)
         row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-        row.add_theme_constant_override("separation", 7)
+        row.add_theme_constant_override("separation", 6)
         parent.add_child(row)
     else:
         row = parent.get_child(parent.get_child_count() - 1) as HBoxContainer
-    # Create only the native card. The unfinished final row is padded once
-    # after the full list is built, rather than creating/discarding fillers.
-    var card := Button.new()
+    var material_choice: bool = (parent.name == "MaterialFamilyGrid")
+    # Both reusable scenes have a standard Button as their root, because
+    # custom PanelContainer hit testing previously failed in Android Editor.
+    var card: Button
+    if material_choice:
+        card = LaboMaterialCardScene.instantiate() as Button
+    else:
+        card = LaboEquipmentCardScene.instantiate() as Button
     card.name = key
-    # Native Button is still used for Android visibility and tap accuracy.
-    # Prevent any art from drawing outside its actual card rectangle.
     card.clip_contents = true
-    card.icon = icon
-    if icon != null:
-        diag_icon_count += 1
-    card.text = title + "\n" + info
+    card.icon = null
+    card.text = title + "\n" + info  # semantic/accessibility metadata
     card.tooltip_text = title + " / " + info
-    var material_choice: bool = key.begins_with("MaterialIcon_") and (
-        parent.name == "MaterialFamilyGrid")
     card.custom_minimum_size = Vector2(108,
-        MATERIAL_CARD_HEIGHT if material_choice else (86 if columns == 1 else 100))
-    # Android native Button can otherwise draw full 72px material artwork
-    # beyond the text/layout rect, producing tiny adjacent-row fragments.
-    card.expand_icon = true
+        MATERIAL_CARD_HEIGHT if material_choice else 82.0)
     card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
     card.mouse_filter = Control.MOUSE_FILTER_STOP
-    card.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-    card.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-    card.alignment = (
-        HORIZONTAL_ALIGNMENT_LEFT if columns == 1 else HORIZONTAL_ALIGNMENT_CENTER)
-    card.icon_alignment = HORIZONTAL_ALIGNMENT_LEFT
-    card.vertical_icon_alignment = VERTICAL_ALIGNMENT_CENTER
-    card.add_theme_constant_override("h_separation", 7)
-    card.add_theme_font_size_override("font_size", 13)
-    card.add_theme_color_override("font_color", Color("#ecf9ff"))
-    card.add_theme_color_override("font_disabled_color", Color("#ecf9ff"))
-    card.add_theme_color_override("icon_disabled_color", Color.WHITE)
-    # Put the native Button in the visible tree BEFORE applying the optional
-    # procedural skin. If skin creation fails in Android editor, the default
-    # native Button and title will still be present for inspection.
+    card.alignment = HORIZONTAL_ALIGNMENT_LEFT
+    # The Button no longer draws textual content itself. The child labels
+    # have independent width, wrapping, contrast and padding.
+    card.add_theme_font_size_override("font_size", 1)
+    for state in ["font_color", "font_hover_color", "font_pressed_color",
+            "font_disabled_color", "font_focus_color"]:
+        card.add_theme_color_override(state, Color.TRANSPARENT)
+    var art: TextureRect = card.get_node("CardContent/Row/ItemArt") as TextureRect
+    art.texture = icon
+    art.clip_contents = true
+    art.texture_filter = (CanvasItem.TEXTURE_FILTER_NEAREST if material_choice
+        else CanvasItem.TEXTURE_FILTER_LINEAR)
+    var title_label: Label = card.get_node(
+        "CardContent/Row/TextStack/ItemTitle") as Label
+    var info_label: Label = card.get_node(
+        "CardContent/Row/TextStack/ItemInfo") as Label
+    title_label.text = title
+    info_label.text = (info if material_choice else
+        info.replace("基礎ステータス（現行Aセット参照） / ", "基礎："))
     row.add_child(card)
     parent.set_meta("card_count", index + 1)
     diag_created += 1
-    # Deferring procedural ImageTexture/StyleBox creation also guarantees
-    # that a renderer failure cannot interrupt the remaining item list.
+    # Styles and artwork are deferred until all native Buttons exist.
     call_deferred("_apply_card_skin", card)
     card.disabled = not action.is_valid()
     if action.is_valid():
@@ -1031,7 +1035,7 @@ func _show_inventory(section: String = "materials") -> void:
         {"key": "materials", "name": "WarehouseMaterialsTab", "caption": "素材"},
         {"key": "equipment", "name": "WarehouseEquipmentTab", "caption": "装備"}
     ]:
-        var button := Button.new()
+        var button: Button = LaboSectionTabScene.instantiate() as Button
         button.name = str(choice["name"])
         button.text = str(choice["caption"])
         button.toggle_mode = true
@@ -1067,7 +1071,7 @@ func _show_inventory(section: String = "materials") -> void:
         var hanger_group := ButtonGroup.new()
         for slot_index in range(SeraSave.EQUIPMENT_SLOTS.size()):
             var slot: String = str(SeraSave.EQUIPMENT_SLOTS[slot_index])
-            var tab := Button.new()
+            var tab: Button = LaboSectionTabScene.instantiate() as Button
             tab.name = "HangerSlot_" + slot
             tab.text = _slot_tab_caption(slot)
             tab.tooltip_text = _warehouse_slot_name(slot)
@@ -1250,7 +1254,7 @@ func _show_prototype_catalog() -> void:
     modal_actions.add_child(slot_tabs)
     var group := ButtonGroup.new()
     for slot in SeraSave.EQUIPMENT_SLOTS:
-        var b := Button.new()
+        var b: Button = LaboSectionTabScene.instantiate() as Button
         b.name = "CraftSlot_" + str(slot)
         b.text = _slot_tab_caption(str(slot))
         b.tooltip_text = _warehouse_slot_name(str(slot))
