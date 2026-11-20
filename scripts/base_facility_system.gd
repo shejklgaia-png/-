@@ -542,7 +542,7 @@ func _new_slot(parent: Control, key: String, icon: Texture2D,
         action_name: String = "") -> Control:
     var card := ChamferSlot.new()
     card.name = key
-    card.custom_minimum_size = Vector2(108, 100)
+    card.custom_minimum_size = Vector2(108, 122)
     card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
     parent.add_child(card)
     var pad := MarginContainer.new()
@@ -566,7 +566,7 @@ func _new_slot(parent: Control, key: String, icon: Texture2D,
         var choose := Button.new()
         choose.name = action_name if not action_name.is_empty() else "Select"
         choose.text = title
-        choose.custom_minimum_size.y = 28
+        choose.custom_minimum_size.y = 44
         choose.add_theme_font_size_override("font_size", 13)
         choose.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
         choose.pressed.connect(action)
