@@ -122,6 +122,8 @@ func _run() -> void:
     if str(facility.get("page")) != "inventory":
         _fail("warehouse shortcut did not open storage")
         return
+    # Explicitly inspect materials; opening STORAGE now lands in equipment.
+    facility.call("_show_inventory", "materials")
     actions = facility.get("modal_actions") as VBoxContainer
     var warehouse: ScrollContainer = (facility.get("item_layer") as Control).find_child(
         "WarehouseMaterials", true, false) as ScrollContainer
