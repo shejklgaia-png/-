@@ -105,6 +105,8 @@ func _run() -> void:
     if str(facilities.get("page")) != "inventory":
         _fail("warehouse tab did not open inventory")
         return
+    facilities.call("_show_inventory", "materials")
+    await process_frame
     var first_material: Button = (facilities.get("item_layer") as Control).find_child("MaterialIcon_scrap_low", true, false) as Button
     if first_material == null or (
             (first_material.get_node("ItemArt") as TextureRect).texture == null) or (
