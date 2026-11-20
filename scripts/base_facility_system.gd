@@ -2,7 +2,7 @@ extends Node3D
 const BaseMaterials = preload("res://scripts/sera_base_materials.gd")
 const IconAtlas = preload("res://scripts/sera_item_icons.gd")
 const PrototypeCatalog = preload("res://scripts/sera_prototype_catalog.gd")
-const ChamferSkin = preload("res://scripts/sera_chamfer_skin.gd")
+const LaboSkin = preload("res://scripts/sera_labo_round_skin.gd")
 ## Base field architecture: LABO is one building; resources, power and construction
 ## are independent physical machines. NEXUS remains in the parent scene.
 const FACILITY_SPECS = [
@@ -54,6 +54,9 @@ var diag_icon_count: int = 0
 var diag_update_timer: float = 0.0
 var diag_header_taps: int = 0
 var diag_last_header_tap_ms: int = 0
+var hero_host: SubViewportContainer
+var hero_viewport: SubViewport
+var hero_stage: Node3D
 
 func _ready() -> void:
     name = "BaseFacilities"
@@ -305,11 +308,14 @@ func attach_hud(hud: Control) -> void:
     modal_panel.anchor_bottom = 0.92
     modal_panel.mouse_filter = Control.MOUSE_FILTER_STOP
     var style := StyleBoxFlat.new()
-    style.bg_color = Color("#132435")
-    style.border_color = Color("#59b9ca")
+    style.bg_color = Color("#203345")
+    style.border_color = Color("#678fa2")
     style.set_border_width_all(2)
     style.set_corner_radius_all(14)
     modal_panel.add_theme_stylebox_override("panel", style)
+    # A single common rounded native Button theme covers tabs, choices,
+    # warehouse categories, conversion actions and Back without extra nodes.
+    modal_panel.theme = LaboSkin.common_theme()
     modal.add_child(modal_panel)
     var padding := MarginContainer.new()
     padding.name = "FacilityPadding"
@@ -320,6 +326,16 @@ func attach_hud(hud: Control) -> void:
     body.name = "FacilityContent"
     body.add_theme_constant_override("separation", 9)
     padding.add_child(body)
+    # 30% of the visible portrait viewport. The actual 3D stage is created
+    # lazily once and shared by LABO / SMELTER / RECYCLER / STORAGE.
+    hero_host = SubViewportContainer.new()
+    hero_host.name = "LaboHero3D"
+    hero_host.stretch = true
+    hero_host.stretch_shrink = 2
+    hero_host.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    hero_host.custom_minimum_size.y = get_viewport().get_visible_rect().size.y * 0.30
+    hero_host.visible = false
+    body.add_child(hero_host)
     var header_row := HBoxContainer.new()
     header_row.name = "FacilityHeaderRow"
     header_row.add_theme_constant_override("separation", 8)
@@ -360,18 +376,7 @@ func attach_hud(hud: Control) -> void:
         button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
         button.add_theme_font_size_override("font_size", 17)
         button.add_theme_color_override("font_color", Color("#f4fbff"))
-        var inactive := StyleBoxFlat.new()
-        inactive.bg_color = Color("#26394b")
-        inactive.border_color = Color("#516d7d")
-        inactive.set_border_width_all(1)
-        inactive.set_corner_radius_all(7)
-        button.add_theme_stylebox_override("normal", inactive)
-        var active: StyleBoxFlat = inactive.duplicate()
-        active.bg_color = Color("#145e74")
-        active.border_color = Color("#99edff")
-        active.set_border_width_all(2)
-        button.add_theme_stylebox_override("pressed", active)
-        button.add_theme_stylebox_override("hover", active)
+        # Rounded blue-grey styles are inherited from FacilitySheet.theme.
         button.pressed.connect(_switch_section.bind(str(entry["target"])))
         section_tabs.add_child(button)
     modal_body = Label.new()
@@ -445,6 +450,42 @@ func update_tags(camera: Camera3D) -> void:
 
 func is_menu_open() -> bool:
     return modal != null and modal.visible
+
+
+func _ensure_labo_hero() -> void:
+    if hero_viewport != null:
+        return
+    hero_viewport = SubViewport.new()
+    hero_viewport.name = "LabViewport"
+    hero_viewport.own_world_3d = true
+    hero_viewport.size = Vector2i(480, 240)
+    hero_viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
+    hero_host.add_child(hero_viewport)
+    hero_stage = load("res://scenes/labo_hero_stage.tscn").instantiate() as Node3D
+    hero_viewport.add_child(hero_stage)
+    hero_stage.set_process(false)
+
+
+func _set_labo_hero(enabled: bool, section: String = "") -> void:
+    if hero_host == null:
+        return
+    hero_host.visible = enabled
+    if enabled:
+        _ensure_labo_hero()
+        # The content area remains native Android Button rows. The hero owns
+        # its dedicated 30%, with smaller cards below and no clipping/scroll.
+        hero_host.custom_minimum_size.y = get_viewport().get_visible_rect().size.y * 0.30
+        modal_panel.anchor_top = 0.015
+        modal_panel.anchor_bottom = 0.985
+        hero_stage.call("set_section", section)
+        hero_stage.set_process(true)
+        hero_viewport.render_target_update_mode = SubViewport.UPDATE_WHEN_VISIBLE
+    else:
+        modal_panel.anchor_top = 0.08
+        modal_panel.anchor_bottom = 0.92
+        if hero_stage != null:
+            hero_stage.set_process(false)
+            hero_viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
 
 
 func _diag_begin(section: String, expected: int) -> void:
@@ -552,7 +593,7 @@ func _clear_actions() -> void:
 func _add_action(label: String, detail: String) -> void:
     var button := Button.new()
     button.text = label
-    button.custom_minimum_size.y = 62.0
+    button.custom_minimum_size.y = 74.0
     button.add_theme_font_size_override("font_size", 19)
     button.pressed.connect(_show_detail.bind(detail))
     modal_actions.add_child(button)
@@ -566,6 +607,7 @@ func _switch_section(target: String) -> void:
                 return
             active_key = "LABO"
             modal.visible = true
+            _set_labo_hero(true, "LABO")
             _show_prototype_catalog()
         "materials":
             open_facility("SMELTER")
@@ -598,6 +640,7 @@ func open_facility(key: String) -> void:
     page = "home"
     modal_title.text = str(spec["name"])
     modal.visible = true
+    _set_labo_hero(key in ["LABO", "SMELTER", "RECYCLER", "STORAGE"], key)
     _clear_actions()
     match key:
         "LABO":
@@ -615,7 +658,7 @@ func open_facility(key: String) -> void:
             trial_button.name = "ClaimTrialMaterials"
             trial_button.text = "試作素材を受け取る"
             _queue_card_icon(trial_button, "scrap_mid")
-            trial_button.custom_minimum_size.y = 66.0
+            trial_button.custom_minimum_size.y = 74.0
             trial_button.disabled = SeraSave.active_slot <= 0 or (
                 bool(SeraSave.get_active_data().get("trial_materials_claimed", false)))
             trial_button.pressed.connect(_claim_trial_materials)
@@ -679,14 +722,10 @@ func _apply_card_skin(card: Button) -> void:
         return
     if diagnostic_button.visible:
         _diag_step("skin " + card.name + " normal")
-    card.add_theme_stylebox_override("normal", ChamferSkin.style(
-        Color("#203747"), Color("#59c6da")))
-    card.add_theme_stylebox_override("hover", ChamferSkin.style(
-        Color("#2b586a"), Color("#91f0ff")))
-    card.add_theme_stylebox_override("pressed", ChamferSkin.style(
-        Color("#145e74"), Color("#b8f6ff")))
-    card.add_theme_stylebox_override("disabled", ChamferSkin.style(
-        Color("#203747"), Color("#59c6da")))
+    card.add_theme_stylebox_override("normal", LaboSkin.style("card"))
+    card.add_theme_stylebox_override("hover", LaboSkin.style("card_hover"))
+    card.add_theme_stylebox_override("pressed", LaboSkin.style("card_pressed"))
+    card.add_theme_stylebox_override("disabled", LaboSkin.style("disabled"))
     if diagnostic_button.visible:
         _diag_step("skin " + card.name + " ready")
 
@@ -774,7 +813,7 @@ func _new_slot(parent: Control, key: String, icon: Texture2D,
         diag_icon_count += 1
     card.text = title + "\n" + info
     card.tooltip_text = title + " / " + info
-    card.custom_minimum_size = Vector2(108, 122)
+    card.custom_minimum_size = Vector2(108, 100)
     card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
     card.mouse_filter = Control.MOUSE_FILTER_STOP
     card.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -1227,6 +1266,7 @@ func navigate_back() -> void:
             close_menu()
 
 func close_menu() -> void:
+    _set_labo_hero(false)
     if modal != null:
         modal.visible = false
     active_key = ""
