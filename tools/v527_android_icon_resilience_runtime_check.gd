@@ -69,9 +69,20 @@ func _run() -> void:
     if Icons._decode_webp_source(atlas_path + ".missing") != null:
         _fail("missing image source must return null, not abort GDScript")
         return
-    # Force the exact resource-unavailable branch of the icon getter.
+    var material_raw: Texture2D = Icons._decode_webp_source(
+        Icons.MATERIAL_ATLAS_PATH, 216, 288)
+    if material_raw == null or material_raw.get_size() != Vector2(216, 288):
+        _fail("pixel material source WebP fallback cannot decode the 3x4 atlas")
+        return
+    if Icons._decode_webp_source(Icons.MATERIAL_ATLAS_PATH + ".missing", 216, 288) != null:
+        _fail("missing material image source must return null")
+        return
+    # Simulate BOTH sources being unavailable, independently of the import
+    # cache. Old test assumed there was only one shared atlas.
     Icons._atlas_loaded = true
     Icons._atlas_texture_cache = null
+    Icons._material_atlas_loaded = true
+    Icons._material_texture_cache = null
     var hub: Node3D = load("res://scenes/base_exploration.tscn").instantiate()
     root.add_child(hub)
     await process_frame
@@ -85,8 +96,10 @@ func _run() -> void:
         return
     Icons._atlas_loaded = false
     Icons._atlas_texture_cache = null
+    Icons._material_atlas_loaded = false
+    Icons._material_texture_cache = null
     if Icons.material_icon("scrap_low") == null or Icons.equipment_icon("H01") == null:
         _fail("icon lookup failed after recovering normal atlas loading")
         return
-    print("SERA_V527_ANDROID_ICON_RESILIENCE_RUNTIME_PASS: raw WebP load; 7+12+12 text/frame slots without imports")
+    print("SERA_V527_ANDROID_ICON_RESILIENCE_RUNTIME_PASS: dual raw WebP sources; 7+12+12 text/frame slots without imports")
     quit(0)
