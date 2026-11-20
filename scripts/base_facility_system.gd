@@ -769,6 +769,9 @@ func _apply_card_icon(card: Button, item_id: String, equipment: bool = false) ->
         if equipment else IconAtlas.material_icon(item_id))
     if texture != null:
         card.icon = texture
+        card.texture_filter = (
+            CanvasItem.TEXTURE_FILTER_LINEAR if equipment
+            else CanvasItem.TEXTURE_FILTER_NEAREST)
         diag_icon_count += 1
         if diagnostic_button.visible:
             _diag_step("icon " + item_id + " ready")
@@ -1218,6 +1221,7 @@ func _render_conversion() -> void:
         var input_icon := TextureRect.new()
         input_icon.name = "Input"
         input_icon.texture = IconAtlas.material_icon(source_id)
+        input_icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
         input_icon.custom_minimum_size = Vector2(61, 61)
         input_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
         flow.add_child(input_icon)
@@ -1237,6 +1241,7 @@ func _render_conversion() -> void:
         var output_icon := TextureRect.new()
         output_icon.name = "Output"
         output_icon.texture = IconAtlas.material_icon(target_id)
+        output_icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
         output_icon.custom_minimum_size = Vector2(61, 61)
         output_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
         flow.add_child(output_icon)

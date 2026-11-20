@@ -3,7 +3,9 @@
 ## 対象
 - 基本素材は `sera_base_materials.gd` の4系統×3ランク＝12種類。IDと日本語名は固定し、品質の自動代替はしません。
 - 試作装備は `sera_prototype_catalog.gd` の H01 / T01 / A01 / L01 / B01 / WR01 / WL01 の7種類です。
-- 12素材と7装備の専用アートは `assets/ui/sera_matte_icon_atlas.webp`（4列×5行、各72×72）から `sera_item_icons.gd` の一意な座標で取得します。紐付け漏れ・座標重複は `v511_matte_icons_runtime_check.gd` で検出します。
+- 素材12種類は `assets/ui/sera_pixel_material_atlas.webp`（3列×4行、各72×72、背景透過）のドット絵へ差し替えます。並びは上からスクラップ・合金・電子部品・有機素材、各行左から低・中・高。文字・枠は画像に含めません。
+- 装備7種類は既存の `assets/ui/sera_matte_icon_atlas.webp`（4列×5行）を引き続き参照し、装備画像は変更しません。`sera_item_icons.gd` は素材と装備のアトラスを別キャッシュで保持し、アイコン領域の重複判定はテクスチャの出自と矩形の組で行います。
+- 倉庫の素材カード、LABOの素材選択・素材変換プレビューには nearest-neighbor 描画を使用し、ドットの輪郭を保ちます。GitSync直後にGodotのimportキャッシュがない場合はWebPの元バイト列から読み込みます。
 - アイコンは回収した資材の保管庫、精製・分解の投入/生成プレビュー、LABOの試作リストと詳細、製作後の倉庫、NEXUSのカスタマイズ（選択中）に表示します。
 
 ## 製作操作・保存

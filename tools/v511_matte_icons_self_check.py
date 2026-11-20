@@ -10,6 +10,21 @@ nexus = (ROOT/"scripts/command_nexus.gd").read_text(encoding="utf-8")
 atlas = ROOT/"assets/ui/sera_matte_icon_atlas.webp"
 assert atlas.is_file() and atlas.stat().st_size > 14000, "matte atlas missing/placeholder"
 assert atlas.read_bytes()[:4] == b"RIFF" and atlas.read_bytes()[8:12] == b"WEBP"
+# Pixel-art materials occupy a separate 3x4 sheet. Existing equipment tiles
+# remain untouched in the original 4x5 atlas.
+pixel_atlas = ROOT/"assets/ui/sera_pixel_material_atlas.webp"
+assert pixel_atlas.is_file() and pixel_atlas.stat().st_size > 7000, "new materials atlas missing"
+pixel_data = pixel_atlas.read_bytes()
+assert pixel_data[:4] == b"RIFF" and pixel_data[8:12] == b"WEBP"
+# The VP8X header contains the exact canvas size as two 24-bit little-endian
+# values, with width and height stored minus one.
+assert pixel_data[12:16] == b"VP8X", "material art needs alpha-aware WebP"
+width = int.from_bytes(pixel_data[24:27], "little") + 1
+height = int.from_bytes(pixel_data[27:30], "little") + 1
+assert (width, height) == (216, 288), f"unexpected material atlas size: {width}x{height}"
+assert 'MATERIAL_ATLAS_PATH' in icon_script
+assert 'MATERIAL_COLUMNS: int = 3' in icon_script
+assert 'return _material_frame(int(MATERIAL_INDICES[material_id]))' in icon_script
 assert "func material_icon(" in icon_script and "func equipment_icon(" in icon_script
 assert "const PROTOTYPES" in catalog and '"H01"' in catalog and '"WL01"' in catalog
 assert "func craft_prototype(" in save and "func get_owned_prototypes(" in save
