@@ -1,6 +1,7 @@
 extends SceneTree
 ## Run: godot --headless --path . --script res://tests/test_labo_hero_scene.gd
-## Updated expectations: dynamic oblique camera shots, staggered facility depths,
+## Updated expectations: object-filled hero framing with deliberate crop,
+## close foreground props and machine clusters, staggered facility depths,
 ## independent background sets and page-specific motion,
 ## with the identical canonical CRATE mesh used by the roaming hub robot.
 const CrateModel = preload("res://scripts/sera_crate_model.gd")
@@ -52,7 +53,13 @@ func _run_checks() -> void:
         "printer workcell rotated to make a strong three-quarter composition")
     _verify(printer_rig != null and printer_rig.position.z > 0.10,
         "printer pulled into foreground, clear of the wall")
+    _verify(maker.get_node_or_null("PrinterForegroundLoader") != null,
+        "printer giant loader overlaps foreground and continues beyond the frame")
+    _verify(maker.get_node_or_null("PrinterHangingHarness") != null,
+        "printer mechanical harness extends beyond top edge")
     var print_pos: Vector3 = camera.position
+    _verify(print_pos.distance_to(Vector3(-2.30, 1.45, 0.28)) < 5.5
+        and camera.fov <= 55.0, "printer framed close rather than whole room")
     var print_direction: Vector3 = -camera.global_transform.basis.z
     var nozzle: Node3D = stage.get_node("PrinterScene/PrinterNozzle") as Node3D
     var nozzle_before: Vector3 = nozzle.position
@@ -61,7 +68,13 @@ func _run_checks() -> void:
     stage.call("set_section", "SMELTER")
     _verify(refinery.visible and not maker.visible and not warehouse.visible,
         "refinery-only background active")
+    _verify(refinery.get_node_or_null("RefineryForegroundManifold") != null,
+        "refinery oversized foreground manifold enters from out of frame")
+    _verify(refinery.get_node_or_null("RefineryHangingPipes") != null,
+        "refinery large pipework fills the top of the image")
     var refine_pos: Vector3 = camera.position
+    _verify(refine_pos.distance_to(Vector3(-2.75, 1.35, 0.10)) < 4.5
+        and camera.fov <= 55.0, "refinery tightly crops nearest tank")
     var refine_direction: Vector3 = -camera.global_transform.basis.z
     var vessel_a: Node3D = refinery.get_node_or_null("CrystalRotor_0") as Node3D
     var vessel_c: Node3D = refinery.get_node_or_null("CrystalRotor_2") as Node3D
@@ -78,7 +91,13 @@ func _run_checks() -> void:
     stage.call("set_section", "STORAGE")
     _verify(warehouse.visible and not refinery.visible and not maker.visible,
         "warehouse-only background active")
+    _verify(warehouse.get_node_or_null("WarehouseNearRackExtension") != null,
+        "warehouse racks continue beyond frame rather than ending inside it")
+    _verify(warehouse.get_node_or_null("WarehouseForegroundPallets") != null,
+        "warehouse loading clutter fills near-camera floor")
     var storage_pos: Vector3 = camera.position
+    _verify(storage_pos.distance_to(Vector3(0.20, 1.6, -0.60)) < 5.0
+        and camera.fov <= 55.0, "warehouse camera frames tight loaded aisle")
     var storage_direction: Vector3 = -camera.global_transform.basis.z
     var left_rack: Node3D = warehouse.get_node_or_null("RackBay_Left") as Node3D
     var right_rack: Node3D = warehouse.get_node_or_null("RackBay_Right") as Node3D
@@ -94,9 +113,9 @@ func _run_checks() -> void:
     _verify(scanner.position != scan_before, "warehouse-only scanner animation")
     _verify(print_pos != refine_pos and print_pos != storage_pos
         and refine_pos != storage_pos, "unique camera framing for all three rooms")
-    _verify(print_pos.x > 3.0 and refine_pos.x < -3.0
-        and storage_pos.y > print_pos.y + 1.0,
-        "low camera-right print, high camera-left refinery, elevated aisle camera")
+    _verify(print_pos.x > 0.5 and refine_pos.x < -0.5
+        and storage_pos.y > print_pos.y + 0.7,
+        "close low-right print, elevated left refinery, high loaded aisle")
     _verify(print_direction.distance_to(refine_direction) > 0.30
         and refine_direction.distance_to(storage_direction) > 0.30
         and print_direction.distance_to(storage_direction) > 0.22,
