@@ -338,6 +338,7 @@ const SERA_SCRIPT = preload("res://scripts/sera_rig.gd")
 const PART_STATS = preload("res://scripts/sera_part_stats.gd")
 const TARGET_MOTION_SCRIPT = preload("res://scripts/training_target_motion.gd")
 const TARGET_PARTS_SCRIPT = preload("res://scripts/target_parts.gd")
+const OUTLINE_SCRIPT = preload("res://scripts/sera_view_edges.gd")
 # Shared screen projection and directional rules for new flick actions.
 const FLICK_DIRECTION_POLICY = preload("res://scripts/flick_direction_policy.gd")
 const TrainingDefaults = preload("res://scripts/training_defaults.gd")
@@ -1113,6 +1114,11 @@ func _build_target() -> void:
     # part solids and hidden limb/body junction guards. Physical collisions
     # never affect the separate per-lock sword hit AABBs.
     target_parts.call("install_movement_colliders", target_collider)
+    # Attach to the training core and its articulated breakable parts only.
+    # Bittaran hides this marker and manages its own outlines separately.
+    var target_ink := OUTLINE_SCRIPT.new()
+    target_ink.name = "ViewEdges"
+    marker.add_child(target_ink)
 
     # Target marker stays on the ground even when its cube bobs vertically.
     _add_round_ground_shadow("TargetFloorMark", self, Vector3(target.position.x, -0.026, target.position.z))
