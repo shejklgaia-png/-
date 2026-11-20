@@ -3,6 +3,7 @@ const BaseMaterials = preload("res://scripts/sera_base_materials.gd")
 const IconAtlas = preload("res://scripts/sera_item_icons.gd")
 const PrototypeCatalog = preload("res://scripts/sera_prototype_catalog.gd")
 const LaboSkin = preload("res://scripts/sera_labo_round_skin.gd")
+const SeraFontDiag = preload("res://scripts/sera_font_diagnostics.gd")
 const LaboTouchScroll = preload("res://scripts/sera_labo_touch_scroll.gd")
 const WarehouseGrid = preload("res://scripts/sera_warehouse_grid.gd")
 const Affixes = preload("res://scripts/sera_craft_affixes.gd")
@@ -74,6 +75,10 @@ var page: String = ""
 var generator_rotor: Node3D
 var diagnostic_button: Button
 var diagnostic_readout: Label
+var font_diag_button: Button
+var font_diag_overlay: Control
+var font_diag_report: Label
+var font_diag_copy_button: Button
 var diag_section: String = ""
 var diag_stage: String = "initial"
 var diag_expected: int = 0
@@ -473,6 +478,16 @@ func attach_hud(hud: Control) -> void:
     diagnostic_button.tooltip_text = "Android版Godotの一覧表示を診断"
     diagnostic_button.pressed.connect(_diag_toggle)
     header_row.add_child(diagnostic_button)
+    font_diag_button = Button.new()
+    font_diag_button.name = "UIFontDiagnosticToggle"
+    font_diag_button.text = "FONT"
+    font_diag_button.visible = false
+    font_diag_button.custom_minimum_size = Vector2(67.0, 46.0)
+    font_diag_button.add_theme_font_override("font", LaboSkin.tracked_display_font())
+    font_diag_button.add_theme_font_size_override("font_size", 17)
+    font_diag_button.tooltip_text = "Show actual Godot font loading on this device"
+    font_diag_button.pressed.connect(_font_diag_toggle)
+    header_row.add_child(font_diag_button)
     # Three fixed, lightweight native Buttons attach to the ACTUAL viewport
     # top-left, separate from the 3D/header/content VBox. The selected tongue
     # hangs 18px lower; the unselected tongues remain short and restrained.
@@ -829,10 +844,155 @@ func _on_modal_title_input(event: InputEvent) -> void:
     if diag_header_taps >= 5:
         diag_header_taps = 0
         diagnostic_button.visible = not diagnostic_button.visible
-        if not diagnostic_button.visible:
+        font_diag_button.visible = diagnostic_button.visible
+        if diagnostic_button.visible:
+            terminal_code.visible = false
+        else:
             diagnostic_readout.visible = false
             diag_update_timer = 0.0
+            _font_diag_close()
+            _sync_section_tabs()
     get_viewport().set_input_as_handled()
+
+
+
+## Standalone font inspector; only constructed and measured on explicit request.
+## The six live preview labels make missing glyphs and identical fallback faces
+## visually apparent even if Font.has_char reports support.
+func _font_diag_create() -> void:
+    font_diag_overlay = Control.new()
+    font_diag_overlay.name = "FontDiagnosticOverlay"
+    font_diag_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+    font_diag_overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+    modal.add_child(font_diag_overlay)
+    var dim := ColorRect.new()
+    dim.name = "FontDiagnosticShade"
+    dim.color = Color(0.005, 0.014, 0.029, 0.94)
+    dim.mouse_filter = Control.MOUSE_FILTER_STOP
+    dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+    font_diag_overlay.add_child(dim)
+    var panel := PanelContainer.new()
+    panel.name = "FontDiagnosticPanel"
+    panel.anchor_left = 0.035
+    panel.anchor_right = 0.965
+    panel.anchor_top = 0.035
+    panel.anchor_bottom = 0.965
+    panel.mouse_filter = Control.MOUSE_FILTER_STOP
+    panel.add_theme_stylebox_override("panel", LaboSkin.panel_style())
+    panel.theme = LaboSkin.common_theme()
+    font_diag_overlay.add_child(panel)
+    var pad := MarginContainer.new()
+    pad.add_theme_constant_override("margin_left", 14)
+    pad.add_theme_constant_override("margin_right", 14)
+    pad.add_theme_constant_override("margin_top", 14)
+    pad.add_theme_constant_override("margin_bottom", 14)
+    panel.add_child(pad)
+    var body := VBoxContainer.new()
+    body.add_theme_constant_override("separation", 8)
+    pad.add_child(body)
+    var heading := Label.new()
+    heading.name = "FontDiagnosticHeading"
+    heading.text = "FONT DIAGNOSTIC / DEVICE"
+    heading.add_theme_font_override("font", LaboSkin.tracked_display_font())
+    heading.add_theme_font_size_override("font_size", 22)
+    heading.add_theme_color_override("font_color", Color("#a1f3f1"))
+    body.add_child(heading)
+    var buttons := HBoxContainer.new()
+    buttons.add_theme_constant_override("separation", 8)
+    body.add_child(buttons)
+    var refresh := Button.new()
+    refresh.name = "FontDiagRefresh"
+    refresh.text = "RESCAN"
+    refresh.custom_minimum_size = Vector2(0, 45)
+    refresh.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+    refresh.pressed.connect(_font_diag_refresh)
+    buttons.add_child(refresh)
+    font_diag_copy_button = Button.new()
+    font_diag_copy_button.name = "FontDiagCopy"
+    font_diag_copy_button.text = "COPY LOG"
+    font_diag_copy_button.custom_minimum_size = Vector2(0, 45)
+    font_diag_copy_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+    font_diag_copy_button.pressed.connect(_font_diag_copy)
+    buttons.add_child(font_diag_copy_button)
+    var close := Button.new()
+    close.name = "FontDiagClose"
+    close.text = "CLOSE"
+    close.custom_minimum_size = Vector2(0, 45)
+    close.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+    close.pressed.connect(_font_diag_close)
+    buttons.add_child(close)
+    var scroll := ScrollContainer.new()
+    scroll.name = "FontDiagScroll"
+    scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+    scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+    scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+    body.add_child(scroll)
+    var rows := VBoxContainer.new()
+    rows.name = "FontDiagRows"
+    rows.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+    rows.add_theme_constant_override("separation", 4)
+    scroll.add_child(rows)
+    var legend := Label.new()
+    legend.text = "LIVE SAMPLES - compare shapes, JP glyphs, weights:"
+    legend.add_theme_font_override("font", LaboSkin.data_font())
+    legend.add_theme_font_size_override("font_size", 13)
+    legend.add_theme_color_override("font_color", Color("#b4d4dd"))
+    rows.add_child(legend)
+    for entry: Dictionary in SeraFontDiag.roles():
+        var role := Label.new()
+        role.text = str(entry["id"])
+        role.add_theme_font_override("font", LaboSkin.data_font())
+        role.add_theme_font_size_override("font_size", 12)
+        role.add_theme_color_override("font_color", Color("#81c8d0"))
+        rows.add_child(role)
+        var sample := Label.new()
+        sample.name = "FontSample_" + str(entry["id"]).replace(" ", "_")
+        sample.text = "装備 精製 倉庫 日本語 漢字 / Aa 0123456789"
+        sample.add_theme_font_override("font", entry["font"] as Font)
+        sample.add_theme_font_size_override("font_size", 21)
+        sample.add_theme_color_override("font_color", Color("#ffffff"))
+        sample.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+        sample.custom_minimum_size.y = 33
+        rows.add_child(sample)
+    var separator := HSeparator.new()
+    rows.add_child(separator)
+    font_diag_report = Label.new()
+    font_diag_report.name = "FontDiagnosticReport"
+    font_diag_report.add_theme_font_override("font", LaboSkin.data_font())
+    font_diag_report.add_theme_font_size_override("font_size", 13)
+    font_diag_report.add_theme_color_override("font_color", Color("#d4e4e9"))
+    font_diag_report.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+    font_diag_report.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+    rows.add_child(font_diag_report)
+
+
+func _font_diag_toggle() -> void:
+    if font_diag_overlay == null:
+        _font_diag_create()
+    font_diag_overlay.visible = not font_diag_overlay.visible
+    if font_diag_overlay.visible:
+        _font_diag_refresh()
+
+
+func _font_diag_refresh() -> void:
+    if font_diag_report == null:
+        return
+    font_diag_report.text = SeraFontDiag.report()
+    if font_diag_copy_button != null:
+        font_diag_copy_button.text = "COPY LOG"
+    print("SERA_FONT_DIAG_BEGIN\n" + font_diag_report.text + "\nSERA_FONT_DIAG_END")
+
+
+func _font_diag_copy() -> void:
+    if font_diag_report == null:
+        return
+    DisplayServer.clipboard_set(font_diag_report.text)
+    font_diag_copy_button.text = "COPIED"
+
+
+func _font_diag_close() -> void:
+    if font_diag_overlay != null:
+        font_diag_overlay.visible = false
 
 
 func _diag_update() -> void:
@@ -1981,6 +2141,13 @@ func close_menu() -> void:
 
 func _input(event: InputEvent) -> void:
     if not is_menu_open():
+        return
+    if (font_diag_overlay != null and font_diag_overlay.visible and (
+            event.is_action_pressed("ui_cancel") or (
+            event is InputEventKey and event.pressed and not event.echo
+            and event.keycode in [KEY_BACK, KEY_ESCAPE]))):
+        _font_diag_close()
+        get_viewport().set_input_as_handled()
         return
     if event.is_action_pressed("ui_cancel") or (
             event is InputEventKey and event.pressed and not event.echo
