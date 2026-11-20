@@ -22,6 +22,14 @@ assert 'Icons._material_atlas_loaded = true' in (
     root / "tools/v527_android_icon_resilience_runtime_check.gd").read_text(encoding="utf-8")
 assert 'Icons._material_atlas_loaded = false' in (
     root / "tools/v527_android_icon_resilience_runtime_check.gd").read_text(encoding="utf-8")
+# After v530, the missing-image simulation must disable both the imported
+# source and independently-cropped material textures, not just the atlas.
+sim = (root / "tools/v527_android_icon_resilience_runtime_check.gd").read_text(encoding="utf-8")
+assert 'Icons._material_source_attempted = true' in sim
+assert 'Icons._material_source_image = null' in sim
+assert 'Icons._material_frame_cache.clear()' in sim
+assert 'Icons._material_source_attempted = false' in sim
+
 # Native card creation must not depend on icon decoding and errors. This keeps
 # blank, clipped-corner framed cards visible even without the WebP.
 assert 'func _queue_card_icon(' in ui and 'func _apply_card_icon(' in ui
