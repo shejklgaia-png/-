@@ -7,18 +7,34 @@ func _fail(msg: String) -> void:
     push_error("SERA_LABO_MINIMAL_ALLOCATION_FAIL: " + msg)
     quit(1)
 
+func _actual_row_count(grid: VBoxContainer) -> int:
+    # Craft cards and the passive preview now share one scrollable grid.
+    # Count only interactive native HBox rows, not the preview panel.
+    if grid == null:
+        return 0
+    var total: int = 0
+    for child in grid.get_children():
+        if child is HBoxContainer:
+            total += 1
+    return total
+
 func _verify(fac: Node, grid_name: String, expected: int, fillers: int) -> bool:
     var layer: VBoxContainer = fac.get("item_layer") as VBoxContainer
     var grid: VBoxContainer = layer.find_child(grid_name, true, false) as VBoxContainer
     var columns: int = 1 if grid_name == "PrototypeGrid" else 3
-    if grid == null or grid.get_child_count() != ceili(float(expected)/float(columns)):
+    if grid == null or _actual_row_count(grid) != ceili(float(expected)/float(columns)):
         _fail("grid missing or wrong row count: " + grid_name)
+        return false
+    if grid_name == "PrototypeGrid" and not grid.has_node("PrototypeBasePreview"):
+        _fail("craft preview must stay in the scrollable flow")
         return false
     var seen: int = 0
     var spare: int = 0
     var first_width: float = -1.0
     var last_width: float = -1.0
     for row in grid.get_children():
+        if grid_name == "PrototypeGrid" and row.name == "PrototypeBasePreview":
+            continue
         if not row is HBoxContainer or row.get_child_count() != columns:
             _fail("row must retain three equal-width cells: " + grid_name)
             return false
