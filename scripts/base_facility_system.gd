@@ -865,7 +865,8 @@ func _apply_card_icon(card: Button, item_id: String, equipment: bool = false) ->
     if diagnostic_button.visible:
         _diag_step("icon " + item_id + " loading")
     var texture: Texture2D = (IconAtlas.equipment_icon(item_id)
-        if equipment else IconAtlas.material_icon(item_id))
+        if equipment else (IconAtlas.material_icon_sized(item_id, MATERIAL_ICON_WIDTH)
+        if card.name.begins_with("MaterialIcon_") else IconAtlas.material_icon(item_id)))
     if texture != null:
         card.icon = texture
         card.texture_filter = (
@@ -959,7 +960,6 @@ func _new_slot(parent: Control, key: String, icon: Texture2D,
     # Android native Button can otherwise draw full 72px material artwork
     # beyond the text/layout rect, producing tiny adjacent-row fragments.
     card.expand_icon = true
-    card.icon_max_width = MATERIAL_ICON_WIDTH if material_choice else 62
     card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
     card.mouse_filter = Control.MOUSE_FILTER_STOP
     card.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -1056,33 +1056,30 @@ func _show_inventory(section: String = "materials") -> void:
         grid.name = "WarehouseMaterials"
         grid.configure(entries, 3, "materials")
     else:
-        # Reuse the craft slot interaction instead of Android OptionButton.
-        # Seven compact native Buttons are horizontally swipeable on phones.
-        var scroll := ScrollContainer.new()
-        scroll.name = "WarehouseHangerScroll"
-        scroll.custom_minimum_size.y = 57.0
-        scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-        scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
-        scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-        modal_actions.add_child(scroll)
+        # Seven fixed tabs. The entire hanger stays visible without a
+        # horizontal ScrollContainer, even when Android has a narrow viewport.
         var hanger := HBoxContainer.new()
         hanger.name = "WarehouseHangerTabs"
-        hanger.add_theme_constant_override("separation", 6)
-        scroll.add_child(hanger)
+        hanger.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+        hanger.custom_minimum_size.y = 47.0
+        hanger.add_theme_constant_override("separation", 2)
+        modal_actions.add_child(hanger)
         var hanger_group := ButtonGroup.new()
         for slot_index in range(SeraSave.EQUIPMENT_SLOTS.size()):
             var slot: String = str(SeraSave.EQUIPMENT_SLOTS[slot_index])
             var tab := Button.new()
             tab.name = "HangerSlot_" + slot
-            tab.text = _warehouse_slot_name(slot)
-            tab.custom_minimum_size = Vector2(87, 48)
+            tab.text = _slot_tab_caption(slot)
+            tab.tooltip_text = _warehouse_slot_name(slot)
+            tab.custom_minimum_size = Vector2(0, 44)
+            tab.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+            tab.add_theme_font_size_override("font_size", 12)
+            tab.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
             tab.toggle_mode = true
             tab.button_group = hanger_group
             tab.button_pressed = warehouse_slot == slot
             tab.pressed.connect(_select_warehouse_slot.bind(slot_index))
             hanger.add_child(tab)
-            if warehouse_slot == slot:
-                scroll.call_deferred("ensure_control_visible", tab)
         grid.name = "WarehouseEquipment"
         grid.entry_pressed.connect(_on_warehouse_entry_pressed)
         var junk_button := Button.new()
@@ -1096,6 +1093,20 @@ func _show_inventory(section: String = "materials") -> void:
         _show_warehouse_equipment(grid)
     _configure_page_scroll(93 if section == "materials" else 176)
     _sync_section_tabs()
+
+func _slot_tab_caption(slot: String) -> String:
+    # Two Japanese glyphs on tablets; single glyph on narrow phones.
+    var tight: bool = get_viewport().get_visible_rect().size.x < 520.0
+    match slot:
+        "head": return "頭" if tight else "頭部"
+        "torso": return "胴" if tight else "胴体"
+        "arms": return "腕" if tight else "腕部"
+        "legs": return "脚" if tight else "脚部"
+        "booster": return "推" if tight else "推進"
+        "weapon_r": return "右" if tight else "右手"
+        "weapon_l": return "左" if tight else "左手"
+    return slot
+
 
 func _warehouse_slot_name(slot: String) -> String:
     match slot:
@@ -1229,24 +1240,27 @@ func _show_prototype_catalog() -> void:
             modal_body.text += "\nセーブの空きがありません。NEXUSで既存データを読み込んでください。"
     if not prototype_notice.is_empty():
         modal_body.text += "\n" + prototype_notice
-    var tab_scroll := ScrollContainer.new()
-    tab_scroll.name = "CraftSlotScroll"
-    tab_scroll.custom_minimum_size.y = 57
-    tab_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
-    tab_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-    modal_actions.add_child(tab_scroll)
+    # Identical fixed-width seven-tab layout for craft and warehouse.
+    # Short localized labels preserve tap targets without sideways scrolling.
     var slot_tabs := HBoxContainer.new()
-    slot_tabs.add_theme_constant_override("separation", 6)
-    tab_scroll.add_child(slot_tabs)
+    slot_tabs.name = "CraftSlotTabs"
+    slot_tabs.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+    slot_tabs.custom_minimum_size.y = 47.0
+    slot_tabs.add_theme_constant_override("separation", 2)
+    modal_actions.add_child(slot_tabs)
     var group := ButtonGroup.new()
     for slot in SeraSave.EQUIPMENT_SLOTS:
         var b := Button.new()
         b.name = "CraftSlot_" + str(slot)
-        b.text = _warehouse_slot_name(str(slot))
+        b.text = _slot_tab_caption(str(slot))
+        b.tooltip_text = _warehouse_slot_name(str(slot))
         b.toggle_mode = true
         b.button_group = group
         b.button_pressed = craft_slot == str(slot)
-        b.custom_minimum_size = Vector2(86, 48)
+        b.custom_minimum_size = Vector2(0, 44)
+        b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+        b.add_theme_font_size_override("font_size", 12)
+        b.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
         b.pressed.connect(_select_craft_slot.bind(str(slot)))
         slot_tabs.add_child(b)
     var grid := _new_grid("PrototypeGrid", 1)
@@ -1438,13 +1452,12 @@ func _render_conversion() -> void:
         modal_actions.add_child(row)
         var bar := Button.new()
         bar.name = "ConvertRank_" + str(rank)
-        bar.icon = IconAtlas.material_icon(source_id)
+        bar.icon = IconAtlas.material_icon_sized(source_id, 48)
         bar.icon_alignment = HORIZONTAL_ALIGNMENT_LEFT
         bar.vertical_icon_alignment = VERTICAL_ALIGNMENT_CENTER
         bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
         bar.custom_minimum_size.y = 66
         bar.expand_icon = true
-        bar.icon_max_width = 48
         bar.clip_contents = true
         bar.alignment = HORIZONTAL_ALIGNMENT_CENTER
         bar.add_theme_font_size_override("font_size", 14)
@@ -1458,7 +1471,7 @@ func _render_conversion() -> void:
         # Second icon is a visual child only; native Button remains full tap area.
         var output_icon := TextureRect.new()
         output_icon.name = "ConvertOutputIcon_" + str(rank)
-        output_icon.texture = IconAtlas.material_icon(target_id)
+        output_icon.texture = IconAtlas.material_icon_sized(target_id, 44)
         output_icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
         output_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
         output_icon.clip_contents = true
