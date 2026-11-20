@@ -2,6 +2,7 @@ extends Node3D
 const BaseMaterials = preload("res://scripts/sera_base_materials.gd")
 const IconAtlas = preload("res://scripts/sera_item_icons.gd")
 const PrototypeCatalog = preload("res://scripts/sera_prototype_catalog.gd")
+const ChamferSlot = preload("res://scripts/sera_chamfer_slot.gd")
 ## Base field architecture: LABO is one building; resources, power and construction
 ## are independent physical machines. NEXUS remains in the parent scene.
 const FACILITY_SPECS = [
@@ -28,7 +29,10 @@ var modal_panel: PanelContainer
 var modal_title: Label
 var modal_body: Label
 var modal_actions: VBoxContainer
-var actions_scroll: ScrollContainer
+var actions_area: PanelContainer
+var warehouse_section: String = "materials"
+var owned_blueprint: String = ""
+var owned_page: int = 0
 var section_tabs: HBoxContainer
 var active_key: String = ""
 var selected_prototype: String = ""
@@ -351,17 +355,19 @@ func attach_hud(hud: Control) -> void:
     modal_body.add_theme_font_size_override("font_size", 16)
     modal_body.add_theme_color_override("font_color", Color("#dce9ee"))
     body.add_child(modal_body)
-    # Scrollable actions prevent menus with four material families from
-    # overflowing a compact Android portrait viewport.
-    actions_scroll = ScrollContainer.new()
-    actions_scroll.name = "FacilityActionsScroll"
-    actions_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-    actions_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-    body.add_child(actions_scroll)
+    # A regular container is intentional: Android screenshots showed that
+    # ScrollContainer displayed no item children, despite passing headless tests.
+    # All baseline lists are paginated/gridded to fit this fixed content area.
+    actions_area = PanelContainer.new()
+    actions_area.name = "FacilityActionsArea"
+    actions_area.size_flags_vertical = Control.SIZE_EXPAND_FILL
+    actions_area.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
+    body.add_child(actions_area)
     modal_actions = VBoxContainer.new()
     modal_actions.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-    modal_actions.add_theme_constant_override("separation", 12)
-    actions_scroll.add_child(modal_actions)
+    modal_actions.size_flags_vertical = Control.SIZE_EXPAND_FILL
+    modal_actions.add_theme_constant_override("separation", 8)
+    actions_area.add_child(modal_actions)
     var close_button := Button.new()
     close_button.name = "CloseFacility"
     close_button.text = "戻る"
@@ -397,9 +403,7 @@ func is_menu_open() -> bool:
     return modal != null and modal.visible
 
 func _clear_actions() -> void:
-    # New pages always start at the top, even if the previous one was scrolled.
-    if actions_scroll != null:
-        actions_scroll.scroll_vertical = 0
+    # No ScrollContainer: rebuild the actual grid on each tab transition.
     for child in modal_actions.get_children():
         modal_actions.remove_child(child)
         child.queue_free()
@@ -522,57 +526,183 @@ func _create_trial_profile() -> void:
     _show_prototype_catalog()
 
 
+func _new_grid(grid_name: String, columns: int = 3) -> GridContainer:
+    var grid := GridContainer.new()
+    grid.name = grid_name
+    grid.columns = columns
+    grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+    grid.add_theme_constant_override("h_separation", 7)
+    grid.add_theme_constant_override("v_separation", 7)
+    modal_actions.add_child(grid)
+    return grid
+
+
+func _new_slot(parent: Control, key: String, icon: Texture2D,
+        title: String, info: String, action: Callable = Callable(),
+        action_name: String = "") -> Control:
+    var card := ChamferSlot.new()
+    card.name = key
+    card.custom_minimum_size = Vector2(108, 100)
+    card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+    parent.add_child(card)
+    var pad := MarginContainer.new()
+    pad.name = "SlotPadding"
+    for side in ["left", "right", "top", "bottom"]:
+        pad.add_theme_constant_override("margin_" + side, 6)
+    card.add_child(pad)
+    var content := VBoxContainer.new()
+    content.name = "SlotContent"
+    content.add_theme_constant_override("separation", 2)
+    pad.add_child(content)
+    var image := TextureRect.new()
+    image.name = "Icon"
+    image.texture = icon
+    image.custom_minimum_size = Vector2(43, 43)
+    image.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+    image.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+    image.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    content.add_child(image)
+    if action.is_valid():
+        var choose := Button.new()
+        choose.name = action_name if not action_name.is_empty() else "Select"
+        choose.text = title
+        choose.custom_minimum_size.y = 28
+        choose.add_theme_font_size_override("font_size", 13)
+        choose.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+        choose.pressed.connect(action)
+        content.add_child(choose)
+    else:
+        var heading := Label.new()
+        heading.name = "SlotTitle"
+        heading.text = title
+        heading.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+        heading.add_theme_font_size_override("font_size", 13)
+        heading.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+        content.add_child(heading)
+    var quantity := Label.new()
+    quantity.name = "SlotQuantity"
+    quantity.text = info
+    quantity.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    quantity.add_theme_font_size_override("font_size", 12)
+    quantity.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+    content.add_child(quantity)
+    return card
+
+
 func _add_item_tile(icon: Texture2D, title: String,
         key: String, parent: VBoxContainer = null) -> void:
-    # The 19 real matte icons all resolve from one atlas; no placeholder art.
     if parent == null:
         parent = modal_actions
     var row := HBoxContainer.new()
     row.name = key
-    row.custom_minimum_size.y = 60.0
-    row.add_theme_constant_override("separation", 12)
+    row.custom_minimum_size.y = 66.0
     parent.add_child(row)
     var art := TextureRect.new()
     art.name = "Icon"
     art.texture = icon
     art.custom_minimum_size = Vector2(58, 58)
     art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-    art.mouse_filter = Control.MOUSE_FILTER_IGNORE
     row.add_child(art)
-    var text := Label.new()
-    text.name = "Caption"
-    text.text = title
-    text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-    text.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-    text.add_theme_font_size_override("font_size", 16)
-    text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-    row.add_child(text)
+    var caption := Label.new()
+    caption.name = "Caption"
+    caption.text = title
+    caption.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+    caption.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+    caption.add_theme_font_size_override("font_size", 16)
+    row.add_child(caption)
 
-func _show_inventory() -> void:
+
+func _show_inventory(section: String = "materials") -> void:
+    warehouse_section = section
     page = "inventory"
     _clear_actions()
     modal_title.text = "資材保管庫"
-    modal_body.text = "素材12種類と製作した装備の一覧です。下にスクロールできます。"
-    var inventory: Dictionary = SeraSave.get_material_inventory()
-    for family in BaseMaterials.FAMILY_IDS:
-        for tier in BaseMaterials.TIERS:
-            var id: String = str(family) + "_" + str(tier)
-            _add_item_tile(IconAtlas.material_icon(id),
-                "%s  %s個" % [BaseMaterials.display_name(id), str(inventory[id])],
-                "MaterialIcon_" + id)
-    var items: Array = SeraSave.get_owned_prototypes()
-    var heading := Label.new()
-    heading.name = "CraftedStockHeader"
-    heading.text = "製作済み装備  %d個" % items.size()
-    heading.add_theme_font_size_override("font_size", 18)
-    modal_actions.add_child(heading)
-    for item in items:
-        var bp: String = str(item["blueprint"])
-        _add_item_tile(IconAtlas.equipment_icon(bp),
-            PrototypeCatalog.display_instance(str(item["uid"])),
-            "WarehouseItem_" + str(item["uid"]))
-    if SeraSave.active_slot == 0:
-        modal_body.text += "\n※先にNEXUSでセーブデータを作成してください。"
+    modal_body.text = "未所持も枠付きで表示します。"
+    var switcher := HBoxContainer.new()
+    switcher.name = "WarehouseCategoryTabs"
+    modal_actions.add_child(switcher)
+    for choice in [
+        {"key": "materials", "name": "WarehouseMaterialsTab", "caption": "素材12種"},
+        {"key": "equipment", "name": "WarehouseEquipmentTab", "caption": "装備7種"}
+    ]:
+        var button := Button.new()
+        button.name = str(choice["name"])
+        button.text = str(choice["caption"])
+        button.toggle_mode = true
+        button.button_pressed = section == str(choice["key"])
+        button.custom_minimum_size.y = 47
+        button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+        button.pressed.connect(_show_inventory.bind(str(choice["key"])))
+        switcher.add_child(button)
+    if section == "materials":
+        var grid := _new_grid("WarehouseMaterials")
+        var inventory: Dictionary = SeraSave.get_material_inventory()
+        for family in BaseMaterials.FAMILY_IDS:
+            for tier in BaseMaterials.TIERS:
+                var id: String = str(family) + "_" + str(tier)
+                _new_slot(grid, "MaterialIcon_" + id,
+                    IconAtlas.material_icon(id), BaseMaterials.display_name(id),
+                    "所持 %d" % int(inventory[id]))
+    else:
+        _show_warehouse_equipment()
+
+
+func _show_warehouse_equipment() -> void:
+    var grid := _new_grid("WarehouseEquipment")
+    for bp in PrototypeCatalog.ORDER:
+        var id: String = str(bp)
+        var spec: Dictionary = PrototypeCatalog.spec(id)
+        var owned: Array = []
+        for item in SeraSave.get_owned_prototypes(str(spec["slot"])):
+            if str(item["blueprint"]) == id:
+                owned.append(item)
+        var qty: String = "未所持 0" if owned.is_empty() else "所持 %d" % owned.size()
+        var card: Control = _new_slot(grid, "WarehouseBlueprint_" + id,
+            IconAtlas.equipment_icon(id), str(spec["name"]), qty,
+            _show_owned_items.bind(id, 0), "ShowOwned_" + id)
+        if not owned.is_empty():
+            var uid := Label.new()
+            uid.text = str(owned[owned.size() - 1]["uid"])
+            uid.name = "LastCraftedUID"
+            uid.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+            uid.add_theme_font_size_override("font_size", 11)
+            (card.find_child("SlotContent", true, false) as VBoxContainer).add_child(uid)
+
+
+func _show_owned_items(blueprint: String, item_page: int = 0) -> void:
+    if not PrototypeCatalog.valid(blueprint):
+        return
+    owned_blueprint = blueprint
+    owned_page = maxi(item_page, 0)
+    page = "warehouse_owned"
+    _clear_actions()
+    var spec: Dictionary = PrototypeCatalog.spec(blueprint)
+    modal_title.text = str(spec["name"]) + "の所持品"
+    var found: Array = []
+    for item in SeraSave.get_owned_prototypes(str(spec["slot"])):
+        if str(item["blueprint"]) == blueprint:
+            found.append(item)
+    modal_body.text = "個体IDで区別します。所持 %d個" % found.size()
+    var grid := _new_grid("OwnedEquipmentGrid")
+    var start: int = owned_page * 9
+    for i in range(start, mini(start + 9, found.size())):
+        var uid: String = str(found[i]["uid"])
+        _new_slot(grid, "WarehouseItem_" + uid,
+            IconAtlas.equipment_icon(blueprint), str(spec["name"]), uid)
+    if found.is_empty():
+        _new_slot(grid, "WarehouseItemEmpty",
+            IconAtlas.equipment_icon(blueprint), str(spec["name"]), "未所持 0")
+    if start > 0:
+        var previous := Button.new()
+        previous.text = "前の9件"
+        previous.pressed.connect(_show_owned_items.bind(blueprint, owned_page - 1))
+        modal_actions.add_child(previous)
+    if start + 9 < found.size():
+        var next := Button.new()
+        next.text = "次の9件"
+        next.pressed.connect(_show_owned_items.bind(blueprint, owned_page + 1))
+        modal_actions.add_child(next)
+
 
 func _show_prototype_catalog() -> void:
     page = "prototypes"
@@ -608,38 +738,18 @@ func _show_prototype_catalog() -> void:
         trial.custom_minimum_size.y = 62.0
         trial.pressed.connect(_claim_trial_materials.bind(true))
         modal_actions.add_child(trial)
+    var grid := _new_grid("PrototypeGrid")
     for bp in PrototypeCatalog.ORDER:
-        var entry: Dictionary = PrototypeCatalog.spec(str(bp))
-        var row := HBoxContainer.new()
-        row.name = "PrototypeIcon_" + str(bp)
-        row.custom_minimum_size.y = 76.0
-        modal_actions.add_child(row)
-        var icon := TextureRect.new()
-        icon.name = "Icon"
-        icon.texture = IconAtlas.equipment_icon(str(bp))
-        icon.custom_minimum_size = Vector2(67, 67)
-        icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-        icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-        row.add_child(icon)
-        var button := Button.new()
-        button.name = "Choose_" + str(bp)
-        button.text = str(entry["name"])
-        button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-        button.custom_minimum_size.y = 66.0
-        button.add_theme_font_size_override("font_size", 17)
-        button.pressed.connect(_select_prototype.bind(str(bp)))
-        row.add_child(button)
+        var id: String = str(bp)
+        var entry: Dictionary = PrototypeCatalog.spec(id)
         var owned_count: int = 0
         for item in SeraSave.get_owned_prototypes(str(entry["slot"])):
-            if str(item["blueprint"]) == str(bp):
+            if str(item["blueprint"]) == id:
                 owned_count += 1
-        var count_label := Label.new()
-        count_label.name = "PrototypeOwnedCount_" + str(bp)
-        count_label.text = "所持 %d" % owned_count
-        count_label.custom_minimum_size.x = 53.0
-        count_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-        count_label.add_theme_font_size_override("font_size", 13)
-        row.add_child(count_label)
+        _new_slot(grid, "PrototypeIcon_" + id,
+            IconAtlas.equipment_icon(id), str(entry["name"]),
+            "未作成 0" if owned_count == 0 else "所持 %d" % owned_count,
+            _select_prototype.bind(id), "Choose_" + id)
 
 func _select_prototype(blueprint: String) -> void:
     if not PrototypeCatalog.valid(blueprint):
@@ -696,29 +806,23 @@ func _render_family_page() -> void:
     modal_body.text = (
         "素材を選んでランクアップしてください。"
         if conversion_mode == 1 else "素材を選んでランクダウンしてください。")
+    var inventory: Dictionary = SeraSave.get_material_inventory()
+    var grid := _new_grid("MaterialFamilyGrid")
     for family in BaseMaterials.FAMILY_IDS:
-        var row := HBoxContainer.new()
-        row.name = "FamilyChoice_" + str(family)
-        row.custom_minimum_size.y = 82.0
-        row.add_theme_constant_override("separation", 2)
-        modal_actions.add_child(row)
         for tier in BaseMaterials.TIERS:
             var id: String = str(family) + "_" + str(tier)
-            var icon := TextureRect.new()
-            icon.name = "FamilyTier_" + id
-            icon.texture = IconAtlas.material_icon(id)
-            icon.custom_minimum_size = Vector2(49, 62)
-            icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-            icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-            row.add_child(icon)
-        var open_button := Button.new()
-        open_button.name = "Open_" + str(family)
-        open_button.text = str(BaseMaterials.FAMILY_NAMES[family])
-        open_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-        open_button.custom_minimum_size.y = 68.0
-        open_button.add_theme_font_size_override("font_size", 18)
-        open_button.pressed.connect(_select_conversion_family.bind(str(family)))
-        row.add_child(open_button)
+            var button_name: String = "Open_" + str(family) if str(tier) == "low" else "Open_" + id
+            var card: Control = _new_slot(grid, "MaterialIcon_" + id,
+                IconAtlas.material_icon(id), BaseMaterials.display_name(id),
+                "所持 %d" % int(inventory[id]),
+                _select_conversion_family.bind(str(family)), button_name)
+            if str(tier) == "low":
+                var caption := Label.new()
+                caption.name = "FamilyChoice_" + str(family)
+                caption.text = str(BaseMaterials.FAMILY_NAMES[family])
+                caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+                caption.add_theme_font_size_override("font_size", 11)
+                (card.find_child("SlotContent", true, false) as VBoxContainer).add_child(caption)
 
 func _select_conversion_family(family: String) -> void:
     if not BaseMaterials.FAMILY_IDS.has(family) or page != "families":
@@ -868,6 +972,8 @@ func navigate_back() -> void:
             _show_prototype_catalog()
         "prototypes":
             open_facility(active_key)
+        "warehouse_owned":
+            _show_inventory("equipment")
         _:
             close_menu()
 
