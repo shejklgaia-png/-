@@ -34,14 +34,20 @@ func _run() -> void:
         if not _real_icon(IconAtlas.equipment_icon(str(id))):
             _fail("empty craftable image: " + str(id))
             return
+    # Material icons are independent 72x72 textures: using a single AtlasTexture
+    # caused Android to show a fragment of the next sprite-sheet row.
     var used_regions: Dictionary = {}
     for material_id in Materials.all_ids():
-        var material_icon_atlas: AtlasTexture = IconAtlas.material_icon(str(material_id)) as AtlasTexture
-        var material_key: String = str(material_icon_atlas.atlas.get_instance_id()) + ":" + str(material_icon_atlas.region) if material_icon_atlas != null else ""
-        if material_icon_atlas == null or used_regions.has(material_key):
-            _fail("duplicate or missing material atlas region: " + str(material_id))
+        var material_icon: Texture2D = IconAtlas.material_icon(str(material_id))
+        if material_icon == null or material_icon is AtlasTexture or (
+                material_icon.get_width() != 72 or material_icon.get_height() != 72):
+            _fail("material icon not independently cropped: " + str(material_id))
             return
-        used_regions[material_key] = true
+        var key: String = str(material_icon.get_instance_id())
+        if used_regions.has(key):
+            _fail("shared material sprite: " + str(material_id))
+            return
+        used_regions[key] = true
     for blueprint in Catalog.PROTOTYPES.keys():
         var equipment_icon_atlas: AtlasTexture = IconAtlas.equipment_icon(str(blueprint)) as AtlasTexture
         var equipment_key: String = str(equipment_icon_atlas.atlas.get_instance_id()) + ":" + str(equipment_icon_atlas.region) if equipment_icon_atlas != null else ""
