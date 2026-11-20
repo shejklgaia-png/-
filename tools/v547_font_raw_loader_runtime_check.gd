@@ -36,12 +36,16 @@ func _run() -> void:
     var stats: FontVariation = LaboFontSkin.stats_font()
     if jp.base_font == null or not jp.has_char(0x65E5) or (
             not jp.has_char(0x6F22)) or (
-            title.base_font != jp.base_font) or (
+            title.base_font == jp.base_font) or (
             not nav.has_char(0x41)) or (
             not mono.has_char(0x41)):
         _fail("UI font families did not bind to raw assets")
         return
-    for path: String in [LaboFontSkin.JP_FONT_PATH,
+    # The legacy Noto resource remains packaged but is not used by UI roles.
+    for path: String in [LaboFontSkin.JP_UI_FONT_PATH,
+            LaboFontSkin.JP_TITLE_FONT_PATH,
+            LaboFontSkin.JP_CONTROL_FONT_PATH,
+            LaboFontSkin.JP_STATS_FONT_PATH,
             LaboFontSkin.NAV_FONT_PATH, LaboFontSkin.DATA_FONT_PATH]:
         var route: String = LaboFontSkin.font_load_status(path)
         if not route.begins_with("RAW_BYTES"):
@@ -49,10 +53,10 @@ func _run() -> void:
             return
     var reportScript = load("res://scripts/sera_font_diagnostics.gd")
     var report: String = reportScript.report()
-    if report.count("JAPANESE FONT: PASS") != 4 or (
-            report.count("embedded: ") != 6) or (
-            report.count("load route: RAW_BYTES") != 6):
-        _fail("diagnostic does not expose all six embedded font records")
+    if report.count("JAPANESE FONT: PASS") != 5 or (
+            report.count("embedded: ") != 7) or (
+            report.count("load route: RAW_BYTES") != 7):
+        _fail("diagnostic does not expose all seven embedded font records")
         return
     print("SERA_V547_FONT_RAW_LOADER_RUNTIME_PASS")
     quit(0)
