@@ -1,3 +1,11 @@
+## 2026-11-20 — APKとGodot Androidエディターのテクスチャ設定を統一
+- 実機報告：Androidエディターではカードが空白だが、独立APKではカードが正常に表示された。APKの再インストールを避けてGitSync+Godotのワークフローを維持する。
+- 発見：APK用GitHub Actionsが実行時だけETC2/ASTCテクスチャインポート設定をproject.godotに追記していた。GitSync元ではその設定がなかった。これが唯一の原因かは未確認。
+- CI先行：AndroidエディターとAPKの設定一致を要求するPythonテストを新設しCIに登録。
+- 修正：project.godotに textures/vram_compression/import_etc2_astc=true を追加。APKワークフロー側の設定書き換えを除去し、リポジトリに設定があることを検査。
+- 復旧：Godotを閉じて再起動・再インポートし、必要な場合のみ .godot/imported を削除。user:// のセーブは保持する。
+- 本体バージョン、セーブ形式、カード、素材/装備、戦闘は変更しない。Linux CIではAndroid実機の成功を保証しない。
+
 ## 2026-11-20 — SERA本体のDebug APK配布パイプライン
 - **依頼**：「Apkください」：ゲーム本体をAndroidスマートフォンに直接インストールできるAPKとして提供。既存のSERA Loader APKではありません。
 - **事前検査**：`tools/sera_ci_manifest.txt`、model-policyワークフロー、Loader用ビルドワークフロー、ゲームの`project.godot`、リリースREADMEルールを確認。ゲームプレイの仕様値・バージョン表記は変更しない。
