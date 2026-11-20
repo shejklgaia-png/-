@@ -112,10 +112,10 @@ func _run() -> void:
                 (card.find_child("ItemArt", true, false) as TextureRect).texture == null):
             _fail("material icon missing: " + str(material_id))
             return
+        var art: TextureRect = card.find_child("ItemArt", true, false) as TextureRect
         if card.custom_minimum_size.y > 92.0 or (
-                card.custom_minimum_size.y < 78.0) or (
-                (card.find_child("ItemArt", true, false) as TextureRect).size.x > 57.0 or (
-                card.vertical_icon_alignment != VERTICAL_ALIGNMENT_CENTER):
+                card.custom_minimum_size.y < 78.0) or art.size.x > 57.0 or (
+                art.stretch_mode != TextureRect.STRETCH_KEEP_ASPECT_CENTERED):
             _fail("material icon is not bounded/centered in shorter card")
             return
     print("SERA_V532_LABO_ENTRY_ICONS_RUNTIME_PASS")
