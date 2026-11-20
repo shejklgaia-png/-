@@ -4,6 +4,14 @@ extends RefCounted
 ## Rows 0-2: 12 material icons (family -> low,mid,high).
 ## Rows 3-4: H01,T01,A01,L01 / B01,WR01,WL01 / final empty cell.
 const ATLAS_PATH: String = "res://assets/ui/sera_matte_icon_atlas.webp"
+# The original atlas retains all 7 equipment portraits unchanged.
+# 12 material sprites live in a separate transparent 3-column x 4-row sheet.
+const MATERIAL_ATLAS_PATH: String = "res://assets/ui/sera_pixel_material_atlas.webp"
+const MATERIAL_COLUMNS: int = 3
+const MATERIAL_ROWS: int = 4
+static var _material_atlas_loaded: bool = false
+static var _material_texture_cache: Texture2D = null
+static var _material_method: String = "not loaded"
 # In Android Godot Editor a Git-synced source WebP may exist while the editor's
 # transient .godot/imported cache does not. Do not preload the imported texture:
 # it couples script parsing and every card to successful editor import.
@@ -11,7 +19,8 @@ static var _atlas_loaded: bool = false
 static var _atlas_texture_cache: Texture2D = null
 static var _atlas_method: String = "not loaded"
 
-static func _decode_webp_source(path: String) -> Texture2D:
+static func _decode_webp_source(path: String, expected_width: int = 288,
+        expected_height: int = 360) -> Texture2D:
     if not FileAccess.file_exists(path):
         return null
     var bytes: PackedByteArray = FileAccess.get_file_as_bytes(path)
@@ -20,7 +29,7 @@ static func _decode_webp_source(path: String) -> Texture2D:
     var source_image := Image.new()
     if source_image.load_webp_from_buffer(bytes) != OK:
         return null
-    if source_image.get_width() != 288 or source_image.get_height() != 360:
+    if source_image.get_width() != expected_width or source_image.get_height() != expected_height:
         return null
     return ImageTexture.create_from_image(source_image)
 
@@ -40,10 +49,28 @@ static func _atlas_texture() -> Texture2D:
         _atlas_method = "source-webp" if _atlas_texture_cache != null else "unavailable"
     return _atlas_texture_cache
 
+static func _material_atlas_texture() -> Texture2D:
+    if _material_atlas_loaded:
+        return _material_texture_cache
+    _material_atlas_loaded = true
+    # Keep Android's imported-resource fast path and also support editor-side
+    # GitSync immediately after pulling new files (import cache may be stale).
+    if ResourceLoader.exists(MATERIAL_ATLAS_PATH):
+        var loaded: Resource = ResourceLoader.load(MATERIAL_ATLAS_PATH, "Texture2D")
+        if loaded is Texture2D and loaded.get_width() == 216 and loaded.get_height() == 288:
+            _material_texture_cache = loaded as Texture2D
+            _material_method = "imported"
+    if _material_texture_cache == null:
+        _material_texture_cache = _decode_webp_source(MATERIAL_ATLAS_PATH, 216, 288)
+        _material_method = "source-webp" if _material_texture_cache != null else "unavailable"
+    return _material_texture_cache
+
 static func atlas_status() -> String:
     _atlas_texture()
-    return "%s, source=%s" % [
-        _atlas_method, "YES" if FileAccess.file_exists(ATLAS_PATH) else "NO"]
+    _material_atlas_texture()
+    return "equipment=%s (%s), materials=%s (%s)" % [
+        _atlas_method, "YES" if FileAccess.file_exists(ATLAS_PATH) else "NO",
+        _material_method, "YES" if FileAccess.file_exists(MATERIAL_ATLAS_PATH) else "NO"]
 
 const CELL: int = 72
 const COLUMNS: int = 4
@@ -72,10 +99,25 @@ static func _frame(index: int) -> Texture2D:
     icon.filter_clip = true
     return icon
 
+static func _material_frame(index: int) -> Texture2D:
+    if index < 0 or index >= MATERIAL_COLUMNS * MATERIAL_ROWS:
+        return null
+    var source: Texture2D = _material_atlas_texture()
+    if source == null:
+        return null
+    var icon := AtlasTexture.new()
+    icon.atlas = source
+    icon.region = Rect2(
+        float(index % MATERIAL_COLUMNS) * CELL,
+        float(index / MATERIAL_COLUMNS) * CELL,
+        CELL, CELL)
+    icon.filter_clip = true
+    return icon
+
 static func material_icon(material_id: String) -> Texture2D:
     if not MATERIAL_INDICES.has(material_id):
         return null
-    return _frame(int(MATERIAL_INDICES[material_id]))
+    return _material_frame(int(MATERIAL_INDICES[material_id]))
 
 static func equipment_icon(blueprint_id: String) -> Texture2D:
     if not EQUIPMENT_INDICES.has(blueprint_id):
