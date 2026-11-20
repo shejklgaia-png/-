@@ -512,7 +512,10 @@ func _build_converter() -> void:
     trays.name = "RefineryFeedstockTrays"
     trays.position = Vector3(-0.50, 0, 1.66)
     converter_group.add_child(trays)
-    # The reference has FOUR material-filled open trays in the foreground.
+    # Four open trays need four palette entries; only three processing
+    # vessels exist, so keep their original colors and add a neutral feedstock.
+    var tray_colors: Array[Color] = [
+        colors[0], colors[1], Color("#a6b5c3"), Color("#94a884")]
     for i in range(4):
         var x: float = -2.65 + float(i)*1.41
         _block(trays, "IndustrialMaterialBin",
@@ -534,7 +537,7 @@ func _build_converter() -> void:
                     -0.24+float(row)*0.40))
         _instances(trays, "MaterialSampleBatch_%d" % i,
             sample_positions, Vector3(0.27, 0.23, 0.27),
-            colors[i] if i != 2 else Color("#a6b5c3"))
+            tray_colors[i])
         _block(trays, "MaterialLabelPlate", Vector3(x, 0.25, 0.435),
             Vector3(0.44, 0.075, 0.018), Color("#b49a63"))
     # Separate control consoles on the left edge and between the first tanks.
