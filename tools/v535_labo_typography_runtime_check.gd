@@ -93,6 +93,7 @@ func _run() -> void:
         return
     fac.call("_switch_section", "warehouse")
     await process_frame
+    fac.call("_show_inventory", "materials")
     var list: ScrollContainer = (fac.get("item_layer") as Control).find_child(
         "WarehouseMaterials", true, false) as ScrollContainer
     if list == null or list.get("pool").is_empty():
