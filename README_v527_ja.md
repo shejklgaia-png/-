@@ -7,7 +7,7 @@ Android Godot 4.7.2 エディターから実行したときに、LABO装備製�
 
 ## v527修正
 - `sera_item_icons.gd`: アトラス画像の `preload` を廃止し、通常のインポートテクスチャを遅延取得。Godot Android エディターで `ResourceLoader.exists` が偽でも、GitSyncで同期した `.webp` ソースファイルを `FileAccess` から直接読み、`Image.load_webp_from_buffer` で復号します。キャッシュはセッション内で共通化します。
-- `base_facility_system.gd`: 装備7枠・素材12枠・倉庫12枠のネイティブButtonを、アイコン取得より前に作ります。アイコンは作成後にdeferredで適用。画像を取得できなくても文字・欠けた四隅の枠・操作を保ちます。タブの排他性、素材在庫・製作品・保存処理は変更しません。
+- `base_facility_system.gd`: 装備7枠・素材12枠・倉庫12枠のネイティブButtonを、アイコン取得より前に作ります。アイコンは作成後にdeferredで適用。画像を取得できなくても文字・操作を保ち、四隅欠けの枠もカード生成後に適用します。タブの排他性、素材在庫・製作品・保存処理は変更しません。
 - 診断欄に `icon source: imported / source-webp / unavailable` とソースWebPの存在を追加。従来の `atlas: MISSING` はインポート済リソースの有無のため、`source-webp` が表示されれば代替経路で読み込めています。
 
 ## 追加回帰テスト
