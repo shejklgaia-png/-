@@ -2,7 +2,7 @@ extends SceneTree
 ## Cards must be native visible Godot buttons, not nested custom PanelContainers.
 const Materials = preload("res://scripts/sera_base_materials.gd")
 const Catalog = preload("res://scripts/sera_prototype_catalog.gd")
-const ChamferSkinResource = preload("res://scripts/sera_chamfer_skin.gd")
+const RoundSkinResource = preload("res://scripts/sera_labo_round_skin.gd")
 func _initialize() -> void:
     call_deferred("_run")
 func _fail(reason: String) -> void:
@@ -31,8 +31,8 @@ func _verify_grid(cards: Control, name: String, ids: Array, prefix: String, clic
         if card.get_global_rect().size.x < 100.0 or card.get_global_rect().size.y < 90.0:
             _fail("native button size collapsed: " + card.name)
             return false
-        if card.get_theme_stylebox("normal") is not StyleBoxTexture:
-            _fail("the normal button style is not a chamfered StyleBoxTexture")
+        if card.get_theme_stylebox("normal") is not StyleBoxFlat:
+            _fail("the normal button style is not a rounded blue-grey StyleBoxFlat")
             return false
         if not card.text.contains("\n") or not card.text.contains("0"):
             _fail("native card must render title/count without child labels")
@@ -53,12 +53,9 @@ func _tap_card(card: Button) -> void:
     root.push_input(up, true)
     await process_frame
 func _run() -> void:
-    var style: StyleBoxTexture = ChamferSkinResource.style(Color("#203747"), Color("#59c6da"))
-    var pixels: Image = (style.texture as Texture2D).get_image()
-    if pixels == null or pixels.get_pixel(0,0).a > 0.05 or (
-            pixels.get_pixel(24,0).a < 0.9) or (
-            pixels.get_pixel(24,24).a < 0.9):
-        _fail("the StyleBoxTexture lacks transparent four cut corners")
+    var style: StyleBoxFlat = RoundSkinResource.style("card")
+    if style.corner_radius_top_left < 8 or style.corner_radius_bottom_right < 8 or style.bg_color.b <= style.bg_color.r:
+        _fail("shared rounded blue-grey surface has wrong shape or hue")
         return
     var hub: Node3D = load("res://scenes/base_exploration.tscn").instantiate()
     root.add_child(hub)
@@ -97,5 +94,5 @@ func _run() -> void:
     if str(fac.get("page")) != "warehouse_owned":
         _fail("native warehouse card did not open instance list")
         return
-    print("SERA_V522_NATIVE_CARDS_RUNTIME_PASS: native icons/text, chamfered skins, four sections and real touches")
+    print("SERA_V522_NATIVE_CARDS_RUNTIME_PASS: native icons/text, rounded blue-grey skins, four sections and real touches")
     quit(0)
