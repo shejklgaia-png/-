@@ -55,7 +55,8 @@ func _check_flow(fac: Node3D, page_name: String, first_card: String, expected: i
         return false
     var rect: Rect2 = card.get_global_rect()
     var label_rect: Rect2 = body_label.get_global_rect()
-    if rect.size.x < 80.0 or rect.size.y < 80.0 or rect.position.y <= label_rect.end.y:
+    if rect.size.x < 80.0 or rect.size.y < 80.0 or (
+            body_label.visible and rect.position.y <= label_rect.end.y):
         _fail("item rect collapsed or overlaps body label")
         return false
     var scroll: Control = grid.get_parent() as Control
@@ -120,6 +121,7 @@ func _run() -> void:
         _fail("warehouse section tab is not exclusive")
         return
     fac.call("_show_inventory", "materials")
+    await process_frame
     if not _check_virtual(fac, "WarehouseMaterials", 12, 2):
         return
     var actions: VBoxContainer = fac.get("modal_actions") as VBoxContainer
@@ -178,6 +180,7 @@ func _run() -> void:
     fac.call("_switch_section", "warehouse")
     await process_frame
     fac.call("_show_inventory", "materials")
+    await process_frame
     if not _check_virtual(fac, "WarehouseMaterials", 12, 2):
         return
     store.set("active_slot", original_slot)
