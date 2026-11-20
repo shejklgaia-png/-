@@ -24,7 +24,11 @@ assert 'card.mouse_filter = Control.MOUSE_FILTER_STOP' in ui
 assert 'card.text = title + "\\n" + info' in ui
 assert 'ScrollContainer.new()' in ui, "LABO must have scrollable native layout"
 assert 'func _process(delta: float)' in stage and 'move_toward(' in stage
-assert '"Crate"' in stage and '"PrinterNozzle"' in stage
+# The shared CRATE model is instantiated, rather than being assembled as a
+# literal scene node named "Crate" inside this script.
+assert 'CrateModel.create_model()' in stage and 'const CrateModel = preload(' in stage
+assert 'crate_head = crate.get_node("HeadPivot")' in stage
+assert '"PrinterNozzle"' in stage
 assert '"TerminalScreen"' in stage and '"PrintedPart"' in stage
 assert 'NavigationAgent3D.new()' not in stage
 assert 'labo_hero_stage.gd' not in (root/"models/manifest.json").read_text(encoding="utf-8")
