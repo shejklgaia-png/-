@@ -52,10 +52,9 @@ jobs:
           contents=re.sub(r'^version/code=\d+$',f"version/code={version}",contents,flags=re.M)
           contents=re.sub(r'^version/name="[^"]*"$',f'version/name="{version}"',contents,flags=re.M)
           cfg.write_text(contents,encoding="utf-8")
-          # Android exports require this, but do not alter the tracked project.
+          # Editor and APK MUST use the same tracked import configuration.
           if 'textures/vram_compression/import_etc2_astc=true' not in s:
-              s=s.replace('[rendering]','[rendering]\n\ntextures/vram_compression/import_etc2_astc=true',1)
-              p.write_text(s,encoding="utf-8")
+              raise SystemExit("Enable Android ETC2/ASTC imports in tracked project.godot")
           with open("/tmp/sera-apk-version","w") as target: target.write(version)
           print("Exporting SERA v"+version+" (Android ARM64)")
           PY
