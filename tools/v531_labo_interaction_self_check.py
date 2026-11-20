@@ -8,7 +8,7 @@ stats = (p/"scripts/sera_labo_stats.gd").read_text(encoding="utf-8")
 stage = (p/"scripts/labo_hero_stage.gd").read_text(encoding="utf-8")
 grid = (p/"scripts/sera_warehouse_grid.gd").read_text(encoding="utf-8")
 manifest = (p/"tools/sera_ci_manifest.txt").read_text(encoding="utf-8")
-for anchor in ('actions_scroll = ScrollContainer.new()',
+for anchor in ('actions_scroll = LaboTouchScroll.new()',
                'scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO',
                '_new_grid("PrototypeGrid", 1)',
                'var slot_tabs := HBoxContainer.new()',

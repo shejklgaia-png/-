@@ -22,7 +22,7 @@ assert 'set_corner_radius_all(' in skin
 assert 'LaboSkin.card_style("normal")' in ui
 assert 'card.mouse_filter = Control.MOUSE_FILTER_STOP' in ui
 assert 'card.text = title + "\\n" + info' in ui
-assert 'ScrollContainer.new()' in ui, "LABO must have scrollable native layout"
+assert 'LaboTouchScroll.new()' in ui, "LABO must have scrollable native layout"
 assert 'func _process(delta: float)' in stage and 'move_toward(' in stage
 # The shared CRATE model is instantiated, rather than being assembled as a
 # literal scene node named "Crate" inside this script.

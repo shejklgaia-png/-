@@ -10,7 +10,7 @@ assert 'BaseQuickActions' not in hub and 'func _switch_section(' in facility
 for marker in ("FacilitySectionTabs", "TabCraft", "TabMaterials", "TabWarehouse",
                "func _switch_section(", "func _sync_section_tabs("):
     assert marker in facility, "Missing persistent navigation: " + marker
-assert '"FacilityActionsArea"' in facility and 'ScrollContainer.new()' in facility
+assert '"FacilityActionsArea"' in facility and 'LaboTouchScroll.new()' in facility
 assert 'button.toggle_mode = true' in facility
 runtime = (p / "tools/v518_menu_visibility_runtime_check.gd").read_text(encoding="utf-8")
 assert 'InputEventScreenTouch.new()' in runtime

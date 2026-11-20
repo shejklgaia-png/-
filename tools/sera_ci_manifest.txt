@@ -39,6 +39,8 @@ py tools/v532_labo_entry_icons_self_check.py
 gd tools/v532_labo_entry_icons_runtime_check.gd
 py tools/v531_labo_interaction_self_check.py
 gd tools/v531_labo_interaction_runtime_check.gd
+py tools/v537_labo_touch_scroll_self_check.py
+gd tools/v537_labo_touch_scroll_runtime_check.gd
 py tools/v529_warehouse_affixes_self_check.py
 gd tools/v529_warehouse_affixes_runtime_check.gd
 gd tools/v524_layout_tabs_runtime_check.gd

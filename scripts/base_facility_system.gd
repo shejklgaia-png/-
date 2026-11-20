@@ -3,6 +3,7 @@ const BaseMaterials = preload("res://scripts/sera_base_materials.gd")
 const IconAtlas = preload("res://scripts/sera_item_icons.gd")
 const PrototypeCatalog = preload("res://scripts/sera_prototype_catalog.gd")
 const LaboSkin = preload("res://scripts/sera_labo_round_skin.gd")
+const LaboTouchScroll = preload("res://scripts/sera_labo_touch_scroll.gd")
 const WarehouseGrid = preload("res://scripts/sera_warehouse_grid.gd")
 const Affixes = preload("res://scripts/sera_craft_affixes.gd")
 const LaboStats = preload("res://scripts/sera_labo_stats.gd")
@@ -458,7 +459,7 @@ func attach_hud(hud: Control) -> void:
     modal_actions.size_flags_horizontal = Control.SIZE_EXPAND_FILL
     modal_actions.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
     modal_actions.add_theme_constant_override("separation", 9)
-    actions_scroll = ScrollContainer.new()
+    actions_scroll = LaboTouchScroll.new()
     actions_scroll.name = "FacilityActionScroll"
     actions_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
     actions_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -552,10 +553,20 @@ func attach_hud(hud: Control) -> void:
     accept_button.pressed.connect(_accept_confirmation)
     confirm_buttons.add_child(accept_button)
 
+func _set_labo_scroll_input_enabled(enabled: bool) -> void:
+    if actions_scroll != null and actions_scroll.has_method("set_touch_scroll_enabled"):
+        actions_scroll.call("set_touch_scroll_enabled", enabled)
+    if item_layer != null:
+        for child in item_layer.get_children():
+            if child.has_method("set_touch_scroll_enabled"):
+                child.call("set_touch_scroll_enabled", enabled)
+
+
 func _request_confirmation(title: String, detail: String, action: Callable) -> void:
     if confirmation_overlay == null or not action.is_valid():
         return
     pending_confirmation = action
+    _set_labo_scroll_input_enabled(false)
     confirmation_title.text = title
     confirmation_text.text = detail
     confirmation_overlay.visible = true
@@ -563,6 +574,7 @@ func _request_confirmation(title: String, detail: String, action: Callable) -> v
 
 func _dismiss_confirmation() -> void:
     pending_confirmation = Callable()
+    _set_labo_scroll_input_enabled(true)
     if confirmation_overlay != null:
         confirmation_overlay.visible = false
 
@@ -774,12 +786,22 @@ func _clear_actions() -> void:
             item_layer.remove_child(child)
             child.queue_free()
 
+func _invoke_scroll_action(action: Callable, scroll: ScrollContainer) -> void:
+    # A screen drag may release on the same Button; never treat it as a tap.
+    if scroll != null and scroll.has_method("touch_drag_consumed") and (
+            bool(scroll.call("touch_drag_consumed"))):
+        return
+    if action.is_valid():
+        action.call()
+
+
 func _add_action(label: String, detail: String) -> void:
     var button := Button.new()
     button.text = label
     button.custom_minimum_size.y = 88.0
     button.add_theme_font_size_override("font_size", 22)
-    button.pressed.connect(_show_detail.bind(detail))
+    button.pressed.connect(_invoke_scroll_action.bind(_show_detail.bind(detail),
+        actions_scroll))
     modal_actions.add_child(button)
 
 func _switch_section(target: String) -> void:
@@ -841,7 +863,8 @@ func open_facility(key: String) -> void:
             stock_button.text = "素材一覧を表示"
             _queue_card_icon(stock_button, "scrap_low")
             stock_button.custom_minimum_size.y = 78.0
-            stock_button.pressed.connect(open_facility.bind("STORAGE"))
+            stock_button.pressed.connect(_invoke_scroll_action.bind(
+                open_facility.bind("STORAGE"), actions_scroll))
             modal_actions.add_child(stock_button)
             _add_action("回収設備の情報", "将来の実際の素材回収機能です。素材は所持データから確認できます。")
         "SMELTER":
@@ -941,7 +964,7 @@ func _new_grid(grid_name: String, columns: int = 3) -> VBoxContainer:
     grid.set_meta("card_columns", columns)
     grid.set_meta("card_count", 0)
     if grid_name in ["PrototypeGrid", "MaterialFamilyGrid"]:
-        var scroll := ScrollContainer.new()
+        var scroll := LaboTouchScroll.new()
         scroll.name = grid_name + "Scroll"
         scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
         scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -1046,7 +1069,8 @@ func _new_slot(parent: Control, key: String, icon: Texture2D,
     call_deferred("_apply_card_skin", card)
     card.disabled = not action.is_valid()
     if action.is_valid():
-        card.pressed.connect(action)
+        card.pressed.connect(_invoke_scroll_action.bind(
+            action, parent.get_parent() as ScrollContainer))
         card.set_meta("action_id", action_name)
     if diagnostic_button.visible:
         _diag_step("slot " + key + " complete")
@@ -1104,7 +1128,8 @@ func _show_inventory(section: String = "materials") -> void:
         button.add_theme_font_size_override("font_size", 22)
         button.add_theme_font_override("font", LaboSkin.title_font())
         button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-        button.pressed.connect(_show_inventory.bind(str(choice["key"])))
+        button.pressed.connect(_invoke_scroll_action.bind(
+            _show_inventory.bind(str(choice["key"])), actions_scroll))
         switcher.add_child(button)
     var grid := WarehouseGrid.new()
     item_layer.add_child(grid)
@@ -1144,7 +1169,8 @@ func _show_inventory(section: String = "materials") -> void:
             tab.toggle_mode = true
             tab.button_group = hanger_group
             tab.button_pressed = warehouse_slot == slot
-            tab.pressed.connect(_select_warehouse_slot.bind(slot_index))
+            tab.pressed.connect(_invoke_scroll_action.bind(
+                _select_warehouse_slot.bind(slot_index), actions_scroll))
             hanger.add_child(tab)
         grid.name = "WarehouseEquipment"
         grid.entry_pressed.connect(_on_warehouse_entry_pressed)
@@ -1155,7 +1181,8 @@ func _show_inventory(section: String = "materials") -> void:
         junk_button.custom_minimum_size.y = 66
         junk_button.add_theme_font_size_override("font_size", 20)
         junk_button.disabled = junk_count == 0
-        junk_button.pressed.connect(_confirm_bulk_junk_deletion)
+        junk_button.pressed.connect(_invoke_scroll_action.bind(
+            _confirm_bulk_junk_deletion, actions_scroll))
         modal_actions.add_child(junk_button)
         _show_warehouse_equipment(grid)
     _configure_page_scroll(80 if section == "materials" else 210)
@@ -1249,16 +1276,18 @@ func _show_warehouse_item_detail(uid: String) -> void:
         favorite.text = "★ お気に入り解除" if bool(item.get("favorite", false)) else "☆ お気に入りにする"
         favorite.custom_minimum_size.y = 70
         favorite.add_theme_font_size_override("font_size", 21)
-        favorite.pressed.connect(_mark_warehouse_item.bind(uid, "favorite",
-            not bool(item.get("favorite", false))))
+        favorite.pressed.connect(_invoke_scroll_action.bind(
+            _mark_warehouse_item.bind(uid, "favorite",
+                not bool(item.get("favorite", false))), actions_scroll))
         modal_actions.add_child(favorite)
         var junk := Button.new()
         junk.name = "WarehouseJunkToggle"
         junk.text = "不用品指定を解除" if bool(item.get("junk", false)) else "不用品に指定"
         junk.custom_minimum_size.y = 70
         junk.add_theme_font_size_override("font_size", 21)
-        junk.pressed.connect(_mark_warehouse_item.bind(uid, "junk",
-            not bool(item.get("junk", false))))
+        junk.pressed.connect(_invoke_scroll_action.bind(
+            _mark_warehouse_item.bind(uid, "junk",
+                not bool(item.get("junk", false))), actions_scroll))
         modal_actions.add_child(junk)
         _configure_page_scroll(0, true)
         return
@@ -1303,7 +1332,8 @@ func _show_prototype_catalog() -> void:
             start.text = "セーブを新規作成して製作を始める"
             start.custom_minimum_size.y = 78.0
             start.add_theme_font_size_override("font_size", 20)
-            start.pressed.connect(_create_trial_profile)
+            start.pressed.connect(_invoke_scroll_action.bind(
+                _create_trial_profile, actions_scroll))
             modal_actions.add_child(start)
         else:
             modal_body.text += "\nセーブの空きがありません。NEXUSで既存データを読み込んでください。"
@@ -1331,7 +1361,8 @@ func _show_prototype_catalog() -> void:
         b.add_theme_font_size_override("font_size", _slot_font_size())
         b.add_theme_font_override("font", LaboSkin.title_font())
         b.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-        b.pressed.connect(_select_craft_slot.bind(str(slot)))
+        b.pressed.connect(_invoke_scroll_action.bind(
+            _select_craft_slot.bind(str(slot)), actions_scroll))
         slot_tabs.add_child(b)
     var grid := _new_grid("PrototypeGrid", 1)
     var first_id: String = ""
@@ -1356,7 +1387,7 @@ func _show_prototype_catalog() -> void:
         preview.custom_minimum_size.y = 137.0
         preview.size_flags_horizontal = Control.SIZE_EXPAND_FILL
         preview.add_theme_stylebox_override("panel", LaboSkin.card_style("normal"))
-        item_layer.add_child(preview)
+        grid.add_child(preview)
         var preview_padding := MarginContainer.new()
         preview_padding.add_theme_constant_override("margin_left", 12)
         preview_padding.add_theme_constant_override("margin_right", 12)
@@ -1445,7 +1476,8 @@ func _render_prototype_detail() -> void:
     make.custom_minimum_size.y = 88.0
     make.add_theme_font_size_override("font_size", 21)
     make.disabled = SeraSave.active_slot == 0
-    make.pressed.connect(_confirm_selected_prototype)
+    make.pressed.connect(_invoke_scroll_action.bind(
+        _confirm_selected_prototype, actions_scroll))
     modal_actions.add_child(make)
     _add_item_tile(IconAtlas.equipment_icon(selected_prototype),
         str(spec["name"]),
@@ -1605,7 +1637,8 @@ func _render_conversion() -> void:
         (bar.get_node("CardContent/Row") as HBoxContainer).add_child(output_icon)
         bar.disabled = not SeraSave.can_convert_material(
             conversion_family, rank, conversion_mode, conversion_batches)
-        bar.pressed.connect(_confirm_conversion.bind(rank))
+        bar.pressed.connect(_invoke_scroll_action.bind(
+            _confirm_conversion.bind(rank), actions_scroll))
         row.add_child(bar)
         call_deferred("_apply_card_skin", bar)
         var amount := SpinBox.new()

@@ -1,4 +1,4 @@
-extends ScrollContainer
+extends "res://scripts/sera_labo_touch_scroll.gd"
 ## V529 native-Button virtualized warehouse: O(visible rows) GUI nodes, not O(999).
 ## A reusable textured StyleBox gives the clipped four-corner rectangle,
 ## including blank cells, without custom PanelContainer rendering on Android.
@@ -134,6 +134,8 @@ func _make_card() -> Button:
     return card
 
 func _card_pressed(card: Button) -> void:
+    if touch_drag_consumed():
+        return
     if card.disabled:
         return
     var entry: Dictionary = card.get_meta("entry", {})
