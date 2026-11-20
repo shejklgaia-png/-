@@ -120,6 +120,8 @@ func _run() -> void:
         _fail("missing base facilities")
         return
     facilities.call("open_facility", "STORAGE")
+    await process_frame
+    await process_frame
     var actions: VBoxContainer = facilities.get("modal_actions") as VBoxContainer
     var warehouse: ScrollContainer = (facilities.get("item_layer") as Control).find_child(
         "WarehouseMaterials", true, false) as ScrollContainer
