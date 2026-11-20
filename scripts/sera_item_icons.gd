@@ -1,8 +1,8 @@
 extends RefCounted
-## Exact cropped 2026-11-20 user-approved matte artwork (not procedural fallback).
-## Single WebP sprite atlas: 4 columns x 5 rows, each image cell 72px square.
-## Rows 0-2: 12 material icons (family -> low,mid,high).
-## Rows 3-4: H01,T01,A01,L01 / B01,WR01,WL01 / final empty cell.
+## Two shared WebP sprite atlases (no procedural icon generation):
+## - Pixel materials: 3 columns x 4 rows, 12 alpha-backed sprites, 72px per cell.
+## - Legacy matte equipment: 4 columns x 5 rows, 7 equipment slots unchanged.
+## Material IDs and blueprint IDs are stable across visual changes.
 const ATLAS_PATH: String = "res://assets/ui/sera_matte_icon_atlas.webp"
 # The original atlas retains all 7 equipment portraits unchanged.
 # 12 material sprites live in a separate transparent 3-column x 4-row sheet.
