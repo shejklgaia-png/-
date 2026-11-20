@@ -13,7 +13,7 @@ for token in ("static func ui_font(", "static func title_font(",
               "Noto Sans CJK JP", "Roboto Mono", "theme.default_font =",
               "theme.default_font_size ="):
     assert token in skin,token
-for token in ('body.move_child(section_tabs,', 'SectionHeaderAccent',
+for token in ('modal.add_child(section_tabs)', 'SectionHeaderAccent',
               'func _slot_font_size(', 'func _nav_font_size(',
               'LaboSkin.title_font()', 'LaboSkin.data_font()',
               '"PrototypeBasePreview"', '"PrototypeBaseArt"',
@@ -23,7 +23,7 @@ for token in ('body.move_child(section_tabs,', 'SectionHeaderAccent',
               'LABO_CRAFT_CARD_HEIGHT: float = 108.0',
               'MATERIAL_CARD_HEIGHT: float = 108.0'):
     assert token in fac,token
-assert 'header_row.get_index()' in fac
+assert 'section_tabs.position = Vector2.ZERO' in fac
 assert 'body.get_child_index(' not in fac, "Node.get_index() is required by Godot 4.7"
 assert 'font_size = 19' in mat
 assert 'font_size = 21' in equip
