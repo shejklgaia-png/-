@@ -78,6 +78,7 @@ func _run() -> void:
     if not _size_ok(actions.find_child("WarehouseMaterialsTab", true, false)
             as Button, 57.0, "warehouse materials tab"):
         return
+    fac.call("_show_inventory", "materials")
     var list: ScrollContainer = (fac.get("item_layer") as Control).find_child(
         "WarehouseMaterials", true, false) as ScrollContainer
     if list == null or list.get("pool").is_empty():
