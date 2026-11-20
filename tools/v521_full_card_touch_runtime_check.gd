@@ -61,6 +61,8 @@ func _run() -> void:
         return
     fac.call("_switch_section", "warehouse")
     await process_frame
+    fac.call("_show_inventory", "materials")
+    await process_frame
     var read_only: Button = (fac.get("item_layer") as Control).find_child("MaterialIcon_scrap_low", true, false) as Button
     if read_only == null or not read_only.disabled:
         _fail("warehouse materials must remain read-only")
