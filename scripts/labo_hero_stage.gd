@@ -573,7 +573,7 @@ func _build_warehouse() -> void:
         bay.name = "RackBay_Left" if side < 0 else "RackBay_Right"
         bay.position = (Vector3(-3.55, 0, -1.25) if side < 0
             else Vector3(3.65, 0, -1.55))
-        bay.rotation.y = -0.10 if side < 0 else 0.12
+        bay.rotation.y = 0.16 if side < 0 else -0.12
         warehouse_group.add_child(bay)
         _block(bay, "StorageBackplate", Vector3(0, 2.32, -0.46),
             Vector3(2.72, 4.62, 0.17), Color("#2b4454"))
@@ -680,32 +680,35 @@ func set_section(section: String) -> void:
     crate.scale = Vector3.ONE
     match current_section:
         "LABO":
-            # Reference Scene A: large printer occupies left, CRATE mid-right,
-            # touch terminal right edge. Gentle low three-quarter viewpoint.
+            # Scene A: low camera from front RIGHT (24 degree yaw) makes the
+            # oversized left printer gantry visibly three-dimensional,
+            # while preserving CRATE and terminal on the right.
             crate.position = Vector3(1.96, 0.0, 0.55)
             crate.rotation.y = 2.26
             work_state = "print_to_terminal"
-            hero_camera.position = Vector3(0.10, 1.75, 5.85)
-            hero_camera.fov = 49.0
-            hero_camera.look_at(Vector3(-0.30, 1.80, -0.70), Vector3.UP)
+            hero_camera.position = Vector3(2.65, 1.35, 5.10)
+            hero_camera.fov = 48.0
+            hero_camera.look_at(Vector3(0.20, 1.90, -0.70), Vector3.UP)
         "SMELTER", "RECYCLER":
-            # Reference Scene B: amber / cyan / violet refinery left-to-right,
-            # all four input bins in the foreground, CRATE on right.
+            # Scene B: front LEFT 21 degree viewpoint and raised camera.
+            # Orange vessel appears nearer than cyan and violet; four
+            # front bins remain visible and CRATE stays to the right.
             crate.position = Vector3(3.00, 0.0, 0.45)
             crate.rotation.y = 2.34
             work_state = "refinery_audit"
-            hero_camera.position = Vector3(-0.15, 1.75, 6.00)
-            hero_camera.fov = 50.0
-            hero_camera.look_at(Vector3(-0.10, 1.85, -0.95), Vector3.UP)
+            hero_camera.position = Vector3(-2.65, 2.90, 5.55)
+            hero_camera.fov = 54.0
+            hero_camera.look_at(Vector3(-0.10, 1.65, -1.00), Vector3.UP)
         "STORAGE":
-            # Reference Scene C: eye-level storage aisle with tall rack banks,
-            # center-left CRATE, inventory monitor beyond to the right.
+            # Scene C: from front RIGHT, moderately elevated (23 degree yaw).
+            # The near right shelf shows its depth while both label banks
+            # and the central monitoring terminal remain in frame.
             crate.position = Vector3(0.05, 0.0, 0.85)
             crate.rotation.y = -2.87
             work_state = "storage_scan"
-            hero_camera.position = Vector3(0.10, 1.75, 5.75)
-            hero_camera.fov = 51.0
-            hero_camera.look_at(Vector3(0.00, 1.85, -1.05), Vector3.UP)
+            hero_camera.position = Vector3(2.65, 2.35, 5.35)
+            hero_camera.fov = 55.0
+            hero_camera.look_at(Vector3(0.00, 1.75, -1.00), Vector3.UP)
 
 func _move_to(goal: Vector3, delta: float) -> bool:
     var planar := Vector3(goal.x, crate.position.y, goal.z)
