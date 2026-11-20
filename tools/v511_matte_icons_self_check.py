@@ -32,7 +32,8 @@ assert "func uid_for(" in catalog and "func valid_uid(" in catalog
 assert "PrototypeCatalog.uid_for(" in save and "PrototypeCatalog.valid_uid(" in save
 assert "func equip_prototype(" in save
 assert "func _show_prototype_catalog(" in ui and "func _show_inventory(" in ui
-assert "MaterialIcon_" in ui and "PrototypeIcon_" in ui and "ConvertInputIcon" in ui
+assert "MaterialIcon_" in ui and "PrototypeIcon_" in ui
+assert "ConvertRank_" in ui and "ConvertOutputIcon_" in ui, "source Button icon and output preview must exist"
 assert 'card.text = title + "\\n" + info' in ui and "PrototypeIcon_" in ui and "WarehouseItem_" in (ui + (ROOT/"scripts/sera_warehouse_grid.gd").read_text(encoding="utf-8"))
 assert "SourceRank" in ui and "TargetRank" in ui
 assert "PrototypeCatalog.display_instance(" in ui
