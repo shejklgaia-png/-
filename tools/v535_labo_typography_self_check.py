@@ -23,8 +23,8 @@ for token in ('body.move_child(section_tabs,', 'SectionHeaderAccent',
               'LABO_CRAFT_CARD_HEIGHT: float = 108.0',
               'MATERIAL_CARD_HEIGHT: float = 108.0'):
     assert token in fac,token
-assert 'OS.has_environment("GITHUB_ACTIONS")' in skin
-assert 'ThemeDB.fallback_font' in skin
+assert 'header_row.get_index()' in fac
+assert 'body.get_child_index(' not in fac, "Node.get_index() is required by Godot 4.7"
 assert 'font_size = 19' in mat
 assert 'font_size = 21' in equip
 assert 'LaboSkin.ui_font()' in wh and 'LaboSkin.data_font()' in wh
