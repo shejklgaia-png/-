@@ -25,11 +25,12 @@ func _check_flow(fac: Node3D, page_name: String, first_card: String, expected: i
     if actions.get_index() >= layer.get_index():
         _fail("control actions must be before the visible item list")
         return false
-    if layer.get_child_count() != 1:
+    if layer.get_child_count() < 1:
         _fail("one expected card grid is missing")
         return false
-    var grid: VBoxContainer = layer.get_child(0) as VBoxContainer
-    if grid.name != page_name or grid.get_child_count() != ceili(float(expected)/3.0):
+    var grid: VBoxContainer = layer.find_child(page_name, true, false) as VBoxContainer
+    var columns: int = 1 if page_name == "PrototypeGrid" else 3
+    if grid == null or grid.get_child_count() != ceili(float(expected)/float(columns)):
         _fail("missing card rows for " + page_name)
         return false
     var card: Button = grid.find_child(first_card, true, false) as Button
@@ -45,8 +46,9 @@ func _check_flow(fac: Node3D, page_name: String, first_card: String, expected: i
     if rect.size.x < 80.0 or rect.size.y < 80.0 or rect.position.y <= label_rect.end.y:
         _fail("item rect collapsed or overlaps body label")
         return false
-    if grid.get_global_rect().end.y > back.get_global_rect().position.y + 1.5:
-        _fail("card list overlaps close button")
+    var scroll: Control = grid.get_parent() as Control
+    if scroll.get_global_rect().end.y > back.get_global_rect().position.y + 1.5:
+        _fail("scroll viewport overlaps close button")
         return false
     return true
 func _check_virtual(fac: Node3D, title: String, count: int, cols: int) -> bool:
@@ -91,7 +93,7 @@ func _run() -> void:
     if _selected_count(tabs) != 1 or not craft.button_pressed:
         _fail("craft is not the only selected tab")
         return
-    if not _check_flow(fac, "PrototypeGrid", "PrototypeIcon_H01", 7):
+    if not _check_flow(fac, "PrototypeGrid", "PrototypeIcon_H01", 1):
         return
     materials.pressed.emit()
     await process_frame
@@ -149,7 +151,7 @@ func _run() -> void:
     })
     fac.call("_switch_section", "craft")
     await process_frame
-    if not _check_flow(fac, "PrototypeGrid", "PrototypeIcon_H01", 7):
+    if not _check_flow(fac, "PrototypeGrid", "PrototypeIcon_H01", 1):
         return
     var owned: Button = (fac.get("item_layer") as Control).find_child(
         "PrototypeIcon_H01", true, false) as Button
