@@ -17,7 +17,8 @@ func _check_grid(cards: Control, area: Control, name: String, ids: Array, prefix
         return false
     for id in shown:
         var card: Button = grid.find_child(prefix + str(id), true, false) as Button
-        if card == null or not card.is_visible_in_tree() or card.icon == null:
+        if card == null or not card.is_visible_in_tree() or (
+                (card.find_child("ItemArt", true, false) as TextureRect).texture == null):
             _fail("missing native card and real icon: " + prefix + str(id))
             return false
         var rect: Rect2 = card.get_global_rect()
@@ -25,7 +26,7 @@ func _check_grid(cards: Control, area: Control, name: String, ids: Array, prefix
                 id == shown[0] and not area.get_global_rect().has_point(rect.get_center())):
             _fail("card is clipped or not laid out: " + card.name)
             return false
-        if not card.get_theme_stylebox("normal") is StyleBoxFlat:
+        if not card.get_theme_stylebox("normal") is StyleBoxTexture:
             _fail("rounded blue-grey style missing: " + card.name)
             return false
     var frame: StyleBoxFlat = RoundSkinResource.style("card")
