@@ -1,6 +1,6 @@
 shader_type spatial;
 // RENDER_POLICY: DEPTH_TESTED_EMISSIVE; depth_test=on
-// Non-emissive opaque ink; the tag declares depth-tested overlay behavior.
+// Depth-tested 100%-opacity ink in the post-opaque transparent pass.
 // Never change the underlying character palette/material or disable depth.
 render_mode unshaded, cull_disabled, depth_draw_never;
 
@@ -59,4 +59,5 @@ void fragment() {
         discard;
     }
     ALBEDO = ink_color.rgb;
+    ALPHA = 1.0;
 }
