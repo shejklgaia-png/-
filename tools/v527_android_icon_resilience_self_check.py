@@ -17,6 +17,11 @@ assert 'load_webp_from_buffer(' in icons
 assert 'ResourceLoader.exists(' in icons
 assert 'static func atlas_status(' in icons
 assert 'static func material_icon(' in icons and 'static func equipment_icon(' in icons
+assert 'MATERIAL_ATLAS_PATH' in icons and '_material_atlas_loaded' in icons
+assert 'Icons._material_atlas_loaded = true' in (
+    root / "tools/v527_android_icon_resilience_runtime_check.gd").read_text(encoding="utf-8")
+assert 'Icons._material_atlas_loaded = false' in (
+    root / "tools/v527_android_icon_resilience_runtime_check.gd").read_text(encoding="utf-8")
 # Native card creation must not depend on icon decoding and errors. This keeps
 # blank, clipped-corner framed cards visible even without the WebP.
 assert 'func _queue_card_icon(' in ui and 'func _apply_card_icon(' in ui
