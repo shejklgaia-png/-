@@ -10,12 +10,12 @@ func _fail(message: String) -> void:
     quit(1)
 
 func _card_count(layer: Control) -> int:
-    var count := 0
-    for grid in layer.get_children():
-        for row in grid.get_children():
-            for card in row.get_children():
-                if card is Button:
-                    count += 1
+    # Native ScrollContainer wraps the real row grid. Count actual Buttons
+    # recursively rather than assuming row grid is the first direct child.
+    var count: int = 0
+    for child in layer.find_children("*", "Button", true, false):
+        if child is Button:
+            count += 1
     return count
 
 func _expect(fac: Node, target: String, count: int, first_name: String) -> bool:
@@ -93,7 +93,7 @@ func _run() -> void:
     await process_frame
     await process_frame
     var fac: Node = hub.get_node("BaseFacilities")
-    if not await _expect(fac, "craft", 7, "PrototypeIcon_H01"):
+    if not await _expect(fac, "craft", 1, "PrototypeIcon_H01"):
         return
     if not await _expect(fac, "materials", 12, "MaterialIcon_scrap_low"):
         return
@@ -109,5 +109,5 @@ func _run() -> void:
     if Icons.material_icon("scrap_low") == null or Icons.equipment_icon("H01") == null:
         _fail("icon lookup failed after recovering normal atlas loading")
         return
-    print("SERA_V527_ANDROID_ICON_RESILIENCE_RUNTIME_PASS: dual raw WebP sources; 7+12+12 text/frame slots without imports")
+    print("SERA_V527_ANDROID_ICON_RESILIENCE_RUNTIME_PASS: dual raw WebP sources; 1 selected-slot craft + 12 + 12 native/virtual slots without imports")
     quit(0)
