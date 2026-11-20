@@ -638,6 +638,22 @@ func _create_trial_profile() -> void:
     _show_prototype_catalog()
 
 
+func _apply_card_skin(card: Button) -> void:
+    if not is_instance_valid(card) or card.is_queued_for_deletion() or (
+            not card.is_inside_tree()):
+        return
+    _diag_step("skin " + card.name + " normal")
+    card.add_theme_stylebox_override("normal", ChamferSkin.style(
+        Color("#203747"), Color("#59c6da")))
+    card.add_theme_stylebox_override("hover", ChamferSkin.style(
+        Color("#2b586a"), Color("#91f0ff")))
+    card.add_theme_stylebox_override("pressed", ChamferSkin.style(
+        Color("#145e74"), Color("#b8f6ff")))
+    card.add_theme_stylebox_override("disabled", ChamferSkin.style(
+        Color("#203747"), Color("#59c6da")))
+    _diag_step("skin " + card.name + " ready")
+
+
 func _queue_card_icon(card: Button, item_id: String, equipment: bool = false) -> void:
     # Cards and their hit areas exist before any import-dependent icon load.
     # A failed editor texture import cannot abort the entire 7/12-card loop.
@@ -728,15 +744,9 @@ func _new_slot(parent: Control, key: String, icon: Texture2D,
     row.move_child(card, col)
     parent.set_meta("card_count", index + 1)
     diag_created += 1
-    _diag_step("skin " + key + " normal")
-    card.add_theme_stylebox_override("normal", ChamferSkin.style(
-        Color("#203747"), Color("#59c6da")))
-    card.add_theme_stylebox_override("hover", ChamferSkin.style(
-        Color("#2b586a"), Color("#91f0ff")))
-    card.add_theme_stylebox_override("pressed", ChamferSkin.style(
-        Color("#145e74"), Color("#b8f6ff")))
-    card.add_theme_stylebox_override("disabled", ChamferSkin.style(
-        Color("#203747"), Color("#59c6da")))
+    # Deferring procedural ImageTexture/StyleBox creation also guarantees
+    # that a renderer failure cannot interrupt the remaining item list.
+    call_deferred("_apply_card_skin", card)
     card.disabled = not action.is_valid()
     if action.is_valid():
         card.pressed.connect(action)
