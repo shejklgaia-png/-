@@ -8,9 +8,8 @@ facility = source("scripts/base_facility_system.gd")
 save = source("scripts/sera_save.gd")
 nexus = source("scripts/command_nexus.gd")
 manifest = source("tools/sera_ci_manifest.txt")
-for node in ("BaseQuickActions", "QuickCraft", "QuickMaterials", "QuickWarehouse"):
-    assert node in hub, f"Missing visible shortcut {node}"
-assert 'func _quick_open(' in hub and 'func _quick_bar_hit(' in hub
+assert 'BaseQuickActions' not in hub, "obsolete bottom bar"
+assert '建物をタップ' in hub
 assert 'func _create_trial_profile(' in facility
 assert 'func claim_trial_materials(' in save
 assert 'trial_materials_claimed' in save

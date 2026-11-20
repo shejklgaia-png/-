@@ -21,45 +21,29 @@ func _run() -> void:
     var hub: Node3D = scene.instantiate()
     root.add_child(hub)
     await process_frame
-    var bar: HBoxContainer = hub.get_node_or_null("BaseHUDLayer/BaseHUD/BaseQuickActions") as HBoxContainer
     var facility: Node3D = hub.get_node_or_null("BaseFacilities") as Node3D
-    if bar == null or facility == null or not bar.visible:
-        _fail("first-launch shortcuts not visible")
-        return
-    var btn: Button = bar.get_node_or_null("QuickCraft") as Button
-    var resources: Button = bar.get_node_or_null("QuickMaterials") as Button
-    var warehouse: Button = bar.get_node_or_null("QuickWarehouse") as Button
-    if btn == null or resources == null or warehouse == null:
-        _fail("craft/material/warehouse shortcuts missing")
-        return
-    if btn.text.contains("›") or resources.text.contains("▸"):
-        _fail("decorative arrows returned in shortcuts")
+    if facility == null or hub.has_node("BaseHUDLayer/BaseHUD/BaseQuickActions"):
+        _fail("facility missing or obsolete bottom buttons returned")
         return
     await process_frame
     var viewport_rect := Rect2(Vector2.ZERO, hub.get_viewport().get_visible_rect().size)
-    for shortcut in [btn, resources, warehouse]:
-        if not shortcut.is_visible_in_tree() or (
-                not viewport_rect.has_point(shortcut.get_global_rect().get_center())) or (
-                not bool(hub.call("_quick_bar_hit", shortcut.get_global_rect().get_center()))):
-            _fail("shortcut not visible and tappable on base screen: " + shortcut.name)
-            return
     # A fresh runtime with no selected profile must still show the catalog.
     save.set("active_slot", 0)
     save.set("active_data", {})
-    btn.pressed.emit()
+    facility.call("_switch_section", "craft")
     if str(facility.get("page")) != "prototypes":
         _fail("quick craft did not open LABO recipes")
         return
     var actions: VBoxContainer = facility.get("modal_actions") as VBoxContainer
     for blueprint in CATALOG.ORDER:
-        var row: HBoxContainer = actions.get_node_or_null("PrototypeIcon_" + str(blueprint)) as HBoxContainer
-        var icon: TextureRect = row.get_node_or_null("Icon") as TextureRect if row != null else null
+        var row: Control = actions.find_child("PrototypeIcon_" + str(blueprint), true, false) as Control
+        var icon: TextureRect = row.find_child("Icon", true, false) as TextureRect if row != null else null
         if icon == null or icon.texture == null or (
                 icon.texture.get_width() <= 0):
             _fail("unrenderable craft icon: " + str(blueprint))
             return
     await process_frame
-    var first_icon: TextureRect = actions.get_node("PrototypeIcon_H01/Icon") as TextureRect
+    var first_icon: TextureRect = actions.find_child("PrototypeIcon_H01", true, false).find_child("Icon", true, false) as TextureRect
     if not first_icon.is_visible_in_tree() or (
             not viewport_rect.has_point(first_icon.get_global_rect().get_center())):
         _fail("first craft icon does not appear in visible modal")
@@ -116,23 +100,23 @@ func _run() -> void:
     save.set("active_data", prior_data)
     save.set("working_equipment", prior_gear)
     save.call("_write_index", prior_slot)
-    resources.pressed.emit()
+    facility.call("_switch_section", "materials")
     if str(facility.get("page")) != "families":
         _fail("materials shortcut must open conversion")
         return
-    warehouse.pressed.emit()
+    facility.call("_switch_section", "warehouse")
     if str(facility.get("page")) != "inventory":
         _fail("warehouse shortcut did not open storage")
         return
     actions = facility.get("modal_actions") as VBoxContainer
     for material_id in MAT.all_ids():
-        var row: HBoxContainer = actions.get_node_or_null("MaterialIcon_" + str(material_id)) as HBoxContainer
-        var icon: TextureRect = row.get_node_or_null("Icon") as TextureRect if row != null else null
+        var row: Control = actions.find_child("MaterialIcon_" + str(material_id), true, false) as Control
+        var icon: TextureRect = row.find_child("Icon", true, false) as TextureRect if row != null else null
         if icon == null or icon.texture == null:
             _fail("material icon missing in visible warehouse: " + str(material_id))
             return
     await process_frame
-    var first_material: TextureRect = actions.get_node("MaterialIcon_scrap_low/Icon") as TextureRect
+    var first_material: TextureRect = actions.find_child("MaterialIcon_scrap_low", true, false).find_child("Icon", true, false) as TextureRect
     if not first_material.is_visible_in_tree() or (
             not viewport_rect.has_point(first_material.get_global_rect().get_center())):
         _fail("first warehouse material icon does not appear in visible modal")

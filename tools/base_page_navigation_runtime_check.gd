@@ -37,7 +37,7 @@ func _run() -> void:
             _fail("dropdown returned in converter main page")
             return
         for family in ["scrap", "alloy", "electronics", "organic"]:
-            if actions.get_node_or_null("FamilyChoice_" + family) == null:
+            if actions.find_child("FamilyChoice_" + family, true, false) == null:
                 _fail("family choice absent: " + family)
                 return
         facility.call("_select_conversion_family", "alloy")
@@ -46,7 +46,7 @@ func _run() -> void:
             return
         actions = facility.get("modal_actions") as VBoxContainer
         if actions.get_node_or_null("MaterialFamily") != null or (
-                actions.get_node_or_null("ConvertRank_1") == null):
+                actions.find_child("ConvertRank_1", true, false) == null):
             _fail("dedicated recipe page did not show its batch/rank buttons")
             return
         facility.call("_input", _back_key())
@@ -83,11 +83,11 @@ func _run() -> void:
         return
     actions = facility.get("modal_actions") as VBoxContainer
     for bp in ["H01", "T01", "A01", "L01", "B01", "WR01", "WL01"]:
-        if actions.get_node_or_null("PrototypeIcon_" + bp) == null:
+        if actions.find_child("PrototypeIcon_" + bp, true, false) == null:
             _fail("LABO prototype catalog has missing entry: " + bp)
             return
-    var row: HBoxContainer = actions.get_node_or_null("PrototypeIcon_H01") as HBoxContainer
-    var choose: Button = row.get_node_or_null("Choose_H01") as Button
+    var row: Control = actions.find_child("PrototypeIcon_H01", true, false) as Control
+    var choose: Button = row.find_child("Choose_H01", true, false) as Button
     if choose == null:
         _fail("LABO prototype item must be selectable")
         return

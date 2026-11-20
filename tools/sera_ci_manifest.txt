@@ -16,6 +16,8 @@ py tools/v517_base_accessibility_self_check.py
 gd tools/v517_base_accessibility_runtime_check.gd
 py tools/v518_menu_visibility_self_check.py
 gd tools/v518_menu_visibility_runtime_check.gd
+py tools/v519_card_grid_self_check.py
+gd tools/v519_card_grid_runtime_check.gd
 py tools/v189_bird_headc_self_check.py
 py tools/v190_foot_contact_grounding_self_check.py
 py tools/v191_standard_foot_c_self_check.py
