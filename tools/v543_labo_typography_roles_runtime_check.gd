@@ -98,7 +98,7 @@ func _run() -> void:
     if not _has_font(material.find_child("ItemInfo", true, false) as Label,
             stats_font, "material quantity"):
         return
-    if not _has_font(material.get_node("MaterialGradeTag") as Label, mono,
+    if not _has_font(material.get_node("MaterialGradeTag") as Label, mono_spaced,
             "material grade"):
         return
     fac.call("_select_conversion_family", "alloy")
