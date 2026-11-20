@@ -18,11 +18,11 @@ func _run_checks() -> void:
     var stage: Node3D = HERO.instantiate() as Node3D
     root.add_child(stage)
     stage.set_process(false)
-    var maker: Node3D = stage.get_node_or_null("PrinterScene")
-    var refinery: Node3D = stage.get_node_or_null("MaterialConversionScene")
-    var warehouse: Node3D = stage.get_node_or_null("WarehouseScene")
-    var robot: Node3D = stage.get_node_or_null("CRATE")
-    var camera: Camera3D = stage.get_node_or_null("HeroCamera")
+    var maker: Node3D = stage.get_node_or_null("PrinterScene") as Node3D
+    var refinery: Node3D = stage.get_node_or_null("MaterialConversionScene") as Node3D
+    var warehouse: Node3D = stage.get_node_or_null("WarehouseScene") as Node3D
+    var robot: Node3D = stage.get_node_or_null("CRATE") as Node3D
+    var camera: Camera3D = stage.get_node_or_null("HeroCamera") as Camera3D
     _verify(maker != null and refinery != null and warehouse != null,
         "three separately instantiated 3D locations")
     _verify(robot != null and camera != null, "shared robot and scene camera")
@@ -47,7 +47,7 @@ func _run_checks() -> void:
     _verify(maker.visible and not refinery.visible and not warehouse.visible,
         "manufacturing-only background active")
     var print_pos: Vector3 = camera.position
-    var nozzle: Node3D = stage.get_node("PrinterScene/PrinterNozzle")
+    var nozzle: Node3D = stage.get_node("PrinterScene/PrinterNozzle") as Node3D
     var nozzle_before: Vector3 = nozzle.position
     stage.call("_process", 0.50)
     _verify(nozzle.position != nozzle_before, "manufacturing-only gantry animation")
@@ -55,7 +55,7 @@ func _run_checks() -> void:
     _verify(refinery.visible and not maker.visible and not warehouse.visible,
         "refinery-only background active")
     var refine_pos: Vector3 = camera.position
-    var rotor: Node3D = stage.get_node("MaterialConversionScene/CrystalRotor_0")
+    var rotor: Node3D = stage.get_node("MaterialConversionScene/CrystalRotor_0") as Node3D
     stage.call("_process", 0.50)
     _verify(absf(rotor.rotation.y) > 0.01, "refinery-only chamber animation")
     stage.call("set_section", "RECYCLER")
@@ -65,7 +65,7 @@ func _run_checks() -> void:
     _verify(warehouse.visible and not refinery.visible and not maker.visible,
         "warehouse-only background active")
     var storage_pos: Vector3 = camera.position
-    var scanner: Node3D = stage.get_node("WarehouseScene/TravelingInventoryScanner")
+    var scanner: Node3D = stage.get_node("WarehouseScene/TravelingInventoryScanner") as Node3D
     var scan_before: Vector3 = scanner.position
     stage.call("_process", 0.50)
     _verify(scanner.position != scan_before, "warehouse-only scanner animation")
