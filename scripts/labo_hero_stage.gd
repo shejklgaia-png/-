@@ -496,8 +496,8 @@ func _build_warehouse() -> void:
 func _build_printer_closeup() -> void:
     var loader := Node3D.new()
     loader.name = "PrinterForegroundLoader"
-    loader.position = Vector3(-0.38, 0, 2.23)
-    loader.rotation.y = -0.31
+    loader.position = Vector3(-3.45, 0, 1.80)
+    loader.rotation.y = -0.15
     printer_group.add_child(loader)
     _block(loader, "HydraulicLoaderBase", Vector3(0, 0.21, 0.05),
         Vector3(2.05, 0.43, 1.42), Color("#3b5364"))
@@ -514,7 +514,7 @@ func _build_printer_closeup() -> void:
         Vector3(1.35, 0.07, 0.035), Color("#dfb455"), true)
     var harness := Node3D.new()
     harness.name = "PrinterHangingHarness"
-    harness.position = Vector3(-2.30, 3.32, 1.45)
+    harness.position = Vector3(-2.25, 3.78, 0.40)
     harness.rotation.y = 0.21
     printer_group.add_child(harness)
     _block(harness, "GantryCrossCasing", Vector3(0, 0.13, 0),
@@ -532,7 +532,7 @@ func _build_printer_closeup() -> void:
         Vector3(2.8, 0.048, 0.036), Color("#59c1d8"), true)
     var parts_rack := Node3D.new()
     parts_rack.name = "PrinterStackedComponents"
-    parts_rack.position = Vector3(2.78, 0, -0.48)
+    parts_rack.position = Vector3(3.48, 0, -1.55)
     parts_rack.rotation.y = 0.43
     printer_group.add_child(parts_rack)
     for row in range(3):
@@ -553,7 +553,7 @@ func _build_refinery_closeup() -> void:
     # A partly off-screen intake manifold frames the nearest tank from below.
     var manifold := Node3D.new()
     manifold.name = "RefineryForegroundManifold"
-    manifold.position = Vector3(-2.80, 0.0, 0.90)
+    manifold.position = Vector3(-4.10, 0.0, 0.60)
     manifold.rotation.y = -0.28
     converter_group.add_child(manifold)
     _block(manifold, "ManifoldHousing", Vector3(0, 0.42, 0),
@@ -568,7 +568,7 @@ func _build_refinery_closeup() -> void:
             Vector3(0.27, 0.38, 0.13), Color("#b68b53"))
     var upper := Node3D.new()
     upper.name = "RefineryHangingPipes"
-    upper.position = Vector3(0.20, 3.50, 0.74)
+    upper.position = Vector3(-0.30, 4.10, -1.25)
     upper.rotation.y = 0.32
     converter_group.add_child(upper)
     for i in range(3):
@@ -716,33 +716,33 @@ func set_section(section: String) -> void:
             work_state = "print_to_terminal"
             # Low-right, upward-looking diagonal frame: foreground printer,
             # middle ground CRATE and rear suspended service bridge.
-            # No room overview: giant printer, loader, and overhead drive
-            # continue past viewport edges. Camera stays inside the workshop.
-            hero_camera.position = Vector3(1.35, 1.55, 3.30)
-            hero_camera.fov = 51.0
-            hero_camera.look_at(Vector3(-0.78, 1.62, -0.44), Vector3.UP)
+            # Main printer, terminal and working CRATE must be fully readable;
+            # only peripheral loader and overhead rig are intentionally cropped.
+            hero_camera.position = Vector3(0.65, 1.65, 4.80)
+            hero_camera.fov = 53.0
+            hero_camera.look_at(Vector3(-0.35, 1.60, -0.30), Vector3.UP)
         "SMELTER", "RECYCLER":
-            crate.position = Vector3(2.18, 0, 0.78)
+            crate.position = Vector3(1.60, 0, 0.85)
             crate.rotation.y = 2.80
             work_state = "refinery_audit"
             # High-left downward three-quarter shot along the diagonal
             # procession of three staggered refinery chambers.
-            # Half-frame foreground vessel, hanging pipeworks and a shrinking
-            # diagonal tank line: walls/floor perimeter are never fully seen.
-            hero_camera.position = Vector3(-1.20, 2.80, 3.30)
-            hero_camera.fov = 53.0
-            hero_camera.look_at(Vector3(-0.30, 1.50, -1.00), Vector3.UP)
+            # All three refinery vats stay recognizable, with the large manifold
+            # and overhead pipes cropped around the perimeter.
+            hero_camera.position = Vector3(-1.45, 2.15, 4.85)
+            hero_camera.fov = 55.0
+            hero_camera.look_at(Vector3(-0.30, 1.55, -1.25), Vector3.UP)
         "STORAGE":
-            crate.position = Vector3(0.70, 0, 0.27)
+            crate.position = Vector3(0.55, 0, -0.55)
             crate.rotation.y = 2.95
             work_state = "storage_scan"
             # Elevated aisle-wide camera, opposite the refinery's left-side
             # vantage: near-left rack and distant right bank make deep parallax.
-            # Foreground pallets and tower rack are intentionally cut by the
-            # edges; only a small part of the deep, stocked aisle is visible.
-            hero_camera.position = Vector3(2.35, 2.50, 2.85)
-            hero_camera.fov = 54.0
-            hero_camera.look_at(Vector3(0.10, 1.50, -0.90), Vector3.UP)
+            # Both rack banks remain visible; only near tower, pallets and hoist
+            # extend beyond the frame. CRATE is midground, not foreground.
+            hero_camera.position = Vector3(0.55, 2.30, 4.80)
+            hero_camera.fov = 55.0
+            hero_camera.look_at(Vector3(0.00, 1.75, -1.40), Vector3.UP)
 
 func _move_to(goal: Vector3, delta: float) -> bool:
     var planar := Vector3(goal.x, crate.position.y, goal.z)
@@ -820,7 +820,7 @@ func _animate_refinery(delta: float) -> void:
             if state_time > 2.7:
                 _enter("refinery_return")
         "refinery_return":
-            if _move_to(Vector3(2.18, 0, 0.78), delta):
+            if _move_to(Vector3(1.60, 0, 0.85), delta):
                 _enter("refinery_audit")
 
 func _animate_inventory(delta: float) -> void:
@@ -834,7 +834,7 @@ func _animate_inventory(delta: float) -> void:
             if state_time > 2.2:
                 _enter("storage_go_left")
         "storage_go_left":
-            if _move_to(Vector3(-0.94, 0, 1.18), delta):
+            if _move_to(Vector3(-0.52, 0, -0.72), delta):
                 _enter("storage_get_bin")
         "storage_get_bin":
             crate_left_arm.rotation.x = -0.26 + 0.24*sin(clock*2.3)
@@ -843,7 +843,7 @@ func _animate_inventory(delta: float) -> void:
             if state_time > 2.8:
                 _enter("storage_go_terminal")
         "storage_go_terminal":
-            if _move_to(Vector3(0.70, 0, 0.27), delta):
+            if _move_to(Vector3(0.55, 0, -0.55), delta):
                 _enter("storage_log_stock")
         "storage_log_stock":
             crate_head.rotation.x = lerpf(crate_head.rotation.x, 0.20, minf(delta*3.0, 1.0))
