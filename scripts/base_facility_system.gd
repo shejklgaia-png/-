@@ -1367,7 +1367,7 @@ func _select_conversion_family(family: String) -> void:
     _render_conversion()
 
 func _conversion_batches_changed(delta: int) -> void:
-    conversion_batches = clampi(conversion_batches + delta, 1, 99)
+    conversion_batches = clampi(conversion_batches + delta, 1, BaseMaterials.MAX_BATCHES)
     conversion_notice = ""
     _render_conversion()
 
@@ -1380,111 +1380,96 @@ func _perform_conversion(from_rank: int) -> void:
         conversion_notice = "変換完了：所持素材とセーブデータを更新しました。"
     _render_conversion()
 
+func _conversion_batches_set(value: float) -> void:
+    conversion_batches = clampi(int(value), 1, BaseMaterials.MAX_BATCHES)
+    conversion_notice = ""
+    _render_conversion()
+
+func _confirm_conversion(from_rank: int) -> void:
+    var plan: Dictionary = BaseMaterials.recipe(
+        conversion_family, from_rank, conversion_mode, conversion_batches)
+    if plan.is_empty() or not SeraSave.can_convert_material(
+            conversion_family, from_rank, conversion_mode, conversion_batches):
+        return
+    _request_confirmation("作成しますか？",
+        "%s ×%d → %s ×%d\n変換回数：%d" % [
+            BaseMaterials.display_name(str(plan["input_id"])),
+            int(plan["input_count"]),
+            BaseMaterials.display_name(str(plan["output_id"])),
+            int(plan["output_count"]), conversion_batches],
+        _perform_conversion.bind(from_rank))
+
 func _render_conversion() -> void:
     _clear_actions()
-    modal_title.text = (
-        "精製 " if conversion_mode == 1
+    page = "conversion"
+    modal_title.text = ("精製 " if conversion_mode == 1
         else "分解 ") + str(BaseMaterials.FAMILY_NAMES[conversion_family])
     var stock: Dictionary = SeraSave.get_material_inventory()
-    # Counts are displayed alongside each actual input/output icon below.
-    # Avoid a large repeated explanation pushing the action buttons off-screen.
-    var lines: Array[String] = [
-        "素材のランクと所持数を確認して変換してください。",
-        "精製：低2→中1→高 / 分解：上1→下2（暫定）"
+    var lines: PackedStringArray = [
+        "変換数を指定し、横長のバーをタップすると確認画面が開きます。",
+        "精製：低2→中1→高 / 分解：高1→中2→低（暫定）"
     ]
     if SeraSave.active_slot == 0:
-        lines.append("先にNEXUSでセーブスロットを作成・選択してください。")
+        lines.append("製作にはセーブデータが必要です。")
     if not conversion_notice.is_empty():
         lines.append(conversion_notice)
     modal_body.text = "\n".join(lines)
-
-    var amount_row := HBoxContainer.new()
-    amount_row.name = "ConversionAmount"
-    amount_row.add_theme_constant_override("separation", 12)
-    modal_actions.add_child(amount_row)
-    var less := Button.new()
-    less.name = "DecreaseBatch"
-    less.text = "−"
-    less.custom_minimum_size = Vector2(70, 58)
-    less.disabled = conversion_batches <= 1
-    less.pressed.connect(_conversion_batches_changed.bind(-1))
-    amount_row.add_child(less)
-    var count := Label.new()
-    count.name = "BatchCount"
-    count.text = "実行回数：%d" % conversion_batches
-    count.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-    count.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-    count.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-    count.add_theme_font_size_override("font_size", 19)
-    amount_row.add_child(count)
-    var more := Button.new()
-    more.name = "IncreaseBatch"
-    more.text = "+"
-    more.custom_minimum_size = Vector2(70, 58)
-    more.disabled = conversion_batches >= 99
-    more.pressed.connect(_conversion_batches_changed.bind(1))
-    amount_row.add_child(more)
-
     var ranks: Array = [0, 1] if conversion_mode == 1 else [2, 1]
     for rank in ranks:
         var plan: Dictionary = BaseMaterials.recipe(
             conversion_family, rank, conversion_mode, conversion_batches)
+        if plan.is_empty():
+            continue
         var source_id: String = str(plan["input_id"])
         var target_id: String = str(plan["output_id"])
-        # Icon + amount -> arrow -> icon + amount, directly above the action.
-        var flow := HBoxContainer.new()
-        flow.name = "ConvertInputIcon_" + str(rank)
-        flow.custom_minimum_size.y = 71.0
-        flow.add_theme_constant_override("separation", 6)
-        modal_actions.add_child(flow)
-        var input_icon := TextureRect.new()
-        input_icon.name = "Input"
-        input_icon.clip_contents = true
-        input_icon.texture = IconAtlas.material_icon(source_id)
-        input_icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-        input_icon.custom_minimum_size = Vector2(61, 61)
-        input_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-        flow.add_child(input_icon)
-        var consume := Label.new()
-        consume.name = "SourceRank"
-        consume.text = "%s ×%s\n所持 %s" % [
-            ["低", "中", "高"][rank], str(plan["input_count"]),
-            str(stock[source_id])]
-        consume.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-        consume.add_theme_font_size_override("font_size", 14)
-        flow.add_child(consume)
-        var arrow := Label.new()
-        arrow.text = "→"
-        arrow.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-        arrow.add_theme_font_size_override("font_size", 23)
-        flow.add_child(arrow)
+        var row := HBoxContainer.new()
+        row.name = "ConversionRow_" + str(rank)
+        row.custom_minimum_size.y = 82
+        row.add_theme_constant_override("separation", 7)
+        modal_actions.add_child(row)
+        var bar := Button.new()
+        bar.name = "ConvertRank_" + str(rank)
+        bar.icon = IconAtlas.material_icon(source_id)
+        bar.icon_alignment = HORIZONTAL_ALIGNMENT_LEFT
+        bar.vertical_icon_alignment = VERTICAL_ALIGNMENT_CENTER
+        bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+        bar.custom_minimum_size.y = 78
+        bar.clip_contents = true
+        bar.alignment = HORIZONTAL_ALIGNMENT_CENTER
+        bar.add_theme_font_size_override("font_size", 14)
+        bar.text = "%s ×%d  »  %s ×%d" % [
+            BaseMaterials.display_name(source_id), int(plan["input_count"]),
+            BaseMaterials.display_name(target_id), int(plan["output_count"])]
+        bar.disabled = not SeraSave.can_convert_material(
+            conversion_family, rank, conversion_mode, conversion_batches)
+        bar.pressed.connect(_confirm_conversion.bind(rank))
+        row.add_child(bar)
+        # Second icon is a visual child only; native Button remains full tap area.
         var output_icon := TextureRect.new()
-        output_icon.name = "Output"
-        output_icon.clip_contents = true
+        output_icon.name = "ConvertOutputIcon_" + str(rank)
         output_icon.texture = IconAtlas.material_icon(target_id)
         output_icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-        output_icon.custom_minimum_size = Vector2(61, 61)
+        output_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        output_icon.clip_contents = true
+        output_icon.set_anchors_and_offsets_preset(Control.PRESET_CENTER_RIGHT)
+        output_icon.offset_left = -54
+        output_icon.offset_right = -7
+        output_icon.offset_top = -24
+        output_icon.offset_bottom = 24
         output_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-        flow.add_child(output_icon)
-        var gained := Label.new()
-        gained.name = "TargetRank"
-        gained.text = "%s ×%s\n所持 %s" % [
-            ["低", "中", "高"][rank + conversion_mode],
-            str(plan["output_count"]), str(stock[target_id])]
-        gained.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-        gained.add_theme_font_size_override("font_size", 14)
-        flow.add_child(gained)
-        var button := Button.new()
-        button.name = "ConvertRank_" + str(rank)
-        button.text = "%s から %sへ変換" % [
-            BaseMaterials.display_name(source_id),
-            BaseMaterials.display_name(target_id)]
-        button.custom_minimum_size.y = 66.0
-        button.add_theme_font_size_override("font_size", 16)
-        button.disabled = not SeraSave.can_convert_material(
-            conversion_family, rank, conversion_mode, conversion_batches)
-        button.pressed.connect(_perform_conversion.bind(rank))
-        modal_actions.add_child(button)
+        bar.add_child(output_icon)
+        var amount := SpinBox.new()
+        amount.name = "ConversionCount_" + str(rank)
+        amount.min_value = 1
+        amount.max_value = BaseMaterials.MAX_BATCHES
+        amount.step = 1
+        amount.value = conversion_batches
+        amount.rounded = true
+        amount.custom_minimum_size = Vector2(84, 66)
+        amount.tooltip_text = "変換回数"
+        amount.value_changed.connect(_conversion_batches_set)
+        row.add_child(amount)
+    _configure_page_scroll(0, true)
 
 func _show_detail(detail: String) -> void:
     if modal_body == null or active_key.is_empty():
