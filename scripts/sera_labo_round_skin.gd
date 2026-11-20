@@ -11,6 +11,8 @@ static var _control_font: SystemFont
 static var _display_font: SystemFont
 static var _stats_font: SystemFont
 static var _data_font: SystemFont
+static var _tracked_display: FontVariation
+static var _tracked_data: FontVariation
 
 ## Device fonts only: the first installed face is used, then Godot's
 ## built-in CJK fallback. No shipped font asset, network request or glyph atlas.
@@ -73,6 +75,25 @@ static func data_font() -> SystemFont:
         _data_font.font_weight = 550
         _data_font.allow_system_fallback = true
     return _data_font
+
+
+## Tracking is a measurable visual difference even on devices where the
+## preferred font family is missing. FontVariation uses the cached base font,
+## so cards and virtual scrolling never create new typeface resources.
+static func tracked_display_font() -> FontVariation:
+    if _tracked_display == null:
+        _tracked_display = FontVariation.new()
+        _tracked_display.base_font = display_font()
+        _tracked_display.spacing_glyph = 1
+    return _tracked_display
+
+
+static func tracked_data_font() -> FontVariation:
+    if _tracked_data == null:
+        _tracked_data = FontVariation.new()
+        _tracked_data.base_font = data_font()
+        _tracked_data.spacing_glyph = 1
+    return _tracked_data
 
 
 static func style(kind: String = "normal") -> StyleBoxFlat:

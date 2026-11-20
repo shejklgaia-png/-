@@ -108,8 +108,8 @@ func _make_card() -> Button:
     meta.name = "ItemMeta"
     meta.mouse_filter = Control.MOUSE_FILTER_IGNORE
     meta.clip_text = true
-    meta.add_theme_font_override("font", LaboSkin.data_font())
-    meta.add_theme_font_size_override("font_size", 11)
+    meta.add_theme_font_override("font", LaboSkin.tracked_data_font())
+    meta.add_theme_font_size_override("font_size", 12)
     meta.add_theme_color_override("font_color", Color("#9abfcb"))
     card.add_child(meta)
     var title := Label.new()
@@ -118,7 +118,7 @@ func _make_card() -> Button:
     title.add_theme_color_override("font_color", Color("#ecf5f6"))
     title.add_theme_font_override("font", (
         LaboSkin.control_font() if mode == "materials" else LaboSkin.title_font()))
-    title.add_theme_font_size_override("font_size", 18)
+    title.add_theme_font_size_override("font_size", 20)
     title.autowrap_mode = TextServer.AUTOWRAP_OFF
     title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
     title.clip_text = true
@@ -129,6 +129,7 @@ func _make_card() -> Button:
     effects.add_theme_color_override("font_color", Color("#bbdbe0"))
     effects.add_theme_font_override("font", LaboSkin.stats_font())
     effects.add_theme_font_size_override("font_size", 16)
+    effects.add_theme_constant_override("line_spacing", 1)
     effects.autowrap_mode = TextServer.AUTOWRAP_OFF
     effects.clip_text = true
     card.add_child(effects)
@@ -147,8 +148,8 @@ func _make_card() -> Button:
     empty.text = "—  EMPTY HANGER  —"
     empty.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
     empty.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-    empty.add_theme_font_override("font", LaboSkin.display_font())
-    empty.add_theme_font_size_override("font_size", 15)
+    empty.add_theme_font_override("font", LaboSkin.tracked_display_font())
+    empty.add_theme_font_size_override("font_size", 17)
     empty.add_theme_color_override("font_color", Color("#7697a4"))
     empty.mouse_filter = Control.MOUSE_FILTER_IGNORE
     card.add_child(empty)
@@ -156,8 +157,8 @@ func _make_card() -> Button:
     var slot_address := Label.new()
     slot_address.name = "SlotAddress"
     slot_address.mouse_filter = Control.MOUSE_FILTER_IGNORE
-    slot_address.add_theme_font_override("font", LaboSkin.data_font())
-    slot_address.add_theme_font_size_override("font_size", 11)
+    slot_address.add_theme_font_override("font", LaboSkin.tracked_data_font())
+    slot_address.add_theme_font_size_override("font_size", 12)
     slot_address.add_theme_color_override("font_color", Color("#708f9d"))
     slot_address.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
     card.add_child(slot_address)
@@ -281,7 +282,7 @@ func _bind_card(card: Button, index: int) -> void:
             title.position = Vector2(8.0, 68.0)
             title.size = Vector2(_card_width - 16.0, 26.0)
             title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-            title.add_theme_font_size_override("font_size", 16)
+            title.add_theme_font_size_override("font_size", 17)
             effects.position = Vector2(8.0, 97.0)
             effects.size = Vector2(_card_width - 16.0, 19.0)
             effects.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -316,11 +317,11 @@ func _bind_card(card: Button, index: int) -> void:
         meta.size = Vector2(text_width, 19.0)
         title.position = Vector2(text_left, 34.0)
         title.size = Vector2(text_width, 49.0)
-        title.add_theme_font_size_override("font_size", 18)
+        title.add_theme_font_size_override("font_size", 20)
         title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
         effects.position = Vector2(16.0, 101.0)
         effects.size = Vector2(_card_width - 29.0, _card_height() - 106.0)
-        effects.add_theme_font_size_override("font_size", 13)
+        effects.add_theme_font_size_override("font_size", 14)
         effects.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
         var mark: String = ("★ " if bool(entry.get("favorite", false)) else
             "× " if bool(entry.get("junk", false)) else "")

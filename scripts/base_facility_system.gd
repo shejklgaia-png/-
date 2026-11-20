@@ -310,7 +310,7 @@ func _nav_font_size() -> int:
     # The top edge uses full uppercase Latin labels; reserve extra tracking
     # space instead of sizing for the old four-character Japanese text.
     var width: float = get_viewport().get_visible_rect().size.x
-    return 19 if width < 540.0 else 21 if width < 720.0 else 22
+    return 20 if width < 540.0 else 23 if width < 720.0 else 24
 
 
 func _layout_section_tabs() -> void:
@@ -328,13 +328,12 @@ func _layout_section_tabs() -> void:
 
 func _slot_font_size() -> int:
     var width: float = get_viewport().get_visible_rect().size.x
-    var per_tab: float = (width * 0.92 - 16.0) / 7.0
-    var glyphs: float = 1.0 if width < 520.0 else 2.0
-    return clampi(int((per_tab - 16.0) / glyphs), 17, 22)
+    # Two-character JP labels must remain inside seven non-scrolling buttons.
+    return 18 if width < 520.0 else 21 if width < 720.0 else 22
 
 func _material_card_font_size() -> int:
     var width: float = get_viewport().get_visible_rect().size.x
-    return 19 if width >= 590.0 else 17 if width >= 460.0 else 15
+    return 20 if width >= 590.0 else 18 if width >= 460.0 else 16
 
 func _material_icon_side() -> float:
     var width: float = get_viewport().get_visible_rect().size.x
@@ -408,7 +407,9 @@ func attach_hud(hud: Control) -> void:
     header_row.add_child(header_accent)
     modal_title = Label.new()
     modal_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-    modal_title.add_theme_font_size_override("font_size", 27)
+    modal_title.add_theme_font_size_override("font_size", 32)
+    modal_title.add_theme_color_override("font_outline_color", Color("#071522"))
+    modal_title.add_theme_constant_override("outline_size", 1)
     modal_title.add_theme_font_override("font", LaboSkin.title_font())
     modal_title.add_theme_color_override("font_color", Color("#f2f8f9"))
     modal_title.mouse_filter = Control.MOUSE_FILTER_STOP
@@ -419,14 +420,14 @@ func attach_hud(hud: Control) -> void:
     terminal_code.mouse_filter = Control.MOUSE_FILTER_IGNORE
     terminal_code.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
     terminal_code.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-    terminal_code.add_theme_font_override("font", LaboSkin.data_font())
-    terminal_code.add_theme_font_size_override("font_size", 12)
+    terminal_code.add_theme_font_override("font", LaboSkin.tracked_data_font())
+    terminal_code.add_theme_font_size_override("font_size", 13)
     terminal_code.add_theme_color_override("font_color", Color("#9bd5db"))
     header_row.add_child(terminal_code)
     # Compact instrument strip underneath the main title; one-time UI nodes.
     var module_strip := HBoxContainer.new()
     module_strip.name = "FacilityModuleStrip"
-    module_strip.custom_minimum_size.y = 24.0
+    module_strip.custom_minimum_size.y = 27.0
     module_strip.add_theme_constant_override("separation", 8)
     body.add_child(module_strip)
     var module_rail := ColorRect.new()
@@ -440,16 +441,17 @@ func attach_hud(hud: Control) -> void:
     module_caption.name = "ModuleCaption"
     module_caption.text = "01 / SHELL FABRICATION"
     module_caption.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-    module_caption.add_theme_font_override("font", LaboSkin.data_font())
-    module_caption.add_theme_font_size_override("font_size", 12)
+    module_caption.add_theme_font_override("font", LaboSkin.tracked_data_font())
+    module_caption.add_theme_font_size_override("font_size", 14)
     module_caption.add_theme_color_override("font_color", Color("#9dcbd4"))
     module_caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
     module_strip.add_child(module_caption)
     module_status = Label.new()
     module_status.name = "ModuleStatus"
     module_status.text = "SYSTEM / ONLINE"
-    module_status.add_theme_font_override("font", LaboSkin.data_font())
-    module_status.add_theme_font_size_override("font_size", 11)
+    module_status.add_theme_font_override("font", LaboSkin.tracked_data_font())
+    module_status.add_theme_font_size_override("font_size", 12)
+    module_status.visible = get_viewport().get_visible_rect().size.x >= 580.0
     module_status.add_theme_color_override("font_color", Color("#80cfd2"))
     module_status.mouse_filter = Control.MOUSE_FILTER_IGNORE
     module_strip.add_child(module_status)
@@ -489,7 +491,7 @@ func attach_hud(hud: Control) -> void:
         button.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
         button.alignment = HORIZONTAL_ALIGNMENT_CENTER
         button.add_theme_font_size_override("font_size", _nav_font_size())
-        button.add_theme_font_override("font", LaboSkin.display_font())
+        button.add_theme_font_override("font", LaboSkin.tracked_display_font())
         button.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
         button.add_theme_color_override("font_color", Color("#b4cbd5"))
         button.add_theme_color_override("font_pressed_color", Color("#e9fcff"))
@@ -509,8 +511,8 @@ func attach_hud(hud: Control) -> void:
         serial.position = Vector2(13.0, 5.0)
         serial.size = Vector2(34.0, 17.0)
         serial.mouse_filter = Control.MOUSE_FILTER_IGNORE
-        serial.add_theme_font_override("font", LaboSkin.data_font())
-        serial.add_theme_font_size_override("font_size", 11)
+        serial.add_theme_font_override("font", LaboSkin.tracked_data_font())
+        serial.add_theme_font_size_override("font_size", 12)
         serial.add_theme_color_override("font_color", Color("#adced6"))
         button.add_child(serial)
         var selected_mark := ColorRect.new()
@@ -944,7 +946,7 @@ func _add_terminal_notice(message: String) -> void:
     notice.text = "SYSTEM / " + message
     notice.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
     notice.add_theme_font_override("font", LaboSkin.ui_font())
-    notice.add_theme_font_size_override("font_size", 16)
+    notice.add_theme_font_size_override("font_size", 17)
     notice.add_theme_color_override("font_color", Color("#93d2db"))
     notice.mouse_filter = Control.MOUSE_FILTER_IGNORE
     modal_actions.add_child(notice)
@@ -1015,6 +1017,7 @@ func _sync_section_tabs() -> void:
             _:
                 module_caption.text = "SERA / FIELD TERMINAL"
     if module_status != null:
+        module_status.visible = get_viewport().get_visible_rect().size.x >= 580.0
         module_status.text = ("READY / 20 SLOTS" if current == "TabCraft" else
             "REFINE / ONLINE" if current == "TabMaterials" else
             "STORAGE / ONLINE" if current == "TabWarehouse" else
@@ -1024,6 +1027,7 @@ func _sync_section_tabs() -> void:
             var button: Button = child as Button
             var selected: bool = button.name == current
             button.button_pressed = selected
+            button.add_theme_font_size_override("font_size", _nav_font_size())
             var selected_mark: ColorRect = button.get_node_or_null("SelectedTabMark") as ColorRect
             if selected_mark != null:
                 selected_mark.visible = selected
@@ -1245,10 +1249,10 @@ func _new_slot(parent: Control, key: String, icon: Texture2D,
     # intentionally condensed while Japanese stats never use a mono fallback.
     title_label.add_theme_font_override("font", (
         LaboSkin.control_font() if material_choice else
-        LaboSkin.display_font() if key.begins_with("LockedCraftSlot_") else
+        LaboSkin.tracked_display_font() if key.begins_with("LockedCraftSlot_") else
         LaboSkin.title_font()))
     info_label.add_theme_font_override("font", (
-        LaboSkin.data_font() if key.begins_with("LockedCraftSlot_") else
+        LaboSkin.tracked_data_font() if key.begins_with("LockedCraftSlot_") else
         LaboSkin.stats_font()))
     if material_choice:
         var side: float = _material_icon_side()
@@ -1256,11 +1260,22 @@ func _new_slot(parent: Control, key: String, icon: Texture2D,
         title_label.add_theme_font_size_override(
             "font_size", _material_card_font_size())
         info_label.add_theme_font_size_override(
-            "font_size", maxi(14, _material_card_font_size() - 3))
+            "font_size", maxi(15, _material_card_font_size() - 4))
+        title_label.add_theme_color_override("font_color", Color("#ffffff"))
+        info_label.add_theme_color_override("font_color", Color("#9cdbe4"))
     else:
         title_label.add_theme_font_size_override("font_size",
-            23 if get_viewport().get_visible_rect().size.x >= 500.0 else 21)
+            (24 if get_viewport().get_visible_rect().size.x >= 500.0 else 22)
+            if key.begins_with("LockedCraftSlot_") else
+            (28 if get_viewport().get_visible_rect().size.x >= 500.0 else 24))
         info_label.add_theme_font_size_override("font_size", 17)
+        info_label.add_theme_constant_override("line_spacing", 3)
+        title_label.add_theme_color_override("font_color",
+            Color("#8da9b5") if key.begins_with("LockedCraftSlot_") else
+            Color("#f9ffff"))
+        info_label.add_theme_color_override("font_color",
+            Color("#587786") if key.begins_with("LockedCraftSlot_") else
+            Color("#b8e9ef"))
         if key.begins_with("LockedCraftSlot_"):
             art.visible = false
             art.custom_minimum_size = Vector2.ZERO
@@ -1285,14 +1300,14 @@ func _new_slot(parent: Control, key: String, icon: Texture2D,
             "R2" if key.ends_with("_mid") else "R3")
         grade_tag.anchor_left = 1.0
         grade_tag.anchor_right = 1.0
-        grade_tag.offset_left = -35.0
+        grade_tag.offset_left = -42.0
         grade_tag.offset_right = -9.0
         grade_tag.offset_top = 1.0
-        grade_tag.offset_bottom = 14.0
+        grade_tag.offset_bottom = 17.0
         grade_tag.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
         grade_tag.mouse_filter = Control.MOUSE_FILTER_IGNORE
-        grade_tag.add_theme_font_override("font", LaboSkin.data_font())
-        grade_tag.add_theme_font_size_override("font_size", 10)
+        grade_tag.add_theme_font_override("font", LaboSkin.tracked_data_font())
+        grade_tag.add_theme_font_size_override("font_size", 12)
         grade_tag.add_theme_color_override("font_color", Color("#90cbd3"))
         card.add_child(grade_tag)
     else:
@@ -1309,8 +1324,8 @@ func _new_slot(parent: Control, key: String, icon: Texture2D,
         serial.offset_bottom = 19.0
         serial.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
         serial.mouse_filter = Control.MOUSE_FILTER_IGNORE
-        serial.add_theme_font_override("font", LaboSkin.data_font())
-        serial.add_theme_font_size_override("font_size", 11)
+        serial.add_theme_font_override("font", LaboSkin.tracked_data_font())
+        serial.add_theme_font_size_override("font_size", 12)
         serial.add_theme_color_override("font_color", Color("#a5c8d3"))
         card.add_child(serial)
         var locked: bool = key.begins_with("LockedCraftSlot_")
@@ -1328,14 +1343,14 @@ func _new_slot(parent: Control, key: String, icon: Texture2D,
         footer.anchor_right = 1.0
         footer.anchor_top = 1.0
         footer.anchor_bottom = 1.0
-        footer.offset_left = -226.0
+        footer.offset_left = -251.0
         footer.offset_right = -15.0
         footer.offset_top = -27.0
         footer.offset_bottom = -8.0
         footer.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
         footer.mouse_filter = Control.MOUSE_FILTER_IGNORE
-        footer.add_theme_font_override("font", LaboSkin.data_font())
-        footer.add_theme_font_size_override("font_size", 11)
+        footer.add_theme_font_override("font", LaboSkin.tracked_data_font())
+        footer.add_theme_font_size_override("font_size", 12)
         footer.add_theme_color_override("font_color",
             Color("#5a7c89") if locked else Color("#80d9db"))
         card.add_child(footer)
@@ -1438,7 +1453,8 @@ func _show_inventory(section: String = "equipment") -> void:
             tab.tooltip_text = _warehouse_slot_name(slot)
             tab.custom_minimum_size = Vector2(0, LABO_SLOT_HEIGHT)
             tab.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-            tab.add_theme_font_size_override("font_size", _slot_font_size())
+            tab.add_theme_font_size_override("font_size",
+                _slot_font_size() + 1 if tab.button_pressed else maxi(18, _slot_font_size() - 1))
             tab.add_theme_font_override("font", LaboSkin.control_font())
             tab.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
             tab.toggle_mode = true
@@ -1642,7 +1658,8 @@ func _show_prototype_catalog() -> void:
         _style_terminal_segment(b)
         b.custom_minimum_size = Vector2(0, LABO_SLOT_HEIGHT)
         b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-        b.add_theme_font_size_override("font_size", _slot_font_size())
+        b.add_theme_font_size_override("font_size",
+            _slot_font_size() + 1 if b.button_pressed else maxi(18, _slot_font_size() - 1))
         b.add_theme_font_override("font", LaboSkin.control_font())
         b.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
         b.pressed.connect(_invoke_scroll_action.bind(

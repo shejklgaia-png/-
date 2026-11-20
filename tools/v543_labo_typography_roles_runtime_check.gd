@@ -18,13 +18,19 @@ func _run() -> void:
     var stats_font: SystemFont = LaboTypefaceRoles.stats_font()
     var condensed: SystemFont = LaboTypefaceRoles.display_font()
     var mono: SystemFont = LaboTypefaceRoles.data_font()
+    var condensed_spaced: FontVariation = LaboTypefaceRoles.tracked_display_font()
+    var mono_spaced: FontVariation = LaboTypefaceRoles.tracked_data_font()
     if reading == title_font or title_font == control_font or (
             control_font == stats_font) or stats_font == mono or (
             condensed == mono) or condensed == title_font:
         _fail("cached font roles must remain distinct")
         return
-    if LaboTypefaceRoles.display_font() != condensed or (
-            LaboTypefaceRoles.stats_font() != stats_font) or (
+    if (LaboTypefaceRoles.display_font() != condensed or
+            condensed_spaced.base_font != condensed or
+            mono_spaced.base_font != mono or
+            condensed_spaced.spacing_glyph != 1 or
+            mono_spaced.spacing_glyph != 1 or
+            LaboTypefaceRoles.stats_font() != stats_font or
             LaboTypefaceRoles.control_font() != control_font):
         _fail("font construction runs again instead of caching")
         return
@@ -44,16 +50,16 @@ func _run() -> void:
     await process_frame
     await process_frame
     var tabs: HBoxContainer = fac.get("section_tabs") as HBoxContainer
-    if not _has_font(tabs.get_node("TabCraft") as Button, condensed,
+    if not _has_font(tabs.get_node("TabCraft") as Button, condensed_spaced,
             "EQUIPMENT upper tab"):
         return
-    if not _has_font(tabs.get_node("TabMaterials/TabSerial") as Label, mono,
+    if not _has_font(tabs.get_node("TabMaterials/TabSerial") as Label, mono_spaced,
             "section number"):
         return
     if not _has_font(fac.get("modal_title") as Label, title_font,
             "Japanese page heading"):
         return
-    if not _has_font(fac.get("module_caption") as Label, mono,
+    if not _has_font(fac.get("module_caption") as Label, mono_spaced,
             "instrument caption"):
         return
     if not _has_font((fac.get("modal") as Control).find_child(
@@ -76,10 +82,10 @@ func _run() -> void:
             stats_font, "mixed Japanese status line"):
         return
     if not _has_font(locked.find_child("ItemTitle", true, false) as Label,
-            condensed, "LOCKED SLOT heading"):
+            condensed_spaced, "LOCKED SLOT heading"):
         return
     if not _has_font(locked.find_child("ItemInfo", true, false) as Label,
-            mono, "locked position code"):
+            mono_spaced, "locked position code"):
         return
     fac.call("_switch_section", "materials")
     await process_frame
@@ -110,7 +116,7 @@ func _run() -> void:
     var cards: Array = storage.get("pool")
     if cards.is_empty() or not _has_font(
             (cards[0] as Button).get_node("EmptySlotLabel") as Label,
-            condensed, "empty hanger"):
+            condensed_spaced, "empty hanger"):
         return
     fac.call("_show_inventory", "materials")
     await process_frame
