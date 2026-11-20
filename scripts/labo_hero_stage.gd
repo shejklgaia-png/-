@@ -382,7 +382,7 @@ func _build_printer() -> void:
 func _build_terminal() -> void:
     var console := Node3D.new()
     console.name = "PrinterInspectionStation"
-    console.position = Vector3(4.03, 0, -0.80)
+    console.position = Vector3(3.25, 0, -0.80)
     console.rotation.y = -0.18
     printer_group.add_child(console)
     _block(console, "TerminalPlinth", Vector3(0, 0.65, 0),
@@ -571,8 +571,8 @@ func _build_warehouse() -> void:
     for side in [-1, 1]:
         var bay := Node3D.new()
         bay.name = "RackBay_Left" if side < 0 else "RackBay_Right"
-        bay.position = (Vector3(-3.55, 0, -1.25) if side < 0
-            else Vector3(3.65, 0, -1.55))
+        bay.position = (Vector3(-3.55, 0, -1.80) if side < 0
+            else Vector3(3.65, 0, -1.24))
         bay.rotation.y = 0.16 if side < 0 else -0.12
         warehouse_group.add_child(bay)
         _block(bay, "StorageBackplate", Vector3(0, 2.32, -0.46),
@@ -686,9 +686,9 @@ func set_section(section: String) -> void:
             crate.position = Vector3(1.96, 0.0, 0.55)
             crate.rotation.y = 2.26
             work_state = "print_to_terminal"
-            hero_camera.position = Vector3(2.65, 1.35, 5.10)
-            hero_camera.fov = 48.0
-            hero_camera.look_at(Vector3(0.20, 1.90, -0.70), Vector3.UP)
+            hero_camera.position = Vector3(2.65, 1.45, 4.40)
+            hero_camera.fov = 50.0
+            hero_camera.look_at(Vector3(0.15, 1.90, -0.70), Vector3.UP)
         "SMELTER", "RECYCLER":
             # Scene B: front LEFT 21 degree viewpoint and raised camera.
             # Orange vessel appears nearer than cyan and violet; four
@@ -696,8 +696,8 @@ func set_section(section: String) -> void:
             crate.position = Vector3(3.00, 0.0, 0.45)
             crate.rotation.y = 2.34
             work_state = "refinery_audit"
-            hero_camera.position = Vector3(-2.65, 2.90, 5.55)
-            hero_camera.fov = 54.0
+            hero_camera.position = Vector3(-3.40, 2.90, 5.55)
+            hero_camera.fov = 55.0
             hero_camera.look_at(Vector3(-0.10, 1.65, -1.00), Vector3.UP)
         "STORAGE":
             # Scene C: from front RIGHT, moderately elevated (23 degree yaw).
@@ -706,7 +706,7 @@ func set_section(section: String) -> void:
             crate.position = Vector3(0.05, 0.0, 0.85)
             crate.rotation.y = -2.87
             work_state = "storage_scan"
-            hero_camera.position = Vector3(2.65, 2.35, 5.35)
+            hero_camera.position = Vector3(3.35, 2.45, 5.35)
             hero_camera.fov = 55.0
             hero_camera.look_at(Vector3(0.00, 1.75, -1.00), Vector3.UP)
 
