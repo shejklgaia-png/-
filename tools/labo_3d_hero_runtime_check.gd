@@ -64,6 +64,8 @@ func _run() -> void:
     # Warehouse materials are read-only, but their blue-grey border must
     # still have enough contrast to remain visibly rendered on Android.
     fac.call("_switch_section", "warehouse")
+    fac.call("_show_inventory", "materials")
+    await process_frame
     await process_frame
     var disabled_card: Button = (fac.get("item_layer") as Control).find_child(
         "MaterialIcon_scrap_low", true, false) as Button
