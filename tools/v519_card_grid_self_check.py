@@ -11,7 +11,7 @@ assert "BaseQuickActions" not in hub
 assert "ScrollContainer.new()" not in ui
 assert '"FacilityActionsArea"' in ui
 assert 'const ChamferSkin = preload("res://scripts/sera_chamfer_skin.gd")' in ui
-assert 'var grid := VBoxContainer.new()' in ui and 'var row := HBoxContainer.new()' in ui
+assert 'var grid := VBoxContainer.new()' in ui and 'row = HBoxContainer.new()' in ui
 assert 'GridContainer.new()' not in ui
 for name in ('PrototypeGrid','MaterialFamilyGrid','WarehouseMaterials','WarehouseEquipment'):
     assert '"'+name+'"' in ui, "Missing visible grid: "+name
