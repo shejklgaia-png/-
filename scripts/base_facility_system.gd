@@ -42,6 +42,7 @@ var facility_nodes: Dictionary = {}
 var facility_tags: Dictionary = {}
 var modal: Control
 var modal_panel: PanelContainer
+var terminal_code: Label
 var modal_title: Label
 var modal_body: Label
 var modal_actions: VBoxContainer
@@ -414,6 +415,15 @@ func attach_hud(hud: Control) -> void:
     modal_title.mouse_filter = Control.MOUSE_FILTER_STOP
     modal_title.gui_input.connect(_on_modal_title_input)
     header_row.add_child(modal_title)
+    terminal_code = Label.new()
+    terminal_code.name = "FacilitySystemTag"
+    terminal_code.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    terminal_code.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+    terminal_code.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+    terminal_code.add_theme_font_override("font", LaboSkin.data_font())
+    terminal_code.add_theme_font_size_override("font_size", 12)
+    terminal_code.add_theme_color_override("font_color", Color("#7dabb8"))
+    header_row.add_child(terminal_code)
     diagnostic_button = Button.new()
     diagnostic_button.name = "UIDiagnosticToggle"
     diagnostic_button.text = "診断"
@@ -485,6 +495,9 @@ func attach_hud(hud: Control) -> void:
     modal_body.add_theme_font_override("font", LaboSkin.ui_font())
     modal_body.add_theme_color_override("font_color", Color("#92abb7"))
     body.add_child(modal_body)
+    # Keep text values for diagnostics, but remove gray instruction prose from
+    # the LABO panel without disturbing the existing controller structure.
+    modal_body.visible = false
     diagnostic_readout = Label.new()
     diagnostic_readout.name = "UIDiagnosticReadout"
     diagnostic_readout.visible = false
@@ -533,6 +546,8 @@ func attach_hud(hud: Control) -> void:
     close_button.custom_minimum_size.y = LABO_BACK_HEIGHT
     close_button.add_theme_font_size_override("font_size", 23)
     close_button.add_theme_font_override("font", LaboSkin.title_font())
+    close_button.alignment = HORIZONTAL_ALIGNMENT_LEFT
+    _style_terminal_segment(close_button)
     close_button.pressed.connect(navigate_back)
     body.add_child(close_button)
     # Own full-screen confirmation layer; does not depend on Android popup
@@ -840,6 +855,34 @@ func _invoke_scroll_action(action: Callable, scroll: ScrollContainer) -> void:
         action.call()
 
 
+## Reuse native Android Buttons with a shared, non-glowing console skin.
+func _style_terminal_segment(button: Button) -> void:
+    button.add_theme_stylebox_override("normal", LaboSkin.terminal_segment_style("normal"))
+    button.add_theme_stylebox_override("hover", LaboSkin.terminal_segment_style("hover"))
+    button.add_theme_stylebox_override("pressed", LaboSkin.terminal_segment_style("selected"))
+    button.add_theme_stylebox_override("hover_pressed", LaboSkin.terminal_segment_style("selected"))
+    button.add_theme_stylebox_override("disabled", LaboSkin.terminal_segment_style("disabled"))
+    button.add_theme_stylebox_override("focus", LaboSkin.terminal_segment_style("normal"))
+    button.add_theme_color_override("font_color", Color("#c3d5dd"))
+    button.add_theme_color_override("font_pressed_color", Color("#f1fcff"))
+    button.add_theme_color_override("font_hover_pressed_color", Color("#f1fcff"))
+    button.add_theme_color_override("font_hover_color", Color("#f1fcff"))
+
+
+func _add_terminal_notice(message: String) -> void:
+    if message.is_empty():
+        return
+    var notice := Label.new()
+    notice.name = "TerminalStatus"
+    notice.text = "SYSTEM / " + message
+    notice.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+    notice.add_theme_font_override("font", LaboSkin.ui_font())
+    notice.add_theme_font_size_override("font_size", 16)
+    notice.add_theme_color_override("font_color", Color("#93d2db"))
+    notice.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    modal_actions.add_child(notice)
+
+
 func _add_action(label: String, detail: String) -> void:
     var button := Button.new()
     button.text = label
@@ -860,6 +903,7 @@ func _switch_section(target: String) -> void:
             active_key = "LABO"
             modal.visible = true
             _set_labo_hero(true, "LABO")
+            modal_body.visible = false
             _show_prototype_catalog()
         "materials":
             open_facility("SMELTER")
@@ -879,6 +923,18 @@ func _sync_section_tabs() -> void:
             current = "TabMaterials"
         "STORAGE":
             current = "TabWarehouse"
+    if terminal_code != null:
+        match active_key:
+            "LABO":
+                terminal_code.text = "ASSEMBLY / " + craft_slot.to_upper()
+            "SMELTER", "RECYCLER":
+                terminal_code.text = "MATERIAL / 12"
+            "STORAGE":
+                terminal_code.text = ("ARCHIVE / 12" if warehouse_section == "materials"
+                    else "HANGAR / %03d" % SeraSave.get_owned_prototypes(warehouse_slot).size())
+            _:
+                terminal_code.text = ""
+        terminal_code.visible = get_viewport().get_visible_rect().size.x >= 460.0
     for child in section_tabs.get_children():
         if child is Button:
             var button: Button = child as Button
@@ -895,6 +951,7 @@ func open_facility(key: String) -> void:
     _dismiss_confirmation()
     active_key = key
     page = "home"
+    modal_body.visible = not key in ["LABO", "SMELTER", "RECYCLER", "STORAGE"]
     modal_title.text = str(spec["name"])
     modal.visible = true
     _set_labo_hero(key in ["LABO", "SMELTER", "RECYCLER", "STORAGE"], key)
@@ -924,7 +981,7 @@ func open_facility(key: String) -> void:
             modal_body.text = "発電機\n生産設備と拠点施設に電力を供給します。"
             _add_action("稼働状況", "発電機は稼働演出中です。電力容量・消費量は今後のバランス設計で確定します。")
         "STORAGE":
-            _show_inventory()
+            _show_inventory("equipment")
         "BUILD_TERMINAL":
             modal_body.text = "建設端末\nフィールド上の設備や床・通路を管理します。"
             _add_action("拠点の発展", "施設を一棟に集約せず、資源・生産・発展設備をフィールド上に独立配置します。\n配置変更と建設コストは今後実装します。")
@@ -1151,7 +1208,7 @@ func _add_item_tile(icon: Texture2D, title: String,
     row.add_child(caption)
 
 
-func _show_inventory(section: String = "materials") -> void:
+func _show_inventory(section: String = "equipment") -> void:
     warehouse_section = section
     page = "inventory"
     _clear_actions()
