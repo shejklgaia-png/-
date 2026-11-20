@@ -1,171 +1,138 @@
 extends SceneTree
+## LABO reference composition regression test, 480x240 landscape crop.
+## Source: user's Scene A / B / C upper-row artwork.
 ## Run: godot --headless --path . --script res://tests/test_labo_hero_scene.gd
-## Updated expectations: important objects remain inside the landscape hero frame,
-## while secondary girders, racks, pipes and pallets intentionally crop.
-## Test in 480x240 SubViewport, NOT the portrait root viewport.
-## close foreground props and machine clusters, staggered facility depths,
-## independent background sets and page-specific motion,
-## with the identical canonical CRATE mesh used by the roaming hub robot.
+## Update composition criteria before implementing visual changes.
 const CrateModel = preload("res://scripts/sera_crate_model.gd")
-const HERO = preload("res://scenes/labo_hero_stage.tscn")
+const HeroScene = preload("res://scenes/labo_hero_stage.tscn")
 var failures: Array[String] = []
 
 func _initialize() -> void:
-    call_deferred("_run_checks")
+    call_deferred("_check")
 
-func _verify(ok: bool, label: String) -> void:
+func _expect(ok: bool, reason: String) -> void:
     if not ok:
-        failures.append(label)
-        push_error("LABO visual contract failed: " + label)
+        failures.append(reason)
+        push_error("LABO reference composition: " + reason)
 
-# Test actual projected image boundaries, not merely nearby camera positions.
-# Oversized scenery must continue outside the SubViewport on every LABO page.
-func _outside_camera_frame(camera: Camera3D, point: Vector3) -> bool:
+func _project(camera: Camera3D, point: Vector3) -> Vector2:
+    var pixel: Vector2 = camera.unproject_position(point)
+    var extent: Vector2 = camera.get_viewport().get_visible_rect().size
+    return Vector2(pixel.x / extent.x, pixel.y / extent.y)
+
+func _visible(camera: Camera3D, point: Vector3) -> bool:
     if camera.is_position_behind(point):
         return false
-    var pixel: Vector2 = camera.unproject_position(point)
-    var size: Vector2 = camera.get_viewport().get_visible_rect().size
-    return pixel.x < 0.0 or pixel.x > size.x or pixel.y < 0.0 or pixel.y > size.y
+    var p: Vector2 = _project(camera, point)
+    return p.x > 0.03 and p.x < 0.97 and p.y > 0.08 and p.y < 0.95
 
-func _screen_point(camera: Camera3D, point: Vector3) -> Vector2:
-    var size: Vector2 = camera.get_viewport().get_visible_rect().size
-    var screen: Vector2 = camera.unproject_position(point)
-    return Vector2(screen.x / size.x, screen.y / size.y)
-
-func _visible_primary(camera: Camera3D, world_point: Vector3) -> bool:
-    if camera.is_position_behind(world_point):
-        return false
-    var screen: Vector2 = _screen_point(camera, world_point)
-    return screen.x > 0.05 and screen.x < 0.95 \
-        and screen.y > 0.10 and screen.y < 0.90
-
-func _run_checks() -> void:
-    var stage: Node3D = HERO.instantiate() as Node3D
-    var preview := SubViewport.new()
-    preview.name = "TestLandscapeHeroViewport"
-    preview.size = Vector2i(480, 240)
-    preview.own_world_3d = true
-    root.add_child(preview)
-    preview.add_child(stage)
+func _check() -> void:
+    var viewport := SubViewport.new()
+    viewport.size = Vector2i(480, 240)
+    viewport.own_world_3d = true
+    viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+    root.add_child(viewport)
+    var stage: Node3D = HeroScene.instantiate() as Node3D
+    viewport.add_child(stage)
     stage.set_process(false)
+    var camera: Camera3D = stage.get_node_or_null("HeroCamera") as Camera3D
+    var robot: Node3D = stage.get_node_or_null("CRATE") as Node3D
     var maker: Node3D = stage.get_node_or_null("PrinterScene") as Node3D
     var refinery: Node3D = stage.get_node_or_null("MaterialConversionScene") as Node3D
-    var warehouse: Node3D = stage.get_node_or_null("WarehouseScene") as Node3D
-    var robot: Node3D = stage.get_node_or_null("CRATE") as Node3D
-    var camera: Camera3D = stage.get_node_or_null("HeroCamera") as Camera3D
-    _verify(maker != null and refinery != null and warehouse != null,
-        "three separately instantiated 3D locations")
-    _verify(robot != null and camera != null, "shared robot and scene camera")
-    if maker == null or refinery == null or warehouse == null or robot == null or camera == null:
+    var store: Node3D = stage.get_node_or_null("WarehouseScene") as Node3D
+    _expect(camera != null and robot != null, "3D preview camera and CRATE present")
+    _expect(maker != null and refinery != null and store != null, "3 independent stage roots")
+    if camera == null or robot == null or maker == null or refinery == null or store == null:
         quit(1)
         return
-    _verify(maker.get_node_or_null("PrinterLeftWall") != null,
-        "unique industrial printing-hall scenery")
-    _verify(refinery.get_node_or_null("RefineryCatwalk") != null,
-        "unique refinery background and pipes")
-    _verify(warehouse.get_node_or_null("StorageAisleFloor") != null,
-        "unique warehouse background and storage aisle")
-    _verify(robot.get_node_or_null("HeadPivot") != null
-        and robot.get_node_or_null("RightArmPivot") != null
-        and robot.get_node_or_null("LeftArmPivot") != null,
-        "canonical joint pivot compatibility")
-    var sample: Node3D = CrateModel.create_model()
-    _verify(robot.get_child_count() == sample.get_child_count(),
-        "outdoor and indoor CRATE built from same mesh factory")
-    sample.free()
+    var crate_copy: Node3D = CrateModel.create_model()
+    _expect(crate_copy.get_child_count() == robot.get_child_count(),
+        "same CRATE 3D mesh factory as the base")
+    crate_copy.free()
+
+    # Reference A: large 3D printer on left; CRATE at right-middle,
+    # diagnostic terminal right; no giant foreground loader or steep angle.
     stage.call("set_section", "LABO")
-    _verify(maker.visible and not refinery.visible and not warehouse.visible,
-        "manufacturing-only background active")
-    var printer_rig: Node3D = maker.get_node_or_null("Printer") as Node3D
-    _verify(printer_rig != null and absf(printer_rig.rotation.y) > 0.20,
-        "printer workcell rotated in three-quarter composition")
-    _verify(_visible_primary(camera, Vector3(-2.30, 1.35, 0.28)),
-        "main 3D printer is clearly framed")
-    _verify(_visible_primary(camera, Vector3(1.20, 0.75, 0.60)),
-        "CRATE remains in the manufacturing view")
-    _verify(_visible_primary(camera, Vector3(1.90, 1.60, -1.43)),
-        "printer diagnostic terminal is in frame")
-    _verify(maker.get_node_or_null("PrinterForegroundLoader") != null
-        and maker.get_node_or_null("PrinterHangingHarness") != null,
-        "industrial loader and suspended machinery densely frame the printer")
-    _verify(_outside_camera_frame(camera, Vector3(-4.60, 0.80, 1.80)),
-        "peripheral workshop loader remains cropped at frame edge")
-    var print_pos: Vector3 = camera.position
-    var print_direction: Vector3 = -camera.global_transform.basis.z
-    var nozzle: Node3D = stage.get_node("PrinterScene/PrinterNozzle") as Node3D
+    var printer: Node3D = maker.get_node_or_null("Printer") as Node3D
+    var terminal: Node3D = maker.get_node_or_null("PrinterInspectionStation") as Node3D
+    _expect(printer != null and terminal != null, "A: printer and console roots")
+    if printer != null and terminal != null:
+        var printer_point: Vector2 = _project(camera,
+            printer.to_global(Vector3(0, 1.55, 0)))
+        var console_point: Vector2 = _project(camera,
+            terminal.to_global(Vector3(0, 1.55, 0)))
+        var crate_point: Vector2 = _project(camera, robot.to_global(Vector3(0, 0.65, 0)))
+        _expect(printer_point.x < 0.47 and printer_point.x > 0.12,
+            "A: printer clearly occupies left side")
+        _expect(crate_point.x > printer_point.x + 0.24 and crate_point.x < 0.88,
+            "A: CRATE fully visible on right side of printer")
+        _expect(console_point.x > crate_point.x,
+            "A: terminal placed on far right beyond CRATE")
+        _expect(_visible(camera, printer.to_global(Vector3(0, 2.8, 0))),
+            "A: large printer upper frame remains visible")
+    _expect(not maker.has_node("PrinterForegroundLoader")
+        and not maker.has_node("PrinterHangingHarness"),
+        "A: remove oversized foreground obstruction")
+    var nozzle: Node3D = maker.get_node_or_null("PrinterNozzle") as Node3D
     var nozzle_before: Vector3 = nozzle.position
-    stage.call("_process", 0.50)
-    _verify(nozzle.position != nozzle_before, "manufacturing-only gantry animation")
+    stage.call("_process", 0.5)
+    _expect(nozzle.position != nozzle_before, "A: print motion preserved")
 
+    # Reference B: orange/blue/purple tall tanks left-center in that order;
+    # feedstock trays foreground; CRATE on right, wall monitor far right.
     stage.call("set_section", "SMELTER")
-    _verify(refinery.visible and not maker.visible and not warehouse.visible,
-        "refinery-only background active")
-    var refine_pos: Vector3 = camera.position
-    var refine_direction: Vector3 = -camera.global_transform.basis.z
+    var last_x: float = -1.0
     for index in range(3):
-        var vessel: Node3D = refinery.get_node_or_null(
+        var tank: Node3D = refinery.get_node_or_null(
             "RefineryVessel_%d" % index) as Node3D
-        _verify(vessel != null, "refinery vessel %d exists" % index)
-        if vessel != null:
-            _verify(_visible_primary(camera,
-                vessel.to_global(Vector3(0, 1.50, 0.35))),
-                "refinery vessel %d is inside the view" % index)
-    _verify(_visible_primary(camera, Vector3(1.60, 0.75, 0.85)),
-        "CRATE remains within the refinery frame")
-    var manifold: Node3D = refinery.get_node_or_null(
-        "RefineryForegroundManifold") as Node3D
-    _verify(manifold != null and refinery.get_node_or_null(
-        "RefineryHangingPipes") != null,
-        "manifold and overhead pipes create dense but nonblocking foreground")
-    _verify(_outside_camera_frame(camera, Vector3(-5.10, 1.30, 0.60)),
-        "side of refinery manifold continues off the visible frame")
-    var rotor: Node3D = stage.get_node(
-        "MaterialConversionScene/CrystalRotor_0") as Node3D
-    stage.call("_process", 0.50)
-    _verify(absf(rotor.rotation.y) > 0.01, "refinery-only chamber animation")
+        _expect(tank != null, "B: colored tank %d exists" % index)
+        if tank != null:
+            var tank_center: Vector2 = _project(camera,
+                tank.to_global(Vector3(0, 1.5, 0)))
+            _expect(tank_center.x > last_x and tank_center.x < 0.76,
+                "B: three colored tanks ordered left to right")
+            _expect(_visible(camera, tank.to_global(Vector3(0, 2.65, 0))),
+                "B: vessel cap is fully visible")
+            last_x = tank_center.x
+    _expect(refinery.has_node("RefineryFeedstockTrays"),
+        "B: several sorted mineral trays in the foreground")
+    _expect(refinery.has_node("RefineryRecycleSign"),
+        "B: illuminated recycling sign on far right wall")
+    _expect(_project(camera, robot.to_global(Vector3(0, 0.65, 0))).x > last_x,
+        "B: CRATE located right of vats")
+    stage.call("_process", 0.5)
+    _expect(stage.get_node("MaterialConversionScene/CrystalRotor_0").rotation.y > 0.01,
+        "B: raw material processing animation preserved")
     stage.call("set_section", "RECYCLER")
-    _verify(refinery.visible and not maker.visible and not warehouse.visible,
-        "recycler correctly maps to the materials page")
+    _expect(refinery.visible, "B: recycler uses same refining page")
 
+    # Reference C: left H01/H02/A01 racks, right B01/B02/A02 racks,
+    # central CRATE and angled monitor. Eye-level aisle, not bird's-eye view.
     stage.call("set_section", "STORAGE")
-    _verify(warehouse.visible and not refinery.visible and not maker.visible,
-        "warehouse-only background active")
-    var storage_pos: Vector3 = camera.position
-    var storage_direction: Vector3 = -camera.global_transform.basis.z
-    var left_rack: Node3D = warehouse.get_node_or_null("RackBay_Left") as Node3D
-    var right_rack: Node3D = warehouse.get_node_or_null("RackBay_Right") as Node3D
-    _verify(left_rack != null and right_rack != null,
-        "the warehouse has two different high storage rack banks")
-    if left_rack != null and right_rack != null:
-        _verify(absf(left_rack.position.z - right_rack.position.z) > 1.3
-            and absf(left_rack.rotation.y - right_rack.rotation.y) > 0.2,
-            "racks retain staggered three-quarter arrangement")
-    _verify(_visible_primary(camera, Vector3(-2.66, 1.90, 0.12))
-        and _visible_primary(camera, Vector3(2.70, 1.90, -2.03)),
-        "both rack banks are visible, not hidden behind near tower")
-    _verify(_visible_primary(camera, Vector3(0.55, 0.80, -0.55)),
-        "CRATE smaller, but still visible in the warehouse aisle")
-    _verify(warehouse.get_node_or_null("WarehouseNearRackExtension") != null
-        and warehouse.get_node_or_null("WarehouseForegroundPallets") != null,
-        "warehouse crop and foreground pallet density retained")
-    _verify(_outside_camera_frame(camera, Vector3(3.45, 5.30, 1.07)),
-        "warehouse foreground tower exceeds top/right camera bounds")
-    _verify(warehouse.get_node_or_null("DeepPackedWarehouseCartons") != null,
-        "warehouse background is stocked rather than an empty back wall")
-    var scanner: Node3D = stage.get_node(
-        "WarehouseScene/TravelingInventoryScanner") as Node3D
-    var scan_before: Vector3 = scanner.position
-    stage.call("_process", 0.50)
-    _verify(scanner.position != scan_before, "warehouse-only scanner motion")
-    _verify(print_pos != refine_pos and print_pos != storage_pos
-        and refine_pos != storage_pos, "all three rooms keep unique cameras")
-    _verify(print_direction.distance_to(refine_direction) > 0.20
-        and refine_direction.distance_to(storage_direction) > 0.20,
-        "each room keeps its own photographic angle")
-    preview.queue_free()
+    var left: Node3D = store.get_node_or_null("RackBay_Left") as Node3D
+    var right: Node3D = store.get_node_or_null("RackBay_Right") as Node3D
+    var monitor: Node3D = store.get_node_or_null("WarehouseInventoryMonitor") as Node3D
+    _expect(left != null and right != null and monitor != null,
+        "C: two loaded racks and the central warehouse inventory monitor")
+    if left != null and right != null:
+        var left_p: Vector2 = _project(camera, left.to_global(Vector3(0, 1.7, 0)))
+        var right_p: Vector2 = _project(camera, right.to_global(Vector3(0, 1.7, 0)))
+        var crate_p: Vector2 = _project(camera, robot.to_global(Vector3(0, 0.65, 0)))
+        _expect(left_p.x < crate_p.x and crate_p.x < right_p.x,
+            "C: CRATE stands between left and right rack banks")
+        _expect(left_p.x > 0.05 and right_p.x < 0.95,
+            "C: both storage rack banks recognizable")
+    _expect(store.has_node("WarehouseLeftStockLabels")
+        and store.has_node("WarehouseRightStockLabels"),
+        "C: H01/H02/A01 and B01/B02/A02 labels")
+    _expect(camera.position.y < 2.5,
+        "C: camera stays near eye level, without steep downward tilt")
+    _expect(maker.visible == false and refinery.visible == false and store.visible,
+        "C: only storage environment visible")
+    viewport.queue_free()
     if failures.is_empty():
-        print("PASS: LABO 3D interiors, visual isolation, CRATE and motion")
+        print("PASS LABO reference A/B/C composition")
         quit(0)
     else:
-        printerr("FAIL: ", failures.size(), " LABO assertions")
+        printerr("FAIL LABO reference layout: ", failures.size())
         quit(1)
