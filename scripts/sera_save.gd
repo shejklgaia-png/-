@@ -117,6 +117,8 @@ func _sanitize_crafted_items(raw: Variant) -> Array:
         # Preserve validated new affixes; never randomly change older saves.
         # Legacy items without affixes keep an empty array and their original UID.
         cleaned["affixes"] = Affixes.sanitize(item.get("affixes", []))
+        cleaned["favorite"] = bool(item.get("favorite", false))
+        cleaned["junk"] = bool(item.get("junk", false)) and not cleaned["favorite"]
         clean.append(cleaned)
     return clean
 
@@ -289,6 +291,68 @@ func get_owned_prototypes(slot: String = "") -> Array:
         if str(item["slot"]) == slot:
             result.append(item.duplicate(true))
     return result
+
+func set_prototype_mark(uid: String, mark: String, enabled: bool) -> bool:
+    # Per-instance, per-save marks. Favorite and junk are mutually exclusive;
+    # a failed disk commit must never alter the in-memory inventory.
+    if not _valid_slot(active_slot) or active_data.is_empty() or (
+            mark not in ["favorite", "junk"]):
+        return false
+    var items: Array = get_owned_prototypes()
+    var found: bool = false
+    for item in items:
+        if str(item["uid"]) != uid:
+            continue
+        item[mark] = enabled
+        if enabled:
+            item["junk" if mark == "favorite" else "favorite"] = false
+        found = true
+        break
+    if not found:
+        return false
+    var updated: Dictionary = active_data.duplicate(true)
+    updated["crafted_items"] = items
+    updated["updated_at"] = _timestamp()
+    if not _write_json(_slot_path(active_slot), updated):
+        return false
+    active_data = updated
+    return true
+
+func count_junk_prototypes(slot: String = "") -> int:
+    # Keep equipped UIDs out of deletion counts.
+    var equipped: Dictionary = active_data.get("equipped_crafted", {})
+    var count: int = 0
+    for item in get_owned_prototypes(slot):
+        if bool(item.get("junk", false)) and (
+                not equipped.values().has(str(item.get("uid", "")))):
+            count += 1
+    return count
+
+func delete_junk_prototypes(slot: String = "") -> int:
+    if not _valid_slot(active_slot) or active_data.is_empty() or (
+            not slot.is_empty() and not EQUIPMENT_SLOTS.has(slot)):
+        return 0
+    var items: Array = get_owned_prototypes()
+    var equipped: Dictionary = active_data.get("equipped_crafted", {})
+    var kept: Array = []
+    var deleted: int = 0
+    for item in items:
+        if (bool(item.get("junk", false)) and (
+                slot.is_empty() or str(item["slot"]) == slot) and
+                not equipped.values().has(str(item["uid"]))):
+            deleted += 1
+        else:
+            kept.append(item)
+    if deleted == 0:
+        return 0
+    var updated: Dictionary = active_data.duplicate(true)
+    updated["crafted_items"] = kept
+    updated["updated_at"] = _timestamp()
+    # craft_serials must NOT reset: deleted identities cannot be minted again.
+    if not _write_json(_slot_path(active_slot), updated):
+        return 0
+    active_data = updated
+    return deleted
 
 func get_equipped_prototype(slot: String) -> String:
     if not EQUIPMENT_SLOTS.has(slot):
