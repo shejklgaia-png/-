@@ -18,7 +18,7 @@ static func style(kind: String = "normal") -> StyleBoxFlat:
             result.border_color = Color("#99d8e8")
         "disabled":
             result.bg_color = Color("#273846")
-            result.border_color = Color("#587084")
+            result.border_color = Color("#74aebf")
         _:
             result.bg_color = Color("#293f52")
             result.border_color = Color("#688fa4")

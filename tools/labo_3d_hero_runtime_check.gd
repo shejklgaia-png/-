@@ -61,6 +61,18 @@ func _run() -> void:
         if not host.visible or stage.get_instance_id() != first_id:
             _fail("3D stage was re-created when tabs changed: " + section)
             return
+    # Warehouse materials are read-only, but their blue-grey border must
+    # still have enough contrast to remain visibly rendered on Android.
+    fac.call("_switch_section", "warehouse")
+    await process_frame
+    var disabled_card: Button = (fac.get("item_layer") as Control).find_child(
+        "MaterialIcon_scrap_low", true, false) as Button
+    var disabled_style: StyleBoxFlat = disabled_card.get_theme_stylebox("disabled") as StyleBoxFlat
+    if disabled_style == null or disabled_style.border_color.g - disabled_style.border_color.r < 0.11:
+        _fail("read-only warehouse material card outline lacks visible cyan-grey contrast")
+        return
+    fac.call("_switch_section", "craft")
+    await process_frame
     var craft_tab: Button = (fac.get("section_tabs") as HBoxContainer).get_node("TabCraft") as Button
     var normal_style: StyleBoxFlat = craft_tab.get_theme_stylebox("normal") as StyleBoxFlat
     if normal_style == null or normal_style.corner_radius_top_left < 8:
