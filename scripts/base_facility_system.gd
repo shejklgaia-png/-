@@ -432,7 +432,7 @@ func attach_hud(hud: Control) -> void:
         button.pressed.connect(_switch_section.bind(str(entry["target"])))
         section_tabs.add_child(button)
     # Reference hierarchy: 3D scene -> three navigation tabs -> section heading.
-    body.move_child(section_tabs, body.get_child_index(header_row))
+    body.move_child(section_tabs, header_row.get_index())
     modal_body = Label.new()
     modal_body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
     modal_body.add_theme_font_size_override("font_size", 18)
