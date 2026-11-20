@@ -83,6 +83,7 @@ func _run() -> void:
     fac.call("_switch_section", "warehouse")
     await process_frame
     await process_frame
+    fac.call("_show_inventory", "materials")
     if not _check_virtual(fac, "WarehouseMaterials", 12, 2):
         return
     var actions: VBoxContainer = fac.get("modal_actions") as VBoxContainer
