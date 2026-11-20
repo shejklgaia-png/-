@@ -547,11 +547,29 @@ func _diag_update() -> void:
     var card_count: int = 0
     var visible_count: int = 0
     var real_icons: int = 0
+    var virtual_total: int = 0
     var first_card: Button = null
     var row_count: int = 0
     if item_layer != null:
         for grid_node in item_layer.get_children():
             if grid_node is not Control:
+                continue
+            if grid_node is ScrollContainer and grid_node.has_method("configure"):
+                var entries: Array = grid_node.get("entries")
+                var cards: Array = grid_node.get("pool")
+                virtual_total += entries.size()
+                row_count += ceili(float(grid_node.get("virtual_slots")) /
+                    float(grid_node.get("columns")))
+                for candidate in cards:
+                    var card: Button = candidate as Button
+                    card_count += 1
+                    if card.is_visible_in_tree():
+                        visible_count += 1
+                    var texture: TextureRect = card.get_node("ItemArt") as TextureRect
+                    if texture.texture != null:
+                        real_icons += 1
+                    if first_card == null:
+                        first_card = card
                 continue
             row_count += grid_node.get_child_count()
             for row_node in grid_node.get_children():
@@ -578,6 +596,7 @@ func _diag_update() -> void:
         + "created %d/%d | icons %d | slots: %d visible %d, art %d\n" % [
             diag_created, diag_expected, diag_icon_count,
             card_count, visible_count, real_icons]
+        + "virtual %d items | " % virtual_total
         + "atlas: %s | rows %d | viewport: %dx%d\n" % [
             "OK" if atlas_present else "MISSING", row_count,
             int(viewport.x), int(viewport.y)]
