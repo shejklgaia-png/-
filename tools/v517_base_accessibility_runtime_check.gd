@@ -36,12 +36,12 @@ func _run() -> void:
         return
     var actions: VBoxContainer = facility.get("modal_actions") as VBoxContainer
     for blueprint in CATALOG.ORDER:
-        var row: Button = actions.find_child("PrototypeIcon_" + str(blueprint), true, false) as Button
+        var row: Button = (facility.get("item_layer") as Control).find_child("PrototypeIcon_" + str(blueprint), true, false) as Button
         if row == null or row.icon == null or row.icon.get_width() <= 0:
             _fail("unrenderable craft icon: " + str(blueprint))
             return
     await process_frame
-    var first_icon: Button = actions.find_child("PrototypeIcon_H01", true, false) as Button
+    var first_icon: Button = (facility.get("item_layer") as Control).find_child("PrototypeIcon_H01", true, false) as Button
     if not first_icon.is_visible_in_tree() or (
             not viewport_rect.has_point(first_icon.get_global_rect().get_center())):
         _fail("first craft icon does not appear in visible modal")
@@ -108,12 +108,12 @@ func _run() -> void:
         return
     actions = facility.get("modal_actions") as VBoxContainer
     for material_id in MAT.all_ids():
-        var row: Button = actions.find_child("MaterialIcon_" + str(material_id), true, false) as Button
+        var row: Button = (facility.get("item_layer") as Control).find_child("MaterialIcon_" + str(material_id), true, false) as Button
         if row == null or row.icon == null:
             _fail("material icon missing in visible warehouse: " + str(material_id))
             return
     await process_frame
-    var first_material: Button = actions.find_child("MaterialIcon_scrap_low", true, false) as Button
+    var first_material: Button = (facility.get("item_layer") as Control).find_child("MaterialIcon_scrap_low", true, false) as Button
     if not first_material.is_visible_in_tree() or (
             not viewport_rect.has_point(first_material.get_global_rect().get_center())):
         _fail("first warehouse material icon does not appear in visible modal")

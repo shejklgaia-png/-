@@ -24,7 +24,7 @@ func _capture(fac: Node3D, group: String, card_id: String) -> bool:
         _fail("failed to capture rendered screenshot of " + group)
         return false
     var actions: VBoxContainer = fac.get("modal_actions") as VBoxContainer
-    var card: Button = actions.find_child(card_id, true, false) as Button
+    var card: Button = (fac.get("item_layer") as Control).find_child(card_id, true, false) as Button
     if card == null or not card.is_visible_in_tree():
         _fail("expected native card is absent: " + card_id)
         return false
