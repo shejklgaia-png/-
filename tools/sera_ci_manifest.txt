@@ -2,6 +2,8 @@
 # Each entry is mandatory: missing files and failing scripts fail the run.
 # Active v424 tests only; superseded v423 checks remain on disk with a retirement register.
 # One test per line. Preserve tests not explicitly retired by a specification change.
+py tools/sera_view_edges_self_check.py
+gd tools/sera_view_edges_runtime_check.gd
 # Python tests run in fresh interpreters; Godot tests run in fresh engine processes.
 py tools/base_exploration_self_check.py
 py tools/base_facilities_self_check.py
