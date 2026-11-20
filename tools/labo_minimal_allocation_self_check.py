@@ -18,7 +18,7 @@ assert 'if not diagnostic_button.visible:' in ui, "disabled diagnostics must avo
 # Keep WebP source fallback, framed native cards and the existing layout approach.
 assert 'func _queue_card_icon(' in ui
 assert 'card.text = title + "\\n" + info' in slot
-assert 'ScrollContainer.new()' in ui, "native scroll is required in LABO"
+assert 'LaboTouchScroll.new()' in ui, "native scroll is required in LABO"
 assert 'GridContainer.new()' not in ui
 assert 'py tools/labo_minimal_allocation_self_check.py' in manifest
 assert 'gd tools/labo_minimal_allocation_runtime_check.gd' in manifest
