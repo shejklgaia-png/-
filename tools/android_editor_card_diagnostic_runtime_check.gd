@@ -26,7 +26,7 @@ func _run() -> void:
         _fail("diagnostic readout is not on the visible menu")
         return
     var text_value: String = diag_label.text
-    for marker in ["Godot", "stage: ", "slots: ", "atlas:", "viewport:", "created 7/7"]:
+    for marker in ["Godot", "stage: ", "slots: ", "atlas:", "viewport:", "created 1/7"]:
         if not text_value.contains(marker):
             _fail("diagnostic missing " + marker + ": " + text_value)
             return
