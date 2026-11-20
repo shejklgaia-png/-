@@ -1,0 +1,7 @@
+[gd_scene format=3]
+
+[node name="LaboSectionTab" type="Button"]
+focus_mode = 0
+toggle_mode = true
+clip_text = true
+text_overrun_behavior = 3
