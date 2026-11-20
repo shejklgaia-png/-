@@ -13,8 +13,8 @@ func _need_font(control: Control, size: int, label: String) -> bool:
 func _run() -> void:
     var theme: Theme = LaboTypeface.common_theme()
     if theme.default_font == null or theme.default_font_size < 18 or (
-            not LaboTypeface.ui_font() is SystemFont) or (
-            not LaboTypeface.data_font() is SystemFont):
+            not LaboTypeface.ui_font() is FontVariation) or (
+            not LaboTypeface.data_font() is FontFile):
         _fail("lightweight Japanese UI / digital-data font is not configured")
         return
     var hub: Node3D = load("res://scenes/base_exploration.tscn").instantiate()

@@ -35,8 +35,8 @@ func _run() -> void:
         _fail("font diagnostic panel could not be opened")
         return
     var report: String = output.text
-    for token in ["SERA FONT DIAG v545", "Platform:", "Locale:", "Display:",
-            "System font families:", "requested:", "OS candidate:",
+    for token in ["SERA FONT DIAG v546", "Platform:", "Locale:", "Display:",
+            "System font families:", "embedded:", "JAPANESE FONT: PASS",
             "TextServer primary RID:", "glyph A/JPN/kanji/kana:",
             "JP TITLE", "LATIN NAV", "MONO ID"]:
         if not report.contains(token):

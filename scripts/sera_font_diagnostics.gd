@@ -1,6 +1,6 @@
 extends RefCounted
-## On-demand LAB font diagnostics. No font assets, file writes or polling.
-## Note: SystemFont resolves to the default theme font on Android (Godot 4.7).
+## On-demand LAB font diagnostics. Bundled WOFF2 face identity and glyph checks.
+## The optional OS candidate remains for troubleshooting older builds.
 const LaboSkin = preload("res://scripts/sera_labo_round_skin.gd")
 const JP_TEXT: String = "装備 精製 倉庫 日本語 漢字"
 const LATIN_TEXT: String = "EQUIPMENT Aa 0123456789"
@@ -24,6 +24,20 @@ static func _base_system(font: Font) -> SystemFont:
         if root is SystemFont:
             return root as SystemFont
     return null
+
+
+static func _embedded_face(font: Font) -> FontFile:
+    if font is FontFile:
+        return font as FontFile
+    if font is FontVariation and (font as FontVariation).base_font is FontFile:
+        return (font as FontVariation).base_font as FontFile
+    return null
+
+
+static func _asset_path(role_id: String) -> String:
+    if role_id.begins_with("JP "):
+        return LaboSkin.JP_FONT_PATH
+    return LaboSkin.NAV_FONT_PATH if role_id == "LATIN NAV" else LaboSkin.DATA_FONT_PATH
 
 
 static func _check_char(font: Font, codepoint: int) -> String:
@@ -61,7 +75,7 @@ static func _path_result(name: String, weight: int) -> String:
 
 static func report() -> String:
     var lines: PackedStringArray = []
-    lines.append("SERA FONT DIAG v545")
+    lines.append("SERA FONT DIAG v546 / EMBEDDED FONT CHECK")
     lines.append("Godot: " + str(Engine.get_version_info().get("string", "?")))
     lines.append("Platform: " + OS.get_name())
     lines.append("Locale: " + OS.get_locale())
@@ -77,14 +91,28 @@ static func report() -> String:
             break
     lines.append("Named families: " +
         (", ".join(matched) if not matched.is_empty() else "(none listed)"))
-    lines.append("Note: candidate paths do NOT prove actual rendered face.")
+    lines.append("Font mode: bundled WOFF2, independent of Android names")
     lines.append("Note: has_char does NOT prove visible pixels.")
     lines.append("---")
     for entry: Dictionary in roles():
         var font: Font = entry["font"] as Font
         var name: String = str(entry["id"])
         var base: SystemFont = _base_system(font)
+        var embedded: FontFile = _embedded_face(font)
         lines.append(name + " | " + font.get_class())
+        if embedded != null:
+            var asset: String = _asset_path(name)
+            var status: String = "OK" if ResourceLoader.exists(asset) else "MISSING"
+            lines.append("  embedded: " + asset.get_file() + " / " + status)
+            lines.append("  file glyphs A/JPN/kanji/kana: " +
+                _check_char(embedded, 0x41) + "/" +
+                _check_char(embedded, 0x65E5) + "/" +
+                _check_char(embedded, 0x6F22) + "/" +
+                _check_char(embedded, 0x30AB))
+            if name.begins_with("JP ") and embedded.has_char(0x65E5):
+                lines.append("  JAPANESE FONT: PASS")
+            elif name.begins_with("JP "):
+                lines.append("  JAPANESE FONT: FAIL")
         if base != null:
             var requested: String = _requested_font_name(base)
             lines.append("  requested: " + requested + " / weight " +
@@ -105,6 +133,7 @@ static func report() -> String:
             _check_char(font, 0x6F22) + "/" +
             _check_char(font, 0x30AB))
     lines.append("---")
-    lines.append("If all faces look identical on Android, SystemFont may")
-    lines.append("be using the default theme font. Inspect on-device samples.")
+    lines.append("Expected JP glyphs: Y/Y/Y/Y for all JP roles.")
+    lines.append("Latin/mono faces may legitimately lack Japanese glyphs.")
+    lines.append("Inspect LIVE SAMPLES for actual rendered differences.")
     return "\n".join(lines)

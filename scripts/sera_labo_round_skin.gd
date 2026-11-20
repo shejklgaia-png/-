@@ -5,81 +5,78 @@ static var _card_cache: Dictionary = {}
 static var _tab_cache: Dictionary = {}
 static var _segment_cache: Dictionary = {}
 static var _panel_cache: StyleBoxTexture
-static var _ui_font: SystemFont
-static var _title_font: SystemFont
-static var _control_font: SystemFont
-static var _display_font: SystemFont
-static var _stats_font: SystemFont
-static var _data_font: SystemFont
+## Portable fonts bundled with SERA; NEVER depend on Android SystemFont.
+## Original complete, licensed OFL fonts are vendored in assets/fonts/.
+const JP_FONT_PATH: String = "res://assets/fonts/NotoSansJP-VF.woff2"
+const NAV_FONT_PATH: String = "res://assets/fonts/Rajdhani-Bold.woff2"
+const DATA_FONT_PATH: String = "res://assets/fonts/IBMPlexMono-Medium.woff2"
+static var _jp_source: FontFile
+static var _nav_source: FontFile
+static var _data_source: FontFile
+static var _ui_font: FontVariation
+static var _title_font: FontVariation
+static var _control_font: FontVariation
+static var _stats_font: FontVariation
+static var _display_font: FontFile
+static var _data_font: FontFile
 static var _tracked_display: FontVariation
 static var _tracked_data: FontVariation
 
-## Device fonts only: the first installed face is used, then Godot's
-## built-in CJK fallback. No shipped font asset, network request or glyph atlas.
-static func ui_font() -> SystemFont:
-    if _ui_font == null:
-        _ui_font = SystemFont.new()
-        _ui_font.font_names = PackedStringArray([
-            "Noto Sans JP", "Noto Sans CJK JP", "M PLUS 1p",
-            "Hiragino Kaku Gothic ProN", "Yu Gothic", "sans-serif"])
-        _ui_font.font_weight = 550
-        _ui_font.allow_system_fallback = true
-    return _ui_font
 
-static func title_font() -> SystemFont:
-    if _title_font == null:
-        _title_font = SystemFont.new()
-        _title_font.font_names = ui_font().font_names
-        _title_font.font_weight = 700
-        _title_font.allow_system_fallback = true
-    return _title_font
-
-## Five cached typography roles use three font families:
-## Japanese sans (reading/title/controls/stats), condensed Latin (navigation),
-## and mono Latin (technical IDs). No bundled assets or runtime font allocation.
-static func control_font() -> SystemFont:
-    if _control_font == null:
-        _control_font = SystemFont.new()
-        _control_font.font_names = ui_font().font_names
-        _control_font.font_weight = 650
-        _control_font.allow_system_fallback = true
-    return _control_font
+static func _jp_face() -> FontFile:
+    if _jp_source == null:
+        _jp_source = load(JP_FONT_PATH) as FontFile
+    return _jp_source
 
 
-static func stats_font() -> SystemFont:
-    if _stats_font == null:
-        _stats_font = SystemFont.new()
-        _stats_font.font_names = ui_font().font_names
-        _stats_font.font_weight = 580
-        _stats_font.allow_system_fallback = true
-    return _stats_font
-
-
-static func display_font() -> SystemFont:
+static func display_font() -> FontFile:
     if _display_font == null:
-        _display_font = SystemFont.new()
-        _display_font.font_names = PackedStringArray([
-            "Roboto Condensed", "sans-serif-condensed",
-            "Arial Narrow", "Roboto", "sans-serif"])
-        _display_font.font_weight = 700
-        _display_font.allow_system_fallback = true
+        _nav_source = load(NAV_FONT_PATH) as FontFile
+        _display_font = _nav_source
     return _display_font
 
 
-static func data_font() -> SystemFont:
+static func data_font() -> FontFile:
     if _data_font == null:
-        _data_font = SystemFont.new()
-        _data_font.font_names = PackedStringArray([
-            "Roboto Mono", "JetBrains Mono", "Noto Sans Mono CJK JP",
-            "M PLUS 1 Code", "monospace"])
-        _data_font.font_weight = 550
-        _data_font.allow_system_fallback = true
+        _data_source = load(DATA_FONT_PATH) as FontFile
+        _data_font = _data_source
     return _data_font
 
 
-## Tracking is a measurable visual difference even on devices where the
-## preferred font family is missing. FontVariation uses the cached base font,
-## so cards and virtual scrolling never create new typeface resources.
+## Use the real OpenType wght axis in the bundled JP variable face.
+## A FontVariation object is created only once per UI role.
+static func _jp_weight(weight: int) -> FontVariation:
+    var result := FontVariation.new()
+    result.base_font = _jp_face()
+    var ts: TextServer = TextServerManager.get_primary_interface()
+    result.variation_opentype = {ts.name_to_tag("wght"): weight}
+    return result
+
+
+static func ui_font() -> FontVariation:
+    if _ui_font == null:
+        _ui_font = _jp_weight(550)
+    return _ui_font
+
+
+static func title_font() -> FontVariation:
+    if _title_font == null:
+        _title_font = _jp_weight(700)
+    return _title_font
+
+
+static func control_font() -> FontVariation:
+    if _control_font == null:
+        _control_font = _jp_weight(650)
+    return _control_font
+
+
+static func stats_font() -> FontVariation:
+    if _stats_font == null:
+        _stats_font = _jp_weight(580)
+    return _stats_font
+
+
 static func tracked_display_font() -> FontVariation:
     if _tracked_display == null:
         _tracked_display = FontVariation.new()

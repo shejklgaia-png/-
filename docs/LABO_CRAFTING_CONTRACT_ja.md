@@ -69,3 +69,11 @@
 - 倉庫の装備名20px、追加特性14px、空ハンガー17px。日本語フォントのフォールバック時でも余白と文字サイズの差を維持。
 - カードのタップ領域、装備製作20枠、倉庫999枠の可視32ノードまでの仮想化、上部3D表示30%は保持。
 - 旧v543の書体参照テストを新しい字間バリエーションに追従させ、v544で実際のGodotコントロールの文字階層を回帰検査。
+
+## v546：Android機種非依存の同梱フォント（旧SystemFont依存を撤廃）
+- 使用書体：Noto Sans JP Variable（日本語UIすべて、wght 550/700/650/580）、Rajdhani Bold（英字大見出し）、IBM Plex Mono Medium（シリアル番号、計測値等）。
+- Google FontsからSIL Open Font License 1.1で配布されるオリジナルの全日本語文字セット（Noto Sans JP）を検証付きで取り込み、WOFF2へ可逆変換して assets/fonts に保存する。漢字・かな・英数字を一つの可変書体で描画する。3種類のライセンスも同梱。
+- FontFileとFontVariationを静的キャッシュし、AndroidのSystemFont未対応時にRobotoへ置換される問題を排除する。TextServerのwghtタグは数値タグを利用し、端末OSのフォント名探索を禁止。
+- 実際のフォントデータは asset/fonts に含まれ、プロジェクトのAndroid APK内へエクスポートする必要がある。ビルドサイズは約4.5MB増加。フル日本語カバレッジ維持を優先し、1文字ごとの画像や網羅性の低い字形サブセットは採用しない。
+- 初回のみフォントのグリフラスタライズが発生するが、以降はGodotのFontFile共有とGlyphキャッシュを使用する。倉庫999枠は引き続き最大32枚の可視カードのみ生成する。
+- v546 CIでWOFF2マジック・ライセンス・日本語グリフ・リソース読み込み・実際のTextServer RID名と重要UIへの参照を検査する。端末でFONT診断を再実行し、JP BODY/TITLE/CONTROL/STATSのfont RIDがNoto Sans JPになることを確認する。

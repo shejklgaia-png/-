@@ -12,12 +12,12 @@ func _has_font(control: Control, expected: Font, description: String) -> bool:
         return false
     return true
 func _run() -> void:
-    var reading: SystemFont = LaboTypefaceRoles.ui_font()
-    var title_font: SystemFont = LaboTypefaceRoles.title_font()
-    var control_font: SystemFont = LaboTypefaceRoles.control_font()
-    var stats_font: SystemFont = LaboTypefaceRoles.stats_font()
-    var condensed: SystemFont = LaboTypefaceRoles.display_font()
-    var mono: SystemFont = LaboTypefaceRoles.data_font()
+    var reading: FontVariation = LaboTypefaceRoles.ui_font()
+    var title_font: FontVariation = LaboTypefaceRoles.title_font()
+    var control_font: FontVariation = LaboTypefaceRoles.control_font()
+    var stats_font: FontVariation = LaboTypefaceRoles.stats_font()
+    var condensed: FontFile = LaboTypefaceRoles.display_font()
+    var mono: FontFile = LaboTypefaceRoles.data_font()
     var condensed_spaced: FontVariation = LaboTypefaceRoles.tracked_display_font()
     var mono_spaced: FontVariation = LaboTypefaceRoles.tracked_data_font()
     if reading == title_font or title_font == control_font or (
@@ -34,12 +34,19 @@ func _run() -> void:
             LaboTypefaceRoles.control_font() != control_font):
         _fail("font construction runs again instead of caching")
         return
-    if not condensed.font_names.has("Roboto Condensed") or (
-            not mono.font_names.has("Roboto Mono")) or (
-            not reading.font_names.has("Noto Sans JP")) or (
-            condensed.font_weight < title_font.font_weight) or (
-            control_font.font_weight <= stats_font.font_weight):
-        _fail("typeface family/weight specification was changed")
+    var tag: int = TextServerManager.get_primary_interface().name_to_tag("wght")
+    if (not reading.base_font is FontFile or
+            title_font.base_font != reading.base_font or
+            control_font.base_font != reading.base_font or
+            stats_font.base_font != reading.base_font or
+            int(title_font.variation_opentype.get(tag, 0)) != 700 or
+            int(control_font.variation_opentype.get(tag, 0)) != 650 or
+            int(stats_font.variation_opentype.get(tag, 0)) != 580 or
+            not reading.has_char(0x65E5) or
+            not reading.has_char(0x6F22) or
+            not condensed.has_char(0x41) or
+            not mono.has_char(0x41)):
+        _fail("bundled font faces or OpenType role weights are invalid")
         return
     var hub: Node3D = load("res://scenes/base_exploration.tscn").instantiate()
     root.add_child(hub)

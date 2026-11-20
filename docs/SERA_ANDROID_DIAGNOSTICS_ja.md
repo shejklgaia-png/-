@@ -29,3 +29,9 @@
 - フォントパスはOSの候補であり、実際にレンダリングされた書体と同一とは限りません。文字対応もピクセル描画成功を保証しません。必ずLIVE SAMPLESと突き合わせてください。
 - Godot 4.7のSystemFont公式ドキュメントではAndroidは実装対象外で、デフォルトテーマ書体へのフォールバックとなることが記載されています。現時点ではAndroid実機で何が選ばれたかは未確認です。
 - 診断パネルはタップ時に一度だけ生成し、再スキャンも手動操作時だけ行います。フォント用の外部ファイルは追加していません。
+
+## v546以降の診断結果の読み方
+- FONT診断は引き続き、LAB見出しを5回タップ→FONT→RESCAN→COPY LOGで開きます。
+- 期待値：Font modeが bundled WOFF2、JP BODY/TITLE/CONTROL/STATS の embedded が NotoSansJP-VF.woff2 / OK、JAPANESE FONT: PASS、glyph A/JPN/kanji/kana が Y/Y/Y/Y です。
+- TextServer primary RIDにはNoto Sans JP系の書体名が出る想定です。LATIN NAVはRajdhani、MONO IDはIBM Plex Monoを表示します。
+- 4つのJP行がRobotoのままなら旧バージョンが実行されているか、Androidへのエクスポートにフォントデータが含まれていません。Godotのエクスポート設定や .godot/imported のリソース読込を確認します。

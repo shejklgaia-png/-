@@ -8,13 +8,14 @@ ui = (root / "scripts/base_facility_system.gd").read_text(encoding="utf-8")
 store = (root / "scripts/sera_warehouse_grid.gd").read_text(encoding="utf-8")
 ci = (root / "tools/sera_ci_manifest.txt").read_text(encoding="utf-8")
 
-for name in ("ui_font", "title_font", "control_font", "stats_font",
-             "display_font", "data_font"):
-    assert f"static func {name}() -> SystemFont:" in skin, name
-for token in ("Roboto Condensed", "sans-serif-condensed", "Noto Sans JP",
-              "Noto Sans CJK JP", "Roboto Mono", "font_weight = 650",
-              "font_weight = 580", "font_weight = 700",
-              "allow_system_fallback = true"):
+for name in ("ui_font", "title_font", "control_font", "stats_font"):
+    assert f"static func {name}() -> FontVariation:" in skin, name
+for name in ("display_font", "data_font"):
+    assert f"static func {name}() -> FontFile:" in skin, name
+for token in ("NotoSansJP-VF.woff2", "Rajdhani-Bold.woff2",
+              "IBMPlexMono-Medium.woff2", "variation_opentype",
+              "name_to_tag", "_jp_weight(700)", "_jp_weight(650)",
+              "_jp_weight(580)"):
     assert token in skin, token
 
 assert 'button.add_theme_font_override("font", LaboSkin.tracked_display_font())' in ui
