@@ -60,7 +60,7 @@ func _run() -> void:
         _fail("hanger must have seven horizontally scrollable category tabs")
         return
     var group: ButtonGroup = null
-    for slot in save.get("EQUIPMENT_SLOTS"):
+    for slot in ["head", "torso", "legs", "arms", "booster", "weapon_r", "weapon_l"]:
         var button: Button = hanger.get_node_or_null("HangerSlot_" + str(slot)) as Button
         if button == null or not button.toggle_mode or button.button_group == null:
             _fail("hanger category missing / not selectable: " + str(slot))
