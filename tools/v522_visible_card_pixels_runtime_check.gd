@@ -70,6 +70,7 @@ func _run() -> void:
     if not await _capture(fac, "materials", "MaterialIcon_scrap_low"):
         return
     fac.call("_switch_section", "warehouse")
+    fac.call("_show_inventory", "materials")
     if not await _capture(fac, "warehouse", "MaterialIcon_scrap_low"):
         return
     # The Android user's v523 screenshots show an existing selected save:
@@ -96,6 +97,7 @@ func _run() -> void:
     if not await _capture(fac, "materials_existing_save", "MaterialIcon_scrap_low"):
         return
     fac.call("_switch_section", "warehouse")
+    fac.call("_show_inventory", "materials")
     if not await _capture(fac, "warehouse_existing_save", "MaterialIcon_scrap_low"):
         return
     store.set("active_slot", original_slot)
