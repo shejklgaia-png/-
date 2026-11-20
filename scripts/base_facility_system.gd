@@ -9,7 +9,14 @@ const LaboStats = preload("res://scripts/sera_labo_stats.gd")
 const LaboMaterialCardScene = preload("res://ui/labo/LaboMaterialCard.tscn")
 const LaboEquipmentCardScene = preload("res://ui/labo/LaboEquipmentCard.tscn")
 const LaboSectionTabScene = preload("res://ui/labo/LaboSectionTab.tscn")
-const MATERIAL_CARD_HEIGHT: float = 86.0
+# Shared portrait touch-target scale (Godot Control pixels, no extra sprites).
+const LABO_NAV_HEIGHT: float = 64.0
+const LABO_SLOT_HEIGHT: float = 58.0
+const LABO_BACK_HEIGHT: float = 66.0
+const LABO_CONFIRM_HEIGHT: float = 70.0
+const LABO_CRAFT_CARD_HEIGHT: float = 108.0
+const LABO_CONVERSION_HEIGHT: float = 84.0
+const MATERIAL_CARD_HEIGHT: float = 108.0
 const MATERIAL_ICON_WIDTH: int = 54
 ## Base field architecture: LABO is one building; resources, power and construction
 ## are independent physical machines. NEXUS remains in the parent scene.
@@ -340,7 +347,7 @@ func attach_hud(hud: Control) -> void:
     modal_panel.add_child(padding)
     var body := VBoxContainer.new()
     body.name = "FacilityContent"
-    body.add_theme_constant_override("separation", 7)
+    body.add_theme_constant_override("separation", 8)
     padding.add_child(body)
     # 30% of the visible portrait viewport. The actual 3D stage is created
     # lazily once and shared by LABO / SMELTER / RECYCLER / STORAGE.
@@ -358,7 +365,7 @@ func attach_hud(hud: Control) -> void:
     body.add_child(header_row)
     modal_title = Label.new()
     modal_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-    modal_title.add_theme_font_size_override("font_size", 21)
+    modal_title.add_theme_font_size_override("font_size", 23)
     modal_title.add_theme_color_override("font_color", Color("#f1faff"))
     modal_title.mouse_filter = Control.MOUSE_FILTER_STOP
     modal_title.gui_input.connect(_on_modal_title_input)
@@ -367,8 +374,8 @@ func attach_hud(hud: Control) -> void:
     diagnostic_button.name = "UIDiagnosticToggle"
     diagnostic_button.text = "診断"
     diagnostic_button.visible = false
-    diagnostic_button.custom_minimum_size = Vector2(65.0, 39.0)
-    diagnostic_button.add_theme_font_size_override("font_size", 14)
+    diagnostic_button.custom_minimum_size = Vector2(78.0, 46.0)
+    diagnostic_button.add_theme_font_size_override("font_size", 16)
     diagnostic_button.tooltip_text = "Android版Godotの一覧表示を診断"
     diagnostic_button.pressed.connect(_diag_toggle)
     header_row.add_child(diagnostic_button)
@@ -388,16 +395,16 @@ func attach_hud(hud: Control) -> void:
         button.text = str(entry["label"])
         button.toggle_mode = true
         button.button_group = section_group
-        button.custom_minimum_size.y = 50.0
+        button.custom_minimum_size.y = LABO_NAV_HEIGHT
         button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-        button.add_theme_font_size_override("font_size", 16)
+        button.add_theme_font_size_override("font_size", 18)
         button.add_theme_color_override("font_color", Color("#f4fbff"))
         # Rounded blue-grey styles are inherited from FacilitySheet.theme.
         button.pressed.connect(_switch_section.bind(str(entry["target"])))
         section_tabs.add_child(button)
     modal_body = Label.new()
     modal_body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-    modal_body.add_theme_font_size_override("font_size", 14)
+    modal_body.add_theme_font_size_override("font_size", 15)
     modal_body.add_theme_color_override("font_color", Color("#bdd4df"))
     body.add_child(modal_body)
     diagnostic_readout = Label.new()
@@ -418,7 +425,7 @@ func attach_hud(hud: Control) -> void:
     modal_actions = VBoxContainer.new()
     modal_actions.size_flags_horizontal = Control.SIZE_EXPAND_FILL
     modal_actions.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
-    modal_actions.add_theme_constant_override("separation", 7)
+    modal_actions.add_theme_constant_override("separation", 9)
     actions_scroll = ScrollContainer.new()
     actions_scroll.name = "FacilityActionScroll"
     actions_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -445,7 +452,8 @@ func attach_hud(hud: Control) -> void:
     var close_button := Button.new()
     close_button.name = "CloseFacility"
     close_button.text = "戻る"
-    close_button.custom_minimum_size.y = 48.0
+    close_button.custom_minimum_size.y = LABO_BACK_HEIGHT
+    close_button.add_theme_font_size_override("font_size", 19)
     close_button.pressed.connect(navigate_back)
     body.add_child(close_button)
     # Own full-screen confirmation layer; does not depend on Android popup
@@ -478,7 +486,7 @@ func attach_hud(hud: Control) -> void:
     confirmation_title.name = "LaboConfirmTitle"
     confirmation_title.text = "作成しますか？"
     confirmation_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-    confirmation_title.add_theme_font_size_override("font_size", 22)
+    confirmation_title.add_theme_font_size_override("font_size", 24)
     confirm_vbox.add_child(confirmation_title)
     confirmation_text = Label.new()
     confirmation_text.name = "LaboConfirmDescription"
@@ -486,7 +494,7 @@ func attach_hud(hud: Control) -> void:
     confirmation_text.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
     confirmation_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
     confirmation_text.size_flags_vertical = Control.SIZE_EXPAND_FILL
-    confirmation_text.add_theme_font_size_override("font_size", 17)
+    confirmation_text.add_theme_font_size_override("font_size", 18)
     confirm_vbox.add_child(confirmation_text)
     var confirm_buttons := HBoxContainer.new()
     confirm_buttons.add_theme_constant_override("separation", 8)
@@ -494,14 +502,16 @@ func attach_hud(hud: Control) -> void:
     var cancel_button := Button.new()
     cancel_button.name = "LaboConfirmCancel"
     cancel_button.text = "キャンセル"
-    cancel_button.custom_minimum_size.y = 56
+    cancel_button.custom_minimum_size.y = LABO_CONFIRM_HEIGHT
+    cancel_button.add_theme_font_size_override("font_size", 19)
     cancel_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
     cancel_button.pressed.connect(_dismiss_confirmation)
     confirm_buttons.add_child(cancel_button)
     var accept_button := Button.new()
     accept_button.name = "LaboConfirmAccept"
     accept_button.text = "作成"
-    accept_button.custom_minimum_size.y = 56
+    accept_button.custom_minimum_size.y = LABO_CONFIRM_HEIGHT
+    accept_button.add_theme_font_size_override("font_size", 19)
     accept_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
     accept_button.pressed.connect(_accept_confirmation)
     confirm_buttons.add_child(accept_button)
@@ -731,8 +741,8 @@ func _clear_actions() -> void:
 func _add_action(label: String, detail: String) -> void:
     var button := Button.new()
     button.text = label
-    button.custom_minimum_size.y = 74.0
-    button.add_theme_font_size_override("font_size", 19)
+    button.custom_minimum_size.y = 88.0
+    button.add_theme_font_size_override("font_size", 20)
     button.pressed.connect(_show_detail.bind(detail))
     modal_actions.add_child(button)
 
@@ -794,7 +804,7 @@ func open_facility(key: String) -> void:
             stock_button.name = "OpenMaterialInventory"
             stock_button.text = "素材一覧を表示"
             _queue_card_icon(stock_button, "scrap_low")
-            stock_button.custom_minimum_size.y = 66.0
+            stock_button.custom_minimum_size.y = 78.0
             stock_button.pressed.connect(open_facility.bind("STORAGE"))
             modal_actions.add_child(stock_button)
             _add_action("回収設備の情報", "将来の実際の素材回収機能です。素材は所持データから確認できます。")
@@ -891,7 +901,7 @@ func _new_grid(grid_name: String, columns: int = 3) -> VBoxContainer:
     var grid := VBoxContainer.new()
     grid.name = grid_name
     grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-    grid.add_theme_constant_override("separation", 7)
+    grid.add_theme_constant_override("separation", 9)
     grid.set_meta("card_columns", columns)
     grid.set_meta("card_count", 0)
     if grid_name in ["PrototypeGrid", "MaterialFamilyGrid"]:
@@ -941,7 +951,7 @@ func _new_slot(parent: Control, key: String, icon: Texture2D,
         row = HBoxContainer.new()
         row.name = "CardRow_%d" % int(index / columns)
         row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-        row.add_theme_constant_override("separation", 6)
+        row.add_theme_constant_override("separation", 7)
         parent.add_child(row)
     else:
         row = parent.get_child(parent.get_child_count() - 1) as HBoxContainer
@@ -959,7 +969,7 @@ func _new_slot(parent: Control, key: String, icon: Texture2D,
     card.text = title + "\n" + info  # semantic/accessibility metadata
     card.tooltip_text = title + " / " + info
     card.custom_minimum_size = Vector2(108,
-        MATERIAL_CARD_HEIGHT if material_choice else 82.0)
+        MATERIAL_CARD_HEIGHT if material_choice else LABO_CRAFT_CARD_HEIGHT)
     card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
     card.mouse_filter = Control.MOUSE_FILTER_STOP
     card.alignment = HORIZONTAL_ALIGNMENT_LEFT
@@ -1001,13 +1011,13 @@ func _add_item_tile(icon: Texture2D, title: String,
         parent = modal_actions
     var row := HBoxContainer.new()
     row.name = key
-    row.custom_minimum_size.y = 66.0
+    row.custom_minimum_size.y = 80.0
     parent.add_child(row)
     var art := TextureRect.new()
     art.name = "Icon"
     art.clip_contents = true
     art.texture = icon
-    art.custom_minimum_size = Vector2(58, 58)
+    art.custom_minimum_size = Vector2(66, 66)
     art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
     row.add_child(art)
     var caption := Label.new()
@@ -1015,7 +1025,7 @@ func _add_item_tile(icon: Texture2D, title: String,
     caption.text = title
     caption.size_flags_horizontal = Control.SIZE_EXPAND_FILL
     caption.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-    caption.add_theme_font_size_override("font_size", 16)
+    caption.add_theme_font_size_override("font_size", 17)
     row.add_child(caption)
 
 
@@ -1041,7 +1051,8 @@ func _show_inventory(section: String = "materials") -> void:
         button.toggle_mode = true
         button.button_group = warehouse_group
         button.button_pressed = section == str(choice["key"])
-        button.custom_minimum_size.y = 47.0
+        button.custom_minimum_size.y = 59.0
+        button.add_theme_font_size_override("font_size", 18)
         button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
         button.pressed.connect(_show_inventory.bind(str(choice["key"])))
         switcher.add_child(button)
@@ -1065,7 +1076,7 @@ func _show_inventory(section: String = "materials") -> void:
         var hanger := HBoxContainer.new()
         hanger.name = "WarehouseHangerTabs"
         hanger.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-        hanger.custom_minimum_size.y = 47.0
+        hanger.custom_minimum_size.y = LABO_SLOT_HEIGHT
         hanger.add_theme_constant_override("separation", 2)
         modal_actions.add_child(hanger)
         var hanger_group := ButtonGroup.new()
@@ -1075,9 +1086,9 @@ func _show_inventory(section: String = "materials") -> void:
             tab.name = "HangerSlot_" + slot
             tab.text = _slot_tab_caption(slot)
             tab.tooltip_text = _warehouse_slot_name(slot)
-            tab.custom_minimum_size = Vector2(0, 44)
+            tab.custom_minimum_size = Vector2(0, LABO_SLOT_HEIGHT)
             tab.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-            tab.add_theme_font_size_override("font_size", 12)
+            tab.add_theme_font_size_override("font_size", 15)
             tab.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
             tab.toggle_mode = true
             tab.button_group = hanger_group
@@ -1090,12 +1101,13 @@ func _show_inventory(section: String = "materials") -> void:
         junk_button.name = "BulkDeleteJunk"
         var junk_count: int = SeraSave.count_junk_prototypes(warehouse_slot)
         junk_button.text = "不用品を一括削除 (%d)" % junk_count
-        junk_button.custom_minimum_size.y = 53
+        junk_button.custom_minimum_size.y = 66
+        junk_button.add_theme_font_size_override("font_size", 17)
         junk_button.disabled = junk_count == 0
         junk_button.pressed.connect(_confirm_bulk_junk_deletion)
         modal_actions.add_child(junk_button)
         _show_warehouse_equipment(grid)
-    _configure_page_scroll(93 if section == "materials" else 176)
+    _configure_page_scroll(80 if section == "materials" else 210)
     _sync_section_tabs()
 
 func _slot_tab_caption(slot: String) -> String:
@@ -1174,7 +1186,7 @@ func _show_warehouse_item_detail(uid: String) -> void:
         var breakdown := Label.new()
         breakdown.name = "WarehouseStatsBreakdown"
         breakdown.text = LaboStats.total_formula(blueprint, item.get("affixes", []))
-        breakdown.add_theme_font_size_override("font_size", 15)
+        breakdown.add_theme_font_size_override("font_size", 17)
         breakdown.add_theme_color_override("font_color", Color("#eff8ff"))
         breakdown.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
         modal_actions.add_child(breakdown)
@@ -1183,14 +1195,16 @@ func _show_warehouse_item_detail(uid: String) -> void:
         var favorite := Button.new()
         favorite.name = "WarehouseFavoriteToggle"
         favorite.text = "★ お気に入り解除" if bool(item.get("favorite", false)) else "☆ お気に入りにする"
-        favorite.custom_minimum_size.y = 54
+        favorite.custom_minimum_size.y = 70
+        favorite.add_theme_font_size_override("font_size", 18)
         favorite.pressed.connect(_mark_warehouse_item.bind(uid, "favorite",
             not bool(item.get("favorite", false))))
         modal_actions.add_child(favorite)
         var junk := Button.new()
         junk.name = "WarehouseJunkToggle"
         junk.text = "不用品指定を解除" if bool(item.get("junk", false)) else "不用品に指定"
-        junk.custom_minimum_size.y = 54
+        junk.custom_minimum_size.y = 70
+        junk.add_theme_font_size_override("font_size", 18)
         junk.pressed.connect(_mark_warehouse_item.bind(uid, "junk",
             not bool(item.get("junk", false))))
         modal_actions.add_child(junk)
@@ -1235,7 +1249,8 @@ func _show_prototype_catalog() -> void:
             var start := Button.new()
             start.name = "CreateTrialProfile"
             start.text = "セーブを新規作成して製作を始める"
-            start.custom_minimum_size.y = 65.0
+            start.custom_minimum_size.y = 78.0
+            start.add_theme_font_size_override("font_size", 17)
             start.pressed.connect(_create_trial_profile)
             modal_actions.add_child(start)
         else:
@@ -1247,7 +1262,7 @@ func _show_prototype_catalog() -> void:
     var slot_tabs := HBoxContainer.new()
     slot_tabs.name = "CraftSlotTabs"
     slot_tabs.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-    slot_tabs.custom_minimum_size.y = 47.0
+    slot_tabs.custom_minimum_size.y = LABO_SLOT_HEIGHT
     slot_tabs.add_theme_constant_override("separation", 2)
     modal_actions.add_child(slot_tabs)
     var group := ButtonGroup.new()
@@ -1259,9 +1274,9 @@ func _show_prototype_catalog() -> void:
         b.toggle_mode = true
         b.button_group = group
         b.button_pressed = craft_slot == str(slot)
-        b.custom_minimum_size = Vector2(0, 44)
+        b.custom_minimum_size = Vector2(0, LABO_SLOT_HEIGHT)
         b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-        b.add_theme_font_size_override("font_size", 12)
+        b.add_theme_font_size_override("font_size", 15)
         b.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
         b.pressed.connect(_select_craft_slot.bind(str(slot)))
         slot_tabs.add_child(b)
@@ -1284,10 +1299,10 @@ func _show_prototype_catalog() -> void:
         var baseline := Label.new()
         baseline.name = "PrototypeBaseStats"
         baseline.text = LaboStats.baseline(first_id)
-        baseline.add_theme_font_size_override("font_size", 15)
+        baseline.add_theme_font_size_override("font_size", 17)
         baseline.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
         item_layer.add_child(baseline)
-    _configure_page_scroll(135 if modal_actions.get_child_count() > 1 else 65)
+    _configure_page_scroll(158 if modal_actions.get_child_count() > 1 else 82)
     _sync_section_tabs()
 
 func _select_craft_slot(slot: String) -> void:
@@ -1336,7 +1351,8 @@ func _render_prototype_detail() -> void:
     var make := Button.new()
     make.name = "CraftPrototype"
     make.text = "製作して倉庫に登録"
-    make.custom_minimum_size.y = 74.0
+    make.custom_minimum_size.y = 88.0
+    make.add_theme_font_size_override("font_size", 18)
     make.disabled = SeraSave.active_slot == 0
     make.pressed.connect(_confirm_selected_prototype)
     modal_actions.add_child(make)
@@ -1449,7 +1465,7 @@ func _render_conversion() -> void:
         var target_id: String = str(plan["output_id"])
         var row := HBoxContainer.new()
         row.name = "ConversionRow_" + str(rank)
-        row.custom_minimum_size.y = 70
+        row.custom_minimum_size.y = LABO_CONVERSION_HEIGHT + 8.0
         row.add_theme_constant_override("separation", 7)
         modal_actions.add_child(row)
         # Same native Button-root card as the material list; art is two
@@ -1457,7 +1473,7 @@ func _render_conversion() -> void:
         var bar: Button = LaboMaterialCardScene.instantiate() as Button
         bar.name = "ConvertRank_" + str(rank)
         bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-        bar.custom_minimum_size.y = 66
+        bar.custom_minimum_size.y = LABO_CONVERSION_HEIGHT
         bar.clip_contents = true
         bar.mouse_filter = Control.MOUSE_FILTER_STOP
         bar.text = "%s ×%d  »  %s ×%d" % [
@@ -1471,7 +1487,7 @@ func _render_conversion() -> void:
             "CardContent/Row/ItemArt") as TextureRect
         source_icon.name = "ConvertInputIcon_" + str(rank)
         source_icon.texture = IconAtlas.material_icon_sized(source_id, 48)
-        source_icon.custom_minimum_size = Vector2(48, 48)
+        source_icon.custom_minimum_size = Vector2(54, 54)
         var recipe_title: Label = bar.get_node(
             "CardContent/Row/TextStack/ItemTitle") as Label
         recipe_title.text = "%s ×%d" % [
@@ -1487,7 +1503,7 @@ func _render_conversion() -> void:
         output_icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
         output_icon.clip_contents = true
         output_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-        output_icon.custom_minimum_size = Vector2(44, 44)
+        output_icon.custom_minimum_size = Vector2(50, 50)
         output_icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
         output_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
         output_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
@@ -1504,7 +1520,8 @@ func _render_conversion() -> void:
         amount.step = 1
         amount.value = conversion_batches
         amount.rounded = true
-        amount.custom_minimum_size = Vector2(80, 58)
+        amount.custom_minimum_size = Vector2(92, 72)
+        amount.add_theme_font_size_override("font_size", 19)
         amount.tooltip_text = "変換回数"
         amount.value_changed.connect(_conversion_batches_set)
         row.add_child(amount)
