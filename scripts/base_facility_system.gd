@@ -5,6 +5,7 @@ const PrototypeCatalog = preload("res://scripts/sera_prototype_catalog.gd")
 const LaboSkin = preload("res://scripts/sera_labo_round_skin.gd")
 const WarehouseGrid = preload("res://scripts/sera_warehouse_grid.gd")
 const Affixes = preload("res://scripts/sera_craft_affixes.gd")
+const LaboStats = preload("res://scripts/sera_labo_stats.gd")
 ## Base field architecture: LABO is one building; resources, power and construction
 ## are independent physical machines. NEXUS remains in the parent scene.
 const FACILITY_SPECS = [
@@ -33,6 +34,13 @@ var modal_body: Label
 var modal_actions: VBoxContainer
 var item_layer: Control
 var actions_area: PanelContainer
+var actions_scroll: ScrollContainer
+var pending_confirmation: Callable = Callable()
+var confirmation_overlay: Control
+var confirmation_text: Label
+var confirmation_title: Label
+var craft_slot: String = "head"
+var warehouse_notice: String = ""
 var warehouse_section: String = "materials"
 var warehouse_slot: String = "head"
 var owned_blueprint: String = ""
@@ -406,7 +414,15 @@ func attach_hud(hud: Control) -> void:
     modal_actions.size_flags_horizontal = Control.SIZE_EXPAND_FILL
     modal_actions.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
     modal_actions.add_theme_constant_override("separation", 8)
-    actions_area.add_child(modal_actions)
+    actions_scroll = ScrollContainer.new()
+    actions_scroll.name = "FacilityActionScroll"
+    actions_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+    actions_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+    actions_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+    actions_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+    actions_scroll.mouse_filter = Control.MOUSE_FILTER_STOP
+    actions_area.add_child(actions_scroll)
+    actions_scroll.add_child(modal_actions)
     # The *same* VBoxContainer renders the known-working header tabs and
     # native item cards. No full-screen overlay, no manual pixel coordinates,
     # no nested scroll clipping. The container owns the sizing on Android.
@@ -427,6 +443,99 @@ func attach_hud(hud: Control) -> void:
     close_button.custom_minimum_size.y = 58.0
     close_button.pressed.connect(navigate_back)
     body.add_child(close_button)
+    # Own full-screen confirmation layer; does not depend on Android popup
+    # window support. It is deliberately outside the scrolling content.
+    confirmation_overlay = Control.new()
+    confirmation_overlay.name = "LaboConfirmation"
+    confirmation_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+    confirmation_overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+    confirmation_overlay.visible = false
+    modal.add_child(confirmation_overlay)
+    var confirm_shade := ColorRect.new()
+    confirm_shade.color = Color(0.01, 0.025, 0.045, 0.86)
+    confirm_shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+    confirm_shade.mouse_filter = Control.MOUSE_FILTER_STOP
+    confirm_shade.gui_input.connect(_on_confirmation_shade_input)
+    confirmation_overlay.add_child(confirm_shade)
+    var confirm_panel := PanelContainer.new()
+    confirm_panel.name = "LaboConfirmPanel"
+    confirm_panel.anchor_left = 0.09
+    confirm_panel.anchor_right = 0.91
+    confirm_panel.anchor_top = 0.33
+    confirm_panel.anchor_bottom = 0.67
+    confirm_panel.mouse_filter = Control.MOUSE_FILTER_STOP
+    confirm_panel.theme = LaboSkin.common_theme()
+    confirmation_overlay.add_child(confirm_panel)
+    var confirm_vbox := VBoxContainer.new()
+    confirm_vbox.add_theme_constant_override("separation", 13)
+    confirm_panel.add_child(confirm_vbox)
+    confirmation_title = Label.new()
+    confirmation_title.name = "LaboConfirmTitle"
+    confirmation_title.text = "作成しますか？"
+    confirmation_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    confirmation_title.add_theme_font_size_override("font_size", 22)
+    confirm_vbox.add_child(confirmation_title)
+    confirmation_text = Label.new()
+    confirmation_text.name = "LaboConfirmDescription"
+    confirmation_text.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    confirmation_text.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+    confirmation_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+    confirmation_text.size_flags_vertical = Control.SIZE_EXPAND_FILL
+    confirmation_text.add_theme_font_size_override("font_size", 17)
+    confirm_vbox.add_child(confirmation_text)
+    var confirm_buttons := HBoxContainer.new()
+    confirm_buttons.add_theme_constant_override("separation", 8)
+    confirm_vbox.add_child(confirm_buttons)
+    var cancel_button := Button.new()
+    cancel_button.name = "LaboConfirmCancel"
+    cancel_button.text = "キャンセル"
+    cancel_button.custom_minimum_size.y = 56
+    cancel_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+    cancel_button.pressed.connect(_dismiss_confirmation)
+    confirm_buttons.add_child(cancel_button)
+    var accept_button := Button.new()
+    accept_button.name = "LaboConfirmAccept"
+    accept_button.text = "作成"
+    accept_button.custom_minimum_size.y = 56
+    accept_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+    accept_button.pressed.connect(_accept_confirmation)
+    confirm_buttons.add_child(accept_button)
+
+func _request_confirmation(title: String, detail: String, action: Callable) -> void:
+    if confirmation_overlay == null or not action.is_valid():
+        return
+    pending_confirmation = action
+    confirmation_title.text = title
+    confirmation_text.text = detail
+    confirmation_overlay.visible = true
+    confirmation_overlay.move_to_front()
+
+func _dismiss_confirmation() -> void:
+    pending_confirmation = Callable()
+    if confirmation_overlay != null:
+        confirmation_overlay.visible = false
+
+func _accept_confirmation() -> void:
+    var action: Callable = pending_confirmation
+    _dismiss_confirmation()
+    if action.is_valid():
+        action.call()
+
+func _on_confirmation_shade_input(event: InputEvent) -> void:
+    if (event is InputEventScreenTouch and event.pressed) or (
+            event is InputEventMouseButton and event.pressed and
+            event.button_index == MOUSE_BUTTON_LEFT):
+        _dismiss_confirmation()
+
+func _configure_page_scroll(action_height: float = 0.0,
+        action_expand: bool = false) -> void:
+    if actions_area == null:
+        return
+    actions_area.size_flags_vertical = (
+        Control.SIZE_EXPAND_FILL if action_expand else Control.SIZE_SHRINK_BEGIN)
+    actions_scroll.custom_minimum_size.y = action_height
+    actions_scroll.scroll_vertical = 0
+    item_layer.visible = not action_expand
 
 func update_tags(camera: Camera3D) -> void:
     if camera == null:
@@ -604,7 +713,8 @@ func _diag_update() -> void:
         + "icon source: " + IconAtlas.atlas_status())
 
 func _clear_actions() -> void:
-    # No ScrollContainer: rebuild the actual grid on each tab transition.
+    # Rebuild only on tab changes; ScrollContainers reuse native Button rendering.
+    _configure_page_scroll()
     for child in modal_actions.get_children():
         modal_actions.remove_child(child)
         child.queue_free()
@@ -710,6 +820,8 @@ func open_facility(key: String) -> void:
         "BUILD_TERMINAL":
             modal_body.text = "建設端末\nフィールド上の設備や床・通路を管理します。"
             _add_action("拠点の発展", "施設を一棟に集約せず、資源・生産・発展設備をフィールド上に独立配置します。\n配置変更と建設コストは今後実装します。")
+    if page == "home":
+        _configure_page_scroll(0, true)
     _sync_section_tabs()
 
 func _claim_trial_materials(return_to_catalog: bool = false) -> void:
@@ -790,7 +902,18 @@ func _new_grid(grid_name: String, columns: int = 3) -> VBoxContainer:
     grid.add_theme_constant_override("separation", 7)
     grid.set_meta("card_columns", columns)
     grid.set_meta("card_count", 0)
-    item_layer.add_child(grid)
+    if grid_name in ["PrototypeGrid", "MaterialFamilyGrid"]:
+        var scroll := ScrollContainer.new()
+        scroll.name = grid_name + "Scroll"
+        scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+        scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+        scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+        scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+        scroll.mouse_filter = Control.MOUSE_FILTER_STOP
+        item_layer.add_child(scroll)
+        scroll.add_child(grid)
+    else:
+        item_layer.add_child(grid)
     if diagnostic_button.visible:
         _diag_step("grid " + grid_name + " ready")
     return grid
@@ -842,12 +965,13 @@ func _new_slot(parent: Control, key: String, icon: Texture2D,
         diag_icon_count += 1
     card.text = title + "\n" + info
     card.tooltip_text = title + " / " + info
-    card.custom_minimum_size = Vector2(108, 100)
+    card.custom_minimum_size = Vector2(108, 86 if columns == 1 else 100)
     card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
     card.mouse_filter = Control.MOUSE_FILTER_STOP
     card.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
     card.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-    card.alignment = HORIZONTAL_ALIGNMENT_CENTER
+    card.alignment = (
+        HORIZONTAL_ALIGNMENT_LEFT if columns == 1 else HORIZONTAL_ALIGNMENT_CENTER)
     card.icon_alignment = HORIZONTAL_ALIGNMENT_LEFT
     card.vertical_icon_alignment = VERTICAL_ALIGNMENT_CENTER
     card.add_theme_font_size_override("font_size", 13)
@@ -1300,6 +1424,7 @@ func navigate_back() -> void:
             close_menu()
 
 func close_menu() -> void:
+    _dismiss_confirmation()
     _set_labo_hero(false)
     if modal != null:
         modal.visible = false
@@ -1312,7 +1437,10 @@ func _input(event: InputEvent) -> void:
     if event.is_action_pressed("ui_cancel") or (
             event is InputEventKey and event.pressed and not event.echo
             and event.keycode in [KEY_BACK, KEY_ESCAPE]):
-        navigate_back()
+        if confirmation_overlay != null and confirmation_overlay.visible:
+            _dismiss_confirmation()
+        else:
+            navigate_back()
         get_viewport().set_input_as_handled()
 
 func _on_shade_input(event: InputEvent) -> void:
