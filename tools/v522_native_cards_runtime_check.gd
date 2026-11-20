@@ -34,8 +34,10 @@ func _verify_grid(cards: Control, name: String, ids: Array, prefix: String, clic
         if card.get_theme_stylebox("normal") is not StyleBoxFlat:
             _fail("the normal button style is not a rounded blue-grey StyleBoxFlat")
             return false
-        if not card.text.contains("\n") or not card.text.contains("0"):
-            _fail("native card must render title/count without child labels")
+        if not card.text.contains("\n") or (name == "PrototypeGrid" and (
+                not card.text.contains("製作対象"))) or (name != "PrototypeGrid" and (
+                not card.text.contains("0"))):
+            _fail("native card must show a craft title or material quantity")
             return false
     return true
 func _tap_card(card: Button) -> void:
