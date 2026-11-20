@@ -33,6 +33,9 @@ func _sync_meshes() -> void:
     var actor: Node = get_parent()
     if actor == null:
         return
+    # The training target controller is parented directly to its core mesh.
+    if actor is MeshInstance3D:
+        _attach(actor as MeshInstance3D)
     var pending: Array[Node] = [actor]
     while not pending.is_empty():
         var node: Node = pending.pop_back()
