@@ -1,3 +1,10 @@
+## 2026-11-20 — SERA v526：AndroidエディターとAPKで異なる空白カードの原因を画面上に記録
+- **再現**：同じゲームのAPKでは装備製作一覧が表示されるが、GitSync→Android Godotエディター実行ではv525のテクスチャ設定統一と再インポート後も空白。過去のLinux CIは実機エラーを再現できていない。
+- **原因特定方針**：描画方式・UI階層の推測による変更を中断し、カード生成の各段階にチェックポイント、実Godotバージョン、アトラス存在、ノード件数・表示数・アイコン・Rectを収集。画面内で確認できる診断ボタンを用意する。Androidエディターのデバッガー情報を優先。
+- **テスト先行**：実装前に`tools/android_editor_card_diagnostic_self_check.py`と`tools/android_editor_card_diagnostic_runtime_check.gd`をCIマニフェストに登録。画面上の診断表示を操作し、通常時非表示、実数値7/7・12/12、全カードとアイコンの維持を検査。
+- **実装**：`scripts/base_facility_system.gd`へ診断ボタン・ラベルと`_diag_begin`/`_diag_step`/`_diag_update`を追加。製作／素材／倉庫へ手順ごとのチェックポイント。カードを装飾設定より先に標準UIノードとして追加。UIデータやセーブ構造には変更なし。
+- **判定保留**：Godot Linux CIで成功してもAndroidエディターの空白が直ったとは宣言しない。診断スクリーンショットにより実際のエラー発生箇所を確定してから本修正を行う。
+
 ## 2026-11-20 — APKとGodot Androidエディターのテクスチャ設定を統一
 - 実機報告：Androidエディターではカードが空白だが、独立APKではカードが正常に表示された。APKの再インストールを避けてGitSync+Godotのワークフローを維持する。
 - 発見：APK用GitHub Actionsが実行時だけETC2/ASTCテクスチャインポート設定をproject.godotに追記していた。GitSync元ではその設定がなかった。これが唯一の原因かは未確認。

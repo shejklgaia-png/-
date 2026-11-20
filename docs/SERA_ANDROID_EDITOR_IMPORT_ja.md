@@ -16,3 +16,7 @@ APKを作るCIだけがAndroid用テクスチャ圧縮（ETC2/ASTC）のイン�
 Godot Androidエディターの実行環境・バージョンやキャッシュが原因の可能性があります。実機デバッガーで最初のエラーを確認し、scripts/base_facility_system.gd、scripts/sera_item_icons.gd、scripts/sera_chamfer_skin.gd のどこで失敗するか切り分けます。
 
 APKは独立したアプリのため、GitSync後のソースを自動反映しません。通常の開発ではGitSync→Godotエディター実行を使えます。
+
+
+## v526：設定統一でも改善しない場合
+`main`を同期してGodot Androidエディター上の施設画面右上「診断」を選択すると、カード生成の進捗・エンジンバージョン・画像の存在・画面座標を表示できます。`created`と`stage`の画面を保存して原因を特定してください。APK再インストールは必要ありません。
