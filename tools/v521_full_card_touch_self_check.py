@@ -5,12 +5,12 @@ root = Path(__file__).resolve().parents[1]
 ui = (root/"scripts/base_facility_system.gd").read_text(encoding="utf-8")
 ci = (root/"tools/sera_ci_manifest.txt").read_text(encoding="utf-8")
 assert "func _new_slot(" in ui and "if action.is_valid():" in ui
-assert 'var card := Button.new()' in ui
+assert 'LaboMaterialCardScene.instantiate()' in ui and 'LaboEquipmentCardScene.instantiate()' in ui
 assert 'card.mouse_filter = Control.MOUSE_FILTER_STOP' in ui
 assert 'card.pressed.connect(action)' in ui
-assert 'card.icon = icon' in ui
+assert 'card.icon = null' in ui and 'art.texture = icon' in ui
 assert 'card.text = title + "\\n" + info' in ui
-assert 'card.add_theme_stylebox_override("normal", LaboSkin.style(' in ui
+assert 'card.add_theme_stylebox_override("normal", LaboSkin.card_style(' in ui
 assert "GridContainer.new()" not in ui
 assert 'card.add_child(choose)' not in ui, "no hidden overlaid child button"
 for text in ('_select_prototype.bind(id)', '_select_conversion_family.bind(str(family))', 'grid.entry_pressed.connect(_on_warehouse_entry_pressed)'):
