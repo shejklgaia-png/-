@@ -324,6 +324,7 @@ func attach_hud(hud: Control) -> void:
     section_tabs.name = "FacilitySectionTabs"
     section_tabs.add_theme_constant_override("separation", 5)
     body.add_child(section_tabs)
+    var section_group := ButtonGroup.new()
     for entry in [
         {"id": "TabCraft", "label": "装備製作", "target": "craft"},
         {"id": "TabMaterials", "label": "素材変換", "target": "materials"},
@@ -333,6 +334,7 @@ func attach_hud(hud: Control) -> void:
         button.name = str(entry["id"])
         button.text = str(entry["label"])
         button.toggle_mode = true
+        button.button_group = section_group
         button.custom_minimum_size.y = 58.0
         button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
         button.add_theme_font_size_override("font_size", 17)
@@ -356,34 +358,37 @@ func attach_hud(hud: Control) -> void:
     modal_body.add_theme_font_size_override("font_size", 16)
     modal_body.add_theme_color_override("font_color", Color("#dce9ee"))
     body.add_child(modal_body)
-    # A regular container is intentional: Android screenshots showed that
-    # ScrollContainer displayed no item children, despite passing headless tests.
-    # All baseline lists are paginated/gridded to fit this fixed content area.
+    # Keep non-grid buttons immediately below the header and above the cards.
+    # A vertical EXPAND here consumed the rest of the sheet on Android.
     actions_area = PanelContainer.new()
     actions_area.name = "FacilityActionsArea"
-    actions_area.size_flags_vertical = Control.SIZE_EXPAND_FILL
+    actions_area.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
     actions_area.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
     body.add_child(actions_area)
     modal_actions = VBoxContainer.new()
     modal_actions.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-    modal_actions.size_flags_vertical = Control.SIZE_EXPAND_FILL
+    modal_actions.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
     modal_actions.add_theme_constant_override("separation", 8)
     actions_area.add_child(modal_actions)
+    # The *same* VBoxContainer renders the known-working header tabs and
+    # native item cards. No full-screen overlay, no manual pixel coordinates,
+    # no nested scroll clipping. The container owns the sizing on Android.
+    item_layer = VBoxContainer.new()
+    item_layer.name = "FacilityItemLayer"
+    item_layer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+    item_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    body.add_child(item_layer)
+    var expand_spacer := Control.new()
+    expand_spacer.name = "FacilityRemainingSpace"
+    expand_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    expand_spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
+    body.add_child(expand_spacer)
     var close_button := Button.new()
     close_button.name = "CloseFacility"
     close_button.text = "戻る"
     close_button.custom_minimum_size.y = 58.0
     close_button.pressed.connect(navigate_back)
     body.add_child(close_button)
-    # Direct sibling to the working modal sheet. Android renders the header
-    # tabs but repeatedly omits nested item grids; separate their canvas
-    # hierarchy from the PanelContainer altogether.
-    item_layer = Control.new()
-    item_layer.name = "FacilityItemLayer"
-    item_layer.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-    item_layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
-    item_layer.z_index = 5
-    modal.add_child(item_layer)
 
 func update_tags(camera: Camera3D) -> void:
     if camera == null:
@@ -648,6 +653,7 @@ func _show_inventory(section: String = "materials") -> void:
     var switcher := HBoxContainer.new()
     switcher.name = "WarehouseCategoryTabs"
     modal_actions.add_child(switcher)
+    var warehouse_group := ButtonGroup.new()
     for choice in [
         {"key": "materials", "name": "WarehouseMaterialsTab", "caption": "素材12種"},
         {"key": "equipment", "name": "WarehouseEquipmentTab", "caption": "装備7種"}
@@ -656,6 +662,7 @@ func _show_inventory(section: String = "materials") -> void:
         button.name = str(choice["name"])
         button.text = str(choice["caption"])
         button.toggle_mode = true
+        button.button_group = warehouse_group
         button.button_pressed = section == str(choice["key"])
         button.custom_minimum_size.y = 47
         button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -1016,31 +1023,6 @@ func _on_shade_input(event: InputEvent) -> void:
         navigate_back()
         get_viewport().set_input_as_handled()
 
-func _position_item_grid() -> void:
-    if not is_menu_open() or item_layer == null or item_layer.get_child_count() == 0:
-        return
-    var grid: VBoxContainer = item_layer.get_child(0) as VBoxContainer
-    if grid == null:
-        return
-    var sheet: Rect2 = modal_panel.get_global_rect()
-    # Keep cards beneath the last visible control inside the facility sheet:
-    # profile creation and the two warehouse category tabs remain functional.
-    var top: float = modal_body.get_global_rect().end.y + 10.0
-    for child in modal_actions.get_children():
-        if child is Control and child.visible:
-            top = maxf(top, (child as Control).get_global_rect().end.y + 8.0)
-    var bottom: float = sheet.end.y - 94.0
-    if top >= bottom:
-        return
-    var layer_position: Vector2 = item_layer.get_global_rect().position
-    grid.position = Vector2(sheet.position.x + 12.0 - layer_position.x,
-        top - layer_position.y)
-    grid.size = Vector2(sheet.size.x - 24.0,
-        mini(grid.get_combined_minimum_size().y, bottom - top))
-
-
 func _process(delta: float) -> void:
-    if item_layer != null and item_layer.get_child_count() > 0:
-        _position_item_grid()
     if generator_rotor != null:
         generator_rotor.rotate_y(delta * 0.95)

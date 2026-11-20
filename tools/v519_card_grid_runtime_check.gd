@@ -41,7 +41,7 @@ func _run() -> void:
         _fail("redundant base menu returned")
         return
     var facility: Node3D = hub.get_node("BaseFacilities") as Node3D
-    var area: Control = facility.get("actions_area") as Control
+    var area: Control = facility.get("modal_panel") as Control
     var actions: VBoxContainer = facility.get("modal_actions") as VBoxContainer
     facility.call("_switch_section", "craft")
     await process_frame

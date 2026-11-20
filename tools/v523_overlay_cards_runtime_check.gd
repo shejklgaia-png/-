@@ -8,8 +8,10 @@ func _fail(message: String) -> void:
 func _verify(fac: Node3D, key: String, prefix: String, count: int) -> bool:
     var layer: Control = fac.get("item_layer") as Control
     var area: Control = fac.get("modal") as Control
-    if layer == null or layer.get_parent() != area or layer.z_index < 1:
-        _fail("cards must be direct sibling overlay above FacilitySheet")
+    if layer == null or layer.get_parent() == null or (
+            layer.get_parent().name != "FacilityContent") or (
+            not area.is_ancestor_of(layer)):
+        _fail("cards must be siblings of the visible header inside FacilityContent")
         return false
     if not layer.is_visible_in_tree() or layer.get_child_count() != 1:
         _fail("expected one displayed overlay grid per active section")
