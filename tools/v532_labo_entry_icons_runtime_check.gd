@@ -51,13 +51,14 @@ func _run() -> void:
     await process_frame
     await process_frame
     actions = fac.get("modal_actions") as VBoxContainer
-    var scroll: ScrollContainer = actions.find_child(
-        "WarehouseHangerScroll", true, false) as ScrollContainer
     var hanger: HBoxContainer = actions.find_child(
         "WarehouseHangerTabs", true, false) as HBoxContainer
-    if scroll == null or hanger == null or hanger.get_child_count() != 7 or (
-            scroll.horizontal_scroll_mode != ScrollContainer.SCROLL_MODE_AUTO):
-        _fail("hanger must have seven horizontally scrollable category tabs")
+    if hanger == null or hanger.get_child_count() != 7 or (
+            actions.find_child("WarehouseHangerScroll", true, false) != null):
+        _fail("seven hanger tabs must fit one row with no horizontal scrolling")
+        return
+    if hanger.size.x > actions.size.x + 1.0:
+        _fail("hanger tabs overflow available width")
         return
     var group: ButtonGroup = null
     for slot in ["head", "torso", "legs", "arms", "booster", "weapon_r", "weapon_l"]:
@@ -96,7 +97,7 @@ func _run() -> void:
             return
         if card.custom_minimum_size.y > 92.0 or (
                 card.custom_minimum_size.y < 78.0) or (
-                not card.expand_icon) or card.icon_max_width > 60 or (
+                not card.expand_icon) or card.icon.get_width() > 54 or (
                 card.vertical_icon_alignment != VERTICAL_ALIGNMENT_CENTER):
             _fail("material icon is not bounded/centered in shorter card")
             return
