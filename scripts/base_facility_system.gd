@@ -1024,9 +1024,9 @@ func _show_inventory(section: String = "materials") -> void:
     page = "inventory"
     _clear_actions()
     _diag_begin("warehouse " + section, 12 if section == "materials" else 2)
-    modal_title.text = "資材保管庫"
-    modal_body.text = ("素材は同系統3種類を横並びで表示します。" if section == "materials"
-        else "装備個体ごとの追加性能を表示します。")
+    modal_title.text = "倉庫"
+    modal_body.text = ("素材一覧  |  同系統3種類を横並び" if section == "materials"
+        else "装備一覧  |  基礎＋追加特性")
     var switcher := HBoxContainer.new()
     switcher.name = "WarehouseCategoryTabs"
     modal_actions.add_child(switcher)
@@ -1222,10 +1222,8 @@ func _show_prototype_catalog() -> void:
     page = "prototypes"
     _clear_actions()
     _diag_begin("craft", PrototypeCatalog.ORDER.size())
-    modal_title.text = "試作装備の製作"
-    modal_body.text = (
-        "部位を選び、横長のバーをタップしてください。試作は素材消費なし。"
-        + "\n完成品は倉庫に登録され、NEXUSで装備できます。")
+    modal_title.text = "装備製作"
+    modal_body.text = "部位と装備を選択してください。完成品は倉庫に登録されます。"
     if SeraSave.active_slot == 0:
         modal_body.text += "\n製作するにはセーブデータが必要です。"
         var available_slot: int = 0
@@ -1454,38 +1452,50 @@ func _render_conversion() -> void:
         row.custom_minimum_size.y = 70
         row.add_theme_constant_override("separation", 7)
         modal_actions.add_child(row)
-        var bar := Button.new()
+        # Same native Button-root card as the material list; art is two
+        # independent clipped TextureRects rather than Button.icon.
+        var bar: Button = LaboMaterialCardScene.instantiate() as Button
         bar.name = "ConvertRank_" + str(rank)
-        bar.icon = IconAtlas.material_icon_sized(source_id, 48)
-        bar.icon_alignment = HORIZONTAL_ALIGNMENT_LEFT
-        bar.vertical_icon_alignment = VERTICAL_ALIGNMENT_CENTER
         bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
         bar.custom_minimum_size.y = 66
-        bar.expand_icon = true
         bar.clip_contents = true
-        bar.alignment = HORIZONTAL_ALIGNMENT_CENTER
-        bar.add_theme_font_size_override("font_size", 14)
+        bar.mouse_filter = Control.MOUSE_FILTER_STOP
         bar.text = "%s ×%d  »  %s ×%d" % [
             BaseMaterials.display_name(source_id), int(plan["input_count"]),
             BaseMaterials.display_name(target_id), int(plan["output_count"])]
-        bar.disabled = not SeraSave.can_convert_material(
-            conversion_family, rank, conversion_mode, conversion_batches)
-        bar.pressed.connect(_confirm_conversion.bind(rank))
-        row.add_child(bar)
-        # Second icon is a visual child only; native Button remains full tap area.
+        bar.add_theme_font_size_override("font_size", 1)
+        for text_state in ["font_color", "font_hover_color",
+                "font_pressed_color", "font_disabled_color"]:
+            bar.add_theme_color_override(text_state, Color.TRANSPARENT)
+        var source_icon: TextureRect = bar.get_node(
+            "CardContent/Row/ItemArt") as TextureRect
+        source_icon.name = "ConvertInputIcon_" + str(rank)
+        source_icon.texture = IconAtlas.material_icon_sized(source_id, 48)
+        source_icon.custom_minimum_size = Vector2(48, 48)
+        var recipe_title: Label = bar.get_node(
+            "CardContent/Row/TextStack/ItemTitle") as Label
+        recipe_title.text = "%s ×%d" % [
+            BaseMaterials.display_name(source_id), int(plan["input_count"])]
+        var recipe_info: Label = bar.get_node(
+            "CardContent/Row/TextStack/ItemInfo") as Label
+        recipe_info.text = "≫ %s ×%d" % [
+            BaseMaterials.display_name(target_id), int(plan["output_count"])]
+        recipe_info.add_theme_color_override("font_color", Color("#81f0f5"))
         var output_icon := TextureRect.new()
         output_icon.name = "ConvertOutputIcon_" + str(rank)
         output_icon.texture = IconAtlas.material_icon_sized(target_id, 44)
         output_icon.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
         output_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-        output_icon.clip_contents = true
-        output_icon.set_anchors_and_offsets_preset(Control.PRESET_CENTER_RIGHT)
-        output_icon.offset_left = -49
-        output_icon.offset_right = -5
-        output_icon.offset_top = -22
-        output_icon.offset_bottom = 22
+        output_icon.custom_minimum_size = Vector2(44, 44)
+        output_icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+        output_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
         output_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-        bar.add_child(output_icon)
+        (bar.get_node("CardContent/Row") as HBoxContainer).add_child(output_icon)
+        bar.disabled = not SeraSave.can_convert_material(
+            conversion_family, rank, conversion_mode, conversion_batches)
+        bar.pressed.connect(_confirm_conversion.bind(rank))
+        row.add_child(bar)
+        call_deferred("_apply_card_skin", bar)
         var amount := SpinBox.new()
         amount.name = "ConversionCount_" + str(rank)
         amount.min_value = 1
