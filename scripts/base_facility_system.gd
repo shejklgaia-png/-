@@ -489,7 +489,7 @@ func attach_hud(hud: Control) -> void:
         button.size_flags_vertical = Control.SIZE_SHRINK_BEGIN
         button.alignment = HORIZONTAL_ALIGNMENT_CENTER
         button.add_theme_font_size_override("font_size", _nav_font_size())
-        button.add_theme_font_override("font", LaboSkin.data_font())
+        button.add_theme_font_override("font", LaboSkin.display_font())
         button.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
         button.add_theme_color_override("font_color", Color("#b4cbd5"))
         button.add_theme_color_override("font_pressed_color", Color("#e9fcff"))
@@ -582,7 +582,7 @@ func attach_hud(hud: Control) -> void:
     close_button.text = "‹   戻る"
     close_button.custom_minimum_size.y = LABO_BACK_HEIGHT
     close_button.add_theme_font_size_override("font_size", 23)
-    close_button.add_theme_font_override("font", LaboSkin.title_font())
+    close_button.add_theme_font_override("font", LaboSkin.control_font())
     close_button.alignment = HORIZONTAL_ALIGNMENT_LEFT
     _style_terminal_segment(close_button)
     var exit_tag := Label.new()
@@ -644,6 +644,7 @@ func attach_hud(hud: Control) -> void:
     confirmation_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
     confirmation_text.size_flags_vertical = Control.SIZE_EXPAND_FILL
     confirmation_text.add_theme_font_size_override("font_size", 20)
+    confirmation_text.add_theme_font_override("font", LaboSkin.ui_font())
     confirm_vbox.add_child(confirmation_text)
     var confirm_buttons := HBoxContainer.new()
     confirm_buttons.add_theme_constant_override("separation", 8)
@@ -653,7 +654,7 @@ func attach_hud(hud: Control) -> void:
     cancel_button.text = "キャンセル"
     cancel_button.custom_minimum_size.y = LABO_CONFIRM_HEIGHT
     cancel_button.add_theme_font_size_override("font_size", 22)
-    cancel_button.add_theme_font_override("font", LaboSkin.title_font())
+    cancel_button.add_theme_font_override("font", LaboSkin.control_font())
     cancel_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
     cancel_button.pressed.connect(_dismiss_confirmation)
     confirm_buttons.add_child(cancel_button)
@@ -662,7 +663,7 @@ func attach_hud(hud: Control) -> void:
     accept_button.text = "作成"
     accept_button.custom_minimum_size.y = LABO_CONFIRM_HEIGHT
     accept_button.add_theme_font_size_override("font_size", 22)
-    accept_button.add_theme_font_override("font", LaboSkin.title_font())
+    accept_button.add_theme_font_override("font", LaboSkin.control_font())
     accept_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
     accept_button.pressed.connect(_accept_confirmation)
     confirm_buttons.add_child(accept_button)
@@ -911,6 +912,7 @@ func _invoke_scroll_action(action: Callable, scroll: ScrollContainer) -> void:
 
 ## Reuse native Android Buttons with a shared, non-glowing console skin.
 func _style_terminal_segment(button: Button) -> void:
+    button.add_theme_font_override("font", LaboSkin.control_font())
     button.add_theme_stylebox_override("normal", LaboSkin.terminal_segment_style("normal"))
     button.add_theme_stylebox_override("hover", LaboSkin.terminal_segment_style("hover"))
     button.add_theme_stylebox_override("pressed", LaboSkin.terminal_segment_style("selected"))
@@ -953,6 +955,7 @@ func _add_action(label: String, detail: String) -> void:
     button.text = label
     button.custom_minimum_size.y = 88.0
     button.add_theme_font_size_override("font_size", 22)
+    button.add_theme_font_override("font", LaboSkin.control_font())
     button.pressed.connect(_invoke_scroll_action.bind(_show_detail.bind(detail),
         actions_scroll))
     modal_actions.add_child(button)
@@ -1238,7 +1241,15 @@ func _new_slot(parent: Control, key: String, icon: Texture2D,
     var info_label: Label = card.get_node(
         "CardContent/Row/TextStack/ItemInfo") as Label
     title_label.text = title
-    title_label.add_theme_font_override("font", LaboSkin.title_font())
+    # Japanese names share one cohesive face; Latin-only locked slots are
+    # intentionally condensed while Japanese stats never use a mono fallback.
+    title_label.add_theme_font_override("font", (
+        LaboSkin.control_font() if material_choice else
+        LaboSkin.display_font() if key.begins_with("LockedCraftSlot_") else
+        LaboSkin.title_font()))
+    info_label.add_theme_font_override("font", (
+        LaboSkin.data_font() if key.begins_with("LockedCraftSlot_") else
+        LaboSkin.stats_font()))
     if material_choice:
         var side: float = _material_icon_side()
         art.custom_minimum_size = Vector2(side, side)
@@ -1250,7 +1261,6 @@ func _new_slot(parent: Control, key: String, icon: Texture2D,
         title_label.add_theme_font_size_override("font_size",
             23 if get_viewport().get_visible_rect().size.x >= 500.0 else 21)
         info_label.add_theme_font_size_override("font_size", 17)
-        info_label.add_theme_font_override("font", LaboSkin.data_font())
         if key.begins_with("LockedCraftSlot_"):
             art.visible = false
             art.custom_minimum_size = Vector2.ZERO
@@ -1362,7 +1372,7 @@ func _add_item_tile(icon: Texture2D, title: String,
     caption.size_flags_horizontal = Control.SIZE_EXPAND_FILL
     caption.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
     caption.add_theme_font_size_override("font_size", 21)
-    caption.add_theme_font_override("font", LaboSkin.title_font())
+    caption.add_theme_font_override("font", LaboSkin.control_font())
     row.add_child(caption)
 
 
@@ -1390,7 +1400,7 @@ func _show_inventory(section: String = "equipment") -> void:
         button.button_pressed = section == str(choice["key"])
         button.custom_minimum_size.y = 59.0
         button.add_theme_font_size_override("font_size", 19)
-        button.add_theme_font_override("font", LaboSkin.title_font())
+        button.add_theme_font_override("font", LaboSkin.control_font())
         button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
         _style_terminal_segment(button)
         button.pressed.connect(_invoke_scroll_action.bind(
@@ -1429,7 +1439,7 @@ func _show_inventory(section: String = "equipment") -> void:
             tab.custom_minimum_size = Vector2(0, LABO_SLOT_HEIGHT)
             tab.size_flags_horizontal = Control.SIZE_EXPAND_FILL
             tab.add_theme_font_size_override("font_size", _slot_font_size())
-            tab.add_theme_font_override("font", LaboSkin.title_font())
+            tab.add_theme_font_override("font", LaboSkin.control_font())
             tab.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
             tab.toggle_mode = true
             tab.button_group = hanger_group
@@ -1633,7 +1643,7 @@ func _show_prototype_catalog() -> void:
         b.custom_minimum_size = Vector2(0, LABO_SLOT_HEIGHT)
         b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
         b.add_theme_font_size_override("font_size", _slot_font_size())
-        b.add_theme_font_override("font", LaboSkin.title_font())
+        b.add_theme_font_override("font", LaboSkin.control_font())
         b.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
         b.pressed.connect(_invoke_scroll_action.bind(
             _select_craft_slot.bind(str(slot)), actions_scroll))
@@ -1859,14 +1869,14 @@ func _render_conversion() -> void:
         source_icon.custom_minimum_size = Vector2(54, 54)
         var recipe_title: Label = bar.get_node(
             "CardContent/Row/TextStack/ItemTitle") as Label
-        recipe_title.add_theme_font_override("font", LaboSkin.title_font())
+        recipe_title.add_theme_font_override("font", LaboSkin.control_font())
         recipe_title.add_theme_font_size_override("font_size", 19)
         recipe_title.text = "%s ×%d" % [
             BaseMaterials.display_name(source_id), int(plan["input_count"])]
         var recipe_info: Label = bar.get_node(
             "CardContent/Row/TextStack/ItemInfo") as Label
         recipe_info.add_theme_font_size_override("font_size", 19)
-        recipe_info.add_theme_font_override("font", LaboSkin.data_font())
+        recipe_info.add_theme_font_override("font", LaboSkin.stats_font())
         recipe_info.text = "≫ %s ×%d" % [
             BaseMaterials.display_name(target_id), int(plan["output_count"])]
         recipe_info.add_theme_color_override("font_color", Color("#81f0f5"))

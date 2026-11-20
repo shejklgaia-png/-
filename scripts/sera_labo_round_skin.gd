@@ -7,6 +7,9 @@ static var _segment_cache: Dictionary = {}
 static var _panel_cache: StyleBoxTexture
 static var _ui_font: SystemFont
 static var _title_font: SystemFont
+static var _control_font: SystemFont
+static var _display_font: SystemFont
+static var _stats_font: SystemFont
 static var _data_font: SystemFont
 
 ## Device fonts only: the first installed face is used, then Godot's
@@ -28,6 +31,38 @@ static func title_font() -> SystemFont:
         _title_font.font_weight = 700
         _title_font.allow_system_fallback = true
     return _title_font
+
+## Five cached typography roles use three font families:
+## Japanese sans (reading/title/controls/stats), condensed Latin (navigation),
+## and mono Latin (technical IDs). No bundled assets or runtime font allocation.
+static func control_font() -> SystemFont:
+    if _control_font == null:
+        _control_font = SystemFont.new()
+        _control_font.font_names = ui_font().font_names
+        _control_font.font_weight = 650
+        _control_font.allow_system_fallback = true
+    return _control_font
+
+
+static func stats_font() -> SystemFont:
+    if _stats_font == null:
+        _stats_font = SystemFont.new()
+        _stats_font.font_names = ui_font().font_names
+        _stats_font.font_weight = 580
+        _stats_font.allow_system_fallback = true
+    return _stats_font
+
+
+static func display_font() -> SystemFont:
+    if _display_font == null:
+        _display_font = SystemFont.new()
+        _display_font.font_names = PackedStringArray([
+            "Roboto Condensed", "sans-serif-condensed",
+            "Arial Narrow", "Roboto", "sans-serif"])
+        _display_font.font_weight = 700
+        _display_font.allow_system_fallback = true
+    return _display_font
+
 
 static func data_font() -> SystemFont:
     if _data_font == null:
