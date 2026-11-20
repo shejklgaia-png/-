@@ -32,7 +32,7 @@ func _capture(fac: Node3D, group: String, card_id: String) -> bool:
     var scale := Vector2(float(image.get_width()) / view.x, float(image.get_height()) / view.y)
     var area := card.get_global_rect()
     var rect := Rect2(area.position * scale, area.size * scale)
-    var colored: int = 0
+    var detail_pixels: int = 0
     var samples: int = 0
     var bx: int = maxi(0, int(rect.position.x))
     var by: int = maxi(0, int(rect.position.y))
@@ -45,11 +45,14 @@ func _capture(fac: Node3D, group: String, card_id: String) -> bool:
         for x in range(bx, ex, 2):
             samples += 1
             var c: Color = image.get_pixel(x, y)
-            if c.g > 0.36 and c.b > 0.47 and c.g > c.r + 0.11 and c.b > c.r + 0.12:
-                colored += 1
+            # The new matte terminal has no thick cyan border. A real item
+            # must still contribute bright image or legible text pixels above
+            # the dark card fill, so detect actual foreground contrast.
+            if maxf(c.r, maxf(c.g, c.b)) > 0.43:
+                detail_pixels += 1
     print("SERA_V522_PIXEL_REGION " + group + ": card=" + str(rect) +
-        " cyan=" + str(colored) + " sample=" + str(samples))
-    if colored < 12:
+        " foreground=" + str(detail_pixels) + " sample=" + str(samples))
+    if detail_pixels < 24:
         _fail("item tree exists but its actual card pixels are missing: " + group)
         return false
     return true
