@@ -252,106 +252,141 @@ func _build_warehouse_room() -> void:
     _block(terminal, "TerminalStatus", Vector3(0, 0.03, 0.105),
         Vector3(0.64, 0.17, 0.011), Color("#6bd0e2"), true)
 
+# A: enlarged printer, 60% of visual width as in the reference.
+# Printer, arm and workpiece share the same *local* machine coordinates.
 func _build_printer() -> void:
     printer_group = Node3D.new()
     printer_group.name = "PrinterScene"
     add_child(printer_group)
-    var steel := Color("#657887")
-    var dark := Color("#314757")
-    var light := Color("#5abce4")
     var pivot := Node3D.new()
     pivot.name = "Printer"
-    pivot.position = Vector3(-2.30, 0, 0.28)
-    pivot.rotation.y = 0.37 # Three-quarter gantry, not a square-on elevation.
+    pivot.position = Vector3(-2.23, 0, -0.76)
+    pivot.scale = Vector3(1.62, 1.30, 1.23)
+    pivot.rotation.y = 0.09
     printer_group.add_child(pivot)
-    _block(pivot, "Platform", Vector3(0, 0.29, 0),
-        Vector3(2.10, 0.40, 1.60), dark)
-    _block(pivot, "BuildPlate", Vector3(0, 0.51, 0),
-        Vector3(1.40, 0.08, 0.95), Color("#48667a"))
-    for x in [-1.04, 1.04]:
-        for z in [-0.73, 0.73]:
-            _block(pivot, "GantryPillar", Vector3(x, 1.37, z),
-                Vector3(0.12, 2.20, 0.12), steel)
-    for z in [-0.73, 0.73]:
-        _block(pivot, "TopRail", Vector3(0, 2.43, z),
-            Vector3(2.20, 0.13, 0.17), steel)
-    for x in [-1.04, 1.04]:
-        _block(pivot, "SideRail", Vector3(x, 2.43, 0),
-            Vector3(0.14, 0.14, 1.60), steel)
-    _block(pivot, "PrinterHeader", Vector3(0, 2.33, 0.79),
-        Vector3(1.7, 0.25, 0.15), Color("#405d70"))
-    _block(pivot, "PrinterStatus", Vector3(0, 2.33, 0.89),
-        Vector3(0.88, 0.05, 0.035), light, true)
-    for x in [-0.82, 0.82]:
-        _block(pivot, "Scanner", Vector3(x, 0.60, 0.76),
-            Vector3(0.08, 0.065, 0.05), light, true)
-    printer_nozzle = Node3D.new()
-    printer_nozzle.name = "PrinterNozzle"
-    printer_nozzle.position = Vector3(-2.30, 1.73, 0.28)
-    printer_nozzle.rotation.y = pivot.rotation.y
-    printer_group.add_child(printer_nozzle)
-    _block(printer_nozzle, "ToolHead", Vector3(0, 0, 0),
-        Vector3(0.43, 0.38, 0.42), Color("#92a8b7"))
-    _block(printer_nozzle, "Extruder", Vector3(0, -0.29, 0),
-        Vector3(0.10, 0.20, 0.10), light, true)
+    var metal := Color("#6e8290")
+    var dark := Color("#2c4454")
+    var cyan := Color("#53c7df")
+    _block(pivot, "MachineSubframe", Vector3(0, 0.30, 0),
+        Vector3(3.04, 0.50, 1.88), dark)
+    _block(pivot, "MachineWorkPlate", Vector3(0, 0.60, 0.03),
+        Vector3(2.17, 0.075, 1.42), Color("#577585"))
+    _block(pivot, "MachineCoolWorkLight", Vector3(0, 0.665, 0.45),
+        Vector3(1.83, 0.032, 0.08), cyan, true)
+    # Left and right thick steel pillars form the striking open gantry frame.
+    for x in [-1.38, 1.38]:
+        _block(pivot, "GantryOuterPost", Vector3(x, 1.57, 0),
+            Vector3(0.29, 2.44, 1.81), metal)
+        _block(pivot, "GantryDarkInlay", Vector3(x + (0.05 if x < 0 else -0.05),
+            1.53, 0.86), Vector3(0.14, 1.78, 0.08), Color("#354d5e"))
+    _block(pivot, "GantryRoofCasing", Vector3(0, 2.83, -0.02),
+        Vector3(3.11, 0.39, 1.87), Color("#697e8e"))
+    _block(pivot, "GantryFrontHeader", Vector3(0, 2.65, 0.95),
+        Vector3(2.74, 0.42, 0.16), Color("#405769"))
+    _block(pivot, "GantryHeaderBottomTrim", Vector3(0, 2.40, 1.01),
+        Vector3(2.84, 0.07, 0.09), Color("#9aabb2"))
+    _sign(pivot, "3D PRINTER", Vector3(0, 2.64, 1.061), 43)
+    _block(pivot, "InsetDarkBackPanel", Vector3(0, 1.55, -0.89),
+        Vector3(2.52, 1.67, 0.08), Color("#153548"))
+    for x in [-0.88, 0, 0.88]:
+        _block(pivot, "InteriorPrintGuide", Vector3(x, 1.49, -0.83),
+            Vector3(0.03, 1.60, 0.04), Color("#39728b"))
+    for y in [1.06, 1.76]:
+        _block(pivot, "InteriorLightStrip", Vector3(0, y, -0.79),
+            Vector3(2.24, 0.028, 0.024), Color("#3faabe"), true)
+    for x in [-1.13, 1.13]:
+        _block(pivot, "PrintChamberSideLight", Vector3(x, 1.74, 0.67),
+            Vector3(0.032, 1.28, 0.035), cyan, true)
+    for x in [-1.12, 1.12]:
+        _block(pivot, "FrontSafetyPanel", Vector3(x, 0.36, 0.95),
+            Vector3(0.63, 0.47, 0.14), Color("#486171"))
+    for i in range(3):
+        _block(pivot, "YellowSafetyDash", Vector3(-0.95+float(i)*0.19, 0.22, 1.03),
+            Vector3(0.12, 0.06, 0.035), Color("#d9a443"), true)
+        _block(pivot, "YellowStatusDash", Vector3(0.61+float(i)*0.15, 2.63, 1.06),
+            Vector3(0.085, 0.055, 0.035), Color("#d6a03b"), true)
+    _block(pivot, "VentGrille", Vector3(0, 0.36, 1.02),
+        Vector3(1.04, 0.13, 0.04), Color("#101f2c"))
+    for i in range(4):
+        _block(pivot, "PrinterVentSlot", Vector3(-0.31+float(i)*0.20, 0.36, 1.047),
+            Vector3(0.09, 0.05, 0.012), Color("#577181"))
+    # Modelled inside the printer, not in front of it.
     printed_part = Node3D.new()
     printed_part.name = "PrintedPart"
-    printed_part.position = Vector3(-2.30, 0.70, 0.28)
-    printed_part.rotation.y = pivot.rotation.y
-    printer_group.add_child(printed_part)
-    _block(printed_part, "ArmorShell", Vector3.ZERO,
-        Vector3(0.95, 0.38, 0.57), Color("#94aec1"))
-    _block(printed_part, "ArmorCutout", Vector3(0.0, 0.23, 0),
-        Vector3(0.43, 0.13, 0.35), Color("#3b718d"))
-    _block(printed_part, "PrintEdge", Vector3(0, -0.22, 0.31),
-        Vector3(0.95, 0.065, 0.035), light, true)
-    # An imposing enclosed gantry and a solid manufactured helmet shell.
-    _block(pivot, "GantrySideArmorL", Vector3(-1.08, 1.43, 0),
-        Vector3(0.16, 2.14, 1.65), Color("#526b7c"))
-    _block(pivot, "GantrySideArmorR", Vector3(1.08, 1.43, 0),
-        Vector3(0.16, 2.14, 1.65), Color("#526b7c"))
-    _block(pivot, "CeilingCasing", Vector3(0, 2.55, 0),
-        Vector3(2.38, 0.23, 1.74), Color("#405868"))
-    for x in [-0.54, -0.36, -0.18]:
-        _block(pivot, "StatusPip", Vector3(x, 2.39, 0.91),
-            Vector3(0.10, 0.05, 0.04), Color("#e3af42"), true)
-    _block(pivot, "BedGlow", Vector3(0, 0.52, 0.50),
-        Vector3(1.20, 0.035, 0.05), Color("#2395af"), true)
-    _sign(pivot, "3D PRINTER", Vector3(0, 2.32, 0.99), 37)
-    for i in range(4):
-        _block(pivot, "HazardAmber", Vector3(-0.70 + float(i)*0.17, 0.16, 0.82),
-            Vector3(0.105, 0.06, 0.025), Color("#dfac45"), true)
+    printed_part.position = Vector3(-0.32, 0.96, -0.10)
+    pivot.add_child(printed_part)
+    var shell := SphereMesh.new()
+    shell.radius = 0.5
+    shell.height = 1.0
+    shell.radial_segments = 12
+    shell.rings = 6
+    var workpiece := MeshInstance3D.new()
+    workpiece.name = "HeadArmorPrototype"
+    workpiece.mesh = shell
+    workpiece.position = Vector3(0, 0.19, 0)
+    workpiece.scale = Vector3(0.84, 0.42, 0.64)
+    workpiece.material_override = _paint(Color("#90bbc9"))
+    printed_part.add_child(workpiece)
+    _block(printed_part, "PrintedFaceShield", Vector3(0, 0.16, 0.31),
+        Vector3(0.55, 0.14, 0.045), Color("#4bd1e4"), true)
+    _block(printed_part, "PrintedChinShell", Vector3(0, -0.10, 0.21),
+        Vector3(0.70, 0.17, 0.33), Color("#7ca3b7"))
+    # Jointed robotic manipulator occupies upper-right of the chamber.
+    var arm := Node3D.new()
+    arm.name = "PrinterManipulator"
+    arm.position = Vector3(0.77, 1.82, -0.26)
+    pivot.add_child(arm)
+    _block(arm, "ArmUpper", Vector3(-0.16, 0.08, 0),
+        Vector3(0.64, 0.15, 0.19), Color("#a6c0ca"))
+    _block(arm, "ElbowJoint", Vector3(-0.51, 0.08, 0),
+        Vector3(0.23, 0.23, 0.23), Color("#587b8a"))
+    _block(arm, "ArmForearm", Vector3(-0.64, -0.21, 0.02),
+        Vector3(0.17, 0.55, 0.17), Color("#98b2bd"))
+    _block(arm, "ManipulatorHead", Vector3(-0.65, -0.50, 0.06),
+        Vector3(0.24, 0.18, 0.27), Color("#627d8c"))
+    _block(arm, "BluePrintTip", Vector3(-0.65, -0.62, 0.06),
+        Vector3(0.10, 0.07, 0.12), cyan, true)
+    printer_nozzle = Node3D.new()
+    printer_nozzle.name = "PrinterNozzle"
+    printer_nozzle.position = Vector3(0.13, 2.09, 0.24)
+    pivot.add_child(printer_nozzle)
+    _block(printer_nozzle, "NozzleCarriage", Vector3.ZERO,
+        Vector3(0.35, 0.26, 0.33), Color("#91adbb"))
+    _block(printer_nozzle, "ActivePrintEmitter", Vector3(0, -0.15, 0),
+        Vector3(0.08, 0.15, 0.08), cyan, true)
+    # The reference's stacked side service cases.
+    for k in range(2):
+        _block(printer_group, "PrinterServiceCase",
+            Vector3(-4.83+float(k)*0.50, 0.48, 1.25),
+            Vector3(0.46, 0.89, 0.94), Color("#576d7b"))
+        _block(printer_group, "ServiceCaseLatch",
+            Vector3(-4.83+float(k)*0.50, 0.68, 1.74),
+            Vector3(0.19, 0.07, 0.04), Color("#b3c2c8"))
 
 func _build_terminal() -> void:
-    # The inspection console is turned toward the oblique camera and set
-    # deeper than the printer rather than forming a flat parallel row.
     var console := Node3D.new()
     console.name = "PrinterInspectionStation"
-    console.position = Vector3(1.90, 0.0, -1.43)
-    console.rotation.y = 0.43
+    console.position = Vector3(3.45, 0, -0.80)
+    console.rotation.y = -0.18
     printer_group.add_child(console)
-    _block(console, "TerminalColumn", Vector3(0, 0.62, 0),
-        Vector3(0.38, 1.12, 0.36), Color("#486476"))
-    _block(console, "TerminalConsole", Vector3(0, 1.06, 0.16),
-        Vector3(1.27, 0.18, 0.87), Color("#486476"))
+    _block(console, "TerminalPlinth", Vector3(0, 0.65, 0),
+        Vector3(0.50, 1.28, 0.51), Color("#344d5b"))
+    _block(console, "CantileverDesk", Vector3(0, 1.28, 0.21),
+        Vector3(0.91, 0.13, 0.64), Color("#516d7d"))
     var screen := Node3D.new()
     screen.name = "TerminalScreen"
-    screen.position = Vector3(0, 1.62, -0.27)
-    screen.rotation.x = -0.22
+    screen.position = Vector3(0, 1.91, -0.15)
+    screen.rotation.x = -0.13
     console.add_child(screen)
-    _block(screen, "DisplayBack", Vector3.ZERO,
-        Vector3(1.38, 0.91, 0.08), Color("#425e6c"))
-    _block(screen, "DisplayGlass", Vector3(0, 0, 0.055),
-        Vector3(1.22, 0.76, 0.022), Color("#183a4f"))
-    for row in range(4):
-        _block(screen, "ReadoutLine",
-            Vector3(-0.22, 0.26 - float(row)*0.16, 0.07),
-            Vector3(0.59 - float(row)*0.04, 0.025, 0.008),
-            Color("#45b1d2"), true)
-    _block(screen, "ReadoutModel", Vector3(0.39, 0.01, 0.07),
-        Vector3(0.26, 0.36, 0.008), Color("#6cd9f0"), true)
-    _block(screen, "ScreenCorner", Vector3(0.49, -0.27, 0.073),
-        Vector3(0.11, 0.035, 0.012), Color("#68d5e5"), true)
+    _block(screen, "ScreenOuterCase", Vector3.ZERO,
+        Vector3(1.05, 0.74, 0.08), Color("#6f8997"))
+    _block(screen, "TechnicalDisplay", Vector3(0, 0, 0.055),
+        Vector3(0.92, 0.61, 0.023), Color("#175268"))
+    for j in range(3):
+        _block(screen, "StatusGraph", Vector3(0.19, 0.21-float(j)*0.16, 0.074),
+            Vector3(0.39, 0.024, 0.008), Color("#6ec3d6"), true)
+    _block(screen, "HeadDraft", Vector3(-0.25, 0.03, 0.076),
+        Vector3(0.31, 0.22, 0.01), Color("#79d8e7"), true)
 
 func _build_crate() -> void:
     # Exact same factory and mesh as the roaming robot in the base.
