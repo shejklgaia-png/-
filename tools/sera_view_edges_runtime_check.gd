@@ -66,8 +66,8 @@ func _run() -> void:
     if material == null or material.shader != SHADER:
         _fail("outline shader was not assigned")
         return
-    if not (material.get_shader_parameter("stroke_px") is float):
-        _fail("stroke uniform missing")
+    if not is_equal_approx(float(material.get_shader_parameter("stroke_px")), 3.0):
+        _fail("outline stroke must be 3.0 pixels")
         return
     actor.queue_free()
     await process_frame
