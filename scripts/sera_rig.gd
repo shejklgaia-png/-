@@ -24,6 +24,7 @@ const KATANA_EMBEDDED = preload("res://assets/sera_katana_data.gd")
 # v272: do not rely solely on a potentially stale source/whole-model embed.
 const KICK_PACK = preload("res://assets/sera_kick_clips.gd")
 const EQUIPMENT_SCRIPT = preload("res://scripts/sera_equipment.gd")
+const OUTLINE_SCRIPT = preload("res://scripts/sera_view_edges.gd")
 const RENDER_ORDER = preload("res://scripts/render_order_policy.gd")
 const BIRD_EMBEDDED = preload("res://assets/sera_bird_data.gd")
 const BIRD_LIVE_SOURCE: String = "res://models/core/BirdLeg.bbmodel"
@@ -285,6 +286,10 @@ func _ready() -> void:
     equipment_handler.call("snap_grounded_sole_to_floor")
     _build_motion_afterimage_pool()
     equipment_handler.call("sync_afterimages")
+    # Independent camera-dependent contours; no alteration of source materials.
+    var ink := OUTLINE_SCRIPT.new()
+    ink.name = "ViewEdges"
+    add_child(ink)
     # Must update the authored blade transforms before main.gd tests contact.
     process_priority = -1
     set_process(true)
