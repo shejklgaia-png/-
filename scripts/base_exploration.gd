@@ -372,7 +372,9 @@ func _create_salvage(replacement: Array[Dictionary] = []) -> void:
         pile.set_meta("stack", stack_count)
         pile.set_meta("pattern", pile_pattern)
         add_child(pile)
-        g.pivot = center
+        # Scale about the deck surface, never world Y=0. This keeps the
+        # underside of every independent heap in contact with the plate.
+        g.pivot = Vector3(center.x, JunkGeometry.BASE_DECK_SURFACE_Y, center.z)
         g.yaw = pile.rotation.y
         g.detail_scale = scale_factor
         JunkGeometry.scrap_heap(g, center, i, stack_count, pile_pattern)
