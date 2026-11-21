@@ -52,6 +52,53 @@ func _run() -> void:
     if count != 6:
         _fail("six existing deck palette batches not preserved")
         return
+    var all_facilities: Array[Node3D] = [nexus, lab]
+    for key in ["SCRAP_COLLECTOR", "SMELTER", "RECYCLER",
+            "GENERATOR", "STORAGE", "BUILD_TERMINAL"]:
+        var station: Node3D = hub.get_node_or_null(
+            "BaseFacilities/" + key + "/IndustrialModel") as Node3D
+        if station == null:
+            _fail("missing physical facility surface: " + key)
+            return
+        all_facilities.append(station)
+    # The same imported material textures are reused throughout the BASE.
+    var canvas_texture: Texture2D = load("res://assets/base/aged_canvas_weave.svg")
+    if canvas_texture == null:
+        _fail("aged canvas is missing")
+        return
+    for station in all_facilities:
+        var painted_parts: int = 0
+        for child in station.get_children():
+            if not child is MultiMeshInstance3D:
+                continue
+            var name: String = str(child.name)
+            if not name.begins_with("Architectural_"):
+                continue
+            var material: StandardMaterial3D = child.material_override as StandardMaterial3D
+            if material == null:
+                _fail("missing material on " + name)
+                return
+            var painted: bool = name.ends_with("_armor") or name.ends_with(
+                "_armor_light") or name.ends_with("_slate") or name.ends_with("_crate")
+            var rusty: bool = name.ends_with("_rust") or name.ends_with("_gold")
+            if painted:
+                painted_parts += 1
+                if material.albedo_texture != armor_texture:
+                    _fail("armor material was not shared: " + name)
+                    return
+            if rusty and material.albedo_texture != oxide_texture:
+                _fail("oxidized metal texture was not shared: " + name)
+                return
+            if name.ends_with("_cloth") and material.albedo_texture != canvas_texture:
+                _fail("canvas weathering was not shared: " + name)
+                return
+            if name.ends_with("_blue_light") or name.ends_with("_amber_light"):
+                if material.albedo_texture != null:
+                    _fail("emission lamps must not get dirty textures")
+                    return
+        if painted_parts == 0:
+            _fail("facility did not use painted industrial metal: " + station.name)
+            return
     for group in [nexus, lab]:
         var armor: StandardMaterial3D = _material_for(group, "armor")
         var rust: StandardMaterial3D = _material_for(group, "rust")
