@@ -9,8 +9,8 @@ mat=(root/"ui/labo/LaboMaterialCard.tscn").read_text(encoding="utf-8")
 equip=(root/"ui/labo/LaboEquipmentCard.tscn").read_text(encoding="utf-8")
 manifest=(root/"tools/sera_ci_manifest.txt").read_text(encoding="utf-8")
 for token in ("static func ui_font(", "static func title_font(",
-              "static func data_font(", "_jp_weight(", "NotoSansJP-VF.woff2",
-              "Rajdhani-Bold.woff2", "IBMPlexMono-Medium.woff2",
+              "static func data_font(", "_jp_weight(", "UDEVGothic-Regular.ttf", "UDEVGothic-Bold.ttf",
+              "MoralerspaceNeon-Regular.ttf", "MoralerspaceNeon-Bold.ttf",
               "theme.default_font =",
               "theme.default_font_size ="):
     assert token in skin,token
