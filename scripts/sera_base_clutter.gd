@@ -161,30 +161,47 @@ static func _safe_prop_yaw(key: String, items: Array[Dictionary],
 # conservative footprint clears the machine/entrance zone and all other props.
 # Check both zero-yaw and real yaw so the fixed slab, stack and old Godot
 # unrotated-footprint collision tests stay valid. Setup-only, no frame work.
-static func _can_enlarge_prop(key: String, items: Array[Dictionary],
-        index: int, multiplier: float) -> bool:
+# Grow without moving a cluster off its original station. Nearby machinery,
+# door corridors and other cargo remain open in both neutral and final yaw.
+# If the original slant will intersect an enlarged neighbor, gently reduce
+# that slant but preserve at least 15 degrees toward the viewer.
+static func _best_enlarged_yaw(key: String, items: Array[Dictionary],
+        index: int, multiplier: float) -> float:
     var candidate: Dictionary = items[index].duplicate()
     candidate["scale"] = float(candidate["scale"]) * multiplier
     var straight: Rect2 = _yaw_rect(candidate, 0.0)
-    var rotated: Rect2 = _yaw_rect(candidate, float(candidate.get("yaw_deg", 0.0)))
     var restricted: Rect2 = _clear_zone(key)
-    if straight.intersects(restricted) or rotated.intersects(restricted):
-        return false
+    if straight.intersects(restricted):
+        return -1.0
     for j in range(items.size()):
-        if j == index:
+        if j != index and straight.intersects(_yaw_rect(items[j], 0.0)):
+            return -1.0
+    var authored_yaw: float = float(candidate.get("yaw_deg", 0.0))
+    for fraction in [1.0, 0.8, 0.6, 0.4, 0.2]:
+        var desired_yaw: float = authored_yaw * float(fraction)
+        if desired_yaw < 15.0:
             continue
-        var other: Dictionary = items[j]
-        if straight.intersects(_yaw_rect(other, 0.0)) or (
-                rotated.intersects(_yaw_rect(other,
-                    float(other.get("yaw_deg", 0.0))))):
-            return false
-    return true
+        var rotated: Rect2 = _yaw_rect(candidate, desired_yaw)
+        if rotated.intersects(restricted):
+            continue
+        var blocked: bool = false
+        for j in range(items.size()):
+            if j == index:
+                continue
+            var other: Dictionary = items[j]
+            if rotated.intersects(_yaw_rect(other,
+                    float(other.get("yaw_deg", 0.0)))):
+                blocked = true
+                break
+        if not blocked:
+            return desired_yaw
+    return -1.0
 
 
 static func _enlarge_dressing(key: String, items: Array[Dictionary]) -> void:
-    # Regular open-yard objects stand out; clustered accessories and stacks
-    # receive a tighter ceiling. All existing 2+1 and 2+2 stacks scale as a
-    # complete assembly, preserving support heights and their original yaw.
+    # Free-standing objects: up to 26%. Close clusters, upper-tier loads,
+    # mini accessories: up to 18%. Preserve each supported stack as one
+    # proportional assembly; no per-frame scaling or extra MeshInstances.
     for i in range(items.size()):
         var item: Dictionary = items[i]
         var limit: float = 1.26
@@ -196,11 +213,12 @@ static func _enlarge_dressing(key: String, items: Array[Dictionary]) -> void:
             var candidate: float = 1.0 + float(step) * 0.02
             if candidate > limit + 0.001:
                 continue
-            if _can_enlarge_prop(key, items, i, candidate):
+            var yaw: float = _best_enlarged_yaw(key, items, i, candidate)
+            if yaw >= 0.0:
                 item["scale"] = float(item["scale"]) * candidate
+                item["yaw_deg"] = yaw
                 items[i] = item
                 break
-
 
 static func props_for(key: String) -> Array[Dictionary]:
     var items: Array[Dictionary] = _authored_props_for(key)
