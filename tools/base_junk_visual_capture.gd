@@ -55,8 +55,8 @@ func _run() -> void:
         var p: Vector2 = panels[i]
         var count: int = (i + 1) * 2
         Junk.panel_stack(g, p, 1.0, i, count, i)
-        _text(scene, "PANEL " + str(count) + " pcs / " + str(i + 1),
-            Vector3(p.x, 1.13, p.y))
+        _text(scene, str(count) + " SHEETS",
+            Vector3(p.x, 0.98, p.y))
     for i in range(4):
         var slot_x: float = -0.96 if i % 2 == 0 else 0.98
         var slot_z: float = -0.02 if i < 2 else 2.29
