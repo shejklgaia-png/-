@@ -1,4 +1,6 @@
 # Historical and active-contract regression tests executed by SERA model-policy CI.
+# Camera-eye standalone HEAD D and export-safe edited Blockbench mesh.
+py tools/camera_eye_head_self_check.py
 # Each entry is mandatory: missing files and failing scripts fail the run.
 # Active v424 tests only; superseded v423 checks remain on disk with a retirement register.
 # One test per line. Preserve tests not explicitly retired by a specification change.
