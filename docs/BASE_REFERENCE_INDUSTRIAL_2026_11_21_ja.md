@@ -171,3 +171,9 @@ LABOは一枚の箱状外壁から、開放前面・背面設備ラック・側�
 - これらはすべて既存`Batch.poly/poly_tilt/rod/box`に登録し、同材質は従来の`MultiMesh`にまとめる。新規MeshInstance3D/Light/Collision、テクスチャ、描画シェーダー、フレームごとの処理は追加しない。
 - NEXUS/他7施設の建物根本、拠点での位置・角度・タップ判定、床1施設1パネル、CRATE、GRID、NEXUS/LABO機能、UI、素材テクスチャは保持する。
 - 先行CI：`base_silhouette_refinement_self_check.py`と`base_silhouette_refinement_runtime_check.gd`を追加・マニフェスト登録。GDScriptでの形状の非退化、法線と表面順、実シーン各8施設の追加メッシュを検査。実画面とAndroid FPSの最終確認は別。
+
+## 2026-11-21 — 拠点3Dメッシュの頂点陰影仕上げ
+- 実GL画面を比較すると、直接編集ポリゴンの輪郭は改善したものの、同一材質の上面・斜面・側面が似た明るさで立体感が弱い。共有`SurfaceTool`の三角面で、外向き法線に応じた0.62〜1.04倍の明暗を各頂点カラーとして事前生成。上面・前面・側面・裏/下面のコントラストを作る。
+- 建築の`ArrayMesh`ポリゴン材質だけ`vertex_color_use_as_albedo`をONにし、従来のcube/tube・光源の材質には適用しない。床は既存の共有ベベル鋼板ArrayMeshで同じ頂点カラーを使用。テクスチャ/元の材質・金属反射/ラベル/タップ/物理/UI/施設座標は維持。
+- ドローコール・テクスチャ枚数・フレーム単位のシェーダー/オブジェクト計算・追加ライトはゼロ。CPUが初回共有メッシュを生成するときにしか陰影係数を計算しない。
+- `base_silhouette_refinement_self_check.py`、`base_silhouette_refinement_runtime_check.gd`の期待値を先に更新し、頂点カラー配列と明暗差（0.15以上）を要求。既存の法線、UV、時計回り表面、全8施設の形状チェックを維持。
