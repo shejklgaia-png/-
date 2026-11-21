@@ -10,7 +10,7 @@ arch=(r/"scripts/sera_base_architecture.gd").read_text(encoding="utf-8")
 ci=(r/"tools/sera_ci_manifest.txt").read_text(encoding="utf-8")
 CENTER=(0.0, -2.2)
 PREVIOUS={"NEXUS":[-9.53,-14.55],"LABO":[6.2,5.25],"SMELTER":[-10.9,-4.9],"RECYCLER":[1.1,-11.1],"STORAGE":[-2.55,5.8],"GENERATOR":[9.4,-1.65],"SCRAP_COLLECTOR":[5.2,15.6],"BUILD_TERMINAL":[15.3,8.8]}
-APPROVED={"NEXUS":[-9.3,-14.55],"LABO":[5.95,5.4],"SMELTER":[-9.6,-3.8],"RECYCLER":[1.3,-10.65],"STORAGE":[-2.15,5.58],"GENERATOR":[8.85,-1.65],"SCRAP_COLLECTOR":[8.91,20.83],"BUILD_TERMINAL":[18.56,14.68]}
+APPROVED={"NEXUS":[-13.44,-19.91],"LABO":[6.26,5.8],"SMELTER":[-12.61,-7.7],"RECYCLER":[-1.85,-14.73],"STORAGE":[-3.43,3.92],"GENERATOR":[7.37,-3.57],"SCRAP_COLLECTOR":[9.95,22.18],"BUILD_TERMINAL":[19.49,15.88]}
 YAW_DEGREES={"NEXUS":33,"LABO":44,"SMELTER":60,"RECYCLER":16,"STORAGE":63,"GENERATOR":12,"SCRAP_COLLECTOR":56,"BUILD_TERMINAL":20}
 assert "const BODY_YAW_DEGREES = {" in arch
 assert "static func facility_yaw_radians(" in arch
@@ -46,21 +46,13 @@ for key in APPROVED:
         assert abs(slant)<=10,(key,"central facade should remain frontal",slant)
     assert abs(actual)<=180
 assert len(set(YAW_DEGREES.values()))==8
-# The original inward ring contract still applies to the six unchanged sites.
-# The user expressly moved only the collector and build terminal down-screen;
-# their larger distance from the yard center must not be called a regression.
-fixed_sites = [key for key in APPROVED if key not in (
-    "SCRAP_COLLECTOR", "BUILD_TERMINAL")]
-old_radius=sum(hypot(*[PREVIOUS[k][i]-CENTER[i] for i in (0,1)]) for k in fixed_sites)
-new_radius=sum(hypot(*[coords[k][i]-CENTER[i] for i in (0,1)]) for k in fixed_sites)
-assert new_radius<old_radius-2.9,(new_radius,old_radius)
-closer=sum(hypot(*[APPROVED[k][i]-CENTER[i] for i in (0,1)])<hypot(*[PREVIOUS[k][i]-CENTER[i] for i in (0,1)])-.20 for k in fixed_sites)
-assert closer>=4, closer
-# The two relocated facilities keep their screen-X coordinate and are moved
-# farther downward to retain LABO clearance at the reduced camera elevation.
-prior_bottom = {"SCRAP_COLLECTOR":(4.70,15.35), "BUILD_TERMINAL":(14.35,9.20)}
-for key, (x,z) in prior_bottom.items():
-    dx = coords[key][0] - x
-    dz = coords[key][1] - z
-    assert abs(dx - 4.21) <= 0.015 and abs(dz - 5.48) <= 0.015, (key,dx,dz)
-print("SERA_BASE_INWARD_RING_STATIC_PASS: 8 visible entrances tilted slightly toward screen center")
+# After the requested taller composition, retain eight unique inward yaw checks
+# above, but use approved two-column vertical ordering instead of the old
+# obsolete shrink-to-center metric (which would force all stations to crowd).
+def downward(key):
+    x,z=coords[key]
+    return 21.0*x+27.2*z
+assert downward("NEXUS") < downward("SMELTER") < downward("STORAGE") < downward("LABO") < downward("SCRAP_COLLECTOR")
+assert downward("NEXUS") < downward("RECYCLER") < downward("GENERATOR") < downward("LABO") < downward("BUILD_TERMINAL")
+assert coords["NEXUS"][1] < -19.0, "NEXUS must be at the upper edge of the expanded yard"
+print("SERA_BASE_INWARD_RING_STATIC_PASS: eight camera-facing entrances, tall staggered layout")
