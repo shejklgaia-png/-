@@ -35,7 +35,7 @@ for token in (
     'confirmation_item_icon.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)',
     'craft_info_column.alignment = BoxContainer.ALIGNMENT_CENTER',
     'var craft_info := VBoxContainer.new()',
-    'confirmation_item_name.add_theme_font_size_override("font_size", 28)',
+    'confirmation_item_name.add_theme_font_size_override("font_size", 30)',
     'confirmation_item_stats.add_theme_font_size_override("font_size", 19)',
     'LaboStats.baseline(equipment_blueprint).replace("（現行Aセット参照）", "")',
 ):
