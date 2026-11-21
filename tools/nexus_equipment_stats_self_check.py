@@ -30,7 +30,7 @@ for required in (
 for required in (
     'const PartStats = preload("res://scripts/sera_part_stats.gd")',
     'static func from_selection(selected: Dictionary) -> Array[Dictionary]:',
-    'static func from_stats(stats: Dictionary) -> Array[Dictionary]:',
+    'static func from_stats(stats: Dictionary,',
     'if is_zero_approx(amount):',
     '"攻撃EN消費"',
     '"重量"',
