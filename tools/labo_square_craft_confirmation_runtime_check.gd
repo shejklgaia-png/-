@@ -29,7 +29,8 @@ func _run() -> void:
     var stats: Label = fac.get("confirmation_item_stats") as Label
     var question: Label = fac.get("confirmation_prompt") as Label
     var rail: ColorRect = overlay.find_child("LaboConfirmAccentRail", true, false) as ColorRect
-    var stats_header: Label = overlay.find_child("LaboConfirmStatsHeader", true, false) as Label
+    var stats_rows: VBoxContainer = overlay.find_child("LaboConfirmStatRows", true, false) as VBoxContainer
+    var tech_frame: Control = overlay.find_child("LaboConfirmPreviewTechFrame", true, false) as Control
     var confirm_button: Button = fac.get("confirmation_accept_button") as Button
     var cancel_button: Button = overlay.find_child(
         "LaboConfirmCancel",true,false) as Button
@@ -37,12 +38,13 @@ func _run() -> void:
             card == null or not card.visible or placeholder == null or (
             preview == null or heading == null or stats == null or (
             question == null or confirm_button == null or cancel_button == null or (
-            rail == null or stats_header == null)))):
+            rail == null or stats_rows == null or tech_frame == null)))):
         _fail("Missing square-first confirmation UI")
         return
-    if rail.color != Color("#55798a") or stats_header.text != "BASE STATUS" or (
-            stats.horizontal_alignment != HORIZONTAL_ALIGNMENT_LEFT):
-        _fail("SERA UI identity rail / left-aligned technical stats missing")
+    if rail.color != Color("#55798a") or stats_rows.get_child_count() < 3 or (
+            stats.visible or not tech_frame.visible):
+
+        _fail("shared name/value technical rows and chamfered preview border missing")
         return
     if absf(square.ratio-1.0)>0.0001 or (
             square.size.x<275.0 or square.size.y<275.0) or (
@@ -75,10 +77,18 @@ func _run() -> void:
         _fail("Square viewport escapes the equipment card")
         return
     if not (heading.get_global_rect().end.y<stage_rect.position.y and
-            stage_rect.end.y<=stats.get_global_rect().position.y and (
-            stats.get_global_rect().end.y<question.get_global_rect().position.y) and (
+            stage_rect.end.y<=stats_rows.get_global_rect().position.y and (
+            stats_rows.get_global_rect().end.y<question.get_global_rect().position.y) and (
             question.get_global_rect().end.y<confirm_button.get_global_rect().position.y)):
         _fail("Vertical hierarchy is not title -> square -> specs -> decision -> actions")
+        return
+    var first_row: HBoxContainer = stats_rows.get_child(0) as HBoxContainer
+    var first_label: Label = first_row.get_child(0) as Label
+    var first_value: Label = first_row.get_child(1) as Label
+    if first_label.text.is_empty() or first_value.text.is_empty() or (
+            first_label.horizontal_alignment != HORIZONTAL_ALIGNMENT_LEFT or (
+            first_value.horizontal_alignment != HORIZONTAL_ALIGNMENT_LEFT)):
+        _fail("LABO stat label/value must be independently left aligned")
         return
     if absf(confirm_button.size.y-cancel_button.size.y)>1.0 or (
             confirm_button.size.y<65.0):
