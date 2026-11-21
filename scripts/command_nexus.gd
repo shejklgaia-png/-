@@ -991,6 +991,8 @@ func _layout_customization_stats() -> void:
         label.size = Vector2(floorf(cell_width * 0.60) - 10.0, cell_height - 4)
         value.position = Vector2(floorf(cell_width * 0.60), 2)
         value.size = Vector2(cell_width * 0.40 - 10.0, cell_height - 4)
+        StatUI.fit_label(label, 16, 12)
+        StatUI.fit_label(value, 19, 15)
         (entry["rule"] as ColorRect).visible = false
 
 func _refresh_customization_stats() -> void:
@@ -1007,6 +1009,8 @@ func _refresh_customization_stats() -> void:
         if show:
             (cell["name"] as Label).text = str(entries[i]["label"])
             (cell["value"] as Label).text = str(entries[i]["value"])
+            StatUI.fit_label(cell["name"] as Label, 16, 12)
+            StatUI.fit_label(cell["value"] as Label, 19, 15)
 
 
 func _create_equipment_controls() -> void:
@@ -1662,6 +1666,8 @@ func _layout_customization_part_stats() -> void:
         var value: Label = entry["value"]
         value.position = Vector2(9, 21)
         value.size = Vector2(row_width - 18, 20)
+        StatUI.fit_label(label, 16, 12)
+        StatUI.fit_label(value, 19, 15)
 
 
 func _refresh_customization_part_stats(slot: String) -> void:
@@ -1707,6 +1713,8 @@ func _refresh_customization_part_stats(slot: String) -> void:
         if show:
             (cell["name"] as Label).text = str(rows[i]["label"])
             (cell["value"] as Label).text = str(rows[i]["value"])
+            StatUI.fit_label(cell["name"] as Label, 16, 12)
+            StatUI.fit_label(cell["value"] as Label, 19, 15)
 
 
 func _equipped_part_blueprint(slot: String) -> String:
