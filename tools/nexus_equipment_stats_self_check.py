@@ -54,10 +54,11 @@ for obsolete in ('"WEIGHT "', '"EN OUTPUT"', '"TRACK"', '"ATK SPEED"',
 # 720x1280 CUSTOMIZE: two-tier stat typography, rather than cramped side-by-side.
 for required in (
     'customize_stats_grid.add_theme_constant_override("v_separation", 1)',
-    'var cell_height: float = 38.0',
+    'var cell_height: float = 44.0',
     'var height: float = minf(view.y * 0.227, 290.0)',
     'StatUI.layout_metric_pair(label, value, cell_width, cell_height, 19, 25, 16, 20)',
     'customize_weapon_divider',
+    'customize_stats_scroll.get_v_scroll_bar().value_changed.connect(',
     'customize_weapon_first_index',
 ):
     assert required in nexus, required
