@@ -123,6 +123,7 @@ func _make_card() -> Button:
     title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
     title.clip_text = true
     card.add_child(title)
+    LaboSkin.attach_name_underline(title)
     var effects := Label.new()
     effects.name = "ItemEffects"
     effects.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -255,6 +256,7 @@ func _bind_card(card: Button, index: int) -> void:
         art.texture = null
         meta.text = ""
         title.text = ""
+        LaboSkin.refresh_name_underline(title)
         effects.text = ""
         marker.color = Color.TRANSPARENT
         return
@@ -328,3 +330,5 @@ func _bind_card(card: Button, index: int) -> void:
         meta.text = "GEAR / " + str(entry.get("uid", ""))
         title.text = mark + str(entry.get("name", ""))
         effects.text = Affixes.describe(entry.get("affixes", []))
+    # One recycled bar follows each newly bound name; blank cards stay clean.
+    LaboSkin.refresh_name_underline(title)
