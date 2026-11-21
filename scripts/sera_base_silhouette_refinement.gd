@@ -4,6 +4,41 @@ extends RefCounted
 ## the existing material MultiMesh. No lights, colliders, scene nodes or updates.
 
 static func _nexus(g: Variant) -> void:
+    # The reference hall has asymmetric attached machinery, not a lone box.
+    # Both additions remain within NEXUS's 10.5m single-piece steel pad,
+    # even after its 1.14x architectural enlargement.
+    g.poly("NexusLeftMaintenanceAnnex", "bevel",
+        Vector3(-2.70, 1.40, -0.67),
+        Vector3(1.55, 2.61, 2.86), "slate")
+    g.poly("NexusAnnexUtilityRoof", "roof",
+        Vector3(-2.71, 2.92, -0.69),
+        Vector3(1.83, 0.44, 3.04), "armor_light")
+    for i in range(4):
+        g.poly("NexusLeftWorkshopGrill", "louver",
+            Vector3(-3.49, 1.13 + float(i % 2) * 0.97,
+                -1.38 + float(i / 2) * 1.34),
+            Vector3(0.13, 0.76, 0.67), "trim", PI * 0.5)
+    g.poly("NexusRightServiceTower", "bevel",
+        Vector3(2.76, 1.66, -0.96),
+        Vector3(1.42, 3.05, 2.61), "armor")
+    g.poly("NexusSwitchTowerTop", "roof",
+        Vector3(2.78, 3.37, -0.97),
+        Vector3(1.61, 0.38, 2.83), "slate")
+    g.poly_tilt("NexusServiceAnnexLouver", "louver",
+        Vector3(3.55, 1.82, -0.59),
+        Vector3(0.13, 1.03, 0.77), "edge",
+        Vector3(0, PI * 0.5, 0))
+    for i in range(3):
+        g.box("NexusTowerCableArmor",
+            Vector3(3.49, 0.68 + float(i) * 0.72, -1.39),
+            Vector3(0.09, 0.09, 0.78), "dark")
+        g.box("NexusLeftAnnexRoofCap",
+            Vector3(-2.93 + i * 0.22, 3.18, -1.40),
+            Vector3(0.15, 0.13, 0.31), "rust" if i == 1 else "edge")
+    g.box("NexusAnnexWarmWorkLamp",
+        Vector3(-2.61, 2.12, 0.83),
+        Vector3(0.53, 0.12, 0.07), "amber_light")
+
     # Distinctive heavy pitched shelter over the recessed gate. It projects
     # beyond the main armor, so the entrance silhouette reads from above.
     g.poly("NexusGabledEntranceShelter", "roof",
