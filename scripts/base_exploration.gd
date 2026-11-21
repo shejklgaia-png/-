@@ -4,6 +4,8 @@ const Modules = preload("res://assets/base_command_modules.gd")
 const SeraRig = preload("res://scripts/sera_rig.gd")
 const VersionIndicator = preload("res://scripts/version_indicator.gd")
 const BaseFacilities = preload("res://scripts/base_facility_system.gd")
+const BaseArchitecture = preload("res://scripts/sera_base_architecture.gd")
+const BaseFloorDetail = preload("res://scripts/sera_base_floor_detail.gd")
 const LaboSkin = preload("res://scripts/sera_labo_round_skin.gd")
 const CrateModel = preload("res://scripts/sera_crate_model.gd")
 const NEXUS_SCENE: String = "res://scenes/command_nexus.tscn"
@@ -132,8 +134,8 @@ func _create_grid_plates(floor: Node3D) -> void:
     # narrow exposed seams. Expanding 35 individual MeshInstances to 7,225
     # would create excessive Android scene nodes and draw calls.
     var tints := [
-        Color("#3b4758"), Color("#4d5765"), Color("#323f50"),
-        Color("#586171"), Color("#465162"), Color("#3f4a5d")
+        Color("#434e5d"), Color("#505968"), Color("#343f4f"),
+        Color("#5a6270"), Color("#45505e"), Color("#3c4654")
     ]
     var plate_mesh := BoxMesh.new()
     plate_mesh.size = Vector3(2.94, 0.30, 2.94)
@@ -181,6 +183,7 @@ func _build_hangar() -> void:
     _box(floor, "ContinuousGround", Vector3(0.0, -0.21, 0.0),
         Vector3(256.0, 0.30, 256.0), Color("#323f50"))
     _create_grid_plates(floor)
+    BaseFloorDetail.decorate(floor)
     # Keep legacy decorative models away from interactive equipment footprints.
     # Decorative Blockbench props occupy the frame edges, never machinery
     # foundations or raw touch pick volumes in the orthographic composition.
@@ -205,35 +208,23 @@ func _build_hangar() -> void:
         add_child(draw)
 
 func _build_nexus_building() -> void:
-    # Projection-based hit testing uses these real 3D extents.
+    # Rebuilt physical architecture retains the exact 3D screen-picking extents.
     nexus_building = Node3D.new()
     nexus_building.name = "NEXUSBuilding"
     nexus_building.position = NEXUS_BUILDING_ORIGIN
     add_child(nexus_building)
     _box(nexus_building, "Foundation", Vector3(0, 0.23, 0),
         Vector3(6.4, 0.46, 5.4), Color("#293644"))
-    _box(nexus_building, "Hall", Vector3(0, 2.30, -0.10),
-        Vector3(5.80, 4.10, 4.95), Color("#596679"))
-    _box(nexus_building, "ReinforcedRoof", Vector3(0, 4.48, -0.10),
-        Vector3(6.25, 0.34, 5.25), Color("#253746"))
-    _box(nexus_building, "EntryFrame", Vector3(0, 1.47, 2.44),
-        Vector3(2.52, 2.92, 0.26), Color("#263748"))
-    _box(nexus_building, "SealedGate", Vector3(0, 1.33, 2.61),
-        Vector3(1.85, 2.48, 0.12), Color("#0c2230"))
-    _box(nexus_building, "EntryLight", Vector3(0, 2.81, 2.64),
-        Vector3(2.12, 0.13, 0.16), Color("#3cc9ea"))
-    for side in [-1.0, 1.0]:
-        _box(nexus_building, "SupportPillar", Vector3(side * 2.55, 2.25, 2.50),
-            Vector3(0.40, 4.48, 0.38), Color("#29394b"))
-        _box(nexus_building, "RoofVent", Vector3(side * 1.76, 4.76, -0.85),
-            Vector3(0.94, 0.42, 1.12), Color("#384958"))
+    BaseArchitecture.build_nexus(nexus_building)
     var sign := Label3D.new()
     sign.name = "NEXUSBuildingSign"
     sign.text = "N E X U S"
+    sign.font = LaboSkin.ui_font()
     sign.font_size = 104
     sign.pixel_size = 0.0062
     sign.modulate = Color("#bdeefa")
     sign.position = Vector3(0.0, 3.50, 2.69)
+    sign.visible = false # One HUD label only, like the other seven facilities.
     nexus_building.add_child(sign)
 
 func _build_field_facilities() -> void:
