@@ -47,6 +47,14 @@ assert layout.index("var preview: Rect2") < layout.index("preview.end.y")
 
 assert 'customize_part_accents = StatUI.attach_status_marks(' in nexus
 assert 'StatUI.layout_status_marks(customize_part_accents,' in nexus
+# Full-width 3x5 part grid stays non-scrolling even with larger, two-line type.
+for required in (
+    'row.custom_minimum_size = Vector2(100, 44)',
+    'customize_part_stats_list.add_theme_constant_override("v_separation", 3)',
+    'StatUI.fit_label(label, 19, 16)',
+    'StatUI.fit_label(value, 24, 20)',
+):
+    assert required in nexus, required
 assert 'StatUI.fit_label(' in nexus
 assert 'button.text = _default_part_name(slot, selected_model)' in nexus
 assert 'py tools/nexus_split_inspector_self_check.py' in manifest
