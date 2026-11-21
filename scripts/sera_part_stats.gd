@@ -122,6 +122,9 @@ static func weight_class_for(percent: float) -> String:
 static func weight_percent_for(selected: Dictionary) -> float:
     var total: float = 0.0
     for slot in WEIGHT_SHARES:
+        # K occupies both hands: the regular left-hand shield is not worn.
+        if slot == "weapon_l" and str(selected.get("weapon_r", "A")) == "K":
+            continue
         var set_id: String = str(selected.get(slot, "A"))
         var profiles: Dictionary = PROFILES[slot]
         var profile: Dictionary = profiles.get(set_id, profiles["A"])
