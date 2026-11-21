@@ -68,6 +68,8 @@ py tools/v550_material_name_typography_self_check.py
 py tools/v549_refinery_names_warehouse_glyphs_self_check.py
 gd tools/v549_refinery_names_warehouse_glyphs_runtime_check.gd
 py tools/v548_lab_font_mix_self_check.py
+# Shared Japanese/Latin cyber font update including combat HUD labels.
+py tools/sera_sharp_cyber_fonts_self_check.py
 gd tools/v548_lab_font_mix_runtime_check.gd
 py tools/v547_font_raw_loader_self_check.py
 gd tools/v547_font_raw_loader_runtime_check.gd
