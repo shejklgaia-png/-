@@ -816,6 +816,7 @@ func attach_hud(hud: Control) -> void:
     craft_info.add_child(confirmation_item_icon)
     var craft_info_column := VBoxContainer.new()
     craft_info_column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+    craft_info_column.alignment = BoxContainer.ALIGNMENT_CENTER
     craft_info_column.add_theme_constant_override("separation", 10)
     craft_info.add_child(craft_info_column)
     confirmation_item_slot = Label.new()
