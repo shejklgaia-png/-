@@ -37,7 +37,7 @@ func _run() -> void:
         _fail("CUSTOMIZE viewport / part preview missing")
         return
     # Slightly smaller than prior 0.450x0.198 part view and 0.915-high stats.
-    if absf(view.position.y - hud.size.y * 0.501) > 1.5 or (
+    if absf(view.position.y - hud.size.y * 0.506) > 1.5 or (
             absf(view.size.y - hud.size.y * 0.185) > 1.5) or (
             absf(single.size.y - hud.size.y * 0.214) > 1.5) or (
             absf(single.position.x - hud.size.x * 0.040) > 1.5):
