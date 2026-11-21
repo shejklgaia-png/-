@@ -78,6 +78,9 @@ func attach_to_rig(rig_ref: Node3D) -> void:
     source_plane.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
     effect_root = Node3D.new()
     effect_root.name = "V85_3DSlash_AuthoredBoard_3Stage"
+    # Treat every authored slash volume/arc/particle below this root as FX,
+    # not as an opaque actor body mesh eligible for the 3px ink overlay.
+    effect_root.set_meta("sera_no_view_edges", true)
     source_plane.get_parent().add_child(effect_root)
     effect_root.transform = source_plane.transform
     flat_mesh = MeshInstance3D.new()
