@@ -969,19 +969,56 @@ func _create_equipment_controls() -> void:
         var button := Button.new()
         button.name = "Equipment_" + slot
         button.text = ""
-        button.alignment = HORIZONTAL_ALIGNMENT_CENTER
+        button.alignment = HORIZONTAL_ALIGNMENT_LEFT
         button.clip_contents = true
         button.mouse_filter = Control.MOUSE_FILTER_IGNORE
         button.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-        button.add_theme_stylebox_override(
-            "normal", LaboSkin.terminal_segment_style("normal"))
-        button.add_theme_stylebox_override(
-            "hover", LaboSkin.terminal_segment_style("selected"))
-        button.add_theme_stylebox_override(
-            "pressed", LaboSkin.terminal_segment_style("selected"))
+        # Reserve the full right-hand hit area for a distinct thumbnail control.
+        # Duplication keeps the shared LABO StyleBox cache untouched.
+        var row_normal: StyleBoxFlat = (
+            LaboSkin.terminal_segment_style("normal").duplicate(true) as StyleBoxFlat)
+        row_normal.content_margin_left = 17.0
+        row_normal.content_margin_right = 64.0
+        var row_active: StyleBoxFlat = (
+            LaboSkin.terminal_segment_style("selected").duplicate(true) as StyleBoxFlat)
+        row_active.content_margin_left = 17.0
+        row_active.content_margin_right = 64.0
+        button.add_theme_stylebox_override("normal", row_normal)
+        button.add_theme_stylebox_override("hover", row_active)
+        button.add_theme_stylebox_override("pressed", row_active)
         button.add_theme_color_override("font_color", Color("#e2eef2"))
         customize_right_panel.add_child(button)
-        customize_equipment_rows[slot] = {"panel": button}
+        var expand := Button.new()
+        expand.name = "EquipmentThumbnailExpand"
+        expand.text = ""
+        expand.focus_mode = Control.FOCUS_NONE
+        # NEXUS dispatches raw touch/mouse events; the visual Button must not
+        # consume gestures before _tap_equipment_control receives coordinates.
+        expand.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        expand.add_theme_stylebox_override(
+            "normal", LaboSkin.terminal_segment_style("normal"))
+        expand.add_theme_stylebox_override(
+            "hover", LaboSkin.terminal_segment_style("selected"))
+        expand.add_theme_stylebox_override(
+            "pressed", LaboSkin.terminal_segment_style("selected"))
+        button.add_child(expand)
+        # Four matte vector tiles: a thumbnail-grid icon with no missing glyph,
+        # texture allocation, glow, or extra SubViewport.
+        for tile_index in range(4):
+            var tile := ColorRect.new()
+            tile.name = "ThumbnailTile_" + str(tile_index)
+            tile.color = Color("#9fd7e6") if tile_index == 0 else Color("#55798a")
+            tile.mouse_filter = Control.MOUSE_FILTER_IGNORE
+            expand.add_child(tile)
+        var underline := ColorRect.new()
+        underline.name = "EquipmentNameUnderline"
+        underline.color = Color("#55798a")
+        underline.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        underline.size = Vector2(0.0, 1.0)
+        button.add_child(underline)
+        customize_equipment_rows[slot] = {
+            "panel": button, "expand": expand, "underline": underline
+        }
     _refresh_equipment_controls()
 
 
@@ -994,10 +1031,47 @@ func _layout_equipment_controls() -> void:
     var available: float = customize_right_panel.size.y - top - 8.0
     var row_pitch: float = maxf(41.0, available / float(CUSTOMIZE_SLOTS.size()))
     for i in range(CUSTOMIZE_SLOTS.size()):
-        var button: Button = customize_equipment_rows[CUSTOMIZE_SLOTS[i]]["panel"]
+        var slot: String = CUSTOMIZE_SLOTS[i]
+        var button: Button = customize_equipment_rows[slot]["panel"]
         button.position = Vector2(9.0, top + float(i) * row_pitch)
         button.size = Vector2(maxf(68.0, customize_right_panel.size.x - 18.0),
             maxf(37.0, row_pitch - 5.0))
+        var expand: Button = customize_equipment_rows[slot]["expand"]
+        var expand_side: float = clampf(button.size.y - 14.0, 32.0, 48.0)
+        expand.size = Vector2(expand_side, expand_side)
+        expand.position = Vector2(button.size.x - expand_side - 9.0,
+            floorf((button.size.y - expand_side) * 0.5))
+        var tile_side: float = clampf(floorf(expand_side * 0.18), 5.0, 8.0)
+        var tile_gap: float = 4.0
+        var grid_start: float = floorf(
+            (expand_side - tile_side * 2.0 - tile_gap) * 0.5)
+        for tile_index in range(4):
+            var tile: ColorRect = expand.get_child(tile_index) as ColorRect
+            tile.position = Vector2(
+                grid_start + float(tile_index % 2) * (tile_side + tile_gap),
+                grid_start + float(floori(float(tile_index) / 2.0)) * (
+                    tile_side + tile_gap))
+            tile.size = Vector2(tile_side, tile_side)
+        _layout_equipment_name_underline(slot)
+
+
+func _layout_equipment_name_underline(slot: String) -> void:
+    var button: Button = customize_equipment_rows[slot]["panel"]
+    var expand: Button = customize_equipment_rows[slot]["expand"]
+    var underline: ColorRect = customize_equipment_rows[slot]["underline"]
+    var font: Font = button.get_theme_font("font")
+    var font_size: int = button.get_theme_font_size("font_size")
+    var left: float = 17.0
+    var available: float = maxf(0.0, expand.position.x - left - 12.0)
+    underline.visible = font != null and not button.text.is_empty() and (
+        button.modulate == Color.WHITE) and available > 2.0
+    if not underline.visible:
+        return
+    var text_width: float = font.get_string_size(
+        button.text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size).x
+    underline.position = Vector2(left,
+        floorf((button.size.y + font.get_height(font_size)) * 0.5) + 2.0)
+    underline.size = Vector2(minf(text_width, available), 1.0)
 
 
 func _refresh_equipment_controls() -> void:
@@ -1014,6 +1088,7 @@ func _refresh_equipment_controls() -> void:
         if not blocker.is_empty():
             button.text = str(blocker.get("name", "TWO-HANDED"))
             button.modulate = Color(0.52, 0.57, 0.61, 1.0)
+            _layout_equipment_name_underline(slot)
             continue
         button.modulate = Color.WHITE
         var uid: String = SeraSave.get_equipped_prototype(slot)
@@ -1022,6 +1097,7 @@ func _refresh_equipment_controls() -> void:
             button.text = str(PrototypeCatalog.spec(blueprint).get("name", blueprint))
         else:
             button.text = _default_part_name(slot, selected_model)
+        _layout_equipment_name_underline(slot)
     _refresh_customization_stats()
     if focused_target == "CUSTOMIZE" and not in_transition:
         _refresh_single_part_preview(customize_part_preview_slot)
@@ -1854,6 +1930,7 @@ func _apply_labo_typography() -> void:
         button.add_theme_font_override("font", equipment)
         button.add_theme_font_size_override("font_size", 22)
         button.add_theme_color_override("font_color", accent)
+        _layout_equipment_name_underline(slot)
     for cell in customize_stat_cells:
         _skin_label(cell["name"] as Label, stats, 13, secondary)
         _skin_label(cell["value"] as Label, stats, 15, accent)
