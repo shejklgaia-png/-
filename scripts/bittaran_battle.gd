@@ -2029,11 +2029,22 @@ func _finalize_target_pose(delta: float) -> void:
                     bittaran_foot_ik.call("standup_pose_fraction"))
                 # The clock's last tick resets break_elapsed to -1;
                 # force the exact final standing key that frame.
+                var recovery_start: float = float(
+                    bittaran_foot_ik.get("break_recover_start"))
+                var recovery_end: float = float(
+                    bittaran_foot_ik.get("break_duration"))
+                var raw_phase: float = clampf(
+                    (float(bittaran_foot_ik.get("break_elapsed"))
+                        - recovery_start)
+                    / maxf(recovery_end - recovery_start, 0.001),
+                    0.0, 1.0)
                 if not bool(bittaran_foot_ik.call(
                         "break_reaction_active")):
                     rising_fraction = 1.0
+                    raw_phase = 1.0
                 bittaran_rig.call("apply_authored_down_pose",
-                    down_clip, author_t, rising_fraction)
+                    down_clip, author_t, rising_fraction, raw_phase,
+                    BittaranFootIK.STANDUP_BACK_LEAN_DEGREES)
         # Preserve actual post-IK bone locals for the NEXT rear attack.
         # This capture happens only outside source attacks so the
         # first entry pose stays fixed across all transition frames.
