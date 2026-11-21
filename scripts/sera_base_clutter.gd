@@ -823,22 +823,35 @@ static func _make(g: Variant, kind: String, at: Vector2, k: float,
 
 static func decorate(g: Variant, key: String) -> void:
     var props: Array[Dictionary] = props_for(key)
-    var original_yaw: float = g.yaw
-    var original_pivot: Vector3 = g.pivot
+    # Legacy geometry-capture renderers implement box/rod/ring/crate only.
+    # Only the real MultiMesh Batch exposes a transform pivot. Preserve
+    # the capture interface and the existing authored-part test fixtures.
+    var supports_yaw: bool = false
+    for property in g.get_property_list():
+        if str(property.get("name", "")) == "yaw":
+            supports_yaw = true
+            break
+    var original_yaw: float = 0.0
+    var original_pivot: Vector3 = Vector3.ZERO
+    if supports_yaw:
+        original_yaw = float(g.yaw)
+        original_pivot = g.pivot
     for index in range(props.size()):
         var p: Dictionary = props[index]
         var kind: String = str(p["kind"])
         var anchor: Vector2 = p["at"]
-        g.pivot = Vector3(anchor.x, 0.0, anchor.y)
-        g.yaw = deg_to_rad(float(p.get("yaw_deg", 0.0)))
+        if supports_yaw:
+            g.pivot = Vector3(anchor.x, 0.0, anchor.y)
+            g.yaw = deg_to_rad(float(p.get("yaw_deg", 0.0)))
         if is_stack_container(kind) and int(p.get("stack", 1)) > 0:
             _make_container_stack(g, key, kind, index,
                 p["at"] as Vector2, float(p["scale"]))
         else:
             _make_stacked(g, kind, p["at"] as Vector2,
                 float(p["scale"]), index, int(p.get("stack", 1)))
-    g.yaw = original_yaw
-    g.pivot = original_pivot
+    if supports_yaw:
+        g.yaw = original_yaw
+        g.pivot = original_pivot
     # The renderer is a material-batched procedural model; this metadata lets
     # independent runtime tests verify actual scene construction.
     g.host.set_meta("clutter_props", props)
