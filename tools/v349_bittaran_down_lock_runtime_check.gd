@@ -60,7 +60,7 @@ func _run() -> void:
     # Actual leg destruction starts the short stumble window immediately.
     battle.set("locked_target_part_id", "leg_fr")
     var broken: Dictionary = battle.call("_apply_target_part_damage",
-        "melee", 1, 240.0, 0.0, 0.0)
+        "melee", 1, 800.0, 0.0, 0.0)
     if not bool(broken.get("broken", false)) or not bool(
             ik.call("break_reaction_active")):
         _fail("shin break did not start boss down")

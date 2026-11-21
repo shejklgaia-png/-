@@ -69,7 +69,7 @@ func _run() -> void:
     # but it must remain tiny even when the player moves across both sides.
     battle.set("locked_target_part_id", "leg_fl")
     var hit: Dictionary = battle.call(
-        "_apply_target_part_damage", "melee", 1, 240.0, 0.0, 0.0)
+        "_apply_target_part_damage", "melee", 1, 800.0, 0.0, 0.0)
     if not bool(hit.get("broken", false)):
         _fail("could not trigger boss fall")
         return

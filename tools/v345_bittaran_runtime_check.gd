@@ -86,7 +86,7 @@ func _run() -> void:
         _fail("boss revived before death countdown")
         return
     battle.call("_tick_target_respawn", 0.2)
-    if int(battle.get("target_hp")) != 500:
+    if int(battle.get("target_hp")) != 2550:
         _fail("defeated boss did not revive at full HP")
         return
     print("GODOT_V345_BITTARAN_PASS: 14 bones, clips, 100-degree AI, battle scene")

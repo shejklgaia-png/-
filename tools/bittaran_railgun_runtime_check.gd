@@ -66,8 +66,8 @@ func _run() -> void:
             not _near(GUN.BEAM_HIT_INTERVAL_SECONDS, 0.20)):
         _fail("beam 0.85x near-axis, 0..1.5m faster aim, cap and repeat interval changed")
         return
-    if not _near(BATTLE.LASER_DAMAGE_MULTIPLIER, 0.60, 0.0001):
-        _fail("only Bittaran laser must have 60% attack strength")
+    if not _near(BATTLE.LASER_DAMAGE_MULTIPLIER, 0.45, 0.0001):
+        _fail("only Bittaran laser must have approved 45% attack strength")
         return
     if not _near(AI.APPROACH_SPEED_MPS, 1.872) or (
             not _near(AI.ACCELERATION_MPS2, 1.56)) or (
@@ -573,7 +573,7 @@ func _run() -> void:
         BATTLE.LASER_DAMAGE_MULTIPLIER * (1.0 - defense))
     if not _near(first_hp - hp_after_first, expected_laser_hp, 0.005) or (
             not bool(scene.get("damage_reaction_active"))):
-        _fail("laser must deal precisely 60% of old HP damage, keeping recoil")
+        _fail("laser must deal precisely 45% of old HP damage, keeping recoil")
         return
     var recoil_start: Vector3 = player.global_position
     scene.call("_advance_damage_knockback", 0.12)
@@ -632,7 +632,7 @@ func _run() -> void:
             expected_laser_guard_cost, 0.005) or (
             float(scene.get("player_hp")) < 800.0) or (
             bool(scene.get("damage_reaction_active"))):
-        _fail("guarded laser must cost exactly 60%, preserve HP and recoil")
+        _fail("guarded laser must cost exactly 45%, preserve HP and recoil")
         return
 
     # Normal bullets still use their original 100% power. This proves

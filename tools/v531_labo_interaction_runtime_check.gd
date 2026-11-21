@@ -9,7 +9,7 @@ func _fail(message: String) -> void:
     quit(1)
 func _run() -> void:
     var base: Dictionary = Stats.base_values("H01")
-    if not is_equal_approx(float(base.get("hp", 0)), 20.0) or (
+    if not is_equal_approx(float(base.get("hp", 0)), 40.0) or (
             not is_equal_approx(float(base.get("defense", 0)), 16.0)):
         _fail("base must reflect real A head stats")
         return
@@ -19,7 +19,7 @@ func _run() -> void:
         {"id": "energy_recovery", "value": 2}
     ]
     var formula: String = Stats.total_formula("H01", effects)
-    if not formula.contains("20.0 + (20.0 × 4%) = 20.8") or (
+    if not formula.contains("40.0 + (40.0 × 4%) = 41.6") or (
             not formula.contains("16.0% + 2% = 18.0%")):
         _fail("base + trait calculation or visible intermediate steps incorrect")
         return
