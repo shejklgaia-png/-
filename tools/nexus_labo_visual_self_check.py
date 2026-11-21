@@ -79,6 +79,9 @@ for expected in (
     'target_center_y - (rect.position.y + rect.size.y * 0.5)',
 ):
     assert expected in n, expected
+# Preserve SERA's silhouette/scale while moving the smaller preview lower.
+assert 'var baseline_preview_top: float = view.y * 0.506' in n
+assert 'var bottom: float = baseline_preview_top -' in n
 assert 'material.set_shader_parameter("halo_center"' not in n
 assert 'PrototypeCatalog.display_instance(' not in n, "model code must not be appended to item name"
 assert 'var icon_size: float = minf(48.0, row.size.y - 18.0)' not in n, (
