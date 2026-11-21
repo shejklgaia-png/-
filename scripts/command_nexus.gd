@@ -1591,7 +1591,7 @@ func _create_customization_part_stats() -> void:
         value.name = "PartStatValue"
         value.mouse_filter = Control.MOUSE_FILTER_IGNORE
         value.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-        value.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+        value.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
         value.clip_text = true
         value.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
         value.add_theme_font_override("font", LaboSkin.stats_font())
@@ -2368,9 +2368,6 @@ func _create_customization_glow() -> void:
     cam.add_child(backdrop)
     customize_glow_quad = backdrop
 
-# Cover the whole portrait screen with a uniform translucent blue-grey matte.
-# The dark grid has fixed pixel spacing, independent of SERA's pose and yaw.
-# Resize only updates the quad and grid dimensions; no extra draw calls.
 # Preserve vertical framing while switching the shared 3D portrait camera.
 func _set_customization_camera_projection(enabled: bool) -> void:
     if cam == null:
@@ -2383,6 +2380,8 @@ func _set_customization_camera_projection(enabled: bool) -> void:
         cam.projection = Camera3D.PROJECTION_PERSPECTIVE
 
 
+# Cover the portrait viewport with a dark, depth-tested blue-grey matte.
+# Use orthographic dimensions only while the customized model is stationary.
 func _update_customization_glow() -> void:
     if not customize_preview_active or customize_glow_quad == null or cam == null or hud == null:
         return
