@@ -28,7 +28,7 @@ func _run() -> void:
     # Exercise the full post-break turnaround, rather than only a toy IK.
     battle.set("locked_target_part_id", "leg_fl")
     var hit: Dictionary = battle.call(
-        "_apply_target_part_damage", "melee", 1, 240.0, 0.0, 0.0)
+        "_apply_target_part_damage", "melee", 1, 800.0, 0.0, 0.0)
     if not bool(hit.get("broken", false)):
         _fail("failed to start down reaction")
         return

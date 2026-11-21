@@ -39,7 +39,7 @@ func _case(battle: Node3D, legs_to_break: Array[String],
     for id in legs_to_break:
         battle.set("locked_target_part_id", id)
         var hit: Dictionary = battle.call(
-            "_apply_target_part_damage", "melee", 1, 240.0, 0.0, 0.0)
+            "_apply_target_part_damage", "melee", 1, 800.0, 0.0, 0.0)
         if not bool(hit.get("broken", false)):
             _fail("break not initiated: " + id)
             return false

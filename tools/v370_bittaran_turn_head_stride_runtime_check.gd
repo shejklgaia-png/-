@@ -74,7 +74,7 @@ func _run() -> void:
     var player: CharacterBody3D = battle.get("player")
     battle.set("locked_target_part_id", "leg_fl")
     var result: Dictionary = battle.call(
-        "_apply_target_part_damage", "melee", 1, 240.0, 0.0, 0.0)
+        "_apply_target_part_damage", "melee", 1, 800.0, 0.0, 0.0)
     if not bool(result.get("broken", false)):
         _fail("stand-up could not be triggered")
         return
