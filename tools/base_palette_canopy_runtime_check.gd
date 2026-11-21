@@ -20,8 +20,8 @@ func _run() -> void:
         _fail("actual BASE was not built")
         return
     var expected := [
-        "#292d33","#303336","#323432",
-        "#303339","#2b3237","#34312e",
+        "#1e2326","#252729","#292b2a",
+        "#27292c","#21262a","#302c29",
     ]
     for i in range(6):
         var draw: MultiMeshInstance3D = floor.get_node_or_null(
