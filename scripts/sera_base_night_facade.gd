@@ -65,8 +65,8 @@ static func _labo(g: Variant) -> void:
         Vector3(3.78, 0.12, 0.16), "slate")
     for side in [-1.0, 1.0]:
         g.rod("LabTarpHeavyTension",
-            Vector3(side * 1.98, 3.53, -1.60),
-            Vector3(side * 2.08, 3.27, 1.85), 0.095, "edge")
+            Vector3(side * 1.91, 3.53, -1.60),
+            Vector3(side * 1.91, 3.31, 0.02), 0.075, "edge")
         g.box("LabGantryLamp", Vector3(side * 1.38, 2.55, 1.65),
             Vector3(0.58, 0.13, 0.11), "amber_light")
     _vent_fan(g, "LabVentFan", Vector3(-0.86, 1.74, -1.20),
