@@ -1,3 +1,9 @@
+## 2026-11-22 — BASE startup loading: blue-white high-tempo sweep
+
+- Added a procedural, texture/shader-free `LoadingSweep` to the existing dark `SERA / INITIALIZING` overlay. A tapered blue outer glow, cyan edge, icy inner band and white core travel left-to-right in a 0.78-second offscreen-reset loop. The foreground label and Android touch behavior are unchanged.
+- Two `process_frame` waits between major construction phases allow the loading animation to repaint while the BASE is assembled; the overlay is freed upon completion.
+- Registered new static/Godot loader-loop checks. Updated the BASE startup runtime check from a fixed four frames to a completion-bounded wait. Android visual/speed validation is still required.
+
 ## 2026-11-22 — BASE functional silhouette and material focal-point polish
 
 - Refined the accepted **open, non-obscuring roofs** with a restrained front-view equipment identity pass, not extra broad roofs. All 8 facilities receive a readable focal point within the existing model batch: NEXUS outer blast-door frame and blue guide lights; LABO exposed printing toolhead/gantry and canvas safety hem; SCRAP_COLLECTOR raised heavy jib, hydraulic pivot and enlarged open grabber; SMELTER two unequal exhausts with visible heated collars; RECYCLER exposed opposing crusher jaw plates, V-feed edges and cutter-comb; GENERATOR glowing front turbine corona; STORAGE distinct flat steel cargo roof and loading portal; BUILD_TERMINAL bright screen border and shallow cooling fins.
