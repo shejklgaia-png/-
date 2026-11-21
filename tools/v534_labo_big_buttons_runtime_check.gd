@@ -69,9 +69,20 @@ func _run() -> void:
     if not _size_ok(actions.find_child("ConvertRank_0", true, false) as Button,
             78.0, "conversion action"):
         return
-    if not _size_ok(actions.find_child("ConversionCount_0", true, false) as SpinBox,
-            68.0, "conversion amount"):
+    # Conversion moved from SpinBox to the approved 3-cell +/-/Label control.
+    # Require the same large touch targets, not the superseded widget class.
+    var count: Label = actions.find_child(
+        "ConversionCount_0", true, false) as Label
+    if not _size_ok(count, 64.0, "conversion amount"):
         return
+    if count.horizontal_alignment != HORIZONTAL_ALIGNMENT_CENTER or (
+            count.vertical_alignment != VERTICAL_ALIGNMENT_CENTER):
+        _fail("conversion count must be centered in its framed cell")
+        return
+    for button_name in ["ConversionMinus_0", "ConversionPlus_0"]:
+        if not _size_ok(actions.find_child(button_name, true, false)
+                as Button, 64.0, button_name):
+            return
     fac.call("_switch_section", "warehouse")
     await process_frame
     actions = fac.get("modal_actions") as VBoxContainer
