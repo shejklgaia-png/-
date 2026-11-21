@@ -82,8 +82,9 @@ assert 'button.modulate = Color.WHITE' in refresh
 tap=nexus.split("func _tap_equipment_control(point: Vector2) -> bool:",1)[1].split(
     "func ",1)[0]
 assert '"get_equipment_two_handed_blocker", slot' in tap
-assert "if blocker.is_empty():" in tap
+assert "if not blocker.is_empty():\n                return true" in tap
 assert "_show_customization_part_picker(slot)" in tap
+assert "_inspect_customization_part(slot)" in tap
 
 # The authored Katana_l3 sheath mesh has a real +90deg element-local yaw.
 # Godot previously imported local rotations only for Bird_, causing the
