@@ -28,14 +28,21 @@ func _run() -> void:
     var heading: Label = fac.get("confirmation_title") as Label
     var stats: Label = fac.get("confirmation_item_stats") as Label
     var question: Label = fac.get("confirmation_prompt") as Label
+    var rail: ColorRect = overlay.find_child("LaboConfirmAccentRail", true, false) as ColorRect
+    var stats_header: Label = overlay.find_child("LaboConfirmStatsHeader", true, false) as Label
     var confirm_button: Button = fac.get("confirmation_accept_button") as Button
     var cancel_button: Button = overlay.find_child(
         "LaboConfirmCancel",true,false) as Button
     if not overlay.visible or panel == null or square == null or (
             card == null or not card.visible or placeholder == null or (
             preview == null or heading == null or stats == null or (
-            question == null or confirm_button == null or cancel_button == null))):
+            question == null or confirm_button == null or cancel_button == null or (
+            rail == null or stats_header == null)))):
         _fail("Missing square-first confirmation UI")
+        return
+    if rail.color != Color("#55798a") or stats_header.text != "BASE STATUS" or (
+            stats.horizontal_alignment != HORIZONTAL_ALIGNMENT_LEFT):
+        _fail("SERA UI identity rail / left-aligned technical stats missing")
         return
     if absf(square.ratio-1.0)>0.0001 or (
             square.size.x<275.0 or square.size.y<275.0) or (

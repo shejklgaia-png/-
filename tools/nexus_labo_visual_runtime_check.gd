@@ -72,12 +72,12 @@ func _run() -> void:
         return
     var backdrop_mat: ShaderMaterial = backdrop.material_override as ShaderMaterial
     var opacity: float = float(backdrop_mat.get_shader_parameter("base_opacity"))
-    if not is_equal_approx(opacity, 0.62):
-        _fail("CUSTOMIZE base must have constant 0.62 semi-transparency")
+    if not is_equal_approx(opacity, 0.87):
+        _fail("CUSTOMIZE base must have constant 0.87 semi-transparency")
         return
     var base_tint: Color = backdrop_mat.get_shader_parameter("base_tint")
     var grid_tint: Color = backdrop_mat.get_shader_parameter("grid_tint")
-    if base_tint != Color("#4a6b7d") or grid_tint != Color("#213944"):
+    if base_tint != Color("#243b48") or grid_tint != Color("#142832"):
         _fail("CUSTOMIZE must use the approved matte blue-grey and dark grid colors")
         return
     if grid_tint.r >= base_tint.r or grid_tint.g >= base_tint.g or (
@@ -88,13 +88,17 @@ func _run() -> void:
             backdrop_mat.shader.code.contains("soft_falloff")):
         _fail("obsolete cyan/radial effect is still in the background shader")
         return
+    nexus.call("_set_customization_camera_projection", true)
+    if camera.projection != Camera3D.PROJECTION_ORTHOGONAL:
+        _fail("CUSTOMIZE full-body camera must be orthographic")
+        return
     nexus.set("customize_preview_active", true)
     nexus.call("_update_customization_glow")
     nexus.set("customize_preview_active", false)
     var backdrop_quad: QuadMesh = backdrop.mesh as QuadMesh
     var preview_position: Vector3 = nexus.get("customize_preview_position")
     var depth: float = -preview_position.z + 1.80
-    var height: float = 2.0 * depth * tan(deg_to_rad(camera.fov) * 0.5)
+    var height: float = camera.size
     var width: float = height * hud.size.x / hud.size.y
     if not is_equal_approx(backdrop_quad.size.x, width) or (
             not is_equal_approx(backdrop_quad.size.y, height)) or (
@@ -106,6 +110,10 @@ func _run() -> void:
     if absf(cells.x - hud.size.x / spacing) > 0.01 or (
             absf(cells.y - hud.size.y / spacing) > 0.01):
         _fail("CUSTOMIZE grid spacing must be fixed in pixels on both axes")
+        return
+    nexus.call("_set_customization_camera_projection", false)
+    if camera.projection != Camera3D.PROJECTION_PERSPECTIVE:
+        _fail("NEXUS perspective camera must be restored outside CUSTOMIZE")
         return
     for target in ["TRAINING", "DEPLOYMENT", "SYSTEM", "DATA ARCHIVE", "CUSTOMIZE"]:
         nexus.set("focused_target", target)

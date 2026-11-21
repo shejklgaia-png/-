@@ -50,10 +50,13 @@ for expected in (
     'const CUSTOMIZE_GLOW_SCREEN_HEIGHT: float = 1.0',
     'const CUSTOMIZE_GRID_SPACING_PIXELS: float = 42.0',
     'customize_glow_quad.position = Vector3(0.0, 0.0, -depth)',
-    'material.set_shader_parameter("base_tint", Color("#4a6b7d"))',
-    'material.set_shader_parameter("grid_tint", Color("#213944"))',
-    'material.set_shader_parameter("base_opacity", 0.62)',
+    'material.set_shader_parameter("base_tint", Color("#243b48"))',
+    'material.set_shader_parameter("grid_tint", Color("#142832"))',
+    'material.set_shader_parameter("base_opacity", 0.87)',
     'viewport_size.x * CUSTOMIZE_GLOW_SCREEN_WIDTH / spacing',
+    'cam.projection == Camera3D.PROJECTION_ORTHOGONAL',
+    'cam.size * 0.5',
+    '_set_customization_camera_projection(true)',
 ):
     assert expected in n, expected
 for expected in (
