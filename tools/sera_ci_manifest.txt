@@ -75,6 +75,8 @@ py tools/v511_matte_icons_self_check.py
 gd tools/base_facilities_runtime_check.gd
 # BASE remote Ver.0.9 power platform, camera navigation, visible cable and grid.
 gd tools/base_power_board_runtime_check.gd
+# BASE/GRID slides, cell tap -> orthographic top-down, node tray and bare mode glyphs.
+gd tools/base_grid_presentation_runtime_check.gd
 gd tools/base_material_conversion_runtime_check.gd
 gd tools/base_page_navigation_runtime_check.gd
 gd tools/v511_matte_icons_runtime_check.gd

@@ -5,6 +5,7 @@ const SERA_RIG_PATH: String = "res://scripts/sera_rig.gd"
 const VersionIndicator = preload("res://scripts/version_indicator.gd")
 const BaseFacilities = preload("res://scripts/base_facility_system.gd")
 const PowerBoard = preload("res://scripts/sera_base_power_board.gd")
+const GridUi = preload("res://scripts/sera_base_grid_ui.gd")
 const BaseArchitecture = preload("res://scripts/sera_base_architecture.gd")
 const BaseClutter = preload("res://scripts/sera_base_clutter.gd")
 const BaseLayoutPreview = preload("res://scripts/sera_base_layout_preview.gd")
@@ -81,6 +82,14 @@ var power_zone: Node3D
 var power_back_button: Button
 var power_view_active: bool = false
 var power_camera_tween: Tween
+var grid_ui: Control
+var grid_placement_active: bool = false
+var power_transition_busy: bool = false
+var grid_iso_rotation: Vector3 = Vector3.ZERO
+var grid_selected_cell: Vector2i = Vector2i(-1, -1)
+var grid_selection_mesh: MeshInstance3D
+var grid_touch_id: int = -1
+var grid_touch_start: Vector2 = Vector2.ZERO
 
 func _ready() -> void:
     BaseClutter.clear_preview()
@@ -103,6 +112,7 @@ func _ready() -> void:
     _startup_step("FACILITIES")
     _build_field_facilities()
     _build_power_board()
+    _create_grid_selection()
     _startup_step("SALVAGE")
     _create_salvage()
     _startup_step("CRATE")
@@ -315,8 +325,23 @@ func _build_field_facilities() -> void:
 
 func _build_power_board() -> void:
     # 8×8 stage is a connected physical extension of the existing BASE.
-    # It is outside the starting overview and uses only batched tile meshes.
     power_zone = PowerBoard.build(self)
+
+
+func _create_grid_selection() -> void:
+    # One transparent border-like marker; no permanent machines are spawned.
+    grid_selection_mesh = MeshInstance3D.new()
+    grid_selection_mesh.name = "SelectedGridCellPreview"
+    var marker := BoxMesh.new()
+    marker.size = Vector3(1.18, 0.016, 1.18)
+    grid_selection_mesh.mesh = marker
+    var material := StandardMaterial3D.new()
+    material.albedo_color = Color(0.51, 0.83, 0.91, 0.26)
+    material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+    material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+    grid_selection_mesh.material_override = material
+    grid_selection_mesh.visible = false
+    power_zone.add_child(grid_selection_mesh)
 
 func _box(parent: Node3D, name: String, at: Vector3, size: Vector3, tint: Color) -> MeshInstance3D:
     var mesh := BoxMesh.new()
@@ -551,9 +576,12 @@ func _layout_hud() -> void:
     if layout_tools != null:
         layout_tools.position = Vector2(view.x - 168.0, 14.0)
         layout_tools.size = Vector2(156.0, 122.0)
+    if grid_ui != null:
+        grid_ui.call("reflow", view)
     if power_back_button != null:
-        power_back_button.position = Vector2(18.0, 18.0)
-        power_back_button.size = Vector2(162.0, 52.0)
+        power_back_button.position = Vector2(
+            minf(284.0, maxf(224.0, view.x * 0.66)) + 18.0, 25.0)
+        power_back_button.size = Vector2(46.0, 56.0)
     stick_outer.position = Vector2(view.x - 180, view.y - 194)
     stick_outer.size = Vector2(164, 164)
     stick_knob.size = Vector2(72, 72)
@@ -725,25 +753,178 @@ func _exit_tree() -> void:
 
 
 func _create_power_controls() -> void:
-    # The power board is a physical world view, not the existing LABO modal.
+    # Big chamfered BASE/GRID plates are drawn in the shared SERA skin;
+    # the changeover is animated separately from the 3D camera movement.
+    hud_title.visible = false
+    grid_ui = GridUi.new()
+    hud.add_child(grid_ui)
+    grid_ui.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+    grid_ui.connect("node_chosen", Callable(self, "_grid_node_chosen"))
+    grid_ui.connect("operation_changed", Callable(self, "_grid_operation_changed"))
     power_back_button = Button.new()
     power_back_button.name = "PowerBoardBack"
-    power_back_button.text = "＜  拠点へ戻る"
+    power_back_button.text = "‹"
     power_back_button.focus_mode = Control.FOCUS_NONE
     power_back_button.mouse_filter = Control.MOUSE_FILTER_STOP
-    power_back_button.add_theme_font_override("font", LaboSkin.ui_font())
-    power_back_button.add_theme_font_size_override("font_size", 18)
-    power_back_button.add_theme_color_override("font_color", Color("#e3edf3"))
-    var style := StyleBoxFlat.new()
-    style.bg_color = Color("#162b39")
-    style.border_color = Color("#55798a")
-    style.set_border_width_all(1)
-    power_back_button.add_theme_stylebox_override("normal", style)
-    power_back_button.add_theme_stylebox_override("hover", style)
-    power_back_button.add_theme_stylebox_override("pressed", style)
-    power_back_button.pressed.connect(_leave_power_board)
+    power_back_button.add_theme_font_override("font", LaboSkin.title_font())
+    power_back_button.add_theme_font_size_override("font_size", 35)
+    power_back_button.add_theme_color_override("font_color", Color("#dceaf0"))
+    # The only free icon on the heading sits beside the chamfered GRID plate.
+    # No opaque giant Back button covering the title.
+    var empty := StyleBoxEmpty.new()
+    for state in ["normal", "hover", "pressed", "focus", "disabled"]:
+        power_back_button.add_theme_stylebox_override(state, empty)
+    power_back_button.pressed.connect(_power_back_pressed)
     power_back_button.visible = false
     hud.add_child(power_back_button)
+
+
+func _power_back_pressed() -> void:
+    if grid_placement_active:
+        _leave_grid_placement()
+    else:
+        _leave_power_board()
+
+
+func _grid_node_chosen(_code: String) -> void:
+    # Palette selection only. Node placement and resource simulation are
+    # deliberately unimplemented in this UI-shell milestone.
+    pass
+
+
+func _grid_operation_changed(_operation: String) -> void:
+    # Cosmetic active operation icon: PLACE / MOVE / ROTATE.
+    pass
+
+
+func _grid_select_cell(cell: Vector2i) -> void:
+    grid_selected_cell = cell
+    if grid_selection_mesh == null:
+        return
+    grid_selection_mesh.position = PowerBoard.BOARD_CENTER + Vector3(
+        (float(cell.x) - 3.5) * PowerBoard.CELL_PITCH, 0.463,
+        (float(cell.y) - 3.5) * PowerBoard.CELL_PITCH)
+    grid_selection_mesh.visible = true
+
+
+func _grid_cell_from_pixel(pixel: Vector2) -> Vector2i:
+    if cam == null:
+        return Vector2i(-1, -1)
+    var origin: Vector3 = cam.project_ray_origin(pixel)
+    var normal: Vector3 = cam.project_ray_normal(pixel)
+    if absf(normal.y) < 0.0001:
+        return Vector2i(-1, -1)
+    var distance: float = (0.4225 - origin.y) / normal.y
+    if distance < 0.0:
+        return Vector2i(-1, -1)
+    var world_point: Vector3 = origin + normal * distance
+    var grid_x: float = (world_point.x - PowerBoard.BOARD_CENTER.x) / (
+        PowerBoard.CELL_PITCH) + 4.0
+    var grid_y: float = (world_point.z - PowerBoard.BOARD_CENTER.z) / (
+        PowerBoard.CELL_PITCH) + 4.0
+    var x: int = floori(grid_x)
+    var y: int = floori(grid_y)
+    if x < 0 or y < 0 or x >= PowerBoard.GRID_SIDE or y >= PowerBoard.GRID_SIDE:
+        return Vector2i(-1, -1)
+    # Ignore the narrow gaps between actual square tile surfaces.
+    var center_x: float = (float(x) - 3.5) * PowerBoard.CELL_PITCH
+    var center_z: float = (float(y) - 3.5) * PowerBoard.CELL_PITCH
+    if absf(world_point.x - PowerBoard.BOARD_CENTER.x - center_x) > 0.59 or (
+            absf(world_point.z - PowerBoard.BOARD_CENTER.z - center_z) > 0.59):
+        return Vector2i(-1, -1)
+    return Vector2i(x, y)
+
+
+func _grid_touch(pixel: Vector2) -> void:
+    if not power_view_active or power_transition_busy:
+        return
+    if grid_ui != null and bool(grid_ui.call("is_interface_hit", pixel)):
+        return
+    if power_back_button != null and power_back_button.visible and (
+            Rect2(power_back_button.position,
+                power_back_button.size).has_point(pixel)):
+        return
+    var cell: Vector2i = _grid_cell_from_pixel(pixel)
+    if cell.x < 0:
+        return
+    _grid_select_cell(cell)
+    if not grid_placement_active:
+        _enter_grid_placement()
+
+
+func _power_input(event: InputEvent) -> void:
+    if event is InputEventScreenTouch:
+        if event.pressed:
+            grid_touch_id = event.index
+            grid_touch_start = event.position
+        elif event.index == grid_touch_id:
+            grid_touch_id = -1
+            if grid_touch_start.distance_to(event.position) <= 22.0:
+                _grid_touch(event.position)
+    elif event is InputEventMouseButton and (
+            event.button_index == MOUSE_BUTTON_LEFT and event.pressed):
+        _grid_touch(event.position)
+
+
+func _grid_edit_ortho_size(for_view: Vector2 = Vector2.ZERO) -> float:
+    var dims: Vector2 = for_view
+    if dims.x < 1.0 or dims.y < 1.0:
+        dims = get_viewport().get_visible_rect().size
+    # Fit the 11.75 m board inside portrait screen width, with space for
+    # the palette under it and bare operation icons on the right.
+    return maxf(22.8, 14.6 * dims.y / maxf(dims.x, 1.0))
+
+
+func _enter_grid_placement() -> void:
+    if not power_view_active or grid_placement_active or (
+            power_transition_busy):
+        return
+    grid_placement_active = true
+    power_transition_busy = true
+    if power_camera_tween != null and power_camera_tween.is_running():
+        power_camera_tween.kill()
+    hint.visible = false
+    grid_ui.call("set_edit", true, true)
+    # Orthographic straight down: camera forward = -Y, with X/Z board axes
+    # aligned to the screen; no perspective distortion during zoom.
+    power_camera_tween = create_tween()
+    power_camera_tween.set_parallel(true)
+    power_camera_tween.set_trans(Tween.TRANS_SINE)
+    power_camera_tween.set_ease(Tween.EASE_IN_OUT)
+    power_camera_tween.tween_property(cam, "position",
+        PowerBoard.board_focus() + Vector3(0.0, 34.0, 0.01), 0.58)
+    power_camera_tween.tween_property(cam, "rotation",
+        Vector3(-PI * 0.5, 0.0, 0.0), 0.58)
+    power_camera_tween.tween_property(cam, "size", _grid_edit_ortho_size(), 0.58)
+    power_camera_tween.finished.connect(_grid_camera_arrived)
+
+
+func _grid_camera_arrived() -> void:
+    power_transition_busy = false
+
+
+func _leave_grid_placement() -> void:
+    if not grid_placement_active:
+        return
+    grid_placement_active = false
+    power_transition_busy = true
+    grid_selection_mesh.visible = false
+    grid_ui.call("set_edit", false, true)
+    hint.visible = true
+    if power_camera_tween != null and power_camera_tween.is_running():
+        power_camera_tween.kill()
+    power_camera_tween = create_tween()
+    power_camera_tween.set_parallel(true)
+    power_camera_tween.set_trans(Tween.TRANS_SINE)
+    power_camera_tween.set_ease(Tween.EASE_IN_OUT)
+    power_camera_tween.tween_property(cam, "position",
+        BASE_CAMERA_POSITION + (
+            PowerBoard.board_focus() - BASE_CAMERA_TARGET), 0.54)
+    power_camera_tween.tween_property(cam, "rotation",
+        grid_iso_rotation, 0.54)
+    power_camera_tween.tween_property(cam, "size",
+        _power_view_ortho_size(), 0.54)
+    power_camera_tween.finished.connect(_grid_camera_arrived)
 
 
 # A portrait Xperia has substantially less visible horizontal world width
@@ -761,11 +942,14 @@ func _enter_power_board() -> void:
     if scene_changing or power_view_active or cam == null:
         return
     power_view_active = true
+    power_transition_busy = true
+    grid_iso_rotation = cam.rotation
     if power_camera_tween != null and power_camera_tween.is_running():
         power_camera_tween.kill()
     facility_system.call("set_field_tags_visible", false)
     hud_title.visible = false
     nexus_tag.visible = false
+    grid_ui.call("set_grid", true, true)
     layout_tools.visible = false
     power_back_button.visible = true
     hint.text = "POWER GRID / 8×8  |  接続設計エリア"
@@ -783,16 +967,23 @@ func _enter_power_board() -> void:
     power_camera_tween.tween_property(cam, "position", final_camera, 1.07)
     power_camera_tween.parallel().tween_property(
         cam, "size", _power_view_ortho_size(), 1.07)
+    power_camera_tween.finished.connect(_grid_camera_arrived)
 
 
 func _leave_power_board() -> void:
     if not power_view_active:
         return
     power_view_active = false
+    power_transition_busy = true
+    grid_placement_active = false
+    grid_selection_mesh.visible = false
+    grid_ui.call("set_edit", false, false)
+    grid_ui.call("set_grid", false, true)
     if power_camera_tween != null and power_camera_tween.is_running():
         power_camera_tween.kill()
     power_back_button.visible = false
-    hud_title.visible = true
+    hud_title.visible = false
+    hint.visible = true
     layout_tools.visible = true
     hint.text = "建物をタップして施設を開く"
     power_camera_tween = create_tween()
@@ -806,17 +997,20 @@ func _leave_power_board() -> void:
         BASE_CAMERA_POSITION, 0.94)
     power_camera_tween.parallel().tween_property(
         cam, "size", BASE_ORTHO_SIZE, 0.94)
+    power_camera_tween.parallel().tween_property(
+        cam, "rotation", grid_iso_rotation, 0.94)
     power_camera_tween.finished.connect(_power_camera_return_finished)
 
 
 func _power_camera_return_finished() -> void:
+    power_transition_busy = false
     if not power_view_active and is_instance_valid(facility_system):
         facility_system.call("set_field_tags_visible", true)
 
 
 func _on_android_back() -> void:
     if power_view_active:
-        _leave_power_board()
+        _power_back_pressed()
         return
     if facility_system != null and bool(facility_system.call("is_menu_open")):
         facility_system.call("navigate_back")
@@ -825,6 +1019,7 @@ func _input(event: InputEvent) -> void:
     if scene_changing or hud == null:
         return
     if power_view_active:
+        _power_input(event)
         return
     # An open field-device panel owns its own GUI input; do not route clicks
     # behind it to NEXUS, other machines, or the dormant joystick.
