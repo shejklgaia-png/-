@@ -1,5 +1,5 @@
 extends SceneTree
-## Test the actual rendered front (+Z), non-outward heading and modest ring radius.
+## Verify every local +Z entrance is visible from camera, tilted toward screen center.
 const Arch = preload("res://scripts/sera_base_architecture.gd")
 const Center = Vector2(0.0, -2.2)
 const KEYS = ["NEXUS", "LABO", "SMELTER", "RECYCLER",
@@ -24,25 +24,38 @@ func _run() -> void:
         _fail("camera was changed")
         return
     var angles: Dictionary = {}
-    var directions: Dictionary = {}
+    var camera_heading: Vector3 = camera.global_transform.basis.z
+    var view_direction := Vector3(camera_heading.x, 0.0, camera_heading.z).normalized()
+    var viewport: Vector2 = camera.get_viewport().get_visible_rect().size
     for key in KEYS:
         var node: Node3D = nexus if key == "NEXUS" else (
             facilities.get_node(key) as Node3D)
         var yaw: float = Arch.facility_yaw_radians(key)
         var front: Vector3 = Basis(Vector3.UP, yaw) * Vector3.BACK
-        var projected_front := Vector2(front.x, front.z).normalized()
-        var toward_center: Vector2 = (Center - Vector2(
-            node.global_position.x, node.global_position.z)).normalized()
-        var dot: float = projected_front.dot(toward_center)
-        if dot < 0.91:
-            _fail(key + " is facing away from the base interior (" + str(dot) + ")")
+        var facing: float = front.dot(view_direction)
+        if facing < 0.897:
+            _fail(key + " entrance faces away from camera: " + str(facing))
             return
-        var slant: float = rad_to_deg(acos(clampf(dot, -1.0, 1.0)))
-        if slant < 6.0 or slant > 24.0:
-            _fail(key + " must be inward but have its own angled facade")
+        var base_point: Vector3 = node.global_position + Vector3(0.0, 1.30, 0.0)
+        var center_uv: Vector2 = camera.unproject_position(base_point) / viewport
+        var entrance_uv: Vector2 = camera.unproject_position(
+            base_point + front * 1.30) / viewport
+        if entrance_uv.x < 0.045 or entrance_uv.x > 0.955 or (
+                entrance_uv.y < 0.09 or entrance_uv.y > 0.89):
+            _fail(key + " entrance is clipped from the portrait display")
+            return
+        var horizontal_shift: float = entrance_uv.x - center_uv.x
+        if center_uv.x < 0.42 and horizontal_shift < 0.012:
+            _fail(key + " left facade does not lean toward screen center")
+            return
+        elif center_uv.x > 0.60 and horizontal_shift > -0.012:
+            _fail(key + " right facade does not lean toward screen center")
+            return
+        elif center_uv.x >= 0.42 and center_uv.x <= 0.60 and (
+                absf(horizontal_shift) > 0.012):
+            _fail(key + " center facade is too oblique to see entrance")
             return
         angles[roundi(rad_to_deg(yaw))] = true
-        directions[key] = projected_front
         var foundation: MeshInstance3D = node.get_node("Foundation") as MeshInstance3D
         if absf(foundation.rotation.y - yaw) > 0.00001:
             _fail(key + " actual foundation is not turned inward")
@@ -64,5 +77,5 @@ func _run() -> void:
     if angles.size() != 8:
         _fail("facilities were rotated to repeated parallel headings")
         return
-    print("SERA_BASE_INWARD_FACILITIES_PASS: eight distinct inward-facing facades")
+    print("SERA_BASE_INWARD_FACILITIES_PASS: eight visible, camera-facing entrances leaned toward screen center")
     quit(0)

@@ -22,11 +22,11 @@ func _run() -> void:
     var facilities: Node3D = hub.get_node("BaseFacilities") as Node3D
     var camera: Camera3D = hub.get("cam") as Camera3D
     var yaw_values: Dictionary = {}
-    # Updated approved composition: each entrance (+Z) faces the common
-    # center, with an individual slant. Camera itself remains gently overhead.
+    # Frontal entrances first: screen-center tilt only, never rotate the
+    # lower buildings fully around toward the world-space central plaza.
     var back: Vector3 = camera.global_transform.basis.z.normalized()
     var camera_elevation: float = rad_to_deg(asin(back.y))
-    var plaza_center := Vector2(0.0, -2.2)
+    var viewer_heading := Vector3(back.x, 0.0, back.z).normalized()
     if camera_elevation < 31.0 or camera_elevation > 36.0:
         _fail("camera must be lower than the previous 41-degree overhead view")
         return
@@ -48,12 +48,8 @@ func _run() -> void:
         var foundation: MeshInstance3D = root_node.get_node("Foundation") as MeshInstance3D
         var yaw: float = Arch.facility_yaw_radians(key)
         var face: Vector3 = Basis(Vector3.UP, yaw) * Vector3.BACK
-        var inward := (plaza_center - Vector2(
-            root_node.position.x, root_node.position.z)).normalized()
-        var error: float = rad_to_deg(acos(clampf(
-            Vector2(face.x, face.z).normalized().dot(inward), -1.0, 1.0)))
-        if error < 6.0 or error > 24.0:
-            _fail(key + " front must slant toward the interior: " + str(error))
+        if face.dot(viewer_heading) < 0.897:
+            _fail(key + " entrance is not visible from the camera")
             return
         if absf(foundation.rotation.y - yaw) > 0.0001:
             _fail(key + " pad chassis is not aligned with station")
@@ -132,5 +128,5 @@ func _run() -> void:
         elif str(facilities.call("key_at", camera, pixel)) != key:
             _fail("facility touch was lost: " + key)
             return
-    print("SERA_BASE_NATURAL_YAW_RUNTIME_PASS 8 facades face the center, each at a varied yaw")
+    print("SERA_BASE_NATURAL_YAW_RUNTIME_PASS 8 entrances camera-facing, varied and screen-center tilted")
     quit(0)

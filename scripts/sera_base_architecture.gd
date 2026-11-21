@@ -14,15 +14,18 @@ const COLORS = {
     "white": "#b3c1c8"
 }
 
-# Facility fronts are local +Z. All eight face the INNER working space
-# around X=0, Z=-2.2, never outward. Deliberate +/-8~20 degree differences
-# avoid a rigid radial pattern. The camera remains at its existing angle;
-# even lower-side sites turn into the shared working yard, not at the camera.
-# Each site retains its own single-piece floor slab and separate clutter pivots.
+# Every facility's main entrance / operating face is on local +Z.
+# The camera sees the yard from horizontal azimuth ~37.67 deg. Face the
+# camera FIRST so all eight entrances are readable, then apply a restrained
+# yaw toward the SCREEN center (not toward the world-space plaza center).
+# Screen-left sites use yaw > 37.67; screen-right sites yaw < 37.67.
+# NEXUS/LABO remain nearly frontal. All eight yaw values are deliberately
+# different. Models, pads, light posts and rotor use the same per-site yaw;
+# props keep their own separate deterministic rotation pivots.
 const BODY_YAW_DEGREES = {
-    "NEXUS": 29.0, "LABO": -159.0, "SMELTER": 93.0,
-    "RECYCLER": -20.0, "STORAGE": 179.0, "GENERATOR": -77.0,
-    "SCRAP_COLLECTOR": -151.0, "BUILD_TERMINAL": -144.0,
+    "NEXUS": 33.0, "LABO": 44.0, "SMELTER": 60.0,
+    "RECYCLER": 16.0, "STORAGE": 63.0, "GENERATOR": 12.0,
+    "SCRAP_COLLECTOR": 56.0, "BUILD_TERMINAL": 20.0,
 }
 
 static func facility_yaw_radians(key: String) -> float:
