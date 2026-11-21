@@ -6,6 +6,7 @@ const VersionIndicator = preload("res://scripts/version_indicator.gd")
 const BaseFacilities = preload("res://scripts/base_facility_system.gd")
 const BaseArchitecture = preload("res://scripts/sera_base_architecture.gd")
 const BaseFloorDetail = preload("res://scripts/sera_base_floor_detail.gd")
+const BaseDeckLayout = preload("res://scripts/sera_base_deck_layout.gd")
 const WEATHERED_STEEL_PATH: String = "res://assets/base/industrial_steel_grunge.svg"
 const LaboSkin = preload("res://scripts/sera_labo_round_skin.gd")
 const CrateModel = preload("res://scripts/sera_crate_model.gd")
@@ -130,29 +131,29 @@ func _gate_facing_yaw() -> float:
     var toward_stage: Vector3 = Vector3(0.0, 0.0, -4.75) - Vector3(4.0, 0.02, -10.48)
     return atan2(toward_stage.x, toward_stage.z)
 
-func _create_grid_plates(floor: Node3D) -> void:
-    # Six colored MultiMeshes preserve the old 2.94 m patchwork panels and
-    # narrow exposed seams. Expanding 35 individual MeshInstances to 7,225
-    # would create excessive Android scene nodes and draw calls.
+func _create_grid_plates(floor: Node3D) -> Array[Dictionary]:
+    # An actual nonoverlapping patchwork: long, wide, square and small plates.
+    # Six color-batched MultiMeshes still draw the full 255m deck efficiently.
     var tints := [
-        # Low-luminance charcoal; slight neutral/warm variation, not blue machinery tones.
         Color("#1e2326"), Color("#252729"), Color("#292b2a"),
         Color("#27292c"), Color("#21262a"), Color("#302c29")
     ]
+    var panels: Array[Dictionary] = BaseDeckLayout.generate(
+        PLATE_GRID_RADIUS_CELLS, PLATE_GRID_STEP)
     var plate_mesh := BoxMesh.new()
-    plate_mesh.size = Vector3(2.94, 0.30, 2.94)
-    var grid_extent: float = float(PLATE_GRID_RADIUS_CELLS) * PLATE_GRID_STEP + 1.47
+    plate_mesh.size = Vector3.ONE
+    var grid_extent: float = float(PLATE_GRID_RADIUS_CELLS) * PLATE_GRID_STEP + 1.50
     var grouped: Array = []
     for index in range(tints.size()):
         grouped.append([])
-    for x in range(-PLATE_GRID_RADIUS_CELLS, PLATE_GRID_RADIUS_CELLS + 1):
-        for z in range(-PLATE_GRID_RADIUS_CELLS, PLATE_GRID_RADIUS_CELLS + 1):
-            var palette_index: int = posmod(x * 11 + z * 7, tints.size())
-            (grouped[palette_index] as Array).append(
-                Transform3D(Basis.IDENTITY,
-                    Vector3(float(x) * PLATE_GRID_STEP, -0.18,
-                        float(z) * PLATE_GRID_STEP)))
-    # The no-cache font test constructs this scene before SVG import is ready.
+    for panel in panels:
+        var center: Vector2 = panel["center"]
+        var size: Vector2 = panel["size"]
+        var palette_index: int = int(panel["tint"])
+        (grouped[palette_index] as Array).append(Transform3D(
+            Basis.IDENTITY.scaled_local(Vector3(size.x, 0.30, size.y)),
+            Vector3(center.x, -0.18, center.y)))
+    # Raw-font boot must work before the SVG importer has generated cache.
     var steel_texture: Texture2D = null
     if ResourceLoader.exists(WEATHERED_STEEL_PATH):
         steel_texture = load(WEATHERED_STEEL_PATH) as Texture2D
@@ -161,8 +162,8 @@ func _create_grid_plates(floor: Node3D) -> void:
         var multi := MultiMesh.new()
         multi.transform_format = MultiMesh.TRANSFORM_3D
         multi.mesh = plate_mesh
-        # Under a headless dummy renderer the GPU transform buffer cannot be
-        # read back. Explicit bounds also make wide instances safe to cull.
+        # Explicit culling box: dummy headless renderers cannot read back
+        # per-instance transforms. The entire floor remains in the viewport.
         multi.custom_aabb = AABB(
             Vector3(-grid_extent, -0.40, -grid_extent),
             Vector3(grid_extent * 2.0, 0.80, grid_extent * 2.0))
@@ -180,6 +181,7 @@ func _create_grid_plates(floor: Node3D) -> void:
         draw.material_override = mat
         draw.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
         floor.add_child(draw)
+    return panels
 
 func _build_hangar() -> void:
     # Exterior base: the enclosed Blockbench hangar remains inside the NEXUS menu.
@@ -189,8 +191,8 @@ func _build_hangar() -> void:
     # The dark one-piece ground remains visible only in the 0.06 m seams.
     _box(floor, "ContinuousGround", Vector3(0.0, -0.21, 0.0),
         Vector3(256.0, 0.30, 256.0), Color("#12171b"))
-    _create_grid_plates(floor)
-    BaseFloorDetail.decorate(floor)
+    var panels: Array[Dictionary] = _create_grid_plates(floor)
+    BaseFloorDetail.decorate(floor, panels)
     # Keep legacy decorative models away from interactive equipment footprints.
     # Decorative Blockbench props occupy the frame edges, never machinery
     # foundations or raw touch pick volumes in the orthographic composition.
