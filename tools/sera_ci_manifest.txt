@@ -67,6 +67,8 @@ py tools/base_reference_polish_self_check.py
 gd tools/base_reference_polish_runtime_check.gd
 py tools/base_polygon_geometry_self_check.py
 gd tools/base_polygon_geometry_runtime_check.gd
+py tools/base_silhouette_refinement_self_check.py
+gd tools/base_silhouette_refinement_runtime_check.gd
 # BASE informal center: modest clear area, staggered perimeter stations and edge props.
 py tools/base_soft_center_space_self_check.py
 gd tools/base_soft_center_space_runtime_check.gd
