@@ -3742,3 +3742,11 @@
 - **維持**：3px線、#17212f、80°分類メタデータ、アクターへの共通接続、元材質、モデル、モーション、当たり判定、Android GL Compatibility、および全既存CI。
 - **テスト先行**：`sera_view_edges_self_check.py` および `sera_view_edges_runtime_check.gd` に、両面カメラ向きの90°角は非描画・前面/背面で分かれる外周のみ描画という新しい仕様を追加。角度分類79°/81°と3pxは維持。
 - **限界**：別MeshInstance3D同士の「接合部が実際につながったか」の判定は未実装。Android実機での角、段差、近接した部品の遮蔽を目視確認。
+
+
+## 2026-11-21：斬撃・噴射などFXに誤って付く3px輪郭線を除外
+- **原因**：輪郭線管理 `sera_view_edges.gd` の対象判定がMeshInstance3D自身の名前だけを調べていた。v85ソードエフェクトは親が `V85_3DSlash_AuthoredBoard_3Stage`、子は `AlphaClippedMainArc`／`ConvexTwoSided3DArc` であるため、ソードのエフェクトに輪郭線を誤適用していた。
+- **修正**：親階層すべてのエフェクト名、`sera_no_view_edges` の明示メタデータ／グループ、各メッシュの透過・加算合成・深度無効マテリアル（標準／透過シェーダー）を判定し、輪郭線付与から除外。旧版で誤追加した`SeraEdgeInk`子は次の走査で削除。斬撃rootとブースター炎rootにも明示的な除外を付与。
+- **保護する仕様**：SERA本体・刀身・装甲・ビットタラン・標的には3px輪郭線を継続、80°分類と視点依存外周判定は不変。斬撃・ブースターの本来のシェーダー、発光、アルファ、残光寿命、描画優先度、当たり判定は変更しない。
+- **テスト先行**：`sera_view_edges_self_check.py` に祖先／マテリアル／メタデータ契約、`sera_view_edges_runtime_check.gd` に通常の剣・実体・斬撃弧・透過FX・ALPHAシェーダー・誤った既存線の除去検査、`v322_katana_swordeffect_import_runtime_check.gd` に実シーンでの輪郭線混入防止を追加。登録済みCIの元の79°/81°・3px・描画・ソード運動テストは保持。
+- **実機確認**：ソード斬撃の弧／レンズとBOOST／STEP噴射・残光・その他FXに輪郭線が出ないこと、剣そのものの輪郭は消えないことをAndroid実機で目視検査。
