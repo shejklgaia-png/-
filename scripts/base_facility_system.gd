@@ -466,6 +466,17 @@ func attach_hud(hud: Control) -> void:
         tag.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
         tag.add_theme_font_size_override("font_size", 17)
         tag.add_theme_color_override("font_color", Color("#dce4ea"))
+        # Matte nameplates float ABOVE the equipment instead of drawing
+        # bright text directly across its functional silhouette.
+        var nameplate := StyleBoxFlat.new()
+        nameplate.bg_color = Color(0.045, 0.095, 0.125, 0.93)
+        nameplate.border_color = Color("#55798a")
+        nameplate.border_width_bottom = 1
+        nameplate.set_corner_radius_all(0)
+        nameplate.content_margin_left = 8.0
+        nameplate.content_margin_right = 8.0
+        tag.add_theme_stylebox_override("normal", nameplate)
+        tag.set_meta("FacilityNamePlate", true)
         LaboSkin.attach_name_underline(tag)
         tag.mouse_filter = Control.MOUSE_FILTER_IGNORE
         hud.add_child(tag)
@@ -1243,13 +1254,17 @@ func update_tags(camera: Camera3D) -> void:
             # Outer facilities approach the portrait view edges. Keep labels
             # readable without moving their physical touch targets inward.
             var viewport: Vector2 = camera.get_viewport().get_visible_rect().size
-            var label_width: float = minf(190.0, maxf(80.0, viewport.x - 16.0))
-            tag.size = Vector2(label_width, 40.0)
+            # Compact plates reflect real text length, leaving more of the
+            # 3D scene visible than the former 190×40 invisible label rect.
+            var label_width: float = clampf(
+                30.0 + float(tag.text.length()) * 18.0, 96.0,
+                minf(172.0, viewport.x - 16.0))
+            tag.size = Vector2(label_width, 28.0)
             tag.position = Vector2(
                 clampf(point.x - label_width * 0.5, 8.0,
                     maxf(8.0, viewport.x - label_width - 8.0)),
-                clampf(point.y - 22.0, 110.0,
-                    maxf(110.0, viewport.y - 130.0)))
+                clampf(point.y - 46.0, 104.0,
+                    maxf(104.0, viewport.y - 142.0)))
 
 func is_menu_open() -> bool:
     return modal != null and modal.visible

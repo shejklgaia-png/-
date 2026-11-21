@@ -30,11 +30,20 @@ for feature in (
     '"GeneratorCoreBackdrop"', '"GeneratorVisibleRotorSpoke"',
     '"StorageContainerRoof"', '"StorageRoofRidge"',
     '"StorageVisibleCargoCase"',
+    '"LabFocalPrintBed"', '"CollectorClawSignalCheek"',
 ):
     assert feature in roof, "missing camera-facing detail " + feature
 assert '"CargoStorageTarp"' in arch
 assert '"StorageExposedUpperCargo"' in arch
 assert '"StorageVisibleCargoCase"' in roof
+# Rework must simplify actual workshop, crane and warehouse geometry rather than stacking.
+assert 'LabOpenWorkshopGantry' in arch
+assert 'CargoStoragePalletRail' in arch
+assert 'CollectorRaisedJib' in roof
+field = get("scripts/base_facility_system.gd")
+assert 'FacilityNamePlate' in field
+assert 'tag.size = Vector2(label_width, 28.0)' in field
+assert 'point.y - 46.0' in field
 assert 'Vector3(2.30, 0.14, 0.96)' in roof, "storage roof still hides the cargo"
 assert "BaseRoofIdentity.add_details(g, key)" in arch
 # Real viewport screenshot, AFTER fully constructing eight facilities.
@@ -54,6 +63,17 @@ for path in (
     "'tools/base_isometric_visual_capture.gd'",
 ):
     assert path in workflow, path
+# All visual BASE modules must activate a fresh real gameplay screenshot in PR CI.
+for trigger in (
+    "'scripts/base_facility_system.gd'",
+    "'scripts/base_exploration.gd'",
+    "'scripts/sera_base_functional_finish.gd'",
+    "'scripts/sera_base_clutter.gd'",
+    "'scripts/sera_base_deck_layout.gd'",
+    "'scripts/sera_base_materials.gd'",
+    "'assets/base/**'",
+):
+    assert trigger in workflow, "visual edit would bypass screenshot review: " + trigger
 assert "python3 tools/base_gameplay_angle_visibility_self_check.py" in workflow
 assert "tools/base_gameplay_angle_visibility_runtime_check.gd" in workflow
 

@@ -3,19 +3,19 @@ extends SceneTree
 ## Physical equipment cues are measured in SCREEN pixels below UI labels.
 const HERO_CUES = {
     "LABO": {
-        "point": Vector3(0.18, 1.95, 1.37), "half_width": 0.55,
-        "min_width_px": 24.0, "feature": "LabPrinterFrontHousing",
+        "point": Vector3(0.18, 0.94, 1.79), "half_width": 0.70,
+        "min_width_px": 24.0, "feature": "LabFocalPrintBed",
     },
     "SCRAP_COLLECTOR": {
-        "point": Vector3(0.46, 1.28, 1.03), "half_width": 0.55,
-        "min_width_px": 28.0, "feature": "CollectorVisibleJawCheek",
+        "point": Vector3(0.46, 1.64, 1.72), "half_width": 0.63,
+        "min_width_px": 28.0, "feature": "CollectorClawSignalCheek",
     },
     "GENERATOR": {
         "point": Vector3(-0.08, 1.18, 1.29), "half_width": 0.63,
         "min_width_px": 32.0, "feature": "GeneratorCoreCorona",
     },
     "STORAGE": {
-        "point": Vector3(0.14, 1.35, 0.43), "half_width": 0.69,
+        "point": Vector3(-0.53, 1.21, 1.16), "half_width": 0.65,
         "min_width_px": 32.0, "feature": "StorageVisibleCargoCase",
     },
 }

@@ -72,11 +72,18 @@ func _run() -> void:
         _fail("BASE script does not compile; font test cannot continue")
         return
     root.add_child(base)
-    await process_frame
-    await process_frame
+    # BASE boots asynchronously to draw the native first frame before
+    # constructing the heavy field. Two frames are not guaranteed to be
+    # enough on no-import-cache CI; wait for the SAME ready condition used
+    # by the real BASE screenshot. Keep the font assertion unchanged.
+    for _attempt in range(90):
+        await process_frame
+        if base.get_node_or_null("BaseFacilities") != null and (
+            base.get_node_or_null("BaseStartupOverlay") == null):
+            break
     var fac: Node3D = base.get_node_or_null("BaseFacilities") as Node3D
-    if fac == null:
-        _fail("BASE facilities missing; avoid hanging on null UI")
+    if fac == null or base.get_node_or_null("BaseStartupOverlay") != null:
+        _fail("BASE facilities missing after complete async boot")
         return
     fac.call("_switch_section", "craft")
     await process_frame

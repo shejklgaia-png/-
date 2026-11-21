@@ -59,8 +59,8 @@ static func _labo(g: Variant) -> void:
         Vector3(1.69, 2.49, 1.83), Vector3(0.71, 0.27, 0.30), "rust")
     g.box("LabRollUpWarningLight",
         Vector3(1.45, 2.49, 2.01), Vector3(0.14, 0.09, 0.08), "amber_light")
-    g.rod("LabSuspendedToolRail", Vector3(-1.15, 2.58, 0.72),
-        Vector3(1.25, 2.58, 0.72), 0.08, "gold")
+    g.rod("LabSuspendedToolRail", Vector3(-1.15, 2.58, -1.24),
+        Vector3(1.25, 2.58, -1.24), 0.075, "slate")
 
 
 static func _collector(g: Variant) -> void:
@@ -176,7 +176,7 @@ static func _storage(g: Variant) -> void:
             Vector3(0.0, 0.0, -side * 0.18))
     g.rod("StorageRoofSpine",
         Vector3(0, 2.89, -1.35),
-        Vector3(0, 2.89, 0.92), 0.13, "edge")
+        Vector3(0, 2.89, -0.61), 0.13, "edge")
     g.box("StorageFrontLoadingBeam",
         Vector3(0, 2.48, 1.07),
         Vector3(2.50, 0.19, 0.25), "slate")

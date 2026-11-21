@@ -1,4 +1,4 @@
-name: SERA BASE readable roof preview
+name: SERA BASE true-gameplay visual review
 
 on:
   pull_request:
@@ -10,6 +10,14 @@ on:
       - 'scripts/sera_base_structural_mass.gd'
       - 'scripts/sera_base_silhouette_refinement.gd'
       - 'scripts/sera_base_reference_polish.gd'
+      - 'scripts/sera_base_functional_finish.gd'
+      - 'scripts/base_facility_system.gd'
+      - 'scripts/base_exploration.gd'
+      - 'scripts/sera_base_clutter.gd'
+      - 'scripts/sera_base_deck_layout.gd'
+      - 'scripts/sera_base_materials.gd'
+      - 'assets/base/**'
+      - 'docs/agent/BASE_VISUAL_REVIEW.md'
       - 'tools/base_roof_identity_*'
       - 'tools/base_gameplay_angle_visibility_*'
       - 'tools/base_isometric_visual_capture.gd'

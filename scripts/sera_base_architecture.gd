@@ -380,7 +380,7 @@ static func _labo(g: Batch) -> void:
                 0.56 + float(rib) * 0.95, -0.11),
                 Vector3(0.22, 0.10, 1.66), "edge")
     g.box("LabWorkFloor", Vector3(0, 0.28, 0.97),
-        Vector3(3.55, 0.17, 2.85), "armor_light")
+        Vector3(3.55, 0.17, 2.85), "slate")
     g.box("LabCanopyFrame", Vector3(0, 3.18, -1.69),
         Vector3(3.84, 0.14, 0.17), "edge")
     for i in range(6):
@@ -396,10 +396,11 @@ static func _labo(g: Batch) -> void:
             g.box("LabShelfEquipment", Vector3(side * 1.30,
                 0.50 + row * 0.53, -0.83),
                 Vector3(0.32, 0.29, 0.10), "amber" if row == 1 else "armor")
-    g.box("LabWorkbench", Vector3(0.48, 0.86, 2.02),
-        Vector3(1.45, 0.17, 0.75), "armor_light")
-    g.box("LabWorkbenchFrame", Vector3(0.48, 0.46, 2.01),
-        Vector3(1.17, 0.62, 0.62), "trim")
+    # Secondary tool bench belongs at the side, NOT in front of the printer.
+    g.box("LabWorkbench", Vector3(1.23, 0.86, 1.34),
+        Vector3(0.75, 0.17, 0.75), "armor_light")
+    g.box("LabWorkbenchFrame", Vector3(1.23, 0.46, 1.34),
+        Vector3(0.68, 0.62, 0.62), "trim")
     g.box("LabConsoleScreen", Vector3(1.22, 1.75, 1.57),
         Vector3(0.70, 0.51, 0.08), "glass")
     g.box("LabConsoleDisplay", Vector3(1.22, 1.76, 1.63),
@@ -414,15 +415,18 @@ static func _labo(g: Batch) -> void:
     g.box("LabAmberLamp", Vector3(0, 2.49, -0.73),
         Vector3(1.18, 0.10, 0.08), "amber_light")
     # Tables, tool trays and overhead gantry make the semi-open interior read.
-    g.box("LabOpenWorkshopGantry", Vector3(0, 2.36, 0.62),
+    # Retire the overlapping front crossbar: only the dedicated printer
+    # bridge is allowed near the visible machine face.
+    g.box("LabOpenWorkshopGantry", Vector3(0, 2.58, -1.06),
         Vector3(3.30, 0.13, 0.16), "edge")
-    g.box("LabTaskLighting", Vector3(-0.65, 2.29, 0.71),
+    g.box("LabTaskLighting", Vector3(-0.65, 2.49, -0.96),
         Vector3(0.96, 0.13, 0.08), "amber_light")
     g.box("LabToolTray", Vector3(-0.55, 0.91, 0.87),
         Vector3(0.84, 0.12, 0.52), "rust")
-    for item in range(6):
-        g.box("LabLooseTools", Vector3(-0.89 + float(item % 3) * 0.24,
-            1.02, 0.67 + float(item / 3) * 0.28),
+    # Tools remain physically real but away from the main print bed.
+    for item in range(4):
+        g.box("LabLooseTools", Vector3(-1.12 + float(item % 2) * 0.24,
+            1.02, -0.69 + float(item / 2) * 0.28),
             Vector3(0.07, 0.09, 0.23), "edge" if item % 2 else "gold")
     for tier in range(3):
         g.box("LabOpenWorkshopServerRack", Vector3(-1.13,
@@ -450,10 +454,12 @@ static func _collector(g: Batch) -> void:
             0.22 * i)
     g.box("CollectorMotor", Vector3(-0.84, 0.78, -0.30),
         Vector3(0.46, 0.88, 0.60), "armor")
+    # Old duplicate bright booms compete with the raised arm in the
+    # dedicated identity pass. Retain mechanics as dark support cylinders.
     g.rod("HydraulicCrane", Vector3(-0.76, 1.05, -0.30),
-        Vector3(-0.62, 2.25, -0.35), 0.29, "gold")
+        Vector3(-0.62, 2.25, -0.35), 0.17, "slate")
     g.rod("HydraulicCrane", Vector3(-0.62, 2.25, -0.35),
-        Vector3(0.46, 2.12, 0.02), 0.27, "gold")
+        Vector3(0.46, 2.12, 0.02), 0.16, "slate")
     g.rod("HydraulicPiston", Vector3(-0.62, 1.35, -0.34),
         Vector3(0.07, 2.04, -0.15), 0.10, "edge")
     g.rod("GrabberChain", Vector3(0.46, 2.12, 0.02),
@@ -565,10 +571,11 @@ static func _storage(g: Batch) -> void:
     # Positive upper-cargo silhouette in the open portion of the shed.
     g.poly("StorageExposedUpperCargo", "bevel",
         Vector3(-0.69, 1.77, 0.30), Vector3(0.63, 0.20, 0.75), "rust")
+    # One low cargo restraint per side, not the former three horizontal
+    # rails that hid the goods at the 27-degree gameplay angle.
     for side in [-1.0, 1.0]:
-        for row in range(3):
-            g.box("CargoStoragePalletRail", Vector3(side * 1.12,
-                0.52 + row * 0.42, 0), Vector3(0.095, 0.11, 1.91), "edge")
+        g.box("CargoStoragePalletRail", Vector3(side * 1.12,
+            0.56, -0.12), Vector3(0.095, 0.15, 1.65), "edge")
         g.rod("CargoStorageCornerPost", Vector3(side * 1.10, 0.18, -0.90),
             Vector3(side * 1.10, 1.86, -0.90), 0.10, "gold")
     # Only the back row needs weatherproof canvas. The open front shows

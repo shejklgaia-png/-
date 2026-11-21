@@ -49,24 +49,30 @@ static func _labo(g: Variant) -> void:
 
     # Open fabrication cell: a visible printer bridge and toolhead below
     # the shallow rear tarp. The entire front remains unobstructed.
-    g.box("LabWorkcellGantryHeader", Vector3(0.0, 2.62, 0.50),
-        Vector3(2.85, 0.15, 0.15), "armor_light")
+    # ONE clear industrial printer cell: cool-blue parallel uprights,
+    # single overhead slide, amber deposition head, contrasting print bed.
+    # The earlier three crossing gantries are retired.
+    g.box("LabWorkcellGantryHeader", Vector3(0.0, 2.67, 1.47),
+        Vector3(2.34, 0.17, 0.19), "armor_light")
     for side in [-1.0, 1.0]:
         g.rod("LabPrintRailUpright",
-            Vector3(side * 1.36, 0.52, 0.55),
-            Vector3(side * 1.36, 2.58, 0.55), 0.11, "gold")
-    # The original head vanished behind the forward beams at the REAL
-    # 27-degree gameplay camera. Move its active face to local +Z.
-    g.box("LabPrinterToolhead", Vector3(0.18, 2.20, 1.22),
-        Vector3(0.88, 0.50, 0.35), "slate")
-    g.box("LabPrinterFrontHousing", Vector3(0.18, 2.02, 1.47),
-        Vector3(0.72, 0.44, 0.13), "armor_light")
-    g.box("LabPrinterNozzle", Vector3(0.18, 1.64, 1.55),
-        Vector3(0.40, 0.39, 0.18), "amber_light")
-    g.box("LabPrinterWorkSurface", Vector3(0.18, 0.94, 1.19),
-        Vector3(1.24, 0.14, 0.70), "armor_light")
+            Vector3(side * 1.04, 0.75, 1.49),
+            Vector3(side * 1.04, 2.66, 1.49), 0.15, "blue")
+        g.box("LabPrintRailAccent",
+            Vector3(side * 1.05, 1.79, 1.61),
+            Vector3(0.10, 1.48, 0.08), "blue_light")
+    g.box("LabPrinterToolhead", Vector3(0.18, 2.25, 1.67),
+        Vector3(0.87, 0.47, 0.46), "slate")
+    g.box("LabPrinterFrontHousing", Vector3(0.18, 2.03, 1.99),
+        Vector3(0.72, 0.47, 0.16), "blue")
+    g.box("LabPrinterNozzle", Vector3(0.18, 1.67, 2.04),
+        Vector3(0.31, 0.34, 0.16), "amber_light")
+    g.box("LabFocalPrintBed", Vector3(0.18, 0.94, 1.79),
+        Vector3(1.68, 0.18, 0.98), "slate")
+    g.box("LabPrinterWorkSurface", Vector3(0.18, 1.04, 1.84),
+        Vector3(1.35, 0.11, 0.73), "armor_light")
     g.poly("LabPrinterPrintedPart", "bevel",
-        Vector3(0.18, 1.08, 1.25), Vector3(0.39, 0.20, 0.37), "blue")
+        Vector3(0.18, 1.20, 1.91), Vector3(0.47, 0.28, 0.43), "blue")
     g.box("LabCanopyHazardHem", Vector3(0.0, 3.32, 0.08),
         Vector3(3.72, 0.09, 0.09), "caution")
 
@@ -74,12 +80,12 @@ static func _labo(g: Variant) -> void:
 static func _collector(g: Variant) -> void:
     # OPEN hydraulic crane: a marked crossbeam, not a box or roof over the claw.
     g.rod("CollectorOpenBoomCrossbar",
-        Vector3(-1.03, 2.70, -0.94),
-        Vector3(0.93, 2.70, -0.94), 0.12, "gold")
+        Vector3(-0.93, 2.70, -0.94),
+        Vector3(0.31, 2.70, -0.94), 0.075, "slate")
     for side in [-1.0, 1.0]:
         g.rod("CollectorBoomSideStay",
-            Vector3(side * 0.93, 2.70, -0.94),
-            Vector3(side * 0.86, 1.31, -0.88), 0.090, "edge")
+            Vector3(side * 0.81, 2.70, -1.15),
+            Vector3(side * 0.86, 1.31, -1.09), 0.052, "slate")
     g.box("CollectorCraneMarker",
         Vector3(-0.81, 2.84, -0.94),
         Vector3(0.30, 0.18, 0.19), "caution")
@@ -97,39 +103,44 @@ static func _collector(g: Variant) -> void:
     # paired jaws now project in front of the machinery, below the UI label.
     for side in [-1.0, 1.0]:
         g.rod("CollectorOpenClawJaw",
-            Vector3(0.46, 1.59, 0.91),
-            Vector3(0.46 + side * 0.55, 1.03, 1.02),
+            Vector3(0.46, 1.96, 1.25),
+            Vector3(0.46 + side * 0.57, 1.40, 1.47),
             0.20, "armor_light")
         g.rod("CollectorClawPoint",
-            Vector3(0.46 + side * 0.55, 1.03, 1.02),
-            Vector3(0.46 + side * 0.28, 0.77, 1.08),
+            Vector3(0.46 + side * 0.57, 1.40, 1.47),
+            Vector3(0.46 + side * 0.26, 1.05, 1.62),
             0.14, "caution")
         g.box("CollectorClawPin",
-            Vector3(0.46 + side * 0.55, 1.03, 1.02),
+            Vector3(0.46 + side * 0.57, 1.40, 1.47),
             Vector3(0.17, 0.19, 0.17), "gold")
         # Broad color-blocked grabber cheeks, visible even when screen
         # downscaled to the real Android portrait width.
         g.box_tilt("CollectorVisibleJawCheek",
-            Vector3(0.46 + side * 0.51, 1.23, 1.14),
-            Vector3(0.29, 0.42, 0.17), "gold",
-            Vector3(0.0, 0.0, -side * 0.26))
+            Vector3(0.46 + side * 0.54, 1.62, 1.56),
+            Vector3(0.38, 0.65, 0.20), "slate",
+            Vector3(0.0, 0.0, -side * 0.24))
+        g.poly_tilt("CollectorClawSignalCheek", "bevel",
+            Vector3(0.46 + side * 0.62, 1.64, 1.72),
+            Vector3(0.38, 0.73, 0.25), "caution",
+            Vector3(0.0, 0.0, -side * 0.27))
+    # One dark pocket behind the two jaws creates visual separation.
     g.box("CollectorCraneCableSeat",
-        Vector3(0.46, 1.62, 0.91),
-        Vector3(0.38, 0.25, 0.19), "dark")
+        Vector3(0.46, 1.53, 1.31),
+        Vector3(1.63, 0.82, 0.17), "dark")
     # Readable high-mounted boom and drop cable, visible above the sorting deck.
     g.rod("CollectorRaisedJib",
         Vector3(-0.73, 1.65, -0.40),
         Vector3(-0.25, 3.14, -0.48), 0.23, "gold")
     g.rod("CollectorRaisedJib",
         Vector3(-0.25, 3.14, -0.48),
-        Vector3(0.46, 2.86, 0.67), 0.22, "caution")
+        Vector3(0.46, 2.86, 1.05), 0.22, "caution")
     g.box("CollectorRaisedJibPivot",
         Vector3(-0.25, 3.12, -0.46),
         Vector3(0.32, 0.30, 0.28), "armor_light")
     g.rod("CollectorForwardCable",
-        Vector3(0.46, 2.86, 0.67),
-        Vector3(0.46, 1.63, 0.91), 0.10, "dark")
-    g.box("CollectorWinchHead", Vector3(0.46, 2.83, 0.67),
+        Vector3(0.46, 2.86, 1.05),
+        Vector3(0.46, 1.98, 1.25), 0.10, "dark")
+    g.box("CollectorWinchHead", Vector3(0.46, 2.83, 1.05),
         Vector3(0.34, 0.25, 0.28), "gold")
 
 

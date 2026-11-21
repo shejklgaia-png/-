@@ -4,8 +4,8 @@ const Arch = preload("res://scripts/sera_base_architecture.gd")
 const Roof = preload("res://scripts/sera_base_roof_identity.gd")
 const FEATURES = {
     "NEXUS": ["NexusRoofCommandStripe", "NexusEntranceDirectionBand", "NexusDoorOuterFrame"],
-    "LABO": ["LabSingleSlopeCanopy", "LabSideRoll", "LabPrinterToolhead"],
-    "SCRAP_COLLECTOR": ["CollectorOpenBoomCrossbar", "CollectorCraneMarker", "CollectorOpenClawJaw", "CollectorRaisedJib"],
+    "LABO": ["LabSingleSlopeCanopy", "LabSideRoll", "LabPrinterToolhead", "LabFocalPrintBed"],
+    "SCRAP_COLLECTOR": ["CollectorOpenBoomCrossbar", "CollectorCraneMarker", "CollectorOpenClawJaw", "CollectorRaisedJib", "CollectorClawSignalCheek"],
     "SMELTER": ["SmelterHeatShieldRib", "SmelterHeatVent", "SmelterStackHeatCollar"],
     "RECYCLER": ["RecyclerSideRoofShutter", "RecyclerOpenThroatRail", "RecyclerOpenVFeedRail", "RecyclerOpposedJawFace"],
     "GENERATOR": ["GeneratorTurbineHoop", "GeneratorPowerSpine", "GeneratorCoreCorona"],
