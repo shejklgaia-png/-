@@ -65,6 +65,7 @@ var actions_area: PanelContainer
 var actions_scroll: ScrollContainer
 var pending_confirmation: Callable = Callable()
 var confirmation_overlay: Control
+var confirmation_panel: PanelContainer
 var confirmation_text: Label
 var confirmation_title: Label
 var confirmation_system: Label
@@ -762,6 +763,7 @@ func attach_hud(hud: Control) -> void:
     confirmation_overlay.add_child(confirm_shade)
     var confirm_panel := PanelContainer.new()
     confirm_panel.name = "LaboConfirmPanel"
+    confirmation_panel = confirm_panel
     confirm_panel.anchor_left = 0.065
     confirm_panel.anchor_right = 0.935
     confirm_panel.anchor_top = 0.105
@@ -1019,6 +1021,10 @@ func _request_confirmation(title: String, detail: String, action: Callable,
     pending_confirmation = action
     _set_labo_scroll_input_enabled(false)
     var is_craft: bool = not equipment_blueprint.is_empty()
+    # Keep ordinary delete/convert confirmations compact; only equipment
+    # fabrication owns the tall, portrait-focused panel.
+    confirmation_panel.anchor_top = 0.105 if is_craft else 0.235
+    confirmation_panel.anchor_bottom = 0.895 if is_craft else 0.765
     confirmation_title.text = "以下の装備を作成します" if is_craft else title
     confirmation_title.add_theme_font_size_override(
         "font_size", 32 if is_craft else 27)
