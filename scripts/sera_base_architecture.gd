@@ -166,6 +166,16 @@ class Batch:
                     surface.albedo_texture = armor_texture
                 elif tint in ["rust", "gold"] and oxide_texture != null:
                     surface.albedo_texture = oxide_texture
+                # Group-specific crop offsets avoid identical weathering on
+                # neighboring painted pieces without per-instance draw calls.
+                var variation: int = [
+                    "armor", "armor_light", "slate", "crate",
+                    "rust", "gold", "trim", "edge"
+                ].find(tint)
+                if variation >= 0:
+                    surface.uv1_offset = Vector3(
+                        float(variation % 4) * 0.18,
+                        float(variation / 4) * 0.27, 0.0)
             if tint in ["blue_light", "amber_light", "amber"]:
                 surface.emission_enabled = true
                 surface.emission = Color(COLORS[tint])
