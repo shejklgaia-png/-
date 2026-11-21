@@ -12,6 +12,8 @@ assert ready.index("_setup_world()") < ready.index("_create_camera()")
 assert ready.index("_create_camera()") < ready.index("_create_startup_overlay()")
 assert ready.index("_create_startup_overlay()") < ready.index(
     "await get_tree().process_frame")
+assert ready.count("await get_tree().process_frame") >= 2, (
+    "One signal resumes before rendering; two are required for a visible frame")
 assert ready.index("await get_tree().process_frame") < ready.index("_build_hangar()")
 assert ready.index("_build_hangar()") < ready.index("_build_field_facilities()")
 assert ready.index("_build_field_facilities()") < ready.index("_create_hud()")
