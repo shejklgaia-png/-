@@ -4,6 +4,11 @@ extends RefCounted
 ## - Legacy matte equipment: 4 columns x 5 rows, 7 equipment slots unchanged.
 ## Material IDs and blueprint IDs are stable across visual changes.
 const ATLAS_PATH: String = "res://assets/ui/sera_matte_icon_atlas.webp"
+# Approved per-blueprint model screenshots; Base64 holds original PNG bytes,
+# requiring no binary asset upload through GitHub text-content integrations.
+const CustomEquipmentIcons = preload("res://assets/ui/sera_custom_equipment_icons.gd")
+static var _custom_equipment_icon_cache: Dictionary = {}
+
 # The original atlas retains all 7 equipment portraits unchanged.
 # 12 material sprites live in a separate transparent 3-column x 4-row sheet.
 const MATERIAL_ATLAS_PATH: String = "res://assets/ui/sera_pixel_material_atlas.webp"
@@ -179,7 +184,31 @@ static func material_icon_sized(material_id: String, size: int) -> Texture2D:
     _material_sized_cache[key] = tile
     return tile
 
+static func _approved_equipment_icon(blueprint_id: String) -> Texture2D:
+    if not CustomEquipmentIcons.ICON_PNG_BASE64.has(blueprint_id):
+        return null
+    if _custom_equipment_icon_cache.has(blueprint_id):
+        return _custom_equipment_icon_cache[blueprint_id] as Texture2D
+    var png: PackedByteArray = Marshalls.base64_to_raw(str(
+        CustomEquipmentIcons.ICON_PNG_BASE64[blueprint_id]))
+    var bitmap := Image.new()
+    if png.is_empty() or bitmap.load_png_from_buffer(png) != OK:
+        push_warning("SERA equipment icon PNG invalid for " + blueprint_id)
+        return null
+    if bitmap.get_width() != 512 or bitmap.get_height() != 512:
+        push_warning("SERA equipment icon dimension invalid for " + blueprint_id)
+        return null
+    var texture: Texture2D = ImageTexture.create_from_image(bitmap)
+    _custom_equipment_icon_cache[blueprint_id] = texture
+    return texture
+
+
 static func equipment_icon(blueprint_id: String) -> Texture2D:
+    # The approved custom model portrait overrides the old sample atlas, only
+    # for its exact blueprint. Reuse the texture across LAB/Warehouse/NEXUS.
+    var approved: Texture2D = _approved_equipment_icon(blueprint_id)
+    if approved != null:
+        return approved
     if not EQUIPMENT_INDICES.has(blueprint_id):
         return null
     return _frame(int(EQUIPMENT_INDICES[blueprint_id]))
@@ -193,4 +222,4 @@ static func material_has_icon(material_id: String) -> bool:
     return MATERIAL_INDICES.has(material_id)
 
 static func equipment_has_icon(blueprint_id: String) -> bool:
-    return EQUIPMENT_INDICES.has(blueprint_id)
+    return CustomEquipmentIcons.ICON_PNG_BASE64.has(blueprint_id) or EQUIPMENT_INDICES.has(blueprint_id)
