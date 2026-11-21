@@ -311,7 +311,7 @@ func _build_field_facilities() -> void:
     facility_system = BaseFacilities.new()
     facility_system.name = "BaseFacilities"
     add_child(facility_system)
-    facility_system.power_board_requested.connect(_enter_power_board)
+    facility_system.connect("power_board_requested", Callable(self, "_enter_power_board"))
 
 func _build_power_board() -> void:
     # 8×8 stage is a connected physical extension of the existing BASE.
