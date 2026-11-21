@@ -18,6 +18,22 @@ static func style_stat_labels(name_label: Label, value_label: Label,
     value_label.add_theme_color_override("font_color", VALUE_COLOR)
 
 
+# Maximize readable size without ellipsizing long Japanese or technical labels.
+# Called only on layout/equipment changes, never during a game frame.
+static func fit_label(label: Label, maximum_px: int, minimum_px: int) -> void:
+    if label.text.is_empty() or label.size.x <= 1.0:
+        return
+    var font: Font = label.get_theme_font("font")
+    if font == null:
+        return
+    var font_size: int = maximum_px
+    while font_size > minimum_px and font.get_string_size(
+            label.text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size).x > (
+            label.size.x - 2.0):
+        font_size -= 1
+    label.add_theme_font_size_override("font_size", font_size)
+
+
 static func clear_cell_background(panel: Panel) -> void:
     # The surrounding window, not each data field, owns the single matte.
     var clear := StyleBoxFlat.new()
