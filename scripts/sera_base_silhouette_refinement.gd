@@ -77,12 +77,12 @@ static func _labo(g: Variant) -> void:
     # Front-facing structural eave and cloth tension cables; keep the
     # workshop open and the existing sagging cloth panels fully visible.
     g.poly("LabFabricCanopyRail", "roof",
-        Vector3(0, 3.18, 1.03),
-        Vector3(3.96, 0.32, 0.58), "cloth")
+        Vector3(0, 3.35, -0.09),
+        Vector3(3.85, 0.12, 0.15), "cloth")
     for i in range(5):
         var x: float = -1.55 + float(i) * 0.78
         g.rod("LabCanopyTensionCable",
-            Vector3(x, 3.30, 0.87), Vector3(x * 0.96, 3.32, -1.82),
+            Vector3(x, 3.42, -0.11), Vector3(x * 0.96, 3.41, -1.72),
             0.025, "dark")
     for side in [-1.0, 1.0]:
         g.poly_tilt("LabWorkshopCoolingShutter", "louver",
@@ -127,8 +127,8 @@ static func _smelter(g: Variant) -> void:
     # The hot exhaust throat remains exposed; the cowling is on the OTHER
     # half of the furnace and has visible side profile from the camera.
     g.poly("FurnaceExhaustCowling", "roof",
-        Vector3(0.51, 2.15, -0.11),
-        Vector3(1.20, 0.38, 1.29), "slate")
+        Vector3(0.51, 2.12, -0.59),
+        Vector3(0.88, 0.20, 0.50), "slate")
     g.poly_tilt("FurnaceBaffledInletLouver", "louver",
         Vector3(1.15, 1.33, 0.21),
         Vector3(0.12, 0.69, 0.55), "rust",
@@ -187,9 +187,9 @@ static func _generator(g: Variant) -> void:
 
 static func _storage(g: Variant) -> void:
     # One pitched cover floats over six distinctly stacked cargo bodies.
-    g.poly("CargoShelterRoof", "roof",
-        Vector3(0, 1.96, -0.31),
-        Vector3(2.46, 0.43, 1.96), "cloth")
+    g.poly("CargoShelterRoof", "hood",
+        Vector3(0, 1.99, -0.97),
+        Vector3(2.31, 0.18, 0.44), "cloth")
     for side in [-1.0, 1.0]:
         g.rod("CargoShelterAFrame",
             Vector3(side * 1.11, 0.22, 0.73),

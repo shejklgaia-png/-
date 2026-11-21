@@ -1,3 +1,11 @@
+## 2026-11-22 — BASE roof readability correction (supersedes earlier eight-roof embellishment)
+
+- Reviewed the actual 720×1280 Godot BASE image: LABO roof hid the printer workshop; recycler/generator displayed overlapping pitched metal/canvas details; repetitive upper panels obscured functional outlines. User explicitly rejected this design as incomprehensible on first glance.
+- **Replaced**, rather than supplemented, `scripts/sera_base_roof_identity.gd` with simplified, purpose-built shapes: NEXUS restrained flat roof/entrance stripe; LABO one rear single-slope fabric cover with open front; SCRAP_COLLECTOR exposed hydraulic boom; SMELTER uncovered dual chimney and a few heat ribs; RECYCLER open intake with narrow side shutters; GENERATOR uncovered arched turbine cage; STORAGE one flat corrugated cargo lid; BUILD_TERMINAL thin illuminated visor over the screen.
+- Reduced old redundant canopy polygons in architecture/night/structural/silhouette/polish modules, so the user sees the actual equipment and work opening instead of several stacked wide roofs. Preserved 8 positions, yaw, single dedicated floor pads, 1.14/1.45/1.55 scale, interaction, CRATE navigation, existing emissive work lighting, Android GL MultiMesh batching, equipment/animation masters and all unrelated gameplay.
+- Updated the registered independent roof static + live Godot CI contracts **before** editing the production modules. CI now rejects the previous oversized roof-feature vocabulary and oversized upper solid panels on the smaller facilities, verifies each distinct feature's real model metadata, preserved sizes and touch areas. Added a focused GitHub Actions BASE portrait capture PR workflow for human visual review.
+- Separate the actual screenshot/manual visual inspection from static/Godot headless verification. Full `sera_ci_manifest.txt` suite is still required on main after merge.
+
 ## SERA v535 — ビットタラン4脚独立破壊デバッグUI（2026-11-22）
 - ビットタラン戦のみ、画面左上寄りに「DEBUG / LEG BREAK」パネル（前左・前右／後左・後右の2×2配置）を追加。ほかのシーンには表示しない。
 - 四肢は独立ボタンとし、押すと選択脚の残り部位破壊ゲージのみ一度で0にする。共通本体HP・予測シールドSP・セラのHP/SH・資源・素材報酬・セーブの攻撃記録は改変しない。

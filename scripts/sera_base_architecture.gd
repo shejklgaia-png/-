@@ -381,12 +381,12 @@ static func _labo(g: Batch) -> void:
                 Vector3(0.22, 0.10, 1.66), "edge")
     g.box("LabWorkFloor", Vector3(0, 0.28, 0.97),
         Vector3(3.55, 0.17, 2.85), "armor_light")
-    g.box("LabCanopyFrame", Vector3(0, 3.01, -0.75),
-        Vector3(4.05, 0.16, 3.1), "edge")
+    g.box("LabCanopyFrame", Vector3(0, 3.18, -1.69),
+        Vector3(3.84, 0.14, 0.17), "edge")
     for i in range(6):
         var x: float = -1.74 + float(i) * 0.68
-        g.poly("LabDrapedCanopy", "canvas", Vector3(x, 3.16 + 0.08 * cos(i * 1.2), -0.62),
-            Vector3(0.73, 0.42, 2.93), "cloth")
+        g.poly("LabDrapedCanopy", "canvas", Vector3(x, 3.38 + 0.02 * cos(i * 1.2), -1.07),
+            Vector3(0.11, 0.10, 1.22), "cloth")
     for side in [-1.0, 1.0]:
         g.rod("CanopyAwningPosts", Vector3(side * 1.82, 0.20, 2.16),
             Vector3(side * 1.82, 3.20, 2.16), 0.10, "dark")

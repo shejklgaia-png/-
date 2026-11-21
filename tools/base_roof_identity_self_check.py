@@ -1,37 +1,55 @@
 #!/usr/bin/env python3
-"""Approved BASE roof identities: eight recognizable silhouettes, same pads/lighting."""
+"""BASE roof readability contract: exposed machines and one clear silhouette per use."""
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+
 def read(path: str) -> str:
     return (ROOT / path).read_text(encoding="utf-8")
 
 src = read("scripts/sera_base_roof_identity.gd")
 arch = read("scripts/sera_base_architecture.gd")
+night = read("scripts/sera_base_night_facade.gd")
+mass = read("scripts/sera_base_structural_mass.gd")
 ci = read("tools/sera_ci_manifest.txt")
+
 spec = {
-    "NEXUS": ("NexusSteppedRoofCrown", "NexusRoofParapet"),
-    "LABO": ("LabAsymmetricSailFlap", "LabTarpRidgeHoop"),
-    "SCRAP_COLLECTOR": ("CollectorOpenGantryDeck", "CollectorGantryVoidRail"),
-    "SMELTER": ("SmelterHeatDissipationFin", "SmelterStackCanopy"),
-    "RECYCLER": ("RecyclerSplitJawRoof", "RecyclerRaisedGapTeeth"),
-    "GENERATOR": ("GeneratorTurbineArchRib", "GeneratorSpineRail"),
-    "STORAGE": ("StorageSteppedSteelLid", "StorageRaisedCargoHatch"),
-    "BUILD_TERMINAL": ("TerminalCantileverRoofBlade", "TerminalSuspendedRoofBrace"),
+    "NEXUS": ("NexusRoofCommandStripe", "NexusEntranceDirectionBand"),
+    "LABO": ("LabSingleSlopeCanopy", "LabSideRoll"),
+    "SCRAP_COLLECTOR": ("CollectorOpenBoomCrossbar", "CollectorCraneMarker"),
+    "SMELTER": ("SmelterHeatShieldRib", "SmelterHeatVent"),
+    "RECYCLER": ("RecyclerSideRoofShutter", "RecyclerOpenThroatRail"),
+    "GENERATOR": ("GeneratorTurbineHoop", "GeneratorPowerSpine"),
+    "STORAGE": ("StorageContainerRoof", "StorageRoofRidge"),
+    "BUILD_TERMINAL": ("TerminalSlimDataVisor", "TerminalVisorBracket"),
 }
-assert 'const BaseRoofIdentity = preload("res://scripts/sera_base_roof_identity.gd")' in arch
+for key, expected in spec.items():
+    assert f'"{key}"' in src, key
+    for feature in expected:
+        assert f'"{feature}"' in src, (key, feature)
+# The earlier layered design is revoked, not piled underneath.
+for former in (
+    "NexusSteppedRoofCrown", "LabAsymmetricSailFlap",
+    "CollectorOpenGantryDeck", "SmelterHeatDissipationFin",
+    "RecyclerSplitJawRoof", "GeneratorTurbineArchRib",
+    "StorageSteppedSteelLid", "TerminalCantileverRoofBlade"
+):
+    assert former not in src, f"oversized old roof still authored: {former}"
 assert 'BaseRoofIdentity.add_details(g, "NEXUS")' in arch
 assert 'BaseRoofIdentity.add_details(g, key)' in arch
-assert "g.detail_scale = 1.14" in arch
+assert 'g.detail_scale = 1.14' in arch
 assert 'g.detail_scale = 1.45 if key == "LABO" else 1.55' in arch
-for facility, features in spec.items():
-    assert f'"{facility}"' in src, facility
-    for feature in features:
-        assert f'"{feature}"' in src, (facility, feature)
-assert "static func add_details(" in src
+# Prior broad pitched shells now shrink to accents behind exposed machine faces.
+for name in ("LabCanopyCrest", "CollectorWeatherHood",
+             "RecyclerRoofCowl", "GeneratorRoofShield",
+             "StorageFabricCanopy", "TerminalServiceRoof"):
+    assert name in night
+for name in ("LabAngledSideRoof", "CollectorSortingRoofFin",
+             "RecyclerCantedCowl", "StorageTarpSaddle", "TerminalSlopedRoofWing"):
+    assert name in mass
 assert "MultiMeshInstance3D.new()" not in src
 assert "OmniLight3D.new()" not in src
 assert "Area3D.new()" not in src
 assert "py tools/base_roof_identity_self_check.py" in ci
 assert "gd tools/base_roof_identity_runtime_check.gd" in ci
-print("SERA_BASE_ROOF_IDENTITY_STATIC_PASS")
+print("SERA_BASE_ROOF_CLARITY_STATIC_PASS")

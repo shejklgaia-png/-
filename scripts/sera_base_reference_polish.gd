@@ -94,8 +94,8 @@ static func _labo(g: Variant) -> void:
             "blue_light" if i % 2 else "blue")
     for row in range(4):
         g.box_tilt("LabCanopyStitchedFlap",
-            Vector3(-1.42 + row * 0.91, 3.135, 0.91),
-            Vector3(0.84, 0.036, 1.05), "cloth",
+            Vector3(-1.42 + row * 0.91, 3.29, -0.97),
+            Vector3(0.58, 0.036, 0.29), "cloth",
             Vector3(-0.11 - 0.015 * row, 0.0, 0.0))
 
 static func _collector(g: Variant) -> void:
