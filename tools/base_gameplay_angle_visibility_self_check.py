@@ -51,7 +51,7 @@ for path in (
     "'tools/base_isometric_visual_capture.gd'",
 ):
     assert path in workflow, path
-assert "py tools/base_gameplay_angle_visibility_self_check.py" in workflow
+assert "python3 tools/base_gameplay_angle_visibility_self_check.py" in workflow
 assert "tools/base_gameplay_angle_visibility_runtime_check.gd" in workflow
 
 # Keep floor colliders, building placement and mobile render-batching intact.
