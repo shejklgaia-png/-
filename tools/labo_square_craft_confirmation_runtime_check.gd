@@ -64,8 +64,9 @@ func _run() -> void:
             confirm_button.size.y<65.0):
         _fail("Action buttons are undersized or unbalanced")
         return
-    if not placeholder.visible or placeholder.texture == null:
-        _fail("Square fallback icon missing while native 3D initializes")
+    if placeholder.visible == preview.visible or (
+            placeholder.visible and placeholder.texture == null):
+        _fail("Exactly one of fallback icon and interactive 3D must occupy the square")
         return
     if preview.get_parent() != placeholder.get_parent():
         _fail("Fallback and interactive 3D do not share one square viewport")
