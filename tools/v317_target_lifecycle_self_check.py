@@ -77,7 +77,7 @@ assert tick.index("TARGET_LIFECYCLE.respawn_action(") < tick.index(
 reset = section("func _reset_target_after_respawn() -> void:",
                 "func _update_enemy_fire_eligibility() -> void:")
 for token in (
-    "target_hp = TARGET_MAX_HP",
+    "target_hp = _target_health_cap()",
     "target_respawn_remaining = 0.0",
     'target_parts.call("reset_parts")',
     'locked_target_part_id = ""',
@@ -93,7 +93,7 @@ for token in (
 ):
     assert token in reset, token
 assert main.count('target_parts.call("reset_parts")') == 1
-assert main.count("target_hp = TARGET_MAX_HP") == 1
+assert main.count("target_hp = _target_health_cap()") == 1
 
 ko = section("func _tick_training_ko(delta: float) -> void:",
              "func _advance_target_motion(delta: float) -> void:")
