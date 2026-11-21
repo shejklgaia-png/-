@@ -44,6 +44,10 @@ func _check_case(battle: Node3D, id: String,
     var fx: Node3D = battle.get("bittaran_dirt_fx")
     if not _check_speeds(ik):
         return false
+    if bool(ik.call("windup_active")) or bool(
+            ik.call("down_pose_active")):
+        _fail("new boss encounter retained previous collapse timer")
+        return false
     var head: Vector3 = parts.call("get_part_aim_world", "head")
     ik.call("start_leg_break_slide", id, head.y, full_break)
     if not bool(ik.call("windup_active")) or bool(
