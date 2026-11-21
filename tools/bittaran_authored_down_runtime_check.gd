@@ -49,15 +49,17 @@ func _run() -> void:
         if str(ik.get("authored_down_clip")) != clip_name:
             _fail("broken leg did not select authored clip " + str(id))
             return
-        ik.set("windup_elapsed", 0.50)
+        ik.set("authored_down_source_seconds", 0.50)
+        ik.set("windup_elapsed", 0.95)
         ik.set("break_elapsed", -1.0)
         if absf(float(ik.call("authored_down_motion_time")) - 0.50) > 0.001:
-            _fail("windup source clock is not native 1x")
+            _fail("source-time cursor did not reach 0.50")
             return
-        ik.set("windup_elapsed", -1.0)
-        ik.set("break_elapsed", 0.90)
+        ik.set("authored_down_source_seconds", 1.50)
+        ik.set("windup_elapsed", 3.20)
+        ik.set("break_elapsed", -1.0)
         if absf(float(ik.call("authored_down_motion_time")) - 1.50) > 0.001:
-            _fail("fall source clock is not native 1x")
+            _fail("fall source clock did not sample 1.50")
             return
         rig.call("apply_authored_down_pose", clip_name,
             float(ik.call("authored_down_motion_time")), 0.0)
@@ -85,6 +87,7 @@ func _run() -> void:
     # it must NEVER rewind a body already on the floor to its anticipation.
     var head_last: Vector3 = parts.call("get_part_aim_world", "head")
     ik.call("start_leg_break_slide", "leg_fl", head_last.y, false)
+    ik.set("authored_down_source_seconds", 1.75)
     ik.set("windup_elapsed", -1.0)
     ik.set("break_elapsed", 1.70)
     var before_repeat: float = float(
@@ -101,5 +104,5 @@ func _run() -> void:
             or absf(IK.FOUR_LEG_RISE_SECONDS - 1.3) > 0.001):
         _fail("existing down / recovery time changed")
         return
-    print("GODOT_BITTARAN_AUTHORED_DOWN_PASS 4_clips=true 1x=true authored_body=true")
+    print("GODOT_BITTARAN_AUTHORED_DOWN_PASS 4_clips=true source_keys=true authored_body=true")
     quit(0)
