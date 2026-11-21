@@ -47,6 +47,12 @@ func _run() -> void:
             not (part_rules[1] as ColorRect).visible)):
         _fail("linked chamfer preview / full-height column dividers absent")
         return
+    var part_top_mark: ColorRect = single.get_node_or_null(
+        "StatusTopAccent") as ColorRect
+    if part_top_mark == null or part_top_mark.size.x < 45.0 or (
+            part_top_mark.position.x < 8.0):
+        _fail("individual part status frame lacks its restrained blue-grey accent")
+        return
     if single_scroll.vertical_scroll_mode != ScrollContainer.SCROLL_MODE_DISABLED:
         _fail("PART STATUS must be visible without scrolling")
         return
