@@ -10,7 +10,10 @@ assert 'static func _make_micro(' in code
 assert 'item["accent"] = true' in code, "accent flag must be set in the authored item"
 assert '"sealed_canister":' in code
 assert '"locator_beacon":' in code
-assert code.count('_accent("') == 24, "three distinct compact objects per site"
+assert code.count('_accent("') == 24, "keep 24 distinct authored compact models"
+assert 'static func _append_satellite_props(' in code
+assert 'item["satellite"] = true' in code
+assert '_append_satellite_props(key, items)' in code
 assert 'g.host.set_meta("clutter_props", props)' in code
 assert 'BaseClutter.decorate(g, "NEXUS")' in arch
 assert 'BaseClutter.decorate(g, key)' in arch
