@@ -168,19 +168,38 @@ function drawRadar(){
 function drawDistribution(){
  const bx=$("distX").value,by=$("distY").value;
  const base=DB.profiles[slot].A,draft=getDraft();if(!bx||!by)return;
+ const xTitle=STAT_NAMES[bx]||bx,yTitle=STAT_NAMES[by]||by;
+ $("distXAxisTitle").textContent="横軸 X → "+xTitle+"（右ほど高い）";
+ $("distYAxisTitle").textContent="縦軸 Y ↑ "+yTitle+"（上ほど高い）";
  chartCanvas("distribution",(c,w)=>{
-  c.fillStyle="#132532";c.fillRect(0,0,w,w);c.strokeStyle="#2c4757";
-  for(let i=0;i<=4;i++){let q=w*.12+i*(w*.76/4);c.beginPath();c.moveTo(q,w*.12);c.lineTo(q,w*.88);c.moveTo(w*.12,q);c.lineTo(w*.88,q);c.stroke()}
+  c.fillStyle="#132532";c.fillRect(0,0,w,w);
+  const side=w*.68,left=w*.20,top=w*.13,bottom=top+side;
+  c.strokeStyle="#385769";c.lineWidth=1;
+  for(let i=0;i<=4;i++){
+   const t=side*i/4;
+   c.beginPath();c.moveTo(left+t,top);c.lineTo(left+t,bottom);
+   c.moveTo(left,top+t);c.lineTo(left+side,top+t);c.stroke();
+  }
+  c.strokeStyle="#94bacb";c.lineWidth=2;c.strokeRect(left,top,side,side);
   const query=$("distSearch").value.trim().toLowerCase();
- const points=Object.entries(DB.profiles[slot]).map(([key,p])=>({key,p})).filter(x=>(showAll||x.key===selected[slot])&&!hiddenVariants.has(slot+x.key)&&(!query||(labels[slot]?.[x.key]||x.key).toLowerCase().includes(query)));points.push({key:"NEW",p:draft});
-  const pos=(v,key)=>clamp((Number(v||0)/Number(base[key]||1)-0)*.36,.0,.76)*w+w*.12;
-  for(const {key,p} of points){const x=pos(p[bx],bx),y=w-pos(p[by],by);c.fillStyle=key==="NEW"?"#b0ecf7":"#7398aa";
+  const points=Object.entries(DB.profiles[slot]).map(([key,p])=>({key,p})).filter(x=>(showAll||x.key===selected[slot])&&!hiddenVariants.has(slot+x.key)&&(!query||(labels[slot]?.[x.key]||x.key).toLowerCase().includes(query)));
+  points.push({key:"NEW",p:draft});
+  const pos=(v,key)=>clamp(Number(v||0)/Number(base[key]||1)*.36,0,1)*side;
+  for(const {key,p} of points){
+   const x=left+pos(p[bx],bx),y=bottom-pos(p[by],by);
+   c.fillStyle=key==="NEW"?"#b0ecf7":"#7398aa";
    const pic=key==="NEW"?null:imageCache.get(slot+key);
-   if(pic&&pic.complete&&pic.naturalWidth){c.drawImage(pic,x-16,y-16,32,32);c.strokeStyle="#80b2c4";c.strokeRect(x-16,y-16,32,32)}
-   else{c.beginPath();c.arc(x,y,key==="NEW"?8:6,0,Math.PI*2);c.fill()}
-   c.font="12px sans-serif";c.textAlign="left";c.fillText(key,x+18,y-13)}
-
-  c.fillStyle="#cbdce7";c.font="12px sans-serif";c.fillText("X: "+(STAT_NAMES[bx]||bx),w*.12,16);c.fillText("Y: "+(STAT_NAMES[by]||by),w*.12,32);
+   if(pic&&pic.complete&&pic.naturalWidth){
+    c.drawImage(pic,x-16,y-16,32,32);c.strokeStyle="#80b2c4";c.strokeRect(x-16,y-16,32,32);
+   }else{c.beginPath();c.arc(x,y,key==="NEW"?8:6,0,Math.PI*2);c.fill()}
+   c.font="12px sans-serif";c.textAlign="left";c.fillText(key,x+18,y-13);
+  }
+  // Axis names are placed beside their respective axes, not stacked at top.
+  c.fillStyle="#dceaf0";c.font="bold "+Math.max(12,Math.round(w*.023))+"px sans-serif";
+  c.textAlign="center";
+  c.fillText("X → "+xTitle+" ／ 右ほど高い",left+side*.5,bottom+w*.10,w*.86);
+  c.save();c.translate(left-w*.13,top+side*.5);c.rotate(-Math.PI/2);
+  c.fillText("Y ↑ "+yTitle+" ／ 上ほど高い",0,0,w*.86);c.restore();
  });
 }
 function renderDistributionLegend(){
@@ -213,7 +232,25 @@ async function warmComparisonThumbnails(){
  }catch(e){console.warn("Comparison thumbnails:",e);}
 }
 function updateOutput(){
- const data={format:"SERA_EQUIPMENT_INTAKE_V1",version:1,source:{repository_path:DB.source.path,sha256:DB.source.sha256,base_commit:DB.source.commit},equipment:{blueprint_id:$("blueprint").value.trim(),name:$("equipName").value.trim(),slot,rig_set:selected[slot],rig_selection:{...selected}},model:{size_delta_percent:scaleDelta,effective_scale_percent:sizeMultiplier()*100,keep_aspect:keepAspect,standard:"Native Godot SeraRig / A bounding-box normalization for edited slot"},stats:{a_relative_percent:{...statPct},absolute:getDraft(),part_weight_class:weightClass(getDraft().weight_pct||100),whole_weight_pct:effectiveWeight(),whole_weight_class:weightClass(effectiveWeight()),unapproved_classifications:{...customClassifications}},recipe:materialEntries.filter(x=>x.count>0).map(x=>({...x})),special_effects:{description:$("specialEffect").value,approval_required:true,implementation_status:"PENDING_CHATGPT_DISCUSSION"},render_preset_text:$("presetText").value,review_required:true};
+ const data={format:"SERA_EQUIPMENT_INTAKE_V1",version:1,
+  handoff:{format:"SERA_EQUIPMENT_CHAT_HANDOFF_V1",repository:"https://github.com/shejklgaia-png/-",branch:"main",
+   instruction:"この設定をSERAのGitHub mainにある正本モデルへ適用してください。モデルの出典/ハッシュを確認してからLABO製作、倉庫、NEXUS、セーブ、戦闘性能、アイコンとテストまで実装します。未承認の特殊効果や分類値は勝手に追加せず相談してください。",
+   guide:"docs/SERA_EQUIPMENT_CROSS_CHAT_HANDOFF_ja.md",
+   editor:"tools/equipment_intake/dist/SERA_Equipment_Intake_IRIS.html",
+   live_preview:"https://shejklgaia-png.github.io/-/",
+   background:{mode:"grid",solid:"#111e28",grid:"#55798A",grid_opacity:0.36,grid_divisions:8},
+   ui_contract:"FULL BODY=NEXUS_pose+個別部位変更/サイズ、ICON=単体、STATS=単体小型+特殊効果、RECIPE=素材、ANALYSIS=X横/Y縦",
+   model_ids_are_authoring_only:true,thumbnail_capture:"native_godot",capture_source:"scripts/sera_icon_background.gd"},
+  source:{repository_path:DB.source.path,sha256:DB.source.sha256,base_commit:DB.source.commit,
+    repository_url:"https://github.com/shejklgaia-png/-",model_path:DB.source.path},
+  equipment:{blueprint_id:$("blueprint").value.trim(),name:$("equipName").value.trim(),slot,rig_set:selected[slot],rig_selection:{...selected}},
+  model:{size_delta_percent:scaleDelta,effective_scale_percent:sizeMultiplier()*100,keep_aspect:keepAspect,
+    standard:"Native Godot SeraRig / A bounding-box normalization for edited slot"},
+  stats:{a_relative_percent:{...statPct},absolute:getDraft(),part_weight_class:weightClass(getDraft().weight_pct||100),
+    whole_weight_pct:effectiveWeight(),whole_weight_class:weightClass(effectiveWeight()),unapproved_classifications:{...customClassifications}},
+  recipe:materialEntries.filter(x=>x.count>0).map(x=>({...x})),
+  special_effects:{description:$("specialEffect").value,approval_required:true,implementation_status:"PENDING_CHATGPT_DISCUSSION"},
+  render_preset_text:$("presetText").value,review_required:true};
  const content="SERA_EQUIPMENT_INTAKE_V1\n"+JSON.stringify(data,null,2);$("exportText").value=content;return content;
 }
 async function copy(){
