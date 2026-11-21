@@ -90,11 +90,15 @@ jobs:
             "$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" \
             --path . --rendering-method gl_compatibility \
             --script tools/v522_visible_card_pixels_runtime_check.gd
+          xvfb-run -a -s '-screen 0 720x1280x24' \
+            "$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" \
+            --path . --rendering-method gl_compatibility \
+            --script tools/base_isometric_visual_capture.gd
       - name: Upload actual software-rendered facility screenshots
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: sera-native-facility-card-pixels
+          name: sera-native-facility-and-base-framing
           path: ${{ runner.temp }}/sera-ui-render/*.png
           if-no-files-found: warn
           retention-days: 14
