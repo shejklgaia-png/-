@@ -8,6 +8,14 @@ const LOWER_BODY_D_SOURCE: String = "res://models/storage/LowerBody_D.bbmodel"
 const LOWER_BODY_D_EMBEDDED = preload("res://assets/sera_lower_body_d_data.gd")
 const HEAD_C_SOURCE: String = "res://models/storage/Head_C.bbmodel"
 const HEAD_C_EMBEDDED = preload("res://assets/sera_head_c_data.gd")
+# Authored independent camera-eye head. Exported APKs use its embedded 16px atlas.
+const CAMERA_EYE_HEAD_SOURCE: String = "res://models/storage/カメラアイ頭部.bbmodel"
+const CAMERA_EYE_HEAD_EMBEDDED = preload("res://assets/sera_camera_eye_head_data.gd")
+# Uniform fit of the author's complete shell and lens to the standard head joint.
+# Keep the six mesh shapes and their spatial relationships unchanged.
+const CAMERA_EYE_HEAD_SCALE: float = 0.66
+const CAMERA_EYE_AUTHOR_CENTER: Vector3 = Vector3(0.0, 5.1, 1.0)
+const CAMERA_EYE_TARGET_CENTER: Vector3 = Vector3(0.0, 28.0, 0.0)
 const BACK_THRUSTER_FX = preload("res://scripts/back_thruster_fx.gd")
 const SAVE_PATH: String = "user://sera_equipment.cfg"
 const SLOTS = ["head", "torso", "legs", "arms", "booster", "weapon_r", "weapon_l"]
@@ -70,6 +78,7 @@ func setup(target_rig: Node3D) -> void:
     var data: Dictionary = _read_model()
     _install_alternative_sets(data)
     _install_head_c()
+    _install_camera_eye_head()
     # v205: Chest/BOOSTER is authored on A's original Chest, not the alternate torso.
     _install_back_booster_placeholder(data)
     _install_standard_lower_body_d()
@@ -623,6 +632,97 @@ func _install_head_c() -> void:
     var imported: Array = (available.get("C", {}) as Dictionary).get("head", [])
     if imported.size() != 2:
         push_error("SERA Head C: missing imported head meshes (%d/2)" % imported.size())
+
+
+# A standalone Blockbench author source has six root meshes and no
+# skeleton folders. Mount them under A's actual animated Head pivot; this
+# preserves every existing clip, HEAD A/B/C, Neck and afterimage visibility.
+func _read_camera_eye_head() -> Dictionary:
+    if FileAccess.file_exists(CAMERA_EYE_HEAD_SOURCE):
+        var live: Variant = JSON.parse_string(
+            FileAccess.get_file_as_string(CAMERA_EYE_HEAD_SOURCE))
+        if live is Dictionary and not live.get("elements", []).is_empty() \
+                and not live.get("textures", []).is_empty():
+            return live
+    var embedded: Variant = JSON.parse_string(CAMERA_EYE_HEAD_EMBEDDED.get_json())
+    return embedded if embedded is Dictionary else {}
+
+
+func _install_camera_eye_head() -> void:
+    var data: Dictionary = _read_camera_eye_head()
+    var elements: Array = data.get("elements", [])
+    var textures: Array = data.get("textures", [])
+    if elements.is_empty() or textures.is_empty() or not textures[0] is Dictionary:
+        push_warning("SERA Camera Eye: source mesh or texture missing")
+        return
+    var head: Node3D = rig.get_node_or_null("Waist/Torso/Chest/Neck/Head") as Node3D
+    if head == null or not head.has_meta("bb_origin"):
+        push_error("SERA Camera Eye: animated A Head pivot unavailable")
+        return
+    var texture_spec: Dictionary = textures[0]
+    var source: String = str(texture_spec.get("source", ""))
+    if not source.begins_with("data:image/png;base64,"):
+        push_error("SERA Camera Eye: expected embedded PNG texture")
+        return
+    var png: PackedByteArray = Marshalls.base64_to_raw(source.substr(
+        "data:image/png;base64,".length()))
+    var image := Image.new()
+    if image.load_png_from_buffer(png) != OK or image.get_width() <= 0 \
+            or image.get_height() <= 0:
+        push_error("SERA Camera Eye: invalid embedded PNG")
+        return
+    var color_texture: ImageTexture = ImageTexture.create_from_image(image)
+    var uv_x: float = 96.0 / float(image.get_width())
+    var uv_y: float = 32.0 / float(image.get_height())
+
+    var pivot := Node3D.new()
+    pivot.name = "CameraEyeHeadD"
+    var original_head: Vector3 = head.get_meta("bb_origin", Vector3.ZERO)
+    pivot.position = (CAMERA_EYE_TARGET_CENTER -
+        CAMERA_EYE_AUTHOR_CENTER * CAMERA_EYE_HEAD_SCALE - original_head) * MODEL_UNIT
+    pivot.scale = Vector3.ONE * CAMERA_EYE_HEAD_SCALE
+    head.add_child(pivot)
+    var imported: Array[MeshInstance3D] = []
+    for raw_element in elements:
+        if not raw_element is Dictionary:
+            push_error("SERA Camera Eye: non-mesh element")
+            pivot.queue_free()
+            return
+        var element: Dictionary = raw_element.duplicate(true)
+        if not element.has("vertices") or not element.has("faces"):
+            push_error("SERA Camera Eye: malformed authored mesh")
+            pivot.queue_free()
+            return
+        # _make_mesh converts UVs against the standard 96x32 atlas.
+        # Rescale the authored 16x16 UVs without changing their original file.
+        for face_value in (element["faces"] as Dictionary).values():
+            var face: Dictionary = face_value
+            var uv: Dictionary = face.get("uv", {})
+            for vertex_key in uv.keys():
+                var coord: Array = uv[vertex_key]
+                uv[vertex_key] = [float(coord[0]) * uv_x, float(coord[1]) * uv_y]
+        var piece: MeshInstance3D = rig.call("_make_mesh", element)
+        if piece == null:
+            push_error("SERA Camera Eye: mesh triangulation failed")
+            pivot.queue_free()
+            return
+        piece.name = "D_CameraEye_" + str(imported.size()) + "_" + str(
+            raw_element.get("name", "Mesh"))
+        piece.position = _v3(raw_element.get("origin", [0, 0, 0])) * MODEL_UNIT
+        piece.quaternion = rig.call("_blockbench_rotation",
+            _v3(raw_element.get("rotation", [0, 0, 0])))
+        var material: StandardMaterial3D = (
+            piece.material_override as StandardMaterial3D).duplicate()
+        material.albedo_color = Color.WHITE
+        material.albedo_texture = color_texture
+        material.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
+        piece.material_override = material
+        piece.set_meta("sera_equipment_set", "D")
+        pivot.add_child(piece)
+        piece.visible = false
+        imported.append(piece)
+    for piece in imported:
+        _add_mesh("D", "head", piece)
 
 
 func _install_alternative_sets(data: Dictionary) -> void:
