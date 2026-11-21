@@ -704,6 +704,7 @@ func _camera() -> void:
 func _wall_mark() -> void:
     var logo := Label3D.new()
     logo.text = "///"
+    logo.font = LaboSkin.display_font()
     logo.font_size = 120
     logo.pixel_size = 0.008
     logo.modulate = Color("#a4b5d1")
@@ -711,6 +712,7 @@ func _wall_mark() -> void:
     add_child(logo)
     var name := Label3D.new()
     name.text = "S E R A"
+    name.font = LaboSkin.display_font()
     name.font_size = 80
     name.pixel_size = 0.006
     name.modulate = Color("#b4c5dd")
