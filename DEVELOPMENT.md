@@ -3801,3 +3801,10 @@
 - LABO/NEXUS共通スタイルにブルーグレー `#55798a`、1pxの名称下線を追加。画面名、装備名、素材名、ボス名、装着中装備名に適用。名称の長さ・配置に追従し、空欄・LOCKED SLOT・操作タブ・技術情報は対象外。倉庫は既存プール内の1本のColorRectを再利用し、フレーム単位の再生成やポーリングを行わない。
 - CIに `tools/labo_name_underlines_sign_legibility_self_check.py` / `tools/labo_name_underlines_sign_legibility_runtime_check.gd` を先行登録。旧フォント・3列素材・999枠・ボタン操作・スクロール等のテスト条件は維持。
 - 実機確認事項：Androidで3D看板の視認性、名称下線の高さ・細さ、2行素材名の最終行、機種別のGPU負荷を確認。静的なソース契約とheadless CIは実際のAndroid表示を代替しない。
+
+
+## 2026-11-21 BASE reference industrial architecture
+- Reference-driven rebuild of all eight separate overworld buildings (NEXUS and seven machine stations) with material-batched procedural steel geometry, varied functional machinery, tarpaulins, cargo, signage, and local lighting meshes.
+- Armored steel deck now includes instanced panel seams, fasteners, repair hatches, drain grates, hazard stripes, floor stencil and cable routes. Camera/positions/picking/CRATE path and existing model masters remain unchanged.
+- Added base_reference_architecture self-check and headless runtime check to the CI manifest before implementation; preserved previous layout/navigation tests. Detailed design: docs/BASE_REFERENCE_INDUSTRIAL_2026_11_21_ja.md.
+- Final Android GL Compatibility screenshot and GPU workload require physical-device confirmation.
