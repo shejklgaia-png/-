@@ -189,7 +189,7 @@ async function loadEmbedded(){const bundle=packagedModel();if(!bundle){$('iris')
 function snapshot(){return{format:presetsPrefix,version:1,source:{filename:sourceFilename,repository_path:activeBundle?.source_path||'',name:model?.name||'',fingerprint:hash,fingerprint_algorithm:hash.startsWith('fnv32-')?'FNV1a-32':'SHA-256',element_count:model?.elements?.length||0},equipment:{blueprint_id:activeBundle?.blueprint_id||'',slot:activeBundle?.slot||'',rig_set:activeBundle?.rig_set||''},render:{engine:'SERA Icon Studio WebGL',camera:'orthographic_front',model_rotation_deg:{x:state.pitch,y:state.yaw,z:state.roll},model_scale:state.zoom,pan_clip:{x:state.panX,y:state.panY},auto_fit:ORTHO_PADDING,outline:{enabled:state.outlinePx>0,stroke_px_at_512:state.outlinePx,crease_degrees:80,color:'#17212F'},image:{width:512,height:512,background:'transparent',ui_frame_baked:false},mesh_transform:'element vertices -> element origin/rotation -> parent group -> model center -> user rotation',texture_source:'Blockbench embedded PNG(s)'},note:'SERA source is registered by repository_path and fingerprint. Upload this PNG in another ChatGPT conversation; its metadata identifies the equipment and capture transform. Do not use AI image generation.'}}
 function updateText(){if(document.activeElement===$('presetText'))return;$('presetText').value=presetsPrefix+'\n'+JSON.stringify(snapshot(),null,2)}
 async function sha256(text){if(typeof crypto!=='undefined'&&crypto.subtle){const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(text));return[...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')}let h=2166136261;for(let i=0;i<text.length;i++)h=Math.imul(h^text.charCodeAt(i),16777619);return'fnv32-'+(h>>>0).toString(16)}
-async function loadText(text,name,expectedHash='',bundle=null){try{const d=JSON.parse(text);if(!d||!Array.isArray(d.elements))throw Error('Blockbench (.bbmodel) 形式ではありません。');const stats=parseModel(d);if(!gl)throw Error('WebGLを利用できません。');await uploadTexture(d);uploadGeometry();sourceFilename=name;model=d;activeBundle=bundle;const measured=await sha256(text);if(expectedHash&&!measured.startsWith('fnv32-')&&measured!==expectedHash)throw Error('原本のSHA-256が埋込情報と一致しません');hash=expectedHash||measured;$('modelTitle').textContent=d.name||name;updateControls();say(`${d.name||name}：${stats.elements}要素 / ${stats.faces}面 自動読み込み完了。ファイル選択は不要です。`);refreshSaved()}catch(err){console.error(err);say('読込失敗：'+err.message,true)}}
+async function loadText(text,name,expectedHash='',bundle=null){try{const d=JSON.parse(text);if(!d||!Array.isArray(d.elements))throw Error('Blockbench (.bbmodel) 形式ではありません。');const stats=parseModel(d);if(!gl)throw Error('WebGLを利用できません。');await uploadTexture(d);uploadGeometry();sourceFilename=name;model=d;activeBundle=bundle;const measured=await sha256(text);if(expectedHash&&!measured.startsWith('fnv32-')&&measured!==expectedHash)throw Error('原本のSHA-256が埋込情報と一致しません');hash=expectedHash||measured;$('modelTitle').textContent=d.name||name;updateControls();say(`${d.name||name}：${stats.elements}要素 / ${stats.faces}面 自動読み込み完了。ファイル選択は不要です。`);refreshSaved();queueMicrotask(()=>window.SERA_INTAKE_REQUEST_REFRESH?.())}catch(err){console.error(err);say('読込失敗：'+err.message,true)}}
 $('file').addEventListener('change',async e=>{const f=e.target.files?.[0];if(f)await loadText(await f.text(),f.name)});
 const drop=$('dropzone');['dragenter','dragover'].forEach(n=>drop.addEventListener(n,e=>{e.preventDefault();drop.classList.add('drag')}));['dragleave','drop'].forEach(n=>drop.addEventListener(n,e=>{e.preventDefault();drop.classList.remove('drag')}));drop.addEventListener('drop',async e=>{const f=e.dataTransfer?.files?.[0];if(f)await loadText(await f.text(),f.name)});
 $('iris').addEventListener('click',async()=>{try{await loadEmbedded()}catch(e){say('埋込原本の復元に失敗：'+e.message,true)}});
@@ -597,7 +597,7 @@ function renderPickers(){
    const txt=document.createElement("span");txt.textContent=labels[key]?.[value]||key+" "+value;
    btn.append(img,txt);
    btn.addEventListener("click",async()=>{
-    selected[key]=value;picker.open=false;renderPickers();updateWeight();
+    selected[key]=value;if(key===slot)$("rigSet").value=value;picker.open=false;renderPickers();updateWeight();
     if(activeTab==="stats")updateStatsPreview();else await renderActivePreview();
    });
    list.append(btn);
@@ -639,6 +639,7 @@ function init(){
  $("slot").addEventListener("change",()=>{$("rigSet").replaceChildren(...choices[slot].map(x=>{const o=document.createElement("option");o.value=x;o.textContent=x;return o}));$("rigSet").value=selected[slot]});
  renderStats();renderMaterials();renderPickers();renderSize();setTab("rig");
 }
+window.SERA_INTAKE_REQUEST_REFRESH=renderActivePreview;
 window.addEventListener("DOMContentLoaded",init);
 })();
 </script>
