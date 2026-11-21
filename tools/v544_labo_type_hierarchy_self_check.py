@@ -27,7 +27,7 @@ for token in ('meta.add_theme_font_override("font", LaboSkin.tracked_data_font()
               'empty.add_theme_font_override("font", LaboSkin.tracked_display_font())',
               'empty.add_theme_font_size_override("font_size", 17)',
               'title.add_theme_font_size_override("font_size", 20)',
-              'effects.add_theme_font_size_override("font_size", 14)',
+              'effects_right.add_theme_font_size_override("font_size",',
               'MAX_POOL_CARDS: int = 32',
               'virtual_slots = (999 if mode == "equipment"'):
     assert token in wh, token
