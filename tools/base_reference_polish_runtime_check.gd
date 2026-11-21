@@ -11,7 +11,12 @@ func _fail(reason: String) -> void:
 func _run() -> void:
     var hub: Node3D = load("res://scenes/base_exploration.tscn").instantiate()
     root.add_child(hub)
-    await process_frame
+    # BASE deliberately paints an initial frame before building the 3D yard.
+    # Await the finished world, not that preliminary loading frame.
+    for _boot_frame in range(12):
+        await process_frame
+        if hub.get_node_or_null("BaseFacilities/LABO/IndustrialModel") != null:
+            break
     var expected := {
         "NEXUSBuilding/NexusArchitecture": "NexusRoofParapetBraces",
         "BaseFacilities/LABO/IndustrialModel": "LabPrinterRail",

@@ -134,3 +134,13 @@ LABOは一枚の箱状外壁から、開放前面・背面設備ラック・側�
 - 細かなボルト・配線・角度付き板は既存の`Batch`に追加して材質別`MultiMesh`で一括描画。新規のCollider/Light/毎フレーム処理なし。既存の個体ID、配置、1施設1床パネル、CRATEの巡回、GRID、NEXUS/LABO操作は変更しない。
 - `sera_base_floor_detail.gd` の一般鋼板上に短い溶接跡、補修スクラッチ、補助リベットを増設。専用施設板には増設せず、床の暗い6色、素材SVG、反射率、面積、既存の溝・警戒線を維持。
 - 先に `base_reference_polish_self_check.py` と `base_reference_polish_runtime_check.gd` を作成してCI登録。描画バッチ実体および全8施設の固有造形を検査する。Android実機の光量・FPS・可視性は別途評価。
+
+## 2026-11-21：拠点工業材質の追加ブラッシュアップ（テクスチャ込み）
+- `assets/base/industrial_armor_chipped.svg`（512px）：装甲の塗装摩耗、下地露出、細かな引っかき傷、薄い垂れ汚れ。NEXUS/LABO/全6設備の塗装系外装に共通。
+- `assets/base/industrial_oxidized_metal.svg`（512px）：構造金属・熱機械の酸化皮膜、擦れ、錆の斑を追加。rust/gold材質のみに適用。
+- `assets/base/industrial_deck_wear.svg`（512px）：暗い床色を損なわない擦れ、油跡、軽い補修傷。6色の既存床MultiMeshを維持し、UVオフセットと倍率を材質ごとに変えて模様の反復を軽減。
+- `assets/base/aged_canvas_weave.svg`（512px）：天幕の織り目・折り皺・縫い目・雨汚れを再制作。既存パスは維持し、LABOなど既存の布面に反映。
+- 全てSVGの一回だけのGodot画像インポートで、ランタイムのピクセルノイズ/新規シェーダー/描画パス/新規3Dノードは追加しない。小物・建物は既存材質別MultiMeshを再利用。透明エフェクト、青/橙の光源、設計図の鮮明さは維持。原本bbmodel、カメラ、施設配置、セーブ、NEXUS/LABO/GRID操作を変更しない。
+- CI先行登録：`base_surface_textures_self_check.py`・`base_surface_textures_runtime_check.gd`。材質ファイル、読み込み先、全8施設での実バインド、6床バッチ、反射係数と発光の保護を検査。
+- 起動初期の表示先行（2フレーム）を尊重し、`base_reference_architecture_runtime_check.gd`／`base_reference_polish_runtime_check.gd`／`base_floor_contrast_runtime_check.gd`／`base_material_weathering_runtime_check.gd`は、シーンの建築が完成してから検証するよう待機条件を修正（検証値は維持）。
+- モバイル性能と最終画面品質は実機確認が必要。前回のmain Godot CIはこの修正以前から多数の起動待機依存テストで失敗しており、今回のテクスチャ変更とは別に未解決のケースもあり得る。
