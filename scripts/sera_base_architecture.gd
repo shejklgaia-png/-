@@ -20,7 +20,7 @@ const COLORS = {
 # even lower-side sites turn into the shared working yard, not at the camera.
 # Each site retains its own single-piece floor slab and separate clutter pivots.
 const BODY_YAW_DEGREES = {
-    "NEXUS": 29.0, "LABO": -159.0, "SMELTER": 88.0,
+    "NEXUS": 29.0, "LABO": -159.0, "SMELTER": 93.0,
     "RECYCLER": -20.0, "STORAGE": 179.0, "GENERATOR": -77.0,
     "SCRAP_COLLECTOR": -151.0, "BUILD_TERMINAL": -144.0,
 }
