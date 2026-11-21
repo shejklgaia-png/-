@@ -1074,15 +1074,20 @@ func _layout_equipment_controls() -> void:
         var value_label: Label = row_data["value"]
         var item_icon: TextureRect = row_data["equipped_icon"]
         var model_code: Label = row_data["model_code"]
-        # Separate the icon, item name and right-aligned model code. Preserve
-        # a 15px gap beside the square icon on narrow Android viewports.
-        var icon_size: float = minf(48.0, row.size.y - 18.0)
-        var text_left: float = 7.0 + icon_size + 15.0
+        # Keep an inset square icon at the exact card-height centre. The
+        # separate text lane is never allowed to touch the icon frame.
+        # For a 720px portrait viewport: 60px icon, ~16px left inset and
+        # ~24px whitespace before the item name. Narrow viewports scale down.
+        var icon_left: float = clampf(row.size.x * 0.055, 12.0, 18.0)
+        var icon_size: float = minf(row.size.y - 28.0,
+            clampf(row.size.x * 0.21, 40.0, 60.0))
+        var icon_gap: float = clampf(row.size.x * 0.08, 17.0, 24.0)
+        var text_left: float = icon_left + icon_size + icon_gap
         var text_width: float = maxf(20.0, row.size.x - text_left - 12.0)
         var code_height: float = clampf(row.size.y * 0.23, 15.0, 21.0)
         var code_top: float = row.size.y - code_height - 5.0
         var value_top: float = row.size.y * 0.35
-        item_icon.position = Vector2(7.0, (row.size.y - icon_size) * 0.5)
+        item_icon.position = Vector2(icon_left, (row.size.y - icon_size) * 0.5)
         item_icon.size = Vector2(icon_size, icon_size)
         name_label.position = Vector2(text_left, 5.0)
         name_label.size = Vector2(text_width, row.size.y * 0.27)
