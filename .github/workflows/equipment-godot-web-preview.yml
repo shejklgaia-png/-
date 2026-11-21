@@ -125,6 +125,32 @@ jobs:
         uses: actions/upload-pages-artifact@v3
         with:
           path: _site
+      - name: Wait for unique Pages artifact API registration
+        if: steps.pages.outputs.enabled == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          # upload-pages-artifact writes one special artifact. deploy-pages
+          # sometimes races its metadata indexing and reports "No artifacts".
+          # A new workflow run must be used after a failed deploy: re-running
+          # the same run uploads a second github-pages and fails as duplicates.
+          for attempt in $(seq 1 15); do
+            count="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/artifacts?per_page=100" \
+              --jq '[.artifacts[] | select(.name == "github-pages")] | length' || echo 0)"
+            if [ "$count" = "1" ]; then
+              echo "SERA_PAGES_ARTIFACT_READY: one artifact visible (attempt $attempt)"
+              sleep 12
+              exit 0
+            fi
+            if [ "$count" -gt 1 ]; then
+              echo "::error::Multiple github-pages artifacts in one run; start a fresh workflow, do not re-run this job."
+              exit 1
+            fi
+            sleep 4
+          done
+          echo "::error::github-pages artifact not available after 15 checks"
+          exit 1
       - if: steps.pages.outputs.enabled == 'true'
         id: deploy
         uses: actions/deploy-pages@v4
