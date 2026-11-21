@@ -30,7 +30,7 @@ function intakeBounds(meshes){
  for(const e of meshes)for(const v of Object.values(e.vertices||{})){const o=e.origin||[0,0,0],q=rotatePoint(v,(e.rotation||[0,0,0]).map(Number)).map((x,i)=>x+o[i]);for(let i=0;i<3;i++){a[i]=Math.min(a[i],q[i]);b[i]=Math.max(b[i],q[i])}}
  return {lo:a,hi:b,center:a.map((v,i)=>(v+b[i])/2),size:a.map((v,i)=>Math.max(.00001,b[i]-v))};
 }
-function intakeExternal(doc,packName,select,reference,scale,keepAspect){
+function intakeExternal(doc,packName,select,reference,scale,keepAspect,slot){
  const external=intakeDoc(packName),picked=[];
  intakeWalk(external,(e,path)=>{if(!select||select(e,path))picked.push(e)});
  if(!picked.length)return;
@@ -44,7 +44,7 @@ function intakeExternal(doc,packName,select,reference,scale,keepAspect){
  let count=0;
  for(const src of picked){
   const item=structuredClone(src),oldOrigin=item.origin||[0,0,0],oldRotation=item.rotation||[0,0,0];
-  item.uuid="intake_"+packName+"_"+count++;item.origin=[0,0,0];item.rotation=[0,0,0];item.visibility=true;item.export=true;
+  item.uuid="intake_"+packName+"_"+count++;item.origin=[0,0,0];item.rotation=[0,0,0];item.visibility=true;item.export=true;item.intake_slot=slot;
   for(const [key,vertex] of Object.entries(item.vertices||{})){
    let q=rotatePoint(vertex,oldRotation).map((v,i)=>v+Number(oldOrigin[i]||0));
    item.vertices[key]=q.map((v,i)=>refBounds.center[i]+(v-sourceBounds.center[i])*(keepAspect?uniform:ax[i])*scale);
@@ -56,40 +56,75 @@ function intakeExternal(doc,packName,select,reference,scale,keepAspect){
   doc.elements.push(item);doc.outliner.push(item.uuid);
  }
 }
-function intakeComposedDoc(selection,scale,keepAspect){
+function intakeScaleSlot(pieces,reference,scale,keepAspect){
+ if(!pieces.length||!reference?.length)return;
+ const source=intakeBounds(pieces),standard=intakeBounds(reference);
+ const ratios=standard.size.map((v,i)=>v/source.size[i]);
+ const factor=keepAspect?Math.min(...ratios):0;
+ const applied=ratios.map(v=>(keepAspect?factor:v)*scale);
+ for(const element of pieces){
+  const oldOrigin=element.origin||[0,0,0],oldRotation=element.rotation||[0,0,0];
+  for(const [key,vertex] of Object.entries(element.vertices||{})){
+   const v=rotatePoint(vertex,oldRotation).map((q,i)=>q+Number(oldOrigin[i]||0));
+   element.vertices[key]=v.map((q,i)=>standard.center[i]+(q-source.center[i])*applied[i]);
+  }
+  element.origin=[0,0,0];element.rotation=[0,0,0];
+ }
+}
+function intakeComposedDoc(selection,scale,keepAspect,editingSlot="head"){
  const base=intakeDoc("equipment"),document3d=structuredClone(base),selectedMeshes=[];
  const reference={};
  intakeWalk(base,(e,path)=>{
   const root=(path[0]||"");const set=root==="Waist2"?"B":"A",slot=intakeSlot(path);
-  if(set==="A"){(reference[slot]||(reference[slot]=[])).push(e)}
+  if(set==="A")(reference[slot]||(reference[slot]=[])).push(e);
   let requested=selection[slot]||"A";
   if(slot==="booster"&&requested==="B")requested="A";
   if(slot==="head"&&["C","D"].includes(requested))return;
   if(slot==="legs"&&["C","D"].includes(requested))return;
   if(slot==="weapon_r"&&requested==="K")return;
   if(slot==="weapon_l"&&selection.weapon_r==="K")return;
-  if(root.startsWith("Waist")&&requested===set)selectedMeshes.push(e);
+  if(root.startsWith("Waist")&&requested===set)selectedMeshes.push({mesh:e,slot});
  });
- document3d.elements=selectedMeshes.map(e=>{const x=structuredClone(e);x.visibility=true;x.export=true;return x});
+ document3d.elements=selectedMeshes.map(({mesh,slot})=>{
+  const x=structuredClone(mesh);x.visibility=true;x.export=true;x.intake_slot=slot;return x;
+ });
  document3d.outliner=document3d.elements.map(x=>x.uuid);
  document3d.groups=[];
- if(selection.head==="D")intakeExternal(document3d,"head_d",null,reference.head,scale,keepAspect);
- if(selection.head==="C")intakeExternal(document3d,"head_c",null,reference.head,scale,keepAspect);
- if(selection.legs==="D")intakeExternal(document3d,"legs_d",null,reference.legs,1,true);
- if(selection.legs==="C")intakeExternal(document3d,"bird_leg",(e,path)=>path.some(x=>/bird_/i.test(x)),reference.legs,1,true);
- if(selection.weapon_r==="K")intakeExternal(document3d,"katana",(e,path)=>path.some(x=>/katana_/i.test(x)),reference.weapon_r,1,true);
+ if(selection.head==="D")intakeExternal(document3d,"head_d",null,reference.head,1,true,"head");
+ if(selection.head==="C")intakeExternal(document3d,"head_c",null,reference.head,1,true,"head");
+ if(selection.legs==="D")intakeExternal(document3d,"legs_d",null,reference.legs,1,true,"legs");
+ if(selection.legs==="C")intakeExternal(document3d,"bird_leg",(e,path)=>path.some(x=>/bird_/i.test(x)),reference.legs,1,true,"legs");
+ if(selection.weapon_r==="K")intakeExternal(document3d,"katana",(e,path)=>path.some(x=>/katana_/i.test(x)),reference.weapon_r,1,true,"weapon_r");
+ // Only the edited slot is resized. Keep the rest of the A-set proportions.
+ const edited=document3d.elements.filter(e=>e.intake_slot===editingSlot);
+ intakeScaleSlot(edited,reference[editingSlot],scale,keepAspect);
  return document3d;
 }
-async function intakeRender(kind,selected={},scale=1,keepAspect=true){
+function intakeStandaloneDoc(selection,slot,scale,keepAspect){
+ const composite=intakeComposedDoc(selection,scale,keepAspect,slot);
+ const picked=composite.elements.filter(e=>e.intake_slot===slot);
+ if(!picked.length)throw Error(slot+" の3D装備モデルがありません");
+ composite.elements=picked;
+ composite.outliner=picked.map(e=>e.uuid);
+ composite.name=slot+" "+(selection[slot]||"A");
+ return composite;
+}
+let intakeRenderQueue=Promise.resolve();
+async function intakeRender(kind,selected={},scale=1,keepAspect=true,slot="head"){
  if(!gl||!model)return;
  if(!intakeOriginal)intakeOriginal=model;
+ const doc=kind==="body"?intakeComposedDoc(selected,scale,keepAspect,slot):
+   intakeStandaloneDoc(selected,slot,scale,keepAspect);
  try{
-  const doc=kind==="body"?intakeComposedDoc(selected,scale,keepAspect):intakeOriginal;
   parseModel(doc);await uploadTexture(doc);uploadGeometry();
   intakePreviewKind=kind;
-  $('modelTitle').textContent=kind==="body"?"装備A基準・全身換装プレビュー":(intakeOriginal.name||"原本モデル");
+  $('modelTitle').textContent=kind==="body"?"Aセット基準 / 全身換装":"単体 / "+slot+" "+(selected[slot]||"A");
   $('downloadPng').disabled=kind==="body";
-  draw();schedule();say(kind==="body"?"全身3D構成を表示。Godotネイティブと描画差があるため撮影確定はICONタブで行ってください。":"原本のアイコン撮影モード");
- }catch(e){say("換装プレビューの構成エラー："+e.message,true);console.error(e)}
+  draw();schedule();
+ }catch(e){say("装備プレビューの構成エラー："+e.message,true);console.error(e);throw e}
 }
-window.SERA_INTAKE_RENDER={render:intakeRender,previewKind:()=>intakePreviewKind};
+window.SERA_INTAKE_RENDER={
+ render:(kind,selected,scale,keepAspect,slot)=>intakeRenderQueue=intakeRenderQueue.catch(()=>{}).then(()=>intakeRender(kind,selected,scale,keepAspect,slot)),
+ snapshot:async()=>{await intakeRenderQueue;draw();return canvas.toDataURL("image/png")},
+ previewKind:()=>intakePreviewKind
+};
