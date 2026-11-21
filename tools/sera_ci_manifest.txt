@@ -84,6 +84,9 @@ gd tools/base_isometric_layout_runtime_check.gd
 # More room between vertical rows, plus 76 additional collision-checked 3D props.
 py tools/base_tall_dense_composition_self_check.py
 gd tools/base_tall_dense_composition_runtime_check.gd
+# Refit each facility roof/volume and lower LABO without losing 152 props.
+py tools/base_structural_mass_self_check.py
+gd tools/base_structural_mass_runtime_check.gd
 # Lower use of portrait space while keeping NEXUS compact and all eight tap targets visible.
 py tools/base_lower_larger_composition_self_check.py
 gd tools/base_lower_larger_composition_runtime_check.gd

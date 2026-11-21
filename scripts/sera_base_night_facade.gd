@@ -55,8 +55,12 @@ static func _nexus(g: Variant) -> void:
 
 static func _labo(g: Variant) -> void:
     # One sweeping pitch is readable from a high camera: stitched panels below.
-    g.poly("LabCanopyCrest", "roof", Vector3(0, 3.47, -0.52),
-        Vector3(4.35, 0.49, 3.48), "cloth")
+    # Real two-plane tent roof; the high central ridge is not a flat slab.
+    for side in [-1.0, 1.0]:
+        g.poly_tilt("LabCanopyCrest", "roof",
+            Vector3(side * 1.06, 3.53, -0.52),
+            Vector3(2.30, 0.24, 3.48), "cloth",
+            Vector3(0.0, 0.0, -side * 0.18))
     g.poly("LabCanopyFrontLip", "roof", Vector3(0, 3.29, 1.54),
         Vector3(4.56, 0.20, 0.52), "slate")
     for side in [-1.0, 1.0]:
@@ -73,8 +77,11 @@ static func _labo(g: Variant) -> void:
 
 static func _collector(g: Variant) -> void:
     # Open front stays visible below the elevated salvage-sorting shed.
-    g.poly("CollectorWeatherHood", "roof", Vector3(-0.10, 2.51, -0.52),
-        Vector3(2.68, 0.42, 1.48), "rust")
+    for side in [-1.0, 1.0]:
+        g.poly_tilt("CollectorWeatherHood", "roof",
+            Vector3(side * 0.64 - 0.10, 2.52, -0.52),
+            Vector3(1.38, 0.23, 1.48), "rust",
+            Vector3(0.0, 0.0, -side * 0.17))
     for side in [-1.0, 1.0]:
         g.rod("CollectorShedPost", Vector3(side * 1.13, 0.20, -0.99),
             Vector3(side * 1.13, 2.35, -0.99), 0.11, "edge")
@@ -105,8 +112,11 @@ static func _smelter(g: Variant) -> void:
         Vector3(1.23, 0.12, 0.13), "amber_light")
 
 static func _recycler(g: Variant) -> void:
-    g.poly("RecyclerRoofCowl", "roof", Vector3(0, 2.02, -0.51),
-        Vector3(2.64, 0.47, 1.47), "armor_light")
+    for side in [-1.0, 1.0]:
+        g.poly_tilt("RecyclerRoofCowl", "roof",
+            Vector3(side * 0.65, 2.03, -0.51),
+            Vector3(1.37, 0.26, 1.47), "armor_light",
+            Vector3(0.0, 0.0, -side * 0.16))
     g.poly("RecyclerCowlIntake", "hood", Vector3(0, 1.75, -1.08),
         Vector3(1.80, 0.45, 0.48), "dark")
     for side in [-1.0, 1.0]:
@@ -137,10 +147,13 @@ static func _generator(g: Variant) -> void:
 
 static func _storage(g: Variant) -> void:
     # Full-size tensioned cloth shelter; the loading aperture stays exposed.
-    g.poly("StorageFabricCanopy", "canvas", Vector3(0, 2.26, -0.30),
-        Vector3(2.72, 0.47, 2.19), "cloth")
-    g.poly("StorageTarpRainPeak", "roof", Vector3(0, 2.48, -0.28),
-        Vector3(2.19, 0.30, 1.82), "armor")
+    for side in [-1.0, 1.0]:
+        g.poly_tilt("StorageFabricCanopy", "canvas",
+            Vector3(side * 0.68, 2.28, -0.30),
+            Vector3(1.44, 0.37, 2.19), "cloth",
+            Vector3(0.0, 0.0, -side * 0.23))
+    g.poly("StorageTarpRainPeak", "roof", Vector3(0, 2.51, -0.28),
+        Vector3(0.65, 0.25, 1.83), "armor")
     for side in [-1.0, 1.0]:
         g.rod("StorageTarpGrommetCord",
             Vector3(side * 1.25, 2.28, 0.72),
@@ -154,8 +167,11 @@ static func _storage(g: Variant) -> void:
 
 static func _terminal(g: Variant) -> void:
     # Small station grows into a sheltered maintenance kiosk, not a monolith.
-    g.poly("TerminalServiceRoof", "roof", Vector3(0, 2.66, -0.32),
-        Vector3(2.28, 0.39, 1.75), "armor")
+    for side in [-1.0, 1.0]:
+        g.poly_tilt("TerminalServiceRoof", "roof",
+            Vector3(side * 0.55, 2.66, -0.32),
+            Vector3(1.19, 0.27, 1.75), "armor",
+            Vector3(0.0, 0.0, -side * 0.17))
     g.poly("TerminalUpperCoolingDuct", "hood", Vector3(0.52, 2.38, -0.60),
         Vector3(0.74, 0.42, 0.63), "slate")
     for side in [-1.0, 1.0]:

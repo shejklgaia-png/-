@@ -7,7 +7,7 @@ runtime=(r/"tools/base_soft_center_space_runtime_check.gd").read_text(encoding="
 hub=(r/"scripts/base_exploration.gd").read_text(encoding="utf-8")
 floor=(r/"scripts/sera_base_floor_detail.gd").read_text(encoding="utf-8")
 manifest=(r/"tools/sera_ci_manifest.txt").read_text(encoding="utf-8")
-assert '"LABO": (.503, .670)' in layout
+assert '"LABO": (.503, .687)' in layout
 assert 'SERA_BASE_SOFT_CENTER_SPACE_PASS' in runtime
 assert 'site_count != 8' in runtime and 'scraps != 16' in runtime
 assert 'absf(left_heights[i] - right_heights[i]) < 0.007' in runtime

@@ -79,7 +79,7 @@ func _run() -> void:
         return
     var lab: Node3D = stations.get_node("LABO") as Node3D
     var lab_uv: Vector2 = camera.unproject_position(lab.global_position) / view
-    if lab_uv.y < 0.645 or lab_uv.y > 0.685:
+    if lab_uv.y < 0.670 or lab_uv.y > 0.705:
         _fail("LABO moved off lower central area: " + str(lab_uv))
         return
     for lower in ["SCRAP_COLLECTOR", "BUILD_TERMINAL"]:
