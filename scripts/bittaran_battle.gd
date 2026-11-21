@@ -738,6 +738,30 @@ func _tick_bittaran_shockwave(_delta: float) -> void:
     pass
 
 
+## The IK fall clock fires this event only when the chassis has actually
+## reached the floor. A second part break while prone never emits it again.
+func _tick_bittaran_body_fall_fx() -> void:
+    if target_hp <= 0.0 or bittaran_foot_ik == null or (
+            bittaran_dirt_fx == null or target_parts == null):
+        return
+    if not bool(bittaran_foot_ik.call("consume_body_fall_impact")):
+        return
+    var body: AABB = target_parts.call("get_body_hit_aabb")
+    if not body.has_volume():
+        push_warning("Bittaran: fall-impact BODY bounds are unavailable")
+        return
+    var contact: Vector3 = body.get_center()
+    contact.y = 0.0
+    # AABB is the current rendered mesh bound, after head/leg IK.
+    # 70% half-width on each side creates a 140%-wide surface footprint.
+    var half_extents := Vector2(
+        maxf(body.size.x * 0.70, 0.80),
+        maxf(body.size.z * 0.70, 0.80))
+    bittaran_dirt_fx.call("emit_body_fall", contact, half_extents)
+    _add_impact_shake(0.48, 9.0)
+    _play_bittaran_thud(contact, 0.83, -3.0)
+
+
 func _bittaran_player_overlap(box: AABB) -> bool:
     if player == null:
         return false
@@ -1992,8 +2016,35 @@ func _finalize_target_pose(delta: float) -> void:
                 bittaran_rig.call("apply_source_attack_aim",
                     bittaran_attack_frame, player.global_position, delta)
         if bittaran_foot_ik != null and target != null and target_hp > 0:
+            var authored_fall_active: bool = bool(
+                bittaran_foot_ik.call("break_reaction_active"))
             bittaran_foot_ik.call("advance_source_ground_ik",
                 delta, bittaran_motion, bittaran_attack_frame)
+            if authored_fall_active and bittaran_rig != null:
+                var down_clip: String = str(
+                    bittaran_foot_ik.get("authored_down_clip"))
+                var author_t: float = float(
+                    bittaran_foot_ik.call("authored_down_motion_time"))
+                var rising_fraction: float = float(
+                    bittaran_foot_ik.call("standup_pose_fraction"))
+                # The clock's last tick resets break_elapsed to -1;
+                # force the exact final standing key that frame.
+                var recovery_start: float = float(
+                    bittaran_foot_ik.get("break_recover_start"))
+                var recovery_end: float = float(
+                    bittaran_foot_ik.get("break_duration"))
+                var raw_phase: float = clampf(
+                    (float(bittaran_foot_ik.get("break_elapsed"))
+                        - recovery_start)
+                    / maxf(recovery_end - recovery_start, 0.001),
+                    0.0, 1.0)
+                if not bool(bittaran_foot_ik.call(
+                        "break_reaction_active")):
+                    rising_fraction = 1.0
+                    raw_phase = 1.0
+                bittaran_rig.call("apply_authored_down_pose",
+                    down_clip, author_t, rising_fraction, raw_phase,
+                    BittaranFootIK.STANDUP_BACK_LEAN_DEGREES)
         # Preserve actual post-IK bone locals for the NEXT rear attack.
         # This capture happens only outside source attacks so the
         # first entry pose stays fixed across all transition frames.
@@ -2033,6 +2084,7 @@ func _finalize_target_pose(delta: float) -> void:
     # parent-child hierarchy is kept unchanged.
     if target_parts != null:
         target_parts.call("sync_bittaran_parts")
+    _tick_bittaran_body_fall_fx()
     _push_player_out_of_downed_body(delta)
     _update_bittaran_stomp_follow()
     _check_bittaran_attack_hit()

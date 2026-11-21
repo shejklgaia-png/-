@@ -192,6 +192,12 @@ var gait_dip_pulse: float = 0.0
 var gait_prev_stepping: Array[bool] = [false, false, false, false]
 var rest_actor_local_y: float = 0.0
 var break_elapsed: float = -1.0
+# Armed only for the FIRST real chassis drop, never a repeated break while prone.
+var body_fall_impact_armed: bool = false
+# User-authored 1x full-body collapse selected by the broken front/rear leg.
+var authored_down_clip: String = ""
+# Preserve source time when a second shin break extends the down hold.
+var authored_down_clock_offset: float = 0.0
 var windup_elapsed: float = -1.0
 var post_down_idle_remaining: float = 0.0
 var recovery_gait_started: bool = false
@@ -1224,6 +1230,9 @@ func _sole_local_point(foot: Node3D) -> Vector3:
 func reset() -> void:
     if actor == null or legs.size() != 4:
         return
+    authored_down_clip = ""
+    authored_down_clock_offset = 0.0
+    body_fall_impact_armed = false
     if source_ik_enabled:
         # Respawn/reset must preserve the fixed v434 floor calibration.
         # Legacy reset would re-tuck all legs and resurrect the old
@@ -1237,6 +1246,7 @@ func reset() -> void:
     if chassis_bone != null:
         chassis_bone.quaternion = rest_chassis_rotation
     rear_corner_pitch_delta = 0.0
+    body_fall_impact_armed = false
     break_elapsed = -1.0
     windup_elapsed = -1.0
     gait_sway_roll = 0.0
@@ -1592,7 +1602,7 @@ func _solve(leg: Dictionary, sole_goal: Vector3, desired_rotation: Quaternion) -
         var fold: float = _cubic(clampf(
             break_elapsed / LEG_BREAK_FALL_SECONDS, 0.0, 1.0))
         if break_elapsed > break_recover_start:
-            fold *= 1.0 - _cubic((break_elapsed - break_recover_start) /
+            fold *= 1.0 - _rise_ease((break_elapsed - break_recover_start) /
                 maxf(break_duration - break_recover_start, 0.001))
         var toppled_pole: Vector3 = (
             Vector3.DOWN * 1.15 + head_support_outward * 0.45)
@@ -1744,12 +1754,28 @@ func start_leg_break_slide(id: String, head_world_y: float,
     }
     if not id_to_name.has(id):
         return
+    # Preserve the first collapse's keyed pose when another shin breaks
+    # while already prone; only extend its existing recovery clock.
+    if break_elapsed >= 0.0:
+        authored_down_clock_offset += break_elapsed
+    else:
+        authored_down_clock_offset = 0.0
+        var authored: Dictionary = {
+            "leg_fl": "前脚ダウン_L", "leg_fr": "前脚ダウン_R",
+            "leg_rl": "後足ダウン_L", "leg_rr": "後足ダウン_R"
+        }
+        authored_down_clip = str(authored[id])
     # Any new collapse invalidates the last stand-up handoff, including
     # another broken leg during the previous recovery/Idle-settle phase.
     post_down_idle_remaining = 0.0
     recovery_gait_started = false
     recovery_catchup_pending_pair = -1
     if source_ik_enabled:
+        # An interrupted authored attack cannot replant its old striking
+        # limb at the end of the newly authored full-body collapse.
+        source_ik_attacking_id = ""
+        source_ik_attacking_kind = ""
+        source_ik_last_attack_time = -1.0
         # The current source-gait pair must STOP the moment a shin
         # breaks; otherwise one diagonal can remain flagged as airborne
         # through the entire collapse, then never start upright catchup.
@@ -1769,6 +1795,11 @@ func start_leg_break_slide(id: String, head_world_y: float,
     # down timer but never snap an already fallen chassis UP into a windup.
     var already_downed: bool = break_elapsed >= 0.0
     var already_winding: bool = windup_elapsed >= 0.0
+    # A second broken shin extends DOWN, but the body does not land twice.
+    if already_downed:
+        body_fall_impact_armed = false
+    elif not already_winding:
+        body_fall_impact_armed = true
     break_leg_index = -1
     if not already_downed:
         _clear_head_support()
@@ -1931,14 +1962,14 @@ func locomotion_ready() -> bool:
     return ready and not break_reaction_active()         and post_down_idle_remaining <= 0.0         and head_support_leg_index < 0
 
 
-# Actual return-to-upright fraction, NOT raw elapsed time. Both
-# chassis drop and the sideways supporting leg use this cubic easing.
+# The original stand-up durations are retained. C2 easing slows the start
+# and finish of the rise without changing its clock or snapping a joint.
 func standup_pose_fraction() -> float:
     if break_elapsed < break_recover_start or break_elapsed < 0.0:
         return 0.0
     if break_duration <= break_recover_start:
         return 1.0
-    return _cubic((break_elapsed - break_recover_start) /
+    return _rise_ease((break_elapsed - break_recover_start) /
         (break_duration - break_recover_start))
 
 
@@ -1972,6 +2003,37 @@ func windup_progress() -> float:
     if windup_elapsed < 0.0:
         return 0.0
     return clampf(windup_elapsed / LEG_BREAK_WINDUP_SECONDS, 0.0, 1.0)
+
+
+## Source time is elapsed world time from the first collapse anticipation,
+## never stretched to the shorter 2.5-second down window. Both front and
+## rear sources play at their authored 1x rate, then hold their last key.
+func authored_down_motion_time() -> float:
+    if windup_elapsed >= 0.0:
+        return windup_elapsed
+    if break_elapsed >= 0.0:
+        return LEG_BREAK_WINDUP_SECONDS + authored_down_clock_offset + break_elapsed
+    return 0.0
+
+
+func _rise_ease(t: float) -> float:
+    var x: float = clampf(t, 0.0, 1.0)
+    return x * x * x * (x * (x * 6.0 - 15.0) + 10.0)
+
+
+# Only the first physical fall may create a body-wide impact. Consume it
+# AFTER the IK tick has actually reached the floor, not at part-break time.
+func consume_body_fall_impact() -> bool:
+    # The authored BODY contact is substantially later than the old
+    # 0.17s procedural snap. Release the six-layer dust at the actual
+    # impact keys: front 1.75s, rear 1.00s from source playback start.
+    var body_contact_time: float = (
+        1.75 if authored_down_clip.begins_with("前脚") else 1.0)
+    if not body_fall_impact_armed or (
+            authored_down_motion_time() < body_contact_time):
+        return false
+    body_fall_impact_armed = false
+    return true
 
 
 func _cubic(t: float) -> float:
@@ -2036,7 +2098,7 @@ func _advance_leg_break(delta: float) -> void:
         elif break_elapsed < break_recover_start:
             amount = 1.0
         elif break_elapsed < break_duration:
-            amount = 1.0 - _cubic((break_elapsed - break_recover_start)
+            amount = 1.0 - _rise_ease((break_elapsed - break_recover_start)
                 / (break_duration - break_recover_start))
     # This is a visual-only chassis drop; foot anchors stay at world Y=0.
     # Include the persistent grounding correction to prevent a 1-frame
@@ -3378,6 +3440,7 @@ func initialize_source_ground_ik() -> bool:
     if not ready or legs.size() != 4 or actor == null:
         return false
     source_ik_enabled = true
+    body_fall_impact_armed = false
     source_ik_attacking_id = ""
     source_ik_attacking_kind = ""
     source_ik_last_attack_time = -1.0
@@ -4365,7 +4428,23 @@ func advance_source_ground_ik(delta: float, motion: String,
     # so destroying a leg left the boss down indefinitely (v362-v376).
     # Keep both solvers on the SAME physical break/recovery timeline.
     if break_reaction_active():
+        # Advance the unchanged 0.60s anticipation, 2.5/6s down hold
+        # and 1.0/1.3s recovery clocks without procedural leg IK:
+        # the entire BODY and four 3-joint limb chains now belong to
+        # the authored clip in battle._finalize_target_pose().
         _advance_leg_break(delta)
+        var scale_y: float = maxf(
+            absf(actor.get_parent().global_basis.get_scale().y), 0.001)
+        actor.position.y = (rest_actor_local_y
+            + ground_correction_world / scale_y)
+        source_ik_last_actor_position = actor.global_position
+        # The final recovery tick transitions break_elapsed to -1.
+        # Start the first mandatory diagonal foot catch-up on THAT
+        # same upright frame; delaying until the next tick causes a
+        # perceptible frozen-foot pop and breaks the v367 contract.
+        if not break_reaction_active():
+            _source_ik_advance_locomotion(delta, motion)
+        return
     elif post_down_idle_remaining > 0.0 and head_support_leg_index < 0:
         var parent_scale: float = maxf(
             absf(actor.get_parent().global_basis.get_scale().y), 0.001)

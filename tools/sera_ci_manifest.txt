@@ -1,3 +1,6 @@
+py tools/bittaran_authored_down_self_check.py
+gd tools/bittaran_authored_down_runtime_check.gd
+gd tools/bittaran_body_fall_runtime_check.gd
 # NEXUS picker: matte tech cards, three-column touch grid and equipped-state emphasis.
 py tools/nexus_part_picker_design_self_check.py
 gd tools/nexus_part_picker_design_runtime_check.gd

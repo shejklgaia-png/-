@@ -29,7 +29,8 @@ assert [a["name"] for a in boss["animations"]] == [
     "Wait", "なぎ払い", "弾き", "踏みつけ_L", "なぎ払い_R",
     "弾き_R", "踏みつけ_R", "Idle", "Turn", "Approach",
     "後足踏みつけ_L", "後足踏みつけ_R",
-    "後足なぎ払い_L", "後足なぎ払い_R"]
+    "後足なぎ払い_L", "後足なぎ払い_R",
+    "前脚ダウン_L", "前脚ダウン_R", "後足ダウン_L", "後足ダウン_R"]
 original_clips = {a["name"]: a for a in source["animations"]}
 for clip in boss["animations"][:7]:
     # The two new authored full-length sweeps supersede 17:21 source.
