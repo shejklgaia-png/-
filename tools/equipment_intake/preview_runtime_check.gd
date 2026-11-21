@@ -102,6 +102,52 @@ func _check() -> void:
         if piece is MeshInstance3D and piece.material_override==null:
             _fail("Godot game material missing")
             return
+    # Actual equipped B arms + D lower body at edited size: BODY must run
+    # exactly the same NEXUS solver, using the post-scale real meshes.
+    preview.call("_apply_command", {"mode":"body","editing_slot":"arms",
+        "selected":{"head":"D","torso":"A","arms":"B","legs":"D",
+            "booster":"A","weapon_r":"A","weapon_l":"A"},
+        "size":1.5,"keep_aspect":true,"seq":121})
+    await process_frame
+    var captured_fitted: Dictionary = {}
+    var fitted_bones: Dictionary = {}
+    for raw_bone in (rig.get("bones") as Dictionary).values():
+        var bone: Node3D = raw_bone
+        if ["Shoulder_L","Shoulder_R","UpperArm_L","UpperArm_R"].has(str(bone.name)):
+            fitted_bones[str(bone.name)] = bone
+            captured_fitted[str(bone.name)] = bone.quaternion
+    if captured_fitted.size() != 4:
+        _fail("Full-body solver missing four shoulder/upper-arm bones")
+        return
+    preview.call("_apply_preview_standing_pose")
+    for name in captured_fitted:
+        var authored: Quaternion = (fitted_bones[name] as Node3D).quaternion
+        var fitted: Quaternion = captured_fitted[name]
+        var max_delta: float = 3.2 if name.begins_with("Shoulder") else 24.0
+        if rad_to_deg(authored.angle_to(fitted)) > max_delta + 0.01:
+            _fail("Full-body clearance exceeded NEXUS joint limit: "+name)
+            return
+    preview.call("_fit_full_body_clearance")
+    for name in captured_fitted:
+        if not (fitted_bones[name] as Node3D).quaternion.is_equal_approx(captured_fitted[name]):
+            _fail("Full-body clearance cannot reproduce the same fitted pose: "+name)
+            return
+    # Reselecting the same models must start at the authored pose again.
+    preview.call("_apply_command", {"mode":"body","editing_slot":"arms",
+        "selected":{"head":"D","torso":"A","arms":"B","legs":"D",
+            "booster":"A","weapon_r":"A","weapon_l":"A"},
+        "size":1.5,"keep_aspect":true,"seq":122})
+    await process_frame
+    for name in captured_fitted:
+        if not (fitted_bones[name] as Node3D).quaternion.is_equal_approx(captured_fitted[name]):
+            _fail("Full-body clearance accumulated across equipment refresh: "+name)
+            return
+    # Restore baseline selections; isolated ICON must never inherit the fit.
+    preview.call("_apply_command", {"mode":"body","editing_slot":"head",
+        "selected":{"head":"D","torso":"A","arms":"A","legs":"C",
+            "booster":"B","weapon_r":"K","weapon_l":"A"},
+        "size":1.0,"keep_aspect":false,"seq":123})
+    await process_frame
     # Isolated ICON and PARAMETERS preview must hide every other body slot.
     preview.call("_apply_command", {"mode":"icon", "editing_slot":"head",
         "selected":{"head":"D","torso":"A","arms":"A","legs":"A",
@@ -193,5 +239,5 @@ func _check() -> void:
         _fail("Solid mode should remove the grid while keeping the navy background")
         return
     print("SERA_ICON_BACKGROUND_AND_TOUCH_RUNTIME_OK")
-    print("SERA_GODOT_INTAKE_RUNTIME_OK real_rig=true material=game outline=game nexus_pose=true icon_restored=true")
+    print("SERA_GODOT_INTAKE_RUNTIME_OK real_rig=true material=game outline=game nexus_pose=true shared_arm_clearance=true icon_restored=true")
     quit(0)
