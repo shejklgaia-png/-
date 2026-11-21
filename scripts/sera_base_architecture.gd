@@ -3,6 +3,8 @@ const BaseClutter = preload("res://scripts/sera_base_clutter.gd")
 const BasePolish = preload("res://scripts/sera_base_reference_polish.gd")
 const WEATHERED_STEEL_PATH: String = "res://assets/base/industrial_steel_grunge.svg"
 const WEATHERED_CANVAS_PATH: String = "res://assets/base/aged_canvas_weave.svg"
+const WEATHERED_ARMOR_PATH: String = "res://assets/base/industrial_armor_chipped.svg"
+const WEATHERED_OXIDE_PATH: String = "res://assets/base/industrial_oxidized_metal.svg"
 ## Industrial reference rebuild for the eight individually modelled base structures.
 ## Batched opaque meshes keep a dense kit-bashed silhouette on Android GL.
 const COLORS = {
@@ -111,6 +113,12 @@ class Batch:
             steel_texture = load(WEATHERED_STEEL_PATH) as Texture2D
         if ResourceLoader.exists(WEATHERED_CANVAS_PATH):
             canvas_texture = load(WEATHERED_CANVAS_PATH) as Texture2D
+        var armor_texture: Texture2D = null
+        var oxide_texture: Texture2D = null
+        if ResourceLoader.exists(WEATHERED_ARMOR_PATH):
+            armor_texture = load(WEATHERED_ARMOR_PATH) as Texture2D
+        if ResourceLoader.exists(WEATHERED_OXIDE_PATH):
+            oxide_texture = load(WEATHERED_OXIDE_PATH) as Texture2D
         var keys: Array = entries.keys()
         keys.sort()
         for key_variant in keys:
@@ -141,10 +149,23 @@ class Batch:
             surface.albedo_color = Color(COLORS[tint])
             surface.metallic = 0.31 if tint != "cloth" else 0.0
             surface.roughness = 0.75 if tint != "glass" else 0.46
+            # Damp oxidized mechanics and aged painted plates read as rough,
+            # not bright plastic. Machine screens and emissive bars stay crisp.
+            if tint in ["rust", "gold"]:
+                surface.roughness = 0.87
+                surface.metallic = 0.24
+            elif tint in ["armor", "armor_light", "slate", "crate"]:
+                surface.roughness = 0.82
             if tint == "cloth":
                 surface.albedo_texture = canvas_texture
             elif tint not in ["glass", "blue_light", "amber_light", "amber"]:
+                # Preserve the legacy weathered steel fallback during fresh
+                # editor / Android imports; all surface variants share batches.
                 surface.albedo_texture = steel_texture
+                if tint in ["armor", "armor_light", "slate", "crate"] and armor_texture != null:
+                    surface.albedo_texture = armor_texture
+                elif tint in ["rust", "gold"] and oxide_texture != null:
+                    surface.albedo_texture = oxide_texture
             if tint in ["blue_light", "amber_light", "amber"]:
                 surface.emission_enabled = true
                 surface.emission = Color(COLORS[tint])
