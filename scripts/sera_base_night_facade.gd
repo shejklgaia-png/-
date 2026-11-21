@@ -79,9 +79,9 @@ static func _collector(g: Variant) -> void:
     # Open front stays visible below the elevated salvage-sorting shed.
     for side in [-1.0, 1.0]:
         g.poly_tilt("CollectorWeatherHood", "roof",
-            Vector3(side * 0.64 - 0.10, 2.52, -0.52),
-            Vector3(1.38, 0.23, 1.48), "rust",
-            Vector3(0.0, 0.0, -side * 0.17))
+            Vector3(side * 0.94 - 0.10, 2.58, -0.75),
+            Vector3(0.52, 0.19, 1.22), "rust",
+            Vector3(0.0, 0.0, -side * 0.09))
     for side in [-1.0, 1.0]:
         g.rod("CollectorShedPost", Vector3(side * 1.13, 0.20, -0.99),
             Vector3(side * 1.13, 2.35, -0.99), 0.11, "edge")
@@ -114,9 +114,9 @@ static func _smelter(g: Variant) -> void:
 static func _recycler(g: Variant) -> void:
     for side in [-1.0, 1.0]:
         g.poly_tilt("RecyclerRoofCowl", "roof",
-            Vector3(side * 0.65, 2.03, -0.51),
-            Vector3(1.37, 0.26, 1.47), "armor_light",
-            Vector3(0.0, 0.0, -side * 0.16))
+            Vector3(side * 0.87, 2.03, -0.77),
+            Vector3(0.66, 0.22, 1.02), "armor_light",
+            Vector3(0.0, 0.0, -side * 0.12))
     g.poly("RecyclerCowlIntake", "hood", Vector3(0, 1.75, -1.08),
         Vector3(1.80, 0.45, 0.48), "dark")
     for side in [-1.0, 1.0]:
@@ -130,8 +130,8 @@ static func _recycler(g: Variant) -> void:
         Vector3(0.82, 0.13, 0.09), "amber_light")
 
 static func _generator(g: Variant) -> void:
-    g.poly("GeneratorRoofShield", "roof", Vector3(0.30, 2.42, -0.44),
-        Vector3(2.48, 0.33, 1.51), "slate")
+    g.poly("GeneratorRoofShield", "hood", Vector3(0.88, 2.13, -0.55),
+        Vector3(0.74, 0.34, 1.06), "slate")
     for side in [-1.0, 1.0]:
         g.rod("GeneratorRoofSupport",
             Vector3(side * 1.07, 1.58, -0.91),
@@ -169,9 +169,9 @@ static func _terminal(g: Variant) -> void:
     # Small station grows into a sheltered maintenance kiosk, not a monolith.
     for side in [-1.0, 1.0]:
         g.poly_tilt("TerminalServiceRoof", "roof",
-            Vector3(side * 0.55, 2.66, -0.32),
-            Vector3(1.19, 0.27, 1.75), "armor",
-            Vector3(0.0, 0.0, -side * 0.17))
+            Vector3(side * 0.75, 2.67, -0.72),
+            Vector3(0.62, 0.21, 0.94), "armor",
+            Vector3(0.0, 0.0, -side * 0.08))
     g.poly("TerminalUpperCoolingDuct", "hood", Vector3(0.52, 2.38, -0.60),
         Vector3(0.74, 0.42, 0.63), "slate")
     for side in [-1.0, 1.0]:
