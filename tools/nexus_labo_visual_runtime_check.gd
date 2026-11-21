@@ -55,6 +55,31 @@ func _run() -> void:
                 if row.position.y < 0 or row.position.y + row.size.y > right.size.y + 1.0:
                     _fail("equipment row falls outside the customize panel")
                     return
+                var icon: TextureRect = equipment[slot]["equipped_icon"] as TextureRect
+                var item_name: Label = equipment[slot]["value"] as Label
+                var model_code: Label = equipment[slot]["model_code"] as Label
+                if icon == null or item_name == null or model_code == null:
+                    _fail("equipment needs separate icon, name and model-code nodes")
+                    return
+                if item_name.position.x < icon.position.x + icon.size.x + 12.0:
+                    _fail("equipment icon overlaps the item name")
+                    return
+                if item_name.position.x + item_name.size.x > row.size.x - 5.0:
+                    _fail("equipment name exceeds the card right edge")
+                    return
+                if model_code.horizontal_alignment != HORIZONTAL_ALIGNMENT_RIGHT or (
+                        model_code.position.x + model_code.size.x > row.size.x - 5.0 or
+                        model_code.position.y + model_code.size.y > row.size.y + 1.0):
+                    _fail("model code is not inside the bottom-right corner")
+                    return
+                if (model_code.get_theme_font_size("font_size") >=
+                        item_name.get_theme_font_size("font_size")):
+                    _fail("model code must use smaller type than the item name")
+                    return
+                var code_tint: Color = model_code.get_theme_color("font_color")
+                if code_tint.r > 0.73 or code_tint.g > 0.73 or code_tint.b > 0.73:
+                    _fail("model-code tint must be muted gray")
+                    return
         elif right.visible:
             _fail("customize panel leaked into " + target)
             return

@@ -17,6 +17,13 @@ for expected in (
     'LaboSkin.card_style("selected" if system_selected_slot == slot else "normal")',
     'LaboSkin.terminal_segment_style("selected")',
     'LaboSkin.terminal_segment_style("normal")',
+    # NEXUS item name and model/instance code are independent text nodes.
+    'var model_code := Label.new()',
+    'model_code.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT',
+    '"model_code": model_code',
+    'set_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS',
+    'model_code.text = equipped_prototype',
+    'label.text = str(PrototypeCatalog.spec(blueprint).get("name", blueprint))',
     'func _tap_equipment_control(point: Vector2) -> bool:',
     'func _tap_training_control(point: Vector2) -> bool:',
     'func _tap_system_control(point: Vector2) -> void:',
@@ -26,6 +33,7 @@ for expected in (
     'func _enter_base() -> void:',
 ):
     assert expected in n, expected
+assert 'PrototypeCatalog.display_instance(' not in n, "model code must not be appended to item name"
 for expected in (
     'static func common_theme() -> Theme:',
     'static func card_style(',
