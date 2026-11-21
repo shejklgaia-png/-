@@ -30,6 +30,26 @@ for token in ('_add_labo_mark_icon(junk_button, "junk")',
     assert token in base + warehouse, token
 assert 'title.text = str(entry.get("name", ""))' in warehouse
 assert 'title.text = mark +' not in warehouse
+# Successful mark changes are represented by icons, not redundant SYSTEM notices.
+assert '"分類を保存しました。"' not in base
+for token in (
+    'var warehouse_header_marks: HBoxContainer',
+    'detail_marks.name = "WarehouseDetailHeaderMarks"',
+    '"WarehouseHeaderFavoriteMarkIcon"',
+    '"WarehouseHeaderJunkMarkIcon"',
+    '_set_warehouse_header_marks(bool(item.get("favorite", false)),',
+    'func _set_warehouse_header_marks(favorite: bool = false, junk: bool = false) -> void:',
+    '_set_warehouse_header_marks()',
+):
+    assert token in base, token
+for token in (
+    'var inline_mark_size: float = clampf(_card_width * 0.09, 20.0, 28.0)',
+    'var marker_x: float = title.position.x + title.size.x + name_to_mark_gap',
+    'var name_width: float = label_font.get_string_size(',
+    'favorite_mark.position = Vector2(marker_x, mark_y)',
+    'junk_mark.position = Vector2(marker_x, mark_y)',
+):
+    assert token in warehouse, token
 assert 'draw_colored_polygon(points, tint)' in marks
 assert 'draw_rect(' in marks
 assert 'py tools/v553_labo_controls_self_check.py' in manifest
