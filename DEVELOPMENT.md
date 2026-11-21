@@ -3814,3 +3814,12 @@
 - Armored steel deck now includes instanced panel seams, fasteners, repair hatches, drain grates, hazard stripes, floor stencil and cable routes. Camera/positions/picking/CRATE path and existing model masters remain unchanged.
 - Added base_reference_architecture self-check and headless runtime check to the CI manifest before implementation; preserved previous layout/navigation tests. Detailed design: docs/BASE_REFERENCE_INDUSTRIAL_2026_11_21_ja.md.
 - Final Android GL Compatibility screenshot and GPU workload require physical-device confirmation.
+
+
+## 2026-11-21：倉庫装備詳細のステータスを3列テーブル化・装備カードの欠字修正
+- 装備製作カードの「基礎：」で全角コロン U+FF1A が縦長四角として表示される問題を、同梱フォントでも表示できる半角 `基礎: ` に変更。
+- 倉庫の装備個体詳細は文字列を1枚のLabelで描く方式を廃止し、`WarehouseStatsTable` の3列GridContainer（項目・計算式・合計）へ変更。各行は独立したPanelで1pxの低コントラスト格子。列幅は項目19%・式59%・結果22%、計算式を横長にし、合計数値は右揃え、項目名と合計はフォントサイズと明度で強調する。
+- ステータスの計算は `LaboStats.total_stat_rows()` に構造化し、既存の基礎値・5つのランダム特性・攻撃/HP倍率・ほかの百分率を維持。ゼロ値の項目も全8行表示する。
+- 「追加特性は戦闘計算へ未接続」の画面上の注釈は削除し、表の3列ヘッダーのみ維持。技術的な試作状態は本記録で保持し、ゲームロジック接続済みと誤認しない。
+- 関連CI（v549の倉庫実表示検査、Labo文字欠け検査）を新仕様へ先行更新し、新規 `warehouse_stats_table_self_check.py` と `warehouse_stats_table_runtime_check.gd` をマニフェストに追加。既存のフォント・倉庫999件仮想化・ボタン操作・保存・スロットの検査は維持。
+- Androidで表の視認性・列の収まり・数値整列・上下スクロール、製作カード「基礎: 」の欠字消失を実機確認する。
