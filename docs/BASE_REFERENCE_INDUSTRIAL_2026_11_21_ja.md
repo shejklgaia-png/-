@@ -158,3 +158,8 @@ LABOは一枚の箱状外壁から、開放前面・背面設備ラック・側�
 - 実GLスクリーンショットで床と8施設の大部分が消える問題を検出。共通`SurfaceTool`で、外向き右手系法線に揃えた頂点順がGodotの時計回り表面規則と逆になっていたことが原因。
 - 三角形のGPU送信順だけ`[a, c, b]`へ反転。面の幾何形状・メッシュサイズ・UV・外向き法線・`MultiMesh`・描画パス・材質・カメラ/タップ/セーブは不変。
 - 実Godotで全7メッシュの各三角形について、ジオメトリ法線と設定済み外向き法線の内積が-0.96以下になることを検査。`base_polygon_geometry_self_check.py`にも時計回り前面契約を追加。片面カリングを無効化して隠すことはしない。
+
+## 2026-11-21 — BASEポリゴン生成のコンパイル停止を修正
+- PR #617の実GL描画で全床・多角形施設が表示されなくなった直接原因は、`sera_base_polygon_meshes.gd`で`_mesh_cache`を参照しながら宣言し忘れたことでした。Godotの実行ログに`Parse Error: Identifier "_mesh_cache" not declared in the current scope`、続いて`Nonexistent function 'make'`が記録されていました。
+- `static var _mesh_cache: Dictionary = {}` をクラスレベルに明示。ポリゴン7種の`ArrayMesh`を安全に再利用し、各施設のバッチ生成を復旧します。
+- `base_polygon_geometry_self_check.py`に宣言チェック、`base_polygon_geometry_runtime_check.gd`に全7種の同一インスタンス共有テストを先行追加。ポリゴン頂点・材質・配置・床面Y・タップ/セーブ等のゲーム挙動は変更しません。
