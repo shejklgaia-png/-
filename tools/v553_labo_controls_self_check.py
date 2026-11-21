@@ -23,7 +23,7 @@ for token in ('LaboConfirmCraftCard', 'LaboConfirmItemIcon',
 # A single prominent craft headline, enlarged equipment preview and a short
 # decision question must replace the redundant confirmation labels/notice.
 for obsolete in ('LaboConfirmSaveNotice', '作成後、この装備は倉庫に保存されます。',
-                 '装備の作成確認', 'LaboStats.baseline(equipment_blueprint)\n'):
+                 '装備の作成確認', '（現行Aセット参照）'):
     assert obsolete not in base, obsolete
 for token in (
     'confirmation_title.text = "以下の装備を作成します" if is_craft else title',
@@ -37,7 +37,7 @@ for token in (
     'var craft_info := VBoxContainer.new()',
     'confirmation_item_name.add_theme_font_size_override("font_size", 30)',
     'confirmation_item_stats.add_theme_font_size_override("font_size", 19)',
-    'LaboStats.baseline(equipment_blueprint).replace("（現行Aセット参照）", "")',
+    'confirmation_item_stats.text = LaboStats.baseline(equipment_blueprint)',
 ):
     assert token in base, token
 assert 'func _request_confirmation(' in base

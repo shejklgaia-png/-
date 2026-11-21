@@ -23,8 +23,8 @@ func _real_icon(texture: Texture2D) -> bool:
     return false
 
 func _run() -> void:
-    if Materials.all_ids().size() != 12 or Catalog.PROTOTYPES.size() != 8:
-        _fail("catalog does not have exactly twelve materials and eight items")
+    if Materials.all_ids().size() != 12 or Catalog.PROTOTYPES.size() != 19:
+        _fail("catalog does not have exactly twelve materials and nineteen real parts")
         return
     for id in Materials.all_ids():
         if not _real_icon(IconAtlas.material_icon(str(id))):
@@ -50,7 +50,7 @@ func _run() -> void:
         used_regions[key] = true
     for blueprint in Catalog.PROTOTYPES.keys():
         var presented: Texture2D = IconAtlas.equipment_icon(str(blueprint))
-        # The atlas source is allowed, but the visible texture is a cached
+        # Real-model PNGs must be cached, and the visible texture is a cached
         # independent 2D image with the universal grid backdrop.
         if presented == null or presented is AtlasTexture:
             _fail("equipment grid texture missing: " + str(blueprint))
@@ -67,7 +67,7 @@ func _run() -> void:
             _fail("equipment grid backdrop is not opaque: " + str(blueprint))
             return
         used_regions[equipment_key] = true
-    if used_regions.size() != 20 or Catalog.uid_for("H01", 1) != "H01-0001" or (
+    if used_regions.size() != 31 or Catalog.uid_for("H01", 1) != "H01-0001" or (
             not Catalog.valid_uid("H01-0001", "H01")) or (
             Catalog.valid_uid("H01-1", "H01")) or (
             Catalog.valid_uid("T01-0001", "H01")):

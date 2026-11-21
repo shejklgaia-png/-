@@ -53,17 +53,18 @@ with TemporaryDirectory() as temp:
     path = Path(temp)/'icon.png'
     path.write_bytes(mini_png)
     assert read_png_metadata(path) == fixture
-# Godot must use approved PNGs from one cached shared registry; legacy icon
-# atlas remains the fallback until a user actually supplies a final PNG.
+# Godot uses actual native 3D model captures for every blueprint. H02's
+# accepted PNG is an interim compatibility fallback for its fixed preset.
 loader = (ROOT / 'scripts/sera_item_icons.gd').read_text(encoding='utf-8')
 registry = (ROOT / 'assets/ui/sera_custom_equipment_icons.gd').read_text(encoding='utf-8')
 catalog = (ROOT / 'scripts/sera_prototype_catalog.gd').read_text(encoding='utf-8')
 assert 'const CustomEquipmentIcons = preload("res://assets/ui/sera_custom_equipment_icons.gd")' in loader
 assert 'static var _custom_equipment_icon_cache: Dictionary = {}' in loader
 assert 'ImageTexture.create_from_image(bitmap)' in loader
-# The legacy atlas remains the fallback SOURCE, but visible equipment
-# portraits now use the shared cached blue-grey grid presentation layer.
-assert 'source = _frame(int(EQUIPMENT_INDICES[blueprint_id]))' in loader
+# Illustration-only equipment atlas portraits must never be used.
+assert 'var source: Texture2D = _native_equipment_icon(blueprint_id)' in loader
+assert 'EQUIPMENT_INDICES' not in loader
+assert 'source = _frame(' not in loader
 assert 'IconBackground.composite(source)' in loader
 assert '_presented_equipment_cache' in loader
 assert 'const ICON_PNG_BASE64 = ' in registry, 'Approved icon registry missing'

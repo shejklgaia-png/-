@@ -28,16 +28,32 @@ static func _amount(value: float) -> String:
     return "%.1f" % value
 
 static func baseline(blueprint: String) -> String:
-    var base: Dictionary = base_values(blueprint)
-    var lines: PackedStringArray = ["基礎ステータス（現行Aセット参照）"]
-    for key in Affixes.EFFECT_IDS:
-        if float(base[key]) <= 0.0:
-            continue
-        var unit: String = "" if key in ["hp", "attack"] else "%"
-        lines.append("%s  %s%s" % [
-            Affixes.EFFECT_NAMES[key], _amount(float(base[key])), unit])
+    # Compact LABO cards must summarize the REAL authored part, not just
+    # Affixes' HP/DEF/attack keys. In particular left-hand shields previously
+    # displayed "no baseline" despite their real guard/bash profiles.
+    var spec: Dictionary = Catalog.spec(blueprint)
+    if spec.is_empty():
+        return ""
+    var slot: String = str(spec.get("slot", ""))
+    var summary_fields: Dictionary = {
+        "head": ["hp", "defense", "lock_range"],
+        "torso": ["hp", "defense", "en_output_mult"],
+        "arms": ["hp", "defense", "attack_mult"],
+        "legs": ["hp", "run_speed", "boost_speed_mult"],
+        "booster": ["hp", "boost_speed", "energy_cost_mult"],
+        "weapon_r": ["attack_damage", "break_damage", "stagger_extend"],
+        "weapon_l": ["bash_damage", "charge_damage", "guard_cost_mult"]
+    }
+    var complete: PackedStringArray = complete_profile_text(blueprint).split("\n")
+    var lines: PackedStringArray = ["基礎ステータス"]
+    for key in summary_fields.get(slot, []):
+        var match_prefix: String = str(PROFILE_LABELS.get(key, key)) + "  "
+        for candidate in complete:
+            if str(candidate).begins_with(match_prefix):
+                lines.append(str(candidate))
+                break
     if lines.size() == 1:
-        lines.append("固有基礎値は未設定（Aセットを使用）")
+        lines.append("性能登録エラー：参照先に基礎値がありません")
     return "\n".join(lines)
 
 static func total_stat_rows(blueprint: String, effects: Variant) -> Array[Dictionary]:
@@ -80,3 +96,73 @@ static func total_formula(blueprint: String, effects: Variant) -> String:
         lines.append("%s  %s = %s" % [
             row["name"], row["formula"], row["total"]])
     return "\n".join(lines)
+
+# Complete, source-driven statistics for each authored part. Do not silently
+# substitute an A profile or invent separate balancing for C/D/K.
+const PROFILE_LABELS: Dictionary = {
+    "weight_pct": "重量比", "hp": "HP", "defense": "防御率",
+    "lock_range": "ロック距離", "tracking": "追尾性能",
+    "en_output_mult": "EN出力", "attack_mult": "近接攻撃倍率",
+    "guard_defense_mult": "ガード防御倍率",
+    "guard_reaction": "ガード反応", "guard_speed_mult": "ガード速度倍率",
+    "run_speed": "歩行速度", "boost_speed_mult": "ブースト速度倍率",
+    "damage_time_mult": "被弾時間倍率", "damage_push_mult": "被弾後退倍率",
+    "down_hits": "ダウン被弾回数", "weight_class": "部位モデル区分",
+    "run_motion": "歩行モーション", "boost_speed": "ブースト速度",
+    "energy_cost_mult": "EN消費倍率", "step_speed_mult": "ステップ速度倍率",
+    "step_time_mult": "ステップ時間倍率",
+    "melee_boost_speed": "近接ブースト速度",
+    "melee_boost_duration": "近接ブースト時間",
+    "attack_damage": "攻撃威力（各段）", "break_damage": "部位破壊威力（各段）",
+    "stagger_gain": "怯み蓄積（各段）", "attack_energy": "攻撃EN消費（各段）",
+    "stagger_extend": "怯み延長秒数", "guard_cost_mult": "ガードEN消費倍率",
+    "guard_transition": "ガード移行時間", "bash_damage": "バッシュ威力",
+    "bash_break": "バッシュ部位破壊", "charge_damage": "溜め威力",
+    "charge_break": "溜め部位破壊", "charge_guard_mult": "溜めガード倍率",
+    "energy_shield": "エネルギーシールド"
+}
+
+static func complete_profile_text(blueprint: String) -> String:
+    var spec: Dictionary = Catalog.spec(blueprint)
+    if spec.is_empty():
+        return ""
+    var slot: String = str(spec.get("slot", ""))
+    var rig_set: String = str(spec.get("rig_set", ""))
+    var profile: Dictionary = PartStats.PROFILES.get(slot, {}).get(rig_set, {})
+    if profile.is_empty():
+        return "性能登録エラー：モデル参照先がありません"
+    var lines: PackedStringArray = ["基礎ステータス"]
+    for key in profile.keys():
+        var raw: Variant = profile[key]
+        var printed: String = ""
+        if raw is bool:
+            if not bool(raw):
+                continue
+            printed = "有効"
+        elif raw is Array:
+            var values: PackedStringArray = []
+            var all_zero: bool = true
+            for n in raw:
+                values.append(str(n))
+                if absf(float(n)) > 0.00001:
+                    all_zero = false
+            if all_zero:
+                continue
+            printed = " / ".join(values)
+        elif raw is float or raw is int:
+            var value: float = float(raw)
+            if is_zero_approx(value):
+                continue
+            if key == "defense":
+                printed = "%.1f%%" % (value * 100.0)
+            elif key == "weight_pct":
+                printed = "%.1f%%" % value
+            elif key.ends_with("_mult") or key == "tracking":
+                printed = "%.1f%%" % (value * 100.0)
+            else:
+                printed = str(raw)
+        else:
+            printed = str(raw)
+        lines.append("%s  %s" % [str(PROFILE_LABELS.get(key, key)), printed])
+    return "\n".join(lines)
+
