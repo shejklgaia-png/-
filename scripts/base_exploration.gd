@@ -5,6 +5,8 @@ const SERA_RIG_PATH: String = "res://scripts/sera_rig.gd"
 const VersionIndicator = preload("res://scripts/version_indicator.gd")
 const BaseFacilities = preload("res://scripts/base_facility_system.gd")
 const BaseArchitecture = preload("res://scripts/sera_base_architecture.gd")
+const BaseClutter = preload("res://scripts/sera_base_clutter.gd")
+const BaseLayoutPreview = preload("res://scripts/sera_base_layout_preview.gd")
 const JunkGeometry = preload("res://scripts/sera_base_junk_geometry.gd")
 const BaseFloorDetail = preload("res://scripts/sera_base_floor_detail.gd")
 const BaseDeckLayout = preload("res://scripts/sera_base_deck_layout.gd")
@@ -68,8 +70,15 @@ var facility_touch_key: String = ""
 var facility_touch_start: Vector2 = Vector2.ZERO
 var startup_layer: CanvasLayer
 var startup_label: Label
+var layout_tools: VBoxContainer
+var layout_shuffle_button: Button
+var layout_copy_button: Button
+var layout_status: Label
+var layout_seed: int = 0
+var layout_rerolls: int = 0
 
 func _ready() -> void:
+    BaseClutter.clear_preview()
     # The old synchronous boot left Android showing only Godot's gray clear
     # color until the entire large BASE world and all of its dependencies
     # finished. Draw an engine-native first frame before heavy construction.
@@ -312,7 +321,7 @@ func _box(parent: Node3D, name: String, at: Vector3, size: Vector3, tint: Color)
     parent.add_child(body)
     return body
 
-func _create_salvage() -> void:
+func _create_salvage(replacement: Array[Dictionary] = []) -> void:
     # Loose salvage is not a set of box-shaped machines. Keep the 16 stable
     # world anchors for layout/navigation tests, and draw all geometry through
     # ONE shared material-batched procedural model (low-cost on Android).
@@ -333,29 +342,34 @@ func _create_salvage() -> void:
     for i in range(lots.size()):
         var pile := Node3D.new()
         pile.name = "ScrapPile_%02d" % i
-        pile.position = lots[i]
-        # Stable but deliberately different slants for every scrap heap.
-        pile.rotation.y = deg_to_rad(float(-26 + posmod(i * 23 + 7, 55)))
-        pile.set_meta("scrap_profile", posmod(i, JunkGeometry.SCRAP_PROFILES))
-        # Give isolated scrap heaps a stronger silhouette. Near buildings,
-        # keep their footprint lower so entrance panels and machinery stay
-        # legible. This uses no extra draw nodes and no per-frame calculations.
-        var nearest: float = lots[i].distance_to(nexus_building.position)
-        for station in facility_system.get_children():
-            if station is Node3D:
-                nearest = minf(nearest,
-                    lots[i].distance_to((station as Node3D).position))
+        var center: Vector3 = lots[i]
+        var heading: float = float(-26 + posmod(i * 23 + 7, 55))
         var scale_factor: float = 1.26
-        if nearest < 4.0:
-            scale_factor = 1.12
-        elif nearest < 7.0:
-            scale_factor = 1.20
+        if replacement.size() == lots.size():
+            var sample: Dictionary = replacement[i]
+            center = Vector3(float(sample["x"]), 0.0, float(sample["z"]))
+            heading = float(sample["yaw_deg"])
+            scale_factor = float(sample["scale"])
+        else:
+            # Preserve the existing authored first-boot anchors unchanged.
+            var nearest: float = center.distance_to(nexus_building.position)
+            for station in facility_system.get_children():
+                if station is Node3D:
+                    nearest = minf(nearest,
+                        center.distance_to((station as Node3D).position))
+            if nearest < 4.0:
+                scale_factor = 1.12
+            elif nearest < 7.0:
+                scale_factor = 1.20
+        pile.position = center
+        pile.rotation.y = deg_to_rad(heading)
+        pile.set_meta("scrap_profile", posmod(i, JunkGeometry.SCRAP_PROFILES))
         pile.set_meta("visual_scale", scale_factor)
         add_child(pile)
-        g.pivot = lots[i]
+        g.pivot = center
         g.yaw = pile.rotation.y
         g.detail_scale = scale_factor
-        JunkGeometry.scrap_heap(g, lots[i], i)
+        JunkGeometry.scrap_heap(g, center, i)
     # One shared opaque MultiMesh per actual geometry/material type, not
     # hundreds of MeshInstance3D nodes or per-frame random CPU rebuilds.
     g.flush()
