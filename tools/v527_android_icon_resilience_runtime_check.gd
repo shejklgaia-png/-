@@ -54,8 +54,13 @@ func _expect(fac: Node, target: String, count: int, first_name: String) -> bool:
     if _card_count(layer) != count or first.get_global_rect().size.y < 80.0:
         _fail("no-image slot count or layout broken for " + target)
         return false
-    if first.icon != null:
-        _fail("simulated missing atlas unexpectedly loaded an icon")
+    # Native model PNGs remain available even when the retired WebP mockups
+    # and Android's imported material atlas are deliberately unavailable.
+    if target == "craft" and first.icon == null:
+        _fail("native equipment photo vanished without retired WebP")
+        return
+    if target != "craft" and first.icon != null:
+        _fail("missing source unexpectedly resolved in material row")
         return false
     if first.get_theme_stylebox("normal") is not StyleBoxTexture:
         _fail("rounded frame must remain visible when icon source is missing")

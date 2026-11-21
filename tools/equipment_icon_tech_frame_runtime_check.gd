@@ -91,5 +91,5 @@ func _check() -> void:
     if material == null or material.get_width() != 72:
         _fail("Material icon unexpectedly changed")
         return
-    print("SERA_EQUIPMENT_TECH_FRAME_RUNTIME_OK eight_blueprints=true 72px=true 512px=true")
+    print("SERA_EQUIPMENT_TECH_FRAME_RUNTIME_OK nineteen_blueprints=true 72px=true 512px=true")
     quit(0)
