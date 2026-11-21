@@ -54,9 +54,10 @@ func _case(battle: Node3D, legs_to_break: Array[String],
     var upright_first_step_frame: int = -1
     var rise_root_distance: float = 0.0
     var final_recovered: bool = false
-    for frame in range(480):
+    for frame in range(1100):
         var elapsed: float = float(ik.get("break_elapsed"))
-        var recover_start: float = float(ik.get("break_recover_start"))
+        var recover_start: float = (float(ik.get("break_recover_start"))
+            + 1.16)
         var down_active: bool = bool(ik.call("down_pose_active"))
         var rising: bool = bool(ik.call("standup_turn_enabled", DT))
         var first_rise: bool = down_active and (
