@@ -5,6 +5,9 @@ extends RefCounted
 
 # Ground-facing shapes are authored at real floor height (panel top is y=-0.03).
 const FLOOR_OFFSET: float = -0.16
+# Matches the BASE camera azimuth atan2(21, 27.2) ~= 37.7 degrees.
+# Keep each item locally rotated rather than rotating all yard positions.
+const VIEW_AZIMUTH_DEGREES: float = 38.0
 const FOOTPRINTS = {
     "antenna_case": Vector2(0.74, 0.68),
     "signal_console": Vector2(0.90, 0.78),
@@ -166,14 +169,24 @@ static func props_for(key: String) -> Array[Dictionary]:
         var item: Dictionary = items[index]
         var kind: String = str(item["kind"])
         var seed: int = _stable_seed(key, kind, index)
+        # Orient most visual piles toward the viewer, with side-to-side
+        # variety instead of parallel rows. Safety has priority at tight gaps.
         var direction: float = -1.0 if index % 2 == 0 else 1.0
-        var desired: float = direction * (10.0 + float(posmod(seed, 12)))
+        var desired: float = VIEW_AZIMUTH_DEGREES + direction * (
+            10.0 + float(posmod(seed, 10)))
         var chosen: float = 0.0
-        for fraction in [1.0, 0.75, 0.50, 0.35]:
-            var candidate: float = desired * fraction
+        for fraction in [1.0, 0.85, 0.70, 0.55, 0.40]:
+            var candidate: float = lerpf(VIEW_AZIMUTH_DEGREES, desired, fraction)
             if _safe_prop_yaw(key, items, index, candidate):
                 chosen = candidate
                 break
+        # A crowded corner can keep a smaller, still purposeful turn.
+        if chosen == 0.0:
+            for fraction in [0.75, 0.50, 0.25]:
+                var candidate: float = VIEW_AZIMUTH_DEGREES * fraction
+                if _safe_prop_yaw(key, items, index, candidate):
+                    chosen = candidate
+                    break
         item["yaw_deg"] = chosen
         items[index] = item
     return items
