@@ -15,7 +15,7 @@ const PartViewer = preload("res://scripts/sera_part_preview_widget.gd")
 const RotateMark = preload("res://scripts/sera_rotatable_mark.gd")
 const CONTROL_SETTINGS_FILE: String = "user://sera_settings.cfg"
 const NexusSelectionOutline = preload("res://scripts/nexus_selection_outline.gd")
-const CUSTOMIZE_GLOW_SHADER = preload("res://shaders/nexus_customize_radial_glow.gdshader")
+const CUSTOMIZE_BACKDROP_SHADER = preload("res://shaders/nexus_customize_radial_glow.gdshader")
 
 const GATE_ORIGIN: Vector3 = Vector3(4.00, 0.02, -10.48)
 const SERA_STAGE_ORIGIN: Vector3 = Vector3(0.0, 0.0, -4.75)
@@ -135,10 +135,6 @@ var customize_motion_end_fov: float = 63.0
 var customize_motion_progress: float = 0.0
 var customize_motion_active: bool = false
 var customize_preview_final_world: Transform3D = Transform3D.IDENTITY
-# Normalized backdrop anchor and head-relative grid spacing are captured once
-# before preview rotation, never recomputed on yaw input.
-var customize_glow_center_ratio: Vector2 = Vector2(0.73, 0.50)
-var customize_glow_grid_spacing_ratio: float = 0.030
 var customize_preview_active: bool = false
 var customize_preview_position: Vector3 = Vector3.ZERO
 var customize_preview_scale: float = 0.80
@@ -153,6 +149,7 @@ const CUSTOMIZE_PREVIEW_DISTANCE: float = 3.25
 const CUSTOMIZE_GLOW_DEPTH_OFFSET: float = 1.80
 const CUSTOMIZE_GLOW_SCREEN_WIDTH: float = 1.0
 const CUSTOMIZE_GLOW_SCREEN_HEIGHT: float = 1.0
+const CUSTOMIZE_GRID_SPACING_PIXELS: float = 42.0
 const CUSTOMIZE_PREVIEW_TARGET_WIDTH_RATIO: float = 0.435
 const CUSTOMIZE_ENTRANCE_SECONDS: float = 0.14
 const CUSTOMIZE_RETRACTION_SECONDS: float = 0.14
@@ -2343,19 +2340,20 @@ func _layout_hud() -> void:
     if customize_preview_active:
         _update_customization_glow()
 
-# A single camera-facing translucent 3D quad sits behind the floating SERA.
-# It is not a screen overlay: depth testing keeps the character in front and
-# preserves the existing 3D hangar visible through the radial falloff.
+# A single camera-facing semi-transparent 3D quad remains behind SERA.
+# Depth testing preserves the visible character; the color and grid are uniform
+# over the portrait screen, without a blue-white halo or character-dependent UVs.
 func _create_customization_glow() -> void:
     var quad := QuadMesh.new()
     quad.size = Vector2.ONE
     var material := ShaderMaterial.new()
-    material.shader = CUSTOMIZE_GLOW_SHADER
-    # Same cyan RGB as nexus_selection_outline.gd's active stroke.
-    material.set_shader_parameter("glow_color", Color(0.35, 0.85, 0.98, 1.0))
-    material.set_shader_parameter("base_opacity", 0.34)
+    material.shader = CUSTOMIZE_BACKDROP_SHADER
+    material.set_shader_parameter("base_tint", Color("#4a6b7d"))
+    material.set_shader_parameter("grid_tint", Color("#213944"))
+    material.set_shader_parameter("grid_strength", 0.65)
+    material.set_shader_parameter("base_opacity", 0.62)
     var backdrop := MeshInstance3D.new()
-    backdrop.name = "CustomizePortraitRadialBackdrop"
+    backdrop.name = "CustomizePortraitGridBackdrop"
     backdrop.mesh = quad
     backdrop.material_override = material
     backdrop.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -2363,66 +2361,9 @@ func _create_customization_glow() -> void:
     cam.add_child(backdrop)
     customize_glow_quad = backdrop
 
-# Snapshot the default front pose only once, before the first preview frame.
-# Neither the backdrop anchor nor grid pitch changes when SERA turns.
-func _capture_customization_glow_layout() -> void:
-    if not customize_preview_active or sera_display_rig == null or cam == null or hud == null:
-        return
-    var viewport_size := hud.size
-    if viewport_size.x <= 1.0 or viewport_size.y <= 1.0:
-        return
-    var rect := _customization_screen_bounds()
-    if rect.size.x <= 1.0 or rect.size.y <= 1.0:
-        return
-    var center: Vector2 = rect.position + rect.size * 0.5
-    var body_bones: Dictionary = sera_display_rig.get("bones")
-    var body_pixels := Vector2.ZERO
-    var body_count := 0
-    for bone_value in body_bones.values():
-        var bone: Node3D = bone_value
-        if bone.name in ["Chest", "Torso", "Waist"]:
-            if not cam.is_position_behind(bone.global_position):
-                body_pixels += cam.unproject_position(bone.global_position)
-                body_count += 1
-    if body_count > 0:
-        center = body_pixels / float(body_count)
-    var model_area: Rect2 = _customize_model_area(viewport_size)
-    center.x = clampf(center.x,
-        model_area.position.x + 20.0, model_area.end.x - 20.0)
-    center.y = clampf(center.y,
-        model_area.position.y + 20.0, model_area.end.y - 20.0)
-    customize_glow_center_ratio = Vector2(
-        center.x / viewport_size.x, center.y / viewport_size.y)
-
-    # Half the projected head width is the width/height of one grid cell.
-    # This is measured on the original NEXUS pose at its fitted scale.
-    var head_half_pixels: float = viewport_size.y * 0.030
-    var head_node: Node = sera_display_rig.find_child("Head_Mesh", true, false)
-    if head_node is MeshInstance3D:
-        var head_mesh: MeshInstance3D = head_node as MeshInstance3D
-        if head_mesh.mesh != null:
-            var box: AABB = head_mesh.mesh.get_aabb()
-            var left: float = INF
-            var right: float = -INF
-            for ix in [0.0, 1.0]:
-                for iy in [0.0, 1.0]:
-                    for iz in [0.0, 1.0]:
-                        var local := box.position + box.size * Vector3(ix, iy, iz)
-                        var world: Vector3 = head_mesh.global_transform * local
-                        if cam.is_position_behind(world):
-                            continue
-                        var pixel: Vector2 = cam.unproject_position(world)
-                        left = minf(left, pixel.x)
-                        right = maxf(right, pixel.x)
-            if right > left:
-                head_half_pixels = (right - left) * 0.5
-    customize_glow_grid_spacing_ratio = clampf(
-        head_half_pixels / viewport_size.y, 0.014, 0.090)
-
-# Cover the whole portrait screen with translucent blue-grey while keeping
-# the radial highlight centered on the original frozen SERA portrait anchor.
-# The quad stays behind the 3D character; rotation never affects UV or grid.
-# Viewport resize only recomputes the screen-space dimensions.
+# Cover the whole portrait screen with a uniform translucent blue-grey matte.
+# The dark grid has fixed pixel spacing, independent of SERA's pose and yaw.
+# Resize only updates the quad and grid dimensions; no extra draw calls.
 func _update_customization_glow() -> void:
     if not customize_preview_active or customize_glow_quad == null or cam == null or hud == null:
         return
@@ -2437,11 +2378,9 @@ func _update_customization_glow() -> void:
     quad.size = Vector2(
         2.0 * half_width * CUSTOMIZE_GLOW_SCREEN_WIDTH,
         2.0 * half_height * CUSTOMIZE_GLOW_SCREEN_HEIGHT)
-    var spacing: float = maxf(12.0,
-        viewport_size.y * customize_glow_grid_spacing_ratio)
+    var spacing: float = maxf(12.0, CUSTOMIZE_GRID_SPACING_PIXELS)
     var material := customize_glow_quad.material_override as ShaderMaterial
     if material != null:
-        material.set_shader_parameter("halo_center", customize_glow_center_ratio)
         material.set_shader_parameter("grid_cells", Vector2(
             viewport_size.x * CUSTOMIZE_GLOW_SCREEN_WIDTH / spacing,
             viewport_size.y * CUSTOMIZE_GLOW_SCREEN_HEIGHT / spacing))
@@ -2524,9 +2463,7 @@ func _show_customization_preview() -> void:
         customize_transition_start_camera_pose.affine_inverse() * initial_world)
     var end_camera_local: Transform3D = (
         cam.global_transform.affine_inverse() * final_world)
-    # Capture the stationary grid/gradient from the final default pose once,
-    # not from the moving/rotating character during the tween.
-    _capture_customization_glow_layout()
+    # Backdrop/grid stay camera-fixed and do not depend on model pose.
     _update_customization_glow()
     # The backdrop must NOT appear until the model actually reaches the
     # designated enlarged position. It is revealed in the Tween completion.
@@ -2662,7 +2599,7 @@ func _customization_entrance_arrived(final_world: Transform3D) -> void:
     sera_display_rig.global_transform = final_world
     _capture_sera_silhouette(sera_display_rig)
     _update_projected_silhouettes()
-    # Show the stationary effect only after SERA and the camera have reached
+    # Show the stationary grid only after SERA and the camera have reached
     # their final placement. Back still hides it in the press event.
     if customize_glow_quad != null:
         _update_customization_glow()
@@ -3334,7 +3271,7 @@ func _return_to_overview() -> void:
     # Back immediately ends the bright selection, before camera return.
     outline.set("active_target", "")
     outline.queue_redraw()
-    # Remove BOTH the cyan halo and its cyber grid on the Back press itself,
+    # Hide the matte blue-grey grid on the Back press itself,
     # before either the model or camera Tween gets its first frame.
     if focused_target == "CUSTOMIZE" and customize_glow_quad != null:
         customize_glow_quad.visible = false

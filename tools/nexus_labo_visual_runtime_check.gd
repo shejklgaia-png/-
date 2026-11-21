@@ -72,8 +72,21 @@ func _run() -> void:
         return
     var backdrop_mat: ShaderMaterial = backdrop.material_override as ShaderMaterial
     var opacity: float = float(backdrop_mat.get_shader_parameter("base_opacity"))
-    if opacity < 0.25 or opacity >= 0.50:
-        _fail("background needs a visible but translucent blue-grey base")
+    if not is_equal_approx(opacity, 0.62):
+        _fail("CUSTOMIZE base must have constant 0.62 semi-transparency")
+        return
+    var base_tint: Color = backdrop_mat.get_shader_parameter("base_tint")
+    var grid_tint: Color = backdrop_mat.get_shader_parameter("grid_tint")
+    if base_tint != Color("#4a6b7d") or grid_tint != Color("#213944"):
+        _fail("CUSTOMIZE must use the approved matte blue-grey and dark grid colors")
+        return
+    if grid_tint.r >= base_tint.r or grid_tint.g >= base_tint.g or (
+            grid_tint.b >= base_tint.b):
+        _fail("grid RGB must be strictly darker than the uniform base")
+        return
+    if backdrop_mat.shader.code.contains("halo_center") or (
+            backdrop_mat.shader.code.contains("soft_falloff")):
+        _fail("obsolete cyan/radial effect is still in the background shader")
         return
     nexus.set("customize_preview_active", true)
     nexus.call("_update_customization_glow")
@@ -88,9 +101,11 @@ func _run() -> void:
             absf(backdrop.position.x) > 0.001) or absf(backdrop.position.y) > 0.001:
         _fail("CUSTOMIZE backdrop must fill the whole portrait viewport")
         return
-    var halo: Vector2 = backdrop_mat.get_shader_parameter("halo_center")
-    if not halo.is_equal_approx(nexus.get("customize_glow_center_ratio")):
-        _fail("the fixed SERA-centered halo was lost during background expansion")
+    var cells: Vector2 = backdrop_mat.get_shader_parameter("grid_cells")
+    var spacing: float = 42.0
+    if absf(cells.x - hud.size.x / spacing) > 0.01 or (
+            absf(cells.y - hud.size.y / spacing) > 0.01):
+        _fail("CUSTOMIZE grid spacing must be fixed in pixels on both axes")
         return
     for target in ["TRAINING", "DEPLOYMENT", "SYSTEM", "DATA ARCHIVE", "CUSTOMIZE"]:
         nexus.set("focused_target", target)
