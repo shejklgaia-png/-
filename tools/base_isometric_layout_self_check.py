@@ -30,14 +30,14 @@ assert 'gd tools/base_isometric_layout_runtime_check.gd' in ci
 # Three peripheral rows are intentionally asymmetric rather than a strict grid.
 # These independent target coordinates are the approved composition.
 desired = {
-    "NEXUS": (.50, .272),
-    "LABO": (.517, .642),
-    "SMELTER": (.174, .371),
-    "RECYCLER": (.795, .407),
-    "STORAGE": (.177, .570),
-    "GENERATOR": (.832, .591),
-    "SCRAP_COLLECTOR": (.184, .753),
-    "BUILD_TERMINAL": (.752, .764),
+    "NEXUS": (.509, .274),
+    "LABO": (.503, .641),
+    "SMELTER": (.190, .396),
+    "RECYCLER": (.790, .414),
+    "STORAGE": (.205, .568),
+    "GENERATOR": (.812, .586),
+    "SCRAP_COLLECTOR": (.172, .745),
+    "BUILD_TERMINAL": (.706, .760),
 }
 read_nexus = re.search(
     r'const NEXUS_BUILDING_ORIGIN: Vector3 = Vector3\(([-.\d]+), ([-.\d]+), ([-.\d]+)\)', base)

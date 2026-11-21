@@ -22,11 +22,11 @@ func _run() -> void:
     var facilities: Node3D = hub.get_node("BaseFacilities") as Node3D
     var camera: Camera3D = hub.get("cam") as Camera3D
     var yaw_values: Dictionary = {}
-    # All facades must look toward the current camera's horizontal vector,
-    # slightly off-axis so front and side surfaces are simultaneously visible.
+    # Updated approved composition: each entrance (+Z) faces the common
+    # center, with an individual slant. Camera itself remains gently overhead.
     var back: Vector3 = camera.global_transform.basis.z.normalized()
-    var facing_yaw: float = atan2(back.x, back.z)
     var camera_elevation: float = rad_to_deg(asin(back.y))
+    var plaza_center := Vector2(0.0, -2.2)
     if camera_elevation < 31.0 or camera_elevation > 36.0:
         _fail("camera must be lower than the previous 41-degree overhead view")
         return
@@ -47,10 +47,13 @@ func _run() -> void:
             "NexusArchitecture" if key == "NEXUS" else "IndustrialModel") as Node3D
         var foundation: MeshInstance3D = root_node.get_node("Foundation") as MeshInstance3D
         var yaw: float = Arch.facility_yaw_radians(key)
-        var side_angle: float = absf(rad_to_deg(wrapf(
-            yaw - facing_yaw, -PI, PI)))
-        if side_angle < 8.0 or side_angle > 25.0:
-            _fail(key + " facade is not facing the viewer at a 3/4 angle: " + str(side_angle))
+        var face: Vector3 = Basis(Vector3.UP, yaw) * Vector3.BACK
+        var inward := (plaza_center - Vector2(
+            root_node.position.x, root_node.position.z)).normalized()
+        var error: float = rad_to_deg(acos(clampf(
+            Vector2(face.x, face.z).normalized().dot(inward), -1.0, 1.0)))
+        if error < 6.0 or error > 24.0:
+            _fail(key + " front must slant toward the interior: " + str(error))
             return
         if absf(foundation.rotation.y - yaw) > 0.0001:
             _fail(key + " pad chassis is not aligned with station")
@@ -129,5 +132,5 @@ func _run() -> void:
         elif str(facilities.call("key_at", camera, pixel)) != key:
             _fail("facility touch was lost: " + key)
             return
-    print("SERA_BASE_NATURAL_YAW_RUNTIME_PASS 8 facades face the camera, with visible sides")
+    print("SERA_BASE_NATURAL_YAW_RUNTIME_PASS 8 facades face the center, each at a varied yaw")
     quit(0)

@@ -13,6 +13,9 @@ gd tools/nexus_labo_visual_runtime_check.gd
 # Python tests run in fresh interpreters; Godot tests run in fresh engine processes.
 # User-approved FOV0-style orthographic overworld composition and 8 solid visible facilities.
 # Orthogonal placement is intentionally avoided: eight differently yawed 3D facilities and independently angled props.
+# Perimeter stations face the shared interior, with staggered unique headings.
+py tools/base_inward_facilities_self_check.py
+gd tools/base_inward_facilities_runtime_check.gd
 py tools/base_natural_yaw_self_check.py
 gd tools/base_natural_yaw_runtime_check.gd
 py tools/base_prop_density_rhythm_self_check.py
