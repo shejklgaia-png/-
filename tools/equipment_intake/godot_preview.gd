@@ -84,6 +84,10 @@ func _ready() -> void:
     background_quad.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
     background_quad.position = Vector3(0.0, 0.0, -10.0)
     add_child(background_quad)
+    # Keep the GRID background edge-to-edge when a live part preview uses
+    # a wide chamfer frame rather than the square native icon capture.
+    get_viewport().size_changed.connect(_sync_preview_backdrop_aspect)
+    _sync_preview_backdrop_aspect()
     # GRID is an optional overlay on the current solid #111e28 backdrop.
     background_quad.visible = false
 
@@ -213,6 +217,22 @@ func _apply_edit_size() -> void:
         if piece is MeshInstance3D:
             var before: Transform3D = inv * piece.global_transform
             piece.global_transform = rig.global_transform * fit_transform * before
+
+
+func _sync_preview_backdrop_aspect() -> void:
+    if background_quad == null:
+        return
+    var viewport_size: Vector2 = get_viewport().get_visible_rect().size
+    if viewport_size.y <= 0.0:
+        return
+    var aspect: float = viewport_size.x / viewport_size.y
+    var quad: QuadMesh = background_quad.mesh as QuadMesh
+    quad.size = Vector2(PORTRAIT_SIZE * aspect, PORTRAIT_SIZE)
+    var backdrop_material: StandardMaterial3D = (
+        background_quad.material_override as StandardMaterial3D)
+    if backdrop_material != null:
+        backdrop_material.uv1_scale = Vector3(aspect, 1.0, 1.0)
+        backdrop_material.texture_repeat = BaseMaterial3D.TEXTURE_REPEAT_ENABLED
 
 func _apply_preview_standing_pose() -> void:
     if rig == null:
