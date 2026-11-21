@@ -79,7 +79,7 @@ FEATURES: dict[str, dict[str, tuple[str, ...]]] = {
         "tests": ("animation", "motion", "canonical_models", "katana", "bird"),
     },
     "nexus": {
-        "aliases": ("nexus", "拠点", "展示", "トレーニング"),
+        "aliases": ("nexus", "カスタマイズ画面", "展示", "トレーニング"),
         "paths": ("scripts/command_nexus.gd", "scripts/sera_equipment.gd"),
         "tokens": ("nexus", "display", "customiz", "stage"),
         "tests": ("nexus", "customization", "canonical_models"),
@@ -103,7 +103,98 @@ FEATURES: dict[str, dict[str, tuple[str, ...]]] = {
         "tokens": ("test", "suite", "manifest", "index", "workplan"),
         "tests": ("active_contract", "dev_index", "workplan", "dev_tools"),
     },
+    "base": {
+        "aliases": ("base", "拠点", "施設", "鉄の床", "スクラップ", "コンテナ", "facility"),
+        "paths": ("scripts/base_facility_system.gd", "scripts/sera_base_architecture.gd",
+                  "scripts/sera_base_materials.gd"),
+        "tokens": ("base", "facility", "prop", "deck", "container", "salvage"),
+        "tests": ("base_", "facility", "container", "junk"),
+    },
+    "labo": {
+        "aliases": ("labo", "lab", "ラボ", "製作", "精製", "素材変換"),
+        "paths": ("scripts/base_facility_system.gd", "scripts/labo_hero_stage.gd"),
+        "tokens": ("labo", "craft", "refine", "material", "hero", "recipe"),
+        "tests": ("labo", "craft", "refin", "material", "v53", "v54"),
+    },
+    "warehouse": {
+        "aliases": ("warehouse", "倉庫", "ハンガー", "不用品", "お気に入り"),
+        "paths": ("scripts/sera_warehouse_grid.gd", "scripts/sera_save.gd"),
+        "tokens": ("warehouse", "hanger", "affix", "favorite", "scrap"),
+        "tests": ("warehouse", "inventory", "affix", "save", "v529"),
+    },
+    "ui": {
+        "aliases": ("ui", "hud", "画面", "レイアウト", "フォント", "文字化け", "ボタン"),
+        "paths": ("scripts/sera_labo_round_skin.gd", "scripts/command_nexus.gd"),
+        "tokens": ("ui", "hud", "layout", "font", "label", "button", "theme"),
+        "tests": ("ui", "font", "visual", "hud", "label", "typography"),
+    },
+    "boss": {
+        "aliases": ("boss", "ビットタラン", "ボス", "踏みつけ", "砲台", "なぎ払い"),
+        "paths": ("scripts/main.gd", "scripts/target_parts.gd"),
+        "tokens": ("bittaran", "boss", "target", "stomp", "turret", "sweep"),
+        "tests": ("bittaran", "boss", "target", "railgun"),
+    },
 }
+
+# Topic-specific canonical documents are read lazily. The table is the single
+# index: do not duplicate its mapping in AGENTS.md or another bulky file.
+REQUIRED_DOCS = (
+    "docs/agent/CI_WORKFLOW.md",
+    "docs/SERA_ACTIVE_CI_POLICY_ja.md",
+)
+FEATURE_DOCS: dict[str, tuple[str, ...]] = {
+    "step": ("docs/SERA_INPUT_MOVEMENT_CAMERA.md", "docs/agent/RUNTIME_BOUNDARIES.md"),
+    "boost": ("docs/SERA_INPUT_MOVEMENT_CAMERA.md", "docs/agent/RUNTIME_BOUNDARIES.md"),
+    "camera": ("docs/SERA_INPUT_MOVEMENT_CAMERA.md", "docs/agent/RUNTIME_BOUNDARIES.md"),
+    "lock": ("docs/SERA_COMBAT_DEFENSE_ENEMIES.md", "docs/agent/RUNTIME_BOUNDARIES.md"),
+    "melee": ("docs/SERA_COMBAT_DEFENSE_ENEMIES.md", "docs/agent/RUNTIME_BOUNDARIES.md"),
+    "katana": ("docs/agent/SOURCE_POLICY.md", "docs/agent/EQUIPMENT.md",
+               "docs/MODEL_PART_WORKFLOW_ja.md", "docs/SERA_ANIMATION_RUNTIME_POLICY_ja.md"),
+    "bird": ("docs/agent/SOURCE_POLICY.md", "docs/MODEL_PART_WORKFLOW_ja.md",
+             "docs/SERA_ANIMATION_RUNTIME_POLICY_ja.md"),
+    "equipment": ("docs/agent/EQUIPMENT.md", "docs/agent/SOURCE_POLICY.md",
+                  "docs/SERA_WAREHOUSE_UI_AND_CRAFT_AFFIXES_ja.md",
+                  "docs/SERA_EQUIPMENT_MODEL_LAB_INTAKE_ja.md",
+                  "docs/SERA_ICON_STUDIO_HANDOFF_POLICY_ja.md"),
+    "animation": ("docs/agent/RUNTIME_BOUNDARIES.md", "docs/agent/SOURCE_POLICY.md",
+                  "docs/SERA_ANIMATION_RUNTIME_POLICY_ja.md",
+                  "docs/MODEL_PART_WORKFLOW_ja.md"),
+    "nexus": ("docs/agent/EQUIPMENT.md", "docs/SERA_EQUIPMENT_MODEL_LAB_INTAKE_ja.md"),
+    "render": ("docs/RENDER_PIPELINE_POLICY_ja.md", "docs/agent/SOURCE_POLICY.md"),
+    "controller": ("docs/SERA_INPUT_MOVEMENT_CAMERA.md", "docs/agent/RUNTIME_BOUNDARIES.md"),
+    "ci": ("docs/SERA_REPOSITORY_LAYOUT_ja.md", "docs/agent/SOURCE_POLICY.md"),
+    "base": ("docs/SERA_REPOSITORY_LAYOUT_ja.md", "docs/RENDER_PIPELINE_POLICY_ja.md"),
+    "labo": ("docs/SERA_WAREHOUSE_UI_AND_CRAFT_AFFIXES_ja.md",
+             "docs/SERA_EQUIPMENT_MODEL_LAB_INTAKE_ja.md"),
+    "warehouse": ("docs/agent/EQUIPMENT.md",
+                  "docs/SERA_WAREHOUSE_UI_AND_CRAFT_AFFIXES_ja.md"),
+    "ui": ("docs/RENDER_PIPELINE_POLICY_ja.md",
+           "docs/SERA_WAREHOUSE_UI_AND_CRAFT_AFFIXES_ja.md"),
+    "boss": ("docs/SERA_COMBAT_DEFENSE_ENEMIES.md",
+             "docs/agent/RUNTIME_BOUNDARIES.md",
+             "docs/RENDER_PIPELINE_POLICY_ja.md"),
+}
+FALLBACK_DOCS = ("docs/SERA_REPOSITORY_LAYOUT_ja.md", "docs/SERA_MEMORY_INDEX.md")
+
+
+def select_documentation(features: list[str]) -> dict:
+    """Return minimal ordered document paths, and surface missing references."""
+    selected = dict.fromkeys(
+        path for feature in features for path in FEATURE_DOCS.get(feature, ())
+        if path not in REQUIRED_DOCS
+    )
+    if not features:
+        selected.update(dict.fromkeys(FALLBACK_DOCS))
+    required = list(REQUIRED_DOCS)
+    paths = required + list(selected)
+    missing = [path for path in paths if not (ROOT / path).is_file()]
+    return {
+        "required": required,
+        "selected": list(selected),
+        "fallback": not bool(features),
+        "missing": missing,
+    }
+
 
 # These paths affect multiple gameplay systems; filename-only classification
 # is necessarily broad and cannot justify skipping unrelated PR regressions.
@@ -115,6 +206,13 @@ PATH_HINTS = {
     "scripts/touch_overlay.gd": ("controller", "lock", "step"),
     "scripts/target_parts.gd": ("lock", "melee"),
     "scripts/back_thruster_fx.gd": ("boost", "render"),
+    "scripts/base_facility_system.gd": ("base", "labo"),
+    "scripts/sera_base_architecture.gd": ("base",),
+    "scripts/sera_base_materials.gd": ("base",),
+    "scripts/labo_hero_stage.gd": ("labo",),
+    "scripts/sera_warehouse_grid.gd": ("warehouse", "ui"),
+    "scripts/sera_labo_round_skin.gd": ("ui", "labo"),
+    "scripts/sera_save.gd": ("warehouse", "equipment"),
 }
 MODEL_KEYS = {
     "animation": ("standard", "bird_legs", "katana"),
@@ -139,8 +237,11 @@ def recognize(query: str, changed: list[str]) -> list[str]:
         found.update(PATH_HINTS.get(path, ()))
         if path.startswith(("models/", "blockbench/", "assets/sera_")):
             found.update(("equipment", "animation"))
-        if path.startswith(("tools/", ".github/")):
+        if path.startswith(("tools/", ".github/")) or path == "docs/agent/CI_WORKFLOW.md":
             found.add("ci")
+        for feature, documents in FEATURE_DOCS.items():
+            if path in documents and path not in REQUIRED_DOCS:
+                found.add(feature)
     return sorted(found)
 
 
@@ -187,8 +288,12 @@ def build_plan(query: str = "", changed: list[str] | None = None, limit: int = 1
     wanted = {t for feature in features for t in FEATURES[feature]["tests"]}
     chosen = {k: [p for p in v if any(t in Path(p).stem.casefold() for t in wanted)]
               for k, v in registered.items()}
+    docs = select_documentation(features)
     notes = ["This is a conservative HEURISTIC. Dynamic calls, scene signals and shared files may have unlisted dependencies.",
-             "Focused checks never replace the full registered Python + Godot CI before merging."]
+             "Read documentation.required and documentation.selected; inspect actual source and tests.",
+             "Focused checks never replace full registered Python + Godot CI on main after merge."]
+    if docs["missing"]:
+        notes.append("Missing routed documentation: " + ", ".join(docs["missing"]))
     if not features:
         notes.append("No known feature matched; inspect manually and run the complete suites.")
     if "scripts/main.gd" in changed and not query:
@@ -196,7 +301,7 @@ def build_plan(query: str = "", changed: list[str] | None = None, limit: int = 1
     return {
         "game_version": version_from_text((ROOT / "project.godot").read_text(encoding="utf-8")),
         "query": query, "changed": changed, "features": features, "source_locations": scripts,
-        "model_sources": model_sources, "focused_tests": chosen,
+        "model_sources": model_sources, "documentation": docs, "focused_tests": chosen,
         "test_counts": {k: len(v) for k, v in chosen.items()},
         "full_suite_counts": {k: len(v) for k, v in registered.items()},
         "notes": notes,
@@ -210,7 +315,7 @@ def run_focused(plan: dict, godot: str = "") -> int:
         return 2
     for kind, runner in (("py", "static"), ("gd", "godot")):
         if kind == "gd" and not godot:
-            print("Godot focused suite skipped (no --godot). Full PR CI is still required.")
+            print("Godot focused suite skipped (no --godot). Full post-merge CI is still required.")
             continue
         tests = selected[kind]
         if not tests:
@@ -248,7 +353,12 @@ def main() -> int:
                 print(f"    {symbol['line']}: {symbol['kind']} {symbol['name']}")
         if plan["model_sources"]:
             print("Authoritative models:", ", ".join(plan["model_sources"].values()))
-        print("Focused tests:", plan["test_counts"], "Full PR CI:", plan["full_suite_counts"])
+        docs = plan["documentation"]
+        print("Read mandatory:", ", ".join(docs["required"]))
+        print("Read for task:", ", ".join(docs["selected"]))
+        if docs["missing"]:
+            print("MISSING DOCS:", ", ".join(docs["missing"]))
+        print("Focused tests:", plan["test_counts"], "Full main CI:", plan["full_suite_counts"])
         for note in plan["notes"]:
             print("NOTE:", note)
     if opts.execute:
