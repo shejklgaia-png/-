@@ -38,12 +38,8 @@
 - **GitSync/phone:** only merged `main` reaches Android. Preserve unpushed edits; never sync while editors write or repeatedly ask to sync/start.
 - No secrets, signing keys, credentials, arbitrary dependencies, or unwarranted deletion of user models. If source is ambiguous, inspect hierarchy/Pivot before assigning a bone.
 
-## 装備モデル追加の完了条件：LAB装備作成への登録必須（2026-11-21）
-- 新規の装備可能な3DモデルをSERAへ取り込む際、**NEXUSでの選択・モデル表示だけでは完了にしない**。同じPRでLABの「装備作成」にも製作対象として登録する。
-- `scripts/sera_prototype_catalog.gd` に固有設計図ID・日本語装備名・正しい`slot`・実モデルに対応する`rig_set`を登録し、設計図一覧の順序・アイコン・レシピ／素材消費・製作確認・倉庫個体UIDと追加性能・セーブ・NEXUS装着まで接続する。単なるラベル/ダミーの`rig_set="A"`で実装済みとしない。
-- IDは既存個体と衝突・再利用しない。倉庫の各部位999件上限、製作時追加性能5件、UI仮想スクロールなど現行の承認仕様を維持する。設定されていない素材レシピ等は既存ルールに従って追加し、未承認の効果やステータスを創作しない。
-- **受入検査**：新設計図がLABに現れる→必要素材があれば製作→倉庫に固有UIDの装備が保存される→NEXUSで製作品の該当3Dモデルに切り替わる→セーブ・ロード後も一致すること。関連Python/Godot CIをモデル追加と同じPRに登録し、mainのフルCIとAndroid表示を別途確認。
-- 過去にNEXUSだけ実装済みのアイリス（`HEAD D`）もLABでは未登録。**新ルールを記載するだけで過去モデルを製作可能と報告しない**。製作対応時は別途実装・検査する。
+## 装備モデル追加の完了条件（2026-11-21）
+**NEXUS表示のみでは未完了。** LABの装備製作・固有UID/5効果・保存・装着まで同PRで接続しCI検証。HEAD DはLAB未登録のため完了扱い禁止。詳細正本: `docs/SERA_EQUIPMENT_MODEL_LAB_INTAKE_ja.md`。
 
 ## Staged model intake
 For new `strage`/`storage` uploads, follow `docs/SERA_INCOMING_MODEL_INTAKE_ja.md`: merge canonical clips and Swordeffect, rebuild, review and merge, run full post-merge CI, then delete only unreferenced staging files.
