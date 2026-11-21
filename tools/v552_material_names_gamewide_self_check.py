@@ -21,9 +21,9 @@ expected = {
     "electronics_low": "汎用電子部品",
     "electronics_mid": "精密電子部品",
     "electronics_high": "高度電子部品",
-    "organic_low": "低活性有機素材",
-    "organic_mid": "安定有機素材",
-    "organic_high": "高活性有機素材"
+    "organic_low": "微弱有機素材",
+    "organic_mid": "活性有機素材",
+    "organic_high": "旺盛有機素材"
 }
 assert 'const FAMILY_IDS = ["scrap", "alloy", "electronics", "organic"]' in source
 assert 'const TIERS = ["low", "mid", "high"]' in source
@@ -39,6 +39,9 @@ for old in [
 assert '"scrap": {"low": "汎用", "mid": "応用", "high": "高度"}' in source
 assert '"alloy": {"low": "基礎", "mid": "精密", "high": "高次"}' in source
 assert '"electronics": {"low": "汎用", "mid": "精密", "high": "高度"}' in source
+assert '"organic": {"low": "微弱", "mid": "活性", "high": "旺盛"}' in source
+for obsolete in ("低活性有機素材", "安定有機素材", "高活性有機素材"):
+    assert obsolete not in source, obsolete
 assert 'static func display_name(material_id: String) -> String:' in source
 assert 'static func display_lines(material_id: String) -> String:' in source
 assert 'BaseMaterials.display_lines(id)' in fac
