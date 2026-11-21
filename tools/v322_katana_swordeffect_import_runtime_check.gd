@@ -82,6 +82,18 @@ func _run() -> void:
     if flat == null or flat.mesh == null or lens == null or lens.mesh == null:
         _fail("V85 cutout arc and convex 3D volume were not created")
         return
+    # The real slash nodes are nested under an effect pivot; their own
+    # names do not contain "Swordeffect". Both must stay ink-free.
+    var contour: Node3D = rig.get_node_or_null("ViewEdges")
+    if contour == null:
+        _fail("SERA contour controller missing")
+        return
+    contour.call("_sync_meshes")
+    if plane.get_node_or_null("SeraEdgeInk") != null or (
+            flat.get_node_or_null("SeraEdgeInk") != null) or (
+            lens.get_node_or_null("SeraEdgeInk") != null):
+        _fail("Swordeffect/slash visuals must not receive character ink")
+        return
     trail.call("stop_swing")
     if not _assert_pose(rig, "Melee_katana2", 0.0,
             Vector3(0,0,75), Vector3(1.7,-10.8,-10.2),
