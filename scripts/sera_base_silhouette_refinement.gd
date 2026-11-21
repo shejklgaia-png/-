@@ -90,8 +90,8 @@ static func _labo(g: Variant) -> void:
             Vector3(0.15, 0.86, 0.72), "edge",
             Vector3(0, side * PI * 0.5, 0))
         g.rod("LabEntryCrossbrace",
-            Vector3(side * 1.92, 1.42, 1.91),
-            Vector3(side * 1.92, 2.92, 1.14),
+            Vector3(side * 1.92, 1.42, 0.54),
+            Vector3(side * 1.92, 2.92, -0.35),
             0.058, "gold")
     for i in range(3):
         g.poly("LabSideEquipmentHood", "hood",
@@ -105,14 +105,14 @@ static func _collector(g: Variant) -> void:
     g.poly("CollectorCranePivotCover", "hood",
         Vector3(-0.71, 1.99, -0.37),
         Vector3(0.60, 0.38, 0.53), "gold")
-    # Twin parallel hydraulic rails give the angled boom real thickness.
-    for offset in [-0.12, 0.12]:
+    # Recede duplicate rails behind the GOLD primary boom.
+    for offset in [-0.09, 0.09]:
         g.rod("CollectorTwinBoomRail",
-            Vector3(-0.76 + offset, 1.20, -0.51),
-            Vector3(-0.60 + offset, 2.29, -0.55), 0.080, "armor_light")
+            Vector3(-0.76 + offset, 1.20, -0.68),
+            Vector3(-0.60 + offset, 2.29, -0.72), 0.071, "slate")
         g.rod("CollectorTwinBoomRail",
-            Vector3(-0.60 + offset, 2.29, -0.55),
-            Vector3(0.46 + offset, 2.17, -0.10), 0.065, "armor_light")
+            Vector3(-0.60 + offset, 2.29, -0.72),
+            Vector3(0.46 + offset, 2.17, -0.42), 0.063, "slate")
     g.poly("CollectorSortingLip", "hood",
         Vector3(0.35, 1.10, 0.83),
         Vector3(1.40, 0.25, 0.30), "rust")
@@ -200,9 +200,9 @@ static func _storage(g: Variant) -> void:
     for i in range(3):
         var x: float = -0.73 + float(i) * 0.72
         g.box("CargoRoofPanelStitch",
-            Vector3(x, 2.20, -0.31), Vector3(0.045, 0.023, 1.52), "trim")
+            Vector3(x, 2.20, -0.98), Vector3(0.045, 0.023, 0.69), "trim")
         g.poly("CargoAccessHood", "hood",
-            Vector3(x, 1.12, 0.31), Vector3(0.55, 0.51, 0.18), "armor")
+            Vector3(x, 1.12, -0.60), Vector3(0.55, 0.51, 0.18), "armor")
 
 static func _terminal(g: Variant) -> void:
     g.poly("BlueprintShelteredMonitor", "roof",
