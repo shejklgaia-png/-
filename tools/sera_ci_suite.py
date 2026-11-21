@@ -79,6 +79,16 @@ def prioritize_slowest(tests: list[str], kind: str, hints: Path = TIMING_HINTS) 
                                           order[path]))
 
 
+def godot_isolation_prefix(relative: str) -> str:
+    """Filesystem-safe deterministic identity for nested tools/foo/test.gd.
+
+    No path separator may enter mkdtemp's prefix; each isolated Godot test
+    still receives a distinct fresh home on every run.
+    """
+    unique = relative.removeprefix("tools/").removesuffix(".gd")
+    return "sera-ci-" + unique.replace("/", "-").replace("\\", "-") + "-"
+
+
 def run_test(kind: str, relative: str, godot: str, timeout: int) -> tuple[str, bool, float, str]:
     isolated = None
     if kind == "py":
@@ -90,8 +100,8 @@ def run_test(kind: str, relative: str, godot: str, timeout: int) -> tuple[str, b
         # Each execution needs a fresh user:// tree, including reruns of
         # the same test. Equipment tests save settings at the end.
         base = Path(os.environ.get("RUNNER_TEMP", tempfile.gettempdir()))
-        unique = relative.removeprefix("tools/").removesuffix(".gd")
-        isolated = tempfile.TemporaryDirectory(prefix="sera-ci-" + unique + "-", dir=base)
+        isolated = tempfile.TemporaryDirectory(
+            prefix=godot_isolation_prefix(relative), dir=base)
         for folder, variable in (
             ("data", "XDG_DATA_HOME"), ("config", "XDG_CONFIG_HOME"),
             ("cache", "XDG_CACHE_HOME")
