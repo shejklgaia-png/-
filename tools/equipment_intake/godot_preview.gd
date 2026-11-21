@@ -1,0 +1,353 @@
+extends Node3D
+## SERA equipment authoring viewer. Runs unchanged in Android GL Compatibility
+## and Godot WebGL2. The same SeraRig, SeraEquipment, materials, ViewEdges and
+## stage lighting as the game are used: NO Blockbench-to-WebGL reconstruction.
+const RigScript = preload("res://scripts/sera_rig.gd")
+const PartStats = preload("res://scripts/sera_part_stats.gd")
+const SLOT_ORDER = [
+    "head", "torso", "arms", "legs", "booster", "weapon_r", "weapon_l"
+]
+const PORTRAIT_SIZE: float = 2.0
+const MIN_ZOOM: float = 0.25
+const MAX_ZOOM: float = 4.0
+
+var camera: Camera3D
+var orbit: Node3D
+var center: Node3D
+var rig: Node3D
+var handler: RefCounted
+var ready_for_commands: bool = false
+var view_mode: String = "body"
+var editing_slot: String = "head"
+var selected: Dictionary = {}
+var rig_base_transforms: Dictionary = {}
+var camera_yaw: float = 160.0
+var camera_pitch: float = -18.0
+var camera_roll: float = 0.0
+var camera_zoom: float = 1.0
+var camera_pan: Vector2 = Vector2.ZERO
+var current_target_scale: float = 1.0
+var keep_aspect: bool = false
+var _listeners: Array = []
+var _touches: Dictionary = {}
+var _mouse_drag: bool = false
+var _js_callback: JavaScriptObject
+var _last_request_seq: int = -1
+
+func _ready() -> void:
+    # Identical to main.gd:_build_world(), also used by the native icon capture.
+    var env := Environment.new()
+    env.background_mode = Environment.BG_COLOR
+    env.background_color = Color("#111e28")
+    env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+    env.ambient_light_color = Color("#bbc9e1")
+    env.ambient_light_energy = 0.60
+    var world_env := WorldEnvironment.new()
+    world_env.environment = env
+    add_child(world_env)
+    var sun := DirectionalLight3D.new()
+    sun.rotation_degrees = Vector3(-52.0, -24.0, 0.0)
+    sun.light_color = Color("#e3ecff")
+    sun.light_energy = 1.7
+    sun.shadow_enabled = false
+    add_child(sun)
+
+    camera = Camera3D.new()
+    camera.name = "SeraIntakeOrthoCamera"
+    camera.projection = Camera3D.PROJECTION_ORTHOGONAL
+    camera.size = PORTRAIT_SIZE
+    camera.near = 0.01
+    camera.far = 40.0
+    camera.position = Vector3(0.0, 0.0, 8.0)
+    add_child(camera)
+    camera.make_current()
+
+    orbit = Node3D.new()
+    orbit.name = "IntakeCameraOrientation"
+    add_child(orbit)
+    center = Node3D.new()
+    center.name = "IntakeCenteredModel"
+    orbit.add_child(center)
+    rig = RigScript.new()
+    rig.name = "SeraRig"
+    center.add_child(rig)
+    await get_tree().process_frame
+    if not bool(rig.get("loading_ok")):
+        push_error("SERA_INTAKE_PREVIEW: game SeraRig did not load")
+        _post({"type":"SERA_PREVIEW_ERROR","message":"SERA game rig failed to initialize"})
+        return
+    rig.call("set_exhibition_mode", true)
+    # The NEXUS display also freezes this rig at its authored exhibition pose.
+    rig.set_process(false)
+    rig.set_physics_process(false)
+    handler = rig.get("equipment_handler") as RefCounted
+    if handler == null:
+        push_error("SERA_INTAKE_PREVIEW: equipment handler missing")
+        return
+    for slot in SLOT_ORDER:
+        selected[slot] = "A"
+    _cache_native_transforms()
+    _apply_frame()
+    ready_for_commands = true
+    if OS.has_feature("web"):
+        _js_callback = JavaScriptBridge.create_callback(_on_browser_message)
+        var window: JavaScriptObject = JavaScriptBridge.get_interface("window")
+        window.addEventListener("message", _js_callback)
+    _post({"type":"SERA_PREVIEW_READY","renderer":"Godot 4.7 GL Compatibility",
+        "slots":_supported_options(), "version":1})
+
+func _exit_tree() -> void:
+    if OS.has_feature("web") and _js_callback != null:
+        JavaScriptBridge.get_interface("window").removeEventListener("message",_js_callback)
+
+func _supported_options() -> Dictionary:
+    var output: Dictionary = {}
+    for slot in SLOT_ORDER:
+        output[slot] = handler.call("options_for",slot)
+    return output
+
+func _cache_native_transforms() -> void:
+    var available: Dictionary = handler.get("available")
+    for set_data in available.values():
+        for pieces in (set_data as Dictionary).values():
+            for piece in pieces:
+                if piece is MeshInstance3D:
+                    rig_base_transforms[piece.get_instance_id()] = piece.transform
+
+func _restore_transforms() -> void:
+    var available: Dictionary = handler.get("available")
+    for set_data in available.values():
+        for pieces in (set_data as Dictionary).values():
+            for piece in pieces:
+                if piece is MeshInstance3D and rig_base_transforms.has(piece.get_instance_id()):
+                    piece.transform = rig_base_transforms[piece.get_instance_id()]
+
+func _mesh_in_slot(slot: String, set_id: String) -> Array:
+    var available: Dictionary = handler.get("available")
+    return (available.get(set_id, {}) as Dictionary).get(slot, [])
+
+func _bounds_of(parts: Array) -> AABB:
+    var lo := Vector3(INF,INF,INF)
+    var hi := Vector3(-INF,-INF,-INF)
+    var inv: Transform3D = rig.global_transform.affine_inverse()
+    for piece in parts:
+        if not piece is MeshInstance3D or piece.mesh == null:
+            continue
+        var transform_to_rig: Transform3D = inv * piece.global_transform
+        var aabb: AABB = piece.mesh.get_aabb()
+        for i in range(8):
+            var point: Vector3 = transform_to_rig * aabb.get_endpoint(i)
+            lo = lo.min(point)
+            hi = hi.max(point)
+    if is_inf(lo.x):
+        return AABB(Vector3.ZERO,Vector3.ONE)
+    return AABB(lo,hi-lo)
+
+func _visible_mesh_bounds() -> AABB:
+    var parts: Array = []
+    var available: Dictionary = handler.get("available")
+    for set_key in available:
+        for slot_key in (available[set_key] as Dictionary):
+            for piece in (available[set_key] as Dictionary)[slot_key]:
+                if piece is MeshInstance3D and piece.visible:
+                    if view_mode == "body" or str(slot_key) == editing_slot:
+                        parts.append(piece)
+    return _bounds_of(parts)
+
+func _apply_edit_size() -> void:
+    _restore_transforms()
+    if is_equal_approx(current_target_scale,1.0) and view_mode=="body":
+        # The 100% editing target is still normalized to A's bounding box.
+        pass
+    var target: Array = _mesh_in_slot(editing_slot,str(selected.get(editing_slot,"A")))
+    var standard: Array = _mesh_in_slot(editing_slot,"A")
+    if target.is_empty() or standard.is_empty():
+        return
+    var ref_box: AABB = _bounds_of(standard)
+    var model_box: AABB = _bounds_of(target)
+    var ratios := Vector3(
+        ref_box.size.x / maxf(model_box.size.x,0.00001),
+        ref_box.size.y / maxf(model_box.size.y,0.00001),
+        ref_box.size.z / maxf(model_box.size.z,0.00001))
+    if keep_aspect:
+        ratios = Vector3.ONE * minf(ratios.x,minf(ratios.y,ratios.z))
+    ratios *= clampf(current_target_scale,MIN_ZOOM,MAX_ZOOM)
+    var source_center: Vector3 = model_box.get_center()
+    var standard_center: Vector3 = ref_box.get_center()
+    var inv: Transform3D = rig.global_transform.affine_inverse()
+    var scale_basis := Basis.IDENTITY.scaled(ratios)
+    # Scale the complete target assembly around its shared bounds center,
+    # preserving the real Godot mesh materials, UVs, topology and joints.
+    var translation: Vector3 = standard_center-scale_basis*source_center
+    var fit_transform := Transform3D(scale_basis,translation)
+    for piece in target:
+        if piece is MeshInstance3D:
+            var before: Transform3D = inv * piece.global_transform
+            piece.global_transform = rig.global_transform * fit_transform * before
+
+func _apply_equipment() -> void:
+    if handler == null:
+        return
+    _restore_transforms()
+    # One authoritative, non-persistent equip operation per slot. This is
+    # the exact game path including Katana two-hand occupancy and leg variants.
+    for slot in SLOT_ORDER:
+        var request: String = str(selected.get(slot,"A"))
+        var options: Array = handler.call("options_for",slot)
+        if not options.has(request):
+            request="A"
+        handler.call("select_part",slot,request,false)
+        selected[slot]=request
+    if view_mode=="icon":
+        var available: Dictionary = handler.get("available")
+        for set_data in available.values():
+            for slot_key in (set_data as Dictionary):
+                if str(slot_key)!=editing_slot:
+                    for piece in (set_data as Dictionary)[slot_key]:
+                        if piece is MeshInstance3D:
+                            piece.visible=false
+    _apply_edit_size()
+    _apply_frame()
+
+func _apply_frame() -> void:
+    if rig == null or orbit == null or camera == null:
+        return
+    var aabb: AABB = _visible_mesh_bounds()
+    center.position=-aabb.get_center()
+    var size_max: float = maxf(aabb.size.x,maxf(aabb.size.y,aabb.size.z))
+    orbit.basis=Basis.from_euler(Vector3(deg_to_rad(camera_pitch),
+        deg_to_rad(camera_yaw),deg_to_rad(camera_roll)),EULER_ORDER_XYZ)
+    orbit.scale=Vector3.ONE * (PORTRAIT_SIZE*0.76 /
+        maxf(size_max,0.00001)*camera_zoom)
+    orbit.position=Vector3(camera_pan.x,camera_pan.y,0.0)
+
+func _apply_command(data: Dictionary) -> void:
+    if not ready_for_commands:
+        return
+    var kind: String = str(data.get("mode","body"))
+    view_mode="icon" if kind=="icon" else "body"
+    editing_slot=str(data.get("editing_slot","head"))
+    if not SLOT_ORDER.has(editing_slot):
+        editing_slot="head"
+    var requested: Variant = data.get("selected",{})
+    if requested is Dictionary:
+        for slot in SLOT_ORDER:
+            selected[slot]=str(requested.get(slot,"A"))
+    current_target_scale=clampf(float(data.get("size",1.0)),MIN_ZOOM,MAX_ZOOM)
+    keep_aspect=bool(data.get("keep_aspect",false))
+    var view: Variant = data.get("camera",{})
+    if view is Dictionary:
+        camera_yaw=clampf(float(view.get("yaw",camera_yaw)),-180.0,180.0)
+        camera_pitch=clampf(float(view.get("pitch",camera_pitch)),-89.0,89.0)
+        camera_roll=clampf(float(view.get("roll",camera_roll)),-180.0,180.0)
+        camera_zoom=clampf(float(view.get("zoom",camera_zoom)),MIN_ZOOM,MAX_ZOOM)
+        camera_pan=Vector2(clampf(float(view.get("panX",camera_pan.x)),-0.7,0.7),
+            clampf(float(view.get("panY",camera_pan.y)),-0.7,0.7))
+        var ink: Node3D = rig.get_node_or_null("ViewEdges")
+        if ink != null:
+            var mat: Variant = ink.get("_ink_material")
+            if mat is ShaderMaterial:
+                mat.set_shader_parameter("stroke_px",
+                    clampf(float(view.get("outlinePx",3.0)),0.0,6.0))
+    _apply_equipment()
+    var seq: int = int(data.get("seq",-1))
+    _last_request_seq=seq
+    await RenderingServer.frame_post_draw
+    _post({"type":"SERA_PREVIEW_RENDERED","seq":seq,"mode":view_mode})
+
+func _on_browser_message(args: Array) -> void:
+    if args.is_empty() or not ready_for_commands:
+        return
+    var evt: JavaScriptObject = args[0]
+    var window: JavaScriptObject = JavaScriptBridge.get_interface("window")
+    if str(evt.origin)!=str(window.location.origin):
+        return
+    var raw: String = str(evt.data)
+    if raw.length()>16000:
+        return
+    var data: Variant = JSON.parse_string(raw)
+    if not data is Dictionary or str(data.get("namespace",""))!="SERA_EQUIPMENT_GODOT_V1":
+        return
+    match str(data.get("type","")):
+        "SET":
+            _apply_command.call_deferred(data)
+        "SNAPSHOT":
+            _snapshot.call_deferred(int(data.get("seq",-1)))
+        "RESET_CAMERA":
+            camera_yaw=160.0
+            camera_pitch=-18.0
+            camera_roll=0.0
+            camera_pan=Vector2.ZERO
+            camera_zoom=1.0
+            _apply_frame()
+            _announce_camera()
+
+func _post(data: Dictionary) -> void:
+    if not OS.has_feature("web"):
+        return
+    var packed: String = JSON.stringify(JSON.stringify(data))
+    # Cross-frame messages stay same-origin; the containing page owns the UI.
+    JavaScriptBridge.eval("window.parent.postMessage("+packed+",window.location.origin)",true)
+
+func _snapshot(seq: int) -> void:
+    await RenderingServer.frame_post_draw
+    var img: Image=get_viewport().get_texture().get_image()
+    if img==null or img.is_empty():
+        _post({"type":"SERA_PREVIEW_ERROR","message":"Framebuffer unavailable","seq":seq})
+        return
+    var raw: PackedByteArray=img.save_png_to_buffer()
+    _post({"type":"SERA_PREVIEW_SNAPSHOT","seq":seq,
+        "data_uri":"data:image/png;base64,"+Marshalls.raw_to_base64(raw)})
+
+func _announce_camera() -> void:
+    _post({"type":"SERA_PREVIEW_CAMERA","camera":{
+        "yaw":camera_yaw,"pitch":camera_pitch,"roll":camera_roll,
+        "panX":camera_pan.x,"panY":camera_pan.y,"zoom":camera_zoom}})
+
+func _input(event: InputEvent) -> void:
+    if not ready_for_commands:
+        return
+    if event is InputEventScreenTouch:
+        if event.pressed:
+            _touches[event.index]=event.position
+        else:
+            _touches.erase(event.index)
+        get_viewport().set_input_as_handled()
+    elif event is InputEventScreenDrag:
+        if _touches.has(event.index):
+            var old_pos: Vector2=_touches[event.index]
+            if _touches.size()>=2:
+                var other_pos: Vector2=old_pos
+                for key in _touches:
+                    if int(key)!=event.index:
+                        other_pos=_touches[key]
+                        break
+                var old_dist: float=old_pos.distance_to(other_pos)
+                var new_dist: float=event.position.distance_to(other_pos)
+                if old_dist>2.0:
+                    camera_zoom=clampf(camera_zoom*new_dist/old_dist,MIN_ZOOM,MAX_ZOOM)
+                camera_pan+=Vector2(event.relative.x,-event.relative.y)*0.003
+            else:
+                camera_yaw=wrapf(camera_yaw+event.relative.x*0.4,-180.0,180.0)
+                camera_pitch=clampf(camera_pitch-event.relative.y*0.4,-89.0,89.0)
+            _touches[event.index]=event.position
+            camera_pan=camera_pan.clamp(Vector2(-0.7,-0.7),Vector2(0.7,0.7))
+            _apply_frame()
+            _announce_camera()
+            get_viewport().set_input_as_handled()
+    elif event is InputEventMouseButton:
+        if event.button_index==MOUSE_BUTTON_LEFT:
+            _mouse_drag=event.pressed
+        elif event.pressed and event.button_index==MOUSE_BUTTON_WHEEL_UP:
+            camera_zoom=clampf(camera_zoom*1.1,MIN_ZOOM,MAX_ZOOM)
+            _apply_frame()
+            _announce_camera()
+        elif event.pressed and event.button_index==MOUSE_BUTTON_WHEEL_DOWN:
+            camera_zoom=clampf(camera_zoom/1.1,MIN_ZOOM,MAX_ZOOM)
+            _apply_frame()
+            _announce_camera()
+    elif event is InputEventMouseMotion and _mouse_drag and _touches.is_empty():
+        camera_yaw=wrapf(camera_yaw+event.relative.x*0.4,-180.0,180.0)
+        camera_pitch=clampf(camera_pitch-event.relative.y*0.4,-89.0,89.0)
+        _apply_frame()
+        _announce_camera()

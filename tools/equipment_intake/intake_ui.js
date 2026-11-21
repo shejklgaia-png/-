@@ -8,7 +8,7 @@ const STAT_KEYS=[...new Set(Object.values(DB.profiles).flatMap(v=>Object.values(
 const materials=[["scrap_low","汎用スクラップ"],["scrap_mid","応用スクラップ"],["scrap_high","高度スクラップ"],["alloy_low","基礎金属複合材"],["alloy_mid","精密金属複合材"],["alloy_high","高次金属複合材"],["electronics_low","汎用電子部品"],["electronics_mid","精密電子部品"],["electronics_high","高度電子部品"],["organic_low","微弱有機素材"],["organic_mid","活性有機素材"],["organic_high","旺盛有機素材"]];
 const choices={head:["A","B","C","D"],torso:["A","B"],arms:["A","B"],legs:["A","B","C","D"],booster:["A","B"],weapon_r:["A","B","K"],weapon_l:["A","B"]};
 const labels={head:{A:"A 標準頭部",B:"B 重装頭部",C:"C 頭部",D:"D アイリス"},legs:{A:"A 標準脚",B:"B 重量脚",C:"C 鳥脚",D:"D 重量脚"},weapon_r:{A:"A エッジブレード",B:"B ブレード",K:"K カタナ"}};
-let activeTab="setup",slot="head",selected=Object.fromEntries(Object.keys(choices).map(x=>[x,"A"])),scaleDelta=0,keepAspect=false;
+let activeTab="setup",slot="head",selected=Object.fromEntries(Object.keys(choices).map(x=>[x,x==="head"?"D":"A"])),scaleDelta=0,keepAspect=false;
 let statPct={},customClassifications={},materialEntries=[{id:"scrap_low",count:0}],showAll=true;
 let radarNear="", thumbnailCache={}, imageCache=new Map(), hiddenVariants=new Set();
 const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
@@ -36,8 +36,9 @@ function setTab(name){
  document.querySelectorAll("[data-nav]").forEach(n=>n.classList.toggle("active",n.dataset.nav===name));
  $("intake-controls").hidden=name!=="icon";
  $("intake-picker").hidden=name!=="rig";
- $("rigHint").textContent=name==="rig"?"全身装備を表示（ゲーム本体とは描画差があります）":"原本モデルを表示";
- if(window.SERA_INTAKE_RENDER)window.SERA_INTAKE_RENDER.render(name==="rig"?"body":"icon",selected,scaleMultiplier());
+ $("rigHint").textContent=name==="rig"?"ゲーム内SeraRigで全身を描画":"Godotの装備モデルを描画";
+ window.SERA_INTAKE_ACTIVE_SLOT=slot;
+ if(window.SERA_INTAKE_RENDER)window.SERA_INTAKE_RENDER.render(name==="rig"?"body":"icon",selected,sizeMultiplier(),keepAspect,slot).catch(console.warn);
  if(name==="analysis"){drawCharts();warmComparisonThumbnails();}
  if(name==="output")updateOutput();
 }
@@ -48,7 +49,7 @@ function renderSize(){
  $("sizeDelta").value=scaleDelta;$("sizeNumber").value=scaleDelta;
  $("sizeEffective").textContent=(sizeMultiplier()*100).toFixed(1)+"%";
  $("sizeAspect").checked=keepAspect;
- window.SERA_INTAKE_RENDER?.render("body",selected,sizeMultiplier(),keepAspect);
+ window.SERA_INTAKE_RENDER?.render(activeTab==="rig"?"body":"icon",selected,sizeMultiplier(),keepAspect,slot).catch(console.warn);
 }
 function numericRow(key,base,index=null){
  const id=key+(index==null?"":"."+index), val=percentValue(key,index),number=base*val/100;
@@ -157,18 +158,18 @@ async function warmComparisonThumbnails(){
  for(const variant of Object.keys(DB.profiles[slot])){
   const key=slot+variant;
   if(thumbnailCache[key])continue;
-  await window.SERA_INTAKE_RENDER.render("body",{...saved,[slot]:variant},1,false);
-  thumbnailCache[key]=$("glview").toDataURL("image/png");
+  await window.SERA_INTAKE_RENDER.render("body",{...saved,[slot]:variant},1,false,slot);
+  thumbnailCache[key]=await window.SERA_INTAKE_RENDER.snapshot();
   const image=new Image();image.src=thumbnailCache[key];
   image.onload=()=>{if(activeTab==="analysis")drawDistribution()};imageCache.set(key,image);
   updated=true;
  }
- await window.SERA_INTAKE_RENDER.render(activeTab==="rig"?"body":"icon",saved,sizeMultiplier(),keepAspect);
+ await window.SERA_INTAKE_RENDER.render(activeTab==="rig"?"body":"icon",saved,sizeMultiplier(),keepAspect,slot);
  if(updated&&activeTab==="analysis")drawCharts();
 }
 
 function updateOutput(){
- const data={format:"SERA_EQUIPMENT_INTAKE_V1",version:1,source:{repository_path:DB.source.path,sha256:DB.source.sha256,base_commit:DB.source.commit},equipment:{blueprint_id:$("blueprint").value.trim(),name:$("equipName").value.trim(),slot,rig_set:$("rigSet").value,rig_selection:{...selected}},model:{size_delta_percent:scaleDelta,effective_scale_percent:sizeMultiplier()*100,keep_aspect:keepAspect,standard:"A slot OBB reference; preview is advisory"},stats:{a_relative_percent:{...statPct},absolute:getDraft(),part_weight_class:weightClass(getDraft().weight_pct||100),whole_weight_pct:effectiveWeight(),whole_weight_class:weightClass(effectiveWeight()),unapproved_classifications:{...customClassifications}},recipe:materialEntries.filter(x=>x.count>0).map(x=>({...x})),special_effects:{description:$("specialEffect").value,approval_required:true,implementation_status:"PENDING_CHATGPT_DISCUSSION"},render_preset_text:$("presetText").value,review_required:true};
+ const data={format:"SERA_EQUIPMENT_INTAKE_V1",version:1,source:{repository_path:DB.source.path,sha256:DB.source.sha256,base_commit:DB.source.commit},equipment:{blueprint_id:$("blueprint").value.trim(),name:$("equipName").value.trim(),slot,rig_set:$("rigSet").value,rig_selection:{...selected}},model:{size_delta_percent:scaleDelta,effective_scale_percent:sizeMultiplier()*100,keep_aspect:keepAspect,standard:"Native Godot SeraRig / A bounding-box normalization for edited slot"},stats:{a_relative_percent:{...statPct},absolute:getDraft(),part_weight_class:weightClass(getDraft().weight_pct||100),whole_weight_pct:effectiveWeight(),whole_weight_class:weightClass(effectiveWeight()),unapproved_classifications:{...customClassifications}},recipe:materialEntries.filter(x=>x.count>0).map(x=>({...x})),special_effects:{description:$("specialEffect").value,approval_required:true,implementation_status:"PENDING_CHATGPT_DISCUSSION"},render_preset_text:$("presetText").value,review_required:true};
  const content="SERA_EQUIPMENT_INTAKE_V1\n"+JSON.stringify(data,null,2);$("exportText").value=content;return content;
 }
 async function copy(){
@@ -184,21 +185,21 @@ function renderPickers(){
   for(const value of opts){
    const btn=document.createElement("button");btn.type="button";const img=document.createElement("img");img.alt="装備プレビュー";img.src=thumbnailCache[key+value]||"";img.width=40;img.height=40;
    const txt=document.createElement("span");txt.textContent=labels[key]?.[value]||key+" "+value;
-   btn.append(img,txt);btn.addEventListener("click",async()=>{selected[key]=value;picker.open=false;renderPickers();await window.SERA_INTAKE_RENDER?.render("body",selected,sizeMultiplier(),keepAspect);const src=$("glview").toDataURL("image/png");thumbnailCache[key+value]=src;renderPickers();updateWeight()});list.append(btn)}
+   btn.append(img,txt);btn.addEventListener("click",async()=>{selected[key]=value;picker.open=false;renderPickers();await window.SERA_INTAKE_RENDER?.render("body",selected,sizeMultiplier(),keepAspect,slot);const src=await window.SERA_INTAKE_RENDER.snapshot();thumbnailCache[key+value]=src;renderPickers();updateWeight()});list.append(btn)}
   picker.append(list);wrapper.append(label,picker);root.append(wrapper);
   picker.addEventListener("toggle",async()=>{if(!picker.open||activeTab!=="rig")return;
     const saved={...selected};for(const value of opts){const id=key+value;if(thumbnailCache[id])continue;
-      await window.SERA_INTAKE_RENDER?.render("body",{...saved,[key]:value},1,true);
-      thumbnailCache[id]=$("glview").toDataURL("image/png");
+      await window.SERA_INTAKE_RENDER?.render("body",{...saved,[key]:value},1,true,key);
+      thumbnailCache[id]=await window.SERA_INTAKE_RENDER.snapshot();
       const image=[...list.querySelectorAll("button img")][opts.indexOf(value)];if(image)image.src=thumbnailCache[id];
     }
-    await window.SERA_INTAKE_RENDER?.render("body",saved,sizeMultiplier(),keepAspect);
+    await window.SERA_INTAKE_RENDER?.render("body",saved,sizeMultiplier(),keepAspect,slot);
   });
  }
 }
 function init(){
  document.querySelectorAll("[data-nav]").forEach(btn=>btn.addEventListener("click",()=>setTab(btn.dataset.nav)));
- $("slot").addEventListener("change",e=>{slot=e.target.value;statPct={};customClassifications={};renderStats();renderPickers()});
+ $("slot").addEventListener("change",e=>{slot=e.target.value;window.SERA_INTAKE_ACTIVE_SLOT=slot;statPct={};customClassifications={};renderStats();renderPickers();setTab(activeTab)});
  $("rigSet").addEventListener("change",e=>{selected[slot]=e.target.value;renderPickers();updateWeight()});
  $("sizeDelta").addEventListener("input",e=>{scaleDelta=Number(e.target.value);renderSize()});
  $("sizeNumber").addEventListener("input",e=>{scaleDelta=clamp(Number(e.target.value)||0,-300,300);renderSize()});
@@ -213,7 +214,7 @@ function init(){
  $("distX").addEventListener("change",drawDistribution);$("distY").addEventListener("change",drawDistribution);
  $("distSearch").addEventListener("input",drawCharts);
  $("slot").value=slot;
- $("rigSet").replaceChildren(...choices[slot].map(x=>{const o=document.createElement("option");o.value=x;o.textContent=x;return o}));
+ $("rigSet").replaceChildren(...choices[slot].map(x=>{const o=document.createElement("option");o.value=x;o.textContent=x;return o}));$("rigSet").value=selected[slot];
  $("slot").addEventListener("change",()=>{$("rigSet").replaceChildren(...choices[slot].map(x=>{const o=document.createElement("option");o.value=x;o.textContent=x;return o}));$("rigSet").value=selected[slot]});
  renderStats();renderMaterials();renderPickers();renderSize();setTab("setup");
 }
