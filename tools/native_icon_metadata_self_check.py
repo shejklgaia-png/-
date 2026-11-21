@@ -11,9 +11,9 @@ items = catalog_entries()
 assert len(items) == 19
 assert set(ANGLES) == {"head", "torso", "arms", "legs", "booster", "weapon_r", "weapon_l"}
 native = (ROOT / "tools/icon_studio/sera_all_native_capture.gd").read_text(encoding="utf-8")
-assert OBLIQUE_POSE == (-26.0, -146.0, 0.0)
+assert OBLIQUE_POSE == (26.0, -146.0, 0.0)
 assert all(angle == OBLIQUE_POSE for angle in ANGLES.values())
-assert 'const OBLIQUE_POSE: Vector3 = Vector3(-26.0, -146.0, 0.0)' in native
+assert 'const OBLIQUE_POSE: Vector3 = Vector3(26.0, -146.0, 0.0)' in native
 assert 'func _equalize_transparent_margins(' in native
 assert 'const POSE_NAMES = ["NEXUS_pose", "NEXUSpose"]' in native
 source = ROOT / items["H02"]["source_model"]
