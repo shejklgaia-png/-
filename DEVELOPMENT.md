@@ -1,3 +1,11 @@
+## 2026-11-21 — BASE施設のシルエットと奥行き再設計
+- 実Godotスクリーンショットの自己点検：面取りポリゴン導入後もNEXUS上面や外周施設が箱形の集合に見え、画面中で正面/側面の奥行きが弱かったため、実形状の区別を強化。
+- `sera_base_polygon_meshes.gd`に２種の直接編集三角メッシュを追加。`roof`は6点断面の勾配屋根（妻面と両斜面、段差）、`louver`は裏側が開いた構造の側面枠＋5枚の物理的な斜め羽根。外向き法線・Godot時計回り面・UVを生成し、静的ArrayMeshを各施設で共有する。
+- `sera_base_silhouette_refinement.gd`を追加。NEXUS＝せり出し入口屋根・屋上勾配換気カウル・サイド換気口・ドア装甲。LABO＝布製天幕前縁の立体軒・張力コード・側面換気扉。回収機＝可視のギアケース・2重油圧ブーム・角度付き排出口。精製＝煙突を避けた勾配カウル・炉口側面保護・側面吸気。分解＝ルーバー付き駆動箱・傾斜投入口・ガード。発電＝冷却ルーバー・配電上部フード・コア支え。倉庫＝勾配布屋根・A字補強・荷の前面フード。建設端末＝モニター庇・側面吸気・斜め支持材を追加。
+- これらはすべて既存`Batch.poly/poly_tilt/rod/box`に登録し、同材質は従来の`MultiMesh`にまとめる。新規MeshInstance3D/Light/Collision、テクスチャ、描画シェーダー、フレームごとの処理は追加しない。
+- NEXUS/他7施設の建物根本、拠点での位置・角度・タップ判定、床1施設1パネル、CRATE、GRID、NEXUS/LABO機能、UI、素材テクスチャは保持する。
+- 先行CI：`base_silhouette_refinement_self_check.py`と`base_silhouette_refinement_runtime_check.gd`を追加・マニフェスト登録。GDScriptでの形状の非退化、法線と表面順、実シーン各8施設の追加メッシュを検査。実画面とAndroid FPSの最終確認は別。
+
 ## 2026-11-21 — BASEポリゴン生成のコンパイル停止を修正
 - PR #617の実GL描画で全床・多角形施設が表示されなくなった直接原因は、`sera_base_polygon_meshes.gd`で`_mesh_cache`を参照しながら宣言し忘れたことでした。Godotの実行ログに`Parse Error: Identifier "_mesh_cache" not declared in the current scope`、続いて`Nonexistent function 'make'`が記録されていました。
 - `static var _mesh_cache: Dictionary = {}` をクラスレベルに明示。ポリゴン7種の`ArrayMesh`を安全に再利用し、各施設のバッチ生成を復旧します。

@@ -1,6 +1,7 @@
 extends RefCounted
 const BaseClutter = preload("res://scripts/sera_base_clutter.gd")
 const BasePolish = preload("res://scripts/sera_base_reference_polish.gd")
+const BaseSilhouette = preload("res://scripts/sera_base_silhouette_refinement.gd")
 const BasePolygon = preload("res://scripts/sera_base_polygon_meshes.gd")
 const WEATHERED_STEEL_PATH: String = "res://assets/base/industrial_steel_grunge.svg"
 const WEATHERED_CANVAS_PATH: String = "res://assets/base/aged_canvas_weave.svg"
@@ -342,6 +343,7 @@ static func build_nexus(parent: Node3D) -> void:
     g.box("ScrapYardSpareParts", Vector3(1.94, 0.39, 3.19),
         Vector3(0.33, 0.13, 0.55), "rust", -0.28)
     BasePolish.add_details(g, "NEXUS")
+    BaseSilhouette.add_details(g, "NEXUS")
     BaseClutter.decorate(g, "NEXUS")
     g.flush()
     _light(node, "NexusAmberGateLight", Vector3(0, 2.55, 2.89),
@@ -618,6 +620,7 @@ static func build_facility(parent: Node3D, key: String) -> void:
             g.box("BaseMountingBolt", Vector3(side * 0.72, 0.34, end * 0.71),
                 Vector3(0.11, 0.055, 0.11), "edge")
     BasePolish.add_details(g, key)
+    BaseSilhouette.add_details(g, key)
     BaseClutter.decorate(g, key)
     g.flush()
     match key:
