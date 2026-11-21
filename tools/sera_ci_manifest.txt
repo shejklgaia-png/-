@@ -1,3 +1,6 @@
+# Bittaran: four manual debug-leg breaks must trigger real authored down without common HP loss.
+py tools/bittaran_four_leg_debug_self_check.py
+gd tools/bittaran_four_leg_debug_runtime_check.gd
 # Accepted Bittaran A-build 10-minute balance: independent static expectations + live Godot route.
 py tools/bittaran_ten_min_balance_self_check.py
 gd tools/bittaran_ten_min_balance_runtime_check.gd

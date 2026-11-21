@@ -14,6 +14,16 @@ const BittaranSweepFXTrack = preload("res://scripts/bittaran_sweep_fx_track.gd")
 const DOWN_CLEARANCE = preload("res://scripts/bittaran_down_clearance.gd")
 const CONTROLLER_AXIS = preload("res://scripts/bittaran_controller_axis.gd")
 const NAME_TEXT: String = "BITTARAN  /  ビットタラン"
+# Developer-only controls scoped to this boss scene.
+const DEBUG_LEG_BUTTONS_ENABLED: bool = true
+const DEBUG_LEG_ORDER: Array[String] = [
+    "leg_fl", "leg_fr", "leg_rl", "leg_rr"]
+const DEBUG_LEG_LABELS: Dictionary = {
+    "leg_fl": "前左 / BREAK",
+    "leg_fr": "前右 / BREAK",
+    "leg_rl": "後左 / BREAK",
+    "leg_rr": "後右 / BREAK",
+}
 # Bittaran-only railgun pulse; both player HP and guard depletion scale.
 const LASER_DAMAGE_MULTIPLIER: float = BALANCE.RAILGUN_DAMAGE_MULTIPLIER
 const BOSS_WORLD_SCALE: float = 2.0
@@ -124,6 +134,8 @@ var bittaran_motion: String = "Idle"
 # Safety/attack-recovery locks still apply; no gait-step quota.
 var boss_name_label: Label
 var victory_label: Label
+var debug_leg_panel: Panel
+var debug_leg_buttons: Dictionary = {}
 var boss_death_particles: CPUParticles3D
 var boss_death_elapsed: float = -1.0
 var boss_far_side_screen_axis: bool = false
@@ -197,7 +209,153 @@ func _ready() -> void:
     boss_name_label = _make_boss_label(layer, NAME_TEXT, 115.0, 22)
     victory_label = _make_boss_label(layer, "BITTARAN DEFEATED", 176.0, 26)
     victory_label.visible = false
+    _build_debug_leg_buttons()
     _update_bittaran_lock_permissions()
+
+
+
+## Four independent creator-only buttons. Existing base _input uses raw
+## touch/mouse hit testing, so never let Control buttons receive a duplicate.
+func _build_debug_leg_buttons() -> void:
+    if not DEBUG_LEG_BUTTONS_ENABLED:
+        return
+    var layer: CanvasLayer = get_node_or_null(
+        "BittaranBattleLabels") as CanvasLayer
+    if layer == null:
+        return
+    debug_leg_panel = Panel.new()
+    debug_leg_panel.name = "BittaranLegBreakDebug"
+    debug_leg_panel.theme = LaboTypography.common_theme()
+    debug_leg_panel.position = Vector2(14.0, 322.0)
+    debug_leg_panel.size = Vector2(334.0, 158.0)
+    debug_leg_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    var background := StyleBoxFlat.new()
+    background.bg_color = Color(0.06, 0.13, 0.18, 0.88)
+    background.border_color = Color("#55798A")
+    background.set_border_width_all(1)
+    background.set_corner_radius_all(3)
+    debug_leg_panel.add_theme_stylebox_override("panel", background)
+    layer.add_child(debug_leg_panel)
+
+    var caption := Label.new()
+    caption.name = "LegBreakDebugTitle"
+    caption.text = "DEBUG  /  LEG BREAK"
+    caption.position = Vector2(12.0, 8.0)
+    caption.size = Vector2(310.0, 29.0)
+    caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    caption.add_theme_font_override(
+        "font", LaboTypography.tracked_data_font())
+    caption.add_theme_font_size_override("font_size", 16)
+    caption.add_theme_color_override("font_color", Color("#9eb6c3"))
+    debug_leg_panel.add_child(caption)
+
+    for i in range(DEBUG_LEG_ORDER.size()):
+        var id: String = DEBUG_LEG_ORDER[i]
+        var button := Button.new()
+        button.name = "Break_" + id
+        button.text = str(DEBUG_LEG_LABELS[id])
+        button.position = Vector2(10.0 + float(i % 2) * 160.0,
+            44.0 + float(floori(float(i) / 2.0)) * 50.0)
+        button.size = Vector2(154.0, 44.0)
+        button.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        button.focus_mode = Control.FOCUS_NONE
+        button.add_theme_font_override("font", LaboTypography.control_font())
+        button.add_theme_font_size_override("font_size", 17)
+        button.add_theme_stylebox_override(
+            "normal", LaboTypography.terminal_segment_style("normal"))
+        button.add_theme_stylebox_override(
+            "hover", LaboTypography.terminal_segment_style("hover"))
+        button.add_theme_stylebox_override(
+            "pressed", LaboTypography.terminal_segment_style("pressed"))
+        button.add_theme_stylebox_override(
+            "disabled", LaboTypography.terminal_segment_style("disabled"))
+        button.add_theme_color_override("font_color", Color("#d4e5ed"))
+        button.add_theme_color_override(
+            "font_disabled_color", Color("#6c8592"))
+        debug_leg_panel.add_child(button)
+        debug_leg_buttons[id] = button
+    _sync_debug_leg_buttons()
+
+
+func _sync_debug_leg_buttons() -> void:
+    if debug_leg_buttons.is_empty():
+        return
+    for id in DEBUG_LEG_ORDER:
+        var button: Button = debug_leg_buttons.get(id) as Button
+        if button == null:
+            continue
+        var intact: bool = target_parts != null and bool(
+            target_parts.call("is_intact", id))
+        button.disabled = not intact or target_hp <= 0
+        var normal_label: String = str(DEBUG_LEG_LABELS[id])
+        button.text = (normal_label if intact
+            else normal_label.replace("BREAK", "DONE"))
+
+
+func _debug_leg_button_at(position: Vector2) -> String:
+    if not DEBUG_LEG_BUTTONS_ENABLED or debug_leg_panel == null or (
+            not debug_leg_panel.is_visible_in_tree()):
+        return ""
+    # Disabled buttons still consume touch; they must never fire a sword tap.
+    for id in DEBUG_LEG_ORDER:
+        var button: Button = debug_leg_buttons.get(id) as Button
+        if button != null and button.get_global_rect().has_point(position):
+            return id
+    return ""
+
+
+## Fracture only this limb's independent gauge, preserving actual common
+## boss HP, predictive SP, player guard and recorded sword hit counters.
+## Delegate the resulting collapse to exactly the real combat down handler.
+func _debug_break_leg(id: String) -> bool:
+    if not DEBUG_LEG_BUTTONS_ENABLED or (
+            not DEBUG_LEG_ORDER.has(id)) or (
+            target_parts == null or bittaran_foot_ik == null) or (
+            target_hp <= 0 or training_ko_remaining > 0.0) or (
+            not bool(target_parts.call("is_intact", id))):
+        return false
+    var remaining: float = float(target_parts.call(
+        "get_part_integrity", id))
+    if remaining <= 0.0:
+        return false
+    var entries: Dictionary = target_parts.get("parts")
+    var entry: Dictionary = entries.get(id, {})
+    var mitigation: float = clampf(
+        float(entry.get("break_defense", 0.0)), 0.0, 0.99)
+    var raw_break: float = remaining / (1.0 - mitigation) + 1.0
+    var result: Dictionary = target_parts.call(
+        "apply_part_hit", id, 0.0, raw_break)
+    if not bool(result.get("broken", false)) or (
+            str(result.get("kind", "")) != "leg"):
+        return false
+    target_parts.call("trigger_part_hit_fx", id, HIT_FLASH_SECONDS)
+    _handle_bittaran_leg_break(id, result, false, "")
+    _sync_debug_leg_buttons()
+    _refresh_numeric_status_hud()
+    _update_bittaran_lock_permissions()
+    print("BITTARAN_DEBUG_LEG_BREAK: ", id,
+        " broken_legs=", int(result.get("broken_legs", 0)))
+    return true
+
+
+func _input(event: InputEvent) -> void:
+    if event is InputEventScreenTouch and event.pressed:
+        var id: String = _debug_leg_button_at(event.position)
+        if not id.is_empty():
+            step_hud_touch = event.index
+            _debug_break_leg(id)
+            get_viewport().set_input_as_handled()
+            return
+    elif not OS.has_feature("mobile") and (
+            event is InputEventMouseButton and event.pressed and
+            event.button_index == MOUSE_BUTTON_LEFT):
+        var id: String = _debug_leg_button_at(event.position)
+        if not id.is_empty():
+            step_hud_mouse_press = true
+            _debug_break_leg(id)
+            get_viewport().set_input_as_handled()
+            return
+    super._input(event)
 
 ## Only Bittaran's battle scene owns this player: no training-room
 ## BGM leakage. ResourceLoader loads Godot's imported Ogg on desktop
@@ -2223,47 +2381,9 @@ func _apply_target_part_damage(kind: String, raw_attack: int, raw_break: float,
     var alive_before: bool = target_hp > 0
     var result: Dictionary = super._apply_target_part_damage(
         kind, raw_attack, raw_break, weak_stagger, extension)
-    # A shin breaking makes its whole leg skid out; temporarily lower
-    # the chassis until the HEAD comes into SERA's melee reach, then restore.
-    if bool(result.get("broken", false)) and str(result.get("kind", "")) == "leg":
-        if bittaran_attacks != null:
-            bittaran_attacks.call("cancel")
-        bittaran_attack_frame.clear()
-        bittaran_attack_body_yaw = 0.0
-        if bittaran_foot_ik != null:
-            bittaran_foot_ik.call("clear_attack_pose")
-        if bittaran_foot_ik != null and target_parts != null:
-            boss_head_windup_start_yaw = boss_head_yaw
-            head_collision_filtered_depth = 0.0
-            head_collision_blocked = false
-            head_collision_release_elapsed = 0.0
-            var head_world: Vector3 = target_parts.call("get_part_aim_world", "head")
-            bittaran_foot_ik.call("start_leg_break_slide", hit_id, head_world.y,
-                int(result.get("broken_legs", 0)) >= 4)
-            # On an INTERRUPTED attack retain the player's head tracker.
-            # Shift the authored combat BODY and striking limb to the
-            # real STOMP raised prepose over the existing separate 0.60s
-            # down anticipation, rather than resetting to Wait instantly.
-            # Non-attacking knockdowns retain their old nose-up telegraph.
-            if active_at_hit and bittaran_rig != null:
-                if bool(bittaran_rig.call(
-                        "begin_stomp_down_windup",
-                        attacking_leg_at_hit)):
-                    bittaran_foot_ik.call(
-                        "begin_attack_down_windup", attacking_leg_at_hit)
-                    # Stop the old swing controller but do NOT reset
-                    # the actual currently displayed joint angles.
-                    bittaran_rig.call("end_authored_attack")
-                else:
-                    bittaran_rig.call("cancel_authored_attack_for_down")
-            # The base training boss starts a generic 1s/3.5s animation
-            # freeze on every broken limb. Bittaran's longer physical
-            # knockdown replaces it entirely; otherwise 2nd+ breaks
-            # remain animation-locked past the first upward recovery.
-            part_break_remaining = 0.0
-            stagger_remaining = 0.0
-            # Weakpoints become lockable in this very hit frame.
-            target_parts.call("set_down_lock_enabled", true)
+    _handle_bittaran_leg_break(
+        hit_id, result, active_at_hit, attacking_leg_at_hit)
+    _sync_debug_leg_buttons()
     if alive_before and target_hp == 0:
         if bittaran_attacks != null:
             bittaran_attacks.call("cancel")
@@ -2280,6 +2400,52 @@ func _apply_target_part_damage(kind: String, raw_attack: int, raw_break: float,
         target_respawn_remaining = BOSS_DEATH_RESPAWN_SECONDS
         _start_boss_death_fx()
     return result
+
+
+## Shared real-melee / creator-debug down path; do not change authored IK.
+func _handle_bittaran_leg_break(hit_id: String, result: Dictionary,
+        active_at_hit: bool, attacking_leg_at_hit: String) -> void:
+    if not bool(result.get("broken", false)) or (
+            str(result.get("kind", "")) != "leg"):
+        return
+    if bittaran_attacks != null:
+        bittaran_attacks.call("cancel")
+    bittaran_attack_frame.clear()
+    bittaran_attack_body_yaw = 0.0
+    if bittaran_foot_ik != null:
+        bittaran_foot_ik.call("clear_attack_pose")
+    if bittaran_foot_ik != null and target_parts != null:
+        boss_head_windup_start_yaw = boss_head_yaw
+        head_collision_filtered_depth = 0.0
+        head_collision_blocked = false
+        head_collision_release_elapsed = 0.0
+        var head_world: Vector3 = target_parts.call("get_part_aim_world", "head")
+        bittaran_foot_ik.call("start_leg_break_slide", hit_id, head_world.y,
+            int(result.get("broken_legs", 0)) >= 4)
+        # On an INTERRUPTED attack retain the player's head tracker.
+        # Shift the authored combat BODY and striking limb to the
+        # real STOMP raised prepose over the existing separate 0.60s
+        # down anticipation, rather than resetting to Wait instantly.
+        # Non-attacking knockdowns retain their old nose-up telegraph.
+        if active_at_hit and bittaran_rig != null:
+            if bool(bittaran_rig.call(
+                    "begin_stomp_down_windup",
+                    attacking_leg_at_hit)):
+                bittaran_foot_ik.call(
+                    "begin_attack_down_windup", attacking_leg_at_hit)
+                # Stop the old swing controller but do NOT reset
+                # the actual currently displayed joint angles.
+                bittaran_rig.call("end_authored_attack")
+            else:
+                bittaran_rig.call("cancel_authored_attack_for_down")
+        # The base training boss starts a generic 1s/3.5s animation
+        # freeze on every broken limb. Bittaran's longer physical
+        # knockdown replaces it entirely; otherwise 2nd+ breaks
+        # remain animation-locked past the first upward recovery.
+        part_break_remaining = 0.0
+        stagger_remaining = 0.0
+        # Weakpoints become lockable in this very hit frame.
+        target_parts.call("set_down_lock_enabled", true)
 
 func _tick_target_respawn(delta: float) -> void:
     # Shared countdown resets BODY and all parts together after combo finishes.
@@ -2336,6 +2502,7 @@ func _reset_target_after_respawn() -> void:
     if bittaran_foot_ik != null:
         bittaran_foot_ik.call("reset")
     _update_bittaran_lock_permissions()
+    _sync_debug_leg_buttons()
 
 func _process(delta: float) -> void:
     super._process(delta)
