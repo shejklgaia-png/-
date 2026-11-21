@@ -89,7 +89,7 @@ async function intakeRender(kind,selected={},scale=1,keepAspect=true){
   intakePreviewKind=kind;
   $('modelTitle').textContent=kind==="body"?"装備A基準・全身換装プレビュー":(intakeOriginal.name||"原本モデル");
   $('downloadPng').disabled=kind==="body";
-  schedule();say(kind==="body"?"全身3D構成を表示。Godotネイティブと描画差があるため撮影確定はICONタブで行ってください。":"原本のアイコン撮影モード");
+  draw();schedule();say(kind==="body"?"全身3D構成を表示。Godotネイティブと描画差があるため撮影確定はICONタブで行ってください。":"原本のアイコン撮影モード");
  }catch(e){say("換装プレビューの構成エラー："+e.message,true);console.error(e)}
 }
 window.SERA_INTAKE_RENDER={render:intakeRender,previewKind:()=>intakePreviewKind};
