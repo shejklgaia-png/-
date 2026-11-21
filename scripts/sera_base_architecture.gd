@@ -254,7 +254,7 @@ static func build_nexus(parent: Node3D) -> void:
             Vector3(0.35, 3.5, 4.75), "trim")
         g.box("SideServicePod", Vector3(side * 2.75, 1.90, 1.04),
             Vector3(0.45, 2.45, 1.65), "armor_light")
-        g.box("RoofUtilityCabinet", Vector3(side * 1.75, 4.86, -1.20),
+        g.poly("RoofUtilityCabinet", "bevel", Vector3(side * 1.75, 4.86, -1.20),
             Vector3(0.94, 0.42, 0.88), "crate")
         for row in range(4):
             g.box("RoofVentSlits", Vector3(side * 1.75, 5.09,
@@ -270,7 +270,7 @@ static func build_nexus(parent: Node3D) -> void:
     for side in [-1.0, 1.0]:
         for row in range(3):
             var y: float = 0.71 + float(row) * 1.04
-            g.box("NexusFacadeArmor", Vector3(side * 2.13, y, 2.55),
+            g.poly("NexusFacadeArmor", "bevel", Vector3(side * 2.13, y, 2.55),
                 Vector3(0.89, 0.88, 0.15),
                 "armor_light" if row == 1 else "armor")
             g.box("NexusFacadePanelSeam", Vector3(side * 2.13,
@@ -280,7 +280,7 @@ static func build_nexus(parent: Node3D) -> void:
                     y + 0.33, 2.67), Vector3(0.10, 0.08, 0.06), "edge")
         for row in range(4):
             var sz: float = -1.76 + float(row) * 1.04
-            g.box("NexusSideArmorPlate", Vector3(side * 2.97, 2.12, sz),
+            g.poly("NexusSideArmorPlate", "bevel", Vector3(side * 2.97, 2.12, sz),
                 Vector3(0.14, 3.02, 0.88), "slate" if row % 2 else "armor")
             g.box("NexusSideVerticalRib", Vector3(side * 3.06, 2.12, sz + 0.39),
                 Vector3(0.07, 3.21, 0.08), "edge")
@@ -355,7 +355,7 @@ static func _labo(g: Batch) -> void:
     g.box("LabOpenWorkshopBackPanel", Vector3(0, 1.40, -1.43),
         Vector3(2.97, 2.27, 0.12), "void")
     for side in [-1.0, 1.0]:
-        g.box("LabOpenWorkshopSideWall", Vector3(side * 1.74, 1.56, -0.84),
+        g.poly("LabOpenWorkshopSideWall", "bevel", Vector3(side * 1.74, 1.56, -0.84),
             Vector3(0.17, 2.73, 1.87), "armor")
         for rib in range(3):
             g.box("LabOpenWorkshopFrameRib", Vector3(side * 1.70,
@@ -418,7 +418,7 @@ static func _labo(g: Batch) -> void:
 
 static func _collector(g: Batch) -> void:
     # A real pick-and-drop scrap recovery claw over a low sorting hopper.
-    g.box("CollectorBase", Vector3(0, 0.35, 0), Vector3(2.17, 0.55, 2.0), "trim")
+    g.poly("CollectorBase", "bevel", Vector3(0, 0.35, 0), Vector3(2.17, 0.55, 2.0), "trim")
     g.poly("CollectorFunnel", "hopper", Vector3(0.35, 0.67, 0.22),
         Vector3(1.34, 0.70, 1.24), "slate")
     for side in [-1.0, 1.0]:
@@ -481,10 +481,10 @@ static func _smelter(g: Batch) -> void:
 
 static func _recycler(g: Batch) -> void:
     # Open crushing mouth with exposed grooved cylindrical cutters and discharge bin.
-    g.box("CrusherDeck", Vector3(0, 0.35, 0),
+    g.poly("CrusherDeck", "bevel", Vector3(0, 0.35, 0),
         Vector3(2.23, 0.44, 2.01), "armor")
     for side in [-1.0, 1.0]:
-        g.box("CrusherSideGuard", Vector3(side * 0.96, 1.22, 0),
+        g.poly("CrusherSideGuard", "bevel", Vector3(side * 0.96, 1.22, 0),
             Vector3(0.22, 1.32, 1.86), "trim")
         g.box("CrusherMotor", Vector3(side * 0.99, 0.93, -0.58),
             Vector3(0.34, 0.54, 0.51), "slate")
@@ -508,7 +508,7 @@ static func _recycler(g: Batch) -> void:
 
 static func _generator(g: Batch) -> void:
     # Horizontal blue turbine and a separate dark power conditioning cabinet.
-    g.box("GeneratorSkid", Vector3(0, 0.31, 0),
+    g.poly("GeneratorSkid", "bevel", Vector3(0, 0.31, 0),
         Vector3(2.2, 0.44, 1.99), "trim")
     for side in [-1.0, 1.0]:
         g.box("EnergyBearing", Vector3(side * 0.58, 0.91, 0.0),
@@ -521,7 +521,7 @@ static func _generator(g: Batch) -> void:
     for index in range(7):
         g.box("EnergyCoil", Vector3(-0.38 + float(index) * 0.13,
             1.10, 0.63), Vector3(0.065, 0.54, 0.06), "blue_light")
-    g.box("GeneratorPowerCabinet", Vector3(0.87, 1.36, -0.32),
+    g.poly("GeneratorPowerCabinet", "bevel", Vector3(0.87, 1.36, -0.32),
         Vector3(0.59, 1.98, 1.06), "crate")
     g.box("GeneratorPanel", Vector3(0.86, 1.56, 0.25),
         Vector3(0.41, 0.58, 0.08), "dark")
@@ -535,7 +535,7 @@ static func _generator(g: Batch) -> void:
         Vector3(0.22, 0.14, 0.08), "amber_light")
 
 static func _storage(g: Batch) -> void:
-    g.box("CargoStoragePallet", Vector3(0, 0.24, 0),
+    g.poly("CargoStoragePallet", "bevel", Vector3(0, 0.24, 0),
         Vector3(2.3, 0.29, 2.07), "trim")
     for i in range(6):
         var x: float = -0.72 + float(i % 3) * 0.70
@@ -555,9 +555,9 @@ static func _storage(g: Batch) -> void:
 
 static func _construction(g: Batch) -> void:
     # Operator-height terminal with an angled holographic blueprint stand.
-    g.box("BlueprintTerminalFoot", Vector3(0, 0.30, 0.11),
+    g.poly("BlueprintTerminalFoot", "bevel", Vector3(0, 0.30, 0.11),
         Vector3(1.97, 0.43, 1.85), "trim")
-    g.box("BlueprintTerminalBody", Vector3(0, 0.90, -0.23),
+    g.poly("BlueprintTerminalBody", "bevel", Vector3(0, 0.90, -0.23),
         Vector3(1.68, 0.80, 0.86), "armor")
     g.poly("BlueprintScreenHousing", "bevel", Vector3(0, 1.68, -0.31),
         Vector3(1.73, 1.07, 0.34), "edge")
