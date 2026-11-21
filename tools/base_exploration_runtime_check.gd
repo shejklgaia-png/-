@@ -120,8 +120,12 @@ func _run() -> void:
                     _fail("GRID itself ends inside viewport at player (%.1f, %.1f)" %
                         [px, pz])
                     return
-    cam.position = Vector3(0, 19.6, 13.3)
-    cam.look_at(Vector3(0, 0, -2.2), Vector3.UP)
+    # Restore the current isometric base camera before validating NEXUS picking.
+    cam.position = hub.get_script().get_script_constant_map()["BASE_CAMERA_POSITION"]
+    cam.look_at(hub.get_script().get_script_constant_map()["BASE_CAMERA_TARGET"], Vector3.UP)
+    if cam.projection != Camera3D.PROJECTION_ORTHOGONAL:
+        _fail("restored camera lost orthographic projection")
+        return
 
     var spot: Vector2 = cam.unproject_position(building.global_position + Vector3(0, 2.5, 0))
     if not bool(hub.call("_nexus_hit", spot)):
