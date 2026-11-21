@@ -38,11 +38,8 @@
 - **GitSync/phone:** only merged `main` reaches Android. Preserve unpushed edits; never sync while editors write or repeatedly ask to sync/start.
 - No secrets, signing keys, credentials, arbitrary dependencies, or unwarranted deletion of user models. If source is ambiguous, inspect hierarchy/Pivot before assigning a bone.
 
-## 装備追加の順序：原本同梱アイコンHTMLを最初に渡す（2026-11-21）
-- **装備実装の前に** 正本 `.bbmodel` （テクスチャ含む）を `tools/icon_studio/build_sera_icon_studio.py` で単一HTMLへ埋め込み、**このチャットで完成した装備専用HTMLをユーザーに渡す**。ユーザーにBlockbenchファイルの再ダウンロード・手動読み込み・アップロードを求めない。
-- HTML受け渡し後、原本モデルをゲームへ実装し、LAB装備作成／製作設計図／レシピ／倉庫／NEXUS／保存まで従来の完了条件を遂行する。ユーザーが撮影構図を未確定なら暫定画像と確定済みを区別し、確定アイコンを勝手に生成・確定しない。
-- Icon Studioの「透過PNGを保存」は `SERA_ICON_MANIFEST_V1`（原本のGitHubパスとSHA-256、設計図ID、slot、rig_set、撮影角度・ズーム・移動）をPNG内に埋め込む。他のチャットでユーザーがそのPNGだけをアップロードした場合は `tools/icon_studio/read_sera_icon_png.py` で原本・装備の対応を確認し、ゲームの該当装備アイコンへ反映する。モデル原本はGitHub正本を参照し、再アップロードを要求しない。
-- 画像の再エンコードでPNGメタデータが消える場合があるため、ファイル名と設計図で確認。曖昧なときは誤適用しない。カメラ設定はプレビュー、最終アイコンはユーザーの実ファイルを優先。詳細は `tools/icon_studio/README.md` と `docs/MODEL_PART_WORKFLOW_ja.md`。
+## 装備アイコンソフトの先行受け渡し（必須）
+**装備モデル実装前に** 原本とテクスチャを同梱したIcon Studioの単一HTMLをユーザーに渡す。ユーザーに再アップロードを要求しない。HTML受け渡し後に装備実装／LAB／倉庫／NEXUS／保存まで接続する。PNGは `SERA_ICON_MANIFEST_V1` で他チャットへ引き継ぐ。詳細正本: `docs/SERA_ICON_STUDIO_HANDOFF_POLICY_ja.md`。
 
 ## 装備モデル追加の完了条件（2026-11-21）
 **NEXUS表示のみでは未完了。** LABの装備製作・固有UID/5効果・保存・装着まで同PRで接続しCI検証。HEAD DはLAB未登録のため完了扱い禁止。詳細正本: `docs/SERA_EQUIPMENT_MODEL_LAB_INTAKE_ja.md`。
