@@ -55,6 +55,8 @@ var customize_part_stat_cells: Array[Dictionary] = []
 var customize_stat_cells: Array[Dictionary] = []
 var customize_total_column_rules: Array[ColorRect] = []
 var customize_part_column_rules: Array[ColorRect] = []
+var customize_total_accents: Array[ColorRect] = []
+var customize_part_accents: Array[ColorRect] = []
 var customize_part_preview_frame: Control
 var customize_single_part_preview: Control
 var customize_body_rotate_cue: Control
@@ -878,7 +880,9 @@ func _create_customization_stats() -> void:
     customize_stats_panel = Panel.new()
     customize_stats_panel.name = "CustomizeTotalStatsPanel"
     customize_stats_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-    customize_stats_panel.add_theme_stylebox_override("panel", _menu_body_style())
+    customize_stats_panel.add_theme_stylebox_override(
+        "panel", StatUI.status_window_style())
+    customize_total_accents = StatUI.attach_status_marks(customize_stats_panel)
     customize_stats_panel.visible = false
     hud.add_child(customize_stats_panel)
     var total_bar := Panel.new()
@@ -964,6 +968,7 @@ func _layout_customization_stats() -> void:
     var height: float = minf(view.y * 0.212, 275.0)
     customize_stats_panel.position = Vector2(left, top)
     customize_stats_panel.size = Vector2(width, height)
+    StatUI.layout_status_marks(customize_total_accents, customize_stats_panel.size)
     var heading: Panel = customize_stats_panel.get_node(
         "CustomizeTotalStatsHeader") as Panel
     heading.position = Vector2.ZERO
@@ -1539,7 +1544,8 @@ func _create_customization_part_stats() -> void:
     customize_part_stats_panel.name = "CustomizePartStatsPanel"
     customize_part_stats_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
     customize_part_stats_panel.add_theme_stylebox_override(
-        "panel", _menu_body_style())
+        "panel", StatUI.status_window_style())
+    customize_part_accents = StatUI.attach_status_marks(customize_part_stats_panel)
     customize_part_stats_panel.visible = false
     hud.add_child(customize_part_stats_panel)
     var header := Panel.new()
@@ -1641,6 +1647,7 @@ func _layout_customization_part_stats() -> void:
     var area: Rect2 = _customize_part_stats_rect(hud.size)
     customize_part_stats_panel.position = area.position
     customize_part_stats_panel.size = area.size
+    StatUI.layout_status_marks(customize_part_accents, area.size)
     var bar: Panel = customize_part_stats_panel.get_node(
         "CustomizePartStatsHeader") as Panel
     bar.position = Vector2.ZERO
