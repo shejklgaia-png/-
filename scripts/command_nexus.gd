@@ -10,6 +10,8 @@ const PrototypeCatalog = preload("res://scripts/sera_prototype_catalog.gd")
 const LaboSkin = preload("res://scripts/sera_labo_round_skin.gd")
 const EquipmentStatRows = preload("res://scripts/sera_nexus_stat_rows.gd")
 const LaboStats = preload("res://scripts/sera_labo_stats.gd")
+const StatUI = preload("res://scripts/sera_status_column_ui.gd")
+const PreviewRim = preload("res://scripts/sera_tech_preview_frame.gd")
 const CraftAffixes = preload("res://scripts/sera_craft_affixes.gd")
 const PartViewer = preload("res://scripts/sera_part_preview_widget.gd")
 const RotateMark = preload("res://scripts/sera_rotatable_mark.gd")
@@ -51,6 +53,9 @@ var customize_part_stats_scroll: ScrollContainer
 var customize_part_stats_list: GridContainer
 var customize_part_stat_cells: Array[Dictionary] = []
 var customize_stat_cells: Array[Dictionary] = []
+var customize_total_column_rules: Array[ColorRect] = []
+var customize_part_column_rules: Array[ColorRect] = []
+var customize_part_preview_frame: Control
 var customize_single_part_preview: Control
 var customize_body_rotate_cue: Control
 var customize_part_preview_slot: String = "head"
@@ -883,13 +888,17 @@ func _create_customization_stats() -> void:
     customize_stats_panel.add_child(total_bar)
     customize_total_title = Label.new()
     customize_total_title.name = "CustomizeTotalStatsTitle"
-    customize_total_title.text = "TOTAL STATUS"
+    customize_total_title.text = ""
     customize_total_title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
     customize_total_title.mouse_filter = Control.MOUSE_FILTER_IGNORE
     customize_total_title.add_theme_font_override("font", LaboSkin.tracked_display_font())
     customize_total_title.add_theme_font_size_override("font_size", 20)
     customize_total_title.add_theme_color_override("font_color", Color("#d7e6ed"))
     total_bar.add_child(customize_total_title)
+    total_bar.visible = false
+    for col in range(2):
+        customize_total_column_rules.append(StatUI.new_column_rule(
+            customize_stats_panel, "CustomizeTotalColumnDivider_%d" % col))
     customize_stats_scroll = ScrollContainer.new()
     customize_stats_scroll.name = "CustomizeEquipmentStatsScroll"
     customize_stats_scroll.mouse_filter = Control.MOUSE_FILTER_PASS
@@ -903,17 +912,18 @@ func _create_customization_stats() -> void:
     customize_stats_grid.columns = 3
     customize_stats_grid.mouse_filter = Control.MOUSE_FILTER_IGNORE
     customize_stats_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-    customize_stats_grid.add_theme_constant_override("h_separation", 4)
-    customize_stats_grid.add_theme_constant_override("v_separation", 4)
+    customize_stats_grid.add_theme_constant_override("h_separation", 9)
+    customize_stats_grid.add_theme_constant_override("v_separation", 5)
     customize_stats_scroll.add_child(customize_stats_grid)
     for i in range(20):
         var cell := Panel.new()
         cell.name = "EquipmentStat_" + str(i)
         cell.mouse_filter = Control.MOUSE_FILTER_IGNORE
         var style := StyleBoxFlat.new()
-        style.bg_color = Color("#10242e")
+        style.bg_color = Color(0.0, 0.0, 0.0, 0.0)
         style.set_corner_radius_all(0)
         cell.add_theme_stylebox_override("panel", style)
+        StatUI.clear_cell_background(cell)
         cell.visible = false
         customize_stats_grid.add_child(cell)
         var name_label := Label.new()
@@ -948,7 +958,7 @@ func _layout_customization_stats() -> void:
     customize_stats_panel.visible = show
     customize_stats_scroll.visible = show
     var view: Vector2 = hud.size
-    var width: float = maxf(180.0, view.x * 0.94)
+    var width: float = maxf(180.0, view.x * 0.93)
     var left: float = (view.x - width) * 0.5
     var top: float = maxf(20.0, view.y * 0.035)
     var height: float = minf(view.y * 0.212, 275.0)
@@ -957,31 +967,31 @@ func _layout_customization_stats() -> void:
     var heading: Panel = customize_stats_panel.get_node(
         "CustomizeTotalStatsHeader") as Panel
     heading.position = Vector2.ZERO
-    heading.size = Vector2(width, 37.0)
-    customize_total_title.position = Vector2(15, 0)
-    customize_total_title.size = Vector2(width - 30, 37)
+    heading.size = Vector2(width, 0.0)
+    heading.visible = false
+    customize_total_title.position = Vector2.ZERO
+    customize_total_title.size = Vector2.ZERO
     var inner_width: float = maxf(160.0, width - 20.0)
     var columns: int = 3 if inner_width >= 590.0 else (2 if inner_width >= 370.0 else 1)
     customize_stats_grid.columns = columns
-    customize_stats_scroll.position = Vector2(left + 10.0, top + 43.0)
-    customize_stats_scroll.size = Vector2(inner_width, height - 53.0)
+    customize_stats_scroll.position = Vector2(left + 10.0, top + 10.0)
+    customize_stats_scroll.size = Vector2(inner_width, height - 20.0)
+    StatUI.layout_column_rules(customize_total_column_rules,
+        Rect2(Vector2(10, 7), Vector2(inner_width, height - 14)), columns)
     var cell_width: float = floorf(
-        (inner_width - 4.0 * float(columns - 1)) / float(columns))
-    var cell_height: float = 30.0
+        (inner_width - 9.0 * float(columns - 1)) / float(columns))
+    var cell_height: float = 36.0
     for i in range(customize_stat_cells.size()):
         var entry: Dictionary = customize_stat_cells[i]
         var cell: Panel = entry["panel"]
         cell.custom_minimum_size = Vector2(cell_width, cell_height)
         var label: Label = entry["name"]
         var value: Label = entry["value"]
-        label.position = Vector2(8, 0)
-        label.size = Vector2(floorf(cell_width * 0.59) - 10.0, cell_height)
-        value.position = Vector2(floorf(cell_width * 0.59), 0.0)
-        value.size = Vector2(cell_width * 0.41 - 10.0, cell_height)
-        var line: ColorRect = entry["rule"]
-        line.position = Vector2(cell_width - 2, 4)
-        line.size = Vector2(1, cell_height - 8)
-        line.visible = i % columns < columns - 1 and cell.visible
+        label.position = Vector2(10, 2)
+        label.size = Vector2(floorf(cell_width * 0.60) - 10.0, cell_height - 4)
+        value.position = Vector2(floorf(cell_width * 0.60), 2)
+        value.size = Vector2(cell_width * 0.40 - 10.0, cell_height - 4)
+        (entry["rule"] as ColorRect).visible = false
 
 func _refresh_customization_stats() -> void:
     if customize_stats_grid == null:
@@ -993,7 +1003,7 @@ func _refresh_customization_stats() -> void:
         var cell: Dictionary = customize_stat_cells[i]
         var show: bool = i < entries.size()
         (cell["panel"] as Panel).visible = show
-        (cell["rule"] as ColorRect).visible = show and i % columns < columns - 1
+        (cell["rule"] as ColorRect).visible = false
         if show:
             (cell["name"] as Label).text = str(entries[i]["label"])
             (cell["value"] as Label).text = str(entries[i]["value"])
@@ -1001,7 +1011,7 @@ func _refresh_customization_stats() -> void:
 
 func _create_equipment_controls() -> void:
     customize_equipment_header = Label.new()
-    customize_equipment_header.text = "EQUIPMENT"
+    customize_equipment_header.text = ""
     customize_equipment_header.mouse_filter = Control.MOUSE_FILTER_IGNORE
     customize_equipment_header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
     customize_equipment_header.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -1069,7 +1079,7 @@ func _layout_equipment_controls() -> void:
         return
     customize_equipment_header.position = Vector2.ZERO
     customize_equipment_header.size = customize_right_header.size
-    var top: float = customize_right_header.size.y + 10.0
+    var top: float = 9.0
     var available: float = customize_right_panel.size.y - top - 8.0
     var row_pitch: float = maxf(41.0, available / float(CUSTOMIZE_SLOTS.size()))
     for i in range(CUSTOMIZE_SLOTS.size()):
@@ -1480,6 +1490,12 @@ func _create_single_part_preview() -> void:
     customize_single_part_preview.name = "CustomizeSinglePartPreview"
     customize_single_part_preview.visible = false
     focus_panel.add_child(customize_single_part_preview)
+    customize_part_preview_frame = PreviewRim.new()
+    customize_part_preview_frame.name = "CustomizePartPreviewTechFrame"
+    customize_part_preview_frame.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+    customize_part_preview_frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    customize_part_preview_frame.visible = false
+    focus_panel.add_child(customize_part_preview_frame)
     customize_body_rotate_cue = RotateMark.new()
     customize_body_rotate_cue.name = "CustomizeBodyRotateCue"
     customize_body_rotate_cue.size = Vector2(28, 28)
@@ -1500,6 +1516,7 @@ func _layout_single_part_preview() -> void:
     var area: Rect2 = _customize_model_area(view)
     customize_body_rotate_cue.position = area.position + Vector2(8, 8)
     customize_body_rotate_cue.visible = focused_target == "CUSTOMIZE"
+    customize_part_preview_frame.visible = focused_target == "CUSTOMIZE"
 
 
 func _refresh_single_part_preview(slot: String) -> void:
@@ -1528,7 +1545,7 @@ func _create_customization_part_stats() -> void:
     customize_part_stats_panel.add_child(header)
     customize_part_stats_header = Label.new()
     customize_part_stats_header.name = "CustomizePartStatsHeading"
-    customize_part_stats_header.text = "PART STATUS"
+    customize_part_stats_header.text = ""
     customize_part_stats_header.mouse_filter = Control.MOUSE_FILTER_IGNORE
     customize_part_stats_header.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
     customize_part_stats_header.add_theme_font_override(
@@ -1537,6 +1554,10 @@ func _create_customization_part_stats() -> void:
     customize_part_stats_header.add_theme_color_override(
         "font_color", Color("#d7e6ed"))
     header.add_child(customize_part_stats_header)
+    header.visible = false
+    for col in range(2):
+        customize_part_column_rules.append(StatUI.new_column_rule(
+            customize_part_stats_panel, "CustomizePartColumnDivider_%d" % col))
     customize_part_stats_name = Label.new()
     customize_part_stats_name.name = "CustomizePartStatsName"
     customize_part_stats_name.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1561,20 +1582,15 @@ func _create_customization_part_stats() -> void:
     customize_part_stats_list.name = "CustomizePartStatsRows"
     customize_part_stats_list.mouse_filter = Control.MOUSE_FILTER_IGNORE
     customize_part_stats_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-    customize_part_stats_list.add_theme_constant_override("h_separation", 5)
-    customize_part_stats_list.add_theme_constant_override("v_separation", 3)
+    customize_part_stats_list.add_theme_constant_override("h_separation", 11)
+    customize_part_stats_list.add_theme_constant_override("v_separation", 4)
     customize_part_stats_scroll.add_child(customize_part_stats_list)
     for i in range(28):
         var row := Panel.new()
         row.name = "SinglePartStat_" + str(i)
         row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-        row.custom_minimum_size = Vector2(100, 35)
-        var style := StyleBoxFlat.new()
-        style.bg_color = Color("#122a36")
-        style.border_color = Color("#345563")
-        style.border_width_bottom = 1
-        style.set_corner_radius_all(0)
-        row.add_theme_stylebox_override("panel", style)
+        row.custom_minimum_size = Vector2(100, 42)
+        StatUI.clear_cell_background(row)
         row.visible = false
         customize_part_stats_list.add_child(row)
         var label := Label.new()
@@ -1584,8 +1600,8 @@ func _create_customization_part_stats() -> void:
         label.clip_text = true
         label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
         label.add_theme_font_override("font", LaboSkin.stats_font())
-        label.add_theme_font_size_override("font_size", 13)
-        label.add_theme_color_override("font_color", Color("#b7cbd6"))
+        label.add_theme_font_size_override("font_size", 16)
+        label.add_theme_color_override("font_color", Color("#a9c2cd"))
         row.add_child(label)
         var value := Label.new()
         value.name = "PartStatValue"
@@ -1595,8 +1611,9 @@ func _create_customization_part_stats() -> void:
         value.clip_text = true
         value.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
         value.add_theme_font_override("font", LaboSkin.stats_font())
-        value.add_theme_font_size_override("font_size", 15)
-        value.add_theme_color_override("font_color", Color("#e0eef1"))
+        value.add_theme_font_size_override("font_size", 19)
+        value.add_theme_color_override("font_color", Color("#e4edf1"))
+        StatUI.style_stat_labels(label, value, 16, 19)
         row.add_child(value)
         customize_part_stat_cells.append({
             "panel": row, "name": label, "value": value
@@ -1606,7 +1623,7 @@ func _create_customization_part_stats() -> void:
 func _customize_part_stats_rect(view: Vector2) -> Rect2:
     # Wide bottom tier: up to 10 base stats and five UID affixes fit in
     # a three-column grid without vertical scrolling.
-    var start: float = view.y * 0.704
+    var start: float = preview.end.y
     var bottom: float = view.y * 0.915
     return Rect2(Vector2(view.x * 0.035, start),
         Vector2(view.x * 0.930, maxf(120.0, bottom - start)))
@@ -1622,26 +1639,29 @@ func _layout_customization_part_stats() -> void:
     var bar: Panel = customize_part_stats_panel.get_node(
         "CustomizePartStatsHeader") as Panel
     bar.position = Vector2.ZERO
-    bar.size = Vector2(area.size.x, 36)
-    customize_part_stats_header.position = Vector2(14, 0)
-    customize_part_stats_header.size = Vector2(area.size.x - 28, 36)
-    customize_part_stats_name.position = Vector2(14, 39)
-    customize_part_stats_name.size = Vector2(area.size.x - 28, 27)
+    bar.size = Vector2.ZERO
+    bar.visible = false
+    customize_part_stats_header.position = Vector2.ZERO
+    customize_part_stats_header.size = Vector2.ZERO
+    customize_part_stats_name.position = Vector2(14, 7)
+    customize_part_stats_name.size = Vector2(area.size.x - 28, 29)
     LaboSkin.refresh_name_underline(customize_part_stats_name)
-    customize_part_stats_scroll.position = Vector2(10, 73)
+    customize_part_stats_scroll.position = Vector2(11, 44)
     customize_part_stats_scroll.size = Vector2(
-        maxf(40.0, area.size.x - 20.0), maxf(40.0, area.size.y - 83.0))
+        maxf(40.0, area.size.x - 22.0), maxf(40.0, area.size.y - 52.0))
+    StatUI.layout_column_rules(customize_part_column_rules,
+        Rect2(Vector2(11, 44), customize_part_stats_scroll.size), 3)
     var row_width: float = floorf(
-        (customize_part_stats_scroll.size.x - 13.0) / 3.0)
+        (customize_part_stats_scroll.size.x - 22.0) / 3.0)
     for entry in customize_part_stat_cells:
         var row: Panel = entry["panel"]
-        row.custom_minimum_size = Vector2(row_width, 35)
+        row.custom_minimum_size = Vector2(row_width, 42)
         var label: Label = entry["name"]
-        label.position = Vector2(8, 1)
-        label.size = Vector2(row_width - 16, 16)
+        label.position = Vector2(9, 2)
+        label.size = Vector2(row_width - 18, 19)
         var value: Label = entry["value"]
-        value.position = Vector2(8, 17)
-        value.size = Vector2(row_width - 16, 18)
+        value.position = Vector2(9, 21)
+        value.size = Vector2(row_width - 18, 20)
 
 
 func _refresh_customization_part_stats(slot: String) -> void:
@@ -2256,8 +2276,8 @@ func _apply_labo_typography() -> void:
         button.add_theme_color_override("font_color", accent)
         _layout_equipment_name_underline(slot)
     for cell in customize_stat_cells:
-        _skin_label(cell["name"] as Label, stats, 13, secondary)
-        _skin_label(cell["value"] as Label, stats, 15, accent)
+        StatUI.style_stat_labels(
+            cell["name"] as Label, cell["value"] as Label, 16, 19)
     for entry in system_slot_rows:
         _skin_label(entry["label"] as Label, stats, 16, accent)
     for entry in system_action_rows:
@@ -2280,7 +2300,7 @@ func _customize_square_menu_rect(view: Vector2) -> Rect2:
 func _customize_tall_menu_rect(view: Vector2) -> Rect2:
     return Rect2(
         Vector2(view.x * 0.510, view.y * 0.255),
-        Vector2(view.x * 0.455, view.y * 0.438))
+        Vector2(view.x * 0.455, view.y * 0.431))
 
 func _customize_model_area(view: Vector2) -> Rect2:
     # SERA's own upper-left 3D showcase never intersects PART VIEW.
@@ -2321,15 +2341,16 @@ func _layout_hud() -> void:
         customize_right_panel.position = tall.position
         customize_right_panel.size = tall.size
         customize_right_header.position = Vector2.ZERO
-        customize_right_header.size = Vector2(
-            tall.size.x, minf(60.0, view.y * 0.068))
+        customize_right_header.size = Vector2.ZERO
+        customize_right_header.visible = false
         _layout_equipment_controls()
         _layout_customization_part_picker()
     # The opaque top stripe belongs to the focus panel; rest stays blue/clear.
     focus_header.position = Vector2.ZERO
     focus_header.size = Vector2(focus_panel.size.x,
-        minf(42.0, view.y * 0.068) if focused_target == "CUSTOMIZE" else
+        0.0 if focused_target == "CUSTOMIZE" else
         minf(60.0, view.y * 0.068))
+    focus_header.visible = focused_target != "CUSTOMIZE"
     focus_title.position = Vector2(16.0, 0.0)
     focus_title.size = Vector2(focus_header.size.x - 32.0, focus_header.size.y)
     _layout_customization_stats()
@@ -2355,10 +2376,10 @@ func _create_customization_glow() -> void:
     quad.size = Vector2.ONE
     var material := ShaderMaterial.new()
     material.shader = CUSTOMIZE_BACKDROP_SHADER
-    material.set_shader_parameter("base_tint", Color("#243b48"))
-    material.set_shader_parameter("grid_tint", Color("#142832"))
-    material.set_shader_parameter("grid_strength", 0.72)
-    material.set_shader_parameter("base_opacity", 0.87)
+    material.set_shader_parameter("base_tint", Color("#172935"))
+    material.set_shader_parameter("grid_tint", Color("#0c1c27"))
+    material.set_shader_parameter("grid_strength", 0.77)
+    material.set_shader_parameter("base_opacity", 0.96)
     var backdrop := MeshInstance3D.new()
     backdrop.name = "CustomizePortraitGridBackdrop"
     backdrop.mesh = quad
@@ -3257,7 +3278,7 @@ func _focus_arrived(target_name: String) -> void:
     else:
         in_transition = false
     back_panel.visible = true
-    focus_title.text = "PART VIEW" if target_name == "CUSTOMIZE" else target_name
+    focus_title.text = "" if target_name == "CUSTOMIZE" else target_name
     LaboSkin.refresh_name_underline(focus_title)
     # SYSTEM edits save files; DATA ARCHIVE displays read-only records.
     _set_system_visible(target_name == "SYSTEM")
