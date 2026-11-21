@@ -1,3 +1,6 @@
+# BASE: actual 720x1280 gameplay-camera pixel visibility, not just world geometry.
+py tools/base_gameplay_angle_visibility_self_check.py
+gd tools/base_gameplay_angle_visibility_runtime_check.gd
 # Bittaran: four manual debug-leg breaks must trigger real authored down without common HP loss.
 py tools/bittaran_four_leg_debug_self_check.py
 gd tools/bittaran_four_leg_debug_runtime_check.gd
