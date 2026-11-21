@@ -25,6 +25,8 @@ for expected in (
     'model_code.text = equipped_prototype',
     # Approved 720x1280 NEXUS card geometry: an inset centered 60px icon,
     # with a genuine empty lane before the full-size equipment name.
+    # AtlasTexture sprites are 72px; ignore their native minimum size.
+    'item_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE',
     'var icon_left: float = clampf(row.size.x * 0.055, 12.0, 18.0)',
     'var icon_gap: float = clampf(row.size.x * 0.08, 17.0, 24.0)',
     'var text_left: float = icon_left + icon_size + icon_gap',
