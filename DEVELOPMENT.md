@@ -1,3 +1,11 @@
+## 2026-11-21 — 新規装備モデルはLAB「装備作成」まで同時登録する開発規約
+- 今後の装備可能な新規3Dモデルは、Godotへの読込・NEXUSの選択肢だけで実装完了とせず、`sera_prototype_catalog.gd` の製作設計図ID／装備名／slot／対応rig_set、LABの素材レシピ・アイコン、倉庫個体UID・追加性能、セーブとNEXUS装着まで同じPRで対応する。
+- 受入検査は「LAB表示→製作→倉庫→装着3Dモデル→保存/復元」の連続動作。未承認の性能・素材コストは創作せず、既存の999件/部位と5追加性能、軽量UI契約を保持。
+- `AGENTS.md`、`models/AGENTS.md`、`scripts/AGENTS.md`、`docs/MODEL_PART_WORKFLOW_ja.md`へ開発規則を明記。今回の変更は文書・手順のみで、既存モデルやLAB製作カタログは変更していない。
+- 既存アイリスHEAD DはNEXUSモデル選択済みだがLAB製作設計図は別途未実装。登録済みと誤報しない。
+
+---
+
 ## 2026-11-21 — BASE：正方形の大広場ではなく、何となく余白のある疎密配置
 - 最新mainの施設7スペック、NEXUS基準、33.8°の正投影カメラ、68組の周辺小物、16基のスクラップ、鋼板1枚単位の床、中央の既存CRATEルートと関連テストを確認。
 - 実装前に `base_isometric_layout_self_check.py` の全8施設の投影目標値、`base_isometric_layout_runtime_check.gd` のLABO下端配置、`base_facilities_runtime_check.gd` の中心LABO制限を更新。独立した `base_soft_center_space_self_check.py` と `base_soft_center_space_runtime_check.gd` を登録し、緩い中心余白・左右の不揃い・既存資材の周縁配置・床の1枚板を検査する。
