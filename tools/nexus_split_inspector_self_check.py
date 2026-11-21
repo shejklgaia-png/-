@@ -19,7 +19,7 @@ for token in (
     'func _refresh_customization_part_stats(slot: String) -> void:',
     'LaboStats.complete_profile_text(',
     'func _layout_customization_part_stats() -> void:',
-    'customize_part_stats_scroll.position = Vector2(10, 73)',
+    'customize_part_stats_scroll.position = Vector2(11, 44)',
     'func _customize_part_stats_rect(view: Vector2) -> Rect2:',
     'if Rect2(expand.position, expand.size).has_point(row_point):',
     '_show_customization_part_picker(slot)',
@@ -30,8 +30,13 @@ for token in (
     'customize_part_picker.visible = false',
 ):
     assert token in nexus, token
-assert '"TOTAL STATUS"' in nexus
-assert '"PART STATUS"' in nexus
+assert 'customize_total_title.text = ""' in nexus
+assert 'customize_part_stats_header.text = ""' in nexus
+assert 'customize_equipment_header.text = ""' in nexus
+assert 'customize_right_header.visible = false' in nexus
+assert 'focus_title.text = "" if target_name == "CUSTOMIZE" else target_name' in nexus
+assert 'CustomizePartPreviewTechFrame' in nexus
+assert 'StatUI.place_column_rules(' in nexus
 assert 'button.text = _default_part_name(slot, selected_model)' in nexus
 assert 'py tools/nexus_split_inspector_self_check.py' in manifest
 assert 'gd tools/nexus_split_inspector_runtime_check.gd' in manifest
