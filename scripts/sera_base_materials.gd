@@ -36,7 +36,7 @@ const REFINE_INPUT_PER_BATCH: int = 2
 const REFINE_OUTPUT_PER_BATCH: int = 1
 const DISMANTLE_INPUT_PER_BATCH: int = 1
 const DISMANTLE_OUTPUT_PER_BATCH: int = 2
-const MAX_BATCHES: int = 999
+const MAX_BATCHES: int = 99
 
 static func all_ids() -> Array:
     var ids: Array = []
