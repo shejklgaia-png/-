@@ -33,12 +33,19 @@ func _run() -> void:
         return
     var equipment_bottom: float = right.position.y + right.size.y
     if total.position.y + total.size.y > right.position.y - 4.0 or (
-            view.position.y + view.size.y > single.position.y - 4.0) or (
+            absf(view.position.y + view.size.y - single.position.y) > 1.5) or (
             equipment_bottom > single.position.y - 4.0) or (
             single.position.x > total.position.x + 1.0) or (
             single.size.x < total.size.x - 2.0) or (
             view.position.x + view.size.x > right.position.x - 4.0):
         _fail("customize windows overlap or exceed their aligned layout region")
+        return
+    var preview_outline: Control = nexus.get("customize_part_preview_frame") as Control
+    var part_rules: Array = nexus.get("customize_part_column_rules") as Array
+    if preview_outline == null or not preview_outline.visible or (
+            part_rules.size() != 2 or not (part_rules[0] as ColorRect).visible or (
+            not (part_rules[1] as ColorRect).visible)):
+        _fail("linked chamfer preview / full-height column dividers absent")
         return
     if single_scroll.vertical_scroll_mode != ScrollContainer.SCROLL_MODE_DISABLED:
         _fail("PART STATUS must be visible without scrolling")
@@ -74,9 +81,18 @@ func _run() -> void:
     await process_frame
     for entry in entries:
         var row: Panel = entry["panel"] as Panel
+        var cell_skin: StyleBoxFlat = row.get_theme_stylebox("panel") as StyleBoxFlat
+        if cell_skin == null or cell_skin.bg_color.a > 0.01 or (
+                cell_skin.border_width_bottom != 0):
+            _fail("PART STATUS must be one matte, not a grid of outlined tiles")
+            return
         if row.visible and not single_scroll.get_global_rect().encloses(row.get_global_rect()):
             _fail("visible PART STATUS row clipped from non-scroll grid")
             return
+    if (entries[0]["name"] as Label).get_theme_font_size("font_size") < 16 or (
+            (entries[0]["value"] as Label).get_theme_font_size("font_size") < 18):
+        _fail("PART STATUS uses undersized typography")
+        return
     if not found_hp:
         _fail("single part statistics must contain the equipped head HP")
         return

@@ -15,6 +15,8 @@ const LaboTouchScroll = preload("res://scripts/sera_labo_touch_scroll.gd")
 const WarehouseGrid = preload("res://scripts/sera_warehouse_grid.gd")
 const Affixes = preload("res://scripts/sera_craft_affixes.gd")
 const LaboStats = preload("res://scripts/sera_labo_stats.gd")
+const StatUI = preload("res://scripts/sera_status_column_ui.gd")
+const PreviewRim = preload("res://scripts/sera_tech_preview_frame.gd")
 const WarehouseStatsTable = preload("res://scripts/sera_warehouse_stats_table.gd")
 const LaboMaterialCardScene = preload("res://ui/labo/LaboMaterialCard.tscn")
 const LaboEquipmentCardScene = preload("res://ui/labo/LaboEquipmentCard.tscn")
@@ -88,6 +90,7 @@ var confirmation_preview_scene: Node3D
 var confirmation_item_name: Label
 var confirmation_item_slot: Label
 var confirmation_item_stats: Label
+var confirmation_stat_rows: Array[Dictionary] = []
 var confirmation_accept_button: Button
 var craft_slot: String = "head"
 var warehouse_notice: String = ""
@@ -895,7 +898,7 @@ func attach_hud(hud: Control) -> void:
     square_frame.name = "LaboConfirmPreviewFrame"
     var square_skin := StyleBoxFlat.new()
     square_skin.bg_color = Color("#111e28")
-    square_skin.border_color = Color("#598697")
+    square_skin.border_color = Color("#294653")
     square_skin.set_border_width_all(1)
     square_skin.set_corner_radius_all(0)
     # One continuous 1px frame; no second 5px inset around the 3D grid.
@@ -935,6 +938,11 @@ func attach_hud(hud: Control) -> void:
     craft_rotate_cue.size = Vector2(28, 28)
     craft_rotate_cue.visible = false
     square_content.add_child(craft_rotate_cue)
+    var preview_outline := PreviewRim.new()
+    preview_outline.name = "LaboConfirmPreviewTechFrame"
+    preview_outline.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+    preview_outline.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    square_content.add_child(preview_outline)
     var preview_legend := Label.new()
     preview_legend.name = "LaboConfirmPreviewLegend"
     preview_legend.text = "DRAG  /  ROTATE       •       PINCH  /  ZOOM"
@@ -962,13 +970,36 @@ func attach_hud(hud: Control) -> void:
     stats_column.name = "LaboConfirmStatsColumn"
     stats_column.add_theme_constant_override("separation", 6)
     stats_panel.add_child(stats_column)
-    var stats_header := Label.new()
-    stats_header.name = "LaboConfirmStatsHeader"
-    stats_header.text = "BASE STATUS"
-    stats_header.add_theme_font_override("font", LaboSkin.tracked_display_font())
-    stats_header.add_theme_font_size_override("font_size", 14)
-    stats_header.add_theme_color_override("font_color", Color("#86aab9"))
-    stats_column.add_child(stats_header)
+    var confirmation_stats_list := VBoxContainer.new()
+    confirmation_stats_list.name = "LaboConfirmStatRows"
+    confirmation_stats_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+    confirmation_stats_list.add_theme_constant_override("separation", 7)
+    stats_column.add_child(confirmation_stats_list)
+    for row_id in range(3):
+        var stat_row := HBoxContainer.new()
+        stat_row.name = "LaboConfirmStatRow_%d" % row_id
+        stat_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+        stat_row.custom_minimum_size.y = 27.0
+        stat_row.add_theme_constant_override("separation", 14)
+        confirmation_stats_list.add_child(stat_row)
+        var key_label := Label.new()
+        key_label.name = "StatName"
+        key_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+        key_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        key_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+        stat_row.add_child(key_label)
+        var number_label := Label.new()
+        number_label.name = "StatValue"
+        number_label.custom_minimum_size.x = 156.0
+        number_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        number_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+        number_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+        stat_row.add_child(number_label)
+        StatUI.style_stat_labels(key_label, number_label, 18, 20)
+        confirmation_stat_rows.append({
+            "panel": stat_row, "name": key_label, "value": number_label
+        })
+    # Legacy read-only diagnostic node: no duplicate text is drawn.
     confirmation_item_stats = Label.new()
     confirmation_item_stats.name = "LaboConfirmItemStats"
     confirmation_item_stats.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
@@ -976,6 +1007,7 @@ func attach_hud(hud: Control) -> void:
     confirmation_item_stats.add_theme_font_override("font", LaboSkin.stats_font())
     confirmation_item_stats.add_theme_font_size_override("font_size", 19)
     confirmation_item_stats.add_theme_color_override("font_color", Color("#d3e9ee"))
+    confirmation_item_stats.visible = false
     stats_column.add_child(confirmation_item_stats)
     confirmation_text = Label.new()
     confirmation_text.name = "LaboConfirmDescription"
@@ -1086,7 +1118,15 @@ func _request_confirmation(title: String, detail: String, action: Callable,
         confirmation_item_name.text = str(spec.get("name", ""))
         confirmation_item_slot.text = "EQUIPMENT / " + str(
             spec.get("slot", "")).to_upper()
-        confirmation_item_stats.text = LaboStats.baseline(equipment_blueprint)
+        confirmation_item_stats.text = LaboStats.baseline(equipment_blueprint).trim_prefix("基礎ステータス\n")
+        var status_rows: Array[Dictionary] = StatUI.baseline_rows(equipment_blueprint)
+        for row_id in range(confirmation_stat_rows.size()):
+            var view_row: Dictionary = confirmation_stat_rows[row_id]
+            var show_row: bool = row_id < status_rows.size()
+            (view_row["panel"] as HBoxContainer).visible = show_row
+            if show_row:
+                (view_row["name"] as Label).text = str(status_rows[row_id]["label"])
+                (view_row["value"] as Label).text = str(status_rows[row_id]["value"])
         LaboSkin.refresh_name_underline(confirmation_item_name)
     confirmation_overlay.visible = true
     confirmation_overlay.move_to_front()

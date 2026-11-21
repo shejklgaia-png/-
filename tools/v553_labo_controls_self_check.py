@@ -38,7 +38,8 @@ for token in (
     'var craft_info := VBoxContainer.new()',
     'confirmation_item_name.add_theme_font_size_override("font_size", 30)',
     'confirmation_item_stats.add_theme_font_size_override("font_size", 19)',
-    'confirmation_item_stats.text = LaboStats.baseline(equipment_blueprint)',
+    'confirmation_item_stats.text = LaboStats.baseline(equipment_blueprint).trim_prefix("基礎ステータス\\n")',
+    'StatUI.baseline_rows(equipment_blueprint)',
 ):
     assert token in base, token
 assert 'func _request_confirmation(' in base

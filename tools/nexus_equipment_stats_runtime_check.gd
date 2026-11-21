@@ -65,6 +65,22 @@ func _run() -> void:
                 stat_cell["rule"] is ColorRect):
             _fail("Blue-grey vertical column dividers absent")
             return
+    var rules: Array = nexus.get("customize_total_column_rules") as Array
+    if rules.size() != 2 or not (rules[0] as ColorRect).visible or (
+            not (rules[1] as ColorRect).visible):
+        _fail("full-height column separators are missing from total stats")
+        return
+    for line in rules:
+        var divider: ColorRect = line as ColorRect
+        if divider.size.y < 185.0 or divider.color != Color("#35515f"):
+            _fail("total column dividers should be continuous dark-blue-grey rails")
+            return
+    var sample_panel: Panel = cells[0]["panel"] as Panel
+    var sample_skin: StyleBoxFlat = sample_panel.get_theme_stylebox("panel") as StyleBoxFlat
+    if sample_skin == null or sample_skin.bg_color.a > 0.01 or (
+            sample_skin.border_width_bottom != 0):
+        _fail("TOTAL STATUS must use one continuous matte, not per-cell boxes")
+        return
     var seen: Dictionary = {}
     for cell in cells:
         if (cell["panel"] as Panel).visible:

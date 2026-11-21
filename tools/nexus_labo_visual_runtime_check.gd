@@ -72,12 +72,12 @@ func _run() -> void:
         return
     var backdrop_mat: ShaderMaterial = backdrop.material_override as ShaderMaterial
     var opacity: float = float(backdrop_mat.get_shader_parameter("base_opacity"))
-    if not is_equal_approx(opacity, 0.87):
-        _fail("CUSTOMIZE base must have constant 0.87 semi-transparency")
+    if not is_equal_approx(opacity, 0.96):
+        _fail("CUSTOMIZE base must have constant 0.96 semi-transparency")
         return
     var base_tint: Color = backdrop_mat.get_shader_parameter("base_tint")
     var grid_tint: Color = backdrop_mat.get_shader_parameter("grid_tint")
-    if base_tint != Color("#243b48") or grid_tint != Color("#142832"):
+    if base_tint != Color("#172935") or grid_tint != Color("#0c1c27"):
         _fail("CUSTOMIZE must use the approved matte blue-grey and dark grid colors")
         return
     if grid_tint.r >= base_tint.r or grid_tint.g >= base_tint.g or (
@@ -120,7 +120,7 @@ func _run() -> void:
         nexus.call("_focus_arrived", target)
         await process_frame
         if not focus.visible or title.text != (
-                "PART VIEW" if target == "CUSTOMIZE" else target):
+                "" if target == "CUSTOMIZE" else target):
             _fail("destination panel not visible: " + target)
             return
         if target == "CUSTOMIZE":

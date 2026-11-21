@@ -12,8 +12,9 @@ for required in [
     "confirm_panel.anchor_bottom = 0.895",
     "var craft_info := VBoxContainer.new()",
     'accent_rail.name = "LaboConfirmAccentRail"',
-    'stats_header.name = "LaboConfirmStatsHeader"',
-    'stats_header.text = "BASE STATUS"',
+    'confirmation_stats_list.name = "LaboConfirmStatRows"',
+    'preview_outline.name = "LaboConfirmPreviewTechFrame"',
+    'StatUI.baseline_rows(equipment_blueprint)',
     "confirmation_item_stats.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT",
     'confirmation_preview_square.name = "LaboConfirmSquarePreview"',
     "confirmation_preview_square.ratio = 1.0",
@@ -24,6 +25,7 @@ for required in [
     'confirmation_preview_square.custom_minimum_size = Vector2(side, side)',
 ]:
     assert required in src,required
+assert '"BASE STATUS"' not in confirm
 assert 'confirmation_item_icon.custom_minimum_size = Vector2(136, 136)' not in confirm
 assert 'var craft_info := HBoxContainer.new()' not in confirm
 assert 'confirmation_preview_host.custom_minimum_size = Vector2(136, 136)' not in confirm
