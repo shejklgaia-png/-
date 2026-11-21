@@ -1,4 +1,6 @@
 extends Node3D
+
+signal power_board_requested
 const BaseMaterials = preload("res://scripts/sera_base_materials.gd")
 const BaseArchitecture = preload("res://scripts/sera_base_architecture.gd")
 const IconAtlas = preload("res://scripts/sera_item_icons.gd")
@@ -38,8 +40,8 @@ const FACILITY_SPECS = [
         "size": Vector3(2.40, 2.85, 2.40), "subtitle": "素材の精製"},
     {"id": "RECYCLER", "name": "分解装置", "at": Vector3(1.30, 0.0, -10.65),
         "size": Vector3(2.45, 2.55, 2.35), "subtitle": "不要素材の分解"},
-    {"id": "GENERATOR", "name": "発電機", "at": Vector3(8.85, 0.0, -1.65),
-        "size": Vector3(2.40, 3.10, 2.25), "subtitle": "拠点電力"},
+    {"id": "GENERATOR", "name": "電力制御施設", "at": Vector3(8.85, 0.0, -1.65),
+        "size": Vector3(2.40, 3.10, 2.25), "subtitle": "電力・素材・熱の回路制御"},
     {"id": "STORAGE", "name": "資材保管庫", "at": Vector3(-2.15, 0.0, 5.58),
         "size": Vector3(2.45, 2.15, 2.30), "subtitle": "資源の保管"},
     {"id": "BUILD_TERMINAL", "name": "建設端末", "at": Vector3(14.35, 0.0, 9.20),
@@ -81,6 +83,7 @@ var owned_blueprint: String = ""
 var owned_page: int = 0
 var section_tabs: HBoxContainer
 var active_key: String = ""
+var field_tags_enabled: bool = true
 var selected_prototype: String = ""
 var prototype_notice: String = ""
 var conversion_mode: int = 0
@@ -959,8 +962,15 @@ func _configure_page_scroll(action_height: float = 0.0,
     actions_scroll.scroll_vertical = 0
     item_layer.visible = not action_expand
 
+func set_field_tags_visible(enabled: bool) -> void:
+    field_tags_enabled = enabled
+    if not enabled:
+        for value in facility_tags.values():
+            if value is Label:
+                (value as Label).visible = false
+
 func update_tags(camera: Camera3D) -> void:
-    if camera == null:
+    if camera == null or not field_tags_enabled:
         return
     for spec in FACILITY_SPECS:
         var key: String = str(spec["id"])
@@ -1464,6 +1474,11 @@ func _sync_section_tabs() -> void:
 
 
 func open_facility(key: String) -> void:
+    if key == "GENERATOR":
+        # The controller opens its physical connected 3D grid stage instead
+        # of covering the outdoor world with the generic field modal.
+        power_board_requested.emit()
+        return
     var spec: Dictionary = _spec_for(key)
     if modal == null or spec.is_empty():
         return
@@ -1496,9 +1511,6 @@ func open_facility(key: String) -> void:
             _show_conversion(1)
         "RECYCLER":
             _show_conversion(-1)
-        "GENERATOR":
-            modal_body.text = "発電機\n生産設備と拠点施設に電力を供給します。"
-            _add_action("稼働状況", "発電機は稼働演出中です。電力容量・消費量は今後のバランス設計で確定します。")
         "STORAGE":
             _show_inventory("equipment")
         "BUILD_TERMINAL":
