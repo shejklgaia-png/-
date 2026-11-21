@@ -37,6 +37,14 @@ assert 'customize_right_header.visible = false' in nexus
 assert 'focus_title.text = "" if target_name == "CUSTOMIZE" else target_name' in nexus
 assert 'CustomizePartPreviewTechFrame' in nexus
 assert 'StatUI.layout_column_rules(' in nexus
+# Every layout rect reference must exist before use; undefined 'preview'
+# prevents Godot compiling command_nexus.gd and loading the NEXUS scene.
+start=nexus.index("func _customize_part_stats_rect(")
+end=nexus.index("\nfunc ", start + 4)
+layout=nexus[start:end]
+assert "var preview: Rect2 = _customize_square_menu_rect(view)" in layout
+assert layout.index("var preview: Rect2") < layout.index("preview.end.y")
+
 assert 'StatUI.fit_label(' in nexus
 assert 'button.text = _default_part_name(slot, selected_model)' in nexus
 assert 'py tools/nexus_split_inspector_self_check.py' in manifest

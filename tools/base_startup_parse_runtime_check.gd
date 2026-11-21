@@ -8,6 +8,23 @@ func _fail(message: String) -> void:
     quit(1)
 
 func _run() -> void:
+    # NEXUS is loaded when entered, not on BASE startup. Check its script
+    # explicitly so an undefined UI layout identifier cannot ship unnoticed.
+    var nexus_resource: Resource = load("res://scripts/command_nexus.gd")
+    if not (nexus_resource is Script) or not (
+            nexus_resource as Script).can_instantiate():
+        _fail("NEXUS command_nexus.gd does not compile")
+        return
+    var nexus_packed: Resource = load("res://scenes/command_nexus.tscn")
+    if not (nexus_packed is PackedScene):
+        _fail("NEXUS command_nexus.tscn cannot be loaded")
+        return
+    var nexus_instance: Node3D = (
+        nexus_packed as PackedScene).instantiate() as Node3D
+    if nexus_instance == null or nexus_instance.get_script() == null:
+        _fail("NEXUS root scene script cannot instantiate")
+        return
+    nexus_instance.free()
     var fac: Resource = load("res://scripts/base_facility_system.gd")
     if not (fac is Script) or not (fac as Script).can_instantiate():
         _fail("base_facility_system.gd does not compile")

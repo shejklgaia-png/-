@@ -1625,8 +1625,9 @@ func _create_customization_part_stats() -> void:
 
 
 func _customize_part_stats_rect(view: Vector2) -> Rect2:
-    # Wide bottom tier: up to 10 base stats and five UID affixes fit in
-    # a three-column grid without vertical scrolling.
+    # Connect the part-preview bottom to the single-part stat panel.
+    # Keep the rect local: an undefined preview identifier fails scene parsing.
+    var preview: Rect2 = _customize_square_menu_rect(view)
     var start: float = preview.end.y
     var bottom: float = view.y * 0.915
     return Rect2(Vector2(view.x * 0.035, start),
