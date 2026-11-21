@@ -34,6 +34,8 @@ for feature in (
     "BlueprintAngledHood",
 ):
     assert feature in arch + polish, feature
+assert 'static var _mesh_cache: Dictionary = {}' in meshes, (
+    "The shared polygon mesh cache must be declared before make() uses it")
 assert 'for point in [a, c, b]:' in meshes, (
     "Godot treats CLOCKWISE triangles as front faces; do not cull the shell")
 assert 'py tools/base_polygon_geometry_self_check.py' in ci
