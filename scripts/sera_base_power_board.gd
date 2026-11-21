@@ -97,7 +97,7 @@ static func _cells(parent: Node3D) -> void:
         var groups := MultiMesh.new()
         groups.transform_format = MultiMesh.TRANSFORM_3D
         groups.mesh = tile_mesh
-        groups.instance_count = GRID_SIDE * GRID_SIDE / 2
+        groups.instance_count = int(GRID_SIDE * GRID_SIDE / 2)
         var index: int = 0
         for z in range(GRID_SIDE):
             for x in range(GRID_SIDE):
