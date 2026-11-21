@@ -9,6 +9,7 @@ const LaboTouchScroll = preload("res://scripts/sera_labo_touch_scroll.gd")
 const WarehouseGrid = preload("res://scripts/sera_warehouse_grid.gd")
 const Affixes = preload("res://scripts/sera_craft_affixes.gd")
 const LaboStats = preload("res://scripts/sera_labo_stats.gd")
+const WarehouseStatsTable = preload("res://scripts/sera_warehouse_stats_table.gd")
 const LaboMaterialCardScene = preload("res://ui/labo/LaboMaterialCard.tscn")
 const LaboEquipmentCardScene = preload("res://ui/labo/LaboEquipmentCard.tscn")
 const LaboSectionTabScene = preload("res://ui/labo/LaboSectionTab.tscn")
@@ -1556,7 +1557,7 @@ func _new_slot(parent: Control, key: String, icon: Texture2D,
             art.visible = false
             art.custom_minimum_size = Vector2.ZERO
     info_label.text = (info if material_choice else
-        info.replace("基礎ステータス（現行Aセット参照） / ", "基礎："))
+        info.replace("基礎ステータス（現行Aセット参照） / ", "基礎: "))
     row.add_child(card)
     if not key.begins_with("LockedCraftSlot_"):
         LaboSkin.attach_name_underline(title_label)
@@ -1832,16 +1833,12 @@ func _show_warehouse_item_detail(uid: String) -> void:
         modal_title.text = str(spec["name"])
         modal_body.text = "%s / %s" % [
             uid, _warehouse_slot_name(warehouse_slot)]
-        var breakdown := Label.new()
-        breakdown.name = "WarehouseStatsBreakdown"
-        breakdown.text = LaboStats.total_formula(blueprint, item.get("affixes", []))
-        breakdown.add_theme_font_size_override("font_size", 19)
-        # The breakdown combines Japanese labels and numbers; Latin-only
-        # IBM Plex Mono displayed tofu squares for the Japanese glyphs.
-        breakdown.add_theme_font_override("font", LaboSkin.stats_font())
-        breakdown.add_theme_color_override("font_color", Color("#e0ebf1"))
-        breakdown.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-        modal_actions.add_child(breakdown)
+        # One cell per stat name, one wide expression cell, and one aligned
+        # total cell. Thin grid only; no repeated text annotations.
+        var stat_table: GridContainer = WarehouseStatsTable.build(
+            blueprint, item.get("affixes", []),
+            get_viewport().get_visible_rect().size.x)
+        modal_actions.add_child(stat_table)
         if not warehouse_notice.is_empty():
             _add_terminal_notice(warehouse_notice)
         _add_item_tile(IconAtlas.equipment_icon(blueprint),

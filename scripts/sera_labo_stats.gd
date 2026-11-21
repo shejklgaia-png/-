@@ -39,29 +39,43 @@ static func baseline(blueprint: String) -> String:
         lines.append("固有基礎値は未設定（Aセットを使用）")
     return "\n".join(lines)
 
-static func total_formula(blueprint: String, effects: Variant) -> String:
+static func total_stat_rows(blueprint: String, effects: Variant) -> Array[Dictionary]:
+    # The UI is a true table: each entry is a discrete label, expression,
+    # and final value. Computation and save/affix rules remain unchanged.
     var base: Dictionary = base_values(blueprint)
     var bonuses: Dictionary = {}
     for key in Affixes.EFFECT_IDS:
         bonuses[key] = 0
     for entry in Affixes.sanitize(effects):
         bonuses[str(entry["id"])] = int(entry["value"])
-    var lines: PackedStringArray = [
-        "基礎 + 特性（装備単体の表示値）",
-        "注: 追加特性は戦闘計算へ未接続の試作値です。"
-    ]
+    var rows: Array[Dictionary] = []
     for key in Affixes.EFFECT_IDS:
         var amount: float = float(base[key])
         var bonus: int = int(bonuses[key])
-        # HP and weapon damage are flat base figures; affix values are
-        # percentage multipliers. Other stats are percent modifiers.
+        var formula: String = ""
+        var total: String = ""
         if key in ["hp", "attack"] and amount > 0.0:
             var add: float = amount * float(bonus) / 100.0
-            lines.append("%s  %s + (%s × %d%%) = %s" % [
-                Affixes.EFFECT_NAMES[key], _amount(amount), _amount(amount),
-                bonus, _amount(amount + add)])
+            formula = "%s + (%s × %d%%)" % [
+                _amount(amount), _amount(amount), bonus]
+            total = _amount(amount + add)
         else:
-            lines.append("%s  %s%% + %d%% = %s%%" % [
-                Affixes.EFFECT_NAMES[key], _amount(amount), bonus,
-                _amount(amount + float(bonus))])
+            formula = "%s%% + %d%%" % [_amount(amount), bonus]
+            total = "%s%%" % _amount(amount + float(bonus))
+        rows.append({
+            "id": key,
+            "name": Affixes.EFFECT_NAMES[key],
+            "formula": formula,
+            "total": total,
+        })
+    return rows
+
+
+static func total_formula(blueprint: String, effects: Variant) -> String:
+    # Text-only compatibility for diagnostics; warehouse screen uses a grid.
+    # No annotation is inserted into either representation.
+    var lines: PackedStringArray = ["基礎 + 特性（装備単体の表示値）"]
+    for row in total_stat_rows(blueprint, effects):
+        lines.append("%s  %s = %s" % [
+            row["name"], row["formula"], row["total"]])
     return "\n".join(lines)

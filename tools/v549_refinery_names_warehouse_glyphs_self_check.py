@@ -19,10 +19,11 @@ for token in (
     "title_label.clip_text = true",
     'get_string_size(',
     'return 46.0 if width >= 590.0 else 40.0 if width >= 460.0 else 30.0',
-    'breakdown.add_theme_font_override("font", LaboSkin.stats_font())',
+    'var stat_table: GridContainer = WarehouseStatsTable.build(',
 ):
     assert token in fac, token
-assert 'breakdown.add_theme_font_override("font", LaboSkin.data_font())' not in fac
+assert 'breakdown.name = "WarehouseStatsBreakdown"' not in fac
+assert 'const WarehouseStatsTable = preload("res://scripts/sera_warehouse_stats_table.gd")' in fac
 assert 'static func stats_font() -> FontVariation:' in skin
 assert 'MPLUS1Code-VF.woff2' in skin
 assert 'py tools/v549_refinery_names_warehouse_glyphs_self_check.py' in manifest
