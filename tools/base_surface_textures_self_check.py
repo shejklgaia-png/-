@@ -21,6 +21,12 @@ for name, elements in {
     assert "filter=" not in asset and "feTurbulence" not in asset, "no GPU shader/filter noise"
     assert len(asset) < 68000, "small stable raster import, not an oversized raw asset"
 
+canvas = source("assets/base/aged_canvas_weave.svg")
+assert '<linearGradient id="canvas-shade"' in canvas
+assert 'id="canvas-warp"' in canvas
+assert "<path" in canvas and "<rect" in canvas
+assert len(canvas) < 68000
+
 arch = source("scripts/sera_base_architecture.gd")
 floor = source("scripts/base_exploration.gd")
 manifest = source("tools/sera_ci_manifest.txt")
