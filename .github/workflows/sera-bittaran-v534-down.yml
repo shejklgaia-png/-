@@ -47,3 +47,10 @@ jobs:
           for test in tools/v367_bittaran_body_turn_foot_catchup_runtime_check.gd tools/v368_bittaran_repeat_break_fast_rise_runtime_check.gd tools/v369_bittaran_standup_timing_posture_runtime_check.gd tools/v371_bittaran_gentle_head_recovery_runtime_check.gd; do
             timeout 80s "$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" --headless --path . --script "$test"
           done
+
+      - name: Verify legacy stand-up motion gates, turn timing and post-rise knee clearance
+        run: |
+          set -euo pipefail
+          for test in tools/v362_bittaran_standup_motion_gate_runtime_check.gd tools/v365_bittaran_immediate_standup_yaw_runtime_check.gd tools/v366_bittaran_live_rise_motion_runtime_check.gd tools/v370_bittaran_turn_head_stride_runtime_check.gd tools/v372_bittaran_knee_clearance_balance_runtime_check.gd; do
+            timeout 100s "$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" --headless --path . --script "$test"
+          done
