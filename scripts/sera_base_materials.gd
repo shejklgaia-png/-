@@ -8,26 +8,26 @@ extends RefCounted
 const FAMILY_IDS = ["scrap", "alloy", "electronics", "organic"]
 const TIERS = ["low", "mid", "high"]
 const FAMILY_NAMES = {
-    "scrap": "スクラップ", "alloy": "合金",
+    "scrap": "スクラップ", "alloy": "金属複合材",
     "electronics": "電子部品", "organic": "有機素材"
 }
 const GRADE_NAMES = {
-    "scrap": {"low": "雑", "mid": "選別", "high": "高純度"},
-    "alloy": {"low": "粗製", "mid": "精製", "high": "高強度"},
-    "electronics": {"low": "再生", "mid": "汎用", "high": "高精度"},
+    "scrap": {"low": "汎用", "mid": "応用", "high": "高度"},
+    "alloy": {"low": "基礎", "mid": "精密", "high": "高次"},
+    "electronics": {"low": "汎用", "mid": "精密", "high": "高度"},
     "organic": {"low": "低活性", "mid": "安定", "high": "高活性"}
 }
 const STARTER_SCRAP_COUNT: int = 5
 const MATERIAL_NAMES = {
-    "scrap_low": "雑スクラップ",
-    "scrap_mid": "選別スクラップ",
-    "scrap_high": "高純度スクラップ",
-    "alloy_low": "粗製合金",
-    "alloy_mid": "精製合金",
-    "alloy_high": "高強度合金",
-    "electronics_low": "再生電子部品",
-    "electronics_mid": "汎用電子部品",
-    "electronics_high": "高精度電子部品",
+    "scrap_low": "汎用スクラップ",
+    "scrap_mid": "応用スクラップ",
+    "scrap_high": "高度スクラップ",
+    "alloy_low": "基礎金属複合材",
+    "alloy_mid": "精密金属複合材",
+    "alloy_high": "高次金属複合材",
+    "electronics_low": "汎用電子部品",
+    "electronics_mid": "精密電子部品",
+    "electronics_high": "高度電子部品",
     "organic_low": "低活性有機素材",
     "organic_mid": "安定有機素材",
     "organic_high": "高活性有機素材"
@@ -48,8 +48,8 @@ static func all_ids() -> Array:
 static func display_name(material_id: String) -> String:
     return str(MATERIAL_NAMES.get(material_id, ""))
 
-## Catalog uses exactly two visual rows: grade name, then material family.
-## The full original name is still retained as the save/tooltip identifier.
+## Catalog shows grade and material family on separate rows.
+## Save IDs (scrap_low/alloy_low/etc.) never depend on localized labels.
 static func display_lines(material_id: String) -> String:
     var parts: PackedStringArray = material_id.split("_")
     if parts.size() != 2:
