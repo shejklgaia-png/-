@@ -628,3 +628,5 @@ gd tools/base_palette_canopy_runtime_check.gd
 # Night salvage yard: larger seven stations, unchanged NEXUS and eight local lamps.
 py tools/base_night_facility_self_check.py
 gd tools/base_night_facility_runtime_check.gd
+# Equipment one-finger pitch inversion: game + Godot form + offline HTML.
+py tools/equipment_intake/vertical_drag_self_check.py

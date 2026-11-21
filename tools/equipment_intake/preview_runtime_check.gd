@@ -232,6 +232,34 @@ func _check() -> void:
         _fail("One remaining finger caused rotation jump")
         return
     preview.call("_on_preview_touch",0,false,Vector2(90,142))
+    # Shared game/form behavior: drag downward INCREASES pitch; upward
+    # DECREASES it. Horizontal yaw must stay fixed on vertical-only movement.
+    var drag_start_pitch: float = float(preview.get("camera_pitch"))
+    var drag_start_yaw: float = float(preview.get("camera_yaw"))
+    preview.call("_on_preview_touch",2,true,Vector2(120,140))
+    preview.call("_on_preview_drag",2,Vector2(120,160))
+    if float(preview.get("camera_pitch")) <= drag_start_pitch or (
+            absf(float(preview.get("camera_yaw"))-drag_start_yaw)>0.001):
+        _fail("Touch vertical drag is not inverted, or changed horizontal yaw")
+        return
+    preview.call("_on_preview_drag",2,Vector2(120,120))
+    if float(preview.get("camera_pitch")) >= drag_start_pitch:
+        _fail("Upward touch drag did not decrease pitch")
+        return
+    preview.call("_on_preview_touch",2,false,Vector2(120,120))
+    var mouse_press := InputEventMouseButton.new()
+    mouse_press.button_index = MOUSE_BUTTON_LEFT
+    mouse_press.pressed = true
+    preview.call("_input", mouse_press)
+    var mouse_start_pitch: float = float(preview.get("camera_pitch"))
+    var mouse_motion := InputEventMouseMotion.new()
+    mouse_motion.relative = Vector2(0, 15)
+    preview.call("_input", mouse_motion)
+    if float(preview.get("camera_pitch")) <= mouse_start_pitch:
+        _fail("Mouse vertical drag direction differs from touch")
+        return
+    mouse_press.pressed = false
+    preview.call("_input", mouse_press)
     preview.call("_apply_command", {"mode":"icon","editing_slot":"head",
         "selected":{"head":"D"},"size":1.0,"background_mode":"solid","seq":16})
     await process_frame

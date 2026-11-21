@@ -1,5 +1,11 @@
 # SERA 装備設定フォーム — Godotネイティブプレビュー
 
+## 2026-11-22：上下ドラッグの共通操作
+- 下向きの一本指／マウスドラッグ：3Dのpitchが増加。上向き：pitchが減少。
+- NEXUS単体プレビュー、倉庫詳細、LABO製作確認、Godot Webフォームが同一のGodotコードを使用する。
+- 既存の左右ドラッグ、二本指平行移動／ピンチ、カメラ角度プリセットは維持。オフラインWebGLフォームとIcon Studioも同じ方向に反転する。
+
+
 ## 公開URLとHTMLの受け渡し（2026-11-21）
 - **配布ポリシー正本:** `docs/SERA_HTML_ARTIFACT_DELIVERY_POLICY_ja.md`。GitHub `raw.githubusercontent.com` のHTMLはAndroidでソース表示になる場合があるため、実行URLとして案内しない。GitHub `blob` URLもコード閲覧用。
 - Pagesの公開設定・デプロイ・実URLを確認した後にのみ「タップで開く」URLとして提示する。未有効の場合はGodot版のActionsアーティファクトと、旧版の単体オフラインHTMLを明確に分けて案内する。埋め込みPage表示についても実機未確認の場合は断言しない。

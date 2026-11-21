@@ -447,7 +447,7 @@ func _on_preview_drag(index: int, position: Vector2) -> void:
         var width: float = maxf(float(get_viewport().get_visible_rect().size.x), 100.0)
         if delta.length() < width * 0.18:
             camera_yaw = wrapf(camera_yaw + delta.x * 0.4, -180.0, 180.0)
-            camera_pitch = clampf(camera_pitch - delta.y * 0.4, -89.0, 89.0)
+            camera_pitch = clampf(camera_pitch + delta.y * 0.4, -89.0, 89.0)
     camera_pan = camera_pan.clamp(Vector2(-0.7, -0.7), Vector2(0.7, 0.7))
     _apply_frame()
     _announce_camera()
@@ -476,6 +476,6 @@ func _input(event: InputEvent) -> void:
             _announce_camera()
     elif event is InputEventMouseMotion and _mouse_drag and _touches.is_empty():
         camera_yaw = wrapf(camera_yaw + event.relative.x * 0.4, -180.0, 180.0)
-        camera_pitch = clampf(camera_pitch - event.relative.y * 0.4, -89.0, 89.0)
+        camera_pitch = clampf(camera_pitch + event.relative.y * 0.4, -89.0, 89.0)
         _apply_frame()
         _announce_camera()
