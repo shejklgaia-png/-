@@ -35,7 +35,7 @@ func _run() -> void:
             return
     var width_sum: float = 0.0
     for i in range(3):
-        var panel: PanelContainer = table.get_child(i) as PanelContainer
+        var panel: Panel = table.get_child(i) as Panel
         var style: StyleBoxFlat = panel.get_theme_stylebox("panel") as StyleBoxFlat
         if style == null or style.border_width_bottom != 1 or (
                 style.border_width_right != 1):
@@ -75,7 +75,7 @@ func _run() -> void:
         _fail("HP and defense calculations were changed during the UI refactor")
         return
     for node in table.get_children():
-        var label: Label = (node as PanelContainer).get_node("Content") as Label
+        var label: Label = (node as Panel).get_node("Content") as Label
         if label.text.contains("戦闘計算へ未接続") or label.text.contains("注:"):
             _fail("obsolete annotation must not appear in the status table")
             return
