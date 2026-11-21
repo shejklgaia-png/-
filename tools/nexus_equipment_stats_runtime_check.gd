@@ -31,7 +31,7 @@ func _run() -> void:
         "head": "B", "torso": "B", "arms": "B", "legs": "B",
         "booster": "B", "weapon_r": "B", "weapon_l": "B"
     })
-    if _value(a, "HP") != "160" or _value(b, "HP") != "208":
+    if _value(a, "HP") != "320" or _value(b, "HP") != "416":
         _fail("HP must derive from existing equipped part profiles")
         return
     if _value(a, "ATK EN") != "" or _value(b, "ATK EN") != "4":
