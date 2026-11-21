@@ -115,7 +115,7 @@ func _make_card() -> Button:
     var title := Label.new()
     title.name = "ItemTitle"
     title.mouse_filter = Control.MOUSE_FILTER_IGNORE
-    title.add_theme_color_override("font_color", Color("#ecf5f6"))
+    title.add_theme_color_override("font_color", Color("#dde8ea"))
     title.add_theme_font_override("font", (
         LaboSkin.control_font() if mode == "materials" else LaboSkin.equipment_font()))
     title.add_theme_font_size_override("font_size", 20)
@@ -126,7 +126,7 @@ func _make_card() -> Button:
     var effects := Label.new()
     effects.name = "ItemEffects"
     effects.mouse_filter = Control.MOUSE_FILTER_IGNORE
-    effects.add_theme_color_override("font_color", Color("#bbdbe0"))
+    effects.add_theme_color_override("font_color", Color("#b2ced3"))
     effects.add_theme_font_override("font", LaboSkin.stats_font())
     effects.add_theme_font_size_override("font_size", 16)
     effects.add_theme_constant_override("line_spacing", 1)
