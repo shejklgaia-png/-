@@ -5,6 +5,8 @@ const SERA_RIG_PATH: String = "res://scripts/sera_rig.gd"
 const VersionIndicator = preload("res://scripts/version_indicator.gd")
 const BaseFacilities = preload("res://scripts/base_facility_system.gd")
 const BaseArchitecture = preload("res://scripts/sera_base_architecture.gd")
+const BaseClutter = preload("res://scripts/sera_base_clutter.gd")
+const BaseLayoutPreview = preload("res://scripts/sera_base_layout_preview.gd")
 const JunkGeometry = preload("res://scripts/sera_base_junk_geometry.gd")
 const BaseFloorDetail = preload("res://scripts/sera_base_floor_detail.gd")
 const BaseDeckLayout = preload("res://scripts/sera_base_deck_layout.gd")
@@ -68,8 +70,15 @@ var facility_touch_key: String = ""
 var facility_touch_start: Vector2 = Vector2.ZERO
 var startup_layer: CanvasLayer
 var startup_label: Label
+var layout_tools: VBoxContainer
+var layout_shuffle_button: Button
+var layout_copy_button: Button
+var layout_status: Label
+var layout_seed: int = 0
+var layout_rerolls: int = 0
 
 func _ready() -> void:
+    BaseClutter.clear_preview()
     # The old synchronous boot left Android showing only Godot's gray clear
     # color until the entire large BASE world and all of its dependencies
     # finished. Draw an engine-native first frame before heavy construction.
@@ -312,7 +321,7 @@ func _box(parent: Node3D, name: String, at: Vector3, size: Vector3, tint: Color)
     parent.add_child(body)
     return body
 
-func _create_salvage() -> void:
+func _create_salvage(replacement: Array[Dictionary] = []) -> void:
     # Loose salvage is not a set of box-shaped machines. Keep the 16 stable
     # world anchors for layout/navigation tests, and draw all geometry through
     # ONE shared material-batched procedural model (low-cost on Android).
@@ -333,29 +342,34 @@ func _create_salvage() -> void:
     for i in range(lots.size()):
         var pile := Node3D.new()
         pile.name = "ScrapPile_%02d" % i
-        pile.position = lots[i]
-        # Stable but deliberately different slants for every scrap heap.
-        pile.rotation.y = deg_to_rad(float(-26 + posmod(i * 23 + 7, 55)))
-        pile.set_meta("scrap_profile", posmod(i, JunkGeometry.SCRAP_PROFILES))
-        # Give isolated scrap heaps a stronger silhouette. Near buildings,
-        # keep their footprint lower so entrance panels and machinery stay
-        # legible. This uses no extra draw nodes and no per-frame calculations.
-        var nearest: float = lots[i].distance_to(nexus_building.position)
-        for station in facility_system.get_children():
-            if station is Node3D:
-                nearest = minf(nearest,
-                    lots[i].distance_to((station as Node3D).position))
+        var center: Vector3 = lots[i]
+        var heading: float = float(-26 + posmod(i * 23 + 7, 55))
         var scale_factor: float = 1.26
-        if nearest < 4.0:
-            scale_factor = 1.12
-        elif nearest < 7.0:
-            scale_factor = 1.20
+        if replacement.size() == lots.size():
+            var sample: Dictionary = replacement[i]
+            center = Vector3(float(sample["x"]), 0.0, float(sample["z"]))
+            heading = float(sample["yaw_deg"])
+            scale_factor = float(sample["scale"])
+        else:
+            # Preserve the existing authored first-boot anchors unchanged.
+            var nearest: float = center.distance_to(nexus_building.position)
+            for station in facility_system.get_children():
+                if station is Node3D:
+                    nearest = minf(nearest,
+                        center.distance_to((station as Node3D).position))
+            if nearest < 4.0:
+                scale_factor = 1.12
+            elif nearest < 7.0:
+                scale_factor = 1.20
+        pile.position = center
+        pile.rotation.y = deg_to_rad(heading)
+        pile.set_meta("scrap_profile", posmod(i, JunkGeometry.SCRAP_PROFILES))
         pile.set_meta("visual_scale", scale_factor)
         add_child(pile)
-        g.pivot = lots[i]
+        g.pivot = center
         g.yaw = pile.rotation.y
         g.detail_scale = scale_factor
-        JunkGeometry.scrap_heap(g, lots[i], i)
+        JunkGeometry.scrap_heap(g, center, i)
     # One shared opaque MultiMesh per actual geometry/material type, not
     # hundreds of MeshInstance3D nodes or per-frame random CPU rebuilds.
     g.flush()
@@ -500,6 +514,7 @@ func _create_hud() -> void:
     stick_knob.visible = HUB_SERA_CONTROLS_ENABLED
     VersionIndicator.attach(hud)
     facility_system.call("attach_hud", hud)
+    _create_layout_tools()
     hud.resized.connect(_layout_hud)
     _layout_hud()
 
@@ -512,6 +527,9 @@ func _layout_hud() -> void:
     hint.position = Vector2(18, view.y - 102.0)
     hint.size = Vector2(view.x - 36, 38)
     hint.add_theme_font_size_override("font_size", 16 if view.x < 600.0 else 19)
+    if layout_tools != null:
+        layout_tools.position = Vector2(view.x - 168.0, 14.0)
+        layout_tools.size = Vector2(156.0, 122.0)
     stick_outer.position = Vector2(view.x - 180, view.y - 194)
     stick_outer.size = Vector2(164, 164)
     stick_knob.size = Vector2(72, 72)
@@ -544,6 +562,142 @@ func _set_stick(pixel: Vector2) -> void:
 func _hit(panel: Panel, at: Vector2) -> bool:
     return panel != null and Rect2(panel.position, panel.size).has_point(at)
 
+func _create_layout_tools() -> void:
+    layout_tools = VBoxContainer.new()
+    layout_tools.name = "LayoutTools"
+    layout_tools.mouse_filter = Control.MOUSE_FILTER_PASS
+    layout_tools.add_theme_constant_override("separation", 5)
+    hud.add_child(layout_tools)
+    layout_shuffle_button = _layout_tool_button(
+        "小物を再配置", "LayoutShuffleButton", _shuffle_layout)
+    layout_copy_button = _layout_tool_button(
+        "配置データコピー", "LayoutCopyButton", _copy_layout_data)
+    layout_status = Label.new()
+    layout_status.name = "LayoutStatus"
+    layout_status.text = "PREVIEW / 未確定"
+    layout_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+    layout_status.add_theme_font_override("font", LaboSkin.ui_font())
+    layout_status.add_theme_font_size_override("font_size", 11)
+    layout_status.add_theme_color_override("font_color", Color("#a7c4d3"))
+    layout_status.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    layout_tools.add_child(layout_status)
+
+
+func _layout_tool_button(caption: String, identifier: String,
+        callback: Callable) -> Button:
+    var button := Button.new()
+    button.name = identifier
+    button.text = caption
+    button.focus_mode = Control.FOCUS_NONE
+    button.mouse_filter = Control.MOUSE_FILTER_STOP
+    button.custom_minimum_size = Vector2(156.0, 44.0)
+    button.add_theme_font_override("font", LaboSkin.ui_font())
+    button.add_theme_font_size_override("font_size", 15)
+    button.add_theme_color_override("font_color", Color("#e2edf2"))
+    var flat := StyleBoxFlat.new()
+    flat.bg_color = Color("#162b39")
+    flat.border_color = Color("#55798a")
+    flat.set_border_width_all(1)
+    flat.set_corner_radius_all(0)
+    button.add_theme_stylebox_override("normal", flat)
+    var highlighted: StyleBoxFlat = flat.duplicate() as StyleBoxFlat
+    highlighted.bg_color = Color("#31566b")
+    button.add_theme_stylebox_override("pressed", highlighted)
+    button.add_theme_stylebox_override("hover", highlighted)
+    button.pressed.connect(callback)
+    layout_tools.add_child(button)
+    return button
+
+
+func _layout_control_hit(at: Vector2) -> bool:
+    return layout_tools != null and layout_tools.is_visible_in_tree() and (
+        Rect2(layout_tools.position, layout_tools.size).has_point(at))
+
+
+func _shuffle_layout() -> void:
+    if scene_changing or facility_system == null or (
+            bool(facility_system.call("is_menu_open"))):
+        return
+    layout_shuffle_button.disabled = true
+    layout_copy_button.disabled = true
+    layout_status.text = "再配置中..."
+    var rng := RandomNumberGenerator.new()
+    rng.randomize()
+    var next: Dictionary = BaseLayoutPreview.generate(
+        NEXUS_BUILDING_ORIGIN, BaseFacilities.FACILITY_SPECS, rng)
+    if next.is_empty():
+        layout_status.text = "再配置できませんでした"
+    else:
+        _apply_layout_preview(next)
+        layout_status.text = "仮配置 #%d" % layout_rerolls
+    layout_shuffle_button.disabled = false
+    layout_copy_button.disabled = false
+
+
+func _apply_layout_preview(selected: Dictionary) -> void:
+    # Session preview only; no changes to the game's permanent saves.
+    var layouts: Dictionary = selected["sites"]
+    var scrap: Array[Dictionary] = selected["scrap"]
+    BaseClutter.set_preview_layouts(layouts)
+    var old_nexus: Node = nexus_building.get_node_or_null("NexusArchitecture")
+    if old_nexus != null:
+        old_nexus.free()
+    BaseArchitecture.build_nexus(nexus_building)
+    for spec in BaseFacilities.FACILITY_SPECS:
+        var key: String = str(spec["id"])
+        var station: Node3D = facility_system.get_node_or_null(key) as Node3D
+        if station == null:
+            continue
+        var old: Node = station.get_node_or_null("IndustrialModel")
+        if old != null:
+            old.free()
+        BaseArchitecture.build_facility(station, key)
+    var previous: Node = get_node_or_null("SalvageMeshes")
+    if previous != null:
+        previous.free()
+    for i in range(BaseLayoutPreview.SCRAP_COUNT):
+        var pile: Node = get_node_or_null("ScrapPile_%02d" % i)
+        if pile != null:
+            pile.free()
+    _create_salvage(scrap)
+    layout_seed = int(selected["seed"])
+    layout_rerolls += 1
+    facility_system.call("update_tags", cam)
+
+
+func _layout_export_text() -> String:
+    # Full model parameters, not only the seed: repeatable across devices.
+    var layouts: Dictionary = {}
+    for key in BaseLayoutPreview.KEYS:
+        layouts[key] = BaseClutter.props_for(key)
+    var scrap: Array[Dictionary] = []
+    for i in range(BaseLayoutPreview.SCRAP_COUNT):
+        var pile: Node3D = get_node_or_null("ScrapPile_%02d" % i) as Node3D
+        if pile == null:
+            return ""
+        scrap.append({
+            "index": i, "x": pile.position.x, "z": pile.position.z,
+            "yaw_deg": pile.rotation_degrees.y,
+            "scale": float(pile.get_meta("visual_scale", 1.0)),
+            "profile": int(pile.get_meta("scrap_profile", 0)),
+        })
+    return BaseLayoutPreview.export_text(
+        layouts, scrap, layout_rerolls, layout_seed)
+
+
+func _copy_layout_data() -> void:
+    var data: String = _layout_export_text()
+    if data.is_empty():
+        layout_status.text = "コピー失敗"
+        return
+    DisplayServer.clipboard_set(data)
+    layout_status.text = "コピー完了 / チャットに貼付"
+
+
+func _exit_tree() -> void:
+    BaseClutter.clear_preview()
+
+
 func _on_android_back() -> void:
     if facility_system != null and bool(facility_system.call("is_menu_open")):
         facility_system.call("navigate_back")
@@ -554,6 +708,12 @@ func _input(event: InputEvent) -> void:
     # An open field-device panel owns its own GUI input; do not route clicks
     # behind it to NEXUS, other machines, or the dormant joystick.
     if facility_system != null and bool(facility_system.call("is_menu_open")):
+        return
+    if event is InputEventScreenTouch and event.pressed and (
+            _layout_control_hit(event.position)):
+        return
+    if event is InputEventMouseButton and event.pressed and (
+            _layout_control_hit(event.position)):
         return
     if event is InputEventScreenTouch:
         if event.pressed:
@@ -677,6 +837,8 @@ func _process(delta: float) -> void:
         cam.look_at(BASE_CAMERA_TARGET + follow_shift, Vector3.UP)
     _update_nexus_tag()
     facility_system.call("update_tags", cam)
+    if layout_tools != null:
+        layout_tools.visible = not bool(facility_system.call("is_menu_open"))
 
 func _enter_nexus() -> void:
     if scene_changing:

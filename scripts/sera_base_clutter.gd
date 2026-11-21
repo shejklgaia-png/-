@@ -225,7 +225,29 @@ static func _enlarge_dressing(key: String, items: Array[Dictionary]) -> void:
                 items[i] = item
                 break
 
+# A preview only replaces yard props during this BASE session, never the
+# approved authored defaults or saved game data. Empty on each fresh hub.
+static var preview_overrides: Dictionary = {}
+
+
+static func clear_preview() -> void:
+    preview_overrides.clear()
+
+
+static func set_preview_layouts(layouts: Dictionary) -> void:
+    preview_overrides = layouts.duplicate(true)
+
+
 static func props_for(key: String) -> Array[Dictionary]:
+    if preview_overrides.has(key):
+        var preview: Array[Dictionary] = []
+        for part in preview_overrides[key]:
+            preview.append((part as Dictionary).duplicate(true))
+        return preview
+    return default_props_for(key)
+
+
+static func default_props_for(key: String) -> Array[Dictionary]:
     var items: Array[Dictionary] = _authored_props_for(key)
     for index in range(items.size()):
         var item: Dictionary = items[index]

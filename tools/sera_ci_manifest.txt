@@ -38,6 +38,8 @@ py tools/base_prop_stacks_self_check.py
 gd tools/base_prop_stacks_runtime_check.gd
 # Enlarged prop silhouette and sixteen no-extra-node salvage piles.
 gd tools/base_enlarged_dressing_runtime_check.gd
+# User-preview layout randomizer and complete copy/paste layout JSON for future pinning.
+gd tools/base_layout_shuffle_export_runtime_check.gd
 py tools/base_compact_prop_variety_self_check.py
 gd tools/base_compact_prop_variety_runtime_check.gd
 py tools/base_site_prop_variety_self_check.py
