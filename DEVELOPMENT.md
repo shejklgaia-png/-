@@ -3815,7 +3815,6 @@
 - Added base_reference_architecture self-check and headless runtime check to the CI manifest before implementation; preserved previous layout/navigation tests. Detailed design: docs/BASE_REFERENCE_INDUSTRIAL_2026_11_21_ja.md.
 - Final Android GL Compatibility screenshot and GPU workload require physical-device confirmation.
 
-
 ## 2026-11-21：倉庫装備詳細のステータスを3列テーブル化・装備カードの欠字修正
 - 装備製作カードの「基礎：」で全角コロン U+FF1A が縦長四角として表示される問題を、同梱フォントでも表示できる半角 `基礎: ` に変更。
 - 倉庫の装備個体詳細は文字列を1枚のLabelで描く方式を廃止し、`WarehouseStatsTable` の3列GridContainer（項目・計算式・合計）へ変更。各行は独立したPanelで1pxの低コントラスト格子。列幅は項目19%・式59%・結果22%、計算式を横長にし、合計数値は右揃え、項目名と合計はフォントサイズと明度で強調する。
