@@ -35,11 +35,11 @@ func _run() -> void:
         var lane: float = maxf(left_width, right_width) + 2.0
         var broken: String = StatUI.semantic_stat_lines(
             str(source), ui_font, 16, lane)
-        if broken != left + "\\n" + right:
+        if broken != left + "\n" + right:
             _fail("unnatural Japanese stat wrapping: " + str(source) +
                 " => " + broken)
             return
-        if StatUI.semantic_stat_lines(broken.replace("\\n", ""),
+        if StatUI.semantic_stat_lines(broken.replace("\n", ""),
                 ui_font, 16, lane) != broken:
             _fail("stat line wrapping changed across layout updates")
             return
