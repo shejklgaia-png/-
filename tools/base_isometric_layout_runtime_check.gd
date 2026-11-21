@@ -93,6 +93,9 @@ func _run() -> void:
         if sign == null or sign.font == null or not sign.font.has_char(0x56DE):
             _fail("3D facility sign lacks Japanese glyphs: " + name)
             return
+        if sign.visible:
+            _fail("3D sign duplicates the on-screen facility tag: " + name)
+            return
         if (tag.position.x < 4.0 or tag.position.y < 100.0 or
                 tag.position.x + tag.size.x > view.x - 4.0 or
                 tag.position.y + tag.size.y > view.y - 12.0):
