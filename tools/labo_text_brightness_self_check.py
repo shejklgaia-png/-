@@ -7,6 +7,7 @@ root = Path(__file__).resolve().parents[1]
 skin = (root / "scripts/sera_labo_round_skin.gd").read_text(encoding="utf-8")
 facility = (root / "scripts/base_facility_system.gd").read_text(encoding="utf-8")
 warehouse = (root / "scripts/sera_warehouse_grid.gd").read_text(encoding="utf-8")
+table = (root / "scripts/sera_warehouse_stats_table.gd").read_text(encoding="utf-8")
 manifest = (root / "tools/sera_ci_manifest.txt").read_text(encoding="utf-8")
 
 # Approved palette for this small brightness-only adjustment. No font family,
@@ -24,7 +25,7 @@ expected = {
     "material_title": "#eaf3f5",
     "warehouse_title": "#dde8ea",
     "warehouse_effects": "#b2ced3",
-    "warehouse_breakdown": "#e0ebf1",
+    "warehouse_total": "#f0f6f7",
 }
 assert f'theme.set_color("font_color", "Button", Color("{expected["button_normal"]}"))' in skin
 assert f'theme.set_color("font_disabled_color", "Button", Color("{expected["button_disabled"]}"))' in skin
@@ -39,7 +40,6 @@ for fragment in (
     f'button.add_theme_color_override("font_hover_color", Color("{expected["nav_hover"]}"))',
     f'Color("{expected["material_title"]}")',
     f'Color("{expected["craft_title"]}")',
-    f'breakdown.add_theme_color_override("font_color", Color("{expected["warehouse_breakdown"]}"))',
 ):
     assert fragment in facility, fragment
 for fragment in (
@@ -47,6 +47,9 @@ for fragment in (
     f'effects.add_theme_color_override("font_color", Color("{expected["warehouse_effects"]}"))',
 ):
     assert fragment in warehouse, fragment
+
+assert f'Color("{expected["warehouse_total"]}")' in table
+assert 'Color("#a7c7d1")' in table  # muted calculation expression
 
 def luminance(hex_color):
     rgb = [int(hex_color[i:i+2], 16) / 255 for i in (1, 3, 5)]

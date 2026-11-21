@@ -15,7 +15,7 @@ for anchor in ('actions_scroll = LaboTouchScroll.new()',
                'func _request_confirmation(',
                '_confirm_selected_prototype()', '_confirm_conversion.bind(rank)',
                'var amount := SpinBox.new()', 'func _confirm_bulk_junk_deletion(',
-               'func _mark_warehouse_item(', 'LaboStats.total_formula('):
+               'func _mark_warehouse_item(', 'WarehouseStatsTable.build('):
     assert anchor in ui, anchor
 assert '"CraftSlotScroll"' not in ui, "all seven fixed part tabs must fit without horizontal scrolling"
 for anchor in ('func set_prototype_mark(', 'func delete_junk_prototypes(',
@@ -25,6 +25,7 @@ for anchor in ('func set_prototype_mark(', 'func delete_junk_prototypes(',
     assert anchor in save, anchor
 assert 'PartStats.PROFILES' in stats and 'static func baseline(' in stats
 assert 'static func total_formula(' in stats
+assert 'static func total_stat_rows(' in stats
 for anchor in ('func _build_converter(', 'func _build_warehouse(',
                'func set_section(', 'converter_crystals',
                'printer_group.visible', 'warehouse_group.visible'):
