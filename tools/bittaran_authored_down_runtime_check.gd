@@ -81,6 +81,20 @@ func _run() -> void:
             _fail("stand-up never returned BODY to Wait: " + clip_name)
             return
         ik.set("break_elapsed", -1.0)
+    # A second break during the same fall may reset the down hold, but
+    # it must NEVER rewind a body already on the floor to its anticipation.
+    var head_last: Vector3 = parts.call("get_part_aim_world", "head")
+    ik.call("start_leg_break_slide", "leg_fl", head_last.y, false)
+    ik.set("windup_elapsed", -1.0)
+    ik.set("break_elapsed", 1.70)
+    var before_repeat: float = float(
+        ik.call("authored_down_motion_time"))
+    ik.call("start_leg_break_slide", "leg_fr", head_last.y, false)
+    var after_repeat: float = float(
+        ik.call("authored_down_motion_time"))
+    if after_repeat + 0.001 < before_repeat:
+        _fail("repeat shin break rewound authored collapse pose")
+        return
     if (absf(IK.LEG_BREAK_REACTION_SECONDS - 2.5) > 0.001
             or absf(IK.ALL_LEGS_BREAK_REACTION_SECONDS - 6.0) > 0.001
             or absf(IK.SINGLE_LEG_RISE_SECONDS - 1.0) > 0.001
