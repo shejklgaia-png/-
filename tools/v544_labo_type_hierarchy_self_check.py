@@ -19,7 +19,7 @@ for token in ('modal_title.add_theme_font_size_override("font_size", 32)',
               'return 20 if width < 540.0 else 23 if width < 720.0 else 24',
               '28 if get_viewport().get_visible_rect().size.x >= 500.0 else 24',
               'Color("#8da9b5") if key.begins_with("LockedCraftSlot_")',
-              'info_label.add_theme_font_size_override("font_size", 17)',
+              '"font_size", 17 if key.begins_with("LockedCraftSlot_") else 20)',
               'grade_tag.add_theme_font_size_override("font_size", 12)',
               'module_status.visible = get_viewport().get_visible_rect().size.x >= 580.0'):
     assert token in ui, token
