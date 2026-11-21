@@ -6,6 +6,9 @@ extends RefCounted
 
 static func _nexus(g: Variant) -> void:
     # Layered roof battlements, welds, corner fixings and exposed services.
+    g.poly("NexusRoofCornerBevel", "bevel",
+        Vector3(-2.12, 4.91, -1.78),
+        Vector3(0.92, 0.34, 0.68), "armor_light")
     for side in [-1.0, 1.0]:
         for row in range(4):
             var z: float = -1.76 + float(row) * 1.06
@@ -224,6 +227,9 @@ static func _generator(g: Variant) -> void:
 
 static func _storage(g: Variant) -> void:
     # Corrugated cargo faces, diagonal restraint straps and varied small loads.
+    g.poly("CargoChamferedContainer", "bevel",
+        Vector3(0.79, 0.49, 1.02),
+        Vector3(0.75, 0.56, 0.51), "crate")
     for slot in range(3):
         var x: float = -0.73 + slot * 0.73
         for ridge in range(5):
@@ -253,6 +259,9 @@ static func _storage(g: Variant) -> void:
 
 static func _terminal(g: Variant) -> void:
     # A true three-dimensional wireframe crate on the physical blue monitor.
+    g.poly("BlueprintAngledHood", "hood",
+        Vector3(0, 2.19, -0.21),
+        Vector3(1.83, 0.26, 0.52), "slate")
     for x in [-0.36, 0.32]:
         for y in [1.56, 1.92]:
             g.rod("BlueprintWireframeCrate", Vector3(x, y, 0.05),
