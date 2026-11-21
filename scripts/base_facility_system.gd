@@ -30,19 +30,19 @@ const MATERIAL_ICON_WIDTH: int = 54
 ## Base field architecture: LABO is one building; resources, power and construction
 ## are independent physical machines. NEXUS remains in the parent scene.
 const FACILITY_SPECS = [
-    {"id": "LABO", "name": "LABO", "at": Vector3(6.20, 0.0, 5.25),
+    {"id": "LABO", "name": "LABO", "at": Vector3(5.95, 0.0, 5.40),
         "size": Vector3(4.25, 4.1, 4.35), "subtitle": "Shell / OS / スロット開発"},
-    {"id": "SCRAP_COLLECTOR", "name": "回収機", "at": Vector3(5.20, 0.0, 15.60),
+    {"id": "SCRAP_COLLECTOR", "name": "回収機", "at": Vector3(4.70, 0.0, 15.00),
         "size": Vector3(2.35, 2.55, 2.25), "subtitle": "スクラップ収集"},
-    {"id": "SMELTER", "name": "精製装置", "at": Vector3(-10.90, 0.0, -4.90),
+    {"id": "SMELTER", "name": "精製装置", "at": Vector3(-10.10, 0.0, -4.70),
         "size": Vector3(2.40, 2.85, 2.40), "subtitle": "素材の精製"},
-    {"id": "RECYCLER", "name": "分解装置", "at": Vector3(1.10, 0.0, -11.10),
+    {"id": "RECYCLER", "name": "分解装置", "at": Vector3(0.85, 0.0, -10.65),
         "size": Vector3(2.45, 2.55, 2.35), "subtitle": "不要素材の分解"},
-    {"id": "GENERATOR", "name": "発電機", "at": Vector3(9.40, 0.0, -1.65),
+    {"id": "GENERATOR", "name": "発電機", "at": Vector3(8.85, 0.0, -1.50),
         "size": Vector3(2.40, 3.10, 2.25), "subtitle": "拠点電力"},
-    {"id": "STORAGE", "name": "資材保管庫", "at": Vector3(-2.55, 0.0, 5.80),
+    {"id": "STORAGE", "name": "資材保管庫", "at": Vector3(-2.15, 0.0, 5.35),
         "size": Vector3(2.45, 2.15, 2.30), "subtitle": "資源の保管"},
-    {"id": "BUILD_TERMINAL", "name": "建設端末", "at": Vector3(15.30, 0.0, 8.80),
+    {"id": "BUILD_TERMINAL", "name": "建設端末", "at": Vector3(14.35, 0.0, 8.40),
         "size": Vector3(2.10, 2.55, 2.10), "subtitle": "拠点の建設・拡張"}
 ]
 
