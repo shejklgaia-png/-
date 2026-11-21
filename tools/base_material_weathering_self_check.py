@@ -13,9 +13,14 @@ for asset in (texture, cloth):
 assert 'res://assets/base/industrial_steel_grunge.svg' in base
 assert 'res://assets/base/industrial_steel_grunge.svg' in architecture
 assert 'res://assets/base/aged_canvas_weave.svg' in architecture
-assert "mat.albedo_texture = WEATHERED_STEEL" in base
-assert "surface.albedo_texture = WEATHERED_CANVAS" in architecture
-assert "surface.albedo_texture = WEATHERED_STEEL" in architecture
+assert "mat.albedo_texture = steel_texture" in base
+assert "ResourceLoader.exists(WEATHERED_STEEL_PATH)" in base
+assert "preload(\"res://assets/base/industrial_steel_grunge.svg\")" not in base
+assert "surface.albedo_texture = canvas_texture" in architecture
+assert "ResourceLoader.exists(WEATHERED_CANVAS_PATH)" in architecture
+assert "surface.albedo_texture = steel_texture" in architecture
+assert "ResourceLoader.exists(WEATHERED_STEEL_PATH)" in architecture
+assert "preload(\"res://assets/base/aged_canvas_weave.svg\")" not in architecture
 assert 'py tools/base_material_weathering_self_check.py' in manifest
 assert 'gd tools/base_material_weathering_runtime_check.gd' in manifest
 print("SERA_BASE_MATERIAL_WEATHERING_STATIC_PASS")

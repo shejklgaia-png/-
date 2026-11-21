@@ -6,7 +6,7 @@ const VersionIndicator = preload("res://scripts/version_indicator.gd")
 const BaseFacilities = preload("res://scripts/base_facility_system.gd")
 const BaseArchitecture = preload("res://scripts/sera_base_architecture.gd")
 const BaseFloorDetail = preload("res://scripts/sera_base_floor_detail.gd")
-const WEATHERED_STEEL = preload("res://assets/base/industrial_steel_grunge.svg")
+const WEATHERED_STEEL_PATH: String = "res://assets/base/industrial_steel_grunge.svg"
 const LaboSkin = preload("res://scripts/sera_labo_round_skin.gd")
 const CrateModel = preload("res://scripts/sera_crate_model.gd")
 const NEXUS_SCENE: String = "res://scenes/command_nexus.tscn"
@@ -151,6 +151,10 @@ func _create_grid_plates(floor: Node3D) -> void:
                 Transform3D(Basis.IDENTITY,
                     Vector3(float(x) * PLATE_GRID_STEP, -0.18,
                         float(z) * PLATE_GRID_STEP)))
+    # The no-cache font test constructs this scene before SVG import is ready.
+    var steel_texture: Texture2D = null
+    if ResourceLoader.exists(WEATHERED_STEEL_PATH):
+        steel_texture = load(WEATHERED_STEEL_PATH) as Texture2D
     for palette_index in range(tints.size()):
         var poses: Array = grouped[palette_index]
         var multi := MultiMesh.new()
@@ -171,7 +175,7 @@ func _create_grid_plates(floor: Node3D) -> void:
         mat.albedo_color = tints[palette_index]
         mat.metallic = 0.25
         mat.roughness = 0.81
-        mat.albedo_texture = WEATHERED_STEEL
+        mat.albedo_texture = steel_texture
         draw.material_override = mat
         draw.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
         floor.add_child(draw)
