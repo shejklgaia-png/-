@@ -19,8 +19,8 @@ assert 'Rect2(' in layout
 assert 'GAP: float = 0.06' in layout
 assert '0.5' in layout, "small subdivided plates are required"
 assert '3' in layout, "long slabs must be represented"
-assert 'var plate_mesh := BoxMesh.new()' in hub
-assert 'plate_mesh.size = Vector3.ONE' in hub, "instance transforms must define individual panel dimensions"
+assert 'var plate_mesh: ArrayMesh = BasePolygon.make("deck")' in hub
+assert 'BasePolygon.make("deck")' in hub, "instance transforms must define the sized polygonal panels"
 assert 'Basis.IDENTITY.scaled_local(' in hub, "per-panel scale is required"
 assert 'len(panels)' not in hub
 assert 'for panel in panels:' in floor
