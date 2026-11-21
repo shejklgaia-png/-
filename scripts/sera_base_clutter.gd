@@ -157,6 +157,51 @@ static func _safe_prop_yaw(key: String, items: Array[Dictionary],
             return false
     return true
 
+# Each prop remains at its authored location. Grow only while its complete
+# conservative footprint clears the machine/entrance zone and all other props.
+# Check both zero-yaw and real yaw so the fixed slab, stack and old Godot
+# unrotated-footprint collision tests stay valid. Setup-only, no frame work.
+static func _can_enlarge_prop(key: String, items: Array[Dictionary],
+        index: int, multiplier: float) -> bool:
+    var candidate: Dictionary = items[index].duplicate()
+    candidate["scale"] = float(candidate["scale"]) * multiplier
+    var straight: Rect2 = _yaw_rect(candidate, 0.0)
+    var rotated: Rect2 = _yaw_rect(candidate, float(candidate.get("yaw_deg", 0.0)))
+    var restricted: Rect2 = _clear_zone(key)
+    if straight.intersects(restricted) or rotated.intersects(restricted):
+        return false
+    for j in range(items.size()):
+        if j == index:
+            continue
+        var other: Dictionary = items[j]
+        if straight.intersects(_yaw_rect(other, 0.0)) or (
+                rotated.intersects(_yaw_rect(other,
+                    float(other.get("yaw_deg", 0.0))))):
+            return false
+    return true
+
+
+static func _enlarge_dressing(key: String, items: Array[Dictionary]) -> void:
+    # Regular open-yard objects stand out; clustered accessories and stacks
+    # receive a tighter ceiling. All existing 2+1 and 2+2 stacks scale as a
+    # complete assembly, preserving support heights and their original yaw.
+    for i in range(items.size()):
+        var item: Dictionary = items[i]
+        var limit: float = 1.26
+        if bool(item.get("accent", false)):
+            limit = 1.18
+        elif int(item.get("stack", 1)) > 1:
+            limit = 1.18
+        for step in range(13, 0, -1):
+            var candidate: float = 1.0 + float(step) * 0.02
+            if candidate > limit + 0.001:
+                continue
+            if _can_enlarge_prop(key, items, i, candidate):
+                item["scale"] = float(item["scale"]) * candidate
+                items[i] = item
+                break
+
+
 static func props_for(key: String) -> Array[Dictionary]:
     var items: Array[Dictionary] = _authored_props_for(key)
     for index in range(items.size()):
@@ -190,6 +235,7 @@ static func props_for(key: String) -> Array[Dictionary]:
                     break
         item["yaw_deg"] = chosen
         items[index] = item
+    _enlarge_dressing(key, items)
     return items
 
 static func _authored_props_for(key: String) -> Array[Dictionary]:
