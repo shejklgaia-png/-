@@ -72,12 +72,24 @@ func _run() -> void:
         return
     fac.call("_switch_section", "materials")
     fac.call("_select_conversion_family", "alloy")
-    var amount: SpinBox = (fac.get("modal_actions") as VBoxContainer).find_child(
-        "ConversionCount_0", true, false) as SpinBox
-    if amount == null or amount.value != 1 or (
-            not ((fac.get("modal_actions") as VBoxContainer).find_child(
-                "ConvertRank_0", true, false) is Button)):
-        _fail("conversion bar with adjacent quantity is missing")
+    var conversion_actions: VBoxContainer = fac.get("modal_actions") as VBoxContainer
+    var amount: Label = conversion_actions.find_child(
+        "ConversionCount_0", true, false) as Label
+    var minus: Button = conversion_actions.find_child(
+        "ConversionMinus_0", true, false) as Button
+    var plus: Button = conversion_actions.find_child(
+        "ConversionPlus_0", true, false) as Button
+    if amount == null or amount.text != "01" or minus == null or (
+            plus == null or not minus.disabled or plus.disabled or (
+            not (conversion_actions.find_child(
+                "ConvertRank_0", true, false) is Button))):
+        _fail("conversion bar with centered minus / count / plus is missing")
+        return
+    fac.call("_conversion_batches_changed", 1)
+    conversion_actions = fac.get("modal_actions") as VBoxContainer
+    amount = conversion_actions.find_child("ConversionCount_0", true, false) as Label
+    if amount == null or amount.text != "02":
+        _fail("conversion stepper did not update the shared quantity")
         return
     # Persisted test only when profile 3 is free: never overwrite user data.
     if store.call("get_slot", 3).is_empty():
