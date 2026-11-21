@@ -144,8 +144,8 @@ func set_grid(show: bool, animate: bool = true) -> void:
     slide.set_parallel(true)
     slide.set_trans(Tween.TRANS_CUBIC)
     slide.set_ease(Tween.EASE_OUT)
-    slide.tween_property(base_plate, "position", base_target, 0.24)
-    slide.tween_property(grid_plate, "position", grid_target, 0.24)
+    slide.tween_property(base_plate, "position", base_target, 0.20)
+    slide.tween_property(grid_plate, "position", grid_target, 0.20)
 
 
 func set_edit(show: bool, animate: bool = true) -> void:
