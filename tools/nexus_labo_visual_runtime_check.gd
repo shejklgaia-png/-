@@ -61,6 +61,37 @@ func _run() -> void:
                 not is_equal_approx(underline.size.y, 1.0)):
             _fail("equipment name underline must remain matte blue-grey and 1px")
             return
+    # CUSTOMIZE backdrop is one translucent 3D surface behind SERA, not a
+    # 2D tint drawn over the character or controls. At its preview distance it
+    # must fit the complete portrait viewport on either axis.
+    var backdrop: MeshInstance3D = nexus.get("customize_glow_quad") as MeshInstance3D
+    var camera: Camera3D = nexus.get("cam") as Camera3D
+    if backdrop == null or camera == null or not (backdrop.mesh is QuadMesh) or (
+            not (backdrop.material_override is ShaderMaterial)):
+        _fail("CUSTOMIZE depth-tested 3D background is missing")
+        return
+    var backdrop_mat: ShaderMaterial = backdrop.material_override as ShaderMaterial
+    var opacity: float = float(backdrop_mat.get_shader_parameter("base_opacity"))
+    if opacity < 0.25 or opacity >= 0.50:
+        _fail("background needs a visible but translucent blue-grey base")
+        return
+    nexus.set("customize_preview_active", true)
+    nexus.call("_update_customization_glow")
+    nexus.set("customize_preview_active", false)
+    var backdrop_quad: QuadMesh = backdrop.mesh as QuadMesh
+    var preview_position: Vector3 = nexus.get("customize_preview_position")
+    var depth: float = -preview_position.z + 1.80
+    var height: float = 2.0 * depth * tan(deg_to_rad(camera.fov) * 0.5)
+    var width: float = height * hud.size.x / hud.size.y
+    if not is_equal_approx(backdrop_quad.size.x, width) or (
+            not is_equal_approx(backdrop_quad.size.y, height)) or (
+            absf(backdrop.position.x) > 0.001) or absf(backdrop.position.y) > 0.001:
+        _fail("CUSTOMIZE backdrop must fill the whole portrait viewport")
+        return
+    var halo: Vector2 = backdrop_mat.get_shader_parameter("halo_center")
+    if not halo.is_equal_approx(nexus.get("customize_glow_center_ratio")):
+        _fail("the fixed SERA-centered halo was lost during background expansion")
+        return
     for target in ["TRAINING", "DEPLOYMENT", "SYSTEM", "DATA ARCHIVE", "CUSTOMIZE"]:
         nexus.set("focused_target", target)
         nexus.call("_focus_arrived", target)

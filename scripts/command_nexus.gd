@@ -141,8 +141,8 @@ var customize_mouse_last_x: float = 0.0
 
 const CUSTOMIZE_PREVIEW_DISTANCE: float = 3.25
 const CUSTOMIZE_GLOW_DEPTH_OFFSET: float = 1.80
-const CUSTOMIZE_GLOW_SCREEN_WIDTH: float = 0.46
-const CUSTOMIZE_GLOW_SCREEN_HEIGHT: float = 0.42
+const CUSTOMIZE_GLOW_SCREEN_WIDTH: float = 1.0
+const CUSTOMIZE_GLOW_SCREEN_HEIGHT: float = 1.0
 const CUSTOMIZE_PREVIEW_TARGET_WIDTH_RATIO: float = 0.435
 const CUSTOMIZE_ENTRANCE_SECONDS: float = 0.14
 const CUSTOMIZE_RETRACTION_SECONDS: float = 0.14
@@ -2117,6 +2117,7 @@ func _create_customization_glow() -> void:
     material.shader = CUSTOMIZE_GLOW_SHADER
     # Same cyan RGB as nexus_selection_outline.gd's active stroke.
     material.set_shader_parameter("glow_color", Color(0.35, 0.85, 0.98, 1.0))
+    material.set_shader_parameter("base_opacity", 0.34)
     var backdrop := MeshInstance3D.new()
     backdrop.name = "CustomizePortraitRadialBackdrop"
     backdrop.mesh = quad
@@ -2182,24 +2183,20 @@ func _capture_customization_glow_layout() -> void:
     customize_glow_grid_spacing_ratio = clampf(
         head_half_pixels / viewport_size.y, 0.014, 0.090)
 
-# Draw using only the frozen preview anchor. Viewport resize can rescale the
-# quad but cannot make it follow SERA's rotation or change its UV grid phase.
+# Cover the whole portrait screen with translucent blue-grey while keeping
+# the radial highlight centered on the original frozen SERA portrait anchor.
+# The quad stays behind the 3D character; rotation never affects UV or grid.
+# Viewport resize only recomputes the screen-space dimensions.
 func _update_customization_glow() -> void:
     if not customize_preview_active or customize_glow_quad == null or cam == null or hud == null:
         return
     var viewport_size := hud.size
     if viewport_size.x <= 1.0 or viewport_size.y <= 1.0:
         return
-    var center := Vector2(
-        viewport_size.x * customize_glow_center_ratio.x,
-        viewport_size.y * customize_glow_center_ratio.y)
     var depth: float = -customize_preview_position.z + CUSTOMIZE_GLOW_DEPTH_OFFSET
     var half_height: float = depth * tan(deg_to_rad(cam.fov) * 0.5)
     var half_width: float = half_height * viewport_size.x / viewport_size.y
-    customize_glow_quad.position = Vector3(
-        (center.x / viewport_size.x - 0.5) * 2.0 * half_width,
-        (0.5 - center.y / viewport_size.y) * 2.0 * half_height,
-        -depth)
+    customize_glow_quad.position = Vector3(0.0, 0.0, -depth)
     var quad := customize_glow_quad.mesh as QuadMesh
     quad.size = Vector2(
         2.0 * half_width * CUSTOMIZE_GLOW_SCREEN_WIDTH,
@@ -2208,6 +2205,7 @@ func _update_customization_glow() -> void:
         viewport_size.y * customize_glow_grid_spacing_ratio)
     var material := customize_glow_quad.material_override as ShaderMaterial
     if material != null:
+        material.set_shader_parameter("halo_center", customize_glow_center_ratio)
         material.set_shader_parameter("grid_cells", Vector2(
             viewport_size.x * CUSTOMIZE_GLOW_SCREEN_WIDTH / spacing,
             viewport_size.y * CUSTOMIZE_GLOW_SCREEN_HEIGHT / spacing))
