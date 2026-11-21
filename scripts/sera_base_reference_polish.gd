@@ -68,14 +68,15 @@ static func _labo(g: Variant) -> void:
         g.box("LabFrontWorkLamp",
             Vector3(side * 1.27, 2.39, 1.97),
             Vector3(0.34, 0.065, 0.095), "amber_light")
-    g.rod("LabPrinterRail", Vector3(-1.11, 2.20, 0.37),
-        Vector3(0.81, 2.20, 0.37), 0.13, "edge")
-    g.box("LabPrinterCarrier", Vector3(-0.13, 2.08, 0.37),
+    # Workshop's legacy secondary machine is BEHIND the foreground printer.
+    g.rod("LabPrinterRail", Vector3(-1.11, 2.20, -1.10),
+        Vector3(0.81, 2.20, -1.10), 0.085, "slate")
+    g.box("LabPrinterCarrier", Vector3(-0.13, 2.08, -1.10),
         Vector3(0.46, 0.29, 0.36), "armor")
-    g.rod("LabPrinterNozzle", Vector3(-0.13, 1.95, 0.37),
-        Vector3(-0.13, 1.30, 0.37), 0.14, "gold")
-    g.box("LabPrinterBuildPlate", Vector3(-0.13, 1.14, 0.42),
-        Vector3(1.11, 0.11, 0.93), "slate")
+    g.rod("LabPrinterNozzle", Vector3(-0.13, 1.95, -1.10),
+        Vector3(-0.13, 1.30, -1.10), 0.10, "gold")
+    g.box("LabPrinterBuildPlate", Vector3(-0.13, 1.14, -1.07),
+        Vector3(1.11, 0.11, 0.72), "slate")
     for row in range(3):
         g.box("LabFabricationRibs", Vector3(-0.55 + row * 0.42,
             1.21 + row * 0.10, 0.40),
