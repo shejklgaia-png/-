@@ -18,9 +18,6 @@ for required in [
     'confirmation_craft_card.custom_minimum_size.y = 610.0',
     "func _layout_craft_confirmation() -> void:",
     'confirmation_preview_square.custom_minimum_size = Vector2(side, side)',
-    "confirmation_preview_host.visible = true",
-    'confirmation_title.text = "以下の装備を作成します" if is_craft else title',
-    'confirmation_prompt.text = "作成しますか？" if is_craft else',
 ]:
     assert required in src,required
 assert 'confirmation_item_icon.custom_minimum_size = Vector2(136, 136)' not in confirm
@@ -28,6 +25,12 @@ assert 'var craft_info := HBoxContainer.new()' not in confirm
 assert 'confirmation_preview_host.custom_minimum_size = Vector2(136, 136)' not in confirm
 assert 'func _show_craft_rotatable_part(blueprint: String) -> void:' in src
 assert 'confirmation_preview_viewport.size = Vector2i(384, 384)' in src
+for required in [
+    "confirmation_preview_host.visible = true",
+    'confirmation_title.text = "以下の装備を作成します" if is_craft else title',
+    'confirmation_prompt.text = "作成しますか？" if is_craft else',
+]:
+    assert required in src,required
 assert 'confirmation_preview_host.visible = false' in src
 assert 'SubViewport.UPDATE_DISABLED' in src
 for test in ["py tools/labo_square_craft_confirmation_self_check.py",
