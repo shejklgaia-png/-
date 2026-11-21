@@ -27,7 +27,7 @@ const JOYSTICK_RADIUS: float = 76.0
 const BASE_ORTHO_SIZE: float = 38.0
 const BASE_CAMERA_POSITION: Vector3 = Vector3(21.0, 23.0, 25.0)
 const BASE_CAMERA_TARGET: Vector3 = Vector3(0.0, 0.0, -2.2)
-const NEXUS_BUILDING_ORIGIN: Vector3 = Vector3(-9.53, 0.0, -14.55)
+const NEXUS_BUILDING_ORIGIN: Vector3 = Vector3(-9.30, 0.0, -14.15)
 const CRATE_SPEED: float = 0.95
 # CRATE wanders the irregular middle service lanes rather than revolving
 # around a square formal plaza or crossing the relocated LABO foundation.
