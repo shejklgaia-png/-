@@ -62,8 +62,8 @@ assert 'const CustomEquipmentIcons = preload("res://assets/ui/sera_custom_equipm
 assert 'static var _custom_equipment_icon_cache: Dictionary = {}' in loader
 assert 'ImageTexture.create_from_image(bitmap)' in loader
 assert 'return _frame(int(EQUIPMENT_INDICES[blueprint_id]))' in loader
-assert 'const ICON_PNG_BASE64 = {}' in registry, 'No final approved portraits yet'
-assert '"H02":' not in catalog, 'IRIS creation/catalog registration belongs to next implementation'
+assert 'const ICON_PNG_BASE64 = ' in registry, 'Approved icon registry missing'
+assert '"H01":' in catalog, 'Existing LAB blueprints must be preserved'
 assert (ROOT / 'tools/icon_studio/install_sera_equipment_icon.py').is_file()
 assert 'py tools/icon_studio/sera_icon_studio_self_check.py' in (ROOT/'tools/sera_ci_manifest.txt').read_text(encoding='utf-8')
 print('PASS: SERA Icon Studio original-model embedding + cross-chat PNG metadata contracts')
