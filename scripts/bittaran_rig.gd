@@ -441,7 +441,8 @@ func apply_pose(clip_name: String, t: float) -> void:
 ## Unlike apply_pose(), the last keyed pose NEVER loops back to t=0.
 ## The only blending is the original 1.0/1.3s quintic stand-up.
 func apply_authored_down_pose(clip_name: String, source_seconds: float,
-        rise_fraction: float) -> void:
+        rise_fraction: float, linear_rise: float = 0.0,
+        back_lean_degrees: float = 10.0) -> void:
     if not loading_ok or not animations.has(clip_name):
         return
     var duration: float = float(
@@ -463,6 +464,14 @@ func apply_authored_down_pose(clip_name: String, source_seconds: float,
                 upright).normalized()
             keyed_position = keyed_position.lerp(
                 _authored_key_position("Wait", joint.name, 0.0), upright)
+        if joint.name == "Body" and linear_rise > 0.0:
+            # Retain the approved 10-degree backward counter-lean during
+            # the 1.0/1.3s stand-up while using the authored BODY keys.
+            var lean_angle: float = (
+                deg_to_rad(back_lean_degrees)
+                * sin(PI * clampf(linear_rise, 0.0, 1.0)))
+            keyed_rotation = (keyed_rotation *
+                Quaternion(Vector3.RIGHT, lean_angle)).normalized()
         joint.quaternion = keyed_rotation
         joint.position = keyed_position
 
