@@ -1,3 +1,12 @@
+## 2026-11-21 — NEXUSの5画面をLABOのマットな産業UIへ統一
+
+- CUSTOMIZE / TRAINING / DEPLOYMENT / DATA ARCHIVE / SYSTEM の各パネルと補助操作（戻る・退出）に、既存 `sera_labo_round_skin.gd` のブルーグレー、欠け角カード、選択レール、同梱日本語/英数字フォントを採用。パネル透過を控えて文字コントラストを確保し、装備アイコンと文字の重なりを解消。
+- 部位切替、セーブ/ロード確認、トレーニング設定、アーカイブの読み取り専用、拠点復帰と3Dモデル視点を保持。StyleBoxのキャッシュは変更せず、動的な確認点滅のみ複製スタイルを更新。追加の描画パスやUIノードの大量生成なし。
+- 変更前に `tools/sera_ci_manifest.txt`、`docs/SERA_ACTIVE_CI_POLICY_ja.md`、旧NEXUSテストとLABO v542/v543の検査条件を確認。既存仕様の期待値は変更不要。新規静的 `tools/nexus_labo_visual_self_check.py` とGodot実行時 `tools/nexus_labo_visual_runtime_check.gd` を本体変更前に追加・manifest登録。
+- GitHub mainへマージ後、モデルポリシーのPython/Godot全CIを実行。Android縦画面での文字の視認性、アイコンと文字の収まり、実機タップ/回転は別途目視確認事項。
+
+---
+
 ## 2026-11-21 — LAB画面の白文字をわずかに減光
 
 - ユーザー指示「もう少しだけ暗く」に従い、共通ボタン／ラベル／入力欄、上部ナビの押下・ホバー、画面見出し、精製／装備カード見出し、倉庫装備名・追加性能と詳細テキストの**白〜青白色のみ**約5〜8%程度暗めに調整。
