@@ -25,7 +25,10 @@ for token in (
 assert 'breakdown.name = "WarehouseStatsBreakdown"' not in fac
 assert 'const WarehouseStatsTable = preload("res://scripts/sera_warehouse_stats_table.gd")' in fac
 assert 'static func stats_font() -> FontVariation:' in skin
-assert 'MPLUS1Code-VF.woff2' in skin
+# v549's permanent requirement is Japanese stats glyph support; the
+# subsequent approved cyber-industrial typography uses Noto Sans JP.
+assert 'JP_STATS_FONT_PATH: String = JP_FONT_PATH' in skin
+assert 'NotoSansJP-VF.woff2' in skin
 assert 'py tools/v549_refinery_names_warehouse_glyphs_self_check.py' in manifest
 assert 'gd tools/v549_refinery_names_warehouse_glyphs_runtime_check.gd' in manifest
 print("SERA_V549_REFINERY_GLYPHS_STATIC_PASS")
