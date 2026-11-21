@@ -2,11 +2,10 @@
   "format": "SERA_ICON_PRESET_V1",
   "version": 1,
   "source": {
-    "filename": "models/storage/カメラアイ頭部.bbmodel",
     "repository_path": "models/storage/カメラアイ頭部.bbmodel",
-    "name": "カメラアイ頭部",
     "fingerprint": "e79a33f57e7873f313f1a803488202206d36b8785d4d5bf2951bec316ae90bff",
     "fingerprint_algorithm": "SHA-256",
+    "name": "カメラアイ頭部",
     "element_count": 6
   },
   "equipment": {
@@ -15,19 +14,19 @@
     "rig_set": "D"
   },
   "render": {
-    "engine": "SERA Icon Studio WebGL",
+    "engine": "SERA Godot 4.7 GL Compatibility",
     "camera": "orthographic_front",
     "model_rotation_deg": {
-      "x": -17.95108886718749,
-      "y": 152.8089099121089,
-      "z": -5
+      "x": 11.8749389648438,
+      "y": 156.900744628906,
+      "z": 0
     },
-    "model_scale": 1.0311868961757298,
+    "model_scale": 1,
     "pan_clip": {
-      "x": -0.10036383734809033,
-      "y": -0.052272971159492435
+      "x": 0,
+      "y": 0
     },
-    "auto_fit": 0.82,
+    "auto_fit": 0.76,
     "outline": {
       "enabled": true,
       "stroke_px_at_512": 3,
@@ -39,9 +38,7 @@
       "height": 512,
       "background": "transparent",
       "ui_frame_baked": false
-    },
-    "mesh_transform": "element vertices -> element origin/rotation -> parent group -> model center -> user rotation",
-    "texture_source": "Blockbench embedded PNG(s)"
+    }
   },
-  "note": "SERA source is registered by repository_path and fingerprint. Upload this PNG in another ChatGPT conversation; its metadata identifies the equipment and capture transform. Do not use AI image generation."
+  "note": "SERA actual Godot SeraRig / Equipment / ViewEdges. New classifications and effects require ChatGPT approval."
 }

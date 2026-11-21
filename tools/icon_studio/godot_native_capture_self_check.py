@@ -7,6 +7,17 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 preset = json.loads((ROOT / "assets/ui/sera_icon_presets/H02.json").read_text(encoding="utf-8"))
 assert preset["format"] == "SERA_ICON_PRESET_V1"
+assert preset["render"]["model_rotation_deg"] == {
+    "x": 11.8749389648438, "y": 156.900744628906, "z": 0
+}
+assert preset["render"]["auto_fit"] == 0.76
+assert preset["render"]["model_scale"] == 1
+assert preset["render"]["pan_clip"] == {"x": 0, "y": 0}
+assert preset["render"]["engine"] == "SERA Godot 4.7 GL Compatibility"
+assert preset["render"]["outline"] == {
+    "enabled": True, "stroke_px_at_512": 3,
+    "crease_degrees": 80, "color": "#17212F"
+}
 assert preset["equipment"] == {"blueprint_id": "H02", "slot": "head", "rig_set": "D"}
 assert preset["render"]["image"] == {
     "width": 512, "height": 512, "background": "transparent",
