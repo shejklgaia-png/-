@@ -82,7 +82,9 @@ func _run() -> void:
                 left_dominant += 1
             else:
                 right_dominant += 1
-        total += objects.size()
+        # Two compact satellites per site are tested separately; count only
+        # primary groups in this legacy rhythm contract.
+        total += left.size() + right.size()
     if total != 52 or left_dominant != 3 or right_dominant != 3:
         _fail("overall layout is not balanced across opposing dense sides")
         return
