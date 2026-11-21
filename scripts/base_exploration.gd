@@ -780,6 +780,12 @@ func _create_power_controls() -> void:
     grid_ui.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
     grid_ui.connect("node_chosen", Callable(self, "_grid_node_chosen"))
     grid_ui.connect("operation_changed", Callable(self, "_grid_operation_changed"))
+    # The BASE/GRID plate must not overdraw the LABO's own title tabs.
+    # Observe the modal directly instead of polling its visibility every frame.
+    var facility_modal: Control = facility_system.get("modal") as Control
+    if facility_modal != null:
+        facility_modal.visibility_changed.connect(_sync_base_grid_plate_visibility)
+    _sync_base_grid_plate_visibility()
     power_back_button = Button.new()
     power_back_button.name = "PowerBoardBack"
     power_back_button.text = "‹"
@@ -796,6 +802,12 @@ func _create_power_controls() -> void:
     power_back_button.pressed.connect(_power_back_pressed)
     power_back_button.visible = false
     hud.add_child(power_back_button)
+
+
+func _sync_base_grid_plate_visibility() -> void:
+    if grid_ui == null or facility_system == null:
+        return
+    grid_ui.visible = not bool(facility_system.call("is_menu_open"))
 
 
 func _power_back_pressed() -> void:

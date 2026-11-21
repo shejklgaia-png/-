@@ -1,6 +1,7 @@
 extends SceneTree
 ## SERA LABO: actual native modal, marks, and 99-step conversion controls.
 const Materials = preload("res://scripts/sera_base_materials.gd")
+const IconAtlas = preload("res://scripts/sera_item_icons.gd")
 
 func _initialize() -> void:
     call_deferred("_run")
@@ -211,6 +212,17 @@ func _run() -> void:
         _fail("red junk detail icon not shown in the header")
         return
     fac.call("_clear_actions")
+    fac.call("_add_item_tile", IconAtlas.equipment_icon("H02"),
+        "アイリス  H02-0002", "WarehouseDetailRegression")
+    await process_frame
+    var detail_tile: HBoxContainer = (fac.get("modal_actions") as VBoxContainer).get_node(
+        "WarehouseDetailRegression") as HBoxContainer
+    var detail_art: TextureRect = detail_tile.get_node("Icon") as TextureRect
+    if detail_art == null or detail_art.texture == null or (
+            detail_art.expand_mode != TextureRect.EXPAND_IGNORE_SIZE or (
+            detail_art.size.x > 68.0 or detail_art.size.y > 68.0)):
+        _fail("storage detail portrait expands to 512px source dimensions")
+        return
     if detail_marks.visible:
         _fail("warehouse detail icons leaked into another page")
         return

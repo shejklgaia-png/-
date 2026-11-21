@@ -74,6 +74,10 @@ for token in (
     assert token in warehouse, token
 assert 'draw_colored_polygon(points, tint)' in marks
 assert 'draw_rect(' in marks
+# Native TextureRect must ignore a 512px icon source's intrinsic minimum size.
+assert 'art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE' in base.split('func _add_item_tile(', 1)[1].split('\nfunc ', 1)[0]
+assert 'art.custom_minimum_size = Vector2(66, 66)' in base
+assert 'art.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN' in base
 assert 'py tools/v553_labo_controls_self_check.py' in manifest
 assert 'gd tools/v553_labo_controls_runtime_check.gd' in manifest
 print("SERA_V553_LABO_CONTROLS_STATIC_PASS")

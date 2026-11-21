@@ -42,6 +42,19 @@ func _run() -> void:
             absf(square.size.x-square.size.y)>1.2):
         _fail("Equipment preview is not a prominent real square: " + str(square.size))
         return
+    var preview_frame: PanelContainer = overlay.find_child(
+        "LaboConfirmPreviewFrame", true, false) as PanelContainer
+    if preview_frame == null:
+        _fail("square border is absent")
+        return
+    var frame_skin: StyleBoxFlat = preview_frame.get_theme_stylebox("panel") as StyleBoxFlat
+    if frame_skin == null or frame_skin.border_width_left != 1 or (
+            frame_skin.content_margin_left != 0.0 or (
+            frame_skin.content_margin_right != 0.0 or (
+            frame_skin.content_margin_top != 0.0 or (
+            frame_skin.content_margin_bottom != 0.0))):
+        _fail("double-inset square border returned")
+        return
     var stage_rect: Rect2 = square.get_global_rect()
     var card_rect: Rect2 = card.get_global_rect()
     var panel_rect: Rect2 = panel.get_global_rect()

@@ -25,6 +25,10 @@ assert 'var craft_info := HBoxContainer.new()' not in confirm
 assert 'confirmation_preview_host.custom_minimum_size = Vector2(136, 136)' not in confirm
 assert 'func _show_craft_rotatable_part(blueprint: String) -> void:' in src
 assert 'confirmation_preview_viewport.size = Vector2i(384, 384)' in src
+# No 5px secondary inset: the 3D grid and its border occupy one square.
+for side in ("left", "right", "top", "bottom"):
+    assert f"square_skin.content_margin_{side} = 0.0" in confirm
+assert "square_skin.set_border_width_all(1)" in confirm
 for required in [
     "confirmation_preview_host.visible = true",
     'confirmation_title.text = "以下の装備を作成します" if is_craft else title',
