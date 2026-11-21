@@ -37,7 +37,7 @@ func _run() -> void:
     var head: Button = catalog.find_child("PrototypeIcon_H01", true, false) as Button
     if head == null or head.custom_minimum_size.y != 160.0 or (
             (head.find_child("ItemInfo", true, false) as Label
-            ).get_theme_font_size("font_size") != 17):
+            ).get_theme_font_size("font_size") != 20):
         _fail("manufacturing card or stat font differs from the contract")
         return
     fac.call("_switch_section", "warehouse")
