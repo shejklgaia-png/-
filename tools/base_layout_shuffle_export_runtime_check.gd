@@ -29,8 +29,8 @@ func _run() -> void:
     if ui == null:
         _fail("no BASE HUD")
         return
-    var shuffle: Button = ui.get_node_or_null("LayoutShuffleButton") as Button
-    var copy: Button = ui.get_node_or_null("LayoutCopyButton") as Button
+    var shuffle: Button = ui.get_node_or_null("LayoutTools/LayoutShuffleButton") as Button
+    var copy: Button = ui.get_node_or_null("LayoutTools/LayoutCopyButton") as Button
     if shuffle == null or copy == null:
         _fail("layout buttons unavailable on BASE screen")
         return
@@ -43,18 +43,18 @@ func _run() -> void:
     var rng := RandomNumberGenerator.new()
     rng.seed = 481629
     var selected: Dictionary = Layout.generate(
-        hub.get("NEXUS_BUILDING_ORIGIN"),
+        Vector3(-9.30, 0.0, -14.55),
         Fac.FACILITY_SPECS, rng)
     if selected.is_empty():
         _fail("no valid random layout found")
         return
     for key in KEYS:
         var props: Array = selected["sites"][key]
-        if props.size() != Props.props_for(key, false).size():
+        if props.size() != Props.default_props_for(key).size():
             _fail(key + " dropped any authored part")
             return
         var slab: Rect2 = Layout.site_slab(
-            key, hub.get("NEXUS_BUILDING_ORIGIN"), Fac.FACILITY_SPECS)
+            key, Vector3(-9.30, 0.0, -14.55), Fac.FACILITY_SPECS)
         var occupied: Array[Rect2] = []
         for prop in props:
             var rect: Rect2 = Layout.prop_envelope(prop)
