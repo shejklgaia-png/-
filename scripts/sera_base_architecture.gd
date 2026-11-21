@@ -170,6 +170,10 @@ class Batch:
                 multi.set_instance_transform(i, poses[i])
             var surface := StandardMaterial3D.new()
             surface.albedo_color = Color(COLORS[tint])
+            # Only authored polygon meshes have face-tone vertex colors.
+            # Tubes/cubes keep the original material contract unchanged.
+            surface.vertex_color_use_as_albedo = (
+                geometry != "cube" and geometry != "tube")
             surface.metallic = 0.31 if tint != "cloth" else 0.0
             surface.roughness = 0.75 if tint != "glass" else 0.46
             # Damp oxidized mechanics and aged painted plates read as rough,
