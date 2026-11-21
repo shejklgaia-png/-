@@ -191,6 +191,71 @@ static func _rotor(st: SurfaceTool, teeth: bool) -> void:
             Vector3(cos(a) * ra, 0.5, sin(a) * ra),
             Vector3(cos(b) * rb, 0.5, sin(b) * rb), Vector3.UP)
 
+# Directly authored 6-sided roof cross section. Both end caps, two sloped
+# planes and the eave faces are physical triangles, not layered flat cubes.
+static func _roof(st: SurfaceTool) -> void:
+    var profile: Array[Vector2] = [
+        Vector2(-0.5, -0.5), Vector2(0.5, -0.5),
+        Vector2(0.5, -0.18), Vector2(0.105, 0.37),
+        Vector2(-0.105, 0.37), Vector2(-0.5, -0.18),
+    ]
+    for i in range(profile.size()):
+        var j: int = (i + 1) % profile.size()
+        var a: Vector2 = profile[i]
+        var b: Vector2 = profile[j]
+        var normal := Vector3(b.y - a.y, a.x - b.x, 0)
+        _quad(st, Vector3(a.x, a.y, -0.5),
+            Vector3(a.x, a.y, 0.5), Vector3(b.x, b.y, 0.5),
+            Vector3(b.x, b.y, -0.5), normal)
+        _triangle(st, Vector3(0, -0.13, 0.5),
+            Vector3(a.x, a.y, 0.5), Vector3(b.x, b.y, 0.5),
+            Vector3(0, 0, 1))
+        _triangle(st, Vector3(0, -0.13, -0.5),
+            Vector3(b.x, b.y, -0.5), Vector3(a.x, a.y, -0.5),
+            Vector3(0, 0, -1))
+
+static func _beam(st: SurfaceTool, minimum: Vector3,
+        maximum: Vector3) -> void:
+    var l := Vector3(minimum.x, minimum.y, minimum.z)
+    var r := Vector3(maximum.x, maximum.y, maximum.z)
+    # Explicitly separate outer wall, front rail and inner bevel faces.
+    _quad(st, Vector3(l.x,l.y,r.z), Vector3(r.x,l.y,r.z),
+        Vector3(r.x,r.y,r.z), Vector3(l.x,r.y,r.z), Vector3(0,0,1))
+    _quad(st, Vector3(l.x,l.y,l.z), Vector3(l.x,r.y,l.z),
+        Vector3(r.x,r.y,l.z), Vector3(r.x,l.y,l.z), Vector3(0,0,-1))
+    _quad(st, Vector3(l.x,r.y,l.z), Vector3(l.x,r.y,r.z),
+        Vector3(r.x,r.y,r.z), Vector3(r.x,r.y,l.z), Vector3.UP)
+    _quad(st, Vector3(l.x,l.y,l.z), Vector3(r.x,l.y,l.z),
+        Vector3(r.x,l.y,r.z), Vector3(l.x,l.y,r.z), Vector3.DOWN)
+    _quad(st, Vector3(r.x,l.y,l.z), Vector3(r.x,r.y,l.z),
+        Vector3(r.x,r.y,r.z), Vector3(r.x,l.y,r.z), Vector3.RIGHT)
+    _quad(st, Vector3(l.x,l.y,l.z), Vector3(l.x,l.y,r.z),
+        Vector3(l.x,r.y,r.z), Vector3(l.x,r.y,l.z), Vector3.LEFT)
+
+static func _louver(st: SurfaceTool) -> void:
+    # A recessed OPEN housing: exterior frame and five raised sloped blades,
+    # all in one cached ArrayMesh, with no overlapping solid rear cube.
+    _beam(st, Vector3(-0.5,-0.5,0.06),
+        Vector3(-0.36,0.5,0.48))
+    _beam(st, Vector3(0.36,-0.5,0.06),
+        Vector3(0.5,0.5,0.48))
+    _beam(st, Vector3(-0.36,0.36,0.08),
+        Vector3(0.36,0.5,0.48))
+    _beam(st, Vector3(-0.36,-0.5,0.08),
+        Vector3(0.36,-0.36,0.48))
+    for slot in range(5):
+        var y: float = -0.30 + float(slot) * 0.15
+        # The protruding lower lip catches a highlight at isometric view.
+        var a := Vector3(-0.34, y + 0.10, 0.13)
+        var b := Vector3(0.34, y + 0.10, 0.13)
+        var c := Vector3(0.34, y, 0.45)
+        var d := Vector3(-0.34, y, 0.45)
+        _quad(st, a, b, c, d, Vector3(0, 0.8, 0.6))
+        _quad(st, d + Vector3(0,-0.025,0),
+            c + Vector3(0,-0.025,0),
+            b + Vector3(0,-0.025,0),
+            a + Vector3(0,-0.025,0), Vector3(0,-0.8,-0.6))
+
 static func make(kind: String) -> ArrayMesh:
     if _mesh_cache.has(kind):
         return _mesh_cache[kind] as ArrayMesh
@@ -211,6 +276,10 @@ static func make(kind: String) -> ArrayMesh:
             _rotor(st, false)
         "gear":
             _rotor(st, true)
+        "roof":
+            _roof(st)
+        "louver":
+            _louver(st)
         _:
             push_error("Unsupported SERA BASE polygon type: " + kind)
             return null
