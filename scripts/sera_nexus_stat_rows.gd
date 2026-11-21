@@ -53,9 +53,10 @@ static func from_stats(stats: Dictionary,
 
     # WEAPON ATTACK: three actual combo strikes, equally averaged.
     # The authored combat values are untouched.
+    # Show the weapon's own three-hit mean; body attack compensation
+    # appears separately in the "近接攻撃" line.
     _add(candidates, "weapon", "ダメージ",
-        _average(stats.get("attack_damage", [])) *
-        float(stats.get("attack_mult", 1.0)))
+        _average(stats.get("attack_damage", [])))
     _add(candidates, "weapon", "破壊", _average(stats.get("break_damage", [])))
     _add(candidates, "weapon", "怯み", _average(stats.get("stagger_gain", [])))
     _add(candidates, "weapon", "攻撃EN消費",
