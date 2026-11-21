@@ -2029,8 +2029,12 @@ func _finalize_target_pose(delta: float) -> void:
                     bittaran_foot_ik.call("standup_pose_fraction"))
                 # The clock's last tick resets break_elapsed to -1;
                 # force the exact final standing key that frame.
+                # The approved DOWN timer runs AFTER the authored
+                # 1.75s impact. Two planted diagonal foot swaps then
+                # finish before the original 1.0/1.3s BODY rise begins.
                 var recovery_start: float = float(
                     bittaran_foot_ik.get("break_recover_start"))
+                    + BittaranFootIK.DOWN_REPLANT_SECONDS
                 var recovery_end: float = float(
                     bittaran_foot_ik.get("break_duration"))
                 var raw_phase: float = clampf(
@@ -2045,6 +2049,10 @@ func _finalize_target_pose(delta: float) -> void:
                 bittaran_rig.call("apply_authored_down_pose",
                     down_clip, author_t, rising_fraction, raw_phase,
                     BittaranFootIK.STANDUP_BACK_LEAN_DEGREES)
+                # Replant actual mesh toes after each sampled source
+                # pose. Without this, rotating/downward-authored foot
+                # tips penetrate the arena even though the rig is valid.
+                bittaran_foot_ik.call("apply_authored_down_grounding")
         # Preserve actual post-IK bone locals for the NEXT rear attack.
         # This capture happens only outside source attacks so the
         # first entry pose stays fixed across all transition frames.
