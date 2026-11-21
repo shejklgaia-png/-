@@ -29,14 +29,16 @@ func _run() -> void:
         return
     var ts: TextServer = TextServerManager.get_primary_interface()
     var tag: int = ts.name_to_tag("wght")
-    if int(bold.variation_opentype.get(tag, 0)) != 800 or (
+    if int(bold.variation_opentype.get(tag, 0)) != 850 or (
             int(stats.variation_opentype.get(tag, 0)) != 550):
         _fail("bundled JP weight axes not applied")
         return
+    # Approved cyber typography: Noto's variable face is intentionally
+    # shared by headline and stats, but their weight/spacing remain distinct.
     if bold.base_font == jpfile or control.base_font == jpfile or (
             stats.base_font == jpfile) or (
-            bold.base_font == stats.base_font):
-        _fail("distinct Japanese roles must reference different bundled faces")
+            bold.base_font != stats.base_font):
+        _fail("JP headline and stats must share cached Noto while body stays IBM")
         return
     if jpfile.get_rids().is_empty() or latin.get_rids().is_empty() or (
             mono.get_rids().is_empty()):
