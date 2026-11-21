@@ -4053,3 +4053,11 @@
 - Added 16 more compact 3D prop groups (two per facility), making 68 groups and 56 unique object kinds. These are distinct per-site functional silhouettes: sealed canisters, spare aerials, micro servos, welding masks, slag, heat shields, gear pins, crusher teeth, robot joints and gripping fingers, packing wedges, folded canvas, ceramic fuses, busbars, blueprint rolls and locator beacons.
 - Each is fully modeled with multiple batched box, rod and ring parts; no extra independent scene meshes, physics nodes, lights, new materials or per-frame updates. New accents are placed adjacent to the original density clusters and excluded only from primary-rhythm-count tests, not floor-panel overlap or actual render tests.
 - Added `base_compact_prop_variety_self_check.py` and `base_compact_prop_variety_runtime_check.gd` to check count, actual geometry, eight-floor footprint boundaries, entrance clearance and overlap. Updated previous 52-count expectations to 68 without retiring other tests.
+
+
+## 2026-11-21 — AGENTSの軽量化と作業別仕様書ルーティング
+
+- ルートの `AGENTS.md` を短い共通入口（原則・事前CI検証・`sera_workplan.py` による参照先選択）へ整理。旧ルールを削除せず、節をそのまま `docs/agent/CI_WORKFLOW.md`、`SOURCE_POLICY.md`、`EQUIPMENT.md`、`RUNTIME_BOUNDARIES.md` に移動。全作業でCI手順を必読とし、専門ルールは関係する作業時のみ参照。
+- `tools/sera_workplan.py` に `documentation.required/selected/fallback/missing` を追加。拠点、LABO、倉庫、UI、ビットタランを含む機能分類から、存在する現行仕様書と関連Python/Godotテストを選択。未知の依頼はリポジトリ規約・索引へフォールバック。マッピングはツール内を唯一の正本にし、複製を避ける。
+- 変更前に `tools/sera_ci_manifest.txt`、`docs/SERA_ACTIVE_CI_POLICY_ja.md`、`tools/sera_workplan_self_check.py`、既存の開発ルールを確認。新しいルーティング期待値・文書存在・必須ルール保存・AGENTS容量のチェックを実装前に追加。既存の全CI登録・Godotモデル・セーブ・ゲーム仕様・テストケースは変更しない。
+- Godot Android画面・ゲーム挙動は今回変更なし。PR統合後のmain全CIが最終確認。ルーティング判定はヒューリスティックで、シグナルや動的参照などは手動調査を継続。

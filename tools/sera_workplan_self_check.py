@@ -46,8 +46,44 @@ for plan in (step, katana, bird):
         assert set(plan["focused_tests"][kind]).issubset(
             set(full_py if kind == "py" else full_gd))
 assert (ROOT / "docs/history/AGENTS_THROUGH_V316.md").is_file()
-# AGENTS grew with additive, legitimate split-contract guidance in v482.
-# Keep a modest document-size guard without rejecting that source text.
-assert (ROOT / "AGENTS.md").stat().st_size < 12000
+# The always-loaded entrypoint should stay small; detailed original rules remain routed.
+assert (ROOT / "AGENTS.md").stat().st_size < 5000
 assert "SERA_MODEL_PARTS_V1" in (ROOT / "AGENTS.md").read_text(encoding="utf-8")
+# Feature-specific documentation must be discoverable without eagerly loading every rule.
+for name in ("CI_WORKFLOW.md", "SOURCE_POLICY.md", "EQUIPMENT.md", "RUNTIME_BOUNDARIES.md"):
+    assert (ROOT / "docs/agent" / name).is_file(), name
+entry = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
+assert "sera_workplan.py" in entry and "CI_WORKFLOW.md" in entry
+assert "SERA_MODEL_PARTS_V1" in entry
+assert "headless" in entry or "実機" in entry
+assert "base" in recognize("拠点施設の床と配置", [])
+assert "labo" in recognize("ラボの製作確認", [])
+assert "warehouse" in recognize("倉庫でスクロール", [])
+assert "ui" in recognize("UIの文字サイズ", [])
+assert "boss" in recognize("ビットタランの攻撃", [])
+for q, expected in (
+    ("拠点施設", "base"),
+    ("ラボの製作", "labo"),
+    ("倉庫の装備", "warehouse"),
+    ("UIレイアウト", "ui"),
+    ("ビットタラン", "boss"),
+):
+    plan = build_plan(q)
+    assert expected in plan["features"], (q, plan["features"])
+    assert all((ROOT / p).is_file() for p in plan["documentation"]["required"])
+    assert all((ROOT / p).is_file() for p in plan["documentation"]["selected"])
+    assert len(plan["documentation"]["selected"]) == len(set(plan["documentation"]["selected"]))
+    assert (ROOT / "docs/agent/CI_WORKFLOW.md").as_posix().endswith(plan["documentation"]["required"][0])
+assert "docs/agent/EQUIPMENT.md" in build_plan("装備作成")["documentation"]["selected"]
+assert "docs/SERA_WAREHOUSE_UI_AND_CRAFT_AFFIXES_ja.md" in build_plan("倉庫")["documentation"]["selected"]
+assert "docs/RENDER_PIPELINE_POLICY_ja.md" in build_plan("シェーダー")["documentation"]["selected"]
+unknown_docs = build_plan("unknown-unrelated-feature-xyz")["documentation"]
+assert unknown_docs["fallback"] is True
+assert "docs/SERA_REPOSITORY_LAYOUT_ja.md" in unknown_docs["selected"]
+# Guard against accidentally losing mandatory old rules while splitting by domain.
+joined = "\\n".join((ROOT / "docs/agent" / name).read_text(encoding="utf-8")
+                  for name in ("CI_WORKFLOW.md", "SOURCE_POLICY.md", "EQUIPMENT.md", "RUNTIME_BOUNDARIES.md"))
+for phrase in ("SERA_MODEL_PARTS_V1", "999個", "HEAD D", "main.gd", "Icon Studio",
+               "CI失敗時", "DEVELOPMENT.md", "GitSync", "DIAG: OFF"):
+    assert phrase in joined, phrase
 print("SERA_WORKPLAN_PASS: bounded source hints, registered focused tests, full CI unchanged")
