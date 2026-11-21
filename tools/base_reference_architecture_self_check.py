@@ -24,6 +24,11 @@ for detail in ("ArmoredRoof", "GatePortal", "Canopy", "Crusher", "Furnace", "Cla
     assert detail in architecture, detail
 for pattern in ("DrainGrates", "DeckBolts", "PanelSeams", "CautionStripes", "PowerConduits"):
     assert pattern in floor, pattern
+# The image is a dense salvage workshop, not a set of clean box silhouettes.
+for detail in ("NexusFacadeArmor", "NexusRoofServiceRack", "LabOpenWorkshop",
+               "LabTaskLighting", "NexusAntennas", "ScrapYardSpareParts"):
+    assert detail in architecture, detail
+assert 'OmniLight3D.new()' in architecture, "warm workshop/furnace lighting must be real 3D illumination"
 assert "STAGING_COLOR" not in architecture
 assert 'cam.projection = Camera3D.PROJECTION_ORTHOGONAL' in hub
 assert 'const HUB_SERA_CONTROLS_ENABLED: bool = false' in hub
