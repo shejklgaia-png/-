@@ -10,7 +10,11 @@ ci = (r / "tools/sera_ci_manifest.txt").read_text(encoding="utf-8")
 assert "const BODY_YAW_DEGREES" in arch
 assert "static func facility_yaw_radians(" in arch
 assert "Basis(Vector3.UP, yaw)" in arch
-assert "pivot + spin * (at - pivot)" in arch
+assert "var detail_scale: float = 1.0" in arch
+assert "pivot + spin * ((at - pivot) * detail_scale)" in arch
+assert "spin * basis.scaled_local(Vector3.ONE * detail_scale)" in arch
+# The pivot and original yaw remain immutable when the optional scale is 1.
+assert "g.yaw = facility_yaw_radians(key)" in arch
 assert "BaseClutter.decorate(g, key)" in arch and 'BaseClutter.decorate(g, "NEXUS")' in arch
 assert "func props_for(key: String) -> Array[Dictionary]:" in clutter
 assert "const VIEW_AZIMUTH_DEGREES: float = 38.0" in clutter
