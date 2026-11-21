@@ -135,8 +135,9 @@ func _create_grid_plates(floor: Node3D) -> void:
     # narrow exposed seams. Expanding 35 individual MeshInstances to 7,225
     # would create excessive Android scene nodes and draw calls.
     var tints := [
-        Color("#434e5d"), Color("#505968"), Color("#343f4f"),
-        Color("#5a6270"), Color("#45505e"), Color("#3c4654")
+        # Low-luminance charcoal; slight neutral/warm variation, not blue machinery tones.
+        Color("#1e2326"), Color("#252729"), Color("#292b2a"),
+        Color("#27292c"), Color("#21262a"), Color("#302c29")
     ]
     var plate_mesh := BoxMesh.new()
     plate_mesh.size = Vector3(2.94, 0.30, 2.94)
@@ -173,8 +174,8 @@ func _create_grid_plates(floor: Node3D) -> void:
         draw.multimesh = multi
         var mat := StandardMaterial3D.new()
         mat.albedo_color = tints[palette_index]
-        mat.metallic = 0.25
-        mat.roughness = 0.81
+        mat.metallic = 0.12
+        mat.roughness = 0.94
         mat.albedo_texture = steel_texture
         draw.material_override = mat
         draw.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -187,7 +188,7 @@ func _build_hangar() -> void:
     add_child(floor)
     # The dark one-piece ground remains visible only in the 0.06 m seams.
     _box(floor, "ContinuousGround", Vector3(0.0, -0.21, 0.0),
-        Vector3(256.0, 0.30, 256.0), Color("#323f50"))
+        Vector3(256.0, 0.30, 256.0), Color("#12171b"))
     _create_grid_plates(floor)
     BaseFloorDetail.decorate(floor)
     # Keep legacy decorative models away from interactive equipment footprints.
@@ -220,7 +221,7 @@ func _build_nexus_building() -> void:
     nexus_building.position = NEXUS_BUILDING_ORIGIN
     add_child(nexus_building)
     _box(nexus_building, "Foundation", Vector3(0, 0.23, 0),
-        Vector3(6.4, 0.46, 5.4), Color("#293644"))
+        Vector3(6.4, 0.46, 5.4), Color("#46535c"))
     BaseArchitecture.build_nexus(nexus_building)
     var sign := Label3D.new()
     sign.name = "NEXUSBuildingSign"
