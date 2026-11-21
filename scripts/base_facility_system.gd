@@ -159,16 +159,19 @@ func _build_facilities() -> void:
         root_node.position = spec["at"]
         add_child(root_node)
         facility_nodes[key] = root_node
-        _box(root_node, "Foundation", Vector3(0, 0.16, 0),
+        var foundation: MeshInstance3D = _box(root_node, "Foundation", Vector3(0, 0.16, 0),
             Vector3(float((spec["size"] as Vector3).x), 0.32,
                 float((spec["size"] as Vector3).z)), Color("#46535c"))
+        foundation.rotation.y = BaseArchitecture.facility_yaw_radians(key)
         # All seven stations now have separately authored industrial geometry.
         BaseArchitecture.build_facility(root_node, key)
         # Keep the generator's existing rotor animation after the geometry swap.
         if key == "GENERATOR":
             generator_rotor = Node3D.new()
             generator_rotor.name = "EnergyRotor"
-            generator_rotor.position = Vector3(-0.60, 2.15, -0.34)
+            var rotor_yaw: float = BaseArchitecture.facility_yaw_radians(key)
+            generator_rotor.position = Basis(Vector3.UP, rotor_yaw) * Vector3(-0.60, 2.15, -0.34)
+            generator_rotor.rotation.y = rotor_yaw
             root_node.add_child(generator_rotor)
             _box(generator_rotor, "RotorHub", Vector3.ZERO,
                 Vector3(0.22, 0.15, 0.22), Color("#576d79"))
@@ -302,12 +305,14 @@ func _projected_bounds(camera: Camera3D, key: String) -> Rect2:
         return Rect2()
     var parent: Node3D = facility_nodes[key]
     var size: Vector3 = spec["size"]
+    var body_orientation := Basis(Vector3.UP,
+        BaseArchitecture.facility_yaw_radians(key))
     var low := Vector2(INF, INF)
     var high := Vector2(-INF, -INF)
     for x in [-size.x * 0.5, size.x * 0.5]:
         for y in [0.0, size.y + 0.6]:
             for z in [-size.z * 0.5, size.z * 0.5]:
-                var vertex: Vector3 = parent.to_global(Vector3(x, y, z))
+                var vertex: Vector3 = parent.to_global(body_orientation * Vector3(x, y, z))
                 if camera.is_position_behind(vertex):
                     continue
                 var pixel: Vector2 = camera.unproject_position(vertex)
