@@ -746,6 +746,17 @@ func _create_power_controls() -> void:
     hud.add_child(power_back_button)
 
 
+# A portrait Xperia has substantially less visible horizontal world width
+# than the 720x1280 CI target. Fit the projected diagonal of the 11.75m
+# square board in both, rather than cropping its left/right edge.
+func _power_view_ortho_size(for_view: Vector2 = Vector2.ZERO) -> float:
+    var dims: Vector2 = for_view
+    if dims.x < 1.0 or dims.y < 1.0:
+        dims = get_viewport().get_visible_rect().size
+    return maxf(PowerBoard.CAMERA_SIZE,
+        19.2 * dims.y / maxf(dims.x, 1.0))
+
+
 func _enter_power_board() -> void:
     if scene_changing or power_view_active or cam == null:
         return
@@ -771,7 +782,7 @@ func _enter_power_board() -> void:
     power_camera_tween.tween_property(cam, "position", halfway, 0.86)
     power_camera_tween.tween_property(cam, "position", final_camera, 1.07)
     power_camera_tween.parallel().tween_property(
-        cam, "size", PowerBoard.CAMERA_SIZE, 1.07)
+        cam, "size", _power_view_ortho_size(), 1.07)
 
 
 func _leave_power_board() -> void:
