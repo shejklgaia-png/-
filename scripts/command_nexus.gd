@@ -366,8 +366,11 @@ func _mat(index: int) -> StandardMaterial3D:
     var mat := StandardMaterial3D.new()
     var tint := Color(Modules.PALETTE[index])
     mat.albedo_color = tint
-    mat.metallic = 0.16
-    mat.roughness = 0.70
+    # The opaque structural plates catch a tighter highlight; luminous accents stay unchanged.
+    mat.metallic = 0.28 if index in [1, 2, 3] else 0.16
+    mat.roughness = 0.52 if index in [1, 2, 3] else 0.70
+    # Keep structural highlights restrained on mobile GL; retain original accents.
+    mat.metallic_specular = 0.42 if index in [1, 2, 3] else 0.5
     if index in [5, 6, 7]:
         mat.emission_enabled = true
         mat.emission = tint
