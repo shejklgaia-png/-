@@ -49,24 +49,30 @@ static func _labo(g: Variant) -> void:
 
     # Open fabrication cell: a visible printer bridge and toolhead below
     # the shallow rear tarp. The entire front remains unobstructed.
-    g.box("LabWorkcellGantryHeader", Vector3(0.0, 2.62, 0.50),
-        Vector3(2.85, 0.15, 0.15), "armor_light")
+    # ONE clear industrial printer cell: cool-blue parallel uprights,
+    # single overhead slide, amber deposition head, contrasting print bed.
+    # The earlier three crossing gantries are retired.
+    g.box("LabWorkcellGantryHeader", Vector3(0.0, 2.67, 1.47),
+        Vector3(2.34, 0.17, 0.19), "armor_light")
     for side in [-1.0, 1.0]:
         g.rod("LabPrintRailUpright",
-            Vector3(side * 1.36, 0.52, 0.55),
-            Vector3(side * 1.36, 2.58, 0.55), 0.11, "gold")
-    # The original head vanished behind the forward beams at the REAL
-    # 27-degree gameplay camera. Move its active face to local +Z.
-    g.box("LabPrinterToolhead", Vector3(0.18, 2.20, 1.22),
-        Vector3(0.88, 0.50, 0.35), "slate")
-    g.box("LabPrinterFrontHousing", Vector3(0.18, 2.02, 1.47),
-        Vector3(0.72, 0.44, 0.13), "armor_light")
-    g.box("LabPrinterNozzle", Vector3(0.18, 1.64, 1.55),
-        Vector3(0.40, 0.39, 0.18), "amber_light")
-    g.box("LabPrinterWorkSurface", Vector3(0.18, 0.94, 1.19),
-        Vector3(1.24, 0.14, 0.70), "armor_light")
+            Vector3(side * 1.04, 0.75, 1.49),
+            Vector3(side * 1.04, 2.66, 1.49), 0.15, "blue")
+        g.box("LabPrintRailAccent",
+            Vector3(side * 1.05, 1.79, 1.61),
+            Vector3(0.10, 1.48, 0.08), "blue_light")
+    g.box("LabPrinterToolhead", Vector3(0.18, 2.25, 1.67),
+        Vector3(0.87, 0.47, 0.46), "slate")
+    g.box("LabPrinterFrontHousing", Vector3(0.18, 2.03, 1.99),
+        Vector3(0.72, 0.47, 0.16), "blue")
+    g.box("LabPrinterNozzle", Vector3(0.18, 1.67, 2.04),
+        Vector3(0.31, 0.34, 0.16), "amber_light")
+    g.box("LabFocalPrintBed", Vector3(0.18, 0.94, 1.79),
+        Vector3(1.68, 0.18, 0.98), "slate")
+    g.box("LabPrinterWorkSurface", Vector3(0.18, 1.04, 1.84),
+        Vector3(1.35, 0.11, 0.73), "armor_light")
     g.poly("LabPrinterPrintedPart", "bevel",
-        Vector3(0.18, 1.08, 1.25), Vector3(0.39, 0.20, 0.37), "blue")
+        Vector3(0.18, 1.20, 1.91), Vector3(0.47, 0.28, 0.43), "blue")
     g.box("LabCanopyHazardHem", Vector3(0.0, 3.32, 0.08),
         Vector3(3.72, 0.09, 0.09), "caution")
 
@@ -111,8 +117,12 @@ static func _collector(g: Variant) -> void:
         # downscaled to the real Android portrait width.
         g.box_tilt("CollectorVisibleJawCheek",
             Vector3(0.46 + side * 0.51, 1.23, 1.14),
-            Vector3(0.29, 0.42, 0.17), "gold",
+            Vector3(0.32, 0.51, 0.18), "slate",
             Vector3(0.0, 0.0, -side * 0.26))
+        g.poly_tilt("CollectorClawSignalCheek", "bevel",
+            Vector3(0.46 + side * 0.58, 1.26, 1.27),
+            Vector3(0.33, 0.57, 0.23), "caution",
+            Vector3(0.0, 0.0, -side * 0.32))
     g.box("CollectorCraneCableSeat",
         Vector3(0.46, 1.62, 0.91),
         Vector3(0.38, 0.25, 0.19), "dark")
