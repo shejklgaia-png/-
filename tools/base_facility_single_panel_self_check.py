@@ -21,7 +21,10 @@ assert "if site_occupancy[addr] != 0:" in layout, "overlapping site reservations
 assert 'var cell_step: float = step * 0.5' in layout
 assert 'Vector2(10.5, 10.5)' in layout, "NEXUS needs an oversized uninterrupted slab"
 assert 'Vector2(7.0, 7.0)' in layout, "LABO must have a distinct spacious slab"
-assert 'minf(' not in layout or 'minf(' in layout, "must remain parseable"
+assert '"physical": physical' in layout, "equipment clearance must include physical footprint"
+assert '"minimum": minimum' in layout, "each facility needs independently sized reserved slab"
+assert 'return []' in layout, "reject conflicting reservations rather than overlapping"
+assert "var occupied: PackedByteArray = site_occupancy.duplicate()" in layout
 assert 'Color("#1e2326")' in hub, "charcoal floor contrast must not regress"
 assert 'multi.instance_count = poses.size()' in hub, "preserve batched mobile rendering"
 assert 'const FACILITY_SPECS = [' in fac
