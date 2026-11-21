@@ -1,3 +1,11 @@
+## 2026-11-21 — 正投影BASEの日本語ラベル文字化け修正
+
+- v530スクリーンショット（720×1280、実GL互換モード）の表示確認で、拠点の施設タグ・3D FacilitySign・下部操作ヒントに日本語の□が出る不具合を確認。標準フォントへの依存を撤廃し、既存のLABO同梱の日本語収録フォント `LaboSkin.ui_font()` を共有。
+- 先に `tools/base_isometric_layout_self_check.py` と `tools/base_isometric_layout_runtime_check.gd` に施設全種・3Dサイン・ヒントの文字グリフ検査を追加し、その後に本体側のフォント参照を変更。
+- Camera3D、3D施設配置、タップ、倉庫・精製処理は不変更。mainへのマージ後に全Python/Godot CIとXvfbの画面キャプチャを再実行。
+
+---
+
 ## 2026-11-21 — BASEカメラをFOV0相当の斜め俯瞰正投影へ変更
 
 - BASEのみ、FOV 0°の視覚的意図を `Camera3D.PROJECTION_ORTHOGONAL` で実現。透視カメラのFOV 0°は設定不可能なため、平行投影と縦方向サイズ38m、固定斜め上視点（21,30,25→0,0,-2.2）で実装。NEXUS内や戦闘のカメラは変更しない。

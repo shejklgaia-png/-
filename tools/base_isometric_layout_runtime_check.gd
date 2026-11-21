@@ -84,11 +84,27 @@ func _run() -> void:
         if tag == null or not tag.visible:
             _fail("label hidden: " + name)
             return
+        var font: Font = tag.get_theme_font("font")
+        if font == null or not font.has_char(0x56DE):
+            _fail("facility tag lacks Japanese glyphs: " + name)
+            return
+        var sign: Label3D = (machines.get_node(name) as Node3D).get_node(
+            "FacilitySign") as Label3D
+        if sign == null or sign.font == null or not sign.font.has_char(0x56DE):
+            _fail("3D facility sign lacks Japanese glyphs: " + name)
+            return
+        if sign.visible:
+            _fail("3D sign duplicates the on-screen facility tag: " + name)
+            return
         if (tag.position.x < 4.0 or tag.position.y < 100.0 or
                 tag.position.x + tag.size.x > view.x - 4.0 or
                 tag.position.y + tag.size.y > view.y - 12.0):
             _fail("facility tag clipped: " + name + " " + str(tag.position))
             return
+    var hint: Label = hub.get("hint") as Label
+    if hint == null or not hint.get_theme_font("font").has_char(0x5EFA):
+        _fail("bottom Japanese interaction hint still uses missing system font")
+        return
     # Verify no camera auto-reset after one production frame (SERA hidden).
     var old_camera: Vector3 = camera.global_position
     hub.call("_process", 0.033)
