@@ -1,4 +1,5 @@
 extends "res://scripts/target_parts.gd"
+const BALANCE = preload("res://scripts/bittaran_balance.gd")
 ## Bittaran lock/hit presentation: BODY + HEAD + four true shin bones.
 ## Reuses the game's existing break gauges, damage and manual/auto locking.
 ## Never changes Blockbench bone names or the generic training-room target.
@@ -45,7 +46,7 @@ const MIN_BODY_BOX: Vector3 = Vector3(0.65, 0.55, 0.65)
 # "body" is an explicit MANUAL selection. The legacy "" ID remains the
 # AUTO/core fallback, so old SERA damage, saves and HUD still work.
 const BODY_MANUAL_LOCK_ID: String = "body"
-const BODY_MAX_HP: float = 500.0
+const BODY_MAX_HP: float = 2550.0
 
 var boss_model: Node3D
 var collision_body: AnimatableBody3D
@@ -76,6 +77,13 @@ var death_visual_power: float = 0.0
 
 func _ready() -> void:
     super._ready()
+    # Bittaran-only tuning: preserve the training target's 100-point parts.
+    for id in ["leg_fl", "leg_fr", "leg_rl", "leg_rr", "head"]:
+        var part: Dictionary = parts[id]
+        var maximum: float = BALANCE.part_integrity(id)
+        part["max_integrity"] = maximum
+        part["integrity"] = maximum
+        parts[id] = part
 
 func setup_bittaran(model: Node3D, moving_body: AnimatableBody3D) -> bool:
     boss_model = model
@@ -436,32 +444,46 @@ func _parallel_lock_part_distance(segments: PackedVector3Array,
     return distance
 
 
+## Once all four unique leg gauges are broken, permanently expose BODY.
+## HEAD remains selectable only during the physical knockdown.
+func _body_exposed() -> bool:
+    return down_lock_enabled or broken_leg_count() >= 4
+
+
 func can_lock_boss_part(id: String) -> bool:
-    if id == "head" or id.is_empty() or id == BODY_MANUAL_LOCK_ID:
+    if id == "head":
         return down_lock_enabled
+    if id.is_empty() or id == BODY_MANUAL_LOCK_ID:
+        return _body_exposed()
     return id in LEG_IDS
 
+
 func is_targetable(id: String) -> bool:
-    if id == "head" or id == BODY_MANUAL_LOCK_ID:
+    if id == "head":
         return down_lock_enabled
+    if id == BODY_MANUAL_LOCK_ID:
+        return _body_exposed()
     if id.is_empty():
         return false # The legacy BODY has no ordinary part gauge.
     return super.is_targetable(id)
 
+
 func has_part(id: String) -> bool:
     if id == BODY_MANUAL_LOCK_ID:
-        return down_lock_enabled
+        return _body_exposed()
     return super.has_part(id)
+
 
 func get_visible_part_ids(origin: Vector3, core_box: AABB) -> Array[String]:
     var ids: Array[String] = super.get_visible_part_ids(origin, core_box)
-    if down_lock_enabled:
+    if _body_exposed():
         ids.append(BODY_MANUAL_LOCK_ID)
     return ids
 
+
 func _camera_lock_body_volume_distance(origin: Vector3,
         destination: Vector3) -> float:
-    if not down_lock_enabled:
+    if not _body_exposed():
         return INF
     return super._camera_lock_body_volume_distance(origin, destination)
 
@@ -567,6 +589,8 @@ func get_actor_parallel_lock_segments(actor_origin: Vector3,
 
 func select_actor_parallel_lines_part(origin: Vector3,
         body_center: Vector3) -> String:
+    if _body_exposed() and not down_lock_enabled:
+        return BODY_MANUAL_LOCK_ID
     if down_lock_enabled:
         return super.select_actor_parallel_lines_part(origin, body_center)
     var segments: PackedVector3Array = get_actor_parallel_lock_segments(
@@ -586,6 +610,8 @@ func select_actor_parallel_lines_part(origin: Vector3,
 
 func select_stable_actor_parallel_lines_part(origin: Vector3,
         body_center: Vector3, previous_id: String) -> String:
+    if _body_exposed() and not down_lock_enabled:
+        return BODY_MANUAL_LOCK_ID
     # AUTO-only left/right ownership. Preserve the exact midpoint rule for
     # front/rear switching; this policy operates ONLY inside that pair.
     # Both enlarged shin boxes can pass both rays directly in front of the
@@ -629,12 +655,16 @@ func select_stable_actor_parallel_lines_part(origin: Vector3,
 
 func select_actor_center_line_part(origin: Vector3,
         body_center: Vector3) -> String:
+    if _body_exposed() and not down_lock_enabled:
+        return BODY_MANUAL_LOCK_ID
     if down_lock_enabled:
         return super.select_actor_center_line_part(origin, body_center)
     return _nearest_lockable_shin(origin, body_center)
 
 func select_camera_front_part(view_camera: Camera3D,
         current: String) -> String:
+    if _body_exposed() and not down_lock_enabled:
+        return BODY_MANUAL_LOCK_ID
     var result: String = super.select_camera_front_part(view_camera, current)
     if not down_lock_enabled and (result.is_empty() or result == "head"
             or result == BODY_MANUAL_LOCK_ID):
@@ -912,8 +942,14 @@ func get_part_defense(id: String) -> float:
     return super.get_part_defense("") if id == BODY_MANUAL_LOCK_ID else super.get_part_defense(id)
 
 func apply_part_hit(id: String, raw_attack: float, raw_break: float) -> Dictionary:
-    # Explicit manual BODY is a core hit, not a sixth breakable gauge.
-    return super.apply_part_hit(_normalize_boss_part(id), raw_attack, raw_break)
+    # First apply the shared predictive shield + part armor logic.
+    # Only BODY HP receives this boss scalar; break durability is separate.
+    var result: Dictionary = super.apply_part_hit(
+        _normalize_boss_part(id), raw_attack, raw_break)
+    var attacked_part: String = str(result.get("part", ""))
+    result["body_damage"] = maxi(1, roundi(
+        float(result["body_damage"]) * BALANCE.hp_multiplier(attacked_part)))
+    return result
 
 func trigger_part_hit_fx(id: String, duration: float) -> void:
     id = _normalize_boss_part(id)
