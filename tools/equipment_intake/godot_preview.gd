@@ -92,6 +92,7 @@ func _ready() -> void:
         return
     for slot in SLOT_ORDER:
         selected[slot] = "A"
+    _apply_preview_standing_pose()
     _cache_native_transforms()
     _apply_frame()
     ready_for_commands = true
