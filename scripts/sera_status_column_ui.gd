@@ -34,6 +34,43 @@ static func fit_label(label: Label, maximum_px: int, minimum_px: int) -> void:
     label.add_theme_font_size_override("font_size", font_size)
 
 
+## One continuous dark matte per stat window. No background on individual rows.
+## Small, low-glare edge marks echo SERA's existing technical icon frames.
+static func status_window_style() -> StyleBoxFlat:
+    var skin := StyleBoxFlat.new()
+    skin.bg_color = Color("#0c222e")
+    skin.border_color = Color("#527b8b")
+    skin.set_border_width_all(1)
+    skin.border_width_top = 2
+    skin.set_corner_radius_all(2)
+    return skin
+
+
+static func attach_status_marks(panel: Panel) -> Array[ColorRect]:
+    var marks: Array[ColorRect] = []
+    for mark_name in ["StatusTopAccent", "StatusBottomAccent", "StatusRightAccent"]:
+        var mark := ColorRect.new()
+        mark.name = mark_name
+        mark.color = Color("#88b6c6")
+        mark.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        panel.add_child(mark)
+        marks.append(mark)
+    return marks
+
+
+static func layout_status_marks(marks: Array[ColorRect],
+        panel_size: Vector2) -> void:
+    if marks.size() != 3:
+        return
+    marks[0].position = Vector2(14.0, 0.0)
+    marks[0].size = Vector2(minf(84.0, maxf(0.0, panel_size.x - 28.0)), 2.0)
+    marks[1].position = Vector2(maxf(8.0, panel_size.x - 57.0),
+        maxf(0.0, panel_size.y - 2.0))
+    marks[1].size = Vector2(43.0, 2.0)
+    marks[2].position = Vector2(maxf(0.0, panel_size.x - 2.0), 14.0)
+    marks[2].size = Vector2(2.0, 19.0)
+
+
 static func clear_cell_background(panel: Panel) -> void:
     # The surrounding window, not each data field, owns the single matte.
     var clear := StyleBoxFlat.new()
