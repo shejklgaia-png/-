@@ -1,6 +1,7 @@
 extends SceneTree
 ## Real SERA runtime check, not a fake mesh/HTML parser.
 const Preview = preload("res://tools/equipment_intake/godot_preview.gd")
+const PortraitBackground = preload("res://scripts/sera_icon_background.gd")
 
 func _initialize() -> void:
     call_deferred("_check")
@@ -145,5 +146,52 @@ func _check() -> void:
     if not other_restored:
         _fail("Body mode did not restore companion meshes")
         return
+    # Canonical background must have a solid #111e28 base and blue-grey
+    # grid lines; SOLID mode must contain no lines.
+    var grid: Image = PortraitBackground.make_image(128, "grid")
+    var solid: Image = PortraitBackground.make_image(128, "solid")
+    if not solid.get_pixel(2, 2).is_equal_approx(Color("#111e28")) or (
+            grid.get_pixel(16, 6).is_equal_approx(solid.get_pixel(16, 6))):
+        _fail("Shared icon background lost grid/solid distinction")
+        return
+    preview.call("_apply_command", {"mode":"icon","editing_slot":"head",
+        "selected":{"head":"D","torso":"A","arms":"A","legs":"A",
+            "booster":"A","weapon_r":"A","weapon_l":"A"},
+        "size":1.0,"background_mode":"grid","seq":15})
+    await process_frame
+    var backdrop: MeshInstance3D = preview.get("background_quad") as MeshInstance3D
+    if backdrop==null or not backdrop.visible:
+        _fail("ICON lacks canonical visible grid mesh")
+        return
+    # A new second finger must NOT alter zoom/pan. Subsequent movement uses
+    # only the midpoint and distance between stable touch contacts.
+    var old_zoom: float = float(preview.get("camera_zoom"))
+    var old_pan: Vector2 = preview.get("camera_pan")
+    preview.call("_on_preview_touch",0,true,Vector2(90,140))
+    preview.call("_on_preview_touch",1,true,Vector2(190,140))
+    if not is_equal_approx(float(preview.get("camera_zoom")),old_zoom) or (
+            (preview.get("camera_pan") as Vector2).distance_to(old_pan)>0.00001):
+        _fail("Second finger caused a camera jump without movement")
+        return
+    preview.call("_on_preview_drag",0,Vector2(80,140))
+    preview.call("_on_preview_drag",1,Vector2(200,140))
+    var moved_zoom: float = float(preview.get("camera_zoom"))
+    if moved_zoom<=old_zoom or moved_zoom>old_zoom*1.26:
+        _fail("Pinch distance update unstable")
+        return
+    preview.call("_on_preview_touch",1,false,Vector2(200,140))
+    var yaw_before: float = float(preview.get("camera_yaw"))
+    preview.call("_on_preview_drag",0,Vector2(90,142))
+    if absf(float(preview.get("camera_yaw"))-yaw_before)>8.0:
+        _fail("One remaining finger caused rotation jump")
+        return
+    preview.call("_on_preview_touch",0,false,Vector2(90,142))
+    preview.call("_apply_command", {"mode":"icon","editing_slot":"head",
+        "selected":{"head":"D"},"size":1.0,"background_mode":"solid","seq":16})
+    await process_frame
+    if backdrop.visible:
+        _fail("Solid mode should remove the grid while keeping the navy background")
+        return
+    print("SERA_ICON_BACKGROUND_AND_TOUCH_RUNTIME_OK")
     print("SERA_GODOT_INTAKE_RUNTIME_OK real_rig=true material=game outline=game nexus_pose=true icon_restored=true")
     quit(0)
