@@ -51,8 +51,8 @@ func _run() -> void:
     if total.position.y + total.size.y > right.position.y - 4.0 or (
             absf(view.position.y + view.size.y - single.position.y) > 1.5) or (
             equipment_bottom > single.position.y - 4.0) or (
-            single.position.x > total.position.x + 1.0) or (
-            single.size.x < total.size.x - 2.0) or (
+            absf(single.position.x - total.position.x) > hud.size.x * 0.02) or (
+            absf(single.size.x - total.size.x) > hud.size.x * 0.02) or (
             view.position.x + view.size.x > right.position.x - 4.0):
         _fail("customize windows overlap or exceed their aligned layout region")
         return
