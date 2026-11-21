@@ -35,17 +35,17 @@ static func _labo(g: Variant) -> void:
             Vector3(0.18, 0.12, 1.32), "cloth",
             Vector3(-0.05, 0.0, -side * 0.08))
         g.rod("LabAFrameTruss",
-            Vector3(0.0, 4.07, 1.14),
-            Vector3(side * 2.05, 3.35, 1.16), 0.13, "armor_light")
+            Vector3(0.0, 3.80, -0.12),
+            Vector3(side * 2.05, 3.38, -0.12), 0.13, "armor_light")
         g.rod("LabAFrameTruss",
-            Vector3(0.0, 4.07, -1.79),
-            Vector3(side * 2.05, 3.38, -1.81), 0.11, "edge")
+            Vector3(0.0, 3.80, -1.72),
+            Vector3(side * 2.05, 3.39, -1.72), 0.11, "edge")
         g.box_tilt("LabSideRainFlashing",
             Vector3(side * 1.93, 3.34, -1.00),
             Vector3(0.13, 0.10, 1.30), "armor_light",
             Vector3(0, 0, side * 0.11))
     g.rod("LabAFrameRidge",
-        Vector3(0, 4.12, -1.92), Vector3(0, 4.12, 1.47),
+        Vector3(0, 3.83, -1.82), Vector3(0, 3.83, -0.08),
         0.16, "edge")
     # A distinct recessed roll-up work bay on the front right, away from the
     # wide central opening and the service door on the opposite side.
