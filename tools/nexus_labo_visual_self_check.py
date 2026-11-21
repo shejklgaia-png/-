@@ -14,7 +14,7 @@ for expected in (
     'LaboSkin.equipment_font()',
     'LaboSkin.ui_font()',
     'LaboSkin.card_style("normal")',
-    'LaboSkin.card_style("selected")',
+    'LaboSkin.card_style("selected" if system_selected_slot == slot else "normal")',
     'LaboSkin.terminal_segment_style("selected")',
     'LaboSkin.terminal_segment_style("normal")',
     'func _tap_equipment_control(point: Vector2) -> bool:',
