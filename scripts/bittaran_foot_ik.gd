@@ -4438,6 +4438,12 @@ func advance_source_ground_ik(delta: float, motion: String,
         actor.position.y = (rest_actor_local_y
             + ground_correction_world / scale_y)
         source_ik_last_actor_position = actor.global_position
+        # The final recovery tick transitions break_elapsed to -1.
+        # Start the first mandatory diagonal foot catch-up on THAT
+        # same upright frame; delaying until the next tick causes a
+        # perceptible frozen-foot pop and breaks the v367 contract.
+        if not break_reaction_active():
+            _source_ik_advance_locomotion(delta, motion)
         return
     elif post_down_idle_remaining > 0.0 and head_support_leg_index < 0:
         var parent_scale: float = maxf(
