@@ -88,5 +88,65 @@ func _run() -> void:
             card.get_node_or_null("JunkMarkIcon") == null):
         _fail("warehouse cards lack distinct vector markers")
         return
+    # Both list markers follow the actual item-name end, never a fixed
+    # right-side overlay. Marked states are applied to pooled native cards.
+    var sample: Dictionary = {
+        "uid": "H01-0001", "blueprint": "H01",
+        "name": "スカウトバイザー", "affixes": [],
+        "favorite": true, "junk": false
+    }
+    grid.call("configure", [sample], 2, "equipment")
+    await process_frame
+    card = (grid.get("pool") as Array)[0] as Button
+    var name: Label = card.get_node("ItemTitle") as Label
+    var favorite_icon: Control = card.get_node("FavoriteMarkIcon") as Control
+    var junk_icon: Control = card.get_node("JunkMarkIcon") as Control
+    if not favorite_icon.visible or junk_icon.visible or favorite_icon.size.x < 23.0:
+        _fail("favorite list icon is not enlarged and visible")
+        return
+    var actual_gap: float = favorite_icon.position.x - (name.position.x + name.size.x)
+    if actual_gap < 5.0 or actual_gap > 12.0 or (
+            favorite_icon.position.x + favorite_icon.size.x > card.size.x - 5.0):
+        _fail("favorite must be just to the right of the item name")
+        return
+    sample["favorite"] = false
+    sample["junk"] = true
+    grid.call("configure", [sample], 2, "equipment")
+    await process_frame
+    if favorite_icon.visible or not junk_icon.visible or (
+            junk_icon.size.x < 23.0) or (
+            absf(junk_icon.position.x - favorite_icon.position.x) > 0.5):
+        _fail("junk icon must reuse enlarged inline name position")
+        return
+    grid.call("configure", [], 2, "equipment")
+    await process_frame
+    if favorite_icon.visible or junk_icon.visible:
+        _fail("empty recycled cards retained classification markers")
+        return
+    # The detail-header indicators share the button's vector assets.
+    var detail_marks: HBoxContainer = fac.get("warehouse_header_marks") as HBoxContainer
+    if detail_marks == null or detail_marks.visible:
+        _fail("detail header marker rail not hidden by default")
+        return
+    fac.call("_set_warehouse_header_marks", true, false)
+    await process_frame
+    var header_favorite: Control = detail_marks.get_node(
+        "WarehouseHeaderFavoriteMarkIcon") as Control
+    var header_junk: Control = detail_marks.get_node(
+        "WarehouseHeaderJunkMarkIcon") as Control
+    if not detail_marks.visible or not header_favorite.visible or (
+            header_junk.visible) or header_favorite.size.y < 30.0:
+        _fail("favorite detail icon must appear at header-name height")
+        return
+    fac.call("_set_warehouse_header_marks", false, true)
+    await process_frame
+    if header_favorite.visible or not header_junk.visible or (
+            header_junk.size.y < 30.0):
+        _fail("red junk detail icon not shown in the header")
+        return
+    fac.call("_clear_actions")
+    if detail_marks.visible:
+        _fail("warehouse detail icons leaked into another page")
+        return
     print("SERA_V553_LABO_CONTROLS_RUNTIME_PASS")
     quit(0)
