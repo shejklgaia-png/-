@@ -1,0 +1,49 @@
+name: SERA Bittaran v534 Down Focused
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/bittaran_*.gd'
+      - 'tools/v534_bittaran_down_pacing_ground_replant_runtime_check.gd'
+      - 'tools/bittaran_authored_down_runtime_check.gd'
+      - 'tools/bittaran_body_fall_runtime_check.gd'
+      - 'tools/v36*_bittaran_*'
+      - 'tools/v371_bittaran_gentle_head_recovery_runtime_check.gd'
+      - '.github/workflows/sera-bittaran-v534-down.yml'
+  workflow_dispatch:
+
+jobs:
+  authored-down:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Godot 4.7.2
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 3 --connect-timeout 15 --max-time 180 \
+            --output "$RUNNER_TEMP/godot.zip" \
+            "https://github.com/godotengine/godot/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip"
+          mkdir -p "$RUNNER_TEMP/godot"
+          unzip -q "$RUNNER_TEMP/godot.zip" -d "$RUNNER_TEMP/godot"
+          chmod +x "$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64"
+      - name: Import source models and audio
+        run: |
+          "$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" --headless --editor --path . --import --quit
+      - name: Verify user source-speed curve and four-toe floor contact first
+        run: |
+          timeout 110s "$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" --headless --path . --script tools/v534_bittaran_down_pacing_ground_replant_runtime_check.gd
+      - name: Verify authored clips and body-wide contact FX
+        run: |
+          set -euo pipefail
+          for test in tools/bittaran_authored_down_runtime_check.gd tools/bittaran_body_fall_runtime_check.gd; do
+            timeout 60s "$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" --headless --path . --script "$test"
+          done
+      - name: Verify real rising BODY and two planted diagonal transitions
+        run: |
+          set -euo pipefail
+          for test in tools/v367_bittaran_body_turn_foot_catchup_runtime_check.gd tools/v368_bittaran_repeat_break_fast_rise_runtime_check.gd tools/v369_bittaran_standup_timing_posture_runtime_check.gd tools/v371_bittaran_gentle_head_recovery_runtime_check.gd; do
+            timeout 80s "$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" --headless --path . --script "$test"
+          done
