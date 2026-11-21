@@ -2320,7 +2320,6 @@ func _layout_hud() -> void:
         customize_right_header.size = Vector2(
             tall.size.x, minf(60.0, view.y * 0.068))
         _layout_equipment_controls()
-        _layout_customization_part_stats()
         _layout_customization_part_picker()
     # The opaque top stripe belongs to the focus panel; rest stays blue/clear.
     focus_header.position = Vector2.ZERO
@@ -2330,6 +2329,7 @@ func _layout_hud() -> void:
     focus_title.position = Vector2(16.0, 0.0)
     focus_title.size = Vector2(focus_header.size.x - 32.0, focus_header.size.y)
     _layout_customization_stats()
+    _layout_customization_part_stats()
     _layout_single_part_preview()
     action_panel.position = Vector2(16.0, focus_panel.size.y - 84.0)
     action_panel.size = Vector2(focus_panel.size.x - 32.0, 60.0)
@@ -3324,6 +3324,9 @@ func _focus_arrived(target_name: String) -> void:
         _refresh_equipment_controls()
         _inspect_customization_part(customize_part_preview_slot)
         _layout_single_part_preview()
+    elif customize_single_part_preview != null:
+        customize_single_part_preview.visible = false
+        customize_body_rotate_cue.visible = false
 
 func _return_to_overview() -> void:
     if in_transition or focused_target.is_empty():
