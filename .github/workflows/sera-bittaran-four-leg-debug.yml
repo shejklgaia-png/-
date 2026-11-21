@@ -1,0 +1,51 @@
+name: SERA Bittaran four-leg debug buttons
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'scripts/bittaran_battle.gd'
+      - 'tools/bittaran_four_leg_debug_*'
+      - '.github/workflows/sera-bittaran-four-leg-debug.yml'
+  workflow_dispatch:
+jobs:
+  debug-leg-buttons:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Approved four-button and shared-down static contract
+        run: python3 tools/bittaran_four_leg_debug_self_check.py
+      - name: Download Godot 4.7.2
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 3 --connect-timeout 15 --max-time 180 \
+            --output "$RUNNER_TEMP/godot.zip" \
+            "https://github.com/godotengine/godot/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip"
+          mkdir -p "$RUNNER_TEMP/godot"
+          unzip -q "$RUNNER_TEMP/godot.zip" -d "$RUNNER_TEMP/godot"
+          chmod +x "$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64"
+      - name: Import SERA game assets
+        run: '"$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" --headless --editor --path . --import --quit'
+      - name: Verify four real taps, one-shot parts, fall and reset
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 120s "$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" \
+            --headless --path . --script res://tools/bittaran_four_leg_debug_runtime_check.gd 2>&1 \
+            | tee "$RUNNER_TEMP/bittaran-debug.log"
+          if grep -E 'SCRIPT ERROR|Parse Error|Compile Error|BITTARAN_FOUR_LEG_DEBUG_FAIL|ERROR: Failed to load' "$RUNNER_TEMP/bittaran-debug.log"; then
+            echo "::error::Bittaran four-leg debug test failed"
+            exit 1
+          fi
+          grep -q 'BITTARAN_FOUR_LEG_DEBUG_GODOT_PASS' "$RUNNER_TEMP/bittaran-debug.log"
+      - name: Original ~10-minute battle route must remain valid
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 120s "$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" \
+            --headless --path . --script res://tools/bittaran_ten_min_balance_runtime_check.gd 2>&1 \
+            | tee "$RUNNER_TEMP/bittaran-balance.log"
+          grep -q 'BITTARAN_10MIN_BALANCE_GODOT_PASS' "$RUNNER_TEMP/bittaran-balance.log"
