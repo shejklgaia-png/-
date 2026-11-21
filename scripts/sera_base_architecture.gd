@@ -1,6 +1,7 @@
 extends RefCounted
 const BaseClutter = preload("res://scripts/sera_base_clutter.gd")
 const BasePolish = preload("res://scripts/sera_base_reference_polish.gd")
+const BasePolygon = preload("res://scripts/sera_base_polygon_meshes.gd")
 const WEATHERED_STEEL_PATH: String = "res://assets/base/industrial_steel_grunge.svg"
 const WEATHERED_CANVAS_PATH: String = "res://assets/base/aged_canvas_weave.svg"
 const WEATHERED_ARMOR_PATH: String = "res://assets/base/industrial_armor_chipped.svg"
@@ -60,6 +61,18 @@ class Batch:
         if not features.has(feature):
             features.append(feature)
 
+    func poly(feature: String, kind: String, at: Vector3,
+            size: Vector3, tint: String = "armor",
+            yaw: float = 0.0) -> void:
+        _put(feature, kind, tint,
+            Basis(Vector3.UP, yaw).scaled_local(size), at)
+
+    func poly_tilt(feature: String, kind: String, at: Vector3,
+            size: Vector3, tint: String,
+            angles: Vector3) -> void:
+        _put(feature, kind, tint,
+            Basis.from_euler(angles).scaled_local(size), at)
+
     func box(feature: String, at: Vector3, size: Vector3, tint: String = "armor",
             yaw: float = 0.0) -> void:
         _put(feature, "cube", tint, Basis(Vector3.UP, yaw).scaled_local(size), at)
@@ -94,7 +107,7 @@ class Batch:
                     center + Vector3(cos(b) * radius, 0, sin(b) * radius), 0.065, tint)
 
     func crate(at: Vector3, size: Vector3, index: int = 0) -> void:
-        box("CargoBody", at, size, "crate" if index % 3 else "slate")
+        poly("CargoBody", "bevel", at, size, "crate" if index % 3 else "slate")
         box("CargoLid", at + Vector3(0, size.y * 0.51, 0),
             Vector3(size.x * 1.03, 0.07, size.z * 1.03), "armor_light")
         for s in [-1.0, 1.0]:
@@ -121,24 +134,33 @@ class Batch:
             oxide_texture = load(WEATHERED_OXIDE_PATH) as Texture2D
         var keys: Array = entries.keys()
         keys.sort()
+        var polygon_meshes: Dictionary = {}
         for key_variant in keys:
             var key: String = str(key_variant)
             var names: PackedStringArray = key.split("|")
             var geometry: String = names[0]
             var tint: String = names[1]
             var poses: Array = entries[key]
-            var mesh: PrimitiveMesh
-            if geometry == "tube":
+            var mesh: Mesh
+            if polygon_meshes.has(geometry):
+                mesh = polygon_meshes[geometry]
+            elif geometry == "tube":
                 var cylinder := CylinderMesh.new()
                 cylinder.height = 1.0
                 cylinder.top_radius = 0.5
                 cylinder.bottom_radius = 0.5
                 cylinder.radial_segments = 8
                 mesh = cylinder
-            else:
+            elif geometry == "cube":
                 var cube := BoxMesh.new()
                 cube.size = Vector3.ONE
                 mesh = cube
+            else:
+                mesh = BasePolygon.make(geometry)
+            if mesh == null:
+                push_error("Unknown BASE geometry: " + geometry)
+                continue
+            polygon_meshes[geometry] = mesh
             var multi := MultiMesh.new()
             multi.transform_format = MultiMesh.TRANSFORM_3D
             multi.mesh = mesh
@@ -219,8 +241,8 @@ static func build_nexus(parent: Node3D) -> void:
     g.yaw = facility_yaw_radians("NEXUS")
     node.set_meta("body_yaw", g.yaw)
     # Wide reinforced shell, individual roof modules, recessed front blast door.
-    g.box("ArmoredRoofHall", Vector3(0, 2.25, -0.08), Vector3(5.70, 3.98, 4.95), "armor")
-    g.box("ArmoredRoof", Vector3(0, 4.38, -0.15), Vector3(6.27, 0.32, 5.27), "slate")
+    g.poly("NexusCutCornerShell", "bevel", Vector3(0, 2.25, -0.08), Vector3(5.70, 3.98, 4.95), "armor")
+    g.poly("ArmoredRoof", "bevel", Vector3(0, 4.38, -0.15), Vector3(6.27, 0.32, 5.27), "slate")
     g.box("ArmoredRoofRim", Vector3(0, 4.62, 2.27), Vector3(6.20, 0.17, 0.22), "edge")
     g.box("ArmoredRoofRim", Vector3(0, 4.62, -2.50), Vector3(6.20, 0.15, 0.20), "trim")
     for i in range(7):
@@ -280,7 +302,7 @@ static func build_nexus(parent: Node3D) -> void:
             0.08 if level == 0 else 0.045, "edge")
     g.box("NexusAntennasBeacon", Vector3(2.42, 6.18, -1.78),
         Vector3(0.13, 0.19, 0.13), "amber_light")
-    g.box("GatePortal", Vector3(0, 1.50, 2.51), Vector3(2.65, 2.85, 0.38), "dark")
+    g.poly("GatePortal", "bevel", Vector3(0, 1.50, 2.51), Vector3(2.65, 2.85, 0.38), "dark")
     g.box("SealedGate", Vector3(0, 1.25, 2.77), Vector3(1.94, 2.35, 0.10), "slate")
     g.box("GatePortalLintel", Vector3(0, 2.97, 2.68), Vector3(2.42, 0.25, 0.27), "edge")
     g.box("GatePortalGlow", Vector3(0, 2.83, 2.86), Vector3(2.05, 0.13, 0.07), "amber_light")
@@ -301,7 +323,7 @@ static func build_nexus(parent: Node3D) -> void:
         Vector3(0.16, 0.31, 0.06), "edge")
     # Crooked salvage-yard awning along the exposed left side of the building.
     for p in range(3):
-        g.box("CanopyCanvas", Vector3(-2.30 + p * 0.40, 2.82 - p * 0.08, 2.42),
+        g.poly("CanopyCanvas", "canvas", Vector3(-2.30 + p * 0.40, 2.82 - p * 0.08, 2.42),
             Vector3(0.46, 0.045, 1.62), "cloth", -0.04)
     for side in [-1.0, 1.0]:
         g.rod("CanopySupport", Vector3(-2.18 + side * 0.55, 0.20, 3.08),
@@ -328,7 +350,7 @@ static func build_nexus(parent: Node3D) -> void:
 static func _labo(g: Batch) -> void:
     # Smaller, busy semi-open workshop: tarpaulin canopy, worktables and consoles.
     # A genuinely open-front workshop, rather than a sealed rectangular hall.
-    g.box("LabOpenWorkshopRearWall", Vector3(0, 1.57, -1.69),
+    g.poly("LabOpenWorkshopRearWall", "bevel", Vector3(0, 1.57, -1.69),
         Vector3(3.65, 2.82, 0.37), "slate")
     g.box("LabOpenWorkshopBackPanel", Vector3(0, 1.40, -1.43),
         Vector3(2.97, 2.27, 0.12), "void")
@@ -345,7 +367,7 @@ static func _labo(g: Batch) -> void:
         Vector3(4.05, 0.16, 3.1), "edge")
     for i in range(6):
         var x: float = -1.74 + float(i) * 0.68
-        g.box("CanopyCanvas", Vector3(x, 3.16 + 0.08 * cos(i * 1.2), -0.62),
+        g.poly("LabDrapedCanopy", "canvas", Vector3(x, 3.16 + 0.08 * cos(i * 1.2), -0.62),
             Vector3(0.73, 0.055, 2.93), "cloth")
     for side in [-1.0, 1.0]:
         g.rod("CanopyAwningPosts", Vector3(side * 1.82, 0.20, 2.16),
@@ -397,7 +419,7 @@ static func _labo(g: Batch) -> void:
 static func _collector(g: Batch) -> void:
     # A real pick-and-drop scrap recovery claw over a low sorting hopper.
     g.box("CollectorBase", Vector3(0, 0.35, 0), Vector3(2.17, 0.55, 2.0), "trim")
-    g.box("ScrapHopper", Vector3(0.35, 0.67, 0.22),
+    g.poly("CollectorFunnel", "hopper", Vector3(0.35, 0.67, 0.22),
         Vector3(1.34, 0.70, 1.24), "slate")
     for side in [-1.0, 1.0]:
         g.box("HopperRim", Vector3(side * 0.67 + 0.35, 1.08, 0.22),
@@ -428,7 +450,7 @@ static func _collector(g: Batch) -> void:
 
 static func _smelter(g: Batch) -> void:
     # Glowing heat chamber, copper chimney and exposed pressure pipes.
-    g.box("FurnaceCore", Vector3(0, 0.93, 0),
+    g.poly("FurnaceOctagonalBody", "bevel", Vector3(0, 0.93, 0),
         Vector3(1.73, 1.50, 1.70), "armor")
     g.box("FurnaceMouth", Vector3(0, 0.94, 0.90),
         Vector3(1.17, 0.98, 0.09), "amber")
@@ -444,7 +466,7 @@ static func _smelter(g: Batch) -> void:
             Vector3(side * 1.01, 2.35, -0.35), 0.17, "rust")
         g.rod("HeatPipe", Vector3(side * 1.01, 2.35, -0.35),
             Vector3(side * 1.01, 2.35, 0.58), 0.15, "gold")
-    g.box("FurnaceArmorLid", Vector3(0, 1.86, -0.09),
+    g.poly("FurnaceArmorLid", "bevel", Vector3(0, 1.86, -0.09),
         Vector3(2.18, 0.25, 1.98), "edge")
     g.rod("ExhaustStack", Vector3(-0.66, 1.88, -0.55),
         Vector3(-0.66, 2.82, -0.55), 0.53, "slate")
@@ -470,8 +492,9 @@ static func _recycler(g: Batch) -> void:
         Vector3(1.66, 0.33, 1.39), "void")
     for row in range(5):
         var z: float = -0.48 + float(row) * 0.24
-        g.rod("CrusherRoller", Vector3(-0.75, 1.11, z),
-            Vector3(0.75, 1.11, z), 0.21, "edge")
+        g.poly_tilt("CrusherCutterDrum", "gear",
+            Vector3(0, 1.11, z), Vector3(0.24, 1.50, 0.24),
+            "edge", Vector3(0, 0, PI * 0.5))
         for k in range(6):
             g.box("CrusherCutterTeeth", Vector3(-0.58 + float(k) * 0.23,
                 1.24, z), Vector3(0.12, 0.10, 0.06), "dark")
@@ -492,8 +515,9 @@ static func _generator(g: Batch) -> void:
             Vector3(0.25, 1.24, 1.26), "armor")
         g.ring("EnergyEndRim", Vector3(side * 0.62, 1.08, 0.0),
             0.43, "edge", "z")
-    g.box("EnergyCore", Vector3(0.0, 1.11, 0.0),
-        Vector3(0.91, 0.69, 1.10), "blue")
+    g.poly_tilt("GeneratorRadialRotor", "drum",
+        Vector3(0.0, 1.11, 0.0), Vector3(0.75, 0.91, 1.06),
+        "blue", Vector3(0, 0, PI * 0.5))
     for index in range(7):
         g.box("EnergyCoil", Vector3(-0.38 + float(index) * 0.13,
             1.10, 0.63), Vector3(0.065, 0.54, 0.06), "blue_light")
@@ -523,7 +547,7 @@ static func _storage(g: Batch) -> void:
                 0.52 + row * 0.42, 0), Vector3(0.095, 0.11, 1.91), "edge")
         g.rod("CargoStorageCornerPost", Vector3(side * 1.10, 0.18, -0.90),
             Vector3(side * 1.10, 1.86, -0.90), 0.10, "gold")
-    g.box("CargoStorageTarp", Vector3(0.0, 1.76, -0.11),
+    g.poly("CargoStorageTarp", "canvas", Vector3(0.0, 1.76, -0.11),
         Vector3(2.15, 0.045, 1.72), "cloth")
     for i in range(4):
         g.box("CargoStorageTieStrap", Vector3(-0.73 + i * 0.48,
@@ -535,7 +559,7 @@ static func _construction(g: Batch) -> void:
         Vector3(1.97, 0.43, 1.85), "trim")
     g.box("BlueprintTerminalBody", Vector3(0, 0.90, -0.23),
         Vector3(1.68, 0.80, 0.86), "armor")
-    g.box("BlueprintScreenHousing", Vector3(0, 1.68, -0.31),
+    g.poly("BlueprintScreenHousing", "bevel", Vector3(0, 1.68, -0.31),
         Vector3(1.73, 1.07, 0.34), "edge")
     g.box("BlueprintScreenDark", Vector3(0, 1.70, -0.09),
         Vector3(1.48, 0.85, 0.08), "void")
