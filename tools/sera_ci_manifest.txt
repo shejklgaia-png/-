@@ -1,3 +1,4 @@
+gd tools/icon_studio/front_right_orientation_runtime_check.gd
 py tools/equipment_portrait_ui_contract_self_check.py
 gd tools/equipment_portrait_ui_runtime_check.gd
 py tools/native_icon_metadata_self_check.py

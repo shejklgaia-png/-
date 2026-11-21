@@ -98,6 +98,10 @@ jobs:
             --script tools/icon_studio/sera_all_native_capture.gd
           python3 tools/icon_studio/tag_all_icons.py
           python3 tools/icon_studio/validate_all_icons.py
+          # The reference face is local -Z; this checks front, right and
+          # top independently rather than only checking whether PNG exists.
+          "$GODOT" --headless --path . \
+            --script tools/icon_studio/front_right_orientation_runtime_check.gd
           "$GODOT" --headless --editor --path . --import --quit
       - name: Upload all real equipment preview captures
         if: always()
