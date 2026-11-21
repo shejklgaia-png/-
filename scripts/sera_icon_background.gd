@@ -46,6 +46,12 @@ static func composite(source: Texture2D, mode: String = DEFAULT_MODE) -> Texture
     var side: int = maxi(art.get_width(), art.get_height())
     if art.get_width() != side or art.get_height() != side:
         art.resize(side, side, Image.INTERPOLATE_NEAREST)
+    # The source atlas may be fully opaque: reserve a visible grid margin.
+    # Approved transparent portraits still keep their original color/geometry.
+    var inset: int = maxi(1, int(round(float(side) * 0.075)))
+    var content_side: int = maxi(1, side - inset * 2)
+    art.resize(content_side, content_side, Image.INTERPOLATE_NEAREST)
     var bg: Image = make_image(side, mode)
-    bg.blend_rect(art, Rect2i(Vector2i.ZERO, art.get_size()), Vector2i.ZERO)
+    bg.blend_rect(art, Rect2i(Vector2i.ZERO, art.get_size()),
+        Vector2i(inset, inset))
     return ImageTexture.create_from_image(bg)
