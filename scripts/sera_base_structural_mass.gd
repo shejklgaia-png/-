@@ -176,7 +176,7 @@ static func _storage(g: Variant) -> void:
             Vector3(0.0, 0.0, -side * 0.18))
     g.rod("StorageRoofSpine",
         Vector3(0, 2.89, -1.35),
-        Vector3(0, 2.89, 0.92), 0.13, "edge")
+        Vector3(0, 2.89, -0.61), 0.13, "edge")
     g.box("StorageFrontLoadingBeam",
         Vector3(0, 2.48, 1.07),
         Vector3(2.50, 0.19, 0.25), "slate")
