@@ -3,9 +3,9 @@ extends Control
 ## simulated machines, consume resources, or persist any board occupancy.
 const Skin = preload("res://scripts/sera_labo_round_skin.gd")
 const Cut = preload("res://scripts/sera_base_grid_cut_control.gd")
-const CODES: Array[String] = ["G", "H", "K", "P", "C", "D", "R", "X", "Y", "T", "O"]
-const MODES: Array[String] = ["PLACE", "MOVE", "ROTATE"]
-const MODE_LABELS: Array[String] = ["配置", "移動", "回転"]
+const CODES = ["G", "H", "K", "P", "C", "D", "R", "X", "Y", "T", "O"]
+const MODES = ["PLACE", "MOVE", "ROTATE"]
+const MODE_LABELS = ["配置", "移動", "回転"]
 
 signal node_chosen(code: String)
 signal operation_changed(operation: String)
