@@ -12,6 +12,12 @@ assert 'static func stack_pitch_for(' in clutter
 assert 'static func layer_offset(' in clutter
 assert 'static func _make_stacked(' in clutter
 assert 'layers: int = clampi(stack_count, 1, 3)' in clutter
+assert 'const PILE_MAX_COUNT: int = 8' in clutter, "sheet and scrap stacks must support 1–8"
+assert 'static func _make_loose_pile(' in clutter
+assert 'static func is_loose_pile(' in clutter
+assert 'JunkGeometry.loose_scrap_pile(' in clutter
+assert 'JunkGeometry.panel_stack(' in clutter
+
 assert 'g.host.set_meta("clutter_props", props)' in clutter
 assert 'BaseClutter.decorate(g, "NEXUS")' in arch
 assert 'BaseClutter.decorate(g, key)' in arch
