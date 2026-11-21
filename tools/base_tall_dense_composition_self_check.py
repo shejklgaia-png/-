@@ -9,7 +9,7 @@ preview = (root/"scripts/sera_base_layout_preview.gd").read_text(encoding="utf-8
 manifest = (root/"tools/sera_ci_manifest.txt").read_text(encoding="utf-8")
 assert 'Vector3(-13.44, 0.0, -19.91)' in hub, "NEXUS is the upper anchor"
 for key, position in {
-    "LABO": "Vector3(6.26, 0.0, 5.80)",
+    "LABO": "Vector3(7.15, 0.0, 6.95)",
     "SCRAP_COLLECTOR": "Vector3(9.95, 0.0, 22.18)",
     "SMELTER": "Vector3(-12.61, 0.0, -7.70)",
     "RECYCLER": "Vector3(-1.85, 0.0, -14.73)",

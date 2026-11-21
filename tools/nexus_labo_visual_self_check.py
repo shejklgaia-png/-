@@ -17,8 +17,15 @@ for expected in (
     'LaboSkin.card_style("selected" if system_selected_slot == slot else "normal")',
     'LaboSkin.terminal_segment_style("selected")',
     'LaboSkin.terminal_segment_style("normal")',
-    # Seven installed-name buttons replace old icon/name/model-code columns.
+    # Seven name-only equipment selectors gain a separate right thumbnail expander.
     'var button := Button.new()',
+    'button.alignment = HORIZONTAL_ALIGNMENT_LEFT',
+    'expand.name = "EquipmentThumbnailExpand"',
+    'underline.name = "EquipmentNameUnderline"',
+    'expand.mouse_filter = Control.MOUSE_FILTER_IGNORE',
+    'button.add_child(expand)',
+    'button.add_child(underline)',
+    '_layout_equipment_name_underline(slot)',
     'button.text = _default_part_name(slot, selected_model)',
     'func _default_part_name(slot: String, model: String) -> String:',
     'func _show_customization_part_picker(slot: String) -> void:',
@@ -34,6 +41,34 @@ for expected in (
     'func _enter_base() -> void:',
 ):
     assert expected in n, expected
+# CUSTOMIZE's existing single depth-tested 3D quad must cover the viewport
+# with a uniform translucent blue-grey tint and a strictly darker fixed grid.
+# No SERA-centered cyan halo, radial gradient or alpha falloff is permitted.
+shader = (r / "shaders/nexus_customize_radial_glow.gdshader").read_text(encoding="utf-8")
+for expected in (
+    'const CUSTOMIZE_GLOW_SCREEN_WIDTH: float = 1.0',
+    'const CUSTOMIZE_GLOW_SCREEN_HEIGHT: float = 1.0',
+    'const CUSTOMIZE_GRID_SPACING_PIXELS: float = 42.0',
+    'customize_glow_quad.position = Vector3(0.0, 0.0, -depth)',
+    'material.set_shader_parameter("base_tint", Color("#4a6b7d"))',
+    'material.set_shader_parameter("grid_tint", Color("#213944"))',
+    'material.set_shader_parameter("base_opacity", 0.62)',
+    'viewport_size.x * CUSTOMIZE_GLOW_SCREEN_WIDTH / spacing',
+):
+    assert expected in n, expected
+for expected in (
+    'uniform vec4 base_tint', 'uniform vec4 grid_tint',
+    'uniform float grid_strength', 'uniform float base_opacity',
+    'grid_strength * grid_mask', 'ALPHA = base_opacity;',
+    'depth_draw_never', 'blend_mix',
+):
+    assert expected in shader, expected
+for forbidden in (
+    'halo_center', 'core_radius', 'core_opacity', 'falloff_power',
+    'glow_color', 'soft_falloff', 'smoothstep(core_radius',
+):
+    assert forbidden not in shader, "obsolete cyan/radial effect: " + forbidden
+assert 'material.set_shader_parameter("halo_center"' not in n
 assert 'PrototypeCatalog.display_instance(' not in n, "model code must not be appended to item name"
 assert 'var icon_size: float = minf(48.0, row.size.y - 18.0)' not in n, (
     "obsolete 48px icon would still be too small")

@@ -44,8 +44,8 @@ func _run() -> void:
         if keys != int(spec[2]):
             _fail("source key count changed: " + clip_name)
             return
-        ik.call("start_leg_break_slide", str(id),
-            float((parts.call("get_part_aim_world", "head") as Vector3).y), false)
+        var head: Vector3 = parts.call("get_part_aim_world", "head")
+        ik.call("start_leg_break_slide", str(id), head.y, false)
         if str(ik.get("authored_down_clip")) != clip_name:
             _fail("broken leg did not select authored clip " + str(id))
             return

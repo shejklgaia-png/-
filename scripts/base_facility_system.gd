@@ -38,7 +38,7 @@ const MATERIAL_ICON_WIDTH: int = 54
 ## keeping all models, dedicated slab origins, tap targets and physical doors
 ## synchronized; world coordinates are chosen along the 27-degree camera axis.
 const FACILITY_SPECS = [
-    {"id": "LABO", "name": "LABO", "at": Vector3(6.26, 0.0, 5.80),
+    {"id": "LABO", "name": "LABO", "at": Vector3(7.15, 0.0, 6.95),
         "size": Vector3(4.25, 4.1, 4.35), "subtitle": "Shell / OS / スロット開発"},
     {"id": "SCRAP_COLLECTOR", "name": "回収機", "at": Vector3(9.95, 0.0, 22.18),
         "size": Vector3(2.35, 2.55, 2.25), "subtitle": "スクラップ収集"},

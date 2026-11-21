@@ -33,22 +33,86 @@ func _run() -> void:
         return
     for slot in equipment:
         var button: Button = equipment[slot]["panel"] as Button
-        if button == null or (
-                button.get_theme_stylebox("normal") !=
-                LaboTypeface.terminal_segment_style("normal")):
-            _fail("name-only equipment button lacks the shared LABO skin: "+str(slot))
+        if button == null:
+            _fail("missing equipment row: " + str(slot))
+            return
+        var bg: StyleBoxFlat = button.get_theme_stylebox("normal") as StyleBoxFlat
+        var lab_skin: StyleBoxFlat = LaboTypeface.terminal_segment_style("normal")
+        if bg == null or bg.bg_color != lab_skin.bg_color or (
+                bg.border_color != lab_skin.border_color):
+            _fail("equipment row no longer uses the shared matte LABO palette")
             return
         if button.get_theme_font("font") != LaboTypeface.equipment_font():
             _fail("equipment-name button lacks the item font")
             return
-        if button.get_child_count() != 0:
-            _fail("equipment selector must not have old icon/code columns")
+        var expand: Button = equipment[slot]["expand"] as Button
+        var underline: ColorRect = equipment[slot]["underline"] as ColorRect
+        if button.alignment != HORIZONTAL_ALIGNMENT_LEFT or expand == null or (
+                expand.name != "EquipmentThumbnailExpand") or (
+                underline == null) or (
+                underline.name != "EquipmentNameUnderline"):
+            _fail("row must left-align the name and own a separate thumbnail button")
             return
+        if button.get_child_count() != 2 or (
+                expand.get_parent() != button) or underline.get_parent() != button:
+            _fail("equipment row must contain only its expander and name underline")
+            return
+        if underline.color != Color("#55798a") or (
+                not is_equal_approx(underline.size.y, 1.0)):
+            _fail("equipment name underline must remain matte blue-grey and 1px")
+            return
+    # CUSTOMIZE backdrop is one translucent 3D surface behind SERA, not a
+    # 2D tint drawn over the character or controls. At its preview distance it
+    # must fit the complete portrait viewport on either axis.
+    var backdrop: MeshInstance3D = nexus.get("customize_glow_quad") as MeshInstance3D
+    var camera: Camera3D = nexus.get("cam") as Camera3D
+    if backdrop == null or camera == null or not (backdrop.mesh is QuadMesh) or (
+            not (backdrop.material_override is ShaderMaterial)):
+        _fail("CUSTOMIZE depth-tested 3D background is missing")
+        return
+    var backdrop_mat: ShaderMaterial = backdrop.material_override as ShaderMaterial
+    var opacity: float = float(backdrop_mat.get_shader_parameter("base_opacity"))
+    if not is_equal_approx(opacity, 0.62):
+        _fail("CUSTOMIZE base must have constant 0.62 semi-transparency")
+        return
+    var base_tint: Color = backdrop_mat.get_shader_parameter("base_tint")
+    var grid_tint: Color = backdrop_mat.get_shader_parameter("grid_tint")
+    if base_tint != Color("#4a6b7d") or grid_tint != Color("#213944"):
+        _fail("CUSTOMIZE must use the approved matte blue-grey and dark grid colors")
+        return
+    if grid_tint.r >= base_tint.r or grid_tint.g >= base_tint.g or (
+            grid_tint.b >= base_tint.b):
+        _fail("grid RGB must be strictly darker than the uniform base")
+        return
+    if backdrop_mat.shader.code.contains("halo_center") or (
+            backdrop_mat.shader.code.contains("soft_falloff")):
+        _fail("obsolete cyan/radial effect is still in the background shader")
+        return
+    nexus.set("customize_preview_active", true)
+    nexus.call("_update_customization_glow")
+    nexus.set("customize_preview_active", false)
+    var backdrop_quad: QuadMesh = backdrop.mesh as QuadMesh
+    var preview_position: Vector3 = nexus.get("customize_preview_position")
+    var depth: float = -preview_position.z + 1.80
+    var height: float = 2.0 * depth * tan(deg_to_rad(camera.fov) * 0.5)
+    var width: float = height * hud.size.x / hud.size.y
+    if not is_equal_approx(backdrop_quad.size.x, width) or (
+            not is_equal_approx(backdrop_quad.size.y, height)) or (
+            absf(backdrop.position.x) > 0.001) or absf(backdrop.position.y) > 0.001:
+        _fail("CUSTOMIZE backdrop must fill the whole portrait viewport")
+        return
+    var cells: Vector2 = backdrop_mat.get_shader_parameter("grid_cells")
+    var spacing: float = 42.0
+    if absf(cells.x - hud.size.x / spacing) > 0.01 or (
+            absf(cells.y - hud.size.y / spacing) > 0.01):
+        _fail("CUSTOMIZE grid spacing must be fixed in pixels on both axes")
+        return
     for target in ["TRAINING", "DEPLOYMENT", "SYSTEM", "DATA ARCHIVE", "CUSTOMIZE"]:
         nexus.set("focused_target", target)
         nexus.call("_focus_arrived", target)
         await process_frame
-        if not focus.visible or title.text != target:
+        if not focus.visible or title.text != (
+                "PART VIEW" if target == "CUSTOMIZE" else target):
             _fail("destination panel not visible: " + target)
             return
         if target == "CUSTOMIZE":
@@ -64,6 +128,21 @@ func _run() -> void:
                 if button.text.is_empty() or button.text.contains("SET"):
                     _fail("part selector must display the actual part name only")
                     return
+                var expand: Button = equipment[slot]["expand"] as Button
+                if expand.position.x < button.size.x * 0.60 or (
+                        expand.position.x + expand.size.x > button.size.x) or (
+                        expand.position.y < 0.0) or (
+                        expand.position.y + expand.size.y > button.size.y):
+                    _fail("thumbnail expand button overflows the equipment name row")
+                    return
+            var head_expand: Button = equipment["head"]["expand"] as Button
+            nexus.call("_tap_equipment_control", head_expand.get_global_rect().get_center())
+            var opened: Control = nexus.get("customize_part_picker") as Control
+            if opened == null or not opened.visible or (
+                    (nexus.get("customize_part_grid") as GridContainer).columns != 3):
+                _fail("tapping the head-row thumbnail expander must open 3-column picker")
+                return
+            nexus.call("_close_customization_part_picker")
             var picker: Control = nexus.get("customize_part_picker") as Control
             var part_preview: Control = nexus.get("customize_single_part_preview") as Control
             if picker == null or part_preview == null:

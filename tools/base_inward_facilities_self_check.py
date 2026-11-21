@@ -10,7 +10,7 @@ arch=(r/"scripts/sera_base_architecture.gd").read_text(encoding="utf-8")
 ci=(r/"tools/sera_ci_manifest.txt").read_text(encoding="utf-8")
 CENTER=(0.0, -2.2)
 PREVIOUS={"NEXUS":[-9.53,-14.55],"LABO":[6.2,5.25],"SMELTER":[-10.9,-4.9],"RECYCLER":[1.1,-11.1],"STORAGE":[-2.55,5.8],"GENERATOR":[9.4,-1.65],"SCRAP_COLLECTOR":[5.2,15.6],"BUILD_TERMINAL":[15.3,8.8]}
-APPROVED={"NEXUS":[-13.44,-19.91],"LABO":[6.26,5.8],"SMELTER":[-12.61,-7.7],"RECYCLER":[-1.85,-14.73],"STORAGE":[-3.43,3.92],"GENERATOR":[7.37,-3.57],"SCRAP_COLLECTOR":[9.95,22.18],"BUILD_TERMINAL":[19.49,15.88]}
+APPROVED={"NEXUS":[-13.44,-19.91],"LABO":[7.15,6.95],"SMELTER":[-12.61,-7.7],"RECYCLER":[-1.85,-14.73],"STORAGE":[-3.43,3.92],"GENERATOR":[7.37,-3.57],"SCRAP_COLLECTOR":[9.95,22.18],"BUILD_TERMINAL":[19.49,15.88]}
 YAW_DEGREES={"NEXUS":33,"LABO":44,"SMELTER":60,"RECYCLER":16,"STORAGE":63,"GENERATOR":12,"SCRAP_COLLECTOR":56,"BUILD_TERMINAL":20}
 assert "const BODY_YAW_DEGREES = {" in arch
 assert "static func facility_yaw_radians(" in arch

@@ -32,7 +32,7 @@ assert 'gd tools/base_isometric_layout_runtime_check.gd' in ci
 # Frontal 26.9-degree camera shows facades; preserve lower-row clearance.
 desired = {
     "NEXUS": (.509, .285),
-    "LABO": (.503, .670),
+    "LABO": (.503, .687),
     "SMELTER": (.190, .406),
     "RECYCLER": (.790, .418),
     "STORAGE": (.198, .582),
