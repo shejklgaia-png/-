@@ -329,7 +329,15 @@ func _debug_break_leg(id: String) -> bool:
             str(result.get("kind", "")) != "leg"):
         return false
     target_parts.call("trigger_part_hit_fx", id, HIT_FLASH_SECONDS)
-    _handle_bittaran_leg_break(id, result, false, "")
+    # A test break during an authored foot attack must retain the real
+    # stomp-windup interruption, just like an ordinary melee fracture.
+    var attacking_leg_at_hit: String = (str(
+        bittaran_rig.get("authored_leg_id")) if bittaran_rig != null else "")
+    var active_at_hit: bool = (bittaran_rig != null and not str(
+        bittaran_rig.get("active_authored_attack")).is_empty()
+        and not attacking_leg_at_hit.is_empty())
+    _handle_bittaran_leg_break(
+        id, result, active_at_hit, attacking_leg_at_hit)
     _sync_debug_leg_buttons()
     _refresh_numeric_status_hud()
     _update_bittaran_lock_permissions()
