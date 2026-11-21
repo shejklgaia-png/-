@@ -6,6 +6,7 @@ const VersionIndicator = preload("res://scripts/version_indicator.gd")
 const BaseFacilities = preload("res://scripts/base_facility_system.gd")
 const BaseArchitecture = preload("res://scripts/sera_base_architecture.gd")
 const BaseFloorDetail = preload("res://scripts/sera_base_floor_detail.gd")
+const WEATHERED_STEEL = preload("res://assets/base/industrial_steel_grunge.svg")
 const LaboSkin = preload("res://scripts/sera_labo_round_skin.gd")
 const CrateModel = preload("res://scripts/sera_crate_model.gd")
 const NEXUS_SCENE: String = "res://scenes/command_nexus.tscn"
@@ -169,7 +170,8 @@ func _create_grid_plates(floor: Node3D) -> void:
         var mat := StandardMaterial3D.new()
         mat.albedo_color = tints[palette_index]
         mat.metallic = 0.25
-        mat.roughness = 0.70
+        mat.roughness = 0.81
+        mat.albedo_texture = WEATHERED_STEEL
         draw.material_override = mat
         draw.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
         floor.add_child(draw)
