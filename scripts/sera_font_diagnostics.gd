@@ -102,7 +102,7 @@ static func report() -> String:
             break
     lines.append("Named families: " +
         (", ".join(matched) if not matched.is_empty() else "(none listed)"))
-    lines.append("Font mode: bundled WOFF2 / RAW_BYTES > IMPORTED_RESOURCE")
+    lines.append("Font mode: bundled original OFL TTF / RAW_BYTES > IMPORTED_RESOURCE")
     lines.append("Note: has_char does NOT prove visible pixels.")
     lines.append("---")
     for entry: Dictionary in roles():
@@ -153,7 +153,7 @@ static func report() -> String:
             _check_char(font, 0x30AB))
     lines.append("---")
     lines.append("Expected JP glyphs: Y/Y/Y/Y for all JP roles.")
-    lines.append("Roles: TITLE/EQUIPMENT/STATS=Noto Sans JP; BODY/CONTROL=IBM Plex JP; LATIN=Rajdhani/IBM Plex Mono")
+    lines.append("Roles: TITLE/EQUIPMENT/CONTROL=UDEV Gothic; BODY=UDEV Gothic; STATS/LATIN/DATA=Moralerspace Neon")
     lines.append("Latin/mono faces may legitimately lack Japanese glyphs.")
     lines.append("Inspect LIVE SAMPLES for actual rendered differences.")
     return "\n".join(lines)

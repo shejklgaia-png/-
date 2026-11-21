@@ -5,17 +5,17 @@ static var _card_cache: Dictionary = {}
 static var _tab_cache: Dictionary = {}
 static var _segment_cache: Dictionary = {}
 static var _panel_cache: StyleBoxTexture
-## Portable fonts bundled with SERA; NEVER depend on Android SystemFont.
-## Original complete, licensed OFL fonts are vendored in assets/fonts/.
-const JP_FONT_PATH: String = "res://assets/fonts/NotoSansJP-VF.woff2"
-## The already-bundled Noto variable face has firmer square Japanese forms
-## than the old rounded M PLUS titles/stats. Share its bytes across roles.
-const JP_TITLE_FONT_PATH: String = JP_FONT_PATH
-const JP_STATS_FONT_PATH: String = JP_FONT_PATH
-const JP_UI_FONT_PATH: String = "res://assets/fonts/IBMPlexSansJP-Medium.woff2"
-const JP_CONTROL_FONT_PATH: String = "res://assets/fonts/IBMPlexSansJP-Bold.woff2"
-const NAV_FONT_PATH: String = "res://assets/fonts/Rajdhani-Bold.woff2"
-const DATA_FONT_PATH: String = "res://assets/fonts/IBMPlexMono-Medium.woff2"
+## Original SIL OFL 1.1 Japanese TTF fonts are vendored in assets/fonts/.
+## No OS fallback or runtime network access: Android GitSync works offline.
+## UDEV Gothic: readable Japanese page names, items and interaction labels.
+## Moralerspace Neon: mixed Japanese stats, codes, engineering readouts.
+const JP_FONT_PATH: String = "res://assets/fonts/UDEVGothic-Regular.ttf"
+const JP_TITLE_FONT_PATH: String = "res://assets/fonts/UDEVGothic-Bold.ttf"
+const JP_STATS_FONT_PATH: String = "res://assets/fonts/MoralerspaceNeon-Regular.ttf"
+const JP_UI_FONT_PATH: String = JP_FONT_PATH
+const JP_CONTROL_FONT_PATH: String = JP_TITLE_FONT_PATH
+const NAV_FONT_PATH: String = "res://assets/fonts/MoralerspaceNeon-Bold.ttf"
+const DATA_FONT_PATH: String = JP_STATS_FONT_PATH
 static var _jp_source: FontFile
 static var _jp_title_source: FontFile
 static var _jp_stats_source: FontFile
@@ -38,6 +38,7 @@ static var _tracked_data: FontVariation
 ## A Godot Android editor often has raw res:// files before its .godot import
 ## cache is regenerated; an exported PCK can instead use imported resources.
 static var _font_load_status: Dictionary = {}
+static var _bundled_face_cache: Dictionary = {}
 
 
 static func font_load_status(path: String) -> String:
@@ -66,6 +67,9 @@ static func _font_from_raw(path: String, required_glyph: int) -> FontFile:
 
 
 static func _load_bundled_font(path: String, required_glyph: int) -> FontFile:
+    # Seven roles share four immutable TTF source objects, cached by path.
+    if _bundled_face_cache.has(path):
+        return _bundled_face_cache[path] as FontFile
     var raw_exists: bool = FileAccess.file_exists(path)
     var imported_exists: bool = ResourceLoader.exists(path)
     var font: FontFile = null
@@ -95,6 +99,7 @@ static func _load_bundled_font(path: String, required_glyph: int) -> FontFile:
     if font == null:
         push_error("SERA_FONT_LOAD_FAILED: " + path + " / " + details)
     else:
+        _bundled_face_cache[path] = font
         print("SERA_FONT_LOAD_OK: " + path + " / " + details)
     return font
 
@@ -119,8 +124,8 @@ static func data_font() -> FontFile:
     return _data_font
 
 
-## Use the real OpenType wght axis in the bundled JP variable face.
-## A FontVariation object is created only once per UI role.
+## Keep a FontVariation object per role (cached); released TTF faces have
+## real Regular/Bold weights, not a variable OpenType wght axis.
 static func _jp_weight(weight: int) -> FontVariation:
     var result := FontVariation.new()
     result.base_font = _jp_face()
@@ -129,19 +134,19 @@ static func _jp_weight(weight: int) -> FontVariation:
     return result
 
 
-## Angular high-weight Noto Japanese titles/items and medium-weight Noto
-## Japanese stat names. IBM Plex Sans JP retains compact native controls
-## and body text; Rajdhani/IBM Plex Mono style Latin headers and telemetry.
-## All faces use the Android-tested RAW_BYTES path and cached role objects.
+## UDEV Gothic Bold: titles, equipment and controls.
+## UDEV Gothic Regular: Japanese materials and body.
+## Moralerspace Neon Regular/Bold: Japanese-capable stats, Latin navigation,
+## codes and combat telemetry. No source font is instantiated per UI card.
 static func _title_face() -> FontFile:
     if _jp_title_source == null:
-        _jp_title_source = _jp_face()
+        _jp_title_source = _load_bundled_font(JP_TITLE_FONT_PATH, 0x88C5)
     return _jp_title_source
 
 
 static func _stats_face() -> FontFile:
     if _jp_stats_source == null:
-        _jp_stats_source = _jp_face()
+        _jp_stats_source = _load_bundled_font(JP_STATS_FONT_PATH, 0x65E5)
     return _jp_stats_source
 
 
@@ -174,14 +179,14 @@ static func ui_font() -> FontVariation:
 
 static func title_font() -> FontVariation:
     if _title_font == null:
-        _title_font = _variation_from_face(_title_face(), 850)
+        _title_font = _variation_from_face(_title_face())
         _title_font.spacing_glyph = 1
     return _title_font
 
 
 static func equipment_font() -> FontVariation:
     if _equipment_font == null:
-        _equipment_font = _variation_from_face(_title_face(), 750)
+        _equipment_font = _variation_from_face(_title_face())
         _equipment_font.spacing_glyph = 1
     return _equipment_font
 
@@ -195,7 +200,7 @@ static func control_font() -> FontVariation:
 
 static func stats_font() -> FontVariation:
     if _stats_font == null:
-        _stats_font = _variation_from_face(_stats_face(), 550)
+        _stats_font = _variation_from_face(_stats_face())
     return _stats_font
 
 

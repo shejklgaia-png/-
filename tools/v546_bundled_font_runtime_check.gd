@@ -1,5 +1,5 @@
 extends SceneTree
-## SERA v546: test actual imported WOFF2 glyphs and font RID identities.
+## Verify unmodified UDEV/Moralerspace TTF glyphs and RID identities.
 const LaboFontSkin = preload("res://scripts/sera_labo_round_skin.gd")
 func _initialize() -> void:
     call_deferred("_run")
@@ -28,24 +28,20 @@ func _run() -> void:
         _fail("technical font has no latin glyphs")
         return
     var ts: TextServer = TextServerManager.get_primary_interface()
-    var tag: int = ts.name_to_tag("wght")
-    if int(bold.variation_opentype.get(tag, 0)) != 850 or (
-            int(stats.variation_opentype.get(tag, 0)) != 550):
-        _fail("bundled JP weight axes not applied")
+    if bold.base_font != control.base_font or (
+            bold.base_font == jpfile or stats.base_font == jpfile):
+        _fail("UDEV bold title/control or Moralerspace stats face mismatch")
         return
-    # Approved cyber typography: Noto's variable face is intentionally
-    # shared by headline and stats, but their weight/spacing remain distinct.
-    if bold.base_font == jpfile or control.base_font == jpfile or (
-            stats.base_font == jpfile) or (
-            bold.base_font != stats.base_font):
-        _fail("JP headline and stats must share cached Noto while body stays IBM")
+    if bold.base_font == stats.base_font or (
+            stats.base_font != mono or stats.base_font == latin):
+        _fail("Moralerspace regular stats and data must share a face")
         return
     if jpfile.get_rids().is_empty() or latin.get_rids().is_empty() or (
             mono.get_rids().is_empty()):
         _fail("bundled fonts could not create actual TextServer RID")
         return
     var name: String = ts.font_get_name(jpfile.get_rids()[0])
-    if not name.to_lower().contains("plex"):
+    if not name.to_lower().contains("udev"):
         _fail("TextServer loaded unexpected Japanese font: " + name)
         return
     var hub: Node3D = load("res://scenes/base_exploration.tscn").instantiate()

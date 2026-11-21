@@ -1,5 +1,5 @@
 extends SceneTree
-## v547: direct WOFF2 loading must work without a populated .godot import cache.
+## Direct TTF loading must work without a populated .godot import cache.
 const LaboFontSkin = preload("res://scripts/sera_labo_round_skin.gd")
 func _initialize() -> void:
     call_deferred("_run")
@@ -8,9 +8,9 @@ func _fail(message: String) -> void:
     quit(1)
 func _run() -> void:
     var cases: Array = [
-        [LaboFontSkin.JP_FONT_PATH, 0x65E5, "Noto"],
-        [LaboFontSkin.NAV_FONT_PATH, 0x41, "Rajdhani"],
-        [LaboFontSkin.DATA_FONT_PATH, 0x41, "IBM Plex"],
+        [LaboFontSkin.JP_FONT_PATH, 0x65E5, "UDEV"],
+        [LaboFontSkin.NAV_FONT_PATH, 0x41, "Moralerspace"],
+        [LaboFontSkin.DATA_FONT_PATH, 0x41, "Moralerspace"],
     ]
     var server: TextServer = TextServerManager.get_primary_interface()
     for entry: Array in cases:
@@ -41,7 +41,7 @@ func _run() -> void:
             not mono.has_char(0x41)):
         _fail("UI font families did not bind to raw assets")
         return
-    # The shared Noto variable face is now active for titles and stats.
+    # UDEV and Moralerspace use four cached, unmodified bundled TTF faces.
     for path: String in [LaboFontSkin.JP_UI_FONT_PATH,
             LaboFontSkin.JP_TITLE_FONT_PATH,
             LaboFontSkin.JP_CONTROL_FONT_PATH,

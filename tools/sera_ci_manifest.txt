@@ -77,6 +77,8 @@ py tools/v548_lab_font_mix_self_check.py
 # Shared Japanese/Latin cyber font update including combat HUD labels.
 py tools/sera_sharp_cyber_fonts_self_check.py
 gd tools/v548_lab_font_mix_runtime_check.gd
+# Genuine Japanese UDEV / Moralerspace TTFs: glyphs, family RIDs and cache.
+gd tools/sera_dual_jp_fonts_runtime_check.gd
 py tools/v547_font_raw_loader_self_check.py
 gd tools/v547_font_raw_loader_runtime_check.gd
 py tools/v546_bundled_font_self_check.py

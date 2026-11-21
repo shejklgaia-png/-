@@ -12,27 +12,29 @@ version = (root / "scripts/version_indicator.gd").read_text(encoding="utf-8")
 diag = (root / "scripts/sera_font_diagnostics.gd").read_text(encoding="utf-8")
 manifest = (root / "tools/sera_ci_manifest.txt").read_text(encoding="utf-8")
 
-# Angular Noto Sans JP variable titles and stats replace rounded M PLUS faces.
-# Both roles share one previously bundled font: no network or per-item loads.
+# Role map: sharp UDEV for Japanese text and controls, Moralerspace
+# Neon for stat tables, labels, engineering values and technical displays.
 for required in (
-    'const JP_TITLE_FONT_PATH: String = JP_FONT_PATH',
-    'const JP_STATS_FONT_PATH: String = JP_FONT_PATH',
-    '_jp_title_source = _jp_face()',
-    '_jp_stats_source = _jp_face()',
-    '_title_font = _variation_from_face(_title_face(), 850)',
-    '_equipment_font = _variation_from_face(_title_face(), 750)',
-    '_stats_font = _variation_from_face(_stats_face(), 550)',
+    'const JP_FONT_PATH: String = "res://assets/fonts/UDEVGothic-Regular.ttf"',
+    'const JP_TITLE_FONT_PATH: String = "res://assets/fonts/UDEVGothic-Bold.ttf"',
+    'const JP_STATS_FONT_PATH: String = "res://assets/fonts/MoralerspaceNeon-Regular.ttf"',
+    'const NAV_FONT_PATH: String = "res://assets/fonts/MoralerspaceNeon-Bold.ttf"',
+    'const JP_UI_FONT_PATH: String = JP_FONT_PATH',
+    'const JP_CONTROL_FONT_PATH: String = JP_TITLE_FONT_PATH',
+    'const DATA_FONT_PATH: String = JP_STATS_FONT_PATH',
+    '_jp_title_source = _load_bundled_font(JP_TITLE_FONT_PATH, 0x88C5)',
+    '_jp_stats_source = _load_bundled_font(JP_STATS_FONT_PATH, 0x65E5)',
+    '_title_font = _variation_from_face(_title_face())',
+    '_equipment_font = _variation_from_face(_title_face())',
+    '_stats_font = _variation_from_face(_stats_face())',
     '_title_font.spacing_glyph = 1',
     '_equipment_font.spacing_glyph = 1',
     '_control_font.spacing_glyph = 1',
-    '_tracked_display.base_font = display_font()',
-    '_tracked_data.base_font = data_font()',
     'theme.default_font = ui_font()',
 ):
     assert required in skin, required
-assert 'JP_TITLE_FONT_PATH: String = "res://assets/fonts/MPLUS2' not in skin
-assert 'JP_STATS_FONT_PATH: String = "res://assets/fonts/MPLUS1Code' not in skin
-assert 'Roles: TITLE/EQUIPMENT/STATS=Noto Sans JP' in diag
+assert 'NotoSansJP-VF.woff2' not in skin
+assert 'Roles: TITLE/EQUIPMENT/CONTROL=UDEV Gothic' in diag
 
 # Non-menu gameplay labels also receive actual bundled font objects.
 for required in (
@@ -55,13 +57,14 @@ assert 'version_label.add_theme_font_override("font", LaboTypography.tracked_dat
 assert 'var font: Font = get_theme_default_font()' not in meters
 assert 'var font: Font = get_theme_default_font()' not in touch
 
-# All shipped faces and license files remain in the repository. No new assets.
-for filename in ("NotoSansJP-VF.woff2", "IBMPlexSansJP-Medium.woff2",
-                 "IBMPlexSansJP-Bold.woff2", "Rajdhani-Bold.woff2",
-                 "IBMPlexMono-Medium.woff2"):
+# Both actual Japanese-capable families must be vendored and licensed.
+for filename in ("UDEVGothic-Regular.ttf", "UDEVGothic-Bold.ttf",
+                 "MoralerspaceNeon-Regular.ttf", "MoralerspaceNeon-Bold.ttf"):
     raw = (root / "assets/fonts" / filename).read_bytes()
-    assert raw[:4] == b"wOF2" and len(raw) > 1000, filename
-assert "SIL OPEN FONT LICENSE" in (
-    root / "assets/fonts/OFL-NotoSansJP.txt").read_text("utf-8").upper()
+    assert raw[:4] in (bytes([0, 1, 0, 0]), b"OTTO"), filename
+    assert len(raw) > 50_000, filename
+for license_name in ("OFL-UDEVGothic.txt", "OFL-Moralerspace.txt"):
+    text = (root / "assets/fonts" / license_name).read_text("utf-8")
+    assert "SIL OPEN FONT LICENSE" in text.upper(), license_name
 assert "py tools/sera_sharp_cyber_fonts_self_check.py" in manifest
 print("SERA_SHARP_CYBER_FONTS_STATIC_PASS")

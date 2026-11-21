@@ -1,3 +1,16 @@
+## 2026-11-21 — UDEV Gothic × Moralerspace NeonをSERA全画面で役割別に採用
+
+- 旧Noto/M PLUS混在を撤回し、無料かつ日本語対応の2ファミリーを用途分離。SIL OFL 1.1のライセンス原本を`assets/fonts/OFL-UDEVGothic.txt`/`OFL-Moralerspace.txt`に同梱。配布は加工なしの公式TrueType本体を採用（フォント内部名は変更しない）。
+- **UDEV Gothic v2.2.0**：日本語本文／素材名をRegular、日本語ページ見出し・装備名・操作ボタンをBold。**Moralerspace Neon v2.0.0**：ステータスの日本語／混合数値と型番をRegular、NEXUS/LABなど英語ナビゲーションや3D看板をBold。
+- 公式Release ZIPのSHA-256を`tools/sera_vendor_ui_fonts.py`でHomebrew公式公開値と照合。GitHub Actions `sera-vendor-ui-fonts.yml`が4つの原本TTFとOFLを`main`に自動保存済み。Android GitSync・APK実行時はネットワーク取得・OSフォント代替不要。
+- `scripts/sera_labo_round_skin.gd`の共通書体ロールを変更。役割のFontVariationは従来どおり一度だけ生成、実ファイルは`_bundled_face_cache`でパスごとに共有し、7ロールで4TTFを再読み込みしない。固定ウェイトの公式TTFに不適切なOpenType可変`wght`指定をしない。
+- 既存の装備製作・倉庫カード・NEXUS・拠点と戦闘HUD、HP/EN/ボス名、ダメージ数値、RUN/BOOST、バージョン表示の書体を共有経路から更新。戦闘の日本語部位名はUDEVを明示し、Moralerspaceの日本語グリフ有無による誤判定を防止。
+- `export_presets.cfg`のAndroid raw-file includeに`*.ttf`とOFLテキストを追加。UI位置・タップ範囲・カード容量999・数値計算・セーブ／モデル・アニメーションは不変更。
+- 実装前に`AGENTS.md`、`tools/sera_ci_manifest.txt`、`docs/SERA_ACTIVE_CI_POLICY_ja.md`、GitHub Actions workflow、v543/v546/v547/v548および既存font診断・サイバーUI回帰を確認。旧Notoや変動ウェイトを期待していた対象テストを先行更新し、文字欠け・TextServer RID・原本キャッシュを検証する`sera_dual_jp_fonts_runtime_check.gd`を登録。従来の描画、倉庫容量、音、入力テストは保持。
+- mainマージ後の全Python/Godot CIとAndroid実機での日本語改行・字幅・照度・スクロール表示は別に確認する。
+
+---
+
 ## 2026-11-21 — 新規装備モデルはLAB「装備作成」まで同時登録する開発規約
 - 今後の装備可能な新規3Dモデルは、Godotへの読込・NEXUSの選択肢だけで実装完了とせず、`sera_prototype_catalog.gd` の製作設計図ID／装備名／slot／対応rig_set、LABの素材レシピ・アイコン、倉庫個体UID・追加性能、セーブとNEXUS装着まで同じPRで対応する。
 - 受入検査は「LAB表示→製作→倉庫→装着3Dモデル→保存/復元」の連続動作。未承認の性能・素材コストは創作せず、既存の999件/部位と5追加性能、軽量UI契約を保持。

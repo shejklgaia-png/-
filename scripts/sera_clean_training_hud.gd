@@ -101,7 +101,9 @@ func _font_for_text(value: String) -> Font:
         return face
     if value.substr(0, 1).is_valid_int():
         return LaboTypography.tracked_data_font()
-    if not face.has_char(value.unicode_at(0)):
+    # Moralerspace also has Japanese glyphs; choose UDEV by language role,
+    # not by the existence of a fallback glyph in the Latin display font.
+    if value.unicode_at(0) >= 0x80:
         return LaboTypography.equipment_font()
     return face
 
