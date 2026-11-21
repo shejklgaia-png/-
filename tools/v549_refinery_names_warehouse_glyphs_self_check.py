@@ -3,6 +3,7 @@
 from pathlib import Path
 root=Path(__file__).resolve().parents[1]
 fac=(root/"scripts/base_facility_system.gd").read_text(encoding="utf-8")
+popup=(root/"scripts/sera_warehouse_detail_popup.gd").read_text(encoding="utf-8")
 skin=(root/"scripts/sera_labo_round_skin.gd").read_text(encoding="utf-8")
 manifest=(root/"tools/sera_ci_manifest.txt").read_text(encoding="utf-8")
 for token in (
@@ -19,9 +20,10 @@ for token in (
     "title_label.clip_text = true",
     'get_string_size(',
     'return 46.0 if width >= 590.0 else 40.0 if width >= 460.0 else 30.0',
-    'var stat_table: GridContainer = WarehouseStatsTable.build(',
-):
+ ):
     assert token in fac, token
+assert 'var table: GridContainer = StatTable.build(' in popup
+assert 'stats_container.add_child(table)' in popup
 assert 'breakdown.name = "WarehouseStatsBreakdown"' not in fac
 assert 'const WarehouseStatsTable = preload("res://scripts/sera_warehouse_stats_table.gd")' in fac
 assert 'static func stats_font() -> FontVariation:' in skin
