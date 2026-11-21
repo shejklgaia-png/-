@@ -58,7 +58,36 @@ static func _item(kind: String, x: float, z: float,
 # opposing empty band, and a smaller isolated accent. Dense sides alternate
 # between facilities; the central walkway remains clear. Keep this authored,
 # not randomized, to preserve navigation and phone-sized visual hierarchy.
+# Scene construction is deterministic; randomized counts differ by site/type but
+# never re-roll on every frame or device restart.
+static func _stable_seed(key: String, kind: String, index: int) -> int:
+    var h: int = 17
+    var value: String = key + "/" + kind
+    for i in range(value.length()):
+        h = posmod(h * 131 + value.unicode_at(i), 2147483647)
+    return posmod(h + index * 104729, 2147483647)
+
+static func is_stack_container(kind: String) -> bool:
+    return kind in ["cargo_box", "fastener_box", "power_box", "battery"]
+
+static func stack_count_for(key: String, kind: String, index: int) -> int:
+    var seed: int = _stable_seed(key, kind, index)
+    if is_stack_container(kind):
+        return 1 + posmod(seed + int(seed / 7), 4)
+    return 1 + posmod(seed, 3)
+
 static func props_for(key: String) -> Array[Dictionary]:
+    var items: Array[Dictionary] = _authored_props_for(key)
+    for index in range(items.size()):
+        var item: Dictionary = items[index]
+        var kind: String = str(item["kind"])
+        if int(item["stack"]) > 1:
+            var count: int = stack_count_for(key, kind, index)
+            item["stack"] = count
+            items[index] = item
+    return items
+
+static func _authored_props_for(key: String) -> Array[Dictionary]:
     match key:
         "NEXUS":
             return [
@@ -141,6 +170,94 @@ static func props_for(key: String) -> Array[Dictionary]:
 
 static func bounds_for(kind: String) -> Vector2:
     return FOOTPRINTS.get(kind, Vector2.ZERO)
+
+# A bottom supported by two neighbors is a real 2+1 pyramid, not a tall
+# box drawn over a flat one. Units below are physical meters before site scale.
+static func _container_piece(at: Vector2, size: Vector3, bottom: float,
+        supporting: Array[int] = []) -> Dictionary:
+    var supports: Array[int] = supporting.duplicate()
+    return {"at": at, "size": size, "bottom": bottom,
+        "supports": supports}
+
+static func container_plan_for(key: String, kind: String,
+        index: int) -> Array[Dictionary]:
+    var plan: Array[Dictionary] = []
+    if not is_stack_container(kind):
+        return plan
+    var count: int = stack_count_for(key, kind, index)
+    var seed: int = _stable_seed(key, kind, index)
+    var footprint: Vector2 = bounds_for(kind)
+    # Normalized stack geometry never exceeds the conservative old footprint.
+    var wx: float = footprint.x / 0.96
+    var wz: float = footprint.y / 0.88
+    var variation: float = 0.96 + float(posmod(seed, 3)) * 0.02
+    if count == 1:
+        plan.append(_container_piece(Vector2.ZERO,
+            Vector3(0.67 * wx * variation, 0.54, 0.62 * wz * variation), 0.0))
+    elif count == 2:
+        # A medium-large base and a clearly smaller container on top.
+        plan.append(_container_piece(Vector2.ZERO,
+            Vector3(0.70 * wx, 0.54, 0.64 * wz), 0.0))
+        plan.append(_container_piece(Vector2(0.045 * wx, -0.025 * wz),
+            Vector3(0.35 * wx, 0.32, 0.37 * wz), 0.54, [0]))
+    elif count == 3:
+        # Two aligned bottom containers with a small third bridging both.
+        plan.append(_container_piece(Vector2(-0.213 * wx, 0.0),
+            Vector3(0.405 * wx, 0.47, 0.57 * wz), 0.0))
+        plan.append(_container_piece(Vector2(0.213 * wx, 0.0),
+            Vector3(0.405 * wx, 0.47, 0.57 * wz), 0.0))
+        plan.append(_container_piece(Vector2(0.0, 0.0),
+            Vector3(0.35 * wx, 0.32, 0.41 * wz), 0.47, [0, 1]))
+    else:
+        # Two at ground level, two smaller ones above their respective base.
+        for side in [-1.0, 1.0]:
+            plan.append(_container_piece(Vector2(side * 0.213 * wx, 0.0),
+                Vector3(0.405 * wx, 0.47, 0.57 * wz), 0.0))
+        for side in [-1.0, 1.0]:
+            var base_index: int = 0 if side < 0.0 else 1
+            plan.append(_container_piece(Vector2(side * 0.213 * wx, 0.0),
+                Vector3(0.29 * wx, 0.31, 0.37 * wz), 0.47,
+                [base_index]))
+    return plan
+
+# Emit box, fastener and battery bodies into the same opaque material batches.
+# No new MeshInstance3D per box, and no floating ground skids on upper tiers.
+static func _make_container_stack(g: Variant, key: String, kind: String,
+        index: int, at: Vector2, k: float) -> void:
+    var plan: Array[Dictionary] = container_plan_for(key, kind, index)
+    var nominal: Vector2 = bounds_for(kind) * k
+    g.box("Yard_" + kind + "_skid",
+        Vector3(at.x, -0.006, at.y),
+        Vector3(nominal.x * 0.78, 0.05, nominal.y * 0.72), "rubber")
+    for tier_index in range(plan.size()):
+        var tier: Dictionary = plan[tier_index]
+        var shift: Vector2 = tier["at"]
+        var size: Vector3 = (tier["size"] as Vector3) * k
+        var bottom: float = float(tier["bottom"])
+        var position := Vector3(at.x + shift.x * k,
+            -0.03 + bottom * k + size.y * 0.5,
+            at.y + shift.y * k)
+        if kind == "cargo_box":
+            g.crate(position, size, index + tier_index)
+        else:
+            g.box("YardContainer_" + kind + "_body", position, size,
+                "armor_light" if tier_index % 3 == 0 else
+                "crate" if tier_index % 3 == 1 else "slate")
+            g.box("YardContainer_" + kind + "_lid",
+                position + Vector3(0, size.y * 0.48, 0),
+                Vector3(size.x * 1.03, 0.045 * k, size.z * 1.03),
+                "edge")
+            for side in [-1.0, 1.0]:
+                g.box("YardContainer_" + kind + "_brace",
+                    position + Vector3(side * size.x * 0.43, 0,
+                        size.z * 0.47),
+                    Vector3(0.05 * k, size.y * 0.94, 0.045 * k),
+                    "trim")
+            g.box("YardContainer_" + kind + "_marker",
+                position + Vector3(0, size.y * 0.12, size.z * 0.51),
+                Vector3(size.x * 0.36, 0.055 * k, 0.018 * k),
+                "blue_light" if kind in ["power_box", "battery"] else "gold")
+
 
 # Vertical pitches match the actual authored mesh heights so tiers touch.
 # Machines, tripods and consoles are deliberately NOT stackable.
@@ -447,8 +564,13 @@ static func decorate(g: Variant, key: String) -> void:
     var props: Array[Dictionary] = props_for(key)
     for index in range(props.size()):
         var p: Dictionary = props[index]
-        _make_stacked(g, str(p["kind"]), p["at"] as Vector2,
-            float(p["scale"]), index, int(p.get("stack", 1)))
+        var kind: String = str(p["kind"])
+        if is_stack_container(kind) and int(p.get("stack", 1)) > 0:
+            _make_container_stack(g, key, kind, index,
+                p["at"] as Vector2, float(p["scale"]))
+        else:
+            _make_stacked(g, kind, p["at"] as Vector2,
+                float(p["scale"]), index, int(p.get("stack", 1)))
     # The renderer is a material-batched procedural model; this metadata lets
     # independent runtime tests verify actual scene construction.
     g.host.set_meta("clutter_props", props)
