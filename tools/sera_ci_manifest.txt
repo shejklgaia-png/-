@@ -54,6 +54,7 @@ py tools/base_soft_center_space_self_check.py
 gd tools/base_soft_center_space_runtime_check.gd
 py tools/base_isometric_layout_self_check.py
 gd tools/base_isometric_layout_runtime_check.gd
+py tools/base_startup_first_frame_self_check.py
 py tools/base_exploration_self_check.py
 py tools/base_facilities_self_check.py
 py tools/base_material_conversion_self_check.py

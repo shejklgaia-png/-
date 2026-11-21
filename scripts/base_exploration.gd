@@ -1,7 +1,7 @@
 extends Node3D
 ## Outdoor portrait base hub; CRATE wanders independently and NEXUS is a tappable building.
 const Modules = preload("res://assets/base_command_modules.gd")
-const SeraRig = preload("res://scripts/sera_rig.gd")
+const SERA_RIG_PATH: String = "res://scripts/sera_rig.gd"
 const VersionIndicator = preload("res://scripts/version_indicator.gd")
 const BaseFacilities = preload("res://scripts/base_facility_system.gd")
 const BaseArchitecture = preload("res://scripts/sera_base_architecture.gd")
@@ -66,20 +66,71 @@ var facility_system: Node3D
 var facility_touch_id: int = -1
 var facility_touch_key: String = ""
 var facility_touch_start: Vector2 = Vector2.ZERO
+var startup_layer: CanvasLayer
+var startup_label: Label
 
 func _ready() -> void:
-    # Android system gesture must navigate the open field menu, not quit.
+    # The old synchronous boot left Android showing only Godot's gray clear
+    # color until the entire large BASE world and all of its dependencies
+    # finished. Draw an engine-native first frame before heavy construction.
     get_window().go_back_requested.connect(_on_android_back)
     _setup_world()
+    _create_camera()
+    _create_startup_overlay()
+    print("SERA_BASE_BOOT: initial frame ready")
+    # A process_frame signal fires BEFORE drawing; wait across two signals
+    # so a complete frame can actually be painted between them.
+    await get_tree().process_frame
+    await get_tree().process_frame
+    _startup_step("FLOOR")
     _build_hangar()
+    _startup_step("NEXUS")
     _build_nexus_building()
+    _startup_step("FACILITIES")
     _build_field_facilities()
+    _startup_step("SALVAGE")
     _create_salvage()
+    _startup_step("CRATE")
     _create_player()
     _create_crate()
-    _create_camera()
+    _startup_step("UI")
     _create_hud()
     SeraSave.mark_location("BASE")
+    startup_layer.queue_free()
+    startup_layer = null
+    startup_label = null
+    print("SERA_BASE_BOOT: COMPLETE")
+
+
+func _create_startup_overlay() -> void:
+    # No bundled fonts, imported textures, or material shaders in the loader.
+    # It must remain visible even if an optional resource fails to import.
+    startup_layer = CanvasLayer.new()
+    startup_layer.name = "BaseStartupOverlay"
+    startup_layer.layer = 100
+    add_child(startup_layer)
+    var cover := ColorRect.new()
+    cover.name = "Background"
+    cover.color = Color("#0b111b")
+    cover.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+    cover.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    startup_layer.add_child(cover)
+    startup_label = Label.new()
+    startup_label.name = "StartupMessage"
+    startup_label.text = "SERA / INITIALIZING"
+    startup_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    startup_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+    startup_label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+    startup_label.add_theme_font_size_override("font_size", 26)
+    startup_label.add_theme_color_override("font_color", Color("#dcebf3"))
+    startup_layer.add_child(startup_label)
+
+
+func _startup_step(step: String) -> void:
+    print("SERA_BASE_BOOT: " + step)
+    if startup_label != null:
+        startup_label.text = "SERA / INITIALIZING " + step
+
 
 func _setup_world() -> void:
     var world := WorldEnvironment.new()
@@ -304,7 +355,16 @@ func _create_player() -> void:
         # Preserve the invisible anchor for the camera but avoid loading the
         # expensive character rig into this menu scene.
         return
-    rig = SeraRig.new()
+    # Avoid loading the full combat rig and its script graph for a disabled
+    # outdoor player. This was an unnecessary startup-time preload.
+    var rig_script: Script = load(SERA_RIG_PATH) as Script
+    if rig_script == null:
+        push_error("SERA base: character script could not load")
+        return
+    rig = rig_script.new() as Node3D
+    if rig == null:
+        push_error("SERA base: character rig could not instantiate")
+        return
     rig.name = "SeraRig"
     rig.scale = Vector3.ONE * 1.15
     player.add_child(rig)

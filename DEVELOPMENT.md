@@ -1,3 +1,9 @@
+## 2026-11-21 — BASE gray-screen startup guard (unversioned bug fix)
+- The startup scene now creates a minimal WorldEnvironment, active orthographic camera and native-font loading overlay before the first process frame, rather than synchronously constructing the entire BASE before anything is drawn. The same hub architecture, navigation, scene path and persistent save format remain unchanged.
+- BASE boot now emits stage breadcrumbs (FLOOR/NEXUS/FACILITIES/SALVAGE/CRATE/UI/COMPLETE) to isolate any slow or failing startup subtask on Android. Overlay is removed only after the gameplay HUD is ready.
+- The disabled outdoor SERA character no longer preloads its full combat rig script graph; that Script is loaded only when HUB_SERA_CONTROLS_ENABLED is re-enabled. This prevents unnecessary startup compilation and preserves the dormant feature.
+- Added a registered Python regression for the first-visible-frame contract and lazy rig. Actual Android editor and device cold-start performance remain to be verified; passing headless tests alone cannot prove mobile responsiveness.
+
 ## 2026-11-21 — 既存LABO v534/v553 Godotテストの現行UIライフサイクルへの追随
 - PR #567の金属パネル/スクラップ改善はStatic/Godot新検査と720x1280実描画2点がPASS。ただし全CIは変更前からLABOのv534/v553が失敗。
 - v534: 古い `SpinBox` を必須としていたが、正式な現行UIは「− | 中央数字 `Label` | ＋」の三分割操作。実ラベル中心揃えと3セルの高さ64px以上を検査し直す。サイズ要求そのものを省略しない。
