@@ -19,9 +19,18 @@ func _run() -> void:
         var vertices: PackedVector3Array = data[Mesh.ARRAY_VERTEX]
         var normals: PackedVector3Array = data[Mesh.ARRAY_NORMAL]
         var uvs: PackedVector2Array = data[Mesh.ARRAY_TEX_UV]
+        var colors: PackedColorArray = data[Mesh.ARRAY_COLOR]
         if vertices.size() < 36 or vertices.size() != normals.size() or (
-                vertices.size() != uvs.size()):
+                vertices.size() != uvs.size()) or colors.size() != vertices.size():
             _fail("polygon topology/UVs incomplete: " + kind)
+            return
+        var min_tone: float = 1.0
+        var max_tone: float = 0.0
+        for color in colors:
+            min_tone = minf(min_tone, color.r)
+            max_tone = maxf(max_tone, color.r)
+        if max_tone - min_tone < 0.15:
+            _fail("missing baked face-direction contrast: " + kind)
             return
         for i in range(0, vertices.size(), 3):
             var a: Vector3 = vertices[i]

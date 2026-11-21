@@ -30,8 +30,16 @@ static func _triangle(st: SurfaceTool, a: Vector3, b: Vector3,
             uv = Vector2(p.z + 0.5, 0.5 - p.y)
         else:
             uv = Vector2(p.x + 0.5, 0.5 - p.y)
+        # A tiny offline directional light model stored at each actual vertex.
+        # This is not a GPU shader or extra light; flat normals remain crisp.
+        var shade: float = clampf(
+            0.80 + normal.y * 0.18
+            + maxf(normal.z, 0.0) * 0.10
+            + maxf(normal.x, 0.0) * 0.035,
+            0.62, 1.04)
         st.set_normal(normal)
         st.set_uv(uv)
+        st.set_color(Color(shade, shade, shade, 1.0))
         st.add_vertex(p)
 
 static func _quad(st: SurfaceTool, a: Vector3, b: Vector3,
