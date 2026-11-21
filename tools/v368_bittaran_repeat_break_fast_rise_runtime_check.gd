@@ -51,9 +51,10 @@ func _check_break(battle: Node3D, id: String,
         _fail(id + ": previous foot catch-up state leaked into new break")
         return false
 
-    var expected_start: float = 5.4 if index == 3 else 2.1
+    var expected_start: float = 6.0 if index == 3 else 2.5
     var expected_rise: float = RISE_ALL if index == 3 else RISE_SINGLE
-    var expected_duration: float = expected_start + expected_rise
+    var expected_duration: float = (
+        expected_start + 1.16 + expected_rise)
     if absf(float(ik.get("break_recover_start"))
             - expected_start) > 0.00001 or absf(float(
             ik.get("break_duration")) - expected_duration) > 0.0001:
@@ -69,7 +70,7 @@ func _check_break(battle: Node3D, id: String,
     var rise_completed: bool = false
     var final_rise_time: float = -1.0
     var head_follow_started: bool = false
-    var foot_started_after_rise: bool = false
+    var foot_started_before_rise: bool = false
     var max_step_lead: float = 0.0
     var no_early_step_frames: int = 0
     var active_rise_frames: int = 0
@@ -77,7 +78,7 @@ func _check_break(battle: Node3D, id: String,
     var initial_windup: bool = true
     var stepped_past_second_pair: bool = false
     var first_pair: int = -1
-    for frame in range(620):
+    for frame in range(1100):
         var before_down: bool = bool(ik.call("down_pose_active"))
         var before_windup: bool = bool(ik.call("windup_active"))
         var will_rise: bool = bool(ik.call("standup_turn_enabled", DT))
@@ -129,7 +130,31 @@ func _check_break(battle: Node3D, id: String,
             down_seen = true
             var pair: int = int(ik.get("source_ik_step_pair"))
             if pair != -1:
-                _fail(id + ": foot attempted catching up while still down")
+                _fail(id + ": normal gait started while down")
+                return false
+            var stage_pair: int = int(
+                ik.get("authored_down_replant_pair"))
+            if stage_pair >= 0:
+                foot_started_before_rise = true
+                if float(ik.call("standup_pose_fraction")) > SMALL:
+                    _fail(id + ": replant happened during BODY lift")
+                    return false
+                if first_pair < 0:
+                    first_pair = stage_pair
+                elif first_pair != stage_pair:
+                    stepped_past_second_pair = true
+                for leg in ik.get("legs"):
+                    if not bool(leg["stepping"]):
+                        continue
+                    var expected: Vector3 = ik.call(
+                        "_source_ik_home", leg)
+                    var touchdown: Vector3 = leg["swing_to"]
+                    if expected.distance_to(touchdown) > 0.0002:
+                        _fail(id + ": pre-lift landing target left Wait pose")
+                        return false
+            elif float(ik.call("standup_pose_fraction")) > SMALL and (
+                    not stepped_past_second_pair):
+                _fail(id + ": BODY rose before both diagonal foot steps")
                 return false
             no_early_step_frames += 1
             var weight: float = float(battle.call(
@@ -144,36 +169,22 @@ func _check_break(battle: Node3D, id: String,
             if not rise_completed:
                 rise_completed = true
                 final_rise_time = float(ik.get("break_duration"))
-                var elapsed_since_start: float = final_rise_time - expected_start
+                var elapsed_since_start: float = (
+                    final_rise_time - expected_start - 1.16)
                 if absf(elapsed_since_start - expected_rise) > SMALL:
-                    _fail(id + ": changed 1.0s/1.3s stand-up mid-encounter")
+                    _fail(id + ": changed 1.0s/1.3s stand-up")
                     return false
             post_rise_frames += 1
-            if int(ik.get("source_ik_step_pair")) >= 0:
-                foot_started_after_rise = true
-                if first_pair < 0:
-                    first_pair = int(ik.get("source_ik_step_pair"))
-                elif first_pair != int(ik.get("source_ik_step_pair")):
-                    stepped_past_second_pair = true
-                for leg in ik.get("legs"):
-                    if not bool(leg["stepping"]):
-                        continue
-                    var expected: Vector3 = ik.call(
-                        "_source_ik_home", leg)
-                    var touchdown: Vector3 = leg["swing_to"]
-                    if expected.distance_to(touchdown) > 0.0002:
-                        _fail(id + ": landing target stopped tracking chassis")
-                        return false
             if post_rise_frames > 100:
                 break
     if not down_seen or not first_rise_seen or not rise_completed \
-            or not foot_started_after_rise or not stepped_past_second_pair \
+            or not foot_started_before_rise or not stepped_past_second_pair \
             or not head_follow_started or no_early_step_frames < 80 \
-            or active_rise_frames < 12 or absf(
-            elapsed_windup - 0.60) > DT * 1.1:
+            or active_rise_frames < 12 or elapsed_windup < 3.0 \
+            or elapsed_windup > 5.5:
         _fail(id + ": incomplete consecutive leg-break behavior: " +
             str([index, down_seen, first_rise_seen, rise_completed,
-                foot_started_after_rise, stepped_past_second_pair,
+                foot_started_before_rise, stepped_past_second_pair,
                 head_follow_started, no_early_step_frames,
                 active_rise_frames, elapsed_windup]))
         return false
@@ -181,7 +192,7 @@ func _check_break(battle: Node3D, id: String,
         + " id=" + id + " clip=" + requested
         + " stand-up=" + str(expected_rise)
         + "s, planted frames=" + str(no_early_step_frames)
-        + ", dynamic foot placement after rise")
+        + ", two diagonal steps before BODY rise")
     return true
 
 func _run() -> void:
@@ -196,6 +207,6 @@ func _run() -> void:
             return
     print("GODOT_V368_REPEAT_BREAK_PASS: all four distinct limbs break "
         + "successively WITHOUT respawn, with the same rise/turn/approach "
-        + "and delayed foot-placement logic every time; physical stand-up "
+        + "and feet-first placement every time; physical stand-up "
         + "takes 1.0s/1.3s, original fallen hold unchanged")
     quit(0)
