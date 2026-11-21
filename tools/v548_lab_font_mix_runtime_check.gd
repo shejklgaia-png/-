@@ -13,16 +13,16 @@ func _family(face: FontFile) -> String:
     return server.font_get_name(rids[0]).to_lower().replace(" ", "") if not rids.is_empty() else ""
 func _run() -> void:
     var pairs: Array = [
-        [TypeSkin.JP_TITLE_FONT_PATH, 0x88C5, "notosansjp"],
-        [TypeSkin.JP_STATS_FONT_PATH, 0x65E5, "notosansjp"],
-        [TypeSkin.JP_UI_FONT_PATH, 0x88C5, "ibmplexsansjp"],
-        [TypeSkin.JP_CONTROL_FONT_PATH, 0x88C5, "ibmplexsansjp"],
+        [TypeSkin.JP_TITLE_FONT_PATH, 0x88C5, "udev"],
+        [TypeSkin.JP_STATS_FONT_PATH, 0x65E5, "moralerspace"],
+        [TypeSkin.JP_UI_FONT_PATH, 0x88C5, "udev"],
+        [TypeSkin.JP_CONTROL_FONT_PATH, 0x88C5, "udev"],
     ]
     for row: Array in pairs:
         var path: String = str(row[0])
         var face: FontFile = TypeSkin._font_from_raw(path, int(row[1]))
         if face == null:
-            _fail("could not parse WOFF2 raw font: " + path)
+            _fail("could not parse bundled TTF: " + path)
             return
         for cp: int in [0x0041,0x88C5,0x5099,0x6F22,0x30AB]:
             if not face.has_char(cp):
@@ -41,16 +41,14 @@ func _run() -> void:
             itemname.base_font != headline.base_font) or (
             headline.base_font == body.base_font) or (
             body.base_font == control.base_font) or (
-            stat.base_font != headline.base_font) or (
+            stat.base_font == headline.base_font) or (
             stat.base_font == body.base_font):
         _fail("role faces are not separated as designed")
         return
-    var ts: TextServer = TextServerManager.get_primary_interface()
-    var wght: int = ts.name_to_tag("wght")
-    if int(headline.variation_opentype.get(wght,0)) != 850 or (
-            int(itemname.variation_opentype.get(wght,0)) != 750) or (
-            int(stat.variation_opentype.get(wght,0)) != 550):
-        _fail("variable weight of title/equipment/stats is incorrect")
+    if headline.base_font != control.base_font or (
+            stat.base_font != TypeSkin.data_font() or
+            stat.base_font == TypeSkin.display_font()):
+        _fail("shared UDEV Bold and Moralerspace Regular face mapping incorrect")
         return
     for path: String in [TypeSkin.JP_TITLE_FONT_PATH,
             TypeSkin.JP_STATS_FONT_PATH,
@@ -75,19 +73,19 @@ func _run() -> void:
     await process_frame
     var heading: Label = fac.get("modal_title") as Label
     if heading.get_theme_font("font") != headline:
-        _fail("LAB title is not sharp Noto Sans JP")
+        _fail("LAB title is not UDEV Gothic Bold")
         return
     var content: Control = fac.get("item_layer") as Control
     var craft: Button = content.find_child("PrototypeIcon_H01",true,false) as Button
     if craft == null or (
             (craft.find_child("ItemTitle",true,false) as Label).get_theme_font("font") != itemname) or (
             (craft.find_child("ItemInfo",true,false) as Label).get_theme_font("font") != stat):
-        _fail("craft item is not sharp Noto Sans JP typography")
+        _fail("craft item is not UDEV item + Moralerspace stats")
         return
     var actions: Control = fac.get("modal_actions") as Control
     var part: Button = actions.find_child("CraftSlot_head",true,false) as Button
     if part == null or part.get_theme_font("font") != control:
-        _fail("craft categories are not IBM Plex Sans JP")
+        _fail("craft categories are not UDEV Gothic Bold")
         return
     fac.call("_switch_section","materials")
     await process_frame
