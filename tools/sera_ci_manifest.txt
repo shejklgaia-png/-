@@ -595,3 +595,5 @@ py tools/equipment_intake/portable_equipment_self_check.py
 py tools/equipment_intake/arm_clearance_contract_self_check.py
 gd tools/equipment_intake/preview_runtime_check.gd
 gd tools/equipment_intake/weight_runtime_check.gd
+py tools/base_visual_enlargement_self_check.py
+gd tools/base_visual_enlargement_runtime_check.gd

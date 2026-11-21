@@ -170,6 +170,10 @@ class Batch:
                 multi.set_instance_transform(i, poses[i])
             var surface := StandardMaterial3D.new()
             surface.albedo_color = Color(COLORS[tint])
+            # Only authored polygon meshes have face-tone vertex colors.
+            # Tubes/cubes keep the original material contract unchanged.
+            surface.vertex_color_use_as_albedo = (
+                geometry != "cube" and geometry != "tube")
             surface.metallic = 0.31 if tint != "cloth" else 0.0
             surface.roughness = 0.75 if tint != "glass" else 0.46
             # Damp oxidized mechanics and aged painted plates read as rough,
@@ -240,6 +244,9 @@ static func build_nexus(parent: Node3D) -> void:
     parent.add_child(node)
     var g := Batch.new(node)
     g.yaw = facility_yaw_radians("NEXUS")
+    # Broaden the hub silhouette without enlarging the surrounding clutter.
+    g.detail_scale = 1.14
+    node.set_meta("visual_model_scale", g.detail_scale)
     node.set_meta("body_yaw", g.yaw)
     # Wide reinforced shell, individual roof modules, recessed front blast door.
     g.poly("NexusCutCornerShell", "bevel", Vector3(0, 2.25, -0.08), Vector3(5.70, 3.98, 4.95), "armor")
@@ -344,6 +351,7 @@ static func build_nexus(parent: Node3D) -> void:
         Vector3(0.33, 0.13, 0.55), "rust", -0.28)
     BasePolish.add_details(g, "NEXUS")
     BaseSilhouette.add_details(g, "NEXUS")
+    g.detail_scale = 1.0
     BaseClutter.decorate(g, "NEXUS")
     g.flush()
     _light(node, "NexusAmberGateLight", Vector3(0, 2.55, 2.89),
@@ -593,6 +601,9 @@ static func build_facility(parent: Node3D, key: String) -> void:
     parent.add_child(node)
     var g := Batch.new(node)
     g.yaw = facility_yaw_radians(key)
+    # Small equipment gains legibility, while its floor / tap position stays.
+    g.detail_scale = 1.10 if key == "LABO" else 1.13
+    node.set_meta("visual_model_scale", g.detail_scale)
     node.set_meta("body_yaw", g.yaw)
     match key:
         "LABO":
@@ -621,6 +632,7 @@ static func build_facility(parent: Node3D, key: String) -> void:
                 Vector3(0.11, 0.055, 0.11), "edge")
     BasePolish.add_details(g, key)
     BaseSilhouette.add_details(g, key)
+    g.detail_scale = 1.0
     BaseClutter.decorate(g, key)
     g.flush()
     match key:

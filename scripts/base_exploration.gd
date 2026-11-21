@@ -264,6 +264,8 @@ func _create_grid_plates(floor: Node3D) -> Array[Dictionary]:
         draw.multimesh = multi
         var mat := StandardMaterial3D.new()
         mat.albedo_color = tints[palette_index]
+        # Inexpensive precomputed bevel contrast on one shared steel mesh.
+        mat.vertex_color_use_as_albedo = true
         mat.metallic = 0.12
         mat.roughness = 0.94
         mat.albedo_texture = steel_texture

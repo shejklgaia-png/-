@@ -35,6 +35,9 @@ assert 'MeshInstance3D.new()' not in detail
 assert 'CollisionShape3D.new()' not in detail
 assert 'OmniLight3D.new()' not in detail
 assert 'if _mesh_cache.has(kind)' in polys
+assert 'st.set_color(Color(' in polys, "Direct triangle vertices need baked face contrast"
+assert 'surface.vertex_color_use_as_albedo = ' in arch, "Use polygon colors"
+assert 'mat.vertex_color_use_as_albedo = true' in hub, "Deck bevels need baked face contrast"
 assert 'BaseDeckLayout.generate(' in hub, "do not change facility reserved slabs"
 assert 'py tools/base_silhouette_refinement_self_check.py' in ci
 assert 'gd tools/base_silhouette_refinement_runtime_check.gd' in ci

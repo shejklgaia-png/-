@@ -171,24 +171,24 @@ static func material_icon_sized(material_id: String, size: int) -> Texture2D:
 static func _native_equipment_icon(blueprint_id: String) -> Texture2D:
     # PNGs are generated off-device by the real GL Compatibility SeraRig
     # capture. Android Editor can decode the source if import cache is missing.
-    if _custom_equipment_icon_cache.has(blueprint_id):
-        return _custom_equipment_icon_cache[blueprint_id] as Texture2D
     var path: String = NATIVE_EQUIPMENT_DIRECTORY + "/" + blueprint_id + ".png"
     var bitmap: Image = null
-    if ResourceLoader.exists(path):
-        var res: Resource = ResourceLoader.load(path, "Texture2D")
-        if res is Texture2D:
-            bitmap = (res as Texture2D).get_image()
-    if bitmap == null and FileAccess.file_exists(path):
+    # Decode source PNG first on Android/editor. Avoid false missing .ctex
+    # errors from stale import caches; packaged builds can use imported texture.
+    if FileAccess.file_exists(path):
         var png: PackedByteArray = FileAccess.get_file_as_bytes(path)
         var decoded := Image.new()
         if not png.is_empty() and decoded.load_png_from_buffer(png) == OK:
             bitmap = decoded
+    if bitmap == null and ResourceLoader.exists(path):
+        var res: Resource = ResourceLoader.load(path, "Texture2D")
+        if res is Texture2D:
+            bitmap = (res as Texture2D).get_image()
     if bitmap == null or bitmap.get_width() != 512 or bitmap.get_height() != 512:
         return null
-    var source: Texture2D = ImageTexture.create_from_image(bitmap)
-    _custom_equipment_icon_cache[blueprint_id] = source
-    return source
+    # Final 2D composition is already cached per blueprint. Retaining this
+    # separate 512px source texture wastes about 19 MiB for 19 parts.
+    return ImageTexture.create_from_image(bitmap)
 
 
 static func _approved_equipment_icon(blueprint_id: String) -> Texture2D:
