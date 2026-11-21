@@ -31,14 +31,14 @@ assert 'gd tools/base_isometric_layout_runtime_check.gd' in ci
 # These independent target coordinates are the approved composition.
 # Frontal 26.9-degree camera shows facades; preserve lower-row clearance.
 desired = {
-    "NEXUS": (.509, .366),
-    "LABO": (.503, .664),
-    "SMELTER": (.190, .465),
-    "RECYCLER": (.790, .479),
-    "STORAGE": (.198, .607),
-    "GENERATOR": (.812, .619),
-    "SCRAP_COLLECTOR": (.172, .831),
-    "BUILD_TERMINAL": (.705, .843),
+    "NEXUS": (.509, .285),
+    "LABO": (.503, .670),
+    "SMELTER": (.190, .406),
+    "RECYCLER": (.790, .418),
+    "STORAGE": (.198, .582),
+    "GENERATOR": (.812, .590),
+    "SCRAP_COLLECTOR": (.172, .851),
+    "BUILD_TERMINAL": (.705, .861),
 }
 read_nexus = re.search(
     r'const NEXUS_BUILDING_ORIGIN: Vector3 = Vector3\(([-.\d]+), ([-.\d]+), ([-.\d]+)\)', base)
