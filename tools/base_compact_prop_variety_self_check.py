@@ -7,7 +7,7 @@ arch = (root/"scripts/sera_base_architecture.gd").read_text(encoding="utf-8")
 ci = (root/"tools/sera_ci_manifest.txt").read_text(encoding="utf-8")
 assert 'static func _accent(' in code
 assert 'static func _make_micro(' in code
-assert '"accent": true' in code
+assert 'item["accent"] = true' in code, "accent flag must be set in the authored item"
 assert '"sealed_canister":' in code
 assert '"locator_beacon":' in code
 assert code.count('_accent("') == 16, "two additional authored objects per site"
