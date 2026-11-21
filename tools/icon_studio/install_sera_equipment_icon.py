@@ -24,7 +24,8 @@ def pack_icon(png_path: Path, blueprint: str, output: Path = OUT,
     if not re.fullmatch(r'[A-Z]{1,3}[0-9]{2,3}', blueprint):
         raise ValueError('Invalid blueprint ID; expected e.g. H02 or WR02')
     prototype = (ROOT/'scripts/sera_prototype_catalog.gd').read_text(encoding='utf-8')
-    if not re.search(r'^\s*"'+re.escape(blueprint)+r'"\s*:\s*\{',prototype,re.M):
+    record = re.search(r'^\\s*"'+re.escape(blueprint)+r'"\\s*:\\s*\\{([^}]*)\\}',prototype,re.M|re.S)
+    if record is None:
         raise ValueError(f'Blueprint {blueprint} is not registered in LAB catalog')
     data = png_path.read_bytes()
     if len(data) < 33 or not data.startswith(b'\x89PNG\r\n\x1a\n'):
@@ -34,6 +35,12 @@ def pack_icon(png_path: Path, blueprint: str, output: Path = OUT,
         raise ValueError('Icon must be transparent RGBA 512x512 PNG')
     meta = read_png_metadata(png_path)
     identity = meta['equipment']; source = meta['source']
+    slot_match = re.search(r'"slot"\\s*:\\s*"([^"]+)"',record.group(1))
+    rig_match = re.search(r'"rig_set"\\s*:\\s*"([^"]+)"',record.group(1))
+    if not slot_match or not rig_match or (
+        identity.get('slot') != slot_match.group(1) or identity.get('rig_set') != rig_match.group(1)
+    ):
+        raise ValueError('PNG slot/rig set does not match the LAB blueprint')
     if identity.get('blueprint_id') != blueprint:
         raise ValueError('PNG metadata blueprint differs from selected blueprint')
     if source_path and source.get('repository_path') != source_path:
