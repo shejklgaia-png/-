@@ -26,23 +26,23 @@ const MATERIAL_CARD_HEIGHT: float = 108.0
 const MATERIAL_ICON_WIDTH: int = 54
 ## Orthographic 720x1280 projected arrangement: upper NEXUS, central LABO,
 ## six independent facilities in staggered left/right columns. World coordinates
-## deliberately look diagonal: the oblique camera projects them into a clean grid.
+## staggered toward the camera without forming rigid rows, keeping a loose center.
 ## Base field architecture: LABO is one building; resources, power and construction
 ## are independent physical machines. NEXUS remains in the parent scene.
 const FACILITY_SPECS = [
-    {"id": "LABO", "name": "LABO", "at": Vector3(0.00, 0.0, -2.20),
+    {"id": "LABO", "name": "LABO", "at": Vector3(6.20, 0.0, 5.25),
         "size": Vector3(4.25, 4.1, 4.35), "subtitle": "Shell / OS / スロット開発"},
-    {"id": "SCRAP_COLLECTOR", "name": "回収機", "at": Vector3(6.11, 0.0, 14.98),
+    {"id": "SCRAP_COLLECTOR", "name": "回収機", "at": Vector3(5.20, 0.0, 15.60),
         "size": Vector3(2.35, 2.55, 2.25), "subtitle": "スクラップ収集"},
-    {"id": "SMELTER", "name": "精製装置", "at": Vector3(-10.19, 0.0, -4.55),
+    {"id": "SMELTER", "name": "精製装置", "at": Vector3(-10.90, 0.0, -4.90),
         "size": Vector3(2.40, 2.85, 2.40), "subtitle": "素材の精製"},
-    {"id": "RECYCLER", "name": "分解装置", "at": Vector3(0.65, 0.0, -12.20),
+    {"id": "RECYCLER", "name": "分解装置", "at": Vector3(1.10, 0.0, -11.10),
         "size": Vector3(2.45, 2.55, 2.35), "subtitle": "不要素材の分解"},
-    {"id": "GENERATOR", "name": "発電機", "at": Vector3(8.76, 0.0, -2.39),
+    {"id": "GENERATOR", "name": "発電機", "at": Vector3(9.40, 0.0, -1.65),
         "size": Vector3(2.40, 3.10, 2.25), "subtitle": "拠点電力"},
-    {"id": "STORAGE", "name": "資材保管庫", "at": Vector3(-2.94, 0.0, 5.54),
+    {"id": "STORAGE", "name": "資材保管庫", "at": Vector3(-2.55, 0.0, 5.80),
         "size": Vector3(2.45, 2.15, 2.30), "subtitle": "資源の保管"},
-    {"id": "BUILD_TERMINAL", "name": "建設端末", "at": Vector3(15.17, 0.0, 8.35),
+    {"id": "BUILD_TERMINAL", "name": "建設端末", "at": Vector3(15.30, 0.0, 8.80),
         "size": Vector3(2.10, 2.55, 2.10), "subtitle": "拠点の建設・拡張"}
 ]
 

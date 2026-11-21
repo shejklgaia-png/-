@@ -110,19 +110,31 @@ static func decorate(floor: Node3D, panels: Array[Dictionary]) -> void:
                     _put(groups, "FacilityPanelBolts",
                         Vector3(cx + side * edge_x, 0.009, at_z),
                         Vector3(0.105, 0.046, 0.105), "bolt")
-    # Independently routed diagonal industrial safety lanes and short dashes.
+    # Short, broken work-lane fragments instead of a complete rectangular
+    # plaza outline. Vary the rhythm and position slightly: the middle is
+    # informal transit space, not a giant perfectly empty fenced courtyard.
     for i in range(-15, 16):
         var p: float = float(i) * 1.05
-        _put(groups, "CautionStripes", Vector3(-4.95, 0.020, p),
-            Vector3(0.13, 0.028, 0.58), "caution", -0.06)
-        _put(groups, "CautionStripes", Vector3(5.12, 0.020, p + 0.25),
-            Vector3(0.13, 0.028, 0.58), "caution", 0.05)
+        if posmod(i * 7 + 3, 6) in [0, 2, 4]:
+            _put(groups, "CautionStripes",
+                Vector3(-4.75 + sin(float(i) * 0.37) * 0.24, 0.020, p),
+                Vector3(0.12, 0.028, 0.53), "caution", -0.09)
+        if posmod(i * 3 + 5, 7) in [0, 2, 3, 5]:
+            _put(groups, "CautionStripes",
+                Vector3(4.85 + cos(float(i) * 0.41) * 0.31, 0.020, p + 0.33),
+                Vector3(0.12, 0.028, 0.52), "caution", 0.10)
     for i in range(17):
         var x: float = -17.0 + float(i) * 2.0
-        _put(groups, "CautionStripes", Vector3(x, 0.022, 5.90),
-            Vector3(0.88, 0.025, 0.10), "caution")
-        _put(groups, "CautionStripes", Vector3(x, 0.022, -7.70),
-            Vector3(0.88, 0.025, 0.10), "caution")
+        # Omit most of the horizontal strokes so the path remains hinted,
+        # with deliberate gaps rather than a continuous central square.
+        if posmod(i * 5 + 1, 7) in [0, 2, 4] and (x < -5.0 or x > 12.0):
+            _put(groups, "CautionStripes",
+                Vector3(x, 0.022, 5.90 + sin(float(i)) * 0.23),
+                Vector3(0.68, 0.025, 0.10), "caution", 0.08)
+        if posmod(i * 7 + 3, 8) in [0, 1, 4, 6]:
+            _put(groups, "CautionStripes",
+                Vector3(x, 0.022, -7.70 + cos(float(i)) * 0.18),
+                Vector3(0.64, 0.025, 0.10), "caution", -0.07)
     # Conduits follow the deck edges; keep the LABO and CRATE central lane clear.
     for side in [-1.0, 1.0]:
         var x: float = side * 10.20
@@ -133,12 +145,13 @@ static func decorate(floor: Node3D, panels: Array[Dictionary]) -> void:
         for j in range(-9, 10):
             _put(groups, "ConduitClamps", Vector3(x + side * 0.10,
                 0.086, float(j) * 1.72), Vector3(0.42, 0.09, 0.14), "bolt")
-    # Stencil stencil-like deck insignia formed of flat strips.
+    # A small faded directional emblem, not a plaza-sized outline.
+    # Place it on the free traffic deck between NEXUS and the lower LABO.
     for side in [-1.0, 1.0]:
-        _line(groups, "DeckMarkings", Vector3(side * 0.16, 0.028, 9.1),
-            Vector3(side * 0.85, 0.028, 9.8), 0.08, "mark")
-        _line(groups, "DeckMarkings", Vector3(side * 0.85, 0.028, 9.8),
-            Vector3(side * 0.16, 0.028, 10.4), 0.08, "mark")
+        _line(groups, "DeckMarkings", Vector3(side * 0.16, 0.028, -2.40),
+            Vector3(side * 0.69, 0.028, -1.90), 0.07, "mark")
+        _line(groups, "DeckMarkings", Vector3(side * 0.69, 0.028, -1.90),
+            Vector3(side * 0.16, 0.028, -1.34), 0.07, "mark")
     for key_variant in groups.keys():
         var key: String = str(key_variant)
         var fields: PackedStringArray = key.split("|")

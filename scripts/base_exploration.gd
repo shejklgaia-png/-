@@ -29,9 +29,9 @@ const BASE_CAMERA_POSITION: Vector3 = Vector3(21.0, 23.0, 25.0)
 const BASE_CAMERA_TARGET: Vector3 = Vector3(0.0, 0.0, -2.2)
 const NEXUS_BUILDING_ORIGIN: Vector3 = Vector3(-9.53, 0.0, -14.55)
 const CRATE_SPEED: float = 0.95
-# CRATE orbits the central LABO instead of walking through its walls.
-# Side lanes and the lower/upper arcs stay clear of every machine foundation.
-# Identical patrol loop, rotated to start CRATE on the camera-facing lane.
+# CRATE wanders the irregular middle service lanes rather than revolving
+# around a square formal plaza or crossing the relocated LABO foundation.
+# Keep the existing stable nine-point path and camera-facing starting lane.
 const CRATE_WAYPOINTS = [
     Vector2(3.30, -1.20), Vector2(3.30, -5.40),
     Vector2(0.00, -6.10), Vector2(-3.30, -5.40),
@@ -261,13 +261,14 @@ func _box(parent: Node3D, name: String, at: Vector3, size: Vector3, tint: Color)
     return body
 
 func _create_salvage() -> void:
-    # Deliberate small props leave a clear central walkable lane.
+    # A few salvage props linger along the open center's edges, not its core.
+    # Keep the 16 original meshes/identities and stable yaws for cheap rendering.
     var lots := [
         Vector3(-9.83, 0.0, 0.28), Vector3(6.80, 0.0, 19.56),
-        Vector3(4.65, 0.0, 6.62), Vector3(14.96, 0.0, 14.72),
+        Vector3(-1.60, 0.0, 0.60), Vector3(14.96, 0.0, 14.72),
         Vector3(4.80, 0.0, -11.02), Vector3(20.54, 0.0, 10.41),
         Vector3(-5.42, 0.0, -8.18), Vector3(5.71, 0.0, -7.88),
-        Vector3(-7.21, 0.0, 6.65), Vector3(9.45, 0.0, 5.70),
+        Vector3(-7.21, 0.0, 6.65), Vector3(3.00, 0.0, -0.80),
         Vector3(-13.41, 0.0, -11.38), Vector3(4.90, 0.0, -17.16),
         Vector3(-13.50, 0.0, 3.82), Vector3(12.87, 0.0, 0.48),
         Vector3(5.21, 0.0, 10.48), Vector3(-3.20, 0.0, -18.15)
