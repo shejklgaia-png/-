@@ -2,7 +2,7 @@
 - 入力原本：`models/storage/カメラアイ頭部.bbmodel`。2026-11-21同期版の修正済み外装をそのまま新規正本として `models/manifest.json` に登録。従来の `Head_C.bbmodel`（頭部C）は維持。
 - `sera_equipment.gd` がA標準アニメーションの `Waist/Torso/Chest/Neck/Head` 配下へ6メッシュを追加。作者のローカル頂点・UV・回転と左右配置は維持し、均一0.66倍・中心補正で装着。HEAD A/B/C/その他部位への変更なし。
 - オリジナル16×16 PNGをBlockbench原本から読み込み、生成した `assets/sera_camera_eye_head_data.gd` に完全埋込。Godot標準 `_make_mesh` 用にメモリ内のUVだけ96×32座標系へ写像し、元のBBMODEL/テクスチャを変更しない。
-- NEXUSのHEAD選択に `D CAMERA EYE` を追加。既存の `sera_equipment.cfg` と保存スロットv2、選択時非装備頭部の非表示を継承。既存の戦闘・モーションと7装備部位は維持。
+- NEXUSのHEAD選択に正式名称 `D アイリス`（英語名 `IRIS`）を追加。内部装備IDは `head`/`D` を維持。既存の `sera_equipment.cfg` と保存スロットv2、選択時非装備頭部の非表示を継承。既存の戦闘・モーションと7装備部位は維持。
 - `rebuild_camera_eye_head_data.py` を統合モデルビルドに追加。事前に `camera_eye_head_self_check.py` をCIへ登録し、実行時のモデル・16pxテクスチャ・切り替え確認 `camera_eye_head_runtime_check.gd` も登録。
 - GitHub CI/Android実機での表示・可動・実際の装備サイズは静的構造検査と区別して扱う。
 
