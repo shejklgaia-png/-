@@ -111,6 +111,9 @@ gd tools/base_lower_larger_composition_runtime_check.gd
 py tools/base_gdscript_parse_self_check.py
 gd tools/base_startup_parse_runtime_check.gd
 py tools/base_startup_first_frame_self_check.py
+# Procedural white-core/cyan-edge startup streak: loop + actual Godot compile.
+py tools/base_loading_sweep_self_check.py
+gd tools/base_loading_sweep_runtime_check.gd
 py tools/base_exploration_self_check.py
 py tools/base_facilities_self_check.py
 py tools/base_material_conversion_self_check.py
