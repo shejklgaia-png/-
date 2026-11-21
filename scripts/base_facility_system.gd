@@ -150,7 +150,7 @@ func _build_facilities() -> void:
         facility_nodes[key] = root_node
         _box(root_node, "Foundation", Vector3(0, 0.16, 0),
             Vector3(float((spec["size"] as Vector3).x), 0.32,
-                float((spec["size"] as Vector3).z)), Color("#263747"))
+                float((spec["size"] as Vector3).z)), Color("#46535c"))
         # All seven stations now have separately authored industrial geometry.
         BaseArchitecture.build_facility(root_node, key)
         # Keep the generator's existing rotor animation after the geometry swap.
