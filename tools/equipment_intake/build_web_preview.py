@@ -130,7 +130,7 @@ def webpage(site: Path) -> None:
     css = style.group(1)
     # Hiding the old HTML WebGL canvas is NOT enough: it must be removed.
     native_layout = """
-<section class="card" id="godotPreviewCard">
+<section class="card" id="intake-viewer-card">
  <div class="viewer-top"><h2>3D PREVIEW <span class="pill">GODOT / GL</span></h2>
  <small id="modelTitle">SERA NATIVE EQUIPMENT</small></div>
  <div class="viewer" id="viewer">
@@ -173,8 +173,8 @@ def webpage(site: Path) -> None:
 #viewer{touch-action:none}#viewer iframe{aspect-ratio:1;width:100%;height:auto}
 #intake-main .viewer{width:min(100%,600px);aspect-ratio:1;max-width:100%}
 #intake-main .viewer-caption{pointer-events:none}
-#intake-main #godotPreviewCard{position:sticky;top:0;z-index:2}
-@media(max-width:800px){#intake-main #godotPreviewCard{position:relative}}
+#intake-main #intake-viewer-card{position:sticky;top:0;z-index:2}
+@media(max-width:800px){#intake-main #intake-viewer-card{position:relative}}
 """
     html_document = (
         '<!doctype html><html lang="ja"><head><meta charset="utf-8">'
