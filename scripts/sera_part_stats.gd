@@ -8,7 +8,10 @@ const BODY_SLOTS = ["head", "torso", "arms", "legs", "booster"]
 const PROFILES = {
     "head": {
         "A": {"hp": 20.0, "defense": 0.16, "lock_range": 24.0, "tracking": 1.0},
-        "B": {"hp": 26.0, "defense": 0.28, "lock_range": 20.0, "tracking": 0.88}
+        "B": {"hp": 26.0, "defense": 0.28, "lock_range": 20.0, "tracking": 0.88},
+        # HEAD D / IRIS retains the currently playable A head performance.
+        # Cosmetic head option; independent balance is not approved yet.
+        "D": {"hp": 20.0, "defense": 0.16, "lock_range": 24.0, "tracking": 1.0}
     },
     "torso": {
         "A": {"hp": 80.0, "defense": 0.16},

@@ -1,6 +1,7 @@
 extends RefCounted
-## LABO presentation math. Body/weapon bases come from the existing A-rig
-## profiles; provisional item affixes are display-only until combat wiring lands.
+## LABO presentation math. Body/weapon bases come from the current actual rig
+## profiles; H02 (camera-eye) uses real HEAD D with unchanged A head baseline.
+## Provisional item affixes are display-only until combat wiring lands.
 const PartStats = preload("res://scripts/sera_part_stats.gd")
 const Catalog = preload("res://scripts/sera_prototype_catalog.gd")
 const Affixes = preload("res://scripts/sera_craft_affixes.gd")
