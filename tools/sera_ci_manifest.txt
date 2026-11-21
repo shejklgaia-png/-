@@ -27,6 +27,9 @@ py tools/v552_material_names_gamewide_self_check.py
 gd tools/v552_material_names_gamewide_runtime_check.gd
 py tools/v551_refinery_spacing_starter_self_check.py
 gd tools/v551_refinery_spacing_starter_runtime_check.gd
+# Warehouse detail: three fixed stat columns, aligned totals and clean glyphs.
+py tools/warehouse_stats_table_self_check.py
+gd tools/warehouse_stats_table_runtime_check.gd
 # LABO names: shared blue-grey underlines and legible 3D signs.
 py tools/labo_name_underlines_sign_legibility_self_check.py
 gd tools/labo_name_underlines_sign_legibility_runtime_check.gd
