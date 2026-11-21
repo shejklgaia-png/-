@@ -2,7 +2,8 @@ extends SceneTree
 ## Lock the authored model's actual front (-Z), right (+X), and roof (+Y)
 ## toward the fixed orthographic camera at world +Z. Catch a mirrored side
 ## or rear photograph even if PNG encoding, pose and margins all validate.
-## Run in actual Godot: EULER_ORDER_XYZ rotates the X tilt AFTER Y,\n## so a POSITIVE X pitch exposes the upward surface toward camera +Z.
+## Run in actual Godot: EULER_ORDER_XYZ rotates the X tilt AFTER Y, 
+## so a POSITIVE X pitch exposes the upward surface toward camera +Z.
 const SOURCE = preload("res://scripts/sera_prototype_catalog.gd")
 const FRONT_RIGHT_TOP: Vector3 = Vector3(26.0, -146.0, 0.0)
 

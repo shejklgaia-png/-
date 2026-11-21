@@ -7,9 +7,9 @@ const Catalog = preload("res://scripts/sera_prototype_catalog.gd")
 const PIXELS: int = 512
 # NEXUS front is local -Z and its preview already turns the rig by PI.
 # Old yaw=-34 pointed the +Z camera at the character's BACK.
-# Y=-146 sees front (-Z) and right (+X); X=-26 exposes the top (+Y).
+# Y=-146 sees front (-Z) and right (+X); X=+26 exposes the top (+Y).
 # Apply to EVERY slot including IRIS / Katana, keeping 512px equal margins.
-const OBLIQUE_POSE: Vector3 = Vector3(-26.0, -146.0, 0.0)
+const OBLIQUE_POSE: Vector3 = Vector3(26.0, -146.0, 0.0)
 const POSE_NAMES = ["NEXUS_pose", "NEXUSpose"]
 const SIDE_PADDING: int = 34
 
