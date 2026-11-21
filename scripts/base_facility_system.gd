@@ -884,10 +884,11 @@ func attach_hud(hud: Control) -> void:
     square_skin.border_color = Color("#598697")
     square_skin.set_border_width_all(1)
     square_skin.set_corner_radius_all(0)
-    square_skin.content_margin_left = 5
-    square_skin.content_margin_right = 5
-    square_skin.content_margin_top = 5
-    square_skin.content_margin_bottom = 5
+    # One continuous 1px frame; no second 5px inset around the 3D grid.
+    square_skin.content_margin_left = 0.0
+    square_skin.content_margin_right = 0.0
+    square_skin.content_margin_top = 0.0
+    square_skin.content_margin_bottom = 0.0
     square_frame.add_theme_stylebox_override("panel", square_skin)
     confirmation_preview_square.add_child(square_frame)
     var square_content := Control.new()
@@ -2023,7 +2024,12 @@ func _add_item_tile(icon: Texture2D, title: String,
     art.name = "Icon"
     art.clip_contents = true
     art.texture = icon
+    # 512px H02 portrait assets must never impose their source dimensions
+    # on a narrow Android warehouse-detail row.
+    art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
     art.custom_minimum_size = Vector2(66, 66)
+    art.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+    art.size_flags_vertical = Control.SIZE_SHRINK_CENTER
     art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
     row.add_child(art)
     var caption := Label.new()
