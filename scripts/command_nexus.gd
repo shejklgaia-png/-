@@ -1284,8 +1284,9 @@ func _layout_customization_part_picker() -> void:
 func _show_customization_part_picker(slot: String) -> void:
     if customize_part_picker == null:
         return
-    customize_part_preview_slot = slot
-    _refresh_single_part_preview(slot)
+    # Keep the inspected model and status in sync when the right-side button
+    # opens selection; the name region itself never calls this function.
+    _inspect_customization_part(slot)
     customize_part_picker_title.text = str(CUSTOMIZE_SLOT_LABELS.get(slot, slot)) + "   /   SELECT PART"
     for child in customize_part_grid.get_children():
         customize_part_grid.remove_child(child)
