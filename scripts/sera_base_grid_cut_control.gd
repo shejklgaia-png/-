@@ -1,7 +1,7 @@
 extends Control
 ## Procedural, texture-free chamfered SERA UI: large mode plate, module and
 ## bare wireframe operation icons. No emoji/fallback icon glyphs.
-const Skin = preload("res://scripts/sera_labo_round_skin.gd")
+const LaboSkin = preload("res://scripts/sera_labo_round_skin.gd")
 
 signal activated(code: String)
 
@@ -52,10 +52,10 @@ func _draw() -> void:
         ]), Color("#55798a"), 1.4, true)
         draw_line(Vector2(15.0, h - 10.0),
             Vector2(w * 0.53, h - 10.0), Color("#55798a"), 1.0)
-        draw_string(Skin.title_font(), Vector2(20.0, h * 0.65),
+        draw_string(LaboSkin.title_font(), Vector2(20.0, h * 0.65),
             code, HORIZONTAL_ALIGNMENT_LEFT, w - 30.0, 42,
             Color("#dfeaf0"))
-        draw_string(Skin.ui_font(), Vector2(w - 94.0, h * 0.70),
+        draw_string(LaboSkin.ui_font(), Vector2(w - 94.0, h * 0.70),
             caption, HORIZONTAL_ALIGNMENT_LEFT, 78.0, 16,
             Color("#a7bdcb"))
         return
@@ -71,9 +71,9 @@ func _draw() -> void:
         ]), Color("#233e4d") if selected else Color("#152b39"))
         draw_polyline(outline, active if selected else Color("#456475"),
             1.4, true)
-        draw_string(Skin.title_font(), Vector2(0, h * 0.62), code,
+        draw_string(LaboSkin.title_font(), Vector2(0, h * 0.62), code,
             HORIZONTAL_ALIGNMENT_CENTER, w, 30, ink)
-        draw_string(Skin.data_font(), Vector2(0, h - 7.0),
+        draw_string(LaboSkin.data_font(), Vector2(0, h - 7.0),
             caption, HORIZONTAL_ALIGNMENT_CENTER, w, 10,
             Color("#91aab9"))
         if selected:
@@ -112,7 +112,7 @@ func _draw() -> void:
             draw_line(tip, tip + Vector2(-9, -1), c, 2.5, true)
             draw_line(tip, tip + Vector2(-2, -9), c, 2.5, true)
             draw_circle(center, 3.0, c)
-    draw_string(Skin.ui_font(), Vector2(0, h - 6.0), caption,
+    draw_string(LaboSkin.ui_font(), Vector2(0, h - 6.0), caption,
         HORIZONTAL_ALIGNMENT_CENTER, w, 12, ink)
     if selected:
         draw_line(Vector2(w * 0.29, h - 1.0),
