@@ -6,6 +6,9 @@
 - 製作成功時に個体UIDへ追加性能5個を抽選・永続保存。NEXUSの追加効果モジュールと別管理し、ロード再抽選・旧装備破壊は禁止。
 - 999個に比例したUIノード生成は禁止。標準Buttonの可視セルプールを再利用し、Androidの実機表示とスクロールはCIとは別に検査する。
 
+## HTMLツールの配布方法（必須・2026-11-21）
+**`docs/SERA_HTML_ARTIFACT_DELIVERY_POLICY_ja.md` を参照。** GitHub Rawを「HTMLを開く直リンク」にしない。検証済みHTTPSホストがあれば直接起動リンク、未公開なら完成HTMLそのものを添付する。Godot Web版はWASM/PCK付きの同一オリジン配信が必須。ChatGPT Page埋め込みはWebGL等が未検証ならその旨を明示する。
+
 ## 装備アイコンソフトの先行受け渡し（必須）
 **装備モデル実装前に** 原本とテクスチャを同梱したIcon Studioの単一HTMLをユーザーに渡す。ユーザーに再アップロードを要求しない。HTML受け渡し後に装備実装／LAB／倉庫／NEXUS／保存まで接続する。PNGは `SERA_ICON_MANIFEST_V1` で他チャットへ引き継ぐ。詳細正本: `docs/SERA_ICON_STUDIO_HANDOFF_POLICY_ja.md`。
 
