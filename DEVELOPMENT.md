@@ -5,8 +5,17 @@
 - CI contract written before production changes: `tools/base_roof_identity_self_check.py` and `tools/base_roof_identity_runtime_check.gd` registered in `tools/sera_ci_manifest.txt`. Runtime/Android visual checks and complete post-merge CI must be independently confirmed; do not equate static inspection with rendered screenshots.
 
 
-## 2026-11-22 — NEXUS hangar opaque metal contrast (night task)
 
+## SERA v535 — ビットタラン10分討伐バランス（2026-11-22）
+- 全身A・標準3段コンボを基準に、8秒ごとに1コンボ成功・四脚各12コンボ破壊・ダウン頭部合計5コンボ・残HPを胴体へ与える試算で約601.7秒を目標に調整。
+- 本体HP2550、前脚720／後脚620／頭部150。脚への本体HPダメージ×0.75／頭部×2.5。破壊力と予測シールドは独立で維持。
+- セラの全身A HP320・全身B HP416。各装備部位のHPを一律2倍とし、防御・EN・速度・攻撃力は維持。
+- ボス専用攻撃威力は踏みつけ30、弾き22、なぎ払い28、腹部砲5.04、レールガン8.1／接触。共通トレーニング攻撃テーブルは変更しない。
+- 脚破壊は一度のみ。4脚破壊後に胴体が常時攻撃／ロック可能。頭部はダウン中のみ攻撃可能、破壊後もダウン中の弱点として維持。
+- モーション／IK・当たり判定・攻撃選択・シールドSP／SH／EN回復・報酬・セーブ形式は不変更。CI期待値を先に追加し、独立したGodot実シーン検証を登録。
+- 約10分は操作・命中間隔を仮定した目標値。Android実操作による実測は別途必要。
+
+## 2026-11-22 — NEXUS hangar opaque metal contrast (night task)
 - The existing NEXUS Blockbench MultiMesh batches retain all transforms, sizes, geometry, camera settings, and the seven-index material mapping.
 - Opaque structural palette indices 1–3 use metallic 0.28 and roughness 0.52 instead of 0.16/0.70 to separate plate edges under the existing directional light. Other indices and emissive accents 5–7 are unchanged; no new nodes, lights, textures or draw calls.
 - Added `tools/nexus_material_contrast_self_check.py` and registered it in CI before editing the renderer. Python/Godot execution and Android visual validation remain pending; this change must not be described as visually verified.

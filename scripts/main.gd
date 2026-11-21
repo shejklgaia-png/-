@@ -800,7 +800,7 @@ func _refresh_numeric_status_hud() -> void:
     if core_label != null:
         var label_name: String = "BODY"
         var integrity: float = float(target_hp)
-        var maximum: float = float(TARGET_MAX_HP)
+        var maximum: float = float(_target_health_cap())
         if target_parts != null and not locked_target_part_id.is_empty():
             label_name = str(target_parts.call("get_part_name", locked_target_part_id))
             integrity = float(target_parts.call("get_part_integrity", locked_target_part_id))
@@ -2176,11 +2176,17 @@ func _refresh_player_hp_bar() -> void:
             energy_exhausted)
 
 
+## Overridden by authored bosses; the training target retains its own 500 HP.
+func _target_health_cap() -> int:
+    return TARGET_MAX_HP
+
+
 func _refresh_hp_bar() -> void:
+    var maximum: int = _target_health_cap()
     NUMERIC_HUD.present_target_health(
-        hp_label, hp_fill, target_hp, TARGET_MAX_HP, TARGET_HP_BAR_WIDTH)
+        hp_label, hp_fill, target_hp, maximum, TARGET_HP_BAR_WIDTH)
     if clean_training_hud != null:
-        clean_training_hud.call("set_boss_health", target_hp, TARGET_MAX_HP)
+        clean_training_hud.call("set_boss_health", target_hp, maximum)
 
 
 func _clear_strike_tracking() -> void:
@@ -2561,7 +2567,7 @@ func _tick_target_respawn(delta: float) -> void:
 func _reset_target_after_respawn() -> void:
     # Shared by timer expiration and training KO recovery. Reset each
     # part, lock-selection cache, ranged enemy head state and boss HUD ONCE.
-    target_hp = TARGET_MAX_HP
+    target_hp = _target_health_cap()
     enemy_predictive_shield.reset()
     last_shield_impact.clear()
     if shield_hit_fx != null:

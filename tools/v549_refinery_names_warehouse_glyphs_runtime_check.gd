@@ -130,7 +130,7 @@ func _run() -> void:
     if readable:
         readable = row_name.text == "最大HP" and (
             row_math.get_theme_font("font") == Typeface.stats_font()) and (
-            row_total.text == "20.0") and (
+            row_total.text == "40.0") and (
             row_total.horizontal_alignment == HORIZONTAL_ALIGNMENT_RIGHT)
     var font: Font = Typeface.stats_font()
     for codepoint: int in [0x6700, 0x5927, 0x9632, 0x5FA1]:

@@ -29,7 +29,8 @@ assert "energy_exhausted)" in vitals
 target = section("func _refresh_hp_bar() -> void:",
                  "func _clear_strike_tracking() -> void:")
 assert "NUMERIC_HUD.present_target_health(" in target
-assert "hp_label, hp_fill, target_hp, TARGET_MAX_HP, TARGET_HP_BAR_WIDTH)" in target
+assert "hp_label, hp_fill, target_hp, maximum, TARGET_HP_BAR_WIDTH)" in target
+assert "var maximum: int = _target_health_cap()" in target
 
 tick = section("func _tick_resources(delta: float) -> void:",
                "func _refresh_numeric_status_hud() -> void:")
@@ -53,7 +54,7 @@ for token in (
     "if core_label != null:",
     'var label_name: String = "BODY"',
     "var integrity: float = float(target_hp)",
-    "var maximum: float = float(TARGET_MAX_HP)",
+    "var maximum: float = float(_target_health_cap())",
     "if target_parts != null and not locked_target_part_id.is_empty():",
     'target_parts.call("get_part_name", locked_target_part_id)',
     'target_parts.call("get_part_integrity", locked_target_part_id)',

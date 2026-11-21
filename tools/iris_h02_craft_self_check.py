@@ -32,8 +32,8 @@ assert '"rig_set": "D"' in catalog
 stats = (ROOT/"scripts/sera_part_stats.gd").read_text(encoding="utf-8")
 # H02 retains A's head HP/DEF/lock/tracking; only the provisional mass is
 # lower than A (the whole rig, not the isolated head, determines mass class).
-assert '"D": {"weight_pct": 65.0, "hp": 20.0, "defense": 0.16, "lock_range": 24.0, "tracking": 1.0}' in stats
-assert '"A": {"weight_pct": 100.0, "hp": 20.0, "defense": 0.16, "lock_range": 24.0, "tracking": 1.0}' in stats
+assert '"D": {"weight_pct": 65.0, "hp": 40.0, "defense": 0.16, "lock_range": 24.0, "tracking": 1.0}' in stats
+assert '"A": {"weight_pct": 100.0, "hp": 40.0, "defense": 0.16, "lock_range": 24.0, "tracking": 1.0}' in stats
 equipping = (ROOT/"scripts/sera_equipment.gd").read_text(encoding="utf-8")
 assert '_add_mesh("D", "head", piece)' in equipping
 save = (ROOT/"scripts/sera_save.gd").read_text(encoding="utf-8")

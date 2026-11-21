@@ -1,3 +1,6 @@
+# Accepted Bittaran A-build 10-minute balance: independent static expectations + live Godot route.
+py tools/bittaran_ten_min_balance_self_check.py
+gd tools/bittaran_ten_min_balance_runtime_check.gd
 py tools/nexus_material_contrast_self_check.py
 gd tools/v534_bittaran_down_pacing_ground_replant_runtime_check.gd
 py tools/bittaran_authored_down_self_check.py
