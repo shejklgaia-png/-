@@ -77,12 +77,12 @@ static func _labo(g: Variant) -> void:
     # Front-facing structural eave and cloth tension cables; keep the
     # workshop open and the existing sagging cloth panels fully visible.
     g.poly("LabFabricCanopyRail", "roof",
-        Vector3(0, 3.35, -0.34),
+        Vector3(0, 3.35, -0.09),
         Vector3(3.85, 0.12, 0.15), "cloth")
     for i in range(5):
         var x: float = -1.55 + float(i) * 0.78
         g.rod("LabCanopyTensionCable",
-            Vector3(x, 3.30, 0.87), Vector3(x * 0.96, 3.32, -1.82),
+            Vector3(x, 3.42, -0.11), Vector3(x * 0.96, 3.41, -1.72),
             0.025, "dark")
     for side in [-1.0, 1.0]:
         g.poly_tilt("LabWorkshopCoolingShutter", "louver",
