@@ -603,3 +603,6 @@ py tools/base_functional_finish_self_check.py
 gd tools/base_functional_finish_runtime_check.gd
 py tools/base_palette_canopy_self_check.py
 gd tools/base_palette_canopy_runtime_check.gd
+# Night salvage yard: larger seven stations, unchanged NEXUS and eight local lamps.
+py tools/base_night_facility_self_check.py
+gd tools/base_night_facility_runtime_check.gd

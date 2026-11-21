@@ -166,15 +166,15 @@ func _setup_world() -> void:
     var world := WorldEnvironment.new()
     var env := Environment.new()
     env.background_mode = Environment.BG_COLOR
-    env.background_color = Color("#0b111b")
+    env.background_color = Color("#070b10")
     env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-    env.ambient_light_color = Color("#a2b5cc")
-    env.ambient_light_energy = 0.85
+    env.ambient_light_color = Color("#8da6c2")
+    env.ambient_light_energy = 0.38
     world.environment = env
     add_child(world)
     var sun := DirectionalLight3D.new()
     sun.rotation_degrees = Vector3(-56.0, -25.0, 0.0)
-    sun.light_energy = 1.35
+    sun.light_energy = 0.36
     add_child(sun)
 
 func _vec(values: Array) -> Vector3:
