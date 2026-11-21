@@ -61,7 +61,11 @@ catalog = (ROOT / 'scripts/sera_prototype_catalog.gd').read_text(encoding='utf-8
 assert 'const CustomEquipmentIcons = preload("res://assets/ui/sera_custom_equipment_icons.gd")' in loader
 assert 'static var _custom_equipment_icon_cache: Dictionary = {}' in loader
 assert 'ImageTexture.create_from_image(bitmap)' in loader
-assert 'return _frame(int(EQUIPMENT_INDICES[blueprint_id]))' in loader
+# The legacy atlas remains the fallback SOURCE, but visible equipment
+# portraits now use the shared cached blue-grey grid presentation layer.
+assert 'source = _frame(int(EQUIPMENT_INDICES[blueprint_id]))' in loader
+assert 'IconBackground.composite(source)' in loader
+assert '_presented_equipment_cache' in loader
 assert 'const ICON_PNG_BASE64 = ' in registry, 'Approved icon registry missing'
 assert '"H01":' in catalog, 'Existing LAB blueprints must be preserved'
 assert (ROOT / 'tools/icon_studio/install_sera_equipment_icon.py').is_file()
