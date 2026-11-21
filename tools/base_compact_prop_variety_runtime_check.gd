@@ -1,5 +1,6 @@
 extends SceneTree
-## Independent scene-based check: 24 independently modeled small ornaments, density,
+## Independent scene-based check: 24 authored unique compact models plus
+## 76 additional compact, non-overlapping satellite placements., density,
 ## per-site 1-piece pad containment, clear entrance and material batch output.
 const Props = preload("res://scripts/sera_base_clutter.gd")
 const Deck = preload("res://scripts/sera_base_deck_layout.gd")
@@ -62,9 +63,10 @@ func _run() -> void:
     var total: int = 0
     for key in KEYS:
         var data: Array[Dictionary] = Props.props_for(key)
-        if data.size() != (11 if key in ["NEXUS", "LABO"] else 9):
+        if data.size() != (22 if key in ["NEXUS", "LABO"] else 18):
             _fail(key + " should have three unique accent details")
             return
+        var satellites: int = 0
         var near_old: int = 0
         var details: int = 0
         var occupied: Array[Rect2] = []
@@ -104,7 +106,9 @@ func _run() -> void:
                     return
             occupied.append(rect)
             all_kinds[kind] = true
-            if bool(item.get("accent", false)):
+            if bool(item.get("satellite", false)):
+                satellites += 1
+            if bool(item.get("accent", false)) and not bool(item.get("satellite", false)):
                 details += 1
                 if all_accents.has(kind):
                     _fail("duplicate new shape: " + kind)
@@ -114,7 +118,7 @@ func _run() -> void:
                     if at.distance_to(older) < 1.25:
                         near_old += 1
                         break
-        if details != 3 or near_old < 2:
+        if details != 3 or near_old < 2 or satellites != data.size() / 2:
             _fail("new elements must stay in clusters rather than fill the clear path")
             return
         var capture := Capture.new()
@@ -124,7 +128,7 @@ func _run() -> void:
             _fail("decorated scene lacks three accent props at " + key)
             return
         for item in data:
-            if not bool(item.get("accent", false)):
+            if not bool(item.get("accent", false)) or bool(item.get("satellite", false)):
                 continue
             var prefix: String = "Yard_" + str(item["kind"]) + "_"
             var feature_count: int = 0
@@ -143,7 +147,7 @@ func _run() -> void:
             _fail("new geometry not attached to active facility model: " + key)
             return
         total += data.size()
-    if total != 76 or all_accents.size() != 24 or all_kinds.size() < 63:
+    if total != 152 or all_accents.size() != 24 or all_kinds.size() < 63:
         _fail("BASE ornament breadth/quantity below target")
         return
     print("SERA_BASE_COMPACT_PROP_VARIETY_RUNTIME_PASS total=", total,
