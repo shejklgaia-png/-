@@ -21,7 +21,7 @@ for key, position in {
 assert 'const BASE_ORTHO_SIZE: float = 38.0' in hub
 assert 'const BASE_CAMERA_POSITION: Vector3 = Vector3(21.0, 19.5, 25.0)' in hub
 assert 'static func _append_satellite_props(' in props
-assert 'item["satellite"] = true' in props
+assert 'satellite["satellite"] = true' in props
 assert '_satellite_clear(' in props
 assert '_append_satellite_props(key, items)' in props
 assert 'if not found:' in props and 'push_error("SERA BASE satellite floor packing failed:' in props
