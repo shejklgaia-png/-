@@ -18,6 +18,7 @@ assert 'cam.fov = 0.0' not in base, "Godot cannot use 0-degree perspective"
 assert 'const LaboSkin = preload("res://scripts/sera_labo_round_skin.gd")' in base
 assert 'node.add_theme_font_override("font", LaboSkin.ui_font())' in base
 assert 'sign.font = LaboSkin.ui_font()' in facility
+assert 'sign.visible = false' in facility, "HUD name should not duplicate 3D sign"
 assert 'tag.add_theme_font_override("font", LaboSkin.ui_font())' in facility
 assert 'const HUB_SERA_CONTROLS_ENABLED: bool = false' in base
 assert '_nexus_screen_rect' in base and 'key_at' in facility
