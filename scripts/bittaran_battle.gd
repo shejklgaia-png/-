@@ -738,6 +738,30 @@ func _tick_bittaran_shockwave(_delta: float) -> void:
     pass
 
 
+## The IK fall clock fires this event only when the chassis has actually
+## reached the floor. A second part break while prone never emits it again.
+func _tick_bittaran_body_fall_fx() -> void:
+    if target_hp <= 0.0 or bittaran_foot_ik == null or (
+            bittaran_dirt_fx == null or target_parts == null):
+        return
+    if not bool(bittaran_foot_ik.call("consume_body_fall_impact")):
+        return
+    var body: AABB = target_parts.call("get_body_hit_aabb")
+    if not body.has_volume():
+        push_warning("Bittaran: fall-impact BODY bounds are unavailable")
+        return
+    var contact: Vector3 = body.get_center()
+    contact.y = 0.0
+    # AABB is the current rendered mesh bound, after head/leg IK.
+    # 70% half-width on each side creates a 140%-wide surface footprint.
+    var half_extents := Vector2(
+        maxf(body.size.x * 0.70, 0.80),
+        maxf(body.size.z * 0.70, 0.80))
+    bittaran_dirt_fx.call("emit_body_fall", contact, half_extents)
+    _add_impact_shake(0.48, 9.0)
+    _play_bittaran_thud(contact, 0.83, -3.0)
+
+
 func _bittaran_player_overlap(box: AABB) -> bool:
     if player == null:
         return false
@@ -2033,6 +2057,7 @@ func _finalize_target_pose(delta: float) -> void:
     # parent-child hierarchy is kept unchanged.
     if target_parts != null:
         target_parts.call("sync_bittaran_parts")
+    _tick_bittaran_body_fall_fx()
     _push_player_out_of_downed_body(delta)
     _update_bittaran_stomp_follow()
     _check_bittaran_attack_hit()

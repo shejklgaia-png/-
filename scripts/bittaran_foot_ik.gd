@@ -192,6 +192,8 @@ var gait_dip_pulse: float = 0.0
 var gait_prev_stepping: Array[bool] = [false, false, false, false]
 var rest_actor_local_y: float = 0.0
 var break_elapsed: float = -1.0
+# Armed only for the FIRST real chassis drop, never a repeated break while prone.
+var body_fall_impact_armed: bool = false
 var windup_elapsed: float = -1.0
 var post_down_idle_remaining: float = 0.0
 var recovery_gait_started: bool = false
@@ -1237,6 +1239,7 @@ func reset() -> void:
     if chassis_bone != null:
         chassis_bone.quaternion = rest_chassis_rotation
     rear_corner_pitch_delta = 0.0
+    body_fall_impact_armed = false
     break_elapsed = -1.0
     windup_elapsed = -1.0
     gait_sway_roll = 0.0
@@ -1592,7 +1595,7 @@ func _solve(leg: Dictionary, sole_goal: Vector3, desired_rotation: Quaternion) -
         var fold: float = _cubic(clampf(
             break_elapsed / LEG_BREAK_FALL_SECONDS, 0.0, 1.0))
         if break_elapsed > break_recover_start:
-            fold *= 1.0 - _cubic((break_elapsed - break_recover_start) /
+            fold *= 1.0 - _rise_ease((break_elapsed - break_recover_start) /
                 maxf(break_duration - break_recover_start, 0.001))
         var toppled_pole: Vector3 = (
             Vector3.DOWN * 1.15 + head_support_outward * 0.45)
@@ -1769,6 +1772,11 @@ func start_leg_break_slide(id: String, head_world_y: float,
     # down timer but never snap an already fallen chassis UP into a windup.
     var already_downed: bool = break_elapsed >= 0.0
     var already_winding: bool = windup_elapsed >= 0.0
+    # A second broken shin extends DOWN, but the body does not land twice.
+    if already_downed:
+        body_fall_impact_armed = false
+    elif not already_winding:
+        body_fall_impact_armed = true
     break_leg_index = -1
     if not already_downed:
         _clear_head_support()
@@ -1931,14 +1939,14 @@ func locomotion_ready() -> bool:
     return ready and not break_reaction_active()         and post_down_idle_remaining <= 0.0         and head_support_leg_index < 0
 
 
-# Actual return-to-upright fraction, NOT raw elapsed time. Both
-# chassis drop and the sideways supporting leg use this cubic easing.
+# The original stand-up durations are retained. C2 easing slows the start
+# and finish of the rise without changing its clock or snapping a joint.
 func standup_pose_fraction() -> float:
     if break_elapsed < break_recover_start or break_elapsed < 0.0:
         return 0.0
     if break_duration <= break_recover_start:
         return 1.0
-    return _cubic((break_elapsed - break_recover_start) /
+    return _rise_ease((break_elapsed - break_recover_start) /
         (break_duration - break_recover_start))
 
 
@@ -1972,6 +1980,20 @@ func windup_progress() -> float:
     if windup_elapsed < 0.0:
         return 0.0
     return clampf(windup_elapsed / LEG_BREAK_WINDUP_SECONDS, 0.0, 1.0)
+
+
+func _rise_ease(t: float) -> float:
+    var x: float = clampf(t, 0.0, 1.0)
+    return x * x * x * (x * (x * 6.0 - 15.0) + 10.0)
+
+
+# Only the first physical fall may create a body-wide impact. Consume it
+# AFTER the IK tick has actually reached the floor, not at part-break time.
+func consume_body_fall_impact() -> bool:
+    if not body_fall_impact_armed or break_elapsed < LEG_BREAK_FALL_SECONDS:
+        return false
+    body_fall_impact_armed = false
+    return true
 
 
 func _cubic(t: float) -> float:
@@ -2036,7 +2058,7 @@ func _advance_leg_break(delta: float) -> void:
         elif break_elapsed < break_recover_start:
             amount = 1.0
         elif break_elapsed < break_duration:
-            amount = 1.0 - _cubic((break_elapsed - break_recover_start)
+            amount = 1.0 - _rise_ease((break_elapsed - break_recover_start)
                 / (break_duration - break_recover_start))
     # This is a visual-only chassis drop; foot anchors stay at world Y=0.
     # Include the persistent grounding correction to prevent a 1-frame
@@ -3378,6 +3400,7 @@ func initialize_source_ground_ik() -> bool:
     if not ready or legs.size() != 4 or actor == null:
         return false
     source_ik_enabled = true
+    body_fall_impact_armed = false
     source_ik_attacking_id = ""
     source_ik_attacking_kind = ""
     source_ik_last_attack_time = -1.0

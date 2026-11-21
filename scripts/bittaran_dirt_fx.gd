@@ -56,6 +56,10 @@ var stomp_ground: CPUParticles3D
 var stomp_fines: CPUParticles3D
 var stomp_chunks: CPUParticles3D
 var stomp_grit: CPUParticles3D
+# Dedicated one-shot BODY collapse profiles. Do not restart live stomp dust.
+var body_fall_emitters: Array[CPUParticles3D] = []
+var body_fall_burst_count: int = 0
+var last_body_fall_fx_origin: Vector3 = Vector3.ZERO
 var kick_dust: CPUParticles3D
 var kick_forward_dust: CPUParticles3D
 var kick_trailing_dust: CPUParticles3D
@@ -321,7 +325,8 @@ func _spawn_ground_debris(
         direction: Vector3) -> void:
     var fine: bool = (
         emitter == stomp_grit or emitter == kick_grit
-        or emitter == walk_grit)
+        or emitter == walk_grit or (body_fall_emitters.size() == 6
+            and emitter == body_fall_emitters[5]))
     var records: Array[Dictionary] = (
         grit_debris if fine else rock_debris)
     var cap: int = (
@@ -594,6 +599,18 @@ func _ready() -> void:
             kick_trailing_dust, kick_chunks, kick_grit,
             sweep_dust, sweep_chunks]:
         _configure_fast_linear_ejection(emitter as CPUParticles3D)
+    # Six independent emitter nodes reuse the already-built stomp sprites,
+    # fade curves and gravity. Increased counts cover a chassis footprint,
+    # while one-shot/world-space particles fade without following the boss.
+    for profile in [stomp_core, stomp_dust, stomp_ground, stomp_fines,
+            stomp_chunks, stomp_grit]:
+        var layer: CPUParticles3D = (
+            (profile as CPUParticles3D).duplicate() as CPUParticles3D)
+        layer.name = "BodyFall" + (profile as CPUParticles3D).name
+        layer.amount = roundi(float(profile.amount) * 1.6)
+        layer.emitting = false
+        add_child(layer)
+        body_fall_emitters.append(layer)
     rock_debris_renderer = _make_debris_renderer(
         "RockDebrisAtGround", stomp_chunks.mesh,
         DEBRIS_ROCK_CAPACITY)
@@ -754,6 +771,25 @@ func emit_stomp(point: Vector3,
     for p in [stomp_core, stomp_dust, stomp_ground, stomp_fines,
             stomp_chunks, stomp_grit]:
         _burst(p, origin, Vector3.UP)
+
+
+## A broad six-layer pulse under the real chassis at first floor contact.
+## half_extents must exceed the rendered BODY footprint, not the foot AABB.
+func emit_body_fall(point: Vector3, half_extents: Vector2) -> void:
+    if body_fall_emitters.size() != 6:
+        return
+    var origin := Vector3(point.x, 0.04, point.z)
+    var spread := Vector3(
+        maxf(half_extents.x, 0.50), 0.03,
+        maxf(half_extents.y, 0.50))
+    var coverage: Array[float] = [0.61, 0.83, 1.05, 0.80, 0.63, 0.90]
+    for index in range(body_fall_emitters.size()):
+        var layer: CPUParticles3D = body_fall_emitters[index]
+        layer.emission_shape = CPUParticles3D.EMISSION_SHAPE_BOX
+        layer.emission_box_extents = spread * coverage[index]
+        _burst(layer, origin, Vector3.UP)
+    body_fall_burst_count += 1
+    last_body_fall_fx_origin = origin
 
 
 func emit_kick(point: Vector3, outward: Vector3) -> void:
@@ -1011,6 +1047,8 @@ func reset() -> void:
     walk_cloud_cursor = 0
     walk_burst_count = 0
     last_walk_fx_origin = Vector3.ZERO
+    body_fall_burst_count = 0
+    last_body_fall_fx_origin = Vector3.ZERO
     for slot in walk_cloud_slots:
         slot["last_time"] = -INF
         (slot["core"] as CPUParticles3D).emitting = false
@@ -1042,6 +1080,8 @@ func reset() -> void:
             p.emitting = false
     for puff in sweep_dust_emitters:
         puff.emitting = false
+    for layer in body_fall_emitters:
+        layer.emitting = false
 
 
 func advance_attack(frame: Dictionary, point: Vector3,
