@@ -61,6 +61,9 @@ func _run() -> void:
                 if icon == null or item_name == null or model_code == null:
                     _fail("equipment needs separate icon, name and model-code nodes")
                     return
+                if icon.expand_mode != TextureRect.EXPAND_IGNORE_SIZE:
+                    _fail("72px atlas texture must not override icon layout size")
+                    return
                 # Icon has its own left gutter, a square responsive size,
                 # and an exact vertical centre even on shortened cards.
                 if icon.position.x < 12.0:
