@@ -1048,7 +1048,7 @@ func _request_confirmation(title: String, detail: String, action: Callable,
         confirmation_item_name.text = str(spec.get("name", ""))
         confirmation_item_slot.text = "EQUIPMENT / " + str(
             spec.get("slot", "")).to_upper()
-        confirmation_item_stats.text = LaboStats.baseline(equipment_blueprint).replace("（現行Aセット参照）", "")
+        confirmation_item_stats.text = LaboStats.baseline(equipment_blueprint)
         LaboSkin.refresh_name_underline(confirmation_item_name)
     confirmation_overlay.visible = true
     confirmation_overlay.move_to_front()
@@ -1924,7 +1924,7 @@ func _new_slot(parent: Control, key: String, icon: Texture2D,
             art.visible = false
             art.custom_minimum_size = Vector2.ZERO
     info_label.text = (info if material_choice else
-        info.replace("基礎ステータス（現行Aセット参照） / ", ""))
+        info.replace("基礎ステータス / ", ""))
     row.add_child(card)
     if not key.begins_with("LockedCraftSlot_"):
         LaboSkin.attach_name_underline(title_label)
@@ -2398,12 +2398,9 @@ func _render_prototype_detail() -> void:
     modal_title.text = str(spec["name"])
     modal_body.text = "%s\n対象スロット：%s\n試作のため素材消費なし。" % [
         spec["description"], spec["slot"]]
-    modal_body.text += "\n" + LaboStats.baseline(selected_prototype)
-    var is_iris_head: bool = str(spec.get("rig_set", "A")) == "D" and str(spec.get("slot", "")) == "head"
-    if is_iris_head:
-        modal_body.text += "\n3D表示はアイリス頭部（HEAD D）を使用します。"
-    else:
-        modal_body.text += "\n3D表示は現行のAモデルを使用します。"
+    # Every field in the real authored PartStats profile is shown here;
+    # zero-valued stats are deliberately hidden.
+    modal_body.text += "\n" + LaboStats.complete_profile_text(selected_prototype)
     if not prototype_notice.is_empty():
         modal_body.text += "\n" + prototype_notice
     # The craft action is above the icon so it cannot be hidden below the fold.

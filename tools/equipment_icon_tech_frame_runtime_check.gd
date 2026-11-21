@@ -66,7 +66,11 @@ func _check() -> void:
         var solid: Image = Backdrop.composite(source, "solid").get_image()
         if not _close(solid.get_pixel(mid, pad), frame_main) or (
                 not _close(solid.get_pixel(0, 0), Backdrop.SOLID_COLOR)):
-            _fail("Solid-background equipment icon lost its frame")
+            _fail("Solid-background equipment icon lost its frame at %d: "
+                % side + "solid_size=%s original_size=%s frame=%s expected=%s bg=%s expected_bg=%s" % [
+                    str(solid.get_size()), str(source.get_size()),
+                    str(solid.get_pixel(mid, pad)), str(frame_main),
+                    str(solid.get_pixel(0, 0)), str(Backdrop.SOLID_COLOR)])
             return
 
     # Real equipment icons inherit the same frame regardless of original
@@ -91,5 +95,5 @@ func _check() -> void:
     if material == null or material.get_width() != 72:
         _fail("Material icon unexpectedly changed")
         return
-    print("SERA_EQUIPMENT_TECH_FRAME_RUNTIME_OK eight_blueprints=true 72px=true 512px=true")
+    print("SERA_EQUIPMENT_TECH_FRAME_RUNTIME_OK nineteen_blueprints=true 72px=true 512px=true")
     quit(0)

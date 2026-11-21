@@ -52,7 +52,7 @@ func _run() -> void:
             frame_skin.content_margin_left != 0.0 or (
             frame_skin.content_margin_right != 0.0 or (
             frame_skin.content_margin_top != 0.0 or (
-            frame_skin.content_margin_bottom != 0.0))):
+            frame_skin.content_margin_bottom != 0.0)):
         _fail("double-inset square border returned")
         return
     var stage_rect: Rect2 = square.get_global_rect()

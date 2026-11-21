@@ -1,9 +1,9 @@
 extends RefCounted
-## Two shared WebP sprite atlases (no procedural icon generation):
-## - Pixel materials: 3 columns x 4 rows, 12 alpha-backed sprites, 72px per cell.
-## - Legacy matte equipment: 4 columns x 5 rows, 7 equipment slots unchanged.
-## Material IDs and blueprint IDs are stable across visual changes.
-const ATLAS_PATH: String = "res://assets/ui/sera_matte_icon_atlas.webp"
+## Materials use a 3x4 transparent WebP atlas. Equipment uses one 512px
+## Godot-native captured PNG per real blueprint; no mock-up portraits are
+## registered as live equipment. Composition is cached once per blueprint.
+const ATLAS_PATH: String = "res://assets/ui/sera_matte_icon_atlas.webp" # Retired; diagnostics only.
+const NATIVE_EQUIPMENT_DIRECTORY: String = "res://assets/ui/sera_equipment_icons"
 # Approved per-blueprint model screenshots; Base64 holds original PNG bytes,
 # requiring no binary asset upload through GitHub text-content integrations.
 const CustomEquipmentIcons = preload("res://assets/ui/sera_custom_equipment_icons.gd")
@@ -11,7 +11,7 @@ const IconBackground = preload("res://scripts/sera_icon_background.gd")
 static var _presented_equipment_cache: Dictionary = {}
 static var _custom_equipment_icon_cache: Dictionary = {}
 
-# The original atlas retains all 7 equipment portraits unchanged.
+# The old matte equipment atlas remains an archival asset, NOT a blueprint.
 # 12 material sprites live in a separate transparent 3-column x 4-row sheet.
 const MATERIAL_ATLAS_PATH: String = "res://assets/ui/sera_pixel_material_atlas.webp"
 const MATERIAL_COLUMNS: int = 3
@@ -92,24 +92,6 @@ const MATERIAL_INDICES = {
     "electronics_low": 6, "electronics_mid": 7, "electronics_high": 8,
     "organic_low": 9, "organic_mid": 10, "organic_high": 11
 }
-const EQUIPMENT_INDICES = {
-    "H01": 12, "T01": 13, "A01": 14, "L01": 15,
-    "B01": 16, "WR01": 17, "WL01": 18
-}
-
-static func _frame(index: int) -> Texture2D:
-    if index < 0 or index > 18:
-        return null
-    var source: Texture2D = _atlas_texture()
-    if source == null:
-        return null
-    var icon := AtlasTexture.new()
-    icon.atlas = source
-    icon.region = Rect2(
-        float(index % COLUMNS) * CELL, float(index / COLUMNS) * CELL,
-        CELL, CELL)
-    icon.filter_clip = true
-    return icon
 
 static func _material_source() -> Image:
     if _material_source_attempted:
@@ -186,6 +168,29 @@ static func material_icon_sized(material_id: String, size: int) -> Texture2D:
     _material_sized_cache[key] = tile
     return tile
 
+static func _native_equipment_icon(blueprint_id: String) -> Texture2D:
+    # PNGs are generated off-device by the real GL Compatibility SeraRig
+    # capture. Android Editor can decode the source if import cache is missing.
+    var path: String = NATIVE_EQUIPMENT_DIRECTORY + "/" + blueprint_id + ".png"
+    var bitmap: Image = null
+    # Decode source PNG first on Android/editor. Avoid false missing .ctex
+    # errors from stale import caches; packaged builds can use imported texture.
+    if FileAccess.file_exists(path):
+        var png: PackedByteArray = FileAccess.get_file_as_bytes(path)
+        var decoded := Image.new()
+        if not png.is_empty() and decoded.load_png_from_buffer(png) == OK:
+            bitmap = decoded
+    if bitmap == null and ResourceLoader.exists(path):
+        var res: Resource = ResourceLoader.load(path, "Texture2D")
+        if res is Texture2D:
+            bitmap = (res as Texture2D).get_image()
+    if bitmap == null or bitmap.get_width() != 512 or bitmap.get_height() != 512:
+        return null
+    # Final 2D composition is already cached per blueprint. Retaining this
+    # separate 512px source texture wastes about 19 MiB for 19 parts.
+    return ImageTexture.create_from_image(bitmap)
+
+
 static func _approved_equipment_icon(blueprint_id: String) -> Texture2D:
     if not CustomEquipmentIcons.ICON_PNG_BASE64.has(blueprint_id):
         return null
@@ -206,14 +211,14 @@ static func _approved_equipment_icon(blueprint_id: String) -> Texture2D:
 
 
 static func equipment_icon(blueprint_id: String) -> Texture2D:
-    # One 2D blend per blueprint, not a SubViewport or draw on every card.
-    # Existing transparent approved PNGs and the legacy atlas receive the same
-    # grid + solid navy background everywhere: LABO/Warehouse/NEXUS.
+    # One 2D blend per blueprint; never a per-item runtime SubViewport.
+    # Only real model captures are valid for equipment (H02's approved PNG
+    # remains a compatibility fallback until the native batch is checked in).
     if _presented_equipment_cache.has(blueprint_id):
         return _presented_equipment_cache[blueprint_id] as Texture2D
-    var source: Texture2D = _approved_equipment_icon(blueprint_id)
-    if source == null and EQUIPMENT_INDICES.has(blueprint_id):
-        source = _frame(int(EQUIPMENT_INDICES[blueprint_id]))
+    var source: Texture2D = _native_equipment_icon(blueprint_id)
+    if source == null and blueprint_id == "H02":
+        source = _approved_equipment_icon(blueprint_id)
     if source == null:
         return null
     var presented: Texture2D = IconBackground.composite(source)
@@ -229,4 +234,8 @@ static func material_has_icon(material_id: String) -> bool:
     return MATERIAL_INDICES.has(material_id)
 
 static func equipment_has_icon(blueprint_id: String) -> bool:
-    return CustomEquipmentIcons.ICON_PNG_BASE64.has(blueprint_id) or EQUIPMENT_INDICES.has(blueprint_id)
+    var path: String = NATIVE_EQUIPMENT_DIRECTORY + "/" + blueprint_id + ".png"
+    # Exported Android packs can retain the imported texture without a
+    # raw PNG file; detect both resource and source representations.
+    return ResourceLoader.exists(path) or FileAccess.file_exists(path) or (
+        blueprint_id == "H02" and CustomEquipmentIcons.ICON_PNG_BASE64.has(blueprint_id))
