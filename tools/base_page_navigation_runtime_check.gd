@@ -27,8 +27,15 @@ func _run() -> void:
     current_scene = hub
     await process_frame
     var facility: Node3D = hub.get_node("BaseFacilities") as Node3D
+    var mode_plate: Control = hub.get("grid_ui") as Control
+    if mode_plate == null or not mode_plate.visible:
+        _fail("BASE plate must be visible on outdoor hub")
+        return
     for facility_id in ["SMELTER", "RECYCLER"]:
         facility.call("open_facility", facility_id)
+        if mode_plate.visible:
+            _fail("BASE mode plate overlaps a facility modal")
+            return
         if str(facility.get("page")) != "families":
             _fail("opening converter must show full-page material family choices")
             return
@@ -69,7 +76,13 @@ func _run() -> void:
         if bool(facility.call("is_menu_open")):
             _fail("outside tap on top-level facility should close the modal")
             return
+        if not mode_plate.visible:
+            _fail("BASE mode plate must return immediately after modal close")
+            return
     facility.call("open_facility", "LABO")
+    if mode_plate.visible:
+        _fail("BASE mode plate overlaps LABO")
+        return
     var actions: VBoxContainer = facility.get("modal_actions") as VBoxContainer
     if actions.get_node_or_null("OpenPrototypeCatalog") != null:
         _fail("LABO must not open a redundant home menu")
