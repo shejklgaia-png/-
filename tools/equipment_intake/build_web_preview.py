@@ -36,7 +36,8 @@ def slim_project(stage: Path) -> list[str]:
     if stage.resolve() == ROOT.resolve():
         raise ValueError("stage must not be the source project")
     stage.mkdir(parents=True, exist_ok=True)
-    pending = {SCENE, Path("tools/equipment_intake/godot_preview.gd")}
+    pending = {SCENE, Path("tools/equipment_intake/godot_preview.gd"),
+               Path("tools/equipment_intake/preview_runtime_check.gd")}
     pending.update(Path(p) for p in LIVE_MODELS)
     copied: set[Path] = set()
     while pending:
