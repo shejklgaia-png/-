@@ -36,7 +36,7 @@ const FACILITY_SPECS = [
         "size": Vector3(2.35, 2.55, 2.25), "subtitle": "スクラップ収集"},
     {"id": "SMELTER", "name": "精製装置", "at": Vector3(-9.60, 0.0, -3.80),
         "size": Vector3(2.40, 2.85, 2.40), "subtitle": "素材の精製"},
-    {"id": "RECYCLER", "name": "分解装置", "at": Vector3(0.85, 0.0, -10.65),
+    {"id": "RECYCLER", "name": "分解装置", "at": Vector3(1.30, 0.0, -10.65),
         "size": Vector3(2.45, 2.55, 2.35), "subtitle": "不要素材の分解"},
     {"id": "GENERATOR", "name": "発電機", "at": Vector3(8.85, 0.0, -1.65),
         "size": Vector3(2.40, 3.10, 2.25), "subtitle": "拠点電力"},
