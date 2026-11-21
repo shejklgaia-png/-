@@ -2,6 +2,7 @@ extends SceneTree
 ## Validate geometric 80-degree creases, smooth joins and GL-compat shader construction.
 const OUTLINE = preload("res://scripts/sera_view_edges.gd")
 const SHADER = preload("res://shaders/sera_view_edges.gdshader")
+const FX_SHADER = preload("res://shaders/back_thruster.gdshader")
 
 func _initialize() -> void:
     call_deferred("_run")
@@ -78,12 +79,71 @@ func _run() -> void:
     actor.name = "Actor"
     actor.add_child(source)
     root.add_child(actor)
+    # A sword's visible geometry should receive ink, but the 3D slash
+    # nested under a Swordeffect bone must never receive it.
+    var sword := MeshInstance3D.new()
+    sword.name = "PhysicalSwordBlade"
+    sword.mesh = BoxMesh.new()
+    actor.add_child(sword)
+
+    var fx_root := Node3D.new()
+    fx_root.name = "V85_3DSlash_AuthoredBoard_3Stage"
+    actor.add_child(fx_root)
+    var arc := MeshInstance3D.new()
+    arc.name = "AlphaClippedMainArc" # contains no "effect"/"slash"
+    arc.mesh = BoxMesh.new()
+    fx_root.add_child(arc)
+    var volume := MeshInstance3D.new()
+    volume.name = "ConvexTwoSided3DArc" # same bug as the live effect
+    volume.mesh = BoxMesh.new()
+    fx_root.add_child(volume)
+
+    var tagged_root := Node3D.new()
+    tagged_root.name = "MiscContainer"
+    tagged_root.set_meta("sera_no_view_edges", true)
+    actor.add_child(tagged_root)
+    var tagged_fx := MeshInstance3D.new()
+    tagged_fx.name = "OpaqueArbitraryName"
+    tagged_fx.mesh = BoxMesh.new()
+    tagged_root.add_child(tagged_fx)
+
+    # Detect an effect even when the name is neutral: transparent Standard
+    # material or a shader writing ALPHA must never receive character ink.
+    var transparent_fx := MeshInstance3D.new()
+    transparent_fx.name = "Visual01"
+    transparent_fx.mesh = BoxMesh.new()
+    var transparent_mat := StandardMaterial3D.new()
+    transparent_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+    transparent_fx.material_override = transparent_mat
+    actor.add_child(transparent_fx)
+    var shader_fx := MeshInstance3D.new()
+    shader_fx.name = "Visual02"
+    shader_fx.mesh = BoxMesh.new()
+    var fx_material := ShaderMaterial.new()
+    fx_material.shader = FX_SHADER
+    shader_fx.material_override = fx_material
+    actor.add_child(shader_fx)
+
     var outlines := OUTLINE.new()
     outlines.name = "ViewEdges"
     actor.add_child(outlines)
     await process_frame
-    if source.get_node_or_null("SeraEdgeInk") == null:
-        _fail("visual mesh did not receive an edge overlay")
+    if source.get_node_or_null("SeraEdgeInk") == null or (
+            sword.get_node_or_null("SeraEdgeInk") == null):
+        _fail("solid body and physical weapon must receive outlines")
+        return
+    for fx in [arc, volume, tagged_fx, transparent_fx, shader_fx]:
+        if fx.get_node_or_null("SeraEdgeInk") != null:
+            _fail("VFX incorrectly received outline: " + str(fx.name))
+            return
+    # When a mesh switches into FX/opt-out after an earlier scan, clear the
+    # stale ink child rather than simply declining to create new outlines.
+    var stale_ink := MeshInstance3D.new()
+    stale_ink.name = "SeraEdgeInk"
+    tagged_fx.add_child(stale_ink)
+    outlines.call("_sync_meshes")
+    if tagged_fx.get_node_or_null("SeraEdgeInk") != null:
+        _fail("stale FX outline child was not removed")
         return
     var material: ShaderMaterial = (source.get_node("SeraEdgeInk") as MeshInstance3D).material_override
     if material == null or material.shader != SHADER:
