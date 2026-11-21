@@ -232,7 +232,6 @@ func _sync_preview_backdrop_aspect() -> void:
         background_quad.material_override as StandardMaterial3D)
     if backdrop_material != null:
         backdrop_material.uv1_scale = Vector3(aspect, 1.0, 1.0)
-        backdrop_material.texture_repeat = BaseMaterial3D.TEXTURE_REPEAT_ENABLED
 
 func _apply_preview_standing_pose() -> void:
     if rig == null:
