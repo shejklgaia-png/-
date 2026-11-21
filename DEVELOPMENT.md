@@ -3734,3 +3734,11 @@
 - CPUでの面隣接検査は初回/装備変更時のみ。定期的に新規装備メッシュを検知してキャッシュを利用。
 - 仕様・限界・Android検証事項：`docs/SERA_VIEW_DEPENDENT_EDGES_ja.md`。
 - 新規CI：`tools/sera_view_edges_self_check.py`、`tools/sera_view_edges_runtime_check.gd` を実装に先行して登録。既存テストの数値・期待値は変更不要。
+
+
+## 2026-11-21：SERA 3px外周／視点上の段差のみに輪郭線を限定
+- **現象**：正面から見える四角形の手前角にも3px線が描かれていた。角度80°以上という幾何学的な条件と、カメラ視点からの輪郭（手前／背面の切り替わり）が混同されていた。
+- **修正**：`shaders/sera_view_edges.gdshader` の「両面がカメラを向いていてもhard_creaseなら描画する」条件を廃止。面の表裏が視点から切り替わるシルエットと、他の部品を隠す独立部品の外周のみを深度テストつきで表示する。
+- **維持**：3px線、#17212f、80°分類メタデータ、アクターへの共通接続、元材質、モデル、モーション、当たり判定、Android GL Compatibility、および全既存CI。
+- **テスト先行**：`sera_view_edges_self_check.py` および `sera_view_edges_runtime_check.gd` に、両面カメラ向きの90°角は非描画・前面/背面で分かれる外周のみ描画という新しい仕様を追加。角度分類79°/81°と3pxは維持。
+- **限界**：別MeshInstance3D同士の「接合部が実際につながったか」の判定は未実装。Android実機での角、段差、近接した部品の遮蔽を目視確認。
