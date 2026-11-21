@@ -349,17 +349,18 @@ func _slot_font_size() -> int:
 
 func _material_card_font_size() -> int:
     var width: float = get_viewport().get_visible_rect().size.x
-    return 20 if width >= 590.0 else 18 if width >= 460.0 else 16
+    # Two short lines (grade / family), one font size across all 12 cards.
+    return 18 if width >= 590.0 else 16 if width >= 460.0 else 14
 
 func _material_icon_side() -> float:
     var width: float = get_viewport().get_visible_rect().size.x
-    # Reserve enough width for full single-line Japanese resource names.
+    # Retain breathing room for balanced left and text-gap padding.
     return 46.0 if width >= 590.0 else 40.0 if width >= 460.0 else 30.0
 
 
 func _fit_material_titles(grid: VBoxContainer) -> void:
-    # Measure the longest of all twelve names against the narrowest live card.
-    # Apply ONE shared font size, not a different size to each material.
+    # Measure both explicit lines of every grade/family label against the
+    # narrowest card. Apply ONE shared size (no per-item shrinking).
     # Runs only after layout changes; no work is performed each frame.
     if not is_instance_valid(grid) or grid.is_queued_for_deletion() or (
             not grid.is_inside_tree()):
@@ -393,9 +394,12 @@ func _fit_material_titles(grid: VBoxContainer) -> void:
     while chosen > 10:
         var fits_every_name: bool = true
         for label in titles:
-            if font.get_string_size(label.text,
-                    HORIZONTAL_ALIGNMENT_LEFT, -1.0, chosen).x > minimum_width - 1.0:
-                fits_every_name = false
+            for one_line in label.text.split("\n"):
+                if font.get_string_size(one_line,
+                        HORIZONTAL_ALIGNMENT_LEFT, -1.0, chosen).x > minimum_width - 1.0:
+                    fits_every_name = false
+                    break
+            if not fits_every_name:
                 break
         if fits_every_name:
             break
@@ -1488,9 +1492,11 @@ func _new_slot(parent: Control, key: String, icon: Texture2D,
         # This wrapper is only allocated for the twelve refinery tiles.
         var material_row: HBoxContainer = art.get_parent() as HBoxContainer
         var material_padding: MarginContainer = material_row.get_parent() as MarginContainer
-        material_padding.add_theme_constant_override("margin_left", 6)
+        # The icon is inset 12px from the left, and its gap to text is
+        # also 12px (the tier rail is outside this content area).
+        material_padding.add_theme_constant_override("margin_left", 12)
         material_padding.add_theme_constant_override("margin_right", 5)
-        material_row.add_theme_constant_override("separation", 4)
+        material_row.add_theme_constant_override("separation", 12)
         var art_dock := MarginContainer.new()
         art_dock.name = "MaterialArtOffset"
         art_dock.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1501,7 +1507,8 @@ func _new_slot(parent: Control, key: String, icon: Texture2D,
         art.custom_minimum_size = Vector2(_material_icon_side(), _material_icon_side())
         art.size_flags_vertical = Control.SIZE_SHRINK_CENTER
         title_label.autowrap_mode = TextServer.AUTOWRAP_OFF
-        title_label.max_lines_visible = 1
+        title_label.max_lines_visible = 2
+        title_label.add_theme_constant_override("line_spacing", 0)
         title_label.clip_text = true
         title_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
         title_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -2023,13 +2030,19 @@ func _render_family_page() -> void:
                 _diag_step("materials " + id + " icon")
             if diagnostic_button.visible:
                 _diag_step("materials " + id + " slot")
+            var count: int = int(inventory[id])
             var card: Control = _new_slot(grid, "MaterialIcon_" + id,
-                null, BaseMaterials.display_name(id),
-                "所持 %d" % int(inventory[id]),
+                null, BaseMaterials.display_lines(id),
+                "所持 %d" % count,
                 _select_conversion_family.bind(str(family)), button_name)
+            card.tooltip_text = "%s / 所持 %d" % [
+                BaseMaterials.display_name(id), count]
+            card.set_meta("out_of_stock", count == 0)
+            # Keep navigation enabled even for missing materials: the recipe
+            # remains inspectable, but the conversion action is unavailable.
+            if count == 0:
+                card.modulate = Color(0.56, 0.56, 0.56, 1.0)
             _queue_card_icon(card as Button, id)
-            if str(tier) == "low":
-                card.tooltip_text = str(BaseMaterials.FAMILY_NAMES[family])
     _finish_grid(grid)
 
 func _select_conversion_family(family: String) -> void:
@@ -2167,6 +2180,10 @@ func _render_conversion() -> void:
         (bar.get_node("CardContent/Row") as HBoxContainer).add_child(output_icon)
         bar.disabled = not SeraSave.can_convert_material(
             conversion_family, rank, conversion_mode, conversion_batches)
+        var none_owned: bool = int(stock.get(source_id, 0)) == 0
+        bar.set_meta("out_of_stock", none_owned)
+        if none_owned or bar.disabled:
+            bar.modulate = Color(0.56, 0.56, 0.56, 1.0)
         bar.pressed.connect(_invoke_scroll_action.bind(
             _confirm_conversion.bind(rank), actions_scroll))
         row.add_child(bar)

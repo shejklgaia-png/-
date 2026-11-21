@@ -192,7 +192,7 @@ func _new_document(slot: int) -> Dictionary:
         "last_location": "NEXUS", "tutorial_completed": false,
         "training_visited": false, "play_seconds": 0.0,
         "stats": _default_stats(), "equipment": gear,
-        "materials": BaseMaterials.empty_inventory(),
+        "materials": BaseMaterials.starter_inventory(),
         "trial_materials_claimed": false,
         "crafted_items": [], "craft_serials": {},
         "equipped_crafted": {}

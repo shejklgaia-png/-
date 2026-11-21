@@ -1,5 +1,5 @@
 extends SceneTree
-## v549: complete one-line material names, icon alignment, JP warehouse formulas.
+## v551: two-line grade/family names, equal padding, JP warehouse formulas.
 const Materials = preload("res://scripts/sera_base_materials.gd")
 const Typeface = preload("res://scripts/sera_labo_round_skin.gd")
 func _initialize() -> void:
@@ -39,8 +39,8 @@ func _run() -> void:
             _fail("icon and text hierarchy missing: " + str(id))
             return
         if title.autowrap_mode != TextServer.AUTOWRAP_OFF or (
-                title.max_lines_visible != 1) or title.text != Materials.display_name(id):
-            _fail("Japanese material title was modified or wraps: " + str(id))
+                title.max_lines_visible != 2) or title.text != Materials.display_lines(id):
+            _fail("Japanese material grade/family title is not two lines: " + str(id))
             return
         if title.get_theme_font("font") != Typeface.ui_font():
             _fail("refinery material name is not IBM Plex Sans JP Medium: " + str(id))
@@ -52,12 +52,19 @@ func _run() -> void:
             _fail("refinery material names use different sizes: " + str(id))
             return
         var face: Font = title.get_theme_font("font")
-        var text_width: float = face.get_string_size(
-            title.text, HORIZONTAL_ALIGNMENT_LEFT, -1.0,
-            title.get_theme_font_size("font_size")).x
-        if text_width > title.size.x + 1.0:
-            _fail("material name clipped at 720px: " + str(id) +
-                " need=" + str(text_width) + " available=" + str(title.size.x))
+        for line_text in title.text.split("\n"):
+            var text_width: float = face.get_string_size(
+                line_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0,
+                title.get_theme_font_size("font_size")).x
+            if text_width > title.size.x + 1.0:
+                _fail("material name clipped at 720px: " + str(id) +
+                    " need=" + str(text_width) + " available=" + str(title.size.x))
+                return
+        var row: HBoxContainer = dock.get_parent() as HBoxContainer
+        var padding: MarginContainer = row.get_parent() as MarginContainer
+        if padding.get_theme_constant("margin_left") != 12 or (
+                row.get_theme_constant("separation") != 12):
+            _fail("left margin and icon-to-text gap are not equal")
             return
         if dock.get_theme_constant("margin_top") != 7 or (
                 art.custom_minimum_size.x > 46.0) or (

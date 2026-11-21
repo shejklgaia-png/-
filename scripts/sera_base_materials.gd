@@ -11,6 +11,13 @@ const FAMILY_NAMES = {
     "scrap": "スクラップ", "alloy": "合金",
     "electronics": "電子部品", "organic": "有機素材"
 }
+const GRADE_NAMES = {
+    "scrap": {"low": "雑", "mid": "選別", "high": "高純度"},
+    "alloy": {"low": "粗製", "mid": "精製", "high": "高強度"},
+    "electronics": {"low": "再生", "mid": "汎用", "high": "高精度"},
+    "organic": {"low": "低活性", "mid": "安定", "high": "高活性"}
+}
+const STARTER_SCRAP_COUNT: int = 5
 const MATERIAL_NAMES = {
     "scrap_low": "雑スクラップ",
     "scrap_mid": "選別スクラップ",
@@ -41,11 +48,31 @@ static func all_ids() -> Array:
 static func display_name(material_id: String) -> String:
     return str(MATERIAL_NAMES.get(material_id, ""))
 
+## Catalog uses exactly two visual rows: grade name, then material family.
+## The full original name is still retained as the save/tooltip identifier.
+static func display_lines(material_id: String) -> String:
+    var parts: PackedStringArray = material_id.split("_")
+    if parts.size() != 2:
+        return display_name(material_id)
+    var grade: Dictionary = GRADE_NAMES.get(parts[0], {})
+    if not grade.has(parts[1]) or not FAMILY_NAMES.has(parts[0]):
+        return display_name(material_id)
+    return str(grade[parts[1]]) + "\n" + str(FAMILY_NAMES[parts[0]])
+
+
 static func empty_inventory() -> Dictionary:
     var stock: Dictionary = {}
     for material_id in all_ids():
         stock[material_id] = 0
     return stock
+
+## Only new profiles start with five scraps. Zero-filled inventories are
+## still required for legacy imports, conversion arithmetic and old saves.
+static func starter_inventory() -> Dictionary:
+    var stock: Dictionary = empty_inventory()
+    stock["scrap_low"] = STARTER_SCRAP_COUNT
+    return stock
+
 
 static func sanitize_inventory(candidate: Variant) -> Dictionary:
     var stock: Dictionary = empty_inventory()
