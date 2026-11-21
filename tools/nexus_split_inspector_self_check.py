@@ -54,7 +54,7 @@ for required in (
     'StatUI.layout_metric_pair(label, value, row_width, 44.0, 19, 24, 16, 20)',
 ):
     assert required in nexus, required
-assert 'StatUI.fit_label(' in nexus
+assert 'StatUI.layout_metric_pair(' in nexus
 assert 'button.text = _default_part_name(slot, selected_model)' in nexus
 assert 'py tools/nexus_split_inspector_self_check.py' in manifest
 assert 'gd tools/nexus_split_inspector_runtime_check.gd' in manifest
