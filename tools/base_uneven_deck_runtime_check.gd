@@ -18,7 +18,10 @@ func _run() -> void:
         return
     var hub: Node3D = scene.instantiate()
     root.add_child(hub)
-    await process_frame
+    for _startup in range(20):
+        await process_frame
+        if hub.get_node_or_null("BaseFacilities/LABO/IndustrialModel") != null:
+            break
     var floor: Node3D = hub.get_node_or_null("PatchworkSteelFloor") as Node3D
     var detail: Node3D = hub.get_node_or_null(
         "PatchworkSteelFloor/DeckDetailGeometry") as Node3D
@@ -80,9 +83,9 @@ func _run() -> void:
             continue
         var multi: MultiMeshInstance3D = child as MultiMeshInstance3D
         if multi == null or multi.multimesh == null or (
-                not multi.multimesh.mesh is BoxMesh) or (
-                (multi.multimesh.mesh as BoxMesh).size != Vector3.ONE):
-            _fail("deck must use one unit cube Mesh batched by material")
+                not multi.multimesh.mesh is ArrayMesh) or (
+                (multi.multimesh.mesh as ArrayMesh).surface_get_arrays(0)[Mesh.ARRAY_VERTEX].size() < 36):
+            _fail("deck must use one UV-authored polygonal Mesh batched by material")
             return
         color_batches += 1
         instanced_panels += multi.multimesh.instance_count

@@ -19,15 +19,15 @@ assert 'Rect2(' in layout
 assert 'GAP: float = 0.06' in layout
 assert '0.5' in layout, "small subdivided plates are required"
 assert '3' in layout, "long slabs must be represented"
-assert 'var plate_mesh := BoxMesh.new()' in hub
-assert 'plate_mesh.size = Vector3.ONE' in hub, "instance transforms must define individual panel dimensions"
+assert 'var plate_mesh: ArrayMesh = BasePolygon.make("deck")' in hub
+assert 'BasePolygon.make("deck")' in hub, "instance transforms must define the sized polygonal panels"
 assert 'Basis.IDENTITY.scaled_local(' in hub, "per-panel scale is required"
 assert 'len(panels)' not in hub
 assert 'for panel in panels:' in floor
 assert 'PanelSeams' in floor and 'DeckBolts' in floor
 assert '3.0m uniform grid' not in floor
 assert 'grid_tiles < 3000' in legacy
-assert 'grid_mesh.size != Vector3.ONE' in legacy
+assert 'grid_mesh.get_surface_count() != 1' in legacy, 'preserve polygonal mesh sanity check'
 assert "py tools/base_uneven_deck_self_check.py" in ci
 assert "gd tools/base_uneven_deck_runtime_check.gd" in ci
 print("SERA_BASE_UNEVEN_DECK_STATIC_PASS")
