@@ -44,6 +44,23 @@ func _run() -> void:
             _fail("facility model lacks reference details: " + key)
             return
         design_counts[key] = count
+    var hall: Node3D = hub.get_node_or_null("NEXUSBuilding/NexusArchitecture") as Node3D
+    if hall == null or hall.get_node_or_null("NexusAmberGateLight") == null:
+        _fail("NEXUS warm entrance lighting missing")
+        return
+    for item in [
+            ["LABO", "LabTaskLighting"],
+            ["SMELTER", "FurnaceHeatLight"],
+            ["GENERATOR", "GeneratorCoreLight"]]:
+        var facility: Node3D = machines.get_node_or_null(
+            str(item[0]) + "/IndustrialModel") as Node3D
+        if facility == null or facility.get_node_or_null(str(item[1])) == null:
+            _fail("machine task lamp absent: " + str(item[0]))
+            return
+    var rotor: Node3D = machines.get_node_or_null("GENERATOR/EnergyRotor") as Node3D
+    if rotor == null or rotor.get_child_count() < 4:
+        _fail("generator animation rotor lost during visual rebuild")
+        return
     var camera: Camera3D = hub.get("cam") as Camera3D
     if camera == null or camera.projection != Camera3D.PROJECTION_ORTHOGONAL:
         _fail("FOV-zero camera must remain orthogonal")
