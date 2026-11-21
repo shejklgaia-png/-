@@ -51,11 +51,10 @@ assert 'StatUI.layout_status_marks(customize_part_accents,' in nexus
 for required in (
     'row.custom_minimum_size = Vector2(100, 44)',
     'customize_part_stats_list.add_theme_constant_override("v_separation", 3)',
-    'StatUI.fit_label(label, 19, 16)',
-    'StatUI.fit_label(value, 24, 20)',
+    'StatUI.layout_metric_pair(label, value, row_width, 44.0, 19, 24, 16, 20)',
 ):
     assert required in nexus, required
-assert 'StatUI.fit_label(' in nexus
+assert 'StatUI.layout_metric_pair(' in nexus
 assert 'button.text = _default_part_name(slot, selected_model)' in nexus
 assert 'py tools/nexus_split_inspector_self_check.py' in manifest
 assert 'gd tools/nexus_split_inspector_runtime_check.gd' in manifest

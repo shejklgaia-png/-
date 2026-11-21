@@ -992,14 +992,7 @@ func _layout_customization_stats() -> void:
         cell.custom_minimum_size = Vector2(cell_width, cell_height)
         var label: Label = entry["name"]
         var value: Label = entry["value"]
-        # Two stacked lines free the entire column width for readable Japanese.
-        label.position = Vector2(10, 0)
-        label.size = Vector2(cell_width - 20.0, 21.0)
-        value.position = Vector2(10, 20)
-        value.size = Vector2(cell_width - 20.0, 24.0)
-        value.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-        StatUI.fit_label(label, 19, 16)
-        StatUI.fit_label(value, 25, 20)
+        StatUI.layout_metric_pair(label, value, cell_width, cell_height, 19, 25, 16, 20)
         (entry["rule"] as ColorRect).visible = false
 
 func _refresh_customization_stats() -> void:
@@ -1016,8 +1009,10 @@ func _refresh_customization_stats() -> void:
         if show:
             (cell["name"] as Label).text = str(entries[i]["label"])
             (cell["value"] as Label).text = str(entries[i]["value"])
-            StatUI.fit_label(cell["name"] as Label, 19, 16)
-            StatUI.fit_label(cell["value"] as Label, 25, 20)
+            var row: Panel = cell["panel"] as Panel
+            StatUI.layout_metric_pair(
+                cell["name"] as Label, cell["value"] as Label,
+                row.custom_minimum_size.x, 44.0, 19, 25, 16, 20)
 
 
 func _create_equipment_controls() -> void:
@@ -1671,13 +1666,8 @@ func _layout_customization_part_stats() -> void:
         var row: Panel = entry["panel"]
         row.custom_minimum_size = Vector2(row_width, 44)
         var label: Label = entry["name"]
-        label.position = Vector2(9, 0)
-        label.size = Vector2(row_width - 18, 21)
         var value: Label = entry["value"]
-        value.position = Vector2(9, 20)
-        value.size = Vector2(row_width - 18, 24)
-        StatUI.fit_label(label, 19, 16)
-        StatUI.fit_label(value, 24, 20)
+        StatUI.layout_metric_pair(label, value, row_width, 44.0, 19, 24, 16, 20)
 
 
 func _refresh_customization_part_stats(slot: String) -> void:
@@ -1723,8 +1713,10 @@ func _refresh_customization_part_stats(slot: String) -> void:
         if show:
             (cell["name"] as Label).text = str(rows[i]["label"])
             (cell["value"] as Label).text = str(rows[i]["value"])
-            StatUI.fit_label(cell["name"] as Label, 19, 16)
-            StatUI.fit_label(cell["value"] as Label, 24, 20)
+            var row: Panel = cell["panel"] as Panel
+            StatUI.layout_metric_pair(
+                cell["name"] as Label, cell["value"] as Label,
+                row.custom_minimum_size.x, 44.0, 19, 24, 16, 20)
 
 
 func _equipped_part_blueprint(slot: String) -> String:

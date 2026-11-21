@@ -34,6 +34,57 @@ static func fit_label(label: Label, maximum_px: int, minimum_px: int) -> void:
     label.add_theme_font_size_override("font_size", font_size)
 
 
+# A single 44px-high metric row: full-height readable text side by side.
+# Long Japanese labels may wrap to 2 lines; numbers keep a generous right lane.
+# Called only for layout/equipment changes and never per rendered frame.
+static func layout_metric_pair(name_label: Label, value_label: Label,
+        row_width: float, row_height: float, name_max: int, value_max: int,
+        name_min: int, value_min: int) -> void:
+    var name_font: Font = name_label.get_theme_font("font")
+    var value_font: Font = value_label.get_theme_font("font")
+    if name_font == null or value_font == null:
+        return
+    var name_px: int = name_max
+    var value_px: int = value_max
+    var left_pad: float = 9.0
+    var right_pad: float = 9.0
+    var gap: float = 6.0
+    var available: float = maxf(32.0,
+        row_width - left_pad - right_pad - gap)
+    var name_width: float = name_font.get_string_size(
+        name_label.text, HORIZONTAL_ALIGNMENT_LEFT, -1, name_px).x
+    var value_width: float = value_font.get_string_size(
+        value_label.text, HORIZONTAL_ALIGNMENT_LEFT, -1, value_px).x
+    while name_width + value_width > available and (
+            name_px > name_min or value_px > value_min):
+        if name_px > name_min and (
+                name_width >= value_width or value_px <= value_min):
+            name_px -= 1
+        elif value_px > value_min:
+            value_px -= 1
+        else:
+            break
+        name_width = name_font.get_string_size(
+            name_label.text, HORIZONTAL_ALIGNMENT_LEFT, -1, name_px).x
+        value_width = value_font.get_string_size(
+            value_label.text, HORIZONTAL_ALIGNMENT_LEFT, -1, value_px).x
+    var value_lane: float = minf(
+        available * 0.62, maxf(42.0, value_width + 2.0))
+    var name_lane: float = maxf(24.0, available - value_lane)
+    if name_width > name_lane:
+        # Two shorter Japanese lines can fit within 44px at this font size.
+        name_px = mini(name_px, 16)
+    name_label.add_theme_font_size_override("font_size", name_px)
+    value_label.add_theme_font_size_override("font_size", value_px)
+    name_label.autowrap_mode = TextServer.AUTOWRAP_ARBITRARY
+    name_label.max_lines_visible = 2
+    name_label.position = Vector2(left_pad, 0.0)
+    name_label.size = Vector2(name_lane, row_height)
+    value_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+    value_label.position = Vector2(left_pad + name_lane + gap, 0.0)
+    value_label.size = Vector2(value_lane, row_height)
+
+
 ## One continuous dark matte per stat window. No background on individual rows.
 ## Small, low-glare edge marks echo SERA's existing technical icon frames.
 static func status_window_style() -> StyleBoxFlat:
