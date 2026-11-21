@@ -134,6 +134,25 @@ func _make_card() -> Button:
     effects.autowrap_mode = TextServer.AUTOWRAP_OFF
     effects.clip_text = true
     card.add_child(effects)
+    # Build the second column and its inset separator only once per
+    # pooled card. Scrolling updates text and geometry, never allocates UI.
+    var effects_right := Label.new()
+    effects_right.name = "ItemEffectsRight"
+    effects_right.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    effects_right.add_theme_color_override("font_color", Color("#b2ced3"))
+    effects_right.add_theme_font_override("font", LaboSkin.stats_font())
+    effects_right.add_theme_font_size_override("font_size", 14)
+    effects_right.add_theme_constant_override("line_spacing", 1)
+    effects_right.autowrap_mode = TextServer.AUTOWRAP_OFF
+    effects_right.clip_text = true
+    effects_right.visible = false
+    card.add_child(effects_right)
+    var center_rule := ColorRect.new()
+    center_rule.name = "EffectCenterDivider"
+    center_rule.color = Color("#55798a")
+    center_rule.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    center_rule.visible = false
+    card.add_child(center_rule)
     var rule := ColorRect.new()
     rule.name = "DetailDivider"
     rule.color = Color("#31505c")
@@ -222,6 +241,8 @@ func _bind_card(card: Button, index: int) -> void:
     var meta: Label = card.get_node("ItemMeta") as Label
     var title: Label = card.get_node("ItemTitle") as Label
     var effects: Label = card.get_node("ItemEffects") as Label
+    var effects_right: Label = card.get_node("ItemEffectsRight") as Label
+    var center_rule: ColorRect = card.get_node("EffectCenterDivider") as ColorRect
     var empty: Label = card.get_node("EmptySlotLabel") as Label
     var divider: ColorRect = card.get_node("DetailDivider") as ColorRect
     var trace: ColorRect = card.get_node("TopTrace") as ColorRect
@@ -246,6 +267,9 @@ func _bind_card(card: Button, index: int) -> void:
     meta.visible = not blank
     title.visible = not blank
     effects.visible = not blank
+    effects_right.visible = false
+    effects_right.text = ""
+    center_rule.visible = false
     marker.position = Vector2(4.0, 14.0)
     marker.size = Vector2(3.0, _card_height() - 28.0)
     title.autowrap_mode = TextServer.AUTOWRAP_OFF
@@ -321,14 +345,43 @@ func _bind_card(card: Button, index: int) -> void:
         title.size = Vector2(text_width, 49.0)
         title.add_theme_font_size_override("font_size", 20)
         title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+        # Three effects on the left, two on the right. Both columns share
+        # equal readable line heights below the card's horizontal divider.
+        var clean_effects: Array = Affixes.sanitize(entry.get("affixes", []))
+        var middle_x: float = _card_width * 0.5
         effects.position = Vector2(16.0, 101.0)
-        effects.size = Vector2(_card_width - 29.0, _card_height() - 106.0)
-        effects.add_theme_font_size_override("font_size", 14)
-        effects.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+        effects.size = Vector2(maxf(32.0, middle_x - 24.0),
+            _card_height() - 111.0)
+        effects_right.position = Vector2(middle_x + 8.0, 101.0)
+        effects_right.size = Vector2(maxf(32.0, _card_width - middle_x - 24.0),
+            _card_height() - 111.0)
+        effects.add_theme_font_size_override("font_size",
+            13 if _card_width < 260.0 else 14)
+        effects_right.add_theme_font_size_override("font_size",
+            13 if _card_width < 260.0 else 14)
+        effects.autowrap_mode = TextServer.AUTOWRAP_OFF
+        effects_right.autowrap_mode = TextServer.AUTOWRAP_OFF
+        center_rule.position = Vector2(middle_x - 1.0, 106.0)
+        center_rule.size = Vector2(2.0, _card_height() - 118.0)
+        center_rule.visible = clean_effects.size() > 3
+        effects_right.visible = clean_effects.size() > 3
+        var left_labels: PackedStringArray = []
+        var right_labels: PackedStringArray = []
+        for i in range(clean_effects.size()):
+            if i < 3:
+                left_labels.append(Affixes.label(clean_effects[i]))
+            else:
+                right_labels.append(Affixes.label(clean_effects[i]))
         var mark: String = ("★ " if bool(entry.get("favorite", false)) else
             "× " if bool(entry.get("junk", false)) else "")
         meta.text = "GEAR / " + str(entry.get("uid", ""))
         title.text = mark + str(entry.get("name", ""))
-        effects.text = Affixes.describe(entry.get("affixes", []))
+        effects.text = ("\n".join(left_labels) if not clean_effects.is_empty() else
+            Affixes.describe(entry.get("affixes", [])))
+        effects_right.text = "\n".join(right_labels)
+        if clean_effects.is_empty():
+            # Legacy items have no rolled effects; do not truncate that
+            # single fallback label into half of the card.
+            effects.size.x = maxf(32.0, _card_width - 29.0)
     # One recycled bar follows each newly bound name; blank cards stay clean.
     LaboSkin.refresh_name_underline(title)
