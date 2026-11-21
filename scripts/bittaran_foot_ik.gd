@@ -2962,6 +2962,63 @@ func apply_authored_down_grounding() -> void:
         else 1 - authored_down_replant_first_pair)
     var half_t: float = clampf(pair_position - float(pair_half), 0.0, 1.0)
     var pair_ease: float = _rise_ease(half_t)
+    # A source BODY lift can leave even a fully extended leg short of
+    # the floor. Before the four skeletal toe solves, lower the visual
+    # root by the smallest amount required for the farthest hip->ankle
+    # chain to reach its real toe contact. Recomputed from the intact
+    # imported pose every tick: no cumulative drift or detached toes.
+    # During recovery the root is restored so BODY can rise after
+    # the completed two-pair foot handoff.
+    if windup_elapsed >= 0.0 or (
+            break_elapsed >= 0.0 and
+            break_elapsed < break_recover_start):
+        var minimum_root_drop: float = 0.0
+        for limb in legs:
+            var upper: Node3D = limb["upper"]
+            var lower: Node3D = limb["lower"]
+            var tip_foot: Node3D = limb["foot"]
+            var tip_record: Dictionary = limb.get(
+                "source_ik_sweep_toe_box", {})
+            if tip_record.is_empty():
+                continue
+            var tip_mesh: MeshInstance3D = tip_record["mesh"]
+            if tip_mesh == null or tip_mesh.mesh == null:
+                continue
+            var footprint: AABB = tip_mesh.mesh.get_aabb()
+            var bottom: Vector3 = Vector3.ZERO
+            bottom.y = INF
+            for vertex_index in range(8):
+                var world_tip: Vector3 = tip_mesh.to_global(
+                    footprint.get_endpoint(vertex_index))
+                if world_tip.y < bottom.y:
+                    bottom = world_tip
+            var source_q: Quaternion = tip_foot.global_basis.orthonormalized(
+                ).get_rotation_quaternion()
+            var local_tip: Vector3 = tip_foot.to_local(bottom)
+            var toe_offset: Vector3 = (
+                Basis(source_q).scaled(
+                    tip_foot.global_basis.get_scale()) * local_tip)
+            var floor_goal: Vector3 = bottom
+            floor_goal.y = FLOOR_Y
+            if windup_elapsed < 0.0:
+                floor_goal = limb["anchor"] as Vector3
+            var target_ankle: Vector3 = floor_goal - toe_offset
+            var hip: Vector3 = upper.global_position
+            var knee: Vector3 = lower.global_position
+            var ankle: Vector3 = tip_foot.global_position
+            var max_reach: float = maxf(0.0, hip.distance_to(knee)
+                + knee.distance_to(ankle)
+                - IK_REACH_MARGIN_METERS - 0.02)
+            var flat: Vector2 = Vector2(
+                target_ankle.x - hip.x, target_ankle.z - hip.z)
+            var vertical_reach: float = sqrt(maxf(0.0,
+                max_reach * max_reach - flat.length_squared()))
+            minimum_root_drop = maxf(minimum_root_drop,
+                hip.y - target_ankle.y - vertical_reach)
+        if minimum_root_drop > 0.0:
+            var root_scale_y: float = maxf(0.001,
+                absf(actor.get_parent().global_basis.get_scale().y))
+            actor.position.y -= minimum_root_drop / root_scale_y
     for index in range(legs.size()):
         var limb: Dictionary = legs[index]
         var foot: Node3D = limb["foot"]
