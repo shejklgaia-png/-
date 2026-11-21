@@ -44,24 +44,19 @@ func _run() -> void:
         scene.add_child(seam)
 
     var g := Architecture.Batch.new(scene)
+    # Review actual one-model piles: 2/4/6/8 major sheets with four
+    # distinct layouts. The former capture duplicated each stack in midair
+    # and visually resembled two suspended U-shaped frames.
     var panels := [
-        Vector2(-0.91, -2.55),
-        Vector2(0.92, -2.55),
+        Vector2(-1.05, -3.00), Vector2(1.05, -3.00),
+        Vector2(-1.05, -1.64), Vector2(1.05, -1.64),
     ]
     for i in range(panels.size()):
         var p: Vector2 = panels[i]
-        # Two overlapping six-sheet models each, just like the live yard.
-        Junk.panel_stack(g, p, 1.0, i)
-        var elevated := Junk.PANEL_SHAPES
-        # preview builds a second actual tilted kit with shifted physical height
-        var lifted := Node3D.new()
-        lifted.position = Vector3(0, 0.36, 0)
-        scene.add_child(lifted)
-        var second := Architecture.Batch.new(lifted)
-        Junk.panel_stack(second, p, 1.0, i + 1)
-        second.flush()
-        _text(scene, "PANEL  " + str(i + 1),
-            Vector3(p.x, 1.25, p.y))
+        var count: int = (i + 1) * 2
+        Junk.panel_stack(g, p, 1.0, i, count, i)
+        _text(scene, "PANEL " + str(count) + " pcs / " + str(i + 1),
+            Vector3(p.x, 1.13, p.y))
     for i in range(4):
         var slot_x: float = -0.96 if i % 2 == 0 else 0.98
         var slot_z: float = -0.02 if i < 2 else 2.29
