@@ -111,15 +111,24 @@ func _run() -> void:
     fac.call("_switch_section", "warehouse")
     fac.call("_show_warehouse_item_detail", "H01-0004")
     await process_frame
-    var summary: Label = (fac.get("modal_actions") as Control).find_child(
-        "WarehouseStatsBreakdown", true, false) as Label
-    if summary == null or summary.text.is_empty():
+    var table: GridContainer = (fac.get("modal_actions") as Control).find_child(
+        "WarehouseStatsTable", true, false) as GridContainer
+    if table == null or table.columns != 3 or table.get_child_count() != 27:
         save.set("active_slot", prev_slot)
         save.set("active_data", prev_data)
-        _fail("warehouse breakdown not displayed")
+        _fail("warehouse detail needs one 3-column grid for all eight stats")
         return
-    var font: Font = summary.get_theme_font("font")
-    var readable: bool = font == Typeface.stats_font()
+    var row_name: Label = table.get_node("Stat_name_hp/Content") as Label
+    var row_math: Label = table.get_node("Stat_formula_hp/Content") as Label
+    var row_total: Label = table.get_node("Stat_total_hp/Content") as Label
+    var readable: bool = (row_name != null and row_math != null and
+        row_total != null)
+    if readable:
+        readable = row_name.text == "最大HP" and (
+            row_math.get_theme_font("font") == Typeface.stats_font()) and (
+            row_total.text == "20.0") and (
+            row_total.horizontal_alignment == HORIZONTAL_ALIGNMENT_RIGHT)
+    var font: Font = Typeface.stats_font()
     for codepoint: int in [0x6700, 0x5927, 0x9632, 0x5FA1]:
         readable = readable and font.has_char(codepoint)
     var detail_controls: Control = fac.get("modal_actions") as Control
@@ -130,7 +139,7 @@ func _run() -> void:
     save.set("active_slot", prev_slot)
     save.set("active_data", prev_data)
     if not readable:
-        _fail("warehouse breakdown still uses Latin-only font or actions are missing")
+        _fail("warehouse stat table text or actions are unreadable/missing")
         return
     print("SERA_V549_REFINERY_GLYPHS_RUNTIME_PASS")
     quit(0)
