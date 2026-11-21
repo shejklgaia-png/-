@@ -128,6 +128,11 @@ func _run() -> void:
         _fail("count can overflow 99")
         return
     fac.call("_switch_section", "warehouse")
+    # The virtual grid deliberately allocates no cards while its viewport
+    # width is zero. Allow the real Control sizing/deferred relayout to run,
+    # then verify the actual visible pooled cards (including empty hangers).
+    await process_frame
+    await process_frame
     var layer: Control = fac.get("item_layer") as Control
     var disposal: Button = layer.find_child(
         "BulkDeleteJunk", true, false) as Button
