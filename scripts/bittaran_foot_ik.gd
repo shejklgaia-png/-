@@ -196,6 +196,8 @@ var break_elapsed: float = -1.0
 var body_fall_impact_armed: bool = false
 # User-authored 1x full-body collapse selected by the broken front/rear leg.
 var authored_down_clip: String = ""
+# Preserve source time when a second shin break extends the down hold.
+var authored_down_clock_offset: float = 0.0
 var windup_elapsed: float = -1.0
 var post_down_idle_remaining: float = 0.0
 var recovery_gait_started: bool = false
@@ -1229,6 +1231,7 @@ func reset() -> void:
     if actor == null or legs.size() != 4:
         return
     authored_down_clip = ""
+    authored_down_clock_offset = 0.0
     body_fall_impact_armed = false
     if source_ik_enabled:
         # Respawn/reset must preserve the fixed v434 floor calibration.
@@ -1753,7 +1756,10 @@ func start_leg_break_slide(id: String, head_world_y: float,
         return
     # Preserve the first collapse's keyed pose when another shin breaks
     # while already prone; only extend its existing recovery clock.
-    if break_elapsed < 0.0:
+    if break_elapsed >= 0.0:
+        authored_down_clock_offset += break_elapsed
+    else:
+        authored_down_clock_offset = 0.0
         var authored: Dictionary = {
             "leg_fl": "前脚ダウン_L", "leg_fr": "前脚ダウン_R",
             "leg_rl": "後足ダウン_L", "leg_rr": "後足ダウン_R"
@@ -1765,6 +1771,11 @@ func start_leg_break_slide(id: String, head_world_y: float,
     recovery_gait_started = false
     recovery_catchup_pending_pair = -1
     if source_ik_enabled:
+        # An interrupted authored attack cannot replant its old striking
+        # limb at the end of the newly authored full-body collapse.
+        source_ik_attacking_id = ""
+        source_ik_attacking_kind = ""
+        source_ik_last_attack_time = -1.0
         # The current source-gait pair must STOP the moment a shin
         # breaks; otherwise one diagonal can remain flagged as airborne
         # through the entire collapse, then never start upright catchup.
@@ -2001,7 +2012,7 @@ func authored_down_motion_time() -> float:
     if windup_elapsed >= 0.0:
         return windup_elapsed
     if break_elapsed >= 0.0:
-        return LEG_BREAK_WINDUP_SECONDS + break_elapsed
+        return LEG_BREAK_WINDUP_SECONDS + authored_down_clock_offset + break_elapsed
     return 0.0
 
 
