@@ -16,9 +16,9 @@ ci = read("tools/sera_ci_manifest.txt")
 spec = {
     "NEXUS": ("NexusRoofCommandStripe", "NexusEntranceDirectionBand", "NexusDoorOuterFrame"),
     "LABO": ("LabSingleSlopeCanopy", "LabSideRoll", "LabPrinterToolhead"),
-    "SCRAP_COLLECTOR": ("CollectorOpenBoomCrossbar", "CollectorCraneMarker", "CollectorOpenClawJaw"),
+    "SCRAP_COLLECTOR": ("CollectorOpenBoomCrossbar", "CollectorCraneMarker", "CollectorOpenClawJaw", "CollectorRaisedJib"),
     "SMELTER": ("SmelterHeatShieldRib", "SmelterHeatVent", "SmelterStackHeatCollar"),
-    "RECYCLER": ("RecyclerSideRoofShutter", "RecyclerOpenThroatRail", "RecyclerOpenVFeedRail"),
+    "RECYCLER": ("RecyclerSideRoofShutter", "RecyclerOpenThroatRail", "RecyclerOpenVFeedRail", "RecyclerOpposedJawFace"),
     "GENERATOR": ("GeneratorTurbineHoop", "GeneratorPowerSpine", "GeneratorCoreCorona"),
     "STORAGE": ("StorageContainerRoof", "StorageRoofRidge", "StorageLoadingHeader"),
     "BUILD_TERMINAL": ("TerminalSlimDataVisor", "TerminalVisorBracket", "TerminalScanFrameSide"),
