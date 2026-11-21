@@ -56,12 +56,21 @@ func _case(battle: Node3D, broken: Array[String],
             var t: float = clampf(
                 (elapsed - recovery_start) / expected_rise, 0.0, 1.0)
             var backward: float = deg_to_rad(BACK_LEAN_DEGREES) * sin(PI * t)
-            var nose_down: float = float(ik.get("break_chassis_pitch_radians"))
-            var without_lean: Quaternion = (base_pose *
-                Quaternion(Vector3.RIGHT, -nose_down)).normalized()
-            var expected_pose: Quaternion = (base_pose *
-                Quaternion(Vector3.RIGHT, backward) *
-                Quaternion(Vector3.RIGHT, -nose_down)).normalized()
+            # v533 authored pose supersedes the old procedural nose-dip.
+            # Preserve the SAME 10-degree rear-lean shoulder lift while
+            # interpolating the user's down BODY keys to exact Wait.
+            var down_clip: String = str(ik.get("authored_down_clip"))
+            var source_t: float = float(ik.call("authored_down_motion_time"))
+            var clip: Dictionary = (rig.get("animations") as Dictionary)[down_clip]
+            var end_time: float = float(clip["length"]) - 0.00001
+            var authored: Quaternion = rig.call("_authored_key_rotation",
+                down_clip, "Body", minf(source_t, end_time))
+            var wait: Quaternion = rig.call(
+                "_authored_key_rotation", "Wait", "Body", 0.0)
+            var eased: float = t * t * t * (t * (t * 6.0 - 15.0) + 10.0)
+            var without_lean: Quaternion = authored.slerp(wait, eased)
+            var expected_pose: Quaternion = (without_lean *
+                Quaternion(Vector3.RIGHT, backward)).normalized()
             if body.quaternion.angle_to(expected_pose) > 0.004:
                 _fail("BODY back lean missing at rise fraction " + str(t))
                 return false
@@ -81,8 +90,10 @@ func _case(battle: Node3D, broken: Array[String],
                 return false
         elif frames_rising > 0 and not down:
             finished = true
-            if body.quaternion.angle_to(base_pose) > 0.004:
-                _fail("BODY tilt did not return to neutral")
+            var neutral: Quaternion = rig.call(
+                "_authored_key_rotation", "Wait", "Body", 0.0)
+            if body.quaternion.angle_to(neutral) > 0.008:
+                _fail("BODY tilt did not return to Wait after authored down")
                 return false
             break
     if not (saw_hold and finished and greatest_front_lift >= 0.03
