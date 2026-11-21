@@ -13,6 +13,7 @@ const JunkGeometry = preload("res://scripts/sera_base_junk_geometry.gd")
 const BaseFloorDetail = preload("res://scripts/sera_base_floor_detail.gd")
 const BaseDeckLayout = preload("res://scripts/sera_base_deck_layout.gd")
 const WEATHERED_STEEL_PATH: String = "res://assets/base/industrial_steel_grunge.svg"
+const WEATHERED_DECK_PATH: String = "res://assets/base/industrial_deck_wear.svg"
 const LaboSkin = preload("res://scripts/sera_labo_round_skin.gd")
 const CrateModel = preload("res://scripts/sera_crate_model.gd")
 const NEXUS_SCENE: String = "res://scenes/command_nexus.tscn"
@@ -240,6 +241,9 @@ func _create_grid_plates(floor: Node3D) -> Array[Dictionary]:
     var steel_texture: Texture2D = null
     if ResourceLoader.exists(WEATHERED_STEEL_PATH):
         steel_texture = load(WEATHERED_STEEL_PATH) as Texture2D
+    var deck_texture: Texture2D = null
+    if ResourceLoader.exists(WEATHERED_DECK_PATH):
+        deck_texture = load(WEATHERED_DECK_PATH) as Texture2D
     for palette_index in range(tints.size()):
         var poses: Array = grouped[palette_index]
         var multi := MultiMesh.new()
@@ -261,6 +265,8 @@ func _create_grid_plates(floor: Node3D) -> Array[Dictionary]:
         mat.metallic = 0.12
         mat.roughness = 0.94
         mat.albedo_texture = steel_texture
+        if deck_texture != null:
+            mat.albedo_texture = deck_texture
         draw.material_override = mat
         draw.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
         floor.add_child(draw)
