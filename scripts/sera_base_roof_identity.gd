@@ -22,7 +22,7 @@ static func _labo(g: Variant) -> void:
     # A single rear lean-to sheet; leave the FRONT half of the workshop open
     # so benches, printer and inner lighting are visible in portrait view.
     g.box_tilt("LabSingleSlopeCanopy",
-        Vector3(0.0, 3.54, -1.03), Vector3(3.82, 0.12, 1.34),
+        Vector3(0.0, 3.54, -0.95), Vector3(3.82, 0.12, 1.75),
         "cloth", Vector3(-0.15, 0.0, 0.0))
     g.box("LabSideRoll", Vector3(-1.84, 3.48, -1.01),
         Vector3(0.21, 0.26, 1.38), "rust")
@@ -31,7 +31,7 @@ static func _labo(g: Variant) -> void:
             Vector3(side * 1.86, 0.37, -0.32),
             Vector3(side * 1.86, 3.44, -0.32), 0.085, "edge")
     g.box("LabCanopySingleEave",
-        Vector3(0.0, 3.35, -0.33),
+        Vector3(0.0, 3.35, -0.07),
         Vector3(3.80, 0.10, 0.13), "armor_light")
 
 
