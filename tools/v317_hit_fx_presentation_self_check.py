@@ -52,7 +52,7 @@ ordered = (
     "elif action == TARGET_LIFECYCLE.RESPAWN_RESET:",
     "_reset_target_after_respawn()",
     "func _reset_target_after_respawn() -> void:",
-    "target_hp = TARGET_MAX_HP",
+    "target_hp = _target_health_cap()",
     'target_parts.call("reset_parts")',
     'locked_target_part_id = ""',
 )

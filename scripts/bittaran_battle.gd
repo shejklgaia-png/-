@@ -5,6 +5,7 @@ const BittaranRig = preload("res://scripts/bittaran_rig.gd")
 const BittaranAI = preload("res://scripts/bittaran_ai.gd")
 const BittaranFootIK = preload("res://scripts/bittaran_foot_ik.gd")
 const BittaranParts = preload("res://scripts/bittaran_parts.gd")
+const BALANCE = preload("res://scripts/bittaran_balance.gd")
 const BittaranAttacks = preload("res://scripts/bittaran_attacks.gd")
 const BittaranDirtFX = preload("res://scripts/bittaran_dirt_fx.gd")
 const BittaranRailgun = preload("res://scripts/bittaran_railgun.gd")
@@ -13,9 +14,8 @@ const BittaranSweepFXTrack = preload("res://scripts/bittaran_sweep_fx_track.gd")
 const DOWN_CLEARANCE = preload("res://scripts/bittaran_down_clearance.gd")
 const CONTROLLER_AXIS = preload("res://scripts/bittaran_controller_axis.gd")
 const NAME_TEXT: String = "BITTARAN  /  ビットタラン"
-# v481: ONLY the dorsal laser uses 60% of its previous per-contact
-# HP AND guard depletion; foot attacks and training weapons stay unchanged.
-const LASER_DAMAGE_MULTIPLIER: float = 0.60
+# Bittaran-only railgun pulse; both player HP and guard depletion scale.
+const LASER_DAMAGE_MULTIPLIER: float = BALANCE.RAILGUN_DAMAGE_MULTIPLIER
 const BOSS_WORLD_SCALE: float = 2.0
 # Live 3D stomp volume: 1.5x both horizontal dimensions of the rendered toe.
 const STOMP_FOLLOW_WIDTH_MULTIPLIER: float = 1.50
@@ -279,7 +279,13 @@ func _make_boss_label(parent: CanvasLayer, caption: String,
     parent.add_child(label)
     return label
 
+func _target_health_cap() -> int:
+    return BALANCE.BOSS_MAX_HP
+
+
 func _build_target() -> void:
+    # Set the actual boss health before main builds HUD and combat nodes.
+    target_hp = _target_health_cap()
     # Preserve the combat HP and part-break code but replace all training
     # lock geometry with Bittaran BODY/HEAD/real articulated SHIN volumes.
     super._build_target()
@@ -611,7 +617,8 @@ func _bittaran_stomp_follow_hit(box: AABB) -> void:
     if direction.length_squared() < 0.0001:
         direction = Vector3.FORWARD
     _on_enemy_projectile_hit(
-        player.global_position, direction.normalized(), false, 2)
+        player.global_position, direction.normalized(), false, 2, false,
+        BALANCE.incoming_damage_multiplier("stomp"))
 
 
 func _reset_bittaran_stomp_follow() -> void:
@@ -835,7 +842,8 @@ func _check_bittaran_attack_hit() -> void:
     # SERA's existing guard/HP/knockback and KO logic remains authoritative.
     var damage_index: int = 1 if kind == "kick" else 3
     _on_enemy_projectile_hit(
-        player.global_position, direction.normalized(), false, damage_index)
+        player.global_position, direction.normalized(), false,
+        damage_index, false, BALANCE.incoming_damage_multiplier(kind))
 
 func _bittaran_attack_candidates() -> Dictionary:
     var candidates: Dictionary = {}
@@ -1860,7 +1868,7 @@ func _tick_bittaran_leg_turrets(delta: float) -> void:
             break
         # Apply existing guard, shield, hit reaction and knockback rules.
         _on_enemy_projectile_hit(player.global_position,
-            direction, true, 0, false, 0.28)
+            direction, true, 0, false, BALANCE.BELLY_DAMAGE_MULTIPLIER)
 
 func _tick_bittaran_railgun(delta: float) -> void:
     if bittaran_railgun == null or player == null:
