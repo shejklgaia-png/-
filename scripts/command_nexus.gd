@@ -54,6 +54,8 @@ var customize_picker_touch_id: int = -1
 var customize_picker_start: Vector2 = Vector2.ZERO
 var customize_picker_last: Vector2 = Vector2.ZERO
 var customize_picker_mouse: bool = false
+var customize_part_touch_id: int = -1
+var customize_part_mouse_drag: bool = false
 const CUSTOMIZE_SLOTS = ["head", "torso", "legs", "arms", "booster", "weapon_r", "weapon_l"]
 const CUSTOMIZE_SLOT_LABELS = {
     "head": "HEAD", "torso": "TORSO", "legs": "LOWER BODY",
@@ -1923,7 +1925,6 @@ func _layout_hud() -> void:
         customize_right_header.size = Vector2(
             tall.size.x, minf(60.0, view.y * 0.068))
         _layout_equipment_controls()
-        _layout_single_part_preview()
         _layout_customization_part_picker()
     # The opaque top stripe belongs to the focus panel; rest stays blue/clear.
     focus_header.position = Vector2.ZERO
@@ -1931,6 +1932,7 @@ func _layout_hud() -> void:
     focus_title.position = Vector2(16.0, 0.0)
     focus_title.size = Vector2(focus_header.size.x - 32.0, focus_header.size.y)
     _layout_customization_stats()
+    _layout_single_part_preview()
     action_panel.position = Vector2(16.0, focus_panel.size.y - 84.0)
     action_panel.size = Vector2(focus_panel.size.x - 32.0, 60.0)
     action_label.position = Vector2.ZERO
@@ -2628,6 +2630,88 @@ func _navigate_back() -> void:
         _return_to_overview()
 
 func _input(event: InputEvent) -> void:
+    # Picker taps occur on RELEASE so upward swipes cannot accidentally equip.
+    # The scroll is manual because NEXUS uses raw Android touch navigation.
+    if customize_part_picker != null and customize_part_picker.visible:
+        if event is InputEventScreenTouch:
+            if event.pressed:
+                if customize_picker_touch_id == -1:
+                    customize_picker_touch_id = event.index
+                    customize_picker_start = event.position
+                    customize_picker_last = event.position
+            elif event.index == customize_picker_touch_id:
+                if event.position.distance_to(customize_picker_start) < 14.0:
+                    _tap_customization_part_picker(event.position)
+                customize_picker_touch_id = -1
+            get_viewport().set_input_as_handled()
+            return
+        elif event is InputEventScreenDrag:
+            if event.index == customize_picker_touch_id:
+                customize_part_picker_scroll.scroll_vertical -= roundi(event.relative.y)
+                customize_picker_last = event.position
+            get_viewport().set_input_as_handled()
+            return
+        elif event is InputEventMouseButton:
+            if event.button_index in [MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN]:
+                customize_part_picker_scroll.scroll_vertical += (
+                    -64 if event.button_index == MOUSE_BUTTON_WHEEL_UP else 64)
+            elif event.button_index == MOUSE_BUTTON_LEFT:
+                if event.pressed:
+                    customize_picker_mouse = true
+                    customize_picker_start = event.position
+                else:
+                    if customize_picker_mouse and event.position.distance_to(
+                            customize_picker_start) < 14.0:
+                        _tap_customization_part_picker(event.position)
+                    customize_picker_mouse = false
+            get_viewport().set_input_as_handled()
+            return
+        elif event is InputEventMouseMotion and customize_picker_mouse:
+            customize_part_picker_scroll.scroll_vertical -= roundi(event.relative.y)
+            get_viewport().set_input_as_handled()
+            return
+    # Dedicated bottom-left part preview never rotates the full SERA body.
+    if focused_target == "CUSTOMIZE" and customize_single_part_preview != null and (
+            customize_single_part_preview.visible):
+        var part_rect := Rect2(
+            focus_panel.position + customize_single_part_preview.position,
+            customize_single_part_preview.size)
+        if event is InputEventScreenTouch:
+            if event.pressed and part_rect.has_point(event.position):
+                customize_part_touch_id = event.index
+                customize_single_part_preview.feed_touch(event.index, true,
+                    event.position - part_rect.position)
+                get_viewport().set_input_as_handled()
+                return
+            if not event.pressed and event.index == customize_part_touch_id:
+                customize_single_part_preview.feed_touch(event.index, false,
+                    event.position - part_rect.position)
+                customize_part_touch_id = -1
+                get_viewport().set_input_as_handled()
+                return
+        elif event is InputEventScreenDrag and event.index == customize_part_touch_id:
+            customize_single_part_preview.feed_drag(event.index,
+                event.position - part_rect.position)
+            get_viewport().set_input_as_handled()
+            return
+        elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+            if event.pressed and part_rect.has_point(event.position):
+                customize_part_mouse_drag = true
+                customize_single_part_preview.feed_touch(-10, true,
+                    event.position - part_rect.position)
+                get_viewport().set_input_as_handled()
+                return
+            if not event.pressed and customize_part_mouse_drag:
+                customize_single_part_preview.feed_touch(-10, false,
+                    event.position - part_rect.position)
+                customize_part_mouse_drag = false
+                get_viewport().set_input_as_handled()
+                return
+        elif event is InputEventMouseMotion and customize_part_mouse_drag:
+            customize_single_part_preview.feed_drag(-10,
+                event.position - part_rect.position)
+            get_viewport().set_input_as_handled()
+            return
     if event.is_action_pressed("ui_cancel") or (
             event is InputEventKey and event.pressed and not event.echo
             and event.keycode in [KEY_BACK, KEY_ESCAPE]):
@@ -2831,6 +2915,8 @@ func _return_to_overview() -> void:
         customize_glow_quad.visible = false
     in_transition = true
     _close_customization_part_picker()
+    customize_part_touch_id = -1
+    customize_part_mouse_drag = false
     if customize_single_part_preview != null:
         customize_single_part_preview.set_preview_active(false)
         customize_single_part_preview.visible = false
