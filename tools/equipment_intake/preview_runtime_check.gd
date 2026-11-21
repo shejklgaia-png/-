@@ -32,6 +32,16 @@ func _check() -> void:
     if handler==null or handler.get_script().resource_path!="res://scripts/sera_equipment.gd":
         _fail("Not the real SeraEquipment handler")
         return
+    # The NEXUS pose is a real authoring clip, not the crouched Wait_motion.
+    var named_pose: String = "NEXUS_pose"
+    var animations: Dictionary = rig.get("animations")
+    if not animations.has(named_pose):
+        _fail("Canonical SeraRig lacks NEXUS_pose")
+        return
+    if str(rig.get("current_clip"))!=named_pose or (
+            str(preview.get("active_full_body_pose"))!=named_pose):
+        _fail("Startup body pose is not the NEXUS stance")
+        return
     var head_options: Array = handler.call("options_for","head")
     if not head_options.has("D") or not head_options.has("C"):
         _fail("Current HEAD D/C equipment missing")
@@ -44,6 +54,28 @@ func _check() -> void:
         "camera":{"yaw":154.0,"pitch":-16.0,"outlinePx":3.0},
         "seq":12})
     await process_frame
+    if str(rig.get("current_clip"))!=named_pose:
+        _fail("Full-body equip changed the NEXUS_pose to the combat idle")
+        return
+    # Compare real authored animation data (not only the clip label).
+    var pose_tracks: Dictionary = (animations[named_pose] as Dictionary)["tracks"]
+    var matched_bone: bool = false
+    for uid in pose_tracks.keys():
+        var keyed: Dictionary = pose_tracks[uid]
+        var rotations: Array = keyed.get("rotation", [])
+        if rotations.is_empty() or not (rig.get("bones") as Dictionary).has(uid):
+            continue
+        var bone: Node3D = (rig.get("bones") as Dictionary)[uid]
+        if str(bone.name)!="Waist":
+            continue
+        var expected_quaternion: Quaternion = rotations[0]["quaternion"]
+        if not bone.quaternion.is_equal_approx(expected_quaternion):
+            _fail("Waist is not using authored NEXUS_pose rotation")
+            return
+        matched_bone = true
+    if not matched_bone:
+        _fail("NEXUS_pose has no mapped Waist rotation")
+        return
     if str(handler.call("current_for","head"))!="D" or (
             str(handler.call("current_for","legs"))!="C" or
             str(handler.call("current_for","weapon_r"))!="K"):
@@ -75,6 +107,9 @@ func _check() -> void:
             "booster":"A","weapon_r":"A","weapon_l":"A"},
         "size":1.0,"keep_aspect":true,"seq":13})
     await process_frame
+    if str(rig.get("current_clip"))!=str(preview.get("icon_idle_clip")):
+        _fail("ICON must restore its previous single-part idle stance")
+        return
     var available: Dictionary = handler.get("available")
     var visible_head: int = 0
     var visible_other: int = 0
@@ -96,6 +131,9 @@ func _check() -> void:
             "booster":"A","weapon_r":"A","weapon_l":"A"},
         "size":1.0,"keep_aspect":true,"seq":14})
     await process_frame
+    if str(rig.get("current_clip"))!=named_pose:
+        _fail("NEXUS_pose not restored on return from ICON to BODY")
+        return
     var other_restored: bool=false
     for set_name in available:
         for slot_name in available[set_name]:
@@ -107,5 +145,5 @@ func _check() -> void:
     if not other_restored:
         _fail("Body mode did not restore companion meshes")
         return
-    print("SERA_GODOT_INTAKE_RUNTIME_OK real_rig=true material=game outline=game")
+    print("SERA_GODOT_INTAKE_RUNTIME_OK real_rig=true material=game outline=game nexus_pose=true icon_restored=true")
     quit(0)
