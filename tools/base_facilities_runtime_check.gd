@@ -14,7 +14,12 @@ func _run() -> void:
         return
     var hub: Node3D = packed.instantiate()
     root.add_child(hub)
-    await process_frame
+    # BASE is assembled over multiple frames; checking after a single
+    # process_frame races the real asynchronous facility construction.
+    for _attempt in range(36):
+        await process_frame
+        if hub.get_node_or_null("BaseFacilities/BUILD_TERMINAL/IndustrialModel") != null:
+            break
     var camera: Camera3D = hub.get("cam") as Camera3D
     var machines: Node3D = hub.get_node_or_null("BaseFacilities") as Node3D
     if machines == null or camera == null:
