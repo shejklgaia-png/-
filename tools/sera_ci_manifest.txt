@@ -35,6 +35,9 @@ py tools/v552_material_names_gamewide_self_check.py
 gd tools/v552_material_names_gamewide_runtime_check.gd
 py tools/v551_refinery_spacing_starter_self_check.py
 gd tools/v551_refinery_spacing_starter_runtime_check.gd
+# Warehouse controls remain fixed while only cards scroll, and five effects are inset.
+py tools/warehouse_pinned_tabs_affix_inset_self_check.py
+gd tools/warehouse_pinned_tabs_affix_inset_runtime_check.gd
 # Warehouse cards: all seven hangers, five two-column effects, and flat stat table.
 py tools/warehouse_affix_grid_visual_self_check.py
 gd tools/warehouse_affix_grid_visual_runtime_check.gd
