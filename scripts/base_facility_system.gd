@@ -415,6 +415,7 @@ func _fit_material_titles(grid: VBoxContainer) -> void:
     _uniform_material_name_size = chosen
     for label in titles:
         label.add_theme_font_size_override("font_size", chosen)
+        LaboSkin.refresh_name_underline(label)
 
 
 func attach_hud(hud: Control) -> void:
@@ -469,7 +470,7 @@ func attach_hud(hud: Control) -> void:
     hero_host = SubViewportContainer.new()
     hero_host.name = "LaboHero3D"
     hero_host.stretch = true
-    hero_host.stretch_shrink = 2
+    hero_host.stretch_shrink = 1
     hero_host.mouse_filter = Control.MOUSE_FILTER_IGNORE
     hero_host.custom_minimum_size.y = get_viewport().get_visible_rect().size.y * 0.30
     hero_host.visible = false
@@ -494,6 +495,7 @@ func attach_hud(hud: Control) -> void:
     modal_title.mouse_filter = Control.MOUSE_FILTER_STOP
     modal_title.gui_input.connect(_on_modal_title_input)
     header_row.add_child(modal_title)
+    LaboSkin.attach_name_underline(modal_title)
     terminal_code = Label.new()
     terminal_code.name = "FacilitySystemTag"
     terminal_code.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1140,6 +1142,13 @@ func _clear_actions() -> void:
         for child in item_layer.get_children():
             item_layer.remove_child(child)
             child.queue_free()
+    # _clear_actions runs before screen titles are reassigned.
+    # Refresh after the page is built, without polling every frame.
+    call_deferred("_refresh_modal_name_underline")
+
+func _refresh_modal_name_underline() -> void:
+    if modal_title != null and is_instance_valid(modal_title):
+        LaboSkin.refresh_name_underline(modal_title)
 
 func _invoke_scroll_action(action: Callable, scroll: ScrollContainer) -> void:
     # A screen drag may release on the same Button; never treat it as a tap.
@@ -1546,6 +1555,8 @@ func _new_slot(parent: Control, key: String, icon: Texture2D,
     info_label.text = (info if material_choice else
         info.replace("基礎ステータス（現行Aセット参照） / ", "基礎："))
     row.add_child(card)
+    if not key.begins_with("LockedCraftSlot_"):
+        LaboSkin.attach_name_underline(title_label)
     parent.set_meta("card_count", index + 1)
     diag_created += 1
     # Small overlay accents distinguish purpose and quality without using
@@ -2166,6 +2177,7 @@ func _render_conversion() -> void:
         recipe_title.max_lines_visible = 1
         recipe_title.text = "%s ×%d" % [
             BaseMaterials.display_name(source_id), int(plan["input_count"])]
+        LaboSkin.attach_name_underline(recipe_title)
         var recipe_info: Label = bar.get_node(
             "CardContent/Row/TextStack/ItemInfo") as Label
         recipe_info.add_theme_font_size_override(
@@ -2175,6 +2187,7 @@ func _render_conversion() -> void:
         recipe_info.max_lines_visible = 1
         recipe_info.text = "≫ %s ×%d" % [
             BaseMaterials.display_name(target_id), int(plan["output_count"])]
+        LaboSkin.attach_name_underline(recipe_info)
         recipe_info.add_theme_color_override("font_color", Color("#81f0f5"))
         var output_icon := TextureRect.new()
         output_icon.name = "ConvertOutputIcon_" + str(rank)
