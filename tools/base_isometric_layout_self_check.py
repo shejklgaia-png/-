@@ -37,7 +37,7 @@ desired = {
     "STORAGE": (.205, .568),
     "GENERATOR": (.812, .586),
     "SCRAP_COLLECTOR": (.172, .745),
-    "BUILD_TERMINAL": (.728, .751),
+    "BUILD_TERMINAL": (.706, .760),
 }
 read_nexus = re.search(
     r'const NEXUS_BUILDING_ORIGIN: Vector3 = Vector3\(([-.\d]+), ([-.\d]+), ([-.\d]+)\)', base)
