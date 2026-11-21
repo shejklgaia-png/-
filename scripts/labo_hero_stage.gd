@@ -76,10 +76,14 @@ func _sign(parent: Node3D, caption: String, at: Vector3,
     var label := Label3D.new()
     label.name = "IndustrialSign_" + caption.replace(" ", "_")
     label.text = caption
-    label.font = LaboSkin.title_font()
-    label.font_size = size
-    label.pixel_size = 0.0035
-    label.modulate = Color("#ddf8ff")
+    # A bundled Latin display face avoids tiny Japanese-font fallback strokes
+    # on distant 3D signs. Higher glyph resolution retains world-space scale.
+    label.font = LaboSkin.display_font()
+    label.font_size = int(round(float(size) * 1.25))
+    label.pixel_size = 0.0028
+    label.outline_size = 2
+    label.outline_modulate = Color("#102633")
+    label.modulate = Color("#e3f3f7")
     label.position = at
     parent.add_child(label)
     return label
