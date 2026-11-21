@@ -30,6 +30,9 @@ const JOYSTICK_RADIUS: float = 76.0
 # Camera elevation is now ~33.8 degrees (was 41.1), revealing building facades
 # and side panels while preserving the 720x1280 orthographic composition.
 const BASE_ORTHO_SIZE: float = 38.0
+# All BASE/GRID view transitions are one uninterrupted camera move.
+const BASE_GRID_TRAVEL_SECONDS: float = 0.48
+const GRID_EDIT_ZOOM_SECONDS: float = 0.46
 const BASE_CAMERA_POSITION: Vector3 = Vector3(21.0, 23.0, 25.0)
 const BASE_CAMERA_TARGET: Vector3 = Vector3(0.0, 0.0, -2.2)
 const NEXUS_BUILDING_ORIGIN: Vector3 = Vector3(-9.30, 0.0, -14.55)
@@ -875,29 +878,54 @@ func _grid_edit_ortho_size(for_view: Vector2 = Vector2.ZERO) -> float:
     return maxf(22.8, 14.6 * dims.y / maxf(dims.x, 1.0))
 
 
+# Interpolate the entire camera as ONE tween track.
+# Translation traces a straight world-space line, quaternion SLERP turns
+# steadily without Euler angle wobble, orthographic zoom uses the same t.
+# A single ease-in/out affects time only and never bends the travel path.
+func _apply_grid_camera_blend(progress: float, start_position: Vector3,
+        start_orientation: Quaternion, start_size: float,
+        end_position: Vector3, end_orientation: Quaternion,
+        end_size: float) -> void:
+    if cam == null:
+        return
+    cam.position = start_position.lerp(end_position, progress)
+    cam.quaternion = start_orientation.slerp(end_orientation, progress)
+    cam.size = lerpf(start_size, end_size, progress)
+
+
+func _travel_grid_camera(to_position: Vector3,
+        to_orientation: Quaternion, to_size: float,
+        seconds: float, done: Callable) -> void:
+    if power_camera_tween != null and power_camera_tween.is_running():
+        power_camera_tween.kill()
+    var from_position: Vector3 = cam.position
+    var from_orientation: Quaternion = cam.quaternion
+    var from_size: float = cam.size
+    power_camera_tween = create_tween()
+    power_camera_tween.set_trans(Tween.TRANS_SINE)
+    power_camera_tween.set_ease(Tween.EASE_IN_OUT)
+    power_camera_tween.tween_method(
+        _apply_grid_camera_blend.bind(from_position, from_orientation,
+            from_size, to_position, to_orientation, to_size),
+        0.0, 1.0, seconds)
+    power_camera_tween.finished.connect(done)
+
+
 func _enter_grid_placement() -> void:
     if not power_view_active or grid_placement_active or (
             power_transition_busy):
         return
     grid_placement_active = true
     power_transition_busy = true
-    if power_camera_tween != null and power_camera_tween.is_running():
-        power_camera_tween.kill()
     hint.visible = false
     grid_ui.call("set_edit", true, true)
-    # Orthographic straight down: camera forward = -Y, with X/Z board axes
-    # aligned to the screen; no perspective distortion during zoom.
-    power_camera_tween = create_tween()
-    power_camera_tween.set_parallel(true)
-    power_camera_tween.set_trans(Tween.TRANS_SINE)
-    power_camera_tween.set_ease(Tween.EASE_IN_OUT)
-    power_camera_tween.tween_property(cam, "position",
-        PowerBoard.board_focus() + Vector3(0.0, 34.0, 0.01), 0.58)
-    power_camera_tween.tween_property(cam, "rotation",
-        Vector3(-PI * 0.5, 0.0, 0.0), 0.58)
-    power_camera_tween.tween_property(cam, "size", _grid_edit_ortho_size(), 0.58)
-    power_camera_tween.finished.connect(_grid_camera_arrived)
-
+    # One direct, uninterrupted approach to the 90° overhead view.
+    # The camera never pauses at a midpoint or turns in separate phases.
+    var destination := PowerBoard.board_focus() + Vector3(0.0, 34.0, 0.01)
+    var overhead := Basis.from_euler(Vector3(-PI * 0.5, 0.0, 0.0))
+    _travel_grid_camera(destination, overhead.get_rotation_quaternion(),
+        _grid_edit_ortho_size(), GRID_EDIT_ZOOM_SECONDS,
+        Callable(self, "_grid_camera_arrived"))
 
 func _grid_camera_arrived() -> void:
     power_transition_busy = false
@@ -911,21 +939,11 @@ func _leave_grid_placement() -> void:
     grid_selection_mesh.visible = false
     grid_ui.call("set_edit", false, true)
     hint.visible = true
-    if power_camera_tween != null and power_camera_tween.is_running():
-        power_camera_tween.kill()
-    power_camera_tween = create_tween()
-    power_camera_tween.set_parallel(true)
-    power_camera_tween.set_trans(Tween.TRANS_SINE)
-    power_camera_tween.set_ease(Tween.EASE_IN_OUT)
-    power_camera_tween.tween_property(cam, "position",
-        BASE_CAMERA_POSITION + (
-            PowerBoard.board_focus() - BASE_CAMERA_TARGET), 0.54)
-    power_camera_tween.tween_property(cam, "rotation",
-        grid_iso_rotation, 0.54)
-    power_camera_tween.tween_property(cam, "size",
-        _power_view_ortho_size(), 0.54)
-    power_camera_tween.finished.connect(_grid_camera_arrived)
-
+    _travel_grid_camera(BASE_CAMERA_POSITION + (
+        PowerBoard.board_focus() - BASE_CAMERA_TARGET),
+        Basis.from_euler(grid_iso_rotation).get_rotation_quaternion(),
+        _power_view_ortho_size(), GRID_EDIT_ZOOM_SECONDS,
+        Callable(self, "_grid_camera_arrived"))
 
 # A portrait Xperia has substantially less visible horizontal world width
 # than the 720x1280 CI target. Fit the projected diagonal of the 11.75m
@@ -944,8 +962,6 @@ func _enter_power_board() -> void:
     power_view_active = true
     power_transition_busy = true
     grid_iso_rotation = cam.rotation
-    if power_camera_tween != null and power_camera_tween.is_running():
-        power_camera_tween.kill()
     facility_system.call("set_field_tags_visible", false)
     hud_title.visible = false
     nexus_tag.visible = false
@@ -953,22 +969,14 @@ func _enter_power_board() -> void:
     layout_tools.visible = false
     power_back_button.visible = true
     hint.text = "POWER GRID / 8×8  |  接続設計エリア"
-    # Move screen-right following the visible winding cable, with the same
-    # fixed orthographic view throughout the entire motion (no perspective).
-    var half: Vector3 = PowerBoard.cable_point(0.57)
-    var halfway: Vector3 = BASE_CAMERA_POSITION + (
-        half - BASE_CAMERA_TARGET)
-    var final_camera: Vector3 = BASE_CAMERA_POSITION + (
-        PowerBoard.board_focus() - BASE_CAMERA_TARGET)
-    power_camera_tween = create_tween()
-    power_camera_tween.set_trans(Tween.TRANS_SINE)
-    power_camera_tween.set_ease(Tween.EASE_IN_OUT)
-    power_camera_tween.tween_property(cam, "position", halfway, 0.86)
-    power_camera_tween.tween_property(cam, "position", final_camera, 1.07)
-    power_camera_tween.parallel().tween_property(
-        cam, "size", _power_view_ortho_size(), 1.07)
-    power_camera_tween.finished.connect(_grid_camera_arrived)
-
+    # BASE -> GRID: one brisk, uninterrupted movement to the cable's end.
+    # The winding cable stays visible in the world but is not a camera
+    # waypoint; there is no deceleration or second acceleration midway.
+    _travel_grid_camera(BASE_CAMERA_POSITION + (
+        PowerBoard.board_focus() - BASE_CAMERA_TARGET),
+        Basis.from_euler(grid_iso_rotation).get_rotation_quaternion(),
+        _power_view_ortho_size(), BASE_GRID_TRAVEL_SECONDS,
+        Callable(self, "_grid_camera_arrived"))
 
 func _leave_power_board() -> void:
     if not power_view_active:
@@ -979,28 +987,16 @@ func _leave_power_board() -> void:
     grid_selection_mesh.visible = false
     grid_ui.call("set_edit", false, false)
     grid_ui.call("set_grid", false, true)
-    if power_camera_tween != null and power_camera_tween.is_running():
-        power_camera_tween.kill()
     power_back_button.visible = false
     hud_title.visible = false
     hint.visible = true
     layout_tools.visible = true
     hint.text = "建物をタップして施設を開く"
-    power_camera_tween = create_tween()
-    power_camera_tween.set_trans(Tween.TRANS_SINE)
-    power_camera_tween.set_ease(Tween.EASE_IN_OUT)
-    # Return over the cable and restore the original orthographic framing.
-    var half: Vector3 = PowerBoard.cable_point(0.57)
-    power_camera_tween.tween_property(cam, "position",
-        BASE_CAMERA_POSITION + (half - BASE_CAMERA_TARGET), 0.86)
-    power_camera_tween.tween_property(cam, "position",
-        BASE_CAMERA_POSITION, 0.94)
-    power_camera_tween.parallel().tween_property(
-        cam, "size", BASE_ORTHO_SIZE, 0.94)
-    power_camera_tween.parallel().tween_property(
-        cam, "rotation", grid_iso_rotation, 0.94)
-    power_camera_tween.finished.connect(_power_camera_return_finished)
-
+    # GRID -> BASE uses the same fast direct path, including rotation/zoom.
+    _travel_grid_camera(BASE_CAMERA_POSITION,
+        Basis.from_euler(grid_iso_rotation).get_rotation_quaternion(),
+        BASE_ORTHO_SIZE, BASE_GRID_TRAVEL_SECONDS,
+        Callable(self, "_power_camera_return_finished"))
 
 func _power_camera_return_finished() -> void:
     power_transition_busy = false
