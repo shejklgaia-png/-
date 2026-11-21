@@ -138,8 +138,10 @@ func _create_grid_plates(floor: Node3D) -> Array[Dictionary]:
         Color("#1e2326"), Color("#252729"), Color("#292b2a"),
         Color("#27292c"), Color("#21262a"), Color("#302c29")
     ]
+    var sites: Array[Dictionary] = BaseDeckLayout.facility_sites(
+        NEXUS_BUILDING_ORIGIN, BaseFacilities.FACILITY_SPECS)
     var panels: Array[Dictionary] = BaseDeckLayout.generate(
-        PLATE_GRID_RADIUS_CELLS, PLATE_GRID_STEP)
+        PLATE_GRID_RADIUS_CELLS, PLATE_GRID_STEP, sites)
     var plate_mesh := BoxMesh.new()
     plate_mesh.size = Vector3.ONE
     var grid_extent: float = float(PLATE_GRID_RADIUS_CELLS) * PLATE_GRID_STEP + 1.50

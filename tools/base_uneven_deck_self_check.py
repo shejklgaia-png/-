@@ -10,7 +10,7 @@ ci = (root/"tools/sera_ci_manifest.txt").read_text(encoding="utf-8")
 legacy = (root/"tools/base_exploration_runtime_check.gd").read_text(encoding="utf-8")
 
 assert 'const BaseDeckLayout = preload("res://scripts/sera_base_deck_layout.gd")' in hub
-assert re.search(r'BaseDeckLayout\.generate\(\s*PLATE_GRID_RADIUS_CELLS,\s*PLATE_GRID_STEP\)', hub), 'layout call missing'
+assert re.search(r'BaseDeckLayout\.generate\(\s*PLATE_GRID_RADIUS_CELLS,\s*PLATE_GRID_STEP,\s*sites\)', hub), 'facility-aware layout call missing'
 assert 'BaseFloorDetail.decorate(floor, panels)' in hub
 assert 'static func generate(' in layout
 assert 'PackedByteArray' in layout and '_can_occupy(' in layout

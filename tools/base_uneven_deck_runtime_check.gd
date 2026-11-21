@@ -1,6 +1,8 @@
 extends SceneTree
 ## Independent geometry contract: variable slab spans, full coverage and no overlaps.
 const DeckLayout = preload("res://scripts/sera_base_deck_layout.gd")
+const BaseFacilities = preload("res://scripts/base_facility_system.gd")
+const HubScript = preload("res://scripts/base_exploration.gd")
 const RADIUS: int = 42
 const STEP: float = 3.0
 
@@ -25,7 +27,9 @@ func _run() -> void:
     if floor == null or detail == null:
         _fail("deck and surface detail hierarchy missing")
         return
-    var layout: Array[Dictionary] = DeckLayout.generate(RADIUS, STEP)
+    var sites: Array[Dictionary] = DeckLayout.facility_sites(
+        HubScript.NEXUS_BUILDING_ORIGIN, BaseFacilities.FACILITY_SPECS)
+    var layout: Array[Dictionary] = DeckLayout.generate(RADIUS, STEP, sites)
     if layout.size() < 3000 or layout.size() > 10500:
         _fail("unexpected panel count " + str(layout.size()))
         return
