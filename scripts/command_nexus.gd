@@ -1052,6 +1052,8 @@ func _tap_equipment_control(point: Vector2) -> bool:
 
 
 func _create_customization_part_picker() -> void:
+    # SERA-wide matte/blue-grey picker; keep the existing raw-touch and
+    # cached native part portraits, with no 3D renders per catalog cell.
     customize_part_picker = Control.new()
     customize_part_picker.name = "CustomizePartPickerOverlay"
     customize_part_picker.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -1068,17 +1070,38 @@ func _create_customization_part_picker() -> void:
     customize_part_picker_window.name = "CustomizePartPickerWindow"
     customize_part_picker_window.mouse_filter = Control.MOUSE_FILTER_IGNORE
     customize_part_picker_window.add_theme_stylebox_override(
-        "panel", _menu_body_style())
+        "panel", LaboSkin.card_style("normal"))
     customize_part_picker.add_child(customize_part_picker_window)
+    var header_plate := ColorRect.new()
+    header_plate.name = "CustomizePartPickerHeaderPlate"
+    header_plate.color = Color("#17313e")
+    header_plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    customize_part_picker_window.add_child(header_plate)
+    var header_rule := ColorRect.new()
+    header_rule.name = "CustomizePartPickerHeaderRule"
+    header_rule.color = Color("#55798a")
+    header_rule.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    customize_part_picker_window.add_child(header_rule)
     customize_part_picker_title = Label.new()
     customize_part_picker_title.name = "CustomizePartPickerTitle"
     customize_part_picker_title.add_theme_font_override(
         "font", LaboSkin.tracked_display_font())
-    customize_part_picker_title.add_theme_font_size_override("font_size", 24)
+    customize_part_picker_title.add_theme_font_size_override("font_size", 23)
     customize_part_picker_title.add_theme_color_override(
-        "font_color", Color("#e1eef3"))
+        "font_color", Color("#d7e6ed"))
+    customize_part_picker_title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
     customize_part_picker_title.mouse_filter = Control.MOUSE_FILTER_IGNORE
     customize_part_picker_window.add_child(customize_part_picker_title)
+    var close := Label.new()
+    close.name = "CustomizePartPickerClose"
+    close.text = "×"
+    close.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    close.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+    close.add_theme_font_override("font", LaboSkin.tracked_display_font())
+    close.add_theme_font_size_override("font_size", 28)
+    close.add_theme_color_override("font_color", Color("#ccdce5"))
+    close.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    customize_part_picker_window.add_child(close)
     customize_part_picker_scroll = ScrollContainer.new()
     customize_part_picker_scroll.name = "CustomizePartPickerScroll"
     customize_part_picker_scroll.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1090,8 +1113,8 @@ func _create_customization_part_picker() -> void:
     customize_part_grid.columns = 3
     customize_part_grid.mouse_filter = Control.MOUSE_FILTER_IGNORE
     customize_part_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-    customize_part_grid.add_theme_constant_override("h_separation", 8)
-    customize_part_grid.add_theme_constant_override("v_separation", 8)
+    customize_part_grid.add_theme_constant_override("h_separation", 9)
+    customize_part_grid.add_theme_constant_override("v_separation", 10)
     customize_part_picker_scroll.add_child(customize_part_grid)
     hud.resized.connect(_layout_customization_part_picker)
 
@@ -1103,20 +1126,34 @@ func _layout_customization_part_picker() -> void:
         view.y * 0.218)
     customize_part_picker_window.size = Vector2(view.x * 0.890,
         view.y * 0.638)
-    customize_part_picker_title.position = Vector2(17, 13)
-    customize_part_picker_title.size = Vector2(
-        customize_part_picker_window.size.x - 34, 42)
-    customize_part_picker_scroll.position = Vector2(12, 62)
-    customize_part_picker_scroll.size = Vector2(
-        customize_part_picker_window.size.x - 24,
-        maxf(100.0, customize_part_picker_window.size.y - 76))
+    var window_width: float = customize_part_picker_window.size.x
+    var window_height: float = customize_part_picker_window.size.y
+    var plate: ColorRect = customize_part_picker_window.get_node(
+        "CustomizePartPickerHeaderPlate") as ColorRect
+    plate.position = Vector2(3.0, 3.0)
+    plate.size = Vector2(window_width - 6.0, 54.0)
+    var rule: ColorRect = customize_part_picker_window.get_node(
+        "CustomizePartPickerHeaderRule") as ColorRect
+    rule.position = Vector2(15.0, 57.0)
+    rule.size = Vector2(window_width - 30.0, 2.0)
+    customize_part_picker_title.position = Vector2(18.0, 7.0)
+    customize_part_picker_title.size = Vector2(window_width - 94.0, 46.0)
+    var close: Label = customize_part_picker_window.get_node(
+        "CustomizePartPickerClose") as Label
+    close.position = Vector2(window_width - 61.0, 7.0)
+    close.size = Vector2(45.0, 46.0)
+    customize_part_picker_scroll.position = Vector2(14.0, 70.0)
+    customize_part_picker_scroll.size = Vector2(window_width - 28.0,
+        maxf(100.0, window_height - 85.0))
     customize_part_grid.columns = 3
-    var width: float = (customize_part_picker_scroll.size.x - 16.0) / 3.0
+    # Reserve the actual 9px gaps and the scrollbar, so the last portrait
+    # never clips behind the right edge or a vertical scroll thumb.
+    var width: float = (customize_part_picker_scroll.size.x - 32.0) / 3.0
     for entry in customize_part_picker_cells:
         var card: Button = entry["button"]
-        card.custom_minimum_size = Vector2(width, width + 47.0)
+        card.custom_minimum_size = Vector2(width, width + 53.0)
         var art: TextureRect = entry["art"]
-        var side: float = width - 12.0
+        var side: float = maxf(60.0, width - 20.0)
         art.custom_minimum_size = Vector2(side, side)
 
 func _show_customization_part_picker(slot: String) -> void:
@@ -1124,7 +1161,7 @@ func _show_customization_part_picker(slot: String) -> void:
         return
     customize_part_preview_slot = slot
     _refresh_single_part_preview(slot)
-    customize_part_picker_title.text = str(CUSTOMIZE_SLOT_LABELS.get(slot, slot)) + "   /   SELECT PART    ×"
+    customize_part_picker_title.text = str(CUSTOMIZE_SLOT_LABELS.get(slot, slot)) + "   /   SELECT PART"
     for child in customize_part_grid.get_children():
         customize_part_grid.remove_child(child)
         child.queue_free()
@@ -1152,19 +1189,45 @@ func _show_customization_part_picker(slot: String) -> void:
 
 func _append_customization_choice(choice: String, name: String,
         blueprint: String, uid: String) -> void:
+    var equipped_uid: String = SeraSave.get_equipped_prototype(customize_part_preview_slot)
+    var selected_model: String = "A"
+    if sera_display_rig != null:
+        selected_model = str(sera_display_rig.call(
+            "get_equipment_selection", customize_part_preview_slot))
+    var spec: Dictionary = PrototypeCatalog.spec(blueprint)
+    var selected: bool = (not uid.is_empty() and uid == equipped_uid) or (
+        uid.is_empty() and equipped_uid.is_empty() and (
+        str(spec.get("rig_set", "A")) == selected_model))
+    # Do not mark two alternate blueprints as equipped when sharing a rig.
+    if selected:
+        for entry in customize_part_picker_cells:
+            if bool(entry.get("selected", false)):
+                selected = false
+                break
     var card := Button.new()
     card.name = "PartChoice_" + choice.replace(":", "_")
     card.text = ""
+    card.focus_mode = Control.FOCUS_NONE
     card.mouse_filter = Control.MOUSE_FILTER_IGNORE
     card.clip_contents = true
-    card.add_theme_stylebox_override("normal", LaboSkin.card_style("normal"))
-    card.add_theme_stylebox_override("hover", LaboSkin.card_style("selected"))
+    card.add_theme_stylebox_override(
+        "normal", LaboSkin.card_style("selected" if selected else "normal"))
+    card.add_theme_stylebox_override("hover", LaboSkin.card_style("hover"))
+    card.add_theme_stylebox_override(
+        "pressed", LaboSkin.card_style("selected"))
     customize_part_grid.add_child(card)
+    var insets := MarginContainer.new()
+    insets.name = "ChoiceInsets"
+    insets.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    insets.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+    for edge in ["left", "right", "top", "bottom"]:
+        insets.add_theme_constant_override("margin_" + edge, 8)
+    card.add_child(insets)
     var column := VBoxContainer.new()
+    column.name = "ChoiceContents"
     column.mouse_filter = Control.MOUSE_FILTER_IGNORE
-    column.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
     column.add_theme_constant_override("separation", 3)
-    card.add_child(column)
+    insets.add_child(column)
     var image := TextureRect.new()
     image.name = "ChoiceThumbnail"
     image.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
@@ -1177,23 +1240,43 @@ func _append_customization_choice(choice: String, name: String,
     caption.name = "ChoiceName"
     caption.text = name
     caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    caption.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
     caption.clip_text = true
     caption.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+    caption.custom_minimum_size.y = 28.0
     caption.add_theme_font_override("font", LaboSkin.equipment_font())
-    caption.add_theme_font_size_override("font_size", 16)
+    caption.add_theme_font_size_override("font_size", 17)
+    caption.add_theme_color_override(
+        "font_color", Color("#e2edf1") if selected else Color("#d1e0e7"))
     caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
     column.add_child(caption)
-    if not uid.is_empty():
-        var ref := Label.new()
-        ref.name = "ChoiceUID"
-        ref.text = uid
-        ref.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-        ref.add_theme_font_override("font", LaboSkin.tracked_data_font())
-        ref.add_theme_font_size_override("font_size", 12)
-        ref.mouse_filter = Control.MOUSE_FILTER_IGNORE
-        column.add_child(ref)
+    LaboSkin.attach_name_underline(caption)
+    var ref := Label.new()
+    ref.name = "ChoiceUID"
+    ref.text = uid if not uid.is_empty() else " "
+    ref.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    ref.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+    ref.custom_minimum_size.y = 17.0
+    ref.add_theme_font_override("font", LaboSkin.tracked_data_font())
+    ref.add_theme_font_size_override("font_size", 12)
+    ref.add_theme_color_override("font_color", Color("#a9c2cd"))
+    ref.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    column.add_child(ref)
+    # A thin active rail and LABO's selected chamfer indicate the installed
+    # item; the original equipment PNG remains unmodified.
+    var active_rail := ColorRect.new()
+    active_rail.name = "ChoiceSelectedRail"
+    active_rail.color = Color("#86d2dd")
+    active_rail.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    active_rail.visible = selected
+    card.add_child(active_rail)
+    active_rail.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
+    active_rail.offset_left = 11.0
+    active_rail.offset_right = -11.0
+    active_rail.offset_top = -6.0
+    active_rail.offset_bottom = -4.0
     customize_part_picker_cells.append({
-        "button": card, "art": image, "choice": choice
+        "button": card, "art": image, "choice": choice, "selected": selected
     })
 
 func _choose_customization_part(choice: String) -> void:
@@ -1243,9 +1326,11 @@ func _tap_customization_part_picker(point: Vector2) -> void:
     if not window_rect.has_point(point):
         _close_customization_part_picker()
         return
-    var header_rect := Rect2(customize_part_picker_window.position,
-        Vector2(customize_part_picker_window.size.x, 60.0))
-    if header_rect.has_point(point):
+    # Only the independent close glyph dismisses from inside the header.
+    # The rest of the header is inert; outside-tap and Android Back remain.
+    var close_rect := Rect2(customize_part_picker_window.position + Vector2(
+        customize_part_picker_window.size.x - 67.0, 0.0), Vector2(67.0, 62.0))
+    if close_rect.has_point(point):
         _close_customization_part_picker()
         return
     var clipping: Rect2 = customize_part_picker_scroll.get_global_rect()
