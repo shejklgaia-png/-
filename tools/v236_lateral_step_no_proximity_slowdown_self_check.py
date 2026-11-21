@@ -27,7 +27,11 @@ for fn in (omni,side,back):
     assert "_step_speed_for_player_position(" not in fn
 assert 'step_arc_length = _step_fixed_distance_for_direction(direction)' in omni
 assert 'step_arc_length = BACK_STEP_DISTANCE' in back
-assert 'var path_length: float = STEP_SIDE_DISTANCE' in side
+# Speed is unchanged by target proximity; only mass-class STEP distance scales.
+assert 'var weighted_step_length: float = STEP_SIDE_DISTANCE * float(part_stats.get("step_distance_mult", 1.0))' in side
+assert 'var path_length: float = weighted_step_length' in side
+assert 'step_arc_length = BACK_STEP_DISTANCE * float(part_stats.get("step_distance_mult", 1.0))' in back
+assert 'return STEP_SIDE_DISTANCE * float(part_stats.get("step_distance_mult", 1.0))' in segment("func _step_fixed_distance_for_direction(", "func _start_omni_step(")
 assert "_move_player_swept(requested, true)" in segment(
     "func _advance_side_step(delta: float) -> void:","func _move_player_swept(")
 for equipment in (0.7,1.,1.3):
