@@ -15,7 +15,7 @@ const GRADE_NAMES = {
     "scrap": {"low": "汎用", "mid": "応用", "high": "高度"},
     "alloy": {"low": "基礎", "mid": "精密", "high": "高次"},
     "electronics": {"low": "汎用", "mid": "精密", "high": "高度"},
-    "organic": {"low": "低活性", "mid": "安定", "high": "高活性"}
+    "organic": {"low": "微弱", "mid": "活性", "high": "旺盛"}
 }
 const STARTER_SCRAP_COUNT: int = 5
 const MATERIAL_NAMES = {
@@ -28,9 +28,9 @@ const MATERIAL_NAMES = {
     "electronics_low": "汎用電子部品",
     "electronics_mid": "精密電子部品",
     "electronics_high": "高度電子部品",
-    "organic_low": "低活性有機素材",
-    "organic_mid": "安定有機素材",
-    "organic_high": "高活性有機素材"
+    "organic_low": "微弱有機素材",
+    "organic_mid": "活性有機素材",
+    "organic_high": "旺盛有機素材"
 }
 const REFINE_INPUT_PER_BATCH: int = 2
 const REFINE_OUTPUT_PER_BATCH: int = 1
