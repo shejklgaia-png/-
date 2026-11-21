@@ -12,6 +12,7 @@ const BaseLayoutPreview = preload("res://scripts/sera_base_layout_preview.gd")
 const JunkGeometry = preload("res://scripts/sera_base_junk_geometry.gd")
 const BaseFloorDetail = preload("res://scripts/sera_base_floor_detail.gd")
 const BaseDeckLayout = preload("res://scripts/sera_base_deck_layout.gd")
+const BasePolygon = preload("res://scripts/sera_base_polygon_meshes.gd")
 const WEATHERED_STEEL_PATH: String = "res://assets/base/industrial_steel_grunge.svg"
 const WEATHERED_DECK_PATH: String = "res://assets/base/industrial_deck_wear.svg"
 const LaboSkin = preload("res://scripts/sera_labo_round_skin.gd")
@@ -224,8 +225,9 @@ func _create_grid_plates(floor: Node3D) -> Array[Dictionary]:
         NEXUS_BUILDING_ORIGIN, BaseFacilities.FACILITY_SPECS)
     var panels: Array[Dictionary] = BaseDeckLayout.generate(
         PLATE_GRID_RADIUS_CELLS, PLATE_GRID_STEP, sites)
-    var plate_mesh := BoxMesh.new()
-    plate_mesh.size = Vector3.ONE
+    # Physically chamfered eight-sided polygonal unit slab, sharing one
+    # CPU-side mesh across all existing six floor MultiMesh draw batches.
+    var plate_mesh: ArrayMesh = BasePolygon.make("deck")
     var grid_extent: float = float(PLATE_GRID_RADIUS_CELLS) * PLATE_GRID_STEP + 1.50
     var grouped: Array = []
     for index in range(tints.size()):
