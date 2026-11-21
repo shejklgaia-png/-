@@ -50,10 +50,23 @@ assert 'StatUI.layout_status_marks(customize_part_accents,' in nexus
 # Full-width 3x5 part grid stays non-scrolling even with larger, two-line type.
 for required in (
     'row.custom_minimum_size = Vector2(100, 44)',
-    'customize_part_stats_list.add_theme_constant_override("v_separation", 3)',
+    'customize_part_stats_list.add_theme_constant_override("v_separation", 1)',
     'StatUI.layout_metric_pair(label, value, row_width, 44.0, 19, 24, 16, 20)',
 ):
     assert required in nexus, required
+# Keep 19/24px statistics unmodified; only the gap between rows is reduced.
+assert 'row.custom_minimum_size = Vector2(row_width, 44)' in nexus
+assert 'StatUI.layout_metric_pair(label, value, row_width, 44.0, 19, 24, 16, 20)' in nexus
+for layout in (
+    'Vector2(view.x * 0.040, view.y * 0.501)',
+    'Vector2(view.x * 0.435, view.y * 0.185)',
+    'var bottom: float = view.y * 0.900',
+    'Vector2(view.x * 0.040, start)',
+    'Vector2(view.x * 0.920, maxf(120.0, bottom - start))',
+    'customize_part_stats_scroll.position = Vector2(11, 41)',
+    'maxf(40.0, area.size.y - 47.0)',
+):
+    assert layout in nexus, layout
 assert 'StatUI.layout_metric_pair(' in nexus
 assert 'button.text = _default_part_name(slot, selected_model)' in nexus
 assert 'py tools/nexus_split_inspector_self_check.py' in manifest
