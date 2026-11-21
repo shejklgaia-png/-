@@ -34,6 +34,8 @@ assert base64.b64decode(pkg['bbmodel_base64']) == raw
 assert pkg['slot'] == 'head' and pkg['rig_set'] == 'D'
 assert html.count('SERA_MODEL_BUNDLE_V1') >= 1
 assert 'fetch(' not in template, 'Original model must work entirely offline'
+packaged = ROOT / 'tools/icon_studio/dist/SERA_Icon_Studio_IRIS.html'
+assert packaged.read_text(encoding='utf-8') == html, 'Checked-in IRIS HTML is stale; regenerate with build_sera_icon_studio.py'
 
 # Validate the interchange schema without requiring WebGL or headless Chrome.
 fixture = {
