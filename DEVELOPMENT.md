@@ -1,3 +1,10 @@
+## 2026-11-21 — BASE角度描画の既存CI互換・CPU側ジオメトリ検査
+- BASE角度変更の初回統合後、追加したGodotテストが実GPU `MultiMesh.get_instance_transform` のヘッドレス読戻しに依存し、`base_prop_stacks_runtime_check.gd` と `base_compact_prop_variety_runtime_check.gd` で旧検査用の簡易Batchにない `yaw/pivot` を参照していた問題を確認。
+- テスト側はCPU上の本物の `BaseArchitecture.Batch` 内 `entries["cube|rubber"]` をチェックする方式に先行変更。実レンダラはピボットの有無を `get_property_list()` で1回調べ、旧Capture/RecordingBatchは従来通りbox/rod/crateだけで使えるようにする。
+- 角度、コンテナ支持関係、床板数、通常ゲーム描画、マテリアル、他のすべての登録CIの期待値は変更しない。別件の既存LABO検査v534/v553は初回変更前にも失敗しているため、BASE回帰とは切り分ける。
+
+---
+
 ## 2026-11-21 — BASE施設・小物の平行配置を解消し自然な角度に散らす
 - 添付画面で全施設と置物の直交した平行配置を確認。最新 `main`、拠点の建築MultiMesh・施設定義・床1枚設計・雑多な小物・実行時レイアウト検査・描画方針を事前確認。
 - 実装前に `base_natural_yaw_self_check.py` と `base_natural_yaw_runtime_check.gd` を作成し、CIマニフェストに登録。施設独立角、描画バッチへの実回転、小物の正負角度のばらつき、単一床板内収まり、施設のタップを検証する。
