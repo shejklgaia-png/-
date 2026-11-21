@@ -1,3 +1,13 @@
+## 2026-11-21 — BASEカメラをFOV0相当の斜め俯瞰正投影へ変更
+
+- BASEのみ、FOV 0°の視覚的意図を `Camera3D.PROJECTION_ORTHOGONAL` で実現。透視カメラのFOV 0°は設定不可能なため、平行投影と縦方向サイズ38m、固定斜め上視点（21,30,25→0,0,-2.2）で実装。NEXUS内や戦闘のカメラは変更しない。
+- スクリーン上の目標構図から逆投影して、NEXUS上部中央、LABO中央、その他6施設を左右3段に分散。床・施設メッシュの衝突、タップ範囲、施設名の表示、クレートの周回経路を維持。クレートは同じ周回経路を回転順序だけ変えて手前から開始。装飾部品/スクラップを施設の物理領域外へ移動、説明文を屋根と重ならない下辺に移設。
+- 変更前に `AGENTS.md`、`tools/sera_ci_manifest.txt`、`docs/SERA_ACTIVE_CI_POLICY_ja.md`、`base_exploration_runtime_check.gd`、`base_facilities_runtime_check.gd` とGitHub Actionsを確認。既存の正本を保ちつつ、旧カメラ座標を復元する部分のテストのみ新カメラ定数へ更新。
+- 実装前に `tools/base_isometric_layout_self_check.py` と `tools/base_isometric_layout_runtime_check.gd` を追加・登録。実座標から正投影した8施設全体の画面収まり、スクリーン上の非重複、タップ、施設ラベル、毎フレームのカメラ保持を検査。
+- 実際のGL画面を `tools/base_isometric_visual_capture.gd` でPNGに保存してActions artifactに添付。mainへマージ後に全Python/Godot CIを実行し、Android実機での描画・タップ感触は別途確認する。
+
+---
+
 ## 2026-11-21 — NEXUSの5画面をLABOのマットな産業UIへ統一
 
 - CUSTOMIZE / TRAINING / DEPLOYMENT / DATA ARCHIVE / SYSTEM の各パネルと補助操作（戻る・退出）に、既存 `sera_labo_round_skin.gd` のブルーグレー、欠け角カード、選択レール、同梱日本語/英数字フォントを採用。パネル透過を控えて文字コントラストを確保し、装備アイコンと文字の重なりを解消。
