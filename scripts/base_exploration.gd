@@ -337,9 +337,24 @@ func _create_salvage() -> void:
         # Stable but deliberately different slants for every scrap heap.
         pile.rotation.y = deg_to_rad(float(-26 + posmod(i * 23 + 7, 55)))
         pile.set_meta("scrap_profile", posmod(i, JunkGeometry.SCRAP_PROFILES))
+        # Give isolated scrap heaps a stronger silhouette. Near buildings,
+        # keep their footprint lower so entrance panels and machinery stay
+        # legible. This uses no extra draw nodes and no per-frame calculations.
+        var nearest: float = lots[i].distance_to(nexus_building.position)
+        for station in facility_system.get_children():
+            if station is Node3D:
+                nearest = minf(nearest,
+                    lots[i].distance_to((station as Node3D).position))
+        var scale_factor: float = 1.26
+        if nearest < 4.0:
+            scale_factor = 1.12
+        elif nearest < 7.0:
+            scale_factor = 1.20
+        pile.set_meta("visual_scale", scale_factor)
         add_child(pile)
         g.pivot = lots[i]
         g.yaw = pile.rotation.y
+        g.detail_scale = scale_factor
         JunkGeometry.scrap_heap(g, lots[i], i)
     # One shared opaque MultiMesh per actual geometry/material type, not
     # hundreds of MeshInstance3D nodes or per-frame random CPU rebuilds.
