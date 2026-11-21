@@ -71,10 +71,10 @@ func _run() -> void:
             _fail("NEXUS touch rectangle obscures " + name)
             return
     if absf(lab_uv.x - 0.5) > 0.1 or (
-            lab_uv.y < 0.38 or lab_uv.y > 0.60):
-        _fail("LABO is not central")
+            lab_uv.y < 0.60 or lab_uv.y > 0.70):
+        _fail("LABO must anchor the lower edge of a modest central gap")
         return
-    if lab_uv.y - top_uv.y < 0.18:
+    if lab_uv.y - top_uv.y < 0.30 or lab_uv.y - top_uv.y > 0.45:
         _fail("NEXUS and LABO vertical tiers collapsed")
         return
     machines.call("update_tags", camera)

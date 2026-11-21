@@ -1,3 +1,13 @@
+## 2026-11-21 — BASE：正方形の大広場ではなく、何となく余白のある疎密配置
+- 最新mainの施設7スペック、NEXUS基準、33.8°の正投影カメラ、68組の周辺小物、16基のスクラップ、鋼板1枚単位の床、中央の既存CRATEルートと関連テストを確認。
+- 実装前に `base_isometric_layout_self_check.py` の全8施設の投影目標値、`base_isometric_layout_runtime_check.gd` のLABO下端配置、`base_facilities_runtime_check.gd` の中心LABO制限を更新。独立した `base_soft_center_space_self_check.py` と `base_soft_center_space_runtime_check.gd` を登録し、緩い中心余白・左右の不揃い・既存資材の周縁配置・床の1枚板を検査する。
+- LABOを画面中央下側(ワールド6.20,5.25)へ移動し、他の左右各3施設の前後位置を微調整。俯瞰・Yaw・モデル・施設のタップ/ラベル・キャラ非表示・ゲーム内のデータは維持。
+- スクラップ16基のうちLABOとの位置干渉が生じる2基だけを中央の周縁へ移動。CRATEの既存中央遊歩ルートを残し、中央は自然に歩ける隙間へ。
+- `sera_base_floor_detail.gd` の長い格子状警戒ラインを途切れた不規則な短線にし、中央の目立つ四角囲いを作らない。材質・バッチ数と床全体の配色は維持。
+- 詳細 `docs/SERA_BASE_ORGANIC_CENTER_ja.md`。統合後CI・Android実機の見え方を別途検証する。
+
+---
+
 ## 2026-11-21 — カメラアイ頭部をSERAの独立 HEAD D として統合
 - 入力原本：`models/storage/カメラアイ頭部.bbmodel`。2026-11-21同期版の修正済み外装をそのまま新規正本として `models/manifest.json` に登録。従来の `Head_C.bbmodel`（頭部C）は維持。
 - `sera_equipment.gd` がA標準アニメーションの `Waist/Torso/Chest/Neck/Head` 配下へ6メッシュを追加。作者のローカル頂点・UV・回転と左右配置は維持し、均一0.66倍・中心補正で装着。HEAD A/B/C/その他部位への変更なし。

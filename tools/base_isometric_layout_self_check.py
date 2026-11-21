@@ -26,17 +26,18 @@ assert 'py tools/base_isometric_layout_self_check.py' in ci
 assert 'gd tools/base_isometric_layout_runtime_check.gd' in ci
 
 # Approved screen composition for the 720x1280 portrait viewport:
-# NEXUS high center, LABO middle, six devices in three staggered outside rows.
-# Not derived from the implementation: each independent target is specified here.
+# NEXUS anchors the upper center, LABO is a little below the open mid-field.
+# Three peripheral rows are intentionally asymmetric rather than a strict grid.
+# These independent target coordinates are the approved composition.
 desired = {
     "NEXUS": (.50, .272),
-    "LABO": (.50, .50),
-    "SMELTER": (.19, .382),
-    "RECYCLER": (.81, .390),
-    "STORAGE": (.17, .563),
-    "GENERATOR": (.83, .576),
-    "SCRAP_COLLECTOR": (.235, .754),
-    "BUILD_TERMINAL": (.76, .758),
+    "LABO": (.517, .642),
+    "SMELTER": (.174, .371),
+    "RECYCLER": (.795, .407),
+    "STORAGE": (.177, .570),
+    "GENERATOR": (.832, .591),
+    "SCRAP_COLLECTOR": (.184, .753),
+    "BUILD_TERMINAL": (.752, .764),
 }
 read_nexus = re.search(
     r'const NEXUS_BUILDING_ORIGIN: Vector3 = Vector3\(([-.\d]+), ([-.\d]+), ([-.\d]+)\)', base)

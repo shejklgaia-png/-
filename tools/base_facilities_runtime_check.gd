@@ -102,9 +102,9 @@ func _run() -> void:
     if not bool(hub.call("_nexus_hit", nexus_spot)):
         _fail("NEXUS entrance is no longer pickable")
         return
-    # v505 contract (defined before implementation): NEXUS takes the upper
-    # center; LABO is the center anchor; all six machines form a surrounding
-    # ring, keeping the lower build terminal accessible. Do not check only
+    # Current BASE art direction: NEXUS is above a modest informal open area;
+    # LABO is the lower-middle anchor and the other six sites are staggered
+    # around it without forcing a giant formal plaza. Do not check only
     # raw coordinates: require the hierarchy to be visible on the 720x1280
     # projected Android screen.
     var nexus_uv: Vector2 = nexus_spot / view
@@ -131,10 +131,10 @@ func _run() -> void:
         _fail("NEXUS is not at the upper center: " + str(nexus_uv))
         return
     if absf(labo_uv.x - 0.5) > 0.12 or (
-            labo_uv.y < 0.36 or labo_uv.y > 0.63):
-        _fail("LABO is not central: " + str(labo_uv))
+            labo_uv.y < 0.60 or labo_uv.y > 0.70):
+        _fail("LABO is not a lower central perimeter anchor: " + str(labo_uv))
         return
-    if labo_uv.y - nexus_uv.y < 0.16:
+    if labo_uv.y - nexus_uv.y < 0.28:
         _fail("NEXUS and LABO do not have a clear screen-space separation")
         return
     var left_count: int = 0
@@ -146,8 +146,7 @@ func _run() -> void:
         var field_node: Node3D = machines.get_node(key) as Node3D
         var device_uv: Vector2 = camera.unproject_position(
             field_node.global_position + Vector3(0.0, 1.0, 0.0)) / view
-        # Every other device must stay outside the center LABO zone,
-        # or be clearly underneath it (the lower construction terminal).
+        # Other devices stay on the outside, leaving a loose middle transit area.
         if absf(device_uv.x - 0.5) < 0.19 and device_uv.y < 0.71:
             _fail("outer device occupies the center LABO zone: " + key)
             return
