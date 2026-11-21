@@ -7,7 +7,7 @@ hub=src("scripts/base_exploration.gd")
 arch=src("scripts/sera_base_architecture.gd")
 ci=src("tools/sera_ci_manifest.txt")
 colors=[
-"#292d33","#303336","#323432","#303339","#2b3237","#34312e"
+"#1e2326","#252729","#292b2a","#27292c","#21262a","#302c29"
 ]
 for color in colors:
     assert 'Color("'+color+'")' in hub,color
