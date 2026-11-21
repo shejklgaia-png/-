@@ -35,6 +35,7 @@ for item in ["#111e28", "#55798A", "GRID_DIVISIONS", "GRID_OPACITY", "make_image
              "composite", "Image.INTERPOLATE_NEAREST"]:
     assert item in bg, item
 assert "IconBackground.composite(source)" in icons
+assert "source is AtlasTexture" in bg and "atlas_texture.region" in bg and "art.get_region" in bg
 assert "_presented_equipment_cache" in icons
 assert "EquipmentPreview.new()" in game
 assert "confirmation_preview_host" in game
