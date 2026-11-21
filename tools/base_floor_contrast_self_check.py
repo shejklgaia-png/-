@@ -35,8 +35,8 @@ assert '"caution": "#d7a951"' in detail, "yellow hazard lanes must remain distin
 assert luminance("#d7a951") > max(luminance(c) for c in colors) * 10
 for hue in ("seam", "edge", "bolt", "grate", "grille", "caution", "cable", "pipe", "mark"):
     assert '"'+hue+'"' in detail
-assert 'env.ambient_light_energy = 0.85' in hub, "do not darken buildings by changing ambient light"
-assert 'sun.light_energy = 1.35' in hub, "do not darken the scene globally"
+assert 'env.ambient_light_energy = 0.38' in hub, "approved night yard should preserve readable charcoal deck"
+assert 'sun.light_energy = 0.36' in hub, "approved blue-gray night yard uses subdued directional fill"
 assert 'py tools/base_floor_contrast_self_check.py' in manifest
 assert 'gd tools/base_floor_contrast_runtime_check.gd' in manifest
 print("SERA_BASE_FLOOR_CONTRAST_STATIC_PASS")
