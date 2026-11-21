@@ -48,8 +48,8 @@ func _run() -> void:
     var half_x: float = ground_box.size.x * 0.5
     var half_z: float = ground_box.size.z * 0.5
     var ground_top: float = ground.global_position.y + ground_box.size.y * 0.5
-    # v491: check the visible, multicolored 3D GRID plates (not just v490's
-    # uniform continuous ground). Batching avoids thousands of draw calls.
+    # v491/v551: visible metal patchwork covers the whole field; the slab
+    # footprint is now specified by per-instance transforms, not mesh size.
     var tiled_floor: Node3D = hub.get_node("PatchworkSteelFloor") as Node3D
     var grid_batches: int = 0
     var grid_tiles: int = 0
@@ -75,8 +75,8 @@ func _run() -> void:
             return
         grid_batches += 1
         grid_tiles += batch.instance_count
-        if absf(grid_mesh.size.x - 2.94) > 0.01 or absf(grid_mesh.size.z - 2.94) > 0.01:
-            _fail("grid has lost its authored 2.94m square plates")
+        if grid_mesh.size != Vector3.ONE:
+            _fail("instanced grid must use scalable unit geometry")
             return
         var region: AABB = batch.custom_aabb
         if region.size.x <= 0.0 or region.size.z <= 0.0:
@@ -86,8 +86,8 @@ func _run() -> void:
         max_x = maxf(max_x, region.end.x)
         min_z = minf(min_z, region.position.z)
         max_z = maxf(max_z, region.end.z)
-    if grid_batches != 6 or grid_tiles < 7225:
-        _fail("full-screen GRID was not batched into six colored multimeshes")
+    if grid_batches != 6 or grid_tiles < 3000 or grid_tiles > 10500:
+        _fail("full-screen uneven GRID lost its six colored MultiMesh batches")
         return
     if min_x > -127.0 or max_x < 127.0 or min_z > -127.0 or max_z < 127.0:
         _fail("grid extents did not expand around entire viewport: x[%.3f, %.3f], z[%.3f, %.3f], batches=%d, tiles=%d" %
