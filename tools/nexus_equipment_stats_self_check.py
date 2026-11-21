@@ -15,7 +15,7 @@ for required in (
     'StatUI.layout_column_rules(customize_total_column_rules,',
     'StatUI.clear_cell_background(cell)',
     'StatUI.style_stat_labels(',
-    'StatUI.fit_label(',
+    'StatUI.layout_metric_pair(',
     'customize_stats_grid.columns = 3',
     'columns: int = 3 if inner_width >= 590.0',
     'customize_stats_grid.columns =',
@@ -55,11 +55,13 @@ for required in (
     'customize_stats_grid.add_theme_constant_override("v_separation", 1)',
     'var cell_height: float = 44.0',
     'var height: float = minf(view.y * 0.225, 290.0)',
-    'StatUI.fit_label(label, 19, 16)',
-    'StatUI.fit_label(value, 25, 20)',
     'StatUI.layout_metric_pair(label, value, cell_width, cell_height, 19, 25, 16, 20)',
 ):
     assert required in nexus, required
+stat_layout = (root / "scripts/sera_status_column_ui.gd").read_text(encoding="utf-8")
+assert 'static func layout_metric_pair(' in stat_layout
+assert 'get_string_size(' in stat_layout
+assert 'name_label.autowrap_mode = TextServer.AUTOWRAP_ARBITRARY' in stat_layout
 assert 'StatUI.status_window_style()' in nexus
 assert 'StatUI.attach_status_marks(' in nexus
 assert 'StatUI.layout_status_marks(' in nexus
