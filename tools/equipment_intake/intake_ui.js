@@ -10,7 +10,7 @@ const choices={head:["A","B","C","D"],torso:["A","B"],arms:["A","B"],legs:["A","
 const labels={head:{A:"A 標準頭部",B:"B 重装頭部",C:"C 頭部",D:"D アイリス"},legs:{A:"A 標準脚",B:"B 重量脚",C:"C 鳥脚",D:"D 重量脚"},weapon_r:{A:"A エッジブレード",B:"B ブレード",K:"K カタナ"}};
 let activeTab="setup",slot="head",selected=Object.fromEntries(Object.keys(choices).map(x=>[x,"A"])),scaleDelta=0,keepAspect=false;
 let statPct={},customClassifications={},materialEntries=[{id:"scrap_low",count:0}],showAll=true;
-let radarNear="", thumbnailCache={};
+let radarNear="", thumbnailCache={}, imageCache=new Map(), hiddenVariants=new Set();
 const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
 const profile=(s,set)=>DB.profiles[s][set]||DB.profiles[s].A;
 const metric=(key,base)=>key==="defense"?((base*100).toFixed(2)+"%"):typeof base==="number"?Number(base.toFixed(4)).toString():String(base);
@@ -38,7 +38,7 @@ function setTab(name){
  $("intake-picker").hidden=name!=="rig";
  $("rigHint").textContent=name==="rig"?"全身装備を表示（ゲーム本体とは描画差があります）":"原本モデルを表示";
  if(window.SERA_INTAKE_RENDER)window.SERA_INTAKE_RENDER.render(name==="rig"?"body":"icon",selected,scaleMultiplier());
- if(name==="analysis")drawCharts();
+ if(name==="analysis"){drawCharts();warmComparisonThumbnails();}
  if(name==="output")updateOutput();
 }
 function sizeMultiplier(){
@@ -111,6 +111,7 @@ function drawRadar(){
  let nearest="",score=Infinity;
  for(const [variant,spec] of Object.entries(DB.profiles[slot])){let loss=0;for(const key of keys){const ratio=(draft[key]||0)/(base[key]||1),other=(spec[key]||0)/(base[key]||1);loss+=(ratio-other)**2;}if(loss<score){nearest=variant;score=loss}}
  radarNear=nearest;$("nearest").textContent="最も近い既存パーツ："+SLOT_NAMES[slot]+" "+nearest+"　（性能形状距離 "+Math.sqrt(score).toFixed(3)+"）";
+ const image=$("nearestThumb");image.src=thumbnailCache[slot+nearest]||"";image.alt=SLOT_NAMES[slot]+nearest+" 3Dサムネイル";
  chartCanvas("radar", (c,w)=>{
   const cx=w/2,cy=w/2,r=w*.30,n=keys.length; c.fillStyle="#132532";c.fillRect(0,0,w,w);
   for(let ring=1;ring<=4;ring++){c.strokeStyle="#365265";c.beginPath();for(let i=0;i<n;i++){const a=-Math.PI/2+i*2*Math.PI/n;const x=cx+Math.cos(a)*r*ring/4,y=cy+Math.sin(a)*r*ring/4;if(!i)c.moveTo(x,y);else c.lineTo(x,y)}c.closePath();c.stroke()}
@@ -125,13 +126,47 @@ function drawDistribution(){
  chartCanvas("distribution",(c,w)=>{
   c.fillStyle="#132532";c.fillRect(0,0,w,w);c.strokeStyle="#2c4757";
   for(let i=0;i<=4;i++){let q=w*.12+i*(w*.76/4);c.beginPath();c.moveTo(q,w*.12);c.lineTo(q,w*.88);c.moveTo(w*.12,q);c.lineTo(w*.88,q);c.stroke()}
-  const points=Object.entries(DB.profiles[slot]).map(([key,p])=>({key,p})).filter(x=>showAll||x.key===selected[slot]);points.push({key:"NEW",p:draft});
+  const query=$("distSearch").value.trim().toLowerCase();
+ const points=Object.entries(DB.profiles[slot]).map(([key,p])=>({key,p})).filter(x=>(showAll||x.key===selected[slot])&&!hiddenVariants.has(slot+x.key)&&(!query||(labels[slot]?.[x.key]||x.key).toLowerCase().includes(query)));points.push({key:"NEW",p:draft});
   const pos=(v,key)=>clamp((Number(v||0)/Number(base[key]||1)-0)*.36,.0,.76)*w+w*.12;
-  for(const {key,p} of points){const x=pos(p[bx],bx),y=w-pos(p[by],by);c.fillStyle=key==="NEW"?"#b0ecf7":"#7398aa";c.beginPath();c.arc(x,y,key==="NEW"?8:6,0,Math.PI*2);c.fill();c.font="12px sans-serif";c.textAlign="left";c.fillText(key,x+9,y-7)}
+  for(const {key,p} of points){const x=pos(p[bx],bx),y=w-pos(p[by],by);c.fillStyle=key==="NEW"?"#b0ecf7":"#7398aa";
+   const pic=key==="NEW"?null:imageCache.get(slot+key);
+   if(pic&&pic.complete&&pic.naturalWidth){c.drawImage(pic,x-16,y-16,32,32);c.strokeStyle="#80b2c4";c.strokeRect(x-16,y-16,32,32)}
+   else{c.beginPath();c.arc(x,y,key==="NEW"?8:6,0,Math.PI*2);c.fill()}
+   c.font="12px sans-serif";c.textAlign="left";c.fillText(key,x+18,y-13)}
+
   c.fillStyle="#cbdce7";c.font="12px sans-serif";c.fillText("X: "+(STAT_NAMES[bx]||bx),w*.12,16);c.fillText("Y: "+(STAT_NAMES[by]||by),w*.12,32);
  });
 }
-function drawCharts(){drawRadar();drawDistribution()}
+function renderDistributionLegend(){
+ const root=$("distLegend");root.replaceChildren();
+ for(const value of Object.keys(DB.profiles[slot])){
+  const name=labels[slot]?.[value]||SLOT_NAMES[slot]+" "+value;
+  if($("distSearch").value.trim()&&!name.toLowerCase().includes($("distSearch").value.trim().toLowerCase()))continue;
+  const row=document.createElement("label");row.className="distLegendRow";
+  const show=document.createElement("input");show.type="checkbox";show.checked=!hiddenVariants.has(slot+value);
+  show.addEventListener("change",()=>{if(show.checked)hiddenVariants.delete(slot+value);else hiddenVariants.add(slot+value);drawDistribution()});
+  const img=document.createElement("img");img.width=40;img.height=40;img.alt=name;img.src=thumbnailCache[slot+value]||"";
+  const txt=document.createElement("span");txt.textContent=name;row.append(show,img,txt);root.append(row);
+ }
+}
+function drawCharts(){renderDistributionLegend();drawRadar();drawDistribution()}
+async function warmComparisonThumbnails(){
+ if(!window.SERA_INTAKE_RENDER)return;
+ const saved={...selected};let updated=false;
+ for(const variant of Object.keys(DB.profiles[slot])){
+  const key=slot+variant;
+  if(thumbnailCache[key])continue;
+  await window.SERA_INTAKE_RENDER.render("body",{...saved,[slot]:variant},1,false);
+  thumbnailCache[key]=$("glview").toDataURL("image/png");
+  const image=new Image();image.src=thumbnailCache[key];
+  image.onload=()=>{if(activeTab==="analysis")drawDistribution()};imageCache.set(key,image);
+  updated=true;
+ }
+ await window.SERA_INTAKE_RENDER.render(activeTab==="rig"?"body":"icon",saved,sizeMultiplier(),keepAspect);
+ if(updated&&activeTab==="analysis")drawCharts();
+}
+
 function updateOutput(){
  const data={format:"SERA_EQUIPMENT_INTAKE_V1",version:1,source:{repository_path:DB.source.path,sha256:DB.source.sha256,base_commit:DB.source.commit},equipment:{blueprint_id:$("blueprint").value.trim(),name:$("equipName").value.trim(),slot,rig_set:$("rigSet").value,rig_selection:{...selected}},model:{size_delta_percent:scaleDelta,effective_scale_percent:sizeMultiplier()*100,keep_aspect:keepAspect,standard:"A slot OBB reference; preview is advisory"},stats:{a_relative_percent:{...statPct},absolute:getDraft(),part_weight_class:weightClass(getDraft().weight_pct||100),whole_weight_pct:effectiveWeight(),whole_weight_class:weightClass(effectiveWeight()),unapproved_classifications:{...customClassifications}},recipe:materialEntries.filter(x=>x.count>0).map(x=>({...x})),special_effects:{description:$("specialEffect").value,approval_required:true,implementation_status:"PENDING_CHATGPT_DISCUSSION"},render_preset_text:$("presetText").value,review_required:true};
  const content="SERA_EQUIPMENT_INTAKE_V1\n"+JSON.stringify(data,null,2);$("exportText").value=content;return content;
@@ -176,6 +211,7 @@ function init(){
  for(const [key,name] of Object.entries(STAT_NAMES)){const o1=document.createElement("option");o1.value=key;o1.textContent=name;const o2=o1.cloneNode(true);$("distX").append(o1);$("distY").append(o2)}
  $("distX").value="weight_pct";$("distY").value="defense";
  $("distX").addEventListener("change",drawDistribution);$("distY").addEventListener("change",drawDistribution);
+ $("distSearch").addEventListener("input",drawCharts);
  $("slot").value=slot;
  $("rigSet").replaceChildren(...choices[slot].map(x=>{const o=document.createElement("option");o.value=x;o.textContent=x;return o}));
  $("slot").addEventListener("change",()=>{$("rigSet").replaceChildren(...choices[slot].map(x=>{const o=document.createElement("option");o.value=x;o.textContent=x;return o}));$("rigSet").value=selected[slot]});
