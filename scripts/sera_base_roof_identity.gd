@@ -55,10 +55,18 @@ static func _labo(g: Variant) -> void:
         g.rod("LabPrintRailUpright",
             Vector3(side * 1.36, 0.52, 0.55),
             Vector3(side * 1.36, 2.58, 0.55), 0.11, "gold")
-    g.box("LabPrinterToolhead", Vector3(0.18, 2.41, 0.60),
-        Vector3(0.56, 0.37, 0.48), "slate")
-    g.box("LabPrinterNozzle", Vector3(0.18, 2.14, 0.73),
-        Vector3(0.20, 0.25, 0.17), "amber_light")
+    # The original head vanished behind the forward beams at the REAL
+    # 27-degree gameplay camera. Move its active face to local +Z.
+    g.box("LabPrinterToolhead", Vector3(0.18, 2.20, 1.22),
+        Vector3(0.88, 0.50, 0.35), "slate")
+    g.box("LabPrinterFrontHousing", Vector3(0.18, 2.02, 1.47),
+        Vector3(0.72, 0.44, 0.13), "armor_light")
+    g.box("LabPrinterNozzle", Vector3(0.18, 1.64, 1.55),
+        Vector3(0.40, 0.39, 0.18), "amber_light")
+    g.box("LabPrinterWorkSurface", Vector3(0.18, 0.94, 1.19),
+        Vector3(1.24, 0.14, 0.70), "armor_light")
+    g.poly("LabPrinterPrintedPart", "bevel",
+        Vector3(0.18, 1.08, 1.25), Vector3(0.39, 0.20, 0.37), "blue")
     g.box("LabCanopyHazardHem", Vector3(0.0, 3.32, 0.08),
         Vector3(3.72, 0.09, 0.09), "caution")
 
@@ -85,34 +93,44 @@ static func _collector(g: Variant) -> void:
     g.box("CollectorCraneHydraulicStrip",
         Vector3(-0.62, 2.42, -0.01),
         Vector3(0.30, 0.11, 0.12), "armor_light")
+    # The former grapple hung behind the hopper from this camera. The
+    # paired jaws now project in front of the machinery, below the UI label.
     for side in [-1.0, 1.0]:
         g.rod("CollectorOpenClawJaw",
-            Vector3(0.46, 1.50, 0.17),
-            Vector3(0.46 + side * 0.46, 1.03, 0.37),
-            0.19, "armor_light")
+            Vector3(0.46, 1.59, 0.91),
+            Vector3(0.46 + side * 0.55, 1.03, 1.02),
+            0.20, "armor_light")
         g.rod("CollectorClawPoint",
-            Vector3(0.46 + side * 0.46, 1.03, 0.37),
-            Vector3(0.46 + side * 0.24, 0.74, 0.42),
-            0.13, "caution")
+            Vector3(0.46 + side * 0.55, 1.03, 1.02),
+            Vector3(0.46 + side * 0.28, 0.77, 1.08),
+            0.14, "caution")
         g.box("CollectorClawPin",
-            Vector3(0.46 + side * 0.46, 1.03, 0.37),
-            Vector3(0.15, 0.16, 0.15), "gold")
+            Vector3(0.46 + side * 0.55, 1.03, 1.02),
+            Vector3(0.17, 0.19, 0.17), "gold")
+        # Broad color-blocked grabber cheeks, visible even when screen
+        # downscaled to the real Android portrait width.
+        g.box_tilt("CollectorVisibleJawCheek",
+            Vector3(0.46 + side * 0.51, 1.23, 1.14),
+            Vector3(0.29, 0.42, 0.17), "gold",
+            Vector3(0.0, 0.0, -side * 0.26))
     g.box("CollectorCraneCableSeat",
-        Vector3(0.46, 1.55, 0.22),
-        Vector3(0.32, 0.24, 0.18), "dark")
+        Vector3(0.46, 1.62, 0.91),
+        Vector3(0.38, 0.25, 0.19), "dark")
     # Readable high-mounted boom and drop cable, visible above the sorting deck.
     g.rod("CollectorRaisedJib",
         Vector3(-0.73, 1.65, -0.40),
         Vector3(-0.25, 3.14, -0.48), 0.23, "gold")
     g.rod("CollectorRaisedJib",
         Vector3(-0.25, 3.14, -0.48),
-        Vector3(0.46, 2.86, 0.17), 0.22, "caution")
+        Vector3(0.46, 2.86, 0.67), 0.22, "caution")
     g.box("CollectorRaisedJibPivot",
         Vector3(-0.25, 3.12, -0.46),
         Vector3(0.32, 0.30, 0.28), "armor_light")
-    g.rod("CollectorLiftCable",
-        Vector3(0.46, 2.86, 0.17),
-        Vector3(0.46, 1.54, 0.17), 0.07, "dark")
+    g.rod("CollectorForwardCable",
+        Vector3(0.46, 2.86, 0.67),
+        Vector3(0.46, 1.63, 0.91), 0.10, "dark")
+    g.box("CollectorWinchHead", Vector3(0.46, 2.83, 0.67),
+        Vector3(0.34, 0.25, 0.28), "gold")
 
 
 static func _smelter(g: Variant) -> void:
@@ -209,27 +227,35 @@ static func _generator(g: Variant) -> void:
 
     # A high contrast BLUE front-facing turbine corona, no roof plate.
     # Keep the ring ahead of the motor shell, behind the outer guard.
+    # The power core was lost among dark housings and cables. One dark,
+    # front-facing disc and three spokes give the fixed gameplay view a
+    # clear rotor symbol instead of a heap of thin electric wires.
+    g.box("GeneratorCoreBackdrop", Vector3(-0.08, 1.18, 1.10),
+        Vector3(1.42, 1.42, 0.13), "dark")
     g.ring("GeneratorCoreCorona",
-        Vector3(-0.08, 1.18, 0.93), 0.52, "blue_light", "z")
-    g.box("GeneratorCoreHub", Vector3(-0.08, 1.18, 1.00),
-        Vector3(0.26, 0.26, 0.13), "slate")
+        Vector3(-0.08, 1.18, 1.27), 0.63, "blue_light", "z")
+    g.box("GeneratorCoreHub", Vector3(-0.08, 1.18, 1.32),
+        Vector3(0.29, 0.29, 0.13), "slate")
     g.box("GeneratorCoreHubLight",
-        Vector3(-0.08, 1.18, 1.08),
-        Vector3(0.12, 0.12, 0.07), "blue_light")
-    for side in [-1.0, 1.0]:
-        g.rod("GeneratorCoronaPointer",
-            Vector3(-0.08 + side * 0.28, 1.18, 0.98),
-            Vector3(-0.08 + side * 0.45, 1.18, 0.98),
-            0.065, "blue")
+        Vector3(-0.08, 1.18, 1.40),
+        Vector3(0.13, 0.13, 0.07), "blue_light")
+    for angle in [0.0, 2.0944, 4.1888]:
+        var delta: Vector2 = Vector2(cos(angle), sin(angle))
+        g.rod("GeneratorVisibleRotorSpoke",
+            Vector3(-0.08 + delta.x * 0.18, 1.18 + delta.y * 0.18, 1.32),
+            Vector3(-0.08 + delta.x * 0.49, 1.18 + delta.y * 0.49, 1.32),
+            0.125, "blue_light")
 
 
 static func _storage(g: Variant) -> void:
     # ONE unmistakable flat container roof; folded fabric is on the rear only.
-    g.box("StorageContainerRoof", Vector3(0.0, 2.76, -0.40),
-        Vector3(2.30, 0.14, 2.10), "armor_light")
+    # One REAR roof strip rather than a full overhead cap. With the fixed
+    # 27-degree camera, the missing front half now reveals actual cargo.
+    g.box("StorageContainerRoof", Vector3(0.0, 2.76, -1.00),
+        Vector3(2.30, 0.14, 0.96), "armor_light")
     for x in [-0.80, 0.0, 0.80]:
-        g.box("StorageRoofRidge", Vector3(x, 2.85, -0.40),
-            Vector3(0.105, 0.09, 1.95), "slate")
+        g.box("StorageRoofRidge", Vector3(x, 2.85, -1.00),
+            Vector3(0.105, 0.09, 0.88), "slate")
     g.box("StorageFrontLoadingVisor",
         Vector3(0.0, 2.70, 0.77),
         Vector3(2.42, 0.12, 0.22), "rust")
@@ -248,8 +274,22 @@ static func _storage(g: Variant) -> void:
             Vector3(0.16, 0.46, 0.10), "armor_light")
     for index in range(4):
         g.box("StorageRoofPlateSegment",
-            Vector3(-0.76 + float(index) * 0.50, 2.94, -0.42),
-            Vector3(0.13, 0.035, 1.70), "slate")
+            Vector3(-0.76 + float(index) * 0.50, 2.94, -1.00),
+            Vector3(0.13, 0.035, 0.84), "slate")
+    # Two exposed shipping cases occupy the front OPEN loading aperture.
+    # At normal camera distance, these large faces read as cargo instead
+    # of the old featureless dark warehouse doorway.
+    g.poly("StorageVisibleCargoCase", "bevel",
+        Vector3(-0.53, 1.21, 1.16),
+        Vector3(0.77, 0.75, 0.49), "rust")
+    g.poly("StorageVisibleCargoCase", "bevel",
+        Vector3(0.36, 1.10, 1.15),
+        Vector3(0.85, 0.61, 0.50), "armor_light")
+    for x in [-0.53, 0.36]:
+        g.box("StorageVisibleCargoHandle", Vector3(x, 1.36, 1.46),
+            Vector3(0.32, 0.075, 0.065), "gold")
+        g.box("StorageVisibleCargoBand", Vector3(x, 1.00, 1.46),
+            Vector3(0.49, 0.065, 0.07), "trim")
 
 
 static func _terminal(g: Variant) -> void:

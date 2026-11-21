@@ -555,21 +555,29 @@ static func _generator(g: Batch) -> void:
 static func _storage(g: Batch) -> void:
     g.poly("CargoStoragePallet", "bevel", Vector3(0, 0.24, 0),
         Vector3(2.3, 0.29, 2.07), "trim")
+    # Tiered cargo now steps toward the visible loading face instead of
+    # hiding both rows under one rear awning in the orthographic game view.
     for i in range(6):
         var x: float = -0.72 + float(i % 3) * 0.70
         var y: float = 0.68 + float(i / 3) * 0.68
-        g.crate(Vector3(x, y, -0.27), Vector3(0.59, 0.58, 0.90), i)
+        var z: float = 0.30 if i >= 3 else -0.50
+        g.crate(Vector3(x, y, z), Vector3(0.59, 0.58, 0.90), i)
+    # Positive upper-cargo silhouette in the open portion of the shed.
+    g.poly("StorageExposedUpperCargo", "bevel",
+        Vector3(-0.69, 1.77, 0.30), Vector3(0.63, 0.20, 0.75), "rust")
     for side in [-1.0, 1.0]:
         for row in range(3):
             g.box("CargoStoragePalletRail", Vector3(side * 1.12,
                 0.52 + row * 0.42, 0), Vector3(0.095, 0.11, 1.91), "edge")
         g.rod("CargoStorageCornerPost", Vector3(side * 1.10, 0.18, -0.90),
             Vector3(side * 1.10, 1.86, -0.90), 0.10, "gold")
-    g.poly("CargoStorageTarp", "canvas", Vector3(0.0, 1.76, -0.11),
-        Vector3(2.15, 0.33, 1.72), "cloth")
+    # Only the back row needs weatherproof canvas. The open front shows
+    # high-grade cargo from the fixed angled overhead camera.
+    g.poly("CargoStorageTarp", "canvas", Vector3(0.0, 1.76, -0.78),
+        Vector3(2.15, 0.22, 0.68), "cloth")
     for i in range(4):
         g.box("CargoStorageTieStrap", Vector3(-0.73 + i * 0.48,
-            1.79, -0.11), Vector3(0.04, 0.04, 1.67), "rust")
+            1.82, -0.78), Vector3(0.04, 0.04, 0.65), "rust")
 
 static func _construction(g: Batch) -> void:
     # Operator-height terminal with an angled holographic blueprint stand.
