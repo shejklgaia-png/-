@@ -16,8 +16,19 @@ func _cell(table: GridContainer, name: String) -> Label:
 
 func _run() -> void:
     root.size = Vector2i(720, 1280)
+    # A real crafted item has exactly five distinct 1..5% effects.
+    # The previous two-entry/8% fixture was rejected by Affixes.sanitize,
+    # so the displayed result was correctly the base value.
     var sample_effects: Array = [
-        {"id": "hp", "value": 8}, {"id": "defense", "value": 2}]
+        {"id": "hp", "value": 4},
+        {"id": "defense", "value": 2},
+        {"id": "energy_recovery", "value": 3},
+        {"id": "boost", "value": 4},
+        {"id": "guard", "value": 5},
+    ]
+    if not Affixes.valid(sample_effects):
+        _fail("stat fixture must match five distinct crafted effects (1..5%)")
+        return
     var rows: Array[Dictionary] = Stats.total_stat_rows("H01", sample_effects)
     if rows.size() != Affixes.EFFECT_IDS.size():
         _fail("the table must display every equipment stat, including zeros")
@@ -70,7 +81,7 @@ func _run() -> void:
                 total.get_theme_font_size("font_size") <= formula.get_theme_font_size("font_size")):
             _fail("stat label and total need stronger visual hierarchy")
             return
-    if _cell(table, "Stat_total_hp").text != "21.6" or (
+    if _cell(table, "Stat_total_hp").text != "20.8" or (
             _cell(table, "Stat_total_defense").text != "18.0%"):
         _fail("HP and defense calculations were changed during the UI refactor")
         return
