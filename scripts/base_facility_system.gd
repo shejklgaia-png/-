@@ -2205,7 +2205,11 @@ func _render_prototype_detail() -> void:
     modal_body.text = "%s\n対象スロット：%s\n試作のため素材消費なし。" % [
         spec["description"], spec["slot"]]
     modal_body.text += "\n" + LaboStats.baseline(selected_prototype)
-    modal_body.text += ("\n3D表示はアイリス頭部（HEAD D）を使用します。"\n        if str(spec.get("rig_set", "A")) == "D" and str(spec.get("slot", "")) == "head"\n        else "\n3D表示は現行のAモデルを使用します。")
+    var is_iris_head: bool = str(spec.get("rig_set", "A")) == "D" and str(spec.get("slot", "")) == "head"
+    if is_iris_head:
+        modal_body.text += "\n3D表示はアイリス頭部（HEAD D）を使用します。"
+    else:
+        modal_body.text += "\n3D表示は現行のAモデルを使用します。"
     if not prototype_notice.is_empty():
         modal_body.text += "\n" + prototype_notice
     # The craft action is above the icon so it cannot be hidden below the fold.
