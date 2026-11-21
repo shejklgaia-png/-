@@ -8,7 +8,7 @@ const HERO_CUES = {
     },
     "SCRAP_COLLECTOR": {
         "point": Vector3(0.46, 1.28, 1.03), "half_width": 0.55,
-        "min_width_px": 28.0, "feature": "CollectorOpenClawJaw",
+        "min_width_px": 28.0, "feature": "CollectorVisibleJawCheek",
     },
     "GENERATOR": {
         "point": Vector3(-0.08, 1.18, 1.29), "half_width": 0.63,
@@ -16,7 +16,7 @@ const HERO_CUES = {
     },
     "STORAGE": {
         "point": Vector3(0.14, 1.35, 0.43), "half_width": 0.69,
-        "min_width_px": 32.0, "feature": "StorageRoofRidge",
+        "min_width_px": 32.0, "feature": "StorageVisibleCargoCase",
     },
 }
 
