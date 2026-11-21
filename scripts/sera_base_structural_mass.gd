@@ -59,8 +59,8 @@ static func _labo(g: Variant) -> void:
         Vector3(1.69, 2.49, 1.83), Vector3(0.71, 0.27, 0.30), "rust")
     g.box("LabRollUpWarningLight",
         Vector3(1.45, 2.49, 2.01), Vector3(0.14, 0.09, 0.08), "amber_light")
-    g.rod("LabSuspendedToolRail", Vector3(-1.15, 2.58, 0.72),
-        Vector3(1.25, 2.58, 0.72), 0.08, "gold")
+    g.rod("LabSuspendedToolRail", Vector3(-1.15, 2.58, -1.24),
+        Vector3(1.25, 2.58, -1.24), 0.075, "slate")
 
 
 static func _collector(g: Variant) -> void:
