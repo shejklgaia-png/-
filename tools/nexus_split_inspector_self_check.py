@@ -67,6 +67,17 @@ for layout in (
     'maxf(40.0, area.size.y - 47.0)',
 ):
     assert layout in nexus, layout
+# Reclaim the empty rows below the last part stat, not glyph space.
+for layout in (
+    'func _customize_part_vertical_shift(view: Vector2) -> float:',
+    'var content_rows: int = mini(5, maxi(1, ceili(float(visible_fields) / 3.0)))',
+    'var content_height: float = 41.0 + float(content_rows) * 44.0 +',
+    'return clampf(available - content_height - 3.0, 0.0, view.y * 0.045)',
+    'var shift: float = _customize_part_vertical_shift(view)',
+    'view.y * 0.506 + shift',
+    '_layout_hud()',
+):
+    assert layout in nexus, layout
 assert 'StatUI.layout_metric_pair(' in nexus
 assert 'button.text = _default_part_name(slot, selected_model)' in nexus
 assert 'py tools/nexus_split_inspector_self_check.py' in manifest
