@@ -18,6 +18,8 @@ for required in (
     'WarehouseDetail3D',
     'WarehouseDetailStatsScroll',
     'WarehouseDetailControls',
+    'close.custom_minimum_size = Vector2(48, 48)',
+    'close.size_flags_vertical = Control.SIZE_SHRINK_CENTER',
     'WarehouseFavoriteToggle',
     'WarehouseJunkToggle',
     'LaboSkin.attach_name_underline(detail_name)',

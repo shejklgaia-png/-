@@ -114,6 +114,9 @@ func _ready() -> void:
     close.name = "WarehouseDetailClose"
     close.text = "×"
     close.custom_minimum_size = Vector2(48, 48)
+    # HBoxContainer otherwise fills the tall icon/title row vertically.
+    # Center the 48 x 48 cut-corner close key without changing its skin.
+    close.size_flags_vertical = Control.SIZE_SHRINK_CENTER
     close.add_theme_font_override("font", LaboSkin.control_font())
     close.add_theme_font_size_override("font_size", 25)
     close.add_theme_color_override("font_color", Color("#deedf0"))

@@ -33,10 +33,22 @@ func _run() -> void:
         "WarehouseFavoriteToggle", true, false) as Button
     var junk: Button = popup.find_child(
         "WarehouseJunkToggle", true, false) as Button
-    if window == null or title == null or mark == null or (
+    var close: Button = popup.find_child(
+        "WarehouseDetailClose", true, false) as Button
+    if window == null or title == null or mark == null or close == null or (
             preview == null or frame == null or scroll == null or (
             favorite == null or junk == null)):
         _fail("detail panel regions or actions are missing")
+        return
+    if close.custom_minimum_size != Vector2(48, 48) or (
+            close.size_flags_vertical != Control.SIZE_SHRINK_CENTER):
+        _fail("close button must use a fixed square base, not stretch with header")
+        return
+    popup.visible = true
+    await process_frame
+    await process_frame
+    if absf(close.size.x - close.size.y) > 1.0:
+        _fail("close button rendered rectangle instead of square")
         return
     if window.anchor_bottom > 0.90 or window.anchor_left >= 0.06:
         _fail("detail should use a compact but wide portrait composition")
