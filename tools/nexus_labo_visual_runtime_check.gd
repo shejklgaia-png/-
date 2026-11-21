@@ -96,7 +96,8 @@ func _run() -> void:
         nexus.set("focused_target", target)
         nexus.call("_focus_arrived", target)
         await process_frame
-        if not focus.visible or title.text != target:
+        if not focus.visible or title.text != (
+                "PART VIEW" if target == "CUSTOMIZE" else target):
             _fail("destination panel not visible: " + target)
             return
         if target == "CUSTOMIZE":
