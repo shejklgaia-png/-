@@ -26,6 +26,15 @@ assert "depth_draw_never" in shader
 assert "depth_test_disabled" not in shader
 assert "CAMERA_POSITION_WORLD" in shader and "VIEWPORT_SIZE" in shader
 assert "CUSTOM0" in shader and "PROJECTION_MATRIX" in shader
+# v530 visual correction: a 90-degree corner with BOTH sides facing the
+# camera must never get a line. Ink only at the visible projected contour,
+# including an occluding near-part silhouette.
+assert "bool hard_crease" not in shader
+assert "COLOR.a > 0.5" not in shader
+assert "visible = silhouette;" in shader
+assert "a_facing > 0.02 && b_facing < -0.02" in shader
+assert "b_facing > 0.02 && a_facing < -0.02" in shader
+assert "bool visible = boundary && a_facing > 0.02;" in shader
 assert "discard;" in shader
 # Ink must be in the transparent pass (AFTER opaque armor), but still
 # participate in normal depth testing. Otherwise draw-order can erase lines.
