@@ -46,6 +46,8 @@ for token in (
     'var inline_mark_size: float = clampf(_card_width * 0.09, 20.0, 28.0)',
     'var marker_x: float = title.position.x + title.size.x + name_to_mark_gap',
     'var name_width: float = label_font.get_string_size(',
+    'while marked_count > 0 and font_px > 17 and name_width > available_name:',
+    'title.add_theme_font_size_override("font_size", font_px)',
     'favorite_mark.position = Vector2(marker_x, mark_y)',
     'junk_mark.position = Vector2(marker_x, mark_y)',
 ):
