@@ -236,22 +236,22 @@ static func _best_enlarged_yaw(key: String, items: Array[Dictionary],
 
 
 static func _enlarge_dressing(key: String, items: Array[Dictionary]) -> void:
-    # Free-standing objects: up to 26%. Close clusters, upper-tier loads,
-    # mini accessories: up to 18%. Preserve each supported stack as one
+    # The seven enlarged stations need bolder, collision-checked yard props:
+    # free-standing up to 34%, stacked up to 26%, compact accents up to 20%. Preserve each supported stack as one
     # proportional assembly; no per-frame scaling or extra MeshInstances.
     for i in range(items.size()):
         var item: Dictionary = items[i]
-        var limit: float = 1.26
+        var limit: float = 1.34
         if bool(item.get("accent", false)):
-            limit = 1.18
+            limit = 1.20
         elif int(item.get("stack", 1)) > 1:
-            limit = 1.18
+            limit = 1.26
         # Keep each station's one deliberately small primary silhouette as
         # visual punctuation beside the larger stacks (legacy rhythm rule).
         # It may grow a little, but must remain at or below 0.87 world scale.
         if not bool(item.get("accent", false)) and float(item["scale"]) <= 0.87:
             limit = minf(limit, 0.87 / float(item["scale"]))
-        for step in range(13, 0, -1):
+        for step in range(17, 0, -1):
             var candidate: float = 1.0 + float(step) * 0.02
             if candidate > limit + 0.001:
                 continue
