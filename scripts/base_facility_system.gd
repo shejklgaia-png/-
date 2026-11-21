@@ -168,6 +168,10 @@ func _build_facilities() -> void:
         sign.name = "FacilitySign"
         sign.text = str(spec["name"])
         sign.font = LaboSkin.ui_font()
+        # The HUD owns the sole name label in the FOV-free BASE overview.
+        # Keep the 3D sign node for prefab hierarchy/diagnostics, but avoid
+        # two superimposed captions at small portrait screen sizes.
+        sign.visible = false
         sign.font_size = 70
         sign.pixel_size = 0.006
         sign.billboard = BaseMaterial3D.BILLBOARD_ENABLED
