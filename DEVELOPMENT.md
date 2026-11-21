@@ -1,3 +1,14 @@
+## 2026-11-21 — BASE装飾：厚いパネル塊と直方体スクラップを実形状バリエーションに刷新
+- ユーザー画像を受け、現行main、`sera_base_clutter.gd`、`base_exploration.gd`、`sera_base_architecture.gd`、既存のモデルレンダリング規約・全CIマニフェスト・GitHub Actionsを確認。対象は倉庫/建設施設の `panel_stack` と独立する16か所の `ScrapPile`。
+- 実装前に `base_junk_models_self_check.py` と `base_junk_models_runtime_check.gd` を追加しマニフェストへ登録。6形状の本物の板の厚み・サイズ差・X/Z傾斜・16安定座標・5構成のスクラップ・低負荷な材質別MultiMesh描画を検査。
+- `JunkGeometry.panel_stack` は切欠き・屈曲・台形・リブ付き・短板・長板の6種。重なり方と傾斜・サイズも1枚単位で変化。金属板に細い支えとスペーサーを付け、従来の同じ箱4枚という外見を廃止。
+- `JunkGeometry.scrap_heap` は破損装甲、歯車、回転軸、折れた配管、枠、ケーブル、モーター、ピストン、ボルトをランダム風だが再現性のある5型で16か所配置。従来の箱2＋棒1を置換。全個体を共通材質のMultiMeshにまとめ、追加の透明描画パスなし。
+- 既存の `LiftedBatch`・古いCapture/RecordingBatchの出力とコンテナ支持構造、敷地内の小物位置・床1枚・CRATE動線・カメラとUIは変更しない。
+- フルスクショに加えて `tools/base_junk_visual_capture.gd` を既存GitHub Actionsの仮想720×1280描画に登録し、金属パネル2型とスクラップ4型の拡大スクショを毎回出せるようにした。
+- 詳細: `docs/SERA_BASE_JUNK_MODELS_ja.md`。Android実機の最終見え方はCIと区別して報告する。
+
+---
+
 ## 2026-11-21 — NEXUS CUSTOMIZE左下に装備ステータスを表示
 - CUSTOMIZEの左下正方形パネルを、装備の現在選択セットから算出した性能の読み取り専用表示へ変更。HP・防御・コンボ初段の攻撃/部位破壊・怯み蓄積・攻撃EN・走行/BOOST・ロック距離・ガード倍率・ENコスト・STEP倍率・BASH/CHARGEを簡潔に並べる。
 - `sera_part_stats.gd` の戦闘用プロファイルを唯一の数値源とし、値が0の行を除外。既存LABの製作個体に付与される追加性能5種は現段階で戦闘に未接続のため、実性能値へ混入させない。

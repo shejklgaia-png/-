@@ -5,6 +5,7 @@ const SeraRig = preload("res://scripts/sera_rig.gd")
 const VersionIndicator = preload("res://scripts/version_indicator.gd")
 const BaseFacilities = preload("res://scripts/base_facility_system.gd")
 const BaseArchitecture = preload("res://scripts/sera_base_architecture.gd")
+const JunkGeometry = preload("res://scripts/sera_base_junk_geometry.gd")
 const BaseFloorDetail = preload("res://scripts/sera_base_floor_detail.gd")
 const BaseDeckLayout = preload("res://scripts/sera_base_deck_layout.gd")
 const WEATHERED_STEEL_PATH: String = "res://assets/base/industrial_steel_grunge.svg"
@@ -261,8 +262,9 @@ func _box(parent: Node3D, name: String, at: Vector3, size: Vector3, tint: Color)
     return body
 
 func _create_salvage() -> void:
-    # A few salvage props linger along the open center's edges, not its core.
-    # Keep the 16 original meshes/identities and stable yaws for cheap rendering.
+    # Loose salvage is not a set of box-shaped machines. Keep the 16 stable
+    # world anchors for layout/navigation tests, and draw all geometry through
+    # ONE shared material-batched procedural model (low-cost on Android).
     var lots := [
         Vector3(-9.83, 0.0, 0.28), Vector3(6.80, 0.0, 19.56),
         Vector3(-1.60, 0.0, 0.60), Vector3(14.96, 0.0, 14.72),
@@ -273,19 +275,24 @@ func _create_salvage() -> void:
         Vector3(-13.50, 0.0, 3.82), Vector3(12.87, 0.0, 0.48),
         Vector3(5.21, 0.0, 10.48), Vector3(-3.20, 0.0, -18.15)
     ]
+    var salvage := Node3D.new()
+    salvage.name = "SalvageMeshes"
+    add_child(salvage)
+    var g := BaseArchitecture.Batch.new(salvage)
     for i in range(lots.size()):
         var pile := Node3D.new()
         pile.name = "ScrapPile_%02d" % i
         pile.position = lots[i]
-        # One stable yaw for the complete three-piece pile; no random per-frame roll.
+        # Stable but deliberately different slants for every scrap heap.
         pile.rotation.y = deg_to_rad(float(-26 + posmod(i * 23 + 7, 55)))
+        pile.set_meta("scrap_profile", posmod(i, JunkGeometry.SCRAP_PROFILES))
         add_child(pile)
-        _box(pile, "StackBase", Vector3(0, 0.20, 0),
-            Vector3(0.90, 0.40, 0.76), Color("#46536a"))
-        _box(pile, "RecoveredPanel", Vector3(0.10, 0.50, 0.06),
-            Vector3(0.63, 0.18, 0.46), Color("#6c7886"))
-        _box(pile, "Conduit", Vector3(-0.23, 0.71, 0),
-            Vector3(0.13, 0.28, 0.50), Color("#bc9254"))
+        g.pivot = lots[i]
+        g.yaw = pile.rotation.y
+        JunkGeometry.scrap_heap(g, lots[i], i)
+    # One shared opaque MultiMesh per actual geometry/material type, not
+    # hundreds of MeshInstance3D nodes or per-frame random CPU rebuilds.
+    g.flush()
 
 func _create_player() -> void:
     player = Node3D.new()
