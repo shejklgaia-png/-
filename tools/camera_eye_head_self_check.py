@@ -71,7 +71,8 @@ assert 'for set_id in available.keys():' in equipment
 
 nexus = read("scripts/command_nexus.gd")
 assert 'if slot == "head" and current_set == "D":' in nexus
-assert 'variant_label = "CAMERA EYE"' in nexus
+assert 'variant_label = "アイリス"' in nexus
+assert 'variant_label = "CAMERA EYE"' not in nexus
 build = read("tools/sera_model_build.py")
 assert '"rebuild_camera_eye_head_data.py": ("assets/sera_camera_eye_head_data.gd",)' in build
 manifest_ci = read("tools/sera_ci_manifest.txt")
