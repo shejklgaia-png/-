@@ -23,8 +23,8 @@ func _real_icon(texture: Texture2D) -> bool:
     return false
 
 func _run() -> void:
-    if Materials.all_ids().size() != 12 or Catalog.PROTOTYPES.size() != 7:
-        _fail("catalog does not have exactly twelve materials and seven items")
+    if Materials.all_ids().size() != 12 or Catalog.PROTOTYPES.size() != 8:
+        _fail("catalog does not have exactly twelve materials and eight items")
         return
     for id in Materials.all_ids():
         if not _real_icon(IconAtlas.material_icon(str(id))):
@@ -49,13 +49,25 @@ func _run() -> void:
             return
         used_regions[key] = true
     for blueprint in Catalog.PROTOTYPES.keys():
-        var equipment_icon_atlas: AtlasTexture = IconAtlas.equipment_icon(str(blueprint)) as AtlasTexture
-        var equipment_key: String = str(equipment_icon_atlas.atlas.get_instance_id()) + ":" + str(equipment_icon_atlas.region) if equipment_icon_atlas != null else ""
-        if equipment_icon_atlas == null or used_regions.has(equipment_key):
-            _fail("duplicate or missing equipment atlas region: " + str(blueprint))
+        var presented: Texture2D = IconAtlas.equipment_icon(str(blueprint))
+        # The atlas source is allowed, but the visible texture is a cached
+        # independent 2D image with the universal grid backdrop.
+        if presented == null or presented is AtlasTexture:
+            _fail("equipment grid texture missing: " + str(blueprint))
+            return
+        if presented != IconAtlas.equipment_icon(str(blueprint)):
+            _fail("equipment icon recreates texture for every card: " + str(blueprint))
+            return
+        var equipment_key: String = str(presented.get_instance_id())
+        if used_regions.has(equipment_key):
+            _fail("duplicate equipment icon texture: " + str(blueprint))
+            return
+        var icon_image: Image = presented.get_image()
+        if icon_image==null or icon_image.get_pixel(0,0).a<0.99:
+            _fail("equipment grid backdrop is not opaque: " + str(blueprint))
             return
         used_regions[equipment_key] = true
-    if used_regions.size() != 19 or Catalog.uid_for("H01", 1) != "H01-0001" or (
+    if used_regions.size() != 20 or Catalog.uid_for("H01", 1) != "H01-0001" or (
             not Catalog.valid_uid("H01-0001", "H01")) or (
             Catalog.valid_uid("H01-1", "H01")) or (
             Catalog.valid_uid("T01-0001", "H01")):
