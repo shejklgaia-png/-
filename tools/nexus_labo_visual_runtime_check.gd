@@ -122,6 +122,12 @@ func _run() -> void:
             model_area.size.y <= hud.size.y * 0.19):
         _fail("full SERA model needs safe vertical padding below the top stats")
         return
+    var stable_model_area: Rect2 = nexus.call("_customize_model_area", hud.size)
+    var screen_preview: Rect2 = nexus.call("_customize_square_menu_rect", hud.size)
+    if stable_model_area.end.y >= hud.size.y * 0.506 or (
+            screen_preview.position.y <= stable_model_area.end.y + 14.0):
+        _fail("SERA body envelope must stay fixed as the PART VIEW moves down")
+        return
     for target in ["TRAINING", "DEPLOYMENT", "SYSTEM", "DATA ARCHIVE", "CUSTOMIZE"]:
         nexus.set("focused_target", target)
         nexus.call("_focus_arrived", target)
