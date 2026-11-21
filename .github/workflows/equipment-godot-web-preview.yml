@@ -92,7 +92,7 @@ jobs:
           retention-days: 30
 
   deploy-pages:
-    if: github.event_name != 'pull_request' && vars.SERA_EQUIPMENT_PAGES == 'true'
+    if: github.event_name != 'pull_request'
     needs: export
     runs-on: ubuntu-latest
     permissions:
