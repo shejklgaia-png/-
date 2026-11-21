@@ -1,3 +1,6 @@
+# NEXUS picker: matte tech cards, three-column touch grid and equipped-state emphasis.
+py tools/nexus_part_picker_design_self_check.py
+gd tools/nexus_part_picker_design_runtime_check.gd
 gd tools/icon_studio/front_right_orientation_runtime_check.gd
 py tools/equipment_portrait_ui_contract_self_check.py
 gd tools/equipment_portrait_ui_runtime_check.gd
