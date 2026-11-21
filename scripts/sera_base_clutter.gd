@@ -118,6 +118,41 @@ static func stack_count_for(key: String, kind: String, index: int) -> int:
         return 1 + posmod(seed + int(seed / 7), 4)
     return 1 + posmod(seed, 3)
 
+# Evaluate each rotated footprint against the existing device/door clear zone
+# and other complete prop clusters. Never move authored coordinates, and never
+# apply a different angle to boxes in the same supported container stack.
+static func _yaw_rect(item: Dictionary, degrees: float) -> Rect2:
+    var size: Vector2 = bounds_for(str(item["kind"])) * float(item["scale"])
+    var theta: float = deg_to_rad(degrees)
+    var c: float = absf(cos(theta))
+    var q: float = absf(sin(theta))
+    var rotated := Vector2(size.x * c + size.y * q,
+        size.x * q + size.y * c)
+    return Rect2((item["at"] as Vector2) - rotated * 0.5, rotated)
+
+static func _clear_zone(key: String) -> Rect2:
+    if key == "NEXUS":
+        return Rect2(Vector2(-3.38, -2.85), Vector2(6.76, 6.60))
+    if key == "LABO":
+        return Rect2(Vector2(-2.18, -1.98), Vector2(4.36, 4.98))
+    return Rect2(Vector2(-1.37, -1.37), Vector2(2.74, 2.86))
+
+static func _safe_prop_yaw(key: String, items: Array[Dictionary],
+        index: int, degrees: float) -> bool:
+    var candidate: Rect2 = _yaw_rect(items[index], degrees)
+    if candidate.intersects(_clear_zone(key)):
+        return false
+    for j in range(items.size()):
+        if j == index:
+            continue
+        # Earlier clusters use their committed angle, later clusters reserve
+        # the unchanged physical footprint; no newly introduced overlaps.
+        var other: Dictionary = items[j]
+        var angle: float = float(other.get("yaw_deg", 0.0)) if j < index else 0.0
+        if candidate.intersects(_yaw_rect(other, angle)):
+            return false
+    return true
+
 static func props_for(key: String) -> Array[Dictionary]:
     var items: Array[Dictionary] = _authored_props_for(key)
     for index in range(items.size()):
@@ -127,6 +162,20 @@ static func props_for(key: String) -> Array[Dictionary]:
             var count: int = stack_count_for(key, kind, index)
             item["stack"] = count
             items[index] = item
+    for index in range(items.size()):
+        var item: Dictionary = items[index]
+        var kind: String = str(item["kind"])
+        var seed: int = _stable_seed(key, kind, index)
+        var direction: float = -1.0 if index % 2 == 0 else 1.0
+        var desired: float = direction * (10.0 + float(posmod(seed, 12)))
+        var chosen: float = 0.0
+        for fraction in [1.0, 0.75, 0.50, 0.35]:
+            var candidate: float = desired * fraction
+            if _safe_prop_yaw(key, items, index, candidate):
+                chosen = candidate
+                break
+        item["yaw_deg"] = chosen
+        items[index] = item
     return items
 
 static func _authored_props_for(key: String) -> Array[Dictionary]:
@@ -774,15 +823,22 @@ static func _make(g: Variant, kind: String, at: Vector2, k: float,
 
 static func decorate(g: Variant, key: String) -> void:
     var props: Array[Dictionary] = props_for(key)
+    var original_yaw: float = g.yaw
+    var original_pivot: Vector3 = g.pivot
     for index in range(props.size()):
         var p: Dictionary = props[index]
         var kind: String = str(p["kind"])
+        var anchor: Vector2 = p["at"]
+        g.pivot = Vector3(anchor.x, 0.0, anchor.y)
+        g.yaw = deg_to_rad(float(p.get("yaw_deg", 0.0)))
         if is_stack_container(kind) and int(p.get("stack", 1)) > 0:
             _make_container_stack(g, key, kind, index,
                 p["at"] as Vector2, float(p["scale"]))
         else:
             _make_stacked(g, kind, p["at"] as Vector2,
                 float(p["scale"]), index, int(p.get("stack", 1)))
+    g.yaw = original_yaw
+    g.pivot = original_pivot
     # The renderer is a material-batched procedural model; this metadata lets
     # independent runtime tests verify actual scene construction.
     g.host.set_meta("clutter_props", props)
