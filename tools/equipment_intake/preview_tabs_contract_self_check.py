@@ -42,6 +42,11 @@ assert 'data-nav="rig"' in html and 'data-nav="icon"' in html
 assert html.count('id="specialEffect"') == 1
 assert html.count('id="statsPartPreview"') == 1
 assert "SERA_EQUIPMENT_INTAKE_V1" in html
+# Production letters are *model IDs*, never a gameplay equipment-set selector.
+assert "rigSet" not in html, "Old redundant equipment-set selector/controller survived"
+assert '装備セット</label>' not in html, "Visible set input survived"
+assert 'head:D' not in html or 'id="equipName"' in html
+
 
 ui = read("tools/equipment_intake/intake_ui.js")
 hook = read("tools/equipment_intake/intake_preview_hook.js")
@@ -51,6 +56,10 @@ for literal in ('activeTab==="rig"?"body":"icon"', "updateStatsPreview",
                 'selected=Object.fromEntries', '"head"?"D":"A"',
                 "SERA_INTAKE_RENDER.snapshot()", 'name==="icon"'):
     assert literal in ui, literal
+assert "rigSet" not in ui, "Model variant must be read from the selected slot"
+assert "rig_set:selected[slot]" in ui, "Export must use the selected individual slot model"
+assert "rig_selection:{...selected}" in ui, "Seven independent slot picks must be retained"
+assert "SERA_INTAKE_REQUEST_REFRESH" in ui, "Model loading and selection must still refresh"
 assert "intakeStandaloneDoc" in hook
 assert 'snapshot:async()' in hook or 'snapshot:()=> ' in hook
 assert 'intake-viewer-card' in web
