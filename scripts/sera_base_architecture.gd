@@ -14,7 +14,7 @@ const COLORS = {
     "dark": "#202934", "void": "#121d27", "armor": "#53616f",
     "armor_light": "#72808c", "slate": "#3b4a59", "edge": "#84909a",
     "trim": "#303e4c", "crate": "#5a6573", "rubber": "#242b31",
-    "gold": "#a98448", "caution": "#c4a35f", "cloth": "#78776e",
+    "gold": "#a98448", "caution": "#c4a35f", "cloth": "#68685f",
     "rust": "#785644", "blue": "#357d95", "blue_light": "#81d6ed",
     "amber": "#dd8647", "amber_light": "#ffc18b", "glass": "#276076",
     "white": "#b3c1c8"
@@ -332,14 +332,14 @@ static func build_nexus(parent: Node3D) -> void:
         Vector3(0.16, 0.31, 0.06), "edge")
     # Crooked salvage-yard awning along the exposed left side of the building.
     for p in range(3):
-        g.poly("CanopyCanvas", "canvas", Vector3(-2.30 + p * 0.40, 2.82 - p * 0.08, 2.42),
-            Vector3(0.46, 0.34, 1.62), "cloth", -0.04)
+        g.poly("CanopyCanvas", "canvas", Vector3(-3.21 + p * 0.49, 2.80 - p * 0.09, 2.67),
+            Vector3(0.62, 0.40, 1.72), "cloth", -0.04)
     for side in [-1.0, 1.0]:
-        g.rod("CanopySupport", Vector3(-2.18 + side * 0.55, 0.20, 3.08),
-            Vector3(-2.18 + side * 0.55, 2.74, 3.08), 0.09, "trim")
+        g.rod("CanopySupport", Vector3(-2.88 + side * 0.72, 0.20, 3.42),
+            Vector3(-2.88 + side * 0.72, 2.74, 3.42), 0.09, "trim")
     for i in range(4):
-        g.crate(Vector3(-2.53 + float(i % 2) * 0.65, 0.43,
-            3.02 - float(i / 2) * 0.70), Vector3(0.55, 0.70, 0.58), i)
+        g.crate(Vector3(-3.13 + float(i % 2) * 0.65, 0.43,
+            3.11 - float(i / 2) * 0.70), Vector3(0.55, 0.70, 0.58), i)
     # More crates, spare panels and a cable cabinet around the entrance.
     for i in range(5):
         var sign_side: float = -1.0 if i % 2 == 0 else 1.0

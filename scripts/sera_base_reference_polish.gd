@@ -44,8 +44,8 @@ static func _nexus(g: Variant) -> void:
     # The asymmetric cloth awning is visibly supported, not floating.
     for beam in range(3):
         g.rod("NexusAwningCrossbrace",
-            Vector3(-3.03 + beam * 0.41, 2.71, 2.15),
-            Vector3(-2.96 + beam * 0.41, 2.93, 3.10),
+            Vector3(-3.53 + beam * 0.52, 2.71, 2.25),
+            Vector3(-3.41 + beam * 0.52, 2.93, 3.36),
             0.07, "trim")
     for unit in range(3):
         var x: float = -1.45 + float(unit) * 1.27

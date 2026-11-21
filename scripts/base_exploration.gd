@@ -218,8 +218,8 @@ func _create_grid_plates(floor: Node3D) -> Array[Dictionary]:
     # An actual nonoverlapping patchwork: long, wide, square and small plates.
     # Six color-batched MultiMeshes still draw the full 255m deck efficiently.
     var tints := [
-        Color("#1e2326"), Color("#252729"), Color("#292b2a"),
-        Color("#27292c"), Color("#21262a"), Color("#302c29")
+        Color("#292d33"), Color("#303336"), Color("#323432"),
+        Color("#303339"), Color("#2b3237"), Color("#34312e")
     ]
     var sites: Array[Dictionary] = BaseDeckLayout.facility_sites(
         NEXUS_BUILDING_ORIGIN, BaseFacilities.FACILITY_SPECS)

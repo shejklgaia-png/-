@@ -30,7 +30,7 @@ for call in ("g.box(", "g.rod(", "g.poly(", "g.box_tilt("):
 for label in ("DockEdgeDrain", "DockVentSlits", "DockAnchorShoes"):
     assert '"'+label+'"' in floor
 assert "if site_id.is_empty():" in floor, "preserve single slab"
-assert '"cloth": "#78776e"' in arch, "muted practical canvas must not outshine steel"
+assert '"cloth": "#68685f"' in arch, "muted practical canvas must not outshine steel"
 assert 'py tools/base_functional_finish_self_check.py' in ci
 assert 'gd tools/base_functional_finish_runtime_check.gd' in ci
 print("SERA_BASE_FUNCTIONAL_FINISH_STATIC_PASS")
