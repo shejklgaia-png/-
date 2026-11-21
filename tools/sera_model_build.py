@@ -23,6 +23,7 @@ STEPS = {
     "rebuild_bird_data.py": ("assets/sera_bird_data.gd",),
     "rebuild_equipment_data.py": ("assets/sera_equipment_data.gd",),
     "rebuild_head_c_data.py": ("assets/sera_head_c_data.gd",),
+    "rebuild_camera_eye_head_data.py": ("assets/sera_camera_eye_head_data.gd",),
     "rebuild_katana_data.py": ("assets/sera_katana_data.gd",),
     "rebuild_lower_body_d_data.py": ("assets/sera_lower_body_d_data.gd",),
     "rebuild_bittaran_data.py": ("assets/bittaran_data.gd",),
@@ -145,7 +146,7 @@ def main() -> int:
         for path in changed:
             print(("UPDATED " if args.write else "STALE ") + path)
     else:
-        print("SERA_MODEL_SNAPSHOTS_CURRENT: all six canonical build steps agree")
+        print("SERA_MODEL_SNAPSHOTS_CURRENT: all registered canonical build steps agree")
     return 0 if args.write or not changed else 1
 
 

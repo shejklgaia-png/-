@@ -1,3 +1,13 @@
+## 2026-11-21 — カメラアイ頭部をSERAの独立 HEAD D として統合
+- 入力原本：`models/storage/カメラアイ頭部.bbmodel`。2026-11-21同期版の修正済み外装をそのまま新規正本として `models/manifest.json` に登録。従来の `Head_C.bbmodel`（頭部C）は維持。
+- `sera_equipment.gd` がA標準アニメーションの `Waist/Torso/Chest/Neck/Head` 配下へ6メッシュを追加。作者のローカル頂点・UV・回転と左右配置は維持し、均一0.66倍・中心補正で装着。HEAD A/B/C/その他部位への変更なし。
+- オリジナル16×16 PNGをBlockbench原本から読み込み、生成した `assets/sera_camera_eye_head_data.gd` に完全埋込。Godot標準 `_make_mesh` 用にメモリ内のUVだけ96×32座標系へ写像し、元のBBMODEL/テクスチャを変更しない。
+- NEXUSのHEAD選択に正式名称 `D アイリス`（英語名 `IRIS`）を追加。内部装備IDは `head`/`D` を維持。既存の `sera_equipment.cfg` と保存スロットv2、選択時非装備頭部の非表示を継承。既存の戦闘・モーションと7装備部位は維持。
+- `rebuild_camera_eye_head_data.py` を統合モデルビルドに追加。事前に `camera_eye_head_self_check.py` をCIへ登録し、実行時のモデル・16pxテクスチャ・切り替え確認 `camera_eye_head_runtime_check.gd` も登録。
+- GitHub CI/Android実機での表示・可動・実際の装備サイズは静的構造検査と区別して扱う。
+
+---
+
 ## 2026-11-21 — BASEカメラを低くし、施設・小物の正面を画面方向へ統一
 - ユーザー指定：建物は全体として画面方向を向かせ、俯瞰視点を緩くして前面と側面が見えるようにする。FOV0正投影と既存中心座標は変更せず、カメラを(21,30,25)→(21,23,25)とし俯角41.1°→33.8°。
 - カメラ方位37.7°に対して8施設の入口Yawを19〜61°に再配置し、各々約10〜23°側面が見える。設置位置・床基礎・タップ判定・発電ローターと局所光源の既存動作を保持。

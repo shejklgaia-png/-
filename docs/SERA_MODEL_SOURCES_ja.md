@@ -9,6 +9,7 @@
 | models/core/Katana.bbmodel | カタナ初段/二段目と基本モデル | sera_rig.gd KATANA_SECOND_AUTHORING_SOURCE |
 | models/core/Equipment.bbmodel | A/B交換セットとブースター。アニメーション無し | sera_equipment.gd LIVE_SOURCE |
 | models/storage/Head_C.bbmodel | 頭Cの2メッシュとPivot | sera_equipment.gd HEAD_C_SOURCE |
+| models/storage/カメラアイ頭部.bbmodel | 頭部Dの6メッシュ・16×16テクスチャ（作成者の形状正本） | sera_equipment.gd CAMERA_EYE_HEAD_SOURCE / assets/sera_camera_eye_head_data.gd |
 | models/storage/LowerBody_D.bbmodel | 重量下半身Dの12メッシュとPivot | sera_equipment.gd LOWER_BODY_D_SOURCE |
 
 Androidエクスポートでは各生成データにフォールバックします。assets/sera_source.json はStandard.bbmodelのコピー（編集禁止）。Katanaの初段は互換維持のため標準モデルにも含まれますが、編集時はKatanaの基本モデルと対応を照合してください。

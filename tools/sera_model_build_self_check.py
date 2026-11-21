@@ -2,8 +2,12 @@
 """Check generated snapshots against each canonical Blockbench source, without writes."""
 from pathlib import Path
 from sera_model_build import ROOT, STEPS, canonical_sources, check_or_write, same_snapshot
-assert len(canonical_sources()) == 7
-assert len(STEPS) == 7
+# The seventh distinct Blockbench master is camera-eye HEAD D; Bittaran
+# remains the eighth canonical source, and its export has a new build step.
+assert len(canonical_sources()) == 8
+assert len(STEPS) == 8
+assert "rebuild_camera_eye_head_data.py" in STEPS
+
 assert all((ROOT / path).is_file() for paths in STEPS.values() for path in paths)
 stale = check_or_write(write=False)
 assert not stale, "Canonical Blockbench snapshots stale: " + ", ".join(stale) + "; run --write"

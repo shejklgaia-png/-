@@ -9,9 +9,10 @@
   },
   "parts": {
     "head_C": "models/storage/Head_C.bbmodel",
-    "lower_body_D": "models/storage/LowerBody_D.bbmodel"
+    "lower_body_D": "models/storage/LowerBody_D.bbmodel",
+    "head_camera_eye": "models/storage/カメラアイ頭部.bbmodel"
   },
-  "note": "Canonical SERA sources and independent boss rigs are explicitly listed; staging and historical Blockbench files are never runtime dependencies.",
+  "note": "Canonical SERA sources include independent camera-eye HEAD D; staging and historical files are not alternative runtime dependencies.",
   "bosses": {
     "bittaran": "models/bosses/Bittaran.bbmodel"
   }
