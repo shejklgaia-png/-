@@ -14,7 +14,10 @@ func _run() -> void:
         return
     var hub: Node3D = packed.instantiate()
     root.add_child(hub)
-    await process_frame
+    for _startup in range(20):
+        await process_frame
+        if hub.get_node_or_null("BaseFacilities/LABO/IndustrialModel") != null:
+            break
     var sera: Node3D = hub.get("player") as Node3D
     var cam: Camera3D = hub.get("cam") as Camera3D
     var crate: Node3D = hub.get_node_or_null("CRATE") as Node3D
@@ -69,14 +72,15 @@ func _run() -> void:
             _fail("grid batch is missing instanced geometry")
             return
         var batch: MultiMesh = grid_node.multimesh
-        var grid_mesh: BoxMesh = batch.mesh as BoxMesh
+        var grid_mesh: ArrayMesh = batch.mesh as ArrayMesh
         if grid_mesh == null or grid_node.material_override == null:
             _fail("visible colored grid geometry/material missing")
             return
         grid_batches += 1
         grid_tiles += batch.instance_count
-        if grid_mesh.size != Vector3.ONE:
-            _fail("instanced grid must use scalable unit geometry")
+        if grid_mesh.get_surface_count() != 1 or (
+                grid_mesh.surface_get_arrays(0)[Mesh.ARRAY_VERTEX].size() < 36):
+            _fail("instanced grid must use authored scalable unit polygon geometry")
             return
         var region: AABB = batch.custom_aabb
         if region.size.x <= 0.0 or region.size.z <= 0.0:
