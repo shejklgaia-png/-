@@ -35,7 +35,7 @@ for name in author_down_names:
 assert source[cursor] == "]"
 original_source = (source[:original_end] + source[cursor:]).encode("utf-8")
 actual_git_blob_sha = hashlib.sha1(
-    f"blob {len(original_source)}\\0".encode("ascii") + original_source).hexdigest()
+    f"blob {len(original_source)}\0".encode("ascii") + original_source).hexdigest()
 text = (root / "scripts/bittaran_sweep_fx_baked_data.gd").read_text("utf-8")
 claimed_sha = re.search(
     r'const SOURCE_BBMODEL_BLOB_SHA: String = "([0-9a-f]{40})"', text)
