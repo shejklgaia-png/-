@@ -104,6 +104,10 @@ jobs:
             "$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" \
             --path . --rendering-method gl_compatibility \
             --script tools/base_power_board_visual_capture.gd
+          xvfb-run -a -s '-screen 0 720x1280x24' \
+            "$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" \
+            --path . --rendering-method gl_compatibility \
+            --script tools/base_grid_edit_visual_capture.gd
       # Use the *same* compiled Godot GL Compatibility armor materials,
       # camera-dependent outline shader and combat-stage lights as SERA.
       # This is build-time capture, never a per-card/per-frame Android cost.
