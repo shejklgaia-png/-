@@ -1121,7 +1121,7 @@ func _show_craft_rotatable_part(blueprint: String) -> void:
         "mode": "icon", "editing_slot": edited_slot,
         "selected": selected_parts, "size": 1.0, "keep_aspect": true,
         "background_mode": "grid",
-        "camera": {"yaw": 160.0, "pitch": -18.0, "roll": 0.0,
+        "camera": {"yaw": 156.900744628906, "pitch": 11.8749389648438, "roll": 0.0,
             "panX": 0.0, "panY": 0.0, "zoom": 1.0, "outlinePx": 3.0},
         "seq": -1})
     confirmation_item_icon.visible = false

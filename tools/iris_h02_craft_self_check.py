@@ -18,11 +18,11 @@ assert preset["source"]["repository_path"] == model_path
 assert preset["source"]["fingerprint"] == expected_sha256
 assert preset["equipment"] == {"blueprint_id":"H02","slot":"head","rig_set":"D"}
 r = preset["render"]
-assert r["engine"] == "SERA Icon Studio WebGL" and r["camera"] == "orthographic_front"
-assert r["model_rotation_deg"] == {"x":-17.95108886718749,"y":152.8089099121089,"z":-5}
-assert r["model_scale"] == 1.0311868961757298
-assert r["pan_clip"] == {"x":-0.10036383734809033,"y":-0.052272971159492435}
-assert r["auto_fit"] == 0.82
+assert r["engine"] == "SERA Godot 4.7 GL Compatibility" and r["camera"] == "orthographic_front"
+assert r["model_rotation_deg"] == {"x":11.8749389648438,"y":156.900744628906,"z":0}
+assert r["model_scale"] == 1
+assert r["pan_clip"] == {"x":0,"y":0}
+assert r["auto_fit"] == 0.76
 assert r["outline"] == {"enabled":True,"stroke_px_at_512":3,"crease_degrees":80,"color":"#17212F"}
 assert r["image"] == {"width":512,"height":512,"background":"transparent","ui_frame_baked":False}
 catalog = (ROOT/"scripts/sera_prototype_catalog.gd").read_text(encoding="utf-8")
@@ -90,7 +90,14 @@ while offset < len(raw):
 assert palette_count and alpha and alpha[0]==0
 assert message and message["source"]["fingerprint"] == expected_sha256
 assert message["equipment"] == {"blueprint_id":"H02","slot":"head","rig_set":"D"}
-assert message["render"] == preset["render"]
+# Legacy compressed H02 fallback retains its own historical WebGL capture.
+# The authoritative re-photographed H02 is now the native RGBA PNG loaded
+# first from assets/ui/sera_equipment_icons/H02.png for every game UI.
+assert message["render"]["engine"] == "SERA Icon Studio WebGL"
+assert message["render"]["model_rotation_deg"] == {
+    "x":-17.95108886718749,"y":152.8089099121089,"z":-5
+}
+assert 'var source: Texture2D = _native_equipment_icon(blueprint_id)' in icon_source
 scanlines = zlib.decompress(payload)
 assert len(scanlines) == 512*513
 assert all(scanlines[y*513]==0 for y in range(512))

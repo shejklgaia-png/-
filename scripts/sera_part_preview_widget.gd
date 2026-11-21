@@ -4,9 +4,9 @@ extends Control
 const EquipmentPreview = preload("res://tools/equipment_intake/godot_preview.gd")
 const Catalog = preload("res://scripts/sera_prototype_catalog.gd")
 const RotateMark = preload("res://scripts/sera_rotatable_mark.gd")
-# Static thumbnails and the live drag viewer must face the same side.
-const DEFAULT_YAW: float = -146.0
-const DEFAULT_PITCH: float = 26.0
+# The live part preview starts at the same angle as the approved 19 PNGs.
+const DEFAULT_YAW: float = 156.900744628906
+const DEFAULT_PITCH: float = 11.8749389648438
 
 var render_viewport: SubViewport
 var preview_scene: Node3D

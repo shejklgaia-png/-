@@ -1,3 +1,8 @@
+## 2026-11-22：既存全19装備を共通プリセットで再撮影
+- ユーザーが提示したHEAD D `SERA_ICON_PRESET_V1`のカメラ値X=11.8749389648438/Y=156.900744628906/Z=0、auto_fit=0.76、倍率1、pan=0、輪郭3px/80°を全装備の撮影正本として適用する。正本ファイルは`assets/ui/sera_icon_presets/H02.json`。
+- 本体の正式アイコンは`tools/icon_studio/sera_all_native_capture.gd`が既存19装備の実SeraRigモデルをNEXUS_pose(0秒)で撮影し、透明512px PNGを生成。`tag_all_icons.py`で各装備固有原本と共通カメラ設定を記録、`validate_all_icons.py`で19件検証してゲームのキャッシュへ登録する。
+- 旧X26/Y-146の向きは廃止するが、モデル/アイテム/セーブ/装備性能、透過原本とゲーム内グリッド＋枠は変更しない。Godot単体PART VIEWおよびLABO製作確認の初期カメラも同角度とする。描画はGodot GL Compatibility、ゲーム中の再撮影は禁止。
+
 ## Godot実レンダリングをアイコンの正本とする運用（2026-11-21）
 - **Icon Studio（WebGL）は撮影角度・倍率・平行移動を決める操作UI**として維持します。そこから送られた `SERA_ICON_PRESET_V1` の数値は変えません。
 - **ゲームへ納品する最終アイコンはSERA本体のGodot 4.7.2／GL Compatibilityで一度だけ撮影します。** `tools/icon_studio/sera_godot_native_capture.gd` が実際の `SeraRig` HEAD D 装着用メッシュ／マテリアル／16pxテクスチャを使用し、`scripts/sera_view_edges.gd` と `shaders/sera_view_edges.gdshader` で輪郭線を描きます。照明は戦闘シーン `scripts/main.gd::_build_world` と同じ環境光とDirectionalLightを設定します。
