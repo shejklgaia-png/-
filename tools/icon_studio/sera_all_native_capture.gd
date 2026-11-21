@@ -1,15 +1,13 @@
 extends SceneTree
-## Offline only: photograph every installed real SeraRig part with the SERA
-## GL Compatibility renderer. The authored H02 preset is handled separately.
+## Offline only: photograph all existing live SeraRig parts using the
+## user-approved H02 Godot preset, without per-slot camera overrides.
 const RigScript = preload("res://scripts/sera_rig.gd")
 const EdgeScript = preload("res://scripts/sera_view_edges.gd")
 const Catalog = preload("res://scripts/sera_prototype_catalog.gd")
 const PIXELS: int = 512
-# NEXUS front is local -Z and its preview already turns the rig by PI.
-# Old yaw=-34 pointed the +Z camera at the character's BACK.
-# Y=-146 sees front (-Z) and right (+X); X=+26 exposes the top (+Y).
-# Apply to EVERY slot including IRIS / Katana, keeping 512px equal margins.
-const OBLIQUE_POSE: Vector3 = Vector3(26.0, -146.0, 0.0)
+# The one canonical user preset fixes yaw/pitch/roll/scale/pan for every slot.
+# Each icon retains its own authentic source mesh/material and blueprint ID.
+const CAMERA_PRESET_PATH: String = "res://assets/ui/sera_icon_presets/H02.json"
 const POSE_NAMES = ["NEXUS_pose", "NEXUSpose"]
 const SIDE_PADDING: int = 34
 
@@ -21,6 +19,36 @@ func _fail(reason: String) -> void:
     quit(1)
 
 func _run() -> void:
+    var parsed: Variant = JSON.parse_string(FileAccess.get_file_as_string(CAMERA_PRESET_PATH))
+    if not parsed is Dictionary or str(parsed.get("format", "")) != "SERA_ICON_PRESET_V1":
+        _fail("Approved SERA_ICON_PRESET_V1 camera missing")
+        return
+    var render: Dictionary = parsed.get("render", {})
+    var degrees: Dictionary = render.get("model_rotation_deg", {})
+    var image_spec: Dictionary = render.get("image", {})
+    var pan: Dictionary = render.get("pan_clip", {})
+    var auto_fit: float = float(render.get("auto_fit", -1))
+    var model_scale: float = float(render.get("model_scale", -1))
+    var outline: Dictionary = render.get("outline", {})
+    if not is_equal_approx(auto_fit, 0.76) or not is_equal_approx(model_scale, 1.0):
+        _fail("Common icon scale deviates from approved 0.76 / 1.0")
+        return
+    if int(image_spec.get("width", 0)) != PIXELS or int(image_spec.get("height", 0)) != PIXELS or (
+            str(image_spec.get("background", "")) != "transparent" or
+            bool(image_spec.get("ui_frame_baked", true))):
+        _fail("Every icon must be 512px RGBA with no baked background or UI frame")
+        return
+    if not bool(outline.get("enabled", false)) or (
+            float(outline.get("stroke_px_at_512", 0)) != 3.0 or
+            float(outline.get("crease_degrees", 0)) != 80.0 or
+            str(outline.get("color", "")) != "#17212F"):
+        _fail("Approved game ViewEdges 3px / 80 degrees / ink color differs")
+        return
+    var rotation: Basis = Basis.from_euler(Vector3(
+        deg_to_rad(float(degrees.get("x", 0.0))),
+        deg_to_rad(float(degrees.get("y", 0.0))),
+        deg_to_rad(float(degrees.get("z", 0.0)))), EULER_ORDER_XYZ)
+    var pan_clip := Vector3(float(pan.get("x", 0.0)), float(pan.get("y", 0.0)), 0.0)
     if Catalog.PROTOTYPES.size() != 19:
         _fail("Expected 19 actual equipment blueprints")
         return
@@ -144,10 +172,6 @@ func _run() -> void:
             mesh_count += 1
 
         var center: Vector3 = (low + high) * 0.5
-        var degrees: Vector3 = OBLIQUE_POSE
-        var rotation: Basis = Basis.from_euler(Vector3(
-            deg_to_rad(degrees.x), deg_to_rad(degrees.y),
-            deg_to_rad(degrees.z)), EULER_ORDER_XYZ)
         spin.basis = rotation
         center_shift.position = -center
         var span_x: float = 0.0
@@ -160,7 +184,8 @@ func _run() -> void:
         if span <= 0.00001:
             _fail(id + ": empty mesh bounds")
             return
-        spin.scale = Vector3.ONE * (1.64 / span)
+        spin.scale = Vector3.ONE * (2.0 * auto_fit * model_scale / span)
+        spin.position = pan_clip
         var ink: Node3D = EdgeScript.new()
         ink.name = "ViewEdges"
         portrait.add_child(ink)
@@ -185,7 +210,7 @@ func _run() -> void:
             _fail(id + ": blank or opaque screenshot; painted=" + str(painted))
             return
         var output: String = out_dir.path_join(id + ".png")
-        screenshot = _equalize_transparent_margins(screenshot)
+        screenshot = _equalize_transparent_margins(screenshot, auto_fit)
         if screenshot == null or screenshot.is_empty():
             _fail(id + ": cannot fit transparent margins")
             return
@@ -200,12 +225,12 @@ func _run() -> void:
     if count != 19:
         _fail("Expected all nineteen live model captures")
         return
-    print("SERA_NATIVE_EQUIPMENT_BATCH_PASS count=19 NEXUS_pose=true")
+    print("SERA_NATIVE_EQUIPMENT_BATCH_PASS count=19 NEXUS_pose=true approved_preset=true")
     quit(0)
 
 # Pixel-alpha crop is applied after the real native render, not to the
 # authoritative 3D mesh. The four *occupied* margins are identical to ±1px.
-func _equalize_transparent_margins(source: Image) -> Image:
+func _equalize_transparent_margins(source: Image, auto_fit: float) -> Image:
     var left: int = PIXELS
     var right: int = -1
     var top: int = PIXELS
@@ -222,7 +247,9 @@ func _equalize_transparent_margins(source: Image) -> Image:
         return null
     var width: int = right - left + 1
     var height: int = bottom - top + 1
-    var target_side: int = PIXELS - 2 * SIDE_PADDING
+    # An authored auto_fit of 0.76 occupies at most 76% of the 512px canvas.
+    # This preserves symmetric transparent margins without an arbitrary zoom.
+    var target_side: int = roundi(PIXELS * auto_fit)
     var factor: float = minf(float(target_side) / float(width),
         float(target_side) / float(height))
     var output_width: int = clampi(roundi(float(width) * factor), 1, target_side)
