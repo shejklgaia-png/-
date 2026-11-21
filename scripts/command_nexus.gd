@@ -1014,7 +1014,7 @@ func _update_training_start_pulse(delta: float) -> void:
 ## These labels are not Control buttons and therefore never steal preview drags.
 
 # Read-only equipment statistics occupy the existing lower-left CUSTOMIZE
-# square. Reusing fourteen stat cells keeps selection changes allocation-free.
+# square. Reusing twenty stat cells keeps selection changes allocation-free.
 func _create_customization_stats() -> void:
     customize_stats_scroll = ScrollContainer.new()
     customize_stats_scroll.name = "CustomizeEquipmentStatsScroll"
@@ -1031,7 +1031,7 @@ func _create_customization_stats() -> void:
     customize_stats_grid.add_theme_constant_override("h_separation", 6)
     customize_stats_grid.add_theme_constant_override("v_separation", 5)
     customize_stats_scroll.add_child(customize_stats_grid)
-    for i in range(14):
+    for i in range(20):
         var cell := Panel.new()
         cell.name = "EquipmentStat_" + str(i)
         cell.mouse_filter = Control.MOUSE_FILTER_IGNORE
