@@ -743,6 +743,7 @@ func attach_hud(hud: Control) -> void:
     confirm_panel.add_theme_stylebox_override("panel", confirm_skin)
     confirmation_overlay.add_child(confirm_panel)
     var confirm_vbox := VBoxContainer.new()
+    confirm_vbox.alignment = BoxContainer.ALIGNMENT_CENTER
     confirm_vbox.add_theme_constant_override("separation", 9)
     confirm_panel.add_child(confirm_vbox)
     var confirm_system := Label.new()
@@ -778,7 +779,8 @@ func attach_hud(hud: Control) -> void:
     confirm_vbox.add_child(confirmation_prompt)
     confirmation_craft_card = PanelContainer.new()
     confirmation_craft_card.name = "LaboConfirmCraftCard"
-    confirmation_craft_card.size_flags_vertical = Control.SIZE_EXPAND_FILL
+    confirmation_craft_card.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+    confirmation_craft_card.custom_minimum_size.y = 186.0
     confirmation_craft_card.add_theme_stylebox_override(
         "panel", LaboSkin.terminal_segment_style("selected"))
     confirm_vbox.add_child(confirmation_craft_card)
