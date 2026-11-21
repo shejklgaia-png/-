@@ -147,7 +147,8 @@ static func _light(parent: Node3D, label: String, at: Vector3,
         tint: String, power: float, reach: float) -> void:
     var lamp := OmniLight3D.new()
     lamp.name = label
-    lamp.position = at
+    var yaw: float = float(parent.get_meta("body_yaw", 0.0))
+    lamp.position = Basis(Vector3.UP, yaw) * at
     lamp.light_color = Color(tint)
     lamp.light_energy = power
     lamp.omni_range = reach
