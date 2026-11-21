@@ -1,4 +1,7 @@
 # Historical and active-contract regression tests executed by SERA model-policy CI.
+# New display-only octagonal equipment frame: cached 72/512px and no material changes.
+py tools/equipment_icon_tech_frame_self_check.py
+gd tools/equipment_icon_tech_frame_runtime_check.gd
 # Self-contained equipment-model Icon Studio: zero manual import and cross-chat PNG metadata.
 py tools/icon_studio/sera_icon_studio_self_check.py
 py tools/icon_studio/godot_native_capture_self_check.py
