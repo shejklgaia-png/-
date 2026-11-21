@@ -80,6 +80,17 @@ func _run() -> void:
     if not found_hp:
         _fail("single part statistics must contain the equipped head HP")
         return
+    # Largest real part profile has 10 nonzero fields; crafted items may have
+    # five independent affixes. Simulate all fifteen populated cells.
+    for i in range(entries.size()):
+        (entries[i]["panel"] as Panel).visible = i < 15
+    await process_frame
+    for i in range(15):
+        var stat_cell: Panel = entries[i]["panel"] as Panel
+        if not single_scroll.get_global_rect().encloses(stat_cell.get_global_rect()):
+            _fail("15-part-field grid clipped a value without scroll")
+            return
+    nexus.call("_refresh_customization_part_stats", "head")
     nexus.call("_tap_equipment_control", head_expand.get_global_rect().get_center())
     if not picker.visible:
         _fail("right-side thumbnail button must still open equipment selector")
