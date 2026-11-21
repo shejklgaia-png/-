@@ -3,6 +3,7 @@ extends RefCounted
 ## machinery share the existing opaque cube/tube material MultiMesh batches.
 ## All variants are deterministic, offline, non-animated and texture-free.
 
+const PileModels = preload("res://scripts/sera_base_pile_models.gd")
 const PANEL_SHAPES = 6
 const SCRAP_PROFILES = 5
 const FLOOR_OFFSET: float = -0.16
@@ -29,7 +30,12 @@ static func _pos(at: Vector2, dx: float, y: float, dz: float,
 # stack: notched, bent, trapezoid, ribbed, short, long. Real angles are around
 # local X and Z, not merely cosmetic yaw. Even the smallest one is a thin
 # metal SHEET rather than a chunky rectangular storage box.
-static func panel_stack(g: Variant, at: Vector2, k: float, variant: int) -> void:
+static func panel_stack(g: Variant, at: Vector2, k: float, variant: int,
+        stack_count: int = 6, pattern: int = -1) -> void:
+    # Four layout templates: wide flat foundations, narrow 2nd/3rd rows,
+    # a few last sheets on top. Count denotes actual primary steel sheets.
+    var style: int = posmod(variant, PileModels.PATTERNS) if pattern < 0 else (
+        posmod(pattern, PileModels.PATTERNS))
     for rail in [-1.0, 1.0]:
         g.box("Yard_panel_stack_footrail",
             _pos(at, rail * 0.29, 0.17, -0.02, k),
@@ -37,86 +43,138 @@ static func panel_stack(g: Variant, at: Vector2, k: float, variant: int) -> void
     g.rod("Yard_panel_stack_support",
         _pos(at, -0.35, 0.24, -0.29, k),
         _pos(at, 0.36, 0.24, -0.29, k), 0.045 * k, "edge")
-
-    var shape_names := ["notched", "bent", "trapezoid",
-        "ribbed", "short", "long"]
-    var widths := [0.74, 0.74, 0.67, 0.82, 0.53, 0.88]
-    var depths := [0.58, 0.62, 0.57, 0.58, 0.52, 0.39]
-    var pitch_angles := [-9.0, 10.0, -4.0, 7.0, 13.0, -8.0]
-    var roll_angles := [4.0, -7.0, 9.0, -4.0, 6.0, -6.0]
-    var heading_angles := [7.0, -10.0, 11.0, -5.0, -13.0, 9.0]
-
-    for layer in range(PANEL_SHAPES):
-        var index: int = posmod(variant + layer, PANEL_SHAPES)
-        var shape: String = shape_names[index]
-        var width: float = widths[index] * k
-        var depth: float = depths[index] * k
-        var height: float = 0.285 + 0.058 * float(layer)
-        var x_shift: float = (-0.055 + float(posmod(layer * 3 + variant, 5)) * 0.026)
-        var z_shift: float = (-0.045 + float(posmod(layer + variant * 2, 4)) * 0.031)
-        var center: Vector3 = _pos(at, x_shift, height, z_shift, k)
-        var paint: String = COLORS[posmod(index + variant, COLORS.size())]
-        var feature: String = "Yard_panel_stack_" + shape
-        var pitch: float = pitch_angles[index] + float(posmod(variant, 3) - 1) * 1.5
-        var roll: float = roll_angles[index]
-        var yaw: float = heading_angles[index] + float(posmod(layer, 3) - 1) * 2.0
-        var thickness: float = (0.038 + 0.004 * float(layer % 3)) * k
-        if shape == "bent":
-            # Two attached sheet halves, different pitch at the bend seam.
-            _sheet(g, feature + "_rear", center + Vector3(0, 0, -depth * 0.23),
-                Vector3(width, thickness, depth * 0.55), paint,
-                pitch - 9.0, roll, yaw)
-            _sheet(g, feature + "_front", center + Vector3(0, 0.012 * k, depth * 0.23),
-                Vector3(width * 0.95, thickness, depth * 0.53), paint,
-                pitch + 12.0, roll, yaw)
-        elif shape == "notched":
-            # Missing front corner represented by asymmetrical end tabs.
-            _sheet(g, feature + "_body", center,
-                Vector3(width * 0.81, thickness, depth), paint, pitch, roll, yaw)
-            _sheet(g, feature + "_lug", center + Vector3(width * 0.42, 0,
-                    -depth * 0.29),
-                Vector3(width * 0.16, thickness, depth * 0.42), paint,
-                pitch, roll, yaw)
-        elif shape == "trapezoid":
-            _sheet(g, feature + "_center", center,
-                Vector3(width * 0.73, thickness, depth), paint, pitch, roll, yaw)
-            _sheet(g, feature + "_shoulder", center + Vector3(-width * 0.40,
-                    0, -depth * 0.12),
-                Vector3(width * 0.21, thickness, depth * 0.66), paint,
-                pitch, roll, yaw + 3.0)
+    var pieces: Array[Dictionary] = PileModels.model_for(stack_count, style)
+    for n in range(pieces.size()):
+        var part: Dictionary = pieces[n]
+        var xy: Vector2 = part["position"]
+        var normalized_size: Vector2 = part["size"]
+        var size := Vector3(normalized_size.x * 1.07 * k,
+            (0.037 + float(n % 3) * 0.004) * k,
+            normalized_size.y * 0.88 * k)
+        var center: Vector3 = _pos(at, xy.x * 1.07,
+            float(part["height"]), xy.y * 0.88, k)
+        var form: String = str(part["form"])
+        var name: String = "Yard_panel_stack_" + form
+        var tint: String = COLORS[posmod(n * 2 + variant + style, COLORS.size())]
+        var pitch: float = float(part["pitch_deg"])
+        var roll: float = float(part["roll_deg"])
+        var yaw: float = float(part["yaw_deg"])
+        if form == "bent":
+            # One sheet consisting of two touching folded metal halves.
+            _sheet(g, name + "_rear", center + Vector3(0, 0, -size.z * 0.23),
+                Vector3(size.x, size.y, size.z * 0.53),
+                tint, pitch - 9.0, roll, yaw)
+            _sheet(g, name + "_front", center + Vector3(
+                0, 0.009 * k, size.z * 0.23),
+                Vector3(size.x * 0.94, size.y, size.z * 0.53),
+                tint, pitch + 12.0, roll, yaw)
+        elif form == "notched":
+            _sheet(g, name + "_body", center,
+                Vector3(size.x * 0.78, size.y, size.z),
+                tint, pitch, roll, yaw)
+            _sheet(g, name + "_lug", center + Vector3(
+                size.x * 0.40, 0, -size.z * 0.29),
+                Vector3(size.x * 0.17, size.y, size.z * 0.42),
+                tint, pitch, roll, yaw)
+        elif form == "trapezoid":
+            _sheet(g, name + "_center", center,
+                Vector3(size.x * 0.72, size.y, size.z),
+                tint, pitch, roll, yaw)
+            _sheet(g, name + "_shoulder", center + Vector3(
+                -size.x * 0.38, 0, -size.z * 0.12),
+                Vector3(size.x * 0.22, size.y, size.z * 0.63),
+                tint, pitch, roll, yaw + 2.0)
         else:
-            _sheet(g, feature, center, Vector3(width, thickness, depth),
-                paint, pitch, roll, yaw)
-        if shape == "ribbed":
+            _sheet(g, name, center, size, tint, pitch, roll, yaw)
+        if form == "ribbed":
             for side in [-1.0, 1.0]:
-                g.rod(feature + "_stiffener",
-                    center + Vector3(side * width * 0.32, thickness * 1.3,
-                        -depth * 0.38),
-                    center + Vector3(side * width * 0.32, thickness * 1.3,
-                        depth * 0.36), 0.030 * k, "edge")
-        if layer in [1, 4]:
+                g.rod(name + "_stiffener",
+                    center + Vector3(side * size.x * 0.34, size.y, -size.z * 0.38),
+                    center + Vector3(side * size.x * 0.34, size.y, size.z * 0.38),
+                    0.028 * k, "edge")
+        if n % 3 == 1:
             g.rod("Yard_panel_stack_spacer",
-                center + Vector3(-width * 0.43, -0.035 * k, 0),
-                center + Vector3(width * 0.42, -0.035 * k, 0),
-                0.036 * k, "trim")
+                center + Vector3(-size.x * 0.37, -0.035 * k, 0),
+                center + Vector3(size.x * 0.37, -0.035 * k, 0),
+                0.032 * k, "trim")
+
+
+# Facility salvage pile: one main plate/chunk per stack item, with several
+# shape families and independently pitched panels. No new MeshInstance nodes.
+static func loose_scrap_pile(g: Variant, at: Vector2, k: float,
+        variant: int, stack_count: int, pattern: int, kind: String) -> void:
+    var parts: Array[Dictionary] = PileModels.model_for(stack_count, pattern)
+    g.box("Yard_" + kind + "_skid", Vector3(at.x, -0.006, at.y),
+        Vector3(0.67, 0.045, 0.48) * k, "rubber")
+    for i in range(parts.size()):
+        var part: Dictionary = parts[i]
+        var off: Vector2 = part["position"]
+        var ratio: Vector2 = part["size"]
+        var position: Vector3 = _pos(at, off.x * 1.02,
+            float(part["height"]), off.y * 0.79, k)
+        var plate_size := Vector3(ratio.x * 1.03 * k,
+            (0.046 + float((variant + i) % 3) * 0.015) * k,
+            ratio.y * 0.79 * k)
+        var feature: String = "YardLooseMain_" + kind + "_" + str(i)
+        var tint: String = COLORS[posmod(i + variant + pattern, COLORS.size())]
+        var pitch: float = float(part["pitch_deg"])
+        var roll: float = float(part["roll_deg"])
+        var yaw: float = float(part["yaw_deg"])
+        var variant_type: int = posmod(i + variant * 3 + pattern, 5)
+        if variant_type == 0:
+            _sheet(g, feature + "_armor_plate", position,
+                plate_size, tint, pitch, roll, yaw)
+        elif variant_type == 1:
+            # Compound torn body, not merely one scaled cube.
+            _sheet(g, feature + "_broken_A", position +
+                Vector3(-plate_size.x * 0.10, 0, 0),
+                Vector3(plate_size.x * 0.72, plate_size.y, plate_size.z),
+                tint, pitch - 8.0, roll, yaw)
+            _sheet(g, feature + "_broken_B", position +
+                Vector3(plate_size.x * 0.28, 0.015 * k, 0),
+                Vector3(plate_size.x * 0.27, plate_size.y * 1.2,
+                    plate_size.z * 0.64),
+                tint, pitch + 13.0, roll, yaw)
+        elif variant_type == 2:
+            g.box(feature + "_housing", position,
+                Vector3(plate_size.x * 0.72, 0.15 * k,
+                    plate_size.z * 0.76), "armor_light")
+            g.rod(feature + "_broken_axle",
+                position + Vector3(-plate_size.x * 0.42, 0.07 * k, 0),
+                position + Vector3(plate_size.x * 0.43, 0.11 * k,
+                    plate_size.z * 0.24), 0.047 * k, "rust")
+        elif variant_type == 3:
+            g.ring(feature + "_bearing", position,
+                minf(plate_size.x, plate_size.z) * 0.39, "edge", "z")
+            g.rod(feature + "_axle",
+                position + Vector3(-plate_size.x * 0.45, 0, 0),
+                position + Vector3(plate_size.x * 0.45, 0.04 * k, 0),
+                0.07 * k, "trim")
+        else:
+            _sheet(g, feature + "_curved_guard", position,
+                plate_size, tint, pitch, roll, yaw)
+            g.rod(feature + "_brace",
+                position + Vector3(-plate_size.x * 0.30, 0, -plate_size.z * 0.22),
+                position + Vector3(plate_size.x * 0.32, 0.10 * k,
+                    plate_size.z * 0.26), 0.041 * k, "edge")
+
 
 # A scrap pile is not a box with a rod on top: give it broken armor,
 # a recognizable bearing/gear, exposed axles, tubes, loose frame bars and
 # tiny detached hardware. Five arrangements mix large/medium/small pieces
 # and vary their outline, center of mass, tilt and maximum height.
-static func scrap_heap(g: Variant, origin: Vector3, index: int) -> void:
+static func scrap_heap(g: Variant, origin: Vector3, index: int,
+        stack_count: int = -1, pattern: int = -1) -> void:
     var profile: int = posmod(index, SCRAP_PROFILES)
-    var angle_bias: float = float(posmod(index * 7, 9) - 4)
+    var count: int = 1 + posmod(index, PileModels.MAX_PIECES) if (
+        stack_count < 1) else clampi(stack_count, 1, PileModels.MAX_PIECES)
+    var style: int = posmod(index * 3 + 1, PileModels.PATTERNS) if (
+        pattern < 0) else posmod(pattern, PileModels.PATTERNS)
     var tag: String = "Salvage_" + str(index) + "_"
-    var p0: Vector3 = origin + Vector3(-0.23, 0.10, -0.07)
-    var p1: Vector3 = origin + Vector3(0.10, 0.15, 0.19)
-    var p2: Vector3 = origin + Vector3(0.25, 0.20, -0.12)
-    _sheet(g, tag + "plate_A", p0,
-        Vector3(0.55, 0.048, 0.48), "slate", 12.0, -8.0, 14.0 + angle_bias)
-    _sheet(g, tag + "plate_B", p1,
-        Vector3(0.40, 0.044, 0.32), "rust", -14.0, 13.0, -16.0)
-    _sheet(g, tag + "plate_C", p2,
-        Vector3(0.34, 0.052, 0.47), "armor_light", 11.0, 15.0, 31.0)
+    # The eight count variants form the load; bearings and cables below are
+    # secondary fittings, not extra phantom major scrap pieces.
+    loose_scrap_pile(g, Vector2(origin.x, origin.z), 1.0,
+        index, count, style, "salvage")
     # A detached gearbox or joint is visibly circular, not a cubic lump.
     var hub: Vector3 = origin + Vector3(-0.24 + profile * 0.07,
         0.31 + float(index % 3) * 0.045, 0.14)
