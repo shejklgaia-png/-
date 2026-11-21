@@ -4,6 +4,7 @@ const Modules = preload("res://assets/base_command_modules.gd")
 const SeraRig = preload("res://scripts/sera_rig.gd")
 const VersionIndicator = preload("res://scripts/version_indicator.gd")
 const BaseFacilities = preload("res://scripts/base_facility_system.gd")
+const LaboSkin = preload("res://scripts/sera_labo_round_skin.gd")
 const CrateModel = preload("res://scripts/sera_crate_model.gd")
 const NEXUS_SCENE: String = "res://scenes/command_nexus.tscn"
 # Fill nearly the entire 256 m continuous ground with actual visible
@@ -362,6 +363,7 @@ func _create_camera() -> void:
 func _label(parent: Node, title: String, size: int) -> Label:
     var node := Label.new()
     node.text = title
+    node.add_theme_font_override("font", LaboSkin.ui_font())
     node.add_theme_font_size_override("font_size", size)
     node.add_theme_color_override("font_color", Color("#dcebf3"))
     node.mouse_filter = Control.MOUSE_FILTER_IGNORE
