@@ -57,7 +57,7 @@ for required in (
     'var height: float = minf(view.y * 0.225, 290.0)',
     'StatUI.fit_label(label, 19, 16)',
     'StatUI.fit_label(value, 25, 20)',
-    'value.position = Vector2(10, 20)',
+    'StatUI.layout_metric_pair(label, value, cell_width, cell_height, 19, 25, 16, 20)',
 ):
     assert required in nexus, required
 assert 'StatUI.status_window_style()' in nexus
