@@ -125,6 +125,14 @@ jobs:
             git commit -m "assets: register all 19 verified SeraRig photographs [skip ci]"
             git push origin "HEAD:refs/heads/$SOURCE_BRANCH"
           fi
+      - name: Verify real equipment photos, stat coverage and LABO UI early
+        run: |
+          set -euo pipefail
+          GODOT="$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64"
+          "$GODOT" --headless --path . --script tools/equipment_registry_runtime_check.gd
+          "$GODOT" --headless --path . --script tools/equipment_icon_tech_frame_runtime_check.gd
+          "$GODOT" --headless --path . --script tools/v527_android_icon_resilience_runtime_check.gd
+          "$GODOT" --headless --path . --script tools/v553_labo_controls_runtime_check.gd
       - name: Verify actual facility card pixels in a virtual display
         env:
           SERA_UI_RENDER_DIR: ${{ runner.temp }}/sera-ui-render
