@@ -557,3 +557,7 @@ py tools/v536_labo_reference_style_self_check.py
 # v553: modal data, vector marks, centered quantities and strict batch cap.
 py tools/v553_labo_controls_self_check.py
 gd tools/v553_labo_controls_runtime_check.gd
+
+# SERA weight classes + equipment intake editor / actual source-model bundle.
+py tools/equipment_intake/intake_self_check.py
+gd tools/equipment_intake/weight_runtime_check.gd
