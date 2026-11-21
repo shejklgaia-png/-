@@ -100,6 +100,29 @@ func _run() -> void:
     if camera.projection != Camera3D.PROJECTION_ORTHOGONAL:
         _fail("orthographic camera changed to perspective")
         return
+    # Check actual projected corners, not just a nominal camera size.
+    var phone_size: float = float(base.call(
+        "_power_view_ortho_size", Vector2(428.0, 1000.0)))
+    if phone_size < 43.0:
+        _fail("narrow Android display would crop the 8x8 frame")
+        return
+    var ci_size: float = float(base.call("_power_view_ortho_size"))
+    if ci_size <= Board.CAMERA_SIZE:
+        _fail("framing did not adapt to portrait viewport")
+        return
+    camera.position = original_position + Board.board_focus() - Vector3(
+        0.0, 0.0, -2.2)
+    camera.size = ci_size
+    for corner_x in [-5.95, 5.95]:
+        for corner_z in [-5.95, 5.95]:
+            var pixel: Vector2 = camera.unproject_position(
+                Board.BOARD_CENTER + Vector3(corner_x, 0.60, corner_z))
+            var viewport: Vector2 = get_viewport().get_visible_rect().size
+            if pixel.x < 12.0 or pixel.x > viewport.x - 12.0:
+                _fail("board border clipped in portrait")
+                return
+    camera.position = original_position
+    camera.size = original_size
     base.call("_leave_power_board")
     if bool(base.get("power_view_active")) or back.visible:
         _fail("return button did not restore overview state")
