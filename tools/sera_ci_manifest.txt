@@ -574,6 +574,9 @@ py tools/v536_labo_reference_style_self_check.py
 # v553: modal data, vector marks, centered quantities and strict batch cap.
 py tools/v553_labo_controls_self_check.py
 gd tools/v553_labo_controls_runtime_check.gd
+# Portrait-oriented craft confirm: true square 3D, stats below, button access.
+py tools/labo_square_craft_confirmation_self_check.py
+gd tools/labo_square_craft_confirmation_runtime_check.gd
 
 # SERA weight classes + equipment intake editor / actual source-model bundle.
 py tools/equipment_intake/intake_self_check.py
