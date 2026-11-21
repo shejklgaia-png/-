@@ -38,8 +38,13 @@ func _run() -> void:
     if craft_card == null or not craft_card.visible or picture == null or (
             picture.texture == null or nameplate == null or (
             nameplate.text != str(Catalog.spec("T01").get("name", ""))) or details == null or (
-            details.text.find("基礎ステータス") < 0)):
+            details.text.find("基礎ステータス") >= 0)):
         _fail("item preview/stats missing from the creation modal")
+        return
+    var stat_lines: VBoxContainer = overlay.find_child(
+        "LaboConfirmStatRows", true, false) as VBoxContainer
+    if stat_lines == null or stat_lines.get_child_count() < 3 or details.visible:
+        _fail("craft metrics must use independent name/value rows, without header")
         return
     var layout: VBoxContainer = overlay.find_child(
         "LaboConfirmLayout", true, false) as VBoxContainer
