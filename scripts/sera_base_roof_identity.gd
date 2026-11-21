@@ -100,6 +100,19 @@ static func _collector(g: Variant) -> void:
     g.box("CollectorCraneCableSeat",
         Vector3(0.46, 1.55, 0.22),
         Vector3(0.32, 0.24, 0.18), "dark")
+    # Readable high-mounted boom and drop cable, visible above the sorting deck.
+    g.rod("CollectorRaisedJib",
+        Vector3(-0.73, 1.65, -0.40),
+        Vector3(-0.25, 3.14, -0.48), 0.23, "gold")
+    g.rod("CollectorRaisedJib",
+        Vector3(-0.25, 3.14, -0.48),
+        Vector3(0.46, 2.86, 0.17), 0.22, "caution")
+    g.box("CollectorRaisedJibPivot",
+        Vector3(-0.25, 3.12, -0.46),
+        Vector3(0.32, 0.30, 0.28), "armor_light")
+    g.rod("CollectorLiftCable",
+        Vector3(0.46, 2.86, 0.17),
+        Vector3(0.46, 1.54, 0.17), 0.07, "dark")
 
 
 static func _smelter(g: Variant) -> void:
@@ -162,6 +175,16 @@ static func _recycler(g: Variant) -> void:
         g.box("RecyclerOpenToothTip",
             Vector3(-0.53 + float(index) * 0.35, 1.28, 0.96),
             Vector3(0.19, 0.13, 0.12), "armor_light")
+    # Broad opposing crusher jaws read as a pair of machine plates, not
+    # a solid lid: the rollers remain visible between their inner edges.
+    for side in [-1.0, 1.0]:
+        g.poly_tilt("RecyclerOpposedJawFace", "bevel",
+            Vector3(side * 0.76, 1.52, 0.81),
+            Vector3(0.24, 0.83, 0.19), "armor_light",
+            Vector3(-0.16, 0.0, side * 0.19))
+        g.box("RecyclerJawCautionInset",
+            Vector3(side * 0.76, 1.58, 0.96),
+            Vector3(0.19, 0.16, 0.09), "caution")
 
 
 static func _generator(g: Variant) -> void:
