@@ -36,6 +36,8 @@ py tools/base_junk_models_self_check.py
 gd tools/base_junk_models_runtime_check.gd
 # Four wide-base/sparse-top arrangements for exactly 1–8 metal and scrap major pieces.
 gd tools/base_eight_piece_piles_runtime_check.gd
+# Reject tilted plates, low support skids and scaled junk penetrating real BASE steel deck.
+gd tools/base_pile_ground_contact_runtime_check.gd
 py tools/base_prop_stacks_self_check.py
 gd tools/base_prop_stacks_runtime_check.gd
 # Enlarged prop silhouette and sixteen no-extra-node salvage piles.

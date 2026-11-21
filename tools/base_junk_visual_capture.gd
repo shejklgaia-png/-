@@ -25,7 +25,7 @@ func _run() -> void:
     var floor_mesh := BoxMesh.new()
     floor_mesh.size = Vector3(5.4, 0.12, 8.1)
     ground.mesh = floor_mesh
-    ground.position = Vector3(0, -0.11, 0)
+    ground.position = Vector3(0, -0.09, 0)
     var mat := StandardMaterial3D.new()
     mat.albedo_color = Color("#28323c")
     mat.metallic = 0.16
@@ -37,7 +37,7 @@ func _run() -> void:
         var seam_mesh := BoxMesh.new()
         seam_mesh.size = Vector3(5.2, 0.008, 0.016)
         seam.mesh = seam_mesh
-        seam.position = Vector3(0, -0.044, -3.7 + float(row) * 0.90)
+        seam.position = Vector3(0, -0.025, -3.7 + float(row) * 0.90)
         var seam_mat := StandardMaterial3D.new()
         seam_mat.albedo_color = Color("#4a5865")
         seam.material_override = seam_mat
@@ -80,7 +80,7 @@ func _run() -> void:
     camera.name = "ReviewCamera"
     scene.add_child(camera)
     camera.projection = Camera3D.PROJECTION_ORTHOGONAL
-    camera.size = 8.4
+    camera.size = 9.2
     camera.position = Vector3(4.6, 7.2, 13.0)
     camera.look_at(Vector3(0, 0.37, -0.1))
     camera.current = true

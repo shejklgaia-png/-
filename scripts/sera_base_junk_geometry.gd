@@ -7,6 +7,10 @@ const PileModels = preload("res://scripts/sera_base_pile_models.gd")
 const PANEL_SHAPES = 6
 const SCRAP_PROFILES = 5
 const FLOOR_OFFSET: float = -0.16
+# Real BASE deck: panels are centered at Y=-0.18 with 0.30 thickness.
+# The visual capture uses this same reference, not the old -0.16 origin.
+const BASE_DECK_SURFACE_Y: float = -0.03
+const PILE_BOTTOM_CLEARANCE: float = 0.012
 const COLORS = ["slate", "armor_light", "rust", "edge", "trim"]
 
 # Some older geometry-capture test doubles expose box/rod/ring but not
@@ -14,17 +18,35 @@ const COLORS = ["slate", "armor_light", "rust", "edge", "trim"]
 static func _sheet(g: Variant, feature: String, at: Vector3, size: Vector3,
         tint: String, pitch_deg: float, roll_deg: float,
         yaw_deg: float = 0.0) -> void:
+    var angles := Vector3(deg_to_rad(pitch_deg), deg_to_rad(yaw_deg),
+        deg_to_rad(roll_deg))
+    var rotated := Basis.from_euler(angles)
+    # A slanted large sheet can clip the deck at a corner even if its
+    # centre is above it. Clamp the complete rotated box's lowest vertex.
+    var lowest_extent: float = (
+        absf(rotated.x.y) * size.x +
+        absf(rotated.y.y) * size.y +
+        absf(rotated.z.y) * size.z) * 0.5
+    var place: Vector3 = at
+    place.y = maxf(place.y, BASE_DECK_SURFACE_Y +
+        PILE_BOTTOM_CLEARANCE + lowest_extent)
     if g.has_method("box_tilt"):
-        g.box_tilt(feature, at, size, tint,
-            Vector3(deg_to_rad(pitch_deg), deg_to_rad(yaw_deg),
-                deg_to_rad(roll_deg)))
+        g.box_tilt(feature, place, size, tint, angles)
     else:
-        g.box(feature, at, size, tint, deg_to_rad(yaw_deg))
+        g.box(feature, place, size, tint, deg_to_rad(yaw_deg))
 
 static func _pos(at: Vector2, dx: float, y: float, dz: float,
         scale_factor: float) -> Vector3:
     return Vector3(at.x + dx * scale_factor,
         FLOOR_OFFSET + y * scale_factor, at.y + dz * scale_factor)
+
+# Grounded piles scale about the TOP of the real deck, never a historic
+# negative floor offset. This also keeps small (<1x) prop variants visible.
+static func _pile_pos(at: Vector2, dx: float, above_deck: float, dz: float,
+        scale_factor: float) -> Vector3:
+    return Vector3(at.x + dx * scale_factor,
+        BASE_DECK_SURFACE_Y + above_deck * scale_factor,
+        at.y + dz * scale_factor)
 
 # Six visible material-panel silhouettes, used in different orders in every
 # stack: notched, bent, trapezoid, ribbed, short, long. Real angles are around
@@ -40,8 +62,8 @@ static func panel_stack(g: Variant, at: Vector2, k: float, variant: int,
     # seen from the BASE camera. Keep only a low, unobtrusive ground contact.
     # The panels themselves, not visible rails, must define the silhouette.
     g.box("Yard_panel_stack_ground_contact",
-        _pos(at, 0.0, 0.107, 0.0, k),
-        Vector3(0.62, 0.018, 0.43) * k, "dark")
+        _pile_pos(at, 0.0, 0.026, 0.0, k),
+        Vector3(0.62, 0.052, 0.43) * k, "dark")
     var pieces: Array[Dictionary] = PileModels.model_for(stack_count, style)
     for n in range(pieces.size()):
         var part: Dictionary = pieces[n]
@@ -55,8 +77,8 @@ static func panel_stack(g: Variant, at: Vector2, k: float, variant: int,
         var size := Vector3(surface_width * k,
             (0.034 + float(n % 3) * 0.005) * k,
             surface_depth * k)
-        var center: Vector3 = _pos(at, xy.x * 1.07,
-            0.154 + float(part["tier"]) * 0.057 +
+        var center: Vector3 = _pile_pos(at, xy.x * 1.07,
+            0.100 + float(part["tier"]) * 0.068 +
                 float((n + style) % 3) * 0.004,
             xy.y * 0.68, k)
         var form: String = str(part["form"])
@@ -114,14 +136,16 @@ static func panel_stack(g: Variant, at: Vector2, k: float, variant: int,
 static func loose_scrap_pile(g: Variant, at: Vector2, k: float,
         variant: int, stack_count: int, pattern: int, kind: String) -> void:
     var parts: Array[Dictionary] = PileModels.model_for(stack_count, pattern)
-    g.box("Yard_" + kind + "_skid", Vector3(at.x, -0.006, at.y),
-        Vector3(0.67, 0.045, 0.48) * k, "rubber")
+    # Full-height skid physically touches the floor at all prop scales.
+    g.box("Yard_" + kind + "_skid",
+        _pile_pos(at, 0.0, 0.055, 0.0, k),
+        Vector3(0.67, 0.11, 0.48) * k, "rubber")
     for i in range(parts.size()):
         var part: Dictionary = parts[i]
         var off: Vector2 = part["position"]
         var ratio: Vector2 = part["size"]
-        var position: Vector3 = _pos(at, off.x * 1.02,
-            float(part["height"]), off.y * 0.79, k)
+        var position: Vector3 = _pile_pos(at, off.x * 1.02,
+            float(part["height"]) - 0.105, off.y * 0.79, k)
         var plate_size := Vector3(ratio.x * 1.03 * k,
             (0.046 + float((variant + i) % 3) * 0.015) * k,
             ratio.y * 0.79 * k)
