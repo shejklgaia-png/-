@@ -631,6 +631,20 @@ static func _make_container_stack(g: Variant, key: String, kind: String,
                 position + Vector3(0, size.y * 0.12, size.z * 0.51),
                 Vector3(size.x * 0.36, 0.055 * k, 0.018 * k),
                 "blue_light" if kind in ["power_box", "battery"] else "gold")
+            # Recessed-looking front handle and corner catches make small
+            # battery/fastener/power containers legible at the BASE camera angle.
+            # All parts stay inside the existing conservative tier footprint.
+            g.box("YardContainerFrontHandle",
+                position + Vector3(0, -size.y * 0.13, size.z * 0.515),
+                Vector3(size.x * 0.24, 0.065 * k, 0.024 * k), "dark")
+            for side in [-1.0, 1.0]:
+                g.box("YardContainerCornerLatch",
+                    position + Vector3(side * size.x * 0.40,
+                        size.y * 0.38, size.z * 0.51),
+                    Vector3(0.055 * k, 0.13 * k, 0.027 * k), "gold")
+            g.box("YardContainerTopRidge",
+                position + Vector3(0, size.y * 0.51, 0),
+                Vector3(size.x * 0.65, 0.022 * k, 0.05 * k), "trim")
 
 
 # Vertical pitches match the actual authored mesh heights so tiers touch.
