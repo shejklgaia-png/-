@@ -43,7 +43,7 @@ func _run() -> void:
     var rng := RandomNumberGenerator.new()
     rng.seed = 481629
     var selected: Dictionary = Layout.generate(
-        Vector3(-9.30, 0.0, -14.55),
+        Vector3(-13.44, 0.0, -19.91),
         Fac.FACILITY_SPECS, rng)
     if selected.is_empty():
         _fail("no valid random layout found")
@@ -54,7 +54,7 @@ func _run() -> void:
             _fail(key + " dropped any authored part")
             return
         var slab: Rect2 = Layout.site_slab(
-            key, Vector3(-9.30, 0.0, -14.55), Fac.FACILITY_SPECS)
+            key, Vector3(-13.44, 0.0, -19.91), Fac.FACILITY_SPECS)
         var occupied: Array[Rect2] = []
         for prop in props:
             var rect: Rect2 = Layout.prop_envelope(prop)
