@@ -12,7 +12,10 @@ def load(path):
 project = load("project.godot")
 version = re.search(r'^config/name="SERA v(\d+)"$', project, re.M)
 assert version and int(version.group(1)) >= 196
-nexus = load("scripts/command_nexus.gd")
+nexus_source = load("scripts/command_nexus.gd")
+solver = load("scripts/sera_nexus_arm_clearance.gd")
+nexus = nexus_source + "\n" + solver
+assert "NexusArmClearance.new().fit(sera_display_rig, nexus_arm_rest_rotations)" in nexus_source
 rig = load("scripts/sera_rig.gd")
 equips = load("scripts/sera_equipment.gd")
 pose_source = json.loads(load("models/storage/SERA_BIRD_LEGS_MIRROR_EDIT.bbmodel"))
