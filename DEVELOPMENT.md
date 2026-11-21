@@ -1,3 +1,13 @@
+## 2026-11-21：拠点工業材質の追加ブラッシュアップ（テクスチャ込み）
+- `assets/base/industrial_armor_chipped.svg`（512px）：装甲の塗装摩耗、下地露出、細かな引っかき傷、薄い垂れ汚れ。NEXUS/LABO/全6設備の塗装系外装に共通。
+- `assets/base/industrial_oxidized_metal.svg`（512px）：構造金属・熱機械の酸化皮膜、擦れ、錆の斑を追加。rust/gold材質のみに適用。
+- `assets/base/industrial_deck_wear.svg`（512px）：暗い床色を損なわない擦れ、油跡、軽い補修傷。6色の既存床MultiMeshを維持し、UVオフセットと倍率を材質ごとに変えて模様の反復を軽減。
+- `assets/base/aged_canvas_weave.svg`（512px）：天幕の織り目・折り皺・縫い目・雨汚れを再制作。既存パスは維持し、LABOなど既存の布面に反映。
+- 全てSVGの一回だけのGodot画像インポートで、ランタイムのピクセルノイズ/新規シェーダー/描画パス/新規3Dノードは追加しない。小物・建物は既存材質別MultiMeshを再利用。透明エフェクト、青/橙の光源、設計図の鮮明さは維持。原本bbmodel、カメラ、施設配置、セーブ、NEXUS/LABO/GRID操作を変更しない。
+- CI先行登録：`base_surface_textures_self_check.py`・`base_surface_textures_runtime_check.gd`。材質ファイル、読み込み先、全8施設での実バインド、6床バッチ、反射係数と発光の保護を検査。
+- 起動初期の表示先行（2フレーム）を尊重し、`base_reference_architecture_runtime_check.gd`／`base_reference_polish_runtime_check.gd`／`base_floor_contrast_runtime_check.gd`／`base_material_weathering_runtime_check.gd`は、シーンの建築が完成してから検証するよう待機条件を修正（検証値は維持）。
+- モバイル性能と最終画面品質は実機確認が必要。前回のmain Godot CIはこの修正以前から多数の起動待機依存テストで失敗しており、今回のテクスチャ変更とは別に未解決のケースもあり得る。
+
 ## 2026-11-21：参考画像準拠の全施設・鋼板ディテール再調整
 - 新規 `scripts/sera_base_reference_polish.gd` に8施設固有の建築仕上げを分離。NEXUSは屋根補強・機器箱・正面踏板・天幕筋交い、LABOはガントリー式製造ヘッド・開放作業棚・テレメトリー、回収機は油圧継手・ホース・追加把持歯を増設。
 - 精製装置は耐熱円環・煙突の段巻き・鋳型、分解装置は傾斜投入口・鋸歯・排出スクラップ、発電機は冷却フィン・青色巻線、保管庫はコンテナ波板・結束材、建設端末はディスプレイ内の3D設計線・ひさし・配線で外観を差別化。
