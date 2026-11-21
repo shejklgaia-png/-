@@ -19,7 +19,7 @@ static func _nexus(g: Variant) -> void:
             0.10, "edge")
     g.box_tilt("NexusRoofGutter", Vector3(0, 4.68, 2.57),
         Vector3(5.70, 0.17, 0.24), "armor_light",
-        Vector3(0.07, 0, 0))
+        Vector3(0.25, 0, 0))
     for i in range(6):
         g.box("NexusGutterRivet",
             Vector3(-2.36 + float(i) * 0.94, 4.70, 2.75),
