@@ -44,6 +44,10 @@ func _run() -> void:
         var right: Array[float] = []
         var accent: int = 0
         for item in objects:
+            # Compact satellites sit beside larger clusters; they must NOT
+            # erase the original four-beat primary-object rhythm.
+            if bool(item.get("accent", false)):
+                continue
             var at: Vector2 = item["at"]
             var scale: float = float(item["scale"])
             if at.x < 0:
