@@ -33,7 +33,7 @@ desired = {
     "NEXUS": (.509, .274),
     "LABO": (.503, .641),
     "SMELTER": (.190, .396),
-    "RECYCLER": (.773, .410),
+    "RECYCLER": (.790, .414),
     "STORAGE": (.205, .568),
     "GENERATOR": (.812, .586),
     "SCRAP_COLLECTOR": (.172, .745),
