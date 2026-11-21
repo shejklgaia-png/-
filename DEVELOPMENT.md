@@ -1,3 +1,10 @@
+## 2026-11-21 — CIの旧フォント名4検査を現行UDEV/Moralerspaceへ追随
+- BASE施設を内向きにするPR #560のmain全CIは、今回の配置と無関係な旧名 `IBMPlexSansJP` / `NotoSansJP` / `Rajdhani` を必須とする4つの静的テスト（v535/v546/v549/v550）のみ失敗し、Godot全実行時検査が始まらなかった。
+- ユーザーが採用済みの現行 `scripts/sera_labo_round_skin.gd` は UDEV Gothic Regular/Bold と Moralerspace Neon Regular/Bold のBundled TTFを利用。ランタイムが使用しない旧フォントのファイル有無や名前ではなく、**現に参照される4つの実ファイル、TrueType実バイナリ、ライセンス、全日本語のグリフ要件、UIサイズ・画面配置の従来の不変条件**を静的検査するよう期待値のみを更新した。
+- テスト削除・無条件スキップ・非関連UI/ゲーム挙動の変更なし。変更ファイルは4つの旧歴史的Python検査のみ。Godotランタイム検査は従来のまま全実行。
+
+---
+
 ## 2026-11-21 — BASEの8施設を少し内側へ寄せ、施設正面をそれぞれ中央へ向ける
 - 最新mainと拠点正本・カメラ・各施設Yaw・床単一パネル・小物68群・スクラップ16基・CRATE動線・全CIを確認。旧「全施設がカメラを向く」仕様は撤回し「施設の正面は中央を向く／角度は個別」を最新ルールとする。
 - テスト先行：`base_natural_yaw_runtime_check.gd` の旧カメラ正対期待値を中央向きへ置き換え、`base_isometric_layout_self_check.py` の8投影位置と`base_soft_center_space_self_check.py`のLABO目標値を更新。新規 `base_inward_facilities_self_check.py`／`base_inward_facilities_runtime_check.gd` をCIに登録し、計算上の正面向き・固有角度・全8施設の実モデルと台座Yaw・タップを検査。
