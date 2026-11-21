@@ -400,9 +400,17 @@ func _bind_card(card: Button, index: int) -> void:
         var available_name: float = maxf(0.0,
             text_width - reserved_width - name_to_mark_gap)
         var label_font: Font = title.get_theme_font("font")
+        var item_name_text: String = str(entry.get("name", ""))
+        # Keep the full Japanese name when possible without pushing the
+        # larger marker off-card; 17px is the lower legibility boundary.
+        var font_px: int = 20
         var name_width: float = label_font.get_string_size(
-            str(entry.get("name", "")), HORIZONTAL_ALIGNMENT_LEFT,
-            -1.0, title.get_theme_font_size("font_size")).x
+            item_name_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_px).x
+        while marked_count > 0 and font_px > 17 and name_width > available_name:
+            font_px -= 1
+            name_width = label_font.get_string_size(
+                item_name_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_px).x
+        title.add_theme_font_size_override("font_size", font_px)
         title.size.x = (minf(available_name, name_width + 4.0)
             if marked_count > 0 else text_width)
         title.autowrap_mode = (TextServer.AUTOWRAP_OFF if marked_count > 0
