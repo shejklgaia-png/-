@@ -16,16 +16,22 @@ const HUB_SERA_CONTROLS_ENABLED: bool = false
 const WALK_SPEED: float = 3.2
 const PLAYER_Y: float = 0.08
 const JOYSTICK_RADIUS: float = 76.0
-const NEXUS_BUILDING_ORIGIN: Vector3 = Vector3(0.0, 0.0, -13.10)
+# True FOV-zero appearance: parallel rays (orthographic, not invalid fov=0).
+# Keep vertical span stable on every 720x1280 portrait screen.
+const BASE_ORTHO_SIZE: float = 38.0
+const BASE_CAMERA_POSITION: Vector3 = Vector3(21.0, 30.0, 25.0)
+const BASE_CAMERA_TARGET: Vector3 = Vector3(0.0, 0.0, -2.2)
+const NEXUS_BUILDING_ORIGIN: Vector3 = Vector3(-9.53, 0.0, -14.55)
 const CRATE_SPEED: float = 0.95
 # CRATE orbits the central LABO instead of walking through its walls.
 # Side lanes and the lower/upper arcs stay clear of every machine foundation.
+# Identical patrol loop, rotated to start CRATE on the camera-facing lane.
 const CRATE_WAYPOINTS = [
+    Vector2(3.30, -1.20), Vector2(3.30, -5.40),
+    Vector2(0.00, -6.10), Vector2(-3.30, -5.40),
     Vector2(-3.30, -1.20), Vector2(-3.30, 2.40),
     Vector2(-1.50, 4.00), Vector2(1.50, 4.00),
-    Vector2(3.30, 2.40), Vector2(3.30, -1.20),
-    Vector2(3.30, -5.40), Vector2(0.00, -6.10),
-    Vector2(-3.30, -5.40)
+    Vector2(3.30, 2.40)
 ]
 
 var player: Node3D
@@ -175,9 +181,11 @@ func _build_hangar() -> void:
         Vector3(256.0, 0.30, 256.0), Color("#323f50"))
     _create_grid_plates(floor)
     # Keep legacy decorative models away from interactive equipment footprints.
-    _add_module("maintenance_pad", Vector3(-8.5, 0.0, -1.8), 0.0, 0.72)
-    _add_module("kiosk", Vector3(8.6, 0.0, 1.2), 0.0, 0.85)
-    _add_module("data_bank", Vector3(8.8, 0.0, -3.0), 0.0, 0.52)
+    # Decorative Blockbench props occupy the frame edges, never machinery
+    # foundations or raw touch pick volumes in the orthographic composition.
+    _add_module("maintenance_pad", Vector3(-20.2, 0.0, -13.6), 0.0, 0.72)
+    _add_module("kiosk", Vector3(-4.0, 0.0, -22.5), 0.0, 0.85)
+    _add_module("data_bank", Vector3(22.0, 0.0, -9.0), 0.0, 0.52)
     var cube := BoxMesh.new()
     cube.size = Vector3.ONE
     for palette_index in batches.keys():
@@ -250,9 +258,9 @@ func _box(parent: Node3D, name: String, at: Vector3, size: Vector3, tint: Color)
 func _create_salvage() -> void:
     # Deliberate small props leave a clear central walkable lane.
     var lots := [
-        Vector3(-8.45, 0.0, 5.3), Vector3(-8.15, 0.0, -0.7),
-        Vector3(8.30, 0.0, 5.7), Vector3(8.35, 0.0, -1.5),
-        Vector3(-8.15, 0.0, -10.5), Vector3(8.20, 0.0, -5.6)
+        Vector3(-9.83, 0.0, 0.28), Vector3(6.80, 0.0, 19.56),
+        Vector3(4.65, 0.0, 6.62), Vector3(14.96, 0.0, 14.72),
+        Vector3(4.80, 0.0, -11.02), Vector3(20.54, 0.0, 10.41)
     ]
     for i in range(lots.size()):
         var pile := Node3D.new()
@@ -292,7 +300,7 @@ func _create_crate() -> void:
     # Canonical robot: same geometry, proportions and materials as the LABO
     # close-up. Keep the outdoor path-following motion independent.
     crate = CrateModel.create_model()
-    crate.position = Vector3(-3.05, 0.06, -3.25)
+    crate.position = Vector3(3.30, 0.06, 2.40)
     crate.rotation.y = -0.5
     add_child(crate)
 
@@ -340,11 +348,15 @@ func _nexus_hit(point: Vector2) -> bool:
 func _create_camera() -> void:
     cam = Camera3D.new()
     cam.name = "BaseOverheadCamera"
-    cam.fov = 67.0
+    # A perspective Camera3D cannot have FOV=0. The mathematically correct
+    # zero-perspective equivalent is this orthographic oblique overhead view.
+    cam.projection = Camera3D.PROJECTION_ORTHOGONAL
+    cam.keep_aspect = Camera3D.KEEP_HEIGHT
+    cam.size = BASE_ORTHO_SIZE
     cam.near = 0.1
-    cam.position = Vector3(0.0, 19.6, 13.3)
+    cam.position = BASE_CAMERA_POSITION
     add_child(cam)
-    cam.look_at(Vector3(0.0, 0.0, -2.2), Vector3.UP)
+    cam.look_at(BASE_CAMERA_TARGET, Vector3.UP)
     cam.current = true
 
 func _label(parent: Node, title: String, size: int) -> Label:
@@ -399,7 +411,7 @@ func _layout_hud() -> void:
     var view: Vector2 = hud.size
     hud_title.position = Vector2(18, 18)
     hud_title.size = Vector2(view.x * 0.52, 42)
-    hint.position = Vector2(18, 72)
+    hint.position = Vector2(18, view.y - 102.0)
     hint.size = Vector2(view.x - 36, 38)
     hint.add_theme_font_size_override("font_size", 16 if view.x < 600.0 else 19)
     stick_outer.position = Vector2(view.x - 180, view.y - 194)
@@ -557,12 +569,14 @@ func _process(delta: float) -> void:
         if rig != null:
             rig.call("set_moving", moving, false, Vector2(0, 1), false)
     _update_crate(delta)
-    if cam != null:
-        var offset := Vector3(player.position.x * 0.18, 19.6,
-            13.3 + player.position.z * 0.12)
-        cam.position = cam.position.lerp(offset, minf(1.0, delta * 2.5))
-        cam.look_at(Vector3(player.position.x * 0.18, 0.0,
-            -2.2 + player.position.z * 0.12), Vector3.UP)
+    # The outdoor BASE is a fixed isometric menu while SERA is disabled.
+    # Preserve dormant player-follow logic only for a future controls re-enable.
+    if cam != null and HUB_SERA_CONTROLS_ENABLED:
+        var follow_shift := Vector3(player.position.x * 0.18, 0.0,
+            player.position.z * 0.12)
+        cam.position = cam.position.lerp(BASE_CAMERA_POSITION + follow_shift,
+            minf(1.0, delta * 2.5))
+        cam.look_at(BASE_CAMERA_TARGET + follow_shift, Vector3.UP)
     _update_nexus_tag()
     facility_system.call("update_tags", cam)
 
