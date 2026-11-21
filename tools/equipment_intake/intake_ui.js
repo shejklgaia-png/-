@@ -236,7 +236,7 @@ function renderPickers(){
    const txt=document.createElement("span");txt.textContent=labels[key]?.[value]||key+" "+value;
    btn.append(img,txt);
    btn.addEventListener("click",async()=>{
-    selected[key]=value;picker.open=false;renderPickers();updateWeight();
+    selected[key]=value;if(key===slot)$("rigSet").value=value;picker.open=false;renderPickers();updateWeight();
     if(activeTab==="stats")updateStatsPreview();else await renderActivePreview();
    });
    list.append(btn);
@@ -278,5 +278,6 @@ function init(){
  $("slot").addEventListener("change",()=>{$("rigSet").replaceChildren(...choices[slot].map(x=>{const o=document.createElement("option");o.value=x;o.textContent=x;return o}));$("rigSet").value=selected[slot]});
  renderStats();renderMaterials();renderPickers();renderSize();setTab("rig");
 }
+window.SERA_INTAKE_REQUEST_REFRESH=renderActivePreview;
 window.addEventListener("DOMContentLoaded",init);
 })();
