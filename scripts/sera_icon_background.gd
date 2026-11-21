@@ -144,6 +144,9 @@ static func composite(source: Texture2D, mode: String = DEFAULT_MODE) -> Texture
         return source
     if art.is_compressed() and art.decompress() != OK:
         return source
+    # ImageTexture.get_image() may share an Image buffer with the source.
+    # Resize must never change that original between grid and solid views.
+    art = art.duplicate() as Image
     art.convert(Image.FORMAT_RGBA8)
     # Cache at source resolution in the caller; preserve authored pixel art.
     var side: int = maxi(art.get_width(), art.get_height())
