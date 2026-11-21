@@ -144,3 +144,12 @@ LABOは一枚の箱状外壁から、開放前面・背面設備ラック・側�
 - CI先行登録：`base_surface_textures_self_check.py`・`base_surface_textures_runtime_check.gd`。材質ファイル、読み込み先、全8施設での実バインド、6床バッチ、反射係数と発光の保護を検査。
 - 起動初期の表示先行（2フレーム）を尊重し、`base_reference_architecture_runtime_check.gd`／`base_reference_polish_runtime_check.gd`／`base_floor_contrast_runtime_check.gd`／`base_material_weathering_runtime_check.gd`は、シーンの建築が完成してから検証するよう待機条件を修正（検証値は維持）。
 - モバイル性能と最終画面品質は実機確認が必要。前回のmain Godot CIはこの修正以前から多数の起動待機依存テストで失敗しており、今回のテクスチャ変更とは別に未解決のケースもあり得る。
+
+## 2026-11-21 — BASE：直接編集した三角ポリゴンによる全8施設・床の形状刷新
+- `scripts/sera_base_polygon_meshes.gd` に7種類の実ポリゴン原型（deck/bevel/hopper/hood/canvas/drum/gear）を作成。各面の三角形頂点、外向き法線、塗装/布/床用UVを自前で定義する`SurfaceTool`構造です。使い回し時は共有ArrayMeshを取得し、既存の材質別MultiMeshに配置するため、毎フレーム生成しません。
+- NEXUSの主壁・屋根・ゲートを8角面取り、装甲板・配電ボックスを多角化。LABOの天幕は4×4ポリゴングリッドをたわみ・張力皺・厚み付きで再構成し、開放された機械室を維持。
+- 回収機の広口ホッパーは外側斜面・内側斜面・上縁まで面として構築。精製炉は角落とし本体と蓋、分解装置の5本の歯付き回転ドラムは軸方向を合わせた手動ポリゴン、発電機コアは16分割ラジアルドラム。
+- 資材保管庫は面取りコンテナ本体と布カバー、建設端末は斜めの多角形フードと角落とし筐体を実装。全施設の主要基盤・機械ガードにも多角形を適用。
+- 床は従来6色の同一MultiMesh配置・Y=-0.03の天面・パネルの論理領域・施設ごとに1枚の床を維持し、3Dの床板メッシュだけ8角のベベル付きに差し替え。下地があるため、角の切り欠きにも隙間から空が見えません。
+- 既存テストのうち旧BoxMeshを前提とした`base_uneven_deck_self_check.py`、`base_uneven_deck_runtime_check.gd`、`base_exploration_runtime_check.gd`は、新しいArrayMeshの頂点・描画・配置を独立に検証するよう先行更新。新規`base_polygon_geometry_self_check.py`＋`base_polygon_geometry_runtime_check.gd`をCI登録。
+- 既存の素材SVG、ベースカメラ、光源、施設位置・タッチ判定、CRATE巡回、GRID、NEXUS/LABOメニュー、装備データ、原本.bbmodel、セーブを変更しません。Android GL Compatibilityと低描画負荷を維持します。
