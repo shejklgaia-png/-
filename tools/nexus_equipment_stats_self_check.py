@@ -15,6 +15,7 @@ for required in (
     'StatUI.layout_column_rules(customize_total_column_rules,',
     'StatUI.clear_cell_background(cell)',
     'StatUI.style_stat_labels(',
+    'StatUI.fit_label(',
     'customize_stats_grid.columns = 3',
     'columns: int = 3 if inner_width >= 590.0',
     'customize_stats_grid.columns =',
