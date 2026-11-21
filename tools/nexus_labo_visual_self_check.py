@@ -21,7 +21,7 @@ for expected in (
     'var model_code := Label.new()',
     'model_code.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT',
     '"model_code": model_code',
-    'value_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS',
+    'set_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS',
     'model_code.text = equipped_prototype',
     'label.text = str(PrototypeCatalog.spec(blueprint).get("name", blueprint))',
     'func _tap_equipment_control(point: Vector2) -> bool:',
