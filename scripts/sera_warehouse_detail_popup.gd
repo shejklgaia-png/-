@@ -173,7 +173,9 @@ func _refresh_actions() -> void:
 
 func _mark(kind: String) -> void:
     var next: bool = not bool(item.get(kind, false))
-    if SeraSave.set_prototype_mark(str(item.get("uid", "")), kind, next):
+    var profile: Node = get_tree().root.get_node_or_null("SeraSave")
+    if profile != null and bool(profile.call(
+            "set_prototype_mark", str(item.get("uid", "")), kind, next)):
         item[kind] = next
         _refresh_actions()
         marks_changed.emit()

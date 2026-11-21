@@ -53,6 +53,7 @@ assert 'var warehouse_detail_popup:' in warehouse
 assert '_show_warehouse_item_detail(str(item.get("uid", "")))' in warehouse
 assert 'warehouse_detail_popup.open_item(' in warehouse
 assert 'warehouse_detail_popup.is_open()' in warehouse
+assert 'get_node_or_null("SeraSave")' in window
 
 # Full aggregate top: 3 adaptive columns, dividers. Left small rotated
 # active part. Right buttons only actual names, 3-col scroll picker.

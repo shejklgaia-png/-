@@ -33,7 +33,8 @@ func _ready() -> void:
     cue.size = Vector2(28, 28)
     cue.mouse_filter = Control.MOUSE_FILTER_IGNORE
     add_child(cue)
-    resized.connect(_resize_viewport)
+    # With SubViewportContainer.stretch=true, Godot controls its size.
+    # Do not fight it by assigning SubViewport.size after parenting.
 
 func _make_viewport() -> void:
     if render_viewport != null:
@@ -47,14 +48,8 @@ func _make_viewport() -> void:
     preview_scene = EquipmentPreview.new()
     preview_scene.name = "RealEquipmentRigPreview"
     render_viewport.add_child(preview_scene)
-    _resize_viewport()
-
-func _resize_viewport() -> void:
-    if render_viewport == null:
-        return
-    var edge: int = clampi(roundi(minf(maxf(size.x, 1.0),
-        maxf(size.y, 1.0))), 96, 512)
-    render_viewport.size = Vector2i(edge, edge)
+    # SubViewportContainer stretches to the available square without
+    # allocating additional render targets when a modal resizes.
 
 func show_part(blueprint: String, selections: Dictionary = {}) -> void:
     var spec: Dictionary = Catalog.spec(blueprint)

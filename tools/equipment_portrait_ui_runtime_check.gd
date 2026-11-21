@@ -41,10 +41,16 @@ func _run() -> void:
     if str(scene.get("active_full_body_pose")) != "NEXUS_pose":
         _fail("Isolated ICON must use the authored NEXUS stand")
         return
+    # The async _apply_command must finish setting the initial camera
+    # before a gesture is expected to move it.
+    await process_frame
+    await process_frame
+    var yaw_before: float = float(scene.get("camera_yaw"))
     viewer.call("feed_touch", 0, true, Vector2(35, 42))
     viewer.call("feed_drag", 0, Vector2(85, 58))
     viewer.call("feed_touch", 0, false, Vector2(85, 58))
-    if is_equal_approx(float(scene.get("camera_yaw")), -34.0):
+    var yaw_after: float = float(scene.get("camera_yaw"))
+    if is_equal_approx(yaw_before, yaw_after):
         _fail("Drag must turn the actual part in 3D")
         return
     viewer.call("set_preview_active", false)
