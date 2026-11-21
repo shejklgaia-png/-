@@ -3803,6 +3803,12 @@
 - 実機確認事項：Androidで3D看板の視認性、名称下線の高さ・細さ、2行素材名の最終行、機種別のGPU負荷を確認。静的なソース契約とheadless CIは実際のAndroid表示を代替しない。
 
 
+## 2026-11-21：名称下線3px化・倉庫詳細の欠字2文字を修正
+- 名称下線（`LaboSkin.NAME_UNDERLINE_HEIGHT`）を従来1px→3pxに増やし、下線のY座標を文字の下に2px移動。色 `#55798a`、名称の文字幅に追従する既存ルール、空欄や操作ボタンの除外、倉庫プール再利用は維持。
+- 倉庫装備の基礎/追加特性説明で四角の欠字として描かれていた U+FF0B（全角＋）をASCII `+`、U+203B（※）を「注:」へ変更。情報の意味・計算式・保存仕様は変更しない。表記を `基礎 + 特性（装備単体の表示値）` / `注: 追加特性は戦闘計算へ未接続の試作値です。` に統一。
+- 前回のマージ後 CI（GitHub Actions `44852580026`）は既存の新規Godotテストで `const Skin` が Godot のネイティブクラス `Skin` と衝突して失敗。予約クラス名を避け `LaboSkin` に訂正。テスト期待値3pxおよび欠字対策の表示・glyph検査を実装に先立って更新済み。既存のその他全件CIを維持。
+- Android実機では3px下線の表示、倉庫の2箇所の文字、および画面サイズごとの折返し有無を最終目視確認する。
+
 ## 2026-11-21 BASE reference industrial architecture
 - Reference-driven rebuild of all eight separate overworld buildings (NEXUS and seven machine stations) with material-batched procedural steel geometry, varied functional machinery, tarpaulins, cargo, signage, and local lighting meshes.
 - Armored steel deck now includes instanced panel seams, fasteners, repair hatches, drain grates, hazard stripes, floor stencil and cable routes. Camera/positions/picking/CRATE path and existing model masters remain unchanged.
