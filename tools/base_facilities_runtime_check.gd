@@ -14,12 +14,7 @@ func _run() -> void:
         return
     var hub: Node3D = packed.instantiate()
     root.add_child(hub)
-    # BASE is assembled over multiple frames; checking after a single
-    # process_frame races the real asynchronous facility construction.
-    for _attempt in range(36):
-        await process_frame
-        if hub.get_node_or_null("BaseFacilities/BUILD_TERMINAL/IndustrialModel") != null:
-            break
+    await process_frame
     var camera: Camera3D = hub.get("cam") as Camera3D
     var machines: Node3D = hub.get_node_or_null("BaseFacilities") as Node3D
     if machines == null or camera == null:
@@ -191,9 +186,7 @@ func _run() -> void:
     if start_crate == null or route.size() < 4:
         _fail("CRATE center-avoidance route is missing")
         return
-    # Assert from the approved original spawn, not the robot's already
-    # advanced live position after waiting for the asynchronous BASE load.
-    var route_origin := Vector2(3.30, 2.40)
+    var route_origin := Vector2(start_crate.position.x, start_crate.position.z)
     var from: Vector2 = route_origin
     for goal in route:
         var to: Vector2 = goal
