@@ -41,8 +41,8 @@ static func model_for(count: int, pattern: int) -> Array[Dictionary]:
         for i in range(n):
             var center: float = (float(i) - float(n - 1) * 0.5)
             var step: float = (
-                0.19 if n == 5 else 0.21 if n == 4 else
-                0.24 if n == 3 else 0.35 if n == 2 else 0.0)
+                0.14 if n == 5 else 0.16 if n == 4 else
+                0.20 if n == 3 else 0.28 if n == 2 else 0.0)
             var axis: Vector2 = Vector2.RIGHT if style % 2 == 0 else Vector2.DOWN
             # Broad, level base; tighter displaced middle; one sparse peak.
             var sideways: Vector2 = Vector2(-axis.y, axis.x)
