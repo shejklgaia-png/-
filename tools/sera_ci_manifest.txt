@@ -15,6 +15,8 @@ py tools/base_container_stack_variation_self_check.py
 gd tools/base_container_stack_variation_runtime_check.gd
 py tools/base_prop_stacks_self_check.py
 gd tools/base_prop_stacks_runtime_check.gd
+py tools/base_compact_prop_variety_self_check.py
+gd tools/base_compact_prop_variety_runtime_check.gd
 py tools/base_site_prop_variety_self_check.py
 gd tools/base_site_prop_variety_runtime_check.gd
 py tools/base_facility_single_panel_self_check.py
