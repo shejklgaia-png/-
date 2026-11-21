@@ -167,6 +167,7 @@ func _build_facilities() -> void:
         var sign := Label3D.new()
         sign.name = "FacilitySign"
         sign.text = str(spec["name"])
+        sign.font = LaboSkin.ui_font()
         sign.font_size = 70
         sign.pixel_size = 0.006
         sign.billboard = BaseMaterial3D.BILLBOARD_ENABLED
@@ -417,6 +418,7 @@ func attach_hud(hud: Control) -> void:
         var tag := Label.new()
         tag.name = "FieldTag_" + str(spec["id"])
         tag.text = str(spec["name"])
+        tag.add_theme_font_override("font", LaboSkin.ui_font())
         tag.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
         tag.add_theme_font_size_override("font_size", 17)
         tag.add_theme_color_override("font_color", Color("#a5ecf7"))
