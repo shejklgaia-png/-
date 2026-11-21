@@ -30,7 +30,7 @@ func _run() -> void:
     if camera_tween != null:
         camera_tween.kill()
     camera.position = HUB_CAMERA_POSITION + Board.board_focus() - HUB_CAMERA_TARGET
-    camera.size = Board.CAMERA_SIZE
+    camera.size = float(hub.call("_power_view_ortho_size"))
     for i in range(3):
         await process_frame
     await RenderingServer.frame_post_draw
