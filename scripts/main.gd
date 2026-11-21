@@ -3,6 +3,7 @@
 ## v99: Authored jump landing pose, hold 0.60s after landing before standing.
 extends Node3D
 const VersionIndicator = preload("res://scripts/version_indicator.gd")
+const LaboTypography = preload("res://scripts/sera_labo_round_skin.gd")
 const RENDER_ORDER = preload("res://scripts/render_order_policy.gd")
 const CombatVitals = preload("res://scripts/combat_vitals.gd")
 const CAMERA_MATH = preload("res://scripts/sera_camera_math.gd")
@@ -1320,6 +1321,7 @@ func _build_overlay() -> void:
     add_child(layer)
     touch_ui = UI_SCRIPT.new()
     touch_ui.name = "DragGuide"
+    touch_ui.theme = LaboTypography.common_theme()
     touch_ui.mouse_filter = Control.MOUSE_FILTER_IGNORE
     layer.add_child(touch_ui)
     touch_ui.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -1328,6 +1330,7 @@ func _build_overlay() -> void:
     _update_melee_lock_marker()  # Initial state before the first physics frame.
 
     hud_panel = HUD_LAYOUT.build_panel(layer)
+    hud_panel.theme = LaboTypography.common_theme()
 
     # Hand preference is selected exclusively in NEXUS > SYSTEM.
     if rig != null:
@@ -1340,6 +1343,7 @@ func _build_overlay() -> void:
     nexus_button = Button.new()
     nexus_button.name = "ReturnToNexus"
     nexus_button.text = "< NEXUS"
+    nexus_button.add_theme_font_override("font", LaboTypography.tracked_display_font())
     nexus_button.flat = true
     nexus_button.focus_mode = Control.FOCUS_NONE
     nexus_button.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1371,6 +1375,7 @@ func _build_overlay() -> void:
     damage_label = Label.new()
     damage_label.name = "DamagePopup"
     damage_label.text = "12"
+    damage_label.add_theme_font_override("font", LaboTypography.tracked_data_font())
     damage_label.add_theme_font_size_override("font_size", 36)
     damage_label.add_theme_color_override("font_color", Color("ffd883"))
     damage_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1381,6 +1386,7 @@ func _build_overlay() -> void:
     for popup_index in range(DAMAGE_POPUP_HISTORY_CAPACITY):
         var history_label: Label = Label.new()
         history_label.name = "DamagePopupHistory%d" % popup_index
+        history_label.add_theme_font_override("font", LaboTypography.tracked_data_font())
         history_label.add_theme_font_size_override("font_size", 36)
         history_label.add_theme_color_override("font_color", Color("ffd883"))
         history_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1395,12 +1401,14 @@ func _build_overlay() -> void:
     _refresh_hp_bar()
     resources_label = Label.new()
     resources_label.position = Vector2(226.0, 103.0)
+    resources_label.add_theme_font_override("font", LaboTypography.tracked_data_font())
     resources_label.add_theme_font_size_override("font_size", 12)
     resources_label.add_theme_color_override("font_color", Color("bbd9e5"))
     resources_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
     hud_panel.add_child(resources_label)
     core_label = Label.new()
     core_label.position = Vector2(22.0, 239.0)
+    core_label.add_theme_font_override("font", LaboTypography.tracked_display_font())
     core_label.add_theme_font_size_override("font_size", 16)
     core_label.add_theme_color_override("font_color", Color("b5e4f5"))
     core_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1408,6 +1416,7 @@ func _build_overlay() -> void:
     target_parts_label = Label.new()
     target_parts_label.name = "TargetPartsStatus"
     target_parts_label.position = Vector2(22.0, 320.0)
+    target_parts_label.add_theme_font_override("font", LaboTypography.equipment_font())
     target_parts_label.add_theme_font_size_override("font_size", 13)
     target_parts_label.add_theme_color_override("font_color", Color("e0b8a8"))
     target_parts_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1516,6 +1525,7 @@ func _build_overlay() -> void:
     target_parts_label.visible = false
     clean_training_hud = CLEAN_TRAINING_HUD.new()
     clean_training_hud.name = "CleanTrainingBars"
+    clean_training_hud.theme = LaboTypography.common_theme()
     clean_training_hud.mouse_filter = Control.MOUSE_FILTER_IGNORE
     layer.add_child(clean_training_hud)
     clean_training_hud.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
@@ -1534,6 +1544,7 @@ func _build_overlay() -> void:
     angle_debug_button = Button.new()
     angle_debug_button.name = "FacingAngleToggle"
     angle_debug_button.text = "ANGLE OFF"
+    angle_debug_button.add_theme_font_override("font", LaboTypography.tracked_display_font())
     angle_debug_button.flat = true
     angle_debug_button.focus_mode = Control.FOCUS_NONE
     angle_debug_button.mouse_filter = Control.MOUSE_FILTER_IGNORE

@@ -1,4 +1,5 @@
 extends Control
+const LaboTypography = preload("res://scripts/sera_labo_round_skin.gd")
 ## v247: Remove the former lower-right operation-zone background; floating controls remain.
 ## v248: Scale floating controller visuals and RUN/BOOST hit radii by 150%; keep gestures unchanged.
 ## v71: In-project vector-rendered two-part radial controller (no image dependency).
@@ -570,7 +571,7 @@ func _draw_move_mode_indicator(accent: Color, rim_color: Color) -> void:
         label_width, label_height)
     draw_rect(rect, Color(0.13, 0.54, 0.61, 0.45), true)
     draw_rect(rect, rim_color, false, 1.875, true)
-    var font: Font = get_theme_default_font()
+    var font: Font = LaboTypography.tracked_display_font()
     if font != null:
         draw_string(font, Vector2(rect.position.x, rect.position.y + 22.5),
             mode_label, HORIZONTAL_ALIGNMENT_CENTER, label_width, 17, accent)

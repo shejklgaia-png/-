@@ -39,8 +39,8 @@ func _run() -> void:
             title_font.base_font == reading.base_font or
             control_font.base_font == reading.base_font or
             stats_font.base_font == reading.base_font or
-            int(title_font.variation_opentype.get(tag, 0)) != 800 or
-            int(LaboTypefaceRoles.equipment_font().variation_opentype.get(tag, 0)) != 700 or
+            int(title_font.variation_opentype.get(tag, 0)) != 850 or
+            int(LaboTypefaceRoles.equipment_font().variation_opentype.get(tag, 0)) != 750 or
             int(stats_font.variation_opentype.get(tag, 0)) != 550 or
             not reading.has_char(0x65E5) or
             not reading.has_char(0x6F22) or

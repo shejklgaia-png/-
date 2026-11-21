@@ -41,7 +41,7 @@ func _run() -> void:
             not mono.has_char(0x41)):
         _fail("UI font families did not bind to raw assets")
         return
-    # The legacy Noto resource remains packaged but is not used by UI roles.
+    # The shared Noto variable face is now active for titles and stats.
     for path: String in [LaboFontSkin.JP_UI_FONT_PATH,
             LaboFontSkin.JP_TITLE_FONT_PATH,
             LaboFontSkin.JP_CONTROL_FONT_PATH,

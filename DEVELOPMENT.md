@@ -1,3 +1,15 @@
+## 2026-11-21 — SERA全画面のシャープなサイバー書体への統一
+
+- ユーザー要望「全体的にサイバーでもっとキレのあるフォントにして、今のは丸い」に対応。丸みが目立っていた日本語見出し・装備名のM PLUS 2と状態文字のM PLUS 1 Codeを撤回し、既存同梱済みのNoto Sans JP VFを太字850・装備750・ステータス550に用途分離。大見出し・装備名の文字間を1px空けて直線的な印象を強化。
+- 日本語操作ボタンは同梱IBM Plex Sans JP Bold（1px文字間）、説明文はIBM Plex Sans JP Mediumを維持。英語見出しは角張ったRajdhani Bold、機械番号・数値はIBM Plex Mono Medium。新しいバイナリフォントの追加やOSフォントフォールバック／実行時ネットワーク取得は行わない。使わなくなったM PLUS同梱ファイルは既存履歴との互換性を保つため削除しない。
+- LAB・精製・倉庫・倉庫詳細・装備作成確認・NEXUSは共有`sera_labo_round_skin.gd`から新役割を参照。BASE施設ラベルは既存IBM Plex日本語本文を保持し、NEXUSの3D壁面ロゴだけ既定フォントからRajdhaniへ変更。全画面共通のバージョン番号表示はIBM Plex Mono。
+- 戦闘HUDのHP/EN/ボス名・操作状態の英語見出しはRajdhani、HP数値とダメージはIBM Plex Mono、日本語部位名はNoto Sans JP装備書体。RUN/BOOST表示もRajdhaniに統一。UIの位置／当たり判定、色、操作、数値計算、プレイヤー描画などゲームプレイ仕様には変更なし。
+- 共通フォントは既存のRAW_BYTESおよび`FontVariation`キャッシュを利用。Notoを見出しと状態で共用して冗長なソース読込を抑制。画面生成のときのみ共通Themeを適用し、毎フレームFontFile/StyleBoxを生成しない。
+- 実装前に`AGENTS.md`、`tools/sera_ci_manifest.txt`、`docs/SERA_ACTIVE_CI_POLICY_ja.md`、GitHub Actions workflow、v543/v544/v545/v547/v548の静的・Godot実行時テストを確認。旧M PLUSファミリー／700・800ウエイトという旧仕様の期待値を`v543_labo_typography_roles_*`と`v548_lab_font_mix_*`で先に変更。登録済みv548実行テストに戦闘HUDのFontVariation役割確認を追加、`sera_sharp_cyber_fonts_self_check.py`を新規登録。
+- mainマージ後に既存の全Python/Godot CIを実行し、Android実機の日本語の収まり、視認性、Font診断によるグリフ表示は別途確認する。
+
+---
+
 ## 2026-11-21 — BASE角度描画の既存CI互換・CPU側ジオメトリ検査
 - BASE角度変更の初回統合後、追加したGodotテストが実GPU `MultiMesh.get_instance_transform` のヘッドレス読戻しに依存し、`base_prop_stacks_runtime_check.gd` と `base_compact_prop_variety_runtime_check.gd` で旧検査用の簡易Batchにない `yaw/pivot` を参照していた問題を確認。
 - テスト側はCPU上の本物の `BaseArchitecture.Batch` 内 `entries["cube|rubber"]` をチェックする方式に先行変更。実レンダラはピボットの有無を `get_property_list()` で1回調べ、旧Capture/RecordingBatchは従来通りbox/rod/crateだけで使えるようにする。

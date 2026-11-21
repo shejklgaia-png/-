@@ -153,7 +153,7 @@ static func report() -> String:
             _check_char(font, 0x30AB))
     lines.append("---")
     lines.append("Expected JP glyphs: Y/Y/Y/Y for all JP roles.")
-    lines.append("Roles: TITLE/EQUIPMENT=M PLUS 2; BODY/CONTROL=IBM Plex JP; STATS=M PLUS 1 Code")
+    lines.append("Roles: TITLE/EQUIPMENT/STATS=Noto Sans JP; BODY/CONTROL=IBM Plex JP; LATIN=Rajdhani/IBM Plex Mono")
     lines.append("Latin/mono faces may legitimately lack Japanese glyphs.")
     lines.append("Inspect LIVE SAMPLES for actual rendered differences.")
     return "\n".join(lines)
