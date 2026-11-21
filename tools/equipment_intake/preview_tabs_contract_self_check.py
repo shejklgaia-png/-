@@ -64,4 +64,14 @@ assert 'snapshot:async()' in hook or 'snapshot:()=> ' in hook
 assert 'intake-viewer-card' in web
 assert 'view_mode=="icon"' in godot
 assert 'if view_mode=="icon":' in godot
+# The authored NEXUS stand must be explicitly sampled by native BODY mode.
+nexus = read("scripts/command_nexus.gd")
+assert '"NEXUS_pose", "NEXUSpose"' in nexus
+assert '"NEXUS_pose", "NEXUSpose"' in godot
+assert 'rig.call("_apply_animation", 0.0)' in godot
+assert "_apply_preview_standing_pose()" in godot
+assert 'active_full_body_pose' in godot
+assert 'icon_idle_clip' in godot
+assert godot.index('_apply_preview_standing_pose()\n    if view_mode=="icon":') < godot.index('_apply_edit_size()\n    _apply_frame()')
+
 print("SERA_INTAKE_PREVIEW_TABS_STATIC_OK")
