@@ -2936,9 +2936,10 @@ func _rotate_customization_preview(delta: Vector2) -> void:
     customize_preview_yaw = wrapf(customize_preview_yaw - yaw_delta, -PI, PI)
     customize_preview_pitch = clampf(customize_preview_pitch + pitch_delta,
         deg_to_rad(-55.0), deg_to_rad(55.0))
-    # Only rotate around the default fitted location, never scale/recenter.
-    # The frozen radial backdrop and its grid must not move with SERA.
+    # Keep full-body camera rotation safely inside the character's frame.
+    # The frozen backdrop and its grid must not move with SERA.
     _apply_customization_preview_transform()
+    _constrain_customization_preview_to_safe_area()
     _capture_sera_silhouette(sera_display_rig)
     _update_projected_silhouettes()
 
