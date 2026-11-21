@@ -46,6 +46,7 @@ def catalog_entries():
 
 def verify_icons():
     entries = catalog_entries()
+    approved = json.loads((ROOT / "assets/ui/sera_icon_presets/H02.json").read_text(encoding="utf-8"))["render"]
     records = {}
     for id_, entry in entries.items():
         source = ROOT / entry["source_model"]
@@ -68,6 +69,12 @@ def verify_icons():
             id_, "stale source fingerprint")
         assert metadata["render"]["image"]["background"] == "transparent", (
             id_, "background must be applied only by the shared game UI")
+        # User-approved H02 camera is applied to each of the 19 photographs,
+        # while source and equipment identity remain unique to each part.
+        for field in ("engine", "camera", "model_rotation_deg", "model_scale",
+                      "pan_clip", "auto_fit", "outline", "image"):
+            assert metadata["render"][field] == approved[field], (
+                id_, field, "shared user-approved icon preset was not applied")
         records[id_] = {**entry, "source_sha256": hashlib.sha256(source.read_bytes()).hexdigest(),
                         "png_sha256": hashlib.sha256(data).hexdigest(),
                         "capture": "SERA native Godot 4.7.2 GL Compatibility"}
