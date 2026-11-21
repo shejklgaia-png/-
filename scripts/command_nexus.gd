@@ -2334,11 +2334,11 @@ func _customize_tall_menu_rect(view: Vector2) -> Rect2:
         Vector2(view.x * 0.455, view.y * 0.431))
 
 func _customize_model_area(view: Vector2) -> Rect2:
-    # SERA's own upper-left 3D showcase never intersects PART VIEW.
+    # SERA's original fit remains unchanged as the PART VIEW moves down.
+    var part_view: Rect2 = _customize_square_menu_rect(view)
     var baseline_preview_top: float = view.y * 0.506
     var top: float = view.y * 0.275
-    var bottom: float = baseline_preview_top -
-        maxf(12.0, view.y * 0.011)
+    var bottom: float = baseline_preview_top - maxf(12.0, view.y * 0.011)
     return Rect2(Vector2(part_view.position.x, top),
         Vector2(part_view.size.x, maxf(1.0, bottom - top)))
 
