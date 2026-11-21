@@ -1135,7 +1135,7 @@ func _refresh_equipment_controls() -> void:
         if (slot == "weapon_r" or slot == "weapon_l") and current_set == "K":
             variant_label = "KATANA"
         if slot == "head" and current_set == "D":
-            variant_label = "CAMERA EYE"
+            variant_label = "アイリス"
         if slot == "legs" and current_set == "C":
             variant_label = "BIRD"
         elif slot == "legs" and current_set == "D":
