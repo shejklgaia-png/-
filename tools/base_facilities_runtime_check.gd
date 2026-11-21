@@ -66,13 +66,32 @@ func _run() -> void:
             return
         machines.call("open_facility", name)
         var modal: Control = machines.get("modal") as Control
-        if modal == null or not modal.visible:
-            _fail("device menu does not open: " + name)
-            return
-        machines.call("close_menu")
-        if modal.visible:
-            _fail("device menu cannot close: " + name)
-            return
+        if name == "GENERATOR":
+            # Power control is now an actual cable-linked 8x8 WORLD view,
+            # not one more opaque facility modal. The navigation must also
+            # return without moving the facility or losing touch targets.
+            if modal == null or modal.visible or (
+                    not bool(hub.get("power_view_active"))):
+                _fail("power controller did not navigate to the grid")
+                return
+            hub.call("_leave_power_board")
+            if bool(hub.get("power_view_active")):
+                _fail("power controller cannot return to the BASE")
+                return
+            # Force the tween finished event for this headless, synchronous
+            # layout test. It has its own proper runtime navigation coverage.
+            var tween: Tween = hub.get("power_camera_tween") as Tween
+            if tween != null:
+                tween.kill()
+            hub.call("_power_camera_return_finished")
+        else:
+            if modal == null or not modal.visible:
+                _fail("device menu does not open: " + name)
+                return
+            machines.call("close_menu")
+            if modal.visible:
+                _fail("device menu cannot close: " + name)
+                return
     # The top tier is NEXUS itself (outside BaseFacilities), so the
     # machines must span both sides and the lower tier. Combined vertical
     # coverage is verified below using the actual NEXUS 3D projection.
