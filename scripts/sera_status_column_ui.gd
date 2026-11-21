@@ -34,6 +34,96 @@ static func fit_label(label: Label, maximum_px: int, minimum_px: int) -> void:
     label.add_theme_font_size_override("font_size", font_size)
 
 
+# Prefer human-readable Japanese compound boundaries over arbitrary glyph breaks.
+# Entries are ordered from the most natural phrasing to narrow-lane fallbacks.
+# Source labels/parameter IDs remain untouched; only UI Label.text is shaped.
+const JAPANESE_STAT_BREAKS: Dictionary = {
+    "ブースト速度倍率": [
+        ["ブースト速度", "倍率"], ["ブースト", "速度倍率"]],
+    "被弾時間倍率": [["被弾時間", "倍率"], ["被弾", "時間倍率"]],
+    "被弾後退倍率": [["被弾後退", "倍率"], ["被弾", "後退倍率"]],
+    "部位モデル区分": [["部位モデル", "区分"], ["部位", "モデル区分"]],
+    "ダウン被弾回数": [["ダウン被弾", "回数"], ["ダウン", "被弾回数"]],
+    "歩行モーション": [["歩行", "モーション"]],
+    "ガードEN消費倍率": [
+        ["ガードEN消費", "倍率"], ["ガードEN", "消費倍率"]],
+    "近接攻撃倍率": [["近接攻撃", "倍率"], ["近接", "攻撃倍率"]],
+    "ガード防御倍率": [["ガード防御", "倍率"], ["ガード", "防御倍率"]],
+    "ガード速度倍率": [["ガード速度", "倍率"], ["ガード", "速度倍率"]],
+    "ステップ速度倍率": [["ステップ速度", "倍率"], ["ステップ", "速度倍率"]],
+    "ステップ時間倍率": [["ステップ時間", "倍率"], ["ステップ", "時間倍率"]],
+    "EN消費倍率": [["EN消費", "倍率"]],
+    "近接ブースト速度": [["近接", "ブースト速度"], ["近接ブースト", "速度"]],
+    "近接ブースト時間": [["近接", "ブースト時間"], ["近接ブースト", "時間"]],
+    "ガード移行時間": [["ガード移行", "時間"], ["ガード", "移行時間"]],
+    "怯み延長秒数": [["怯み延長", "秒数"], ["怯み", "延長秒数"]],
+    "攻撃威力（各段）": [["攻撃威力", "（各段）"]],
+    "部位破壊威力（各段）": [
+        ["部位破壊", "威力（各段）"], ["部位破壊威力", "（各段）"]],
+    "怯み蓄積（各段）": [["怯み蓄積", "（各段）"]],
+    "攻撃EN消費（各段）": [["攻撃EN消費", "（各段）"], ["攻撃EN", "消費（各段）"]],
+    "エネルギーシールド": [["エネルギー", "シールド"]],
+    "バッシュ部位破壊": [["バッシュ", "部位破壊"]],
+    "溜め部位破壊": [["溜め", "部位破壊"]],
+}
+
+
+static func _stat_text_width(font: Font, content: String, px: int) -> float:
+    return font.get_string_size(
+        content, HORIZONTAL_ALIGNMENT_LEFT, -1, px).x
+
+
+static func semantic_stat_lines(raw: String, font: Font,
+        font_size: int, lane_width: float) -> String:
+    var source: String = raw.replace("\n", "")
+    if source.is_empty() or font == null or lane_width <= 0.0:
+        return source
+    if _stat_text_width(font, source, font_size) <= lane_width:
+        return source
+
+    var candidates: Array = JAPANESE_STAT_BREAKS.get(source, []).duplicate(true)
+    if source.begins_with("特性 "):
+        var effect_name: String = source.trim_prefix("特性 ")
+        candidates.append(["特性", effect_name])
+    # Noncatalogue stats still favor recognisable suffixes and punctuation.
+    for suffix in ["（各段）", "モーション", "区分", "倍率",
+            "回数", "秒数", "時間", "速度", "消費", "威力", "破壊"]:
+        if source.ends_with(suffix) and source.length() >= suffix.length() + 2:
+            candidates.append([
+                source.substr(0, source.length() - suffix.length()), suffix])
+    for candidate in candidates:
+        if candidate.size() != 2:
+            continue
+        var first: String = str(candidate[0]).strip_edges()
+        var second: String = str(candidate[1]).strip_edges()
+        if first.is_empty() or second.is_empty():
+            continue
+        if _stat_text_width(font, first, font_size) <= lane_width and (
+                _stat_text_width(font, second, font_size) <= lane_width):
+            return first + "\n" + second
+
+    # Last resort: favor balanced lines without punctuation, prolonged-sound
+    # marks or a one-character orphan at either edge.
+    var best: String = ""
+    var best_score: float = INF
+    for split_at in range(2, source.length() - 1):
+        var first: String = source.substr(0, split_at)
+        var second: String = source.substr(split_at)
+        if second.begins_with("ー") or second.begins_with("）") or (
+                first.ends_with("（")) or (
+                first.ends_with("E") and second.begins_with("N")):
+            continue
+        var first_width: float = _stat_text_width(font, first, font_size)
+        var second_width: float = _stat_text_width(font, second, font_size)
+        if first_width > lane_width or second_width > lane_width:
+            continue
+        var score: float = absf(first_width - second_width)
+        if score < best_score:
+            best_score = score
+            best = first + "\n" + second
+    return best if not best.is_empty() else source
+
+
 # A single 44px-high metric row: full-height readable text side by side.
 # Long Japanese labels may wrap to 2 lines; numbers keep a generous right lane.
 # Called only for layout/equipment changes and never per rendered frame.
@@ -51,8 +141,9 @@ static func layout_metric_pair(name_label: Label, value_label: Label,
     var gap: float = 6.0
     var available: float = maxf(32.0,
         row_width - left_pad - right_pad - gap)
+    var source_name: String = name_label.text.replace("\n", "")
     var name_width: float = name_font.get_string_size(
-        name_label.text, HORIZONTAL_ALIGNMENT_LEFT, -1, name_px).x
+        source_name, HORIZONTAL_ALIGNMENT_LEFT, -1, name_px).x
     var value_width: float = value_font.get_string_size(
         value_label.text, HORIZONTAL_ALIGNMENT_LEFT, -1, value_px).x
     while name_width + value_width > available and (
@@ -65,7 +156,7 @@ static func layout_metric_pair(name_label: Label, value_label: Label,
         else:
             break
         name_width = name_font.get_string_size(
-            name_label.text, HORIZONTAL_ALIGNMENT_LEFT, -1, name_px).x
+            source_name, HORIZONTAL_ALIGNMENT_LEFT, -1, name_px).x
         value_width = value_font.get_string_size(
             value_label.text, HORIZONTAL_ALIGNMENT_LEFT, -1, value_px).x
     var value_lane: float = minf(
@@ -76,7 +167,14 @@ static func layout_metric_pair(name_label: Label, value_label: Label,
         name_px = mini(name_px, 16)
     name_label.add_theme_font_size_override("font_size", name_px)
     value_label.add_theme_font_size_override("font_size", value_px)
-    name_label.autowrap_mode = TextServer.AUTOWRAP_ARBITRARY
+    name_label.text = semantic_stat_lines(
+        source_name, name_font, name_px, name_lane)
+    # Explicit Japanese phrase splits own the line break. Other long,
+    # unrecognised labels retain the old defensive auto-wrap fallback.
+    name_label.autowrap_mode = TextServer.AUTOWRAP_OFF if (
+        name_label.text.contains("\n") or (
+        _stat_text_width(name_font, name_label.text, name_px) <= name_lane)
+        ) else TextServer.AUTOWRAP_ARBITRARY
     name_label.max_lines_visible = 2
     name_label.position = Vector2(left_pad, 0.0)
     name_label.size = Vector2(name_lane, row_height)

@@ -1,6 +1,8 @@
 extends SceneTree
 ## Exercise actual NEXUS input routing, separate geometry and live component profile.
 const Profiles = preload("res://scripts/sera_labo_stats.gd")
+const StatUI = preload("res://scripts/sera_status_column_ui.gd")
+const LaboSkin = preload("res://scripts/sera_labo_round_skin.gd")
 
 func _initialize() -> void:
     call_deferred("_run")
@@ -10,6 +12,40 @@ func _fail(message: String) -> void:
     quit(1)
 
 func _run() -> void:
+    # Use real Japanese UI font metrics to force a wrap at each named
+    # morpheme. Never leave one kana/kanji on a separate line.
+    var ui_font: Font = LaboSkin.stats_font()
+    var cases: Dictionary = {
+        "ブースト速度倍率": ["ブースト速度", "倍率"],
+        "被弾時間倍率": ["被弾時間", "倍率"],
+        "被弾後退倍率": ["被弾後退", "倍率"],
+        "部位モデル区分": ["部位モデル", "区分"],
+        "ダウン被弾回数": ["ダウン被弾", "回数"],
+        "歩行モーション": ["歩行", "モーション"],
+        "ガードEN消費倍率": ["ガードEN消費", "倍率"],
+    }
+    for source in cases:
+        var parts: Array = cases[source]
+        var left: String = str(parts[0])
+        var right: String = str(parts[1])
+        var left_width: float = ui_font.get_string_size(
+            left, HORIZONTAL_ALIGNMENT_LEFT, -1, 16).x
+        var right_width: float = ui_font.get_string_size(
+            right, HORIZONTAL_ALIGNMENT_LEFT, -1, 16).x
+        var lane: float = maxf(left_width, right_width) + 2.0
+        var broken: String = StatUI.semantic_stat_lines(
+            str(source), ui_font, 16, lane)
+        if broken != left + "\n" + right:
+            _fail("unnatural Japanese stat wrapping: " + str(source) +
+                " => " + broken)
+            return
+        if StatUI.semantic_stat_lines(broken.replace("\n", ""),
+                ui_font, 16, lane) != broken:
+            _fail("stat line wrapping changed across layout updates")
+            return
+    if StatUI.semantic_stat_lines("防御率", ui_font, 19, 200.0) != "防御率":
+        _fail("short Japanese stat names must remain one line")
+        return
     var nexus: Node3D = load("res://scenes/command_nexus.tscn").instantiate()
     root.add_child(nexus)
     await process_frame

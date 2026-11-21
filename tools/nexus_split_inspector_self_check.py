@@ -78,6 +78,10 @@ for layout in (
     '_layout_hud()',
 ):
     assert layout in nexus, layout
+stat_ui=(root/"scripts/sera_status_column_ui.gd").read_text(encoding="utf-8")
+assert 'static func semantic_stat_lines(' in stat_ui
+assert 'name_label.text = semantic_stat_lines(' in stat_ui
+assert 'name_label.autowrap_mode = TextServer.AUTOWRAP_OFF' in stat_ui
 assert 'StatUI.layout_metric_pair(' in nexus
 assert 'button.text = _default_part_name(slot, selected_model)' in nexus
 assert 'py tools/nexus_split_inspector_self_check.py' in manifest
