@@ -384,11 +384,12 @@ func _create_hud() -> void:
     layer.add_child(hud)
     hud.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
     # PRESET_FULL_RECT follows viewport size; manual size conflicts with anchors.
-    hud_title = _label(hud, "BASE", 25)
+    hud_title = _label(hud, "BASE / 拠点", 25)
     hint = _label(hud, "建物をタップして施設を開く", 19)
     nexus_tag = _label(hud, "NEXUS", 20)
     nexus_tag.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-    nexus_tag.add_theme_color_override("font_color", Color("#8be4ff"))
+    nexus_tag.add_theme_color_override("font_color", Color("#e4ebf0"))
+    LaboSkin.attach_name_underline(nexus_tag)
     stick_outer = _panel(hud, "MoveStickOuter")
     stick_knob = _panel(hud, "MoveStickKnob")
     stick_outer.visible = HUB_SERA_CONTROLS_ENABLED
