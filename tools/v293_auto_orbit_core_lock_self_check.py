@@ -51,7 +51,7 @@ assert "target_parts, player.global_position, target.global_position" in auto
 assert "AUTO_LOCK_SWITCH_CONFIRM_SECONDS" not in auto
 assert 'var label_name: String = "BODY"' in main
 assert "var integrity: float = float(target_hp)" in main
-assert "var maximum: float = float(TARGET_MAX_HP)" in main
+assert "var maximum: float = float(_target_health_cap())" in main
 # Legacy MANUAL arrow selection remains camera-X based and otherwise unmodified.
 manual = main.split("func _switch_lock_screen_direction(direction: int) -> void:",1)[1].split(
     "func _update_target_marker_projection()",1)[0]
