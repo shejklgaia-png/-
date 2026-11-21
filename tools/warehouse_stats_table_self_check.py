@@ -10,7 +10,7 @@ for token in (
     'const WarehouseStatsTable = preload("res://scripts/sera_warehouse_stats_table.gd")',
     'var stat_table: GridContainer = WarehouseStatsTable.build(',
     'modal_actions.add_child(stat_table)',
-    'info.replace("基礎ステータス（現行Aセット参照） / ", "")',
+    'info.replace("基礎ステータス / ", "")',
 ):
     assert token in ui, token
 assert 'breakdown.name = "WarehouseStatsBreakdown"' not in ui

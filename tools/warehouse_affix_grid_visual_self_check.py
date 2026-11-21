@@ -7,7 +7,7 @@ grid = (root / "scripts/sera_warehouse_grid.gd").read_text("utf-8")
 table = (root / "scripts/sera_warehouse_stats_table.gd").read_text("utf-8")
 ci = (root / "tools/sera_ci_manifest.txt").read_text("utf-8")
 for token in (
-    'info.replace("基礎ステータス（現行Aセット参照） / ", "")',
+    'info.replace("基礎ステータス / ", "")',
     '"font_size", 17 if key.begins_with("LockedCraftSlot_") else 20)',
     'Color("#e0f4f6")',
     'hanger.name = "WarehouseHangerTabs"',
