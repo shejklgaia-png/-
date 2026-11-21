@@ -157,6 +157,7 @@ func _run() -> void:
     # five independent affixes. Simulate all fifteen populated cells.
     for i in range(entries.size()):
         (entries[i]["panel"] as Panel).visible = i < 15
+    nexus.call("_layout_hud")
     await process_frame
     for i in range(15):
         var stat_cell: Panel = entries[i]["panel"] as Panel
