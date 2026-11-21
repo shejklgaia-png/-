@@ -13,8 +13,8 @@ func _family(face: FontFile) -> String:
     return server.font_get_name(rids[0]).to_lower().replace(" ", "") if not rids.is_empty() else ""
 func _run() -> void:
     var pairs: Array = [
-        [TypeSkin.JP_TITLE_FONT_PATH, 0x88C5, "mplus2"],
-        [TypeSkin.JP_STATS_FONT_PATH, 0x65E5, "mplus1code"],
+        [TypeSkin.JP_TITLE_FONT_PATH, 0x88C5, "notosansjp"],
+        [TypeSkin.JP_STATS_FONT_PATH, 0x65E5, "notosansjp"],
         [TypeSkin.JP_UI_FONT_PATH, 0x88C5, "ibmplexsansjp"],
         [TypeSkin.JP_CONTROL_FONT_PATH, 0x88C5, "ibmplexsansjp"],
     ]
@@ -41,14 +41,14 @@ func _run() -> void:
             itemname.base_font != headline.base_font) or (
             headline.base_font == body.base_font) or (
             body.base_font == control.base_font) or (
-            stat.base_font == headline.base_font) or (
+            stat.base_font != headline.base_font) or (
             stat.base_font == body.base_font):
         _fail("role faces are not separated as designed")
         return
     var ts: TextServer = TextServerManager.get_primary_interface()
     var wght: int = ts.name_to_tag("wght")
-    if int(headline.variation_opentype.get(wght,0)) != 800 or (
-            int(itemname.variation_opentype.get(wght,0)) != 700) or (
+    if int(headline.variation_opentype.get(wght,0)) != 850 or (
+            int(itemname.variation_opentype.get(wght,0)) != 750) or (
             int(stat.variation_opentype.get(wght,0)) != 550):
         _fail("variable weight of title/equipment/stats is incorrect")
         return
@@ -75,14 +75,14 @@ func _run() -> void:
     await process_frame
     var heading: Label = fac.get("modal_title") as Label
     if heading.get_theme_font("font") != headline:
-        _fail("LAB title is not M PLUS 2")
+        _fail("LAB title is not sharp Noto Sans JP")
         return
     var content: Control = fac.get("item_layer") as Control
     var craft: Button = content.find_child("PrototypeIcon_H01",true,false) as Button
     if craft == null or (
             (craft.find_child("ItemTitle",true,false) as Label).get_theme_font("font") != itemname) or (
             (craft.find_child("ItemInfo",true,false) as Label).get_theme_font("font") != stat):
-        _fail("craft item is not M PLUS 2 + M PLUS 1 Code")
+        _fail("craft item is not sharp Noto Sans JP typography")
         return
     var actions: Control = fac.get("modal_actions") as Control
     var part: Button = actions.find_child("CraftSlot_head",true,false) as Button
@@ -113,6 +113,16 @@ func _run() -> void:
             (pool[0] as Button).get_node("ItemTitle").get_theme_font("font") != itemname) or (
             (pool[0] as Button).get_node("ItemEffects").get_theme_font("font") != stat):
         _fail("warehouse typefaces are not applied to reusable cards")
+        return
+    # The actively drawn battle HP/EN/BOSS text uses the same cached sharp
+    # role faces. No generic Godot fallback is permitted for visible labels.
+    var battle_ui: Control = load(
+        "res://scripts/sera_clean_training_hud.gd").new() as Control
+    root.add_child(battle_ui)
+    if battle_ui.call("_font_for_text", "BOSS") != TypeSkin.tracked_display_font() or (
+            battle_ui.call("_font_for_text", "480 / 800") != TypeSkin.tracked_data_font()) or (
+            battle_ui.call("_font_for_text", "頭部") != TypeSkin.equipment_font()):
+        _fail("combat bar text does not use technical Latin/JP bundled faces")
         return
     print("SERA_V548_LAB_FONT_MIX_RUNTIME_PASS")
     quit(0)
