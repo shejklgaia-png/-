@@ -85,11 +85,18 @@ for relative in (
 index = (ROOT / "README_ja.md").read_text(encoding="utf-8")
 root_index = (ROOT / "README.md").read_text(encoding="utf-8")
 rules = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
+source_policy_path = ROOT / "docs/agent/SOURCE_POLICY.md"
+assert source_policy_path.is_file(), "Routed canonical source policy missing"
+source_policy = source_policy_path.read_text(encoding="utf-8")
 for text in (index, root_index):
     assert f"README_v{current_version}_ja.md" in text
     assert "docs/history/release_notes/" in text
     assert "docs/SERA_REPOSITORY_LAYOUT_ja.md" in text
-assert "SERA_REPOSITORY_LAYOUT_ja.md" in rules
+# The root AGENTS is now a compact routing entrypoint. Verify that it links
+# to the real source policy and that the actual layout rule remains in force.
+assert "docs/agent/SOURCE_POLICY.md" in rules
+assert "docs/SERA_REPOSITORY_LAYOUT_ja.md" in source_policy
+assert "docs/history/release_notes/" in source_policy
 assert (ROOT / "docs/SERA_REPOSITORY_LAYOUT_ja.md").is_file()
 
 # Avoid moving tests: the CI manifest intentionally uses tools/ paths.
