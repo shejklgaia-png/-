@@ -3867,3 +3867,9 @@
 - Re-authored the existing 52 static prop locations for an intentional spatial beat instead of two uniformly spaced lines: 4+ closely spaced objects on one side, a wide empty interval on the opposite side, and one visually smaller accent per facility. NEXUS/LABO use 5:3, others 4:2, alternating dominant sides across the six peripheral stations.
 - Preserved the 13 double stacks and 6 triple stacks, all 40 prop types, reserved single-piece site slabs, machine/entrance protection areas, renderer batching, CRATE and UI navigation.
 - Added test-first tools/base_prop_density_rhythm_self_check.py and tools/base_prop_density_rhythm_runtime_check.gd to the CI manifest, checking tight runs, spacious gaps, alternating sides and preserved stack counts.
+
+## 2026-11-21 BASE: 16 additional distinctive micro-industrial props
+- Kept the 52 primary prop groups, fixed-seed 1–4 cargo stacks, material batching, rhythmic dense-vs-clear composition and eight single-piece base slabs.
+- Added 16 more compact 3D prop groups (two per facility), making 68 groups and 56 unique object kinds. These are distinct per-site functional silhouettes: sealed canisters, spare aerials, micro servos, welding masks, slag, heat shields, gear pins, crusher teeth, robot joints and gripping fingers, packing wedges, folded canvas, ceramic fuses, busbars, blueprint rolls and locator beacons.
+- Each is fully modeled with multiple batched box, rod and ring parts; no extra independent scene meshes, physics nodes, lights, new materials or per-frame updates. New accents are placed adjacent to the original density clusters and excluded only from primary-rhythm-count tests, not floor-panel overlap or actual render tests.
+- Added `base_compact_prop_variety_self_check.py` and `base_compact_prop_variety_runtime_check.gd` to check count, actual geometry, eight-floor footprint boundaries, entrance clearance and overlap. Updated previous 52-count expectations to 68 without retiring other tests.
