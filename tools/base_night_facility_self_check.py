@@ -33,7 +33,7 @@ assert 'lamp.shadow_enabled = false' in architecture
 assert 'g.ring(' in night and 'g.rod(' in night and 'g.poly(' in night
 assert 'MultiMeshInstance3D.new()' not in night
 assert 'OmniLight3D.new()' not in night
-assert 'limit = 1.34' in props
+assert 'var limit: float = 1.34' in props
 assert 'py tools/base_night_facility_self_check.py' in manifest
 assert 'gd tools/base_night_facility_runtime_check.gd' in manifest
 print("SERA_BASE_NIGHT_FACILITY_STATIC_PASS")
