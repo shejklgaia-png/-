@@ -16,23 +16,27 @@ equipment=read("scripts/sera_equipment.gd")
 workflow=read(".github/workflows/sera-model-policy.yml")
 manifest=read("tools/sera_ci_manifest.txt")
 
-# Same top-right three-quarter view, not previous per-slot rotations.
-assert 'const OBLIQUE_POSE: Vector3 = Vector3(26.0, -146.0, 0.0)' in capture
+# All snapshots now use the user's exact IRIS Godot preset as shared camera.
+assert 'const CAMERA_PRESET_PATH: String = "res://assets/ui/sera_icon_presets/H02.json"' in capture
+assert 'var degrees: Dictionary = render.get("model_rotation_deg", {})' in capture
+assert '2.0 * auto_fit * model_scale / span' in capture
 assert "if id == \"H02\":\n            continue" not in capture
 assert 'const POSE_NAMES = ["NEXUS_pose", "NEXUSpose"]' in capture
 assert 'rig.call("_apply_animation", 0.0)' in capture
 assert 'func _equalize_transparent_margins(' in capture
-assert 'SIDE_PADDING: int = 34' in capture
+assert 'var target_side: int = roundi(PIXELS * auto_fit)' in capture
 assert 'alpha > 0.10' in capture
 assert 'count != 19' in capture
-assert 'OBLIQUE_POSE = (26.0, -146.0, 0.0)' in tag
+assert 'PRESET_PATH = ROOT / "assets/ui/sera_icon_presets/H02.json"' in tag
+assert 'OBLIQUE_POSE = tuple(' in tag
+assert '"auto_fit": CAMERA_AUTO_FIT' in tag
 assert 'SERA_ICON_PNG_V1' in tag and 'SERA_ICON_MANIFEST_V1' in tag
 assert 'if id_ == "H02":' not in tag
 assert 'if view_mode == "icon":' not in preview.split("func _apply_preview_standing_pose()",1)[1].split("func _fit_full_body_clearance",1)[0]
 assert "NEXUS_pose" in preview
-# Static icons and the interactive detail preview must share a true front-right.
-assert 'const DEFAULT_YAW: float = -146.0' in viewer
-assert 'const DEFAULT_PITCH: float = 26.0' in viewer
+# The game part viewer initially matches the new approved PNG capture pose.
+assert 'const DEFAULT_YAW: float = 156.900744628906' in viewer
+assert 'const DEFAULT_PITCH: float = 11.8749389648438' in viewer
 
 # B booster alone is red, without modifying the rest of the part variants.
 assert 'if set_id == "B":' in equipment.split("func _attach_back_booster_group",1)[1]

@@ -5,6 +5,11 @@
 - 6:00 follow-up: first updated the registered NEXUS material regression check, then set structural palette 1–3 `metallic_specular=0.42` (other palette entries retain 0.5) to restrain highlights without new meshes, lights, nodes or texture reads. Camera, pose, interaction, and preview layout were not changed. GitHub content readback is required; Godot/Android portrait screenshot and full CI remain pending.
 - Handoff: run focused check and full registered CI on main after merge; capture NEXUS portrait screenshots, verify material highlights, model intersections, UI readability, and performance on Android.
 
+## 2026-11-22 — アイリス指定のカメラ設定で既存19装備をGodot再撮影
+- ユーザー提供SERA_ICON_PRESET_V1を`assets/ui/sera_icon_presets/H02.json`へ反映。旧26/-146°ではなくX=11.8749389648438、Y=156.900744628906、Z=0、auto_fit=0.76を全19装備に適用。素材・3Dモデル・UV・NEXUS_poseを維持。
+- 撮影`sera_all_native_capture.gd`とPNGメタデータ`tag_all_icons.py`を共通プリセット参照に変更し、`validate_all_icons.py`で全19枚の値を検証。既存の設計図UIDやゲーム内アイコンキャッシュ/共通背景は維持。単体3D初期角度とLABO製作確認も合わせた。
+- テスト先行変更：equipment_portrait_ui_contract_self_check.py、native_icon_metadata_self_check.py、godot_native_capture_self_check.py、front_right_orientation_runtime_check.gd。CIで19枚PNGを再レンダリングしPRブランチに書き戻し、マージ後mainでもフルCIを実行。実際の描画/Android表示はCI成果物と実機確認を区別する。
+
 ## 2026-11-22 — Bittaran：落下モーション可変速・4足床接地・復帰前踏み替え（v534）
 - 最新ユーザー指定：原本0.0〜0.5秒は100→30%へ滑らかに減速、0.5〜0.6秒は30%、0.6〜1.75秒は30→基本55%へ加速。再生速度は「原本キーフレーム時刻」に対する割合であり、フレームレート非依存の分割積分で再生する。
 - 部位破壊直後に原本0秒から再生し、原本1.75秒で停止する。モーション開始時点からは倒れ時間に算入しない。着地して初めて従来2.5秒／全脚6.0秒を計時、作者の1.75秒姿勢を維持する。

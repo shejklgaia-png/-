@@ -18,9 +18,14 @@ except ImportError:
     from validate_all_icons import ROOT, TARGET, catalog_entries
     from read_sera_icon_png import read_png_metadata
 
-# Matches the real SeraRig -Z front, +X right and +Y top.
-# This is also the initial camera on the live 3D part-viewer.
-OBLIQUE_POSE = (26.0, -146.0, 0.0)
+# One approved H02 preset supplies the exact camera/scale to all 19 icons.
+# Other blueprint IDs retain their own original model and material sources.
+PRESET_PATH = ROOT / "assets/ui/sera_icon_presets/H02.json"
+SHARED_PRESET = json.loads(PRESET_PATH.read_text(encoding="utf-8"))
+PRESET_RENDER = SHARED_PRESET["render"]
+PRESET_ANGLES = PRESET_RENDER["model_rotation_deg"]
+OBLIQUE_POSE = tuple(float(PRESET_ANGLES[axis]) for axis in ("x", "y", "z"))
+CAMERA_AUTO_FIT = float(PRESET_RENDER["auto_fit"])
 ANGLES = {slot: OBLIQUE_POSE for slot in (
     "head", "torso", "arms", "legs", "booster", "weapon_r", "weapon_l")}
 KEY = b"SERA_ICON_MANIFEST_V1"
@@ -55,20 +60,14 @@ def annotate_one(id_: str, entry: dict) -> dict:
             "rig_set": entry["rig_set"],
         },
         "render": {
-            "engine": "SERA Godot GL Compatibility native SubViewport",
+            "engine": PRESET_RENDER["engine"],
             "camera": "orthographic_front",
             "model_rotation_deg": dict(zip(("x", "y", "z"), angles)),
-            "auto_fit": 0.82,
-            "model_scale": 1.0,
-            "pan_clip": {"x": 0.0, "y": 0.0},
-            "outline": {
-                "enabled": True, "stroke_px_at_512": 3,
-                "crease_degrees": 80, "color": "#17212F",
-            },
-            "image": {
-                "width": 512, "height": 512, "background": "transparent",
-                "ui_frame_baked": False,
-            },
+            "auto_fit": CAMERA_AUTO_FIT,
+            "model_scale": PRESET_RENDER["model_scale"],
+            "pan_clip": PRESET_RENDER["pan_clip"],
+            "outline": PRESET_RENDER["outline"],
+            "image": PRESET_RENDER["image"],
             "mesh_transform": "Installed SeraRig MeshInstance3D global transforms",
             "texture_source": "Original in-game SeraRig mesh/material",
         },
@@ -77,8 +76,7 @@ def annotate_one(id_: str, entry: dict) -> dict:
         "outline": "scripts/sera_view_edges.gd + shaders/sera_view_edges.gdshader",
         "lighting": "scripts/main.gd::_build_world",
     }
-    # H02 now follows the same new user-approved camera as all other parts.
-    # The historical preset remains untouched for backward provenance.
+    # Every captured part uses the exact camera, framing, and outline preset.
     png = path.read_bytes()
     if not png.startswith(PNG_SIGNATURE) or png[12:16] != b"IHDR":
         raise ValueError(f"{id_}: invalid Godot capture PNG")
