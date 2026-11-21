@@ -849,8 +849,14 @@ func _attach_back_booster_group(entry: Dictionary, parent: Node3D, parent_origin
             if mat != null:
                 var steel: StandardMaterial3D = mat.duplicate() as StandardMaterial3D
                 steel.albedo_texture = null
-                steel.albedo_color = Color("#141e2a") if authored_name.ends_with("_Inner") else (
-                    Color("#48535f") if authored_name.ends_with("_Outer") else Color("#77818b"))
+                if set_id == "B":
+                    # Heavy booster is red only. Keep dark nozzle interiors and
+                    # baked steel facets; no red global material or FX tint.
+                    steel.albedo_color = Color("#5e2028") if authored_name.ends_with("_Inner") else (
+                        Color("#a9343b") if authored_name.ends_with("_Outer") else Color("#ec4a4e"))
+                if set_id == "A":
+                    steel.albedo_color = Color("#141e2a") if authored_name.ends_with("_Inner") else (
+                        Color("#48535f") if authored_name.ends_with("_Outer") else Color("#77818b"))
                 piece.material_override = steel
             piece.set_meta("sera_equipment_set", set_id)
             # v205 mistakenly added pieces to the *parent*, bypassing the

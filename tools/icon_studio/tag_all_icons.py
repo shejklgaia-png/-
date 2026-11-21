@@ -18,15 +18,9 @@ except ImportError:
     from validate_all_icons import ROOT, TARGET, catalog_entries
     from read_sera_icon_png import read_png_metadata
 
-ANGLES = {
-    "head": (-14.0, 28.0, 0.0),
-    "torso": (-12.0, 31.0, 0.0),
-    "arms": (-10.0, 34.0, 0.0),
-    "legs": (-6.0, 29.0, 0.0),
-    "booster": (-11.0, 155.0, 0.0),
-    "weapon_r": (-15.0, 37.0, 0.0),
-    "weapon_l": (-12.0, 34.0, 0.0),
-}
+OBLIQUE_POSE = (26.0, -34.0, 0.0)
+ANGLES = {slot: OBLIQUE_POSE for slot in (
+    "head", "torso", "arms", "legs", "booster", "weapon_r", "weapon_l")}
 KEY = b"SERA_ICON_MANIFEST_V1"
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
@@ -43,7 +37,7 @@ def annotate_one(id_: str, entry: dict) -> dict:
     model_bytes = model_path.read_bytes()
     model = json.loads(model_bytes)
     sha = hashlib.sha256(model_bytes).hexdigest()
-    angles = ((-14.0, 48.0, 0.0) if id_ == "WR03" else ANGLES[entry["slot"]])
+    angles = OBLIQUE_POSE
     record = {
         "format": "SERA_ICON_PNG_V1",
         "source": {
@@ -81,12 +75,8 @@ def annotate_one(id_: str, entry: dict) -> dict:
         "outline": "scripts/sera_view_edges.gd + shaders/sera_view_edges.gdshader",
         "lighting": "scripts/main.gd::_build_world",
     }
-    if id_ == "H02":
-        existing = read_png_metadata(path)
-        if existing["equipment"] != record["equipment"] or (
-                existing["source"]["fingerprint"] != sha):
-            raise ValueError("IRIS captured PNG no longer matches its approved model preset")
-        return existing
+    # H02 now follows the same new user-approved camera as all other parts.
+    # The historical preset remains untouched for backward provenance.
     png = path.read_bytes()
     if not png.startswith(PNG_SIGNATURE) or png[12:16] != b"IHDR":
         raise ValueError(f"{id_}: invalid Godot capture PNG")

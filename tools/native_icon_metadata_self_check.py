@@ -3,7 +3,7 @@
 import hashlib
 import json
 from pathlib import Path
-from icon_studio.tag_all_icons import ANGLES, annotate_one
+from icon_studio.tag_all_icons import ANGLES, OBLIQUE_POSE, annotate_one
 from icon_studio.validate_all_icons import catalog_entries
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -11,10 +11,11 @@ items = catalog_entries()
 assert len(items) == 19
 assert set(ANGLES) == {"head", "torso", "arms", "legs", "booster", "weapon_r", "weapon_l"}
 native = (ROOT / "tools/icon_studio/sera_all_native_capture.gd").read_text(encoding="utf-8")
-for slot, angle in ANGLES.items():
-    assert f'"{slot}": Vector3({angle[0]}, {angle[1]}, {angle[2]})' in native, (
-        slot, angle, "native capture and PNG metadata angles diverged")
-assert "degrees = Vector3(-14, 48, 0)" in native
+assert OBLIQUE_POSE == (26.0, -34.0, 0.0)
+assert all(angle == OBLIQUE_POSE for angle in ANGLES.values())
+assert 'const OBLIQUE_POSE: Vector3 = Vector3(26.0, -34.0, 0.0)' in native
+assert 'func _equalize_transparent_margins(' in native
+assert 'const POSE_NAMES = ["NEXUS_pose", "NEXUSpose"]' in native
 source = ROOT / items["H02"]["source_model"]
 preset = json.loads((ROOT / "assets/ui/sera_icon_presets/H02.json").read_text(encoding="utf-8"))
 assert hashlib.sha256(source.read_bytes()).hexdigest() == preset["source"]["fingerprint"]

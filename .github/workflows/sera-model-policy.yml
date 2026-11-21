@@ -91,13 +91,8 @@ jobs:
             sudo apt-get install -y -qq xvfb
           fi
           GODOT="$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64"
-          xvfb-run -a -s '-screen 0 720x1280x24' \
-            "$GODOT" --path . --rendering-method gl_compatibility \
-            --script tools/icon_studio/sera_godot_native_capture.gd
-          python3 tools/icon_studio/annotate_godot_native_png.py \
-            --png "$SERA_UI_RENDER_DIR/SERA_H02_IRIS_GODOT_512.png"
-          cp "$SERA_UI_RENDER_DIR/SERA_H02_IRIS_GODOT_512.png" \
-            assets/ui/sera_equipment_icons/H02.png
+          # The new common camera replaces H02's historic special capture.
+          # The separate legacy IRIS regression below is read-only.
           xvfb-run -a -s '-screen 0 720x1280x24' \
             "$GODOT" --path . --rendering-method gl_compatibility \
             --script tools/icon_studio/sera_all_native_capture.gd
