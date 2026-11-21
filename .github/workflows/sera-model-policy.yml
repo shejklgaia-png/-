@@ -5,6 +5,8 @@
 # The test manifest is the authoritative inventory for both suites.
 name: SERA model workflow policy
 on:
+  pull_request:
+    branches: [main]
   push:
     branches: [main]
     paths:
@@ -101,6 +103,14 @@ jobs:
             --script tools/icon_studio/sera_all_native_capture.gd
           python3 tools/icon_studio/validate_all_icons.py
           "$GODOT" --headless --editor --path . --import --quit
+      - name: Upload all real equipment preview captures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sera-native-all-equipment-icons
+          path: assets/ui/sera_equipment_icons/*.png
+          if-no-files-found: warn
+          retention-days: 14
       - name: Verify actual facility card pixels in a virtual display
         env:
           SERA_UI_RENDER_DIR: ${{ runner.temp }}/sera-ui-render

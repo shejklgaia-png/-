@@ -10,7 +10,8 @@ manifest = (ROOT/"tools/sera_ci_manifest.txt").read_text(encoding="utf-8")
 assert "static var _material_frame_cache:" in icons
 assert "get_region(Rect2i(" in icons, "crop sprite before uploading it to a GPU texture"
 assert "ImageTexture.create_from_image(tile)" in icons
-assert "icon.atlas = source" in icons, "original equipment atlas must stay supported"
+assert "NATIVE_EQUIPMENT_DIRECTORY" in icons, "native equipment screenshots are the active source"
+assert "EQUIPMENT_INDICES" not in icons, "obsolete placeholder atlas must not supply blueprints"
 assert "clip_contents = true" in grid
 assert "art.clip_contents = true" in grid
 assert "stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED" in grid

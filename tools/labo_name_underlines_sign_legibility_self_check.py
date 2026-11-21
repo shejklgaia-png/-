@@ -40,5 +40,5 @@ assert '"基礎 + 特性（装備単体の表示値）"' in stats
 assert '"注: 追加特性は戦闘計算へ未接続の試作値です。"' not in stats
 assert '"基礎＋特性（装備単体の表示値）"' not in stats
 assert '"※追加特性は戦闘計算へ未接続の試作値です。"' not in stats
-assert 'info.replace("基礎ステータス（現行Aセット参照） / ", "")' in facility
+assert 'info.replace("基礎ステータス / ", "")' in facility
 print("SERA_LABO_NAME_UNDERLINES_SIGNS_STATIC_PASS")

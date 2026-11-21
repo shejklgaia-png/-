@@ -56,10 +56,14 @@ func _expect(fac: Node, target: String, count: int, first_name: String) -> bool:
         return false
     # Native model PNGs remain available even when the retired WebP mockups
     # and Android's imported material atlas are deliberately unavailable.
-    if target == "craft" and first.icon == null:
-        _fail("native equipment photo vanished without retired WebP")
+    var photo: TextureRect = first.find_child("ItemArt", true, false) as TextureRect
+    if first.icon != null:
+        _fail("root Button should never draw its own icon")
         return
-    if target != "craft" and first.icon != null:
+    if target == "craft" and (photo == null or photo.texture == null):
+        _fail("native equipment photograph vanished without retired WebP")
+        return
+    if target != "craft" and photo != null and photo.texture != null:
         _fail("missing source unexpectedly resolved in material row")
         return false
     if first.get_theme_stylebox("normal") is not StyleBoxTexture:

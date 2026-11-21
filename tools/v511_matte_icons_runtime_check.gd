@@ -24,7 +24,7 @@ func _real_icon(texture: Texture2D) -> bool:
 
 func _run() -> void:
     if Materials.all_ids().size() != 12 or Catalog.PROTOTYPES.size() != 19:
-        _fail("catalog does not have exactly twelve materials and eight items")
+        _fail("catalog does not have exactly twelve materials and nineteen real parts")
         return
     for id in Materials.all_ids():
         if not _real_icon(IconAtlas.material_icon(str(id))):
