@@ -2,6 +2,7 @@
 - The existing NEXUS Blockbench MultiMesh batches retain all transforms, sizes, geometry, camera settings, and the seven-index material mapping.
 - Opaque structural palette indices 1–3 use metallic 0.28 and roughness 0.52 instead of 0.16/0.70 to separate plate edges under the existing directional light. Other indices and emissive accents 5–7 are unchanged; no new nodes, lights, textures or draw calls.
 - Added `tools/nexus_material_contrast_self_check.py` and registered it in CI before editing the renderer. Python/Godot execution and Android visual validation remain pending; this change must not be described as visually verified.
+- 6:00 follow-up: first updated the registered NEXUS material regression check, then set structural palette 1–3 `metallic_specular=0.42` (other palette entries retain 0.5) to restrain highlights without new meshes, lights, nodes or texture reads. Camera, pose, interaction, and preview layout were not changed. GitHub content readback is required; Godot/Android portrait screenshot and full CI remain pending.
 - Handoff: run focused check and full registered CI on main after merge; capture NEXUS portrait screenshots, verify material highlights, model intersections, UI readability, and performance on Android.
 
 ## 2026-11-22 — Bittaran：落下モーション可変速・4足床接地・復帰前踏み替え（v534）
