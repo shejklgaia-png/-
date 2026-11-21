@@ -195,7 +195,7 @@ func _make_card() -> Button:
         var mark_icon: Control = MarkIcon.new()
         mark_icon.name = ("FavoriteMarkIcon" if marker_kind == "favorite"
             else "JunkMarkIcon")
-        mark_icon.kind = ("favorite" if marker_kind == "favorite" else "junk")
+        mark_icon.set("kind", "favorite" if marker_kind == "favorite" else "junk")
         mark_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
         mark_icon.visible = false
         card.add_child(mark_icon)
