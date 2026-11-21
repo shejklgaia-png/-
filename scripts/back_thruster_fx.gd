@@ -63,6 +63,9 @@ var ribbon_clock: float = 0.0
 var ribbon_was_emitting: bool = false
 
 func _ready() -> void:
+    # Exclude both shader-driven exhaust tubes from the actor outline pass.
+    # Their emissive ShaderMaterials themselves must remain unchanged.
+    set_meta("sera_no_view_edges", true)
     # The Blockbench Thruster_L/R group pivot, not this FX child, is the hinge.
     var nozzle: Node3D = get_parent() as Node3D
     if nozzle != null:
