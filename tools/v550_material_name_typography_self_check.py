@@ -6,7 +6,9 @@ root = Path(__file__).resolve().parents[1]
 ui = (root / "scripts/base_facility_system.gd").read_text(encoding="utf-8")
 skin = (root / "scripts/sera_labo_round_skin.gd").read_text(encoding="utf-8")
 ci = (root / "tools/sera_ci_manifest.txt").read_text(encoding="utf-8")
-assert "IBMPlexSansJP-Medium.woff2" in skin
+# Later approved UDEV Japanese UI font supersedes the old IBM Plex face.
+assert 'JP_UI_FONT_PATH: String = JP_FONT_PATH' in skin
+assert 'UDEVGothic-Regular.ttf' in skin
 for token in (
     "var _uniform_material_name_size: int = 16",
     "func _fit_material_titles(grid: VBoxContainer) -> void:",
