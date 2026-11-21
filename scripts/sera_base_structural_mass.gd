@@ -77,8 +77,8 @@ static func _collector(g: Variant) -> void:
             Vector3(-0.45, 2.26, -0.32 + side * 0.18),
             0.11, "edge")
         g.poly_tilt("CollectorSortingRoofFin", "roof",
-            Vector3(side * 0.62, 2.78, -0.54),
-            Vector3(1.18, 0.25, 1.67),
+            Vector3(side * 0.97, 2.78, -0.74),
+            Vector3(0.37, 0.20, 1.18),
             "slate" if side < 0.0 else "armor_light",
             Vector3(0.07, 0, -side * 0.17))
     g.ring("CollectorClawPivotFlange",
@@ -125,8 +125,8 @@ static func _recycler(g: Variant) -> void:
             Vector3(side * 1.11, 0.73, -0.56),
             Vector3(0.30, 0.40, 0.45), "trim")
     g.poly_tilt("RecyclerCantedCowl", "roof",
-        Vector3(0, 2.29, -0.58),
-        Vector3(1.77, 0.24, 1.25), "armor_light",
+        Vector3(0, 2.29, -0.90),
+        Vector3(1.26, 0.24, 0.61), "armor_light",
         Vector3(0.18, 0.0, -0.04))
     g.box("RecyclerHopperLip",
         Vector3(0, 0.60, 1.38), Vector3(1.72, 0.18, 0.18), "edge")
@@ -191,8 +191,8 @@ static func _terminal(g: Variant) -> void:
     # leaving the central blueprint display unobstructed.
     for side in [-1.0, 1.0]:
         g.poly_tilt("TerminalSlopedRoofWing", "roof",
-            Vector3(side * 0.56, 2.91, -0.41),
-            Vector3(1.23, 0.23, 1.67),
+            Vector3(side * 0.73, 2.90, -0.72),
+            Vector3(0.61, 0.21, 0.79),
             "slate" if side < 0 else "armor_light",
             Vector3(-0.06, 0.0, -side * 0.23))
         g.rod("TerminalRoofOuterBrace",

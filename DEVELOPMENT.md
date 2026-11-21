@@ -1,3 +1,10 @@
+## 2026-11-22 — BASE roof identity pass (non-gameplay)
+
+- Replaced the repeated station-sized gable roof foundation with eight differentiated forms while preserving the existing architectural batch and equipment behavior: compact NEXUS stepped blast parapet, LABO asymmetric sail, open SCRAP_COLLECTOR maintenance gantry, SMELTER exhaust heat fins, RECYCLER separated hinged lids, GENERATOR exposed roll cage, STORAGE staggered steel container lids, and BUILD_TERMINAL cantilevered data blade.
+- Added `scripts/sera_base_roof_identity.gd`, integrated in `scripts/sera_base_architecture.gd`; narrowed the earlier generic canopies in night/structural passes so new profiles remain visible. No changes to station scale, yaw, floor pads, lighting, tap hitboxes, CRATE route or Android GL Compatibility rendering contract.
+- CI contract written before production changes: `tools/base_roof_identity_self_check.py` and `tools/base_roof_identity_runtime_check.gd` registered in `tools/sera_ci_manifest.txt`. Runtime/Android visual checks and complete post-merge CI must be independently confirmed; do not equate static inspection with rendered screenshots.
+
+
 
 ## SERA v535 — ビットタラン10分討伐バランス（2026-11-22）
 - 全身A・標準3段コンボを基準に、8秒ごとに1コンボ成功・四脚各12コンボ破壊・ダウン頭部合計5コンボ・残HPを胴体へ与える試算で約601.7秒を目標に調整。
