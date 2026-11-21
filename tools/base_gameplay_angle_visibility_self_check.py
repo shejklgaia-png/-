@@ -30,11 +30,20 @@ for feature in (
     '"GeneratorCoreBackdrop"', '"GeneratorVisibleRotorSpoke"',
     '"StorageContainerRoof"', '"StorageRoofRidge"',
     '"StorageVisibleCargoCase"',
+    '"LabFocalPrintBed"', '"CollectorClawSignalCheek"',
 ):
     assert feature in roof, "missing camera-facing detail " + feature
 assert '"CargoStorageTarp"' in arch
 assert '"StorageExposedUpperCargo"' in arch
 assert '"StorageVisibleCargoCase"' in roof
+# Rework must simplify actual workshop, crane and warehouse geometry rather than stacking.
+assert 'LabOpenWorkshopGantry' in arch
+assert 'CargoStoragePalletRail' in arch
+assert 'CollectorRaisedJib' in roof
+field = get("scripts/base_facility_system.gd")
+assert 'FacilityNamePlate' in field
+assert 'tag.size = Vector2(label_width, 28.0)' in field
+assert 'point.y - 46.0' in field
 assert 'Vector3(2.30, 0.14, 0.96)' in roof, "storage roof still hides the cargo"
 assert "BaseRoofIdentity.add_details(g, key)" in arch
 # Real viewport screenshot, AFTER fully constructing eight facilities.
