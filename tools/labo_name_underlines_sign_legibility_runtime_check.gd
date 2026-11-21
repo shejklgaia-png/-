@@ -1,6 +1,7 @@
 extends SceneTree
 ## Android portrait LABO: readable 3D signs and named UI underline semantics.
-const Skin = preload("res://scripts/sera_labo_round_skin.gd")
+const LaboSkin = preload("res://scripts/sera_labo_round_skin.gd")
+const LaboStats = preload("res://scripts/sera_labo_stats.gd")
 
 func _initialize() -> void:
     call_deferred("_run")
@@ -13,12 +14,12 @@ func _has_name_rule(label: Label, required_visible: bool = true) -> bool:
     if label == null:
         return false
     var rule: ColorRect = label.get_node_or_null("NameUnderline") as ColorRect
-    if rule == null or rule.color != Skin.NAME_UNDERLINE_COLOR or (
+    if rule == null or rule.color != LaboSkin.NAME_UNDERLINE_COLOR or (
             rule.mouse_filter != Control.MOUSE_FILTER_IGNORE):
         return false
     if not required_visible:
         return not rule.visible
-    return rule.visible and rule.size.y <= 2.0 and (
+    return rule.visible and absf(rule.size.y - 3.0) <= 0.01 and (
         rule.size.x > 4.0 and rule.size.x <= label.size.x + 1.0)
 
 func _run() -> void:
@@ -57,8 +58,8 @@ func _run() -> void:
     if host.stretch_shrink != 1 or printer == null or sera == null:
         _fail("3D stage sign or full-resolution presentation missing")
         return
-    if printer.font != Skin.display_font() or (
-            sera.font != Skin.display_font()) or (
+    if printer.font != LaboSkin.display_font() or (
+            sera.font != LaboSkin.display_font()) or (
             printer.outline_size != 2):
         _fail("3D signs must use crisp bundled Latin glyphs with dark stroke")
         return
@@ -87,20 +88,30 @@ func _run() -> void:
         _fail("unused pooled warehouse names must hide underlines")
         return
     var probe := Label.new()
-    probe.add_theme_font_override("font", Skin.ui_font())
+    probe.add_theme_font_override("font", LaboSkin.ui_font())
     probe.add_theme_font_size_override("font_size", 20)
     probe.text = "ランナーレッグ"
     probe.size = Vector2(210.0, 42.0)
     root.add_child(probe)
-    Skin.attach_name_underline(probe)
+    LaboSkin.attach_name_underline(probe)
     await process_frame
     if not _has_name_rule(probe):
         _fail("runtime custom name underline was not sized")
         return
     probe.text = ""
-    Skin.refresh_name_underline(probe)
+    LaboSkin.refresh_name_underline(probe)
     if not _has_name_rule(probe, false):
         _fail("empty name underline was not hidden")
+        return
+    var formula: String = LaboStats.total_formula("H01", [])
+    if not formula.begins_with("基礎 + 特性（装備単体の表示値）\n注: 追加特性") or (
+            formula.contains("＋") or formula.contains("※")):
+        _fail("warehouse formula still contains symbols that render as missing glyphs")
+        return
+    var stat_face: Font = LaboSkin.stats_font()
+    if not stat_face.has_char(0x2B) or not stat_face.has_char(0x6CE8) or (
+            not stat_face.has_char(0x3A)):
+        _fail("warehouse stats font lacks the replacement glyphs")
         return
     print("SERA_LABO_NAME_UNDERLINES_SIGNS_RUNTIME_PASS")
     quit(0)

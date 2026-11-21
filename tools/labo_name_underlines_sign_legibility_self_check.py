@@ -11,6 +11,7 @@ nexus = (root / "scripts/command_nexus.gd").read_text(encoding="utf-8")
 manifest = (root / "tools/sera_ci_manifest.txt").read_text(encoding="utf-8")
 
 assert 'const NAME_UNDERLINE_COLOR: Color = Color("#55798a")' in skin
+assert 'const NAME_UNDERLINE_HEIGHT: float = 3.0' in skin
 for token in ('static func attach_name_underline(label: Label) -> void:',
               'static func refresh_name_underline(label: Label) -> void:',
               'label.resized.connect(refresh_name_underline.bind(label), CONNECT_DEFERRED)',
@@ -34,4 +35,9 @@ assert 'label.font = LaboSkin.display_font()' in stage
 assert 'label.outline_size = 2' in stage
 assert 'py tools/labo_name_underlines_sign_legibility_self_check.py' in manifest
 assert 'gd tools/labo_name_underlines_sign_legibility_runtime_check.gd' in manifest
+stats = (root / "scripts/sera_labo_stats.gd").read_text(encoding="utf-8")
+assert '"基礎 + 特性（装備単体の表示値）"' in stats
+assert '"注: 追加特性は戦闘計算へ未接続の試作値です。"' in stats
+assert '"基礎＋特性（装備単体の表示値）"' not in stats
+assert '"※追加特性は戦闘計算へ未接続の試作値です。"' not in stats
 print("SERA_LABO_NAME_UNDERLINES_SIGNS_STATIC_PASS")
