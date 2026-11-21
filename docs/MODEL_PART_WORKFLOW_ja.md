@@ -1,7 +1,7 @@
 # SERA Blockbenchモデル制作・統合運用規約
 <!-- WORKFLOW_ID: SERA_MODEL_PARTS_V1 -->
 
-## 2026-11-21 追加仕様：カメラアイ頭部 HEAD D
+## 2026-11-21 追加仕様：アイリス（IRIS）— カメラアイ頭部 HEAD D
 - `models/manifest.json` の `parts.head_camera_eye` は `models/storage/カメラアイ頭部.bbmodel`。作者の6メッシュ・修正済み面・16×16 PNGが唯一の編集原本。
 - 既存 `HEAD C` の2メッシュは置換しない。`HEAD D` としてA標準 `Head` ボーン配下に独立して装着し、均一0.66倍の表示オフセットを使う。
 - Android用埋め込みの再生成：`python3 tools/sera_model_build.py --write`。確認：`--check`、`camera_eye_head_self_check.py`、`camera_eye_head_runtime_check.gd`。
