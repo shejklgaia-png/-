@@ -1,0 +1,230 @@
+[gd_scene load_steps=15 format=3]
+
+[ext_resource type="PackedScene" path="res://models/materials/scrap_low.gltf" id="1"]
+[ext_resource type="PackedScene" path="res://models/materials/scrap_mid.gltf" id="2"]
+[ext_resource type="PackedScene" path="res://models/materials/scrap_high.gltf" id="3"]
+[ext_resource type="PackedScene" path="res://models/materials/alloy_low.gltf" id="4"]
+[ext_resource type="PackedScene" path="res://models/materials/alloy_mid.gltf" id="5"]
+[ext_resource type="PackedScene" path="res://models/materials/alloy_high.gltf" id="6"]
+[ext_resource type="PackedScene" path="res://models/materials/electronics_low.gltf" id="7"]
+[ext_resource type="PackedScene" path="res://models/materials/electronics_mid.gltf" id="8"]
+[ext_resource type="PackedScene" path="res://models/materials/electronics_high.gltf" id="9"]
+[ext_resource type="PackedScene" path="res://models/materials/organic_low.gltf" id="10"]
+[ext_resource type="PackedScene" path="res://models/materials/organic_mid.gltf" id="11"]
+[ext_resource type="PackedScene" path="res://models/materials/organic_high.gltf" id="12"]
+
+[sub_resource type="BoxMesh" id="Platform"]
+size = Vector3(2.60, 0.12, 2.60)
+
+[sub_resource type="StandardMaterial3D" id="PlatformMat"]
+albedo_color = Color(0.12, 0.19, 0.23, 1)
+metallic = 0.25
+roughness = 0.72
+
+[node name="SERA_MATERIAL_MODELS_GALLERY" type="Node3D"]
+
+[node name="Camera3D" type="Camera3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0.836462, -0.548023, 0, 0.548023, 0.836462, 0, 10.0, 15.0)
+projection = 1
+size = 18.0
+current = true
+
+[node name="KeyLight" type="DirectionalLight3D" parent="."]
+rotation = Vector3(-0.85, 0.65, -0.18)
+light_energy = 1.35
+
+[node name="FillLight" type="DirectionalLight3D" parent="."]
+rotation = Vector3(-0.38, -2.30, 0.25)
+light_energy = 0.45
+
+[node name="scrap_low_pedestal" type="MeshInstance3D" parent="."]
+mesh = SubResource("Platform")
+material_override = SubResource("PlatformMat")
+position = Vector3(-3.20, -0.69, -4.80)
+
+[node name="scrap_low" parent="." instance=ExtResource("1")]
+position = Vector3(-3.20, 0.0, -4.80)
+
+[node name="scrap_low_label" type="Label3D" parent="."]
+position = Vector3(-3.20, -0.51, -3.63)
+text = "SCRAP_LOW"
+font_size = 35
+pixel_size = 0.003
+billboard = 1
+modulate = Color(0.77, 0.87, 0.91, 1)
+
+[node name="scrap_mid_pedestal" type="MeshInstance3D" parent="."]
+mesh = SubResource("Platform")
+material_override = SubResource("PlatformMat")
+position = Vector3(0.00, -0.69, -4.80)
+
+[node name="scrap_mid" parent="." instance=ExtResource("2")]
+position = Vector3(0.00, 0.0, -4.80)
+
+[node name="scrap_mid_label" type="Label3D" parent="."]
+position = Vector3(0.00, -0.51, -3.63)
+text = "SCRAP_MID"
+font_size = 35
+pixel_size = 0.003
+billboard = 1
+modulate = Color(0.77, 0.87, 0.91, 1)
+
+[node name="scrap_high_pedestal" type="MeshInstance3D" parent="."]
+mesh = SubResource("Platform")
+material_override = SubResource("PlatformMat")
+position = Vector3(3.20, -0.69, -4.80)
+
+[node name="scrap_high" parent="." instance=ExtResource("3")]
+position = Vector3(3.20, 0.0, -4.80)
+
+[node name="scrap_high_label" type="Label3D" parent="."]
+position = Vector3(3.20, -0.51, -3.63)
+text = "SCRAP_HIGH"
+font_size = 35
+pixel_size = 0.003
+billboard = 1
+modulate = Color(0.77, 0.87, 0.91, 1)
+
+[node name="alloy_low_pedestal" type="MeshInstance3D" parent="."]
+mesh = SubResource("Platform")
+material_override = SubResource("PlatformMat")
+position = Vector3(-3.20, -0.69, -1.60)
+
+[node name="alloy_low" parent="." instance=ExtResource("4")]
+position = Vector3(-3.20, 0.0, -1.60)
+
+[node name="alloy_low_label" type="Label3D" parent="."]
+position = Vector3(-3.20, -0.51, -0.43)
+text = "ALLOY_LOW"
+font_size = 35
+pixel_size = 0.003
+billboard = 1
+modulate = Color(0.77, 0.87, 0.91, 1)
+
+[node name="alloy_mid_pedestal" type="MeshInstance3D" parent="."]
+mesh = SubResource("Platform")
+material_override = SubResource("PlatformMat")
+position = Vector3(0.00, -0.69, -1.60)
+
+[node name="alloy_mid" parent="." instance=ExtResource("5")]
+position = Vector3(0.00, 0.0, -1.60)
+
+[node name="alloy_mid_label" type="Label3D" parent="."]
+position = Vector3(0.00, -0.51, -0.43)
+text = "ALLOY_MID"
+font_size = 35
+pixel_size = 0.003
+billboard = 1
+modulate = Color(0.77, 0.87, 0.91, 1)
+
+[node name="alloy_high_pedestal" type="MeshInstance3D" parent="."]
+mesh = SubResource("Platform")
+material_override = SubResource("PlatformMat")
+position = Vector3(3.20, -0.69, -1.60)
+
+[node name="alloy_high" parent="." instance=ExtResource("6")]
+position = Vector3(3.20, 0.0, -1.60)
+
+[node name="alloy_high_label" type="Label3D" parent="."]
+position = Vector3(3.20, -0.51, -0.43)
+text = "ALLOY_HIGH"
+font_size = 35
+pixel_size = 0.003
+billboard = 1
+modulate = Color(0.77, 0.87, 0.91, 1)
+
+[node name="electronics_low_pedestal" type="MeshInstance3D" parent="."]
+mesh = SubResource("Platform")
+material_override = SubResource("PlatformMat")
+position = Vector3(-3.20, -0.69, 1.60)
+
+[node name="electronics_low" parent="." instance=ExtResource("7")]
+position = Vector3(-3.20, 0.0, 1.60)
+
+[node name="electronics_low_label" type="Label3D" parent="."]
+position = Vector3(-3.20, -0.51, 2.77)
+text = "ELECTRONICS_LOW"
+font_size = 35
+pixel_size = 0.003
+billboard = 1
+modulate = Color(0.77, 0.87, 0.91, 1)
+
+[node name="electronics_mid_pedestal" type="MeshInstance3D" parent="."]
+mesh = SubResource("Platform")
+material_override = SubResource("PlatformMat")
+position = Vector3(0.00, -0.69, 1.60)
+
+[node name="electronics_mid" parent="." instance=ExtResource("8")]
+position = Vector3(0.00, 0.0, 1.60)
+
+[node name="electronics_mid_label" type="Label3D" parent="."]
+position = Vector3(0.00, -0.51, 2.77)
+text = "ELECTRONICS_MID"
+font_size = 35
+pixel_size = 0.003
+billboard = 1
+modulate = Color(0.77, 0.87, 0.91, 1)
+
+[node name="electronics_high_pedestal" type="MeshInstance3D" parent="."]
+mesh = SubResource("Platform")
+material_override = SubResource("PlatformMat")
+position = Vector3(3.20, -0.69, 1.60)
+
+[node name="electronics_high" parent="." instance=ExtResource("9")]
+position = Vector3(3.20, 0.0, 1.60)
+
+[node name="electronics_high_label" type="Label3D" parent="."]
+position = Vector3(3.20, -0.51, 2.77)
+text = "ELECTRONICS_HIGH"
+font_size = 35
+pixel_size = 0.003
+billboard = 1
+modulate = Color(0.77, 0.87, 0.91, 1)
+
+[node name="organic_low_pedestal" type="MeshInstance3D" parent="."]
+mesh = SubResource("Platform")
+material_override = SubResource("PlatformMat")
+position = Vector3(-3.20, -0.69, 4.80)
+
+[node name="organic_low" parent="." instance=ExtResource("10")]
+position = Vector3(-3.20, 0.0, 4.80)
+
+[node name="organic_low_label" type="Label3D" parent="."]
+position = Vector3(-3.20, -0.51, 5.97)
+text = "ORGANIC_LOW"
+font_size = 35
+pixel_size = 0.003
+billboard = 1
+modulate = Color(0.77, 0.87, 0.91, 1)
+
+[node name="organic_mid_pedestal" type="MeshInstance3D" parent="."]
+mesh = SubResource("Platform")
+material_override = SubResource("PlatformMat")
+position = Vector3(0.00, -0.69, 4.80)
+
+[node name="organic_mid" parent="." instance=ExtResource("11")]
+position = Vector3(0.00, 0.0, 4.80)
+
+[node name="organic_mid_label" type="Label3D" parent="."]
+position = Vector3(0.00, -0.51, 5.97)
+text = "ORGANIC_MID"
+font_size = 35
+pixel_size = 0.003
+billboard = 1
+modulate = Color(0.77, 0.87, 0.91, 1)
+
+[node name="organic_high_pedestal" type="MeshInstance3D" parent="."]
+mesh = SubResource("Platform")
+material_override = SubResource("PlatformMat")
+position = Vector3(3.20, -0.69, 4.80)
+
+[node name="organic_high" parent="." instance=ExtResource("12")]
+position = Vector3(3.20, 0.0, 4.80)
+
+[node name="organic_high_label" type="Label3D" parent="."]
+position = Vector3(3.20, -0.51, 5.97)
+text = "ORGANIC_HIGH"
+font_size = 35
+pixel_size = 0.003
+billboard = 1
+modulate = Color(0.77, 0.87, 0.91, 1)
