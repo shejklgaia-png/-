@@ -41,6 +41,13 @@ func _run() -> void:
         return
     ik.call("_advance_leg_break", IK_SCRIPT.LEG_BREAK_FALL_SECONDS + 0.01)
     battle.call("_tick_bittaran_body_fall_fx")
+    if int(fx.get("body_fall_burst_count")) != 0:
+        _fail("authored front collapse emitted before its actual impact key")
+        return
+    # Native 1x front source makes contact at t=1.75s from the start
+    # of the 0.60s windup; dust must wait for that frame, not t=0.17.
+    ik.set("break_elapsed", 1.16)
+    battle.call("_tick_bittaran_body_fall_fx")
     if int(fx.get("body_fall_burst_count")) != 1:
         _fail("body fall did not produce exactly one burst")
         return
