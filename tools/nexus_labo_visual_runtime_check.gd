@@ -61,8 +61,26 @@ func _run() -> void:
                 if icon == null or item_name == null or model_code == null:
                     _fail("equipment needs separate icon, name and model-code nodes")
                     return
-                if item_name.position.x < icon.position.x + icon.size.x + 12.0:
-                    _fail("equipment icon overlaps the item name")
+                # Icon has its own left gutter, a square responsive size,
+                # and an exact vertical centre even on shortened cards.
+                if icon.position.x < 12.0:
+                    _fail("equipment icon lacks a left inset")
+                    return
+                if absf(icon.size.x - icon.size.y) > 0.5 or (
+                        icon.size.y > row.size.y - 16.0):
+                    _fail("equipment icon must stay square and inside the card")
+                    return
+                if absf(icon.position.y + icon.size.y * 0.5 -
+                        row.size.y * 0.5) > 0.5:
+                    _fail("equipment icon is not vertically centered")
+                    return
+                if row.size.x >= 280.0 and row.size.y >= 100.0 and (
+                        icon.size.x < 56.0):
+                    _fail("equipment icon is still too small on a portrait card")
+                    return
+                var minimum_gap: float = maxf(16.0, minf(22.0, row.size.x * 0.07))
+                if item_name.position.x < icon.position.x + icon.size.x + minimum_gap:
+                    _fail("equipment icon-to-name gutter is too narrow")
                     return
                 if item_name.position.x + item_name.size.x > row.size.x - 5.0:
                     _fail("equipment name exceeds the card right edge")
