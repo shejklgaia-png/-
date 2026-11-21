@@ -55,7 +55,7 @@ for name in ("CI_WORKFLOW.md", "SOURCE_POLICY.md", "EQUIPMENT.md", "RUNTIME_BOUN
 entry = (ROOT / "AGENTS.md").read_text(encoding="utf-8")
 assert "sera_workplan.py" in entry and "CI_WORKFLOW.md" in entry
 assert "SERA_MODEL_PARTS_V1" in entry
-assert "headless" in entry or "実機" in entry
+assert "headless" in entry.casefold() or "実機" in entry
 assert "base" in recognize("拠点施設の床と配置", [])
 assert "labo" in recognize("ラボの製作確認", [])
 assert "warehouse" in recognize("倉庫でスクロール", [])
