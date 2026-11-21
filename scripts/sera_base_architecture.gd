@@ -190,7 +190,7 @@ static func _labo(g: Batch) -> void:
     g.box("LabCanopyFrame", Vector3(0, 3.01, 0.10),
         Vector3(4.05, 0.20, 4.0), "edge")
     for i in range(6):
-        x = -1.74 + float(i) * 0.68
+        var x: float = -1.74 + float(i) * 0.68
         g.box("CanopyCanvas", Vector3(x, 3.16 + 0.08 * cos(i * 1.2), 1.30),
             Vector3(0.73, 0.055, 2.65), "cloth")
     for side in [-1.0, 1.0]:
