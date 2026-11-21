@@ -4,6 +4,9 @@
 # One test per line. Preserve tests not explicitly retired by a specification change.
 py tools/sera_view_edges_self_check.py
 gd tools/sera_view_edges_runtime_check.gd
+# NEXUS visual refresh: reuse LABO skin without changing navigation, save or equipment semantics.
+py tools/nexus_labo_visual_self_check.py
+gd tools/nexus_labo_visual_runtime_check.gd
 # Python tests run in fresh interpreters; Godot tests run in fresh engine processes.
 py tools/base_exploration_self_check.py
 py tools/base_facilities_self_check.py
