@@ -209,6 +209,11 @@ static func _enlarge_dressing(key: String, items: Array[Dictionary]) -> void:
             limit = 1.18
         elif int(item.get("stack", 1)) > 1:
             limit = 1.18
+        # Keep each station's one deliberately small primary silhouette as
+        # visual punctuation beside the larger stacks (legacy rhythm rule).
+        # It may grow a little, but must remain at or below 0.87 world scale.
+        if not bool(item.get("accent", false)) and float(item["scale"]) <= 0.87:
+            limit = minf(limit, 0.87 / float(item["scale"]))
         for step in range(13, 0, -1):
             var candidate: float = 1.0 + float(step) * 0.02
             if candidate > limit + 0.001:
