@@ -78,6 +78,9 @@ func _ready() -> void:
     _create_camera()
     _create_startup_overlay()
     print("SERA_BASE_BOOT: initial frame ready")
+    # A process_frame signal fires BEFORE drawing; wait across two signals
+    # so a complete frame can actually be painted between them.
+    await get_tree().process_frame
     await get_tree().process_frame
     _startup_step("FLOOR")
     _build_hangar()
