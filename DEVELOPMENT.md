@@ -3794,3 +3794,10 @@
 - **保護する仕様**：SERA本体・刀身・装甲・ビットタラン・標的には3px輪郭線を継続、80°分類と視点依存外周判定は不変。斬撃・ブースターの本来のシェーダー、発光、アルファ、残光寿命、描画優先度、当たり判定は変更しない。
 - **テスト先行**：`sera_view_edges_self_check.py` に祖先／マテリアル／メタデータ契約、`sera_view_edges_runtime_check.gd` に通常の剣・実体・斬撃弧・透過FX・ALPHAシェーダー・誤った既存線の除去検査、`v322_katana_swordeffect_import_runtime_check.gd` に実シーンでの輪郭線混入防止を追加。登録済みCIの元の79°/81°・3px・描画・ソード運動テストは保持。
 - **実機確認**：ソード斬撃の弧／レンズとBOOST／STEP噴射・残光・その他FXに輪郭線が出ないこと、剣そのものの輪郭は消えないことをAndroid実機で目視検査。
+
+
+## 2026-11-21：LABO 3D看板の文字視認性・名称下線統一
+- 3D風景の「3D PRINTER」「SERA」等の看板に英数字用同梱 Rajdhani フォントと暗色2pxアウトラインを使用。LABO上部3D表示の stretch_shrink を2→1にし、低解像度描画による文字崩れを抑制。画面上部30%のレイアウト、背景3D配置・操作は変更しない。
+- LABO/NEXUS共通スタイルにブルーグレー `#55798a`、1pxの名称下線を追加。画面名、装備名、素材名、ボス名、装着中装備名に適用。名称の長さ・配置に追従し、空欄・LOCKED SLOT・操作タブ・技術情報は対象外。倉庫は既存プール内の1本のColorRectを再利用し、フレーム単位の再生成やポーリングを行わない。
+- CIに `tools/labo_name_underlines_sign_legibility_self_check.py` / `tools/labo_name_underlines_sign_legibility_runtime_check.gd` を先行登録。旧フォント・3列素材・999枠・ボタン操作・スクロール等のテスト条件は維持。
+- 実機確認事項：Androidで3D看板の視認性、名称下線の高さ・細さ、2行素材名の最終行、機種別のGPU負荷を確認。静的なソース契約とheadless CIは実際のAndroid表示を代替しない。
