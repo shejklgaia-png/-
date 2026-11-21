@@ -50,6 +50,16 @@ for obsolete in ('"WEIGHT "', '"EN OUTPUT"', '"TRACK"', '"ATK SPEED"',
                  '"BOOST"', '"LOCK"', '"GUARD"', '"EN COST"', '"STEP"',
                  '"BASH"', '"CHARGE"'):
     assert obsolete not in stats, obsolete
+# 720x1280 CUSTOMIZE: two-tier stat typography, rather than cramped side-by-side.
+for required in (
+    'customize_stats_grid.add_theme_constant_override("v_separation", 1)',
+    'var cell_height: float = 44.0',
+    'var height: float = minf(view.y * 0.225, 290.0)',
+    'StatUI.fit_label(label, 19, 16)',
+    'StatUI.fit_label(value, 25, 20)',
+    'value.position = Vector2(10, 20)',
+):
+    assert required in nexus, required
 assert 'StatUI.status_window_style()' in nexus
 assert 'StatUI.attach_status_marks(' in nexus
 assert 'StatUI.layout_status_marks(' in nexus

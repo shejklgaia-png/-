@@ -105,6 +105,29 @@ func _run() -> void:
                 bottom_mark.size.x < 25.0)):
             _fail("technical panel accents missing or mis-sized")
             return
+    var typography_ok: bool = false
+    for entry in cells:
+        var stat_panel: Panel = entry["panel"] as Panel
+        if not stat_panel.visible:
+            continue
+        var title: Label = entry["name"] as Label
+        var amount: Label = entry["value"] as Label
+        if title.position.y >= amount.position.y:
+            _fail("full-body metric title and number must use separate vertical lines")
+            return
+        if amount.position.y + amount.size.y > stat_panel.size.y + 1.0:
+            _fail("full-body metric number exceeds its tile's height")
+            return
+        if scroll.size.x >= 590.0 and not scroll.get_global_rect().encloses(
+                stat_panel.get_global_rect()):
+            _fail("720px full-body status requires no vertical scrolling")
+            return
+        if title.text == "耐久力":
+            typography_ok = title.get_theme_font_size("font_size") >= 19 and (
+                amount.get_theme_font_size("font_size") >= 24)
+    if not typography_ok:
+        _fail("full-body Japanese label/number type is still too small")
+        return
     var seen: Dictionary = {}
     for cell in cells:
         if (cell["panel"] as Panel).visible:
@@ -134,7 +157,7 @@ func _run() -> void:
         if (cell["panel"] as Panel).visible and (
                 (cell["name"] as Label).text == "耐久力"):
             next_hp = (cell["value"] as Label).text
-    if next_hp.is_empty() or next_hp == str(seen["HP"]):
+    if next_hp.is_empty() or next_hp == str(seen["耐久力"]):
         _fail("HP did not update after the actual preview equipment changed")
         return
     handler.call("select_part", "torso", previous, false)

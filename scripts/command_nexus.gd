@@ -917,7 +917,7 @@ func _create_customization_stats() -> void:
     customize_stats_grid.mouse_filter = Control.MOUSE_FILTER_IGNORE
     customize_stats_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
     customize_stats_grid.add_theme_constant_override("h_separation", 9)
-    customize_stats_grid.add_theme_constant_override("v_separation", 5)
+    customize_stats_grid.add_theme_constant_override("v_separation", 1)
     customize_stats_scroll.add_child(customize_stats_grid)
     for i in range(20):
         var cell := Panel.new()
@@ -941,7 +941,7 @@ func _create_customization_stats() -> void:
         value_label.name = "StatValue"
         value_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
         value_label.clip_text = true
-        value_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+        value_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
         value_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
         cell.add_child(value_label)
         var rule := ColorRect.new()
@@ -964,8 +964,8 @@ func _layout_customization_stats() -> void:
     var view: Vector2 = hud.size
     var width: float = maxf(180.0, view.x * 0.93)
     var left: float = (view.x - width) * 0.5
-    var top: float = maxf(20.0, view.y * 0.035)
-    var height: float = minf(view.y * 0.212, 275.0)
+    var top: float = maxf(20.0, view.y * 0.025)
+    var height: float = minf(view.y * 0.225, 290.0)
     customize_stats_panel.position = Vector2(left, top)
     customize_stats_panel.size = Vector2(width, height)
     StatUI.layout_status_marks(customize_total_accents, customize_stats_panel.size)
@@ -979,25 +979,27 @@ func _layout_customization_stats() -> void:
     var inner_width: float = maxf(160.0, width - 20.0)
     var columns: int = 3 if inner_width >= 590.0 else (2 if inner_width >= 370.0 else 1)
     customize_stats_grid.columns = columns
-    customize_stats_scroll.position = Vector2(left + 10.0, top + 10.0)
-    customize_stats_scroll.size = Vector2(inner_width, height - 20.0)
+    customize_stats_scroll.position = Vector2(left + 10.0, top + 8.0)
+    customize_stats_scroll.size = Vector2(inner_width, height - 16.0)
     StatUI.layout_column_rules(customize_total_column_rules,
         Rect2(Vector2(10, 7), Vector2(inner_width, height - 14)), columns)
     var cell_width: float = floorf(
         (inner_width - 9.0 * float(columns - 1)) / float(columns))
-    var cell_height: float = 36.0
+    var cell_height: float = 44.0
     for i in range(customize_stat_cells.size()):
         var entry: Dictionary = customize_stat_cells[i]
         var cell: Panel = entry["panel"]
         cell.custom_minimum_size = Vector2(cell_width, cell_height)
         var label: Label = entry["name"]
         var value: Label = entry["value"]
-        label.position = Vector2(10, 2)
-        label.size = Vector2(floorf(cell_width * 0.60) - 10.0, cell_height - 4)
-        value.position = Vector2(floorf(cell_width * 0.60), 2)
-        value.size = Vector2(cell_width * 0.40 - 10.0, cell_height - 4)
-        StatUI.fit_label(label, 16, 12)
-        StatUI.fit_label(value, 19, 15)
+        # Two stacked lines free the entire column width for readable Japanese.
+        label.position = Vector2(10, 0)
+        label.size = Vector2(cell_width - 20.0, 21.0)
+        value.position = Vector2(10, 20)
+        value.size = Vector2(cell_width - 20.0, 24.0)
+        value.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+        StatUI.fit_label(label, 19, 16)
+        StatUI.fit_label(value, 25, 20)
         (entry["rule"] as ColorRect).visible = false
 
 func _refresh_customization_stats() -> void:
@@ -1014,8 +1016,8 @@ func _refresh_customization_stats() -> void:
         if show:
             (cell["name"] as Label).text = str(entries[i]["label"])
             (cell["value"] as Label).text = str(entries[i]["value"])
-            StatUI.fit_label(cell["name"] as Label, 16, 12)
-            StatUI.fit_label(cell["value"] as Label, 19, 15)
+            StatUI.fit_label(cell["name"] as Label, 19, 16)
+            StatUI.fit_label(cell["value"] as Label, 25, 20)
 
 
 func _create_equipment_controls() -> void:
@@ -1593,13 +1595,13 @@ func _create_customization_part_stats() -> void:
     customize_part_stats_list.mouse_filter = Control.MOUSE_FILTER_IGNORE
     customize_part_stats_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
     customize_part_stats_list.add_theme_constant_override("h_separation", 11)
-    customize_part_stats_list.add_theme_constant_override("v_separation", 4)
+    customize_part_stats_list.add_theme_constant_override("v_separation", 3)
     customize_part_stats_scroll.add_child(customize_part_stats_list)
     for i in range(28):
         var row := Panel.new()
         row.name = "SinglePartStat_" + str(i)
         row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-        row.custom_minimum_size = Vector2(100, 42)
+        row.custom_minimum_size = Vector2(100, 44)
         StatUI.clear_cell_background(row)
         row.visible = false
         customize_part_stats_list.add_child(row)
@@ -1610,7 +1612,7 @@ func _create_customization_part_stats() -> void:
         label.clip_text = true
         label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
         label.add_theme_font_override("font", LaboSkin.stats_font())
-        label.add_theme_font_size_override("font_size", 16)
+        label.add_theme_font_size_override("font_size", 19)
         label.add_theme_color_override("font_color", Color("#a9c2cd"))
         row.add_child(label)
         var value := Label.new()
@@ -1621,9 +1623,9 @@ func _create_customization_part_stats() -> void:
         value.clip_text = true
         value.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
         value.add_theme_font_override("font", LaboSkin.stats_font())
-        value.add_theme_font_size_override("font_size", 19)
+        value.add_theme_font_size_override("font_size", 24)
         value.add_theme_color_override("font_color", Color("#e4edf1"))
-        StatUI.style_stat_labels(label, value, 16, 19)
+        StatUI.style_stat_labels(label, value, 19, 24)
         row.add_child(value)
         customize_part_stat_cells.append({
             "panel": row, "name": label, "value": value
@@ -1667,15 +1669,15 @@ func _layout_customization_part_stats() -> void:
         (customize_part_stats_scroll.size.x - 22.0) / 3.0)
     for entry in customize_part_stat_cells:
         var row: Panel = entry["panel"]
-        row.custom_minimum_size = Vector2(row_width, 42)
+        row.custom_minimum_size = Vector2(row_width, 44)
         var label: Label = entry["name"]
-        label.position = Vector2(9, 2)
-        label.size = Vector2(row_width - 18, 19)
+        label.position = Vector2(9, 0)
+        label.size = Vector2(row_width - 18, 21)
         var value: Label = entry["value"]
-        value.position = Vector2(9, 21)
-        value.size = Vector2(row_width - 18, 20)
-        StatUI.fit_label(label, 16, 12)
-        StatUI.fit_label(value, 19, 15)
+        value.position = Vector2(9, 20)
+        value.size = Vector2(row_width - 18, 24)
+        StatUI.fit_label(label, 19, 16)
+        StatUI.fit_label(value, 24, 20)
 
 
 func _refresh_customization_part_stats(slot: String) -> void:
@@ -1721,8 +1723,8 @@ func _refresh_customization_part_stats(slot: String) -> void:
         if show:
             (cell["name"] as Label).text = str(rows[i]["label"])
             (cell["value"] as Label).text = str(rows[i]["value"])
-            StatUI.fit_label(cell["name"] as Label, 16, 12)
-            StatUI.fit_label(cell["value"] as Label, 19, 15)
+            StatUI.fit_label(cell["name"] as Label, 19, 16)
+            StatUI.fit_label(cell["value"] as Label, 24, 20)
 
 
 func _equipped_part_blueprint(slot: String) -> String:
@@ -2293,7 +2295,7 @@ func _apply_labo_typography() -> void:
         _layout_equipment_name_underline(slot)
     for cell in customize_stat_cells:
         StatUI.style_stat_labels(
-            cell["name"] as Label, cell["value"] as Label, 16, 19)
+            cell["name"] as Label, cell["value"] as Label, 19, 25)
     for entry in system_slot_rows:
         _skin_label(entry["label"] as Label, stats, 16, accent)
     for entry in system_action_rows:
