@@ -1,6 +1,6 @@
 extends RefCounted
-const WEATHERED_STEEL = preload("res://assets/base/industrial_steel_grunge.svg")
-const WEATHERED_CANVAS = preload("res://assets/base/aged_canvas_weave.svg")
+const WEATHERED_STEEL_PATH: String = "res://assets/base/industrial_steel_grunge.svg"
+const WEATHERED_CANVAS_PATH: String = "res://assets/base/aged_canvas_weave.svg"
 ## Industrial reference rebuild for the eight individually modelled base structures.
 ## Batched opaque meshes keep a dense kit-bashed silhouette on Android GL.
 const COLORS = {
@@ -69,6 +69,13 @@ class Batch:
             Vector3(0.08, 0.035, size.z), "edge")
 
     func flush() -> void:
+        # Optional images are only usable once Godot's imported cache exists.
+        var steel_texture: Texture2D = null
+        var canvas_texture: Texture2D = null
+        if ResourceLoader.exists(WEATHERED_STEEL_PATH):
+            steel_texture = load(WEATHERED_STEEL_PATH) as Texture2D
+        if ResourceLoader.exists(WEATHERED_CANVAS_PATH):
+            canvas_texture = load(WEATHERED_CANVAS_PATH) as Texture2D
         var keys: Array = entries.keys()
         keys.sort()
         for key_variant in keys:
@@ -100,9 +107,9 @@ class Batch:
             surface.metallic = 0.31 if tint != "cloth" else 0.0
             surface.roughness = 0.75 if tint != "glass" else 0.46
             if tint == "cloth":
-                surface.albedo_texture = WEATHERED_CANVAS
+                surface.albedo_texture = canvas_texture
             elif tint not in ["glass", "blue_light", "amber_light", "amber"]:
-                surface.albedo_texture = WEATHERED_STEEL
+                surface.albedo_texture = steel_texture
             if tint in ["blue_light", "amber_light", "amber"]:
                 surface.emission_enabled = true
                 surface.emission = Color(COLORS[tint])
