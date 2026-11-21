@@ -14,10 +14,24 @@ const COLORS = {
     "white": "#b3c1c8"
 }
 
+# Deliberately different permanent headings; station locations and the portrait
+# camera stay unchanged. The mounts and body rotate, but stored prop positions
+# remain anchored to their respective single-piece floor platforms.
+const BODY_YAW_DEGREES = {
+    "NEXUS": -11.0, "LABO": 14.0, "SMELTER": -18.0,
+    "RECYCLER": 17.0, "STORAGE": -21.0, "GENERATOR": 19.0,
+    "SCRAP_COLLECTOR": 10.0, "BUILD_TERMINAL": -14.0,
+}
+
+static func facility_yaw_radians(key: String) -> float:
+    return deg_to_rad(float(BODY_YAW_DEGREES.get(key, 0.0)))
+
 class Batch:
     var host: Node3D
     var entries: Dictionary = {}
     var features: Array[String] = []
+    var yaw: float = 0.0
+    var pivot: Vector3 = Vector3.ZERO
 
     func _init(node: Node3D) -> void:
         host = node
@@ -27,7 +41,11 @@ class Batch:
         var key: String = kind + "|" + tint
         if not entries.has(key):
             entries[key] = []
-        (entries[key] as Array).append(Transform3D(basis, at))
+        # A whole 3D subassembly rotates about its own pivot, including boxes,
+        # angled rods, rings and multilayer crates; batching remains intact.
+        var spin := Basis(Vector3.UP, yaw)
+        var moved: Vector3 = pivot + spin * (at - pivot)
+        (entries[key] as Array).append(Transform3D(spin * basis, moved))
         if not features.has(feature):
             features.append(feature)
 
@@ -150,6 +168,8 @@ static func build_nexus(parent: Node3D) -> void:
     node.name = "NexusArchitecture"
     parent.add_child(node)
     var g := Batch.new(node)
+    g.yaw = facility_yaw_radians("NEXUS")
+    node.set_meta("body_yaw", g.yaw)
     # Wide reinforced shell, individual roof modules, recessed front blast door.
     g.box("ArmoredRoofHall", Vector3(0, 2.25, -0.08), Vector3(5.70, 3.98, 4.95), "armor")
     g.box("ArmoredRoof", Vector3(0, 4.38, -0.15), Vector3(6.27, 0.32, 5.27), "slate")
@@ -497,6 +517,8 @@ static func build_facility(parent: Node3D, key: String) -> void:
     node.name = "IndustrialModel"
     parent.add_child(node)
     var g := Batch.new(node)
+    g.yaw = facility_yaw_radians(key)
+    node.set_meta("body_yaw", g.yaw)
     match key:
         "LABO":
             _labo(g)
