@@ -19,8 +19,9 @@ func _run() -> void:
         var vertices: PackedVector3Array = data[Mesh.ARRAY_VERTEX]
         var normals: PackedVector3Array = data[Mesh.ARRAY_NORMAL]
         var uvs: PackedVector2Array = data[Mesh.ARRAY_TEX_UV]
+        var colors: PackedColorArray = data[Mesh.ARRAY_COLOR]
         if vertices.size() < 36 or vertices.size() != normals.size() or (
-                vertices.size() != uvs.size()):
+                vertices.size() != uvs.size()) or colors.size() != vertices.size():
             _fail("polygon topology/UVs incomplete: " + kind)
             return
         for i in range(0, vertices.size(), 3):
