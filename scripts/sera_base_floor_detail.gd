@@ -2,9 +2,10 @@ extends RefCounted
 ## Reference-style armored deck: panel seams, bolts, gutters, hazard routing,
 ## drainage grates and laid power cables. Opaque MultiMeshes, no floor textures.
 const PALETTE = {
-    "seam": "#27313d", "edge": "#697480", "bolt": "#88919a",
-    "grate": "#121d28", "grille": "#566470", "caution": "#b39759",
-    "cable": "#202831", "pipe": "#7e745f", "mark": "#536476"
+    # Detail must support silhouette separation; bright blue-gray seams are distracting.
+    "seam": "#11171b", "edge": "#40474a", "bolt": "#596267",
+    "grate": "#0b1114", "grille": "#353c40", "caution": "#d7a951",
+    "cable": "#0f171b", "pipe": "#60594a", "mark": "#67614b"
 }
 const DETAIL_RADIUS: int = 13
 const PANEL_STEP: float = 3.0
