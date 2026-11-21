@@ -3838,3 +3838,10 @@
 - 「PURGE / 不用品一括削除」は操作タブ領域から外し、`FacilityItemLayer` 内の仮想倉庫カード一覧の直前へ配置。PURGE操作は従来の確認ダイアログと保存ロジックを維持。装備カード自体の999件縦スクロールは残し、その他LABOページへの切替時にはアクションスクロールを自動で戻す。
 - 倉庫カード内の2列追加特性を左右とも6px内側へ移動。左列の開始位置16→22px、右列は中央+8→中央+14px。列幅もその分だけ調整し、2pxブルーグレー中央線・上下の間隔、5特性の左3/右2、空欄の非表示、最大32カードプールは変えない。
 - 新しい静的/Godotテストで7タブ・固定領域・PURGE位置・2列文字・表示後のプール再利用・別ページへの戻りを検証し、旧v540の16px期待値を更新。実機で異なる縦横解像度の文字切れとタブ表示を確認する。
+
+
+## 2026-11-21 BASE floor props — facility-specific industrial assortment
+- Added 52 static accessory clusters across all 8 BASE sites (8 NEXUS, 8 LABO, 6 per remaining site): tools, spare parts, scrap, energy modules, crates, cables, forged components, calibration and construction gear.
+- 40 authored object IDs and multiple physical silhouettes use `scripts/sera_base_clutter.gd`, emitted into the existing `sera_base_architecture.gd` material-batched MultiMeshes without new independent object draws. Decorative geometry includes no new physics/collisions, shaders or live loops.
+- Authored X/Z footprints fit within each reserved single-piece facility slab with entrance and CRATE traffic lanes kept open. Existing 8 building positions, floor panels, Android portrait camera, UI, equipment and resource mechanics remain unchanged.
+- Required static+Godot runtime checks added in `tools/base_site_prop_variety_*.{py,gd}` before implementation. End-to-end CI and on-device visuals must be verified separately.

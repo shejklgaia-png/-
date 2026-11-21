@@ -1,4 +1,5 @@
 extends RefCounted
+const BaseClutter = preload("res://scripts/sera_base_clutter.gd")
 const WEATHERED_STEEL_PATH: String = "res://assets/base/industrial_steel_grunge.svg"
 const WEATHERED_CANVAS_PATH: String = "res://assets/base/aged_canvas_weave.svg"
 ## Industrial reference rebuild for the eight individually modelled base structures.
@@ -250,6 +251,7 @@ static func build_nexus(parent: Node3D) -> void:
         Vector3(0.62, 0.13, 0.38), "edge", 0.16)
     g.box("ScrapYardSpareParts", Vector3(1.94, 0.39, 3.19),
         Vector3(0.33, 0.13, 0.55), "rust", -0.28)
+    BaseClutter.decorate(g, "NEXUS")
     g.flush()
     _light(node, "NexusAmberGateLight", Vector3(0, 2.55, 2.89),
         "#ffc491", 1.05, 4.0)
@@ -520,6 +522,7 @@ static func build_facility(parent: Node3D, key: String) -> void:
         for end in [-1.0, 1.0]:
             g.box("BaseMountingBolt", Vector3(side * 0.72, 0.34, end * 0.71),
                 Vector3(0.11, 0.055, 0.11), "edge")
+    BaseClutter.decorate(g, key)
     g.flush()
     match key:
         "LABO":
