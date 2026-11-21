@@ -8,6 +8,8 @@ const SLOT_ORDER = [
     "head", "torso", "arms", "legs", "booster", "weapon_r", "weapon_l"
 ]
 const PORTRAIT_SIZE: float = 2.0
+# The canonical NEXUS exhibition pose names, as used by command_nexus.gd.
+const NEXUS_POSE_NAMES: Array[String] = ["NEXUS_pose", "NEXUSpose"]
 const MIN_ZOOM: float = 0.25
 const MAX_ZOOM: float = 4.0
 
@@ -18,6 +20,8 @@ var rig: Node3D
 var handler: RefCounted
 var ready_for_commands: bool = false
 var view_mode: String = "body"
+var icon_idle_clip: String = ""
+var active_full_body_pose: String = ""
 var editing_slot: String = "head"
 var selected: Dictionary = {}
 var rig_base_transforms: Dictionary = {}
@@ -77,7 +81,9 @@ func _ready() -> void:
         _post({"type":"SERA_PREVIEW_ERROR","message":"SERA game rig failed to initialize"})
         return
     rig.call("set_exhibition_mode", true)
-    # The NEXUS display also freezes this rig at its authored exhibition pose.
+    # SeraRig's default is a combat WAIT. NEXUS explicitly samples the
+    # authored NEXUS_pose before disabling processing; match that on BODY.
+    icon_idle_clip = str(rig.get("current_clip"))
     rig.set_process(false)
     rig.set_physics_process(false)
     handler = rig.get("equipment_handler") as RefCounted
@@ -86,6 +92,7 @@ func _ready() -> void:
         return
     for slot in SLOT_ORDER:
         selected[slot] = "A"
+    _apply_preview_standing_pose()
     _cache_native_transforms()
     _apply_frame()
     ready_for_commands = true
@@ -185,6 +192,55 @@ func _apply_edit_size() -> void:
             var before: Transform3D = inv * piece.global_transform
             piece.global_transform = rig.global_transform * fit_transform * before
 
+func _apply_preview_standing_pose() -> void:
+    if rig == null:
+        return
+    var animations: Dictionary = rig.get("animations")
+    if view_mode == "icon":
+        # Keep the original isolated icon-camera stance. Full-body-only pose
+        # changes must not leak into the ICON/parameters captures.
+        if animations.has(icon_idle_clip):
+            rig.set("current_clip", icon_idle_clip)
+            rig.set("clip_time", 0.0)
+            rig.set("blending_for", 1.0)
+            rig.set("blend_duration", 0.0)
+            rig.call("_apply_animation", 0.0)
+        active_full_body_pose = ""
+        return
+    # Mirror command_nexus.gd:_apply_nexus_pose exactly: use the authored
+    # SeraRig clip, including the animation tracks merged for bird legs.
+    for pose_name in NEXUS_POSE_NAMES:
+        if not animations.has(pose_name):
+            continue
+        var clip: Dictionary = animations[pose_name]
+        if (clip.get("tracks", {}) as Dictionary).is_empty():
+            continue
+        rig.set("current_clip", pose_name)
+        rig.set("clip_time", 0.0)
+        rig.set("blending_for", 1.0)
+        rig.set("blend_duration", 0.0)
+        rig.call("_apply_animation", 0.0)
+        active_full_body_pose = pose_name
+        return
+    # Match NEXUS's bind-pose fallback if a future rig omits the authored
+    # NEXUS clip. Never fall back to the crouched Wait_motion for BODY.
+    var bones: Dictionary = rig.get("bones")
+    var bind_positions: Dictionary = rig.get("bind_positions")
+    var bind_rotations: Dictionary = rig.get("bind_rotations")
+    var arm_angles := {"UpperArm_R": -38.0, "UpperArm_L": 38.0,
+        "Forearm_R": -8.0, "Forearm_L": 8.0,
+        "Shoulder_R": -5.0, "Shoulder_L": 5.0}
+    for uid in bones.keys():
+        var bone: Node3D = bones[uid]
+        bone.position = bind_positions[uid]
+        bone.quaternion = bind_rotations[uid]
+        bone.scale = Vector3.ONE
+        if arm_angles.has(bone.name):
+            bone.quaternion = bone.quaternion * Quaternion(
+                Vector3.BACK, deg_to_rad(float(arm_angles[bone.name])))
+    active_full_body_pose = "NEXUS_fallback"
+
+
 func _apply_equipment() -> void:
     if handler == null:
         return
@@ -198,6 +254,9 @@ func _apply_equipment() -> void:
             request="A"
         handler.call("select_part",slot,request,false)
         selected[slot]=request
+    # Sample the NEXUS stand after every equip operation, before mesh size,
+    # bounds normalization and camera framing; restores on BODY/ICON switches.
+    _apply_preview_standing_pose()
     if view_mode=="icon":
         var available: Dictionary = handler.get("available")
         for set_data in available.values():
