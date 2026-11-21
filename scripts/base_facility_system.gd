@@ -777,8 +777,8 @@ func attach_hud(hud: Control) -> void:
     confirm_panel.anchor_bottom = 0.895
     confirm_panel.mouse_filter = Control.MOUSE_FILTER_STOP
     var confirm_skin := StyleBoxFlat.new()
-    confirm_skin.bg_color = Color("#0b202d")
-    confirm_skin.border_color = Color("#568d9f")
+    confirm_skin.bg_color = Color("#0d222d")
+    confirm_skin.border_color = Color("#55798a")
     confirm_skin.set_border_width_all(2)
     confirm_skin.set_corner_radius_all(1)
     confirm_skin.content_margin_left = 19
@@ -804,7 +804,7 @@ func attach_hud(hud: Control) -> void:
     confirmation_system = confirm_system
     confirmation_phase = Label.new()
     confirmation_phase.name = "LaboConfirmPhase"
-    confirmation_phase.text = "SERA / FABRICATION     •     SHELL"
+    confirmation_phase.text = "SERA  /  EQUIPMENT FABRICATION"
     confirmation_phase.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
     confirmation_phase.add_theme_font_override("font", LaboSkin.tracked_data_font())
     confirmation_phase.add_theme_font_size_override("font_size", 14)
@@ -818,6 +818,13 @@ func attach_hud(hud: Control) -> void:
     confirmation_title.add_theme_font_override("font", LaboSkin.title_font())
     confirmation_title.add_theme_color_override("font_color", Color("#eef9fc"))
     confirm_vbox.add_child(confirmation_title)
+    var accent_rail := ColorRect.new()
+    accent_rail.name = "LaboConfirmAccentRail"
+    accent_rail.color = Color("#55798a")
+    accent_rail.custom_minimum_size = Vector2(0, 2)
+    accent_rail.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+    accent_rail.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    confirm_vbox.add_child(accent_rail)
     var confirm_subtitle := Label.new()
     confirm_subtitle.name = "LaboConfirmSubtitle"
     confirm_subtitle.text = "ASSEMBLY  /  CONFIRMATION"
@@ -833,8 +840,8 @@ func attach_hud(hud: Control) -> void:
     confirmation_craft_card.size_flags_vertical = Control.SIZE_SHRINK_CENTER
     confirmation_craft_card.custom_minimum_size.y = 610.0
     var craft_skin := StyleBoxFlat.new()
-    craft_skin.bg_color = Color("#112b39")
-    craft_skin.border_color = Color("#426c7a")
+    craft_skin.bg_color = Color("#102733")
+    craft_skin.border_color = Color("#3a6573")
     craft_skin.set_border_width_all(1)
     craft_skin.set_corner_radius_all(1)
     craft_skin.content_margin_left = 18.0
@@ -930,7 +937,7 @@ func attach_hud(hud: Control) -> void:
     square_content.add_child(craft_rotate_cue)
     var preview_legend := Label.new()
     preview_legend.name = "LaboConfirmPreviewLegend"
-    preview_legend.text = "DRAG / ROTATE       •       PINCH / ZOOM"
+    preview_legend.text = "DRAG  /  ROTATE       •       PINCH  /  ZOOM"
     preview_legend.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
     preview_legend.add_theme_font_override("font", LaboSkin.tracked_data_font())
     preview_legend.add_theme_font_size_override("font_size", 12)
@@ -941,24 +948,35 @@ func attach_hud(hud: Control) -> void:
     stats_panel.name = "LaboConfirmStatsPanel"
     stats_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
     var stats_skin := StyleBoxFlat.new()
-    stats_skin.bg_color = Color("#0c202c")
-    stats_skin.border_color = Color("#345766")
+    stats_skin.bg_color = Color("#0b1d27")
+    stats_skin.border_color = Color("#365866")
     stats_skin.set_border_width_all(1)
     stats_skin.set_corner_radius_all(0)
     stats_skin.content_margin_left = 14.0
     stats_skin.content_margin_right = 14.0
-    stats_skin.content_margin_top = 12.0
-    stats_skin.content_margin_bottom = 12.0
+    stats_skin.content_margin_top = 8.0
+    stats_skin.content_margin_bottom = 9.0
     stats_panel.add_theme_stylebox_override("panel", stats_skin)
     craft_info.add_child(stats_panel)
+    var stats_column := VBoxContainer.new()
+    stats_column.name = "LaboConfirmStatsColumn"
+    stats_column.add_theme_constant_override("separation", 6)
+    stats_panel.add_child(stats_column)
+    var stats_header := Label.new()
+    stats_header.name = "LaboConfirmStatsHeader"
+    stats_header.text = "BASE STATUS"
+    stats_header.add_theme_font_override("font", LaboSkin.tracked_display_font())
+    stats_header.add_theme_font_size_override("font_size", 14)
+    stats_header.add_theme_color_override("font_color", Color("#86aab9"))
+    stats_column.add_child(stats_header)
     confirmation_item_stats = Label.new()
     confirmation_item_stats.name = "LaboConfirmItemStats"
-    confirmation_item_stats.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    confirmation_item_stats.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
     confirmation_item_stats.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
     confirmation_item_stats.add_theme_font_override("font", LaboSkin.stats_font())
-    confirmation_item_stats.add_theme_font_size_override("font_size", 19)
+    confirmation_item_stats.add_theme_font_size_override("font_size", 18)
     confirmation_item_stats.add_theme_color_override("font_color", Color("#d3e9ee"))
-    stats_panel.add_child(confirmation_item_stats)
+    stats_column.add_child(confirmation_item_stats)
     confirmation_text = Label.new()
     confirmation_text.name = "LaboConfirmDescription"
     confirmation_text.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
