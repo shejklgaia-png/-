@@ -47,7 +47,7 @@ ui = read("tools/equipment_intake/intake_ui.js")
 hook = read("tools/equipment_intake/intake_preview_hook.js")
 godot = read("tools/equipment_intake/godot_preview.gd")
 web = read("tools/equipment_intake/build_web_preview.py")
-for literal in ('name==="rig"?"body":"icon"', "updateStatsPreview",
+for literal in ('activeTab==="rig"?"body":"icon"', "updateStatsPreview",
                 'selected=Object.fromEntries', '"head"?"D":"A"',
                 "SERA_INTAKE_RENDER.snapshot()", 'name==="icon"'):
     assert literal in ui, literal
