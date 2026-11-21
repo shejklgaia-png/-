@@ -26,12 +26,15 @@ for spec in (
 for feature in (
     '"LabPrinterFrontHousing"', '"LabPrinterWorkSurface"',
     '"CollectorForwardCable"', '"CollectorOpenClawJaw"',
+    '"CollectorVisibleJawCheek"',
     '"GeneratorCoreBackdrop"', '"GeneratorVisibleRotorSpoke"',
     '"StorageContainerRoof"', '"StorageRoofRidge"',
+    '"StorageVisibleCargoCase"',
 ):
     assert feature in roof, "missing camera-facing detail " + feature
 assert '"CargoStorageTarp"' in arch
 assert '"StorageExposedUpperCargo"' in arch
+assert '"StorageVisibleCargoCase"' in roof
 assert 'Vector3(2.30, 0.14, 0.96)' in roof, "storage roof still hides the cargo"
 assert "BaseRoofIdentity.add_details(g, key)" in arch
 # Real viewport screenshot, AFTER fully constructing eight facilities.
