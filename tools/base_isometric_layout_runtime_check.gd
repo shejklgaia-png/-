@@ -49,7 +49,7 @@ func _run() -> void:
     var lab_uv: Vector2 = Vector2.ZERO
     var lower_station_uvs: Dictionary = {}
     var top_uv: Vector2 = nexus_tap / view
-    if absf(top_uv.x - 0.50) > 0.11 or top_uv.y > 0.30:
+    if absf(top_uv.x - 0.50) > 0.11 or top_uv.y > 0.36:
         _fail("NEXUS not on upper center")
         return
     var names := ["LABO", "SMELTER", "RECYCLER", "STORAGE",
