@@ -2032,9 +2032,9 @@ func _finalize_target_pose(delta: float) -> void:
                 # The approved DOWN timer runs AFTER the authored
                 # 1.75s impact. Two planted diagonal foot swaps then
                 # finish before the original 1.0/1.3s BODY rise begins.
-                var recovery_start: float = float(
-                    bittaran_foot_ik.get("break_recover_start"))
-                    + BittaranFootIK.DOWN_REPLANT_SECONDS
+                var recovery_start: float = (
+                    float(bittaran_foot_ik.get("break_recover_start"))
+                    + BittaranFootIK.DOWN_REPLANT_SECONDS)
                 var recovery_end: float = float(
                     bittaran_foot_ik.get("break_duration"))
                 var raw_phase: float = clampf(
