@@ -48,7 +48,7 @@ func _run() -> void:
     var name: Label = card.find_child("ItemTitle", true, false) as Label
     var status: Label = card.find_child("ItemInfo", true, false) as Label
     if name.get_theme_font_size("font_size") < 24 or (
-            status.get_theme_font_size("font_size") != 17) or (
+            status.get_theme_font_size("font_size") != 20) or (
             locked.find_child("ItemTitle", true, false).get_theme_font("font") != display):
         _fail("craft name, stats and LOCKED SLOT not differentiated")
         return
