@@ -58,6 +58,13 @@ class Batch:
             yaw: float = 0.0) -> void:
         _put(feature, "cube", tint, Basis(Vector3.UP, yaw).scaled_local(size), at)
 
+    # True pitched/rolled steel plates, reusing the cube MultiMesh and
+    # existing opaque materials: no per-panel nodes or additional draw groups.
+    func box_tilt(feature: String, at: Vector3, size: Vector3,
+            tint: String = "armor", angles: Vector3 = Vector3.ZERO) -> void:
+        _put(feature, "cube", tint,
+            Basis.from_euler(angles).scaled_local(size), at)
+
     func rod(feature: String, start: Vector3, finish: Vector3, diameter: float,
             tint: String = "trim") -> void:
         var direction: Vector3 = finish - start

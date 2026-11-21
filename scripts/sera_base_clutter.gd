@@ -1,4 +1,5 @@
 extends RefCounted
+const JunkGeometry = preload("res://scripts/sera_base_junk_geometry.gd")
 ## Purpose-built 3D yard accessories. All pieces are appended to the existing
 ## opaque/instanced facility Batch; no per-prop MeshInstance nodes or simulation.
 ## Stable local XZ positions preserve the single-panel slab and entrance clearance.
@@ -395,7 +396,10 @@ static func stack_pitch_for(kind: String) -> float:
             return 0.50
         "rack_stack":
             return 0.98
-        "armored_bundle", "armor_rack", "bent_armor", "panel_stack", "building_parts":
+        "panel_stack":
+            # Layered thin sheets touch a thinner metal pallet than armor boxes.
+            return 0.36
+        "armored_bundle", "armor_rack", "bent_armor", "building_parts":
             return 0.73
         _:
             return 0.0
@@ -424,6 +428,15 @@ class LiftedBatch:
     func box(feature: String, at: Vector3, size: Vector3,
             tint: String = "armor", yaw: float = 0.0) -> void:
         target.box(feature, at + delta, size, tint, yaw)
+
+    # Forward true pitch/roll as well as lift; the legacy fixture still has
+    # a yaw-only box method and uses that fallback for recording.
+    func box_tilt(feature: String, at: Vector3, size: Vector3,
+            tint: String = "armor", angles: Vector3 = Vector3.ZERO) -> void:
+        if target.has_method("box_tilt"):
+            target.box_tilt(feature, at + delta, size, tint, angles)
+        else:
+            target.box(feature, at + delta, size, tint, angles.y)
 
     func rod(feature: String, a: Vector3, b: Vector3, diameter: float,
             tint: String = "trim") -> void:
@@ -697,7 +710,11 @@ static func _make(g: Variant, kind: String, at: Vector2, k: float,
                     Vector3(-0.21 + 0.14*j, 0.41, 0),
                     Vector3(0.052, 0.60, 0.38),
                     "blue" if kind == "coil_pack" else "rubber")
-        "armored_bundle", "armor_rack", "bent_armor", "panel_stack", "building_parts":
+        "panel_stack":
+            # Each two-tier pile consists of 12 actual thin plates, six
+            # independently modeled silhouettes and different X/Z slopes.
+            JunkGeometry.panel_stack(g, at, k, order)
+        "armored_bundle", "armor_rack", "bent_armor", "building_parts":
             _box(g, kind + "_rack", at, k, Vector3(0, 0.19, 0),
                 Vector3(0.78, 0.16, 0.60), "trim")
             for j in range(4):
