@@ -23,7 +23,7 @@ func _run() -> void:
             not Catalog.ORDER.has("H02")):
         _fail("H02 is not a selectable real D head blueprint")
         return
-    if not is_equal_approx(float(Stats.base_values("H02").get("hp", -1)), 20.0):
+    if not is_equal_approx(float(Stats.base_values("H02").get("hp", -1)), 40.0):
         _fail("H02 must preserve current A-derived head base stats until balanced")
         return
     var icon: Texture2D = Icons.equipment_icon("H02")

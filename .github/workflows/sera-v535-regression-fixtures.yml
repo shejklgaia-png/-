@@ -1,0 +1,59 @@
+name: SERA v535 balance regression acceptance (seven affected tests)
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'tools/iris_h02_craft_runtime_check.gd'
+      - 'tools/warehouse_stats_table_runtime_check.gd'
+      - 'tools/v531_labo_interaction_runtime_check.gd'
+      - 'tools/v345_bittaran_runtime_check.gd'
+      - 'tools/v349_bittaran_down_lock_runtime_check.gd'
+      - 'tools/v373_bittaran_minimal_knee_fold_runtime_check.gd'
+      - 'tools/bittaran_railgun_runtime_check.gd'
+      - '.github/workflows/sera-v535-regression-fixtures.yml'
+  workflow_dispatch:
+
+jobs:
+  seven-balance-regressions:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Godot 4.7.2
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 3 --connect-timeout 15 --max-time 180 \
+            --output "$RUNNER_TEMP/godot.zip" \
+            "https://github.com/godotengine/godot/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip"
+          mkdir -p "$RUNNER_TEMP/godot"
+          unzip -q "$RUNNER_TEMP/godot.zip" -d "$RUNNER_TEMP/godot"
+          chmod +x "$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64"
+      - name: Import authored SERA resources
+        run: '"$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" --headless --editor --path . --import --quit'
+      - name: Execute seven original Godot checks with updated expectations
+        shell: bash
+        run: |
+          set -euo pipefail
+          godot="$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64"
+          tests=(
+            tools/bittaran_railgun_runtime_check.gd
+            tools/iris_h02_craft_runtime_check.gd
+            tools/v345_bittaran_runtime_check.gd
+            tools/v349_bittaran_down_lock_runtime_check.gd
+            tools/v373_bittaran_minimal_knee_fold_runtime_check.gd
+            tools/v531_labo_interaction_runtime_check.gd
+            tools/warehouse_stats_table_runtime_check.gd
+          )
+          for script in "${tests[@]}"; do
+            echo "::group::$script"
+            timeout 120s "$godot" --headless --path . --script "$script" 2>&1 | tee "$RUNNER_TEMP/current-godot.log"
+            if grep -E 'SCRIPT ERROR|Parse Error|Compile Error|_FAIL:|ERROR: Failed to load' "$RUNNER_TEMP/current-godot.log"; then
+              echo "::error::Script failed: $script"
+              exit 1
+            fi
+            echo "::endgroup::"
+          done
+          echo "SERA_V535_SEVEN_REGRESSIONS_PASS"

@@ -81,7 +81,7 @@ func _run() -> void:
                 total.get_theme_font_size("font_size") <= formula.get_theme_font_size("font_size")):
             _fail("stat label and total need stronger visual hierarchy")
             return
-    if _cell(table, "Stat_total_hp").text != "20.8" or (
+    if _cell(table, "Stat_total_hp").text != "41.6" or (
             _cell(table, "Stat_total_defense").text != "18.0%"):
         _fail("HP and defense calculations were changed during the UI refactor")
         return
