@@ -112,6 +112,19 @@ jobs:
           path: assets/ui/sera_equipment_icons/*.png
           if-no-files-found: warn
           retention-days: 14
+      - name: Publish verified equipment PNGs to this PR branch
+        if: github.event_name == 'pull_request' && success() && github.event.pull_request.head.repo.full_name == github.repository
+        env:
+          SOURCE_BRANCH: ${{ github.head_ref }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add assets/ui/sera_equipment_icons
+          if ! git diff --cached --quiet; then
+            git commit -m "assets: register all 19 verified SeraRig photographs [skip ci]"
+            git push origin "HEAD:refs/heads/$SOURCE_BRANCH"
+          fi
       - name: Verify actual facility card pixels in a virtual display
         env:
           SERA_UI_RENDER_DIR: ${{ runner.temp }}/sera-ui-render

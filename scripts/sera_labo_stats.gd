@@ -28,16 +28,32 @@ static func _amount(value: float) -> String:
     return "%.1f" % value
 
 static func baseline(blueprint: String) -> String:
-    var base: Dictionary = base_values(blueprint)
+    # Compact LABO cards must summarize the REAL authored part, not just
+    # Affixes' HP/DEF/attack keys. In particular left-hand shields previously
+    # displayed "no baseline" despite their real guard/bash profiles.
+    var spec: Dictionary = Catalog.spec(blueprint)
+    if spec.is_empty():
+        return ""
+    var slot: String = str(spec.get("slot", ""))
+    var summary_fields: Dictionary = {
+        "head": ["hp", "defense", "lock_range"],
+        "torso": ["hp", "defense", "en_output_mult"],
+        "arms": ["hp", "defense", "attack_mult"],
+        "legs": ["hp", "run_speed", "boost_speed_mult"],
+        "booster": ["hp", "boost_speed", "energy_cost_mult"],
+        "weapon_r": ["attack_damage", "break_damage", "stagger_extend"],
+        "weapon_l": ["bash_damage", "charge_damage", "guard_cost_mult"]
+    }
+    var complete: PackedStringArray = complete_profile_text(blueprint).split("\n")
     var lines: PackedStringArray = ["基礎ステータス"]
-    for key in Affixes.EFFECT_IDS:
-        if float(base[key]) <= 0.0:
-            continue
-        var unit: String = "" if key in ["hp", "attack"] else "%"
-        lines.append("%s  %s%s" % [
-            Affixes.EFFECT_NAMES[key], _amount(float(base[key])), unit])
+    for key in summary_fields.get(slot, []):
+        var match_prefix: String = str(PROFILE_LABELS.get(key, key)) + "  "
+        for candidate in complete:
+            if str(candidate).begins_with(match_prefix):
+                lines.append(str(candidate))
+                break
     if lines.size() == 1:
-        lines.append("表示対象の基礎値はありません")
+        lines.append("性能登録エラー：参照先に基礎値がありません")
     return "\n".join(lines)
 
 static func total_stat_rows(blueprint: String, effects: Variant) -> Array[Dictionary]:

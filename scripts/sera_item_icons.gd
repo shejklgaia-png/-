@@ -234,5 +234,8 @@ static func material_has_icon(material_id: String) -> bool:
     return MATERIAL_INDICES.has(material_id)
 
 static func equipment_has_icon(blueprint_id: String) -> bool:
-    return FileAccess.file_exists(NATIVE_EQUIPMENT_DIRECTORY + "/" + blueprint_id + ".png") or (
+    var path: String = NATIVE_EQUIPMENT_DIRECTORY + "/" + blueprint_id + ".png"
+    # Exported Android packs can retain the imported texture without a
+    # raw PNG file; detect both resource and source representations.
+    return ResourceLoader.exists(path) or FileAccess.file_exists(path) or (
         blueprint_id == "H02" and CustomEquipmentIcons.ICON_PNG_BASE64.has(blueprint_id))

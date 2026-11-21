@@ -3,6 +3,7 @@ extends SceneTree
 const Catalog = preload("res://scripts/sera_prototype_catalog.gd")
 const PartStats = preload("res://scripts/sera_part_stats.gd")
 const Icons = preload("res://scripts/sera_item_icons.gd")
+const LaboStats = preload("res://scripts/sera_labo_stats.gd")
 const RigScript = preload("res://scripts/sera_rig.gd")
 
 func _initialize() -> void:
@@ -43,6 +44,27 @@ func _check() -> void:
         if stats.is_empty() or not stats.has("weight_pct"):
             _fail(id + ": profile has no part-specific mass/performance")
             return
+        var summary: String = LaboStats.baseline(id)
+        if summary.find("基礎ステータス") < 0 or summary.find("性能登録エラー") >= 0:
+            _fail(id + ": real equipment card has no summary statistics")
+            return
+        var full: String = LaboStats.complete_profile_text(id)
+        for property in stats.keys():
+            var raw: Variant = stats[property]
+            var nonzero: bool = true
+            if raw is bool:
+                nonzero = bool(raw)
+            elif raw is int or raw is float:
+                nonzero = not is_zero_approx(float(raw))
+            elif raw is Array:
+                nonzero = false
+                for number in raw:
+                    if absf(float(number)) > 0.00001:
+                        nonzero = true
+            var caption: String = str(LaboStats.PROFILE_LABELS.get(property, property))
+            if nonzero and not full.contains(caption + "  "):
+                _fail(id + ": missing displayed nonzero field " + str(property))
+                return
         var base: Dictionary = profiles[slot]["A"]
         for field in base.keys():
             if not stats.has(field):
