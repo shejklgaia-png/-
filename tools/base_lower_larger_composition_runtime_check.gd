@@ -60,8 +60,10 @@ func _run() -> void:
             return
         var projected: Rect2 = stations.call("_projected_bounds", camera, key)
         var uv: Rect2 = Rect2(projected.position / view, projected.size / view)
+        var lower_margin: float = 0.945 if key in [
+            "SCRAP_COLLECTOR", "BUILD_TERMINAL"] else 0.89
         if uv.position.x < 0.03 or uv.end.x > 0.96 or (
-                uv.position.y < 0.13 or uv.end.y > 0.89):
+                uv.position.y < 0.13 or uv.end.y > lower_margin):
             _fail("station clipped / enters HUD: " + key + " " + str(uv))
             return
         var tap: Vector2 = camera.unproject_position(
@@ -72,7 +74,7 @@ func _run() -> void:
     var terminal: Node3D = stations.get_node("BUILD_TERMINAL") as Node3D
     var bottom_uv: Vector2 = camera.unproject_position(
         terminal.global_position) / view
-    if bottom_uv.y < 0.79 or bottom_uv.y > 0.84:
+    if bottom_uv.y < 0.855 or bottom_uv.y > 0.89:
         _fail("lower yard still leaves excess space: " + str(bottom_uv))
         return
     var lab: Node3D = stations.get_node("LABO") as Node3D
@@ -80,5 +82,12 @@ func _run() -> void:
     if lab_uv.y < 0.67 or lab_uv.y > 0.71:
         _fail("LABO moved off lower central area: " + str(lab_uv))
         return
+    for lower in ["SCRAP_COLLECTOR", "BUILD_TERMINAL"]:
+        var lower_node: Node3D = stations.get_node(lower) as Node3D
+        var lower_uv: Vector2 = camera.unproject_position(
+            lower_node.global_position) / view
+        if lower_uv.y - lab_uv.y < 0.16:
+            _fail("LABO and lower facility are still crowded: " + lower)
+            return
     print("SERA_BASE_LOWER_LARGER_COMPOSITION_RUNTIME_PASS")
     quit(0)

@@ -8,8 +8,11 @@ func _fail(reason: String) -> void:
 
 func _fit(rect: Rect2, view: Vector2, label: String) -> bool:
     var uv: Rect2 = Rect2(rect.position / view, rect.size / view)
+    # The collector and terminal intentionally use the clear lower strip.
+    var lower_margin: float = 0.945 if label in [
+        "SCRAP_COLLECTOR", "BUILD_TERMINAL"] else 0.885
     if (uv.position.x < 0.035 or uv.end.x > 0.965 or
-            uv.position.y < 0.040 or uv.end.y > 0.885):
+            uv.position.y < 0.040 or uv.end.y > lower_margin):
         _fail("building clipped / too close to portrait edge: " + label + " " + str(uv))
         return false
     return true
@@ -44,6 +47,7 @@ func _run() -> void:
         _fail("visible NEXUS no longer opens from its own model")
         return
     var lab_uv: Vector2 = Vector2.ZERO
+    var lower_station_uvs: Dictionary = {}
     var top_uv: Vector2 = nexus_tap / view
     if absf(top_uv.x - 0.50) > 0.11 or top_uv.y > 0.30:
         _fail("NEXUS not on upper center")
@@ -64,6 +68,8 @@ func _run() -> void:
             machine.global_position + Vector3(0.0, 1.0, 0.0))
         if name == "LABO":
             lab_uv = spot / view
+        elif name in ["SCRAP_COLLECTOR", "BUILD_TERMINAL"]:
+            lower_station_uvs[name] = spot / view
         if str(machines.call("key_at", camera, spot)) != name:
             _fail("visible facility is not tappable: " + name)
             return
@@ -77,6 +83,12 @@ func _run() -> void:
     if lab_uv.y - top_uv.y < 0.30 or lab_uv.y - top_uv.y > 0.45:
         _fail("NEXUS and LABO vertical tiers collapsed")
         return
+    # Both lower facilities must be distinctly below the LABO operating face.
+    for lower in ["SCRAP_COLLECTOR", "BUILD_TERMINAL"]:
+        var uv: Vector2 = lower_station_uvs.get(lower, Vector2.ZERO)
+        if uv.y - lab_uv.y < 0.155:
+            _fail("lower row is crowded against LABO: " + lower + " " + str(uv))
+            return
     machines.call("update_tags", camera)
     var tags: Dictionary = machines.get("facility_tags")
     for name in names:

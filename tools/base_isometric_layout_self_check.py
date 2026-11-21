@@ -29,6 +29,7 @@ assert 'gd tools/base_isometric_layout_runtime_check.gd' in ci
 # NEXUS anchors the upper center, LABO is a little below the open mid-field.
 # Three peripheral rows are intentionally asymmetric rather than a strict grid.
 # These independent target coordinates are the approved composition.
+# Bottom row is 80px lower than before so its roofs clear the LABO foreground.
 desired = {
     "NEXUS": (.509, .320),
     "LABO": (.503, .687),
@@ -36,8 +37,8 @@ desired = {
     "RECYCLER": (.790, .460),
     "STORAGE": (.198, .617),
     "GENERATOR": (.812, .631),
-    "SCRAP_COLLECTOR": (.172, .791),
-    "BUILD_TERMINAL": (.705, .806),
+    "SCRAP_COLLECTOR": (.172, .854),
+    "BUILD_TERMINAL": (.705, .869),
 }
 read_nexus = re.search(
     r'const NEXUS_BUILDING_ORIGIN: Vector3 = Vector3\(([-.\d]+), ([-.\d]+), ([-.\d]+)\)', base)
