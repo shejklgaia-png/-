@@ -61,7 +61,14 @@ for required in (
 stat_layout = (root / "scripts/sera_status_column_ui.gd").read_text(encoding="utf-8")
 assert 'static func layout_metric_pair(' in stat_layout
 assert 'get_string_size(' in stat_layout
-assert 'name_label.autowrap_mode = TextServer.AUTOWRAP_ARBITRARY' in stat_layout
+assert 'static func semantic_stat_lines(' in stat_layout
+assert 'name_label.autowrap_mode = TextServer.AUTOWRAP_OFF' in stat_layout
+assert 'name_label.text = semantic_stat_lines(' in stat_layout
+assert 'name_label.autowrap_mode = TextServer.AUTOWRAP_ARBITRARY' not in stat_layout
+for name in ("ブースト速度倍率", "被弾時間倍率", "被弾後退倍率",
+             "部位モデル区分", "ダウン被弾回数", "歩行モーション",
+             "ガードEN消費倍率", "特性 "):
+    assert name in stat_layout, name
 assert 'StatUI.status_window_style()' in nexus
 assert 'StatUI.attach_status_marks(' in nexus
 assert 'StatUI.layout_status_marks(' in nexus
