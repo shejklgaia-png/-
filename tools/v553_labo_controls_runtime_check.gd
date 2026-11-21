@@ -68,8 +68,11 @@ func _run() -> void:
             overlay.find_child("LaboConfirmSaveNotice", true, false) != null):
         _fail("obsolete system title/subtitle or warehouse-save note still shown")
         return
-    if craft_card.custom_minimum_size.y < 260.0 or (
-            picture.custom_minimum_size.x < 130.0 or
+    var square: AspectRatioContainer = overlay.find_child(
+        "LaboConfirmSquarePreview", true, false) as AspectRatioContainer
+    if craft_card.custom_minimum_size.y < 600.0 or (
+            square == null or square.ratio != 1.0 or (
+            square.custom_minimum_size.x < 300.0) or
             nameplate.get_theme_font_size("font_size") < 27 or
             details.get_theme_font_size("font_size") < 18):
         _fail("equipment icon, name and stats must dominate the confirmation")
