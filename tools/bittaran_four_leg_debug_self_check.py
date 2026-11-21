@@ -19,9 +19,11 @@ for text in (
     '"leg_rl": "後左 / BREAK"',
     '"leg_rr": "後右 / BREAK"',
     '"apply_part_hit", id, 0.0, raw_break)',
-    '_handle_bittaran_leg_break(id, result, false, "")',
+    '_handle_bittaran_leg_break(\n        id, result, active_at_hit, attacking_leg_at_hit)',
 ):
     assert text in battle,text
+assert 'var attacking_leg_at_hit: String = (str(' in battle
+assert 'var active_at_hit: bool = (bittaran_rig != null and not str(' in battle
 assert 'func _handle_bittaran_leg_break' not in main
 assert 'func _debug_break_leg' not in main
 assert 'gd tools/bittaran_four_leg_debug_runtime_check.gd' in manifest
