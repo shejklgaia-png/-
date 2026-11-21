@@ -211,6 +211,68 @@ static func tracked_data_font() -> FontVariation:
     return _tracked_data
 
 
+## Shared name-only accent. Draw beneath the visible text (never tabs,
+## action buttons, data tags or empty/LOCKED placeholders). A 1px matte rule
+## is enough at Android portrait size; mouse input passes through it.
+const NAME_UNDERLINE_COLOR: Color = Color("#55798a")
+const NAME_UNDERLINE_HEIGHT: float = 1.0
+
+static func attach_name_underline(label: Label) -> void:
+    if label == null or label.get_node_or_null("NameUnderline") != null:
+        return
+    var line := ColorRect.new()
+    line.name = "NameUnderline"
+    line.color = NAME_UNDERLINE_COLOR
+    line.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    label.add_child(line)
+    # Recalculate on responsive layout changes, not every rendered frame.
+    label.resized.connect(refresh_name_underline.bind(label), CONNECT_DEFERRED)
+    refresh_name_underline(label)
+
+
+static func refresh_name_underline(label: Label) -> void:
+    if not is_instance_valid(label):
+        return
+    var line: ColorRect = label.get_node_or_null("NameUnderline") as ColorRect
+    if line == null:
+        return
+    var lines: PackedStringArray = label.text.split("\n")
+    var name_text: String = lines[lines.size() - 1].strip_edges()
+    if name_text.is_empty():
+        line.visible = false
+        return
+    var font: Font = label.get_theme_font("font")
+    if font == null or label.size.x <= 2.0:
+        line.visible = false
+        return
+    var font_size: int = label.get_theme_font_size("font_size")
+    var measured: float = font.get_string_size(
+        name_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size).x
+    var rule_width: float = minf(maxf(0.0, measured), label.size.x - 2.0)
+    if rule_width <= 2.0:
+        line.visible = false
+        return
+    var x: float = 0.0
+    if label.horizontal_alignment == HORIZONTAL_ALIGNMENT_CENTER:
+        x = (label.size.x - rule_width) * 0.5
+    elif label.horizontal_alignment == HORIZONTAL_ALIGNMENT_RIGHT:
+        x = label.size.x - rule_width
+    var line_count: int = lines.size()
+    var text_height: float = font.get_height(font_size) * float(line_count)
+    text_height += float(maxi(0, line_count - 1)) * float(
+        label.get_theme_constant("line_spacing"))
+    var y: float = 0.0
+    if label.vertical_alignment == VERTICAL_ALIGNMENT_CENTER:
+        y = maxf(0.0, (label.size.y - text_height) * 0.5)
+    elif label.vertical_alignment == VERTICAL_ALIGNMENT_BOTTOM:
+        y = maxf(0.0, label.size.y - text_height)
+    y = clampf(y + text_height - 1.0, 0.0,
+        maxf(0.0, label.size.y - NAME_UNDERLINE_HEIGHT))
+    line.position = Vector2(x, y)
+    line.size = Vector2(rule_width, NAME_UNDERLINE_HEIGHT)
+    line.visible = true
+
+
 static func style(kind: String = "normal") -> StyleBoxFlat:
     # Matte terminal controls: use a slim active underline, not a glowing
     # filled cyan rectangle. Shared by navigation, category, and Back.
