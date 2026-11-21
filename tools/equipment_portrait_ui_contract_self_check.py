@@ -47,7 +47,7 @@ assert 'const PartViewer = preload("res://scripts/sera_part_preview_widget.gd")'
 for s in ("WarehouseEquipmentDetailPopup", "DetailName", "DetailIcon",
           "WarehouseDetailStatsScroll", "WarehouseDetail3D", 
           "WarehouseFavoriteToggle", "WarehouseJunkToggle",
-          "WarehouseStatsTable.build(", "func open_item(", "func close_item("):
+          "StatTable.build(", "func open_item(", "func close_item("):
     assert s in window,s
 assert 'var warehouse_detail_popup:' in warehouse
 assert '_show_warehouse_item_detail(str(item.get("uid", "")))' in warehouse

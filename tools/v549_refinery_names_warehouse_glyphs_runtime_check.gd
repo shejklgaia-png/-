@@ -111,7 +111,11 @@ func _run() -> void:
     fac.call("_switch_section", "warehouse")
     fac.call("_show_warehouse_item_detail", "H01-0004")
     await process_frame
-    var table: GridContainer = (fac.get("modal_actions") as Control).find_child(
+    var popup: Control = fac.get("warehouse_detail_popup") as Control
+    if popup == null or not popup.visible:
+        _fail("equipment detail must open in a separate window")
+        return
+    var table: GridContainer = popup.find_child(
         "WarehouseStatsTable", true, false) as GridContainer
     if table == null or table.columns != 3 or table.get_child_count() != 27:
         save.set("active_slot", prev_slot)
@@ -131,7 +135,7 @@ func _run() -> void:
     var font: Font = Typeface.stats_font()
     for codepoint: int in [0x6700, 0x5927, 0x9632, 0x5FA1]:
         readable = readable and font.has_char(codepoint)
-    var detail_controls: Control = fac.get("modal_actions") as Control
+    var detail_controls: Control = popup
     var favorite: Button = detail_controls.find_child(
         "WarehouseFavoriteToggle", true, false) as Button
     var junk: Button = detail_controls.find_child("WarehouseJunkToggle", true, false) as Button

@@ -32,12 +32,17 @@ func _run() -> void:
         _fail("seven existing equipment selectors must be preserved")
         return
     for slot in equipment:
-        var row: Panel = equipment[slot]["panel"]
-        if row.get_theme_stylebox("panel") != LaboTypeface.card_style("normal"):
-            _fail("equipment row not using cached LABO chamfered card: " + str(slot))
+        var button: Button = equipment[slot]["panel"] as Button
+        if button == null or (
+                button.get_theme_stylebox("normal") !=
+                LaboTypeface.terminal_segment_style("normal")):
+            _fail("name-only equipment button lacks the shared LABO skin: "+str(slot))
             return
-        if (equipment[slot]["value"] as Label).get_theme_font("font") != LaboTypeface.equipment_font():
-            _fail("equipment row lacks LABO's item-name typeface")
+        if button.get_theme_font("font") != LaboTypeface.equipment_font():
+            _fail("equipment-name button lacks the item font")
+            return
+        if button.get_child_count() != 0:
+            _fail("equipment selector must not have old icon/code columns")
             return
     for target in ["TRAINING", "DEPLOYMENT", "SYSTEM", "DATA ARCHIVE", "CUSTOMIZE"]:
         nexus.set("focused_target", target)
@@ -51,56 +56,19 @@ func _run() -> void:
                 _fail("customization equipment panel disappeared")
                 return
             for slot in equipment:
-                var row: Panel = equipment[slot]["panel"]
-                if row.position.y < 0 or row.position.y + row.size.y > right.size.y + 1.0:
-                    _fail("equipment row falls outside the customize panel")
+                var button: Button = equipment[slot]["panel"] as Button
+                if button.position.y < 0.0 or (
+                        button.position.y + button.size.y > right.size.y + 1.0):
+                    _fail("name selector outside right customize window")
                     return
-                var icon: TextureRect = equipment[slot]["equipped_icon"] as TextureRect
-                var item_name: Label = equipment[slot]["value"] as Label
-                var model_code: Label = equipment[slot]["model_code"] as Label
-                if icon == null or item_name == null or model_code == null:
-                    _fail("equipment needs separate icon, name and model-code nodes")
+                if button.text.is_empty() or button.text.contains("SET"):
+                    _fail("part selector must display the actual part name only")
                     return
-                if icon.expand_mode != TextureRect.EXPAND_IGNORE_SIZE:
-                    _fail("72px atlas texture must not override icon layout size")
-                    return
-                # Icon has its own left gutter, a square responsive size,
-                # and an exact vertical centre even on shortened cards.
-                if icon.position.x < 12.0:
-                    _fail("equipment icon lacks a left inset")
-                    return
-                if absf(icon.size.x - icon.size.y) > 0.5 or (
-                        icon.size.y > row.size.y - 16.0):
-                    _fail("equipment icon must stay square and inside the card")
-                    return
-                if absf(icon.position.y + icon.size.y * 0.5 -
-                        row.size.y * 0.5) > 0.5:
-                    _fail("equipment icon is not vertically centered")
-                    return
-                if row.size.x >= 280.0 and row.size.y >= 100.0 and (
-                        icon.size.x < 56.0):
-                    _fail("equipment icon is still too small on a portrait card")
-                    return
-                var minimum_gap: float = maxf(16.0, minf(22.0, row.size.x * 0.07))
-                if item_name.position.x < icon.position.x + icon.size.x + minimum_gap:
-                    _fail("equipment icon-to-name gutter is too narrow")
-                    return
-                if item_name.position.x + item_name.size.x > row.size.x - 5.0:
-                    _fail("equipment name exceeds the card right edge")
-                    return
-                if model_code.horizontal_alignment != HORIZONTAL_ALIGNMENT_RIGHT or (
-                        model_code.position.x + model_code.size.x > row.size.x - 5.0 or
-                        model_code.position.y + model_code.size.y > row.size.y + 1.0):
-                    _fail("model code is not inside the bottom-right corner")
-                    return
-                if (model_code.get_theme_font_size("font_size") >=
-                        item_name.get_theme_font_size("font_size")):
-                    _fail("model code must use smaller type than the item name")
-                    return
-                var code_tint: Color = model_code.get_theme_color("font_color")
-                if code_tint.r > 0.73 or code_tint.g > 0.73 or code_tint.b > 0.73:
-                    _fail("model-code tint must be muted gray")
-                    return
+            var picker: Control = nexus.get("customize_part_picker") as Control
+            var part_preview: Control = nexus.get("customize_single_part_preview") as Control
+            if picker == null or part_preview == null:
+                _fail("NEXUS missing the scrolling picker or left 3D part")
+                return
         elif right.visible:
             _fail("customize panel leaked into " + target)
             return

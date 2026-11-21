@@ -45,17 +45,26 @@ func _run() -> void:
     nexus.set("focused_target", "CUSTOMIZE")
     nexus.call("_focus_arrived", "CUSTOMIZE")
     await process_frame
-    var focus: Panel = nexus.get("focus_panel") as Panel
+    var hud: Control = nexus.get("hud") as Control
     var scroll: ScrollContainer = nexus.get("customize_stats_scroll") as ScrollContainer
     var grid: GridContainer = nexus.get("customize_stats_grid") as GridContainer
     var cells: Array = nexus.get("customize_stat_cells")
-    if focus == null or scroll == null or grid == null or cells.size() < 8:
-        _fail("lower-left status UI not initialized")
+    if hud == null or scroll == null or grid == null or cells.size() < 8:
+        _fail("top-wide aggregate status UI not initialized")
+        return
+    if scroll.get_parent() != hud or grid.columns < 1 or grid.columns > 3:
+        _fail("aggregate stats must be above model in adaptive columns")
         return
     if not scroll.visible or scroll.position.y < 0.0 or (
-            scroll.position.y + scroll.size.y > focus.size.y + 1.0):
-        _fail("stats should appear entirely inside the lower-left window")
+            scroll.position.y + scroll.size.y > hud.size.y * 0.27) or (
+            scroll.position.x + scroll.size.x > hud.size.x + 1.0):
+        _fail("stats must appear entirely at top of CUSTOMIZE screen")
         return
+    for stat_cell in cells:
+        if stat_cell["rule"] == null or not (
+                stat_cell["rule"] is ColorRect):
+            _fail("Blue-grey vertical column dividers absent")
+            return
     var seen: Dictionary = {}
     for cell in cells:
         if (cell["panel"] as Panel).visible:
