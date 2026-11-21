@@ -34,6 +34,8 @@ for feature in (
     "BlueprintAngledHood",
 ):
     assert feature in arch + polish, feature
+assert 'for point in [a, c, b]:' in meshes, (
+    "Godot treats CLOCKWISE triangles as front faces; do not cull the shell")
 assert 'py tools/base_polygon_geometry_self_check.py' in ci
 assert 'gd tools/base_polygon_geometry_runtime_check.gd' in ci
 # The historical deck checks must validate the new authored polygons rather
