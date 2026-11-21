@@ -1,4 +1,6 @@
 # Historical and active-contract regression tests executed by SERA model-policy CI.
+# Self-contained equipment-model Icon Studio: zero manual import and cross-chat PNG metadata.
+py tools/icon_studio/sera_icon_studio_self_check.py
 # Camera-eye standalone HEAD D and export-safe edited Blockbench mesh.
 py tools/camera_eye_head_self_check.py
 gd tools/camera_eye_head_runtime_check.gd
