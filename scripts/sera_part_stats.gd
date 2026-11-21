@@ -9,6 +9,8 @@ const PROFILES = {
     "head": {
         "A": {"weight_pct": 100.0, "hp": 20.0, "defense": 0.16, "lock_range": 24.0, "tracking": 1.0},
         "B": {"weight_pct": 120.0, "hp": 26.0, "defense": 0.28, "lock_range": 20.0, "tracking": 0.88},
+        # HEAD C is a lightweight redesigned optic, with A's combat tuning.
+        "C": {"weight_pct": 85.0, "hp": 20.0, "defense": 0.16, "lock_range": 24.0, "tracking": 1.0},
         # HEAD D / IRIS retains the currently playable A head performance.
         # Cosmetic head option; independent balance is not approved yet.
         "D": {"weight_pct": 65.0, "hp": 20.0, "defense": 0.16, "lock_range": 24.0, "tracking": 1.0}
@@ -32,6 +34,11 @@ const PROFILES = {
             "boost_speed_mult": 0.82, "damage_time_mult": 1.1,
             "damage_push_mult": 0.60, "down_hits": 3,
             "weight_class": "heavy", "run_motion": "slide"},
+        # Bird-leg C uses its own gait and lower nominal assembly mass.
+        "C": {"weight_pct": 75.0, "hp": 20.0, "defense": 0.16, "run_speed": 4.0625,
+            "boost_speed_mult": 1.0, "damage_time_mult": 1.0,
+            "damage_push_mult": 1.0, "down_hits": 3,
+            "weight_class": "medium", "run_motion": "run"},
         # D is the standard-bone 12-mesh heavy lower body; use B heavy stats
         # until independent D balance values are explicitly authored.
         "D": {"weight_pct": 165.0, "hp": 26.0, "defense": 0.30, "run_speed": 3.35,
@@ -55,7 +62,12 @@ const PROFILES = {
             "stagger_extend": 0.18},
         "B": {"weight_pct": 150.0, "attack_damage": [17, 17, 36], "break_damage": [22, 22, 46],
             "stagger_gain": [18.0, 18.0, 35.0], "attack_energy": [4.0, 4.0, 8.0],
-            "stagger_extend": 0.07}
+            "stagger_extend": 0.07},
+        # Katana K retains the established A combat baseline until authored
+        # per-strike Katana balancing is approved; mass is provisional.
+        "K": {"weight_pct": 135.0, "attack_damage": [12, 12, 26],
+            "break_damage": [14, 14, 32], "stagger_gain": [10.0, 10.0, 24.0],
+            "attack_energy": [0.0, 0.0, 0.0], "stagger_extend": 0.18}
     },
     "weapon_l": {
         "A": {"weight_pct": 100.0, "guard_cost_mult": 1.0, "guard_transition": 0.095,
@@ -110,6 +122,9 @@ static func weight_class_for(percent: float) -> String:
 static func weight_percent_for(selected: Dictionary) -> float:
     var total: float = 0.0
     for slot in WEIGHT_SHARES:
+        # K occupies both hands: the regular left-hand shield is not worn.
+        if slot == "weapon_l" and str(selected.get("weapon_r", "A")) == "K":
+            continue
         var set_id: String = str(selected.get(slot, "A"))
         var profiles: Dictionary = PROFILES[slot]
         var profile: Dictionary = profiles.get(set_id, profiles["A"])
