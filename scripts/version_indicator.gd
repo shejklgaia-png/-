@@ -1,4 +1,5 @@
 extends RefCounted
+const LaboTypography = preload("res://scripts/sera_labo_round_skin.gd")
 ## Draw the version from project.godot in any HUD without blocking touch input.
 static func attach(parent: Node) -> Label:
     var version_label := Label.new()
@@ -8,6 +9,7 @@ static func attach(parent: Node) -> Label:
     version_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
     version_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
     version_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+    version_label.add_theme_font_override("font", LaboTypography.tracked_data_font())
     version_label.add_theme_font_size_override("font_size", 14)
     version_label.add_theme_color_override("font_color", Color("#a5cad9"))
     version_label.add_theme_color_override("font_shadow_color", Color(0.0, 0.0, 0.0, 0.8))
