@@ -1,10 +1,11 @@
-## 2026-11-22 — NEXUS hangar opaque metal contrast (night task)
-
 ## 2026-11-22 — BASE roof identity pass (non-gameplay)
 
 - Replaced the repeated station-sized gable roof foundation with eight differentiated forms while preserving the existing architectural batch and equipment behavior: compact NEXUS stepped blast parapet, LABO asymmetric sail, open SCRAP_COLLECTOR maintenance gantry, SMELTER exhaust heat fins, RECYCLER separated hinged lids, GENERATOR exposed roll cage, STORAGE staggered steel container lids, and BUILD_TERMINAL cantilevered data blade.
 - Added `scripts/sera_base_roof_identity.gd`, integrated in `scripts/sera_base_architecture.gd`; narrowed the earlier generic canopies in night/structural passes so new profiles remain visible. No changes to station scale, yaw, floor pads, lighting, tap hitboxes, CRATE route or Android GL Compatibility rendering contract.
 - CI contract written before production changes: `tools/base_roof_identity_self_check.py` and `tools/base_roof_identity_runtime_check.gd` registered in `tools/sera_ci_manifest.txt`. Runtime/Android visual checks and complete post-merge CI must be independently confirmed; do not equate static inspection with rendered screenshots.
+
+
+## 2026-11-22 — NEXUS hangar opaque metal contrast (night task)
 
 - The existing NEXUS Blockbench MultiMesh batches retain all transforms, sizes, geometry, camera settings, and the seven-index material mapping.
 - Opaque structural palette indices 1–3 use metallic 0.28 and roughness 0.52 instead of 0.16/0.70 to separate plate edges under the existing directional light. Other indices and emissive accents 5–7 are unchanged; no new nodes, lights, textures or draw calls.
