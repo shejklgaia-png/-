@@ -1,4 +1,5 @@
 extends Control
+const LaboTypography = preload("res://scripts/sera_labo_round_skin.gd")
 ## SERA v338: compact top-left HP/EN bars in reference vector geometry.
 ## user-provided 1536x512 design screenshot (no image or texture dependency).
 ## The reference is wide, but the geometry scales to the portrait viewport.
@@ -92,9 +93,22 @@ func _slanted_quad(left: float, top: float, right: float,
     ])
 
 
+func _font_for_text(value: String) -> Font:
+    # Cached Japanese/Latin faces are stable for the whole fight. Geometry
+    # and all HP/EN numbers are unchanged; only glyph silhouettes are updated.
+    var face: Font = LaboTypography.tracked_display_font()
+    if value.is_empty():
+        return face
+    if value.substr(0, 1).is_valid_int():
+        return LaboTypography.tracked_data_font()
+    if not face.has_char(value.unicode_at(0)):
+        return LaboTypography.equipment_font()
+    return face
+
+
 func _draw_text(value: String, pos: Vector2, size_px: int,
         tint: Color = TEXT_TINT, right_aligned: bool = false) -> void:
-    var font: Font = get_theme_default_font()
+    var font: Font = _font_for_text(value)
     if font == null:
         return
     if right_aligned:
