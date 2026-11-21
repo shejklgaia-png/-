@@ -48,9 +48,11 @@ const FOOTPRINTS = {
     "building_parts": Vector2(1.08, 0.84),
 }
 
+# A tier is an actual translated set of meshes, not a label or oversized box.
 static func _item(kind: String, x: float, z: float,
-        scale_factor: float = 1.0) -> Dictionary:
-    return {"kind": kind, "at": Vector2(x, z), "scale": scale_factor}
+        scale_factor: float = 1.0, stack_count: int = 1) -> Dictionary:
+    return {"kind": kind, "at": Vector2(x, z),
+        "scale": scale_factor, "stack": stack_count}
 
 static func props_for(key: String) -> Array[Dictionary]:
     match key:
@@ -58,10 +60,10 @@ static func props_for(key: String) -> Array[Dictionary]:
             return [
                 _item("antenna_case", -4.28, -4.95),
                 _item("signal_console", 4.30, -4.60),
-                _item("armored_bundle", -4.26, -2.38),
+                _item("armored_bundle", -4.26, -2.38, 1.0, 2),
                 _item("cable_reel", 4.35, -2.35),
-                _item("cargo_box", 4.40, 0.15),
-                _item("power_box", -4.27, 0.15),
+                _item("cargo_box", 4.40, 0.15, 1.0, 3),
+                _item("power_box", -4.27, 0.15, 1.0, 2),
                 _item("sensor_tripod", 4.32, 2.60),
                 _item("tool_cart", -4.25, 4.10),
             ]
@@ -70,15 +72,15 @@ static func props_for(key: String) -> Array[Dictionary]:
                 _item("tool_cabinet", -3.12, -2.42),
                 _item("parts_tray", 3.17, -2.35),
                 _item("spare_arm", -3.10, -0.75),
-                _item("armor_rack", 3.16, -0.70),
+                _item("armor_rack", 3.16, -0.70, 1.0, 2),
                 _item("tool_cart", -3.14, 1.12),
                 _item("cable_reel", 3.15, 1.15),
-                _item("cargo_box", -3.13, 2.75),
+                _item("cargo_box", -3.13, 2.75, 1.0, 2),
                 _item("worklight", 3.18, 2.74),
             ]
         "SMELTER":
             return [
-                _item("ingot_pallet", -2.09, -1.93),
+                _item("ingot_pallet", -2.09, -1.93, 1.0, 3),
                 _item("slag_bin", 2.10, -1.89),
                 _item("coolant_tank", -2.10, 0.05),
                 _item("casting_mold", 2.10, 0.08),
@@ -88,7 +90,7 @@ static func props_for(key: String) -> Array[Dictionary]:
         "RECYCLER":
             return [
                 _item("scrap_gears", -2.10, -1.93),
-                _item("bent_armor", 2.10, -1.88),
+                _item("bent_armor", 2.10, -1.88, 1.0, 2),
                 _item("crusher_bin", -2.10, 0.03),
                 _item("spare_roller", 2.08, 0.06),
                 _item("hydraulic_kit", -2.08, 1.96),
@@ -99,42 +101,115 @@ static func props_for(key: String) -> Array[Dictionary]:
                 _item("scrap_hopper", -2.07, -1.90),
                 _item("wheel", 2.10, -1.91),
                 _item("old_joint", -2.09, 0.04),
-                _item("bent_armor", 2.09, 0.06),
-                _item("cargo_box", -2.10, 1.94),
+                _item("bent_armor", 2.09, 0.06, 1.0, 2),
+                _item("cargo_box", -2.10, 1.94, 1.0, 3),
                 _item("hydraulic_kit", 2.11, 1.98),
             ]
         "STORAGE":
             return [
-                _item("rack_stack", -2.10, -1.92),
-                _item("cargo_box", 2.10, -1.89),
+                _item("rack_stack", -2.10, -1.92, 1.0, 2),
+                _item("cargo_box", 2.10, -1.89, 1.0, 3),
                 _item("straps", -2.09, 0.02),
                 _item("pipe_bundle", 2.08, 0.05),
-                _item("pallet", -2.10, 1.99),
-                _item("panel_stack", 2.08, 1.98),
+                _item("pallet", -2.10, 1.99, 1.0, 3),
+                _item("panel_stack", 2.08, 1.98, 1.0, 2),
             ]
         "GENERATOR":
             return [
-                _item("battery", -2.10, -1.90),
-                _item("transformer", 2.10, -1.91),
+                _item("battery", -2.10, -1.90, 1.0, 2),
+                _item("transformer", 2.10, -1.91, 1.0, 2),
                 _item("coil_pack", -2.08, 0.04),
                 _item("insulator", 2.10, 0.06),
                 _item("cable_reel", -2.12, 1.95),
-                _item("power_box", 2.10, 1.97),
+                _item("power_box", 2.10, 1.97, 1.0, 2),
             ]
         "BUILD_TERMINAL":
             return [
                 _item("construction_frame", -2.09, -1.90),
-                _item("panel_stack", 2.09, -1.92),
+                _item("panel_stack", 2.09, -1.92, 1.0, 2),
                 _item("laser_measure", -2.08, 0.04),
-                _item("fastener_box", 2.11, 0.06),
+                _item("fastener_box", 2.11, 0.06, 1.0, 3),
                 _item("calibration_stand", -2.08, 1.95),
-                _item("building_parts", 2.09, 1.95),
+                _item("building_parts", 2.09, 1.95, 1.0, 2),
             ]
         _:
             return []
 
 static func bounds_for(kind: String) -> Vector2:
     return FOOTPRINTS.get(kind, Vector2.ZERO)
+
+# Vertical pitches match the actual authored mesh heights so tiers touch.
+# Machines, tripods and consoles are deliberately NOT stackable.
+static func stack_pitch_for(kind: String) -> float:
+    match kind:
+        "cargo_box":
+            return 0.64
+        "fastener_box", "power_box", "battery":
+            return 0.60
+        "transformer", "tool_cabinet":
+            return 0.94
+        "pallet":
+            return 0.25
+        "ingot_pallet":
+            return 0.50
+        "rack_stack":
+            return 0.98
+        "armored_bundle", "armor_rack", "bent_armor", "panel_stack", "building_parts":
+            return 0.73
+        _:
+            return 0.0
+
+# Small, authored shifts keep the load believable without crossing the
+# conservative physical footprint or creating horizontal overlap.
+static func layer_offset(layer: int) -> Vector2:
+    match layer:
+        1:
+            return Vector2(0.035, -0.026)
+        2:
+            return Vector2(-0.020, 0.042)
+        _:
+            return Vector2.ZERO
+
+# A lightweight transform proxy: forwards into the SAME material Batch.
+# Thus three stacked boxes do not create three additional scene draw nodes.
+class LiftedBatch:
+    var target: Variant
+    var delta: Vector3
+
+    func _init(base: Variant, shift: Vector3) -> void:
+        target = base
+        delta = shift
+
+    func box(feature: String, at: Vector3, size: Vector3,
+            tint: String = "armor", yaw: float = 0.0) -> void:
+        target.box(feature, at + delta, size, tint, yaw)
+
+    func rod(feature: String, a: Vector3, b: Vector3, diameter: float,
+            tint: String = "trim") -> void:
+        target.rod(feature, a + delta, b + delta, diameter, tint)
+
+    func ring(feature: String, center: Vector3, radius: float,
+            tint: String, axis: String = "y") -> void:
+        target.ring(feature, center + delta, radius, tint, axis)
+
+    func crate(at: Vector3, size: Vector3, index: int = 0) -> void:
+        target.crate(at + delta, size, index)
+
+static func _make_stacked(g: Variant, kind: String, at: Vector2, k: float,
+        order: int, stack_count: int) -> void:
+    var layers: int = clampi(stack_count, 1, 3)
+    var pitch: float = stack_pitch_for(kind)
+    # Keep unsafe/unstackable device types as one floor item.
+    if pitch <= 0.0:
+        layers = 1
+    for layer in range(layers):
+        if layer == 0:
+            _make(g, kind, at, k, order, true)
+        else:
+            var wobble: Vector2 = layer_offset(layer) * k
+            var lifted := LiftedBatch.new(g, Vector3(
+                wobble.x, pitch * k * float(layer), wobble.y))
+            _make(lifted, kind, at, k, order + layer, false)
 
 # Author props in the facility's local coordinates, never a translated
 # world-space duplicate. Accessories use preexisting material names only.
@@ -160,14 +235,15 @@ static func _ring(g: Variant, name: String, at: Vector2, k: float,
         radius * k, tint, axis)
 
 static func _make(g: Variant, kind: String, at: Vector2, k: float,
-        order: int) -> void:
+        order: int, ground_skid: bool = true) -> void:
     var tint: String = (
         "rust" if order % 7 == 2 else
         "armor_light" if order % 4 == 0 else "slate")
     # A thin skid sits flush against the physical floor, independent of size.
-    var footprint: Vector2 = bounds_for(kind) * k
-    g.box("Yard_" + kind + "_skid", Vector3(at.x, -0.006, at.y),
-        Vector3(footprint.x * 0.75, 0.05, footprint.y * 0.74), "rubber")
+    if ground_skid:
+        var footprint: Vector2 = bounds_for(kind) * k
+        g.box("Yard_" + kind + "_skid", Vector3(at.x, -0.006, at.y),
+            Vector3(footprint.x * 0.75, 0.05, footprint.y * 0.74), "rubber")
     # Every kind has a distinct functional silhouette; repeats use subtly
     # different patina while staying inside the authored conservative bounds.
     match kind:
@@ -367,7 +443,8 @@ static func decorate(g: Variant, key: String) -> void:
     var props: Array[Dictionary] = props_for(key)
     for index in range(props.size()):
         var p: Dictionary = props[index]
-        _make(g, str(p["kind"]), p["at"] as Vector2, float(p["scale"]), index)
+        _make_stacked(g, str(p["kind"]), p["at"] as Vector2,
+            float(p["scale"]), index, int(p.get("stack", 1)))
     # The renderer is a material-batched procedural model; this metadata lets
     # independent runtime tests verify actual scene construction.
     g.host.set_meta("clutter_props", props)
