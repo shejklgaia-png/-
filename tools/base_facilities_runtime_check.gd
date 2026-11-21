@@ -191,7 +191,9 @@ func _run() -> void:
     if start_crate == null or route.size() < 4:
         _fail("CRATE center-avoidance route is missing")
         return
-    var route_origin := Vector2(start_crate.position.x, start_crate.position.z)
+    # Assert from the approved original spawn, not the robot's already
+    # advanced live position after waiting for the asynchronous BASE load.
+    var route_origin := Vector2(3.30, 2.40)
     var from: Vector2 = route_origin
     for goal in route:
         var to: Vector2 = goal
