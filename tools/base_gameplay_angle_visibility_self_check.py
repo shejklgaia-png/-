@@ -63,6 +63,17 @@ for path in (
     "'tools/base_isometric_visual_capture.gd'",
 ):
     assert path in workflow, path
+# All visual BASE modules must activate a fresh real gameplay screenshot in PR CI.
+for trigger in (
+    "'scripts/base_facility_system.gd'",
+    "'scripts/base_exploration.gd'",
+    "'scripts/sera_base_functional_finish.gd'",
+    "'scripts/sera_base_clutter.gd'",
+    "'scripts/sera_base_deck_layout.gd'",
+    "'scripts/sera_base_materials.gd'",
+    "'assets/base/**'",
+):
+    assert trigger in workflow, "visual edit would bypass screenshot review: " + trigger
 assert "python3 tools/base_gameplay_angle_visibility_self_check.py" in workflow
 assert "tools/base_gameplay_angle_visibility_runtime_check.gd" in workflow
 
