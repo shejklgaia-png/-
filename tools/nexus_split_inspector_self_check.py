@@ -58,13 +58,24 @@ for required in (
 assert 'row.custom_minimum_size = Vector2(row_width, 44)' in nexus
 assert 'StatUI.layout_metric_pair(label, value, row_width, 44.0, 19, 24, 16, 20)' in nexus
 for layout in (
-    'Vector2(view.x * 0.040, view.y * 0.506)',
+    'Vector2(view.x * 0.040, view.y * 0.506 + shift)',
     'Vector2(view.x * 0.435, view.y * 0.185)',
     'var bottom: float = view.y * 0.905',
     'Vector2(view.x * 0.040, start)',
     'Vector2(view.x * 0.920, maxf(120.0, bottom - start))',
     'customize_part_stats_scroll.position = Vector2(11, 41)',
     'maxf(40.0, area.size.y - 47.0)',
+):
+    assert layout in nexus, layout
+# Reclaim the empty rows below the last part stat, not glyph space.
+for layout in (
+    'func _customize_part_vertical_shift(view: Vector2) -> float:',
+    'var content_rows: int = mini(5, maxi(1, ceili(float(visible_fields) / 3.0)))',
+    'var content_height: float = 41.0 + float(content_rows) * 44.0 +',
+    'return clampf(available - content_height - 3.0, 0.0, view.y * 0.045)',
+    'var shift: float = _customize_part_vertical_shift(view)',
+    'view.y * 0.506 + shift',
+    '_layout_hud()',
 ):
     assert layout in nexus, layout
 assert 'StatUI.layout_metric_pair(' in nexus

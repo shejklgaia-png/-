@@ -1717,6 +1717,10 @@ func _refresh_customization_part_stats(slot: String) -> void:
             StatUI.layout_metric_pair(
                 cell["name"] as Label, cell["value"] as Label,
                 row.custom_minimum_size.x, 44.0, 19, 24, 16, 20)
+    # Reflow only the two linked lower windows, after the real number of
+    # equipped-part stats/UID affixes is known. No font-size change.
+    if hud != null:
+        _layout_hud()
 
 
 func _equipped_part_blueprint(slot: String) -> String:
@@ -2301,10 +2305,27 @@ func _apply_labo_typography() -> void:
 
 # CUSTOMIZE: TOTAL above, model/PART VIEW and equipment side-by-side,
 # non-scrolling PART STATUS across the bottom. Rects use HUD coordinates.
+func _customize_part_vertical_shift(view: Vector2) -> float:
+    # Reuse only the unused area UNDER the last visible single-part stat.
+    # 10 stats -> 4 rows -> roughly 40px lower; 15 -> 5 rows -> unchanged.
+    var visible_fields: int = 0
+    for item in customize_part_stat_cells:
+        if (item["panel"] as Panel).visible:
+            visible_fields += 1
+    var content_rows: int = mini(5, maxi(1, ceili(float(visible_fields) / 3.0)))
+    var content_height: float = 41.0 + float(content_rows) * 44.0 + (
+        float(content_rows - 1) * 1.0 + 6.0)
+    var baseline_bottom: float = view.y * 0.905
+    var baseline_status_top: float = view.y * (0.506 + 0.185)
+    var available: float = baseline_bottom - baseline_status_top
+    return clampf(available - content_height - 3.0, 0.0, view.y * 0.045)
+
+
 func _customize_square_menu_rect(view: Vector2) -> Rect2:
-    # PART VIEW uses the left middle tier while the full SERA stays visible
-    # immediately above it; the status panel occupies the lower tier.
-    return Rect2(Vector2(view.x * 0.040, view.y * 0.506),
+    # PART VIEW and its attached stat window shift together; fonts and the
+    # absolute bottom edge stay fixed across selected equipment.
+    var shift: float = _customize_part_vertical_shift(view)
+    return Rect2(Vector2(view.x * 0.040, view.y * 0.506 + shift),
         Vector2(view.x * 0.435, view.y * 0.185))
 
 func _customize_tall_menu_rect(view: Vector2) -> Rect2:
@@ -2313,10 +2334,11 @@ func _customize_tall_menu_rect(view: Vector2) -> Rect2:
         Vector2(view.x * 0.455, view.y * 0.431))
 
 func _customize_model_area(view: Vector2) -> Rect2:
-    # SERA's own upper-left 3D showcase never intersects PART VIEW.
+    # SERA's original fit remains unchanged as the PART VIEW moves down.
     var part_view: Rect2 = _customize_square_menu_rect(view)
+    var baseline_preview_top: float = view.y * 0.506
     var top: float = view.y * 0.275
-    var bottom: float = part_view.position.y - maxf(12.0, view.y * 0.011)
+    var bottom: float = baseline_preview_top - maxf(12.0, view.y * 0.011)
     return Rect2(Vector2(part_view.position.x, top),
         Vector2(part_view.size.x, maxf(1.0, bottom - top)))
 

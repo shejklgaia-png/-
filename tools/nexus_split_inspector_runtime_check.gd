@@ -37,7 +37,8 @@ func _run() -> void:
         _fail("CUSTOMIZE viewport / part preview missing")
         return
     # Slightly smaller than prior 0.450x0.198 part view and 0.915-high stats.
-    if absf(view.position.y - hud.size.y * 0.506) > 1.5 or (
+    var content_shift: float = nexus.call("_customize_part_vertical_shift", hud.size)
+    if absf(view.position.y - (hud.size.y * 0.506 + content_shift)) > 1.5 or (
             absf(view.size.y - hud.size.y * 0.185) > 1.5) or (
             absf(single.size.y - hud.size.y * 0.214) > 1.5) or (
             absf(single.position.x - hud.size.x * 0.040) > 1.5):
@@ -47,6 +48,33 @@ func _run() -> void:
             part_preview.size.y >= hud.size.y * 0.189):
         _fail("single-part 3D preview did not shrink")
         return
+    # Four displayed rows should donate their unused bottom gap to SERA.
+    # All fifteen cells must still fit when a crafted part has five affixes.
+    var packed_rows: Array = nexus.get("customize_part_stat_cells") as Array
+    var original_visibility: Array[bool] = []
+    for item in packed_rows:
+        original_visibility.append((item["panel"] as Panel).visible)
+    for i in range(packed_rows.size()):
+        (packed_rows[i]["panel"] as Panel).visible = i < 15
+    nexus.call("_layout_hud")
+    await process_frame
+    var full_five_top: float = view.position.y
+    var full_five_bottom: float = single.position.y + single.size.y
+    for i in range(packed_rows.size()):
+        (packed_rows[i]["panel"] as Panel).visible = i < 10
+    nexus.call("_layout_hud")
+    await process_frame
+    var four_rows_top: float = view.position.y
+    var four_rows_bottom: float = single.position.y + single.size.y
+    if four_rows_top < full_five_top + 25.0 or (
+            four_rows_top > full_five_top + 55.0) or (
+            absf(four_rows_bottom - full_five_bottom) > 1.0):
+        _fail("four rows must move preview/status down, with unchanged lower edge")
+        return
+    for i in range(packed_rows.size()):
+        (packed_rows[i]["panel"] as Panel).visible = original_visibility[i]
+    nexus.call("_layout_hud")
+    await process_frame
     var equipment_bottom: float = right.position.y + right.size.y
     if total.position.y + total.size.y > right.position.y - 4.0 or (
             absf(view.position.y + view.size.y - single.position.y) > 1.5) or (
@@ -129,6 +157,7 @@ func _run() -> void:
     # five independent affixes. Simulate all fifteen populated cells.
     for i in range(entries.size()):
         (entries[i]["panel"] as Panel).visible = i < 15
+    nexus.call("_layout_hud")
     await process_frame
     for i in range(15):
         var stat_cell: Panel = entries[i]["panel"] as Panel
