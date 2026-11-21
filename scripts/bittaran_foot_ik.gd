@@ -1812,6 +1812,7 @@ func start_leg_break_slide(id: String, head_world_y: float,
     head_knee_active = false
     for leg in legs:
         leg["down_replant_landed"] = false
+        leg["down_contact_anchor_set"] = false
         leg["head_knee_bend"] = 0.0
         leg["head_knee_target"] = 0.0
     # A second leg can break while the boss is already down. Refresh the
@@ -2975,14 +2976,32 @@ func apply_authored_down_grounding() -> void:
         # not the resting sole offset (which rolls when the toe tilts).
         var mesh_aabb: AABB = mesh.mesh.get_aabb()
         var contact_local: Vector3 = Vector3.ZERO
+        var contact_world: Vector3 = Vector3.ZERO
         var contact_y: float = INF
         for corner in range(8):
             var world: Vector3 = mesh.to_global(
                 mesh_aabb.get_endpoint(corner))
             if world.y < contact_y:
                 contact_y = world.y
+                contact_world = world
                 contact_local = foot.to_local(world)
+        # During authored descent an ankle may travel horizontally
+        # with its keyed BODY. Pinning it to a *stale* pre-break XZ
+        # anchor can exceed the anatomical reach. Preserve the live
+        # source foot trajectory in XZ and solve only its FLOOR Y.
+        # Freeze the contact point on the ground at t=1.75; later
+        # replant and rise own the new world-locked stance.
         var goal: Vector3 = limb["anchor"] as Vector3
+        if windup_elapsed >= 0.0:
+            goal.x = contact_world.x
+            goal.z = contact_world.z
+        elif break_elapsed >= 0.0 and break_elapsed < (
+                break_recover_start):
+            if not bool(limb.get("down_contact_anchor_set", false)):
+                goal.x = contact_world.x
+                goal.z = contact_world.z
+                limb["anchor"] = Vector3(goal.x, FLOOR_Y, goal.z)
+                limb["down_contact_anchor_set"] = true
         goal.y = FLOOR_Y
         var stepping: bool = false
         if break_elapsed >= break_recover_start and break_elapsed >= 0.0:
