@@ -53,7 +53,7 @@ localhostのブラウザで`http://127.0.0.1:8080/`を開く。スマートフ�
 - **FULL BODY 3D**は、NEXUSのカスタマイズ画面と同じ`assets/sera_source.json`のユーザー制作アニメーション`NEXUS_pose`（互換名`NEXUSpose`）を0秒でサンプルする。従来の`Wait_motion`（戦闘待機・前屈姿勢）を全身プレビューに使用しない。
 - ロード直後と部位換装後は、NEXUS同様`current_clip`、`clip_time`、`blending_for`、`blend_duration`を設定して`SeraRig._apply_animation(0.0)`を呼ぶ。既存の骨格、バード脚の統合トラック、UV、装備モデルはそのまま維持する。
 - **ICON/単体ステータスの撮影**では従来の待機ポーズを保持し、BODY→ICON→BODYを切り替えても互いの姿勢が混ざらない。
-- `NEXUS_pose`が将来原本から消えた場合だけ、NEXUSと同じbind姿勢＋腕角度のフォールバックを使う。ゲーム内NEXUS固有の脚と腕の接触解消調整は別処理であり、今回の共有対象は**原本の立ちポーズアニメーション**。オフライン簡易WebGL版はこの原本アニメーションを実行しないため、NEXUS立ちポーズ確認にはGodot Web版を使用する。
+- `NEXUS_pose`が将来原本から消えた場合だけ、NEXUSと同じbind姿勢＋腕角度のフォールバックを使う。ゲーム内NEXUSの脚・腕の接触解消は後述の共有ソルバーへ移行し、現在は**立ちポーズと接触補正の両方が共通**です。オフライン簡易WebGL版はこの原本アニメーションを実行しないため、NEXUS立ちポーズ確認にはGodot Web版を使用する。
 
 ## 2026-11-21 新規チャット引継ぎ・分布図・安定した2本指・背景
 - EXPORTには`handoff.format=SERA_EQUIPMENT_CHAT_HANDOFF_V1`とリポジトリ、原本SHA、実装ガイド`docs/SERA_EQUIPMENT_CROSS_CHAT_HANDOFF_ja.md`への参照を追加する。これにより新規チャットがGitHubの正本から同じ装備を実装できる。
@@ -61,3 +61,11 @@ localhostのブラウザで`http://127.0.0.1:8080/`を開く。スマートフ�
 - `godot_preview.gd`の2本指は2接点の中点と2点距離を前フレームと比較して更新する。指の追加・解除時は基準位置を再設定し、その瞬間にはカメラ操作を発生させない。低距離・異常な大移動・急激なピンチ比率は制限する。旧オフラインWebGLのPointerEventsも同方針。
 - 単体プレビューの背景は`scripts/sera_icon_background.gd`と共通の**#111e28単色背景に#55798A（36%）の8分割格子**。全身のNEXUSポーズは変更しない。LABO/倉庫/NEXUSの装備アイコンには1個体1回の画像レンダリングでなく**1設計図に1枚の2D合成済みアイコンをキャッシュ**する。
 - LABO装備製作確認は実SeraRigと同じ単体プレビューを使い、指ドラッグで回転。ボタンのタップ・製作と別入力。メニューを閉じたら3D描画を停止する。背景・操作はフォームと一致させる。
+
+## 2026-11-21 NEXUS腕・下半身の干渉回避をFULL BODYへ共通実装
+- **正本**は `scripts/sera_nexus_arm_clearance.gd`。ゲーム内`scripts/command_nexus.gd`とGodot Web装備追加フォーム`tools/equipment_intake/godot_preview.gd`が同一ソルバーを呼び、別実装へ分岐しない。
+- 下半身／腕について**現在選択され表示中の実メッシュ**を使用し、AABB一次判定＋向きを含めたOBB 15軸SAT判定。左右独立で肩0.2°×16（最大3.2°）／上腕1.5°×16（最大24°）だけ補正する。
+- 衝突しない側は原本`NEXUS_pose`のQuaternionを完全維持。衝突時は最小の非接触角を使用し、解消不能時は接触ペア数を改善する最小角だけ採用。改善しなければ元ポーズを維持し、描画用だけ警告する。
+- フォームは全身表示の初回／各部位換装／対象部位サイズ変更／ICONからの復帰時に実ポーズを再サンプルし、**編集倍率の適用後**にソルバーを実行。連続編集で角度を累積しない。
+- **ICON／STATSの単体プレビューでは補正しない**。原本アニメーション、モデル／UV、装備セーブ、プレイヤー戦闘には変更なし。旧オフライン単一HTMLは実Godotリグを実行しないため、NEXUSと同じ逃げ処理の正本ではない。
+- 検証：`tools/equipment_intake/arm_clearance_contract_self_check.py`と`preview_runtime_check.gd`、継続するv196/v197回帰テスト。Web/Android実機の描画・指操作は別途確認する。
