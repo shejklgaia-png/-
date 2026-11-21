@@ -3,14 +3,14 @@ extends SceneTree
 const Arch = preload("res://scripts/sera_base_architecture.gd")
 const Roof = preload("res://scripts/sera_base_roof_identity.gd")
 const FEATURES = {
-    "NEXUS": ["NexusRoofCommandStripe", "NexusEntranceDirectionBand"],
-    "LABO": ["LabSingleSlopeCanopy", "LabSideRoll"],
-    "SCRAP_COLLECTOR": ["CollectorOpenBoomCrossbar", "CollectorCraneMarker"],
-    "SMELTER": ["SmelterHeatShieldRib", "SmelterHeatVent"],
-    "RECYCLER": ["RecyclerSideRoofShutter", "RecyclerOpenThroatRail"],
-    "GENERATOR": ["GeneratorTurbineHoop", "GeneratorPowerSpine"],
-    "STORAGE": ["StorageContainerRoof", "StorageRoofRidge"],
-    "BUILD_TERMINAL": ["TerminalSlimDataVisor", "TerminalVisorBracket"],
+    "NEXUS": ["NexusRoofCommandStripe", "NexusEntranceDirectionBand", "NexusDoorOuterFrame"],
+    "LABO": ["LabSingleSlopeCanopy", "LabSideRoll", "LabPrinterToolhead"],
+    "SCRAP_COLLECTOR": ["CollectorOpenBoomCrossbar", "CollectorCraneMarker", "CollectorOpenClawJaw", "CollectorRaisedJib"],
+    "SMELTER": ["SmelterHeatShieldRib", "SmelterHeatVent", "SmelterStackHeatCollar"],
+    "RECYCLER": ["RecyclerSideRoofShutter", "RecyclerOpenThroatRail", "RecyclerOpenVFeedRail", "RecyclerOpposedJawFace"],
+    "GENERATOR": ["GeneratorTurbineHoop", "GeneratorPowerSpine", "GeneratorCoreCorona"],
+    "STORAGE": ["StorageContainerRoof", "StorageRoofRidge", "StorageLoadingHeader"],
+    "BUILD_TERMINAL": ["TerminalSlimDataVisor", "TerminalVisorBracket", "TerminalScanFrameSide"],
 }
 const TOP_MIN = {
     "NEXUS": 4.7, "LABO": 3.2, "SCRAP_COLLECTOR": 2.55,

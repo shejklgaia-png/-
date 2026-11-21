@@ -1,3 +1,9 @@
+## 2026-11-22 — BASE functional silhouette and material focal-point polish
+
+- Refined the accepted **open, non-obscuring roofs** with a restrained front-view equipment identity pass, not extra broad roofs. All 8 facilities receive a readable focal point within the existing model batch: NEXUS outer blast-door frame and blue guide lights; LABO exposed printing toolhead/gantry and canvas safety hem; SCRAP_COLLECTOR raised heavy jib, hydraulic pivot and enlarged open grabber; SMELTER two unequal exhausts with visible heated collars; RECYCLER exposed opposing crusher jaw plates, V-feed edges and cutter-comb; GENERATOR glowing front turbine corona; STORAGE distinct flat steel cargo roof and loading portal; BUILD_TERMINAL bright screen border and shallow cooling fins.
+- Existing engine materials, textured metal and cloth, per-device lights, MultiMesh reuse, 1.14/1.45/1.55 model scales, floor pads, yaw, navigable spaces, touches, CRATE patrol, gameplay and Android GL Compatibility remain unchanged. Changes emphasize the **machine role** from the fixed 720×1280 portrait viewpoint, without another layer of big covering structures.
+- Updated registered static and Godot runtime acceptance-feature expectations **before** adding production geometry; retained prior readability caps, unique roof identities and structural tests. Inspect a genuine GL-Compatibility screenshot from the PR render job, then check full registered CI on main after merge.
+
 ## 2026-11-22 — BASE roof readability correction (supersedes earlier eight-roof embellishment)
 
 - Reviewed the actual 720×1280 Godot BASE image: LABO roof hid the printer workshop; recycler/generator displayed overlapping pitched metal/canvas details; repetitive upper panels obscured functional outlines. User explicitly rejected this design as incomprehensible on first glance.
