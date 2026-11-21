@@ -4,6 +4,7 @@ const BaseArchitecture = preload("res://scripts/sera_base_architecture.gd")
 const IconAtlas = preload("res://scripts/sera_item_icons.gd")
 const PrototypeCatalog = preload("res://scripts/sera_prototype_catalog.gd")
 const LaboSkin = preload("res://scripts/sera_labo_round_skin.gd")
+const MarkIcon = preload("res://scripts/sera_mark_icon.gd")
 const SeraFontDiag = preload("res://scripts/sera_font_diagnostics.gd")
 const LaboTouchScroll = preload("res://scripts/sera_labo_touch_scroll.gd")
 const WarehouseGrid = preload("res://scripts/sera_warehouse_grid.gd")
@@ -62,6 +63,14 @@ var pending_confirmation: Callable = Callable()
 var confirmation_overlay: Control
 var confirmation_text: Label
 var confirmation_title: Label
+var confirmation_prompt: Label
+var confirmation_craft_card: PanelContainer
+var confirmation_item_icon: TextureRect
+var confirmation_item_name: Label
+var confirmation_item_slot: Label
+var confirmation_item_stats: Label
+var confirmation_craft_note: Label
+var confirmation_accept_button: Button
 var craft_slot: String = "head"
 var warehouse_notice: String = ""
 var warehouse_section: String = "materials"
@@ -717,53 +726,142 @@ func attach_hud(hud: Control) -> void:
     confirmation_overlay.add_child(confirm_shade)
     var confirm_panel := PanelContainer.new()
     confirm_panel.name = "LaboConfirmPanel"
-    confirm_panel.anchor_left = 0.09
-    confirm_panel.anchor_right = 0.91
-    confirm_panel.anchor_top = 0.33
-    confirm_panel.anchor_bottom = 0.67
+    confirm_panel.anchor_left = 0.075
+    confirm_panel.anchor_right = 0.925
+    confirm_panel.anchor_top = 0.235
+    confirm_panel.anchor_bottom = 0.765
     confirm_panel.mouse_filter = Control.MOUSE_FILTER_STOP
-    confirm_panel.theme = LaboSkin.common_theme()
+    var confirm_skin := StyleBoxFlat.new()
+    confirm_skin.bg_color = Color("#0b2534")
+    confirm_skin.border_color = Color("#66c8d7")
+    confirm_skin.set_border_width_all(2)
+    confirm_skin.set_corner_radius_all(4)
+    confirm_skin.content_margin_left = 17
+    confirm_skin.content_margin_right = 17
+    confirm_skin.content_margin_top = 14
+    confirm_skin.content_margin_bottom = 16
+    confirm_panel.add_theme_stylebox_override("panel", confirm_skin)
     confirmation_overlay.add_child(confirm_panel)
     var confirm_vbox := VBoxContainer.new()
-    confirm_vbox.add_theme_constant_override("separation", 13)
+    confirm_vbox.add_theme_constant_override("separation", 9)
     confirm_panel.add_child(confirm_vbox)
+    var confirm_system := Label.new()
+    confirm_system.name = "LaboConfirmSystem"
+    confirm_system.text = "—  SERA LAB  /  SYSTEM CONFIRMATION  —"
+    confirm_system.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    confirm_system.add_theme_font_override("font", LaboSkin.tracked_data_font())
+    confirm_system.add_theme_font_size_override("font_size", 13)
+    confirm_system.add_theme_color_override("font_color", Color("#80ced7"))
+    confirm_vbox.add_child(confirm_system)
     confirmation_title = Label.new()
     confirmation_title.name = "LaboConfirmTitle"
-    confirmation_title.text = "作成しますか？"
+    confirmation_title.text = "装備の作成確認"
     confirmation_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
     confirmation_title.add_theme_font_size_override("font_size", 27)
     confirmation_title.add_theme_font_override("font", LaboSkin.title_font())
+    confirmation_title.add_theme_color_override("font_color", Color("#eef9fc"))
     confirm_vbox.add_child(confirmation_title)
+    var confirm_subtitle := Label.new()
+    confirm_subtitle.name = "LaboConfirmSubtitle"
+    confirm_subtitle.text = "ASSEMBLY  /  CONFIRMATION"
+    confirm_subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    confirm_subtitle.add_theme_font_override("font", LaboSkin.tracked_data_font())
+    confirm_subtitle.add_theme_font_size_override("font_size", 12)
+    confirm_subtitle.add_theme_color_override("font_color", Color("#80cad5"))
+    confirm_vbox.add_child(confirm_subtitle)
+    confirmation_prompt = Label.new()
+    confirmation_prompt.name = "LaboConfirmPrompt"
+    confirmation_prompt.text = "以下の装備を作成しますか？"
+    confirmation_prompt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    confirmation_prompt.add_theme_font_override("font", LaboSkin.ui_font())
+    confirmation_prompt.add_theme_font_size_override("font_size", 18)
+    confirm_vbox.add_child(confirmation_prompt)
+    confirmation_craft_card = PanelContainer.new()
+    confirmation_craft_card.name = "LaboConfirmCraftCard"
+    confirmation_craft_card.size_flags_vertical = Control.SIZE_EXPAND_FILL
+    confirmation_craft_card.add_theme_stylebox_override(
+        "panel", LaboSkin.terminal_segment_style("selected"))
+    confirm_vbox.add_child(confirmation_craft_card)
+    var craft_info := HBoxContainer.new()
+    craft_info.add_theme_constant_override("separation", 12)
+    confirmation_craft_card.add_child(craft_info)
+    confirmation_item_icon = TextureRect.new()
+    confirmation_item_icon.name = "LaboConfirmItemIcon"
+    confirmation_item_icon.custom_minimum_size = Vector2(96, 96)
+    confirmation_item_icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+    confirmation_item_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+    confirmation_item_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+    confirmation_item_icon.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+    craft_info.add_child(confirmation_item_icon)
+    var craft_info_column := VBoxContainer.new()
+    craft_info_column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+    craft_info_column.add_theme_constant_override("separation", 5)
+    craft_info.add_child(craft_info_column)
+    confirmation_item_slot = Label.new()
+    confirmation_item_slot.name = "LaboConfirmItemSlot"
+    confirmation_item_slot.add_theme_font_override("font", LaboSkin.tracked_data_font())
+    confirmation_item_slot.add_theme_font_size_override("font_size", 13)
+    confirmation_item_slot.add_theme_color_override("font_color", Color("#7fc7d2"))
+    craft_info_column.add_child(confirmation_item_slot)
+    confirmation_item_name = Label.new()
+    confirmation_item_name.name = "LaboConfirmItemName"
+    confirmation_item_name.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+    confirmation_item_name.add_theme_font_override("font", LaboSkin.equipment_font())
+    confirmation_item_name.add_theme_font_size_override("font_size", 22)
+    craft_info_column.add_child(confirmation_item_name)
+    LaboSkin.attach_name_underline(confirmation_item_name)
+    confirmation_item_stats = Label.new()
+    confirmation_item_stats.name = "LaboConfirmItemStats"
+    confirmation_item_stats.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+    confirmation_item_stats.add_theme_font_override("font", LaboSkin.stats_font())
+    confirmation_item_stats.add_theme_font_size_override("font_size", 16)
+    confirmation_item_stats.add_theme_color_override("font_color", Color("#c7dbe2"))
+    craft_info_column.add_child(confirmation_item_stats)
+    confirmation_craft_note = Label.new()
+    confirmation_craft_note.name = "LaboConfirmSaveNotice"
+    confirmation_craft_note.text = "作成後、この装備は倉庫に保存されます。"
+    confirmation_craft_note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    confirmation_craft_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+    confirmation_craft_note.add_theme_font_override("font", LaboSkin.ui_font())
+    confirmation_craft_note.add_theme_font_size_override("font_size", 16)
+    confirmation_craft_note.add_theme_color_override("font_color", Color("#9fd4de"))
+    confirm_vbox.add_child(confirmation_craft_note)
     confirmation_text = Label.new()
     confirmation_text.name = "LaboConfirmDescription"
     confirmation_text.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
     confirmation_text.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
     confirmation_text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
     confirmation_text.size_flags_vertical = Control.SIZE_EXPAND_FILL
-    confirmation_text.add_theme_font_size_override("font_size", 20)
+    confirmation_text.add_theme_font_size_override("font_size", 19)
     confirmation_text.add_theme_font_override("font", LaboSkin.ui_font())
     confirm_vbox.add_child(confirmation_text)
     var confirm_buttons := HBoxContainer.new()
-    confirm_buttons.add_theme_constant_override("separation", 8)
+    confirm_buttons.add_theme_constant_override("separation", 10)
     confirm_vbox.add_child(confirm_buttons)
     var cancel_button := Button.new()
     cancel_button.name = "LaboConfirmCancel"
-    cancel_button.text = "キャンセル"
+    cancel_button.text = "×  キャンセル"
     cancel_button.custom_minimum_size.y = LABO_CONFIRM_HEIGHT
     cancel_button.add_theme_font_size_override("font_size", 22)
     cancel_button.add_theme_font_override("font", LaboSkin.control_font())
     cancel_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+    cancel_button.add_theme_stylebox_override(
+        "normal", LaboSkin.terminal_segment_style("normal"))
     cancel_button.pressed.connect(_dismiss_confirmation)
     confirm_buttons.add_child(cancel_button)
-    var accept_button := Button.new()
-    accept_button.name = "LaboConfirmAccept"
-    accept_button.text = "作成"
-    accept_button.custom_minimum_size.y = LABO_CONFIRM_HEIGHT
-    accept_button.add_theme_font_size_override("font_size", 22)
-    accept_button.add_theme_font_override("font", LaboSkin.control_font())
-    accept_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-    accept_button.pressed.connect(_accept_confirmation)
-    confirm_buttons.add_child(accept_button)
+    confirmation_accept_button = Button.new()
+    confirmation_accept_button.name = "LaboConfirmAccept"
+    confirmation_accept_button.text = "作成"
+    confirmation_accept_button.custom_minimum_size.y = LABO_CONFIRM_HEIGHT
+    confirmation_accept_button.add_theme_font_size_override("font_size", 22)
+    confirmation_accept_button.add_theme_font_override("font", LaboSkin.control_font())
+    confirmation_accept_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+    for style_state in ["normal", "hover", "pressed", "hover_pressed", "focus"]:
+        confirmation_accept_button.add_theme_stylebox_override(
+            style_state, LaboSkin.terminal_segment_style("selected"))
+    confirmation_accept_button.add_theme_color_override("font_color", Color("#edffff"))
+    confirmation_accept_button.pressed.connect(_accept_confirmation)
+    confirm_buttons.add_child(confirmation_accept_button)
 
 func _set_labo_scroll_input_enabled(enabled: bool) -> void:
     if actions_scroll != null and actions_scroll.has_method("set_touch_scroll_enabled"):
@@ -774,13 +872,31 @@ func _set_labo_scroll_input_enabled(enabled: bool) -> void:
                 child.call("set_touch_scroll_enabled", enabled)
 
 
-func _request_confirmation(title: String, detail: String, action: Callable) -> void:
+func _request_confirmation(title: String, detail: String, action: Callable,
+        equipment_blueprint: String = "") -> void:
     if confirmation_overlay == null or not action.is_valid():
         return
     pending_confirmation = action
     _set_labo_scroll_input_enabled(false)
     confirmation_title.text = title
+    var is_craft: bool = not equipment_blueprint.is_empty()
+    confirmation_prompt.text = ("以下の装備を作成しますか？" if is_craft
+        else "操作内容をご確認ください。")
+    confirmation_craft_card.visible = is_craft
+    confirmation_craft_note.visible = is_craft
+    confirmation_text.visible = not is_craft
     confirmation_text.text = detail
+    confirmation_accept_button.text = (
+        "作成" if is_craft else "廃棄" if title.contains("廃棄")
+        else "実行")
+    if is_craft:
+        var spec: Dictionary = PrototypeCatalog.spec(equipment_blueprint)
+        confirmation_item_icon.texture = IconAtlas.equipment_icon(equipment_blueprint)
+        confirmation_item_name.text = str(spec.get("name", ""))
+        confirmation_item_slot.text = "EQUIPMENT / " + str(
+            spec.get("slot", "")).to_upper()
+        confirmation_item_stats.text = LaboStats.baseline(equipment_blueprint)
+        LaboSkin.refresh_name_underline(confirmation_item_name)
     confirmation_overlay.visible = true
     confirmation_overlay.move_to_front()
 
@@ -1189,6 +1305,21 @@ func _style_terminal_segment(button: Button) -> void:
         button.add_child(selected_mark)
         button.toggled.connect(func(pressed: bool) -> void:
             selected_mark.visible = pressed)
+
+
+func _add_labo_mark_icon(button: Button, kind: String) -> void:
+    # Native vector pictogram: no missing-font symbols and no extra texture.
+    var icon: Control = MarkIcon.new()
+    icon.name = "JunkMarkIcon" if kind == "junk" else "FavoriteMarkIcon"
+    icon.set("kind", kind)
+    icon.anchor_top = 0.5
+    icon.anchor_bottom = 0.5
+    icon.offset_left = 15.0
+    icon.offset_right = 39.0
+    icon.offset_top = -12.0
+    icon.offset_bottom = 12.0
+    icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    button.add_child(icon)
 
 
 func _add_terminal_notice(message: String) -> void:
@@ -1764,11 +1895,14 @@ func _show_inventory(section: String = "equipment") -> void:
         var junk_button := Button.new()
         junk_button.name = "BulkDeleteJunk"
         var junk_count: int = SeraSave.count_junk_prototypes(warehouse_slot)
-        junk_button.text = "PURGE / 不用品一括削除 (%d)" % junk_count
+        junk_button.text = "不用品を一括廃棄 (%d)" % junk_count
         junk_button.custom_minimum_size.y = 56
         junk_button.add_theme_font_size_override("font_size", 20)
         junk_button.disabled = junk_count == 0
         _style_terminal_segment(junk_button)
+        junk_button.add_theme_stylebox_override(
+            "normal", LaboSkin.terminal_segment_style("destructive"))
+        _add_labo_mark_icon(junk_button, "junk")
         # The purge action belongs with the cards, not inside the compact
         # action-tab area. Both navigation rows stay in place and fully visible.
         junk_button.pressed.connect(_confirm_bulk_junk_deletion)
@@ -1867,10 +2001,11 @@ func _show_warehouse_item_detail(uid: String) -> void:
             str(spec["name"]) + "  " + uid, "WarehouseDetail_" + uid)
         var favorite := Button.new()
         favorite.name = "WarehouseFavoriteToggle"
-        favorite.text = "★ お気に入り解除" if bool(item.get("favorite", false)) else "☆ お気に入りにする"
+        favorite.text = "お気に入り解除" if bool(item.get("favorite", false)) else "お気に入りに指定"
         favorite.custom_minimum_size.y = 70
         favorite.add_theme_font_size_override("font_size", 21)
         _style_terminal_segment(favorite)
+        _add_labo_mark_icon(favorite, "favorite")
         favorite.pressed.connect(_invoke_scroll_action.bind(
             _mark_warehouse_item.bind(uid, "favorite",
                 not bool(item.get("favorite", false))), actions_scroll))
@@ -1881,6 +2016,7 @@ func _show_warehouse_item_detail(uid: String) -> void:
         junk.custom_minimum_size.y = 70
         junk.add_theme_font_size_override("font_size", 21)
         _style_terminal_segment(junk)
+        _add_labo_mark_icon(junk, "junk")
         junk.pressed.connect(_invoke_scroll_action.bind(
             _mark_warehouse_item.bind(uid, "junk",
                 not bool(item.get("junk", false))), actions_scroll))
@@ -1898,7 +2034,7 @@ func _confirm_bulk_junk_deletion() -> void:
     var count: int = SeraSave.count_junk_prototypes(warehouse_slot)
     if count <= 0:
         return
-    _request_confirmation("削除しますか？",
+    _request_confirmation("不用品の廃棄確認",
         "%sの不用品 %d 件を削除します。\nお気に入りと装備中の個体は削除しません。\nこの操作は取り消せません。" % [
             _warehouse_slot_name(warehouse_slot), count],
         _delete_warehouse_junk)
@@ -2001,10 +2137,8 @@ func _confirm_selected_prototype() -> void:
     var spec: Dictionary = PrototypeCatalog.spec(selected_prototype)
     if spec.is_empty():
         return
-    _request_confirmation("作成しますか？",
-        "%s\n%s\n製作後、倉庫に保存します。" % [
-            str(spec["name"]), LaboStats.baseline(selected_prototype)],
-        _craft_selected_prototype)
+    _request_confirmation("装備の作成確認", "",
+        _craft_selected_prototype, selected_prototype)
 
 func _craft_selected_prototype() -> void:
     var uid: String = SeraSave.craft_prototype(selected_prototype)
@@ -2121,7 +2255,7 @@ func _confirm_conversion(from_rank: int) -> void:
     if plan.is_empty() or not SeraSave.can_convert_material(
             conversion_family, from_rank, conversion_mode, conversion_batches):
         return
-    _request_confirmation("作成しますか？",
+    _request_confirmation("精製の確認" if conversion_mode == 1 else "分解の確認",
         "%s ×%d → %s ×%d\n変換回数：%d" % [
             BaseMaterials.display_name(str(plan["input_id"])),
             int(plan["input_count"]),
@@ -2232,21 +2366,51 @@ func _render_conversion() -> void:
             _confirm_conversion.bind(rank), actions_scroll))
         row.add_child(bar)
         call_deferred("_apply_card_skin", bar)
-        var amount := SpinBox.new()
-        amount.name = "ConversionCount_" + str(rank)
-        amount.min_value = 1
-        amount.max_value = BaseMaterials.MAX_BATCHES
-        amount.step = 1
-        amount.value = conversion_batches
-        amount.rounded = true
-        amount.custom_minimum_size = Vector2(92, 72)
-        amount.add_theme_font_size_override("font_size", 23)
-        amount.add_theme_font_override("font", LaboSkin.data_font())
-        amount.add_theme_stylebox_override("normal", LaboSkin.terminal_segment_style("normal"))
-        amount.add_theme_stylebox_override("focus", LaboSkin.terminal_segment_style("selected"))
-        amount.tooltip_text = "変換回数"
-        amount.value_changed.connect(_conversion_batches_set)
-        row.add_child(amount)
+        # Compact three-cell selector: minus | perfectly centered count | plus.
+        # Both refinement and dismantling use the same 1..99 batch contract.
+        var stepper := HBoxContainer.new()
+        stepper.name = "ConversionStepper_" + str(rank)
+        stepper.custom_minimum_size = Vector2(142, 66)
+        stepper.add_theme_constant_override("separation", 3)
+        stepper.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+        row.add_child(stepper)
+        var decrement := Button.new()
+        decrement.name = "ConversionMinus_" + str(rank)
+        decrement.text = "-"
+        decrement.custom_minimum_size = Vector2(40, 66)
+        decrement.add_theme_font_override("font", LaboSkin.data_font())
+        decrement.add_theme_font_size_override("font_size", 28)
+        decrement.disabled = conversion_batches <= 1
+        _style_terminal_segment(decrement)
+        decrement.pressed.connect(_conversion_batches_changed.bind(-1))
+        stepper.add_child(decrement)
+        var amount_frame := PanelContainer.new()
+        amount_frame.name = "ConversionCountFrame_" + str(rank)
+        amount_frame.custom_minimum_size = Vector2(52, 66)
+        amount_frame.add_theme_stylebox_override(
+            "panel", LaboSkin.terminal_segment_style("selected"))
+        stepper.add_child(amount_frame)
+        var amount_text := Label.new()
+        amount_text.name = "ConversionCount_" + str(rank)
+        amount_text.text = "%02d" % conversion_batches
+        amount_text.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+        amount_text.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+        amount_text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+        amount_text.size_flags_vertical = Control.SIZE_EXPAND_FILL
+        amount_text.add_theme_font_override("font", LaboSkin.data_font())
+        amount_text.add_theme_font_size_override("font_size", 24)
+        amount_text.add_theme_color_override("font_color", Color("#ebf9fb"))
+        amount_frame.add_child(amount_text)
+        var increment := Button.new()
+        increment.name = "ConversionPlus_" + str(rank)
+        increment.text = "+"
+        increment.custom_minimum_size = Vector2(40, 66)
+        increment.add_theme_font_override("font", LaboSkin.data_font())
+        increment.add_theme_font_size_override("font_size", 27)
+        increment.disabled = conversion_batches >= BaseMaterials.MAX_BATCHES
+        _style_terminal_segment(increment)
+        increment.pressed.connect(_conversion_batches_changed.bind(1))
+        stepper.add_child(increment)
     _configure_page_scroll(0, true)
 
 func _show_detail(detail: String) -> void:
