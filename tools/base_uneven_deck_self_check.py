@@ -27,7 +27,7 @@ assert 'for panel in panels:' in floor
 assert 'PanelSeams' in floor and 'DeckBolts' in floor
 assert '3.0m uniform grid' not in floor
 assert 'grid_tiles < 3000' in legacy
-assert 'grid_mesh.size != Vector3.ONE' in legacy
+assert 'grid_mesh.get_surface_count() != 1' in legacy, 'preserve polygonal mesh sanity check'
 assert "py tools/base_uneven_deck_self_check.py" in ci
 assert "gd tools/base_uneven_deck_runtime_check.gd" in ci
 print("SERA_BASE_UNEVEN_DECK_STATIC_PASS")
