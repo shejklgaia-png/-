@@ -47,8 +47,8 @@ static func total_formula(blueprint: String, effects: Variant) -> String:
     for entry in Affixes.sanitize(effects):
         bonuses[str(entry["id"])] = int(entry["value"])
     var lines: PackedStringArray = [
-        "基礎＋特性（装備単体の表示値）",
-        "※追加特性は戦闘計算へ未接続の試作値です。"
+        "基礎 + 特性（装備単体の表示値）",
+        "注: 追加特性は戦闘計算へ未接続の試作値です。"
     ]
     for key in Affixes.EFFECT_IDS:
         var amount: float = float(base[key])
