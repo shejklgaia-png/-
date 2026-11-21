@@ -65,7 +65,10 @@ canonical = {
     *manifest["variants"].values(),
     *manifest["parts"].values(),
 }
-assert len(canonical) == 6, canonical
+# HEAD D (camera-eye) is an approved seventh editable source recorded in
+# models/manifest.json; verify the actual expected source instead of the old six.
+assert manifest["parts"]["head_camera_eye"] == "models/storage/カメラアイ頭部.bbmodel"
+assert len(canonical) == 7, canonical
 for relative in canonical:
     assert relative.startswith(("models/core/", "models/storage/")), relative
     assert (ROOT / relative).is_file(), f"Missing authoring source: {relative}"
