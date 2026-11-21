@@ -34,7 +34,7 @@ func _run() -> void:
             var ratio: float = float(after["scale"]) / float(before["scale"])
             if not bool(before.get("accent", false)) and float(after["scale"]) <= 0.87:
                 small_punctuation += 1
-            if ratio < 0.999 or ratio > 1.261:
+            if ratio < 0.999 or ratio > 1.341:
                 _fail(key + ": outside the approved enlarged prop range " + str(ratio))
                 return
             if ratio >= 1.059:
