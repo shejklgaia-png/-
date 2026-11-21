@@ -8,7 +8,7 @@ assert "static func stack_count_for(" in src
 assert "static func container_plan_for(" in src
 assert "static func _make_container_stack(" in src
 assert "static func _stable_seed(" in src
-assert 'count = stack_count_for(key, kind, index)' in src
+assert 'var count: int = stack_count_for(key, kind, index)' in src
 assert "var supports:" in src, "every upper item must name its support"
 assert '"supports": supports' in src
 assert "var size: Vector3" in src
