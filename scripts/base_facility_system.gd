@@ -481,7 +481,7 @@ func attach_hud(hud: Control) -> void:
     modal_title.add_theme_color_override("font_outline_color", Color("#071522"))
     modal_title.add_theme_constant_override("outline_size", 1)
     modal_title.add_theme_font_override("font", LaboSkin.title_font())
-    modal_title.add_theme_color_override("font_color", Color("#f2f8f9"))
+    modal_title.add_theme_color_override("font_color", Color("#e4edf0"))
     modal_title.mouse_filter = Control.MOUSE_FILTER_STOP
     modal_title.gui_input.connect(_on_modal_title_input)
     header_row.add_child(modal_title)
@@ -574,9 +574,9 @@ func attach_hud(hud: Control) -> void:
         button.add_theme_font_override("font", LaboSkin.tracked_display_font())
         button.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
         button.add_theme_color_override("font_color", Color("#b4cbd5"))
-        button.add_theme_color_override("font_pressed_color", Color("#e9fcff"))
-        button.add_theme_color_override("font_hover_color", Color("#effbff"))
-        button.add_theme_color_override("font_hover_pressed_color", Color("#effbff"))
+        button.add_theme_color_override("font_pressed_color", Color("#dceff3"))
+        button.add_theme_color_override("font_hover_color", Color("#e2f0f5"))
+        button.add_theme_color_override("font_hover_pressed_color", Color("#e2f0f5"))
         button.add_theme_stylebox_override("normal", LaboSkin.hanging_tab_style("normal"))
         button.add_theme_stylebox_override("hover", LaboSkin.hanging_tab_style("hover"))
         button.add_theme_stylebox_override("pressed", LaboSkin.hanging_tab_style("selected"))
@@ -1151,9 +1151,9 @@ func _style_terminal_segment(button: Button) -> void:
     button.add_theme_stylebox_override("disabled", LaboSkin.terminal_segment_style("disabled"))
     button.add_theme_stylebox_override("focus", LaboSkin.terminal_segment_style("normal"))
     button.add_theme_color_override("font_color", Color("#c9e6ea"))
-    button.add_theme_color_override("font_pressed_color", Color("#f1fcff"))
-    button.add_theme_color_override("font_hover_pressed_color", Color("#f1fcff"))
-    button.add_theme_color_override("font_hover_color", Color("#f1fcff"))
+    button.add_theme_color_override("font_pressed_color", Color("#e3eff3"))
+    button.add_theme_color_override("font_hover_pressed_color", Color("#e3eff3"))
+    button.add_theme_color_override("font_hover_color", Color("#e3eff3"))
     if button.toggle_mode:
         var selected_mark := ColorRect.new()
         selected_mark.name = "SelectedTabMark"
@@ -1516,7 +1516,7 @@ func _new_slot(parent: Control, key: String, icon: Texture2D,
             "font_size", _material_card_font_size())
         info_label.add_theme_font_size_override(
             "font_size", maxi(15, _material_card_font_size() - 4))
-        title_label.add_theme_color_override("font_color", Color("#ffffff"))
+        title_label.add_theme_color_override("font_color", Color("#eaf3f5"))
         info_label.add_theme_color_override("font_color", Color("#9cdbe4"))
     else:
         title_label.add_theme_font_size_override("font_size",
@@ -1527,7 +1527,7 @@ func _new_slot(parent: Control, key: String, icon: Texture2D,
         info_label.add_theme_constant_override("line_spacing", 3)
         title_label.add_theme_color_override("font_color",
             Color("#8da9b5") if key.begins_with("LockedCraftSlot_") else
-            Color("#f9ffff"))
+            Color("#eaf4f5"))
         info_label.add_theme_color_override("font_color",
             Color("#587786") if key.begins_with("LockedCraftSlot_") else
             Color("#b8e9ef"))
@@ -1816,7 +1816,7 @@ func _show_warehouse_item_detail(uid: String) -> void:
         # The breakdown combines Japanese labels and numbers; Latin-only
         # IBM Plex Mono displayed tofu squares for the Japanese glyphs.
         breakdown.add_theme_font_override("font", LaboSkin.stats_font())
-        breakdown.add_theme_color_override("font_color", Color("#eff8ff"))
+        breakdown.add_theme_color_override("font_color", Color("#e0ebf1"))
         breakdown.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
         modal_actions.add_child(breakdown)
         if not warehouse_notice.is_empty():
