@@ -4,11 +4,11 @@ extends SceneTree
 const HERO_CUES = {
     "LABO": {
         "point": Vector3(0.18, 1.95, 1.37), "half_width": 0.55,
-        "min_width_px": 24.0, "feature": "LabPrinterFrontHousing",
+        "min_width_px": 24.0, "feature": "LabFocalPrintBed",
     },
     "SCRAP_COLLECTOR": {
         "point": Vector3(0.46, 1.28, 1.03), "half_width": 0.55,
-        "min_width_px": 28.0, "feature": "CollectorVisibleJawCheek",
+        "min_width_px": 28.0, "feature": "CollectorClawSignalCheek",
     },
     "GENERATOR": {
         "point": Vector3(-0.08, 1.18, 1.29), "half_width": 0.63,
