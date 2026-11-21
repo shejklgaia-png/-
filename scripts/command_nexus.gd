@@ -998,7 +998,7 @@ func _layout_customization_stats() -> void:
         Rect2(Vector2(10, 7), Vector2(inner_width, height - 14)), columns)
     var cell_width: float = floorf(
         (inner_width - 9.0 * float(columns - 1)) / float(columns))
-    var cell_height: float = 39.0
+    var cell_height: float = 38.0
     if customize_weapon_divider != null:
         var body_count: int = maxi(0, customize_weapon_first_index)
         var body_rows: int = ceili(float(body_count) / float(columns))
@@ -1038,7 +1038,7 @@ func _refresh_customization_stats() -> void:
             var row: Panel = cell["panel"] as Panel
             StatUI.layout_metric_pair(
                 cell["name"] as Label, cell["value"] as Label,
-                row.custom_minimum_size.x, 39.0, 19, 25, 16, 20)
+                row.custom_minimum_size.x, 38.0, 19, 25, 16, 20)
     _layout_customization_stats()
 
 
@@ -1540,9 +1540,6 @@ func _layout_single_part_preview() -> void:
     if customize_single_part_preview == null:
         return
     var view: Vector2 = hud.size
-    var header_height: float = focus_header.size.y
-    var side: float = minf(focus_panel.size.x - 14.0,
-        focus_panel.size.y - header_height - 10.0)
     # The SubViewportContainer owns the rectangular frame; stretching it
     # across this window keeps the grid backdrop aligned to the chamfer rim.
     # Its native viewport receives the actual aspect ratio automatically.
