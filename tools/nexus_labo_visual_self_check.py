@@ -71,6 +71,14 @@ for forbidden in (
     'glow_color', 'soft_falloff', 'smoothstep(core_radius',
 ):
     assert forbidden not in shader, "obsolete cyan/radial effect: " + forbidden
+# Do not move the orthographic camera: refit the model inside a lower frame.
+for expected in (
+    'var top: float = view.y * 0.275',
+    'var target_center_y: float = frame.get_center().y + 3.0',
+    'allowed_height * 0.90',
+    'target_center_y - (rect.position.y + rect.size.y * 0.5)',
+):
+    assert expected in n, expected
 assert 'material.set_shader_parameter("halo_center"' not in n
 assert 'PrototypeCatalog.display_instance(' not in n, "model code must not be appended to item name"
 assert 'var icon_size: float = minf(48.0, row.size.y - 18.0)' not in n, (
