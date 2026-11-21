@@ -9,7 +9,8 @@ uniform float stroke_px : hint_range(0.5, 4.0) = 3.0;
 varying float edge_visible;
 
 void vertex() {
-    // COLOR.rgb = face A normal (0..1), COLOR.a = true 80deg crease.
+    // COLOR.rgb = face A normal (0..1); alpha retains the 80deg metadata.
+    // Metadata does not force an ink stroke on a camera-facing corner.
     // CUSTOM0.xyz = face B normal, CUSTOM0.w = adjacent-face flag.
     // NORMAL = edge tangent and UV.x = ribbon left/right side.
     vec3 normal_a = normalize(COLOR.rgb * 2.0 - vec3(1.0));
@@ -23,13 +24,14 @@ void vertex() {
     if (!boundary) {
         vec3 n_b = normalize(normal_matrix * CUSTOM0.xyz);
         float b_facing = dot(n_b, camera_ray);
-        // A silhouette changes as the viewer moves; it does not depend on
-        // the 80-degree crease threshold.
+        // Draw only the projected contour: an adjacent pair must straddle
+        // the camera-facing / back-facing boundary. Even a 90-degree crease
+        // is NOT inked when both faces are visible from this angle.
+        // This retains the silhouette of a foreground piece as it occludes
+        // a recessed part, without outlining the near corner of a cube.
         bool silhouette = (a_facing > 0.02 && b_facing < -0.02)
             || (b_facing > 0.02 && a_facing < -0.02);
-        bool hard_crease = COLOR.a > 0.5
-            && a_facing > 0.02 && b_facing > 0.02;
-        visible = silhouette || hard_crease;
+        visible = silhouette;
     }
     edge_visible = visible ? 1.0 : 0.0;
 
