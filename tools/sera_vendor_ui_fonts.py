@@ -41,7 +41,7 @@ RELEASES = (
 )
 
 def _valid_font(data: bytes) -> bool:
-    return len(data) > 50_000 and data[:4] in (b"\\x00\\x01\\x00\\x00", b"OTTO")
+    return len(data) > 50_000 and data[:4] in (b"\x00\x01\x00\x00", b"OTTO")
 
 def _check_one(release: dict) -> None:
     for name in release["files"]:
