@@ -731,6 +731,7 @@ func _load_part_stats() -> void:
         chosen[slot] = str(rig.call("get_equipment_selection", slot))
     part_stats = PART_STATS.build(chosen)
     rig.call("set_heavy_slide_run_enabled", str(part_stats.get("run_motion", "run")) == "slide")
+    rig.call("set_melee_attack_speed_scale", float(part_stats.get("attack_motion_speed_mult", 1.0)))
     player_hp = float(part_stats.get("max_hp", 800.0))
     rig.call("set_equipment_motion_scales", float(part_stats.get("damage_time_mult", 1.0)),
         float(part_stats.get("guard_speed_mult", 1.0)),
@@ -780,7 +781,8 @@ func _tick_resources(delta: float) -> void:
     shield_recovery_pause = RESOURCE_RULES.next_recovery_pause(
         shield_recovery_pause, delta)
     energy = RESOURCE_RULES.recovered_energy(
-        energy, energy_recovery_pause, delta, TEST_EN_MAX, 24.0)
+        energy, energy_recovery_pause, delta, TEST_EN_MAX,
+        float(part_stats.get("en_recovery_per_second", 24.0)))
     shield = RESOURCE_RULES.recovered_shield(
         shield, shield_recovery_pause, guard_break_remaining, down_remaining,
         delta, TEST_SH_MAX, 16.0)
@@ -3499,7 +3501,7 @@ func _cancel_back_somersault() -> void:
 # v314: all 360-degree dodge angles share a single, fixed 5m distance.
 # A direction changes pose/travel vector, not duration or displacement.
 func _step_fixed_distance_for_direction(_direction: Vector2) -> float:
-    return STEP_SIDE_DISTANCE
+    return STEP_SIDE_DISTANCE * float(part_stats.get("step_distance_mult", 1.0))
 
 
 # Touch flicks only: direct legacy back/side helpers and combo kicks are unchanged.
@@ -3508,7 +3510,7 @@ func _start_omni_step(flick: Vector2) -> bool:
             or rig == null or not bool(rig.get("loading_ok"))
             or flick.length_squared() < 0.000001):
         return false
-    if not _spend_energy(15.0 * float(part_stats.get("energy_cost_mult", 1.0))):
+    if not _spend_energy(15.0 * float(part_stats.get("energy_cost_mult", 1.0)) / maxf(0.01, float(part_stats.get("movement_en_efficiency", 1.0)))):
         return false
     # Only a committed STEP may terminate a landing. Preserve its existing
     # complete-pose crossfade for every other action/input.
@@ -3640,7 +3642,7 @@ func _start_omni_step(flick: Vector2) -> bool:
 func _start_back_step() -> bool:
     if guard_active or damage_reaction_active or landing_active or rig == null or not bool(rig.get("loading_ok")):
         return false
-    if not _spend_energy(15.0 * float(part_stats.get("energy_cost_mult", 1.0))):
+    if not _spend_energy(15.0 * float(part_stats.get("energy_cost_mult", 1.0)) / maxf(0.01, float(part_stats.get("movement_en_efficiency", 1.0)))):
         return false
     if combat_state != CombatState.IDLE:
         _cancel_attack()  # Same attack-cancel behavior as left/right steps.
@@ -3658,13 +3660,13 @@ func _start_back_step() -> bool:
     step_start_offset = Vector2(player.position.x - target.position.x,
         player.position.z - target.position.z)
     step_target_center = Vector2(target.position.x, target.position.z)
-    step_linear_offset = Vector2(away.x, away.z) * BACK_STEP_DISTANCE
+    step_linear_offset = Vector2(away.x, away.z) * (BACK_STEP_DISTANCE * float(part_stats.get("step_distance_mult", 1.0)))
     step_linear_fallback = true  # Reuse collision-swept linear step travel.
     step_signed_angle = 0.0
-    step_arc_length = BACK_STEP_DISTANCE
+    step_arc_length = BACK_STEP_DISTANCE * float(part_stats.get("step_distance_mult", 1.0))
     step_speed_current = STEP_SPEED * float(part_stats.get("step_speed_mult", 1.0))
     # 5m at 15m/s = ~0.333 seconds before equipment scaling.
-    step_duration_current = BACK_STEP_DISTANCE / step_speed_current * float(part_stats.get("step_time_mult", 1.0))
+    step_duration_current = step_arc_length / step_speed_current * float(part_stats.get("step_time_mult", 1.0))
     # Unlike side steps, back steps do not orbit the target. Do not engage
     # the point-blank side-step camera constraint for backward movement.
     step_close_camera = false
@@ -3682,7 +3684,7 @@ func _start_back_step() -> bool:
 func _start_side_step(side: int) -> bool:
     if guard_active or damage_reaction_active or landing_active or side == 0 or rig == null or not bool(rig.get("loading_ok")):
         return false
-    if not _spend_energy(15.0 * float(part_stats.get("energy_cost_mult", 1.0))):
+    if not _spend_energy(15.0 * float(part_stats.get("energy_cost_mult", 1.0)) / maxf(0.01, float(part_stats.get("movement_en_efficiency", 1.0)))):
         return false
     if combat_state != CombatState.IDLE:
         # v45: a flick can cancel an in-progress attack.
@@ -3701,7 +3703,8 @@ func _start_side_step(side: int) -> bool:
     # A tiny radius would require circling the target multiple times to
     # cover 2.0m. Only in this extreme overlap state use a 2.0m tangent
     # translation instead; the player must never spin in place.
-    var close_radius_limit: float = (STEP_SIDE_DISTANCE
+    var weighted_step_length: float = STEP_SIDE_DISTANCE * float(part_stats.get("step_distance_mult", 1.0))
+    var close_radius_limit: float = (weighted_step_length
         / deg_to_rad(STEP_CLOSE_ORBIT_MAX_DEGREES))
     step_linear_fallback = radius < close_radius_limit
 
@@ -3719,13 +3722,13 @@ func _start_side_step(side: int) -> bool:
     # Dedicated legacy left/right input also uses the 5m dodge speed/range.
     # This direct orbit helper is not the screen-linear touch STEP.
     step_speed_current = STEP_SPEED * float(part_stats.get("step_speed_mult", 1.0))
-    var path_length: float = STEP_SIDE_DISTANCE
+    var path_length: float = weighted_step_length
     if step_linear_fallback:
         step_signed_angle = 0.0
         step_linear_offset = Vector2(orbit_tangent.x, orbit_tangent.z) * (
-            STEP_SIDE_DISTANCE * orbit_sign)
+            weighted_step_length * orbit_sign)
     else:
-        step_signed_angle = STEP_SIDE_DISTANCE / radius * orbit_sign
+        step_signed_angle = weighted_step_length / radius * orbit_sign
     step_arc_length = path_length
     # Keep the selected speed for the entire step (do not change mid-orbit).
     # At 5m/15m/s the base duration is ~0.333s.
@@ -4089,7 +4092,7 @@ func _advance_homing_toward_target(delta: float, reach: float) -> bool:
     destination_delta.y = 0.0
     if destination_delta.length_squared() < 0.000001:
         return true
-    var speed: float = float(part_stats.get("melee_boost_speed", MELEE_BOOST_DEFAULT_SPEED))
+    var speed: float = float(part_stats.get("melee_boost_speed", MELEE_BOOST_DEFAULT_SPEED)) * float(part_stats.get("tracking_speed_mult", 1.0))
     var travel: float = minf(speed * delta, destination_delta.length())
     var next_position: Vector3 = player.position + destination_delta.normalized() * travel
     if _distance_to_attack_target_surface(next_position) <= reach:
@@ -4525,7 +4528,7 @@ func _physics_process(delta: float) -> void:
     _update_boost_gesture(delta)
     if movement_boost_active:
         var boost_energy_ok: bool = _spend_energy(
-            20.0 * delta * float(part_stats.get("energy_cost_mult", 1.0)))
+            20.0 * delta * float(part_stats.get("energy_cost_mult", 1.0)) / maxf(0.01, float(part_stats.get("movement_en_efficiency", 1.0))))
         if not boost_energy_ok or energy_exhausted:
             # A final BOOST tick can cost more than the tiny remaining EN.
             # Count that as depletion, then require 60% regeneration before

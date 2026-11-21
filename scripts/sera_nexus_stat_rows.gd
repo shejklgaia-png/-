@@ -26,6 +26,16 @@ static func from_selection(selected: Dictionary) -> Array[Dictionary]:
 
 static func from_stats(stats: Dictionary) -> Array[Dictionary]:
     var candidates: Array[Dictionary] = []
+    # Synthetic snapshots and legacy saves must not gain fabricated nonzero rows.
+    if stats.has("weight_pct"):
+        var category: String = str(stats.get("weight_class", "medium")).to_upper()
+        _add(candidates, "WEIGHT " + category, float(stats["weight_pct"]), 1, "%")
+    if stats.has("en_recovery_per_second"):
+        _add(candidates, "EN OUTPUT", float(stats["en_recovery_per_second"]), 2, "/s")
+    if stats.has("tracking_speed_mult"):
+        _add(candidates, "TRACK", float(stats["tracking_speed_mult"]) * 100.0, 0, "%")
+    if stats.has("attack_motion_speed_mult"):
+        _add(candidates, "ATK SPEED", float(stats["attack_motion_speed_mult"]) * 100.0, 0, "%")
     _add(candidates, "HP", float(stats.get("max_hp", 0.0)))
     _add(candidates, "DEF", float(stats.get("defense", 0.0)) * 100.0, 1, "%")
     _add(candidates, "ATK1", _first(stats, "attack_damage") *

@@ -213,6 +213,7 @@ var loading_ok: bool = false
 var equipment_guard_transition: float = 0.095
 var equipment_reaction_speed: float = 1.0
 var equipment_damage_scale: float = 1.0
+var equipment_melee_attack_speed_scale: float = 1.0
 var equipment_guard_speed: float = 1.0
 var training_ko_active: bool = false
 var _ko_material: ShaderMaterial
@@ -301,6 +302,11 @@ func set_equipment_motion_scales(damage_scale: float, guard_speed: float,
     equipment_guard_transition = clampf(transition, 0.04, 0.25)
     equipment_reaction_speed = 1.3 if reaction_type == "small" else (
         0.8 if reaction_type == "large" else 1.0)
+
+func set_melee_attack_speed_scale(scale: float) -> void:
+    # Weight affects the authored sword/Bash clip clock, without retiming
+    # HIT_STOP, combo input windows, or dedicated kick locomotion.
+    equipment_melee_attack_speed_scale = clampf(scale, 0.5, 2.0)
 
 func set_heavy_slide_run_enabled(enabled: bool) -> void:
     heavy_slide_run_enabled = enabled
@@ -2009,7 +2015,7 @@ func _process(delta: float) -> void:
     elif attack_windup_active and not combat_paused and current_clip == attack_windup_clip:
         # Reverse within 0..windup_end instead of restarting at frame zero.
         # This continuously loops the real windup keys without a snap at wrap.
-        attack_windup_phase += maxf(delta, 0.0)
+        attack_windup_phase += maxf(delta, 0.0) * equipment_melee_attack_speed_scale
         var cycle: float = attack_windup_end * 2.0
         var phase: float = fposmod(attack_windup_phase, cycle)
         clip_time = phase if phase <= attack_windup_end else cycle - phase
@@ -2018,6 +2024,9 @@ func _process(delta: float) -> void:
         var playback_rate: float = RUN_ANIMATION_SPEED if current_clip in RUN_CLIPS else (
             1.0 / equipment_damage_scale if current_clip == DAMAGE_CLIP else (
                 equipment_reaction_speed if current_clip == GUARD_REACTION_CLIP else 1.0))
+        if current_clip in [STRIKE_CLIP, STRIKE_2_CLIP, STRIKE_3_CLIP,
+                KATANA_CLIP, KATANA_SECOND_CLIP, BASH_CLIP]:
+            playback_rate *= equipment_melee_attack_speed_scale
         if current_clip == side_kick_clip_name:
             playback_rate = side_kick_playback_scale
         clip_time += delta * playback_rate
