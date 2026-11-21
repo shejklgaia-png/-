@@ -29,6 +29,10 @@ func _run() -> void:
     }
     var animations: Dictionary = rig.get("animations")
     for id in cases:
+        # Each independent source-clip case starts from an actual new
+        # encounter. A previous case's authored fall is intentionally
+        # still active until the boss respawn/reset is called.
+        scene.call("_reset_target_after_respawn")
         var spec: Array = cases[id]
         var clip_name: String = str(spec[0])
         if not animations.has(clip_name):
@@ -82,6 +86,7 @@ func _run() -> void:
         if absf(body.quaternion.dot(expect)) < 0.999:
             _fail("stand-up never returned BODY to Wait: " + clip_name)
             return
+        ik.set("windup_elapsed", -1.0)
         ik.set("break_elapsed", -1.0)
     # A second break during the same fall may reset the down hold, but
     # it must NEVER rewind a body already on the floor to its anticipation.
