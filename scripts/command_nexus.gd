@@ -48,7 +48,7 @@ var customize_part_stats_panel: Panel
 var customize_part_stats_header: Label
 var customize_part_stats_name: Label
 var customize_part_stats_scroll: ScrollContainer
-var customize_part_stats_list: VBoxContainer
+var customize_part_stats_list: GridContainer
 var customize_part_stat_cells: Array[Dictionary] = []
 var customize_stat_cells: Array[Dictionary] = []
 var customize_single_part_preview: Control
@@ -709,7 +709,7 @@ func _create_training_controls() -> void:
         row.add_child(caption)
         var value := Label.new()
         value.mouse_filter = Control.MOUSE_FILTER_IGNORE
-        value.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+        value.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
         value.add_theme_font_size_override("font_size", 19)
         value.add_theme_color_override("font_color", Color("#e4faff"))
         row.add_child(value)
@@ -1513,7 +1513,7 @@ func _refresh_single_part_preview(slot: String) -> void:
 
 
 func _create_customization_part_stats() -> void:
-    # Independent PART STATUS panel; reuse 28 rows, never allocate UI on taps.
+    # Independent three-column, no-scroll PART STATUS; reuse 28 fixed cells.
     customize_part_stats_panel = Panel.new()
     customize_part_stats_panel.name = "CustomizePartStatsPanel"
     customize_part_stats_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -1554,19 +1554,21 @@ func _create_customization_part_stats() -> void:
     customize_part_stats_scroll.name = "CustomizePartStatsScroll"
     customize_part_stats_scroll.mouse_filter = Control.MOUSE_FILTER_PASS
     customize_part_stats_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-    customize_part_stats_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+    customize_part_stats_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
     customize_part_stats_panel.add_child(customize_part_stats_scroll)
-    customize_part_stats_list = VBoxContainer.new()
+    customize_part_stats_list = GridContainer.new()
+    customize_part_stats_list.columns = 3
     customize_part_stats_list.name = "CustomizePartStatsRows"
     customize_part_stats_list.mouse_filter = Control.MOUSE_FILTER_IGNORE
     customize_part_stats_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-    customize_part_stats_list.add_theme_constant_override("separation", 2)
+    customize_part_stats_list.add_theme_constant_override("h_separation", 5)
+    customize_part_stats_list.add_theme_constant_override("v_separation", 3)
     customize_part_stats_scroll.add_child(customize_part_stats_list)
     for i in range(28):
         var row := Panel.new()
         row.name = "SinglePartStat_" + str(i)
         row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-        row.custom_minimum_size = Vector2(100, 28)
+        row.custom_minimum_size = Vector2(100, 35)
         var style := StyleBoxFlat.new()
         style.bg_color = Color("#122a36")
         style.border_color = Color("#345563")
@@ -1582,7 +1584,7 @@ func _create_customization_part_stats() -> void:
         label.clip_text = true
         label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
         label.add_theme_font_override("font", LaboSkin.stats_font())
-        label.add_theme_font_size_override("font_size", 15)
+        label.add_theme_font_size_override("font_size", 13)
         label.add_theme_color_override("font_color", Color("#b7cbd6"))
         row.add_child(label)
         var value := Label.new()
@@ -1593,7 +1595,7 @@ func _create_customization_part_stats() -> void:
         value.clip_text = true
         value.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
         value.add_theme_font_override("font", LaboSkin.stats_font())
-        value.add_theme_font_size_override("font_size", 16)
+        value.add_theme_font_size_override("font_size", 15)
         value.add_theme_color_override("font_color", Color("#e0eef1"))
         row.add_child(value)
         customize_part_stat_cells.append({
@@ -1602,11 +1604,12 @@ func _create_customization_part_stats() -> void:
 
 
 func _customize_part_stats_rect(view: Vector2) -> Rect2:
-    var preview: Rect2 = _customize_square_menu_rect(view)
-    var start: float = preview.end.y + view.y * 0.011
-    var bottom: float = view.y * 0.895
-    return Rect2(Vector2(preview.position.x, start),
-        Vector2(preview.size.x, maxf(120.0, bottom - start)))
+    # Wide bottom tier: up to 10 base stats and five UID affixes fit in
+    # a three-column grid without vertical scrolling.
+    var start: float = view.y * 0.704
+    var bottom: float = view.y * 0.915
+    return Rect2(Vector2(view.x * 0.035, start),
+        Vector2(view.x * 0.930, maxf(120.0, bottom - start)))
 
 
 func _layout_customization_part_stats() -> void:
@@ -1628,16 +1631,17 @@ func _layout_customization_part_stats() -> void:
     customize_part_stats_scroll.position = Vector2(10, 73)
     customize_part_stats_scroll.size = Vector2(
         maxf(40.0, area.size.x - 20.0), maxf(40.0, area.size.y - 83.0))
-    var row_width: float = customize_part_stats_scroll.size.x - 3.0
+    var row_width: float = floorf(
+        (customize_part_stats_scroll.size.x - 13.0) / 3.0)
     for entry in customize_part_stat_cells:
         var row: Panel = entry["panel"]
-        row.custom_minimum_size = Vector2(row_width, 28)
+        row.custom_minimum_size = Vector2(row_width, 35)
         var label: Label = entry["name"]
-        label.position = Vector2(8, 0)
-        label.size = Vector2(row_width * 0.63 - 10, 28)
+        label.position = Vector2(8, 1)
+        label.size = Vector2(row_width - 16, 16)
         var value: Label = entry["value"]
-        value.position = Vector2(row_width * 0.63, 0)
-        value.size = Vector2(row_width * 0.37 - 9, 28)
+        value.position = Vector2(8, 17)
+        value.size = Vector2(row_width - 16, 18)
 
 
 func _refresh_customization_part_stats(slot: String) -> void:
@@ -2265,8 +2269,8 @@ func _apply_labo_typography() -> void:
         _skin_label(entry["label"] as Label, display, 14, accent)
     _skin_label(archive_record_body, stats, 17, accent)
 
-# Three-zone CUSTOMIZE portrait: upper-left model, lower-left square,
-# right-side tall menu. All rectangles are in HUD viewport coordinates.
+# CUSTOMIZE: TOTAL above, model/PART VIEW and equipment side-by-side,
+# non-scrolling PART STATUS across the bottom. Rects use HUD coordinates.
 func _customize_square_menu_rect(view: Vector2) -> Rect2:
     # PART VIEW uses the left middle tier while the full SERA stays visible
     # immediately above it; the status panel occupies the lower tier.
@@ -2276,7 +2280,7 @@ func _customize_square_menu_rect(view: Vector2) -> Rect2:
 func _customize_tall_menu_rect(view: Vector2) -> Rect2:
     return Rect2(
         Vector2(view.x * 0.510, view.y * 0.255),
-        Vector2(view.x * 0.455, view.y * 0.640))
+        Vector2(view.x * 0.455, view.y * 0.438))
 
 func _customize_model_area(view: Vector2) -> Rect2:
     # SERA's own upper-left 3D showcase never intersects PART VIEW.
@@ -2351,10 +2355,10 @@ func _create_customization_glow() -> void:
     quad.size = Vector2.ONE
     var material := ShaderMaterial.new()
     material.shader = CUSTOMIZE_BACKDROP_SHADER
-    material.set_shader_parameter("base_tint", Color("#4a6b7d"))
-    material.set_shader_parameter("grid_tint", Color("#213944"))
-    material.set_shader_parameter("grid_strength", 0.65)
-    material.set_shader_parameter("base_opacity", 0.62)
+    material.set_shader_parameter("base_tint", Color("#243b48"))
+    material.set_shader_parameter("grid_tint", Color("#142832"))
+    material.set_shader_parameter("grid_strength", 0.72)
+    material.set_shader_parameter("base_opacity", 0.87)
     var backdrop := MeshInstance3D.new()
     backdrop.name = "CustomizePortraitGridBackdrop"
     backdrop.mesh = quad
@@ -2367,6 +2371,18 @@ func _create_customization_glow() -> void:
 # Cover the whole portrait screen with a uniform translucent blue-grey matte.
 # The dark grid has fixed pixel spacing, independent of SERA's pose and yaw.
 # Resize only updates the quad and grid dimensions; no extra draw calls.
+# Preserve vertical framing while switching the shared 3D portrait camera.
+func _set_customization_camera_projection(enabled: bool) -> void:
+    if cam == null:
+        return
+    if enabled:
+        var depth: float = maxf(0.1, -customize_preview_position.z)
+        cam.size = 2.0 * depth * tan(deg_to_rad(cam.fov) * 0.5)
+        cam.projection = Camera3D.PROJECTION_ORTHOGONAL
+    else:
+        cam.projection = Camera3D.PROJECTION_PERSPECTIVE
+
+
 func _update_customization_glow() -> void:
     if not customize_preview_active or customize_glow_quad == null or cam == null or hud == null:
         return
@@ -2374,7 +2390,9 @@ func _update_customization_glow() -> void:
     if viewport_size.x <= 1.0 or viewport_size.y <= 1.0:
         return
     var depth: float = -customize_preview_position.z + CUSTOMIZE_GLOW_DEPTH_OFFSET
-    var half_height: float = depth * tan(deg_to_rad(cam.fov) * 0.5)
+    var half_height: float = (cam.size * 0.5 if (
+        cam.projection == Camera3D.PROJECTION_ORTHOGONAL) else
+        depth * tan(deg_to_rad(cam.fov) * 0.5))
     var half_width: float = half_height * viewport_size.x / viewport_size.y
     customize_glow_quad.position = Vector3(0.0, 0.0, -depth)
     var quad := customize_glow_quad.mesh as QuadMesh
@@ -2600,6 +2618,8 @@ func _customization_entrance_arrived(final_world: Transform3D) -> void:
         return
     customize_motion_active = false
     sera_display_rig.global_transform = final_world
+    _set_customization_camera_projection(true)
+    _fit_customization_preview()
     _capture_sera_silhouette(sera_display_rig)
     _update_projected_silhouettes()
     # Show the stationary grid only after SERA and the camera have reached
@@ -2741,7 +2761,9 @@ func _fit_customization_preview() -> void:
         if rect.size.x <= 1.0 or rect.size.y <= 1.0:
             return
         var depth: float = -customize_preview_position.z
-        var half_height := depth * tan(deg_to_rad(cam.fov) * 0.5)
+        var half_height: float = (cam.size * 0.5 if (
+            cam.projection == Camera3D.PROJECTION_ORTHOGONAL) else
+            depth * tan(deg_to_rad(cam.fov) * 0.5))
         var px_per_world := size.y / maxf(0.001, 2.0 * half_height)
         var error := Vector2(
             center_target_x - (rect.position.x + rect.size.x * 0.5),
@@ -2788,7 +2810,9 @@ func _constrain_customization_preview_to_safe_area() -> void:
             _capture_sera_silhouette(sera_display_rig)
             rect = _customization_screen_bounds()
         var depth: float = -customize_preview_position.z
-        var half_height := depth * tan(deg_to_rad(cam.fov) * 0.5)
+        var half_height: float = (cam.size * 0.5 if (
+            cam.projection == Camera3D.PROJECTION_ORTHOGONAL) else
+            depth * tan(deg_to_rad(cam.fov) * 0.5))
         var px_per_world := size.y / maxf(0.001, 2.0 * half_height)
         var error := Vector2(
             center_target_x - (rect.position.x + rect.size.x * 0.5),
@@ -3276,8 +3300,10 @@ func _return_to_overview() -> void:
     outline.queue_redraw()
     # Hide the matte blue-grey grid on the Back press itself,
     # before either the model or camera Tween gets its first frame.
-    if focused_target == "CUSTOMIZE" and customize_glow_quad != null:
-        customize_glow_quad.visible = false
+    if focused_target == "CUSTOMIZE":
+        if customize_glow_quad != null:
+            customize_glow_quad.visible = false
+        _set_customization_camera_projection(false)
     in_transition = true
     _close_customization_part_picker()
     customize_part_touch_id = -1
@@ -3312,6 +3338,7 @@ func _return_to_overview() -> void:
         _move_camera(overview_pose, overview_fov, _overview_arrived)
 
 func _overview_arrived() -> void:
+    _set_customization_camera_projection(false)
     # The SERA retraction now finishes at 0.14s; keep its model aligned to the
     # moving camera until 0.18s. Only then restore the exact stand transform.
     if focused_target == "CUSTOMIZE" and customize_preview_active:
