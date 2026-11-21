@@ -47,8 +47,10 @@ func _run() -> void:
     await process_frame
     var yaw_before: float = float(scene.get("camera_yaw"))
     viewer.call("feed_touch", 0, true, Vector2(35, 42))
-    viewer.call("feed_drag", 0, Vector2(85, 58))
-    viewer.call("feed_touch", 0, false, Vector2(85, 58))
+    # 17px is inside the drag-debouncer's per-event 18% viewport gate;
+    # a single 50px synthetic jump is correctly rejected as discontinuity.
+    viewer.call("feed_drag", 0, Vector2(51, 49))
+    viewer.call("feed_touch", 0, false, Vector2(51, 49))
     var yaw_after: float = float(scene.get("camera_yaw"))
     if is_equal_approx(yaw_before, yaw_after):
         _fail("Drag must turn the actual part in 3D")
