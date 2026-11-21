@@ -10,26 +10,26 @@ diag=(root/"scripts/sera_font_diagnostics.gd").read_text("utf-8")
 preset=(root/"export_presets.cfg").read_text("utf-8")
 ci=(root/"tools/sera_ci_manifest.txt").read_text("utf-8")
 for filename in (
-    "MPLUS2-VF.woff2","MPLUS1Code-VF.woff2",
+    "NotoSansJP-VF.woff2",
     "IBMPlexSansJP-Medium.woff2","IBMPlexSansJP-Bold.woff2"):
     data=(assets/filename).read_bytes()
     assert data[:4]==b"wOF2", filename
     assert len(data)>50_000, filename
     assert filename in skin, filename
-for filename in ("OFL-MPLUS2.txt","OFL-MPLUS1Code.txt","OFL-IBMPlexSansJP.txt"):
+for filename in ("OFL-NotoSansJP.txt","OFL-IBMPlexSansJP.txt"):
     text=(assets/filename).read_text("utf-8")
     assert "SIL OPEN FONT LICENSE" in text.upper(), filename
 for statement in (
-    "_title_font = _variation_from_face(_title_face(), 800)",
-    "_equipment_font = _variation_from_face(_title_face(), 700)",
+    "_title_font = _variation_from_face(_title_face(), 850)",
+    "_equipment_font = _variation_from_face(_title_face(), 750)",
     "_ui_font = _variation_from_face(_ui_face())",
     "_control_font = _variation_from_face(_control_face())",
     "_stats_font = _variation_from_face(_stats_face(), 550)",
     "static func equipment_font() -> FontVariation:",
     "_load_bundled_font(JP_UI_FONT_PATH, 0x88C5)",
-    "_load_bundled_font(JP_TITLE_FONT_PATH, 0x88C5)",
+    "_jp_title_source = _jp_face()",
     "_load_bundled_font(JP_CONTROL_FONT_PATH, 0x88C5)",
-    "_load_bundled_font(JP_STATS_FONT_PATH, 0x65E5)",
+    "_jp_stats_source = _jp_face()",
 ):
     assert statement in skin, statement
 assert 'LaboSkin.equipment_font()))' in ui
