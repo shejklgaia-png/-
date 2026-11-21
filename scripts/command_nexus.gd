@@ -1030,6 +1030,7 @@ func _create_equipment_controls() -> void:
         set_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
         set_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
         set_label.clip_text = true
+        set_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
         set_label.add_theme_font_size_override("font_size", 20)
         set_label.add_theme_color_override("font_color", Color("#dcfaff"))
         row.add_child(set_label)
@@ -1039,9 +1040,19 @@ func _create_equipment_controls() -> void:
         item_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
         item_icon.visible = false
         row.add_child(item_icon)
+        var model_code := Label.new()
+        model_code.name = "EquippedModelCode_" + slot
+        model_code.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        model_code.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+        model_code.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+        model_code.clip_text = true
+        model_code.add_theme_font_size_override("font_size", 12)
+        model_code.add_theme_color_override("font_color", Color("#8c959e"))
+        model_code.visible = false
+        row.add_child(model_code)
         customize_equipment_rows[slot] = {
             "panel": row, "name": name_label, "value": set_label,
-            "equipped_icon": item_icon
+            "equipped_icon": item_icon, "model_code": model_code
         }
     _refresh_equipment_controls()
 
@@ -1062,16 +1073,24 @@ func _layout_equipment_controls() -> void:
         var name_label: Label = row_data["name"]
         var value_label: Label = row_data["value"]
         var item_icon: TextureRect = row_data["equipped_icon"]
-        # Icon and both captions occupy non-overlapping columns, as in LABO.
-        var icon_size: float = minf(48.0, row.size.y - 12.0)
-        var text_left: float = icon_size + 17.0
-        var text_width: float = maxf(20.0, row.size.x - text_left - 10.0)
+        var model_code: Label = row_data["model_code"]
+        # Separate the icon, item name and right-aligned model code. Preserve
+        # a 15px gap beside the square icon on narrow Android viewports.
+        var icon_size: float = minf(48.0, row.size.y - 18.0)
+        var text_left: float = 7.0 + icon_size + 15.0
+        var text_width: float = maxf(20.0, row.size.x - text_left - 12.0)
+        var code_height: float = clampf(row.size.y * 0.23, 15.0, 21.0)
+        var code_top: float = row.size.y - code_height - 5.0
+        var value_top: float = row.size.y * 0.35
         item_icon.position = Vector2(7.0, (row.size.y - icon_size) * 0.5)
         item_icon.size = Vector2(icon_size, icon_size)
-        name_label.position = Vector2(text_left, 6.0)
-        name_label.size = Vector2(text_width, row.size.y * 0.37)
-        value_label.position = Vector2(text_left, row.size.y * 0.43)
-        value_label.size = Vector2(text_width, row.size.y * 0.52)
+        name_label.position = Vector2(text_left, 5.0)
+        name_label.size = Vector2(text_width, row.size.y * 0.27)
+        value_label.position = Vector2(text_left, value_top)
+        value_label.size = Vector2(text_width,
+            maxf(14.0, code_top - value_top - 3.0))
+        model_code.position = Vector2(text_left, code_top)
+        model_code.size = Vector2(text_width, code_height)
 
 func _refresh_equipment_controls() -> void:
     for slot in CUSTOMIZE_SLOTS:
@@ -1089,7 +1108,10 @@ func _refresh_equipment_controls() -> void:
         var row: Panel = row_data["panel"]
         var label: Label = row_data["value"]
         var icon: TextureRect = row_data["equipped_icon"]
+        var model_code: Label = row_data["model_code"]
         icon.visible = false
+        model_code.text = ""
+        model_code.visible = false
         if not blocker.is_empty():
             # v291: the other hand is physically occupied by a two-hand
             # weapon. Keep the row as non-clickable grey UI and show its
@@ -1111,9 +1133,10 @@ func _refresh_equipment_controls() -> void:
             var blueprint: String = equipped_prototype.get_slice("-", 0)
             icon.texture = IconAtlas.equipment_icon(blueprint)
             icon.visible = icon.texture != null
-            label.text = PrototypeCatalog.display_instance(
-                equipped_prototype)
-            label.add_theme_font_size_override("font_size", 15)
+            label.text = str(PrototypeCatalog.spec(blueprint).get("name", blueprint))
+            model_code.text = equipped_prototype
+            model_code.visible = true
+            label.add_theme_font_size_override("font_size", 18)
         else:
             label.text = "%s  %s" % [current_set, variant_label] \
                 if options.size() > 1 else current_set
@@ -1724,6 +1747,7 @@ func _apply_labo_typography() -> void:
         var part: Dictionary = customize_equipment_rows[slot]
         _skin_label(part["name"] as Label, display, 16, secondary)
         _skin_label(part["value"] as Label, equipment, 20, accent)
+        _skin_label(part["model_code"] as Label, stats, 12, Color("#8c959e"))
         LaboSkin.attach_name_underline(part["value"] as Label)
     for entry in system_slot_rows:
         _skin_label(entry["label"] as Label, stats, 16, accent)
