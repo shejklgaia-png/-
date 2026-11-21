@@ -55,6 +55,9 @@ py tools/base_soft_center_space_self_check.py
 gd tools/base_soft_center_space_runtime_check.gd
 py tools/base_isometric_layout_self_check.py
 gd tools/base_isometric_layout_runtime_check.gd
+# GDScript parse validation must run before complex UI checks.
+py tools/base_gdscript_parse_self_check.py
+gd tools/base_startup_parse_runtime_check.gd
 py tools/base_startup_first_frame_self_check.py
 py tools/base_exploration_self_check.py
 py tools/base_facilities_self_check.py
