@@ -1604,7 +1604,7 @@ func _create_customization_part_stats() -> void:
 func _customize_part_stats_rect(view: Vector2) -> Rect2:
     var preview: Rect2 = _customize_square_menu_rect(view)
     var start: float = preview.end.y + view.y * 0.011
-    var bottom: float = view.y * 0.865
+    var bottom: float = view.y * 0.895
     return Rect2(Vector2(preview.position.x, start),
         Vector2(preview.size.x, maxf(120.0, bottom - start)))
 
@@ -2270,13 +2270,13 @@ func _apply_labo_typography() -> void:
 func _customize_square_menu_rect(view: Vector2) -> Rect2:
     # PART VIEW uses the left middle tier while the full SERA stays visible
     # immediately above it; the status panel occupies the lower tier.
-    return Rect2(Vector2(view.x * 0.035, view.y * 0.505),
-        Vector2(view.x * 0.435, view.y * 0.191))
+    return Rect2(Vector2(view.x * 0.035, view.y * 0.492),
+        Vector2(view.x * 0.450, view.y * 0.198))
 
 func _customize_tall_menu_rect(view: Vector2) -> Rect2:
     return Rect2(
-        Vector2(view.x * 0.525, view.y * 0.258),
-        Vector2(view.x * 0.440, view.y * 0.605))
+        Vector2(view.x * 0.510, view.y * 0.255),
+        Vector2(view.x * 0.455, view.y * 0.640))
 
 func _customize_model_area(view: Vector2) -> Rect2:
     # SERA's own upper-left 3D showcase never intersects PART VIEW.
