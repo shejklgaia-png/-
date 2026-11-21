@@ -1,3 +1,5 @@
+# Live SERA Bittaran combo HP/part/SP paths (test-only, draft balance not applied).
+gd tools/sera_combo_damage_runtime_check.gd
 py tools/nexus_material_contrast_self_check.py
 gd tools/v534_bittaran_down_pacing_ground_replant_runtime_check.gd
 py tools/bittaran_authored_down_self_check.py
