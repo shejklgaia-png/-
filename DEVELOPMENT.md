@@ -1,3 +1,11 @@
+## 2026-11-21 — 装備原本入りSERA Icon Studioを先渡しする手順を固定
+- 次回以降の新装備実装は、まず登録済み最新版Blockbench正本＋テクスチャを自己完結HTMLに埋め込み、ユーザーへ渡す。ユーザーがブラウザ上で原本を探す／読み込む操作は不要。
+- HTMLはWebGLによる3D操作と輪郭線・512px透過PNG出力・撮影条件コピーを継承し、PNG `tEXt:SERA_ICON_MANIFEST_V1` に原本パス・SHA-256・装備ID・rig_set・撮影状態を格納する。別チャットから同PNGを受け取った場合、元モデルの再提供を求めずリポジトリ正本へ照合してアイコンに反映する。
+- `tools/icon_studio/` に共通テンプレート、HTMLパッケージ生成、PNGメタデータ検証、テスト、運用READMEを追加。アイリス用の原本埋込済みHTMLは `tools/icon_studio/dist/SERA_Icon_Studio_IRIS.html`。
+- 本変更はアイコン制作と開発運用のツールのみ。LABにアイリスH02を製作登録したという意味ではない。Android実機WebGL表示とGodot内アイコン反映は未検証。
+
+---
+
 ## 2026-11-21 — CIの旧フォント名4検査を現行UDEV/Moralerspaceへ追随
 - BASE施設を内向きにするPR #560のmain全CIは、今回の配置と無関係な旧名 `IBMPlexSansJP` / `NotoSansJP` / `Rajdhani` を必須とする4つの静的テスト（v535/v546/v549/v550）のみ失敗し、Godot全実行時検査が始まらなかった。
 - ユーザーが採用済みの現行 `scripts/sera_labo_round_skin.gd` は UDEV Gothic Regular/Bold と Moralerspace Neon Regular/Bold のBundled TTFを利用。ランタイムが使用しない旧フォントのファイル有無や名前ではなく、**現に参照される4つの実ファイル、TrueType実バイナリ、ライセンス、全日本語のグリフ要件、UIサイズ・画面配置の従来の不変条件**を静的検査するよう期待値のみを更新した。
