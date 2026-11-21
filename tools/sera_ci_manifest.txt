@@ -36,6 +36,8 @@ gd tools/nexus_labo_visual_runtime_check.gd
 py tools/nexus_split_inspector_self_check.py
 gd tools/nexus_split_inspector_runtime_check.gd
 # Python tests run in fresh interpreters; Godot tests run in fresh engine processes.
+# Existing BASE facility scales and portrait camera are frozen during visual polish.
+py tools/base_scale_lock_self_check.py
 # User-approved FOV0-style orthographic overworld composition and 8 solid visible facilities.
 # Orthogonal placement is intentionally avoided: eight differently yawed 3D facilities and independently angled props.
 # Perimeter stations face the shared interior, with staggered unique headings.
