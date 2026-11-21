@@ -6,6 +6,7 @@ signal entry_pressed(entry: Dictionary)
 const Icons = preload("res://scripts/sera_item_icons.gd")
 const Affixes = preload("res://scripts/sera_craft_affixes.gd")
 const LaboSkin = preload("res://scripts/sera_labo_round_skin.gd")
+const MarkIcon = preload("res://scripts/sera_mark_icon.gd")
 const GAP: float = 10.0
 const CARD_HEIGHT_EQUIPMENT: float = 180.0
 const CARD_HEIGHT_MATERIALS: float = 120.0
@@ -189,6 +190,15 @@ func _make_card() -> Button:
     empty_beacon.position = Vector2(15.0, 14.0)
     empty_beacon.mouse_filter = Control.MOUSE_FILTER_IGNORE
     card.add_child(empty_beacon)
+    # Marker controls are pooled like the cards; no Unicode-symbol fallback.
+    for marker_kind in ["favorite", "junk"]:
+        var mark_icon: Control = MarkIcon.new()
+        mark_icon.name = ("FavoriteMarkIcon" if marker_kind == "favorite"
+            else "JunkMarkIcon")
+        mark_icon.kind = ("favorite" if marker_kind == "favorite" else "junk")
+        mark_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        mark_icon.visible = false
+        card.add_child(mark_icon)
     card.pressed.connect(_card_pressed.bind(card))
     pool.append(card)
     return card
@@ -248,6 +258,10 @@ func _bind_card(card: Button, index: int) -> void:
     var trace: ColorRect = card.get_node("TopTrace") as ColorRect
     var slot_address: Label = card.get_node("SlotAddress") as Label
     var empty_beacon: ColorRect = card.get_node("EmptyBeacon") as ColorRect
+    var favorite_mark: Control = card.get_node("FavoriteMarkIcon") as Control
+    var junk_mark: Control = card.get_node("JunkMarkIcon") as Control
+    favorite_mark.visible = false
+    junk_mark.visible = false
     slot_address.visible = blank and mode == "equipment"
     slot_address.text = "SLOT %03d / 999" % (index + 1)
     slot_address.position = Vector2(maxf(8.0, _card_width - 152.0), 11.0)
@@ -372,10 +386,21 @@ func _bind_card(card: Button, index: int) -> void:
                 left_labels.append(Affixes.label(clean_effects[i]))
             else:
                 right_labels.append(Affixes.label(clean_effects[i]))
-        var mark: String = ("★ " if bool(entry.get("favorite", false)) else
-            "× " if bool(entry.get("junk", false)) else "")
+        var is_favorite: bool = bool(entry.get("favorite", false))
+        var is_junk: bool = bool(entry.get("junk", false))
+        var marked_count: int = int(is_favorite) + int(is_junk)
+        # Keep the equipment name unobstructed: markers occupy their own
+        # reserved positions at the right edge instead of prefixing text.
+        title.size.x = maxf(18.0, text_width - float(marked_count) * 22.0)
+        favorite_mark.visible = is_favorite
+        junk_mark.visible = is_junk
+        favorite_mark.position = Vector2(
+            _card_width - (46.0 if is_junk else 25.0), 44.0)
+        junk_mark.position = Vector2(_card_width - 25.0, 44.0)
+        favorite_mark.size = Vector2(18.0, 18.0)
+        junk_mark.size = Vector2(18.0, 18.0)
         meta.text = "GEAR / " + str(entry.get("uid", ""))
-        title.text = mark + str(entry.get("name", ""))
+        title.text = str(entry.get("name", ""))
         effects.text = ("\n".join(left_labels) if not clean_effects.is_empty() else
             Affixes.describe(entry.get("affixes", [])))
         effects_right.text = "\n".join(right_labels)
