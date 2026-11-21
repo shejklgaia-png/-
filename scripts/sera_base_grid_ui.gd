@@ -1,7 +1,7 @@
 extends Control
 ## BASE/GRID presentation-only controls. Interactive selections do NOT create
 ## simulated machines, consume resources, or persist any board occupancy.
-const Skin = preload("res://scripts/sera_labo_round_skin.gd")
+const LaboSkin = preload("res://scripts/sera_labo_round_skin.gd")
 const Cut = preload("res://scripts/sera_base_grid_cut_control.gd")
 const CODES = ["G", "H", "K", "P", "C", "D", "R", "X", "Y", "T", "O"]
 const MODES = ["PLACE", "MOVE", "ROTATE"]
@@ -38,13 +38,13 @@ func _ready() -> void:
     tray = Panel.new()
     tray.name = "GridModuleTray"
     tray.mouse_filter = Control.MOUSE_FILTER_STOP
-    tray.add_theme_stylebox_override("panel", Skin.panel_style())
+    tray.add_theme_stylebox_override("panel", LaboSkin.panel_style())
     add_child(tray)
     tray_title = Label.new()
     tray_title.name = "ModuleTrayTitle"
     tray_title.mouse_filter = Control.MOUSE_FILTER_IGNORE
     tray_title.text = "NODE PALETTE  /  PREVIEW"
-    tray_title.add_theme_font_override("font", Skin.data_font())
+    tray_title.add_theme_font_override("font", LaboSkin.data_font())
     tray_title.add_theme_font_size_override("font_size", 17)
     tray_title.add_theme_color_override("font_color", Color("#bacbd6"))
     tray.add_child(tray_title)
