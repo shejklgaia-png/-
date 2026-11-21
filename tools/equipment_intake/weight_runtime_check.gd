@@ -47,7 +47,7 @@ func _check() -> void:
     ok = _expect(_near(float(head_d["weight_pct"]), 96.5), "head D lightweight part") and ok
     ok = _expect(str(head_d["weight_class"]) == "medium", "full build remains medium") and ok
     var special: Dictionary = Stats.build({"head": "C", "legs": "C", "weapon_r": "K"})
-    ok = _expect(_near(float(special["weight_pct"]), 95.9), "C/K variant weight") and ok
+    ok = _expect(_near(float(special["weight_pct"]), 89.9), "C/K variant weight (offhand suppressed)") and ok
     ok = _expect(str(special["weight_class"]) == "medium", "C/K variant classification") and ok
     if ok:
         print("SERA_INTAKE_WEIGHT_OK")
