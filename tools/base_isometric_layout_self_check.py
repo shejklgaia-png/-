@@ -50,7 +50,7 @@ dx,dy,dz = (target[i]-eye[i] for i in range(3))
 norm = math.sqrt(dx*dx+dy*dy+dz*dz)
 dx,dy,dz = dx/norm,dy/norm,dz/norm
 right = (-dz/math.hypot(dx,dz), 0., dx/math.hypot(dx,dz))
-up = (right[2]*dy, right[0]*dz - right[2]*dx, -right[0]*dy)
+up = (-right[2]*dy, right[2]*dx - right[0]*dz, right[0]*dy)
 # CAMERA_KEEP_WIDTH/portrait scaling equivalent: orthographic vertical span 38.
 for name, (px,pz) in positions.items():
     delta = (px-target[0], 0., pz-target[2])
