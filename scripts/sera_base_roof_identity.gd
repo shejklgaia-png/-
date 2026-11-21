@@ -80,12 +80,12 @@ static func _labo(g: Variant) -> void:
 static func _collector(g: Variant) -> void:
     # OPEN hydraulic crane: a marked crossbeam, not a box or roof over the claw.
     g.rod("CollectorOpenBoomCrossbar",
-        Vector3(-1.03, 2.70, -0.94),
-        Vector3(0.93, 2.70, -0.94), 0.12, "gold")
+        Vector3(-0.93, 2.70, -0.94),
+        Vector3(0.31, 2.70, -0.94), 0.075, "slate")
     for side in [-1.0, 1.0]:
         g.rod("CollectorBoomSideStay",
-            Vector3(side * 0.93, 2.70, -0.94),
-            Vector3(side * 0.86, 1.31, -0.88), 0.090, "edge")
+            Vector3(side * 0.81, 2.70, -1.15),
+            Vector3(side * 0.86, 1.31, -1.09), 0.052, "slate")
     g.box("CollectorCraneMarker",
         Vector3(-0.81, 2.84, -0.94),
         Vector3(0.30, 0.18, 0.19), "caution")
@@ -103,43 +103,44 @@ static func _collector(g: Variant) -> void:
     # paired jaws now project in front of the machinery, below the UI label.
     for side in [-1.0, 1.0]:
         g.rod("CollectorOpenClawJaw",
-            Vector3(0.46, 1.59, 0.91),
-            Vector3(0.46 + side * 0.55, 1.03, 1.02),
+            Vector3(0.46, 1.96, 1.25),
+            Vector3(0.46 + side * 0.57, 1.40, 1.47),
             0.20, "armor_light")
         g.rod("CollectorClawPoint",
-            Vector3(0.46 + side * 0.55, 1.03, 1.02),
-            Vector3(0.46 + side * 0.28, 0.77, 1.08),
+            Vector3(0.46 + side * 0.57, 1.40, 1.47),
+            Vector3(0.46 + side * 0.26, 1.05, 1.62),
             0.14, "caution")
         g.box("CollectorClawPin",
-            Vector3(0.46 + side * 0.55, 1.03, 1.02),
+            Vector3(0.46 + side * 0.57, 1.40, 1.47),
             Vector3(0.17, 0.19, 0.17), "gold")
         # Broad color-blocked grabber cheeks, visible even when screen
         # downscaled to the real Android portrait width.
         g.box_tilt("CollectorVisibleJawCheek",
-            Vector3(0.46 + side * 0.51, 1.23, 1.14),
-            Vector3(0.32, 0.51, 0.18), "slate",
-            Vector3(0.0, 0.0, -side * 0.26))
+            Vector3(0.46 + side * 0.54, 1.62, 1.56),
+            Vector3(0.38, 0.65, 0.20), "slate",
+            Vector3(0.0, 0.0, -side * 0.24))
         g.poly_tilt("CollectorClawSignalCheek", "bevel",
-            Vector3(0.46 + side * 0.58, 1.26, 1.27),
-            Vector3(0.33, 0.57, 0.23), "caution",
-            Vector3(0.0, 0.0, -side * 0.32))
+            Vector3(0.46 + side * 0.62, 1.64, 1.72),
+            Vector3(0.38, 0.73, 0.25), "caution",
+            Vector3(0.0, 0.0, -side * 0.27))
+    # One dark pocket behind the two jaws creates visual separation.
     g.box("CollectorCraneCableSeat",
-        Vector3(0.46, 1.62, 0.91),
-        Vector3(0.38, 0.25, 0.19), "dark")
+        Vector3(0.46, 1.53, 1.31),
+        Vector3(1.63, 0.82, 0.17), "dark")
     # Readable high-mounted boom and drop cable, visible above the sorting deck.
     g.rod("CollectorRaisedJib",
         Vector3(-0.73, 1.65, -0.40),
         Vector3(-0.25, 3.14, -0.48), 0.23, "gold")
     g.rod("CollectorRaisedJib",
         Vector3(-0.25, 3.14, -0.48),
-        Vector3(0.46, 2.86, 0.67), 0.22, "caution")
+        Vector3(0.46, 2.86, 1.05), 0.22, "caution")
     g.box("CollectorRaisedJibPivot",
         Vector3(-0.25, 3.12, -0.46),
         Vector3(0.32, 0.30, 0.28), "armor_light")
     g.rod("CollectorForwardCable",
-        Vector3(0.46, 2.86, 0.67),
-        Vector3(0.46, 1.63, 0.91), 0.10, "dark")
-    g.box("CollectorWinchHead", Vector3(0.46, 2.83, 0.67),
+        Vector3(0.46, 2.86, 1.05),
+        Vector3(0.46, 1.98, 1.25), 0.10, "dark")
+    g.box("CollectorWinchHead", Vector3(0.46, 2.83, 1.05),
         Vector3(0.34, 0.25, 0.28), "gold")
 
 
