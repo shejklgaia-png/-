@@ -43,6 +43,11 @@ func _check_mesh(kind: String) -> bool:
 
 func _run() -> void:
     for kind in ["deck", "bevel", "hopper", "hood", "canvas", "drum", "gear"]:
+        var first: ArrayMesh = Polygons.make(kind)
+        var second: ArrayMesh = Polygons.make(kind)
+        if first == null or first != second:
+            _fail("polygon unit mesh not cached/reused: " + kind)
+            return
         if not _check_mesh(kind):
             _fail("degenerate/box-only polygon sculpt: " + kind)
             return
