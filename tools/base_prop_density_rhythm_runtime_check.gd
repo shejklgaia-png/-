@@ -36,8 +36,8 @@ func _run() -> void:
     var left_dominant: int = 0
     var right_dominant: int = 0
     var total: int = 0
-    var double_count: int = 0
-    var triple_count: int = 0
+    var stack_variants: Dictionary = {}
+    var four_box_groups: int = 0
     for key in KEYS:
         var objects: Array[Dictionary] = Props.props_for(key)
         var left: Array[float] = []
@@ -52,11 +52,11 @@ func _run() -> void:
                 right.append(at.y)
             if scale <= 0.87:
                 accent += 1
-            match int(item["stack"]):
-                2:
-                    double_count += 1
-                3:
-                    triple_count += 1
+            var count: int = int(item["stack"])
+            if count > 1:
+                stack_variants[count] = true
+            if count == 4:
+                four_box_groups += 1
         left.sort()
         right.sort()
         var dense: Array[float] = left if left.size() > right.size() else right
@@ -82,8 +82,9 @@ func _run() -> void:
     if total != 52 or left_dominant != 3 or right_dominant != 3:
         _fail("overall layout is not balanced across opposing dense sides")
         return
-    if double_count != 13 or triple_count != 6:
-        _fail("previous two- and three-high material stack variety changed")
+    if not stack_variants.has(2) or not stack_variants.has(3) or (
+            not stack_variants.has(4)) or four_box_groups < 1:
+        _fail("new 1–4 box quantity variation missing")
         return
     print("SERA_BASE_PROP_DENSITY_RHYTHM_RUNTIME_PASS groups=", total,
         " left=", left_dominant, " right=", right_dominant)
