@@ -40,7 +40,8 @@ func _check() -> void:
                 _fail("Missing main frame at %s, %s" % [str(pixel), str(side)])
                 return
         # A true 45 degree chamfer; the bounding-box corner stays empty.
-        var diagonal: Vector2i = Vector2i(pad + cut / 2, pad + cut / 2)
+        var diagonal: Vector2i = Vector2i(pad + int(cut / 2),
+            pad + cut - int(cut / 2))
         if not _close(image.get_pixelv(diagonal), frame_main):
             _fail("Missing diagonal chamfer at " + str(side))
             return
