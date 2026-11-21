@@ -11,6 +11,8 @@ on:
       - 'scripts/sera_base_silhouette_refinement.gd'
       - 'scripts/sera_base_reference_polish.gd'
       - 'tools/base_roof_identity_*'
+      - 'tools/base_gameplay_angle_visibility_*'
+      - 'tools/base_isometric_visual_capture.gd'
       - '.github/workflows/base-roof-visual-preview.yml'
   workflow_dispatch:
 
@@ -27,6 +29,7 @@ jobs:
         run: |
           python3 tools/sera_workplan.py --query 'BASE 屋根 施設の視認性' --json > "$RUNNER_TEMP/base-roof-plan.json"
           python3 tools/base_roof_identity_self_check.py
+          python3 tools/base_gameplay_angle_visibility_self_check.py
           python3 tools/base_night_facility_self_check.py
           python3 tools/base_structural_mass_self_check.py
       - name: Install Godot 4.7.2 and virtual display
@@ -61,6 +64,7 @@ jobs:
           set -euo pipefail
           GODOT="$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64"
           "$GODOT" --headless --path . --script tools/base_roof_identity_runtime_check.gd
+          "$GODOT" --headless --path . --script tools/base_gameplay_angle_visibility_runtime_check.gd
           "$GODOT" --headless --path . --script tools/base_structural_mass_runtime_check.gd
       - name: Upload real BASE visual check
         if: always()
