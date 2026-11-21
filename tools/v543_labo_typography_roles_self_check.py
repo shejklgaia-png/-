@@ -12,11 +12,11 @@ for name in ("ui_font", "title_font", "control_font", "stats_font"):
     assert f"static func {name}() -> FontVariation:" in skin, name
 for name in ("display_font", "data_font"):
     assert f"static func {name}() -> FontFile:" in skin, name
-for token in ("MPLUS2-VF.woff2", "MPLUS1Code-VF.woff2",
+for token in ("NotoSansJP-VF.woff2",
               "IBMPlexSansJP-Medium.woff2", "IBMPlexSansJP-Bold.woff2",
               "Rajdhani-Bold.woff2", "IBMPlexMono-Medium.woff2",
               "static func equipment_font()", "_variation_from_face(",
-              "_title_face(), 800", "_stats_face(), 550"):
+              "_title_face(), 850", "_stats_face(), 550"):
     assert token in skin, token
 
 assert 'button.add_theme_font_override("font", LaboSkin.tracked_display_font())' in ui
