@@ -17,8 +17,15 @@ for expected in (
     'LaboSkin.card_style("selected" if system_selected_slot == slot else "normal")',
     'LaboSkin.terminal_segment_style("selected")',
     'LaboSkin.terminal_segment_style("normal")',
-    # Seven installed-name buttons replace old icon/name/model-code columns.
+    # Seven name-only equipment selectors gain a separate right thumbnail expander.
     'var button := Button.new()',
+    'button.alignment = HORIZONTAL_ALIGNMENT_LEFT',
+    'expand.name = "EquipmentThumbnailExpand"',
+    'underline.name = "EquipmentNameUnderline"',
+    'expand.mouse_filter = Control.MOUSE_FILTER_IGNORE',
+    'button.add_child(expand)',
+    'button.add_child(underline)',
+    '_layout_equipment_name_underline(slot)',
     'button.text = _default_part_name(slot, selected_model)',
     'func _default_part_name(slot: String, model: String) -> String:',
     'func _show_customization_part_picker(slot: String) -> void:',

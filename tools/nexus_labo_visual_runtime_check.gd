@@ -33,16 +33,33 @@ func _run() -> void:
         return
     for slot in equipment:
         var button: Button = equipment[slot]["panel"] as Button
-        if button == null or (
-                button.get_theme_stylebox("normal") !=
-                LaboTypeface.terminal_segment_style("normal")):
-            _fail("name-only equipment button lacks the shared LABO skin: "+str(slot))
+        if button == null:
+            _fail("missing equipment row: " + str(slot))
+            return
+        var bg: StyleBoxFlat = button.get_theme_stylebox("normal") as StyleBoxFlat
+        var lab_skin: StyleBoxFlat = LaboTypeface.terminal_segment_style("normal")
+        if bg == null or bg.bg_color != lab_skin.bg_color or (
+                bg.border_color != lab_skin.border_color):
+            _fail("equipment row no longer uses the shared matte LABO palette")
             return
         if button.get_theme_font("font") != LaboTypeface.equipment_font():
             _fail("equipment-name button lacks the item font")
             return
-        if button.get_child_count() != 0:
-            _fail("equipment selector must not have old icon/code columns")
+        var expand: Button = equipment[slot]["expand"] as Button
+        var underline: ColorRect = equipment[slot]["underline"] as ColorRect
+        if button.alignment != HORIZONTAL_ALIGNMENT_LEFT or expand == null or (
+                expand.name != "EquipmentThumbnailExpand") or (
+                underline == null) or (
+                underline.name != "EquipmentNameUnderline"):
+            _fail("row must left-align the name and own a separate thumbnail button")
+            return
+        if button.get_child_count() != 2 or (
+                expand.get_parent() != button) or underline.get_parent() != button:
+            _fail("equipment row must contain only its expander and name underline")
+            return
+        if underline.color != Color("#55798a") or (
+                not is_equal_approx(underline.size.y, 1.0)):
+            _fail("equipment name underline must remain matte blue-grey and 1px")
             return
     for target in ["TRAINING", "DEPLOYMENT", "SYSTEM", "DATA ARCHIVE", "CUSTOMIZE"]:
         nexus.set("focused_target", target)
@@ -64,6 +81,21 @@ func _run() -> void:
                 if button.text.is_empty() or button.text.contains("SET"):
                     _fail("part selector must display the actual part name only")
                     return
+                var expand: Button = equipment[slot]["expand"] as Button
+                if expand.position.x < button.size.x * 0.60 or (
+                        expand.position.x + expand.size.x > button.size.x) or (
+                        expand.position.y < 0.0) or (
+                        expand.position.y + expand.size.y > button.size.y):
+                    _fail("thumbnail expand button overflows the equipment name row")
+                    return
+            var head_expand: Button = equipment["head"]["expand"] as Button
+            nexus.call("_tap_equipment_control", head_expand.get_global_rect().get_center())
+            var opened: Control = nexus.get("customize_part_picker") as Control
+            if opened == null or not opened.visible or (
+                    (nexus.get("customize_part_grid") as GridContainer).columns != 3):
+                _fail("tapping the head-row thumbnail expander must open 3-column picker")
+                return
+            nexus.call("_close_customization_part_picker")
             var picker: Control = nexus.get("customize_part_picker") as Control
             var part_preview: Control = nexus.get("customize_single_part_preview") as Control
             if picker == null or part_preview == null:
