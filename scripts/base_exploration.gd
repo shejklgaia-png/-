@@ -345,11 +345,15 @@ func _create_salvage(replacement: Array[Dictionary] = []) -> void:
         var center: Vector3 = lots[i]
         var heading: float = float(-26 + posmod(i * 23 + 7, 55))
         var scale_factor: float = 1.26
+        var stack_count: int = 1 + posmod(i, 8)
+        var pile_pattern: int = posmod(i * 3 + 1, 4)
         if replacement.size() == lots.size():
             var sample: Dictionary = replacement[i]
             center = Vector3(float(sample["x"]), 0.0, float(sample["z"]))
             heading = float(sample["yaw_deg"])
             scale_factor = float(sample["scale"])
+            stack_count = clampi(int(sample.get("stack", stack_count)), 1, 8)
+            pile_pattern = posmod(int(sample.get("pattern", pile_pattern)), 4)
         else:
             # Preserve the existing authored first-boot anchors unchanged.
             var nearest: float = center.distance_to(nexus_building.position)
@@ -365,11 +369,13 @@ func _create_salvage(replacement: Array[Dictionary] = []) -> void:
         pile.rotation.y = deg_to_rad(heading)
         pile.set_meta("scrap_profile", posmod(i, JunkGeometry.SCRAP_PROFILES))
         pile.set_meta("visual_scale", scale_factor)
+        pile.set_meta("stack", stack_count)
+        pile.set_meta("pattern", pile_pattern)
         add_child(pile)
         g.pivot = center
         g.yaw = pile.rotation.y
         g.detail_scale = scale_factor
-        JunkGeometry.scrap_heap(g, center, i)
+        JunkGeometry.scrap_heap(g, center, i, stack_count, pile_pattern)
     # One shared opaque MultiMesh per actual geometry/material type, not
     # hundreds of MeshInstance3D nodes or per-frame random CPU rebuilds.
     g.flush()
@@ -680,6 +686,8 @@ func _layout_export_text() -> String:
             "yaw_deg": pile.rotation_degrees.y,
             "scale": float(pile.get_meta("visual_scale", 1.0)),
             "profile": int(pile.get_meta("scrap_profile", 0)),
+            "stack": int(pile.get_meta("stack", 1)),
+            "pattern": int(pile.get_meta("pattern", 0)),
         })
     return BaseLayoutPreview.export_text(
         layouts, scrap, layout_rerolls, layout_seed)
