@@ -19,7 +19,7 @@ for token in (
     'func _refresh_customization_part_stats(slot: String) -> void:',
     'LaboStats.complete_profile_text(',
     'func _layout_customization_part_stats() -> void:',
-    'customize_part_stats_scroll.position = Vector2(11, 44)',
+    'customize_part_stats_scroll.position = Vector2(11, 41)',
     'func _customize_part_stats_rect(view: Vector2) -> Rect2:',
     'if Rect2(expand.position, expand.size).has_point(row_point):',
     '_show_customization_part_picker(slot)',
