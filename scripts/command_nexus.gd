@@ -8,6 +8,7 @@ const TrainingDefaults = preload("res://scripts/training_defaults.gd")
 const IconAtlas = preload("res://scripts/sera_item_icons.gd")
 const PrototypeCatalog = preload("res://scripts/sera_prototype_catalog.gd")
 const LaboSkin = preload("res://scripts/sera_labo_round_skin.gd")
+const EquipmentStatRows = preload("res://scripts/sera_nexus_stat_rows.gd")
 const CONTROL_SETTINGS_FILE: String = "user://sera_settings.cfg"
 const NexusSelectionOutline = preload("res://scripts/nexus_selection_outline.gd")
 const CUSTOMIZE_GLOW_SHADER = preload("res://shaders/nexus_customize_radial_glow.gdshader")
@@ -35,6 +36,9 @@ var customize_right_panel: Panel
 var customize_right_header: Panel
 var customize_equipment_header: Label
 var customize_equipment_rows: Dictionary = {}
+var customize_stats_scroll: ScrollContainer
+var customize_stats_grid: GridContainer
+var customize_stat_cells: Array[Dictionary] = []
 const CUSTOMIZE_SLOTS = ["head", "torso", "legs", "arms", "booster", "weapon_r", "weapon_l"]
 const CUSTOMIZE_SLOT_LABELS = {
     "head": "HEAD", "torso": "TORSO", "legs": "LOWER BODY",
@@ -772,6 +776,7 @@ func _hud() -> void:
     focus_title.add_theme_font_size_override("font_size", 21)
     focus_title.add_theme_color_override("font_color", Color("#e1f3fd"))
     focus_header.add_child(focus_title)
+    _create_customization_stats()
     # CUSTOMIZE's second, tall right-side menu scaffold. No fabricated
     # actions: both menus remain placeholders until their contents are defined.
     customize_right_panel = Panel.new()
@@ -817,6 +822,7 @@ func _hud() -> void:
     explore_label.add_theme_color_override("font_color", Color("#ddfaff"))
     explore_panel.add_child(explore_label)
     _apply_labo_typography()
+    _refresh_customization_stats()
     VersionIndicator.attach(hud)
     hud.resized.connect(_layout_hud)
     _layout_hud()
@@ -1006,6 +1012,88 @@ func _update_training_start_pulse(delta: float) -> void:
 
 ## Hit zones are handled by _input, matching the existing Android raw-touch UI.
 ## These labels are not Control buttons and therefore never steal preview drags.
+
+# Read-only equipment statistics occupy the existing lower-left CUSTOMIZE
+# square. Reusing fourteen stat cells keeps selection changes allocation-free.
+func _create_customization_stats() -> void:
+    customize_stats_scroll = ScrollContainer.new()
+    customize_stats_scroll.name = "CustomizeEquipmentStatsScroll"
+    customize_stats_scroll.mouse_filter = Control.MOUSE_FILTER_PASS
+    customize_stats_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+    customize_stats_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+    customize_stats_scroll.visible = false
+    focus_panel.add_child(customize_stats_scroll)
+    customize_stats_grid = GridContainer.new()
+    customize_stats_grid.name = "CustomizeEquipmentStatsGrid"
+    customize_stats_grid.columns = 2
+    customize_stats_grid.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    customize_stats_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+    customize_stats_grid.add_theme_constant_override("h_separation", 6)
+    customize_stats_grid.add_theme_constant_override("v_separation", 5)
+    customize_stats_scroll.add_child(customize_stats_grid)
+    for i in range(14):
+        var cell := Panel.new()
+        cell.name = "EquipmentStat_" + str(i)
+        cell.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        cell.add_theme_stylebox_override("panel", LaboSkin.card_style("normal"))
+        cell.visible = false
+        customize_stats_grid.add_child(cell)
+        var name_label := Label.new()
+        name_label.name = "StatName"
+        name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        name_label.clip_text = true
+        name_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+        name_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+        cell.add_child(name_label)
+        var value_label := Label.new()
+        value_label.name = "StatValue"
+        value_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        value_label.clip_text = true
+        value_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+        value_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+        cell.add_child(value_label)
+        customize_stat_cells.append({
+            "panel": cell, "name": name_label, "value": value_label
+        })
+
+
+func _layout_customization_stats() -> void:
+    if customize_stats_scroll == null:
+        return
+    customize_stats_scroll.visible = focused_target == "CUSTOMIZE"
+    var inner_width: float = maxf(50.0, focus_panel.size.x - 24.0)
+    var columns: int = 2 if inner_width >= 260.0 else 1
+    customize_stats_grid.columns = columns
+    customize_stats_scroll.position = Vector2(12.0, focus_header.size.y + 8.0)
+    customize_stats_scroll.size = Vector2(inner_width,
+        maxf(24.0, focus_panel.size.y - focus_header.size.y - 20.0))
+    var cell_width: float = floorf(
+        (inner_width - 10.0 - 6.0 * float(columns - 1)) / float(columns))
+    for entry in customize_stat_cells:
+        var cell: Panel = entry["panel"]
+        cell.custom_minimum_size = Vector2(cell_width, 29.0)
+        var name_label: Label = entry["name"]
+        var value_label: Label = entry["value"]
+        name_label.position = Vector2(7.0, 0.0)
+        name_label.size = Vector2(floorf(cell_width * 0.57) - 7.0, 29.0)
+        value_label.position = Vector2(floorf(cell_width * 0.57), 0.0)
+        value_label.size = Vector2(cell_width * 0.43 - 7.0, 29.0)
+
+
+func _refresh_customization_stats() -> void:
+    if customize_stats_grid == null:
+        return
+    var selected: Dictionary = _current_system_equipment()
+    var entries: Array[Dictionary] = EquipmentStatRows.from_selection(selected)
+    for i in range(customize_stat_cells.size()):
+        var cell: Dictionary = customize_stat_cells[i]
+        var show: bool = i < entries.size()
+        (cell["panel"] as Panel).visible = show
+        if show:
+            (cell["name"] as Label).text = str(entries[i]["label"])
+            (cell["value"] as Label).text = str(entries[i]["value"])
+
+
 func _create_equipment_controls() -> void:
     customize_equipment_header = Label.new()
     customize_equipment_header.text = "PARTS / SETS"
@@ -1154,6 +1242,7 @@ func _refresh_equipment_controls() -> void:
                 if options.size() > 1 else current_set
             label.add_theme_font_size_override("font_size", 20)
         LaboSkin.refresh_name_underline(label)
+    _refresh_customization_stats()
 
 
 func _tap_equipment_control(point: Vector2) -> bool:
@@ -1761,6 +1850,9 @@ func _apply_labo_typography() -> void:
         _skin_label(part["value"] as Label, equipment, 20, accent)
         _skin_label(part["model_code"] as Label, stats, 12, Color("#8c959e"))
         LaboSkin.attach_name_underline(part["value"] as Label)
+    for cell in customize_stat_cells:
+        _skin_label(cell["name"] as Label, stats, 13, secondary)
+        _skin_label(cell["value"] as Label, stats, 15, accent)
     for entry in system_slot_rows:
         _skin_label(entry["label"] as Label, stats, 16, accent)
     for entry in system_action_rows:
@@ -1834,6 +1926,7 @@ func _layout_hud() -> void:
     focus_header.size = Vector2(focus_panel.size.x, minf(60.0, view.y * 0.068))
     focus_title.position = Vector2(16.0, 0.0)
     focus_title.size = Vector2(focus_header.size.x - 32.0, focus_header.size.y)
+    _layout_customization_stats()
     action_panel.position = Vector2(16.0, focus_panel.size.y - 84.0)
     action_panel.size = Vector2(focus_panel.size.x - 32.0, 60.0)
     action_label.position = Vector2.ZERO

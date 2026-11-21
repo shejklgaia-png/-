@@ -9,6 +9,9 @@ gd tools/camera_eye_head_runtime_check.gd
 # One test per line. Preserve tests not explicitly retired by a specification change.
 py tools/sera_view_edges_self_check.py
 gd tools/sera_view_edges_runtime_check.gd
+# NEXUS CUSTOMIZE lower-left equipped stats; hide zero values and refresh on set change.
+py tools/nexus_equipment_stats_self_check.py
+gd tools/nexus_equipment_stats_runtime_check.gd
 # NEXUS visual refresh: reuse LABO skin without changing navigation, save or equipment semantics.
 py tools/nexus_labo_visual_self_check.py
 gd tools/nexus_labo_visual_runtime_check.gd
