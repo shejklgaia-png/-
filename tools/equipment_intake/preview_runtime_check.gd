@@ -69,5 +69,43 @@ func _check() -> void:
         if piece is MeshInstance3D and piece.material_override==null:
             _fail("Godot game material missing")
             return
+    # Isolated ICON and PARAMETERS preview must hide every other body slot.
+    preview.call("_apply_command", {"mode":"icon", "editing_slot":"head",
+        "selected":{"head":"D","torso":"A","arms":"A","legs":"A",
+            "booster":"A","weapon_r":"A","weapon_l":"A"},
+        "size":1.0,"keep_aspect":true,"seq":13})
+    await process_frame
+    var available: Dictionary = handler.get("available")
+    var visible_head: int = 0
+    var visible_other: int = 0
+    for set_name in available:
+        for slot_name in available[set_name]:
+            for mesh in available[set_name][slot_name]:
+                if mesh is MeshInstance3D and mesh.visible:
+                    if str(slot_name)=="head":
+                        visible_head+=1
+                    else:
+                        visible_other+=1
+    if visible_head!=6 or visible_other!=0:
+        _fail("ICON view must show only HEAD D meshes: %d / %d" % [
+            visible_head,visible_other])
+        return
+    # Re-entering body mode must restore the A-set companions.
+    preview.call("_apply_command",{"mode":"body","editing_slot":"head",
+        "selected":{"head":"D","torso":"A","arms":"A","legs":"A",
+            "booster":"A","weapon_r":"A","weapon_l":"A"},
+        "size":1.0,"keep_aspect":true,"seq":14})
+    await process_frame
+    var other_restored: bool=false
+    for set_name in available:
+        for slot_name in available[set_name]:
+            if str(slot_name)=="head":
+                continue
+            for mesh in available[set_name][slot_name]:
+                if mesh is MeshInstance3D and mesh.visible:
+                    other_restored=true
+    if not other_restored:
+        _fail("Body mode did not restore companion meshes")
+        return
     print("SERA_GODOT_INTAKE_RUNTIME_OK real_rig=true material=game outline=game")
     quit(0)
