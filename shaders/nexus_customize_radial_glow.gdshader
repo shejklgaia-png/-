@@ -1,7 +1,7 @@
 shader_type spatial;
 render_mode unshaded, blend_mix, cull_disabled, depth_draw_never;
 
-// RENDER_POLICY: translucent depth-tested SERA portrait background; depth_test=on
+// Existing portrait quad: normal depth testing stays enabled behind SERA.
 // A single screen-sized blue-grey sheet lives behind SERA's opaque 3D rig.
 // The cyan radial highlight is anchored to SERA's frozen front-pose projection.
 // The square grid stays fixed in screen space and extends over the wider sheet.
