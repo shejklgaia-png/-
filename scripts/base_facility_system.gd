@@ -414,7 +414,8 @@ func attach_hud(hud: Control) -> void:
         tag.add_theme_font_override("font", LaboSkin.ui_font())
         tag.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
         tag.add_theme_font_size_override("font_size", 17)
-        tag.add_theme_color_override("font_color", Color("#a5ecf7"))
+        tag.add_theme_color_override("font_color", Color("#dce4ea"))
+        LaboSkin.attach_name_underline(tag)
         tag.mouse_filter = Control.MOUSE_FILTER_IGNORE
         hud.add_child(tag)
         facility_tags[str(spec["id"])] = tag
