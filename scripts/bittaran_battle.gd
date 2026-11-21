@@ -2016,8 +2016,24 @@ func _finalize_target_pose(delta: float) -> void:
                 bittaran_rig.call("apply_source_attack_aim",
                     bittaran_attack_frame, player.global_position, delta)
         if bittaran_foot_ik != null and target != null and target_hp > 0:
+            var authored_fall_active: bool = bool(
+                bittaran_foot_ik.call("break_reaction_active"))
             bittaran_foot_ik.call("advance_source_ground_ik",
                 delta, bittaran_motion, bittaran_attack_frame)
+            if authored_fall_active and bittaran_rig != null:
+                var down_clip: String = str(
+                    bittaran_foot_ik.get("authored_down_clip"))
+                var author_t: float = float(
+                    bittaran_foot_ik.call("authored_down_motion_time"))
+                var rising_fraction: float = float(
+                    bittaran_foot_ik.call("standup_pose_fraction"))
+                # The clock's last tick resets break_elapsed to -1;
+                # force the exact final standing key that frame.
+                if not bool(bittaran_foot_ik.call(
+                        "break_reaction_active")):
+                    rising_fraction = 1.0
+                bittaran_rig.call("apply_authored_down_pose",
+                    down_clip, author_t, rising_fraction)
         # Preserve actual post-IK bone locals for the NEXT rear attack.
         # This capture happens only outside source attacks so the
         # first entry pose stays fixed across all transition frames.
