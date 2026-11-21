@@ -36,6 +36,8 @@ assert "surface.albedo_texture = armor_texture" in arch
 assert "surface.albedo_texture = oxide_texture" in arch
 assert 'const WEATHERED_DECK_PATH: String = "res://assets/base/industrial_deck_wear.svg"' in floor
 assert "mat.albedo_texture = deck_texture" in floor
+assert "mat.uv1_offset = Vector3(" in floor, "break uniform plate weathering repetition"
+assert "surface.uv1_offset = Vector3(" in arch, "use per-material stable texture variation"
 for file in ("base_surface_textures_self_check.py", "base_surface_textures_runtime_check.gd"):
     assert ("py " if file.endswith(".py") else "gd ") + "tools/" + file in manifest
 print("SERA_BASE_SURFACE_TEXTURE_STATIC_PASS")
