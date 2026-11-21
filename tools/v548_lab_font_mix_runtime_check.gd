@@ -63,11 +63,21 @@ func _run() -> void:
             report.count("load route: RAW_BYTES") != 7):
         _fail("font diagnostic missing new mixed-face rows")
         return
-    var base: Node3D = load("res://scenes/base_exploration.tscn").instantiate()
+    var base_resource: PackedScene = load("res://scenes/base_exploration.tscn") as PackedScene
+    if base_resource == null:
+        _fail("BASE scene cannot be loaded for font check")
+        return
+    var base: Node3D = base_resource.instantiate() as Node3D
+    if base == null or base.get_script() == null:
+        _fail("BASE script does not compile; font test cannot continue")
+        return
     root.add_child(base)
     await process_frame
     await process_frame
-    var fac: Node3D = base.get_node("BaseFacilities") as Node3D
+    var fac: Node3D = base.get_node_or_null("BaseFacilities") as Node3D
+    if fac == null:
+        _fail("BASE facilities missing; avoid hanging on null UI")
+        return
     fac.call("_switch_section", "craft")
     await process_frame
     await process_frame
