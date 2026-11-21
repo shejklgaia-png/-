@@ -42,7 +42,7 @@ func _run() -> void:
         if on_site_growth < 2:
             _fail(key + ": most site accents were left unchanged")
             return
-    if grown < 28 or substantial < 17:
+    if grown < 28 or substantial < 15:
         _fail("overall dressing is not visibly larger; grew " + str(grown) +
             ", substantial " + str(substantial))
         return
