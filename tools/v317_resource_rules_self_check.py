@@ -8,6 +8,7 @@ main = (root / "scripts/main.gd").read_text(encoding="utf-8")
 module = (root / "scripts/sera_resource_rules.gd").read_text(encoding="utf-8")
 assert 'const RESOURCE_RULES = preload("res://scripts/sera_resource_rules.gd")' in main
 assert "extends RefCounted" in module
+assert 'const BASE_EN_RECOVERY_PER_SECOND: float = 24.0' in (root / "scripts/sera_part_stats.gd").read_text(encoding="utf-8")
 for name in ("energy_spend", "next_recovery_pause", "recovered_energy",
              "recovered_shield", "exhaustion_unlocked"):
     assert f"static func {name}(" in module, name
@@ -37,7 +38,8 @@ for token in (
     "energy_recovery_pause = RESOURCE_RULES.next_recovery_pause(",
     "shield_recovery_pause = RESOURCE_RULES.next_recovery_pause(",
     "energy = RESOURCE_RULES.recovered_energy(",
-    "energy, energy_recovery_pause, delta, TEST_EN_MAX, 24.0)",
+    "energy, energy_recovery_pause, delta, TEST_EN_MAX,",
+    'float(part_stats.get("en_recovery_per_second", 24.0)))',
     "shield = RESOURCE_RULES.recovered_shield(",
     "shield, shield_recovery_pause, guard_break_remaining, down_remaining,",
     "delta, TEST_SH_MAX, 16.0)",
