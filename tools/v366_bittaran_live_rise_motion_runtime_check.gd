@@ -104,6 +104,8 @@ func _case(battle: Node3D, legs_to_break: Array[String],
                     return false
         battle.call("_finalize_target_pose", DT)
         var stepping_pair: int = int(ik.get("source_ik_step_pair"))
+        var down_replant_pair: int = int(
+            ik.get("authored_down_replant_pair"))
         if first_rise:
             first_rise_frame = frame
             if not bool(ik.call("down_pose_active")):
@@ -128,11 +130,14 @@ func _case(battle: Node3D, legs_to_break: Array[String],
         if bool(ik.call("down_pose_active")) and stepping_pair >= 0:
             _fail("IK foot must remain planted while torso is rising")
             return false
-        if stepping_pair >= 0 and first_step_pair < 0:
-            if bool(ik.call("down_pose_active")):
-                _fail("foot caught up before the torso was upright")
+        if down_replant_pair >= 0 and first_step_pair < 0:
+            # v534: both foot-pair steps now occur DURING down, after
+            # the 2.5/6s hold but before the 1.0/1.3s BODY lift.
+            if not bool(ik.call("down_pose_active")) or float(
+                    ik.call("standup_pose_fraction")) > 0.000001:
+                _fail("foot reset occurred after BODY started rising")
                 return false
-            first_step_pair = stepping_pair
+            first_step_pair = down_replant_pair
             upright_first_step_frame = frame
         if not bool(ik.call("break_reaction_active")) and not final_recovered:
             final_recovered = true
@@ -153,7 +158,7 @@ func _case(battle: Node3D, legs_to_break: Array[String],
         return false
     print("V366_LIVE_RISE_CASE_PASS: " + motion + " legs="
         + str(legs_to_break.size()) + " first rising frame="
-        + str(first_rise_frame) + " first upright IK step="
+        + str(first_rise_frame) + " first pre-rise IK step="
         + str(upright_first_step_frame) + " pair=" + str(first_step_pair)
         + " during-rise distance=" + str(rise_root_distance))
     return true
@@ -168,6 +173,6 @@ func _run() -> void:
             if not _case(battle, ids, clip):
                 return
     print("GODOT_V366_BITTARAN_LIVE_RISE_PASS: Turn/Approach clips "
-        + "and real body movement start with rise; IK steps only after "
-        + "fully upright, original head/arm clearance and down durations")
+        + "and real body movement start with rise; IK steps before "
+        + "BODY lift, original head/arm clearance and down durations")
     quit(0)
