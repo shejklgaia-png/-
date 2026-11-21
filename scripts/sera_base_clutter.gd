@@ -236,7 +236,7 @@ static func _make(g: Variant, kind: String, at: Vector2, k: float,
                 _box(g, kind + "_reinforcement", at, k,
                     Vector3(-0.20 + j * 0.14, 0.43 + j * 0.13, -0.13),
                     Vector3(0.45, 0.04, 0.07), "edge")
-        "parts_tray", "tool_cart", "hydraulic_kit", "old_joint", "casting_mold", "straps":
+        "parts_tray", "tool_cart", "hydraulic_kit", "old_joint":
             _box(g, kind + "_tray", at, k, Vector3(0, 0.34, 0),
                 Vector3(0.80, 0.17, 0.62), "armor")
             if kind == "tool_cart":
@@ -252,6 +252,25 @@ static func _make(g: Variant, kind: String, at: Vector2, k: float,
                 _rod(g, kind + "_piston", at, k,
                     Vector3(-0.20, 0.55, 0), Vector3(0.26, 0.90, 0),
                     0.14, "rust")
+        "casting_mold":
+            _box(g, kind + "_outer", at, k, Vector3(0, 0.35, 0),
+                Vector3(0.81, 0.37, 0.63), "rust")
+            _box(g, kind + "_inner", at, k, Vector3(0, 0.56, 0),
+                Vector3(0.56, 0.055, 0.40), "dark")
+            for side in [-1.0, 1.0]:
+                _box(g, kind + "_rim", at, k,
+                    Vector3(side * 0.38, 0.57, 0),
+                    Vector3(0.07, 0.08, 0.66), "edge")
+        "straps":
+            _box(g, kind + "_load", at, k, Vector3(0, 0.30, 0),
+                Vector3(0.73, 0.39, 0.58), "crate")
+            for side in [-1.0, 1.0]:
+                _box(g, kind + "_tie", at, k,
+                    Vector3(side * 0.21, 0.52, 0),
+                    Vector3(0.085, 0.055, 0.61), "gold")
+                _box(g, kind + "_buckle", at, k,
+                    Vector3(side * 0.21, 0.43, 0.32),
+                    Vector3(0.14, 0.16, 0.048), "edge")
         "spare_arm", "pressure_valve", "insulator", "construction_frame":
             _box(g, kind + "_support", at, k, Vector3(0, 0.25, 0),
                 Vector3(0.62, 0.18, 0.55), "trim")
@@ -264,15 +283,46 @@ static func _make(g: Variant, kind: String, at: Vector2, k: float,
                 0.18, "gold")
             _ring(g, kind + "_joint", at, k, Vector3(0.06, 0.89, 0.0),
                 0.19, "edge", "z")
+            if kind == "construction_frame":
+                _rod(g, kind + "_crossbar", at, k,
+                    Vector3(-0.26, 1.12, 0.16), Vector3(0.24, 1.12, 0.16),
+                    0.09, "gold")
+            elif kind == "spare_arm":
+                for side in [-1.0, 1.0]:
+                    _rod(g, kind + "_finger", at, k,
+                        Vector3(0.25, 0.61, 0.17),
+                        Vector3(0.29 + side * 0.15, 0.47, 0.25),
+                        0.07, "edge")
+            elif kind == "pressure_valve":
+                _ring(g, kind + "_wheel", at, k,
+                    Vector3(0.07, 1.22, 0.0), 0.23, "gold")
+            elif kind == "insulator":
+                for row in range(3):
+                    _ring(g, kind + "_ceramic", at, k,
+                        Vector3(0.07, 0.49 + 0.19 * row, 0),
+                        0.23, "white")
         "ingot_pallet", "pallet", "rack_stack":
             _box(g, kind + "_pallet", at, k, Vector3(0, 0.20, 0),
                 Vector3(0.93, 0.16, 0.70), "rust")
-            for j in range(6):
-                var xx: float = -0.28 + float(j % 3) * 0.28
-                var zz: float = -0.18 + float(j / 3) * 0.35
-                _box(g, kind + "_load", at, k, Vector3(xx, 0.38 + float(j % 2) * 0.11, zz),
-                    Vector3(0.23, 0.24, 0.24),
-                    "armor_light" if j % 3 == 0 else "slate")
+            if kind == "pallet":
+                for j in range(3):
+                    _box(g, kind + "_slat", at, k,
+                        Vector3(-0.27 + 0.27 * j, 0.31, 0),
+                        Vector3(0.19, 0.08, 0.67), "edge")
+            else:
+                for j in range(6):
+                    var xx: float = -0.28 + float(j % 3) * 0.28
+                    var zz: float = -0.18 + float(j / 3) * 0.35
+                    _box(g, kind + "_load", at, k,
+                        Vector3(xx, 0.38 + float(j % 2) * 0.11, zz),
+                        Vector3(0.23, 0.24, 0.24),
+                        "armor_light" if j % 3 == 0 else "slate")
+                if kind == "rack_stack":
+                    for side in [-1.0, 1.0]:
+                        _rod(g, kind + "_rack_post", at, k,
+                            Vector3(side * 0.43, 0.28, -0.30),
+                            Vector3(side * 0.43, 1.04, -0.30),
+                            0.08, "gold")
         "slag_bin", "crusher_bin", "scrap_hopper":
             _box(g, kind + "_hopper", at, k, Vector3(0, 0.40, 0),
                 Vector3(0.79, 0.56, 0.68), "trim")
