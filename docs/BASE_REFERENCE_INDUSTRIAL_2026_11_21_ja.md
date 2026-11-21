@@ -153,3 +153,8 @@ LABOは一枚の箱状外壁から、開放前面・背面設備ラック・側�
 - 床は従来6色の同一MultiMesh配置・Y=-0.03の天面・パネルの論理領域・施設ごとに1枚の床を維持し、3Dの床板メッシュだけ8角のベベル付きに差し替え。下地があるため、角の切り欠きにも隙間から空が見えません。
 - 既存テストのうち旧BoxMeshを前提とした`base_uneven_deck_self_check.py`、`base_uneven_deck_runtime_check.gd`、`base_exploration_runtime_check.gd`は、新しいArrayMeshの頂点・描画・配置を独立に検証するよう先行更新。新規`base_polygon_geometry_self_check.py`＋`base_polygon_geometry_runtime_check.gd`をCI登録。
 - 既存の素材SVG、ベースカメラ、光源、施設位置・タッチ判定、CRATE巡回、GRID、NEXUS/LABOメニュー、装備データ、原本.bbmodel、セーブを変更しません。Android GL Compatibilityと低描画負荷を維持します。
+
+## 2026-11-21 — 直接ポリゴン面が消える不具合を修正（背面カリング）
+- 実GLスクリーンショットで床と8施設の大部分が消える問題を検出。共通`SurfaceTool`で、外向き右手系法線に揃えた頂点順がGodotの時計回り表面規則と逆になっていたことが原因。
+- 三角形のGPU送信順だけ`[a, c, b]`へ反転。面の幾何形状・メッシュサイズ・UV・外向き法線・`MultiMesh`・描画パス・材質・カメラ/タップ/セーブは不変。
+- 実Godotで全7メッシュの各三角形について、ジオメトリ法線と設定済み外向き法線の内積が-0.96以下になることを検査。`base_polygon_geometry_self_check.py`にも時計回り前面契約を追加。片面カリングを無効化して隠すことはしない。
