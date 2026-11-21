@@ -1760,7 +1760,6 @@ func _show_inventory(section: String = "equipment") -> void:
             tab.pressed.connect(_invoke_scroll_action.bind(
                 _select_warehouse_slot.bind(slot_index), actions_scroll))
             hanger.add_child(tab)
-        grid.name = "WarehouseEquipment"
         grid.entry_pressed.connect(_on_warehouse_entry_pressed)
         var junk_button := Button.new()
         junk_button.name = "BulkDeleteJunk"
@@ -1775,6 +1774,9 @@ func _show_inventory(section: String = "equipment") -> void:
         junk_button.pressed.connect(_confirm_bulk_junk_deletion)
         item_layer.add_child(junk_button)
         item_layer.add_child(grid)
+        # WarehouseGrid._ready sets its default node name. Assign the stable
+        # search identity only AFTER entering the tree, as in the old layout.
+        grid.name = "WarehouseEquipment"
         _show_warehouse_equipment(grid)
     _configure_page_scroll(80 if section == "materials" else 140)
     actions_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
