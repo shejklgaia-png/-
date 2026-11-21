@@ -32,6 +32,7 @@ for token in (
     'confirmation_subtitle.visible = not is_craft',
     'confirmation_craft_card.custom_minimum_size.y = 270.0',
     'confirmation_item_icon.custom_minimum_size = Vector2(136, 136)',
+    'craft_info_column.alignment = BoxContainer.ALIGNMENT_CENTER',
     'confirmation_item_name.add_theme_font_size_override("font_size", 28)',
     'confirmation_item_stats.add_theme_font_size_override("font_size", 19)',
     'LaboStats.baseline(equipment_blueprint).replace("（現行Aセット参照）", "")',
