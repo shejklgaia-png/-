@@ -922,6 +922,8 @@ func _create_customization_stats() -> void:
     customize_stats_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
     customize_stats_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
     customize_stats_scroll.visible = false
+    customize_stats_scroll.get_v_scroll_bar().value_changed.connect(
+        _update_customization_weapon_divider)
     # Total combat stats belong ABOVE the SERA and the right-hand part menu.
     hud.add_child(customize_stats_scroll)
     customize_stats_grid = GridContainer.new()
@@ -998,15 +1000,8 @@ func _layout_customization_stats() -> void:
         Rect2(Vector2(10, 7), Vector2(inner_width, height - 14)), columns)
     var cell_width: float = floorf(
         (inner_width - 9.0 * float(columns - 1)) / float(columns))
-    var cell_height: float = 38.0
-    if customize_weapon_divider != null:
-        var body_count: int = maxi(0, customize_weapon_first_index)
-        var body_rows: int = ceili(float(body_count) / float(columns))
-        customize_weapon_divider.visible = show and body_rows > 0 and (
-            body_count < 24)
-        customize_weapon_divider.position = Vector2(
-            14.0, 8.0 + float(body_rows) * cell_height - 1.0)
-        customize_weapon_divider.size = Vector2(width - 28.0, 2.0)
+    var cell_height: float = 44.0
+    _update_customization_weapon_divider()
     for i in range(customize_stat_cells.size()):
         var entry: Dictionary = customize_stat_cells[i]
         var cell: Panel = entry["panel"]
@@ -1015,6 +1010,23 @@ func _layout_customization_stats() -> void:
         var value: Label = entry["value"]
         StatUI.layout_metric_pair(label, value, cell_width, cell_height, 19, 25, 16, 20)
         (entry["rule"] as ColorRect).visible = false
+
+func _update_customization_weapon_divider(_scroll_value: float = 0.0) -> void:
+    if customize_weapon_divider == null or customize_stats_grid == null or (
+            customize_stats_scroll == null or customize_stats_panel == null):
+        return
+    var weapon_first: int = customize_weapon_first_index
+    var columns: int = maxi(1, customize_stats_grid.columns)
+    var body_rows: int = ceili(float(maxi(0, weapon_first)) / float(columns))
+    var line_y: float = 8.0 + float(body_rows) * 45.0 - 1.0 - (
+        float(customize_stats_scroll.scroll_vertical))
+    customize_weapon_divider.visible = (
+        customize_stats_panel.visible and weapon_first >= 0 and
+        line_y > 8.0 and line_y < customize_stats_panel.size.y - 8.0)
+    customize_weapon_divider.position = Vector2(14.0, line_y)
+    customize_weapon_divider.size = Vector2(
+        maxf(30.0, customize_stats_panel.size.x - 28.0), 2.0)
+
 
 func _refresh_customization_stats() -> void:
     if customize_stats_grid == null:
@@ -1038,7 +1050,7 @@ func _refresh_customization_stats() -> void:
             var row: Panel = cell["panel"] as Panel
             StatUI.layout_metric_pair(
                 cell["name"] as Label, cell["value"] as Label,
-                row.custom_minimum_size.x, 38.0, 19, 25, 16, 20)
+                row.custom_minimum_size.x, 44.0, 19, 25, 16, 20)
     _layout_customization_stats()
 
 
