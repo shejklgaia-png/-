@@ -26,6 +26,15 @@ python3 tools/icon_studio/sera_icon_studio_self_check.py
 python3 tools/icon_studio/read_sera_icon_png.py path/to/SERA_H02_アイリス_icon_512.png
 ```
 
+アイコンを採用し、LABの設計図が登録された後は、次のコマンドでGodot用の共通埋込画像レジストリに登録します。
+
+```bash
+python3 tools/icon_studio/install_sera_equipment_icon.py \
+  path/to/SERA_H02_アイリス_icon_512.png --blueprint H02
+```
+
+本コマンドはPNGメタデータ内の設計図・GitHub原本SHA-256を照合し、`assets/ui/sera_custom_equipment_icons.gd`の該当IDへPNGをBase64登録します。Godot側の`scripts/sera_item_icons.gd`は登録済み画像を**1設計図につき1つのTexture2Dにデコード・キャッシュ**し、LAB・倉庫・NEXUSで再利用します。未登録装備は旧アトラスを保持します。
+
 表示された `equipment` と `source` を現行 `scripts/sera_prototype_catalog.gd`、`models/manifest.json`、正本SHA-256と照合してから、該当設計図へアイコンを登録する。元画像の縦横比は正方形、背景は透過のまま保持する。LABのカード枠や文字はPNGへ焼き込まない。画像ロードはアトラス共有／キャッシュを維持し、同一装備のカードごとに個別テクスチャを作らない。
 
 **注意:** アイリスの `H02` は、このアイコン配布HTMLで使用する予定の設計図IDです。現在のLAB製作カタログに実装されたという意味ではありません。登録・試験は別途必須です。
