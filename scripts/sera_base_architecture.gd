@@ -3,6 +3,7 @@ const BaseClutter = preload("res://scripts/sera_base_clutter.gd")
 const BasePolish = preload("res://scripts/sera_base_reference_polish.gd")
 const BaseSilhouette = preload("res://scripts/sera_base_silhouette_refinement.gd")
 const BaseFinish = preload("res://scripts/sera_base_functional_finish.gd")
+const BaseNightFacade = preload("res://scripts/sera_base_night_facade.gd")
 const BasePolygon = preload("res://scripts/sera_base_polygon_meshes.gd")
 const WEATHERED_STEEL_PATH: String = "res://assets/base/industrial_steel_grunge.svg"
 const WEATHERED_CANVAS_PATH: String = "res://assets/base/aged_canvas_weave.svg"
@@ -207,7 +208,7 @@ class Batch:
             if tint in ["blue_light", "amber_light", "amber"]:
                 surface.emission_enabled = true
                 surface.emission = Color(COLORS[tint])
-                surface.emission_energy_multiplier = 1.25 if tint == "amber" else 1.7
+                surface.emission_energy_multiplier = 1.75 if tint == "amber" else 2.30
             var draw := MultiMeshInstance3D.new()
             draw.name = "Architectural_" + geometry + "_" + tint
             draw.multimesh = multi
@@ -223,10 +224,10 @@ static func _light(parent: Node3D, label: String, at: Vector3,
     var lamp := OmniLight3D.new()
     lamp.name = label
     var yaw: float = float(parent.get_meta("body_yaw", 0.0))
-    lamp.position = Basis(Vector3.UP, yaw) * at
+    lamp.position = Basis(Vector3.UP, yaw) * (at * float(parent.get_meta("visual_model_scale", 1.0)))
     lamp.light_color = Color(tint)
     lamp.light_energy = power
-    lamp.omni_range = reach
+    lamp.omni_range = reach * float(parent.get_meta("visual_model_scale", 1.0))
     lamp.shadow_enabled = false
     parent.add_child(lamp)
 
@@ -353,6 +354,7 @@ static func build_nexus(parent: Node3D) -> void:
     BasePolish.add_details(g, "NEXUS")
     BaseSilhouette.add_details(g, "NEXUS")
     BaseFinish.add_details(g, "NEXUS")
+    BaseNightFacade.add_details(g, "NEXUS")
     g.detail_scale = 1.0
     BaseClutter.decorate(g, "NEXUS")
     g.flush()
@@ -604,7 +606,7 @@ static func build_facility(parent: Node3D, key: String) -> void:
     var g := Batch.new(node)
     g.yaw = facility_yaw_radians(key)
     # Small equipment gains legibility, while its floor / tap position stays.
-    g.detail_scale = 1.10 if key == "LABO" else 1.13
+    g.detail_scale = 1.28 if key == "LABO" else 1.36
     node.set_meta("visual_model_scale", g.detail_scale)
     node.set_meta("body_yaw", g.yaw)
     match key:
@@ -635,17 +637,30 @@ static func build_facility(parent: Node3D, key: String) -> void:
     BasePolish.add_details(g, key)
     BaseSilhouette.add_details(g, key)
     BaseFinish.add_details(g, key)
+    BaseNightFacade.add_details(g, key)
     g.detail_scale = 1.0
     BaseClutter.decorate(g, key)
     g.flush()
     match key:
         "LABO":
             _light(node, "LabTaskLighting", Vector3(0, 2.28, 1.31),
-                "#ffbd86", 1.30, 3.50)
+                "#ffbd86", 1.52, 3.65)
         "SMELTER":
             _light(node, "FurnaceHeatLight", Vector3(0, 1.10, 1.14),
-                "#ff904d", 1.70, 3.00)
+                "#ff904d", 2.05, 3.40)
         "GENERATOR":
             _light(node, "GeneratorCoreLight", Vector3(-0.45, 1.25, 0.72),
-                "#71c9f5", 0.72, 2.90)
+                "#71c9f5", 1.04, 3.15)
+        "SCRAP_COLLECTOR":
+            _light(node, "CollectorTaskLight", Vector3(0.28, 2.20, 0.38),
+                "#90daf6", 1.12, 3.10)
+        "RECYCLER":
+            _light(node, "RecyclerWorkLight", Vector3(0.0, 1.75, 1.10),
+                "#ffc18b", 1.40, 3.15)
+        "STORAGE":
+            _light(node, "StorageLoadingLight", Vector3(0.10, 1.86, 1.24),
+                "#ffc58d", 1.22, 3.20)
+        "BUILD_TERMINAL":
+            _light(node, "TerminalWorkLight", Vector3(0.0, 2.23, 0.54),
+                "#8ccefa", 1.00, 3.10))
 
