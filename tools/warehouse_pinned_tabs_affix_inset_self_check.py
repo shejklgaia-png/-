@@ -11,7 +11,7 @@ for token in (
     'actions_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED',
     'item_layer.add_child(junk_button)',
     'item_layer.add_child(grid)',
-    'item_layer.add_child(grid)\\n        grid.name = "WarehouseEquipment"',
+    'item_layer.add_child(grid)\n        grid.name = "WarehouseEquipment"',
     'junk_button.pressed.connect(_confirm_bulk_junk_deletion)',
     '_configure_page_scroll(80 if section == "materials" else 140)',
     'hanger.name = "WarehouseHangerTabs"',
