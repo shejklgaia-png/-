@@ -36,7 +36,24 @@ static func texture(side: int, mode: String = DEFAULT_MODE) -> Texture2D:
 static func composite(source: Texture2D, mode: String = DEFAULT_MODE) -> Texture2D:
     if source == null:
         return texture(72, mode)
-    var art: Image = source.get_image()
+    var art: Image
+    if source is AtlasTexture:
+        # AtlasTexture.get_image() can be backend-dependent: crop the exact
+        # 72px source rectangle ourselves, never the whole 4x5 sprite sheet.
+        var atlas_texture: AtlasTexture = source as AtlasTexture
+        if atlas_texture.atlas == null:
+            return source
+        art = atlas_texture.atlas.get_image()
+        if art == null or art.is_empty():
+            return source
+        if art.is_compressed() and art.decompress() != OK:
+            return source
+        var region: Rect2 = atlas_texture.region
+        art = art.get_region(Rect2i(
+            Vector2i(roundi(region.position.x), roundi(region.position.y)),
+            Vector2i(roundi(region.size.x), roundi(region.size.y))))
+    else:
+        art = source.get_image()
     if art == null or art.is_empty():
         return source
     if art.is_compressed() and art.decompress() != OK:
