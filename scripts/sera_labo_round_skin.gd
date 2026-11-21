@@ -1,5 +1,5 @@
 extends RefCounted
-## Four matching blue-grey rounded button states. Shared across all LABO pages.
+## Cached matte UI skin and sharp cyber typography shared across SERA screens.
 static var _cache: Dictionary = {}
 static var _card_cache: Dictionary = {}
 static var _tab_cache: Dictionary = {}
@@ -8,9 +8,10 @@ static var _panel_cache: StyleBoxTexture
 ## Portable fonts bundled with SERA; NEVER depend on Android SystemFont.
 ## Original complete, licensed OFL fonts are vendored in assets/fonts/.
 const JP_FONT_PATH: String = "res://assets/fonts/NotoSansJP-VF.woff2"
-## All Japanese title, interaction and numeric roles have their own shipped face.
-const JP_TITLE_FONT_PATH: String = "res://assets/fonts/MPLUS2-VF.woff2"
-const JP_STATS_FONT_PATH: String = "res://assets/fonts/MPLUS1Code-VF.woff2"
+## The already-bundled Noto variable face has firmer square Japanese forms
+## than the old rounded M PLUS titles/stats. Share its bytes across roles.
+const JP_TITLE_FONT_PATH: String = JP_FONT_PATH
+const JP_STATS_FONT_PATH: String = JP_FONT_PATH
 const JP_UI_FONT_PATH: String = "res://assets/fonts/IBMPlexSansJP-Medium.woff2"
 const JP_CONTROL_FONT_PATH: String = "res://assets/fonts/IBMPlexSansJP-Bold.woff2"
 const NAV_FONT_PATH: String = "res://assets/fonts/Rajdhani-Bold.woff2"
@@ -128,19 +129,19 @@ static func _jp_weight(weight: int) -> FontVariation:
     return result
 
 
-## All native Japanese faces load via the Android-tested RAW_BYTES path.
-## For color and silhouette coherence, headings and equipment names share
-## M PLUS 2; Japanese actions use IBM Plex Sans JP; numbers/stats use
-## M PLUS 1 Code. The fonts are cached, never instantiated per card.
+## Angular high-weight Noto Japanese titles/items and medium-weight Noto
+## Japanese stat names. IBM Plex Sans JP retains compact native controls
+## and body text; Rajdhani/IBM Plex Mono style Latin headers and telemetry.
+## All faces use the Android-tested RAW_BYTES path and cached role objects.
 static func _title_face() -> FontFile:
     if _jp_title_source == null:
-        _jp_title_source = _load_bundled_font(JP_TITLE_FONT_PATH, 0x88C5)
+        _jp_title_source = _jp_face()
     return _jp_title_source
 
 
 static func _stats_face() -> FontFile:
     if _jp_stats_source == null:
-        _jp_stats_source = _load_bundled_font(JP_STATS_FONT_PATH, 0x65E5)
+        _jp_stats_source = _jp_face()
     return _jp_stats_source
 
 
@@ -173,19 +174,22 @@ static func ui_font() -> FontVariation:
 
 static func title_font() -> FontVariation:
     if _title_font == null:
-        _title_font = _variation_from_face(_title_face(), 800)
+        _title_font = _variation_from_face(_title_face(), 850)
+        _title_font.spacing_glyph = 1
     return _title_font
 
 
 static func equipment_font() -> FontVariation:
     if _equipment_font == null:
-        _equipment_font = _variation_from_face(_title_face(), 700)
+        _equipment_font = _variation_from_face(_title_face(), 750)
+        _equipment_font.spacing_glyph = 1
     return _equipment_font
 
 
 static func control_font() -> FontVariation:
     if _control_font == null:
         _control_font = _variation_from_face(_control_face())
+        _control_font.spacing_glyph = 1
     return _control_font
 
 
