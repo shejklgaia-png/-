@@ -17,8 +17,25 @@ for token in ("ConversionStepper_", "ConversionMinus_", "ConversionCountFrame_",
               'decrement.disabled = conversion_batches <= 1'):
     assert token in base, token
 for token in ('LaboConfirmCraftCard', 'LaboConfirmItemIcon',
-              'LaboConfirmItemStats', 'LaboConfirmSaveNotice',
-              '_craft_selected_prototype, selected_prototype'):
+              'LaboConfirmItemStats', 'LaboConfirmLayout', 'LaboConfirmPrompt',
+              'LaboConfirmItemName', '_craft_selected_prototype, selected_prototype'):
+    assert token in base, token
+# A single prominent craft headline, enlarged equipment preview and a short
+# decision question must replace the redundant confirmation labels/notice.
+for obsolete in ('LaboConfirmSaveNotice', '作成後、この装備は倉庫に保存されます。',
+                 '装備の作成確認', 'LaboStats.baseline(equipment_blueprint)\n'):
+    assert obsolete not in base, obsolete
+for token in (
+    'confirmation_title.text = "以下の装備を作成します" if is_craft else title',
+    'confirmation_prompt.text = "作成しますか？" if is_craft else',
+    'confirmation_system.visible = not is_craft',
+    'confirmation_subtitle.visible = not is_craft',
+    'confirmation_craft_card.custom_minimum_size.y = 270.0',
+    'confirmation_item_icon.custom_minimum_size = Vector2(136, 136)',
+    'confirmation_item_name.add_theme_font_size_override("font_size", 28)',
+    'confirmation_item_stats.add_theme_font_size_override("font_size", 19)',
+    'LaboStats.baseline(equipment_blueprint).replace("（現行Aセット参照）", "")',
+):
     assert token in base, token
 assert 'func _request_confirmation(' in base
 assert 'func _dismiss_confirmation()' in base
