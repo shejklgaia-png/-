@@ -1,0 +1,51 @@
+name: SERA v535 Bittaran 10-minute battle balance
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'scripts/bittaran_balance.gd'
+      - 'scripts/bittaran_battle.gd'
+      - 'scripts/bittaran_parts.gd'
+      - 'scripts/sera_part_stats.gd'
+      - 'scripts/main.gd'
+      - 'tools/bittaran_ten_min_balance_*'
+      - '.github/workflows/sera-bittaran-10min-balance.yml'
+  workflow_dispatch:
+
+jobs:
+  ten-minute-balance:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify approved values before Godot
+        run: python3 tools/bittaran_ten_min_balance_self_check.py
+      - name: Install Godot 4.7.2
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 3 --connect-timeout 15 --max-time 180 \
+            --output "$RUNNER_TEMP/godot.zip" \
+            "https://github.com/godotengine/godot/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip"
+          mkdir -p "$RUNNER_TEMP/godot"
+          unzip -q "$RUNNER_TEMP/godot.zip" -d "$RUNNER_TEMP/godot"
+          chmod +x "$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64"
+      - name: Import authored SERA models
+        shell: bash
+        run: |
+          set -euo pipefail
+          "$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" --headless --editor --path . --import --quit
+      - name: Test real Bittaran combat and full A-build route
+        shell: bash
+        run: |
+          set -euo pipefail
+          timeout 180s "$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" \
+            --headless --path . --script res://tools/bittaran_ten_min_balance_runtime_check.gd 2>&1 \
+            | tee "$RUNNER_TEMP/bittaran-10min.log"
+          if grep -E 'SCRIPT ERROR|Parse Error|Compile Error|BITTARAN_10MIN_BALANCE_FAIL|ERROR: Failed to load' "$RUNNER_TEMP/bittaran-10min.log"; then
+            echo "::error::Godot balance check failed"
+            exit 1
+          fi
+          grep -q 'BITTARAN_10MIN_BALANCE_GODOT_PASS' "$RUNNER_TEMP/bittaran-10min.log"
