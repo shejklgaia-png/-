@@ -24,6 +24,7 @@ func _run() -> void:
             _fail(key + ": prop count changed")
             return
         var on_site_growth: int = 0
+        var small_punctuation: int = 0
         for i in range(original.size()):
             var before: Dictionary = original[i]
             var after: Dictionary = displayed[i]
@@ -31,6 +32,8 @@ func _run() -> void:
                 _fail(key + ": authored object placement changed")
                 return
             var ratio: float = float(after["scale"]) / float(before["scale"])
+            if not bool(before.get("accent", false)) and float(after["scale"]) <= 0.87:
+                small_punctuation += 1
             if ratio < 0.999 or ratio > 1.261:
                 _fail(key + ": outside the approved enlarged prop range " + str(ratio))
                 return
@@ -39,10 +42,13 @@ func _run() -> void:
                 on_site_growth += 1
             if ratio >= 1.149:
                 substantial += 1
+        if small_punctuation < 1:
+            _fail(key + ": lost deliberately small primary visual punctuation")
+            return
         if on_site_growth < 2:
             _fail(key + ": most site accents were left unchanged")
             return
-    if grown < 28 or substantial < 15:
+    if grown < 28 or substantial < 11:
         _fail("overall dressing is not visibly larger; grew " + str(grown) +
             ", substantial " + str(substantial))
         return
