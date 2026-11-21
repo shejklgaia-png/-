@@ -3861,3 +3861,9 @@
 - New `LiftedBatch` forwards shifted actual mesh calls to the same existing facility material-batched MultiMesh. Style differences come from tier-specific color variations and small XZ staggering. Uses stack-specific contact pitch, only one ground skid, and no new per-frame logic.
 - All eight single-slab sites retain placement, entries, floor colors, tap navigation and CRATE traversal. Nonstackable equipment remains a single item.
 - Test-first `base_prop_stacks_self_check.py` / `base_prop_stacks_runtime_check.gd` registered in the full CI suite; runtime test records actual 3D crate Y coordinates and validates 2/3-tier diversity and clearance.
+
+
+## 2026-11-21 — BASE facility props: balanced rhythm of density and breathing space
+- Re-authored the existing 52 static prop locations for an intentional spatial beat instead of two uniformly spaced lines: 4+ closely spaced objects on one side, a wide empty interval on the opposite side, and one visually smaller accent per facility. NEXUS/LABO use 5:3, others 4:2, alternating dominant sides across the six peripheral stations.
+- Preserved the 13 double stacks and 6 triple stacks, all 40 prop types, reserved single-piece site slabs, machine/entrance protection areas, renderer batching, CRATE and UI navigation.
+- Added test-first tools/base_prop_density_rhythm_self_check.py and tools/base_prop_density_rhythm_runtime_check.gd to the CI manifest, checking tight runs, spacious gaps, alternating sides and preserved stack counts.

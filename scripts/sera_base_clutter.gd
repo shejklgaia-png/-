@@ -54,83 +54,87 @@ static func _item(kind: String, x: float, z: float,
     return {"kind": kind, "at": Vector2(x, z),
         "scale": scale_factor, "stack": stack_count}
 
+# Rhythmic site plan: a compact run of four near one edge, a generous
+# opposing empty band, and a smaller isolated accent. Dense sides alternate
+# between facilities; the central walkway remains clear. Keep this authored,
+# not randomized, to preserve navigation and phone-sized visual hierarchy.
 static func props_for(key: String) -> Array[Dictionary]:
     match key:
         "NEXUS":
             return [
-                _item("antenna_case", -4.28, -4.95),
-                _item("signal_console", 4.30, -4.60),
-                _item("armored_bundle", -4.26, -2.38, 1.0, 2),
-                _item("cable_reel", 4.35, -2.35),
-                _item("cargo_box", 4.40, 0.15, 1.0, 3),
-                _item("power_box", -4.27, 0.15, 1.0, 2),
-                _item("sensor_tripod", 4.32, 2.60),
-                _item("tool_cart", -4.25, 4.10),
+                _item("antenna_case", -4.30, -5.02),
+                _item("signal_console", 4.30, -4.54),
+                _item("armored_bundle", -4.20, -3.93, 1.00, 2),
+                _item("cable_reel", -4.37, -2.84),
+                _item("cargo_box", -4.23, -1.69, 1.00, 3),
+                _item("power_box", 4.40, 2.19, 1.00, 2),
+                _item("sensor_tripod", 4.26, 3.24, 0.80),
+                _item("tool_cart", -4.18, 4.18),
             ]
         "LABO":
             return [
-                _item("tool_cabinet", -3.12, -2.42),
-                _item("parts_tray", 3.17, -2.35),
-                _item("spare_arm", -3.10, -0.75),
-                _item("armor_rack", 3.16, -0.70, 1.0, 2),
-                _item("tool_cart", -3.14, 1.12),
-                _item("cable_reel", 3.15, 1.15),
-                _item("cargo_box", -3.13, 2.75, 1.0, 2),
-                _item("worklight", 3.18, 2.74),
+                _item("tool_cabinet", -3.15, -2.40),
+                _item("parts_tray", 3.17, -2.42),
+                _item("spare_arm", -3.00, -1.24),
+                _item("armor_rack", -3.17, -0.06, 1.00, 2),
+                _item("tool_cart", -3.02, 1.04),
+                _item("cable_reel", 3.13, 1.61),
+                _item("cargo_box", -3.16, 2.66, 1.00, 2),
+                _item("worklight", 3.24, 2.76, 0.80),
             ]
         "SMELTER":
             return [
-                _item("ingot_pallet", -2.09, -1.93, 1.0, 3),
-                _item("slag_bin", 2.10, -1.89),
-                _item("coolant_tank", -2.10, 0.05),
-                _item("casting_mold", 2.10, 0.08),
-                _item("pipe_bundle", -2.07, 1.95),
-                _item("pressure_valve", 2.10, 1.97),
+                _item("ingot_pallet", -2.12, -2.04, 1.00, 3),
+                _item("slag_bin", -2.02, -0.94),
+                _item("coolant_tank", -2.18, 0.16),
+                _item("casting_mold", -2.06, 1.26),
+                _item("pipe_bundle", 2.10, -2.02),
+                _item("pressure_valve", 2.18, 1.95, 0.80),
             ]
         "RECYCLER":
             return [
-                _item("scrap_gears", -2.10, -1.93),
-                _item("bent_armor", 2.10, -1.88, 1.0, 2),
-                _item("crusher_bin", -2.10, 0.03),
-                _item("spare_roller", 2.08, 0.06),
-                _item("hydraulic_kit", -2.08, 1.96),
-                _item("scrap_hopper", 2.10, 1.94),
+                _item("scrap_gears", -2.08, -2.02),
+                _item("bent_armor", 2.09, -1.95, 1.00, 2),
+                _item("crusher_bin", 2.04, -0.87),
+                _item("spare_roller", 2.20, 0.18, 0.82),
+                _item("hydraulic_kit", -2.12, 2.04),
+                _item("scrap_hopper", 2.06, 1.35),
             ]
         "SCRAP_COLLECTOR":
             return [
-                _item("scrap_hopper", -2.07, -1.90),
-                _item("wheel", 2.10, -1.91),
-                _item("old_joint", -2.09, 0.04),
-                _item("bent_armor", 2.09, 0.06, 1.0, 2),
-                _item("cargo_box", -2.10, 1.94, 1.0, 3),
-                _item("hydraulic_kit", 2.11, 1.98),
+                _item("scrap_hopper", -2.08, -2.03),
+                _item("wheel", 2.14, -1.98, 0.83),
+                _item("old_joint", -2.15, -0.91),
+                _item("bent_armor", -2.04, 0.21, 1.00, 2),
+                _item("cargo_box", -2.15, 1.32, 1.00, 3),
+                _item("hydraulic_kit", 2.14, 1.92),
             ]
         "STORAGE":
             return [
-                _item("rack_stack", -2.10, -1.92, 1.0, 2),
-                _item("cargo_box", 2.10, -1.89, 1.0, 3),
-                _item("straps", -2.09, 0.02),
-                _item("pipe_bundle", 2.08, 0.05),
-                _item("pallet", -2.10, 1.99, 1.0, 3),
-                _item("panel_stack", 2.08, 1.98, 1.0, 2),
+                _item("rack_stack", -2.10, -1.96, 1.00, 2),
+                _item("cargo_box", 2.08, -1.98, 1.00, 3),
+                _item("straps", 2.15, -0.90, 0.84),
+                _item("pipe_bundle", 2.02, 0.24),
+                _item("pallet", -2.14, 2.02, 1.00, 3),
+                _item("panel_stack", 2.12, 1.37, 1.00, 2),
             ]
         "GENERATOR":
             return [
-                _item("battery", -2.10, -1.90, 1.0, 2),
-                _item("transformer", 2.10, -1.91, 1.0, 2),
-                _item("coil_pack", -2.08, 0.04),
-                _item("insulator", 2.10, 0.06),
-                _item("cable_reel", -2.12, 1.95),
-                _item("power_box", 2.10, 1.97, 1.0, 2),
+                _item("battery", -2.13, -2.04, 1.00, 2),
+                _item("transformer", 2.12, -2.00, 1.00, 2),
+                _item("coil_pack", -2.04, -0.92),
+                _item("insulator", 2.16, 1.96, 0.80),
+                _item("cable_reel", -2.18, 0.16),
+                _item("power_box", -2.06, 1.29, 1.00, 2),
             ]
         "BUILD_TERMINAL":
             return [
-                _item("construction_frame", -2.09, -1.90),
-                _item("panel_stack", 2.09, -1.92, 1.0, 2),
-                _item("laser_measure", -2.08, 0.04),
-                _item("fastener_box", 2.11, 0.06, 1.0, 3),
-                _item("calibration_stand", -2.08, 1.95),
-                _item("building_parts", 2.09, 1.95, 1.0, 2),
+                _item("construction_frame", 2.06, 1.34),
+                _item("panel_stack", 2.12, -1.99, 1.00, 2),
+                _item("laser_measure", -2.10, -2.00, 0.82),
+                _item("fastener_box", 2.06, -0.88, 1.00, 3),
+                _item("calibration_stand", -2.11, 1.96),
+                _item("building_parts", 2.13, 0.22, 1.00, 2),
             ]
         _:
             return []
