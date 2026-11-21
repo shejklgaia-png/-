@@ -2476,6 +2476,9 @@ func _is_customization_drag_zone(pixel: Vector2) -> bool:
         return false
     if back_panel.visible and Rect2(back_panel.position, back_panel.size).has_point(pixel):
         return false
+    if customize_stats_scroll != null and customize_stats_scroll.visible and (
+            customize_stats_scroll.get_global_rect().has_point(pixel)):
+        return false
     return true
 
 func _rotate_customization_preview(delta_x: float) -> void:
@@ -2630,6 +2633,17 @@ func _navigate_back() -> void:
         _return_to_overview()
 
 func _input(event: InputEvent) -> void:
+    # Aggregate stats are read-only and can scroll without rotating the
+    # character or treating the upper strip as a dismiss tap.
+    if focused_target == "CUSTOMIZE" and (
+            customize_part_picker == null or not customize_part_picker.visible) and (
+            customize_stats_scroll != null and customize_stats_scroll.visible):
+        var is_pointer: bool = (event is InputEventScreenTouch or
+            event is InputEventScreenDrag or event is InputEventMouseButton or
+            event is InputEventMouseMotion)
+        if is_pointer and customize_stats_scroll.get_global_rect().has_point(
+                event.position):
+            return
     # Picker taps occur on RELEASE so upward swipes cannot accidentally equip.
     # The scroll is manual because NEXUS uses raw Android touch navigation.
     if customize_part_picker != null and customize_part_picker.visible:
