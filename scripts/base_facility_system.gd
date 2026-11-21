@@ -974,7 +974,7 @@ func attach_hud(hud: Control) -> void:
     confirmation_item_stats.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
     confirmation_item_stats.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
     confirmation_item_stats.add_theme_font_override("font", LaboSkin.stats_font())
-    confirmation_item_stats.add_theme_font_size_override("font_size", 18)
+    confirmation_item_stats.add_theme_font_size_override("font_size", 19)
     confirmation_item_stats.add_theme_color_override("font_color", Color("#d3e9ee"))
     stats_column.add_child(confirmation_item_stats)
     confirmation_text = Label.new()
