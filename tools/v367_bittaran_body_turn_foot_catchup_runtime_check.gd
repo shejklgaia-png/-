@@ -3,6 +3,7 @@ extends SceneTree
 ## but replant both diagonal pairs after the full DOWN hold and BEFORE
 ## BODY moves upward. Check live authored Wait footprint targets.
 const AI = preload("res://scripts/bittaran_ai.gd")
+const IK = preload("res://scripts/bittaran_foot_ik.gd")
 const DT: float = 1.0 / 60.0
 const LEG_IDS: Array[String] = ["leg_fl", "leg_fr", "leg_rl", "leg_rr"]
 const ONE_LEG: Array[String] = ["leg_fl"]
@@ -116,7 +117,7 @@ func _run_case(battle: Node3D, ids: Array[String],
                     if not bool(foot["stepping"]):
                         continue
                     if float(foot["swing_elapsed"]) > (
-                            BittaranFootIK.DOWN_REPLANT_SECONDS * 0.5
+                            IK.DOWN_REPLANT_SECONDS * 0.5
                             + DT + 0.00001):
                         _fail("down foot replant exceeded original step clock")
                         return false
