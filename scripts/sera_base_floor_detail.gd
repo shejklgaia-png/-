@@ -5,7 +5,8 @@ const PALETTE = {
     # Detail must support silhouette separation; bright blue-gray seams are distracting.
     "seam": "#11171b", "edge": "#40474a", "bolt": "#596267",
     "grate": "#0b1114", "grille": "#353c40", "caution": "#d7a951",
-    "cable": "#0f171b", "pipe": "#60594a", "mark": "#67614b"
+    "cable": "#0f171b", "pipe": "#60594a", "mark": "#67614b",
+    "site_edge": "#555751"
 }
 const DETAIL_RADIUS: int = 13
 const PANEL_STEP: float = 3.0
@@ -49,7 +50,10 @@ static func decorate(floor: Node3D, panels: Array[Dictionary]) -> void:
         var edge_x: float = size.x * 0.5 - 0.085
         var edge_z: float = size.y * 0.5 - 0.085
         var wear: int = posmod(int(panel["style"]), 7)
-        var edge_tint: String = "edge" if wear in [0, 1] else "seam"
+        var site_id: String = str(panel["site"])
+        var edge_tint: String = (
+            "site_edge" if not site_id.is_empty() else
+            "edge" if wear in [0, 1] else "seam")
         for side in [-1.0, 1.0]:
             _put(groups, "PanelSeams",
                 Vector3(cx + side * edge_x, -0.016, cz),
@@ -62,33 +66,50 @@ static func decorate(floor: Node3D, panels: Array[Dictionary]) -> void:
                     Vector3(cx + side * (edge_x - 0.12), 0.008,
                         cz + corner * (edge_z - 0.12)),
                     Vector3(0.095, 0.045, 0.095), "bolt")
-        # Small recessed access grooves sit inside the large armor plates.
-        if wear in [1, 3, 6] and size.x >= 2.8 and size.y >= 2.8:
-            _put(groups, "AccessPanelJoints",
-                Vector3(cx - 0.28, -0.006, cz),
-                Vector3(0.025, 0.025, 1.30), "seam")
-            _put(groups, "AccessPanelJoints",
-                Vector3(cx + 0.28, -0.006, cz + 0.65),
-                Vector3(1.10, 0.023, 0.028), "edge")
-        # Actual grilles / hatches scale to the available slab footprint.
-        if wear == 2 and size.x >= 2.8 and size.y >= 2.8:
-            var grate_x: float = minf(size.x * 0.64, 1.68)
-            var grate_z: float = minf(size.y * 0.62, 1.12)
-            _put(groups, "DrainGrates", Vector3(cx, 0.004, cz),
-                Vector3(grate_x, 0.028, grate_z), "grate")
-            for slit in range(8):
-                _put(groups, "DrainGrates",
-                    Vector3(cx - grate_x * 0.42 + float(slit) * grate_x * 0.12,
-                        0.026, cz),
-                    Vector3(0.070, 0.025, grate_z * 0.90), "grille")
-        elif wear == 4 and size.x >= 2.8 and size.y >= 2.8:
-            _put(groups, "MaintenanceHatches",
-                Vector3(cx + 0.20, 0.007, cz - 0.10),
-                Vector3(1.36, 0.025, 0.88), "seam")
-            for row in range(4):
+        if site_id.is_empty():
+            # Small recessed access grooves sit inside the large armor plates.
+            if wear in [1, 3, 6] and size.x >= 2.8 and size.y >= 2.8:
+                _put(groups, "AccessPanelJoints",
+                    Vector3(cx - 0.28, -0.006, cz),
+                    Vector3(0.025, 0.025, 1.30), "seam")
+                _put(groups, "AccessPanelJoints",
+                    Vector3(cx + 0.28, -0.006, cz + 0.65),
+                    Vector3(1.10, 0.023, 0.028), "edge")
+            # Actual grilles / hatches scale to the available slab footprint.
+            if wear == 2 and size.x >= 2.8 and size.y >= 2.8:
+                var grate_x: float = minf(size.x * 0.64, 1.68)
+                var grate_z: float = minf(size.y * 0.62, 1.12)
+                _put(groups, "DrainGrates", Vector3(cx, 0.004, cz),
+                    Vector3(grate_x, 0.028, grate_z), "grate")
+                for slit in range(8):
+                    _put(groups, "DrainGrates",
+                        Vector3(cx - grate_x * 0.42 + float(slit) * grate_x * 0.12,
+                            0.026, cz),
+                        Vector3(0.070, 0.025, grate_z * 0.90), "grille")
+            elif wear == 4 and size.x >= 2.8 and size.y >= 2.8:
                 _put(groups, "MaintenanceHatches",
-                    Vector3(cx - 0.32 + float(row) * 0.35, 0.024, cz - 0.10),
-                    Vector3(0.045, 0.017, 0.72), "edge")
+                    Vector3(cx + 0.20, 0.007, cz - 0.10),
+                    Vector3(1.36, 0.025, 0.88), "seam")
+                for row in range(4):
+                    _put(groups, "MaintenanceHatches",
+                        Vector3(cx - 0.32 + float(row) * 0.35, 0.024, cz - 0.10),
+                        Vector3(0.045, 0.017, 0.72), "edge")
+        else:
+            # Large one-piece foundations are deliberately uninterrupted:
+            # no central grates, hatches, repair seams or division marks.
+            # Additional perimeter fasteners emphasize a single steel slab.
+            for ix in range(1, maxi(1, floori(size.x / 1.50))):
+                var at_x: float = cx - size.x * 0.5 + float(ix) * 1.50
+                for side in [-1.0, 1.0]:
+                    _put(groups, "FacilityPanelBolts",
+                        Vector3(at_x, 0.009, cz + side * edge_z),
+                        Vector3(0.105, 0.046, 0.105), "bolt")
+            for iz in range(1, maxi(1, floori(size.y / 1.50))):
+                var at_z: float = cz - size.y * 0.5 + float(iz) * 1.50
+                for side in [-1.0, 1.0]:
+                    _put(groups, "FacilityPanelBolts",
+                        Vector3(cx + side * edge_x, 0.009, at_z),
+                        Vector3(0.105, 0.046, 0.105), "bolt")
     # Independently routed diagonal industrial safety lanes and short dashes.
     for i in range(-15, 16):
         var p: float = float(i) * 1.05
