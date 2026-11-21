@@ -1545,19 +1545,20 @@ func _new_slot(parent: Control, key: String, icon: Texture2D,
             (24 if get_viewport().get_visible_rect().size.x >= 500.0 else 22)
             if key.begins_with("LockedCraftSlot_") else
             (28 if get_viewport().get_visible_rect().size.x >= 500.0 else 24))
-        info_label.add_theme_font_size_override("font_size", 17)
+        info_label.add_theme_font_size_override(
+            "font_size", 17 if key.begins_with("LockedCraftSlot_") else 20)
         info_label.add_theme_constant_override("line_spacing", 3)
         title_label.add_theme_color_override("font_color",
             Color("#8da9b5") if key.begins_with("LockedCraftSlot_") else
             Color("#eaf4f5"))
         info_label.add_theme_color_override("font_color",
             Color("#587786") if key.begins_with("LockedCraftSlot_") else
-            Color("#b8e9ef"))
+            Color("#e0f4f6"))
         if key.begins_with("LockedCraftSlot_"):
             art.visible = false
             art.custom_minimum_size = Vector2.ZERO
     info_label.text = (info if material_choice else
-        info.replace("基礎ステータス（現行Aセット参照） / ", "基礎: "))
+        info.replace("基礎ステータス（現行Aセット参照） / ", ""))
     row.add_child(card)
     if not key.begins_with("LockedCraftSlot_"):
         LaboSkin.attach_name_underline(title_label)
@@ -1728,18 +1729,32 @@ func _show_inventory(section: String = "equipment") -> void:
             var slot: String = str(SeraSave.EQUIPMENT_SLOTS[slot_index])
             var tab: Button = LaboSectionTabScene.instantiate() as Button
             tab.name = "HangerSlot_" + slot
-            tab.text = _slot_tab_caption(slot)
+            # Native Button text creates a minimum width and can force the
+            # seventh tab outside narrow Android viewports. Render the same
+            # caption as a passive child; the Button remains the tap target.
+            tab.text = ""
             tab.tooltip_text = _warehouse_slot_name(slot)
+            tab.clip_contents = true
             tab.custom_minimum_size = Vector2(0, LABO_SLOT_HEIGHT)
             tab.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-            tab.add_theme_font_size_override("font_size",
-                _slot_font_size() + 1 if tab.button_pressed else maxi(18, _slot_font_size() - 1))
-            tab.add_theme_font_override("font", LaboSkin.control_font())
-            tab.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
             tab.toggle_mode = true
             tab.button_group = hanger_group
             tab.button_pressed = warehouse_slot == slot
             _style_terminal_segment(tab)
+            var caption := Label.new()
+            caption.name = "HangerCaption"
+            caption.text = _slot_tab_caption(slot)
+            caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
+            caption.clip_text = true
+            caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+            caption.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+            caption.add_theme_font_override("font", LaboSkin.control_font())
+            caption.add_theme_font_size_override("font_size",
+                _slot_font_size() + 1 if tab.button_pressed else maxi(18, _slot_font_size() - 1))
+            caption.add_theme_color_override("font_color",
+                Color("#e8f4f6") if tab.button_pressed else Color("#aec4d0"))
+            tab.add_child(caption)
+            caption.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
             tab.pressed.connect(_invoke_scroll_action.bind(
                 _select_warehouse_slot.bind(slot_index), actions_scroll))
             hanger.add_child(tab)

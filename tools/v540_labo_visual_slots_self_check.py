@@ -11,7 +11,7 @@ assert "CRAFT_CATALOG_SLOTS: int = 20" in fac
 assert '"LockedCraftSlot_%02d"' in fac and '"—  LOCKED SLOT  —"' in fac
 assert "LABO_CRAFT_CARD_HEIGHT: float = 160.0" in fac
 assert "custom_minimum_size = Vector2(96, 96)" in card
-assert 'info_label.add_theme_font_size_override("font_size", 17)' in fac
+assert '"font_size", 17 if key.begins_with("LockedCraftSlot_") else 20)' in fac
 assert 'terminal_code.text = "MATERIAL"' in fac
 assert 'tier_rail.color = Color("#79b6c2")' in fac
 assert 'marker.color = Color("#79b6c2")' in grid

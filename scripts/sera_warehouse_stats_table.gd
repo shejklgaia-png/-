@@ -51,9 +51,9 @@ static func _add_cell(table: GridContainer, key: String, value: String,
 
     var style := StyleBoxFlat.new()
     style.set_corner_radius_all(0)
-    style.bg_color = (Color("#1b3948") if row == 0 else
-        Color("#1b3541") if col == 2 else
-        Color("#152e3a") if (row % 2 == 0) else Color("#112936"))
+    # Flat matte surface for every cell; the thin grid, not alternating
+    # fills, separates rows, expressions and totals.
+    style.bg_color = Color("#152e3a")
     style.border_color = Color("#3e5968")
     style.set_border_width_all(0)
     # One-pixel shared strokes give a light, non-doubled grid.
@@ -78,9 +78,11 @@ static func _add_cell(table: GridContainer, key: String, value: String,
         if row > 0 else LaboSkin.control_font()))
     label.add_theme_font_size_override("font_size", (
         13 if compact and row == 0 else
+        15 if row == 0 else
+        21 if compact and col == 2 else
+        23 if col == 2 else
         14 if compact and col == 1 else
         16 if compact else
-        15 if row == 0 else
         17 if col == 1 else 19))
     label.add_theme_color_override("font_color", (
         Color("#a5c8d0") if row == 0 else
