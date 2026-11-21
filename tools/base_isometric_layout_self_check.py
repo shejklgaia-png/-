@@ -10,7 +10,7 @@ ci = (r/"tools/sera_ci_manifest.txt").read_text(encoding="utf-8")
 assert 'cam.projection = Camera3D.PROJECTION_ORTHOGONAL' in base
 assert 'cam.size = BASE_ORTHO_SIZE' in base
 assert 'const BASE_ORTHO_SIZE: float = 38.0' in base
-assert 'const BASE_CAMERA_POSITION: Vector3 = Vector3(21.0, 30.0, 25.0)' in base
+assert 'const BASE_CAMERA_POSITION: Vector3 = Vector3(21.0, 23.0, 25.0)' in base
 assert 'const BASE_CAMERA_TARGET: Vector3 = Vector3(0.0, 0.0, -2.2)' in base
 assert 'cam.look_at(BASE_CAMERA_TARGET' in base
 assert 'cam.fov = 0.0' not in base, "Godot cannot use 0-degree perspective"
@@ -29,14 +29,14 @@ assert 'gd tools/base_isometric_layout_runtime_check.gd' in ci
 # NEXUS high center, LABO middle, six devices in three staggered outside rows.
 # Not derived from the implementation: each independent target is specified here.
 desired = {
-    "NEXUS": (.50, .23),
+    "NEXUS": (.50, .272),
     "LABO": (.50, .50),
-    "SMELTER": (.19, .36),
-    "RECYCLER": (.81, .37),
-    "STORAGE": (.17, .575),
-    "GENERATOR": (.83, .59),
-    "SCRAP_COLLECTOR": (.235, .80),
-    "BUILD_TERMINAL": (.76, .805),
+    "SMELTER": (.19, .382),
+    "RECYCLER": (.81, .390),
+    "STORAGE": (.17, .563),
+    "GENERATOR": (.83, .576),
+    "SCRAP_COLLECTOR": (.235, .754),
+    "BUILD_TERMINAL": (.76, .758),
 }
 read_nexus = re.search(
     r'const NEXUS_BUILDING_ORIGIN: Vector3 = Vector3\(([-.\d]+), ([-.\d]+), ([-.\d]+)\)', base)
@@ -50,7 +50,7 @@ for name in desired:
         facility, flags=re.S)
     assert m, "missing world placement for " + name
     positions[name] = (float(m[1]), float(m[3]))
-eye = (21., 30., 25.)
+eye = (21., 23., 25.)
 target = (0., 0., -2.2)
 dx,dy,dz = (target[i]-eye[i] for i in range(3))
 norm = math.sqrt(dx*dx+dy*dy+dz*dz)
