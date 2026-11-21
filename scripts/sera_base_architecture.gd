@@ -324,7 +324,7 @@ static func build_nexus(parent: Node3D) -> void:
     # Crooked salvage-yard awning along the exposed left side of the building.
     for p in range(3):
         g.poly("CanopyCanvas", "canvas", Vector3(-2.30 + p * 0.40, 2.82 - p * 0.08, 2.42),
-            Vector3(0.46, 0.045, 1.62), "cloth", -0.04)
+            Vector3(0.46, 0.34, 1.62), "cloth", -0.04)
     for side in [-1.0, 1.0]:
         g.rod("CanopySupport", Vector3(-2.18 + side * 0.55, 0.20, 3.08),
             Vector3(-2.18 + side * 0.55, 2.74, 3.08), 0.09, "trim")
@@ -368,7 +368,7 @@ static func _labo(g: Batch) -> void:
     for i in range(6):
         var x: float = -1.74 + float(i) * 0.68
         g.poly("LabDrapedCanopy", "canvas", Vector3(x, 3.16 + 0.08 * cos(i * 1.2), -0.62),
-            Vector3(0.73, 0.055, 2.93), "cloth")
+            Vector3(0.73, 0.42, 2.93), "cloth")
     for side in [-1.0, 1.0]:
         g.rod("CanopyAwningPosts", Vector3(side * 1.82, 0.20, 2.16),
             Vector3(side * 1.82, 3.20, 2.16), 0.10, "dark")
@@ -548,7 +548,7 @@ static func _storage(g: Batch) -> void:
         g.rod("CargoStorageCornerPost", Vector3(side * 1.10, 0.18, -0.90),
             Vector3(side * 1.10, 1.86, -0.90), 0.10, "gold")
     g.poly("CargoStorageTarp", "canvas", Vector3(0.0, 1.76, -0.11),
-        Vector3(2.15, 0.045, 1.72), "cloth")
+        Vector3(2.15, 0.33, 1.72), "cloth")
     for i in range(4):
         g.box("CargoStorageTieStrap", Vector3(-0.73 + i * 0.48,
             1.79, -0.11), Vector3(0.04, 0.04, 1.67), "rust")
