@@ -5,6 +5,7 @@ extends Node3D
 const RigScript = preload("res://scripts/sera_rig.gd")
 const PartStats = preload("res://scripts/sera_part_stats.gd")
 const IconBackdrop = preload("res://scripts/sera_icon_background.gd")
+const NexusArmClearance = preload("res://scripts/sera_nexus_arm_clearance.gd")
 const SLOT_ORDER = [
     "head", "torso", "arms", "legs", "booster", "weapon_r", "weapon_l"
 ]
@@ -114,6 +115,7 @@ func _ready() -> void:
         selected[slot] = "A"
     _apply_preview_standing_pose()
     _cache_native_transforms()
+    _fit_full_body_clearance()
     _apply_frame()
     ready_for_commands = true
     if OS.has_feature("web"):
@@ -261,6 +263,24 @@ func _apply_preview_standing_pose() -> void:
     active_full_body_pose = "NEXUS_fallback"
 
 
+func _fit_full_body_clearance() -> void:
+    if view_mode != "body" or rig == null:
+        return
+    # Use the displayed, independently selected arm/leg meshes at their edited
+    # size. Capture fresh NEXUS_pose quaternions AFTER sampling the authored
+    # clip; otherwise consecutive size/part edits would accumulate rotation.
+    var rest: Dictionary = {}
+    var names: Array[String] = ["Shoulder_L", "Shoulder_R", "UpperArm_L", "UpperArm_R"]
+    var bones: Dictionary = rig.get("bones")
+    for raw_bone in bones.values():
+        var bone: Node3D = raw_bone
+        if names.has(str(bone.name)):
+            rest[str(bone.name)] = bone.quaternion
+    if rest.size() != 4:
+        return
+    NexusArmClearance.new().fit(rig, rest)
+
+
 func _apply_equipment() -> void:
     if handler == null:
         return
@@ -286,6 +306,7 @@ func _apply_equipment() -> void:
                         if piece is MeshInstance3D:
                             piece.visible=false
     _apply_edit_size()
+    _fit_full_body_clearance()
     _apply_frame()
 
 func _apply_frame() -> void:
