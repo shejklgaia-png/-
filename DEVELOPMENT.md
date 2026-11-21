@@ -1,3 +1,9 @@
+## 2026-11-22 — GRID Ver.2.11の統合設計記録（文書のみ）
+
+- `docs/SERA_GRID_V2_11_DESIGN_ja.md` を新設し、Ver.2.10までの採用方針（出撃帰還時素材/EP、10×10→18×18、3枠配置プリセット、ノード稼働OFF、蓄電池＋500EP、連結、ノード・拡張費、19装備レシピ、ビットタラン固有素材）とVer.2.11の戦闘支援6設備案を一本化。
+- A装備を基準としたビットタラン約10分バランスは実戦未検証であり、戦闘支援の＋6%/＋10%等の値も本体調整後に再検証する暫定値として明記。既存8×8 GRID表示と旧版の分単位/熱/GP設計を混同しないよう`docs/BASE_POWER_GRID_V09_ja.md`から最新設計へリンク。
+- 仕様記録のみ。Godotコード、UI、現行LAB素材精製2→1、19装備の無償試作、CI期待値、セーブ、バージョンは変更しない。変更するCI期待値はなし。既存GRID画面検査（`base_power_board_runtime_check.gd`、`base_grid_presentation_runtime_check.gd`）は保持し、実装時に新仕様の検証を先行追加する。
+
 ## 2026-11-22 — BASE roof identity pass (non-gameplay)
 
 - Replaced the repeated station-sized gable roof foundation with eight differentiated forms while preserving the existing architectural batch and equipment behavior: compact NEXUS stepped blast parapet, LABO asymmetric sail, open SCRAP_COLLECTOR maintenance gantry, SMELTER exhaust heat fins, RECYCLER separated hinged lids, GENERATOR exposed roll cage, STORAGE staggered steel container lids, and BUILD_TERMINAL cantilevered data blade.
