@@ -1,5 +1,9 @@
 # SERA 装備設定フォーム — Godotネイティブプレビュー
 
+## 公開URLとHTMLの受け渡し（2026-11-21）
+- **配布ポリシー正本:** `docs/SERA_HTML_ARTIFACT_DELIVERY_POLICY_ja.md`。GitHub `raw.githubusercontent.com` のHTMLはAndroidでソース表示になる場合があるため、実行URLとして案内しない。GitHub `blob` URLもコード閲覧用。
+- Pagesの公開設定・デプロイ・実URLを確認した後にのみ「タップで開く」URLとして提示する。未有効の場合はGodot版のActionsアーティファクトと、旧版の単体オフラインHTMLを明確に分けて案内する。埋め込みPage表示についても実機未確認の場合は断言しない。
+
 ## 現行ルール
 
 - **描画エンジン**はGodot 4.7.2 / GL Compatibility（WebではWebGL 2.0）。装備プレビューの画素をJavaScriptで擬似生成しない。
