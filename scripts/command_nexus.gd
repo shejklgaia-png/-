@@ -46,6 +46,8 @@ var customize_stats_panel: Panel
 var customize_total_title: Label
 var customize_stats_scroll: ScrollContainer
 var customize_stats_grid: GridContainer
+var customize_weapon_divider: ColorRect
+var customize_weapon_first_index: int = -1
 var customize_part_stats_panel: Panel
 var customize_part_stats_header: Label
 var customize_part_stats_name: Label
@@ -883,6 +885,12 @@ func _create_customization_stats() -> void:
     customize_stats_panel.add_theme_stylebox_override(
         "panel", StatUI.status_window_style())
     customize_total_accents = StatUI.attach_status_marks(customize_stats_panel)
+    customize_weapon_divider = ColorRect.new()
+    customize_weapon_divider.name = "CustomizeWeaponStatDivider"
+    customize_weapon_divider.color = Color("#55798a")
+    customize_weapon_divider.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    customize_weapon_divider.visible = false
+    customize_stats_panel.add_child(customize_weapon_divider)
     customize_stats_panel.visible = false
     hud.add_child(customize_stats_panel)
     var total_bar := Panel.new()
@@ -919,7 +927,7 @@ func _create_customization_stats() -> void:
     customize_stats_grid.add_theme_constant_override("h_separation", 9)
     customize_stats_grid.add_theme_constant_override("v_separation", 1)
     customize_stats_scroll.add_child(customize_stats_grid)
-    for i in range(20):
+    for i in range(24):
         var cell := Panel.new()
         cell.name = "EquipmentStat_" + str(i)
         cell.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -965,7 +973,7 @@ func _layout_customization_stats() -> void:
     var width: float = maxf(180.0, view.x * 0.93)
     var left: float = (view.x - width) * 0.5
     var top: float = maxf(20.0, view.y * 0.025)
-    var height: float = minf(view.y * 0.225, 290.0)
+    var height: float = minf(view.y * 0.227, 290.0)
     customize_stats_panel.position = Vector2(left, top)
     customize_stats_panel.size = Vector2(width, height)
     StatUI.layout_status_marks(customize_total_accents, customize_stats_panel.size)
@@ -985,7 +993,15 @@ func _layout_customization_stats() -> void:
         Rect2(Vector2(10, 7), Vector2(inner_width, height - 14)), columns)
     var cell_width: float = floorf(
         (inner_width - 9.0 * float(columns - 1)) / float(columns))
-    var cell_height: float = 44.0
+    var cell_height: float = 39.0
+    if customize_weapon_divider != null:
+        var body_count: int = maxi(0, customize_weapon_first_index)
+        var body_rows: int = ceili(float(body_count) / float(columns))
+        customize_weapon_divider.visible = show and body_rows > 0 and (
+            body_count < 24)
+        customize_weapon_divider.position = Vector2(
+            14.0, 8.0 + float(body_rows) * cell_height - 1.0)
+        customize_weapon_divider.size = Vector2(width - 28.0, 2.0)
     for i in range(customize_stat_cells.size()):
         var entry: Dictionary = customize_stat_cells[i]
         var cell: Panel = entry["panel"]
@@ -1000,6 +1016,11 @@ func _refresh_customization_stats() -> void:
         return
     var selected: Dictionary = _current_system_equipment()
     var entries: Array[Dictionary] = EquipmentStatRows.from_selection(selected)
+    customize_weapon_first_index = -1
+    for row_index in range(entries.size()):
+        if str(entries[row_index].get("group", "")) == "weapon":
+            customize_weapon_first_index = row_index
+            break
     var columns: int = maxi(1, customize_stats_grid.columns)
     for i in range(customize_stat_cells.size()):
         var cell: Dictionary = customize_stat_cells[i]
@@ -1012,7 +1033,8 @@ func _refresh_customization_stats() -> void:
             var row: Panel = cell["panel"] as Panel
             StatUI.layout_metric_pair(
                 cell["name"] as Label, cell["value"] as Label,
-                row.custom_minimum_size.x, 44.0, 19, 25, 16, 20)
+                row.custom_minimum_size.x, 39.0, 19, 25, 16, 20)
+    _layout_customization_stats()
 
 
 func _create_equipment_controls() -> void:
