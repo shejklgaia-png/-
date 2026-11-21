@@ -23,8 +23,9 @@ assert "camera_zoom = clampf(camera_zoom * relative" in native
 widget = read("scripts/sera_part_preview_widget.gd")
 assert 'preload("res://tools/equipment_intake/godot_preview.gd")' in widget
 assert 'preview_scene.call("_on_preview_drag", index, point)' in widget
-assert "SeraPartPreviewWidget" in read("scripts/base_facility_system.gd")
-assert "SeraPartPreviewWidget" in read("scripts/command_nexus.gd")
+assert 'preload("res://tools/equipment_intake/godot_preview.gd")' in read("scripts/base_facility_system.gd")
+assert 'preload("res://scripts/sera_part_preview_widget.gd")' in read("scripts/command_nexus.gd")
+assert 'preload("res://scripts/sera_part_preview_widget.gd")' in read("scripts/sera_warehouse_detail_popup.gd")
 
 # Legacy offline/standalone WebGL variants are still distributed. Change their
 # one-finger model rotation without altering pan-mode or two-finger controls.
