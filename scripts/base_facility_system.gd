@@ -831,7 +831,8 @@ func attach_hud(hud: Control) -> void:
     # It is instantiated lazily, once, only when the craft dialog is opened.
     confirmation_preview_host = SubViewportContainer.new()
     confirmation_preview_host.name = "LaboConfirmRotatablePart"
-    confirmation_preview_host.custom_minimum_size = Vector2(170, 170)
+    # Preserve the original icon footprint on narrow Android portrait screens.
+    confirmation_preview_host.custom_minimum_size = Vector2(136, 136)
     confirmation_preview_host.stretch = true
     confirmation_preview_host.mouse_filter = Control.MOUSE_FILTER_STOP
     confirmation_preview_host.mouse_default_cursor_shape = Control.CURSOR_MOVE
