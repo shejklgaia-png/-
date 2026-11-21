@@ -2,8 +2,6 @@ extends SceneTree
 ## Physical invariants: each of the eight facilities has one dedicated slab,
 ## the building footprint is inset by at least 1m, and no other tile intersects.
 const Layout = preload("res://scripts/sera_base_deck_layout.gd")
-const BaseFacilities = preload("res://scripts/base_facility_system.gd")
-const HUB = preload("res://scripts/base_exploration.gd")
 
 func _initialize() -> void:
     call_deferred("_run")
@@ -13,8 +11,21 @@ func _fail(message: String) -> void:
     quit(1)
 
 func _run() -> void:
+    # Load actual scene after the editor has registered global class names.
+    # Do not preload hub or facility scripts in a standalone SceneTree test:
+    # they indirectly depend on the autoload class SeraSave.
+    var hub: Node3D = load("res://scenes/base_exploration.tscn").instantiate()
+    root.add_child(hub)
+    await process_frame
+    var machines: Node3D = hub.get_node_or_null("BaseFacilities") as Node3D
+    var nexus: Node3D = hub.get_node_or_null("NEXUSBuilding") as Node3D
+    if machines == null or nexus == null:
+        _fail("base floor / machines lost")
+        return
+    var specs: Array = machines.get_script().get_script_constant_map().get(
+        "FACILITY_SPECS", [])
     var sites: Array[Dictionary] = Layout.facility_sites(
-        HUB.NEXUS_BUILDING_ORIGIN, BaseFacilities.FACILITY_SPECS)
+        nexus.position, specs)
     if sites.size() != 8:
         _fail("exactly eight separate facility slabs required")
         return
@@ -73,11 +84,7 @@ func _run() -> void:
         if size.x < footprint.x + 2.0 or size.y < footprint.y + 2.0:
             _fail("undersized dedicated equipment slab: " + key)
             return
-    var hub: Node3D = load("res://scenes/base_exploration.tscn").instantiate()
-    root.add_child(hub)
-    await process_frame
     var floor: Node3D = hub.get_node_or_null("PatchworkSteelFloor") as Node3D
-    var machines: Node3D = hub.get_node_or_null("BaseFacilities") as Node3D
     if floor == null or machines == null:
         _fail("base floor / machines lost")
         return
