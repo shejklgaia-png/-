@@ -13,6 +13,8 @@ assert 'BaseStructuralMass.add_details(g, "NEXUS")' in arch
 assert 'BaseStructuralMass.add_details(g, key)' in arch
 assert 'g.detail_scale = 1.14' in arch, "NEXUS must not be enlarged"
 assert 'g.detail_scale = 1.45 if key == "LABO" else 1.55' in arch
+# Approved no-enlargement constraint: preserve existing architecture scales.
+assert 'g.detail_scale = 1.14' in arch
 for feature in (
     "NexusCornerButtress", "NexusRoofGutter",
     "LabAFrameRidge", "LabAngledSideRoof", "LabRollUpServiceBay",
@@ -22,6 +24,9 @@ for feature in (
     "GeneratorExternalCoolingDrum", "GeneratorRibbedTurbineGuard",
     "StorageRaisedLoadingFrame", "StorageTarpSaddle",
     "TerminalSlopedRoofWing", "TerminalToolHatch",
+    "LabCanopyStitch", "LabVentBlade", "SmelterExhaustHeatBand",
+    "GeneratorCoolingIntakeGrille", "StorageTarpTieDown",
+    "TerminalHatchStatusStrip",
 ):
     assert feature in mass, feature
 for roof in ("LabCanopyCrest", "CollectorWeatherHood",
