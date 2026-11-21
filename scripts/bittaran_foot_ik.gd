@@ -1811,6 +1811,7 @@ func start_leg_break_slide(id: String, head_world_y: float,
     head_knee_scan_elapsed = HEAD_KNEE_SCAN_SECONDS
     head_knee_active = false
     for leg in legs:
+        leg["down_replant_landed"] = false
         leg["head_knee_bend"] = 0.0
         leg["head_knee_target"] = 0.0
     # A second leg can break while the boss is already down. Refresh the
@@ -2987,19 +2988,24 @@ func apply_authored_down_grounding() -> void:
         if break_elapsed >= break_recover_start and break_elapsed >= 0.0:
             var home: Vector3 = _source_ik_home(limb)
             if replant_active and LEG_PAIRS[pair_idx].has(index):
-                # Each pair is lifted and replanted while the BODY stays
-                # perfectly locked at the source t=1.75 contact pose.
+                # Each diagonal is airborne in turn. The other two
+                # toes stay fixed on their earlier WORLD-space anchors.
                 goal = goal.lerp(home, pair_ease)
                 goal.y = DOWN_REPLANT_LIFT_METERS * sin(PI * half_t)
                 stepping = half_t > 0.0 and half_t < 1.0
                 limb["swing_to"] = home
                 limb["swing_elapsed"] = half_t * (
                     DOWN_REPLANT_SECONDS * 0.5)
-            elif not replant_active or (
+            elif not bool(limb.get("down_replant_landed", false)) and (
+                    not replant_active or (
                     pair_half == 1 and LEG_PAIRS[
-                    authored_down_replant_first_pair].has(index)):
+                    authored_down_replant_first_pair].has(index))):
+                # Store the land at most ONCE per limb. Never chase a
+                # moving home during the ensuing BODY rise: four planted
+                # feet must support the torso rather than slide with it.
+                limb["anchor"] = home
+                limb["down_replant_landed"] = true
                 goal = home
-                goal.y = FLOOR_Y
         # Do not allow a previously active normal gait pair to
         # survive into the authored fall / two-phase recovery.
         limb["stepping"] = stepping
@@ -3024,13 +3030,8 @@ func apply_authored_down_grounding() -> void:
             foot.global_basis.get_rotation_quaternion())
         limb["last_knee"] = (
             limb["lower"] as Node3D).global_position
-        # Once the full pair has landed, subsequent frames use its
-        # newly planted Wait footprint as the fixed anchor.
-        if break_elapsed >= break_recover_start and (
-                not replant_active or (
-                pair_half == 1 and LEG_PAIRS[
-                authored_down_replant_first_pair].has(index))):
-            limb["anchor"] = _source_ik_home(limb)
+        # When BODY starts rising, the new world anchor remains fixed
+        # until ordinary gait is explicitly allowed after recovery.
 
 
 func _source_ik_contact_weight(frame: Dictionary) -> float:
