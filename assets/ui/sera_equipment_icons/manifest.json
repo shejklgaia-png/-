@@ -1,0 +1,180 @@
+{
+  "format": "SERA_NATIVE_EQUIPMENT_ICONS_V1",
+  "count": 19,
+  "width": 512,
+  "height": 512,
+  "transparent": true,
+  "items": {
+    "H01": {
+      "name": "標準頭部",
+      "slot": "head",
+      "rig_set": "A",
+      "source_model": "models/core/Standard.bbmodel",
+      "source_sha256": "0ad152fe5d7f81b11da28490fe8ecd47e4d70db42999fe1a84cdc6045755f03b",
+      "png_sha256": "1c43dd1567b30713f9da011c3bc4ea10e765e5360a4427cafcc0941f4a175fbf",
+      "capture": "SERA native Godot 4.7.2 GL Compatibility"
+    },
+    "H02": {
+      "name": "アイリス",
+      "slot": "head",
+      "rig_set": "D",
+      "source_model": "models/storage/カメラアイ頭部.bbmodel",
+      "source_sha256": "e79a33f57e7873f313f1a803488202206d36b8785d4d5bf2951bec316ae90bff",
+      "png_sha256": "a04f327350b3e8991a23f01ed18598bf39843b76acf913e85c47b52c0567733a",
+      "capture": "SERA native Godot 4.7.2 GL Compatibility"
+    },
+    "H03": {
+      "name": "重装頭部",
+      "slot": "head",
+      "rig_set": "B",
+      "source_model": "models/core/Equipment.bbmodel",
+      "source_sha256": "5ac4b9f0c7e8e16194f04e759f55aabe41e8e75166cc39d38dc0fba27f2e3bf0",
+      "png_sha256": "a0f8da52192d02aedc6751956244bdfa8e901d0ae6439bb674f683de9a9656c3",
+      "capture": "SERA native Godot 4.7.2 GL Compatibility"
+    },
+    "H04": {
+      "name": "軽量頭部",
+      "slot": "head",
+      "rig_set": "C",
+      "source_model": "models/storage/Head_C.bbmodel",
+      "source_sha256": "fbd07abb2609152133875c20038b55891782379d27b591793081feff5ce4e307",
+      "png_sha256": "2eddd20d4e3cfe69984559ececf3cec165850f20845ff20d203f1baefa9ee5b2",
+      "capture": "SERA native Godot 4.7.2 GL Compatibility"
+    },
+    "T01": {
+      "name": "標準胴体",
+      "slot": "torso",
+      "rig_set": "A",
+      "source_model": "models/core/Standard.bbmodel",
+      "source_sha256": "0ad152fe5d7f81b11da28490fe8ecd47e4d70db42999fe1a84cdc6045755f03b",
+      "png_sha256": "e6fb7837e31ca5e4189c1d8d8c58a50e0d36b543d8468bb8da040c58a183da4f",
+      "capture": "SERA native Godot 4.7.2 GL Compatibility"
+    },
+    "T02": {
+      "name": "重装胴体",
+      "slot": "torso",
+      "rig_set": "B",
+      "source_model": "models/core/Equipment.bbmodel",
+      "source_sha256": "5ac4b9f0c7e8e16194f04e759f55aabe41e8e75166cc39d38dc0fba27f2e3bf0",
+      "png_sha256": "6e5ac777cad0b09b79e96cf756e2a136377b86f9d33d3c747593ce3b5dadae4a",
+      "capture": "SERA native Godot 4.7.2 GL Compatibility"
+    },
+    "A01": {
+      "name": "標準腕部",
+      "slot": "arms",
+      "rig_set": "A",
+      "source_model": "models/core/Standard.bbmodel",
+      "source_sha256": "0ad152fe5d7f81b11da28490fe8ecd47e4d70db42999fe1a84cdc6045755f03b",
+      "png_sha256": "8677e62b029ce1505a7e919f5e6ad3e72b0dec62ac71aa6159e732f33c63cc5f",
+      "capture": "SERA native Godot 4.7.2 GL Compatibility"
+    },
+    "A02": {
+      "name": "重装腕部",
+      "slot": "arms",
+      "rig_set": "B",
+      "source_model": "models/core/Equipment.bbmodel",
+      "source_sha256": "5ac4b9f0c7e8e16194f04e759f55aabe41e8e75166cc39d38dc0fba27f2e3bf0",
+      "png_sha256": "4ffd3cd10a71deca395ef983a1bae1317784fd501b16390699395a7e7c88c867",
+      "capture": "SERA native Godot 4.7.2 GL Compatibility"
+    },
+    "L01": {
+      "name": "標準脚部",
+      "slot": "legs",
+      "rig_set": "A",
+      "source_model": "models/core/Standard.bbmodel",
+      "source_sha256": "0ad152fe5d7f81b11da28490fe8ecd47e4d70db42999fe1a84cdc6045755f03b",
+      "png_sha256": "2d50574638005b0825d6a4b5f4b3c4865f24bfebc87fbd8502817c638a59f867",
+      "capture": "SERA native Godot 4.7.2 GL Compatibility"
+    },
+    "L02": {
+      "name": "重装脚部B",
+      "slot": "legs",
+      "rig_set": "B",
+      "source_model": "models/core/Equipment.bbmodel",
+      "source_sha256": "5ac4b9f0c7e8e16194f04e759f55aabe41e8e75166cc39d38dc0fba27f2e3bf0",
+      "png_sha256": "c85e4b2e302e3a85807f0d8c53b7a29527c79aa4b4ac0cc6af3dcf654488ebb6",
+      "capture": "SERA native Godot 4.7.2 GL Compatibility"
+    },
+    "L03": {
+      "name": "鳥脚",
+      "slot": "legs",
+      "rig_set": "C",
+      "source_model": "models/core/BirdLeg.bbmodel",
+      "source_sha256": "00086fb46da6d0af8f66ded01cd98f2a4656e46b648d240638505b7af7675599",
+      "png_sha256": "621a4a7328be082eb6a281a54b08acb35534fc83b77d70883f971a873e50b111",
+      "capture": "SERA native Godot 4.7.2 GL Compatibility"
+    },
+    "L04": {
+      "name": "重装脚部D",
+      "slot": "legs",
+      "rig_set": "D",
+      "source_model": "models/storage/LowerBody_D.bbmodel",
+      "source_sha256": "94a6f95d2c7dd0fe69e47b8b94e0087e9f21b02118038afeaa62002a344203c5",
+      "png_sha256": "c81ec731b1bf1b792a1c1dd4a2b31d950571c5f7757fbcc87411402efa28109f",
+      "capture": "SERA native Godot 4.7.2 GL Compatibility"
+    },
+    "B01": {
+      "name": "標準ブースター",
+      "slot": "booster",
+      "rig_set": "A",
+      "source_model": "models/core/Equipment.bbmodel",
+      "source_sha256": "5ac4b9f0c7e8e16194f04e759f55aabe41e8e75166cc39d38dc0fba27f2e3bf0",
+      "png_sha256": "f3aa08452dfafa983c62c0afd32c2e79e74e101cb8f45d1f80263a8fc920f060",
+      "capture": "SERA native Godot 4.7.2 GL Compatibility"
+    },
+    "B02": {
+      "name": "重装ブースター",
+      "slot": "booster",
+      "rig_set": "B",
+      "source_model": "models/core/Equipment.bbmodel",
+      "source_sha256": "5ac4b9f0c7e8e16194f04e759f55aabe41e8e75166cc39d38dc0fba27f2e3bf0",
+      "png_sha256": "c937a8f4cbd56f82448f6ba90c0ecbbf3a17734439ad72b577c7748ed9acca8c",
+      "capture": "SERA native Godot 4.7.2 GL Compatibility"
+    },
+    "WR01": {
+      "name": "標準ブレード",
+      "slot": "weapon_r",
+      "rig_set": "A",
+      "source_model": "models/core/Standard.bbmodel",
+      "source_sha256": "0ad152fe5d7f81b11da28490fe8ecd47e4d70db42999fe1a84cdc6045755f03b",
+      "png_sha256": "24b7bc95f09ee03b3f40ca95391a14b1b9a23cb5aedb8de451a76edd2ec9a58c",
+      "capture": "SERA native Godot 4.7.2 GL Compatibility"
+    },
+    "WR02": {
+      "name": "重装ブレード",
+      "slot": "weapon_r",
+      "rig_set": "B",
+      "source_model": "models/core/Equipment.bbmodel",
+      "source_sha256": "5ac4b9f0c7e8e16194f04e759f55aabe41e8e75166cc39d38dc0fba27f2e3bf0",
+      "png_sha256": "774cfd8b61d1389a7512ecd9745a57318dba144e429cc425e2fc38e98c215d38",
+      "capture": "SERA native Godot 4.7.2 GL Compatibility"
+    },
+    "WR03": {
+      "name": "カタナ",
+      "slot": "weapon_r",
+      "rig_set": "K",
+      "source_model": "models/core/Katana.bbmodel",
+      "source_sha256": "62f323d4fe08e931071ac418026e26538a111719d2803253f709239f379ce843",
+      "png_sha256": "64918a5f97c571188169a07168d29b5594f64212902acac16efbe66d49edb0bf",
+      "capture": "SERA native Godot 4.7.2 GL Compatibility"
+    },
+    "WL01": {
+      "name": "標準シールド",
+      "slot": "weapon_l",
+      "rig_set": "A",
+      "source_model": "models/core/Standard.bbmodel",
+      "source_sha256": "0ad152fe5d7f81b11da28490fe8ecd47e4d70db42999fe1a84cdc6045755f03b",
+      "png_sha256": "a8ce114002491e0f3ba7457f6c800be7a3d32e3ecca69db229f1b43be9f28d8c",
+      "capture": "SERA native Godot 4.7.2 GL Compatibility"
+    },
+    "WL02": {
+      "name": "強化シールド",
+      "slot": "weapon_l",
+      "rig_set": "B",
+      "source_model": "models/core/Equipment.bbmodel",
+      "source_sha256": "5ac4b9f0c7e8e16194f04e759f55aabe41e8e75166cc39d38dc0fba27f2e3bf0",
+      "png_sha256": "d205cc846fc97abb0ee97c4e43c4b252a3f07cafd740f861287aa33f186103e4",
+      "capture": "SERA native Godot 4.7.2 GL Compatibility"
+    }
+  }
+}
