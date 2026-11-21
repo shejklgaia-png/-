@@ -4,6 +4,9 @@ extends RefCounted
 ## Materials and primitive geometry are reused across MultiMesh batches.
 ## No procedural runtime noise, physics, shadows, or per-frame work.
 
+# One immutable ArrayMesh per polygon silhouette, across every BASE facility.
+static var _mesh_cache: Dictionary = {}
+
 static func _triangle(st: SurfaceTool, a: Vector3, b: Vector3,
         c: Vector3, outward: Vector3) -> void:
     var normal: Vector3 = (b - a).cross(c - a)
