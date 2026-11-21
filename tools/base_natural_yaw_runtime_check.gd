@@ -22,6 +22,14 @@ func _run() -> void:
     var facilities: Node3D = hub.get_node("BaseFacilities") as Node3D
     var camera: Camera3D = hub.get("cam") as Camera3D
     var yaw_values: Dictionary = {}
+    # All facades must look toward the current camera's horizontal vector,
+    # slightly off-axis so front and side surfaces are simultaneously visible.
+    var back: Vector3 = camera.global_transform.basis.z.normalized()
+    var facing_yaw: float = atan2(back.x, back.z)
+    var camera_elevation: float = rad_to_deg(asin(back.y))
+    if camera_elevation < 31.0 or camera_elevation > 36.0:
+        _fail("camera must be lower than the previous 41-degree overhead view")
+        return
     var specs: Array = facilities.get_script().get_script_constant_map().get("FACILITY_SPECS", [])
     var sites: Array[Dictionary] = Deck.facility_sites(nexus.position, specs)
     var panels: Array[Dictionary] = Deck.generate(42, 3.0, sites)
@@ -39,8 +47,10 @@ func _run() -> void:
             "NexusArchitecture" if key == "NEXUS" else "IndustrialModel") as Node3D
         var foundation: MeshInstance3D = root_node.get_node("Foundation") as MeshInstance3D
         var yaw: float = Arch.facility_yaw_radians(key)
-        if absf(rad_to_deg(yaw)) < 9.0 or absf(rad_to_deg(yaw)) > 23.0:
-            _fail(key + " station has no legible but restrained yaw")
+        var side_angle: float = absf(rad_to_deg(wrapf(
+            yaw - facing_yaw, -PI, PI)))
+        if side_angle < 8.0 or side_angle > 25.0:
+            _fail(key + " facade is not facing the viewer at a 3/4 angle: " + str(side_angle))
             return
         if absf(foundation.rotation.y - yaw) > 0.0001:
             _fail(key + " pad chassis is not aligned with station")
@@ -50,8 +60,8 @@ func _run() -> void:
             return
         yaw_values[roundi(rad_to_deg(yaw))] = true
         var props: Array[Dictionary] = Props.props_for(key)
-        var positive: int = 0
-        var negative: int = 0
+        var toward_viewer: int = 0
+        var distinctive: Dictionary = {}
         var panel: Dictionary = site_panels[key]
         var slab_center: Vector2 = panel["center"]
         var slab_size: Vector2 = panel["size"]
@@ -74,13 +84,12 @@ func _run() -> void:
                     _fail(key + " angled prop clusters intersect")
                     return
             used.append(bounds)
-            if angle > 5.0:
-                positive += 1
-            elif angle < -5.0:
-                negative += 1
-        if positive < 2 or negative < 2:
-            _fail(key + " props are too parallel: " +
-                str(positive) + "/" + str(negative))
+            distinctive[roundi(angle)] = true
+            if angle >= 15.0 and angle <= 65.0:
+                toward_viewer += 1
+        if toward_viewer < 3 or distinctive.size() < 3:
+            _fail(key + " needs at least three camera-facing prop groups and varied angles: " +
+                str(toward_viewer) + "/" + str(distinctive.size()))
             return
         var visible: Array = visual.get_meta("clutter_props", [])
         if visible.size() != props.size():
@@ -120,5 +129,5 @@ func _run() -> void:
         elif str(facilities.call("key_at", camera, pixel)) != key:
             _fail("facility touch was lost: " + key)
             return
-    print("SERA_BASE_NATURAL_YAW_RUNTIME_PASS 8 independently oriented stations and props")
+    print("SERA_BASE_NATURAL_YAW_RUNTIME_PASS 8 facades face the camera, with visible sides")
     quit(0)

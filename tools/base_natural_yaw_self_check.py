@@ -13,6 +13,7 @@ assert "Basis(Vector3.UP, yaw)" in arch
 assert "pivot + spin * (at - pivot)" in arch
 assert "BaseClutter.decorate(g, key)" in arch and 'BaseClutter.decorate(g, "NEXUS")' in arch
 assert "func props_for(key: String) -> Array[Dictionary]:" in clutter
+assert "const VIEW_AZIMUTH_DEGREES: float = 38.0" in clutter
 assert 'item["yaw_deg"]' in clutter
 assert "g.get_property_list()" in clutter, "capture-only renderers without yaw must remain supported"
 assert "g.pivot = Vector3(" in clutter and "g.yaw = deg_to_rad(" in clutter

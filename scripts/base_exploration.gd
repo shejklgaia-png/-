@@ -22,9 +22,10 @@ const WALK_SPEED: float = 3.2
 const PLAYER_Y: float = 0.08
 const JOYSTICK_RADIUS: float = 76.0
 # True FOV-zero appearance: parallel rays (orthographic, not invalid fov=0).
-# Keep vertical span stable on every 720x1280 portrait screen.
+# Camera elevation is now ~33.8 degrees (was 41.1), revealing building facades
+# and side panels while preserving the 720x1280 orthographic composition.
 const BASE_ORTHO_SIZE: float = 38.0
-const BASE_CAMERA_POSITION: Vector3 = Vector3(21.0, 30.0, 25.0)
+const BASE_CAMERA_POSITION: Vector3 = Vector3(21.0, 23.0, 25.0)
 const BASE_CAMERA_TARGET: Vector3 = Vector3(0.0, 0.0, -2.2)
 const NEXUS_BUILDING_ORIGIN: Vector3 = Vector3(-9.53, 0.0, -14.55)
 const CRATE_SPEED: float = 0.95

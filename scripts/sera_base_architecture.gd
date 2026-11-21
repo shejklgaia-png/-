@@ -14,13 +14,14 @@ const COLORS = {
     "white": "#b3c1c8"
 }
 
-# Deliberately different permanent headings; station locations and the portrait
-# camera stay unchanged. The mounts and body rotate, but stored prop positions
-# remain anchored to their respective single-piece floor platforms.
+# Viewer is at horizontal azimuth 37.7 degrees. Every facade faces generally
+# toward the viewer, offset by 10-23 degrees to reveal its side surfaces.
+# Retain individual headings rather than making the base a rigid parade.
+# Rotated components remain on their independent single-piece floor slabs.
 const BODY_YAW_DEGREES = {
-    "NEXUS": -11.0, "LABO": 14.0, "SMELTER": -18.0,
-    "RECYCLER": 17.0, "STORAGE": -21.0, "GENERATOR": 19.0,
-    "SCRAP_COLLECTOR": 10.0, "BUILD_TERMINAL": -14.0,
+    "NEXUS": 23.0, "LABO": 48.0, "SMELTER": 58.0,
+    "RECYCLER": 25.0, "STORAGE": 54.0, "GENERATOR": 50.0,
+    "SCRAP_COLLECTOR": 61.0, "BUILD_TERMINAL": 19.0,
 }
 
 static func facility_yaw_radians(key: String) -> float:
