@@ -1096,6 +1096,7 @@ func _refresh_equipment_controls() -> void:
             # actual weapon name, not the hidden saved off-hand set.
             row.modulate = Color(0.48, 0.50, 0.54, 1.0)
             label.text = str(blocker.get("name", "TWO-HANDED"))
+            LaboSkin.refresh_name_underline(label)
             continue
         row.modulate = Color.WHITE
         var variant_label: String = "MID" if current_set == "A" else "HEAVY"
@@ -1117,6 +1118,7 @@ func _refresh_equipment_controls() -> void:
             label.text = "%s  %s" % [current_set, variant_label] \
                 if options.size() > 1 else current_set
             label.add_theme_font_size_override("font_size", 20)
+        LaboSkin.refresh_name_underline(label)
 
 
 func _tap_equipment_control(point: Vector2) -> bool:
@@ -1704,6 +1706,7 @@ func _apply_labo_typography() -> void:
     var accent: Color = Color("#d7e6ed")
     var secondary: Color = Color("#b7cbd6")
     _skin_label(focus_title, display, 24, accent)
+    LaboSkin.attach_name_underline(focus_title)
     _skin_label(customize_equipment_header, display, 21, accent)
     _skin_label(back_arrow, display, 32, accent)
     _skin_label(explore_label, display, 20, accent)
@@ -1716,10 +1719,12 @@ func _apply_labo_typography() -> void:
         _skin_label(entry["value"] as Label, stats, 20, accent)
     for entry in deployment_rows:
         _skin_label(entry["label"] as Label, LaboSkin.title_font(), 21, accent)
+        LaboSkin.attach_name_underline(entry["label"] as Label)
     for slot in CUSTOMIZE_SLOTS:
         var part: Dictionary = customize_equipment_rows[slot]
         _skin_label(part["name"] as Label, display, 16, secondary)
         _skin_label(part["value"] as Label, equipment, 20, accent)
+        LaboSkin.attach_name_underline(part["value"] as Label)
     for entry in system_slot_rows:
         _skin_label(entry["label"] as Label, stats, 16, accent)
     for entry in system_action_rows:
@@ -2648,6 +2653,7 @@ func _focus_arrived(target_name: String) -> void:
         in_transition = false
     back_panel.visible = true
     focus_title.text = target_name
+    LaboSkin.refresh_name_underline(focus_title)
     # SYSTEM edits save files; DATA ARCHIVE displays read-only records.
     _set_system_visible(target_name == "SYSTEM")
     _set_archive_records_visible(target_name == "DATA ARCHIVE")
