@@ -29,7 +29,7 @@ func _case(battle: Node3D, broken: Array[String],
     for id in broken:
         battle.set("locked_target_part_id", id)
         var hit: Dictionary = battle.call(
-            "_apply_target_part_damage", "melee", 1, 240.0, 0.0, 0.0)
+            "_apply_target_part_damage", "melee", 1, 800.0, 0.0, 0.0)
         if not bool(hit.get("broken", false)):
             _fail("failed to break limb " + id)
             return false
