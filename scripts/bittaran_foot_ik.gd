@@ -110,6 +110,18 @@ const BODY_CROUCH_WORLD_METERS: float = 0.34
 const STANCE_TUCK_METERS: float = 0.42
 ## A broken shin skids out while the chassis briefly dips to melee-head height.
 const LEG_BREAK_REACTION_SECONDS: float = 2.5
+# v534: Blockbench SOURCE clock (not wall time). Play at 100%->30%
+# over keyframes 0..0.5, hold 30% through 0.6, then accelerate
+# smoothly to the baseline 55% at the 1.75s body contact pose.
+const DOWN_BASE_SPEED: float = 0.55
+const DOWN_START_SPEED: float = 1.0
+const DOWN_MIN_SPEED: float = 0.30
+const DOWN_BRAKE_END_SOURCE_SECONDS: float = 0.50
+const DOWN_ACCEL_BEGIN_SOURCE_SECONDS: float = 0.60
+const DOWN_CONTACT_SOURCE_SECONDS: float = 1.75
+# A two-diagonal, lifted foot-reset BEFORE any chassis lift.
+const DOWN_REPLANT_SECONDS: float = 1.16
+const DOWN_REPLANT_LIFT_METERS: float = 0.26
 # A full, separate anticipatory beat; the original down duration begins
 # AFTER these 0.60 seconds, not inside it.
 const LEG_BREAK_WINDUP_SECONDS: float = 0.60
@@ -198,6 +210,10 @@ var body_fall_impact_armed: bool = false
 var authored_down_clip: String = ""
 # Preserve source time when a second shin break extends the down hold.
 var authored_down_clock_offset: float = 0.0
+var authored_down_source_seconds: float = 0.0
+var authored_down_replant_pair: int = -1
+var authored_down_replant_first_pair: int = 0
+var authored_down_replant_completed: bool = false
 var windup_elapsed: float = -1.0
 var post_down_idle_remaining: float = 0.0
 var recovery_gait_started: bool = false
@@ -1232,6 +1248,10 @@ func reset() -> void:
         return
     authored_down_clip = ""
     authored_down_clock_offset = 0.0
+    authored_down_source_seconds = 0.0
+    authored_down_replant_pair = -1
+    authored_down_replant_first_pair = 0
+    authored_down_replant_completed = false
     body_fall_impact_armed = false
     if source_ik_enabled:
         # Respawn/reset must preserve the fixed v434 floor calibration.
@@ -1754,12 +1774,14 @@ func start_leg_break_slide(id: String, head_world_y: float,
     }
     if not id_to_name.has(id):
         return
-    # Preserve the first collapse's keyed pose when another shin breaks
-    # while already prone; only extend its existing recovery clock.
-    if break_elapsed >= 0.0:
-        authored_down_clock_offset += break_elapsed
-    else:
+    # A fresh break selects its authored clip; further breaks keep the
+    # same current pose even if the previous collapse is still playing.
+    var continuing: bool = windup_elapsed >= 0.0 or break_elapsed >= 0.0
+    if not continuing:
+        authored_down_source_seconds = 0.0
         authored_down_clock_offset = 0.0
+        authored_down_replant_pair = -1
+        authored_down_replant_completed = false
         var authored: Dictionary = {
             "leg_fl": "前脚ダウン_L", "leg_fr": "前脚ダウン_R",
             "leg_rl": "後足ダウン_L", "leg_rr": "後足ダウン_R"
@@ -1826,17 +1848,23 @@ func start_leg_break_slide(id: String, head_world_y: float,
         return
     stepping_pair = -1
     cooldown = 0.0
+    authored_down_replant_first_pair = (
+        0 if LEG_PAIRS[0].has(break_leg_index) else 1)
     if already_downed:
+        # A later broken shin resets the DOWN HOLD, not the authored
+        # clip clock. The chassis never rewinds to an anticipation pose.
         break_elapsed = 0.0
         windup_elapsed = -1.0
     elif not already_winding:
         windup_elapsed = 0.0
         break_elapsed = -1.0
-    break_recover_start = (ALL_LEGS_BREAK_RECOVER_START_SECONDS if all_legs_broken
-        else LEG_BREAK_RECOVER_START_SECONDS)
-    # Preserve the previous stand-up start; physical rise now lasts 1.0s
-    # for a normal knockdown and 1.3s after all four legs break.
-    break_duration = break_recover_start + (
+    # The approved 2.5/6.0-second DOWN timer begins only when the
+    # 1.75s keyed BODY contact is actually reached (not on leg break).
+    # After its full expiry, both diagonal pairs step, THEN the BODY
+    # rises over the original 1.0/1.3 seconds.
+    break_recover_start = (ALL_LEGS_BREAK_REACTION_SECONDS if all_legs_broken
+        else LEG_BREAK_REACTION_SECONDS)
+    break_duration = break_recover_start + DOWN_REPLANT_SECONDS + (
         FOUR_LEG_RISE_SECONDS if all_legs_broken else SINGLE_LEG_RISE_SECONDS)
     break_head_start_y = head_world_y
     break_drop_world = clampf(
@@ -1965,19 +1993,22 @@ func locomotion_ready() -> bool:
 # The original stand-up durations are retained. C2 easing slows the start
 # and finish of the rise without changing its clock or snapping a joint.
 func standup_pose_fraction() -> float:
-    if break_elapsed < break_recover_start or break_elapsed < 0.0:
+    var lift_start: float = break_recover_start + (
+        DOWN_REPLANT_SECONDS if source_ik_enabled else 0.0)
+    if break_elapsed < lift_start or break_elapsed < 0.0:
         return 0.0
-    if break_duration <= break_recover_start:
+    if break_duration <= lift_start:
         return 1.0
-    return _rise_ease((break_elapsed - break_recover_start) /
-        (break_duration - break_recover_start))
+    return _rise_ease((break_elapsed - lift_start) /
+        (break_duration - lift_start))
 
 
 # A planted knee can already fold sideways while the chest is rising
 # and turning. Do not wait for down_pose_active() to become false.
 func standup_knee_enabled() -> bool:
-    return windup_elapsed < 0.0 and break_elapsed >= break_recover_start \
-        and break_elapsed >= 0.0 and break_elapsed < break_duration
+    return windup_elapsed < 0.0 and break_elapsed >= (
+        break_recover_start + (DOWN_REPLANT_SECONDS if source_ik_enabled
+        else 0.0)) and break_elapsed < break_duration
 
 
 func standup_turn_enabled(next_delta: float = 0.0) -> bool:
@@ -1986,7 +2017,9 @@ func standup_turn_enabled(next_delta: float = 0.0) -> bool:
     # (called before IK), so root yaw starts on the exact first rising frame.
     # No lead-in, smoothstep or angular-speed ramp is applied.
     if down_pose_active():
-        return break_elapsed + maxf(next_delta, 0.0) >= break_recover_start
+        return break_elapsed + maxf(next_delta, 0.0) >= (
+            break_recover_start + (DOWN_REPLANT_SECONDS if source_ik_enabled
+            else 0.0))
     # Keep ordinary gait enabled during the post-down pose settle too.
     return post_down_idle_remaining > 0.0
 
@@ -2005,15 +2038,31 @@ func windup_progress() -> float:
     return clampf(windup_elapsed / LEG_BREAK_WINDUP_SECONDS, 0.0, 1.0)
 
 
-## Source time is elapsed world time from the first collapse anticipation,
-## never stretched to the shorter 2.5-second down window. Both front and
-## rear sources play at their authored 1x rate, then hold their last key.
+## Evaluate speed against AUTHOR SOURCE TIME, not real elapsed seconds.
+## The entire 0.50..0.60 interval is a 30% plateau; both transitions
+## are C1 smoothstep (no speed jumps at their boundaries).
+func authored_down_speed(source_time: float) -> float:
+    if source_time <= DOWN_BRAKE_END_SOURCE_SECONDS:
+        return lerpf(DOWN_START_SPEED, DOWN_MIN_SPEED, _cubic(
+            source_time / DOWN_BRAKE_END_SOURCE_SECONDS))
+    if source_time <= DOWN_ACCEL_BEGIN_SOURCE_SECONDS:
+        return DOWN_MIN_SPEED
+    if source_time <= DOWN_CONTACT_SOURCE_SECONDS:
+        return lerpf(DOWN_MIN_SPEED, DOWN_BASE_SPEED, _cubic(
+            (source_time - DOWN_ACCEL_BEGIN_SOURCE_SECONDS) /
+            (DOWN_CONTACT_SOURCE_SECONDS - DOWN_ACCEL_BEGIN_SOURCE_SECONDS)))
+    return DOWN_BASE_SPEED
+
+
 func authored_down_motion_time() -> float:
-    if windup_elapsed >= 0.0:
-        return windup_elapsed
-    if break_elapsed >= 0.0:
-        return LEG_BREAK_WINDUP_SECONDS + authored_down_clock_offset + break_elapsed
-    return 0.0
+    return minf(authored_down_source_seconds, DOWN_CONTACT_SOURCE_SECONDS)
+
+
+func authored_down_replant_fraction() -> float:
+    if break_elapsed < break_recover_start or break_elapsed < 0.0:
+        return 0.0
+    return clampf((break_elapsed - break_recover_start) /
+        DOWN_REPLANT_SECONDS, 0.0, 1.0)
 
 
 func _rise_ease(t: float) -> float:
@@ -2024,13 +2073,10 @@ func _rise_ease(t: float) -> float:
 # Only the first physical fall may create a body-wide impact. Consume it
 # AFTER the IK tick has actually reached the floor, not at part-break time.
 func consume_body_fall_impact() -> bool:
-    # The authored BODY contact is substantially later than the old
-    # 0.17s procedural snap. Release the six-layer dust at the actual
-    # impact keys: front 1.75s, rear 1.00s from source playback start.
-    var body_contact_time: float = (
-        1.75 if authored_down_clip.begins_with("前脚") else 1.0)
+    # Both fore and rear author clips now hold the same exact 1.75s
+    # contact, and the DOWN timer starts only on this source key.
     if not body_fall_impact_armed or (
-            authored_down_motion_time() < body_contact_time):
+            authored_down_motion_time() < DOWN_CONTACT_SOURCE_SECONDS):
         return false
     body_fall_impact_armed = false
     return true
@@ -2041,6 +2087,56 @@ func _cubic(t: float) -> float:
     return x * x * (3.0 - 2.0 * x)
 
 func _advance_leg_break(delta: float) -> void:
+    # v534: authoritative FULL-BODY source playback, no extra legacy
+    # 0.60s anticipation or 0.17s chassis snap. Only the keyed 1.75s
+    # contact opens the full DOWN timer.
+    if source_ik_enabled and not authored_down_clip.is_empty():
+        var dt: float = maxf(delta, 0.0)
+        head_windup_pitch_degrees = 0.0
+        if windup_elapsed >= 0.0:
+            windup_elapsed += dt
+            # Substep integration for stable wall-rate independent
+            # progression through the nonlinear source-speed curve.
+            var pending: float = dt
+            while pending > 0.0000001:
+                var step: float = minf(pending, 1.0 / 120.0)
+                var speed: float = authored_down_speed(
+                    authored_down_source_seconds)
+                authored_down_source_seconds = minf(
+                    DOWN_CONTACT_SOURCE_SECONDS,
+                    authored_down_source_seconds + step * speed)
+                pending -= step
+            if authored_down_source_seconds >= (
+                    DOWN_CONTACT_SOURCE_SECONDS - 0.0000001):
+                authored_down_source_seconds = DOWN_CONTACT_SOURCE_SECONDS
+                windup_elapsed = -1.0
+                break_elapsed = 0.0
+            return
+        if break_elapsed >= 0.0:
+            break_elapsed += dt
+            var replant_t: float = authored_down_replant_fraction()
+            authored_down_replant_pair = -1
+            if (break_elapsed >= break_recover_start and
+                    replant_t < 1.0):
+                authored_down_replant_pair = (
+                    authored_down_replant_first_pair
+                    if replant_t < 0.5 else
+                    1 - authored_down_replant_first_pair)
+            if replant_t >= 1.0:
+                authored_down_replant_completed = true
+            if break_elapsed >= break_duration:
+                # Foot reposition happened while the chest held 1.75;
+                # after the C2 torso lift, hand off to normal idle IK.
+                post_down_idle_remaining = POST_DOWN_IDLE_SETTLE_SECONDS
+                recovery_gait_started = true
+                recovery_catchup_pending_pair = -1
+                break_elapsed = -1.0
+                break_leg_index = -1
+                authored_down_replant_pair = -1
+                _clear_head_support()
+                front_anchor_rest.clear()
+                front_extension_direction.clear()
+            return
     var parent_scale_y: float = maxf(
         absf(actor.get_parent().global_basis.get_scale().y), 0.001)
     if windup_elapsed >= 0.0:
