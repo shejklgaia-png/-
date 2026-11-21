@@ -1,7 +1,7 @@
 extends RefCounted
 ## One presentation contract for LABO fabrication and NEXUS part/total stats.
 ## Underlying saved/combat numbers continue to come from their original sources.
-const Skin = preload("res://scripts/sera_labo_round_skin.gd")
+const LaboSkin = preload("res://scripts/sera_labo_round_skin.gd")
 const LaboStats = preload("res://scripts/sera_labo_stats.gd")
 const LABEL_COLOR: Color = Color("#a9c2cd")
 const VALUE_COLOR: Color = Color("#e4edf1")
@@ -9,11 +9,11 @@ const DIVIDER_COLOR: Color = Color("#35515f")
 
 static func style_stat_labels(name_label: Label, value_label: Label,
         name_size: int, value_size: int) -> void:
-    name_label.add_theme_font_override("font", Skin.stats_font())
+    name_label.add_theme_font_override("font", LaboSkin.stats_font())
     name_label.add_theme_font_size_override("font_size", name_size)
     name_label.add_theme_color_override("font_color", LABEL_COLOR)
     name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-    value_label.add_theme_font_override("font", Skin.stats_font())
+    value_label.add_theme_font_override("font", LaboSkin.stats_font())
     value_label.add_theme_font_size_override("font_size", value_size)
     value_label.add_theme_color_override("font_color", VALUE_COLOR)
 
