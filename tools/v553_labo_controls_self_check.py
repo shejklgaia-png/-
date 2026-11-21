@@ -48,7 +48,7 @@ for token in ('_add_labo_mark_icon(junk_button, "junk")',
               'FavoriteMarkIcon', 'JunkMarkIcon'):
     assert token in base + warehouse, token
 for token in ('WarehouseFavoriteToggle', 'WarehouseJunkToggle',
-              'SeraSave.set_prototype_mark(', '_refresh_actions()'):
+              '"set_prototype_mark", str(item.get("uid", "")), kind, next)', '_refresh_actions()'):
     assert token in popup, token
 assert 'title.text = str(entry.get("name", ""))' in warehouse
 assert 'title.text = mark +' not in warehouse
