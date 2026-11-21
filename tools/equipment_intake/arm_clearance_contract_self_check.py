@@ -37,7 +37,7 @@ body = preview[preview.index("func _apply_equipment()"):preview.index("func _app
 assert body.index("_apply_preview_standing_pose()") < body.index("_apply_edit_size()")
 assert body.index("_apply_edit_size()") < body.index("_fit_full_body_clearance()")
 assert body.index("_fit_full_body_clearance()") < body.index("_apply_frame()")
-assert "if view_mode != \"body\":" in preview
+assert 'if view_mode != "body" or rig == null:' in preview
 assert "if view_mode==\"icon\":" in preview
 assert "func _fit_full_body_clearance()" in preview
 assert 'gd tools/equipment_intake/preview_runtime_check.gd' in manifest
