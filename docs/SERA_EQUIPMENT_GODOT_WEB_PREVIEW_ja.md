@@ -11,7 +11,7 @@
 - Godot内の画像からPNGを撮影し、HTMLにbase64経由で渡す。設定テキストの`render.engine`はGodotへ更新。
 - HTMLとGodotは同一オリジンの`postMessage`で連携する。JSONメッセージは名前空間`SERA_EQUIPMENT_GODOT_V1`とシーケンス番号で識別し、スクリーンショットはレンダリング完了後に取得。
 - **パッケージ**：`tools/equipment_intake/build_web_preview.py`で本体から必要なスクリプト、実装済みモデル、マテリアル、シェーダーを抽出した一時Godotプロジェクトを生成。Webエクスポート結果は同じサイトの`preview/`へ置く。Android版の本体の`project.godot`は変更しない。
-- **配布**：`.github/workflows/equipment-godot-web-preview.yml`がGodot 4.7.2のNo-Threads Web出力を作成し、`SERA-Godot-Equipment-Preview-Web`をActionsアーティファクトとして公開する。HTTPSサーバーが必要（`file://`でWASMを開かない）。main統合時はGitHub Pagesを自動有効化してHTTPS配信を試みる（サイト設定・リポジトリ権限によっては失敗するため、その場合はActionsのビルド成果物を使用）。
+- **配布**：`.github/workflows/equipment-godot-web-preview.yml`がGodot 4.7.2のNo-Threads Web出力を作成し、`SERA-Godot-Equipment-Preview-Web`をActionsアーティファクトとして公開する。HTTPSサーバーが必要（`file://`でWASMを開かない）。GitHub Pagesが未設定の場合、Web出力だけを成功させ、Pagesデプロイを安全にスキップする。所有者がSettings → Pages → Build and deployment → SourceをGitHub Actionsに設定した後、Actionsからこのワークフローを再実行すると公開できる。Pagesの有無はGitHub APIで事前確認する。
 - **正確さ**：モデル・UV・マテリアル・輪郭線・照明値を共有。WebGL2とAndroid GL CompatibilityはGPU/ブラウザ・ピクセル比やAA等で完全な1ピクセル一致を保証できない。最終公開PNGはAndroid/Godotネイティブ撮影との実機比較を基準にする。
 - **特殊効果**は文章のままChatGPTへ引き継ぐ。新分類値の自動登録は禁止。素材とステータスを正本に追加する工程は従来どおり確認・実装・回帰検証を必要とする。
 
