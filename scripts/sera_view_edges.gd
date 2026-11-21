@@ -51,6 +51,9 @@ func _sync_meshes() -> void:
 
 func _attach(source: MeshInstance3D) -> void:
     if source.mesh == null or not _is_eligible(source):
+        # Effects can be created, retagged or assigned a transparent FX
+        # material after the previous 0.75-second topology scan.
+        _remove_overlay(source)
         return
     var old: MeshInstance3D = source.get_node_or_null(INK_NAME) as MeshInstance3D
     var mesh_id: int = source.mesh.get_instance_id()
@@ -77,15 +80,66 @@ func _attach(source: MeshInstance3D) -> void:
     # Same local geometry and ancestor transforms: joint rotations, IK and
     # equipment visibility are inherited without copying or repainting data.
 
-static func _is_eligible(source: MeshInstance3D) -> bool:
-    var label: String = str(source.name).to_lower()
-    # Effect meshes and billboards are not part of the solid actor surface.
+func _remove_overlay(source: MeshInstance3D) -> void:
+    var old: MeshInstance3D = source.get_node_or_null(INK_NAME) as MeshInstance3D
+    if old != null:
+        source.remove_child(old)
+        old.queue_free()
+
+
+static func _is_fx_node(node: Node) -> bool:
+    # Explicitly mark effect subtrees, even when the individual mesh has
+    # an opaque material and an arbitrary name such as "Arc" or "Cube".
+    if bool(node.get_meta("sera_no_view_edges", false)) or (
+            node.is_in_group("sera_no_view_edges")):
+        return true
+    var label: String = str(node.name).to_lower()
     for forbidden in ["swordeffect", "afterimage", "ghost", "trail",
-            "particle", "flame", "shockwave", "glow", "flash", "beam"]:
+            "particle", "flame", "shockwave", "glow", "flash", "beam",
+            "slash", "effect", "exhaust", "spark", "smoke", "radiance",
+            "projectile", "debris", "blast"]:
         if label.contains(forbidden):
-            return false
-    if source.mesh is QuadMesh or source.mesh is PlaneMesh:
+            return true
+    return label.begins_with("fx_") or label.ends_with("_fx") or (
+        label.contains("_vfx"))
+
+
+static func _is_transient_material(material: Material) -> bool:
+    if material == null:
         return false
+    if material is BaseMaterial3D:
+        var solid_or_fx: BaseMaterial3D = material
+        return solid_or_fx.transparency != BaseMaterial3D.TRANSPARENCY_DISABLED or (
+            solid_or_fx.no_depth_test) or (
+            solid_or_fx.blend_mode == BaseMaterial3D.BLEND_MODE_ADD)
+    if material is ShaderMaterial:
+        var shaded: ShaderMaterial = material
+        if shaded.shader != null:
+            # Character armor can have its own opaque ShaderMaterial; do not
+            # reject shaders indiscriminately. Only transparent FX passes.
+            var code: String = shaded.shader.code
+            return code.contains("ALPHA") or code.contains("blend_add") or (
+                code.contains("depth_test_disabled"))
+    return false
+
+
+static func _is_eligible(source: MeshInstance3D) -> bool:
+    if source.mesh == null or source.mesh is QuadMesh or source.mesh is PlaneMesh:
+        return false
+    # A sword slash has a Slash-named parent but a neutral child mesh name
+    # (AlphaClippedMainArc / ConvexTwoSided3DArc). Check ALL ancestors.
+    var ancestor: Node = source
+    while ancestor != null:
+        if _is_fx_node(ancestor):
+            return false
+        ancestor = ancestor.get_parent()
+    # Transparent/alpha-blended shader geometry must not be treated as
+    # opaque character armor even when the FX node names are generic.
+    if _is_transient_material(source.material_override):
+        return false
+    for surface in range(source.mesh.get_surface_count()):
+        if _is_transient_material(source.get_active_material(surface)):
+            return false
     return true
 
 static func _position_key(p: Vector3) -> String:
