@@ -4,6 +4,7 @@ const BasePolish = preload("res://scripts/sera_base_reference_polish.gd")
 const BaseSilhouette = preload("res://scripts/sera_base_silhouette_refinement.gd")
 const BaseFinish = preload("res://scripts/sera_base_functional_finish.gd")
 const BaseNightFacade = preload("res://scripts/sera_base_night_facade.gd")
+const BaseStructuralMass = preload("res://scripts/sera_base_structural_mass.gd")
 const BasePolygon = preload("res://scripts/sera_base_polygon_meshes.gd")
 const WEATHERED_STEEL_PATH: String = "res://assets/base/industrial_steel_grunge.svg"
 const WEATHERED_CANVAS_PATH: String = "res://assets/base/aged_canvas_weave.svg"
@@ -355,6 +356,7 @@ static func build_nexus(parent: Node3D) -> void:
     BaseSilhouette.add_details(g, "NEXUS")
     BaseFinish.add_details(g, "NEXUS")
     BaseNightFacade.add_details(g, "NEXUS")
+    BaseStructuralMass.add_details(g, "NEXUS")
     g.detail_scale = 1.0
     BaseClutter.decorate(g, "NEXUS")
     g.flush()
@@ -639,6 +641,7 @@ static func build_facility(parent: Node3D, key: String) -> void:
     BaseSilhouette.add_details(g, key)
     BaseFinish.add_details(g, key)
     BaseNightFacade.add_details(g, key)
+    BaseStructuralMass.add_details(g, key)
     g.detail_scale = 1.0
     BaseClutter.decorate(g, key)
     g.flush()
