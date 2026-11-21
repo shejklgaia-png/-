@@ -267,6 +267,14 @@ func _create_grid_plates(floor: Node3D) -> Array[Dictionary]:
         mat.albedo_texture = steel_texture
         if deck_texture != null:
             mat.albedo_texture = deck_texture
+            # Six existing color batches get different crop/scale combinations,
+            # reducing the visible repetition of scratches across adjacent slabs.
+            mat.uv1_offset = Vector3(
+                0.17 * float(palette_index % 3),
+                0.21 * float(palette_index / 3), 0.0)
+            mat.uv1_scale = Vector3(
+                0.93 + 0.07 * float(palette_index % 3),
+                0.96 + 0.06 * float(palette_index / 3), 1.0)
         draw.material_override = mat
         draw.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
         floor.add_child(draw)
