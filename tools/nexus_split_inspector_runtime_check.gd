@@ -31,12 +31,28 @@ func _run() -> void:
     if not total.visible or not single.visible or not right.visible or not view.visible:
         _fail("one of the new CUSTOMIZE windows is not visible")
         return
+    var hud: Control = nexus.get("hud") as Control
+    var part_preview: Control = nexus.get("customize_single_part_preview") as Control
+    if hud == null or part_preview == null:
+        _fail("CUSTOMIZE viewport / part preview missing")
+        return
+    # Slightly smaller than prior 0.450x0.198 part view and 0.915-high stats.
+    if absf(view.position.y - hud.size.y * 0.506) > 1.5 or (
+            absf(view.size.y - hud.size.y * 0.185) > 1.5) or (
+            absf(single.size.y - hud.size.y * 0.214) > 1.5) or (
+            absf(single.position.x - hud.size.x * 0.040) > 1.5):
+        _fail("smaller linked part view/status geometry not applied")
+        return
+    if part_preview.size.x >= hud.size.y * 0.189 or (
+            part_preview.size.y >= hud.size.y * 0.189):
+        _fail("single-part 3D preview did not shrink")
+        return
     var equipment_bottom: float = right.position.y + right.size.y
     if total.position.y + total.size.y > right.position.y - 4.0 or (
             absf(view.position.y + view.size.y - single.position.y) > 1.5) or (
             equipment_bottom > single.position.y - 4.0) or (
-            single.position.x > total.position.x + 1.0) or (
-            single.size.x < total.size.x - 2.0) or (
+            absf(single.position.x - total.position.x) > hud.size.x * 0.02) or (
+            absf(single.size.x - total.size.x) > hud.size.x * 0.02) or (
             view.position.x + view.size.x > right.position.x - 4.0):
         _fail("customize windows overlap or exceed their aligned layout region")
         return

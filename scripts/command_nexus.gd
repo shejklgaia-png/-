@@ -1590,7 +1590,7 @@ func _create_customization_part_stats() -> void:
     customize_part_stats_list.mouse_filter = Control.MOUSE_FILTER_IGNORE
     customize_part_stats_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
     customize_part_stats_list.add_theme_constant_override("h_separation", 11)
-    customize_part_stats_list.add_theme_constant_override("v_separation", 3)
+    customize_part_stats_list.add_theme_constant_override("v_separation", 1)
     customize_part_stats_scroll.add_child(customize_part_stats_list)
     for i in range(28):
         var row := Panel.new()
@@ -1632,9 +1632,9 @@ func _customize_part_stats_rect(view: Vector2) -> Rect2:
     # Keep the rect local: an undefined preview identifier fails scene parsing.
     var preview: Rect2 = _customize_square_menu_rect(view)
     var start: float = preview.end.y
-    var bottom: float = view.y * 0.915
-    return Rect2(Vector2(view.x * 0.035, start),
-        Vector2(view.x * 0.930, maxf(120.0, bottom - start)))
+    var bottom: float = view.y * 0.905
+    return Rect2(Vector2(view.x * 0.040, start),
+        Vector2(view.x * 0.920, maxf(120.0, bottom - start)))
 
 
 func _layout_customization_part_stats() -> void:
@@ -1655,11 +1655,11 @@ func _layout_customization_part_stats() -> void:
     customize_part_stats_name.position = Vector2(14, 7)
     customize_part_stats_name.size = Vector2(area.size.x - 28, 29)
     LaboSkin.refresh_name_underline(customize_part_stats_name)
-    customize_part_stats_scroll.position = Vector2(11, 44)
+    customize_part_stats_scroll.position = Vector2(11, 41)
     customize_part_stats_scroll.size = Vector2(
-        maxf(40.0, area.size.x - 22.0), maxf(40.0, area.size.y - 52.0))
+        maxf(40.0, area.size.x - 22.0), maxf(40.0, area.size.y - 47.0))
     StatUI.layout_column_rules(customize_part_column_rules,
-        Rect2(Vector2(11, 44), customize_part_stats_scroll.size), 3)
+        Rect2(Vector2(11, 41), customize_part_stats_scroll.size), 3)
     var row_width: float = floorf(
         (customize_part_stats_scroll.size.x - 22.0) / 3.0)
     for entry in customize_part_stat_cells:
@@ -2304,8 +2304,8 @@ func _apply_labo_typography() -> void:
 func _customize_square_menu_rect(view: Vector2) -> Rect2:
     # PART VIEW uses the left middle tier while the full SERA stays visible
     # immediately above it; the status panel occupies the lower tier.
-    return Rect2(Vector2(view.x * 0.035, view.y * 0.492),
-        Vector2(view.x * 0.450, view.y * 0.198))
+    return Rect2(Vector2(view.x * 0.040, view.y * 0.506),
+        Vector2(view.x * 0.435, view.y * 0.185))
 
 func _customize_tall_menu_rect(view: Vector2) -> Rect2:
     return Rect2(
@@ -2315,7 +2315,7 @@ func _customize_tall_menu_rect(view: Vector2) -> Rect2:
 func _customize_model_area(view: Vector2) -> Rect2:
     # SERA's own upper-left 3D showcase never intersects PART VIEW.
     var part_view: Rect2 = _customize_square_menu_rect(view)
-    var top: float = view.y * 0.260
+    var top: float = view.y * 0.275
     var bottom: float = part_view.position.y - maxf(12.0, view.y * 0.011)
     return Rect2(Vector2(part_view.position.x, top),
         Vector2(part_view.size.x, maxf(1.0, bottom - top)))
@@ -2772,6 +2772,7 @@ func _fit_customization_preview() -> void:
     var allowed_width: float = maxf(1.0, right_limit - left_limit)
     var allowed_height: float = maxf(1.0, bottom_limit - top_limit)
     var center_target_x: float = (left_limit + right_limit) * 0.5
+    var target_center_y: float = frame.get_center().y + 3.0
     # Fit the authored front-facing SERA into the upper-left viewing region.
     # Keep the initial full-body scale/pivot fixed during subsequent drag yaw.
     var target_width: float = minf(size.x * CUSTOMIZE_PREVIEW_TARGET_WIDTH_RATIO,
@@ -2782,7 +2783,7 @@ func _fit_customization_preview() -> void:
         if rect.size.x <= 1.0 or rect.size.y <= 1.0:
             return
         var fit: float = minf(target_width / rect.size.x,
-            allowed_height / rect.size.y)
+            (allowed_height * 0.90) / rect.size.y)
         fit = clampf(fit, 0.15, 3.25)
         customize_preview_scale *= fit
         _apply_customization_preview_transform()
@@ -2797,7 +2798,7 @@ func _fit_customization_preview() -> void:
         var px_per_world := size.y / maxf(0.001, 2.0 * half_height)
         var error := Vector2(
             center_target_x - (rect.position.x + rect.size.x * 0.5),
-            bottom_limit - CUSTOMIZE_BOTTOM_GAP_PIXELS - rect.end.y)
+            target_center_y - (rect.position.y + rect.size.y * 0.5))
         customize_preview_position.x += error.x / px_per_world
         customize_preview_position.y -= error.y / px_per_world
         _apply_customization_preview_transform()
@@ -2821,6 +2822,7 @@ func _constrain_customization_preview_to_safe_area() -> void:
     var allowed_width: float = maxf(1.0, right_limit - left_limit)
     var allowed_height: float = maxf(1.0, bottom_limit - top_limit)
     var center_target_x: float = (left_limit + right_limit) * 0.5
+    var target_center_y: float = frame.get_center().y + 3.0
 
     # Return to the original enlarged scale after every drag update.
     # Only a sideways weapon/pose wider than the safe area is reduced,
@@ -2833,7 +2835,7 @@ func _constrain_customization_preview_to_safe_area() -> void:
         if rect.size.x <= 1.0 or rect.size.y <= 1.0:
             return
         var fit: float = minf(1.0, minf(
-            allowed_width / rect.size.x, allowed_height / rect.size.y))
+            allowed_width / rect.size.x, (allowed_height * 0.90) / rect.size.y))
         if fit < 0.999:
             customize_preview_scale *= maxf(0.1, fit * 0.99)
             _apply_customization_preview_transform()
@@ -2846,7 +2848,7 @@ func _constrain_customization_preview_to_safe_area() -> void:
         var px_per_world := size.y / maxf(0.001, 2.0 * half_height)
         var error := Vector2(
             center_target_x - (rect.position.x + rect.size.x * 0.5),
-            bottom_limit - CUSTOMIZE_BOTTOM_GAP_PIXELS - rect.end.y)
+            target_center_y - (rect.position.y + rect.size.y * 0.5))
         customize_preview_position.x += error.x / px_per_world
         customize_preview_position.y -= error.y / px_per_world
         _apply_customization_preview_transform()

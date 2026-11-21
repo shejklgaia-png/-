@@ -115,6 +115,13 @@ func _run() -> void:
     if camera.projection != Camera3D.PROJECTION_PERSPECTIVE:
         _fail("NEXUS perspective camera must be restored outside CUSTOMIZE")
         return
+    var model_area: Rect2 = nexus.call("_customize_model_area", hud.size)
+    var preview_rect: Rect2 = nexus.call("_customize_square_menu_rect", hud.size)
+    if absf(model_area.position.y - hud.size.y * 0.275) > 1.0 or (
+            model_area.end.y >= preview_rect.position.y - 10.0) or (
+            model_area.size.y <= hud.size.y * 0.19):
+        _fail("full SERA model needs safe vertical padding below the top stats")
+        return
     for target in ["TRAINING", "DEPLOYMENT", "SYSTEM", "DATA ARCHIVE", "CUSTOMIZE"]:
         nexus.set("focused_target", target)
         nexus.call("_focus_arrived", target)
