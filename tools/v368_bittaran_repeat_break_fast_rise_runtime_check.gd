@@ -34,8 +34,9 @@ func _check_break(battle: Node3D, id: String,
         _fail(id + ": AI cannot enter " + requested + " before break")
         return false
     battle.set("locked_target_part_id", id)
+    # Force a single break event on the new 720/620-point boss legs.
     var result: Dictionary = battle.call(
-        "_apply_target_part_damage", "melee", 1, 240.0, 0.0, 0.0)
+        "_apply_target_part_damage", "melee", 1, 800.0, 0.0, 0.0)
     if not bool(result.get("broken", false)) or int(
             result.get("broken_legs", 0)) != index + 1:
         _fail(id + ": broken-leg state not incremented: " + str(result))
