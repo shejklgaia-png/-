@@ -194,6 +194,8 @@ var rest_actor_local_y: float = 0.0
 var break_elapsed: float = -1.0
 # Armed only for the FIRST real chassis drop, never a repeated break while prone.
 var body_fall_impact_armed: bool = false
+# User-authored 1x full-body collapse selected by the broken front/rear leg.
+var authored_down_clip: String = ""
 var windup_elapsed: float = -1.0
 var post_down_idle_remaining: float = 0.0
 var recovery_gait_started: bool = false
@@ -1226,6 +1228,8 @@ func _sole_local_point(foot: Node3D) -> Vector3:
 func reset() -> void:
     if actor == null or legs.size() != 4:
         return
+    authored_down_clip = ""
+    body_fall_impact_armed = false
     if source_ik_enabled:
         # Respawn/reset must preserve the fixed v434 floor calibration.
         # Legacy reset would re-tuck all legs and resurrect the old
@@ -1747,6 +1751,14 @@ func start_leg_break_slide(id: String, head_world_y: float,
     }
     if not id_to_name.has(id):
         return
+    # Preserve the first collapse's keyed pose when another shin breaks
+    # while already prone; only extend its existing recovery clock.
+    if break_elapsed < 0.0:
+        var authored: Dictionary = {
+            "leg_fl": "前脚ダウン_L", "leg_fr": "前脚ダウン_R",
+            "leg_rl": "後足ダウン_L", "leg_rr": "後足ダウン_R"
+        }
+        authored_down_clip = str(authored[id])
     # Any new collapse invalidates the last stand-up handoff, including
     # another broken leg during the previous recovery/Idle-settle phase.
     post_down_idle_remaining = 0.0
@@ -1982,6 +1994,17 @@ func windup_progress() -> float:
     return clampf(windup_elapsed / LEG_BREAK_WINDUP_SECONDS, 0.0, 1.0)
 
 
+## Source time is elapsed world time from the first collapse anticipation,
+## never stretched to the shorter 2.5-second down window. Both front and
+## rear sources play at their authored 1x rate, then hold their last key.
+func authored_down_motion_time() -> float:
+    if windup_elapsed >= 0.0:
+        return windup_elapsed
+    if break_elapsed >= 0.0:
+        return LEG_BREAK_WINDUP_SECONDS + break_elapsed
+    return 0.0
+
+
 func _rise_ease(t: float) -> float:
     var x: float = clampf(t, 0.0, 1.0)
     return x * x * x * (x * (x * 6.0 - 15.0) + 10.0)
@@ -1990,7 +2013,13 @@ func _rise_ease(t: float) -> float:
 # Only the first physical fall may create a body-wide impact. Consume it
 # AFTER the IK tick has actually reached the floor, not at part-break time.
 func consume_body_fall_impact() -> bool:
-    if not body_fall_impact_armed or break_elapsed < LEG_BREAK_FALL_SECONDS:
+    # The authored BODY contact is substantially later than the old
+    # 0.17s procedural snap. Release the six-layer dust at the actual
+    # impact keys: front 1.75s, rear 1.00s from source playback start.
+    var body_contact_time: float = (
+        1.75 if authored_down_clip.begins_with("前脚") else 1.0)
+    if not body_fall_impact_armed or (
+            authored_down_motion_time() < body_contact_time):
         return false
     body_fall_impact_armed = false
     return true
@@ -4388,7 +4417,17 @@ func advance_source_ground_ik(delta: float, motion: String,
     # so destroying a leg left the boss down indefinitely (v362-v376).
     # Keep both solvers on the SAME physical break/recovery timeline.
     if break_reaction_active():
+        # Advance the unchanged 0.60s anticipation, 2.5/6s down hold
+        # and 1.0/1.3s recovery clocks without procedural leg IK:
+        # the entire BODY and four 3-joint limb chains now belong to
+        # the authored clip in battle._finalize_target_pose().
         _advance_leg_break(delta)
+        var scale_y: float = maxf(
+            absf(actor.get_parent().global_basis.get_scale().y), 0.001)
+        actor.position.y = (rest_actor_local_y
+            + ground_correction_world / scale_y)
+        source_ik_last_actor_position = actor.global_position
+        return
     elif post_down_idle_remaining > 0.0 and head_support_leg_index < 0:
         var parent_scale: float = maxf(
             absf(actor.get_parent().global_basis.get_scale().y), 0.001)
