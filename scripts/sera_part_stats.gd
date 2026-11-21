@@ -1,57 +1,57 @@
 extends RefCounted
 ## v177 prototype equipment performance. A=medium, B=heavy.
-## v180: each body part HP contribution is 1/5 of v179; A full 160, B full 208.
+## v535: doubled existing per-part HP distribution for 10-minute Bittaran: A full 320, B full 416.
 ## v182: melee boost speed remains A=11.5/B=9.5; pre-strike tracking time A=0.4s/B=0.6s.
 ## v204: B and D are heavy legs; ordinary RUN reuses the BOOST pose as SLIDE.
 ## Other trial stats remain unchanged; no animation or mesh is replaced.
 const BODY_SLOTS = ["head", "torso", "arms", "legs", "booster"]
 const PROFILES = {
     "head": {
-        "A": {"weight_pct": 100.0, "hp": 20.0, "defense": 0.16, "lock_range": 24.0, "tracking": 1.0},
-        "B": {"weight_pct": 120.0, "hp": 26.0, "defense": 0.28, "lock_range": 20.0, "tracking": 0.88},
+        "A": {"weight_pct": 100.0, "hp": 40.0, "defense": 0.16, "lock_range": 24.0, "tracking": 1.0},
+        "B": {"weight_pct": 120.0, "hp": 52.0, "defense": 0.28, "lock_range": 20.0, "tracking": 0.88},
         # HEAD C is a lightweight redesigned optic, with A's combat tuning.
-        "C": {"weight_pct": 85.0, "hp": 20.0, "defense": 0.16, "lock_range": 24.0, "tracking": 1.0},
+        "C": {"weight_pct": 85.0, "hp": 40.0, "defense": 0.16, "lock_range": 24.0, "tracking": 1.0},
         # HEAD D / IRIS retains the currently playable A head performance.
         # Cosmetic head option; independent balance is not approved yet.
-        "D": {"weight_pct": 65.0, "hp": 20.0, "defense": 0.16, "lock_range": 24.0, "tracking": 1.0}
+        "D": {"weight_pct": 65.0, "hp": 40.0, "defense": 0.16, "lock_range": 24.0, "tracking": 1.0}
     },
     "torso": {
-        "A": {"weight_pct": 100.0, "hp": 80.0, "defense": 0.16, "en_output_mult": 1.0},
-        "B": {"weight_pct": 170.0, "hp": 104.0, "defense": 0.34, "en_output_mult": 1.15}
+        "A": {"weight_pct": 100.0, "hp": 160.0, "defense": 0.16, "en_output_mult": 1.0},
+        "B": {"weight_pct": 170.0, "hp": 208.0, "defense": 0.34, "en_output_mult": 1.15}
     },
     "arms": {
-        "A": {"weight_pct": 100.0, "hp": 20.0, "defense": 0.16, "attack_mult": 1.0,
+        "A": {"weight_pct": 100.0, "hp": 40.0, "defense": 0.16, "attack_mult": 1.0,
             "guard_defense_mult": 1.0, "guard_reaction": "medium", "guard_speed_mult": 1.0},
-        "B": {"weight_pct": 145.0, "hp": 26.0, "defense": 0.30, "attack_mult": 1.12,
+        "B": {"weight_pct": 145.0, "hp": 52.0, "defense": 0.30, "attack_mult": 1.12,
             "guard_defense_mult": 1.35, "guard_reaction": "small", "guard_speed_mult": 0.85}
     },
     "legs": {
-        "A": {"weight_pct": 100.0, "hp": 20.0, "defense": 0.16, "run_speed": 4.0625,
+        "A": {"weight_pct": 100.0, "hp": 40.0, "defense": 0.16, "run_speed": 4.0625,
             "boost_speed_mult": 1.0, "damage_time_mult": 1.0,
             "damage_push_mult": 1.0, "down_hits": 3,
             "weight_class": "medium", "run_motion": "run"},
-        "B": {"weight_pct": 180.0, "hp": 26.0, "defense": 0.30, "run_speed": 3.35,
+        "B": {"weight_pct": 180.0, "hp": 52.0, "defense": 0.30, "run_speed": 3.35,
             "boost_speed_mult": 0.82, "damage_time_mult": 1.1,
             "damage_push_mult": 0.60, "down_hits": 3,
             "weight_class": "heavy", "run_motion": "slide"},
         # Bird-leg C uses its own gait and lower nominal assembly mass.
-        "C": {"weight_pct": 75.0, "hp": 20.0, "defense": 0.16, "run_speed": 4.0625,
+        "C": {"weight_pct": 75.0, "hp": 40.0, "defense": 0.16, "run_speed": 4.0625,
             "boost_speed_mult": 1.0, "damage_time_mult": 1.0,
             "damage_push_mult": 1.0, "down_hits": 3,
             "weight_class": "medium", "run_motion": "run"},
         # D is the standard-bone 12-mesh heavy lower body; use B heavy stats
         # until independent D balance values are explicitly authored.
-        "D": {"weight_pct": 165.0, "hp": 26.0, "defense": 0.30, "run_speed": 3.35,
+        "D": {"weight_pct": 165.0, "hp": 52.0, "defense": 0.30, "run_speed": 3.35,
             "boost_speed_mult": 0.82, "damage_time_mult": 1.1,
             "damage_push_mult": 0.60, "down_hits": 3,
             "weight_class": "heavy", "run_motion": "slide"}
     },
     "booster": {
-        "A": {"weight_pct": 100.0, "hp": 20.0, "defense": 0.16, "boost_speed": 6.09375,
+        "A": {"weight_pct": 100.0, "hp": 40.0, "defense": 0.16, "boost_speed": 6.09375,
             "energy_cost_mult": 1.0, "step_speed_mult": 1.0,
             "step_time_mult": 1.0, "melee_boost_speed": 11.5,
             "melee_boost_duration": 0.4},
-        "B": {"weight_pct": 145.0, "hp": 26.0, "defense": 0.25, "boost_speed": 6.45,
+        "B": {"weight_pct": 145.0, "hp": 52.0, "defense": 0.25, "boost_speed": 6.45,
             "energy_cost_mult": 1.40, "step_speed_mult": 0.88,
             "step_time_mult": 1.10, "melee_boost_speed": 9.5,
             "melee_boost_duration": 0.6}
