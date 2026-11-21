@@ -30,13 +30,13 @@ const PROFILES = {
             "weight_class": "medium", "run_motion": "run"},
         "B": {"weight_pct": 180.0, "hp": 26.0, "defense": 0.30, "run_speed": 3.35,
             "boost_speed_mult": 0.82, "damage_time_mult": 1.1,
-            "damage_push_mult": 0.60, "down_hits": 5,
+            "damage_push_mult": 0.60, "down_hits": 3,
             "weight_class": "heavy", "run_motion": "slide"},
         # D is the standard-bone 12-mesh heavy lower body; use B heavy stats
         # until independent D balance values are explicitly authored.
         "D": {"weight_pct": 165.0, "hp": 26.0, "defense": 0.30, "run_speed": 3.35,
             "boost_speed_mult": 0.82, "damage_time_mult": 1.1,
-            "damage_push_mult": 0.60, "down_hits": 5,
+            "damage_push_mult": 0.60, "down_hits": 3,
             "weight_class": "heavy", "run_motion": "slide"}
     },
     "booster": {
