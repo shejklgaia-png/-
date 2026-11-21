@@ -1,0 +1,19 @@
+[remap]
+
+importer="mp3"
+type="AudioStreamMP3"
+uid="uid://b2nd5boqgym5c"
+path="res://.godot/imported/Neural Flow.mp3-156d2749b90070e3d4324d64a22c7c24.mp3str"
+
+[deps]
+
+source_file="res://BGM/Neural Flow.mp3"
+dest_files=["res://.godot/imported/Neural Flow.mp3-156d2749b90070e3d4324d64a22c7c24.mp3str"]
+
+[params]
+
+loop=false
+loop_offset=0
+bpm=0
+beat_count=0
+bar_beats=4
