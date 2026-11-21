@@ -59,6 +59,12 @@ static func _labo(g: Variant) -> void:
         Vector3(1.69, 2.49, 1.83), Vector3(0.71, 0.27, 0.30), "rust")
     g.box("LabRollUpWarningLight",
         Vector3(1.45, 2.49, 2.01), Vector3(0.14, 0.09, 0.08), "amber_light")
+    # Visible canvas seam and a compact louver on the existing roof face.
+    g.box("LabCanopyStitch", Vector3(0, 4.14, -0.60),
+        Vector3(0.055, 0.045, 2.75), "gold")
+    for blade in range(4):
+        g.box_tilt("LabVentBlade", Vector3(-1.52, 3.91, -1.20 + blade * 0.20),
+            Vector3(0.45, 0.055, 0.09), "dark", Vector3(0.0, 0.0, 0.12))
     g.rod("LabSuspendedToolRail", Vector3(-1.15, 2.58, 0.72),
         Vector3(1.25, 2.58, 0.72), 0.08, "gold")
 
@@ -96,6 +102,10 @@ static func _smelter(g: Variant) -> void:
     g.poly("SmelterSecondaryRainCap", "roof",
         Vector3(0.66, 3.60, -0.62),
         Vector3(0.61, 0.20, 0.57), "armor_light")
+    for band in range(3):
+        g.ring("SmelterExhaustHeatBand",
+            Vector3(0.66, 2.43 + band * 0.33, -0.62), 0.205,
+            "gold" if band == 1 else "trim")
     for side in [-1.0, 1.0]:
         g.poly_tilt("SmelterWindBaffle", "hood",
             Vector3(side * 0.90, 1.94, 0.13),
@@ -154,6 +164,10 @@ static func _generator(g: Variant) -> void:
         g.rod("GeneratorPowerCableArch",
             Vector3(side * 1.02, 0.45, -0.74),
             Vector3(side * 0.76, 1.75, -0.83), 0.12, "rubber")
+    for slot in range(4):
+        g.box("GeneratorCoolingIntakeGrille",
+            Vector3(-0.77, 1.35 + slot * 0.16, -0.20),
+            Vector3(0.41, 0.045, 0.055), "edge")
     for i in range(5):
         g.box("GeneratorCowlCoolingSlits",
             Vector3(-0.72 + float(i) * 0.36, 2.53, 0.67),
@@ -174,6 +188,10 @@ static func _storage(g: Variant) -> void:
             Vector3(side * 0.64, 2.62, -0.20),
             Vector3(1.43, 0.24, 2.12), "cloth",
             Vector3(0.0, 0.0, -side * 0.18))
+    for side in [-1.0, 1.0]:
+        g.rod("StorageTarpTieDown",
+            Vector3(side * 1.10, 2.53, 0.55),
+            Vector3(side * 1.18, 1.85, 0.92), 0.055, "gold")
     g.rod("StorageRoofSpine",
         Vector3(0, 2.89, -1.35),
         Vector3(0, 2.89, 0.92), 0.13, "edge")
@@ -204,6 +222,9 @@ static func _terminal(g: Variant) -> void:
     g.box("TerminalToolHatchHandle",
         Vector3(-1.02, 1.07, 0.76),
         Vector3(0.10, 0.19, 0.06), "gold")
+    g.box("TerminalHatchStatusStrip",
+        Vector3(-0.99, 1.49, 0.77), Vector3(0.25, 0.065, 0.045),
+        "blue_light")
     g.rod("TerminalProfileAntenna",
         Vector3(0.92, 2.77, -0.78),
         Vector3(0.92, 3.55, -0.78), 0.065, "edge")
