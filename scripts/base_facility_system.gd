@@ -65,12 +65,15 @@ var actions_area: PanelContainer
 var actions_scroll: ScrollContainer
 var pending_confirmation: Callable = Callable()
 var confirmation_overlay: Control
+var confirmation_panel: PanelContainer
 var confirmation_text: Label
 var confirmation_title: Label
 var confirmation_system: Label
 var confirmation_subtitle: Label
 var confirmation_prompt: Label
 var confirmation_craft_card: PanelContainer
+var confirmation_preview_square: AspectRatioContainer
+var confirmation_phase: Label
 var confirmation_item_icon: TextureRect
 var confirmation_preview_host: SubViewportContainer
 var confirmation_preview_viewport: SubViewport
@@ -753,33 +756,35 @@ func attach_hud(hud: Control) -> void:
     confirmation_overlay.visible = false
     modal.add_child(confirmation_overlay)
     var confirm_shade := ColorRect.new()
-    confirm_shade.color = Color(0.01, 0.025, 0.045, 0.86)
+    confirm_shade.color = Color(0.008, 0.021, 0.032, 0.93)
     confirm_shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
     confirm_shade.mouse_filter = Control.MOUSE_FILTER_STOP
     confirm_shade.gui_input.connect(_on_confirmation_shade_input)
     confirmation_overlay.add_child(confirm_shade)
     var confirm_panel := PanelContainer.new()
     confirm_panel.name = "LaboConfirmPanel"
-    confirm_panel.anchor_left = 0.075
-    confirm_panel.anchor_right = 0.925
-    confirm_panel.anchor_top = 0.235
-    confirm_panel.anchor_bottom = 0.765
+    confirmation_panel = confirm_panel
+    confirm_panel.anchor_left = 0.065
+    confirm_panel.anchor_right = 0.935
+    confirm_panel.anchor_top = 0.105
+    confirm_panel.anchor_bottom = 0.895
     confirm_panel.mouse_filter = Control.MOUSE_FILTER_STOP
     var confirm_skin := StyleBoxFlat.new()
-    confirm_skin.bg_color = Color("#0b2534")
-    confirm_skin.border_color = Color("#66c8d7")
+    confirm_skin.bg_color = Color("#0b202d")
+    confirm_skin.border_color = Color("#568d9f")
     confirm_skin.set_border_width_all(2)
-    confirm_skin.set_corner_radius_all(4)
-    confirm_skin.content_margin_left = 17
-    confirm_skin.content_margin_right = 17
-    confirm_skin.content_margin_top = 14
-    confirm_skin.content_margin_bottom = 16
+    confirm_skin.set_corner_radius_all(1)
+    confirm_skin.content_margin_left = 19
+    confirm_skin.content_margin_right = 19
+    confirm_skin.content_margin_top = 18
+    confirm_skin.content_margin_bottom = 22
     confirm_panel.add_theme_stylebox_override("panel", confirm_skin)
     confirmation_overlay.add_child(confirm_panel)
+    confirmation_overlay.resized.connect(_layout_craft_confirmation)
     var confirm_vbox := VBoxContainer.new()
     confirm_vbox.name = "LaboConfirmLayout"
     confirm_vbox.alignment = BoxContainer.ALIGNMENT_CENTER
-    confirm_vbox.add_theme_constant_override("separation", 13)
+    confirm_vbox.add_theme_constant_override("separation", 10)
     confirm_panel.add_child(confirm_vbox)
     var confirm_system := Label.new()
     confirm_system.name = "LaboConfirmSystem"
@@ -790,6 +795,14 @@ func attach_hud(hud: Control) -> void:
     confirm_system.add_theme_color_override("font_color", Color("#80ced7"))
     confirm_vbox.add_child(confirm_system)
     confirmation_system = confirm_system
+    confirmation_phase = Label.new()
+    confirmation_phase.name = "LaboConfirmPhase"
+    confirmation_phase.text = "SERA / FABRICATION     •     SHELL"
+    confirmation_phase.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    confirmation_phase.add_theme_font_override("font", LaboSkin.tracked_data_font())
+    confirmation_phase.add_theme_font_size_override("font_size", 14)
+    confirmation_phase.add_theme_color_override("font_color", Color("#8ed7df"))
+    confirm_vbox.add_child(confirmation_phase)
     confirmation_title = Label.new()
     confirmation_title.name = "LaboConfirmTitle"
     confirmation_title.text = "以下の装備を作成します"
@@ -809,60 +822,129 @@ func attach_hud(hud: Control) -> void:
     confirmation_subtitle = confirm_subtitle
     confirmation_craft_card = PanelContainer.new()
     confirmation_craft_card.name = "LaboConfirmCraftCard"
+    confirmation_craft_card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
     confirmation_craft_card.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-    confirmation_craft_card.custom_minimum_size.y = 270.0
-    confirmation_craft_card.add_theme_stylebox_override(
-        "panel", LaboSkin.terminal_segment_style("selected"))
+    confirmation_craft_card.custom_minimum_size.y = 610.0
+    var craft_skin := StyleBoxFlat.new()
+    craft_skin.bg_color = Color("#112b39")
+    craft_skin.border_color = Color("#426c7a")
+    craft_skin.set_border_width_all(1)
+    craft_skin.set_corner_radius_all(1)
+    craft_skin.content_margin_left = 18.0
+    craft_skin.content_margin_right = 18.0
+    craft_skin.content_margin_top = 16.0
+    craft_skin.content_margin_bottom = 17.0
+    confirmation_craft_card.add_theme_stylebox_override("panel", craft_skin)
     confirm_vbox.add_child(confirmation_craft_card)
-    var craft_info := HBoxContainer.new()
+    # Portrait-first: full-width name, centered 1:1 model, stats below.
+    # The old HBox squeezed the model between the text and card border.
+    var craft_info := VBoxContainer.new()
     craft_info.name = "LaboConfirmItemRow"
-    craft_info.add_theme_constant_override("separation", 18)
+    craft_info.alignment = BoxContainer.ALIGNMENT_CENTER
+    craft_info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+    craft_info.add_theme_constant_override("separation", 9)
     confirmation_craft_card.add_child(craft_info)
+    var craft_info_column := VBoxContainer.new()
+    craft_info_column.name = "LaboConfirmItemIdentity"
+    craft_info_column.alignment = BoxContainer.ALIGNMENT_CENTER
+    craft_info_column.add_theme_constant_override("separation", 4)
+    craft_info.add_child(craft_info_column)
+    confirmation_item_slot = Label.new()
+    confirmation_item_slot.name = "LaboConfirmItemSlot"
+    confirmation_item_slot.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    confirmation_item_slot.add_theme_font_override("font", LaboSkin.tracked_data_font())
+    confirmation_item_slot.add_theme_font_size_override("font_size", 14)
+    confirmation_item_slot.add_theme_color_override("font_color", Color("#8bd5df"))
+    craft_info_column.add_child(confirmation_item_slot)
+    confirmation_item_name = Label.new()
+    confirmation_item_name.name = "LaboConfirmItemName"
+    confirmation_item_name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    confirmation_item_name.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+    confirmation_item_name.add_theme_font_override("font", LaboSkin.equipment_font())
+    confirmation_item_name.add_theme_font_size_override("font_size", 30)
+    confirmation_item_name.add_theme_color_override("font_color", Color("#eef7fa"))
+    craft_info_column.add_child(confirmation_item_name)
+    LaboSkin.attach_name_underline(confirmation_item_name)
+
+    var preview_center := CenterContainer.new()
+    preview_center.name = "LaboConfirmPreviewCenter"
+    preview_center.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+    preview_center.mouse_filter = Control.MOUSE_FILTER_PASS
+    craft_info.add_child(preview_center)
+    confirmation_preview_square = AspectRatioContainer.new()
+    confirmation_preview_square.name = "LaboConfirmSquarePreview"
+    confirmation_preview_square.ratio = 1.0
+    confirmation_preview_square.custom_minimum_size = Vector2(352, 352)
+    confirmation_preview_square.mouse_filter = Control.MOUSE_FILTER_PASS
+    preview_center.add_child(confirmation_preview_square)
+    var square_frame := PanelContainer.new()
+    square_frame.name = "LaboConfirmPreviewFrame"
+    var square_skin := StyleBoxFlat.new()
+    square_skin.bg_color = Color("#111e28")
+    square_skin.border_color = Color("#598697")
+    square_skin.set_border_width_all(1)
+    square_skin.set_corner_radius_all(0)
+    square_skin.content_margin_left = 5
+    square_skin.content_margin_right = 5
+    square_skin.content_margin_top = 5
+    square_skin.content_margin_bottom = 5
+    square_frame.add_theme_stylebox_override("panel", square_skin)
+    confirmation_preview_square.add_child(square_frame)
+    var square_content := Control.new()
+    square_content.name = "LaboConfirmPreviewContent"
+    square_content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+    square_content.size_flags_vertical = Control.SIZE_EXPAND_FILL
+    square_content.mouse_filter = Control.MOUSE_FILTER_PASS
+    square_content.clip_contents = true
+    square_frame.add_child(square_content)
     confirmation_item_icon = TextureRect.new()
     confirmation_item_icon.name = "LaboConfirmItemIcon"
-    confirmation_item_icon.custom_minimum_size = Vector2(136, 136)
-    confirmation_item_icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+    confirmation_item_icon.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
     confirmation_item_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
     confirmation_item_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
     confirmation_item_icon.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
     confirmation_item_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-    craft_info.add_child(confirmation_item_icon)
-    # The same real part-only SeraRig preview used by the authoring tool.
-    # It is instantiated lazily, once, only when the craft dialog is opened.
+    square_content.add_child(confirmation_item_icon)
+    # Both fallback image and interactive Godot model occupy the SAME square.
     confirmation_preview_host = SubViewportContainer.new()
     confirmation_preview_host.name = "LaboConfirmRotatablePart"
-    # Preserve the original icon footprint on narrow Android portrait screens.
-    confirmation_preview_host.custom_minimum_size = Vector2(136, 136)
+    confirmation_preview_host.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
     confirmation_preview_host.stretch = true
     confirmation_preview_host.mouse_filter = Control.MOUSE_FILTER_STOP
     confirmation_preview_host.mouse_default_cursor_shape = Control.CURSOR_MOVE
     confirmation_preview_host.visible = false
-    craft_info.add_child(confirmation_preview_host)
-    var craft_info_column := VBoxContainer.new()
-    craft_info_column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-    craft_info_column.alignment = BoxContainer.ALIGNMENT_CENTER
-    craft_info_column.add_theme_constant_override("separation", 10)
-    craft_info.add_child(craft_info_column)
-    confirmation_item_slot = Label.new()
-    confirmation_item_slot.name = "LaboConfirmItemSlot"
-    confirmation_item_slot.add_theme_font_override("font", LaboSkin.tracked_data_font())
-    confirmation_item_slot.add_theme_font_size_override("font_size", 13)
-    confirmation_item_slot.add_theme_color_override("font_color", Color("#7fc7d2"))
-    craft_info_column.add_child(confirmation_item_slot)
-    confirmation_item_name = Label.new()
-    confirmation_item_name.name = "LaboConfirmItemName"
-    confirmation_item_name.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-    confirmation_item_name.add_theme_font_override("font", LaboSkin.equipment_font())
-    confirmation_item_name.add_theme_font_size_override("font_size", 28)
-    craft_info_column.add_child(confirmation_item_name)
-    LaboSkin.attach_name_underline(confirmation_item_name)
+    square_content.add_child(confirmation_preview_host)
+    var preview_legend := Label.new()
+    preview_legend.name = "LaboConfirmPreviewLegend"
+    preview_legend.text = "DRAG / ROTATE       •       PINCH / ZOOM"
+    preview_legend.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    preview_legend.add_theme_font_override("font", LaboSkin.tracked_data_font())
+    preview_legend.add_theme_font_size_override("font_size", 12)
+    preview_legend.add_theme_color_override("font_color", Color("#8db7c2"))
+    craft_info.add_child(preview_legend)
+
+    var stats_panel := PanelContainer.new()
+    stats_panel.name = "LaboConfirmStatsPanel"
+    stats_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+    var stats_skin := StyleBoxFlat.new()
+    stats_skin.bg_color = Color("#0c202c")
+    stats_skin.border_color = Color("#345766")
+    stats_skin.set_border_width_all(1)
+    stats_skin.set_corner_radius_all(0)
+    stats_skin.content_margin_left = 14.0
+    stats_skin.content_margin_right = 14.0
+    stats_skin.content_margin_top = 12.0
+    stats_skin.content_margin_bottom = 12.0
+    stats_panel.add_theme_stylebox_override("panel", stats_skin)
+    craft_info.add_child(stats_panel)
     confirmation_item_stats = Label.new()
     confirmation_item_stats.name = "LaboConfirmItemStats"
+    confirmation_item_stats.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
     confirmation_item_stats.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
     confirmation_item_stats.add_theme_font_override("font", LaboSkin.stats_font())
     confirmation_item_stats.add_theme_font_size_override("font_size", 19)
-    confirmation_item_stats.add_theme_color_override("font_color", Color("#c7dbe2"))
-    craft_info_column.add_child(confirmation_item_stats)
+    confirmation_item_stats.add_theme_color_override("font_color", Color("#d3e9ee"))
+    stats_panel.add_child(confirmation_item_stats)
     confirmation_text = Label.new()
     confirmation_text.name = "LaboConfirmDescription"
     confirmation_text.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -910,6 +992,19 @@ func attach_hud(hud: Control) -> void:
     confirmation_accept_button.pressed.connect(_accept_confirmation)
     confirm_buttons.add_child(confirmation_accept_button)
 
+func _layout_craft_confirmation() -> void:
+    if confirmation_overlay == null or confirmation_preview_square == null:
+        return
+    # Square 3D/PNG occupies the available portrait width; reduce only on
+    # shorter screens so the name, stats and bottom buttons remain reachable.
+    var available: Vector2 = confirmation_overlay.size
+    if available.x < 1.0 or available.y < 1.0:
+        available = get_viewport().get_visible_rect().size
+    var side: float = clampf(minf(available.x * 0.59, available.y * 0.32),
+        248.0, 380.0)
+    confirmation_preview_square.custom_minimum_size = Vector2(side, side)
+
+
 func _set_labo_scroll_input_enabled(enabled: bool) -> void:
     if actions_scroll != null and actions_scroll.has_method("set_touch_scroll_enabled"):
         actions_scroll.call("set_touch_scroll_enabled", enabled)
@@ -926,11 +1021,16 @@ func _request_confirmation(title: String, detail: String, action: Callable,
     pending_confirmation = action
     _set_labo_scroll_input_enabled(false)
     var is_craft: bool = not equipment_blueprint.is_empty()
+    # Keep ordinary delete/convert confirmations compact; only equipment
+    # fabrication owns the tall, portrait-focused panel.
+    confirmation_panel.anchor_top = 0.105 if is_craft else 0.235
+    confirmation_panel.anchor_bottom = 0.895 if is_craft else 0.765
     confirmation_title.text = "以下の装備を作成します" if is_craft else title
     confirmation_title.add_theme_font_size_override(
         "font_size", 32 if is_craft else 27)
     confirmation_system.visible = not is_craft
     confirmation_subtitle.visible = not is_craft
+    confirmation_phase.visible = is_craft
     confirmation_prompt.text = "作成しますか？" if is_craft else (
         "操作内容をご確認ください。")
     confirmation_craft_card.visible = is_craft
@@ -951,6 +1051,7 @@ func _request_confirmation(title: String, detail: String, action: Callable,
         LaboSkin.refresh_name_underline(confirmation_item_name)
     confirmation_overlay.visible = true
     confirmation_overlay.move_to_front()
+    _layout_craft_confirmation()
     if is_craft:
         call_deferred("_show_craft_rotatable_part", equipment_blueprint)
 
@@ -959,7 +1060,7 @@ func _ensure_craft_part_preview() -> void:
         return
     confirmation_preview_viewport = SubViewport.new()
     confirmation_preview_viewport.name = "CraftEquipmentViewport"
-    confirmation_preview_viewport.size = Vector2i(288, 288)
+    confirmation_preview_viewport.size = Vector2i(384, 384)
     confirmation_preview_viewport.own_world_3d = true
     confirmation_preview_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
     confirmation_preview_host.add_child(confirmation_preview_viewport)

@@ -1,3 +1,9 @@
+## 2026-11-21 — LABO装備製作確認の縦長レイアウト＆正方形3Dプレビュー
+- 添付Android画面の細長い装備画像と下部余白を修正。製作ダイアログのみ上下アンカー0.105〜0.895へ拡大し、その他確認操作は従来のコンパクトな高さを維持。
+- 製作確認を「見出し／装備名／中央の正方形3D・静止画像／モデル回転案内／基礎ステータス／確認質問／作成・キャンセル」の縦配列へ再構成。正方形`LaboConfirmSquarePreview`の比率1.0を保証し、画面幅と高さで一辺248〜380pxの自動サイズ調整。
+- マットな濃紺の面・細いブルーグレー境界・UDEV/Moralerspaceの文字階層。元の実3D単体プレビュー、ブルーグレーグリッド、ドラッグ回転、セーブ/UID/ステータス計算を維持。
+- 旧v553の製作確認のサイズ検査を先行更新、新規`labo_square_craft_confirmation_self_check.py`と`labo_square_craft_confirmation_runtime_check.gd`をCI登録。Android実機のタッチ・読みやすさは別途検証。
+
 ## 2026-11-21：拠点工業材質の追加ブラッシュアップ（テクスチャ込み）
 - `assets/base/industrial_armor_chipped.svg`（512px）：装甲の塗装摩耗、下地露出、細かな引っかき傷、薄い垂れ汚れ。NEXUS/LABO/全6設備の塗装系外装に共通。
 - `assets/base/industrial_oxidized_metal.svg`（512px）：構造金属・熱機械の酸化皮膜、擦れ、錆の斑を追加。rust/gold材質のみに適用。
