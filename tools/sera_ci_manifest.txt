@@ -1,6 +1,7 @@
 # Historical and active-contract regression tests executed by SERA model-policy CI.
 # Self-contained equipment-model Icon Studio: zero manual import and cross-chat PNG metadata.
 py tools/icon_studio/sera_icon_studio_self_check.py
+py tools/icon_studio/godot_native_capture_self_check.py
 # Camera-eye standalone HEAD D and export-safe edited Blockbench mesh.
 # H02 アイリス LAB craft, save, NEXUS equipment and user-approved camera preset.
 py tools/iris_h02_craft_self_check.py

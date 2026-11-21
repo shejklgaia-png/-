@@ -1,3 +1,11 @@
+## Godot実レンダリングをアイコンの正本とする運用（2026-11-21）
+- **Icon Studio（WebGL）は撮影角度・倍率・平行移動を決める操作UI**として維持します。そこから送られた `SERA_ICON_PRESET_V1` の数値は変えません。
+- **ゲームへ納品する最終アイコンはSERA本体のGodot 4.7.2／GL Compatibilityで一度だけ撮影します。** `tools/icon_studio/sera_godot_native_capture.gd` が実際の `SeraRig` HEAD D 装着用メッシュ／マテリアル／16pxテクスチャを使用し、`scripts/sera_view_edges.gd` と `shaders/sera_view_edges.gdshader` で輪郭線を描きます。照明は戦闘シーン `scripts/main.gd::_build_world` と同じ環境光とDirectionalLightを設定します。
+- 専用SubViewport 512×512、透過背景、正投影、原本の `H02.json` 回転X/Y/Z・倍率・panを再現してオフライン撮影します。**Node3D標準のYXZ回転でなく、Icon Studioと同じXYZ回転順**を指定します。モデリングの再構築やJavaScriptのLambert近似は使いません。
+- GitHub Actionsの `SERA model workflow policy` 内で、xvfb付きGL Compatibility画面から `SERA_H02_IRIS_GODOT_512.png` をキャプチャし、`annotate_godot_native_png.py` で `SERA_ICON_MANIFEST_V1` を付加して成果物 `sera-native-equipment-icon` として保存します。**CI成果物を確認後、承認された撮影画像を従来の共有アイコンキャッシュへ登録**します。CIで画像がない・真っ黒・背景が不透明なら失敗とし、既存ゲームアイコンへの無条件差替えは禁止します。
+- **ゲーム実行中にSubViewportを追加したり、装備カード表示ごとに3Dレンダリングしないこと。** 完成PNGを1設計図につき1回だけ読み込み・キャッシュし、LAB／倉庫／NEXUSで再利用します。
+- モデル原本の再アップロードも、ユーザーによるPNGの手動受け渡しも原則不要です。プリセット送信だけでGodot撮影工程へ進めます。ゲーム内の光源は場面によって違うため、**装備アイコンの正式な基準は戦闘シーン照明**と定義します。Android実機のGPUとCIのLinux GL描画結果は厳密なピクセル一致までは保証しません。
+
 # SERA — 装備専用Icon Studioの受け渡しと実装順序（2026-11-21）
 
 以下は `AGENTS.md` の装備アイコン作業順序から**全文を移した正式な受入条件**です。内容と運用上の拘束力を変更しません。

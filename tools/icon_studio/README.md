@@ -1,3 +1,22 @@
+## 最終採用画像はGodot GL Compatibilityの撮影で作成（2026-11-21）
+
+これまでは `SERA_ICON_PRESET_V1` を別レンダラーで再計算していましたが、色・光沢・法線・輪郭線の表示がSERA本体と一致しませんでした。**ブラウザでは引き続き角度と大きさを調整し、撮影設定だけをコピー**します。
+
+最終画像の作成には `tools/icon_studio/sera_godot_native_capture.gd` を実行します。これはSERAの `sera_rig.gd` と `sera_equipment.gd` が実際に装備するHEAD Dの6メッシュ、実際の `material_override`、共通 `sera_view_edges.gd` / `sera_view_edges.gdshader`、戦闘シーン `main.gd::_build_world` と同じ環境光・方向光を使います。512×512の正投影SubViewportを一度だけ使い、元モデルの頂点・UVを再構築しません。
+
+```bash
+# Godot 4.7.2 / GL Compatibility / 画面描画可能な環境で実行します。
+SERA_UI_RENDER_DIR=/tmp/sera-icon \
+  godot --path . --rendering-method gl_compatibility \
+  --script tools/icon_studio/sera_godot_native_capture.gd
+python3 tools/icon_studio/annotate_godot_native_png.py \
+  --png /tmp/sera-icon/SERA_H02_IRIS_GODOT_512.png
+```
+
+GitHub Actions `SERA model workflow policy` は上記をXvfb上で実行し、`sera-native-equipment-icon` という成果物に原本SHAや撮影設定入りPNGを保存します。検査済みのPNGを `install_sera_equipment_icon.py` で設計図H02へ登録すれば、以後は既存の共有キャッシュからLAB/倉庫/NEXUSで表示されるため、端末のプレイ中にSubViewport生成やモデルレンダリングを行いません。
+
+**ゲーム内カメラ・照明は場面ごとに異なります。** アイコンの標準は戦闘シーンの照明を基準とします。GodotのCI (Linux GL) と端末のAndroid GLではピクセル完全一致までは保証しません。Icon Studio WebGLプレビューとも多少異なりますが、ゲーム内の素材・輪郭線と整合する仕組みです。
+
 # SERA Icon Studio — 原本モデル埋込・装備アイコン引継ぎ
 
 ## 2026-11-21 ユーザーの固定作業順序
