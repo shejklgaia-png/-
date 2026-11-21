@@ -1,4 +1,6 @@
 extends RefCounted
+const WEATHERED_STEEL = preload("res://assets/base/industrial_steel_grunge.svg")
+const WEATHERED_CANVAS = preload("res://assets/base/aged_canvas_weave.svg")
 ## Industrial reference rebuild for the eight individually modelled base structures.
 ## Batched opaque meshes keep a dense kit-bashed silhouette on Android GL.
 const COLORS = {
@@ -97,6 +99,10 @@ class Batch:
             surface.albedo_color = Color(COLORS[tint])
             surface.metallic = 0.31 if tint != "cloth" else 0.0
             surface.roughness = 0.75 if tint != "glass" else 0.46
+            if tint == "cloth":
+                surface.albedo_texture = WEATHERED_CANVAS
+            elif tint not in ["glass", "blue_light", "amber_light", "amber"]:
+                surface.albedo_texture = WEATHERED_STEEL
             if tint in ["blue_light", "amber_light", "amber"]:
                 surface.emission_enabled = true
                 surface.emission = Color(COLORS[tint])
