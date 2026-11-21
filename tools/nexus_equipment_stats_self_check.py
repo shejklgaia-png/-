@@ -32,9 +32,27 @@ for required in (
     'static func from_selection(selected: Dictionary) -> Array[Dictionary]:',
     'static func from_stats(stats: Dictionary) -> Array[Dictionary]:',
     'if is_zero_approx(amount):',
-    '"ATK EN"',
+    '"攻撃EN消費"',
+    '"重量比（" + category + "）"',
+    '"en_recovery_per_second"',
 ):
     assert required in stats, required
+for label in (
+    "軽量", "中量", "重量", "EN回復速度", "追尾速度", "攻撃速度",
+    "耐久力", "防御率", "攻撃力", "ブレイク力", "怯み蓄積",
+    "攻撃EN消費", "走行速度", "ブースト速度", "ロック距離",
+    "ガード性能", "EN消費倍率", "ステップ速度", "バッシュ威力",
+    "チャージ威力",
+):
+    assert label in stats, label
+for obsolete in ('"WEIGHT "', '"EN OUTPUT"', '"TRACK"', '"ATK SPEED"',
+                 '"DEF"', '"ATK1"', '"BRK1"', '"STG1"', '"RUN"',
+                 '"BOOST"', '"LOCK"', '"GUARD"', '"EN COST"', '"STEP"',
+                 '"BASH"', '"CHARGE"'):
+    assert obsolete not in stats, obsolete
+assert 'StatUI.status_window_style()' in nexus
+assert 'StatUI.attach_status_marks(' in nexus
+assert 'StatUI.layout_status_marks(' in nexus
 assert 'py tools/nexus_equipment_stats_self_check.py' in manifest
 assert 'gd tools/nexus_equipment_stats_runtime_check.gd' in manifest
 print("NEXUS_EQUIPMENT_STATS_STATIC_PASS")
