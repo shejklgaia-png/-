@@ -1,5 +1,6 @@
 extends Node3D
 const BaseMaterials = preload("res://scripts/sera_base_materials.gd")
+const BaseArchitecture = preload("res://scripts/sera_base_architecture.gd")
 const IconAtlas = preload("res://scripts/sera_item_icons.gd")
 const PrototypeCatalog = preload("res://scripts/sera_prototype_catalog.gd")
 const LaboSkin = preload("res://scripts/sera_labo_round_skin.gd")
@@ -149,21 +150,8 @@ func _build_facilities() -> void:
         _box(root_node, "Foundation", Vector3(0, 0.16, 0),
             Vector3(float((spec["size"] as Vector3).x), 0.32,
                 float((spec["size"] as Vector3).z)), Color("#263747"))
-        match key:
-            "LABO":
-                _build_labo(root_node)
-            "SCRAP_COLLECTOR":
-                _build_scrap_collector(root_node)
-            "SMELTER":
-                _build_smelter(root_node)
-            "RECYCLER":
-                _build_recycler(root_node)
-            "GENERATOR":
-                _build_generator(root_node)
-            "STORAGE":
-                _build_storage(root_node)
-            "BUILD_TERMINAL":
-                _build_construction(root_node)
+        # All seven stations now have separately authored industrial geometry.
+        BaseArchitecture.build_facility(root_node, key)
         var sign := Label3D.new()
         sign.name = "FacilitySign"
         sign.text = str(spec["name"])
@@ -426,7 +414,8 @@ func attach_hud(hud: Control) -> void:
         tag.add_theme_font_override("font", LaboSkin.ui_font())
         tag.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
         tag.add_theme_font_size_override("font_size", 17)
-        tag.add_theme_color_override("font_color", Color("#a5ecf7"))
+        tag.add_theme_color_override("font_color", Color("#dce4ea"))
+        LaboSkin.attach_name_underline(tag)
         tag.mouse_filter = Control.MOUSE_FILTER_IGNORE
         hud.add_child(tag)
         facility_tags[str(spec["id"])] = tag

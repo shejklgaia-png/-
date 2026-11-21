@@ -9,6 +9,8 @@ py tools/nexus_labo_visual_self_check.py
 gd tools/nexus_labo_visual_runtime_check.gd
 # Python tests run in fresh interpreters; Godot tests run in fresh engine processes.
 # User-approved FOV0-style orthographic overworld composition and 8 solid visible facilities.
+py tools/base_reference_architecture_self_check.py
+gd tools/base_reference_architecture_runtime_check.gd
 py tools/base_isometric_layout_self_check.py
 gd tools/base_isometric_layout_runtime_check.gd
 py tools/base_exploration_self_check.py
