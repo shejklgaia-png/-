@@ -152,6 +152,20 @@ func _build_facilities() -> void:
                 float((spec["size"] as Vector3).z)), Color("#263747"))
         # All seven stations now have separately authored industrial geometry.
         BaseArchitecture.build_facility(root_node, key)
+        # Keep the generator's existing rotor animation after the geometry swap.
+        if key == "GENERATOR":
+            generator_rotor = Node3D.new()
+            generator_rotor.name = "EnergyRotor"
+            generator_rotor.position = Vector3(-0.60, 2.15, -0.34)
+            root_node.add_child(generator_rotor)
+            _box(generator_rotor, "RotorHub", Vector3.ZERO,
+                Vector3(0.22, 0.15, 0.22), Color("#576d79"))
+            for spoke in range(4):
+                var spin: float = float(spoke) * PI * 0.5
+                var vane: MeshInstance3D = _box(generator_rotor, "RotorBlade",
+                    Basis(Vector3.UP, spin) * Vector3(0.22, 0, 0),
+                    Vector3(0.30, 0.05, 0.09), Color("#8db7c4"))
+                vane.rotation.y = spin
         var sign := Label3D.new()
         sign.name = "FacilitySign"
         sign.text = str(spec["name"])

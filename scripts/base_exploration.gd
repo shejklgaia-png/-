@@ -187,7 +187,7 @@ func _build_hangar() -> void:
     # Keep legacy decorative models away from interactive equipment footprints.
     # Decorative Blockbench props occupy the frame edges, never machinery
     # foundations or raw touch pick volumes in the orthographic composition.
-    _add_module("maintenance_pad", Vector3(-20.2, 0.0, -13.6), 0.0, 0.72)
+    _add_module("maintenance_canopy", Vector3(-20.2, 0.0, -13.6), 0.0, 0.62)
     _add_module("kiosk", Vector3(-4.0, 0.0, -22.5), 0.0, 0.85)
     _add_module("data_bank", Vector3(22.0, 0.0, -9.0), 0.0, 0.52)
     var cube := BoxMesh.new()
@@ -252,7 +252,12 @@ func _create_salvage() -> void:
     var lots := [
         Vector3(-9.83, 0.0, 0.28), Vector3(6.80, 0.0, 19.56),
         Vector3(4.65, 0.0, 6.62), Vector3(14.96, 0.0, 14.72),
-        Vector3(4.80, 0.0, -11.02), Vector3(20.54, 0.0, 10.41)
+        Vector3(4.80, 0.0, -11.02), Vector3(20.54, 0.0, 10.41),
+        Vector3(-5.42, 0.0, -8.18), Vector3(5.71, 0.0, -7.88),
+        Vector3(-7.21, 0.0, 6.65), Vector3(9.45, 0.0, 5.70),
+        Vector3(-13.41, 0.0, -11.38), Vector3(4.90, 0.0, -17.16),
+        Vector3(-13.50, 0.0, 3.82), Vector3(12.87, 0.0, 0.48),
+        Vector3(5.21, 0.0, 10.48), Vector3(-3.20, 0.0, -18.15)
     ]
     for i in range(lots.size()):
         var pile := Node3D.new()

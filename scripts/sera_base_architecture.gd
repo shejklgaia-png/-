@@ -109,6 +109,19 @@ class Batch:
             host.add_child(draw)
         host.set_meta("unique_model_features", features.duplicate())
 
+# Small local point lights are tied to the physical machines, not screen UI.
+# Unshadowed lights avoid costly extra passes on mobile GL Compatibility.
+static func _light(parent: Node3D, label: String, at: Vector3,
+        tint: String, power: float, reach: float) -> void:
+    var lamp := OmniLight3D.new()
+    lamp.name = label
+    lamp.position = at
+    lamp.light_color = Color(tint)
+    lamp.light_energy = power
+    lamp.omni_range = reach
+    lamp.shadow_enabled = false
+    parent.add_child(lamp)
+
 static func _facade(g: Batch, half_width: float, height: float,
         depth: float) -> void:
     for side in [-1.0, 1.0]:
@@ -148,6 +161,43 @@ static func build_nexus(parent: Node3D) -> void:
             Vector3(0.11, 3.5, 0.15), "edge")
         g.box("WarningSideLamp", Vector3(side * 2.25, 2.38, 2.65),
             Vector3(0.44, 0.17, 0.10), "amber_light")
+    # Asymmetric, multi-piece facade cladding conceals the primary wall cube.
+    # Each narrow panel has raised edges, several fasteners and a service seam.
+    for side in [-1.0, 1.0]:
+        for row in range(3):
+            var y: float = 0.71 + float(row) * 1.04
+            g.box("NexusFacadeArmor", Vector3(side * 2.13, y, 2.55),
+                Vector3(0.89, 0.88, 0.15),
+                "armor_light" if row == 1 else "armor")
+            g.box("NexusFacadePanelSeam", Vector3(side * 2.13,
+                y + 0.455, 2.651), Vector3(0.92, 0.055, 0.058), "dark")
+            for corner in [-1.0, 1.0]:
+                g.box("NexusFacadeBolt", Vector3(side * 2.13 + corner * 0.35,
+                    y + 0.33, 2.67), Vector3(0.10, 0.08, 0.06), "edge")
+        for row in range(4):
+            var sz: float = -1.76 + float(row) * 1.04
+            g.box("NexusSideArmorPlate", Vector3(side * 2.97, 2.12, sz),
+                Vector3(0.14, 3.02, 0.88), "slate" if row % 2 else "armor")
+            g.box("NexusSideVerticalRib", Vector3(side * 3.06, 2.12, sz + 0.39),
+                Vector3(0.07, 3.21, 0.08), "edge")
+        g.box("NexusWindowFrame", Vector3(side * 2.45, 2.35, 2.71),
+            Vector3(0.57, 0.40, 0.12), "dark")
+        g.box("NexusWindowGlow", Vector3(side * 2.45, 2.35, 2.79),
+            Vector3(0.43, 0.25, 0.045), "amber_light")
+    for panel in range(4):
+        var rx: float = -1.85 + float(panel) * 1.23
+        g.box("NexusRoofServiceRack", Vector3(rx, 4.79, 0.65),
+            Vector3(1.08, 0.22, 1.35), "armor_light")
+        for ridge in range(4):
+            g.box("NexusRoofServiceVent", Vector3(rx,
+                4.93, 0.19 + ridge * 0.28),
+                Vector3(0.75, 0.035, 0.09), "dark")
+    for level in range(3):
+        g.rod("NexusAntennas", Vector3(2.42, 4.63 + float(level) * 0.48, -1.78),
+            Vector3(2.42, 5.08 + float(level) * 0.48, -1.78),
+            0.08 if level == 0 else 0.045, "edge")
+    g.box("NexusAntennasBeacon", Vector3(2.42, 6.18, -1.78),
+        Vector3(0.13, 0.19, 0.13), "amber_light")
     g.box("GatePortal", Vector3(0, 1.50, 2.51), Vector3(2.65, 2.85, 0.38), "dark")
     g.box("SealedGate", Vector3(0, 1.25, 2.77), Vector3(1.94, 2.35, 0.10), "slate")
     g.box("GatePortalLintel", Vector3(0, 2.97, 2.68), Vector3(2.42, 0.25, 0.27), "edge")
@@ -177,30 +227,50 @@ static func build_nexus(parent: Node3D) -> void:
     for i in range(4):
         g.crate(Vector3(-2.53 + float(i % 2) * 0.65, 0.43,
             3.02 - float(i / 2) * 0.70), Vector3(0.55, 0.70, 0.58), i)
+    # More crates, spare panels and a cable cabinet around the entrance.
+    for i in range(5):
+        var sign_side: float = -1.0 if i % 2 == 0 else 1.0
+        g.crate(Vector3(sign_side * (2.10 + float(i % 3) * 0.31),
+            0.32 + float(i / 3) * 0.38, 2.95 + float(i % 2) * 0.28),
+            Vector3(0.41, 0.52, 0.42), i)
+    g.box("ScrapYardSpareParts", Vector3(2.13, 0.28, 3.28),
+        Vector3(0.62, 0.13, 0.38), "edge", 0.16)
+    g.box("ScrapYardSpareParts", Vector3(1.94, 0.39, 3.19),
+        Vector3(0.33, 0.13, 0.55), "rust", -0.28)
     g.flush()
+    _light(node, "NexusAmberGateLight", Vector3(0, 2.55, 2.89),
+        "#ffc491", 1.05, 4.0)
 
 static func _labo(g: Batch) -> void:
     # Smaller, busy semi-open workshop: tarpaulin canopy, worktables and consoles.
-    g.box("LabWorkshopShell", Vector3(0, 1.59, -0.32),
-        Vector3(3.65, 2.82, 3.50), "slate")
-    g.box("LabWorkshopInterior", Vector3(0, 1.28, 1.49),
-        Vector3(2.55, 2.10, 0.15), "void")
-    g.box("LabWorkFloor", Vector3(0, 0.28, 1.58),
-        Vector3(3.55, 0.17, 1.85), "armor_light")
-    g.box("LabCanopyFrame", Vector3(0, 3.01, 0.10),
-        Vector3(4.05, 0.20, 4.0), "edge")
+    # A genuinely open-front workshop, rather than a sealed rectangular hall.
+    g.box("LabOpenWorkshopRearWall", Vector3(0, 1.57, -1.69),
+        Vector3(3.65, 2.82, 0.37), "slate")
+    g.box("LabOpenWorkshopBackPanel", Vector3(0, 1.40, -1.43),
+        Vector3(2.97, 2.27, 0.12), "void")
+    for side in [-1.0, 1.0]:
+        g.box("LabOpenWorkshopSideWall", Vector3(side * 1.74, 1.56, -0.84),
+            Vector3(0.17, 2.73, 1.87), "armor")
+        for rib in range(3):
+            g.box("LabOpenWorkshopFrameRib", Vector3(side * 1.70,
+                0.56 + float(rib) * 0.95, -0.11),
+                Vector3(0.22, 0.10, 1.66), "edge")
+    g.box("LabWorkFloor", Vector3(0, 0.28, 0.97),
+        Vector3(3.55, 0.17, 2.85), "armor_light")
+    g.box("LabCanopyFrame", Vector3(0, 3.01, -0.75),
+        Vector3(4.05, 0.16, 3.1), "edge")
     for i in range(6):
         var x: float = -1.74 + float(i) * 0.68
-        g.box("CanopyCanvas", Vector3(x, 3.16 + 0.08 * cos(i * 1.2), 1.30),
-            Vector3(0.73, 0.055, 2.65), "cloth")
+        g.box("CanopyCanvas", Vector3(x, 3.16 + 0.08 * cos(i * 1.2), -0.62),
+            Vector3(0.73, 0.055, 2.93), "cloth")
     for side in [-1.0, 1.0]:
         g.rod("CanopyAwningPosts", Vector3(side * 1.82, 0.20, 2.16),
             Vector3(side * 1.82, 3.20, 2.16), 0.10, "dark")
-        g.box("LabShelf", Vector3(side * 1.32, 1.12, 0.92),
+        g.box("LabShelf", Vector3(side * 1.32, 1.12, -1.12),
             Vector3(0.52, 1.65, 0.45), "trim")
         for row in range(3):
             g.box("LabShelfEquipment", Vector3(side * 1.30,
-                0.50 + row * 0.53, 1.22),
+                0.50 + row * 0.53, -0.83),
                 Vector3(0.32, 0.29, 0.10), "amber" if row == 1 else "armor")
     g.box("LabWorkbench", Vector3(0.48, 0.86, 2.02),
         Vector3(1.45, 0.17, 0.75), "armor_light")
@@ -217,8 +287,26 @@ static func _labo(g: Batch) -> void:
         g.box("LabWallTool", Vector3(-1.25 + (i % 3) * 0.44,
             1.15 + (i / 3) * 0.55, 1.66),
             Vector3(0.10, 0.38, 0.09), "edge")
-    g.box("LabAmberLamp", Vector3(0, 2.49, 1.75),
+    g.box("LabAmberLamp", Vector3(0, 2.49, -0.73),
         Vector3(1.18, 0.10, 0.08), "amber_light")
+    # Tables, tool trays and overhead gantry make the semi-open interior read.
+    g.box("LabOpenWorkshopGantry", Vector3(0, 2.36, 0.62),
+        Vector3(3.30, 0.13, 0.16), "edge")
+    g.box("LabTaskLighting", Vector3(-0.65, 2.29, 0.71),
+        Vector3(0.96, 0.13, 0.08), "amber_light")
+    g.box("LabToolTray", Vector3(-0.55, 0.91, 0.87),
+        Vector3(0.84, 0.12, 0.52), "rust")
+    for item in range(6):
+        g.box("LabLooseTools", Vector3(-0.89 + float(item % 3) * 0.24,
+            1.02, 0.67 + float(item / 3) * 0.28),
+            Vector3(0.07, 0.09, 0.23), "edge" if item % 2 else "gold")
+    for tier in range(3):
+        g.box("LabOpenWorkshopServerRack", Vector3(-1.13,
+            0.67 + float(tier) * 0.52, -1.32),
+            Vector3(0.66, 0.39, 0.13), "armor_light")
+        g.box("LabOpenWorkshopServerLight", Vector3(-1.32,
+            0.65 + float(tier) * 0.52, -1.24),
+            Vector3(0.21, 0.08, 0.05), "blue_light")
     g.crate(Vector3(-1.50, 0.43, 2.14), Vector3(0.56, 0.62, 0.48))
     g.crate(Vector3(1.56, 0.33, -1.30), Vector3(0.52, 0.46, 0.48), 1)
 
@@ -420,3 +508,14 @@ static func build_facility(parent: Node3D, key: String) -> void:
             g.box("BaseMountingBolt", Vector3(side * 0.72, 0.34, end * 0.71),
                 Vector3(0.11, 0.055, 0.11), "edge")
     g.flush()
+    match key:
+        "LABO":
+            _light(node, "LabTaskLighting", Vector3(0, 2.28, 1.31),
+                "#ffbd86", 1.30, 3.50)
+        "SMELTER":
+            _light(node, "FurnaceHeatLight", Vector3(0, 1.10, 1.14),
+                "#ff904d", 1.70, 3.00)
+        "GENERATOR":
+            _light(node, "GeneratorCoreLight", Vector3(-0.45, 1.25, 0.72),
+                "#71c9f5", 0.72, 2.90)
+
