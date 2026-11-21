@@ -155,15 +155,21 @@ func _run() -> void:
                 title.position.y + title.size.y > stat_panel.size.y + 1.0):
             _fail("enlarged full-body metric text exceeds its row height")
             return
-        if scroll.size.x >= 590.0 and not scroll.get_global_rect().encloses(
-                stat_panel.get_global_rect()):
-            _fail("720px full-body status requires no vertical scrolling")
+        if scroll.size.x >= 590.0 and (
+                not scroll.get_global_rect().encloses(
+                stat_panel.get_global_rect())) and (
+                stat_panel.name == "EquipmentStat_0"):
+            _fail("basic body stats must remain visible without scrolling")
             return
         if title.text == "耐久力":
             typography_ok = title.get_theme_font_size("font_size") >= 19 and (
                 amount.get_theme_font_size("font_size") >= 24)
     if not typography_ok:
         _fail("full-body Japanese label/number type is still too small")
+        return
+    var scrollbar: VScrollBar = scroll.get_v_scroll_bar()
+    if grid.columns == 3 and not (scrollbar.max_value > scrollbar.page):
+        _fail("full loadout needs a scrollable weapon tail at unchanged type size")
         return
     if weapon_divider.size.x < scroll.size.x * 0.8 or (
             weapon_divider.color != Color("#55798a")):
