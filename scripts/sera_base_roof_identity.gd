@@ -61,8 +61,8 @@ static func _labo(g: Variant) -> void:
         Vector3(0.88, 0.50, 0.35), "slate")
     g.box("LabPrinterFrontHousing", Vector3(0.18, 2.02, 1.47),
         Vector3(0.72, 0.44, 0.13), "armor_light")
-    g.box("LabPrinterNozzle", Vector3(0.18, 1.64, 1.48),
-        Vector3(0.24, 0.30, 0.17), "amber_light")
+    g.box("LabPrinterNozzle", Vector3(0.18, 1.64, 1.55),
+        Vector3(0.40, 0.39, 0.18), "amber_light")
     g.box("LabPrinterWorkSurface", Vector3(0.18, 0.94, 1.19),
         Vector3(1.24, 0.14, 0.70), "armor_light")
     g.poly("LabPrinterPrintedPart", "bevel",
@@ -107,6 +107,12 @@ static func _collector(g: Variant) -> void:
         g.box("CollectorClawPin",
             Vector3(0.46 + side * 0.55, 1.03, 1.02),
             Vector3(0.17, 0.19, 0.17), "gold")
+        # Broad color-blocked grabber cheeks, visible even when screen
+        # downscaled to the real Android portrait width.
+        g.box_tilt("CollectorVisibleJawCheek",
+            Vector3(0.46 + side * 0.51, 1.23, 1.14),
+            Vector3(0.29, 0.42, 0.17), "gold",
+            Vector3(0.0, 0.0, -side * 0.26))
     g.box("CollectorCraneCableSeat",
         Vector3(0.46, 1.62, 0.91),
         Vector3(0.38, 0.25, 0.19), "dark")
@@ -238,7 +244,7 @@ static func _generator(g: Variant) -> void:
         g.rod("GeneratorVisibleRotorSpoke",
             Vector3(-0.08 + delta.x * 0.18, 1.18 + delta.y * 0.18, 1.32),
             Vector3(-0.08 + delta.x * 0.49, 1.18 + delta.y * 0.49, 1.32),
-            0.095, "blue")
+            0.125, "blue_light")
 
 
 static func _storage(g: Variant) -> void:
@@ -270,6 +276,20 @@ static func _storage(g: Variant) -> void:
         g.box("StorageRoofPlateSegment",
             Vector3(-0.76 + float(index) * 0.50, 2.94, -1.00),
             Vector3(0.13, 0.035, 0.84), "slate")
+    # Two exposed shipping cases occupy the front OPEN loading aperture.
+    # At normal camera distance, these large faces read as cargo instead
+    # of the old featureless dark warehouse doorway.
+    g.poly("StorageVisibleCargoCase", "bevel",
+        Vector3(-0.53, 1.21, 1.16),
+        Vector3(0.77, 0.75, 0.49), "rust")
+    g.poly("StorageVisibleCargoCase", "bevel",
+        Vector3(0.36, 1.10, 1.15),
+        Vector3(0.85, 0.61, 0.50), "armor_light")
+    for x in [-0.53, 0.36]:
+        g.box("StorageVisibleCargoHandle", Vector3(x, 1.36, 1.46),
+            Vector3(0.32, 0.075, 0.065), "gold")
+        g.box("StorageVisibleCargoBand", Vector3(x, 1.00, 1.46),
+            Vector3(0.49, 0.065, 0.07), "trim")
 
 
 static func _terminal(g: Variant) -> void:
