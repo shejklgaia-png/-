@@ -215,7 +215,7 @@ static func tracked_data_font() -> FontVariation:
 ## action buttons, data tags or empty/LOCKED placeholders). A 1px matte rule
 ## is enough at Android portrait size; mouse input passes through it.
 const NAME_UNDERLINE_COLOR: Color = Color("#55798a")
-const NAME_UNDERLINE_HEIGHT: float = 1.0
+const NAME_UNDERLINE_HEIGHT: float = 3.0
 
 static func attach_name_underline(label: Label) -> void:
     if label == null or label.get_node_or_null("NameUnderline") != null:
@@ -266,7 +266,7 @@ static func refresh_name_underline(label: Label) -> void:
         y = maxf(0.0, (label.size.y - text_height) * 0.5)
     elif label.vertical_alignment == VERTICAL_ALIGNMENT_BOTTOM:
         y = maxf(0.0, label.size.y - text_height)
-    y = clampf(y + text_height - 1.0, 0.0,
+    y = clampf(y + text_height + 1.0, 0.0,
         maxf(0.0, label.size.y - NAME_UNDERLINE_HEIGHT))
     line.position = Vector2(x, y)
     line.size = Vector2(rule_width, NAME_UNDERLINE_HEIGHT)
