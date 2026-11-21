@@ -10,5 +10,5 @@
 **装備モデル実装前に** 原本とテクスチャを同梱したIcon Studioの単一HTMLをユーザーに渡す。ユーザーに再アップロードを要求しない。HTML受け渡し後に装備実装／LAB／倉庫／NEXUS／保存まで接続する。PNGは `SERA_ICON_MANIFEST_V1` で他チャットへ引き継ぐ。詳細正本: `docs/SERA_ICON_STUDIO_HANDOFF_POLICY_ja.md`。
 
 ## 装備モデル追加の完了条件（2026-11-21）
-**NEXUS表示のみでは未完了。** LABの装備製作・固有UID/5効果・保存・装着まで同PRで接続しCI検証。HEAD DはLAB未登録のため完了扱い禁止。詳細正本: `docs/SERA_EQUIPMENT_MODEL_LAB_INTAKE_ja.md`。
+**NEXUS表示のみでは未完了。** LABの装備製作・固有UID/5効果・保存・装着まで同PRで接続しCI検証。HEAD DアイリスはH02としてLABに登録済み（v531）。詳細正本: `docs/SERA_EQUIPMENT_MODEL_LAB_INTAKE_ja.md`。
 

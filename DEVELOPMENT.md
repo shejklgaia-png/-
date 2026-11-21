@@ -1,3 +1,11 @@
+## 2026-11-21 — IRIS(H02)装備製作とユーザー指定プリセット撮影アイコンの統合
+- ユーザーの `SERA_ICON_PRESET_V1`（X=-17.95108886718749,Y=152.8089099121089,Z=-5,scale=1.0311868961757298,pan=-0.10036383734809033/-0.052272971159492435、輪郭80度3px）を原本SHA-256とともにH02.jsonへ保存。
+- HEAD Dモデル6メッシュ230面から512px透過PNGをレンダリングし、IconStudioメタデータ付きで装備アイコン共有キャッシュへ登録。画像生成AIは不使用。旧7装備のアイコンは維持。
+- LAB H02 アイリス設計図、現行Aからの暫定頭部D性能継承、既存共通の製作5追加効果・固有UID・倉庫999上限・セーブ/NEXUS装着を接続。
+- `tools/iris_h02_craft_self_check.py`は元モデルSHAとPNG CRC・表示画素を検査、`tools/iris_h02_craft_runtime_check.gd`で製作・画像・D選択・保存復帰を検査。SERA v531。Godot全CIとAndroid実機表示は結果確認まで未検証扱い。
+
+---
+
 ## 2026-11-21 — BASE装飾：厚いパネル塊と直方体スクラップを実形状バリエーションに刷新
 - ユーザー画像を受け、現行main、`sera_base_clutter.gd`、`base_exploration.gd`、`sera_base_architecture.gd`、既存のモデルレンダリング規約・全CIマニフェスト・GitHub Actionsを確認。対象は倉庫/建設施設の `panel_stack` と独立する16か所の `ScrapPile`。
 - 実装前に `base_junk_models_self_check.py` と `base_junk_models_runtime_check.gd` を追加しマニフェストへ登録。6形状の本物の板の厚み・サイズ差・X/Z傾斜・16安定座標・5構成のスクラップ・低負荷な材質別MultiMesh描画を検査。

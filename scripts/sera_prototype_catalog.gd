@@ -1,13 +1,15 @@
 extends RefCounted
 ## Stable blueprint IDs are independent of localized display names.
 ## Each minted copy has a never-reused item UID "H01-0001", "H01-0002" etc.
-## Current preview equipment uses existing real rig "A" until a new matching
-## Blockbench model is authored. Do not imply these images are 3D mesh assets.
-const ORDER = ["H01", "T01", "A01", "L01", "B01", "WR01", "WL01"]
+## Legacy preview equipment uses real rig "A"; H02 uses the authored camera-eye
+## HEAD D model. A screenshot becomes final only when approved PNG is supplied.
+const ORDER = ["H01", "H02", "T01", "A01", "L01", "B01", "WR01", "WL01"]
 const MAX_SERIAL: int = 2147483646
 const PROTOTYPES = {
     "H01": {"name": "スカウトバイザー", "slot": "head",
         "rig_set": "A", "description": "偵察用の試作頭部装備"},
+    "H02": {"name": "アイリス", "slot": "head",
+        "rig_set": "D", "description": "カメラアイ型の頭部装備"},
     "T01": {"name": "コアシャーシ", "slot": "torso",
         "rig_set": "A", "description": "機体の基礎となる試作胴体"},
     "A01": {"name": "サーボアーム", "slot": "arms",

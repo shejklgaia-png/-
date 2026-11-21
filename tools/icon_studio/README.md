@@ -37,7 +37,7 @@ python3 tools/icon_studio/install_sera_equipment_icon.py \
 
 表示された `equipment` と `source` を現行 `scripts/sera_prototype_catalog.gd`、`models/manifest.json`、正本SHA-256と照合してから、該当設計図へアイコンを登録する。元画像の縦横比は正方形、背景は透過のまま保持する。LABのカード枠や文字はPNGへ焼き込まない。画像ロードはアトラス共有／キャッシュを維持し、同一装備のカードごとに個別テクスチャを作らない。
 
-**注意:** アイリスの `H02` は、このアイコン配布HTMLで使用する予定の設計図IDです。現在のLAB製作カタログに実装されたという意味ではありません。登録・試験は別途必須です。
+**H02登録済み:** 2026-11-21にアイリスの `H02`（頭部D）をLAB製作カタログに追加しました。ユーザーが送信した `SERA_ICON_PRESET_V1` の厳密な角度・位置・倍率・輪郭設定は `assets/ui/sera_icon_presets/H02.json` に保存し、同プリセットから原本3Dメッシュをソフトウェアレンダリングした透過PNGを `assets/ui/sera_custom_equipment_icons.gd` に登録済みです。後にIcon Studioから書き出したPNGファイルそのものを受け取った場合は、メタデータ照合後に差し替えます。
 
 ## 再現性と検査
 
