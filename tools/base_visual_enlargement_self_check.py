@@ -10,7 +10,7 @@ hub=src("scripts/base_exploration.gd")
 ci=src("tools/sera_ci_manifest.txt")
 
 assert 'g.detail_scale = 1.14' in arch
-assert 'g.detail_scale = 1.28 if key == "LABO" else 1.36' in arch
+assert 'g.detail_scale = 1.45 if key == "LABO" else 1.55' in arch
 assert arch.count('node.set_meta("visual_model_scale", g.detail_scale)') == 2
 assert arch.count('g.detail_scale = 1.0\n    BaseClutter.decorate(g,') == 2
 for feature in ["NexusLeftMaintenanceAnnex", "NexusRightServiceTower",
