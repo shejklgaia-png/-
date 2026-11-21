@@ -45,6 +45,8 @@ layout=nexus[start:end]
 assert "var preview: Rect2 = _customize_square_menu_rect(view)" in layout
 assert layout.index("var preview: Rect2") < layout.index("preview.end.y")
 
+assert 'customize_part_accents = StatUI.attach_status_marks(' in nexus
+assert 'StatUI.layout_status_marks(customize_part_accents,' in nexus
 assert 'StatUI.fit_label(' in nexus
 assert 'button.text = _default_part_name(slot, selected_model)' in nexus
 assert 'py tools/nexus_split_inspector_self_check.py' in manifest
