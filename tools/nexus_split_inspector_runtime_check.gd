@@ -81,6 +81,11 @@ func _run() -> void:
     await process_frame
     for entry in entries:
         var row: Panel = entry["panel"] as Panel
+        var cell_skin: StyleBoxFlat = row.get_theme_stylebox("panel") as StyleBoxFlat
+        if cell_skin == null or cell_skin.bg_color.a > 0.01 or (
+                cell_skin.border_width_bottom != 0):
+            _fail("PART STATUS must be one matte, not a grid of outlined tiles")
+            return
         if row.visible and not single_scroll.get_global_rect().encloses(row.get_global_rect()):
             _fail("visible PART STATUS row clipped from non-scroll grid")
             return
