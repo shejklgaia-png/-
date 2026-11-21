@@ -4347,3 +4347,10 @@
 - 共通ブルーグレーグリッド（#111e28背景、#55798A 36%格子）をGodot単体3D・旧オフラインHTML・ゲーム装備アイコンに適用。1設計図1枚の2D合成キャッシュ、倉庫999アイテムで再レンダリングなし。
 - LABOの装備製作確認画面は実装済みモデルの単体3Dをタッチ回転できるようにする。1 SubViewportを遅延生成して閉じたら描画停止。製作／倉庫／セーブ本体ロジック変更なし。
 - `portable_equipment_self_check.py`/Godotプレビューランタイムを強化。旧v511のAtlasTexture必須テストを、共有背景を焼き込んだ独立Texture2Dとキャッシュ検査へ更新。
+
+
+### 2026-11-22 00:00 JST — BASE entrance orientation / scale-preserving polish
+- Preserved the current orthographic camera, seven facility placements and current 1.45x LABO / 1.55x other facility visual scales; no facility enlargement.
+- Added paired, inset amber-metal guide strips to each facility's existing front mounting skid to make the entrance direction more legible from the established oblique camera. No pad footprint, touch target or navigation changes.
+- Added and registered `tools/base_scale_lock_self_check.py` before the implementation to guard the approved sizes and camera composition.
+- Source-level verification performed via GitHub file reread. Godot executable and a checked-out working tree were unavailable in the task runtime; no engine screenshot or full CI run is claimed. Next 01:00 stage: refine distinct canopy/vent/door/chimney shapes without changing facility scale, then run engine and registered CI when a runner is available.
