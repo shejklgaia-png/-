@@ -46,6 +46,20 @@ func _run() -> void:
     if host.size.distance_to(single.size) > 1.0:
         _fail("grid viewport host must fill part-preview container")
         return
+    var scene: Node3D = single.get("preview_scene") as Node3D
+    var viewport: SubViewport = single.get("render_viewport") as SubViewport
+    if scene == null or viewport == null:
+        _fail("part preview render world missing")
+        return
+    scene.call("_sync_preview_backdrop_aspect")
+    var bg: MeshInstance3D = scene.get("background_quad") as MeshInstance3D
+    var mesh: QuadMesh = bg.mesh as QuadMesh
+    var expected: float = 2.0 * float(viewport.size.x) / (
+        maxf(1.0, float(viewport.size.y)))
+    if absf(mesh.size.x - expected) > 0.03 or (
+            absf(mesh.size.y - 2.0) > 0.01):
+        _fail("NEXUS GRID image and frame have incompatible aspect ratios")
+        return
 
     var origin: Vector2 = model_area.get_center()
     var cross: Vector2 = total.get_global_rect().get_center()
