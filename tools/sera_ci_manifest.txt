@@ -115,6 +115,9 @@ gd tools/warehouse_pinned_tabs_affix_inset_runtime_check.gd
 py tools/warehouse_affix_grid_visual_self_check.py
 gd tools/warehouse_affix_grid_visual_runtime_check.gd
 # Warehouse detail: three fixed stat columns, aligned totals and clean glyphs.
+# Warehouse detail window: compact matte bevel, square preview and status markers.
+py tools/warehouse_detail_visual_self_check.py
+gd tools/warehouse_detail_visual_runtime_check.gd
 py tools/warehouse_stats_table_self_check.py
 gd tools/warehouse_stats_table_runtime_check.gd
 # LABO names: shared blue-grey underlines and legible 3D signs.
