@@ -18,6 +18,10 @@ for key in ("LABO", "SCRAP_COLLECTOR", "SMELTER", "RECYCLER", "GENERATOR", "STOR
     assert re.search(r'"' + key + r'":\s*' + expected + r'\b', arch), key
 assert 'g.detail_scale = float(FACILITY_VISUAL_SCALE[key])' in arch
 assert 'g.detail_scale = 1.0\n    BaseClutter.decorate(g, key)' in arch
+# Inset entrance guides sit on existing pads; no extra footprint or scale.
+assert 'EntranceGuideInset' in arch
+assert 'Vector3(side * 0.54, 0.36, 0.70)' in arch
+assert 'Vector3(0.055, 0.035, 0.48)' in arch
 assert len(re.findall(r'"size": Vector3\(', facility)) == 7
 assert 'py tools/base_scale_lock_self_check.py' in manifest
 print("SERA_BASE_SCALE_LOCK_STATIC_PASS")
