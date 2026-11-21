@@ -23,4 +23,8 @@ assert "gd tools/base_page_navigation_runtime_check.gd" in manifest
 assert "quit_on_go_back=false" in project, "Android Back must not quit the app by default"
 assert "go_back_requested.connect(" in hub and "go_back_requested.connect(" in nexus
 assert "func _on_android_back(" in hub and "func _on_android_back(" in nexus
+# BASE/GRID plate must be hidden when a LABO/warehouse modal owns the screen.
+assert "facility_modal.visibility_changed.connect(_sync_base_grid_plate_visibility)" in hub
+assert "func _sync_base_grid_plate_visibility() -> void:" in hub
+assert 'grid_ui.visible = not bool(facility_system.call("is_menu_open"))' in hub
 print("SERA_PAGED_BACK_STATIC_PASS")
