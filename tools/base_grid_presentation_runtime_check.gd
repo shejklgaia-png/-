@@ -3,6 +3,7 @@ extends SceneTree
 ## and back/forward camera flow. Does not perform resource simulation.
 const Board = preload("res://scripts/sera_base_power_board.gd")
 const Ui = preload("res://scripts/sera_base_grid_ui.gd")
+const BaseScript = preload("res://scripts/base_exploration.gd")
 
 func _initialize() -> void:
     call_deferred("_run")
@@ -61,6 +62,40 @@ func _run() -> void:
     var original_position: Vector3 = cam.position
     var original_rotation: Vector3 = cam.rotation
     var original_size: float = cam.size
+    # One fast movement instead of two segments with a pause at their join.
+    if BaseScript.BASE_GRID_TRAVEL_SECONDS > 0.55 or (
+            BaseScript.GRID_EDIT_ZOOM_SECONDS > 0.52):
+        _fail("camera transitions have become slow again")
+        return
+    var from_quat: Quaternion = cam.quaternion
+    var grid_target: Vector3 = original_position + (
+        Board.board_focus() - Vector3(0.0, 0.0, -2.2))
+    var grid_scale: float = float(hub.call("_power_view_ortho_size"))
+    hub.call("_apply_grid_camera_blend", 0.35,
+        original_position, from_quat, original_size,
+        grid_target, from_quat, grid_scale)
+    if cam.position.distance_to(original_position.lerp(
+            grid_target, 0.35)) > 0.0002 or (
+            absf(cam.size - lerpf(original_size, grid_scale, 0.35)) > 0.0002):
+        _fail("BASE/GRID motion is not one straight synchronized path")
+        return
+    # The move and the view turn must share the SAME normalized progress
+    # so that the image grows without a separate pan or angular jerk.
+    var overhead: Quaternion = Basis.from_euler(
+        Vector3(-PI * 0.5, 0.0, 0.0)).get_rotation_quaternion()
+    var overhead_position: Vector3 = Board.board_focus() + (
+        Vector3(0.0, 34.0, 0.01))
+    hub.call("_apply_grid_camera_blend", 0.63,
+        original_position, from_quat, original_size,
+        overhead_position, overhead, grid_scale)
+    if cam.position.distance_to(original_position.lerp(
+            overhead_position, 0.63)) > 0.0002 or (
+            cam.quaternion.angle_to(from_quat.slerp(overhead, 0.63)) > 0.001):
+        _fail("GRID zoom arcs instead of gliding and slerping straight")
+        return
+    cam.position = original_position
+    cam.quaternion = from_quat
+    cam.size = original_size
     facilities.call("open_facility", "GENERATOR")
     if not bool(hub.get("power_view_active")) or not bool(shell.get("grid_open")):
         _fail("GENERATOR did not animate BASE plate to GRID")
