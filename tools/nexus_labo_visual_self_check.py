@@ -41,6 +41,23 @@ for expected in (
     'func _enter_base() -> void:',
 ):
     assert expected in n, expected
+# CUSTOMIZE's single depth-tested 3D backdrop must span the viewport.
+# Its blue-grey base remains translucent away from SERA's fixed radial halo;
+# both the grid and halo use the capture made before the model rotates.
+shader = (r / "shaders/nexus_customize_radial_glow.gdshader").read_text(encoding="utf-8")
+for expected in (
+    'const CUSTOMIZE_GLOW_SCREEN_WIDTH: float = 1.0',
+    'const CUSTOMIZE_GLOW_SCREEN_HEIGHT: float = 1.0',
+    'customize_glow_quad.position = Vector3(0.0, 0.0, -depth)',
+    'material.set_shader_parameter("halo_center", customize_glow_center_ratio)',
+):
+    assert expected in n, expected
+for expected in (
+    'uniform vec2 halo_center', 'uniform float base_opacity',
+    'mix(base_opacity, core_opacity', 'grid_strength * grid_mask',
+    'depth_draw_never',
+):
+    assert expected in shader, expected
 assert 'PrototypeCatalog.display_instance(' not in n, "model code must not be appended to item name"
 assert 'var icon_size: float = minf(48.0, row.size.y - 18.0)' not in n, (
     "obsolete 48px icon would still be too small")
