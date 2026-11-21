@@ -112,11 +112,13 @@ func _run() -> void:
             continue
         var title: Label = entry["name"] as Label
         var amount: Label = entry["value"] as Label
-        if title.position.y >= amount.position.y:
-            _fail("full-body metric title and number must use separate vertical lines")
+        if title.get_global_rect().end.x > amount.get_global_rect().position.x + 2.0 or (
+                amount.get_global_rect().end.x > stat_panel.get_global_rect().end.x + 1.0):
+            _fail("enlarged full-body metric labels overlap or overflow horizontally")
             return
-        if amount.position.y + amount.size.y > stat_panel.size.y + 1.0:
-            _fail("full-body metric number exceeds its tile's height")
+        if amount.position.y + amount.size.y > stat_panel.size.y + 1.0 or (
+                title.position.y + title.size.y > stat_panel.size.y + 1.0):
+            _fail("enlarged full-body metric text exceeds its row height")
             return
         if scroll.size.x >= 590.0 and not scroll.get_global_rect().encloses(
                 stat_panel.get_global_rect()):
