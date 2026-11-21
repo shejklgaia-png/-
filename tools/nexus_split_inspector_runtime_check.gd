@@ -95,6 +95,13 @@ func _run() -> void:
         if row.visible and not single_scroll.get_global_rect().encloses(row.get_global_rect()):
             _fail("visible PART STATUS row clipped from non-scroll grid")
             return
+        if row.visible:
+            var key: Label = entry["name"] as Label
+            var num: Label = entry["value"] as Label
+            if key.get_global_rect().end.x > num.get_global_rect().position.x + 2.0 or (
+                    num.get_global_rect().end.x > row.get_global_rect().end.x + 1.0):
+                _fail("large PART STATUS text overlaps or clips across columns")
+                return
     if (entries[0]["name"] as Label).get_theme_font_size("font_size") < 18 or (
             (entries[0]["value"] as Label).get_theme_font_size("font_size") < 23):
         _fail("PART STATUS uses undersized typography")
