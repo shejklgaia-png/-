@@ -4,6 +4,7 @@ signal power_board_requested
 const BaseMaterials = preload("res://scripts/sera_base_materials.gd")
 const BaseArchitecture = preload("res://scripts/sera_base_architecture.gd")
 const IconAtlas = preload("res://scripts/sera_item_icons.gd")
+const EquipmentPreview = preload("res://tools/equipment_intake/godot_preview.gd")
 const PrototypeCatalog = preload("res://scripts/sera_prototype_catalog.gd")
 const LaboSkin = preload("res://scripts/sera_labo_round_skin.gd")
 const MarkIcon = preload("res://scripts/sera_mark_icon.gd")
@@ -71,6 +72,9 @@ var confirmation_subtitle: Label
 var confirmation_prompt: Label
 var confirmation_craft_card: PanelContainer
 var confirmation_item_icon: TextureRect
+var confirmation_preview_host: SubViewportContainer
+var confirmation_preview_viewport: SubViewport
+var confirmation_preview_scene: Node3D
 var confirmation_item_name: Label
 var confirmation_item_slot: Label
 var confirmation_item_stats: Label
@@ -821,7 +825,19 @@ func attach_hud(hud: Control) -> void:
     confirmation_item_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
     confirmation_item_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
     confirmation_item_icon.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+    confirmation_item_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
     craft_info.add_child(confirmation_item_icon)
+    # The same real part-only SeraRig preview used by the authoring tool.
+    # It is instantiated lazily, once, only when the craft dialog is opened.
+    confirmation_preview_host = SubViewportContainer.new()
+    confirmation_preview_host.name = "LaboConfirmRotatablePart"
+    # Preserve the original icon footprint on narrow Android portrait screens.
+    confirmation_preview_host.custom_minimum_size = Vector2(136, 136)
+    confirmation_preview_host.stretch = true
+    confirmation_preview_host.mouse_filter = Control.MOUSE_FILTER_STOP
+    confirmation_preview_host.mouse_default_cursor_shape = Control.CURSOR_MOVE
+    confirmation_preview_host.visible = false
+    craft_info.add_child(confirmation_preview_host)
     var craft_info_column := VBoxContainer.new()
     craft_info_column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
     craft_info_column.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -926,6 +942,8 @@ func _request_confirmation(title: String, detail: String, action: Callable,
     if is_craft:
         var spec: Dictionary = PrototypeCatalog.spec(equipment_blueprint)
         confirmation_item_icon.texture = IconAtlas.equipment_icon(equipment_blueprint)
+        confirmation_item_icon.visible = true
+        confirmation_preview_host.visible = false
         confirmation_item_name.text = str(spec.get("name", ""))
         confirmation_item_slot.text = "EQUIPMENT / " + str(
             spec.get("slot", "")).to_upper()
@@ -933,10 +951,67 @@ func _request_confirmation(title: String, detail: String, action: Callable,
         LaboSkin.refresh_name_underline(confirmation_item_name)
     confirmation_overlay.visible = true
     confirmation_overlay.move_to_front()
+    if is_craft:
+        call_deferred("_show_craft_rotatable_part", equipment_blueprint)
+
+func _ensure_craft_part_preview() -> void:
+    if is_instance_valid(confirmation_preview_scene):
+        return
+    confirmation_preview_viewport = SubViewport.new()
+    confirmation_preview_viewport.name = "CraftEquipmentViewport"
+    confirmation_preview_viewport.size = Vector2i(288, 288)
+    confirmation_preview_viewport.own_world_3d = true
+    confirmation_preview_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+    confirmation_preview_host.add_child(confirmation_preview_viewport)
+    confirmation_preview_scene = EquipmentPreview.new()
+    confirmation_preview_scene.name = "CraftNativePartViewer"
+    confirmation_preview_viewport.add_child(confirmation_preview_scene)
+
+func _show_craft_rotatable_part(blueprint: String) -> void:
+    if confirmation_overlay == null or not confirmation_overlay.visible:
+        return
+    var spec: Dictionary = PrototypeCatalog.spec(blueprint)
+    if spec.is_empty():
+        return
+    _ensure_craft_part_preview()
+    confirmation_preview_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+    # First-time SeraRig loads asynchronously. Never expose an empty 3D panel.
+    for index in range(12):
+        if not is_instance_valid(confirmation_preview_scene):
+            return
+        if bool(confirmation_preview_scene.get("ready_for_commands")):
+            break
+        await get_tree().process_frame
+    if not is_instance_valid(confirmation_preview_scene) or not (
+            bool(confirmation_preview_scene.get("ready_for_commands"))):
+        push_warning("LABO craft 3D preview could not initialize; static icon retained")
+        return
+    if not confirmation_overlay.visible or (
+            confirmation_item_name.text != str(spec.get("name", ""))):
+        return
+    var selected_parts: Dictionary = {}
+    for slot in SeraSave.EQUIPMENT_SLOTS:
+        selected_parts[slot] = "A"
+    # rig_set is an internal source-model identifier, not an equipment set.
+    var edited_slot: String = str(spec.get("slot", "head"))
+    selected_parts[edited_slot] = str(spec.get("rig_set", "A"))
+    confirmation_preview_scene.call("_apply_command", {
+        "mode": "icon", "editing_slot": edited_slot,
+        "selected": selected_parts, "size": 1.0, "keep_aspect": true,
+        "background_mode": "grid",
+        "camera": {"yaw": 160.0, "pitch": -18.0, "roll": 0.0,
+            "panX": 0.0, "panY": 0.0, "zoom": 1.0, "outlinePx": 3.0},
+        "seq": -1})
+    confirmation_item_icon.visible = false
+    confirmation_preview_host.visible = true
 
 func _dismiss_confirmation() -> void:
     pending_confirmation = Callable()
     _set_labo_scroll_input_enabled(true)
+    if confirmation_preview_host != null:
+        confirmation_preview_host.visible = false
+    if confirmation_preview_viewport != null:
+        confirmation_preview_viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
     if confirmation_overlay != null:
         confirmation_overlay.visible = false
 

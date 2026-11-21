@@ -4,6 +4,7 @@ extends Node3D
 ## stage lighting as the game are used: NO Blockbench-to-WebGL reconstruction.
 const RigScript = preload("res://scripts/sera_rig.gd")
 const PartStats = preload("res://scripts/sera_part_stats.gd")
+const IconBackdrop = preload("res://scripts/sera_icon_background.gd")
 const SLOT_ORDER = [
     "head", "torso", "arms", "legs", "booster", "weapon_r", "weapon_l"
 ]
@@ -34,7 +35,10 @@ var current_target_scale: float = 1.0
 var keep_aspect: bool = false
 var _listeners: Array = []
 var _touches: Dictionary = {}
+var _gesture_anchor: Dictionary = {}
 var _mouse_drag: bool = false
+var background_mode: String = "grid"
+var background_quad: MeshInstance3D
 var _js_callback: JavaScriptObject
 var _last_request_seq: int = -1
 
@@ -65,6 +69,22 @@ func _ready() -> void:
     camera.position = Vector3(0.0, 0.0, 8.0)
     add_child(camera)
     camera.make_current()
+    background_quad = MeshInstance3D.new()
+    background_quad.name = "EquipmentPortraitGridBackdrop"
+    var quad := QuadMesh.new()
+    quad.size = Vector2(PORTRAIT_SIZE, PORTRAIT_SIZE)
+    background_quad.mesh = quad
+    var backdrop_material := StandardMaterial3D.new()
+    backdrop_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+    backdrop_material.albedo_texture = IconBackdrop.texture(512, "grid")
+    backdrop_material.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
+    backdrop_material.cull_mode = BaseMaterial3D.CULL_DISABLED
+    background_quad.material_override = backdrop_material
+    background_quad.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+    background_quad.position = Vector3(0.0, 0.0, -10.0)
+    add_child(background_quad)
+    # GRID is an optional overlay on the current solid #111e28 backdrop.
+    background_quad.visible = false
 
     orbit = Node3D.new()
     orbit.name = "IntakeCameraOrientation"
@@ -293,6 +313,8 @@ func _apply_command(data: Dictionary) -> void:
         for slot in SLOT_ORDER:
             selected[slot]=str(requested.get(slot,"A"))
     current_target_scale=clampf(float(data.get("size",1.0)),MIN_ZOOM,MAX_ZOOM)
+    background_mode = "solid" if str(data.get("background_mode","grid"))=="solid" else "grid"
+    background_quad.visible = view_mode == "icon" and background_mode == "grid"
     keep_aspect=bool(data.get("keep_aspect",false))
     var view: Variant = data.get("camera",{})
     if view is Dictionary:
@@ -363,50 +385,87 @@ func _announce_camera() -> void:
         "yaw":camera_yaw,"pitch":camera_pitch,"roll":camera_roll,
         "panX":camera_pan.x,"panY":camera_pan.y,"zoom":camera_zoom}})
 
+func _reanchor_gesture() -> void:
+    # Finger count changes are discontinuities, NEVER interpreted as drags.
+    _gesture_anchor.clear()
+    if _touches.size() != 2:
+        return
+    var points: Array = _touches.values()
+    var a: Vector2 = points[0]
+    var b: Vector2 = points[1]
+    _gesture_anchor = {
+        "center": (a + b) * 0.5,
+        "distance": a.distance_to(b)
+    }
+
+func _on_preview_touch(index: int, pressed: bool, position: Vector2) -> void:
+    if pressed:
+        _touches[index] = position
+    else:
+        _touches.erase(index)
+    _reanchor_gesture()
+
+func _on_preview_drag(index: int, position: Vector2) -> void:
+    if not _touches.has(index):
+        return
+    var old_position: Vector2 = _touches[index]
+    _touches[index] = position
+    if _touches.size() == 2:
+        var values: Array = _touches.values()
+        var a: Vector2 = values[0]
+        var b: Vector2 = values[1]
+        var next_center: Vector2 = (a + b) * 0.5
+        var next_distance: float = a.distance_to(b)
+        if _gesture_anchor.is_empty():
+            _reanchor_gesture()
+            return
+        var last_center: Vector2 = _gesture_anchor["center"]
+        var last_distance: float = float(_gesture_anchor["distance"])
+        # Normalize by viewport width, not by raw physical pixels.
+        var width: float = maxf(float(get_viewport().get_visible_rect().size.x), 100.0)
+        var movement: Vector2 = next_center - last_center
+        if movement.length() < width * 0.18:
+            camera_pan += Vector2(movement.x, -movement.y) * (2.0 / width)
+        if last_distance > 24.0 and next_distance > 24.0:
+            var relative: float = clampf(next_distance / last_distance, 0.88, 1.12)
+            camera_zoom = clampf(camera_zoom * relative, MIN_ZOOM, MAX_ZOOM)
+        _gesture_anchor["center"] = next_center
+        _gesture_anchor["distance"] = next_distance
+    elif _touches.size() == 1:
+        _gesture_anchor.clear()
+        var delta: Vector2 = position - old_position
+        var width: float = maxf(float(get_viewport().get_visible_rect().size.x), 100.0)
+        if delta.length() < width * 0.18:
+            camera_yaw = wrapf(camera_yaw + delta.x * 0.4, -180.0, 180.0)
+            camera_pitch = clampf(camera_pitch - delta.y * 0.4, -89.0, 89.0)
+    camera_pan = camera_pan.clamp(Vector2(-0.7, -0.7), Vector2(0.7, 0.7))
+    _apply_frame()
+    _announce_camera()
+
 func _input(event: InputEvent) -> void:
     if not ready_for_commands:
         return
     if event is InputEventScreenTouch:
-        if event.pressed:
-            _touches[event.index]=event.position
-        else:
-            _touches.erase(event.index)
+        _on_preview_touch(event.index, event.pressed, event.position)
         get_viewport().set_input_as_handled()
     elif event is InputEventScreenDrag:
-        if _touches.has(event.index):
-            var old_pos: Vector2=_touches[event.index]
-            if _touches.size()>=2:
-                var other_pos: Vector2=old_pos
-                for key in _touches:
-                    if int(key)!=event.index:
-                        other_pos=_touches[key]
-                        break
-                var old_dist: float=old_pos.distance_to(other_pos)
-                var new_dist: float=event.position.distance_to(other_pos)
-                if old_dist>2.0:
-                    camera_zoom=clampf(camera_zoom*new_dist/old_dist,MIN_ZOOM,MAX_ZOOM)
-                camera_pan+=Vector2(event.relative.x,-event.relative.y)*0.003
-            else:
-                camera_yaw=wrapf(camera_yaw+event.relative.x*0.4,-180.0,180.0)
-                camera_pitch=clampf(camera_pitch-event.relative.y*0.4,-89.0,89.0)
-            _touches[event.index]=event.position
-            camera_pan=camera_pan.clamp(Vector2(-0.7,-0.7),Vector2(0.7,0.7))
-            _apply_frame()
-            _announce_camera()
-            get_viewport().set_input_as_handled()
+        _on_preview_drag(event.index, event.position)
+        get_viewport().set_input_as_handled()
     elif event is InputEventMouseButton:
-        if event.button_index==MOUSE_BUTTON_LEFT:
-            _mouse_drag=event.pressed
-        elif event.pressed and event.button_index==MOUSE_BUTTON_WHEEL_UP:
-            camera_zoom=clampf(camera_zoom*1.1,MIN_ZOOM,MAX_ZOOM)
+        if not _touches.is_empty():
+            return
+        if event.button_index == MOUSE_BUTTON_LEFT:
+            _mouse_drag = event.pressed
+        elif event.pressed and event.button_index == MOUSE_BUTTON_WHEEL_UP:
+            camera_zoom = clampf(camera_zoom * 1.1, MIN_ZOOM, MAX_ZOOM)
             _apply_frame()
             _announce_camera()
-        elif event.pressed and event.button_index==MOUSE_BUTTON_WHEEL_DOWN:
-            camera_zoom=clampf(camera_zoom/1.1,MIN_ZOOM,MAX_ZOOM)
+        elif event.pressed and event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
+            camera_zoom = clampf(camera_zoom / 1.1, MIN_ZOOM, MAX_ZOOM)
             _apply_frame()
             _announce_camera()
     elif event is InputEventMouseMotion and _mouse_drag and _touches.is_empty():
-        camera_yaw=wrapf(camera_yaw+event.relative.x*0.4,-180.0,180.0)
-        camera_pitch=clampf(camera_pitch-event.relative.y*0.4,-89.0,89.0)
+        camera_yaw = wrapf(camera_yaw + event.relative.x * 0.4, -180.0, 180.0)
+        camera_pitch = clampf(camera_pitch - event.relative.y * 0.4, -89.0, 89.0)
         _apply_frame()
         _announce_camera()

@@ -7,6 +7,8 @@ const ATLAS_PATH: String = "res://assets/ui/sera_matte_icon_atlas.webp"
 # Approved per-blueprint model screenshots; Base64 holds original PNG bytes,
 # requiring no binary asset upload through GitHub text-content integrations.
 const CustomEquipmentIcons = preload("res://assets/ui/sera_custom_equipment_icons.gd")
+const IconBackground = preload("res://scripts/sera_icon_background.gd")
+static var _presented_equipment_cache: Dictionary = {}
 static var _custom_equipment_icon_cache: Dictionary = {}
 
 # The original atlas retains all 7 equipment portraits unchanged.
@@ -204,14 +206,19 @@ static func _approved_equipment_icon(blueprint_id: String) -> Texture2D:
 
 
 static func equipment_icon(blueprint_id: String) -> Texture2D:
-    # The approved custom model portrait overrides the old sample atlas, only
-    # for its exact blueprint. Reuse the texture across LAB/Warehouse/NEXUS.
-    var approved: Texture2D = _approved_equipment_icon(blueprint_id)
-    if approved != null:
-        return approved
-    if not EQUIPMENT_INDICES.has(blueprint_id):
+    # One 2D blend per blueprint, not a SubViewport or draw on every card.
+    # Existing transparent approved PNGs and the legacy atlas receive the same
+    # grid + solid navy background everywhere: LABO/Warehouse/NEXUS.
+    if _presented_equipment_cache.has(blueprint_id):
+        return _presented_equipment_cache[blueprint_id] as Texture2D
+    var source: Texture2D = _approved_equipment_icon(blueprint_id)
+    if source == null and EQUIPMENT_INDICES.has(blueprint_id):
+        source = _frame(int(EQUIPMENT_INDICES[blueprint_id]))
+    if source == null:
         return null
-    return _frame(int(EQUIPMENT_INDICES[blueprint_id]))
+    var presented: Texture2D = IconBackground.composite(source)
+    _presented_equipment_cache[blueprint_id] = presented
+    return presented
 
 static func icon_for(item_id: String) -> Texture2D:
     if MATERIAL_INDICES.has(item_id):
