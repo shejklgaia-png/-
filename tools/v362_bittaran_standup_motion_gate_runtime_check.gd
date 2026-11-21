@@ -64,8 +64,8 @@ func _check_case(battle: Node3D, expected_motion: String,
     var locomotion_released_at: int = -1
     var post_down_idle_frames: int = 0
     var actual_down_seconds: float = (
-        5.88 if broken_leg_ids.size() == 4 else 2.42)
-    for frame in range(470):
+        6.0 if broken_leg_ids.size() == 4 else 2.5)
+    for frame in range(1100):
         var was_ready: bool = bool(ik.call("locomotion_ready"))
         var turn_enabled: bool = bool(ik.call("standup_turn_enabled", DT))
         var original_position: Vector3 = target.position
@@ -171,5 +171,5 @@ func _run() -> void:
         return
     print("GODOT_V362_BITTARAN_STANDUP_PASS: Idle during fall, "
         + "Turn/Approach clips and movement from stand-up first frame, "
-        + "2.42/5.88s and 0.24s pose settle preserved")
+        + "2.5/6.0s after source contact and 0.24s pose settle preserved")
     quit(0)
