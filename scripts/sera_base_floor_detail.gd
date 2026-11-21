@@ -94,6 +94,30 @@ static func decorate(floor: Node3D, panels: Array[Dictionary]) -> void:
                     _put(groups, "MaintenanceHatches",
                         Vector3(cx - 0.32 + float(row) * 0.35, 0.024, cz - 0.10),
                         Vector3(0.045, 0.017, 0.72), "edge")
+            # Close-range weld scabs and strip repairs stay inside filler
+            # plates. Single-piece equipment pads remain wholly untouched.
+            if wear in [0, 3, 5] and size.x >= 2.8 and size.y >= 2.8:
+                for weld in range(4):
+                    _put(groups, "DeckPlateEdgeWelds",
+                        Vector3(cx - edge_x + 0.30 + weld * 0.18,
+                            0.009, cz - edge_z + 0.37),
+                        Vector3(0.045, 0.018, 0.26),
+                        "edge" if weld % 2 == 0 else "seam")
+            if wear in [0, 5] and size.x >= 2.8 and size.y >= 2.8:
+                for rivet in range(4):
+                    _put(groups, "DeckFastenerRows",
+                        Vector3(cx + edge_x - 0.34,
+                            0.014, cz - 0.46 + rivet * 0.30),
+                        Vector3(0.075, 0.035, 0.075), "bolt")
+            if wear in [1, 6] and size.x >= 2.8 and size.y >= 2.8:
+                # Narrow seams and aged scuffs, not a light checkerboard.
+                for scratch in range(3):
+                    _put(groups, "DeckServiceScuffs",
+                        Vector3(cx - 0.36 + scratch * 0.25,
+                            0.007, cz - 0.26 + scratch * 0.11),
+                        Vector3(0.22 + scratch * 0.11, 0.012, 0.024),
+                        "mark" if scratch == 1 else "seam",
+                        -0.21 + scratch * 0.09)
         else:
             # Large one-piece foundations are deliberately uninterrupted:
             # no central grates, hatches, repair seams or division marks.
