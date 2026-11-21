@@ -198,9 +198,9 @@ func _build_hangar() -> void:
     # Keep legacy decorative models away from interactive equipment footprints.
     # Decorative Blockbench props occupy the frame edges, never machinery
     # foundations or raw touch pick volumes in the orthographic composition.
-    _add_module("maintenance_canopy", Vector3(-20.2, 0.0, -13.6), 0.0, 0.62)
-    _add_module("kiosk", Vector3(-4.0, 0.0, -22.5), 0.0, 0.85)
-    _add_module("data_bank", Vector3(22.0, 0.0, -9.0), 0.0, 0.52)
+    _add_module("maintenance_canopy", Vector3(-20.2, 0.0, -13.6), deg_to_rad(19.0), 0.62)
+    _add_module("kiosk", Vector3(-4.0, 0.0, -22.5), deg_to_rad(-15.0), 0.85)
+    _add_module("data_bank", Vector3(22.0, 0.0, -9.0), deg_to_rad(24.0), 0.52)
     var cube := BoxMesh.new()
     cube.size = Vector3.ONE
     for palette_index in batches.keys():
@@ -224,8 +224,9 @@ func _build_nexus_building() -> void:
     nexus_building.name = "NEXUSBuilding"
     nexus_building.position = NEXUS_BUILDING_ORIGIN
     add_child(nexus_building)
-    _box(nexus_building, "Foundation", Vector3(0, 0.23, 0),
+    var foundation: MeshInstance3D = _box(nexus_building, "Foundation", Vector3(0, 0.23, 0),
         Vector3(6.4, 0.46, 5.4), Color("#46535c"))
+    foundation.rotation.y = BaseArchitecture.facility_yaw_radians("NEXUS")
     BaseArchitecture.build_nexus(nexus_building)
     var sign := Label3D.new()
     sign.name = "NEXUSBuildingSign"
@@ -274,6 +275,8 @@ func _create_salvage() -> void:
         var pile := Node3D.new()
         pile.name = "ScrapPile_%02d" % i
         pile.position = lots[i]
+        # One stable yaw for the complete three-piece pile; no random per-frame roll.
+        pile.rotation.y = deg_to_rad(float(-26 + posmod(i * 23 + 7, 55)))
         add_child(pile)
         _box(pile, "StackBase", Vector3(0, 0.20, 0),
             Vector3(0.90, 0.40, 0.76), Color("#46536a"))
@@ -337,10 +340,11 @@ func _nexus_screen_rect() -> Rect2:
         return Rect2()
     var low := Vector2(INF, INF)
     var high := Vector2(-INF, -INF)
+    var turn := Basis(Vector3.UP, BaseArchitecture.facility_yaw_radians("NEXUS"))
     for x in [-3.25, 3.25]:
         for y in [0.0, 4.9]:
             for z in [-2.8, 2.8]:
-                var vertex: Vector3 = nexus_building.to_global(Vector3(x, y, z))
+                var vertex: Vector3 = nexus_building.to_global(turn * Vector3(x, y, z))
                 if cam.is_position_behind(vertex):
                     continue
                 var pixel: Vector2 = cam.unproject_position(vertex)
