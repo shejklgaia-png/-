@@ -39,10 +39,68 @@ func _run() -> void:
             details.text.find("基礎ステータス") < 0)):
         _fail("item preview/stats missing from the creation modal")
         return
+    var layout: VBoxContainer = overlay.find_child(
+        "LaboConfirmLayout", true, false) as VBoxContainer
+    var heading: Label = overlay.find_child(
+        "LaboConfirmTitle", true, false) as Label
+    var decision: Label = overlay.find_child(
+        "LaboConfirmPrompt", true, false) as Label
+    var confirm_system: Label = overlay.find_child(
+        "LaboConfirmSystem", true, false) as Label
+    var confirm_subtitle: Label = overlay.find_child(
+        "LaboConfirmSubtitle", true, false) as Label
+    var cancel: Button = overlay.find_child(
+        "LaboConfirmCancel", true, false) as Button
+    var accept: Button = overlay.find_child(
+        "LaboConfirmAccept", true, false) as Button
+    if layout == null or heading == null or decision == null or (
+            confirm_system == null or confirm_subtitle == null or (
+            cancel == null or accept == null)):
+        _fail("item-focused craft confirmation hierarchy is incomplete")
+        return
+    if heading.text != "以下の装備を作成します" or (
+            heading.get_theme_font_size("font_size") < 30 or
+            decision.text != "作成しますか？" or (
+            decision.get_theme_font_size("font_size") < 22)):
+        _fail("craft confirmation needs a large top message and bottom question")
+        return
+    if confirm_system.visible or confirm_subtitle.visible or (
+            overlay.find_child("LaboConfirmSaveNotice", true, false) != null):
+        _fail("obsolete system title/subtitle or warehouse-save note still shown")
+        return
+    if craft_card.custom_minimum_size.y < 260.0 or (
+            picture.custom_minimum_size.x < 130.0 or
+            nameplate.get_theme_font_size("font_size") < 27 or
+            details.get_theme_font_size("font_size") < 18):
+        _fail("equipment icon, name and stats must dominate the confirmation")
+        return
+    if details.text.contains("現行Aセット参照") or (
+            details.text.contains("装備の作成確認")):
+        _fail("obsolete A-set reference or repeated confirmation label")
+        return
+    if not (heading.get_index() < craft_card.get_index() and
+            craft_card.get_index() < decision.get_index() and
+            decision.get_index() < cancel.get_parent().get_index()):
+        _fail("confirmation visual order must be heading, equipment, question, buttons")
+        return
+    if cancel.get_parent() != accept.get_parent() or (
+            cancel.text != "キャンセル" or accept.text != "作成"):
+        _fail("create and cancel must remain equal-height adjacent buttons")
+        return
+
     fac.call("_dismiss_confirmation")
     if overlay.visible:
         _fail("cancel did not hide confirmation")
         return
+    # The shared non-craft confirmation must preserve its existing behavior.
+    fac.call("_request_confirmation", "廃棄の確認", "確認用の操作",
+        Callable(fac, "_dismiss_confirmation"))
+    if not overlay.visible or heading.text != "廃棄の確認" or (
+            not confirm_system.visible or not confirm_subtitle.visible or
+            craft_card.visible or not (fac.get("confirmation_text") as Label).visible):
+        _fail("refinery/disposal confirmation behavior regressed")
+        return
+    fac.call("_dismiss_confirmation")
     fac.call("_switch_section", "materials")
     fac.call("_select_conversion_family", "scrap")
     var actions: VBoxContainer = fac.get("modal_actions") as VBoxContainer
