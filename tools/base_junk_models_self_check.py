@@ -17,7 +17,7 @@ assert "static func scrap_heap(" in junk
 assert "const PANEL_SHAPES = 6" in junk
 assert "const SCRAP_PROFILES = 5" in junk
 for kind in ("notched", "bent", "trapezoid", "ribbed", "short", "long"):
-    assert '"'+kind+'"' in junk, "missing distinct shape: "+kind
+    assert '"'+kind+'"' in pile_models, "missing distinct shape: "+kind
 for kind in ("plate", "tube", "gear", "frame", "axle", "cable", "housing"):
     assert kind in junk, "missing salvage type: "+kind
 assert "g.box_tilt(" in junk
