@@ -182,7 +182,7 @@ func _run() -> void:
                 return
         total += authored.size()
     if container_groups < 7 or not counts.has(2) or not counts.has(3) or (
-            not counts.has(4)) or total != 68:
+            not counts.has(4)) or total != 76:
         _fail("stack counts did not vary across the eight sites")
         return
     print("SERA_BASE_PROP_STACKS_RUNTIME_PASS groups=", total,
