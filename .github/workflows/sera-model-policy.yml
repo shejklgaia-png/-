@@ -32,7 +32,7 @@ jobs:
   model-policy:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
     steps:
       - uses: actions/checkout@v4
         with:
@@ -78,6 +78,29 @@ jobs:
         run: '"$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" --headless --editor --path . --import --quit'
       # Headless tests verify nodes and coordinates, but cannot prove Android
       # card pixels exist. Exercise the actual software OpenGL framebuffer.
+      - name: Capture and register all 19 real SeraRig equipment icons
+        env:
+          SERA_UI_RENDER_DIR: ${{ runner.temp }}/sera-ui-render
+        run: |
+          set -euo pipefail
+          mkdir -p "$SERA_UI_RENDER_DIR" assets/ui/sera_equipment_icons
+          if ! command -v xvfb-run >/dev/null; then
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq xvfb
+          fi
+          GODOT="$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64"
+          xvfb-run -a -s '-screen 0 720x1280x24' \
+            "$GODOT" --path . --rendering-method gl_compatibility \
+            --script tools/icon_studio/sera_godot_native_capture.gd
+          python3 tools/icon_studio/annotate_godot_native_png.py \
+            --png "$SERA_UI_RENDER_DIR/SERA_H02_IRIS_GODOT_512.png"
+          cp "$SERA_UI_RENDER_DIR/SERA_H02_IRIS_GODOT_512.png" \
+            assets/ui/sera_equipment_icons/H02.png
+          xvfb-run -a -s '-screen 0 720x1280x24' \
+            "$GODOT" --path . --rendering-method gl_compatibility \
+            --script tools/icon_studio/sera_all_native_capture.gd
+          python3 tools/icon_studio/validate_all_icons.py
+          "$GODOT" --headless --editor --path . --import --quit
       - name: Verify actual facility card pixels in a virtual display
         env:
           SERA_UI_RENDER_DIR: ${{ runner.temp }}/sera-ui-render
@@ -167,3 +190,16 @@ jobs:
           python3 tools/sera_agent_audits_self_check.py
           python3 tools/sera_parameter_audit.py
           python3 tools/sera_change_impact.py --changed scripts/main.gd --json > /dev/null
+      # The screenshots are generated and checked in CI, not during Android
+      # gameplay. A bot commit publishes exactly the reviewed model portraits.
+      - name: Publish verified native portrait cache to main
+        if: github.ref == 'refs/heads/main' && success()
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add assets/ui/sera_equipment_icons
+          if ! git diff --cached --quiet; then
+            git commit -m "assets: publish 19 real SeraRig native equipment portraits [skip ci]"
+            git push origin HEAD:main
+          fi

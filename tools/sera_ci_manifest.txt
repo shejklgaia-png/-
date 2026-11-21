@@ -1,3 +1,6 @@
+# All real equipable models/blueprints/stats and renderer-produced icon cache.
+py tools/equipment_registry_self_check.py
+gd tools/equipment_registry_runtime_check.gd
 # Historical and active-contract regression tests executed by SERA model-policy CI.
 # New display-only octagonal equipment frame: cached 72/512px and no material changes.
 py tools/equipment_icon_tech_frame_self_check.py
