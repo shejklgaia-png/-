@@ -26,7 +26,7 @@ assert 'LaboSkin.tracked_display_font() if key.begins_with("LockedCraftSlot_")' 
 assert 'LaboSkin.tracked_data_font() if key.begins_with("LockedCraftSlot_")' in ui
 assert 'LaboSkin.stats_font()))' in ui
 assert 'recipe_info.add_theme_font_override("font", LaboSkin.ui_font())' in ui
-assert 'info_label.add_theme_font_size_override("font_size", 17)' in ui
+assert '"font_size", 17 if key.begins_with("LockedCraftSlot_") else 20)' in ui
 assert 'title.add_theme_font_override("font", (' in store
 assert 'effects.add_theme_font_override("font", LaboSkin.stats_font())' in store
 assert 'empty.add_theme_font_override("font", LaboSkin.tracked_display_font())' in store
