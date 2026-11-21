@@ -662,5 +662,5 @@ static func build_facility(parent: Node3D, key: String) -> void:
                 "#ffc58d", 1.22, 3.20)
         "BUILD_TERMINAL":
             _light(node, "TerminalWorkLight", Vector3(0.0, 2.23, 0.54),
-                "#8ccefa", 1.00, 3.10))
+                "#8ccefa", 1.00, 3.10)
 
