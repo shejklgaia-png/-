@@ -63,10 +63,6 @@ jobs:
                       shutil.copyfileobj(source,target)
                   print('GODOT_WEB_TEMPLATE',name,(dest/name).stat().st_size)
           PY
-      - name: Verify original Godot rig and equipment in headless Godot
-        run: |
-          set -euo pipefail
-          "$GODOT_BIN" --headless --path . --script tools/equipment_intake/preview_runtime_check.gd
       - name: Assemble minimal real-game Godot project and styled HTML shell
         run: |
           python3 tools/equipment_intake/build_web_preview.py \
@@ -77,6 +73,7 @@ jobs:
         run: |
           set -euo pipefail
           "$GODOT_BIN" --headless --editor --path "$RUNNER_TEMP/sera-web-project" --import --quit
+          "$GODOT_BIN" --headless --path "$RUNNER_TEMP/sera-web-project" --script tools/equipment_intake/preview_runtime_check.gd
           "$GODOT_BIN" --headless --path "$RUNNER_TEMP/sera-web-project" \
             --export-release "SERA Equipment Web" "$RUNNER_TEMP/sera-equipment-site/preview/preview.html"
           test -s "$RUNNER_TEMP/sera-equipment-site/preview/preview.html"
