@@ -34,10 +34,12 @@ static func rows_for(count: int, pattern: int) -> Array[int]:
 
 static func model_for(count: int, pattern: int) -> Array[Dictionary]:
     var style: int = posmod(pattern, PATTERNS)
-    var rows: Array[int] = rows_for(count, style)
+    # Godot array literals are untyped at runtime, even when returned from
+    # a typed function. Do not assign them to Array[int] here.
+    var rows: Array = rows_for(count, style)
     var pieces: Array[Dictionary] = []
     for tier in range(rows.size()):
-        var n: int = rows[tier]
+        var n: int = int(rows[tier])
         for i in range(n):
             var center: float = (float(i) - float(n - 1) * 0.5)
             var step: float = (
