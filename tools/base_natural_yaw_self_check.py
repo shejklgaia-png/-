@@ -14,6 +14,7 @@ assert "pivot + spin * (at - pivot)" in arch
 assert "BaseClutter.decorate(g, key)" in arch and 'BaseClutter.decorate(g, "NEXUS")' in arch
 assert "func props_for(key: String) -> Array[Dictionary]:" in clutter
 assert 'item["yaw_deg"]' in clutter
+assert "g.get_property_list()" in clutter, "capture-only renderers without yaw must remain supported"
 assert "g.pivot = Vector3(" in clutter and "g.yaw = deg_to_rad(" in clutter
 assert "foundation.rotation.y = BaseArchitecture.facility_yaw_radians(key)" in fac
 assert 'BaseArchitecture.facility_yaw_radians("NEXUS")' in base
