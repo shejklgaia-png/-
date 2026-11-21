@@ -1253,6 +1253,17 @@ func reset() -> void:
     authored_down_replant_first_pair = 0
     authored_down_replant_completed = false
     body_fall_impact_armed = false
+    # Source-ground runtime reset used to leave the previous break clock
+    # active when a new encounter reused the same battle scene.
+    break_elapsed = -1.0
+    windup_elapsed = -1.0
+    break_leg_index = -1
+    break_recover_start = LEG_BREAK_REACTION_SECONDS
+    break_duration = (LEG_BREAK_REACTION_SECONDS
+        + DOWN_REPLANT_SECONDS + SINGLE_LEG_RISE_SECONDS)
+    post_down_idle_remaining = 0.0
+    recovery_gait_started = false
+    recovery_catchup_pending_pair = -1
     if source_ik_enabled:
         # Respawn/reset must preserve the fixed v434 floor calibration.
         # Legacy reset would re-tuck all legs and resurrect the old
