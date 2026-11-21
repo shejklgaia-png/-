@@ -98,6 +98,30 @@ jobs:
             "$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" \
             --path . --rendering-method gl_compatibility \
             --script tools/base_junk_visual_capture.gd
+      # Use the *same* compiled Godot GL Compatibility armor materials,
+      # camera-dependent outline shader and combat-stage lights as SERA.
+      # This is build-time capture, never a per-card/per-frame Android cost.
+      - name: Capture IRIS with real Godot GL Compatibility renderer
+        env:
+          SERA_UI_RENDER_DIR: ${{ runner.temp }}/sera-ui-render
+        run: |
+          set -euo pipefail
+          mkdir -p "$SERA_UI_RENDER_DIR"
+          xvfb-run -a -s '-screen 0 720x1280x24' \
+            "$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" \
+            --path . --rendering-method gl_compatibility \
+            --script tools/icon_studio/sera_godot_native_capture.gd
+          python3 tools/icon_studio/annotate_godot_native_png.py \
+            --png "$SERA_UI_RENDER_DIR/SERA_H02_IRIS_GODOT_512.png"
+          test -s "$SERA_UI_RENDER_DIR/SERA_H02_IRIS_GODOT_512.png"
+      - name: Upload native SERA equipment portrait
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sera-native-equipment-icon
+          path: ${{ runner.temp }}/sera-ui-render/SERA_H02_IRIS_GODOT_512.png
+          if-no-files-found: warn
+          retention-days: 14
       - name: Upload actual software-rendered facility screenshots
         if: always()
         uses: actions/upload-artifact@v4

@@ -1,3 +1,11 @@
+## 2026-11-21 — 装備アイコンの描画をSERA本体Godotと一致させるオフライン撮影工程
+- `SERA_ICON_PRESET_V1` のカメラ姿勢、拡縮・移動はIcon Studio WebGLからそのまま引き継ぐが、ゲーム用最終画像は独自CPU/WebGLレンダリングを使わずSERA自身のGL Compatibility GPUレンダリングに切り替える。
+- `tools/icon_studio/sera_godot_native_capture.gd` は実ゲームのHEAD Dモデル・材質・UV・16x16原本テクスチャと`sera_view_edges.gd`のリアルなアウトラインシェーダーを共用し、戦闘`main.gd`に記載の環境光・KeyLight値を採用。512px透明SubViewportで一度だけ描画・フレームバッファ読込。
+- 通常Androidゲームの各装備カードでSubViewportを動かさない。CIのOpenGL/Xvfb撮影成果物として`SERA_H02_IRIS_GODOT_512.png`を保存し、Pythonで正本SHA256とプリセットを`SERA_ICON_MANIFEST_V1`に記録。これを`install_sera_equipment_icon.py`で採用した装備IDへ統合し、既存共有PNGキャッシュで運用する。
+- 新規独立静的チェック`tools/icon_studio/godot_native_capture_self_check.py`とCIのGPUフレームバッファ・非透明画素検証を登録。CIにおける描画キャプチャ生成・Android実機表示の結果は別途実測で確認する。
+
+---
+
 ## 2026-11-21 — BASE gray-screen startup guard (unversioned bug fix)
 - The startup scene now creates a minimal WorldEnvironment, active orthographic camera and native-font loading overlay before the first process frame, rather than synchronously constructing the entire BASE before anything is drawn. The same hub architecture, navigation, scene path and persistent save format remain unchanged.
 - BASE boot now emits stage breadcrumbs (FLOOR/NEXUS/FACILITIES/SALVAGE/CRATE/UI/COMPLETE) to isolate any slow or failing startup subtask on Android. Overlay is removed only after the gameplay HUD is ready.
