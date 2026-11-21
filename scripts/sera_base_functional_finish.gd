@@ -48,19 +48,21 @@ static func _nexus(g: Variant) -> void:
 
 static func _labo(g: Variant) -> void:
     # Actual fabrication head rails, not another opaque wall.
+    # Behind the visible printer: secondary services must not form a second
+    # competing overhead machine at the playable 27-degree view.
     g.rod("LabPrinterServiceGantry",
-        Vector3(-1.36, 2.58, 0.15), Vector3(1.30, 2.58, 0.15),
-        0.12, "armor_light")
+        Vector3(-1.36, 2.58, -1.09), Vector3(1.30, 2.58, -1.09),
+        0.085, "slate")
     g.rod("LabPrinterCrossSlide",
-        Vector3(0.29, 2.55, -0.33), Vector3(0.29, 2.55, 0.88),
-        0.09, "edge")
+        Vector3(0.29, 2.55, -1.36), Vector3(0.29, 2.55, -0.55),
+        0.07, "slate")
     g.box("LabPrinterDriveHousing",
-        Vector3(0.29, 2.44, 0.22),
+        Vector3(0.29, 2.44, -1.05),
         Vector3(0.42, 0.25, 0.38), "slate")
     for side in [-1.0, 1.0]:
         g.rod("LabOverheadBrace",
-            Vector3(side * 1.50, 2.60, 0.10),
-            Vector3(side * 1.80, 3.05, 1.10), 0.055, "edge")
+            Vector3(side * 1.50, 2.60, -0.42),
+            Vector3(side * 1.80, 3.05, 0.32), 0.055, "edge")
         g.poly("LabFrontStorageCabinet", "bevel",
             Vector3(side * 1.34, 0.65, 1.30),
             Vector3(0.45, 0.78, 0.48), "slate")
