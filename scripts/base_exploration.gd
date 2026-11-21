@@ -32,6 +32,8 @@ const JOYSTICK_RADIUS: float = 76.0
 # Camera elevation is ~26.9 degrees (from 33.8), bringing the front
 # facades, canopies and service doors closer to a human-height view.
 # Keep orthographic projection and the established horizontal bearing.
+# The five vertical yard tiers are placed in the world, not faked by moving
+# the facility meshes away from their bases, signs, touch areas or steel pads.
 # Translate both eye and target +2.1m vertically: facilities appear lower
 # without changing their camera-facing angles, world locations, or slab links.
 const BASE_ORTHO_SIZE: float = 38.0
@@ -40,7 +42,7 @@ const BASE_GRID_TRAVEL_SECONDS: float = 0.48
 const GRID_EDIT_ZOOM_SECONDS: float = 0.46
 const BASE_CAMERA_POSITION: Vector3 = Vector3(21.0, 19.5, 25.0)
 const BASE_CAMERA_TARGET: Vector3 = Vector3(0.0, 2.1, -2.2)
-const NEXUS_BUILDING_ORIGIN: Vector3 = Vector3(-9.30, 0.0, -14.55)
+const NEXUS_BUILDING_ORIGIN: Vector3 = Vector3(-13.44, 0.0, -19.91)
 const CRATE_SPEED: float = 0.95
 # CRATE wanders the irregular middle service lanes rather than revolving
 # around a square formal plaza or crossing the relocated LABO foundation.

@@ -335,7 +335,107 @@ static func default_props_for(key: String) -> Array[Dictionary]:
         item["yaw_deg"] = chosen
         items[index] = item
     _enlarge_dressing(key, items)
+    _append_satellite_props(key, items)
     return items
+
+# Exactly one additional physically modeled object is placed beside each of
+# the 76 approved clusters. The original clusters / yaw / stack sizes remain
+# untouched. Satellites are small material-batched 3D meshes, not extra nodes,
+# decals, duplicated draw calls, or merely visual counts.
+# Placement happens AFTER primary enlargement so every satellite respects the
+# final world-space collision silhouette and all facility entry lanes.
+static func _satellite_clear(key: String, item: Dictionary,
+        usable: Rect2, reserved: Array[Rect2]) -> bool:
+    var unturned: Rect2 = _yaw_rect(item, 0.0).grow(0.035)
+    var rotated: Rect2 = _yaw_rect(item,
+        float(item.get("yaw_deg", 0.0))).grow(0.035)
+    if not usable.encloses(unturned) or not usable.encloses(rotated):
+        return false
+    var entry: Rect2 = _clear_zone(key).grow(0.075)
+    if unturned.intersects(entry) or rotated.intersects(entry):
+        return false
+    for occupied in reserved:
+        if unturned.intersects(occupied) or rotated.intersects(occupied):
+            return false
+    return true
+
+
+static func _append_satellite_props(key: String, items: Array[Dictionary]) -> void:
+    var primary_count: int = items.size()
+    if primary_count == 0:
+        return
+    # The lower bound of each dedicated deck slab is at least 5.8 meters,
+    # LABO 7m, NEXUS 10.5m. Use a strictly smaller safe local footprint, even
+    # when the snapped 1.5m grid is asymmetrical around a facility anchor.
+    var half: float = (
+        4.85 if key == "NEXUS" else
+        3.13 if key == "LABO" else 2.70)
+    var usable := Rect2(-half, -half, half * 2.0, half * 2.0)
+    var reserved: Array[Rect2] = []
+    for p in items:
+        reserved.append(_yaw_rect(p, 0.0).grow(0.03))
+        reserved.append(_yaw_rect(p,
+            float(p.get("yaw_deg", 0.0))).grow(0.03))
+    var site_seed: int = _stable_seed(key, "satellite", 0)
+    var offsets: Array[Vector2] = [
+        Vector2(0.68, 0.0), Vector2(-0.68, 0.0),
+        Vector2(0.0, 0.68), Vector2(0.0, -0.68),
+        Vector2(0.78, 0.54), Vector2(-0.78, 0.54),
+        Vector2(0.78, -0.54), Vector2(-0.78, -0.54),
+        Vector2(0.45, 0.85), Vector2(-0.45, -0.85),
+        Vector2(0.45, -0.85), Vector2(-0.45, 0.85),
+    ]
+    var spacing: float = 0.39
+    var grid_side: int = floori((half * 2.0 - 0.38) / spacing) + 1
+    var cell_count: int = grid_side * grid_side
+    for i in range(primary_count):
+        # The 24 already authored compact shapes provide a coherent assortment.
+        # Each is a genuine multi-primitive 3D model and is reused without
+        # making 76 new mesh resources or separate material batches.
+        var kind: String = COMPACT_KINDS[posmod(
+            site_seed + i * 7, COMPACT_KINDS.size())]
+        var satellite := _item(kind, 0.0, 0.0, 0.68)
+        satellite["accent"] = true
+        satellite["satellite"] = true
+        satellite["yaw_deg"] = float(22 + posmod(site_seed + i * 13, 4) * 8)
+        var parent_at: Vector2 = items[i]["at"]
+        var found: bool = false
+        for small_scale in [0.68, 0.59, 0.50, 0.44]:
+            satellite["scale"] = float(small_scale)
+            # Prefer real little assemblies tucked in beside a large machine.
+            for j in range(offsets.size()):
+                var offset: Vector2 = offsets[posmod(j + i, offsets.size())]
+                satellite["at"] = parent_at + offset
+                if _satellite_clear(key, satellite, usable, reserved):
+                    found = true
+                    break
+            if found:
+                break
+            # Packing fallback searches outer empty bands on the single slab.
+            # No random retries, stage load, hidden collider, or scene-frame
+            # CPU work; this runs once while building the 8 facility models.
+            for j in range(cell_count):
+                var cell: int = posmod(
+                    j * 37 + site_seed + i * 17, cell_count)
+                var gx: int = cell % grid_side
+                var gz: int = int(cell / grid_side)
+                satellite["at"] = Vector2(
+                    -half + 0.20 + float(gx) * spacing,
+                    -half + 0.20 + float(gz) * spacing)
+                if _satellite_clear(key, satellite, usable, reserved):
+                    found = true
+                    break
+            if found:
+                break
+        if not found:
+            push_error("SERA BASE satellite floor packing failed: " +
+                key + " / " + str(i))
+            return
+        reserved.append(_yaw_rect(satellite, 0.0).grow(0.035))
+        reserved.append(_yaw_rect(satellite,
+            float(satellite["yaw_deg"])).grow(0.035))
+        items.append(satellite)
+
 
 static func _authored_props_for(key: String) -> Array[Dictionary]:
     match key:

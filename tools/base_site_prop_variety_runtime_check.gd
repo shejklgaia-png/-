@@ -46,7 +46,7 @@ func _run() -> void:
     var total: int = 0
     for key in KEYS:
         var props: Array[Dictionary] = Props.props_for(key)
-        if props.size() < 6 or props.size() > 12:
+        if props.size() < 18 or props.size() > 22:
             _fail(key + " needs 6-12 authored prop clusters")
             return
         var own_shapes: Dictionary = {}
@@ -101,7 +101,7 @@ func _run() -> void:
             _fail(key + " prop data not submitted to actual batch")
             return
         total += props.size()
-    if total != 76 or seen_shapes.size() < 63:
+    if total != 152 or seen_shapes.size() < 63:
         _fail("insufficient global assortment across base facilities")
         return
     print("SERA_BASE_SITE_PROP_VARIETY_RUNTIME_PASS props=", total,

@@ -34,23 +34,23 @@ const MATERIAL_ICON_WIDTH: int = 54
 ## staggered toward the camera without forming rigid rows, keeping a loose center.
 ## Base field architecture: LABO is one building; resources, power and construction
 ## are independent physical machines. NEXUS remains in the parent scene.
-## The collector and build terminal remain visually detached from LABO even
-## with the lower 26.9-degree camera elevation: shift them a further 2.6m
-## toward the bottom of the portrait in the camera-down XZ direction.
+## Five vertically staggered rows create more screen-space separation while
+## keeping all models, dedicated slab origins, tap targets and physical doors
+## synchronized; world coordinates are chosen along the 27-degree camera axis.
 const FACILITY_SPECS = [
-    {"id": "LABO", "name": "LABO", "at": Vector3(5.95, 0.0, 5.40),
+    {"id": "LABO", "name": "LABO", "at": Vector3(6.26, 0.0, 5.80),
         "size": Vector3(4.25, 4.1, 4.35), "subtitle": "Shell / OS / スロット開発"},
-    {"id": "SCRAP_COLLECTOR", "name": "回収機", "at": Vector3(8.91, 0.0, 20.83),
+    {"id": "SCRAP_COLLECTOR", "name": "回収機", "at": Vector3(9.95, 0.0, 22.18),
         "size": Vector3(2.35, 2.55, 2.25), "subtitle": "スクラップ収集"},
-    {"id": "SMELTER", "name": "精製装置", "at": Vector3(-9.60, 0.0, -3.80),
+    {"id": "SMELTER", "name": "精製装置", "at": Vector3(-12.61, 0.0, -7.70),
         "size": Vector3(2.40, 2.85, 2.40), "subtitle": "素材の精製"},
-    {"id": "RECYCLER", "name": "分解装置", "at": Vector3(1.30, 0.0, -10.65),
+    {"id": "RECYCLER", "name": "分解装置", "at": Vector3(-1.85, 0.0, -14.73),
         "size": Vector3(2.45, 2.55, 2.35), "subtitle": "不要素材の分解"},
-    {"id": "GENERATOR", "name": "電力制御施設", "at": Vector3(8.85, 0.0, -1.65),
+    {"id": "GENERATOR", "name": "電力制御施設", "at": Vector3(7.37, 0.0, -3.57),
         "size": Vector3(2.40, 3.10, 2.25), "subtitle": "電力・素材・熱の回路制御"},
-    {"id": "STORAGE", "name": "資材保管庫", "at": Vector3(-2.15, 0.0, 5.58),
+    {"id": "STORAGE", "name": "資材保管庫", "at": Vector3(-3.43, 0.0, 3.92),
         "size": Vector3(2.45, 2.15, 2.30), "subtitle": "資源の保管"},
-    {"id": "BUILD_TERMINAL", "name": "建設端末", "at": Vector3(18.56, 0.0, 14.68),
+    {"id": "BUILD_TERMINAL", "name": "建設端末", "at": Vector3(19.49, 0.0, 15.88),
         "size": Vector3(2.10, 2.55, 2.10), "subtitle": "拠点の建設・拡張"}
 ]
 

@@ -49,7 +49,7 @@ func _run() -> void:
     var lab_uv: Vector2 = Vector2.ZERO
     var lower_station_uvs: Dictionary = {}
     var top_uv: Vector2 = nexus_tap / view
-    if absf(top_uv.x - 0.50) > 0.11 or top_uv.y > 0.36:
+    if absf(top_uv.x - 0.50) > 0.11 or top_uv.y > 0.28:
         _fail("NEXUS not on upper center")
         return
     var names := ["LABO", "SMELTER", "RECYCLER", "STORAGE",
@@ -80,7 +80,7 @@ func _run() -> void:
             lab_uv.y < 0.60 or lab_uv.y > 0.70):
         _fail("LABO must anchor the lower edge of a modest central gap")
         return
-    if lab_uv.y - top_uv.y < 0.30 or lab_uv.y - top_uv.y > 0.45:
+    if lab_uv.y - top_uv.y < 0.32 or lab_uv.y - top_uv.y > 0.48:
         _fail("NEXUS and LABO vertical tiers collapsed")
         return
     # Both lower facilities must be distinctly below the LABO operating face.

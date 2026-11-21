@@ -35,7 +35,7 @@ func _run() -> void:
     var view: Vector2 = camera.get_viewport().get_visible_rect().size
     var nexus_uv: Vector2 = camera.unproject_position(nexus.global_position) / view
     if nexus_uv.x < 0.45 or nexus_uv.x > 0.55 or (
-            nexus_uv.y < 0.35 or nexus_uv.y > 0.38):
+            nexus_uv.y < 0.27 or nexus_uv.y > 0.31):
         _fail("NEXUS not centered near upper third: " + str(nexus_uv))
         return
     var nexus_model: Node3D = nexus.get_node_or_null("NexusArchitecture") as Node3D
@@ -74,7 +74,7 @@ func _run() -> void:
     var terminal: Node3D = stations.get_node("BUILD_TERMINAL") as Node3D
     var bottom_uv: Vector2 = camera.unproject_position(
         terminal.global_position) / view
-    if bottom_uv.y < 0.825 or bottom_uv.y > 0.865:
+    if bottom_uv.y < 0.84 or bottom_uv.y > 0.88:
         _fail("lower yard still leaves excess space: " + str(bottom_uv))
         return
     var lab: Node3D = stations.get_node("LABO") as Node3D

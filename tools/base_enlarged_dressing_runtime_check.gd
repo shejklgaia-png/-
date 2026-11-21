@@ -20,7 +20,7 @@ func _run() -> void:
     for key in KEYS:
         var original: Array[Dictionary] = Props._authored_props_for(key)
         var displayed: Array[Dictionary] = Props.props_for(key)
-        if displayed.size() != original.size():
+        if displayed.size() != original.size() * 2:
             _fail(key + ": prop count changed")
             return
         var on_site_growth: int = 0

@@ -44,9 +44,14 @@ static func prop_envelope(part: Dictionary) -> Rect2:
 
 static func _generate_site(key: String, slab: Rect2,
         rng: RandomNumberGenerator) -> Array[Dictionary]:
-    var approved: Array[Dictionary] = Clutter.default_props_for(key)
-    if approved.is_empty() or slab.size.x < 1.0:
+    var all_props: Array[Dictionary] = Clutter.default_props_for(key)
+    if all_props.is_empty() or slab.size.x < 1.0:
         return []
+    # Reposition the 76 primary groups first. The 76 compact satellite
+    # models are packed next to their relocated parents after approval.
+    var approved: Array[Dictionary] = []
+    for i in range(int(all_props.size() / 2)):
+        approved.append(all_props[i])
     # Reject complete arrangements that do not fit, rather than overlap,
     # shrink or delete an object. Large cargo goes first to avoid starvation.
     var order: Array[int] = []
@@ -103,7 +108,9 @@ static func _generate_site(key: String, slab: Rect2,
                 valid = false
                 break
         if valid:
-            return output
+            Clutter._append_satellite_props(key, output)
+            if output.size() == all_props.size():
+                return output
     return []
 
 
@@ -205,6 +212,7 @@ static func export_text(layouts: Dictionary, scrap: Array[Dictionary],
                 "stack": int(source["stack"]),
                 "pattern": int(source.get("pattern", -1)),
                 "accent": bool(source.get("accent", false)),
+                "satellite": bool(source.get("satellite", false)),
             })
         site_rows.append({"site": key, "items": items})
     return JSON.stringify({
