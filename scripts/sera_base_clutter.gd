@@ -133,7 +133,7 @@ static func is_stack_container(kind: String) -> bool:
 
 
 static func pile_pattern_for(key: String, kind: String, index: int) -> int:
-    return posmod(_stable_seed(key, kind, index) / 17 + index, PILE_PATTERN_COUNT)
+    return posmod(int(_stable_seed(key, kind, index) / 17) + index, PILE_PATTERN_COUNT)
 
 
 static func stack_count_for(key: String, kind: String, index: int) -> int:
