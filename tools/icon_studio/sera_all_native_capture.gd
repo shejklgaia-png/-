@@ -5,15 +5,11 @@ const RigScript = preload("res://scripts/sera_rig.gd")
 const EdgeScript = preload("res://scripts/sera_view_edges.gd")
 const Catalog = preload("res://scripts/sera_prototype_catalog.gd")
 const PIXELS: int = 512
-const ANGLES: Dictionary = {
-    "head": Vector3(-14.0, 28.0, 0.0),
-    "torso": Vector3(-12.0, 31.0, 0.0),
-    "arms": Vector3(-10.0, 34.0, 0.0),
-    "legs": Vector3(-6.0, 29.0, 0.0),
-    "booster": Vector3(-11.0, 155.0, 0.0),
-    "weapon_r": Vector3(-15.0, 37.0, 0.0),
-    "weapon_l": Vector3(-12.0, 34.0, 0.0)
-}
+# Camera is above the model and to its right, looking toward its front.
+# Same authored view for EVERY slot, including IRIS and the Katana.
+const OBLIQUE_POSE: Vector3 = Vector3(26.0, -34.0, 0.0)
+const POSE_NAMES = ["NEXUS_pose", "NEXUSpose"]
+const SIDE_PADDING: int = 34
 
 func _initialize() -> void:
     call_deferred("_run")
@@ -32,7 +28,28 @@ func _run() -> void:
     if not bool(rig.get("loading_ok")):
         _fail("Real SeraRig failed to load")
         return
+    rig.call("set_exhibition_mode", true)
+    # Copy true animated joint transforms, never flattened bind-pose parts.
+    var clips: Dictionary = rig.get("animations")
+    var pose_found: bool = false
+    for clip_name in POSE_NAMES:
+        if not clips.has(clip_name):
+            continue
+        var track: Dictionary = clips[clip_name]
+        if (track.get("tracks", {}) as Dictionary).is_empty():
+            continue
+        rig.set("current_clip", clip_name)
+        rig.set("clip_time", 0.0)
+        rig.set("blending_for", 1.0)
+        rig.set("blend_duration", 0.0)
+        rig.call("_apply_animation", 0.0)
+        pose_found = true
+        break
+    if not pose_found:
+        _fail("Authored NEXUS_pose is required for all portraits")
+        return
     rig.set_process(false)
+    rig.set_physics_process(false)
     var handler: RefCounted = rig.get("equipment_handler") as RefCounted
     if handler == null:
         _fail("Real SeraRig equipment handler is missing")
@@ -80,8 +97,6 @@ func _run() -> void:
     var count: int = 0
     for blueprint in Catalog.ORDER:
         var id: String = str(blueprint)
-        if id == "H02":
-            continue # Preserve authored IRIS preset/capture in its dedicated script.
         var spec: Dictionary = Catalog.spec(id)
         var slot: String = str(spec.get("slot", ""))
         var set_id: String = str(spec.get("rig_set", ""))
@@ -127,9 +142,7 @@ func _run() -> void:
             mesh_count += 1
 
         var center: Vector3 = (low + high) * 0.5
-        var degrees: Vector3 = ANGLES.get(slot, Vector3(-12, 30, 0))
-        if id == "WR03":
-            degrees = Vector3(-14, 48, 0)
+        var degrees: Vector3 = OBLIQUE_POSE
         var rotation: Basis = Basis.from_euler(Vector3(
             deg_to_rad(degrees.x), deg_to_rad(degrees.y),
             deg_to_rad(degrees.z)), EULER_ORDER_XYZ)
@@ -170,6 +183,10 @@ func _run() -> void:
             _fail(id + ": blank or opaque screenshot; painted=" + str(painted))
             return
         var output: String = out_dir.path_join(id + ".png")
+        screenshot = _equalize_transparent_margins(screenshot)
+        if screenshot == null or screenshot.is_empty():
+            _fail(id + ": cannot fit transparent margins")
+            return
         if screenshot.save_png(output) != OK:
             _fail(id + ": screenshot file could not be saved")
             return
@@ -178,8 +195,42 @@ func _run() -> void:
         count += 1
         portrait.queue_free()
         await process_frame
-    if count != 18:
-        _fail("Expected eighteen extra captures plus the dedicated IRIS")
+    if count != 19:
+        _fail("Expected all nineteen live model captures")
         return
-    print("SERA_NATIVE_EQUIPMENT_BATCH_PASS count=18 plus IRIS=1")
+    print("SERA_NATIVE_EQUIPMENT_BATCH_PASS count=19 NEXUS_pose=true")
     quit(0)
+
+# Pixel-alpha crop is applied after the real native render, not to the
+# authoritative 3D mesh. The four *occupied* margins are identical to ±1px.
+func _equalize_transparent_margins(source: Image) -> Image:
+    var left: int = PIXELS
+    var right: int = -1
+    var top: int = PIXELS
+    var bottom: int = -1
+    for y in range(PIXELS):
+        for x in range(PIXELS):
+            var alpha: float = source.get_pixel(x, y).a
+            if alpha > 0.10:
+                left = mini(left, x)
+                right = maxi(right, x)
+                top = mini(top, y)
+                bottom = maxi(bottom, y)
+    if right < left or bottom < top:
+        return null
+    var width: int = right - left + 1
+    var height: int = bottom - top + 1
+    var target_side: int = PIXELS - 2 * SIDE_PADDING
+    var factor: float = minf(float(target_side) / float(width),
+        float(target_side) / float(height))
+    var output_width: int = clampi(roundi(float(width) * factor), 1, target_side)
+    var output_height: int = clampi(roundi(float(height) * factor), 1, target_side)
+    var crop: Image = source.get_region(Rect2i(left, top, width, height))
+    crop.resize(output_width, output_height, Image.INTERPOLATE_LANCZOS)
+    var composed: Image = Image.create(
+        PIXELS, PIXELS, false, Image.FORMAT_RGBA8)
+    composed.fill(Color.TRANSPARENT)
+    composed.blit_rect(crop, Rect2i(0, 0, output_width, output_height),
+        Vector2i((PIXELS - output_width) / 2,
+            (PIXELS - output_height) / 2))
+    return composed

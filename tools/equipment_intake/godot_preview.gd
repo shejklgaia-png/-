@@ -218,17 +218,6 @@ func _apply_preview_standing_pose() -> void:
     if rig == null:
         return
     var animations: Dictionary = rig.get("animations")
-    if view_mode == "icon":
-        # Keep the original isolated icon-camera stance. Full-body-only pose
-        # changes must not leak into the ICON/parameters captures.
-        if animations.has(icon_idle_clip):
-            rig.set("current_clip", icon_idle_clip)
-            rig.set("clip_time", 0.0)
-            rig.set("blending_for", 1.0)
-            rig.set("blend_duration", 0.0)
-            rig.call("_apply_animation", 0.0)
-        active_full_body_pose = ""
-        return
     # Mirror command_nexus.gd:_apply_nexus_pose exactly: use the authored
     # SeraRig clip, including the animation tracks merged for bird legs.
     for pose_name in NEXUS_POSE_NAMES:

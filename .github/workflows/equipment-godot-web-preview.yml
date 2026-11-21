@@ -82,6 +82,14 @@ jobs:
           grep -q 'id="godotPreview"' "$RUNNER_TEMP/sera-equipment-site/index.html"
           ! grep -q 'id="glview"' "$RUNNER_TEMP/sera-equipment-site/index.html"
           du -h "$RUNNER_TEMP/sera-equipment-site/preview/"*
+      - name: Validate actual SERA 3D part rotation, storage overlay and NEXUS UI
+        run: |
+          set -euo pipefail
+          "$GODOT_BIN" --headless --editor --path . --import --quit
+          "$GODOT_BIN" --headless --path . --script tools/equipment_portrait_ui_runtime_check.gd
+          "$GODOT_BIN" --headless --path . --script tools/nexus_equipment_stats_runtime_check.gd
+          "$GODOT_BIN" --headless --path . --script tools/nexus_labo_visual_runtime_check.gd
+          "$GODOT_BIN" --headless --path . --script tools/v549_refinery_names_warehouse_glyphs_runtime_check.gd
       - name: Upload entire runnable Web package
         if: always()
         uses: actions/upload-artifact@v4

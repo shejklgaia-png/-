@@ -154,8 +154,8 @@ func _check() -> void:
             "booster":"A","weapon_r":"A","weapon_l":"A"},
         "size":1.0,"keep_aspect":true,"seq":13})
     await process_frame
-    if str(rig.get("current_clip"))!=str(preview.get("icon_idle_clip")):
-        _fail("ICON must restore its previous single-part idle stance")
+    if str(rig.get("current_clip"))!="NEXUS_pose":
+        _fail("ICON must retain the authored NEXUS_pose")
         return
     var available: Dictionary = handler.get("available")
     var visible_head: int = 0

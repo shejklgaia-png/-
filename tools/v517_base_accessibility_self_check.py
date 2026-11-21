@@ -17,9 +17,10 @@ assert 'func _claim_trial_materials(' in facility
 assert 'IconAtlas.material_icon(' in facility and 'IconAtlas.equipment_icon(' in facility
 assert 'modal_title.text = "装備製作"' in facility
 assert 'func _create_hud(' in hub
-# Names now use a localized display label; the model code has its own small field.
-assert 'label.text = str(PrototypeCatalog.spec(blueprint).get("name", blueprint))' in nexus
-assert 'model_code.text = equipped_prototype' in nexus
+# The selected equipment name is the only visible text in its NEXUS
+# part-row Button; complete crafted UIDs still appear in picker details.
+assert 'button.text = str(PrototypeCatalog.spec(blueprint).get("name", blueprint))' in nexus
+assert 'ref.text = uid' in nexus
 assert 'PrototypeCatalog.display_instance(' not in nexus
 assert '  ›' not in facility and '  ▸' not in facility
 assert '"< %s >"' not in nexus

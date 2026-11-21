@@ -70,8 +70,9 @@ assert '_apply_part_visibility()' in equipment
 assert 'for set_id in available.keys():' in equipment
 
 nexus = read("scripts/command_nexus.gd")
-assert 'if slot == "head" and current_set == "D":' in nexus
-assert 'variant_label = "アイリス"' in nexus
+assert 'func _default_part_name(slot: String, model: String) -> String:' in nexus
+assert 'str(spec.get("name", id))' in nexus
+assert 'button.text = _default_part_name(slot, selected_model)' in nexus
 assert 'variant_label = "CAMERA EYE"' not in nexus
 build = read("tools/sera_model_build.py")
 assert '"rebuild_camera_eye_head_data.py": ("assets/sera_camera_eye_head_data.gd",)' in build

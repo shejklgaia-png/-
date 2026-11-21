@@ -17,22 +17,14 @@ for expected in (
     'LaboSkin.card_style("selected" if system_selected_slot == slot else "normal")',
     'LaboSkin.terminal_segment_style("selected")',
     'LaboSkin.terminal_segment_style("normal")',
-    # NEXUS item name and model/instance code are independent text nodes.
-    'var model_code := Label.new()',
-    'model_code.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT',
-    '"model_code": model_code',
-    'set_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS',
-    'model_code.text = equipped_prototype',
-    # Approved 720x1280 NEXUS card geometry: an inset centered 60px icon,
-    # with a genuine empty lane before the full-size equipment name.
-    # AtlasTexture sprites are 72px; ignore their native minimum size.
-    'item_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE',
-    'var icon_left: float = clampf(row.size.x * 0.055, 12.0, 18.0)',
-    'var icon_gap: float = clampf(row.size.x * 0.08, 17.0, 24.0)',
-    'var text_left: float = icon_left + icon_size + icon_gap',
-    'item_icon.position = Vector2(icon_left, (row.size.y - icon_size) * 0.5)',
-
-    'label.text = str(PrototypeCatalog.spec(blueprint).get("name", blueprint))',
+    # Seven installed-name buttons replace old icon/name/model-code columns.
+    'var button := Button.new()',
+    'button.text = _default_part_name(slot, selected_model)',
+    'func _default_part_name(slot: String, model: String) -> String:',
+    'func _show_customization_part_picker(slot: String) -> void:',
+    'customize_part_grid.columns = 3',
+    '"CustomizeSinglePartPreview"',
+    '"CustomizePartPickerScroll"',
     'func _tap_equipment_control(point: Vector2) -> bool:',
     'func _tap_training_control(point: Vector2) -> bool:',
     'func _tap_system_control(point: Vector2) -> void:',

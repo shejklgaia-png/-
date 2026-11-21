@@ -1,3 +1,5 @@
+py tools/equipment_portrait_ui_contract_self_check.py
+gd tools/equipment_portrait_ui_runtime_check.gd
 py tools/native_icon_metadata_self_check.py
 # All real equipable models/blueprints/stats and renderer-produced icon cache.
 py tools/equipment_registry_self_check.py
@@ -73,9 +75,6 @@ py tools/base_polygon_geometry_self_check.py
 gd tools/base_polygon_geometry_runtime_check.gd
 py tools/base_silhouette_refinement_self_check.py
 gd tools/base_silhouette_refinement_runtime_check.gd
-# Night salvage yard: larger seven stations, unchanged NEXUS and eight local lamps.
-py tools/base_night_facility_self_check.py
-gd tools/base_night_facility_runtime_check.gd
 # BASE informal center: modest clear area, staggered perimeter stations and edge props.
 py tools/base_soft_center_space_self_check.py
 gd tools/base_soft_center_space_runtime_check.gd
@@ -604,3 +603,6 @@ py tools/base_functional_finish_self_check.py
 gd tools/base_functional_finish_runtime_check.gd
 py tools/base_palette_canopy_self_check.py
 gd tools/base_palette_canopy_runtime_check.gd
+# Night salvage yard: larger seven stations, unchanged NEXUS and eight local lamps.
+py tools/base_night_facility_self_check.py
+gd tools/base_night_facility_runtime_check.gd

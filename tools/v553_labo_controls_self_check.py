@@ -4,6 +4,7 @@ from pathlib import Path
 root = Path(__file__).resolve().parents[1]
 base = (root / "scripts/base_facility_system.gd").read_text(encoding="utf-8")
 warehouse = (root / "scripts/sera_warehouse_grid.gd").read_text(encoding="utf-8")
+popup = (root / "scripts/sera_warehouse_detail_popup.gd").read_text(encoding="utf-8")
 marks = (root / "scripts/sera_mark_icon.gd").read_text(encoding="utf-8")
 materials = (root / "scripts/sera_base_materials.gd").read_text(encoding="utf-8")
 manifest = (root / "tools/sera_ci_manifest.txt").read_text(encoding="utf-8")
@@ -44,10 +45,11 @@ assert 'func _request_confirmation(' in base
 assert 'func _dismiss_confirmation()' in base
 assert 'func _accept_confirmation()' in base
 for token in ('_add_labo_mark_icon(junk_button, "junk")',
-              '_add_labo_mark_icon(favorite, "favorite")',
-              '_add_labo_mark_icon(junk, "junk")',
               'FavoriteMarkIcon', 'JunkMarkIcon'):
     assert token in base + warehouse, token
+for token in ('WarehouseFavoriteToggle', 'WarehouseJunkToggle',
+              '"set_prototype_mark", str(item.get("uid", "")), kind, next)', '_refresh_actions()'):
+    assert token in popup, token
 assert 'title.text = str(entry.get("name", ""))' in warehouse
 assert 'title.text = mark +' not in warehouse
 # Successful mark changes are represented by icons, not redundant SYSTEM notices.
@@ -57,7 +59,7 @@ for token in (
     'detail_marks.name = "WarehouseDetailHeaderMarks"',
     '"WarehouseHeaderFavoriteMarkIcon"',
     '"WarehouseHeaderJunkMarkIcon"',
-    '_set_warehouse_header_marks(bool(item.get("favorite", false)),',
+    'warehouse_detail_popup.open_item(entry)',
     'func _set_warehouse_header_marks(favorite: bool = false, junk: bool = false) -> void:',
     '_set_warehouse_header_marks()',
 ):
