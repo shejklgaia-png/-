@@ -7,6 +7,7 @@ const VersionIndicator = preload("res://scripts/version_indicator.gd")
 const TrainingDefaults = preload("res://scripts/training_defaults.gd")
 const IconAtlas = preload("res://scripts/sera_item_icons.gd")
 const PrototypeCatalog = preload("res://scripts/sera_prototype_catalog.gd")
+const LaboSkin = preload("res://scripts/sera_labo_round_skin.gd")
 const CONTROL_SETTINGS_FILE: String = "user://sera_settings.cfg"
 const NexusSelectionOutline = preload("res://scripts/nexus_selection_outline.gd")
 const CUSTOMIZE_GLOW_SHADER = preload("res://shaders/nexus_customize_radial_glow.gdshader")
@@ -726,6 +727,8 @@ func _hud() -> void:
     hud.name = "NexusOverlay"
     hud.mouse_filter = Control.MOUSE_FILTER_IGNORE
     canvas.add_child(hud)
+    # Share LABO font roles/theme without adding per-card shaders or draw passes.
+    hud.theme = LaboSkin.common_theme()
     hud.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 
     outline = NexusSelectionOutline.new()
@@ -811,6 +814,7 @@ func _hud() -> void:
     explore_label.add_theme_font_size_override("font_size", 19)
     explore_label.add_theme_color_override("font_color", Color("#ddfaff"))
     explore_panel.add_child(explore_label)
+    _apply_labo_typography()
     VersionIndicator.attach(hud)
     hud.resized.connect(_layout_hud)
     _layout_hud()
@@ -832,7 +836,7 @@ func _create_training_controls() -> void:
         var row := Panel.new()
         row.name = "Training" + option_name.replace(" ", "")
         row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-        row.add_theme_stylebox_override("panel", _menu_style())
+        row.add_theme_stylebox_override("panel", LaboSkin.card_style("normal"))
         row.visible = false
         focus_panel.add_child(row)
         var caption := Label.new()
@@ -873,7 +877,7 @@ func _create_deployment_controls() -> void:
         var row := Panel.new()
         row.name = "BossEntry"
         row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-        row.add_theme_stylebox_override("panel", _action_style())
+        row.add_theme_stylebox_override("panel", LaboSkin.card_style("selected"))
         row.visible = false
         focus_panel.add_child(row)
         var name_label := Label.new()
@@ -993,10 +997,10 @@ func _update_training_start_pulse(delta: float) -> void:
         return
     training_start_pulse = fposmod(training_start_pulse + delta, 1.8)
     var wave: float = 0.5 + 0.5 * sin(training_start_pulse * TAU / 1.8)
-    training_start_style.bg_color = Color(0.045, 0.29 + wave * 0.12,
-        0.41 + wave * 0.10, 0.98)
-    training_start_style.border_color = Color(0.44 + wave * 0.36,
-        0.84 + wave * 0.16, 1.0, 1.0)
+    training_start_style.bg_color = Color(0.12, 0.27 + wave * 0.025,
+        0.31 + wave * 0.035, 1.0)
+    training_start_style.border_color = Color(0.46 + wave * 0.13,
+        0.76 + wave * 0.12, 0.82 + wave * 0.11, 1.0)
 
 ## Hit zones are handled by _input, matching the existing Android raw-touch UI.
 ## These labels are not Control buttons and therefore never steal preview drags.
@@ -1013,18 +1017,20 @@ func _create_equipment_controls() -> void:
         var row := Panel.new()
         row.name = "Equipment_" + slot
         row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-        row.add_theme_stylebox_override("panel", _menu_style())
+        row.add_theme_stylebox_override("panel", LaboSkin.card_style("normal"))
         customize_right_panel.add_child(row)
         var name_label := Label.new()
         name_label.text = str(CUSTOMIZE_SLOT_LABELS[slot])
         name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        name_label.clip_text = true
         name_label.add_theme_font_size_override("font_size", 17)
         name_label.add_theme_color_override("font_color", Color("#a6cfdf"))
         row.add_child(name_label)
         var set_label := Label.new()
         set_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-        set_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-        set_label.add_theme_font_size_override("font_size", 23)
+        set_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+        set_label.clip_text = true
+        set_label.add_theme_font_size_override("font_size", 20)
         set_label.add_theme_color_override("font_color", Color("#dcfaff"))
         row.add_child(set_label)
         var item_icon := TextureRect.new()
@@ -1054,16 +1060,18 @@ func _layout_equipment_controls() -> void:
         row.size = Vector2(maxf(50.0, customize_right_panel.size.x - 20.0),
             maxf(30.0, height_per_row - 7.0))
         var name_label: Label = row_data["name"]
-        name_label.position = Vector2(12.0, 4.0)
-        name_label.size = Vector2(row.size.x - 24.0, row.size.y * 0.40)
         var value_label: Label = row_data["value"]
         var item_icon: TextureRect = row_data["equipped_icon"]
-        var icon_size: float = minf(47.0, row.size.y - 6.0)
-        item_icon.position = Vector2(5.0, (row.size.y - icon_size) * 0.5)
+        # Icon and both captions occupy non-overlapping columns, as in LABO.
+        var icon_size: float = minf(48.0, row.size.y - 12.0)
+        var text_left: float = icon_size + 17.0
+        var text_width: float = maxf(20.0, row.size.x - text_left - 10.0)
+        item_icon.position = Vector2(7.0, (row.size.y - icon_size) * 0.5)
         item_icon.size = Vector2(icon_size, icon_size)
-        value_label.position = Vector2(icon_size + 6.0, row.size.y * 0.40)
-        value_label.size = Vector2(
-            maxf(20.0, row.size.x - icon_size - 13.0), row.size.y * 0.56)
+        name_label.position = Vector2(text_left, 6.0)
+        name_label.size = Vector2(text_width, row.size.y * 0.37)
+        value_label.position = Vector2(text_left, row.size.y * 0.43)
+        value_label.size = Vector2(text_width, row.size.y * 0.52)
 
 func _refresh_equipment_controls() -> void:
     for slot in CUSTOMIZE_SLOTS:
@@ -1104,11 +1112,11 @@ func _refresh_equipment_controls() -> void:
             icon.visible = icon.texture != null
             label.text = PrototypeCatalog.display_instance(
                 equipped_prototype)
-            label.add_theme_font_size_override("font_size", 13)
+            label.add_theme_font_size_override("font_size", 15)
         else:
             label.text = "%s  %s" % [current_set, variant_label] \
                 if options.size() > 1 else current_set
-            label.add_theme_font_size_override("font_size", 23)
+            label.add_theme_font_size_override("font_size", 20)
 
 
 func _tap_equipment_control(point: Vector2) -> bool:
@@ -1239,7 +1247,7 @@ func _create_system_controls() -> void:
     system_lock_mode_row = Panel.new()
     system_lock_mode_row.name = "SystemLockMode"
     system_lock_mode_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-    system_lock_mode_row.add_theme_stylebox_override("panel", _menu_style())
+    system_lock_mode_row.add_theme_stylebox_override("panel", LaboSkin.card_style("normal"))
     system_lock_mode_row.visible = false
     focus_panel.add_child(system_lock_mode_row)
     system_lock_mode_label = Label.new()
@@ -1252,7 +1260,7 @@ func _create_system_controls() -> void:
     system_handedness_row = Panel.new()
     system_handedness_row.name = "SystemHandedness"
     system_handedness_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-    system_handedness_row.add_theme_stylebox_override("panel", _menu_style())
+    system_handedness_row.add_theme_stylebox_override("panel", LaboSkin.card_style("normal"))
     system_handedness_row.visible = false
     focus_panel.add_child(system_handedness_row)
     system_handedness_label = Label.new()
@@ -1305,7 +1313,7 @@ func _layout_system_controls() -> void:
         var button: Panel = system_action_rows[i]["panel"]
         button.position = Vector2(margin + (i % 2) * (action_width + gap),
             actions_top + (i / 2) * 58.0)
-        button.size = Vector2(action_width, 50.0)
+        button.size = Vector2(action_width, 54.0)
         var label: Label = system_action_rows[i]["label"]
         label.position = Vector2.ZERO
         label.size = button.size
@@ -1346,11 +1354,8 @@ func _refresh_system_controls() -> void:
                 slot, active, str(data.get("last_location", "NEXUS")), clock,
                 str(data.get("updated_at", "-"))]
         var panel: Panel = system_slot_rows[index]["panel"]
-        var style: StyleBoxFlat = _menu_style()
-        if system_selected_slot == slot:
-            style.bg_color = Color(0.052, 0.190, 0.280, 0.95)
-            style.border_color = Color("#b0edff")
-        panel.add_theme_stylebox_override("panel", style)
+        panel.add_theme_stylebox_override("panel",
+            LaboSkin.card_style("selected" if system_selected_slot == slot else "normal"))
     for entry in system_action_rows:
         var action: String = entry["action"]
         var label: Label = entry["label"]
@@ -1587,12 +1592,9 @@ func _refresh_archive_records() -> void:
     if archive_record_body == null:
         return
     for i in range(archive_record_tabs.size()):
-        var style: StyleBoxFlat = _menu_style()
-        if i == archive_record_tab:
-            style.bg_color = Color(0.055, 0.200, 0.300, 0.96)
-            style.border_color = Color("#b9f2ff")
         (archive_record_tabs[i]["panel"] as Panel).add_theme_stylebox_override(
-            "panel", style)
+            "panel", LaboSkin.terminal_segment_style(
+                "selected" if i == archive_record_tab else "normal"))
     if SeraSave.active_slot == 0:
         archive_record_body.text = (
             "NO ACTIVE DATA\n\nCreate or load a save in SYSTEM to record "
@@ -1658,34 +1660,76 @@ func _tap_archive_record(point: Vector2) -> void:
             _refresh_archive_records()
             return
 
+# NEXUS reuses the exact LABO visual resources, but only dynamic save/confirm
+# controls duplicate StyleBoxFlat before mutation. Shared caches remain immutable.
 func _menu_style() -> StyleBoxFlat:
-    var style := StyleBoxFlat.new()
-    style.bg_color = Color(0.018, 0.035, 0.060, 0.92)
-    style.border_color = Color(0.22, 0.72, 0.87, 0.85)
-    style.set_border_width_all(2)
-    style.set_corner_radius_all(6)
-    return style
+    return LaboSkin.terminal_segment_style("normal").duplicate(true) as StyleBoxFlat
 
 func _menu_body_style() -> StyleBoxFlat:
-    # Cyber-blue translucent rectangle. No border or decoration.
-    var style := StyleBoxFlat.new()
-    style.bg_color = Color(0.025, 0.155, 0.260, 0.52)
+    var style: StyleBoxFlat = LaboSkin.style("card").duplicate(true) as StyleBoxFlat
+    style.bg_color = Color("#101f2b")
+    style.border_color = Color("#345767")
+    style.set_corner_radius_all(4)
+    style.set_border_width_all(1)
     return style
 
 func _menu_header_style() -> StyleBoxFlat:
-    # Only the menu-name header is fully opaque.
-    var style := StyleBoxFlat.new()
-    style.bg_color = Color(0.035, 0.190, 0.315, 1.00)
+    var style: StyleBoxFlat = LaboSkin.terminal_segment_style("selected").duplicate(true) as StyleBoxFlat
+    style.bg_color = Color("#193744")
+    style.border_color = Color("#6099a8")
+    style.border_width_bottom = 2
     return style
 
 func _action_style() -> StyleBoxFlat:
-    # A high-contrast call to action; the border/fill breathe without flashing.
-    var style := StyleBoxFlat.new()
-    style.bg_color = Color(0.045, 0.29, 0.41, 0.98)
-    style.border_color = Color("#80e9ff")
-    style.set_border_width_all(3)
-    style.set_corner_radius_all(5)
+    var style: StyleBoxFlat = LaboSkin.terminal_segment_style("selected").duplicate(true) as StyleBoxFlat
+    style.bg_color = Color("#22515d")
+    style.border_color = Color("#83d7dd")
+    style.border_width_bottom = 3
     return style
+
+
+func _skin_label(label: Label, font: Font, text_size: int, color: Color) -> void:
+    label.add_theme_font_override("font", font)
+    label.add_theme_font_size_override("font_size", text_size)
+    label.add_theme_color_override("font_color", color)
+
+
+## LABO typography is cached and bundled for Android; no SystemFont requests.
+## All five NEXUS destinations share the same label hierarchy.
+func _apply_labo_typography() -> void:
+    var display: Font = LaboSkin.tracked_display_font()
+    var stats: Font = LaboSkin.stats_font()
+    var ui: Font = LaboSkin.ui_font()
+    var equipment: Font = LaboSkin.equipment_font()
+    var accent: Color = Color("#d7e6ed")
+    var secondary: Color = Color("#b7cbd6")
+    _skin_label(focus_title, display, 24, accent)
+    _skin_label(customize_equipment_header, display, 21, accent)
+    _skin_label(back_arrow, display, 32, accent)
+    _skin_label(explore_label, display, 20, accent)
+    _skin_label(action_label, display, 22, Color("#e1f1f2"))
+    _skin_label(training_heading, display, 15, secondary)
+    _skin_label(training_footer, stats, 13, secondary)
+    _skin_label(deployment_heading, display, 16, secondary)
+    for entry in training_option_rows:
+        _skin_label(entry["label"] as Label, display, 16, secondary)
+        _skin_label(entry["value"] as Label, stats, 20, accent)
+    for entry in deployment_rows:
+        _skin_label(entry["label"] as Label, LaboSkin.title_font(), 21, accent)
+    for slot in CUSTOMIZE_SLOTS:
+        var part: Dictionary = customize_equipment_rows[slot]
+        _skin_label(part["name"] as Label, display, 16, secondary)
+        _skin_label(part["value"] as Label, equipment, 20, accent)
+    for entry in system_slot_rows:
+        _skin_label(entry["label"] as Label, stats, 16, accent)
+    for entry in system_action_rows:
+        _skin_label(entry["label"] as Label, display, 18, accent)
+    _skin_label(system_lock_mode_label, stats, 17, accent)
+    _skin_label(system_handedness_label, stats, 17, accent)
+    _skin_label(system_status, ui, 15, secondary)
+    for entry in archive_record_tabs:
+        _skin_label(entry["label"] as Label, display, 14, accent)
+    _skin_label(archive_record_body, stats, 17, accent)
 
 # Three-zone CUSTOMIZE portrait: upper-left model, lower-left square,
 # right-side tall menu. All rectangles are in HUD viewport coordinates.
