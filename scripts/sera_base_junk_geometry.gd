@@ -36,26 +36,36 @@ static func panel_stack(g: Variant, at: Vector2, k: float, variant: int,
     # a few last sheets on top. Count denotes actual primary steel sheets.
     var style: int = posmod(variant, PileModels.PATTERNS) if pattern < 0 else (
         posmod(pattern, PileModels.PATTERNS))
-    for rail in [-1.0, 1.0]:
-        g.box("Yard_panel_stack_footrail",
-            _pos(at, rail * 0.29, 0.17, -0.02, k),
-            Vector3(0.09, 0.09, 0.66) * k, "trim")
-    g.rod("Yard_panel_stack_support",
-        _pos(at, -0.35, 0.24, -0.29, k),
-        _pos(at, 0.36, 0.24, -0.29, k), 0.045 * k, "edge")
+    # The old raised U-shaped rack swallowed the narrow steel faces when
+    # seen from the BASE camera. Keep only a low, unobtrusive ground contact.
+    # The panels themselves, not visible rails, must define the silhouette.
+    g.box("Yard_panel_stack_ground_contact",
+        _pos(at, 0.0, 0.107, 0.0, k),
+        Vector3(0.62, 0.018, 0.43) * k, "dark")
     var pieces: Array[Dictionary] = PileModels.model_for(stack_count, style)
     for n in range(pieces.size()):
         var part: Dictionary = pieces[n]
         var xy: Vector2 = part["position"]
         var normalized_size: Vector2 = part["size"]
-        var size := Vector3(normalized_size.x * 1.07 * k,
-            (0.037 + float(n % 3) * 0.004) * k,
-            normalized_size.y * 0.88 * k)
+        # Existing normalized row positions already fit the dedicated slab;
+        # broaden each sheet until neighboring sheets overlap like salvaged
+        # armor plates. Compress the orthogonal row axis for Z-oriented piles.
+        var surface_width: float = minf(normalized_size.x * 1.65, 0.95)
+        var surface_depth: float = minf(normalized_size.y * 1.15, 0.68)
+        var size := Vector3(surface_width * k,
+            (0.034 + float(n % 3) * 0.005) * k,
+            surface_depth * k)
         var center: Vector3 = _pos(at, xy.x * 1.07,
-            float(part["height"]), xy.y * 0.88, k)
+            0.154 + float(part["tier"]) * 0.057 +
+                float((n + style) % 3) * 0.004,
+            xy.y * 0.68, k)
         var form: String = str(part["form"])
         var name: String = "Yard_panel_stack_" + form
-        var tint: String = COLORS[posmod(n * 2 + variant + style, COLORS.size())]
+        # Main faces must contrast with the slate floor; use restrained
+        # alternating metallic surfaces rather than near-black outlines.
+        var steel_tones := ["armor_light", "slate", "edge", "rust"]
+        var tint: String = steel_tones[posmod(n + variant + style,
+            steel_tones.size())]
         var pitch: float = float(part["pitch_deg"])
         var roll: float = float(part["roll_deg"])
         var yaw: float = float(part["yaw_deg"])
@@ -70,7 +80,7 @@ static func panel_stack(g: Variant, at: Vector2, k: float, variant: int,
                 tint, pitch + 12.0, roll, yaw)
         elif form == "notched":
             _sheet(g, name + "_body", center,
-                Vector3(size.x * 0.78, size.y, size.z),
+                Vector3(size.x * 0.87, size.y, size.z),
                 tint, pitch, roll, yaw)
             _sheet(g, name + "_lug", center + Vector3(
                 size.x * 0.40, 0, -size.z * 0.29),
