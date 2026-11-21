@@ -75,7 +75,11 @@ func _check_case(battle: Node3D, id: String,
                     "_source_ik_sweep_toe_lowest_world_y", leg))
                 if not is_finite(y) or absf(y) > TOL:
                     _fail("toe not on floor while falling " + id
-                        + " at " + str([t, leg["upper"].name, y]))
+                        + " at " + str([t, leg["upper"].name, y,
+                        leg.get("last_error", -1.0),
+                        (leg["upper"] as Node3D).global_position,
+                        (leg["foot"] as Node3D).global_position,
+                        leg["anchor"], leg["last_goal"]]))
                     return false
         else:
             if not bool(ik.call("down_pose_active")):
