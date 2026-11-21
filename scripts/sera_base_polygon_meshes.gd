@@ -15,7 +15,10 @@ static func _triangle(st: SurfaceTool, a: Vector3, b: Vector3,
         c = saved
         normal = -normal
     normal = normal.normalized()
-    for point in [a, b, c]:
+    # Godot 4 renders CLOCKWISE winding as front-facing. The outward
+    # right-handed normal was computed above; reverse submitted vertices
+    # but retain that outward normal for correct lighting and textures.
+    for point in [a, c, b]:
         var p: Vector3 = point
         var uv: Vector2
         if absf(normal.y) > 0.55:
