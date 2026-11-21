@@ -14,14 +14,15 @@ const COLORS = {
     "white": "#b3c1c8"
 }
 
-# Viewer is at horizontal azimuth 37.7 degrees. Every facade faces generally
-# toward the viewer, offset by 10-23 degrees to reveal its side surfaces.
-# Retain individual headings rather than making the base a rigid parade.
-# Rotated components remain on their independent single-piece floor slabs.
+# Facility fronts are local +Z. All eight face the INNER working space
+# around X=0, Z=-2.2, never outward. Deliberate +/-8~20 degree differences
+# avoid a rigid radial pattern. The camera remains at its existing angle;
+# even lower-side sites turn into the shared working yard, not at the camera.
+# Each site retains its own single-piece floor slab and separate clutter pivots.
 const BODY_YAW_DEGREES = {
-    "NEXUS": 23.0, "LABO": 48.0, "SMELTER": 58.0,
-    "RECYCLER": 25.0, "STORAGE": 54.0, "GENERATOR": 50.0,
-    "SCRAP_COLLECTOR": 61.0, "BUILD_TERMINAL": 19.0,
+    "NEXUS": 29.0, "LABO": -159.0, "SMELTER": 88.0,
+    "RECYCLER": -20.0, "STORAGE": 179.0, "GENERATOR": -77.0,
+    "SCRAP_COLLECTOR": -151.0, "BUILD_TERMINAL": -144.0,
 }
 
 static func facility_yaw_radians(key: String) -> float:
