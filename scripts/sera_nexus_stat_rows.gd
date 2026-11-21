@@ -26,6 +26,11 @@ static func from_selection(selected: Dictionary) -> Array[Dictionary]:
 
 static func from_stats(stats: Dictionary) -> Array[Dictionary]:
     var candidates: Array[Dictionary] = []
+    var category: String = str(stats.get("weight_class", "medium")).to_upper()
+    _add(candidates, "WEIGHT " + category, float(stats.get("weight_pct", 100.0)), 1, "%")
+    _add(candidates, "EN OUTPUT", float(stats.get("en_recovery_per_second", 24.0)), 2, "/s")
+    _add(candidates, "TRACK", float(stats.get("tracking_speed_mult", 1.0)) * 100.0, 0, "%")
+    _add(candidates, "ATK SPEED", float(stats.get("attack_motion_speed_mult", 1.0)) * 100.0, 0, "%")
     _add(candidates, "HP", float(stats.get("max_hp", 0.0)))
     _add(candidates, "DEF", float(stats.get("defense", 0.0)) * 100.0, 1, "%")
     _add(candidates, "ATK1", _first(stats, "attack_damage") *
