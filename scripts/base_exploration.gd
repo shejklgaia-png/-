@@ -4,6 +4,7 @@ const Modules = preload("res://assets/base_command_modules.gd")
 const SERA_RIG_PATH: String = "res://scripts/sera_rig.gd"
 const VersionIndicator = preload("res://scripts/version_indicator.gd")
 const BaseFacilities = preload("res://scripts/base_facility_system.gd")
+const PowerBoard = preload("res://scripts/sera_base_power_board.gd")
 const BaseArchitecture = preload("res://scripts/sera_base_architecture.gd")
 const BaseClutter = preload("res://scripts/sera_base_clutter.gd")
 const BaseLayoutPreview = preload("res://scripts/sera_base_layout_preview.gd")
@@ -76,6 +77,10 @@ var layout_copy_button: Button
 var layout_status: Label
 var layout_seed: int = 0
 var layout_rerolls: int = 0
+var power_zone: Node3D
+var power_back_button: Button
+var power_view_active: bool = false
+var power_camera_tween: Tween
 
 func _ready() -> void:
     BaseClutter.clear_preview()
@@ -97,6 +102,7 @@ func _ready() -> void:
     _build_nexus_building()
     _startup_step("FACILITIES")
     _build_field_facilities()
+    _build_power_board()
     _startup_step("SALVAGE")
     _create_salvage()
     _startup_step("CRATE")
@@ -305,6 +311,12 @@ func _build_field_facilities() -> void:
     facility_system = BaseFacilities.new()
     facility_system.name = "BaseFacilities"
     add_child(facility_system)
+    facility_system.power_board_requested.connect(_enter_power_board)
+
+func _build_power_board() -> void:
+    # 8×8 stage is a connected physical extension of the existing BASE.
+    # It is outside the starting overview and uses only batched tile meshes.
+    power_zone = PowerBoard.build(self)
 
 func _box(parent: Node3D, name: String, at: Vector3, size: Vector3, tint: Color) -> MeshInstance3D:
     var mesh := BoxMesh.new()
@@ -523,6 +535,7 @@ func _create_hud() -> void:
     VersionIndicator.attach(hud)
     facility_system.call("attach_hud", hud)
     _create_layout_tools()
+    _create_power_controls()
     hud.resized.connect(_layout_hud)
     _layout_hud()
 
@@ -538,6 +551,9 @@ func _layout_hud() -> void:
     if layout_tools != null:
         layout_tools.position = Vector2(view.x - 168.0, 14.0)
         layout_tools.size = Vector2(156.0, 122.0)
+    if power_back_button != null:
+        power_back_button.position = Vector2(18.0, 18.0)
+        power_back_button.size = Vector2(162.0, 52.0)
     stick_outer.position = Vector2(view.x - 180, view.y - 194)
     stick_outer.size = Vector2(164, 164)
     stick_knob.size = Vector2(72, 72)
@@ -708,12 +724,96 @@ func _exit_tree() -> void:
     BaseClutter.clear_preview()
 
 
+func _create_power_controls() -> void:
+    # The power board is a physical world view, not the existing LABO modal.
+    power_back_button = Button.new()
+    power_back_button.name = "PowerBoardBack"
+    power_back_button.text = "＜  拠点へ戻る"
+    power_back_button.focus_mode = Control.FOCUS_NONE
+    power_back_button.mouse_filter = Control.MOUSE_FILTER_STOP
+    power_back_button.add_theme_font_override("font", LaboSkin.ui_font())
+    power_back_button.add_theme_font_size_override("font_size", 18)
+    power_back_button.add_theme_color_override("font_color", Color("#e3edf3"))
+    var style := StyleBoxFlat.new()
+    style.bg_color = Color("#162b39")
+    style.border_color = Color("#55798a")
+    style.set_border_width_all(1)
+    power_back_button.add_theme_stylebox_override("normal", style)
+    power_back_button.add_theme_stylebox_override("hover", style)
+    power_back_button.add_theme_stylebox_override("pressed", style)
+    power_back_button.pressed.connect(_leave_power_board)
+    power_back_button.visible = false
+    hud.add_child(power_back_button)
+
+
+func _enter_power_board() -> void:
+    if scene_changing or power_view_active or cam == null:
+        return
+    power_view_active = true
+    if power_camera_tween != null and power_camera_tween.is_running():
+        power_camera_tween.kill()
+    facility_system.call("set_field_tags_visible", false)
+    hud_title.visible = false
+    nexus_tag.visible = false
+    layout_tools.visible = false
+    power_back_button.visible = true
+    hint.text = "POWER GRID / 8×8  |  接続設計エリア"
+    # Move screen-right following the visible winding cable, with the same
+    # fixed orthographic view throughout the entire motion (no perspective).
+    var half: Vector3 = PowerBoard.cable_point(0.57)
+    var halfway: Vector3 = BASE_CAMERA_POSITION + (
+        half - BASE_CAMERA_TARGET)
+    var final_camera: Vector3 = BASE_CAMERA_POSITION + (
+        PowerBoard.board_focus() - BASE_CAMERA_TARGET)
+    power_camera_tween = create_tween()
+    power_camera_tween.set_trans(Tween.TRANS_SINE)
+    power_camera_tween.set_ease(Tween.EASE_IN_OUT)
+    power_camera_tween.tween_property(cam, "position", halfway, 0.86)
+    power_camera_tween.tween_property(cam, "position", final_camera, 1.07)
+    power_camera_tween.parallel().tween_property(
+        cam, "size", PowerBoard.CAMERA_SIZE, 1.07)
+
+
+func _leave_power_board() -> void:
+    if not power_view_active:
+        return
+    power_view_active = false
+    if power_camera_tween != null and power_camera_tween.is_running():
+        power_camera_tween.kill()
+    power_back_button.visible = false
+    hud_title.visible = true
+    layout_tools.visible = true
+    hint.text = "建物をタップして施設を開く"
+    power_camera_tween = create_tween()
+    power_camera_tween.set_trans(Tween.TRANS_SINE)
+    power_camera_tween.set_ease(Tween.EASE_IN_OUT)
+    # Return over the cable and restore the original orthographic framing.
+    var half: Vector3 = PowerBoard.cable_point(0.57)
+    power_camera_tween.tween_property(cam, "position",
+        BASE_CAMERA_POSITION + (half - BASE_CAMERA_TARGET), 0.86)
+    power_camera_tween.tween_property(cam, "position",
+        BASE_CAMERA_POSITION, 0.94)
+    power_camera_tween.parallel().tween_property(
+        cam, "size", BASE_ORTHO_SIZE, 0.94)
+    power_camera_tween.finished.connect(_power_camera_return_finished)
+
+
+func _power_camera_return_finished() -> void:
+    if not power_view_active and is_instance_valid(facility_system):
+        facility_system.call("set_field_tags_visible", true)
+
+
 func _on_android_back() -> void:
+    if power_view_active:
+        _leave_power_board()
+        return
     if facility_system != null and bool(facility_system.call("is_menu_open")):
         facility_system.call("navigate_back")
 
 func _input(event: InputEvent) -> void:
     if scene_changing or hud == null:
+        return
+    if power_view_active:
         return
     # An open field-device panel owns its own GUI input; do not route clicks
     # behind it to NEXUS, other machines, or the dormant joystick.
@@ -845,10 +945,12 @@ func _process(delta: float) -> void:
         cam.position = cam.position.lerp(BASE_CAMERA_POSITION + follow_shift,
             minf(1.0, delta * 2.5))
         cam.look_at(BASE_CAMERA_TARGET + follow_shift, Vector3.UP)
-    _update_nexus_tag()
-    facility_system.call("update_tags", cam)
+    if not power_view_active:
+        _update_nexus_tag()
+        facility_system.call("update_tags", cam)
     if layout_tools != null:
-        layout_tools.visible = not bool(facility_system.call("is_menu_open"))
+        layout_tools.visible = not power_view_active and not bool(
+            facility_system.call("is_menu_open"))
 
 func _enter_nexus() -> void:
     if scene_changing:
