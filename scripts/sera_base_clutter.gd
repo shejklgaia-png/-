@@ -3,6 +3,8 @@ extends RefCounted
 ## opaque/instanced facility Batch; no per-prop MeshInstance nodes or simulation.
 ## Stable local XZ positions preserve the single-panel slab and entrance clearance.
 
+# Ground-facing shapes are authored at real floor height (panel top is y=-0.03).
+const FLOOR_OFFSET: float = -0.16
 const FOOTPRINTS = {
     "antenna_case": Vector2(0.74, 0.68),
     "signal_console": Vector2(0.90, 0.78),
@@ -140,14 +142,14 @@ static func _box(g: Variant, name: String, at: Vector2, k: float,
         offset: Vector3, size: Vector3, tint: String,
         angle: float = 0.0) -> void:
     g.box("Yard_" + name,
-        Vector3(at.x + offset.x * k, offset.y * k, at.y + offset.z * k),
+        Vector3(at.x + offset.x * k, offset.y * k + FLOOR_OFFSET, at.y + offset.z * k),
         size * k, tint, angle)
 
 static func _rod(g: Variant, name: String, at: Vector2, k: float,
         a: Vector3, b: Vector3, thickness: float, tint: String) -> void:
     g.rod("Yard_" + name,
-        Vector3(at.x + a.x * k, a.y * k, at.y + a.z * k),
-        Vector3(at.x + b.x * k, b.y * k, at.y + b.z * k),
+        Vector3(at.x + a.x * k, a.y * k + FLOOR_OFFSET, at.y + a.z * k),
+        Vector3(at.x + b.x * k, b.y * k + FLOOR_OFFSET, at.y + b.z * k),
         thickness * k, tint)
 
 static func _ring(g: Variant, name: String, at: Vector2, k: float,
@@ -162,11 +164,15 @@ static func _make(g: Variant, kind: String, at: Vector2, k: float,
     var tint: String = (
         "rust" if order % 7 == 2 else
         "armor_light" if order % 4 == 0 else "slate")
+    # A thin skid sits flush against the physical floor, independent of size.
+    var footprint: Vector2 = bounds_for(kind) * k
+    g.box("Yard_" + kind + "_skid", Vector3(at.x, -0.006, at.y),
+        Vector3(footprint.x * 0.75, 0.05, footprint.y * 0.74), "rubber")
     # Every kind has a distinct functional silhouette; repeats use subtly
     # different patina while staying inside the authored conservative bounds.
     match kind:
         "cargo_box":
-            g.crate(Vector3(at.x, 0.38 * k, at.y),
+            g.crate(Vector3(at.x, 0.38 * k + FLOOR_OFFSET, at.y),
                 Vector3(0.69, 0.55, 0.62) * k, order)
             _box(g, kind, at, k, Vector3(0, 0.72, 0),
                 Vector3(0.40, 0.06, 0.42), "gold")
