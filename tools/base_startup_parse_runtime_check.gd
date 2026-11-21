@@ -40,8 +40,12 @@ func _run() -> void:
     root.add_child(scene)
     # The boot path reserves the first frames for an overlay; assert that
     # the actual world and GUI are constructed after their initial yield.
-    for frame in range(4):
+    # Boot now yields between heavy phases so the animated loader repaints.
+    # Wait for completion, not a fixed 4-frame assumption.
+    for frame in range(24):
         await process_frame
+        if scene.get_node_or_null("BaseStartupOverlay") == null:
+            break
     if scene.get_node_or_null("BaseFacilities") == null:
         _fail("no BASE facilities after boot")
         return
