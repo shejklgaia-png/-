@@ -337,7 +337,7 @@ function getDraft(){
 function weightClass(pct){return pct<=70?"light":pct>=140?"heavy":"medium"}
 function effectiveWeight(){
  const weights=Object.keys(DB.shares);let mass=0;
- for(const s of weights){const w=s===slot?getDraft().weight_pct:profile(s,selected[s]).weight_pct||100;mass+=(DB.shares[s]||0)*w}
+ for(const s of weights){if(s==="weapon_l"&&selected.weapon_r==="K")continue;const w=s===slot?getDraft().weight_pct:profile(s,selected[s]).weight_pct||100;mass+=(DB.shares[s]||0)*w}
  return mass;
 }
 function setTab(name){
