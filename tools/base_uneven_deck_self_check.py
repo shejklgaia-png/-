@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Irregular, gap-free SERA BASE floor plates: tests independent visual contract."""
 from pathlib import Path
+import re
 root = Path(__file__).resolve().parents[1]
 hub = (root/"scripts/base_exploration.gd").read_text(encoding="utf-8")
 layout = (root/"scripts/sera_base_deck_layout.gd").read_text(encoding="utf-8")
@@ -9,7 +10,7 @@ ci = (root/"tools/sera_ci_manifest.txt").read_text(encoding="utf-8")
 legacy = (root/"tools/base_exploration_runtime_check.gd").read_text(encoding="utf-8")
 
 assert 'const BaseDeckLayout = preload("res://scripts/sera_base_deck_layout.gd")' in hub
-assert 'BaseDeckLayout.generate(PLATE_GRID_RADIUS_CELLS, PLATE_GRID_STEP)' in hub
+assert re.search(r'BaseDeckLayout\.generate\(\s*PLATE_GRID_RADIUS_CELLS,\s*PLATE_GRID_STEP\s*\)', hub), "deck generator and radius/step args must remain intact"
 assert 'BaseFloorDetail.decorate(floor, panels)' in hub
 assert 'static func generate(' in layout
 assert 'PackedByteArray' in layout and '_can_occupy(' in layout
