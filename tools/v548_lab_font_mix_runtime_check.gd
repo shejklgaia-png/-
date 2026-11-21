@@ -75,12 +75,12 @@ func _run() -> void:
     # BASE intentionally initializes FLOOR, NEXUS and FACILITIES in
     # separate drawn frames. Validate the same real UI AFTER its async boot.
     var fac: Node3D
-    for boot_frame in range(16):
+    for boot_frame in range(24):
         fac = base.get_node_or_null("BaseFacilities") as Node3D
-        if fac != null:
+        if fac != null and base.get_node_or_null("BaseStartupOverlay") == null:
             break
         await process_frame
-    if fac == null:
+    if fac == null or base.get_node_or_null("BaseStartupOverlay") != null:
         _fail("BASE facilities missing; avoid hanging on null UI")
         return
     fac.call("_switch_section", "craft")
