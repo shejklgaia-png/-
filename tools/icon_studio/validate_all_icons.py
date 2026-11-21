@@ -6,6 +6,11 @@ import re
 import struct
 from pathlib import Path
 
+try:
+    from .read_sera_icon_png import read_png_metadata
+except ImportError:
+    from read_sera_icon_png import read_png_metadata
+
 ROOT = Path(__file__).resolve().parents[2]
 CATALOG = ROOT / "scripts/sera_prototype_catalog.gd"
 TARGET = ROOT / "assets/ui/sera_equipment_icons"
@@ -52,6 +57,17 @@ def verify_icons():
         width, height, depth, color, _, _, _ = struct.unpack_from(">IIBBBBB", data, 16)
         assert (width, height, depth, color) == (512, 512, 8, 6), (
             id_, width, height, depth, color)
+        metadata = read_png_metadata(path)
+        assert metadata["equipment"] == {
+            "blueprint_id": id_, "slot": entry["slot"],
+            "rig_set": entry["rig_set"],
+        }, f"{id_}: icon equipment provenance mismatch"
+        assert metadata["source"]["repository_path"] == entry["source_model"], (
+            id_, "wrong model source")
+        assert metadata["source"]["fingerprint"] == hashlib.sha256(source.read_bytes()).hexdigest(), (
+            id_, "stale source fingerprint")
+        assert metadata["render"]["image"]["background"] == "transparent", (
+            id_, "background must be applied only by the shared game UI")
         records[id_] = {**entry, "source_sha256": hashlib.sha256(source.read_bytes()).hexdigest(),
                         "png_sha256": hashlib.sha256(data).hexdigest(),
                         "capture": "SERA native Godot 4.7.2 GL Compatibility"}

@@ -28,5 +28,6 @@ assert 'Affixes.roll_five()' in save
 assert 'gd tools/equipment_registry_runtime_check.gd' in ci
 assert 'py tools/equipment_registry_self_check.py' in ci
 assert 'sera_all_native_capture.gd' in workflow
+assert 'tag_all_icons.py' in workflow
 assert 'validate_all_icons.py' in workflow
 print("SERA_ALL_EQUIPMENT_REGISTRY_STATIC_PASS", len(entries))

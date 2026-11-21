@@ -101,6 +101,7 @@ jobs:
           xvfb-run -a -s '-screen 0 720x1280x24' \
             "$GODOT" --path . --rendering-method gl_compatibility \
             --script tools/icon_studio/sera_all_native_capture.gd
+          python3 tools/icon_studio/tag_all_icons.py
           python3 tools/icon_studio/validate_all_icons.py
           "$GODOT" --headless --editor --path . --import --quit
       - name: Upload all real equipment preview captures

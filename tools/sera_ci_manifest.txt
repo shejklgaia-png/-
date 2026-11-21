@@ -1,3 +1,4 @@
+py tools/native_icon_metadata_self_check.py
 # All real equipable models/blueprints/stats and renderer-produced icon cache.
 py tools/equipment_registry_self_check.py
 gd tools/equipment_registry_runtime_check.gd
