@@ -30,13 +30,13 @@ func _run() -> void:
     for amount in range(1, 9):
         for pattern in range(4):
             var parts: Array[Dictionary] = Models.model_for(amount, pattern)
-            var rows: Array[int] = Models.rows_for(amount, pattern)
+            var rows: Array = Models.rows_for(amount, pattern)
             if parts.size() != amount:
                 _fail("requested major part count not honored")
                 return
             var row_total: int = 0
             for n in rows:
-                row_total += n
+                row_total += int(n)
             if row_total != amount or rows.size() > 3:
                 _fail("invalid two or three row distribution")
                 return
