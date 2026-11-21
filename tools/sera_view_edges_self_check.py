@@ -18,6 +18,22 @@ assert "_extract_edges" in script and "_build_overlay" in script
 assert "edge[\"face_b\"]" in script
 assert "mesh.get_surface_count()" in script
 assert "mesh.surface_get_arrays" in script
+# FX exclusion must cover the full parent chain, not only a source mesh name.
+# Real v85 Swordeffect's AlphaClippedMainArc/ConvexTwoSided3DArc children
+# have neutral mesh names under the Slash effect root.
+assert "func _is_eligible(" in script
+assert "func _is_fx_node(" in script
+assert "var ancestor: Node = source" in script
+assert "ancestor = ancestor.get_parent()" in script
+assert 'get_meta("sera_no_view_edges", false)' in script
+assert 'source.get_active_material(surface)' in script
+assert "BaseMaterial3D.TRANSPARENCY_DISABLED" in script
+assert "func _remove_overlay(" in script
+assert "_remove_overlay(source)" in script
+trail = (root / "scripts/sword_trail.gd").read_text(encoding="utf-8")
+back_thruster = (root / "scripts/back_thruster_fx.gd").read_text(encoding="utf-8")
+assert 'effect_root.set_meta("sera_no_view_edges", true)' in trail
+assert 'set_meta("sera_no_view_edges", true)' in back_thruster
 assert "func _process(" in script and "SCAN_INTERVAL" in script
 assert "OUTLINE_SCRIPT.new()" in rig and "OUTLINE_SCRIPT.new()" in boss
 assert "OUTLINE_SCRIPT.new()" in target
