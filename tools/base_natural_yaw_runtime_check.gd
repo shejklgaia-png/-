@@ -2,6 +2,7 @@ extends SceneTree
 ## Preserve eight tappable, single-slab stations while varying actual draw geometry.
 const Props = preload("res://scripts/sera_base_clutter.gd")
 const Arch = preload("res://scripts/sera_base_architecture.gd")
+const Deck = preload("res://scripts/sera_base_deck_layout.gd")
 const KEYS = ["NEXUS", "LABO", "SMELTER", "RECYCLER",
     "STORAGE", "GENERATOR", "SCRAP_COLLECTOR", "BUILD_TERMINAL"]
 
@@ -21,6 +22,16 @@ func _run() -> void:
     var facilities: Node3D = hub.get_node("BaseFacilities") as Node3D
     var camera: Camera3D = hub.get("cam") as Camera3D
     var yaw_values: Dictionary = {}
+    var specs: Array = facilities.get_script().get_script_constant_map().get("FACILITY_SPECS", [])
+    var sites: Array[Dictionary] = Deck.facility_sites(nexus.position, specs)
+    var panels: Array[Dictionary] = Deck.generate(42, 3.0, sites)
+    var site_panels: Dictionary = {}
+    for panel in panels:
+        if not str(panel["site"]).is_empty():
+            site_panels[str(panel["site"])] = panel
+    if site_panels.size() != 8:
+        _fail("all eight single-slab sites must remain")
+        return
     for key in KEYS:
         var root_node: Node3D = nexus if key == "NEXUS" else (
             facilities.get_node(key) as Node3D)
@@ -37,12 +48,32 @@ func _run() -> void:
         if absf(float(visual.get_meta("body_yaw", 0.0)) - yaw) > 0.0001:
             _fail(key + " architecture not oriented")
             return
-        yaw_values[snappedi(roundi(rad_to_deg(yaw)), 1)] = true
+        yaw_values[roundi(rad_to_deg(yaw))] = true
         var props: Array[Dictionary] = Props.props_for(key)
         var positive: int = 0
         var negative: int = 0
+        var panel: Dictionary = site_panels[key]
+        var slab_center: Vector2 = panel["center"]
+        var slab_size: Vector2 = panel["size"]
+        var site_origin: Vector2 = Vector2(root_node.position.x, root_node.position.z)
+        var slab := Rect2(slab_center - site_origin - slab_size * 0.5, slab_size)
+        var used: Array[Rect2] = []
         for p in props:
             var angle: float = float(p.get("yaw_deg", 0.0))
+            var original: Vector2 = Props.bounds_for(str(p["kind"])) * float(p["scale"])
+            var c: float = absf(cos(deg_to_rad(angle)))
+            var sn: float = absf(sin(deg_to_rad(angle)))
+            var extent := Vector2(original.x * c + original.y * sn,
+                original.x * sn + original.y * c)
+            var bounds := Rect2((p["at"] as Vector2) - extent * 0.5, extent)
+            if not slab.grow(-0.15).encloses(bounds):
+                _fail(key + " rotated prop crosses its dedicated slab")
+                return
+            for other in used:
+                if bounds.intersects(other):
+                    _fail(key + " angled prop clusters intersect")
+                    return
+            used.append(bounds)
             if angle > 5.0:
                 positive += 1
             elif angle < -5.0:
