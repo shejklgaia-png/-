@@ -4,7 +4,7 @@ extends Node3D
 ## stage lighting as the game are used: NO Blockbench-to-WebGL reconstruction.
 const RigScript = preload("res://scripts/sera_rig.gd")
 const PartStats = preload("res://scripts/sera_part_stats.gd")
-const SLOT_ORDER: Array[String] = [
+const SLOT_ORDER = [
     "head", "torso", "arms", "legs", "booster", "weapon_r", "weapon_l"
 ]
 const PORTRAIT_SIZE: float = 2.0
@@ -243,6 +243,12 @@ func _apply_command(data: Dictionary) -> void:
         camera_zoom=clampf(float(view.get("zoom",camera_zoom)),MIN_ZOOM,MAX_ZOOM)
         camera_pan=Vector2(clampf(float(view.get("panX",camera_pan.x)),-0.7,0.7),
             clampf(float(view.get("panY",camera_pan.y)),-0.7,0.7))
+        var ink: Node3D = rig.get_node_or_null("ViewEdges")
+        if ink != null:
+            var mat: Variant = ink.get("_ink_material")
+            if mat is ShaderMaterial:
+                mat.set_shader_parameter("stroke_px",
+                    clampf(float(view.get("outlinePx",3.0)),0.0,6.0))
     _apply_equipment()
     var seq: int = int(data.get("seq",-1))
     _last_request_seq=seq
@@ -310,20 +316,21 @@ func _input(event: InputEvent) -> void:
     elif event is InputEventScreenDrag:
         if _touches.has(event.index):
             var old_pos: Vector2=_touches[event.index]
-            _touches[event.index]=event.position
             if _touches.size()>=2:
-                var points: Array=_touches.values()
-                var p0: Vector2=points[0]
-                var p1: Vector2=points[1]
-                var old_dist: float=p0.distance_to(p1)
-                var past: Vector2=p0 if _touches.keys()[0]!=event.index else p1
-                var new_dist: float=event.position.distance_to(past)
+                var other_pos: Vector2=old_pos
+                for key in _touches:
+                    if int(key)!=event.index:
+                        other_pos=_touches[key]
+                        break
+                var old_dist: float=old_pos.distance_to(other_pos)
+                var new_dist: float=event.position.distance_to(other_pos)
                 if old_dist>2.0:
                     camera_zoom=clampf(camera_zoom*new_dist/old_dist,MIN_ZOOM,MAX_ZOOM)
                 camera_pan+=Vector2(event.relative.x,-event.relative.y)*0.003
             else:
                 camera_yaw=wrapf(camera_yaw+event.relative.x*0.4,-180.0,180.0)
                 camera_pitch=clampf(camera_pitch-event.relative.y*0.4,-89.0,89.0)
+            _touches[event.index]=event.position
             camera_pan=camera_pan.clamp(Vector2(-0.7,-0.7),Vector2(0.7,0.7))
             _apply_frame()
             _announce_camera()
