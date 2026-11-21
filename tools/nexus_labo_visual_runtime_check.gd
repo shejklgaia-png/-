@@ -1,6 +1,6 @@
 extends SceneTree
 ## Runtime: real NEXUS overlay, five destination panels, typography and controls.
-const Skin = preload("res://scripts/sera_labo_round_skin.gd")
+const LaboTypeface = preload("res://scripts/sera_labo_round_skin.gd")
 func _initialize() -> void:
     call_deferred("_run")
 func _fail(why: String) -> void:
@@ -23,8 +23,8 @@ func _run() -> void:
         return
     var title: Label = nexus.get("focus_title") as Label
     var exit_label: Label = nexus.get("explore_label") as Label
-    if title.get_theme_font("font") != Skin.tracked_display_font() or (
-            exit_label.get_theme_font("font") != Skin.tracked_display_font()):
+    if title.get_theme_font("font") != LaboTypeface.tracked_display_font() or (
+            exit_label.get_theme_font("font") != LaboTypeface.tracked_display_font()):
         _fail("NEXUS top-level titles lack LABO's bundled display font")
         return
     var equipment: Dictionary = nexus.get("customize_equipment_rows")
@@ -33,10 +33,10 @@ func _run() -> void:
         return
     for slot in equipment:
         var row: Panel = equipment[slot]["panel"]
-        if row.get_theme_stylebox("panel") != Skin.card_style("normal"):
+        if row.get_theme_stylebox("panel") != LaboTypeface.card_style("normal"):
             _fail("equipment row not using cached LABO chamfered card: " + str(slot))
             return
-        if (equipment[slot]["value"] as Label).get_theme_font("font") != Skin.equipment_font():
+        if (equipment[slot]["value"] as Label).get_theme_font("font") != LaboTypeface.equipment_font():
             _fail("equipment row lacks LABO's item-name typeface")
             return
     for target in ["TRAINING", "DEPLOYMENT", "SYSTEM", "DATA ARCHIVE", "CUSTOMIZE"]:
@@ -64,13 +64,13 @@ func _run() -> void:
         return
     var active_index: int = int(nexus.get("system_selected_slot")) - 1
     var selected: Panel = slots[active_index]["panel"]
-    if selected.get_theme_stylebox("panel") != Skin.card_style("selected"):
+    if selected.get_theme_stylebox("panel") != LaboTypeface.card_style("selected"):
         _fail("selected system save must show LABO active card")
         return
     var tabs: Array = nexus.get("archive_record_tabs")
     if tabs.size() != 4 or (
             (tabs[0]["panel"] as Panel).get_theme_stylebox("panel") !=
-            Skin.terminal_segment_style("selected")):
+            LaboTypeface.terminal_segment_style("selected")):
         _fail("data archive tabs are not shared LABO segments")
         return
     var start: Panel = nexus.get("action_panel") as Panel
