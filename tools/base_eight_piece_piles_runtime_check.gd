@@ -59,6 +59,24 @@ func _run() -> void:
             if _mesh_parts(batch) < amount or host.get_child_count() > 0:
                 _fail("steel pieces missing or unbatched")
                 return
+            if "Yard_panel_stack_footrail" in batch.features:
+                _fail("U-shaped rack rails should not dominate steel sheets")
+                return
+            var largest_face: float = 0.0
+            var face_count: int = 0
+            for entry in batch.entries:
+                if not str(entry).begins_with("cube|"):
+                    continue
+                for pose_raw in batch.entries[entry]:
+                    var pose: Transform3D = pose_raw
+                    if pose.basis.y.length() >= 0.085:
+                        continue
+                    face_count += 1
+                    largest_face = maxf(largest_face,
+                        pose.basis.x.length() * pose.basis.z.length())
+            if face_count < amount or (amount == 1 and largest_face < 0.40):
+                _fail("full steel-sheet faces missing or too narrow")
+                return
             var rust_batch := Arch.Batch.new(host)
             Junk.loose_scrap_pile(rust_batch, Vector2.ZERO, 1.0,
                 pattern, amount, pattern, "scrap_gears")
