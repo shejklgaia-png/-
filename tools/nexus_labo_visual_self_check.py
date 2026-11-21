@@ -23,7 +23,7 @@ for expected in (
     '"model_code": model_code',
     'value_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS',
     'model_code.text = equipped_prototype',
-    'label.text = PrototypeCatalog.display_name(blueprint)',
+    'label.text = str(PrototypeCatalog.spec(blueprint).get("name", blueprint))',
     'func _tap_equipment_control(point: Vector2) -> bool:',
     'func _tap_training_control(point: Vector2) -> bool:',
     'func _tap_system_control(point: Vector2) -> void:',
