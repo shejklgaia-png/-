@@ -605,8 +605,9 @@ static func build_facility(parent: Node3D, key: String) -> void:
     parent.add_child(node)
     var g := Batch.new(node)
     g.yaw = facility_yaw_radians(key)
-    # Small equipment gains legibility, while its floor / tap position stays.
-    g.detail_scale = 1.28 if key == "LABO" else 1.36
+    # Seven work buildings grow into the unused portrait space; NEXUS retains
+    # its own 1.14x size. Keep all pad, tap anchor and clutter placements.
+    g.detail_scale = 1.45 if key == "LABO" else 1.55
     node.set_meta("visual_model_scale", g.detail_scale)
     node.set_meta("body_yaw", g.yaw)
     match key:

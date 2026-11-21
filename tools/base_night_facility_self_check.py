@@ -13,7 +13,7 @@ assert 'const BaseNightFacade = preload("res://scripts/sera_base_night_facade.gd
 assert 'BaseNightFacade.add_details(g, "NEXUS")' in architecture
 assert 'BaseNightFacade.add_details(g, key)' in architecture
 assert 'g.detail_scale = 1.14' in architecture, "NEXUS must not grow"
-assert 'g.detail_scale = 1.28 if key == "LABO" else 1.36' in architecture
+assert 'g.detail_scale = 1.45 if key == "LABO" else 1.55' in architecture
 for name in (
     "NexusServiceFan", "LabCanopyCrest", "LabVentFan", "LabServiceDoor",
     "CollectorWeatherHood", "CollectorVentFan", "CollectorServiceDoor",
