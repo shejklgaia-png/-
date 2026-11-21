@@ -31,52 +31,64 @@ static func _line(groups: Dictionary, feature: String, a: Vector3,
         groups[key] = []
     (groups[key] as Array).append(Transform3D(basis, (a + b) * 0.5))
 
-static func decorate(floor: Node3D) -> void:
+static func decorate(floor: Node3D, panels: Array[Dictionary]) -> void:
     var root := Node3D.new()
     root.name = "DeckDetailGeometry"
     floor.add_child(root)
     var groups: Dictionary = {}
-    for ix in range(-DETAIL_RADIUS, DETAIL_RADIUS + 1):
-        for iz in range(-DETAIL_RADIUS, DETAIL_RADIUS + 1):
-            var cx: float = float(ix) * PANEL_STEP
-            var cz: float = float(iz) * PANEL_STEP
-            # Each 3m armored panel receives inset edges and four metal pins.
-            var wear: int = posmod(ix * 19 + iz * 13, 7)
-            var edge_tint: String = "edge" if wear in [0, 1] else "seam"
-            for side in [-1.0, 1.0]:
-                _put(groups, "PanelSeams", Vector3(cx + side * 1.36, -0.016, cz),
-                    Vector3(0.025, 0.023, 2.66), edge_tint)
-                _put(groups, "PanelSeams", Vector3(cx, -0.014, cz + side * 1.35),
-                    Vector3(2.68, 0.023, 0.025), edge_tint)
-                for end in [-1.0, 1.0]:
-                    _put(groups, "DeckBolts",
-                        Vector3(cx + side * 1.24, 0.008, cz + end * 1.24),
-                        Vector3(0.095, 0.045, 0.095), "bolt")
-            # Inset access grooves / offset repair seams break the square pattern.
-            if wear in [1, 3, 6]:
-                _put(groups, "AccessPanelJoints",
-                    Vector3(cx - 0.34, -0.006, cz),
-                    Vector3(0.025, 0.025, 1.36), "seam")
-                _put(groups, "AccessPanelJoints",
-                    Vector3(cx + 0.31, -0.006, cz + 0.68),
-                    Vector3(1.30, 0.023, 0.028), "edge")
-            # Some panels contain open-looking recessed ventilation gutters.
-            if posmod(ix * 5 + iz * 11, 13) == 0:
+    # One source of truth: follow each actual panel outline rather than
+    # drawing ghost seams on the old uniform 3m lattice.
+    for panel in panels:
+        var center: Vector2 = panel["center"]
+        var size: Vector2 = panel["size"]
+        var cx: float = center.x
+        var cz: float = center.y
+        if absf(cx) > DETAIL_RADIUS * PANEL_STEP + 5.0 or (
+                absf(cz) > DETAIL_RADIUS * PANEL_STEP + 5.0):
+            continue
+        var edge_x: float = size.x * 0.5 - 0.085
+        var edge_z: float = size.y * 0.5 - 0.085
+        var wear: int = posmod(int(panel["style"]), 7)
+        var edge_tint: String = "edge" if wear in [0, 1] else "seam"
+        for side in [-1.0, 1.0]:
+            _put(groups, "PanelSeams",
+                Vector3(cx + side * edge_x, -0.016, cz),
+                Vector3(0.026, 0.023, maxf(0.45, size.y - 0.20)), edge_tint)
+            _put(groups, "PanelSeams",
+                Vector3(cx, -0.014, cz + side * edge_z),
+                Vector3(maxf(0.45, size.x - 0.20), 0.023, 0.026), edge_tint)
+            for corner in [-1.0, 1.0]:
+                _put(groups, "DeckBolts",
+                    Vector3(cx + side * (edge_x - 0.12), 0.008,
+                        cz + corner * (edge_z - 0.12)),
+                    Vector3(0.095, 0.045, 0.095), "bolt")
+        # Small recessed access grooves sit inside the large armor plates.
+        if wear in [1, 3, 6] and size.x >= 2.8 and size.y >= 2.8:
+            _put(groups, "AccessPanelJoints",
+                Vector3(cx - 0.28, -0.006, cz),
+                Vector3(0.025, 0.025, 1.30), "seam")
+            _put(groups, "AccessPanelJoints",
+                Vector3(cx + 0.28, -0.006, cz + 0.65),
+                Vector3(1.10, 0.023, 0.028), "edge")
+        # Actual grilles / hatches scale to the available slab footprint.
+        if wear == 2 and size.x >= 2.8 and size.y >= 2.8:
+            var grate_x: float = minf(size.x * 0.64, 1.68)
+            var grate_z: float = minf(size.y * 0.62, 1.12)
+            _put(groups, "DrainGrates", Vector3(cx, 0.004, cz),
+                Vector3(grate_x, 0.028, grate_z), "grate")
+            for slit in range(8):
                 _put(groups, "DrainGrates",
-                    Vector3(cx, 0.004, cz),
-                    Vector3(1.68, 0.028, 1.12), "grate")
-                for slit in range(8):
-                    _put(groups, "DrainGrates",
-                        Vector3(cx - 0.70 + float(slit) * 0.20, 0.026, cz),
-                        Vector3(0.075, 0.025, 0.98), "grille")
-            elif posmod(ix * 7 - iz * 3, 17) == 0:
+                    Vector3(cx - grate_x * 0.42 + float(slit) * grate_x * 0.12,
+                        0.026, cz),
+                    Vector3(0.070, 0.025, grate_z * 0.90), "grille")
+        elif wear == 4 and size.x >= 2.8 and size.y >= 2.8:
+            _put(groups, "MaintenanceHatches",
+                Vector3(cx + 0.20, 0.007, cz - 0.10),
+                Vector3(1.36, 0.025, 0.88), "seam")
+            for row in range(4):
                 _put(groups, "MaintenanceHatches",
-                    Vector3(cx + 0.33, 0.007, cz - 0.12),
-                    Vector3(1.45, 0.025, 0.91), "seam")
-                for row in range(4):
-                    _put(groups, "MaintenanceHatches",
-                        Vector3(cx - 0.20 + float(row) * 0.35, 0.024, cz - 0.12),
-                        Vector3(0.045, 0.017, 0.74), "edge")
+                    Vector3(cx - 0.32 + float(row) * 0.35, 0.024, cz - 0.10),
+                    Vector3(0.045, 0.017, 0.72), "edge")
     # Independently routed diagonal industrial safety lanes and short dashes.
     for i in range(-15, 16):
         var p: float = float(i) * 1.05

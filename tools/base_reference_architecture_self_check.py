@@ -12,7 +12,7 @@ manifest = src("tools/sera_ci_manifest.txt")
 assert 'const BaseArchitecture = preload("res://scripts/sera_base_architecture.gd")' in hub
 assert 'const BaseArchitecture = preload("res://scripts/sera_base_architecture.gd")' in devices
 assert 'const BaseFloorDetail = preload("res://scripts/sera_base_floor_detail.gd")' in hub
-assert 'BaseFloorDetail.decorate(floor)' in hub
+assert 'BaseFloorDetail.decorate(floor, panels)' in hub
 assert 'BaseArchitecture.build_nexus(nexus_building)' in hub
 for key in ("LABO", "SCRAP_COLLECTOR", "SMELTER", "RECYCLER", "GENERATOR", "STORAGE", "BUILD_TERMINAL"):
     assert '"'+key+'"' in architecture
