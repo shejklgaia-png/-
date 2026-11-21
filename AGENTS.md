@@ -15,6 +15,7 @@
 - **HTML配布・起動リンク:** `docs/SERA_HTML_ARTIFACT_DELIVERY_POLICY_ja.md` — Raw URLをアプリの直リンクとして提示しない。公開HTTPS/実HTML添付/複数ファイル配布を区別し、起動を確認する。
 - `docs/agent/EQUIPMENT.md`: warehouse individual UID / 999-limit rules, Icon Studio handoff, LAB integration, model acceptance. **New-chat equipment implementation contract:** `docs/SERA_EQUIPMENT_CROSS_CHAT_HANDOFF_ja.md` (mandatory for `SERA_EQUIPMENT_INTAKE_V1` exports).
 - `docs/agent/RUNTIME_BOUNDARIES.md`: `main.gd` split-contract ownership for input, physics, combat, camera, EN, HUD and FX.
+- **BASE external visual changes:** `docs/agent/BASE_VISUAL_REVIEW.md` — every BASE design change requires opening the current actual gameplay screenshot, running a new full-initialization screenshot at the unchanged camera, inspecting the real image, iterating until the on-screen silhouette is readable, and providing before/after image evidence. Do not merge based on CI text alone.
 - Feature-specific canonical contracts are selected by `tools/sera_workplan.py`; read the underlying `docs/` specifications and real source. When models or animations change, also read `docs/MODEL_PART_WORKFLOW_ja.md` (**SERA_MODEL_PARTS_V1**), `docs/SERA_ANIMATION_RUNTIME_POLICY_ja.md`, and `models/manifest.json`. When rendering changes, read `docs/RENDER_PIPELINE_POLICY_ja.md`.
 - Old, superseded policies are retained at `docs/history/AGENTS_THROUGH_V316.md`, not treated as current.
 
