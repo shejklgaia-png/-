@@ -37,6 +37,8 @@ class Batch:
     var features: Array[String] = []
     var yaw: float = 0.0
     var pivot: Vector3 = Vector3.ZERO
+    # Optional per-salvage uniform scale; equipment models stay at 1x.
+    var detail_scale: float = 1.0
 
     func _init(node: Node3D) -> void:
         host = node
@@ -49,8 +51,9 @@ class Batch:
         # A whole 3D subassembly rotates about its own pivot, including boxes,
         # angled rods, rings and multilayer crates; batching remains intact.
         var spin := Basis(Vector3.UP, yaw)
-        var moved: Vector3 = pivot + spin * (at - pivot)
-        (entries[key] as Array).append(Transform3D(spin * basis, moved))
+        var moved: Vector3 = pivot + spin * ((at - pivot) * detail_scale)
+        (entries[key] as Array).append(Transform3D(
+            spin * basis.scaled_local(Vector3.ONE * detail_scale), moved))
         if not features.has(feature):
             features.append(feature)
 
