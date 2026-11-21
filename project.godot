@@ -15,9 +15,9 @@ compatibility/default_parent_skeleton_in_mesh_instance_3d=true
 [application]
 
 config/name="SERA v530"
-quit_on_go_back=false
 run/main_scene="res://scenes/base_exploration.tscn"
 config/features=PackedStringArray("4.7", "GL Compatibility")
+quit_on_go_back=false
 
 [autoload]
 
@@ -42,7 +42,6 @@ pointing/emulate_mouse_from_touch=false
 
 [rendering]
 
-textures/vram_compression/import_etc2_astc=true
-
 renderer/rendering_method="gl_compatibility"
 renderer/rendering_method.mobile="gl_compatibility"
+textures/vram_compression/import_etc2_astc=true
