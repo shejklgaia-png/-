@@ -600,7 +600,7 @@ func _layout_tool_button(caption: String, identifier: String,
     flat.set_border_width_all(1)
     flat.set_corner_radius_all(0)
     button.add_theme_stylebox_override("normal", flat)
-    var highlighted: StyleBoxFlat = flat.duplicate()
+    var highlighted: StyleBoxFlat = flat.duplicate() as StyleBoxFlat
     highlighted.bg_color = Color("#31566b")
     button.add_theme_stylebox_override("pressed", highlighted)
     button.add_theme_stylebox_override("hover", highlighted)
