@@ -8,8 +8,10 @@ from __future__ import annotations
 
 import argparse
 import concurrent.futures
+import hashlib
 import json
 import os
+import re
 from pathlib import Path
 import subprocess
 import sys
@@ -79,6 +81,19 @@ def prioritize_slowest(tests: list[str], kind: str, hints: Path = TIMING_HINTS) 
                                           order[path]))
 
 
+def isolation_prefix(relative: str) -> str:
+    """Filesystem-safe, collision-resistant isolated user:// folder prefix.
+
+    Nested registered tools such as icon_studio/foo.gd must not carry slashes
+    into tempfile.TemporaryDirectory(prefix=...), which creates one folder.
+    The short digest distinguishes flattened names that would otherwise clash.
+    """
+    stem = relative.removeprefix("tools/").removesuffix(".gd")
+    safe = re.sub(r"[^A-Za-z0-9_.-]+", "-", stem).strip("-")[:72] or "godot"
+    digest = hashlib.sha256(relative.encode("utf-8")).hexdigest()[:10]
+    return f"sera-ci-{safe}-{digest}-"
+
+
 def run_test(kind: str, relative: str, godot: str, timeout: int) -> tuple[str, bool, float, str]:
     isolated = None
     if kind == "py":
@@ -90,8 +105,13 @@ def run_test(kind: str, relative: str, godot: str, timeout: int) -> tuple[str, b
         # Each execution needs a fresh user:// tree, including reruns of
         # the same test. Equipment tests save settings at the end.
         base = Path(os.environ.get("RUNNER_TEMP", tempfile.gettempdir()))
-        unique = relative.removeprefix("tools/").removesuffix(".gd")
-        isolated = tempfile.TemporaryDirectory(prefix="sera-ci-" + unique + "-", dir=base)
+        try:
+            isolated = tempfile.TemporaryDirectory(
+                prefix=isolation_prefix(relative), dir=base)
+        except OSError as exc:
+            # Report an individual test failure instead of aborting the entire
+            # parallel suite via a raised worker future.
+            return relative, False, 0.0, f"Cannot isolate Godot user://: {exc}"
         for folder, variable in (
             ("data", "XDG_DATA_HOME"), ("config", "XDG_CONFIG_HOME"),
             ("cache", "XDG_CACHE_HOME")
