@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""SERA v543: role-based typography, three compatible families, no font downloads."""
+"""SERA: role-based UDEV Gothic/Moralerspace Japanese typography with bundled TTFs."""
 from pathlib import Path
 
 root = Path(__file__).resolve().parents[1]
@@ -12,11 +12,10 @@ for name in ("ui_font", "title_font", "control_font", "stats_font"):
     assert f"static func {name}() -> FontVariation:" in skin, name
 for name in ("display_font", "data_font"):
     assert f"static func {name}() -> FontFile:" in skin, name
-for token in ("NotoSansJP-VF.woff2",
-              "IBMPlexSansJP-Medium.woff2", "IBMPlexSansJP-Bold.woff2",
-              "Rajdhani-Bold.woff2", "IBMPlexMono-Medium.woff2",
+for token in ("UDEVGothic-Regular.ttf", "UDEVGothic-Bold.ttf",
+              "MoralerspaceNeon-Regular.ttf", "MoralerspaceNeon-Bold.ttf",
               "static func equipment_font()", "_variation_from_face(",
-              "_title_face(), 850", "_stats_face(), 550"):
+              "_variation_from_face(_title_face())", "_variation_from_face(_stats_face())"):
     assert token in skin, token
 
 assert 'button.add_theme_font_override("font", LaboSkin.tracked_display_font())' in ui
