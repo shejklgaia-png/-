@@ -28,33 +28,37 @@ static func from_stats(stats: Dictionary) -> Array[Dictionary]:
     var candidates: Array[Dictionary] = []
     # Synthetic snapshots and legacy saves must not gain fabricated nonzero rows.
     if stats.has("weight_pct"):
-        var category: String = str(stats.get("weight_class", "medium")).to_upper()
-        _add(candidates, "WEIGHT " + category, float(stats["weight_pct"]), 1, "%")
+        var weight_classes: Dictionary = {
+            "light": "軽量", "medium": "中量", "heavy": "重量"
+        }
+        var category: String = str(weight_classes.get(
+            str(stats.get("weight_class", "medium")).to_lower(), "不明"))
+        _add(candidates, "重量比（" + category + "）", float(stats["weight_pct"]), 1, "%")
     if stats.has("en_recovery_per_second"):
-        _add(candidates, "EN OUTPUT", float(stats["en_recovery_per_second"]), 2, "/s")
+        _add(candidates, "EN回復速度", float(stats["en_recovery_per_second"]), 2, "/s")
     if stats.has("tracking_speed_mult"):
-        _add(candidates, "TRACK", float(stats["tracking_speed_mult"]) * 100.0, 0, "%")
+        _add(candidates, "追尾速度", float(stats["tracking_speed_mult"]) * 100.0, 0, "%")
     if stats.has("attack_motion_speed_mult"):
-        _add(candidates, "ATK SPEED", float(stats["attack_motion_speed_mult"]) * 100.0, 0, "%")
-    _add(candidates, "HP", float(stats.get("max_hp", 0.0)))
-    _add(candidates, "DEF", float(stats.get("defense", 0.0)) * 100.0, 1, "%")
-    _add(candidates, "ATK1", _first(stats, "attack_damage") *
+        _add(candidates, "攻撃速度", float(stats["attack_motion_speed_mult"]) * 100.0, 0, "%")
+    _add(candidates, "耐久力", float(stats.get("max_hp", 0.0)))
+    _add(candidates, "防御率", float(stats.get("defense", 0.0)) * 100.0, 1, "%")
+    _add(candidates, "攻撃力", _first(stats, "attack_damage") *
         float(stats.get("attack_mult", 1.0)))
-    _add(candidates, "BRK1", _first(stats, "break_damage"))
-    _add(candidates, "STG1", _first(stats, "stagger_gain"))
-    _add(candidates, "ATK EN", _first(stats, "attack_energy"))
-    _add(candidates, "RUN", float(stats.get("run_speed", 0.0)), 2)
-    _add(candidates, "BOOST", float(stats.get("boost_speed", 0.0)) *
+    _add(candidates, "ブレイク力", _first(stats, "break_damage"))
+    _add(candidates, "怯み蓄積", _first(stats, "stagger_gain"))
+    _add(candidates, "攻撃EN消費", _first(stats, "attack_energy"))
+    _add(candidates, "走行速度", float(stats.get("run_speed", 0.0)), 2)
+    _add(candidates, "ブースト速度", float(stats.get("boost_speed", 0.0)) *
         float(stats.get("boost_speed_mult", 1.0)), 2)
-    _add(candidates, "LOCK", float(stats.get("lock_range", 0.0)), 0, "m")
-    _add(candidates, "GUARD", float(stats.get("guard_defense_mult", 0.0)) *
+    _add(candidates, "ロック距離", float(stats.get("lock_range", 0.0)), 0, "m")
+    _add(candidates, "ガード性能", float(stats.get("guard_defense_mult", 0.0)) *
         100.0, 0, "%")
-    _add(candidates, "EN COST", float(stats.get("energy_cost_mult", 0.0)) *
+    _add(candidates, "EN消費倍率", float(stats.get("energy_cost_mult", 0.0)) *
         100.0, 0, "%")
-    _add(candidates, "STEP", float(stats.get("step_speed_mult", 0.0)) *
+    _add(candidates, "ステップ速度", float(stats.get("step_speed_mult", 0.0)) *
         100.0, 0, "%")
-    _add(candidates, "BASH", float(stats.get("bash_damage", 0.0)))
-    _add(candidates, "CHARGE", float(stats.get("charge_damage", 0.0)))
+    _add(candidates, "バッシュ威力", float(stats.get("bash_damage", 0.0)))
+    _add(candidates, "チャージ威力", float(stats.get("charge_damage", 0.0)))
     var visible: Array[Dictionary] = []
     for stat in candidates:
         var amount: float = float(stat["amount"])
