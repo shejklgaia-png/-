@@ -86,19 +86,19 @@ func _run() -> void:
         if visible.size() != props.size():
             _fail(key + " prop metadata differs from generated geometry")
             return
+        # Inspect actual CPU-side transforms before MultiMesh.flush().
+        # Software/headless GL does not guarantee instance-transform readback.
+        var probe := Node3D.new()
+        var recording: Variant = Arch.Batch.new(probe)
+        Props.decorate(recording, key)
+        var skids: Array = recording.entries.get("cube|rubber", [])
         var actual_rotated: int = 0
-        for child in visual.get_children():
-            if not child is MultiMeshInstance3D:
-                continue
-            var draw: MultiMeshInstance3D = child as MultiMeshInstance3D
-            if not draw.name.begins_with("Architectural_cube_rubber"):
-                continue
-            var mm: MultiMesh = draw.multimesh
-            for index in range(mm.instance_count):
-                var pose: Transform3D = mm.get_instance_transform(index)
-                var heading: float = rad_to_deg(atan2(-pose.basis.x.z, pose.basis.x.x))
-                if absf(heading) > 4.0:
-                    actual_rotated += 1
+        for raw_transform in skids:
+            var pose: Transform3D = raw_transform
+            var heading: float = rad_to_deg(atan2(-pose.basis.x.z, pose.basis.x.x))
+            if absf(heading) > 4.0:
+                actual_rotated += 1
+        probe.free()
         if actual_rotated < 3:
             _fail(key + " has no actually rotated floor props")
             return
