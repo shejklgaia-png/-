@@ -8,7 +8,7 @@ const BOARD_CENTER: Vector3 = Vector3(35.5, 0.0, -20.0)
 const GENERATOR_ORIGIN: Vector3 = Vector3(8.85, 0.0, -1.65)
 const CABLE_SEGMENTS: int = 48
 const TUBE_SIDES: int = 8
-const CAMERA_SIZE: float = 23.6
+const CAMERA_SIZE: float = 33.0
 
 
 static func board_focus() -> Vector3:
@@ -156,13 +156,6 @@ static func build(parent: Node3D) -> Node3D:
             Vector3(side * 5.40, 0.585, 0),
             Vector3(0.045, 0.019, 10.9), Color("#79b0c3"), true)
 
-    var legend := Label3D.new()
-    legend.name = "PowerGridLabel"
-    legend.text = "POWER GRID / 08 x 08"
-    legend.font_size = 48
-    legend.pixel_size = 0.009
-    legend.modulate = Color("#a5c7d4")
-    legend.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-    legend.position = BOARD_CENTER + Vector3(0, 0.75, -6.10)
-    stage.add_child(legend)
+    # No giant Label3D hovering over the playing surface. The BASE HUD
+    # supplies the board title and instructions outside the slots.
     return stage
