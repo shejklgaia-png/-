@@ -1038,6 +1038,9 @@ func _create_equipment_controls() -> void:
         item_icon.name = "CraftedEquipmentIcon_" + slot
         item_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
         item_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+        # Each atlas tile is 72px. Without this, TextureRect's natural
+        # minimum size can override our smaller card icon and touch its label.
+        item_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
         item_icon.visible = false
         row.add_child(item_icon)
         var model_code := Label.new()
