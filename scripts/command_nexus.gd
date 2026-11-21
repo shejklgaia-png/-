@@ -709,7 +709,7 @@ func _create_training_controls() -> void:
         row.add_child(caption)
         var value := Label.new()
         value.mouse_filter = Control.MOUSE_FILTER_IGNORE
-        value.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+        value.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
         value.add_theme_font_size_override("font_size", 19)
         value.add_theme_color_override("font_color", Color("#e4faff"))
         row.add_child(value)
