@@ -2944,6 +2944,95 @@ func _source_ik_limb_lowest_world_y(limb: Dictionary) -> float:
     return lowest
 
 
+## v534 authoring: keep four actual visible TOE CUBOIDS at Y=0 through
+## every falling source frame, with the original unscaled 14-bone rig.
+## These are live per-frame constraints AFTER the source pose is sampled.
+## No vertex or .bbmodel data is changed, no separate mesh translation.
+func apply_authored_down_grounding() -> void:
+    if not source_ik_enabled or authored_down_clip.is_empty():
+        return
+    var replant: float = authored_down_replant_fraction()
+    var replant_active: bool = break_elapsed >= break_recover_start         and replant < 1.0
+    var pair_position: float = replant * 2.0
+    var pair_half: int = mini(1, int(pair_position))
+    var pair_idx: int = (
+        authored_down_replant_first_pair if pair_half == 0
+        else 1 - authored_down_replant_first_pair)
+    var half_t: float = clampf(pair_position - float(pair_half), 0.0, 1.0)
+    var pair_ease: float = _rise_ease(half_t)
+    for index in range(legs.size()):
+        var limb: Dictionary = legs[index]
+        var foot: Node3D = limb["foot"]
+        var box_record: Dictionary = limb.get(
+            "source_ik_sweep_toe_box", {})
+        if box_record.is_empty():
+            continue
+        var mesh: MeshInstance3D = box_record["mesh"]
+        if mesh == null or mesh.mesh == null:
+            continue
+        # Select the actual LOWEST toe vertex as the contact point,
+        # not the resting sole offset (which rolls when the toe tilts).
+        var mesh_aabb: AABB = mesh.mesh.get_aabb()
+        var contact_local: Vector3 = Vector3.ZERO
+        var contact_y: float = INF
+        for corner in range(8):
+            var world: Vector3 = mesh.to_global(
+                mesh_aabb.get_endpoint(corner))
+            if world.y < contact_y:
+                contact_y = world.y
+                contact_local = foot.to_local(world)
+        var goal: Vector3 = limb["anchor"] as Vector3
+        goal.y = FLOOR_Y
+        var stepping: bool = false
+        if break_elapsed >= break_recover_start and break_elapsed >= 0.0:
+            var home: Vector3 = _source_ik_home(limb)
+            if replant_active and LEG_PAIRS[pair_idx].has(index):
+                # Each pair is lifted and replanted while the BODY stays
+                # perfectly locked at the source t=1.75 contact pose.
+                goal = goal.lerp(home, pair_ease)
+                goal.y = DOWN_REPLANT_LIFT_METERS * sin(PI * half_t)
+                stepping = half_t > 0.0 and half_t < 1.0
+                limb["swing_to"] = home
+                limb["swing_elapsed"] = half_t * (
+                    DOWN_REPLANT_SECONDS * 0.5)
+            elif not replant_active or (
+                    pair_half == 1 and LEG_PAIRS[
+                    authored_down_replant_first_pair].has(index)):
+                goal = home
+                goal.y = FLOOR_Y
+        # Do not allow a previously active normal gait pair to
+        # survive into the authored fall / two-phase recovery.
+        limb["stepping"] = stepping
+        var original_rotation: Quaternion = (
+            foot.global_basis.orthonormalized(
+                ).get_rotation_quaternion())
+        var error: float = _source_ik_solve_striker(
+            limb, goal, original_rotation, contact_local)
+        # Iterate small analytical residuals caused by the changed
+        # knee pole and toe orientation. Only the skeletal chain bends.
+        if not stepping:
+            for trial in range(2):
+                var underside: float = _source_ik_sweep_toe_lowest_world_y(limb)
+                if absf(underside - FLOOR_Y) <= 0.012:
+                    break
+                goal.y -= underside - FLOOR_Y
+                error = _source_ik_solve_striker(
+                    limb, goal, original_rotation, contact_local)
+        limb["last_goal"] = goal
+        limb["last_error"] = error
+        limb["last_rotation"] = (
+            foot.global_basis.get_rotation_quaternion())
+        limb["last_knee"] = (
+            limb["lower"] as Node3D).global_position
+        # Once the full pair has landed, subsequent frames use its
+        # newly planted Wait footprint as the fixed anchor.
+        if break_elapsed >= break_recover_start and (
+                not replant_active or (
+                pair_half == 1 and LEG_PAIRS[
+                authored_down_replant_first_pair].has(index))):
+            limb["anchor"] = _source_ik_home(limb)
+
+
 func _source_ik_contact_weight(frame: Dictionary) -> float:
     var kind: String = str(frame.get("kind", ""))
     var phase: String = str(frame.get("phase", "strike"))
