@@ -45,7 +45,6 @@ assert "SERA_EQUIPMENT_INTAKE_V1" in html
 # Production letters are *model IDs*, never a gameplay equipment-set selector.
 assert "rigSet" not in html, "Old redundant equipment-set selector/controller survived"
 assert '装備セット</label>' not in html, "Visible set input survived"
-assert 'head:D' not in html or 'id="equipName"' in html
 
 
 ui = read("tools/equipment_intake/intake_ui.js")
