@@ -78,7 +78,7 @@ function setTab(name){
  $("intake-viewer-card").hidden=name!=="rig"&&name!=="icon";
  $("downloadPng").hidden=name!=="icon";
  if($("iris"))$("iris").hidden=name!=="icon";
- $("rigHint").textContent="他部位はAセットが初期値です。各部位のモデルを換装できます。";
+ $("rigHint").textContent="他部位はそれぞれの基準モデルを初期表示します。英数字は制作時のモデル識別子であり、一括装備セットではありません。";
  window.SERA_INTAKE_ACTIVE_SLOT=slot;
  if(name==="rig"||name==="icon")renderActivePreview();
  if(name==="stats")updateStatsPreview();
@@ -213,7 +213,7 @@ async function warmComparisonThumbnails(){
  }catch(e){console.warn("Comparison thumbnails:",e);}
 }
 function updateOutput(){
- const data={format:"SERA_EQUIPMENT_INTAKE_V1",version:1,source:{repository_path:DB.source.path,sha256:DB.source.sha256,base_commit:DB.source.commit},equipment:{blueprint_id:$("blueprint").value.trim(),name:$("equipName").value.trim(),slot,rig_set:$("rigSet").value,rig_selection:{...selected}},model:{size_delta_percent:scaleDelta,effective_scale_percent:sizeMultiplier()*100,keep_aspect:keepAspect,standard:"Native Godot SeraRig / A bounding-box normalization for edited slot"},stats:{a_relative_percent:{...statPct},absolute:getDraft(),part_weight_class:weightClass(getDraft().weight_pct||100),whole_weight_pct:effectiveWeight(),whole_weight_class:weightClass(effectiveWeight()),unapproved_classifications:{...customClassifications}},recipe:materialEntries.filter(x=>x.count>0).map(x=>({...x})),special_effects:{description:$("specialEffect").value,approval_required:true,implementation_status:"PENDING_CHATGPT_DISCUSSION"},render_preset_text:$("presetText").value,review_required:true};
+ const data={format:"SERA_EQUIPMENT_INTAKE_V1",version:1,source:{repository_path:DB.source.path,sha256:DB.source.sha256,base_commit:DB.source.commit},equipment:{blueprint_id:$("blueprint").value.trim(),name:$("equipName").value.trim(),slot,rig_set:selected[slot],rig_selection:{...selected}},model:{size_delta_percent:scaleDelta,effective_scale_percent:sizeMultiplier()*100,keep_aspect:keepAspect,standard:"Native Godot SeraRig / A bounding-box normalization for edited slot"},stats:{a_relative_percent:{...statPct},absolute:getDraft(),part_weight_class:weightClass(getDraft().weight_pct||100),whole_weight_pct:effectiveWeight(),whole_weight_class:weightClass(effectiveWeight()),unapproved_classifications:{...customClassifications}},recipe:materialEntries.filter(x=>x.count>0).map(x=>({...x})),special_effects:{description:$("specialEffect").value,approval_required:true,implementation_status:"PENDING_CHATGPT_DISCUSSION"},render_preset_text:$("presetText").value,review_required:true};
  const content="SERA_EQUIPMENT_INTAKE_V1\n"+JSON.stringify(data,null,2);$("exportText").value=content;return content;
 }
 async function copy(){
@@ -236,7 +236,7 @@ function renderPickers(){
    const txt=document.createElement("span");txt.textContent=labels[key]?.[value]||key+" "+value;
    btn.append(img,txt);
    btn.addEventListener("click",async()=>{
-    selected[key]=value;if(key===slot)$("rigSet").value=value;picker.open=false;renderPickers();updateWeight();
+    selected[key]=value;picker.open=false;renderPickers();updateWeight();
     if(activeTab==="stats")updateStatsPreview();else await renderActivePreview();
    });
    list.append(btn);
@@ -260,7 +260,6 @@ function renderPickers(){
 function init(){
  document.querySelectorAll("[data-nav]").forEach(btn=>btn.addEventListener("click",()=>setTab(btn.dataset.nav)));
  $("slot").addEventListener("change",e=>{slot=e.target.value;window.SERA_INTAKE_ACTIVE_SLOT=slot;statPct={};customClassifications={};renderStats();renderPickers();setTab(activeTab)});
- $("rigSet").addEventListener("change",e=>{selected[slot]=e.target.value;renderPickers();updateWeight();if(activeTab==="stats")updateStatsPreview();else renderActivePreview()});
  $("sizeDelta").addEventListener("input",e=>{scaleDelta=Number(e.target.value);renderSize()});
  $("sizeNumber").addEventListener("input",e=>{scaleDelta=clamp(Number(e.target.value)||0,-300,300);renderSize()});
  $("sizeAspect").addEventListener("change",e=>{keepAspect=e.target.checked;renderSize()});
@@ -274,8 +273,6 @@ function init(){
  $("distX").addEventListener("change",drawDistribution);$("distY").addEventListener("change",drawDistribution);
  $("distSearch").addEventListener("input",drawCharts);
  $("slot").value=slot;
- $("rigSet").replaceChildren(...choices[slot].map(x=>{const o=document.createElement("option");o.value=x;o.textContent=x;return o}));$("rigSet").value=selected[slot];
- $("slot").addEventListener("change",()=>{$("rigSet").replaceChildren(...choices[slot].map(x=>{const o=document.createElement("option");o.value=x;o.textContent=x;return o}));$("rigSet").value=selected[slot]});
  renderStats();renderMaterials();renderPickers();renderSize();setTab("rig");
 }
 window.SERA_INTAKE_REQUEST_REFRESH=renderActivePreview;
