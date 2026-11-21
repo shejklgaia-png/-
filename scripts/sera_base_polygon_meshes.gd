@@ -112,7 +112,7 @@ static func _canopy_y(x: float, z: float) -> float:
 
 static func _canvas(st: SurfaceTool) -> void:
     # Top and bottom are actual 4x4 tessellations, hem has real thickness.
-    var grid: Array[Array] = []
+    var grid: Array = []
     for iz in range(5):
         var row: Array[Vector3] = []
         var z: float = -0.5 + float(iz) * 0.25
@@ -186,6 +186,8 @@ static func _rotor(st: SurfaceTool, teeth: bool) -> void:
             Vector3(cos(b) * rb, 0.5, sin(b) * rb), Vector3.UP)
 
 static func make(kind: String) -> ArrayMesh:
+    if _mesh_cache.has(kind):
+        return _mesh_cache[kind] as ArrayMesh
     var st := SurfaceTool.new()
     st.begin(Mesh.PRIMITIVE_TRIANGLES)
     match kind:
@@ -206,4 +208,6 @@ static func make(kind: String) -> ArrayMesh:
         _:
             push_error("Unsupported SERA BASE polygon type: " + kind)
             return null
-    return st.commit()
+    var authored: ArrayMesh = st.commit()
+    _mesh_cache[kind] = authored
+    return authored
