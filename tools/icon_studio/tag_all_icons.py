@@ -18,7 +18,9 @@ except ImportError:
     from validate_all_icons import ROOT, TARGET, catalog_entries
     from read_sera_icon_png import read_png_metadata
 
-OBLIQUE_POSE = (26.0, -34.0, 0.0)
+# Matches the real SeraRig -Z front, +X right and +Y top.
+# This is also the initial camera on the live 3D part-viewer.
+OBLIQUE_POSE = (-26.0, -146.0, 0.0)
 ANGLES = {slot: OBLIQUE_POSE for slot in (
     "head", "torso", "arms", "legs", "booster", "weapon_r", "weapon_l")}
 KEY = b"SERA_ICON_MANIFEST_V1"

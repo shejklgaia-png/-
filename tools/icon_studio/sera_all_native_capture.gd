@@ -5,9 +5,11 @@ const RigScript = preload("res://scripts/sera_rig.gd")
 const EdgeScript = preload("res://scripts/sera_view_edges.gd")
 const Catalog = preload("res://scripts/sera_prototype_catalog.gd")
 const PIXELS: int = 512
-# Camera is above the model and to its right, looking toward its front.
-# Same authored view for EVERY slot, including IRIS and the Katana.
-const OBLIQUE_POSE: Vector3 = Vector3(26.0, -34.0, 0.0)
+# NEXUS front is local -Z and its preview already turns the rig by PI.
+# Old yaw=-34 pointed the +Z camera at the character's BACK.
+# Y=-146 sees front (-Z) and right (+X); X=-26 exposes the top (+Y).
+# Apply to EVERY slot including IRIS / Katana, keeping 512px equal margins.
+const OBLIQUE_POSE: Vector3 = Vector3(-26.0, -146.0, 0.0)
 const POSE_NAMES = ["NEXUS_pose", "NEXUSpose"]
 const SIDE_PADDING: int = 34
 
