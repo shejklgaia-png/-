@@ -49,7 +49,16 @@ func _check() -> void:
             _fail(id + ": real equipment card has no summary statistics")
             return
         var full: String = LaboStats.complete_profile_text(id)
+        if slot == "weapon_l" and (
+                full.contains("溜め威力") or full.contains("溜め部位破壊") or (
+                full.contains("charge_damage") or full.contains("charge_break"))):
+            _fail(id + ": obsolete unimplemented charge stat leaked into UI")
+            return
         for property in stats.keys():
+            # Legacy charge fields remain in the profile for compatibility,
+            # but have no live combat action and are intentionally not shown.
+            if property in ["charge_damage", "charge_break", "charge_guard_mult"]:
+                continue
             var raw: Variant = stats[property]
             var nonzero: bool = true
             if raw is bool:
