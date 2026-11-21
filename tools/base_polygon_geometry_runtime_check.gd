@@ -25,7 +25,12 @@ func _check_mesh(kind: String) -> bool:
         var a: Vector3 = vertices[i]
         var b: Vector3 = vertices[i + 1]
         var c: Vector3 = vertices[i + 2]
-        if (b - a).cross(c - a).length_squared() < 0.00000001:
+        var geometric: Vector3 = (b - a).cross(c - a)
+        if geometric.length_squared() < 0.00000001:
+            return false
+        # Godot's clockwise front-face rule is opposite to the right-handed
+        # cross product. The explicit exported shading normals still point out.
+        if geometric.normalized().dot(normals[i]) > -0.96:
             return false
         for v in [a, b, c]:
             if absf(v.x) > 0.51 or absf(v.y) > 0.51 or absf(v.z) > 0.51:
