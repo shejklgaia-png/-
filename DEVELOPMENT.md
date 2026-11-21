@@ -1,3 +1,9 @@
+## 2026-11-21 — 灰色起動画面の直接原因を修正（施設管理GDScriptパースエラー）
+- Godot 4.7.2のCIログで「Could not preload resource script res://scripts/base_facility_system.gd」「Failed to load script res://scripts/base_exploration.gd」を確認。BASEの最初のスクリプトが読み込めず、起動用UIの _ready 自体が実行できなかった。
+- v531のH02アイリス説明文に、文字列の外側のリテラル \\n が混入した不正GDScriptを発見。意味と表示内容を保持した明示的なif/else分岐へ置換。
+- 同じ形式の誤った改行トークンを検知するPython検査と、施設スクリプト・起動シーン・HUD・カメラの存在を実Godotで検証する検査を追加。CIではインポート前の実行段階で先に起動検査を行い、タイムアウトと早期失敗で無限待機を防ぐ。
+- 描画レイアウト、装備の定義、倉庫や既存の保存形式には変更なし。Android実機での再現解消は実機再起動による確認が必要。
+
 ## 2026-11-21 — 装備アイコンの描画をSERA本体Godotと一致させるオフライン撮影工程
 - `SERA_ICON_PRESET_V1` のカメラ姿勢、拡縮・移動はIcon Studio WebGLからそのまま引き継ぐが、ゲーム用最終画像は独自CPU/WebGLレンダリングを使わずSERA自身のGL Compatibility GPUレンダリングに切り替える。
 - `tools/icon_studio/sera_godot_native_capture.gd` は実ゲームのHEAD Dモデル・材質・UV・16x16原本テクスチャと`sera_view_edges.gd`のリアルなアウトラインシェーダーを共用し、戦闘`main.gd`に記載の環境光・KeyLight値を採用。512px透明SubViewportで一度だけ描画・フレームバッファ読込。
