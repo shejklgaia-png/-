@@ -9,6 +9,8 @@ const IconAtlas = preload("res://scripts/sera_item_icons.gd")
 const PrototypeCatalog = preload("res://scripts/sera_prototype_catalog.gd")
 const LaboSkin = preload("res://scripts/sera_labo_round_skin.gd")
 const EquipmentStatRows = preload("res://scripts/sera_nexus_stat_rows.gd")
+const LaboStats = preload("res://scripts/sera_labo_stats.gd")
+const CraftAffixes = preload("res://scripts/sera_craft_affixes.gd")
 const PartViewer = preload("res://scripts/sera_part_preview_widget.gd")
 const RotateMark = preload("res://scripts/sera_rotatable_mark.gd")
 const CONTROL_SETTINGS_FILE: String = "user://sera_settings.cfg"
@@ -38,8 +40,16 @@ var customize_right_panel: Panel
 var customize_right_header: Panel
 var customize_equipment_header: Label
 var customize_equipment_rows: Dictionary = {}
+var customize_stats_panel: Panel
+var customize_total_title: Label
 var customize_stats_scroll: ScrollContainer
 var customize_stats_grid: GridContainer
+var customize_part_stats_panel: Panel
+var customize_part_stats_header: Label
+var customize_part_stats_name: Label
+var customize_part_stats_scroll: ScrollContainer
+var customize_part_stats_list: VBoxContainer
+var customize_part_stat_cells: Array[Dictionary] = []
 var customize_stat_cells: Array[Dictionary] = []
 var customize_single_part_preview: Control
 var customize_body_rotate_cue: Control
@@ -633,6 +643,7 @@ func _hud() -> void:
     customize_right_panel.add_child(customize_right_header)
     _create_equipment_controls()
     _create_single_part_preview()
+    _create_customization_part_stats()
     _create_customization_part_picker()
     action_panel = Panel.new()
     action_panel.name = "DestinationAction"
@@ -859,6 +870,26 @@ func _update_training_start_pulse(delta: float) -> void:
 # Read-only equipment statistics occupy the existing lower-left CUSTOMIZE
 # square. Reusing twenty stat cells keeps selection changes allocation-free.
 func _create_customization_stats() -> void:
+    customize_stats_panel = Panel.new()
+    customize_stats_panel.name = "CustomizeTotalStatsPanel"
+    customize_stats_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    customize_stats_panel.add_theme_stylebox_override("panel", _menu_body_style())
+    customize_stats_panel.visible = false
+    hud.add_child(customize_stats_panel)
+    var total_bar := Panel.new()
+    total_bar.name = "CustomizeTotalStatsHeader"
+    total_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    total_bar.add_theme_stylebox_override("panel", _menu_header_style())
+    customize_stats_panel.add_child(total_bar)
+    customize_total_title = Label.new()
+    customize_total_title.name = "CustomizeTotalStatsTitle"
+    customize_total_title.text = "TOTAL STATUS"
+    customize_total_title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+    customize_total_title.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    customize_total_title.add_theme_font_override("font", LaboSkin.tracked_display_font())
+    customize_total_title.add_theme_font_size_override("font_size", 20)
+    customize_total_title.add_theme_color_override("font_color", Color("#d7e6ed"))
+    total_bar.add_child(customize_total_title)
     customize_stats_scroll = ScrollContainer.new()
     customize_stats_scroll.name = "CustomizeEquipmentStatsScroll"
     customize_stats_scroll.mouse_filter = Control.MOUSE_FILTER_PASS
@@ -913,15 +944,27 @@ func _create_customization_stats() -> void:
 func _layout_customization_stats() -> void:
     if customize_stats_scroll == null or hud == null:
         return
-    customize_stats_scroll.visible = focused_target == "CUSTOMIZE"
+    var show: bool = focused_target == "CUSTOMIZE"
+    customize_stats_panel.visible = show
+    customize_stats_scroll.visible = show
     var view: Vector2 = hud.size
-    var inner_width: float = maxf(180.0, view.x * 0.94)
+    var width: float = maxf(180.0, view.x * 0.94)
+    var left: float = (view.x - width) * 0.5
+    var top: float = maxf(20.0, view.y * 0.035)
+    var height: float = minf(view.y * 0.212, 275.0)
+    customize_stats_panel.position = Vector2(left, top)
+    customize_stats_panel.size = Vector2(width, height)
+    var heading: Panel = customize_stats_panel.get_node(
+        "CustomizeTotalStatsHeader") as Panel
+    heading.position = Vector2.ZERO
+    heading.size = Vector2(width, 37.0)
+    customize_total_title.position = Vector2(15, 0)
+    customize_total_title.size = Vector2(width - 30, 37)
+    var inner_width: float = maxf(160.0, width - 20.0)
     var columns: int = 3 if inner_width >= 590.0 else (2 if inner_width >= 370.0 else 1)
     customize_stats_grid.columns = columns
-    customize_stats_scroll.position = Vector2((view.x - inner_width) * 0.5,
-        maxf(24.0, view.y * 0.045))
-    customize_stats_scroll.size = Vector2(inner_width,
-        minf(view.y * 0.182, 246.0))
+    customize_stats_scroll.position = Vector2(left + 10.0, top + 43.0)
+    customize_stats_scroll.size = Vector2(inner_width, height - 53.0)
     var cell_width: float = floorf(
         (inner_width - 4.0 * float(columns - 1)) / float(columns))
     var cell_height: float = 30.0
@@ -939,7 +982,6 @@ func _layout_customization_stats() -> void:
         line.position = Vector2(cell_width - 2, 4)
         line.size = Vector2(1, cell_height - 8)
         line.visible = i % columns < columns - 1 and cell.visible
-
 
 func _refresh_customization_stats() -> void:
     if customize_stats_grid == null:
@@ -1101,6 +1143,7 @@ func _refresh_equipment_controls() -> void:
     _refresh_customization_stats()
     if focused_target == "CUSTOMIZE" and not in_transition:
         _refresh_single_part_preview(customize_part_preview_slot)
+        _refresh_customization_part_stats(customize_part_preview_slot)
 
 func _default_part_name(slot: String, model: String) -> String:
     for id in PrototypeCatalog.ORDER:
@@ -1121,8 +1164,14 @@ func _tap_equipment_control(point: Vector2) -> bool:
         if Rect2(row.position, row.size).has_point(local):
             var blocker: Dictionary = sera_display_rig.call(
                 "get_equipment_two_handed_blocker", slot)
-            if blocker.is_empty():
+            if not blocker.is_empty():
+                return true
+            var row_point: Vector2 = local - row.position
+            var expand: Button = customize_equipment_rows[slot]["expand"]
+            if Rect2(expand.position, expand.size).has_point(row_point):
                 _show_customization_part_picker(slot)
+            else:
+                _inspect_customization_part(slot)
             return true
     return true
 
@@ -1235,8 +1284,9 @@ func _layout_customization_part_picker() -> void:
 func _show_customization_part_picker(slot: String) -> void:
     if customize_part_picker == null:
         return
-    customize_part_preview_slot = slot
-    _refresh_single_part_preview(slot)
+    # Keep the inspected model and status in sync when the right-side button
+    # opens selection; the name region itself never calls this function.
+    _inspect_customization_part(slot)
     customize_part_picker_title.text = str(CUSTOMIZE_SLOT_LABELS.get(slot, slot)) + "   /   SELECT PART"
     for child in customize_part_grid.get_children():
         customize_part_grid.remove_child(child)
@@ -1436,12 +1486,13 @@ func _create_single_part_preview() -> void:
     customize_body_rotate_cue.visible = false
     hud.add_child(customize_body_rotate_cue)
 
+
 func _layout_single_part_preview() -> void:
     if customize_single_part_preview == null:
         return
     var view: Vector2 = hud.size
     var header_height: float = focus_header.size.y
-    var side: float = minf(focus_panel.size.x - 10.0,
+    var side: float = minf(focus_panel.size.x - 14.0,
         focus_panel.size.y - header_height - 10.0)
     customize_single_part_preview.position = Vector2(
         (focus_panel.size.x - side) * 0.5, header_height + 5)
@@ -1450,27 +1501,211 @@ func _layout_single_part_preview() -> void:
     customize_body_rotate_cue.position = area.position + Vector2(8, 8)
     customize_body_rotate_cue.visible = focused_target == "CUSTOMIZE"
 
+
 func _refresh_single_part_preview(slot: String) -> void:
-    if customize_single_part_preview == null or (
-            focused_target != "CUSTOMIZE"):
+    if customize_single_part_preview == null or focused_target != "CUSTOMIZE":
         return
-    var selected_model: String = "A"
-    if sera_display_rig != null:
-        selected_model = str(sera_display_rig.call(
-            "get_equipment_selection", slot))
-    var uid: String = SeraSave.get_equipped_prototype(slot)
-    var blueprint: String = uid.get_slice("-", 0) if not uid.is_empty() else ""
-    if blueprint.is_empty():
-        for candidate in PrototypeCatalog.ORDER:
-            var spec: Dictionary = PrototypeCatalog.spec(str(candidate))
-            if str(spec.get("slot", "")) == slot and (
-                    str(spec.get("rig_set", "")) == selected_model):
-                blueprint = str(candidate)
-                break
+    var blueprint: String = _equipped_part_blueprint(slot)
     if not blueprint.is_empty():
         customize_part_preview_slot = slot
         customize_single_part_preview.show_part(blueprint)
         customize_single_part_preview.visible = true
+
+
+func _create_customization_part_stats() -> void:
+    # Independent PART STATUS panel; reuse 28 rows, never allocate UI on taps.
+    customize_part_stats_panel = Panel.new()
+    customize_part_stats_panel.name = "CustomizePartStatsPanel"
+    customize_part_stats_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    customize_part_stats_panel.add_theme_stylebox_override(
+        "panel", _menu_body_style())
+    customize_part_stats_panel.visible = false
+    hud.add_child(customize_part_stats_panel)
+    var header := Panel.new()
+    header.name = "CustomizePartStatsHeader"
+    header.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    header.add_theme_stylebox_override("panel", _menu_header_style())
+    customize_part_stats_panel.add_child(header)
+    customize_part_stats_header = Label.new()
+    customize_part_stats_header.name = "CustomizePartStatsHeading"
+    customize_part_stats_header.text = "PART STATUS"
+    customize_part_stats_header.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    customize_part_stats_header.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+    customize_part_stats_header.add_theme_font_override(
+        "font", LaboSkin.tracked_display_font())
+    customize_part_stats_header.add_theme_font_size_override("font_size", 19)
+    customize_part_stats_header.add_theme_color_override(
+        "font_color", Color("#d7e6ed"))
+    header.add_child(customize_part_stats_header)
+    customize_part_stats_name = Label.new()
+    customize_part_stats_name.name = "CustomizePartStatsName"
+    customize_part_stats_name.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    customize_part_stats_name.clip_text = true
+    customize_part_stats_name.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+    customize_part_stats_name.add_theme_font_override(
+        "font", LaboSkin.equipment_font())
+    customize_part_stats_name.add_theme_font_size_override("font_size", 19)
+    customize_part_stats_name.add_theme_color_override(
+        "font_color", Color("#d7e6ed"))
+    customize_part_stats_name.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+    customize_part_stats_panel.add_child(customize_part_stats_name)
+    LaboSkin.attach_name_underline(customize_part_stats_name)
+    customize_part_stats_scroll = ScrollContainer.new()
+    customize_part_stats_scroll.name = "CustomizePartStatsScroll"
+    customize_part_stats_scroll.mouse_filter = Control.MOUSE_FILTER_PASS
+    customize_part_stats_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+    customize_part_stats_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+    customize_part_stats_panel.add_child(customize_part_stats_scroll)
+    customize_part_stats_list = VBoxContainer.new()
+    customize_part_stats_list.name = "CustomizePartStatsRows"
+    customize_part_stats_list.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    customize_part_stats_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+    customize_part_stats_list.add_theme_constant_override("separation", 2)
+    customize_part_stats_scroll.add_child(customize_part_stats_list)
+    for i in range(28):
+        var row := Panel.new()
+        row.name = "SinglePartStat_" + str(i)
+        row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        row.custom_minimum_size = Vector2(100, 28)
+        var style := StyleBoxFlat.new()
+        style.bg_color = Color("#122a36")
+        style.border_color = Color("#345563")
+        style.border_width_bottom = 1
+        style.set_corner_radius_all(0)
+        row.add_theme_stylebox_override("panel", style)
+        row.visible = false
+        customize_part_stats_list.add_child(row)
+        var label := Label.new()
+        label.name = "PartStatName"
+        label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+        label.clip_text = true
+        label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+        label.add_theme_font_override("font", LaboSkin.stats_font())
+        label.add_theme_font_size_override("font_size", 15)
+        label.add_theme_color_override("font_color", Color("#b7cbd6"))
+        row.add_child(label)
+        var value := Label.new()
+        value.name = "PartStatValue"
+        value.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        value.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+        value.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+        value.clip_text = true
+        value.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+        value.add_theme_font_override("font", LaboSkin.stats_font())
+        value.add_theme_font_size_override("font_size", 16)
+        value.add_theme_color_override("font_color", Color("#e0eef1"))
+        row.add_child(value)
+        customize_part_stat_cells.append({
+            "panel": row, "name": label, "value": value
+        })
+
+
+func _customize_part_stats_rect(view: Vector2) -> Rect2:
+    var preview: Rect2 = _customize_square_menu_rect(view)
+    var start: float = preview.end.y + view.y * 0.011
+    var bottom: float = view.y * 0.895
+    return Rect2(Vector2(preview.position.x, start),
+        Vector2(preview.size.x, maxf(120.0, bottom - start)))
+
+
+func _layout_customization_part_stats() -> void:
+    if customize_part_stats_panel == null:
+        return
+    customize_part_stats_panel.visible = focused_target == "CUSTOMIZE"
+    var area: Rect2 = _customize_part_stats_rect(hud.size)
+    customize_part_stats_panel.position = area.position
+    customize_part_stats_panel.size = area.size
+    var bar: Panel = customize_part_stats_panel.get_node(
+        "CustomizePartStatsHeader") as Panel
+    bar.position = Vector2.ZERO
+    bar.size = Vector2(area.size.x, 36)
+    customize_part_stats_header.position = Vector2(14, 0)
+    customize_part_stats_header.size = Vector2(area.size.x - 28, 36)
+    customize_part_stats_name.position = Vector2(14, 39)
+    customize_part_stats_name.size = Vector2(area.size.x - 28, 27)
+    LaboSkin.refresh_name_underline(customize_part_stats_name)
+    customize_part_stats_scroll.position = Vector2(10, 73)
+    customize_part_stats_scroll.size = Vector2(
+        maxf(40.0, area.size.x - 20.0), maxf(40.0, area.size.y - 83.0))
+    var row_width: float = customize_part_stats_scroll.size.x - 3.0
+    for entry in customize_part_stat_cells:
+        var row: Panel = entry["panel"]
+        row.custom_minimum_size = Vector2(row_width, 28)
+        var label: Label = entry["name"]
+        label.position = Vector2(8, 0)
+        label.size = Vector2(row_width * 0.63 - 10, 28)
+        var value: Label = entry["value"]
+        value.position = Vector2(row_width * 0.63, 0)
+        value.size = Vector2(row_width * 0.37 - 9, 28)
+
+
+func _refresh_customization_part_stats(slot: String) -> void:
+    if customize_part_stats_panel == null or focused_target != "CUSTOMIZE":
+        return
+    var blueprint: String = _equipped_part_blueprint(slot)
+    var spec: Dictionary = PrototypeCatalog.spec(blueprint)
+    customize_part_stats_name.text = str(spec.get(
+        "name", _default_part_name(slot, "A")))
+    LaboSkin.refresh_name_underline(customize_part_stats_name)
+    var rows: Array[Dictionary] = []
+    if not blueprint.is_empty():
+        var profile_lines: PackedStringArray = LaboStats.complete_profile_text(
+            blueprint).split("\n")
+        for i in range(1, profile_lines.size()):
+            var line: String = str(profile_lines[i])
+            var pivot: int = line.find("  ")
+            if pivot <= 0:
+                continue
+            rows.append({
+                "label": line.substr(0, pivot),
+                "value": line.substr(pivot + 2)
+            })
+        var uid: String = SeraSave.get_equipped_prototype(slot)
+        if not uid.is_empty():
+            # Individually crafted affixes belong only to their UID, not to
+            # other items sharing a model; display is not combat integration.
+            for item in SeraSave.get_owned_prototypes(slot):
+                if str(item.get("uid", "")) != uid:
+                    continue
+                for effect in CraftAffixes.sanitize(item.get("affixes", [])):
+                    var effect_id: String = str(effect.get("id", ""))
+                    rows.append({
+                        "label": "特性 " + str(CraftAffixes.EFFECT_NAMES.get(
+                            effect_id, effect_id)),
+                        "value": "+%d%%" % int(effect.get("value", 0))
+                    })
+                break
+    for i in range(customize_part_stat_cells.size()):
+        var cell: Dictionary = customize_part_stat_cells[i]
+        var show: bool = i < rows.size()
+        (cell["panel"] as Panel).visible = show
+        if show:
+            (cell["name"] as Label).text = str(rows[i]["label"])
+            (cell["value"] as Label).text = str(rows[i]["value"])
+
+
+func _equipped_part_blueprint(slot: String) -> String:
+    var uid: String = SeraSave.get_equipped_prototype(slot)
+    if not uid.is_empty():
+        return uid.get_slice("-", 0)
+    var model: String = "A"
+    if sera_display_rig != null:
+        model = str(sera_display_rig.call("get_equipment_selection", slot))
+    for candidate in PrototypeCatalog.ORDER:
+        var spec: Dictionary = PrototypeCatalog.spec(str(candidate))
+        if str(spec.get("slot", "")) == slot and (
+                str(spec.get("rig_set", "")) == model):
+            return str(candidate)
+    return ""
+
+
+func _inspect_customization_part(slot: String) -> void:
+    if focused_target != "CUSTOMIZE":
+        return
+    customize_part_preview_slot = slot
+    _refresh_single_part_preview(slot)
+    _refresh_customization_part_stats(slot)
 
 
 func _load_system_lock_preference() -> void:
@@ -2033,25 +2268,23 @@ func _apply_labo_typography() -> void:
 # Three-zone CUSTOMIZE portrait: upper-left model, lower-left square,
 # right-side tall menu. All rectangles are in HUD viewport coordinates.
 func _customize_square_menu_rect(view: Vector2) -> Rect2:
-    var placement: Vector2 = PANEL_LAYOUTS["CUSTOMIZE"]
-    var square_side: float = minf(view.x * placement.y, view.y * 0.28)
-    return Rect2(
-        Vector2(view.x * placement.x, view.y * 0.865 - square_side),
-        Vector2(square_side, square_side))
+    # PART VIEW uses the left middle tier while the full SERA stays visible
+    # immediately above it; the status panel occupies the lower tier.
+    return Rect2(Vector2(view.x * 0.035, view.y * 0.492),
+        Vector2(view.x * 0.450, view.y * 0.198))
 
 func _customize_tall_menu_rect(view: Vector2) -> Rect2:
     return Rect2(
-        Vector2(view.x * 0.525, view.y * 0.258),
-        Vector2(view.x * 0.440, view.y * 0.605))
+        Vector2(view.x * 0.510, view.y * 0.255),
+        Vector2(view.x * 0.455, view.y * 0.640))
 
 func _customize_model_area(view: Vector2) -> Rect2:
-    var square: Rect2 = _customize_square_menu_rect(view)
-    var top: float = view.y * 0.245
-    var bottom: float = minf(view.y * 0.625,
-        square.position.y - maxf(12.0, view.y * 0.012))
-    return Rect2(
-        Vector2(square.position.x, top),
-        Vector2(square.size.x, maxf(1.0, bottom - top)))
+    # SERA's own upper-left 3D showcase never intersects PART VIEW.
+    var part_view: Rect2 = _customize_square_menu_rect(view)
+    var top: float = view.y * 0.260
+    var bottom: float = part_view.position.y - maxf(12.0, view.y * 0.011)
+    return Rect2(Vector2(part_view.position.x, top),
+        Vector2(part_view.size.x, maxf(1.0, bottom - top)))
 
 func _layout_hud() -> void:
     if hud == null or back_panel == null or focus_panel == null:
@@ -2090,10 +2323,13 @@ func _layout_hud() -> void:
         _layout_customization_part_picker()
     # The opaque top stripe belongs to the focus panel; rest stays blue/clear.
     focus_header.position = Vector2.ZERO
-    focus_header.size = Vector2(focus_panel.size.x, minf(60.0, view.y * 0.068))
+    focus_header.size = Vector2(focus_panel.size.x,
+        minf(42.0, view.y * 0.068) if focused_target == "CUSTOMIZE" else
+        minf(60.0, view.y * 0.068))
     focus_title.position = Vector2(16.0, 0.0)
     focus_title.size = Vector2(focus_header.size.x - 32.0, focus_header.size.y)
     _layout_customization_stats()
+    _layout_customization_part_stats()
     _layout_single_part_preview()
     action_panel.position = Vector2(16.0, focus_panel.size.y - 84.0)
     action_panel.size = Vector2(focus_panel.size.x - 32.0, 60.0)
@@ -2636,8 +2872,11 @@ func _is_customization_drag_zone(pixel: Vector2) -> bool:
         return false
     if back_panel.visible and Rect2(back_panel.position, back_panel.size).has_point(pixel):
         return false
-    if customize_stats_scroll != null and customize_stats_scroll.visible and (
-            customize_stats_scroll.get_global_rect().has_point(pixel)):
+    if customize_stats_panel != null and customize_stats_panel.visible and (
+            customize_stats_panel.get_global_rect().has_point(pixel)):
+        return false
+    if customize_part_stats_panel != null and customize_part_stats_panel.visible and (
+            customize_part_stats_panel.get_global_rect().has_point(pixel)):
         return false
     return true
 
@@ -2796,13 +3035,15 @@ func _input(event: InputEvent) -> void:
     # Aggregate stats are read-only and can scroll without rotating the
     # character or treating the upper strip as a dismiss tap.
     if focused_target == "CUSTOMIZE" and (
-            customize_part_picker == null or not customize_part_picker.visible) and (
-            customize_stats_scroll != null and customize_stats_scroll.visible):
+            customize_part_picker == null or not customize_part_picker.visible):
         var is_pointer: bool = (event is InputEventScreenTouch or
             event is InputEventScreenDrag or event is InputEventMouseButton or
             event is InputEventMouseMotion)
-        if is_pointer and customize_stats_scroll.get_global_rect().has_point(
-                event.position):
+        if is_pointer and (
+                (customize_stats_panel != null and
+                customize_stats_panel.get_global_rect().has_point(event.position)) or
+                (customize_part_stats_panel != null and
+                customize_part_stats_panel.get_global_rect().has_point(event.position))):
             return
     # Picker taps occur on RELEASE so upward swipes cannot accidentally equip.
     # The scroll is manual because NEXUS uses raw Android touch navigation.
@@ -2946,7 +3187,14 @@ func _tap_at(point: Vector2) -> void:
             customize_right_panel.visible and Rect2(
                 customize_right_panel.position, customize_right_panel.size
             ).has_point(point))
-        if not in_focused and not in_customize:
+        var in_part_stats: bool = focused_target == "CUSTOMIZE" and (
+            customize_part_stats_panel != null and
+            customize_part_stats_panel.get_global_rect().has_point(point))
+        var in_total_stats: bool = focused_target == "CUSTOMIZE" and (
+            customize_stats_panel != null and
+            customize_stats_panel.get_global_rect().has_point(point))
+        if not in_focused and not in_customize and (
+                not in_part_stats and not in_total_stats):
             _navigate_back()
             return
         if focused_target == "SYSTEM" and focus_panel.visible:
@@ -3046,7 +3294,7 @@ func _focus_arrived(target_name: String) -> void:
     else:
         in_transition = false
     back_panel.visible = true
-    focus_title.text = target_name
+    focus_title.text = "PART VIEW" if target_name == "CUSTOMIZE" else target_name
     LaboSkin.refresh_name_underline(focus_title)
     # SYSTEM edits save files; DATA ARCHIVE displays read-only records.
     _set_system_visible(target_name == "SYSTEM")
@@ -3074,8 +3322,11 @@ func _focus_arrived(target_name: String) -> void:
     customize_right_panel.visible = target_name == "CUSTOMIZE"
     if target_name == "CUSTOMIZE":
         _refresh_equipment_controls()
-        _refresh_single_part_preview(customize_part_preview_slot)
+        _inspect_customization_part(customize_part_preview_slot)
         _layout_single_part_preview()
+    elif customize_single_part_preview != null:
+        customize_single_part_preview.visible = false
+        customize_body_rotate_cue.visible = false
 
 func _return_to_overview() -> void:
     if in_transition or focused_target.is_empty():
@@ -3098,6 +3349,12 @@ func _return_to_overview() -> void:
         customize_body_rotate_cue.visible = false
     focus_panel.visible = false
     customize_right_panel.visible = false
+    if customize_stats_panel != null:
+        customize_stats_panel.visible = false
+    if customize_stats_scroll != null:
+        customize_stats_scroll.visible = false
+    if customize_part_stats_panel != null:
+        customize_part_stats_panel.visible = false
     _set_training_visible(false)
     _set_deployment_visible(false)
     _set_system_visible(false)

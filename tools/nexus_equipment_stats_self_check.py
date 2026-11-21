@@ -17,7 +17,9 @@ for required in (
     'func _refresh_customization_stats() -> void:',
     'EquipmentStatRows.from_selection(selected)',
     '_refresh_customization_stats()',
-    'customize_stats_scroll.visible = focused_target == "CUSTOMIZE"',
+    'var show: bool = focused_target == "CUSTOMIZE"',
+    'customize_stats_panel.visible = show',
+    'customize_stats_scroll.visible = show',
 ):
     assert required in nexus, required
 for required in (
