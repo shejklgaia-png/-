@@ -1,3 +1,9 @@
+## 2026-11-22 — BASE startup loading: blue-white high-tempo sweep
+
+- Added a procedural, texture/shader-free `LoadingSweep` to the existing dark `SERA / INITIALIZING` overlay. A tapered blue outer glow, cyan edge, icy inner band and white core travel left-to-right in a 0.78-second offscreen-reset loop. The foreground label and Android touch behavior are unchanged.
+- Two `process_frame` waits between major construction phases allow the loading animation to repaint while the BASE is assembled; the overlay is freed upon completion.
+- Registered new static/Godot loader-loop checks. Updated the BASE startup runtime check from a fixed four frames to a completion-bounded wait. Android visual/speed validation is still required.
+
 ## 2026-11-22 — Re-design BASE landmarks against actual gameplay camera
 
 - **Acceptance viewpoint is the LIVE BASE scene**, not a custom beauty render: 720×1280, 38m orthographic height, camera position (21.0, 19.5, 25.0), target (0.0, 2.1, -2.2), elevation ≈26.9°. Pixel-scale review of the actual portrait screenshot showed that large overhead roofs were often more prominent than the machines, while parts behind central members remained visually lost despite detailed geometry.

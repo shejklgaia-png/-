@@ -3,6 +3,7 @@ extends Node3D
 const Modules = preload("res://assets/base_command_modules.gd")
 const SERA_RIG_PATH: String = "res://scripts/sera_rig.gd"
 const VersionIndicator = preload("res://scripts/version_indicator.gd")
+const LoadingSweep = preload("res://scripts/sera_loading_sweep.gd")
 const BaseFacilities = preload("res://scripts/base_facility_system.gd")
 const PowerBoard = preload("res://scripts/sera_base_power_board.gd")
 const GridUi = preload("res://scripts/sera_base_grid_ui.gd")
@@ -117,14 +118,24 @@ func _ready() -> void:
     await get_tree().process_frame
     _startup_step("FLOOR")
     _build_hangar()
+    # Two frame signals guarantee at least one rendered sweep frame between
+    # heavy synchronous construction phases (one signal fires pre-draw).
+    await get_tree().process_frame
+    await get_tree().process_frame
     _startup_step("NEXUS")
     _build_nexus_building()
+    await get_tree().process_frame
+    await get_tree().process_frame
     _startup_step("FACILITIES")
     _build_field_facilities()
     _build_power_board()
     _create_grid_selection()
+    await get_tree().process_frame
+    await get_tree().process_frame
     _startup_step("SALVAGE")
     _create_salvage()
+    await get_tree().process_frame
+    await get_tree().process_frame
     _startup_step("CRATE")
     _create_player()
     _create_crate()
@@ -150,6 +161,11 @@ func _create_startup_overlay() -> void:
     cover.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
     cover.mouse_filter = Control.MOUSE_FILTER_IGNORE
     startup_layer.add_child(cover)
+    var sweep := LoadingSweep.new() as Control
+    sweep.name = "LoadingSweep"
+    sweep.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    sweep.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+    startup_layer.add_child(sweep)
     startup_label = Label.new()
     startup_label.name = "StartupMessage"
     startup_label.text = "SERA / INITIALIZING"
