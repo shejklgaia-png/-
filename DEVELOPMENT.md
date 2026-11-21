@@ -1,3 +1,10 @@
+## 2026-11-22 — BASE fixed-scale architectural detail pass (night handoff)
+- User's latest instruction: do not enlarge any BASE facility. Retain existing facility scales, yaw, positions, orthographic camera, footprint and one-slab placement.
+- Added small, readable batched geometry to five existing facilities: LABO canvas ridge stitch and vent blades; SMELTER exhaust heat bands; GENERATOR cooling intake grille; STORAGE canvas tie-downs; BUILD_TERMINAL hatch status strip. Existing Batch geometry/materials only; no new draw nodes, lights, collisions, gameplay or save changes.
+- Updated `tools/base_structural_mass_self_check.py` before implementation to require the new features and protect existing scale constants. The registered test remains in `tools/sera_ci_manifest.txt`. Other base tests remain unchanged.
+- GitHub content writes verified by commit results. Local Python/Godot checks and actual Android/Godot screenshots were not run in this connector-only execution; they must not be reported as passed.
+- Next pass: verify runtime positions and any overlap in Godot, refine texture/lighting contrast without resizing facilities, then run focused checks and full post-merge CI on main.
+
 ## 2026-11-21 — Bittaran: 作者制作の4方向ダウンモーション統合（v533）
 - ユーザーが提供したBlockbenchモデルから前脚ダウン_L/R（各2.75秒・78キー）、後足ダウン_L/R（各2.00秒・62キー）を14関節の正本に追加。従来の正本メッシュ、14攻撃/移動クリップ、UUID、HEAD追尾は維持し、Android埋込JSONを同時更新。アップロード版の追加レール/目グループは正本の既存骨格と別のため採用せず、13ボーンのキーフレームだけを統合。
 - 実戦で破壊された脚の前後左右に対応するモーションを1倍速で再生。0.60秒の予備動作からダウン保持まで同一ソース時刻を使用し、最終キーをループさせず保持。既存のダウン2.5/6.0秒と立ち上がり1.0/1.3秒を保持し、5次smootherstepでWait姿勢へ復帰。
