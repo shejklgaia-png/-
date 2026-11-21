@@ -66,7 +66,10 @@ func _check() -> void:
         var solid: Image = Backdrop.composite(source, "solid").get_image()
         if not _close(solid.get_pixel(mid, pad), frame_main) or (
                 not _close(solid.get_pixel(0, 0), Backdrop.SOLID_COLOR)):
-            _fail("Solid-background equipment icon lost its frame")
+            _fail("Solid-background equipment icon lost its frame at %d: "
+                % side + "frame=%s expected=%s bg=%s expected_bg=%s" % [
+                    str(solid.get_pixel(mid, pad)), str(frame_main),
+                    str(solid.get_pixel(0, 0)), str(Backdrop.SOLID_COLOR)])
             return
 
     # Real equipment icons inherit the same frame regardless of original

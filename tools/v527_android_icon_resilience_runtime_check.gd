@@ -59,10 +59,10 @@ func _expect(fac: Node, target: String, count: int, first_name: String) -> bool:
     var photo: TextureRect = first.find_child("ItemArt", true, false) as TextureRect
     if first.icon != null:
         _fail("root Button should never draw its own icon")
-        return
+        return false
     if target == "craft" and (photo == null or photo.texture == null):
         _fail("native equipment photograph vanished without retired WebP")
-        return
+        return false
     if target != "craft" and photo != null and photo.texture != null:
         _fail("missing source unexpectedly resolved in material row")
         return false

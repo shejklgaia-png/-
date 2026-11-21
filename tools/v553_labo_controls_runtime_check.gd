@@ -2,6 +2,7 @@ extends SceneTree
 ## SERA LABO: actual native modal, marks, and 99-step conversion controls.
 const Materials = preload("res://scripts/sera_base_materials.gd")
 const IconAtlas = preload("res://scripts/sera_item_icons.gd")
+const Catalog = preload("res://scripts/sera_prototype_catalog.gd")
 
 func _initialize() -> void:
     call_deferred("_run")
@@ -36,7 +37,7 @@ func _run() -> void:
         "LaboConfirmItemStats", true, false) as Label
     if craft_card == null or not craft_card.visible or picture == null or (
             picture.texture == null or nameplate == null or (
-            nameplate.text != "コアシャーシ") or details == null or (
+            nameplate.text != str(Catalog.spec("T01").get("name", ""))) or details == null or (
             details.text.find("基礎ステータス") < 0)):
         _fail("item preview/stats missing from the creation modal")
         return
