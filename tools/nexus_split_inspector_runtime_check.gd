@@ -31,12 +31,17 @@ func _run() -> void:
     if not total.visible or not single.visible or not right.visible or not view.visible:
         _fail("one of the new CUSTOMIZE windows is not visible")
         return
-    var safe_bottom: float = right.position.y + right.size.y
+    var equipment_bottom: float = right.position.y + right.size.y
     if total.position.y + total.size.y > right.position.y - 4.0 or (
             view.position.y + view.size.y > single.position.y - 4.0) or (
-            single.position.y + single.size.y > safe_bottom + 1.0) or (
+            equipment_bottom > single.position.y - 4.0) or (
+            single.position.x > total.position.x + 1.0) or (
+            single.size.x < total.size.x - 2.0) or (
             view.position.x + view.size.x > right.position.x - 4.0):
         _fail("customize windows overlap or exceed their aligned layout region")
+        return
+    if single_scroll.vertical_scroll_mode != ScrollContainer.SCROLL_MODE_DISABLED:
+        _fail("PART STATUS must be visible without scrolling")
         return
     if not total.get_global_rect().encloses(total_scroll.get_global_rect()) or (
             not single.get_global_rect().encloses(single_scroll.get_global_rect())):
@@ -66,6 +71,12 @@ func _run() -> void:
         if (entry["panel"] as Panel).visible and (
                 (entry["name"] as Label).text == "HP"):
             found_hp = not (entry["value"] as Label).text.is_empty()
+    await process_frame
+    for entry in entries:
+        var row: Panel = entry["panel"] as Panel
+        if row.visible and not single_scroll.get_global_rect().encloses(row.get_global_rect()):
+            _fail("visible PART STATUS row clipped from non-scroll grid")
+            return
     if not found_hp:
         _fail("single part statistics must contain the equipped head HP")
         return
