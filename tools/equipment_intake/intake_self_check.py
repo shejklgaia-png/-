@@ -13,7 +13,7 @@ hook=read("tools/equipment_intake/intake_preview_hook.js")
 manifest=read("tools/sera_ci_manifest.txt")
 assert "<nav id=\"intakeTabs\"" in html
 assert all(x in html for x in ('data-nav="setup"','data-nav="rig"','data-nav="icon"','data-nav="stats"','data-nav="materials"','data-nav="analysis"','data-nav="output"'))
-assert all(x in ui for x in ('SERA_EQUIPMENT_INTAKE_V1','statrow disabled','classrow','approval_required:true','intakeMessage','thumbnailCache','toDataURL("image/png")','weightClass'))
+assert all(x in ui for x in ('SERA_EQUIPMENT_INTAKE_V1','statrow disabled','classrow','approval_required:true','intakeMessage','thumbnailCache','SERA_INTAKE_RENDER.snapshot()','weightClass'))
 assert all(x in hook for x in ('intakeComposedDoc','intakeExternal','parseModel(doc)','uploadGeometry()','intakeBounds','draw();schedule()'))
 bundle=json.loads(re.search(r'<script type="application/json" id="sera-model-bundle">([^<]+)</script>',html).group(1))
 assert bundle["format"]=="SERA_MODEL_BUNDLE_V1"
