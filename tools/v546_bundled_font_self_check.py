@@ -15,7 +15,7 @@ files = [
 for name, license_name in files:
     path = assets / name
     assert path.is_file(), f"Missing portable font: {name}"
-    assert path.read_bytes()[:4] in (b"\\x00\\x01\\x00\\x00", b"OTTO"), f"Invalid TTF/OTF: {name}"
+    assert path.read_bytes()[:4] in (b"\x00\x01\x00\x00", b"OTTO"), f"Invalid TTF/OTF: {name}"
     assert (assets / license_name).is_file()
     assert "SIL OPEN FONT LICENSE" in (assets / license_name).read_text("utf-8").upper()
     assert 20_000 < path.stat().st_size < 11_000_000
