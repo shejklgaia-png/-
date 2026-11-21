@@ -119,8 +119,23 @@ static func decorate(floor: Node3D, panels: Array[Dictionary]) -> void:
                         "mark" if scratch == 1 else "seam",
                         -0.21 + scratch * 0.09)
         else:
-            # Large one-piece foundations are deliberately uninterrupted:
-            # no central grates, hatches, repair seams or division marks.
+            # Large one-piece foundations remain a single uninterrupted
+            # steel slab. Maintenance drains sit at their margins only, not
+            # through equipment, hatches, doorways or CRATE routes.
+            for side in [-1.0, 1.0]:
+                var drain_x: float = cx + side * (edge_x - 0.34)
+                _put(groups, "DockEdgeDrain",
+                    Vector3(drain_x, -0.002, cz),
+                    Vector3(0.24, 0.041, 2.15), "grate")
+                for slit in range(5):
+                    _put(groups, "DockVentSlits",
+                        Vector3(drain_x, 0.029, cz - 0.83 + slit * 0.41),
+                        Vector3(0.075, 0.022, 0.19), "grille")
+                for end in [-1.0, 1.0]:
+                    _put(groups, "DockAnchorShoes",
+                        Vector3(cx + side * (edge_x - 0.33), 0.017,
+                            cz + end * (edge_z - 0.33)),
+                        Vector3(0.34, 0.055, 0.29), "site_edge")
             # Additional perimeter fasteners emphasize a single steel slab.
             for ix in range(1, maxi(1, floori(size.x / 1.50))):
                 var at_x: float = cx - size.x * 0.5 + float(ix) * 1.50
