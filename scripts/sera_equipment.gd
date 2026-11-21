@@ -712,7 +712,7 @@ func _install_camera_eye_head() -> void:
         piece.quaternion = rig.call("_blockbench_rotation",
             _v3(raw_element.get("rotation", [0, 0, 0])))
         var material: StandardMaterial3D = (
-            piece.material_override as StandardMaterial3D).duplicate()
+            piece.material_override as StandardMaterial3D).duplicate() as StandardMaterial3D
         material.albedo_color = Color.WHITE
         material.albedo_texture = color_texture
         material.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
