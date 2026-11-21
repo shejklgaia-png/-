@@ -104,8 +104,8 @@ func _run() -> void:
         _fail("empty name underline was not hidden")
         return
     var formula: String = LaboStats.total_formula("H01", [])
-    if not formula.begins_with("基礎 + 特性（装備単体の表示値）\n注: 追加特性") or (
-            formula.contains("＋") or formula.contains("※")):
+    if not formula.begins_with("基礎 + 特性（装備単体の表示値）\n最大HP") or (
+            formula.contains("＋") or formula.contains("※") or formula.contains("注:")):
         _fail("warehouse formula still contains symbols that render as missing glyphs")
         return
     var stat_face: Font = LaboSkin.stats_font()
