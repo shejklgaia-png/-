@@ -64,13 +64,14 @@ var pending_confirmation: Callable = Callable()
 var confirmation_overlay: Control
 var confirmation_text: Label
 var confirmation_title: Label
+var confirmation_system: Label
+var confirmation_subtitle: Label
 var confirmation_prompt: Label
 var confirmation_craft_card: PanelContainer
 var confirmation_item_icon: TextureRect
 var confirmation_item_name: Label
 var confirmation_item_slot: Label
 var confirmation_item_stats: Label
-var confirmation_craft_note: Label
 var confirmation_accept_button: Button
 var craft_slot: String = "head"
 var warehouse_notice: String = ""
@@ -764,8 +765,9 @@ func attach_hud(hud: Control) -> void:
     confirm_panel.add_theme_stylebox_override("panel", confirm_skin)
     confirmation_overlay.add_child(confirm_panel)
     var confirm_vbox := VBoxContainer.new()
+    confirm_vbox.name = "LaboConfirmLayout"
     confirm_vbox.alignment = BoxContainer.ALIGNMENT_CENTER
-    confirm_vbox.add_theme_constant_override("separation", 9)
+    confirm_vbox.add_theme_constant_override("separation", 13)
     confirm_panel.add_child(confirm_vbox)
     var confirm_system := Label.new()
     confirm_system.name = "LaboConfirmSystem"
@@ -775,9 +777,10 @@ func attach_hud(hud: Control) -> void:
     confirm_system.add_theme_font_size_override("font_size", 13)
     confirm_system.add_theme_color_override("font_color", Color("#80ced7"))
     confirm_vbox.add_child(confirm_system)
+    confirmation_system = confirm_system
     confirmation_title = Label.new()
     confirmation_title.name = "LaboConfirmTitle"
-    confirmation_title.text = "装備の作成確認"
+    confirmation_title.text = "以下の装備を作成します"
     confirmation_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
     confirmation_title.add_theme_font_size_override("font_size", 27)
     confirmation_title.add_theme_font_override("font", LaboSkin.title_font())
@@ -791,26 +794,21 @@ func attach_hud(hud: Control) -> void:
     confirm_subtitle.add_theme_font_size_override("font_size", 12)
     confirm_subtitle.add_theme_color_override("font_color", Color("#80cad5"))
     confirm_vbox.add_child(confirm_subtitle)
-    confirmation_prompt = Label.new()
-    confirmation_prompt.name = "LaboConfirmPrompt"
-    confirmation_prompt.text = "以下の装備を作成しますか？"
-    confirmation_prompt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-    confirmation_prompt.add_theme_font_override("font", LaboSkin.ui_font())
-    confirmation_prompt.add_theme_font_size_override("font_size", 18)
-    confirm_vbox.add_child(confirmation_prompt)
+    confirmation_subtitle = confirm_subtitle
     confirmation_craft_card = PanelContainer.new()
     confirmation_craft_card.name = "LaboConfirmCraftCard"
     confirmation_craft_card.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-    confirmation_craft_card.custom_minimum_size.y = 186.0
+    confirmation_craft_card.custom_minimum_size.y = 270.0
     confirmation_craft_card.add_theme_stylebox_override(
         "panel", LaboSkin.terminal_segment_style("selected"))
     confirm_vbox.add_child(confirmation_craft_card)
     var craft_info := HBoxContainer.new()
-    craft_info.add_theme_constant_override("separation", 12)
+    craft_info.name = "LaboConfirmItemRow"
+    craft_info.add_theme_constant_override("separation", 18)
     confirmation_craft_card.add_child(craft_info)
     confirmation_item_icon = TextureRect.new()
     confirmation_item_icon.name = "LaboConfirmItemIcon"
-    confirmation_item_icon.custom_minimum_size = Vector2(96, 96)
+    confirmation_item_icon.custom_minimum_size = Vector2(136, 136)
     confirmation_item_icon.size_flags_vertical = Control.SIZE_SHRINK_CENTER
     confirmation_item_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
     confirmation_item_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
@@ -818,7 +816,7 @@ func attach_hud(hud: Control) -> void:
     craft_info.add_child(confirmation_item_icon)
     var craft_info_column := VBoxContainer.new()
     craft_info_column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-    craft_info_column.add_theme_constant_override("separation", 5)
+    craft_info_column.add_theme_constant_override("separation", 10)
     craft_info.add_child(craft_info_column)
     confirmation_item_slot = Label.new()
     confirmation_item_slot.name = "LaboConfirmItemSlot"
@@ -830,25 +828,16 @@ func attach_hud(hud: Control) -> void:
     confirmation_item_name.name = "LaboConfirmItemName"
     confirmation_item_name.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
     confirmation_item_name.add_theme_font_override("font", LaboSkin.equipment_font())
-    confirmation_item_name.add_theme_font_size_override("font_size", 22)
+    confirmation_item_name.add_theme_font_size_override("font_size", 28)
     craft_info_column.add_child(confirmation_item_name)
     LaboSkin.attach_name_underline(confirmation_item_name)
     confirmation_item_stats = Label.new()
     confirmation_item_stats.name = "LaboConfirmItemStats"
     confirmation_item_stats.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
     confirmation_item_stats.add_theme_font_override("font", LaboSkin.stats_font())
-    confirmation_item_stats.add_theme_font_size_override("font_size", 16)
+    confirmation_item_stats.add_theme_font_size_override("font_size", 19)
     confirmation_item_stats.add_theme_color_override("font_color", Color("#c7dbe2"))
     craft_info_column.add_child(confirmation_item_stats)
-    confirmation_craft_note = Label.new()
-    confirmation_craft_note.name = "LaboConfirmSaveNotice"
-    confirmation_craft_note.text = "作成後、この装備は倉庫に保存されます。"
-    confirmation_craft_note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-    confirmation_craft_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-    confirmation_craft_note.add_theme_font_override("font", LaboSkin.ui_font())
-    confirmation_craft_note.add_theme_font_size_override("font_size", 16)
-    confirmation_craft_note.add_theme_color_override("font_color", Color("#9fd4de"))
-    confirm_vbox.add_child(confirmation_craft_note)
     confirmation_text = Label.new()
     confirmation_text.name = "LaboConfirmDescription"
     confirmation_text.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -858,12 +847,22 @@ func attach_hud(hud: Control) -> void:
     confirmation_text.add_theme_font_size_override("font_size", 19)
     confirmation_text.add_theme_font_override("font", LaboSkin.ui_font())
     confirm_vbox.add_child(confirmation_text)
+    # Decision question belongs beneath the large item preview, directly
+    # above the two equal-width actions.
+    confirmation_prompt = Label.new()
+    confirmation_prompt.name = "LaboConfirmPrompt"
+    confirmation_prompt.text = "作成しますか？"
+    confirmation_prompt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    confirmation_prompt.add_theme_font_override("font", LaboSkin.ui_font())
+    confirmation_prompt.add_theme_font_size_override("font_size", 23)
+    confirmation_prompt.add_theme_color_override("font_color", Color("#e4edf0"))
+    confirm_vbox.add_child(confirmation_prompt)
     var confirm_buttons := HBoxContainer.new()
     confirm_buttons.add_theme_constant_override("separation", 10)
     confirm_vbox.add_child(confirm_buttons)
     var cancel_button := Button.new()
     cancel_button.name = "LaboConfirmCancel"
-    cancel_button.text = "×  キャンセル"
+    cancel_button.text = "キャンセル"
     cancel_button.custom_minimum_size.y = LABO_CONFIRM_HEIGHT
     cancel_button.add_theme_font_size_override("font_size", 22)
     cancel_button.add_theme_font_override("font", LaboSkin.control_font())
@@ -901,12 +900,15 @@ func _request_confirmation(title: String, detail: String, action: Callable,
         return
     pending_confirmation = action
     _set_labo_scroll_input_enabled(false)
-    confirmation_title.text = title
     var is_craft: bool = not equipment_blueprint.is_empty()
-    confirmation_prompt.text = ("以下の装備を作成しますか？" if is_craft
-        else "操作内容をご確認ください。")
+    confirmation_title.text = "以下の装備を作成します" if is_craft else title
+    confirmation_title.add_theme_font_size_override(
+        "font_size", 32 if is_craft else 27)
+    confirmation_system.visible = not is_craft
+    confirmation_subtitle.visible = not is_craft
+    confirmation_prompt.text = "作成しますか？" if is_craft else (
+        "操作内容をご確認ください。")
     confirmation_craft_card.visible = is_craft
-    confirmation_craft_note.visible = is_craft
     confirmation_text.visible = not is_craft
     confirmation_text.text = detail
     confirmation_accept_button.text = (
@@ -918,7 +920,7 @@ func _request_confirmation(title: String, detail: String, action: Callable,
         confirmation_item_name.text = str(spec.get("name", ""))
         confirmation_item_slot.text = "EQUIPMENT / " + str(
             spec.get("slot", "")).to_upper()
-        confirmation_item_stats.text = LaboStats.baseline(equipment_blueprint)
+        confirmation_item_stats.text = LaboStats.baseline(equipment_blueprint).replace("（現行Aセット参照）", "")
         LaboSkin.refresh_name_underline(confirmation_item_name)
     confirmation_overlay.visible = true
     confirmation_overlay.move_to_front()
@@ -2176,7 +2178,7 @@ func _confirm_selected_prototype() -> void:
     var spec: Dictionary = PrototypeCatalog.spec(selected_prototype)
     if spec.is_empty():
         return
-    _request_confirmation("装備の作成確認", "",
+    _request_confirmation("", "",
         _craft_selected_prototype, selected_prototype)
 
 func _craft_selected_prototype() -> void:
