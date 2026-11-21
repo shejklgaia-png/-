@@ -17,7 +17,7 @@ assert 'tier_rail.color = Color("#79b6c2")' in fac
 assert 'marker.color = Color("#79b6c2")' in grid
 assert 'virtual_slots = (999 if mode == "equipment"' in grid
 assert 'MAX_POOL_CARDS: int = 32' in grid
-assert 'effects.position = Vector2(16.0, 101.0)' in grid
+assert 'effects.position = Vector2(22.0, 101.0)' in grid
 assert 'SelectedTabMark' in fac and 'Color("#74e3ed")' in fac
 assert 'LaboSkin.panel_style()' in fac and 'static func panel_style()' in skin
 assert 'fill.lerp(Color(' in skin, "cached card gradient must remain active"

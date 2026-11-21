@@ -1137,7 +1137,9 @@ func _diag_update() -> void:
         + "icon source: " + IconAtlas.atlas_status())
 
 func _clear_actions() -> void:
-    # Rebuild only on tab changes; ScrollContainers reuse native Button rendering.
+    # Warehouse navigation is non-scrollable; restore scrolling for all other
+    # LABO pages before rebuilding their native action controls.
+    actions_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
     _configure_page_scroll()
     for child in modal_actions.get_children():
         modal_actions.remove_child(child)
@@ -1702,9 +1704,9 @@ func _show_inventory(section: String = "equipment") -> void:
             _show_inventory.bind(str(choice["key"])), actions_scroll))
         switcher.add_child(button)
     var grid := WarehouseGrid.new()
-    item_layer.add_child(grid)
     grid.size_flags_vertical = Control.SIZE_EXPAND_FILL
     if section == "materials":
+        item_layer.add_child(grid)
         var stock: Dictionary = SeraSave.get_material_inventory()
         var entries: Array = []
         # Four families, each with low/mid/high in a single row.
@@ -1768,11 +1770,14 @@ func _show_inventory(section: String = "equipment") -> void:
         junk_button.add_theme_font_size_override("font_size", 20)
         junk_button.disabled = junk_count == 0
         _style_terminal_segment(junk_button)
-        junk_button.pressed.connect(_invoke_scroll_action.bind(
-            _confirm_bulk_junk_deletion, actions_scroll))
-        modal_actions.add_child(junk_button)
+        # The purge action belongs with the cards, not inside the compact
+        # action-tab area. Both navigation rows stay in place and fully visible.
+        junk_button.pressed.connect(_confirm_bulk_junk_deletion)
+        item_layer.add_child(junk_button)
+        item_layer.add_child(grid)
         _show_warehouse_equipment(grid)
-    _configure_page_scroll(80 if section == "materials" else 170)
+    _configure_page_scroll(80 if section == "materials" else 140)
+    actions_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
     _sync_section_tabs()
 
 func _slot_tab_caption(slot: String) -> String:

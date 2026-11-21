@@ -349,11 +349,11 @@ func _bind_card(card: Button, index: int) -> void:
         # equal readable line heights below the card's horizontal divider.
         var clean_effects: Array = Affixes.sanitize(entry.get("affixes", []))
         var middle_x: float = _card_width * 0.5
-        effects.position = Vector2(16.0, 101.0)
-        effects.size = Vector2(maxf(32.0, middle_x - 24.0),
+        effects.position = Vector2(22.0, 101.0)
+        effects.size = Vector2(maxf(32.0, middle_x - 30.0),
             _card_height() - 111.0)
-        effects_right.position = Vector2(middle_x + 8.0, 101.0)
-        effects_right.size = Vector2(maxf(32.0, _card_width - middle_x - 24.0),
+        effects_right.position = Vector2(middle_x + 14.0, 101.0)
+        effects_right.size = Vector2(maxf(32.0, _card_width - middle_x - 30.0),
             _card_height() - 111.0)
         effects.add_theme_font_size_override("font_size",
             13 if _card_width < 260.0 else 14)
@@ -382,6 +382,6 @@ func _bind_card(card: Button, index: int) -> void:
         if clean_effects.is_empty():
             # Legacy items have no rolled effects; do not truncate that
             # single fallback label into half of the card.
-            effects.size.x = maxf(32.0, _card_width - 29.0)
+            effects.size.x = maxf(32.0, _card_width - 35.0)
     # One recycled bar follows each newly bound name; blank cards stay clean.
     LaboSkin.refresh_name_underline(title)
