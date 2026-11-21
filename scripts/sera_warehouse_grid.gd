@@ -389,16 +389,43 @@ func _bind_card(card: Button, index: int) -> void:
         var is_favorite: bool = bool(entry.get("favorite", false))
         var is_junk: bool = bool(entry.get("junk", false))
         var marked_count: int = int(is_favorite) + int(is_junk)
-        # Keep the equipment name unobstructed: markers occupy their own
-        # reserved positions at the right edge instead of prefixing text.
-        title.size.x = maxf(18.0, text_width - float(marked_count) * 22.0)
+        # Markers sit immediately after the rendered equipment name, never
+        # against the fixed right card edge. Measure text once per recycled
+        # card binding; scrolling allocates no new nodes or textures.
+        var inline_mark_size: float = clampf(_card_width * 0.09, 20.0, 28.0)
+        var inline_mark_gap: float = 5.0
+        var name_to_mark_gap: float = 7.0 if marked_count > 0 else 0.0
+        var reserved_width: float = (float(marked_count) * inline_mark_size
+            + float(maxi(0, marked_count - 1)) * inline_mark_gap)
+        var available_name: float = maxf(0.0,
+            text_width - reserved_width - name_to_mark_gap)
+        var label_font: Font = title.get_theme_font("font")
+        var item_name_text: String = str(entry.get("name", ""))
+        # Keep the full Japanese name when possible without pushing the
+        # larger marker off-card; 17px is the lower legibility boundary.
+        var font_px: int = 20
+        var name_width: float = label_font.get_string_size(
+            item_name_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_px).x
+        while marked_count > 0 and font_px > 17 and name_width > available_name:
+            font_px -= 1
+            name_width = label_font.get_string_size(
+                item_name_text, HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_px).x
+        title.add_theme_font_size_override("font_size", font_px)
+        title.size.x = (minf(available_name, name_width + 4.0)
+            if marked_count > 0 else text_width)
+        title.autowrap_mode = (TextServer.AUTOWRAP_OFF if marked_count > 0
+            else TextServer.AUTOWRAP_WORD_SMART)
+        var marker_x: float = title.position.x + title.size.x + name_to_mark_gap
+        var mark_y: float = title.position.y + 1.0
         favorite_mark.visible = is_favorite
         junk_mark.visible = is_junk
-        favorite_mark.position = Vector2(
-            _card_width - (46.0 if is_junk else 25.0), 44.0)
-        junk_mark.position = Vector2(_card_width - 25.0, 44.0)
-        favorite_mark.size = Vector2(18.0, 18.0)
-        junk_mark.size = Vector2(18.0, 18.0)
+        favorite_mark.size = Vector2(inline_mark_size, inline_mark_size)
+        junk_mark.size = Vector2(inline_mark_size, inline_mark_size)
+        if is_favorite:
+            favorite_mark.position = Vector2(marker_x, mark_y)
+            marker_x += inline_mark_size + inline_mark_gap
+        if is_junk:
+            junk_mark.position = Vector2(marker_x, mark_y)
         meta.text = "GEAR / " + str(entry.get("uid", ""))
         title.text = str(entry.get("name", ""))
         effects.text = ("\n".join(left_labels) if not clean_effects.is_empty() else

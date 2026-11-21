@@ -54,6 +54,7 @@ var terminal_code: Label
 var module_caption: Label
 var module_status: Label
 var modal_title: Label
+var warehouse_header_marks: HBoxContainer
 var modal_body: Label
 var modal_actions: VBoxContainer
 var item_layer: Control
@@ -518,6 +519,26 @@ func attach_hud(hud: Control) -> void:
     terminal_code.add_theme_font_size_override("font_size", 13)
     terminal_code.add_theme_color_override("font_color", Color("#9bd5db"))
     header_row.add_child(terminal_code)
+    # Persistent, low-cost status rail at the top-right of the warehouse
+    # detail heading. Both icons are allocated once and only toggled by item.
+    var detail_marks := HBoxContainer.new()
+    detail_marks.name = "WarehouseDetailHeaderMarks"
+    detail_marks.add_theme_constant_override("separation", 4)
+    detail_marks.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+    detail_marks.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    detail_marks.visible = false
+    for marker_kind in ["favorite", "junk"]:
+        var detail_mark: Control = MarkIcon.new()
+        detail_mark.name = ("WarehouseHeaderFavoriteMarkIcon"
+            if marker_kind == "favorite" else "WarehouseHeaderJunkMarkIcon")
+        detail_mark.set("kind", marker_kind)
+        detail_mark.custom_minimum_size = Vector2(34.0, 34.0)
+        detail_mark.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+        detail_mark.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        detail_marks.add_child(detail_mark)
+        detail_mark.visible = false
+    header_row.add_child(detail_marks)
+    warehouse_header_marks = detail_marks
     # Compact instrument strip underneath the main title; one-time UI nodes.
     var module_strip := HBoxContainer.new()
     module_strip.name = "FacilityModuleStrip"
@@ -1255,6 +1276,7 @@ func _diag_update() -> void:
         + "icon source: " + IconAtlas.atlas_status())
 
 func _clear_actions() -> void:
+    _set_warehouse_header_marks()
     # Warehouse navigation is non-scrollable; restore scrolling for all other
     # LABO pages before rebuilding their native action controls.
     actions_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
@@ -1322,6 +1344,18 @@ func _add_labo_mark_icon(button: Button, kind: String) -> void:
     icon.offset_bottom = 12.0
     icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
     button.add_child(icon)
+
+
+func _set_warehouse_header_marks(favorite: bool = false, junk: bool = false) -> void:
+    if warehouse_header_marks == null:
+        return
+    var favorite_icon: Control = warehouse_header_marks.get_node(
+        "WarehouseHeaderFavoriteMarkIcon") as Control
+    var junk_icon: Control = warehouse_header_marks.get_node(
+        "WarehouseHeaderJunkMarkIcon") as Control
+    favorite_icon.visible = favorite
+    junk_icon.visible = junk
+    warehouse_header_marks.visible = favorite or junk
 
 
 func _add_terminal_notice(message: String) -> void:
@@ -1989,6 +2023,8 @@ func _show_warehouse_item_detail(uid: String) -> void:
         page = "warehouse_item"
         _clear_actions()
         modal_title.text = str(spec["name"])
+        _set_warehouse_header_marks(bool(item.get("favorite", false)),
+            bool(item.get("junk", false)))
         modal_body.text = "%s / %s" % [
             uid, _warehouse_slot_name(warehouse_slot)]
         # One cell per stat name, one wide expression cell, and one aligned
@@ -2027,9 +2063,10 @@ func _show_warehouse_item_detail(uid: String) -> void:
         return
 
 func _mark_warehouse_item(uid: String, mark: String, enabled: bool) -> void:
-    warehouse_notice = (
-        "分類を保存しました。" if SeraSave.set_prototype_mark(uid, mark, enabled)
-        else "分類を保存できませんでした。")
+    # Success is already represented instantly by the heading icon and
+    # action-label state. Only report failure, not a redundant SYSTEM toast.
+    var saved: bool = SeraSave.set_prototype_mark(uid, mark, enabled)
+    warehouse_notice = "" if saved else "分類を保存できませんでした。"
     _show_warehouse_item_detail(uid)
 
 func _confirm_bulk_junk_deletion() -> void:
