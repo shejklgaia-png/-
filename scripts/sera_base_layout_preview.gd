@@ -66,6 +66,9 @@ static func _generate_site(key: String, slab: Rect2,
         var valid: bool = true
         for index in order:
             var part: Dictionary = output[index]
+            if Clutter.is_loose_pile(str(part["kind"])):
+                part["stack"] = rng.randi_range(1, Clutter.PILE_MAX_COUNT)
+                part["pattern"] = rng.randi_range(0, Clutter.PILE_PATTERN_COUNT - 1)
             var accepted: bool = false
             for n in range(160):
                 # Some samples stay close to familiar prop clusters, others
@@ -145,6 +148,8 @@ static func _generate_scrap(sites: Array[Dictionary],
                 "index": index, "x": point.x, "z": point.y,
                 "yaw_deg": snappedf(rng.randf_range(-28.0, 28.0), 0.1),
                 "scale": zoom, "profile": index % 5,
+                "stack": rng.randi_range(1, Clutter.PILE_MAX_COUNT),
+                "pattern": rng.randi_range(0, Clutter.PILE_PATTERN_COUNT - 1),
             })
             placed = true
             break
@@ -198,6 +203,7 @@ static func export_text(layouts: Dictionary, scrap: Array[Dictionary],
                 "scale": float(source["scale"]),
                 "yaw_deg": float(source.get("yaw_deg", 0.0)),
                 "stack": int(source["stack"]),
+                "pattern": int(source.get("pattern", -1)),
                 "accent": bool(source.get("accent", false)),
             })
         site_rows.append({"site": key, "items": items})
