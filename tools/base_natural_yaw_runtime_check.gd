@@ -60,8 +60,8 @@ func _run() -> void:
             return
         yaw_values[roundi(rad_to_deg(yaw))] = true
         var props: Array[Dictionary] = Props.props_for(key)
-        var positive: int = 0
-        var negative: int = 0
+        var toward_viewer: int = 0
+        var distinctive: Dictionary = {}
         var panel: Dictionary = site_panels[key]
         var slab_center: Vector2 = panel["center"]
         var slab_size: Vector2 = panel["size"]
@@ -84,13 +84,12 @@ func _run() -> void:
                     _fail(key + " angled prop clusters intersect")
                     return
             used.append(bounds)
-            if angle > 5.0:
-                positive += 1
-            elif angle < -5.0:
-                negative += 1
-        if positive < 2 or negative < 2:
-            _fail(key + " props are too parallel: " +
-                str(positive) + "/" + str(negative))
+            distinctive[roundi(angle)] = true
+            if angle >= 15.0 and angle <= 65.0:
+                toward_viewer += 1
+        if toward_viewer < 3 or distinctive.size() < 3:
+            _fail(key + " needs at least three camera-facing prop groups and varied angles: " +
+                str(toward_viewer) + "/" + str(distinctive.size()))
             return
         var visible: Array = visual.get_meta("clutter_props", [])
         if visible.size() != props.size():
