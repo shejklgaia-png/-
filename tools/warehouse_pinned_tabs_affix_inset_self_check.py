@@ -11,7 +11,6 @@ for token in (
     'actions_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED',
     'item_layer.add_child(junk_button)',
     'item_layer.add_child(grid)',
-    'item_layer.add_child(grid)\n        grid.name = "WarehouseEquipment"',
     'junk_button.pressed.connect(_confirm_bulk_junk_deletion)',
     '_configure_page_scroll(80 if section == "materials" else 140)',
     'hanger.name = "WarehouseHangerTabs"',
@@ -19,6 +18,10 @@ for token in (
 ):
     assert token in ui, token
 assert 'modal_actions.add_child(junk_button)' not in ui
+# _ready names each warehouse grid by default; renaming must happen after
+# add_child, while comments/whitespace between the two calls are immaterial.
+equipment_block = ui.split('item_layer.add_child(junk_button)', 1)[1]
+assert equipment_block.index('item_layer.add_child(grid)') < equipment_block.index('grid.name = "WarehouseEquipment"')
 for token in (
     'effects.position = Vector2(22.0, 101.0)',
     'effects.size = Vector2(maxf(32.0, middle_x - 30.0)',
