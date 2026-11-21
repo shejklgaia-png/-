@@ -25,12 +25,13 @@ const NEXUS_BUILDING_ORIGIN: Vector3 = Vector3(-9.53, 0.0, -14.55)
 const CRATE_SPEED: float = 0.95
 # CRATE orbits the central LABO instead of walking through its walls.
 # Side lanes and the lower/upper arcs stay clear of every machine foundation.
+# Identical patrol loop, rotated to start CRATE on the camera-facing lane.
 const CRATE_WAYPOINTS = [
+    Vector2(3.30, -1.20), Vector2(3.30, -5.40),
+    Vector2(0.00, -6.10), Vector2(-3.30, -5.40),
     Vector2(-3.30, -1.20), Vector2(-3.30, 2.40),
     Vector2(-1.50, 4.00), Vector2(1.50, 4.00),
-    Vector2(3.30, 2.40), Vector2(3.30, -1.20),
-    Vector2(3.30, -5.40), Vector2(0.00, -6.10),
-    Vector2(-3.30, -5.40)
+    Vector2(3.30, 2.40)
 ]
 
 var player: Node3D
@@ -299,7 +300,7 @@ func _create_crate() -> void:
     # Canonical robot: same geometry, proportions and materials as the LABO
     # close-up. Keep the outdoor path-following motion independent.
     crate = CrateModel.create_model()
-    crate.position = Vector3(-3.05, 0.06, -3.25)
+    crate.position = Vector3(3.30, 0.06, 2.40)
     crate.rotation.y = -0.5
     add_child(crate)
 
@@ -410,7 +411,7 @@ func _layout_hud() -> void:
     var view: Vector2 = hud.size
     hud_title.position = Vector2(18, 18)
     hud_title.size = Vector2(view.x * 0.52, 42)
-    hint.position = Vector2(18, 72)
+    hint.position = Vector2(18, view.y - 102.0)
     hint.size = Vector2(view.x - 36, 38)
     hint.add_theme_font_size_override("font_size", 16 if view.x < 600.0 else 19)
     stick_outer.position = Vector2(view.x - 180, view.y - 194)
