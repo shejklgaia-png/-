@@ -20,7 +20,7 @@ func _run() -> void:
         "max_hp": 0.0, "defense": 0.0, "attack_damage": [0, 0, 0],
         "attack_energy": [0.0, 0.0, 0.0], "run_speed": 3.25
     })
-    if only_nonzero.size() != 1 or str(only_nonzero[0]["label"]) != "RUN":
+    if only_nonzero.size() != 1 or str(only_nonzero[0]["label"]) != "走行速度":
         _fail("zero-valued entries must be completely hidden")
         return
     var a: Array[Dictionary] = StatRows.from_selection({
@@ -31,13 +31,17 @@ func _run() -> void:
         "head": "B", "torso": "B", "arms": "B", "legs": "B",
         "booster": "B", "weapon_r": "B", "weapon_l": "B"
     })
-    if _value(a, "HP") != "320" or _value(b, "HP") != "416":
+    if _value(a, "耐久力") != "320" or _value(b, "耐久力") != "416":
         _fail("HP must derive from existing equipped part profiles")
         return
-    if _value(a, "ATK EN") != "" or _value(b, "ATK EN") != "4":
+    if _value(a, "攻撃EN消費") != "" or _value(b, "攻撃EN消費") != "4":
         _fail("zero A weapon EN cost should hide; B cost should appear")
         return
 
+    if _value(a, "重量比（中量）").is_empty() or (
+            _value(b, "重量比（重量）").is_empty()):
+        _fail("dynamic equipment weight class must appear in Japanese")
+        return
     var nexus: Node3D = load("res://scenes/command_nexus.tscn").instantiate()
     root.add_child(nexus)
     await process_frame
@@ -81,6 +85,26 @@ func _run() -> void:
             sample_skin.border_width_bottom != 0):
         _fail("TOTAL STATUS must use one continuous matte, not per-cell boxes")
         return
+    var total_panel: Panel = nexus.get("customize_stats_panel") as Panel
+    var part_panel: Panel = nexus.get("customize_part_stats_panel") as Panel
+    for status_window in [total_panel, part_panel]:
+        if status_window == null:
+            _fail("missing status window")
+            return
+        var matte: StyleBoxFlat = status_window.get_theme_stylebox("panel") as StyleBoxFlat
+        if matte == null or matte.bg_color != Color("#0c222e") or (
+                matte.border_color != Color("#527b8b")):
+            _fail("aggregate and individual status must share the premium matte")
+            return
+        var top_mark: ColorRect = status_window.get_node_or_null(
+            "StatusTopAccent") as ColorRect
+        var bottom_mark: ColorRect = status_window.get_node_or_null(
+            "StatusBottomAccent") as ColorRect
+        if top_mark == null or bottom_mark == null or (
+                top_mark.color != Color("#88b6c6") or top_mark.size.x < 45.0 or (
+                bottom_mark.size.x < 25.0)):
+            _fail("technical panel accents missing or mis-sized")
+            return
     var seen: Dictionary = {}
     for cell in cells:
         if (cell["panel"] as Panel).visible:
@@ -90,7 +114,7 @@ func _run() -> void:
                 _fail("visible stat has missing or zero content")
                 return
             seen[name] = value
-    if not seen.has("HP") or not seen.has("DEF"):
+    if not seen.has("耐久力") or not seen.has("防御率"):
         _fail("HP/DEF were not painted in the status cells")
         return
 
@@ -108,7 +132,7 @@ func _run() -> void:
     var next_hp: String = ""
     for cell in cells:
         if (cell["panel"] as Panel).visible and (
-                (cell["name"] as Label).text == "HP"):
+                (cell["name"] as Label).text == "耐久力"):
             next_hp = (cell["value"] as Label).text
     if next_hp.is_empty() or next_hp == str(seen["HP"]):
         _fail("HP did not update after the actual preview equipment changed")
