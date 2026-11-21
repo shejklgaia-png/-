@@ -12,9 +12,9 @@ const EXPECTED_NAMES: Dictionary = {
     "electronics_low": "汎用電子部品",
     "electronics_mid": "精密電子部品",
     "electronics_high": "高度電子部品",
-    "organic_low": "低活性有機素材",
-    "organic_mid": "安定有機素材",
-    "organic_high": "高活性有機素材"
+    "organic_low": "微弱有機素材",
+    "organic_mid": "活性有機素材",
+    "organic_high": "旺盛有機素材"
 }
 const EXPECTED_FAMILIES: Dictionary = {
     "scrap": "スクラップ",
@@ -26,7 +26,7 @@ const EXPECTED_GRADES: Dictionary = {
     "scrap": ["汎用", "応用", "高度"],
     "alloy": ["基礎", "精密", "高次"],
     "electronics": ["汎用", "精密", "高度"],
-    "organic": ["低活性", "安定", "高活性"]
+    "organic": ["微弱", "活性", "旺盛"]
 }
 
 func _initialize() -> void:
