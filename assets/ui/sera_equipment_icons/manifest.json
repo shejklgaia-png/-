@@ -11,7 +11,7 @@
       "rig_set": "A",
       "source_model": "models/core/Standard.bbmodel",
       "source_sha256": "0ad152fe5d7f81b11da28490fe8ecd47e4d70db42999fe1a84cdc6045755f03b",
-      "png_sha256": "d398043f0f6062af7ae93a706b54d7165e9164e973b782fcfe291398e4d78f32",
+      "png_sha256": "fd195cb093cde8773907fa228664549e513706e3a07ec628a78e1db8a7bc051d",
       "capture": "SERA native Godot 4.7.2 GL Compatibility"
     },
     "H02": {
@@ -20,7 +20,7 @@
       "rig_set": "D",
       "source_model": "models/storage/カメラアイ頭部.bbmodel",
       "source_sha256": "e79a33f57e7873f313f1a803488202206d36b8785d4d5bf2951bec316ae90bff",
-      "png_sha256": "56daa9ad40c6dccd461d9a43b761b92fed1fb4e1780f95ed91e4e20d85add248",
+      "png_sha256": "680afe44e0d97a54c2ed60090267f9ca0bb877092248a9ef7eac3990102b60d6",
       "capture": "SERA native Godot 4.7.2 GL Compatibility"
     },
     "H03": {
@@ -29,7 +29,7 @@
       "rig_set": "B",
       "source_model": "models/core/Equipment.bbmodel",
       "source_sha256": "5ac4b9f0c7e8e16194f04e759f55aabe41e8e75166cc39d38dc0fba27f2e3bf0",
-      "png_sha256": "e20fbef947c6e725502ac3299f659254dafd5aa4a8ce1547ebb54edf89d8353e",
+      "png_sha256": "ce45d2657fe341daf68cd9988dd1111413d7461d15160f10a57dfc08519f78ba",
       "capture": "SERA native Godot 4.7.2 GL Compatibility"
     },
     "H04": {
@@ -38,7 +38,7 @@
       "rig_set": "C",
       "source_model": "models/storage/Head_C.bbmodel",
       "source_sha256": "fbd07abb2609152133875c20038b55891782379d27b591793081feff5ce4e307",
-      "png_sha256": "c36bea315135c4d83350393cf66e8639b8c2560884abd430d62a5c3ba14aa65a",
+      "png_sha256": "297e5c6f84782bb5acb10a2a677045a37f4a8392cf8ff0bba657377e4323c22c",
       "capture": "SERA native Godot 4.7.2 GL Compatibility"
     },
     "T01": {
@@ -47,7 +47,7 @@
       "rig_set": "A",
       "source_model": "models/core/Standard.bbmodel",
       "source_sha256": "0ad152fe5d7f81b11da28490fe8ecd47e4d70db42999fe1a84cdc6045755f03b",
-      "png_sha256": "8ac6cc345f2a1b676a0d92cf9131e910a6a9b33d5527e27745670408e5202e05",
+      "png_sha256": "ddd5fd6e5b8ea31109c92fb867cdc000a66a976933dae1d9ed399ace9848af8b",
       "capture": "SERA native Godot 4.7.2 GL Compatibility"
     },
     "T02": {
@@ -56,7 +56,7 @@
       "rig_set": "B",
       "source_model": "models/core/Equipment.bbmodel",
       "source_sha256": "5ac4b9f0c7e8e16194f04e759f55aabe41e8e75166cc39d38dc0fba27f2e3bf0",
-      "png_sha256": "d2650d20d0210823ce396bfb829dae4ecd4fb25f255493da296783606308a709",
+      "png_sha256": "a7b6694fc598f9b0a04eb0b888dfcbf4d6defe3f7050068b5f2987c8e1e7843a",
       "capture": "SERA native Godot 4.7.2 GL Compatibility"
     },
     "A01": {
@@ -65,7 +65,7 @@
       "rig_set": "A",
       "source_model": "models/core/Standard.bbmodel",
       "source_sha256": "0ad152fe5d7f81b11da28490fe8ecd47e4d70db42999fe1a84cdc6045755f03b",
-      "png_sha256": "3d4b20c656212f297673d9e9cf8e5b6d0befdf51bb222890eb0b0b6e1786e902",
+      "png_sha256": "7cef07b4ce5784810c753a370b99c542b21f87b73151e5fa73dfb4e981915bba",
       "capture": "SERA native Godot 4.7.2 GL Compatibility"
     },
     "A02": {
@@ -74,7 +74,7 @@
       "rig_set": "B",
       "source_model": "models/core/Equipment.bbmodel",
       "source_sha256": "5ac4b9f0c7e8e16194f04e759f55aabe41e8e75166cc39d38dc0fba27f2e3bf0",
-      "png_sha256": "b4e5493373cf5a465d6b51dc890a6b697e63c44d80e16207753934de085fa571",
+      "png_sha256": "4e488afe4d245710f777bc573b45884c50fa95089d591845df830227f934cb4b",
       "capture": "SERA native Godot 4.7.2 GL Compatibility"
     },
     "L01": {
@@ -83,7 +83,7 @@
       "rig_set": "A",
       "source_model": "models/core/Standard.bbmodel",
       "source_sha256": "0ad152fe5d7f81b11da28490fe8ecd47e4d70db42999fe1a84cdc6045755f03b",
-      "png_sha256": "95476865a60cef53bf3af4a258b24b22a94d4a648a766b530a6fa29d28f93f0f",
+      "png_sha256": "3b3ed33401dd3ebea68e0dcb1718425792e3770dc2229958da55e443fd4cc9f3",
       "capture": "SERA native Godot 4.7.2 GL Compatibility"
     },
     "L02": {
@@ -92,7 +92,7 @@
       "rig_set": "B",
       "source_model": "models/core/Equipment.bbmodel",
       "source_sha256": "5ac4b9f0c7e8e16194f04e759f55aabe41e8e75166cc39d38dc0fba27f2e3bf0",
-      "png_sha256": "88c24d494357890ed6fa873bde7d93b6ae8f85aa1dd08dc7ea68415b85fdb600",
+      "png_sha256": "7fe8f359072ac59d234b0d9996bd0149944e6b2bbdfb0e356e96331be63f7d43",
       "capture": "SERA native Godot 4.7.2 GL Compatibility"
     },
     "L03": {
@@ -101,7 +101,7 @@
       "rig_set": "C",
       "source_model": "models/core/BirdLeg.bbmodel",
       "source_sha256": "00086fb46da6d0af8f66ded01cd98f2a4656e46b648d240638505b7af7675599",
-      "png_sha256": "cf8b89bb42438e08034cd43ad0e566c7f72a37d01f164136a8ae8ff127e63284",
+      "png_sha256": "5889aeb41dbd41a265aa5c4fa763383097a8bf4983859faa31961555c52e393b",
       "capture": "SERA native Godot 4.7.2 GL Compatibility"
     },
     "L04": {
@@ -110,7 +110,7 @@
       "rig_set": "D",
       "source_model": "models/storage/LowerBody_D.bbmodel",
       "source_sha256": "94a6f95d2c7dd0fe69e47b8b94e0087e9f21b02118038afeaa62002a344203c5",
-      "png_sha256": "7e035477c0691b21d7a61e35d7b3be8a87cf55abbefb6e7693b6cb58c97fe4fb",
+      "png_sha256": "77eb01128e8a2852a44785a917081dc12f04ca88a864c5c657de7bc16cb799ca",
       "capture": "SERA native Godot 4.7.2 GL Compatibility"
     },
     "B01": {
@@ -119,7 +119,7 @@
       "rig_set": "A",
       "source_model": "models/core/Equipment.bbmodel",
       "source_sha256": "5ac4b9f0c7e8e16194f04e759f55aabe41e8e75166cc39d38dc0fba27f2e3bf0",
-      "png_sha256": "640df07ed42365c9d7d24c37fe826d1ffa3614858dfedb1ad591aa6b4c7e78d9",
+      "png_sha256": "f9031d4f60b28dffe0d95e96da674ed5f14a3c7570787ae72dbe7e54168ef421",
       "capture": "SERA native Godot 4.7.2 GL Compatibility"
     },
     "B02": {
@@ -128,7 +128,7 @@
       "rig_set": "B",
       "source_model": "models/core/Equipment.bbmodel",
       "source_sha256": "5ac4b9f0c7e8e16194f04e759f55aabe41e8e75166cc39d38dc0fba27f2e3bf0",
-      "png_sha256": "4cbddebe30245654e937d7893bf2e940241a4d5fc3d2e88f3ce200dd9a160bc6",
+      "png_sha256": "d841de9ba383942577f8d79a31a66b2829d5302cacb753f705e8439474b47343",
       "capture": "SERA native Godot 4.7.2 GL Compatibility"
     },
     "WR01": {
@@ -137,7 +137,7 @@
       "rig_set": "A",
       "source_model": "models/core/Standard.bbmodel",
       "source_sha256": "0ad152fe5d7f81b11da28490fe8ecd47e4d70db42999fe1a84cdc6045755f03b",
-      "png_sha256": "615fa90533d33533859238c4b51bff8786804773b4742725aa6c23cdc809c9f8",
+      "png_sha256": "4c357b20d6f9545a53d0455122ff5e111f0318b429a57e5a1d441dc10aef90ba",
       "capture": "SERA native Godot 4.7.2 GL Compatibility"
     },
     "WR02": {
@@ -146,7 +146,7 @@
       "rig_set": "B",
       "source_model": "models/core/Equipment.bbmodel",
       "source_sha256": "5ac4b9f0c7e8e16194f04e759f55aabe41e8e75166cc39d38dc0fba27f2e3bf0",
-      "png_sha256": "cf269d21f93f8299dbb451b2731abfccfa68d5f9321a9e739eb828506e7c46ad",
+      "png_sha256": "fbff6f17c4f1ce37de7254c3a6dcdcb71a52778af68fcf9b2b0827d1c0952b44",
       "capture": "SERA native Godot 4.7.2 GL Compatibility"
     },
     "WR03": {
@@ -155,7 +155,7 @@
       "rig_set": "K",
       "source_model": "models/core/Katana.bbmodel",
       "source_sha256": "62f323d4fe08e931071ac418026e26538a111719d2803253f709239f379ce843",
-      "png_sha256": "42e4260491c67bbd2a11a0a1c5c560a66f2c7b5b12bd13d728248f0dc8c2439a",
+      "png_sha256": "84a13f62093d170f94f68a38c82faf45d5fc54a29764da206e8947edb0fe8ee3",
       "capture": "SERA native Godot 4.7.2 GL Compatibility"
     },
     "WL01": {
@@ -164,7 +164,7 @@
       "rig_set": "A",
       "source_model": "models/core/Standard.bbmodel",
       "source_sha256": "0ad152fe5d7f81b11da28490fe8ecd47e4d70db42999fe1a84cdc6045755f03b",
-      "png_sha256": "b464700365eb43b457213706cf2c408ea9e0008f8560b053cdbf1ea4f1be5c59",
+      "png_sha256": "e65a6d69dce3db0b65c6a3311f3576a88fe0d7af2e0444bcd0f3da1bbb971894",
       "capture": "SERA native Godot 4.7.2 GL Compatibility"
     },
     "WL02": {
@@ -173,7 +173,7 @@
       "rig_set": "B",
       "source_model": "models/core/Equipment.bbmodel",
       "source_sha256": "5ac4b9f0c7e8e16194f04e759f55aabe41e8e75166cc39d38dc0fba27f2e3bf0",
-      "png_sha256": "cec30835ad20ad563d885d4d16c9f49f368531e60cc780f0106ca41c4dd41bdf",
+      "png_sha256": "804e5016f2e1a5be66927c1c7f52dc693a1900a98d59f9a6083df8ed5f66903e",
       "capture": "SERA native Godot 4.7.2 GL Compatibility"
     }
   }
