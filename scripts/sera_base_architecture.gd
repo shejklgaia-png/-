@@ -30,6 +30,15 @@ const COLORS = {
 # NEXUS/LABO remain nearly frontal. All eight yaw values are deliberately
 # different. Models, pads, light posts and rotor use the same per-site yaw;
 # props keep their own separate deterministic rotation pivots.
+# Approved current visual scales: do not enlarge facilities during BASE polish.
+# Keep geometry, pads, camera and touch targets in their existing composition.
+const FACILITY_VISUAL_SCALE = {
+    "LABO": 1.45,
+    "SCRAP_COLLECTOR": 1.55, "SMELTER": 1.55,
+    "RECYCLER": 1.55, "GENERATOR": 1.55,
+    "STORAGE": 1.55, "BUILD_TERMINAL": 1.55,
+}
+
 const BODY_YAW_DEGREES = {
     "NEXUS": 33.0, "LABO": 44.0, "SMELTER": 60.0,
     "RECYCLER": 16.0, "STORAGE": 63.0, "GENERATOR": 12.0,
@@ -609,7 +618,7 @@ static func build_facility(parent: Node3D, key: String) -> void:
     g.yaw = facility_yaw_radians(key)
     # Seven work buildings grow into the unused portrait space; NEXUS retains
     # its own 1.14x size. Keep all pad, tap anchor and clutter placements.
-    g.detail_scale = 1.45 if key == "LABO" else 1.55
+    g.detail_scale = float(FACILITY_VISUAL_SCALE[key])
     node.set_meta("visual_model_scale", g.detail_scale)
     node.set_meta("body_yaw", g.yaw)
     match key:
@@ -637,6 +646,11 @@ static func build_facility(parent: Node3D, key: String) -> void:
         for end in [-1.0, 1.0]:
             g.box("BaseMountingBolt", Vector3(side * 0.72, 0.34, end * 0.71),
                 Vector3(0.11, 0.055, 0.11), "edge")
+    # Recessed front-edge guide rails clarify each entrance at oblique angles.
+    # They are entirely within the original mounting skid footprint.
+    for side in [-1.0, 1.0]:
+        g.box("EntranceGuideInset", Vector3(side * 0.54, 0.36, 0.70),
+            Vector3(0.055, 0.035, 0.48), "gold")
     BasePolish.add_details(g, key)
     BaseSilhouette.add_details(g, key)
     BaseFinish.add_details(g, key)
