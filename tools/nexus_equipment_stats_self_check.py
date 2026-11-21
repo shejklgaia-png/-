@@ -33,16 +33,17 @@ for required in (
     'static func from_stats(stats: Dictionary) -> Array[Dictionary]:',
     'if is_zero_approx(amount):',
     '"攻撃EN消費"',
-    '"重量比（" + category + "）"',
+    '"重量"',
+    '"group": group',
     '"en_recovery_per_second"',
 ):
     assert required in stats, required
 for label in (
-    "軽量", "中量", "重量", "EN回復速度", "追尾速度", "攻撃速度",
-    "耐久力", "防御率", "攻撃力", "ブレイク力", "怯み蓄積",
+    "重量", "EN回復", "追尾", "攻撃速度",
+    "耐久力", "防御", "ダメージ", "破壊", "怯み",
     "攻撃EN消費", "走行速度", "ブースト速度", "ロック距離",
-    "ガード性能", "EN消費倍率", "ステップ速度", "バッシュ威力",
-    "チャージ威力",
+    "ガード防御", "ステップ速度", "バッシュダメージ",
+    "バッシュ破壊", "ガード移行",
 ):
     assert label in stats, label
 for obsolete in ('"WEIGHT "', '"EN OUTPUT"', '"TRACK"', '"ATK SPEED"',
@@ -53,9 +54,11 @@ for obsolete in ('"WEIGHT "', '"EN OUTPUT"', '"TRACK"', '"ATK SPEED"',
 # 720x1280 CUSTOMIZE: two-tier stat typography, rather than cramped side-by-side.
 for required in (
     'customize_stats_grid.add_theme_constant_override("v_separation", 1)',
-    'var cell_height: float = 44.0',
-    'var height: float = minf(view.y * 0.225, 290.0)',
+    'var cell_height: float = 39.0',
+    'var height: float = minf(view.y * 0.227, 290.0)',
     'StatUI.layout_metric_pair(label, value, cell_width, cell_height, 19, 25, 16, 20)',
+    'customize_weapon_divider',
+    'customize_weapon_first_index',
 ):
     assert required in nexus, required
 stat_layout = (root / "scripts/sera_status_column_ui.gd").read_text(encoding="utf-8")
@@ -70,6 +73,10 @@ for name in ("ブースト速度倍率", "被弾時間倍率", "被弾後退倍�
              "ガードEN消費倍率", "特性 "):
     assert name in stat_layout, name
 assert 'StatUI.status_window_style()' in nexus
+assert 'return from_stats(PartStats.build(selected), selected)' in stats
+assert 'static func _average(' in stats
+assert '"%.1f" % amount' in stats
+assert '"チャージ威力"' not in stats
 assert 'StatUI.attach_status_marks(' in nexus
 assert 'StatUI.layout_status_marks(' in nexus
 assert 'py tools/nexus_equipment_stats_self_check.py' in manifest
